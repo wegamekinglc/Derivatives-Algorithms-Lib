@@ -1,0 +1,24 @@
+language: cpp
+# command to install dependencies
+sudo: enabled
+dist: trusty
+group: travis_lts
+addons:
+  apt:
+    sources:
+      - llvm-toolchain-precise-5.0
+    packages:
+      - clang-5.0
+      - libgtest-dev
+      - make
+      - cmake
+compiler: clang
+install:
+  - export CWD=$PWD
+  - cd /usr/src/gtest
+  - sudo cmake CMakeLists.txt
+  - sudo make
+  - sudo cp *.a /usr/lib
+  - cd $CWD
+script:
+  - ./build_linux.sh

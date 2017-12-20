@@ -7,6 +7,7 @@
 #include <cassert>
 #include <memory>
 #include <utility>
+#include <dal/platform/strict.hpp>
 
 #ifdef INFINITY
 #undef INFINITY
