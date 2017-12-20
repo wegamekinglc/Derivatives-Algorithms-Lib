@@ -1,10 +1,10 @@
 //
-// Created by wegamekinglc on 17-12-19.
+// Created by Cheng Li on 17-12-19.
 //
 
-#include <dal/host.hpp>
+#include <dal/platform/host.hpp>
 #include <ctime>
-#include <dal/algorithms.hpp>
+#include <dal/utilities/algorithms.hpp>
 
 namespace host {
     void  localTime(int *year, int *month, int *day, int *hour, int *minute, int *second) {
