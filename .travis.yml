@@ -24,4 +24,4 @@ install:
   - sudo cp *.a /usr/lib
   - cd $CWD
 script:
-  - ./build_linux.sh
+  - bash ./build_linux.sh
