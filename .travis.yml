@@ -6,7 +6,7 @@ group: travis_lts
 addons:
   apt:
     sources:
-      - llvm-toolchain-precise-5.0
+      - llvm-toolchain-trusty-5.0
     packages:
       - clang-5.0
       - libgtest-dev
