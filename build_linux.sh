@@ -2,6 +2,7 @@
 
 export num_cores=`grep -c processor /proc/cpuinfo`
 
+mkdir build
 cd build
 cmake ..
 make clean
