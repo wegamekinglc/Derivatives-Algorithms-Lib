@@ -2,8 +2,9 @@
 
 export num_cores=`grep -c processor /proc/cpuinfo`
 
+mkdir build
 cd build
-cmake ..
+cmake -DCMAKE_BUILD_TYPE=Release ..
 make clean
 make -j${num_cores}
 
