@@ -7,7 +7,7 @@
 #include <dal/utilities/algorithms.hpp>
 
 namespace host {
-    void  localTime(int *year, int *month, int *day, int *hour, int *minute, int *second) {
+    void localTime(int *year, int *month, int *day, int *hour, int *minute, int *second) {
         time_t t = time(nullptr);
         struct tm now = {0, 0, 0, 0, 0, 0, 0, 0, 0};
 #ifdef _MSC_VER

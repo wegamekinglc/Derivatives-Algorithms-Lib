@@ -18,7 +18,7 @@
 
 #endif
 
-template <class T_>
-inline int AsInt(const T_& t) {
+template<class T_>
+inline int AsInt(const T_ &t) {
     return static_cast<int>(t);
 }
