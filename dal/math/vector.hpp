@@ -8,6 +8,12 @@
 #include <algorithm>
 #include <functional>
 
+
+/*
+ * PRIVATE INHERITANCE from STL class vector
+ * DON'T add any member variable to this class
+ * DON"T override any methods from vector
+ */
 template<class E_>
 class Vector_ : private std::vector<E_> {
     typedef std::vector<E_> base_t;
