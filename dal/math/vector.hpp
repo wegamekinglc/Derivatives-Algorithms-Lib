@@ -5,6 +5,7 @@
 #pragma once
 
 #include <vector>
+#include <algorithm>
 #include <functional>
 
 template<class E_>
