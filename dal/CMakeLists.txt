@@ -5,7 +5,7 @@ file(GLOB_RECURSE DAL_FILES "*.hpp" "*.cpp")
 
 if(WIN32)
     if (${BUILD_SHARED_LIBS})
-        message(FATAL_ERROR "You should build QuantLib in STATIC mode as nothing is exported from the library. Use BUILD_SHARED_LIBS=OFF")
+        message(FATAL_ERROR "You should build in STATIC mode as nothing is exported from the library. Use BUILD_SHARED_LIBS=OFF")
     endif()
     add_library(${DAL_OUTPUT_NAME} ${DAL_FILES})
     set_property(TARGET ${DAL_OUTPUT_NAME} PROPERTY PROJECT_LABEL "dal")
