@@ -5,3 +5,4 @@ build/*
 .idea/*
 bin/*
 lib/*
+include/*
