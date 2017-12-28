@@ -14,7 +14,7 @@ TEST(AlgorothmsTest, TestTransformWithContainer) {
     Vector_<> s1 = {1, 2, 3};
     Vector_<> s2(3);
 
-    Transform(s1, std::negate<double>(), &s2);
+    Transform(s1, std::negate<>(), &s2);
 
     for(int i=0; i != s2.size(); ++i) {
         ASSERT_DOUBLE_EQ(s2[i], -s1[i]);
@@ -23,7 +23,7 @@ TEST(AlgorothmsTest, TestTransformWithContainer) {
 
 TEST(AlgorothmsTest, TestApply) {
     Vector_<> s1 = {1, 2, 3};
-    auto s2 = Apply(std::negate<double>(), s1);
+    auto s2 = Apply(std::negate<>(), s1);
     for(int i=0; i != s2.size(); ++i) {
         ASSERT_DOUBLE_EQ(s2[i], -s1[i]);
     }

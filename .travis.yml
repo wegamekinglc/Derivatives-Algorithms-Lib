@@ -6,14 +6,14 @@ group: travis_lts
 addons:
   apt:
     sources:
-      - llvm-toolchain-trusty-5.0
+      - ubuntu-toolchain-r-test
     packages:
-      - clang-5.0
+      - g++-7
       - libgtest-dev
       - make
       - cmake
 env:
-  - MATRIX_EVAL="CC=clang-5.0 && CXX=clang++-5.0"
+  - MATRIX_EVAL="CC=gcc-7 && CXX=g++-7"
 before_install:
   - eval "${MATRIX_EVAL}"
 install:
