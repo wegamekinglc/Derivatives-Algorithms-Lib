@@ -2,8 +2,8 @@
 // Created by Cheng Li on 17-12-19.
 //
 
-#include <gtest/gtest.h>
 #include <dal/platform/host.hpp>
+#include <gtest/gtest.h>
 
 using namespace host;
 

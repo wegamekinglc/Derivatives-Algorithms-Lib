@@ -4,10 +4,12 @@
 
 #pragma once
 
+#include <dal/platform/platform.hpp>
 #include <exception>
 #include <string>
-#include <dal/platform/platform.hpp>
 
-#define ASSIGN(p, v) if (!(p)); else *(p) = (v)
-
-
+#define ASSIGN(p, v)                                                                                                   \
+    if (!(p))                                                                                                          \
+        ;                                                                                                              \
+    else                                                                                                               \
+        *(p) = (v)

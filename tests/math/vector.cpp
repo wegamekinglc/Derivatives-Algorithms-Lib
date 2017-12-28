@@ -2,23 +2,20 @@
 // Created by Cheng Li on 2017/12/21.
 //
 
-#include <gtest/gtest.h>
-#include <dal/platform/platform.hpp>
 #include <dal/math/vector.hpp>
-
+#include <dal/platform/platform.hpp>
+#include <gtest/gtest.h>
 
 TEST(VectorTest, DefaultConstructionTest) {
     Vector_<> s;
     ASSERT_TRUE(s.empty());
 }
 
-
 TEST(VectorTest, SizedConstructionTest) {
     const int n = 10;
     Vector_<> s(n);
     ASSERT_EQ(s.size(), n);
 }
-
 
 TEST(VectorTest, SizedFilledConstructionTest) {
     const int n = 10;
@@ -30,7 +27,6 @@ TEST(VectorTest, SizedFilledConstructionTest) {
         ASSERT_DOUBLE_EQ(s[i], val);
     }
 }
-
 
 TEST(VectorTest, ContainerConstructionTest) {
     const int n = 10;
@@ -45,7 +41,6 @@ TEST(VectorTest, ContainerConstructionTest) {
     }
 }
 
-
 TEST(VectorTest, InitializedListConstructionTest) {
     Vector_<> s = {1., 2., 3., 4., 5.};
 
@@ -54,7 +49,6 @@ TEST(VectorTest, InitializedListConstructionTest) {
         ASSERT_DOUBLE_EQ(s[i], i + 1.);
     }
 }
-
 
 TEST(VectorTest, VectorSwapTest) {
     Vector_<> s1 = {1., 2., 3., 4., 5.};
@@ -68,7 +62,6 @@ TEST(VectorTest, VectorSwapTest) {
     }
 }
 
-
 TEST(VectorTest, VectorFillTest) {
     const int n = 10;
     const double val = 1.;
@@ -81,7 +74,6 @@ TEST(VectorTest, VectorFillTest) {
     }
 }
 
-
 TEST(VectorTest, VectorResizeTest) {
     const int n1 = 5;
     const int n2 = 10;
@@ -93,7 +85,6 @@ TEST(VectorTest, VectorResizeTest) {
     ASSERT_EQ(s.size(), n2);
 }
 
-
 TEST(VectorTest, VectorSelfMultiplyTest) {
     Vector_<> s = {1., 2., 3., 4., 5.};
     s *= 3;
@@ -103,7 +94,6 @@ TEST(VectorTest, VectorSelfMultiplyTest) {
         ASSERT_DOUBLE_EQ(s[i], 3 * (i + 1.));
     }
 }
-
 
 TEST(VectorTest, VectorSelfPlusTest) {
     Vector_<> s = {1., 2., 3., 4., 5.};
@@ -115,7 +105,6 @@ TEST(VectorTest, VectorSelfPlusTest) {
     }
 }
 
-
 TEST(VectorTest, VectorSelfMinusTest) {
     Vector_<> s = {1., 2., 3., 4., 5.};
     s -= 3;
@@ -125,7 +114,6 @@ TEST(VectorTest, VectorSelfMinusTest) {
         ASSERT_DOUBLE_EQ(s[i], i + 1. - 3.);
     }
 }
-
 
 TEST(VectorTest, VectorSelfPlusVectorTest) {
     Vector_<> s1 = {1., 2., 3., 4., 5.};
@@ -138,7 +126,6 @@ TEST(VectorTest, VectorSelfPlusVectorTest) {
     }
 }
 
-
 TEST(VectorTest, VectorSelfMinusVectorTest) {
     Vector_<> s1 = {1., 2., 3., 4., 5.};
     Vector_<> s2 = {5., 4., 3., 2., 1.};
@@ -149,7 +136,6 @@ TEST(VectorTest, VectorSelfMinusVectorTest) {
         ASSERT_DOUBLE_EQ(s1[i], 2 * i - 4.);
     }
 }
-
 
 TEST(VectorTest, VectorAssignTest) {
     Vector_<> s;
@@ -162,7 +148,6 @@ TEST(VectorTest, VectorAssignTest) {
     }
 }
 
-
 TEST(VectorTest, VectorAppendByIteratorTest) {
     Vector_<> s;
     double data[] = {1., 2., 3., 4., 5.};
@@ -173,7 +158,6 @@ TEST(VectorTest, VectorAppendByIteratorTest) {
         ASSERT_DOUBLE_EQ(s[i], i + 1.);
     }
 }
-
 
 TEST(VectorTest, VectorAppendByContainerTest) {
     Vector_<> s;
@@ -186,7 +170,6 @@ TEST(VectorTest, VectorAppendByContainerTest) {
     }
 }
 
-
 TEST(VectorTest, VectorEqualTest) {
     Vector_<> s1;
     Vector_<> s2 = {1., 2., 3., 4., 5.};
@@ -195,7 +178,6 @@ TEST(VectorTest, VectorEqualTest) {
     ASSERT_FALSE(s1 == s2);
     ASSERT_TRUE(s2 == s3);
 }
-
 
 TEST(VectorTest, VectorNotEqualTest) {
     Vector_<> s1;
@@ -206,7 +188,6 @@ TEST(VectorTest, VectorNotEqualTest) {
     ASSERT_FALSE(s2 != s3);
 }
 
-
 TEST(VectorTest, VectorJoinContiner) {
     Vector_<> s1 = {1., 2., 3.};
     Vector_<> s2 = {4., 5., 6.};
@@ -216,7 +197,6 @@ TEST(VectorTest, VectorJoinContiner) {
         ASSERT_DOUBLE_EQ(s3[i], i + 1.);
     }
 }
-
 
 TEST(VectorTest, VectorUpTo) {
     int n = 6;

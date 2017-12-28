@@ -2,18 +2,14 @@
 // Created by Cheng Li on 2017/12/28.
 //
 
-
-#include <stdexcept>
 #include <dal/utilities/asserts.hpp>
-
+#include <stdexcept>
 
 namespace {
 
 #if defined(_MSC_VER) || defined(__BORLANDC__)
     // allow Visual Studio integration
-    std::string format(const std::string& file, long line,
-                       const std::string& function,
-                       const std::string& message) {
+    std::string format(const std::string& file, long line, const std::string& function, const std::string& message) {
         std::ostringstream msg;
         if (function != "(unknown)")
             msg << function << ": ";
@@ -23,9 +19,7 @@ namespace {
     }
 #else
     // use gcc format (e.g. for integration with Emacs)
-    std::string format(const std::string& file, long line,
-                       const std::string& function,
-                       const std::string& message) {
+    std::string format(const std::string& file, long line, const std::string& function, const std::string& message) {
         std::ostringstream msg;
         msg << "\n" << file << ":" << line << ": ";
         if (function != "(unknown)")
@@ -34,21 +28,14 @@ namespace {
         return msg.str();
     }
 #endif
-
 }
-
 
 namespace dal {
 
-
-    Error::Error(const std::string& file, long line,
-                 const std::string& function,
-                 const std::string& message) {
+    Error::Error(const std::string& file, long line, const std::string& function, const std::string& message) {
         message_ = std::make_shared<std::string>(format(file, line, function, message));
     }
 
-    const char* Error::what() const throw () {
-        return message_->c_str();
-    }
+    const char* Error::what() const throw() { return message_->c_str(); }
 
-}
+} // namespace dal
