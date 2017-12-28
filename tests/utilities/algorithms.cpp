@@ -20,3 +20,11 @@ TEST(AlgorothmsTest, TestTransformWithContainer) {
         ASSERT_DOUBLE_EQ(s2[i], -s1[i]);
     }
 }
+
+TEST(AlgorothmsTest, TestApply) {
+    Vector_<> s1 = {1, 2, 3};
+    auto s2 = Apply(std::negate<>(), s1);
+    for(int i=0; i != s2.size(); ++i) {
+        ASSERT_DOUBLE_EQ(s2[i], -s1[i]);
+    }
+}
