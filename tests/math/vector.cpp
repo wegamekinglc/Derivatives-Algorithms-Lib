@@ -2,8 +2,8 @@
 // Created by Cheng Li on 2017/12/21.
 //
 
-#include <dal/math/vector.hpp>
 #include <dal/platform/platform.hpp>
+#include <dal/math/vector.hpp>
 #include <gtest/gtest.h>
 
 TEST(VectorTest, DefaultConstructionTest) {
