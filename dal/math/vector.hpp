@@ -125,7 +125,7 @@ namespace vector {
 
 
 template<class E_>
-bool Vector_<E_>::operator==(const Vector_<E_> &rhs) const { return Equal(*this, rhs); }
+inline bool Vector_<E_>::operator==(const Vector_<E_> &rhs) const { return Equal(*this, rhs); }
 
 template<class E_>
-bool Vector_<E_>::operator!=(const Vector_<E_> &rhs) const { return !Equal(*this, rhs); }
+inline bool Vector_<E_>::operator!=(const Vector_<E_> &rhs) const { return !Equal(*this, rhs); }

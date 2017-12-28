@@ -4,4 +4,10 @@
 
 #pragma once
 
+#include <exception>
+#include <string>
+#include <dal/platform/platform.hpp>
+
 #define ASSIGN(p, v) if (!(p)); else *(p) = (v)
+
+
