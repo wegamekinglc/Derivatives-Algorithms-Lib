@@ -205,3 +205,24 @@ TEST(VectorTest, VectorNotEqualTest) {
     ASSERT_TRUE(s1 != s2);
     ASSERT_FALSE(s2 != s3);
 }
+
+
+TEST(VectorTest, VectorJoinContiner) {
+    Vector_<> s1 = {1., 2., 3.};
+    Vector_<> s2 = {4., 5., 6.};
+
+    auto s3 = vector::Join(s1, s2);
+    for (auto i = 0; i != 6; ++i) {
+        ASSERT_DOUBLE_EQ(s3[i], i + 1.);
+    }
+}
+
+
+TEST(VectorTest, VectorUpTo) {
+    int n = 6;
+    auto s = vector::UpTo(n);
+
+    for (auto i = 0; i != n; ++i) {
+        ASSERT_EQ(s[i], i);
+    }
+}

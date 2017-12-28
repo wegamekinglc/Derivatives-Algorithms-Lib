@@ -112,6 +112,18 @@ namespace {
 }
 
 
+namespace vector {
+    template<class E1_, class C2_>
+    Vector_<E1_> Join(const Vector_<E1_>& c1, const C2_& c2) {
+        auto ret_val = c1;
+        ret_val.Append(c2);
+        return ret_val;
+    };
+
+    Vector_<int> UpTo(int n);
+}
+
+
 template<class E_>
 bool Vector_<E_>::operator==(const Vector_<E_> &rhs) const { return Equal(*this, rhs); }
 
