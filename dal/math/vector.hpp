@@ -19,7 +19,7 @@ template <class E_> class Vector_ : private std::vector<E_> {
 public:
     Vector_() : base_t() {}
 
-    explicit Vector_(size_type size) : base_t(size) {}
+    explicit Vector_(size_t size) : base_t(size) {}
 
     Vector_(int size, const E_& fill) : base_t(size, fill) {}
 
