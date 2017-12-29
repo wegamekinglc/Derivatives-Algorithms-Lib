@@ -13,17 +13,15 @@ message("-- Build Mode: ${CMAKE_BUILD_TYPE}")
 if(MSVC)
     INCLUDE_DIRECTORIES($ENV{GTEST_ROOT}/include)
 
-    if ("${MSVC_RUNTIME}" STREQUAL "")
-        set(MSVC_RUNTIME "dynamic")
-    endif ()
+    set(MSVC_RUNTIME "dynamic" CACHE STRING "MSVC runtime to link")
+    set_property(CACHE MSVC_RUNTIME PROPERTY STRINGS static dynamic)
 
     if ("${MSVC_RUNTIME}" STREQUAL "static")
         link_directories($ENV{GTEST_ROOT}/lib/${CMAKE_BUILD_TYPE}/MT)
     else()
         link_directories($ENV{GTEST_ROOT}/lib/${CMAKE_BUILD_TYPE}/MD)
     endif()
-    
-    set_property(CACHE MSVC_RUNTIME PROPERTY STRINGS static dynamic)
+
     configure_msvc_runtime()
 
     # Remove warnings
