@@ -14,7 +14,7 @@
  * DON"T override any methods from vector
  */
 template <class E_> class Vector_ : private std::vector<E_> {
-    typedef std::vector<E_> base_t;
+    using base_t = std::vector<E_>;
 
 public:
     Vector_() : base_t() {}
