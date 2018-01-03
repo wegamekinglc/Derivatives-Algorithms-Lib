@@ -25,7 +25,7 @@ template<class CS_, class OP_, class CD_> void Transform(const CS_& src, OP_ op,
 
 template <typename C, typename OP> auto Apply(OP op, const C& src)->Vector_<decltype(op(*src.begin()))>
 {
-    using vector_t = Vector_<decltype(op(*src.begin()))>;
+    using vector_t = Vector_<std::remove_reference_t<std::remove_const_t<decltype(op(*src.begin()))>>>;
     vector_t ret_val(src.size());
     Transform(src, op, &ret_val);
     return ret_val;
