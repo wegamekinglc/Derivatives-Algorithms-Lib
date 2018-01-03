@@ -5,7 +5,6 @@
 #include <dal/platform/host.hpp>
 #include <gtest/gtest.h>
 
-using namespace host;
 
 TEST(HostTest, LocalTimeTest) {
     int year;
@@ -15,7 +14,7 @@ TEST(HostTest, LocalTimeTest) {
     int minute;
     int second;
 
-    localTime(&year, &month, &day, &hour, &minute, &second);
+    dal::host::localTime(&year, &month, &day, &hour, &minute, &second);
 
     time_t t = time(nullptr);
     struct tm now = {0, 0, 0, 0, 0, 0, 0, 0, 0};

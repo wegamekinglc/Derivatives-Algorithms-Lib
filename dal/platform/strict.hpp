@@ -18,4 +18,6 @@
 
 #endif
 
-template <class T_> inline int AsInt(const T_& t) { return static_cast<int>(t); }
+namespace dal {
+    template <class T_> inline int AsInt(const T_& t) { return static_cast<int>(t); }
+} // namespace dal

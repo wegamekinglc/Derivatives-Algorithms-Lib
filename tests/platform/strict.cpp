@@ -7,5 +7,5 @@
 
 TEST(StrictTest, AsIntTest) {
     auto float_v = 2.4;
-    ASSERT_EQ(2, AsInt(float_v));
+    ASSERT_EQ(2, dal::AsInt(float_v));
 }

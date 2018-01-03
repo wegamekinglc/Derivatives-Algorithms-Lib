@@ -4,6 +4,9 @@
 
 #pragma once
 
-namespace host {
-    void localTime(int* year, int* month, int* day, int* hour = nullptr, int* minute = nullptr, int* second = nullptr);
-}
+namespace dal {
+    namespace host {
+        void
+        localTime(int* year, int* month, int* day, int* hour = nullptr, int* minute = nullptr, int* second = nullptr);
+    }
+} // namespace dal
