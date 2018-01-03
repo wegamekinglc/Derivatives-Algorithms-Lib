@@ -37,7 +37,7 @@ namespace dal {
 
 #define DAL_ASSERT(condition, message)                                                                                 \
     if (!(condition)) {                                                                                                \
-        std::ostringstream _ql_msg_stream;                                                                             \
-        _ql_msg_stream << (message);                                                                                   \
-        throw dal::Error(__FILE__, __LINE__, __func__, _ql_msg_stream.str());                                          \
+        std::ostringstream _dal_msg_stream;                                                                             \
+        _dal_msg_stream << (message);                                                                                   \
+        throw dal::Error(__FILE__, __LINE__, __func__, _dal_msg_stream.str());                                          \
     } else
