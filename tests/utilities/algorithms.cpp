@@ -10,7 +10,7 @@
 
 using vector_t = dal::Vector_<>;
 
-TEST(AlgorothmsTest, TestTransformWithUniaryOPerator) {
+TEST(AlgorithmsTest, TestTransformWithUniaryOPerator) {
     vector_t s = {1, 2, 3};
     vector_t d(3);
 
@@ -21,7 +21,7 @@ TEST(AlgorothmsTest, TestTransformWithUniaryOPerator) {
     }
 }
 
-TEST(AlgorothmsTest, TestTransformWithBinaryOperator) {
+TEST(AlgorithmsTest, TestTransformWithBinaryOperator) {
     vector_t s = {1, 2, 3};
     vector_t d(s.size());
 
@@ -31,7 +31,26 @@ TEST(AlgorothmsTest, TestTransformWithBinaryOperator) {
     }
 }
 
-TEST(AlgorothmsTest, TestApply) {
+TEST(AlgorithmsTest, TestTransformInplace) {
+    vector_t s = {1, 2, 3};
+    Transform(&s, std::negate<>());
+
+    for (int i = 0; i != s.size(); ++i) {
+        ASSERT_DOUBLE_EQ(s[i], -(i + 1));
+    }
+}
+
+TEST(AlgorithmsTest, TestTransformInplaceWithOther) {
+    vector_t s = {1, 2, 3};
+    vector_t o = {1, 2, 3};
+
+    Transform(&s, o, std::plus<>());
+    for (int i = 0; i != s.size(); ++i) {
+        ASSERT_DOUBLE_EQ(2. * (i + 1), s[i]);
+    }
+}
+
+TEST(AlgorithmsTest, TestApply) {
     vector_t s1 = {1, 2, 3};
     auto s2 = Apply(std::negate<>(), s1);
     for (int i = 0; i != s2.size(); ++i) {
@@ -39,7 +58,7 @@ TEST(AlgorothmsTest, TestApply) {
     }
 }
 
-TEST(AlgorothmsTest, TestCopyWithPreAllocatedVector) {
+TEST(AlgorithmsTest, TestCopyWithPreAllocatedVector) {
     vector_t s1 = {1, 2, 3};
     vector_t s2(s1.size());
 
@@ -50,7 +69,7 @@ TEST(AlgorothmsTest, TestCopyWithPreAllocatedVector) {
     }
 }
 
-TEST(AlgorothmsTest, TestCopyWithReturnedValue) {
+TEST(AlgorithmsTest, TestCopyWithReturnedValue) {
     vector_t s1 = {1, 2, 3};
 
     auto s2 = Copy(s1);

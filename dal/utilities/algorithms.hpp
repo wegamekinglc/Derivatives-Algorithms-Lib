@@ -32,6 +32,19 @@ namespace dal {
         DAL_ASSERT(dst && src1.size() == dst->size() && src2.size() == dst->size(),
                    "dst is null or src size is not compatible with dst size");
         std::transform(src1.begin(), src1.end(), src2.begin(), dst->begin(), op);
+    }
+
+    template <class C_, class OP_>
+    void Transform(C_* to_change, OP_ op) {
+        DAL_ASSERT(to_change != nullptr, "dst is null");
+        std::transform(to_change->begin(), to_change->end(), to_change->begin(), op);
+    }
+
+    template <class C_, class CI_, class OP_>
+    void Transform(C_* to_change, const CI_& other, OP_ op) {
+        DAL_ASSERT(to_change != nullptr && to_change->size() == other.size(),
+                   "dst is null or src size is not compatible with dst size");
+        std::transform(to_change->begin(), to_change->end(), other.begin(), to_change->begin(), op);
     };
 
     template <typename C, typename OP>
@@ -46,7 +59,7 @@ namespace dal {
     template <class CS_, class CD_> void Copy(const CS_& src, CD_* dst) {
         DAL_ASSERT(dst && src.size() == dst->size(), "dst is null or src size is not compatible with dst size");
         std::copy(src.begin(), src.end(), dst->begin());
-    };
+    }
 
     template <class C_> Vector_<typename C_::value_type> Copy(const C_& src) {
         using vector_t = Vector_<typename C_::value_type>;
