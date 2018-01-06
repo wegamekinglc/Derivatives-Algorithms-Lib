@@ -17,10 +17,8 @@
 
 namespace dal {
 
-    template<class T> struct vector_of
-    {
-        typedef typename Vector_<typename std::remove_reference<typename std::remove_const<T>::type>::type> type;
-    };
+    template <class T>
+    using vector_of = Vector_<std::remove_reference_t<typename std::remove_const_t<T>>>;
 
     template <class CS_, class OP_, class CD_> void Transform(const CS_& src, OP_ op, CD_* dst) {
         DAL_ASSERT(dst && src.size() == dst->size(), "dst is null or src size is not compatible with dst size");
@@ -49,8 +47,8 @@ namespace dal {
 
     template <typename C, typename OP>
     auto Apply(OP op, const C& src)
-        -> typename vector_of<decltype(op(*src.begin()))>::type {
-        using vector_t = typename vector_of<decltype(op(*src.begin()))>::type;
+        -> vector_of<decltype(op(*src.begin()))> {
+        using vector_t = vector_of<decltype(op(*src.begin()))>;
         vector_t ret_val(src.size());
         Transform(src, op, &ret_val);
         return ret_val;
