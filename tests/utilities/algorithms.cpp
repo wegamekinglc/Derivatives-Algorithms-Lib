@@ -14,7 +14,7 @@ TEST(AlgorithmsTest, TestTransformWithUniaryOPerator) {
     vector_t s = {1, 2, 3};
     vector_t d(3);
 
-    Transform(s, std::negate<>(), &d);
+    dal::Transform(s, std::negate<>(), &d);
 
     for (int i = 0; i != d.size(); ++i) {
         ASSERT_DOUBLE_EQ(s[i], -d[i]);
@@ -25,7 +25,7 @@ TEST(AlgorithmsTest, TestTransformWithBinaryOperator) {
     vector_t s = {1, 2, 3};
     vector_t d(s.size());
 
-    Transform(s, s, std::plus<>(), &d);
+    dal::Transform(s, s, std::plus<>(), &d);
     for (int i = 0; i != d.size(); ++i) {
         ASSERT_DOUBLE_EQ(s[i] + s[i], d[i]);
     }
@@ -44,15 +44,25 @@ TEST(AlgorithmsTest, TestTransformInplaceWithOther) {
     vector_t s = {1, 2, 3};
     vector_t o = {1, 2, 3};
 
-    Transform(&s, o, std::plus<>());
+    dal::Transform(&s, o, std::plus<>());
     for (int i = 0; i != s.size(); ++i) {
         ASSERT_DOUBLE_EQ(2. * (i + 1), s[i]);
     }
 }
 
+TEST(AlgorithmsTest, TestFill) {
+    vector_t s(3);
+    double v = 1.;
+
+    dal::Fill(&s, v);
+    for (int i = 0; i != s.size(); ++i) {
+        ASSERT_DOUBLE_EQ(1., s[i]);
+    }
+}
+
 TEST(AlgorithmsTest, TestApply) {
     vector_t s1 = {1, 2, 3};
-    auto s2 = Apply(std::negate<>(), s1);
+    auto s2 = dal::Apply(std::negate<>(), s1);
     for (int i = 0; i != s2.size(); ++i) {
         ASSERT_DOUBLE_EQ(s2[i], -s1[i]);
     }
@@ -62,7 +72,7 @@ TEST(AlgorithmsTest, TestCopyWithPreAllocatedVector) {
     vector_t s1 = {1, 2, 3};
     vector_t s2(s1.size());
 
-    Copy(s1, &s2);
+    dal::Copy(s1, &s2);
 
     for (auto i = 0; i != s1.size(); ++i) {
         ASSERT_DOUBLE_EQ(s1[i], s2[i]);
@@ -72,7 +82,7 @@ TEST(AlgorithmsTest, TestCopyWithPreAllocatedVector) {
 TEST(AlgorithmsTest, TestCopyWithReturnedValue) {
     vector_t s1 = {1, 2, 3};
 
-    auto s2 = Copy(s1);
+    auto s2 = dal::Copy(s1);
 
     for (auto i = 0; i != s1.size(); ++i) {
         ASSERT_DOUBLE_EQ(s1[i], s2[i]);

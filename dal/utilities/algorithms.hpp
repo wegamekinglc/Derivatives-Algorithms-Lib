@@ -43,7 +43,7 @@ namespace dal {
         DAL_ASSERT(to_change != nullptr && to_change->size() == other.size(),
                    "dst is null or src size is not compatible with dst size");
         std::transform(to_change->begin(), to_change->end(), other.begin(), to_change->begin(), op);
-    };
+    }
 
     template <typename C, typename OP>
     auto Apply(OP op, const C& src)
@@ -52,6 +52,11 @@ namespace dal {
         vector_t ret_val(src.size());
         Transform(src, op, &ret_val);
         return ret_val;
+    }
+
+    template <class C_, class E_>
+    void Fill(C_* range, const E_& val) {
+        std::fill(range->begin(), range->end(), val);
     }
 
     template <class CS_, class CD_> void Copy(const CS_& src, CD_* dst) {
