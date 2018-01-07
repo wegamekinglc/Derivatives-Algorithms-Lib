@@ -68,6 +68,25 @@ TEST(AlgorithmsTest, TestApply) {
     }
 }
 
+TEST(AlgorithmsTest, TestAppendGeneral) {
+    std::vector<int> s1 = {1, 2, 3};
+    std::vector<int> s2 = {4, 5, 6};
+
+    dal::Append(&s1, s2);
+    for (int i = 0; i != s1.size(); ++i) {
+        ASSERT_EQ(s1[i], i + 1);
+    }
+}
+
+TEST(AlgorithmsTest, TestAppendVector) {
+    vector_t s1 = {1., 2., 3.};
+    vector_t s2 = {4., 5., 6.};
+    dal::Append(&s1, s2);
+    for (int i = 0; i != s1.size(); ++i) {
+        ASSERT_DOUBLE_EQ(s1[i], i + 1.);
+    }
+}
+
 TEST(AlgorithmsTest, TestCopyWithPreAllocatedVector) {
     vector_t s1 = {1, 2, 3};
     vector_t s2(s1.size());

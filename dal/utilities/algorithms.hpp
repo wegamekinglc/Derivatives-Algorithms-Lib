@@ -45,13 +45,23 @@ namespace dal {
         std::transform(to_change->begin(), to_change->end(), other.begin(), to_change->begin(), op);
     }
 
-    template <typename C, typename OP>
-    auto Apply(OP op, const C& src)
+    template <class C_, class OP_>
+    auto Apply(OP_ op, const C_& src)
         -> vector_of<decltype(op(*src.begin()))> {
         using vector_t = vector_of<decltype(op(*src.begin()))>;
         vector_t ret_val(src.size());
         Transform(src, op, &ret_val);
         return ret_val;
+    }
+
+    template <class C1_, class C2_>
+    void Append(C1_* c1, const C2_& c2) {
+        c1->insert(c1->end(), c2.begin(), c2.end());
+    }
+
+    template <class E_, class C_>
+    void Append(Vector_<E_>* c1, const C_& c2) {
+        c1->Append(c2);
     }
 
     template <class C_, class E_>
