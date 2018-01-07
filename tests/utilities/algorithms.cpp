@@ -167,4 +167,14 @@ TEST(AlgorithmsTest, TestUpperBound) {
     ASSERT_EQ(pos - s1.begin(), 4);
 }
 
+TEST(AlgorithmsTest, TestDeference) {
+    double* p1 = nullptr;
+    auto d1 = DEREFERENCE(p1, 2.);
+    ASSERT_DOUBLE_EQ(d1, 2.);
 
+    auto p2 = new double[1];
+    p2[0] = 1.;
+    auto d2 = DEREFERENCE(p2, 2.);
+    ASSERT_DOUBLE_EQ(d2, 1.);
+    delete [] p2;
+}

@@ -15,6 +15,8 @@
     else                                                                                                               \
         *(p) = (v)
 
+#define DEREFERENCE(p, v) ((p) ? *(p) : (v))
+
 namespace dal {
 
     template <class T>
