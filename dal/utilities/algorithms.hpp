@@ -73,6 +73,13 @@ namespace dal {
         c1->Append(c2);
     }
 
+    template <class C1_, class C2_>
+    C1_ Concatenate(const C1_& c1, const C2_& c2) {
+        C1_ ret_val(c1);
+        Append(&ret_val, c2);
+        return ret_val;
+    }
+
     template <class C_, class E_>
     void Fill(C_* range, const E_& val) {
         std::fill(range->begin(), range->end(), val);

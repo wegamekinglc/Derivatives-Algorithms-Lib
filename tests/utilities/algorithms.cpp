@@ -116,3 +116,12 @@ TEST(AlgorithmsTest, TestCopyWithReturnedValue) {
         ASSERT_DOUBLE_EQ(s1[i], s2[i]);
     }
 }
+
+TEST(AlgorithmsTest, TestConcatenate) {
+    vector_t s1 = {1., 2., 3.};
+    vector_t s2 = {4., 5., 6.};
+    auto s3 = dal::Concatenate(s1, s2);
+    for (int i = 0; i != s1.size(); ++i) {
+        ASSERT_DOUBLE_EQ(s1[i], i + 1.);
+    }
+}
