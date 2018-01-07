@@ -104,4 +104,15 @@ namespace dal {
         ret_val.erase(stop, ret_val.end());
         return ret_val;
     }
+
+    template <class C_, class LT_> C_ Unique(const C_& src, const LT_& less) {
+        C_ ret_val(src);
+        std::sort(ret_val.begin(), ret_val.end(), less);
+        ret_val.erase(std::unique(ret_val.begin(), ret_val.end()), ret_val.end());
+        return ret_val;
+    }
+
+    template <class C_> C_ Unique(const C_& src) {
+        return Unique(src, std::less<typename C_::value_type>());
+    }
 } // namespace dal

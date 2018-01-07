@@ -134,3 +134,21 @@ TEST(AlgorithmsTest, TestFilter) {
         ASSERT_DOUBLE_EQ(s2[i], i + 1.);
     }
 }
+
+TEST(AlgorithmsTest, TestUnique) {
+    vector_t s1 = {3., 3., 1., 1., 2., 2.};
+    auto s2 = dal::Unique(s1, std::less<>());
+    ASSERT_EQ(s2.size(), 3);
+    for (int i = 0; i != s2.size(); ++i) {
+        ASSERT_DOUBLE_EQ(s2[i], i + 1.);
+    }
+}
+
+TEST(AlgorithmsTest, TestUniqueDefault) {
+    vector_t s1 = {3., 3., 1., 1., 2., 2.};
+    auto s2 = dal::Unique(s1);
+    ASSERT_EQ(s2.size(), 3);
+    for (int i = 0; i != s2.size(); ++i) {
+        ASSERT_DOUBLE_EQ(s2[i], i + 1.);
+    }
+}
