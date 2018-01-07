@@ -18,7 +18,7 @@
 namespace dal {
 
     template <class T>
-    using vector_of = Vector_<std::remove_reference_t<typename std::remove_const_t<T>>>;
+    using vector_of = Vector_<std::remove_reference_t<std::remove_const_t<T>>>;
 
     template <class CS_, class OP_, class CD_> void Transform(const CS_& src, OP_ op, CD_* dst) {
         DAL_ASSERT(dst && src.size() == dst->size(), "dst is null or src size is not compatible with dst size");
@@ -51,6 +51,15 @@ namespace dal {
         using vector_t = vector_of<decltype(op(*src.begin()))>;
         vector_t ret_val(src.size());
         Transform(src, op, &ret_val);
+        return ret_val;
+    }
+
+    template <class C1_, class C2_, class OP_>
+    auto Apply(OP_ op, const C1_& src1, const C2_& src2) -> vector_of<decltype(op(*src1.begin(), *src2.begin()))> {
+        DAL_ASSERT(src1.size() == src2.size(), "src1 and src2 type is compatible");
+        using vector_t = vector_of<decltype(op(*src1.begin(), *src2.begin()))>;
+        vector_t ret_val(src1.size());
+        Transform(src1, src2, op, &ret_val);
         return ret_val;
     }
 
