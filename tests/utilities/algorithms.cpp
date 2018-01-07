@@ -152,3 +152,19 @@ TEST(AlgorithmsTest, TestUniqueDefault) {
         ASSERT_DOUBLE_EQ(s2[i], i + 1.);
     }
 }
+
+TEST(AlgorithmsTest, TestLowerBound) {
+    vector_t s1 = {1., 1., 2., 2., 3., 3.};
+    double x = 2.;
+    auto pos = dal::LowerBound(s1, x);
+    ASSERT_EQ(pos - s1.begin(), 2);
+}
+
+TEST(AlgorithmsTest, TestUpperBound) {
+    vector_t s1 = {1., 1., 2., 2., 3., 3.};
+    double x = 2.;
+    auto pos = dal::UpperBound(s1, x);
+    ASSERT_EQ(pos - s1.begin(), 4);
+}
+
+

@@ -115,4 +115,14 @@ namespace dal {
     template <class C_> C_ Unique(const C_& src) {
         return Unique(src, std::less<typename C_::value_type>());
     }
+
+    template <class C_>
+    typename C_::const_iterator LowerBound(const C_& src, const typename C_::value_type& x) {
+        return std::lower_bound(src.begin(), src.end(), x);
+    }
+
+    template <class C_>
+    typename C_::const_iterator UpperBound(const C_& src, const typename C_::value_type& x) {
+        return std::upper_bound(src.begin(), src.end(), x);
+    }
 } // namespace dal
