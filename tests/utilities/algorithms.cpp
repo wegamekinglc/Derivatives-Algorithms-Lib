@@ -125,3 +125,12 @@ TEST(AlgorithmsTest, TestConcatenate) {
         ASSERT_DOUBLE_EQ(s1[i], i + 1.);
     }
 }
+
+TEST(AlgorithmsTest, TestFilter) {
+    vector_t s1 = {-1., 1., -2., 2., -3., 3.};
+    auto s2 = dal::Filter(s1, std::bind(std::greater<>(), std::placeholders::_1, 0.));
+    ASSERT_EQ(s2.size(), 3);
+    for (int i = 0; i != s2.size(); ++i) {
+        ASSERT_DOUBLE_EQ(s2[i], i + 1.);
+    }
+}

@@ -96,4 +96,12 @@ namespace dal {
         std::copy(src.begin(), src.end(), ret_val.begin());
         return ret_val;
     }
+
+    template <class C_, class P_> C_ Filter(const C_& src, const P_& pred) {
+        using element_t = decltype(*src.begin());
+        C_ ret_val(src);
+        auto stop = std::remove_if(ret_val.begin(), ret_val.end(), [&](const element_t& e){return !pred(e);});
+        ret_val.erase(stop, ret_val.end());
+        return ret_val;
+    }
 } // namespace dal
