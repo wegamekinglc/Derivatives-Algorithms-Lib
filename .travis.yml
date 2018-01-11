@@ -59,7 +59,7 @@ before_install:
 install:
   - export CWD=$PWD
   - cd /usr/src/gtest
-  - sudo cmake CMakeLists.txt -DCMAKE_CXX_STANDARD=14 -DCMAKE_CXX_FLAGS="$CXX_FLAGS -stdlib=libc++"
+  - sudo cmake CMakeLists.txt -DGTEST_USE_OWN_TR1_TUPLE=1
   - sudo make
   - sudo cp *.a /usr/lib
   - cd $CWD
