@@ -14,19 +14,19 @@ TEST(StringsTest, TestEmptyString) {
     ASSERT_EQ(s.size(), 0);
 }
 
-TEST(StringTest, TestBuildFromCStyleString) {
+TEST(StringsTest, TestBuildFromCStyleString) {
     const char* src = "hello";
     String_ s(src);
     ASSERT_EQ(s.size(), 5);
 }
 
-TEST(StingTest, TestBuildFromBasicString) {
+TEST(StringsTest, TestBuildFromBasicString) {
     base_t src("hello");
     String_ s(src);
     ASSERT_EQ(s.size(), 5);
 }
 
-TEST(StringTest, TestBuildFromNumberOfChar) {
+TEST(StringsTest, TestBuildFromNumberOfChar) {
     const int n = 5;
     String_ s(n, 'a');
     ASSERT_EQ(s.size(), n);
@@ -35,7 +35,7 @@ TEST(StringTest, TestBuildFromNumberOfChar) {
         ASSERT_EQ(s[i], 'a');
 }
 
-TEST(StringTest, TestBuildWithIterator) {
+TEST(StringsTest, TestBuildWithIterator) {
     String_ s1("hello");
     String_ s2(s1.begin(), s1.end());
 
@@ -45,7 +45,7 @@ TEST(StringTest, TestBuildWithIterator) {
         ASSERT_EQ(s1[i], s2[i]);
 }
 
-TEST(StringTest, TestBuildWithVanillaString) {
+TEST(StringsTest, TestBuildWithVanillaString) {
     std::string src("hello");
     String_ s2(src);
 
@@ -54,7 +54,7 @@ TEST(StringTest, TestBuildWithVanillaString) {
         ASSERT_EQ(s2[i], src[i]);
 }
 
-TEST(StringTest, TestStringSwap) {
+TEST(StringsTest, TestStringSwap) {
     String_ s1("hello");
     String_ s2;
 
@@ -64,7 +64,7 @@ TEST(StringTest, TestStringSwap) {
     ASSERT_EQ(s2.size(), 5);
 }
 
-TEST(StringTest, TestStringEqual) {
+TEST(StringsTest, TestStringEqual) {
     String_ s1("HELLO");
     String_ s2("hello");
     String_ s3("HELLE");
@@ -73,7 +73,7 @@ TEST(StringTest, TestStringEqual) {
     ASSERT_FALSE(s1 == s3);
 }
 
-TEST(StringTest, TestStringEqualWithBaseString) {
+TEST(StringsTest, TestStringEqualWithBaseString) {
     String_ s1("HELLO");
     base_t s2("hello");
     base_t s3("HELLE");
@@ -82,7 +82,7 @@ TEST(StringTest, TestStringEqualWithBaseString) {
     ASSERT_FALSE(s3 == s1);
 }
 
-TEST(StringTest, TestStringEqualWithCStyleString) {
+TEST(StringsTest, TestStringEqualWithCStyleString) {
     String_ s1("HELLO");
     const char* s2 = "hello";
     const char* s3 = "HELLE";
