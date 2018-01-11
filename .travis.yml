@@ -60,8 +60,10 @@ install:
   - export CWD=$PWD
   - cd /usr/src/gtest
   - if [[ $CXX == *"g++"* ]]; then
+      echo "using g++";
       sudo cmake CMakeLists.txt;
     else
+      echo "using clang++";
       sudo cmake CMakeLists.txt -DCMAKE_CXX_FLAGS="$CXX_FLAGS -stdlib=libc++" -DCMAKE_EXE_LINKER_FLAGS="-lc++abi";
     fi
   - sudo make
