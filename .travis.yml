@@ -64,7 +64,7 @@ install:
       sudo cmake CMakeLists.txt;
     else
       echo "using clang++";
-      sudo cmake CMakeLists.txt -DCMAKE_CXX_FLAGS="$CXX_FLAGS -stdlib=libc++" -DCMAKE_EXE_LINKER_FLAGS="-lc++abi";
+      sudo cmake CMakeLists.txt -DCMAKE_CXX_FLAGS="$CXX_FLAGS -stdlib=libc++";
     fi
   - sudo make
   - sudo cp *.* /usr/lib/
