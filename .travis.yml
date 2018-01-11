@@ -61,7 +61,7 @@ install:
   - cd /usr/src/gtest
   - if [[ "$CXX" == *"clang++"* ]]; then
       echo "using clang++";
-      sudo cmake CMakeLists.txt -DCMAKE_CXX_FLAGS="$CXX_FLAGS -stdlib=libc++";
+      sudo cmake CMakeLists.txt -DCMAKE_CXX_FLAGS="$CXX_FLAGS -stdlib=libc++ -DGTEST_USE_OWN_TR1_TUPLE=1";
     else
       echo "using g++";
       sudo cmake CMakeLists.txt;
