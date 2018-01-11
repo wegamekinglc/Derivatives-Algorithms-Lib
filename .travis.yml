@@ -12,6 +12,7 @@ matrix:
             - llvm-toolchain-trusty-5.0
           packages:
             - clang-5.0
+            - libc++-dev
             - libgtest-dev
             - make
             - cmake

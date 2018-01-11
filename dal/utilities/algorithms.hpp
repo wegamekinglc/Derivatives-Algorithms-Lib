@@ -20,7 +20,7 @@
 namespace dal {
 
     template <class T>
-    using vector_of = Vector_<typename std::remove_reference<typename std::remove_const<T>::type>::type>;
+    using vector_of = Vector_<std::remove_reference_t<std::remove_const_t<T>>>;
 
     template <class CS_, class OP_, class CD_> void Transform(const CS_& src, OP_ op, CD_* dst) {
         DAL_ASSERT(dst && src.size() == dst->size(), "dst is null or src size is not compatible with dst size");

@@ -26,7 +26,9 @@ if(MSVC)
 
     # Remove warnings
     add_definitions(-D_SCL_SECURE_NO_WARNINGS -D_CRT_SECURE_NO_WARNINGS)
-
+elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
+    set(CMAKE_CXX_STANDARD 14)
+    ET( CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -stdlib=libc++" )
 else()
     set(CMAKE_CXX_STANDARD 14)
 endif()
