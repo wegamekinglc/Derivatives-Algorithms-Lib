@@ -62,11 +62,10 @@ install:
   - if [[ $CXX == *"g++"* ]]; then
       sudo cmake CMakeLists.txt;
     else
-      sudo cmake CMakeLists.txt -DCMAKE_CXX_FLAGS="$CXX_FLAGS -stdlib=libc++";
+      sudo cmake CMakeLists.txt -DCMAKE_CXX_FLAGS="$CXX_FLAGS -stdlib=libc++" -DCMAKE_EXE_LINKER_FLAGS="-lc++abi";
     fi
   - sudo make
-  - sudo cp *.a /usr/lib
+  - sudo cp *.* /usr/lib/
   - cd $CWD
 script:
-  - export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/lib/x86_64-linux-gnu
   - bash ./build_linux.sh
