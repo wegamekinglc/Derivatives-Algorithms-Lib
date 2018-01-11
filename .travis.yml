@@ -59,12 +59,12 @@ before_install:
 install:
   - export CWD=$PWD
   - cd /usr/src/gtest
-  - if [[ $CXX == *"g++"* ]]; then
-      echo "using g++";
-      sudo cmake CMakeLists.txt;
-    else
+  - if [[ "$CXX" == *"clang++"* ]]; then
       echo "using clang++";
       sudo cmake CMakeLists.txt -DCMAKE_CXX_FLAGS="$CXX_FLAGS -stdlib=libc++";
+    else
+      echo "using g++";
+      sudo cmake CMakeLists.txt;
     fi
   - sudo make
   - sudo cp *.* /usr/lib/
