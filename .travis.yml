@@ -60,9 +60,9 @@ install:
   - export CWD=$PWD
   - cd /usr/src/gtest
   - if [[ $CXX == *"g++"* ]]; then
-      sudo cmake CMakeLists.txt -DGTEST_USE_OWN_TR1_TUPLE=1;
+      sudo cmake CMakeLists.txt;
     else
-      export CXX_FLAGS="$CXX_FLAGS -stdlib=libc++" && sudo cmake CMakeLists.txt -DGTEST_USE_OWN_TR1_TUPLE=1;
+      sudo cmake CMakeLists.txt -DCMAKE_CXX_FLAGS="$CXX_FLAGS -stdlib=libc++";
     fi
   - sudo make
   - sudo cp *.a /usr/lib
