@@ -59,13 +59,12 @@ before_install:
 install:
   - export CWD=$PWD
   - cd /usr/src/gtest
-  - if [[ $CXX == *"g++" ]]; then
-      sudo cmake CMakeLists.txt -DGTEST_USE_OWN_TR1_TUPLE=1
+  - if [[ $CXX == *"g++"* ]]; then
+      cmake CMakeLists.txt -DGTEST_USE_OWN_TR1_TUPLE=1
     else
-      export CXX_FLAGS="$CXX_FLAGS -stdlib=libc++"
-      sudo cmake CMakeLists.txt -DGTEST_USE_OWN_TR1_TUPLE=1
+      export CXX_FLAGS="$CXX_FLAGS -stdlib=libc++" && cmake CMakeLists.txt -DGTEST_USE_OWN_TR1_TUPLE=1
     fi
-  - sudo make
+  - make
   - sudo cp *.a /usr/lib
   - cd $CWD
 script:
