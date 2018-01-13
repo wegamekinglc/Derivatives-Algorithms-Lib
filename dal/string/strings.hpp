@@ -92,6 +92,8 @@ namespace dal {
         int ToInt(const String_& src);
         String_ FromDouble(double src);
         String_ FromInt(int src);
+        String_ Condensed(const String_& src);
+        bool Equivalent(const String_& lhs, const char* rhs);
     } // namespace string
 
 } // namespace dal

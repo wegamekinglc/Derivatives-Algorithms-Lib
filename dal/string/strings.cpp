@@ -2,6 +2,7 @@
 // Created by Cheng Li on 2018/1/7.
 //
 
+#include <bitset>
 #include <dal/utilities/algorithms.hpp>
 #include <dal/math/vector.hpp>
 #include <dal/string/strings.hpp>
@@ -42,5 +43,51 @@ namespace dal {
         String_ FromDouble(double src) { return String_(std::to_string(src)); }
 
         String_ FromInt(int src) { return String_(std::to_string(src)); }
+
+        namespace
+        {
+            bool IsFluff(char c)
+            {
+                switch (c)
+                {
+                    case ' ':
+                    case '\t':
+                    case '_':
+                        return true;
+                    default:
+                        return false;
+                }
+            }
+        }
+
+        String_ Condensed(const String_& src) {
+            String_ ret_val;
+            for(const auto& c : src) {
+                if (!IsFluff(c))
+                    ret_val.push_back(static_cast<char>(toupper(static_cast<int>(c))));
+            }
+            return ret_val;
+        }
+
+        // compares compressed version of a string with already-compressed rhs
+        bool Equivalent(const String_& lhs, const char* rhs) {
+            struct Otiose_ : std::bitset<256> {
+                Otiose_() { set(' '); set('\t'); set('_'); }
+            };
+            static const Otiose_ SKIP;
+
+            auto p = lhs.begin();
+            auto q = rhs;
+            while (true) {
+                while (p != lhs.end() && SKIP[*p])
+                    ++p;
+                if (!*q || p == lhs.end())
+                    return !*q && p == lhs.end();
+                if (!ci_traits::eq(*p, *q))
+                    return false;
+                ++p, ++q;
+
+            }
+        }
     } // namespace string
 } // namespace dal
