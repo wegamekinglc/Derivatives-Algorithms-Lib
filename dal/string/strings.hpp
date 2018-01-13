@@ -18,6 +18,8 @@ namespace {
 
 namespace dal {
 
+    template <class E_> class Vector_;
+
     struct ci_traits : std::char_traits<char> {
         using _E = char;
 
@@ -81,5 +83,15 @@ namespace dal {
     inline bool operator==(const char* lhs, const String_& rhs) {
         return lhs == static_cast<const std::basic_string<char, ci_traits>&>(rhs);
     }
+
+    namespace string {
+        Vector_<String_> Split(const String_& src, char sep, bool keep_empties);
+
+        bool IsNumber(const String_& src);
+        double ToDoule(const String_& src);
+        int ToInt(const String_& src);
+        String_ FromDouble(double src);
+        String_ FromInt(int src);
+    } // namespace string
 
 } // namespace dal

@@ -5,9 +5,10 @@
 #pragma once
 
 #include <algorithm>
+#include <type_traits>
 #include <dal/platform/platform.hpp>
 #include <dal/utilities/asserts.hpp>
-#include <type_traits>
+
 
 #define ASSIGN(p, v)                                                                                                   \
     if (!(p))                                                                                                          \
