@@ -157,3 +157,13 @@ TEST(StringsTest, TestEquivalent) {
     flag = Equivalent(s1, "123,abc,\t");
     ASSERT_FALSE(flag);
 }
+
+TEST(StringsTest, TestNextName) {
+    String_ s1;
+    auto s2 = NextName(s1);
+    ASSERT_EQ(s2, "0");
+
+    s1 = String_("123456789");
+    s2 = NextName(s1);
+    ASSERT_EQ(s2, "123456790");
+}

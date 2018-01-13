@@ -94,6 +94,7 @@ namespace dal {
         String_ FromInt(int src);
         String_ Condensed(const String_& src);
         bool Equivalent(const String_& lhs, const char* rhs);
+        String_ NextName(const String_& name);
     } // namespace string
 
 } // namespace dal
