@@ -5,6 +5,7 @@
 #pragma once
 
 #include <string>
+#include <numeric>
 #include <dal/platform/strict.hpp>
 
 namespace {
@@ -95,6 +96,27 @@ namespace dal {
         String_ Condensed(const String_& src);
         bool Equivalent(const String_& lhs, const char* rhs);
         String_ NextName(const String_& name);
+
+        struct Joiner_
+        {
+            String_ sep_;
+            bool skipEmpty_;
+            explicit Joiner_(const String_& sep, bool skip_empty = true) : sep_(sep), skipEmpty_(skip_empty) {}
+
+            String_ operator()(const String_& so_far, const String_& more) const
+            {
+                if (so_far.empty())
+                    return more;
+                if (more.empty() && skipEmpty_)
+                    return so_far;
+                return String_(so_far + sep_ + more);
+            }
+        };
+
+        template<class C_> String_ Accumulate(const C_& vals, const String_& sep, bool skip_empty = true)
+        {
+            return std::accumulate(vals.begin(), vals.end(), String_(), Joiner_(sep, skip_empty));
+        }
     } // namespace string
 
 } // namespace dal

@@ -167,3 +167,9 @@ TEST(StringsTest, TestNextName) {
     s2 = NextName(s1);
     ASSERT_EQ(s2, "123456790");
 }
+
+TEST(StringsTest, TestAccumulate) {
+    Vector_<String_> c = {String_("1"), String_("2"), String_("3")};
+    auto s1 = Accumulate(c, String_(","));
+    ASSERT_EQ(s1, "1,2,3");
+}
