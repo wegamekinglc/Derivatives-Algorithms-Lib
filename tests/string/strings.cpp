@@ -142,3 +142,18 @@ TEST(StringsTest, TestFromInt) {
     String_ s1 = FromInt(n1);
     ASSERT_DOUBLE_EQ(ToInt(s1), n1);
 }
+
+TEST(StringsTest, TestCondensed) {
+    String_ s1("123,abc,\t");
+    auto s2 = Condensed(s1);
+    ASSERT_TRUE(s2 == "123,ABC,");
+}
+
+TEST(StringsTest, TestEquivalent) {
+    String_ s1("   123,abc,\t");
+    auto flag = Equivalent(s1, "123,abc,");
+    ASSERT_TRUE(flag);
+
+    flag = Equivalent(s1, "123,abc,\t");
+    ASSERT_FALSE(flag);
+}
