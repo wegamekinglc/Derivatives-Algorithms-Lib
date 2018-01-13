@@ -97,7 +97,8 @@ namespace dal {
         using std::vector<E_>::clear;
 
         // emplace_back is a special case; because it is not part of std::vector<bool>, we have to explicitly forward
-        template<class... _Valty> void emplace_back(_Valty&&... _Val) { base_t::emplace_back(_Val...); }
+        template<class... _Valty>
+        void emplace_back(_Valty&&... _Val) { base_t::emplace_back(_Val...); }
     };
 
     namespace {
