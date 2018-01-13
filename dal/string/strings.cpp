@@ -28,16 +28,16 @@ namespace dal {
 
         bool IsNumber(const String_& src) {
             try {
-                (void)ToDoule(src);
+                ToDouble(src);
                 return true;
             } catch (...) {
                 return false;
             }
         }
 
-        double ToDouble(const String_& src) { return std::stod(src.c_str()); }
-
         int ToInt(const String_& src) { return std::stoi(src.c_str()); }
+
+        double ToDouble(const String_& src) { return std::stod(src.c_str()); }
 
         String_ FromDouble(double src) { return String_(std::to_string(src)); }
 

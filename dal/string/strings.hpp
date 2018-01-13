@@ -88,7 +88,7 @@ namespace dal {
         Vector_<String_> Split(const String_& src, char sep, bool keep_empties);
 
         bool IsNumber(const String_& src);
-        double ToDoule(const String_& src);
+        double ToDouble(const String_& src);
         int ToInt(const String_& src);
         String_ FromDouble(double src);
         String_ FromInt(int src);

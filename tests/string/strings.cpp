@@ -4,10 +4,14 @@
 
 #include <gtest/gtest.h>
 #include <dal/platform/strict.hpp>
+#include <dal/math/vector.hpp>
 #include <dal/string/strings.hpp>
 
 using dal::String_;
+using dal::Vector_;
 using base_t = std::basic_string<char, dal::ci_traits>;
+
+using namespace dal::string;
 
 TEST(StringsTest, TestEmptyString) {
     String_ s;
@@ -89,4 +93,52 @@ TEST(StringsTest, TestStringEqualWithCStyleString) {
 
     ASSERT_TRUE(s1 == s2);
     ASSERT_FALSE(s3 == s1);
+}
+
+TEST(StringsTest, TestSplit) {
+    String_ s1("1,,2,3");
+    Vector_<String_> ret_val = Split(s1, ',', true);
+    Vector_<String_> exp_val = {String_("1"), String_(""), String_("2"), String_("3")};
+
+    for(auto i = 0; i != ret_val.size(); ++i)
+        ASSERT_EQ(ret_val[i], exp_val[i]);
+}
+
+TEST(StringsTest, TestSplitWithEmptyRemoved) {
+    String_ s1("1,,2,3");
+    Vector_<String_> ret_val = Split(s1, ',', false);
+    Vector_<String_> exp_val = {String_("1"), String_("2"), String_("3")};
+
+    for(auto i = 0; i != ret_val.size(); ++i)
+        ASSERT_EQ(ret_val[i], exp_val[i]);
+}
+
+TEST(StringsTest, TestStringIsNumber) {
+    String_ s1("a");
+    ASSERT_FALSE(IsNumber(s1));
+
+    String_ s2("1.");
+    ASSERT_TRUE(IsNumber(s2));
+}
+
+TEST(StringsTest, TestStringToDouble) {
+    String_ s1("1.2");
+    ASSERT_DOUBLE_EQ(1.2, ToDouble(s1));
+}
+
+TEST(StringsTest, TestStringToInt) {
+    String_ s1("1");
+    ASSERT_EQ(1, ToInt(s1));
+}
+
+TEST(StringsTest, TestFromDouble) {
+    double n1 = 1.;
+    String_ s1 = FromDouble(n1);
+    ASSERT_DOUBLE_EQ(ToDouble(s1), n1);
+}
+
+TEST(StringsTest, TestFromInt) {
+    int n1 = 1;
+    String_ s1 = FromInt(n1);
+    ASSERT_DOUBLE_EQ(ToInt(s1), n1);
 }
