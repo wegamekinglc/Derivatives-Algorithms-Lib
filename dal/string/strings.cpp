@@ -4,7 +4,7 @@
 
 #include <bitset>
 #include <dal/utilities/algorithms.hpp>
-#include <dal/math/vector.hpp>
+#include <dal/math/vectors.hpp>
 #include <dal/string/strings.hpp>
 
 namespace dal {

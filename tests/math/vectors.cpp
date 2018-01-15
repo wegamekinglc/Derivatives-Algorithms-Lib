@@ -3,7 +3,7 @@
 //
 
 #include <dal/platform/platform.hpp>
-#include <dal/math/vector.hpp>
+#include <dal/math/vectors.hpp>
 #include <gtest/gtest.h>
 
 using vector_t = dal::Vector_<>;

@@ -4,7 +4,7 @@
 
 #include <gtest/gtest.h>
 #include <dal/platform/strict.hpp>
-#include <dal/math/vector.hpp>
+#include <dal/math/vectors.hpp>
 #include <dal/string/strings.hpp>
 
 using dal::String_;

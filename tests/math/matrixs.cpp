@@ -3,7 +3,7 @@
 //
 
 #include <dal/platform/platform.hpp>
-#include <dal/math/matrix.hpp>
+#include <dal/math/matrixs.hpp>
 #include <gtest/gtest.h>
 
 using matrix_t = dal::Matrix_<>;

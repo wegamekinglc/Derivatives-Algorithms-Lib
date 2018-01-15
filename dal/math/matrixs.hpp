@@ -5,7 +5,7 @@
 #pragma once
 
 #include <dal/utilities/algorithms.hpp>
-#include <dal/math/vector.hpp>
+#include <dal/math/vectors.hpp>
 
 
 namespace dal {

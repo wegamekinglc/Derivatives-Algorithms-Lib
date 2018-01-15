@@ -6,7 +6,7 @@
 
 #include <exception>
 #include <dal/string/strings.hpp>
-#include <dal/math/vector.hpp>
+#include <dal/math/vectors.hpp>
 
 namespace dal {
 

@@ -3,7 +3,7 @@
 //
 
 #include <dal/platform/platform.hpp>
-#include <dal/math/vector.hpp>
+#include <dal/math/vectors.hpp>
 #include <dal/utilities/algorithms.hpp>
 #include <functional>
 #include <gtest/gtest.h>
