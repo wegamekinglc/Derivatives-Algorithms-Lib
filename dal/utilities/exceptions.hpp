@@ -15,16 +15,18 @@ namespace dal {
 
     class Exception_ : public std::runtime_error {
     public:
-        explicit Exception_(const char *msg);
-        explicit Exception_(const std::string &msg) : Exception_(msg.c_str()) {}
-        explicit Exception_(const String_& msg): Exception_(msg.c_str()) {}
+        Exception_(const std::string& file, long line, const std::string& functionName, const char *msg);
+        Exception_(const std::string& file, long line, const std::string& functionName, const std::string &msg)
+                : Exception_(file, line, functionName, msg.c_str()) {}
+        Exception_(const std::string& file, long line, const std::string& functionName, const String_& msg)
+                : Exception_(file, line, functionName, msg.c_str()) {}
     };
 
     namespace exception {
         class XStackInfo_ {
             const char* name_;
             const void* value_;
-            enum class Type_ { INT, DBL, CSTR, DATE, DATETIME, VOID} type_;
+            enum class Type_ { INT, DBL, CSTR, STR, DATE, DATETIME, VOID} type_;
             template <class T_>
             XStackInfo_(const char*, T_) = default;
 
@@ -42,8 +44,29 @@ namespace dal {
         void PushStack(const XStackInfo_& info);
         void PopStack();
 
+        struct StackRegister_ {
+            ~StackRegister_() { PopStack();}
+            template <class T_>
+            StackRegister_(const char* name, const T_& val) {
+                PushStack(XStackInfo_(name, val));
+            }
+
+            explicit StackRegister_(const char* msg) {
+                PushStack(XStackInfo_(msg));
+            }
+        };
+
     }
 }
 
-#define THROW(msg) throw Exception_(msg)
-#define REQUIRE(cond, msg) throw if (cond); else THROW(msg)
+#define THROW(msg) throw dal::Exception_(__FILE__, __LINE__, __func__, msg)
+#define REQUIRE(cond, msg) if (cond); else THROW(msg)
+
+#define XXNOTICE(u, n, v) dal::exception::StackRegister_ __xsr##u(n, v)
+#define XNOTICE(u, n, v) XXNOTICE(u, n, v)
+#define NOTICE2(n, v) XNOTICE(__COUNTER__, n, v)
+#define NOTICE(x) NOTICE2(#x, x)
+
+#define XXNOTE(u, m) dal::exception::StackRegister_ __xsr##u(m)
+#define XNOTE(u, m) XXNOTE(u, m)
+#define NOTE(msg) XNOTE(__COUNTER__, msg)

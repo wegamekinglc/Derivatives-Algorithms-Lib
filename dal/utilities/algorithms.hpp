@@ -7,7 +7,7 @@
 #include <algorithm>
 #include <type_traits>
 #include <dal/platform/platform.hpp>
-#include <dal/utilities/asserts.hpp>
+#include <dal/utilities/exceptions.hpp>
 
 
 #define ASSIGN(p, v)                                                                                                   \
@@ -24,26 +24,26 @@ namespace dal {
     using vector_of = Vector_<std::remove_reference_t<std::remove_const_t<T>>>;
 
     template <class CS_, class OP_, class CD_> void Transform(const CS_& src, OP_ op, CD_* dst) {
-        DAL_ASSERT(dst && src.size() == dst->size(), "dst is null or src size is not compatible with dst size");
+        REQUIRE(dst && src.size() == dst->size(), "dst is null or src size is not compatible with dst size");
         std::transform(src.begin(), src.end(), dst->begin(), op);
     }
 
     template <class CS1_, class CS2_, class OP_, class CD_>
     void Transform(const CS1_& src1, const CS2_& src2, OP_ op, CD_* dst) {
-        DAL_ASSERT(dst && src1.size() == dst->size() && src2.size() == dst->size(),
+        REQUIRE(dst && src1.size() == dst->size() && src2.size() == dst->size(),
                    "dst is null or src size is not compatible with dst size");
         std::transform(src1.begin(), src1.end(), src2.begin(), dst->begin(), op);
     }
 
     template <class C_, class OP_>
     void Transform(C_* to_change, OP_ op) {
-        DAL_ASSERT(to_change != nullptr, "dst is null");
+        REQUIRE(to_change != nullptr, "dst is null");
         std::transform(to_change->begin(), to_change->end(), to_change->begin(), op);
     }
 
     template <class C_, class CI_, class OP_>
     void Transform(C_* to_change, const CI_& other, OP_ op) {
-        DAL_ASSERT(to_change != nullptr && to_change->size() == other.size(),
+        REQUIRE(to_change != nullptr && to_change->size() == other.size(),
                    "dst is null or src size is not compatible with dst size");
         std::transform(to_change->begin(), to_change->end(), other.begin(), to_change->begin(), op);
     }
@@ -59,7 +59,7 @@ namespace dal {
 
     template <class C1_, class C2_, class OP_>
     auto Apply(OP_ op, const C1_& src1, const C2_& src2) -> vector_of<decltype(op(*src1.begin(), *src2.begin()))> {
-        DAL_ASSERT(src1.size() == src2.size(), "src1 and src2 type is compatible");
+        REQUIRE(src1.size() == src2.size(), "src1 and src2 type is compatible");
         using vector_t = vector_of<decltype(op(*src1.begin(), *src2.begin()))>;
         vector_t ret_val(src1.size());
         Transform(src1, src2, op, &ret_val);
@@ -89,7 +89,7 @@ namespace dal {
     }
 
     template <class CS_, class CD_> void Copy(const CS_& src, CD_* dst) {
-        DAL_ASSERT(dst && src.size() == dst->size(), "dst is null or src size is not compatible with dst size");
+        REQUIRE(dst && src.size() == dst->size(), "dst is null or src size is not compatible with dst size");
         std::copy(src.begin(), src.end(), dst->begin());
     }
 
