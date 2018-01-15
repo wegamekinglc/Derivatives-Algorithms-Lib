@@ -28,7 +28,7 @@ namespace dal {
             const void* value_;
             enum class Type_ { INT, DBL, CSTR, STR, DATE, DATETIME, VOID} type_;
             template <class T_>
-            XStackInfo_(const char*, T_) = default;
+            XStackInfo_(const char*, T_) {};
 
         public:
             XStackInfo_(const char* name, const int& val);
