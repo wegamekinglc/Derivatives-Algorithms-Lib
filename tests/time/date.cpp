@@ -110,6 +110,70 @@ TEST(DateTest, TestDateNumericValue) {
     ASSERT_DOUBLE_EQ(NumericValueOf(src), 42736.);
 }
 
+TEST(DateTest, TestDayOfWeek) {
+    Date_ src(2018, 2, 3);
+    ASSERT_EQ(DayOfWeek(src), 6);
+
+    src = Date_(2018, 2, 4);
+    ASSERT_EQ(DayOfWeek(src), 0);
+}
+
+TEST(DateTest, TestIsWeekEnd) {
+    Date_ src(2018, 2, 3);
+    ASSERT_TRUE(IsWeekEnd(src));
+
+    src = Date_(2018, 2, 5);
+    ASSERT_FALSE(IsWeekEnd(src));
+}
+
+TEST(DateTest, TestFromExcel) {
+    int serial = 46435;
+    auto src = FromExcel(serial);
+
+    ASSERT_EQ(src, Date_(2027, 2, 17));
+}
+
+TEST(DateTest, TestToExcel) {
+    Date_ src(2027, 2, 17);
+    auto serial = ToExcel(src);
+
+    ASSERT_EQ(serial, 46435);
+}
+
+TEST(DateTest, TestToString) {
+    Date_ src(2017, 12, 3);
+    auto str = ToString(src);
+
+    ASSERT_EQ(str, "2017-12-03");
+}
+
+TEST(DateTest, TestDateMinimum) {
+    const auto src = Minimum();
+    ASSERT_EQ(src, Date_(1970, 1, 1));
+}
 
 
+TEST(DateTest, TestDateMaximum) {
+    const auto src = Maximum();
+    ASSERT_EQ(src, Date_(2149, 5, 22));
+}
 
+TEST(DateTest, TestEndOfMonth) {
+    Date_ src(2016, 2, 28);
+    ASSERT_EQ(EndOfMonth(src), Date_(2016, 2, 29));
+
+    src = Date_(2018, 2, 28);
+    ASSERT_EQ(EndOfMonth(src), Date_(2018, 2, 28));
+}
+
+TEST(DateTest, TestAddMonthsWithoutEOM) {
+    Date_ src(2017, 2, 28);
+    auto dst = AddMonths(src, 1);
+    ASSERT_EQ(dst, Date_(2017, 3, 28));
+}
+
+TEST(DateTest, TestAddMonthsWithEOM) {
+    Date_ src(2017, 2, 28);
+    auto dst = AddMonths(src, 1, true);
+    ASSERT_EQ(dst, Date_(2017, 3, 31));
+}
