@@ -22,6 +22,7 @@ namespace dal {
         Date_ Date() const { return date_;}
         double Frac() const { return 0.0000152587890625 * frac_;}
         bool operator == (const DateTime_& rhs) const { return date_ == rhs.date_ && frac_ == rhs.frac_;}
+        bool IsValid() const { return date_.IsValid() && frac_ <= 0xFFFF;}
     };
 
     double operator - (const DateTime_& lhs, const DateTime_& rhs);
