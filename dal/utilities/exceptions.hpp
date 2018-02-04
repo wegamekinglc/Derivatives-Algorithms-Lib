@@ -55,7 +55,6 @@ namespace dal {
                 PushStack(XStackInfo_(msg));
             }
         };
-
     }
 }
 
