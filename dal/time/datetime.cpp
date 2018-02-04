@@ -17,21 +17,21 @@ namespace dal {
     }
 
     DateTime_::DateTime_(const Date_ &date, double frac)
-    :date_(date), frac_(static_cast<uint16_t>(Min(65535., 65536 * frac + 0.5))) {}
+    :date_(date), frac_(frac) {
+        REQUIRE(frac_ < 1., "datetime fraction exceeds or equal to 1");
+    }
 
     DateTime_::DateTime_(const Date_ &date, int h, int m, int s)
     :date_(date) {
         const auto secs = 60 * (60 * h + m) + s;
         REQUIRE(secs >= 0 && secs < 86400, "datetime fraction exceeds maximum seconds in one day");
-        const auto frac = (secs + 0.65) / 86400.;
-        frac_ = static_cast<uint16_t>(frac * 65536);
+        frac_ = secs / 86400.;
     }
 
     DateTime_::DateTime_(long long msec) {
         const auto whole = msec / 86400000;
-        const auto frac = (msec + 500 - 86400000 * whole) * 64 / 84375;	// 86400000/2^16 = 84375/64
-        REQUIRE(frac <= 0xFFFF, "datetime fraction exceeds maximum seconds in one day");
-        frac_ = static_cast<uint16_t>(frac);
+        frac_ = (msec - 86400000 * whole) / 86400000.;
+        REQUIRE(frac_ < 1., "datetime fraction exceeds maximum seconds in one day");
         date_ = date::Minimum().AddDays(static_cast<int>(whole));
     }
 

@@ -13,16 +13,16 @@ namespace dal {
 
     class DateTime_ {
         Date_ date_;
-        uint16_t  frac_;
+        double frac_;
     public:
         DateTime_():frac_(0) {}
         explicit DateTime_(const Date_& date, double frac=0.0);
         explicit DateTime_(long long msec);
         DateTime_(const Date_& date, int hour, int minute=0, int second=0);
         Date_ Date() const { return date_;}
-        double Frac() const { return 0.0000152587890625 * frac_;}
+        double Frac() const { return frac_;}
         bool operator == (const DateTime_& rhs) const { return date_ == rhs.date_ && frac_ == rhs.frac_;}
-        bool IsValid() const { return date_.IsValid() && frac_ <= 0xFFFF;}
+        bool IsValid() const { return date_.IsValid() && frac_ < 1.;}
     };
 
     double operator - (const DateTime_& lhs, const DateTime_& rhs);

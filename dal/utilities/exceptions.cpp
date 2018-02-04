@@ -6,6 +6,7 @@
 #include <dal/platform/platform.hpp>
 #include <dal/utilities/exceptions.hpp>
 #include <dal/time/date.hpp>
+#include <dal/time/datetime.hpp>
 
 
 namespace dal {
@@ -26,6 +27,9 @@ namespace dal {
         XStackInfo_::XStackInfo_(const char *name, const Date_& val)
                 : name_(name), value_(&val), type_(Type_::DATE) {}
 
+        XStackInfo_::XStackInfo_(const char *name, const DateTime_ &val)
+                : name_(name), value_(&val), type_(Type_::DATETIME) {}
+
         XStackInfo_::XStackInfo_(const char *msg)
                 : name_(msg), value_(nullptr), type_(Type_::VOID) {}
 
@@ -42,6 +46,8 @@ namespace dal {
                     return name_ + EQUALS + reinterpret_cast<const String_ *>(value_)->c_str();
                 case Type_::DATE:
                     return name_ + EQUALS + date::ToString(*reinterpret_cast<const Date_*>(value_)).c_str();
+                case Type_::DATETIME:
+                    return name_ + EQUALS + datetime::ToString(*reinterpret_cast<const DateTime_*>(value_)).c_str();
                 case Type_::VOID:
                     return std::string(name_);
                 default:

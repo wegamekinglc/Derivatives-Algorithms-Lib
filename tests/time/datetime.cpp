@@ -5,6 +5,7 @@
 #include <gtest/gtest.h>
 #include <dal/platform/strict.hpp>
 #include <dal/time/datetime.hpp>
+#include <dal/utilities/exceptions.hpp>
 
 using dal::DateTime_;
 using namespace dal;
@@ -19,6 +20,16 @@ TEST(DateTimeTest, TestDateTimeWithDateAndFrac) {
     DateTime_ src(Date_(2017, 1, 1), 0.5);
     DateTime_ exp(Date_(2017, 1, 1), 12, 0, 0);
     ASSERT_EQ(src, exp);
+}
+
+TEST(DateTimeTest, TestDateTimeWithMaximumFrac) {
+    DateTime_ src(Date_(2017, 1, 1), 23, 59, 59);
+    DateTime_ exp(Date_(2017, 1, 1), 0.999988425925926);
+    ASSERT_EQ(src, exp);
+}
+
+TEST(DateTimeTest, TestDateTimeWithUnityFrac) {
+    ASSERT_THROW(DateTime_(Date_(2017, 1, 1), 24, 0, 0), dal::Exception_);
 }
 
 TEST(DateTimeTest, TestDateTimeWithHMS) {
