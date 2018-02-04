@@ -81,11 +81,7 @@ namespace dal {
         short yy, mm, dd;
         ExcelDateToYMD(ToExcel(dt), &yy, &mm, &dd);
         String_ ret_val("0000-00-00");
-        sprintf(&ret_val[0], "%4d-%2d-%2d", int(yy), int(mm), int(dd));
-        if (ret_val[5] == ' ')
-            ret_val[5] = '0';
-        if (ret_val[8] == ' ')
-            ret_val[8] = '0';
+        sprintf(&ret_val[0], "%4d-%0.2d-%0.2d", yy, mm, dd);
         return ret_val;
     }
 
