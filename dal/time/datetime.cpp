@@ -60,7 +60,7 @@ namespace dal {
             int h, m, s;
             FracToHMS(dt.Frac(), &h, &m, &s);
             String_ ret_val("00:00:00");
-            sprintf(&ret_val[0], "%0.2d:%0.2d:%0.2d", h, m, s);
+            sprintf(&ret_val[0], "%02d:%02d:%02d", h, m, s);
             return ret_val;
         }
 

@@ -31,7 +31,7 @@ namespace dal {
             return (1461 * (yy + (mm - 14) / 12)) / 4 +
                    (367 * (mm - 2 - 12 * ((mm - 14) / 12))) / 12 -
                    (3 * ((yy + 4900 + (mm - 14) / 12)) / 100) / 4 +
-                   dd - 693894l;
+                   dd - 693894;
         }
 
         uint16_t SerialFromYMD(int yy, int mm, int dd)
@@ -81,7 +81,7 @@ namespace dal {
         short yy, mm, dd;
         ExcelDateToYMD(ToExcel(dt), &yy, &mm, &dd);
         String_ ret_val("0000-00-00");
-        sprintf(&ret_val[0], "%4d-%0.2d-%0.2d", yy, mm, dd);
+        sprintf(&ret_val[0], "%4d-%02d-%02d", yy, mm, dd);
         return ret_val;
     }
 
