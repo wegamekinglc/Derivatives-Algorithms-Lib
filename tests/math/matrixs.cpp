@@ -52,7 +52,7 @@ TEST(MatrixTest, TestMatrixFirstLast) {
     ASSERT_EQ(3 * 4, m1.Last() - m1.First());
 }
 
-TEST(MatrixText, TestMatrixConstAccess) {
+TEST(MatrixTest, TestMatrixConstAccess) {
     matrix_t m1(2, 2);
     m1(1, 0) = 2.;
     const matrix_t m2(m1);
@@ -70,8 +70,59 @@ TEST(MatrixTest, TestMatrixConstRow) {
     m1(1, 0) = 2.;
     const matrix_t m2(m1);
 
-    const matrix_t::ConstRow_ row = m2.Row(1);
-    ASSERT_DOUBLE_EQ(row(0), 2.);
-    ASSERT_DOUBLE_EQ(row(1), 0.);
+    matrix_t::ConstRow_ row = m2.Row(1);
+    ASSERT_DOUBLE_EQ(row[0], 2.);
+    ASSERT_DOUBLE_EQ(row[1], 0.);
 }
 
+TEST(MatrixTest, TestMatrixRow) {
+    matrix_t m1(2, 2);
+    m1(1, 0) = 2.;
+
+    matrix_t::Row_ row = m1.Row(1);
+    ASSERT_DOUBLE_EQ(row[0], 2.);
+    ASSERT_DOUBLE_EQ(row[1], 0.);
+}
+
+TEST(MatrixTest, TestMatrixRowSize) {
+    matrix_t  m1(2, 3);
+    auto row = m1.Row(1);
+    ASSERT_EQ(m1.Cols(), row.size());
+}
+
+TEST(MatrixTest, TestMatrixRowFrontBack) {
+    matrix_t m1(2, 2);
+    m1(1, 0) = 2.;
+
+    matrix_t::ConstRow_ row = m1.Row(1);
+    ASSERT_DOUBLE_EQ(row.front(), 2.);
+    ASSERT_DOUBLE_EQ(row.back(), 0.);
+}
+
+TEST(MatrixTest, TestMatrixConstIteratorConstRow) {
+    matrix_t m1(2, 2);
+    m1(1, 0) = 2.;
+    const matrix_t m2(m1);
+
+    matrix_t::ConstRow_ row = m2.Row(1);
+    ASSERT_EQ(row.end() - row.begin(), 2);
+}
+
+TEST(MatrixTest, TestMatrixConstIteratorRow) {
+    matrix_t m1(2, 2);
+    m1(1, 0) = 2.;
+
+    const matrix_t::Row_ row = m1.Row(1);
+    ASSERT_EQ(row.end() - row.begin(), 2);
+}
+
+TEST(MatrixTest, TestMatrixIteratorRow) {
+    matrix_t m1(2, 2);
+    m1(1, 0) = 2.;
+
+    matrix_t::Row_ row = m1.Row(1);
+    *row.begin() = 0.5;
+    *(row.end() - 1) = 1.0;
+    ASSERT_DOUBLE_EQ(row[0], 0.5);
+    ASSERT_DOUBLE_EQ(row[1], 1.);
+}

@@ -56,7 +56,7 @@ namespace dal {
             const_iterator begin() const { return begin_; }
             const_iterator end() const { return end_; }
             int size() const { return static_cast<int>(end_ - begin_);}
-            const E_& operator()(int col) const { return *(begin_ + col);}
+            const E_& operator[](int col) const { return *(begin_ + col);}
             const E_& front() const { return *begin_;}
             const E_& back() const { return *(end_ - 1);}
         };
@@ -76,7 +76,7 @@ namespace dal {
             iterator end() { return ConstRow_::end_;}
             const_iterator end() const { return ConstRow_::end_;}
             E_& operator[](int col) { return *(ConstRow_::begin_ + col);}
-            const E_& operator()(int col) const { return *(ConstRow_::begin_ + col);}
+            const E_& operator[](int col) const { return *(ConstRow_::begin_ + col);}
         };
 
         Row_ Row(int i_row) { return Row_(hooks_[i_row], cols_);}
