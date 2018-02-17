@@ -71,12 +71,12 @@ namespace dal {
             Row_(I_ begin, int size): ConstRow_(begin, size) {}
 
             // have to double-implement begin/end, otherwise non-const implementations hide the inherited const
-            iterator begin() { return begin_;}
-            const_iterator begin() const { return begin_;}
+            iterator begin() { return ConstRow_::begin_;}
+            const_iterator begin() const { return ConstRow_::begin_;}
             iterator end() { return ConstRow_::end_;}
-            const_iterator end() const { return end_;}
-            E_& operator[](int col) { return *(begin_ + col);}
-            const E_& operator()(int col) const { return *(begin_ + col);}
+            const_iterator end() const { return ConstRow_::end_;}
+            E_& operator[](int col) { return *(ConstRow_::begin_ + col);}
+            const E_& operator()(int col) const { return *(ConstRow_::begin_ + col);}
         };
 
         Row_ Row(int i_row) { return Row_(hooks_[i_row], cols_);}
