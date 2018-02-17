@@ -66,6 +66,7 @@ namespace dal {
 
         struct Row_ : ConstRow_ {
             using iterator = I_;
+            using const_iterator = typename ConstRow_::const_iterator;
             Row_(I_ begin, I_ end): ConstRow_(begin, end) {}
             Row_(I_ begin, int size): ConstRow_(begin, size) {}
 

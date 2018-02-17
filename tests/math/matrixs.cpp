@@ -64,3 +64,14 @@ TEST(MatrixTest, TestMatrixAccess) {
     m1(1, 0) = 2.;
     ASSERT_DOUBLE_EQ(2., m1(1, 0));
 }
+
+TEST(MatrixTest, TestMatrixConstRow) {
+    matrix_t m1(2, 2);
+    m1(1, 0) = 2.;
+    const matrix_t m2(m1);
+
+    const matrix_t::ConstRow_ row = m2.Row(1);
+    ASSERT_DOUBLE_EQ(row(0), 2.);
+    ASSERT_DOUBLE_EQ(row(1), 0.);
+}
+
