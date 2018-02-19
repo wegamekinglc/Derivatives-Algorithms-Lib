@@ -81,6 +81,68 @@ namespace dal {
 
         Row_ Row(int i_row) { return Row_(hooks_[i_row], cols_);}
         Row_ operator[](int i_row) { return Row(i_row);}
+
+        // Iteration through columns is less efficient
+        class ConstCol_
+        {
+        public:
+            template<typename RI_> struct Iterator_    // column iterator in terms of row iterator
+            {
+                RI_ val_;
+                size_t stride_;
+                Iterator_(RI_ val, size_t stride) : val_(val), stride_(stride) {}
+                Iterator_& operator++() { val_ += stride_; return *this; }
+                Iterator_ operator++(int) { Iterator_ ret(*this); val_ += stride_; return ret; }
+                Iterator_& operator--() { val_ -= stride_; return *this; }
+                Iterator_ operator--(int) { Iterator_ ret(*this); val_ -= stride_; return ret; }
+                Iterator_ operator+(size_t inc) { Iterator_ ret(*this); ret.val_ += inc * stride_; return ret; }
+                typename RI_::reference operator*() { return *val_; }
+                bool operator==(const Iterator_& rhs) const {
+                    REQUIRE(stride_ == rhs.stride_, "lhs stride size should be same with rhs");
+                    return val_ == rhs.val_;
+                }
+                bool operator!=(const Iterator_& rhs) const { return !this->operator==(rhs); }
+                bool operator<(const Iterator_& rhs) const { return val_ < rhs.val_; }
+                typename RI_::difference_type operator-(const Iterator_& rhs) const {
+                    REQUIRE(stride_ == rhs.stride_, "lhs stride size should be same with rhs");
+                    REQUIRE((val_ - rhs.val_) % stride_ == 0, "lhs and rhs should be in same column");
+                    return (val_ - rhs.val_) / stride_; }
+                using iterator_category = typename std::vector<E_>::iterator::iterator_category;
+                using difference_type = typename std::vector<E_>::iterator::difference_type ;
+                using value_type = E_;
+                using reference = const E_&;
+                using pointer = const E_*;
+            };
+            typedef Iterator_<typename Vector_<E_>::iterator> iterator;
+        protected:
+            iterator begin_;    // non-const to support Column_, below
+            size_t size_;
+        public:
+            using value_type = E_;
+            using const_iterator = Iterator_<typename Vector_<E_>::const_iterator>;
+            ConstCol_(I_ begin, size_t size, size_t stride) : begin_(begin, stride), size_(size) {}
+
+            const_iterator begin() const { return const_iterator(begin_.val_, begin_.stride_); }
+            const_iterator end() const { return const_iterator(begin_.val_ + size_ * begin_.stride_, begin_.stride_); }
+            size_t size() const { return size_; }
+            const E_& operator[](int row) const { return *(begin_.val_ + row * begin_.stride_); }
+        };
+        ConstCol_ Col(int i_col) const { return ConstCol_(hooks_[0] + i_col, hooks_.size(), cols_); }
+
+        class Col_ : ConstCol_
+        {
+            using iterator = typename ConstCol_::iterator;
+        public:
+            using value_type = E_;
+            Col_(I_ begin, size_t size, size_t stride) : ConstCol_(begin, size, stride) {}
+
+            iterator begin() const { return ConstCol_::begin_; }
+            iterator end() const { return iterator(ConstCol_::begin_.val_ + ConstCol_::size_ * ConstCol_::begin_.stride_, ConstCol_::begin_.stride_); }
+            E_& operator[](int row) { return *(ConstCol_::begin_.val_ + row * ConstCol_::begin_.stride_); }
+
+            using ConstCol_::size;
+        };
+        Col_ Col(int i_col) { return Col_(hooks_[0] + i_col, hooks_.size(), cols_); }
     };
 
     template <class E_>
