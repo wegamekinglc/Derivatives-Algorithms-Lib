@@ -1,5 +1,3 @@
-@echo off
-
 set BUILD_TYPE=Release
 set DAL_DIR=%CD%
 set ADDRESS_MODEL=Win64
@@ -37,5 +35,3 @@ cd ..
 bin\test_suite.exe
 
 if %errorlevel% neq 0 exit /b 1
-
-@echo on
