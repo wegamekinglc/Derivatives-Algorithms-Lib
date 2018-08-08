@@ -112,7 +112,7 @@ namespace Dal {
         }
 #else
         // use gcc format (e.g. for integration with Emacs)
-    std::String format(const std::string& file, long line, const std::string& function, const std::string& message) {
+    std::string format(const std::string& file, long line, const std::string& function, const std::string& message) {
         std::ostringstream msg;
         msg << "\n" << file << ":" << line << ": ";
         if (function != "(unknown)")
