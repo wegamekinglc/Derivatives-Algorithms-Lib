@@ -9,7 +9,7 @@
 #include <vector>
 
 
-namespace dal {
+namespace Dal {
 /*
  * PRIVATE INHERITANCE from STL class vector
  * DON'T add any member variable to this class

@@ -6,7 +6,7 @@
 #include <dal/time/date.hpp>
 #include <dal/utilities/algorithms.hpp>
 
-namespace dal {
+namespace Dal {
 
     namespace {
         const uint16_t EXCEL_OFFSET = 25568;
@@ -47,7 +47,7 @@ namespace dal {
     Date_::Date_(int yyyy, int mm, int dd)
     :serial_(SerialFromYMD(yyyy, mm, dd)) {}
 
-    Date_ date::FromExcel(int serial) {
+    Date_ Date::FromExcel(int serial) {
         Date_ ret_val;
         if (serial > EXCEL_OFFSET && serial < EXCEL_OFFSET + (1 << 16))
             ret_val.serial_ = static_cast<uint16_t>(serial - EXCEL_OFFSET);
@@ -55,29 +55,29 @@ namespace dal {
         return ret_val;
     }
 
-    int date::ToExcel(const Date_ &dt) {
+    int Date::ToExcel(const Date_ &dt) {
         return dt.serial_ + EXCEL_OFFSET;
     }
 
-    short date::Year(const Date_ &dt) {
+    short Date::Year(const Date_ &dt) {
         short yy;
         ExcelDateToYMD(ToExcel(dt), &yy, nullptr, nullptr);
         return yy;
     }
 
-    short date::Month(const Date_ &dt) {
+    short Date::Month(const Date_ &dt) {
         short mm;
         ExcelDateToYMD(ToExcel(dt), nullptr, &mm, nullptr);
         return mm;
     }
 
-    short date::Day(const Date_ &dt) {
+    short Date::Day(const Date_ &dt) {
         short dd;
         ExcelDateToYMD(ToExcel(dt), nullptr, nullptr, &dd);
         return dd;
     }
 
-    String_ date::ToString(const Date_ &dt) {
+    String_ Date::ToString(const Date_ &dt) {
         short yy, mm, dd;
         ExcelDateToYMD(ToExcel(dt), &yy, &mm, &dd);
         String_ ret_val("0000-00-00");
@@ -85,24 +85,24 @@ namespace dal {
         return ret_val;
     }
 
-    short date::DayOfWeek(const Date_ &dt) {
+    short Date::DayOfWeek(const Date_ &dt) {
         static const int KNOWN_SUNDAY = 974;
         return static_cast<short>((ToExcel(dt) - KNOWN_SUNDAY) % 7);
     }
 
-    short date::DaysInMonth(int year, int month) {
+    short Date::DaysInMonth(int year, int month) {
         return month == 12
                ? static_cast<short>(31)
                : static_cast<short>(Date_(year, month + 1, 1) - Date_(year, month, 1));
     }
 
-    Date_ date::EndOfMonth(const Date_ &dt) {
+    Date_ Date::EndOfMonth(const Date_ &dt) {
         const auto yy = Year(dt);
         const auto mm = Month(dt);
         return mm == 12 ? Date_(yy + 1, 1, 1).AddDays(-1) : Date_(yy, mm + 1, 1).AddDays(-1);
     }
 
-    Date_ date::AddMonths(const Date_ &dt, int n_months, bool preserve_eom) {
+    Date_ Date::AddMonths(const Date_ &dt, int n_months, bool preserve_eom) {
         int yy = Year(dt);
         int mm = Month(dt);
         auto dd = Day(dt);
@@ -121,14 +121,14 @@ namespace dal {
     }
 
     int operator - (const Date_& lhs, const Date_& rhs) {
-        return date::ToExcel(lhs) - date::ToExcel(rhs);
+        return Date::ToExcel(lhs) - Date::ToExcel(rhs);
     }
 
-    Date_ date::Minimum() {
+    Date_ Date::Minimum() {
         return FromExcel(EXCEL_OFFSET + 1);
     }
 
-    Date_ date::Maximum() {
+    Date_ Date::Maximum() {
         return Minimum().AddDays(0xFFF0);
     }
 }

@@ -7,11 +7,11 @@
 #include <dal/math/vectors.hpp>
 #include <dal/string/strings.hpp>
 
-using dal::String_;
-using dal::Vector_;
-using base_t = std::basic_string<char, dal::ci_traits>;
+using Dal::String_;
+using Dal::Vector_;
+using base_t = std::basic_string<char, Dal::ci_traits>;
 
-using namespace dal::string;
+using namespace Dal::String;
 
 TEST(StringsTest, TestEmptyString) {
     String_ s;

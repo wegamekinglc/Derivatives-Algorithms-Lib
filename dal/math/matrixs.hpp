@@ -8,7 +8,7 @@
 #include <dal/math/vectors.hpp>
 
 
-namespace dal {
+namespace Dal {
     template<class E_>
     class Matrix_ {
         Vector_<E_> vals_;

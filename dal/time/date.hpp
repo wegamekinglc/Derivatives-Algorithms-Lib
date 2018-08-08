@@ -6,10 +6,10 @@
 
 #include <dal/string/strings.hpp>
 
-namespace dal {
+namespace Dal {
     class Date_;
 
-    namespace date {
+    namespace Date {
         short Year(const Date_ &dt);
 
         short Month(const Date_ &dt);
@@ -40,9 +40,9 @@ namespace dal {
     class Date_ {
         uint16_t serial_;
 
-        friend Date_ date::FromExcel(int);
+        friend Date_ Date::FromExcel(int);
 
-        friend int date::ToExcel(const Date_ &);
+        friend int Date::ToExcel(const Date_ &);
 
         friend bool operator==(const Date_ &lhs, const Date_ &rhs);
 
@@ -102,5 +102,5 @@ namespace dal {
 
     int operator - (const Date_& lhs, const Date_& rhs);
 
-    inline double NumericValueOf(const Date_& src) { return static_cast<double>(date::ToExcel(src));}
+    inline double NumericValueOf(const Date_& src) { return static_cast<double>(Date::ToExcel(src));}
 }

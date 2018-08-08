@@ -6,8 +6,8 @@
 #include <dal/platform/host.hpp>
 #include <dal/utilities/algorithms.hpp>
 
-namespace dal {
-    namespace host {
+namespace Dal {
+    namespace Host {
         void localTime(int* year, int* month, int* day, int* hour, int* minute, int* second) {
             time_t t = time(nullptr);
             struct tm now = {0, 0, 0, 0, 0, 0, 0, 0, 0};
@@ -23,5 +23,5 @@ namespace dal {
             ASSIGN(minute, now.tm_min);
             ASSIGN(second, now.tm_sec);
         }
-    } // namespace host
-} // namespace dal
+    } // namespace Host
+} // namespace Dal

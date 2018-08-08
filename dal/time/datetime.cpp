@@ -6,7 +6,7 @@
 #include <dal/time/datetime.hpp>
 #include <dal/utilities/algorithms.hpp>
 
-namespace dal {
+namespace Dal {
 
     namespace {
         void FracToHMS(double frac, int* h, int* m, int* s) {
@@ -18,21 +18,21 @@ namespace dal {
 
     DateTime_::DateTime_(const Date_ &date, double frac)
     :date_(date), frac_(frac) {
-        REQUIRE(frac_ < 1., "datetime fraction exceeds or equal to 1");
+        REQUIRE(frac_ < 1., "DateTime fraction exceeds or equal to 1");
     }
 
     DateTime_::DateTime_(const Date_ &date, int h, int m, int s)
     :date_(date) {
         const auto secs = 60 * (60 * h + m) + s;
-        REQUIRE(secs >= 0 && secs < 86400, "datetime fraction exceeds maximum seconds in one day");
+        REQUIRE(secs >= 0 && secs < 86400, "DateTime fraction exceeds maximum seconds in one day");
         frac_ = secs / 86400.;
     }
 
     DateTime_::DateTime_(long long msec) {
         const auto whole = msec / 86400000;
         frac_ = (msec - 86400000 * whole) / 86400000.;
-        REQUIRE(frac_ < 1., "datetime fraction exceeds maximum seconds in one day");
-        date_ = date::Minimum().AddDays(static_cast<int>(whole));
+        REQUIRE(frac_ < 1., "DateTime fraction exceeds maximum seconds in one day");
+        date_ = Date::Minimum().AddDays(static_cast<int>(whole));
     }
 
     double operator - (const DateTime_& lhs, const DateTime_& rhs) {
@@ -43,7 +43,7 @@ namespace dal {
         return lhs.Date() < rhs.Date() || (lhs.Date() == rhs.Date() && lhs.Frac() < rhs.Frac());
     }
 
-    namespace datetime {
+    namespace DateTime {
         int Hour(const DateTime_& dt) {
             int h;
             FracToHMS(dt.Frac(), &h, nullptr, nullptr);
@@ -65,11 +65,11 @@ namespace dal {
         }
 
         DateTime_ Minimum() {
-            return DateTime_(date::Minimum(), 0.);
+            return DateTime_(Date::Minimum(), 0.);
         }
 
         long long MSec(const DateTime_& dt) {
-            long long days = dt.Date() - date::Minimum();
+            long long days = dt.Date() - Date::Minimum();
             return 86400000 * days + static_cast<long long>(dt.Frac() * 86400000);
         }
     }

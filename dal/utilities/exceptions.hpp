@@ -8,7 +8,7 @@
 #include <dal/string/strings.hpp>
 #include <dal/math/vectors.hpp>
 
-namespace dal {
+namespace Dal {
 
     class Date_;
     class DateTime_;
@@ -58,14 +58,14 @@ namespace dal {
     }
 }
 
-#define THROW(msg) throw dal::Exception_(__FILE__, __LINE__, __func__, msg)
+#define THROW(msg) throw Dal::Exception_(__FILE__, __LINE__, __func__, msg)
 #define REQUIRE(cond, msg) if (cond); else THROW(msg)
 
-#define XXNOTICE(u, n, v) dal::exception::StackRegister_ __xsr##u(n, v)
+#define XXNOTICE(u, n, v) Dal::exception::StackRegister_ __xsr##u(n, v)
 #define XNOTICE(u, n, v) XXNOTICE(u, n, v)
 #define NOTICE2(n, v) XNOTICE(__COUNTER__, n, v)
 #define NOTICE(x) NOTICE2(#x, x)
 
-#define XXNOTE(u, m) dal::exception::StackRegister_ __xsr##u(m)
+#define XXNOTE(u, m) Dal::exception::StackRegister_ __xsr##u(m)
 #define XNOTE(u, m) XXNOTE(u, m)
 #define NOTE(msg) XNOTE(__COUNTER__, msg)

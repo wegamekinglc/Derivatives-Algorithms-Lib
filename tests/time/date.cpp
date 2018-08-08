@@ -6,9 +6,9 @@
 #include <dal/platform/strict.hpp>
 #include <dal/time/date.hpp>
 
-using dal::Date_;
-using namespace dal;
-using namespace dal::date;
+using Dal::Date_;
+using namespace Dal;
+using namespace Dal::Date;
 
 
 TEST(DateTest, TestNullDate) {

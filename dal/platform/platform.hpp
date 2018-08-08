@@ -26,7 +26,7 @@ using std::pair;
 
 template <class T_> using scoped_ptr = const std::unique_ptr<T_>;
 
-namespace dal {
+namespace Dal {
 
     template <class = double> class Vector_;
 
@@ -40,11 +40,11 @@ namespace dal {
     static const double INFINITY = 1e29;
     static const double PI = 3.1415926535897932;
 
-    template <class T_> inline bool IsZero(const T_& x) { return x < dal::EPSILON && -x < dal::EPSILON; }
+    template <class T_> inline bool IsZero(const T_& x) { return x < Dal::EPSILON && -x < Dal::EPSILON; }
 
-    template <class T_> inline bool IsPositive(const T_& x) { return x >= dal::EPSILON; }
+    template <class T_> inline bool IsPositive(const T_& x) { return x >= Dal::EPSILON; }
 
-    template <class T_> inline bool IsNegative(const T_& x) { return x <= -dal::EPSILON; }
+    template <class T_> inline bool IsNegative(const T_& x) { return x <= -Dal::EPSILON; }
 
     template <class T_> inline T_ Square(const T_& x) { return x * x; }
 
@@ -73,4 +73,4 @@ namespace dal {
         return Handle_<T_>(std::dynamic_pointer_cast<const T_>(src));
     };
 
-} // namespace dal
+} // namespace Dal

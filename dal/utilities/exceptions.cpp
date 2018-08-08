@@ -9,7 +9,7 @@
 #include <dal/time/datetime.hpp>
 
 
-namespace dal {
+namespace Dal {
     namespace exception {
         XStackInfo_::XStackInfo_(const char *name, const int &val)
                 : name_(name), value_(&val), type_(Type_::INT) {}
@@ -45,9 +45,9 @@ namespace dal {
                 case Type_::STR:
                     return name_ + EQUALS + reinterpret_cast<const String_ *>(value_)->c_str();
                 case Type_::DATE:
-                    return name_ + EQUALS + date::ToString(*reinterpret_cast<const Date_*>(value_)).c_str();
+                    return name_ + EQUALS + Date::ToString(*reinterpret_cast<const Date_*>(value_)).c_str();
                 case Type_::DATETIME:
-                    return name_ + EQUALS + datetime::ToString(*reinterpret_cast<const DateTime_*>(value_)).c_str();
+                    return name_ + EQUALS + DateTime::ToString(*reinterpret_cast<const DateTime_*>(value_)).c_str();
                 case Type_::VOID:
                     return std::string(name_);
                 default:
@@ -112,7 +112,7 @@ namespace dal {
         }
 #else
         // use gcc format (e.g. for integration with Emacs)
-    std::string format(const std::string& file, long line, const std::string& function, const std::string& message) {
+    std::String format(const std::String& file, long line, const std::String& function, const std::String& message) {
         std::ostringstream msg;
         msg << "\n" << file << ":" << line << ": ";
         if (function != "(unknown)")

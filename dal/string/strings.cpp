@@ -7,8 +7,8 @@
 #include <dal/math/vectors.hpp>
 #include <dal/string/strings.hpp>
 
-namespace dal {
-    namespace string {
+namespace Dal {
+    namespace String {
         Vector_<String_> Split(const String_& src, char sep, bool keep_empties) {
             Vector_<String_> ret_val;
             auto start = src.begin();
@@ -69,7 +69,7 @@ namespace dal {
             return ret_val;
         }
 
-        // compares compressed version of a string with already-compressed rhs
+        // compares compressed version of a String with already-compressed rhs
         bool Equivalent(const String_& lhs, const char* rhs) {
             struct Otiose_ : std::bitset<256> {
                 Otiose_() { set(' '); set('\t'); set('_'); }
@@ -106,5 +106,5 @@ namespace dal {
                     return String_(retval + '1');
             }
         }
-    } // namespace string
-} // namespace dal
+    } // namespace String
+} // namespace Dal

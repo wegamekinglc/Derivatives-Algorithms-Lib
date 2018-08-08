@@ -4,9 +4,9 @@
 
 #pragma once
 
-namespace dal {
-    namespace host {
+namespace Dal {
+    namespace Host {
         void
         localTime(int* year, int* month, int* day, int* hour = nullptr, int* minute = nullptr, int* second = nullptr);
     }
-} // namespace dal
+} // namespace Dal

@@ -18,7 +18,7 @@
 
 #define DEREFERENCE(p, v) ((p) ? *(p) : (v))
 
-namespace dal {
+namespace Dal {
 
     template <class T>
     using vector_of = Vector_<std::remove_reference_t<std::remove_const_t<T>>>;
@@ -128,4 +128,4 @@ namespace dal {
     typename C_::const_iterator UpperBound(const C_& src, const typename C_::value_type& x) {
         return std::upper_bound(src.begin(), src.end(), x);
     }
-} // namespace dal
+} // namespace Dal

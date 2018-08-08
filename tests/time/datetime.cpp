@@ -7,9 +7,9 @@
 #include <dal/time/datetime.hpp>
 #include <dal/utilities/exceptions.hpp>
 
-using dal::DateTime_;
-using namespace dal;
-using namespace dal::datetime;
+using Dal::DateTime_;
+using namespace Dal;
+using namespace Dal::DateTime;
 
 TEST(DateTimeTest, TestNullDateTime) {
     DateTime_ dt;
@@ -29,7 +29,7 @@ TEST(DateTimeTest, TestDateTimeWithMaximumFrac) {
 }
 
 TEST(DateTimeTest, TestDateTimeWithUnityFrac) {
-    ASSERT_THROW(DateTime_(Date_(2017, 1, 1), 24, 0, 0), dal::Exception_);
+    ASSERT_THROW(DateTime_(Date_(2017, 1, 1), 24, 0, 0), Dal::Exception_);
 }
 
 TEST(DateTimeTest, TestDateTimeWithHMS) {
@@ -109,7 +109,7 @@ TEST(DateTimeTest, TestDateTimeToString) {
 
 TEST(DateTimeTest, TestDateTimeMinimum) {
     DateTime_ src = Minimum();
-    DateTime_ exp(date::Minimum());
+    DateTime_ exp(Date::Minimum());
     ASSERT_EQ(src, exp);
 }
 

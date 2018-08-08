@@ -8,11 +8,11 @@
 #include <dal/time/date.hpp>
 #include <dal/time/datetime.hpp>
 
-using dal::Date_;
-using dal::DateTime_;
+using Dal::Date_;
+using Dal::DateTime_;
 
 TEST(ExceptionTest, TestRequire) {
-    ASSERT_THROW(REQUIRE(1 == 2, "Error"), dal::Exception_);
+    ASSERT_THROW(REQUIRE(1 == 2, "Error"), Dal::Exception_);
 }
 
 TEST(ExceptionTest, TestNotice) {
@@ -20,7 +20,7 @@ TEST(ExceptionTest, TestNotice) {
     NOTICE(x);
     try {
         REQUIRE(1 == 2, "1 is not equal to 2!");
-    } catch (dal::Exception_& e) {
+    } catch (Dal::Exception_& e) {
         std::string error_message = e.what();
         std::size_t pos = error_message.find("x = 2.0");
         ASSERT_TRUE(pos != std::string::npos);
@@ -32,7 +32,7 @@ TEST(ExceptionTest, TestNote) {
     NOTE(s);
     try {
         REQUIRE(1 == 2, "1 is not equal to 2!");
-    } catch (dal::Exception_& e) {
+    } catch (Dal::Exception_& e) {
         std::string error_message = e.what();
         std::size_t pos = error_message.find(s);
         ASSERT_TRUE(pos != std::string::npos);
@@ -44,7 +44,7 @@ TEST(ExceptionTest, TestNoticeWithDate) {
     NOTICE(src);
     try {
         REQUIRE(1 == 2, "1 is not equal to 2!");
-    } catch (dal::Exception_& e) {
+    } catch (Dal::Exception_& e) {
         std::string error_message = e.what();
         std::size_t pos = error_message.find("src = 2017-01-01");
         ASSERT_TRUE(pos != std::string::npos);
@@ -56,7 +56,7 @@ TEST(ExceptionTest, TestNoticeWithDateTime) {
     NOTICE(src);
     try {
         REQUIRE(1 == 2, "1 is not equal to 2!");
-    } catch (dal::Exception_& e) {
+    } catch (Dal::Exception_& e) {
         std::string error_message = e.what();
         std::size_t pos = error_message.find("src = 2017-01-01 14:15:16");
         ASSERT_TRUE(pos != std::string::npos);

@@ -6,7 +6,7 @@
 #include <dal/math/matrixs.hpp>
 #include <gtest/gtest.h>
 
-using matrix_t = dal::Matrix_<>;
+using matrix_t = Dal::Matrix_<>;
 
 TEST(MatrixTest, TestMatrixNullConstructor) {
     matrix_t m1;

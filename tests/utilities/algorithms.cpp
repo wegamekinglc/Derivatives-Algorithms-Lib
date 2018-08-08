@@ -8,13 +8,13 @@
 #include <functional>
 #include <gtest/gtest.h>
 
-using vector_t = dal::Vector_<>;
+using vector_t = Dal::Vector_<>;
 
 TEST(AlgorithmsTest, TestTransformWithUniaryOPerator) {
     vector_t s = {1, 2, 3};
     vector_t d(3);
 
-    dal::Transform(s, std::negate<>(), &d);
+    Dal::Transform(s, std::negate<>(), &d);
 
     for (int i = 0; i != d.size(); ++i) {
         ASSERT_DOUBLE_EQ(s[i], -d[i]);
@@ -25,7 +25,7 @@ TEST(AlgorithmsTest, TestTransformWithBinaryOperator) {
     vector_t s = {1, 2, 3};
     vector_t d(s.size());
 
-    dal::Transform(s, s, std::plus<>(), &d);
+    Dal::Transform(s, s, std::plus<>(), &d);
     for (int i = 0; i != d.size(); ++i) {
         ASSERT_DOUBLE_EQ(s[i] + s[i], d[i]);
     }
@@ -44,7 +44,7 @@ TEST(AlgorithmsTest, TestTransformInplaceWithOther) {
     vector_t s = {1, 2, 3};
     vector_t o = {1, 2, 3};
 
-    dal::Transform(&s, o, std::plus<>());
+    Dal::Transform(&s, o, std::plus<>());
     for (int i = 0; i != s.size(); ++i) {
         ASSERT_DOUBLE_EQ(2. * (i + 1), s[i]);
     }
@@ -54,7 +54,7 @@ TEST(AlgorithmsTest, TestFill) {
     vector_t s(3);
     double v = 1.;
 
-    dal::Fill(&s, v);
+    Dal::Fill(&s, v);
     for (int i = 0; i != s.size(); ++i) {
         ASSERT_DOUBLE_EQ(1., s[i]);
     }
@@ -62,7 +62,7 @@ TEST(AlgorithmsTest, TestFill) {
 
 TEST(AlgorithmsTest, TestApplyWithUniaryOPerator) {
     vector_t s1 = {1, 2, 3};
-    auto s2 = dal::Apply(std::negate<>(), s1);
+    auto s2 = Dal::Apply(std::negate<>(), s1);
     for (int i = 0; i != s2.size(); ++i) {
         ASSERT_DOUBLE_EQ(s2[i], -s1[i]);
     }
@@ -71,7 +71,7 @@ TEST(AlgorithmsTest, TestApplyWithUniaryOPerator) {
 TEST(AlgorithmsTest, TestApplyWithBinaryOPerator) {
     vector_t s1 = {1, 2, 3};
     vector_t s2 = {3, 2, 1};
-    auto s3= dal::Apply(std::plus<>(), s1, s2);
+    auto s3= Dal::Apply(std::plus<>(), s1, s2);
     for (int i = 0; i != s2.size(); ++i) {
         ASSERT_DOUBLE_EQ(s3[i], s1[i] + s2[i]);
     }
@@ -81,7 +81,7 @@ TEST(AlgorithmsTest, TestAppendGeneral) {
     std::vector<int> s1 = {1, 2, 3};
     std::vector<int> s2 = {4, 5, 6};
 
-    dal::Append(&s1, s2);
+    Dal::Append(&s1, s2);
     for (int i = 0; i != s1.size(); ++i) {
         ASSERT_EQ(s1[i], i + 1);
     }
@@ -90,7 +90,7 @@ TEST(AlgorithmsTest, TestAppendGeneral) {
 TEST(AlgorithmsTest, TestAppendVector) {
     vector_t s1 = {1., 2., 3.};
     vector_t s2 = {4., 5., 6.};
-    dal::Append(&s1, s2);
+    Dal::Append(&s1, s2);
     for (int i = 0; i != s1.size(); ++i) {
         ASSERT_DOUBLE_EQ(s1[i], i + 1.);
     }
@@ -100,7 +100,7 @@ TEST(AlgorithmsTest, TestCopyWithPreAllocatedVector) {
     vector_t s1 = {1, 2, 3};
     vector_t s2(s1.size());
 
-    dal::Copy(s1, &s2);
+    Dal::Copy(s1, &s2);
 
     for (auto i = 0; i != s1.size(); ++i) {
         ASSERT_DOUBLE_EQ(s1[i], s2[i]);
@@ -110,7 +110,7 @@ TEST(AlgorithmsTest, TestCopyWithPreAllocatedVector) {
 TEST(AlgorithmsTest, TestCopyWithReturnedValue) {
     vector_t s1 = {1, 2, 3};
 
-    auto s2 = dal::Copy(s1);
+    auto s2 = Dal::Copy(s1);
 
     for (auto i = 0; i != s1.size(); ++i) {
         ASSERT_DOUBLE_EQ(s1[i], s2[i]);
@@ -120,7 +120,7 @@ TEST(AlgorithmsTest, TestCopyWithReturnedValue) {
 TEST(AlgorithmsTest, TestConcatenate) {
     vector_t s1 = {1., 2., 3.};
     vector_t s2 = {4., 5., 6.};
-    auto s3 = dal::Concatenate(s1, s2);
+    auto s3 = Dal::Concatenate(s1, s2);
     for (int i = 0; i != s1.size(); ++i) {
         ASSERT_DOUBLE_EQ(s1[i], i + 1.);
     }
@@ -128,7 +128,7 @@ TEST(AlgorithmsTest, TestConcatenate) {
 
 TEST(AlgorithmsTest, TestFilter) {
     vector_t s1 = {-1., 1., -2., 2., -3., 3.};
-    auto s2 = dal::Filter(s1, std::bind(std::greater<>(), std::placeholders::_1, 0.));
+    auto s2 = Dal::Filter(s1, std::bind(std::greater<>(), std::placeholders::_1, 0.));
     ASSERT_EQ(s2.size(), 3);
     for (int i = 0; i != s2.size(); ++i) {
         ASSERT_DOUBLE_EQ(s2[i], i + 1.);
@@ -137,7 +137,7 @@ TEST(AlgorithmsTest, TestFilter) {
 
 TEST(AlgorithmsTest, TestUnique) {
     vector_t s1 = {3., 3., 1., 1., 2., 2.};
-    auto s2 = dal::Unique(s1, std::less<>());
+    auto s2 = Dal::Unique(s1, std::less<>());
     ASSERT_EQ(s2.size(), 3);
     for (int i = 0; i != s2.size(); ++i) {
         ASSERT_DOUBLE_EQ(s2[i], i + 1.);
@@ -146,7 +146,7 @@ TEST(AlgorithmsTest, TestUnique) {
 
 TEST(AlgorithmsTest, TestUniqueDefault) {
     vector_t s1 = {3., 3., 1., 1., 2., 2.};
-    auto s2 = dal::Unique(s1);
+    auto s2 = Dal::Unique(s1);
     ASSERT_EQ(s2.size(), 3);
     for (int i = 0; i != s2.size(); ++i) {
         ASSERT_DOUBLE_EQ(s2[i], i + 1.);
@@ -156,14 +156,14 @@ TEST(AlgorithmsTest, TestUniqueDefault) {
 TEST(AlgorithmsTest, TestLowerBound) {
     vector_t s1 = {1., 1., 2., 2., 3., 3.};
     double x = 2.;
-    auto pos = dal::LowerBound(s1, x);
+    auto pos = Dal::LowerBound(s1, x);
     ASSERT_EQ(pos - s1.begin(), 2);
 }
 
 TEST(AlgorithmsTest, TestUpperBound) {
     vector_t s1 = {1., 1., 2., 2., 3., 3.};
     double x = 2.;
-    auto pos = dal::UpperBound(s1, x);
+    auto pos = Dal::UpperBound(s1, x);
     ASSERT_EQ(pos - s1.begin(), 4);
 }
 

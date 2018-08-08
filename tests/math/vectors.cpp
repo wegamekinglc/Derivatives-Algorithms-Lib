@@ -6,7 +6,7 @@
 #include <dal/math/vectors.hpp>
 #include <gtest/gtest.h>
 
-using vector_t = dal::Vector_<>;
+using vector_t = Dal::Vector_<>;
 
 TEST(VectorTest, DefaultConstructionTest) {
     vector_t s;
@@ -194,7 +194,7 @@ TEST(VectorTest, VectorJoinContiner) {
     vector_t s1 = {1., 2., 3.};
     vector_t s2 = {4., 5., 6.};
 
-    auto s3 = dal::vector::Join(s1, s2);
+    auto s3 = Dal::vector::Join(s1, s2);
     for (auto i = 0; i != 6; ++i) {
         ASSERT_DOUBLE_EQ(s3[i], i + 1.);
     }
@@ -202,7 +202,7 @@ TEST(VectorTest, VectorJoinContiner) {
 
 TEST(VectorTest, VectorUpTo) {
     int n = 6;
-    auto s = dal::vector::UpTo(n);
+    auto s = Dal::vector::UpTo(n);
 
     for (auto i = 0; i != n; ++i) {
         ASSERT_EQ(s[i], i);

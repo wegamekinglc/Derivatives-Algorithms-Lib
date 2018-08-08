@@ -6,7 +6,7 @@
 #include <dal/math/vectors.hpp>
 
 
-namespace dal {
+namespace Dal {
     namespace vector {
         Vector_<int> UpTo(int n) {
             Vector_<int> ret_val(static_cast<size_t>(n));
@@ -15,4 +15,4 @@ namespace dal {
             return ret_val;
         }
     } // namespace vector
-} // namespace dal
+} // namespace Dal

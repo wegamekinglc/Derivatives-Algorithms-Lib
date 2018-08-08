@@ -6,6 +6,7 @@
 
 #include <string>
 #include <numeric>
+#include <iostream>
 #include <dal/platform/strict.hpp>
 
 namespace {
@@ -17,7 +18,7 @@ namespace {
         72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 97, 98, 99, 100, 101};
 } // namespace
 
-namespace dal {
+namespace Dal {
 
     template <class E_> class Vector_;
 
@@ -62,6 +63,7 @@ namespace dal {
         template <class I_> String_(I_ begin, I_ end) : base_t(begin, end) {}
         explicit String_(const std::string& src) : base_t(*reinterpret_cast<const String_*>(&src)) {}
         void Swap(String_* other) { swap(*other); }
+        friend std::ostream& operator<<(std::ostream& os, const String_& src);  
     };
 
     inline bool operator==(const String_& lhs, const String_& rhs) {
@@ -85,7 +87,12 @@ namespace dal {
         return lhs == static_cast<const std::basic_string<char, ci_traits>&>(rhs);
     }
 
-    namespace string {
+    inline std::ostream& operator<<(std::ostream& os, const String_& src) {
+        os << src.c_str();
+        return os;
+    }
+
+    namespace String {
         Vector_<String_> Split(const String_& src, char sep, bool keep_empties);
 
         bool IsNumber(const String_& src);
@@ -117,6 +124,6 @@ namespace dal {
         {
             return std::accumulate(vals.begin(), vals.end(), String_(), Joiner_(sep, skip_empty));
         }
-    } // namespace string
+    } // namespace String
 
-} // namespace dal
+} // namespace Dal

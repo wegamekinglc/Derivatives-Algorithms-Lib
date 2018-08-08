@@ -2,14 +2,14 @@
 // Created by Cheng Li on 2018/2/4.
 //
 
-// compact datetime -- stores dates as in class Date_, plus times with ~1 second resolution
+// compact DateTime -- stores dates as in class Date_, plus times with ~1 second resolution
 
 #pragma once
 
 #include <dal/math/vectors.hpp>
 #include <dal/time/date.hpp>
 
-namespace dal {
+namespace Dal {
 
     class DateTime_ {
         Date_ date_;
@@ -32,12 +32,12 @@ namespace dal {
     inline bool operator >= (const DateTime_& lhs, const DateTime_& rhs) { return !(lhs < rhs);}
     inline bool operator != (const DateTime_& lhs, const DateTime_& rhs) { return !(lhs == rhs);}
 
-    namespace datetime {
+    namespace DateTime {
         int Hour(const DateTime_& dt);
         int Minute(const DateTime_& dt);
         String_ TimeString(const DateTime_& dt);
         inline String_ ToString(const DateTime_& dt) {
-            return string::Accumulate<Vector_<String_>>({date::ToString(dt.Date()), TimeString(dt)}, String_(" "));
+            return String::Accumulate<Vector_<String_>>({Date::ToString(dt.Date()), TimeString(dt)}, String_(" "));
         }
         DateTime_ Minimum();
         long long MSec(const DateTime_& dt);
