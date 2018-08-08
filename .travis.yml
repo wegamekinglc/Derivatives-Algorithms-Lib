@@ -14,6 +14,7 @@ matrix:
             - clang-3.9
             - libc++-dev
             - libgtest-dev
+            - libboost-all-dev
             - make
             - cmake
       env:
@@ -27,6 +28,7 @@ matrix:
             - clang-4.0
             - libc++-dev
             - libgtest-dev
+            - libboost-all-dev
             - make
             - cmake
       env:
@@ -40,6 +42,7 @@ matrix:
             - clang-5.0
             - libc++-dev
             - libgtest-dev
+            - libboost-all-dev
             - make
             - cmake
       env:
@@ -52,6 +55,7 @@ matrix:
           packages:
             - g++-5
             - libgtest-dev
+            - libboost-all-dev
             - make
             - cmake
       env:
@@ -64,6 +68,7 @@ matrix:
           packages:
             - g++-6
             - libgtest-dev
+            - libboost-all-dev
             - make
             - cmake
       env:
@@ -76,6 +81,7 @@ matrix:
           packages:
             - g++-7
             - libgtest-dev
+            - libboost-all-dev
             - make
             - cmake
       env:
