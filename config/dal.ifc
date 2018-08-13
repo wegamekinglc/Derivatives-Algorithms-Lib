@@ -1,0 +1,35 @@
+@$(MACHINIST_TEMPLATE_DIR)
+<-.*、.if
+<-.*\.cpp;.*\.h;.*\.hpp!MG.*
+	/*IF
+	-IF
+public
+->MG_#_public.inc
+	ExcelSource
+->MG_#_public.h
+	DotNetHeader
+->MG_#_public.htm
+	HtmlHelp
+->MG_#_public.jl
+	JuliaWrapper
+object|settings|storable|record
+->MG_#_object.inc
+	C++Source
+->MG_#_object.h
+	ClassDef
+->MG\#_object.java
+	JavaRecord
+->MG_%_()%?{%_(version)}{_v%_(version)}_Write.inc
+	CWrite
+->MG_%_()%?{%_(version)}{_v%_(version)}_Read.inc
+	CRead
+enumeration
+->MG_#_enum.inc
+	C++Source
+->MG_#_enum.h
+	C++Header
+->MG\#.java
+	JavaClass
+dir
+->MG_#_Julia.jl
+	JuliaIncludes
