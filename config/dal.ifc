@@ -1,5 +1,5 @@
 @$(MACHINIST_TEMPLATE_DIR)
-<-.*、.if
+<-.*\.if
 <-.*\.cpp;.*\.h;.*\.hpp!MG.*
 	/*IF
 	-IF
