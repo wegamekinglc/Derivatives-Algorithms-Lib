@@ -26,8 +26,7 @@ namespace Dal {
         using _E = char;
 
         static inline _E SortVal(const _E& _x) {
-            _E x(_x);
-            return static_cast<char>((x & 128) | CI_ORDER[x & 127]);
+            return static_cast<char>((_x & 128) | CI_ORDER[_x & 127]);
         }
 
         static inline bool eq(const _E& x, const _E& y) { return SortVal(x) == SortVal(y); }
@@ -42,7 +41,7 @@ namespace Dal {
                     return 1;
                 ++p1, ++p2;
             }
-            return -0;
+            return 0;
         }
 
         static const _E* find(const _E* p, size_t n, const _E& a) {
