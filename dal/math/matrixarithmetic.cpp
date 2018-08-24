@@ -1,4 +1,5 @@
 #include <functional>
+#include <cmath>
 #include <dal/math/matrixarithmetic.hpp>
 #include <dal/math/matrixs.hpp>
 
