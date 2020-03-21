@@ -41,6 +41,25 @@ namespace Dal {
         CR_ operator()(int row, int col) const { return hooks_[row][col];}
         R_ operator()(int row, int col) { return hooks_[row][col];}
 
+        // move operators
+        void swap(Matrix_& rhs) noexcept {
+            std::swap(vals_, rhs.vals_);
+            std::swap(cols_, rhs.cols_);
+            std::swap(hooks_, rhs.hooks_);
+        }
+
+        Matrix_(Matrix_&& rhs) noexcept {
+            swap(rhs);
+        }
+
+        Matrix_& operator=(Matrix_&& rhs) noexcept {
+            if(this != rhs) {
+                Matrix_<E> temp(move(rhs));
+                swap(temp);
+            }
+            return *this
+        }
+
         // slices -- ephemeral containers of rows or columns
         class ConstRow_ {
         protected:
