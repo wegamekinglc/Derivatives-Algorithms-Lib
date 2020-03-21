@@ -54,10 +54,10 @@ namespace Dal {
 
         Matrix_& operator=(Matrix_&& rhs) noexcept {
             if(this != rhs) {
-                Matrix_<E> temp(move(rhs));
+                Matrix_<E_> temp(move(rhs));
                 swap(temp);
             }
-            return *this
+            return *this;
         }
 
         // slices -- ephemeral containers of rows or columns
