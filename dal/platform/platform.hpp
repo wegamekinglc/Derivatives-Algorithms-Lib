@@ -76,3 +76,5 @@ namespace Dal {
     };
 
 } // namespace Dal
+
+#define RETURN_STATIC(...) static __VA_ARGS__ RETVAL; return RETVAL
