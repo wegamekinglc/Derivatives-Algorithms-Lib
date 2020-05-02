@@ -38,7 +38,7 @@ namespace Dal {
         Cell_(const char* s): type_(Type_::STRING), s_(s) {}
 
         // unrecognized pointer type, hides ptr-to-bool conversion
-        template <class T_> Cell_(const T_* p) { static_assert(false); }
+        template <class T_> Cell_(const T_* p) { static_assert(false, "Do not allow silent ptr to bool conversion"); }
 
         void Clear() { type_ = Type_ ::EMPTY; }
         Cell_& operator=(bool b) { type_ = Type_::BOOLEAN; b_ = b; return *this; }
