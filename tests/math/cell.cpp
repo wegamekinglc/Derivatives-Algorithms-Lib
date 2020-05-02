@@ -55,3 +55,83 @@ TEST(CellTest, TestCellCharArray) {
     ASSERT_EQ(cell.type_, Type_::STRING);
     ASSERT_EQ(cell.s_, "hello");
 }
+
+TEST(CellTest, TestCellClear) {
+    auto cell = Cell_(true);
+    cell.Clear();
+    ASSERT_EQ(cell.type_, Type_::EMPTY);
+}
+
+TEST(CellTest, TestAssignBool) {
+    auto cell = Cell_();
+    cell = true;
+    ASSERT_TRUE(cell.b_);
+    ASSERT_EQ(cell.type_, Type_::BOOLEAN);
+}
+
+TEST(CellTest, TestAssignInt) {
+    auto cell = Cell_();
+    cell = 2;
+    ASSERT_DOUBLE_EQ(cell.d_, 2.);
+    ASSERT_EQ(cell.type_, Type_::NUMBER);
+}
+
+TEST(CellTest, TestAssignDouble) {
+    auto cell = Cell_();
+    cell = 2.5;
+    ASSERT_DOUBLE_EQ(cell.d_, 2.5);
+    ASSERT_EQ(cell.type_, Type_::NUMBER);
+}
+
+TEST(CellTest, TestAssignDate) {
+    auto cell = Cell_();
+    cell = Date_(2020, 5, 3);
+    ASSERT_EQ(cell.dt_.Date(), Date_(2020, 5, 3));
+    ASSERT_EQ(cell.type_, Type_::DATE);
+}
+
+TEST(CellTest, TestAssignDateTime) {
+    auto cell = Cell_();
+    Date_ dt(2020, 5, 3);
+    cell = DateTime_(dt, 12, 0, 0);
+    ASSERT_EQ(cell.dt_.Date(), Date_(2020, 5, 3));
+    ASSERT_DOUBLE_EQ(cell.dt_.Frac(), 0.5);
+    ASSERT_EQ(cell.type_, Type_::DATETIME);
+}
+
+TEST(CellTest, TestAssignString) {
+    auto cell = Cell_();
+    cell = String_("hello");
+    ASSERT_EQ(cell.type_, Type_::STRING);
+    ASSERT_EQ(cell.s_, "hello");
+}
+
+TEST(CellTest, TestAssignCharArray) {
+    auto cell = Cell_();
+    cell = "hello";
+    ASSERT_EQ(cell.type_, Type_::STRING);
+    ASSERT_EQ(cell.s_, "hello");
+}
+
+TEST(CellTest, TestAssignCell) {
+    auto cell = Cell_();
+    Cell_ rhs(true);
+
+    cell = rhs;
+    ASSERT_TRUE(cell.b_);
+    ASSERT_EQ(cell.type_, Type_::BOOLEAN);
+
+    rhs = Cell_(2.5);
+    cell = rhs;
+    ASSERT_DOUBLE_EQ(cell.d_, 2.5);
+    ASSERT_EQ(cell.type_, Type_::NUMBER);
+
+    rhs = Cell_(Date_(2020, 5, 3));
+    cell = rhs;
+    ASSERT_EQ(cell.dt_.Date(), Date_(2020, 5, 3));
+    ASSERT_EQ(cell.type_, Type_::DATE);
+
+    rhs = Cell_();
+    cell = rhs;
+    ASSERT_EQ(cell.type_, Type_::EMPTY);
+}
