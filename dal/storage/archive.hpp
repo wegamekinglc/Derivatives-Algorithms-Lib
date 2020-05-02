@@ -29,7 +29,7 @@ namespace Dal {
             virtual Store_& Child(const String_& name) = 0;
             Store_& Element(int index); // just converts to String_ name and gets a child
 
-            virtual void operator=(double  val) = 0;
+            virtual void operator=(double val) = 0;
             virtual void operator=(const String_& val) = 0;
             virtual void operator=(const Date_& val) = 0;
             virtual void operator=(const Vector_<>& val) = 0;
