@@ -8,7 +8,7 @@
 #include <dal/platform/strict.hpp>
 #include <memory>
 #include <utility>
-#include <boost/noncopyable.hpp>
+#include <dal/utilities/noncopyable.hpp>
 
 #ifdef INFINITY
 #undef INFINITY
@@ -22,7 +22,6 @@
 #undef MAX
 #endif
 
-using boost::noncopyable;
 using std::make_pair;
 using std::pair;
 
