@@ -20,8 +20,7 @@ namespace {
         case '0':
             return false;
         default:
-            auto msg = "Can't convert '" + Dal::String_(1, c) + "' to a boolean";
-            REQUIRE(false, Dal::String_(msg));
+            REQUIRE(false, Dal::String_("Can't convert '" + Dal::String_(1, c) + "' to a boolean"));
         }
     }
 
