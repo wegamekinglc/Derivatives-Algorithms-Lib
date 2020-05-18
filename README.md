@@ -1,6 +1,6 @@
 # DAL - *D*erivatives *A*lgorithms *L*ib
 
-[![Build Status](https://travis-ci.org/wegamekinglc/dal.svg?branch=master)](https://travis-ci.org/wegamekinglc/dal)
+[![Build Status](https://travis-ci.org/wegamekinglc/dal.svg)](https://travis-ci.org/wegamekinglc/dal)
 
 ## Introduction
 
