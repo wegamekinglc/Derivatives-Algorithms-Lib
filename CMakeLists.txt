@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.0)
+cmake_minimum_required(VERSION 3.12)
 
 project(dal VERSION 1.0.0)
 
@@ -34,7 +34,7 @@ else()
     set(CMAKE_CXX_STANDARD 14)
 endif()
 
-find_package(Boost)
+find_package(Boost REQUIRED)
 if (Boost_FOUND)
   include_directories(${Boost_INCLUDE_DIRS})
 endif (Boost_FOUND)
