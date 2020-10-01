@@ -6,7 +6,9 @@ macro(get_dal_library_name DAL_OUTPUT_NAME)
 
         # - toolset
         # ...taken from FindBoost.cmake
-        if (NOT CMAKE_CXX_COMPILER_VERSION VERSION_LESS 19.10)
+        if (NOT CMAKE_CXX_COMPILER_VERSION VERSION_LESS 19.20)
+            set(DAL_LIB_TOOLSET "-vc142")
+        elseif (NOT CMAKE_CXX_COMPILER_VERSION VERSION_LESS 19.10)
             set(DAL_LIB_TOOLSET "-vc141")
         elseif (NOT CMAKE_CXX_COMPILER_VERSION VERSION_LESS 19)
             set(DAL_LIB_TOOLSET "-vc140")
