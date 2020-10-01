@@ -30,6 +30,18 @@ TEST(MatrixTest, TestMatrixCopyConstructor) {
     ASSERT_EQ(m2.Cols(), 4);
 }
 
+TEST(MatrixTest, TestMatrixMoveConstructor) {
+    auto m2(matrix_t(3, 4));
+    ASSERT_EQ(m2.Rows(), 3);
+    ASSERT_EQ(m2.Cols(), 4);
+}
+
+TEST(MatrixTest, TestMatrixCopyMoveConstructor) {
+    auto m2 = matrix_t(3, 4);
+    ASSERT_EQ(m2.Rows(), 3);
+    ASSERT_EQ(m2.Cols(), 4);
+}
+
 TEST(MatrixTest, TestMatrixEmpty) {
     matrix_t m1;
     ASSERT_TRUE(m1.Empty());

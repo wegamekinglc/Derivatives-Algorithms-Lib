@@ -62,7 +62,7 @@ namespace Dal {
         template <class I_> String_(I_ begin, I_ end) : base_t(begin, end) {}
         explicit String_(const std::string& src) : base_t(*reinterpret_cast<const String_*>(&src)) {}
         void Swap(String_* other) { swap(*other); }
-        friend std::ostream& operator<<(std::ostream& os, const String_& src);  
+        friend std::ostream& operator<<(std::ostream& os, const String_& src);
     };
 
     inline bool operator==(const String_& lhs, const String_& rhs) {

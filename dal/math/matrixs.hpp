@@ -19,7 +19,7 @@ namespace Dal {
         using CR_ = typename Vector_<E_>::const_reference;
         Vector_<I_> hooks_;
 
-        void SetHook(int from=0);
+        void SetHook(size_t from=0);
 
     public:
         virtual ~Matrix_() = default;
@@ -40,6 +40,25 @@ namespace Dal {
 
         CR_ operator()(int row, int col) const { return hooks_[row][col];}
         R_ operator()(int row, int col) { return hooks_[row][col];}
+
+        // move operators
+        void swap(Matrix_& rhs) noexcept {
+            std::swap(vals_, rhs.vals_);
+            std::swap(cols_, rhs.cols_);
+            std::swap(hooks_, rhs.hooks_);
+        }
+
+        Matrix_(Matrix_&& rhs) noexcept {
+            swap(rhs);
+        }
+
+        Matrix_& operator=(Matrix_&& rhs) noexcept {
+            if(this != rhs) {
+                Matrix_<E_> temp(move(rhs));
+                swap(temp);
+            }
+            return *this;
+        }
 
         // slices -- ephemeral containers of rows or columns
         class ConstRow_ {
@@ -113,7 +132,7 @@ namespace Dal {
                 using reference = const E_&;
                 using pointer = const E_*;
             };
-            typedef Iterator_<typename Vector_<E_>::iterator> iterator;
+            using iterator = Iterator_<typename Vector_<E_>::iterator>;
         protected:
             iterator begin_;    // non-const to support Column_, below
             size_t size_;
@@ -146,7 +165,7 @@ namespace Dal {
     };
 
     template <class E_>
-    void Matrix_<E_>::SetHook(int from) {
+    void Matrix_<E_>::SetHook(size_t from) {
         for(auto ii = from; ii < hooks_.size(); ++ii)
             hooks_[ii] = vals_.begin() + ii * cols_;
     }
