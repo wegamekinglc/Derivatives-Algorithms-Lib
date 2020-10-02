@@ -10,6 +10,7 @@ matrix:
         apt:
           packages:
             - clang
+            - build-essential
             - libc++-dev
             - libgtest-dev
             - libboost-all-dev
@@ -22,6 +23,7 @@ matrix:
         apt:
           packages:
             - g++
+            - build-essential
             - libgtest-dev
             - libboost-all-dev
             - make
