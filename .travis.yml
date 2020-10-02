@@ -18,7 +18,11 @@ install:
   - mkdir gtest
   - cp -r /usr/src/gtest/* gtest/
   - cd gtest
-  - cmake CMakeLists.txt;
+  - if [[ "$CXX" == *"clang++"* ]]; then
+      cmake CMakeLists.txt -DCMAKE_CXX_FLAGS="$CXX_FLAGS -stdlib=libc++ -DGTEST_USE_OWN_TR1_TUPLE=1";
+    else
+      cmake CMakeLists.txt;
+    fi
   - make
   - sudo cp *.* /usr/lib/
   - cd $CWD
