@@ -73,7 +73,7 @@ namespace Dal {
 
         template <typename T_>
         const T_* Find(const Environment_* env) {
-            auto func = [](const Entry_& e) { return dynamic_cast<const T*>(&e);};
+            auto func = [](const Entry_& e) { return dynamic_cast<const T_*>(&e);};
             return Find<decltype(func)>(env, func);
         }
 
