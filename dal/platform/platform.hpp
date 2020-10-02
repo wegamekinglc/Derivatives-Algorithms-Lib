@@ -77,3 +77,4 @@ namespace Dal {
 } // namespace Dal
 
 #define RETURN_STATIC(...) static __VA_ARGS__ RETVAL; return RETVAL
+#define DYN_PTR(n, t, s) t* n = dynamic_cast<t*>(s)
