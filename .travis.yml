@@ -1,7 +1,7 @@
 language: cpp
 # command to install dependencies
 sudo: enabled
-dist: trusty
+dist: xenial
 group: travis_lts
 matrix:
   include:
