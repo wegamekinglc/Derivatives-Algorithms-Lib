@@ -11,6 +11,7 @@ matrix:
           packages:
             - clang
             - build-essential
+            - libstdc++-devel
             - libc++-dev
             - libgtest-dev
             - libboost-all-dev
