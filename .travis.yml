@@ -10,9 +10,8 @@ matrix:
         apt:
           packages:
             - clang
+            - g++
             - build-essential
-            - libstdc++
-            - libc++-dev
             - libgtest-dev
             - libboost-all-dev
             - make
