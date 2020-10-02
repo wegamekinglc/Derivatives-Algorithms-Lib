@@ -15,7 +15,6 @@ addons:
       - cmake
 install:
   - export CWD=$PWD
-  - cd /usr/src/gtest
   - mkdir gtest
   - cp -r /usr/src/gtest/* gtest/
   - cd gtest
