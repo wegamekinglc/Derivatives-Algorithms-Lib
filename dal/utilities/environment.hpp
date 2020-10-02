@@ -55,7 +55,7 @@ namespace Dal {
             Vector_<const T_*> ret_val;
             Iterate(env,
                     [&](const Handle_<Entry_>& h)
-                    {if(DYN_PTR(t, const T, h.get())) ret_val.push_back(t);}
+                    {if(DYN_PTR(t, const T_, h.get())) ret_val.push_back(t);}
                     );
             return ret_val;
         }
