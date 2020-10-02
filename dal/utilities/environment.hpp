@@ -94,7 +94,7 @@ namespace Dal {
                 const Entry_& operator*() const override { return **me_;}
             };
         public:
-            Base_(const Vector_<Handle_<Entry_>>& vals = Vector_<Handle_<Entry_>>())
+            explicit Base_(const Vector_<Handle_<Entry_>>& vals = Vector_<Handle_<Entry_>>())
                 :vals_(vals) {}
             MyIter_* XBegin() const override {
                 return new MyIter_(vals_, vals_.begin());
