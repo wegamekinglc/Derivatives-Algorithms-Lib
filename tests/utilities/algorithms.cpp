@@ -178,3 +178,13 @@ TEST(AlgorithmsTest, TestDeference) {
     ASSERT_DOUBLE_EQ(d2, 1.);
     delete [] p2;
 }
+
+TEST(AlgorithmsTest, TestNext) {
+    vector_t s1 = {1., 2., 3., 4., 5.};
+    auto pos = s1.begin();
+    auto next = Dal::Next(pos);
+    ASSERT_DOUBLE_EQ(s1[1], *next);
+
+    next = Dal::Next(next);
+    ASSERT_DOUBLE_EQ(s1[2], *next);
+}

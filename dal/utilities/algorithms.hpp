@@ -128,4 +128,10 @@ namespace Dal {
     typename C_::const_iterator UpperBound(const C_& src, const typename C_::value_type& x) {
         return std::upper_bound(src.begin(), src.end(), x);
     }
+
+    template <typename T_>
+    T_ Next(const T_& src) {
+        T_ ret_val(src);
+        return ++ret_val;
+    }
 } // namespace Dal
