@@ -53,8 +53,10 @@ namespace Dal {
         template <typename T_>
         Vector_<const T_*> Collect(const Environment_* env) {
             Vector_<const T_*> ret_val;
-            Iterate(env, [&](const Handle_<Entry_>& h)
-                    {if(DYN_PTR(t, const T*, h.get())) ret_val.push_back(t);});
+            Iterate(env,
+                    [&](const Handle_<Entry_>& h)
+                    {if(DYN_PTR(t, const T, h.get())) ret_val.push_back(t);}
+                    );
             return ret_val;
         }
 
