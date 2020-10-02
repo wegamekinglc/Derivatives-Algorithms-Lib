@@ -9,7 +9,6 @@
 #include <dal/math/vectors.hpp>
 #include <dal/utilities/algorithms.hpp>
 
-#define _ENV const Environment_* _env
 
 namespace Dal {
     namespace Environment {
@@ -33,7 +32,7 @@ namespace Dal {
         struct Iterator_ {
             Handle_<IterImp_> imp_;
             explicit Iterator_(IterImp_* orphan): imp_(orphan) {}
-            bool IsValid() const { return imp_.get() != nullptr;}
+            bool IsValid() const { return imp_.get() != nullptr && imp_.get()->Valid();}
             void operator++();
             const Entry_& operator*() const { return **imp_;}
         };
@@ -52,10 +51,13 @@ namespace Dal {
 
         template <typename T_>
         Vector_<const T_*> Collect(const Environment_* env) {
+            /*
+             * we do not own the returned pointers.
+            */
             Vector_<const T_*> ret_val;
             Iterate(env,
-                    [&](const Handle_<Entry_>& h)
-                    {if(DYN_PTR(t, const T_, h.get())) ret_val.push_back(t);}
+                    [&](const Entry_& h)
+                    {if(DYN_PTR(t, const T_, &h)) ret_val.push_back(t);}
                     );
             return ret_val;
         }
@@ -133,3 +135,9 @@ namespace Dal {
         };
     }
 }
+
+#define _ENV const Dal::Environment_* _env
+#define XX_ENV_ADD(u, e) Dal::Environment::XDecorated_ __xee##u(_env, e)
+#define X_ENV_ADD(u, e) XX_ENV_ADD(u, e)
+#define ENV_ADD(e) X_ENV_ADD(__COUNTER__, e)
+#define ENV_SEED(e) _ENV = nullptr; ENV_ADD(e)
