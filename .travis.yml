@@ -16,8 +16,11 @@ addons:
 install:
   - export CWD=$PWD
   - cd /usr/src/gtest
-  - sudo -i cmake CMakeLists.txt;
-  - sudo -i make
+  - mkdir gtest
+  - cp -r /usr/src/gtest/* gtest/
+  - cd gtest
+  - cmake CMakeLists.txt;
+  - make
   - sudo cp *.* /usr/lib/
   - cd $CWD
 script:
