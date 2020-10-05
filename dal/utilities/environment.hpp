@@ -43,7 +43,7 @@ namespace Dal {
 
     namespace  Environment {
         template <typename F_>
-        void Iterate(const Environment_* env, F_& func) {
+        void Iterate(const Environment_* env, F_ func) {
             if(env)
                 for(auto pe = env->Begin(); pe.IsValid(); ++pe)
                     func(*pe);
