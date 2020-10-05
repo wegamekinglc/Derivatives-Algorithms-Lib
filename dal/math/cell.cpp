@@ -10,7 +10,8 @@ namespace Dal {
         switch(src.type_) {
         case Cell::Type_::STRING:
             return src.s_;
+        default:
+            THROW("Cell must contain s string value");
         }
-        THROW("Cell must contain s string value");
     }
 }
