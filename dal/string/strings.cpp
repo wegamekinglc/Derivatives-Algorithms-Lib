@@ -85,7 +85,8 @@ namespace Dal {
                     return !*q && p == lhs.end();
                 if (!ci_traits::eq(*p, *q))
                     return false;
-                ++p, ++q;
+                ++p;
+                ++q;
 
             }
         }
