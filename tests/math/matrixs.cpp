@@ -178,7 +178,7 @@ TEST(MatrixTest, TestMatrixConstIteratorConstCol) {
     ASSERT_DOUBLE_EQ(*++iter, 0.);
 }
 
-TEST(MatrixTest, TestMatrixIteratorConstCol) {
+TEST(MatrixTest, TestMatrixIteratorCol) {
     matrix_t m1(3, 2);
     m1(1, 1) = 2.;
 
@@ -198,6 +198,9 @@ TEST(MatrixTest, TestMatrixConstColBeginEnd) {
     matrix_t::ConstCol_ col = m2.Col(1);
     auto iter = col.end();
     ASSERT_EQ(col.end() - col.begin(), m2.Rows());
+
+    iter = col.begin();
+
 }
 
 TEST(MatrixTest, TestMatrixColBeginEnd) {

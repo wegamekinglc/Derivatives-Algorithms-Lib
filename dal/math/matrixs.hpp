@@ -155,9 +155,9 @@ namespace Dal {
             using value_type = E_;
             Col_(I_ begin, size_t size, size_t stride) : ConstCol_(begin, size, stride) {}
 
-            iterator begin() const { return ConstCol_::begin(); }
-            iterator end() const { return ConstCol_::end(); }
-            E_& operator[](int row) { return *(ConstCol_::begin_.val_ + row * ConstCol_::begin_.stride_); }
+            iterator begin() const { return begin_; }
+            iterator end() const { return iterator(begin_.val_ + size_ * begin_.stride_, begin_.stride_);  }
+            E_& operator[](int row) { return *(begin_.val_ + row * begin_.stride_); }
 
             using ConstCol_::size;
         };
