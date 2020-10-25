@@ -49,6 +49,6 @@ namespace Dal {
     }
 
     void Archive::Register(const String_& type, const Reader_* d_type) {
-        TheBuilders().insert(std::make_pair(type, d_type))
+        TheBuilders().insert(std::make_pair(type, d_type));
     }
 }
