@@ -136,7 +136,10 @@ namespace Dal {
     }
 
     template<class T_>
-    T_ Previous(const T_& src) { T_ retval(src);  return --retval; }
+    T_ Previous(const T_& src) {
+        T_ ret_val(src);
+        return --ret_val;
+    }
 
     template<class C_>
     typename C_::const_iterator MaxElement(const C_& src) {

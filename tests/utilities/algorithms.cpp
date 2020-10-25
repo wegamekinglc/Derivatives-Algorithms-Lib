@@ -188,3 +188,25 @@ TEST(AlgorithmsTest, TestNext) {
     next = Dal::Next(next);
     ASSERT_DOUBLE_EQ(s1[2], *next);
 }
+
+TEST(AlgorithmsTest, TestPrevious) {
+    vector_t s1 = {1., 2., 3., 4., 5.};
+    auto pos = s1.end() - 1;
+    auto previous = Dal::Previous(pos);
+    ASSERT_DOUBLE_EQ(s1[3], *previous);
+
+    previous = Dal::Previous(previous);
+    ASSERT_DOUBLE_EQ(s1[2], *previous);
+}
+
+TEST(AlgorithmsTest, TestMaxElement) {
+    vector_t s1 = {1., 2., 3., 4., 5.};
+    auto pos = Dal::MaxElement(s1);
+    ASSERT_DOUBLE_EQ(s1[4], *pos);
+}
+
+TEST(AlgorithmsTest, TestMinElement) {
+    vector_t s1 = {1., 2., 3., 4., 5.};
+    auto pos = Dal::MinElement(s1);
+    ASSERT_DOUBLE_EQ(s1[0], *pos);
+}
