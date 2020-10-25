@@ -94,17 +94,17 @@ namespace Dal {
         String_ NextName(const String_& name) {
             if (name.empty())
                 return String_("0");
-            String_ retval(name);
-            switch (retval.back())
+            String_ ret_val(name);
+            switch (ret_val.back())
             {
                 case '0': case '1': case '2': case '3': case '4': case '5': case '6': case '7': case '8':
-                    ++retval.back();
-                    return retval;
+                    ++ret_val.back();
+                    return ret_val;
                 case '9':
-                    retval.pop_back();
-                    return String_(NextName(retval) + '0');
+                    ret_val.pop_back();
+                    return String_(NextName(ret_val) + '0');
                 default:
-                    return String_(retval + '1');
+                    return String_(ret_val + '1');
             }
         }
     } // namespace String
