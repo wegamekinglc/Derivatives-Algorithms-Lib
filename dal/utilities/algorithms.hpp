@@ -134,4 +134,17 @@ namespace Dal {
         T_ ret_val(src);
         return ++ret_val;
     }
+
+    template<class T_>
+    T_ Previous(const T_& src) { T_ retval(src);  return --retval; }
+
+    template<class C_>
+    typename C_::const_iterator MaxElement(const C_& src) {
+        return std::max_element(src.begin(), src.end());
+    }
+
+    template<class C_>
+    typename C_::const_iterator MinElement(const C_& src) {
+        return std::min_element(src.begin(), src.end());
+    }
 } // namespace Dal
