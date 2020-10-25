@@ -5,6 +5,7 @@
 #pragma once
 #include <map>
 #include <dal/platform/platform.hpp>
+#include <dal/platform/optionals.hpp>
 #include <dal/string/strings.hpp>
 #include <dal/storage/storable.hpp>
 #include <dal/math/matrixs.hpp>
@@ -91,5 +92,62 @@ namespace Dal {
             virtual Storable_* Build() const = 0;
             virtual Storable_* Build(const View_& view, Archive::Built_& share) const =0;
         };
+
+        void Register(const String_& type, const Reader_* d_type);
+
+        namespace Utils {
+            template <class T_>
+            inline void Set(Store_& dst, const String_& name, const T_& value) {
+                dst.Child(name) = value;
+            }
+
+            template <class T_>
+            inline void Set(Store_& dst, const String_& name, const Handle_<T_>& value) {
+                REQUIRE(value, "Can't serialize a null object");
+                SetStorable(dst, name, dynamic_cast<const T_&>(*value));
+            }
+
+            // helpers on top of raw Set()
+            template <class T_>
+            inline void SetOptional(Store_& dst, const String_& name, const T_& value) {
+                if(value != T_())
+                    Set(dst, name, value);
+            }
+
+            template <class T_>
+            inline void SetOptional(Store_& dst, const String_& name, const boost::optional<T_>& value) {
+                if(value)
+                    Set(dst, name, value.get());
+            }
+
+            template <class T_>
+            inline void SetMultiple(Store_& dst, const String_&name, const Vector_<T_>& values) {
+                for (int i = 0; i < values.size(); ++i)
+                    Set(dst, name + String::FromInt(i), values[i]);
+            }
+
+            template <class E_, class T_>
+            inline void Get(const View_& src, const String_& name, E_* value, const T_& translator) {
+                *value = translator(src.Child(name));
+            }
+
+            template <class E_, class T_>
+            inline void GetOptional(const View_& src, const String_& name, E_* value, const T_& translator) {
+                if(src.HasChild(name))
+                    Get(src, name, value, translator);
+            }
+
+            template <class E_, class T_>
+            inline void GetMultiple(const View_& src, const String_& name, Vector_<E_>* values, const T_& translator) {
+                int curr_index = values->size();
+                while(true) {
+                    String_ childName = String_(name + String::FromInt(curr_index));
+                    if (!src.HasChild(childName))
+                        break;
+                    values->push_back(translator(src.Child(childName)));
+                    ++curr_index;
+                }
+            }
+        }
     }
 }

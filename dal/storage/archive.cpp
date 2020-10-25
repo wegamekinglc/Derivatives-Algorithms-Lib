@@ -5,6 +5,7 @@
 #include <map>
 #include <dal/storage/archive.hpp>
 
+
 namespace {
     std::map<Dal::String_, const Dal::Archive::Reader_*>& TheBuilders() {
         RETURN_STATIC(std::map<Dal::String_, const Dal::Archive::Reader_*>);
@@ -45,5 +46,9 @@ namespace Dal {
 
     bool Archive::View_::HasElement(int index) const {
         return HasChild(String::FromInt(index));
+    }
+
+    void Archive::Register(const String_& type, const Reader_* d_type) {
+        TheBuilders().insert(std::make_pair(type, d_type))
     }
 }
