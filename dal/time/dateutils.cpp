@@ -25,7 +25,7 @@ namespace Dal {
     Date_ Date::FromString(const String_& src) {
         NOTE("Reading date from string");
         NOTICE(src);
-        std::smatch match;
+        std::match_results<String_::const_iterator> match;
         if (std::regex_match(src, match, US_FORMAT)) {
             const int mm = String::ToInt(String_(match.str(1)));
             const int dd = String::ToInt(String_(match.str(2)));

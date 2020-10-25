@@ -151,6 +151,8 @@ namespace Dal {
         class Col_ : ConstCol_
         {
             using iterator = typename ConstCol_::iterator;
+            using ConstCol_::begin_;
+            using ConstCol_::size_;
         public:
             using value_type = E_;
             Col_(I_ begin, size_t size, size_t stride) : ConstCol_(begin, size, stride) {}
