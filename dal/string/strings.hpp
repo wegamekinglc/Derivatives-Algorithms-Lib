@@ -9,16 +9,15 @@
 #include <iostream>
 #include <dal/platform/strict.hpp>
 
-namespace {
+
+namespace Dal {
+
     const unsigned char CI_ORDER[128] = {
         0,  1,  2,  3,  4,  5,  6,  7,  8,  9,  10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22,  23, 24, 25,
         26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48,  49, 50, 51,
         52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74,  75, 76, 77,
         78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 65, 66, 67, 68,  69, 70, 71,
         72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 97, 98, 99, 100, 101};
-} // namespace
-
-namespace Dal {
 
     template <class E_> class Vector_;
 
@@ -39,13 +38,14 @@ namespace Dal {
                     return -1;
                 if (SortVal(*p1) > SortVal(*p2))
                     return 1;
-                ++p1, ++p2;
+                ++p1;
+                ++p2;
             }
             return 0;
         }
 
         static const _E* find(const _E* p, size_t n, const _E& a) {
-            for (auto i = SortVal(a); n > 0 && SortVal(*p) != i; ++p, --n)
+            for (const auto i = SortVal(a); n > 0 && SortVal(*p) != i; ++p, --n)
                 ;
             return n > 0 ? p : nullptr;
         }
@@ -109,8 +109,7 @@ namespace Dal {
             bool skipEmpty_;
             explicit Joiner_(const String_& sep, bool skip_empty = true) : sep_(sep), skipEmpty_(skip_empty) {}
 
-            String_ operator()(const String_& so_far, const String_& more) const
-            {
+            String_ operator()(const String_& so_far, const String_& more) const {
                 if (so_far.empty())
                     return more;
                 if (more.empty() && skipEmpty_)
@@ -119,8 +118,7 @@ namespace Dal {
             }
         };
 
-        template<class C_> String_ Accumulate(const C_& vals, const String_& sep, bool skip_empty = true)
-        {
+        template<class C_> String_ Accumulate(const C_& vals, const String_& sep, bool skip_empty = true) {
             return std::accumulate(vals.begin(), vals.end(), String_(), Joiner_(sep, skip_empty));
         }
     } // namespace String
