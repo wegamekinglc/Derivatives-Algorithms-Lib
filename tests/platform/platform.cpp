@@ -26,7 +26,7 @@ TEST(PlatformTest, CubeTest) { ASSERT_DOUBLE_EQ(Dal::Cube(2.0), 8.0); }
 
 TEST(PlatformTest, MaxTest) { ASSERT_DOUBLE_EQ(Dal::Max(2.0, 0.), 2.0); }
 
-TEST(PlatformTest, MinTest) { ASSERT_DOUBLE_EQ(Dal::Min(2.0, Dal::INFINITY), 2.); }
+TEST(PlatformTest, MinTest) { ASSERT_DOUBLE_EQ(Dal::Min(2.0, 20.), 2.); }
 
 TEST(PlatformTest, HandleTest) {
     Dal::Handle_<double> s;
