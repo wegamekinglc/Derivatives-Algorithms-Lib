@@ -33,8 +33,8 @@ script:
   - bash ./build_linux.sh
 after_success:
   - if [[ "$CXX" == *"g++"* ]]; then
-      lcov --directory ./build/ --capture --output-file --rc lcov_branch_coverage=1 ./coverage.info
-      lcov --remove ./coverage.info '/usr/*' '*/tests/*' --output-file ./coverage.info
-      lcov --list ./coverage.info
+      lcov --directory ./build/ --capture --output-file --rc lcov_branch_coverage=1 ./coverage.info;
+      lcov --remove ./coverage.info '/usr/*' '*/tests/*' --output-file ./coverage.info;
+      lcov --list ./coverage.info;
       coveralls-lcov ./coverage.info
     fi
