@@ -37,4 +37,7 @@ after_success:
       lcov --remove ./coverage.info '/usr/*' '*/tests/*' --output-file ./coverage.info;
       lcov --list ./coverage.info;
       coveralls-lcov ./coverage.info;
+    else
+      echo "clang++ place_holder"
     fi
+  - echo "Job finished"
