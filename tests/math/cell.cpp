@@ -126,10 +126,20 @@ TEST(CellTest, TestAssignCell) {
     ASSERT_DOUBLE_EQ(cell.d_, 2.5);
     ASSERT_EQ(cell.type_, Type_::NUMBER);
 
+    rhs = Cell_("hello");
+    cell = rhs;
+    ASSERT_EQ(cell.s_, String_("hello"));
+    ASSERT_EQ(cell.type_, Type_::STRING);
+
     rhs = Cell_(Date_(2020, 5, 3));
     cell = rhs;
     ASSERT_EQ(cell.dt_.Date(), Date_(2020, 5, 3));
     ASSERT_EQ(cell.type_, Type_::DATE);
+
+    rhs = Cell_(DateTime_(Date_(2020, 5, 3), 0.25));
+    cell = rhs;
+    ASSERT_EQ(cell.dt_, DateTime_(Date_(2020, 5, 3), 6, 0, 0));
+    ASSERT_EQ(cell.type_, Type_::DATETIME);
 
     rhs = Cell_();
     cell = rhs;
