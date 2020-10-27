@@ -17,6 +17,7 @@ TEST(ExceptionTest, TestRequire) {
 
 TEST(ExceptionTest, TestNotice) {
     double x = 2.;
+    int y = 1;
     NOTICE(x);
     try {
         REQUIRE(1 == 2, "1 is not equal to 2!");
@@ -59,6 +60,42 @@ TEST(ExceptionTest, TestNoticeWithDateTime) {
     } catch (Dal::Exception_& e) {
         std::string error_message = e.what();
         std::size_t pos = error_message.find("src = 2017-01-01 14:15:16");
+        ASSERT_TRUE(pos != std::string::npos);
+    }
+}
+
+TEST(ExceptionTest, TestNoticeWithInt) {
+    const int src = 1;
+    NOTICE(src);
+    try {
+        REQUIRE(1 == 2, "1 is not equal to 2!");
+    } catch (Dal::Exception_& e) {
+        std::string error_message = e.what();
+        std::size_t pos = error_message.find("src = 1");
+        ASSERT_TRUE(pos != std::string::npos);
+    }
+}
+
+TEST(ExceptionTest, TestNoticeWithString) {
+    const Dal::String_ src("hello");
+    NOTICE(src);
+    try {
+        REQUIRE(1 == 2, "1 is not equal to 2!");
+    } catch (Dal::Exception_& e) {
+        std::string error_message = e.what();
+        std::size_t pos = error_message.find("src = hello");
+        ASSERT_TRUE(pos != std::string::npos);
+    }
+}
+
+TEST(ExceptionTest, TestNoticeWithCString) {
+    const char* src = "hello";
+    NOTICE(src);
+    try {
+        REQUIRE(1 == 2, "1 is not equal to 2!");
+    } catch (Dal::Exception_& e) {
+        std::string error_message = e.what();
+        std::size_t pos = error_message.find("src = hello");
         ASSERT_TRUE(pos != std::string::npos);
     }
 }
