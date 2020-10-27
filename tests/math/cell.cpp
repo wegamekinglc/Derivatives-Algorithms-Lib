@@ -12,6 +12,7 @@ using Dal::String_;
 using Dal::Date_;
 using Dal::DateTime_;
 using Dal::Cell::Type_;
+using Dal::Cell::IsEmpty;
 
 TEST(CellTest, TestCellEmpty) {
     auto cell = Cell_();
@@ -144,4 +145,15 @@ TEST(CellTest, TestAssignCell) {
     rhs = Cell_();
     cell = rhs;
     ASSERT_EQ(cell.type_, Type_::EMPTY);
+}
+
+TEST(CellTest, TestIsEmpty) {
+    Cell_ cell;
+    ASSERT_TRUE(IsEmpty(cell));
+
+    cell = Cell_("");
+    ASSERT_TRUE(IsEmpty(cell));
+
+    cell = Cell_("not empty");
+    ASSERT_FALSE(IsEmpty(cell));
 }
