@@ -78,3 +78,13 @@ TEST(EnvironmentTest, TestBase) {
     ASSERT_FALSE(me.IsValid());
 }
 
+
+TEST(EnvironmentTest, TestBaseIterDereference) {
+    Vector_<Handle_<Entry_>> records;
+    records.push_back(Handle_<Entry_>(new SampleEntry_(1)));
+
+    Base_ env(records);
+    const SampleEntry_& me = dynamic_cast<const SampleEntry_&>(*(env.Begin()));
+
+    ASSERT_EQ(1, me.value());
+}
