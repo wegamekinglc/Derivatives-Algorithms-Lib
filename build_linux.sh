@@ -14,3 +14,5 @@ make install
 
 cd ..
 bin/test_suite
+
+echo "Finished building of Derivatives Algorithms Library"
