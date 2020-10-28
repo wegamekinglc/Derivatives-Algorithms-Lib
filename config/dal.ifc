@@ -17,7 +17,7 @@ object|settings|storable|record
 	C++Source
 ->auto/MG_#_object.hpp
 	ClassDef
-->auto/MG\#_object.java
+->auto/java\#_object.java
 	JavaRecord
 ->auto/MG_%_()%?{%_(version)}{_v%_(version)}_Write.inc
 	CWrite
@@ -28,7 +28,7 @@ enumeration
 	C++Source
 ->auto/MG_#_enum.hpp
 	C++Header
-->auto/MG\#.java
+->auto/java\#.java
 	JavaClass
 dir
 ->auto/MG_#_Julia.jl

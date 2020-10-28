@@ -7,5 +7,5 @@ build/*
 bin/*
 lib/*
 include/*
-auto
+MG*
 coverage.info
