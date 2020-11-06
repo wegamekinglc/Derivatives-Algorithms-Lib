@@ -1,6 +1,6 @@
 get_dal_library_name(DAL_OUTPUT_NAME)
 
-file(GLOB_RECURSE DAL_FILES "*.hpp" "*.cpp")
+file(GLOB_RECURSE DAL_FILES "*.hpp" "*.cpp" "*.inc")
 
 if(WIN32)
     if (${BUILD_SHARED_LIBS})
