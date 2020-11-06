@@ -86,6 +86,22 @@ namespace Dal {
             virtual void Unexpected(const String_& child_name) const = 0;
         };
 
+        template <class T_ = Storable_>
+        struct Builder_ {
+            Built_& share_;
+            const char* name_;
+            const char* type_;
+            Builder_(Built_& share, const char* name, const char* type)
+            : share_(share), name_(name), type_(type) {}
+            Handle_<T_> operator()(const View_& src) const {
+                NOTICE2("Child name", name_);
+                Handle_<Storable_> object = Extract(src, share_);
+                NOTICE2("Expected type", type_);
+                Handle_<T_> ret_val = handle_cast<T_>(object);
+                return ret_val;
+            }
+        };
+
         class Reader_: noncopyable {
         public:
             virtual ~Reader_() = default;
