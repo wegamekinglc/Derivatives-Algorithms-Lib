@@ -150,4 +150,33 @@ namespace Dal {
     typename C_::const_iterator MinElement(const C_& src) {
         return std::min_element(src.begin(), src.end());
     }
+
+    template<class C_, class L_> bool IsMonotonic(const C_& c, const L_& pred) {
+        if (c.size() < 2)
+            return true;
+        auto pvs = c.begin();
+        for (auto nxt = Next(pvs); nxt != c.end(); pvs = nxt++) {
+            if (!pred(*pvs, *nxt))
+                return false;
+        }
+        return true;
+    }
+
+    template<class C_> typename vector_of<typename C_::key_type>::type Keys(const C_& src) {
+        using vector_t = typename vector_of<typename C_::key_type>::type;
+        using value_type = typename C_::value_type;
+        auto op = [](const value_type& kv){ return kv.first; };
+        vector_t ret_val(src.size());
+        Transform(src, op, &ret_val);
+        return ret_val;
+    }
+
+    template<class C_> typename vector_of<typename C_::mapped_type> MapValues(const C_& src) {
+        using vector_t = typename vector_of<typename C_::mapped_type>::type;
+        using value_type = typename C_::value_type;
+        auto op = [](const value_type& kv){ return kv.second; };
+        vector_t ret_val(src.size());
+        Transform(src, op, &ret_val);
+        return ret_val;
+    }
 } // namespace Dal
