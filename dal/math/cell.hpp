@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include <cassert>
+#include <dal/utilities/exceptions.hpp>
 #include <dal/string/strings.hpp>
 #include <dal/time/datetime.hpp>
 
@@ -62,7 +62,7 @@ namespace Dal {
             case Type_::DATETIME:
                 return operator=(rhs.dt_);
             default:
-                assert(rhs.type_ == Type_::EMPTY);
+                REQUIRE(rhs.type_ == Type_::EMPTY, "null cell only allowed to be <EMPTY>");
                 Clear();
             }
             return *this;
