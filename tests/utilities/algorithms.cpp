@@ -71,7 +71,7 @@ TEST(AlgorithmsTest, TestApplyWithUniaryOPerator) {
 TEST(AlgorithmsTest, TestApplyWithBinaryOPerator) {
     vector_t s1 = {1, 2, 3};
     vector_t s2 = {3, 2, 1};
-    auto s3= Dal::Apply(std::plus<>(), s1, s2);
+    auto s3 = Dal::Apply(std::plus<>(), s1, s2);
     for (int i = 0; i != s2.size(); ++i) {
         ASSERT_DOUBLE_EQ(s3[i], s1[i] + s2[i]);
     }

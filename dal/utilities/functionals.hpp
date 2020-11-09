@@ -7,5 +7,6 @@
 #include <functional>
 
 namespace Dal {
-    template<class A_, class R_> std::function<R_(A_)> AsFunctor(R_(*func)(A_)) { return std::function<R_(A_)>(func); }
+    template<class A_, class R_>
+    std::function<R_(A_)> AsFunctor(R_(*func)(A_)) { return std::function<R_(A_)>(func); }
 }
