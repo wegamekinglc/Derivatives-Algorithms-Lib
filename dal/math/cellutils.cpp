@@ -16,21 +16,22 @@ namespace Dal {
         static const int MAX_DATE = Date::ToExcel(Date::Maximum());
 
         auto ok = [&](const Cell_::Type_& t) { return allowed[static_cast<int>(t)]; };
-        switch (c.type_) // look at the type we have, see if there is an ok conversion available
-        {
-        case Cell_::Type_::NUMBER:
-            if (ok(Cell_::Type_::DATETIME) || (ok(Cell_::Type_::DATE) && c.d_ == static_cast<int>(c.d_)))
-                if (c.d_ >= MIN_DATE && c.d_ <= MAX_DATE)
+        switch (c.type_) {
+            // look at the type we have, see if there is an ok conversion available
+            case Cell_::Type_::NUMBER:
+                if (ok(Cell_::Type_::DATETIME) || (ok(Cell_::Type_::DATE) && c.d_ == static_cast<int>(c.d_)))
+                    if (c.d_ >= MIN_DATE && c.d_ <= MAX_DATE)
+                        return true;
+                break;
+            case Cell_::Type_::STRING:
+                if (ok(Cell_::Type_::DATETIME) && DateTime::IsDateTimeString(c.s_))
                     return true;
-            break;
-        case Cell_::Type_::STRING:
-            if (ok(Cell_::Type_::DATETIME) && DateTime::IsDateTimeString(c.s_))
-                return true;
-            if (ok(Cell_::Type_::DATE) && Date::IsDateString(c.s_))
-                return true;
-            break;
+                if (ok(Cell_::Type_::DATE) && Date::IsDateString(c.s_))
+                    return true;
+                break;
+            default:
+                return false;
         }
-        return false;
     }
 
     String_ Cell::CoerceToString(const Cell_& src) {
