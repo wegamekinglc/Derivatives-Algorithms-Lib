@@ -32,6 +32,7 @@ namespace Dal {
             default:
                 return false;
         }
+        return false;
     }
 
     String_ Cell::CoerceToString(const Cell_& src) {
