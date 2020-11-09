@@ -39,8 +39,8 @@ namespace Dal {
 
 }
 
-//namespace {
-//    #include <dal/auto/MG_Interp1Linear_v1_Read.inc>
-//    #include <dal/auto/MG_Interp1Linear_v1_Write.inc>
-//}
+namespace {
+    #include <dal/auto/MG_Interp1Linear_v1_Read.inc>
+    #include <dal/auto/MG_Interp1Linear_v1_Write.inc>
+}
 
