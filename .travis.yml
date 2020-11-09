@@ -26,11 +26,11 @@ matrix:
             - ubuntu-toolchain-r-test
           packages:
             - clang-10
-            - libgtest-dev
             - libboost-all-dev
-            - libstdc++-9-dev
-            - libc++-dev
-            - libc++abi-dev
+            - libgtest-dev
+            - libstdc++-10-dev
+            - libc++-10-dev
+            - libc++abi-10-dev
             - make
             - cmake
             - lcov
