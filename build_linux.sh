@@ -10,7 +10,7 @@ git submodule update
 
 (
 cd machinist2 || exit
-bash build_linux.sh
+bash -e ./build_linux.sh
 )
 
 mkdir build
