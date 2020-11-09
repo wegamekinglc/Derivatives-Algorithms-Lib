@@ -30,7 +30,7 @@ install:
   - sudo cp *.* /usr/lib/
   - cd $CWD
 script:
-  - bash ./build_linux.sh
+  - bash -e ./build_linux.sh
 after_success:
   - if [[ "$CXX" == *"clang++"* ]]; then
       echo "clang++ place_holder";

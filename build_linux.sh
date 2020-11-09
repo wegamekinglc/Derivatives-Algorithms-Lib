@@ -5,6 +5,14 @@ export DAL_DIR=$PWD
 export LD_LIBRARY_PATH=$PWD/lib:$LD_LIBRARY_PATH
 export BUILD_TYPE=Debug
 
+git submodule init
+git submodule update
+
+(
+cd machinist2 || exit
+bash -e ./build_linux.sh
+)
+
 mkdir build
 (
 cd build || exit
