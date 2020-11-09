@@ -15,7 +15,7 @@ namespace Dal {
     Interp1Linear_::Interp1Linear_(const String_& name, const Vector_<>& x, const Vector_<>& f)
     :Interp1_(name), x_(x), f_(f) {
         REQUIRE(x_.size() == f_.size(), "x_ size must be equal to f_ size");
-        REQUIRE(IsMonotonic(x_, std::less_equal()), "x_ array should be monotonic");
+        REQUIRE(IsMonotonic(x_, std::less_equal<>()), "x_ array should be monotonic");
     }
 
     Interp1Linear_::Interp1Linear_(const String_& name, const std::map<double, double>& f)
