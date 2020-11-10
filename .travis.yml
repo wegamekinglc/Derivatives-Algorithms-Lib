@@ -16,7 +16,6 @@ matrix:
             - libboost-all-dev
             - make
             - cmake
-            - lcov
       env:
         - MATRIX_EVAL="CC=gcc-9 && CXX=g++-9"
     - os: linux
@@ -33,12 +32,13 @@ matrix:
             - libc++abi-10-dev
             - make
             - cmake
-            - lcov
       env:
         - MATRIX_EVAL="CC=clang-10 && CXX=clang++-10"
 before_install:
   - eval "${MATRIX_EVAL}"
   - sudo ln -sf /usr/bin/gcov-9 /usr/bin/gcov
+  - wget http://mirrors.edge.kernel.org/ubuntu//pool/universe/l/lcov/lcov_1.14-2_all.deb
+  - sudo dpkg -i lcov_1.14-2_all.deb
 install:
   - gem install coveralls-lcov
   - export CWD=$PWD
