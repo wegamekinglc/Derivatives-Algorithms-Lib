@@ -1,11 +1,10 @@
 language: cpp
 # command to install dependencies
-sudo: required
+os: linux
 dist: bionic
-matrix:
+jobs:
   include:
-    - os: linux
-      addons:
+    - addons:
         apt:
           sources:
             - ubuntu-toolchain-r-test
@@ -18,8 +17,7 @@ matrix:
             - cmake
       env:
         - MATRIX_EVAL="CC=gcc-9 && CXX=g++-9"
-    - os: linux
-      addons:
+    - addons:
         apt:
           sources:
             - ubuntu-toolchain-r-test
