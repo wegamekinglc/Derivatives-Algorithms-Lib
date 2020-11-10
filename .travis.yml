@@ -36,8 +36,7 @@ before_install:
   - eval "${MATRIX_EVAL}"
   - sudo ln -sf /usr/bin/gcov-9 /usr/bin/gcov
   - wget http://mirrors.edge.kernel.org/ubuntu//pool/universe/l/lcov/lcov_1.14-2_all.deb
-  - sudo dpkg -i lcov_1.14-2_all.deb
-  - sudo apt-get install -f -y
+  - sudo dpkg -i lcov_1.14-2_all.deb || sudo apt-get install -f -y
 install:
   - gem install coveralls-lcov
   - export CWD=$PWD
