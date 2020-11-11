@@ -44,3 +44,11 @@ namespace {
     #include <dal/auto/MG_Interp1Linear_v1_Write.inc>
 }
 
+namespace Dal {
+    void Interp1Linear_::Write(Archive::Store_& dst) const {
+        Interp1Linear_v1::XWrite(dst, name_, x_, f_);
+    }
+}
+
+
+
