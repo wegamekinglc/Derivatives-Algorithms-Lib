@@ -15,17 +15,17 @@ namespace Dal {
         struct TypeCheck_ {
             types_t ret_;
 
-            TypeCheck_ Add(const Type_& bit) const {
+            [[nodiscard]] TypeCheck_ Add(const Type_& bit) const {
                 TypeCheck_ ret(*this);
                 ret.ret_.set(static_cast<int>(bit));
                 return ret;
             }
-            TypeCheck_ String() const { return Add(Type_::STRING); }
-            TypeCheck_ Number() const { return Add(Type_::NUMBER); }
-            TypeCheck_ Date() const { return Add(Type_::DATE); }
-            TypeCheck_ DateTime() const { return Add(Type_::DATETIME); }
-            TypeCheck_ Boolean() const { return Add(Type_::BOOLEAN); }
-            TypeCheck_ Empty() const { return Add(Type_::EMPTY); }
+            [[nodiscard]] TypeCheck_ String() const { return Add(Type_::STRING); }
+            [[nodiscard]] TypeCheck_ Number() const { return Add(Type_::NUMBER); }
+            [[nodiscard]] TypeCheck_ Date() const { return Add(Type_::DATE); }
+            [[nodiscard]] TypeCheck_ DateTime() const { return Add(Type_::DATETIME); }
+            [[nodiscard]] TypeCheck_ Boolean() const { return Add(Type_::BOOLEAN); }
+            [[nodiscard]] TypeCheck_ Empty() const { return Add(Type_::EMPTY); }
 
             bool operator()(const Cell_& c) const {
                 return ret_[static_cast<int>(c.type_)] // already the right type
