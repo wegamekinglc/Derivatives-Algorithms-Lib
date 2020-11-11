@@ -48,7 +48,7 @@ namespace Dal {
             return Date::ToString(Cell::ToDate(src));
         if (Cell::IsDateTime(src))
             return DateTime::ToString(Cell::ToDateTime(src));
-        assert(Cell::IsEmpty(src) || !"Unreachable -- bad cell type");
+        REQUIRE(Cell::IsEmpty(src), "Unreachable -- bad cell type");
         return String_();
     }
 
