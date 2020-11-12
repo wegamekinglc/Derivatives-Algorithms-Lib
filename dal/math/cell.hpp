@@ -61,10 +61,9 @@ namespace Dal {
                 return operator=(rhs.dt_.Date());
             case Type_::DATETIME:
                 return operator=(rhs.dt_);
-            default:
-                REQUIRE(rhs.type_ == Type_::EMPTY, "null cell only allowed to be <EMPTY>");
-                Clear();
             }
+            REQUIRE(rhs.type_ == Type_::EMPTY, "null cell only allowed to be <EMPTY>");
+            Clear();
             return *this;
         }
     };

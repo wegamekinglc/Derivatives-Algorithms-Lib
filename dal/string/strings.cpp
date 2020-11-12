@@ -48,15 +48,13 @@ namespace Dal {
         {
             bool IsFluff(char c)
             {
-                switch (c)
-                {
+                switch (c) {
                     case ' ':
                     case '\t':
                     case '_':
                         return true;
-                    default:
-                        return false;
                 }
+                return false;
             }
         }
 
@@ -103,9 +101,8 @@ namespace Dal {
                 case '9':
                     ret_val.pop_back();
                     return String_(NextName(ret_val) + '0');
-                default:
-                    return String_(ret_val + '1');
             }
+            return String_(ret_val + '1');
         }
     } // namespace String
 } // namespace Dal

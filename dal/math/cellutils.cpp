@@ -29,8 +29,6 @@ namespace Dal {
                 if (ok(Cell_::Type_::DATE) && Date::IsDateString(c.s_))
                     return true;
                 break;
-            default:
-                return false;
         }
         return false;
     }

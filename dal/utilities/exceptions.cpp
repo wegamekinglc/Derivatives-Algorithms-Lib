@@ -50,9 +50,8 @@ namespace Dal {
                     return name_ + EQUALS + DateTime::ToString(*reinterpret_cast<const DateTime_*>(value_)).c_str();
                 case Type_::VOID:
                     return std::string(name_);
-                default:
-                    return std::string();
             }
+            return std::string();
         }
 
         namespace {
