@@ -29,7 +29,7 @@ namespace Dal {
 
         bool IsNumber(const String_& src) {
             try {
-                ToDouble(src);
+                (void)ToDouble(src);
                 return true;
             } catch (...) {
                 return false;
@@ -38,7 +38,12 @@ namespace Dal {
 
         int ToInt(const String_& src) { return std::stoi(src.c_str()); }
 
-        double ToDouble(const String_& src) { return std::stod(src.c_str()); }
+        double ToDouble(const String_& src) {
+            size_t idx;
+            const auto val = std::stod(src.c_str(), &idx);
+            REQUIRE(idx == src.size(), "Not a valid number string");
+            return val;
+        }
 
         String_ FromDouble(double src) { return String_(std::to_string(src)); }
 
