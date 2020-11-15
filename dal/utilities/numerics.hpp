@@ -5,6 +5,7 @@
 #pragma once
 
 #include <dal/platform/platform.hpp>
+#include <numeric>
 
 namespace Dal {
 
