@@ -11,7 +11,7 @@
 </tr>
 <tr>
   <td>Coverage</td>
-  <td><img src="https://coveralls.io/repos/wegamekinglc/dal/badge.svg?branch=master&service=github" alt="coverage" /></td>
+  <td><img src="https://coveralls.io/repos/wegamekinglc/dal/badge.svg?branch=master" alt="coverage" /></td>
 </tr>
 </table>
 
