@@ -63,7 +63,7 @@ namespace Dal {
             virtual ~View_() = default;
 
             // query fundamental types
-            virtual double AsDouble() = 0;
+            virtual double AsDouble() const = 0;
             virtual int AsInt() const = 0;
             virtual bool AsBool() const = 0;
             virtual String_ AsString() const = 0;
