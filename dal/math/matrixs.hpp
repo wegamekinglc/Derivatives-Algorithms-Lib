@@ -164,6 +164,40 @@ namespace Dal {
             using ConstCol_::size;
         };
         Col_ Col(int i_col) { return Col_(hooks_[0] + i_col, hooks_.size(), cols_); }
+
+        // POSTPONED -- sub-matrix
+        void Swap(Matrix_<E_>* other) {
+            REQUIRE(other != nullptr, "can't swap with null");
+            vals_.Swap(&other->vals_);
+            hooks_.Swap(&other->hooks_);
+            std::swap(cols_, other->cols_);
+            REQUIRE(hooks_.front() == vals_.begin(), "hooks front should be same with vals begin");
+        }
+
+        void Fill(const E_& val) { vals_.Fill(val);}
+
+        template <class T_>
+        void operator*=(const T_& scale) { vals_ *= scale;}
+
+        void Resize(int rows, int cols) {
+            const auto old_rows = hooks_.size();
+            if (cols == cols_ && rows * old_rows > 0) {
+                vals_.Resize(rows * cols);
+                hooks_.Resize(rows);
+                SetHook(hooks_[0] == vals_.begin() ? old_rows : 0);
+            }
+            else {
+                const auto n_copy = Min(cols, cols_);
+                cols_ = cols;
+                Vector_<E_> new_vals(rows * cols);
+                for (int ir = 0; ir < rows && ir < old_rows; ++ir) {
+                    copy(hooks_[ir], hooks_[ir] + n_copy, new_vals.begin() + ir * cols);
+                }
+                vals_.Swap(&new_vals);
+                hooks_.Resize(rows);
+                SetHook();
+            }
+        }
     };
 
     template <class E_>

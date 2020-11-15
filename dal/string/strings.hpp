@@ -123,4 +123,6 @@ namespace Dal {
         }
     } // namespace String
 
+    inline String_ ToString(int i) { return String::FromInt(i); }
+
 } // namespace Dal

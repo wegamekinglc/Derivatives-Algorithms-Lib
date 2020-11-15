@@ -9,6 +9,7 @@
 #include <dal/string/strings.hpp>
 #include <dal/storage/storable.hpp>
 #include <dal/math/matrixs.hpp>
+#include <dal/math/cell.hpp>
 
 
 namespace Dal {
@@ -41,6 +42,7 @@ namespace Dal {
             virtual void operator=(const Vector_<DateTime_>& val) = 0;
             virtual void operator=(const Matrix_<>& val) = 0;
             virtual void operator=(const Matrix_<String_>& val) = 0;
+            virtual void operator=(const Matrix_<Cell_>& val) = 0;
             virtual void operator=(const Dictionary_& val) = 0;
         };
 
