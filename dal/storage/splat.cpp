@@ -14,6 +14,7 @@
 #include <dal/time/datetimeutils.hpp>
 #include <dal/utilities/dictionary.hpp>
 #include <dal/utilities/numerics.hpp>
+#include <dal/utilities/functionals.hpp>
 
 using std::map;
 using std::shared_ptr;
@@ -290,6 +291,70 @@ namespace Dal {
                 REQUIRE(ret_val == temp, "Can't get an integer from a non-integer entry");
                 return ret_val;
             }
+
+            double AsDouble() const override { return ExtractDouble(GetScalar()); }
+            bool AsBool() const override { return ExtractBool(GetScalar()); }
+            Date_ AsDate() const override { return ExtractDate(GetScalar()); }
+            String_ AsString() const override { return ExtractString(GetScalar()); }
+
+            pair<Matrix_<Cell_>::Row_::const_iterator, Matrix_<Cell_>::Row_::const_iterator> VectorRange() const {
+                REQUIRE(rowStop_ == rowStart_ + 1, "Can't get a vector value from a multi-line entry");
+                int colStop = colStart_ + 1;
+                while (colStop < data_.Cols() && !Cell::IsEmpty(data_(rowStart_, colStop)))
+                    ++colStop;
+                return make_pair(data_.Row(rowStart_).begin() + colStart_, data_.Row(rowStart_).begin() + colStop);
+            }
+
+            Vector_<> AsDoubleVector() const override { return TranslateRange(VectorRange(), ExtractDouble); }
+            Vector_<int> AsIntVector() const override { return TranslateRange(VectorRange(), ExtractInt); }
+            Vector_<bool> AsBoolVector() const override { return TranslateRange(VectorRange(), ExtractBool); }
+            Vector_<String_> AsStringVector() const override { return TranslateRange(VectorRange(), ExtractString); }
+            Vector_<Date_> AsDateVector() const override { return TranslateRange(VectorRange(), ExtractDate); }
+            Vector_<DateTime_> AsDateTimeVector() const override {
+                return TranslateRange(VectorRange(), ExtractDateTime);
+            }
+
+            int MatrixStop() const
+            {
+                for (int retval = colStart_ + 1;;)
+                {
+                    for (int ir = rowStart_;; ++ir)
+                    {
+                        if (ir == rowStop_)
+                            return retval;	// found an empty column
+                        else if (!Cell::IsEmpty(data_(ir, retval)))
+                            break;	// column is not empty
+                    }
+                    if (++retval == data_.Cols())
+                        return retval;
+                }
+            }
+            template <class F_>
+            auto TranslateMatrix(int col_stop, F_ translate) const {
+                Matrix_<VALUE_TYPE_OF(translate(data_(0, 0)))> ret_val;
+                ret_val.Resize(rowStop_ - rowStart_, col_stop - colStart_);
+                for (int ir = rowStart_; ir < rowStop_; ++ir)
+                    transform(data_.Row(ir).begin() + colStart_, data_.Row(ir).begin() + col_stop,
+                              ret_val.Row(ir - rowStart_).begin(), translate);
+                return ret_val;
+            }
+
+            Matrix_<> AsDoubleMatrix() const override { return TranslateMatrix(MatrixStop(), ExtractDouble); }
+
+            Matrix_<String_> AsStringMatrix() const override { return TranslateMatrix(MatrixStop(), ExtractString); }
+
+            Matrix_<Cell_> AsCellMatrix() const override { return TranslateMatrix(MatrixStop(), Identity_<Cell_>()); }
+
+            Dictionary_ AsDictionary() const override {
+                REQUIRE(MatrixStop() == colStart_ + 2,
+                        "Can't extract dictionary because entry does not have two columns");
+                Dictionary_ retval;
+                for (int ir = rowStart_; ir < rowStop_; ++ir)
+                    retval.Insert(ExtractString(data_(ir, colStart_)), data_(ir, colStart_ + 1));
+                return retval;
+            }
+
+            Handle_<Storable_>& Known(Archive::Built_& built) const override { return built.known_[Tag()]; }
         };
     }
 

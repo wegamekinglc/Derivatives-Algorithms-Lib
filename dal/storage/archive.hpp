@@ -77,6 +77,7 @@ namespace Dal {
             virtual Vector_<DateTime_> AsDateTimeVector() const = 0;
             virtual Matrix_<> AsDoubleMatrix() const = 0;
             virtual Matrix_<String_> AsStringMatrix() const = 0;
+            virtual Matrix_<Cell_> AsCellMatrix() const = 0;
 
             // query composite types
             virtual String_ Type() const = 0;
