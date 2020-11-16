@@ -52,8 +52,7 @@ namespace Dal {
     }
 
     template <class C_, class OP_>
-    auto Apply(OP_ op, const C_& src)
-        -> typename vector_of<decltype(op(*src.begin()))>::type {
+    auto Apply(OP_ op, const C_& src) {
         using vector_t = typename vector_of<decltype(op(*src.begin()))>::type;
         vector_t ret_val(src.size());
         Transform(src, op, &ret_val);
@@ -61,8 +60,7 @@ namespace Dal {
     }
 
     template <class C1_, class C2_, class OP_>
-    auto Apply(OP_ op, const C1_& src1, const C2_& src2)
-        -> typename vector_of<decltype(op(*src1.begin(), *src2.begin()))>::type {
+    auto Apply(OP_ op, const C1_& src1, const C2_& src2) {
         REQUIRE(src1.size() == src2.size(), "src1 and src2 type is compatible");
         using vector_t = typename vector_of<decltype(op(*src1.begin(), *src2.begin()))>::type;
         vector_t ret_val(src1.size());
@@ -167,7 +165,7 @@ namespace Dal {
     }
 
     template<class C_>
-    typename vector_of<typename C_::key_type>::type Keys(const C_& src) {
+    auto Keys(const C_& src) {
         using vector_t = typename vector_of<typename C_::key_type>::type;
         using value_type = typename C_::value_type;
         auto op = [](const value_type& kv){ return kv.first; };
@@ -177,7 +175,7 @@ namespace Dal {
     }
 
     template<class C_>
-    typename vector_of<typename C_::mapped_type>::type MapValues(const C_& src) {
+    auto MapValues(const C_& src) {
         using vector_t = typename vector_of<typename C_::mapped_type>::type;
         using value_type = typename C_::value_type;
         auto op = [](const value_type& kv){ return kv.second; };
