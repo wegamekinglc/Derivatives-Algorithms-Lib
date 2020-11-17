@@ -40,7 +40,7 @@ namespace Dal {
             auto func = [](val_type x, val_type y) {
               return x + y * y;
             };
-            auto l2 = ::sqrt(Accumulate(base, func));
+            auto l2 = std::sqrt(static_cast<val_type>(Accumulate(base, func)));
             auto func2 = [&l2](val_type  x){ return x / (l2 + 1e-9);};
             return Apply(func2, base);
         }
