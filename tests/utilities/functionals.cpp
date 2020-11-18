@@ -5,7 +5,7 @@
 #include <dal/platform/platform.hpp>
 #include <gtest/gtest.h>
 #include <dal/utilities/functionals.hpp>
-#include <dal/math/vectors.hpp>
+#include <vector>
 #include <type_traits>
 
 using namespace Dal;
