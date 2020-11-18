@@ -5,6 +5,7 @@
 #include <gtest/gtest.h>
 #include <dal/utilities/numerics.hpp>
 #include <dal/utilities/exceptions.hpp>
+#include <cmath>
 
 using namespace Dal;
 
@@ -76,7 +77,7 @@ TEST(NumericsTest, TestL1Normalized) {
 TEST(NumericsTest, TestL2Normalized) {
     Vector_<> s = {-1., 2., -3., 4., -5.};
     auto val = Vector::L2Normalized(s);
-    auto l1norm = std::sqrt(55);
+    auto l1norm = std::sqrt(55.);
     for(auto i = 0; i < s.size(); ++i)
         ASSERT_NEAR(val[i], s[i] / l1norm, 1e-9);
 }
