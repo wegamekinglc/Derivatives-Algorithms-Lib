@@ -10,12 +10,12 @@ namespace Dal {
 
     template <class P_>
     struct GetFirst_ {
-        typename P_::first_type operator()(const P_& pair) const { return pair.first; }
+        auto operator()(const P_& pair) const { return pair.first; }
     };
 
     template <class P_>
     struct GetSecond_ {
-        typename P_::second_type operator()(const P_& pair) const { return pair.second; }
+        auto operator()(const P_& pair) const { return pair.second; }
     };
     // note these functions do not actually "get" anything -- they return a functor to get
     template <class P_>
@@ -27,20 +27,24 @@ namespace Dal {
     template <class T_>
     struct LinearIncrement_ {
         T_ scale_;
-        LinearIncrement_(const T_& s) : scale_(s) {}
-        template <class U_> U_ operator()(const U_& pvs, const U_& incr) const { return pvs + scale_ * incr; }
+        explicit LinearIncrement_(const T_& s) : scale_(s) {}
+        template <class U_>
+        U_ operator()(const U_& pvs, const U_& incr) const { return pvs + scale_ * incr; }
     };
 
     template <class T_>
     LinearIncrement_<T_> LinearIncrement(const T_& scale) { return LinearIncrement_<T_>(scale); }
 
+    template <class T_>
     struct AverageIn_ {
-        double newFrac_;
-        AverageIn_(double n) : newFrac_(n) {}
-        double operator()(double pvs, double nw) { return pvs + newFrac_ * (nw - pvs); }
+        T_ newFrac_;
+        explicit AverageIn_(const T_& n) : newFrac_(n) {}
+        template <class U_>
+        U_ operator()(const U_& pvs, const U_& nw) { return pvs + newFrac_ * (nw - pvs); }
     };
 
-    inline AverageIn_ AverageIn(double new_frac) { return AverageIn_(new_frac); }
+    template <class T_>
+    inline AverageIn_<T_> AverageIn(const T_& new_frac) { return AverageIn_(new_frac); }
 
     template <class T_>
     const T_& Dereference(const T_* p, const T_& v) { return p ? *p : v; }
@@ -62,19 +66,19 @@ namespace Dal {
     template <class C_, class XK_ = C_>
     struct ArrayFunctor_ {
         XK_ val_;
-        ArrayFunctor_(const C_& val) : val_(val) {}
+        explicit ArrayFunctor_(const C_& val) : val_(val) {}
         const typename C_::value_type& operator()(int ii) const { return val_[ii]; }
     };
 
+    // returns an ephemeral class containing a reference to src
     template <class C_>
-    ArrayFunctor_<C_, const C_&> XLookupIn(const C_& src) // returns an ephemeral class containing a reference to src
-    {
+    ArrayFunctor_<C_, const C_&> XLookupIn(const C_& src) {
         return ArrayFunctor_<C_, const C_&>(src);
     }
 
+    // takes a copy of src
     template <class C_>
-    ArrayFunctor_<C_> LookupIn(const C_& src) // takes a copy of src
-    {
+    ArrayFunctor_<C_> LookupIn(const C_& src) {
         return ArrayFunctor_<C_, C_>(src);
     }
 
