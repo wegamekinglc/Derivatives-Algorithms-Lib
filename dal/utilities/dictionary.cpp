@@ -43,19 +43,19 @@ namespace Dal {
     }
 
     String_ Dictionary::ToString(const Dictionary_& d) {
-        String_ retval;
+        String_ ret_val;
         for (const auto& kv : d) {
-            if (!retval.empty())
-                retval += ';';
-            retval += kv.first;
-            retval += '=';
-            retval += Cell::CoerceToString(kv.second);
+            if (!ret_val.empty())
+                ret_val += ';';
+            ret_val += kv.first;
+            ret_val += '=';
+            ret_val += Cell::CoerceToString(kv.second);
         }
-        return retval;
+        return ret_val;
     }
     Dictionary_ Dictionary::FromString(const String_& s) {
         Vector_<String_> entries = String::Split(s, ';', false);
-        Dictionary_ retval;
+        Dictionary_ ret_val;
         for (const auto& kev : entries) {
             Vector_<String_> kv = String::Split(kev, '=', true);
             REQUIRE(kv.size() == 2, "Dictionary entry must have the form 'key=value'");
@@ -70,8 +70,8 @@ namespace Dal {
                 value = DateTime::FromString(vs);
             else if (!vs.empty())
                 value = vs;
-            retval.Insert(kv.front(), value);
+            ret_val.Insert(kv.front(), value);
         }
-        return retval;
+        return ret_val;
     }
 }

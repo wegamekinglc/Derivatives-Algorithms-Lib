@@ -5,7 +5,6 @@
 #include <gtest/gtest.h>
 #include <dal/platform/platform.hpp>
 #include <dal/math/interp.hpp>
-#include <dal/platform/strict.hpp>
 
 using Dal::Interp1Linear_;
 using Dal::Vector_;

@@ -15,8 +15,7 @@ namespace Dal {
         std::map<String_, Cell_> val_;
 
     public:
-        Dictionary_() {}
-
+        Dictionary_() = default;
         void Insert(const String_& key, const Cell_& val);
         bool Has(const String_& key) const;
         const Cell_& At(const String_& key, bool optional = false) const;
@@ -35,26 +34,24 @@ namespace Dal {
         }
 
         template <class F_>
-        auto Extract(const Dictionary_& src, const String_& key, F_ translate) -> decltype(translate(Cell_())) {
+        auto Extract(const Dictionary_& src, const String_& key, F_ translate)
+            -> decltype(translate(Cell_())) {
             return translate(src.At(key, false));
         }
 
         // deal with non-atomic types too
         Handle_<Storable_>
         FindHandleBase(const std::map<String_, Handle_<Storable_>>& handles, const String_& key, bool quiet = false);
+
         template <class T_>
         Handle_<T_> FindHandle(const std::map<String_, Handle_<Storable_>>& handles, const String_& key) {
-            auto retval = handle_cast<T_>(FindHandleBase(handles, key));
-            REQUIRE(retval, "Object with key '" + key + "' has invalid type");
-            return retval;
+            auto ret_val = handle_cast<T_>(FindHandleBase(handles, key));
+            REQUIRE(ret_val, "Object with key '" + key + "' has invalid type");
+            return ret_val;
         }
 
         // convert dict to/from string (';' separator, '=' between key and value)
         String_ ToString(const Dictionary_& dict);
         Dictionary_ FromString(const String_& src);
     }
-
-// sometimes we need to provide information about how to save a settings
-    template <class T_> class StoreAsDictionary_ {}; // no content
-
 }
