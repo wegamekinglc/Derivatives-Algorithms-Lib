@@ -166,6 +166,15 @@ TEST(DateTest, TestEndOfMonth) {
     ASSERT_EQ(EndOfMonth(src), Date_(2018, 2, 28));
 }
 
+TEST(DateTest, TestAddMonths) {
+    Date_ src(2017, 2, 28);
+    auto dst = AddMonths(src, 13);
+    ASSERT_EQ(dst, Date_(2018, 3, 28));
+
+    dst = AddMonths(src, -2);
+    ASSERT_EQ(dst, Date_(2016, 12, 28));
+}
+
 TEST(DateTest, TestAddMonthsWithoutEOM) {
     Date_ src(2017, 2, 28);
     auto dst = AddMonths(src, 1);
