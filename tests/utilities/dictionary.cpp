@@ -44,9 +44,6 @@ TEST(DictionaryTest, TestDictionaryFindHandle) {
 
     handles.insert(std::make_pair(name, Handle_<Storable_>(new Interp1Linear_(name, x, f))));
     auto val = Dictionary::FindHandle<Interp1Linear_>(handles, name);
-    constexpr auto flag = ::testing::StaticAssertTypeEq<Handle_<Interp1Linear_>, decltype(val)>();
-    ASSERT_TRUE(flag);
-
     ASSERT_THROW(Dictionary::FindHandle<Interp1Linear_>(handles, "not_found"), Exception_);
 }
 
