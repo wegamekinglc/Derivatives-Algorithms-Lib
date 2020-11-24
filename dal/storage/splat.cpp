@@ -35,7 +35,7 @@ namespace Dal {
             explicit XSplat_(map<const Storable_*, String_>& shared_tags): sharedTags_(shared_tags) {}
 
             int Rows() const {
-                REQUIRE(type_.empty() == children_.empty(), "children asn type status should be same");
+                REQUIRE(type_.empty() == children_.empty(), "children type status should be same");
                 if (!val_.Empty()) {
                     REQUIRE(type_.empty(), "");
                     return val_.Rows();
@@ -358,13 +358,19 @@ namespace Dal {
         };
     }
 
-    Matrix_<Cell_> Splat(const Storable_& src)
-    {
+    Matrix_<Cell_> Splat(const Storable_& src) {
         map<const Storable_*, String_> tags;
         XSplat_ task(tags);
         src.Write(task);
         Matrix_<Cell_> ret_val(task.Rows(), task.Cols());
         task.Write(ret_val, 0, 0);
         return ret_val;
+    }
+
+    Handle_<Storable_> UnSplat(const Matrix_<Cell_>& src, bool quiet) {
+        XUnSplat_ task(src, 0, src.Rows(), 0, quiet);
+        NOTE("Extracting object from splatted data");
+        Archive::Built_ built;
+        return Archive::Extract(task, built);
     }
 }

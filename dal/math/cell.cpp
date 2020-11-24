@@ -4,6 +4,7 @@
 
 #include <dal/math/cell.hpp>
 #include <dal/utilities/exceptions.hpp>
+#include <dal/string/stringutils.hpp>
 
 namespace Dal {
     String_ Cell::OwnString(const Cell_& src) {
@@ -64,4 +65,29 @@ namespace Dal {
         }
         THROW("Cell must contain a datetime value");
     }
+
+    Vector_<bool> Cell::ToBoolVector(const Cell_& src) {
+        switch (src.type_)
+        {
+        case Cell::Type_::BOOLEAN:
+            return Vector_<bool>(1, src.b_);
+        case Cell::Type_::STRING:
+            return String::ToBoolVector(src.s_);
+        default:
+            THROW("Cell is not convertible to vector of booleans");
+        }
+    }
+
+    Cell_ Cell::FromBoolVector(const Vector_<bool>& src) {
+        String_ temp;
+        for (const auto& b : src)
+            temp.push_back(b ? 'T' : 'F');
+        return Cell_(temp);
+    }
+
+    bool operator==(const Cell_& lhs, const String_& rhs) {
+        return lhs.type_ == Cell::Type_::STRING
+               && lhs.s_ == rhs;
+    }
+
 }
