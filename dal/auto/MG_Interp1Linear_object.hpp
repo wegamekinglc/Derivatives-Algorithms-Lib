@@ -2,7 +2,6 @@
 #pragma once
 #include <dal/utilities/dictionary.hpp>
 
-namespace Dal {
-    class UIRow_;
-    class Storable_;
-}
+class UIRow_;
+class Storable_;
+
