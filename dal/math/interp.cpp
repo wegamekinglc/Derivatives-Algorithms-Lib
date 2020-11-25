@@ -40,6 +40,8 @@ namespace Dal {
 }
 
 namespace {
+    using namespace Dal;
+
     #include <dal/auto/MG_Interp1Linear_v1_Read.inc>
     #include <dal/auto/MG_Interp1Linear_v1_Write.inc>
 }
