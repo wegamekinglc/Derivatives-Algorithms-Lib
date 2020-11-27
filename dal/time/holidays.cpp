@@ -1,0 +1,117 @@
+//
+// Created by wegam on 2020/11/27.
+//
+
+#include <dal/platform/platform.hpp>
+#include <dal/time/holidays.hpp>
+#include <mutex>
+#include <dal/time/holidaydata.hpp>
+#include <dal/string/strings.hpp>
+#include <dal/utilities/algorithms.hpp>
+
+static std::mutex TheHolidayComboMutex;
+#define LOCK_COMBOS std::lock_guard<std::mutex> l(TheHolidayComboMutex);
+
+namespace Dal {
+    namespace {
+        bool operator<(const Handle_<HolidayCenterData_>& lhs, const Handle_<HolidayCenterData_>& rhs) {
+            return lhs->center_ < rhs->center_;
+        }
+
+        String_ NameFromCenter(const Vector_<Handle_<HolidayCenterData_>>& parts) {
+            static const auto ToName = [](const Handle_<HolidayCenterData_> h) {
+                return h->center_;
+            };
+            return String::Accumulate(Apply(ToName, parts), " ");
+        }
+
+        std::map<String_, Handle_<HolidayCenterData_>>& TheCombinations() {
+            RETURN_STATIC(std::map<String_, Handle_<HolidayCenterData_>>);
+        }
+    }
+
+    Holidays_::Holidays_(const String_& src) {
+        Vector_<String_> centers = String::Split(src, ' ', false);
+        parts_ = Unique(Apply([](const String_& c){return Holidays::OfCenter(Holidays::CenterIndex(c));},
+                              centers));
+        if (parts_.size() > 1) {
+            LOCK_COMBOS;
+            auto existing = TheCombinations().find(NameFromCenter(parts_));
+            if (existing != TheCombinations().end())
+                parts_ = Vector::V1(existing->second);
+        }
+    }
+
+    bool Holidays_::IsHoliday(const Date_& date) const {
+        for (const auto& ps : parts_)
+            if (BinarySearch(ps->holidays_, date))
+                return true;
+        return false;
+    }
+
+    String_ Holidays_::String() const {
+        return NameFromCenter(parts_);
+    }
+
+    CountBusDays_::CountBusDays_(const Holidays_& src)
+    :hols_(src) {
+        LOCK_COMBOS;
+        Handle_<HolidayCenterData_>& combo = TheCombinations()[src.String()];
+        if (combo.IsEmpty()) {
+            Vector_<Date_> merged;
+            for (const auto& p : src.parts_)
+                merged.Append(p->holidays_);
+            combo.reset(new HolidayCenterData_(src.String(), Unique(merged)));
+        }
+        hols_.parts_ = Vector::V1(combo);
+    }
+
+    int CountBusDays_::operator()(const Date_& begin, const Date_& end) const {
+        if (end <= begin)
+            return 0;
+        const int weeks = (end - begin) / 7;
+        const Date_& stop = begin.AddDays(7 * weeks);
+        auto pStop = LowerBound(hols_.parts_[0]->holidays_, stop);
+        const Vector_<Date_>& hols = hols_.parts_[0]->holidays_;
+        const auto holsToStop = static_cast<int>(pStop - LowerBound(hols, begin));
+        int ret_val = 5 * weeks - holsToStop;
+
+        for (Date_ d = stop; d < end; ++d) {
+            /*
+             * TODO: not correct for china's interbank market.
+             */
+            if (!Date::IsWeekEnd(d)) {
+                if (*pStop == d)
+                    ++pStop;
+                else
+                    ++ret_val;
+            }
+        }
+        return ret_val;
+    }
+
+    Date_ Holidays::NextBus(const Holidays_& hols, const Date_& from) {
+        for (Date_ ret_val = from;; ++ret_val) {
+            /*
+             * TODO: not correct for china's interbank market.
+             */
+            if (!Date::IsWeekEnd(ret_val) && !hols.IsHoliday(ret_val))
+                return ret_val;
+        }
+    }
+
+    Date_ Holidays::PrevBus(const Holidays_& hols, const Date_& from) {
+        for (Date_ ret_val = from;; --ret_val) {
+            /*
+             * TODO: not correct for china's interbank market.
+             */
+            if (!Date::IsWeekEnd(ret_val) && !hols.IsHoliday(ret_val))
+                return ret_val;
+        }
+    }
+
+    const Holidays_& Holidays::None() {
+        static const Holidays_ RET_VAL("");
+        return RET_VAL;
+    }
+}

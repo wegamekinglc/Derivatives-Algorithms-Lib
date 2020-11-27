@@ -7,7 +7,7 @@
 
 
 namespace Dal {
-    namespace vector {
+    namespace Vector {
         Vector_<int> UpTo(int n) {
             Vector_<int> ret_val(static_cast<size_t>(n));
             for (auto i = 0; i != n; ++i)

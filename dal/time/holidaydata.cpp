@@ -12,7 +12,7 @@ static std::mutex TheHolidayDataMutex;
 
 namespace Dal {
     bool HolidayData_::IsValid() const {
-        const int nc = holidays_.size();
+        const int nc = static_cast<int>(holidays_.size());
         if (centerIndex_.size() != nc)
             return false;
         for (const auto& c_i : centerIndex_) {
@@ -55,7 +55,7 @@ namespace Dal {
 
         HolidayData_ temp(CopyHolidayData());
         REQUIRE(!temp.centerIndex_.count(city), "Duplicate holiday center");
-        temp.centerIndex_[city] = temp.holidays_.size();
+        temp.centerIndex_[city] = static_cast<int>(temp.holidays_.size());
         temp.holidays_.push_back(Handle_(std::make_shared<const HolidayCenterData_>(city, holidays)));
 
         LOCK_DATA;

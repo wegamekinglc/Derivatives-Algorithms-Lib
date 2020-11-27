@@ -131,6 +131,11 @@ namespace Dal {
         return std::upper_bound(src.begin(), src.end(), x);
     }
 
+    template <class C_, class E_>
+    bool BinarySearch(const C_& c, const E_& val) {
+        return std::binary_search(c.begin(), c.end(), val);
+    }
+
     template <typename T_>
     T_ Next(const T_& src) {
         T_ ret_val(src);
@@ -162,6 +167,11 @@ namespace Dal {
                 return false;
         }
         return true;
+    }
+
+    template <class C_>
+    bool IsMonotonic(const C_& c) {
+        return IsMonotonic(c, std::less<typename C_::value_type>());
     }
 
     template<class C_>

@@ -30,7 +30,7 @@ TEST(PlatformTest, MinTest) { ASSERT_DOUBLE_EQ(Dal::Min(2.0, 20.), 2.); }
 
 TEST(PlatformTest, HandleTest) {
     Dal::Handle_<double> s;
-    ASSERT_TRUE(s.isEmpty());
+    ASSERT_TRUE(s.IsEmpty());
 }
 
 TEST(PlatformTest, HandleCastTest) {

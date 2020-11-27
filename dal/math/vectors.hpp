@@ -116,7 +116,13 @@ namespace Dal {
         }
     } // namespace
 
-    namespace vector {
+    namespace Vector {
+
+        template <class E_>
+        Vector_<E_> V1(const E_& val) {
+            return Vector_<E_>(1, val);
+        }
+
         template<class E1_, class C2_>
         Vector_<E1_> Join(const Vector_<E1_> &c1, const C2_ &c2) {
             auto ret_val = c1;
