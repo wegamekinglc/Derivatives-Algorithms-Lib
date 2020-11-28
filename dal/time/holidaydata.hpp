@@ -16,8 +16,8 @@ namespace Dal {
         String_ center_;
         Vector_<Date_> holidays_;
         Vector_<Date_> workWeekends_;
-        HolidayCenterData_(const String_& c, const Vector_<Date_>& h, const Vector_<Date_>& workWeekends = Vector_<Date_>())
-        :center_(c), holidays_(h), workWeekends_(workWeekends) {}
+        HolidayCenterData_(const String_& c, const Vector_<Date_>& h, const Vector_<Date_>& w = Vector_<Date_>())
+        :center_(c), holidays_(h), workWeekends_(w) {}
     };
 
     struct HolidayData_ {

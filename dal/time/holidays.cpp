@@ -32,7 +32,7 @@ namespace Dal {
 
     Holidays_::Holidays_(const String_& src) {
         Vector_<String_> centers = String::Split(src, ' ', false);
-        parts_ = Unique(Apply([](const String_& c){return Holidays::OfCenter(c);}, centers));
+        parts_ = Apply([](const String_& c){return Holidays::OfCenter(c);}, Unique(centers));
         if (parts_.size() > 1) {
             LOCK_COMBOS;
             auto existing = TheCombinations().find(NameFromCenter(parts_));
