@@ -18,6 +18,7 @@ namespace Dal {
         explicit Holidays_(const String_& src);
         String_ String() const;
         bool IsHoliday(const Date_& date) const;
+        bool IsWorkWeekends(const Date_& date) const;
     };
 
     namespace Holidays {

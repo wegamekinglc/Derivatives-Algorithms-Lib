@@ -32,5 +32,6 @@ namespace Dal {
         void AddCenter(const String_& city, const Vector_<Date_>& holidays, const Vector_<Date_>& workWeekends = Vector_<Date_>());
         int CenterIndex(const String_& center);
         Handle_<HolidayCenterData_> OfCenter(int center_index);
+        Handle_<HolidayCenterData_> OfCenter(const String_& center);
     }
 }

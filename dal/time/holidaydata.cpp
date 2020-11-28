@@ -85,4 +85,8 @@ namespace Dal {
                 "Invalid holiday center index");
         return TheHolidayData().holidays_[center_index];
     }
+
+    Handle_<HolidayCenterData_> Holidays::OfCenter(const String_& center) {
+        return OfCenter(CenterIndex(center));
+    }
 }
