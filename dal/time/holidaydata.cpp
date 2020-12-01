@@ -59,6 +59,7 @@ namespace Dal {
         REQUIRE(ContainsNoWeekends(holidays), "Holidays should not contain weekends");
         REQUIRE(ContainsOnlyWeekends(workWeekends), "Can only weekends in special working days");
         REQUIRE(IsMonotonic(holidays), "Holidays should be in ascending order");
+        REQUIRE(IsMonotonic(workWeekends), "Working weekends should be in ascending order");
         NOTICE(city);
 
         HolidayData_ temp(CopyHolidayData());
