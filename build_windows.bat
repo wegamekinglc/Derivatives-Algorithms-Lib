@@ -27,6 +27,10 @@ echo Starting build machinist2
 call build_windows.bat
 echo End build machinist2
 
+set MACHINIST_TEMPLATE_DIR=%CD%\template\
+echo MACHINIST_TEMPLATE_DIR=%MACHINIST_TEMPLATE_DIR%
+bin\Machinist.exe -c ../config/dal.ifc -l ../config/dal.mgl -d ../dal
+
 if %errorlevel% neq 0 exit /b 1
 
 cd ..
