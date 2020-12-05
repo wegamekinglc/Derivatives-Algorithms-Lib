@@ -1,16 +1,18 @@
 //
-// Created by wegam on 2020/12/5.
+// Created by wegam on 2020/12/6.
 //
 
 #include <iostream>
 #include <iomanip>
 #include <cmath>
 #include <chrono>
-#include <dal/math/aad/toy1/aad.hpp>
+#include <dal/platform/platform.hpp>
+#include <dal/math/vectors.hpp>
+#include <dal/math/aad/toy2/aad.hpp>
 
 using namespace std;
 using namespace Dal;
-using namespace Dal::AAD_Toy1;
+using namespace Dal::AAD_Toy2;
 
 inline double Log(double x) {
     return std::log(x);
@@ -45,7 +47,6 @@ int main() {
     // Using automatic adjoint differentiation
     auto start = std::chrono::high_resolution_clock::now();
     for (size_t i=0; i < n_loops; ++i) {
-        y.Evaluate();
         y.PropagateAdjoints();
     }
     for (size_t i = 0; i < 5; ++i) {
