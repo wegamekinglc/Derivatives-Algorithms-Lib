@@ -4,6 +4,7 @@
 
 #include <iostream>
 #include <iomanip>
+#include <cmath>
 #include <chrono>
 #include <dal/math/aad/toy1/aad.hpp>
 
