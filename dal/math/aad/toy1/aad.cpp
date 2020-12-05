@@ -56,8 +56,6 @@ namespace Dal {
     }
 
     void PlusNode_::PropagateAdjoint() {
-        std::cout << "Propagation node " << order_
-                  << " adjoint = " << adjoint_ << std::endl;
         arguments_[0]->Adjoint() += adjoint_;
         arguments_[1]->Adjoint() += adjoint_;
         adjoint_ = 0.;
@@ -84,8 +82,6 @@ namespace Dal {
     }
 
     void TimesNode_::PropagateAdjoint() {
-        std::cout << "Propagation node " << order_
-                  << " adjoint = " << adjoint_ << std::endl;
         arguments_[0]->Adjoint() += arguments_[1]->Result() * adjoint_;
         arguments_[1]->Adjoint() += arguments_[0]->Result() * adjoint_;
         adjoint_ = 0.;
@@ -110,8 +106,6 @@ namespace Dal {
     }
 
     void LogNode_::PropagateAdjoint() {
-        std::cout << "Propagation node " << order_
-                  << " adjoint = " << adjoint_ << std::endl;
         arguments_[0]->Adjoint() += adjoint_ / arguments_[0]->Result();
         adjoint_ = 0.;
     }
@@ -138,10 +132,7 @@ namespace Dal {
         std::cout << "y" << order_ << " = " << value_ << std::endl;
     }
 
-    void Leaf_::PropagateAdjoint() {
-        std::cout << "Accumulating leaf " << order_
-                  << " adjoint = " << adjoint_ << std::endl;
-    }
+    void Leaf_::PropagateAdjoint() {}
 
     /*
      * Number class stuff
