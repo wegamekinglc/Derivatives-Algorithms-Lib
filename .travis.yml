@@ -22,6 +22,19 @@ jobs:
           sources:
             - ubuntu-toolchain-r-test
           packages:
+            - libgtest-dev
+            - g++-10
+            - libc++-dev
+            - libboost-all-dev
+            - make
+            - cmake
+      env:
+        - MATRIX_EVAL="CC=gcc-10 && CXX=g++-10"
+    - addons:
+        apt:
+          sources:
+            - ubuntu-toolchain-r-test
+          packages:
             - clang-10
             - libboost-all-dev
             - libgtest-dev
@@ -35,6 +48,11 @@ jobs:
 before_install:
   - eval "${MATRIX_EVAL}"
   - sudo ln -sf /usr/bin/gcov-9 /usr/bin/gcov
+  - if [[ "$CXX" == *"g++-10"* ]]; then
+      sudo ln -sf /usr/bin/gcov-10 /usr/bin/gcov;
+    else
+      sudo ln -sf /usr/bin/gcov-9 /usr/bin/gcov;
+    fi
   - wget http://mirrors.edge.kernel.org/ubuntu//pool/universe/l/lcov/lcov_1.14-2_all.deb
   - sudo dpkg -i lcov_1.14-2_all.deb || sudo apt-get install -f -y
 install:
