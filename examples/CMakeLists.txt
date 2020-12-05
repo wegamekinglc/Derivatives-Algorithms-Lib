@@ -1,1 +1,2 @@
+add_subdirectory(aad_toy1)
 add_subdirectory(dateutilities)
