@@ -18,4 +18,6 @@
 
 ## Introduction
 
-This is a project inspired by Tom Hyer's book Derivatives Algorithms. These codes are simply for prototyping and practice. Don't use them in serious situation.
+This is a project inspired by Tom Hyer's book *Derivatives Algorithms* and Antoine Savine's *Modern Computational Finance* series. At current stage, this codes repository is simply for prototyping and practice. Don't use them in serious situation.
+
+> Some codes are directly copied from Tom and Antoine's books 
