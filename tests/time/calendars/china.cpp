@@ -57,3 +57,16 @@ TEST(ChinaCalendarTest, TestPrevBus) {
     val = Holidays::PrevBus(hol, ref_date);
     ASSERT_EQ(val, Date_(2020, 10, 10));
 }
+
+TEST(ChinaCalendarTest, TestCountBusDays) {
+    CountBusDays_ counter(Holidays_("china.sse"));
+
+    Date_ start_date(2020, 10, 9);
+    Date_ end_date(2020, 10, 11);
+    auto val = counter(start_date, end_date);
+    ASSERT_EQ(val, 1);
+
+    counter = CountBusDays_(Holidays_("china.ib"));
+    val = counter(start_date, end_date);
+    ASSERT_EQ(val, 2);
+}
