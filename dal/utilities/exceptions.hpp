@@ -59,6 +59,12 @@ namespace Dal {
 }
 
 #define THROW(msg) throw Dal::Exception_(__FILE__, __LINE__, __func__, msg)
+
+#ifndef NDEBUG
+#define ASSERT(cond, msg) if (cond); else THROW(msg)
+#else
+#define ASSERT(cond, msg)
+#endif
 #define REQUIRE(cond, msg) if (cond); else THROW(msg)
 
 #define XXNOTICE(u, n, v) Dal::exception::StackRegister_ __xsr##u(n, v)
