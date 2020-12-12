@@ -20,7 +20,7 @@ namespace {
         case '0':
             return false;
         }
-        REQUIRE(false, Dal::String_("Can't convert '" + Dal::String_(1, c) + "' to a boolean"));
+        THROW(Dal::String_("Can't convert '" + Dal::String_(1, c) + "' to a boolean"));
     }
 
     bool TestTrue(const Dal::String_& c) {
