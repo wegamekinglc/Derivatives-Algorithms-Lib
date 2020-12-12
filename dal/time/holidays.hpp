@@ -21,6 +21,9 @@ namespace Dal {
         bool IsWorkWeekends(const Date_& date) const;
     };
 
+    bool operator==(const Holidays_& lhs, const Holidays_& rhs);
+    bool operator!=(const Holidays_& lhs, const Holidays_& rhs);
+
     namespace Holidays {
         const Holidays_& None();
         Date_ NextBus(const Holidays_& hols, const Date_& from);

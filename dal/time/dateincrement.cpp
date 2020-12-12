@@ -133,7 +133,10 @@ namespace {
                                   : Holidays::PrevBus(holidays, ret_val.AddDays(-1));
             }
         }
-        return forward ? Holidays::NextBus(holidays, ret_val) : Holidays::PrevBus(holidays, ret_val);
+        if (holidays != Holidays::None())
+            return forward ? Holidays::NextBus(holidays, ret_val) : Holidays::PrevBus(holidays, ret_val);
+        else
+            return ret_val;
     }
 
     class IncrementMultistep_ : public Date::Increment_ {

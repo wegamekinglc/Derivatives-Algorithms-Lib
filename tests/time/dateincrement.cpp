@@ -61,7 +61,7 @@ TEST(DateIncrementTest, TestIncrementMultistep) {
     // Year
     auto s1 = Date::ParseIncrement("1Y");
     auto s2 = ref_date + *s1;
-    ASSERT_EQ(Date_(2021, 10, 11), s2);
+    ASSERT_EQ(Date_(2021, 10, 9), s2);
     s2 = ref_date - *s1;
     ASSERT_EQ(Date_(2019, 10, 9), s2);
 
@@ -75,7 +75,7 @@ TEST(DateIncrementTest, TestIncrementMultistep) {
     // CD
     s1 = Date::ParseIncrement("1CD");
     s2 = ref_date + *s1;
-    ASSERT_EQ(Date_(2020, 10, 12), s2);
+    ASSERT_EQ(Date_(2020, 10, 10), s2);
     s2 = ref_date - *s1;
     ASSERT_EQ(Date_(2020, 10, 8), s2);
 

@@ -59,6 +59,14 @@ namespace Dal {
         return NameFromCenter(parts_);
     }
 
+    bool operator==(const Holidays_& lhs, const Holidays_& rhs) {
+        return lhs.String() == rhs.String();
+    }
+
+    bool operator!=(const Holidays_& lhs, const Holidays_& rhs) {
+        return lhs.String() != rhs.String();
+    }
+
     CountBusDays_::CountBusDays_(const Holidays_& src)
     :hols_(src) {
         LOCK_COMBOS;
