@@ -207,5 +207,4 @@ namespace Dal {
             return End();
         }
     };
-
 }

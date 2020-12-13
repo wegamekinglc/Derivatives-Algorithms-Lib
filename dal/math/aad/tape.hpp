@@ -20,7 +20,7 @@ namespace Dal {
     constexpr size_t ADJ_SIZE = 32768;
     constexpr size_t DATA_SIZE = 65536;
 
-    class Tap_ {
+    class Tape_ {
         static bool multi_;
         BlockList_<double, ADJ_SIZE> adjoints_multi_;
         BlockList_<double, DATA_SIZE> ders_;
