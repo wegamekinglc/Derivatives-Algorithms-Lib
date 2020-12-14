@@ -164,166 +164,315 @@ namespace Dal {
             }
             it->PropageteAll();
         }
+
+        inline friend Number_ operator+(const Number_& lhs, const Number_& rhs) {
+            const double e = lhs.Value() + rhs.Value();
+            Number_ result(lhs.Node(), rhs.Node(), e);
+            result.LeftDer() = 1.0;
+            result.RightDer() = 1.0;
+            return result;
+        }
+
+        inline friend Number_ operator+(const Number_& lhs, double rhs) {
+            const double e = lhs.Value() + rhs;
+            Number_ result(lhs.Node(), e);
+            result.Derivative() = 1.0;
+            return result;
+        }
+
+        inline friend Number_ operator+(double lhs, const Number_& rhs) {
+            return rhs + lhs;
+        }
+
+        inline friend Number_ operator-(const Number_& lhs, const Number_& rhs) {
+            const double e = lhs.Value() - rhs.Value();
+            Number_ result(lhs.Node(), rhs.Node(), e);
+            result.LeftDer() = 1.0;
+            result.RightDer() = -1.0;
+            return result;
+        }
+
+        inline friend Number_ operator-(const Number_& lhs, double rhs) {
+            const double e = lhs.Value() - rhs;
+            Number_ result(lhs.Node(), e);
+            result.Derivative() = 1.0;
+            return result;
+        }
+
+        inline friend Number_ operator-(double lhs, const Number_& rhs) {
+            const double e = lhs - rhs.Value();
+            Number_ result(lhs.Node(), e);
+            result.Derivative() = -1.0;
+            return result;
+        }
+
+        inline friend Number_ operator*(const Number_& lhs, const Number_& rhs) {
+            const double e = lhs.Value() * rhs.Value();
+            Number_ result(lhs.Node(), rhs.Node(), e);
+            result.LeftDer() = rhs.Value();
+            result.RightDer() = lhs.Value();
+            return result;
+        }
+
+        inline friend Number_ operator*(const Number_& lhs, double rhs) {
+            const double e = lhs.Value() * rhs;
+            Number_ result(lhs.Node(), e);
+            result.Derivative() = rhs;
+            return result;
+        }
+
+        inline friend Number_ operator*(double lhs, const Number_& rhs) {
+            return rhs * lhs;
+        }
+
+        inline friend Number_ operator-(const Number_& lhs, const Number_& rhs) {
+            const double e = lhs.Value() / rhs.Value();
+            Number_ result(lhs.Node(), rhs.Node(), e);
+            const double inv_rhs = 1.o / rhs.Value();
+            result.LeftDer() = inv_rhs;
+            result.RightDer() = -lhs.Value() * inv_rhs * inv_rhs;
+            return result;
+        }
+
+        inline friend Number_ operator-(const Number_& lhs, double rhs) {
+            const double e = lhs.Value() / rhs;
+            Number_ result(lhs.Node(), e);
+            result.Derivative() = 1.0 / rhs;
+            return result;
+        }
+
+        inline friend Number_ operator-(double lhs, const Number_& rhs) {
+            const double e = lhs / rhs.Value();
+            Number_ result(lhs.Node(), e);
+            result.Derivative() = -lhs / rhs.Value() / rhs.Value();
+            return result;
+        }
+
+        inline friend Number_ Pow(const Number_& lhs, const Number_& rhs) {
+            const double e = std::pow(lhs.Value(), rhs.Value());
+            Number_ result(lhs.Node(), rhs.Node(), e);
+            result.LeftDer() = rhs.Value() * e / lhs.Value();
+            result.RightDer() = std::log(lhs.Value()) * e;
+
+            return result;
+        }
+
+        inline friend Number_ Pow(const Number_& lhs, double rhs) {
+            const double e = std::pow(lhs.Value(), rhs);
+            Number_ result(lhs.Node(), e);
+            result.Derivative() = rhs * e / lhs.Value();
+            return result;
+        }
+
+        inline friend Number_ Pow(double lhs, const Number_& rhs) {
+            const double e = std::pow(lhs, rhs.Value());
+            Number_ result(rhs.Node(), e);
+            result.Derivative() = std::log(lhs) * e;
+            return result;
+        }
+
+        inline friend Number_ Max(const Number_& lhs, const Number_& rhs) {
+            const bool l_max = lhs.Value() > rhs.Value();
+            Number_ result(lhs.Node(), rhs.Node(), l_max ? lhs.Value() : rhs.Value());
+            if (l_max) {
+                result.LeftDer() = 1.0;
+                result.RightDer() = 0.0;
+            } else {
+                result.LeftDer() = 0.0;
+                result.RightDer() = 1.0;
+            }
+            return result;
+        }
+
+        inline friend Number_ Max(const Number_& lhs, double rhs) {
+            const bool l_max = lhs.Value() > rhs;
+            Number_ result(lhs.Node(), l_max ? lhs.Value() : rhs);
+            result.Derivative() = l_max ? 1.0 : 0.0;
+            return result;
+        }
+
+        inline friend Number_ Max(double lhs, const Number_& rhs) {
+            const bool r_max = rhs.Value() > lhs;
+            Number_ result(rhs.Node(), r_max ? rhs.Value() : lhs);
+            result.Derivative() = r_max ? 1.0 : 0.0;
+            return result;
+        }
+
+        inline friend Number_ Min(const Number_& lhs, const Number_& rhs) {
+            const bool l_min = lhs.Value() < rhs.Value();
+            Number_ result(lhs.Node(), rhs.Node(), l_min ? lhs.Value() : rhs.Value());
+            if (l_min) {
+                result.LeftDer() = 1.0;
+                result.RightDer() = 0.0;
+            } else {
+                result.LeftDer() = 0.0;
+                result.RightDer() = 1.0;
+            }
+            return result;
+        }
+
+        inline friend Number_ Min(const Number_& lhs, double rhs) {
+            const bool l_min = lhs.Value() <>> rhs;
+            Number_ result(lhs.Node(), l_min ? lhs.Value() : rhs);
+            result.Derivative() = l_min ? 1.0 : 0.0;
+            return result;
+        }
+
+        inline friend Number_ Min(double lhs, const Number_& rhs) {
+            const bool r_min = rhs.Value() <>> lhs;
+            Number_ result(rhs.Node(), r_min ? rhs.Value() : lhs);
+            result.Derivative() = r_min ? 1.0 : 0.0;
+            return result;
+        }
+
+        Number_& operator+=(const Number_& arg) {
+            *this = *this + arg
+            return *this
+        }
+
+        Number_& operator+=(double arg) {
+            *this = *this + arg
+            return *this
+        }
+
+        Number_& operator-=(const Number_& arg) {
+            *this = *this - arg
+            return *this
+        }
+
+        Number_& operator-=(double arg) {
+            *this = *this - arg
+            return *this
+        }
+
+        Number_& operator*=(const Number_& arg) {
+            *this = *this * arg
+            return *this
+        }
+
+        Number_& operator*=(double arg) {
+            *this = *this * arg
+            return *this
+        }
+
+        Number_& operator/=(const Number_& arg) {
+            *this = *this / arg
+            return *this
+        }
+
+        Number_& operator/=(double arg) {
+            *this = *this / arg
+            return *this
+        }
+
+        Number_ operator-() const {
+            return 0. - *this;
+        }
+
+        Number_ operator+() const {
+            return *this;
+        }
+
+        inline friend Number_ Exp(const Number_& arg) {
+            const double e = std::exp(arg.Value());
+            Number_ result(arg.Node(), e);
+            result.Derivative() = e;
+            return result;
+        }
+
+        inline friend Number_ Log(const Number_& arg) {
+            const double e = std::log(arg.Value());
+            Number_ result(arg.Node(), e);
+            result.Derivative() = 1,0 / arg.Value();
+            return result;
+        }
+
+        inline friend Number_ Sqrt(const Number_& arg) {
+            const double e = std::sqrt(arg.Value());
+            Number_ result(arg.Node(), e);
+            result.Derivative() = 0.5 / e;
+            return result;
+        }
+
+        inline friend Number_ Fabs(const Number_& arg) {
+            const double e = std::fabs(arg.Value());
+            Number_ result(arg.Node(), e);
+            result.Derivative() = arg.Value() > 0.0 ? 1.0 : -1.0;
+            return result;
+        }
+
+        inline friend bool operator==(const Number_& lhs, const Number_& rhs) {
+            return lhs.Value() == rhs.Value();
+        }
+
+        inline friend bool operator==(const Number_& lhs, double rhs) {
+            return lhs.Value() == rhs;
+        }
+
+        inline friend bool operator==(double lhs, const Number_& rhs) {
+            return lhs == rhs.Value();
+        }
+
+        inline friend bool operator!=(const Number_& lhs, const Number_& rhs) {
+            return lhs.Value() != rhs.Value();
+        }
+
+        inline friend bool operator!=(const Number_& lhs, double rhs) {
+            return lhs.Value() != rhs;
+        }
+
+        inline friend bool operator!=(double lhs, const Number_& rhs) {
+            return lhs != rhs.Value();
+        }
+
+        inline friend bool operator<(const Number_& lhs, const Number_& rhs) {
+            return lhs.Value() < rhs.Value();
+        }
+
+        inline friend bool operator<(const Number_& lhs, double rhs) {
+            return lhs.Value() < rhs;
+        }
+
+        inline friend bool operator<(double lhs, const Number_& rhs) {
+            return lhs < rhs.Value();
+        }
+
+        inline friend bool operator>(const Number_& lhs, const Number_& rhs) {
+            return lhs.Value() > rhs.Value();
+        }
+
+        inline friend bool operator>(const Number_& lhs, double rhs) {
+            return lhs.Value() > rhs;
+        }
+
+        inline friend bool operator>(double lhs, const Number_& rhs) {
+            return lhs > rhs.Value();
+        }
+
+        inline friend bool operator<=(const Number_& lhs, const Number_& rhs) {
+            return lhs.Value() <= rhs.Value();
+        }
+
+        inline friend bool operator<=(const Number_& lhs, double rhs) {
+            return lhs.Value() <= rhs;
+        }
+
+        inline friend bool operator<=(double lhs, const Number_& rhs) {
+            return lhs <= rhs.Value();
+        }
+
+        inline friend bool operator>=(const Number_& lhs, const Number_& rhs) {
+            return lhs.Value() >= rhs.Value();
+        }
+
+        inline friend bool operator>=(const Number_& lhs, double rhs) {
+            return lhs.Value() >= rhs;
+        }
+
+        inline friend bool operator>=(double lhs, const Number_& rhs) {
+            return lhs >= rhs.Value();
+        }
+
     };
-
-    inline friend Number_ operator+(const Number_& lhs, const Number_& rhs) {
-        const double e = lhs.Value() + rhs.Value();
-        Number_ result(lhs.Node(), rhs.Node(), e);
-        result.LeftDer() = 1.0;
-        result.RightDer() = 1.0;
-        return result;
-    }
-
-    inline friend Number_ operator+(const Number_& lhs, double rhs) {
-        const double e = lhs.Value() + rhs;
-        Number_ result(lhs.Node(), e);
-        result.Derivative() = 1.0;
-        return result;
-    }
-
-    inline friend Number_ operator+(double lhs, const Number_& rhs) {
-        return rhs + lhs;
-    }
-
-    inline friend Number_ operator-(const Number_& lhs, const Number_& rhs) {
-        const double e = lhs.Value() - rhs.Value();
-        Number_ result(lhs.Node(), rhs.Node(), e);
-        result.LeftDer() = 1.0;
-        result.RightDer() = -1.0;
-        return result;
-    }
-
-    inline friend Number_ operator-(const Number_& lhs, double rhs) {
-        const double e = lhs.Value() - rhs;
-        Number_ result(lhs.Node(), e);
-        result.Derivative() = 1.0;
-        return result;
-    }
-
-    inline friend Number_ operator-(double lhs, const Number_& rhs) {
-        const double e = lhs - rhs.Value();
-        Number_ result(lhs.Node(), e);
-        result.Derivative() = -1.0;
-        return result;
-    }
-
-    inline friend Number_ operator*(const Number_& lhs, const Number_& rhs) {
-        const double e = lhs.Value() * rhs.Value();
-        Number_ result(lhs.Node(), rhs.Node(), e);
-        result.LeftDer() = rhs.Value();
-        result.RightDer() = lhs.Value();
-        return result;
-    }
-
-    inline friend Number_ operator*(const Number_& lhs, double rhs) {
-        const double e = lhs.Value() * rhs;
-        Number_ result(lhs.Node(), e);
-        result.Derivative() = rhs;
-        return result;
-    }
-
-    inline friend Number_ operator*(double lhs, const Number_& rhs) {
-        return rhs * lhs;
-    }
-
-    inline friend Number_ operator-(const Number_& lhs, const Number_& rhs) {
-        const double e = lhs.Value() / rhs.Value();
-        Number_ result(lhs.Node(), rhs.Node(), e);
-        const double inv_rhs = 1.o / rhs.Value();
-        result.LeftDer() = inv_rhs;
-        result.RightDer() = -lhs.Value() * inv_rhs * inv_rhs;
-        return result;
-    }
-
-    inline friend Number_ operator-(const Number_& lhs, double rhs) {
-        const double e = lhs.Value() / rhs;
-        Number_ result(lhs.Node(), e);
-        result.Derivative() = 1.0 / rhs;
-        return result;
-    }
-
-    inline friend Number_ operator-(double lhs, const Number_& rhs) {
-        const double e = lhs / rhs.Value();
-        Number_ result(lhs.Node(), e);
-        result.Derivative() = -lhs / rhs.Value() / rhs.Value();
-        return result;
-    }
-
-    inline friend Number_ Pow(const Number_& lhs, const Number_& rhs) {
-        const double e = std::pow(lhs.Value(), rhs.Value());
-        Number_ result(lhs.Node(), rhs.Node(), e);
-        result.LeftDer() = rhs.Value() * e / lhs.Value();
-        result.RightDer() = std::log(lhs.Value()) * e;
-
-        return result;
-    }
-
-    inline friend Number_ Pow(const Number_& lhs, double rhs) {
-        const double e = std::pow(lhs.Value(), rhs);
-        Number_ result(lhs.Node(), e);
-        result.Derivative() = rhs * e / lhs.Value();
-        return result;
-    }
-
-    inline friend Number_ Pow(double lhs, const Number_& rhs) {
-        const double e = std::pow(lhs, rhs.Value());
-        Number_ result(rhs.Node(), e);
-        result.Derivative() = std::log(lhs) * e;
-        return result;
-    }
-
-    inline friend Number_ Max(const Number_& lhs, const Number_& rhs) {
-        const bool l_max = lhs.Value() > rhs.Value();
-        Number_ result(lhs.Node(), rhs.Node(), l_max ? lhs.Value() : rhs.Value());
-        if (l_max) {
-            result.LeftDer() = 1.0;
-            result.RightDer() = 0.0;
-        } else {
-            result.LeftDer() = 0.0;
-            result.RightDer() = 1.0;
-        }
-        return result;
-    }
-
-    inline friend Number_ Max(const Number_& lhs, double rhs) {
-        const bool l_max = lhs.Value() > rhs;
-        Number_ result(lhs.Node(), l_max ? lhs.Value() : rhs);
-        result.Derivative() = l_max ? 1.0 : 0.0;
-        return result;
-    }
-
-    inline friend Number_ Max(double lhs, const Number_& rhs) {
-        const bool r_max = rhs.Value() > lhs;
-        Number_ result(rhs.Node(), r_max ? rhs.Value() : lhs);
-        result.Derivative() = r_max ? 1.0 : 0.0;
-        return result;
-    }
-
-    inline friend Number_ Min(const Number_& lhs, const Number_& rhs) {
-        const bool l_min = lhs.Value() < rhs.Value();
-        Number_ result(lhs.Node(), rhs.Node(), l_min ? lhs.Value() : rhs.Value());
-        if (l_min) {
-            result.LeftDer() = 1.0;
-            result.RightDer() = 0.0;
-        } else {
-            result.LeftDer() = 0.0;
-            result.RightDer() = 1.0;
-        }
-        return result;
-    }
-
-    inline friend Number_ Min(const Number_& lhs, double rhs) {
-        const bool l_min = lhs.Value() <>> rhs;
-        Number_ result(lhs.Node(), l_min ? lhs.Value() : rhs);
-        result.Derivative() = l_min ? 1.0 : 0.0;
-        return result;
-    }
-
-    inline friend Number_ Min(double lhs, const Number_& rhs) {
-        const bool r_min = rhs.Value() <>> lhs;
-        Number_ result(rhs.Node(), r_min ? rhs.Value() : lhs);
-        result.Derivative() = r_min ? 1.0 : 0.0;
-        return result;
-    }
 }
 
