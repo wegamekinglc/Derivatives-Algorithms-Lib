@@ -30,7 +30,7 @@ namespace Dal {
     inline auto SetNumResultsForAAD(bool multi = false, const size_t& num_results = 1) {
         Tape_::multi_ = multi;
         Node_::num_adj_ = num_results;
-        return std::make_unique<NumResultsResetterForAAD_>()
+        return std::make_unique<NumResultsResetterForAAD_>();
     }
 
     template <class IT_>

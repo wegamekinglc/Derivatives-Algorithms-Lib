@@ -33,7 +33,7 @@ namespace Dal {
 #ifndef NDEBUG
             auto it = tape_->Find(node_);
             if (it != tape_->End())
-                THROW("Put a breakpoint here")
+                THROW("Put a breakpoint here");
 #endif
             return const_cast<Node_&>(*node_);
         }
@@ -59,16 +59,16 @@ namespace Dal {
         }
 
         double*& RightAdjPtr() {
-            return node_->p_adj_ptrs_[1]
+            return node_->p_adj_ptrs_[1];
         }
 
-        Number_(const Node_& arg, double val)
+        Number_(Node_& arg, double val)
             :value_(val) {
             CreateNode<1>();
             node_->p_adj_ptrs_[0] = Tape_::multi_ ? arg.p_adjoints_ : &arg.adjoint_;
         }
 
-        Number_(const Node_& lhs, const Node_& rhs, double val)
+        Number_(Node_& lhs, Node_& rhs, double val)
             :value_(val) {
             CreateNode<2>();
             if (Tape_::multi_) {
@@ -88,7 +88,7 @@ namespace Dal {
 
         explicit Number_(double val)
             :value_(val) {
-            CreateNode<0>()
+            CreateNode<0>();
         }
 
         Number_& operator=(double val) {
@@ -162,7 +162,7 @@ namespace Dal {
                 it->PropagateAll();
                 --it;
             }
-            it->PropageteAll();
+            it->PropagateAll();
         }
 
         inline friend Number_ operator+(const Number_& lhs, const Number_& rhs) {
@@ -201,7 +201,7 @@ namespace Dal {
 
         inline friend Number_ operator-(double lhs, const Number_& rhs) {
             const double e = lhs - rhs.Value();
-            Number_ result(lhs.Node(), e);
+            Number_ result(rhs.Node(), e);
             result.Derivative() = -1.0;
             return result;
         }
@@ -225,25 +225,25 @@ namespace Dal {
             return rhs * lhs;
         }
 
-        inline friend Number_ operator-(const Number_& lhs, const Number_& rhs) {
+        inline friend Number_ operator/(const Number_& lhs, const Number_& rhs) {
             const double e = lhs.Value() / rhs.Value();
             Number_ result(lhs.Node(), rhs.Node(), e);
-            const double inv_rhs = 1.o / rhs.Value();
+            const double inv_rhs = 1.0 / rhs.Value();
             result.LeftDer() = inv_rhs;
             result.RightDer() = -lhs.Value() * inv_rhs * inv_rhs;
             return result;
         }
 
-        inline friend Number_ operator-(const Number_& lhs, double rhs) {
+        inline friend Number_ operator/(const Number_& lhs, double rhs) {
             const double e = lhs.Value() / rhs;
             Number_ result(lhs.Node(), e);
             result.Derivative() = 1.0 / rhs;
             return result;
         }
 
-        inline friend Number_ operator-(double lhs, const Number_& rhs) {
+        inline friend Number_ operator/(double lhs, const Number_& rhs) {
             const double e = lhs / rhs.Value();
-            Number_ result(lhs.Node(), e);
+            Number_ result(rhs.Node(), e);
             result.Derivative() = -lhs / rhs.Value() / rhs.Value();
             return result;
         }
@@ -312,57 +312,57 @@ namespace Dal {
         }
 
         inline friend Number_ Min(const Number_& lhs, double rhs) {
-            const bool l_min = lhs.Value() <>> rhs;
+            const bool l_min = lhs.Value() < rhs;
             Number_ result(lhs.Node(), l_min ? lhs.Value() : rhs);
             result.Derivative() = l_min ? 1.0 : 0.0;
             return result;
         }
 
         inline friend Number_ Min(double lhs, const Number_& rhs) {
-            const bool r_min = rhs.Value() <>> lhs;
+            const bool r_min = rhs.Value() < lhs;
             Number_ result(rhs.Node(), r_min ? rhs.Value() : lhs);
             result.Derivative() = r_min ? 1.0 : 0.0;
             return result;
         }
 
         Number_& operator+=(const Number_& arg) {
-            *this = *this + arg
-            return *this
+            *this = *this + arg;
+            return *this;
         }
 
         Number_& operator+=(double arg) {
-            *this = *this + arg
-            return *this
+            *this = *this + arg;
+            return *this;
         }
 
         Number_& operator-=(const Number_& arg) {
-            *this = *this - arg
-            return *this
+            *this = *this - arg;
+            return *this;
         }
 
         Number_& operator-=(double arg) {
-            *this = *this - arg
-            return *this
+            *this = *this - arg;
+            return *this;
         }
 
         Number_& operator*=(const Number_& arg) {
-            *this = *this * arg
-            return *this
+            *this = *this * arg;
+            return *this;
         }
 
         Number_& operator*=(double arg) {
-            *this = *this * arg
-            return *this
+            *this = *this * arg;
+            return *this;
         }
 
         Number_& operator/=(const Number_& arg) {
-            *this = *this / arg
-            return *this
+            *this = *this / arg;
+            return *this;
         }
 
         Number_& operator/=(double arg) {
-            *this = *this / arg
-            return *this
+            *this = *this / arg;
+            return *this;
         }
 
         Number_ operator-() const {

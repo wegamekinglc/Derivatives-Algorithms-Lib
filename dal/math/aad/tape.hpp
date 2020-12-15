@@ -29,7 +29,7 @@ namespace Dal {
 
         char pad_[64];
         friend auto SetNumResultsForAAD(bool, const size_t&);
-        friendstruct NumResultsResetterForAAD_;
+        friend struct NumResultsResetterForAAD_;
         friend class Number_;
 
     public:
@@ -41,7 +41,7 @@ namespace Dal {
               std::fill(node->p_adjoints_, node->p_adjoints_ + Node_::num_adj_, 0.0);
           }
 
-          if constexpr(N_) {
+          if constexpr(static_cast<bool>(N_)) {
               node->p_derivatives_ = ders_.EmplaceBackMulti<N_>();
               node->p_adj_ptrs_ = arg_ptrs_.EmplaceBackMulti<N_>();
           }
@@ -52,8 +52,8 @@ namespace Dal {
             if (multi_)
                 adjoints_multi_.Memset(0);
             else {
-                for (Node_& node : nodes_)
-                    node.adjoint_ = 0.;
+                for (auto it = nodes_.Begin(); it != nodes_.End(); ++it)
+                    it->adjoint_ = 0.;
             }
         }
 
@@ -69,7 +69,7 @@ namespace Dal {
             Clear();
 #else
             if (multi_)
-                adjoints_multi_.Rwind();
+                adjoints_multi_.Rewind();
             ders_.Rewind();
             arg_ptrs_.Rewind();
             nodes_.Rewind();
@@ -92,7 +92,7 @@ namespace Dal {
             nodes_.RewindToMark();
         }
 
-        Using Iterator_ = typename BlockList_<Node_, BLOCK_SIZE>::Iterator_;
+        using Iterator_ = typename BlockList_<Node_, BLOCK_SIZE>::Iterator_;
 
         auto Begin() {
             return nodes_.Begin();

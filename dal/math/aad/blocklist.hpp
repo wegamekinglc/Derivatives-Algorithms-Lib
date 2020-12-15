@@ -15,6 +15,7 @@
 #include <dal/platform/strict.hpp>
 #include <list>
 #include <iterator>
+#include <array>
 
 namespace Dal {
 
@@ -62,7 +63,7 @@ namespace Dal {
         void Rewind() {
             curr_block_ = data_.begin();
             next_space_ = curr_block_->begin();
-            last_space_ = curr_block_->end()
+            last_space_ = curr_block_->end();
         }
 
         void Memset(unsigned char val) {
@@ -73,7 +74,7 @@ namespace Dal {
         template <typename ...Args_> T_* EmplaceBack(Args_&& ...args) {
             if (next_space_ == last_space_)
                 NextBlock();
-            T* emplaced = new (&*next_space_) T(std::forward<Args_>(args)...);
+            T_* emplaced = new (&*next_space_) T_(std::forward<Args_>(args)...);
             ++next_space_;
             return emplaced;
         }
@@ -87,16 +88,16 @@ namespace Dal {
         }
 
         template <size_t N_>
-        T* EmplaceBackMulti() {
-            if (std::distance(next_space_, last_space_) < N_)
+        T_* EmplaceBackMulti() {
+            if (std::distance(next_space_, last_space_) < static_cast<int>(N_))
                 NewBlock();
             auto old_next = next_space_;
             next_space_ += N_;
             return &*old_next;
         }
 
-        T* EmplaceBackMulti(const size_t& n) {
-            if (std::distance(next_space_, last_space_) < n)
+        T_* EmplaceBackMulti(const size_t& n) {
+            if (std::distance(next_space_, last_space_) < static_cast<int>(n))
                 NewBlock();
             auto old_next = next_space_;
             next_space_ += n;
@@ -123,9 +124,9 @@ namespace Dal {
 
         public:
             using difference_type = std::ptrdiff_t;
-            using reference = T&;
-            using pointer = T*;
-            using value_type = T;
+            using reference = T_&;
+            using pointer = T_*;
+            using value_type = T_;
             using iterator_category = std::bidirectional_iterator_tag;
 
             Iterator_() {}
@@ -154,19 +155,19 @@ namespace Dal {
                 return *this;
             }
 
-            T& operator*() {
+            T_& operator*() {
                 return *curr_space_;
             }
 
-            const T& operator*() {
+            const T_& operator*() const {
                 return *curr_space_;
             }
 
-            T* operator->() {
+            T_* operator->() {
                 return &*curr_space_;
             }
 
-            const T* operator->() {
+            const T_* operator->() const {
                 return &*curr_space_;
             }
 
@@ -192,7 +193,7 @@ namespace Dal {
                              marked_block_->begin(), marked_block_->end());
         }
 
-        Iterator_ Find(const T* const element) const {
+        Iterator_ Find(const T_* const element) {
             Iterator_ it = End();
             Iterator_ b = Begin();
 

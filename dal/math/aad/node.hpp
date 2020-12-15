@@ -11,6 +11,7 @@
 */
 
 #pragma once
+#include <algorithm>
 
 namespace Dal {
     class Node_ {
@@ -28,7 +29,7 @@ namespace Dal {
         friend struct NumResultsResetterForAAD_;
 
     public:
-        Node_(const size_t& n)
+        Node_(const size_t& n = 0)
             :n_(n) {}
 
         double& Adjoint() {
@@ -36,27 +37,27 @@ namespace Dal {
         }
 
         double& Adjoint(const size_t& n) {
-            return p_adjoints_[n]
+            return p_adjoints_[n];
         }
 
         void PropagateOne() {
-            if (!n || !adjoint_)
+            if (!n_ || !adjoint_)
                 return;
 
-            for (size_t i = 0; i < n; ++i)
+            for (size_t i = 0; i < n_; ++i)
                 *(p_adj_ptrs_[i]) += adjoint_ * p_derivatives_[i];
         }
 
         void PropagateAll() {
-            if (!n || all_of(p_adjoints_, p_adjoints_ + num_adj_,
-                             [](const double& x) { return !x; }))
+            if (!n_ || std::all_of(p_adjoints_, p_adjoints_ + num_adj_,
+                                   [](const double& x) { return !x; }))
                 return;
 
-            for (size_t i = 0; i < n ; ++i) {
+            for (size_t i = 0; i < n_ ; ++i) {
                 double* adj_ptr = p_adj_ptrs_[i];
                 double ders = p_derivatives_[i];
                 for (size_t j = 0; j < num_adj_; ++j)
-                    adj_prt[j] += ders * p_adjoints_[j];
+                    adj_ptr[j] += ders * p_adjoints_[j];
             }
         }
     };
