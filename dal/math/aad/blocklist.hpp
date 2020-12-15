@@ -16,6 +16,7 @@
 #include <list>
 #include <iterator>
 #include <array>
+#include <cstring>
 
 namespace Dal {
 
