@@ -41,7 +41,7 @@ namespace Dal {
     template <class IT1_, class IT2_>
     inline void ConvertCollection(IT1_ src_begin, IT1_ src_end, IT2_ dest_begin) {
         using dest_type = std::remove_reference_t<decltype(*dest_begin)>;
-        std::transform(src_begin, src_end, dest_begin, [](const auto& source){return dest_type(source);})
+        std::transform(src_begin, src_end, dest_begin, [](const auto& source){return dest_type(source);});
     }
 
 }
