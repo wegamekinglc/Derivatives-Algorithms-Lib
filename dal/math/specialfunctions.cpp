@@ -36,7 +36,7 @@ namespace Dal {
     } // namespace
 
     double NCDF(double z, bool precise) {
-        return precise ? 0.5 * erfc(-z / M_SQRT1_2) : NcdfBySpline(z);
+        return precise ? 0.5 * erfc(-z / M_SQRT_2) : NcdfBySpline(z);
     }
 
     double InverseNCDF(double x, bool precise, bool polish) {
