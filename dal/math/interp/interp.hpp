@@ -39,4 +39,10 @@ namespace Dal {
         const Vector_<>& x() const { return x_;}
         const Vector_<>& f() const { return f_;}
     };
+
+    namespace Interp {
+        Interp1_* NewLinear(const String_& name,
+                            const Vector_<>& x,
+                            const Vector_<>& f);
+    }
 }
