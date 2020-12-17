@@ -2,10 +2,10 @@
 // Created by wegam on 2020/11/20.
 //
 
-#include <gtest/gtest.h>
+#include <dal/math/interp/interp.hpp>
 #include <dal/platform/platform.hpp>
 #include <dal/utilities/dictionary.hpp>
-#include <dal/math/interp.hpp>
+#include <gtest/gtest.h>
 
 using namespace Dal;
 

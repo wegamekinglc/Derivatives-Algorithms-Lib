@@ -2,7 +2,7 @@
 // Created by wegam on 2020/12/16.
 //
 
-#include <dal/math/interpcubic.hpp>
+#include <dal/math/interp/interpcubic.hpp>
 #include <dal/platform/platform.hpp>
 #include <dal/platform/strict.hpp>
 #include <dal/storage/archive.hpp>

@@ -3,7 +3,7 @@
 //
 
 #pragma once
-#include <dal/math/interp.hpp>
+#include <dal/math/interp/interp.hpp>
 
 namespace Dal {
     class String_;

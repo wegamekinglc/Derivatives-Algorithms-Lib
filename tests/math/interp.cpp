@@ -2,9 +2,9 @@
 // Created by wegam on 2020/11/10.
 //
 
-#include <gtest/gtest.h>
+#include <dal/math/interp/interp.hpp>
 #include <dal/platform/platform.hpp>
-#include <dal/math/interp.hpp>
+#include <gtest/gtest.h>
 
 using Dal::Interp1Linear_;
 using Dal::Vector_;
