@@ -41,8 +41,6 @@ namespace Dal {
     };
 
     namespace Interp {
-        Interp1_* NewLinear(const String_& name,
-                            const Vector_<>& x,
-                            const Vector_<>& f);
+        Interp1_* NewLinear(const String_& name, const Vector_<>& x, const Vector_<>& f);
     }
 }
