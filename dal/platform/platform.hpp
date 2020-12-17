@@ -74,5 +74,6 @@ namespace Dal {
 
 #define RETURN_STATIC(...) static __VA_ARGS__ RETVAL; return RETVAL
 #define DYN_PTR(n, t, s) t* n = dynamic_cast<t*>(s)
+#define LENGTH(a) (sizeof(a)/sizeof(a[0]))
 
 #define VALUE_TYPE_OF(expr) std::remove_const_t<std::remove_reference_t<decltype(expr)>>

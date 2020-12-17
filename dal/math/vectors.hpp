@@ -131,6 +131,16 @@ namespace Dal {
         };
 
         Vector_<int> UpTo(int n);
+
+        template <class E_>
+        Vector_<E_> XRange(E_ start, E_ finish, int points) {
+            Vector_<E_> x(points);
+            E_ dx = (finish-start)/(points-1);
+            for (int i = 0; i < points - 1; ++i)
+                x[i] = start + i * dx;
+            x[points-1] = finish;
+            return x;
+        }
     } // namespace vector
 
     template<class E_>
