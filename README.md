@@ -18,6 +18,14 @@
 
 ## Introduction
 
-This is a project inspired by Tom Hyer's book *Derivatives Algorithms* and Antoine Savine's *Modern Computational Finance* series. At current stage, this codes repository is simply for prototyping and practice. Don't use them in serious situation.
+This is a project inspired by following books:
+
+* *Derivatives Algorithms:  Volume 1: Bones* by Tom Hyer; 
+  
+* *Modern Computational Finance: AAD and Parallel Simulations* by Antoine Savine;
+
+* *Modern Computational Finance: Scripting for Derivatives and xVA* by Antoine Savine.
+
+At current stage, this codes repository is simply for prototyping and practice. Don't use them in serious situation.
 
 > Some codes are directly copied from Tom and Antoine's books 
