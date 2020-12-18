@@ -383,7 +383,7 @@ namespace Dal {
         inline friend Number_ Log(const Number_& arg) {
             const double e = std::log(arg.Value());
             Number_ result(arg.Node(), e);
-            result.Derivative() = 1,0 / arg.Value();
+            result.Derivative() = 1.0 / arg.Value();
             return result;
         }
 
