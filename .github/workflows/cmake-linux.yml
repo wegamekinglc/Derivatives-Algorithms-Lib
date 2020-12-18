@@ -18,7 +18,7 @@ jobs:
           sudo ln -sf /usr/bin/gcov-9 /usr/bin/gcov
           wget http://mirrors.edge.kernel.org/ubuntu//pool/universe/l/lcov/lcov_1.14-2_all.deb
           sudo dpkg -i lcov_1.14-2_all.deb || sudo apt-get install -f -y
-          gem install coveralls-lcov
+          sudo gem install coveralls-lcov
           export CWD=$PWD
           mkdir gtest
           cp -r /usr/src/gtest/* gtest/
