@@ -1,4 +1,4 @@
-name: CMake Linux build
+name: CMake Linux build gcc-9
 on: [push, pull_request]
 jobs:
   build:
