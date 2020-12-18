@@ -1,0 +1,31 @@
+name: CMake Linux build
+on: [push, pull_request]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Setup
+        run: |
+          sudo apt install -y clang-10 libboost-all-dev libgtest-dev libstdc++-10-dev libc++-10-dev libc++abi-10-dev make cmake
+      - name: Prepare
+        env:
+          CXXFLAGS: -O2
+          CC: clang-10
+          CXX: clang++-10
+        run: |
+          export CWD=$PWD
+          mkdir gtest
+          cp -r /usr/src/gtest/* gtest/
+          cd gtest
+          cmake CMakeLists.txt
+          make
+          sudo cp *.* /usr/lib/
+          cd $CWD
+      - name: Compile
+        env:
+          CXXFLAGS: -O2
+          CC: clang-10
+          CXX: clang++-10
+        run: |
+          bash -e ./build_linux.sh
