@@ -10,10 +10,6 @@
 #include <utility>
 #include <dal/utilities/noncopyable.hpp>
 
-#ifdef INFINITY
-#undef INFINITY
-#endif
-
 #ifdef MIN
 #undef MIN
 #endif
@@ -38,7 +34,7 @@ namespace Dal {
     class Dictionary_;
 
     static const double EPSILON = 2e-14;
-    static const double INFINITY = 1e29;
+    static const double INF = 1e29;
     static const double PI = 3.1415926535897932;
     static const double M_SQRT_2 = 1.4142135623730951;
 

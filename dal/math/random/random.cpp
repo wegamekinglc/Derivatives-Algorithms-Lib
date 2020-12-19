@@ -41,17 +41,17 @@ namespace Dal {
             static const double S[17] = {0.0, 0.0, 0.2, 0.4, 0.6, 0.8, 1.0, 1.2, 1.4,
                                          1.6, 1.8, 2.0, 2.2, 2.4, 2.6, 2.8, 3.0};
             static const double Y[32] = {
-                0.0,          -0.922235758, -5.864444728, -0.579530323, -33.13734925, -39.54384419, -2.573637156,
-                -1.610947892, 0.666415357,  Dal::INFINITY, 0.352574032,  -0.166350547, 0.919632724,  0.357909694,
-                -0.022548077, 0.187972157,  0.585574869,  0.961759887,  -0.061622701, 0.120122007,  1.311158187,
-                0.312688141,  1.12240661,   0.536325751,  0.75091678,   0.564026097,  0.174746453,  0.382956509,
-                -0.01107325,  0.393074576,  0.195833651,  0.781086317};
+                0.0,          -0.922235758, -5.864444728,  -0.579530323, -33.13734925, -39.54384419, -2.573637156,
+                -1.610947892, 0.666415357,  Dal::INF, 0.352574032,  -0.166350547, 0.919632724,  0.357909694,
+                -0.022548077, 0.187972157,  0.585574869,   0.961759887,  -0.061622701, 0.120122007,  1.311158187,
+                0.312688141,  1.12240661,   0.536325751,   0.75091678,   0.564026097,  0.174746453,  0.382956509,
+                -0.01107325,  0.393074576,  0.195833651,   0.781086317};
             static const double Z[32] = {
-                0.2,          1.3222357584, 6.6644447279, 1.3795303233, 34.9373492509, 41.3438441882, 2.9736371558,
-                2.6109478918, 0.7335846430, Dal::INFINITY, 0.6474259683, 0.3663505472,  0.2803672763,  0.2420903063,
-                0.2225480772, 0.2120278433, 0.2144251312, 0.2382401128, 0.2616227015,  0.2798779934,  0.2888418127,
-                0.2873118590, 0.2775933900, 0.2636742492, 0.2490832199, 0.2359739033,  0.2252535472,  0.2170434909,
-                0.2110732504, 0.2069254241, 0.2041663490, 0.2189136830};
+                0.2,          1.3222357584, 6.6644447279,  1.3795303233, 34.9373492509, 41.3438441882, 2.9736371558,
+                2.6109478918, 0.7335846430, Dal::INF, 0.6474259683, 0.3663505472,  0.2803672763,  0.2420903063,
+                0.2225480772, 0.2120278433, 0.2144251312,  0.2382401128, 0.2616227015,  0.2798779934,  0.2888418127,
+                0.2873118590, 0.2775933900, 0.2636742492,  0.2490832199, 0.2359739033,  0.2252535472,  0.2170434909,
+                0.2110732504, 0.2069254241, 0.2041663490,  0.2189136830};
 
             template <class SRC_>
             FORCE_INLINE void Fill(SRC_* src, Vector_<>::iterator dst_begin, Vector_<>::iterator dst_end) {
@@ -66,11 +66,9 @@ namespace Dal {
                         *pn = Y[j] + f * Z[j];
                     else if (j < 16) // 31.28%
                         *pn = S[j] + f * Q[j];
-                    else if (j < 31) // 7.90%
-                    {
+                    else if (j < 31) { // 7.90%
                         double u, v;
-                        do // loop c. 1.056 times
-                        {
+                        do { // loop c. 1.056 times
                             u = src->NextUniform();
                             v = src->NextUniform();
                             if (u > v)
@@ -80,10 +78,8 @@ namespace Dal {
                                 break;
                         } // full rejection test:  1.00%
                         while ((exp(0.5 * (Square(S[j - 14]) - Square(*pn))) - 1.0) * E[j] + u < v);
-                    } else // "Supertail" case; 0.27%
-                    {
-                        do // loop 1.094 times
-                        {
+                    } else { // "Supertail" case; 0.27%
+                        do { // loop 1.094 times
                             const double u = src->NextUniform();
                             *pn = sqrt(9.0 - 2.0 * log(u));
                         } while (*pn * src->NextUniform() >= 3.0);
@@ -91,9 +87,9 @@ namespace Dal {
                     *pn *= sign;
                 }
             }
-        }
+        } // namespace RWT
 
-    // Generators similar to Knuth's IRN55, with shuffling
+        // Generators similar to Knuth's IRN55, with shuffling
         template <int M_, int L_, int S_> struct ShuffledIRN_ : Random_ {
             static const int DENOM = 1 << 30;
 
@@ -108,7 +104,7 @@ namespace Dal {
                 irn_[irl_] %= DENOM;
                 return irn_[irl_];
             }
-            double NextUniform() {
+            double NextUniform() override {
                 static const double MUL = 0.5 / DENOM;
                 const unsigned irn = IRN();
                 const int sLoc = irn % S_;
@@ -117,10 +113,10 @@ namespace Dal {
                 return MUL * (2 * retval + 1); // avoid 0.0 and 1.0
             }
 
-            void FillUniform(Vector_<>* deviates) { Random_::FillUniform(deviates); }
-            void FillNormal(Vector_<>* deviates) { RWT::Fill(this, deviates->begin(), deviates->end()); }
+            void FillUniform(Vector_<>* deviates) override { Random_::FillUniform(deviates); }
+            void FillNormal(Vector_<>* deviates) override { RWT::Fill(this, deviates->begin(), deviates->end()); }
 
-            ShuffledIRN_(int seed) : irn_(M_), shuffle_(S_), irl_(0) {
+            explicit ShuffledIRN_(int seed) : irn_(M_), shuffle_(S_), irl_(0) {
                 const unsigned MASK = 0x1F2E3D4C;
                 const unsigned MUL = 17;
                 // initialize IRN_
@@ -135,11 +131,13 @@ namespace Dal {
                     (void)NextUniform();
             }
 
-            Random_* Branch(int i_child) const { return new ShuffledIRN_<M_, L_, S_>(irn_[0] ^ irn_[1]); }
+            [[nodiscard]] Random_* Branch(int i_child) const override {
+                return new ShuffledIRN_<M_, L_, S_>(irn_[0] ^ irn_[1]);
+            }
         };
-    }	// leave local
+    } // namespace
 
-Random_* Random::New(int seed) { return new ShuffledIRN_<55, 31, 128>(seed); }
-}
-
-
+    Random_* Random::New(int seed) {
+        return new ShuffledIRN_<55, 31, 128>(seed);
+    }
+} // namespace Dal

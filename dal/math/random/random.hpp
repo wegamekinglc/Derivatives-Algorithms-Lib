@@ -12,8 +12,8 @@ namespace Dal {
     public:
         virtual ~Random_() = default;
         virtual double NextUniform() = 0;
-        virtual void FillUniform(Vector<>* deviates) = 0;
-        virtual void FillNormal(Vector<>* deviates) = 0;
+        virtual void FillUniform(Vector_<>* deviates) = 0;
+        virtual void FillNormal(Vector_<>* deviates) = 0;
         virtual Random_* Branch(int i_child = 0) const = 0;
     };
 
