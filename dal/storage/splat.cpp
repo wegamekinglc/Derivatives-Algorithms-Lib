@@ -314,16 +314,13 @@ namespace Dal {
                 return TranslateRange(VectorRange(), ExtractDateTime);
             }
 
-            int MatrixStop() const
-            {
-                for (int retval = colStart_ + 1;;)
-                {
-                    for (int ir = rowStart_;; ++ir)
-                    {
+            int MatrixStop() const {
+                for (int retval = colStart_ + 1;;) {
+                    for (int ir = rowStart_;; ++ir) {
                         if (ir == rowStop_)
-                            return retval;	// found an empty column
+                            return retval; // found an empty column
                         else if (!Cell::IsEmpty(data_(ir, retval)))
-                            break;	// column is not empty
+                            break; // column is not empty
                     }
                     if (++retval == data_.Cols())
                         return retval;
