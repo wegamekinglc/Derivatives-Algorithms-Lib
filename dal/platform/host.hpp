@@ -11,4 +11,8 @@ namespace Dal {
     }
 } // namespace Dal
 
+#ifdef WIN32
 #define FORCE_INLINE __forceinline
+#else
+#define FORCE_INLINE
+#endif
