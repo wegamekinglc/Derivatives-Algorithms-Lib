@@ -10,3 +10,5 @@ namespace Dal {
         localTime(int* year, int* month, int* day, int* hour = nullptr, int* minute = nullptr, int* second = nullptr);
     }
 } // namespace Dal
+
+#define FORCE_INLINE __forceinline
