@@ -21,7 +21,6 @@ TEST(RandomTest, TestNewRandom) {
         mean += v;
         var += Square(v - 0.5);
     }
-
     mean /= values.size();
     var = var / values.size();
     ASSERT_NEAR(mean, 0.5, 1e-4);
