@@ -51,7 +51,7 @@ inline auto setNumResultsForAAD(const bool multi = false, const size_t numResult
 {
 	Tape::multi = multi;
 	Node::numAdj = numResults;
-	return make_unique<numResultsResetterForAAD>();
+	return std::make_unique<numResultsResetterForAAD>();
 }
 
 //  Other utilities
