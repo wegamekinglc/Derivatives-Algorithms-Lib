@@ -5,6 +5,7 @@
 #include <dal/math/random/random.hpp>
 #include <dal/math/vectors.hpp>
 #include <dal/platform/host.hpp>
+#include <cmath>
 
 namespace Dal {
     // derived classes can call this explicitly
@@ -77,11 +78,11 @@ namespace Dal {
                             if (v <= D[j]) // In triangle
                                 break;
                         } // full rejection test:  1.00%
-                        while ((exp(0.5 * (Square(S[j - 14]) - Square(*pn))) - 1.0) * E[j] + u < v);
+                        while ((std::exp(0.5 * (Square(S[j - 14]) - Square(*pn))) - 1.0) * E[j] + u < v);
                     } else { // "Supertail" case; 0.27%
                         do { // loop 1.094 times
                             const double u = src->NextUniform();
-                            *pn = sqrt(9.0 - 2.0 * log(u));
+                            *pn = std::sqrt(9.0 - 2.0 * std::log(u));
                         } while (*pn * src->NextUniform() >= 3.0);
                     }
                     *pn *= sign;
@@ -108,9 +109,9 @@ namespace Dal {
                 static const double MUL = 0.5 / DENOM;
                 const unsigned irn = IRN();
                 const int sLoc = irn % S_;
-                int retval = shuffle_[sLoc];
+                int ret_val = shuffle_[sLoc];
                 shuffle_[sLoc] = irn;
-                return MUL * (2 * retval + 1); // avoid 0.0 and 1.0
+                return MUL * (2 * ret_val + 1); // avoid 0.0 and 1.0
             }
 
             void FillUniform(Vector_<>* deviates) override { Random_::FillUniform(deviates); }
@@ -126,9 +127,6 @@ namespace Dal {
                 // initialize shuffle_
                 for (int ii = 0; ii < S_; ++ii)
                     shuffle_[ii] = IRN();
-                // run a few times to warm up
-                for (int ii = 0; ii < 2 * S_ + 3 * M_; ++ii)
-                    (void)NextUniform();
             }
 
             [[nodiscard]] Random_* Branch(int i_child) const override {
