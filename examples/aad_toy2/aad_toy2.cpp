@@ -46,7 +46,7 @@ int main() {
 
     // Using automatic adjoint differentiation
     auto start = std::chrono::high_resolution_clock::now();
-    for (size_t i=0; i < n_loops; ++i) {
+    for (size_t i = 0; i < n_loops; ++i) {
         y.PropagateAdjoints();
     }
     for (size_t i = 0; i < 5; ++i) {

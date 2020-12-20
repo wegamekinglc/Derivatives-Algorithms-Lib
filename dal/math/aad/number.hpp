@@ -32,7 +32,7 @@ namespace Dal {
         Node_& Node() const {
 #ifndef NDEBUG
             auto it = tape_->Find(node_);
-            if (it != tape_->End())
+            if (it == tape_->End())
                 THROW("Put a breakpoint here");
 #endif
             return const_cast<Node_&>(*node_);
@@ -86,7 +86,7 @@ namespace Dal {
 
         Number_() {}
 
-        explicit Number_(double val)
+        Number_(double val)
             :value_(val) {
             CreateNode<0>();
         }

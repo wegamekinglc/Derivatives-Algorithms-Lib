@@ -25,7 +25,7 @@ namespace Dal {
     private:
         std::list<std::array<T_, BLOCK_SIZE_>> data_;
         using list_iter = decltype(data_.begin());
-        using block_iter = decltype(data_.back().end());
+        using block_iter = decltype(data_.back().begin());
 
         list_iter curr_block_;
         list_iter last_block_;
@@ -141,6 +141,7 @@ namespace Dal {
                     ++curr_block_;
                     first_space_ = curr_block_->begin();
                     last_space_ = curr_block_->end();
+                    curr_space_ = first_space_;
                 }
                 return *this;
             }
