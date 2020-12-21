@@ -18,6 +18,7 @@ As long as this comment is preserved at the top of the file
 
 //  So we can instrument Gaussians like standard math functions
 #include "gaussians.h"
+#include <memory>
 
 //  Use traditional AAD of chapter 10 (false)
 //      or expression templated (AADET) of chapter 15 (true)
