@@ -45,22 +45,21 @@ int main() {
     constexpr auto num_param = 10;
     Vector_<> base_value = {1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.};
 
-    size_t n_loops = 100000;
+    size_t n_loops = 1000000;
 
     // Using automatic adjoint differentiation
     auto start = std::chrono::high_resolution_clock::now();
     for (size_t i = 0; i < n_loops; ++i) {
-        Number_::tape_->Mark();
         Number_ x[num_param] = {1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.};
         Number_ y = f(x);
         y.Value();
-        y.PropagateToMark();
+        y.PropagateToStart();
+        Number_::tape_->Rewind();
     }
-    Number_::tape_->MarkIt();
     Number_ x[num_param] = {1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.};
     Number_ y = f(x);
     y.Value();
-    y.PropagateToMark();
+    y.PropagateToStart();
     for (size_t i = 0; i < num_param; ++i) {
         cout << "AAD a" << i << " = "
              << setprecision(9) << x[i].Adjoint() << endl;
