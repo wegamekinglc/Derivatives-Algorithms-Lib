@@ -65,7 +65,7 @@ namespace Dal {
         }
 
         void Rewind() {
-#ifdef NDEBUG
+#ifndef NDEBUG
             Clear();
 #else
             if (multi_)
