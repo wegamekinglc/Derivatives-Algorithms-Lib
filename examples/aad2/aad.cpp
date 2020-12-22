@@ -25,21 +25,30 @@ T_ f(T_ x[]) {
 int main() {
     constexpr auto num_param = 6;
 
-    size_t n_loops = 21;
+    size_t n_loops = 1;
 
     // Using automatic adjoint differentiation
     auto start = std::chrono::high_resolution_clock::now();
 
     for (size_t i = 0; i < n_loops; ++i) {
-        Number::tape->mark();
         Number x[num_param] = {1.0, 2.0, 3.0, 4.0, 5.0, 6.0};
         Number y = f(x);
         y.value();
-        y.propagateToMark();
+        y.propagateToStart();
+        Number::tape->rewind();
     }
     auto finish = std::chrono::high_resolution_clock::now();
     std::cout << "AAD aprox. time: "
               << std::chrono::duration_cast<std::chrono::nanoseconds>(finish - start).count() / n_loops << "ns\n";
+    Number x[num_param] = {1.0, 2.0, 3.0, 4.0, 5.0, 6.0};
+    Number y = f(x);
+    y.value();
+    y.propagateToStart();
+    cout << "y: " << setprecision(9) << y.value() << endl;
+    for (size_t i = 0; i < num_param; ++i) {
+        cout << "AAD a" << i << " = "
+             << setprecision(9) << x[i].adjoint() << endl;
+    }
 
 
     return 0;

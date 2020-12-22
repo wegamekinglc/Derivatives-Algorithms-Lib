@@ -12,16 +12,17 @@
 
 #pragma once
 #include <algorithm>
+#include <iostream>
 
 namespace Dal {
     class Node_ {
         const size_t n_;
         static size_t num_adj_;
 
-        double adjoint_;
-        double* p_derivatives_;
-        double* p_adjoints_;
-        double** p_adj_ptrs_;
+        double adjoint_ = 0;
+        double* p_derivatives_ = nullptr;
+        double* p_adjoints_ = nullptr;
+        double** p_adj_ptrs_ = nullptr;
 
         friend class Tape_;
         friend class Number_;

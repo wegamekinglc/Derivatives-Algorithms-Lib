@@ -50,16 +50,17 @@ int main() {
     // Using automatic adjoint differentiation
     auto start = std::chrono::high_resolution_clock::now();
     for (size_t i = 0; i < n_loops; ++i) {
-        Number_ x[num_param] = {1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.};
+        Number_ x[num_param] = {Number_(1.0), Number_(2.0), Number_(3.0), Number_(4.0), Number_(5.0), Number_(6.0), Number_(7.0), Number_(8.0), Number_(9.0), Number_(10.)};
         Number_ y = f(x);
         y.Value();
         y.PropagateToStart();
         Number_::tape_->Rewind();
     }
-    Number_ x[num_param] = {1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.};
+    Number_ x[num_param] = {Number_(1.0), Number_(2.0), Number_(3.0), Number_(4.0), Number_(5.0), Number_(6.0), Number_(7.0), Number_(8.0), Number_(9.0), Number_(10.)};
     Number_ y = f(x);
     y.Value();
     y.PropagateToStart();
+    cout << "y: " << setprecision(9) << y.Value() << endl;
     for (size_t i = 0; i < num_param; ++i) {
         cout << "AAD a" << i << " = "
              << setprecision(9) << x[i].Adjoint() << endl;

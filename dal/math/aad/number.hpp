@@ -86,7 +86,7 @@ namespace Dal {
 
         Number_() {}
 
-        Number_(double val)
+        explicit Number_(double val)
             :value_(val) {
             CreateNode<0>();
         }
