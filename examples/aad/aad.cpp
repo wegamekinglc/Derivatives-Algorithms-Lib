@@ -21,7 +21,7 @@ inline double Pow(double x, double y) {
 }
 
 template <class T_>
-T_ f(T_ x[]) {
+T_ f(const Vector_<T_>& x) {
     T_ y1 = x[2] * (5.0 * x[0] + x[1]);
     T_ y2 = Log(y1);
     T_ y3 = (y1 + x[3] * y2) * (y1 + y2);
@@ -31,7 +31,7 @@ T_ f(T_ x[]) {
 }
 
 template <class T_>
-void f_der(T_ x[], const Vector_<>& base_value, Vector_<>* ret_val, double eps=1.e-8, int num_params=5) {
+void f_der(Vector_<T_>& x, const Vector_<>& base_value, Vector_<>* ret_val, double eps=1.e-8, int num_params=5) {
     for (size_t i = 0; i < num_params; ++i) {
         x[i] = base_value[i] + eps;
         auto up_y = f(x);
@@ -45,18 +45,18 @@ int main() {
     constexpr auto num_param = 10;
     Vector_<> base_value = {1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.};
 
-    size_t n_loops = 1000000;
+    size_t n_loops = 100000;
 
     // Using automatic adjoint differentiation
     auto start = std::chrono::high_resolution_clock::now();
     for (size_t i = 0; i < n_loops; ++i) {
-        Number_ x[num_param] = {Number_(1.0), Number_(2.0), Number_(3.0), Number_(4.0), Number_(5.0), Number_(6.0), Number_(7.0), Number_(8.0), Number_(9.0), Number_(10.)};
+        Vector_<Number_> x{Number_(1.0), Number_(2.0), Number_(3.0), Number_(4.0), Number_(5.0), Number_(6.0), Number_(7.0), Number_(8.0), Number_(9.0), Number_(10.)};
         Number_ y = f(x);
         y.Value();
         y.PropagateToStart();
         Number_::tape_->Rewind();
     }
-    Number_ x[num_param] = {Number_(1.0), Number_(2.0), Number_(3.0), Number_(4.0), Number_(5.0), Number_(6.0), Number_(7.0), Number_(8.0), Number_(9.0), Number_(10.)};
+    Vector_<Number_> x{Number_(1.0), Number_(2.0), Number_(3.0), Number_(4.0), Number_(5.0), Number_(6.0), Number_(7.0), Number_(8.0), Number_(9.0), Number_(10.)};
     Number_ y = f(x);
     y.Value();
     y.PropagateToStart();
@@ -73,8 +73,9 @@ int main() {
     start = std::chrono::high_resolution_clock::now();
     Vector_<> ret_value(num_param);
     Vector_<> parameters = base_value;
+    cout << "y: " << setprecision(9) << f(parameters) << endl;
     for (size_t i=0; i < n_loops; ++i)
-        f_der(&parameters[0], base_value, &ret_value, 1e-8, num_param);
+        f_der(parameters, base_value, &ret_value, 1e-8, num_param);
     for (size_t i = 0; i < num_param; ++i) {
         cout << "Finite difference a" << i << " = "
              << setprecision(9) << ret_value[i] << endl;

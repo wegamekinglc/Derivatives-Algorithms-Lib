@@ -26,7 +26,7 @@ As long as this comment is preserved at the top of the file
 #include "blocklist.h"
 #include "AADNode.h"
 
-constexpr size_t BLOCKSIZE  = 20 ; //16384;		//	Number of nodes
+constexpr size_t BLOCKSIZE  = 16384;		//	Number of nodes
 constexpr size_t ADJSIZE    = 32768;		//	Number of adjoints
 constexpr size_t DATASIZE   = 65536;		//	Data in bytes
 
