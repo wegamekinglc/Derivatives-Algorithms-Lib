@@ -18,7 +18,7 @@ T_ f(T_ x[]) {
 int main() {
     constexpr auto num_param = 1;
 
-    size_t n_loops = 5;
+    size_t n_loops = 1000000;
 
     // Using automatic adjoint differentiation
     auto start = std::chrono::high_resolution_clock::now();

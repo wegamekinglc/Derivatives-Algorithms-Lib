@@ -77,6 +77,9 @@ namespace Dal {
                 NextBlock();
             T_* emplaced = new (&*next_space_) T_(std::forward<Args_>(args)...);
             ++next_space_;
+
+            if (next_space_ == last_space_)
+                NextBlock();
             return emplaced;
         }
 
@@ -85,6 +88,8 @@ namespace Dal {
                 NextBlock();
             auto old_next = next_space_;
             ++next_space_;
+            if (next_space_ == last_space_)
+                NextBlock();
             return &*old_next;
         }
 

@@ -45,7 +45,7 @@ int main() {
     constexpr auto num_param = 10;
     Vector_<> base_value = {1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.};
 
-    size_t n_loops = 100000;
+    size_t n_loops = 1000000;
 
     // Using automatic adjoint differentiation
     auto start = std::chrono::high_resolution_clock::now();

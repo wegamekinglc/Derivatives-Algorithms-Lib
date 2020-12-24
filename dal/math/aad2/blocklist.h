@@ -127,6 +127,9 @@ public:
         //  Advance next
         ++next_space;
 
+        if (next_space == last_space)
+            nextblock();
+
         //  Return
         return emplaced;
     }
@@ -145,6 +148,9 @@ public:
 
         //  Advance next
         ++next_space;
+
+        if (next_space == last_space)
+            nextblock();
 
         //  Return
         return &*old_next;
