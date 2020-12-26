@@ -3,7 +3,7 @@
 num_cores=$(grep -c processor /proc/cpuinfo)
 export DAL_DIR=$PWD
 export LD_LIBRARY_PATH=$PWD/lib:$LD_LIBRARY_PATH
-export BUILD_TYPE=Debug
+export BUILD_TYPE=Release
 
 git submodule init
 git submodule update
