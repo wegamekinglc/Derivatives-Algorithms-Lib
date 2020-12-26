@@ -22,7 +22,7 @@ TEST(RandomTest, TestNewRandom) {
         var += Square(v - 0.5);
     }
     mean /= values.size();
-    var = var / values.size();
+    var /= values.size();
     ASSERT_NEAR(mean, 0.5, 1e-4);
     ASSERT_NEAR(var, 1. / 12, 1e-4);
 
@@ -34,7 +34,7 @@ TEST(RandomTest, TestNewRandom) {
         var += Square(v);
     }
     mean /= values.size();
-    var = var / values.size();
+    var /= values.size();
     ASSERT_NEAR(mean, 0.0, 1e-3);
     ASSERT_NEAR(var, 1.0, 1e-3);
 }

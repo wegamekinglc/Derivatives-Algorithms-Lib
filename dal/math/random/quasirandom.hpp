@@ -13,6 +13,7 @@ namespace Dal::QuasiRandom {
         virtual ~SequenceSet_() {}
         virtual int Size() const = 0;
         virtual void Next(Vector_<>* dst) = 0;
+        virtual void NextNormal(Vector_<>* dst) = 0;
         virtual SequenceSet_* TakeAway(int sub_size) = 0;
     };
 }
