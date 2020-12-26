@@ -4017,19 +4017,18 @@ namespace Dal {
             1078533153, 115905543,  1762381839, 1038176281, 4255453235, 493981707,  3765375023, 3636277283, 2008289287,
             179327003,  3108212739, 1996488755};
 
-        const uint_least32_t* const jkDir[32] = {jkDir1,  jkDir2,  jkDir3,  jkDir4,  jkDir5,  jkDir6,  jkDir7,  jkDir8,
-                                           jkDir9,  jkDir10, jkDir11, jkDir12, jkDir13, jkDir14, jkDir15, jkDir16,
-                                           jkDir17, jkDir18, jkDir19, jkDir20, jkDir21, jkDir22, jkDir23, jkDir24,
-                                           jkDir25, jkDir26, jkDir27, jkDir28, jkDir29, jkDir30, jkDir31, jkDir32};
+        const uint_least32_t* const jkDir[32] = {
+            jkDir1,  jkDir2,  jkDir3,  jkDir4,  jkDir5,  jkDir6,  jkDir7,  jkDir8,  jkDir9,  jkDir10, jkDir11,
+            jkDir12, jkDir13, jkDir14, jkDir15, jkDir16, jkDir17, jkDir18, jkDir19, jkDir20, jkDir21, jkDir22,
+            jkDir23, jkDir24, jkDir25, jkDir26, jkDir27, jkDir28, jkDir29, jkDir30, jkDir31, jkDir32};
 
         Matrix_<uint_least32_t> Directions(int size) {
             REQUIRE(size < N_KNOWN, "Not enough primitive polynomials available to generate Sobol sequences");
             Matrix_<uint_least32_t> ret_val(N_BITS, size);
             for (int i = 0; i < static_cast<int>(N_BITS); ++i)
-                for (int j =0; j < size; ++j)
+                for (int j = 0; j < size; ++j)
                     ret_val(i, j) = jkDir[i][j];
             return ret_val;
-
         }
 
         double ScaleTo01(uint_least32_t state) { return MUL * state; }
