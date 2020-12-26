@@ -13,11 +13,11 @@ using namespace Dal;
 
 TEST(SobolTest, TestNewSobol) {
     int dim = 10;
-    int i_path = 100;
+    int i_path = 0;
     std::unique_ptr<QuasiRandom::SequenceSet_> set(QuasiRandom::NewSobol(dim, i_path));
     Vector_<> dst;
 
-    int num_path = 100000;
+    int num_path = 1000000;
 
     Vector_<> means(dim, 0.);
     Vector_<> vars(dim, 0.);
