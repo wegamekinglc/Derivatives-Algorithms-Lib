@@ -16,9 +16,9 @@ namespace Dal {
         };
 
         Interp1_* NewCubic(const String_& name,
-                          const Vector_<>& x,
-                          const Vector_<>& f,
-                          const Boundary_& lhs,
-                          const Boundary_& rhs);
+                           const Vector_<>& x,
+                           const Vector_<>& f,
+                           const Boundary_& lhs,
+                           const Boundary_& rhs);
     }
 }

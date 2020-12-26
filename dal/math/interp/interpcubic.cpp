@@ -51,7 +51,7 @@ namespace Dal {
             void Write(Archive::Store_& dst) const override { Cubic1::XWrite(dst, name_, x_, f_, fpp_); }
         };
 
-    #include <dal/auto/MG_Cubic1_Read.inc>
+        #include <dal/auto/MG_Cubic1_Read.inc>
 
         // based on Numerical Recipes' splint
         double Cubic1_::operator()(double x) const {
