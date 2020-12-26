@@ -53,8 +53,8 @@ namespace Dal {
         }
 
         Matrix_& operator=(Matrix_&& rhs) noexcept {
-            if(this != rhs) {
-                Matrix_<E_> temp(move(rhs));
+            if(this != &rhs) {
+                Matrix_<E_> temp(std::move(rhs));
                 swap(temp);
             }
             return *this;
