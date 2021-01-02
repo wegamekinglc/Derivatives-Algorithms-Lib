@@ -28,20 +28,6 @@ namespace Dal {
         }
     };
 
-    struct PositiveIncreasing_ {
-        double scale_;
-        explicit PositiveIncreasing_(double s)
-            :scale_(s) {}
-
-        double operator()(double x) const {
-            return scale_ * (x > 0.0 ? 1.0 + x : std::exp(x));
-        }
-
-        [[nodiscard]] double Inverse(double s) const {
-            return s > scale_ ? s / scale_ - 1.0 : std::log(s / scale_);
-        }
-    };
-
     class BracketedBrent_ : public RootFinder_ {
         std::pair<double, double> a_, b_, c_;
         const double tol_;
@@ -69,7 +55,8 @@ namespace Dal {
     class Brent_ : public RootFinder_ {
         enum class Phase_ {
             INITIALIZE,
-            HUNT, BRACKETED
+            HUNT,
+            BRACKETED
         } phase_;
         bool increasing_;
         double stepSize_, trialX_;
