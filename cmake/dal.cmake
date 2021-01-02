@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 2.8)
+cmake_minimum_required(VERSION 3.12.0)
 macro(get_dal_library_name DAL_OUTPUT_NAME)
     message(STATUS "dal library name tokens:")
     # MSVC: Give QuantLib built library different names following code in 'ql/autolink.hpp'
