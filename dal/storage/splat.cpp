@@ -15,6 +15,8 @@
 #include <dal/utilities/dictionary.hpp>
 #include <dal/utilities/numerics.hpp>
 #include <dal/utilities/functionals.hpp>
+#include <dal/utilities/file.hpp>
+#include <algorithm>
 
 using std::map;
 using std::shared_ptr;
@@ -315,15 +317,15 @@ namespace Dal {
             }
 
             int MatrixStop() const {
-                for (int retval = colStart_ + 1;;) {
+                for (int ret_val = colStart_ + 1;;) {
                     for (int ir = rowStart_;; ++ir) {
                         if (ir == rowStop_)
-                            return retval; // found an empty column
-                        else if (!Cell::IsEmpty(data_(ir, retval)))
+                            return ret_val; // found an empty column
+                        else if (!Cell::IsEmpty(data_(ir, ret_val)))
                             break; // column is not empty
                     }
-                    if (++retval == data_.Cols())
-                        return retval;
+                    if (++ret_val == data_.Cols())
+                        return ret_val;
                 }
             }
             template <class F_>
@@ -345,14 +347,63 @@ namespace Dal {
             Dictionary_ AsDictionary() const override {
                 REQUIRE(MatrixStop() == colStart_ + 2,
                         "Can't extract dictionary because entry does not have two columns");
-                Dictionary_ retval;
+                Dictionary_ ret_val;
                 for (int ir = rowStart_; ir < rowStop_; ++ir)
-                    retval.Insert(ExtractString(data_(ir, colStart_)), data_(ir, colStart_ + 1));
-                return retval;
+                    ret_val.Insert(ExtractString(data_(ir, colStart_)), data_(ir, colStart_ + 1));
+                return ret_val;
             }
 
             Handle_<Storable_>& Known(Archive::Built_& built) const override { return built.known_[Tag()]; }
         };
+
+        Cell_ AsCell(const String_& content) {
+            if (content.empty())
+                return Cell_();
+            else if (content.front() == '=' && content.back() == '=')
+                return Cell_(content.substr(1, content.size() - 2));
+            else if (content == "TRUE")
+                return Cell_(true);
+            else if (content == "FALSE")
+                return Cell_(false);
+            else if (content.find_first_not_of("0123456789.eE+-") == String_::npos) {
+                char* e;
+                double ret_val = std::strtod(content.c_str(), & e);
+                if (!*e)
+                    return Cell_(ret_val);
+            }
+            return Cell_(content);
+        }
+
+        Vector_<Cell_> SplitLine(const String_& line) {
+            Vector_<Cell_> ret_val;
+            auto start = line.begin();
+            while (start != line.end()) {
+                auto stop = start;
+                bool quoted = false;
+                for (; stop != line.end(); ++stop) {
+                    if (stop == line.end() || (!quoted && *stop == ','))
+                        break;
+                    else if (*stop == '"')
+                        quoted = !quoted;
+                }
+                ret_val.push_back(AsCell(String_(start, stop)));
+                start = stop == line.end() ? line.end() : Next(stop);
+            }
+            return ret_val;
+        }
+
+        Matrix_<Cell_> FileTable(const String_& file_name) {
+            Vector_<String_> lines;
+            File::Read(file_name, &lines);
+            Vector_<Vector_<Cell_>> data = Apply(AsFunctor(SplitLine), lines);
+            int cols = 0;
+            for (const auto& d : data)
+                cols = Max(cols, int(d.size()));
+            Matrix_<Cell_> ret_val(data.size(), cols);
+            for (int i = 0; i < data.size(); ++i)
+                std::copy(data[i].begin(), data[i].end(), ret_val.Row(i).begin());
+            return ret_val;
+        }
     }
 
     Matrix_<Cell_> Splat(const Storable_& src) {
@@ -369,5 +420,9 @@ namespace Dal {
         NOTE("Extracting object from splatted data");
         Archive::Built_ built;
         return Archive::Extract(task, built);
+    }
+
+    Handle_<Storable_> UnSplatFile(const String_& file_name, bool quiet) {
+        return UnSplat(FileTable(file_name), quiet);
     }
 }
