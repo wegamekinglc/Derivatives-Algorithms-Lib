@@ -14,5 +14,13 @@ namespace Dal::File {
         char buf[2048];
         while (src.getline(buf, 2048))
             dst->emplace_back(buf);
+        src.close();
+    }
+
+    void Write(const String_& file_name, const Vector_<String_>& src) {
+        std::ofstream dst(file_name.c_str());
+        for (const auto& line : src)
+            dst << line << std::endl;
+        dst.close();
     }
 }
