@@ -2,12 +2,14 @@
 // Created by wegam on 2020/10/25.
 //
 
-#include <dal/math/cellutils.hpp>
 #include <dal/platform/platform.hpp>
-#include <dal/platform/strict.hpp>
-
+#include <dal/math/cellutils.hpp>
 #include <dal/time/dateutils.hpp>
 #include <dal/time/datetimeutils.hpp>
+#include <dal/string/strings.hpp>
+#include <dal/utilities/algorithms.hpp>
+#include <dal/platform/strict.hpp>
+
 
 
 namespace Dal {
@@ -68,6 +70,16 @@ namespace Dal {
             return Cell_(false);
         // sometimes a string is just a string
         return src;
+    }
+
+    Vector_<String_> Cell::ToStringLines(const Matrix_<Cell_>& src) {
+        Vector_<String_> ret_val;
+        for (int i = 0; i < src.Rows(); ++i) {
+            const auto row = src.Row(i);
+            Vector_<String_> values = Apply(CoerceToString, row);
+            ret_val.push_back(String::Accumulate(values, ","));
+        }
+        return ret_val;
     }
 }
 

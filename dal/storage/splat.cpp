@@ -9,6 +9,7 @@
 
 #include <dal/storage/archive.hpp>
 #include <dal/math/cell.hpp>
+#include <dal/math/cellutils.hpp>
 #include <dal/string/stringutils.hpp>
 #include <dal/time/dateutils.hpp>
 #include <dal/time/datetimeutils.hpp>
@@ -413,6 +414,13 @@ namespace Dal {
         Matrix_<Cell_> ret_val(task.Rows(), task.Cols());
         task.Write(ret_val, 0, 0);
         return ret_val;
+    }
+
+    void SplatFile(const String_& file_name, const Storable_& src) {
+        Matrix_<Cell_> mat = Splat(src);
+        NOTE("Save object to local file");
+        Vector_<String_> ret = Cell::ToStringLines(mat);
+        File::Write(file_name, ret);
     }
 
     Handle_<Storable_> UnSplat(const Matrix_<Cell_>& src, bool quiet) {

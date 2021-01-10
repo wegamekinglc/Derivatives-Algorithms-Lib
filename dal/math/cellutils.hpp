@@ -6,6 +6,7 @@
 
 #include <bitset>
 #include <dal/math/cell.hpp>
+#include <dal/math/matrixs.hpp>
 #include <dal/platform/optionals.hpp>
 
 namespace Dal {
@@ -41,5 +42,7 @@ namespace Dal {
             return T_(CoerceToString(src));
         } // this implementation means we accept non-string values, converting to strings
         template <class T_> Cell_ FromEnum(const T_& src) { return Cell_(String_(src.String())); }
+
+        Vector_<String_> ToStringLines(const Matrix_<Cell_>& src);
     }
 }
