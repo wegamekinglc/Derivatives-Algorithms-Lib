@@ -119,6 +119,8 @@ namespace Dal {
         };
 
         template<class C_> String_ Accumulate(const C_& vals, const String_& sep, bool skip_empty = true) {
+            if (vals.empty())
+                return String_();
             return std::accumulate(++vals.begin(), vals.end(), *(vals.begin()), Joiner_(sep, skip_empty));
         }
     } // namespace String
