@@ -110,7 +110,7 @@ namespace Dal {
             explicit Joiner_(const String_& sep, bool skip_empty = true) : sep_(sep), skipEmpty_(skip_empty) {}
 
             String_ operator()(const String_& so_far, const String_& more) const {
-                if (so_far.empty())
+                if (so_far.empty() && skipEmpty_)
                     return more;
                 if (more.empty() && skipEmpty_)
                     return so_far;
@@ -119,7 +119,7 @@ namespace Dal {
         };
 
         template<class C_> String_ Accumulate(const C_& vals, const String_& sep, bool skip_empty = true) {
-            return std::accumulate(vals.begin(), vals.end(), String_(), Joiner_(sep, skip_empty));
+            return std::accumulate(++vals.begin(), vals.end(), *(vals.begin()), Joiner_(sep, skip_empty));
         }
     } // namespace String
 

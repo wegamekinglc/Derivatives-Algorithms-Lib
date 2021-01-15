@@ -77,7 +77,7 @@ namespace Dal {
         for (int i = 0; i < src.Rows(); ++i) {
             const auto row = src.Row(i);
             Vector_<String_> values = Apply(CoerceToString, row);
-            ret_val.push_back(String::Accumulate(values, ","));
+            ret_val.push_back(String::Accumulate(values, ",", false));
         }
         return ret_val;
     }

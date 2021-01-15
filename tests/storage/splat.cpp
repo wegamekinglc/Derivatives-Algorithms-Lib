@@ -21,3 +21,16 @@ TEST(SplatTest, TestSplatAndUnSplat) {
     ASSERT_EQ(x, val->x());
     ASSERT_EQ(f, val->f());
 }
+
+TEST(SplatTest, TestSplatFileAndUnSplatFile) {
+    Vector_<> x = {1., 2., 3., 4., 5.};
+    Vector_<> f = {2.5, 3.5, 1.7, 2.8, 3.6};
+
+    Interp1Linear_ src("interp", x, f);
+
+    SplatFile("src.csv", src);
+    Handle_<Storable_> rtn = UnSplatFile("src.csv", true);
+    Handle_<Interp1Linear_> val(std::dynamic_pointer_cast<const Interp1Linear_>(rtn));
+    ASSERT_EQ(x, val->x());
+    ASSERT_EQ(f, val->f());
+}
