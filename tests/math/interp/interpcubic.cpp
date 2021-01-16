@@ -32,8 +32,7 @@ TEST(InterpTest, TestNewCubic) {
     int points[] = {5, 9, 17, 33};
     Vector_<> x, y;
 
-    for (int i = 0; i < LENGTH(points); i++) {
-        int n = points[i];
+    for (const auto n : points) {
         Vector_<> x = Vector::XRange(-1.7, 1.9, n);
         Vector_<> y = Gaussian(x);
 
