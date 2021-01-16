@@ -166,7 +166,7 @@ namespace Dal {
     };
 
     struct OPLog_ {
-        static double Eval(double r, double d) { return std::lor(r); }
+        static double Eval(double r, double d) { return std::log(r); }
 
         static double Derivative(double r, double v, double d) { return 1.0 / r; }
     };
@@ -259,85 +259,85 @@ namespace Dal {
 
     // overloading
 
-    template <class ARG_> UnaryExpression_<ARG_, OPExp_> Exp(const Expression<ARG_>& arg) {
+    template <class ARG_> UnaryExpression_<ARG_, OPExp_> Exp(const Expression_<ARG_>& arg) {
         return UnaryExpression_<ARG_, OPExp_>(arg);
     }
 
-    template <class ARG_> UnaryExpression_<ARG_, OPLog_> Log(const Expression<ARG_>& arg) {
+    template <class ARG_> UnaryExpression_<ARG_, OPLog_> Log(const Expression_<ARG_>& arg) {
         return UnaryExpression_<ARG_, OPLog_>(arg);
     }
 
-    template <class ARG_> UnaryExpression_<ARG_, OPSqrt_> Sqrt(const Expression<ARG_>& arg) {
+    template <class ARG_> UnaryExpression_<ARG_, OPSqrt_> Sqrt(const Expression_<ARG_>& arg) {
         return UnaryExpression_<ARG_, OPSqrt_>(arg);
     }
 
-    template <class ARG_> UnaryExpression_<ARG_, OPFabs_> Fabs(const Expression<ARG_>& arg) {
+    template <class ARG_> UnaryExpression_<ARG_, OPFabs_> Fabs(const Expression_<ARG_>& arg) {
         return UnaryExpression_<ARG_, OPFabs_>(arg);
     }
 
-    template <class ARG_> UnaryExpression_<ARG_, OPNormalDens_> NormalDens(const Expression<ARG_>& arg) {
+    template <class ARG_> UnaryExpression_<ARG_, OPNormalDens_> NormalDens(const Expression_<ARG_>& arg) {
         return UnaryExpression_<ARG_, OPNormalDens_>(arg);
     }
 
-    template <class ARG_> UnaryExpression_<ARG_, OPNormalCdf_> NormalCdf(const Expression<ARG_>& arg) {
+    template <class ARG_> UnaryExpression_<ARG_, OPNormalCdf_> NormalCdf(const Expression_<ARG_>& arg) {
         return UnaryExpression_<ARG_, OPNormalCdf_>(arg);
     }
 
     // binary operators with a double on one side
 
-    template <class ARG_> UnaryExpression_<ARG_, OPMultD_> operator*(double d, const Expression<ARG_>& rhs) {
+    template <class ARG_> UnaryExpression_<ARG_, OPMultD_> operator*(double d, const Expression_<ARG_>& rhs) {
         return UnaryExpression_<ARG_, OPMultD_>(rhs, d);
     }
 
-    template <class ARG_> UnaryExpression_<ARG_, OPMultD_> operator*(const Expression<ARG_>& lhs, double d) {
+    template <class ARG_> UnaryExpression_<ARG_, OPMultD_> operator*(const Expression_<ARG_>& lhs, double d) {
         return UnaryExpression_<ARG_, OPMultD_>(lhs, d);
     }
 
-    template <class ARG_> UnaryExpression_<ARG_, OPAddD_> operator+(double d, const Expression<ARG_>& rhs) {
+    template <class ARG_> UnaryExpression_<ARG_, OPAddD_> operator+(double d, const Expression_<ARG_>& rhs) {
         return UnaryExpression_<ARG_, OPAddD_>(rhs, d);
     }
 
-    template <class ARG_> UnaryExpression_<ARG_, OPAddD_> operator+(const Expression<ARG_>& lhs, double d) {
+    template <class ARG_> UnaryExpression_<ARG_, OPAddD_> operator+(const Expression_<ARG_>& lhs, double d) {
         return UnaryExpression_<ARG_, OPAddD_>(lhs, d);
     }
 
-    template <class ARG_> UnaryExpression_<ARG_, OPSubDL_> operator-(double d, const Expression<ARG_>& rhs) {
+    template <class ARG_> UnaryExpression_<ARG_, OPSubDL_> operator-(double d, const Expression_<ARG_>& rhs) {
         return UnaryExpression_<ARG_, OPSubDL_>(rhs, d);
     }
 
-    template <class ARG_> UnaryExpression_<ARG_, OPSubDR_> operator-(const Expression<ARG_>& lhs, double d) {
+    template <class ARG_> UnaryExpression_<ARG_, OPSubDR_> operator-(const Expression_<ARG_>& lhs, double d) {
         return UnaryExpression_<ARG_, OPSubDR_>(lhs, d);
     }
 
-    template <class ARG_> UnaryExpression_<ARG_, OPDivDL_> operator/(double d, const Expression<ARG_>& rhs) {
+    template <class ARG_> UnaryExpression_<ARG_, OPDivDL_> operator/(double d, const Expression_<ARG_>& rhs) {
         return UnaryExpression_<ARG_, OPDivDL_>(rhs, d);
     }
 
-    template <class ARG_> UnaryExpression_<ARG_, OPDivDR_> operator/(const Expression<ARG_>& lhs, double d) {
+    template <class ARG_> UnaryExpression_<ARG_, OPDivDR_> operator/(const Expression_<ARG_>& lhs, double d) {
         return UnaryExpression_<ARG_, OPDivDR_>(lhs, d);
     }
 
-    template <class ARG_> UnaryExpression_<ARG_, OPPowDL_> Pow(double d, const Expression<ARG_>& rhs) {
+    template <class ARG_> UnaryExpression_<ARG_, OPPowDL_> Pow(double d, const Expression_<ARG_>& rhs) {
         return UnaryExpression_<ARG_, OPPowDL_>(rhs, d);
     }
 
-    template <class ARG_> UnaryExpression_<ARG_, OPPowDR_> Pow(const Expression<ARG_>& lhs, double d) {
+    template <class ARG_> UnaryExpression_<ARG_, OPPowDR_> Pow(const Expression_<ARG_>& lhs, double d) {
         return UnaryExpression_<ARG_, OPPowDR_>(lhs, d);
     }
 
-    template <class ARG_> UnaryExpression_<ARG_, OPMaxD_> Max(double d, const Expression<ARG_>& rhs) {
+    template <class ARG_> UnaryExpression_<ARG_, OPMaxD_> Max(double d, const Expression_<ARG_>& rhs) {
         return UnaryExpression_<ARG_, OPMaxD_>(rhs, d);
     }
 
-    template <class ARG_> UnaryExpression_<ARG_, OPMaxD_> Max(const Expression<ARG_>& lhs, double d) {
+    template <class ARG_> UnaryExpression_<ARG_, OPMaxD_> Max(const Expression_<ARG_>& lhs, double d) {
         return UnaryExpression_<ARG_, OPMaxD_>(lhs, d);
     }
 
-    template <class ARG_> UnaryExpression_<ARG_, OPMaxD_> Min(double d, const Expression<ARG_>& rhs) {
+    template <class ARG_> UnaryExpression_<ARG_, OPMaxD_> Min(double d, const Expression_<ARG_>& rhs) {
         return UnaryExpression_<ARG_, OPMaxD_>(rhs, d);
     }
 
-    template <class ARG_> UnaryExpression_<ARG_, OPMinD_> Min(const Expression<ARG_>& lhs, double d) {
+    template <class ARG_> UnaryExpression_<ARG_, OPMinD_> Min(const Expression_<ARG_>& lhs, double d) {
         return UnaryExpression_<ARG_, OPMinD_>(lhs, d);
     }
 
@@ -429,7 +429,7 @@ namespace Dal {
         template <size_t N_, size_t n_>
         void PushAdjoint(Node_& exprNode, double adjoint) const {
             exprNode.p_adj_ptrs_[n_] = Tape_::multi_ ? node_->p_adjoints_ : &node_->adjoint_;
-            exprNode.p_derivatives_[n] = adjoint;
+            exprNode.p_derivatives_[n_] = adjoint;
         }
 
         Number_() = default;
@@ -465,7 +465,7 @@ namespace Dal {
         }
 
         void PutOnTape() {
-            node_ = CreateMultiNode<0>()
+            node_ = CreateMultiNode<0>();
         }
 
         double& Value() { return value_;}
@@ -483,7 +483,7 @@ namespace Dal {
             return node_->Adjoint(n);
         }
 
-        double Adjoint(size_t n) {
+        double Adjoint(size_t n) const {
             return node_->Adjoint(n);
         }
 
