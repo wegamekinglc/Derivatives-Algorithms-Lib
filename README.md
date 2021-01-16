@@ -4,7 +4,7 @@
 <tr>
   <td>Build Status</td>
   <td>
-    <a href="https://travis-ci.org/alpha-miner/Finance-Python">
+    <a href="https://travis-ci.org/wegamekinglc/dal">
     <img src="https://travis-ci.org/wegamekinglc/dal.svg?branch=master" alt="travis build status" />
     </a>
   </td>
