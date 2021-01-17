@@ -4,14 +4,14 @@
 <tr>
   <td>Build Status</td>
   <td>
-    <a href="https://travis-ci.org/wegamekinglc/dal">
-    <img src="https://travis-ci.org/wegamekinglc/dal.svg?branch=master" alt="travis build status" />
+    <a href="https://travis-ci.org/wegamekinglc/Derivatives-Algorithms-Lib">
+    <img src="https://travis-ci.org/wegamekinglc/Derivatives-Algorithms-Lib.svg?branch=master" alt="travis build status" />
     </a>
   </td>
 </tr>
 <tr>
   <td>Coverage</td>
-  <td><img src="https://coveralls.io/repos/wegamekinglc/dal/badge.svg?branch=master" alt="coverage" /></td>
+  <td><img src="https://coveralls.io/repos/wegamekinglc/Derivatives-Algorithms-Lib/badge.svg?branch=master" alt="coverage" /></td>
 </tr>
 </table>
 
