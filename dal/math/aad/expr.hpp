@@ -36,7 +36,7 @@ namespace Dal {
 
             if (RHS_::numNumbers_ > 0)
                 rhs_.PushAdjoint<N_, n_ + LHS_::numNumbers_>(
-                    exprNode, adjoint * OP_::RightDerivative(lhs_.Value(), rhs_.Value(), Value));
+                    exprNode, adjoint * OP_::RightDerivative(lhs_.Value(), rhs_.Value(), Value()));
         }
     };
 
