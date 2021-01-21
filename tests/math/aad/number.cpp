@@ -2,14 +2,15 @@
 // Created by wegam on 2021/1/18.
 //
 
-#undef AADET_ENABLED
-
 #include <dal/math/aad/aad.hpp>
 #include <gtest/gtest.h>
 
 using namespace Dal;
 
 TEST(AADNumberTest, TestNumberAdd) {
+
+    Number_::tape_->Clear();
+
     Number_ s1(1.0);
     Number_ s2(2.0);
 

@@ -155,7 +155,8 @@ namespace Dal {
         enum { numNumbers_ = ARG_::numNumbers_ };
 
         template <size_t N_, size_t n_> void PushAdjoint(Node_& exprNode, double adjoint) const {
-            arg_.PushAdjoint<N_, n_>(exprNode, adjoint * OP_::Derivative(arg_.Value(), Value(), d_arg_));
+            if (ARG_::numNumbers_ > 0)
+                arg_.PushAdjoint<N_, n_>(exprNode, adjoint * OP_::Derivative(arg_.Value(), Value(), d_arg_));
         }
     };
 
@@ -416,8 +417,9 @@ namespace Dal {
 
         template <class E_>
         void FromExpr(const Expression_<E_>& e) {
-            auto* node = CreateMultiNode<E_::numNumbers_>();
-            static_cast<const E_&>(e).PushAdjoint<E_::numNumbers_, 0>(*node, 1.0);
+            auto* node = this->CreateMultiNode<E_::numNumbers_>();
+            const auto& tmp = static_cast<const E_&>(e);
+            tmp.PushAdjoint<E_::numNumbers_, 0>(*node, 1.0);
             node_ = node;
         }
 
@@ -446,13 +448,13 @@ namespace Dal {
         template <class E_>
         explicit Number_(const Expression_<E_>& e)
             :value_(e.Value()) {
-            FromExpr<E_>(static_cast<const E_&>(e));
+            FromExpr<E_>(e);
         }
 
         template <class E_>
         Number_& operator=(const Expression_<E_>& e) {
             value_ = e.Value();
-            FromExpr<E_>(static_cast<const E_&>(e));
+            FromExpr<E_>(e);
             return *this;
         }
 
