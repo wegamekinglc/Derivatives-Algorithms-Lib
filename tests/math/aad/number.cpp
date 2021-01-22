@@ -184,3 +184,47 @@ TEST(AADNumberTest, TestNumberMax) {
     ASSERT_NEAR(s2.Adjoint(), 1.0, 1e-10);
     Number_::tape_->Rewind();
 }
+
+TEST(AADNumberTest, TestNumberMin) {
+    Number_::tape_->Clear();
+
+    Number_ s1(3.0);
+    Number_ s2(2.0);
+    auto value = Min(s1, s2);
+    ASSERT_NEAR(value.Value(), 2.0, 1e-10);
+    value.PropagateToStart();
+    ASSERT_NEAR(s1.Adjoint(), 0.0, 1e-10);
+    ASSERT_NEAR(s2.Adjoint(), 1.0, 1e-10);
+
+    s1 = 3.0;
+    value = Min(s1, 2.0);
+    value.PropagateToStart();
+    ASSERT_NEAR(s1.Adjoint(), 0.0, 1e-10);
+    Number_::tape_->Rewind();
+
+    s2 = 2.0;
+    value = Min(3.0, s2);
+    value.PropagateToStart();
+    ASSERT_NEAR(s2.Adjoint(), 1.0, 1e-10);
+    Number_::tape_->Rewind();
+
+    s1 = 2.0;
+    s2 = 3.0;
+    value = Min(s1, s2);
+    ASSERT_NEAR(value.Value(), 2.0, 1e-10);
+    value.PropagateToStart();
+    ASSERT_NEAR(s1.Adjoint(), 1.0, 1e-10);
+    ASSERT_NEAR(s2.Adjoint(), 0.0, 1e-10);
+
+    s1 = 2.0;
+    value = Min(s1, 3.0);
+    value.PropagateToStart();
+    ASSERT_NEAR(s1.Adjoint(), 1.0, 1e-10);
+    Number_::tape_->Rewind();
+
+    s2 = 3.0;
+    value = Min(2.0, s2);
+    value.PropagateToStart();
+    ASSERT_NEAR(s2.Adjoint(), 0.0, 1e-10);
+    Number_::tape_->Rewind();
+}
