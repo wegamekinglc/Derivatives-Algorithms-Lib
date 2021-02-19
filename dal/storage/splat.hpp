@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include <dal/math/matrixs.hpp>
+#include <dal/math/matrix/matrixs.hpp>
 
 namespace Dal {
     struct Cell_;

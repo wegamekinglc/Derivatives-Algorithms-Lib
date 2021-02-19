@@ -2,8 +2,8 @@
 // Created by Cheng Li on 2018/1/13.
 //
 
+#include <dal/math/matrix/matrixs.hpp>
 #include <dal/platform/platform.hpp>
-#include <dal/math/matrixs.hpp>
 #include <gtest/gtest.h>
 
 using matrix_t = Dal::Matrix_<>;

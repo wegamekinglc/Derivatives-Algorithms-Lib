@@ -1,7 +1,7 @@
-#include <functional>
 #include <cmath>
-#include <dal/math/matrixarithmetic.hpp>
-#include <dal/math/matrixs.hpp>
+#include <dal/math/matrix/matrixarithmetic.hpp>
+#include <dal/math/matrix/matrixs.hpp>
+#include <functional>
 
 namespace Dal {
     namespace Matrix {

@@ -6,7 +6,7 @@
 
 #include <bitset>
 #include <dal/math/cell.hpp>
-#include <dal/math/matrixs.hpp>
+#include <dal/math/matrix/matrixs.hpp>
 #include <dal/platform/optionals.hpp>
 
 namespace Dal {
