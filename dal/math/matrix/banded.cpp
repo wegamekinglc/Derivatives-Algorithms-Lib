@@ -167,5 +167,71 @@ namespace Dal {
                 return new TriDecomp_(diag_, above_, below_);
             }
         };
+
+        /*
+         * more general band diagonals
+         * band diagonals are stored as in Numerical Recipes: columns below diagonal, then diagonal, then above diagonal
+         */
+        struct BandElements_ {
+            Matrix_<> store_;
+            const Matrix_<>& view_;
+            int nBelow_;
+
+            BandElements_(int size, int n_below, int n_above)
+            : store_(size, 1 + n_below + n_above), view_(store_), nBelow_(n_below) {
+                store_.Fill(0.0);
+            }
+
+            // also can borrow an existing matrix in which case store_ will be empty
+            BandElements_(const Matrix_<>& val, int n_below)
+            : view_(val), nBelow_(n_below) {}
+
+            const double& operator()(int row, int col) const {
+                const int myCol = (col - row) + nBelow_;
+                if (myCol >= 0 && myCol < view_.Cols())
+                    return view_(row, myCol);
+                return ZERO;
+            }
+
+            double& At(int row, int col) {
+                REQUIRE(!store_.Empty(), "Can't write to view-only band elements");
+                const int myCol = (col - row) + nBelow_;
+                REQUIRE(myCol >= 0 && myCol < view_.Cols(), "Index outside diagonal band");
+                return store_(row, myCol);
+            }
+        };
+
+        // first some free functions supporting implementation
+
+        // left-multiplication
+        template <bool transpose>
+        void BandedMultiply(const BandElements_& val, const Vector_<>& x, Vector_<>* b) {
+            REQUIRE(b != &x, "no aliasing here");
+            const int n = x.size();
+            REQUIRE(val.view_.Rows() == n, "Size should be compatible with x and the matrix");
+            b->Resize(n);
+            b->Fill(0.0);
+            for (int ii = 0; ii < n; ++ii) {
+                const int jStop = Min(n, ii + val.view_.Cols() - val.nBelow_);
+                for (int jj = Max(0, ii - val.nBelow_); jj < jStop; ++jj) {
+                    (*b)[transpose ? jj : ii] += x[transpose ? ii : jj] * val(ii, jj);
+                }
+            }
+        }
+
+        // this works even if x == &b
+        void BandedLSolve(const BandElements_& val, const Vector_<>& b, Vector_<>* x) {
+            REQUIRE(val.view_.Cols() == val.nBelow_ + 1, "n_below and cols are not matched");
+            const int n = b.size();
+            REQUIRE(val.view_.Rows() == n, "Size should be compatible with b and the matrix");
+            x->Resize(n);
+            for (int ii = 0; ii < n; ++ii) {
+                double residual = b[ii];
+                for (int jj = Max(0, ii - val.nBelow_); jj < ii; ++jj)
+                    residual -= (*x)[jj] * val(ii, jj);
+                REQUIRE(!IsZero(val(ii, ii)), "Overflow in banded L-solve");
+                (*x)[ii] = residual / val(ii, ii);
+            }
+        }
     }
 }
