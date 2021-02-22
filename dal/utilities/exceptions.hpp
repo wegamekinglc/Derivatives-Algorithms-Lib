@@ -66,6 +66,7 @@ namespace Dal {
 #define ASSERT(cond, msg)
 #endif
 #define REQUIRE(cond, msg) if (cond); else THROW(msg)
+#define ASSURE(cond, msg) if (cond); else THROW(msg)
 
 #define XXNOTICE(u, n, v) Dal::exception::StackRegister_ __xsr##u(n, v)
 #define XNOTICE(u, n, v) XXNOTICE(u, n, v)
