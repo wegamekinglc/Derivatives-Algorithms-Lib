@@ -142,7 +142,10 @@ namespace Dal {
 
             const double& operator()(int i_row, int j_col) const override {
                 const double* temp = TridiagAt(diag_, above_, below_, i_row, j_col);
-                return temp ? *temp : ZERO;
+                if (temp)
+                    return *temp;
+                else
+                    return ZERO;
             }
 
             void Set(int i_row, int j_col, double val) override {
