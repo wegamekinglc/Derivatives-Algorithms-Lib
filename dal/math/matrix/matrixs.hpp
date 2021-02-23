@@ -60,6 +60,16 @@ namespace Dal {
             return *this;
         }
 
+        Matrix_& operator=(const Matrix_& rhs) noexcept {
+            if(this != &rhs) {
+                vals_ = rhs.vals_;
+                cols_ = rhs.cols_;
+                hooks_ = Vector_<I_>(rhs.hooks_.size());
+                SetHook();
+            }
+            return *this;
+        }
+
         // slices -- ephemeral containers of rows or columns
         class ConstRow_ {
         protected:
