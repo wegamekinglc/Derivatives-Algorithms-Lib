@@ -9,7 +9,9 @@ namespace Dal {
             const int n = cov.Rows();
             REQUIRE(cov.Cols() == n, "Covariance matrix should be square matrix");
             Vector_<> ret_val(n);
-            for(int i=0; i != n; ++ i) {
+            if (corr)
+                *corr = cov;
+            for(int i=0; i != n; ++i) {
                 ret_val[i] = sqrt(cov(i, i));
                 if(corr) {
                     auto scale = std::bind(std::multiplies<>(), std::placeholders::_1, 1. / Max(Dal::EPSILON, ret_val[i]));

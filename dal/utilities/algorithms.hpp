@@ -193,4 +193,10 @@ namespace Dal {
         Transform(src, op, &ret_val);
         return ret_val;
     }
+
+    template<class C_, class P_>
+    bool AllOf(const C_& val, const P_& pred) {
+        return std::all_of(val.begin(), val.end(), pred);
+    }
+
 } // namespace Dal

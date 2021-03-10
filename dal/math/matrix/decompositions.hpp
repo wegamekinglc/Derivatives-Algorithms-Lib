@@ -55,4 +55,9 @@ namespace Dal {
         void Multiply(const Vector_<>& x, Vector_<>* b) const;
         void Solve(const Vector_<>& b, Vector_<>* x) const;
     };
+
+    class ExponentiatesMatrix_ {
+    public:
+        virtual void ExpAT(double t, SquareMatrix_<>* dst) const = 0;
+    };
 }

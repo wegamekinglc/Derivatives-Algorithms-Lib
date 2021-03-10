@@ -198,9 +198,6 @@ TEST(MatrixTest, TestMatrixConstColBeginEnd) {
     matrix_t::ConstCol_ col = m2.Col(1);
     auto iter = col.end();
     ASSERT_EQ(col.end() - col.begin(), m2.Rows());
-
-    iter = col.begin();
-
 }
 
 TEST(MatrixTest, TestMatrixColBeginEnd) {
