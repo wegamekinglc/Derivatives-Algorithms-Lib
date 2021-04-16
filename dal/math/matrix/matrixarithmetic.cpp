@@ -14,7 +14,9 @@ namespace Dal {
             for(int i=0; i != n; ++i) {
                 ret_val[i] = sqrt(cov(i, i));
                 if(corr) {
-                    auto scale = std::bind(std::multiplies<>(), std::placeholders::_1, 1. / Max(Dal::EPSILON, ret_val[i]));
+                    auto scale = [&ret_val, &i](double x) {
+                        return x / Max(Dal::EPSILON, ret_val[i]);
+                    };
                     auto r = corr->Row(i);
                     Transform(&r, scale);
                     auto c = corr->Col(i);
