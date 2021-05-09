@@ -13,9 +13,14 @@
 #include <dal/math/aad/aad.hpp>
 
 namespace Dal {
+    namespace {
+        Tape_* CreateGlobalTape() {
+            static Tape_ GLOBAL_TAP;
+            return &GLOBAL_TAP;
+        }
+    }
     size_t  Node_::num_adj_ = 1;
     bool Tape_::multi_ = false;
 
-    Tape_ global_tap_;
-    thread_local Tape_* Number_::tape_ = &global_tap_;
+    thread_local Tape_* Number_::tape_ = CreateGlobalTape();
 }

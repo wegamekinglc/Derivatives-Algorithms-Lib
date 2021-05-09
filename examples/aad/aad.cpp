@@ -26,12 +26,14 @@ T_ f(const Vector_<T_>& x) {
     T_ y2 = Log(y1);
     T_ y3 = (y1 + x[3] * y2) * (y1 + y2);
     T_ y4 = Pow(y3, x[4] / 10.);
-    T_ y = Max(y4, x[5]);
+    T_ y5 = Max(y4, x[5]);
+    T_ y6 = y5 - x[6] + x[7];
+    T_ y = y6 * x[8] / x[9];
     return y;
 }
 
 template <class T_>
-void f_der(Vector_<T_>& x, const Vector_<>& base_value, Vector_<>* ret_val, double eps=1.e-8, int num_params=5) {
+void f_der(Vector_<T_>& x, const Vector_<>& base_value, Vector_<>* ret_val, int num_params, double eps=1.e-8) {
     for (size_t i = 0; i < num_params; ++i) {
         x[i] = base_value[i] + eps;
         auto up_y = f(x);
@@ -43,39 +45,52 @@ void f_der(Vector_<T_>& x, const Vector_<>& base_value, Vector_<>* ret_val, doub
 
 int main() {
     constexpr auto num_param = 10;
+    Tape_ new_tape;
+    Number_::tape_ = &new_tape;
     Vector_<> base_value = {1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.};
+    Vector_<> parameters = base_value;
 
-    size_t n_loops = 1000000;
+    size_t n_loops = 10000000;
+    // simple primitive double calculation
+    auto start = std::chrono::high_resolution_clock::now();
+    double y_raw = 0.;
+    for (size_t i = 0; i < n_loops; ++i) {
+        // add small randomness to avoid compiler optimization
+        parameters[9] = base_value[9] + static_cast<double>(i) * 1e-14;
+        y_raw = f(parameters);
+    }
+    auto finish = std::chrono::high_resolution_clock::now();
+    cout << "y: " << setprecision(9) << y_raw << endl;
+    std::cout << "Primitive aprox. time: "
+              << std::chrono::duration_cast<std::chrono::nanoseconds>(finish - start).count() / n_loops << "ns\n";
 
     // Using automatic adjoint differentiation
-    auto start = std::chrono::high_resolution_clock::now();
+    start = std::chrono::high_resolution_clock::now();
+    Number_ y;
+    Vector_<Number_> x;
     for (size_t i = 0; i < n_loops; ++i) {
-        Vector_<Number_> x{Number_(1.0), Number_(2.0), Number_(3.0), Number_(4.0), Number_(5.0), Number_(6.0), Number_(7.0), Number_(8.0), Number_(9.0), Number_(10.)};
-        Number_ y = f(x);
+        x = {Number_(1.0), Number_(2.0), Number_(3.0), Number_(4.0), Number_(5.0), Number_(6.0), Number_(7.0), Number_(8.0), Number_(9.0), Number_(10.)};
+        y = f(x);
         y.Value();
         y.PropagateToStart();
         Number_::tape_->Rewind();
     }
-    Vector_<Number_> x{Number_(1.0), Number_(2.0), Number_(3.0), Number_(4.0), Number_(5.0), Number_(6.0), Number_(7.0), Number_(8.0), Number_(9.0), Number_(10.)};
-    Number_ y = f(x);
-    y.Value();
-    y.PropagateToStart();
     cout << "y: " << setprecision(9) << y.Value() << endl;
     for (size_t i = 0; i < num_param; ++i) {
         cout << "AAD a" << i << " = "
              << setprecision(9) << x[i].Adjoint() << endl;
     }
-    auto finish = std::chrono::high_resolution_clock::now();
+    finish = std::chrono::high_resolution_clock::now();
     std::cout << "AAD aprox. time: "
               << std::chrono::duration_cast<std::chrono::nanoseconds>(finish - start).count() / n_loops << "ns\n";
 
     // Using finite difference
     start = std::chrono::high_resolution_clock::now();
     Vector_<> ret_value(num_param);
-    Vector_<> parameters = base_value;
+    parameters = base_value;
     cout << "y: " << setprecision(9) << f(parameters) << endl;
     for (size_t i=0; i < n_loops; ++i)
-        f_der(parameters, base_value, &ret_value, 1e-8, num_param);
+        f_der(parameters, base_value, &ret_value, num_param, 1e-8);
     for (size_t i = 0; i < num_param; ++i) {
         cout << "Finite difference a" << i << " = "
              << setprecision(9) << ret_value[i] << endl;
