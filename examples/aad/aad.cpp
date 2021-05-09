@@ -67,9 +67,10 @@ int main() {
     // Using automatic adjoint differentiation
     start = std::chrono::high_resolution_clock::now();
     Number_ y;
-    Vector_<Number_> x;
+    Vector_<Number_> x(num_param);
     for (size_t i = 0; i < n_loops; ++i) {
-        x = {Number_(1.0), Number_(2.0), Number_(3.0), Number_(4.0), Number_(5.0), Number_(6.0), Number_(7.0), Number_(8.0), Number_(9.0), Number_(10.)};
+        for(auto k = 0; k < num_param; ++k)
+            x[k] = base_value[k];
         y = f(x);
         y.Value();
         y.PropagateToStart();
