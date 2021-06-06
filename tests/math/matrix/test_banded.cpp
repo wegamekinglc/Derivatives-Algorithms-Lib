@@ -23,6 +23,9 @@ TEST(BandedTest, TestNewBandedDiagonal) {
 }
 
 
+/*
+ * TODO: make the tests meaningful
+ */
 TEST(BandedTest, TestNewBandedBanded) {
     const int n = 10;
     Sparse::Square_* mat = Sparse::NewBandDiagonal(n, 2, 1);
@@ -33,4 +36,13 @@ TEST(BandedTest, TestNewBandedBanded) {
 
     mat->Add(9, 8, 3.0);
     ASSERT_EQ((*mat)(9, 8), 3.0);
+}
+
+
+TEST(BandedTest, TestLowerBandAccumulator) {
+    LowerBandAccumulator_ acc(3, 1);
+    auto offset = 0;
+    Vector_<> v_in{1.0, 2.0};
+    acc.Add(v_in, offset);
+    acc.Add(2.0 * v_in, offset);
 }

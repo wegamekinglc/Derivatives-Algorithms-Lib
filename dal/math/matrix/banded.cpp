@@ -405,7 +405,7 @@ namespace Dal {
         int iRow = v_in.size() + offset;
         REQUIRE(iRow < val_.Rows(), "V is too large");
 
-        Vector_<> v;
+        Vector_<> v = v_in;
         while (iRow >= 0) {
             auto row = val_.Row(iRow);
             if (AllOf(row, IsZero<double>)) {

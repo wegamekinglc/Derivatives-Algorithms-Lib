@@ -148,4 +148,17 @@ namespace Dal {
 
     template<class E_>
     inline bool Vector_<E_>::operator!=(const Vector_<E_> &rhs) const { return !Equal(*this, rhs); }
+
+    template <class E_>
+    inline auto operator*(const Vector_<E_>& left, const E_& right) {
+        Vector_<E_> ret(left.size());
+        std::transform(left.begin(), left.end(), ret.begin(),
+                       [&right](const E_& val) { return right * val;});
+        return ret;
+    }
+
+    template <class E_>
+    inline auto operator*(const E_& left, const Vector_<E_>& right) {
+        return right * left;
+    }
 }

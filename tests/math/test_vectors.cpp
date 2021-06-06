@@ -208,3 +208,14 @@ TEST(VectorTest, VectorUpTo) {
         ASSERT_EQ(s[i], i);
     }
 }
+
+TEST(VectorTest, VectorMultiply) {
+    vector_t s1 = {1., 2., 3.};
+    auto s2 = 2.0 * s1;
+    auto s3 = s1 * 2.0;
+
+    for(auto i = 0; i != s2.size(); ++i) {
+        ASSERT_DOUBLE_EQ(s2[i], 2.0 * s1[i]);
+        ASSERT_DOUBLE_EQ(s3[i], 2.0 * s1[i]);
+    }
+}
