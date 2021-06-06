@@ -127,11 +127,11 @@ namespace Dal {
             return i_row > j_col ? &below[j_col] : &above[i_row];
         }
 
-        class Tridiagonal_ : public Sparse::Square_ {
+        class TriDiagonal_ : public Sparse::Square_ {
             Vector_<> diag_, above_, below_;
 
         public:
-            Tridiagonal_(int size)
+            explicit TriDiagonal_(int size)
                 : diag_(size, 0.0), above_(size - 1, 0.0), below_(size - 1, 0.0) {}
             int Size() const override { return diag_.size(); }
             bool IsSymmetric() const override { return above_ == below_; }
@@ -379,7 +379,7 @@ namespace Dal {
         Square_* NewBandDiagonal(int size, int n_above, int n_below) {
             REQUIRE(size > 0, "size should be larger than 0");
             if (n_above <= 1 && n_below <= 1)
-                return new Tridiagonal_(size);
+                return new TriDiagonal_(size);
             return new Banded_(size, n_above, n_below);
         }
     }
