@@ -182,7 +182,7 @@ namespace Dal {
             const Matrix_<>& view_;
             int nBelow_;
 
-            BandElements_(int size, int n_below, int n_above)
+            BandElements_(int size, int n_above, int n_below)
             : store_(size, 1 + n_below + n_above), view_(store_), nBelow_(n_below) {
                 store_.Fill(0.0);
             }

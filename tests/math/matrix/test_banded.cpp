@@ -25,12 +25,12 @@ TEST(BandedTest, TestNewBandedDiagonal) {
 
 TEST(BandedTest, TestNewBandedBanded) {
     const int n = 10;
-    Sparse::Square_* mat = Sparse::NewBandDiagonal(n, 2, 3);
+    Sparse::Square_* mat = Sparse::NewBandDiagonal(n, 2, 1);
     ASSERT_EQ(mat->Size(), n);
 
-    mat->Set(9, 7, 1.0);
-    ASSERT_EQ((*mat)(9, 7), 1.0);
+    mat->Set(7, 9, 1.0);
+    ASSERT_EQ((*mat)(7, 9), 1.0);
 
-    mat->Add(9, 7, 2.0);
-    ASSERT_EQ((*mat)(9, 7), 3.0);
+    mat->Add(9, 8, 3.0);
+    ASSERT_EQ((*mat)(9, 8), 3.0);
 }
