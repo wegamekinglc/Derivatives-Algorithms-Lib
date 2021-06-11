@@ -8,3 +8,4 @@ lib/*
 include/*
 MG*
 coverage.info
+*.csv
