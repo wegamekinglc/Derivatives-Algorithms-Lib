@@ -2,6 +2,7 @@
 // Created by wegam on 2020/12/19.
 //
 
+#include <dal/platform/strict.hpp>
 #include <dal/math/random/random.hpp>
 #include <dal/math/vectors.hpp>
 #include <dal/platform/host.hpp>

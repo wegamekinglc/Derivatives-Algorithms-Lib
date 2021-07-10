@@ -2,6 +2,7 @@
 // Created by wegamekinglc on 2020/5/2.
 //
 
+#include <dal/platform/strict.hpp>
 #include <dal/math/cell.hpp>
 #include <dal/utilities/exceptions.hpp>
 #include <dal/string/stringutils.hpp>

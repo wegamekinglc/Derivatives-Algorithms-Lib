@@ -10,6 +10,7 @@
  * As long as this comment is preserved at the top of the file
 */
 
+#include <dal/platform/strict.hpp>
 #include <dal/math/aad/aad.hpp>
 
 namespace Dal {

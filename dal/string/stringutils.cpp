@@ -3,8 +3,9 @@
 //
 
 #include <dal/platform/platform.hpp>
-#include <dal/utilities/exceptions.hpp>
+#include <dal/platform/strict.hpp>
 #include <dal/string/stringutils.hpp>
+#include <dal/utilities/exceptions.hpp>
 #include <dal/utilities/algorithms.hpp>
 #include <dal/utilities/functionals.hpp>
 

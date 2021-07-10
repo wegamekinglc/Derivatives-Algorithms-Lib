@@ -3,6 +3,7 @@
 //
 
 #include <dal/platform/platform.hpp>
+#include <dal/platform/strict.hpp>
 #include <dal/time/holidays.hpp>
 #include <mutex>
 #include <dal/time/holidaydata.hpp>

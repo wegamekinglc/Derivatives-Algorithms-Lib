@@ -3,14 +3,12 @@
 //
 
 #include <dal/platform/platform.hpp>
+#include <dal/platform/strict.hpp>
 #include <dal/math/cellutils.hpp>
 #include <dal/time/dateutils.hpp>
 #include <dal/time/datetimeutils.hpp>
 #include <dal/string/strings.hpp>
 #include <dal/utilities/algorithms.hpp>
-#include <dal/platform/strict.hpp>
-
-
 
 namespace Dal {
     bool Cell::CanConvert(const Cell_& c, const Cell::types_t& allowed) {

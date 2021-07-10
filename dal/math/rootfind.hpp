@@ -6,7 +6,6 @@
 
 #include <cmath>
 #include <dal/platform/platform.hpp>
-#include <dal/platform/strict.hpp>
 
 namespace Dal {
     class RootFinder_ {

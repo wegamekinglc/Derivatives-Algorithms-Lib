@@ -2,10 +2,12 @@
 // Created by Cheng Li on 2018/1/7.
 //
 
+#include <dal/platform/strict.hpp>
+#include <dal/string/strings.hpp>
 #include <bitset>
 #include <dal/utilities/algorithms.hpp>
 #include <dal/math/vectors.hpp>
-#include <dal/string/strings.hpp>
+
 
 namespace Dal {
     namespace String {

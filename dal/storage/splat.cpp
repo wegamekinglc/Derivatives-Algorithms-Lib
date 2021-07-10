@@ -3,10 +3,9 @@
 //
 
 #include <dal/platform/platform.hpp>
-#include <map>
-#include <dal/storage/splat.hpp>
 #include <dal/platform/strict.hpp>
-
+#include <dal/storage/splat.hpp>
+#include <map>
 #include <dal/storage/archive.hpp>
 #include <dal/math/cell.hpp>
 #include <dal/math/cellutils.hpp>

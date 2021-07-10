@@ -7,7 +7,6 @@
 #include <string>
 #include <numeric>
 #include <iostream>
-#include <dal/platform/strict.hpp>
 
 
 namespace Dal {

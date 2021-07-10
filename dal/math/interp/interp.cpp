@@ -2,9 +2,9 @@
 // Created by wegam on 2020/11/6.
 //
 
-#include <dal/math/interp/interp.hpp>
 #include <dal/platform/platform.hpp>
 #include <dal/platform/strict.hpp>
+#include <dal/math/interp/interp.hpp>
 
 #include <dal/utilities/algorithms.hpp>
 #include <dal/storage/archive.hpp>

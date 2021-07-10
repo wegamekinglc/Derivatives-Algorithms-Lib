@@ -1,4 +1,8 @@
-#include <dal/platform/platform.hpp>
+//
+// Created by Cheng Li on 2018/2/4.
+//
+
+#include <dal/platform/strict.hpp>
 #include <dal/time/dateincrement.hpp>
 #include <dal/time/holidays.hpp>
 #include <dal/utilities/exceptions.hpp>

@@ -2,9 +2,9 @@
 // Created by wegamekinglc on 2020/5/1.
 //
 
-#include <map>
+#include <dal/platform/strict.hpp>
 #include <dal/storage/archive.hpp>
-
+#include <map>
 
 namespace {
     std::map<Dal::String_, const Dal::Archive::Reader_*>& TheBuilders() {

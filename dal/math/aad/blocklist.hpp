@@ -12,7 +12,6 @@
 
 #pragma once
 
-#include <dal/platform/strict.hpp>
 #include <list>
 #include <iterator>
 #include <array>

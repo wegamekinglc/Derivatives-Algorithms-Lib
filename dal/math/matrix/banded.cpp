@@ -3,8 +3,8 @@
 //
 
 #include <dal/platform/platform.hpp>
-#include <dal/math/matrix/banded.hpp>
 #include <dal/platform/strict.hpp>
+#include <dal/math/matrix/banded.hpp>
 
 #include <dal/utilities/algorithms.hpp>
 #include <dal/utilities/numerics.hpp>

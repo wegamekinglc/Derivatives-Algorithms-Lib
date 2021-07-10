@@ -3,6 +3,7 @@
 //
 
 #include <dal/platform/platform.hpp>
+#include <dal/platform/strict.hpp>
 #include <dal/time/date.hpp>
 #include <dal/utilities/algorithms.hpp>
 

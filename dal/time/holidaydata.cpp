@@ -2,6 +2,7 @@
 // Created by wegam on 2020/11/27.
 //
 
+#include <dal/platform/strict.hpp>
 #include <dal/time/holidaydata.hpp>
 #include <mutex>
 #include <dal/utilities/algorithms.hpp>

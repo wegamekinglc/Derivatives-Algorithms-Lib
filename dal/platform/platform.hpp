@@ -5,7 +5,6 @@
 #pragma once
 
 #include <cassert>
-#include <dal/platform/strict.hpp>
 #include <memory>
 #include <utility>
 #include <dal/utilities/noncopyable.hpp>

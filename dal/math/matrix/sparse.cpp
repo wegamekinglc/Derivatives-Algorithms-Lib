@@ -3,10 +3,10 @@
 //
 
 #include <dal/platform/platform.hpp>
+#include <dal/platform/strict.hpp>
 #include <dal/math/matrix/sparse.hpp>
 #include <dal/math/matrix/squarematrix.hpp>
 #include <dal/utilities/numerics.hpp>
-#include <dal/platform/strict.hpp>
 
 namespace Dal::Sparse {
     // brute-force implementation

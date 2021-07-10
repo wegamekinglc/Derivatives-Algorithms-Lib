@@ -15,7 +15,6 @@
 #include <dal/platform/platform.hpp>
 #include <queue>
 #include <mutex>
-#include <dal/platform/strict.hpp>
 
 
 namespace Dal {
