@@ -2,8 +2,6 @@
 // Created by wegam on 2021/2/22.
 //
 
-#pragma once
-
 #include <dal/platform/platform.hpp>
 #include <dal/math/matrix/banded.hpp>
 #include <dal/platform/strict.hpp>
