@@ -24,6 +24,8 @@ template <class T_> using scoped_ptr = const std::unique_ptr<T_>;
 
 namespace Dal {
 
+    using Time_ = double;
+
     template <class = double> class Vector_;
 
     template <class = double> class Matrix_;
