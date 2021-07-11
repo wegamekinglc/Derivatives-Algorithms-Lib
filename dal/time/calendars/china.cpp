@@ -8,7 +8,7 @@
 namespace Dal {
     namespace China {
         namespace SSE {
-            static const Vector_<Date_> holidays = {
+            const Vector_<Date_> holidays = {
                 Date_(2005, 1, 3),
                 Date_(2005, 2, 7),
                 Date_(2005, 2, 8),
@@ -293,12 +293,30 @@ namespace Dal {
                 Date_(2020, 10, 5),
                 Date_(2020, 10, 6),
                 Date_(2020, 10, 7),
-                Date_(2020, 10, 8)
+                Date_(2020, 10, 8),
+                Date_(2021, 1, 1),
+                Date_(2021, 2, 11),
+                Date_(2021, 2, 12),
+                Date_(2021, 2, 15),
+                Date_(2021, 2, 16),
+                Date_(2021, 2, 17),
+                Date_(2021, 4, 5),
+                Date_(2021, 5, 3),
+                Date_(2021, 5, 4),
+                Date_(2021, 5, 5),
+                Date_(2021, 6, 14),
+                Date_(2021, 9, 20),
+                Date_(2021, 9, 21),
+                Date_(2021, 10, 1),
+                Date_(2021, 10, 4),
+                Date_(2021, 10, 5),
+                Date_(2021, 10, 6),
+                Date_(2021, 10, 7),
             };
         }
 
         namespace IB {
-            static const Vector_<Date_> workWeekends = {
+            const Vector_<Date_> workWeekends = {
                 Date_(2005, 2, 5),
                 Date_(2005, 2, 6),
                 Date_(2005, 4, 30),
@@ -401,7 +419,14 @@ namespace Dal {
                 Date_(2020, 5, 9),
                 Date_(2020, 6, 28),
                 Date_(2020, 9, 27),
-                Date_(2020, 10, 10)
+                Date_(2020, 10, 10),
+                Date_(2021, 2, 7),
+                Date_(2021, 2, 20),
+                Date_(2021, 4, 25),
+                Date_(2021, 5, 8),
+                Date_(2021,9, 18),
+                Date_(2021, 9, 26),
+                Date_(2021, 10, 9)
             };
         }
     }
