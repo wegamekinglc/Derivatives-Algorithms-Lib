@@ -7,4 +7,20 @@
 
 namespace Dal {
     Time_  SYSTEM_TIME = 0.0;
+
+    namespace {
+        template <class T_>
+        void PutParametersOnTapeT(const Vector_<T_*>&) {}
+
+        template <>
+        void PutParametersOnTapeT<Number_>(const Vector_<Number_*>& parameters) {
+            for (Number_* param : parameters)
+                param->PutOnTape();
+        }
+    }
+
+    template <class T_>
+    void Model_<T_>::PutParametersOnTape() {
+        PutParametersOnTapeT<T_>(Parameters());
+    }
 }

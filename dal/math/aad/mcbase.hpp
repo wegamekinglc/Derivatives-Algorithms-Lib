@@ -119,55 +119,28 @@ namespace Dal {
         inline static const Vector_<String_> defaultAssetNames_ = {"spot"};
 
     public:
-        virtual const size_t NumAssets() const {
-            return 1;
-        }
+        virtual const size_t NumAssets() const { return 1; }
 
-        virtual const Vector_<String_>& AssetNames() const {
-            return defaultAssetNames_;
-        }
+        virtual const Vector_<String_>& AssetNames() const { return defaultAssetNames_; }
 
-        virtual void Allocate(
-            const Vector_<Time_>& prdTimeLine,
-            const Vector_<SampleDef_>& prdDefLine
-            ) = 0;
+        virtual void Allocate(const Vector_<Time_>& prdTimeLine, const Vector_<SampleDef_>& prdDefLine) = 0;
 
-        virtual void Init(
-            const Vector_<Time_>& prdTimeLine,
-            const Vector_<SampleDef_>& prdDefLine
-            ) = 0;
+        virtual void Init(const Vector_<Time_>& prdTimeLine, const Vector_<SampleDef_>& prdDefLine) = 0;
 
         virtual size_t SimDim() const = 0;
 
-        virtual void GeneratePath(
-            const Vector_<>& gaussVec,
-            Scenario_<T_>& path
-            ) const = 0;
+        virtual void GeneratePath(const Vector_<>& gaussVec, Scenario_<T_>& path) const = 0;
 
-        virtual std::unique_ptr<Model_<T_>> Clone() const  = 0;
+        virtual std::unique_ptr<Model_<T_>> Clone() const = 0;
 
         virtual ~Model_() = default;
 
         virtual const Vector_<T_*>& Parameters() = 0;
         virtual const Vector_<String_>& ParameterLabels() const = 0;
 
-        size_t NumParams() const {
-            return const_cast<Model_*>(this)->Parameters().size();
-        }
+        size_t NumParams() const { return const_cast<Model_*>(this)->Parameters().size(); }
 
-        void PutParametersOnTape() {
-            PutParametersOnTapeT<T_>();
-        }
-
-    private:
-        template <class U_>
-        void PutParametersOnTapeT() {}
-
-        template <>
-        void PutParametersOnTapeT<Number_>() {
-            for (Number_* param : Parameters())
-                param->PutOnTape();
-        }
+        void PutParametersOnTape();
     };
 
     /*
