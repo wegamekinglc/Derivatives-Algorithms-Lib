@@ -31,7 +31,7 @@ namespace Dal {
         Vector_<Vector_<Time_>> forwardMats_;
     };
 
-    template <class T_>
+    template <class T_ = double>
     struct Sample_ {
         T_ numeraire;
         Vector_<T_> discounts_;
@@ -55,7 +55,7 @@ namespace Dal {
         }
     };
 
-    template <class T_>
+    template <class T_ = double>
     using Scenario_ = Vector_<Sample_<T_>>;
 
     template <class T_>
@@ -75,7 +75,7 @@ namespace Dal {
      * Products
      */
 
-    template <class T_>
+    template <class T_ = double>
     class Product_ {
         inline static const Vector_<String_> defaultAssetNames_ = {"spot"};
 
@@ -105,7 +105,7 @@ namespace Dal {
          */
         virtual const Vector_<String_>& PayoffLabels() const = 0;
         virtual void Payoffs(const Scenario_<T_>& path,
-                             Vector_<T_>& payoffs) const =0;
+                             Vector_<T_>* payoffs) const =0;
         virtual std::unique_ptr<Product_<T_>>& Clone() const = 0;
         virtual ~Product_() = default;
     };
@@ -114,7 +114,7 @@ namespace Dal {
      * models
      */
 
-    template <class T_>
+    template <class T_ = double>
     class Model_ {
         inline static const Vector_<String_> defaultAssetNames_ = {"spot"};
 
@@ -129,7 +129,7 @@ namespace Dal {
 
         virtual size_t SimDim() const = 0;
 
-        virtual void GeneratePath(const Vector_<>& gaussVec, Scenario_<T_>& path) const = 0;
+        virtual void GeneratePath(const Vector_<>& gaussVec, Scenario_<T_>* path) const = 0;
 
         virtual std::unique_ptr<Model_<T_>> Clone() const = 0;
 
@@ -150,8 +150,8 @@ namespace Dal {
     class RNG_ {
     public:
         virtual void Init(const size_t simDim) = 0;
-        virtual void NextU(Vector_<>& uVec) = 0;
-        virtual void NextG(Vector_<>& gaussVec) = 0;
+        virtual void NextU(Vector_<>* uVec) = 0;
+        virtual void NextG(Vector_<>* gaussVec) = 0;
 
         virtual std::unique_ptr<RNG_> Clone() const = 0;
         virtual ~RNG_() = default;
@@ -165,7 +165,7 @@ namespace Dal {
      * may be easily extended in the future
      */
 
-    template <class T_>
+    template <class T_ = double>
     inline bool CheckCompatibility(
         const Product_<T_>& prd,
         const Model_<T_>& mdl
