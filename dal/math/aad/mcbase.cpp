@@ -67,5 +67,6 @@ namespace Dal {
 
         cMdl->Allocate(prd.TimeLine(), prd.DefLine());
         cMdl->Init(prd.TimeLine(), prd.DefLine());
+        return results;
     }
 }
