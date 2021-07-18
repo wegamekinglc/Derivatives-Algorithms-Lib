@@ -155,7 +155,7 @@ namespace Dal {
 
         virtual std::unique_ptr<RNG_> Clone() const = 0;
         virtual ~RNG_() = default;
-        virtual void SkipTo(const unsigned b) = 0;
+        virtual void SkipTo(const size_t b) = 0;
     };
 
     /*

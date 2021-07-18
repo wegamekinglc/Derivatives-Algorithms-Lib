@@ -19,7 +19,8 @@
 
 namespace Dal {
 
-    template <class T_> class ConcurrentQueue_ {
+    template <class T_>
+    class ConcurrentQueue_ {
         std::queue<T_> queue_;
         mutable std::mutex mutex_;
         std::condition_variable cv_;
@@ -38,7 +39,7 @@ namespace Dal {
             std::lock_guard<std::mutex> lk(mutex_);
             if (queue_.empty())
                 return false;
-            t = move(queue_.front());
+            t = std::move(queue_.front());
             queue_.pop();
             return true;
         }
@@ -46,7 +47,7 @@ namespace Dal {
         void Push(T_ t) {
             {
                 std::lock_guard<std::mutex> lk(mutex_);
-                queue_.push(move(t));
+                queue_.push(std::move(t));
             }
             cv_.notify_one();
         }
