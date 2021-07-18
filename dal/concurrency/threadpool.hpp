@@ -43,6 +43,8 @@ namespace Dal {
             return threads_.size();
         }
 
+        static size_t ThreadNum() { return tlsNum_; }
+
         void Start(const size_t& nThread = std::thread::hardware_concurrency() - 1);
 
         ~ThreadPool_() {
