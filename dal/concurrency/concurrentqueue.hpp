@@ -21,7 +21,7 @@ namespace Dal {
 
     template <class T_> class ConcurrentQueue_ {
         std::queue<T_> queue_;
-        mutable mutex mutex_;
+        mutable std::mutex mutex_;
         std::condition_variable cv_;
         bool interrupt_;
 
@@ -51,7 +51,7 @@ namespace Dal {
             cv_.notify_one();
         }
 
-        void Pop(T_& t) {
+        bool Pop(T_& t) {
             std::unique_lock<std::mutex> lk(mutex_);
             while (!interrupt_ && queue_.empty())
                 cv_.wait(lk);
