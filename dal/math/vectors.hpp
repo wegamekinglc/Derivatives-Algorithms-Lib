@@ -24,7 +24,7 @@ namespace Dal {
 
         explicit Vector_(size_t size) : base_t(size) {}
 
-        Vector_(int size, const E_ &fill) : base_t(size, fill) {}
+        Vector_(size_t size, const E_ &fill) : base_t(size, fill) {}
 
         template<class I_>
         Vector_(I_ start, I_ end) : base_t(start, end) {}
