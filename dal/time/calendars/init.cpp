@@ -3,10 +3,10 @@
 //
 
 #include <dal/platform/strict.hpp>
+#include <dal/time/calendars/china.hpp>
 #include <dal/time/calendars/init.hpp>
-#include <mutex>
 #include <dal/time/holidaydata.hpp>
-#include <dal/time/calendars/china.cpp>
+#include <mutex>
 
 static std::mutex TheCalendarsMutex;
 #define LOCK_CAL std::lock_guard<std::mutex> l(TheCalendarsMutex)
