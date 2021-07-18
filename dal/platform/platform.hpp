@@ -34,10 +34,10 @@ namespace Dal {
 
     class Dictionary_;
 
-    static const double EPSILON = 2e-14;
-    static const double INF = 1e29;
-    static const double PI = 3.1415926535897932;
-    static const double M_SQRT_2 = 1.4142135623730951;
+    constexpr const double EPSILON = 2e-14;
+    constexpr const double INF = 1e29;
+    constexpr const double PI = 3.1415926535897932;
+    constexpr const double M_SQRT_2 = 1.4142135623730951;
 
     template <class T_> inline bool IsZero(const T_& x) { return x < Dal::EPSILON && -x < Dal::EPSILON; }
 
