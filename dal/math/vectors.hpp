@@ -35,7 +35,7 @@ namespace Dal {
 
         void Fill(const E_ &val) { std::fill(begin(), end(), val); }
 
-        void Resize(int new_size) { base_t::resize(new_size, E_()); }
+        void Resize(size_t new_size) { base_t::resize(new_size, E_()); }
 
         template<class T_>
         void operator*=(const T_ &scale) {
