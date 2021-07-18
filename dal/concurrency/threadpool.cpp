@@ -7,8 +7,6 @@
 
 namespace Dal {
 
-    using std::operator""s;
-
     ThreadPool_ ThreadPool_::instance_;
     thread_local size_t ThreadPool_::tlsNum_ = 0;
 
@@ -48,7 +46,7 @@ namespace Dal {
         Task_ t;
         bool b = false;
 
-        while(f.wait_for(0s) != std::future_status::ready) {
+        while(f.wait_for(std::chrono::seconds(0)) != std::future_status::ready) {
             if(queue_.TryPop(t)) {
                 t();
                 b = true;

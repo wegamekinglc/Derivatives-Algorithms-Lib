@@ -70,6 +70,5 @@ namespace Dal {
          * return true if at least one task was run
          */
         bool ActiveWaite(const TaskHandle_& f);
-
     };
 }
