@@ -92,7 +92,7 @@ TEST(FunctionlsTest, TestLookupIn) {
 TEST(FunctionalsTest, TestConstructCast) {
 
     auto flag = ::testing::StaticAssertTypeEq<int,
-                                              std::result_of_t<ConstructCast_<double, int>(double)>
+                                              std::invoke_result_t<ConstructCast_<double, int>, double>
                                               >();
     ASSERT_TRUE(flag);
     auto s = ConstructCast_<double, int>();
