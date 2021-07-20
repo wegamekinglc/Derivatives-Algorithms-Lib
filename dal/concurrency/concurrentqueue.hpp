@@ -15,6 +15,7 @@
 #include <dal/platform/platform.hpp>
 #include <queue>
 #include <mutex>
+#include <condition_variable>
 
 
 namespace Dal {
