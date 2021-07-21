@@ -30,6 +30,5 @@ TEST(ConcurrentQueueTest, TestPushAndPop) {
     auto t4 = thread(pop_func, &pop2, &queue);
     t3.join();
     t4.join();
-    ASSERT_EQ(pop1, 1);
-    ASSERT_EQ(pop2, 2);
+    ASSERT_EQ(pop1 + pop2, 3);
 }
