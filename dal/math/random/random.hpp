@@ -5,7 +5,8 @@
 #pragma once
 
 #include <dal/platform/platform.hpp>
-#include <dal/platform/strict.hpp>
+#include <dal/string/strings.hpp>
+#include <dal/utilities/exceptions.hpp>
 
 namespace Dal {
     class Random_ {
@@ -17,7 +18,13 @@ namespace Dal {
         virtual Random_* Branch(int i_child = 0) const = 0;
     };
 
-    namespace Random {
-        Random_* New(int seed);
-    }
+/*IF--------------------------------------------------------------------------
+enumeration RNGType
+    random number generator types
+alternative IRN ShuffledIRN
+alternative MRG32 MRG32k32a
+-IF-------------------------------------------------------------------------*/
+
+    #include <dal/auto/MG_RNGType_enum.hpp>
+    Random_* New(const RNGType_& type, int seed);
 }

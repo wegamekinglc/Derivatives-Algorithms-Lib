@@ -9,8 +9,8 @@
 
 using namespace Dal;
 
-TEST(RandomTest, TestNewRandom) {
-    std::unique_ptr<Random_> gen(Random::New(1024));
+TEST(RandomTest, TestNewRandomIRN) {
+    std::unique_ptr<Random_> gen(New(RNGType_("IRN"), 1024));
     auto n = 10000000;
     Vector_<> values(n);
 
@@ -38,3 +38,35 @@ TEST(RandomTest, TestNewRandom) {
     ASSERT_NEAR(mean, 0.0, 1e-3);
     ASSERT_NEAR(var, 1.0, 1e-3);
 }
+
+
+TEST(RandomTest, TestNewRandomMRG32) {
+    std::unique_ptr<Random_> gen(New(RNGType_("MRG32"), 1024));
+    auto n = 10000000;
+    Vector_<> values(n);
+
+    gen->FillUniform(&values);
+    auto mean = 0.0;
+    auto var = 0.0;
+    for(const auto& v : values) {
+        mean += v;
+        var += Square(v - 0.5);
+    }
+    mean /= values.size();
+    var /= values.size();
+    ASSERT_NEAR(mean, 0.5, 1e-4);
+    ASSERT_NEAR(var, 1. / 12, 1e-4);
+
+    gen->FillNormal(&values);
+    mean = 0.0;
+    var = 0.0;
+    for(const auto& v : values) {
+        mean += v;
+        var += Square(v);
+    }
+    mean /= values.size();
+    var /= values.size();
+    ASSERT_NEAR(mean, 0.0, 1e-3);
+    ASSERT_NEAR(var, 1.0, 1e-3);
+}
+

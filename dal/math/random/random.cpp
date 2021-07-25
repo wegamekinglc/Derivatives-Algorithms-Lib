@@ -70,9 +70,76 @@ namespace Dal {
                 return new ShuffledIRN_<M_, L_, S_>(irn_[0] ^ irn_[1]);
             }
         };
+
+        constexpr const double m1_ = 4294967087;
+        constexpr const double m2_ = 4294944443;
+        constexpr const double a12_ = 1403580;
+        constexpr const double a13_ = 810728;
+        constexpr const double a21_ = 527612;
+        constexpr const double a23_ = 1370589;
+        constexpr const double m1p1_ = 4294967088;
+
+        struct MRG32k32a_: public Random_ {
+            const double a_, b_;
+            size_t dim_;
+            double xn_, xn1_, xn2_, yn_, yn1_, yn2_;
+            bool anti_;
+
+            MRG32k32a_(const unsigned a = 12345,
+                       const unsigned b = 12346)
+                :a_(a), b_(b) {
+                reset();
+            }
+
+            void reset() {
+                // Reset state
+                xn_ = xn1_ = xn2_ = a_;
+                yn_ = yn1_ = yn2_ = b_;
+
+                // Anti = false: generate next
+                anti_ = false;
+            }
+
+            double NextUniform() override {
+                double x = a12_ * xn1_ - a13_ * xn2_;
+                // Modulus
+                x -= long(x / m1_) * m1_;
+                if (x < 0) x += m1_;
+                // Update
+                xn2_ = xn1_;
+                xn1_ = xn_;
+                xn_ = x;
+
+                // Same for Y
+                double y = a21_ * yn_ - a23_ * yn2_;
+                y -= long(y / m2_) * m2_;
+                if (y < 0) y += m2_;
+                yn2_ = yn1_;
+                yn1_ = yn_;
+                yn_ = y;
+
+                // Uniform
+                const double u = x > y ? (x - y) / m1p1_ : (x - y + m1_) / m1p1_;
+                return u;
+            }
+
+            void FillUniform(Vector_<>* deviates) override { Random_::FillUniform(deviates); }
+            void FillNormal(Vector_<>* deviates) override { RWT::Fill(this, deviates->begin(), deviates->end()); }
+
+            [[nodiscard]] Random_* Branch(int i_child) const override {
+                return new MRG32k32a_();
+            }
+        };
     } // namespace
 
-    Random_* Random::New(int seed) {
-        return new ShuffledIRN_<55, 31, 128>(seed);
+    #include <dal/auto/MG_RNGType_enum.inc>
+
+    Random_* New(const RNGType_& type, int seed) {
+        Random_* ret;
+        if (type == RNGType_("IRN"))
+            ret = new ShuffledIRN_<55, 31, 128>(seed);
+        else if (type == RNGType_("MRG32"))
+            ret = new MRG32k32a_();
+        return ret;
     }
 } // namespace Dal
