@@ -29,7 +29,7 @@ namespace Dal {
 
         // Generators similar to Knuth's IRN55, with shuffling
         template <int M_, int L_, int S_> struct ShuffledIRN_ : Random_ {
-            static const int DENOM = 1 << 30;
+            static const int DE_NOM = 1 << 30;
 
             Vector_<unsigned> irn_, shuffle_;
             int irl_;
@@ -39,11 +39,11 @@ namespace Dal {
                     irl_ = M_ - 1;
                 const int pLoc = (irl_ + L_) % M_;
                 irn_[irl_] += irn_[pLoc];
-                irn_[irl_] %= DENOM;
+                irn_[irl_] %= DE_NOM;
                 return irn_[irl_];
             }
             double NextUniform() override {
-                static const double MUL = 0.5 / DENOM;
+                static const double MUL = 0.5 / DE_NOM;
                 const unsigned irn = IRN();
                 const int sLoc = irn % S_;
                 int ret_val = shuffle_[sLoc];
@@ -60,7 +60,7 @@ namespace Dal {
                 // initialize IRN_
                 irn_[0] = seed;
                 for (int ii = 1; ii < M_; ++ii)
-                    irn_[ii] = ((MUL * irn_[ii - 1]) % DENOM) ^ MASK;
+                    irn_[ii] = ((MUL * irn_[ii - 1]) % DE_NOM) ^ MASK;
                 // initialize shuffle_
                 for (int ii = 0; ii < S_; ++ii)
                     shuffle_[ii] = IRN();
