@@ -10,11 +10,11 @@
 #include <dal/string/strings.hpp>
 #include <dal/utilities/algorithms.hpp>
 
-static std::mutex TheHolidayComboMutex;
-#define LOCK_COMBOS std::lock_guard<std::mutex> l(TheHolidayComboMutex);
-
 namespace Dal {
     namespace {
+        std::mutex TheHolidayComboMutex;
+        #define LOCK_COMBOS std::lock_guard<std::mutex> l(TheHolidayComboMutex);
+
         bool operator<(const Handle_<HolidayCenterData_>& lhs, const Handle_<HolidayCenterData_>& rhs) {
             return lhs->center_ < rhs->center_;
         }

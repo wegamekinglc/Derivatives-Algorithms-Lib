@@ -6,17 +6,15 @@
 #include <dal/time/calendars/china.hpp>
 #include <dal/time/calendars/init.hpp>
 #include <dal/time/holidaydata.hpp>
-#include <mutex>
 
-static std::mutex TheCalendarsMutex;
-#define LOCK_CAL std::lock_guard<std::mutex> l(TheCalendarsMutex)
 
 namespace Dal {
 
     bool Calendars_::init_ = false;
+    std::mutex Calendars_::mutex_;
 
     void Calendars_::Init() {
-        LOCK_CAL;
+        std::lock_guard<std::mutex> l(mutex_);
         if (!init_) {
             Holidays::AddCenter("china.sse", China::SSE::holidays);
             Holidays::AddCenter("china.ib", China::SSE::holidays, China::IB::workWeekends);

@@ -4,6 +4,8 @@
 
 #pragma once
 
+#include <mutex>
+
 namespace Dal {
     class Calendars_ {
     public:
@@ -11,5 +13,6 @@ namespace Dal {
 
     private:
         static bool init_;
+        static std::mutex mutex_;
     };
 }
