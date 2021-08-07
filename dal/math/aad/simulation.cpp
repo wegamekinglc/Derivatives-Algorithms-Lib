@@ -3,34 +3,19 @@
 //
 
 #include <dal/platform/strict.hpp>
-#include <dal/math/aad/mcbase.hpp>
 #include <dal/concurrency/threadpool.hpp>
+#include <dal/math/aad/simulation.hpp>
+#include <dal/math/aad/models/base.hpp>
+#include <dal/math/aad/products/base.hpp>
 
 namespace Dal {
-    Time_  SYSTEM_TIME = 0.0;
-
-    namespace {
-        template <class T_>
-        void PutParametersOnTapeT(const Vector_<T_*>&) {}
-
-        template <>
-        void PutParametersOnTapeT<Number_>(const Vector_<Number_*>& parameters) {
-            for (Number_* param : parameters)
-                param->PutOnTape();
-        }
-    }
-
-    template <class T_>
-    void Model_<T_>::PutParametersOnTape() {
-        PutParametersOnTapeT<T_>(Parameters());
-    }
 
     Vector_<Vector_<>> MCSimulation(
         const Product_<>& prd,
         const Model_<>& mdl,
         const RNG_& rng,
         const size_t& nPath) {
-        REQUIRE(CheckCompatibility(prd, mdl), "model and product are not compatible");
+        REQUIRE(CheckCompatibility(prd, mdl), "model and products are not compatible");
         auto cMdl = mdl.Clone();
         auto cRng = rng.Clone();
 
@@ -60,7 +45,7 @@ namespace Dal {
         const Model_<>& mdl,
         const RNG_& rng,
         const size_t& nPath) {
-        REQUIRE(CheckCompatibility(prd, mdl), "model and product are not compatible");
+        REQUIRE(CheckCompatibility(prd, mdl), "model and products are not compatible");
         auto cMdl = mdl.Clone();
 
         const size_t nPay = prd.PayoffLabels().size();
