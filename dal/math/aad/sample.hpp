@@ -4,6 +4,10 @@
 
 #pragma once
 
+#include <dal/platform/platform.hpp>
+#include <dal/string/strings.hpp>
+#include <dal/math/vectors.hpp>
+
 namespace Dal {
     /*
      * Scenarios

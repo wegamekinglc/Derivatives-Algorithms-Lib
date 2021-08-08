@@ -4,6 +4,11 @@
 
 #pragma once
 
+#include <dal/platform/platform.hpp>
+#include <dal/math/aad/sample.hpp>
+#include <dal/string/strings.hpp>
+#include <dal/math/vectors.hpp>
+
 namespace Dal {
     template <class T_ = double>
     class Product_ {
@@ -36,7 +41,7 @@ namespace Dal {
         virtual const Vector_<String_>& PayoffLabels() const = 0;
         virtual void Payoffs(const Scenario_<T_>& path,
                              Vector_<T_>* payoffs) const =0;
-        virtual std::unique_ptr<Product_<T_>>& Clone() const = 0;
+        virtual std::unique_ptr<Product_<T_>> Clone() const = 0;
         virtual ~Product_() = default;
     };
 }

@@ -175,7 +175,7 @@ namespace Dal {
                 const size_t pL = defLine[i].liborDefs_.size();
                 for (size_t j = 0; j < pL; ++j) {
                     const double dt = defLine[i].liborDefs_[j].end_ - defLine[i].liborDefs_[j].start_;
-                    libors_[i][j] = (Exp(rate_ * dt) - 1.0) / dt
+                    libors_[i][j] = (Exp(rate_ * dt) - 1.0) / dt;
                 }
             }
         }
@@ -185,18 +185,18 @@ namespace Dal {
         }
 
         void GeneratePath(const Vector_<>& gaussVec,
-                          Scenario_<T_>& path) const override {
+                          Scenario_<T_>* path) const override {
             T_ spot = spot_;
             size_t idx = 0;
             if (todayOnTimeLine_) {
-                FillScenario(idx, spot, path[idx], (*defLine_)[idx]);
+                FillScenario(idx, spot, (*path)[idx], (*defLine_)[idx]);
                 ++idx;
             }
 
             const size_t n = timeLine_.size() - 1;
             for (size_t i = 0; i < n; ++i) {
-                spot = spot * Exp(drifts_[i]) + stds_[i] * gaussVec[i];
-                FillScenario(idx, spot, path[idx], (*defLine_)[idx]);
+                spot = spot * Exp(drifts_[i] + stds_[i] * gaussVec[i]);
+                FillScenario(idx, spot, (*path)[idx], (*defLine_)[idx]);
                 ++idx;
             }
         }
