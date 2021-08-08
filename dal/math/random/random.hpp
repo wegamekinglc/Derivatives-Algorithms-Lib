@@ -10,6 +10,8 @@
 
 namespace Dal {
     class Random_ {
+        bool anti_ = false;
+        double cache_ = 0.0;
     public:
         virtual ~Random_() = default;
         virtual double NextUniform() = 0;
