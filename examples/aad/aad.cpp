@@ -5,20 +5,13 @@
 #include <dal/platform/platform.hpp>
 #include <dal/math/vectors.hpp>
 #include <dal/math/aad/number.hpp>
+#include <dal/math/aad/operators.hpp>
 #include <chrono>
 #include <iomanip>
 #include <iostream>
 
 using namespace std;
 using namespace Dal;
-
-inline double Log(double x) {
-    return std::log(x);
-}
-
-inline double Pow(double x, double y) {
-    return std::pow(x, y);
-}
 
 template <class T_>
 T_ f(const Vector_<T_>& x) {

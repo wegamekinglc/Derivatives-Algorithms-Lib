@@ -96,7 +96,7 @@ namespace Dal {
         if (polish) {
             const double err = NCDF(ret_val, precise) - x;
             ret_val -=
-                err * INV_NORM * exp(Min(8.0, 0.5 * Square(ret_val))); // cap exp(x^2) factor in polishing at 4 sigma
+                err * INV_NORM * exp(Min(8.0, 0.5 * Square(ret_val))); // cap Exp(x^2) factor in polishing at 4 sigma
         }
         return ret_val;
     }
