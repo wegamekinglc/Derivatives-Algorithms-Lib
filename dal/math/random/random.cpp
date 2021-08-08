@@ -86,7 +86,6 @@ namespace Dal {
 
         struct MRG32k32a_ : public Random_ {
             const double a_, b_;
-            size_t dim_;
             double xn_, xn1_, xn2_, yn_, yn1_, yn2_;
 
             MRG32k32a_(const unsigned& a = 12345, const unsigned& b = 12346) : a_(a), b_(b) { Reset(); }
