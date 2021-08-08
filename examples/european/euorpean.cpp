@@ -20,17 +20,26 @@ int main() {
     int seed = 1234;
     double rate = 0.03;
     double div = 0.06;
-    size_t n_paths = 500000;
+    size_t n_paths = 100000;
 
     European_<double> prd(strike, exerciseDate);
     BlackScholes_<double> mdl(spot, vol, false, rate, div);
     std::unique_ptr<Random_> rand(New(RNGType_("MRG32"), seed));
 
+    // single thread simulation
     auto res = MCSimulation(prd, mdl, rand, n_paths);
     auto sum = 0.0;
     for (const auto& path : res)
         sum += path[0];
-    cout << sum / static_cast<double>(res.size()) << endl;
+    cout << "serial: " << sum / static_cast<double>(res.size()) << endl;
+
+    // multi-threads simulation
+    rand = std::unique_ptr<Random_>(New(RNGType_("MRG32"), seed));
+    res = MCParallelSimulation(prd, mdl, rand, n_paths * 8);
+    sum = 0.0;
+    for (const auto& path : res)
+        sum += path[0];
+    cout << "parallel: " << sum / static_cast<double>(res.size()) << endl;
 
     return 0;
 }

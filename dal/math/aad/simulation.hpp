@@ -41,14 +41,14 @@ namespace Dal {
                                     const std::unique_ptr<Random_>& rng,
                                     const size_t& nPath);
 
-//    /*
-//     * Parallel equivalent of MCSimulation
-//     */
-//
-//    Vector_<Vector_<>> MCParallelSimulation(
-//        const Product_<double>& prd,
-//        const Model_<double>& mdl,
-//        const RNG_& rng,
-//        const size_t& nPath
-//        );
+    /*
+     * Parallel equivalent of MCSimulation
+     */
+
+    Vector_<Vector_<>> MCParallelSimulation(
+        const Product_<double>& prd,
+        const Model_<double>& mdl,
+        const std::unique_ptr<Random_>& rng,
+        const size_t& nPath
+        );
 }

@@ -15,6 +15,8 @@ namespace Dal {
         virtual double NextUniform() = 0;
         virtual void FillUniform(Vector_<>* deviates) = 0;
         virtual void FillNormal(Vector_<>* deviates) = 0;
+        virtual Random_* Clone() const = 0;
+        virtual void SkipTo(size_t n_points) = 0;
         virtual Random_* Branch(int i_child = 0) const = 0;
     };
 
