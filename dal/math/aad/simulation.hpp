@@ -8,6 +8,7 @@
 #include <dal/string/strings.hpp>
 #include <dal/math/vectors.hpp>
 #include <dal/math/aad/aad.hpp>
+#include <dal/math/random/random.hpp>
 
 namespace Dal {
     /*
@@ -19,17 +20,6 @@ namespace Dal {
 
     template <class T_>
     class Model_;
-
-    class RNG_ {
-    public:
-        virtual void Init(const size_t& simDim) = 0;
-        virtual void NextU(Vector_<>* uVec) = 0;
-        virtual void NextG(Vector_<>* gaussVec) = 0;
-
-        virtual std::unique_ptr<RNG_> Clone() const = 0;
-        virtual ~RNG_() = default;
-        virtual void SkipTo(const size_t& b) = 0;
-    };
 
     /*
      * Template algorithms
@@ -46,12 +36,10 @@ namespace Dal {
         return prd.AssetNames() == mdl.AssetNames();
     }
 
-    Vector_<Vector_<>> MCSimulation(
-        const Product_<double>& prd,
-        const Model_<double>& mdl,
-        const RNG_& rng,
-        const size_t& nPath
-        );
+    Vector_<Vector_<>> MCSimulation(const Product_<double>& prd,
+                                    const Model_<double>& mdl,
+                                    const std::unique_ptr<Random_>& rng,
+                                    const size_t& nPath);
 
     /*
      * Parallel equivalent of MCSimulation
@@ -60,7 +48,7 @@ namespace Dal {
     Vector_<Vector_<>> MCParallelSimulation(
         const Product_<double>& prd,
         const Model_<double>& mdl,
-        const RNG_& rng,
+        const std::unique_ptr<Random_>& rng,
         const size_t& nPath
         );
 }

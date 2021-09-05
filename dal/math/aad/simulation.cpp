@@ -13,37 +13,35 @@ namespace Dal {
     Vector_<Vector_<>> MCSimulation(
         const Product_<>& prd,
         const Model_<>& mdl,
-        const RNG_& rng,
+        const std::unique_ptr<Random_>& rng,
         const size_t& nPath) {
         REQUIRE(CheckCompatibility(prd, mdl), "model and products are not compatible");
         auto cMdl = mdl.Clone();
-        auto cRng = rng.Clone();
 
         const size_t nPay = prd.PayoffLabels().size();
         Vector_<Vector_<>> results(nPath, Vector_<>(nPay));
 
         cMdl->Allocate(prd.TimeLine(), prd.DefLine());
         cMdl->Init(prd.TimeLine(), prd.DefLine());
-        cRng->Init(cMdl->SimDim());
         Vector_<> gaussVec(cMdl->SimDim());
         Scenario_<> path;
         AllocatePath(prd.DefLine(), path);
         InitializePath(path);
 
         for (size_t i =0; i < nPath; ++i) {
-            cRng->NextG(&gaussVec);
+            rng->FillNormal(&gaussVec);
             cMdl->GeneratePath(gaussVec, &path);
             prd.Payoffs(path, &results[i]);
         }
         return results;
     }
 
-    constexpr const int BATCH_SIZE = 64;
+    constexpr const int BATCH_SIZE = 65536;
 
     Vector_<Vector_<>> MCParallelSimulation(
         const Product_<>& prd,
         const Model_<>& mdl,
-        const RNG_& rng,
+        const std::unique_ptr<Random_>& rng,
         const size_t& nPath) {
         REQUIRE(CheckCompatibility(prd, mdl), "model and products are not compatible");
         auto cMdl = mdl.Clone();
@@ -65,11 +63,9 @@ namespace Dal {
             InitializePath(path);
         }
 
-        Vector_<std::unique_ptr<RNG_>> rng_s(nThread + 1);
-        for(auto& random: rng_s) {
-            random = rng.Clone();
-            random->Init(cMdl->SimDim());
-        }
+        Vector_<std::unique_ptr<Random_>> rng_s(nThread + 1);
+        for(auto& random: rng_s)
+            random = std::unique_ptr<Random_>(rng->Clone());
 
         Vector_<TaskHandle_> futures;
         futures.reserve(nPath / BATCH_SIZE + 1);
@@ -85,14 +81,14 @@ namespace Dal {
                 Scenario_<>& path = paths[threadNum];
 
                 auto& random = rng_s[threadNum];
-                random->SkipTo(firstPath);
+                random->SkipTo(firstPath * nPay);
 
                 for(size_t i = 0; i < pathsInTask; ++i) {
-                    random->NextG(&gaussVec);
+                    random->FillNormal(&gaussVec);
                     cMdl->GeneratePath(gaussVec, &path);
-                    prd.Payoffs(path, &results[i]);
+                    prd.Payoffs(path, &results[firstPath + i]);
                 }
-            return true;
+                return true;
             }));
             pathsLeft -= pathsInTask;
             firstPath += pathsInTask;

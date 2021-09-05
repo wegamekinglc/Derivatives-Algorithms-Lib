@@ -60,7 +60,7 @@ namespace Dal {
             {
                 static boost::thread_specific_ptr<Vector_<XStackInfo_>> INSTANCE;
                 if (!INSTANCE.get())	// get is thread-specific
-                    INSTANCE.reset(new Vector_<XStackInfo_>);
+                    INSTANCE.Reset(new Vector_<XStackInfo_>);
                 return *INSTANCE;	// so is operator*
             }
             */

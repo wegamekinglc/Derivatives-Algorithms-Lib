@@ -51,6 +51,11 @@ namespace Dal {
         std::transform(to_change->begin(), to_change->end(), other.begin(), to_change->begin(), op);
     }
 
+    template <class CS_, class CD_> void Copy(const CS_& src, CD_* dst) {
+        REQUIRE(dst && src.size() == dst->size(), "dst is null or src size is not compatible with dst size");
+        std::copy(src.begin(), src.end(), dst->begin());
+    }
+
     template <class C_, class OP_>
     auto Apply(OP_ op, const C_& src) {
         using vector_t = typename vector_of<decltype(op(*src.begin()))>::type;
@@ -88,11 +93,6 @@ namespace Dal {
     template <class C_, class E_>
     void Fill(C_* range, const E_& val) {
         std::fill(range->begin(), range->end(), val);
-    }
-
-    template <class CS_, class CD_> void Copy(const CS_& src, CD_* dst) {
-        REQUIRE(dst && src.size() == dst->size(), "dst is null or src size is not compatible with dst size");
-        std::copy(src.begin(), src.end(), dst->begin());
     }
 
     template <class C_> Vector_<typename C_::value_type> Copy(const C_& src) {

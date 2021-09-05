@@ -4,14 +4,16 @@
 
 #pragma once
 
+#include <dal/platform/platform.hpp>
+#include <dal/string/strings.hpp>
+#include <dal/math/vectors.hpp>
+
 namespace Dal {
     /*
      * Scenarios
      */
 
     struct SampleDef_ {
-        bool numeraire_ = true;
-
         struct RateDef_ {
             Time_ start_;
             Time_ end_;
@@ -21,6 +23,7 @@ namespace Dal {
             :start_(s), end_(e), curve_(c) {}
         };
 
+        bool numeraire_ = true;
         Vector_<Time_> discountMats_;
         Vector_<RateDef_> liborDefs_;
         Vector_<Vector_<Time_>> forwardMats_;
@@ -28,7 +31,7 @@ namespace Dal {
 
     template <class T_ = double>
     struct Sample_ {
-        T_ numeraire;
+        T_ numeraire_;
         Vector_<T_> discounts_;
         Vector_<T_> libors_;
         Vector_<Vector_<T_>> forwards_;
@@ -42,7 +45,7 @@ namespace Dal {
         }
 
         void Initialize() {
-            numeraire = T_(1.0);
+            numeraire_ = T_(1.0);
             std::fill(discounts_.begin(), discounts_.end(), T_(1.0));
             std::fill(libors_.begin(), libors_.end(), T_(1.0));
             for (auto& forward: forwards_)
@@ -61,8 +64,8 @@ namespace Dal {
     }
 
     template <class T_>
-        inline void InitializePath(Scenario_<T_>& path) {
-            for (auto& s: path)
-                s.Initialize();
-        }
+    inline void InitializePath(Scenario_<T_>& path) {
+        for (auto& s: path)
+            s.Initialize();
+    }
 }

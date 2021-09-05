@@ -8,6 +8,8 @@
 #include <dal/math/vectors.hpp>
 #include <dal/string/strings.hpp>
 #include <dal/math/aad/sample.hpp>
+#include <dal/math/aad/number.hpp>
+
 
 namespace Dal {
     template <class T_ = double> class Model_ {
@@ -37,4 +39,20 @@ namespace Dal {
 
         void PutParametersOnTape();
     };
+
+    namespace {
+        template <class T_>
+        void PutParametersOnTapeT(const Vector_<T_*>&) {}
+
+        template <>
+        void PutParametersOnTapeT<Number_>(const Vector_<Number_*>& parameters) {
+            for (Number_* param : parameters)
+                param->PutOnTape();
+        }
+    }
+
+    template <class T_>
+    void Model_<T_>::PutParametersOnTape() {
+        PutParametersOnTapeT<T_>(Parameters());
+    }
 }
