@@ -1,6 +1,7 @@
 get_dal_library_name(DAL_OUTPUT_NAME)
 
 file(GLOB_RECURSE DAL_FILES "*.hpp" "*.cpp")
+list(FILTER DAL_FILES EXCLUDE REGEX "${PROJECT_SOURCE_DIR}/dal/auto/.*" )
 
 if(WIN32)
     if (${BUILD_SHARED_LIBS})

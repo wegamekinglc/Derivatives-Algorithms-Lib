@@ -5,6 +5,7 @@
 #pragma once
 
 #include <dal/string/strings.hpp>
+#include <dal/utilities/exceptions.hpp>
 
 namespace Dal {
 /*IF--------------------------------------------------------------------------

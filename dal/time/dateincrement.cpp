@@ -43,7 +43,7 @@ namespace {
     using namespace Dal;
 
     #include <dal/auto/MG_SpecialDay_enum.hpp>
-    #include <dal/auto/MG_SpecialDay_enum.inc>
+    #include <dal/auto/MG_SpecialDay_enum.cpp>
 
     void MonthInRange(int* y, int* m) {
         while (*m > 12)
@@ -114,7 +114,7 @@ namespace {
     };
 
     #include <dal/auto/MG_DateStepSize_enum.hpp>
-    #include <dal/auto/MG_DateStepSize_enum.inc>
+    #include <dal/auto/MG_DateStepSize_enum.cpp>
 
     Date_ DateStepSize_::operator()(const Date_& from, bool forward, int n_steps, const Holidays_& holidays) const {
         int sign = forward ? 1 : -1;

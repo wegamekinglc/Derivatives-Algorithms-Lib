@@ -4,7 +4,7 @@
 	/*IF
 	-IF
 public
-->auto/MG_#_public.inc
+->auto/MG_#_public.cpp
 	ExcelSource
 ->auto/MG_#_public.hpp
 	DotNetHeader
@@ -13,7 +13,7 @@ public
 ->auto/MG_#_public.jl
 	JuliaWrapper
 object|settings|storable|record
-->auto/MG_#_object.inc
+->auto/MG_#_object.cpp
 	C++Source
 ->auto/MG_#_object.hpp
 	ClassDef
@@ -24,7 +24,7 @@ object|settings|storable|record
 ->auto/MG_%_()%?{%_(version)}{_v%_(version)}_Read.inc
 	CRead
 enumeration
-->auto/MG_#_enum.inc
+->auto/MG_#_enum.cpp
 	C++Source
 ->auto/MG_#_enum.hpp
 	C++Header
