@@ -8,5 +8,5 @@
 #include <dal/math/vectors.hpp>
 
 namespace Dal {
-    #include <dal/auto/MG_Ccy_enum.cpp>
+    #include <dal/auto/MG_Ccy_enum.inc>
 }
