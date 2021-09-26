@@ -29,7 +29,7 @@ private:
     Handle_<Extension_> other_;
     const Extension_& Extension() const;
     DayBasis_(Value_ val) : val_(val) {
-        REQUIRE(val < Value_::_EXTENSION), "val is not valid";
+        REQUIRE(val < Value_::_EXTENSION, "val is not valid");
     }
     DayBasis_(const Handle_<Extension_>& imp) : val_(Value_::_EXTENSION), other_(imp) {assert(imp.get());}
 	friend void DayBasis_RejectDuplicate(const String_&);
