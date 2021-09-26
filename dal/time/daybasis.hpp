@@ -1,12 +1,11 @@
 #pragma once
 
+#include <dal/platform/platform.hpp>
 #include <dal/math/vectors.hpp>
 #include <dal/string/strings.hpp>
 #include <dal/time/date.hpp>
 #include <dal/utilities/exceptions.hpp>
 #include <set>
-
-class Date_;
 
 /*IF---------------------------------------------------------
 enumeration DayBasis
@@ -23,6 +22,9 @@ method double operator()(const Date_& start_date, const Date_& end_date, const D
 -IF---------------------------------------------------------*/
 
 namespace Dal {
+
+    class Date_;
+
     namespace DayBasis {
         struct Context_ {
             bool isLast_;
