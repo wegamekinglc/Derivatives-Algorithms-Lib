@@ -23,7 +23,7 @@ TEST(SobolTest, TestNewSobol) {
     Vector_<> vars(dim, 0.);
 
     for (int i = 0; i < num_path; ++i) {
-        set->Next(&dst);
+        set->FillUniform(&dst);
         for (int j = 0; j < dim; ++j) {
             means[j] += dst[j];
             vars[j] += Square(dst[j] - 0.5);
@@ -40,7 +40,7 @@ TEST(SobolTest, TestNewSobol) {
     means.Fill(0.);
     vars.Fill(0.);
     for (int i = 0; i < num_path; ++i) {
-        set->NextNormal(&dst);
+        set->FillNormal(&dst);
         for (int j = 0; j < dim; ++j) {
             means[j] += dst[j];
             vars[j] += Square(dst[j]);

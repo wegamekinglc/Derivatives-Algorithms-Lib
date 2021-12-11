@@ -13,12 +13,15 @@
 
 namespace Dal {
     template <class T_ = double> class Model_ {
-        inline static const Vector_<String_> defaultAssetNames_ = {"spot"};
+        inline static const Vector_<String_>& DefaultAssetNames() {
+            static Vector_<String_> defaultAssetNames_ = {"spot"};
+            return defaultAssetNames_;
+        }
 
     public:
         virtual const size_t NumAssets() const { return 1; }
 
-        virtual const Vector_<String_>& AssetNames() const { return defaultAssetNames_; }
+        virtual const Vector_<String_>& AssetNames() const { return DefaultAssetNames(); }
 
         virtual void Allocate(const Vector_<Time_>& prdTimeLine, const Vector_<SampleDef_>& prdDefLine) = 0;
 

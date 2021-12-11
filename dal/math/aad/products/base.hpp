@@ -12,7 +12,10 @@
 namespace Dal {
     template <class T_ = double>
     class Product_ {
-        inline static const Vector_<String_> defaultAssetNames_ = {"spot"};
+        inline static const Vector_<String_>& DefaultAssetNames() {
+            static Vector_<String_> defaultAssetNames_ = {"spot"};
+            return defaultAssetNames_;
+        }
 
     public:
         /*
@@ -31,7 +34,7 @@ namespace Dal {
         }
 
         virtual const Vector_<String_>& AssetNames() const {
-            return defaultAssetNames_;
+            return DefaultAssetNames();
         }
 
         /*
@@ -39,8 +42,7 @@ namespace Dal {
          * compute payoffs given a path (on the products time line)
          */
         virtual const Vector_<String_>& PayoffLabels() const = 0;
-        virtual void Payoffs(const Scenario_<T_>& path,
-                             Vector_<T_>* payoffs) const =0;
+        virtual void Payoffs(const Scenario_<T_>& path, Vector_<T_>* payoffs) const =0;
         virtual std::unique_ptr<Product_<T_>> Clone() const = 0;
         virtual ~Product_() = default;
     };
