@@ -17,7 +17,7 @@ int main() {
     unique_ptr<QuasiRandom::SequenceSet_> rsg(QuasiRandom::NewSobol(10, 1000));
 
     Vector_<> dst;
-    rsg->NextNormal(&dst);
+    rsg->FillNormal(&dst);
 
     auto func = [](double x){ cout << setw(10) << setprecision(6) << x; };
     for_each(dst.begin(), dst.end(), func);
