@@ -1,3 +1,3 @@
 [submodule "machinist2"]
 	path = machinist2
-	url = https://github.com/wegamekinglc/machinist2
+	url = git@github.com:wegamekinglc/machinist2.git

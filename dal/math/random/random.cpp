@@ -236,7 +236,7 @@ namespace Dal {
         };
     } // namespace
 
-#include <dal/auto/MG_RNGType_enum.cpp>
+#include <dal/auto/MG_RNGType_enum.inc>
 
     Random_* New(const RNGType_& type, int seed) {
         Random_* ret;

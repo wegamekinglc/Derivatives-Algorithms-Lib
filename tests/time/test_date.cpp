@@ -7,7 +7,6 @@
 #include <dal/time/date.hpp>
 
 using Dal::Date_;
-using namespace Dal;
 using namespace Dal::Date;
 
 

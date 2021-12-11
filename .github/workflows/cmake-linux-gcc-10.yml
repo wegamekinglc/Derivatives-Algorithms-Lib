@@ -5,6 +5,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
+        with:
+          submodules: recursive
       - name: Setup
         run: |
           sudo apt install -y g++-10 libboost-dev libgtest-dev libc++-dev make cmake
