@@ -10,7 +10,7 @@
 namespace Dal::QuasiRandom {
     class SequenceSet_: noncopyable {
     public:
-        virtual ~SequenceSet_() {}
+        virtual ~SequenceSet_() = default;
         virtual int Size() const = 0;
         virtual void FillUniform(Vector_<>* dst) = 0;
         virtual void FillNormal(Vector_<>* dst) = 0;

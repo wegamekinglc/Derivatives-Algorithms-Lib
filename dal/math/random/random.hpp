@@ -22,6 +22,7 @@ namespace Dal {
         virtual void FillNormal(Vector_<>* deviates) = 0;
         [[nodiscard]]virtual Random_* Clone() const = 0;
         virtual void SkipTo(size_t n_points) = 0;
+        [[nodiscard]]size_t NDim() const { return cache_.size();}
         [[nodiscard]]virtual Random_* Branch(int i_child) const = 0;
     };
 
