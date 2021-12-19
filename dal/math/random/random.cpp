@@ -35,7 +35,7 @@ namespace Dal {
         } // namespace RWT
 
         // Generators similar to Knuth's IRN55, with shuffling
-        template <int M_, int L_, int S_> struct ShuffledIRN_ : Random_ {
+        template <int M_, int L_, int S_> struct ShuffledIRN_ : public Random_ {
             static const int DE_NOM = 1 << 30;
 
             Vector_<unsigned> irn_, shuffle_;
@@ -78,7 +78,9 @@ namespace Dal {
                 return new ShuffledIRN_<M_, L_, S_>(irn_[0] ^ irn_[1]);
             }
 
-            [[nodiscard]] Random_* Clone() const override { return new ShuffledIRN_(seed_); }
+            [[nodiscard]] Random_* Clone() const override {
+                return new ShuffledIRN_(seed_, cache_.size());
+            }
 
             void SkipTo(size_t n_points) override {}
         };
@@ -135,7 +137,7 @@ namespace Dal {
             [[nodiscard]] Random_* Branch(int i_child) const override { return new MRG32k32a_(); }
 
             [[nodiscard]] Random_* Clone() const override {
-                return new MRG32k32a_(static_cast<unsigned>(a_), static_cast<unsigned>(b_));
+                return new MRG32k32a_(static_cast<unsigned>(a_), static_cast<unsigned>(b_), cache_.size());
             }
 
             void SkipTo(size_t n_points) override {

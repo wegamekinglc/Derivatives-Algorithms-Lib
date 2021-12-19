@@ -12,6 +12,7 @@
 namespace Dal {
     class Random_ {
         bool anti_ = false;
+    protected:
         Vector_<> cache_;
     public:
         explicit Random_(size_t n_dim): cache_(n_dim) {}
