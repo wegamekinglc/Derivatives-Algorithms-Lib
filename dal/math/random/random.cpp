@@ -12,15 +12,15 @@
 namespace Dal {
     // derived classes can call this explicitly
     void Random_::FillUniform(Vector_<>* devs) {
-        for (auto&& ud : *devs)
-            if (anti_) {
+        if (anti_) {
+            for (auto&& ud : *devs)
                 ud = (1.0 - cache_);
-                anti_ = false;
-            } else {
+            anti_ = false;
+        } else {
+            for (auto&& ud : *devs)
                 ud = NextUniform();
-                cache_ = ud;
-                anti_ = true;
-            }
+            anti_ = true;
+        }
     }
 
     namespace {
