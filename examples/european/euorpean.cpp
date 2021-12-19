@@ -24,7 +24,7 @@ int main() {
 
     European_<double> prd(strike, exerciseDate);
     BlackScholes_<double> mdl(spot, vol, false, rate, div);
-    std::unique_ptr<Random_> rand(New(RNGType_("MRG32"), seed));
+    std::unique_ptr<Random_> rand(New(RNGType_("MRG32"), seed, 1));
 
     // single thread simulation
     auto res = MCSimulation(prd, mdl, rand, n_paths);

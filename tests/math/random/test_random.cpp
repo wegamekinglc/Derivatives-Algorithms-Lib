@@ -10,8 +10,8 @@
 using namespace Dal;
 
 TEST(RandomTest, TestNewRandomIRN) {
-    std::unique_ptr<Random_> gen(New(RNGType_("IRN"), 1024));
     auto n = 10000000;
+    std::unique_ptr<Random_> gen(New(RNGType_("IRN"), 1024, n));
     Vector_<> values(n);
 
     gen->FillUniform(&values);
@@ -41,8 +41,8 @@ TEST(RandomTest, TestNewRandomIRN) {
 
 
 TEST(RandomTest, TestNewRandomMRG32) {
-    std::unique_ptr<Random_> gen(New(RNGType_("MRG32"), 1024));
     auto n = 10000000;
+    std::unique_ptr<Random_> gen(New(RNGType_("MRG32"), 1024, n));
     Vector_<> values(n);
 
     gen->FillUniform(&values);

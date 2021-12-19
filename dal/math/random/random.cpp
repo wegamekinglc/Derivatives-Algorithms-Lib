@@ -13,12 +13,12 @@ namespace Dal {
     // derived classes can call this explicitly
     void Random_::FillUniform(Vector_<>* devs) {
         if (anti_) {
-            for (auto&& ud : *devs)
-                ud = (1.0 - cache_);
+            for (size_t i = 0; i < devs->size() ; ++i)
+                (*devs)[i] = (1.0 - cache_[i]);
             anti_ = false;
         } else {
-            for (auto&& ud : *devs)
-                ud = NextUniform();
+            for (size_t i = 0; i < devs->size() ; ++i)
+                (*devs)[i] = cache_[i] = NextUniform();
             anti_ = true;
         }
     }
@@ -62,7 +62,7 @@ namespace Dal {
             void FillUniform(Vector_<>* deviates) override { Random_::FillUniform(deviates); }
             void FillNormal(Vector_<>* deviates) override { RWT::Fill(this, deviates->begin(), deviates->end()); }
 
-            explicit ShuffledIRN_(int seed) : seed_(seed), irn_(M_), shuffle_(S_), irl_(0) {
+            explicit ShuffledIRN_(int seed, size_t n_dim = 1) : Random_(n_dim), seed_(seed), irn_(M_), shuffle_(S_), irl_(0) {
                 const unsigned MASK = 0x1F2E3D4C;
                 const unsigned MUL = 17;
                 // initialize IRN_
@@ -78,7 +78,7 @@ namespace Dal {
                 return new ShuffledIRN_<M_, L_, S_>(irn_[0] ^ irn_[1]);
             }
 
-            Random_* Clone() const override { return new ShuffledIRN_(seed_); }
+            [[nodiscard]] Random_* Clone() const override { return new ShuffledIRN_(seed_); }
 
             void SkipTo(size_t n_points) override {}
         };
@@ -95,7 +95,8 @@ namespace Dal {
             const double a_, b_;
             double xn_, xn1_, xn2_, yn_, yn1_, yn2_;
 
-            MRG32k32a_(const unsigned& a = 12345, const unsigned& b = 12346) : a_(a), b_(b) { Reset(); }
+            MRG32k32a_(const unsigned& a = 12345, const unsigned& b = 12346, size_t n_dim = 1)
+                : Random_(n_dim), a_(a), b_(b) { Reset(); }
 
             void Reset() {
                 // Reset state
@@ -133,7 +134,7 @@ namespace Dal {
 
             [[nodiscard]] Random_* Branch(int i_child) const override { return new MRG32k32a_(); }
 
-            Random_* Clone() const override {
+            [[nodiscard]] Random_* Clone() const override {
                 return new MRG32k32a_(static_cast<unsigned>(a_), static_cast<unsigned>(b_));
             }
 
@@ -238,12 +239,12 @@ namespace Dal {
 
 #include <dal/auto/MG_RNGType_enum.inc>
 
-    Random_* New(const RNGType_& type, int seed) {
+    Random_* New(const RNGType_& type, int seed, size_t n_dim) {
         Random_* ret;
         if (type == RNGType_("IRN"))
-            ret = new ShuffledIRN_<55, 31, 128>(seed);
+            ret = new ShuffledIRN_<55, 31, 128>(seed, n_dim);
         else if (type == RNGType_("MRG32"))
-            ret = new MRG32k32a_(seed, seed + 1);
+            ret = new MRG32k32a_(seed, seed + 1, n_dim);
         return ret;
     }
 } // namespace Dal
