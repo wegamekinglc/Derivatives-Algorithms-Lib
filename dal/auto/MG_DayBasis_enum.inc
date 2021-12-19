@@ -19,7 +19,7 @@ void DayBasis::RegisterExtension
      const Handle_<DayBasis_::Extension_>& imp) 
 {
     REQUIRE(TheDayBasisList().empty(), "Can't register a new DayBasis after enumerating all values");
-    assert(!imp.Empty());
+    assert(!imp.IsEmpty());
     DayBasis_RejectDuplicate(imp->String());
     for (auto pn = names.begin(); pn != names.end(); ++pn)
     {
