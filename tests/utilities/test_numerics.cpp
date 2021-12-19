@@ -81,3 +81,25 @@ TEST(NumericsTest, TestL2Normalized) {
     for(auto i = 0; i < s.size(); ++i)
         ASSERT_NEAR(val[i], s[i] / l1norm, 1e-9);
 }
+
+TEST(NumericsTest, TestCentralized) {
+    Vector_<> s = {1., 2., 3., 4., 5.};
+    auto val = Vector::Centralized(s);
+    auto mean = 3.0;
+    for(auto i = 0; i < s.size(); ++i)
+        ASSERT_NEAR(val[i], s[i] - mean, 1e-9);
+}
+
+TEST(NumericsTest, TestCovaricance) {
+    Vector_<> s1 = {1., 2., 3., 4., 5.};
+    Vector_<> s2 = {-1., -2., -3., -4., -5.};
+    auto val = Vector::Covariance(s1, s2);
+    ASSERT_NEAR(val, -2.0, 1e-9);
+}
+
+TEST(NumericsTest, TestCorrelation) {
+    Vector_<> s1 = {1., 2., 3., 4., 5.};
+    Vector_<> s2 = {-1., -2., -3., -4., -5.};
+    auto val = Vector::Correlation(s1, s2);
+    ASSERT_NEAR(val, -1.0, 1e-9);
+}
