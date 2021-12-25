@@ -20,7 +20,7 @@ int main() {
     int seed = 1234;
     double rate = 0.03;
     double div = 0.06;
-    size_t n_paths = 100000;
+    size_t n_paths = 10000000;
 
     European_<double> prd(strike, exerciseDate);
     BlackScholes_<double> mdl(spot, vol, false, rate, div);
