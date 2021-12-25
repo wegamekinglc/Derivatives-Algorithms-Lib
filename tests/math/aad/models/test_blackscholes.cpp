@@ -1,0 +1,35 @@
+//
+// Created by wegam on 2021/12/25.
+//
+
+#include <dal/math/aad/models/blackscholes.hpp>
+#include <dal/math/aad/products/european.hpp>
+#include <dal/math/random/quasirandom.hpp>
+#include <dal/math/random/sobol.hpp>
+#include <dal/math/aad/simulation.hpp>
+#include <gtest/gtest.h>
+
+using namespace Dal;
+
+TEST(BlackScholesTest, TestBlackSholes) {
+    Time_ exerciseTime = 2.0;
+    const double strike = 11.0;
+    const double spot = 10.0;
+    const double vol = 0.20;
+    const double rate = 0.034;
+    const double div = 0.021;
+    const size_t n_paths = 1000000;
+    const size_t n_dim = 1;
+
+    European_<double> prd(strike, exerciseTime);
+    BlackScholes_<double> mdl(spot, vol, false, rate, div);
+
+    std::unique_ptr<Random_> rand(NewSobol(n_dim, n_paths));
+    auto res = MCSimulation(prd, mdl, rand, n_paths);
+    auto sum = 0.0;
+    for (const auto& path : res)
+        sum += path[0];
+    auto calculated = sum / static_cast<double>(res.size());
+    auto expected = 0.806119;
+    ASSERT_NEAR(calculated, expected, 1e-5);
+}
