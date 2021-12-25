@@ -41,7 +41,7 @@ namespace Dal {
     Vector_<Vector_<>> MCParallelSimulation(
         const Product_<>& prd,
         const Model_<>& mdl,
-        const std::unique_ptr<Random_>& rng,
+        const std::unique_ptr<PseudoRandom_>& rng,
         const size_t& nPath) {
         REQUIRE(CheckCompatibility(prd, mdl), "model and products are not compatible");
         auto cMdl = mdl.Clone();
@@ -63,9 +63,9 @@ namespace Dal {
             InitializePath(path);
         }
 
-        Vector_<std::unique_ptr<Random_>> rng_s(nThread + 1);
+        Vector_<std::unique_ptr<PseudoRandom_>> rng_s(nThread + 1);
         for(auto& random: rng_s)
-            random = std::unique_ptr<Random_>(rng->Clone());
+            random = std::unique_ptr<PseudoRandom_>(rng->Clone());
 
         Vector_<TaskHandle_> futures;
         futures.reserve(nPath / BATCH_SIZE + 1);

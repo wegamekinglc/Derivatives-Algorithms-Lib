@@ -14,7 +14,7 @@ using namespace std;
 
 int main() {
 
-    unique_ptr<QuasiRandom::SequenceSet_> rsg(QuasiRandom::NewSobol(10, 1000));
+    unique_ptr<SequenceSet_> rsg(NewSobol(10, 1000));
 
     Vector_<> dst;
     rsg->FillNormal(&dst);

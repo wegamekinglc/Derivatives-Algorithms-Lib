@@ -4,7 +4,7 @@
 
 #pragma once
 
-namespace Dal::QuasiRandom {
+namespace Dal {
     class SequenceSet_;
     SequenceSet_* NewSobol(int size, int i_path);
 }

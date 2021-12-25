@@ -5,7 +5,7 @@
 #include <dal/math/aad/models/blackscholes.hpp>
 #include <dal/math/aad/products/european.hpp>
 #include <dal/math/aad/simulation.hpp>
-#include <dal/math/random/random.hpp>
+#include "dal/math/random/pseudorandom.hpp"
 #include <iostream>
 
 using namespace Dal;
@@ -34,8 +34,8 @@ int main() {
     cout << "serial: " << sum / static_cast<double>(res.size()) << endl;
 
     // multi-threads simulation
-    rand = std::unique_ptr<Random_>(New(RNGType_("MRG32"), seed));
-    res = MCParallelSimulation(prd, mdl, rand, n_paths * 8);
+    std::unique_ptr<PseudoRandom_> rand2(New(RNGType_("MRG32"), seed));
+    res = MCParallelSimulation(prd, mdl, rand2, n_paths * 8);
     sum = 0.0;
     for (const auto& path : res)
         sum += path[0];

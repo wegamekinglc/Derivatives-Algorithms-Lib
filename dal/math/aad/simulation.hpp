@@ -8,7 +8,7 @@
 #include <dal/string/strings.hpp>
 #include <dal/math/vectors.hpp>
 #include <dal/math/aad/aad.hpp>
-#include <dal/math/random/random.hpp>
+#include "dal/math/random/pseudorandom.hpp"
 
 namespace Dal {
     /*
@@ -48,7 +48,7 @@ namespace Dal {
     Vector_<Vector_<>> MCParallelSimulation(
         const Product_<double>& prd,
         const Model_<double>& mdl,
-        const std::unique_ptr<Random_>& rng,
+        const std::unique_ptr<PseudoRandom_>& rng,
         const size_t& nPath
         );
 }

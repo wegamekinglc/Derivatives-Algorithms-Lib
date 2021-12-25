@@ -161,7 +161,7 @@ namespace Dal {
                     if (spotMeasure_)
                         numeraires_[i] = Exp(div_ * productTimeline[i]) / spot_;
                     else
-                        numeraires_[i] = Exp(rate_ * productTimeline[i]) / spot_;
+                        numeraires_[i] = Exp(rate_ * productTimeline[i]);
                 }
 
                 const size_t pDF = defLine[i].discountMats_.size();

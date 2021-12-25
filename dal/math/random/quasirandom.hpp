@@ -6,14 +6,16 @@
 
 #include <dal/platform/platform.hpp>
 #include <dal/utilities/noncopyable.hpp>
+#include <dal/math/random/base.hpp>
 
-namespace Dal::QuasiRandom {
-    class SequenceSet_: noncopyable {
+namespace Dal {
+    class SequenceSet_: public Random_, noncopyable {
     public:
         virtual ~SequenceSet_() = default;
-        virtual int Size() const = 0;
+        virtual size_t NDim() const override = 0;
         virtual void FillUniform(Vector_<>* dst) = 0;
         virtual void FillNormal(Vector_<>* dst) = 0;
+        virtual SequenceSet_* Clone() const override = 0;
         virtual SequenceSet_* TakeAway(int sub_size) = 0;
     };
 }
