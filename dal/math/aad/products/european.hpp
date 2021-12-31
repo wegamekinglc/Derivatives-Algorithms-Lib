@@ -73,11 +73,19 @@ namespace Dal {
             return labels_;
         }
 
-        void Payoffs(const Scenario_<T_>& path,
+    protected:
+        void PayoffsImpl(const Scenario_<T_>& path,
                      Vector_<T_>* payoffs) const override {
             const auto& sample = path.front();
             const auto spot = sample.forwards_.front().front();
             payoffs->front() = Max(spot - strike_, 0.0) * sample.discounts_.front() / sample.numeraire_;
+        }
+
+        void PayoffsImpl(const Scenario_<T_>& path,
+                         typename Matrix_<T_>::Row_& payoffs) const override {
+            const auto& sample = path.front();
+            const auto spot = sample.forwards_.front().front();
+            payoffs[0] = Max(spot - strike_, 0.0) * sample.discounts_.front() / sample.numeraire_;
         }
     };
 }

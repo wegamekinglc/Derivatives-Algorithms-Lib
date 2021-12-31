@@ -42,8 +42,15 @@ namespace Dal {
          * compute payoffs given a path (on the products time line)
          */
         virtual const Vector_<String_>& PayoffLabels() const = 0;
-        virtual void Payoffs(const Scenario_<T_>& path, Vector_<T_>* payoffs) const =0;
+        template <class C_>
+        inline void Payoffs(const Scenario_<T_>& path, C_ payoffs) const {
+            return PayoffsImpl(path, payoffs);
+        }
         virtual std::unique_ptr<Product_<T_>> Clone() const = 0;
         virtual ~Product_() = default;
+
+    protected:
+        virtual void PayoffsImpl(const Scenario_<T_>& path, typename Matrix_<T_>::Row_& payoffs) const = 0;
+        virtual void PayoffsImpl(const Scenario_<T_>& path, Vector_<T_>* payoffs) const = 0;
     };
 }

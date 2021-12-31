@@ -10,16 +10,16 @@
 
 namespace Dal {
 
-    Vector_<Vector_<>> MCSimulation(
+    Matrix_<> MCSimulation(
         const Product_<>& prd,
         const Model_<>& mdl,
         const std::unique_ptr<Random_>& rng,
-        const size_t& nPath) {
+        int nPath) {
         REQUIRE(CheckCompatibility(prd, mdl), "model and products are not compatible");
         auto cMdl = mdl.Clone();
 
         const size_t nPay = prd.PayoffLabels().size();
-        Vector_<Vector_<>> results(nPath, Vector_<>(nPay));
+        Matrix_<> results(nPath, nPay);
 
         cMdl->Allocate(prd.TimeLine(), prd.DefLine());
         cMdl->Init(prd.TimeLine(), prd.DefLine());
@@ -31,23 +31,23 @@ namespace Dal {
         for (size_t i =0; i < nPath; ++i) {
             rng->FillNormal(&gaussVec);
             cMdl->GeneratePath(gaussVec, &path);
-            prd.Payoffs(path, &results[i]);
+            prd.Payoffs(path, results[i]);
         }
         return results;
     }
 
     constexpr const int BATCH_SIZE = 65536;
 
-    Vector_<Vector_<>> MCParallelSimulation(
+    Matrix_<> MCParallelSimulation(
         const Product_<>& prd,
         const Model_<>& mdl,
         const std::unique_ptr<PseudoRandom_>& rng,
-        const size_t& nPath) {
+        int nPath) {
         REQUIRE(CheckCompatibility(prd, mdl), "model and products are not compatible");
         auto cMdl = mdl.Clone();
 
         const size_t nPay = prd.PayoffLabels().size();
-        Vector_<Vector_<>> results(nPath, Vector_<>(nPay));
+        Matrix_<> results(nPath, nPay);
 
         cMdl->Allocate(prd.TimeLine(), prd.DefLine());
         cMdl->Init(prd.TimeLine(), prd.DefLine());
@@ -86,7 +86,7 @@ namespace Dal {
                 for(size_t i = 0; i < pathsInTask; ++i) {
                     random->FillNormal(&gaussVec);
                     cMdl->GeneratePath(gaussVec, &path);
-                    prd.Payoffs(path, &results[firstPath + i]);
+                    prd.Payoffs(path, results[firstPath + i]);
                 }
                 return true;
             }));

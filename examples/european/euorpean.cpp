@@ -29,17 +29,16 @@ int main() {
     // single thread simulation
     auto res = MCSimulation(prd, mdl, rand, n_paths);
     auto sum = 0.0;
-    for (const auto& path : res)
-        sum += path[0];
-    cout << "serial: " << sum / static_cast<double>(res.size()) << endl;
+    for (auto row = 0; row < res.Rows(); ++row)
+        sum += res(row, 0);
+    auto calculated = sum / static_cast<double>(res.Rows());
 
     // multi-threads simulation
     std::unique_ptr<PseudoRandom_> rand2(New(RNGType_("MRG32"), seed));
     res = MCParallelSimulation(prd, mdl, rand2, n_paths * 8);
-    sum = 0.0;
-    for (const auto& path : res)
-        sum += path[0];
-    cout << "parallel: " << sum / static_cast<double>(res.size()) << endl;
+    for (auto row = 0; row < res.Rows(); ++row)
+        sum += res(row, 0);
+    calculated = sum / static_cast<double>(res.Rows());
 
     return 0;
 }

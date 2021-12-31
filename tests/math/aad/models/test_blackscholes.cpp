@@ -11,7 +11,7 @@
 
 using namespace Dal;
 
-TEST(BlackScholesTest, TestBlackSholes) {
+TEST(BlackScholesTest, TestBlackScholes) {
     Time_ exerciseTime = 2.0;
     const double strike = 11.0;
     const double spot = 10.0;
@@ -27,9 +27,14 @@ TEST(BlackScholesTest, TestBlackSholes) {
     std::unique_ptr<Random_> rand(NewSobol(n_dim, n_paths));
     auto res = MCSimulation(prd, mdl, rand, n_paths);
     auto sum = 0.0;
-    for (const auto& path : res)
-        sum += path[0];
-    auto calculated = sum / static_cast<double>(res.size());
+    for (auto row = 0; row < res.Rows(); ++row)
+        sum += res(row, 0);
+    auto calculated = sum / static_cast<double>(res.Rows());
     auto expected = 0.806119;
     ASSERT_NEAR(calculated, expected, 1e-5);
+}
+
+
+TEST(BlackScholesTest, TestBlackScholesAAD) {
+
 }
