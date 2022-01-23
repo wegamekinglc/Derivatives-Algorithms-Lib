@@ -2,8 +2,8 @@
 // Created by wegam on 2022/1/21.
 //
 
-#include <dal/indice/indexequity.hpp>
-#include <dal/time/dateincrement.hpp>
+#include "indexequity.hpp"
+#include "dal/time/dateincrement.hpp"
 
 namespace Dal::Index {
     String_ Equity_::Name() const {
