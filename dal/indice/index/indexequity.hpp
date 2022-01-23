@@ -4,8 +4,8 @@
 
 #pragma once
 
-#include "dal/indice/index.hpp"
-#include "dal/math/cell.hpp"
+#include <dal/indice/index.hpp>
+#include <dal/math/cell.hpp>
 
 namespace Dal::Index {
     class Equity_: public Index_ {
