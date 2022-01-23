@@ -12,7 +12,7 @@ namespace Dal {
 
     namespace Index {
         Index_* Parse(const String_& name);
-        typedef Index_* (*parser_t)(const String_&);
+        using parser_t = Index_* (*)(const String_&);
         void RegisterParser(parser_t func);
         Handle_<Index_> Clone(const Index_&);
     }
