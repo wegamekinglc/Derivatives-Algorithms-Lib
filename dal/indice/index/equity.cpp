@@ -2,7 +2,7 @@
 // Created by wegam on 2022/1/21.
 //
 
-#include <dal/indice/index/indexequity.hpp>
+#include <dal/indice/index/equity.hpp>
 #include <dal/time/dateincrement.hpp>
 
 namespace Dal::Index {

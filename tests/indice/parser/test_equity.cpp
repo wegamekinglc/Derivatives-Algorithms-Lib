@@ -5,7 +5,7 @@
 #include <gtest/gtest.h>
 #include <dal/string/strings.hpp>
 #include <dal/indice/index.hpp>
-#include <dal/indice/parser/parserequity.hpp>
+#include <dal/indice/parser/equity.hpp>
 
 using namespace Dal;
 

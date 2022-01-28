@@ -3,7 +3,7 @@
 //
 
 #include <gtest/gtest.h>
-#include <dal/indice/index/indexequity.hpp>
+#include <dal/indice/index/equity.hpp>
 
 using namespace Dal;
 
