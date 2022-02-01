@@ -30,6 +30,7 @@ method CollateralType_ Collateral() const;
 namespace Dal {
     class String_;
 
-#include <dal/auto/MG_Clearer_enum.hpp>
 #include <dal/auto/MG_CollateralType_enum.hpp>
+#include <dal/auto/MG_Clearer_enum.hpp>
+
 } // namespace Dal

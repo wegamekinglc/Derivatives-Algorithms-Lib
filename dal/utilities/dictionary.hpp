@@ -6,7 +6,7 @@
 
 // basically a map<String_, Cell_>, with uppercase strings and protection against duplicates
 
-#include <dal/math //cell.hpp>
+#include <dal/math/cell.hpp>
 #include <dal/storage/storable.hpp>
 #include <map>
 

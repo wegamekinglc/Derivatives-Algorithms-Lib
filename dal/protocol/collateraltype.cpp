@@ -6,6 +6,6 @@
 #include <dal/protocol/collateraltype.hpp>
 
 namespace Dal {
-#include <dal/auto/MG_Clearer_enum.inc>
 #include <dal/auto/MG_CollateralType_enum.inc>
+#include <dal/auto/MG_Clearer_enum.inc>
 } // namespace Dal
