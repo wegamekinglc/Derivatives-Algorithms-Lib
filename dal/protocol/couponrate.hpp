@@ -5,9 +5,9 @@
 #pragma once
 
 #include <dal/platform/platform.hpp>
-#include <dal/utilities/noncopyable.hpp>
 #include <dal/protocol/currency.hpp>
 #include <dal/time/datetime.hpp>
+#include <dal/utilities/noncopyable.hpp>
 
 /*IF--------------------------------------------------------------------------
 enumeration TradedRate
@@ -37,7 +37,7 @@ namespace Dal {
 
     struct FixedRate_ : CouponRate_ {
         double rate_;
-        explicit FixedRate_(double rate): rate_(rate) {}
+        explicit FixedRate_(double rate) : rate_(rate) {}
     };
 
 #include <dal/auto/MG_TradedRate_enum.hpp>
@@ -54,4 +54,4 @@ namespace Dal {
     struct SummedRate_ : CouponRate_ {
         Vector_<std::pair<double, Handle_<CouponRate_>>> rates_;
     };
-}
+} // namespace Dal

@@ -8,19 +8,18 @@
  * Antoine Savine
  * Wiley, 2018
  * As long as this comment is preserved at the top of the file
-*/
+ */
 
 #pragma once
 
-#include <list>
-#include <iterator>
 #include <array>
 #include <cstring>
+#include <iterator>
+#include <list>
 
 namespace Dal {
 
-    template <class T_, size_t BLOCK_SIZE_>
-    class BlockList_ {
+    template <class T_, size_t BLOCK_SIZE_> class BlockList_ {
     private:
         std::list<std::array<T_, BLOCK_SIZE_>> data_;
         using list_iter = decltype(data_.begin());
@@ -53,7 +52,7 @@ namespace Dal {
         }
 
     public:
-        BlockList_() { NewBlock();}
+        BlockList_() { NewBlock(); }
 
         void Clear() {
             data_.clear();
@@ -71,7 +70,7 @@ namespace Dal {
                 std::memset(&arr[0], val, BLOCK_SIZE_ * sizeof(T_));
         }
 
-        template <typename ...Args_> T_* EmplaceBack(Args_&& ...args) {
+        template <typename... Args_> T_* EmplaceBack(Args_&&... args) {
             if (next_space_ == last_space_)
                 NextBlock();
             T_* emplaced = new (&*next_space_) T_(std::forward<Args_>(args)...);
@@ -87,8 +86,7 @@ namespace Dal {
             return &*old_next;
         }
 
-        template <size_t N_>
-        T_* EmplaceBackMulti() {
+        template <size_t N_> T_* EmplaceBackMulti() {
             if (std::distance(next_space_, last_space_) < static_cast<int>(N_))
                 NewBlock();
             auto old_next = next_space_;
@@ -134,7 +132,7 @@ namespace Dal {
             Iterator_() {}
 
             Iterator_(list_iter cb, block_iter cs, block_iter fs, block_iter ls)
-                :curr_block_(cb), curr_space_(cs), first_space_(fs), last_space_(ls) {}
+                : curr_block_(cb), curr_space_(cs), first_space_(fs), last_space_(ls) {}
 
             Iterator_& operator++() {
                 ++curr_space_;
@@ -158,21 +156,13 @@ namespace Dal {
                 return *this;
             }
 
-            T_& operator*() {
-                return *curr_space_;
-            }
+            T_& operator*() { return *curr_space_; }
 
-            const T_& operator*() const {
-                return *curr_space_;
-            }
+            const T_& operator*() const { return *curr_space_; }
 
-            T_* operator->() {
-                return &*curr_space_;
-            }
+            T_* operator->() { return &*curr_space_; }
 
-            const T_* operator->() const {
-                return &*curr_space_;
-            }
+            const T_* operator->() const { return &*curr_space_; }
 
             bool operator==(const Iterator_& rhs) {
                 return curr_block_ == rhs.curr_block_ && curr_space_ == rhs.curr_space_;
@@ -187,13 +177,10 @@ namespace Dal {
             return Iterator_(data_.begin(), data_.begin()->begin(), data_.begin()->begin(), data_.begin()->end());
         }
 
-        Iterator_ End() {
-            return Iterator_(curr_block_, next_space_, curr_block_->begin(), curr_block_->end());
-        }
+        Iterator_ End() { return Iterator_(curr_block_, next_space_, curr_block_->begin(), curr_block_->end()); }
 
         Iterator_ Mark() {
-            return Iterator_(marked_block_, marked_space_,
-                             marked_block_->begin(), marked_block_->end());
+            return Iterator_(marked_block_, marked_space_, marked_block_->begin(), marked_block_->end());
         }
 
         Iterator_ Find(const T_* const element) {
@@ -202,7 +189,8 @@ namespace Dal {
 
             while (it != b) {
                 --it;
-                if (&*it == element) return it;
+                if (&*it == element)
+                    return it;
             }
 
             if (&*it == element)
@@ -211,4 +199,4 @@ namespace Dal {
             return End();
         }
     };
-}
+} // namespace Dal

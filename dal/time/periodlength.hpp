@@ -4,8 +4,8 @@
 
 #pragma once
 
-#include <dal/string/strings.hpp>
 #include <dal/math/vectors.hpp>
+#include <dal/string/strings.hpp>
 
 /*IF--------------------------------------------------------------------------
 enumeration PeriodLength
@@ -23,8 +23,6 @@ namespace Dal {
     class Date_;
     class Ccy_;
     namespace Date {
-        Date_ NominalMaturity(const Date_& start,
-                              const PeriodLength_& step,
-                              const Ccy_& ccy);
+        Date_ NominalMaturity(const Date_& start, const PeriodLength_& step, const Ccy_& ccy);
     }
-}
+} // namespace Dal

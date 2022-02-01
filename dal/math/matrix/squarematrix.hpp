@@ -7,13 +7,12 @@
 #include <dal/math/matrix/matrixs.hpp>
 
 namespace Dal {
-    template <class E_>
-    class SquareMatrix_ {
+    template <class E_> class SquareMatrix_ {
         Matrix_<E_> val_;
 
     public:
         SquareMatrix_() = default;
-        SquareMatrix_(int size): val_(size, size) {}
+        SquareMatrix_(int size) : val_(size, size) {}
         void Resize(int size) { val_.Resize(size, size); }
 
         operator const Matrix_<E_>&() const { return val_; };
@@ -29,11 +28,10 @@ namespace Dal {
     };
 
     namespace SquareMatrix {
-        template <class E_>
-        SquareMatrix_<E_> M1x1(const E_& val) {
+        template <class E_> SquareMatrix_<E_> M1x1(const E_& val) {
             SquareMatrix_<E_> ret_val(1);
             ret_val(0, 0) = val;
             return ret_val;
         }
-    }
-}
+    } // namespace SquareMatrix
+} // namespace Dal

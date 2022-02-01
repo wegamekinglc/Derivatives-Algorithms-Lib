@@ -8,10 +8,10 @@
  * Antoine Savine
  * Wiley, 2018
  * As long as this comment is preserved at the top of the file
-*/
+ */
 
-#include <dal/platform/strict.hpp>
 #include <dal/math/aad/aad.hpp>
+#include <dal/platform/strict.hpp>
 
 namespace Dal {
     namespace {
@@ -19,9 +19,9 @@ namespace Dal {
             static Tape_ GLOBAL_TAP;
             return &GLOBAL_TAP;
         }
-    }
-    size_t  Node_::num_adj_ = 1;
+    } // namespace
+    size_t Node_::num_adj_ = 1;
     bool Tape_::multi_ = false;
 
     thread_local Tape_* Number_::tape_ = CreateGlobalTape();
-}
+} // namespace Dal

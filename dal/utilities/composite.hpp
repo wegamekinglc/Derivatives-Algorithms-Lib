@@ -10,11 +10,9 @@ namespace Dal {
 
     // template implementation of composite object with same base type as its elements
 
-    template <class T_>
-    struct ElementHolder_ { typedef std::shared_ptr<T_> type; };
+    template <class T_> struct ElementHolder_ { typedef std::shared_ptr<T_> type; };
 
-    template <class T_>
-    struct ElementHolder_<const T_> { typedef Handle_<T_> type; };
+    template <class T_> struct ElementHolder_<const T_> { typedef Handle_<T_> type; };
 
     template <class T_, class H_ = typename ElementHolder_<T_>::type>
     class Composite_ : public std::remove_const<T_>::type {
@@ -55,25 +53,19 @@ namespace Dal {
         T_& operator=(const T_& rhs);
     };
 
-    template <class T_>
-    Composite_<T_>& CastComposite(T_* src) { return dynamic_cast<Composite_<T_>*>(src); }
+    template <class T_> Composite_<T_>& CastComposite(T_* src) { return dynamic_cast<Composite_<T_>*>(src); }
 
-    template <class T_>
-    Composite_<T_>& CoerceComposite(T_* src) {
+    template <class T_> Composite_<T_>& CoerceComposite(T_* src) {
         assert(dynamic_cast<Composite_<T_>*>(src));
         return static_cast<Composite_<T_>&>(*src);
     }
 
-    template <class T_>
-    const Composite_<T_>& CastComposite(const T_* src) {
+    template <class T_> const Composite_<T_>& CastComposite(const T_* src) {
         return dynamic_cast<Composite_<T_>*>(src);
     }
 
-    template <class T_>
-    const Composite_<T_>& CoerceComposite(const T_* src) {
+    template <class T_> const Composite_<T_>& CoerceComposite(const T_* src) {
         assert(dynamic_cast<Composite_<T_>*>(src));
         return static_cast<Composite_<T_>&>(*src);
     }
-}
-
-
+} // namespace Dal

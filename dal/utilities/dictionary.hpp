@@ -6,9 +6,9 @@
 
 // basically a map<String_, Cell_>, with uppercase strings and protection against duplicates
 
-#include <map>
-#include <dal/math//cell.hpp>
+#include <dal/math //cell.hpp>
 #include <dal/storage/storable.hpp>
+#include <map>
 
 namespace Dal {
     class Dictionary_ {
@@ -34,8 +34,7 @@ namespace Dal {
         }
 
         template <class F_>
-        auto Extract(const Dictionary_& src, const String_& key, F_ translate)
-            -> decltype(translate(Cell_())) {
+        auto Extract(const Dictionary_& src, const String_& key, F_ translate) -> decltype(translate(Cell_())) {
             return translate(src.At(key, false));
         }
 
@@ -53,5 +52,5 @@ namespace Dal {
         // convert dict to/from string (';' separator, '=' between key and value)
         String_ ToString(const Dictionary_& dict);
         Dictionary_ FromString(const String_& src);
-    }
-}
+    } // namespace Dictionary
+} // namespace Dal

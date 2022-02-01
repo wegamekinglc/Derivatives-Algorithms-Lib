@@ -2,12 +2,12 @@
 // Created by wegam on 2020/10/25.
 //
 
+#include <dal/math/cellutils.hpp>
 #include <dal/platform/platform.hpp>
 #include <dal/platform/strict.hpp>
-#include <dal/math/cellutils.hpp>
-#include <dal/time/dateutils.hpp>
-#include <dal/time/datetimeutils.hpp>
 #include <dal/string/strings.hpp>
+#include <dal/time/datetimeutils.hpp>
+#include <dal/time/dateutils.hpp>
 #include <dal/utilities/algorithms.hpp>
 
 namespace Dal {
@@ -17,18 +17,18 @@ namespace Dal {
 
         auto ok = [&](const Cell_::Type_& t) { return allowed[static_cast<int>(t)]; };
         switch (c.type_) {
-            // look at the type we have, see if there is an ok conversion available
-            case Cell_::Type_::NUMBER:
-                if (ok(Cell_::Type_::DATETIME) || (ok(Cell_::Type_::DATE) && c.d_ == static_cast<int>(c.d_)))
-                    if (c.d_ >= MIN_DATE && c.d_ <= MAX_DATE)
-                        return true;
-                break;
-            case Cell_::Type_::STRING:
-                if (ok(Cell_::Type_::DATETIME) && DateTime::IsDateTimeString(c.s_))
+        // look at the type we have, see if there is an ok conversion available
+        case Cell_::Type_::NUMBER:
+            if (ok(Cell_::Type_::DATETIME) || (ok(Cell_::Type_::DATE) && c.d_ == static_cast<int>(c.d_)))
+                if (c.d_ >= MIN_DATE && c.d_ <= MAX_DATE)
                     return true;
-                if (ok(Cell_::Type_::DATE) && Date::IsDateString(c.s_))
-                    return true;
-                break;
+            break;
+        case Cell_::Type_::STRING:
+            if (ok(Cell_::Type_::DATETIME) && DateTime::IsDateTimeString(c.s_))
+                return true;
+            if (ok(Cell_::Type_::DATE) && Date::IsDateString(c.s_))
+                return true;
+            break;
         }
         return false;
     }
@@ -79,5 +79,4 @@ namespace Dal {
         }
         return ret_val;
     }
-}
-
+} // namespace Dal

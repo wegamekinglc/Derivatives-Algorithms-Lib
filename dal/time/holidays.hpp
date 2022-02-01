@@ -28,7 +28,7 @@ namespace Dal {
         const Holidays_& None();
         Date_ NextBus(const Holidays_& hols, const Date_& from);
         Date_ PrevBus(const Holidays_& hols, const Date_& from);
-    }
+    } // namespace Holidays
 
     class CountBusDays_ {
         Holidays_ hols_;
@@ -37,4 +37,4 @@ namespace Dal {
         explicit CountBusDays_(const Holidays_& holidays);
         int operator()(const Date_& begin, const Date_& end) const;
     };
-}
+} // namespace Dal

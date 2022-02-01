@@ -2,9 +2,9 @@
 // Created by wegam on 2020/12/16.
 //
 
+#include <dal/math/interp/interpcubic.hpp>
 #include <dal/platform/platform.hpp>
 #include <dal/platform/strict.hpp>
-#include <dal/math/interp/interpcubic.hpp>
 #include <dal/storage/archive.hpp>
 
 /*IF--------------------------------------------------------------------------
@@ -24,7 +24,7 @@ fpp is number[]
 namespace {
 
     using namespace Dal;
-    #include <dal/auto/MG_Cubic1_Write.inc>
+#include <dal/auto/MG_Cubic1_Write.inc>
 } // namespace
 
 namespace Dal {
@@ -42,16 +42,13 @@ namespace Dal {
                     const Interp::Boundary_& lhs,
                     const Interp::Boundary_& rhs);
 
-            Cubic1_(const String_& name,
-                    const Vector_<>& x,
-                    const Vector_<>& f,
-                    const Vector_<>& fpp)
+            Cubic1_(const String_& name, const Vector_<>& x, const Vector_<>& f, const Vector_<>& fpp)
                 : Interp1_(name), x_(x), f_(f), fpp_(fpp) {}
 
             void Write(Archive::Store_& dst) const override { Cubic1::XWrite(dst, name_, x_, f_, fpp_); }
         };
 
-        #include <dal/auto/MG_Cubic1_Read.inc>
+#include <dal/auto/MG_Cubic1_Read.inc>
 
         // based on Numerical Recipes' splint
         double Cubic1_::operator()(double x) const {
@@ -125,13 +122,10 @@ namespace Dal {
             for (int k = n - 2; k >= 0; --k) // backsubstitution
                 fpp_[k] += u[k] * fpp_[k + 1];
         }
-    }
+    } // namespace
 
-    Interp1_* Interp::NewCubic(const String_& name,
-                               const Vector_<>& x,
-                               const Vector_<>& f,
-                               const Boundary_& lhs,
-                               const Boundary_& rhs) {
+    Interp1_* Interp::NewCubic(
+        const String_& name, const Vector_<>& x, const Vector_<>& f, const Boundary_& lhs, const Boundary_& rhs) {
         return new Cubic1_(name, x, f, lhs, rhs);
     }
-}
+} // namespace Dal

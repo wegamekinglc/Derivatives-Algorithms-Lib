@@ -2,19 +2,15 @@
 // Created by wegam on 2021/7/11.
 //
 
-#include <dal/platform/strict.hpp>
 #include <dal/concurrency/threadpool.hpp>
-#include <dal/math/aad/simulation.hpp>
 #include <dal/math/aad/models/base.hpp>
 #include <dal/math/aad/products/base.hpp>
+#include <dal/math/aad/simulation.hpp>
+#include <dal/platform/strict.hpp>
 
 namespace Dal {
 
-    Matrix_<> MCSimulation(
-        const Product_<>& prd,
-        const Model_<>& mdl,
-        const std::unique_ptr<Random_>& rng,
-        int nPath) {
+    Matrix_<> MCSimulation(const Product_<>& prd, const Model_<>& mdl, const std::unique_ptr<Random_>& rng, int nPath) {
         REQUIRE(CheckCompatibility(prd, mdl), "model and products are not compatible");
         auto cMdl = mdl.Clone();
 
@@ -28,7 +24,7 @@ namespace Dal {
         AllocatePath(prd.DefLine(), path);
         InitializePath(path);
 
-        for (size_t i =0; i < nPath; ++i) {
+        for (size_t i = 0; i < nPath; ++i) {
             rng->FillNormal(&gaussVec);
             cMdl->GeneratePath(gaussVec, &path);
             prd.Payoffs(path, results[i]);
@@ -38,11 +34,10 @@ namespace Dal {
 
     constexpr const int BATCH_SIZE = 65536;
 
-    Matrix_<> MCParallelSimulation(
-        const Product_<>& prd,
-        const Model_<>& mdl,
-        const std::unique_ptr<PseudoRandom_>& rng,
-        int nPath) {
+    Matrix_<> MCParallelSimulation(const Product_<>& prd,
+                                   const Model_<>& mdl,
+                                   const std::unique_ptr<PseudoRandom_>& rng,
+                                   int nPath) {
         REQUIRE(CheckCompatibility(prd, mdl), "model and products are not compatible");
         auto cMdl = mdl.Clone();
 
@@ -57,14 +52,15 @@ namespace Dal {
         Vector_<Vector_<>> gaussVecs(nThread + 1);
         Vector_<Scenario_<>> paths(nThread + 1);
 
-        for(auto& vec: gaussVecs) vec.Resize(cMdl->SimDim());
-        for(auto& path: paths) {
+        for (auto& vec : gaussVecs)
+            vec.Resize(cMdl->SimDim());
+        for (auto& path : paths) {
             AllocatePath(prd.DefLine(), path);
             InitializePath(path);
         }
 
         Vector_<std::unique_ptr<PseudoRandom_>> rng_s(nThread + 1);
-        for(auto& random: rng_s)
+        for (auto& random : rng_s)
             random = std::unique_ptr<PseudoRandom_>(rng->Clone());
 
         Vector_<TaskHandle_> futures;
@@ -83,7 +79,7 @@ namespace Dal {
                 auto& random = rng_s[threadNum];
                 random->SkipTo(firstPath * nPay);
 
-                for(size_t i = 0; i < pathsInTask; ++i) {
+                for (size_t i = 0; i < pathsInTask; ++i) {
                     random->FillNormal(&gaussVec);
                     cMdl->GeneratePath(gaussVec, &path);
                     prd.Payoffs(path, results[firstPath + i]);
@@ -94,8 +90,8 @@ namespace Dal {
             firstPath += pathsInTask;
         }
 
-        for(auto& future: futures)
+        for (auto& future : futures)
             pool->ActiveWaite(future);
         return results;
     }
-}
+} // namespace Dal

@@ -8,27 +8,25 @@
  * Antoine Savine
  * Wiley, 2018
  * As long as this comment is preserved at the top of the file
-*/
+ */
 
 #pragma once
 
-#include <dal/platform/platform.hpp>
-#include <queue>
-#include <mutex>
 #include <condition_variable>
-
+#include <dal/platform/platform.hpp>
+#include <mutex>
+#include <queue>
 
 namespace Dal {
 
-    template <class T_>
-    class ConcurrentQueue_ {
+    template <class T_> class ConcurrentQueue_ {
         std::queue<T_> queue_;
         mutable std::mutex mutex_;
         std::condition_variable cv_;
         bool interrupt_;
 
     public:
-        ConcurrentQueue_(): interrupt_(false) {}
+        ConcurrentQueue_() : interrupt_(false) {}
         ~ConcurrentQueue_() { Interrupt(); }
 
         bool Empty() const {
@@ -72,13 +70,11 @@ namespace Dal {
             cv_.notify_all();
         }
 
-        void ResetInterrupt() {
-            interrupt_ = false;
-        }
+        void ResetInterrupt() { interrupt_ = false; }
 
         void Clear() {
             std::queue<T_> empty;
             std::swap(queue_, empty);
         }
     };
-}
+} // namespace Dal

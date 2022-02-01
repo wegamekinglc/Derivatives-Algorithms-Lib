@@ -58,7 +58,7 @@ namespace Dal {
                 d2 = Min(d1, d2);
             return (360 * (y2 - y1) + 30 * (m2 - m1) + (d2 - d1)) / 360.0;
         }
-    }
+    } // namespace
 
     double DayBasis_::operator()(const Date_& from, const Date_& to, const DayBasis::Context_* info) const {
         switch (val_) {

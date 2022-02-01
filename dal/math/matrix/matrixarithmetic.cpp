@@ -1,7 +1,7 @@
 #include <cmath>
-#include <dal/platform/strict.hpp>
 #include <dal/math/matrix/matrixarithmetic.hpp>
 #include <dal/math/matrix/matrixs.hpp>
+#include <dal/platform/strict.hpp>
 #include <functional>
 
 namespace Dal {
@@ -12,12 +12,10 @@ namespace Dal {
             Vector_<> ret_val(n);
             if (corr)
                 *corr = cov;
-            for(int i=0; i != n; ++i) {
+            for (int i = 0; i != n; ++i) {
                 ret_val[i] = sqrt(cov(i, i));
-                if(corr) {
-                    auto scale = [&ret_val, &i](double x) {
-                        return x / Max(Dal::EPSILON, ret_val[i]);
-                    };
+                if (corr) {
+                    auto scale = [&ret_val, &i](double x) { return x / Max(Dal::EPSILON, ret_val[i]); };
                     auto r = corr->Row(i);
                     Transform(&r, scale);
                     auto c = corr->Col(i);
@@ -26,5 +24,5 @@ namespace Dal {
             }
             return ret_val;
         }
-    }
-}
+    } // namespace Matrix
+} // namespace Dal

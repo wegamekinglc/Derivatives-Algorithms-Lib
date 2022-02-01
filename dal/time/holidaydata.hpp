@@ -4,12 +4,11 @@
 
 #pragma once
 
-#include <map>
-#include <dal/platform/platform.hpp>
 #include <dal/math/vectors.hpp>
+#include <dal/platform/platform.hpp>
 #include <dal/string/strings.hpp>
 #include <dal/time/date.hpp>
-
+#include <map>
 
 namespace Dal {
     struct HolidayCenterData_ {
@@ -17,7 +16,7 @@ namespace Dal {
         Vector_<Date_> holidays_;
         Vector_<Date_> workWeekends_;
         HolidayCenterData_(const String_& c, const Vector_<Date_>& h, const Vector_<Date_>& w = Vector_<Date_>())
-        :center_(c), holidays_(h), workWeekends_(w) {}
+            : center_(c), holidays_(h), workWeekends_(w) {}
     };
 
     struct HolidayData_ {
@@ -29,9 +28,11 @@ namespace Dal {
     };
 
     namespace Holidays {
-        void AddCenter(const String_& city, const Vector_<Date_>& holidays, const Vector_<Date_>& workWeekends = Vector_<Date_>());
+        void AddCenter(const String_& city,
+                       const Vector_<Date_>& holidays,
+                       const Vector_<Date_>& workWeekends = Vector_<Date_>());
         int CenterIndex(const String_& center);
         Handle_<HolidayCenterData_> OfCenter(int center_index);
         Handle_<HolidayCenterData_> OfCenter(const String_& center);
-    }
-}
+    } // namespace Holidays
+} // namespace Dal

@@ -2,12 +2,12 @@
 // Created by wegam on 2020/12/16.
 //
 
-#include <dal/platform/platform.hpp>
-#include <dal/platform/strict.hpp>
-#include <dal/math/specialfunctions.hpp>
 #include <cmath>
 #include <dal/math/interp/interpcubic.hpp>
+#include <dal/math/specialfunctions.hpp>
 #include <dal/math/vectors.hpp>
+#include <dal/platform/platform.hpp>
+#include <dal/platform/strict.hpp>
 #include <dal/string/strings.hpp>
 
 namespace Dal {
@@ -15,9 +15,8 @@ namespace Dal {
         constexpr double MIN_SPLINE_X = -3.734582185;
         constexpr double MIN_SPLINE_F = 9.47235E-05;
         Interp1_* MakeNcdfSpline() {
-            const Vector_<> x = {MIN_SPLINE_X, -3.347382781, -3.030883722, -2.75090681,
-                                 -2.492289824, -2.243141537, -1.992179668, -1.494029881,
-                                 -1.290815576, -1.120050999, -0.954303629, -0.792072249,
+            const Vector_<> x = {MIN_SPLINE_X, -3.347382781, -3.030883722, -2.75090681,  -2.492289824, -2.243141537,
+                                 -1.992179668, -1.494029881, -1.290815576, -1.120050999, -0.954303629, -0.792072249,
                                  -0.629093487, -0.460389924, -0.276889742, 0.0};
             const Vector_<> f = {MIN_SPLINE_F, 0.000408582, 0.001219907, 0.002972237, 0.00634685, 0.012444548,
                                  0.023176395,  0.067583453, 0.098383227, 0.131345731, 0.16996458, 0.214158839,
@@ -36,9 +35,7 @@ namespace Dal {
         }
     } // namespace
 
-    double NCDF(double z, bool precise) {
-        return precise ? 0.5 * erfc(-z / M_SQRT_2) : NcdfBySpline(z);
-    }
+    double NCDF(double z, bool precise) { return precise ? 0.5 * erfc(-z / M_SQRT_2) : NcdfBySpline(z); }
 
     double InverseNCDF(double x, bool precise, bool polish) {
 

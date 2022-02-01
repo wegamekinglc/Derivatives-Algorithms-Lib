@@ -2,14 +2,14 @@
 // Created by wegamekinglc on 2020/5/2.
 //
 
-#include <dal/platform/strict.hpp>
 #include <dal/math/cell.hpp>
-#include <dal/utilities/exceptions.hpp>
+#include <dal/platform/strict.hpp>
 #include <dal/string/stringutils.hpp>
+#include <dal/utilities/exceptions.hpp>
 
 namespace Dal {
     String_ Cell::OwnString(const Cell_& src) {
-        switch(src.type_) {
+        switch (src.type_) {
         case Cell::Type_::STRING:
             return src.s_;
         }
@@ -26,9 +26,7 @@ namespace Dal {
         THROW("Cell must contain s numeric value");
     }
 
-    bool Cell::IsInt(const Cell_& src) {
-        return Cell::IsDouble(src) && AsInt(src.d_) == src.d_;
-    }
+    bool Cell::IsInt(const Cell_& src) { return Cell::IsDouble(src) && AsInt(src.d_) == src.d_; }
 
     int Cell::ToInt(const Cell_& src) {
         const auto d = ToDouble(src);
@@ -68,8 +66,7 @@ namespace Dal {
     }
 
     Vector_<bool> Cell::ToBoolVector(const Cell_& src) {
-        switch (src.type_)
-        {
+        switch (src.type_) {
         case Cell::Type_::BOOLEAN:
             return Vector_<bool>(1, src.b_);
         case Cell::Type_::STRING:
@@ -86,9 +83,6 @@ namespace Dal {
         return Cell_(temp);
     }
 
-    bool operator==(const Cell_& lhs, const String_& rhs) {
-        return lhs.type_ == Cell::Type_::STRING
-               && lhs.s_ == rhs;
-    }
+    bool operator==(const Cell_& lhs, const String_& rhs) { return lhs.type_ == Cell::Type_::STRING && lhs.s_ == rhs; }
 
-}
+} // namespace Dal

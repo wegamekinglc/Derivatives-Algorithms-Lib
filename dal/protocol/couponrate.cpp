@@ -2,9 +2,9 @@
 // Created by wegam on 2022/1/29.
 //
 
+#include <dal/protocol/collateraltype.hpp>
 #include <dal/protocol/couponrate.hpp>
 #include <dal/time/periodlength.hpp>
-#include <dal/protocol/collateraltype.hpp>
 
 namespace Dal {
 #include <dal/auto/MG_TradedRate_enum.inc>
@@ -25,10 +25,8 @@ namespace Dal {
         }
     }
 
-    LiborRate_::LiborRate_(const DateTime_& fix_date,
-                           const Ccy_& ccy,
-                           const TradedRate_& rate)
-    :fixDate_(fix_date), ccy_(ccy), rate_(rate) {}
+    LiborRate_::LiborRate_(const DateTime_& fix_date, const Ccy_& ccy, const TradedRate_& rate)
+        : fixDate_(fix_date), ccy_(ccy), rate_(rate) {}
 
     Clearer_ TradedRate_::Clearer() const {
         switch (Switch()) {
@@ -48,18 +46,24 @@ namespace Dal {
         switch (clearer.Switch()) {
         case Clearer_::Value_::LCH:
             switch (period.Months()) {
-            case 3: return TradedRate_::Value_::LIBOR_3M_LCH;
-            case 6: return TradedRate_::Value_::LIBOR_6M_LCH;
-            default: THROW("Can't find traded rate for period/clearinghouse combination");
+            case 3:
+                return TradedRate_::Value_::LIBOR_3M_LCH;
+            case 6:
+                return TradedRate_::Value_::LIBOR_6M_LCH;
+            default:
+                THROW("Can't find traded rate for period/clearinghouse combination");
             }
         case Clearer_::Value_::CME:
             switch (period.Months()) {
-            case 3: return TradedRate_::Value_::LIBOR_3M_CME;
-            case 6: return TradedRate_::Value_::LIBOR_6M_CME;
-            default: THROW("Can't find traded rate for period/clearinghouse combination");
+            case 3:
+                return TradedRate_::Value_::LIBOR_3M_CME;
+            case 6:
+                return TradedRate_::Value_::LIBOR_6M_CME;
+            default:
+                THROW("Can't find traded rate for period/clearinghouse combination");
             }
         default:
             THROW("Can't find traded rate for period/clearinghouse combination");
         }
     }
-}
+} // namespace Dal

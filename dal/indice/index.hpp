@@ -11,7 +11,7 @@ namespace Dal {
         double PastFixing(_ENV, const String_& index_name, const DateTime_& fixing_time, bool quiet = false);
     }
 
-    class Index_: noncopyable {
+    class Index_ : noncopyable {
     public:
         virtual ~Index_() = default;
         virtual String_ Name() const = 0;
@@ -25,11 +25,7 @@ namespace Dal {
         const Index_* operator->() const { return val_.get(); }
     };
 
-    inline bool operator<(const IndexKey_& lhs, const IndexKey_& rhs) {
-        return lhs.name_ < rhs.name_;
-    }
+    inline bool operator<(const IndexKey_& lhs, const IndexKey_& rhs) { return lhs.name_ < rhs.name_; }
 
-    inline bool operator==(const IndexKey_& lhs, const IndexKey_& rhs) {
-        return lhs.name_ == rhs.name_;
-    }
-}
+    inline bool operator==(const IndexKey_& lhs, const IndexKey_& rhs) { return lhs.name_ == rhs.name_; }
+} // namespace Dal

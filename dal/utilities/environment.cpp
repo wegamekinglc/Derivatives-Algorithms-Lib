@@ -6,7 +6,7 @@
 
 namespace Dal {
     void Environment_::Iterator_::operator++() {
-        if(IsValid())
+        if (IsValid())
             return imp_.reset(imp_->Next());
     }
-}
+} // namespace Dal

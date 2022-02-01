@@ -2,7 +2,6 @@
 // Created by wegam on 2020/10/25.
 //
 
-
 #include <dal/platform/platform.hpp>
 #include <dal/platform/strict.hpp>
 #include <dal/time/dateutils.hpp>
@@ -11,11 +10,10 @@
 #include <dal/time/date.hpp>
 #include <dal/utilities/exceptions.hpp>
 
-namespace
-{
+namespace {
     const std::regex US_FORMAT("([0-9]+)/([0-9]+)/([0-9]+)");
     const std::regex YMD_FORMAT("([0-9]+)-([0-9]+)-([0-9]+)");
-}
+} // namespace
 
 namespace Dal {
     bool Date::IsDateString(const String_& src) {
@@ -50,4 +48,4 @@ namespace Dal {
         return ret_val;
     }
 
-}
+} // namespace Dal

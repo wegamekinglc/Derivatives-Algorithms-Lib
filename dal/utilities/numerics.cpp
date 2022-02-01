@@ -2,10 +2,10 @@
 // Created by wegam on 2020/11/16.
 //
 
-#include <dal/platform/platform.hpp>
-#include <dal/utilities/numerics.hpp>
-#include <dal/utilities/exceptions.hpp>
 #include <cmath>
+#include <dal/platform/platform.hpp>
+#include <dal/utilities/exceptions.hpp>
+#include <dal/utilities/numerics.hpp>
 
 namespace Dal {
     int AsInt(double src) {
@@ -22,4 +22,4 @@ namespace Dal {
         REQUIRE(std::abs(src) < 2147483647, "32-bit integer overflow");
         return static_cast<int>(src);
     }
-}
+} // namespace Dal

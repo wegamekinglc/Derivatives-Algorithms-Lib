@@ -3,9 +3,9 @@
 //
 
 #include <dal/platform/platform.hpp>
-#include <dal/utilities/exceptions.hpp>
-#include <dal/time/periodlength.hpp>
 #include <dal/time/date.hpp>
+#include <dal/time/periodlength.hpp>
+#include <dal/utilities/exceptions.hpp>
 
 namespace Dal {
 #include <dal/auto/MG_PeriodLength_enum.inc>
@@ -25,9 +25,7 @@ namespace Dal {
         }
     }
 
-    Date_ Date::NominalMaturity(const Date_& start,
-                                const PeriodLength_& step,
-                                const Ccy_& ccy) {
+    Date_ Date::NominalMaturity(const Date_& start, const PeriodLength_& step, const Ccy_& ccy) {
         int yy = Year(start);
         int mm = Month(start) + step.Months();
         while (mm > 12)
@@ -35,4 +33,4 @@ namespace Dal {
         int dd = Min(Day(start), DaysInMonth(yy, mm));
         return Date_(yy, mm, dd);
     }
-}
+} // namespace Dal

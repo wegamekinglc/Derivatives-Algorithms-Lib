@@ -3,8 +3,8 @@
 //
 
 #pragma once
-#include <dal/platform/platform.hpp>
 #include <dal/math/vectors.hpp>
+#include <dal/platform/platform.hpp>
 
 namespace Dal {
     class Random_ {
@@ -15,5 +15,4 @@ namespace Dal {
         virtual Random_* Clone() const = 0;
         virtual size_t NDim() const = 0;
     };
-}
-
+} // namespace Dal

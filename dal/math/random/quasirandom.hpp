@@ -4,12 +4,12 @@
 
 #pragma once
 
+#include <dal/math/random/base.hpp>
 #include <dal/platform/platform.hpp>
 #include <dal/utilities/noncopyable.hpp>
-#include <dal/math/random/base.hpp>
 
 namespace Dal {
-    class SequenceSet_: public Random_, noncopyable {
+    class SequenceSet_ : public Random_, noncopyable {
     public:
         virtual ~SequenceSet_() = default;
         virtual size_t NDim() const override = 0;
@@ -18,4 +18,4 @@ namespace Dal {
         virtual SequenceSet_* Clone() const override = 0;
         virtual SequenceSet_* TakeAway(int sub_size) = 0;
     };
-}
+} // namespace Dal

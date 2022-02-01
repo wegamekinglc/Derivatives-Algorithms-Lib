@@ -8,7 +8,7 @@
  * Antoine Savine
  * Wiley, 2018
  * As long as this comment is preserved at the top of the file
-*/
+ */
 
 #pragma once
 #include <algorithm>
@@ -30,16 +30,11 @@ namespace Dal {
         friend struct NumResultsResetterForAAD_;
 
     public:
-        Node_(const size_t& n = 0)
-            :n_(n) {}
+        Node_(const size_t& n = 0) : n_(n) {}
 
-        double& Adjoint() {
-            return adjoint_;
-        }
+        double& Adjoint() { return adjoint_; }
 
-        double& Adjoint(const size_t& n) {
-            return p_adjoints_[n];
-        }
+        double& Adjoint(const size_t& n) { return p_adjoints_[n]; }
 
         void PropagateOne() {
             if (!n_ || !adjoint_)
@@ -50,11 +45,10 @@ namespace Dal {
         }
 
         void PropagateAll() {
-            if (!n_ || std::all_of(p_adjoints_, p_adjoints_ + num_adj_,
-                                   [](const double& x) { return !x; }))
+            if (!n_ || std::all_of(p_adjoints_, p_adjoints_ + num_adj_, [](const double& x) { return !x; }))
                 return;
 
-            for (size_t i = 0; i < n_ ; ++i) {
+            for (size_t i = 0; i < n_; ++i) {
                 double* adj_ptr = p_adj_ptrs_[i];
                 double ders = p_derivatives_[i];
                 for (size_t j = 0; j < num_adj_; ++j)
@@ -62,4 +56,4 @@ namespace Dal {
             }
         }
     };
-}
+} // namespace Dal

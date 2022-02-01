@@ -7,7 +7,7 @@
 #include <dal/indice/index.hpp>
 
 namespace Dal::Index {
-    class Composite_: public Index_ {
+    class Composite_ : public Index_ {
     public:
         using component_t = std::pair<Handle_<Index_>, double>;
 
@@ -16,4 +16,4 @@ namespace Dal::Index {
         double Fixing(_ENV, const DateTime_&) const override;
         String_ Name() const override;
     };
-}
+} // namespace Dal::Index

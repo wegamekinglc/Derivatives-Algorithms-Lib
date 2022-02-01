@@ -8,15 +8,14 @@
  * Antoine Savine
  * Wiley, 2018
  * As long as this comment is preserved at the top of the file
-*/
-
+ */
 
 #pragma once
 
-#include <dal/platform/platform.hpp>
-#include <dal/math/aad/tape.hpp>
-#include <dal/utilities/exceptions.hpp>
 #include <cmath>
+#include <dal/math/aad/tape.hpp>
+#include <dal/platform/platform.hpp>
+#include <dal/utilities/exceptions.hpp>
 
 namespace Dal {
     class Number_ {
@@ -24,10 +23,7 @@ namespace Dal {
         double value_;
         Node_* node_;
 
-        template <size_t N_>
-        void CreateNode() {
-            node_ = tape_->RecordNode<N_>();
-        }
+        template <size_t N_> void CreateNode() { node_ = tape_->RecordNode<N_>(); }
 
         Node_& Node() const {
 #ifndef NDEBUG
@@ -38,44 +34,29 @@ namespace Dal {
             return const_cast<Node_&>(*node_);
         }
 
-        double& Derivative() {
-            return node_->p_derivatives_[0];
-        }
+        double& Derivative() { return node_->p_derivatives_[0]; }
 
-        double& LeftDer() {
-            return node_->p_derivatives_[0];
-        }
+        double& LeftDer() { return node_->p_derivatives_[0]; }
 
-        double& RightDer() {
-            return node_->p_derivatives_[1];
-        }
+        double& RightDer() { return node_->p_derivatives_[1]; }
 
-        double*& AdjPtr() {
-            return node_->p_adj_ptrs_[0];
-        }
+        double*& AdjPtr() { return node_->p_adj_ptrs_[0]; }
 
-        double*& LeftAdjPtr() {
-            return node_->p_adj_ptrs_[0];
-        }
+        double*& LeftAdjPtr() { return node_->p_adj_ptrs_[0]; }
 
-        double*& RightAdjPtr() {
-            return node_->p_adj_ptrs_[1];
-        }
+        double*& RightAdjPtr() { return node_->p_adj_ptrs_[1]; }
 
-        Number_(Node_& arg, double val)
-            :value_(val) {
+        Number_(Node_& arg, double val) : value_(val) {
             CreateNode<1>();
             node_->p_adj_ptrs_[0] = Tape_::multi_ ? arg.p_adjoints_ : &arg.adjoint_;
         }
 
-        Number_(Node_& lhs, Node_& rhs, double val)
-            :value_(val) {
+        Number_(Node_& lhs, Node_& rhs, double val) : value_(val) {
             CreateNode<2>();
             if (Tape_::multi_) {
                 node_->p_adj_ptrs_[0] = lhs.p_adjoints_;
                 node_->p_adj_ptrs_[1] = rhs.p_adjoints_;
-            }
-            else {
+            } else {
                 node_->p_adj_ptrs_[0] = &lhs.adjoint_;
                 node_->p_adj_ptrs_[1] = &rhs.adjoint_;
             }
@@ -86,10 +67,7 @@ namespace Dal {
 
         Number_() {}
 
-        explicit Number_(double val)
-            :value_(val) {
-            CreateNode<0>();
-        }
+        explicit Number_(double val) : value_(val) { CreateNode<0>(); }
 
         Number_& operator=(double val) {
             value_ = val;
@@ -97,37 +75,21 @@ namespace Dal {
             return *this;
         }
 
-        void PutOnTape() {
-            CreateNode<0>();
-        }
+        void PutOnTape() { CreateNode<0>(); }
 
-        explicit operator double& () {
-            return value_;
-        }
+        explicit operator double&() { return value_; }
 
-        explicit operator double () {
-            return value_;
-        }
+        explicit operator double() { return value_; }
 
-        double& Value() {
-            return value_;
-        }
+        double& Value() { return value_; }
 
-        double Value() const {
-            return value_;
-        }
+        double Value() const { return value_; }
 
-        double& Adjoint() {
-            return node_->Adjoint();
-        }
+        double& Adjoint() { return node_->Adjoint(); }
 
-        void ResetAdjoints() {
-            tape_->ResetAdjoints();
-        }
+        void ResetAdjoints() { tape_->ResetAdjoints(); }
 
-        static void PropagateAdjoints(
-            Tape_::Iterator_ propagate_from,
-            Tape_::Iterator_ propagate_to) {
+        static void PropagateAdjoints(Tape_::Iterator_ propagate_from, Tape_::Iterator_ propagate_to) {
             auto it = propagate_from;
             while (it != propagate_to) {
                 it->PropagateOne();
@@ -142,21 +104,13 @@ namespace Dal {
             PropagateAdjoints(propagate_from, propagate_to);
         }
 
-        void PropagateToStart() {
-            PropagateAdjoints(tape_->Begin());
-        }
+        void PropagateToStart() { PropagateAdjoints(tape_->Begin()); }
 
-        void PropagateToMark() {
-            PropagateAdjoints(tape_->MarkIt());
-        }
+        void PropagateToMark() { PropagateAdjoints(tape_->MarkIt()); }
 
-        static void PropagateMarkToStart() {
-            PropagateAdjoints(std::prev(tape_->MarkIt()), tape_->Begin());
-        }
+        static void PropagateMarkToStart() { PropagateAdjoints(std::prev(tape_->MarkIt()), tape_->Begin()); }
 
-        static void PropagateAdjointsMulti(
-            Tape_::Iterator_ propagate_from,
-            Tape_::Iterator_ propagate_to) {
+        static void PropagateAdjointsMulti(Tape_::Iterator_ propagate_from, Tape_::Iterator_ propagate_to) {
             auto it = propagate_from;
             while (it != propagate_to) {
                 it->PropagateAll();
@@ -180,9 +134,7 @@ namespace Dal {
             return result;
         }
 
-        inline friend Number_ operator+(double lhs, const Number_& rhs) {
-            return rhs + lhs;
-        }
+        inline friend Number_ operator+(double lhs, const Number_& rhs) { return rhs + lhs; }
 
         inline friend Number_ operator-(const Number_& lhs, const Number_& rhs) {
             const double e = lhs.Value() - rhs.Value();
@@ -221,9 +173,7 @@ namespace Dal {
             return result;
         }
 
-        inline friend Number_ operator*(double lhs, const Number_& rhs) {
-            return rhs * lhs;
-        }
+        inline friend Number_ operator*(double lhs, const Number_& rhs) { return rhs * lhs; }
 
         inline friend Number_ operator/(const Number_& lhs, const Number_& rhs) {
             const double e = lhs.Value() / rhs.Value();
@@ -365,13 +315,9 @@ namespace Dal {
             return *this;
         }
 
-        Number_ operator-() const {
-            return 0. - *this;
-        }
+        Number_ operator-() const { return 0. - *this; }
 
-        Number_ operator+() const {
-            return *this;
-        }
+        Number_ operator+() const { return *this; }
 
         inline friend Number_ Exp(const Number_& arg) {
             const double e = std::exp(arg.Value());
@@ -401,78 +347,40 @@ namespace Dal {
             return result;
         }
 
-        inline friend bool operator==(const Number_& lhs, const Number_& rhs) {
-            return lhs.Value() == rhs.Value();
-        }
+        inline friend bool operator==(const Number_& lhs, const Number_& rhs) { return lhs.Value() == rhs.Value(); }
 
-        inline friend bool operator==(const Number_& lhs, double rhs) {
-            return lhs.Value() == rhs;
-        }
+        inline friend bool operator==(const Number_& lhs, double rhs) { return lhs.Value() == rhs; }
 
-        inline friend bool operator==(double lhs, const Number_& rhs) {
-            return lhs == rhs.Value();
-        }
+        inline friend bool operator==(double lhs, const Number_& rhs) { return lhs == rhs.Value(); }
 
-        inline friend bool operator!=(const Number_& lhs, const Number_& rhs) {
-            return lhs.Value() != rhs.Value();
-        }
+        inline friend bool operator!=(const Number_& lhs, const Number_& rhs) { return lhs.Value() != rhs.Value(); }
 
-        inline friend bool operator!=(const Number_& lhs, double rhs) {
-            return lhs.Value() != rhs;
-        }
+        inline friend bool operator!=(const Number_& lhs, double rhs) { return lhs.Value() != rhs; }
 
-        inline friend bool operator!=(double lhs, const Number_& rhs) {
-            return lhs != rhs.Value();
-        }
+        inline friend bool operator!=(double lhs, const Number_& rhs) { return lhs != rhs.Value(); }
 
-        inline friend bool operator<(const Number_& lhs, const Number_& rhs) {
-            return lhs.Value() < rhs.Value();
-        }
+        inline friend bool operator<(const Number_& lhs, const Number_& rhs) { return lhs.Value() < rhs.Value(); }
 
-        inline friend bool operator<(const Number_& lhs, double rhs) {
-            return lhs.Value() < rhs;
-        }
+        inline friend bool operator<(const Number_& lhs, double rhs) { return lhs.Value() < rhs; }
 
-        inline friend bool operator<(double lhs, const Number_& rhs) {
-            return lhs < rhs.Value();
-        }
+        inline friend bool operator<(double lhs, const Number_& rhs) { return lhs < rhs.Value(); }
 
-        inline friend bool operator>(const Number_& lhs, const Number_& rhs) {
-            return lhs.Value() > rhs.Value();
-        }
+        inline friend bool operator>(const Number_& lhs, const Number_& rhs) { return lhs.Value() > rhs.Value(); }
 
-        inline friend bool operator>(const Number_& lhs, double rhs) {
-            return lhs.Value() > rhs;
-        }
+        inline friend bool operator>(const Number_& lhs, double rhs) { return lhs.Value() > rhs; }
 
-        inline friend bool operator>(double lhs, const Number_& rhs) {
-            return lhs > rhs.Value();
-        }
+        inline friend bool operator>(double lhs, const Number_& rhs) { return lhs > rhs.Value(); }
 
-        inline friend bool operator<=(const Number_& lhs, const Number_& rhs) {
-            return lhs.Value() <= rhs.Value();
-        }
+        inline friend bool operator<=(const Number_& lhs, const Number_& rhs) { return lhs.Value() <= rhs.Value(); }
 
-        inline friend bool operator<=(const Number_& lhs, double rhs) {
-            return lhs.Value() <= rhs;
-        }
+        inline friend bool operator<=(const Number_& lhs, double rhs) { return lhs.Value() <= rhs; }
 
-        inline friend bool operator<=(double lhs, const Number_& rhs) {
-            return lhs <= rhs.Value();
-        }
+        inline friend bool operator<=(double lhs, const Number_& rhs) { return lhs <= rhs.Value(); }
 
-        inline friend bool operator>=(const Number_& lhs, const Number_& rhs) {
-            return lhs.Value() >= rhs.Value();
-        }
+        inline friend bool operator>=(const Number_& lhs, const Number_& rhs) { return lhs.Value() >= rhs.Value(); }
 
-        inline friend bool operator>=(const Number_& lhs, double rhs) {
-            return lhs.Value() >= rhs;
-        }
+        inline friend bool operator>=(const Number_& lhs, double rhs) { return lhs.Value() >= rhs; }
 
-        inline friend bool operator>=(double lhs, const Number_& rhs) {
-            return lhs >= rhs.Value();
-        }
-
+        inline friend bool operator>=(double lhs, const Number_& rhs) { return lhs >= rhs.Value(); }
     };
-}
-
+} // namespace Dal

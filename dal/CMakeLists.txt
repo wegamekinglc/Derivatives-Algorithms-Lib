@@ -1,17 +1,17 @@
 get_dal_library_name(DAL_OUTPUT_NAME)
 
 file(GLOB_RECURSE DAL_FILES "*.hpp" "*.cpp")
-list(FILTER DAL_FILES EXCLUDE REGEX "${PROJECT_SOURCE_DIR}/dal/auto/.*" )
+list(FILTER DAL_FILES EXCLUDE REGEX "${PROJECT_SOURCE_DIR}/dal/auto/.*")
 
-if(WIN32)
+if (WIN32)
     if (${BUILD_SHARED_LIBS})
         message(FATAL_ERROR "You should build in STATIC mode as nothing is exported from the library. Use BUILD_SHARED_LIBS=OFF")
-    endif()
+    endif ()
     add_library(${DAL_OUTPUT_NAME} ${DAL_FILES})
     set_property(TARGET ${DAL_OUTPUT_NAME} PROPERTY PROJECT_LABEL "dal")
-else()
+else ()
     add_library(${DAL_OUTPUT_NAME} ${DAL_FILES})
-endif()
+endif ()
 set(DAL_LINK_LIBRARY ${DAL_OUTPUT_NAME} PARENT_SCOPE)
 
 

@@ -18,8 +18,7 @@ namespace Dal {
 
     struct Converged_ {
         double x_tol_, f_tol_;
-        Converged_(double x_tol, double f_tol)
-            :x_tol_(x_tol), f_tol_(f_tol) {}
+        Converged_(double x_tol, double f_tol) : x_tol_(x_tol), f_tol_(f_tol) {}
 
         bool operator()(RootFinder_& t, double e) const {
             t.PutY(e);
@@ -34,29 +33,20 @@ namespace Dal {
         double d_;
 
         friend class Brent_;
-        explicit BracketedBrent_(double tol)
-            :tol_(tol) {}
+        explicit BracketedBrent_(double tol) : tol_(tol) {}
 
         void Initialize(const std::pair<double, double>& low, const std::pair<double, double>& high);
 
     public:
-        BracketedBrent_(const std::pair<double, double>& low,
-                        const std::pair<double, double>& high,
-                        double tol);
+        BracketedBrent_(const std::pair<double, double>& low, const std::pair<double, double>& high, double tol);
 
         double NextX() override;
         void PutY(double y) override;
-        double BracketWidth() const override {
-            return std::fabs(a_.first - b_.first);
-        }
+        double BracketWidth() const override { return std::fabs(a_.first - b_.first); }
     };
 
     class Brent_ : public RootFinder_ {
-        enum class Phase_ {
-            INITIALIZE,
-            HUNT,
-            BRACKETED
-        } phase_;
+        enum class Phase_ { INITIALIZE, HUNT, BRACKETED } phase_;
         bool increasing_;
         double stepSize_, trialX_;
         std::pair<double, double> knownPoint_;
@@ -68,4 +58,4 @@ namespace Dal {
         void PutY(double y) override;
         double BracketWidth() const override;
     };
-}
+} // namespace Dal

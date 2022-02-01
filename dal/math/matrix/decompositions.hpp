@@ -4,8 +4,8 @@
 
 #pragma once
 
-#include <dal/platform/platform.hpp>
 #include <dal/math/vectors.hpp>
+#include <dal/platform/platform.hpp>
 #include <dal/utilities/noncopyable.hpp>
 
 namespace Dal {
@@ -29,23 +29,15 @@ namespace Dal {
     class SymmetricMatrixDecomposition_ : public SquareMatrixDecomposition_ {
         virtual void XMultiply_af(const Vector_<>& x, Vector_<>* b) const = 0;
 
-        void XMultiplyLeft_af(const Vector_<>& x, Vector_<>* b) const override {
-            return XMultiply_af(x, b);
-        }
+        void XMultiplyLeft_af(const Vector_<>& x, Vector_<>* b) const override { return XMultiply_af(x, b); }
 
-        void XMultiplyRight_af(const Vector_<>& x, Vector_<>* b) const override {
-            return XMultiply_af(x, b);
-        }
+        void XMultiplyRight_af(const Vector_<>& x, Vector_<>* b) const override { return XMultiply_af(x, b); }
 
         virtual void XSolve_af(const Vector_<>& b, Vector_<>* x) const = 0;
 
-        void XSolveLeft_af(const Vector_<>& b, Vector_<>* x) const override {
-            return XSolve_af(b, x);
-        }
+        void XSolveLeft_af(const Vector_<>& b, Vector_<>* x) const override { return XSolve_af(b, x); }
 
-        void XSolveRight_af(const Vector_<>& b, Vector_<>* x) const override {
-            return XSolve_af(b, x);
-        }
+        void XSolveRight_af(const Vector_<>& b, Vector_<>* x) const override { return XSolve_af(b, x); }
 
     public:
         virtual int Rank() const { return Size(); }
@@ -60,4 +52,4 @@ namespace Dal {
     public:
         virtual void ExpAT(double t, SquareMatrix_<>* dst) const = 0;
     };
-}
+} // namespace Dal

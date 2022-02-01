@@ -4,12 +4,11 @@
 
 #pragma once
 
-#include <dal/platform/platform.hpp>
-#include <dal/math/vectors.hpp>
-#include <dal/string/strings.hpp>
-#include <dal/math/aad/sample.hpp>
 #include <dal/math/aad/number.hpp>
-
+#include <dal/math/aad/sample.hpp>
+#include <dal/math/vectors.hpp>
+#include <dal/platform/platform.hpp>
+#include <dal/string/strings.hpp>
 
 namespace Dal {
     template <class T_ = double> class Model_ {
@@ -44,18 +43,13 @@ namespace Dal {
     };
 
     namespace {
-        template <class T_>
-        void PutParametersOnTapeT(const Vector_<T_*>&) {}
+        template <class T_> void PutParametersOnTapeT(const Vector_<T_*>&) {}
 
-        template <>
-        void PutParametersOnTapeT<Number_>(const Vector_<Number_*>& parameters) {
+        template <> void PutParametersOnTapeT<Number_>(const Vector_<Number_*>& parameters) {
             for (Number_* param : parameters)
                 param->PutOnTape();
         }
-    }
+    } // namespace
 
-    template <class T_>
-    void Model_<T_>::PutParametersOnTape() {
-        PutParametersOnTapeT<T_>(Parameters());
-    }
-}
+    template <class T_> void Model_<T_>::PutParametersOnTape() { PutParametersOnTapeT<T_>(Parameters()); }
+} // namespace Dal

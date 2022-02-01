@@ -2,12 +2,11 @@
 // Created by Cheng Li on 2018/1/7.
 //
 
+#include <bitset>
+#include <dal/math/vectors.hpp>
 #include <dal/platform/strict.hpp>
 #include <dal/string/strings.hpp>
-#include <bitset>
 #include <dal/utilities/algorithms.hpp>
-#include <dal/math/vectors.hpp>
-
 
 namespace Dal {
     namespace String {
@@ -51,23 +50,21 @@ namespace Dal {
 
         String_ FromInt(int src) { return String_(std::to_string(src)); }
 
-        namespace
-        {
-            bool IsFluff(char c)
-            {
+        namespace {
+            bool IsFluff(char c) {
                 switch (c) {
-                    case ' ':
-                    case '\t':
-                    case '_':
-                        return true;
+                case ' ':
+                case '\t':
+                case '_':
+                    return true;
                 }
                 return false;
             }
-        }
+        } // namespace
 
         String_ Condensed(const String_& src) {
             String_ ret_val;
-            for(const auto& c : src) {
+            for (const auto& c : src) {
                 if (!IsFluff(c))
                     ret_val.push_back(static_cast<char>(toupper(static_cast<int>(c))));
             }
@@ -77,7 +74,11 @@ namespace Dal {
         // compares compressed version of a String with already-compressed rhs
         bool Equivalent(const String_& lhs, const char* rhs) {
             struct Otiose_ : std::bitset<256> {
-                Otiose_() { set(' '); set('\t'); set('_'); }
+                Otiose_() {
+                    set(' ');
+                    set('\t');
+                    set('_');
+                }
             };
             static const Otiose_ SKIP;
 
@@ -92,7 +93,6 @@ namespace Dal {
                     return false;
                 ++p;
                 ++q;
-
             }
         }
 
@@ -100,14 +100,21 @@ namespace Dal {
             if (name.empty())
                 return String_("0");
             String_ ret_val(name);
-            switch (ret_val.back())
-            {
-                case '0': case '1': case '2': case '3': case '4': case '5': case '6': case '7': case '8':
-                    ++ret_val.back();
-                    return ret_val;
-                case '9':
-                    ret_val.pop_back();
-                    return String_(NextName(ret_val) + '0');
+            switch (ret_val.back()) {
+            case '0':
+            case '1':
+            case '2':
+            case '3':
+            case '4':
+            case '5':
+            case '6':
+            case '7':
+            case '8':
+                ++ret_val.back();
+                return ret_val;
+            case '9':
+                ret_val.pop_back();
+                return String_(NextName(ret_val) + '0');
             }
             return String_(ret_val + '1');
         }

@@ -11,8 +11,7 @@ namespace Dal {
 
     const Time_ systemTime = 0.0;
 
-    template <class T_>
-    class BlackScholes_: public Model_<T_> {
+    template <class T_> class BlackScholes_ : public Model_<T_> {
         T_ spot_;
         T_ rate_;
         T_ div_;
@@ -41,19 +40,15 @@ namespace Dal {
             parameters_[3] = &div_;
         }
 
-        void FillScenario(const size_t& idx,
-                          const T_& spot,
-                          Sample_<T_>& scenario,
-                          const SampleDef_& def) const {
+        void FillScenario(const size_t& idx, const T_& spot, Sample_<T_>& scenario, const SampleDef_& def) const {
             if (def.numeraire_) {
                 scenario.numeraire_ = numeraires_[idx];
                 if (spotMeasure_)
                     scenario.numeraire_ *= spot;
             }
 
-            Transform(forwardFactors_[idx],
-                      [&spot](const T_& ff) {return spot * ff;},
-                      &scenario.forwards_.front());
+            Transform(
+                forwardFactors_[idx], [&spot](const T_& ff) { return spot * ff; }, &scenario.forwards_.front());
 
             Copy(discounts_[idx], &scenario.discounts_);
             Copy(libors_[idx], &scenario.libors_);
@@ -66,13 +61,8 @@ namespace Dal {
                       const bool& spotMeasure = false,
                       const U_& rate = U_(0.0),
                       const U_& div = U_(0.0))
-                      : spot_(spot),
-                        vol_(vol),
-                        rate_(rate),
-                        div_(div),
-                        spotMeasure_(spotMeasure),
-                        parameters_(4),
-                        parameterLabels_(4) {
+            : spot_(spot), vol_(vol), rate_(rate), div_(div), spotMeasure_(spotMeasure), parameters_(4),
+              parameterLabels_(4) {
             parameterLabels_[0] = "spot";
             parameterLabels_[1] = "vol";
             parameterLabels_[2] = "rate";
@@ -81,29 +71,17 @@ namespace Dal {
             SetParamPointers();
         }
 
-        const T_& Spot() const {
-            return spot_;
-        }
+        const T_& Spot() const { return spot_; }
 
-        const T_& Vol() const {
-            return vol_;
-        }
+        const T_& Vol() const { return vol_; }
 
-        const T_& Rate() const {
-            return rate_;
-        }
+        const T_& Rate() const { return rate_; }
 
-        const T_& Div() const {
-            return div_;
-        }
+        const T_& Div() const { return div_; }
 
-        const Vector_<T_*>& Parameters() override {
-            return parameters_;
-        }
+        const Vector_<T_*>& Parameters() override { return parameters_; }
 
-        const Vector_<String_>& ParameterLabels() const override {
-            return parameterLabels_;
-        }
+        const Vector_<String_>& ParameterLabels() const override { return parameterLabels_; }
 
         std::unique_ptr<Model_<T_>> Clone() const override {
             auto clone = std::make_unique<BlackScholes_<T_>>(*this);
@@ -111,8 +89,7 @@ namespace Dal {
             return clone;
         }
 
-        void Allocate(const Vector_<Time_>& productTimeLine,
-                      const Vector_<SampleDef_>& defLine) override {
+        void Allocate(const Vector_<Time_>& productTimeLine, const Vector_<SampleDef_>& defLine) override {
             timeLine_.clear();
             timeLine_.push_back(systemTime);
 
@@ -140,8 +117,7 @@ namespace Dal {
             }
         }
 
-        void Init(const Vector_<Time_>& productTimeline,
-                  const Vector_<SampleDef_>& defLine) override {
+        void Init(const Vector_<Time_>& productTimeline, const Vector_<SampleDef_>& defLine) override {
             const T_ mu = rate_ - div_;
             const size_t n = timeLine_.size() - 1;
 
@@ -149,14 +125,14 @@ namespace Dal {
                 const double dt = timeLine_[i + 1] - timeLine_[i];
                 stds_[i] = vol_ * Sqrt(dt);
 
-                if(spotMeasure_)
+                if (spotMeasure_)
                     drifts_[i] = (mu + 0.5 * vol_ * vol_) * dt;
                 else
                     drifts_[i] = (mu - 0.5 * vol_ * vol_) * dt;
             }
 
             const size_t m = productTimeline.size();
-            for(size_t i = 0; i < m; ++i) {
+            for (size_t i = 0; i < m; ++i) {
                 if (defLine[i].numeraire_) {
                     if (spotMeasure_)
                         numeraires_[i] = Exp(div_ * productTimeline[i]) / spot_;
@@ -180,12 +156,9 @@ namespace Dal {
             }
         }
 
-        size_t SimDim() const override {
-            return timeLine_.size() - 1;
-        }
+        size_t SimDim() const override { return timeLine_.size() - 1; }
 
-        void GeneratePath(const Vector_<>& gaussVec,
-                          Scenario_<T_>* path) const override {
+        void GeneratePath(const Vector_<>& gaussVec, Scenario_<T_>* path) const override {
             T_ spot = spot_;
             size_t idx = 0;
             if (todayOnTimeLine_) {
@@ -201,4 +174,4 @@ namespace Dal {
             }
         }
     };
-}
+} // namespace Dal

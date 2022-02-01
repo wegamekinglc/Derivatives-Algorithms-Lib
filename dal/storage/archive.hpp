@@ -3,10 +3,10 @@
 //
 
 #pragma once
-#include <dal/platform/platform.hpp>
 #include <dal/math/cell.hpp>
-#include <dal/platform/optionals.hpp>
 #include <dal/math/matrix/matrixs.hpp>
+#include <dal/platform/optionals.hpp>
+#include <dal/platform/platform.hpp>
 #include <dal/storage/storable.hpp>
 #include <dal/string/strings.hpp>
 #include <map>
@@ -14,14 +14,12 @@
 namespace Dal {
     namespace Archive {
         namespace Utils {
-            void SetStorable(Archive::Store_& dst,
-                             const String_& name,
-                             const Storable_& value);
+            void SetStorable(Archive::Store_& dst, const String_& name, const Storable_& value);
         }
 
-        class Store_: noncopyable {
+        class Store_ : noncopyable {
             virtual bool StoreRef(const Storable_* object) = 0;
-            friend void Utils::SetStorable(Archive::Store_ &, const String_&, const Storable_&);
+            friend void Utils::SetStorable(Archive::Store_&, const String_&, const Storable_&);
 
         public:
             virtual ~Store_() = default;
@@ -54,8 +52,8 @@ namespace Dal {
 
         Handle_<Storable_> Extract(const View_& src, Built_& build);
 
-        class View_: noncopyable {
-            virtual Handle_<Storable_>& Known(Archive::Built_& built) const = 0; //returns a reference within 'built'
+        class View_ : noncopyable {
+            virtual Handle_<Storable_>& Known(Archive::Built_& built) const = 0; // returns a reference within 'built'
             friend Handle_<Storable_> Archive::Extract(const View_&, Built_&);
 
         public:
@@ -88,13 +86,11 @@ namespace Dal {
             virtual void Unexpected(const String_& child_name) const = 0;
         };
 
-        template <class T_ = Storable_>
-        struct Builder_ {
+        template <class T_ = Storable_> struct Builder_ {
             Built_& share_;
             const char* name_;
             const char* type_;
-            Builder_(Built_& share, const char* name, const char* type)
-            : share_(share), name_(name), type_(type) {}
+            Builder_(Built_& share, const char* name, const char* type) : share_(share), name_(name), type_(type) {}
             Handle_<T_> operator()(const View_& src) const {
                 NOTICE2("Child name", name_);
                 Handle_<Storable_> object = Extract(src, share_);
@@ -104,42 +100,38 @@ namespace Dal {
             }
         };
 
-        class Reader_: noncopyable {
+        class Reader_ : noncopyable {
         public:
             virtual ~Reader_() = default;
             virtual Storable_* Build() const = 0;
-            virtual Storable_* Build(const View_& view, Archive::Built_& share) const =0;
+            virtual Storable_* Build(const View_& view, Archive::Built_& share) const = 0;
         };
 
         void Register(const String_& type, const Reader_* d_type);
 
         namespace Utils {
-            template <class T_>
-            inline void Set(Store_& dst, const String_& name, const T_& value) {
+            template <class T_> inline void Set(Store_& dst, const String_& name, const T_& value) {
                 dst.Child(name) = value;
             }
 
-            template <class T_>
-            inline void Set(Store_& dst, const String_& name, const Handle_<T_>& value) {
+            template <class T_> inline void Set(Store_& dst, const String_& name, const Handle_<T_>& value) {
                 REQUIRE(value, "Can't serialize a null object");
                 SetStorable(dst, name, dynamic_cast<const T_&>(*value));
             }
 
             // helpers on top of raw Set()
-            template <class T_>
-            inline void SetOptional(Store_& dst, const String_& name, const T_& value) {
-                if(value != T_())
+            template <class T_> inline void SetOptional(Store_& dst, const String_& name, const T_& value) {
+                if (value != T_())
                     Set(dst, name, value);
             }
 
             template <class T_>
             inline void SetOptional(Store_& dst, const String_& name, const boost::optional<T_>& value) {
-                if(value)
+                if (value)
                     Set(dst, name, value.get());
             }
 
-            template <class T_>
-            inline void SetMultiple(Store_& dst, const String_&name, const Vector_<T_>& values) {
+            template <class T_> inline void SetMultiple(Store_& dst, const String_& name, const Vector_<T_>& values) {
                 for (int i = 0; i < values.size(); ++i)
                     Set(dst, name + String::FromInt(i), values[i]);
             }
@@ -151,14 +143,14 @@ namespace Dal {
 
             template <class E_, class T_>
             inline void GetOptional(const View_& src, const String_& name, E_* value, const T_& translator) {
-                if(src.HasChild(name))
+                if (src.HasChild(name))
                     Get(src, name, value, translator);
             }
 
             template <class E_, class T_>
             inline void GetMultiple(const View_& src, const String_& name, Vector_<E_>* values, const T_& translator) {
                 int curr_index = values->size();
-                while(true) {
+                while (true) {
                     String_ childName = String_(name + String::FromInt(curr_index));
                     if (!src.HasChild(childName))
                         break;
@@ -166,6 +158,6 @@ namespace Dal {
                     ++curr_index;
                 }
             }
-        }
-    }
-}
+        } // namespace Utils
+    }     // namespace Archive
+} // namespace Dal

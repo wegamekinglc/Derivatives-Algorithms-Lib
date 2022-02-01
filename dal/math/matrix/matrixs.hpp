@@ -4,13 +4,11 @@
 
 #pragma once
 
-#include <dal/utilities/algorithms.hpp>
 #include <dal/math/vectors.hpp>
-
+#include <dal/utilities/algorithms.hpp>
 
 namespace Dal {
-    template<class E_>
-    class Matrix_ {
+    template <class E_> class Matrix_ {
         Vector_<E_> vals_;
         int cols_;
         using I_ = typename Vector_<E_>::iterator;
@@ -19,27 +17,31 @@ namespace Dal {
         using CR_ = typename Vector_<E_>::const_reference;
         Vector_<I_> hooks_;
 
-        void SetHook(size_t from=0);
+        void SetHook(size_t from = 0);
 
     public:
         virtual ~Matrix_() = default;
-        Matrix_(): cols_(0) {}
-        Matrix_(int rows, int cols): vals_(static_cast<size_t >(rows * cols)),
-                                     cols_(cols),
-                                     hooks_(static_cast<size_t >(rows)) { SetHook(); vals_.Fill(E_());}
-        Matrix_(const Matrix_& src): vals_(src.vals_),
-                                     cols_(src.cols_),
-                                     hooks_(src.hooks_.size()) { SetHook();}
+        Matrix_() : cols_(0) {}
+        Matrix_(int rows, int cols)
+            : vals_(static_cast<size_t>(rows * cols)), cols_(cols), hooks_(static_cast<size_t>(rows)) {
+            SetHook();
+            vals_.Fill(E_());
+        }
+        Matrix_(const Matrix_& src) : vals_(src.vals_), cols_(src.cols_), hooks_(src.hooks_.size()) { SetHook(); }
 
-        int Rows() const { return static_cast<int>(hooks_.size());}
-        int Cols() const { return cols_;}
-        bool Empty() const { return vals_.empty();}
-        void Clear() { vals_.clear(); cols_ = 0; hooks_.clear();}
+        int Rows() const { return static_cast<int>(hooks_.size()); }
+        int Cols() const { return cols_; }
+        bool Empty() const { return vals_.empty(); }
+        void Clear() {
+            vals_.clear();
+            cols_ = 0;
+            hooks_.clear();
+        }
         CI_ First() const { return vals_.begin(); }
-        CI_ Last() const { return  vals_.end();}
+        CI_ Last() const { return vals_.end(); }
 
-        CR_ operator()(int row, int col) const { return hooks_[row][col];}
-        R_ operator()(int row, int col) { return hooks_[row][col];}
+        CR_ operator()(int row, int col) const { return hooks_[row][col]; }
+        R_ operator()(int row, int col) { return hooks_[row][col]; }
 
         // move operators
         void swap(Matrix_& rhs) noexcept {
@@ -48,12 +50,10 @@ namespace Dal {
             std::swap(hooks_, rhs.hooks_);
         }
 
-        Matrix_(Matrix_&& rhs) noexcept {
-            swap(rhs);
-        }
+        Matrix_(Matrix_&& rhs) noexcept { swap(rhs); }
 
         Matrix_& operator=(Matrix_&& rhs) noexcept {
-            if(this != &rhs) {
+            if (this != &rhs) {
                 Matrix_<E_> temp(std::move(rhs));
                 swap(temp);
             }
@@ -61,7 +61,7 @@ namespace Dal {
         }
 
         Matrix_& operator=(const Matrix_& rhs) noexcept {
-            if(this != &rhs) {
+            if (this != &rhs) {
                 vals_ = rhs.vals_;
                 cols_ = rhs.cols_;
                 hooks_ = Vector_<I_>(rhs.hooks_.size());
@@ -75,56 +75,75 @@ namespace Dal {
         protected:
             I_ begin_;
             I_ end_;
+
         public:
             using value_type = E_;
             using const_iterator = typename Vector_<E_>::const_iterator;
 
-            ConstRow_(I_ begin, I_ end): begin_(begin), end_(end) {}
-            ConstRow_(I_ begin, int size): begin_(begin), end_(begin + size) {}
+            ConstRow_(I_ begin, I_ end) : begin_(begin), end_(end) {}
+            ConstRow_(I_ begin, int size) : begin_(begin), end_(begin + size) {}
 
             const_iterator begin() const { return begin_; }
             const_iterator end() const { return end_; }
-            int size() const { return static_cast<int>(end_ - begin_);}
-            const E_& operator[](int col) const { return *(begin_ + col);}
-            const E_& front() const { return *begin_;}
-            const E_& back() const { return *(end_ - 1);}
+            int size() const { return static_cast<int>(end_ - begin_); }
+            const E_& operator[](int col) const { return *(begin_ + col); }
+            const E_& front() const { return *begin_; }
+            const E_& back() const { return *(end_ - 1); }
         };
 
-        ConstRow_ Row(int i_row) const { return ConstRow_(hooks_[i_row], cols_);}
-        ConstRow_ operator[](int i_row) const { return Row(i_row);}
+        ConstRow_ Row(int i_row) const { return ConstRow_(hooks_[i_row], cols_); }
+        ConstRow_ operator[](int i_row) const { return Row(i_row); }
 
         struct Row_ : ConstRow_ {
             using iterator = I_;
             using const_iterator = typename ConstRow_::const_iterator;
-            Row_(I_ begin, I_ end): ConstRow_(begin, end) {}
-            Row_(I_ begin, int size): ConstRow_(begin, size) {}
+            Row_(I_ begin, I_ end) : ConstRow_(begin, end) {}
+            Row_(I_ begin, int size) : ConstRow_(begin, size) {}
 
             // have to double-implement begin/end, otherwise non-const implementations hide the inherited const
-            iterator begin() { return ConstRow_::begin_;}
-            const_iterator begin() const { return ConstRow_::begin_;}
-            iterator end() { return ConstRow_::end_;}
-            const_iterator end() const { return ConstRow_::end_;}
-            E_& operator[](int col) { return *(ConstRow_::begin_ + col);}
-            const E_& operator[](int col) const { return *(ConstRow_::begin_ + col);}
+            iterator begin() { return ConstRow_::begin_; }
+            const_iterator begin() const { return ConstRow_::begin_; }
+            iterator end() { return ConstRow_::end_; }
+            const_iterator end() const { return ConstRow_::end_; }
+            E_& operator[](int col) { return *(ConstRow_::begin_ + col); }
+            const E_& operator[](int col) const { return *(ConstRow_::begin_ + col); }
         };
 
-        Row_ Row(int i_row) { return Row_(hooks_[i_row], cols_);}
-        Row_ operator[](int i_row) { return Row(i_row);}
+        Row_ Row(int i_row) { return Row_(hooks_[i_row], cols_); }
+        Row_ operator[](int i_row) { return Row(i_row); }
 
         // Iteration through columns is less efficient
-        class ConstCol_
-        {
+        class ConstCol_ {
         public:
-            template<typename RI_> struct Iterator_    // column iterator in terms of row iterator
+            template <typename RI_>
+            struct Iterator_ // column iterator in terms of row iterator
             {
                 RI_ val_;
                 size_t stride_;
                 Iterator_(RI_ val, size_t stride) : val_(val), stride_(stride) {}
-                Iterator_& operator++() { val_ += stride_; return *this; }
-                Iterator_ operator++(int) { Iterator_ ret(*this); val_ += stride_; return ret; }
-                Iterator_& operator--() { val_ -= stride_; return *this; }
-                Iterator_ operator--(int) { Iterator_ ret(*this); val_ -= stride_; return ret; }
-                Iterator_ operator+(size_t inc) { Iterator_ ret(*this); ret.val_ += inc * stride_; return ret; }
+                Iterator_& operator++() {
+                    val_ += stride_;
+                    return *this;
+                }
+                Iterator_ operator++(int) {
+                    Iterator_ ret(*this);
+                    val_ += stride_;
+                    return ret;
+                }
+                Iterator_& operator--() {
+                    val_ -= stride_;
+                    return *this;
+                }
+                Iterator_ operator--(int) {
+                    Iterator_ ret(*this);
+                    val_ -= stride_;
+                    return ret;
+                }
+                Iterator_ operator+(size_t inc) {
+                    Iterator_ ret(*this);
+                    ret.val_ += inc * stride_;
+                    return ret;
+                }
                 typename RI_::reference operator*() { return *val_; }
                 bool operator==(const Iterator_& rhs) const {
                     REQUIRE(stride_ == rhs.stride_, "lhs stride size should be same with rhs");
@@ -135,17 +154,20 @@ namespace Dal {
                 typename RI_::difference_type operator-(const Iterator_& rhs) const {
                     REQUIRE(stride_ == rhs.stride_, "lhs stride size should be same with rhs");
                     REQUIRE((val_ - rhs.val_) % stride_ == 0, "lhs and rhs should be in same column");
-                    return (val_ - rhs.val_) / stride_; }
+                    return (val_ - rhs.val_) / stride_;
+                }
                 using iterator_category = typename std::vector<E_>::iterator::iterator_category;
-                using difference_type = typename std::vector<E_>::iterator::difference_type ;
+                using difference_type = typename std::vector<E_>::iterator::difference_type;
                 using value_type = E_;
                 using reference = const E_&;
                 using pointer = const E_*;
             };
             using iterator = Iterator_<typename Vector_<E_>::iterator>;
+
         protected:
-            iterator begin_;    // non-const to support Column_, below
+            iterator begin_; // non-const to support Column_, below
             size_t size_;
+
         public:
             using value_type = E_;
             using const_iterator = Iterator_<typename Vector_<E_>::const_iterator>;
@@ -158,17 +180,17 @@ namespace Dal {
         };
         ConstCol_ Col(int i_col) const { return ConstCol_(hooks_[0] + i_col, hooks_.size(), cols_); }
 
-        class Col_ : ConstCol_
-        {
+        class Col_ : ConstCol_ {
             using iterator = typename ConstCol_::iterator;
             using ConstCol_::begin_;
             using ConstCol_::size_;
+
         public:
             using value_type = E_;
             Col_(I_ begin, size_t size, size_t stride) : ConstCol_(begin, size, stride) {}
 
             iterator begin() const { return begin_; }
-            iterator end() const { return iterator(begin_.val_ + size_ * begin_.stride_, begin_.stride_);  }
+            iterator end() const { return iterator(begin_.val_ + size_ * begin_.stride_, begin_.stride_); }
             E_& operator[](int row) { return *(begin_.val_ + row * begin_.stride_); }
 
             using ConstCol_::size;
@@ -184,10 +206,9 @@ namespace Dal {
             REQUIRE(hooks_.front() == vals_.begin(), "hooks front should be same with vals begin");
         }
 
-        void Fill(const E_& val) { vals_.Fill(val);}
+        void Fill(const E_& val) { vals_.Fill(val); }
 
-        template <class T_>
-        void operator*=(const T_& scale) { vals_ *= scale;}
+        template <class T_> void operator*=(const T_& scale) { vals_ *= scale; }
 
         void Resize(int rows, int cols) {
             const auto old_rows = hooks_.size();
@@ -195,8 +216,7 @@ namespace Dal {
                 vals_.Resize(rows * cols);
                 hooks_.Resize(rows);
                 SetHook(hooks_[0] == vals_.begin() ? old_rows : 0);
-            }
-            else {
+            } else {
                 const auto n_copy = Min(cols, cols_);
                 cols_ = cols;
                 Vector_<E_> new_vals(rows * cols);
@@ -210,9 +230,8 @@ namespace Dal {
         }
     };
 
-    template <class E_>
-    void Matrix_<E_>::SetHook(size_t from) {
-        for(auto ii = from; ii < hooks_.size(); ++ii)
+    template <class E_> void Matrix_<E_>::SetHook(size_t from) {
+        for (auto ii = from; ii < hooks_.size(); ++ii)
             hooks_[ii] = vals_.begin() + ii * cols_;
     }
-}
+} // namespace Dal

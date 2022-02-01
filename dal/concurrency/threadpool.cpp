@@ -2,8 +2,8 @@
 // Created by wegam on 2021/7/18.
 //
 
-#include <dal/platform/strict.hpp>
 #include <dal/concurrency/threadpool.hpp>
+#include <dal/platform/strict.hpp>
 
 namespace Dal {
 
@@ -12,25 +12,25 @@ namespace Dal {
 
     void ThreadPool_::ThreadFunc(const size_t& num) {
         tlsNum_ = num;
-        Task_  t;
-        while(!interrupt_) {
+        Task_ t;
+        while (!interrupt_) {
             bool flag = queue_.Pop(t);
-            if(flag && !interrupt_)
+            if (flag && !interrupt_)
                 t();
         }
     }
 
     void ThreadPool_::Start(const size_t& nThread) {
-        if(!active_) {
+        if (!active_) {
             threads_.reserve(nThread);
-            for(size_t i = 0; i < nThread; ++i)
+            for (size_t i = 0; i < nThread; ++i)
                 threads_.push_back(std::thread(&ThreadPool_::ThreadFunc, this, i + 1));
             active_ = true;
         }
     }
 
     void ThreadPool_::Stop() {
-        if(active_) {
+        if (active_) {
             interrupt_ = true;
             queue_.Interrupt();
             for_each(threads_.begin(), threads_.end(), std::mem_fn(&std::thread::join));
@@ -46,14 +46,13 @@ namespace Dal {
         Task_ t;
         bool b = false;
 
-        while(f.wait_for(std::chrono::seconds(0)) != std::future_status::ready) {
-            if(queue_.TryPop(t)) {
+        while (f.wait_for(std::chrono::seconds(0)) != std::future_status::ready) {
+            if (queue_.TryPop(t)) {
                 t();
                 b = true;
-            }
-            else
+            } else
                 f.wait();
         }
         return b;
     }
-}
+} // namespace Dal

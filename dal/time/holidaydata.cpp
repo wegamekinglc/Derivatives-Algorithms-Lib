@@ -4,9 +4,9 @@
 
 #include <dal/platform/strict.hpp>
 #include <dal/time/holidaydata.hpp>
-#include <mutex>
 #include <dal/utilities/algorithms.hpp>
 #include <dal/utilities/exceptions.hpp>
+#include <mutex>
 
 namespace Dal {
     bool HolidayData_::IsValid() const {
@@ -28,13 +28,9 @@ namespace Dal {
     }
 
     namespace {
-        HolidayData_& TheHolidayData() {
-            RETURN_STATIC(HolidayData_);
-        }
+        HolidayData_& TheHolidayData() { RETURN_STATIC(HolidayData_); }
 
-        HolidayData_ CopyHolidayData() {
-            return TheHolidayData();
-        }
+        HolidayData_ CopyHolidayData() { return TheHolidayData(); }
 
         bool ContainsNoWeekends(const Vector_<Date_>& dates) {
             for (const auto& d : dates)
@@ -49,7 +45,7 @@ namespace Dal {
                     return false;
             return true;
         }
-    }
+    } // namespace
 
     void Holidays::AddCenter(const String_& city, const Vector_<Date_>& holidays, const Vector_<Date_>& workWeekends) {
         REQUIRE(TheHolidayData().IsValid(), "Holiday data is not valid");
@@ -78,12 +74,9 @@ namespace Dal {
     }
 
     Handle_<HolidayCenterData_> Holidays::OfCenter(int center_index) {
-        REQUIRE(center_index >=0 && center_index < TheHolidayData().holidays_.size(),
-                "Invalid holiday center index");
+        REQUIRE(center_index >= 0 && center_index < TheHolidayData().holidays_.size(), "Invalid holiday center index");
         return TheHolidayData().holidays_[center_index];
     }
 
-    Handle_<HolidayCenterData_> Holidays::OfCenter(const String_& center) {
-        return OfCenter(CenterIndex(center));
-    }
-}
+    Handle_<HolidayCenterData_> Holidays::OfCenter(const String_& center) { return OfCenter(CenterIndex(center)); }
+} // namespace Dal

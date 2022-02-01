@@ -11,5 +11,5 @@ namespace Dal {
     namespace DateTime {
         bool IsDateTimeString(const String_& src);
         DateTime_ FromString(const String_& src); // date, space, colon-separated numbers
-    }
-}
+    }                                             // namespace DateTime
+} // namespace Dal

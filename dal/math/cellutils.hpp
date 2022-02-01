@@ -44,5 +44,5 @@ namespace Dal {
         template <class T_> Cell_ FromEnum(const T_& src) { return Cell_(String_(src.String())); }
 
         Vector_<String_> ToStringLines(const Matrix_<Cell_>& src);
-    }
-}
+    } // namespace Cell
+} // namespace Dal

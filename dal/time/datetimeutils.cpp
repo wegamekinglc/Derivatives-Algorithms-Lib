@@ -6,9 +6,9 @@
 #include <dal/platform/strict.hpp>
 #include <dal/time/datetimeutils.hpp>
 
-#include <dal/utilities/algorithms.hpp>
 #include <dal/time/datetime.hpp>
 #include <dal/time/dateutils.hpp>
+#include <dal/utilities/algorithms.hpp>
 #include <dal/utilities/exceptions.hpp>
 
 namespace Dal {
@@ -37,4 +37,4 @@ namespace Dal {
         REQUIRE(*MinElement(hms) >= 0 && hms[0] < 24 && *MaxElement(hms) < 60, "Hour/minute/second out of bounds");
         return DateTime_(date, hms[0], hms[1], hms.size() > 2 ? hms[2] : 0);
     }
-}
+} // namespace Dal

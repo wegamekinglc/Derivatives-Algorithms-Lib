@@ -10,25 +10,23 @@ namespace {
     std::map<Dal::String_, const Dal::Archive::Reader_*>& TheBuilders() {
         RETURN_STATIC(std::map<Dal::String_, const Dal::Archive::Reader_*>);
     }
-}
+} // namespace
 
 namespace Dal {
-    void Archive::Utils::SetStorable(Archive::Store_ &dst, const String_ &name, const Storable_ &value) {
+    void Archive::Utils::SetStorable(Archive::Store_& dst, const String_& name, const Storable_& value) {
         auto& child = dst.Child(name);
-        if(child.StoreRef(&value))
+        if (child.StoreRef(&value))
             child.Done();
         else
             value.Write(child);
     }
 
-    Archive::Store_& Archive::Store_::Element(int index) {
-        return Child(String::FromInt(index));
-    }
+    Archive::Store_& Archive::Store_::Element(int index) { return Child(String::FromInt(index)); }
 
-    Handle_<Storable_> Archive::Extract(const View_ &src, Built_ &built) {
+    Handle_<Storable_> Archive::Extract(const View_& src, Built_& built) {
         Handle_<Storable_>& ret_val = src.Known(built);
 
-        if(!ret_val) {
+        if (!ret_val) {
             const String_& type = src.Type();
             REQUIRE(!type.empty(), "No type supplied: can't extract a handle");
             NOTICE(type);
@@ -40,15 +38,11 @@ namespace Dal {
         return ret_val;
     }
 
-    const Archive::View_& Archive::View_::Element(int index) const {
-        return Child(String::FromInt(index));
-    }
+    const Archive::View_& Archive::View_::Element(int index) const { return Child(String::FromInt(index)); }
 
-    bool Archive::View_::HasElement(int index) const {
-        return HasChild(String::FromInt(index));
-    }
+    bool Archive::View_::HasElement(int index) const { return HasChild(String::FromInt(index)); }
 
     void Archive::Register(const String_& type, const Reader_* d_type) {
         TheBuilders().insert(std::make_pair(type, d_type));
     }
-}
+} // namespace Dal

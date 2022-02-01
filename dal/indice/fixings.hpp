@@ -30,6 +30,6 @@ namespace Dal {
         using vals_t = std::map<DateTime_, double>;
         const vals_t vals_;
         Fixings_(const String_& index_name, const vals_t& vals = vals_t())
-        : Storable_("Fixings", index_name), vals_(vals) {}
+            : Storable_("Fixings", index_name), vals_(vals) {}
     };
 } // namespace Dal

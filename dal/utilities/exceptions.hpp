@@ -4,9 +4,9 @@
 
 #pragma once
 
-#include <exception>
-#include <dal/string/strings.hpp>
 #include <dal/math/vectors.hpp>
+#include <dal/string/strings.hpp>
+#include <exception>
 
 namespace Dal {
 
@@ -15,20 +15,19 @@ namespace Dal {
 
     class Exception_ : public std::runtime_error {
     public:
-        Exception_(const std::string& file, long line, const std::string& functionName, const char *msg);
-        Exception_(const std::string& file, long line, const std::string& functionName, const std::string &msg)
-                : Exception_(file, line, functionName, msg.c_str()) {}
+        Exception_(const std::string& file, long line, const std::string& functionName, const char* msg);
+        Exception_(const std::string& file, long line, const std::string& functionName, const std::string& msg)
+            : Exception_(file, line, functionName, msg.c_str()) {}
         Exception_(const std::string& file, long line, const std::string& functionName, const String_& msg)
-                : Exception_(file, line, functionName, msg.c_str()) {}
+            : Exception_(file, line, functionName, msg.c_str()) {}
     };
 
     namespace exception {
         class XStackInfo_ {
             const char* name_;
             const void* value_;
-            enum class Type_ { INT, DBL, CSTR, STR, DATE, DATETIME, VOID} type_;
-            template <class T_>
-            XStackInfo_(const char*, T_) {};
+            enum class Type_ { INT, DBL, CSTR, STR, DATE, DATETIME, VOID } type_;
+            template <class T_> XStackInfo_(const char*, T_){};
 
         public:
             XStackInfo_(const char* name, const int& val);
@@ -45,28 +44,35 @@ namespace Dal {
         void PopStack();
 
         struct StackRegister_ {
-            ~StackRegister_() { PopStack();}
-            template <class T_>
-            StackRegister_(const char* name, const T_& val) {
-                PushStack(XStackInfo_(name, val));
-            }
+            ~StackRegister_() { PopStack(); }
+            template <class T_> StackRegister_(const char* name, const T_& val) { PushStack(XStackInfo_(name, val)); }
 
-            explicit StackRegister_(const char* msg) {
-                PushStack(XStackInfo_(msg));
-            }
+            explicit StackRegister_(const char* msg) { PushStack(XStackInfo_(msg)); }
         };
-    }
-}
+    } // namespace exception
+} // namespace Dal
 
 #define THROW(msg) throw Dal::Exception_(__FILE__, __LINE__, __func__, msg)
 
 #ifndef NDEBUG
-#define ASSERT(cond, msg) if (cond); else THROW(msg)
+#define ASSERT(cond, msg)                                                                                              \
+    if (cond)                                                                                                          \
+        ;                                                                                                              \
+    else                                                                                                               \
+        THROW(msg)
 #else
 #define ASSERT(cond, msg)
 #endif
-#define REQUIRE(cond, msg) if (cond); else THROW(msg)
-#define ASSURE(cond, msg) if (cond); else THROW(msg)
+#define REQUIRE(cond, msg)                                                                                             \
+    if (cond)                                                                                                          \
+        ;                                                                                                              \
+    else                                                                                                               \
+        THROW(msg)
+#define ASSURE(cond, msg)                                                                                              \
+    if (cond)                                                                                                          \
+        ;                                                                                                              \
+    else                                                                                                               \
+        THROW(msg)
 
 #define XXNOTICE(u, n, v) Dal::exception::StackRegister_ __xsr##u(n, v)
 #define XNOTICE(u, n, v) XXNOTICE(u, n, v)

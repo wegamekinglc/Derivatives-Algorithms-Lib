@@ -5,14 +5,14 @@
 #include <dal/platform/strict.hpp>
 #include <dal/time/dateincrement.hpp>
 #include <dal/time/holidays.hpp>
-#include <dal/utilities/exceptions.hpp>
 #include <dal/utilities/composite.hpp>
+#include <dal/utilities/exceptions.hpp>
 
 namespace Dal {
     namespace Date {
         Increment_::~Increment_() {}
-    }
-}
+    } // namespace Date
+} // namespace Dal
 
 /*IF--------------------------------------------------------------------------
 enumeration SpecialDay
@@ -42,8 +42,8 @@ method Date_ operator() (const Date_& base, bool forward, int n_steps, const Hol
 namespace {
     using namespace Dal;
 
-    #include <dal/auto/MG_SpecialDay_enum.hpp>
-    #include <dal/auto/MG_SpecialDay_enum.inc>
+#include <dal/auto/MG_SpecialDay_enum.hpp>
+#include <dal/auto/MG_SpecialDay_enum.inc>
 
     void MonthInRange(int* y, int* m) {
         while (*m > 12)
@@ -66,9 +66,7 @@ namespace {
         return Date_(yy, mm, 20);
     }
 
-    int IMMDay(int yy, int mm) {
-        return 21 - Date::DayOfWeek(Date_(yy, mm, 18));
-    }
+    int IMMDay(int yy, int mm) { return 21 - Date::DayOfWeek(Date_(yy, mm, 18)); }
 
     Date_ ToIMM(const Date_& from, bool forward, int imm_months) {
         int yy = Date::Year(from);
@@ -95,26 +93,21 @@ namespace {
         case Value_::IMM1:
             return ToIMM(from, forward, 1);
         case Value_::EOM:
-            return forward
-                       ? Date::EndOfMonth(from)
-                       : Date_(Date::Year(from), Date::Month(from), 1).AddDays(-1);
+            return forward ? Date::EndOfMonth(from) : Date_(Date::Year(from), Date::Month(from), 1).AddDays(-1);
         }
     }
 
     class IncrementNextSpecial_ : public Date::Increment_ {
         SpecialDay_ targets_;
-        Date_ FwdFrom(const Date_& d) const override {
-            return targets_.Step(d, true);
-        }
-        Date_ BackFrom(const Date_& d) const override {
-            return targets_.Step(d, false);
-        }
+        Date_ FwdFrom(const Date_& d) const override { return targets_.Step(d, true); }
+        Date_ BackFrom(const Date_& d) const override { return targets_.Step(d, false); }
+
     public:
-        IncrementNextSpecial_(const SpecialDay_& d): targets_(d) {};
+        IncrementNextSpecial_(const SpecialDay_& d) : targets_(d){};
     };
 
-    #include <dal/auto/MG_DateStepSize_enum.hpp>
-    #include <dal/auto/MG_DateStepSize_enum.inc>
+#include <dal/auto/MG_DateStepSize_enum.hpp>
+#include <dal/auto/MG_DateStepSize_enum.inc>
 
     Date_ DateStepSize_::operator()(const Date_& from, bool forward, int n_steps, const Holidays_& holidays) const {
         int sign = forward ? 1 : -1;
@@ -148,38 +141,28 @@ namespace {
         DateStepSize_ stepBy_;
         Holidays_ hols_;
 
-        Date_ FwdFrom(const Date_& d) const {
-            return stepBy_(d, true, nSteps_, hols_);
-        }
+        Date_ FwdFrom(const Date_& d) const { return stepBy_(d, true, nSteps_, hols_); }
 
-        Date_ BackFrom(const Date_& d) const {
-            return stepBy_(d, false, nSteps_, hols_);
-        }
+        Date_ BackFrom(const Date_& d) const { return stepBy_(d, false, nSteps_, hols_); }
 
     public:
-        IncrementMultistep_(int n, const DateStepSize_& d, const Holidays_& h)
-        :nSteps_(n), stepBy_(d), hols_(h) {}
+        IncrementMultistep_(int n, const DateStepSize_& d, const Holidays_& h) : nSteps_(n), stepBy_(d), hols_(h) {}
     };
 
-    class IncrementCompound_: public Composite_<const Date::Increment_> {
+    class IncrementCompound_ : public Composite_<const Date::Increment_> {
     public:
-        template <class F_>
-        Date_ Apply(const Date_& date, const F_& func) const {
+        template <class F_> Date_ Apply(const Date_& date, const F_& func) const {
             Date_ new_date = date;
             for (const auto& inc : contents_)
                 new_date = (inc.get()->*func)(new_date);
             return new_date;
         }
 
-        Date_ FwdFrom(const Date_& d) const {
-            return Apply(d, &Increment_::FwdFrom);
-        }
+        Date_ FwdFrom(const Date_& d) const { return Apply(d, &Increment_::FwdFrom); }
 
-        Date_ BackFrom(const Date_& d) const {
-            return Apply(d, &Increment_::BackFrom);
-        }
+        Date_ BackFrom(const Date_& d) const { return Apply(d, &Increment_::BackFrom); }
     };
-}
+} // namespace
 
 namespace Dal {
     Handle_<Date::Increment_> Date::ToIMM(bool monthly) {
@@ -213,11 +196,7 @@ namespace Dal {
         return Handle_<Date::Increment_>(new IncrementMultistep_(n, step, hols));
     }
 
-    bool IsLiborTenor(const String_& tenor) {
-        return tenor.find_first_of("yY") == String_::npos;
-    }
+    bool IsLiborTenor(const String_& tenor) { return tenor.find_first_of("yY") == String_::npos; }
 
-    bool IsSwapTenor(const String_& tenor) {
-        return !IsLiborTenor(tenor);
-    }
-}
+    bool IsSwapTenor(const String_& tenor) { return !IsLiborTenor(tenor); }
+} // namespace Dal

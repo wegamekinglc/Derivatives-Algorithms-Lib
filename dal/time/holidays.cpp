@@ -4,36 +4,34 @@
 
 #include <dal/platform/platform.hpp>
 #include <dal/platform/strict.hpp>
-#include <dal/time/holidays.hpp>
-#include <mutex>
-#include <dal/time/holidaydata.hpp>
 #include <dal/string/strings.hpp>
+#include <dal/time/holidaydata.hpp>
+#include <dal/time/holidays.hpp>
 #include <dal/utilities/algorithms.hpp>
+#include <mutex>
 
 namespace Dal {
     namespace {
         std::mutex TheHolidayComboMutex;
-        #define LOCK_COMBOS std::lock_guard<std::mutex> l(TheHolidayComboMutex);
+#define LOCK_COMBOS std::lock_guard<std::mutex> l(TheHolidayComboMutex);
 
         bool operator<(const Handle_<HolidayCenterData_>& lhs, const Handle_<HolidayCenterData_>& rhs) {
             return lhs->center_ < rhs->center_;
         }
 
         String_ NameFromCenter(const Vector_<Handle_<HolidayCenterData_>>& parts) {
-            static const auto ToName = [](const Handle_<HolidayCenterData_> h) {
-                return h->center_;
-            };
+            static const auto ToName = [](const Handle_<HolidayCenterData_> h) { return h->center_; };
             return String::Accumulate(Apply(ToName, parts), " ");
         }
 
         std::map<String_, Handle_<HolidayCenterData_>>& TheCombinations() {
             RETURN_STATIC(std::map<String_, Handle_<HolidayCenterData_>>);
         }
-    }
+    } // namespace
 
     Holidays_::Holidays_(const String_& src) {
         Vector_<String_> centers = String::Split(src, ' ', false);
-        parts_ = Apply([](const String_& c){return Holidays::OfCenter(c);}, Unique(centers));
+        parts_ = Apply([](const String_& c) { return Holidays::OfCenter(c); }, Unique(centers));
         if (parts_.size() > 1) {
             LOCK_COMBOS;
             auto existing = TheCombinations().find(NameFromCenter(parts_));
@@ -56,20 +54,13 @@ namespace Dal {
         return false;
     }
 
-    String_ Holidays_::String() const {
-        return NameFromCenter(parts_);
-    }
+    String_ Holidays_::String() const { return NameFromCenter(parts_); }
 
-    bool operator==(const Holidays_& lhs, const Holidays_& rhs) {
-        return lhs.String() == rhs.String();
-    }
+    bool operator==(const Holidays_& lhs, const Holidays_& rhs) { return lhs.String() == rhs.String(); }
 
-    bool operator!=(const Holidays_& lhs, const Holidays_& rhs) {
-        return lhs.String() != rhs.String();
-    }
+    bool operator!=(const Holidays_& lhs, const Holidays_& rhs) { return lhs.String() != rhs.String(); }
 
-    CountBusDays_::CountBusDays_(const Holidays_& src)
-    :hols_(src) {
+    CountBusDays_::CountBusDays_(const Holidays_& src) : hols_(src) {
         LOCK_COMBOS;
         Handle_<HolidayCenterData_>& combo = TheCombinations()[src.String()];
         if (combo.IsEmpty()) {
@@ -131,4 +122,4 @@ namespace Dal {
         static const Holidays_ RET_VAL("");
         return RET_VAL;
     }
-}
+} // namespace Dal

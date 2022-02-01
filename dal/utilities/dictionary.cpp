@@ -2,10 +2,9 @@
 // Created by wegam on 2020/10/25.
 //
 
-
 #include <dal/platform/platform.hpp>
-#include <dal/utilities/dictionary.hpp>
 #include <dal/platform/strict.hpp>
+#include <dal/utilities/dictionary.hpp>
 
 #include <dal/math/cellutils.hpp>
 #include <dal/time/datetimeutils.hpp>
@@ -74,4 +73,4 @@ namespace Dal {
         }
         return ret_val;
     }
-}
+} // namespace Dal

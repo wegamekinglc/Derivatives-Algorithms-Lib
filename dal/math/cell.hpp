@@ -4,21 +4,13 @@
 
 #pragma once
 
-#include <dal/utilities/exceptions.hpp>
 #include <dal/string/strings.hpp>
 #include <dal/time/datetime.hpp>
+#include <dal/utilities/exceptions.hpp>
 
 namespace Dal {
     namespace Cell {
-        enum class Type_: char {
-            EMPTY,
-            BOOLEAN,
-            NUMBER,
-            DATE,
-            DATETIME,
-            STRING,
-            N_TYPES
-        };
+        enum class Type_ : char { EMPTY, BOOLEAN, NUMBER, DATE, DATETIME, STRING, N_TYPES };
     }
 
     struct Cell_ {
@@ -29,25 +21,53 @@ namespace Dal {
         String_ s_;
         DateTime_ dt_;
 
-        Cell_(): type_(Type_::EMPTY) {}
-        Cell_(bool b): type_(Type_::BOOLEAN), b_(b) {}
-        Cell_(double d): type_(Type_::NUMBER), d_(d) {}
-        Cell_(const Date_& dt): type_(Type_::DATE), dt_(dt, 0) {}
-        Cell_(const DateTime_& dt): type_(Type_::DATETIME), dt_(dt) {}
-        Cell_(const String_& s): type_(Type_::STRING), s_(s) {}
-        Cell_(const char* s): type_(Type_::STRING), s_(s) {}
+        Cell_() : type_(Type_::EMPTY) {}
+        Cell_(bool b) : type_(Type_::BOOLEAN), b_(b) {}
+        Cell_(double d) : type_(Type_::NUMBER), d_(d) {}
+        Cell_(const Date_& dt) : type_(Type_::DATE), dt_(dt, 0) {}
+        Cell_(const DateTime_& dt) : type_(Type_::DATETIME), dt_(dt) {}
+        Cell_(const String_& s) : type_(Type_::STRING), s_(s) {}
+        Cell_(const char* s) : type_(Type_::STRING), s_(s) {}
 
         // unrecognized pointer type, hides ptr-to-bool conversion
         template <class T_> Cell_(const T_* p) = delete;
 
         void Clear() { type_ = Type_ ::EMPTY; }
-        Cell_& operator=(bool b) { type_ = Type_::BOOLEAN; b_ = b; return *this; }
-        Cell_& operator=(int i) { type_ = Type_::NUMBER; d_ = i; return *this; }
-        Cell_& operator=(double d) { type_ = Type_::NUMBER; d_ = d; return *this; }
-        Cell_& operator=(const Date_& dt) { type_ = Type_::DATE; dt_ = DateTime_(dt, 0); return *this; }
-        Cell_& operator=(const DateTime_& dt) { type_ = Type_::DATETIME; dt_ = dt; return *this; }
-        Cell_& operator=(const String_& s) { type_ = Type_::STRING; s_ = s; return *this; }
-        Cell_& operator=(const char* s) { type_ = Type_::STRING; s_ = String_(s); return *this; }
+        Cell_& operator=(bool b) {
+            type_ = Type_::BOOLEAN;
+            b_ = b;
+            return *this;
+        }
+        Cell_& operator=(int i) {
+            type_ = Type_::NUMBER;
+            d_ = i;
+            return *this;
+        }
+        Cell_& operator=(double d) {
+            type_ = Type_::NUMBER;
+            d_ = d;
+            return *this;
+        }
+        Cell_& operator=(const Date_& dt) {
+            type_ = Type_::DATE;
+            dt_ = DateTime_(dt, 0);
+            return *this;
+        }
+        Cell_& operator=(const DateTime_& dt) {
+            type_ = Type_::DATETIME;
+            dt_ = dt;
+            return *this;
+        }
+        Cell_& operator=(const String_& s) {
+            type_ = Type_::STRING;
+            s_ = s;
+            return *this;
+        }
+        Cell_& operator=(const char* s) {
+            type_ = Type_::STRING;
+            s_ = String_(s);
+            return *this;
+        }
 
         Cell_& operator=(const Cell_& rhs) {
             switch (rhs.type_) {
@@ -102,5 +122,5 @@ namespace Dal {
 
         Vector_<bool> ToBoolVector(const Cell_& src);
         Cell_ FromBoolVector(const Vector_<bool>& src);
-    }
-}
+    } // namespace Cell
+} // namespace Dal

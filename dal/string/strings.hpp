@@ -4,10 +4,9 @@
 
 #pragma once
 
-#include <string>
-#include <numeric>
 #include <iostream>
-
+#include <numeric>
+#include <string>
 
 namespace Dal {
 
@@ -23,9 +22,7 @@ namespace Dal {
     struct ci_traits : std::char_traits<char> {
         using _E = char;
 
-        static inline _E SortVal(const _E& _x) {
-            return static_cast<char>((_x & 128) | CI_ORDER[_x & 127]);
-        }
+        static inline _E SortVal(const _E& _x) { return static_cast<char>((_x & 128) | CI_ORDER[_x & 127]); }
 
         static inline bool eq(const _E& x, const _E& y) { return SortVal(x) == SortVal(y); }
 
@@ -102,8 +99,7 @@ namespace Dal {
         bool Equivalent(const String_& lhs, const char* rhs);
         String_ NextName(const String_& name);
 
-        struct Joiner_
-        {
+        struct Joiner_ {
             String_ sep_;
             bool skipEmpty_;
             explicit Joiner_(const String_& sep, bool skip_empty = true) : sep_(sep), skipEmpty_(skip_empty) {}
@@ -117,7 +113,7 @@ namespace Dal {
             }
         };
 
-        template<class C_> String_ Accumulate(const C_& vals, const String_& sep, bool skip_empty = true) {
+        template <class C_> String_ Accumulate(const C_& vals, const String_& sep, bool skip_empty = true) {
             if (vals.empty())
                 return String_();
             return std::accumulate(++vals.begin(), vals.end(), *(vals.begin()), Joiner_(sep, skip_empty));

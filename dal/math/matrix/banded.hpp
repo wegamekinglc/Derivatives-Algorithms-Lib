@@ -10,7 +10,7 @@ namespace Dal {
     namespace Sparse {
         class Square_;
         Square_* NewBandDiagonal(int size, int n_above, int n_below);
-    }
+    } // namespace Sparse
 
     class LowerBandAccumulator_ {
         Matrix_<> val_;
@@ -22,4 +22,4 @@ namespace Dal {
         void SolveLeft(const Vector_<>& b, Vector_<>* x) const;
         void SolveRight(const Vector_<>& b, Vector_<>* x) const;
     };
-}
+} // namespace Dal

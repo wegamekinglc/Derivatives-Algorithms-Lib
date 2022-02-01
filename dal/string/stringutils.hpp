@@ -6,10 +6,9 @@
 
 #include <dal/string/strings.hpp>
 
-
 namespace Dal {
     namespace String {
         bool ToBool(const String_& src);
         Vector_<bool> ToBoolVector(const String_& src);
-    }
-}
+    } // namespace String
+} // namespace Dal

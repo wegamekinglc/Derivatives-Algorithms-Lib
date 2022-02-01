@@ -4,9 +4,9 @@
 
 #pragma once
 
+#include <dal/math/vectors.hpp>
 #include <dal/platform/platform.hpp>
 #include <dal/string/strings.hpp>
-#include <dal/math/vectors.hpp>
 
 namespace Dal {
     /*
@@ -19,8 +19,7 @@ namespace Dal {
             Time_ end_;
             String_ curve_;
 
-            RateDef_(const Time_& s, const Time_& e, const String_& c)
-            :start_(s), end_(e), curve_(c) {}
+            RateDef_(const Time_& s, const Time_& e, const String_& c) : start_(s), end_(e), curve_(c) {}
         };
 
         bool numeraire_ = true;
@@ -29,8 +28,7 @@ namespace Dal {
         Vector_<Vector_<Time_>> forwardMats_;
     };
 
-    template <class T_ = double>
-    struct Sample_ {
+    template <class T_ = double> struct Sample_ {
         T_ numeraire_;
         Vector_<T_> discounts_;
         Vector_<T_> libors_;
@@ -48,24 +46,21 @@ namespace Dal {
             numeraire_ = T_(1.0);
             std::fill(discounts_.begin(), discounts_.end(), T_(1.0));
             std::fill(libors_.begin(), libors_.end(), T_(1.0));
-            for (auto& forward: forwards_)
+            for (auto& forward : forwards_)
                 std::fill(forward.begin(), forward.end(), T_(1.0));
         }
     };
 
-    template <class T_ = double>
-    using Scenario_ = Vector_<Sample_<T_>>;
+    template <class T_ = double> using Scenario_ = Vector_<Sample_<T_>>;
 
-    template <class T_>
-    inline void AllocatePath(const Vector_<SampleDef_>& defLine, Scenario_<T_>& path) {
+    template <class T_> inline void AllocatePath(const Vector_<SampleDef_>& defLine, Scenario_<T_>& path) {
         path.Resize(defLine.size());
         for (size_t i = 0; i < defLine.size(); ++i)
             path[i].Allocate(defLine[i]);
     }
 
-    template <class T_>
-    inline void InitializePath(Scenario_<T_>& path) {
-        for (auto& s: path)
+    template <class T_> inline void InitializePath(Scenario_<T_>& path) {
+        for (auto& s : path)
             s.Initialize();
     }
-}
+} // namespace Dal

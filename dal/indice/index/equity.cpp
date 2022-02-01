@@ -16,7 +16,7 @@ namespace Dal::Index {
     }
 
     Equity_::Equity_(const String_& eq_name, const Date_* delivery_date, const String_* delay_increment)
-    : eqName_(eq_name) {
+        : eqName_(eq_name) {
         if (delivery_date)
             delivery_ = Cell_(*delivery_date);
         else if (delay_increment)
@@ -30,11 +30,10 @@ namespace Dal::Index {
         if (Cell::IsString(delivery_)) {
             auto di = Date::ParseIncrement(Cell::OwnString(delivery_));
             ret_val = (fixing_time.Date() + (*di));
-        }
-        else if (Cell::IsDate(delivery_))
+        } else if (Cell::IsDate(delivery_))
             ret_val = Cell::ToDate(delivery_);
         else
             ret_val = Date::Maximum();
         return ret_val;
     }
-}
+} // namespace Dal::Index

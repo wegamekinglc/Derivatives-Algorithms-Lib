@@ -3,8 +3,8 @@
 //
 
 #include <ctime>
-#include <dal/platform/strict.hpp>
 #include <dal/platform/host.hpp>
+#include <dal/platform/strict.hpp>
 #include <dal/utilities/algorithms.hpp>
 
 namespace Dal {

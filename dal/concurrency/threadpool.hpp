@@ -8,15 +8,15 @@
  * Antoine Savine
  * Wiley, 2018
  * As long as this comment is preserved at the top of the file
-*/
+ */
 
 #pragma once
 
+#include <dal/concurrency/concurrentqueue.hpp>
+#include <dal/math/vectors.hpp>
 #include <dal/platform/platform.hpp>
 #include <future>
 #include <thread>
-#include <dal/math/vectors.hpp>
-#include <dal/concurrency/concurrentqueue.hpp>
 
 namespace Dal {
     using Task_ = std::packaged_task<bool(void)>;
@@ -32,24 +32,18 @@ namespace Dal {
 
         void ThreadFunc(const size_t& num);
         //  The constructor stays private, ensuring single instance
-        ThreadPool_(): active_(false), interrupt_(false) {}
+        ThreadPool_() : active_(false), interrupt_(false) {}
 
     public:
-        static ThreadPool_* GetInstance() {
-            return &instance_;
-        }
+        static ThreadPool_* GetInstance() { return &instance_; }
 
-        size_t NumThreads() const {
-            return threads_.size();
-        }
+        size_t NumThreads() const { return threads_.size(); }
 
         static size_t ThreadNum() { return tlsNum_; }
 
         void Start(const size_t& nThread = std::thread::hardware_concurrency() - 1);
 
-        ~ThreadPool_() {
-            Stop();
-        }
+        ~ThreadPool_() { Stop(); }
 
         void Stop();
 
@@ -58,8 +52,7 @@ namespace Dal {
         ThreadPool_(ThreadPool_&& rhs) = delete;
         ThreadPool_& operator=(ThreadPool_&& rhs) = delete;
 
-        template <class C_>
-        TaskHandle_ SpawnTask(C_ c) {
+        template <class C_> TaskHandle_ SpawnTask(C_ c) {
             Task_ t(std::move(c));
             TaskHandle_ f = t.get_future();
             queue_.Push(move(t));
@@ -73,4 +66,4 @@ namespace Dal {
          */
         bool ActiveWaite(const TaskHandle_& f);
     };
-}
+} // namespace Dal

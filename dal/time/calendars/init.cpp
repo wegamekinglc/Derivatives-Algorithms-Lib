@@ -7,7 +7,6 @@
 #include <dal/time/calendars/init.hpp>
 #include <dal/time/holidaydata.hpp>
 
-
 namespace Dal {
 
     bool Calendars_::init_ = false;
@@ -21,4 +20,4 @@ namespace Dal {
             init_ = true;
         }
     }
-}
+} // namespace Dal

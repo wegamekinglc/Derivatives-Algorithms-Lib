@@ -2,21 +2,21 @@
 // Created by wegam on 2020/11/15.
 //
 
-#include <dal/platform/platform.hpp>
-#include <dal/platform/strict.hpp>
-#include <dal/storage/splat.hpp>
-#include <map>
-#include <dal/storage/archive.hpp>
+#include <algorithm>
 #include <dal/math/cell.hpp>
 #include <dal/math/cellutils.hpp>
+#include <dal/platform/platform.hpp>
+#include <dal/platform/strict.hpp>
+#include <dal/storage/archive.hpp>
+#include <dal/storage/splat.hpp>
 #include <dal/string/stringutils.hpp>
-#include <dal/time/dateutils.hpp>
 #include <dal/time/datetimeutils.hpp>
+#include <dal/time/dateutils.hpp>
 #include <dal/utilities/dictionary.hpp>
-#include <dal/utilities/numerics.hpp>
-#include <dal/utilities/functionals.hpp>
 #include <dal/utilities/file.hpp>
-#include <algorithm>
+#include <dal/utilities/functionals.hpp>
+#include <dal/utilities/numerics.hpp>
+#include <map>
 
 using std::map;
 using std::shared_ptr;
@@ -34,7 +34,7 @@ namespace Dal {
             map<const Storable_*, String_>& sharedTags_;
             Matrix_<Cell_> val_;
 
-            explicit XSplat_(map<const Storable_*, String_>& shared_tags): sharedTags_(shared_tags) {}
+            explicit XSplat_(map<const Storable_*, String_>& shared_tags) : sharedTags_(shared_tags) {}
 
             int Rows() const {
                 REQUIRE(type_.empty() == children_.empty(), "children type status should be same");
@@ -59,15 +59,12 @@ namespace Dal {
 
             void Write(Matrix_<Cell_>& dst, int row_offset, int col_offset) const {
                 if (!val_.Empty()) {
-                    for(int ir = 0; ir < val_.Rows(); ++ir)
-                        copy(val_.Row(ir).begin(),
-                             val_.Row(ir).end(),
-                             dst.Row(ir + row_offset).begin() + col_offset);
-                }
-                else {
+                    for (int ir = 0; ir < val_.Rows(); ++ir)
+                        copy(val_.Row(ir).begin(), val_.Row(ir).end(), dst.Row(ir + row_offset).begin() + col_offset);
+                } else {
                     dst(row_offset, col_offset) = tag_ + OBJECT_PREFACE + type_;
                     for (const auto& c : children_) {
-                        dst (row_offset, 1 + col_offset) = c.first;
+                        dst(row_offset, 1 + col_offset) = c.first;
                         c.second->Write(dst, row_offset, 2 + col_offset);
                         row_offset += c.second->Rows();
                     }
@@ -86,8 +83,8 @@ namespace Dal {
                 return false;
             }
 
-            void SetType(const String_& type) override { type_ = type;}
-            void SetTag(const String_& tag) { tag_ = tag;}
+            void SetType(const String_& type) override { type_ = type; }
+            void SetTag(const String_& tag) { tag_ = tag; }
             XSplat_& Child(const String_& name) override {
                 shared_ptr<XSplat_>& ret_val = children_[name];
                 if (!ret_val.get())
@@ -95,21 +92,18 @@ namespace Dal {
                 return *ret_val;
             }
 
-            template <class E_>
-            void SetScalar(const E_& e) {
+            template <class E_> void SetScalar(const E_& e) {
                 val_.Resize(1, 1);
                 val_(0, 0) = e;
             }
 
-            template <class E_>
-            void SetVector(const Vector_<E_>& v) {
+            template <class E_> void SetVector(const Vector_<E_>& v) {
                 val_.Resize(1, static_cast<int>(v.size()));
                 auto dst = val_.Row(0);
                 Copy(v, &dst);
             }
 
-            template <class E_>
-            void SetMatrix(const Matrix_<E_>& m) {
+            template <class E_> void SetMatrix(const Matrix_<E_>& m) {
                 val_.Resize(m.Rows(), m.Cols());
                 for (auto ir = 0; ir < m.Rows(); ++ir) {
                     auto dst = val_.Row(ir);
@@ -117,8 +111,8 @@ namespace Dal {
                 }
             }
 
-            void operator=(double d) override { SetScalar(d);}
-            void operator=(const Date_& d) override { SetScalar(d);}
+            void operator=(double d) override { SetScalar(d); }
+            void operator=(const Date_& d) override { SetScalar(d); }
             void operator=(const String_& s) override { SetScalar(s); }
             void operator=(const Vector_<>& v) override { SetVector(v); }
             void operator=(const Vector_<int>& v) override { SetVector(v); }
@@ -138,7 +132,6 @@ namespace Dal {
                     ++ir;
                 }
             }
-
         };
 
         // --------------------------------------
@@ -206,8 +199,7 @@ namespace Dal {
             THROW("Can't construct a Date_ from a non-date value");
         }
 
-        template <class R_, class T_>
-        auto TranslateRange(const R_& range, const T_& translate) {
+        template <class R_, class T_> auto TranslateRange(const R_& range, const T_& translate) {
             Vector_<VALUE_TYPE_OF(translate(Cell_()))> ret_val;
             std::transform(range.first, range.second, std::back_inserter(ret_val), translate);
             return ret_val;
@@ -218,15 +210,11 @@ namespace Dal {
             int rowStart_;
             int rowStop_;
             int colStart_;
-            mutable  Vector_<shared_ptr<XUnSplat_>> children_;
+            mutable Vector_<shared_ptr<XUnSplat_>> children_;
             bool quiet_;
 
-            XUnSplat_(const Matrix_<Cell_>& data,
-                      int row_start,
-                      int row_stop,
-                      int col_start,
-                      bool quiet)
-            :data_(data), rowStart_(row_start), rowStop_(row_stop), colStart_(col_start), quiet_(quiet) {}
+            XUnSplat_(const Matrix_<Cell_>& data, int row_start, int row_stop, int col_start, bool quiet)
+                : data_(data), rowStart_(row_start), rowStop_(row_stop), colStart_(col_start), quiet_(quiet) {}
 
             String_ Type() const override {
                 const Cell_& c = data_(rowStart_, colStart_);
@@ -258,7 +246,7 @@ namespace Dal {
                         while (jr < rowStop_ && Cell::IsEmpty(data_(jr, nameCol)))
                             ++jr;
                         children_.emplace_back(new XUnSplat_(data_, ir, jr, nameCol + 1, quiet_));
-                        return * children_.back();
+                        return *children_.back();
                     }
                 }
                 THROW("Child '" + name + "' not found");
@@ -282,7 +270,7 @@ namespace Dal {
 
             const Cell_& GetScalar() const {
                 REQUIRE(rowStop_ == rowStart_ + 1, "Can't get a scalar value from a multi-line entry");
-                REQUIRE(colStart_ == data_.Cols() -1 || Cell::IsEmpty(data_(rowStart_, colStart_ + 1)),
+                REQUIRE(colStart_ == data_.Cols() - 1 || Cell::IsEmpty(data_(rowStart_, colStart_ + 1)),
                         "Can't get a scalar value from a multi-row entry");
                 return data_(rowStart_, colStart_);
             }
@@ -328,8 +316,7 @@ namespace Dal {
                         return ret_val;
                 }
             }
-            template <class F_>
-            auto TranslateMatrix(int col_stop, F_ translate) const {
+            template <class F_> auto TranslateMatrix(int col_stop, F_ translate) const {
                 Matrix_<VALUE_TYPE_OF(translate(data_(0, 0)))> ret_val;
                 ret_val.Resize(rowStop_ - rowStart_, col_stop - colStart_);
                 for (int ir = rowStart_; ir < rowStop_; ++ir)
@@ -367,7 +354,7 @@ namespace Dal {
                 return Cell_(false);
             else if (content.find_first_not_of("0123456789.eE+-") == String_::npos) {
                 char* e;
-                double ret_val = std::strtod(content.c_str(), & e);
+                double ret_val = std::strtod(content.c_str(), &e);
                 if (!*e)
                     return Cell_(ret_val);
             }
@@ -404,7 +391,7 @@ namespace Dal {
                 std::copy(data[i].begin(), data[i].end(), ret_val.Row(i).begin());
             return ret_val;
         }
-    }
+    } // namespace
 
     Matrix_<Cell_> Splat(const Storable_& src) {
         map<const Storable_*, String_> tags;
@@ -432,4 +419,4 @@ namespace Dal {
     Handle_<Storable_> UnSplatFile(const String_& file_name, bool quiet) {
         return UnSplat(FileTable(file_name), quiet);
     }
-}
+} // namespace Dal

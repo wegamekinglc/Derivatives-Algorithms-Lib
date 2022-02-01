@@ -12,13 +12,12 @@ namespace Dal {
         class Store_;
     }
 
-    class Storable_: noncopyable {
+    class Storable_ : noncopyable {
     public:
         const String_ type_;
         const String_ name_;
         virtual ~Storable_() = default;
-        Storable_(const char* type, const String_& name):
-            type_(type), name_(name) {}
+        Storable_(const char* type, const String_& name) : type_(type), name_(name) {}
         virtual void Write(Archive::Store_& dst) const = 0;
     };
-}
+} // namespace Dal

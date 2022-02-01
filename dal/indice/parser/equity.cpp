@@ -2,8 +2,8 @@
 // Created by wegam on 2022/1/23.
 //
 
-#include <dal/indice/parser/equity.hpp>
 #include <dal/indice/index/equity.hpp>
+#include <dal/indice/parser/equity.hpp>
 #include <dal/string/strings.hpp>
 #include <dal/time/dateutils.hpp>
 
@@ -19,10 +19,9 @@ namespace Dal::Index {
         else if (name[tenor_start] == '@') {
             auto delivery_date = Date::FromString(name.substr(tenor_start + 1, name.length() - tenor_start - 1));
             return new Equity_(eq_name, &delivery_date, nullptr);
-        }
-        else if(name[tenor_start] == '>') {
+        } else if (name[tenor_start] == '>') {
             String_ delay_increment = name.substr(tenor_start + 1, name.length() - tenor_start - 1);
             return new Equity_(eq_name, nullptr, &delay_increment);
         }
     }
-}
+} // namespace Dal::Index

@@ -8,7 +8,7 @@
 #include <dal/math/cell.hpp>
 
 namespace Dal::Index {
-    class Equity_: public Index_ {
+    class Equity_ : public Index_ {
         Cell_ delivery_;
 
     public:
@@ -17,4 +17,4 @@ namespace Dal::Index {
         Date_ Delivery(const DateTime_& fixing_time) const;
         Equity_(const String_& eq_name, const Date_* delivery_date = nullptr, const String_* delay_increment = nullptr);
     };
-}
+} // namespace Dal::Index

@@ -10,4 +10,4 @@ namespace Dal {
     namespace Index {
         Index_* EquityParser(const String_&);
     }
-}
+} // namespace Dal

@@ -4,8 +4,8 @@
 
 #pragma once
 
-#include <dal/utilities/exceptions.hpp>
 #include <dal/math/vectors.hpp>
+#include <dal/utilities/exceptions.hpp>
 
 /*IF--------------------------------------------------------------------------
 enumeration CollateralType
@@ -30,6 +30,6 @@ method CollateralType_ Collateral() const;
 namespace Dal {
     class String_;
 
-#include <dal/auto/MG_CollateralType_enum.hpp>
 #include <dal/auto/MG_Clearer_enum.hpp>
-}
+#include <dal/auto/MG_CollateralType_enum.hpp>
+} // namespace Dal

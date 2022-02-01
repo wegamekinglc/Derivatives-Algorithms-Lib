@@ -14,23 +14,24 @@ namespace Dal {
     class DateTime_ {
         Date_ date_;
         double frac_;
+
     public:
-        DateTime_():frac_(0) {}
-        explicit DateTime_(const Date_& date, double frac=0.0);
+        DateTime_() : frac_(0) {}
+        explicit DateTime_(const Date_& date, double frac = 0.0);
         explicit DateTime_(long long msec);
-        DateTime_(const Date_& date, int hour, int minute=0, int second=0);
-        Date_ Date() const { return date_;}
-        double Frac() const { return frac_;}
-        bool operator == (const DateTime_& rhs) const { return date_ == rhs.date_ && frac_ == rhs.frac_;}
-        bool IsValid() const { return date_.IsValid() && frac_ < 1.;}
+        DateTime_(const Date_& date, int hour, int minute = 0, int second = 0);
+        Date_ Date() const { return date_; }
+        double Frac() const { return frac_; }
+        bool operator==(const DateTime_& rhs) const { return date_ == rhs.date_ && frac_ == rhs.frac_; }
+        bool IsValid() const { return date_.IsValid() && frac_ < 1.; }
     };
 
-    double operator - (const DateTime_& lhs, const DateTime_& rhs);
-    bool operator < (const DateTime_& lhs, const DateTime_& rhs);
-    inline bool operator > (const DateTime_& lhs, const DateTime_& rhs) { return rhs < lhs;}
-    inline bool operator <= (const DateTime_& lhs, const DateTime_& rhs) { return !(rhs < lhs);}
-    inline bool operator >= (const DateTime_& lhs, const DateTime_& rhs) { return !(lhs < rhs);}
-    inline bool operator != (const DateTime_& lhs, const DateTime_& rhs) { return !(lhs == rhs);}
+    double operator-(const DateTime_& lhs, const DateTime_& rhs);
+    bool operator<(const DateTime_& lhs, const DateTime_& rhs);
+    inline bool operator>(const DateTime_& lhs, const DateTime_& rhs) { return rhs < lhs; }
+    inline bool operator<=(const DateTime_& lhs, const DateTime_& rhs) { return !(rhs < lhs); }
+    inline bool operator>=(const DateTime_& lhs, const DateTime_& rhs) { return !(lhs < rhs); }
+    inline bool operator!=(const DateTime_& lhs, const DateTime_& rhs) { return !(lhs == rhs); }
 
     namespace DateTime {
         int Hour(const DateTime_& dt);
@@ -41,7 +42,7 @@ namespace Dal {
         }
         DateTime_ Minimum();
         long long MSec(const DateTime_& dt);
-    }
+    } // namespace DateTime
 
-    inline double NumericValueOf(const DateTime_& src) { return NumericValueOf(src.Date()) + src.Frac();}
-}
+    inline double NumericValueOf(const DateTime_& src) { return NumericValueOf(src.Date()) + src.Frac(); }
+} // namespace Dal

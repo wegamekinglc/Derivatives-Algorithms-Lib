@@ -5,19 +5,23 @@
 #include <dal/platform/platform.hpp>
 #include <dal/platform/strict.hpp>
 #include <dal/string/stringutils.hpp>
-#include <dal/utilities/exceptions.hpp>
 #include <dal/utilities/algorithms.hpp>
+#include <dal/utilities/exceptions.hpp>
 #include <dal/utilities/functionals.hpp>
 
 namespace {
     bool CharToBool(char c) {
-        switch(c) {
-        case 'T': case 't':
-        case 'Y': case 'y':
+        switch (c) {
+        case 'T':
+        case 't':
+        case 'Y':
+        case 'y':
         case '1':
             return true;
-        case 'F': case 'f':
-        case 'N': case 'n':
+        case 'F':
+        case 'f':
+        case 'N':
+        case 'n':
         case '0':
             return false;
         }
@@ -25,26 +29,18 @@ namespace {
     }
 
     bool TestTrue(const Dal::String_& c) {
-        return(c.size() == 4
-               && toupper(c[0]) == 'T'
-               && toupper(c[1]) == 'R'
-               && toupper(c[2]) == 'U'
-               && toupper(c[3]) == 'E');
+        return (c.size() == 4 && toupper(c[0]) == 'T' && toupper(c[1]) == 'R' && toupper(c[2]) == 'U' &&
+                toupper(c[3]) == 'E');
     }
 
     bool TestFalse(const Dal::String_& c) {
-        return (c.size() == 5
-                && toupper(c[0]) == 'F'
-                && toupper(c[1]) == 'A'
-                && toupper(c[2]) == 'L'
-                && toupper(c[3]) == 'S'
-                && toupper(c[4]) == 'E');
+        return (c.size() == 5 && toupper(c[0]) == 'F' && toupper(c[1]) == 'A' && toupper(c[2]) == 'L' &&
+                toupper(c[3]) == 'S' && toupper(c[4]) == 'E');
     }
-}
+} // namespace
 
 namespace Dal {
-    bool String::ToBool(const String_& src)
-    {
+    bool String::ToBool(const String_& src) {
         REQUIRE(!src.empty(), "Can't convert empty String_ to boolean");
         if (src.size() == 1)
             return CharToBool(src[0]);
@@ -65,4 +61,4 @@ namespace Dal {
         // ok, convert individual characters
         return Apply(AsFunctor(CharToBool), src);
     }
-}
+} // namespace Dal

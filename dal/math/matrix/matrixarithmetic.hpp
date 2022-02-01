@@ -3,11 +3,11 @@
 //
 
 #pragma once
-#include <dal/platform/platform.hpp>
 #include <dal/math/vectors.hpp>
+#include <dal/platform/platform.hpp>
 
 namespace Dal {
     namespace Matrix {
-        Vector_<> Vols(const Matrix_<>& cov, Matrix_<>* corr=nullptr);
+        Vector_<> Vols(const Matrix_<>& cov, Matrix_<>* corr = nullptr);
     }
-}
+} // namespace Dal

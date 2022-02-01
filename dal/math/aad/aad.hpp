@@ -8,7 +8,7 @@
  * Antoine Savine
  * Wiley, 2018
  * As long as this comment is preserved at the top of the file
-*/
+ */
 
 #pragma once
 
@@ -33,17 +33,13 @@ namespace Dal {
         return std::make_unique<NumResultsResetterForAAD_>();
     }
 
-    template <class IT_>
-    inline void PutOnTape(IT_ begin, IT_ end) {
-        std::for_each(begin, end, [](Number_& n){n.PutOnTape();});
+    template <class IT_> inline void PutOnTape(IT_ begin, IT_ end) {
+        std::for_each(begin, end, [](Number_& n) { n.PutOnTape(); });
     }
 
-    template <class IT1_, class IT2_>
-    inline void ConvertCollection(IT1_ src_begin, IT1_ src_end, IT2_ dest_begin) {
+    template <class IT1_, class IT2_> inline void ConvertCollection(IT1_ src_begin, IT1_ src_end, IT2_ dest_begin) {
         using dest_type = std::remove_reference_t<decltype(*dest_begin)>;
-        std::transform(src_begin, src_end, dest_begin, [](const auto& source){return dest_type(source);});
+        std::transform(src_begin, src_end, dest_begin, [](const auto& source) { return dest_type(source); });
     }
 
-}
-
-
+} // namespace Dal

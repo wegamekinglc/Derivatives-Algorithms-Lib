@@ -15,4 +15,4 @@ namespace Dal {
         static bool init_;
         static std::mutex mutex_;
     };
-}
+} // namespace Dal

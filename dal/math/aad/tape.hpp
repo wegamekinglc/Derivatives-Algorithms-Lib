@@ -8,12 +8,12 @@
  * Antoine Savine
  * Wiley, 2018
  * As long as this comment is preserved at the top of the file
-*/
+ */
 
 #pragma once
 
-#include <dal/math/aad/node.hpp>
 #include <dal/math/aad/blocklist.hpp>
+#include <dal/math/aad/node.hpp>
 
 namespace Dal {
     constexpr size_t BLOCK_SIZE = 16384;
@@ -33,19 +33,18 @@ namespace Dal {
         friend class Number_;
 
     public:
-        template <size_t N_>
-        Node_* RecordNode() {
-          Node_* node = nodes_.EmplaceBack(N_);
-          if(multi_) {
-              node->p_adjoints_ = adjoints_multi_.EmplaceBackMulti(Node_::num_adj_);
-              std::fill(node->p_adjoints_, node->p_adjoints_ + Node_::num_adj_, 0.0);
-          }
+        template <size_t N_> Node_* RecordNode() {
+            Node_* node = nodes_.EmplaceBack(N_);
+            if (multi_) {
+                node->p_adjoints_ = adjoints_multi_.EmplaceBackMulti(Node_::num_adj_);
+                std::fill(node->p_adjoints_, node->p_adjoints_ + Node_::num_adj_, 0.0);
+            }
 
-          if constexpr(static_cast<bool>(N_)) {
-              node->p_derivatives_ = ders_.EmplaceBackMulti<N_>();
-              node->p_adj_ptrs_ = arg_ptrs_.EmplaceBackMulti<N_>();
-          }
-          return node;
+            if constexpr (static_cast<bool>(N_)) {
+                node->p_derivatives_ = ders_.EmplaceBackMulti<N_>();
+                node->p_adj_ptrs_ = arg_ptrs_.EmplaceBackMulti<N_>();
+            }
+            return node;
         }
 
         void ResetAdjoints() {
@@ -94,24 +93,12 @@ namespace Dal {
 
         using Iterator_ = typename BlockList_<Node_, BLOCK_SIZE>::Iterator_;
 
-        auto Begin() {
-            return nodes_.Begin();
-        }
+        auto Begin() { return nodes_.Begin(); }
 
-        auto End() {
-            return nodes_.End();
-        }
+        auto End() { return nodes_.End(); }
 
-        auto MarkIt() {
-            return nodes_.Mark();
-        }
+        auto MarkIt() { return nodes_.Mark(); }
 
-        auto Find(Node_* node) {
-            return nodes_.Find(node);
-        }
+        auto Find(Node_* node) { return nodes_.Find(node); }
     };
-}
-
-
-
-
+} // namespace Dal

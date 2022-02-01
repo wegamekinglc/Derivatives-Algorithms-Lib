@@ -2,15 +2,13 @@
 // Created by wegam on 2022/1/20.
 //
 
-#include <dal/platform/platform.hpp>
-#include <dal/indice/index.hpp>
 #include <dal/indice/fixings.hpp>
+#include <dal/indice/index.hpp>
+#include <dal/platform/platform.hpp>
 
 namespace Dal {
-    struct FixingAccess_: Environment_::Entry_ {
-        Handle_<Fixings_> Fetch(const String_& name) const {
-            return Handle_<Fixings_>();
-        }
+    struct FixingAccess_ : Environment_::Entry_ {
+        Handle_<Fixings_> Fetch(const String_& name) const { return Handle_<Fixings_>(); }
     };
 
     double Index::PastFixing(_ENV, const String_& index_name, const DateTime_& fixing_time, bool quiet) {
@@ -32,4 +30,4 @@ namespace Dal {
     double Index_::Fixing(_ENV, const DateTime_& fixing_time) const {
         return Index::PastFixing(_env, Name(), fixing_time);
     }
-}
+} // namespace Dal

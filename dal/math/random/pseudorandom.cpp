@@ -2,8 +2,8 @@
 // Created by wegam on 2020/12/19.
 //
 
-#include <cmath>
 #include "pseudorandom.hpp"
+#include <cmath>
 #include <dal/math/specialfunctions.hpp>
 #include <dal/math/vectors.hpp>
 #include <dal/platform/host.hpp>
@@ -14,11 +14,11 @@ namespace Dal {
     // derived classes can call this explicitly
     void PseudoRandom_::FillUniform(Vector_<>* devs) {
         if (anti_) {
-            for (size_t i = 0; i < devs->size() ; ++i)
+            for (size_t i = 0; i < devs->size(); ++i)
                 (*devs)[i] = (1.0 - cache_[i]);
             anti_ = false;
         } else {
-            for (size_t i = 0; i < devs->size() ; ++i)
+            for (size_t i = 0; i < devs->size(); ++i)
                 (*devs)[i] = cache_[i] = NextUniform();
             anti_ = true;
         }
@@ -34,11 +34,9 @@ namespace Dal {
                 }
             }
         } // namespace RWT
-    }
+    }     // namespace
 
-    void PseudoRandom_::FillNormal(Vector_<>* deviates) {
-        RWT::Fill(this, deviates->begin(), deviates->end());
-    }
+    void PseudoRandom_::FillNormal(Vector_<>* deviates) { RWT::Fill(this, deviates->begin(), deviates->end()); }
 
     namespace {
         // Generators similar to Knuth's IRN55, with shuffling
@@ -66,7 +64,8 @@ namespace Dal {
                 return MUL * (2 * ret_val + 1); // avoid 0.0 and 1.0
             }
 
-            explicit ShuffledIRN_(int seed, size_t n_dim = 1) : PseudoRandom_(n_dim), seed_(seed), irn_(M_), shuffle_(S_), irl_(0) {
+            explicit ShuffledIRN_(int seed, size_t n_dim = 1)
+                : PseudoRandom_(n_dim), seed_(seed), irn_(M_), shuffle_(S_), irl_(0) {
                 const unsigned MASK = 0x1F2E3D4C;
                 const unsigned MUL = 17;
                 // initialize IRN_
@@ -82,9 +81,7 @@ namespace Dal {
                 return new ShuffledIRN_<M_, L_, S_>(irn_[0] ^ irn_[1]);
             }
 
-            [[nodiscard]] PseudoRandom_* Clone() const override {
-                return new ShuffledIRN_(seed_, cache_.size());
-            }
+            [[nodiscard]] PseudoRandom_* Clone() const override { return new ShuffledIRN_(seed_, cache_.size()); }
 
             void SkipTo(size_t n_points) override {}
         };
@@ -102,7 +99,9 @@ namespace Dal {
             double xn_, xn1_, xn2_, yn_, yn1_, yn2_;
 
             MRG32k32a_(const unsigned& a = 12345, const unsigned& b = 12346, size_t n_dim = 1)
-                : PseudoRandom_(n_dim), a_(a), b_(b) { Reset(); }
+                : PseudoRandom_(n_dim), a_(a), b_(b) {
+                Reset();
+            }
 
             void Reset() {
                 // Reset state
@@ -222,10 +221,7 @@ namespace Dal {
                 }
             }
 
-            static void VPrd(const size_t lhs[3][3],
-                             const size_t rhs[3],
-                             const size_t& mod,
-                             size_t result[3]) {
+            static void VPrd(const size_t lhs[3][3], const size_t rhs[3], const size_t& mod, size_t result[3]) {
                 for (size_t j = 0; j < 3; j++) {
                     size_t s = 0;
                     for (size_t l = 0; l < 3; l++) {

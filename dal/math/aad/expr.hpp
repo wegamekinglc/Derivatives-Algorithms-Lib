@@ -4,13 +4,13 @@
 
 #pragma once
 
+#include <cmath>
 #include <dal/math/aad/tape.hpp>
 #include <dal/math/specialfunctions.hpp>
-#include <cmath>
 
 namespace Dal {
     template <class E_> struct Expression_ {
-       [[nodiscard]] virtual double Value() const { return static_cast<const E_*>(this)->Value(); }
+        [[nodiscard]] virtual double Value() const { return static_cast<const E_*>(this)->Value(); }
 
         explicit operator double() const { return Value(); }
     };
@@ -394,15 +394,9 @@ namespace Dal {
 
     // unary operators +/-
 
-    template <class RHS_>
-    UnaryExpression_<RHS_, OPSubDL_> operator-(const Expression_<RHS_>& rhs) {
-        return 0.0 - rhs;
-    }
+    template <class RHS_> UnaryExpression_<RHS_, OPSubDL_> operator-(const Expression_<RHS_>& rhs) { return 0.0 - rhs; }
 
-    template <class RHS_>
-    Expression_<RHS_> operator+(const Expression_<RHS_>& rhs){
-        return rhs;
-    }
+    template <class RHS_> Expression_<RHS_> operator+(const Expression_<RHS_>& rhs) { return rhs; }
 
     // the Number type, also an expression
 
@@ -410,13 +404,9 @@ namespace Dal {
         double value_;
         Node_* node_;
 
-        template <size_t N_>
-        Node_* CreateMultiNode() {
-            return tape_->template RecordNode<N_>();
-        }
+        template <size_t N_> Node_* CreateMultiNode() { return tape_->template RecordNode<N_>(); }
 
-        template <class E_>
-        void FromExpr(const Expression_<E_>& e) {
+        template <class E_> void FromExpr(const Expression_<E_>& e) {
             auto* node = this->CreateMultiNode<E_::numNumbers_>();
             const auto& tmp = static_cast<const E_&>(e);
             tmp.PushAdjoint<E_::numNumbers_, 0>(*node, 1.0);
@@ -426,18 +416,16 @@ namespace Dal {
     public:
         static thread_local Tape_* tape_;
 
-        enum  {numNumbers_ = 1};
+        enum { numNumbers_ = 1 };
 
-        template <size_t N_, size_t n_>
-        void PushAdjoint(Node_& exprNode, double adjoint) const {
+        template <size_t N_, size_t n_> void PushAdjoint(Node_& exprNode, double adjoint) const {
             exprNode.p_adj_ptrs_[n_] = Tape_::multi_ ? node_->p_adjoints_ : &node_->adjoint_;
             exprNode.p_derivatives_[n_] = adjoint;
         }
 
         Number_() = default;
 
-        explicit Number_(double val)
-            :value_(val) {}
+        explicit Number_(double val) : value_(val) {}
 
         Number_& operator=(double val) {
             value_ = val;
@@ -445,58 +433,36 @@ namespace Dal {
             return *this;
         }
 
-        template <class E_>
-        explicit Number_(const Expression_<E_>& e)
-            :value_(e.Value()) {
-            FromExpr<E_>(e);
-        }
+        template <class E_> explicit Number_(const Expression_<E_>& e) : value_(e.Value()) { FromExpr<E_>(e); }
 
-        template <class E_>
-        Number_& operator=(const Expression_<E_>& e) {
+        template <class E_> Number_& operator=(const Expression_<E_>& e) {
             value_ = e.Value();
             FromExpr<E_>(e);
             return *this;
         }
 
-        explicit operator double () const {
-            return Value();
-        }
+        explicit operator double() const { return Value(); }
 
-        explicit operator double& () {
-            return Value();
-        }
+        explicit operator double&() { return Value(); }
 
-        void PutOnTape() {
-            node_ = CreateMultiNode<0>();
-        }
+        void PutOnTape() { node_ = CreateMultiNode<0>(); }
 
-        double& Value() { return value_;}
-        [[nodiscard]] double Value() const override { return value_;}
+        double& Value() { return value_; }
+        [[nodiscard]] double Value() const override { return value_; }
 
-        double& Adjoint() {
-            return node_->Adjoint();
-        }
+        double& Adjoint() { return node_->Adjoint(); }
 
-        [[nodiscard]] double Adjoint() const {
-            return node_->Adjoint();
-        }
+        [[nodiscard]] double Adjoint() const { return node_->Adjoint(); }
 
-        double& Adjoint(size_t n) {
-            return node_->Adjoint(n);
-        }
+        double& Adjoint(size_t n) { return node_->Adjoint(n); }
 
-        double Adjoint(size_t n) const {
-            return node_->Adjoint(n);
-        }
+        double Adjoint(size_t n) const { return node_->Adjoint(n); }
 
-        void ResetAdjoints() {
-            tape_->ResetAdjoints();
-        }
+        void ResetAdjoints() { tape_->ResetAdjoints(); }
 
         // propagation
 
-        static void PropagateAdjoints(Tape_::Iterator_ propagateFrom,
-                                      Tape_::Iterator_ propagateTo) {
+        static void PropagateAdjoints(Tape_::Iterator_ propagateFrom, Tape_::Iterator_ propagateTo) {
             auto it = propagateFrom;
             while (it != propagateTo) {
                 it->PropagateOne();
@@ -511,21 +477,13 @@ namespace Dal {
             PropagateAdjoints(propagate_from, propagate_to);
         }
 
-        void PropagateToStart() {
-            PropagateAdjoints(tape_->Begin());
-        }
+        void PropagateToStart() { PropagateAdjoints(tape_->Begin()); }
 
-        void PropagateToMark() {
-            PropagateAdjoints(tape_->MarkIt());
-        }
+        void PropagateToMark() { PropagateAdjoints(tape_->MarkIt()); }
 
-        static void PropagateMarkToStart() {
-            PropagateAdjoints(std::prev(tape_->MarkIt()), tape_->Begin());
-        }
+        static void PropagateMarkToStart() { PropagateAdjoints(std::prev(tape_->MarkIt()), tape_->Begin()); }
 
-        static void PropagateAdjointsMulti(
-            Tape_::Iterator_ propagate_from,
-            Tape_::Iterator_ propagate_to) {
+        static void PropagateAdjointsMulti(Tape_::Iterator_ propagate_from, Tape_::Iterator_ propagate_to) {
             auto it = propagate_from;
             while (it != propagate_to) {
                 it->PropagateAll();
@@ -536,26 +494,22 @@ namespace Dal {
 
         // unary operators
 
-        template <class E_>
-        Number_& operator+=(const Expression_<E_>& e) {
+        template <class E_> Number_& operator+=(const Expression_<E_>& e) {
             *this = *this + e;
             return *this;
         }
 
-        template <class E_>
-        Number_& operator*=(const Expression_<E_>& e) {
+        template <class E_> Number_& operator*=(const Expression_<E_>& e) {
             *this = *this * e;
             return *this;
         }
 
-        template <class E_>
-        Number_& operator-=(const Expression_<E_>& e) {
+        template <class E_> Number_& operator-=(const Expression_<E_>& e) {
             *this = *this - e;
             return *this;
         }
 
-        template <class E_>
-        Number_& operator/=(const Expression_<E_>& e) {
+        template <class E_> Number_& operator/=(const Expression_<E_>& e) {
             *this = *this / e;
             return *this;
         }
@@ -580,4 +534,4 @@ namespace Dal {
             return *this;
         }
     };
-}
+} // namespace Dal
