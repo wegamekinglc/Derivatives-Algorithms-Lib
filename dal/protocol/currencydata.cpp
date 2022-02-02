@@ -30,7 +30,7 @@ namespace Dal {
 
         template <class T_> class OneFactImp_ : public Ccy::Fact_<T_> {
             CcyDependent_<T_> vals_;
-            typedef typename Ccy::Fact_<T_>::Writer_ writer_t;
+           using writer_t = typename Ccy::Fact_<T_>::Writer_;
             std::unique_ptr<writer_t> writer_;
 
         public:
