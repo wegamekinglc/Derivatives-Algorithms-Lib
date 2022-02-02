@@ -32,6 +32,8 @@ namespace Dal {
             switch (start.type_) {
             case Cell_::Type_::STRING:
                 return start.s_;
+            case Cell_::Type_::DATE:
+                return Date::ToString(start.dt_.Date());
             case Cell_::Type_::EMPTY:
                 THROW("maturity may not be empty");
             default:
@@ -63,12 +65,11 @@ namespace Dal {
 
         String_ Index::Swap_::Name() const {
             // note ",5Y" is a swap, ",Libor3M" is a Libor -- numeric first digit indicates a swap
-            return "IR:" + String_(ccy_.String()) + "," + tenor_ +
-                   StartPostfix(start_);
+            return "IR:" + String_(ccy_.String()) + "," + tenor_ + StartPostfix(start_);
         }
 
         String_ Index::DF_::Name() const {
-            return "IR[DF]:" + String_(ccy_.String()) + StartPostfix(start_) + ":" + MatPostfix(maturity_);
+            return "IR[DF]:" + String_(ccy_.String()) + StartPostfix(start_) + "," + MatPostfix(maturity_);
         }
 
         Date_ Index::DF_::StartDate(const DateTime_& fixing_time) const {
