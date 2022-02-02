@@ -3,11 +3,11 @@
 //
 
 #include <cmath>
-#include <dal/math/interp/interpcubic.hpp>
-#include <dal/math/specialfunctions.hpp>
-#include <dal/math/vectors.hpp>
 #include <dal/platform/platform.hpp>
+#include <dal/math/specialfunctions.hpp>
 #include <dal/platform/strict.hpp>
+#include <dal/math/interp/interpcubic.hpp>
+#include <dal/math/vectors.hpp>
 #include <dal/string/strings.hpp>
 
 namespace Dal {

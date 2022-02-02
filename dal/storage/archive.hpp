@@ -3,10 +3,11 @@
 //
 
 #pragma once
+
+#include <dal/platform/platform.hpp>
 #include <dal/math/cell.hpp>
 #include <dal/math/matrix/matrixs.hpp>
 #include <dal/platform/optionals.hpp>
-#include <dal/platform/platform.hpp>
 #include <dal/storage/storable.hpp>
 #include <dal/string/strings.hpp>
 #include <map>

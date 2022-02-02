@@ -2,10 +2,9 @@
 // Created by wegam on 2021/2/22.
 //
 
-#include <dal/math/matrix/banded.hpp>
 #include <dal/platform/platform.hpp>
+#include <dal/math/matrix/banded.hpp>
 #include <dal/platform/strict.hpp>
-
 #include <cmath>
 #include <dal/math/matrix/sparse.hpp>
 #include <dal/math/matrix/squarematrix.hpp>

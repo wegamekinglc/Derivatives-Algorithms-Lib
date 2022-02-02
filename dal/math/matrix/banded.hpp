@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <dal/platform/platform.hpp>
 #include <dal/math/matrix/matrixs.hpp>
 
 namespace Dal {

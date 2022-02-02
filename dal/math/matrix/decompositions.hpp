@@ -4,8 +4,8 @@
 
 #pragma once
 
-#include <dal/math/vectors.hpp>
 #include <dal/platform/platform.hpp>
+#include <dal/math/vectors.hpp>
 #include <dal/utilities/noncopyable.hpp>
 
 namespace Dal {

@@ -3,12 +3,12 @@
 //
 
 #include <algorithm>
+#include <dal/platform/platform.hpp>
+#include <dal/storage/splat.hpp>
+#include <dal/platform/strict.hpp>
 #include <dal/math/cell.hpp>
 #include <dal/math/cellutils.hpp>
-#include <dal/platform/platform.hpp>
-#include <dal/platform/strict.hpp>
 #include <dal/storage/archive.hpp>
-#include <dal/storage/splat.hpp>
 #include <dal/string/stringutils.hpp>
 #include <dal/time/datetimeutils.hpp>
 #include <dal/time/dateutils.hpp>
