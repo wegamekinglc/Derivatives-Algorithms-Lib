@@ -3,7 +3,7 @@
 //
 
 #include <dal/platform/platform.hpp>
-#include <dal/protocol/currencydata.hpp>
+#include <dal/currency/currencydata.hpp>
 #include <dal/platform/strict.hpp>
 
 #include <dal/utilities/exceptions.hpp>

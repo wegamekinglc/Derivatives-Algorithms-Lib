@@ -6,10 +6,9 @@
 #pragma once
 
 #include <map>
-#include <dal/protocol/currency.hpp>
+#include <dal/currency/currency.hpp>
 #include <dal/utilities/facts.hpp>
 #include <dal/time/daybasis.hpp>
-
 
 namespace Dal {
     class Holidays_;

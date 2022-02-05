@@ -8,7 +8,7 @@
 #include <dal/math/cell.hpp>
 #include <dal/protocol/collateraltype.hpp>
 #include <dal/protocol/couponrate.hpp>
-#include <dal/protocol/currency.hpp>
+#include <dal/currency/currency.hpp>
 #include <dal/utilities/functionals.hpp>
 
 namespace Dal::Index {

@@ -8,7 +8,7 @@
 
 #include <dal/time/datetime.hpp>
 #include <dal/time/holidays.hpp>
-#include <dal/protocol/currencydata.hpp>
+#include <dal/currency/currencydata.hpp>
 
 namespace Dal {
     Date_ Libor::StartFromFix(const Ccy_& ccy, const Date_& fix_date) {
