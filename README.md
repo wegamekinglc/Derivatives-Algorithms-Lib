@@ -28,4 +28,4 @@ This is a project inspired by following books:
 
 At current stage, this codes repository is simply for prototyping and practice. Don't use them in serious situation.
 
-> Some codes are directly copied from Tom and Antoine's books 
+> Some codes are directly copied from Tom and Antoine's books.
