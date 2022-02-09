@@ -22,28 +22,28 @@ namespace Dal {
         template <class T_> class XFactWriterImp_ : public Ccy::Fact_<T_>::Writer_ {
             CcyDependent_<T_>& data_; // we do not own
         public:
-            XFactWriterImp_(CcyDependent_<T_>& dat) : data_(dat) {}
+            explicit XFactWriterImp_(CcyDependent_<T_>& dat) : data_(dat) {}
 
-            void SetDefault(const T_& val) { data_.background_.reset(new T_(val)); }
-            void operator()(const Ccy_& ccy, const T_& val) { data_.specific_[ccy].reset(new T_(val)); }
+            void SetDefault(const T_& val) override { data_.background_.reset(new T_(val)); }
+            void operator()(const Ccy_& ccy, const T_& val) override { data_.specific_[ccy].reset(new T_(val)); }
         };
 
         template <class T_> class OneFactImp_ : public Ccy::Fact_<T_> {
             CcyDependent_<T_> vals_;
-           using writer_t = typename Ccy::Fact_<T_>::Writer_;
+            using writer_t = typename Ccy::Fact_<T_>::Writer_;
             std::unique_ptr<writer_t> writer_;
 
         public:
             OneFactImp_() { writer_.reset(new XFactWriterImp_<T_>(vals_)); }
 
-            const T_& operator()(const Ccy_& ccy) const {
+            const T_& operator()(const Ccy_& ccy) const override {
                 auto pc = vals_.specific_.find(ccy);
                 if (pc != vals_.specific_.end())
                     return *pc->second;
                 REQUIRE(!vals_.background_.IsEmpty(), "no default for '" + String_(ccy.String()) + "'");
                 return *vals_.background_;
             }
-            writer_t& XWrite() const { return *writer_; }
+            writer_t& XWrite() const override { return *writer_; }
         };
     }	// leave local
 
