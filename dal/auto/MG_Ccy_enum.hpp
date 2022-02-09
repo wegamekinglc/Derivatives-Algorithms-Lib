@@ -13,6 +13,7 @@ public:
      AUD,
      CHF,
      CAD,
+     CNY,
      _N_VALUES
     } val_;
       

@@ -7,19 +7,20 @@
 #include <dal/string/strings.hpp>
 #include <dal/utilities/exceptions.hpp>
 
-namespace Dal {
-    /*IF--------------------------------------------------------------------------
-    enumeration Ccy
-            A currency
-    switchable
-    alternative USD
-    alternative EUR
-    alternative GBP
-    alternative JPY
-    alternative AUD
-    alternative CHF
-    alternative CAD
-    -IF-------------------------------------------------------------------------*/
+/*IF--------------------------------------------------------------------------
+enumeration Ccy
+        A currency
+switchable
+alternative USD
+alternative EUR
+alternative GBP
+alternative JPY
+alternative AUD
+alternative CHF
+alternative CAD
+alternative CNY
+-IF-------------------------------------------------------------------------*/
 
+namespace Dal {
 #include <dal/auto/MG_Ccy_enum.hpp>
 } // namespace Dal

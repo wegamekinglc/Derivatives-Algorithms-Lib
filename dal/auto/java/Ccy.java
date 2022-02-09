@@ -12,6 +12,7 @@ public class Ccy
 		AUD,
 		CHF,
 		CAD,
+		CNY,
 		N_VALUES
 	}
 }

@@ -15,6 +15,7 @@ Vector_<Ccy_> CcyListAll() {
         TheCcyList().emplace_back(Ccy_::Value_::AUD);
         TheCcyList().emplace_back(Ccy_::Value_::CHF);
         TheCcyList().emplace_back(Ccy_::Value_::CAD);
+        TheCcyList().emplace_back(Ccy_::Value_::CNY);
    }
    return TheCcyList();
 }
@@ -40,6 +41,8 @@ const char* Ccy_::String() const {
         return "CHF";
 	case Value_::CAD:
         return "CAD";
+	case Value_::CNY:
+        return "CNY";
 	    
     }}
 
@@ -74,6 +77,9 @@ struct ReadStringCcy_
 
 	else if (String::Equivalent(src, "CAD"))
 		*val = Ccy_::Value_::CAD;
+
+	else if (String::Equivalent(src, "CNY"))
+		*val = Ccy_::Value_::CNY;
         else
             ret_val = false;
         return ret_val;
