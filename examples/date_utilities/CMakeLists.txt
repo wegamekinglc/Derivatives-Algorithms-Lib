@@ -1,7 +1,7 @@
 file(GLOB_RECURSE DATE_UTILITIES_FILES "*.hpp" "*.cpp")
 add_executable(date_utilities ${DATE_UTILITIES_FILES})
 
-target_link_libraries(date_utilities ${DAL_LINK_LIBRARY})
+target_link_libraries(date_utilities dal_library)
 
 if(MSVC)
 else()

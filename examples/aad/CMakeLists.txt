@@ -1,7 +1,7 @@
 file(GLOB_RECURSE AAD_FILES "*.hpp" "*.cpp")
 add_executable(aad ${AAD_FILES})
 
-target_link_libraries(aad ${DAL_LINK_LIBRARY})
+target_link_libraries(aad dal_library)
 
 if(MSVC)
 else()

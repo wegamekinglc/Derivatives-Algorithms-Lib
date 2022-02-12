@@ -1,25 +1,24 @@
-get_dal_library_name(DAL_OUTPUT_NAME)
+#add_custom_command(OUTPUT ${QL_GENERATED_HEADERS}
+#        COMMAND ${CMAKE_COMMAND}
+#        -DSOURCE_DIR=${CMAKE_SOURCE_DIR}
+#        -DBINARY_DIR=${CMAKE_BINARY_DIR}
+#        -P ${CMAKE_SOURCE_DIR}/cmake/GenerateHeaders.cmake
+#        COMMENT "Generating headers..."
+#        WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 
 file(GLOB_RECURSE DAL_FILES "*.hpp" "*.cpp")
 list(FILTER DAL_FILES EXCLUDE REGEX "${PROJECT_SOURCE_DIR}/dal/auto/.*")
 
-if (WIN32)
-    if (${BUILD_SHARED_LIBS})
-        message(FATAL_ERROR "You should build in STATIC mode as nothing is exported from the library. Use BUILD_SHARED_LIBS=OFF")
-    endif ()
-    add_library(${DAL_OUTPUT_NAME} ${DAL_FILES})
-    set_property(TARGET ${DAL_OUTPUT_NAME} PROPERTY PROJECT_LABEL "dal")
-else ()
-    add_library(${DAL_OUTPUT_NAME} ${DAL_FILES})
-endif ()
-set(DAL_LINK_LIBRARY ${DAL_OUTPUT_NAME} PARENT_SCOPE)
+add_library(dal_library ${DAL_FILES})
 
+set_target_properties(dal_library PROPERTIES
+        EXPORT_NAME ${PACKAGE_NAME}
+        OUTPUT_NAME ${PACKAGE_NAME}
+        VERSION ${DAL_VERSION})
 
 install(DIRECTORY . DESTINATION include/dal
         FILES_MATCHING PATTERN "*.hpp" PATTERN "*.h")
 
-install(TARGETS ${DAL_OUTPUT_NAME}
-        ARCHIVE DESTINATION lib
-        LIBRARY DESTINATION lib
-        PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE
-        )
+install(TARGETS dal_library EXPORT DALTargets
+        ARCHIVE DESTINATION ${DAL_INSTALL_LIBDIR}
+        LIBRARY DESTINATION ${DAL_INSTALL_LIBDIR})

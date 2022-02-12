@@ -1,7 +1,7 @@
 file(GLOB_RECURSE EUROPEAN_FILES "*.hpp" "*.cpp")
 add_executable(european ${EUROPEAN_FILES})
 
-target_link_libraries(european ${DAL_LINK_LIBRARY})
+target_link_libraries(european dal_library)
 
 if(MSVC)
 else()
