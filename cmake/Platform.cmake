@@ -2,8 +2,7 @@
 if (MSVC)
     # See cmake policy CMP00091
     # One of "MultiThreaded", "MultiThreadedDebug", "MultiThreadedDLL", "MultiThreadedDebugDLL"
-    set(CMAKE_MSVC_RUNTIME_LIBRARY
-            "MultiThreaded$<$<CONFIG:Debug>:Debug>$<$<BOOL:${BUILD_SHARED_LIBS}>:DLL>")
+
 
     # Export all symbols so MSVC can populate the .lib and .dll
     if (BUILD_SHARED_LIBS)
@@ -19,10 +18,15 @@ if (MSVC)
     set_property(CACHE MSVC_RUNTIME PROPERTY STRINGS static dynamic)
 
     if ("${MSVC_RUNTIME}" STREQUAL "static")
-        link_directories($ENV{GTEST_ROOT}/lib/${CMAKE_BUILD_TYPE}/MD)
-    else()
         link_directories($ENV{GTEST_ROOT}/lib/${CMAKE_BUILD_TYPE}/MT)
+        set(USE_MSVC_DYNAMIC_RUNTIME false)
+    else()
+        link_directories($ENV{GTEST_ROOT}/lib/${CMAKE_BUILD_TYPE}/MD)
+        set(USE_MSVC_DYNAMIC_RUNTIME true)
     endif()
+
+    set(CMAKE_MSVC_RUNTIME_LIBRARY
+            "MultiThreaded$<$<CONFIG:Debug>:Debug>$<$<BOOL:${USE_MSVC_DYNAMIC_RUNTIME}>:DLL>")
 
     add_compile_definitions(NOMINMAX)
 
