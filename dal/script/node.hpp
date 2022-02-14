@@ -41,4 +41,27 @@ namespace Dal::Script {
         return top;
     }
 
+    template <class NodeType_>
+    std::unique_ptr<NodeType_> BuildConcreteBinary(std::unique_ptr<Node_>& lhs, std::unique_ptr<Node_>& rhs) {
+        std::unique_ptr<NodeType_> top = MakeNode<NodeType_>();
+        top->arguments_.Resize(2);
+        top->arguments_[0] = std::move(lhs);
+        top->arguments_[1] = std::move(rhs);
+    }
+
+    struct NodeCollect_: public Node_ {
+        void AcceptVisitor(Visitor_* visitor) override;
+        void AcceptVisitor(ConstVisitor_* visitor) const override;
+    };
+
+    struct NodeTrue_: public Node_ {
+        void AcceptVisitor(Visitor_* visitor) override;
+        void AcceptVisitor(ConstVisitor_* visitor) const override;
+    };
+
+    struct NodeFalse_: public Node_ {
+        void AcceptVisitor(Visitor_* visitor) override;
+        void AcceptVisitor(ConstVisitor_* visitor) const override;
+    };
+}
 }
