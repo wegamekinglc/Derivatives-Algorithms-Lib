@@ -63,5 +63,59 @@ namespace Dal::Script {
         void AcceptVisitor(Visitor_* visitor) override;
         void AcceptVisitor(ConstVisitor_* visitor) const override;
     };
-}
+
+    struct NodeUPlus_: public Node_ {
+        void AcceptVisitor(Visitor_* visitor) override;
+        void AcceptVisitor(ConstVisitor_* visitor) const override;
+    };
+
+    struct NodeUMinus_: public Node_ {
+        void AcceptVisitor(Visitor_* visitor) override;
+        void AcceptVisitor(ConstVisitor_* visitor) const override;
+    };
+
+    struct NodePlus_: public Node_ {
+        void AcceptVisitor(Visitor_* visitor) override;
+        void AcceptVisitor(ConstVisitor_* visitor) const override;
+    };
+
+    struct NodeMinus_: public Node_ {
+        void AcceptVisitor(Visitor_* visitor) override;
+        void AcceptVisitor(ConstVisitor_* visitor) const override;
+    };
+
+    struct NodeMultiply_: public Node_ {
+        void AcceptVisitor(Visitor_* visitor) override;
+        void AcceptVisitor(ConstVisitor_* visitor) const override;
+    };
+
+    struct NodeDivide_: public Node_ {
+        void AcceptVisitor(Visitor_* visitor) override;
+        void AcceptVisitor(ConstVisitor_* visitor) const override;
+    };
+
+    struct NodePower_: public Node_ {
+        void AcceptVisitor(Visitor_* visitor) override;
+        void AcceptVisitor(ConstVisitor_* visitor) const override;
+    };
+
+    struct NodeLog_: public Node_ {
+        void AcceptVisitor(Visitor_* visitor) override;
+        void AcceptVisitor(ConstVisitor_* visitor) const override;
+    };
+
+    struct NodeSqrt_: public Node_ {
+        void AcceptVisitor(Visitor_* visitor) override;
+        void AcceptVisitor(ConstVisitor_* visitor) const override;
+    };
+
+    struct NodeMax_: public Node_ {
+        void AcceptVisitor(Visitor_* visitor) override;
+        void AcceptVisitor(ConstVisitor_* visitor) const override;
+    };
+
+    struct NodeMin_: public Node_ {
+        void AcceptVisitor(Visitor_* visitor) override;
+        void AcceptVisitor(ConstVisitor_* visitor) const override;
+    };
 }

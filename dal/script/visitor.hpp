@@ -24,9 +24,20 @@ namespace Dal::Script {
             tree->AcceptVisitor(this);
         }
 
-        virtual void VisitCollect(NodeCollect_* node) { VisitArguments(node); }
-        virtual void VisitTrue(NodeTrue_* node) { VisitArguments(node); }
-        virtual void VisitFalse(NodeFalse_* node) { VisitArguments(node); }
+        virtual void Visit(NodeCollect_* node) { VisitArguments(node); }
+        virtual void Visit(NodeTrue_* node) { VisitArguments(node); }
+        virtual void Visit(NodeFalse_* node) { VisitArguments(node); }
+        virtual void Visit(NodeUPlus_* node) { VisitArguments(node); }
+        virtual void Visit(NodeUMinus_* node) { VisitArguments(node); }
+        virtual void Visit(NodePlus_* node) { VisitArguments(node); }
+        virtual void Visit(NodeMinus_* node) { VisitArguments(node); }
+        virtual void Visit(NodeMultiply_* node) { VisitArguments(node); }
+        virtual void Visit(NodeDivide_* node) { VisitArguments(node); }
+        virtual void Visit(NodePower_* node) { VisitArguments(node); }
+        virtual void Visit(NodeLog_* node) { VisitArguments(node); }
+        virtual void Visit(NodeSqrt_* node) { VisitArguments(node); }
+        virtual void Visit(NodeMax_* node) { VisitArguments(node); }
+        virtual void Visit(NodeMin_* node) { VisitArguments(node); }
     };
 
     class ConstVisitor_ {
@@ -46,8 +57,19 @@ namespace Dal::Script {
             tree->AcceptVisitor(this);
         }
 
-        virtual void VisitCollect(const NodeCollect_* node) { VisitArguments(node);}
-        virtual void VisitTrue(const NodeTrue_* node) { VisitArguments(node); }
-        virtual void VisitFalse(const NodeFalse_* node) { VisitArguments(node); }
+        virtual void Visit(const NodeCollect_* node) { VisitArguments(node);}
+        virtual void Visit(const NodeTrue_* node) { VisitArguments(node); }
+        virtual void Visit(const NodeFalse_* node) { VisitArguments(node); }
+        virtual void Visit(const NodeUPlus_* node) { VisitArguments(node); }
+        virtual void Visit(const NodeUMinus_* node) { VisitArguments(node); }
+        virtual void Visit(const NodePlus_* node) { VisitArguments(node); }
+        virtual void Visit(const NodeMinus_* node) { VisitArguments(node); }
+        virtual void Visit(const NodeMultiply_* node) { VisitArguments(node); }
+        virtual void Visit(const NodeDivide_* node) { VisitArguments(node); }
+        virtual void Visit(const NodePower_* node) { VisitArguments(node); }
+        virtual void Visit(const NodeLog_* node) { VisitArguments(node); }
+        virtual void Visit(const NodeSqrt_* node) { VisitArguments(node); }
+        virtual void Visit(const NodeMax_* node) { VisitArguments(node); }
+        virtual void Visit(const NodeMin_* node) { VisitArguments(node); }
     };
 }
