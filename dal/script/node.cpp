@@ -62,6 +62,14 @@ namespace Dal::Script {
         visitor->Visit(this);
     }
 
+    void NodeConst_::AcceptVisitor(Visitor_* visitor) {
+        visitor->Visit(this);
+    }
+
+    void NodeVar_::AcceptVisitor(Visitor_* visitor) {
+        visitor->Visit(this);
+    }
+
     /*
      *
      */
@@ -122,4 +130,11 @@ namespace Dal::Script {
         visitor->Visit(this);
     }
 
+    void NodeConst_::AcceptVisitor(ConstVisitor_* visitor) const {
+        visitor->Visit(this);
+    }
+
+    void NodeVar_::AcceptVisitor(ConstVisitor_* visitor) const {
+        visitor->Visit(this);
+    }
 }

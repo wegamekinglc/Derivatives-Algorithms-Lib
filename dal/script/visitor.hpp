@@ -38,6 +38,8 @@ namespace Dal::Script {
         virtual void Visit(NodeSqrt_* node) { VisitArguments(node); }
         virtual void Visit(NodeMax_* node) { VisitArguments(node); }
         virtual void Visit(NodeMin_* node) { VisitArguments(node); }
+        virtual void Visit(NodeConst_* node) { VisitArguments(node); }
+        virtual void Visit(NodeVar_* node) { VisitArguments(node); }
     };
 
     class ConstVisitor_ {
@@ -71,5 +73,7 @@ namespace Dal::Script {
         virtual void Visit(const NodeSqrt_* node) { VisitArguments(node); }
         virtual void Visit(const NodeMax_* node) { VisitArguments(node); }
         virtual void Visit(const NodeMin_* node) { VisitArguments(node); }
+        virtual void Visit(const NodeConst_* node) { VisitArguments(node); }
+        virtual void Visit(const NodeVar_* node) { VisitArguments(node); }
     };
 }

@@ -5,6 +5,7 @@
 #pragma once
 
 #include <memory>
+#include <dal/string/strings.hpp>
 #include <dal/math/vectors.hpp>
 
 namespace Dal::Script {
@@ -115,6 +116,21 @@ namespace Dal::Script {
     };
 
     struct NodeMin_: public Node_ {
+        void AcceptVisitor(Visitor_* visitor) override;
+        void AcceptVisitor(ConstVisitor_* visitor) const override;
+    };
+
+    struct NodeConst_: public Node_ {
+        double val_;
+        explicit NodeConst_(double val): val_(val) {}
+        void AcceptVisitor(Visitor_* visitor) override;
+        void AcceptVisitor(ConstVisitor_* visitor) const override;
+    };
+
+    struct NodeVar_: public Node_ {
+        String_ name_;
+        int index;
+        explicit NodeVar_(const String_& name): name_(name) {}
         void AcceptVisitor(Visitor_* visitor) override;
         void AcceptVisitor(ConstVisitor_* visitor) const override;
     };

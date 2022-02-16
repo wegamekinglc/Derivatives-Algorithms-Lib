@@ -104,5 +104,13 @@ namespace Dal::Script {
             Debug(*node, "MIN");
         }
 
+        void Visit(const NodeConst_* node) override {
+            Debug(*node, String_("CONST[") + String::FromDouble(node->val_) + ']');
+        }
+
+        void Visit(const NodeVar_* node) override {
+            Debug(*node, String_("VAR[") + String::FromInt(node->val_) + ']');)
+        }
+
     };
 }
