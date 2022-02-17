@@ -3,7 +3,7 @@
 //
 
 #include <dal/script/node.hpp>
-#include <dal/script/visitor/debuger.hpp>
+#include <dal/script/visitor/debugger.hpp>
 
 int main() {
 

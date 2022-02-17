@@ -1,20 +1,11 @@
 //
-// Created by wegam on 2022/2/14.
+// Created by wegam on 2022/2/17.
 //
 
-#pragma once
-
-#include <stack>
-#include <dal/string/strings.hpp>
-#include <dal/script/node.hpp>
-#include <dal/script/visitor.hpp>
+#include <dal/script/visitor/debugger.hpp>
 
 namespace Dal::Script {
-    class Debugger_: public ConstVisitor_ {
-        String_ prefix_;
-        std::stack<String_> stack_;
-
-        void Debug(const Node_& node, const String_& nodeId) {
+        void Debugger_::Debug(const Node_& node, const String_& nodeId) {
             prefix_ += '\t';
             for (auto it = node.arguments_.rbegin(); it != node.arguments_.rend(); ++it)
                 (*it)->AcceptVisitor(this);
@@ -43,74 +34,71 @@ namespace Dal::Script {
             stack_.push(std::move(str));
         }
 
-    public:
-        String_ String() const {
+        String_ Debugger_::String() const {
             return stack_.top();
         }
 
-        void Visit(const NodeCollect_* node) override {
+        void Debugger_::Visit(const NodeCollect_* node) {
             Debug(*node, "COLLECT");
         }
 
-        void Visit(const NodeTrue_* node) override {
+        void Debugger_::Visit(const NodeTrue_* node) {
             Debug(*node, "TRUE");
         }
 
-        void Visit(const NodeFalse_* node) override {
+        void Debugger_::Visit(const NodeFalse_* node) {
             Debug(*node, "FALSE");
         }
 
-        void Visit(const NodeUPlus_* node) override {
+        void Debugger_::Visit(const NodeUPlus_* node) {
             Debug(*node, "U-PLUS");
         }
 
-        void Visit(const NodeUMinus_* node) override {
+        void Debugger_::Visit(const NodeUMinus_* node) {
             Debug(*node, "U-Minus");
         }
 
-        void Visit(const NodePlus_* node) override {
+        void Debugger_::Visit(const NodePlus_* node) {
             Debug(*node, "PLUS");
         }
 
-        void Visit(const NodeMinus_* node) override {
+        void Debugger_::Visit(const NodeMinus_* node) {
             Debug(*node, "MINUS");
         }
 
-        void Visit(const NodeMultiply_* node) override {
+        void Debugger_::Visit(const NodeMultiply_* node) {
             Debug(*node, "MULTIPLY");
         }
 
-        void Visit(const NodeDivide_* node) override {
+        void Debugger_::Visit(const NodeDivide_* node) {
             Debug(*node, "DIV");
         }
 
-        void Visit(const NodePower_* node) override {
+        void Debugger_::Visit(const NodePower_* node) {
             Debug(*node, "POW");
         }
 
-        void Visit(const NodeLog_* node) override {
+        void Debugger_::Visit(const NodeLog_* node) {
             Debug(*node, "LOG");
         }
 
-        void Visit(const NodeSqrt_* node) override {
+        void Debugger_::Visit(const NodeSqrt_* node) {
             Debug(*node, "SQRT");
         }
 
-        void Visit(const NodeMax_* node) override {
+        void Debugger_::Visit(const NodeMax_* node) {
             Debug(*node, "MAX");
         }
 
-        void Visit(const NodeMin_* node) override {
+        void Debugger_::Visit(const NodeMin_* node) {
             Debug(*node, "MIN");
         }
 
-        void Visit(const NodeConst_* node) override {
+        void Debugger_::Visit(const NodeConst_* node) {
             Debug(*node, String_("CONST[") + String::FromDouble(node->val_) + ']');
         }
 
-        void Visit(const NodeVar_* node) override {
-            Debug(*node, String_("VAR[") + String::FromInt(node->val_) + ']');)
+        void Debugger_::Visit(const NodeVar_* node) {
+            Debug(*node, String_("VAR[") + String::FromInt(node->index_) + ']');
         }
-
-    };
 }
