@@ -26,6 +26,8 @@ namespace Dal {
 
     using Time_ = double;
 
+    template <class = double> class Stack_;
+
     template <class = double> class Vector_;
 
     template <class = double> class Matrix_;

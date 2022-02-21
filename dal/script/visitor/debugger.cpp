@@ -15,27 +15,27 @@ namespace Dal::Script {
             String_ str(prefix_ + nodeId);
             if (!node.arguments_.empty()) {
                 str += "(\n";
-                str += stack_.top();
-                stack_.pop();
+                str += stack_.Top();
+                stack_.Pop();
                 if (node.arguments_.size() > 1)
                     str += prefix_ + ",\n";
                 for (size_t i = 1; i < node.arguments_.size() - 1; ++i) {
-                    str += stack_.top() + prefix_ + ",\n";
-                    stack_.pop();
+                    str += stack_.Top() + prefix_ + ",\n";
+                    stack_.Pop();
                 }
                 if (node.arguments_.size() > 1) {
-                    str += stack_.top();
-                    stack_.pop();
+                    str += stack_.Top();
+                    stack_.Pop();
                 }
 
                 str += prefix_ + ')';
             }
             str += '\n';
-            stack_.push(std::move(str));
+            stack_.Push(std::move(str));
         }
 
         String_ Debugger_::String() const {
-            return stack_.top();
+            return stack_.Top();
         }
 
         void Debugger_::Visit(const NodeCollect_* node) {

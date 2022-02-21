@@ -8,11 +8,12 @@
 #include <dal/string/strings.hpp>
 #include <dal/script/node.hpp>
 #include <dal/script/visitor.hpp>
+#include <dal/math/stacks.hpp>
 
 namespace Dal::Script {
     class Debugger_: public ConstVisitor_ {
         String_ prefix_;
-        std::stack<String_> stack_;
+        Stack_<String_> stack_;
 
         void Debug(const Node_& node, const String_& nodeId);
 
