@@ -6,7 +6,7 @@
 
 namespace Dal::Script {
         void Debugger_::Debug(const Node_& node, const String_& nodeId) {
-            prefix_ += '\t';
+            prefix_ += "\t";
             for (auto it = node.arguments_.rbegin(); it != node.arguments_.rend(); ++it)
                 (*it)->AcceptVisitor(this);
 

@@ -24,12 +24,12 @@ namespace Dal::Script {
 
     template <class ConcreteNode_, typename... Args_>
     std::unique_ptr<ConcreteNode_> MakeNode(Args_&&... args) {
-        return new ConcreteNode_(std::forward<Args_>(args)...);
+        return std::unique_ptr<ConcreteNode_>(new ConcreteNode_(std::forward<Args_>(args)...));
     }
 
     template <class ConcreteNode_, typename... Args_>
     std::unique_ptr<Node_> MakeBaseNode(Args_&&... args) {
-        return new ConcreteNode_(std::forward<Args_>(args)...);
+        return std::unique_ptr<Node_>(new ConcreteNode_(std::forward<Args_>(args)...));
     }
 
     template <class NodeType_>
