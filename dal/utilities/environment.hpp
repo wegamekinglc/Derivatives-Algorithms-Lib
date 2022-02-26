@@ -122,6 +122,4 @@ namespace Dal {
 #define XX_ENV_ADD(u, e) Dal::Environment::XDecorated_ __xee##u(_env, e)
 #define X_ENV_ADD(u, e) XX_ENV_ADD(u, e)
 #define ENV_ADD(e) X_ENV_ADD(__COUNTER__, e)
-#define ENV_SEED(e)                                                                                                    \
-    _ENV = nullptr;                                                                                                    \
-    ENV_ADD(e)
+#define ENV_SEED(e) _ENV = nullptr; ENV_ADD(e)

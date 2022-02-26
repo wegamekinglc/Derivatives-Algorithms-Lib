@@ -22,6 +22,7 @@ namespace Dal::Index {
         } else if (name[tenor_start] == '>') {
             String_ delay_increment = name.substr(tenor_start + 1, name.length() - tenor_start - 1);
             return new Equity_(eq_name, nullptr, &delay_increment);
-        }
+        } else
+            THROW("index pattern is not good");
     }
 } // namespace Dal::Index
