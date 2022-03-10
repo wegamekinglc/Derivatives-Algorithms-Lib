@@ -3,6 +3,8 @@ cmake_minimum_required(VERSION 3.15.0)
 # For MSVC RUNTIME LIBRARY, need CMP0091=NEW and cmake 3.15+
 cmake_policy(SET CMP0091 NEW)
 
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 # Version info
 set(DAL_VERSION_MAJOR 1)
 set(DAL_VERSION_MINOR 0)
