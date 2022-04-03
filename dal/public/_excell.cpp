@@ -13,7 +13,6 @@
 #include <dal/public/_repository.hpp>
 #include <dal/utilities/exceptions.hpp>
 #include <dal/utilities/numerics.hpp>
-#include <dal/utilities/dictionary.hpp>
 
 ///***************************************************************************
 // File:	FRAMEWRK.C
