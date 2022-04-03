@@ -3,6 +3,7 @@
 //
 
 #include <bitset>
+#include <sstream>
 #include <dal/math/vectors.hpp>
 #include <dal/platform/strict.hpp>
 #include <dal/string/strings.hpp>
@@ -120,15 +121,9 @@ namespace Dal {
         }
 
         String_ Uniquifier(const void* p) {
-            unsigned int ii = reinterpret_cast<unsigned int>(p);
-            String_ retval;
-            while (ii > 0)
-            {
-                const int c = ii % 36;
-                retval.push_back(static_cast<char>(c > 9 ? (c - 10) + 'a' : c + '0'));
-                ii /= 36;
-            }
-            return retval;
+            std::ostringstream oss;
+            oss << p;
+            return String_(oss.str());
         }
     } // namespace String
 
