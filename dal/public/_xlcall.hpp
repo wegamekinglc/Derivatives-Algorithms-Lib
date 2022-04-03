@@ -17,6 +17,8 @@
 
 #pragma once
 
+#ifdef _WIN32
+
 //#include <Windows.h>
 /*
 ** XL 12 Basic Datatypes
@@ -1396,3 +1398,5 @@ int col;		// col @ mouse (-1 if #n/a)
 #define xlcOptionsSave (753 | xlCommand)
 #define xlcOptionsSpell (755 | xlCommand)
 #define xlcHideallInkannots (808 | xlCommand)
+
+#endif

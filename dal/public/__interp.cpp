@@ -28,6 +28,7 @@ namespace Dal {
             f->reset(new Interp1Linear_(name, x, y));
         }
     }
-
+#ifdef _WIN32
 #include <dal/auto/MG_Interp1_New_Linear_public.inc>
+#endif
 }

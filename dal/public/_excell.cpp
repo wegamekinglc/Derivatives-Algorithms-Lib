@@ -12,6 +12,7 @@
 #include <dal/public/_repository.hpp>
 #include <dal/utilities/exceptions.hpp>
 #include <dal/utilities/numerics.hpp>
+#include <dal/utilities/dictionary.hpp>
 
 ///***************************************************************************
 // File:	FRAMEWRK.C
@@ -1528,6 +1529,8 @@ func_with_args is string
         }
     } // namespace
 
+#ifdef _WIN32
 #include <dal/auto/MG_Format_public.inc>
 #include <dal/auto/MG_PasteWithArgs_public.inc>
+#endif
 }

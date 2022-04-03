@@ -11,6 +11,9 @@
 **
 */
 
+
+#ifdef _WIN32
+
 #ifndef _WINDOWS_
 #include <windows.h>
 #endif
@@ -94,3 +97,5 @@ int Excel12v(int xlfn, LPXLOPER12 operRes, int count, LPXLOPER12 opers[]) {
     }
     return (mdRet);
 }
+
+#endif
