@@ -1385,7 +1385,7 @@ namespace Dal {
 
         // Loop through the function list, and register the functions
         static const String_ MACRO_TYPE("1");
-        static const String_ CATEGORY("MyCat");
+        static const String_ CATEGORY("DAL");
         static const String_ BLANK;
         for (int ii = 0; ii < TheFunctions().size(); ++ii) {
             const XLFunc_& func = TheFunctions()[ii];
@@ -1401,7 +1401,8 @@ namespace Dal {
             xl4args[3] = TempStr(func.xlName_);
             xl4args[4] = TempStr(func.argNames_);
             xl4args[5] = TempNum(1);
-            xl4args[6] = xl4args[7] = xl4args[8] = TempStr(BLANK);
+            xl4args[6] = TempStr(CATEGORY);
+            xl4args[7] = xl4args[8] = TempStr(BLANK);
             xl4args[9] = TempStr(func.help_);
             for (const auto& h : func.argHelp_)
                 xl4args.push_back(TempStr(h));
