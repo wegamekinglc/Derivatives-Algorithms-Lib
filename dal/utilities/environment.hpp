@@ -123,3 +123,13 @@ namespace Dal {
 #define X_ENV_ADD(u, e) XX_ENV_ADD(u, e)
 #define ENV_ADD(e) X_ENV_ADD(__COUNTER__, e)
 #define ENV_SEED(e) _ENV = nullptr; ENV_ADD(e)
+// support ADD and SEED with stack-constructed entries
+#define XX_ENV_INST(u, t) t __ei##u; ENV_ADD(__ei##u)
+#define X_ENV_INST(u, t) XX_ENV_INST(u, t)
+#define ENV_ADD_TYPE(t) X_ENV_INST(__COUNTER__, t)
+#define ENV_SEED_TYPE(t) _ENV = nullptr; ENV_ADD_TYPE(t)
+// and with factory-constructed entries (macro argument is the factory function)
+#define XX_ENV_FACT(u, f) scoped_ptr<Environment::Entry_> __ep##u(f); ENV_ADD(*__ep##u)
+#define X_ENV_FACT(u, f) XX_ENV_FACT(u, f)
+#define ENV_ADD_PTR(f) X_ENV_FACT(__COUNTER__, f)
+#define ENV_SEED_PTR(f) _ENV = nullptr; ENV_ADD_PTR(f)

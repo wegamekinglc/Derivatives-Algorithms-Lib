@@ -2,7 +2,11 @@
 // Created by wegam on 2022/4/3.
 //
 
-#ifndef DAL___PLATFORM_HPP
-#define DAL___PLATFORM_HPP
+#pragma once
 
-#endif //DAL___PLATFORM_HPP
+#include <dal/platform/platform.hpp>
+#include <dal/utilities/exceptions.hpp>
+#include <dal/utilities/environment.hpp>
+#include <dal/public/_excel.hpp>
+#include <dal/public/_reader.hpp>
+#include <dal/public/_repository.hpp>

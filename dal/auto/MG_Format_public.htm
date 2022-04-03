@@ -1,0 +1,46 @@
+
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+<title>Format</title>
+<link href="tablecloth/tablecloth.css" rel="stylesheet" type="text/css" media="screen" />
+<link href="hbk.css" rel="stylesheet" type="text/css" media="screen" />
+<script type="text/javascript" src="tablecloth/tablecloth.js"></script>
+</head>
+<body>
+<h1>Format (in Excel: DA.FORMAT)</h1>
+Combine data according to a user - supplied format string
+
+<h2>Inputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th>Optional?</th><th></th></tr>
+
+<tr><td>format</td><td>string</td><td></td><td>The rule for combining arguments : e.g. 5, 1, (3, 4)T means join(from left to right) argument 5, then argument 1, then the transpose of the result of joining(from left to right) arguments 3 and 4.  The special argument 0 represents a single empty cell.</td></tr>
+<tr><td>arg1</td><td>matrix of cells</td><td></td><td>A table</td></tr>
+<tr><td>arg2</td><td>matrix of cells</td><td>yes</td><td>A table</td></tr>
+<tr><td>arg3</td><td>matrix of cells</td><td>yes</td><td>A table</td></tr>
+<tr><td>arg4</td><td>matrix of cells</td><td>yes</td><td>A table</td></tr>
+<tr><td>arg5</td><td>matrix of cells</td><td>yes</td><td>A table</td></tr>
+<tr><td>arg6</td><td>matrix of cells</td><td>yes</td><td>A table</td></tr>
+<tr><td>arg7</td><td>matrix of cells</td><td>yes</td><td>A table</td></tr>
+<tr><td>arg8</td><td>matrix of cells</td><td>yes</td><td>A table</td></tr>
+<tr><td>arg9</td><td>matrix of cells</td><td>yes</td><td>A table</td></tr>
+
+</table>
+
+
+
+
+
+<h2>Outputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th></th></tr>
+
+<tr><td>result</td><td>matrix of cells</td><td>A combined table created according to the format instructions</td></tr>
+</table>
+
+
+
+
+
+
