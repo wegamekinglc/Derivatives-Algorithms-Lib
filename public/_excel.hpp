@@ -83,7 +83,7 @@ namespace Dal {
                 return Handle_<T_>();
 
             const Handle_<T_> retval = handle_cast<T_>(base);
-            REQUIRE(!retval.Empty(), "Input object has wrong type");
+            REQUIRE(!retval.IsEmpty(), "Input object has wrong type");
             return retval;
         }
         template <class T_> Vector_<Handle_<T_>> ToHandleVector(_ENV, const OPER_* src, bool optional = false) {
