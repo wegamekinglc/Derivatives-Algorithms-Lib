@@ -4,6 +4,8 @@
 
 #pragma once
 
+#ifdef _WIN32
+
 // Framework for Excel interface
 
 // From the Microsoft Excel Developer's Kit, Version 14
@@ -186,3 +188,5 @@ namespace Dal {
         String_ ToString(const Cell_& c); // sets policy at interface, by forwarding to OwnString or CoerceToString
     }
 }
+
+#endif

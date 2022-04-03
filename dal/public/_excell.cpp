@@ -1,5 +1,6 @@
-#define _Regex_traits _Regex_traits_Excel
+#ifdef _WIN32
 
+#define _Regex_traits _Regex_traits_Excel
 #include <algorithm>
 #include <dal/platform/platform.hpp>
 #include <dal/platform/strict.hpp>
@@ -1529,8 +1530,8 @@ func_with_args is string
         }
     } // namespace
 
-#ifdef _WIN32
 #include <dal/auto/MG_Format_public.inc>
 #include <dal/auto/MG_PasteWithArgs_public.inc>
-#endif
 }
+
+#endif
