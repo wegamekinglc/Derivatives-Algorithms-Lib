@@ -130,7 +130,7 @@ namespace Dal::Script {
     struct NodeVar_: public Node_ {
         String_ name_;
         int index_;
-        explicit NodeVar_(const String_& name): name_(name) {}
+        explicit NodeVar_(const String_& name): name_(name), index_(-1) {}
         void AcceptVisitor(Visitor_* visitor) override;
         void AcceptVisitor(ConstVisitor_* visitor) const override;
     };

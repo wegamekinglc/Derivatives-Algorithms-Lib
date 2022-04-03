@@ -5,8 +5,12 @@
 #include <dal/math/aad/models/blackscholes.hpp>
 #include <dal/math/aad/products/european.hpp>
 #include <dal/math/aad/simulation.hpp>
-#include "dal/math/random/pseudorandom.hpp"
+#include <dal/math/random/pseudorandom.hpp>
+#include <dal/math/random/quasirandom.hpp>
+#include <dal/math/random/sobol.hpp>
+#include <dal/utilities/timer.hpp>
 #include <iostream>
+#include <iomanip>
 
 using namespace Dal;
 using namespace std;
@@ -24,21 +28,28 @@ int main() {
 
     European_<double> prd(strike, exerciseDate);
     BlackScholes_<double> mdl(spot, vol, false, rate, div);
-    std::unique_ptr<Random_> rand(New(RNGType_("MRG32"), seed, 1));
+    std::unique_ptr<Random_> rand(NewSobol(1, n_paths));
 
     // single thread simulation
+    Timer_ timer;
     auto res = MCSimulation(prd, mdl, rand, n_paths);
     auto sum = 0.0;
     for (auto row = 0; row < res.Rows(); ++row)
         sum += res(row, 0);
     auto calculated = sum / static_cast<double>(res.Rows());
+    cout << "Single-threaded: " << setprecision(4) << calculated << "\tElapsed: " << timer.Elapsed<milliseconds>() << " ms" << endl;
 
     // multi-threads simulation
+    // only pseudo random number generator can be used in multithreading situation
     std::unique_ptr<PseudoRandom_> rand2(New(RNGType_("MRG32"), seed));
-    res = MCParallelSimulation(prd, mdl, rand2, n_paths * 8);
+
+    timer.Reset();
+    res = MCParallelSimulation(prd, mdl, rand2, n_paths);
+    sum = 0.0;
     for (auto row = 0; row < res.Rows(); ++row)
         sum += res(row, 0);
     calculated = sum / static_cast<double>(res.Rows());
+    cout << "Multi-threaded: " << setprecision(4) << calculated<< "\tElapsed: " << timer.Elapsed<milliseconds>() << " ms" << endl;
 
     return 0;
 }

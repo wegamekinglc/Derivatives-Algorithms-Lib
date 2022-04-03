@@ -6,7 +6,7 @@
 #include <dal/math/vectors.hpp>
 #include <dal/math/aad/number.hpp>
 #include <dal/math/aad/operators.hpp>
-#include <chrono>
+#include <dal/utilities/timer.hpp>
 #include <iomanip>
 #include <iostream>
 
@@ -42,23 +42,22 @@ int main() {
     Number_::tape_ = &new_tape;
     Vector_<> base_value = {1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.};
     Vector_<> parameters = base_value;
+    Timer_ timer;
 
     size_t n_loops = 10000000;
     // simple primitive double calculation
-    auto start = std::chrono::high_resolution_clock::now();
     double y_raw = 0.;
     for (size_t i = 0; i < n_loops; ++i) {
         // add small randomness to avoid compiler optimization
         parameters[9] = base_value[9] + static_cast<double>(i) * 1e-14;
         y_raw = f(parameters);
     }
-    auto finish = std::chrono::high_resolution_clock::now();
     cout << "y: " << setprecision(9) << y_raw << endl;
     std::cout << "Primitive aprox. time: "
-              << std::chrono::duration_cast<std::chrono::nanoseconds>(finish - start).count() / n_loops << "ns\n";
+              << timer.Elapsed<nanoseconds>() / n_loops << " ns\n";
 
     // Using automatic adjoint differentiation
-    start = std::chrono::high_resolution_clock::now();
+    timer.Reset();
     Number_ y;
     Vector_<Number_> x(num_param);
     for (size_t i = 0; i < n_loops; ++i) {
@@ -74,12 +73,11 @@ int main() {
         cout << "AAD a" << i << " = "
              << setprecision(9) << x[i].Adjoint() << endl;
     }
-    finish = std::chrono::high_resolution_clock::now();
     std::cout << "AAD aprox. time: "
-              << std::chrono::duration_cast<std::chrono::nanoseconds>(finish - start).count() / n_loops << "ns\n";
+              << timer.Elapsed<nanoseconds>() / n_loops << " ns\n";
 
     // Using finite difference
-    start = std::chrono::high_resolution_clock::now();
+    timer.Reset();
     Vector_<> ret_value(num_param);
     parameters = base_value;
     cout << "y: " << setprecision(9) << f(parameters) << endl;
@@ -89,9 +87,8 @@ int main() {
         cout << "Finite difference a" << i << " = "
              << setprecision(9) << ret_value[i] << endl;
     }
-    finish = std::chrono::high_resolution_clock::now();
     std::cout << "Finite difference aprox. time: "
-              << std::chrono::duration_cast<std::chrono::nanoseconds>(finish - start).count() / n_loops << "ns\n";
+              << timer.Elapsed<nanoseconds>() / n_loops << " ns\n";
 
     return 0;
 }

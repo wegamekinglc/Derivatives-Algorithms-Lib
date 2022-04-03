@@ -6,14 +6,16 @@
 
 namespace Dal::Script {
         void Debugger_::Debug(const Node_& node, const String_& nodeId) {
-            prefix_ += "\t";
-            for (auto it = node.arguments_.rbegin(); it != node.arguments_.rend(); ++it)
-                (*it)->AcceptVisitor(this);
+            prefix_ += " ";
+            bool isEmpty = node.arguments_.empty();
+            if (!isEmpty)
+                for (auto it = node.arguments_.rbegin(); it != node.arguments_.rend(); ++it)
+                    (*it)->AcceptVisitor(this);
 
             prefix_.pop_back();
 
             String_ str(prefix_ + nodeId);
-            if (!node.arguments_.empty()) {
+            if (!isEmpty) {
                 str += "(\n";
                 str += stack_.Top();
                 stack_.Pop();
