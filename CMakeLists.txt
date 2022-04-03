@@ -108,6 +108,6 @@ include(Platform)
 INCLUDE_DIRECTORIES(${CMAKE_SOURCE_DIR})
 
 add_subdirectory(dal)
-#add_subdirectory(examples)
-#add_subdirectory(tests)
+add_subdirectory(examples)
+add_subdirectory(tests)
 add_subdirectory(public)
