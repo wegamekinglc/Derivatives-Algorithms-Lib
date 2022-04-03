@@ -29,21 +29,21 @@ const char* Ccy_::String() const {
         return 0;
         case Value_::USD:
         return "USD";
-	case Value_::EUR:
+    case Value_::EUR:
         return "EUR";
-	case Value_::GBP:
+    case Value_::GBP:
         return "GBP";
-	case Value_::JPY:
+    case Value_::JPY:
         return "JPY";
-	case Value_::AUD:
+    case Value_::AUD:
         return "AUD";
-	case Value_::CHF:
+    case Value_::CHF:
         return "CHF";
-	case Value_::CAD:
+    case Value_::CAD:
         return "CAD";
-	case Value_::CNY:
+    case Value_::CNY:
         return "CNY";
-	    
+        
     }}
 
 struct ReadStringCcy_
@@ -58,28 +58,28 @@ struct ReadStringCcy_
         { ret_val = false; }
         
 	else if (String::Equivalent(src, "USD"))
-		*val = Ccy_::Value_::USD;
+        *val = Ccy_::Value_::USD;
 
 	else if (String::Equivalent(src, "EUR"))
-		*val = Ccy_::Value_::EUR;
+        *val = Ccy_::Value_::EUR;
 
 	else if (String::Equivalent(src, "GBP"))
-		*val = Ccy_::Value_::GBP;
+        *val = Ccy_::Value_::GBP;
 
 	else if (String::Equivalent(src, "JPY"))
-		*val = Ccy_::Value_::JPY;
+        *val = Ccy_::Value_::JPY;
 
 	else if (String::Equivalent(src, "AUD"))
-		*val = Ccy_::Value_::AUD;
+        *val = Ccy_::Value_::AUD;
 
 	else if (String::Equivalent(src, "CHF"))
-		*val = Ccy_::Value_::CHF;
+        *val = Ccy_::Value_::CHF;
 
 	else if (String::Equivalent(src, "CAD"))
-		*val = Ccy_::Value_::CAD;
+        *val = Ccy_::Value_::CAD;
 
 	else if (String::Equivalent(src, "CNY"))
-		*val = Ccy_::Value_::CNY;
+        *val = Ccy_::Value_::CNY;
         else
             ret_val = false;
         return ret_val;

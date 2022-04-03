@@ -25,13 +25,13 @@ const char* SpecialDay_::String() const {
         return 0;
         case Value_::IMM:
         return "IMM";
-	case Value_::IMM1:
+    case Value_::IMM1:
         return "IMM1";
-	case Value_::CDS:
+    case Value_::CDS:
         return "CDS";
-	case Value_::EOM:
+    case Value_::EOM:
         return "EOM";
-	    
+        
     }}
 
 struct ReadStringSpecialDay_
@@ -46,26 +46,26 @@ struct ReadStringSpecialDay_
         { ret_val = false; }
         
 	else if (String::Equivalent(src, "IMM"))
-		*val = SpecialDay_::Value_::IMM;
+        *val = SpecialDay_::Value_::IMM;
 	else if (String::Equivalent(src, "IMM3"))
-		*val = SpecialDay_::Value_::IMM;
+        *val = SpecialDay_::Value_::IMM;
 	else if (String::Equivalent(src, "IMMQUARTERLY"))
-		*val = SpecialDay_::Value_::IMM;
+        *val = SpecialDay_::Value_::IMM;
 
 	else if (String::Equivalent(src, "IMM1"))
-		*val = SpecialDay_::Value_::IMM1;
+        *val = SpecialDay_::Value_::IMM1;
 	else if (String::Equivalent(src, "IMMMONTHLY"))
-		*val = SpecialDay_::Value_::IMM1;
+        *val = SpecialDay_::Value_::IMM1;
 
 	else if (String::Equivalent(src, "CDS"))
-		*val = SpecialDay_::Value_::CDS;
+        *val = SpecialDay_::Value_::CDS;
 	else if (String::Equivalent(src, "CDS3"))
-		*val = SpecialDay_::Value_::CDS;
+        *val = SpecialDay_::Value_::CDS;
 	else if (String::Equivalent(src, "CDSQUARTERLY"))
-		*val = SpecialDay_::Value_::CDS;
+        *val = SpecialDay_::Value_::CDS;
 
 	else if (String::Equivalent(src, "EOM"))
-		*val = SpecialDay_::Value_::EOM;
+        *val = SpecialDay_::Value_::EOM;
         else
             ret_val = false;
         return ret_val;

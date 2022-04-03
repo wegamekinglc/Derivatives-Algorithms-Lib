@@ -42,7 +42,7 @@ Vector_<DayBasis_> DayBasisListAll()
 		retval.emplace_back("ACT_360");
 		retval.emplace_back("ACT_ACT");
 		retval.emplace_back("BOND");
-		for (const auto& r : retval)
+        for (const auto& r : retval)
             exists.insert(r.String());
         auto more = TheDayBasisExtensions();
         for (auto e : more)
@@ -69,15 +69,15 @@ const char* DayBasis_::String() const {
         return 0;
         case Value_::ACT_365F:
         return "ACT_365F";
-	case Value_::ACT_365L:
+    case Value_::ACT_365L:
         return "ACT_365L";
-	case Value_::ACT_360:
+    case Value_::ACT_360:
         return "ACT_360";
-	case Value_::ACT_ACT:
+    case Value_::ACT_ACT:
         return "ACT_ACT";
-	case Value_::BOND:
+    case Value_::BOND:
         return "BOND";
-	    case Value_::_EXTENSION:
+        case Value_::_EXTENSION:
         return other_->String();
     }}
 
@@ -93,45 +93,45 @@ struct ReadStringDayBasis_
         { ret_val = false; }
         
 	else if (String::Equivalent(src, "ACT365F"))
-		*val = DayBasis_::Value_::ACT_365F;
+        *val = DayBasis_::Value_::ACT_365F;
 	else if (String::Equivalent(src, "ACT/365F"))
-		*val = DayBasis_::Value_::ACT_365F;
+        *val = DayBasis_::Value_::ACT_365F;
 	else if (String::Equivalent(src, "ACT365FIXED"))
-		*val = DayBasis_::Value_::ACT_365F;
+        *val = DayBasis_::Value_::ACT_365F;
 	else if (String::Equivalent(src, "ACT/365FIXED"))
-		*val = DayBasis_::Value_::ACT_365F;
+        *val = DayBasis_::Value_::ACT_365F;
 
 	else if (String::Equivalent(src, "ACT365L"))
-		*val = DayBasis_::Value_::ACT_365L;
+        *val = DayBasis_::Value_::ACT_365L;
 	else if (String::Equivalent(src, "ACT/365L"))
-		*val = DayBasis_::Value_::ACT_365L;
+        *val = DayBasis_::Value_::ACT_365L;
 	else if (String::Equivalent(src, "ISMAYEAR"))
-		*val = DayBasis_::Value_::ACT_365L;
+        *val = DayBasis_::Value_::ACT_365L;
 
 	else if (String::Equivalent(src, "ACT360"))
-		*val = DayBasis_::Value_::ACT_360;
+        *val = DayBasis_::Value_::ACT_360;
 	else if (String::Equivalent(src, "ACT/360"))
-		*val = DayBasis_::Value_::ACT_360;
+        *val = DayBasis_::Value_::ACT_360;
 	else if (String::Equivalent(src, "MONEY"))
-		*val = DayBasis_::Value_::ACT_360;
+        *val = DayBasis_::Value_::ACT_360;
 	else if (String::Equivalent(src, "ACTUAL/360"))
-		*val = DayBasis_::Value_::ACT_360;
+        *val = DayBasis_::Value_::ACT_360;
 
 	else if (String::Equivalent(src, "ACTACT"))
-		*val = DayBasis_::Value_::ACT_ACT;
+        *val = DayBasis_::Value_::ACT_ACT;
 	else if (String::Equivalent(src, "ACT/ACT"))
-		*val = DayBasis_::Value_::ACT_ACT;
+        *val = DayBasis_::Value_::ACT_ACT;
 	else if (String::Equivalent(src, "ACTUAL/ACTUAL"))
-		*val = DayBasis_::Value_::ACT_ACT;
+        *val = DayBasis_::Value_::ACT_ACT;
 
 	else if (String::Equivalent(src, "BOND"))
-		*val = DayBasis_::Value_::BOND;
+        *val = DayBasis_::Value_::BOND;
 	else if (String::Equivalent(src, "30360"))
-		*val = DayBasis_::Value_::BOND;
+        *val = DayBasis_::Value_::BOND;
 	else if (String::Equivalent(src, "30/360"))
-		*val = DayBasis_::Value_::BOND;
+        *val = DayBasis_::Value_::BOND;
 	else if (String::Equivalent(src, "30360US"))
-		*val = DayBasis_::Value_::BOND;
+        *val = DayBasis_::Value_::BOND;
         else
             ret_val = false;
         return ret_val;
@@ -150,7 +150,7 @@ DayBasis_::DayBasis_(const String_& src) {
         {
             val_ = Value_::_EXTENSION;
             other_ = pe->second;
-			   return;
+               return;
         }
     }
 
@@ -160,10 +160,10 @@ DayBasis_::DayBasis_(const String_& src) {
 void DayBasis_RejectDuplicate(const String_& test)	// check added extensions to ensure they are not already used
 {
     static const ReadStringDayBasis_ READ_FIXED;    // allows precomputation for speed, in constructor
-	DayBasis_::Value_ val;
-	NOTICE(test);
-	REQUIRE(!READ_FIXED(test, &val), "Attempt to change meaning of fixed DayBasis string");
-	REQUIRE(!TheDayBasisExtensions().count(String::Condensed(test)), "Attempt to change meaning of DayBasis string");
+    DayBasis_::Value_ val;
+    NOTICE(test);
+    REQUIRE(!READ_FIXED(test, &val), "Attempt to change meaning of fixed DayBasis string");
+    REQUIRE(!TheDayBasisExtensions().count(String::Condensed(test)), "Attempt to change meaning of DayBasis string");
 }
 
 

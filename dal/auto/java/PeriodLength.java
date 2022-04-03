@@ -3,12 +3,12 @@ package types;
 
 public class PeriodLength
 {
-	public enum Value
-	{
+    public enum Value
+    {
 		ANNUAL,
 		SEMIANNUAL,
 		QUARTERLY,
 		MONTHLY,
-		N_VALUES
-	}
+        N_VALUES
+    }
 }

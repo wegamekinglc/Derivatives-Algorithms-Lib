@@ -3,8 +3,8 @@ package types;
 
 public class Ccy
 {
-	public enum Value
-	{
+    public enum Value
+    {
 		USD,
 		EUR,
 		GBP,
@@ -13,6 +13,6 @@ public class Ccy
 		CHF,
 		CAD,
 		CNY,
-		N_VALUES
-	}
+        N_VALUES
+    }
 }

@@ -23,9 +23,9 @@ const char* Clearer_::String() const {
         return 0;
         case Value_::CME:
         return "CME";
-	case Value_::LCH:
+    case Value_::LCH:
         return "LCH";
-	    
+        
     }}
 
 struct ReadStringClearer_
@@ -40,10 +40,10 @@ struct ReadStringClearer_
         { ret_val = false; }
         
 	else if (String::Equivalent(src, "CME"))
-		*val = Clearer_::Value_::CME;
+        *val = Clearer_::Value_::CME;
 
 	else if (String::Equivalent(src, "LCH"))
-		*val = Clearer_::Value_::LCH;
+        *val = Clearer_::Value_::LCH;
         else
             ret_val = false;
         return ret_val;

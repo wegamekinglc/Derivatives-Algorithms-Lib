@@ -3,11 +3,11 @@ package types;
 
 public class CollateralType
 {
-	public enum Value
-	{
+    public enum Value
+    {
 		OIS,
 		GC,
 		NONE,
-		N_VALUES
-	}
+        N_VALUES
+    }
 }

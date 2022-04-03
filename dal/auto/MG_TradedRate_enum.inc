@@ -26,15 +26,15 @@ const char* TradedRate_::String() const {
         return 0;
         case Value_::LIBOR_3M_CME:
         return "LIBOR_3M_CME";
-	case Value_::LIBOR_3M_LCH:
+    case Value_::LIBOR_3M_LCH:
         return "LIBOR_3M_LCH";
-	case Value_::LIBOR_3M_FUT:
+    case Value_::LIBOR_3M_FUT:
         return "LIBOR_3M_FUT";
-	case Value_::LIBOR_6M_CME:
+    case Value_::LIBOR_6M_CME:
         return "LIBOR_6M_CME";
-	case Value_::LIBOR_6M_LCH:
+    case Value_::LIBOR_6M_LCH:
         return "LIBOR_6M_LCH";
-	    
+        
     }}
 
 struct ReadStringTradedRate_
@@ -49,19 +49,19 @@ struct ReadStringTradedRate_
         { ret_val = false; }
         
 	else if (String::Equivalent(src, "LIBOR3MCME"))
-		*val = TradedRate_::Value_::LIBOR_3M_CME;
+        *val = TradedRate_::Value_::LIBOR_3M_CME;
 
 	else if (String::Equivalent(src, "LIBOR3MLCH"))
-		*val = TradedRate_::Value_::LIBOR_3M_LCH;
+        *val = TradedRate_::Value_::LIBOR_3M_LCH;
 
 	else if (String::Equivalent(src, "LIBOR3MFUT"))
-		*val = TradedRate_::Value_::LIBOR_3M_FUT;
+        *val = TradedRate_::Value_::LIBOR_3M_FUT;
 
 	else if (String::Equivalent(src, "LIBOR6MCME"))
-		*val = TradedRate_::Value_::LIBOR_6M_CME;
+        *val = TradedRate_::Value_::LIBOR_6M_CME;
 
 	else if (String::Equivalent(src, "LIBOR6MLCH"))
-		*val = TradedRate_::Value_::LIBOR_6M_LCH;
+        *val = TradedRate_::Value_::LIBOR_6M_LCH;
         else
             ret_val = false;
         return ret_val;

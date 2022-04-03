@@ -3,12 +3,12 @@ package types;
 
 public class DateStepSize
 {
-	public enum Value
-	{
+    public enum Value
+    {
 		Y,
 		M,
 		BD,
 		CD,
-		N_VALUES
-	}
+        N_VALUES
+    }
 }

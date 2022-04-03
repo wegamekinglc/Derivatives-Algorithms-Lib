@@ -25,13 +25,13 @@ const char* PeriodLength_::String() const {
         return 0;
         case Value_::ANNUAL:
         return "ANNUAL";
-	case Value_::SEMIANNUAL:
+    case Value_::SEMIANNUAL:
         return "SEMIANNUAL";
-	case Value_::QUARTERLY:
+    case Value_::QUARTERLY:
         return "QUARTERLY";
-	case Value_::MONTHLY:
+    case Value_::MONTHLY:
         return "MONTHLY";
-	    
+        
     }}
 
 struct ReadStringPeriodLength_
@@ -46,26 +46,26 @@ struct ReadStringPeriodLength_
         { ret_val = false; }
         
 	else if (String::Equivalent(src, "ANNUAL"))
-		*val = PeriodLength_::Value_::ANNUAL;
+        *val = PeriodLength_::Value_::ANNUAL;
 	else if (String::Equivalent(src, "12M"))
-		*val = PeriodLength_::Value_::ANNUAL;
+        *val = PeriodLength_::Value_::ANNUAL;
 
 	else if (String::Equivalent(src, "SEMIANNUAL"))
-		*val = PeriodLength_::Value_::SEMIANNUAL;
+        *val = PeriodLength_::Value_::SEMIANNUAL;
 	else if (String::Equivalent(src, "SEMI"))
-		*val = PeriodLength_::Value_::SEMIANNUAL;
+        *val = PeriodLength_::Value_::SEMIANNUAL;
 	else if (String::Equivalent(src, "6M"))
-		*val = PeriodLength_::Value_::SEMIANNUAL;
+        *val = PeriodLength_::Value_::SEMIANNUAL;
 
 	else if (String::Equivalent(src, "QUARTERLY"))
-		*val = PeriodLength_::Value_::QUARTERLY;
+        *val = PeriodLength_::Value_::QUARTERLY;
 	else if (String::Equivalent(src, "3M"))
-		*val = PeriodLength_::Value_::QUARTERLY;
+        *val = PeriodLength_::Value_::QUARTERLY;
 
 	else if (String::Equivalent(src, "MONTHLY"))
-		*val = PeriodLength_::Value_::MONTHLY;
+        *val = PeriodLength_::Value_::MONTHLY;
 	else if (String::Equivalent(src, "1M"))
-		*val = PeriodLength_::Value_::MONTHLY;
+        *val = PeriodLength_::Value_::MONTHLY;
         else
             ret_val = false;
         return ret_val;

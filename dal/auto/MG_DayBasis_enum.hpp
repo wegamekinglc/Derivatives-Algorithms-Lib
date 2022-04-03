@@ -21,7 +21,7 @@ public:
     public:
         virtual ~Extension_();
         // Must implement DayBasis_ interface
-	    virtual const char* String() const = 0;
+        virtual const char* String() const = 0;
 		virtual double operator()(const Date_& start_date, const Date_& end_date, const DayBasis::Context_* context) const = 0;
     };
 private:
@@ -32,7 +32,7 @@ private:
         REQUIRE(val < Value_::_EXTENSION, "val is not valid");
     }
     DayBasis_(const Handle_<Extension_>& imp) : val_(Value_::_EXTENSION), other_(imp) {assert(imp.get());}
-	friend void DayBasis_RejectDuplicate(const String_&);
+    friend void DayBasis_RejectDuplicate(const String_&);
        friend bool operator==(const DayBasis_& lhs, const DayBasis_& rhs);
     friend struct ReadStringDayBasis_;
     friend Vector_<DayBasis_> DayBasisListAll();

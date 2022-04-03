@@ -24,11 +24,11 @@ const char* CollateralType_::String() const {
         return 0;
         case Value_::OIS:
         return "OIS";
-	case Value_::GC:
+    case Value_::GC:
         return "GC";
-	case Value_::NONE:
+    case Value_::NONE:
         return "NONE";
-	    
+        
     }}
 
 struct ReadStringCollateralType_
@@ -43,13 +43,13 @@ struct ReadStringCollateralType_
         { ret_val = false; }
         
 	else if (String::Equivalent(src, "OIS"))
-		*val = CollateralType_::Value_::OIS;
+        *val = CollateralType_::Value_::OIS;
 
 	else if (String::Equivalent(src, "GC"))
-		*val = CollateralType_::Value_::GC;
+        *val = CollateralType_::Value_::GC;
 
 	else if (String::Equivalent(src, "NONE"))
-		*val = CollateralType_::Value_::NONE;
+        *val = CollateralType_::Value_::NONE;
         else
             ret_val = false;
         return ret_val;
