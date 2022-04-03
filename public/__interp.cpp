@@ -2,7 +2,7 @@
 // Created by wegam on 2022/4/3.
 //
 
-#include <dal/public/__platform.hpp>
+#include <public/__platform.hpp>
 #include <dal/math/interp/interp.hpp>
 
 /*IF--------------------------------------------------------------------------
@@ -29,6 +29,6 @@ namespace Dal {
         }
     }
 #ifdef _WIN32
-#include <dal/auto/MG_Interp1_New_Linear_public.inc>
+#include <public/auto/MG_Interp1_New_Linear_public.inc>
 #endif
 }

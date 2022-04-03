@@ -83,3 +83,6 @@ namespace Dal {
 #define LENGTH(a) (sizeof(a) / sizeof(a[0]))
 
 #define VALUE_TYPE_OF(expr) std::remove_const_t<std::remove_reference_t<decltype(expr)>>
+#define XXRUN_AT_LOAD(c, u1, u2) namespace{struct __run##u1##u2{__run##u1##u2(){c;}}; static const __run##u1##u2 runAtLoad##u1##u2;}	// can't consume a semicolon after the macro, because we need to wrap in a local namespace
+#define XRUN_AT_LOAD(c, u1, u2) XXRUN_AT_LOAD(c, u1, u2)
+#define RUN_AT_LOAD(code) XRUN_AT_LOAD(code, __COUNTER__, __LINE__)

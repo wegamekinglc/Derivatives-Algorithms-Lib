@@ -3,8 +3,7 @@
 //
 
 #include <dal/platform/platform.hpp>
-#include <dal/public/__platform.hpp>
-
+#include <public/__platform.hpp>
 
 /*IF--------------------------------------------------------------------------
 public Repository_Erase
@@ -71,8 +70,8 @@ namespace Dal {
     } // namespace
 
 #ifdef _WIN32
-#include <dal/auto/MG_Repository_Erase_public.inc>
-#include <dal/auto/MG_Repository_Find_public.inc>
-#include <dal/auto/MG_Repository_Size_public.inc>
+#include <public/auto/MG_Repository_Erase_public.inc>
+#include <public/auto/MG_Repository_Find_public.inc>
+#include <public/auto/MG_Repository_Size_public.inc>
 #endif
 } // namespace Dal

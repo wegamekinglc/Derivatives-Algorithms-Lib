@@ -118,6 +118,7 @@ namespace Dal {
                 return String_();
             return std::accumulate(++vals.begin(), vals.end(), *(vals.begin()), Joiner_(sep, skip_empty));
         }
+        String_ Uniquifier(const void* p);
     } // namespace String
 
     inline String_ ToString(int i) { return String::FromInt(i); }

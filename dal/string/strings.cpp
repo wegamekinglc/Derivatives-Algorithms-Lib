@@ -118,5 +118,19 @@ namespace Dal {
             }
             return String_(ret_val + '1');
         }
+
+        String_ Uniquifier(const void* p) {
+            unsigned int ii = reinterpret_cast<unsigned int>(p);
+            String_ retval;
+            while (ii > 0)
+            {
+                const int c = ii % 36;
+                retval.push_back(static_cast<char>(c > 9 ? (c - 10) + 'a' : c + '0'));
+                ii /= 36;
+            }
+            return retval;
+        }
     } // namespace String
+
+
 } // namespace Dal

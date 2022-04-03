@@ -20,7 +20,7 @@
 #include <dal/math/matrix/matrixs.hpp>
 #include <dal/platform/optionals.hpp>
 #include <dal/storage/storable.hpp>
-#include <dal/public/_reader.hpp>
+#include <public/_reader.hpp>
 #include <dal/utilities/dictionary.hpp>
 
 #define XL_CALLBACK Excel12v

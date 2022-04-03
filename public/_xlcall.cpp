@@ -15,10 +15,10 @@
 #ifdef _WIN32
 
 #ifndef _WINDOWS_
-#include <windows.h>
+#include <Windows.h>
 #endif
 
-#include <dal/public/_xlcall.hpp>
+#include <public/_xlcall.hpp>
 
 /*
 ** Excel 12 entry points backwards compatible with Excel 11

@@ -8,6 +8,10 @@ namespace {
 
 Vector_<RepositoryErase_> RepositoryEraseListAll() {
    if (TheRepositoryEraseList().empty()) {
+        TheRepositoryEraseList().emplace_back(RepositoryErase_::Value_::NONE);
+        TheRepositoryEraseList().emplace_back(RepositoryErase_::Value_::NAME_NONEMPTY);
+        TheRepositoryEraseList().emplace_back(RepositoryErase_::Value_::NAME);
+        TheRepositoryEraseList().emplace_back(RepositoryErase_::Value_::TYPE);
    }
    return TheRepositoryEraseList();
 }
@@ -19,7 +23,15 @@ const char* RepositoryErase_::String() const {
     default:
     case Value_::_NOT_SET:
         return 0;
-            
+        case Value_::NONE:
+        return "NONE";
+    case Value_::NAME_NONEMPTY:
+        return "NAME_NONEMPTY";
+    case Value_::NAME:
+        return "NAME";
+    case Value_::TYPE:
+        return "TYPE";
+        
     }}
 
 struct ReadStringRepositoryErase_
@@ -32,7 +44,19 @@ struct ReadStringRepositoryErase_
         if (0);	// otiose code to allow regular else-if structure
         else if (src.empty())
         { ret_val = false; }
-                else
+        
+	else if (String::Equivalent(src, "NONE"))
+        *val = RepositoryErase_::Value_::NONE;
+
+	else if (String::Equivalent(src, "NAMENONEMPTY"))
+        *val = RepositoryErase_::Value_::NAME_NONEMPTY;
+
+	else if (String::Equivalent(src, "NAME"))
+        *val = RepositoryErase_::Value_::NAME;
+
+	else if (String::Equivalent(src, "TYPE"))
+        *val = RepositoryErase_::Value_::TYPE;
+        else
             ret_val = false;
         return ret_val;
     }

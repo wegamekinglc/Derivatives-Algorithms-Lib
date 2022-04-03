@@ -10,6 +10,13 @@
 #include <dal/string/strings.hpp>
 #include <dal/utilities/exceptions.hpp>
 
+/*IF--------------------------------------------------------------------------
+enumeration RNGType
+    random number generator types
+alternative IRN ShuffledIRN
+alternative MRG32 MRG32k32a
+-IF-------------------------------------------------------------------------*/
+
 namespace Dal {
     class PseudoRandom_ : public Random_ {
         bool anti_ = false;
@@ -28,13 +35,6 @@ namespace Dal {
         [[nodiscard]] size_t NDim() const override { return cache_.size(); }
         [[nodiscard]] virtual PseudoRandom_* Branch(int i_child) const = 0;
     };
-
-    /*IF--------------------------------------------------------------------------
-    enumeration RNGType
-        random number generator types
-    alternative IRN ShuffledIRN
-    alternative MRG32 MRG32k32a
-    -IF-------------------------------------------------------------------------*/
 
 #include <dal/auto/MG_RNGType_enum.hpp>
     PseudoRandom_* New(const RNGType_& type, int seed, size_t n_dim = 1);

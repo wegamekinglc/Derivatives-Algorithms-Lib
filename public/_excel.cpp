@@ -4,13 +4,13 @@
 #include <algorithm>
 #include <dal/platform/platform.hpp>
 #include <dal/platform/strict.hpp>
-#include <dal/public/_excel.hpp>
-#include <dal/public/_xlcall.hpp>
+#include <public/_excel.hpp>
+#include <public/_xlcall.hpp>
 #include <functional>
 #include <deque>
 
 #include <dal/math/cellutils.hpp>
-#include <dal/public/_repository.hpp>
+#include <public/_repository.hpp>
 #include <dal/utilities/exceptions.hpp>
 #include <dal/utilities/numerics.hpp>
 
@@ -79,13 +79,13 @@
 #include <map>
 #include <mutex>
 #include <regex>
-#include <windows.h>
+#include <Windows.h>
 
-#include <dal/math/matrix/matrixutils.hpp>
-#include <dal/platform/optionals.hpp>
-#include <dal/string/strings.hpp>
-#include <dal/utilities/algorithms.hpp>
-#include <dal/utilities/dictionary.hpp>
+#include "dal/math/matrix/matrixutils.hpp"
+#include "dal/platform/optionals.hpp"
+#include "dal/string/strings.hpp"
+#include "dal/utilities/algorithms.hpp"
+#include "dal/utilities/dictionary.hpp"
 
 namespace Dal {
     using Matrix::M1x1;
@@ -1529,8 +1529,8 @@ func_with_args is string
         }
     } // namespace
 
-#include <dal/auto/MG_Format_public.inc>
-#include <dal/auto/MG_PasteWithArgs_public.inc>
+#include <public/auto/MG_Format_public.inc>
+#include <public/auto/MG_PasteWithArgs_public.inc>
 }
 
 #endif

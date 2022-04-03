@@ -14,7 +14,7 @@ TEST(HostTest, LocalTimeTest) {
     int minute;
     int second;
 
-    Dal::Host::localTime(&year, &month, &day, &hour, &minute, &second);
+    Dal::Host::LocalTime(&year, &month, &day, &hour, &minute, &second);
 
     time_t t = time(nullptr);
     struct tm now = {0, 0, 0, 0, 0, 0, 0, 0, 0};

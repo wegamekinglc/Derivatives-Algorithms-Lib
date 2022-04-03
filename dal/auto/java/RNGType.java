@@ -3,10 +3,10 @@ package types;
 
 public class RNGType
 {
-	public enum Value
-	{
+    public enum Value
+    {
 		IRN,
 		MRG32,
-		N_VALUES
-	}
+        N_VALUES
+    }
 }

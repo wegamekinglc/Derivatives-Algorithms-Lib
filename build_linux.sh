@@ -16,6 +16,7 @@ fi
 
 export MACHINIST_TEMPLATE_DIR=$PWD/machinist2/template/
 ./machinist2/bin/Machinist -c config/dal.ifc -l config/dal.mgl -d ./dal
+./machinist2/bin/Machinist -c config/dal.ifc -l config/dal.mgl -d ./public
 
 if [ $? -ne 0 ]; then
   exit 1

@@ -13,23 +13,23 @@
 
 /*IF--------------------------------------------------------------------------
 enumeration RepositoryErase
-help: Controls what is erased when a new tag is added to the repository
-switchable:1
-alternative:NONE
-        help:Erase nothing, just add
-alternative:NAME_NONEMPTY
-        default:1
-        help:Erase object of same type and name, iff name is nonempty
-alternative:NAME
-        help:Erase object of same type and name
-alternative:TYPE
-        help:Erase all objects of the same type
+    help: Controls what is erased when a new tag is added to the repository
+switchable
+alternative NONE
+    help: Erase nothing, just add
+alternative NAME_NONEMPTY
+    default:1
+    help: Erase object of same type and name, iff name is nonempty
+alternative NAME
+    help: Erase object of same type and name
+alternative TYPE
+    help: Erase all objects of the same type
 -IF-------------------------------------------------------------------------*/
 
 namespace Dal {
     class Storable_;
 
-#include <dal/auto/MG_RepositoryErase_enum.hpp>
+#include <public/auto/MG_RepositoryErase_enum.hpp>
 
     class ObjectAccess_ : public Environment::Entry_ {
         String_ AddBase(const Handle_<Storable_>& object, const RepositoryErase_& erase) const;

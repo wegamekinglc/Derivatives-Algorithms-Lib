@@ -23,9 +23,9 @@ const char* RNGType_::String() const {
         return 0;
         case Value_::IRN:
         return "IRN";
-	case Value_::MRG32:
+    case Value_::MRG32:
         return "MRG32";
-	    
+        
     }}
 
 struct ReadStringRNGType_
@@ -40,14 +40,14 @@ struct ReadStringRNGType_
         { ret_val = false; }
         
 	else if (String::Equivalent(src, "IRN"))
-		*val = RNGType_::Value_::IRN;
+        *val = RNGType_::Value_::IRN;
 	else if (String::Equivalent(src, "SHUFFLEDIRN"))
-		*val = RNGType_::Value_::IRN;
+        *val = RNGType_::Value_::IRN;
 
 	else if (String::Equivalent(src, "MRG32"))
-		*val = RNGType_::Value_::MRG32;
+        *val = RNGType_::Value_::MRG32;
 	else if (String::Equivalent(src, "MRG32K32A"))
-		*val = RNGType_::Value_::MRG32;
+        *val = RNGType_::Value_::MRG32;
         else
             ret_val = false;
         return ret_val;

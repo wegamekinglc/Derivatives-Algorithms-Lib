@@ -7,6 +7,6 @@
 #include <dal/platform/platform.hpp>
 #include <dal/utilities/exceptions.hpp>
 #include <dal/utilities/environment.hpp>
-#include <dal/public/_excel.hpp>
-#include <dal/public/_reader.hpp>
-#include <dal/public/_repository.hpp>
+#include <public/_excel.hpp>
+#include <public/_reader.hpp>
+#include <public/_repository.hpp>
