@@ -92,7 +92,7 @@ namespace Dal {
             Interp::Boundary_ left(3.0, 0), right(3.0, 0);
             if (!boundary_order.empty()) {
                 left.order_ = boundary_order.front();
-                right.order_ = boundary_value.back();
+                right.order_ = boundary_order.back();
                 if (!boundary_value.empty()) {
                     left.value_ = boundary_value.front();
                     right.value_ = boundary_value.back();
