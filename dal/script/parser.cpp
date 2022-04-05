@@ -83,12 +83,43 @@ namespace Dal::Script {
             ++cur;
             top->arguments_ = ParseFuncArg(cur, end);
             REQUIRE2(top->arguments_.size() >= minArg && top->arguments_.size() <= maxArg,
-                     String_("function ") + func + ": wrong number of arguments",
-                     ScriptError_);
+                     String_("function ") + func + ": wrong number of arguments", ScriptError_);
             return top;
         }
 
         // When everything else fails, we have a variable
         return ParseVar(cur);
+    }
+
+    std::unique_ptr<Node_> Parser_::ParseConst(TokIt_& cur) {
+        double v = String::ToDouble(*cur);
+        auto top = MakeNode<NodeConst_>(v);
+        ++cur;
+        return move(top);
+    }
+
+    std::unique_ptr<Node_> Parser_::ParseVar(TokIt_& cur) {
+        REQUIRE2((*cur)[0] >= 'A' && (*cur)[0] <= 'Z', String_("Variable name ") + *cur + " is invalid", ScriptError_);
+        auto top = MakeNode<NodeVar_>(*cur);
+        ++cur;
+        return move(top);
+    }
+
+    Vector_<std::unique_ptr<Node_>> Parser_::ParseFuncArg(TokIt_& cur, const TokIt_& end) {
+        REQUIRE2((*cur)[0] == '(', "No opening ( following function name", ScriptError_);
+        TokIt_ closeIt = FindMatch<'(', ')'>(cur, end);
+
+        //	Parse expressions between parentheses
+        Vector_<std::unique_ptr<Node_>> args;
+        ++cur;
+        while (cur != closeIt) {
+            args.push_back(ParseExpr(cur, end));
+            if ((*cur)[0] == ',')
+                ++cur;
+            else if (cur != closeIt)
+                THROW2("Arguments must be separated by commas", ScriptError_);
+        }
+        cur = ++closeIt;
+        return args;
     }
 } // namespace Dal::Script
