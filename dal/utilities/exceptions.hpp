@@ -53,6 +53,7 @@ namespace Dal {
 } // namespace Dal
 
 #define THROW(msg) throw Dal::Exception_(__FILE__, __LINE__, __func__, msg)
+#define THROW2(msg, exception_type) throw exception_type(__FILE__, __LINE__, __func__, msg)
 
 #ifndef NDEBUG
 #define ASSERT(cond, msg)                                                                                              \
@@ -63,11 +64,18 @@ namespace Dal {
 #else
 #define ASSERT(cond, msg)
 #endif
+
 #define REQUIRE(cond, msg)                                                                                             \
     if (cond)                                                                                                          \
         ;                                                                                                              \
     else                                                                                                               \
         THROW(msg)
+
+#define REQUIRE2(cond, msg, exception_type)                                                                                             \
+    if (cond)                                                                                                          \
+        ;                                                                                                              \
+    else                                                                                                               \
+        THROW2(msg, exception_type)
 #define ASSURE(cond, msg)                                                                                              \
     if (cond)                                                                                                          \
         ;                                                                                                              \
