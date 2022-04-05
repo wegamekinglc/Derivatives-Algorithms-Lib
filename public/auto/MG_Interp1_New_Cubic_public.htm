@@ -2,14 +2,14 @@
 <!DOCTYPE html>
 <html lang="en-US">
 <head>
-<title>Interp1_New_Linear</title>
+<title>Interp1_New_Cubic</title>
 <link href="tablecloth/tablecloth.css" rel="stylesheet" type="text/css" media="screen" />
 <link href="hbk.css" rel="stylesheet" type="text/css" media="screen" />
 <script type="text/javascript" src="tablecloth/tablecloth.js"></script>
 </head>
 <body>
-<h1>Interp1_New_Linear (in Excel: INTERP1.NEW.LINEAR)</h1>
-Create a linear interpolator
+<h1>Interp1_New_Cubic (in Excel: INTERP1.NEW.CUBIC)</h1>
+Create a cubic-spline interpolator
 
 <h2>Inputs:</h2>
 <table border="1" cellpadding="3">
@@ -18,6 +18,8 @@ Create a linear interpolator
 <tr><td>name</td><td>string</td><td></td><td>A name for the object being created</td></tr>
 <tr><td>x</td><td>vector of numbers</td><td></td><td>The x-values (abscissas)</td></tr>
 <tr><td>y</td><td>vector of numbers</td><td></td><td>The values of f(x) at each x</td></tr>
+<tr><td>boundary_order</td><td>vector of integers</td><td>yes</td><td>The order of the derivatives specified at the boundary (default is 3); can be a two-element vector of (left, right), or a single value for both</td></tr>
+<tr><td>boundary_value</td><td>vector of numbers</td><td>yes</td><td>The value of whichever derivative is specified at the boundary (default is 0.0); can be a two-element vector of (left, right), or a single number for bot</td></tr>
 
 </table>
 

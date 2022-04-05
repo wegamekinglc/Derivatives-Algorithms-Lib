@@ -40,7 +40,7 @@ struct XlRegister_Interp1_New_Linear_
     {
         Vector_<String_> argHelp;        
         argHelp.push_back("A name for the object being created");
-        argHelp.push_back("The x-values (abcissas)");
+        argHelp.push_back("The x-values (abscissas)");
         argHelp.push_back("The values of f(x) at each x");
         Excel::Register("Bones", "xl_Interp1_New_Linear", "INTERP1.NEW.LINEAR", "Create a linear interpolator", "QQQQ", "name,x,y", argHelp, false);
     }
