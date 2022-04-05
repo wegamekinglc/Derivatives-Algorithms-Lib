@@ -29,3 +29,34 @@ This is a project inspired by following books:
 At current stage, this codes repository is simply for prototyping and practice. Don't use them in serious situation.
 
 > Some codes are directly copied from Tom and Antoine's books.
+
+## Interface
+
+> **NOTE**: This part is only in infancy and should evolve quickly.
+
+We will give a public interface to show the functionality of this project.
+
+### Excel
+
+we have following data table
+
+| **x** 	  | **y** 	  |
+|------|------|
+| 1 	  | 10 	 |
+| 3 	  | 8 	  |
+| 5 	  | 6 	  |
+| 7 	  | 4 	  |
+| 9 	  | 2 	  |
+
+and we will use follow excel function to create a linear interpolator:
+
+```excel
+=INTERP1.NEW.LINEAR(E1,A2:A6,B2:B6)  # return a object string id, e.g. ~Interp1~my.interp~2F18E558
+```
+
+later we can use the interpolator:
+```excel
+=INTERP1.GET("~Interp1~my.interp~2F18E558", 6.5)  # will return 4.5
+```
+
+
