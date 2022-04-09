@@ -2,24 +2,24 @@
 <!DOCTYPE html>
 <html lang="en-US">
 <head>
-<title>Interp1_New_Cubic</title>
+<title>Interp1_New_Linear_Smoothed</title>
 <link href="tablecloth/tablecloth.css" rel="stylesheet" type="text/css" media="screen" />
 <link href="hbk.css" rel="stylesheet" type="text/css" media="screen" />
 <script type="text/javascript" src="tablecloth/tablecloth.js"></script>
 </head>
 <body>
-<h1>Interp1_New_Cubic (in Excel: INTERP1.NEW.CUBIC)</h1>
-Create a cubic-spline interpolator
+<h1>Interp1_New_Linear_Smoothed (in Excel: INTERP1.NEW.LINEAR.SMOOTHED)</h1>
+Create a linear interpolator
 
 <h2>Inputs:</h2>
 <table border="1" cellpadding="3">
 <tr><th>Name</th><th style="width:120px">Type</th><th>Optional?</th><th></th></tr>
 
 <tr><td>name</td><td>string</td><td></td><td>A name for the object being created</td></tr>
-<tr><td>x</td><td>vector of numbers</td><td></td><td>The x-values (abscissas)</td></tr>
+<tr><td>x</td><td>vector of numbers</td><td></td><td>The x-values (abcissas)</td></tr>
 <tr><td>y</td><td>vector of numbers</td><td></td><td>The values of f(x) at each x</td></tr>
-<tr><td>boundary_order</td><td>vector of integers</td><td>yes</td><td>(0, 3] The order of the derivatives specified at the boundary (default is 3); can be a two-element vector of (left, right), or a single value for both</td></tr>
-<tr><td>boundary_value</td><td>vector of numbers</td><td>yes</td><td>The value of whichever derivative is specified at the boundary (default is 0.0); can be a two-element vector of (left, right), or a single number for bot</td></tr>
+<tr><td>smoothing</td><td>number</td><td></td><td>The weight to put on smoothness of the interpolating function</td></tr>
+<tr><td>fit_weights</td><td>vector of numbers</td><td>yes</td><td>The weight to attach to accuracy of fit for each y_i; default is 1.0 for all</td></tr>
 
 </table>
 

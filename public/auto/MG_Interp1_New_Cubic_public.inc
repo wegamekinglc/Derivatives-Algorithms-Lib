@@ -20,7 +20,7 @@ extern "C" __declspec(dllexport) OPER_* xl_Interp1_New_Cubic
         argName = "boundary_order (input #4)";
         const Vector_<int> boundary_order = Excel::ToIntVector(xl_boundary_order, true);
       REQUIRE(boundary_order.size() <= 2, "Can only specify two boundary conditions");
-      REQUIRE(boundary_order.empty() || (boundary_order.front() > 0 && boundary_order.back() > 0 && boundary_order.front() <= 3 && boundary_order.back() <= 3), "Boundary order must be in the range (0, 3]");
+      REQUIRE(boundary_order.empty() || (boundary_order.front() > 0 && boundary_order.back() > 0 && boundary_order.front() <= 3 && boundary_order.back() <= 3), "Boundary order must be in the range");
         argName = "boundary_value (input #5)";
         const Vector_<double> boundary_value = Excel::ToDoubleVector(xl_boundary_value, true);
       REQUIRE(boundary_value.size() <= 2, "Can only specify two boundary conditions");
@@ -50,7 +50,7 @@ struct XlRegister_Interp1_New_Cubic_
         argHelp.push_back("A name for the object being created");
         argHelp.push_back("The x-values (abscissas)");
         argHelp.push_back("The values of f(x) at each x");
-        argHelp.push_back("The order of the derivatives specified at the boundary (default is 3); can be a two-element vector of (left, right), or a single value for both");
+        argHelp.push_back("(0, 3] The order of the derivatives specified at the boundary (default is 3); can be a two-element vector of (left, right), or a single value for both");
         argHelp.push_back("The value of whichever derivative is specified at the boundary (default is 0.0); can be a two-element vector of (left, right), or a single number for bot");
         Excel::Register("Bones", "xl_Interp1_New_Cubic", "INTERP1.NEW.CUBIC", "Create a cubic-spline interpolator", "QQQQQQ", "name,x,y,[boundary_order],[boundary_value]", argHelp, false);
     }
