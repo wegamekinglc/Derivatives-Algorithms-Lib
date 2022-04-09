@@ -57,11 +57,13 @@ if (NOT DEFINED Boost_USE_STATIC_RUNTIME)
 endif()
 
 FIND_PACKAGE(PythonInterp 3)
-FIND_PACKAGE(PythonLibs   3)
+FIND_PACKAGE(PythonLibs 3)
 
 IF(PYTHONINTERP_FOUND AND PYTHONLIBS_FOUND)
-    INCLUDE_DIRECTORIES(${PYTHON_INCLUDE_DIRS})
-    LINK_LIBRARIES(${PYTHON_LIBRARIES})
+    message("-- Python Include: ${PYTHON_INCLUDE_DIRS}")
+    message("-- Python Lib: ${PYTHON_LIBRARIES}")
+    include_directories(${PYTHON_INCLUDE_DIRS})
+    link_directories(${PYTHON_LIBRARIES})
 ENDIF()
 
 # Require C++11 or higher
@@ -113,7 +115,7 @@ set(DAL_HEX_VERSION ${PACKAGE_VERSION_HEX})
 
 include(Platform)
 
-INCLUDE_DIRECTORIES(${CMAKE_SOURCE_DIR})
+include_directories(${CMAKE_SOURCE_DIR})
 
 add_subdirectory(dal)
 add_subdirectory(public)
