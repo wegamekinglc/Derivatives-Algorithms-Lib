@@ -36,6 +36,12 @@ namespace Dal {
         }
 
         // copy/transform all matrix elements; these functions all take advantage of the known layout of matrix!
+        template <class E_> typename Matrix_<E_>::Row_::iterator BeginElements(Matrix_<E_>& m) {
+            return m.Row(0).begin();
+        }
+        template <class E_> typename Matrix_<E_>::ConstRow_::const_iterator BeginElements(const Matrix_<E_>& m) {
+            return m.Row(0).begin();
+        }
         template <class E_> typename Matrix_<E_>::Row_::iterator EndElements(Matrix_<E_>& m) {
             return m.Row(m.Empty() ? 0 : m.Rows() - 1).end();
         }
@@ -44,29 +50,29 @@ namespace Dal {
         }
 
         template <class E_, class Op_> void Transform(Matrix_<E_>* container, Op_ op) {
-            typename Matrix_<E_>::Row_::iterator b = container->Row(0).begin();
-            transform(b, EndElements(*container), b, op);
+            typename Matrix_<E_>::Row_::iterator b = BeginElements(*container);
+            std::transform(b, EndElements(*container), b, op);
         }
         template <class E_, class EE_, class Op_>
         void Transform(Matrix_<E_>* to_modify, const Matrix_<EE_>& other, Op_ op) {
             assert(other.Rows() == to_modify->Rows() && other.Cols() == to_modify->Cols());
-            typename Matrix_<E_>::Row_::iterator b = to_modify->Row(0).begin();
-            transform(b, EndElements(*to_modify), other.Row(0).begin(), b, op);
+            typename Matrix_<E_>::Row_::iterator b = BeginElements(*to_modify);
+            std::transform(b, EndElements(*to_modify), BeginElements(other), b, op);
         }
         template <class EI_, class EO_, class Op_> void Transform(const Matrix_<EI_>& in, Op_ op, Matrix_<EO_>* out) {
             assert(in.Rows() == out->Rows() && in.Cols() == out->Cols());
-            transform(in.Row(0).begin(), EndElements(in), out->Row(0).begin(), op);
+            std::transform(BeginElements(in), EndElements(in), BeginElements(*out), op);
         }
         template <class E1_, class E2_, class EO_, class Op_>
         void Transform(const Matrix_<E1_>& in1, const Matrix_<E2_>& in2, Op_ op, Matrix_<EO_>* out) {
             assert(in1.Rows() == out->Rows() && in1.Cols() == out->Cols());
             assert(in2.Rows() == out->Rows() && in2.Cols() == out->Cols());
-            transform(in1.Row(0).begin(), EndElements(in1), in2.Row(0).begin(), out->Row(0).begin(), op);
+            std::transform(in1.Row(0).begin(), EndElements(in1), in2.Row(0).begin(), out->Row(0).begin(), op);
         }
 
         template <class ES_, class ED_> void Copy(const Matrix_<ES_>& src, Matrix_<ED_>* dst) {
             assert(dst && src.Rows() == dst->Rows() && src.Cols() == dst->Cols());
-            copy(src.Row(0).begin(), EndElements(src), dst->Row(0).begin());
+            std::copy(src.Row(0).begin(), EndElements(src), dst->Row(0).begin());
         }
         template <class E_, class Op_> auto Apply(Op_ op, const Matrix_<E_>& src) -> Matrix_<decltype(op(src(0, 0)))> {
             Matrix_<decltype(op(src(0, 0)))> ret_val(src.Rows(), src.Cols());
