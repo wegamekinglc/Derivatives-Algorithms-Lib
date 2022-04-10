@@ -14,8 +14,10 @@ namespace Dal {
 
         template <class T_> Matrix_<T_> MakeTranspose(const Matrix_<T_>& src) {
             Matrix_<T_> ret_val(src.Cols(), src.Rows());
-            for (int ir = 0; ir < src.Rows(); ++ir)
-                Copy(src.Row(ir), &ret_val.Col(ir));
+            for (int ir = 0; ir < src.Rows(); ++ir) {
+                auto t_col = ret_val.Col(ir);
+                Copy(src.Row(ir), &t_col);
+            }
             return ret_val;
         }
 
@@ -24,8 +26,10 @@ namespace Dal {
             const int offset = above->Rows();
             // efficient unless below is too wide
             above->Resize(offset + below.Rows(), Max(above->Cols(), below.Cols()));
-            for (int ir = 0; ir < below.Rows(); ++ir)
-                Copy(below.Row(ir), &above->Row(ir + offset));
+            for (int ir = 0; ir < below.Rows(); ++ir) {
+                auto t_row = above->Row(ir + offset);
+                Copy(below.Row(ir), &t_row);
+            }
         }
 
         // make a 1x1 matrix
