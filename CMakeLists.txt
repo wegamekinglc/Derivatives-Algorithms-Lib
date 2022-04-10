@@ -56,15 +56,15 @@ if (NOT DEFINED Boost_USE_STATIC_RUNTIME)
     set(Boost_USE_STATIC_RUNTIME ${MSVC})
 endif()
 
-FIND_PACKAGE(PythonInterp 3)
-FIND_PACKAGE(PythonLibs 3)
+# FIND_PACKAGE(PythonInterp 3)
+# FIND_PACKAGE(PythonLibs 3)
 
-IF(PYTHONINTERP_FOUND AND PYTHONLIBS_FOUND)
-    message("-- Python Include: ${PYTHON_INCLUDE_DIRS}")
-    message("-- Python Lib: ${PYTHON_LIBRARIES}")
-    include_directories(${PYTHON_INCLUDE_DIRS})
-    link_directories(${PYTHON_LIBRARIES})
-ENDIF()
+# IF(PYTHONINTERP_FOUND AND PYTHONLIBS_FOUND)
+#     message("-- Python Include: ${PYTHON_INCLUDE_DIRS}")
+#     message("-- Python Lib: ${PYTHON_LIBRARIES}")
+#     include_directories(${PYTHON_INCLUDE_DIRS})
+#     link_directories(${PYTHON_LIBRARIES})
+# ENDIF()
 
 # Require C++11 or higher
 if (NOT DEFINED CMAKE_CXX_STANDARD)
