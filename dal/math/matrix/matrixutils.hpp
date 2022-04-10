@@ -20,10 +20,10 @@ namespace Dal {
         }
 
         template <class E_> void Append(Matrix_<E_>* above, const Matrix_<E_>& below) {
-            assert(above != nullptr);
+            REQUIRE(above != nullptr, "above matrix is null");
             const int offset = above->Rows();
-            above->Resize(offset + below.Rows(),
-                          Max(above->Cols(), below.Cols())); // efficient unless below is too wide
+            // efficient unless below is too wide
+            above->Resize(offset + below.Rows(), Max(above->Cols(), below.Cols()));
             for (int ir = 0; ir < below.Rows(); ++ir)
                 Copy(below.Row(ir), &above->Row(ir + offset));
         }
