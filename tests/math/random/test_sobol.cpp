@@ -17,7 +17,7 @@ TEST(SobolTest, TestNewSobol) {
     std::unique_ptr<SequenceSet_> set(NewSobol(dim, i_path));
     Vector_<> dst;
 
-    int num_path = 1000000;
+    int num_path = 10000000;
 
     Vector_<> means(dim, 0.);
     Vector_<> vars(dim, 0.);

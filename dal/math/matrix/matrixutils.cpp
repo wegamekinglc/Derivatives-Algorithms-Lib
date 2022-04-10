@@ -30,32 +30,32 @@ namespace Dal {
             }
 
             WriterView_ Transpose() const {
-                WriterView_ retval(*this);
-                std::swap(retval.r2r_, retval.c2r_);
-                std::swap(retval.r2c_, retval.c2c_);
-                return retval;
+                WriterView_ ret_val(*this);
+                std::swap(ret_val.r2r_, ret_val.c2r_);
+                std::swap(ret_val.r2c_, ret_val.c2c_);
+                return ret_val;
             }
             WriterView_ Invert(int n_rows, int n_cols) const {
-                WriterView_ retval(*this);
-                retval.rowOffset_ += r2r_ * (n_rows - 1) + c2r_ * (n_cols - 1);
-                retval.colOffset_ += r2c_ * (n_rows - 1) + c2c_ * (n_cols - 1);
-                retval.r2r_ *= -1;
-                retval.r2c_ *= -1;
-                retval.c2r_ *= -1;
-                retval.c2c_ *= -1;
-                return retval;
+                WriterView_ ret_val(*this);
+                ret_val.rowOffset_ += r2r_ * (n_rows - 1) + c2r_ * (n_cols - 1);
+                ret_val.colOffset_ += r2c_ * (n_rows - 1) + c2c_ * (n_cols - 1);
+                ret_val.r2r_ *= -1;
+                ret_val.r2c_ *= -1;
+                ret_val.c2r_ *= -1;
+                ret_val.c2c_ *= -1;
+                return ret_val;
             }
             WriterView_ Shift(int row_offset, int col_offset) const {
-                WriterView_ retval(*this);
-                retval.rowOffset_ += r2r_ * row_offset + c2r_ * col_offset;
-                retval.colOffset_ += r2c_ * row_offset + c2c_ * col_offset;
-                return retval;
+                WriterView_ ret_val(*this);
+                ret_val.rowOffset_ += r2r_ * row_offset + c2r_ * col_offset;
+                ret_val.colOffset_ += r2c_ * row_offset + c2c_ * col_offset;
+                return ret_val;
             }
             WriterView_ Flatten(int n_cols) const {
-                WriterView_ retval(*this);
-                retval.r2r_ = n_cols * retval.c2r_;
-                retval.r2c_ = n_cols * retval.c2c_;
-                return retval;
+                WriterView_ ret_val(*this);
+                ret_val.r2r_ = n_cols * ret_val.c2r_;
+                ret_val.r2c_ = n_cols * ret_val.c2c_;
+                return ret_val;
             }
         };
 
@@ -105,16 +105,16 @@ namespace Dal {
             HorizontalWriter_(bool justify_bottom = false) : justifyBottom_(justify_bottom) {}
 
             int Rows(const Vector_<const Table_*>& args) const {
-                int retval = 0;
+                int ret_val = 0;
                 for (const auto& e : elements_)
-                    retval = Max(retval, e->Rows(args));
-                return retval;
+                    ret_val = Max(ret_val, e->Rows(args));
+                return ret_val;
             }
             int Cols(const Vector_<const Table_*>& args) const {
-                int retval = 0;
+                int ret_val = 0;
                 for (const auto& e : elements_)
-                    retval += e->Cols(args);
-                return retval;
+                    ret_val += e->Cols(args);
+                return ret_val;
             }
             void Write(const WriterView_& dst, const Vector_<const Table_*>& args) const {
                 WriterView_ temp(dst);
@@ -136,16 +136,16 @@ namespace Dal {
             VerticalWriter_(bool justify_right) : justifyRight_(justify_right) {}
 
             int Cols(const Vector_<const Table_*>& args) const {
-                int retval = 0;
+                int ret_val = 0;
                 for (const auto& e : elements_)
-                    retval = Max(retval, e->Cols(args));
-                return retval;
+                    ret_val = Max(ret_val, e->Cols(args));
+                return ret_val;
             }
             int Rows(const Vector_<const Table_*>& args) const {
-                int retval = 0;
+                int ret_val = 0;
                 for (const auto& e : elements_)
-                    retval += e->Rows(args);
-                return retval;
+                    ret_val += e->Rows(args);
+                return ret_val;
             }
             void Write(const WriterView_& dst, const Vector_<const Table_*>& args) const {
                 WriterView_ temp(dst);
@@ -185,20 +185,20 @@ namespace Dal {
         };
 
         Vector_<String_> Split(const String_& src, char sep) {
-            Vector_<String_> retval(1, String_());
+            Vector_<String_> ret_val(1, String_());
             int depth = 0;
             for (const auto& s : src) {
                 if (s == sep && depth == 0)
-                    retval.push_back(String_());
+                    ret_val.push_back(String_());
                 else {
-                    retval.back().push_back(s);
+                    ret_val.back().push_back(s);
                     if (s == '(')
                         ++depth;
                     if (s == ')')
                         --depth;
                 }
             }
-            return retval;
+            return ret_val;
         }
 
         String_ Strip(const String_& src) // remove parentheses around the whole thing
@@ -223,10 +223,10 @@ namespace Dal {
             Vector_<String_> subs = Split(format, separator);
             if (subs.size() <= 1)
                 return nullptr;
-            std::unique_ptr<multiple_t> retval(make_multiple());
+            std::unique_ptr<multiple_t> ret_val(make_multiple());
             for (const auto& s : subs)
-                retval->elements_.emplace_back(NewWriter(s));
-            return retval.release();
+                ret_val->elements_.emplace_back(NewWriter(s));
+            return ret_val.release();
         }
 
         Writer_* XNewWriter(const String_& format) {
@@ -261,9 +261,9 @@ namespace Dal {
 
     Matrix_<Cell_> Matrix::Format(const Vector_<const Table_*>& args, const String_& format) {
         scoped_ptr<Writer_> writer(NewWriter(format));
-        Matrix_<Cell_> retval(writer->Rows(args), writer->Cols(args));
-        REQUIRE(retval.Rows() * retval.Cols() > 0, "Nothing to output");
-        writer->Write(WriterView_(&retval), args);
-        return retval;
+        Matrix_<Cell_> ret_val(writer->Rows(args), writer->Cols(args));
+        REQUIRE(ret_val.Rows() * ret_val.Cols() > 0, "Nothing to output");
+        writer->Write(WriterView_(&ret_val), args);
+        return ret_val;
     }
 } // namespace Dal
