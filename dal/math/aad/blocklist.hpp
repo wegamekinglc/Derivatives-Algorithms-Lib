@@ -22,16 +22,18 @@ namespace Dal {
     template <class T_, size_t BLOCK_SIZE_> class BlockList_ {
     private:
         std::list<std::array<T_, BLOCK_SIZE_>> data_;
-        using list_iter = decltype(data_.begin());
-        using block_iter = decltype(data_.back().begin());
+        using iterator = typename std::list<std::array<T_, BLOCK_SIZE_>>::iterator;
+        using const_iterator = typename std::list<std::array<T_, BLOCK_SIZE_>>::const_iterator;
+        using block_iter = typename std::array<T_, BLOCK_SIZE_>::iterator;
+        using const_block_iter = typename std::array<T_, BLOCK_SIZE_>::const_iterator;
 
-        list_iter curr_block_;
-        list_iter last_block_;
+        iterator curr_block_;
+        iterator last_block_;
 
         block_iter next_space_;
         block_iter last_space_;
 
-        list_iter marked_block_;
+        iterator marked_block_;
         block_iter marked_space_;
 
         void NewBlock() {
@@ -63,6 +65,13 @@ namespace Dal {
             curr_block_ = data_.begin();
             next_space_ = curr_block_->begin();
             last_space_ = curr_block_->end();
+        }
+
+        [[nodiscard]] int Size() const {
+            int count = 0;
+            for(ConstIterator_ it = this->Begin(); it != this->End(); ++it)
+                count += 1;
+            return count;
         }
 
         void Memset(unsigned char val) {
@@ -117,7 +126,7 @@ namespace Dal {
 
         class Iterator_ {
         private:
-            list_iter curr_block_;
+            iterator curr_block_;
             block_iter curr_space_;
             block_iter first_space_;
             block_iter last_space_;
@@ -129,9 +138,8 @@ namespace Dal {
             using value_type = T_;
             using iterator_category = std::bidirectional_iterator_tag;
 
-            Iterator_() {}
-
-            Iterator_(list_iter cb, block_iter cs, block_iter fs, block_iter ls)
+            Iterator_() = default;
+            Iterator_(iterator cb, block_iter cs, block_iter fs, block_iter ls)
                 : curr_block_(cb), curr_space_(cs), first_space_(fs), last_space_(ls) {}
 
             Iterator_& operator++() {
@@ -145,6 +153,10 @@ namespace Dal {
                 return *this;
             }
 
+            inline const Iterator_& operator++() const {
+                return this->operator++();
+            }
+
             Iterator_& operator--() {
                 if (curr_space_ == first_space_) {
                     --curr_block_;
@@ -154,6 +166,10 @@ namespace Dal {
                 }
                 --curr_space_;
                 return *this;
+            }
+
+            inline const Iterator_& operator--() const {
+                return this->operator--();
             }
 
             T_& operator*() { return *curr_space_; }
@@ -173,6 +189,58 @@ namespace Dal {
             }
         };
 
+        class ConstIterator_ {
+        private:
+            const_iterator curr_block_;
+            const_block_iter curr_space_;
+            const_block_iter first_space_;
+            const_block_iter last_space_;
+
+        public:
+            using difference_type = std::ptrdiff_t;
+            using reference = const T_&;
+            using pointer = const T_*;
+            using value_type = T_;
+            using iterator_category = std::bidirectional_iterator_tag;
+
+            ConstIterator_() = default;
+            ConstIterator_(const_iterator cb, const_block_iter cs, const_block_iter fs, const_block_iter ls)
+                : curr_block_(cb), curr_space_(cs), first_space_(fs), last_space_(ls) {}
+
+            ConstIterator_& operator++() {
+                ++curr_space_;
+                if (curr_space_ == last_space_) {
+                    ++curr_block_;
+                    first_space_ = curr_block_->begin();
+                    last_space_ = curr_block_->end();
+                    curr_space_ = first_space_;
+                }
+                return *this;
+            }
+
+            ConstIterator_& operator--() {
+                if (curr_space_ == first_space_) {
+                    --curr_block_;
+                    first_space_ = curr_block_->begin();
+                    last_space_ = curr_block_->end();
+                    curr_space_ = last_space_;
+                }
+                --curr_space_;
+                return *this;
+            }
+
+            const T_& operator*() const { return *curr_space_; }
+            const T_* operator->() const { return &*curr_space_; }
+
+            bool operator==(const ConstIterator_& rhs) {
+                return curr_block_ == rhs.curr_block_ && curr_space_ == rhs.curr_space_;
+            }
+
+            bool operator!=(const ConstIterator_& rhs) {
+                return curr_block_ != rhs.curr_block_ || curr_space_ != rhs.curr_space_;
+            }
+        };
+
         Iterator_ Begin() {
             return Iterator_(data_.begin(), data_.begin()->begin(), data_.begin()->begin(), data_.begin()->end());
         }
@@ -184,6 +252,22 @@ namespace Dal {
         Iterator_ End() { return Iterator_(curr_block_, next_space_, curr_block_->begin(), curr_block_->end()); }
 
         inline Iterator_ end() {
+            return End();
+        }
+
+        ConstIterator_ Begin() const {
+            return ConstIterator_(data_.begin(), data_.begin()->begin(), data_.begin()->begin(), data_.begin()->end());
+        }
+
+        inline ConstIterator_ begin() const {
+            return Begin();
+        }
+
+        ConstIterator_ End() const {
+            return ConstIterator_(curr_block_, next_space_, curr_block_->begin(), curr_block_->end());
+        }
+
+        inline ConstIterator_ end() const {
             return End();
         }
 
