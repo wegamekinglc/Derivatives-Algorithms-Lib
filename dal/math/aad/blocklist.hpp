@@ -177,7 +177,15 @@ namespace Dal {
             return Iterator_(data_.begin(), data_.begin()->begin(), data_.begin()->begin(), data_.begin()->end());
         }
 
+        inline Iterator_ begin() {
+            return Begin();
+        }
+
         Iterator_ End() { return Iterator_(curr_block_, next_space_, curr_block_->begin(), curr_block_->end()); }
+
+        inline Iterator_ end() {
+            return End();
+        }
 
         Iterator_ Mark() {
             return Iterator_(marked_block_, marked_space_, marked_block_->begin(), marked_block_->end());
