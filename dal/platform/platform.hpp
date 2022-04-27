@@ -76,6 +76,16 @@ namespace Dal {
 
 } // namespace Dal
 
+#ifdef WIN32
+    #ifdef IS_BASE
+        #define BASE_EXPORT __declspec(dllexport)
+    #else
+        #define BASE_EXPORT __declspec(dllimport)
+    #endif
+#else
+    #define BASE_EXPORT
+#endif
+
 #define RETURN_STATIC(...)                                                                                             \
     static __VA_ARGS__ RETVAL;                                                                                         \
     return RETVAL

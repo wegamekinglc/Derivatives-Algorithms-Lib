@@ -10,7 +10,6 @@
 #include <dal/math/cellutils.hpp>
 
 using Dal::Cell::TypeCheck_;
-using Dal::Cell::Type_;
 using Dal::Cell::CoerceToString;
 using Dal::Cell::FromOptionalDouble;
 using Dal::Cell::ConvertString;
@@ -20,31 +19,22 @@ using Dal::Cell_;
 using Dal::String_;
 
 TEST(CellUtilsTest, TestTypeCheck) {
-    TypeCheck_ checker;
-    checker = checker.Add(Type_::BOOLEAN);
 
     Cell_ cell(true);
-    ASSERT_TRUE(checker(cell));
+    ASSERT_TRUE(TypeCheck_<bool>()(cell));
 
     cell = 2.;
-    ASSERT_FALSE(checker(cell));
-
-    checker = checker.Add(Type_::NUMBER);
-    ASSERT_TRUE(checker(cell));
+    ASSERT_FALSE(TypeCheck_<bool>()(cell));
+    ASSERT_TRUE(TypeCheck_<double>()(cell));
 }
 
 TEST(CellUtilsTest, TestTypeCheckCanConvertCase) {
-    TypeCheck_ checker;
-    checker = checker.Add(Type_::DATE);
+    Cell_ cell(Dal::Date::FromExcel(44149));
+    ASSERT_TRUE(TypeCheck_<Date_>()(cell));
 
-    Cell_ cell(44149.);
-    ASSERT_TRUE(checker(cell));
-
-
-    cell = 44149.5;
-    ASSERT_FALSE(checker(cell));
-    checker = checker.Add(Type_::DATETIME);
-    ASSERT_TRUE(checker(cell));
+    cell = Dal::DateTime_(Dal::Cell::ToDate(cell), 0.5);
+    ASSERT_FALSE(TypeCheck_<Date_>()(cell));
+    ASSERT_TRUE(TypeCheck_<DateTime_>()(cell));
 }
 
 TEST(CellUtilsTest, TestCoerceToString) {
@@ -60,39 +50,39 @@ TEST(CellUtilsTest, TestCoerceToString) {
     cell = Date_(2020, 11 ,14);
     ASSERT_EQ(CoerceToString(cell), "2020-11-14");
 
-    cell = DateTime_(cell.dt_.Date(), 0.5);
+    cell = DateTime_(Dal::Cell::ToDate(cell), 0.5);
     ASSERT_EQ(CoerceToString(cell), "2020-11-14 12:00:00");
 }
 
 TEST(CellUtilsTest, TestFromOptionalDouble) {
     boost::optional<double> s;
     auto cell = FromOptionalDouble(s);
-    ASSERT_EQ(cell.type_, Type_::EMPTY);
+    ASSERT_TRUE(Dal::Cell::IsEmpty(cell));
 
     s = 2.0;
     cell = FromOptionalDouble(s);
-    ASSERT_EQ(cell.type_,Type_::NUMBER);
-    ASSERT_DOUBLE_EQ(cell.d_, 2.0);
+    ASSERT_TRUE(Dal::Cell::IsDouble(cell));
+    ASSERT_DOUBLE_EQ(Dal::Cell::ToDouble(cell), 2.0);
 }
 
 TEST(CellUtilsTest, TestConvertString) {
     String_ s("sos");
     auto cell = ConvertString(s);
-    ASSERT_EQ(cell.type_, Type_::STRING);
-    ASSERT_EQ(cell.s_, "sos");
+    ASSERT_TRUE(Dal::Cell::IsString(cell));
+    ASSERT_EQ(Dal::Cell::ToString(cell), "sos");
 
     s = "2.0";
     cell = ConvertString(s);
-    ASSERT_EQ(cell.type_, Type_::NUMBER);
-    ASSERT_DOUBLE_EQ(cell.d_, 2.0);
+    ASSERT_TRUE(Dal::Cell::IsDouble(cell));
+    ASSERT_DOUBLE_EQ(Dal::Cell::ToDouble(cell), 2.0);
 
     s = "2020-11-14";
     cell = ConvertString(s);
-    ASSERT_EQ(cell.type_, Type_::DATE);
-    ASSERT_EQ(cell.dt_.Date(), Dal::Date::FromString(s));
+    ASSERT_TRUE(Dal::Cell::IsDate(cell));
+    ASSERT_EQ(Dal::Cell::ToDate(cell), Dal::Date::FromString(s));
 
     s = "2020-11-14 12:00:00";
     cell = ConvertString(s);
-    ASSERT_EQ(cell.type_, Type_::DATETIME);
-    ASSERT_EQ(cell.dt_, Dal::DateTime::FromString(s));
+    ASSERT_TRUE(Dal::Cell::IsDateTime(cell));
+    ASSERT_EQ(Dal::Cell::ToDateTime(cell), Dal::DateTime::FromString(s));
 }

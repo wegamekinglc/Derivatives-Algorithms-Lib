@@ -11,43 +11,37 @@
 namespace Dal {
     namespace {
         Date_ DateFromCell(const Cell_& c, const Date_& fix) {
-            switch (c.type_) {
-            case Cell_::Type_::EMPTY:
+            if (Cell::IsEmpty(c))
                 return fix;
-            case Cell_::Type_::NUMBER:
-                REQUIRE(static_cast<int>(c.d_) == c.d_ && c.d_ >= 0,
-                        "start delay days must be a non-negative integer");
-                return fix.AddDays(static_cast<int>(c.d_));
-            case Cell_::Type_::DATE:
-                return c.dt_.Date();
-            case Cell_::Type_ ::STRING:
-                return Date::ParseIncrement(c.s_)->FwdFrom(fix);
-            default:
+            else if (Cell::IsInt(c))
+                return fix.AddDays(Cell::ToInt(c));
+            else if (Cell::IsDate(c))
+                return Cell::ToDate(c);
+            else if (Cell::IsDateTime(c))
+                return Cell::ToDateTime(c).Date();
+            else if (Cell::IsString(c))
+                return Date::ParseIncrement(Cell::ToString(c))->FwdFrom(fix);
+            else
                 THROW("invalid type for date offset");
-            }
         }
 
         String_ MatPostfix(const Cell_& start) {
             // TODO: incomplete implementation
-            switch (start.type_) {
-            case Cell_::Type_::STRING:
-                return start.s_;
-            case Cell_::Type_::DATE:
-                return Date::ToString(start.dt_.Date());
-            case Cell_::Type_::EMPTY:
+            if (Cell::IsString(start))
+                return Cell::ToString(start);
+            else if (Cell::IsDate(start))
+                return Date::ToString(Cell::ToDate(start));
+            else if (Cell::IsEmpty(start))
                 THROW("maturity may not be empty");
-            default:
+            else
                 THROW("unsupported start/mat type in index");
-            }
         }
 
         String_ StartPostfix(const Cell_& start) {
-            switch (start.type_) {
-            case Cell_::Type_::EMPTY:
-                return String_();
-            default:
+            if (Cell::IsEmpty(start))
+                return {};
+            else
                 return "," + MatPostfix(start);
-            }
         }
     }
 

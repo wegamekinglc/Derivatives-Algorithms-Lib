@@ -13,11 +13,11 @@ TEST(DictionaryTest, TestDictionaryInsert) {
     Dictionary_ dict;
     dict.Insert("a", Cell_(1.));
 
-    ASSERT_DOUBLE_EQ(dict.At("a").d_, 1.);
+    ASSERT_DOUBLE_EQ(Cell::ToDouble(dict.At("a")), 1.);
     ASSERT_TRUE(dict.Has("a"));
     ASSERT_FALSE(dict.Has("b"));
     ASSERT_THROW(dict.At("b"), Exception_);
-    ASSERT_EQ(dict.At("b", true).type_, Cell::Type_::EMPTY);
+    ASSERT_TRUE(Cell::IsEmpty(dict.At("b", true)));
     ASSERT_EQ(dict.Size(), 1);
     ASSERT_NO_THROW(for(const auto& v: dict) {});
 }
@@ -26,7 +26,10 @@ TEST(DictionaryTest, TestDictionaryExtract) {
     Dictionary_ dict;
     dict.Insert("a", Cell_(2.));
 
-    auto translate = [](const Cell_& src) { return src.d_ * src.d_;};
+    auto translate = [](const Cell_& src) {
+        const double d = Cell::ToDouble(src);
+        return d * d;
+    };
     auto val = Dictionary::Extract(dict, "a", translate);
     ASSERT_DOUBLE_EQ(val, 4.);
     ASSERT_THROW(Dictionary::Extract(dict, "b", translate), Exception_);

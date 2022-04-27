@@ -808,8 +808,9 @@ namespace Dal {
             return Date_();
         }
         if (Cell::IsDouble(c)) {
-            const int id = AsInt(c.d_);
-            REQUIRE(id == c.d_, "Can't construct a date from a non-integer number");
+            double d = Cell::ToDouble(c);
+            const int id = AsInt(d);
+            REQUIRE(id == d, "Can't construct a date from a non-integer number");
             return Date::FromExcel(id);
         }
         return Cell::ToDate(c);
@@ -822,8 +823,9 @@ namespace Dal {
             return DateTime_();
         }
         if (Cell::IsDouble(c)) {
-            const int id = AsInt(c.d_);
-            return DateTime_(Date::FromExcel(id), c.d_ - id);
+            double d = Cell::ToDouble(c);
+            const int id = AsInt(d);
+            return DateTime_(Date::FromExcel(id), d - id);
         }
         return Cell::ToDateTime(c);
     }
@@ -1159,35 +1161,48 @@ namespace Dal {
             return retval;
         }
 
+        struct WriteExcelCell_ {
+            OPER_* dst_;
+            void operator()(const String_& s) const {
+                WriteToOper(s, dst_);
+            }
+            void operator()(int i) const {
+                dst_->xltype = xltypeNum;
+                dst_->val.num = i;
+            }	// allow promotion
+            void operator()(double d) const {
+                dst_->xltype = xltypeNum;
+                dst_->val.num = d;
+            }
+            void operator()(bool b) const {
+                dst_->xltype = xltypeBool;
+                dst_->val.xbool = b ? 1 : 0;
+            }
+            void operator()(const Date_& dt) const {
+                dst_->xltype = xltypeNum;
+                dst_->val.num = Date::ToExcel(dt);
+            }
+            void operator()(const DateTime_& dt) const {
+                dst_->xltype = xltypeNum;
+                dst_->val.num = Date::ToExcel(dt.Date()) + dt.Frac();
+            }
+            void operator()(std::monostate) const {
+                static const String_ EMPTY;
+                WriteToOper(EMPTY, dst_);
+            }
+            template<class T_> void operator()(T_) const {
+                THROW("Unrecognizable cell type");
+            }
+        };
+
         struct ExcelWriter_ {
             OPER_* dst_;
             ExcelWriter_(OPER_* dst) : dst_(dst) {}
 
             void operator()(const Cell_& c) {
-                static const String_ EMPTY;
-                switch (c.type_) {
-                case Cell::Type_::STRING:
-                    WriteToOper(c.s_, dst_);
-                    break;
-                case Cell::Type_::NUMBER:
-                    dst_->xltype = xltypeNum;
-                    dst_->val.num = c.d_;
-                    break;
-                case Cell::Type_::BOOLEAN:
-                    dst_->xltype = xltypeBool;
-                    dst_->val.xbool = c.b_ ? 1 : 0;
-                    break;
-                case Cell::Type_::DATE:
-                case Cell::Type_::DATETIME:
-                    dst_->xltype = xltypeNum;
-                    dst_->val.num = Date::ToExcel(c.dt_.Date()) + c.dt_.Frac();
-                    break;
-                case Cell::Type_::EMPTY:
-                    WriteToOper(EMPTY, dst_);
-                    break;
-                default:
-                    THROW("Unrecognizable cell type");
-                }
+                WriteExcelCell_ visitor;
+                visitor.dst_ = dst_;
+                c.Visit(visitor);
             }
         };
     } // namespace
@@ -1444,8 +1459,6 @@ namespace Dal {
 #endif
         return 1;
     }
-
-    String_ Cell::ToString(const Cell_& c) { return CoerceToString(c); }
 
     namespace {
 /*IF--------------------------------------------------------------------------

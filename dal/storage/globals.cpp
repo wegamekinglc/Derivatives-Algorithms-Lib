@@ -80,8 +80,8 @@ namespace Dal {
         if (stored.Empty())
             return retval;
         assert(stored.Cols() == 2);
-        assert(AllOf(stored.Col(0), Cell::TypeCheck_().DateTime()));
-        assert(AllOf(stored.Col(0), Cell::TypeCheck_().Number()));
+        assert(AllOf(stored.Col(0), Cell::TypeCheck_<DateTime_>()));
+        assert(AllOf(stored.Col(0), Cell::TypeCheck_<double>()));
         const int n = stored.Rows();
         retval.vals_.Resize(n);
         for (int ii = 0; ii < n; ++ii)

@@ -5,6 +5,9 @@
 #        -P ${CMAKE_SOURCE_DIR}/cmake/GenerateHeaders.cmake
 #        COMMENT "Generating headers..."
 #        WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+if (WIN32)
+    add_definitions(-DIS_BASE)
+endif()
 
 file(GLOB_RECURSE DAL_FILES "*.hpp" "*.cpp")
 list(FILTER DAL_FILES EXCLUDE REGEX "${PROJECT_SOURCE_DIR}/dal/auto/.*")

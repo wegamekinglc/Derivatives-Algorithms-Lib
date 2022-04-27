@@ -9,7 +9,7 @@ namespace Dal::Index {
     String_ Equity_::Name() const {
         String_ ret = "EQ[" + eqName_ + "]";
         if (Cell::IsString(delivery_))
-            ret += ">" + Cell::OwnString(delivery_);
+            ret += ">" + Cell::ToString(delivery_);
         else if (Cell::IsDate(delivery_))
             ret += "@" + Date::ToString(Cell::ToDate(delivery_));
         return ret;
@@ -28,7 +28,7 @@ namespace Dal::Index {
     Date_ Equity_::Delivery(const DateTime_& fixing_time) const {
         Date_ ret_val;
         if (Cell::IsString(delivery_)) {
-            auto di = Date::ParseIncrement(Cell::OwnString(delivery_));
+            auto di = Date::ParseIncrement(Cell::ToString(delivery_));
             ret_val = (fixing_time.Date() + (*di));
         } else if (Cell::IsDate(delivery_))
             ret_val = Cell::ToDate(delivery_);
