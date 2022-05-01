@@ -8,7 +8,7 @@
 #include <map>
 
 namespace Dal {
-    class Interp1_ : public Storable_ {
+    class BASE_EXPORT Interp1_ : public Storable_ {
     public:
         Interp1_(const String_& name);
         virtual double operator()(double x) const = 0;
@@ -27,7 +27,7 @@ f is number[]
 -IF-------------------------------------------------------------------------*/
 
 namespace Dal {
-    class Interp1Linear_ : public Interp1_ {
+    class BASE_EXPORT Interp1Linear_ : public Interp1_ {
         Vector_<> x_;
         Vector_<> f_;
 

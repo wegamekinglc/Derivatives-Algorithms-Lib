@@ -80,7 +80,7 @@ namespace Dal {
     #ifdef IS_BASE
         #define BASE_EXPORT __declspec(dllexport)
     #else
-        #define BASE_EXPORT __declspec(dllimport)
+        #define BASE_EXPORT
     #endif
 #else
     #define BASE_EXPORT

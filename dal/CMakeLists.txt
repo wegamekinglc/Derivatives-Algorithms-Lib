@@ -1,4 +1,4 @@
-if (WIN32)
+if (MSVC)
     add_definitions(-DIS_BASE)
 endif()
 
