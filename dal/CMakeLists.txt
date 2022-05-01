@@ -1,10 +1,3 @@
-#add_custom_command(OUTPUT ${QL_GENERATED_HEADERS}
-#        COMMAND ${CMAKE_COMMAND}
-#        -DSOURCE_DIR=${CMAKE_SOURCE_DIR}
-#        -DBINARY_DIR=${CMAKE_BINARY_DIR}
-#        -P ${CMAKE_SOURCE_DIR}/cmake/GenerateHeaders.cmake
-#        COMMENT "Generating headers..."
-#        WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 if (WIN32)
     add_definitions(-DIS_BASE)
 endif()

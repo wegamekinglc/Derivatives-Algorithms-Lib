@@ -1,7 +1,9 @@
 file(GLOB_RECURSE PUBLIC_FILES "*.hpp" "*.cpp")
-
+if (WIN32)
+    add_definitions(-DIS_BASE)
+endif()
 add_library(dal_public SHARED ${PUBLIC_FILES})
-if (MSVC)
+if (Win32)
     set_target_properties(dal_public PROPERTIES SUFFIX .xll)
 endif()
 target_link_libraries(dal_public dal_library)
