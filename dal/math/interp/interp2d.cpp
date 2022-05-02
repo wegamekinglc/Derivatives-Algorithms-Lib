@@ -9,6 +9,17 @@
 #include <dal/math/matrix/matrixs.hpp>
 #include <dal/math/interp/interp.hpp>
 
+/*IF--------------------------------------------------------------------------
+storable Interp2Linear
+        Linear interpolator on known values in two dimensions
+version 1
+&members
+name is ?string
+x is number[]
+y is number[]
+f is number[][]
+-IF-------------------------------------------------------------------------*/
+
 namespace Dal {
     Interp2_::Interp2_(const String_& name) : Storable_("Interp2", name) {}
 
@@ -52,4 +63,22 @@ namespace Dal {
         return z1 + (z2 - z1) * t;
     }
 
+    namespace Interp {
+        Interp2_* NewLinear2(const String_& name, const Vector_<>& x, const Vector_<>& y, const Matrix_<>& f) {
+            return new Interp2Linear_(name, x, y, f);
+        }
+    }
 }
+
+namespace {
+    using namespace Dal;
+
+#include <dal/auto/MG_Interp2Linear_v1_Read.inc>
+#include <dal/auto/MG_Interp2Linear_v1_Write.inc>
+} // namespace
+
+namespace Dal {
+    void Interp2Linear_::Write(Archive::Store_& dst) const {
+        Interp2Linear_v1::XWrite(dst, name_, x_, y_, f_);
+    }
+} // namespace Dal

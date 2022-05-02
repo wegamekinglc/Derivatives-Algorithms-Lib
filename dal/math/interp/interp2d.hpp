@@ -30,4 +30,8 @@ namespace Dal {
         const Vector_<>& x() const { return x_; }
         const Vector_<>& y() const { return y_; }
     };
+
+    namespace Interp {
+        Interp2_* NewLinear2(const String_& name, const Vector_<>& x, const Vector_<>& y, const Matrix_<>& f);
+    }
 }
