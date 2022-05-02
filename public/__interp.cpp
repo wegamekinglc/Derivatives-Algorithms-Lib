@@ -5,6 +5,7 @@
 #include <public/__platform.hpp>
 #include <dal/math/smooth.hpp>
 #include <dal/math/interp/interp.hpp>
+#include <dal/math/interp/interp2d.hpp>
 #include <dal/math/interp/interpcubic.hpp>
 
 /*IF--------------------------------------------------------------------------
@@ -89,6 +90,43 @@ y is number[]
     The interpolated function values at x-values
 -IF-------------------------------------------------------------------------*/
 
+
+/*IF--------------------------------------------------------------------------
+public Interp2_New_Linear
+    Create a linear 2D interpolator
+&inputs
+name is string
+    A name for the object being created
+x is number[]
+    &IsMonotonic(x)\$ values must be in ascending order
+    The x-values (abscissas)
+y is number[]
+    &IsMonotonic(y)\$ values must be in ascending order
+    The y-values (abscissas)
+z is number[][]
+    &$.Rows() == x.size()\z rows and x must have the same size
+    &$.Cols() == y.size()\x columns and y must have the same size
+    The values of f(x, y) at each x, y
+&outputs
+f is handle Interp2
+    The interpolator
+-IF-------------------------------------------------------------------------*/
+
+/*IF--------------------------------------------------------------------------
+public Interp2_Get
+    Interpolate 2D a value at specified abcissas
+&inputs
+f is handle Interp2
+    The interpolant function
+x is number[]
+    The x-values (abcissas)
+y is number[]
+    The y-values (abcissas)
+&outputs
+z is number[][]
+    The interpolated function values at x-values and y-values
+-IF-------------------------------------------------------------------------*/
+
 namespace Dal {
     namespace {
         void Interp1_New_Linear(const String_& name, const Vector_<>& x, const Vector_<>& y, Handle_<Interp1_>* f) {
@@ -126,11 +164,34 @@ namespace Dal {
             }
             f->reset(Interp::NewCubic(name, x, y, left, right));
         }
+
+        double CheckedInterp2(const Interp2_& f, double x, double y) {
+            REQUIRE(f.IsInBounds(x, y), "X (= " + std::to_string(x) + ")" + " Y (= " + std::to_string(y) + ") is outside interpolation domain");
+            return f(x, y);
+        }
+
+        [[noreturn]] void Interp2_Get(const Handle_<Interp2_>& f, const Vector_<>& x, const Vector_<>& y, Matrix_<>* z) {
+            for (size_t i = 0; i != x.size(); ++i) {
+                for (size_t j = 0; j != y.size(); ++j)
+                    (*z)(i, j) = CheckedInterp2(*f, x[i], y[j]);
+            }
+        }
+
+        void Interp2_New_Linear(const String_& name,
+                                const Vector_<>& x,
+                                const Vector_<>& y,
+                                const Matrix_<>& z,
+                                Handle_<Interp2_>* f) {
+            f->reset(Interp::NewLinear2(name, x, y, z));
+        }
     } // namespace
 #ifdef _WIN32
 #include <public/auto/MG_Interp1_Get_public.inc>
 #include <public/auto/MG_Interp1_New_Cubic_public.inc>
 #include <public/auto/MG_Interp1_New_Linear_public.inc>
 #include <public/auto/MG_Interp1_New_Linear_Smoothed_public.inc>
+
+#include <public/auto/MG_Interp2_Get_public.inc>
+#include <public/auto/MG_Interp2_New_Linear_public.inc>
 #endif
 } // namespace Dal
