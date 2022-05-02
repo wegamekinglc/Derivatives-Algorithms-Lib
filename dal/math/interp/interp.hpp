@@ -10,7 +10,7 @@
 namespace Dal {
     class BASE_EXPORT Interp1_ : public Storable_ {
     public:
-        Interp1_(const String_& name);
+        explicit Interp1_(const String_& name);
         virtual double operator()(double x) const = 0;
         virtual bool IsInBounds(double x) const { return true; }
     };
