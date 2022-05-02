@@ -9,8 +9,6 @@
 
 namespace Dal {
 
-    const Time_ systemTime = 0.0;
-
     template <class T_> class BlackScholes_ : public Model_<T_> {
         T_ spot_;
         T_ rate_;

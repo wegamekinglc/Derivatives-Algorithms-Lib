@@ -11,6 +11,8 @@
 #include <dal/string/strings.hpp>
 
 namespace Dal {
+    const Time_ systemTime = 0.0;
+
     template <class T_ = double> class Model_ {
         inline static const Vector_<String_>& DefaultAssetNames() {
             static Vector_<String_> defaultAssetNames_ = {"spot"};
