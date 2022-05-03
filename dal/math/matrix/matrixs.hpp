@@ -38,7 +38,9 @@ namespace Dal {
             hooks_.clear();
         }
         CI_ First() const { return vals_.begin(); }
+        inline CI_ begin() const { return First(); }
         CI_ Last() const { return vals_.end(); }
+        inline CI_ end() const { return Last(); }
 
         CR_ operator()(int row, int col) const { return hooks_[row][col]; }
         R_ operator()(int row, int col) { return hooks_[row][col]; }

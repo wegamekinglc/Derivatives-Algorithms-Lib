@@ -189,6 +189,24 @@ TEST(MatrixTest, TestMatrixIteratorCol) {
     ASSERT_DOUBLE_EQ(*++iter, 0.);
 }
 
+TEST(MatrixTest, TestMatrixIterator) {
+    matrix_t m1(2, 2);
+    m1(0, 0) = 1.; m1(0, 1) = 2.;
+    m1(1, 0) = 3.; m1(1, 1) = 4.;
+
+    double val = 0.0;
+    for (auto it = m1.begin(); it != m1.end(); ++it) {
+        val += 1.0;
+        ASSERT_DOUBLE_EQ((*it), val);
+    }
+
+    val = 0.0;
+    for (auto it = m1.First(); it != m1.Last(); ++it) {
+        val += 1.0;
+        ASSERT_DOUBLE_EQ((*it), val);
+    }
+}
+
 #ifdef NDEBUG
 TEST(MatrixTest, TestMatrixConstColBeginEnd) {
     matrix_t m1(3, 2);
