@@ -91,6 +91,9 @@ namespace Dal {
             const E_& operator[](int col) const { return *(begin_ + col); }
             const E_& front() const { return *begin_; }
             const E_& back() const { return *(end_ - 1); }
+            operator Vector_<E_>() const {
+                return Vector_<E_>(begin(), end());
+            }
         };
 
         ConstRow_ Row(int i_row) const { return ConstRow_(hooks_[i_row], cols_); }

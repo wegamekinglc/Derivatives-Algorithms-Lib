@@ -34,10 +34,9 @@ namespace Dal {
 
         // using internal 1D interpolations
         for(size_t i = 0; i != n_; ++i) {
-            auto row = f_.Row(i);
-            auto rowVector = Vector_(row.begin(), row.end());
+            Vector_<> row = f_.Row(i);
             interps_.push_back(
-                Handle_<Interp1_>(Interp::NewLinear("interp1_" + String::FromInt(i), y_, rowVector))
+                Handle_<Interp1_>(Interp::NewLinear("interp1_" + String::FromInt(i), y_, row))
             );
         }
     }
