@@ -2,7 +2,11 @@
 // Created by wegam on 2022/5/5.
 //
 
-#ifndef DAL_DISTRIBUTIONUTILS_HPP
-#define DAL_DISTRIBUTIONUTILS_HPP
+#pragma once
 
-#endif //DAL_DISTRIBUTIONUTILS_HPP
+#include <dal/math/distribution/distribution.hpp>
+
+
+namespace Dal::Distribution {
+    double BlackIV(const Distribution_& model, double strike, double guess, int n_steps);
+}
