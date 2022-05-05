@@ -11,7 +11,7 @@
 
 
 namespace Dal::Distribution {
-    double Distribution::BlackIV(const Distribution_& model, double strike, double guess, int n_steps) {
+    double BlackIV(const Distribution_& model, double strike, double guess, int n_steps) {
         const double f = model.Forward();
         const OptionType_ type = strike > f ? OptionType_::Value_::CALL : OptionType_::Value_::PUT;
         if (n_steps > 1) {
