@@ -1,0 +1,8 @@
+//
+// Created by wegam on 2022/5/5.
+//
+
+#ifndef DAL_DISTRIBUTIONUTILS_HPP
+#define DAL_DISTRIBUTIONUTILS_HPP
+
+#endif //DAL_DISTRIBUTIONUTILS_HPP
