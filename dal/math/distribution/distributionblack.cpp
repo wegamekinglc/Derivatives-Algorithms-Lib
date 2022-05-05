@@ -10,8 +10,8 @@
 #include <dal/math/rootfind.hpp>
 
 
-namespace Dal {
-    double Distribution::BlackOpt(double fwd, double vol, double strike, const OptionType_& type) {
+namespace Dal::Distribution {
+    double BlackOpt(double fwd, double vol, double strike, const OptionType_& type) {
         if (IsZero(vol) || !IsPositive(fwd * strike))
             return type.Payout(fwd, strike);
         const double dMinus = Log(fwd / strike) / vol - 0.5 * vol;
@@ -28,7 +28,7 @@ namespace Dal {
         }
     }
 
-    double Distribution::BlackIV(double fwd, double strike, const OptionType_& type, double price, double guess) {
+    double BlackIV(double fwd, double strike, const OptionType_& type, double price, double guess) {
         static const int MAX_ITERATIONS = 30;
         static const double TOL = 1.0e-10;
         REQUIRE(price >= type.Payout(fwd, strike), "value below intrinsic value in BlackIV");
