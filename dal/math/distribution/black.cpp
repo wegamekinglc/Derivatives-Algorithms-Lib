@@ -4,10 +4,10 @@
 
 #include <dal/platform/platform.hpp>
 #include <dal/platform/strict.hpp>
-#include <dal/math/distribution/distributionblack.hpp>
+#include <dal/math/distribution/black.hpp>
 #include <dal/math/aad/operators.hpp>
-#include <dal/math/specialfunctions.hpp>
 #include <dal/math/rootfind.hpp>
+#include <dal/math/specialfunctions.hpp>
 
 
 namespace Dal::Distribution {

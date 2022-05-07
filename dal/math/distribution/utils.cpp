@@ -4,11 +4,10 @@
 
 #include <dal/platform/platform.hpp>
 #include <dal/platform/strict.hpp>
-#include <dal/math/distribution/distributionutils.hpp>
-#include <dal/protocol/optiontype.hpp>
+#include <dal/math/distribution/utils.hpp>
 #include <dal/math/aad/operators.hpp>
-#include <dal/math/distribution/distributionblack.hpp>
-
+#include <dal/math/distribution/black.hpp>
+#include <dal/protocol/optiontype.hpp>
 
 namespace Dal::Distribution {
     double BlackIV(const Distribution_& model, double strike, double guess, int n_steps) {

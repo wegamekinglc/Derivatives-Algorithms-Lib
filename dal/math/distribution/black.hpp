@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include <dal/math/distribution/distribution.hpp>
+#include <dal/math/distribution/base.hpp>
 #include <dal/protocol/optiontype.hpp>
 
 namespace Dal {
