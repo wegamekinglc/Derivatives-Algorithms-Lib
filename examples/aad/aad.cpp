@@ -2,10 +2,10 @@
 // Created by wegam on 2020/12/21.
 //
 
-#include <dal/platform/platform.hpp>
-#include <dal/math/vectors.hpp>
+#include <dal/math/operators.hpp>
 #include <dal/math/aad/number.hpp>
-#include <dal/math/aad/operators.hpp>
+#include <dal/math/vectors.hpp>
+#include <dal/platform/platform.hpp>
 #include <dal/utilities/timer.hpp>
 #include <iomanip>
 #include <iostream>

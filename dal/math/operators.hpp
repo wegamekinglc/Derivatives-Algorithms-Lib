@@ -3,8 +3,8 @@
 //
 
 #pragma once
+#include "dal/math/aad/number.hpp"
 #include <cmath>
-#include <dal/math/aad/number.hpp>
 
 namespace Dal {
     template <class T_> inline T_ Sqrt(const T_& t) { return std::sqrt(t); }

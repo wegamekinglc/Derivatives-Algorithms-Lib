@@ -4,10 +4,10 @@
 
 #pragma once
 
+#include <dal/math/operators.hpp>
 #include <cmath>
 #include <dal/math/aad/models/base.hpp>
 #include <dal/math/matrix/matrixs.hpp>
-#include <dal/math/aad/operators.hpp>
 #include <dal/math/vectors.hpp>
 #include <iomanip>
 #include <sstream>

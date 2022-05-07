@@ -2,13 +2,12 @@
 // Created by wegam on 2022/5/5.
 //
 
-#include <dal/platform/platform.hpp>
-#include <dal/platform/strict.hpp>
+#include <dal/math/operators.hpp>
 #include <dal/math/distribution/black.hpp>
-#include <dal/math/aad/operators.hpp>
 #include <dal/math/rootfind.hpp>
 #include <dal/math/specialfunctions.hpp>
-
+#include <dal/platform/platform.hpp>
+#include <dal/platform/strict.hpp>
 
 namespace Dal {
     namespace Distribution {
