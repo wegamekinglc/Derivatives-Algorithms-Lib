@@ -21,9 +21,11 @@ if (MSVC)
         if(CMAKE_SIZEOF_VOID_P EQUAL 8)
             # 64 bits
             link_directories($ENV{GTEST_ROOT}/lib/Win64/${CMAKE_BUILD_TYPE}/MT)
+            message("-- GTEST_DIR: $ENV{GTEST_ROOT}/lib/Win64/${CMAKE_BUILD_TYPE}/MT")
         elseif(CMAKE_SIZEOF_VOID_P EQUAL 4)
             # 32 bits
             link_directories($ENV{GTEST_ROOT}/lib/Win32/${CMAKE_BUILD_TYPE}/MT)
+            message("-- GTEST_DIR: $ENV{GTEST_ROOT}/lib/Win32/${CMAKE_BUILD_TYPE}/MT")
         endif()
 
         set(USE_MSVC_DYNAMIC_RUNTIME false)
@@ -31,11 +33,12 @@ if (MSVC)
         if(CMAKE_SIZEOF_VOID_P EQUAL 8)
             # 64 bits
             link_directories($ENV{GTEST_ROOT}/lib/Win64/${CMAKE_BUILD_TYPE}/MD)
+            message("-- GTEST_DIR: $ENV{GTEST_ROOT}/lib/Win64/${CMAKE_BUILD_TYPE}/MD")
         elseif(CMAKE_SIZEOF_VOID_P EQUAL 4)
             # 32 bits
             link_directories($ENV{GTEST_ROOT}/lib/Win32/${CMAKE_BUILD_TYPE}/MD)
+            message("-- GTEST_DIR: $ENV{GTEST_ROOT}/lib/Win32/${CMAKE_BUILD_TYPE}/MD")
         endif()
-
         set(USE_MSVC_DYNAMIC_RUNTIME true)
     endif()
 
