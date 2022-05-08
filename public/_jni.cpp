@@ -4,7 +4,7 @@
 
 #include <dal/platform/platform.hpp>
 
-#ifndef BUILD_JNI
+#ifdef BUILD_JNI
 
 #include <dal/platform/strict.hpp>
 #include <public/_jni.hpp>

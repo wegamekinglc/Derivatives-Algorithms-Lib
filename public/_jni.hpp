@@ -10,6 +10,7 @@
 #include <dal/utilities/dictionary.hpp>
 #include <dal/platform/optionals.hpp>
 #include <dal/utilities/exceptions.hpp>
+#include <dal/utilities/environment.hpp>
 
 
 namespace Dal {
@@ -61,8 +62,8 @@ namespace Dal {
             REQUIRE(!retval.IsEmpty(), "Input object has wrong type");
             return retval;
         }
-        template <class T_> Vector_<Handle_<T_>> ToHandleVector(JNIEnv* jenv, const jobject src) {
-            const Vector_<Handle_<Storable_>> base = ToHandleBaseVector(jenv, _env, src);
+        template <class T_> Vector_<Handle_<T_>> ToHandleVector(JNIEnv* jenv, const jobjectArray src) {
+            const Vector_<Handle_<Storable_>> base = ToHandleBaseVector(jenv, src);
             Vector_<Handle_<T_>> retval;
             for (auto b : base) {
                 retval.push_back(handle_cast<T_>(b));
