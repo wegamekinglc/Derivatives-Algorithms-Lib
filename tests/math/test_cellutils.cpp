@@ -55,7 +55,7 @@ TEST(CellUtilsTest, TestCoerceToString) {
 }
 
 TEST(CellUtilsTest, TestFromOptionalDouble) {
-    boost::optional<double> s;
+    std::optional<double> s;
     auto cell = FromOptionalDouble(s);
     ASSERT_TRUE(Dal::Cell::IsEmpty(cell));
 

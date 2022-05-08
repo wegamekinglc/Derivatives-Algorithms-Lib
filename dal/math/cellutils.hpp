@@ -27,7 +27,7 @@ namespace Dal {
 
         Cell_ ConvertString(const String_& src);
         String_ CoerceToString(const Cell_& src);
-        Cell_ FromOptionalDouble(const boost::optional<double>& src);
+        Cell_ FromOptionalDouble(const std::optional<double>& src);
 
         Vector_<String_> ToStringLines(const Matrix_<Cell_>& src);
     } // namespace Cell

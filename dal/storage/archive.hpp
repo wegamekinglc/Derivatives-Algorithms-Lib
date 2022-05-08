@@ -127,7 +127,7 @@ namespace Dal {
             }
 
             template <class T_>
-            inline void SetOptional(Store_& dst, const String_& name, const boost::optional<T_>& value) {
+            inline void SetOptional(Store_& dst, const String_& name, const std::optional<T_>& value) {
                 if (value)
                     Set(dst, name, value.get());
             }

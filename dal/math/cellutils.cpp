@@ -28,7 +28,7 @@ namespace Dal {
         return {};
     }
 
-    Cell_ Cell::FromOptionalDouble(const boost::optional<double>& src) { return src ? FromDouble(src.get()) : Cell_(); }
+    Cell_ Cell::FromOptionalDouble(const std::optional<double>& src) { return src ? FromDouble(src.value()) : Cell_(); }
 
     Cell_ Cell::ConvertString(const String_& src) {
         if (src.empty())
