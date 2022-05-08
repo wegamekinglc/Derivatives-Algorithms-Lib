@@ -169,11 +169,10 @@ namespace Dal {
             return f(x, y);
         }
 
-        [[noreturn]] void Interp2_Get(const Handle_<Interp2_>& f, const Vector_<>& x, const Vector_<>& y, Matrix_<>* z) {
-            for (size_t i = 0; i != x.size(); ++i) {
-                for (size_t j = 0; j != y.size(); ++j)
+        void Interp2_Get(const Handle_<Interp2_>& f, const Vector_<>& x, const Vector_<>& y, Matrix_<>* z) {
+            for (int i = 0; i < x.size(); ++i)
+                for (int j = 0; j < y.size(); ++j)
                     (*z)(i, j) = CheckedInterp2(*f, x[i], y[j]);
-            }
         }
 
         void Interp2_New_Linear(const String_& name,
