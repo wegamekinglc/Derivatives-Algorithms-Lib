@@ -1544,7 +1544,6 @@ func_with_args is string
 
 #include <public/auto/MG_Format_public.inc>
 #include <public/auto/MG_PasteWithArgs_public.inc>
-//#include <public/auto/MG_PasteWithArgs_public_dotnet.inc>
 }
 
 #endif

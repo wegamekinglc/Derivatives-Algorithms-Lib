@@ -1,6 +1,6 @@
 #pragma once
 
-class __declspec(dllexport) PeriodLength_
+class  PeriodLength_
 {
     enum class Value_ : char
     {
@@ -15,7 +15,7 @@ class __declspec(dllexport) PeriodLength_
     PeriodLength_(Value_ val) : val_(val) {
         REQUIRE(val < Value_::_N_VALUES, "val is not valid");
     }
-    friend __declspec(dllexport)bool operator==(const PeriodLength_& lhs, const PeriodLength_& rhs);
+    friend bool operator==(const PeriodLength_& lhs, const PeriodLength_& rhs);
     friend struct ReadStringPeriodLength_;
     friend Vector_<PeriodLength_> PeriodLengthListAll();
     friend bool operator<(const PeriodLength_& lhs, const PeriodLength_& rhs) {
@@ -31,5 +31,5 @@ public:
 
 Vector_<PeriodLength_> PeriodLengthListAll();
 
-__declspec(dllexport)bool operator==(const PeriodLength_& lhs, const PeriodLength_& rhs);
+bool operator==(const PeriodLength_& lhs, const PeriodLength_& rhs);
 inline bool operator!=(const PeriodLength_& lhs, const PeriodLength_& rhs) {return !(lhs == rhs);}

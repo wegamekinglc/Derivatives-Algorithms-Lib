@@ -1,6 +1,6 @@
 #pragma once
 
-class __declspec(dllexport) RepositoryErase_
+class  RepositoryErase_
 {
 public:
     enum class Value_ : char
@@ -17,7 +17,7 @@ public:
         REQUIRE(val < Value_::_N_VALUES, "val is not valid");
     }
 private:
-    friend __declspec(dllexport)bool operator==(const RepositoryErase_& lhs, const RepositoryErase_& rhs);
+    friend bool operator==(const RepositoryErase_& lhs, const RepositoryErase_& rhs);
     friend struct ReadStringRepositoryErase_;
     friend Vector_<RepositoryErase_> RepositoryEraseListAll();
     friend bool operator<(const RepositoryErase_& lhs, const RepositoryErase_& rhs) {
@@ -32,7 +32,7 @@ public:
 
 Vector_<RepositoryErase_> RepositoryEraseListAll();
 
-__declspec(dllexport)bool operator==(const RepositoryErase_& lhs, const RepositoryErase_& rhs);
+bool operator==(const RepositoryErase_& lhs, const RepositoryErase_& rhs);
 inline bool operator!=(const RepositoryErase_& lhs, const RepositoryErase_& rhs) {return !(lhs == rhs);}
 inline bool operator==(const RepositoryErase_& lhs, RepositoryErase_::Value_ rhs) {return lhs.Switch() == rhs;}
 inline bool operator!=(const RepositoryErase_& lhs, RepositoryErase_::Value_ rhs) {return lhs.Switch() != rhs;}

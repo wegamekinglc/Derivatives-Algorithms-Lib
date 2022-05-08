@@ -1,6 +1,6 @@
 #pragma once
 
-class __declspec(dllexport) SpecialDay_
+class  SpecialDay_
 {
     enum class Value_ : char
     {
@@ -15,7 +15,7 @@ class __declspec(dllexport) SpecialDay_
     SpecialDay_(Value_ val) : val_(val) {
         REQUIRE(val < Value_::_N_VALUES, "val is not valid");
     }
-    friend __declspec(dllexport)bool operator==(const SpecialDay_& lhs, const SpecialDay_& rhs);
+    friend bool operator==(const SpecialDay_& lhs, const SpecialDay_& rhs);
     friend struct ReadStringSpecialDay_;
     friend Vector_<SpecialDay_> SpecialDayListAll();
     friend bool operator<(const SpecialDay_& lhs, const SpecialDay_& rhs) {
@@ -31,5 +31,5 @@ public:
 
 Vector_<SpecialDay_> SpecialDayListAll();
 
-__declspec(dllexport)bool operator==(const SpecialDay_& lhs, const SpecialDay_& rhs);
+bool operator==(const SpecialDay_& lhs, const SpecialDay_& rhs);
 inline bool operator!=(const SpecialDay_& lhs, const SpecialDay_& rhs) {return !(lhs == rhs);}

@@ -1,6 +1,6 @@
 #pragma once
 
-class __declspec(dllexport) OptionType_
+class  OptionType_
 {
 public:
     enum class Value_ : char
@@ -16,7 +16,7 @@ public:
         REQUIRE(val < Value_::_N_VALUES, "val is not valid");
     }
 private:
-    friend __declspec(dllexport)bool operator==(const OptionType_& lhs, const OptionType_& rhs);
+    friend bool operator==(const OptionType_& lhs, const OptionType_& rhs);
     friend struct ReadStringOptionType_;
     friend Vector_<OptionType_> OptionTypeListAll();
     friend bool operator<(const OptionType_& lhs, const OptionType_& rhs) {
@@ -34,7 +34,7 @@ public:
 
 Vector_<OptionType_> OptionTypeListAll();
 
-__declspec(dllexport)bool operator==(const OptionType_& lhs, const OptionType_& rhs);
+bool operator==(const OptionType_& lhs, const OptionType_& rhs);
 inline bool operator!=(const OptionType_& lhs, const OptionType_& rhs) {return !(lhs == rhs);}
 inline bool operator==(const OptionType_& lhs, OptionType_::Value_ rhs) {return lhs.Switch() == rhs;}
 inline bool operator!=(const OptionType_& lhs, OptionType_::Value_ rhs) {return lhs.Switch() != rhs;}

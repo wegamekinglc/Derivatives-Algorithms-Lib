@@ -1,6 +1,6 @@
 #pragma once
 
-class __declspec(dllexport) DateStepSize_
+class  DateStepSize_
 {
     enum class Value_ : char
     {
@@ -15,7 +15,7 @@ class __declspec(dllexport) DateStepSize_
     DateStepSize_(Value_ val) : val_(val) {
         REQUIRE(val < Value_::_N_VALUES, "val is not valid");
     }
-    friend __declspec(dllexport)bool operator==(const DateStepSize_& lhs, const DateStepSize_& rhs);
+    friend bool operator==(const DateStepSize_& lhs, const DateStepSize_& rhs);
     friend struct ReadStringDateStepSize_;
     friend Vector_<DateStepSize_> DateStepSizeListAll();
     friend bool operator<(const DateStepSize_& lhs, const DateStepSize_& rhs) {
@@ -31,5 +31,5 @@ public:
 
 Vector_<DateStepSize_> DateStepSizeListAll();
 
-__declspec(dllexport)bool operator==(const DateStepSize_& lhs, const DateStepSize_& rhs);
+bool operator==(const DateStepSize_& lhs, const DateStepSize_& rhs);
 inline bool operator!=(const DateStepSize_& lhs, const DateStepSize_& rhs) {return !(lhs == rhs);}

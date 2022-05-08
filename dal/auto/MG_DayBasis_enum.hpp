@@ -1,6 +1,6 @@
 #pragma once
 
-class __declspec(dllexport) DayBasis_
+class  DayBasis_
 {
     enum class Value_ : char
     {
@@ -33,7 +33,7 @@ private:
     }
     DayBasis_(const Handle_<Extension_>& imp) : val_(Value_::_EXTENSION), other_(imp) {assert(imp.get());}
     friend void DayBasis_RejectDuplicate(const String_&);
-       friend __declspec(dllexport)bool operator==(const DayBasis_& lhs, const DayBasis_& rhs);
+       friend bool operator==(const DayBasis_& lhs, const DayBasis_& rhs);
     friend struct ReadStringDayBasis_;
     friend Vector_<DayBasis_> DayBasisListAll();
     friend bool operator<(const DayBasis_& lhs, const DayBasis_& rhs) {
@@ -49,7 +49,7 @@ public:
 
 Vector_<DayBasis_> DayBasisListAll();
 
-__declspec(dllexport)bool operator==(const DayBasis_& lhs, const DayBasis_& rhs);
+bool operator==(const DayBasis_& lhs, const DayBasis_& rhs);
 inline bool operator!=(const DayBasis_& lhs, const DayBasis_& rhs) {return !(lhs == rhs);}
 
 namespace DayBasis

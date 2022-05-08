@@ -1,6 +1,6 @@
 #pragma once
 
-class __declspec(dllexport) CollateralType_
+class  CollateralType_
 {
 public:
     enum class Value_ : char
@@ -16,7 +16,7 @@ public:
         REQUIRE(val < Value_::_N_VALUES, "val is not valid");
     }
 private:
-    friend __declspec(dllexport)bool operator==(const CollateralType_& lhs, const CollateralType_& rhs);
+    friend bool operator==(const CollateralType_& lhs, const CollateralType_& rhs);
     friend struct ReadStringCollateralType_;
     friend Vector_<CollateralType_> CollateralTypeListAll();
     friend bool operator<(const CollateralType_& lhs, const CollateralType_& rhs) {
@@ -31,7 +31,7 @@ public:
 
 Vector_<CollateralType_> CollateralTypeListAll();
 
-__declspec(dllexport)bool operator==(const CollateralType_& lhs, const CollateralType_& rhs);
+bool operator==(const CollateralType_& lhs, const CollateralType_& rhs);
 inline bool operator!=(const CollateralType_& lhs, const CollateralType_& rhs) {return !(lhs == rhs);}
 inline bool operator==(const CollateralType_& lhs, CollateralType_::Value_ rhs) {return lhs.Switch() == rhs;}
 inline bool operator!=(const CollateralType_& lhs, CollateralType_::Value_ rhs) {return lhs.Switch() != rhs;}

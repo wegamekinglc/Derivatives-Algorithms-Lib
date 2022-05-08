@@ -1,6 +1,6 @@
 #pragma once
 
-class __declspec(dllexport) RNGType_
+class  RNGType_
 {
     enum class Value_ : char
     {
@@ -13,7 +13,7 @@ class __declspec(dllexport) RNGType_
     RNGType_(Value_ val) : val_(val) {
         REQUIRE(val < Value_::_N_VALUES, "val is not valid");
     }
-    friend __declspec(dllexport)bool operator==(const RNGType_& lhs, const RNGType_& rhs);
+    friend bool operator==(const RNGType_& lhs, const RNGType_& rhs);
     friend struct ReadStringRNGType_;
     friend Vector_<RNGType_> RNGTypeListAll();
     friend bool operator<(const RNGType_& lhs, const RNGType_& rhs) {
@@ -27,5 +27,5 @@ public:
 
 Vector_<RNGType_> RNGTypeListAll();
 
-__declspec(dllexport)bool operator==(const RNGType_& lhs, const RNGType_& rhs);
+bool operator==(const RNGType_& lhs, const RNGType_& rhs);
 inline bool operator!=(const RNGType_& lhs, const RNGType_& rhs) {return !(lhs == rhs);}
