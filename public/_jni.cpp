@@ -4,8 +4,6 @@
 
 #include <dal/platform/platform.hpp>
 
-#ifdef BUILD_JNI
-
 #include <dal/platform/strict.hpp>
 #include <public/_jni.hpp>
 
@@ -289,5 +287,3 @@ namespace Dal {
         return nullptr;
     }
 }
-
-#endif
