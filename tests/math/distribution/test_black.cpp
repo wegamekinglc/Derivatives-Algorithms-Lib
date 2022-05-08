@@ -4,6 +4,7 @@
 
 #include <gtest/gtest.h>
 #include <dal/math/distribution/black.hpp>
+#include <dal/math/operators.hpp>
 
 using namespace Dal;
 
@@ -11,7 +12,7 @@ TEST(DistributionBlackTest, TestBlackOptionPrice) {
     const auto vol = 0.2;
     const auto T = 2.0;
     const auto forward = 110.0;
-    const auto dean_vol = vol * sqrt(T);
+    const auto dean_vol = vol * Sqrt(T);
     DistributionBlack_ black(forward, dean_vol);
 
     auto call_price = black.OptionPrice(120.0, OptionType_("Call"));
