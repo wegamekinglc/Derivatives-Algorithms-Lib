@@ -12,6 +12,8 @@ public
 	HtmlHelp
 ->auto/MG_#_public.jl
 	JuliaWrapper
+->auto/MG_#_public_jni.inc
+	JNI_Native
 object|settings|storable|record
 ->auto/MG_#_object.inc
 	C++Source

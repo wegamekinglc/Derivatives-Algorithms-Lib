@@ -65,4 +65,3 @@ struct XlRegister_Format_
     }
 };
 static XlRegister_Format_ The_Format_XlRegisterer;
-

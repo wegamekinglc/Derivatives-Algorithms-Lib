@@ -90,7 +90,6 @@ y is number[]
     The interpolated function values at x-values
 -IF-------------------------------------------------------------------------*/
 
-
 /*IF--------------------------------------------------------------------------
 public Interp2_New_Linear
     Create a linear 2D interpolator
@@ -190,8 +189,14 @@ namespace Dal {
 #include <public/auto/MG_Interp1_New_Cubic_public.inc>
 #include <public/auto/MG_Interp1_New_Linear_public.inc>
 #include <public/auto/MG_Interp1_New_Linear_Smoothed_public.inc>
-
 #include <public/auto/MG_Interp2_Get_public.inc>
 #include <public/auto/MG_Interp2_New_Linear_public.inc>
 #endif
+
+#include <public/auto/MG_Interp1_Get_public_jni.inc>
+#include <public/auto/MG_Interp1_New_Cubic_public_jni.inc>
+#include <public/auto/MG_Interp1_New_Linear_public_jni.inc>
+#include <public/auto/MG_Interp1_New_Linear_Smoothed_public_jni.inc>
+#include <public/auto/MG_Interp2_Get_public_jni.inc>
+#include <public/auto/MG_Interp2_New_Linear_public_jni.inc>
 } // namespace Dal

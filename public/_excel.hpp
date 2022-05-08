@@ -43,14 +43,14 @@ namespace Dal {
     namespace Excel {
         inline void InitializeSessionIfNeeded() {} // no runtime initialization required
         double ToDouble(const OPER_* src);
-        boost::optional<double> ToDouble(const OPER_* src, bool); // use overloading to know the return type
+        std::optional<double> ToDouble(const OPER_* src, bool); // use overloading to know the return type
         int ToInt(const OPER_* src);
-        boost::optional<int> ToInt(const OPER_* src, bool);
+        std::optional<int> ToInt(const OPER_* src, bool);
         bool ToBool(const OPER_* src);
-        boost::optional<bool> ToBool(const OPER_* src, bool);
+        std::optional<bool> ToBool(const OPER_* src, bool);
         String_ ToString(const OPER_* src, bool optional = false);
         Date_ ToDate(const OPER_* src);
-        boost::optional<Date_> ToDate(const OPER_* src, bool optional);
+        std::optional<Date_> ToDate(const OPER_* src, bool optional);
         DateTime_ ToDateTime(const OPER_* src, bool optional = false);
         Cell_ ToCell(const OPER_* src, bool optional = false);
         Dictionary_ ToDictionary(const OPER_* src, bool optional = false);
@@ -69,8 +69,8 @@ namespace Dal {
         Matrix_<Cell_> ToCellMatrix(const OPER_* src, bool optional = false, bool greedy = false);
 
         template <class T_> T_ ToEnum(const OPER_* src) { return T_(ToString(src)); }
-        template <class T_> boost::optional<T_> ToEnum(const OPER_* src, bool optional) {
-            boost::optional<T_> retval;
+        template <class T_> std::optional<T_> ToEnum(const OPER_* src, bool optional) {
+            std::optional<T_> retval;
             const String_ s = ToString(src, optional);
             if (!s.empty())
                 retval = T_(s);

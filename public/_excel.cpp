@@ -747,10 +747,10 @@ namespace Dal {
         return ToDouble(&src->val.array.lparray[0]);
     }
 
-    boost::optional<double> Excel::ToDouble(const OPER_* src, bool) {
+    std::optional<double> Excel::ToDouble(const OPER_* src, bool) {
         if (!(src->xltype & (xltypeMissing | xltypeNil)))
             return ToDouble(src);
-        return boost::optional<double>();
+        return std::optional<double>();
     }
 
     int Excel::ToInt(const OPER_* src) {
@@ -769,8 +769,8 @@ namespace Dal {
         return retval;
     }
 
-    boost::optional<int> Excel::ToInt(const OPER_* src, bool) {
-        boost::optional<int> retval;
+    std::optional<int> Excel::ToInt(const OPER_* src, bool) {
+        std::optional<int> retval;
         if (!(src->xltype & (xltypeMissing | xltypeNil)))
             retval = ToInt(src);
         return retval;
@@ -793,15 +793,15 @@ namespace Dal {
         }
     }
 
-    boost::optional<bool> Excel::ToBool(const OPER_* src, bool) {
-        boost::optional<bool> retval;
+    std::optional<bool> Excel::ToBool(const OPER_* src, bool) {
+        std::optional<bool> retval;
         if (!(src->xltype & (xltypeMissing | xltypeNil)))
             retval = ToBool(src);
         return retval;
     }
 
-    Date_ Excel::ToDate(const OPER_* src) { return ToDate(src, false).get(); }
-    boost::optional<Date_> Excel::ToDate(const OPER_* src, bool optional) {
+    Date_ Excel::ToDate(const OPER_* src) { return ToDate(src, false).value(); }
+    std::optional<Date_> Excel::ToDate(const OPER_* src, bool optional) {
         Cell_ c = ToCell(src, optional);
         if (Cell::IsEmpty(c)) {
             REQUIRE(optional, "Missing input date");

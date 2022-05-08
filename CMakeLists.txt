@@ -92,7 +92,12 @@ endif()
 find_package(Boost ${DAL_BOOST_VERSION} REQUIRED)
 if (Boost_FOUND)
     include_directories(${Boost_INCLUDE_DIRS})
-endif (Boost_FOUND)
+endif()
+
+find_package(JNI 1.10 REQUIRED)
+if (JNI_FOUND)
+    include_directories(${JNI_INCLUDE_DIRS})
+endif()
 
 # Do not warn about Boost versions higher than 1.58.0
 set(Boost_NO_WARN_NEW_VERSIONS ON)

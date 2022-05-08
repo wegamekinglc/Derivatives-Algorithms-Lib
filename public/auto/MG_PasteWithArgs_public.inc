@@ -38,4 +38,3 @@ struct XlRegister_PasteWithArgs_
     }
 };
 static XlRegister_PasteWithArgs_ The_PasteWithArgs_XlRegisterer;
-

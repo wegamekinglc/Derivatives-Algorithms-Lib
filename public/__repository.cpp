@@ -74,4 +74,8 @@ namespace Dal {
 #include <public/auto/MG_Repository_Find_public.inc>
 #include <public/auto/MG_Repository_Size_public.inc>
 #endif
+
+#include <public/auto/MG_Repository_Erase_public_jni.inc>
+#include <public/auto/MG_Repository_Find_public_jni.inc>
+#include <public/auto/MG_Repository_Size_public_jni.inc>
 } // namespace Dal

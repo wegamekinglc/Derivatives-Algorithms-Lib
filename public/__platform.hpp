@@ -11,3 +11,4 @@
 #include <public/_excel.hpp>
 #include <public/_reader.hpp>
 #include <public/_repository.hpp>
+#include <public/_jni.hpp>
