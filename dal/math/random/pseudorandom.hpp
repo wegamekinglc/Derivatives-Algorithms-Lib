@@ -26,11 +26,11 @@ namespace Dal {
 
     public:
         explicit PseudoRandom_(size_t n_dim) : cache_(n_dim) {}
-        virtual ~PseudoRandom_() = default;
+        ~PseudoRandom_() override = default;
         virtual double NextUniform() = 0;
-        virtual void FillUniform(Vector_<>* deviates);
-        virtual void FillNormal(Vector_<>* deviates);
-        [[nodiscard]] virtual PseudoRandom_* Clone() const = 0;
+        void FillUniform(Vector_<>* deviates) override;
+        void FillNormal(Vector_<>* deviates) override;
+        [[nodiscard]] PseudoRandom_* Clone() const override = 0;
         virtual void SkipTo(size_t n_points) = 0;
         [[nodiscard]] size_t NDim() const override { return cache_.size(); }
         [[nodiscard]] virtual PseudoRandom_* Branch(int i_child) const = 0;
