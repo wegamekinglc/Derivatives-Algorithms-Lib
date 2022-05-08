@@ -2,8 +2,6 @@
 if (MSVC)
     # See cmake policy CMP00091
     # One of "MultiThreaded", "MultiThreadedDebug", "MultiThreadedDLL", "MultiThreadedDebugDLL"
-
-
     # Export all symbols so MSVC can populate the .lib and .dll
     if (BUILD_SHARED_LIBS)
         # Temp: disable DLL builds on MSVC

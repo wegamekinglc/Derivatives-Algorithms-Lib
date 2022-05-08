@@ -1,7 +1,6 @@
-%:DLLBaseName:Bones`
-%:JClass:runtime.Bones`
-%:ExportClass:`
-%:ExportFunc:`
+%:DLLBaseName:Base`
+%:JClass:runtime.Base`
+%:ExportClass:__declspec(dllexport)`
+%:ExportFunc:__declspec(dllexport)`
+%:SeedEnv:ENV_SEED_TYPE(ObjectAccess_);
 %:PassEnv:_env, `
-%:SeedEnv:	ENV_SEED_TYPE(ObjectAccess_);
-`

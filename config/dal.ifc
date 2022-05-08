@@ -6,8 +6,10 @@
 public
 ->auto/MG_#_public.inc
 	ExcelSource
-->auto/MG_#_public.hpp
+->auto/MG_#_public_dotnet.hpp
 	DotNetHeader
+->auto/MG_#_public_dotnet.inc
+	DotNetSource
 ->auto/MG_#_public.htm
 	HtmlHelp
 ->auto/MG_#_public.jl
