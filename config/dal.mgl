@@ -1,6 +1,6 @@
 %:DLLBaseName:Base`
 %:JClass:runtime.Base`
-%:ExportClass:__declspec(dllexport)`
-%:ExportFunc:__declspec(dllexport)`
+%:ExportClass:`
+%:ExportFunc:`
 %:SeedEnv:ENV_SEED_TYPE(ObjectAccess_);
 %:PassEnv:_env, `
