@@ -249,7 +249,7 @@ namespace Dal {
     }
 
     jintArray JNI::CopyOut(JNIEnv* jenv, const Vector_<int>& src) {
-        auto temp = Apply(ConstructCast_<int, long>(), src);
+        auto temp = Apply(ConstructCast_<int, int>(), src);
         jintArray retval = jenv->NewIntArray(src.size());
         jenv->SetIntArrayRegion(retval, 0, src.size(), &temp[0]);
         return retval;
