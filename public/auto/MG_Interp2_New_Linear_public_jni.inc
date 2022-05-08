@@ -1,5 +1,5 @@
 
-JNIEXPORT jobject JNICALL Java_runtime_Bones_nativeInterp2_New_Linear
+JNIEXPORT jobject JNICALL Java_runtime_Base_nativeInterp2_New_Linear
     (JNIEnv* jenv, jobject obj, jstring j_name, jdoubleArray j_x, jdoubleArray j_y, jobjectArray j_z)
 {
     const char* argName = nullptr;
@@ -17,7 +17,7 @@ JNIEXPORT jobject JNICALL Java_runtime_Bones_nativeInterp2_New_Linear
 
 		Handle_<Interp2_> f;
         Interp2_New_Linear(name, x, y, z, &f);
-        static const jclass THE_CLASS = jenv->FindClass("runtime.Bones/Interp2_New_Linear_Outputs");
+        static const jclass THE_CLASS = jenv->FindClass("runtime.Base/Interp2_New_Linear_Outputs");
         REQUIRE(THE_CLASS, "Can't find output class");
         static const jmethodID THE_CONSTRUCTOR = jenv->GetMethodID(THE_CLASS, "<init>", "(LDA/Handle;)V");
         REQUIRE(THE_CONSTRUCTOR, "Can't find output initializer");

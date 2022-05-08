@@ -4,7 +4,7 @@ extern "C" __declspec(dllexport) OPER_* xl_Interp1_New_Linear_Smoothed
     (const OPER_* xl_name, const OPER_* xl_x, const OPER_* xl_y, const OPER_* xl_smoothing, const OPER_* xl_fit_weights)	
 {
     Excel::InitializeSessionIfNeeded();
-	ENV_SEED_TYPE(ObjectAccess_);
+ENV_SEED_TYPE(ObjectAccess_);
     const char* argName = 0;
     try
     {	
@@ -50,7 +50,7 @@ struct XlRegister_Interp1_New_Linear_Smoothed_
         argHelp.push_back("The values of f(x) at each x");
         argHelp.push_back("The weight to put on smoothness of the interpolating function");
         argHelp.push_back("The weight to attach to accuracy of fit for each y_i; default is 1.0 for all");
-        Excel::Register("Bones", "xl_Interp1_New_Linear_Smoothed", "INTERP1.NEW.LINEAR.SMOOTHED", "Create a linear interpolator", "QQQQQQ", "name,x,y,smoothing,[fit_weights]", argHelp, false);
+        Excel::Register("Base", "xl_Interp1_New_Linear_Smoothed", "INTERP1.NEW.LINEAR.SMOOTHED", "Create a linear interpolator", "QQQQQQ", "name,x,y,smoothing,[fit_weights]", argHelp, false);
     }
 };
 static XlRegister_Interp1_New_Linear_Smoothed_ The_Interp1_New_Linear_Smoothed_XlRegisterer;

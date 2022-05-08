@@ -4,7 +4,7 @@ extern "C" __declspec(dllexport) OPER_* xl_Interp1_New_Cubic
     (const OPER_* xl_name, const OPER_* xl_x, const OPER_* xl_y, const OPER_* xl_boundary_order, const OPER_* xl_boundary_value)	
 {
     Excel::InitializeSessionIfNeeded();
-	ENV_SEED_TYPE(ObjectAccess_);
+ENV_SEED_TYPE(ObjectAccess_);
     const char* argName = 0;
     try
     {	
@@ -52,7 +52,7 @@ struct XlRegister_Interp1_New_Cubic_
         argHelp.push_back("The values of f(x) at each x");
         argHelp.push_back("(0, 3] The order of the derivatives specified at the boundary (default is 3); can be a two-element vector of (left, right), or a single value for both");
         argHelp.push_back("The value of whichever derivative is specified at the boundary (default is 0.0); can be a two-element vector of (left, right), or a single number for bot");
-        Excel::Register("Bones", "xl_Interp1_New_Cubic", "INTERP1.NEW.CUBIC", "Create a cubic-spline interpolator", "QQQQQQ", "name,x,y,[boundary_order],[boundary_value]", argHelp, false);
+        Excel::Register("Base", "xl_Interp1_New_Cubic", "INTERP1.NEW.CUBIC", "Create a cubic-spline interpolator", "QQQQQQ", "name,x,y,[boundary_order],[boundary_value]", argHelp, false);
     }
 };
 static XlRegister_Interp1_New_Cubic_ The_Interp1_New_Cubic_XlRegisterer;

@@ -4,7 +4,7 @@ extern "C" __declspec(dllexport) OPER_* xl_Repository_Erase
     (const OPER_* xl_objects)	
 {
     Excel::InitializeSessionIfNeeded();
-	ENV_SEED_TYPE(ObjectAccess_);
+ENV_SEED_TYPE(ObjectAccess_);
     const char* argName = 0;
     try
     {	
@@ -34,7 +34,7 @@ struct XlRegister_Repository_Erase_
     {
         Vector_<String_> argHelp;        
         argHelp.push_back("The objects to remove(their handles will be invalidated)");
-        Excel::Register("Bones", "xl_Repository_Erase", "REPOSITORY.ERASE", "Erase objects from repository", "QQ!", "objects", argHelp, false);
+        Excel::Register("Base", "xl_Repository_Erase", "REPOSITORY.ERASE", "Erase objects from repository", "QQ!", "objects", argHelp, false);
     }
 };
 static XlRegister_Repository_Erase_ The_Repository_Erase_XlRegisterer;

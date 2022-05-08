@@ -190,6 +190,13 @@ namespace Dal {
 #include <public/auto/MG_Interp1_New_Linear_Smoothed_public.inc>
 #include <public/auto/MG_Interp2_Get_public.inc>
 #include <public/auto/MG_Interp2_New_Linear_public.inc>
+
+//#include <public/auto/MG_Interp1_Get_public_dotnet.inc>
+//#include <public/auto/MG_Interp1_New_Cubic_public_dotnet.inc>
+//#include <public/auto/MG_Interp1_New_Linear_public_dotnet.inc>
+//#include <public/auto/MG_Interp1_New_Linear_Smoothed_public_dotnet.inc>
+//#include <public/auto/MG_Interp2_Get_public_dotnet.inc>
+//#include <public/auto/MG_Interp2_New_Linear_public_dotnet.inc>
 #endif
 
 #include <public/auto/MG_Interp1_Get_public_jni.inc>

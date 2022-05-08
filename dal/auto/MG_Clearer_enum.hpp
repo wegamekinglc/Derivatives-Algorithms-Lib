@@ -1,6 +1,6 @@
 #pragma once
 
-class  Clearer_
+class __declspec(dllexport) Clearer_
 {
 public:
     enum class Value_ : char
@@ -15,7 +15,7 @@ public:
         REQUIRE(val < Value_::_N_VALUES, "val is not valid");
     }
 private:
-    friend bool operator==(const Clearer_& lhs, const Clearer_& rhs);
+    friend __declspec(dllexport)bool operator==(const Clearer_& lhs, const Clearer_& rhs);
     friend struct ReadStringClearer_;
     friend Vector_<Clearer_> ClearerListAll();
     friend bool operator<(const Clearer_& lhs, const Clearer_& rhs) {
@@ -32,7 +32,7 @@ public:
 
 Vector_<Clearer_> ClearerListAll();
 
-bool operator==(const Clearer_& lhs, const Clearer_& rhs);
+__declspec(dllexport)bool operator==(const Clearer_& lhs, const Clearer_& rhs);
 inline bool operator!=(const Clearer_& lhs, const Clearer_& rhs) {return !(lhs == rhs);}
 inline bool operator==(const Clearer_& lhs, Clearer_::Value_ rhs) {return lhs.Switch() == rhs;}
 inline bool operator!=(const Clearer_& lhs, Clearer_::Value_ rhs) {return lhs.Switch() != rhs;}

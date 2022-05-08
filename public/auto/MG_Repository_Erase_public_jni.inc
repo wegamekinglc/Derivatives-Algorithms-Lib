@@ -1,5 +1,5 @@
 
-JNIEXPORT jobject JNICALL Java_runtime_Bones_nativeRepository_Erase
+JNIEXPORT jobject JNICALL Java_runtime_Base_nativeRepository_Erase
     (JNIEnv* jenv, jobject obj, jobjectArray j_objects)
 {
     const char* argName = nullptr;
@@ -11,7 +11,7 @@ JNIEXPORT jobject JNICALL Java_runtime_Bones_nativeRepository_Erase
 
 		int num_erased;
         Repository_Erase(objects, &num_erased);
-        static const jclass THE_CLASS = jenv->FindClass("runtime.Bones/Repository_Erase_Outputs");
+        static const jclass THE_CLASS = jenv->FindClass("runtime.Base/Repository_Erase_Outputs");
         REQUIRE(THE_CLASS, "Can't find output class");
         static const jmethodID THE_CONSTRUCTOR = jenv->GetMethodID(THE_CLASS, "<init>", "(I)V");
         REQUIRE(THE_CONSTRUCTOR, "Can't find output initializer");

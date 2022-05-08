@@ -1,6 +1,6 @@
 #pragma once
 
-class  TradedRate_
+class __declspec(dllexport) TradedRate_
 {
 public:
     enum class Value_ : char
@@ -18,7 +18,7 @@ public:
         REQUIRE(val < Value_::_N_VALUES, "val is not valid");
     }
 private:
-    friend bool operator==(const TradedRate_& lhs, const TradedRate_& rhs);
+    friend __declspec(dllexport)bool operator==(const TradedRate_& lhs, const TradedRate_& rhs);
     friend struct ReadStringTradedRate_;
     friend Vector_<TradedRate_> TradedRateListAll();
     friend bool operator<(const TradedRate_& lhs, const TradedRate_& rhs) {
@@ -36,7 +36,7 @@ public:
 
 Vector_<TradedRate_> TradedRateListAll();
 
-bool operator==(const TradedRate_& lhs, const TradedRate_& rhs);
+__declspec(dllexport)bool operator==(const TradedRate_& lhs, const TradedRate_& rhs);
 inline bool operator!=(const TradedRate_& lhs, const TradedRate_& rhs) {return !(lhs == rhs);}
 inline bool operator==(const TradedRate_& lhs, TradedRate_::Value_ rhs) {return lhs.Switch() == rhs;}
 inline bool operator!=(const TradedRate_& lhs, TradedRate_::Value_ rhs) {return lhs.Switch() != rhs;}

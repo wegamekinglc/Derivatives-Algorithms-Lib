@@ -4,7 +4,7 @@ extern "C" __declspec(dllexport) OPER_* xl_Interp2_Get
     (const OPER_* xl_f, const OPER_* xl_x, const OPER_* xl_y)	
 {
     Excel::InitializeSessionIfNeeded();
-	ENV_SEED_TYPE(ObjectAccess_);
+ENV_SEED_TYPE(ObjectAccess_);
     const char* argName = 0;
     try
     {	
@@ -40,7 +40,7 @@ struct XlRegister_Interp2_Get_
         argHelp.push_back("The interpolant function");
         argHelp.push_back("The x-values (abcissas)");
         argHelp.push_back("The y-values (abcissas)");
-        Excel::Register("Bones", "xl_Interp2_Get", "INTERP2.GET", "Interpolate 2D a value at specified abcissas", "QQQQ", "f,x,y", argHelp, false);
+        Excel::Register("Base", "xl_Interp2_Get", "INTERP2.GET", "Interpolate 2D a value at specified abcissas", "QQQQ", "f,x,y", argHelp, false);
     }
 };
 static XlRegister_Interp2_Get_ The_Interp2_Get_XlRegisterer;

@@ -77,7 +77,6 @@
 #include <iterator>
 #include <malloc.h>
 #include <map>
-#include <mutex>
 #include <regex>
 #include <Windows.h>
 
@@ -1545,6 +1544,7 @@ func_with_args is string
 
 #include <public/auto/MG_Format_public.inc>
 #include <public/auto/MG_PasteWithArgs_public.inc>
+//#include <public/auto/MG_PasteWithArgs_public_dotnet.inc>
 }
 
 #endif

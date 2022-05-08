@@ -1,5 +1,5 @@
 
-JNIEXPORT jobject JNICALL Java_runtime_Bones_nativeInterp1_New_Linear_Smoothed
+JNIEXPORT jobject JNICALL Java_runtime_Base_nativeInterp1_New_Linear_Smoothed
     (JNIEnv* jenv, jobject obj, jstring j_name, jdoubleArray j_x, jdoubleArray j_y, jdouble j_smoothing, jdoubleArray j_fit_weights)
 {
     const char* argName = nullptr;
@@ -19,7 +19,7 @@ JNIEXPORT jobject JNICALL Java_runtime_Bones_nativeInterp1_New_Linear_Smoothed
 
 		Handle_<Interp1_> f;
         Interp1_New_Linear_Smoothed(name, x, y, smoothing, fit_weights, &f);
-        static const jclass THE_CLASS = jenv->FindClass("runtime.Bones/Interp1_New_Linear_Smoothed_Outputs");
+        static const jclass THE_CLASS = jenv->FindClass("runtime.Base/Interp1_New_Linear_Smoothed_Outputs");
         REQUIRE(THE_CLASS, "Can't find output class");
         static const jmethodID THE_CONSTRUCTOR = jenv->GetMethodID(THE_CLASS, "<init>", "(LDA/Handle;)V");
         REQUIRE(THE_CONSTRUCTOR, "Can't find output initializer");

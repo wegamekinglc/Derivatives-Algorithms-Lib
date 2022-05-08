@@ -1,6 +1,6 @@
 #pragma once
 
-class  Ccy_
+class __declspec(dllexport) Ccy_
 {
 public:
     enum class Value_ : char
@@ -21,7 +21,7 @@ public:
         REQUIRE(val < Value_::_N_VALUES, "val is not valid");
     }
 private:
-    friend bool operator==(const Ccy_& lhs, const Ccy_& rhs);
+    friend __declspec(dllexport)bool operator==(const Ccy_& lhs, const Ccy_& rhs);
     friend struct ReadStringCcy_;
     friend Vector_<Ccy_> CcyListAll();
     friend bool operator<(const Ccy_& lhs, const Ccy_& rhs) {
@@ -36,7 +36,7 @@ public:
 
 Vector_<Ccy_> CcyListAll();
 
-bool operator==(const Ccy_& lhs, const Ccy_& rhs);
+__declspec(dllexport)bool operator==(const Ccy_& lhs, const Ccy_& rhs);
 inline bool operator!=(const Ccy_& lhs, const Ccy_& rhs) {return !(lhs == rhs);}
 inline bool operator==(const Ccy_& lhs, Ccy_::Value_ rhs) {return lhs.Switch() == rhs;}
 inline bool operator!=(const Ccy_& lhs, Ccy_::Value_ rhs) {return lhs.Switch() != rhs;}

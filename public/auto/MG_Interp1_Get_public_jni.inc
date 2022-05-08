@@ -1,5 +1,5 @@
 
-JNIEXPORT jobject JNICALL Java_runtime_Bones_nativeInterp1_Get
+JNIEXPORT jobject JNICALL Java_runtime_Base_nativeInterp1_Get
     (JNIEnv* jenv, jobject obj, jobject j_f, jdoubleArray j_x)
 {
     const char* argName = nullptr;
@@ -13,7 +13,7 @@ JNIEXPORT jobject JNICALL Java_runtime_Bones_nativeInterp1_Get
 
 		Vector_<double> y;
         Interp1_Get(f, x, &y);
-        static const jclass THE_CLASS = jenv->FindClass("runtime.Bones/Interp1_Get_Outputs");
+        static const jclass THE_CLASS = jenv->FindClass("runtime.Base/Interp1_Get_Outputs");
         REQUIRE(THE_CLASS, "Can't find output class");
         static const jmethodID THE_CONSTRUCTOR = jenv->GetMethodID(THE_CLASS, "<init>", "([D))V");
         REQUIRE(THE_CONSTRUCTOR, "Can't find output initializer");

@@ -1,5 +1,5 @@
 
-JNIEXPORT jobject JNICALL Java_runtime_Bones_nativeRepository_Size
+JNIEXPORT jobject JNICALL Java_runtime_Base_nativeRepository_Size
     (JNIEnv* jenv, jobject obj)
 {
     const char* argName = nullptr;
@@ -10,7 +10,7 @@ JNIEXPORT jobject JNICALL Java_runtime_Bones_nativeRepository_Size
 
 		int size;
         Repository_Size(&size);
-        static const jclass THE_CLASS = jenv->FindClass("runtime.Bones/Repository_Size_Outputs");
+        static const jclass THE_CLASS = jenv->FindClass("runtime.Base/Repository_Size_Outputs");
         REQUIRE(THE_CLASS, "Can't find output class");
         static const jmethodID THE_CONSTRUCTOR = jenv->GetMethodID(THE_CLASS, "<init>", "(I)V");
         REQUIRE(THE_CONSTRUCTOR, "Can't find output initializer");

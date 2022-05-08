@@ -4,7 +4,7 @@ extern "C" __declspec(dllexport) OPER_* xl_Interp1_New_Linear
     (const OPER_* xl_name, const OPER_* xl_x, const OPER_* xl_y)	
 {
     Excel::InitializeSessionIfNeeded();
-	ENV_SEED_TYPE(ObjectAccess_);
+ENV_SEED_TYPE(ObjectAccess_);
     const char* argName = 0;
     try
     {	
@@ -42,7 +42,7 @@ struct XlRegister_Interp1_New_Linear_
         argHelp.push_back("A name for the object being created");
         argHelp.push_back("The x-values (abscissas)");
         argHelp.push_back("The values of f(x) at each x");
-        Excel::Register("Bones", "xl_Interp1_New_Linear", "INTERP1.NEW.LINEAR", "Create a linear interpolator", "QQQQ", "name,x,y", argHelp, false);
+        Excel::Register("Base", "xl_Interp1_New_Linear", "INTERP1.NEW.LINEAR", "Create a linear interpolator", "QQQQ", "name,x,y", argHelp, false);
     }
 };
 static XlRegister_Interp1_New_Linear_ The_Interp1_New_Linear_XlRegisterer;

@@ -4,7 +4,7 @@ extern "C" __declspec(dllexport) OPER_* xl_Format
     (const OPER_* xl_format, const OPER_* xl_arg1, const OPER_* xl_arg2, const OPER_* xl_arg3, const OPER_* xl_arg4, const OPER_* xl_arg5, const OPER_* xl_arg6, const OPER_* xl_arg7, const OPER_* xl_arg8, const OPER_* xl_arg9)	
 {
     Excel::InitializeSessionIfNeeded();
-	ENV_SEED_TYPE(ObjectAccess_);
+ENV_SEED_TYPE(ObjectAccess_);
     const char* argName = 0;
     try
     {	
@@ -61,7 +61,7 @@ struct XlRegister_Format_
         argHelp.push_back("A table");
         argHelp.push_back("A table");
         argHelp.push_back("A table");
-        Excel::Register("Bones", "xl_Format", "DA.FORMAT", "Combine data according to a user - supplied format string", "QQQQQQQQQQQ", "format,arg1,[arg2],[arg3],[arg4],[arg5],[arg6],[arg7],[arg8],[arg9]", argHelp, false);
+        Excel::Register("Base", "xl_Format", "DA.FORMAT", "Combine data according to a user - supplied format string", "QQQQQQQQQQQ", "format,arg1,[arg2],[arg3],[arg4],[arg5],[arg6],[arg7],[arg8],[arg9]", argHelp, false);
     }
 };
 static XlRegister_Format_ The_Format_XlRegisterer;
