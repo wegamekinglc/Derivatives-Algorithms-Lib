@@ -27,3 +27,5 @@ enumeration
 ->auto/java/#.java
 	JavaClass
 dir
+->auto/MG_#_Julia.jl
+	JuliaIncludes
