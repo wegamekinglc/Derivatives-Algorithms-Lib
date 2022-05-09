@@ -18,7 +18,7 @@
 #include <Windows.h>
 #endif
 
-#include <public/_xlcall.hpp>
+#include "_xlcall.hpp"
 
 /*
 ** Excel 12 entry points backwards compatible with Excel 11

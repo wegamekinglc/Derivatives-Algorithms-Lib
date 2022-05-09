@@ -16,12 +16,13 @@
 #define cchMaxStz (255)
 #define MAXSHORTINT 0x7fff
 
-#include <dal/utilities/environment.hpp>
-#include <dal/math/matrix/matrixs.hpp>
-#include <dal/platform/optionals.hpp>
-#include <dal/storage/storable.hpp>
-#include <public/_reader.hpp>
-#include <dal/utilities/dictionary.hpp>
+#include "dal/platform/platform.hpp"
+#include "dal/math/matrix/matrixs.hpp"
+#include "dal/platform/optionals.hpp"
+#include "dal/storage/storable.hpp"
+#include "dal/utilities/dictionary.hpp"
+#include "dal/utilities/environment.hpp"
+#include "public/src/_reader.hpp"
 
 #define XL_CALLBACK Excel12v
 

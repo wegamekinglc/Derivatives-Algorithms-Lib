@@ -3,21 +3,21 @@
 //
 
 #define _Regex_traits _Regex_traits_Repository
-#include <public/_repository.hpp>
-#include <dal/platform/platform.hpp>
-#include <dal/platform/strict.hpp>
+#include "dal/platform/platform.hpp"
+#include "dal/platform/strict.hpp"
+#include "_repository.hpp"
 #include <map>
 #include <mutex>
 #include <regex>
 
-#include <dal/math/matrix/matrixutils.hpp>
-#include <dal/storage/box.hpp>
-#include <dal/storage/globals.hpp>
-#include <dal/storage/storable.hpp>
-#include <dal/utilities/exceptions.hpp>
+#include "dal/math/matrix/matrixutils.hpp"
+#include "dal/storage/box.hpp"
+#include "dal/storage/globals.hpp"
+#include "dal/storage/storable.hpp"
+#include "dal/utilities/exceptions.hpp"
 
 namespace Dal {
-#include <public/auto/MG_RepositoryErase_enum.inc>
+#include "public/auto/MG_RepositoryErase_enum.inc"
     namespace {
         // a repository of objects
         // POSTPONED -- make repository thread safe

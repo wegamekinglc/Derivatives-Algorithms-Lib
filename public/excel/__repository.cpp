@@ -2,8 +2,8 @@
 // Created by wegam on 2022/4/3.
 //
 
-#include <dal/platform/platform.hpp>
-#include <public/__platform.hpp>
+#include "dal/platform/platform.hpp"
+#include "public/excel/__platform.hpp"
 
 /*IF--------------------------------------------------------------------------
 public Repository_Erase
@@ -70,8 +70,8 @@ namespace Dal {
     } // namespace
 
 #ifdef _WIN32
-#include <public/auto/MG_Repository_Erase_public.inc>
-#include <public/auto/MG_Repository_Find_public.inc>
-#include <public/auto/MG_Repository_Size_public.inc>
+#include "public/auto/MG_Repository_Erase_public.inc"
+#include "public/auto/MG_Repository_Find_public.inc"
+#include "public/auto/MG_Repository_Size_public.inc"
 #endif
 } // namespace Dal

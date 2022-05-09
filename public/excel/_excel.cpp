@@ -1,18 +1,18 @@
 #ifdef _WIN32
 
 #define _Regex_traits _Regex_traits_Excel
+#include "_excel.hpp"
+#include "_xlcall.hpp"
+#include "dal/platform/platform.hpp"
+#include "dal/platform/strict.hpp"
 #include <algorithm>
-#include <dal/platform/platform.hpp>
-#include <dal/platform/strict.hpp>
-#include <public/_excel.hpp>
-#include <public/_xlcall.hpp>
-#include <functional>
 #include <deque>
+#include <functional>
 
-#include <dal/math/cellutils.hpp>
-#include <public/_repository.hpp>
-#include <dal/utilities/exceptions.hpp>
-#include <dal/utilities/numerics.hpp>
+#include "dal/math/cellutils.hpp"
+#include "dal/utilities/exceptions.hpp"
+#include "dal/utilities/numerics.hpp"
+#include "public/src/_repository.hpp"
 
 ///***************************************************************************
 // File:	FRAMEWRK.C
@@ -1542,8 +1542,8 @@ func_with_args is string
         }
     } // namespace
 
-#include <public/auto/MG_Format_public.inc>
-#include <public/auto/MG_PasteWithArgs_public.inc>
+#include "public/auto/MG_Format_public.inc"
+#include "public/auto/MG_PasteWithArgs_public.inc"
 }
 
 #endif
