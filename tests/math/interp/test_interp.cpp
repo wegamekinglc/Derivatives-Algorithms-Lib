@@ -13,7 +13,14 @@ using Dal::Interp::NewLinear;
 using Dal::Interp1_;
 using Dal::Handle_;
 
+TEST(InterpTest, TestInterpLinearImplXWithSmooth) {
+    Vector_<> x = {1., 2., 3., 4., 5.};
+    Vector_<> f = {2.5, 3.5, 1.7, 2.8, 3.6};
 
+    auto calculated = Dal::InterpLinearImplX<true>(x, f, (x[2] + x[3]) / 2.0);
+    auto expected = (f[2] + f[3]) / 2.;
+    ASSERT_DOUBLE_EQ(calculated, expected);
+}
 
 TEST(InterpTest, TestInterp1Linear) {
     Vector_<> x = {1., 2., 3., 4., 5.};
