@@ -138,7 +138,8 @@ namespace Dal {
         }
 
         void Interp1_Get(const Handle_<Interp1_>& f, const Vector_<>& x, Vector_<>* y) {
-            *y = Apply([&](double x_i) { return CheckedInterp(*f, x_i); }, x);
+            y->Resize(x.size());
+            Transform(x, [&](double x_i) { return CheckedInterp(*f, x_i); }, y);
         }
 
         void Interp1_New_Linear_Smoothed(const String_& name, const Vector_<>& x, const Vector_<>& y, double smoothing, const Vector_<>& fit_weights, Handle_<Interp1_>* f) {
@@ -170,9 +171,11 @@ namespace Dal {
         }
 
         void Interp2_Get(const Handle_<Interp2_>& f, const Vector_<>& x, const Vector_<>& y, Matrix_<>* z) {
-            for (int i = 0; i < x.size(); ++i)
-                for (int j = 0; j < y.size(); ++j)
+            z->Resize(x.size(), y.size());
+            for (size_t i = 0; i != x.size(); ++i) {
+                for (int j = 0; j != y.size(); ++j)
                     (*z)(i, j) = CheckedInterp2(*f, x[i], y[j]);
+            }
         }
 
         void Interp2_New_Linear(const String_& name,
