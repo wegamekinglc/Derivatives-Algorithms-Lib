@@ -64,15 +64,11 @@ namespace Dal {
         }
 
         void Rewind() {
-#ifndef NDEBUG
-            Clear();
-#else
             if (multi_)
                 adjoints_multi_.Rewind();
             ders_.Rewind();
             arg_ptrs_.Rewind();
             nodes_.Rewind();
-#endif
         }
 
         void Mark() {
