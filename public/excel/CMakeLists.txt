@@ -1,12 +1,8 @@
 file(GLOB_RECURSE PUBLIC_FILES "../src/*.hpp" "../src/*.cpp" "*.hpp" "*.cpp")
-if (MSVC)
-    add_definitions(-DIS_BASE)
-endif()
-add_library(dal_public SHARED ${PUBLIC_FILES})
-if (MSVC)
-    set_target_properties(dal_public PROPERTIES SUFFIX .xll)
-endif()
-target_link_libraries(dal_public dal_library)
+add_definitions(-DIS_BASE)
+add_library(dal_excel SHARED ${PUBLIC_FILES})
+set_target_properties(dal_excel PROPERTIES SUFFIX .xll)
+target_link_libraries(dal_excel dal_library)
 
 install(TARGETS dal_public
         RUNTIME DESTINATION lib
