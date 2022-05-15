@@ -1,4 +1,4 @@
-@echo on
+@echo off
 
 call :set_variable BUILD_TYPE Release %BUILD_TYPE%
 call :set_variable DAL_DIR "%CD%" %DAL_DIR%
