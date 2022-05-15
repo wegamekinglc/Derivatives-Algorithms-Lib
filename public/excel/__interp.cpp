@@ -3,6 +3,7 @@
 //
 
 #include "__platform.hpp"
+#include <public/src/interp.hpp>
 #include "dal/math/interp/interp.hpp"
 #include "dal/math/interp/interp2d.hpp"
 #include "dal/math/interp/interpcubic.hpp"
@@ -129,7 +130,7 @@ z is number[][]
 namespace Dal {
     namespace {
         void Interp1_New_Linear(const String_& name, const Vector_<>& x, const Vector_<>& y, Handle_<Interp1_>* f) {
-            f->reset(Interp::NewLinear(name, x, y));
+            Interp1NewLinear(name, x, y).swap(*f);
         }
 
         double CheckedInterp(const Interp1_& f, double x) {

@@ -79,6 +79,10 @@ if (NOT DEFINED DAL_BOOST_VERSION)
     endif()
 endif()
 
+message("-- BUILD_SHARED_LIBS: ${BUILD_SHARED_LIBS}")
+message("-- Boost_USE_STATIC_LIBS: ${Boost_USE_STATIC_LIBS}")
+message("-- Boost_USE_STATIC_RUNTIME: ${Boost_USE_STATIC_RUNTIME}")
+
 find_package(Boost ${DAL_BOOST_VERSION} REQUIRED)
 if (Boost_FOUND)
     include_directories(${Boost_INCLUDE_DIRS})
