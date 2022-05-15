@@ -1,11 +1,12 @@
 #!/bin/bash -e
 
-num_cores=$(grep -c processor /proc/cpuinfo)
+NUM_CORES=$(grep -c processor /proc/cpuinfo)
 export DAL_DIR=$PWD
 export LD_LIBRARY_PATH=$PWD/lib:$LD_LIBRARY_PATH
 export BUILD_TYPE=Release
 export SKIP_TESTS=false
 
+echo NUM_CORES: NUM_CORES
 echo BUILD_TYPE: $BUILD_TYPE
 echo DAL_DIR: $DAL_DIR
 echo SKIP_TESTS: $SKIP_TESTS
@@ -32,7 +33,7 @@ mkdir -p build
 cd build || exit
 cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DCMAKE_INSTALL_PREFIX="$DAL_DIR" -DSKIP_TESTS=$SKIP_TESTS ..
 make clean
-make -j"${num_cores}"
+make -j"${NUM_CORES}"
 make install
 )
 
