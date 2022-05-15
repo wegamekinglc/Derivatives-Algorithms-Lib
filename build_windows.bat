@@ -1,16 +1,18 @@
-@echo off
+@echo on
 
 call :set_variable BUILD_TYPE Release %BUILD_TYPE%
 call :set_variable DAL_DIR "%CD%" %DAL_DIR%
 call :set_variable ADDRESS_MODEL Win32 %ADDRESS_MODEL%
 call :set_variable MSVC_RUNTIME dynamic %MSVC_RUNTIME%
 call :set_variable MSVC_VERSION "Visual Studio 15 2017" %MSVC_VERSION%
+call :set_variable SKIP_TESTS false %SKIP_TESTS%
 
 echo BUILD_TYPE:  %BUILD_TYPE%
 echo DAL_DIR: %DAL_DIR%
 echo ADDRESS_MODEL: %ADDRESS_MODEL%
 echo MSVC_RUNTIME: %MSVC_RUNTIME%
 echo MSVC_VERSION: %MSVC_VERSION%
+echo SKIP_TESTS: %SKIP_TESTS%
 
 git submodule init
 git submodule update
@@ -62,9 +64,9 @@ if "%ADDRESS_MODEL%"=="Win64" (
 
 
 if "%ADDRESS_MODEL%" =="Win64" (
-cmake -G "%MSVC_VERSION% %ADDRESS_MODEL%" -DCMAKE_BUILD_TYPE=%BUILD_TYPE% -DCMAKE_INSTALL_PREFIX=%DAL_DIR% -DMSVC_RUNTIME=%MSVC_RUNTIME% ..
+cmake -G "%MSVC_VERSION% %ADDRESS_MODEL%" -DCMAKE_BUILD_TYPE=%BUILD_TYPE% -DCMAKE_INSTALL_PREFIX=%DAL_DIR% -DMSVC_RUNTIME=%MSVC_RUNTIME% -DSKIP_TESTS=%SKIP_TESTS% ..
 ) else (
-cmake -G "%MSVC_VERSION%" -DCMAKE_BUILD_TYPE=%BUILD_TYPE% -DCMAKE_INSTALL_PREFIX=%DAL_DIR% -DMSVC_RUNTIME=%MSVC_RUNTIME% ..
+cmake -G "%MSVC_VERSION%" -DCMAKE_BUILD_TYPE=%BUILD_TYPE% -DCMAKE_INSTALL_PREFIX=%DAL_DIR% -DMSVC_RUNTIME=%MSVC_RUNTIME% -DSKIP_TESTS=%SKIP_TESTS% ..
 )
 
 if %errorlevel% neq 0 exit /b 1
@@ -76,14 +78,14 @@ if %errorlevel% neq 0 exit /b 1
 
 cd ..
 
-bin\test_suite.exe
+if "%SKIP_TESTS%"=="false" (
+    bin\test_suite.exe
+)
 
 if %errorlevel% neq 0 exit /b 1
 
 @echo on
 
 :set_variable
-if "%~3"=="" (
- set %~1=%~2
-)
+set %~1=%~2
 EXIT /B 0

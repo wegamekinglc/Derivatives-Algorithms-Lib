@@ -4,6 +4,7 @@ num_cores=$(grep -c processor /proc/cpuinfo)
 export DAL_DIR=$PWD
 export LD_LIBRARY_PATH=$PWD/lib:$LD_LIBRARY_PATH
 export BUILD_TYPE=Release
+export SKIP_TESTS=false
 
 (
 cd machinist2 || exit
@@ -25,7 +26,7 @@ fi
 mkdir -p build
 (
 cd build || exit
-cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DCMAKE_INSTALL_PREFIX="$DAL_DIR" ..
+cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DCMAKE_INSTALL_PREFIX="$DAL_DIR" -DSKIP_TESTS=$SKIP_TESTS ..
 make clean
 make -j"${num_cores}"
 make install
@@ -35,6 +36,8 @@ if [ $? -ne 0 ]; then
   exit 1
 fi
 
-bin/test_suite
+if [ $SKIP_TESTS -ne true]; then
+  bin/test_suite
+fi
 
 echo "Finished building of Derivatives Algorithms Library"

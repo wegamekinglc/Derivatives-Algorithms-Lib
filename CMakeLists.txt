@@ -111,6 +111,7 @@ add_subdirectory(dal)
 add_subdirectory(public)
 add_subdirectory(examples)
 
-if (NOT DEFINED DAL_SKIP_TESTS)
+message("-- SKIP_TEST: ${SKIP_TEST}")
+if (SKIP_TEST EQUAL "true")
     add_subdirectory(tests)
 endif()
