@@ -9,3 +9,6 @@ lib/*
 include/*
 coverage.info
 *.csv
+dist
+build
+*.egg-info
