@@ -40,7 +40,7 @@ if [ $? -ne 0 ]; then
   exit 1
 fi
 
-if [ $SKIP_TESTS -ne true]; then
+if [ $SKIP_TESTS -ne "true" ]; then
   bin/test_suite
 fi
 
