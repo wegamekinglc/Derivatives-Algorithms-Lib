@@ -45,3 +45,27 @@ TEST(DistributionBlackTest, TestBlackOptionIV) {
     auto straddle_iv = Distribution::BlackIV(forward, strike, OptionType_("Straddle"), straddle_price);
     ASSERT_NEAR(straddle_iv, vol * Sqrt(T), 1e-6);
 }
+
+TEST(DistributionBlackTest, TestBlackParameterDerivatives) {
+    const auto vol = 0.2;
+    const auto T = 2.0;
+    const auto forward = 110.0;
+    const auto strike = 120.0;
+    const auto dean_vol = vol * Sqrt(T);
+
+    DistributionBlack_ black(forward, dean_vol);
+    auto call_greeks = black.ParameterDerivatives(strike, OptionType_("Call"), {"delta", "vega", "volvega"});
+    ASSERT_NEAR(call_greeks["delta"], 0.43399572, 1e-6);
+    ASSERT_NEAR(call_greeks["vega"], 43.28165607, 1e-6);
+    ASSERT_NEAR(call_greeks["volvega"], 12.241901, 1e-6);
+
+    auto put_greeks = black.ParameterDerivatives(strike, OptionType_("Put"), {"delta", "vega", "volvega"});
+    ASSERT_NEAR(put_greeks["delta"], -0.56600428, 1e-6);
+    ASSERT_NEAR(put_greeks["vega"], 43.28165607, 1e-6);
+    ASSERT_NEAR(put_greeks["volvega"], 12.241901, 1e-6);
+
+    auto straddle_greeks = black.ParameterDerivatives(strike, OptionType_("Straddle"), {"delta", "vega", "volvega"});
+    ASSERT_NEAR(straddle_greeks["delta"], call_greeks["delta"] + put_greeks["delta"], 1e-6);
+    ASSERT_NEAR(straddle_greeks["vega"], call_greeks["vega"] + put_greeks["vega"], 1e-6);
+    ASSERT_NEAR(straddle_greeks["volvega"], call_greeks["volvega"] + put_greeks["volvega"], 1e-6);
+}
