@@ -112,6 +112,6 @@ add_subdirectory(public)
 add_subdirectory(examples)
 
 message("-- SKIP_TESTS: ${SKIP_TESTS}")
-if (SKIP_TESTS EQUAL "false")
+if (${SKIP_TESTS} EQUAL "false")
     add_subdirectory(tests)
 endif()
