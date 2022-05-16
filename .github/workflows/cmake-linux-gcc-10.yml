@@ -9,7 +9,7 @@ jobs:
           submodules: recursive
       - name: Setup
         run: |
-          sudo apt install -y g++-10 libboost-dev libgtest-dev libc++-dev make cmake libpython3.8-dev
+          sudo apt install -y g++-10 libgtest-dev libc++-dev make cmake libpython3.8-dev
       - name: Prepare
         env:
           CXXFLAGS: -O2

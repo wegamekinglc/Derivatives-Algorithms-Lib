@@ -46,16 +46,6 @@ if (NOT DEFINED BUILD_SHARED_LIBS)
     set(BUILD_SHARED_LIBS ${UNIX})
 endif()
 
-# Boost static libs ON for MSVC
-if (NOT DEFINED Boost_USE_STATIC_LIBS)
-    set(Boost_USE_STATIC_LIBS ${MSVC})
-endif()
-
-# Boost static runtime ON for MSVC
-if (NOT DEFINED Boost_USE_STATIC_RUNTIME)
-    set(Boost_USE_STATIC_RUNTIME ${MSVC})
-endif()
-
 # Require C++11 or higher
 if (NOT DEFINED CMAKE_CXX_STANDARD)
     set(CMAKE_CXX_STANDARD 17)
@@ -70,29 +60,7 @@ if (NOT DEFINED CMAKE_CXX_EXTENSIONS)
     set(CMAKE_CXX_EXTENSIONS FALSE)
 endif()
 
-if (NOT DEFINED DAL_BOOST_VERSION)
-    # Boost 1.75.0 or greater required for compiling with C++20
-    if (CMAKE_CXX_STANDARD GREATER_EQUAL 20)
-        set(DAL_BOOST_VERSION 1.75.0)
-    else()
-        set(DAL_BOOST_VERSION 1.58.0)
-    endif()
-endif()
-
 message("-- BUILD_SHARED_LIBS: ${BUILD_SHARED_LIBS}")
-message("-- Boost_USE_STATIC_LIBS: ${Boost_USE_STATIC_LIBS}")
-message("-- Boost_USE_STATIC_RUNTIME: ${Boost_USE_STATIC_RUNTIME}")
-
-find_package(Boost ${DAL_BOOST_VERSION} REQUIRED)
-if (Boost_FOUND)
-    include_directories(${Boost_INCLUDE_DIRS})
-endif()
-
-# Do not warn about Boost versions higher than 1.58.0
-set(Boost_NO_WARN_NEW_VERSIONS ON)
-
-# Avoid using Boost auto-linking
-add_compile_definitions(BOOST_ALL_NO_LIB)
 
 # If available, use PIC for shared libs and PIE for executables
 if (NOT DEFINED CMAKE_POSITION_INDEPENDENT_CODE)
