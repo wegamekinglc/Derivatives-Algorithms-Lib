@@ -12,3 +12,4 @@ coverage.info
 dist
 build
 *.egg-info
+*.idb

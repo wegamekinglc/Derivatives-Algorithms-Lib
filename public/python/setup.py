@@ -46,17 +46,15 @@ class my_wrap(Command):
             print('Warning: You have SWIG {} installed, but at least SWIG 4.0.1'
                   ' is recommended. \nSome features may not work.'
                   .format(swig_version))
-        swig_dir = os.path.join("..", "swig")
         os.system('swig -python -py3 -c++ ' +
-                  '-I%s ' % swig_dir +
                   '-outdir dal -o dal/dal_wrap.cpp ' +
-                  'dal.i')
+                  '../swig/dal.i')
         print("finished wrap for dal/dal_wrap.cpp")
 
 
 class my_build(build):
     user_options = build.user_options + [
-        ('static', None,
+        ('static', True,
          "link against static CRT libraries on Windows")
     ]
     boolean_options = build.boolean_options + ['static']
