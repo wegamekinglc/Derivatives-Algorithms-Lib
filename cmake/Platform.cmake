@@ -12,9 +12,6 @@ if (MSVC)
 
     INCLUDE_DIRECTORIES($ENV{GTEST_ROOT}/include)
 
-    set(MSVC_RUNTIME "dynamic" CACHE STRING "MSVC runtime to link")
-    set_property(CACHE MSVC_RUNTIME PROPERTY STRINGS static dynamic)
-
     if ("${MSVC_RUNTIME}" STREQUAL "static")
         if(CMAKE_SIZEOF_VOID_P EQUAL 8)
             # 64 bits
@@ -40,6 +37,7 @@ if (MSVC)
         set(USE_MSVC_DYNAMIC_RUNTIME true)
     endif()
 
+    message("-- MSVC_RUNTIME: ${USE_MSVC_DYNAMIC_RUNTIME}")
     set(CMAKE_MSVC_RUNTIME_LIBRARY
             "MultiThreaded$<$<CONFIG:Debug>:Debug>$<$<BOOL:${USE_MSVC_DYNAMIC_RUNTIME}>:DLL>")
 

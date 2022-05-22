@@ -3,6 +3,15 @@
 
 %module dal
 
+%{
+#pragma comment(lib, "dal.lib")
+#include <dal/platform/platform.hpp>
+#include <sstream>
+      using namespace Dal;
+
+%}
+
 %include strings.i
+%include date.i
 
 #endif

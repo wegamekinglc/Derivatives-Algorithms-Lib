@@ -67,12 +67,34 @@ class String_(object):
     def __init__(self, *args):
         _dal.String__swiginit(self, _dal.new_String_(*args))
 
-    def __repr__(self) -> "char const *":
+    def __repr__(self) -> "std::string":
         return _dal.String____repr__(self)
     __swig_destroy__ = _dal.delete_String_
 
 # Register String_ in _dal:
 _dal.String__swigregister(String_)
 
+class Date_(object):
+    thisown = property(lambda x: x.this.own(), lambda x, v: x.this.own(v), doc="The membership flag")
+
+    def __init__(self, yyyy: "int", mm: "int", dd: "int"):
+        _dal.Date__swiginit(self, _dal.new_Date_(yyyy, mm, dd))
+
+    def __repr__(self) -> "std::string":
+        return _dal.Date____repr__(self)
+    __swig_destroy__ = _dal.delete_Date_
+
+# Register Date_ in _dal:
+_dal.Date__swigregister(Date_)
+
+
+def Year(dt: "Date_") -> "short":
+    return _dal.Year(dt)
+
+def Month(dt: "Date_") -> "short":
+    return _dal.Month(dt)
+
+def Day(dt: "Date_") -> "short":
+    return _dal.Day(dt)
 
 

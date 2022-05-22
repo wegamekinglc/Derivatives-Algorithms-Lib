@@ -28,6 +28,7 @@ if (NOT CMAKE_BUILD_TYPE OR CMAKE_BUILD_TYPE STREQUAL "")
             STRING "Build type for single-config generators" FORCE)
 endif()
 message("-- Build Mode: ${CMAKE_BUILD_TYPE}")
+message("-- MSVC_RUNTIME: ${MSVC_RUNTIME}")
 
 project(${PACKAGE_NAME} LANGUAGES CXX DESCRIPTION "The DAL C++ Library")
 

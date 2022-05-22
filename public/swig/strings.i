@@ -4,7 +4,6 @@
 %include "std_string.i"
 %{
 #include <dal/string/strings.hpp>
-using Dal::String_;
 %}
 
 class String_ {
@@ -14,8 +13,10 @@ public:
 };
 
 %extend String_ {
-      const char *  __repr__() {
-        return $self->c_str();
+    std::string  __repr__() {
+        std::ostringstream out;
+        out << *self;
+        return out.str();
       }
 };
 
