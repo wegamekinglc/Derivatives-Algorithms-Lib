@@ -25,7 +25,7 @@ namespace Dal {
         BlockList_<double, ADJ_SIZE> adjoints_multi_;
         BlockList_<double, DATA_SIZE> ders_;
         BlockList_<double*, DATA_SIZE> arg_ptrs_;
-        BlockList_<Node_, BLOCK_SIZE> nodes_;
+        BlockList_<TapNode_, BLOCK_SIZE> nodes_;
 
         char pad_[64];
         friend auto SetNumResultsForAAD(bool, const size_t&);
@@ -33,11 +33,11 @@ namespace Dal {
         friend class Number_;
 
     public:
-        template <size_t N_> Node_* RecordNode() {
-            Node_* node = nodes_.EmplaceBack(N_);
+        template <size_t N_> TapNode_* RecordNode() {
+            TapNode_* node = nodes_.EmplaceBack(N_);
             if (multi_) {
-                node->p_adjoints_ = adjoints_multi_.EmplaceBackMulti(Node_::num_adj_);
-                std::fill(node->p_adjoints_, node->p_adjoints_ + Node_::num_adj_, 0.0);
+                node->p_adjoints_ = adjoints_multi_.EmplaceBackMulti(TapNode_::num_adj_);
+                std::fill(node->p_adjoints_, node->p_adjoints_ + TapNode_::num_adj_, 0.0);
             }
 
             if constexpr (static_cast<bool>(N_)) {
@@ -87,7 +87,7 @@ namespace Dal {
             nodes_.RewindToMark();
         }
 
-        using Iterator_ = typename BlockList_<Node_, BLOCK_SIZE>::Iterator_;
+        using Iterator_ = typename BlockList_<TapNode_, BLOCK_SIZE>::Iterator_;
 
         auto Begin() { return nodes_.Begin(); }
 
@@ -95,6 +95,6 @@ namespace Dal {
 
         auto MarkIt() { return nodes_.Mark(); }
 
-        auto Find(Node_* node) { return nodes_.Find(node); }
+        auto Find(TapNode_* node) { return nodes_.Find(node); }
     };
 } // namespace Dal

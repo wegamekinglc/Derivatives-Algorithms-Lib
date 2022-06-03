@@ -30,7 +30,7 @@ namespace Dal {
 
         enum { numNumbers_ = LHS_::numNumbers_ + RHS_::numNumbers_ };
 
-        template <size_t N_, size_t n_> void PushAdjoint(Node_& exprNode, double adjoint) const {
+        template <size_t N_, size_t n_> void PushAdjoint(TapNode_& exprNode, double adjoint) const {
             if (LHS_::numNumbers_ > 0)
                 lhs_.PushAdjoint<N_, n_>(exprNode, adjoint * OP_::LeftDerivative(lhs_.Value(), rhs_.Value(), Value()));
 
@@ -154,7 +154,7 @@ namespace Dal {
 
         enum { numNumbers_ = ARG_::numNumbers_ };
 
-        template <size_t N_, size_t n_> void PushAdjoint(Node_& exprNode, double adjoint) const {
+        template <size_t N_, size_t n_> void PushAdjoint(TapNode_& exprNode, double adjoint) const {
             if (ARG_::numNumbers_ > 0)
                 arg_.PushAdjoint<N_, n_>(exprNode, adjoint * OP_::Derivative(arg_.Value(), Value(), d_arg_));
         }
@@ -402,9 +402,9 @@ namespace Dal {
 
     class Number_ : public Expression_<Number_> {
         double value_;
-        Node_* node_;
+        TapNode_* node_;
 
-        template <size_t N_> Node_* CreateMultiNode() { return tape_->template RecordNode<N_>(); }
+        template <size_t N_> TapNode_* CreateMultiNode() { return tape_->template RecordNode<N_>(); }
 
         template <class E_> void FromExpr(const Expression_<E_>& e) {
             auto* node = this->CreateMultiNode<E_::numNumbers_>();
@@ -418,7 +418,7 @@ namespace Dal {
 
         enum { numNumbers_ = 1 };
 
-        template <size_t N_, size_t n_> void PushAdjoint(Node_& exprNode, double adjoint) const {
+        template <size_t N_, size_t n_> void PushAdjoint(TapNode_& exprNode, double adjoint) const {
             exprNode.p_adj_ptrs_[n_] = Tape_::multi_ ? node_->p_adjoints_ : &node_->adjoint_;
             exprNode.p_derivatives_[n_] = adjoint;
         }

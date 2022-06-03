@@ -15,7 +15,7 @@
 #include <iostream>
 
 namespace Dal {
-    class Node_ {
+    class TapNode_ {
         const size_t n_;
         static size_t num_adj_;
 
@@ -30,7 +30,7 @@ namespace Dal {
         friend struct NumResultsResetterForAAD_;
 
     public:
-        Node_(const size_t& n = 0) : n_(n) {}
+        TapNode_(const size_t& n = 0) : n_(n) {}
 
         double& Adjoint() { return adjoint_; }
 

@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <dal/platform/platform.hpp>
 #include <stack>
 #include <dal/string/strings.hpp>
 #include <dal/script/node.hpp>

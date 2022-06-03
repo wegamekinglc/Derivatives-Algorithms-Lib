@@ -21,17 +21,17 @@ namespace Dal {
     class Number_ {
     private:
         double value_;
-        Node_* node_;
+        TapNode_* node_;
 
         template <size_t N_> void CreateNode() { node_ = tape_->RecordNode<N_>(); }
 
-        Node_& Node() const {
+        TapNode_& Node() const {
 #ifndef NDEBUG
             auto it = tape_->Find(node_);
             if (it == tape_->End())
                 THROW("Put a breakpoint here");
 #endif
-            return const_cast<Node_&>(*node_);
+            return const_cast<TapNode_&>(*node_);
         }
 
         double& Derivative() { return node_->p_derivatives_[0]; }
@@ -46,12 +46,12 @@ namespace Dal {
 
         double*& RightAdjPtr() { return node_->p_adj_ptrs_[1]; }
 
-        Number_(Node_& arg, double val) : value_(val) {
+        Number_(TapNode_& arg, double val) : value_(val) {
             CreateNode<1>();
             node_->p_adj_ptrs_[0] = Tape_::multi_ ? arg.p_adjoints_ : &arg.adjoint_;
         }
 
-        Number_(Node_& lhs, Node_& rhs, double val) : value_(val) {
+        Number_(TapNode_& lhs, TapNode_& rhs, double val) : value_(val) {
             CreateNode<2>();
             if (Tape_::multi_) {
                 node_->p_adj_ptrs_[0] = lhs.p_adjoints_;

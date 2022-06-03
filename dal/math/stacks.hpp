@@ -7,7 +7,7 @@
 #include <iterator>
 
 namespace Dal {
-    template <class E_, size_t DefaultSize = 64>
+    template <class E_, size_t DefaultSize>
     class Stack_ {
 
     private:

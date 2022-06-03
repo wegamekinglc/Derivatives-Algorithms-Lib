@@ -20,7 +20,7 @@ namespace Dal {
             return &GLOBAL_TAP;
         }
     } // namespace
-    size_t Node_::num_adj_ = 1;
+    size_t TapNode_::num_adj_ = 1;
     bool Tape_::multi_ = false;
 
     thread_local Tape_* Number_::tape_ = CreateGlobalTape();
