@@ -37,5 +37,6 @@ namespace Dal::Script {
         void Visit(const NodeMin_* node) override;
         void Visit(const NodeConst_* node) override;
         void Visit(const NodeVar_* node) override;
+        void Visit(const NodeAssign_* node) override;
     };
 }

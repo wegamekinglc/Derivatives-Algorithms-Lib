@@ -103,4 +103,8 @@ namespace Dal::Script {
         void Debugger_::Visit(const NodeVar_* node) {
             Debug(*node, String_("VAR[") + String::FromInt(node->index_) + ']');
         }
+
+        void Debugger_::Visit(const NodeAssign_* node) {
+            Debug(*node, "ASSIGN");
+        }
 }

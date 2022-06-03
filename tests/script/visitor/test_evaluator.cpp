@@ -15,6 +15,4 @@ TEST(EvaluatorTest, TestEvaluator) {
     auto plusExpr = BuildBinary<NodePlus_>(const1, const2);
     std::unique_ptr<ConstVisitor_> visitor = std::make_unique<Evaluator_<double>>(0);
     visitor->Visit(plusExpr);
-
-    ASSERT_EQ(visitor->)
 }

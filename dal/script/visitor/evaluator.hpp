@@ -165,6 +165,15 @@ namespace Dal::Script {
             else
                 dStack_.Push(variables_[node->index_]);
         }
+
+        void Visit(const NodeAssign_* node) override {
+            lhsVar_ = true;
+            node->arguments_[0]->AcceptVisitor(this);
+            lhsVar_ = false;
+
+            node->arguments_[1]->AcceptVisitor(this);
+            *lhsVarAdr_ = dStack_.TopAndPop();
+        }
     };
 
 }
