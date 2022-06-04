@@ -139,4 +139,13 @@ namespace Dal::Script {
         void AcceptVisitor(Visitor_* visitor) override;
         void AcceptVisitor(ConstVisitor_* visitor) const override;
     };
+
+    struct NodeIf_: public ScriptNode_ {
+        int firstElse_;
+        Vector_<int> affectedVars_;
+        bool alwaysTrue_;
+        bool alwaysFalse_;
+        void AcceptVisitor(Visitor_* visitor) override;
+        void AcceptVisitor(ConstVisitor_* visitor) const override;
+    };
 }

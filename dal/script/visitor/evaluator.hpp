@@ -174,6 +174,21 @@ namespace Dal::Script {
             node->arguments_[1]->AcceptVisitor(this);
             *lhsVarAdr_ = dStack_.TopAndPop();
         }
+
+        void Visit(const NodeIf_* node) override {
+            node->arguments_[0]->AcceptVisitor(this);
+            const bool isTrue = bStack_.TopAndPop();
+
+            if (isTrue) {
+                const int lastTrue = node->firstElse_ == -1 ? node->arguments_.size() - 1 : node->firstElse_ - 1;
+                for (int i = 1; i <= lastTrue; ++i)
+                    node->arguments_[i]->AcceptVisitor(this);
+            }
+            else if (node->firstElse_ != -1) {
+                for (int i = node->firstElse_; i < node->arguments_.size(); ++i)
+                    node->arguments_[i]->AcceptVisitor(this);
+            }
+        }
     };
 
 }

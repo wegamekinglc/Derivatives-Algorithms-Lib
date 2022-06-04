@@ -107,4 +107,10 @@ namespace Dal::Script {
         void Debugger_::Visit(const NodeAssign_* node) {
             Debug(*node, "ASSIGN");
         }
+
+        void Debugger_::Visit(const NodeIf_* node) {
+            String_ s = "IF";
+            s += "[FIRST ELSE = " + String::FromInt(node->firstElse_) + "]";
+            Debug(*node, s);
+        }
 }
