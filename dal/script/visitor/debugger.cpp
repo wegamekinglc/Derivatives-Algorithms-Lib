@@ -113,4 +113,60 @@ namespace Dal::Script {
             s += "[FIRST ELSE = " + String::FromInt(node->firstElse_) + "]";
             Debug(*node, s);
         }
+
+        void Debugger_::Visit(const NodeEqual_* node) {
+            String_ s = "EQUALZERO";
+            if (!node->discrete_)
+                s += "[CONT,EPS=" + String::FromDouble(node->eps_) + "]";
+            else {
+                s += "[DISCRETE,";
+                s += "BOUNDS=" + String::FromDouble(node->lb_) + "," + String::FromDouble(node->ub_) + "]";
+            }
+            Debug(*node, s);
+        }
+
+        void Debugger_::Visit(const NodeNot_* node) {
+            String_ s = "NOT";
+            return Debug(*node, s);
+        }
+
+        void Debugger_::Visit(const NodeSuperior_* node) {
+            String_ s = "GTZERO";
+            if (!node->discrete_)
+                s += "[CONT,EPS=" + String::FromDouble(node->eps_) + "]";
+            else {
+                s += "[DISCRETE,";
+                s += "BOUNDS=" + String::FromDouble(node->lb_) + "," + String::FromDouble(node->ub_) + "]";
+            }
+            Debug(*node, s);
+        }
+
+        void Debugger_::Visit(const NodeSupEqual_* node) {
+            String_ s = "GTEQUALZERO";
+            if (!node->discrete_)
+                s += "[CONT,EPS=" + String::FromDouble(node->eps_) + "]";
+            else {
+                s += "[DISCRETE,";
+                s += "BOUNDS=" + String::FromDouble(node->lb_) + "," + String::FromDouble(node->ub_) + "]";
+            }
+            Debug(*node, s);
+        }
+
+        void Debugger_::Visit(const NodeAnd_* node) {
+            String_ s = "AND";
+            return Debug(*node, s);
+        }
+
+        void Debugger_::Visit(const NodeOr_* node) {
+            String_ s = "OR";
+            return Debug(*node, s);
+        }
+
+        void Debugger_::Visit(const NodePays_* node) {
+            Debug(*node, "PAYS");
+        }
+
+        void Debugger_::Visit(const NodeSpot_* node) {
+            Debug(*node, "SPOT");
+        }
 }

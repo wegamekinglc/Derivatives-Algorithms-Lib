@@ -213,4 +213,9 @@ namespace Dal::Script {
         void AcceptVisitor(Visitor_* visitor) override;
         void AcceptVisitor(ConstVisitor_* visitor) const override;
     };
+
+    struct NodeSpot_: public ScriptNode_ {
+        void AcceptVisitor(Visitor_* visitor) override;
+        void AcceptVisitor(ConstVisitor_* visitor) const override;
+    };
 }

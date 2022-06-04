@@ -39,5 +39,13 @@ namespace Dal::Script {
         void Visit(const NodeVar_* node) override;
         void Visit(const NodeAssign_* node) override;
         void Visit(const NodeIf_* node) override;
+        void Visit(const NodeEqual_* node) override;
+        void Visit(const NodeNot_* node) override;
+        void Visit(const NodeSuperior_* node) override;
+        void Visit(const NodeSupEqual_* node) override;
+        void Visit(const NodeAnd_* node) override;
+        void Visit(const NodeOr_* node) override;
+        void Visit(const NodePays_* node) override;
+        void Visit(const NodeSpot_* node) override;
     };
 }

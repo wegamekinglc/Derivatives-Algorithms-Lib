@@ -106,6 +106,10 @@ namespace Dal::Script {
         visitor->Visit(this);
     }
 
+    void NodeSpot_::AcceptVisitor(Visitor_* visitor) {
+        visitor->Visit(this);
+    }
+
     /*
      *
      */
@@ -207,6 +211,10 @@ namespace Dal::Script {
     }
 
     void NodePays_::AcceptVisitor(ConstVisitor_* visitor) const {
+        visitor->Visit(this);
+    }
+
+    void NodeSpot_::AcceptVisitor(ConstVisitor_* visitor) const {
         visitor->Visit(this);
     }
 }
