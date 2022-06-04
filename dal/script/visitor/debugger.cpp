@@ -5,7 +5,7 @@
 #include <dal/script/visitor/debugger.hpp>
 
 namespace Dal::Script {
-        void Debugger_::Debug(const Node_& node, const String_& nodeId) {
+        void Debugger_::Debug(const ScriptNode_& node, const String_& nodeId) {
             prefix_ += " ";
             bool isEmpty = node.arguments_.empty();
             if (!isEmpty)

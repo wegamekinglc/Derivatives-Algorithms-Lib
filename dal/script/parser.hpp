@@ -41,11 +41,11 @@ namespace Dal::Script {
         }
 
         // Parentheses, Level5
-        using ParseFunc = std::unique_ptr<Node_>(TokIt_&, const TokIt_&);
+        using ParseFunc = std::unique_ptr<ScriptNode_>(TokIt_&, const TokIt_&);
 
         template <ParseFunc FuncOnMatch, ParseFunc FuncOnNoMatch>
-        static std::unique_ptr<Node_> ParseParentheses( TokIt_& cur, const TokIt_& end) {
-            std::unique_ptr<Node_> tree;
+        static std::unique_ptr<ScriptNode_> ParseParentheses( TokIt_& cur, const TokIt_& end) {
+            std::unique_ptr<ScriptNode_> tree;
 
             // Do we have an opening '('?
             if( *cur == "(") {
@@ -69,18 +69,18 @@ namespace Dal::Script {
         // Expressions
 
         // Parent, Level1, '+' and '-'
-        static std::unique_ptr<Node_> ParseExpr(TokIt_& cur, const TokIt_& end);
+        static std::unique_ptr<ScriptNode_> ParseExpr(TokIt_& cur, const TokIt_& end);
         // Level2, '*' and '/'
-        static std::unique_ptr<Node_> ParseExprL2(TokIt_& cur, const TokIt_& end);
+        static std::unique_ptr<ScriptNode_> ParseExprL2(TokIt_& cur, const TokIt_& end);
         // Level3, '^'
-        static std::unique_ptr<Node_> ParseExprL3(TokIt_& cur, const TokIt_& end);
+        static std::unique_ptr<ScriptNode_> ParseExprL3(TokIt_& cur, const TokIt_& end);
         // Level 4, unaries
-        static std::unique_ptr<Node_> ParseExprL4(TokIt_& cur, const TokIt_& end);
+        static std::unique_ptr<ScriptNode_> ParseExprL4(TokIt_& cur, const TokIt_& end);
 
         // Level 6, variables, constants, functions
-        static std::unique_ptr<Node_> ParseVarConstFunc(TokIt_& cur, const TokIt_& end);
-        static std::unique_ptr<Node_> ParseConst(TokIt_& cur);
-        static std::unique_ptr<Node_> ParseVar(TokIt_& cur);
-        static Vector_<std::unique_ptr<Node_>> ParseFuncArg(TokIt_& cur, const TokIt_& end);
+        static std::unique_ptr<ScriptNode_> ParseVarConstFunc(TokIt_& cur, const TokIt_& end);
+        static std::unique_ptr<ScriptNode_> ParseConst(TokIt_& cur);
+        static std::unique_ptr<ScriptNode_> ParseVar(TokIt_& cur);
+        static Vector_<std::unique_ptr<ScriptNode_>> ParseFuncArg(TokIt_& cur, const TokIt_& end);
     };
 }

@@ -16,7 +16,7 @@ namespace Dal::Script {
         String_ prefix_;
         Stack_<String_> stack_;
 
-        void Debug(const Node_& node, const String_& nodeId);
+        void Debug(const ScriptNode_& node, const String_& nodeId);
 
     public:
         String_ String() const;

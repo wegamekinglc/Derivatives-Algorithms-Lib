@@ -10,7 +10,7 @@
 #include <dal/script/node.hpp>
 
 namespace Dal::Script {
-    using Event_ = Vector_<std::unique_ptr<Node_>>;
+    using Event_ = Vector_<std::unique_ptr<ScriptNode_>>;
 
     class Product_ {
         Vector_<Date_> eventDates_;

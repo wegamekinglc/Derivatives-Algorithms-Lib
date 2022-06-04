@@ -14,13 +14,13 @@ namespace Dal::Script {
     protected:
         Visitor_() = default;
 
-        virtual void VisitArguments(Node_* node) {
+        virtual void VisitArguments(ScriptNode_* node) {
             for (auto& arg: node->arguments_)
                 arg->AcceptVisitor(this);
         }
 
     public:
-        void Visit(const std::unique_ptr<Node_>& tree) {
+        void Visit(const std::unique_ptr<ScriptNode_>& tree) {
             tree->AcceptVisitor(this);
         }
 
@@ -50,13 +50,13 @@ namespace Dal::Script {
     protected:
         ConstVisitor_() = default;
 
-        virtual void VisitArguments(const Node_* node) {
+        virtual void VisitArguments(const ScriptNode_* node) {
             for (auto& arg: node->arguments_)
                 arg->AcceptVisitor(this);
         }
 
     public:
-        void Visit(const std::unique_ptr<Node_>& tree) {
+        void Visit(const std::unique_ptr<ScriptNode_>& tree) {
             tree->AcceptVisitor(this);
         }
 

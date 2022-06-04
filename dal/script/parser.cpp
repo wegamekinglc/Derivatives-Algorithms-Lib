@@ -6,7 +6,7 @@
 #include <dal/script/parser.hpp>
 
 namespace Dal::Script {
-    std::unique_ptr<Node_> Parser_::ParseExpr(TokIt_& cur, const TokIt_& end) {
+    std::unique_ptr<ScriptNode_> Parser_::ParseExpr(TokIt_& cur, const TokIt_& end) {
         auto lhs = ParseExprL2(cur, end);
         while (cur != end && ((*cur)[0] == '+' || (*cur)[0] == '-')) {
             char op = (*cur)[0];
@@ -18,7 +18,7 @@ namespace Dal::Script {
         return lhs;
     }
 
-    std::unique_ptr<Node_> Parser_::ParseExprL2(TokIt_& cur, const TokIt_& end) {
+    std::unique_ptr<ScriptNode_> Parser_::ParseExprL2(TokIt_& cur, const TokIt_& end) {
         auto lhs = ParseExprL3(cur, end);
         while (cur != end && ((*cur)[0] == '*' || (*cur)[0] == '/')) {
             char op = (*cur)[0];
@@ -30,7 +30,7 @@ namespace Dal::Script {
         return lhs;
     }
 
-    std::unique_ptr<Node_> Parser_::ParseExprL3(TokIt_& cur, const TokIt_& end) {
+    std::unique_ptr<ScriptNode_> Parser_::ParseExprL3(TokIt_& cur, const TokIt_& end) {
         auto lhs = ParseExprL4(cur, end);
         while (cur != end && (*cur)[0] == '^') {
             ++cur;
@@ -41,7 +41,7 @@ namespace Dal::Script {
         return lhs;
     }
 
-    std::unique_ptr<Node_> Parser_::ParseExprL4(TokIt_& cur, const TokIt_& end) {
+    std::unique_ptr<ScriptNode_> Parser_::ParseExprL4(TokIt_& cur, const TokIt_& end) {
         if (cur != end && ((*cur)[0] == '+' || (*cur)[0] == '-')) {
             char op = (*cur)[0];
             ++cur;
@@ -55,11 +55,11 @@ namespace Dal::Script {
         return ParseParentheses<ParseExpr, ParseVarConstFunc>(cur, end);
     }
 
-    std::unique_ptr<Node_> Parser_::ParseVarConstFunc(TokIt_& cur, const TokIt_& end) {
+    std::unique_ptr<ScriptNode_> Parser_::ParseVarConstFunc(TokIt_& cur, const TokIt_& end) {
         if ((*cur)[0] == '.' || ((*cur)[0] >= '0' && (*cur)[0] <= '9'))
             return ParseConst(cur);
 
-        std::unique_ptr<Node_> top;
+        std::unique_ptr<ScriptNode_> top;
         unsigned minArg, maxArg;
         if (*cur == "LOG") {
             top = MakeBaseNode<NodeLog_>();
@@ -91,26 +91,26 @@ namespace Dal::Script {
         return ParseVar(cur);
     }
 
-    std::unique_ptr<Node_> Parser_::ParseConst(TokIt_& cur) {
+    std::unique_ptr<ScriptNode_> Parser_::ParseConst(TokIt_& cur) {
         double v = String::ToDouble(*cur);
         auto top = MakeNode<NodeConst_>(v);
         ++cur;
         return move(top);
     }
 
-    std::unique_ptr<Node_> Parser_::ParseVar(TokIt_& cur) {
+    std::unique_ptr<ScriptNode_> Parser_::ParseVar(TokIt_& cur) {
         REQUIRE2((*cur)[0] >= 'A' && (*cur)[0] <= 'Z', String_("Variable name ") + *cur + " is invalid", ScriptError_);
         auto top = MakeNode<NodeVar_>(*cur);
         ++cur;
         return move(top);
     }
 
-    Vector_<std::unique_ptr<Node_>> Parser_::ParseFuncArg(TokIt_& cur, const TokIt_& end) {
+    Vector_<std::unique_ptr<ScriptNode_>> Parser_::ParseFuncArg(TokIt_& cur, const TokIt_& end) {
         REQUIRE2((*cur)[0] == '(', "No opening ( following function name", ScriptError_);
         TokIt_ closeIt = FindMatch<'(', ')'>(cur, end);
 
         //	Parse expressions between parentheses
-        Vector_<std::unique_ptr<Node_>> args;
+        Vector_<std::unique_ptr<ScriptNode_>> args;
         ++cur;
         while (cur != closeIt) {
             args.push_back(ParseExpr(cur, end));

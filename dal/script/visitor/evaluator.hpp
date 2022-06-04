@@ -26,7 +26,7 @@ namespace Dal::Script {
         const Scenario_<T_>* scenario_;
         size_t curEvt_;
 
-        void EvalArgs(const Node_* node) {
+        void EvalArgs(const ScriptNode_* node) {
             for (auto it = node->arguments_.rbegin(); it != node->arguments_.rend(); ++it)
                 (*it)->AcceptVisitor(this);
         }
