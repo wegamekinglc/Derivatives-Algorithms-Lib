@@ -78,6 +78,34 @@ namespace Dal::Script {
         visitor->Visit(this);
     }
 
+    void NodeEqual_::AcceptVisitor(Visitor_* visitor) {
+        visitor->Visit(this);
+    }
+
+    void NodeSuperior_::AcceptVisitor(Visitor_* visitor) {
+        visitor->Visit(this);
+    }
+
+    void NodeSupEqual_::AcceptVisitor(Visitor_* visitor) {
+        visitor->Visit(this);
+    }
+
+    void NodeAnd_::AcceptVisitor(Visitor_* visitor) {
+        visitor->Visit(this);
+    }
+
+    void NodeOr_::AcceptVisitor(Visitor_* visitor) {
+        visitor->Visit(this);
+    }
+
+    void NodeNot_::AcceptVisitor(Visitor_* visitor) {
+        visitor->Visit(this);
+    }
+
+    void NodePays_::AcceptVisitor(Visitor_* visitor) {
+        visitor->Visit(this);
+    }
+
     /*
      *
      */
@@ -151,6 +179,34 @@ namespace Dal::Script {
     }
 
     void NodeIf_::AcceptVisitor(ConstVisitor_* visitor) const {
+        visitor->Visit(this);
+    }
+
+    void NodeEqual_::AcceptVisitor(ConstVisitor_* visitor) const {
+        visitor->Visit(this);
+    }
+
+    void NodeSuperior_::AcceptVisitor(ConstVisitor_* visitor) const {
+        visitor->Visit(this);
+    }
+
+    void NodeSupEqual_::AcceptVisitor(ConstVisitor_* visitor) const {
+        visitor->Visit(this);
+    }
+
+    void NodeAnd_::AcceptVisitor(ConstVisitor_* visitor) const {
+        visitor->Visit(this);
+    }
+
+    void NodeOr_::AcceptVisitor(ConstVisitor_* visitor) const {
+        visitor->Visit(this);
+    }
+
+    void NodeNot_::AcceptVisitor(ConstVisitor_* visitor) const {
+        visitor->Visit(this);
+    }
+
+    void NodePays_::AcceptVisitor(ConstVisitor_* visitor) const {
         visitor->Visit(this);
     }
 }

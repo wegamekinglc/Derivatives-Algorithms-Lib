@@ -42,6 +42,13 @@ namespace Dal::Script {
         virtual void Visit(NodeVar_* node) { VisitArguments(node); }
         virtual void Visit(NodeAssign_* node) { VisitArguments(node); }
         virtual void Visit(NodeIf_* node) { VisitArguments(node); }
+        virtual void Visit(NodeEqual_* node) { VisitArguments(node); }
+        virtual void Visit(NodeSupEqual_* node) { VisitArguments(node); }
+        virtual void Visit(NodeSuperior_* node) { VisitArguments(node); }
+        virtual void Visit(NodeAnd_* node) { VisitArguments(node); }
+        virtual void Visit(NodeNot_* node) { VisitArguments(node); }
+        virtual void Visit(NodeOr_* node) { VisitArguments(node); }
+        virtual void Visit(NodePays_* node) { VisitArguments(node); }
     };
 
     class ConstVisitor_ {
@@ -79,5 +86,12 @@ namespace Dal::Script {
         virtual void Visit(const NodeVar_* node) { VisitArguments(node); }
         virtual void Visit(const NodeAssign_* node) { VisitArguments(node); }
         virtual void Visit(const NodeIf_* node) { VisitArguments(node); }
+        virtual void Visit(const NodeEqual_* node) { VisitArguments(node); }
+        virtual void Visit(const NodeSupEqual_* node) { VisitArguments(node); }
+        virtual void Visit(const NodeSuperior_* node) { VisitArguments(node); }
+        virtual void Visit(const NodeAnd_* node) { VisitArguments(node); }
+        virtual void Visit(const NodeNot_* node) { VisitArguments(node); }
+        virtual void Visit(const NodeOr_* node) { VisitArguments(node); }
+        virtual void Visit(const NodePays_* node) { VisitArguments(node); }
     };
 }

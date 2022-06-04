@@ -66,7 +66,12 @@ namespace Dal::Script {
             return tree;
         }
 
+        static std::unique_ptr<ScriptNode_> ParseStatement(TokIt_& cur, const TokIt_& end);
+        static void ParseCondOptionals(TokIt_& cur, const TokIt_& end, double& eps);
+
         // Expressions
+        static std::unique_ptr<ScriptNode_> ParseAssign(TokIt_& cur, const TokIt_& end, std::unique_ptr<ScriptNode_>& lhs);
+        static std::unique_ptr<ScriptNode_> ParsePays(TokIt_& cur, const TokIt_& end, std::unique_ptr<ScriptNode_>& lhs);
 
         // Parent, Level1, '+' and '-'
         static std::unique_ptr<ScriptNode_> ParseExpr(TokIt_& cur, const TokIt_& end);
@@ -81,6 +86,16 @@ namespace Dal::Script {
         static std::unique_ptr<ScriptNode_> ParseVarConstFunc(TokIt_& cur, const TokIt_& end);
         static std::unique_ptr<ScriptNode_> ParseConst(TokIt_& cur);
         static std::unique_ptr<ScriptNode_> ParseVar(TokIt_& cur);
+        static std::unique_ptr<ScriptNode_> ParseCond(TokIt_& cur, const TokIt_& end);
+        static std::unique_ptr<ScriptNode_> ParseCondL2(TokIt_& cur, const TokIt_& end);
+        static std::unique_ptr<ScriptNode_> ParseCondElem(TokIt_& cur, const TokIt_& end);
         static Vector_<std::unique_ptr<ScriptNode_>> ParseFuncArg(TokIt_& cur, const TokIt_& end);
+
+        static std::unique_ptr<ScriptNode_> ParseIf(TokIt_& cur, const TokIt_& end);
+
+        static std::unique_ptr<ScriptNode_> BuildEqual(std::unique_ptr<ScriptNode_>& lhs, std::unique_ptr<ScriptNode_>& rhs, double eps);
+        static std::unique_ptr<ScriptNode_> BuildDifferent(std::unique_ptr<ScriptNode_>& lhs, std::unique_ptr<ScriptNode_>& rhs, double eps);
+        static std::unique_ptr<ScriptNode_> BuildSuperior(std::unique_ptr<ScriptNode_>& lhs, std::unique_ptr<ScriptNode_>& rhs, double eps);
+        static std::unique_ptr<ScriptNode_> BuildSupEqual(std::unique_ptr<ScriptNode_>& lhs, std::unique_ptr<ScriptNode_>& rhs, double eps);
     };
 }

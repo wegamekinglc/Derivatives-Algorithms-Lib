@@ -148,4 +148,69 @@ namespace Dal::Script {
         void AcceptVisitor(Visitor_* visitor) override;
         void AcceptVisitor(ConstVisitor_* visitor) const override;
     };
+
+    struct NodeEqual_: public ScriptNode_ {
+        bool alwaysTrue_;
+        bool alwaysFalse_;
+        bool discrete_;
+        double eps_;
+        double lb_;
+        double ub_;
+
+        void AcceptVisitor(Visitor_* visitor) override;
+        void AcceptVisitor(ConstVisitor_* visitor) const override;
+    };
+
+    struct NodeNot_: public ScriptNode_ {
+        bool alwaysTrue_;
+        bool alwaysFalse_;
+
+        void AcceptVisitor(Visitor_* visitor) override;
+        void AcceptVisitor(ConstVisitor_* visitor) const override;
+    };
+
+    struct NodeSuperior_: public ScriptNode_ {
+        bool alwaysTrue_;
+        bool alwaysFalse_;
+        bool discrete_;
+        double eps_;
+        double lb_;
+        double ub_;
+
+        void AcceptVisitor(Visitor_* visitor) override;
+        void AcceptVisitor(ConstVisitor_* visitor) const override;
+    };
+
+    struct NodeSupEqual_: public ScriptNode_ {
+        bool alwaysTrue_;
+        bool alwaysFalse_;
+        bool discrete_;
+        double eps_;
+        double lb_;
+        double ub_;
+
+        void AcceptVisitor(Visitor_* visitor) override;
+        void AcceptVisitor(ConstVisitor_* visitor) const override;
+    };
+
+    struct NodeAnd_: public ScriptNode_ {
+        bool alwaysTrue_;
+        bool alwaysFalse_;
+
+        void AcceptVisitor(Visitor_* visitor) override;
+        void AcceptVisitor(ConstVisitor_* visitor) const override;
+    };
+
+    struct NodeOr_: public ScriptNode_ {
+        bool alwaysTrue_;
+        bool alwaysFalse_;
+
+        void AcceptVisitor(Visitor_* visitor) override;
+        void AcceptVisitor(ConstVisitor_* visitor) const override;
+    };
+
+    struct NodePays_: public ScriptNode_ {
+        void AcceptVisitor(Visitor_* visitor) override;
+        void AcceptVisitor(ConstVisitor_* visitor) const override;
+    };
 }
