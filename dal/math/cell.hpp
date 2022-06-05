@@ -71,10 +71,10 @@ namespace Dal {
         inline bool IsEmpty(const Cell_& cell) {
             if (auto p = std::get_if<String_>(&cell.val_))
                 return p->empty();
-            return std::get_if<std::monostate>(&cell.val_);
+            return static_cast<bool>(std::get_if<std::monostate>(&cell.val_));
         }
 
-        inline bool IsString(const Cell_& src) { return std::get_if<String_>(&src.val_); }
+        inline bool IsString(const Cell_& src) { return static_cast<bool>(std::get_if<String_>(&src.val_)); }
         String_ ToString(const Cell_& src);
         inline Cell_ FromString(const String_& src) { return Cell_(src); }
 
@@ -88,7 +88,7 @@ namespace Dal {
             return Cell_(String_(src.String()));
         }
 
-        inline bool IsDouble(const Cell_& src) { return std::get_if<double>(&src.val_); }
+        inline bool IsDouble(const Cell_& src) { return static_cast<bool>(std::get_if<double>(&src.val_)); }
         double ToDouble(const Cell_& src);
         inline double ToDouble(const Cell_& src, double empty_val) {
             return IsEmpty(src) ? empty_val : ToDouble(src);
@@ -102,15 +102,15 @@ namespace Dal {
         }
         inline Cell_ FromInt(int src) { return Cell_(double(src)); }
 
-        inline bool IsBool(const Cell_& src) { return std::get_if<bool>(&src.val_); }
+        inline bool IsBool(const Cell_& src) { return static_cast<bool>(std::get_if<bool>(&src.val_)); }
         bool ToBool(const Cell_& src);
         inline Cell_ FromBool(bool src) { return Cell_(src); }
 
-        inline bool IsDate(const Cell_& src) { return std::get_if<Date_>(&src.val_); }
+        inline bool IsDate(const Cell_& src) { return static_cast<bool>(std::get_if<Date_>(&src.val_)); }
         Date_ ToDate(const Cell_& src);
         inline Cell_ FromDate(const Date_& src) { return Cell_(src); }
 
-        inline bool IsDateTime(const Cell_& src) { return std::get_if<DateTime_>(&src.val_); }
+        inline bool IsDateTime(const Cell_& src) { return static_cast<bool>(std::get_if<DateTime_>(&src.val_)); }
         DateTime_ ToDateTime(const Cell_& src);
         inline Cell_ FromDateTime(const DateTime_& src) { return Cell_(src); }
 
