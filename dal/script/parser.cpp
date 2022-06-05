@@ -289,7 +289,7 @@ namespace Dal::Script {
     Vector_<std::unique_ptr<ScriptNode_>> Parse(const String_& event) {
         Vector_<std::unique_ptr<ScriptNode_>> e;
         auto tokens = Tokenize(event);
-        auto it = tokens.begin();
+        Vector_<String_>::const_iterator it = tokens.begin();
         while (it != tokens.end())
             e.push_back(Parser_::ParseStatement(it, tokens.end()));
         return e;
