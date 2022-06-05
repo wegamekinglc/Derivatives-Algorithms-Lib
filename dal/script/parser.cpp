@@ -75,8 +75,7 @@ namespace Dal::Script {
             top = MakeBaseNode<NodeMax_>();
             minArg = 2;
             maxArg = 1000;
-        } else
-            THROW2((*cur) + " is not a valid function for script parsing", ScriptError_);
+        }
 
         if (top) {
             String_ func = *cur;
