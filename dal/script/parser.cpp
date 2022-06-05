@@ -140,17 +140,6 @@ namespace Dal::Script {
         return std::move(top);
     }
 
-    std::unique_ptr<ScriptNode_> Parser_::ParseStatement(TokIt_& cur, const TokIt_& end) {
-        if (*cur == "IF")
-            return ParseIf(cur, end);
-        auto lhs = ParseVar(cur);
-        REQUIRE2(cur != end, "unexpected end of statement", ScriptError_);
-        if (*cur == "=")
-            return ParseAssign(cur, end, lhs);
-        else if (*cur == "PAYS") return ParsePays(cur, end, lhs);
-        THROW2("statement without an instruction", ScriptError_);
-    }
-
     std::unique_ptr<ScriptNode_> Parser_::ParseAssign(TokIt_& cur, const TokIt_& end, std::unique_ptr<ScriptNode_>& lhs) {
         ++cur;
         REQUIRE2(cur != end, "unexpected end of statement", ScriptError_);
@@ -277,5 +266,33 @@ namespace Dal::Script {
         top->arguments_[0] = std::move(eq);
         top->eps_ = eps;
         return top;
+    }
+
+    std::unique_ptr<ScriptNode_> Parser_::ParseStatement(TokIt_& cur, const TokIt_& end) {
+        if (*cur == "IF")
+            return ParseIf(cur, end);
+        auto lhs = ParseVar(cur);
+        REQUIRE2(cur != end, "unexpected end of statement", ScriptError_);
+        if (*cur == "=")
+            return ParseAssign(cur, end, lhs);
+        else if (*cur == "PAYS") return ParsePays(cur, end, lhs);
+        THROW2("statement without an instruction", ScriptError_);
+    }
+
+    Vector_<String_> Tokenize(const String_& str) {
+        static const std::regex r(R"([\w.]+|[/-]|,|;|:|[\(\)\+\*\^]|!=|>=|<=|[<>=])");
+        Vector_<String_> v;
+        for (std::sregex_iterator it(str.begin(), str.end(), r), end; it != end; ++it)
+            v.push_back(String_((*it)[0]));
+        return v;
+    }
+
+    Vector_<std::unique_ptr<ScriptNode_>> Parse(const String_& event) {
+        Vector_<std::unique_ptr<ScriptNode_>> e;
+        auto tokens = Tokenize(event);
+        auto it = tokens.begin();
+        while (it != tokens.end())
+            e.push_back(Parser_::ParseStatement(it, tokens.end()));
+        return e;
     }
 } // namespace Dal::Script

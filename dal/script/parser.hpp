@@ -66,7 +66,6 @@ namespace Dal::Script {
             return tree;
         }
 
-        static std::unique_ptr<ScriptNode_> ParseStatement(TokIt_& cur, const TokIt_& end);
         static void ParseCondOptionals(TokIt_& cur, const TokIt_& end, double& eps);
 
         // Expressions
@@ -97,5 +96,11 @@ namespace Dal::Script {
         static std::unique_ptr<ScriptNode_> BuildDifferent(std::unique_ptr<ScriptNode_>& lhs, std::unique_ptr<ScriptNode_>& rhs, double eps);
         static std::unique_ptr<ScriptNode_> BuildSuperior(std::unique_ptr<ScriptNode_>& lhs, std::unique_ptr<ScriptNode_>& rhs, double eps);
         static std::unique_ptr<ScriptNode_> BuildSupEqual(std::unique_ptr<ScriptNode_>& lhs, std::unique_ptr<ScriptNode_>& rhs, double eps);
+
+    public:
+        static std::unique_ptr<ScriptNode_> ParseStatement(TokIt_& cur, const TokIt_& end);
     };
+
+    Vector_<String_> Tokenize(const String_& str);
+    Vector_<std::unique_ptr<ScriptNode_>> Parse(const String_& event);
 }
