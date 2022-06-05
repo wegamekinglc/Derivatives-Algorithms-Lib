@@ -175,6 +175,10 @@ namespace Dal::Script {
             *lhsVarAdr_ = dStack_.TopAndPop();
         }
 
+        void Visit(const NodeSpot_* node) override {
+            dStack_.Push((*scenario_)[curEvt_].spot_);
+        }
+
         void Visit(const NodeIf_* node) override {
             node->arguments_[0]->AcceptVisitor(this);
             const bool isTrue = bStack_.TopAndPop();
@@ -188,6 +192,51 @@ namespace Dal::Script {
                 for (int i = node->firstElse_; i < node->arguments_.size(); ++i)
                     node->arguments_[i]->AcceptVisitor(this);
             }
+        }
+
+        void Visit(const NodePays_* node) override {
+            lhsVar_ = true;
+            node->arguments_[0]->AcceptVisitor(this);
+            lhsVar_ = false;
+
+            node->arguments_[1]->AcceptVisitor(this);
+            *lhsVarAdr_ = dStack_.TopAndPop() / (*scenario_)[curEvt_].numeraire_;
+        }
+
+        void Visit(const NodeEqual_* node) override {
+            EvalArgs(node);
+            const T_ res = dStack_.TopAndPop();
+            bStack_.Push(Fabs(res) < node->eps_);
+        }
+
+        void Visit(const NodeNot_* node) override {
+            EvalArgs(node);
+            const bool res = bStack_.TopAndPop();
+            bStack_.Push(!res);
+        }
+
+        void Visit(const NodeSuperior_* node) override {
+            EvalArgs(node);
+            const T_ res = dStack_.TopAndPop();
+            bStack_.Push(res > node->eps_);
+        }
+
+        void Visit(const NodeSupEqual_* node) override {
+            EvalArgs(node);
+            const T_ res = dStack_.TopAndPop();
+            bStack_.Push(res > -node->eps_);
+        }
+
+        void Visit(const NodeAnd_* node) override {
+            EvalArgs(node);
+            const auto& args = Pop2b();
+            bStack_.Push(args.first && args.second);
+        }
+
+        void Visit(const NodeOr_* node) override {
+            EvalArgs(node);
+            const auto& args = Pop2b();
+            bStack_.Push(args.first || args.second);
         }
     };
 

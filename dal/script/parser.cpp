@@ -216,7 +216,7 @@ namespace Dal::Script {
     }
 
     void Parser_::ParseCondOptionals(TokIt_& cur, const TokIt_& end, double& eps) {
-        eps = -1.0;
+        eps = 1e-12;
         while (*cur == ";" || *cur == ":") {
             const char c = (*cur)[0];
             ++cur;

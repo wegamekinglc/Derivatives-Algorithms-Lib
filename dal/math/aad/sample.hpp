@@ -29,6 +29,7 @@ namespace Dal {
     };
 
     template <class T_ = double> struct Sample_ {
+        T_ spot_;
         T_ numeraire_;
         Vector_<T_> discounts_;
         Vector_<T_> libors_;
@@ -43,6 +44,7 @@ namespace Dal {
         }
 
         void Initialize() {
+            spot_ = T_(0.0);
             numeraire_ = T_(1.0);
             std::fill(discounts_.begin(), discounts_.end(), T_(1.0));
             std::fill(libors_.begin(), libors_.end(), T_(1.0));
