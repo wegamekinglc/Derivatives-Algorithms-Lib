@@ -54,14 +54,14 @@ namespace Dal::Script {
 
                 // Parse the parenthesed condition/expression, including nested parentheses,
                 // by recursively calling the parent parseCond/parseExpr
-                tree = FuncOnMatch( ++cur, closeIt);
+                tree = FuncOnMatch(++cur, closeIt);
 
                 // Advance cur after matching )
                 cur = ++closeIt;
             }
             else {
                 // No (, so leftmost we move one level up
-                tree = FuncOnNoMatch( cur, end);
+                tree = FuncOnNoMatch(cur, end);
             }
             return tree;
         }
