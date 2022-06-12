@@ -42,23 +42,41 @@ namespace Dal {
         }
 
         // names for the global dates (these will be visible in the repository, so make them comprehensible)
-        static const String_ ACCOUNTING("AccountingDate");
+        const String_& ACCOUNTING() {
+            static String_ accounting("AccountingDate");
+            return accounting;
+        }
+        const String_& EVALUATION() {
+            static String_ evaluation("EvaluationDate");
+            return evaluation;
+        }
     } // namespace
 
     Global::Store_& Global::TheDateStore() { return *XTheDateStore(); }
 
     void Global::SetTheDateStore(Global::Store_* orphan) { XTheDateStore().reset(orphan); }
 
-    Date_ Global::Dates_::AccountingDate() const { return GetGlobalDate(ACCOUNTING); }
+    Date_ Global::Dates_::AccountingDate() const { return GetGlobalDate(ACCOUNTING()); }
+    Date_ Global::Dates_::EvaluationDate() const { return GetGlobalDate(EVALUATION()); }
 
     void XGLOBAL::SetAccountingDate(const Date_& when) {
-        Global::TheDateStore().Set(ACCOUNTING, Matrix::M1x1(Cell_(when)));
+        Global::TheDateStore().Set(ACCOUNTING(), Matrix::M1x1(Cell_(when)));
+    }
+
+    void XGLOBAL::SetEvaluationDate(const Date_& when) {
+        Global::TheDateStore().Set(EVALUATION(), Matrix::M1x1(Cell_(when)));
     }
 
     XGLOBAL::ScopedOverride_<Date_> XGLOBAL::SetAccountingDateInScope(const Date_& dt) {
-        ScopedOverride_<Date_> retval(SetAccountingDate, GetGlobalDate(ACCOUNTING));
+        ScopedOverride_<Date_> ret_val(SetAccountingDate, GetGlobalDate(ACCOUNTING()));
         SetAccountingDate(dt);
-        return retval;
+        return ret_val;
+    }
+
+    XGLOBAL::ScopedOverride_<Date_> XGLOBAL::SetEvaluationDateInScope(const Date_& dt) {
+        ScopedOverride_<Date_> ret_val(SetEvaluationDate, GetGlobalDate(EVALUATION()));
+        SetEvaluationDate(dt);
+        return ret_val;
     }
 
     //----------------------------------------------------------------------------
@@ -115,3 +133,5 @@ namespace Dal {
 
     void Global::SetTheFixingsStore(Global::Store_* orphan) { XTheFixingsStore().reset(orphan); }
 } // namespace Dal
+
+#include <dal/storage/_repository.cpp>

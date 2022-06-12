@@ -3,21 +3,21 @@
 //
 
 #define _Regex_traits _Regex_traits_Repository
-#include "dal/platform/platform.hpp"
-#include "dal/platform/strict.hpp"
-#include "_repository.hpp"
+#include <dal/platform/platform.hpp>
+#include <dal/platform/strict.hpp>
+#include <dal/storage/_repository.hpp>
 #include <map>
 #include <mutex>
 #include <regex>
 
-#include "dal/math/matrix/matrixutils.hpp"
-#include "dal/storage/box.hpp"
-#include "dal/storage/globals.hpp"
-#include "dal/storage/storable.hpp"
-#include "dal/utilities/exceptions.hpp"
+#include <dal/math/matrix/matrixutils.hpp>
+#include <dal/storage/box.hpp>
+#include <dal/storage/globals.hpp>
+#include <dal/storage/storable.hpp>
+#include <dal/utilities/exceptions.hpp>
 
 namespace Dal {
-#include "public/auto/MG_RepositoryErase_enum.inc"
+#include <dal/auto/MG_RepositoryErase_enum.inc>
     namespace {
         // a repository of objects
         // POSTPONED -- make repository thread safe
@@ -117,7 +117,7 @@ namespace Dal {
         struct RepoStore_ : Global::Store_ {
             void Set(const String_& name, const Matrix_<Cell_>& value) override {
                 Handle_<Box_> storable(new Box_(GLOBAL_TAG + name, value));
-                (void)ObjectAccess_().Add(storable, RepositoryErase_());
+                (void)ObjectAccess_().Add(storable, RepositoryErase_("NAME"));
             }
             const Matrix_<Cell_>& Get(const String_& name) override {
                 static const Matrix_<Cell_> EMPTY;

@@ -8,8 +8,8 @@
 
 #pragma once
 
-#include "dal/string/strings.hpp"
-#include "dal/utilities/environment.hpp"
+#include <dal/string/strings.hpp>
+#include <dal/utilities/environment.hpp>
 
 /*IF--------------------------------------------------------------------------
 enumeration RepositoryErase
@@ -29,7 +29,7 @@ alternative TYPE
 namespace Dal {
     class Storable_;
 
-#include "public/auto/MG_RepositoryErase_enum.hpp"
+#include <dal/auto/MG_RepositoryErase_enum.hpp>
 
     class ObjectAccess_ : public Environment::Entry_ {
         String_ AddBase(const Handle_<Storable_>& object, const RepositoryErase_& erase) const;

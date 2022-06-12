@@ -4,6 +4,7 @@ endif()
 
 file(GLOB_RECURSE DAL_FILES "*.hpp" "*.cpp")
 list(FILTER DAL_FILES EXCLUDE REGEX "${PROJECT_SOURCE_DIR}/dal/auto/.*")
+list(FILTER DAL_FILES EXCLUDE REGEX "${PROJECT_SOURCE_DIR}/dal/storage/_repository.*")
 
 add_library(dal_library ${DAL_FILES})
 

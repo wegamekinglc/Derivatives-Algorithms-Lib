@@ -32,6 +32,7 @@ namespace Dal {
         class Dates_ : public Environment::Entry_ {
         public:
             Date_ AccountingDate() const;
+            Date_ EvaluationDate() const;
         };
 
         Store_& TheFixingsStore();
@@ -46,17 +47,38 @@ namespace Dal {
 
     namespace XGLOBAL {
         template <class T_> class ScopedOverride_ {
+
             typedef void (*Setter_)(const T_&);
             T_ saved_;
             Setter_ setFunc_;
 
+            ScopedOverride_(const ScopedOverride_& rhs) = delete;
+            ScopedOverride_& operator=(const ScopedOverride_& rhs) = delete;
+
         public:
+            ScopedOverride_(ScopedOverride_&& rhs) noexcept
+                : saved_(rhs.saved_), setFunc_(rhs.setFunc_) {
+                rhs.setFunc_ = nullptr;
+            }
             ScopedOverride_(Setter_ set_func, const T_& saved_val) : saved_(saved_val), setFunc_(set_func) {}
-            ~ScopedOverride_() { setFunc_(saved_); }
+            ScopedOverride_& operator=(ScopedOverride_&& rhs) noexcept {
+                if (this != &rhs) {
+                    saved_ = rhs.saved_;
+                    setFunc_ = rhs.setFunc_;
+                    rhs.setFunc_ = nullptr;
+                }
+                return *this;
+            }
+            ~ScopedOverride_() {
+                if (setFunc_)
+                    setFunc_(saved_);
+            }
         };
 
         void SetAccountingDate(const Date_& dt);
+        void SetEvaluationDate(const Date_& dt);
         ScopedOverride_<Date_> SetAccountingDateInScope(const Date_& dt);
+        ScopedOverride_<Date_> SetEvaluationDateInScope(const Date_& dt);
 
         int StoreFixings // returns # stored
             (const String_& index_canonical_name,

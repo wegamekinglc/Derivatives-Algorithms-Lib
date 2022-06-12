@@ -3,16 +3,16 @@
 #define _Regex_traits _Regex_traits_Excel
 #include "_excel.hpp"
 #include "_xlcall.hpp"
-#include "dal/platform/platform.hpp"
-#include "dal/platform/strict.hpp"
+#include <dal/platform/platform.hpp>
+#include <dal/platform/strict.hpp>
 #include <algorithm>
 #include <deque>
 #include <functional>
 
-#include "dal/math/cellutils.hpp"
-#include "dal/utilities/exceptions.hpp"
-#include "dal/utilities/numerics.hpp"
-#include "public/src/_repository.hpp"
+#include <dal/math/cellutils.hpp>
+#include <dal/storage/_repository.hpp>
+#include <dal/utilities/exceptions.hpp>
+#include <dal/utilities/numerics.hpp>
 
 ///***************************************************************************
 // File:	FRAMEWRK.C

@@ -5,8 +5,8 @@
 #pragma once
 
 #include "_excel.hpp"
-#include "dal/platform/platform.hpp"
-#include "dal/utilities/environment.hpp"
-#include "dal/utilities/exceptions.hpp"
-#include "public/src/_reader.hpp"
-#include "public/src/_repository.hpp"
+#include <dal/platform/platform.hpp>
+#include <dal/storage/_reader.hpp>
+#include <dal/storage/_repository.hpp>
+#include <dal/utilities/environment.hpp>
+#include <dal/utilities/exceptions.hpp>
