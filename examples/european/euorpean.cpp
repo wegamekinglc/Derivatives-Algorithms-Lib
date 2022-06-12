@@ -9,6 +9,7 @@
 #include <dal/math/random/quasirandom.hpp>
 #include <dal/math/random/sobol.hpp>
 #include <dal/utilities/timer.hpp>
+#include <dal/concurrency/threadpool.hpp>
 #include <iostream>
 #include <iomanip>
 
@@ -17,7 +18,8 @@ using namespace std;
 
 int main() {
 
-    Time_ exerciseDate = 1.0;
+    XGLOBAL::SetEvaluationDate(Date_(2022, 6, 12));
+    Date_ exerciseDate(2023, 6, 12);
     double strike = 1.0;
     double spot = 1.0;
     double vol = 0.2;

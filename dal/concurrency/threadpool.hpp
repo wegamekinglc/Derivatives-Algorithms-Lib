@@ -32,7 +32,9 @@ namespace Dal {
 
         void ThreadFunc(const size_t& num);
         //  The constructor stays private, ensuring single instance
-        ThreadPool_() : active_(false), interrupt_(false) {}
+        ThreadPool_() : active_(false), interrupt_(false) {
+            Start();
+        }
 
     public:
         static ThreadPool_* GetInstance() { return &instance_; }
