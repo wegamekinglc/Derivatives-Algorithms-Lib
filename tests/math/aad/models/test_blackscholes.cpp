@@ -7,12 +7,15 @@
 #include <dal/math/random/quasirandom.hpp>
 #include <dal/math/random/sobol.hpp>
 #include <dal/math/aad/simulation.hpp>
+#include <dal/time/date.hpp>
+#include <dal/storage/globals.hpp>
 #include <gtest/gtest.h>
 
 using namespace Dal;
 
 TEST(BlackScholesTest, TestBlackScholes) {
-    Time_ exerciseTime = 2.0;
+    XGLOBAL::SetEvaluationDateInScope(Date_(2022, 6, 12));
+    Date_ exerciseDate(2024, 6, 11);
     const double strike = 11.0;
     const double spot = 10.0;
     const double vol = 0.20;
@@ -21,7 +24,7 @@ TEST(BlackScholesTest, TestBlackScholes) {
     const size_t n_paths = 1000000;
     const size_t n_dim = 1;
 
-    European_<double> prd(strike, exerciseTime);
+    European_<double> prd(strike, exerciseDate);
     BlackScholes_<double> mdl(spot, vol, false, rate, div);
 
     std::unique_ptr<Random_> rand(NewSobol(n_dim, n_paths));
