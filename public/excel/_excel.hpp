@@ -16,6 +16,7 @@
 #define cchMaxStz (255)
 #define MAXSHORTINT 0x7fff
 
+#include <dal/platform/platform.hpp>
 #include <dal/math/matrix/matrixs.hpp>
 #include <dal/platform/optionals.hpp>
 #include <dal/platform/platform.hpp>
