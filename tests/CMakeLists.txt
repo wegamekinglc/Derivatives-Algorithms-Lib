@@ -1,15 +1,15 @@
 file(GLOB_RECURSE TEST_FILES "*.hpp" "*.cpp")
 
 add_executable(test_suite ${TEST_FILES})
+if(MSVC)
+    find_package(gtest)
+else()
+    target_link_libraries(test_suite pthread)
+endif()
 
 target_link_libraries(test_suite dal_library)
 target_link_libraries(test_suite gtest)
 target_link_libraries(test_suite gtest_main)
-
-if(MSVC)
-else()
-    target_link_libraries(test_suite pthread)
-endif()
 
 install(TARGETS test_suite
         RUNTIME DESTINATION bin

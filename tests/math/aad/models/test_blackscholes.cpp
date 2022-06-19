@@ -14,8 +14,8 @@
 using namespace Dal;
 
 TEST(BlackScholesTest, TestBlackScholes) {
-    XGLOBAL::SetEvaluationDateInScope(Date_(2022, 6, 12));
-    Date_ exerciseDate(2024, 6, 11);
+    auto global = XGLOBAL::SetEvaluationDateInScope(Date_(2022, 6, 22));
+    Date_ exerciseDate(2024, 6, 21);
     const double strike = 11.0;
     const double spot = 10.0;
     const double vol = 0.20;
