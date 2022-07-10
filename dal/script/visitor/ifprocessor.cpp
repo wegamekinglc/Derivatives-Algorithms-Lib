@@ -21,7 +21,7 @@ namespace Dal::Script {
 
         varStack_.Pop();
         --nestedIFLv_;
-        if (nestedIFLv_)
+        if (nestedIFLv_ > 0)
             std::copy(node->affectedVars_.begin(),
                       node->affectedVars_.end(),
                       std::inserter(varStack_.Top(), varStack_.Top().end()));
