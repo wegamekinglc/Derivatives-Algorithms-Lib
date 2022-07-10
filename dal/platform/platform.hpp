@@ -40,6 +40,7 @@ namespace Dal {
     constexpr const double INF = 1e29;
     constexpr const double PI = 3.1415926535897932;
     constexpr const double M_SQRT_2 = 1.4142135623730951;
+    constexpr const double ONE_MINUS_EPS = 0.999999999999;
 
     template <class T_> inline bool IsZero(const T_& x) { return x < Dal::EPSILON && -x < Dal::EPSILON; }
 
