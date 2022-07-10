@@ -48,6 +48,7 @@ namespace Dal::Script {
         top->arguments_.Resize(2);
         top->arguments_[0] = std::move(lhs);
         top->arguments_[1] = std::move(rhs);
+        return top;
     }
 
     struct NodeCollect_: public ScriptNode_ {
