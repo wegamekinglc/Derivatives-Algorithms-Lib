@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <cmath>
 #include <dal/math/stacks.hpp>
 #include <dal/math/vectors.hpp>
 #include <dal/script/visitor.hpp>
