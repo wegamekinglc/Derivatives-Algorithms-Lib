@@ -24,8 +24,8 @@ namespace Dal::Script {
 
     public:
         struct PlusInfinity_ {};
-        static constexpr PlusInfinity_ plusInfinity_;
         struct MinusInfinity_ {};
+        static constexpr PlusInfinity_ plusInfinity_;
         static constexpr MinusInfinity_ minusInfinity_;
 
         Bound_(double Value = 0.0) : plusInf_(false), minusInf_(false), real_(Value) {}

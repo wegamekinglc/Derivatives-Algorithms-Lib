@@ -10,6 +10,9 @@
 
 namespace Dal::Script {
 
+    constexpr typename Bound_::PlusInfinity_ Bound_::plusInfinity_;
+    constexpr typename Bound_::MinusInfinity_ Bound_::minusInfinity_;
+
     Bound_& Bound_::operator=(double Value) {
         plusInf_ = minusInf_ = false;
         real_ = Value;
