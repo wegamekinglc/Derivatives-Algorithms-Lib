@@ -64,8 +64,8 @@ namespace Dal::Script {
         }
         void Visit(NodePower_* node) override {
             VisitArguments(node);
-            Domain_ res = domainStack_[1].ApplyFunc2<double (*)(const double, const double)>(
-                pow, domainStack_[0], Interval_(Bound_::minusInfinity_, Bound_::plusInfinity_));
+            Domain_ res = domainStack_[1].ApplyFunc2<double (*)(double, double)>(
+                std::pow, domainStack_[0], Interval_(Bound_::minusInfinity_, Bound_::plusInfinity_));
             domainStack_.Pop(2);
             domainStack_.Push(std::move(res));
         }
@@ -80,15 +80,15 @@ namespace Dal::Script {
         // Functions
         void Visit(NodeLog_* node) override {
             VisitArguments(node);
-            Domain_ res = domainStack_.Top().ApplyFunc<double (*)(const double)>(
-                log, Interval_(Bound_::minusInfinity_, Bound_::plusInfinity_));
+            Domain_ res = domainStack_.Top().ApplyFunc<double (*)(double)>(
+                std::log, Interval_(Bound_::minusInfinity_, Bound_::plusInfinity_));
             domainStack_.Pop();
             domainStack_.Push(std::move(res));
         }
         void Visit(NodeSqrt_* node) override {
             VisitArguments(node);
             Domain_ res =
-                domainStack_.Top().ApplyFunc<double (*)(const double)>(sqrt, Interval_(0.0, Bound_::plusInfinity_));
+                domainStack_.Top().ApplyFunc<double (*)(double)>(std::sqrt, Interval_(0.0, Bound_::plusInfinity_));
             domainStack_.Pop();
             domainStack_.Push(std::move(res));
         }
