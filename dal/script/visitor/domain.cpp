@@ -353,7 +353,7 @@ namespace Dal::Script {
             return *this;
         }
 
-        Domain_& Domain_::operator=(Domain_&& rhs) {
+        Domain_& Domain_::operator=(Domain_&& rhs) noexcept {
             if (this == &rhs)
                 return *this;
             intervals_ = std::move(rhs.intervals_);
