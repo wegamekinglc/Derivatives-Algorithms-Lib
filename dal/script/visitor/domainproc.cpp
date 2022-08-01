@@ -5,6 +5,7 @@
 #include <dal/script/visitor/domainproc.hpp>
 
 namespace Dal::Script {
+#include <dal/auto/MG_DomainCondProp_enum.inc>
     // visit
     // expressions
     // binaries

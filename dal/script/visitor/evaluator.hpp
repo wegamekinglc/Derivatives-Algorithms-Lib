@@ -225,25 +225,25 @@ namespace Dal::Script {
 
         void Visit(const NodeSmooth_* node) override {
             //	Eval the condition
-            node->arguments_[0]->AcceptVisitor(*this);
+            node->arguments_[0]->AcceptVisitor(this);
             const T_ x = dStack_.TopAndPop();
 
             //	Eval the epsilon
-            node->arguments_[3]->AcceptVisitor(*this);
+            node->arguments_[3]->AcceptVisitor(this);
             const T_ halfEps = 0.5 * dStack_.TopAndPop();
 
             //	Left
             if (x < -halfEps)
-                node->arguments_[2]->AcceptVisitor(*this);
+                node->arguments_[2]->AcceptVisitor(this);
             //	Right
             else if (x > halfEps)
-                node->arguments_[1]->AcceptVisitor(*this);
+                node->arguments_[1]->AcceptVisitor(this);
             //	Fuzzy
             else {
-                node->arguments_[1]->AcceptVisitor(*this);
+                node->arguments_[1]->AcceptVisitor(this);
                 const T_ vPos = dStack_.TopAndPop();
 
-                node->arguments_[2]->AcceptVisitor(*this);
+                node->arguments_[2]->AcceptVisitor(this);
                 const T_ vNeg = dStack_.TopAndPop();
                 dStack_.Push(vNeg + 0.5 * (vPos - vNeg) / halfEps * (x + halfEps));
             }
