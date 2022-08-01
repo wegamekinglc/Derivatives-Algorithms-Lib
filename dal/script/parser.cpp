@@ -61,7 +61,10 @@ namespace Dal::Script {
 
         std::unique_ptr<ScriptNode_> top;
         unsigned minArg, maxArg;
-        if (*cur == "LOG") {
+        if(*cur == "SPOT") {
+            top = MakeBaseNode<NodeSpot_>();
+            minArg = maxArg = 0;
+        } else if (*cur == "LOG") {
             top = MakeBaseNode<NodeLog_>();
             minArg = maxArg = 1;
         } else if (*cur == "SQRT") {
@@ -75,6 +78,10 @@ namespace Dal::Script {
             top = MakeBaseNode<NodeMax_>();
             minArg = 2;
             maxArg = 1000;
+        } else if(*cur == "SMOOTH") {
+            top = MakeBaseNode<NodeSmooth_>();
+            minArg = 4;
+            maxArg = 4;
         }
 
         if (top) {
@@ -94,14 +101,14 @@ namespace Dal::Script {
         double v = String::ToDouble(*cur);
         auto top = MakeNode<NodeConst_>(v);
         ++cur;
-        return move(top);
+        return std::move(top);
     }
 
     std::unique_ptr<ScriptNode_> Parser_::ParseVar(TokIt_& cur) {
         REQUIRE2((*cur)[0] >= 'a' && (*cur)[0] <= 'z', String_("Variable name ") + *cur + " is invalid", ScriptError_);
         auto top = MakeNode<NodeVar_>(*cur);
         ++cur;
-        return move(top);
+        return std::move(top);
     }
 
     std::unique_ptr<ScriptNode_> Parser_::ParseIf(TokIt_& cur, const TokIt_& end) {

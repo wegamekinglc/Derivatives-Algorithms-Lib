@@ -4,15 +4,15 @@
 
 #pragma once
 
+#include <dal/math/stacks.hpp>
 #include <dal/platform/platform.hpp>
-#include <stack>
-#include <dal/string/strings.hpp>
 #include <dal/script/node.hpp>
 #include <dal/script/visitor.hpp>
-#include <dal/math/stacks.hpp>
+#include <dal/string/strings.hpp>
+#include <stack>
 
 namespace Dal::Script {
-    class Debugger_: public ConstVisitor_ {
+    class Debugger_ : public ConstVisitor_ {
         String_ prefix_;
         Stack_<String_> stack_;
 
@@ -47,5 +47,6 @@ namespace Dal::Script {
         void Visit(const NodeOr_* node) override;
         void Visit(const NodePays_* node) override;
         void Visit(const NodeSpot_* node) override;
+        void Visit(const NodeSmooth_* node) override;
     };
-}
+} // namespace Dal::Script
