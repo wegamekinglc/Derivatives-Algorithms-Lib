@@ -17,7 +17,7 @@
 #include <dal/platform/platform.hpp>
 #include <dal/utilities/exceptions.hpp>
 
-namespace Dal {
+namespace Dal::AAD {
     class Number_ {
     private:
         double value_;

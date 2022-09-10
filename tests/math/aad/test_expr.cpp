@@ -7,7 +7,7 @@
 #include <dal/math/aad/aad.hpp>
 #include <gtest/gtest.h>
 
-using namespace Dal;
+using namespace Dal::AAD;
 
 TEST(AADExprTest, TestExprAdd) {
     Number_ s1(1.0);

@@ -8,7 +8,7 @@
 #include <dal/math/aad/tape.hpp>
 #include <dal/math/specialfunctions.hpp>
 
-namespace Dal {
+namespace Dal::AAD {
     template <class E_> struct Expression_ {
         [[nodiscard]] virtual double Value() const { return static_cast<const E_*>(this)->Value(); }
 

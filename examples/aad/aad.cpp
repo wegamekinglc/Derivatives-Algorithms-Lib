@@ -2,7 +2,7 @@
 // Created by wegam on 2020/12/21.
 //
 
-#include <dal/math/operators.hpp>
+#include "dal/math/aad/operators.hpp"
 #include <dal/math/aad/number.hpp>
 #include <dal/math/vectors.hpp>
 #include <dal/platform/platform.hpp>
@@ -12,6 +12,7 @@
 
 using namespace std;
 using namespace Dal;
+using namespace Dal::AAD;
 
 template <class T_>
 T_ f(const Vector_<T_>& x) {

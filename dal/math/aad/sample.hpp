@@ -8,7 +8,7 @@
 #include <dal/platform/platform.hpp>
 #include <dal/string/strings.hpp>
 
-namespace Dal {
+namespace Dal::AAD {
     /*
      * Scenarios
      */

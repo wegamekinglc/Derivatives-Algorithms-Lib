@@ -6,7 +6,9 @@
 #include "dal/math/aad/number.hpp"
 #include <cmath>
 
-namespace Dal {
+namespace Dal::AAD {
+    using Dal::Max;
+    using Dal::Min;
     template <class T_> inline T_ Sqrt(const T_& t) { return std::sqrt(t); }
     template <class T_> inline T_ Exp(const T_& t) { return std::exp(t); }
     template <class T_> inline T_ Fabs(const T_& t) { return std::fabs(t); }

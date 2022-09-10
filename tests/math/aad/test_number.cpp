@@ -8,7 +8,7 @@
 #include <cmath>
 #include <gtest/gtest.h>
 
-using namespace Dal;
+using namespace Dal::AAD;
 
 TEST(AADNumberTest, TestNumberAdd) {
 

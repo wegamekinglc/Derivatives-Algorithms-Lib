@@ -8,7 +8,7 @@
 #include <dal/math/aad/simulation.hpp>
 #include <dal/platform/strict.hpp>
 
-namespace Dal {
+namespace Dal::AAD {
 
     Matrix_<> MCSimulation(const Product_<>& prd, const Model_<>& mdl, const std::unique_ptr<Random_>& rng, int nPath) {
         REQUIRE(CheckCompatibility(prd, mdl), "model and products are not compatible");

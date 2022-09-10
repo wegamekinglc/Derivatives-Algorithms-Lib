@@ -13,7 +13,7 @@
 #include <dal/math/aad/aad.hpp>
 #include <dal/platform/strict.hpp>
 
-namespace Dal {
+namespace Dal::AAD {
     namespace {
         Tape_* CreateGlobalTape() {
             static Tape_ GLOBAL_TAP;

@@ -6,7 +6,7 @@
 #include <dal/math/aad/blocklist.hpp>
 #include <gtest/gtest.h>
 
-using namespace Dal;
+using namespace Dal::AAD;
 
 TEST(BlockListTest, TestBlockListInit) {
     BlockList_<double, 10> blocks;

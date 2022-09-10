@@ -17,7 +17,7 @@
 #include <iterator>
 #include <list>
 
-namespace Dal {
+namespace Dal::AAD {
 
     template <class T_, size_t BLOCK_SIZE_> class BlockList_ {
     private:

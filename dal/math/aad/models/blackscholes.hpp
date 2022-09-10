@@ -3,11 +3,11 @@
 //
 
 #pragma once
-#include <dal/math/operators.hpp>
+#include "dal/math/aad/operators.hpp"
 #include <dal/math/aad/models/base.hpp>
 #include <dal/utilities/algorithms.hpp>
 
-namespace Dal {
+namespace Dal::AAD {
 
     template <class T_> class BlackScholes_ : public Model_<T_> {
         T_ spot_;

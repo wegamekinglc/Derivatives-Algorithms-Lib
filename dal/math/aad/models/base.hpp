@@ -10,7 +10,7 @@
 #include <dal/platform/platform.hpp>
 #include <dal/string/strings.hpp>
 
-namespace Dal {
+namespace Dal::AAD {
     const Time_ systemTime = 0.0;
 
     template <class T_ = double> class Model_ {

@@ -9,7 +9,7 @@
 #include <dal/platform/platform.hpp>
 #include <dal/string/strings.hpp>
 
-namespace Dal {
+namespace Dal::AAD {
     template <class T_ = double> class Product_ {
         inline static const Vector_<String_>& DefaultAssetNames() {
             static Vector_<String_> defaultAssetNames_ = {"spot"};

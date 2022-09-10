@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include <dal/math/operators.hpp>
+#include "dal/math/aad/operators.hpp"
 #include <dal/platform/platform.hpp>
 #include <dal/utilities/algorithms.hpp>
 #include <numeric>
@@ -20,7 +20,7 @@ namespace Dal {
         return std::accumulate(src.begin(), src.end(), val_type(0), op);
     }
 
-    template <class C_> auto Accumulate(const C_& src) { return Accumulate(src, Plus<typename C_::value_type>); }
+    template <class C_> auto Accumulate(const C_& src) { return Accumulate(src, AAD::Plus<typename C_::value_type>); }
 
     template <class C1_, class C2_> auto InnerProduct(const C1_& src1, const C2_& src2) {
         using value_type = typename C1_::value_type;
@@ -30,7 +30,7 @@ namespace Dal {
     namespace Vector {
         template <class T_> Vector_<T_> L1Normalized(const Vector_<T_>& base) {
             using val_type = typename Vector_<T_>::value_type;
-            auto func = [](val_type x, val_type y) { return x + Fabs(y); };
+            auto func = [](val_type x, val_type y) { return x + AAD::Fabs(y); };
             auto l1 = Accumulate(base, func);
             auto func2 = [&l1](val_type x) { return x / (l1 + 1e-14); };
             return Apply(func2, base);
@@ -39,7 +39,7 @@ namespace Dal {
         template <class T_> Vector_<T_> L2Normalized(const Vector_<T_>& base) {
             using val_type = typename Vector_<T_>::value_type;
             auto func = [](val_type x, val_type y) { return x + y * y; };
-            auto l2 = Sqrt(static_cast<val_type>(Accumulate(base, func)));
+            auto l2 = AAD::Sqrt(static_cast<val_type>(Accumulate(base, func)));
             auto func2 = [&l2](val_type x) { return x / (l2 + 1e-14); };
             return Apply(func2, base);
         }

@@ -12,6 +12,7 @@
 #include <gtest/gtest.h>
 
 using namespace Dal;
+using namespace Dal::AAD;
 
 TEST(BlackScholesTest, TestBlackScholes) {
     auto global = XGLOBAL::SetEvaluationDateInScope(Date_(2022, 6, 22));

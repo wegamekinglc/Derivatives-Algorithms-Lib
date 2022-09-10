@@ -10,7 +10,7 @@
 #include <dal/math/interp/interp2d.hpp>
 
 
-namespace Dal {
+namespace Dal::AAD {
     template <class T_>
     class RiskView_ {
         bool isEmpty_;

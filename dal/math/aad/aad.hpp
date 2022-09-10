@@ -18,7 +18,7 @@
 #include <dal/math/aad/number.hpp>
 #endif
 
-namespace Dal {
+namespace Dal::AAD {
 
     struct NumResultsResetterForAAD_ {
         ~NumResultsResetterForAAD_() {

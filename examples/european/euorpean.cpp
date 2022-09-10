@@ -15,6 +15,7 @@
 
 using namespace Dal;
 using namespace std;
+using namespace Dal::AAD;
 
 int main() {
 

@@ -2,7 +2,7 @@
 // Created by wegam on 2022/5/5.
 //
 
-#include <dal/math/operators.hpp>
+#include "dal/math/aad/operators.hpp"
 #include <dal/platform/platform.hpp>
 #include <dal/platform/strict.hpp>
 #include <dal/protocol/optiontype.hpp>
@@ -17,7 +17,7 @@ namespace Dal {
         case Value_::PUT:
             return Max(0.0, strike - spot);
         case Value_::STRADDLE:
-            return Fabs(spot - strike);
+            return AAD::Fabs(spot - strike);
         default:
             THROW("invalid option type");
         }

@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include <dal/math/operators.hpp>
+#include "dal/math/aad/operators.hpp"
 #include <cmath>
 #include <dal/math/aad/models/base.hpp>
 #include <dal/math/matrix/matrixs.hpp>
@@ -14,7 +14,7 @@
 
 #define HALF_DAY 0.00136986301369863
 
-namespace Dal {
+namespace Dal::AAD {
     template <class T_> class Dupire_ : public Model_<T_> {
         T_ spot_;
         const Vector_<> spots_;
@@ -71,7 +71,7 @@ namespace Dal {
         }
 
         //  Initialize timeline
-        void allocate(const Vector_<Time_>& productTimeline, const Vector_<SampleDef_>& defLine) override {
+        void Allocate(const Vector_<Time_>& productTimeline, const Vector_<SampleDef_>& defLine) override {
             //  Fill from product timeline
 
             //  Do the fill

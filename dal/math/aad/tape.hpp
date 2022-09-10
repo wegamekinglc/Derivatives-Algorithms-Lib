@@ -15,7 +15,7 @@
 #include <dal/math/aad/blocklist.hpp>
 #include <dal/math/aad/node.hpp>
 
-namespace Dal {
+namespace Dal::AAD {
     constexpr size_t BLOCK_SIZE = 16384;
     constexpr size_t ADJ_SIZE = 32768;
     constexpr size_t DATA_SIZE = 65536;

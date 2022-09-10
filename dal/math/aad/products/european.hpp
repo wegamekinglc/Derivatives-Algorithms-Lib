@@ -10,7 +10,7 @@
 #include <dal/storage/globals.hpp>
 #include <sstream>
 
-namespace Dal {
+namespace Dal::AAD {
     template <class T_> class European_ : public Product_<T_> {
     private:
         double strike_;

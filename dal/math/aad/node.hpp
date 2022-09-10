@@ -14,7 +14,7 @@
 #include <algorithm>
 #include <iostream>
 
-namespace Dal {
+namespace Dal::AAD {
     class TapNode_ {
         const size_t n_;
         static size_t num_adj_;
