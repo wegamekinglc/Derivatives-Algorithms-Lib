@@ -33,7 +33,7 @@ namespace Dal {
             static const double TOL = 1.0e-10;
             REQUIRE(price >= type.Payout(fwd, strike), "value below intrinsic value in BlackIV");
             Brent_ task(guess ? AAD::Log(guess) : -1.5);
-            Converged_ done(TOL * Max(1.0, fwd), TOL * Max(1.0, price));
+            Converged_ done(TOL * AAD::Max(1.0, fwd), TOL * AAD::Max(1.0, price));
             for (int i = 0; i < MAX_ITERATIONS; ++i) {
                 const double vol = AAD::Exp(task.NextX());
                 if (done(task, BlackOpt(fwd, vol, strike, type) - price))

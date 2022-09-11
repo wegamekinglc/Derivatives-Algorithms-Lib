@@ -9,14 +9,16 @@
 
 namespace Dal {
     template <class E_> class Matrix_ {
-        Vector_<E_> vals_;
-        int cols_;
+    public:
         using I_ = typename Vector_<E_>::iterator;
         using CI_ = typename Vector_<E_>::const_iterator;
         using R_ = typename Vector_<E_>::reference;
         using CR_ = typename Vector_<E_>::const_reference;
-        Vector_<I_> hooks_;
 
+    private:
+        Vector_<E_> vals_;
+        int cols_;
+        Vector_<I_> hooks_;
         void SetHook(size_t from = 0);
 
     public:
