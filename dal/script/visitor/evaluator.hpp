@@ -104,7 +104,7 @@ namespace Dal::Script {
         void Visit(const NodePower_* node) override {
             EvalArgs(node);
             const auto& args = Pop2();
-            dStack_.Push(Pow(args.first, args.second));
+            dStack_.Push(AAD::Pow(args.first, args.second));
         }
 
         void Visit(const NodeUPlus_* node) override { EvalArgs(node); }
