@@ -190,7 +190,7 @@ namespace Dal::Script {
         void Visit(const NodeEqual_* node) override {
             EvalArgs(node);
             const T_ res = dStack_.TopAndPop();
-            bStack_.Push(Fabs(res) < node->eps_);
+            bStack_.Push(AAD::Fabs(res) < node->eps_);
         }
 
         void Visit(const NodeNot_* node) override {
