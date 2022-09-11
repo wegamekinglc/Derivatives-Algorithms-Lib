@@ -11,7 +11,8 @@
 #include <dal/math/aad/models/analytics.hpp>
 
 namespace Dal::AAD {
-    template <class T_> class RiskView_ {
+    template <class T_>
+    class RiskView_ {
         bool isEmpty_;
         Vector_<> strikes_;
         Vector_<Time_> mats_;
@@ -77,7 +78,7 @@ namespace Dal::AAD {
         virtual ~IVS_() = default;
     };
 
-    
+
     class MertonIVS_ : public IVS_ {
         double vol_;
         double intensity_;
@@ -88,9 +89,6 @@ namespace Dal::AAD {
         MertonIVS_(double spot, double vol, double intens, double aveJmp, double stdJmp)
             : IVS_(spot), vol_(vol), intensity_(intens), averageJmp_(aveJmp), jmpStd(stdJmp) {}
 
-        [[nodiscard]] double ImpliedVol(double strike, const Time_& mat) const override {
-            const double call = Merton(Spot(), strike, vol_, mat, intensity_, averageJmp_, jmpStd);
-            return BlackScholesIVol(Spot(), strike, call, mat);
-        }
+        [[nodiscard]] double ImpliedVol(double strike, const Time_& mat) const override;
     };
 } // namespace Dal::AAD

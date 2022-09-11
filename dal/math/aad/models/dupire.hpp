@@ -189,26 +189,21 @@ namespace Dal::AAD {
             lVolsBegin[i] = lVolsBegin[ih];
     }
 
-#define ONE_HOUR 0.000114469
-
-    //  Returns a struct with spots, times and lVols
+    // Returns a struct with spots, times and lVols
     template <class T_ = double>
     inline auto DupireCalib(const IVS_& ivs, const Vector_<>& inclSpots, double maxDs, const Vector_<Time_>& inclTimes, double maxDt, const RiskView_<T_>& riskView = RiskView_<double>()) {
-        //  Results
         struct {
             Vector_<> spots_;
             Vector_<Time_> times_;
             Matrix_<T_> lVols_;
         } results;
 
-        //  Spots and times
+        static const double ONE_HOUR = 0.000114469;
         results.spots_ = FillData(inclSpots, maxDs, 0.01);
         results.times_ = FillData(inclTimes, maxDt, ONE_HOUR,&maxDt, &maxDt + 1);
 
-        //  Allocate local vols, transposed maturity first
         Matrix_<T_> lVolsT(results.times_.size(), results.spots_.size());
 
-        //  Maturity by maturity
         const size_t n = results.times_.size();
         for (size_t j = 0; j < n; ++j) {
             DupireCalibMaturity(ivs, results.times_[j], results.spots_.begin(), results.spots_.end(), lVolsT[j], riskView);
