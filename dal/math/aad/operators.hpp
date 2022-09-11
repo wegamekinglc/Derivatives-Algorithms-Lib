@@ -7,6 +7,7 @@
 #include <cmath>
 
 namespace Dal::AAD {
+    using Dal::Square;
     using Dal::Max;
     using Dal::Min;
     template <class T_> inline T_ Sqrt(const T_& t) { return std::sqrt(t); }

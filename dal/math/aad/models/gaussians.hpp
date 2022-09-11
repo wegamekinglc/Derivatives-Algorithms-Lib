@@ -10,16 +10,16 @@
 namespace Dal::AAD {
 
     template <class T_>
-    inline double NormalPDF(const T_& x) {
-        return x < -10.0 || 10.0 < x ? 0.0 : Exp(-0.5 * x * x) / 2.506628274631;
+    inline T_ NormalPDF(const T_& x) {
+        return x < -10.0 || 10.0 < x ? T_(0.0) : Exp(-0.5 * x * x) / 2.506628274631;
     }
 
     template <class T_>
     inline T_ NormalCDF(const T_& x) {
         if (x < -10.0)
-            return 0.0;
+            return T_(0.0);
         if (x > 10.0)
-            return 1.0;
+            return T_(1.0);
         if (x < 0.0)
             return 1.0 - NormalCDF(-x);
 

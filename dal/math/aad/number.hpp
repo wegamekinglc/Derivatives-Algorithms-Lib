@@ -340,6 +340,13 @@ namespace Dal::AAD {
             return result;
         }
 
+        inline friend Number_ Square(const Number_& arg) {
+            const double e = arg.Value() * arg.Value();
+            Number_ result(arg.Node(), e);
+            result.Derivative() = 2.0 * arg.Value();
+            return result;
+        }
+
         inline friend Number_ Fabs(const Number_& arg) {
             const double e = std::fabs(arg.Value());
             Number_ result(arg.Node(), e);

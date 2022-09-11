@@ -4,6 +4,7 @@
 
 #include <cmath>
 #include <dal/platform/platform.hpp>
+#include <dal/math/aad/operators.hpp>
 #include <dal/math/specialfunctions.hpp>
 #include <dal/platform/strict.hpp>
 #include <dal/math/interp/interpcubic.hpp>
@@ -30,7 +31,7 @@ namespace Dal {
             static const scoped_ptr<Interp1_> SPLINE(MakeNcdfSpline());
             if (z > 0.0)
                 return 1.0 - NcdfBySpline(-z);
-            return z < MIN_SPLINE_X ? MIN_SPLINE_F * exp(-1.1180061 * (Square(z) - Square(MIN_SPLINE_X)))
+            return z < MIN_SPLINE_X ? MIN_SPLINE_F * exp(-1.1180061 * (Dal::AAD::Square(z) - Dal::AAD::Square(MIN_SPLINE_X)))
                                     : (*SPLINE)(z);
         }
     } // namespace
