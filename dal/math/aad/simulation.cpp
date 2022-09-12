@@ -27,7 +27,8 @@ namespace Dal::AAD {
         for (size_t i = 0; i < nPath; ++i) {
             rng->FillNormal(&gaussVec);
             cMdl->GeneratePath(gaussVec, &path);
-            prd.Payoffs(path, results[i]);
+            auto res = results[i];
+            prd.Payoffs(path, &res);
         }
         return results;
     }
@@ -82,7 +83,8 @@ namespace Dal::AAD {
                 for (size_t i = 0; i < pathsInTask; ++i) {
                     random->FillNormal(&gaussVec);
                     cMdl->GeneratePath(gaussVec, &path);
-                    prd.Payoffs(path, results[firstPath + i]);
+                    auto res = results[firstPath + i];
+                    prd.Payoffs(path, &res);
                 }
                 return true;
             }));

@@ -44,7 +44,7 @@ namespace Dal::AAD {
         virtual ~Product_() = default;
 
     protected:
-        virtual void PayoffsImpl(const Scenario_<T_>& path, typename Matrix_<T_>::Row_& payoffs) const = 0;
+        virtual void PayoffsImpl(const Scenario_<T_>& path, typename Matrix_<T_>::Row_* payoffs) const = 0;
         virtual void PayoffsImpl(const Scenario_<T_>& path, Vector_<T_>* payoffs) const = 0;
     };
 } // namespace Dal

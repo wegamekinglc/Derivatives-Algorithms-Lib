@@ -61,10 +61,10 @@ namespace Dal::AAD {
             payoffs->front() = Max(spot - strike_, 0.0) * sample.discounts_.front() / sample.numeraire_;
         }
 
-        void PayoffsImpl(const Scenario_<T_>& path, typename Matrix_<T_>::Row_& payoffs) const override {
+        void PayoffsImpl(const Scenario_<T_>& path, typename Matrix_<T_>::Row_* payoffs) const override {
             const auto& sample = path.front();
             const auto spot = sample.forwards_.front().front();
-            payoffs[0] = Max(spot - strike_, 0.0) * sample.discounts_.front() / sample.numeraire_;
+            (*payoffs)[0] = Max(spot - strike_, 0.0) * sample.discounts_.front() / sample.numeraire_;
         }
     };
 } // namespace Dal
