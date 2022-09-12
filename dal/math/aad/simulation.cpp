@@ -33,11 +33,10 @@ namespace Dal::AAD {
         return results;
     }
 
-    constexpr const int BATCH_SIZE = 8192;
 
     Matrix_<> MCParallelSimulation(const Product_<>& prd,
                                    const Model_<>& mdl,
-                                   const std::unique_ptr<PseudoRandom_>& rng,
+                                   const std::unique_ptr<Random_>& rng,
                                    int nPath) {
         REQUIRE(CheckCompatibility(prd, mdl), "model and products are not compatible");
         auto cMdl = mdl.Clone();
@@ -60,9 +59,9 @@ namespace Dal::AAD {
             InitializePath(path);
         }
 
-        Vector_<std::unique_ptr<PseudoRandom_>> rng_s(nThread + 1);
+        Vector_<std::unique_ptr<Random_>> rng_s(nThread + 1);
         for (auto& random : rng_s)
-            random = std::unique_ptr<PseudoRandom_>(rng->Clone());
+            random = std::unique_ptr<Random_>(rng->Clone());
 
         Vector_<TaskHandle_> futures;
         futures.reserve(nPath / BATCH_SIZE + 1);
@@ -78,7 +77,7 @@ namespace Dal::AAD {
                 Scenario_<>& path = paths[threadNum];
 
                 auto& random = rng_s[threadNum];
-                random->SkipTo(firstPath * nPay);
+                random->SkipTo(firstPath);
 
                 for (size_t i = 0; i < pathsInTask; ++i) {
                     random->FillNormal(&gaussVec);
@@ -93,8 +92,17 @@ namespace Dal::AAD {
         }
 
         for (auto& future : futures)
-            pool->ActiveWaite(future);
+            pool->ActiveWait(future);
         return results;
+    }
+
+    void InitModel4ParallelAAD(const Product_<Number_>& prd, Model_<Number_>& clonedMdl, Scenario_<Number_>& path) {
+        Tape_& tape = *Number_::tape_;
+        tape.Rewind();
+        clonedMdl.PutParametersOnTape();
+        clonedMdl.Init(prd.TimeLine(), prd.DefLine());
+        InitializePath(path);
+        tape.Mark();
     }
 
 } // namespace Dal::AAD

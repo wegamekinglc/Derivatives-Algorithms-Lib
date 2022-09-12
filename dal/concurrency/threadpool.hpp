@@ -66,6 +66,6 @@ namespace Dal {
          * while waiting on a future,
          * return true if at least one task was run
          */
-        bool ActiveWaite(const TaskHandle_& f);
+        bool ActiveWait(const TaskHandle_& f);
     };
 } // namespace Dal

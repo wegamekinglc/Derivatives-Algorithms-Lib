@@ -4,12 +4,14 @@
 
 #pragma once
 
-#include "dal/math/random/pseudorandom.hpp"
+#include <dal/math/random/pseudorandom.hpp>
 #include <dal/math/aad/aad.hpp>
+#include <dal/math/aad/operators.hpp>
 #include <dal/math/matrix/matrixs.hpp>
 #include <dal/math/vectors.hpp>
 #include <dal/platform/platform.hpp>
 #include <dal/string/strings.hpp>
+#include <dal/concurrency/threadpool.hpp>
 
 namespace Dal::AAD {
     /*
@@ -36,18 +38,13 @@ namespace Dal::AAD {
                            const std::unique_ptr<Random_>& rng,
                            int nPath);
 
-    /*
-     * Parallel equivalent of MCSimulation
-     */
+    constexpr const int BATCH_SIZE = 65535;
 
     Matrix_<> MCParallelSimulation(const Product_<double>& prd,
                                    const Model_<double>& mdl,
-                                   const std::unique_ptr<PseudoRandom_>& rng,
+                                   const std::unique_ptr<Random_>& rng,
                                    int nPath);
 
-    /*
-     * MC simulation of AAD
-     */
     struct AADResults_ {
         AADResults_(int nPath, int nPay, int nParam) : payoffs_(nPath, nPay), aggregated_(nPath), risks_(nParam) {}
         Matrix_<> payoffs_;
@@ -86,7 +83,7 @@ namespace Dal::AAD {
         Vector_<> gaussVec(cMdl->SimDim());
         AADResults_ results(nPath, nPay, nParam);
 
-        for (size_t i = 0; i<nPath; i++) {
+        for (size_t i = 0; i < nPath; i++) {
             tape.RewindToMark();
             rng->FillNormal(&gaussVec);
             cMdl->GeneratePath(gaussVec, &path);
@@ -95,13 +92,126 @@ namespace Dal::AAD {
 
             result.PropagateToMark();
             results.aggregated_[i] = result.Value();
-            ConvertCollection(nPayoffs.begin(),nPayoffs.end(),results.payoffs_[i].begin());
+            ConvertCollection(nPayoffs.begin(), nPayoffs.end(), results.payoffs_[i].begin());
         }
 
         Number_::PropagateMarkToStart();
-        Transform(params, [nPath](const Number_* p) {return p->Adjoint() / nPath; }, &results.risks_);
+        Transform(
+            params, [nPath](const Number_* p) { return p->Adjoint() / nPath; }, &results.risks_);
         tape.Clear();
         return results;
     }
 
-} // namespace Dal
+    void InitModel4ParallelAAD(const Product_<Number_>& prd, Model_<Number_>& clonedMdl, Scenario_<Number_>& path);
+
+    template <class F_ = decltype(DEFAULT_AGGREGATOR)>
+    AADResults_ MCParallelSimulationAAD(const Product_<Number_>& prd,
+                                        const Model_<Number_>& mdl,
+                                        const std::unique_ptr<Random_>& rng,
+                                        int nPath,
+                                        const F_& aggFun = DEFAULT_AGGREGATOR) {
+        REQUIRE(CheckCompatibility(prd, mdl), "model and products are not compatible");
+
+        const size_t nPay = prd.PayoffLabels().size();
+        const size_t nParam = mdl.NumParams();
+
+        AADResults_ results(nPath, nPay, nParam);
+
+        Number_::tape_->Clear();
+        auto re_setter = SetNumResultsForAAD();
+
+        ThreadPool_* pool = ThreadPool_::GetInstance();
+        const size_t nThread = pool->NumThreads();
+
+        Vector_<std::unique_ptr<Model_<Number_>>> models(nThread + 1);
+        for (auto& model : models) {
+            model = mdl.Clone();
+            model->Allocate(prd.TimeLine(), prd.DefLine());
+        }
+
+        Vector_<Scenario_<Number_>> paths(nThread + 1);
+        for (auto& path : paths) {
+            AllocatePath(prd.DefLine(), path);
+        }
+
+        Vector_<Vector_<Number_>> payoffs(nThread + 1, Vector_<Number_>(nPay));
+
+        Vector_<Tape_> tapes(nThread);
+        Vector_<bool> mdlInit(nThread + 1, false);
+
+        InitModel4ParallelAAD(prd, *models[0], paths[0]);
+
+        mdlInit[0] = true;
+
+        Vector_<std::unique_ptr<Random_>> rngs(nThread + 1);
+        for (auto& random : rngs)
+            random.reset(rng->Clone());
+
+        Vector_<Vector_<double>> gaussVecs(nThread + 1, Vector_<double>(models[0]->SimDim()));
+
+        Vector_<TaskHandle_> futures;
+        futures.reserve(nPath /  + 1);
+
+        size_t firstPath = 0;
+        size_t pathsLeft = nPath;
+        while (pathsLeft > 0) {
+            size_t pathsInTask = Min<size_t>(pathsLeft, BATCH_SIZE);
+
+            futures.push_back(pool->SpawnTask([&, firstPath, pathsInTask]() {
+                const size_t threadNum = pool->ThreadNum();
+                if (threadNum > 0)
+                    Number_::tape_ = &tapes[threadNum - 1];
+
+                //  Initialize once on each thread
+                if (!mdlInit[threadNum]) {
+                    InitModel4ParallelAAD(prd, *models[threadNum], paths[threadNum]);
+                    mdlInit[threadNum] = true;
+                }
+
+                auto& random = rngs[threadNum];
+                random->SkipTo(firstPath);
+
+                for (size_t i = 0; i < pathsInTask; i++) {
+                    Number_::tape_->RewindToMark();
+                    random->FillNormal(&gaussVecs[threadNum]);
+                    models[threadNum]->GeneratePath(gaussVecs[threadNum], &paths[threadNum]);
+                    prd.Payoffs(paths[threadNum], &payoffs[threadNum]);
+
+                    Number_ result = aggFun(payoffs[threadNum]);
+                    result.PropagateToMark();
+                    results.aggregated_[firstPath + i] = result.Value();
+                    ConvertCollection(payoffs[threadNum].begin(), payoffs[threadNum].end(), results.payoffs_[firstPath + i].begin());
+                }
+                return true;
+            }));
+
+            pathsLeft -= pathsInTask;
+            firstPath += pathsInTask;
+        }
+
+        for (auto& future : futures)
+            pool->ActiveWait(future);
+
+        Number_::PropagateMarkToStart();
+        Tape_* mainThreadPtr = Number_::tape_;
+        for (size_t i = 0; i < nThread; ++i) {
+            if (mdlInit[i + 1]) {
+                Number_::tape_ = &tapes[i];
+                Number_::PropagateMarkToStart();
+            }
+        }
+        Number_::tape_ = mainThreadPtr;
+
+        for (size_t j = 0; j < nParam; ++j) {
+            results.risks_[j] = 0.0;
+            for (size_t i = 0; i < models.size(); ++i) {
+                if (mdlInit[i])
+                    results.risks_[j] += models[i]->Parameters()[j]->Adjoint();
+            }
+            results.risks_[j] /= nPath;
+        }
+        Number_::tape_->Clear();
+        return results;
+    }
+
+} // namespace Dal::AAD

@@ -42,7 +42,7 @@ namespace Dal {
         }
     }
 
-    bool ThreadPool_::ActiveWaite(const TaskHandle_& f) {
+    bool ThreadPool_::ActiveWait(const TaskHandle_& f) {
         Task_ t;
         bool b = false;
 

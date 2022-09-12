@@ -83,7 +83,7 @@ namespace Dal {
 
             [[nodiscard]] PseudoRandom_* Clone() const override { return new ShuffledIRN_(seed_, cache_.size()); }
 
-            void SkipTo(size_t n_points) override {}
+            void SkipTo(size_t n_paths) override {}
         };
 
         constexpr const double m1_ = 4294967087;
@@ -140,7 +140,8 @@ namespace Dal {
                 return new MRG32k32a_(static_cast<unsigned>(a_), static_cast<unsigned>(b_), cache_.size());
             }
 
-            void SkipTo(size_t n_points) override {
+            void SkipTo(size_t n_paths) override {
+                size_t n_points = n_paths * NDim();
                 Reset();
 
                 if (n_points < 0)

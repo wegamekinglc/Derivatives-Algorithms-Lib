@@ -44,7 +44,7 @@ int main() {
 
     // multi-threads simulation
     // only pseudo random number generator can be used in multithreading situation
-    std::unique_ptr<PseudoRandom_> rand2(New(RNGType_("MRG32"), seed));
+    std::unique_ptr<Random_> rand2(New(RNGType_("MRG32"), seed));
 
     timer.Reset();
     res = MCParallelSimulation(prd, mdl, rand2, n_paths);

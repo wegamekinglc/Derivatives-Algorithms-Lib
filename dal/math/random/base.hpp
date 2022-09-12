@@ -13,6 +13,7 @@ namespace Dal {
         virtual ~Random_() = default;
         virtual void FillUniform(Vector_<>* deviates) = 0;
         virtual void FillNormal(Vector_<>* deviates) = 0;
+        virtual void SkipTo(size_t n_points) = 0;
         virtual Random_* Clone() const = 0;
         virtual size_t NDim() const = 0;
     };
