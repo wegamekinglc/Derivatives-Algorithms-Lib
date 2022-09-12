@@ -33,7 +33,7 @@ namespace Dal::AAD {
         return results;
     }
 
-    constexpr const int BATCH_SIZE = 65536;
+    constexpr const int BATCH_SIZE = 8192;
 
     Matrix_<> MCParallelSimulation(const Product_<>& prd,
                                    const Model_<>& mdl,

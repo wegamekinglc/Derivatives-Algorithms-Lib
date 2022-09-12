@@ -39,6 +39,31 @@ TEST(BlackScholesTest, TestBlackScholes) {
 }
 
 
+TEST(BlackScholesTest, TestBlackScholesParallel) {
+    auto global = XGLOBAL::SetEvaluationDateInScope(Date_(2022, 6, 22));
+    Date_ exerciseDate(2024, 6, 21);
+    const double strike = 11.0;
+    const double spot = 10.0;
+    const double vol = 0.20;
+    const double rate = 0.034;
+    const double div = 0.021;
+    const size_t n_paths = 10000000;
+    const size_t n_dim = 1;
+
+    European_<double> prd(strike, exerciseDate);
+    BlackScholes_<double> mdl(spot, vol, false, rate, div);
+
+    std::unique_ptr<PseudoRandom_> rand(New(RNGType_("MRG32"), 1024, n_dim));
+    auto res = MCParallelSimulation(prd, mdl, rand, n_paths);
+    auto sum = 0.0;
+    for (auto row = 0; row < res.Rows(); ++row)
+        sum += res(row, 0);
+    auto calculated = sum / static_cast<double>(res.Rows());
+    auto expected = 0.806119;
+    ASSERT_NEAR(calculated, expected, 1e-3);
+}
+
+
 TEST(BlackScholesTest, TestBlackScholesAAD) {
     auto global = XGLOBAL::SetEvaluationDateInScope(Date_(2022, 6, 22));
     Date_ exerciseDate(2024, 6, 21);
