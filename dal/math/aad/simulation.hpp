@@ -38,7 +38,7 @@ namespace Dal::AAD {
                            const std::unique_ptr<Random_>& rng,
                            int nPath);
 
-    constexpr const int BATCH_SIZE = 65535;
+    constexpr const int BATCH_SIZE = 65536;
 
     Matrix_<> MCParallelSimulation(const Product_<double>& prd,
                                    const Model_<double>& mdl,
