@@ -94,4 +94,5 @@ namespace Dal::AAD {
             pool->ActiveWaite(future);
         return results;
     }
-} // namespace Dal
+
+} // namespace Dal::AAD

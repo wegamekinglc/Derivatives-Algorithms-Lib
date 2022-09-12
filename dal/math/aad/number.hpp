@@ -86,6 +86,7 @@ namespace Dal::AAD {
         double Value() const { return value_; }
 
         double& Adjoint() { return node_->Adjoint(); }
+        const double& Adjoint() const { return node_->Adjoint();}
 
         void ResetAdjoints() { tape_->ResetAdjoints(); }
 
@@ -389,5 +390,9 @@ namespace Dal::AAD {
         inline friend bool operator>=(const Number_& lhs, double rhs) { return lhs.Value() >= rhs; }
 
         inline friend bool operator>=(double lhs, const Number_& rhs) { return lhs >= rhs.Value(); }
+
+        operator double() const {
+            return Value();
+        }
     };
 } // namespace Dal

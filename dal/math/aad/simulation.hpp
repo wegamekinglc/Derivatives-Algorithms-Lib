@@ -54,15 +54,54 @@ namespace Dal::AAD {
         Vector_<> aggregated_;
         Vector_<> risks_;
     };
+
     const auto DEFAULT_AGGREGATOR = [](const Vector_<Number_>& v) { return v[0]; };
 
     template <class F_ = decltype(DEFAULT_AGGREGATOR)>
     AADResults_ MCSimulationAAD(const Product_<Number_>& prd,
                                 const Model_<Number_>& mdl,
                                 const std::unique_ptr<Random_>& rng,
-                                int nPath) {
+                                int nPath,
+                                const F_& aggFun = DEFAULT_AGGREGATOR) {
         REQUIRE(CheckCompatibility(prd, mdl), "model and products are not compatible");
-        return AADResults_(1, 1, 1);
+        auto cMdl = mdl.Clone();
+
+        Scenario_<Number_> path;
+        AllocatePath(prd.DefLine(), path);
+        cMdl->Allocate(prd.TimeLine(), prd.DefLine());
+
+        const size_t nPay = prd.PayoffLabels().size();
+        const Vector_<Number_*>& params = cMdl->Parameters();
+        const size_t nParam = params.size();
+
+        Tape_& tape = *Number_::tape_;
+        tape.Clear();
+        auto re_setter = SetNumResultsForAAD();
+        cMdl->PutParametersOnTape();
+        cMdl->Init(prd.TimeLine(), prd.DefLine());
+        InitializePath(path);
+        tape.Mark();
+
+        Vector_<Number_> nPayoffs(nPay);
+        Vector_<> gaussVec(cMdl->SimDim());
+        AADResults_ results(nPath, nPay, nParam);
+
+        for (size_t i = 0; i<nPath; i++) {
+            tape.RewindToMark();
+            rng->FillNormal(&gaussVec);
+            cMdl->GeneratePath(gaussVec, &path);
+            prd.Payoffs(path, &nPayoffs);
+            Number_ result = aggFun(nPayoffs);
+
+            result.PropagateToMark();
+            results.aggregated_[i] = result.Value();
+            ConvertCollection(nPayoffs.begin(),nPayoffs.end(),results.payoffs_[i].begin());
+        }
+
+        Number_::PropagateMarkToStart();
+        Transform(params, [nPath](const Number_* p) {return p->Adjoint() / nPath; }, &results.risks_);
+        tape.Clear();
+        return results;
     }
 
 } // namespace Dal
