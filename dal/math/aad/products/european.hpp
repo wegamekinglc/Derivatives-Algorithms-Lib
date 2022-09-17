@@ -48,11 +48,11 @@ namespace Dal::AAD {
 
         std::unique_ptr<Product_<T_>> Clone() const override { return std::make_unique<European_<T_>>(*this); }
 
-        const Vector_<Time_>& TimeLine() const override { return timeLine_; }
+        [[nodiscard]] const Vector_<Time_>& TimeLine() const override { return timeLine_; }
 
-        const Vector_<SampleDef_>& DefLine() const override { return defLine_; }
+        [[nodiscard]] const Vector_<SampleDef_>& DefLine() const override { return defLine_; }
 
-        const Vector_<String_>& PayoffLabels() const override { return labels_; }
+        [[nodiscard]] const Vector_<String_>& PayoffLabels() const override { return labels_; }
 
     protected:
         void PayoffsImpl(const Scenario_<T_>& path, Vector_<T_>* payoffs) const override {
