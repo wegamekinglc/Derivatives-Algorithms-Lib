@@ -48,8 +48,14 @@ if (MSVC)
 
     # /wd26812
     # Suppress warnings: "Prefer enum class over enum" (Enum.3)
+    if (CMAKE_BUILD_TYPE STREQUAL "Debug")
+        SET(MSVC_COMPILER_OPTION /wd4267 /wd26812)
+    else()
+        SET(MSVC_COMPILER_OPTION /wd4267 /wd26812 /Qpar /Gy /arch:AVX2 /Oi /GL /Ot /Oy)
+    endif()
+    add_compile_options(${MSVC_COMPILER_OPTION})
+    message("-- MSVC COMPILER OPTION: ${MSVC_COMPILER_OPTION}")
 
-    add_compile_options(/wd4267 /wd26812)
     # Remove warnings
     add_definitions(-D_SCL_SECURE_NO_WARNINGS -D_CRT_SECURE_NO_WARNINGS)
 elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")

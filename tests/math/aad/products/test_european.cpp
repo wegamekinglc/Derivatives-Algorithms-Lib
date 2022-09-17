@@ -21,8 +21,10 @@ TEST(EuropeanTest, TestEuropean) {
     AllocatePath(prd.DefLine(), path);
     ASSERT_EQ(path.size(), 1);
 
-    Vector_<> payoffs;
+    Vector_<> payoffs(1);
     path[0].forwards_.front().front() = 100.0;
+    path[0].numeraire_ = 1.0;
+    path[0].discounts_.front() = 1.0;
     prd.Payoffs(path, &payoffs);
     ASSERT_EQ(payoffs[0], 0.0);
     path[0].forwards_.front().front() = 130.0;
