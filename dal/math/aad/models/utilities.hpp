@@ -11,7 +11,7 @@ namespace Dal::AAD {
     CONT_ FillData(const CONT_& original, const T_& maxDx, const T_& minDx = T_(0.0), IT_ addBegin = nullptr, IT_ addEnd = nullptr) {
         CONT_ filled;
         CONT_ added;
-        const size_t add_points = addBegin && addEnd ? distance(addBegin, addEnd) : 0;
+        const size_t add_points = addBegin && addEnd ? std::distance(addBegin, addEnd) : 0;
 
         if (add_points > 0) {
             set_union(original.begin(), original.end(), addBegin, addEnd, back_inserter(added),

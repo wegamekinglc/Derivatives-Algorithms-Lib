@@ -14,7 +14,7 @@ TEST(IVSTest, TestMertonIVS) {
     const auto strike = 110;
     const auto spot = 100;
 
-    MertonIVS_ ivs(spot, 0.2, 0.1, 0.1, 0.2);
+    MertonIVS_ ivs(spot, 0.15, 0.05, -0.15, 0.1);
     auto implied_vol = ivs.ImpliedVol(strike, T);
     auto expected = ivs.Call(strike, T);
     std::cout << implied_vol << std::endl;
