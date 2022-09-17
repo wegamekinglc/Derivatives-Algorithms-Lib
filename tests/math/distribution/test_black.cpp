@@ -2,7 +2,7 @@
 // Created by wegam on 2022/5/7.
 //
 
-#include "dal/math/aad/operators.hpp"
+#include <dal/math/aad/operators.hpp>
 #include <dal/math/distribution/black.hpp>
 #include <gtest/gtest.h>
 

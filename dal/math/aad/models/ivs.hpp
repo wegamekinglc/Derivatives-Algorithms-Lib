@@ -59,7 +59,7 @@ namespace Dal::AAD {
 
         template <class T_ = double>
         T_ Call(double strike, const Time_& mat, const RiskView_<T_>* risk = nullptr) const {
-            return BlackScholes<T_>(spot_, strike, ImpliedVol(strike, mat) + (risk ? risk->spread(strike, mat) : T_(0.0)), mat);
+            return BlackScholes<T_>(spot_, strike, ImpliedVol(strike, mat) + (risk ? risk->Spread(strike, mat) : T_(0.0)), mat);
         }
 
         template <class T_ = double>
