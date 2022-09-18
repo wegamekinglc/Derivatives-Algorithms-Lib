@@ -65,13 +65,15 @@ namespace Dal::AAD {
         template <class T_ = double>
         T_ LocalVol(double strike, double mat, const RiskView_<T_>* risk = nullptr) const {
             const T_ c00 = Call(strike, mat, risk);
-            const T_ c01 = Call(strike, mat - 1.0e-04, risk);
-            const T_ c02 = Call(strike, mat + 1.0e-04, risk);
-            const T_ ct = (c02 - c01) * 0.5e04;
+            const auto dt = 1.e-4 * mat;
+            const T_ c01 = Call(strike, mat - dt, risk);
+            const T_ c02 = Call(strike, mat + dt, risk);
+            const T_ ct = (c02 - c01) * 0.5 / dt;
 
-            const T_ c10 = Call(strike - 1.0e-04, mat, risk);
-            const T_ c20 = Call(strike + 1.0e-04, mat, risk);
-            const T_ ckk = (c10 + c20 - 2.0 * c00) * 1.0e08;
+            const auto ds = 1.0e-04 * strike;
+            const T_ c10 = Call(strike - ds, mat, risk);
+            const T_ c20 = Call(strike + ds, mat, risk);
+            const T_ ckk = (c10 + c20 - 2.0 * c00) / ds / ds;
             return Sqrt(2.0 * ct / ckk) / strike;
         }
 
