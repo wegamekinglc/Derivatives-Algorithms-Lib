@@ -6,7 +6,7 @@
 
 #include <dal/time/date.hpp>
 #include <dal/math/aad/products/base.hpp>
-#include <dal/platform/platform.hpp>
+#include <dal/math/aad/operators.hpp>
 #include <dal/storage/globals.hpp>
 #include <sstream>
 
@@ -16,17 +16,15 @@ namespace Dal::AAD {
         double strike_;
         Date_ exerciseDate_;
         Date_ settlementDate_;
-        Vector_<Time_> timeLine_;
-        Vector_<SampleDef_> defLine_;
-        Vector_<String_> labels_;
 
     public:
         European_(double strike, const Date_& exerciseDate, const Date_& settlementDate)
-            : strike_(strike), exerciseDate_(exerciseDate), settlementDate_(settlementDate), labels_(1) {
+            : strike_(strike), exerciseDate_(exerciseDate), settlementDate_(settlementDate){
             const auto evaluationDate = Global::Dates_().EvaluationDate();
-            timeLine_.push_back((exerciseDate - evaluationDate) / 365.0);
-            defLine_.Resize(1);
-            SampleDef_& sampleDef = defLine_.front();
+            Product_<T_>::labels_.Resize(1);
+            Product_<T_>::timeLine_.push_back((exerciseDate - evaluationDate) / 365.0);
+            Product_<T_>::defLine_.Resize(1);
+            SampleDef_& sampleDef = Product_<T_>::defLine_.front();
 
             sampleDef.numeraire_ = true;
             sampleDef.forwardMats_.push_back({(settlementDate - evaluationDate) / 365.0});
@@ -41,30 +39,24 @@ namespace Dal::AAD {
             } else {
                 ost << "call " << strike << " " << Date::ToString(exerciseDate) << " " << Date::ToString(settlementDate);
             }
-            labels_[0] = String_(ost.str());
+            Product_<T_>::labels_[0] = String_(ost.str());
         }
 
         European_(double strike, const Date_& exerciseDate) : European_(strike, exerciseDate, exerciseDate) {}
 
         std::unique_ptr<Product_<T_>> Clone() const override { return std::make_unique<European_<T_>>(*this); }
 
-        [[nodiscard]] const Vector_<Time_>& TimeLine() const override { return timeLine_; }
-
-        [[nodiscard]] const Vector_<SampleDef_>& DefLine() const override { return defLine_; }
-
-        [[nodiscard]] const Vector_<String_>& PayoffLabels() const override { return labels_; }
-
     protected:
         void PayoffsImpl(const Scenario_<T_>& path, Vector_<T_>* payoffs) const override {
-            const auto& sample = path.front();
-            const auto spot = sample.forwards_.front().front();
-            payoffs->front() = Max(spot - strike_, 0.0) * sample.discounts_.front() / sample.numeraire_;
+            const auto& sample = path[0];
+            const auto spot = sample.forwards_[0][0];
+            (*payoffs)[0] = Max(spot - strike_, 0.0) * sample.discounts_[0]/ sample.numeraire_;
         }
 
         void PayoffsImpl(const Scenario_<T_>& path, typename Matrix_<T_>::Row_* payoffs) const override {
-            const auto& sample = path.front();
-            const auto spot = sample.forwards_.front().front();
-            (*payoffs)[0] = Max(spot - strike_, 0.0) * sample.discounts_.front() / sample.numeraire_;
+            const auto& sample = path[0];
+            const auto spot = sample.forwards_[0][0];;
+            (*payoffs)[0] = Max(spot - strike_, 0.0) * sample.discounts_[0] / sample.numeraire_;
         }
     };
 } // namespace Dal
