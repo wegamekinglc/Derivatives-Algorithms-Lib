@@ -46,17 +46,19 @@ namespace Dal::AAD {
 
         std::unique_ptr<Product_<T_>> Clone() const override { return std::make_unique<European_<T_>>(*this); }
 
-    protected:
-        void PayoffsImpl(const Scenario_<T_>& path, Vector_<T_>* payoffs) const override {
+        template <class C_>
+        void PayoffsImplX(const Scenario_<T_>& path, C_ payoffs) const {
             const auto& sample = path[0];
             const auto spot = sample.forwards_[0][0];
             (*payoffs)[0] = Max(spot - strike_, 0.0) * sample.discounts_[0]/ sample.numeraire_;
         }
 
-        void PayoffsImpl(const Scenario_<T_>& path, typename Matrix_<T_>::Row_* payoffs) const override {
-            const auto& sample = path[0];
-            const auto spot = sample.forwards_[0][0];;
-            (*payoffs)[0] = Max(spot - strike_, 0.0) * sample.discounts_[0] / sample.numeraire_;
+        inline void PayoffsImpl(const Scenario_<T_>& path, Vector_<T_>* payoffs) const override {
+            PayoffsImplX<Vector_<T_>*>(path, payoffs);
+        }
+
+        inline void PayoffsImpl(const Scenario_<T_>& path, typename Matrix_<T_>::Row_* payoffs) const override {
+            PayoffsImplX<typename Matrix_<T_>::Row_*>(path, payoffs);
         }
     };
 } // namespace Dal

@@ -39,8 +39,7 @@ namespace Dal::AAD {
          * number and names of underlying assets, default = 1 and "spot"
          */
 
-        [[nodiscard]] virtual const size_t NumAssets() const { return 1; }
-
+        [[nodiscard]] virtual size_t NumAssets() const { return 1; }
         [[nodiscard]] virtual const Vector_<String_>& AssetNames() const { return DefaultAssetNames(); }
         template <class C_> inline void Payoffs(const Scenario_<T_>& path, C_ payoffs) const {
             return PayoffsImpl(path, payoffs);

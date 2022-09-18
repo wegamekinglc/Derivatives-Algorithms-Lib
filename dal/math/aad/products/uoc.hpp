@@ -52,7 +52,8 @@ namespace Dal::AAD {
 
         std::unique_ptr<Product_<T_>> Clone() const override { return std::make_unique<UOC_<T_>>(*this); }
 
-        void PayoffsImpl(const Scenario_<T_>& path, Vector_<T_>* payoffs) const override {
+        template <class C_>
+        void PayoffsImplX(const Scenario_<T_>& path, C_ payoffs) const {
             const double smooth = double(path[0].forwards_[0].front() * smooth_);
             const double twoSmooth = 2.0 * smooth;
             const double barSmooth = barrier_ + smooth;
@@ -78,7 +79,14 @@ namespace Dal::AAD {
                 (*payoffs)[0] = alive * european;
             } else
                 (*payoffs)[0] = T_(0.0);
+        }
 
+        inline void PayoffsImpl(const Scenario_<T_>& path, Vector_<T_>* payoffs) const override {
+            PayoffsImplX<Vector_<T_>*>(path, payoffs);
+        }
+
+        inline void PayoffsImpl(const Scenario_<T_>& path, typename Matrix_<T_>::Row_* payoffs) const override {
+            PayoffsImplX<typename Matrix_<T_>::Row_*>(path, payoffs);
         }
     };
 } // namespace Dal::AAD
