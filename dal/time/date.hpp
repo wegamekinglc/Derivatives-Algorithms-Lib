@@ -55,11 +55,11 @@ namespace Dal {
 
         Date_(const Date_& src) = default;
 
-        bool IsValid() const { return serial_ > 0; }
+        [[nodiscard]] bool IsValid() const { return serial_ > 0; }
 
         Date_& operator=(const Date_& rhs) = default;
 
-        Date_ AddDays(int days) const {
+        [[nodiscard]] Date_ AddDays(int days) const {
             Date_ ret_val(*this);
             ret_val.serial_ += static_cast<uint16_t>(days);
             return ret_val;

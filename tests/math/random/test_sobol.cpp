@@ -12,12 +12,12 @@
 using namespace Dal;
 
 TEST(SobolTest, TestNewSobol) {
-    int dim = 10;
+    int dim = 443;
     int i_path = 0;
     std::unique_ptr<SequenceSet_> set(NewSobol(dim, i_path));
     Vector_<> dst;
 
-    int num_path = 10000000;
+    int num_path = 500000;
 
     Vector_<> means(dim, 0.);
     Vector_<> vars(dim, 0.);

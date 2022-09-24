@@ -2,7 +2,7 @@
 // Created by wegam on 2020/12/19.
 //
 
-#include "pseudorandom.hpp"
+#include <dal/math/random/pseudorandom.hpp>
 #include <cmath>
 #include <dal/math/specialfunctions.hpp>
 #include <dal/math/vectors.hpp>
@@ -248,5 +248,12 @@ namespace Dal {
         else
             THROW("RNG type is not recognized");
         return ret;
+    }
+
+#include <dal/auto/MG_PseudoRSG_v1_Read.inc>
+#include <dal/auto/MG_PseudoRSG_v1_Write.inc>
+
+    void PseudoRSG_::Write(Archive::Store_& dst) const {
+        PseudoRSG_v1::XWrite(dst, name_, seed_, ndim_);
     }
 } // namespace Dal

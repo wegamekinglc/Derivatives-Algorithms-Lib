@@ -2,12 +2,12 @@
 // Created by wegam on 2022/4/3.
 //
 
-#include "__platform.hpp"
+#include <public/excel/__platform.hpp>
 #include <public/src/interp.hpp>
-#include "dal/math/interp/interp.hpp"
-#include "dal/math/interp/interp2d.hpp"
-#include "dal/math/interp/interpcubic.hpp"
-#include "dal/math/smooth.hpp"
+#include <dal/math/interp/interp.hpp>
+#include <dal/math/interp/interp2d.hpp>
+#include <dal/math/interp/interpcubic.hpp>
+#include <dal/math/smooth.hpp>
 
 /*IF--------------------------------------------------------------------------
 public Interp1_New_Linear
@@ -188,11 +188,11 @@ namespace Dal {
         }
     } // namespace
 #ifdef _WIN32
-#include "public/auto/MG_Interp1_Get_public.inc"
-#include "public/auto/MG_Interp1_New_Cubic_public.inc"
-#include "public/auto/MG_Interp1_New_Linear_Smoothed_public.inc"
-#include "public/auto/MG_Interp1_New_Linear_public.inc"
-#include "public/auto/MG_Interp2_Get_public.inc"
-#include "public/auto/MG_Interp2_New_Linear_public.inc"
+#include <public/auto/MG_Interp1_Get_public.inc>
+#include <public/auto/MG_Interp1_New_Cubic_public.inc>
+#include <public/auto/MG_Interp1_New_Linear_Smoothed_public.inc>
+#include <public/auto/MG_Interp1_New_Linear_public.inc>
+#include <public/auto/MG_Interp2_Get_public.inc>
+#include <public/auto/MG_Interp2_New_Linear_public.inc>
 #endif
 } // namespace Dal

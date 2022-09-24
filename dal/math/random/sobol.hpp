@@ -4,7 +4,34 @@
 
 #pragma once
 
+#include <dal/storage/archive.hpp>
+#include <dal/math/random/quasirandom.hpp>
+
+/*IF--------------------------------------------------------------------------
+storable SobolRSG
+        sobol quasi-random number generator
+version 1
+&members
+name is ?string
+i_path is number
+n_dim is number
+-IF-------------------------------------------------------------------------*/
+
 namespace Dal {
-    class SequenceSet_;
     SequenceSet_* NewSobol(int size, int i_path);
+
+    class SobolRSG_: public Storable_ {
+        std::unique_ptr<SequenceSet_> rsg_;
+        double i_path_;
+        double ndim_;
+    public:
+        SobolRSG_(const String_& name, double i_path, double n_dim = 1)
+            : Storable_("SobolRSG_", name), i_path_(i_path), ndim_(n_dim) {
+            rsg_.reset(NewSobol(static_cast<int>(ndim_), static_cast<size_t>(i_path_)));
+        }
+        void Write(Archive::Store_& dst) const override;
+        void FillUniform(Vector_<>* deviates) const;
+        void FillNormal(Vector_<>* deviates) const;
+        [[nodiscard]] size_t NDim() const;
+    };
 } // namespace Dal
