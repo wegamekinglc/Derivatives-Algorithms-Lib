@@ -69,14 +69,14 @@ class my_build(build):
 
 class my_build_ext(build_ext):
     user_options = build_ext.user_options + [
-        ('static', True,
+        ('static', False,
          "link against static CRT libraries on Windows")
     ]
     boolean_options = build.boolean_options + ['static']
 
     def initialize_options(self):
         build_ext.initialize_options(self)
-        self.static = True
+        self.static = False
 
     def finalize_options(self):
         build_ext.finalize_options(self)
@@ -132,7 +132,7 @@ class my_build_ext(build_ext):
         elif compiler == 'unix':
             DAL_INSTALL_DIR = os.environ['DAL_DIR']
             ql_compile_args = [f"-I{DAL_INSTALL_DIR}/include"]
-            ql_link_args = [f"-L{DAL_INSTALL_DIR}/lib", "-ldal"]
+            ql_link_args = [f"-L{DAL_INSTALL_DIR}/lib", "-ldal", "-ldal_public"]
 
             self.define += [(arg[2:], None) for arg in ql_compile_args
                             if arg.startswith('-D')]

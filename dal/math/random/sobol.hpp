@@ -20,7 +20,7 @@ n_dim is number
 namespace Dal {
     SequenceSet_* NewSobol(int size, int i_path);
 
-    class SobolRSG_: public Storable_ {
+    class BASE_EXPORT SobolRSG_: public Storable_ {
         std::unique_ptr<SequenceSet_> rsg_;
         double i_path_;
         double ndim_;

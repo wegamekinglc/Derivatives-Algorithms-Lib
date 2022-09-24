@@ -98,14 +98,7 @@ namespace Dal {
         }
 
         void PseudoRSG_Get_Uniform(const Handle_<PseudoRSG_>& f, double num_path, Matrix_<>* y) {
-            int n_dim = f->NDim();
-            y->Resize(static_cast<int>(num_path), n_dim);
-            Vector_<> deviates(n_dim);
-            for(int i = 0; i < num_path; ++i) {
-                f->FillUniform(&deviates);
-                for(int j = 0; j < n_dim; ++j)
-                    (*y)(i, j) = deviates[j];
-            }
+            GetPseudoRSGUniform(f, num_path, y);
         }
 
         void PseudoRSG_Get_Normal(const Handle_<PseudoRSG_>& f, double num_path, Matrix_<>* y) {

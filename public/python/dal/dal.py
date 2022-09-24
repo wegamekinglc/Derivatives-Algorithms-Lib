@@ -61,19 +61,6 @@ class _SwigNonDynamicMeta(type):
     __setattr__ = _swig_setattr_nondynamic_class_variable(type.__setattr__)
 
 
-class String_(object):
-    thisown = property(lambda x: x.this.own(), lambda x, v: x.this.own(v), doc="The membership flag")
-
-    def __init__(self, *args):
-        _dal.String__swiginit(self, _dal.new_String_(*args))
-
-    def __repr__(self) -> "std::string":
-        return _dal.String____repr__(self)
-    __swig_destroy__ = _dal.delete_String_
-
-# Register String_ in _dal:
-_dal.String__swigregister(String_)
-
 class Date_(object):
     thisown = property(lambda x: x.this.own(), lambda x, v: x.this.own(v), doc="The membership flag")
 
@@ -96,5 +83,49 @@ def Month(dt: "Date_") -> "short":
 
 def Day(dt: "Date_") -> "short":
     return _dal.Day(dt)
+class String_(object):
+    thisown = property(lambda x: x.this.own(), lambda x, v: x.this.own(v), doc="The membership flag")
+
+    def __init__(self, *args):
+        _dal.String__swiginit(self, _dal.new_String_(*args))
+
+    def __repr__(self) -> "std::string":
+        return _dal.String____repr__(self)
+    __swig_destroy__ = _dal.delete_String_
+
+# Register String_ in _dal:
+_dal.String__swigregister(String_)
+
+class DoubleMatrix_(object):
+    thisown = property(lambda x: x.this.own(), lambda x, v: x.this.own(v), doc="The membership flag")
+    __repr__ = _swig_repr
+
+    def __call__(self, i: "int", j: "int") -> "double":
+        return _dal.DoubleMatrix____call__(self, i, j)
+
+    def __init__(self):
+        _dal.DoubleMatrix__swiginit(self, _dal.new_DoubleMatrix_())
+    __swig_destroy__ = _dal.delete_DoubleMatrix_
+
+# Register DoubleMatrix_ in _dal:
+_dal.DoubleMatrix__swigregister(DoubleMatrix_)
+
+class PseudoRSG_(object):
+    thisown = property(lambda x: x.this.own(), lambda x, v: x.this.own(v), doc="The membership flag")
+    __repr__ = _swig_repr
+
+    def __init__(self):
+        _dal.PseudoRSG__swiginit(self, _dal.new_PseudoRSG_())
+    __swig_destroy__ = _dal.delete_PseudoRSG_
+
+# Register PseudoRSG_ in _dal:
+_dal.PseudoRSG__swigregister(PseudoRSG_)
+
+
+def PseudoRSG_New(name: "std::string const &", seed: "int", ndim: "int"=1) -> "Handle_< PseudoRSG_ >":
+    return _dal.PseudoRSG_New(name, seed, ndim)
+
+def PseudoRSG_Get_Uniform(rsg: "PseudoRSG_", num_path: "int") -> "Matrix_< double >":
+    return _dal.PseudoRSG_Get_Uniform(rsg, num_path)
 
 

@@ -5,13 +5,18 @@
 
 %{
 #pragma comment(lib, "dal.lib")
+#pragma comment(lib, "dal_public.lib")
 #include <dal/platform/platform.hpp>
 #include <sstream>
       using namespace Dal;
 
 %}
 
-%include strings.i
-%include date.i
+    %include handle.i
+    %include date.i
+    %include strings.i
+    %include matrix.i
+
+    %include random.i
 
 #endif

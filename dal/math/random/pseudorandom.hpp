@@ -49,7 +49,7 @@ namespace Dal {
 #include <dal/auto/MG_RNGType_enum.hpp>
     PseudoRandom_* New(const RNGType_& type, int seed, size_t n_dim = 1);
 
-    class PseudoRSG_: public Storable_ {
+    class BASE_EXPORT PseudoRSG_: public Storable_ {
         std::unique_ptr<PseudoRandom_> rsg_;
         double seed_;
         double ndim_;
