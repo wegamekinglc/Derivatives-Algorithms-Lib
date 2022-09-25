@@ -85,4 +85,11 @@ TEST(DateIncrementTest, TestIncrementMultistep) {
     ASSERT_EQ(Date_(2020, 10, 12), s2);
     s2 = ref_date - *s1;
     ASSERT_EQ(Date_(2020, 10, 8), s2);
+
+    // BD with holiday center
+    s1 = Date::ParseIncrement("1BD;CN.SH");
+    s2 = ref_date + *s1;
+    ASSERT_EQ(Date_(2020, 10, 12), s2);
+    s2 = ref_date - *s1;
+    ASSERT_EQ(Date_(2020, 9, 30), s2);
 }
