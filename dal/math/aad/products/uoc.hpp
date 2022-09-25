@@ -5,6 +5,7 @@
 #pragma once
 
 #include <dal/time/date.hpp>
+#include <dal/math/aad/number.hpp>
 #include <dal/math/aad/products/base.hpp>
 #include <dal/math/aad/operators.hpp>
 #include <dal/storage/globals.hpp>
@@ -12,7 +13,7 @@
 
 
 namespace Dal::AAD {
-    template <class T_> class UOC_ : public Product_<T_> {
+    template <class T_ = double> class UOC_ : public Product_<T_> {
         bool callPut_;  // false = call, true = put
         double strike_;
         double barrier_;  // note = always up and out for now
@@ -54,12 +55,12 @@ namespace Dal::AAD {
 
         template <class C_>
         void PayoffsImplX(const Scenario_<T_>& path, C_ payoffs) const {
-            const double smooth = double(path[0].forwards_[0].front() * smooth_);
+            const double smooth = static_cast<double>(path[0].forwards_[0][0] * smooth_);
             const double twoSmooth = 2.0 * smooth;
             const double barSmooth = barrier_ + smooth;
             const double minusSmooth = barrier_ - smooth;
 
-            double alive = 1.0;
+            T_ alive(1.0);
             for (const auto& sample : path) {
                 const auto spot = sample.forwards_[0][0];
                 if (spot > barSmooth) {

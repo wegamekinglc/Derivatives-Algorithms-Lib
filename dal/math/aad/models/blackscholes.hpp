@@ -9,7 +9,7 @@
 
 namespace Dal::AAD {
 
-    template <class T_> class BlackScholes_ : public Model_<T_> {
+    template <class T_ = double> class BlackScholes_ : public Model_<T_> {
         T_ spot_;
         T_ rate_;
         T_ div_;
