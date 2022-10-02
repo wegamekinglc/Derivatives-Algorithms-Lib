@@ -31,10 +31,17 @@ TEST(CellUtilsTest, TestTypeCheck) {
 TEST(CellUtilsTest, TestTypeCheckCanConvertCase) {
     Cell_ cell(Dal::Date::FromExcel(44149));
     ASSERT_TRUE(TypeCheck_<Date_>()(cell));
+    ASSERT_FALSE(TypeCheck_<DateTime_>()(cell));
 
     cell = Dal::DateTime_(Dal::Cell::ToDate(cell), 0.5);
     ASSERT_FALSE(TypeCheck_<Date_>()(cell));
     ASSERT_TRUE(TypeCheck_<DateTime_>()(cell));
+}
+
+TEST(CellUtilsTest, TestTypeCheckChain) {
+    Cell_ cell(1.0);
+    auto res = TypeCheck_<double, bool>()(cell);
+    ASSERT_TRUE(res);
 }
 
 TEST(CellUtilsTest, TestCoerceToString) {
