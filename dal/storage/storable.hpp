@@ -12,7 +12,7 @@ namespace Dal {
         class Store_;
     }
 
-    class Storable_ : noncopyable {
+    class BASE_EXPORT Storable_ : noncopyable {
     public:
         const String_ type_;
         const String_ name_;
