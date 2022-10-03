@@ -9,6 +9,7 @@
 #include <dal/math/aad/products/base.hpp>
 #include <dal/math/aad/operators.hpp>
 #include <dal/storage/globals.hpp>
+#include <dal/time/schedules.hpp>
 #include <sstream>
 
 
@@ -21,21 +22,15 @@ namespace Dal::AAD {
         double smooth_;
 
     public:
-        UOC_(double strike, double barrier, const Date_& maturity, const Time_& monitorFreq, double smooth, bool callPut = false)
-        : callPut_(callPut), strike_(strike), barrier_(barrier), maturity_(maturity), smooth_(smooth) {
+        UOC_(double strike, double barrier, const Schedule_& events, double smooth, bool callPut = false)
+        : callPut_(callPut), strike_(strike), barrier_(barrier), maturity_(events.back()), smooth_(smooth) {
             const auto evaluationDate = Global::Dates_().EvaluationDate();
-            const Time_ maturity_time = (maturity_ - evaluationDate) / 365.0;
             Product_<T_>::labels_.Resize(1);
             Product_<T_>::timeLine_.push_back(0.0);
-            Time_ t = monitorFreq;
-
-            static const double ONE_HOUR = 0.000114469;
-            while (maturity_time - t > ONE_HOUR) {
-                Product_<T_>::timeLine_.push_back(t);
-                t += monitorFreq;
+            for(const auto& date: events) {
+                if (date > evaluationDate)
+                    Product_<T_>::timeLine_.push_back((date - evaluationDate) / 365.0);
             }
-
-            Product_<T_>::timeLine_.push_back(maturity_time);
             const size_t n = Product_<T_>::timeLine_.size();
             Product_<T_>::defLine_.Resize(n);
             for (size_t i = 0; i < n; ++i) {
@@ -47,7 +42,7 @@ namespace Dal::AAD {
             std::ostringstream ost;
             ost.precision(2);
             ost << std::fixed;
-            ost << " up and out " << barrier_ << " monitoring freq " << monitorFreq << " smooth " << smooth_;
+            ost << " up and out " << barrier_ << " smooth " << smooth_;
             Product_<T_>::labels_[0] = String_(ost.str());
         }
 

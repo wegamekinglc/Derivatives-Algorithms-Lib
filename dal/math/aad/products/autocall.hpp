@@ -4,10 +4,12 @@
 
 #pragma once
 
+#include <dal/math/vectors.hpp>
 #include <dal/math/aad/operators.hpp>
 #include <dal/math/aad/products/base.hpp>
 #include <dal/storage/globals.hpp>
 #include <dal/time/date.hpp>
+#include <dal/time/schedules.hpp>
 #include <sstream>
 
 namespace Dal::AAD {
@@ -15,7 +17,6 @@ namespace Dal::AAD {
         size_t numAssets_;
         Vector_<String_> assetNames_;
         Date_ maturity_;
-        Time_ maturityTime_;
         int numPeriods_;
         Vector_<> refs_;
 
@@ -28,36 +29,28 @@ namespace Dal::AAD {
         //  Constructor: store data and build timeline
         AutoCall_(const Vector_<String_>& assets,
                   const Vector_<> refs,
-                  const Date_& maturity,
-                  int periods,
+                  const Schedule_& events,
                   double ko,
                   double strike,
                   double cpn,
                   double smooth)
-            : numAssets_(assets.size()), assetNames_(assets), refs_(refs), maturity_(maturity), numPeriods_(periods),
+            : numAssets_(assets.size()), assetNames_(assets), refs_(refs), maturity_(events.back()),
               ko_(ko), strike_(strike), cpn_(cpn), smooth_(Max(smooth, EPSILON)) {
-            Product_<T_>::timeLine_.Resize(periods);
-            Product_<T_>::defLine_.Resize(periods);
-            Product_<T_>::labels_.Resize(1);
-
-            Time_ time = 0.0;
             const auto evaluationDate = Global::Dates_().EvaluationDate();
-            const Time_ maturity_time = (maturity_ - evaluationDate) / 365.0;
-            maturityTime_ = maturity_time;
-            const double dt = maturity_time / periods;
-
-            for (size_t step = 0; step < periods; ++step) {
-                time += dt;
-                Product_<T_>::timeLine_[step] = time;
-                Product_<T_>::defLine_[step].numeraire_ = true;
-                Product_<T_>::defLine_[step].forwardMats_ =
-                    Vector_<Vector_<Time_>>(numAssets_, Vector_<Time_>(1, time));
+            Product_<T_>::labels_.Resize(1);
+            for(const auto& date: events) {
+                if (date > evaluationDate) {
+                    Time_ time = (date - evaluationDate) / 365.0;
+                    Product_<T_>::timeLine_.push_back(time);
+                    Product_<T_>::defLine_.push_back(SampleDef_());
+                    Product_<T_>::defLine_.back().numeraire_ = true;
+                    Product_<T_>::defLine_.back().forwardMats_ =  Vector_<Vector_<Time_>>(numAssets_, Vector_<Time_>(1, time));
+                }
             }
-
+            numPeriods_ = Product_<T_>::timeLine_.size();
             Product_<T_>::labels_[0] = "auto call strike " + ToString(int(100 * strike_ + EPSILON)) + " KO " +
                                        ToString(int(100 * ko_ + EPSILON)) + " CPN " +
-                                       ToString(int(100 * cpn_ + EPSILON)) + " " + ToString(periods) + " periods of " +
-                                       ToString(int(12 * maturity_time / periods + EPSILON)) + "m";
+                                       ToString(int(100 * cpn_ + EPSILON)) + " " + ToString(periods) + " periods";
         }
 
         [[nodiscard]] size_t NumAssets() const override { return numAssets_; }
@@ -67,14 +60,14 @@ namespace Dal::AAD {
         std::unique_ptr<Product_<T_>> Clone() const override { return std::make_unique<AutoCall_<T_>>(*this); }
 
         template <class C_>
-        void PayoffsImplX(const Scenario_<T_>& path, Vector_<T_>* payoffs) const override {
-            static thread_local Vector_<T_> perfs;
-            perfs.Resize(numAssets_);
+        void PayoffsImplX(const Scenario_<T_>& path, Vector_<T_>* payoffs) const {
+            static thread_local Vector_<T_> perfs(numAssets_);
 
-            const double dt = maturityTime_ / numPeriods_;
             double notionalAlive = 1.0;
             (*payoffs)[0] = 0.0;
+            double dt;
             for (int step = 0; step < numPeriods_ - 1; ++step) {
+                dt = Product_<T_>::timeLine_[step + 1] - Product_<T_>::timeLine_[step];
                 auto& state = path[step];
                 Transform(
                     state.forwards,
