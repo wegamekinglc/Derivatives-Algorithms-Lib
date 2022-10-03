@@ -12,26 +12,56 @@
 
 
 namespace Dal {
+#include <dal/auto/MG_DateGeneration_enum.inc>
+#include <dal/auto/MG_BizDayConvention_enum.inc>
+
+    Schedule_ DateGenerate(const Date_& start,
+                           const Date_& maturity,
+                           const Handle_<Date::Increment_>& tenor, DateGeneration_ method) {
+        Vector_<Date_> ret_val;
+        if (method == DateGeneration_("Forward")) {
+            ret_val.push_back(start);
+            for (int ip = 1;; ++ip) {
+                const Date_ pin_date = tenor->FwdFrom(ret_val[ip - 1]);
+                if (pin_date > maturity)
+                    break;
+                ret_val.push_back(pin_date);
+            }
+            if (maturity != ret_val.back())
+                ret_val.push_back(maturity);
+        } else if (method == DateGeneration_("Backward")) {
+            ret_val.push_back(maturity);
+            for (int ip = 1;; ++ip) {
+                const Date_ pin_date = tenor->BackFrom(ret_val[ip - 1]);
+                if (pin_date < start)
+                    break;
+                ret_val.push_back(pin_date);
+            }
+            if (start != ret_val.back())
+                ret_val.push_back(start);
+            ret_val = Reverse(ret_val);
+        } else
+            THROW("date generation rule is not recognized");
+        return ret_val;
+    }
+
     Schedule_ MakeSchedule(const Date_& start,
                            const Cell_& maturity,
                            const Holidays_& hols,
-                           const Handle_<Date::Increment_>& tenor) {
+                           const Handle_<Date::Increment_>& tenor,
+                           DateGeneration_ method,
+                           BizDayConvention_ convention) {
         // we only support forward generated schedule
         REQUIRE(Cell::TypeCheck_<Date_>()(maturity), "currently `end` must be a date");
         Date_ end = Cell::ToDate(maturity);
-        Vector_<Date_> ret_val = Vector::V1(Holidays::NextBus(hols, start));
-        Vector_<Date_> pin_dates = Vector::V1(start);
-        for (int ip = 1;; ++ip) {
-            const Date_ pin_date = tenor->FwdFrom(pin_dates[ip-1]);
-            if (pin_date > end) break;
-            const Date_ adjust_date = Holidays::NextBus(hols, pin_date);
-            pin_dates.push_back(pin_date);
-            if (adjust_date != ret_val[ip-1])
-                ret_val.push_back(adjust_date);
+        Vector_<Date_> ret_val;
+        Vector_<Date_> pin_dates = DateGenerate(start, end, tenor, method);
+        for (int i = 0; i < pin_dates.size(); ++i) {
+            if (convention == BizDayConvention_("Following"))
+                ret_val.push_back(Holidays::NextBus(hols, pin_dates[i]));
+            else
+                THROW("business date rule is not recognized");
         }
-
-        if (end > ret_val.back())
-            ret_val.push_back(end);
-        return ret_val;
+        return Unique(ret_val);
     }
 }

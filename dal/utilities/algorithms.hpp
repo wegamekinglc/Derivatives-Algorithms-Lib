@@ -83,6 +83,13 @@ namespace Dal {
         return ret_val;
     }
 
+    template <class C_> Vector_<typename C_::value_type> Reverse(const C_& src) {
+        using vector_t = Vector_<typename C_::value_type>;
+        vector_t ret_val(src);
+        std::reverse(ret_val.begin(), ret_val.end());
+        return ret_val;
+    }
+
     template <class C_, class P_> C_ Filter(const C_& src, const P_& pred) {
         using element_t = decltype(*src.begin());
         C_ ret_val(src);

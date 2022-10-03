@@ -10,6 +10,32 @@
 
 using namespace Dal;
 
+TEST(SchedulesTest, TestDateGenerate) {
+    Date_ start(2021, 10, 1);
+    Date_ maturity(2022, 10, 2);
+    Handle_<Date::Increment_> tenor = Date::ParseIncrement("3M");
+
+    auto calculated = DateGenerate(start, maturity, tenor, DateGeneration_("Forward"));
+    ASSERT_EQ(calculated.size(), 6);
+    Vector_<Date_> expected = {Date_(2021, 10, 1),
+                               Date_(2022, 1, 1),
+                               Date_(2022, 4, 1),
+                               Date_(2022, 7, 1),
+                               Date_(2022, 10, 1),
+                               Date_(2022, 10, 2)};
+    ASSERT_EQ(calculated, expected);
+
+    calculated = DateGenerate(start, maturity, tenor, DateGeneration_("Backward"));
+    ASSERT_EQ(calculated.size(), 6);
+    expected = {Date_(2021, 10, 1),
+                Date_(2021, 10, 2),
+                Date_(2022, 1, 2),
+                Date_(2022, 4, 2),
+                Date_(2022, 7, 2),
+                Date_(2022, 10, 2)};
+    ASSERT_EQ(calculated, expected);
+}
+
 TEST(SchedulesTest, TestMakeScheduleWithHolidays) {
     Date_ start(2021, 10, 1);
     Cell_ maturity = Cell_(Date_(2022, 10, 1));
