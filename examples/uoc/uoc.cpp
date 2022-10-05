@@ -2,6 +2,8 @@
 // Created by wegam on 2022/9/25.
 //
 
+#include <dal/time/schedules.hpp>
+#include <dal/time/dateincrement.hpp>
 #include <dal/math/aad/products/uoc.hpp>
 #include <dal/math/aad/models/blackscholes.hpp>
 
@@ -9,12 +11,12 @@ using namespace Dal;
 using namespace Dal::AAD;
 
 
-auto UOCProducts(double strike, double barrier, const Date_& maturity, Time_ monitorFreq, double smooth, bool callPut) {
+auto UOCProducts(double strike, double barrier, const Schedule_& schedule, double smooth, bool callPut) {
 
     std::unique_ptr<Product_<>> prd = std::make_unique<UOC_<>>(
-        strike, barrier, maturity, monitorFreq, smooth, callPut);
+        strike, barrier, schedule, smooth, callPut);
     std::unique_ptr<Product_<Number_>> riskPrd = std::make_unique<UOC_<Number_>>(
-        strike, barrier, maturity, monitorFreq, smooth, callPut);
+        strike, barrier, schedule, smooth, callPut);
     return std::make_pair(std::move(prd), std::move(riskPrd));
 }
 
@@ -33,15 +35,18 @@ int main() {
 
     double strike = 1.0;
     double barrier = 130.0;
-    Date_ maturity = Date_(2023, 9, 25);
+    Date_ start(2022, 9, 25);
+    Date_ maturity(2023, 9, 25);
     double spot = 1.0;
     double vol = 0.2;
     int seed = 1234;
     double rate = 0.03;
     double div = 0.06;
     size_t n_paths = 10000000;
+    Handle_<Date::Increment_> tenor = Date::ParseIncrement("3M");
+    Vector_<Date_> schedule = DateGenerate(start, maturity, tenor);
 
-    auto products = UOCProducts(strike, barrier, Date_(2023, 9, 25), 30./365, 0.01, true);
+    auto products = UOCProducts(strike, barrier, schedule, 0.01, true);
     auto models = Models(spot, vol, rate, div);
 
     return 0;
