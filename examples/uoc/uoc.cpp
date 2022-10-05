@@ -6,6 +6,8 @@
 #include <dal/time/dateincrement.hpp>
 #include <dal/math/aad/products/uoc.hpp>
 #include <dal/math/aad/models/blackscholes.hpp>
+#include <dal/math/aad/models/dupire.hpp>
+#include <dal/math/matrix/matrixs.hpp>
 
 using namespace Dal;
 using namespace Dal::AAD;
@@ -27,6 +29,13 @@ auto Models(double spot, double vol, double rate, double div) {
     std::unique_ptr<Model_<Number_>> riskMdl = std::make_unique<BlackScholes_<Number_>>(
         spot, vol, true, rate, div);
     return std::make_pair(std::move(mdl), std::move(riskMdl));
+}
+
+auto VolSurface(double spot, double timeLow, double timeHigh, int timeSteps, double spotLow, double spotHigh, int spotSteps, double vol) {
+    auto times = Vector::XRange(timeLow, timeHigh, timeSteps + 1);
+    auto spots = Vector::XRange(spotLow, spotHigh, spotSteps + 1);
+
+    Dupire_<> volSurface(spot, spots, times, Matrix_<>(spots.size(), times.size(), 0.15));
 }
 
 

@@ -9,6 +9,7 @@
 #include <dal/math/aad/models/base.hpp>
 #include <dal/math/aad/models/ivs.hpp>
 #include <dal/math/aad/models/utilities.hpp>
+#include <dal/math/interp/interp.hpp>
 #include <dal/math/aad/operators.hpp>
 #include <dal/math/matrix/matrixs.hpp>
 #include <dal/math/vectors.hpp>
@@ -18,7 +19,7 @@
 #define HALF_DAY 0.00136986301369863
 
 namespace Dal::AAD {
-    template <class T_> class Dupire_ : public Model_<T_> {
+    template <class T_ = double> class Dupire_ : public Model_<T_> {
         T_ spot_;
         const Vector_<> spots_;
         Vector_<> logSpots_;
@@ -41,7 +42,7 @@ namespace Dal::AAD {
                 Time_ maxDt = 0.25)
             : spot_(spot), spots_(spots), logSpots_(spots.size()), times_(times), vols_(vols), maxDt_(maxDt),
               parameters_(vols.Rows() * vols.Cols() + 1), parameterLabels_(vols.Rows() * vols.Cols() + 1) {
-            Transform(&logSpots_, spots_, [](double x) { return std::log(x); });
+            Transform(spots_, [](double x) { return Log(x); }, &logSpots_);
             parameterLabels_[0] = "spot";
             size_t p = 0;
             for (size_t i = 0; i < vols_.Rows(); ++i)
@@ -63,61 +64,45 @@ namespace Dal::AAD {
 
         const Vector_<T_>& Vols() const { return vols_; }
 
-        [[nodiscard]] const Vector_<T_*> Parameters() const { return parameters_; }
+        [[nodiscard]] const Vector_<T_*>& Parameters() const override { return parameters_; }
 
-        [[nodiscard]] const Vector_<String_> ParameterLabels() const { return parameterLabels_; }
+        [[nodiscard]] const Vector_<String_>& ParameterLabels() const override { return parameterLabels_; }
 
         std::unique_ptr<Model_<T_>> Clone() const override {
             auto cloned = std::make_unique<Dupire_<T_>>(*this);
-            cloned->SetParamPointers();
+            cloned->SetParameterPointers();
             return cloned;
         }
 
         //  Initialize timeline
         void Allocate(const Vector_<Time_>& productTimeline, const Vector_<SampleDef_>& defLine) override {
-            //  Fill from product timeline
-
-            //  Do the fill
-            timeLine_ = FillData(productTimeline, maxDt_, HALF_DAY, &systemTime, &systemTime + 1);
-
-            //  Mark steps on timeline that are on the product timeline
+            Vector_<Time_> added(0); // just to add 0
+            timeLine_ = FillData(productTimeline, maxDt_, HALF_DAY, &added[0], &added[0] + 1);
             commonSteps_.Resize(timeLine_.size());
             Transform(&commonSteps_, timeLine_,
                       [&](Time_ t) { return std::binary_search(productTimeline.begin(), productTimeline.end(), t); });
-
-            //  Take a reference on the product's defline
             defLine_ = &defLine;
-
-            // Allocate the local volatility
-            // pre-interpolated in time over simulation timeline
-            interpVols_.resize(timeLine_.size() - 1, spots_.size());
+            interpVols_.Resize(timeLine_.size() - 1, spots_.size());
         }
 
         void Init(const Vector_<Time_>& productTimeline, const Vector_<SampleDef_>& defLine) override {
-            // Compute the local volatility
-            // pre-interpolated in time and multiplied by sqrt(dt)
             const size_t n = timeLine_.size() - 1;
             for (size_t i = 0; i < n; ++i) {
                 const double sqrtDt = std::sqrt(timeLine_[i + 1] - timeLine_[i]);
                 const size_t m = logSpots_.size();
                 for (size_t j = 0; j < m; ++j)
                     interpVols_[i][j] =
-                        sqrtDt * interp(times_.begin(), times_.end(), vols_[j], vols_[j] + times_.size(), timeLine_[i]);
+                        sqrtDt * InterpLinearImplX(times_, static_cast<Vector_<T_>>(vols_.Col(j)), timeLine_[i]);
             }
         }
 
         [[nodiscard]] size_t SimDim() const override { return timeLine_.size() - 1; }
 
-        void GeneratePath(const Vector_<>& gaussVec, Scenario_<T_>& path) const override {
-            //  The starting spot
-            //  We know that today is on the timeline
+        void GeneratePath(const Vector_<>& gaussVec, Scenario_<T_>* path) const override {
             T_ logSpot = Log(spot_);
-            Time_ current = systemTime;
-            //  Next index to fill on the product timeline
             size_t idx = 0;
-            //  Is today on the product timeline?
             if (commonSteps_[idx]) {
-                fillScen(Exp(logSpot), path[idx]);
+                FillScenario(Exp(logSpot), (*path)[idx]);
                 ++idx;
             }
 
@@ -125,16 +110,10 @@ namespace Dal::AAD {
             const size_t n = timeLine_.size() - 1;
             const size_t m = logSpots_.size();
             for (size_t i = 0; i < n; ++i) {
-                //  Interpolate volatility in spot
-                T_ vol = interp(logSpots_.begin(), logSpots_.end(), interpVols_[i], interpVols_[i] + m, logSpot);
-                //  vol comes out * sqrt(dt)
-
-                //  Apply Euler's scheme
+                T_ vol = InterpLinearImplX(logSpots_, static_cast<Vector_<T_>>(interpVols_.Row(i)), logSpot);
                 logSpot += vol * (-0.5 * vol + gaussVec[i]);
-
-                //  Store on the path?
                 if (commonSteps_[i + 1]) {
-                    fillScen(Exp(logSpot), path[idx]);
+                    FillScenario(Exp(logSpot), (*path)[idx]);
                     ++idx;
                 }
             }
@@ -143,7 +122,13 @@ namespace Dal::AAD {
     private:
         void SetParameterPointers() {
             parameters_[0] = &spot_;
-            transform(vols_.begin(), vols_.end(), next(parameters_.begin()), [](auto& vol) { return &vol; });
+            int k = 0;
+            for(size_t i = 0; i < vols_.Rows(); ++i) {
+                for (size_t j = 0; j < vols_.Cols(); ++j) {
+                    ++k;
+                    parameters_[k] = &vols_(i, j);
+                }
+            }
         }
 
         //  Helper function, fills a sample given the spot

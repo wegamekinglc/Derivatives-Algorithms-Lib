@@ -24,10 +24,10 @@ namespace Dal {
     public:
         virtual ~Matrix_() = default;
         Matrix_() : cols_(0) {}
-        Matrix_(int rows, int cols)
+        Matrix_(int rows, int cols, E_ val = E_())
             : vals_(static_cast<size_t>(rows * cols)), cols_(cols), hooks_(static_cast<size_t>(rows)) {
             SetHook();
-            vals_.Fill(E_());
+            vals_.Fill(val);
         }
         Matrix_(const Matrix_& src) : vals_(src.vals_), cols_(src.cols_), hooks_(src.hooks_.size()) { SetHook(); }
 
@@ -171,6 +171,10 @@ namespace Dal {
             };
             using iterator = Iterator_<typename Vector_<E_>::iterator>;
 
+            operator Vector_<E_>() const {
+                return Vector_<E_>(begin(), end());
+            }
+
         protected:
             iterator begin_; // non-const to support Column_, below
             size_t size_;
@@ -184,13 +188,10 @@ namespace Dal {
             const_iterator end() const { return const_iterator(begin_.val_ + size_ * begin_.stride_, begin_.stride_); }
             size_t size() const { return size_; }
             const E_& operator[](int row) const { return *(begin_.val_ + row * begin_.stride_); }
-            operator Vector_<E_>() const {
-                return Vector_<E_>(begin(), end());
-            }
         };
         ConstCol_ Col(int i_col) const { return ConstCol_(hooks_[0] + i_col, hooks_.size(), cols_); }
 
-        class Col_ : ConstCol_ {
+        class Col_ : public ConstCol_ {
             using iterator = typename ConstCol_::iterator;
             using ConstCol_::begin_;
             using ConstCol_::size_;

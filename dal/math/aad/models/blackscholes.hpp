@@ -77,7 +77,7 @@ namespace Dal::AAD {
 
         const T_& Div() const { return div_; }
 
-        const Vector_<T_*>& Parameters() override { return parameters_; }
+        const Vector_<T_*>& Parameters() const override { return parameters_; }
 
         const Vector_<String_>& ParameterLabels() const override { return parameterLabels_; }
 
@@ -89,14 +89,14 @@ namespace Dal::AAD {
 
         void Allocate(const Vector_<Time_>& productTimeLine, const Vector_<SampleDef_>& defLine) override {
             timeLine_.clear();
-            timeLine_.push_back(systemTime);
+            timeLine_.push_back(0);
 
             for (const auto& time : productTimeLine) {
-                if (time > systemTime)
+                if (time > 0)
                     timeLine_.push_back(time);
             }
 
-            todayOnTimeLine_ = productTimeLine[0] == systemTime;
+            todayOnTimeLine_ = productTimeLine[0] == 0;
             defLine_ = &defLine;
 
             stds_.Resize(timeLine_.size() - 1);

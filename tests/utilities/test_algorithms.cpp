@@ -44,7 +44,7 @@ TEST(AlgorithmsTest, TestTransformInplaceWithOther) {
     vector_t s = {1, 2, 3};
     vector_t o = {1, 2, 3};
 
-    Dal::Transform(&s, o, std::plus<>());
+    Dal::Transform(s, o, std::plus<>(), &s);
     for (int i = 0; i != s.size(); ++i) {
         ASSERT_DOUBLE_EQ(2. * (i + 1), s[i]);
     }

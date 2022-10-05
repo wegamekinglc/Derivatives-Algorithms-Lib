@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <algorithm>
 #include <dal/platform/platform.hpp>
 
 namespace Dal::AAD {
@@ -14,7 +15,7 @@ namespace Dal::AAD {
         const size_t add_points = addBegin && addEnd ? std::distance(addBegin, addEnd) : 0;
 
         if (add_points > 0) {
-            set_union(original.begin(), original.end(), addBegin, addEnd, back_inserter(added),
+            std::set_union(original.begin(), original.end(), addBegin, addEnd, back_inserter(added),
                       [minDx](const T_ x, const T_ y) { return x < y - minDx; });
         }
         const CONT_& sequence = add_points > 0 ? added : original;

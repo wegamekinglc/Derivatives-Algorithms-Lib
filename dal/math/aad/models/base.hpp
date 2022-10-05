@@ -11,7 +11,6 @@
 #include <dal/string/strings.hpp>
 
 namespace Dal::AAD {
-    const Time_ systemTime = 0.0;
 
     template <class T_ = double> class Model_ {
         inline static const Vector_<String_>& DefaultAssetNames() {
@@ -36,7 +35,7 @@ namespace Dal::AAD {
 
         virtual ~Model_() = default;
 
-        virtual const Vector_<T_*>& Parameters() = 0;
+        virtual const Vector_<T_*>& Parameters() const = 0;
         virtual const Vector_<String_>& ParameterLabels() const = 0;
 
         [[nodiscard]] size_t NumParams() const { return const_cast<Model_*>(this)->Parameters().size(); }

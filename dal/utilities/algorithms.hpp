@@ -41,7 +41,7 @@ namespace Dal {
     template <class C_, class CI_, class OP_> void Transform(C_* to_change, const CI_& other, OP_ op) {
         REQUIRE(to_change != nullptr && to_change->size() == other.size(),
                 "dst is null or src size is not compatible with dst size");
-        std::transform(to_change->begin(), to_change->end(), other.begin(), to_change->begin(), op);
+        std::transform(other.begin(), other.end(), to_change->begin(), op);
     }
 
     template <class CS_, class CD_> void Copy(const CS_& src, CD_* dst) {
