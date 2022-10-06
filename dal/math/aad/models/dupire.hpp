@@ -35,10 +35,11 @@ namespace Dal::AAD {
         Vector_<String_> parameterLabels_;
 
     public:
-        Dupire_(const T_& spot,
+        template<class U_>
+        Dupire_(const U_& spot,
                 const Vector_<>& spots,
                 const Vector_<Time_>& times,
-                const Matrix_<T_>& vols,
+                const Matrix_<U_>& vols,
                 Time_ maxDt = 0.25)
             : spot_(spot), spots_(spots), logSpots_(spots.size()), times_(times), vols_(vols), maxDt_(maxDt),
               parameters_(vols.Rows() * vols.Cols() + 1), parameterLabels_(vols.Rows() * vols.Cols() + 1) {
@@ -76,8 +77,8 @@ namespace Dal::AAD {
 
         //  Initialize timeline
         void Allocate(const Vector_<Time_>& productTimeline, const Vector_<SampleDef_>& defLine) override {
-            Vector_<Time_> added(0); // just to add 0
-            timeLine_ = FillData(productTimeline, maxDt_, HALF_DAY, &added[0], &added[0] + 1);
+            Vector_<Time_> added(1, 0); // just to add 0
+            timeLine_ = FillData(productTimeline, maxDt_, HALF_DAY, added.begin(), added.end());
             commonSteps_.Resize(timeLine_.size());
             Transform(&commonSteps_, timeLine_,
                       [&](Time_ t) { return std::binary_search(productTimeline.begin(), productTimeline.end(), t); });
@@ -91,8 +92,8 @@ namespace Dal::AAD {
                 const double sqrtDt = std::sqrt(timeLine_[i + 1] - timeLine_[i]);
                 const size_t m = logSpots_.size();
                 for (size_t j = 0; j < m; ++j)
-                    interpVols_[i][j] =
-                        sqrtDt * InterpLinearImplX<false, T_>(times_, vols_.Col(j), timeLine_[i]);
+                    interpVols_(i, j) =
+                        sqrtDt * InterpLinearImplX<false, T_>(times_, vols_.Col(j), T_(timeLine_[i]));
             }
         }
 

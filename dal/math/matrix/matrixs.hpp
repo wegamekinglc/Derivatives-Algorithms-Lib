@@ -25,7 +25,7 @@ namespace Dal {
         virtual ~Matrix_() = default;
         Matrix_() : cols_(0) {}
         Matrix_(int rows, int cols, E_ val = E_())
-            : vals_(static_cast<size_t>(rows * cols)), cols_(cols), hooks_(static_cast<size_t>(rows)) {
+            : vals_(static_cast<size_t>((rows + 1) * cols)), cols_(cols), hooks_(static_cast<size_t>(rows)) {
             SetHook();
             vals_.Fill(val);
         }
@@ -33,7 +33,7 @@ namespace Dal {
 
         int Rows() const { return static_cast<int>(hooks_.size()); }
         int Cols() const { return cols_; }
-        bool Empty() const { return vals_.empty(); }
+        bool Empty() const { return (vals_.size() - cols_) == 0; }
         void Clear() {
             vals_.clear();
             cols_ = 0;
@@ -41,7 +41,7 @@ namespace Dal {
         }
         CI_ First() const { return vals_.begin(); }
         inline CI_ begin() const { return First(); }
-        CI_ Last() const { return vals_.end(); }
+        CI_ Last() const { return vals_.end() - cols_; }
         inline CI_ end() const { return Last(); }
 
         CR_ operator()(int row, int col) const { return hooks_[row][col]; }
@@ -224,13 +224,13 @@ namespace Dal {
         void Resize(int rows, int cols) {
             const auto old_rows = hooks_.size();
             if (cols == cols_ && rows * old_rows > 0) {
-                vals_.Resize(rows * cols);
+                vals_.Resize((rows + 1) * cols);
                 hooks_.Resize(rows);
                 SetHook(hooks_[0] == vals_.begin() ? old_rows : 0);
             } else {
                 const auto n_copy = Min(cols, cols_);
                 cols_ = cols;
-                Vector_<E_> new_vals(rows * cols);
+                Vector_<E_> new_vals((rows + 1) * cols);
                 for (int ir = 0; ir < rows && ir < old_rows; ++ir) {
                     copy(hooks_[ir], hooks_[ir] + n_copy, new_vals.begin() + ir * cols);
                 }

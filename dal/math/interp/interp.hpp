@@ -31,15 +31,15 @@ f is number[]
 namespace Dal {
 
     template <bool smooth_ = false, class T_ = double>
-    inline T_ InterpLinearImplX(const Vector_<>& x, const Vector_<T_>& y, double x0) {
-        auto pge = LowerBound(x, x0);
+    inline T_ InterpLinearImplX(const Vector_<>& x, const Vector_<T_>& y, const T_& x0) {
+        auto pge = LowerBound(x, static_cast<Vector_<>::value_type>(x0));
         if (pge == x.end())
             return y.back();
         else if (pge == x.begin() || IsZero(x0 - *pge))
             return y[pge - x.begin()];
         else {
             auto plt = Previous(pge);
-            const double gFrac = (x0 - *plt) / (*pge - *plt);
+            const auto gFrac = static_cast<double>((x0 - *plt) / (*pge - *plt));
             auto flt = y.begin() + (plt - x.begin());
             if constexpr (smooth_)
                 return *flt + gFrac * gFrac * (3. - 2. * gFrac)* (*Next(flt) - *flt);
@@ -57,8 +57,8 @@ namespace Dal {
         Interp1Linear_(const String_& name, const std::map<double, double>& f);
         void Write(Archive::Store_& dst) const override;
         double operator()(double x) const override;
-        const Vector_<>& x() const { return x_; }
-        const Vector_<>& f() const { return f_; }
+        [[nodiscard]] const Vector_<>& x() const { return x_; }
+        [[nodiscard]] const Vector_<>& f() const { return f_; }
     };
 
     namespace Interp {

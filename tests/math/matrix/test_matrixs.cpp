@@ -207,23 +207,23 @@ TEST(MatrixTest, TestMatrixIterator) {
     }
 }
 
-#ifdef NDEBUG
 TEST(MatrixTest, TestMatrixConstColBeginEnd) {
     matrix_t m1(3, 2);
-    m1(1, 1) = 2.;
+    m1(2, 1) = 2.;
     const matrix_t m2(m1);
 
     matrix_t::ConstCol_ col = m2.Col(1);
     auto iter = col.end();
     ASSERT_EQ(col.end() - col.begin(), m2.Rows());
+    ASSERT_EQ(col[2], 2.0);
 }
 
 TEST(MatrixTest, TestMatrixColBeginEnd) {
     matrix_t m1(3, 2);
-    m1(1, 1) = 2.;
+    m1(2, 1) = 2.;
 
     matrix_t::Col_ col = m1.Col(1);
     auto iter = col.end();
     ASSERT_EQ(col.end() - col.begin(), m1.Rows());
+    ASSERT_EQ(col[2], 2.0);
 }
-#endif

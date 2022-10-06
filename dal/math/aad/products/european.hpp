@@ -11,7 +11,7 @@
 #include <sstream>
 
 namespace Dal::AAD {
-    template <class T_> class European_ : public Product_<T_> {
+    template <class T_ = double> class European_ : public Product_<T_> {
     private:
         double strike_;
         Date_ exerciseDate_;
