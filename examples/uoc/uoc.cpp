@@ -47,11 +47,12 @@ auto DupireModels(double spot, double timeLow, double timeHigh, int timeSteps, d
     auto times = Vector::XRange(timeLow, timeHigh, timeSteps + 1);
     auto spots = Vector::XRange(spotLow, spotHigh, spotSteps + 1);
 
-    std::unique_ptr<Model_<>> mdl = std::make_unique<Dupire_<>>(spot, spots, times, Matrix_<>(spots.size(), times.size(), 0.15));
+    std::unique_ptr<Model_<>> mdl = std::make_unique<Dupire_<>>(spot, spots, times, Matrix_<>(spots.size(), times.size(), 0.15), 1.0);
     std::unique_ptr<Model_<Number_>> riskMdl = std::make_unique<Dupire_<Number_>>(Number_(spot),
                                                                                   spots,
                                                                                   times,
-                                                                                  Matrix_<Number_>(spots.size(), times.size(), Number_(0.15)));
+                                                                                  Matrix_<Number_>(spots.size(), times.size(), Number_(0.15)),
+                                                                                      1.0);
     return std::make_pair(std::move(mdl), std::move(riskMdl));
 }
 
@@ -71,7 +72,6 @@ int main() {
     std::cout << "Plz input # of paths (power of 2): ";
     std::cin >> n;
     const int n_paths = Pow(2, n);
-    std::unique_ptr<Random_> rand(NewSobol(1, 2048));
 
     /*
      * European products and B-S models
@@ -83,7 +83,7 @@ int main() {
     auto bsModels = BSModels(spot, vol, rate, div);
 
     timer.Reset();
-    auto res = MCSimulation(*products.first, *bsModels.first, rand, n_paths);
+    auto res = MCSimulation(*products.first, *bsModels.first, "sobol", n_paths);
     auto sum = 0.0;
     for (auto row = 0; row < res.Rows(); ++row)
         sum += res(row, 0);
@@ -91,9 +91,9 @@ int main() {
     std::cout << "European w. B-S: " << std::setprecision(8) << calculated << "\tElapsed: " << timer.Elapsed<milliseconds>() << " ms" << std::endl;
 
     // use a flat dupire model
-    auto dupireModels = DupireModels(spot, 0, 5, 60, 50, 200, 30, vol);
+    auto dupireModels = DupireModels(spot, 0, 5, 1, 50, 200, 1, vol);
     timer.Reset();
-    res = MCSimulation(*products.first, *dupireModels.first, rand, n_paths);
+    res = MCSimulation(*products.first, *dupireModels.first, "sobol", n_paths);
     sum = 0.0;
     for (auto row = 0; row < res.Rows(); ++row)
         sum += res(row, 0);

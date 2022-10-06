@@ -10,7 +10,7 @@
 
 namespace Dal::AAD {
 
-    Matrix_<> MCSimulation(const Product_<>& prd, const Model_<>& mdl, const std::unique_ptr<Random_>& rng, int nPath) {
+    Matrix_<> MCSimulation(const Product_<>& prd, const Model_<>& mdl, const String_& method, int nPath) {
         REQUIRE(CheckCompatibility(prd, mdl), "model and products are not compatible");
         auto cMdl = mdl.Clone();
 
@@ -19,6 +19,8 @@ namespace Dal::AAD {
 
         cMdl->Allocate(prd.TimeLine(), prd.DefLine());
         cMdl->Init(prd.TimeLine(), prd.DefLine());
+        std::unique_ptr<Random_> rng = CreateRNG(method, cMdl->SimDim());
+
         Vector_<> gaussVec(cMdl->SimDim());
         Scenario_<> path;
         AllocatePath(prd.DefLine(), path);
@@ -36,7 +38,7 @@ namespace Dal::AAD {
 
     Matrix_<> MCParallelSimulation(const Product_<>& prd,
                                    const Model_<>& mdl,
-                                   const std::unique_ptr<Random_>& rng,
+                                   const String_& method,
                                    int nPath) {
         REQUIRE(CheckCompatibility(prd, mdl), "model and products are not compatible");
         auto cMdl = mdl.Clone();
@@ -46,6 +48,7 @@ namespace Dal::AAD {
 
         cMdl->Allocate(prd.TimeLine(), prd.DefLine());
         cMdl->Init(prd.TimeLine(), prd.DefLine());
+        std::unique_ptr<Random_> rng = CreateRNG(method, cMdl->SimDim());
 
         ThreadPool_* pool = ThreadPool_::GetInstance();
         const size_t nThread = pool->NumThreads();

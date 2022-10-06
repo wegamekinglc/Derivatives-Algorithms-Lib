@@ -31,11 +31,10 @@ int main() {
 
     European_<double> prd(strike, exerciseDate);
     BlackScholes_<double> mdl(spot, vol, false, rate, div);
-    std::unique_ptr<Random_> rand(NewSobol(1, n_paths));
 
     // single thread simulation
     Timer_ timer;
-    auto res = MCSimulation(prd, mdl, rand, n_paths);
+    auto res = MCSimulation(prd, mdl, "sobol", n_paths);
     auto sum = 0.0;
     for (auto row = 0; row < res.Rows(); ++row)
         sum += res(row, 0);
@@ -44,10 +43,9 @@ int main() {
 
     // multi-threads simulation
     // only pseudo random number generator can be used in multithreading situation
-    std::unique_ptr<Random_> rand2(New(RNGType_("MRG32"), seed));
 
     timer.Reset();
-    res = MCParallelSimulation(prd, mdl, rand2, n_paths);
+    res = MCParallelSimulation(prd, mdl, "mrg32", n_paths);
     sum = 0.0;
     for (auto row = 0; row < res.Rows(); ++row)
         sum += res(row, 0);

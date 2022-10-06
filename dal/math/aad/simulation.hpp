@@ -12,6 +12,9 @@
 #include <dal/platform/platform.hpp>
 #include <dal/string/strings.hpp>
 #include <dal/concurrency/threadpool.hpp>
+#include <dal/math/random/sobol.hpp>
+#include <dal/math/random/pseudorandom.hpp>
+
 
 namespace Dal::AAD {
     /*
@@ -35,15 +38,27 @@ namespace Dal::AAD {
 
     Matrix_<> MCSimulation(const Product_<double>& prd,
                            const Model_<double>& mdl,
-                           const std::unique_ptr<Random_>& rng,
+                           const String_& method,
                            int nPath);
 
     constexpr const int BATCH_SIZE = 65536;
 
     Matrix_<> MCParallelSimulation(const Product_<double>& prd,
                                    const Model_<double>& mdl,
-                                   const std::unique_ptr<Random_>& rng,
+                                   const String_& method,
                                    int nPath);
+
+
+    inline std::unique_ptr<Random_> CreateRNG(const String_& method, size_t n_dim) {
+        if (method == "sobol")
+            return std::unique_ptr<Random_>(NewSobol(n_dim, 2048));
+        else if (method == "mrg32")
+            return std::unique_ptr<Random_>(New(RNGType_("MRG32"), 1024, n_dim));
+        else if (method == "irn")
+            return std::unique_ptr<Random_>(New(RNGType_("IRN"), 1024, n_dim));
+        else
+            THROW("rng method is not known");
+    }
 
     struct AADResults_ {
         AADResults_(int nPath, int nPay, int nParam) : payoffs_(nPath, nPay), aggregated_(nPath), risks_(nParam) {}
@@ -57,7 +72,7 @@ namespace Dal::AAD {
     template <class F_ = decltype(DEFAULT_AGGREGATOR)>
     AADResults_ MCSimulationAAD(const Product_<Number_>& prd,
                                 const Model_<Number_>& mdl,
-                                const std::unique_ptr<Random_>& rng,
+                                const String_& method,
                                 int nPath,
                                 const F_& aggFun = DEFAULT_AGGREGATOR) {
         REQUIRE(CheckCompatibility(prd, mdl), "model and products are not compatible");
@@ -66,6 +81,7 @@ namespace Dal::AAD {
         Scenario_<Number_> path;
         AllocatePath(prd.DefLine(), path);
         cMdl->Allocate(prd.TimeLine(), prd.DefLine());
+        std::unique_ptr<Random_> rng = CreateRNG(method, cMdl->SimDim());
 
         const size_t nPay = prd.PayoffLabels().size();
         const Vector_<Number_*>& params = cMdl->Parameters();
@@ -107,7 +123,7 @@ namespace Dal::AAD {
     template <class F_ = decltype(DEFAULT_AGGREGATOR)>
     AADResults_ MCParallelSimulationAAD(const Product_<Number_>& prd,
                                         const Model_<Number_>& mdl,
-                                        const std::unique_ptr<Random_>& rng,
+                                        const String_& method,
                                         int nPath,
                                         const F_& aggFun = DEFAULT_AGGREGATOR) {
         REQUIRE(CheckCompatibility(prd, mdl), "model and products are not compatible");
@@ -128,6 +144,7 @@ namespace Dal::AAD {
             model = mdl.Clone();
             model->Allocate(prd.TimeLine(), prd.DefLine());
         }
+        std::unique_ptr<Random_> rng = CreateRNG(method, models[0]->SimDim());
 
         Vector_<Scenario_<Number_>> paths(nThread + 1);
         for (auto& path : paths) {

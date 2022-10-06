@@ -23,13 +23,11 @@ TEST(BlackScholesTest, TestBlackScholes) {
     const double rate = 0.034;
     const double div = 0.021;
     const size_t n_paths = 10000000;
-    const size_t n_dim = 1;
 
     European_<double> prd(strike, exerciseDate);
     BlackScholes_<double> mdl(spot, vol, false, rate, div);
 
-    std::unique_ptr<Random_> rand(NewSobol(n_dim, 1024));
-    auto res = MCSimulation(prd, mdl, rand, n_paths);
+    auto res = MCSimulation(prd, mdl, "sobol", n_paths);
     auto sum = 0.0;
     for (auto row = 0; row < res.Rows(); ++row)
         sum += res(row, 0);
@@ -48,13 +46,10 @@ TEST(BlackScholesTest, TestBlackScholesParallel) {
     const double rate = 0.034;
     const double div = 0.021;
     const size_t n_paths = 10000000;
-    const size_t n_dim = 1;
 
     European_<double> prd(strike, exerciseDate);
     BlackScholes_<double> mdl(spot, vol, false, rate, div);
-
-    std::unique_ptr<Random_> rand(NewSobol(n_dim, 1024));
-    auto res = MCParallelSimulation(prd, mdl, rand, n_paths);
+    auto res = MCParallelSimulation(prd, mdl, "sobol", n_paths);
     auto sum = 0.0;
     for (auto row = 0; row < res.Rows(); ++row)
         sum += res(row, 0);
@@ -73,13 +68,11 @@ TEST(BlackScholesTest, TestBlackScholesAAD) {
     const Number_ rate(0.034);
     const Number_ div(0.021);
     const size_t n_paths = 10000000;
-    const size_t n_dim = 1;
 
     European_<Number_> prd(strike, exerciseDate);
     BlackScholes_<Number_> mdl(spot, vol, false, rate, div);
 
-    std::unique_ptr<Random_> rand(NewSobol(n_dim, 1024));
-    auto res = MCSimulationAAD(prd, mdl, rand, n_paths);
+    auto res = MCSimulationAAD(prd, mdl, "sobol", n_paths);
     ASSERT_NEAR(res.risks_[0], 0.43986485, 1e-6);
     ASSERT_NEAR(res.risks_[1], 5.38087423, 1e-4);
     ASSERT_NEAR(res.risks_[2], 7.18505725, 1e-4);
@@ -96,13 +89,10 @@ TEST(BlackScholesTest, TestBlackScholesAADParallel) {
     const Number_ rate(0.034);
     const Number_ div(0.021);
     const size_t n_paths = 10000000;
-    const size_t n_dim = 1;
 
     European_<Number_> prd(strike, exerciseDate);
     BlackScholes_<Number_> mdl(spot, vol, false, rate, div);
-
-    std::unique_ptr<Random_> rand(NewSobol(n_dim, 1024));
-    auto res = MCParallelSimulationAAD(prd, mdl, rand, n_paths);
+    auto res = MCParallelSimulationAAD(prd, mdl, "sobol", n_paths);
     ASSERT_NEAR(res.risks_[0], 0.43986485, 1e-5);
     ASSERT_NEAR(res.risks_[1], 5.38087423, 1e-4);
     ASSERT_NEAR(res.risks_[2], 7.18505725, 1e-4);
