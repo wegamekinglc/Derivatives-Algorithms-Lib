@@ -30,7 +30,7 @@ f is number[]
 
 namespace Dal {
 
-    template <bool smooth_ = false, class T_ = double>
+    template <class T_ = double>
     inline T_ InterpLinearImplX(const Vector_<>& x, const Vector_<T_>& y, const T_& x0) {
         auto pge = LowerBound(x, static_cast<Vector_<>::value_type>(x0));
         if (pge == x.end())
@@ -41,10 +41,7 @@ namespace Dal {
             auto plt = Previous(pge);
             const auto gFrac = static_cast<double>((x0 - *plt) / (*pge - *plt));
             auto flt = y.begin() + (plt - x.begin());
-            if constexpr (smooth_)
-                return *flt + gFrac * gFrac * (3. - 2. * gFrac)* (*Next(flt) - *flt);
-            else
-                return *flt + gFrac * (*Next(flt) - *flt);
+            return *flt + gFrac * (*Next(flt) - *flt);
         }
     }
 

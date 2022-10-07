@@ -92,7 +92,7 @@ namespace Dal::AAD {
             for (size_t i = 0; i < n; ++i) {
                 const double sqrtDt = Sqrt(timeLine_[i + 1] - timeLine_[i]);
                 for (size_t j = 0; j < m; ++j) {
-                    interpVols_(i, j) = sqrtDt * InterpLinearImplX<false, T_>(times_, vols_.Row(j), T_(timeLine_[i]));
+                    interpVols_(i, j) = sqrtDt * InterpLinearImplX<T_>(times_, vols_.Row(j), T_(timeLine_[i]));
                 }
             }
         }
@@ -110,7 +110,7 @@ namespace Dal::AAD {
             //  Iterate through timeline
             const size_t n = timeLine_.size() - 1;
             for (size_t i = 0; i < n; ++i) {
-                T_ vol = InterpLinearImplX<false, T_>(logSpots_, interpVols_.Row(i), logSpot);
+                T_ vol = InterpLinearImplX<T_>(logSpots_, interpVols_.Row(i), logSpot);
                 logSpot += vol * (-0.5 * vol + gaussVec[i]);
                 if (commonSteps_[i + 1]) {
                     FillScenario(Exp(logSpot), (*path)[idx]);

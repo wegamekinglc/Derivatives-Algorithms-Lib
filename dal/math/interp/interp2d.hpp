@@ -26,7 +26,7 @@ namespace Dal {
         virtual bool IsInBounds(double x, double y) const { return true; }
     };
 
-    template <bool smooth_ = false, class T_ = double>
+    template <class T_ = double>
     inline T_ Interp2DLinearImplX(const Vector_<>& x, const Vector_<>& y, const Matrix_<T_>& f, double x0, double y0) {
         const size_t n = x.size();
 
@@ -35,16 +35,16 @@ namespace Dal {
 
         // extrapolation
         if (n2 == n)
-            return InterpLinearImplX<smooth_, T_>(y, f.Row(n2 - 1), y0);
+            return InterpLinearImplX<T_>(y, f.Row(n2 - 1), y0);
         if (n2 == 0)
-            return InterpLinearImplX<smooth_, T_>(y, f.Row(0), y0);
+            return InterpLinearImplX<T_>(y, f.Row(0), y0);
 
         // interpolation
         const size_t n1 = n2 - 1;
         auto x1 = x[n1];
         auto x2 = x[n2];
-        auto z1 = InterpLinearImplX<smooth_, T_>(y, f.Row(n1), y0);
-        auto z2 = InterpLinearImplX<smooth_, T_>(y, f.Row(n2), y0);
+        auto z1 = InterpLinearImplX<T_>(y, f.Row(n1), y0);
+        auto z2 = InterpLinearImplX<T_>(y, f.Row(n2), y0);
 
         auto t = (x0 - x1) / (x2 - x1);
         return z1 + (z2 - z1) * t;
