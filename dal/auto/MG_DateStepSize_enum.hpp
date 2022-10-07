@@ -7,6 +7,7 @@ class  DateStepSize_
      _NOT_SET=-1,
      Y,
      M,
+     W,
      BD,
      CD,
      _N_VALUES

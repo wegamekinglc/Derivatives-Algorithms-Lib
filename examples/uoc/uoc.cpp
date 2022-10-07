@@ -62,6 +62,7 @@ int main() {
      * some global evaluation settings
      */
     XGLOBAL::SetEvaluationDate(Date_(2022, 9, 25));
+    const Date_ start = Global::Dates_().EvaluationDate();
     const double spot = 100.0;
     const double vol = 0.15;
     const double rate = 0.0;
@@ -83,7 +84,7 @@ int main() {
     auto bsModels = BSModels(spot, vol, rate, div);
 
     timer.Reset();
-    auto res = MCSimulation(*products.first, *bsModels.first, "sobol", n_paths);
+    auto res = MCParallelSimulation(*products.first, *bsModels.first, "sobol", n_paths);
     auto sum = 0.0;
     for (auto row = 0; row < res.Rows(); ++row)
         sum += res(row, 0);
@@ -91,14 +92,40 @@ int main() {
     std::cout << "European w. B-S: " << std::setprecision(8) << calculated << "\tElapsed: " << timer.Elapsed<milliseconds>() << " ms" << std::endl;
 
     // use a flat dupire model
-    auto dupireModels = DupireModels(spot, 0, 5, 1, 50, 200, 1, vol);
+    auto dupireModels = DupireModels(spot, 0, 5, 60, 50, 200, 30, vol);
     timer.Reset();
-    res = MCSimulation(*products.first, *dupireModels.first, "sobol", n_paths);
+    res = MCParallelSimulation(*products.first, *dupireModels.first, "sobol", n_paths);
     sum = 0.0;
     for (auto row = 0; row < res.Rows(); ++row)
         sum += res(row, 0);
     calculated = sum / static_cast<double>(res.Rows());
     std::cout << "European w. Dupire: " << std::setprecision(8) << calculated << "\tElapsed: " << timer.Elapsed<milliseconds>() << " ms" << std::endl;
+
+    /*
+     * up and out call
+     */
+    auto tenor = Date::ParseIncrement("1W");
+    const auto schedule = DateGenerate(start, maturity, tenor);
+    const double barrier = 150.0;
+    products = UOCProducts(strike, barrier, schedule, 1e-4, false);
+
+    // use a simple B-S model
+    timer.Reset();
+    res = MCParallelSimulation(*products.first, *bsModels.first, "sobol", n_paths);
+    sum = 0.0;
+    for (auto row = 0; row < res.Rows(); ++row)
+        sum += res(row, 0);
+    calculated = sum / static_cast<double>(res.Rows());
+    std::cout << "UOC w. B-S: " << std::setprecision(8) << calculated << "\tElapsed: " << timer.Elapsed<milliseconds>() << " ms" << std::endl;
+
+    // use a flat dupire model
+    timer.Reset();
+    res = MCParallelSimulation(*products.first, *dupireModels.first, "sobol", n_paths);
+    sum = 0.0;
+    for (auto row = 0; row < res.Rows(); ++row)
+        sum += res(row, 0);
+    calculated = sum / static_cast<double>(res.Rows());
+    std::cout << "UOC w. Dupire: " << std::setprecision(8) << calculated << "\tElapsed: " << timer.Elapsed<milliseconds>() << " ms" << std::endl;
 
     return 0;
 }

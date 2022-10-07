@@ -10,6 +10,7 @@ Vector_<DateStepSize_> DateStepSizeListAll() {
    if (TheDateStepSizeList().empty()) {
         TheDateStepSizeList().emplace_back("Y");
         TheDateStepSizeList().emplace_back("M");
+        TheDateStepSizeList().emplace_back("W");
         TheDateStepSizeList().emplace_back("BD");
         TheDateStepSizeList().emplace_back("CD");
    }
@@ -27,6 +28,8 @@ const char* DateStepSize_::String() const {
         return "Y";
     case Value_::M:
         return "M";
+    case Value_::W:
+        return "W";
     case Value_::BD:
         return "BD";
     case Value_::CD:
@@ -58,6 +61,13 @@ struct ReadStringDateStepSize_
         *val = DateStepSize_::Value_::M;
 	else if (String::Equivalent(src, "MONTHS"))
         *val = DateStepSize_::Value_::M;
+
+	else if (String::Equivalent(src, "W"))
+        *val = DateStepSize_::Value_::W;
+	else if (String::Equivalent(src, "WEEK"))
+        *val = DateStepSize_::Value_::W;
+	else if (String::Equivalent(src, "WEEKS"))
+        *val = DateStepSize_::Value_::W;
 
 	else if (String::Equivalent(src, "BD"))
         *val = DateStepSize_::Value_::BD;

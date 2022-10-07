@@ -45,8 +45,7 @@ namespace Dal::AAD {
                     scenario.numeraire_ *= spot;
             }
 
-            Transform(
-                forwardFactors_[idx], [&spot](const T_& ff) { return spot * ff; }, &scenario.forwards_.front());
+            Transform(forwardFactors_[idx], [&spot](const T_& ff) { return spot * ff; }, &scenario.forwards_.front());
 
             Copy(discounts_[idx], &scenario.discounts_);
             Copy(libors_[idx], &scenario.libors_);

@@ -34,6 +34,7 @@ enumeration DateStepSize
     Repeatable step length
 alternative Y YEAR YEARS
 alternative M MONTH MONTHS
+alternative W WEEK WEEKS
 alternative BD BUS_DAY BUSINESS_DAY
 alternative CD CAL_DAY CALENDAR_DAY
 method Date_ operator() (const Date_& base, bool forward, int n_steps, const Holidays_& holidays) const;
@@ -120,6 +121,9 @@ namespace {
             break;
         case Value_::M:
             ret_val = Date::AddMonths(ret_val, n_steps * sign);
+            break;
+        case Value_::W:
+            ret_val = ret_val.AddDays(7 * n_steps * sign);
             break;
         case Value_::CD:
             ret_val = ret_val.AddDays(n_steps * sign);

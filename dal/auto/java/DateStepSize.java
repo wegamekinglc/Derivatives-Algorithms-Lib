@@ -7,6 +7,7 @@ public class DateStepSize
     {
 		Y,
 		M,
+		W,
 		BD,
 		CD,
         N_VALUES
