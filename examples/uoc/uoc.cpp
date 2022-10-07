@@ -37,9 +37,9 @@ auto UOCProducts(double strike, double barrier, const Schedule_& schedule, doubl
 auto BSModels(double spot, double vol, double rate, double div) {
 
     std::unique_ptr<Model_<>> mdl = std::make_unique<BlackScholes_<>>(
-        spot, vol, true, rate, div);
+        spot, vol, false, rate, div);
     std::unique_ptr<Model_<Number_>> riskMdl = std::make_unique<BlackScholes_<Number_>>(
-        spot, vol, true, rate, div);
+        spot, vol, false, rate, div);
     return std::make_pair(std::move(mdl), std::move(riskMdl));
 }
 
@@ -47,12 +47,12 @@ auto DupireModels(double spot, double timeLow, double timeHigh, int timeSteps, d
     auto times = Vector::XRange(timeLow, timeHigh, timeSteps + 1);
     auto spots = Vector::XRange(spotLow, spotHigh, spotSteps + 1);
 
-    std::unique_ptr<Model_<>> mdl = std::make_unique<Dupire_<>>(spot, spots, times, Matrix_<>(spots.size(), times.size(), 0.15), 1.0);
+    std::unique_ptr<Model_<>> mdl = std::make_unique<Dupire_<>>(spot, spots, times, Matrix_<>(spots.size(), times.size(), 0.15), 10.0);
     std::unique_ptr<Model_<Number_>> riskMdl = std::make_unique<Dupire_<Number_>>(Number_(spot),
                                                                                   spots,
                                                                                   times,
                                                                                   Matrix_<Number_>(spots.size(), times.size(), Number_(0.15)),
-                                                                                      1.0);
+                                                                                      10.0);
     return std::make_pair(std::move(mdl), std::move(riskMdl));
 }
 
@@ -84,7 +84,7 @@ int main() {
     auto bsModels = BSModels(spot, vol, rate, div);
 
     timer.Reset();
-    auto res = MCParallelSimulation(*products.first, *bsModels.first, "sobol", n_paths);
+    auto res = MCSimulation(*products.first, *bsModels.first, "sobol", n_paths);
     auto sum = 0.0;
     for (auto row = 0; row < res.Rows(); ++row)
         sum += res(row, 0);
@@ -94,7 +94,7 @@ int main() {
     // use a flat dupire model
     auto dupireModels = DupireModels(spot, 0, 5, 60, 50, 200, 30, vol);
     timer.Reset();
-    res = MCParallelSimulation(*products.first, *dupireModels.first, "sobol", n_paths);
+    res = MCSimulation(*products.first, *dupireModels.first, "sobol", n_paths);
     sum = 0.0;
     for (auto row = 0; row < res.Rows(); ++row)
         sum += res(row, 0);
@@ -111,7 +111,7 @@ int main() {
 
     // use a simple B-S model
     timer.Reset();
-    res = MCParallelSimulation(*products.first, *bsModels.first, "sobol", n_paths);
+    res = MCSimulation(*products.first, *bsModels.first, "sobol", n_paths);
     sum = 0.0;
     for (auto row = 0; row < res.Rows(); ++row)
         sum += res(row, 0);
@@ -120,7 +120,7 @@ int main() {
 
     // use a flat dupire model
     timer.Reset();
-    res = MCParallelSimulation(*products.first, *dupireModels.first, "sobol", n_paths);
+    res = MCSimulation(*products.first, *dupireModels.first, "sobol", n_paths);
     sum = 0.0;
     for (auto row = 0; row < res.Rows(); ++row)
         sum += res(row, 0);

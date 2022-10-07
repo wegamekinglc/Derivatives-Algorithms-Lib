@@ -163,10 +163,11 @@ namespace Dal::AAD {
                 ++idx;
             }
 
+            T_ logSpot = Log(spot);
             const size_t n = timeLine_.size() - 1;
             for (size_t i = 0; i < n; ++i) {
-                spot = spot * Exp(drifts_[i] + stds_[i] * gaussVec[i]);
-                FillScenario(idx, spot, (*path)[idx], (*defLine_)[idx]);
+                logSpot += drifts_[i] + stds_[i] * gaussVec[i];
+                FillScenario(idx, Exp(logSpot), (*path)[idx], (*defLine_)[idx]);
                 ++idx;
             }
         }

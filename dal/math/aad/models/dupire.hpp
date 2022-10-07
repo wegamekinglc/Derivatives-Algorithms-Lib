@@ -88,9 +88,9 @@ namespace Dal::AAD {
 
         void Init(const Vector_<Time_>& productTimeline, const Vector_<SampleDef_>& defLine) override {
             const size_t n = timeLine_.size() - 1;
+            const size_t m = logSpots_.size();
             for (size_t i = 0; i < n; ++i) {
-                const double sqrtDt = std::sqrt(timeLine_[i + 1] - timeLine_[i]);
-                const size_t m = logSpots_.size();
+                const double sqrtDt = Sqrt(timeLine_[i + 1] - timeLine_[i]);
                 for (size_t j = 0; j < m; ++j) {
                     interpVols_(i, j) = sqrtDt * InterpLinearImplX<false, T_>(times_, vols_.Row(j), T_(timeLine_[i]));
                 }
