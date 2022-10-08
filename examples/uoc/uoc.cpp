@@ -84,7 +84,7 @@ int main() {
     auto bsModels = BSModels(spot, vol, rate, div);
 
     timer.Reset();
-    auto res = MCSimulation(*products.first, *bsModels.first, "sobol", n_paths);
+    auto res = MCParallelSimulation(*products.first, *bsModels.first, "sobol", n_paths);
     auto sum = 0.0;
     for (auto row = 0; row < res.Rows(); ++row)
         sum += res(row, 0);
@@ -94,7 +94,7 @@ int main() {
     // use a flat dupire model
     auto dupireModels = DupireModels(spot, 0, 5, 60, 50, 200, 30, vol);
     timer.Reset();
-    res = MCSimulation(*products.first, *dupireModels.first, "sobol", n_paths);
+    res = MCParallelSimulation(*products.first, *dupireModels.first, "sobol", n_paths);
     sum = 0.0;
     for (auto row = 0; row < res.Rows(); ++row)
         sum += res(row, 0);
@@ -111,7 +111,7 @@ int main() {
 
     // use a simple B-S model
     timer.Reset();
-    res = MCSimulation(*products.first, *bsModels.first, "sobol", n_paths);
+    res = MCParallelSimulation(*products.first, *bsModels.first, "sobol", n_paths);
     sum = 0.0;
     for (auto row = 0; row < res.Rows(); ++row)
         sum += res(row, 0);
@@ -120,7 +120,7 @@ int main() {
 
     // use a flat dupire model
     timer.Reset();
-    res = MCSimulation(*products.first, *dupireModels.first, "sobol", n_paths);
+    res = MCParallelSimulation(*products.first, *dupireModels.first, "sobol", n_paths);
     sum = 0.0;
     for (auto row = 0; row < res.Rows(); ++row)
         sum += res(row, 0);
