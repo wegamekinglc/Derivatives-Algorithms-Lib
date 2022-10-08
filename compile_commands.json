@@ -1,537 +1,657 @@
 [
 {
-  "directory": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/build/dal",
-  "command": "/usr/bin/c++  -DBOOST_ALL_NO_LIB -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/concurrency/threadpool.cpp.o -c /home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/dal/concurrency/threadpool.cpp",
-  "file": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/dal/concurrency/threadpool.cpp"
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/dal",
+  "command": "/usr/bin/c++  -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/concurrency/threadpool.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/dal/concurrency/threadpool.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/dal/concurrency/threadpool.cpp"
 },
 {
-  "directory": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/build/dal",
-  "command": "/usr/bin/c++  -DBOOST_ALL_NO_LIB -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/currency/currency.cpp.o -c /home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/dal/currency/currency.cpp",
-  "file": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/dal/currency/currency.cpp"
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/dal",
+  "command": "/usr/bin/c++  -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/currency/currency.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/dal/currency/currency.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/dal/currency/currency.cpp"
 },
 {
-  "directory": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/build/dal",
-  "command": "/usr/bin/c++  -DBOOST_ALL_NO_LIB -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/currency/currencydata.cpp.o -c /home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/dal/currency/currencydata.cpp",
-  "file": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/dal/currency/currencydata.cpp"
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/dal",
+  "command": "/usr/bin/c++  -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/currency/currencydata.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/dal/currency/currencydata.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/dal/currency/currencydata.cpp"
 },
 {
-  "directory": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/build/dal",
-  "command": "/usr/bin/c++  -DBOOST_ALL_NO_LIB -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/currency/init.cpp.o -c /home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/dal/currency/init.cpp",
-  "file": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/dal/currency/init.cpp"
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/dal",
+  "command": "/usr/bin/c++  -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/currency/init.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/dal/currency/init.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/dal/currency/init.cpp"
 },
 {
-  "directory": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/build/dal",
-  "command": "/usr/bin/c++  -DBOOST_ALL_NO_LIB -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/indice/fixings.cpp.o -c /home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/dal/indice/fixings.cpp",
-  "file": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/dal/indice/fixings.cpp"
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/dal",
+  "command": "/usr/bin/c++  -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/indice/fixings.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/dal/indice/fixings.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/dal/indice/fixings.cpp"
 },
 {
-  "directory": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/build/dal",
-  "command": "/usr/bin/c++  -DBOOST_ALL_NO_LIB -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/indice/index.cpp.o -c /home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/dal/indice/index.cpp",
-  "file": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/dal/indice/index.cpp"
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/dal",
+  "command": "/usr/bin/c++  -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/indice/index.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/dal/indice/index.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/dal/indice/index.cpp"
 },
 {
-  "directory": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/build/dal",
-  "command": "/usr/bin/c++  -DBOOST_ALL_NO_LIB -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/indice/index/equity.cpp.o -c /home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/dal/indice/index/equity.cpp",
-  "file": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/dal/indice/index/equity.cpp"
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/dal",
+  "command": "/usr/bin/c++  -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/indice/index/equity.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/dal/indice/index/equity.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/dal/indice/index/equity.cpp"
 },
 {
-  "directory": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/build/dal",
-  "command": "/usr/bin/c++  -DBOOST_ALL_NO_LIB -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/indice/index/ir.cpp.o -c /home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/dal/indice/index/ir.cpp",
-  "file": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/dal/indice/index/ir.cpp"
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/dal",
+  "command": "/usr/bin/c++  -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/indice/index/ir.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/dal/indice/index/ir.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/dal/indice/index/ir.cpp"
 },
 {
-  "directory": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/build/dal",
-  "command": "/usr/bin/c++  -DBOOST_ALL_NO_LIB -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/indice/indexcomposite.cpp.o -c /home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/dal/indice/indexcomposite.cpp",
-  "file": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/dal/indice/indexcomposite.cpp"
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/dal",
+  "command": "/usr/bin/c++  -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/indice/indexcomposite.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/dal/indice/indexcomposite.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/dal/indice/indexcomposite.cpp"
 },
 {
-  "directory": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/build/dal",
-  "command": "/usr/bin/c++  -DBOOST_ALL_NO_LIB -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/indice/indexparse.cpp.o -c /home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/dal/indice/indexparse.cpp",
-  "file": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/dal/indice/indexparse.cpp"
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/dal",
+  "command": "/usr/bin/c++  -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/indice/indexparse.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/dal/indice/indexparse.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/dal/indice/indexparse.cpp"
 },
 {
-  "directory": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/build/dal",
-  "command": "/usr/bin/c++  -DBOOST_ALL_NO_LIB -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/indice/parser/equity.cpp.o -c /home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/dal/indice/parser/equity.cpp",
-  "file": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/dal/indice/parser/equity.cpp"
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/dal",
+  "command": "/usr/bin/c++  -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/indice/parser/equity.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/dal/indice/parser/equity.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/dal/indice/parser/equity.cpp"
 },
 {
-  "directory": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/build/dal",
-  "command": "/usr/bin/c++  -DBOOST_ALL_NO_LIB -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/math/aad/aad.cpp.o -c /home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/dal/math/aad/aad.cpp",
-  "file": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/dal/math/aad/aad.cpp"
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/dal",
+  "command": "/usr/bin/c++  -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/math/aad/aad.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/dal/math/aad/aad.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/dal/math/aad/aad.cpp"
 },
 {
-  "directory": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/build/dal",
-  "command": "/usr/bin/c++  -DBOOST_ALL_NO_LIB -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/math/aad/simulation.cpp.o -c /home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/dal/math/aad/simulation.cpp",
-  "file": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/dal/math/aad/simulation.cpp"
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/dal",
+  "command": "/usr/bin/c++  -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/math/aad/models/analytics.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/dal/math/aad/models/analytics.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/dal/math/aad/models/analytics.cpp"
 },
 {
-  "directory": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/build/dal",
-  "command": "/usr/bin/c++  -DBOOST_ALL_NO_LIB -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/math/cell.cpp.o -c /home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/dal/math/cell.cpp",
-  "file": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/dal/math/cell.cpp"
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/dal",
+  "command": "/usr/bin/c++  -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/math/aad/models/ivs.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/dal/math/aad/models/ivs.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/dal/math/aad/models/ivs.cpp"
 },
 {
-  "directory": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/build/dal",
-  "command": "/usr/bin/c++  -DBOOST_ALL_NO_LIB -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/math/cellutils.cpp.o -c /home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/dal/math/cellutils.cpp",
-  "file": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/dal/math/cellutils.cpp"
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/dal",
+  "command": "/usr/bin/c++  -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/math/aad/simulation.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/dal/math/aad/simulation.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/dal/math/aad/simulation.cpp"
 },
 {
-  "directory": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/build/dal",
-  "command": "/usr/bin/c++  -DBOOST_ALL_NO_LIB -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/math/interp/interp.cpp.o -c /home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/dal/math/interp/interp.cpp",
-  "file": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/dal/math/interp/interp.cpp"
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/dal",
+  "command": "/usr/bin/c++  -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/math/cell.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/dal/math/cell.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/dal/math/cell.cpp"
 },
 {
-  "directory": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/build/dal",
-  "command": "/usr/bin/c++  -DBOOST_ALL_NO_LIB -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/math/interp/interpcubic.cpp.o -c /home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/dal/math/interp/interpcubic.cpp",
-  "file": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/dal/math/interp/interpcubic.cpp"
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/dal",
+  "command": "/usr/bin/c++  -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/math/cellutils.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/dal/math/cellutils.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/dal/math/cellutils.cpp"
 },
 {
-  "directory": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/build/dal",
-  "command": "/usr/bin/c++  -DBOOST_ALL_NO_LIB -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/math/matrix/banded.cpp.o -c /home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/dal/math/matrix/banded.cpp",
-  "file": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/dal/math/matrix/banded.cpp"
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/dal",
+  "command": "/usr/bin/c++  -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/math/distribution/black.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/dal/math/distribution/black.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/dal/math/distribution/black.cpp"
 },
 {
-  "directory": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/build/dal",
-  "command": "/usr/bin/c++  -DBOOST_ALL_NO_LIB -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/math/matrix/decompositions.cpp.o -c /home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/dal/math/matrix/decompositions.cpp",
-  "file": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/dal/math/matrix/decompositions.cpp"
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/dal",
+  "command": "/usr/bin/c++  -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/math/distribution/utils.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/dal/math/distribution/utils.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/dal/math/distribution/utils.cpp"
 },
 {
-  "directory": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/build/dal",
-  "command": "/usr/bin/c++  -DBOOST_ALL_NO_LIB -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/math/matrix/matrixarithmetic.cpp.o -c /home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/dal/math/matrix/matrixarithmetic.cpp",
-  "file": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/dal/math/matrix/matrixarithmetic.cpp"
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/dal",
+  "command": "/usr/bin/c++  -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/math/interp/interp.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/dal/math/interp/interp.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/dal/math/interp/interp.cpp"
 },
 {
-  "directory": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/build/dal",
-  "command": "/usr/bin/c++  -DBOOST_ALL_NO_LIB -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/math/matrix/matrixs.cpp.o -c /home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/dal/math/matrix/matrixs.cpp",
-  "file": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/dal/math/matrix/matrixs.cpp"
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/dal",
+  "command": "/usr/bin/c++  -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/math/interp/interp2d.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/dal/math/interp/interp2d.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/dal/math/interp/interp2d.cpp"
 },
 {
-  "directory": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/build/dal",
-  "command": "/usr/bin/c++  -DBOOST_ALL_NO_LIB -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/math/matrix/matrixutils.cpp.o -c /home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/dal/math/matrix/matrixutils.cpp",
-  "file": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/dal/math/matrix/matrixutils.cpp"
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/dal",
+  "command": "/usr/bin/c++  -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/math/interp/interpcubic.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/dal/math/interp/interpcubic.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/dal/math/interp/interpcubic.cpp"
 },
 {
-  "directory": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/build/dal",
-  "command": "/usr/bin/c++  -DBOOST_ALL_NO_LIB -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/math/matrix/sparse.cpp.o -c /home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/dal/math/matrix/sparse.cpp",
-  "file": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/dal/math/matrix/sparse.cpp"
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/dal",
+  "command": "/usr/bin/c++  -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/math/matrix/banded.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/dal/math/matrix/banded.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/dal/math/matrix/banded.cpp"
 },
 {
-  "directory": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/build/dal",
-  "command": "/usr/bin/c++  -DBOOST_ALL_NO_LIB -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/math/random/pseudorandom.cpp.o -c /home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/dal/math/random/pseudorandom.cpp",
-  "file": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/dal/math/random/pseudorandom.cpp"
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/dal",
+  "command": "/usr/bin/c++  -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/math/matrix/decompositions.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/dal/math/matrix/decompositions.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/dal/math/matrix/decompositions.cpp"
 },
 {
-  "directory": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/build/dal",
-  "command": "/usr/bin/c++  -DBOOST_ALL_NO_LIB -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/math/random/sobol.cpp.o -c /home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/dal/math/random/sobol.cpp",
-  "file": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/dal/math/random/sobol.cpp"
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/dal",
+  "command": "/usr/bin/c++  -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/math/matrix/matrixarithmetic.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/dal/math/matrix/matrixarithmetic.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/dal/math/matrix/matrixarithmetic.cpp"
 },
 {
-  "directory": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/build/dal",
-  "command": "/usr/bin/c++  -DBOOST_ALL_NO_LIB -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/math/rootfind.cpp.o -c /home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/dal/math/rootfind.cpp",
-  "file": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/dal/math/rootfind.cpp"
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/dal",
+  "command": "/usr/bin/c++  -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/math/matrix/matrixs.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/dal/math/matrix/matrixs.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/dal/math/matrix/matrixs.cpp"
 },
 {
-  "directory": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/build/dal",
-  "command": "/usr/bin/c++  -DBOOST_ALL_NO_LIB -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/math/smooth.cpp.o -c /home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/dal/math/smooth.cpp",
-  "file": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/dal/math/smooth.cpp"
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/dal",
+  "command": "/usr/bin/c++  -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/math/matrix/matrixutils.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/dal/math/matrix/matrixutils.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/dal/math/matrix/matrixutils.cpp"
 },
 {
-  "directory": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/build/dal",
-  "command": "/usr/bin/c++  -DBOOST_ALL_NO_LIB -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/math/specialfunctions.cpp.o -c /home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/dal/math/specialfunctions.cpp",
-  "file": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/dal/math/specialfunctions.cpp"
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/dal",
+  "command": "/usr/bin/c++  -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/math/matrix/sparse.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/dal/math/matrix/sparse.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/dal/math/matrix/sparse.cpp"
 },
 {
-  "directory": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/build/dal",
-  "command": "/usr/bin/c++  -DBOOST_ALL_NO_LIB -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/math/vectors.cpp.o -c /home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/dal/math/vectors.cpp",
-  "file": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/dal/math/vectors.cpp"
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/dal",
+  "command": "/usr/bin/c++  -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/math/random/pseudorandom.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/dal/math/random/pseudorandom.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/dal/math/random/pseudorandom.cpp"
 },
 {
-  "directory": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/build/dal",
-  "command": "/usr/bin/c++  -DBOOST_ALL_NO_LIB -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/platform/host.cpp.o -c /home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/dal/platform/host.cpp",
-  "file": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/dal/platform/host.cpp"
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/dal",
+  "command": "/usr/bin/c++  -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/math/random/sobol.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/dal/math/random/sobol.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/dal/math/random/sobol.cpp"
 },
 {
-  "directory": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/build/dal",
-  "command": "/usr/bin/c++  -DBOOST_ALL_NO_LIB -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/protocol/collateraltype.cpp.o -c /home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/dal/protocol/collateraltype.cpp",
-  "file": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/dal/protocol/collateraltype.cpp"
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/dal",
+  "command": "/usr/bin/c++  -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/math/rootfind.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/dal/math/rootfind.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/dal/math/rootfind.cpp"
 },
 {
-  "directory": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/build/dal",
-  "command": "/usr/bin/c++  -DBOOST_ALL_NO_LIB -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/protocol/conventions.cpp.o -c /home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/dal/protocol/conventions.cpp",
-  "file": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/dal/protocol/conventions.cpp"
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/dal",
+  "command": "/usr/bin/c++  -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/math/smooth.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/dal/math/smooth.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/dal/math/smooth.cpp"
 },
 {
-  "directory": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/build/dal",
-  "command": "/usr/bin/c++  -DBOOST_ALL_NO_LIB -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/protocol/couponrate.cpp.o -c /home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/dal/protocol/couponrate.cpp",
-  "file": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/dal/protocol/couponrate.cpp"
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/dal",
+  "command": "/usr/bin/c++  -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/math/specialfunctions.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/dal/math/specialfunctions.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/dal/math/specialfunctions.cpp"
 },
 {
-  "directory": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/build/dal",
-  "command": "/usr/bin/c++  -DBOOST_ALL_NO_LIB -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/script/node.cpp.o -c /home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/dal/script/node.cpp",
-  "file": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/dal/script/node.cpp"
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/dal",
+  "command": "/usr/bin/c++  -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/math/vectors.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/dal/math/vectors.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/dal/math/vectors.cpp"
 },
 {
-  "directory": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/build/dal",
-  "command": "/usr/bin/c++  -DBOOST_ALL_NO_LIB -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/script/parser.cpp.o -c /home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/dal/script/parser.cpp",
-  "file": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/dal/script/parser.cpp"
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/dal",
+  "command": "/usr/bin/c++  -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/platform/host.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/dal/platform/host.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/dal/platform/host.cpp"
 },
 {
-  "directory": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/build/dal",
-  "command": "/usr/bin/c++  -DBOOST_ALL_NO_LIB -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/script/visitor/debugger.cpp.o -c /home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/dal/script/visitor/debugger.cpp",
-  "file": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/dal/script/visitor/debugger.cpp"
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/dal",
+  "command": "/usr/bin/c++  -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/protocol/collateraltype.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/dal/protocol/collateraltype.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/dal/protocol/collateraltype.cpp"
 },
 {
-  "directory": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/build/dal",
-  "command": "/usr/bin/c++  -DBOOST_ALL_NO_LIB -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/storage/archive.cpp.o -c /home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/dal/storage/archive.cpp",
-  "file": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/dal/storage/archive.cpp"
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/dal",
+  "command": "/usr/bin/c++  -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/protocol/conventions.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/dal/protocol/conventions.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/dal/protocol/conventions.cpp"
 },
 {
-  "directory": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/build/dal",
-  "command": "/usr/bin/c++  -DBOOST_ALL_NO_LIB -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/storage/box.cpp.o -c /home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/dal/storage/box.cpp",
-  "file": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/dal/storage/box.cpp"
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/dal",
+  "command": "/usr/bin/c++  -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/protocol/couponrate.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/dal/protocol/couponrate.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/dal/protocol/couponrate.cpp"
 },
 {
-  "directory": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/build/dal",
-  "command": "/usr/bin/c++  -DBOOST_ALL_NO_LIB -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/storage/globals.cpp.o -c /home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/dal/storage/globals.cpp",
-  "file": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/dal/storage/globals.cpp"
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/dal",
+  "command": "/usr/bin/c++  -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/protocol/optiontype.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/dal/protocol/optiontype.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/dal/protocol/optiontype.cpp"
 },
 {
-  "directory": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/build/dal",
-  "command": "/usr/bin/c++  -DBOOST_ALL_NO_LIB -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/storage/splat.cpp.o -c /home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/dal/storage/splat.cpp",
-  "file": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/dal/storage/splat.cpp"
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/dal",
+  "command": "/usr/bin/c++  -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/script/node.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/dal/script/node.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/dal/script/node.cpp"
 },
 {
-  "directory": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/build/dal",
-  "command": "/usr/bin/c++  -DBOOST_ALL_NO_LIB -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/string/strings.cpp.o -c /home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/dal/string/strings.cpp",
-  "file": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/dal/string/strings.cpp"
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/dal",
+  "command": "/usr/bin/c++  -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/script/parser.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/dal/script/parser.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/dal/script/parser.cpp"
 },
 {
-  "directory": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/build/dal",
-  "command": "/usr/bin/c++  -DBOOST_ALL_NO_LIB -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/string/stringutils.cpp.o -c /home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/dal/string/stringutils.cpp",
-  "file": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/dal/string/stringutils.cpp"
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/dal",
+  "command": "/usr/bin/c++  -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/script/visitor/debugger.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/dal/script/visitor/debugger.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/dal/script/visitor/debugger.cpp"
 },
 {
-  "directory": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/build/dal",
-  "command": "/usr/bin/c++  -DBOOST_ALL_NO_LIB -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/time/calendars/init.cpp.o -c /home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/dal/time/calendars/init.cpp",
-  "file": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/dal/time/calendars/init.cpp"
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/dal",
+  "command": "/usr/bin/c++  -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/script/visitor/domain.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/dal/script/visitor/domain.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/dal/script/visitor/domain.cpp"
 },
 {
-  "directory": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/build/dal",
-  "command": "/usr/bin/c++  -DBOOST_ALL_NO_LIB -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/time/date.cpp.o -c /home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/dal/time/date.cpp",
-  "file": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/dal/time/date.cpp"
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/dal",
+  "command": "/usr/bin/c++  -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/script/visitor/domainproc.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/dal/script/visitor/domainproc.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/dal/script/visitor/domainproc.cpp"
 },
 {
-  "directory": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/build/dal",
-  "command": "/usr/bin/c++  -DBOOST_ALL_NO_LIB -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/time/dateincrement.cpp.o -c /home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/dal/time/dateincrement.cpp",
-  "file": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/dal/time/dateincrement.cpp"
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/dal",
+  "command": "/usr/bin/c++  -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/script/visitor/ifprocessor.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/dal/script/visitor/ifprocessor.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/dal/script/visitor/ifprocessor.cpp"
 },
 {
-  "directory": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/build/dal",
-  "command": "/usr/bin/c++  -DBOOST_ALL_NO_LIB -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/time/datetime.cpp.o -c /home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/dal/time/datetime.cpp",
-  "file": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/dal/time/datetime.cpp"
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/dal",
+  "command": "/usr/bin/c++  -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/script/visitor/varindexer.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/dal/script/visitor/varindexer.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/dal/script/visitor/varindexer.cpp"
 },
 {
-  "directory": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/build/dal",
-  "command": "/usr/bin/c++  -DBOOST_ALL_NO_LIB -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/time/datetimeutils.cpp.o -c /home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/dal/time/datetimeutils.cpp",
-  "file": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/dal/time/datetimeutils.cpp"
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/dal",
+  "command": "/usr/bin/c++  -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/storage/archive.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/dal/storage/archive.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/dal/storage/archive.cpp"
 },
 {
-  "directory": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/build/dal",
-  "command": "/usr/bin/c++  -DBOOST_ALL_NO_LIB -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/time/dateutils.cpp.o -c /home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/dal/time/dateutils.cpp",
-  "file": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/dal/time/dateutils.cpp"
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/dal",
+  "command": "/usr/bin/c++  -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/storage/box.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/dal/storage/box.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/dal/storage/box.cpp"
 },
 {
-  "directory": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/build/dal",
-  "command": "/usr/bin/c++  -DBOOST_ALL_NO_LIB -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/time/daybasis.cpp.o -c /home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/dal/time/daybasis.cpp",
-  "file": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/dal/time/daybasis.cpp"
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/dal",
+  "command": "/usr/bin/c++  -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/storage/globals.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/dal/storage/globals.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/dal/storage/globals.cpp"
 },
 {
-  "directory": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/build/dal",
-  "command": "/usr/bin/c++  -DBOOST_ALL_NO_LIB -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/time/holidaydata.cpp.o -c /home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/dal/time/holidaydata.cpp",
-  "file": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/dal/time/holidaydata.cpp"
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/dal",
+  "command": "/usr/bin/c++  -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/storage/splat.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/dal/storage/splat.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/dal/storage/splat.cpp"
 },
 {
-  "directory": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/build/dal",
-  "command": "/usr/bin/c++  -DBOOST_ALL_NO_LIB -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/time/holidays.cpp.o -c /home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/dal/time/holidays.cpp",
-  "file": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/dal/time/holidays.cpp"
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/dal",
+  "command": "/usr/bin/c++  -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/string/strings.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/dal/string/strings.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/dal/string/strings.cpp"
 },
 {
-  "directory": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/build/dal",
-  "command": "/usr/bin/c++  -DBOOST_ALL_NO_LIB -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/time/periodlength.cpp.o -c /home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/dal/time/periodlength.cpp",
-  "file": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/dal/time/periodlength.cpp"
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/dal",
+  "command": "/usr/bin/c++  -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/string/stringutils.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/dal/string/stringutils.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/dal/string/stringutils.cpp"
 },
 {
-  "directory": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/build/dal",
-  "command": "/usr/bin/c++  -DBOOST_ALL_NO_LIB -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/utilities/dictionary.cpp.o -c /home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/dal/utilities/dictionary.cpp",
-  "file": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/dal/utilities/dictionary.cpp"
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/dal",
+  "command": "/usr/bin/c++  -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/time/calendars/init.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/dal/time/calendars/init.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/dal/time/calendars/init.cpp"
 },
 {
-  "directory": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/build/dal",
-  "command": "/usr/bin/c++  -DBOOST_ALL_NO_LIB -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/utilities/environment.cpp.o -c /home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/dal/utilities/environment.cpp",
-  "file": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/dal/utilities/environment.cpp"
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/dal",
+  "command": "/usr/bin/c++  -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/time/date.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/dal/time/date.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/dal/time/date.cpp"
 },
 {
-  "directory": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/build/dal",
-  "command": "/usr/bin/c++  -DBOOST_ALL_NO_LIB -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/utilities/exceptions.cpp.o -c /home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/dal/utilities/exceptions.cpp",
-  "file": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/dal/utilities/exceptions.cpp"
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/dal",
+  "command": "/usr/bin/c++  -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/time/dateincrement.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/dal/time/dateincrement.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/dal/time/dateincrement.cpp"
 },
 {
-  "directory": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/build/dal",
-  "command": "/usr/bin/c++  -DBOOST_ALL_NO_LIB -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/utilities/file.cpp.o -c /home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/dal/utilities/file.cpp",
-  "file": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/dal/utilities/file.cpp"
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/dal",
+  "command": "/usr/bin/c++  -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/time/datetime.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/dal/time/datetime.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/dal/time/datetime.cpp"
 },
 {
-  "directory": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/build/dal",
-  "command": "/usr/bin/c++  -DBOOST_ALL_NO_LIB -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/utilities/numerics.cpp.o -c /home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/dal/utilities/numerics.cpp",
-  "file": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/dal/utilities/numerics.cpp"
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/dal",
+  "command": "/usr/bin/c++  -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/time/datetimeutils.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/dal/time/datetimeutils.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/dal/time/datetimeutils.cpp"
 },
 {
-  "directory": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/build/public",
-  "command": "/usr/bin/c++  -DBOOST_ALL_NO_LIB -Ddal_public_EXPORTS -I/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_public.dir/__interp.cpp.o -c /home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/public/__interp.cpp",
-  "file": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/public/__interp.cpp"
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/dal",
+  "command": "/usr/bin/c++  -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/time/dateutils.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/dal/time/dateutils.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/dal/time/dateutils.cpp"
 },
 {
-  "directory": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/build/public",
-  "command": "/usr/bin/c++  -DBOOST_ALL_NO_LIB -Ddal_public_EXPORTS -I/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_public.dir/__repository.cpp.o -c /home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/public/__repository.cpp",
-  "file": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/public/__repository.cpp"
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/dal",
+  "command": "/usr/bin/c++  -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/time/daybasis.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/dal/time/daybasis.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/dal/time/daybasis.cpp"
 },
 {
-  "directory": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/build/public",
-  "command": "/usr/bin/c++  -DBOOST_ALL_NO_LIB -Ddal_public_EXPORTS -I/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_public.dir/_excel.cpp.o -c /home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/public/_excel.cpp",
-  "file": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/public/_excel.cpp"
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/dal",
+  "command": "/usr/bin/c++  -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/time/holidaydata.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/dal/time/holidaydata.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/dal/time/holidaydata.cpp"
 },
 {
-  "directory": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/build/public",
-  "command": "/usr/bin/c++  -DBOOST_ALL_NO_LIB -Ddal_public_EXPORTS -I/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_public.dir/_repository.cpp.o -c /home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/public/_repository.cpp",
-  "file": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/public/_repository.cpp"
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/dal",
+  "command": "/usr/bin/c++  -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/time/holidays.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/dal/time/holidays.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/dal/time/holidays.cpp"
 },
 {
-  "directory": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/build/public",
-  "command": "/usr/bin/c++  -DBOOST_ALL_NO_LIB -Ddal_public_EXPORTS -I/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_public.dir/_xlcall.cpp.o -c /home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/public/_xlcall.cpp",
-  "file": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/public/_xlcall.cpp"
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/dal",
+  "command": "/usr/bin/c++  -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/time/periodlength.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/dal/time/periodlength.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/dal/time/periodlength.cpp"
 },
 {
-  "directory": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/build/examples/aad",
-  "command": "/usr/bin/c++  -DBOOST_ALL_NO_LIB -I/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIE   -std=c++17 -o CMakeFiles/aad.dir/aad.cpp.o -c /home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/examples/aad/aad.cpp",
-  "file": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/examples/aad/aad.cpp"
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/dal",
+  "command": "/usr/bin/c++  -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/time/schedules.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/dal/time/schedules.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/dal/time/schedules.cpp"
 },
 {
-  "directory": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/build/examples/date_utilities",
-  "command": "/usr/bin/c++  -DBOOST_ALL_NO_LIB -I/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIE   -std=c++17 -o CMakeFiles/date_utilities.dir/date_utilities.cpp.o -c /home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/examples/date_utilities/date_utilities.cpp",
-  "file": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/examples/date_utilities/date_utilities.cpp"
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/dal",
+  "command": "/usr/bin/c++  -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/utilities/dictionary.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/dal/utilities/dictionary.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/dal/utilities/dictionary.cpp"
 },
 {
-  "directory": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/build/examples/european",
-  "command": "/usr/bin/c++  -DBOOST_ALL_NO_LIB -I/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIE   -std=c++17 -o CMakeFiles/european.dir/euorpean.cpp.o -c /home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/examples/european/euorpean.cpp",
-  "file": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/examples/european/euorpean.cpp"
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/dal",
+  "command": "/usr/bin/c++  -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/utilities/environment.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/dal/utilities/environment.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/dal/utilities/environment.cpp"
 },
 {
-  "directory": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/build/examples/sobol",
-  "command": "/usr/bin/c++  -DBOOST_ALL_NO_LIB -I/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIE   -std=c++17 -o CMakeFiles/sobol.dir/sobol.cpp.o -c /home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/examples/sobol/sobol.cpp",
-  "file": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/examples/sobol/sobol.cpp"
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/dal",
+  "command": "/usr/bin/c++  -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/utilities/exceptions.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/dal/utilities/exceptions.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/dal/utilities/exceptions.cpp"
 },
 {
-  "directory": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/build/examples/script",
-  "command": "/usr/bin/c++  -DBOOST_ALL_NO_LIB -I/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIE   -std=c++17 -o CMakeFiles/script.dir/script.cpp.o -c /home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/examples/script/script.cpp",
-  "file": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/examples/script/script.cpp"
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/dal",
+  "command": "/usr/bin/c++  -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/utilities/file.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/dal/utilities/file.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/dal/utilities/file.cpp"
 },
 {
-  "directory": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/build/tests",
-  "command": "/usr/bin/c++  -DBOOST_ALL_NO_LIB -I/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIE   -std=c++17 -o CMakeFiles/test_suite.dir/concurrency/test_concurrentqueue.cpp.o -c /home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/tests/concurrency/test_concurrentqueue.cpp",
-  "file": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/tests/concurrency/test_concurrentqueue.cpp"
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/dal",
+  "command": "/usr/bin/c++  -Ddal_library_EXPORTS -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_library.dir/utilities/numerics.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/dal/utilities/numerics.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/dal/utilities/numerics.cpp"
 },
 {
-  "directory": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/build/tests",
-  "command": "/usr/bin/c++  -DBOOST_ALL_NO_LIB -I/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIE   -std=c++17 -o CMakeFiles/test_suite.dir/currency/test_currencydata.cpp.o -c /home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/tests/currency/test_currencydata.cpp",
-  "file": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/tests/currency/test_currencydata.cpp"
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/public/src",
+  "command": "/usr/bin/c++  -DIS_BASE -Ddal_public_EXPORTS -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_public.dir/interp.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/public/src/interp.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/public/src/interp.cpp"
 },
 {
-  "directory": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/build/tests",
-  "command": "/usr/bin/c++  -DBOOST_ALL_NO_LIB -I/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIE   -std=c++17 -o CMakeFiles/test_suite.dir/indice/index/test_ir.cpp.o -c /home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/tests/indice/index/test_ir.cpp",
-  "file": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/tests/indice/index/test_ir.cpp"
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/public/src",
+  "command": "/usr/bin/c++  -DIS_BASE -Ddal_public_EXPORTS -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIC   -std=c++17 -o CMakeFiles/dal_public.dir/random.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/public/src/random.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/public/src/random.cpp"
 },
 {
-  "directory": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/build/tests",
-  "command": "/usr/bin/c++  -DBOOST_ALL_NO_LIB -I/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIE   -std=c++17 -o CMakeFiles/test_suite.dir/indice/index/test_quity.cpp.o -c /home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/tests/indice/index/test_quity.cpp",
-  "file": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/tests/indice/index/test_quity.cpp"
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/examples/aad",
+  "command": "/usr/bin/c++   -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIE   -std=c++17 -o CMakeFiles/aad.dir/aad.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/examples/aad/aad.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/examples/aad/aad.cpp"
 },
 {
-  "directory": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/build/tests",
-  "command": "/usr/bin/c++  -DBOOST_ALL_NO_LIB -I/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIE   -std=c++17 -o CMakeFiles/test_suite.dir/indice/parser/test_equity.cpp.o -c /home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/tests/indice/parser/test_equity.cpp",
-  "file": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/tests/indice/parser/test_equity.cpp"
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/examples/date_utilities",
+  "command": "/usr/bin/c++   -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIE   -std=c++17 -o CMakeFiles/date_utilities.dir/date_utilities.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/examples/date_utilities/date_utilities.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/examples/date_utilities/date_utilities.cpp"
 },
 {
-  "directory": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/build/tests",
-  "command": "/usr/bin/c++  -DBOOST_ALL_NO_LIB -I/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIE   -std=c++17 -o CMakeFiles/test_suite.dir/math/aad/models/test_blackscholes.cpp.o -c /home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/tests/math/aad/models/test_blackscholes.cpp",
-  "file": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/tests/math/aad/models/test_blackscholes.cpp"
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/examples/european",
+  "command": "/usr/bin/c++   -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIE   -std=c++17 -o CMakeFiles/european.dir/euorpean.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/examples/european/euorpean.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/examples/european/euorpean.cpp"
 },
 {
-  "directory": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/build/tests",
-  "command": "/usr/bin/c++  -DBOOST_ALL_NO_LIB -I/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIE   -std=c++17 -o CMakeFiles/test_suite.dir/math/aad/test_expr.cpp.o -c /home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/tests/math/aad/test_expr.cpp",
-  "file": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/tests/math/aad/test_expr.cpp"
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/examples/sobol",
+  "command": "/usr/bin/c++   -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIE   -std=c++17 -o CMakeFiles/sobol.dir/sobol.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/examples/sobol/sobol.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/examples/sobol/sobol.cpp"
 },
 {
-  "directory": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/build/tests",
-  "command": "/usr/bin/c++  -DBOOST_ALL_NO_LIB -I/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIE   -std=c++17 -o CMakeFiles/test_suite.dir/math/aad/test_number.cpp.o -c /home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/tests/math/aad/test_number.cpp",
-  "file": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/tests/math/aad/test_number.cpp"
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/examples/script",
+  "command": "/usr/bin/c++   -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIE   -std=c++17 -o CMakeFiles/script.dir/script.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/examples/script/script.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/examples/script/script.cpp"
 },
 {
-  "directory": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/build/tests",
-  "command": "/usr/bin/c++  -DBOOST_ALL_NO_LIB -I/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIE   -std=c++17 -o CMakeFiles/test_suite.dir/math/interp/test_interp.cpp.o -c /home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/tests/math/interp/test_interp.cpp",
-  "file": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/tests/math/interp/test_interp.cpp"
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/examples/uoc",
+  "command": "/usr/bin/c++   -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIE   -std=c++17 -o CMakeFiles/uoc.dir/uoc.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/examples/uoc/uoc.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/examples/uoc/uoc.cpp"
 },
 {
-  "directory": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/build/tests",
-  "command": "/usr/bin/c++  -DBOOST_ALL_NO_LIB -I/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIE   -std=c++17 -o CMakeFiles/test_suite.dir/math/interp/test_interpcubic.cpp.o -c /home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/tests/math/interp/test_interpcubic.cpp",
-  "file": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/tests/math/interp/test_interpcubic.cpp"
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/tests",
+  "command": "/usr/bin/c++   -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIE   -std=c++17 -o CMakeFiles/test_suite.dir/concurrency/test_concurrentqueue.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/tests/concurrency/test_concurrentqueue.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/tests/concurrency/test_concurrentqueue.cpp"
 },
 {
-  "directory": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/build/tests",
-  "command": "/usr/bin/c++  -DBOOST_ALL_NO_LIB -I/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIE   -std=c++17 -o CMakeFiles/test_suite.dir/math/matrix/test_banded.cpp.o -c /home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/tests/math/matrix/test_banded.cpp",
-  "file": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/tests/math/matrix/test_banded.cpp"
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/tests",
+  "command": "/usr/bin/c++   -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIE   -std=c++17 -o CMakeFiles/test_suite.dir/currency/test_currencydata.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/tests/currency/test_currencydata.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/tests/currency/test_currencydata.cpp"
 },
 {
-  "directory": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/build/tests",
-  "command": "/usr/bin/c++  -DBOOST_ALL_NO_LIB -I/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIE   -std=c++17 -o CMakeFiles/test_suite.dir/math/matrix/test_matrixarithmetic.cpp.o -c /home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/tests/math/matrix/test_matrixarithmetic.cpp",
-  "file": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/tests/math/matrix/test_matrixarithmetic.cpp"
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/tests",
+  "command": "/usr/bin/c++   -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIE   -std=c++17 -o CMakeFiles/test_suite.dir/indice/index/test_ir.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/tests/indice/index/test_ir.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/tests/indice/index/test_ir.cpp"
 },
 {
-  "directory": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/build/tests",
-  "command": "/usr/bin/c++  -DBOOST_ALL_NO_LIB -I/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIE   -std=c++17 -o CMakeFiles/test_suite.dir/math/matrix/test_matrixs.cpp.o -c /home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/tests/math/matrix/test_matrixs.cpp",
-  "file": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/tests/math/matrix/test_matrixs.cpp"
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/tests",
+  "command": "/usr/bin/c++   -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIE   -std=c++17 -o CMakeFiles/test_suite.dir/indice/index/test_quity.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/tests/indice/index/test_quity.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/tests/indice/index/test_quity.cpp"
 },
 {
-  "directory": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/build/tests",
-  "command": "/usr/bin/c++  -DBOOST_ALL_NO_LIB -I/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIE   -std=c++17 -o CMakeFiles/test_suite.dir/math/random/test_pseudorandom.cpp.o -c /home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/tests/math/random/test_pseudorandom.cpp",
-  "file": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/tests/math/random/test_pseudorandom.cpp"
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/tests",
+  "command": "/usr/bin/c++   -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIE   -std=c++17 -o CMakeFiles/test_suite.dir/indice/parser/test_equity.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/tests/indice/parser/test_equity.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/tests/indice/parser/test_equity.cpp"
 },
 {
-  "directory": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/build/tests",
-  "command": "/usr/bin/c++  -DBOOST_ALL_NO_LIB -I/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIE   -std=c++17 -o CMakeFiles/test_suite.dir/math/random/test_sobol.cpp.o -c /home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/tests/math/random/test_sobol.cpp",
-  "file": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/tests/math/random/test_sobol.cpp"
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/tests",
+  "command": "/usr/bin/c++   -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIE   -std=c++17 -o CMakeFiles/test_suite.dir/math/aad/models/test_analytics.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/tests/math/aad/models/test_analytics.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/tests/math/aad/models/test_analytics.cpp"
 },
 {
-  "directory": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/build/tests",
-  "command": "/usr/bin/c++  -DBOOST_ALL_NO_LIB -I/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIE   -std=c++17 -o CMakeFiles/test_suite.dir/math/test_cell.cpp.o -c /home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/tests/math/test_cell.cpp",
-  "file": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/tests/math/test_cell.cpp"
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/tests",
+  "command": "/usr/bin/c++   -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIE   -std=c++17 -o CMakeFiles/test_suite.dir/math/aad/models/test_blackscholes.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/tests/math/aad/models/test_blackscholes.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/tests/math/aad/models/test_blackscholes.cpp"
 },
 {
-  "directory": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/build/tests",
-  "command": "/usr/bin/c++  -DBOOST_ALL_NO_LIB -I/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIE   -std=c++17 -o CMakeFiles/test_suite.dir/math/test_cellutils.cpp.o -c /home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/tests/math/test_cellutils.cpp",
-  "file": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/tests/math/test_cellutils.cpp"
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/tests",
+  "command": "/usr/bin/c++   -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIE   -std=c++17 -o CMakeFiles/test_suite.dir/math/aad/models/test_dupire.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/tests/math/aad/models/test_dupire.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/tests/math/aad/models/test_dupire.cpp"
 },
 {
-  "directory": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/build/tests",
-  "command": "/usr/bin/c++  -DBOOST_ALL_NO_LIB -I/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIE   -std=c++17 -o CMakeFiles/test_suite.dir/math/test_rootfind.cpp.o -c /home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/tests/math/test_rootfind.cpp",
-  "file": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/tests/math/test_rootfind.cpp"
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/tests",
+  "command": "/usr/bin/c++   -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIE   -std=c++17 -o CMakeFiles/test_suite.dir/math/aad/models/test_ivs.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/tests/math/aad/models/test_ivs.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/tests/math/aad/models/test_ivs.cpp"
 },
 {
-  "directory": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/build/tests",
-  "command": "/usr/bin/c++  -DBOOST_ALL_NO_LIB -I/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIE   -std=c++17 -o CMakeFiles/test_suite.dir/math/test_specialfunctions.cpp.o -c /home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/tests/math/test_specialfunctions.cpp",
-  "file": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/tests/math/test_specialfunctions.cpp"
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/tests",
+  "command": "/usr/bin/c++   -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIE   -std=c++17 -o CMakeFiles/test_suite.dir/math/aad/products/test_european.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/tests/math/aad/products/test_european.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/tests/math/aad/products/test_european.cpp"
 },
 {
-  "directory": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/build/tests",
-  "command": "/usr/bin/c++  -DBOOST_ALL_NO_LIB -I/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIE   -std=c++17 -o CMakeFiles/test_suite.dir/math/test_vectors.cpp.o -c /home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/tests/math/test_vectors.cpp",
-  "file": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/tests/math/test_vectors.cpp"
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/tests",
+  "command": "/usr/bin/c++   -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIE   -std=c++17 -o CMakeFiles/test_suite.dir/math/aad/test_blocklist.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/tests/math/aad/test_blocklist.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/tests/math/aad/test_blocklist.cpp"
 },
 {
-  "directory": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/build/tests",
-  "command": "/usr/bin/c++  -DBOOST_ALL_NO_LIB -I/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIE   -std=c++17 -o CMakeFiles/test_suite.dir/platform/test_host.cpp.o -c /home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/tests/platform/test_host.cpp",
-  "file": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/tests/platform/test_host.cpp"
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/tests",
+  "command": "/usr/bin/c++   -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIE   -std=c++17 -o CMakeFiles/test_suite.dir/math/aad/test_expr.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/tests/math/aad/test_expr.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/tests/math/aad/test_expr.cpp"
 },
 {
-  "directory": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/build/tests",
-  "command": "/usr/bin/c++  -DBOOST_ALL_NO_LIB -I/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIE   -std=c++17 -o CMakeFiles/test_suite.dir/platform/test_platform.cpp.o -c /home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/tests/platform/test_platform.cpp",
-  "file": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/tests/platform/test_platform.cpp"
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/tests",
+  "command": "/usr/bin/c++   -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIE   -std=c++17 -o CMakeFiles/test_suite.dir/math/aad/test_number.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/tests/math/aad/test_number.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/tests/math/aad/test_number.cpp"
 },
 {
-  "directory": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/build/tests",
-  "command": "/usr/bin/c++  -DBOOST_ALL_NO_LIB -I/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIE   -std=c++17 -o CMakeFiles/test_suite.dir/platform/test_strict.cpp.o -c /home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/tests/platform/test_strict.cpp",
-  "file": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/tests/platform/test_strict.cpp"
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/tests",
+  "command": "/usr/bin/c++   -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIE   -std=c++17 -o CMakeFiles/test_suite.dir/math/distribution/test_black.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/tests/math/distribution/test_black.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/tests/math/distribution/test_black.cpp"
 },
 {
-  "directory": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/build/tests",
-  "command": "/usr/bin/c++  -DBOOST_ALL_NO_LIB -I/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIE   -std=c++17 -o CMakeFiles/test_suite.dir/storage/test_splat.cpp.o -c /home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/tests/storage/test_splat.cpp",
-  "file": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/tests/storage/test_splat.cpp"
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/tests",
+  "command": "/usr/bin/c++   -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIE   -std=c++17 -o CMakeFiles/test_suite.dir/math/interp/test_interp.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/tests/math/interp/test_interp.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/tests/math/interp/test_interp.cpp"
 },
 {
-  "directory": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/build/tests",
-  "command": "/usr/bin/c++  -DBOOST_ALL_NO_LIB -I/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIE   -std=c++17 -o CMakeFiles/test_suite.dir/string/test_strings.cpp.o -c /home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/tests/string/test_strings.cpp",
-  "file": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/tests/string/test_strings.cpp"
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/tests",
+  "command": "/usr/bin/c++   -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIE   -std=c++17 -o CMakeFiles/test_suite.dir/math/interp/test_interp2d.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/tests/math/interp/test_interp2d.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/tests/math/interp/test_interp2d.cpp"
 },
 {
-  "directory": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/build/tests",
-  "command": "/usr/bin/c++  -DBOOST_ALL_NO_LIB -I/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIE   -std=c++17 -o CMakeFiles/test_suite.dir/string/test_stringutils.cpp.o -c /home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/tests/string/test_stringutils.cpp",
-  "file": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/tests/string/test_stringutils.cpp"
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/tests",
+  "command": "/usr/bin/c++   -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIE   -std=c++17 -o CMakeFiles/test_suite.dir/math/interp/test_interpcubic.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/tests/math/interp/test_interpcubic.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/tests/math/interp/test_interpcubic.cpp"
 },
 {
-  "directory": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/build/tests",
-  "command": "/usr/bin/c++  -DBOOST_ALL_NO_LIB -I/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIE   -std=c++17 -o CMakeFiles/test_suite.dir/test_main.cpp.o -c /home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/tests/test_main.cpp",
-  "file": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/tests/test_main.cpp"
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/tests",
+  "command": "/usr/bin/c++   -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIE   -std=c++17 -o CMakeFiles/test_suite.dir/math/matrix/test_banded.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/tests/math/matrix/test_banded.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/tests/math/matrix/test_banded.cpp"
 },
 {
-  "directory": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/build/tests",
-  "command": "/usr/bin/c++  -DBOOST_ALL_NO_LIB -I/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIE   -std=c++17 -o CMakeFiles/test_suite.dir/time/calendars/test_china.cpp.o -c /home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/tests/time/calendars/test_china.cpp",
-  "file": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/tests/time/calendars/test_china.cpp"
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/tests",
+  "command": "/usr/bin/c++   -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIE   -std=c++17 -o CMakeFiles/test_suite.dir/math/matrix/test_matrixarithmetic.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/tests/math/matrix/test_matrixarithmetic.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/tests/math/matrix/test_matrixarithmetic.cpp"
 },
 {
-  "directory": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/build/tests",
-  "command": "/usr/bin/c++  -DBOOST_ALL_NO_LIB -I/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIE   -std=c++17 -o CMakeFiles/test_suite.dir/time/test_date.cpp.o -c /home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/tests/time/test_date.cpp",
-  "file": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/tests/time/test_date.cpp"
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/tests",
+  "command": "/usr/bin/c++   -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIE   -std=c++17 -o CMakeFiles/test_suite.dir/math/matrix/test_matrixs.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/tests/math/matrix/test_matrixs.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/tests/math/matrix/test_matrixs.cpp"
 },
 {
-  "directory": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/build/tests",
-  "command": "/usr/bin/c++  -DBOOST_ALL_NO_LIB -I/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIE   -std=c++17 -o CMakeFiles/test_suite.dir/time/test_dateincrement.cpp.o -c /home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/tests/time/test_dateincrement.cpp",
-  "file": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/tests/time/test_dateincrement.cpp"
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/tests",
+  "command": "/usr/bin/c++   -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIE   -std=c++17 -o CMakeFiles/test_suite.dir/math/matrix/test_matrixutils.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/tests/math/matrix/test_matrixutils.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/tests/math/matrix/test_matrixutils.cpp"
 },
 {
-  "directory": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/build/tests",
-  "command": "/usr/bin/c++  -DBOOST_ALL_NO_LIB -I/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIE   -std=c++17 -o CMakeFiles/test_suite.dir/time/test_datetime.cpp.o -c /home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/tests/time/test_datetime.cpp",
-  "file": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/tests/time/test_datetime.cpp"
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/tests",
+  "command": "/usr/bin/c++   -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIE   -std=c++17 -o CMakeFiles/test_suite.dir/math/random/test_pseudorandom.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/tests/math/random/test_pseudorandom.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/tests/math/random/test_pseudorandom.cpp"
 },
 {
-  "directory": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/build/tests",
-  "command": "/usr/bin/c++  -DBOOST_ALL_NO_LIB -I/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIE   -std=c++17 -o CMakeFiles/test_suite.dir/time/test_datetimeutils.cpp.o -c /home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/tests/time/test_datetimeutils.cpp",
-  "file": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/tests/time/test_datetimeutils.cpp"
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/tests",
+  "command": "/usr/bin/c++   -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIE   -std=c++17 -o CMakeFiles/test_suite.dir/math/random/test_sobol.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/tests/math/random/test_sobol.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/tests/math/random/test_sobol.cpp"
 },
 {
-  "directory": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/build/tests",
-  "command": "/usr/bin/c++  -DBOOST_ALL_NO_LIB -I/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIE   -std=c++17 -o CMakeFiles/test_suite.dir/time/test_daybasis.cpp.o -c /home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/tests/time/test_daybasis.cpp",
-  "file": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/tests/time/test_daybasis.cpp"
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/tests",
+  "command": "/usr/bin/c++   -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIE   -std=c++17 -o CMakeFiles/test_suite.dir/math/test_cell.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/tests/math/test_cell.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/tests/math/test_cell.cpp"
 },
 {
-  "directory": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/build/tests",
-  "command": "/usr/bin/c++  -DBOOST_ALL_NO_LIB -I/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIE   -std=c++17 -o CMakeFiles/test_suite.dir/utilities/test_algorithms.cpp.o -c /home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/tests/utilities/test_algorithms.cpp",
-  "file": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/tests/utilities/test_algorithms.cpp"
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/tests",
+  "command": "/usr/bin/c++   -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIE   -std=c++17 -o CMakeFiles/test_suite.dir/math/test_cellutils.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/tests/math/test_cellutils.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/tests/math/test_cellutils.cpp"
 },
 {
-  "directory": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/build/tests",
-  "command": "/usr/bin/c++  -DBOOST_ALL_NO_LIB -I/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIE   -std=c++17 -o CMakeFiles/test_suite.dir/utilities/test_dictionary.cpp.o -c /home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/tests/utilities/test_dictionary.cpp",
-  "file": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/tests/utilities/test_dictionary.cpp"
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/tests",
+  "command": "/usr/bin/c++   -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIE   -std=c++17 -o CMakeFiles/test_suite.dir/math/test_rootfind.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/tests/math/test_rootfind.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/tests/math/test_rootfind.cpp"
 },
 {
-  "directory": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/build/tests",
-  "command": "/usr/bin/c++  -DBOOST_ALL_NO_LIB -I/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIE   -std=c++17 -o CMakeFiles/test_suite.dir/utilities/test_environment.cpp.o -c /home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/tests/utilities/test_environment.cpp",
-  "file": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/tests/utilities/test_environment.cpp"
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/tests",
+  "command": "/usr/bin/c++   -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIE   -std=c++17 -o CMakeFiles/test_suite.dir/math/test_specialfunctions.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/tests/math/test_specialfunctions.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/tests/math/test_specialfunctions.cpp"
 },
 {
-  "directory": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/build/tests",
-  "command": "/usr/bin/c++  -DBOOST_ALL_NO_LIB -I/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIE   -std=c++17 -o CMakeFiles/test_suite.dir/utilities/test_exceptions.cpp.o -c /home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/tests/utilities/test_exceptions.cpp",
-  "file": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/tests/utilities/test_exceptions.cpp"
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/tests",
+  "command": "/usr/bin/c++   -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIE   -std=c++17 -o CMakeFiles/test_suite.dir/math/test_vectors.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/tests/math/test_vectors.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/tests/math/test_vectors.cpp"
 },
 {
-  "directory": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/build/tests",
-  "command": "/usr/bin/c++  -DBOOST_ALL_NO_LIB -I/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIE   -std=c++17 -o CMakeFiles/test_suite.dir/utilities/test_file.cpp.o -c /home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/tests/utilities/test_file.cpp",
-  "file": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/tests/utilities/test_file.cpp"
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/tests",
+  "command": "/usr/bin/c++   -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIE   -std=c++17 -o CMakeFiles/test_suite.dir/platform/test_host.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/tests/platform/test_host.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/tests/platform/test_host.cpp"
 },
 {
-  "directory": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/build/tests",
-  "command": "/usr/bin/c++  -DBOOST_ALL_NO_LIB -I/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIE   -std=c++17 -o CMakeFiles/test_suite.dir/utilities/test_functionals.cpp.o -c /home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/tests/utilities/test_functionals.cpp",
-  "file": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/tests/utilities/test_functionals.cpp"
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/tests",
+  "command": "/usr/bin/c++   -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIE   -std=c++17 -o CMakeFiles/test_suite.dir/platform/test_platform.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/tests/platform/test_platform.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/tests/platform/test_platform.cpp"
 },
 {
-  "directory": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/build/tests",
-  "command": "/usr/bin/c++  -DBOOST_ALL_NO_LIB -I/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIE   -std=c++17 -o CMakeFiles/test_suite.dir/utilities/test_numerics.cpp.o -c /home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/tests/utilities/test_numerics.cpp",
-  "file": "/home/wegamekinglc/Documents/dev/github/Derivatives-Algorithms-Lib/tests/utilities/test_numerics.cpp"
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/tests",
+  "command": "/usr/bin/c++   -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIE   -std=c++17 -o CMakeFiles/test_suite.dir/platform/test_strict.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/tests/platform/test_strict.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/tests/platform/test_strict.cpp"
+},
+{
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/tests",
+  "command": "/usr/bin/c++   -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIE   -std=c++17 -o CMakeFiles/test_suite.dir/script/test_parser.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/tests/script/test_parser.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/tests/script/test_parser.cpp"
+},
+{
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/tests",
+  "command": "/usr/bin/c++   -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIE   -std=c++17 -o CMakeFiles/test_suite.dir/script/visitor/test_debugger.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/tests/script/visitor/test_debugger.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/tests/script/visitor/test_debugger.cpp"
+},
+{
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/tests",
+  "command": "/usr/bin/c++   -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIE   -std=c++17 -o CMakeFiles/test_suite.dir/script/visitor/test_evaluator.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/tests/script/visitor/test_evaluator.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/tests/script/visitor/test_evaluator.cpp"
+},
+{
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/tests",
+  "command": "/usr/bin/c++   -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIE   -std=c++17 -o CMakeFiles/test_suite.dir/script/visitor/test_ifprocessor.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/tests/script/visitor/test_ifprocessor.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/tests/script/visitor/test_ifprocessor.cpp"
+},
+{
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/tests",
+  "command": "/usr/bin/c++   -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIE   -std=c++17 -o CMakeFiles/test_suite.dir/script/visitor/test_varindexer.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/tests/script/visitor/test_varindexer.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/tests/script/visitor/test_varindexer.cpp"
+},
+{
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/tests",
+  "command": "/usr/bin/c++   -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIE   -std=c++17 -o CMakeFiles/test_suite.dir/storage/test_globals.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/tests/storage/test_globals.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/tests/storage/test_globals.cpp"
+},
+{
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/tests",
+  "command": "/usr/bin/c++   -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIE   -std=c++17 -o CMakeFiles/test_suite.dir/storage/test_splat.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/tests/storage/test_splat.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/tests/storage/test_splat.cpp"
+},
+{
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/tests",
+  "command": "/usr/bin/c++   -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIE   -std=c++17 -o CMakeFiles/test_suite.dir/string/test_strings.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/tests/string/test_strings.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/tests/string/test_strings.cpp"
+},
+{
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/tests",
+  "command": "/usr/bin/c++   -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIE   -std=c++17 -o CMakeFiles/test_suite.dir/string/test_stringutils.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/tests/string/test_stringutils.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/tests/string/test_stringutils.cpp"
+},
+{
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/tests",
+  "command": "/usr/bin/c++   -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIE   -std=c++17 -o CMakeFiles/test_suite.dir/test_main.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/tests/test_main.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/tests/test_main.cpp"
+},
+{
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/tests",
+  "command": "/usr/bin/c++   -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIE   -std=c++17 -o CMakeFiles/test_suite.dir/time/calendars/test_china.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/tests/time/calendars/test_china.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/tests/time/calendars/test_china.cpp"
+},
+{
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/tests",
+  "command": "/usr/bin/c++   -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIE   -std=c++17 -o CMakeFiles/test_suite.dir/time/test_date.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/tests/time/test_date.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/tests/time/test_date.cpp"
+},
+{
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/tests",
+  "command": "/usr/bin/c++   -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIE   -std=c++17 -o CMakeFiles/test_suite.dir/time/test_dateincrement.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/tests/time/test_dateincrement.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/tests/time/test_dateincrement.cpp"
+},
+{
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/tests",
+  "command": "/usr/bin/c++   -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIE   -std=c++17 -o CMakeFiles/test_suite.dir/time/test_datetime.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/tests/time/test_datetime.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/tests/time/test_datetime.cpp"
+},
+{
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/tests",
+  "command": "/usr/bin/c++   -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIE   -std=c++17 -o CMakeFiles/test_suite.dir/time/test_datetimeutils.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/tests/time/test_datetimeutils.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/tests/time/test_datetimeutils.cpp"
+},
+{
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/tests",
+  "command": "/usr/bin/c++   -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIE   -std=c++17 -o CMakeFiles/test_suite.dir/time/test_daybasis.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/tests/time/test_daybasis.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/tests/time/test_daybasis.cpp"
+},
+{
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/tests",
+  "command": "/usr/bin/c++   -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIE   -std=c++17 -o CMakeFiles/test_suite.dir/time/test_schedules.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/tests/time/test_schedules.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/tests/time/test_schedules.cpp"
+},
+{
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/tests",
+  "command": "/usr/bin/c++   -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIE   -std=c++17 -o CMakeFiles/test_suite.dir/utilities/test_algorithms.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/tests/utilities/test_algorithms.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/tests/utilities/test_algorithms.cpp"
+},
+{
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/tests",
+  "command": "/usr/bin/c++   -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIE   -std=c++17 -o CMakeFiles/test_suite.dir/utilities/test_dictionary.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/tests/utilities/test_dictionary.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/tests/utilities/test_dictionary.cpp"
+},
+{
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/tests",
+  "command": "/usr/bin/c++   -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIE   -std=c++17 -o CMakeFiles/test_suite.dir/utilities/test_environment.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/tests/utilities/test_environment.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/tests/utilities/test_environment.cpp"
+},
+{
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/tests",
+  "command": "/usr/bin/c++   -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIE   -std=c++17 -o CMakeFiles/test_suite.dir/utilities/test_exceptions.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/tests/utilities/test_exceptions.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/tests/utilities/test_exceptions.cpp"
+},
+{
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/tests",
+  "command": "/usr/bin/c++   -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIE   -std=c++17 -o CMakeFiles/test_suite.dir/utilities/test_file.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/tests/utilities/test_file.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/tests/utilities/test_file.cpp"
+},
+{
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/tests",
+  "command": "/usr/bin/c++   -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIE   -std=c++17 -o CMakeFiles/test_suite.dir/utilities/test_functionals.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/tests/utilities/test_functionals.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/tests/utilities/test_functionals.cpp"
+},
+{
+  "directory": "/home/wegamekinglc/Documents/dev/github/dal/build/tests",
+  "command": "/usr/bin/c++   -I/home/wegamekinglc/Documents/dev/github/dal   -ftest-coverage -fprofile-arcs -O3 -DNDEBUG -fPIE   -std=c++17 -o CMakeFiles/test_suite.dir/utilities/test_numerics.cpp.o -c /home/wegamekinglc/Documents/dev/github/dal/tests/utilities/test_numerics.cpp",
+  "file": "/home/wegamekinglc/Documents/dev/github/dal/tests/utilities/test_numerics.cpp"
 }
 ]
