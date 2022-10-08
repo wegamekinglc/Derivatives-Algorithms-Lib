@@ -52,13 +52,21 @@ if "%ADDRESS_MODEL%"=="Win64" (
   if "%MSVC_VERSION%"=="Visual Studio 16 2019" (
     set PLATFORM=x64
   ) else (
-    set PLATFORM=Win32
+    if "%MSVC_VERSION%"=="Visual Studio 17 2022" (
+        set PLATFORM=x64
+    ) else (
+        set PLATFORM=Win32
+    )
   )
 )
 
 if "%ADDRESS_MODEL%"=="Win64" (
   if "%MSVC_VERSION%"=="Visual Studio 16 2019" (
     set ADDRESS_MODEL=
+  ) else (
+    if "%MSVC_VERSION%"=="Visual Studio 17 2022" (
+        set ADDRESS_MODEL=
+    )
   )
 )
 
