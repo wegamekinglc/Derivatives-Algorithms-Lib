@@ -4,6 +4,7 @@ namespace PseudoRSG_v1 {
         String_ name_;
         double seed_;
         double n_dim_;
+        bool precise_;
         Reader_(const Archive::View_& src, Archive::Built_& share) {
             using namespace Archive::Utils;
             NOTE("Reading PseudoRSG_v1 from store");
@@ -11,10 +12,11 @@ namespace PseudoRSG_v1 {
             GetOptional(src, "name", &name_, std::mem_fn(&Archive::View_::AsString));
             Get(src, "seed", &seed_, std::mem_fn(&Archive::View_::AsDouble));
             Get(src, "n_dim", &n_dim_, std::mem_fn(&Archive::View_::AsDouble));
+            Get(src, "precise", &precise_, std::mem_fn(&Archive::View_::AsBool));
         }
         PseudoRSG_* Build() const
         {
-         return new PseudoRSG_(name_, seed_, n_dim_);
+         return new PseudoRSG_(name_, seed_, n_dim_, precise_);
         }
         PseudoRSG_* Build(const Archive::View_& src, Archive::Built_& share) const {
             return Reader_(src, share).Build();

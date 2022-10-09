@@ -42,7 +42,7 @@ namespace Dal {
 
         REQUIRE(x >= 0.0 && x <= 1.0, "x should be in bound [0, 1]");
 
-        static const double INV_NORM = sqrt(2.0 * PI);
+        static const double INV_NORM = 2.5066282746310002;
         static const double a0_ = 2.50662823884;
         static const double a1_ = -18.61500062529;
         static const double a2_ = 41.39119773534;

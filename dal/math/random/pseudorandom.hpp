@@ -26,6 +26,7 @@ version 1
 name is ?string
 seed is number
 n_dim is number
+precise is boolean
 -IF-------------------------------------------------------------------------*/
 
 namespace Dal {
@@ -36,7 +37,7 @@ namespace Dal {
         Vector_<> cache_;
 
     public:
-        explicit PseudoRandom_(size_t n_dim) : cache_(n_dim) {}
+        explicit PseudoRandom_(size_t n_dim, bool precise = false) : cache_(n_dim), precise_(precise) {}
         ~PseudoRandom_() override = default;
         virtual double NextUniform() = 0;
         void FillUniform(Vector_<>* deviates) override;
@@ -44,19 +45,21 @@ namespace Dal {
         [[nodiscard]] PseudoRandom_* Clone() const override = 0;
         [[nodiscard]] size_t NDim() const override { return cache_.size(); }
         [[nodiscard]] virtual PseudoRandom_* Branch(int i_child) const = 0;
+        const bool precise_;
     };
 
 #include <dal/auto/MG_RNGType_enum.hpp>
-    PseudoRandom_* New(const RNGType_& type, int seed, size_t n_dim = 1);
+    PseudoRandom_* New(const RNGType_& type, int seed, size_t n_dim = 1, bool precise = false);
 
     class BASE_EXPORT PseudoRSG_: public Storable_ {
         std::unique_ptr<PseudoRandom_> rsg_;
         double seed_;
         double ndim_;
+        bool precise_;
     public:
-        PseudoRSG_(const String_& name, double seed, double ndim = 1)
-        : Storable_("PseudoRSG", name), seed_(seed), ndim_(ndim) {
-            rsg_.reset(New(RNGType_(name), static_cast<int>(seed), static_cast<size_t>(ndim)));
+        PseudoRSG_(const String_& name, double seed, double ndim = 1, bool precise = false)
+        : Storable_("PseudoRSG", name), seed_(seed), ndim_(ndim), precise_(precise) {
+            rsg_.reset(New(RNGType_(name), static_cast<int>(seed), static_cast<size_t>(ndim), precise));
         }
         void Write(Archive::Store_& dst) const override;
         void FillUniform(Vector_<>* deviates) const {
