@@ -3,12 +3,12 @@
 //
 
 #include <cmath>
-#include <dal/platform/platform.hpp>
 #include <dal/math/aad/operators.hpp>
-#include <dal/math/specialfunctions.hpp>
-#include <dal/platform/strict.hpp>
 #include <dal/math/interp/interpcubic.hpp>
+#include <dal/math/specialfunctions.hpp>
 #include <dal/math/vectors.hpp>
+#include <dal/platform/platform.hpp>
+#include <dal/platform/strict.hpp>
 #include <dal/string/strings.hpp>
 
 namespace Dal {
@@ -31,8 +31,9 @@ namespace Dal {
             static const scoped_ptr<Interp1_> SPLINE(MakeNcdfSpline());
             if (z > 0.0)
                 return 1.0 - NcdfBySpline(-z);
-            return z < MIN_SPLINE_X ? MIN_SPLINE_F * exp(-1.1180061 * (Dal::AAD::Square(z) - Dal::AAD::Square(MIN_SPLINE_X)))
-                                    : (*SPLINE)(z);
+            return z < MIN_SPLINE_X
+                       ? MIN_SPLINE_F * exp(-1.1180061 * (Dal::AAD::Square(z) - Dal::AAD::Square(MIN_SPLINE_X)))
+                       : (*SPLINE)(z);
         }
     } // namespace
 
@@ -43,59 +44,55 @@ namespace Dal {
         REQUIRE(x >= 0.0 && x <= 1.0, "x should be in bound [0, 1]");
 
         static const double INV_NORM = 2.5066282746310002;
-        static const double a0_ = 2.50662823884;
-        static const double a1_ = -18.61500062529;
-        static const double a2_ = 41.39119773534;
-        static const double a3_ = -25.44106049637;
+        static const double a1_ = -3.969683028665376e+01;
+        static const double a2_ = 2.209460984245205e+02;
+        static const double a3_ = -2.759285104469687e+02;
+        static const double a4_ = 1.383577518672690e+02;
+        static const double a5_ = -3.066479806614716e+01;
+        static const double a6_ = 2.506628277459239e+00;
+        static const double b1_ = -5.447609879822406e+01;
+        static const double b2_ = 1.615858368580409e+02;
+        static const double b3_ = -1.556989798598866e+02;
+        static const double b4_ = 6.680131188771972e+01;
+        static const double b5_ = -1.328068155288572e+01;
+        static const double c1_ = -7.784894002430293e-03;
+        static const double c2_ = -3.223964580411365e-01;
+        static const double c3_ = -2.400758277161838e+00;
+        static const double c4_ = -2.549732539343734e+00;
+        static const double c5_ = 4.374664141464968e+00;
+        static const double c6_ = 2.938163982698783e+00;
+        static const double d1_ = 7.784695709041462e-03;
+        static const double d2_ = 3.224671290700398e-01;
+        static const double d3_ = 2.445134137142996e+00;
+        static const double d4_ = 3.754408661907416e+00;
 
-        static const double b0_ = -8.47351093090;
-        static const double b1_ = 23.08336743743;
-        static const double b2_ = -21.06224101826;
-        static const double b3_ = 3.13082909833;
+        static const double x_low_ = 0.02425;
+        static const double x_high_ = 1.0 - x_low_;
 
-        static const double c0_ = 0.3374754822726147;
-        static const double c1_ = 0.9761690190917186;
-        static const double c2_ = 0.1607979714918209;
-        static const double c3_ = 0.0276438810333863;
-        static const double c4_ = 0.0038405729373609;
-        static const double c5_ = 0.0003951896511919;
-        static const double c6_ = 0.0000321767881768;
-        static const double c7_ = 0.0000002888167364;
-        static const double c8_ = 0.0000003960315187;
-
-        double ret_val;
-        double temp = x - 0.5;
-
-        if (std::fabs(temp) < 0.42) {
-            // Beasley and Springer, 1977
-            ret_val = temp * temp;
-            ret_val = temp * (((a3_ * ret_val + a2_) * ret_val + a1_) * ret_val + a0_) /
-                      ((((b3_ * ret_val + b2_) * ret_val + b1_) * ret_val + b0_) * ret_val + 1.0);
+        double z;
+        if (x < x_low_ || x_high_ < x) {
+            if (x < x_low_) {
+                // Rational approximation for the lower region 0<x<u_low
+                z = std::sqrt(-2.0 * std::log(x));
+                z = (((((c1_ * z + c2_) * z + c3_) * z + c4_) * z + c5_) * z + c6_) /
+                    ((((d1_ * z + d2_) * z + d3_) * z + d4_) * z + 1.0);
+            } else {
+                // Rational approximation for the upper region u_high<x<1
+                z = std::sqrt(-2.0 * std::log(1.0 - x));
+                z = -(((((c1_ * z + c2_) * z + c3_) * z + c4_) * z + c5_) * z + c6_) /
+                    ((((d1_ * z + d2_) * z + d3_) * z + d4_) * z + 1.0);
+            }
         } else {
-            // improved approximation for the tail (Moro 1995)
-            if (x < 0.5)
-                ret_val = x;
-            else
-                ret_val = 1.0 - x;
-            ret_val = std::log(-std::log(ret_val));
-            ret_val =
-                c0_ +
-                ret_val *
-                    (c1_ +
-                     ret_val *
-                         (c2_ +
-                          ret_val *
-                              (c3_ +
-                               ret_val * (c4_ + ret_val * (c5_ + ret_val * (c6_ + ret_val * (c7_ + ret_val * c8_)))))));
-            if (x < 0.5)
-                ret_val = -ret_val;
+            z = x - 0.5;
+            double r = z * z;
+            z = (((((a1_ * r + a2_) * r + a3_) * r + a4_) * r + a5_) * r + a6_) * z /
+                (((((b1_ * r + b2_) * r + b3_) * r + b4_) * r + b5_) * r + 1.0);
         }
 
         if (polish) {
-            const double err = NCDF(ret_val, precise) - x;
-            ret_val -=
-                err * INV_NORM * exp(Min(8.0, 0.5 * Square(ret_val))); // cap Exp(x^2) factor in polishing at 4 sigma
+            const double err = NCDF(z, precise) - x;
+            z -= err * INV_NORM * exp(Min(8.0, 0.5 * Square(z)));
         }
-        return ret_val;
+        return z;
     }
 } // namespace Dal
