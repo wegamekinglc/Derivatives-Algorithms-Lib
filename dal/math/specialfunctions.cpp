@@ -73,12 +73,12 @@ namespace Dal {
         if (x < x_low_ || x_high_ < x) {
             if (x < x_low_) {
                 // Rational approximation for the lower region 0<x<u_low
-                z = std::sqrt(-2.0 * std::log(x));
+                z = AAD::Sqrt(-2.0 * std::log(x));
                 z = (((((c1_ * z + c2_) * z + c3_) * z + c4_) * z + c5_) * z + c6_) /
                     ((((d1_ * z + d2_) * z + d3_) * z + d4_) * z + 1.0);
             } else {
                 // Rational approximation for the upper region u_high<x<1
-                z = std::sqrt(-2.0 * std::log(1.0 - x));
+                z = AAD::Sqrt(-2.0 * AAD::Log(1.0 - x));
                 z = -(((((c1_ * z + c2_) * z + c3_) * z + c4_) * z + c5_) * z + c6_) /
                     ((((d1_ * z + d2_) * z + d3_) * z + d4_) * z + 1.0);
             }
