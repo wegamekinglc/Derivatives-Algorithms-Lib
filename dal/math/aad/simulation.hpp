@@ -62,6 +62,7 @@ namespace Dal::AAD {
 
     struct AADResults_ {
         AADResults_(int nPath, int nPay, int nParam) : payoffs_(nPath, nPay), aggregated_(nPath), risks_(nParam) {}
+        int Rows() const { return payoffs_.Rows();  }
         Matrix_<> payoffs_;
         Vector_<> aggregated_;
         Vector_<> risks_;
