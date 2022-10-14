@@ -3,7 +3,7 @@
 //
 
 #pragma once
-#include "dal/math/aad/operators.hpp"
+#include <dal/math/aad/operators.hpp>
 #include <dal/math/aad/models/base.hpp>
 #include <dal/utilities/algorithms.hpp>
 

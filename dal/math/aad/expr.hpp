@@ -141,7 +141,7 @@ namespace Dal::AAD {
     template <class ARG_, class OP_> class UnaryExpression_ : public Expression_<UnaryExpression_<ARG_, OP_>> {
         const double value_;
         const ARG_ arg_;
-        const double d_arg_;
+        const double d_arg_ = 0.0;
 
     public:
         explicit UnaryExpression_(const Expression_<ARG_>& a)
@@ -150,7 +150,7 @@ namespace Dal::AAD {
         explicit UnaryExpression_(const Expression_<ARG_>& a, double b)
             : value_(OP_::Eval(a.Value(), b)), arg_(static_cast<const ARG_&>(a)), d_arg_(b) {}
 
-        double Value() const { return value_; }
+        [[nodiscard]] double Value() const override { return value_; }
 
         enum { numNumbers_ = ARG_::numNumbers_ };
 
@@ -408,8 +408,7 @@ namespace Dal::AAD {
 
         template <class E_> void FromExpr(const Expression_<E_>& e) {
             auto* node = this->CreateMultiNode<E_::numNumbers_>();
-            const auto& tmp = static_cast<const E_&>(e);
-            tmp.PushAdjoint<E_::numNumbers_, 0>(*node, 1.0);
+            static_cast<const E_&>(e).PushAdjoint<E_::numNumbers_, 0>(*node, 1.0);
             node_ = node;
         }
 

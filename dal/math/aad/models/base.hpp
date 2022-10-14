@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include <dal/math/aad/number.hpp>
+#include <dal/math/aad/aad.hpp>
 #include <dal/math/aad/sample.hpp>
 #include <dal/math/vectors.hpp>
 #include <dal/platform/platform.hpp>

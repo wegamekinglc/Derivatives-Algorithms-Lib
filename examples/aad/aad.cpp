@@ -3,7 +3,7 @@
 //
 
 #include <dal/math/aad/operators.hpp>
-#include <dal/math/aad/number.hpp>
+#include <dal/math/aad/aad.hpp>
 #include <dal/math/vectors.hpp>
 #include <dal/platform/platform.hpp>
 #include <dal/utilities/timer.hpp>
@@ -14,15 +14,25 @@ using namespace std;
 using namespace Dal;
 using namespace Dal::AAD;
 
-template <class T_>
-T_ f(const Vector_<T_>& x) {
-    T_ y1 = x[2] * (5.0 * x[0] + x[1]);
-    T_ y2 = Log(y1);
-    T_ y3 = (y1 + x[3] * y2) * (y1 + y2);
-    T_ y4 = Pow(y3, x[4] / 10.);
-    T_ y5 = Max(y4, x[5]);
-    T_ y6 = y5 - x[6] + x[7];
-    T_ y = y6 * x[8] / x[9];
+double f(const Vector_<>& x) {
+    auto y1 = x[2] * (5.0 * x[0] + x[1]);
+    auto y2 = Log(y1);
+    auto y3 = (y1 + x[3] * y2) * (y1 + y2);
+    auto y4 = Pow(y3, x[4] / 10.);
+    auto y5 = Max(y4, x[5]);
+    auto y6 = y5 - x[6] + x[7];
+    auto y = y6 * x[8] / x[9];
+    return y;
+}
+
+auto f_ad(const Vector_<Number_>& x) {
+    auto y1 = x[2] * (5.0 * x[0] + x[1]);
+    auto y2 = Log(y1);
+    auto y3 = (y1 + x[3] * y2) * (y1 + y2);
+    auto y4 = Pow(y3, x[4] / 10.);
+    auto y5 = Max(y4, x[5]);
+    auto y6 = y5 - x[6] + x[7];
+    auto y = y6 * x[8] / x[9];
     return y;
 }
 
@@ -45,7 +55,7 @@ int main() {
     Vector_<> parameters = base_value;
     Timer_ timer;
 
-    size_t n_loops = 10000000;
+    size_t n_loops = 1000;
     // simple primitive double calculation
     double y_raw = 0.;
     for (size_t i = 0; i < n_loops; ++i) {
@@ -64,7 +74,7 @@ int main() {
     for (size_t i = 0; i < n_loops; ++i) {
         for(auto k = 0; k < num_param; ++k)
             x[k] = base_value[k];
-        y = f(x);
+        y = f_ad(x);
         y.Value();
         y.PropagateToStart();
         Number_::tape_->Rewind();
