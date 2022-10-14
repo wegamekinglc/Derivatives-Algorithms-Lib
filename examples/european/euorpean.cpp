@@ -58,8 +58,6 @@ int main() {
     cout << "Single-threaded: " << setprecision(8) << calculated << "\tElapsed: " << timer.Elapsed<milliseconds>() << " ms" << endl;
 
     // multi-threads simulation
-    // only pseudo random number generator can be used in multithreading situation
-
     timer.Reset();
     res = MCParallelSimulation(*products.first, *bsModels.first, "sobol", n_paths);
     sum = 0.0;
@@ -78,6 +76,20 @@ int main() {
     cout << "Single-threaded (AAD): price " << setprecision(8) << calculated << "\tElapsed: " << timer.Elapsed<milliseconds>() << " ms" << endl;
     cout << "                     : delta " << setprecision(8) << resAAD.risks_[0] << endl;
     cout << "                     : vega  " << setprecision(8) << resAAD.risks_[1] << endl;
+    cout << "                     : rho   " << setprecision(8) << resAAD.risks_[2] << endl;
+
+    // multi-threads simulation (AAD)
+    timer.Reset();
+    resAAD = MCParallelSimulationAAD(*products.second, *bsModels.second, "sobol", n_paths);
+    sum = 0.0;
+    for (auto row = 0; row < resAAD.Rows(); ++row)
+        sum += resAAD.aggregated_[row];
+    calculated = sum / static_cast<double>(res.Rows());
+    cout << "Multi-threaded (AAD) : price " << setprecision(8) << calculated
+         << "\tElapsed: " << timer.Elapsed<milliseconds>() << " ms" << endl;
+    cout << "                     : delta " << setprecision(8) << resAAD.risks_[0] << endl;
+    cout << "                     : vega  " << setprecision(8) << resAAD.risks_[1] << endl;
+    cout << "                     : rho   " << setprecision(8) << resAAD.risks_[2] << endl;
 
     return 0;
 }
