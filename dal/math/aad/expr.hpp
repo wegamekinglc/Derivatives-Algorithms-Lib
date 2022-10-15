@@ -334,8 +334,8 @@ namespace Dal::AAD {
         return UnaryExpression_<ARG_, OPMaxD_>(lhs, d);
     }
 
-    template <class ARG_> UnaryExpression_<ARG_, OPMaxD_> Min(double d, const Expression_<ARG_>& rhs) {
-        return UnaryExpression_<ARG_, OPMaxD_>(rhs, d);
+    template <class ARG_> UnaryExpression_<ARG_, OPMinD_> Min(double d, const Expression_<ARG_>& rhs) {
+        return UnaryExpression_<ARG_, OPMinD_>(rhs, d);
     }
 
     template <class ARG_> UnaryExpression_<ARG_, OPMinD_> Min(const Expression_<ARG_>& lhs, double d) {
@@ -396,7 +396,7 @@ namespace Dal::AAD {
 
     template <class RHS_> UnaryExpression_<RHS_, OPSubDL_> operator-(const Expression_<RHS_>& rhs) { return 0.0 - rhs; }
 
-    template <class RHS_> Expression_<RHS_> operator+(const Expression_<RHS_>& rhs) { return rhs; }
+    template <class RHS_> UnaryExpression_<RHS_, OPAddD_> operator+(const Expression_<RHS_>& rhs) { return rhs + 0.0; }
 
     // the Number type, also an expression
 
@@ -432,7 +432,7 @@ namespace Dal::AAD {
             return *this;
         }
 
-        template <class E_> explicit Number_(const Expression_<E_>& e) : value_(e.Value()) { FromExpr<E_>(e); }
+        template <class E_> Number_(const Expression_<E_>& e) : value_(e.Value()) { FromExpr<E_>(e); }
 
         template <class E_> Number_& operator=(const Expression_<E_>& e) {
             value_ = e.Value();

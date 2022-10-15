@@ -21,7 +21,7 @@ namespace Dal::AAD {
         if (x > 10.0)
             return T_(1.0);
         if (x < 0.0)
-            return 1.0 - NormalCDF(-x);
+            return T_(1.0 - NormalCDF<T_>(-x));
 
         static constexpr double p = 0.2316419;
         static constexpr double b1 = 0.319381530;
@@ -34,8 +34,8 @@ namespace Dal::AAD {
 
         const auto pol = t * (b1 + t * (b2 + t * (b3 + t * (b4 + t * b5))));
 
-        const auto pdf = NormalPDF(x);
+        const auto pdf = NormalPDF<T_>(x);
 
-        return 1.0 - pdf * pol;
+        return T_(1.0 - pdf * pol);
     }
 } // namespace Dal::AAD

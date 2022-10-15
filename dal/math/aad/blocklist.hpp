@@ -97,7 +97,7 @@ namespace Dal::AAD {
 
         template <size_t N_> T_* EmplaceBackMulti() {
             if (std::distance(next_space_, last_space_) < static_cast<int>(N_))
-                NewBlock();
+                NextBlock();
             auto old_next = next_space_;
             next_space_ += N_;
             return &*old_next;
@@ -105,7 +105,7 @@ namespace Dal::AAD {
 
         T_* EmplaceBackMulti(const size_t& n) {
             if (std::distance(next_space_, last_space_) < static_cast<int>(n))
-                NewBlock();
+                NextBlock();
             auto old_next = next_space_;
             next_space_ += n;
             return &*old_next;

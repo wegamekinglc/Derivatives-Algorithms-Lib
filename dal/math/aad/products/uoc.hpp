@@ -5,7 +5,7 @@
 #pragma once
 
 #include <dal/time/date.hpp>
-#include <dal/math/aad/number.hpp>
+#include <dal/math/aad/aad.hpp>
 #include <dal/math/aad/products/base.hpp>
 #include <dal/math/aad/operators.hpp>
 #include <dal/storage/globals.hpp>
