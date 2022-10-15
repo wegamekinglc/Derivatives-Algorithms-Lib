@@ -13,8 +13,9 @@
 #pragma once
 
 #include <cmath>
-#include <dal/math/aad/tape.hpp>
 #include <dal/platform/platform.hpp>
+#include <dal/math/aad/tape.hpp>
+#include <dal/math/specialfunctions.hpp>
 #include <dal/utilities/exceptions.hpp>
 
 namespace Dal::AAD {
@@ -350,6 +351,20 @@ namespace Dal::AAD {
             const double e = std::fabs(arg.Value());
             Number_ result(arg.Node(), e);
             result.Derivative() = arg.Value() > 0.0 ? 1.0 : -1.0;
+            return result;
+        }
+
+        inline friend Number_ NPDF(const Number_& arg) {
+            const double e = Dal::NPDF(arg.Value());
+            Number_ result(arg.Node(), e);
+            result.Derivative() = -arg.Value() * e;
+            return result;
+        }
+
+        inline friend Number_ NCDF(const Number_& arg) {
+            const double e = Dal::NCDF(arg.Value());
+            Number_ result(arg.Node(), e);
+            result.Derivative() = Dal::NPDF(arg.Value());
             return result;
         }
 

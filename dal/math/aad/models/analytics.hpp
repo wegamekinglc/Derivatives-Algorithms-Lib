@@ -4,8 +4,8 @@
 
 #pragma once
 
-#include <dal/math/aad/models/gaussians.hpp>
 #include <dal/platform/platform.hpp>
+#include <dal/math/aad/operators.hpp>
 #include <dal/math/distribution/black.hpp>
 
 namespace Dal::AAD {
@@ -15,9 +15,9 @@ namespace Dal::AAD {
         const auto std = vol * Sqrt(mat);
         if (std <= EPSILON)
             return Max(T_(0.0), T_(spot - strike));
-        const auto d2 = Log(spot / strike) / std - 0.5 * std;
-        const auto d1 = d2 + std;
-        return spot * NormalCDF<T_>(d1) - strike * NormalCDF<T_>(d2);
+        const T_ d2 = Log(spot / strike) / std - 0.5 * std;
+        const T_ d1 = d2 + std;
+        return spot * NCDF(static_cast<T_>(d1)) - strike * NCDF(static_cast<T_>(d2));
     }
 
     double BlackScholesIVol(double spot, double strike, double prem, double mat);

@@ -185,15 +185,15 @@ namespace Dal::AAD {
     };
 
     struct OPNormalDens_ {
-        static double Eval(double r, double d) { return NPDF(r); }
+        static double Eval(double r, double d) { return Dal::NPDF(r); }
 
         static double Derivative(double r, double v, double d) { return -r * v; }
     };
 
     struct OPNormalCdf_ {
-        static double Eval(double r, double d) { return NCDF(r); }
+        static double Eval(double r, double d) { return Dal::NCDF(r); }
 
-        static double Derivative(double r, double v, double d) { return NPDF(r); }
+        static double Derivative(double r, double v, double d) { return Dal::NPDF(r); }
     };
 
     // binary operators with a double on one side
@@ -276,11 +276,11 @@ namespace Dal::AAD {
         return UnaryExpression_<ARG_, OPFabs_>(arg);
     }
 
-    template <class ARG_> UnaryExpression_<ARG_, OPNormalDens_> NormalDens(const Expression_<ARG_>& arg) {
+    template <class ARG_> UnaryExpression_<ARG_, OPNormalDens_> NPDF(const Expression_<ARG_>& arg) {
         return UnaryExpression_<ARG_, OPNormalDens_>(arg);
     }
 
-    template <class ARG_> UnaryExpression_<ARG_, OPNormalCdf_> NormalCdf(const Expression_<ARG_>& arg) {
+    template <class ARG_> UnaryExpression_<ARG_, OPNormalCdf_> NCDF(const Expression_<ARG_>& arg) {
         return UnaryExpression_<ARG_, OPNormalCdf_>(arg);
     }
 

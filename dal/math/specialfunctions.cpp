@@ -3,13 +3,12 @@
 //
 
 #include <cmath>
-#include <dal/math/aad/operators.hpp>
+#include <dal/platform/platform.hpp>
 #include <dal/math/interp/interpcubic.hpp>
 #include <dal/math/specialfunctions.hpp>
 #include <dal/math/vectors.hpp>
-#include <dal/platform/platform.hpp>
 #include <dal/platform/strict.hpp>
-#include <dal/string/strings.hpp>
+
 
 namespace Dal {
     namespace {
@@ -32,7 +31,7 @@ namespace Dal {
             if (z > 0.0)
                 return 1.0 - NcdfBySpline(-z);
             return z < MIN_SPLINE_X
-                       ? MIN_SPLINE_F * exp(-1.1180061 * (Dal::AAD::Square(z) - Dal::AAD::Square(MIN_SPLINE_X)))
+                       ? MIN_SPLINE_F * std::exp(-1.1180061 * (Square(z) - Square(MIN_SPLINE_X)))
                        : (*SPLINE)(z);
         }
     } // namespace
@@ -73,12 +72,12 @@ namespace Dal {
         if (x < x_low_ || x_high_ < x) {
             if (x < x_low_) {
                 // Rational approximation for the lower region 0<x<u_low
-                z = AAD::Sqrt(-2.0 * std::log(x));
+                z = std::sqrt(-2.0 * std::log(x));
                 z = (((((c1_ * z + c2_) * z + c3_) * z + c4_) * z + c5_) * z + c6_) /
                     ((((d1_ * z + d2_) * z + d3_) * z + d4_) * z + 1.0);
             } else {
                 // Rational approximation for the upper region u_high<x<1
-                z = AAD::Sqrt(-2.0 * AAD::Log(1.0 - x));
+                z = std::sqrt(-2.0 * std::log(1.0 - x));
                 z = -(((((c1_ * z + c2_) * z + c3_) * z + c4_) * z + c5_) * z + c6_) /
                     ((((d1_ * z + d2_) * z + d3_) * z + d4_) * z + 1.0);
             }
@@ -91,7 +90,7 @@ namespace Dal {
 
         if (polish) {
             const double err = NCDF(z, precise) - x;
-            z -= err * INV_NORM * exp(Min(8.0, 0.5 * Square(z)));
+            z -= err * INV_NORM * std::exp(Min(8.0, 0.5 * Square(z)));
         }
         return z;
     }

@@ -11,6 +11,8 @@ namespace Dal::AAD {
     using Dal::Square;
     using Dal::Max;
     using Dal::Min;
+    using Dal::NCDF;
+    using Dal::NPDF;
     inline double Sqrt(double t) { return std::sqrt(t); }
     inline double Exp(double t) { return std::exp(t); }
     inline double Fabs(double t) { return std::fabs(t); }
