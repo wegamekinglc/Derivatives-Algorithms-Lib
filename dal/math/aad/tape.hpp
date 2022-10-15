@@ -40,7 +40,7 @@ namespace Dal::AAD {
                 std::fill(node->p_adjoints_, node->p_adjoints_ + TapNode_::num_adj_, 0.0);
             }
 
-            if constexpr(N_) {
+            if constexpr(static_cast<bool>(N_)) {
                 node->p_derivatives_ = ders_.EmplaceBackMulti<N_>();
                 node->p_adj_ptrs_ = arg_ptrs_.EmplaceBackMulti<N_>();
             }
