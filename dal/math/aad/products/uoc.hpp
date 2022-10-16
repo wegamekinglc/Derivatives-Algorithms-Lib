@@ -50,31 +50,32 @@ namespace Dal::AAD {
 
         template <class C_>
         void PayoffsImplX(const Scenario_<T_>& path, C_ payoffs) const {
-            const double smooth = static_cast<double>(path[0].forwards_[0][0] * smooth_);
+            const double smooth = barrier_ * smooth_;
             const double twoSmooth = 2.0 * smooth;
-            const double barSmooth = barrier_ + smooth;
-            const double minusSmooth = barrier_ - smooth;
 
             T_ alive(1.0);
-            for (const auto& sample : path) {
-                const auto spot = sample.forwards_[0][0];
-                if (spot > barSmooth) {
-                    alive = 0.0;
-                    break;
+            if (smooth >= Dal::EPSILON) {
+                for (const auto& sample : path) {
+                    const auto spot = sample.forwards_[0][0];
+                    const auto dis_barrier = spot - barrier_;
+                    alive = Min(alive, Min(1.0, Max(0.0, 0.5 - dis_barrier / twoSmooth)));
                 }
-                else if (spot > minusSmooth)
-                    alive *= (barSmooth - spot) / twoSmooth;
+            } else {
+                for (const auto& sample : path) {
+                    const auto spot = sample.forwards_[0][0];
+                    if (spot >= barrier_) {
+                        alive = 0.0;
+                        break;
+                    }
+                }
             }
             const auto finalSpot = path.back().forwards_[0][0];
             T_ european;
-            if (alive > EPSILON) {
-                if (callPut_)
-                    european = Max(strike_ - finalSpot, 0.0) / path.back().numeraire_;
-                else
-                    european = Max(finalSpot - strike_, 0.0) / path.back().numeraire_;
-                (*payoffs)[0] = alive * european;
-            } else
-                (*payoffs)[0] = T_(0.0);
+            if (callPut_)
+                european = Max(strike_ - finalSpot, 0.0) / path.back().numeraire_;
+            else
+                european = Max(finalSpot - strike_, 0.0) / path.back().numeraire_;
+            (*payoffs)[0] = alive * european;
         }
 
         inline void PayoffsImpl(const Scenario_<T_>& path, Vector_<T_>* payoffs) const override {
