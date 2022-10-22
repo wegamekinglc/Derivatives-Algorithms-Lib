@@ -55,5 +55,6 @@ namespace Dal::AAD {
                     adj_ptr[j] += ders * p_adjoints_[j];
             }
         }
+
     };
 } // namespace Dal

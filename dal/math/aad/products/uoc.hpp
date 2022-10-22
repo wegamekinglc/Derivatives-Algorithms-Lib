@@ -58,7 +58,7 @@ namespace Dal::AAD {
                 for (const auto& sample : path) {
                     const auto spot = sample.forwards_[0][0];
                     const auto dis_barrier = spot - barrier_;
-                    alive = Min(alive, Min(1.0, Max(0.0, 0.5 - dis_barrier / twoSmooth)));
+                    alive *= Min(1.0, Max(0.0, 0.5 - dis_barrier / twoSmooth));
                 }
             } else {
                 for (const auto& sample : path) {
@@ -70,12 +70,10 @@ namespace Dal::AAD {
                 }
             }
             const auto finalSpot = path.back().forwards_[0][0];
-            T_ european;
             if (callPut_)
-                european = Max(strike_ - finalSpot, 0.0) / path.back().numeraire_;
+                (*payoffs)[0] = alive * Max(strike_ - finalSpot, 0.0) / path.back().numeraire_;
             else
-                european = Max(finalSpot - strike_, 0.0) / path.back().numeraire_;
-            (*payoffs)[0] = alive * european;
+                (*payoffs)[0] = alive * Max(finalSpot - strike_, 0.0) / path.back().numeraire_;
         }
 
         inline void PayoffsImpl(const Scenario_<T_>& path, Vector_<T_>* payoffs) const override {
