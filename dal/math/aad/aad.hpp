@@ -12,6 +12,7 @@
 
 #pragma once
 
+#include <dal/platform/platform.hpp>
 #ifdef AADET_ENABLED
 #include <dal/math/aad/expr.hpp>
 #else

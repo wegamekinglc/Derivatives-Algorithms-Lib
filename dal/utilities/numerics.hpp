@@ -20,7 +20,7 @@ namespace Dal {
         return std::accumulate(src.begin(), src.end(), val_type(0), op);
     }
 
-    template <class C_> auto Accumulate(const C_& src) { return Accumulate(src, AAD::Plus<typename C_::value_type>); }
+    template <class C_> auto Accumulate(const C_& src) { return Accumulate(src, AAD::Plus); }
 
     template <class C1_, class C2_> auto InnerProduct(const C1_& src1, const C2_& src2) {
         using value_type = typename C1_::value_type;

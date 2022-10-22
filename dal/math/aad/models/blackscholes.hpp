@@ -3,7 +3,7 @@
 //
 
 #pragma once
-#include "dal/math/aad/operators.hpp"
+#include <dal/math/aad/operators.hpp>
 #include <dal/math/aad/models/base.hpp>
 #include <dal/utilities/algorithms.hpp>
 
@@ -166,7 +166,7 @@ namespace Dal::AAD {
             T_ logSpot = Log(spot);
             const size_t n = timeLine_.size() - 1;
             for (size_t i = 0; i < n; ++i) {
-                logSpot += drifts_[i] + stds_[i] * gaussVec[i];
+                logSpot = logSpot + drifts_[i] + stds_[i] * gaussVec[i];
                 FillScenario(idx, Exp(logSpot), (*path)[idx], (*defLine_)[idx]);
                 ++idx;
             }

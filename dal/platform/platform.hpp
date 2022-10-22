@@ -17,6 +17,8 @@
 #undef MAX
 #endif
 
+#define AADET_ENABLED
+
 using std::make_pair;
 using std::pair;
 
@@ -48,13 +50,18 @@ namespace Dal {
 
     template <class T_> inline bool IsNegative(const T_& x) { return x <= -Dal::EPSILON; }
 
-    template <class T_> inline T_ Square(const T_& x) { return x * x; }
-
-    template <class T_> inline T_ Cube(const T_& x) { return x * x * x; }
-
-    template <class T_> inline T_ Max(const T_& a, const T_& b) { return a > b ? a : b; }
-
-    template <class T_> inline T_ Min(const T_& a, const T_& b) { return a < b ? a : b; }
+    inline double Square(double x) { return x * x; }
+    inline double Cube(double x) { return x * x * x; }
+    inline double Max(double a, double b) { return a > b ? a : b; }
+    inline size_t Max(size_t a, size_t b) { return a > b ? a : b; }
+    inline int Max(int a, int b) { return a > b ? a : b; }
+    inline short Max(short a, short b) { return a > b ? a : b; }
+    inline ptrdiff_t Max(ptrdiff_t a, ptrdiff_t b) { return a > b ? a : b; }
+    inline double Min(double a, double b) { return a < b ? a : b; }
+    inline size_t Min(size_t a, size_t b) { return a < b ? a : b; }
+    inline int Min(int a, int b) { return a < b ? a : b; }
+    inline short Min(short a, short b) { return a < b ? a : b; }
+    inline ptrdiff_t Min(ptrdiff_t a, ptrdiff_t b) { return a < b ? a : b; }
 
     struct Empty_ {};
 

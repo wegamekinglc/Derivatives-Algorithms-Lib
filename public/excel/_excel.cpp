@@ -1291,10 +1291,10 @@ namespace Dal {
         lpx->xltype = xltypeMulti | xlbitDLLFree;
         int nRows = scalars_.size();
         for (const auto& v : vectors_)
-            nRows = Max<int>(nRows, values_[v].Rows());
+            nRows = Max(nRows, values_[v].Rows());
         int nCols = (scalars_.empty() ? 0 : 1) + vectors_.size();
         for (const auto& m : matrices_) {
-            nRows = Max<int>(nRows, values_[m].Rows());
+            nRows = Max(nRows, values_[m].Rows());
             nCols += values_[m].Cols();
         }
         lpx->val.array.rows = nRows;

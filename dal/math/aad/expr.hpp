@@ -100,37 +100,37 @@ namespace Dal::AAD {
     // build the corresponding expressions
 
     template <class LHS_, class RHS_>
-    BinaryExpression_<LHS_, RHS_, OPMult_> operator*(const Expression_<LHS_>& lhs, const Expression_<RHS_>& rhs) {
+    inline BinaryExpression_<LHS_, RHS_, OPMult_> operator*(const Expression_<LHS_>& lhs, const Expression_<RHS_>& rhs) {
         return BinaryExpression_<LHS_, RHS_, OPMult_>(lhs, rhs);
     }
 
     template <class LHS_, class RHS_>
-    BinaryExpression_<LHS_, RHS_, OPAdd_> operator+(const Expression_<LHS_>& lhs, const Expression_<RHS_>& rhs) {
+    inline BinaryExpression_<LHS_, RHS_, OPAdd_> operator+(const Expression_<LHS_>& lhs, const Expression_<RHS_>& rhs) {
         return BinaryExpression_<LHS_, RHS_, OPAdd_>(lhs, rhs);
     }
 
     template <class LHS_, class RHS_>
-    BinaryExpression_<LHS_, RHS_, OPSub_> operator-(const Expression_<LHS_>& lhs, const Expression_<RHS_>& rhs) {
+    inline BinaryExpression_<LHS_, RHS_, OPSub_> operator-(const Expression_<LHS_>& lhs, const Expression_<RHS_>& rhs) {
         return BinaryExpression_<LHS_, RHS_, OPSub_>(lhs, rhs);
     }
 
     template <class LHS_, class RHS_>
-    BinaryExpression_<LHS_, RHS_, OPDiv_> operator/(const Expression_<LHS_>& lhs, const Expression_<RHS_>& rhs) {
+    inline BinaryExpression_<LHS_, RHS_, OPDiv_> operator/(const Expression_<LHS_>& lhs, const Expression_<RHS_>& rhs) {
         return BinaryExpression_<LHS_, RHS_, OPDiv_>(lhs, rhs);
     }
 
     template <class LHS_, class RHS_>
-    BinaryExpression_<LHS_, RHS_, OPPow_> Pow(const Expression_<LHS_>& lhs, const Expression_<RHS_>& rhs) {
+    inline BinaryExpression_<LHS_, RHS_, OPPow_> Pow(const Expression_<LHS_>& lhs, const Expression_<RHS_>& rhs) {
         return BinaryExpression_<LHS_, RHS_, OPPow_>(lhs, rhs);
     }
 
     template <class LHS_, class RHS_>
-    BinaryExpression_<LHS_, RHS_, OPMax_> Max(const Expression_<LHS_>& lhs, const Expression_<RHS_>& rhs) {
+    inline BinaryExpression_<LHS_, RHS_, OPMax_> Max(const Expression_<LHS_>& lhs, const Expression_<RHS_>& rhs) {
         return BinaryExpression_<LHS_, RHS_, OPMax_>(lhs, rhs);
     }
 
     template <class LHS_, class RHS_>
-    BinaryExpression_<LHS_, RHS_, OPMin_> Min(const Expression_<LHS_>& lhs, const Expression_<RHS_>& rhs) {
+    inline BinaryExpression_<LHS_, RHS_, OPMin_> Min(const Expression_<LHS_>& lhs, const Expression_<RHS_>& rhs) {
         return BinaryExpression_<LHS_, RHS_, OPMin_>(lhs, rhs);
     }
 
@@ -141,7 +141,7 @@ namespace Dal::AAD {
     template <class ARG_, class OP_> class UnaryExpression_ : public Expression_<UnaryExpression_<ARG_, OP_>> {
         const double value_;
         const ARG_ arg_;
-        const double d_arg_;
+        const double d_arg_ = 0.0;
 
     public:
         explicit UnaryExpression_(const Expression_<ARG_>& a)
@@ -150,7 +150,7 @@ namespace Dal::AAD {
         explicit UnaryExpression_(const Expression_<ARG_>& a, double b)
             : value_(OP_::Eval(a.Value(), b)), arg_(static_cast<const ARG_&>(a)), d_arg_(b) {}
 
-        double Value() const { return value_; }
+        [[nodiscard]] double Value() const override { return value_; }
 
         enum { numNumbers_ = ARG_::numNumbers_ };
 
@@ -185,15 +185,15 @@ namespace Dal::AAD {
     };
 
     struct OPNormalDens_ {
-        static double Eval(double r, double d) { return NPDF(r); }
+        static double Eval(double r, double d) { return Dal::NPDF(r); }
 
         static double Derivative(double r, double v, double d) { return -r * v; }
     };
 
     struct OPNormalCdf_ {
-        static double Eval(double r, double d) { return NCDF(r); }
+        static double Eval(double r, double d) { return Dal::NCDF(r); }
 
-        static double Derivative(double r, double v, double d) { return NPDF(r); }
+        static double Derivative(double r, double v, double d) { return Dal::NPDF(r); }
     };
 
     // binary operators with a double on one side
@@ -260,143 +260,187 @@ namespace Dal::AAD {
 
     // overloading
 
-    template <class ARG_> UnaryExpression_<ARG_, OPExp_> Exp(const Expression_<ARG_>& arg) {
+    template <class ARG_>
+    inline UnaryExpression_<ARG_, OPExp_> Exp(const Expression_<ARG_>& arg) {
         return UnaryExpression_<ARG_, OPExp_>(arg);
     }
 
-    template <class ARG_> UnaryExpression_<ARG_, OPLog_> Log(const Expression_<ARG_>& arg) {
+    template <class ARG_>
+    inline UnaryExpression_<ARG_, OPLog_> Log(const Expression_<ARG_>& arg) {
         return UnaryExpression_<ARG_, OPLog_>(arg);
     }
 
-    template <class ARG_> UnaryExpression_<ARG_, OPSqrt_> Sqrt(const Expression_<ARG_>& arg) {
+    template <class ARG_>
+    inline UnaryExpression_<ARG_, OPSqrt_> Sqrt(const Expression_<ARG_>& arg) {
         return UnaryExpression_<ARG_, OPSqrt_>(arg);
     }
 
-    template <class ARG_> UnaryExpression_<ARG_, OPFabs_> Fabs(const Expression_<ARG_>& arg) {
+    template <class ARG_>
+    inline UnaryExpression_<ARG_, OPFabs_> Fabs(const Expression_<ARG_>& arg) {
         return UnaryExpression_<ARG_, OPFabs_>(arg);
     }
 
-    template <class ARG_> UnaryExpression_<ARG_, OPNormalDens_> NormalDens(const Expression_<ARG_>& arg) {
+    template <class ARG_>
+    inline UnaryExpression_<ARG_, OPNormalDens_> NPDF(const Expression_<ARG_>& arg) {
         return UnaryExpression_<ARG_, OPNormalDens_>(arg);
     }
 
-    template <class ARG_> UnaryExpression_<ARG_, OPNormalCdf_> NormalCdf(const Expression_<ARG_>& arg) {
+    template <class ARG_>
+    inline UnaryExpression_<ARG_, OPNormalCdf_> NCDF(const Expression_<ARG_>& arg) {
         return UnaryExpression_<ARG_, OPNormalCdf_>(arg);
     }
 
     // binary operators with a double on one side
 
-    template <class ARG_> UnaryExpression_<ARG_, OPMultD_> operator*(double d, const Expression_<ARG_>& rhs) {
+    template <class ARG_>
+    inline UnaryExpression_<ARG_, OPMultD_> operator*(double d, const Expression_<ARG_>& rhs) {
         return UnaryExpression_<ARG_, OPMultD_>(rhs, d);
     }
 
-    template <class ARG_> UnaryExpression_<ARG_, OPMultD_> operator*(const Expression_<ARG_>& lhs, double d) {
+    template <class ARG_>
+    inline UnaryExpression_<ARG_, OPMultD_> operator*(const Expression_<ARG_>& lhs, double d) {
         return UnaryExpression_<ARG_, OPMultD_>(lhs, d);
     }
 
-    template <class ARG_> UnaryExpression_<ARG_, OPAddD_> operator+(double d, const Expression_<ARG_>& rhs) {
+    template <class ARG_>
+    inline UnaryExpression_<ARG_, OPAddD_> operator+(double d, const Expression_<ARG_>& rhs) {
         return UnaryExpression_<ARG_, OPAddD_>(rhs, d);
     }
 
-    template <class ARG_> UnaryExpression_<ARG_, OPAddD_> operator+(const Expression_<ARG_>& lhs, double d) {
+    template <class ARG_>
+    inline UnaryExpression_<ARG_, OPAddD_> operator+(const Expression_<ARG_>& lhs, double d) {
         return UnaryExpression_<ARG_, OPAddD_>(lhs, d);
     }
 
-    template <class ARG_> UnaryExpression_<ARG_, OPSubDL_> operator-(double d, const Expression_<ARG_>& rhs) {
+    template <class ARG_>
+    inline UnaryExpression_<ARG_, OPSubDL_> operator-(double d, const Expression_<ARG_>& rhs) {
         return UnaryExpression_<ARG_, OPSubDL_>(rhs, d);
     }
 
-    template <class ARG_> UnaryExpression_<ARG_, OPSubDR_> operator-(const Expression_<ARG_>& lhs, double d) {
+    template <class ARG_>
+    inline UnaryExpression_<ARG_, OPSubDR_> operator-(const Expression_<ARG_>& lhs, double d) {
         return UnaryExpression_<ARG_, OPSubDR_>(lhs, d);
     }
 
-    template <class ARG_> UnaryExpression_<ARG_, OPDivDL_> operator/(double d, const Expression_<ARG_>& rhs) {
+    template <class ARG_>
+    inline UnaryExpression_<ARG_, OPDivDL_> operator/(double d, const Expression_<ARG_>& rhs) {
         return UnaryExpression_<ARG_, OPDivDL_>(rhs, d);
     }
 
-    template <class ARG_> UnaryExpression_<ARG_, OPDivDR_> operator/(const Expression_<ARG_>& lhs, double d) {
+    template <class ARG_>
+    inline UnaryExpression_<ARG_, OPDivDR_> operator/(const Expression_<ARG_>& lhs, double d) {
         return UnaryExpression_<ARG_, OPDivDR_>(lhs, d);
     }
 
-    template <class ARG_> UnaryExpression_<ARG_, OPPowDL_> Pow(double d, const Expression_<ARG_>& rhs) {
+    template <class ARG_>
+    inline UnaryExpression_<ARG_, OPPowDL_> Pow(double d, const Expression_<ARG_>& rhs) {
         return UnaryExpression_<ARG_, OPPowDL_>(rhs, d);
     }
 
-    template <class ARG_> UnaryExpression_<ARG_, OPPowDR_> Pow(const Expression_<ARG_>& lhs, double d) {
+    template <class ARG_>
+    inline UnaryExpression_<ARG_, OPPowDR_> Pow(const Expression_<ARG_>& lhs, double d) {
         return UnaryExpression_<ARG_, OPPowDR_>(lhs, d);
     }
 
-    template <class ARG_> UnaryExpression_<ARG_, OPMaxD_> Max(double d, const Expression_<ARG_>& rhs) {
+    template <class ARG_>
+    inline UnaryExpression_<ARG_, OPMaxD_> Max(double d, const Expression_<ARG_>& rhs) {
         return UnaryExpression_<ARG_, OPMaxD_>(rhs, d);
     }
 
-    template <class ARG_> UnaryExpression_<ARG_, OPMaxD_> Max(const Expression_<ARG_>& lhs, double d) {
+    template <class ARG_>
+    inline UnaryExpression_<ARG_, OPMaxD_> Max(const Expression_<ARG_>& lhs, double d) {
         return UnaryExpression_<ARG_, OPMaxD_>(lhs, d);
     }
 
-    template <class ARG_> UnaryExpression_<ARG_, OPMaxD_> Min(double d, const Expression_<ARG_>& rhs) {
-        return UnaryExpression_<ARG_, OPMaxD_>(rhs, d);
+    template <class ARG_>
+    inline UnaryExpression_<ARG_, OPMinD_> Min(double d, const Expression_<ARG_>& rhs) {
+        return UnaryExpression_<ARG_, OPMinD_>(rhs, d);
     }
 
-    template <class ARG_> UnaryExpression_<ARG_, OPMinD_> Min(const Expression_<ARG_>& lhs, double d) {
+    template <class ARG_>
+    inline UnaryExpression_<ARG_, OPMinD_> Min(const Expression_<ARG_>& lhs, double d) {
         return UnaryExpression_<ARG_, OPMinD_>(lhs, d);
     }
 
     // comparison same as traditional
 
-    template <class E_, class F_> bool operator==(const Expression_<E_>& lhs, const Expression_<F_>& rhs) {
+    template <class E_, class F_>
+    inline bool operator==(const Expression_<E_>& lhs, const Expression_<F_>& rhs) {
         return lhs.Value() == rhs.Value();
     }
 
-    template <class E_> bool operator==(const Expression_<E_>& lhs, double rhs) { return lhs.Value() == rhs; }
+    template <class E_>
+    inline bool operator==(const Expression_<E_>& lhs, double rhs) { return lhs.Value() == rhs; }
 
-    template <class E_> bool operator==(double lhs, const Expression_<E_>& rhs) { return lhs == rhs.Value(); }
+    template <class E_>
+    inline bool operator==(double lhs, const Expression_<E_>& rhs) { return lhs == rhs.Value(); }
 
-    template <class E_, class F_> bool operator!=(const Expression_<E_>& lhs, const Expression_<F_>& rhs) {
+    template <class E_, class F_>
+    inline bool operator!=(const Expression_<E_>& lhs, const Expression_<F_>& rhs) {
         return lhs.Value() != rhs.Value();
     }
 
-    template <class E_> bool operator!=(const Expression_<E_>& lhs, double rhs) { return lhs.Value() != rhs; }
+    template <class E_>
+    inline bool operator!=(const Expression_<E_>& lhs, double rhs) { return lhs.Value() != rhs; }
 
-    template <class E_> bool operator!=(double lhs, const Expression_<E_>& rhs) { return lhs != rhs.Value(); }
+    template <class E_>
+    inline bool operator!=(double lhs, const Expression_<E_>& rhs) { return lhs != rhs.Value(); }
 
-    template <class E_, class F_> bool operator<(const Expression_<E_>& lhs, const Expression_<F_>& rhs) {
+    template <class E_, class F_>
+    inline bool operator<(const Expression_<E_>& lhs, const Expression_<F_>& rhs) {
         return lhs.Value() < rhs.Value();
     }
 
-    template <class E_> bool operator<(const Expression_<E_>& lhs, double rhs) { return lhs.Value() < rhs; }
+    template <class E_>
+    inline bool operator<(const Expression_<E_>& lhs, double rhs) { return lhs.Value() < rhs; }
 
-    template <class E_> bool operator<(double lhs, const Expression_<E_>& rhs) { return lhs < rhs.Value(); }
+    template <class E_>
+    inline bool operator<(double lhs, const Expression_<E_>& rhs) { return lhs < rhs.Value(); }
 
-    template <class E_, class F_> bool operator>(const Expression_<E_>& lhs, const Expression_<F_>& rhs) {
+    template <class E_, class F_>
+    inline bool operator>(const Expression_<E_>& lhs, const Expression_<F_>& rhs) {
         return lhs.Value() > rhs.Value();
     }
 
-    template <class E_> bool operator>(const Expression_<E_>& lhs, double rhs) { return lhs.Value() > rhs; }
+    template <class E_>
+    inline bool operator>(const Expression_<E_>& lhs, double rhs) { return lhs.Value() > rhs; }
 
-    template <class E_> bool operator>(double lhs, const Expression_<E_>& rhs) { return lhs > rhs.Value(); }
+    template <class E_>
+    inline bool operator>(double lhs, const Expression_<E_>& rhs) { return lhs > rhs.Value(); }
 
-    template <class E_, class F_> bool operator<=(const Expression_<E_>& lhs, const Expression_<F_>& rhs) {
+    template <class E_, class F_>
+    inline bool operator<=(const Expression_<E_>& lhs, const Expression_<F_>& rhs) {
         return lhs.Value() <= rhs.Value();
     }
 
-    template <class E_> bool operator<=(const Expression_<E_>& lhs, double rhs) { return lhs.Value() <= rhs; }
+    template <class E_>
+    inline bool operator<=(const Expression_<E_>& lhs, double rhs) { return lhs.Value() <= rhs; }
 
-    template <class E_> bool operator<=(double lhs, const Expression_<E_>& rhs) { return lhs <= rhs.Value(); }
+    template <class E_>
+    inline bool operator<=(double lhs, const Expression_<E_>& rhs) { return lhs <= rhs.Value(); }
 
-    template <class E_, class F_> bool operator>=(const Expression_<E_>& lhs, const Expression_<F_>& rhs) {
+    template <class E_, class F_>
+    inline bool operator>=(const Expression_<E_>& lhs, const Expression_<F_>& rhs) {
         return lhs.Value() >= rhs.Value();
     }
 
-    template <class E_> bool operator>=(const Expression_<E_>& lhs, double rhs) { return lhs.Value() >= rhs; }
+    template <class E_>
+    inline bool operator>=(const Expression_<E_>& lhs, double rhs) { return lhs.Value() >= rhs; }
 
-    template <class E_> bool operator>=(double lhs, const Expression_<E_>& rhs) { return lhs >= rhs.Value(); }
+    template <class E_>
+    inline bool operator>=(double lhs, const Expression_<E_>& rhs) { return lhs >= rhs.Value(); }
 
     // unary operators +/-
 
-    template <class RHS_> UnaryExpression_<RHS_, OPSubDL_> operator-(const Expression_<RHS_>& rhs) { return 0.0 - rhs; }
+    template <class RHS_>
+    inline UnaryExpression_<RHS_, OPSubDL_> operator-(const Expression_<RHS_>& rhs) {
+        return 0.0 - rhs;
+    }
 
-    template <class RHS_> Expression_<RHS_> operator+(const Expression_<RHS_>& rhs) { return rhs; }
+    template <class RHS_>
+    inline UnaryExpression_<RHS_, OPAddD_> operator+(const Expression_<RHS_>& rhs) {
+        return rhs + 0.0;
+    }
 
     // the Number type, also an expression
 
@@ -408,8 +452,7 @@ namespace Dal::AAD {
 
         template <class E_> void FromExpr(const Expression_<E_>& e) {
             auto* node = this->CreateMultiNode<E_::numNumbers_>();
-            const auto& tmp = static_cast<const E_&>(e);
-            tmp.PushAdjoint<E_::numNumbers_, 0>(*node, 1.0);
+            static_cast<const E_&>(e).PushAdjoint<E_::numNumbers_, 0>(*node, 1.0);
             node_ = node;
         }
 
@@ -418,30 +461,31 @@ namespace Dal::AAD {
 
         enum { numNumbers_ = 1 };
 
-        template <size_t N_, size_t n_> void PushAdjoint(TapNode_& exprNode, double adjoint) const {
+        template <size_t N_, size_t n_>
+        void PushAdjoint(TapNode_& exprNode, double adjoint) const {
             exprNode.p_adj_ptrs_[n_] = Tape_::multi_ ? node_->p_adjoints_ : &node_->adjoint_;
             exprNode.p_derivatives_[n_] = adjoint;
         }
 
         Number_() = default;
 
-        explicit Number_(double val) : value_(val) {}
+        explicit Number_(double val) : value_(val) { node_ = CreateMultiNode<0>(); }
 
         Number_& operator=(double val) {
             value_ = val;
-            CreateMultiNode<0>();
+            node_ = CreateMultiNode<0>();
             return *this;
         }
 
-        template <class E_> explicit Number_(const Expression_<E_>& e) : value_(e.Value()) { FromExpr<E_>(e); }
+        template <class E_> Number_(const Expression_<E_>& e) : value_(e.Value()) {
+            FromExpr<E_>(static_cast<const E_&>(e));
+        }
 
         template <class E_> Number_& operator=(const Expression_<E_>& e) {
             value_ = e.Value();
-            FromExpr<E_>(e);
+            FromExpr<E_>(static_cast<const E_&>(e));
             return *this;
         }
-
-        explicit operator double() const { return Value(); }
 
         explicit operator double&() { return Value(); }
 
@@ -494,42 +538,42 @@ namespace Dal::AAD {
 
         // unary operators
 
-        template <class E_> Number_& operator+=(const Expression_<E_>& e) {
+        template <class E_> inline Number_& operator+=(const Expression_<E_>& e) {
             *this = *this + e;
             return *this;
         }
 
-        template <class E_> Number_& operator*=(const Expression_<E_>& e) {
+        template <class E_> inline Number_& operator*=(const Expression_<E_>& e) {
             *this = *this * e;
             return *this;
         }
 
-        template <class E_> Number_& operator-=(const Expression_<E_>& e) {
+        template <class E_> inline Number_& operator-=(const Expression_<E_>& e) {
             *this = *this - e;
             return *this;
         }
 
-        template <class E_> Number_& operator/=(const Expression_<E_>& e) {
+        template <class E_> inline Number_& operator/=(const Expression_<E_>& e) {
             *this = *this / e;
             return *this;
         }
 
-        Number_& operator+=(const double& e) {
+        inline Number_& operator+=(const double& e) {
             *this = *this + e;
             return *this;
         }
 
-        Number_& operator*=(const double& e) {
+        inline Number_& operator*=(const double& e) {
             *this = *this * e;
             return *this;
         }
 
-        Number_& operator-=(const double& e) {
+        inline Number_& operator-=(const double& e) {
             *this = *this - e;
             return *this;
         }
 
-        Number_& operator/=(const double& e) {
+        inline Number_& operator/=(const double& e) {
             *this = *this / e;
             return *this;
         }

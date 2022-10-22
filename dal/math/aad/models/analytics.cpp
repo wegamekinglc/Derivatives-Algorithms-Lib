@@ -28,11 +28,11 @@ namespace Dal::AAD {
         const double d2prime = (Log(barrier / spot) + v * mat) / std;
 
         const double bar = BlackScholes(fwd, strike, vol, mat) - BlackScholes(fwd, barrier, vol, mat) -
-                           (barrier - strike) * NormalCDF(d2) -
+                           (barrier - strike) * NCDF(d2) -
                            Pow(barrier / spot, 2 * v / vol / vol) *
                                (BlackScholes(fwdFact * barrier * barrier / spot, strike, vol, mat) -
                                 BlackScholes(fwdFact * barrier * barrier / spot, barrier, vol, mat) -
-                                (barrier - strike) * NormalCDF(d2prime));
+                                (barrier - strike) * NCDF(d2prime));
 
         return disc * bar;
     }

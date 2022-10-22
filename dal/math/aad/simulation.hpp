@@ -41,7 +41,7 @@ namespace Dal::AAD {
                            const String_& method,
                            int nPath);
 
-    constexpr const int BATCH_SIZE = 65536;
+    constexpr const size_t BATCH_SIZE = 65536;
 
     Matrix_<> MCParallelSimulation(const Product_<double>& prd,
                                    const Model_<double>& mdl,
@@ -62,6 +62,7 @@ namespace Dal::AAD {
 
     struct AADResults_ {
         AADResults_(int nPath, int nPay, int nParam) : payoffs_(nPath, nPay), aggregated_(nPath), risks_(nParam) {}
+        int Rows() const { return payoffs_.Rows();  }
         Matrix_<> payoffs_;
         Vector_<> aggregated_;
         Vector_<> risks_;
@@ -172,7 +173,7 @@ namespace Dal::AAD {
         size_t firstPath = 0;
         size_t pathsLeft = nPath;
         while (pathsLeft > 0) {
-            size_t pathsInTask = Min<size_t>(pathsLeft, BATCH_SIZE);
+            size_t pathsInTask = Min(pathsLeft, BATCH_SIZE);
 
             futures.push_back(pool->SpawnTask([&, firstPath, pathsInTask]() {
                 const size_t threadNum = pool->ThreadNum();

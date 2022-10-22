@@ -60,7 +60,7 @@ TEST(MatrixUtilsTest, TestSingleTransformInplace) {
     m1(0, 0) = 1.0; m1(0, 1) = 2.0; m1(0, 2) = 3.0;
     m1(1, 0) = 4.0; m1(1, 1) = 5.0; m1(1, 2) = 6.0;
 
-    Dal::Matrix::Transform(&m1, Dal::Square<double>);
+    Dal::Matrix::Transform(&m1, Dal::Square);
     ASSERT_EQ(m1(0, 0), 1); ASSERT_EQ(m1(0, 1), 4); ASSERT_EQ(m1(0, 2), 9);
     ASSERT_EQ(m1(1, 0), 16); ASSERT_EQ(m1(1, 1), 25); ASSERT_EQ(m1(1, 2), 36);
 }
@@ -85,7 +85,7 @@ TEST(MatrixUtilsTest, TestSingleTransformWithOutput) {
     m1(1, 0) = 4.0; m1(1, 1) = 5.0; m1(1, 2) = 6.0;
 
     matrix_t m2(2, 3);
-    Dal::Matrix::Transform(m1, Dal::Square<double>, &m2);
+    Dal::Matrix::Transform(m1, Dal::Square, &m2);
     ASSERT_EQ(m2(0, 0), 1); ASSERT_EQ(m2(0, 1), 4); ASSERT_EQ(m2(0, 2), 9);
     ASSERT_EQ(m2(1, 0), 16); ASSERT_EQ(m2(1, 1), 25); ASSERT_EQ(m2(1, 2), 36);
 }
