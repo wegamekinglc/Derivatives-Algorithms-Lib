@@ -20,40 +20,30 @@
 
 namespace Dal::AAD {
     class Number_ {
-    private:
         double value_;
         TapNode_* node_;
 
-        template <size_t N_> void CreateNode() { node_ = tape_->RecordNode<N_>(); }
+        template <size_t N_>
+        static TapNode_* CreateNode() { return tape_->RecordNode<N_>(); }
 
-        TapNode_& Node() const {
-#ifndef NDEBUG
-            auto it = tape_->Find(node_);
-            if (it == tape_->End())
-                THROW("Put a breakpoint here");
-#endif
-            return const_cast<TapNode_&>(*node_);
+        [[nodiscard]] TapNode_& Node() const {
+            return *node_;
         }
 
-        double& Derivative() { return node_->p_derivatives_[0]; }
-
-        double& LeftDer() { return node_->p_derivatives_[0]; }
-
-        double& RightDer() { return node_->p_derivatives_[1]; }
-
-        double*& AdjPtr() { return node_->p_adj_ptrs_[0]; }
-
-        double*& LeftAdjPtr() { return node_->p_adj_ptrs_[0]; }
-
-        double*& RightAdjPtr() { return node_->p_adj_ptrs_[1]; }
+        [[nodiscard]] double& Derivative() { return node_->p_derivatives_[0]; }
+        [[nodiscard]] double& LeftDer() { return node_->p_derivatives_[0]; }
+        [[nodiscard]] double& RightDer() { return node_->p_derivatives_[1]; }
+        [[nodiscard]] double*& AdjPtr() { return node_->p_adj_ptrs_[0]; }
+        [[nodiscard]] double*& LeftAdjPtr() { return node_->p_adj_ptrs_[0]; }
+        [[nodiscard]] double*& RightAdjPtr() { return node_->p_adj_ptrs_[1]; }
 
         Number_(TapNode_& arg, double val) : value_(val) {
-            CreateNode<1>();
+            node_ = CreateNode<1>();
             node_->p_adj_ptrs_[0] = Tape_::multi_ ? arg.p_adjoints_ : &arg.adjoint_;
         }
 
         Number_(TapNode_& lhs, TapNode_& rhs, double val) : value_(val) {
-            CreateNode<2>();
+            node_ = CreateNode<2>();
             if (Tape_::multi_) {
                 node_->p_adj_ptrs_[0] = lhs.p_adjoints_;
                 node_->p_adj_ptrs_[1] = rhs.p_adjoints_;
@@ -66,17 +56,17 @@ namespace Dal::AAD {
     public:
         static thread_local Tape_* tape_;
 
-        Number_() {}
+        Number_() = default;
 
-        explicit Number_(double val) : value_(val) { CreateNode<0>(); }
+        explicit Number_(double val) : value_(val) { node_ = CreateNode<0>(); }
 
         Number_& operator=(double val) {
             value_ = val;
-            CreateNode<0>();
+            node_ = CreateNode<0>();
             return *this;
         }
 
-        void PutOnTape() { CreateNode<0>(); }
+        void PutOnTape() { node_ = CreateNode<0>(); }
 
         explicit operator double() const { return value_; }
 
@@ -85,7 +75,7 @@ namespace Dal::AAD {
         [[nodiscard]] double Value() const { return value_; }
 
         double& Adjoint() { return node_->Adjoint(); }
-        const double& Adjoint() const { return node_->Adjoint();}
+        [[nodiscard]] const double& Adjoint() const { return node_->Adjoint();}
 
         void ResetAdjoints() { tape_->ResetAdjoints(); }
 
@@ -119,7 +109,7 @@ namespace Dal::AAD {
             it->PropagateAll();
         }
 
-        inline friend Number_ operator+(const Number_& lhs, const Number_& rhs) {
+        friend Number_ operator+(const Number_& lhs, const Number_& rhs) {
             const double e = lhs.Value() + rhs.Value();
             Number_ result(lhs.Node(), rhs.Node(), e);
             result.LeftDer() = 1.0;
@@ -127,16 +117,16 @@ namespace Dal::AAD {
             return result;
         }
 
-        inline friend Number_ operator+(const Number_& lhs, double rhs) {
+        friend Number_ operator+(const Number_& lhs, double rhs) {
             const double e = lhs.Value() + rhs;
             Number_ result(lhs.Node(), e);
             result.Derivative() = 1.0;
             return result;
         }
 
-        inline friend Number_ operator+(double lhs, const Number_& rhs) { return rhs + lhs; }
+        friend Number_ operator+(double lhs, const Number_& rhs) { return rhs + lhs; }
 
-        inline friend Number_ operator-(const Number_& lhs, const Number_& rhs) {
+        friend Number_ operator-(const Number_& lhs, const Number_& rhs) {
             const double e = lhs.Value() - rhs.Value();
             Number_ result(lhs.Node(), rhs.Node(), e);
             result.LeftDer() = 1.0;
@@ -144,21 +134,21 @@ namespace Dal::AAD {
             return result;
         }
 
-        inline friend Number_ operator-(const Number_& lhs, double rhs) {
+        friend Number_ operator-(const Number_& lhs, double rhs) {
             const double e = lhs.Value() - rhs;
             Number_ result(lhs.Node(), e);
             result.Derivative() = 1.0;
             return result;
         }
 
-        inline friend Number_ operator-(double lhs, const Number_& rhs) {
+        friend Number_ operator-(double lhs, const Number_& rhs) {
             const double e = lhs - rhs.Value();
             Number_ result(rhs.Node(), e);
             result.Derivative() = -1.0;
             return result;
         }
 
-        inline friend Number_ operator*(const Number_& lhs, const Number_& rhs) {
+        friend Number_ operator*(const Number_& lhs, const Number_& rhs) {
             const double e = lhs.Value() * rhs.Value();
             Number_ result(lhs.Node(), rhs.Node(), e);
             result.LeftDer() = rhs.Value();
@@ -166,16 +156,16 @@ namespace Dal::AAD {
             return result;
         }
 
-        inline friend Number_ operator*(const Number_& lhs, double rhs) {
+        friend Number_ operator*(const Number_& lhs, double rhs) {
             const double e = lhs.Value() * rhs;
             Number_ result(lhs.Node(), e);
             result.Derivative() = rhs;
             return result;
         }
 
-        inline friend Number_ operator*(double lhs, const Number_& rhs) { return rhs * lhs; }
+        friend Number_ operator*(double lhs, const Number_& rhs) { return rhs * lhs; }
 
-        inline friend Number_ operator/(const Number_& lhs, const Number_& rhs) {
+        friend Number_ operator/(const Number_& lhs, const Number_& rhs) {
             const double e = lhs.Value() / rhs.Value();
             Number_ result(lhs.Node(), rhs.Node(), e);
             const double inv_rhs = 1.0 / rhs.Value();
@@ -184,21 +174,21 @@ namespace Dal::AAD {
             return result;
         }
 
-        inline friend Number_ operator/(const Number_& lhs, double rhs) {
+        friend Number_ operator/(const Number_& lhs, double rhs) {
             const double e = lhs.Value() / rhs;
             Number_ result(lhs.Node(), e);
             result.Derivative() = 1.0 / rhs;
             return result;
         }
 
-        inline friend Number_ operator/(double lhs, const Number_& rhs) {
+        friend Number_ operator/(double lhs, const Number_& rhs) {
             const double e = lhs / rhs.Value();
             Number_ result(rhs.Node(), e);
             result.Derivative() = -lhs / rhs.Value() / rhs.Value();
             return result;
         }
 
-        inline friend Number_ Pow(const Number_& lhs, const Number_& rhs) {
+        friend Number_ Pow(const Number_& lhs, const Number_& rhs) {
             const double e = std::pow(lhs.Value(), rhs.Value());
             Number_ result(lhs.Node(), rhs.Node(), e);
             result.LeftDer() = rhs.Value() * e / lhs.Value();
@@ -207,21 +197,21 @@ namespace Dal::AAD {
             return result;
         }
 
-        inline friend Number_ Pow(const Number_& lhs, double rhs) {
+        friend Number_ Pow(const Number_& lhs, double rhs) {
             const double e = std::pow(lhs.Value(), rhs);
             Number_ result(lhs.Node(), e);
             result.Derivative() = rhs * e / lhs.Value();
             return result;
         }
 
-        inline friend Number_ Pow(double lhs, const Number_& rhs) {
+        friend Number_ Pow(double lhs, const Number_& rhs) {
             const double e = std::pow(lhs, rhs.Value());
             Number_ result(rhs.Node(), e);
             result.Derivative() = std::log(lhs) * e;
             return result;
         }
 
-        inline friend Number_ Max(const Number_& lhs, const Number_& rhs) {
+        friend Number_ Max(const Number_& lhs, const Number_& rhs) {
             const bool l_max = lhs.Value() > rhs.Value();
             Number_ result(lhs.Node(), rhs.Node(), l_max ? lhs.Value() : rhs.Value());
             if (l_max) {
@@ -234,21 +224,21 @@ namespace Dal::AAD {
             return result;
         }
 
-        inline friend Number_ Max(const Number_& lhs, double rhs) {
+        friend Number_ Max(const Number_& lhs, double rhs) {
             const bool l_max = lhs.Value() > rhs;
             Number_ result(lhs.Node(), l_max ? lhs.Value() : rhs);
             result.Derivative() = l_max ? 1.0 : 0.0;
             return result;
         }
 
-        inline friend Number_ Max(double lhs, const Number_& rhs) {
+        friend Number_ Max(double lhs, const Number_& rhs) {
             const bool r_max = rhs.Value() > lhs;
             Number_ result(rhs.Node(), r_max ? rhs.Value() : lhs);
             result.Derivative() = r_max ? 1.0 : 0.0;
             return result;
         }
 
-        inline friend Number_ Min(const Number_& lhs, const Number_& rhs) {
+        friend Number_ Min(const Number_& lhs, const Number_& rhs) {
             const bool l_min = lhs.Value() < rhs.Value();
             Number_ result(lhs.Node(), rhs.Node(), l_min ? lhs.Value() : rhs.Value());
             if (l_min) {
@@ -261,14 +251,14 @@ namespace Dal::AAD {
             return result;
         }
 
-        inline friend Number_ Min(const Number_& lhs, double rhs) {
+        friend Number_ Min(const Number_& lhs, double rhs) {
             const bool l_min = lhs.Value() < rhs;
             Number_ result(lhs.Node(), l_min ? lhs.Value() : rhs);
             result.Derivative() = l_min ? 1.0 : 0.0;
             return result;
         }
 
-        inline friend Number_ Min(double lhs, const Number_& rhs) {
+        friend Number_ Min(double lhs, const Number_& rhs) {
             const bool r_min = rhs.Value() < lhs;
             Number_ result(rhs.Node(), r_min ? rhs.Value() : lhs);
             result.Derivative() = r_min ? 1.0 : 0.0;
@@ -319,89 +309,101 @@ namespace Dal::AAD {
 
         Number_ operator+() const { return *this; }
 
-        inline friend Number_ Exp(const Number_& arg) {
+        friend Number_ Exp(const Number_& arg) {
             const double e = std::exp(arg.Value());
             Number_ result(arg.Node(), e);
             result.Derivative() = e;
             return result;
         }
 
-        inline friend Number_ Log(const Number_& arg) {
+        friend Number_ Log(const Number_& arg) {
             const double e = std::log(arg.Value());
             Number_ result(arg.Node(), e);
             result.Derivative() = 1.0 / arg.Value();
             return result;
         }
 
-        inline friend Number_ Sqrt(const Number_& arg) {
+        friend Number_ Sqrt(const Number_& arg) {
             const double e = std::sqrt(arg.Value());
             Number_ result(arg.Node(), e);
             result.Derivative() = 0.5 / e;
             return result;
         }
 
-        inline friend Number_ Square(const Number_& arg) {
+        friend Number_ Square(const Number_& arg) {
             const double e = arg.Value() * arg.Value();
             Number_ result(arg.Node(), e);
             result.Derivative() = 2.0 * arg.Value();
             return result;
         }
 
-        inline friend Number_ Fabs(const Number_& arg) {
+        friend Number_ Fabs(const Number_& arg) {
             const double e = std::fabs(arg.Value());
             Number_ result(arg.Node(), e);
             result.Derivative() = arg.Value() > 0.0 ? 1.0 : -1.0;
             return result;
         }
 
-        inline friend Number_ NPDF(const Number_& arg) {
+        friend Number_ NPDF(const Number_& arg) {
             const double e = Dal::NPDF(arg.Value());
             Number_ result(arg.Node(), e);
             result.Derivative() = -arg.Value() * e;
             return result;
         }
 
-        inline friend Number_ NCDF(const Number_& arg) {
+        friend Number_ NCDF(const Number_& arg) {
             const double e = Dal::NCDF(arg.Value());
             Number_ result(arg.Node(), e);
             result.Derivative() = Dal::NPDF(arg.Value());
             return result;
         }
 
-        inline friend bool operator==(const Number_& lhs, const Number_& rhs) { return lhs.Value() == rhs.Value(); }
+        friend bool operator==(const Number_& lhs, const Number_& rhs) {
+            return std::fabs(lhs.Value() - rhs.Value()) <= EPSILON;
+        }
 
-        inline friend bool operator==(const Number_& lhs, double rhs) { return lhs.Value() == rhs; }
+        friend bool operator==(const Number_& lhs, double rhs) {
+            return std::fabs(lhs.Value() - rhs) <= EPSILON;
+        }
 
-        inline friend bool operator==(double lhs, const Number_& rhs) { return lhs == rhs.Value(); }
+        friend bool operator==(double lhs, const Number_& rhs) {
+            return std::fabs(lhs - rhs.Value()) <= EPSILON;
+        }
 
-        inline friend bool operator!=(const Number_& lhs, const Number_& rhs) { return lhs.Value() != rhs.Value(); }
+        friend bool operator!=(const Number_& lhs, const Number_& rhs) {
+            return std::fabs(lhs.Value() - rhs.Value()) > EPSILON;
+        }
 
-        inline friend bool operator!=(const Number_& lhs, double rhs) { return lhs.Value() != rhs; }
+        friend bool operator!=(const Number_& lhs, double rhs) {
+            return std::fabs(lhs.Value() - rhs) > EPSILON;
+        }
 
-        inline friend bool operator!=(double lhs, const Number_& rhs) { return lhs != rhs.Value(); }
+        friend bool operator!=(double lhs, const Number_& rhs) {
+            return std::fabs(lhs - rhs.Value()) > EPSILON;
+        }
 
-        inline friend bool operator<(const Number_& lhs, const Number_& rhs) { return lhs.Value() < rhs.Value(); }
+        friend bool operator<(const Number_& lhs, const Number_& rhs) { return lhs.Value() < rhs.Value(); }
 
-        inline friend bool operator<(const Number_& lhs, double rhs) { return lhs.Value() < rhs; }
+        friend bool operator<(const Number_& lhs, double rhs) { return lhs.Value() < rhs; }
 
-        inline friend bool operator<(double lhs, const Number_& rhs) { return lhs < rhs.Value(); }
+        friend bool operator<(double lhs, const Number_& rhs) { return lhs < rhs.Value(); }
 
-        inline friend bool operator>(const Number_& lhs, const Number_& rhs) { return lhs.Value() > rhs.Value(); }
+        friend bool operator>(const Number_& lhs, const Number_& rhs) { return lhs.Value() > rhs.Value(); }
 
-        inline friend bool operator>(const Number_& lhs, double rhs) { return lhs.Value() > rhs; }
+        friend bool operator>(const Number_& lhs, double rhs) { return lhs.Value() > rhs; }
 
-        inline friend bool operator>(double lhs, const Number_& rhs) { return lhs > rhs.Value(); }
+        friend bool operator>(double lhs, const Number_& rhs) { return lhs > rhs.Value(); }
 
-        inline friend bool operator<=(const Number_& lhs, const Number_& rhs) { return lhs.Value() <= rhs.Value(); }
+        friend bool operator<=(const Number_& lhs, const Number_& rhs) { return lhs.Value() <= rhs.Value(); }
 
-        inline friend bool operator<=(const Number_& lhs, double rhs) { return lhs.Value() <= rhs; }
+        friend bool operator<=(const Number_& lhs, double rhs) { return lhs.Value() <= rhs; }
 
-        inline friend bool operator<=(double lhs, const Number_& rhs) { return lhs <= rhs.Value(); }
+        friend bool operator<=(double lhs, const Number_& rhs) { return lhs <= rhs.Value(); }
 
-        inline friend bool operator>=(const Number_& lhs, const Number_& rhs) { return lhs.Value() >= rhs.Value(); }
+        friend bool operator>=(const Number_& lhs, const Number_& rhs) { return lhs.Value() >= rhs.Value(); }
 
-        inline friend bool operator>=(const Number_& lhs, double rhs) { return lhs.Value() >= rhs; }
+        friend bool operator>=(const Number_& lhs, double rhs) { return lhs.Value() >= rhs; }
 
-        inline friend bool operator>=(double lhs, const Number_& rhs) { return lhs >= rhs.Value(); }
+        friend bool operator>=(double lhs, const Number_& rhs) { return lhs >= rhs.Value(); }
     };
 } // namespace Dal

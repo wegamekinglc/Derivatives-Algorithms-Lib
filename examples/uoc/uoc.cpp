@@ -73,6 +73,10 @@ int main() {
     std::cin >> n;
     const int n_paths = Pow(2, n);
 
+    double smooth;
+    std::cout << "Plz input smooth factor: ";
+    std::cin >> smooth;
+
     /*
      * European products and B-S models
      */
@@ -132,7 +136,7 @@ int main() {
     auto tenor = Date::ParseIncrement("1W");
     const auto schedule = DateGenerate(start, maturity, tenor);
     const double barrier = 150;
-    products = UOCProducts(strike, barrier, schedule, 1e-3, false);
+    products = UOCProducts(strike, barrier, schedule, smooth, false);
     
     // use a simple B-S model
     timer.Reset();
@@ -179,7 +183,7 @@ int main() {
     std::cout << "                   : vega  " << std::setprecision(8) << risk_sum << std::endl;
     
     // for matrix of risk report for UOC under B-S
-    for (int round = 10; round < 25; ++round) {
+    for (int round = 10; round <= 25; ++round) {
         const int n_paths = Pow(2, round);
         resAAD = MCParallelSimulationAAD(*products.second, *bsModels.second, "sobol", n_paths);
         sum = 0.0;

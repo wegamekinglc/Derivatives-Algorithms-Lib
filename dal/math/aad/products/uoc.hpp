@@ -54,11 +54,9 @@ namespace Dal::AAD {
             const double twoSmooth = 2.0 * smooth;
 
             T_ alive(1.0);
-            if (smooth >= Dal::EPSILON) {
+            if (smooth_ >= Dal::EPSILON) {
                 for (const auto& sample : path) {
-                    const auto spot = sample.forwards_[0][0];
-                    const auto dis_barrier = spot - barrier_;
-                    alive *= Min(1.0, Max(0.0, 0.5 - dis_barrier / twoSmooth));
+                    alive = Min(alive, Min(1.0, Max(0.0, 0.5 - (sample.forwards_[0][0] - barrier_) / twoSmooth)));
                 }
             } else {
                 for (const auto& sample : path) {
@@ -69,11 +67,11 @@ namespace Dal::AAD {
                     }
                 }
             }
-            const auto finalSpot = path.back().forwards_[0][0];
+
             if (callPut_)
-                (*payoffs)[0] = alive * Max(strike_ - finalSpot, 0.0) / path.back().numeraire_;
+                (*payoffs)[0] = alive * Max(strike_ - path.back().forwards_[0][0], 0.0) / path.back().numeraire_;
             else
-                (*payoffs)[0] = alive * Max(finalSpot - strike_, 0.0) / path.back().numeraire_;
+                (*payoffs)[0] = alive * Max(path.back().forwards_[0][0] - strike_, 0.0) / path.back().numeraire_;
         }
 
         inline void PayoffsImpl(const Scenario_<T_>& path, Vector_<T_>* payoffs) const override {

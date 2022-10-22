@@ -38,11 +38,11 @@ namespace Dal {
 
     class Dictionary_;
 
-    constexpr const double EPSILON = 2e-14;
-    constexpr const double INF = 1e29;
-    constexpr const double PI = 3.1415926535897932;
-    constexpr const double M_SQRT_2 = 1.4142135623730951;
-    constexpr const double ONE_MINUS_EPS = 0.999999999999;
+    constexpr double EPSILON = 2e-14;
+    constexpr double INF = 1e29;
+    constexpr double PI = 3.1415926535897932;
+    constexpr double M_SQRT_2 = 1.4142135623730951;
+    constexpr double ONE_MINUS_EPS = 0.999999999999;
 
     template <class T_> inline bool IsZero(const T_& x) { return x < Dal::EPSILON && -x < Dal::EPSILON; }
 
@@ -66,7 +66,7 @@ namespace Dal {
     struct Empty_ {};
 
     template <class T_> class Handle_ : public std::shared_ptr<const T_> {
-        typedef typename std::shared_ptr<const T_> base_t;
+        using base_t = std::shared_ptr<const T_>;
 
     public:
         Handle_() : base_t() {}
