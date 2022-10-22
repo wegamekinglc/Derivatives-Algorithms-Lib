@@ -32,10 +32,10 @@ namespace Dal::AAD {
 
         template <size_t N_, size_t n_> void PushAdjoint(TapNode_& exprNode, double adjoint) const {
             if (LHS_::numNumbers_ > 0)
-                lhs_.PushAdjoint<N_, n_>(exprNode, adjoint * OP_::LeftDerivative(lhs_.Value(), rhs_.Value(), Value()));
+                lhs_.template PushAdjoint<N_, n_>(exprNode, adjoint * OP_::LeftDerivative(lhs_.Value(), rhs_.Value(), Value()));
 
             if (RHS_::numNumbers_ > 0)
-                rhs_.PushAdjoint<N_, n_ + LHS_::numNumbers_>(
+                rhs_.template PushAdjoint<N_, n_ + LHS_::numNumbers_>(
                     exprNode, adjoint * OP_::RightDerivative(lhs_.Value(), rhs_.Value(), Value()));
         }
     };
@@ -156,7 +156,7 @@ namespace Dal::AAD {
 
         template <size_t N_, size_t n_> void PushAdjoint(TapNode_& exprNode, double adjoint) const {
             if (ARG_::numNumbers_ > 0)
-                arg_.PushAdjoint<N_, n_>(exprNode, adjoint * OP_::Derivative(arg_.Value(), Value(), d_arg_));
+                arg_.template PushAdjoint<N_, n_>(exprNode, adjoint * OP_::Derivative(arg_.Value(), Value(), d_arg_));
         }
     };
 
@@ -452,7 +452,7 @@ namespace Dal::AAD {
 
         template <class E_> void FromExpr(const Expression_<E_>& e) {
             auto* node = this->CreateMultiNode<E_::numNumbers_>();
-            static_cast<const E_&>(e).PushAdjoint<E_::numNumbers_, 0>(*node, 1.0);
+            static_cast<const E_&>(e).template PushAdjoint<E_::numNumbers_, 0>(*node, 1.0);
             node_ = node;
         }
 

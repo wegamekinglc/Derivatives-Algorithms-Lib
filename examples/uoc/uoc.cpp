@@ -143,7 +143,7 @@ int main() {
     calculated = sum / static_cast<double>(res.Rows());
     std::cout << "\nUOC       w. B-S: price " << std::setprecision(8) << calculated << "\tElapsed: " << timer.Elapsed<milliseconds>() << " ms" << std::endl;
     timer.Reset();
-    resAAD = MCSimulationAAD(*products.second, *bsModels.second, "sobol", n_paths);
+    resAAD = MCParallelSimulationAAD(*products.second, *bsModels.second, "sobol", n_paths);
     sum = 0.0;
     for (auto row = 0; row < resAAD.Rows(); ++row)
         sum += resAAD.aggregated_[row];
@@ -164,7 +164,7 @@ int main() {
     std::cout << "\nUOC       w. Dupire: price " << std::setprecision(8) << calculated << "\tElapsed: " << timer.Elapsed<milliseconds>() << " ms" << std::endl;
     
     timer.Reset();
-    resAAD = MCSimulationAAD(*products.second, *dupireModels.second, "sobol", n_paths);
+    resAAD = MCParallelSimulationAAD(*products.second, *dupireModels.second, "sobol", n_paths);
     sum = 0.0;
     for (auto row = 0; row < resAAD.Rows(); ++row)
         sum += resAAD.aggregated_[row];
@@ -181,7 +181,7 @@ int main() {
     // for matrix of risk report for UOC under B-S
     for (int round = 10; round < 25; ++round) {
         const int n_paths = Pow(2, round);
-        resAAD = MCSimulationAAD(*products.second, *bsModels.second, "sobol", n_paths);
+        resAAD = MCParallelSimulationAAD(*products.second, *bsModels.second, "sobol", n_paths);
         sum = 0.0;
         for (auto row = 0; row < resAAD.Rows(); ++row)
             sum += resAAD.aggregated_[row];
