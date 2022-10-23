@@ -76,6 +76,7 @@ int main() {
     double smooth;
     std::cout << "Plz input smooth factor: ";
     std::cin >> smooth;
+    std::cout << "# of path: " << n_paths << " - smooth factor: " << std::setprecision(4) << smooth << std::endl;
 
     /*
      * European products and B-S models

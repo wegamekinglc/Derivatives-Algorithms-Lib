@@ -41,7 +41,7 @@ namespace Dal::AAD {
                            const String_& method,
                            int nPath);
 
-    constexpr const size_t BATCH_SIZE = 65536;
+    constexpr const size_t BATCH_SIZE = 4096;
 
     Matrix_<> MCParallelSimulation(const Product_<double>& prd,
                                    const Model_<double>& mdl,
@@ -168,7 +168,7 @@ namespace Dal::AAD {
         Vector_<Vector_<double>> gaussVecs(nThread + 1, Vector_<double>(models[0]->SimDim()));
 
         Vector_<TaskHandle_> futures;
-        futures.reserve(nPath /  + 1);
+        futures.reserve(nPath / BATCH_SIZE + 1);
 
         size_t firstPath = 0;
         size_t pathsLeft = nPath;
