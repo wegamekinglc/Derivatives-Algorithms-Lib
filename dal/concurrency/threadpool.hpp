@@ -13,7 +13,6 @@
 #pragma once
 
 #include <dal/concurrency/concurrentqueue.hpp>
-#include <dal/math/vectors.hpp>
 #include <dal/platform/platform.hpp>
 #include <future>
 #include <thread>
@@ -25,7 +24,7 @@ namespace Dal {
     class ThreadPool_ {
         static ThreadPool_ instance_;
         ConcurrentQueue_<Task_> queue_;
-        Vector_<std::thread> threads_;
+        std::vector<std::thread> threads_;
         bool active_;
         bool interrupt_;
         static thread_local size_t tlsNum_;

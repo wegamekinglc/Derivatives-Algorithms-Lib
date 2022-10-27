@@ -2,7 +2,6 @@
 // Created by wegamekinglc on 22-10-27.
 //
 
-#include <thread>
 #include <chrono>
 #include <iostream>
 #include <dal/concurrency/threadpool.hpp>
@@ -15,6 +14,9 @@ using namespace std::chrono_literals;
 
 
 void LongRunningTask(int n1, int n2) {
+    std::cout << n1 << " - ";
+    std::this_thread::sleep_for(1ms);
+    std::cout << n2 << std::endl;
     for(int i = n1; i < n2; ++i) {
         NCDF(1. / (AAD::Log(static_cast<double>(i))+ 1.0001), true);
     }
@@ -22,7 +24,8 @@ void LongRunningTask(int n1, int n2) {
 
 
 int main() {
-    const int n = 2000000000;
+    std::cout << "starting threading test ..." << std::endl;
+    const int n = 200000000;
 
     Timer_ timer;
     LongRunningTask(0, n);
@@ -34,7 +37,7 @@ int main() {
     const int sub_n = n / n_packs;
 
     timer.Reset();
-    Vector_<TaskHandle_> futures;
+    std::vector<TaskHandle_> futures;
     for (int k = 0; k < n_packs; ++k) {
         const int n1 = k * sub_n;
         const int n2 = (k + 1) * sub_n;

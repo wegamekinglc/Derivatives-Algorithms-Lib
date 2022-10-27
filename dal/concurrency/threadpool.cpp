@@ -24,7 +24,7 @@ namespace Dal {
         if (!active_) {
             threads_.reserve(nThread);
             for (size_t i = 0; i < nThread; ++i)
-                threads_.push_back(std::thread(&ThreadPool_::ThreadFunc, this, i + 1));
+                threads_.emplace_back(std::thread(&ThreadPool_::ThreadFunc, this, i + 1));
             active_ = true;
         }
     }
