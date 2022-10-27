@@ -52,6 +52,7 @@ namespace Dal {
                 b = true;
             } else
                 f.wait();
+            f.wait();
         }
         return b;
     }
