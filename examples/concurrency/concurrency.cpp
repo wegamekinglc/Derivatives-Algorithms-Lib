@@ -14,9 +14,6 @@ using namespace std::chrono_literals;
 
 
 void LongRunningTask(int n1, int n2) {
-    std::cout << n1 << " - ";
-    std::this_thread::sleep_for(1ms);
-    std::cout << n2 << std::endl;
     for(int i = n1; i < n2; ++i) {
         NCDF(1. / (AAD::Log(static_cast<double>(i))+ 1.0001), true);
     }
