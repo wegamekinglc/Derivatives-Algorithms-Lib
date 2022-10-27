@@ -78,6 +78,10 @@ int main() {
     std::cin >> smooth;
     std::cout << "# of path: " << n_paths << " - smooth factor: " << std::setprecision(4) << smooth << std::endl;
 
+    bool use_parallel = true;
+    std::cout << "Use parallel?: ";
+    std::cin >> use_parallel;
+
     /*
      * European products and B-S models
      */
@@ -88,15 +92,24 @@ int main() {
     auto bsModels = BSModels(spot, vol, rate, div);
     
     timer.Reset();
-    auto res = MCParallelSimulation(*products.first, *bsModels.first, "sobol", n_paths);
+    Matrix_<> res;
+    if (use_parallel)
+        res = MCParallelSimulation(*products.first, *bsModels.first, "mrg32", n_paths);
+    else
+        res = MCSimulation(*products.first, *bsModels.first, "mrg32", n_paths);
     auto sum = 0.0;
     for (auto row = 0; row < res.Rows(); ++row)
         sum += res(row, 0);
     auto calculated = sum / static_cast<double>(res.Rows());
     std::cout << "\nEuropean       w. B-S: price " << std::setprecision(8) << calculated << "\tElapsed: " << timer.Elapsed<milliseconds>() << " ms" << std::endl;
-    
+
     timer.Reset();
-    auto resAAD = MCParallelSimulationAAD(*products.second, *bsModels.second, "sobol", n_paths);
+    AADResults_ resAAD(1, 1, 1);
+
+    if (use_parallel)
+        resAAD = MCParallelSimulationAAD(*products.second, *bsModels.second, "sobol", n_paths);
+    else
+        resAAD = MCSimulationAAD(*products.second, *bsModels.second, "sobol", n_paths);
     sum = 0.0;
     for (auto row = 0; row < resAAD.Rows(); ++row)
         sum += resAAD.aggregated_[row];
@@ -105,12 +118,15 @@ int main() {
     std::cout << "                     : delta " << std::setprecision(8) << resAAD.risks_[0] << std::endl;
     std::cout << "                     : vega  " << std::setprecision(8) << resAAD.risks_[1] << std::endl;
     std::cout << "                     : rho   " << std::setprecision(8) << resAAD.risks_[2] << std::endl;
-    
-    
+
+
     // use a flat dupire model
     auto dupireModels = DupireModels(spot, 0, 5, 60, 50, 200, 30, vol);
     timer.Reset();
-    res = MCParallelSimulation(*products.first, *dupireModels.first, "sobol", n_paths);
+    if (use_parallel)
+        res = MCParallelSimulation(*products.first, *dupireModels.first, "sobol", n_paths);
+    else
+        res = MCSimulation(*products.first, *dupireModels.first, "sobol", n_paths);
     sum = 0.0;
     for (auto row = 0; row < res.Rows(); ++row)
         sum += res(row, 0);
@@ -118,7 +134,10 @@ int main() {
     std::cout << "\nEuropean       w. Dupire: price " << std::setprecision(8) << calculated << "\tElapsed: " << timer.Elapsed<milliseconds>() << " ms" << std::endl;
 
     timer.Reset();
-    resAAD = MCParallelSimulationAAD(*products.second, *dupireModels.second, "sobol", n_paths);
+    if (use_parallel)
+        resAAD = MCParallelSimulationAAD(*products.second, *dupireModels.second, "sobol", n_paths);
+    else
+        resAAD = MCSimulationAAD(*products.second, *dupireModels.second, "sobol", n_paths);
     sum = 0.0;
     for (auto row = 0; row < resAAD.Rows(); ++row)
         sum += resAAD.aggregated_[row];
@@ -138,10 +157,13 @@ int main() {
     const auto schedule = DateGenerate(start, maturity, tenor);
     const double barrier = 150;
     products = UOCProducts(strike, barrier, schedule, smooth, false);
-    
+
     // use a simple B-S model
     timer.Reset();
-    res = MCParallelSimulation(*products.first, *bsModels.first, "sobol", n_paths);
+    if (use_parallel)
+        res = MCParallelSimulation(*products.first, *bsModels.first, "sobol", n_paths);
+    else
+        res = MCSimulation(*products.first, *bsModels.first, "sobol", n_paths);
     sum = 0.0;
     for (auto row = 0; row < res.Rows(); ++row)
         sum += res(row, 0);
@@ -158,18 +180,24 @@ int main() {
     std::cout << "                : delta " << std::setprecision(8) << resAAD.risks_[0] << std::endl;
     std::cout << "                : vega  " << std::setprecision(8) << resAAD.risks_[1] << std::endl;
     std::cout << "                : rho   " << std::setprecision(8) << resAAD.risks_[2] << std::endl;
-    
+
     // use a flat dupire model
     timer.Reset();
-    res = MCParallelSimulation(*products.first, *dupireModels.first, "sobol", n_paths);
+    if (use_parallel)
+        res = MCParallelSimulation(*products.first, *dupireModels.first, "sobol", n_paths);
+    else
+        res = MCSimulation(*products.first, *dupireModels.first, "sobol", n_paths);
     sum = 0.0;
     for (auto row = 0; row < res.Rows(); ++row)
         sum += res(row, 0);
     calculated = sum / static_cast<double>(res.Rows());
     std::cout << "\nUOC       w. Dupire: price " << std::setprecision(8) << calculated << "\tElapsed: " << timer.Elapsed<milliseconds>() << " ms" << std::endl;
-    
+
     timer.Reset();
-    resAAD = MCParallelSimulationAAD(*products.second, *dupireModels.second, "sobol", n_paths);
+    if (use_parallel)
+        resAAD = MCParallelSimulationAAD(*products.second, *dupireModels.second, "sobol", n_paths);
+    else
+        resAAD = MCSimulationAAD(*products.second, *dupireModels.second, "sobol", n_paths);
     sum = 0.0;
     for (auto row = 0; row < resAAD.Rows(); ++row)
         sum += resAAD.aggregated_[row];
@@ -182,11 +210,14 @@ int main() {
     for (int i = 1; i < resAAD.risks_.size(); ++i)
         risk_sum += resAAD.risks_[i];
     std::cout << "                   : vega  " << std::setprecision(8) << risk_sum << std::endl;
-    
+
     // for matrix of risk report for UOC under B-S
     for (int round = 10; round <= 25; ++round) {
         const int n_paths = Pow(2, round);
-        resAAD = MCParallelSimulationAAD(*products.second, *bsModels.second, "sobol", n_paths);
+        if (use_parallel)
+            resAAD = MCParallelSimulationAAD(*products.second, *bsModels.second, "sobol", n_paths);
+        else
+            resAAD = MCSimulationAAD(*products.second, *bsModels.second, "sobol", n_paths);
         sum = 0.0;
         for (auto row = 0; row < resAAD.Rows(); ++row)
             sum += resAAD.aggregated_[row];

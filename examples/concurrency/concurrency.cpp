@@ -7,35 +7,42 @@
 #include <iostream>
 #include <dal/concurrency/threadpool.hpp>
 #include <dal/utilities/timer.hpp>
+#include <dal/math/aad/operators.hpp>
+#include <dal/math/specialfunctions.hpp>
 
 using namespace Dal;
 using namespace std::chrono_literals;
 
-void LongRunningTask(int n) {
-    int sum = 0;
-    for(int i = 0; i < n; ++i) {
-        sum += i;
-        std::this_thread::sleep_for(2ms);
+
+void LongRunningTask(int n1, int n2) {
+    for(int i = n1; i < n2; ++i) {
+        NCDF(1. / (AAD::Log(static_cast<double>(i))+ 1.0001), true);
     }
 }
 
 
 int main() {
-    const int n = 5000;
+    const int n = 2000000000;
 
     Timer_ timer;
-    LongRunningTask(n);
+    LongRunningTask(0, n);
 
     std::cout << "Elapsed (single threaded): " << timer.Elapsed<milliseconds>() << " ms" << std::endl;
 
     ThreadPool_* pool = ThreadPool_::GetInstance();
-    const int nThread = pool->NumThreads();
-
-    const int sub_n = n / nThread;
+    const int n_packs = 100;
+    const int sub_n = n / n_packs;
 
     timer.Reset();
     Vector_<TaskHandle_> futures;
-    futures.push_back(pool->SpawnTask([&]() {LongRunningTask(sub_n); return true; }));
+    for (int k = 0; k < n_packs; ++k) {
+        const int n1 = k * sub_n;
+        const int n2 = (k + 1) * sub_n;
+        futures.push_back(pool->SpawnTask([n1, n2]() {
+            LongRunningTask(n1, n2);
+            return true;
+        }));
+    }
     for (auto& future : futures)
         pool->ActiveWait(future);
     std::cout << "Elapsed (multi-threaded): " << timer.Elapsed<milliseconds>() << " ms" << std::endl;
