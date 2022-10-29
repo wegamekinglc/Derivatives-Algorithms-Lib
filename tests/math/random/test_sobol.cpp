@@ -3,6 +3,7 @@
 //
 
 #include <gtest/gtest.h>
+#include <dal/math/aad/operators.hpp>
 #include <dal/math/random/quasirandom.hpp>
 #include <dal/math/random/sobol.hpp>
 #include <dal/math/vectors.hpp>
@@ -53,4 +54,48 @@ TEST(SobolTest, TestNewSobol) {
         ASSERT_NEAR(means[i], 0.0, 1e-4);
         ASSERT_NEAR(vars[i], 1.0, 1e-4);
     }
+}
+
+TEST(SobolTest, TestNewSobolWithSkip) {
+    int dim = 1;
+    int i_path = 0;
+    int size_to_skip = AAD::Pow(2, 20);
+    std::unique_ptr<SequenceSet_> set(NewSobol(dim, i_path));
+    std::unique_ptr<SequenceSet_> set2(NewSobol(dim, i_path));
+
+    Vector_<> data(dim);
+    Vector_<> data2(dim);
+
+    set2->SkipTo(size_to_skip);
+    for (int i = 0; i < size_to_skip; ++i)
+        set->FillUniform(&data);
+
+    set->FillUniform(&data);
+    set2->FillUniform(&data2);
+    ASSERT_DOUBLE_EQ(data[0], data2[0]);
+
+    dim = 441;
+    i_path = AAD::Pow(2, 12);
+    set = std::unique_ptr<SequenceSet_>(NewSobol(dim, i_path));
+    set2 = std::unique_ptr<SequenceSet_>(NewSobol(dim, i_path));
+
+    data.Resize(dim);
+    data2.Resize(dim);
+
+    set2->SkipTo(size_to_skip);
+    for (int i = 0; i < size_to_skip - i_path; ++i)
+        set->FillUniform(&data);
+
+    set->FillUniform(&data);
+    set2->FillUniform(&data2);
+    for (int k = 0; k < dim; ++k)
+        ASSERT_DOUBLE_EQ(data[k], data2[k]);
+
+    set2->SkipTo(2 * size_to_skip + 1);
+    for (int i = 0; i < size_to_skip; ++i)
+        set->FillUniform(&data);
+    set->FillUniform(&data);
+    set2->FillUniform(&data2);
+    for (int k = 0; k < dim; ++k)
+        ASSERT_DOUBLE_EQ(data[k], data2[k]);
 }

@@ -94,9 +94,9 @@ int main() {
     timer.Reset();
     Matrix_<> res;
     if (use_parallel)
-        res = MCParallelSimulation(*products.first, *bsModels.first, "mrg32", n_paths);
+        res = MCParallelSimulation(*products.first, *bsModels.first, "sobol", n_paths);
     else
-        res = MCSimulation(*products.first, *bsModels.first, "mrg32", n_paths);
+        res = MCSimulation(*products.first, *bsModels.first, "sobol", n_paths);
     auto sum = 0.0;
     for (auto row = 0; row < res.Rows(); ++row)
         sum += res(row, 0);
