@@ -12,6 +12,7 @@
 #include <dal/platform/platform.hpp>
 #include <dal/string/strings.hpp>
 #include <dal/concurrency/threadpool.hpp>
+#include <dal/math/random/brownianbridge.hpp>
 #include <dal/math/random/sobol.hpp>
 #include <dal/math/random/pseudorandom.hpp>
 
@@ -39,25 +40,33 @@ namespace Dal::AAD {
     Matrix_<> MCSimulation(const Product_<double>& prd,
                            const Model_<double>& mdl,
                            const String_& method,
-                           int nPath);
+                           int nPath,
+                           bool use_bb = false);
 
     constexpr const size_t BATCH_SIZE = 4096;
 
     Matrix_<> MCParallelSimulation(const Product_<double>& prd,
                                    const Model_<double>& mdl,
                                    const String_& method,
-                                   int nPath);
+                                   int nPath,
+                                   bool use_bb = false);
 
 
-    inline std::unique_ptr<Random_> CreateRNG(const String_& method, size_t n_dim) {
+    inline std::unique_ptr<Random_> CreateRNG(const String_& method, size_t n_dim, bool use_bb = false) {
+        std::unique_ptr<Random_> rsg;
         if (method == "sobol")
-            return std::unique_ptr<Random_>(NewSobol(n_dim, 2048));
+            rsg = std::unique_ptr<Random_>(NewSobol(n_dim, 2048));
         else if (method == "mrg32")
-            return std::unique_ptr<Random_>(New(RNGType_("MRG32"), 1024, n_dim));
+            rsg = std::unique_ptr<Random_>(New(RNGType_("MRG32"), 1024, n_dim));
         else if (method == "irn")
-            return std::unique_ptr<Random_>(New(RNGType_("IRN"), 1024, n_dim));
+            rsg = std::unique_ptr<Random_>(New(RNGType_("IRN"), 1024, n_dim));
         else
             THROW("rng method is not known");
+
+        if (use_bb)
+            return std::make_unique<BrownianBridge_>(std::move(rsg));
+        else
+            return rsg;
     }
 
     struct AADResults_ {
@@ -75,6 +84,7 @@ namespace Dal::AAD {
                                 const Model_<Number_>& mdl,
                                 const String_& method,
                                 int nPath,
+                                bool use_bb = false,
                                 const F_& aggFun = DEFAULT_AGGREGATOR) {
         REQUIRE(CheckCompatibility(prd, mdl), "model and products are not compatible");
         auto cMdl = mdl.Clone();
@@ -82,7 +92,7 @@ namespace Dal::AAD {
         Scenario_<Number_> path;
         AllocatePath(prd.DefLine(), path);
         cMdl->Allocate(prd.TimeLine(), prd.DefLine());
-        std::unique_ptr<Random_> rng = CreateRNG(method, cMdl->SimDim());
+        std::unique_ptr<Random_> rng = CreateRNG(method, cMdl->SimDim(), use_bb);
 
         const size_t nPay = prd.PayoffLabels().size();
         const Vector_<Number_*>& params = cMdl->Parameters();
@@ -126,6 +136,7 @@ namespace Dal::AAD {
                                         const Model_<Number_>& mdl,
                                         const String_& method,
                                         int nPath,
+                                        bool use_bb = false,
                                         const F_& aggFun = DEFAULT_AGGREGATOR) {
         REQUIRE(CheckCompatibility(prd, mdl), "model and products are not compatible");
 
@@ -145,7 +156,7 @@ namespace Dal::AAD {
             model = mdl.Clone();
             model->Allocate(prd.TimeLine(), prd.DefLine());
         }
-        std::unique_ptr<Random_> rng = CreateRNG(method, models[0]->SimDim());
+        std::unique_ptr<Random_> rng = CreateRNG(method, models[0]->SimDim(), use_bb);
 
         Vector_<Scenario_<Number_>> paths(nThread + 1);
         for (auto& path : paths) {

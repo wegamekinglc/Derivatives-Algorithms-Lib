@@ -10,6 +10,7 @@
 
 using namespace Dal;
 
+
 TEST(PseudoRandomTest, TestNewPseudoRandomIRN) {
     auto n_dim = 10;
     auto n_samples = 10000000;

@@ -18,12 +18,11 @@ namespace Dal::AAD {
         bool callPut_;  // false = call, true = put
         double strike_;
         double barrier_;  // note = always up and out for now
-        Date_ maturity_;
         double smooth_;
 
     public:
         UOC_(double strike, double barrier, const Schedule_& events, double smooth, bool callPut = false)
-        : callPut_(callPut), strike_(strike), barrier_(barrier), maturity_(events.back()), smooth_(smooth) {
+        : callPut_(callPut), strike_(strike), barrier_(barrier), smooth_(smooth) {
             const auto evaluationDate = Global::Dates_().EvaluationDate();
             Product_<T_>::labels_.Resize(1);
             Product_<T_>::timeLine_.push_back(0.0);
@@ -60,8 +59,7 @@ namespace Dal::AAD {
                 }
             } else {
                 for (const auto& sample : path) {
-                    const auto spot = sample.forwards_[0][0];
-                    if (spot >= barrier_) {
+                    if (sample.forwards_[0][0] >= barrier_) {
                         alive = 0.0;
                         break;
                     }
