@@ -14,6 +14,7 @@
 #include <dal/script/visitor/domainproc.hpp>
 #include <dal/script/visitor/constcondprocessor.hpp>
 #include <dal/script/visitor/debugger.hpp>
+#include <dal/script/parser.hpp>
 #include <dal/math/aad/sample.hpp>
 
 
@@ -50,7 +51,7 @@ namespace Dal::Script {
         void ParseEvents(EvtIt_ begin, EvtIt_ end) {
             for (EvtIt_ evtIt = begin; evtIt != end; ++evtIt) {
                 eventDates_.push_back(evtIt->first);
-                events_.push_back(parse(evtIt->second));
+                events_.push_back(Parse(evtIt->second));
             }
         }
 

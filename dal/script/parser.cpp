@@ -198,13 +198,13 @@ namespace Dal::Script {
         else if (comparator == "!=")
             return BuildDifferent(lhs, rhs, eps);
         else if (comparator == "<")
-            return BuildSuperior(lhs, rhs, eps);
-        else if (comparator == ">")
             return BuildSuperior(rhs, lhs, eps);
+        else if (comparator == ">")
+            return BuildSuperior(lhs, rhs, eps);
         else if (comparator == "<=")
-            return BuildSupEqual(lhs, rhs, eps);
-        else if (comparator == ">=")
             return BuildSupEqual(rhs, lhs, eps);
+        else if (comparator == ">=")
+            return BuildSupEqual(lhs, rhs, eps);
         else
             THROW2("elementary condition has no valid comparator", ScriptError_);
 
