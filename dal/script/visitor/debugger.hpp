@@ -19,7 +19,7 @@ namespace Dal::Script {
         void Debug(const ScriptNode_& node, const String_& nodeId);
 
     public:
-        String_ String() const;
+        [[nodiscard]] String_ String() const;
 
         void Visit(const NodeCollect_* node) override;
         void Visit(const NodeTrue_* node) override;

@@ -20,7 +20,7 @@ namespace Dal::Script {
         }
 
     public:
-        void Visit(const std::unique_ptr<ScriptNode_>& tree) {
+        void VisitTree(const std::unique_ptr<ScriptNode_>& tree) {
             tree->AcceptVisitor(this);
         }
 
@@ -66,7 +66,7 @@ namespace Dal::Script {
         }
 
     public:
-        void Visit(const std::unique_ptr<ScriptNode_>& tree) {
+        void VisitTree(const std::unique_ptr<ScriptNode_>& tree) {
             tree->AcceptVisitor(this);
         }
 
