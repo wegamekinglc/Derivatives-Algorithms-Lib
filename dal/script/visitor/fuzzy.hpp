@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include "dal/math/aad/operators.hpp"
+#include <dal/math/aad/operators.hpp>
 #include <dal/math/stacks.hpp>
 #include <dal/math/vectors.hpp>
 #include <dal/script/visitor/evaluator.hpp>
@@ -146,7 +146,7 @@ namespace Dal::Script {
             const T_ dt = fuzzyStack_.TopAndPop();
 
             if (dt > ONE_MINUS_EPS) {
-                for (size_t i = i; i <= lastTrueStat; ++i)
+                for (size_t i = 1; i <= lastTrueStat; ++i)
                     node->arguments_[i]->AcceptVisitor(this);
             } else if (dt < EPSILON) {
                 if (node->firstElse_ != -1)

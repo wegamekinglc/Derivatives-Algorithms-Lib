@@ -2,7 +2,6 @@
 // Created by wegam on 2022/5/21.
 //
 
-#include <dal/platform/platform.hpp>
 #include <dal/script/visitor/varindexer.hpp>
 
 namespace Dal::Script {

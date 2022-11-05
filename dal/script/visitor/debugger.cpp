@@ -2,6 +2,7 @@
 // Created by wegam on 2022/2/17.
 //
 
+#include <dal/platform/strict.hpp>
 #include <dal/script/visitor/debugger.hpp>
 
 namespace Dal::Script {
