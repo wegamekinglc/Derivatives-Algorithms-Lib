@@ -19,7 +19,7 @@ namespace Dal::Script {
 
     public:
         IFProcessor_(): nestedIFLv_(0), maxNestedIFs_(0) {}
-        size_t MaxNestedIFs() const {
+        [[nodiscard]] size_t MaxNestedIFs() const {
             return maxNestedIFs_;
         }
         void Visit(NodeIf_* node) override;

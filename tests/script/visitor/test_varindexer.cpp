@@ -13,11 +13,15 @@ TEST(VarIndexerTest, TestVarIndexerVisit) {
     NodeVar_ var2("y");
     NodeConst_ const1(20.0);
 
-    std::unique_ptr<Visitor_> visitor = std::make_unique<VarIndexer_>();
+    std::shared_ptr<Visitor_> visitor = std::make_shared<VarIndexer_>();
     visitor->Visit(&var1);
     visitor->Visit(&const1);
     visitor->Visit(&var2);
 
     ASSERT_EQ(var1.index_, 0);
     ASSERT_EQ(var2.index_, 1);
+
+    Vector_<String_> names = std::dynamic_pointer_cast<VarIndexer_>(visitor)->GetVarNames();
+    ASSERT_EQ(names[0], "x");
+    ASSERT_EQ(names[1], "y");
 }

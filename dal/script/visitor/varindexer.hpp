@@ -15,7 +15,7 @@ namespace Dal::Script {
         std::map<String_, int> varMap_;
 
     public:
-        Vector_<String_> GetVarNames() const;
+        [[nodiscard]] Vector_<String_> GetVarNames() const;
         void Visit(NodeVar_* node) override;
     };
 

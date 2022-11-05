@@ -76,8 +76,8 @@ namespace Dal::Script {
 
         // Interval_
         Interval_(const Bound_& left, const Bound_& right) : left_(left), right_(right) {
-            if (left == Bound_(Bound_::plusInfinity_) || right == Bound_(Bound_::minusInfinity_) || left > right)
-                THROW("inconsistent bounds");
+            REQUIRE(left != Bound_(Bound_::plusInfinity_) && right != Bound_(Bound_::minusInfinity_) && left <= right,
+                    "inconsistent bounds");
         }
 
         // accessors
@@ -93,7 +93,7 @@ namespace Dal::Script {
 
         // writers
         friend std::ostream& operator<<(std::ostream& ost, const Interval_& i);
-        String_ Write() const;
+        [[nodiscard]] String_ Write() const;
 
         // sorting
         bool operator==(const Interval_& rhs) const;
@@ -148,7 +148,8 @@ namespace Dal::Script {
         // apply function 2 params
         template <class Func>
         Interval_ ApplyFunc2(Func func, const Interval_& rhs, const Interval_& funcDomain) {
-            double value, val2;
+            double value;
+            double val2;
 
             //	Continuous interval, we know nothing of the function, so we just apply the function domain
             if (!IsSingleton(&value) || !rhs.IsSingleton(&val2))
@@ -257,13 +258,13 @@ namespace Dal::Script {
         // apply function
         template <class Func> Domain_ ApplyFunc(const Func func, const Interval_& funcDomain_) {
             Domain_ res;
-            auto vec = GetSingletons();
+            const auto vec = GetSingletons();
 
             if (vec.empty())
                 return funcDomain_;
 
             //	Singletons, apply func
-            for (auto v : vec) {
+            for (auto v: vec) {
                 try {
                     res.AddSingleton(func(v));
                 } catch (const std::domain_error&) {
@@ -277,13 +278,14 @@ namespace Dal::Script {
         template <class Func>
         Domain_ ApplyFunc2(const Func func, const Domain_& rhs, const Interval_& funcDomain_) {
             Domain_ res;
-            auto vec1 = GetSingletons(), vec2 = rhs.GetSingletons();
+            const auto vec1 = GetSingletons();
+            const auto vec2 = rhs.GetSingletons();
 
             if (vec1.empty() || vec2.empty())
                 return funcDomain_;
 
-            for (auto v1 : vec1) {
-                for (auto v2 : vec2) {
+            for (auto v1: vec1) {
+                for (auto v2: vec2) {
                     try {
                         res.AddSingleton(func(v1, v2));
                     } catch (const std::domain_error&) {

@@ -9,8 +9,8 @@ namespace Dal::Script {
 
     Vector_<String_> VarIndexer_::GetVarNames() const {
         Vector_<String_> v(varMap_.size());
-        for (auto i = varMap_.begin(); i != varMap_.end(); ++i)
-            v[i->second] = i->first;
+        for(const auto& var: varMap_)
+            v[var.second] = var.first;
         return v;
     }
 
