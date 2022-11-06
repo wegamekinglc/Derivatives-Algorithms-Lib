@@ -37,9 +37,9 @@ TEST(ParserTest, TestParseIf) {
     ASSERT_TRUE(toTest2);
     auto toTest3 = dynamic_cast<NodeMinus_*>(toTest2->arguments_[0].get());
     ASSERT_TRUE(toTest3);
-    auto toTest4 = dynamic_cast<NodeConst_*>(toTest3->arguments_[0].get());
+    auto toTest4 = dynamic_cast<NodeVar_*>(toTest3->arguments_[0].get());
     ASSERT_TRUE(toTest4);
-    auto toTest5 = dynamic_cast<NodeVar_*>(toTest3->arguments_[1].get());
+    auto toTest5 = dynamic_cast<NodeConst_*>(toTest3->arguments_[1].get());
     ASSERT_TRUE(toTest5);
 
     auto toTest6 = dynamic_cast<NodeAssign_*>(toTest1->arguments_[1].get());
@@ -72,9 +72,9 @@ TEST(ParserTest, TestParseIfWithElse) {
     ASSERT_TRUE(toTest2);
     auto toTest3 = dynamic_cast<NodeMinus_*>(toTest2->arguments_[0].get());
     ASSERT_TRUE(toTest3);
-    auto toTest4 = dynamic_cast<NodeConst_*>(toTest3->arguments_[0].get());
+    auto toTest4 = dynamic_cast<NodeVar_*>(toTest3->arguments_[0].get());
     ASSERT_TRUE(toTest4);
-    auto toTest5 = dynamic_cast<NodeVar_*>(toTest3->arguments_[1].get());
+    auto toTest5 = dynamic_cast<NodeConst_*>(toTest3->arguments_[1].get());
     ASSERT_TRUE(toTest5);
 
     auto toTest6 = dynamic_cast<NodeAssign_*>(toTest1->arguments_[1].get());
