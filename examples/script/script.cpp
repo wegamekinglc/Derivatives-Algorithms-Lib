@@ -36,11 +36,22 @@ inline std::unique_ptr<Random_> CreateRNG(const String_& method, size_t n_dim, b
         return rsg;
 }
 
+struct AADResults_ {
+    AADResults_(int nPath, int nParam) : aggregated_(nPath), risks_(nParam) {}
+    int Rows() const { return aggregated_.size();  }
+    Vector_<> aggregated_;
+    Vector_<> risks_;
+};
+
+
+const auto DEFAULT_AGGREGATOR = [](const Vector_<Number_>& v) { return v[0]; };
+
 
 int main() {
 
     XGLOBAL::SetEvaluationDate(Date_(2022, 9, 25));
-    using Real_ = double;
+    Timer_ timer;
+    using Real_ = Number_;
     const double spot = 100.0;
     const double vol = 0.15;
     const double rate = 0.0;
@@ -53,8 +64,17 @@ int main() {
     std::cin >> n;
     const int n_paths = Pow(2, n);
 
-    const String_ method = "sobol";
+    bool use_parallel = true;
+    std::cout << "Use parallel?:";
+    std::cin >> use_parallel;
+
     bool use_bb = false;
+    std::cout << "Use brownian bridge?:";
+    std::cin >> use_bb;
+
+    std::string rsg_type = "sobol";
+    std::cout << "Type of rsg:";
+    std::cin >> rsg_type;
 
     ScriptProduct_ product;
     std::map<Date_, String_> events;
@@ -71,35 +91,51 @@ int main() {
     unique_ptr<Scenario_<Real_>> scenario = product.BuildScenario<Real_>();
     unique_ptr<Evaluator_<Real_>> eval = product.BuildEvaluator<Real_>();
 
-    std::unique_ptr<Model_<>> mdl = std::make_unique<BlackScholes_<>>(spot, vol, false, rate, div);
-    Matrix_<> results(n_paths, eval->VarVals().size());
 
-    Timer_ timer;
+    std::unique_ptr<Model_<Real_>> mdl = std::make_unique<BlackScholes_<Real_>>(spot, vol, false, rate, div);
 
+    timer.Reset();
+    Scenario_<Real_> path;
+    AllocatePath(product.DefLine(), path);
     mdl->Allocate(product.TimeLine(), product.DefLine());
+    std::unique_ptr<Random_> rng = CreateRNG(String_(rsg_type), mdl->SimDim(), use_bb);
+
+    const Vector_<Number_*>& params = mdl->Parameters();
+    const size_t nParam = params.size();
+    AADResults_ results(n_paths, nParam);
+
+    Tape_& tape = *Number_::tape_;
+    auto re_setter = SetNumResultsForAAD();
+    tape.Clear();
+    mdl->PutParametersOnTape();
     mdl->Init(product.TimeLine(), product.DefLine());
-    std::unique_ptr<Random_> rng = CreateRNG(method, mdl->SimDim(), use_bb);
+    InitializePath(path);
+    tape.Mark();
 
     Vector_<> gaussVec(mdl->SimDim());
-    Scenario_<> path;
-    AllocatePath(product.DefLine(), path);
-    InitializePath(path);
 
     for (size_t i = 0; i < n_paths; ++i) {
+        tape.RewindToMark();
         rng->FillNormal(&gaussVec);
         mdl->GeneratePath(gaussVec, &path);
         product.Evaluate(path, *eval);
-        auto res = results[i];
-        for (int k = 0; k != eval->VarVals().size(); ++k)
-            res[k] = eval->VarVals()[k];
+        Number_ res = DEFAULT_AGGREGATOR(eval->VarVals());
+        res.PropagateToMark();
+        results.aggregated_[i] = res.Value();
     }
 
+    Number_::PropagateMarkToStart();
+    Transform(params, [n_paths](const Number_* p) { return p->Adjoint() / n_paths; }, &results.risks_);
+    tape.Clear();
 
     auto sum = 0.0;
     for (auto row = 0; row < results.Rows(); ++row)
-        sum += results(row, 0);
+        sum += results.aggregated_[row];
     auto calculated = sum / static_cast<double>(results.Rows());
     std::cout << "\nEuropean       w. B-S: price " << std::setprecision(8) << calculated << "\tElapsed: " << timer.Elapsed<milliseconds>() << " ms" << std::endl;
+    std::cout << "                     : delta " << std::setprecision(8) << results.risks_[0] << std::endl;
+    std::cout << "                     : vega  " << std::setprecision(8) << results.risks_[1] << std::endl;
+    std::cout << "                     : rho   " << std::setprecision(8) << results.risks_[2] << std::endl;
 
     return 0;
 }
