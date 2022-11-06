@@ -117,8 +117,7 @@ namespace Dal {
         inline const E_& operator[](const size_t i) const { return data_[sp_ - 1 - i]; }
 
         inline E_ TopAndPop() {
-            --sp_;
-            return std::move(data_[sp_]);
+            return std::move(data_[--sp_]);
         }
 
         void Pop() { --sp_; }
@@ -132,8 +131,8 @@ namespace Dal {
             size_ = sp_ = 0;
         }
 
-        int Size() const { return sp_; }
-        int Capacity() const { return size_; }
-        bool IsEmpty() const { return sp_ == 0; }
+        [[nodiscard]] int Size() const { return sp_; }
+        [[nodiscard]] int Capacity() const { return size_; }
+        [[nodiscard]] bool IsEmpty() const { return sp_ == 0; }
     };
 } // namespace Dal

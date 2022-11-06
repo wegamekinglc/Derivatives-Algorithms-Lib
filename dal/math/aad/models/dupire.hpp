@@ -133,6 +133,7 @@ namespace Dal::AAD {
 
         //  Helper function, fills a sample given the spot
         inline static void FillScenario(const T_& spot, Sample_<T_>& scenario) {
+            scenario.spot_ = spot;
             std::fill(scenario.forwards_.front().begin(), scenario.forwards_.front().end(), spot);
         }
     };

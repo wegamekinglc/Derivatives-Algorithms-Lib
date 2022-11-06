@@ -44,7 +44,7 @@ namespace Dal::AAD {
                 if (spotMeasure_)
                     scenario.numeraire_ *= spot;
             }
-
+            scenario.spot_ = spot;
             Transform(forwardFactors_[idx], [&spot](const T_& ff) { return spot * ff; }, &scenario.forwards_.front());
 
             Copy(discounts_[idx], &scenario.discounts_);

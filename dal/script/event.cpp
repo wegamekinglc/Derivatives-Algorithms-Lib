@@ -4,6 +4,7 @@
 
 #include <dal/platform/strict.hpp>
 #include <dal/script/event.hpp>
+#include <dal/storage/globals.hpp>
 
 
 namespace Dal::Script {
@@ -49,6 +50,18 @@ namespace Dal::Script {
             maxNestedIfs = IFProcess();
             DomainProcess(fuzzy);
             ConstCondProcess();
+        }
+
+        // generate time line and definition
+        const auto evaluationDate = Global::Dates_().EvaluationDate();
+        for(auto& date: eventDates_) {
+            const double ttm = (date - evaluationDate) / 365.0;
+            timeLine_.emplace_back(ttm);
+            Dal::AAD::SampleDef_ sampleDef;
+            sampleDef.numeraire_ = true;
+            sampleDef.forwardMats_.push_back({ttm});
+            sampleDef.discountMats_.push_back(ttm);
+            defLine_.emplace_back(sampleDef);
         }
         return maxNestedIfs;
     }

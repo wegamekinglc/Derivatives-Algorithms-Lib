@@ -76,7 +76,7 @@ namespace Dal::Script {
 
         void SetScenario(const AAD::Scenario_<T_>* scenario) { scenario_ = scenario; }
 
-        void SetCurEve(size_t curEvt) { curEvt_ = curEvt; }
+        void SetCurEvt(size_t curEvt) { curEvt_ = curEvt; }
 
         void Visit(const NodePlus_* node) override {
             EvalArgs(node);
@@ -132,6 +132,7 @@ namespace Dal::Script {
             T_ m = dStack_.TopAndPop();
             for (size_t i = 1; i < node->arguments_.size(); ++i)
                 m = AAD::Max(m, dStack_.TopAndPop());
+            dStack_.Push(m);
         }
 
         void Visit(const NodeMin_* node) override {
@@ -139,6 +140,7 @@ namespace Dal::Script {
             T_ m = dStack_.TopAndPop();
             for (size_t i = 1; i < node->arguments_.size(); ++i)
                 m = AAD::Min(m, dStack_.TopAndPop());
+            dStack_.Push(m);
         }
 
         void Visit(const NodeTrue_* node) override { bStack_.Push(true); }
@@ -185,7 +187,7 @@ namespace Dal::Script {
             lhsVar_ = false;
 
             node->arguments_[1]->AcceptVisitor(this);
-            *lhsVarAdr_ = dStack_.TopAndPop() / (*scenario_)[curEvt_].numeraire_;
+            *lhsVarAdr_ += dStack_.TopAndPop() / (*scenario_)[curEvt_].numeraire_;
         }
 
         void Visit(const NodeEqual_* node) override {

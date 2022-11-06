@@ -27,10 +27,14 @@ namespace Dal::Script {
         Vector_<Event_> events_;
         Vector_<String_> variables_;
 
+        Vector_<double> timeLine_;
+        Vector_<Dal::AAD::SampleDef_> defLine_;
+
     public:
         [[nodiscard]] const Vector_<Date_> &EventDates() const { return eventDates_; }
-
         [[nodiscard]] const Vector_<String_> &VarNames() const { return variables_; }
+        [[nodiscard]] const Vector_<Time_>& TimeLine() const { return timeLine_; }
+        [[nodiscard]] const Vector_<Dal::AAD::SampleDef_>& DefLine() const { return defLine_; }
 
         template<class T_>
         std::unique_ptr<Evaluator_<T_>> BuildEvaluator() {
