@@ -122,5 +122,6 @@ namespace Dal {
     } // namespace String
 
     inline String_ ToString(int i) { return String::FromInt(i); }
+    inline String_ ToString(double i) { return String::FromDouble(i); }
 
 } // namespace Dal

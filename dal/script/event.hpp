@@ -37,18 +37,18 @@ namespace Dal::Script {
         [[nodiscard]] const Vector_<Dal::AAD::SampleDef_>& DefLine() const { return defLine_; }
 
         template<class T_>
-        std::unique_ptr<Evaluator_<T_>> BuildEvaluator() {
+        std::unique_ptr<Evaluator_<T_>> BuildEvaluator() const {
             return std::unique_ptr<Evaluator_<T_>>(new Evaluator_<T_>(variables_.size()));
         }
 
         template<class T_>
-        std::unique_ptr<Evaluator_<T_>> BuildFuzzyEvaluator(const size_t maxNestedIfs, const double defEps) {
+        std::unique_ptr<Evaluator_<T_>> BuildFuzzyEvaluator(const size_t maxNestedIfs, const double defEps) const {
             return std::unique_ptr<Evaluator_<T_>>(new FuzzyEvaluator_<T_>(variables_.size(), maxNestedIfs, defEps));
         }
 
         template<class T_>
-        std::unique_ptr<Scenario_<T_>> BuildScenario() {
-            return std::unique_ptr<Scenario_<T_>> (new Scenario_<T_>(eventDates_.size()));
+        std::unique_ptr<Scenario_<T_>> BuildScenario() const {
+            return std::unique_ptr<Scenario_<T_>>(new Scenario_<T_>(eventDates_.size()));
         }
 
         template<class EvtIt_>

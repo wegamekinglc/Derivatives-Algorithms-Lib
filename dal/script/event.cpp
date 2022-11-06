@@ -53,6 +53,7 @@ namespace Dal::Script {
         }
 
         // generate time line and definition
+        // TODO: more specific data settings
         const auto evaluationDate = Global::Dates_().EvaluationDate();
         for(auto& date: eventDates_) {
             const double ttm = (date - evaluationDate) / 365.0;

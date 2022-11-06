@@ -105,7 +105,7 @@ namespace Dal::Script {
     }
 
     std::unique_ptr<ScriptNode_> Parser_::ParseVar(TokIt_& cur) {
-        REQUIRE2((*cur)[0] >= 'a' && (*cur)[0] <= 'z', String_("Variable name ") + *cur + " is invalid", ScriptError_);
+        REQUIRE2((*cur)[0] >= 'A' && (*cur)[0] <= 'z', String_("Variable name ") + *cur + " is invalid", ScriptError_);
         auto top = MakeNode<NodeVar_>(*cur);
         ++cur;
         return std::move(top);
