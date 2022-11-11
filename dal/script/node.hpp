@@ -13,43 +13,12 @@ namespace Dal::Script {
     class Visitor_;
     class ConstVisitor_;
 
-    struct ScriptNode_;
-
     struct ScriptNode_ {
         Vector_<std::unique_ptr<ScriptNode_>> arguments_;
         virtual ~ScriptNode_() = default;
         virtual void AcceptVisitor(Visitor_* visitor) = 0;
         virtual void AcceptVisitor(ConstVisitor_* visitor) const = 0;
     };
-
-    template <class ConcreteNode_, typename... Args_>
-    std::unique_ptr<ConcreteNode_> MakeNode(Args_&&... args) {
-        return std::unique_ptr<ConcreteNode_>(new ConcreteNode_(std::forward<Args_>(args)...));
-    }
-
-    template <class ConcreteNode_, typename... Args_>
-    std::unique_ptr<ScriptNode_> MakeBaseNode(Args_&&... args) {
-        return std::unique_ptr<ScriptNode_>(new ConcreteNode_(std::forward<Args_>(args)...));
-    }
-
-    template <class NodeType_>
-    std::unique_ptr<ScriptNode_> BuildBinary(std::unique_ptr<ScriptNode_>& lhs,
-                                       std::unique_ptr<ScriptNode_>& rhs) {
-        std::unique_ptr<ScriptNode_> top = MakeBaseNode<NodeType_>();
-        top->arguments_.Resize(2);
-        top->arguments_[0] = std::move(lhs);
-        top->arguments_[1] = std::move(rhs);
-        return top;
-    }
-
-    template <class NodeType_>
-    std::unique_ptr<NodeType_> BuildConcreteBinary(std::unique_ptr<ScriptNode_>& lhs, std::unique_ptr<ScriptNode_>& rhs) {
-        std::unique_ptr<NodeType_> top = MakeNode<NodeType_>();
-        top->arguments_.Resize(2);
-        top->arguments_[0] = std::move(lhs);
-        top->arguments_[1] = std::move(rhs);
-        return top;
-    }
 
     struct NodeCollect_: public ScriptNode_ {
         void AcceptVisitor(Visitor_* visitor) override;
@@ -224,5 +193,34 @@ namespace Dal::Script {
         void AcceptVisitor(Visitor_* visitor) override;
         void AcceptVisitor(ConstVisitor_* visitor) const override;
     };
+
+    template <class ConcreteNode_, typename... Args_>
+    std::unique_ptr<ConcreteNode_> MakeNode(Args_&&... args) {
+        return std::unique_ptr<ConcreteNode_>(new ConcreteNode_(std::forward<Args_>(args)...));
+    }
+
+    template <class ConcreteNode_, typename... Args_>
+    std::unique_ptr<ScriptNode_> MakeBaseNode(Args_&&... args) {
+        return std::unique_ptr<ScriptNode_>(new ConcreteNode_(std::forward<Args_>(args)...));
+    }
+
+    template <class NodeType_>
+    std::unique_ptr<ScriptNode_> BuildBinary(std::unique_ptr<ScriptNode_>& lhs,
+                                             std::unique_ptr<ScriptNode_>& rhs) {
+        std::unique_ptr<ScriptNode_> top = MakeBaseNode<NodeType_>();
+        top->arguments_.Resize(2);
+        top->arguments_[0] = std::move(lhs);
+        top->arguments_[1] = std::move(rhs);
+        return top;
+    }
+
+    template <class NodeType_>
+    std::unique_ptr<NodeType_> BuildConcreteBinary(std::unique_ptr<ScriptNode_>& lhs, std::unique_ptr<ScriptNode_>& rhs) {
+        std::unique_ptr<NodeType_> top = MakeNode<NodeType_>();
+        top->arguments_.Resize(2);
+        top->arguments_[0] = std::move(lhs);
+        top->arguments_[1] = std::move(rhs);
+        return top;
+    }
 
 }
