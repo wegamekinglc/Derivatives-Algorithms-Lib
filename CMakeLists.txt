@@ -61,6 +61,8 @@ if (NOT DEFINED CMAKE_CXX_EXTENSIONS)
     set(CMAKE_CXX_EXTENSIONS FALSE)
 endif()
 
+message("-- CMAKE_CXX_FLAGS: ${CMAKE_CXX_FLAGS}")
+message("-- CMAKE_CXX_STANDARD: ${CMAKE_CXX_STANDARD}")
 message("-- BUILD_SHARED_LIBS: ${BUILD_SHARED_LIBS}")
 
 # If available, use PIC for shared libs and PIE for executables
