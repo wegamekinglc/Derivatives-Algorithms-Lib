@@ -32,8 +32,8 @@ namespace Dal::Script::Experimental {
                 this->Visit(*it);
         }
 
-        template<class T_>
-        void VisitArguments(const T_ &node) {
+        template<class N_>
+        void VisitArguments(const N_ &node) {
             for (auto &arg: node.arguments_)
                 this->Visit(arg);
         }

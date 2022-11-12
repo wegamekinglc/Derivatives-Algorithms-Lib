@@ -2,8 +2,6 @@
 // Created by wegam on 2022/7/23.
 //
 
-#pragma once
-
 #include <dal/platform/strict.hpp>
 #include <dal/script/visitor/constcondprocessor.hpp>
 
