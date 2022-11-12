@@ -1,0 +1,14 @@
+file(GLOB_RECURSE SCRIPT_FILES "*.hpp" "*.cpp")
+add_executable(script2 ${SCRIPT_FILES})
+
+target_link_libraries(script2 dal_library)
+
+if(MSVC)
+else()
+    target_link_libraries(script2 pthread)
+endif()
+
+install(TARGETS script2
+        RUNTIME DESTINATION bin
+        PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE
+        )

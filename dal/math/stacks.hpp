@@ -93,7 +93,7 @@ namespace Dal {
         inline iterator end() { return std::reverse_iterator<E_*>(data_); }
         inline const_iterator end() const { return std::reverse_iterator<const E_*>(data_); }
 
-        template <typename T_> void Push(T_&& value) {
+        template <typename T_> inline void Push(T_&& value) {
             data_[sp_] = std::forward<T_>(value);
             ++sp_;
             if (sp_ >= size_) {
