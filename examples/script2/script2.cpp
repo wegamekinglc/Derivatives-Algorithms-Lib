@@ -26,17 +26,17 @@ int main() {
     }
     std::cout << std::setprecision(8)  << "\tElapsed: " << timer.Elapsed<milliseconds>() << " ms" << std::endl;
 
-    std::unique_ptr<Experimental::ScriptNode_> const10 = Experimental::MakeBaseNode<Experimental::NodeConst_>(20.0);
-    std::unique_ptr<Experimental::ScriptNode_> const20 = Experimental::MakeBaseNode<Experimental::NodeConst_>(30.0);
-    std::unique_ptr<Experimental::ScriptNode_> const30 = Experimental::MakeBaseNode<Experimental::NodeConst_>(40.0);
-    std::unique_ptr<Experimental::ScriptNode_> expr10 = Experimental::BuildBinary<Experimental::NodePlus_>(const10, const20);
-//    std::unique_ptr<Experimental::ScriptNode_> expr20 = Experimental::BuildBinary<Experimental::NodeMinus_>(expr10, const30);
+    Experimental::ScriptNode_ const10 = Experimental::MakeBaseNode<Experimental::NodeConst_>(20.0);
+    Experimental::ScriptNode_ const20 = Experimental::MakeBaseNode<Experimental::NodeConst_>(30.0);
+    Experimental::ScriptNode_ const30 = Experimental::MakeBaseNode<Experimental::NodeConst_>(40.0);
+    Experimental::ScriptNode_ expr10 = Experimental::BuildBinary<Experimental::NodePlus_>(const10, const20);
+    Experimental::ScriptNode_ expr20 = Experimental::BuildBinary<Experimental::NodeMinus_>(expr10, const30);
     Experimental::Evaluator_<double> visitor20(1);
 
     timer.Reset();
     for(int i = 0; i < n; ++i) {
         visitor20.Init();
-        visitor20.Visit(expr10);
+        visitor20.Visit(expr20);
     }
     std::cout << std::setprecision(8)  << "\tElapsed: " << timer.Elapsed<milliseconds>() << " ms" << std::endl;
 

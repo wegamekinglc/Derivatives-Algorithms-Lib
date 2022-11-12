@@ -39,36 +39,36 @@ namespace Dal::Script::Experimental {
     struct NodeSpot_;
     struct NodeSmooth_;
 
-    using ScriptNode_ = std::variant<NodeCollect_,
-            NodeTrue_,
-            NodeFalse_,
-            NodeUPlus_,
-            NodeUMinus_,
-            NodePlus_,
-            NodeMinus_,
-            NodeMultiply_,
-            NodeDivide_,
-            NodePower_,
-            NodeLog_,
-            NodeSqrt_,
-            NodeMax_,
-            NodeMin_,
-            NodeConst_,
-            NodeVar_,
-            NodeAssign_,
-            NodeIf_,
-            NodeEqual_,
-            NodeNot_,
-            NodeSuperior_,
-            NodeSupEqual_,
-            NodeAnd_,
-            NodeOr_,
-            NodePays_,
-            NodeSpot_,
-            NodeSmooth_>;
+    using ScriptNode_ = std::variant<std::unique_ptr<NodeCollect_>,
+            std::unique_ptr<NodeTrue_>,
+            std::unique_ptr<NodeFalse_>,
+            std::unique_ptr<NodeUPlus_>,
+            std::unique_ptr<NodeUMinus_>,
+            std::unique_ptr<NodePlus_>,
+            std::unique_ptr<NodeMinus_>,
+            std::unique_ptr<NodeMultiply_>,
+            std::unique_ptr<NodeDivide_>,
+            std::unique_ptr<NodePower_>,
+            std::unique_ptr<NodeLog_>,
+            std::unique_ptr<NodeSqrt_>,
+            std::unique_ptr<NodeMax_>,
+            std::unique_ptr<NodeMin_>,
+            std::unique_ptr<NodeConst_>,
+            std::unique_ptr<NodeVar_>,
+            std::unique_ptr<NodeAssign_>,
+            std::unique_ptr<NodeIf_>,
+            std::unique_ptr<NodeEqual_>,
+            std::unique_ptr<NodeNot_>,
+            std::unique_ptr<NodeSuperior_>,
+            std::unique_ptr<NodeSupEqual_>,
+            std::unique_ptr<NodeAnd_>,
+            std::unique_ptr<NodeOr_>,
+            std::unique_ptr<NodePays_>,
+            std::unique_ptr<NodeSpot_>,
+            std::unique_ptr<NodeSmooth_>>;
 
     struct BaseNode_ {
-        Vector_<std::unique_ptr<ScriptNode_>> arguments_;
+        Vector_<ScriptNode_> arguments_;
     };
 
     struct NodeCollect_ : public BaseNode_ {
@@ -189,16 +189,16 @@ namespace Dal::Script::Experimental {
     };
 
     template<class ConcreteNode_, typename... Args_>
-    std::unique_ptr<ScriptNode_> MakeBaseNode(Args_ &&... args) {
-        return std::make_unique<ScriptNode_>(ConcreteNode_(std::forward<Args_>(args)...));
+    ScriptNode_ MakeBaseNode(Args_ &&... args) {
+        return ScriptNode_(std::make_unique<ConcreteNode_>(std::forward<Args_>(args)...));
     }
 
     template<class NodeType_>
-    std::unique_ptr<ScriptNode_> BuildBinary(std::unique_ptr<ScriptNode_>& lhs, std::unique_ptr<ScriptNode_>& rhs) {
-        auto top = std::make_unique<ScriptNode_>(NodeType_());
-        std::get<NodeType_>(*top).arguments_.Resize(2);
-        std::get<NodeType_>(*top).arguments_[0] = std::move(lhs);
-        std::get<NodeType_>(*top).arguments_[1] = std::move(rhs);
+    ScriptNode_ BuildBinary(ScriptNode_& lhs, ScriptNode_& rhs) {
+        auto top = std::make_unique<NodeType_>();
+        top->arguments_.Resize(2);
+        top->arguments_[0] = std::move(lhs);
+        top->arguments_[1] = std::move(rhs);
         return top;
     }
 

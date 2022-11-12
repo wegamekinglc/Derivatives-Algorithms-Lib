@@ -13,7 +13,7 @@
 
 namespace Dal::Script::Experimental {
 
-    template <class T_> class Evaluator_: public ConstVisitor_<Evaluator_<T_>> {
+    template <class T_> class Evaluator_ {
 
     protected:
         Vector_<T_> variables_;
@@ -30,6 +30,12 @@ namespace Dal::Script::Experimental {
         void EvalArgs(const N_ &node) {
             for (auto it = node.arguments_.rbegin(); it != node.arguments_.rend(); ++it)
                 this->Visit(*it);
+        }
+
+        template<class T_>
+        void VisitArguments(const T_ &node) {
+            for (auto &arg: node.arguments_)
+                this->Visit(arg);
         }
 
         std::pair<T_, T_> Pop2() {
@@ -78,6 +84,66 @@ namespace Dal::Script::Experimental {
 
         void SetCurEvt(size_t curEvt) { curEvt_ = curEvt; }
 
+        void Visit(const ScriptNode_& node) {
+            if (auto item = std::get_if<std::unique_ptr<NodeConst_>>(&node)) {
+                VisitConst(**item);
+            } else if (auto item = std::get_if<std::unique_ptr<NodePlus_>>(&node)) {
+                VisitPlus(**item);
+            } else if (auto item = std::get_if<std::unique_ptr<NodeMinus_>>(&node)) {
+                VisitMinus(**item);
+            } else if (auto item = std::get_if<std::unique_ptr<NodeTrue_>>(&node)) {
+                VisitTrue(**item);
+            } else if (auto item = std::get_if<std::unique_ptr<NodeFalse_>>(&node)) {
+                VisitFalse(**item);
+            } else if (auto item = std::get_if<std::unique_ptr<NodeUPlus_>>(&node)) {
+                VisitUPlus(**item);
+            } else if (auto item = std::get_if<std::unique_ptr<NodeUMinus_>>(&node)) {
+                VisitUMinus(**item);
+            } else if (auto item = std::get_if<std::unique_ptr<NodeMultiply_>>(&node)) {
+                VisitMultiply(**item);
+            } else if (auto item = std::get_if<std::unique_ptr<NodeDivide_>>(&node)) {
+                VisitDivide(**item);
+            } else if (auto item = std::get_if<std::unique_ptr<NodePower_>>(&node)) {
+                VisitPower(**item);
+            } else if (auto item = std::get_if<std::unique_ptr<NodeLog_>>(&node)) {
+                VisitLog(**item);
+            } else if (auto item = std::get_if<std::unique_ptr<NodeSqrt_>>(&node)) {
+                VisitSqrt(**item);
+            } else if (auto item = std::get_if<std::unique_ptr<NodeMax_>>(&node)) {
+                VisitMax(**item);
+            } else if (auto item = std::get_if<std::unique_ptr<NodeMin_>>(&node)) {
+                VisitMin(**item);
+            } else if (auto item = std::get_if<std::unique_ptr<NodeCollect_>>(&node)) {
+                VisitCollect(**item);
+            } else if (auto item = std::get_if<std::unique_ptr<NodeVar_>>(&node)) {
+                VisitVar(**item);
+            } else if (auto item = std::get_if<std::unique_ptr<NodeAssign_>>(&node)) {
+                VisitAssign(**item);
+            } else if (auto item = std::get_if<std::unique_ptr<NodeIf_>>(&node)) {
+                VisitIf(**item);
+            } else if (auto item = std::get_if<std::unique_ptr<NodeEqual_>>(&node)) {
+                VisitEqual(**item);
+            } else if (auto item = std::get_if<std::unique_ptr<NodeNot_>>(&node)) {
+                VisitNot(**item);
+            } else if (auto item = std::get_if<std::unique_ptr<NodeSuperior_>>(&node)) {
+                VisitSuperior(**item);
+            } else if (auto item = std::get_if<std::unique_ptr<NodeSupEqual_>>(&node)) {
+                VisitSupEqual(**item);
+            } else if (auto item = std::get_if<std::unique_ptr<NodeAnd_>>(&node)) {
+                VisitAnd(**item);
+            } else if (auto item = std::get_if<std::unique_ptr<NodeOr_>>(&node)) {
+                VisitOr(**item);
+            } else if (auto item = std::get_if<std::unique_ptr<NodePays_>>(&node)) {
+                VisitPays(**item);
+            } else if (auto item = std::get_if<std::unique_ptr<NodeSpot_>>(&node)) {
+                VisitSpot(**item);
+            } else if (auto item = std::get_if<std::unique_ptr<NodeSmooth_>>(&node)) {
+                VisitSmooth(**item);
+            }
+        }
+
+        inline void VisitCollect(const NodeCollect_ &node) { VisitArguments(node); }
+
         void VisitPlus(const NodePlus_& node) {
             EvalArgs(node);
             const auto& args = Pop2();
@@ -110,7 +176,7 @@ namespace Dal::Script::Experimental {
 
         void VisitUPlus(const NodeUPlus_& node) { EvalArgs(node); }
 
-        void operator()(const NodeUMinus_& node) {
+        void VisitUMinus(const NodeUMinus_& node) {
             EvalArgs(node);
             dStack_.Top() *= 1;
         }

@@ -140,6 +140,7 @@ namespace Dal::Script::Experimental {
     template <class D_>
     class ConstVisitor_ {
     protected:
+
         ConstVisitor_() = default;
 
         template<class T_>
@@ -149,61 +150,62 @@ namespace Dal::Script::Experimental {
         }
 
     public:
+
         void Visit(const std::unique_ptr<ScriptNode_>& node) {
             if (auto item = std::get_if<NodeCollect_>(&*node)) {
-                static_cast<D_*>(this)->VisitCollect(*item);
+                VisitCollect(*item);
             } else if (auto item = std::get_if<NodeTrue_>(&*node)) {
-                static_cast<D_*>(this)->VisitTrue(*item);
+                VisitTrue(*item);
             } else if (auto item = std::get_if<NodeFalse_>(&*node)) {
-                static_cast<D_*>(this)->VisitFalse(*item);
+                VisitFalse(*item);
             } else if (auto item = std::get_if<NodeUPlus_>(&*node)) {
-                static_cast<D_*>(this)->VisitUPlus(*item);
+                VisitUPlus(*item);
             } else if (auto item = std::get_if<NodeUMinus_>(&*node)) {
-                static_cast<D_*>(this)->VisitUMinus(*item);
+                VisitUMinus(*item);
             } else if (auto item = std::get_if<NodePlus_>(&*node)) {
-                static_cast<D_*>(this)->VisitPlus(*item);
+                VisitPlus(*item);
             } else if (auto item = std::get_if<NodeMinus_>(&*node)) {
-                static_cast<D_*>(this)->VisitMinus(*item);
+                VisitMinus(*item);
             } else if (auto item = std::get_if<NodeMultiply_>(&*node)) {
-                static_cast<D_*>(this)->VisitMultiply(*item);
+                VisitMultiply(*item);
             } else if (auto item = std::get_if<NodeDivide_>(&*node)) {
-                static_cast<D_*>(this)->VisitDivide(*item);
+                VisitDivide(*item);
             } else if (auto item = std::get_if<NodePower_>(&*node)) {
-                static_cast<D_*>(this)->VisitPower(*item);
+                VisitPower(*item);
             } else if (auto item = std::get_if<NodeLog_>(&*node)) {
-                static_cast<D_*>(this)->VisitLog(*item);
+                VisitLog(*item);
             } else if (auto item = std::get_if<NodeSqrt_>(&*node)) {
-                static_cast<D_*>(this)->VisitSqrt(*item);
+                VisitSqrt(*item);
             } else if (auto item = std::get_if<NodeMax_>(&*node)) {
-                static_cast<D_*>(this)->VisitMax(*item);
+                VisitMax(*item);
             } else if (auto item = std::get_if<NodeMin_>(&*node)) {
-                static_cast<D_*>(this)->VisitMin(*item);
+                VisitMin(*item);
             } else if (auto item = std::get_if<NodeConst_>(&*node)) {
-                static_cast<D_*>(this)->VisitConst(*item);
+                VisitConst(*item);
             } else if (auto item = std::get_if<NodeVar_>(&*node)) {
-                static_cast<D_*>(this)->VisitVar(*item);
+                VisitVar(*item);
             } else if (auto item = std::get_if<NodeAssign_>(&*node)) {
-                static_cast<D_*>(this)->VisitAssign(*item);
+                VisitAssign(*item);
             } else if (auto item = std::get_if<NodeIf_>(&*node)) {
-                static_cast<D_*>(this)->VisitIf(*item);
+                VisitIf(*item);
             } else if (auto item = std::get_if<NodeEqual_>(&*node)) {
-                static_cast<D_*>(this)->VisitEqual(*item);
+                VisitEqual(*item);
             } else if (auto item = std::get_if<NodeNot_>(&*node)) {
-                static_cast<D_*>(this)->VisitNot(*item);
+                VisitNot(*item);
             } else if (auto item = std::get_if<NodeSuperior_>(&*node)) {
-                static_cast<D_*>(this)->VisitSuperior(*item);
+                VisitSuperior(*item);
             } else if (auto item = std::get_if<NodeSupEqual_>(&*node)) {
-                static_cast<D_*>(this)->VisitSupEqual(*item);
+                VisitSupEqual(*item);
             } else if (auto item = std::get_if<NodeAnd_>(&*node)) {
-                static_cast<D_*>(this)->VisitAnd(*item);
+                VisitAnd(*item);
             } else if (auto item = std::get_if<NodeOr_>(&*node)) {
-                static_cast<D_*>(this)->VisitOr(*item);
+                VisitOr(*item);
             } else if (auto item = std::get_if<NodePays_>(&*node)) {
-                static_cast<D_*>(this)->VisitPays(*item);
+                VisitPays(*item);
             } else if (auto item = std::get_if<NodeSpot_>(&*node)) {
-                static_cast<D_*>(this)->VisitSpot(*item);
+                VisitSpot(*item);
             } else if (auto item = std::get_if<NodeSmooth_>(&*node)) {
-                static_cast<D_*>(this)->VisitSmooth(*item);
+                VisitSmooth(*item);
             }
         }
 
