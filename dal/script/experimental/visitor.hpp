@@ -16,18 +16,18 @@ namespace Dal::Script::Experimental {
 
         template<class T_>
         void VisitArguments(T_ &node) {
-            for (auto &arg: node->arguments_)
+            for (auto &arg: node.arguments_)
                 this->Visit(arg);
         }
 
     public:
 
         void Visit(std::unique_ptr<ScriptNode_>& node) {
-            if (auto item = std::get_if<std::unique_ptr<NodePlus_>>(&*node)) {
+            if (auto item = std::get_if<NodePlus_>(&*node)) {
                 VisitArguments(*item);
-            } else if (auto item = std::get_if<std::unique_ptr<NodeConst_>>(&*node)) {
+            } else if (auto item = std::get_if<NodeConst_>(&*node)) {
                 VisitArguments(*item);
-            } else if (auto item = std::get_if<std::unique_ptr<NodeMinus_>>(&*node)) {
+            } else if (auto item = std::get_if<NodeMinus_>(&*node)) {
                 VisitArguments(*item);
             }
         }
@@ -93,17 +93,17 @@ namespace Dal::Script::Experimental {
 
         template<class T_>
         void VisitArguments(const T_ &node) {
-            for (auto &arg: node->arguments_)
+            for (auto &arg: node.arguments_)
                 this->Visit(arg);
         }
 
     public:
-        void Visit(std::unique_ptr<ScriptNode_>& node) {
-            if (auto item = std::get_if<std::unique_ptr<NodePlus_>>(&*node)) {
+        void Visit(const std::unique_ptr<ScriptNode_>& node) {
+            if (auto item = std::get_if<NodePlus_>(&*node)) {
                 VisitArguments(*item);
-            } else if (auto item = std::get_if<std::unique_ptr<NodeConst_>>(&*node)) {
+            } else if (auto item = std::get_if<NodeConst_>(&*node)) {
                 VisitArguments(*item);
-            } else if (auto item = std::get_if<std::unique_ptr<NodeMinus_>>(&*node)) {
+            } else if (auto item = std::get_if<NodeMinus_>(&*node)) {
                 VisitArguments(*item);
             }
         }

@@ -13,7 +13,7 @@
 
 namespace Dal::Script::Experimental {
 
-    template <class T_> class Evaluator_ : public ConstVisitor_ {
+    template <class T_> class Evaluator_ {
 
     protected:
         Vector_<T_> variables_;
@@ -28,7 +28,7 @@ namespace Dal::Script::Experimental {
 
         template<class N_>
         void EvalArgs(const N_ &node) {
-            for (auto it = node->arguments_.rbegin(); it != node->arguments_.rend(); ++it)
+            for (auto it = node.arguments_.rbegin(); it != node.arguments_.rend(); ++it)
                 this->Visit(*it);
         }
 
@@ -79,13 +79,13 @@ namespace Dal::Script::Experimental {
         void SetCurEvt(size_t curEvt) { curEvt_ = curEvt; }
 
         void Visit(const std::unique_ptr<ScriptNode_>& node) {
-            if (auto item = std::get_if<std::unique_ptr<NodePlus_>>(&*node)) {
+            if (auto item = std::get_if<NodePlus_>(&*node)) {
                 EvalArgs(*item);
                 const auto& args = Pop2();
                 dStack_.Push(args.first + args.second);
-            } else if (auto item = std::get_if<std::unique_ptr<NodeConst_>>(&*node)) {
-                dStack_.Push((*item)->val_);
-            } else if (auto item = std::get_if<std::unique_ptr<NodeMinus_>>(&*node)) {
+            } else if (auto item = std::get_if<NodeConst_>(&*node)) {
+                dStack_.Push(item->val_);
+            } else if (auto item = std::get_if<NodeMinus_>(&*node)) {
                 EvalArgs(*item);
                 const auto& args = Pop2();
                 dStack_.Push(args.first - args.second);

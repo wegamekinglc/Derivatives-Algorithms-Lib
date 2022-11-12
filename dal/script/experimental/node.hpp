@@ -67,9 +67,7 @@ namespace Dal::Script::Experimental {
 //            std::unique_ptr<NodeSpot_>,
 //            std::unique_ptr<NodeSmooth_>>;
 
-    using ScriptNode_ = std::variant<std::unique_ptr<NodePlus_>,
-                                     std::unique_ptr<NodeConst_>,
-                                     std::unique_ptr<NodeMinus_>>;
+    using ScriptNode_ = std::variant<NodePlus_, NodeConst_, NodeMinus_>;
 
     struct BaseNode_ {
         Vector_<std::unique_ptr<ScriptNode_>> arguments_;
@@ -194,15 +192,15 @@ namespace Dal::Script::Experimental {
 
     template<class ConcreteNode_, typename... Args_>
     std::unique_ptr<ScriptNode_> MakeBaseNode(Args_ &&... args) {
-        return std::make_unique<ScriptNode_>(std::make_unique<ConcreteNode_>(std::forward<Args_>(args)...));
+        return std::make_unique<ScriptNode_>(ConcreteNode_(std::forward<Args_>(args)...));
     }
 
     template<class NodeType_>
     std::unique_ptr<ScriptNode_> BuildBinary(std::unique_ptr<ScriptNode_>& lhs, std::unique_ptr<ScriptNode_>& rhs) {
-        auto top = std::make_unique<ScriptNode_>(std::make_unique<NodeType_>());
-        std::get<std::unique_ptr<NodeType_>>(*top)->arguments_.Resize(2);
-        std::get<std::unique_ptr<NodeType_>>(*top)->arguments_[0] = std::move(lhs);
-        std::get<std::unique_ptr<NodeType_>>(*top)->arguments_[1] = std::move(rhs);
+        auto top = std::make_unique<ScriptNode_>(NodeType_());
+        std::get<NodeType_>(*top).arguments_.Resize(2);
+        std::get<NodeType_>(*top).arguments_[0] = std::move(lhs);
+        std::get<NodeType_>(*top).arguments_[1] = std::move(rhs);
         return top;
     }
 
