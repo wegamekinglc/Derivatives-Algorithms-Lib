@@ -39,13 +39,15 @@ namespace Dal::Script::Experimental {
     struct NodeSpot_;
     struct NodeSmooth_;
 
-    using ScriptNode_ = std::variant<std::unique_ptr<NodeCollect_>,
+    using ScriptNode_ = std::variant<
+            std::unique_ptr<NodePlus_>,
+            std::unique_ptr<NodeMinus_>,
+            std::unique_ptr<NodeConst_>,
+            std::unique_ptr<NodeCollect_>,
             std::unique_ptr<NodeTrue_>,
             std::unique_ptr<NodeFalse_>,
             std::unique_ptr<NodeUPlus_>,
             std::unique_ptr<NodeUMinus_>,
-            std::unique_ptr<NodePlus_>,
-            std::unique_ptr<NodeMinus_>,
             std::unique_ptr<NodeMultiply_>,
             std::unique_ptr<NodeDivide_>,
             std::unique_ptr<NodePower_>,
@@ -53,7 +55,6 @@ namespace Dal::Script::Experimental {
             std::unique_ptr<NodeSqrt_>,
             std::unique_ptr<NodeMax_>,
             std::unique_ptr<NodeMin_>,
-            std::unique_ptr<NodeConst_>,
             std::unique_ptr<NodeVar_>,
             std::unique_ptr<NodeAssign_>,
             std::unique_ptr<NodeIf_>,
