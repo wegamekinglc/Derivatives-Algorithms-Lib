@@ -223,8 +223,10 @@ int main() {
     std::cout << "                   : vega  " << std::setprecision(8) << risk_sum << std::endl;
 
     // for matrix of risk report for UOC under B-S
+//    products = EuropeanProducts(strike, maturity);
     for (int round = 12; round <= 27; ++round) {
         const int n_paths = Pow(2, round);
+        timer.Reset();
         if (use_parallel)
             resAAD = MCParallelSimulationAAD(*products.second, *dupireModels.second, String_(rsg_type), n_paths, use_bb);
         else
@@ -234,12 +236,10 @@ int main() {
             sum += resAAD.aggregated_[row];
         auto price = sum / static_cast<double>(resAAD.Rows());
         auto delta = resAAD.risks_[0];
-//        auto vega = resAAD.risks_[1];
-//        auto rho = resAAD.risks_[2];
         auto vega = 0.0;
         for (int i = 1; i < resAAD.risks_.size(); ++i)
             vega += resAAD.risks_[i];
-        std::cout << round << ", " << price << ", " << delta << ", " << vega << std::endl;
+        std::cout << round << ", " << price << ", " << delta << ", " << vega << ", " << timer.Elapsed<milliseconds>() << std::endl;
     }
 
     return 0;
