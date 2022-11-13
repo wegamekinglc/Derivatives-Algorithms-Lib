@@ -4,17 +4,16 @@
 
 #pragma once
 
+#include <dal/platform/platform.hpp>
 #include <dal/math/aad/operators.hpp>
 #include <dal/math/aad/sample.hpp>
 #include <dal/math/stacks.hpp>
-#include <dal/platform/platform.hpp>
 #include <dal/script/experimental/node.hpp>
 #include <dal/script/experimental/visitor.hpp>
-#include <dal/script/experimental/visit.hpp>
 
 namespace Dal::Script::Experimental {
 
-    template <class T_> class Evaluator_ {
+    template <class T_> class Evaluator_: public ConstVisitor_<Evaluator_<T_>> {
 
     protected:
         Vector_<T_> variables_;
@@ -31,12 +30,6 @@ namespace Dal::Script::Experimental {
         void EvalArgs(const N_ &node) {
             for (auto it = node.arguments_.rbegin(); it != node.arguments_.rend(); ++it)
                 this->Visit(*it);
-        }
-
-        template<class N_>
-        void VisitArguments(const N_ &node) {
-            for (auto &arg: node->arguments_)
-                this->Visit(arg);
         }
 
         std::pair<T_, T_> Pop2() {
@@ -85,66 +78,7 @@ namespace Dal::Script::Experimental {
 
         void SetCurEvt(size_t curEvt) { curEvt_ = curEvt; }
 
-        void Visit(const ScriptNode_& node) {
-//            if (auto item = std::get_if<std::unique_ptr<NodeConst_>>(&node)) {
-//                this->operator()(**item);
-//            } else if (auto item = std::get_if<std::unique_ptr<NodePlus_>>(&node)) {
-//                this->operator()(**item);
-//            } else if (auto item = std::get_if<std::unique_ptr<NodeMinus_>>(&node)) {
-//                this->operator()(**item);
-//            } else if (auto item = std::get_if<std::unique_ptr<NodeTrue_>>(&node)) {
-//                this->operator()(**item);
-//            } else if (auto item = std::get_if<std::unique_ptr<NodeFalse_>>(&node)) {
-//                this->operator()(**item);
-//            } else if (auto item = std::get_if<std::unique_ptr<NodeUPlus_>>(&node)) {
-//                this->operator()(**item);
-//            } else if (auto item = std::get_if<std::unique_ptr<NodeUMinus_>>(&node)) {
-//                this->operator()(**item);
-//            } else if (auto item = std::get_if<std::unique_ptr<NodeMultiply_>>(&node)) {
-//                this->operator()(**item);
-//            } else if (auto item = std::get_if<std::unique_ptr<NodeDivide_>>(&node)) {
-//                this->operator()(**item);
-//            } else if (auto item = std::get_if<std::unique_ptr<NodePower_>>(&node)) {
-//                this->operator()(**item);
-//            } else if (auto item = std::get_if<std::unique_ptr<NodeLog_>>(&node)) {
-//                this->operator()(**item);
-//            } else if (auto item = std::get_if<std::unique_ptr<NodeSqrt_>>(&node)) {
-//                this->operator()(**item);
-//            } else if (auto item = std::get_if<std::unique_ptr<NodeMax_>>(&node)) {
-//                this->operator()(**item);
-//            } else if (auto item = std::get_if<std::unique_ptr<NodeMin_>>(&node)) {
-//                this->operator()(**item);
-//            } else if (auto item = std::get_if<std::unique_ptr<NodeCollect_>>(&node)) {
-//                this->operator()(**item);
-//            } else if (auto item = std::get_if<std::unique_ptr<NodeVar_>>(&node)) {
-//                this->operator()(**item);
-//            } else if (auto item = std::get_if<std::unique_ptr<NodeAssign_>>(&node)) {
-//                this->operator()(**item);
-//            } else if (auto item = std::get_if<std::unique_ptr<NodeIf_>>(&node)) {
-//                this->operator()(**item);
-//            } else if (auto item = std::get_if<std::unique_ptr<NodeEqual_>>(&node)) {
-//                this->operator()(**item);
-//            } else if (auto item = std::get_if<std::unique_ptr<NodeNot_>>(&node)) {
-//                this->operator()(**item);
-//            } else if (auto item = std::get_if<std::unique_ptr<NodeSuperior_>>(&node)) {
-//                this->operator()(**item);
-//            } else if (auto item = std::get_if<std::unique_ptr<NodeSupEqual_>>(&node)) {
-//                this->operator()(**item);
-//            } else if (auto item = std::get_if<std::unique_ptr<NodeAnd_>>(&node)) {
-//                this->operator()(**item);
-//            } else if (auto item = std::get_if<std::unique_ptr<NodeOr_>>(&node)) {
-//                this->operator()(**item);
-//            } else if (auto item = std::get_if<std::unique_ptr<NodePays_>>(&node)) {
-//                this->operator()(**item);
-//            } else if (auto item = std::get_if<std::unique_ptr<NodeSpot_>>(&node)) {
-//                this->operator()(**item);
-//            } else if (auto item = std::get_if<std::unique_ptr<NodeSmooth_>>(&node)) {
-//                this->operator()(**item);
-//            }
-            Dal::Script::Experimental::visit(*this, node);
-        }
-
-        inline void operator()(const std::unique_ptr<NodeCollect_> &node) { VisitArguments(node); }
+        using ConstVisitor_<Evaluator_<T_>>::operator();
 
         void operator()(const std::unique_ptr<NodePlus_>& node) {
             EvalArgs(*node);
@@ -180,7 +114,9 @@ namespace Dal::Script::Experimental {
             dStack_.Push(AAD::Pow(args.first, args.second));
         }
 
-        void operator()(const std::unique_ptr<NodeUPlus_>& node) { EvalArgs(*node); }
+        void operator()(const std::unique_ptr<NodeUPlus_>& node) {
+            EvalArgs(*node);
+        }
 
         void operator()(const std::unique_ptr<NodeUMinus_>& node) {
             EvalArgs(*node);
@@ -215,9 +151,13 @@ namespace Dal::Script::Experimental {
             dStack_.Push(m);
         }
 
-        void operator()(const std::unique_ptr<NodeTrue_>& node) { bStack_.Push(true); }
+        void operator()(const std::unique_ptr<NodeTrue_>& node) {
+            bStack_.Push(true);
+        }
 
-        void operator()(const std::unique_ptr<NodeFalse_>& node) { bStack_.Push(false); }
+        void operator()(const std::unique_ptr<NodeFalse_>& node) {
+            bStack_.Push(false);
+        }
 
         void operator()(const std::unique_ptr<NodeVar_>& node) {
             if (lhsVar_)
