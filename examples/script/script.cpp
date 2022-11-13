@@ -65,7 +65,7 @@ int main() {
                                "call pays MAX(spot() - K, 0.0)");
 
     product.ParseEvents(events.begin(), events.end());
-    product.Debug(std::cout);
+//    product.Debug(std::cout);
     int maxNestedIfs = product.PreProcess(false, false);
     std::unique_ptr<Model_<Real_>> model = std::make_unique<BlackScholes_<Real_>>(spot, vol, false, rate, div);
 

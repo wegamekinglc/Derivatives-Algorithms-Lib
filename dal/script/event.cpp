@@ -18,36 +18,35 @@ namespace Dal::Script {
         variables_ = indexer.GetVarNames();
     }
 
-//    size_t ScriptProduct_::IFProcess() {
-//        IFProcessor_ ifProc;
-//        Visit(ifProc);
-//        return ifProc.MaxNestedIFs();
-//    }
-//
-//    //	Domain processing
-//    void ScriptProduct_::DomainProcess(bool fuzzy) {
-//        DomainProcessor_ domProc(variables_.size(), fuzzy);
-//        Visit(domProc);
-//    }
-//
-//    void ScriptProduct_::ConstCondProcess() {
-//        ConstCondProcessor_ ccProc;
-//        for (auto &evt: events_) {
-//            for (auto &stat: evt)
-//                ccProc.ProcessFromTop(stat);
-//        }
-//    }
+    size_t ScriptProduct_::IFProcess() {
+        IFProcessor_ ifProc;
+        Visit(ifProc);
+        return ifProc.MaxNestedIFs();
+    }
+
+    //	Domain processing
+    void ScriptProduct_::DomainProcess(bool fuzzy) {
+        DomainProcessor_ domProc(variables_.size(), fuzzy);
+        Visit(domProc);
+    }
+
+    void ScriptProduct_::ConstCondProcess() {
+        ConstCondProcessor_ ccProc;
+        for (auto &evt: events_) {
+            for (auto &stat: evt)
+                ccProc.ProcessFromTop(stat);
+        }
+    }
 
     //	All preprocessing
     size_t ScriptProduct_::PreProcess(bool fuzzy, bool skipDoms) {
         IndexVariables();
-
         size_t maxNestedIfs = 0;
-//        if (fuzzy || !skipDoms) {
-//            maxNestedIfs = IFProcess();
-//            DomainProcess(fuzzy);
-//            ConstCondProcess();
-//        }
+        if (fuzzy || !skipDoms) {
+            maxNestedIfs = IFProcess();
+            DomainProcess(fuzzy);
+            ConstCondProcess();
+        }
 
         // generate time line and definition
         // TODO: more specific data settings

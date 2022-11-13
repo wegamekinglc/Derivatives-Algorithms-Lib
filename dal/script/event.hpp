@@ -8,11 +8,11 @@
 #include <dal/time/date.hpp>
 #include <dal/script/experimental/node.hpp>
 #include <dal/script/experimental/visitor/evaluator.hpp>
-//#include <dal/script/visitor/fuzzy.hpp>
+#include <dal/script/experimental/visitor/fuzzy.hpp>
 #include <dal/script/experimental/visitor/varindexer.hpp>
-//#include <dal/script/visitor/ifprocessor.hpp>
-//#include <dal/script/visitor/domainproc.hpp>
-//#include <dal/script/visitor/constcondprocessor.hpp>
+#include <dal/script/experimental/visitor/ifprocessor.hpp>
+#include <dal/script/experimental/visitor/domainproc.hpp>
+#include <dal/script/experimental/visitor/constcondprocessor.hpp>
 #include <dal/script/experimental/visitor/debugger.hpp>
 #include <dal/script/parser.hpp>
 #include <dal/math/aad/sample.hpp>
@@ -43,10 +43,10 @@ namespace Dal::Script {
             return std::unique_ptr<Evaluator_<T_>>(new Evaluator_<T_>(variables_.size()));
         }
 
-//        template<class T_>
-//        std::unique_ptr<Evaluator_<T_>> BuildFuzzyEvaluator(const size_t maxNestedIfs, const double defEps) const {
-//            return std::unique_ptr<Evaluator_<T_>>(new FuzzyEvaluator_<T_>(variables_.size(), maxNestedIfs, defEps));
-//        }
+        template<class T_>
+        std::unique_ptr<Evaluator_<T_>> BuildFuzzyEvaluator(const size_t maxNestedIfs, const double defEps) const {
+            return std::unique_ptr<Evaluator_<T_>>(new FuzzyEvaluator_<T_>(variables_.size(), maxNestedIfs, defEps));
+        }
 
         template<class T_>
         std::unique_ptr<Scenario_<T_>> BuildScenario() const {
@@ -81,9 +81,9 @@ namespace Dal::Script {
         }
 
         void IndexVariables();
-//        size_t IFProcess();
-//        void DomainProcess(bool fuzzy);
-//        void ConstCondProcess();
+        size_t IFProcess();
+        void DomainProcess(bool fuzzy);
+        void ConstCondProcess();
 
         size_t PreProcess(bool fuzzy, bool skipDoms);
         void Debug(std::ostream &ost);
