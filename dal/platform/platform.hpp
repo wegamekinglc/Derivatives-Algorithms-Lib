@@ -6,6 +6,7 @@
 
 #include <cassert>
 #include <dal/utilities/noncopyable.hpp>
+#include <dal/platform/host.hpp>
 #include <memory>
 #include <utility>
 
@@ -44,24 +45,24 @@ namespace Dal {
     constexpr double M_SQRT_2 = 1.4142135623730951;
     constexpr double ONE_MINUS_EPS = 0.999999999999;
 
-    template <class T_> inline bool IsZero(const T_& x) { return x < Dal::EPSILON && -x < Dal::EPSILON; }
+    template <class T_> bool IsZero(const T_& x) { return x < Dal::EPSILON && -x < Dal::EPSILON; }
 
-    template <class T_> inline bool IsPositive(const T_& x) { return x >= Dal::EPSILON; }
+    template <class T_> bool IsPositive(const T_& x) { return x >= Dal::EPSILON; }
 
-    template <class T_> inline bool IsNegative(const T_& x) { return x <= -Dal::EPSILON; }
+    template <class T_> bool IsNegative(const T_& x) { return x <= -Dal::EPSILON; }
 
-    inline double Square(double x) { return x * x; }
-    inline double Cube(double x) { return x * x * x; }
-    inline double Max(double a, double b) { return a > b ? a : b; }
-    inline size_t Max(size_t a, size_t b) { return a > b ? a : b; }
-    inline int Max(int a, int b) { return a > b ? a : b; }
-    inline short Max(short a, short b) { return a > b ? a : b; }
-    inline ptrdiff_t Max(ptrdiff_t a, ptrdiff_t b) { return a > b ? a : b; }
-    inline double Min(double a, double b) { return a < b ? a : b; }
-    inline size_t Min(size_t a, size_t b) { return a < b ? a : b; }
-    inline int Min(int a, int b) { return a < b ? a : b; }
-    inline short Min(short a, short b) { return a < b ? a : b; }
-    inline ptrdiff_t Min(ptrdiff_t a, ptrdiff_t b) { return a < b ? a : b; }
+    FORCE_INLINE double Square(double x) { return x * x; }
+    FORCE_INLINE double Cube(double x) { return x * x * x; }
+    FORCE_INLINE double Max(double a, double b) { return a > b ? a : b; }
+    FORCE_INLINE size_t Max(size_t a, size_t b) { return a > b ? a : b; }
+    FORCE_INLINE int Max(int a, int b) { return a > b ? a : b; }
+    FORCE_INLINE short Max(short a, short b) { return a > b ? a : b; }
+    FORCE_INLINE ptrdiff_t Max(ptrdiff_t a, ptrdiff_t b) { return a > b ? a : b; }
+    FORCE_INLINE double Min(double a, double b) { return a < b ? a : b; }
+    FORCE_INLINE size_t Min(size_t a, size_t b) { return a < b ? a : b; }
+    FORCE_INLINE int Min(int a, int b) { return a < b ? a : b; }
+    FORCE_INLINE short Min(short a, short b) { return a < b ? a : b; }
+    FORCE_INLINE ptrdiff_t Min(ptrdiff_t a, ptrdiff_t b) { return a < b ? a : b; }
 
     struct Empty_ {};
 
