@@ -5,6 +5,7 @@
 #include <dal/platform/strict.hpp>
 #include <dal/script/event.hpp>
 #include <dal/storage/globals.hpp>
+#include <dal/script/experimental/visitor/debugger.hpp>
 
 
 namespace Dal::Script {
@@ -64,21 +65,21 @@ namespace Dal::Script {
     }
 
     //	Debug whole product
-//    void ScriptProduct_::Debug(std::ostream &ost) {
-//        size_t v = 0;
-//        for (auto& variable: variables_)
-//            ost << "Var[" << v++ << "] = " << variable << std::endl;
-//
-//        Debugger_ d;
-//        size_t e = 0;
-//        for (auto& evtIt: events_) {
-//            ost << "Event: " << ++e << std::endl;
-//            unsigned s = 0;
-//            for (const auto &stat: evtIt) {
-//                d.VisitTree(stat);
-//                ost << "Statement: " << ++s << std::endl;
-//                ost << d.String() << std::endl;
-//            }
-//        }
-//    }
+    void ScriptProduct_::Debug(std::ostream &ost) {
+        size_t v = 0;
+        for (auto& variable: variables_)
+            ost << "Var[" << v++ << "] = " << variable << std::endl;
+
+        Debugger_ d;
+        size_t e = 0;
+        for (auto& evtIt: events_) {
+            ost << "Event: " << ++e << std::endl;
+            unsigned s = 0;
+            for (const auto &stat: evtIt) {
+                d.Visit(stat);
+                ost << "Statement: " << ++s << std::endl;
+                ost << d.String() << std::endl;
+            }
+        }
+    }
 }

@@ -4,17 +4,15 @@
 
 #pragma once
 
-#if 0
-
-#include <dal/math/stacks.hpp>
 #include <dal/platform/platform.hpp>
+#include <dal/math/stacks.hpp>
 #include <dal/script/experimental/node.hpp>
 #include <dal/script/experimental/visitor.hpp>
 #include <dal/string/strings.hpp>
-#include <stack>
+
 
 namespace Dal::Script::Experimental {
-    class Debugger_ : public ConstVisitor_ {
+    class Debugger_ : public ConstVisitor_<Debugger_> {
         String_ prefix_;
         Stack_<String_> stack_;
 
@@ -24,7 +22,7 @@ namespace Dal::Script::Experimental {
             bool isEmpty = node->arguments_.empty();
             if (!isEmpty)
                 for (auto it = node->arguments_.rbegin(); it != node->arguments_.rend(); ++it)
-                    std::visit(*this, **it);
+                    this->Visit(*it);
 
             prefix_.pop_back();
 
@@ -82,5 +80,3 @@ namespace Dal::Script::Experimental {
         void operator()(const std::unique_ptr<NodeSmooth_>& node);
     };
 } // namespace Dal::Script
-
-#endif

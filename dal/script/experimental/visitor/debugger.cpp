@@ -2,7 +2,6 @@
 // Created by wegam on 2022/2/17.
 //
 
-#if 0
 #include <dal/platform/strict.hpp>
 #include <dal/script/experimental/visitor/debugger.hpp>
 
@@ -105,5 +104,3 @@ namespace Dal::Script::Experimental {
 
     void Debugger_::operator()(const std::unique_ptr<NodeSmooth_>& node) { Debug(node, "SMOOTH"); }
 } // namespace Dal::Script
-
-#endif
