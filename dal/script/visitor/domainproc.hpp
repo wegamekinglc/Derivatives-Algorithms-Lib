@@ -21,7 +21,7 @@ alternative TrueOrFalse
 
 namespace Dal::Script {
 #include <dal/auto/MG_DomainCondProp_enum.hpp>
-    class DomainProcessor_ : public Visitor_ {
+    class DomainProcessor_ : public Visitor_<DomainProcessor_> {
         const bool fuzzy_;
         Vector_<Domain_> domains_;
         Stack_<Domain_> domainStack_;
@@ -33,33 +33,34 @@ namespace Dal::Script {
         // domains start with the singleton 0
         DomainProcessor_(size_t nVar, bool fuzzy) : fuzzy_(fuzzy), domains_(nVar, 0.0), lhsVar_(false) {}
 
+        using Visitor_<DomainProcessor_>::operator();
         // visit
         // expressions
         // binaries
-        void Visit(NodePlus_* node) override;
-        void Visit(NodeMinus_* node) override;
-        void Visit(NodeMultiply_* node) override;
-        void Visit(NodeDivide_* node) override;
-        void Visit(NodePower_* node) override;
+        void operator()(std::unique_ptr<NodePlus_>& node);
+        void operator()(std::unique_ptr<NodeMinus_>& node);
+        void operator()(std::unique_ptr<NodeMultiply_>& node);
+        void operator()(std::unique_ptr<NodeDivide_>& node);
+        void operator()(std::unique_ptr<NodePower_>& node);
 
         // unaries
-        void Visit(NodeUPlus_* node) override;
-        void Visit(NodeUMinus_* node) override;
+        void operator()(std::unique_ptr<NodeUPlus_>& node);
+        void operator()(std::unique_ptr<NodeUMinus_>& node);
 
         // functions
-        void Visit(NodeLog_* node) override;
-        void Visit(NodeSqrt_* node) override;
-        void Visit(NodeMax_* node) override;
-        void Visit(NodeMin_* node) override;
-        void Visit(NodeSmooth_* node) override;
+        void operator()(std::unique_ptr<NodeLog_>& node);
+        void operator()(std::unique_ptr<NodeSqrt_>& node);
+        void operator()(std::unique_ptr<NodeMax_>& node);
+        void operator()(std::unique_ptr<NodeMin_>& node);
+        void operator()(std::unique_ptr<NodeSmooth_>& node);
 
         // conditions
-        void Visit(NodeEqual_* node) override;
-        void Visit(NodeNot_* node) override;
+        void operator()(std::unique_ptr<NodeEqual_>& node);
+        void operator()(std::unique_ptr<NodeNot_>& node);
 
         // for visit superior and supEqual
-        template <bool strict, class NodeSup_> inline void Visit(NodeSup_* node) {
-            VisitArguments(node);
+        template <bool strict, class NodeSup_> void operator()(std::unique_ptr<NodeSup_>& node) {
+            VisitArguments(*node);
 
             Domain_& dom = domainStack_.Top();
 
@@ -106,21 +107,21 @@ namespace Dal::Script {
             domainStack_.Pop();
         }
 
-        void Visit(NodeSuperior_* node) override;
-        void Visit(NodeSupEqual_* node) override;
-        void Visit(NodeAnd_* node) override;
-        void Visit(NodeOr_* node) override;
+        void operator()(std::unique_ptr<NodeSuperior_>& node);
+        void operator()(std::unique_ptr<NodeSupEqual_>& node);
+        void operator()(std::unique_ptr<NodeAnd_>& node);
+        void operator()(std::unique_ptr<NodeOr_>& node);
 
         // instructions
-        void Visit(NodeIf_* node) override;
-        void Visit(NodeAssign_* node) override;
-        void Visit(NodePays_* node) override;
+        void operator()(std::unique_ptr<NodeIf_>& node);
+        void operator()(std::unique_ptr<NodeAssign_>& node);
+        void operator()(std::unique_ptr<NodePays_>& node);
 
         // variables and constants
-        void Visit(NodeVar_* node) override;
-        void Visit(NodeConst_* node) override;
+        void operator()(std::unique_ptr<NodeVar_>& node);
+        void operator()(std::unique_ptr<NodeConst_>& node);
 
         // scenario related
-        void Visit(NodeSpot_* node) override;
+        void operator()(std::unique_ptr<NodeSpot_>& node);
     };
 } // namespace Dal::Script

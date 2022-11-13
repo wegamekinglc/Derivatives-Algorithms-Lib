@@ -2,7 +2,7 @@
 // Created by wegam on 2022/4/4.
 //
 
-#include <dal/script/experimental/node.hpp>
+#include <dal/script/node.hpp>
 #include <dal/script/parser.hpp>
 
 namespace Dal::Script {

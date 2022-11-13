@@ -11,7 +11,7 @@
 #include <dal/math/stacks.hpp>
 
 namespace Dal::Script {
-    class IFProcessor_ : public Visitor_ {
+    class IFProcessor_ : public Visitor_<IFProcessor_> {
         Stack_<std::set<size_t>> varStack_;
         // Nested if level, 0: not in an if, 1: in the outermost if, 2: if nested in another if, etc.
         size_t nestedIFLv_;
@@ -22,9 +22,12 @@ namespace Dal::Script {
         [[nodiscard]] size_t MaxNestedIFs() const {
             return maxNestedIFs_;
         }
-        void Visit(NodeIf_* node) override;
-        void Visit(NodeAssign_* node) override;
-        void Visit(NodePays_* node) override;
-        void Visit(NodeVar_* node) override;
+
+        using Visitor_<IFProcessor_>::operator();
+
+        void operator()(std::unique_ptr<NodeIf_> &node);
+        void operator()(std::unique_ptr<NodeAssign_> &node);
+        void operator()(std::unique_ptr<NodePays_> &node);
+        void operator()(std::unique_ptr<NodeVar_> &node);
     };
 }

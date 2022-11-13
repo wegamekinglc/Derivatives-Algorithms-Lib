@@ -23,11 +23,11 @@ TEST(IFProcessorTest, TestIFProcessor) {
     VarIndexer_ visitor1;
     IFProcessor_ visitor2;
 
-    res[0]->AcceptVisitor(&visitor1);
-    res[0]->AcceptVisitor(&visitor2);
+    visitor1.Visit(res[0]);
+    visitor2.Visit(res[0]);
 
     ASSERT_EQ(visitor2.MaxNestedIFs(), 1);
-    ASSERT_EQ(dynamic_cast<NodeIf_*>(res[0].get())->affectedVars_, Vector_<int>({1}));
+    ASSERT_EQ(std::get<std::unique_ptr<NodeIf_>>(res[0])->affectedVars_, Vector_<int>({1}));
 }
 
 TEST(IFProcessorTest, TestIFProcessorNested) {
@@ -48,13 +48,13 @@ TEST(IFProcessorTest, TestIFProcessorNested) {
     VarIndexer_ visitor1;
     IFProcessor_ visitor2;
 
-    res[0]->AcceptVisitor(&visitor1);
-    res[0]->AcceptVisitor(&visitor2);
+    visitor1.Visit(res[0]);
+    visitor2.Visit(res[0]);
 
     ASSERT_EQ(visitor2.MaxNestedIFs(), 2);
-    ASSERT_EQ(dynamic_cast<NodeIf_*>(res[0].get())->affectedVars_, Vector_<int>({1, 2}));
+    ASSERT_EQ(std::get<std::unique_ptr<NodeIf_>>(res[0])->affectedVars_, Vector_<int>({1, 2}));
 
-    auto& nestedIF = dynamic_cast<NodeIf_*>(res[0].get())->arguments_[1];
-    ASSERT_EQ(dynamic_cast<NodeIf_*>(nestedIF.get())->affectedVars_, Vector_<int>({1}));
+    auto& nestedIF = std::get<std::unique_ptr<NodeIf_>>(res[0])->arguments_[1];
+    ASSERT_EQ(std::get<std::unique_ptr<NodeIf_>>(nestedIF)->affectedVars_, Vector_<int>({1}));
 }
 

@@ -5,10 +5,10 @@
 #pragma once
 
 #include <regex>
+#include <dal/script/node.hpp>
 #include <dal/utilities/exceptions.hpp>
 
 namespace Dal::Script {
-    using namespace Dal::Script::Experimental;
 
     class ScriptError_: public Exception_ {
     public:

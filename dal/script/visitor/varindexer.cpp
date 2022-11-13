@@ -3,6 +3,7 @@
 //
 
 #include <dal/script/visitor/varindexer.hpp>
+#include <dal/script/node.hpp>
 
 namespace Dal::Script {
 
@@ -13,12 +14,11 @@ namespace Dal::Script {
         return v;
     }
 
-    void VarIndexer_::Visit(NodeVar_* node) {
+    void VarIndexer_::operator()(std::unique_ptr<NodeVar_> &node) {
         auto it = varMap_.find(node->name_);
         if (it == varMap_.end())
             node->index_ = varMap_[node->name_] = varMap_.size();
         else
             node->index_ = it->second;
     }
-
 }

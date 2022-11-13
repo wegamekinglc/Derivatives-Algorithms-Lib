@@ -10,17 +10,17 @@ using namespace Dal;
 using namespace Dal::Script;
 
 TEST(EvaluatorTest, TestEvaluator) {
-    std::unique_ptr<ScriptNode_> const1 = MakeBaseNode<NodeConst_>(20.0);
-    std::unique_ptr<ScriptNode_> const2 = MakeBaseNode<NodeConst_>(30.0);
+    ScriptNode_ const1 = MakeBaseNode<NodeConst_>(20.0);
+    ScriptNode_ const2 = MakeBaseNode<NodeConst_>(30.0);
 
     auto plusExpr = BuildBinary<NodePlus_>(const1, const2);
 
-    std::unique_ptr<ScriptNode_> var = MakeNode<NodeVar_>("x");
+    ScriptNode_ var = MakeBaseNode<NodeVar_>("x");
     auto assignExpr = BuildBinary<NodeAssign_>(var, plusExpr);
 
     VarIndexer_ visitor1;
     Evaluator_<double> visitor2(1);
-    assignExpr->AcceptVisitor(&visitor1);
-    assignExpr->AcceptVisitor(&visitor2);
+    visitor1.Visit(assignExpr);
+    visitor2.Visit(assignExpr);
     ASSERT_DOUBLE_EQ(visitor2.VarVals()[0], 50);
 }

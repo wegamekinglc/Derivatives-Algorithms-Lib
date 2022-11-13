@@ -5,12 +5,10 @@
 #include <dal/platform/strict.hpp>
 #include <dal/script/event.hpp>
 #include <dal/storage/globals.hpp>
-#include <dal/script/experimental/visitor/debugger.hpp>
+#include <dal/script/visitor/debugger.hpp>
 
 
 namespace Dal::Script {
-
-    using namespace Dal::Script::Experimental;
 
     void ScriptProduct_::IndexVariables() {
         VarIndexer_ indexer;
