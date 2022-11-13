@@ -70,10 +70,10 @@ namespace Dal::Script {
         }
 
         template<class NodeSup_>
-        void VisitImpl(const NodeSup_* node)
+        void VisitImpl(const std::unique_ptr<NodeSup_>& node)
         {
             // evaluate expression to be compared to 0
-            node->arguments_[0]->AcceptVisitor(this);
+            this->Visit(node->arguments_[0]);
             const T_ expr = Evaluator_<T_>::dStack_.TopAndPop();
 
             // discrete case:
@@ -137,21 +137,22 @@ namespace Dal::Script {
             eps_ = eps;
         }
 
+        using Evaluator_<T_>::operator();
         // override visitors
         // If
-        void Visit(const NodeIf_* node) override {
+        void operator()(const std::unique_ptr<NodeIf_>& node) {
             const size_t lastTrueStat = node->firstElse_ == -1 ? node->arguments_.size() - 1 : node->firstElse_ - 1;
             ++nestedIFLv_;
-            node->arguments_[0]->AcceptVisitor(this);
+            this->Visit(node->arguments_[0]);
             const T_ dt = fuzzyStack_.TopAndPop();
 
             if (dt > ONE_MINUS_EPS) {
                 for (size_t i = 1; i <= lastTrueStat; ++i)
-                    node->arguments_[i]->AcceptVisitor(this);
+                    this->Visit(node->arguments_[i]);
             } else if (dt < EPSILON) {
                 if (node->firstElse_ != -1)
                     for (size_t i = node->firstElse_; i < node->arguments_.size(); ++i)
-                        node->arguments_[i]->AcceptVisitor(this);
+                        this->Visit(node->arguments_[i]);
             } else {
                 // record values of variables to be changed
                 for( auto idx : node->affectedVars_)
@@ -159,7 +160,7 @@ namespace Dal::Script {
 
                 // eval "if true" statements
                 for (size_t i = 1; i<=lastTrueStat; ++i)
-                    node->arguments_[i]->AcceptVisitor(this);
+                    this->Visit(node->arguments_[i]);
 
                 // record and reset values of variables to be changed
                 for (auto idx : node->affectedVars_) {
@@ -170,7 +171,7 @@ namespace Dal::Script {
                 // eval "if false" statements if any
                 if (node->firstElse_ != -1)
                     for( size_t i=node->firstElse_; i<node->arguments_.size(); ++i)
-                        node->arguments_[i]->AcceptVisitor(this);
+                        this->Visit(node->arguments_[i]);
                 // set values of variables to fuzzy values
                 for (auto idx : node->affectedVars_)
                     Evaluator_<T_>::variables_[idx] =
@@ -179,16 +180,16 @@ namespace Dal::Script {
             --nestedIFLv_;
         }
 
-        void Visit(const NodeTrue_* node) override {
+        void operator()(const std::unique_ptr<NodeTrue_>& node) {
             fuzzyStack_.Push(T_(1.0));
         }
 
-        void Visit(const NodeFalse_* node) override {
+        void operator()(const std::unique_ptr<NodeFalse_>& node) {
             fuzzyStack_.Push(T_(0.0));
         }
 
-        void Visit(const NodeEqual_* node) override {
-            node->arguments_[0]->AcceptVisitor(this);
+        void operator()(const std::unique_ptr<NodeEqual_>& node) {
+            this->Visit(node->arguments_[0]);
             const T_ expr = Evaluator_<T_>::dStack_.TopAndPop();
 
             if (node->discrete_)
@@ -201,29 +202,29 @@ namespace Dal::Script {
 
         // inequality
         // for visiting superior and supEqual
-        void Visit(const NodeSuperior_* node) override {
+        void operator()(const std::unique_ptr<NodeSuperior_>& node) {
             VisitImpl(node);
         }
 
-        void Visit(const NodeSupEqual_* node) override {
+        void operator()(const std::unique_ptr<NodeSupEqual_>& node) {
             VisitImpl(node);
         }
 
         // negation
-        void Visit(const NodeNot_* node) override {
+        void operator()(const std::unique_ptr<NodeNot_>& node) {
             Evaluator_<T_>::EvalArgs(node);
             fuzzyStack_.Top() = 1.0 - fuzzyStack_.Top();
         }
 
         // combinators
         // hard coded proba stlye and->dt(lhs)*dt(rhs), or->dt(lhs)+dt(rhs)-dt(lhs)*dt(rhs)
-        void Visit(const NodeAnd_* node) override {
+        void operator()(const std::unique_ptr<NodeAnd_>& node) {
             Evaluator_<T_>::EvalArgs( node);
             const auto& args = Pop2f();
             fuzzyStack_.Push(args.first * args.second);
         }
 
-        void Visit( const NodeOr_* node) override {
+        void operator()( const std::unique_ptr<NodeOr_>& node) {
             Evaluator_<T_>::EvalArgs( node);
             const auto& args = Pop2f();
             fuzzyStack_.Push(args.first + args.second - args.first * args.second);

@@ -5,14 +5,14 @@
 #include <dal/script/visitor/ifprocessor.hpp>
 
 namespace Dal::Script {
-    void IFProcessor_::Visit(NodeIf_* node) {
+    void IFProcessor_::operator()(std::unique_ptr<NodeIf_> &node) {
         ++nestedIFLv_;
         if (nestedIFLv_ > maxNestedIFs_)
             maxNestedIFs_ = nestedIFLv_;
 
         varStack_.Push(std::set<size_t>());
         for (size_t i = 1; i < node->arguments_.size(); ++i)
-            node->arguments_[i]->AcceptVisitor(this);
+            Visit(node->arguments_[i]);
 
         node->affectedVars_.clear();
         std::copy(varStack_.Top().begin(),
@@ -27,17 +27,17 @@ namespace Dal::Script {
                       std::inserter(varStack_.Top(), varStack_.Top().end()));
     }
 
-    void IFProcessor_::Visit(NodeAssign_* node) {
+    void IFProcessor_::operator()(std::unique_ptr<NodeAssign_> &node) {
         if (nestedIFLv_ > 0)
-            node->arguments_[0]->AcceptVisitor(this);
+            Visit(node->arguments_[0]);
     }
 
-    void IFProcessor_::Visit(NodePays_* node) {
+    void IFProcessor_::operator()(std::unique_ptr<NodePays_> &node) {
         if (nestedIFLv_ > 0)
-            node->arguments_[0]->AcceptVisitor(this);
+            Visit(node->arguments_[0]);
     }
 
-    void IFProcessor_::Visit(NodeVar_* node) {
+    void IFProcessor_::operator()(std::unique_ptr<NodeVar_> &node) {
         if (nestedIFLv_ > 0)
             varStack_.Top().insert(node->index_);
     }

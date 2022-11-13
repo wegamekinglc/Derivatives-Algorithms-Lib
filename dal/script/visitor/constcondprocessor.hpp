@@ -9,48 +9,56 @@
 
 namespace Dal::Script {
 
-    class ConstCondProcessor_ : public Visitor_ {
-        std::unique_ptr<ScriptNode_>* current_;
-        void VisitArguments(ScriptNode_* node) override;
+    class ConstCondProcessor_ : public Visitor_<ConstCondProcessor_> {
+        ScriptNode_* current_;
+        template <class N_>
+        void VisitArguments(N_& node) {
+            for (auto &arg: node.arguments_) {
+                current_ = &arg;
+                this->Visit(arg);
+            }
+        }
 
     public:
-        void ProcessFromTop(std::unique_ptr<ScriptNode_>& top);
+        void ProcessFromTop(ScriptNode_& top);
 
         template<class NodeCond_>
-        void VisitCondT(NodeCond_* node) {
+        void VisitCondT(NodeCond_& node) {
             if (node->alwaysTrue_)
                 *current_ = std::make_unique<NodeTrue_>();
             else if(node->alwaysFalse_)
                 *current_ = std::make_unique<NodeFalse_>();
             else
-                VisitArguments(node);
+                VisitArguments(*node);
         }
 
-        void Visit(NodeEqual_* node) override {
+        using Visitor_<ConstCondProcessor_>::operator();
+        
+        void operator()(std::unique_ptr<NodeEqual_>& node) {
             VisitCondT(node);
         }
 
-        void Visit(NodeNot_* node) override {
+        void operator()(std::unique_ptr<NodeNot_>& node) {
             VisitCondT(node);
         }
 
-        void Visit(NodeSuperior_* node) override {
+        void operator()(std::unique_ptr<NodeSuperior_>& node) {
             VisitCondT(node);
         }
 
-        void Visit(NodeSupEqual_* node) override {
+        void operator()(std::unique_ptr<NodeSupEqual_>& node) {
             VisitCondT(node);
         }
 
-        void Visit(NodeAnd_* node) override {
+        void operator()(std::unique_ptr<NodeAnd_>& node) {
             VisitCondT(node);
         }
 
-        void Visit(NodeOr_* node) override {
+        void operator()(std::unique_ptr<NodeOr_>& node) {
             VisitCondT(node);
         }
 
-        void Visit(NodeIf_* node) override;
+        void operator()(std::unique_ptr<NodeIf_>& node);
     };
 
 }

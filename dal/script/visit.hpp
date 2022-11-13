@@ -18,7 +18,7 @@
 #include <utility>
 #include <tuple>
 
-namespace Dal::Script::Experimental
+namespace Dal::Script
 {
     namespace detail {
 

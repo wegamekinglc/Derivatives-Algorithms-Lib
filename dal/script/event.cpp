@@ -5,15 +5,10 @@
 #include <dal/platform/strict.hpp>
 #include <dal/script/event.hpp>
 #include <dal/storage/globals.hpp>
+#include <dal/script/visitor/debugger.hpp>
 
 
 namespace Dal::Script {
-    void ScriptProduct_::Visit(Visitor_& v) {
-        for (auto &evt: events_) {
-            for (auto &stat: evt)
-                v.VisitTree(stat);
-        }
-    }
 
     void ScriptProduct_::IndexVariables() {
         VarIndexer_ indexer;
@@ -44,7 +39,6 @@ namespace Dal::Script {
     //	All preprocessing
     size_t ScriptProduct_::PreProcess(bool fuzzy, bool skipDoms) {
         IndexVariables();
-
         size_t maxNestedIfs = 0;
         if (fuzzy || !skipDoms) {
             maxNestedIfs = IFProcess();
@@ -79,7 +73,7 @@ namespace Dal::Script {
             ost << "Event: " << ++e << std::endl;
             unsigned s = 0;
             for (const auto &stat: evtIt) {
-                d.VisitTree(stat);
+                d.Visit(stat);
                 ost << "Statement: " << ++s << std::endl;
                 ost << d.String() << std::endl;
             }

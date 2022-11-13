@@ -1,101 +1,160 @@
 //
-// Created by wegam on 2022/2/14.
+// Created by wegam on 2022/11/11.
 //
 
 #pragma once
 
+#include <dal/math/stacks.hpp>
+#include <dal/platform/platform.hpp>
 #include <dal/script/node.hpp>
+#include <dal/script/visit.hpp>
 
 namespace Dal::Script {
+    template <class D_>
     class Visitor_ {
-    public:
-        virtual ~Visitor_() = default;
-
     protected:
-        Visitor_() = default;
+        D_* sub_;
+        Visitor_(): sub_(nullptr) {}
 
-        virtual void VisitArguments(ScriptNode_* node) {
-            for (auto& arg: node->arguments_)
-                arg->AcceptVisitor(this);
+        template <class N_> void VisitArguments(N_& node) {
+            for (auto& arg : node.arguments_)
+                this->Visit(arg);
         }
 
     public:
-        void VisitTree(const std::unique_ptr<ScriptNode_>& tree) {
-            tree->AcceptVisitor(this);
+        void Visit(ScriptNode_& node) {
+            if (!sub_)
+                sub_ = static_cast<D_*>(this);
+            std::visit(*sub_, node);
         }
 
-        virtual void Visit(NodeCollect_* node) { VisitArguments(node); }
-        virtual void Visit(NodeTrue_* node) { VisitArguments(node); }
-        virtual void Visit(NodeFalse_* node) { VisitArguments(node); }
-        virtual void Visit(NodeUPlus_* node) { VisitArguments(node); }
-        virtual void Visit(NodeUMinus_* node) { VisitArguments(node); }
-        virtual void Visit(NodePlus_* node) { VisitArguments(node); }
-        virtual void Visit(NodeMinus_* node) { VisitArguments(node); }
-        virtual void Visit(NodeMultiply_* node) { VisitArguments(node); }
-        virtual void Visit(NodeDivide_* node) { VisitArguments(node); }
-        virtual void Visit(NodePower_* node) { VisitArguments(node); }
-        virtual void Visit(NodeLog_* node) { VisitArguments(node); }
-        virtual void Visit(NodeSqrt_* node) { VisitArguments(node); }
-        virtual void Visit(NodeMax_* node) { VisitArguments(node); }
-        virtual void Visit(NodeMin_* node) { VisitArguments(node); }
-        virtual void Visit(NodeConst_* node) { VisitArguments(node); }
-        virtual void Visit(NodeVar_* node) { VisitArguments(node); }
-        virtual void Visit(NodeAssign_* node) { VisitArguments(node); }
-        virtual void Visit(NodeIf_* node) { VisitArguments(node); }
-        virtual void Visit(NodeEqual_* node) { VisitArguments(node); }
-        virtual void Visit(NodeSupEqual_* node) { VisitArguments(node); }
-        virtual void Visit(NodeSuperior_* node) { VisitArguments(node); }
-        virtual void Visit(NodeAnd_* node) { VisitArguments(node); }
-        virtual void Visit(NodeNot_* node) { VisitArguments(node); }
-        virtual void Visit(NodeOr_* node) { VisitArguments(node); }
-        virtual void Visit(NodePays_* node) { VisitArguments(node); }
-        virtual void Visit(NodeSpot_* node) { VisitArguments(node); }
-        virtual void Visit(NodeSmooth_* node) { VisitArguments(node); }
+        void operator()(std::unique_ptr<NodeCollect_> &node) { VisitArguments(*node); }
+
+        void operator()(std::unique_ptr<NodeTrue_> &node) { VisitArguments(*node); }
+
+        void operator()(std::unique_ptr<NodeFalse_> &node) { VisitArguments(*node); }
+
+        void operator()(std::unique_ptr<NodeUPlus_> &node) { VisitArguments(*node); }
+
+        void operator()(std::unique_ptr<NodeUMinus_> &node) { VisitArguments(*node); }
+
+        void operator()(std::unique_ptr<NodePlus_> &node) { VisitArguments(*node); }
+
+        void operator()(std::unique_ptr<NodeMinus_> &node) { VisitArguments(*node); }
+
+        void operator()(std::unique_ptr<NodeMultiply_> &node) { VisitArguments(*node); }
+
+        void operator()(std::unique_ptr<NodeDivide_> &node) { VisitArguments(*node); }
+
+        void operator()(std::unique_ptr<NodePower_> &node) { VisitArguments(*node); }
+
+        void operator()(std::unique_ptr<NodeLog_> &node) { VisitArguments(*node); }
+
+        void operator()(std::unique_ptr<NodeSqrt_> &node) { VisitArguments(*node); }
+
+        void operator()(std::unique_ptr<NodeMax_> &node) { VisitArguments(*node); }
+
+        void operator()(std::unique_ptr<NodeMin_> &node) { VisitArguments(*node); }
+
+        void operator()(std::unique_ptr<NodeConst_> &node) { VisitArguments(*node); }
+
+        void operator()(std::unique_ptr<NodeVar_> &node) { VisitArguments(*node); }
+
+        void operator()(std::unique_ptr<NodeAssign_> &node) { VisitArguments(*node); }
+
+        void operator()(std::unique_ptr<NodeIf_> &node) { VisitArguments(*node); }
+
+        void operator()(std::unique_ptr<NodeEqual_> &node) { VisitArguments(*node); }
+
+        void operator()(std::unique_ptr<NodeSupEqual_> &node) { VisitArguments(*node); }
+
+        void operator()(std::unique_ptr<NodeSuperior_> &node) { VisitArguments(*node); }
+
+        void operator()(std::unique_ptr<NodeAnd_> &node) { VisitArguments(*node); }
+
+        void operator()(std::unique_ptr<NodeNot_> &node) { VisitArguments(*node); }
+
+        void operator()(std::unique_ptr<NodeOr_> &node) { VisitArguments(*node); }
+
+        void operator()(std::unique_ptr<NodePays_> &node) { VisitArguments(*node); }
+
+        void operator()(std::unique_ptr<NodeSpot_> &node) { VisitArguments(*node); }
+
+        void operator()(std::unique_ptr<NodeSmooth_> &node) { VisitArguments(*node); }
     };
 
+    template <class D_>
     class ConstVisitor_ {
-    public:
-        virtual ~ConstVisitor_() = default;
-
     protected:
-        ConstVisitor_() = default;
-        virtual void VisitArguments(const ScriptNode_* node) {
-            for (auto& arg: node->arguments_)
-                arg->AcceptVisitor(this);
+        D_* sub_;
+        ConstVisitor_(): sub_(nullptr) {}
+
+        template <class N_> void VisitArguments(const N_& node) {
+            for (auto& arg : node.arguments_)
+                this->Visit(arg);
         }
 
     public:
-
-        void VisitTree(const std::unique_ptr<ScriptNode_>& tree) {
-            tree->AcceptVisitor(this);
+        void Visit(const ScriptNode_& node) {
+            if (!sub_)
+                sub_ = static_cast<D_*>(this);
+            std::visit(*sub_, node);
         }
 
-        virtual void Visit(const NodeCollect_* node) { VisitArguments(node);}
-        virtual void Visit(const NodeTrue_* node) { VisitArguments(node); }
-        virtual void Visit(const NodeFalse_* node) { VisitArguments(node); }
-        virtual void Visit(const NodeUPlus_* node) { VisitArguments(node); }
-        virtual void Visit(const NodeUMinus_* node) { VisitArguments(node); }
-        virtual void Visit(const NodePlus_* node) { VisitArguments(node); }
-        virtual void Visit(const NodeMinus_* node) { VisitArguments(node); }
-        virtual void Visit(const NodeMultiply_* node) { VisitArguments(node); }
-        virtual void Visit(const NodeDivide_* node) { VisitArguments(node); }
-        virtual void Visit(const NodePower_* node) { VisitArguments(node); }
-        virtual void Visit(const NodeLog_* node) { VisitArguments(node); }
-        virtual void Visit(const NodeSqrt_* node) { VisitArguments(node); }
-        virtual void Visit(const NodeMax_* node) { VisitArguments(node); }
-        virtual void Visit(const NodeMin_* node) { VisitArguments(node); }
-        virtual void Visit(const NodeConst_* node) { VisitArguments(node); }
-        virtual void Visit(const NodeVar_* node) { VisitArguments(node); }
-        virtual void Visit(const NodeAssign_* node) { VisitArguments(node); }
-        virtual void Visit(const NodeIf_* node) { VisitArguments(node); }
-        virtual void Visit(const NodeEqual_* node) { VisitArguments(node); }
-        virtual void Visit(const NodeSupEqual_* node) { VisitArguments(node); }
-        virtual void Visit(const NodeSuperior_* node) { VisitArguments(node); }
-        virtual void Visit(const NodeAnd_* node) { VisitArguments(node); }
-        virtual void Visit(const NodeNot_* node) { VisitArguments(node); }
-        virtual void Visit(const NodeOr_* node) { VisitArguments(node); }
-        virtual void Visit(const NodePays_* node) { VisitArguments(node); }
-        virtual void Visit(const NodeSpot_* node) { VisitArguments(node); }
-        virtual void Visit(const NodeSmooth_* node) { VisitArguments(node); }
+        void operator()(const std::unique_ptr<NodeCollect_> &node) { VisitArguments(*node); }
+
+        void operator()(const std::unique_ptr<NodeTrue_> &node) {
+            VisitArguments(*node);
+        }
+
+        void operator()(const std::unique_ptr<NodeFalse_> &node) { VisitArguments(*node); }
+
+        void operator()(const std::unique_ptr<NodeUPlus_> &node) { VisitArguments(*node); }
+
+        void operator()(const std::unique_ptr<NodeUMinus_> &node) { VisitArguments(*node); }
+
+        void operator()(const std::unique_ptr<NodePlus_> &node) { VisitArguments(*node); }
+
+        void operator()(const std::unique_ptr<NodeMinus_> &node) { VisitArguments(*node); }
+
+        void operator()(const std::unique_ptr<NodeMultiply_> &node) { VisitArguments(*node); }
+
+        void operator()(const std::unique_ptr<NodeDivide_> &node) { VisitArguments(*node); }
+
+        void operator()(const std::unique_ptr<NodePower_> &node) { VisitArguments(*node); }
+
+        void operator()(const std::unique_ptr<NodeLog_> &node) { VisitArguments(*node); }
+
+        void operator()(const std::unique_ptr<NodeSqrt_> &node) { VisitArguments(*node); }
+
+        void operator()(const std::unique_ptr<NodeMax_> &node) { VisitArguments(*node); }
+
+        void operator()(const std::unique_ptr<NodeMin_> &node) { VisitArguments(*node); }
+
+        void operator()(const std::unique_ptr<NodeConst_> &node) { VisitArguments(*node); }
+
+        void operator()(const std::unique_ptr<NodeVar_> &node) { VisitArguments(*node); }
+
+        void operator()(const std::unique_ptr<NodeAssign_> &node) { VisitArguments(*node); }
+
+        void operator()(const std::unique_ptr<NodeIf_> &node) { VisitArguments(*node); }
+
+        void operator()(const std::unique_ptr<NodeEqual_> &node) { VisitArguments(*node); }
+
+        void operator()(const std::unique_ptr<NodeSupEqual_> &node) { VisitArguments(*node); }
+
+        void operator()(const std::unique_ptr<NodeSuperior_> &node) { VisitArguments(*node); }
+
+        void operator()(const std::unique_ptr<NodeAnd_> &node) { VisitArguments(*node); }
+
+        void operator()(const std::unique_ptr<NodeNot_> &node) { VisitArguments(*node); }
+
+        void operator()(const std::unique_ptr<NodeOr_> &node) { VisitArguments(*node); }
+
+        void operator()(const std::unique_ptr<NodePays_> &node) { VisitArguments(*node); }
+
+        void operator()(const std::unique_ptr<NodeSpot_> &node) { VisitArguments(*node); }
+
+        void operator()(const std::unique_ptr<NodeSmooth_> &node) { VisitArguments(*node); }
     };
-}
+} // namespace Dal::Script::Experimental

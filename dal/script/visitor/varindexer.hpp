@@ -11,12 +11,14 @@
 
 namespace Dal::Script {
 
-    class VarIndexer_ : public Visitor_ {
+    class VarIndexer_ : public Visitor_<VarIndexer_> {
         std::map<String_, int> varMap_;
 
     public:
         [[nodiscard]] Vector_<String_> GetVarNames() const;
-        void Visit(NodeVar_* node) override;
+
+        using Visitor_<VarIndexer_>::operator();
+        void operator()(std::unique_ptr<NodeVar_> &node);
     };
 
 }

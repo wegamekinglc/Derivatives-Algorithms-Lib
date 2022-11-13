@@ -9,36 +9,36 @@ namespace Dal::Script {
     // visit
     // expressions
     // binaries
-    void DomainProcessor_::Visit(NodePlus_* node) {
-        VisitArguments(node);
+    void DomainProcessor_::operator()(std::unique_ptr<NodePlus_>& node) {
+        VisitArguments(*node);
         Domain_ res = domainStack_[1] + domainStack_[0];
         domainStack_.Pop(2);
         domainStack_.Push(std::move(res));
     }
 
-    void DomainProcessor_::Visit(NodeMinus_* node) {
-        VisitArguments(node);
+    void DomainProcessor_::operator()(std::unique_ptr<NodeMinus_>& node) {
+        VisitArguments(*node);
         Domain_ res = domainStack_[1] - domainStack_[0];
         domainStack_.Pop(2);
         domainStack_.Push(std::move(res));
     }
 
-    void DomainProcessor_::Visit(NodeMultiply_* node) {
-        VisitArguments(node);
+    void DomainProcessor_::operator()(std::unique_ptr<NodeMultiply_>& node) {
+        VisitArguments(*node);
         Domain_ res = domainStack_[1] * domainStack_[0];
         domainStack_.Pop(2);
         domainStack_.Push(std::move(res));
     }
 
-    void DomainProcessor_::Visit(NodeDivide_* node) {
-        VisitArguments(node);
+    void DomainProcessor_::operator()(std::unique_ptr<NodeDivide_>& node) {
+        VisitArguments(*node);
         Domain_ res = domainStack_[1] / domainStack_[0];
         domainStack_.Pop(2);
         domainStack_.Push(std::move(res));
     }
 
-    void DomainProcessor_::Visit(NodePower_* node) {
-        VisitArguments(node);
+    void DomainProcessor_::operator()(std::unique_ptr<NodePower_>& node) {
+        VisitArguments(*node);
         Domain_ res = domainStack_[1].ApplyFunc2<double (*)(double, double)>(
             std::pow, domainStack_[0], Interval_(Bound_::minusInfinity_, Bound_::plusInfinity_));
         domainStack_.Pop(2);
@@ -46,32 +46,32 @@ namespace Dal::Script {
     }
 
     // unaries
-    void DomainProcessor_::Visit(NodeUPlus_* node) { VisitArguments(node); }
+    void DomainProcessor_::operator()(std::unique_ptr<NodeUPlus_>& node) { VisitArguments(*node); }
 
-    void DomainProcessor_::Visit(NodeUMinus_* node) {
-        VisitArguments(node);
+    void DomainProcessor_::operator()(std::unique_ptr<NodeUMinus_>& node) {
+        VisitArguments(*node);
         domainStack_.Top() = -domainStack_.Top();
     }
 
     // functions
-    void DomainProcessor_::Visit(NodeLog_* node) {
-        VisitArguments(node);
+    void DomainProcessor_::operator()(std::unique_ptr<NodeLog_>& node) {
+        VisitArguments(*node);
         Domain_ res = domainStack_.Top().ApplyFunc<double (*)(double)>(
             std::log, Interval_(Bound_::minusInfinity_, Bound_::plusInfinity_));
         domainStack_.Pop();
         domainStack_.Push(std::move(res));
     }
 
-    void DomainProcessor_::Visit(NodeSqrt_* node) {
-        VisitArguments(node);
+    void DomainProcessor_::operator()(std::unique_ptr<NodeSqrt_>& node) {
+        VisitArguments(*node);
         Domain_ res =
             domainStack_.Top().ApplyFunc<double (*)(double)>(std::sqrt, Interval_(0.0, Bound_::plusInfinity_));
         domainStack_.Pop();
         domainStack_.Push(std::move(res));
     }
 
-    void DomainProcessor_::Visit(NodeMax_* node) {
-        VisitArguments(node);
+    void DomainProcessor_::operator()(std::unique_ptr<NodeMax_>& node) {
+        VisitArguments(*node);
         Domain_ res = domainStack_.Top();
         domainStack_.Pop();
         for (size_t i = 1; i < node->arguments_.size(); ++i) {
@@ -81,8 +81,8 @@ namespace Dal::Script {
         domainStack_.Push(std::move(res));
     }
 
-    void DomainProcessor_::Visit(NodeMin_* node) {
-        VisitArguments(node);
+    void DomainProcessor_::operator()(std::unique_ptr<NodeMin_>& node) {
+        VisitArguments(*node);
         Domain_ res = domainStack_.Top();
         domainStack_.Pop();
         for (size_t i = 1; i < node->arguments_.size(); ++i) {
@@ -92,8 +92,8 @@ namespace Dal::Script {
         domainStack_.Push(std::move(res));
     }
 
-    void DomainProcessor_::Visit(NodeSmooth_* node) {
-        VisitArguments(node);
+    void DomainProcessor_::operator()(std::unique_ptr<NodeSmooth_>& node) {
+        VisitArguments(*node);
 
         // Pop eps
         domainStack_.Pop();
@@ -118,8 +118,8 @@ namespace Dal::Script {
 
     // conditions
 
-    void DomainProcessor_::Visit(NodeEqual_* node) {
-        VisitArguments(node);
+    void DomainProcessor_::operator()(std::unique_ptr<NodeEqual_>& node) {
+        VisitArguments(*node);
 
         Domain_& dom = domainStack_.Top();
 
@@ -156,8 +156,8 @@ namespace Dal::Script {
         domainStack_.Pop();
     }
 
-    void DomainProcessor_::Visit(NodeNot_* node) {
-        VisitArguments(node);
+    void DomainProcessor_::operator()(std::unique_ptr<NodeNot_>& node) {
+        VisitArguments(*node);
         DomainCondProp_ cp = conditionStack_.Top();
         conditionStack_.Pop();
 
@@ -175,12 +175,12 @@ namespace Dal::Script {
         }
     }
 
-    void DomainProcessor_::Visit(NodeSuperior_* node) { DomainProcessor_::Visit<true>(node); }
+    void DomainProcessor_::operator()(std::unique_ptr<NodeSuperior_>& node) { DomainProcessor_::operator()<true>(node); }
 
-    void DomainProcessor_::Visit(NodeSupEqual_* node) { DomainProcessor_::Visit<false>(node); }
+    void DomainProcessor_::operator()(std::unique_ptr<NodeSupEqual_>& node) { DomainProcessor_::operator()<false>(node); }
 
-    void DomainProcessor_::Visit(NodeAnd_* node) {
-        VisitArguments(node);
+    void DomainProcessor_::operator()(std::unique_ptr<NodeAnd_>& node) {
+        VisitArguments(*node);
         DomainCondProp_ cp1 = conditionStack_.Top();
         conditionStack_.Pop();
         DomainCondProp_ cp2 = conditionStack_.Top();
@@ -200,8 +200,8 @@ namespace Dal::Script {
         }
     }
 
-    void DomainProcessor_::Visit(NodeOr_* node) {
-        VisitArguments(node);
+    void DomainProcessor_::operator()(std::unique_ptr<NodeOr_>& node) {
+        VisitArguments(*node);
         DomainCondProp_ cp1 = conditionStack_.Top();
         conditionStack_.Pop();
         DomainCondProp_ cp2 = conditionStack_.Top();
@@ -222,12 +222,12 @@ namespace Dal::Script {
     }
 
     // instructions
-    void DomainProcessor_::Visit(NodeIf_* node) {
+    void DomainProcessor_::operator()(std::unique_ptr<NodeIf_>& node) {
         // Last "if true" statement index
         size_t lastTrueStat = node->firstElse_ == -1 ? node->arguments_.size() - 1 : node->firstElse_ - 1;
 
-        // DomainProcessor_::Visit condition
-        node->arguments_[0]->AcceptVisitor(this);
+        // DomainProcessor_::Visit condition=
+        this->Visit(node->arguments_[0]);
 
         // Always true/false?
         DomainCondProp_ cp = conditionStack_.Top();
@@ -238,14 +238,14 @@ namespace Dal::Script {
             node->alwaysFalse_ = false;
             // DomainProcessor_::Visit "if true" statements
             for (size_t i = 1; i <= lastTrueStat; ++i)
-                node->arguments_[i]->AcceptVisitor(this);
+                this->Visit(node->arguments_[i]);
         } else if (cp == DomainCondProp_("AlwaysFalse")) {
             node->alwaysTrue_ = false;
             node->alwaysFalse_ = true;
             // DomainProcessor_::Visit "if false" statements, if any
             if (node->firstElse_ != -1)
                 for (size_t i = node->firstElse_; i < node->arguments_.size(); ++i)
-                    node->arguments_[i]->AcceptVisitor(this);
+                    this->Visit(node->arguments_[i]);
         } else {
             node->alwaysTrue_ = node->alwaysFalse_ = false;
 
@@ -256,7 +256,7 @@ namespace Dal::Script {
 
             // Execute if statements
             for (size_t i = 1; i <= lastTrueStat; ++i)
-                node->arguments_[i]->AcceptVisitor(this);
+                this->Visit(node->arguments_[i]);
 
             // Record variable domain after if statements are executed
             Vector_<Domain_> domStore1(node->affectedVars_.size());
@@ -270,7 +270,7 @@ namespace Dal::Script {
             // Execute else statements if any
             if (node->firstElse_ != -1)
                 for (size_t i = node->firstElse_; i < node->arguments_.size(); ++i)
-                    node->arguments_[i]->AcceptVisitor(this);
+                    this->Visit(node->arguments_[i]);
 
             // Merge domains
             for (size_t i = 0; i < node->affectedVars_.size(); ++i)
@@ -278,14 +278,14 @@ namespace Dal::Script {
         }
     }
 
-    void DomainProcessor_::Visit(NodeAssign_* node) {
+    void DomainProcessor_::operator()(std::unique_ptr<NodeAssign_>& node) {
         // DomainProcessor_::Visit the LHS variable
         lhsVar_ = true;
-        node->arguments_[0]->AcceptVisitor(this);
+        this->Visit(node->arguments_[0]);
         lhsVar_ = false;
 
         // DomainProcessor_::Visit the RHS expression
-        node->arguments_[1]->AcceptVisitor(this);
+        this->Visit(node->arguments_[1]);
 
         // Write RHS domain into variable
         domains_[lhsVarIdx_] = domainStack_.Top();
@@ -294,14 +294,14 @@ namespace Dal::Script {
         domainStack_.Pop();
     }
 
-    void DomainProcessor_::Visit(NodePays_* node) {
+    void DomainProcessor_::operator()(std::unique_ptr<NodePays_>& node) {
         // DomainProcessor_::Visit the LHS variable
         lhsVar_ = true;
-        node->arguments_[0]->AcceptVisitor(this);
+        this->Visit(node->arguments_[0]);
         lhsVar_ = false;
 
         // DomainProcessor_::Visit the RHS expression
-        node->arguments_[1]->AcceptVisitor(this);
+        this->Visit(node->arguments_[1]);
 
         // Write RHS domain into variable
 
@@ -319,7 +319,7 @@ namespace Dal::Script {
     }
 
     // Variables and constants
-    void DomainProcessor_::Visit(NodeVar_* node) {
+    void DomainProcessor_::operator()(std::unique_ptr<NodeVar_>& node) {
         // LHS?
         if (lhsVar_) // Write
         {
@@ -332,10 +332,10 @@ namespace Dal::Script {
         }
     }
 
-    void DomainProcessor_::Visit(NodeConst_* node) { domainStack_.Push(node->val_); }
+    void DomainProcessor_::operator()(std::unique_ptr<NodeConst_>& node) { domainStack_.Push(node->val_); }
 
     // Scenario related
-    void DomainProcessor_::Visit(NodeSpot_* node) {
+    void DomainProcessor_::operator()(std::unique_ptr<NodeSpot_>& node) {
         static const Domain_ realDom(Interval_(Bound_::minusInfinity_, Bound_::plusInfinity_));
         domainStack_.Push(realDom);
     }

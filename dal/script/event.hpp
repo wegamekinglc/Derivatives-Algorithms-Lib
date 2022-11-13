@@ -20,7 +20,8 @@
 
 namespace Dal::Script {
     using Dal::AAD::Scenario_;
-    using Event_ = Vector_<std::unique_ptr<ScriptNode_>>;
+
+    using Event_ = Vector_<ScriptNode_>;
 
     class ScriptProduct_ {
         Vector_<Date_> eventDates_;
@@ -59,7 +60,13 @@ namespace Dal::Script {
             }
         }
 
-        void Visit(Visitor_& v);
+        template <class V_>
+        void Visit(V_& v) {
+            for (auto &evt: events_) {
+                for (auto &stat: evt)
+                    v.Visit(stat);
+            }
+        }
 
         template<class T_>
         void Evaluate(const Scenario_<T_> &scen, Evaluator_<T_> &eval) const {
@@ -68,7 +75,7 @@ namespace Dal::Script {
             for (size_t i = 0; i < events_.size(); ++i) {
                 eval.SetCurEvt(i);
                 for (auto &statIt: events_[i])
-                    eval.VisitTree(statIt);
+                    eval.Visit(statIt);
             }
         }
 
