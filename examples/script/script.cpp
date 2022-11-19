@@ -33,7 +33,7 @@ int main() {
 
     XGLOBAL::SetEvaluationDate(Date_(2022, 9, 25));
     Timer_ timer;
-    using Real_ = Number_;
+    using Real_ = double;
     const double spot = 100.0;
     const double vol = 0.15;
     const double rate = 0.0;
@@ -65,22 +65,21 @@ int main() {
                                "call pays MAX(spot() - K, 0.0)");
 
     product.ParseEvents(events.begin(), events.end());
-//    product.Debug(std::cout);
     int maxNestedIfs = product.PreProcess(false, false);
     std::unique_ptr<Model_<Real_>> model = std::make_unique<BlackScholes_<Real_>>(spot, vol, false, rate, div);
 
     timer.Reset();
 
-    SimResults_<Real_> results = MCSimulation<Real_>(product, *model, n_paths, String_(rsg), use_bb);
+    SimResults_<Real_> results = MCSimulation(product, *model, n_paths, String_(rsg), use_bb);
 
     auto sum = 0.0;
     for (auto row = 0; row < results.Rows(); ++row)
         sum += results.aggregated_[row];
     auto calculated = sum / static_cast<double>(results.Rows());
     std::cout << "\nEuropean       w. B-S: price " << std::setprecision(8) << calculated << "\tElapsed: " << timer.Elapsed<milliseconds>() << " ms" << std::endl;
-    std::cout << "                     : delta " << std::setprecision(8) << results.risks_[0] << std::endl;
-    std::cout << "                     : vega  " << std::setprecision(8) << results.risks_[1] << std::endl;
-    std::cout << "                     : rho   " << std::setprecision(8) << results.risks_[2] << std::endl;
+//    std::cout << "                     : delta " << std::setprecision(8) << results.risks_[0] << std::endl;
+//    std::cout << "                     : vega  " << std::setprecision(8) << results.risks_[1] << std::endl;
+//    std::cout << "                     : rho   " << std::setprecision(8) << results.risks_[2] << std::endl;
 
     return 0;
 }
