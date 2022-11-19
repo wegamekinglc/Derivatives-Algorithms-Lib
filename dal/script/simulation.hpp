@@ -21,7 +21,7 @@ namespace Dal::Script {
 
     template <>
     struct SimResults_<double> {
-        SimResults_(int n_paths) : aggregated_(n_paths) {}
+        explicit SimResults_(int n_paths) : aggregated_(n_paths) {}
         [[nodiscard]] int Rows() const { return aggregated_.size();  }
         Vector_<> aggregated_;
     };
