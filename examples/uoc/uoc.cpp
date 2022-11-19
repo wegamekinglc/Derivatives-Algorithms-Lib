@@ -223,7 +223,7 @@ int main() {
     std::cout << "                   : vega  " << std::setprecision(8) << risk_sum << std::endl;
 
     // for matrix of risk report for UOC under B-S
-//    products = EuropeanProducts(strike, maturity);
+    products = EuropeanProducts(strike, maturity);
     for (int round = 12; round <= 27; ++round) {
         const int n_paths = Pow(2, round);
         timer.Reset();

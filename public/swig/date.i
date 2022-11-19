@@ -18,9 +18,6 @@ namespace Dal::Date {
 };
 
 %extend Date_ {
-//      const char *  __repr__() {
-//        return $self->c_str();
-//      }
 
     std::string __repr__() {
         std::ostringstream out;
