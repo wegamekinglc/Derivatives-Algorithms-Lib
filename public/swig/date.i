@@ -2,6 +2,7 @@
 #define DAL_DATE_I
 
 %include "std_string.i"
+%include "std_vector.i"
 %{
 #include <dal/time/date.hpp>
 %}
@@ -25,5 +26,7 @@ namespace Dal::Date {
         return out.str();
       }
 };
+
+%template(DateVector) std::vector<Date_>;
 
 #endif

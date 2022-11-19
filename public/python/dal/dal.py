@@ -61,6 +61,67 @@ class _SwigNonDynamicMeta(type):
     __setattr__ = _swig_setattr_nondynamic_class_variable(type.__setattr__)
 
 
+class SwigPyIterator(object):
+    thisown = property(lambda x: x.this.own(), lambda x, v: x.this.own(v), doc="The membership flag")
+
+    def __init__(self, *args, **kwargs):
+        raise AttributeError("No constructor defined - class is abstract")
+    __repr__ = _swig_repr
+    __swig_destroy__ = _dal.delete_SwigPyIterator
+
+    def value(self) -> "PyObject *":
+        return _dal.SwigPyIterator_value(self)
+
+    def incr(self, n: "size_t"=1) -> "swig::SwigPyIterator *":
+        return _dal.SwigPyIterator_incr(self, n)
+
+    def decr(self, n: "size_t"=1) -> "swig::SwigPyIterator *":
+        return _dal.SwigPyIterator_decr(self, n)
+
+    def distance(self, x: "SwigPyIterator") -> "ptrdiff_t":
+        return _dal.SwigPyIterator_distance(self, x)
+
+    def equal(self, x: "SwigPyIterator") -> "bool":
+        return _dal.SwigPyIterator_equal(self, x)
+
+    def copy(self) -> "swig::SwigPyIterator *":
+        return _dal.SwigPyIterator_copy(self)
+
+    def next(self) -> "PyObject *":
+        return _dal.SwigPyIterator_next(self)
+
+    def __next__(self) -> "PyObject *":
+        return _dal.SwigPyIterator___next__(self)
+
+    def previous(self) -> "PyObject *":
+        return _dal.SwigPyIterator_previous(self)
+
+    def advance(self, n: "ptrdiff_t") -> "swig::SwigPyIterator *":
+        return _dal.SwigPyIterator_advance(self, n)
+
+    def __eq__(self, x: "SwigPyIterator") -> "bool":
+        return _dal.SwigPyIterator___eq__(self, x)
+
+    def __ne__(self, x: "SwigPyIterator") -> "bool":
+        return _dal.SwigPyIterator___ne__(self, x)
+
+    def __iadd__(self, n: "ptrdiff_t") -> "swig::SwigPyIterator &":
+        return _dal.SwigPyIterator___iadd__(self, n)
+
+    def __isub__(self, n: "ptrdiff_t") -> "swig::SwigPyIterator &":
+        return _dal.SwigPyIterator___isub__(self, n)
+
+    def __add__(self, n: "ptrdiff_t") -> "swig::SwigPyIterator *":
+        return _dal.SwigPyIterator___add__(self, n)
+
+    def __sub__(self, *args) -> "ptrdiff_t":
+        return _dal.SwigPyIterator___sub__(self, *args)
+    def __iter__(self):
+        return self
+
+# Register SwigPyIterator in _dal:
+_dal.SwigPyIterator_swigregister(SwigPyIterator)
+
 class Date_(object):
     thisown = property(lambda x: x.this.own(), lambda x, v: x.this.own(v), doc="The membership flag")
 
@@ -83,6 +144,112 @@ def Month(dt: "Date_") -> "short":
 
 def Day(dt: "Date_") -> "short":
     return _dal.Day(dt)
+class DateVector(object):
+    thisown = property(lambda x: x.this.own(), lambda x, v: x.this.own(v), doc="The membership flag")
+    __repr__ = _swig_repr
+
+    def iterator(self) -> "swig::SwigPyIterator *":
+        return _dal.DateVector_iterator(self)
+    def __iter__(self):
+        return self.iterator()
+
+    def __nonzero__(self) -> "bool":
+        return _dal.DateVector___nonzero__(self)
+
+    def __bool__(self) -> "bool":
+        return _dal.DateVector___bool__(self)
+
+    def __len__(self) -> "std::vector< Date_ >::size_type":
+        return _dal.DateVector___len__(self)
+
+    def __getslice__(self, i: "std::vector< Date_ >::difference_type", j: "std::vector< Date_ >::difference_type") -> "std::vector< Date_,std::allocator< Date_ > > *":
+        return _dal.DateVector___getslice__(self, i, j)
+
+    def __setslice__(self, *args) -> "void":
+        return _dal.DateVector___setslice__(self, *args)
+
+    def __delslice__(self, i: "std::vector< Date_ >::difference_type", j: "std::vector< Date_ >::difference_type") -> "void":
+        return _dal.DateVector___delslice__(self, i, j)
+
+    def __delitem__(self, *args) -> "void":
+        return _dal.DateVector___delitem__(self, *args)
+
+    def __getitem__(self, *args) -> "std::vector< Date_ >::value_type const &":
+        return _dal.DateVector___getitem__(self, *args)
+
+    def __setitem__(self, *args) -> "void":
+        return _dal.DateVector___setitem__(self, *args)
+
+    def pop(self) -> "std::vector< Date_ >::value_type":
+        return _dal.DateVector_pop(self)
+
+    def append(self, x: "Date_") -> "void":
+        return _dal.DateVector_append(self, x)
+
+    def empty(self) -> "bool":
+        return _dal.DateVector_empty(self)
+
+    def size(self) -> "std::vector< Date_ >::size_type":
+        return _dal.DateVector_size(self)
+
+    def swap(self, v: "DateVector") -> "void":
+        return _dal.DateVector_swap(self, v)
+
+    def begin(self) -> "std::vector< Date_ >::iterator":
+        return _dal.DateVector_begin(self)
+
+    def end(self) -> "std::vector< Date_ >::iterator":
+        return _dal.DateVector_end(self)
+
+    def rbegin(self) -> "std::vector< Date_ >::reverse_iterator":
+        return _dal.DateVector_rbegin(self)
+
+    def rend(self) -> "std::vector< Date_ >::reverse_iterator":
+        return _dal.DateVector_rend(self)
+
+    def clear(self) -> "void":
+        return _dal.DateVector_clear(self)
+
+    def get_allocator(self) -> "std::vector< Date_ >::allocator_type":
+        return _dal.DateVector_get_allocator(self)
+
+    def pop_back(self) -> "void":
+        return _dal.DateVector_pop_back(self)
+
+    def erase(self, *args) -> "std::vector< Date_ >::iterator":
+        return _dal.DateVector_erase(self, *args)
+
+    def __init__(self, *args):
+        _dal.DateVector_swiginit(self, _dal.new_DateVector(*args))
+
+    def push_back(self, x: "Date_") -> "void":
+        return _dal.DateVector_push_back(self, x)
+
+    def front(self) -> "std::vector< Date_ >::value_type const &":
+        return _dal.DateVector_front(self)
+
+    def back(self) -> "std::vector< Date_ >::value_type const &":
+        return _dal.DateVector_back(self)
+
+    def assign(self, n: "std::vector< Date_ >::size_type", x: "Date_") -> "void":
+        return _dal.DateVector_assign(self, n, x)
+
+    def resize(self, *args) -> "void":
+        return _dal.DateVector_resize(self, *args)
+
+    def insert(self, *args) -> "void":
+        return _dal.DateVector_insert(self, *args)
+
+    def reserve(self, n: "std::vector< Date_ >::size_type") -> "void":
+        return _dal.DateVector_reserve(self, n)
+
+    def capacity(self) -> "std::vector< Date_ >::size_type":
+        return _dal.DateVector_capacity(self)
+    __swig_destroy__ = _dal.delete_DateVector
+
+# Register DateVector in _dal:
+_dal.DateVector_swigregister(DateVector)
+
 class String_(object):
     thisown = property(lambda x: x.this.own(), lambda x, v: x.this.own(v), doc="The membership flag")
 
@@ -95,6 +262,112 @@ class String_(object):
 
 # Register String_ in _dal:
 _dal.String__swigregister(String_)
+
+class StrVector(object):
+    thisown = property(lambda x: x.this.own(), lambda x, v: x.this.own(v), doc="The membership flag")
+    __repr__ = _swig_repr
+
+    def iterator(self) -> "swig::SwigPyIterator *":
+        return _dal.StrVector_iterator(self)
+    def __iter__(self):
+        return self.iterator()
+
+    def __nonzero__(self) -> "bool":
+        return _dal.StrVector___nonzero__(self)
+
+    def __bool__(self) -> "bool":
+        return _dal.StrVector___bool__(self)
+
+    def __len__(self) -> "std::vector< std::string >::size_type":
+        return _dal.StrVector___len__(self)
+
+    def __getslice__(self, i: "std::vector< std::string >::difference_type", j: "std::vector< std::string >::difference_type") -> "std::vector< std::string,std::allocator< std::string > > *":
+        return _dal.StrVector___getslice__(self, i, j)
+
+    def __setslice__(self, *args) -> "void":
+        return _dal.StrVector___setslice__(self, *args)
+
+    def __delslice__(self, i: "std::vector< std::string >::difference_type", j: "std::vector< std::string >::difference_type") -> "void":
+        return _dal.StrVector___delslice__(self, i, j)
+
+    def __delitem__(self, *args) -> "void":
+        return _dal.StrVector___delitem__(self, *args)
+
+    def __getitem__(self, *args) -> "std::vector< std::string >::value_type const &":
+        return _dal.StrVector___getitem__(self, *args)
+
+    def __setitem__(self, *args) -> "void":
+        return _dal.StrVector___setitem__(self, *args)
+
+    def pop(self) -> "std::vector< std::string >::value_type":
+        return _dal.StrVector_pop(self)
+
+    def append(self, x: "std::vector< std::string >::value_type const &") -> "void":
+        return _dal.StrVector_append(self, x)
+
+    def empty(self) -> "bool":
+        return _dal.StrVector_empty(self)
+
+    def size(self) -> "std::vector< std::string >::size_type":
+        return _dal.StrVector_size(self)
+
+    def swap(self, v: "StrVector") -> "void":
+        return _dal.StrVector_swap(self, v)
+
+    def begin(self) -> "std::vector< std::string >::iterator":
+        return _dal.StrVector_begin(self)
+
+    def end(self) -> "std::vector< std::string >::iterator":
+        return _dal.StrVector_end(self)
+
+    def rbegin(self) -> "std::vector< std::string >::reverse_iterator":
+        return _dal.StrVector_rbegin(self)
+
+    def rend(self) -> "std::vector< std::string >::reverse_iterator":
+        return _dal.StrVector_rend(self)
+
+    def clear(self) -> "void":
+        return _dal.StrVector_clear(self)
+
+    def get_allocator(self) -> "std::vector< std::string >::allocator_type":
+        return _dal.StrVector_get_allocator(self)
+
+    def pop_back(self) -> "void":
+        return _dal.StrVector_pop_back(self)
+
+    def erase(self, *args) -> "std::vector< std::string >::iterator":
+        return _dal.StrVector_erase(self, *args)
+
+    def __init__(self, *args):
+        _dal.StrVector_swiginit(self, _dal.new_StrVector(*args))
+
+    def push_back(self, x: "std::vector< std::string >::value_type const &") -> "void":
+        return _dal.StrVector_push_back(self, x)
+
+    def front(self) -> "std::vector< std::string >::value_type const &":
+        return _dal.StrVector_front(self)
+
+    def back(self) -> "std::vector< std::string >::value_type const &":
+        return _dal.StrVector_back(self)
+
+    def assign(self, n: "std::vector< std::string >::size_type", x: "std::vector< std::string >::value_type const &") -> "void":
+        return _dal.StrVector_assign(self, n, x)
+
+    def resize(self, *args) -> "void":
+        return _dal.StrVector_resize(self, *args)
+
+    def insert(self, *args) -> "void":
+        return _dal.StrVector_insert(self, *args)
+
+    def reserve(self, n: "std::vector< std::string >::size_type") -> "void":
+        return _dal.StrVector_reserve(self, n)
+
+    def capacity(self) -> "std::vector< std::string >::size_type":
+        return _dal.StrVector_capacity(self)
+    __swig_destroy__ = _dal.delete_StrVector
+
+# Register StrVector in _dal:
+_dal.StrVector_swigregister(StrVector)
 
 class DoubleMatrix_(object):
     thisown = property(lambda x: x.this.own(), lambda x, v: x.this.own(v), doc="The membership flag")
@@ -110,6 +383,23 @@ class DoubleMatrix_(object):
 # Register DoubleMatrix_ in _dal:
 _dal.DoubleMatrix__swigregister(DoubleMatrix_)
 
+class ScriptProduct_(object):
+    thisown = property(lambda x: x.this.own(), lambda x, v: x.this.own(v), doc="The membership flag")
+    __repr__ = _swig_repr
+
+    def __init__(self):
+        _dal.ScriptProduct__swiginit(self, _dal.new_ScriptProduct_())
+    __swig_destroy__ = _dal.delete_ScriptProduct_
+
+# Register ScriptProduct_ in _dal:
+_dal.ScriptProduct__swigregister(ScriptProduct_)
+
+
+def Product_New(dates: "DateVector", events: "StrVector") -> "Handle_< ScriptProduct_ >":
+    return _dal.Product_New(dates, events)
+
+def Product_Debug(product: "ScriptProduct_") -> "std::string":
+    return _dal.Product_Debug(product)
 class PseudoRSG_(object):
     thisown = property(lambda x: x.this.own(), lambda x, v: x.this.own(v), doc="The membership flag")
     __repr__ = _swig_repr

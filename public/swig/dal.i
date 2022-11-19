@@ -12,11 +12,14 @@
 
 %}
 
+%include "std_string.i"
+%include "std_vector.i"
+
     %include handle.i
     %include date.i
     %include strings.i
     %include matrix.i
-
+    %include script.i
     %include random.i
 
 #endif

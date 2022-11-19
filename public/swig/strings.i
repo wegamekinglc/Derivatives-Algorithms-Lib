@@ -2,6 +2,7 @@
 #define DAL_STRINGS_I
 
 %include "std_string.i"
+%include "std_vector.i"
 %{
 #include <dal/string/strings.hpp>
 %}
@@ -19,5 +20,7 @@ public:
         return out.str();
       }
 };
+
+%template(StrVector) std::vector<std::string>;
 
 #endif

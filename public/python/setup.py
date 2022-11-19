@@ -115,7 +115,7 @@ class my_build_ext(build_ext):
             self.define += [('__WIN32__', None), ('WIN32', None),
                             ('NDEBUG', None), ('_WINDOWS', None),
                             ('NOMINMAX', None)]
-            extra_compile_args = ['/GR', '/FD', '/Zm250', '/EHsc', '/bigobj']
+            extra_compile_args = ['/GR', '/FD', '/Zm250', '/EHsc', '/bigobj', '/std:c++17']
             extra_link_args = ['/subsystem:windows', machinetype]
 
             if self.debug:
@@ -147,7 +147,7 @@ class my_build_ext(build_ext):
             extra_compile_args = [arg for arg in ql_compile_args
                                   if not arg.startswith('-D')
                                   if not arg.startswith('-I')] \
-                                 + ['-Wno-unused']
+                                 + ['-Wno-unused', '-std=c++17']
             if 'CXXFLAGS' in os.environ:
                 extra_compile_args += os.environ['CXXFLAGS'].split()
 
