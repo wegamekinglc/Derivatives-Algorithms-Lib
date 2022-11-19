@@ -16,24 +16,20 @@ using namespace Dal;
 using namespace Dal::Script;
 using namespace Dal::AAD;
 
-
-
-struct AADResults_ {
-    AADResults_(int nPath, int nParam) : aggregated_(nPath), risks_(nParam) {}
-    int Rows() const { return aggregated_.size();  }
-    Vector_<> aggregated_;
-    Vector_<> risks_;
-};
-
-
-const auto DEFAULT_AGGREGATOR = [](const Vector_<Number_>& v) { return v[0]; };
+#define USE_AAD
 
 
 int main() {
 
     XGLOBAL::SetEvaluationDate(Date_(2022, 9, 25));
     Timer_ timer;
+
+#ifdef USE_AAD
+    using Real_ = Number_;
+#else
     using Real_ = double;
+#endif
+
     const double spot = 100.0;
     const double vol = 0.15;
     const double rate = 0.0;
@@ -45,10 +41,6 @@ int main() {
     std::cout << "Plz input # of paths (power of 2):";
     std::cin >> n;
     const int n_paths = Pow(2, n);
-
-    bool use_parallel = true;
-    std::cout << "Use parallel?:";
-    std::cin >> use_parallel;
 
     bool use_bb = false;
     std::cout << "Use brownian bridge?:";
@@ -77,9 +69,11 @@ int main() {
         sum += results.aggregated_[row];
     auto calculated = sum / static_cast<double>(results.Rows());
     std::cout << "\nEuropean       w. B-S: price " << std::setprecision(8) << calculated << "\tElapsed: " << timer.Elapsed<milliseconds>() << " ms" << std::endl;
-//    std::cout << "                     : delta " << std::setprecision(8) << results.risks_[0] << std::endl;
-//    std::cout << "                     : vega  " << std::setprecision(8) << results.risks_[1] << std::endl;
-//    std::cout << "                     : rho   " << std::setprecision(8) << results.risks_[2] << std::endl;
+#ifdef USE_AAD
+    std::cout << "                     : delta " << std::setprecision(8) << results.risks_[0] << std::endl;
+    std::cout << "                     : vega  " << std::setprecision(8) << results.risks_[1] << std::endl;
+    std::cout << "                     : rho   " << std::setprecision(8) << results.risks_[2] << std::endl;
+#endif
 
     return 0;
 }

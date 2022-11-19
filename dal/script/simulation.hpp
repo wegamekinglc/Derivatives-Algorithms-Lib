@@ -13,14 +13,15 @@
 
 namespace Dal::Script {
 
+    constexpr const int BATCH_SIZE = 8192;
     std::unique_ptr<Random_> CreateRNG(const String_& method, size_t n_dim, bool use_bb = false);
-
+    void InitModel4ParallelAAD(const ScriptProduct_& prd, AAD::Model_<AAD::Number_>& clonedMdl, Scenario_<AAD::Number_>& path);
 
     template <class T_ = double> struct SimResults_;
 
     template <>
     struct SimResults_<double> {
-        SimResults_(int nPath) : aggregated_(nPath) {}
+        SimResults_(int n_paths) : aggregated_(n_paths) {}
         [[nodiscard]] int Rows() const { return aggregated_.size();  }
         Vector_<> aggregated_;
     };
