@@ -2691,11 +2691,12 @@ SWIGINTERN PyObject *SWIG_PyStaticMethod_New(PyObject *SWIGUNUSEDPARM(self), PyO
 
 #define SWIGTYPE_p_Date_ swig_types[0]
 #define SWIGTYPE_p_Handle_T_PseudoRSG__t swig_types[1]
-#define SWIGTYPE_p_Matrix_T_double_t swig_types[2]
-#define SWIGTYPE_p_String_ swig_types[3]
-#define SWIGTYPE_p_char swig_types[4]
-static swig_type_info *swig_types[6];
-static swig_module_info swig_module = {swig_types, 5, 0, 0, 0, 0};
+#define SWIGTYPE_p_Handle_T_SobolRSG__t swig_types[2]
+#define SWIGTYPE_p_Matrix_T_double_t swig_types[3]
+#define SWIGTYPE_p_String_ swig_types[4]
+#define SWIGTYPE_p_char swig_types[5]
+static swig_type_info *swig_types[7];
+static swig_module_info swig_module = {swig_types, 6, 0, 0, 0, 0};
 #define SWIG_TypeQuery(name) SWIG_TypeQueryModule(&swig_module, &swig_module, name)
 #define SWIG_MangledTypeQuery(name) SWIG_MangledTypeQueryModule(&swig_module, &swig_module, name)
 
@@ -3188,13 +3189,35 @@ SWIGINTERN double Matrix__Sl__Sg____call__(Matrix_< > *self,int i,int j){ return
 #include <public/src/random.hpp>
 
 
-        Handle_<PseudoRSG_> PseudoRSG_New(const std::string& name, int seed, int ndim = 1) {
-            return NewPseudoRSG(String_(name), seed, ndim);
+        Handle_<PseudoRSG_> PseudoRSG_New(int seed, int ndim = 1) {
+            return NewPseudoRSG(String_("pseudo"), seed, ndim);
         }
 
         Matrix_<> PseudoRSG_Get_Uniform(const Handle_<PseudoRSG_>& rsg, int num_path) {
             Matrix_<> m;
             GetPseudoRSGUniform(rsg, num_path, &m);
+            return m;
+        }
+
+        Matrix_<> PseudoRSG_Get_Normal(const Handle_<PseudoRSG_>& rsg, int num_path) {
+            Matrix_<> m;
+            GetPseudoRSGNormal(rsg, num_path, &m);
+            return m;
+        }
+
+        Handle_<SobolRSG_> SobolRSG_New(int i_path, int ndim = 1) {
+            return NewSobolRSG(String_("sobol"), i_path, ndim);
+        }
+
+        Matrix_<> SobolRSG_Get_Uniform(const Handle_<SobolRSG_>& rsg, int num_path) {
+            Matrix_<> m;
+            GetSobolRSGUniform(rsg, num_path, &m);
+            return m;
+        }
+
+        Matrix_<> SobolRSG_Get_Normal(const Handle_<SobolRSG_>& rsg, int num_path) {
+            Matrix_<> m;
+            GetSobolRSGNormal(rsg, num_path, &m);
             return m;
         }
     
@@ -3645,125 +3668,133 @@ SWIGINTERN PyObject *PseudoRSG__swiginit(PyObject *SWIGUNUSEDPARM(self), PyObjec
   return SWIG_Python_InitShadowInstance(args);
 }
 
+SWIGINTERN PyObject *_wrap_new_SobolRSG_(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+  PyObject *resultobj = 0;
+  Handle_< SobolRSG_ > *result = 0 ;
+  
+  if (!SWIG_Python_UnpackTuple(args, "new_SobolRSG_", 0, 0, 0)) SWIG_fail;
+  result = (Handle_< SobolRSG_ > *)new Handle_< SobolRSG_ >();
+  resultobj = SWIG_NewPointerObj(SWIG_as_voidptr(result), SWIGTYPE_p_Handle_T_SobolRSG__t, SWIG_POINTER_NEW |  0 );
+  return resultobj;
+fail:
+  return NULL;
+}
+
+
+SWIGINTERN PyObject *_wrap_delete_SobolRSG_(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+  PyObject *resultobj = 0;
+  Handle_< SobolRSG_ > *arg1 = (Handle_< SobolRSG_ > *) 0 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  PyObject *swig_obj[1] ;
+  
+  if (!args) SWIG_fail;
+  swig_obj[0] = args;
+  res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_Handle_T_SobolRSG__t, SWIG_POINTER_DISOWN |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "delete_SobolRSG_" "', argument " "1"" of type '" "Handle_< SobolRSG_ > *""'"); 
+  }
+  arg1 = reinterpret_cast< Handle_< SobolRSG_ > * >(argp1);
+  delete arg1;
+  resultobj = SWIG_Py_Void();
+  return resultobj;
+fail:
+  return NULL;
+}
+
+
+SWIGINTERN PyObject *SobolRSG__swigregister(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+  PyObject *obj;
+  if (!SWIG_Python_UnpackTuple(args, "swigregister", 1, 1, &obj)) return NULL;
+  SWIG_TypeNewClientData(SWIGTYPE_p_Handle_T_SobolRSG__t, SWIG_NewClientData(obj));
+  return SWIG_Py_Void();
+}
+
+SWIGINTERN PyObject *SobolRSG__swiginit(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+  return SWIG_Python_InitShadowInstance(args);
+}
+
 SWIGINTERN PyObject *_wrap_PseudoRSG_New__SWIG_0(PyObject *SWIGUNUSEDPARM(self), Py_ssize_t nobjs, PyObject **swig_obj) {
   PyObject *resultobj = 0;
-  std::string *arg1 = 0 ;
+  int arg1 ;
   int arg2 ;
-  int arg3 ;
-  int res1 = SWIG_OLDOBJ ;
+  int val1 ;
+  int ecode1 = 0 ;
   int val2 ;
   int ecode2 = 0 ;
-  int val3 ;
-  int ecode3 = 0 ;
   Handle_< PseudoRSG_ > result;
   
-  if ((nobjs < 3) || (nobjs > 3)) SWIG_fail;
-  {
-    std::string *ptr = (std::string *)0;
-    res1 = SWIG_AsPtr_std_string(swig_obj[0], &ptr);
-    if (!SWIG_IsOK(res1)) {
-      SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "PseudoRSG_New" "', argument " "1"" of type '" "std::string const &""'"); 
-    }
-    if (!ptr) {
-      SWIG_exception_fail(SWIG_ValueError, "invalid null reference " "in method '" "PseudoRSG_New" "', argument " "1"" of type '" "std::string const &""'"); 
-    }
-    arg1 = ptr;
-  }
+  if ((nobjs < 2) || (nobjs > 2)) SWIG_fail;
+  ecode1 = SWIG_AsVal_int(swig_obj[0], &val1);
+  if (!SWIG_IsOK(ecode1)) {
+    SWIG_exception_fail(SWIG_ArgError(ecode1), "in method '" "PseudoRSG_New" "', argument " "1"" of type '" "int""'");
+  } 
+  arg1 = static_cast< int >(val1);
   ecode2 = SWIG_AsVal_int(swig_obj[1], &val2);
   if (!SWIG_IsOK(ecode2)) {
     SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "PseudoRSG_New" "', argument " "2"" of type '" "int""'");
   } 
   arg2 = static_cast< int >(val2);
-  ecode3 = SWIG_AsVal_int(swig_obj[2], &val3);
-  if (!SWIG_IsOK(ecode3)) {
-    SWIG_exception_fail(SWIG_ArgError(ecode3), "in method '" "PseudoRSG_New" "', argument " "3"" of type '" "int""'");
-  } 
-  arg3 = static_cast< int >(val3);
-  result = PseudoRSG_New((std::string const &)*arg1,arg2,arg3);
+  result = PseudoRSG_New(arg1,arg2);
   resultobj = SWIG_NewPointerObj((new Handle_< PseudoRSG_ >(static_cast< const Handle_< PseudoRSG_ >& >(result))), SWIGTYPE_p_Handle_T_PseudoRSG__t, SWIG_POINTER_OWN |  0 );
-  if (SWIG_IsNewObj(res1)) delete arg1;
   return resultobj;
 fail:
-  if (SWIG_IsNewObj(res1)) delete arg1;
   return NULL;
 }
 
 
 SWIGINTERN PyObject *_wrap_PseudoRSG_New__SWIG_1(PyObject *SWIGUNUSEDPARM(self), Py_ssize_t nobjs, PyObject **swig_obj) {
   PyObject *resultobj = 0;
-  std::string *arg1 = 0 ;
-  int arg2 ;
-  int res1 = SWIG_OLDOBJ ;
-  int val2 ;
-  int ecode2 = 0 ;
+  int arg1 ;
+  int val1 ;
+  int ecode1 = 0 ;
   Handle_< PseudoRSG_ > result;
   
-  if ((nobjs < 2) || (nobjs > 2)) SWIG_fail;
-  {
-    std::string *ptr = (std::string *)0;
-    res1 = SWIG_AsPtr_std_string(swig_obj[0], &ptr);
-    if (!SWIG_IsOK(res1)) {
-      SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "PseudoRSG_New" "', argument " "1"" of type '" "std::string const &""'"); 
-    }
-    if (!ptr) {
-      SWIG_exception_fail(SWIG_ValueError, "invalid null reference " "in method '" "PseudoRSG_New" "', argument " "1"" of type '" "std::string const &""'"); 
-    }
-    arg1 = ptr;
-  }
-  ecode2 = SWIG_AsVal_int(swig_obj[1], &val2);
-  if (!SWIG_IsOK(ecode2)) {
-    SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "PseudoRSG_New" "', argument " "2"" of type '" "int""'");
+  if ((nobjs < 1) || (nobjs > 1)) SWIG_fail;
+  ecode1 = SWIG_AsVal_int(swig_obj[0], &val1);
+  if (!SWIG_IsOK(ecode1)) {
+    SWIG_exception_fail(SWIG_ArgError(ecode1), "in method '" "PseudoRSG_New" "', argument " "1"" of type '" "int""'");
   } 
-  arg2 = static_cast< int >(val2);
-  result = PseudoRSG_New((std::string const &)*arg1,arg2);
+  arg1 = static_cast< int >(val1);
+  result = PseudoRSG_New(arg1);
   resultobj = SWIG_NewPointerObj((new Handle_< PseudoRSG_ >(static_cast< const Handle_< PseudoRSG_ >& >(result))), SWIGTYPE_p_Handle_T_PseudoRSG__t, SWIG_POINTER_OWN |  0 );
-  if (SWIG_IsNewObj(res1)) delete arg1;
   return resultobj;
 fail:
-  if (SWIG_IsNewObj(res1)) delete arg1;
   return NULL;
 }
 
 
 SWIGINTERN PyObject *_wrap_PseudoRSG_New(PyObject *self, PyObject *args) {
   Py_ssize_t argc;
-  PyObject *argv[4] = {
+  PyObject *argv[3] = {
     0
   };
   
-  if (!(argc = SWIG_Python_UnpackTuple(args, "PseudoRSG_New", 0, 3, argv))) SWIG_fail;
+  if (!(argc = SWIG_Python_UnpackTuple(args, "PseudoRSG_New", 0, 2, argv))) SWIG_fail;
   --argc;
-  if (argc == 2) {
+  if (argc == 1) {
     int _v;
-    int res = SWIG_AsPtr_std_string(argv[0], (std::string**)(0));
-    _v = SWIG_CheckState(res);
+    {
+      int res = SWIG_AsVal_int(argv[0], NULL);
+      _v = SWIG_CheckState(res);
+    }
     if (_v) {
-      {
-        int res = SWIG_AsVal_int(argv[1], NULL);
-        _v = SWIG_CheckState(res);
-      }
-      if (_v) {
-        return _wrap_PseudoRSG_New__SWIG_1(self, argc, argv);
-      }
+      return _wrap_PseudoRSG_New__SWIG_1(self, argc, argv);
     }
   }
-  if (argc == 3) {
+  if (argc == 2) {
     int _v;
-    int res = SWIG_AsPtr_std_string(argv[0], (std::string**)(0));
-    _v = SWIG_CheckState(res);
+    {
+      int res = SWIG_AsVal_int(argv[0], NULL);
+      _v = SWIG_CheckState(res);
+    }
     if (_v) {
       {
         int res = SWIG_AsVal_int(argv[1], NULL);
         _v = SWIG_CheckState(res);
       }
       if (_v) {
-        {
-          int res = SWIG_AsVal_int(argv[2], NULL);
-          _v = SWIG_CheckState(res);
-        }
-        if (_v) {
-          return _wrap_PseudoRSG_New__SWIG_0(self, argc, argv);
-        }
+        return _wrap_PseudoRSG_New__SWIG_0(self, argc, argv);
       }
     }
   }
@@ -3771,8 +3802,8 @@ SWIGINTERN PyObject *_wrap_PseudoRSG_New(PyObject *self, PyObject *args) {
 fail:
   SWIG_Python_RaiseOrModifyTypeError("Wrong number or type of arguments for overloaded function 'PseudoRSG_New'.\n"
     "  Possible C/C++ prototypes are:\n"
-    "    PseudoRSG_New(std::string const &,int,int)\n"
-    "    PseudoRSG_New(std::string const &,int)\n");
+    "    PseudoRSG_New(int,int)\n"
+    "    PseudoRSG_New(int)\n");
   return 0;
 }
 
@@ -3810,6 +3841,199 @@ fail:
 }
 
 
+SWIGINTERN PyObject *_wrap_PseudoRSG_Get_Normal(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+  PyObject *resultobj = 0;
+  Handle_< PseudoRSG_ > *arg1 = 0 ;
+  int arg2 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  int val2 ;
+  int ecode2 = 0 ;
+  PyObject *swig_obj[2] ;
+  Matrix_< double > result;
+  
+  if (!SWIG_Python_UnpackTuple(args, "PseudoRSG_Get_Normal", 2, 2, swig_obj)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(swig_obj[0], &argp1, SWIGTYPE_p_Handle_T_PseudoRSG__t,  0  | 0);
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "PseudoRSG_Get_Normal" "', argument " "1"" of type '" "Handle_< PseudoRSG_ > const &""'"); 
+  }
+  if (!argp1) {
+    SWIG_exception_fail(SWIG_ValueError, "invalid null reference " "in method '" "PseudoRSG_Get_Normal" "', argument " "1"" of type '" "Handle_< PseudoRSG_ > const &""'"); 
+  }
+  arg1 = reinterpret_cast< Handle_< PseudoRSG_ > * >(argp1);
+  ecode2 = SWIG_AsVal_int(swig_obj[1], &val2);
+  if (!SWIG_IsOK(ecode2)) {
+    SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "PseudoRSG_Get_Normal" "', argument " "2"" of type '" "int""'");
+  } 
+  arg2 = static_cast< int >(val2);
+  result = PseudoRSG_Get_Normal((Handle_< PseudoRSG_ > const &)*arg1,arg2);
+  resultobj = SWIG_NewPointerObj((new Matrix_< double >(static_cast< const Matrix_< double >& >(result))), SWIGTYPE_p_Matrix_T_double_t, SWIG_POINTER_OWN |  0 );
+  return resultobj;
+fail:
+  return NULL;
+}
+
+
+SWIGINTERN PyObject *_wrap_SobolRSG_New__SWIG_0(PyObject *SWIGUNUSEDPARM(self), Py_ssize_t nobjs, PyObject **swig_obj) {
+  PyObject *resultobj = 0;
+  int arg1 ;
+  int arg2 ;
+  int val1 ;
+  int ecode1 = 0 ;
+  int val2 ;
+  int ecode2 = 0 ;
+  Handle_< SobolRSG_ > result;
+  
+  if ((nobjs < 2) || (nobjs > 2)) SWIG_fail;
+  ecode1 = SWIG_AsVal_int(swig_obj[0], &val1);
+  if (!SWIG_IsOK(ecode1)) {
+    SWIG_exception_fail(SWIG_ArgError(ecode1), "in method '" "SobolRSG_New" "', argument " "1"" of type '" "int""'");
+  } 
+  arg1 = static_cast< int >(val1);
+  ecode2 = SWIG_AsVal_int(swig_obj[1], &val2);
+  if (!SWIG_IsOK(ecode2)) {
+    SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "SobolRSG_New" "', argument " "2"" of type '" "int""'");
+  } 
+  arg2 = static_cast< int >(val2);
+  result = SobolRSG_New(arg1,arg2);
+  resultobj = SWIG_NewPointerObj((new Handle_< SobolRSG_ >(static_cast< const Handle_< SobolRSG_ >& >(result))), SWIGTYPE_p_Handle_T_SobolRSG__t, SWIG_POINTER_OWN |  0 );
+  return resultobj;
+fail:
+  return NULL;
+}
+
+
+SWIGINTERN PyObject *_wrap_SobolRSG_New__SWIG_1(PyObject *SWIGUNUSEDPARM(self), Py_ssize_t nobjs, PyObject **swig_obj) {
+  PyObject *resultobj = 0;
+  int arg1 ;
+  int val1 ;
+  int ecode1 = 0 ;
+  Handle_< SobolRSG_ > result;
+  
+  if ((nobjs < 1) || (nobjs > 1)) SWIG_fail;
+  ecode1 = SWIG_AsVal_int(swig_obj[0], &val1);
+  if (!SWIG_IsOK(ecode1)) {
+    SWIG_exception_fail(SWIG_ArgError(ecode1), "in method '" "SobolRSG_New" "', argument " "1"" of type '" "int""'");
+  } 
+  arg1 = static_cast< int >(val1);
+  result = SobolRSG_New(arg1);
+  resultobj = SWIG_NewPointerObj((new Handle_< SobolRSG_ >(static_cast< const Handle_< SobolRSG_ >& >(result))), SWIGTYPE_p_Handle_T_SobolRSG__t, SWIG_POINTER_OWN |  0 );
+  return resultobj;
+fail:
+  return NULL;
+}
+
+
+SWIGINTERN PyObject *_wrap_SobolRSG_New(PyObject *self, PyObject *args) {
+  Py_ssize_t argc;
+  PyObject *argv[3] = {
+    0
+  };
+  
+  if (!(argc = SWIG_Python_UnpackTuple(args, "SobolRSG_New", 0, 2, argv))) SWIG_fail;
+  --argc;
+  if (argc == 1) {
+    int _v;
+    {
+      int res = SWIG_AsVal_int(argv[0], NULL);
+      _v = SWIG_CheckState(res);
+    }
+    if (_v) {
+      return _wrap_SobolRSG_New__SWIG_1(self, argc, argv);
+    }
+  }
+  if (argc == 2) {
+    int _v;
+    {
+      int res = SWIG_AsVal_int(argv[0], NULL);
+      _v = SWIG_CheckState(res);
+    }
+    if (_v) {
+      {
+        int res = SWIG_AsVal_int(argv[1], NULL);
+        _v = SWIG_CheckState(res);
+      }
+      if (_v) {
+        return _wrap_SobolRSG_New__SWIG_0(self, argc, argv);
+      }
+    }
+  }
+  
+fail:
+  SWIG_Python_RaiseOrModifyTypeError("Wrong number or type of arguments for overloaded function 'SobolRSG_New'.\n"
+    "  Possible C/C++ prototypes are:\n"
+    "    SobolRSG_New(int,int)\n"
+    "    SobolRSG_New(int)\n");
+  return 0;
+}
+
+
+SWIGINTERN PyObject *_wrap_SobolRSG_Get_Uniform(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+  PyObject *resultobj = 0;
+  Handle_< SobolRSG_ > *arg1 = 0 ;
+  int arg2 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  int val2 ;
+  int ecode2 = 0 ;
+  PyObject *swig_obj[2] ;
+  Matrix_< double > result;
+  
+  if (!SWIG_Python_UnpackTuple(args, "SobolRSG_Get_Uniform", 2, 2, swig_obj)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(swig_obj[0], &argp1, SWIGTYPE_p_Handle_T_SobolRSG__t,  0  | 0);
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "SobolRSG_Get_Uniform" "', argument " "1"" of type '" "Handle_< SobolRSG_ > const &""'"); 
+  }
+  if (!argp1) {
+    SWIG_exception_fail(SWIG_ValueError, "invalid null reference " "in method '" "SobolRSG_Get_Uniform" "', argument " "1"" of type '" "Handle_< SobolRSG_ > const &""'"); 
+  }
+  arg1 = reinterpret_cast< Handle_< SobolRSG_ > * >(argp1);
+  ecode2 = SWIG_AsVal_int(swig_obj[1], &val2);
+  if (!SWIG_IsOK(ecode2)) {
+    SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "SobolRSG_Get_Uniform" "', argument " "2"" of type '" "int""'");
+  } 
+  arg2 = static_cast< int >(val2);
+  result = SobolRSG_Get_Uniform((Handle_< SobolRSG_ > const &)*arg1,arg2);
+  resultobj = SWIG_NewPointerObj((new Matrix_< double >(static_cast< const Matrix_< double >& >(result))), SWIGTYPE_p_Matrix_T_double_t, SWIG_POINTER_OWN |  0 );
+  return resultobj;
+fail:
+  return NULL;
+}
+
+
+SWIGINTERN PyObject *_wrap_SobolRSG_Get_Normal(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+  PyObject *resultobj = 0;
+  Handle_< SobolRSG_ > *arg1 = 0 ;
+  int arg2 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  int val2 ;
+  int ecode2 = 0 ;
+  PyObject *swig_obj[2] ;
+  Matrix_< double > result;
+  
+  if (!SWIG_Python_UnpackTuple(args, "SobolRSG_Get_Normal", 2, 2, swig_obj)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(swig_obj[0], &argp1, SWIGTYPE_p_Handle_T_SobolRSG__t,  0  | 0);
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "SobolRSG_Get_Normal" "', argument " "1"" of type '" "Handle_< SobolRSG_ > const &""'"); 
+  }
+  if (!argp1) {
+    SWIG_exception_fail(SWIG_ValueError, "invalid null reference " "in method '" "SobolRSG_Get_Normal" "', argument " "1"" of type '" "Handle_< SobolRSG_ > const &""'"); 
+  }
+  arg1 = reinterpret_cast< Handle_< SobolRSG_ > * >(argp1);
+  ecode2 = SWIG_AsVal_int(swig_obj[1], &val2);
+  if (!SWIG_IsOK(ecode2)) {
+    SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "SobolRSG_Get_Normal" "', argument " "2"" of type '" "int""'");
+  } 
+  arg2 = static_cast< int >(val2);
+  result = SobolRSG_Get_Normal((Handle_< SobolRSG_ > const &)*arg1,arg2);
+  resultobj = SWIG_NewPointerObj((new Matrix_< double >(static_cast< const Matrix_< double >& >(result))), SWIGTYPE_p_Matrix_T_double_t, SWIG_POINTER_OWN |  0 );
+  return resultobj;
+fail:
+  return NULL;
+}
+
+
 static PyMethodDef SwigMethods[] = {
 	 { "SWIG_PyInstanceMethod_New", SWIG_PyInstanceMethod_New, METH_O, NULL},
 	 { "new_Date_", _wrap_new_Date_, METH_VARARGS, NULL},
@@ -3834,8 +4058,16 @@ static PyMethodDef SwigMethods[] = {
 	 { "delete_PseudoRSG_", _wrap_delete_PseudoRSG_, METH_O, NULL},
 	 { "PseudoRSG__swigregister", PseudoRSG__swigregister, METH_O, NULL},
 	 { "PseudoRSG__swiginit", PseudoRSG__swiginit, METH_VARARGS, NULL},
+	 { "new_SobolRSG_", _wrap_new_SobolRSG_, METH_NOARGS, NULL},
+	 { "delete_SobolRSG_", _wrap_delete_SobolRSG_, METH_O, NULL},
+	 { "SobolRSG__swigregister", SobolRSG__swigregister, METH_O, NULL},
+	 { "SobolRSG__swiginit", SobolRSG__swiginit, METH_VARARGS, NULL},
 	 { "PseudoRSG_New", _wrap_PseudoRSG_New, METH_VARARGS, NULL},
 	 { "PseudoRSG_Get_Uniform", _wrap_PseudoRSG_Get_Uniform, METH_VARARGS, NULL},
+	 { "PseudoRSG_Get_Normal", _wrap_PseudoRSG_Get_Normal, METH_VARARGS, NULL},
+	 { "SobolRSG_New", _wrap_SobolRSG_New, METH_VARARGS, NULL},
+	 { "SobolRSG_Get_Uniform", _wrap_SobolRSG_Get_Uniform, METH_VARARGS, NULL},
+	 { "SobolRSG_Get_Normal", _wrap_SobolRSG_Get_Normal, METH_VARARGS, NULL},
 	 { NULL, NULL, 0, NULL }
 };
 
@@ -3848,6 +4080,7 @@ static PyMethodDef SwigMethods_proxydocs[] = {
 
 static swig_type_info _swigt__p_Date_ = {"_p_Date_", "Date_ *", 0, 0, (void*)0, 0};
 static swig_type_info _swigt__p_Handle_T_PseudoRSG__t = {"_p_Handle_T_PseudoRSG__t", "Handle_< PseudoRSG_ > *", 0, 0, (void*)0, 0};
+static swig_type_info _swigt__p_Handle_T_SobolRSG__t = {"_p_Handle_T_SobolRSG__t", "Handle_< SobolRSG_ > *", 0, 0, (void*)0, 0};
 static swig_type_info _swigt__p_Matrix_T_double_t = {"_p_Matrix_T_double_t", "Matrix_< > *|Matrix_< double > *", 0, 0, (void*)0, 0};
 static swig_type_info _swigt__p_String_ = {"_p_String_", "String_ *", 0, 0, (void*)0, 0};
 static swig_type_info _swigt__p_char = {"_p_char", "char *", 0, 0, (void*)0, 0};
@@ -3855,6 +4088,7 @@ static swig_type_info _swigt__p_char = {"_p_char", "char *", 0, 0, (void*)0, 0};
 static swig_type_info *swig_type_initial[] = {
   &_swigt__p_Date_,
   &_swigt__p_Handle_T_PseudoRSG__t,
+  &_swigt__p_Handle_T_SobolRSG__t,
   &_swigt__p_Matrix_T_double_t,
   &_swigt__p_String_,
   &_swigt__p_char,
@@ -3862,6 +4096,7 @@ static swig_type_info *swig_type_initial[] = {
 
 static swig_cast_info _swigc__p_Date_[] = {  {&_swigt__p_Date_, 0, 0, 0},{0, 0, 0, 0}};
 static swig_cast_info _swigc__p_Handle_T_PseudoRSG__t[] = {  {&_swigt__p_Handle_T_PseudoRSG__t, 0, 0, 0},{0, 0, 0, 0}};
+static swig_cast_info _swigc__p_Handle_T_SobolRSG__t[] = {  {&_swigt__p_Handle_T_SobolRSG__t, 0, 0, 0},{0, 0, 0, 0}};
 static swig_cast_info _swigc__p_Matrix_T_double_t[] = {  {&_swigt__p_Matrix_T_double_t, 0, 0, 0},{0, 0, 0, 0}};
 static swig_cast_info _swigc__p_String_[] = {  {&_swigt__p_String_, 0, 0, 0},{0, 0, 0, 0}};
 static swig_cast_info _swigc__p_char[] = {  {&_swigt__p_char, 0, 0, 0},{0, 0, 0, 0}};
@@ -3869,6 +4104,7 @@ static swig_cast_info _swigc__p_char[] = {  {&_swigt__p_char, 0, 0, 0},{0, 0, 0,
 static swig_cast_info *swig_cast_initial[] = {
   _swigc__p_Date_,
   _swigc__p_Handle_T_PseudoRSG__t,
+  _swigc__p_Handle_T_SobolRSG__t,
   _swigc__p_Matrix_T_double_t,
   _swigc__p_String_,
   _swigc__p_char,

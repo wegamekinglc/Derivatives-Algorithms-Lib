@@ -102,14 +102,7 @@ namespace Dal {
         }
 
         void PseudoRSG_Get_Normal(const Handle_<PseudoRSG_>& f, double num_path, Matrix_<>* y) {
-            int n_dim = f->NDim();
-            y->Resize(static_cast<int>(num_path), n_dim);
-            Vector_<> deviates(n_dim);
-            for(int i = 0; i < num_path; ++i) {
-                f->FillNormal(&deviates);
-                for(int j = 0; j < n_dim; ++j)
-                    (*y)(i, j) = deviates[j];
-            }
+            GetPseudoRSGNormal(f, num_path, y);
         }
 
         void SobolRSG_New(const String_& name, double i_path, double ndim, Handle_<SobolRSG_>* f) {
@@ -117,25 +110,11 @@ namespace Dal {
         }
 
         void SobolRSG_Get_Uniform(const Handle_<SobolRSG_>& f, double num_path, Matrix_<>* y) {
-            int n_dim = f->NDim();
-            y->Resize(static_cast<int>(num_path), n_dim);
-            Vector_<> deviates(n_dim);
-            for(int i = 0; i < num_path; ++i) {
-                f->FillUniform(&deviates);
-                for(int j = 0; j < n_dim; ++j)
-                    (*y)(i, j) = deviates[j];
-            }
+            GetSobolRSGUniform(f, num_path, y);
         }
 
         void SobolRSG_Get_Normal(const Handle_<SobolRSG_>& f, double num_path, Matrix_<>* y) {
-            int n_dim = f->NDim();
-            y->Resize(static_cast<int>(num_path), n_dim);
-            Vector_<> deviates(n_dim);
-            for(int i = 0; i < num_path; ++i) {
-                f->FillNormal(&deviates);
-                for(int j = 0; j < n_dim; ++j)
-                    (*y)(i, j) = deviates[j];
-            }
+            GetSobolRSGNormal(f, num_path, y);
         }
     }
 

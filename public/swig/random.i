@@ -6,15 +6,38 @@
 %}
 
     %template(PseudoRSG_) Handle_<PseudoRSG_>;
+    %template(SobolRSG_) Handle_<SobolRSG_>;
 
     %inline %{
-        Handle_<PseudoRSG_> PseudoRSG_New(const std::string& name, int seed, int ndim = 1) {
-            return NewPseudoRSG(String_(name), seed, ndim);
+        Handle_<PseudoRSG_> PseudoRSG_New(int seed, int ndim = 1) {
+            return NewPseudoRSG(String_("pseudo"), seed, ndim);
         }
 
         Matrix_<> PseudoRSG_Get_Uniform(const Handle_<PseudoRSG_>& rsg, int num_path) {
             Matrix_<> m;
             GetPseudoRSGUniform(rsg, num_path, &m);
+            return m;
+        }
+
+        Matrix_<> PseudoRSG_Get_Normal(const Handle_<PseudoRSG_>& rsg, int num_path) {
+            Matrix_<> m;
+            GetPseudoRSGNormal(rsg, num_path, &m);
+            return m;
+        }
+
+        Handle_<SobolRSG_> SobolRSG_New(int i_path, int ndim = 1) {
+            return NewSobolRSG(String_("sobol"), i_path, ndim);
+        }
+
+        Matrix_<> SobolRSG_Get_Uniform(const Handle_<SobolRSG_>& rsg, int num_path) {
+            Matrix_<> m;
+            GetSobolRSGUniform(rsg, num_path, &m);
+            return m;
+        }
+
+        Matrix_<> SobolRSG_Get_Normal(const Handle_<SobolRSG_>& rsg, int num_path) {
+            Matrix_<> m;
+            GetSobolRSGNormal(rsg, num_path, &m);
             return m;
         }
     %}

@@ -121,11 +121,34 @@ class PseudoRSG_(object):
 # Register PseudoRSG_ in _dal:
 _dal.PseudoRSG__swigregister(PseudoRSG_)
 
+class SobolRSG_(object):
+    thisown = property(lambda x: x.this.own(), lambda x, v: x.this.own(v), doc="The membership flag")
+    __repr__ = _swig_repr
 
-def PseudoRSG_New(name: "std::string const &", seed: "int", ndim: "int"=1) -> "Handle_< PseudoRSG_ >":
-    return _dal.PseudoRSG_New(name, seed, ndim)
+    def __init__(self):
+        _dal.SobolRSG__swiginit(self, _dal.new_SobolRSG_())
+    __swig_destroy__ = _dal.delete_SobolRSG_
+
+# Register SobolRSG_ in _dal:
+_dal.SobolRSG__swigregister(SobolRSG_)
+
+
+def PseudoRSG_New(seed: "int", ndim: "int"=1) -> "Handle_< PseudoRSG_ >":
+    return _dal.PseudoRSG_New(seed, ndim)
 
 def PseudoRSG_Get_Uniform(rsg: "PseudoRSG_", num_path: "int") -> "Matrix_< double >":
     return _dal.PseudoRSG_Get_Uniform(rsg, num_path)
+
+def PseudoRSG_Get_Normal(rsg: "PseudoRSG_", num_path: "int") -> "Matrix_< double >":
+    return _dal.PseudoRSG_Get_Normal(rsg, num_path)
+
+def SobolRSG_New(i_path: "int", ndim: "int"=1) -> "Handle_< SobolRSG_ >":
+    return _dal.SobolRSG_New(i_path, ndim)
+
+def SobolRSG_Get_Uniform(rsg: "SobolRSG_", num_path: "int") -> "Matrix_< double >":
+    return _dal.SobolRSG_Get_Uniform(rsg, num_path)
+
+def SobolRSG_Get_Normal(rsg: "SobolRSG_", num_path: "int") -> "Matrix_< double >":
+    return _dal.SobolRSG_Get_Normal(rsg, num_path)
 
 
