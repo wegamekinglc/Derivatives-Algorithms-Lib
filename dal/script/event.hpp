@@ -5,6 +5,7 @@
 #pragma once
 
 #include <dal/math/vectors.hpp>
+#include <dal/storage/archive.hpp>
 #include <dal/time/date.hpp>
 #include <dal/script/node.hpp>
 #include <dal/script/visitor/evaluator.hpp>
@@ -18,20 +19,46 @@
 #include <dal/math/aad/sample.hpp>
 
 
+/*IF--------------------------------------------------------------------------
+storable ScriptProduct
+        Script product from an events table
+version 1
+&members
+name is ?string
+dates is date[]
+events is string[]
+-IF-------------------------------------------------------------------------*/
+
+
 namespace Dal::Script {
     using Dal::AAD::Scenario_;
 
     using Event_ = Vector_<ScriptNode_>;
 
-    class ScriptProduct_ {
+    class ScriptProduct_ : public Storable_ {
         Vector_<Date_> eventDates_;
         Vector_<Event_> events_;
+        Vector_<String_> eventStrings_;
         Vector_<String_> variables_;
 
         Vector_<double> timeLine_;
         Vector_<Dal::AAD::SampleDef_> defLine_;
 
     public:
+        ScriptProduct_(const String_& name = ""): Storable_("ScriptProduct", name) {}
+        ScriptProduct_(const String_& name, const std::map<Date_, String_>& events)
+        : Storable_("ScriptProduct", name) { ParseEvents(events.begin(), events.end()); }
+
+        ScriptProduct_(const String_& name, const Vector_<Date_>& dates, const Vector_<String_>& events)
+        : Storable_("ScriptProduct", name) {
+            REQUIRE(dates.size() == events.size(), "");
+            for (int i = 0; i < dates.size(); ++i) {
+                eventDates_.push_back(dates[i]);
+                eventStrings_.push_back(events[i]);
+                events_.push_back(Parse(events[i]));
+            }
+        }
+
         [[nodiscard]] const Vector_<Date_> &EventDates() const { return eventDates_; }
         [[nodiscard]] const Vector_<String_> &VarNames() const { return variables_; }
         [[nodiscard]] const Vector_<Time_>& TimeLine() const { return timeLine_; }
@@ -56,6 +83,7 @@ namespace Dal::Script {
         void ParseEvents(EvtIt_ begin, EvtIt_ end) {
             for (EvtIt_ evtIt = begin; evtIt != end; ++evtIt) {
                 eventDates_.push_back(evtIt->first);
+                eventStrings_.push_back(evtIt->second);
                 events_.push_back(Parse(evtIt->second));
             }
         }
@@ -86,6 +114,7 @@ namespace Dal::Script {
 
         size_t PreProcess(bool fuzzy, bool skipDoms);
         void Debug(std::ostream &ost);
-    };
 
+        void Write(Archive::Store_& dst) const override;
+    };
 }

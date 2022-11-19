@@ -50,7 +50,7 @@ int main() {
     std::cout << "Type of rsg:";
     std::cin >> rsg;
 
-    ScriptProduct_ product;
+    ScriptProduct_ product(String_("my_product"));
     std::map<Date_, String_> events;
 
     events[maturity] = String_("K = " + ToString(strike) + "\n"
