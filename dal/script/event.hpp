@@ -113,7 +113,7 @@ namespace Dal::Script {
         void ConstCondProcess();
 
         size_t PreProcess(bool fuzzy, bool skipDoms);
-        void Debug(std::ostream &ost);
+        void Debug(std::ostream &ost) const;
 
         void Write(Archive::Store_& dst) const override;
     };

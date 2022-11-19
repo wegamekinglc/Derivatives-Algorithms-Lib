@@ -65,7 +65,7 @@ namespace Dal::Script {
     }
 
     //	Debug whole product
-    void ScriptProduct_::Debug(std::ostream &ost) {
+    void ScriptProduct_::Debug(std::ostream &ost) const {
         size_t v = 0;
         for (auto& variable: variables_)
             ost << "Var[" << v++ << "] = " << variable << std::endl;
