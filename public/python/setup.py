@@ -69,14 +69,14 @@ class my_build(build):
 
 class my_build_ext(build_ext):
     user_options = build_ext.user_options + [
-        ('static', False,
+        ('static', True,
          "link against static CRT libraries on Windows")
     ]
     boolean_options = build.boolean_options + ['static']
 
     def initialize_options(self):
         build_ext.initialize_options(self)
-        self.static = False
+        self.static = True
 
     def finalize_options(self):
         build_ext.finalize_options(self)
@@ -185,15 +185,10 @@ classifiers = [
     'Operating System :: MacOS',
 ]
 
-setup(name="DAL",
-      version="1.0.1-dev",
+setup(name="dal-python",
+      version="0.1.0",
       description="Python bindings for the DAL library",
-      long_description="""
-DAL is a C++ library for financial quantitative
-analysts and developers, aimed at providing a comprehensive software
-framework for quantitative finance.
-      """,
-      author="DAL Team",
+      author="cheng li",
       author_email="wegamekinglc@hotmail.copm",
       license="BSD 3-Clause",
       classifiers=classifiers,

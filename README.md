@@ -59,4 +59,41 @@ later we can use the interpolator:
 =INTERP1.GET("~Interp1~my.interp~2F18E558", 6.5)  # will return 4.5
 ```
 
+### Some more interesting example
+
+We will price an european option with our script ability and a basic BS model
+
+The product will be described in excel like :
+
+| **Date** 	  | **Event** 	 |
+|-------------|-------------|
+| 2022/9/25 	 | call pays MAX(spot() - 120, 0.0) |
+
+and we can create a product in excel with the above table:
+
+```excel
+=PRODUCT.NEW("my_product", A2, B2)
+```
+
+then we set a model to price this:
+
+| **Field** 	 | **Value** |
+|-------------|-----------|
+| spot 	   | 100 	     |
+| vol	       |  0.15 	   |
+| rate	       | 0.0       |
+| dividend   | 0.0 	     |
+
+```excel
+=BSMODELDATA.NEW("model", D2, D3, D4, D5)
+```
+
+finally we price this product with the model:
+```excel
+=MONTECARLO.VALUE(A5, C7, 2^20, "sobol", FALSE)
+```
+
+| value |4.0389  |
+|-------|-----|
+
 
