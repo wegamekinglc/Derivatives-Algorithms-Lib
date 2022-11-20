@@ -7,13 +7,13 @@
 #include <dal/math/aad/models/blackscholes.hpp>
 
 namespace Dal {
-    using Dal::AAD::BSModelData_;
+    using Dal::AAD::ModelData_;
 
-    FORCE_INLINE Handle_<BSModelData_> NewBSModelData(const String_& name,
+    FORCE_INLINE Handle_<ModelData_> NewBSModelData(const String_& name,
                                                       double spot,
                                                       double vol,
                                                       double rate,
                                                       double div) {
-        return Handle_<BSModelData_>(new BSModelData_(name, spot, vol, false, rate, div));
+        return Handle_<ModelData_>(new AAD::BSModelData_(name, spot, vol, false, rate, div));
     }
 }

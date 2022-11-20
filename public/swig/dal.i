@@ -1,6 +1,8 @@
 #ifndef DAL_SWIG_I
 #define DAL_SWIG_I
 
+%feature("autodoc", "2");
+
 %module dal
 
 %{
@@ -17,10 +19,12 @@
 
     %include handle.i
     %include date.i
+    %include global.i
     %include strings.i
     %include matrix.i
     %include script.i
     %include models.i
+    %include value.i
     %include random.i
 
 #endif

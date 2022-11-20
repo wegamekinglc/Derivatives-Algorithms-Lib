@@ -20,20 +20,20 @@ rate is number
 div is number
     dividend rate
 &outputs
-model is handle BSModelData
+model is handle ModelData
     The model data
 -IF-------------------------------------------------------------------------*/
 
 
 namespace Dal {
-    using Dal::AAD::BSModelData_;
+    using Dal::AAD::ModelData_;
     namespace {
         void BSModelData_New(const String_& name,
                              double spot,
                              double vol,
                              double rate,
                              double div,
-                             Handle_<BSModelData_>* model) {
+                             Handle_<ModelData_>* model) {
             NewBSModelData(name, spot, vol, rate, div).swap(*model);
         }
     }

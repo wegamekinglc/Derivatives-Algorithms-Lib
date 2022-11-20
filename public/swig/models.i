@@ -5,13 +5,13 @@
 #include <public/src/models.hpp>
 %}
 
-%template(BSModelData_) Handle_<BSModelData_>;
+%template(BSModelData_) Handle_<ModelData_>;
 
 %inline %{
-    Handle_<BSModelData_> BSModelData_New(double spot,
-                                          double vol,
-                                          double rate,
-                                          double div) {
+    Handle_<ModelData_> BSModelData_New(double spot,
+                                        double vol,
+                                        double rate,
+                                        double div) {
         return NewBSModelData("bs_model_data", spot, vol, rate, div);
     }
 %}

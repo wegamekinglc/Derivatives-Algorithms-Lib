@@ -20,7 +20,7 @@ ENV_SEED_TYPE(ObjectAccess_);
         argName = "div (input #5)";
         const double div = Excel::ToDouble(xl_div);
         argName = 0;
-		Handle_<BSModelData_> model;
+		Handle_<ModelData_> model;
         BSModelData_New(name, spot, vol, rate, div, &model);
         Excel::Retval_ retval;
         retval.Load(_env, model);

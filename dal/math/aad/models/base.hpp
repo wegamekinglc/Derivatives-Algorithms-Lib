@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <dal/storage/archive.hpp>
 #include <dal/math/aad/aad.hpp>
 #include <dal/math/aad/sample.hpp>
 #include <dal/math/vectors.hpp>
@@ -53,4 +54,8 @@ namespace Dal::AAD {
     } // namespace
 
     template <class T_> void Model_<T_>::PutParametersOnTape() { PutParametersOnTapeT<T_>(Parameters()); }
+
+    struct ModelData_: public Storable_ {
+        ModelData_(const String_& type, const String_& name): Storable_(type.c_str(), name) {}
+    };
 } // namespace Dal

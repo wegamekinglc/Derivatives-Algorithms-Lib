@@ -116,5 +116,10 @@ namespace Dal::Script {
         void Debug(std::ostream &ost) const;
 
         void Write(Archive::Store_& dst) const override;
+
+        [[nodiscard]] std::unique_ptr<ScriptProduct_> Clone() const {
+            auto clone = std::make_unique<ScriptProduct_>(this->name_, this->eventDates_, this->eventStrings_);
+            return clone;
+        }
     };
 }

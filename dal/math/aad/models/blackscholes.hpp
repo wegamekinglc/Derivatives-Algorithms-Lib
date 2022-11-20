@@ -187,7 +187,7 @@ namespace Dal::AAD {
         }
     };
 
-    struct BSModelData_: public Storable_ {
+    struct BSModelData_: public ModelData_ {
         double spot_;
         double vol_;
         bool spotMeasure_;
@@ -200,7 +200,7 @@ namespace Dal::AAD {
                      bool spotMeasure = false,
                      double rate = 0.0,
                      double div = 0.0)
-                     : Storable_("BSModelData", name), spot_(spot), vol_(vol), spotMeasure_(spotMeasure), rate_(rate), div_(div) {}
+                     : ModelData_("BSModelData", name), spot_(spot), vol_(vol), spotMeasure_(spotMeasure), rate_(rate), div_(div) {}
 
         void Write(Archive::Store_& dst) const override;
     };
