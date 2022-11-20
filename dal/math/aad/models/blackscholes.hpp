@@ -3,9 +3,23 @@
 //
 
 #pragma once
+#include <dal/storage/archive.hpp>
 #include <dal/math/aad/operators.hpp>
 #include <dal/math/aad/models/base.hpp>
 #include <dal/utilities/algorithms.hpp>
+
+/*IF--------------------------------------------------------------------------
+storable BSModelData
+    Black - Scholes model data
+version 1
+&members
+name is ?string
+spot is number
+vol is number
+spotMeasure is boolean
+rate is number
+div is number
+-IF-------------------------------------------------------------------------*/
 
 namespace Dal::AAD {
 
@@ -55,7 +69,7 @@ namespace Dal::AAD {
         template <class U_>
         BlackScholes_(const U_& spot,
                       const U_& vol,
-                      const bool& spotMeasure = false,
+                      bool spotMeasure = false,
                       const U_& rate = U_(0.0),
                       const U_& div = U_(0.0))
             : spot_(spot), vol_(vol), rate_(rate), div_(div), spotMeasure_(spotMeasure), parameters_(4),
@@ -153,7 +167,7 @@ namespace Dal::AAD {
             }
         }
 
-        size_t SimDim() const override { return timeLine_.size() - 1; }
+        [[nodiscard]] size_t SimDim() const override { return timeLine_.size() - 1; }
 
         void GeneratePath(const Vector_<>& gaussVec, Scenario_<T_>* path) const override {
             T_ spot = spot_;
@@ -172,4 +186,23 @@ namespace Dal::AAD {
             }
         }
     };
+
+    struct BSModelData_: public Storable_ {
+        double spot_;
+        double vol_;
+        bool spotMeasure_;
+        double rate_;
+        double div_;
+
+        BSModelData_(const String_& name,
+                     double spot,
+                     double vol,
+                     bool spotMeasure = false,
+                     double rate = 0.0,
+                     double div = 0.0)
+                     : Storable_("BSModelData", name), spot_(spot), vol_(vol), spotMeasure_(spotMeasure), rate_(rate), div_(div) {}
+
+        void Write(Archive::Store_& dst) const override;
+    };
+
 } // namespace Dal

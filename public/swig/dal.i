@@ -20,6 +20,7 @@
     %include strings.i
     %include matrix.i
     %include script.i
+    %include models.i
     %include random.i
 
 #endif

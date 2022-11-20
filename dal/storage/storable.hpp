@@ -19,5 +19,7 @@ namespace Dal {
         virtual ~Storable_() = default;
         Storable_(const char* type, const String_& name) : type_(type), name_(name) {}
         virtual void Write(Archive::Store_& dst) const = 0;
+        [[nodiscard]] const String_& Name() const { return name_;}
+        [[nodiscard]] const String_& Type() const {return type_;}
     };
 } // namespace Dal

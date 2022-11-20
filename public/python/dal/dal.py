@@ -400,6 +400,20 @@ def Product_New(dates: "DateVector", events: "StrVector") -> "Handle_< ScriptPro
 
 def Product_Debug(product: "ScriptProduct_") -> "std::string":
     return _dal.Product_Debug(product)
+class BSModelData_(object):
+    thisown = property(lambda x: x.this.own(), lambda x, v: x.this.own(v), doc="The membership flag")
+    __repr__ = _swig_repr
+
+    def __init__(self):
+        _dal.BSModelData__swiginit(self, _dal.new_BSModelData_())
+    __swig_destroy__ = _dal.delete_BSModelData_
+
+# Register BSModelData_ in _dal:
+_dal.BSModelData__swigregister(BSModelData_)
+
+
+def BSModelData_New(spot: "double", vol: "double", rate: "double", div: "double") -> "Handle_< BSModelData_ >":
+    return _dal.BSModelData_New(spot, vol, rate, div)
 class PseudoRSG_(object):
     thisown = property(lambda x: x.this.own(), lambda x, v: x.this.own(v), doc="The membership flag")
     __repr__ = _swig_repr

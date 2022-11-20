@@ -2693,25 +2693,26 @@ SWIGINTERN PyObject *SWIG_PyStaticMethod_New(PyObject *SWIGUNUSEDPARM(self), PyO
 /* -------- TYPES TABLE (BEGIN) -------- */
 
 #define SWIGTYPE_p_Date_ swig_types[0]
-#define SWIGTYPE_p_Handle_T_PseudoRSG__t swig_types[1]
-#define SWIGTYPE_p_Handle_T_ScriptProduct__t swig_types[2]
-#define SWIGTYPE_p_Handle_T_SobolRSG__t swig_types[3]
-#define SWIGTYPE_p_Matrix_T_double_t swig_types[4]
-#define SWIGTYPE_p_String_ swig_types[5]
-#define SWIGTYPE_p_allocator_type swig_types[6]
-#define SWIGTYPE_p_char swig_types[7]
-#define SWIGTYPE_p_difference_type swig_types[8]
-#define SWIGTYPE_p_p_PyObject swig_types[9]
-#define SWIGTYPE_p_size_type swig_types[10]
-#define SWIGTYPE_p_std__allocatorT_Date__t swig_types[11]
-#define SWIGTYPE_p_std__allocatorT_std__string_t swig_types[12]
-#define SWIGTYPE_p_std__invalid_argument swig_types[13]
-#define SWIGTYPE_p_std__vectorT_Date__std__allocatorT_Date__t_t swig_types[14]
-#define SWIGTYPE_p_std__vectorT_std__string_std__allocatorT_std__string_t_t swig_types[15]
-#define SWIGTYPE_p_swig__SwigPyIterator swig_types[16]
-#define SWIGTYPE_p_value_type swig_types[17]
-static swig_type_info *swig_types[19];
-static swig_module_info swig_module = {swig_types, 18, 0, 0, 0, 0};
+#define SWIGTYPE_p_Handle_T_BSModelData__t swig_types[1]
+#define SWIGTYPE_p_Handle_T_PseudoRSG__t swig_types[2]
+#define SWIGTYPE_p_Handle_T_ScriptProduct__t swig_types[3]
+#define SWIGTYPE_p_Handle_T_SobolRSG__t swig_types[4]
+#define SWIGTYPE_p_Matrix_T_double_t swig_types[5]
+#define SWIGTYPE_p_String_ swig_types[6]
+#define SWIGTYPE_p_allocator_type swig_types[7]
+#define SWIGTYPE_p_char swig_types[8]
+#define SWIGTYPE_p_difference_type swig_types[9]
+#define SWIGTYPE_p_p_PyObject swig_types[10]
+#define SWIGTYPE_p_size_type swig_types[11]
+#define SWIGTYPE_p_std__allocatorT_Date__t swig_types[12]
+#define SWIGTYPE_p_std__allocatorT_std__string_t swig_types[13]
+#define SWIGTYPE_p_std__invalid_argument swig_types[14]
+#define SWIGTYPE_p_std__vectorT_Date__std__allocatorT_Date__t_t swig_types[15]
+#define SWIGTYPE_p_std__vectorT_std__string_std__allocatorT_std__string_t_t swig_types[16]
+#define SWIGTYPE_p_swig__SwigPyIterator swig_types[17]
+#define SWIGTYPE_p_value_type swig_types[18]
+static swig_type_info *swig_types[20];
+static swig_module_info swig_module = {swig_types, 19, 0, 0, 0, 0};
 #define SWIG_TypeQuery(name) SWIG_TypeQueryModule(&swig_module, &swig_module, name)
 #define SWIG_MangledTypeQuery(name) SWIG_MangledTypeQueryModule(&swig_module, &swig_module, name)
 
@@ -5090,6 +5091,17 @@ SWIGINTERN double Matrix__Sl__Sg____call__(Matrix_< > *self,int i,int j){ return
 
     std::string Product_Debug(const Handle_<ScriptProduct_>& product) {
         return DebugScriptProduct(product).c_str();
+    }
+
+
+#include <public/src/models.hpp>
+
+
+    Handle_<BSModelData_> BSModelData_New(double spot,
+                                          double vol,
+                                          double rate,
+                                          double div) {
+        return NewBSModelData("bs_model_data", spot, vol, rate, div);
     }
 
 
@@ -10127,6 +10139,98 @@ fail:
 }
 
 
+SWIGINTERN PyObject *_wrap_new_BSModelData_(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+  PyObject *resultobj = 0;
+  Handle_< BSModelData_ > *result = 0 ;
+  
+  if (!SWIG_Python_UnpackTuple(args, "new_BSModelData_", 0, 0, 0)) SWIG_fail;
+  result = (Handle_< BSModelData_ > *)new Handle_< BSModelData_ >();
+  resultobj = SWIG_NewPointerObj(SWIG_as_voidptr(result), SWIGTYPE_p_Handle_T_BSModelData__t, SWIG_POINTER_NEW |  0 );
+  return resultobj;
+fail:
+  return NULL;
+}
+
+
+SWIGINTERN PyObject *_wrap_delete_BSModelData_(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+  PyObject *resultobj = 0;
+  Handle_< BSModelData_ > *arg1 = (Handle_< BSModelData_ > *) 0 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  PyObject *swig_obj[1] ;
+  
+  if (!args) SWIG_fail;
+  swig_obj[0] = args;
+  res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_Handle_T_BSModelData__t, SWIG_POINTER_DISOWN |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "delete_BSModelData_" "', argument " "1"" of type '" "Handle_< BSModelData_ > *""'"); 
+  }
+  arg1 = reinterpret_cast< Handle_< BSModelData_ > * >(argp1);
+  delete arg1;
+  resultobj = SWIG_Py_Void();
+  return resultobj;
+fail:
+  return NULL;
+}
+
+
+SWIGINTERN PyObject *BSModelData__swigregister(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+  PyObject *obj;
+  if (!SWIG_Python_UnpackTuple(args, "swigregister", 1, 1, &obj)) return NULL;
+  SWIG_TypeNewClientData(SWIGTYPE_p_Handle_T_BSModelData__t, SWIG_NewClientData(obj));
+  return SWIG_Py_Void();
+}
+
+SWIGINTERN PyObject *BSModelData__swiginit(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+  return SWIG_Python_InitShadowInstance(args);
+}
+
+SWIGINTERN PyObject *_wrap_BSModelData_New(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+  PyObject *resultobj = 0;
+  double arg1 ;
+  double arg2 ;
+  double arg3 ;
+  double arg4 ;
+  double val1 ;
+  int ecode1 = 0 ;
+  double val2 ;
+  int ecode2 = 0 ;
+  double val3 ;
+  int ecode3 = 0 ;
+  double val4 ;
+  int ecode4 = 0 ;
+  PyObject *swig_obj[4] ;
+  Handle_< BSModelData_ > result;
+  
+  if (!SWIG_Python_UnpackTuple(args, "BSModelData_New", 4, 4, swig_obj)) SWIG_fail;
+  ecode1 = SWIG_AsVal_double(swig_obj[0], &val1);
+  if (!SWIG_IsOK(ecode1)) {
+    SWIG_exception_fail(SWIG_ArgError(ecode1), "in method '" "BSModelData_New" "', argument " "1"" of type '" "double""'");
+  } 
+  arg1 = static_cast< double >(val1);
+  ecode2 = SWIG_AsVal_double(swig_obj[1], &val2);
+  if (!SWIG_IsOK(ecode2)) {
+    SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "BSModelData_New" "', argument " "2"" of type '" "double""'");
+  } 
+  arg2 = static_cast< double >(val2);
+  ecode3 = SWIG_AsVal_double(swig_obj[2], &val3);
+  if (!SWIG_IsOK(ecode3)) {
+    SWIG_exception_fail(SWIG_ArgError(ecode3), "in method '" "BSModelData_New" "', argument " "3"" of type '" "double""'");
+  } 
+  arg3 = static_cast< double >(val3);
+  ecode4 = SWIG_AsVal_double(swig_obj[3], &val4);
+  if (!SWIG_IsOK(ecode4)) {
+    SWIG_exception_fail(SWIG_ArgError(ecode4), "in method '" "BSModelData_New" "', argument " "4"" of type '" "double""'");
+  } 
+  arg4 = static_cast< double >(val4);
+  result = BSModelData_New(arg1,arg2,arg3,arg4);
+  resultobj = SWIG_NewPointerObj((new Handle_< BSModelData_ >(static_cast< const Handle_< BSModelData_ >& >(result))), SWIGTYPE_p_Handle_T_BSModelData__t, SWIG_POINTER_OWN |  0 );
+  return resultobj;
+fail:
+  return NULL;
+}
+
+
 SWIGINTERN PyObject *_wrap_new_PseudoRSG_(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
   PyObject *resultobj = 0;
   Handle_< PseudoRSG_ > *result = 0 ;
@@ -10653,6 +10757,11 @@ static PyMethodDef SwigMethods[] = {
 	 { "ScriptProduct__swiginit", ScriptProduct__swiginit, METH_VARARGS, NULL},
 	 { "Product_New", _wrap_Product_New, METH_VARARGS, NULL},
 	 { "Product_Debug", _wrap_Product_Debug, METH_O, NULL},
+	 { "new_BSModelData_", _wrap_new_BSModelData_, METH_NOARGS, NULL},
+	 { "delete_BSModelData_", _wrap_delete_BSModelData_, METH_O, NULL},
+	 { "BSModelData__swigregister", BSModelData__swigregister, METH_O, NULL},
+	 { "BSModelData__swiginit", BSModelData__swiginit, METH_VARARGS, NULL},
+	 { "BSModelData_New", _wrap_BSModelData_New, METH_VARARGS, NULL},
 	 { "new_PseudoRSG_", _wrap_new_PseudoRSG_, METH_NOARGS, NULL},
 	 { "delete_PseudoRSG_", _wrap_delete_PseudoRSG_, METH_O, NULL},
 	 { "PseudoRSG__swigregister", PseudoRSG__swigregister, METH_O, NULL},
@@ -10678,6 +10787,7 @@ static PyMethodDef SwigMethods_proxydocs[] = {
 /* -------- TYPE CONVERSION AND EQUIVALENCE RULES (BEGIN) -------- */
 
 static swig_type_info _swigt__p_Date_ = {"_p_Date_", "std::vector< Date_ >::value_type *|Date_ *", 0, 0, (void*)0, 0};
+static swig_type_info _swigt__p_Handle_T_BSModelData__t = {"_p_Handle_T_BSModelData__t", "Handle_< BSModelData_ > *", 0, 0, (void*)0, 0};
 static swig_type_info _swigt__p_Handle_T_PseudoRSG__t = {"_p_Handle_T_PseudoRSG__t", "Handle_< PseudoRSG_ > *", 0, 0, (void*)0, 0};
 static swig_type_info _swigt__p_Handle_T_ScriptProduct__t = {"_p_Handle_T_ScriptProduct__t", "Handle_< ScriptProduct_ > *", 0, 0, (void*)0, 0};
 static swig_type_info _swigt__p_Handle_T_SobolRSG__t = {"_p_Handle_T_SobolRSG__t", "Handle_< SobolRSG_ > *", 0, 0, (void*)0, 0};
@@ -10698,6 +10808,7 @@ static swig_type_info _swigt__p_value_type = {"_p_value_type", "value_type *", 0
 
 static swig_type_info *swig_type_initial[] = {
   &_swigt__p_Date_,
+  &_swigt__p_Handle_T_BSModelData__t,
   &_swigt__p_Handle_T_PseudoRSG__t,
   &_swigt__p_Handle_T_ScriptProduct__t,
   &_swigt__p_Handle_T_SobolRSG__t,
@@ -10718,6 +10829,7 @@ static swig_type_info *swig_type_initial[] = {
 };
 
 static swig_cast_info _swigc__p_Date_[] = {  {&_swigt__p_Date_, 0, 0, 0},{0, 0, 0, 0}};
+static swig_cast_info _swigc__p_Handle_T_BSModelData__t[] = {  {&_swigt__p_Handle_T_BSModelData__t, 0, 0, 0},{0, 0, 0, 0}};
 static swig_cast_info _swigc__p_Handle_T_PseudoRSG__t[] = {  {&_swigt__p_Handle_T_PseudoRSG__t, 0, 0, 0},{0, 0, 0, 0}};
 static swig_cast_info _swigc__p_Handle_T_ScriptProduct__t[] = {  {&_swigt__p_Handle_T_ScriptProduct__t, 0, 0, 0},{0, 0, 0, 0}};
 static swig_cast_info _swigc__p_Handle_T_SobolRSG__t[] = {  {&_swigt__p_Handle_T_SobolRSG__t, 0, 0, 0},{0, 0, 0, 0}};
@@ -10738,6 +10850,7 @@ static swig_cast_info _swigc__p_value_type[] = {  {&_swigt__p_value_type, 0, 0, 
 
 static swig_cast_info *swig_cast_initial[] = {
   _swigc__p_Date_,
+  _swigc__p_Handle_T_BSModelData__t,
   _swigc__p_Handle_T_PseudoRSG__t,
   _swigc__p_Handle_T_ScriptProduct__t,
   _swigc__p_Handle_T_SobolRSG__t,
