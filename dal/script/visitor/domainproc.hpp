@@ -34,6 +34,7 @@ namespace Dal::Script {
         DomainProcessor_(size_t nVar, bool fuzzy) : fuzzy_(fuzzy), domains_(nVar, 0.0), lhsVar_(false) {}
 
         using Visitor_<DomainProcessor_>::operator();
+        using Visitor_<DomainProcessor_>::Visit;
         // visit
         // expressions
         // binaries

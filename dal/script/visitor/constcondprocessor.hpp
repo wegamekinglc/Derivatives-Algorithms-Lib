@@ -15,7 +15,7 @@ namespace Dal::Script {
         void VisitArguments(N_& node) {
             for (auto &arg: node.arguments_) {
                 current_ = &arg;
-                this->Visit(arg);
+                Visit(arg);
             }
         }
 
@@ -33,6 +33,7 @@ namespace Dal::Script {
         }
 
         using Visitor_<ConstCondProcessor_>::operator();
+        using Visitor_<ConstCondProcessor_>::Visit;
         
         void operator()(std::unique_ptr<NodeEqual_>& node) {
             VisitCondT(node);

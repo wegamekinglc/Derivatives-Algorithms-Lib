@@ -18,6 +18,7 @@ namespace Dal::Script {
         [[nodiscard]] Vector_<String_> GetVarNames() const;
 
         using Visitor_<VarIndexer_>::operator();
+        using Visitor_<VarIndexer_>::Visit;
         void operator()(std::unique_ptr<NodeVar_> &node);
     };
 

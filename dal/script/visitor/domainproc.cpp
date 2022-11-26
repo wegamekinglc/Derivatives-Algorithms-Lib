@@ -227,7 +227,7 @@ namespace Dal::Script {
         size_t lastTrueStat = node->firstElse_ == -1 ? node->arguments_.size() - 1 : node->firstElse_ - 1;
 
         // DomainProcessor_::Visit condition=
-        this->Visit(node->arguments_[0]);
+        Visit(node->arguments_[0]);
 
         // Always true/false?
         DomainCondProp_ cp = conditionStack_.Top();
@@ -238,14 +238,14 @@ namespace Dal::Script {
             node->alwaysFalse_ = false;
             // DomainProcessor_::Visit "if true" statements
             for (size_t i = 1; i <= lastTrueStat; ++i)
-                this->Visit(node->arguments_[i]);
+                Visit(node->arguments_[i]);
         } else if (cp == DomainCondProp_("AlwaysFalse")) {
             node->alwaysTrue_ = false;
             node->alwaysFalse_ = true;
             // DomainProcessor_::Visit "if false" statements, if any
             if (node->firstElse_ != -1)
                 for (size_t i = node->firstElse_; i < node->arguments_.size(); ++i)
-                    this->Visit(node->arguments_[i]);
+                    Visit(node->arguments_[i]);
         } else {
             node->alwaysTrue_ = node->alwaysFalse_ = false;
 
@@ -256,7 +256,7 @@ namespace Dal::Script {
 
             // Execute if statements
             for (size_t i = 1; i <= lastTrueStat; ++i)
-                this->Visit(node->arguments_[i]);
+                Visit(node->arguments_[i]);
 
             // Record variable domain after if statements are executed
             Vector_<Domain_> domStore1(node->affectedVars_.size());
@@ -270,7 +270,7 @@ namespace Dal::Script {
             // Execute else statements if any
             if (node->firstElse_ != -1)
                 for (size_t i = node->firstElse_; i < node->arguments_.size(); ++i)
-                    this->Visit(node->arguments_[i]);
+                    Visit(node->arguments_[i]);
 
             // Merge domains
             for (size_t i = 0; i < node->affectedVars_.size(); ++i)
@@ -281,11 +281,11 @@ namespace Dal::Script {
     void DomainProcessor_::operator()(std::unique_ptr<NodeAssign_>& node) {
         // DomainProcessor_::Visit the LHS variable
         lhsVar_ = true;
-        this->Visit(node->arguments_[0]);
+        Visit(node->arguments_[0]);
         lhsVar_ = false;
 
         // DomainProcessor_::Visit the RHS expression
-        this->Visit(node->arguments_[1]);
+        Visit(node->arguments_[1]);
 
         // Write RHS domain into variable
         domains_[lhsVarIdx_] = domainStack_.Top();
@@ -297,11 +297,11 @@ namespace Dal::Script {
     void DomainProcessor_::operator()(std::unique_ptr<NodePays_>& node) {
         // DomainProcessor_::Visit the LHS variable
         lhsVar_ = true;
-        this->Visit(node->arguments_[0]);
+        Visit(node->arguments_[0]);
         lhsVar_ = false;
 
         // DomainProcessor_::Visit the RHS expression
-        this->Visit(node->arguments_[1]);
+        Visit(node->arguments_[1]);
 
         // Write RHS domain into variable
 

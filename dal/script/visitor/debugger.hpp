@@ -22,7 +22,7 @@ namespace Dal::Script {
             bool isEmpty = node->arguments_.empty();
             if (!isEmpty)
                 for (auto it = node->arguments_.rbegin(); it != node->arguments_.rend(); ++it)
-                    this->Visit(*it);
+                    Visit(*it);
 
             prefix_.pop_back();
 
@@ -50,6 +50,9 @@ namespace Dal::Script {
 
     public:
         [[nodiscard]] String_ String() const;
+
+        using ConstVisitor_<Debugger_>::operator();
+        using ConstVisitor_<Debugger_>::Visit;
 
         void operator()(const std::unique_ptr<NodeCollect_>& node);
         void operator()(const std::unique_ptr<NodeTrue_>& node);

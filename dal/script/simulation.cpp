@@ -142,6 +142,7 @@ namespace Dal::Script {
         Vector_<Vector_<>> gaussVecs(nThread + 1);
         Vector_<Scenario_<AAD::Number_>> paths(nThread + 1);
         Vector_<std::unique_ptr<Evaluator_<AAD::Number_>>> eval_s(nThread + 1);
+        Vector_<std::unique_ptr<FuzzyEvaluator_<AAD::Number_>>> fuzzy_eval_s(nThread + 1);
 
         for (auto& vec : gaussVecs)
             vec.Resize(mdl->SimDim());
@@ -151,10 +152,11 @@ namespace Dal::Script {
             InitializePath(path);
         }
 
-        for (auto& eval : eval_s) {
-            if (max_nested_ifs >= 0)
+        if (max_nested_ifs >= 0) {
+            for (auto& eval : fuzzy_eval_s)
                 eval = product.BuildFuzzyEvaluator<AAD::Number_>(max_nested_ifs, eps);
-            else
+        } else {
+            for (auto& eval : eval_s)
                 eval = product.BuildEvaluator<AAD::Number_>();
         }
 
@@ -187,18 +189,30 @@ namespace Dal::Script {
 
                 auto& random = rng_s[threadNum];
                 random->SkipTo(firstPath);
-                std::unique_ptr<Evaluator_<AAD::Number_>>& eval = eval_s[threadNum];
 
-                for (size_t i = 0; i < pathsInTask; i++) {
-                    AAD::Number_::tape_->RewindToMark();
-                    random->FillNormal(&gaussVecs[threadNum]);
-                    models[threadNum]->GeneratePath(gaussVecs[threadNum], &paths[threadNum]);
-                    product.Evaluate(path, *eval);
-                    AAD::Number_ res = eval->VarVals()[eval->VarVals().size() - 1];
-                    res.PropagateToMark();
-                    results.aggregated_[firstPath + i] = res.Value();
-                }
-                return true;
+                if (max_nested_ifs > 0) {
+                    std::unique_ptr<FuzzyEvaluator_<AAD::Number_>>& eval = fuzzy_eval_s[threadNum];
+                    for (size_t i = 0; i < pathsInTask; i++) {
+                        AAD::Number_::tape_->RewindToMark();
+                        random->FillNormal(&gaussVecs[threadNum]);
+                        models[threadNum]->GeneratePath(gaussVecs[threadNum], &paths[threadNum]);
+                        product.Evaluate(path, *eval);
+                        AAD::Number_ res = eval->VarVals()[eval->VarVals().size() - 1];
+                        res.PropagateToMark();
+                        results.aggregated_[firstPath + i] = res.Value();
+                    }
+                } else {
+                    std::unique_ptr<Evaluator_<AAD::Number_>>& eval = eval_s[threadNum];
+                    for (size_t i = 0; i < pathsInTask; i++) {
+                        AAD::Number_::tape_->RewindToMark();
+                        random->FillNormal(&gaussVecs[threadNum]);
+                        models[threadNum]->GeneratePath(gaussVecs[threadNum], &paths[threadNum]);
+                        product.Evaluate(path, *eval);
+                        AAD::Number_ res = eval->VarVals()[eval->VarVals().size() - 1];
+                        res.PropagateToMark();
+                        results.aggregated_[firstPath + i] = res.Value();
+                    }
+                }                return true;
             }));
 
             pathsLeft -= pathsInTask;

@@ -3,6 +3,8 @@
 //
 
 #include <iostream>
+#include <dal/time/schedules.hpp>
+#include <dal/time/dateincrement.hpp>
 #include <dal/script/event.hpp>
 #include <dal/math/aad/models/blackscholes.hpp>
 
@@ -36,6 +38,7 @@ int main() {
     const double div = 0.0;
     const double strike = 120.0;
     const Date_ maturity(2025, 9, 25);
+    const Date_ start = Global::Dates_().EvaluationDate();
 
     int n;
     std::cout << "Plz input # of paths (power of 2):";
@@ -52,9 +55,13 @@ int main() {
 
     ScriptProduct_ product;
     std::map<Date_, String_> events;
+    auto tenor = Date::ParseIncrement("1W");
+    const auto schedule = DateGenerate(start, maturity, tenor);
 
-    events[maturity] = String_("K = " + ToString(strike) + "\n"
-                               "call pays MAX(spot() - K, 0.0)");
+    events[schedule[0]] = "alive = 1";
+    for (int i = 1; i < schedule.size(); ++i)
+        events[schedule[i]] = "if spot() > 150 then alive = 0 endif";
+    events[schedule[schedule.size() - 1]] = String_("K = " + ToString(strike) + "\n call pays alive * MAX(spot() - K, 0.0)");
 
     product.ParseEvents(events.begin(), events.end());
     int max_nested_ifs = product.PreProcess(true, true);
@@ -62,7 +69,7 @@ int main() {
 
     timer.Reset();
 
-    SimResults_<Real_> results = MCSimulation(product, *model, n_paths, String_(rsg), use_bb, max_nested_ifs, 0.01);
+    SimResults_<Real_> results = MCSimulation(product, *model, n_paths, String_(rsg), use_bb, max_nested_ifs, 0.5);
 
     auto sum = 0.0;
     for (auto row = 0; row < results.Rows(); ++row)

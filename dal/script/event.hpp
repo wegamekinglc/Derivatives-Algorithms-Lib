@@ -70,8 +70,8 @@ namespace Dal::Script {
         }
 
         template<class T_>
-        std::unique_ptr<Evaluator_<T_>> BuildFuzzyEvaluator(int maxNestedIfs, double defEps) const {
-            return std::unique_ptr<Evaluator_<T_>>(new FuzzyEvaluator_<T_>(variables_.size(), maxNestedIfs, defEps));
+        std::unique_ptr<FuzzyEvaluator_<T_>> BuildFuzzyEvaluator(int maxNestedIfs, double defEps) const {
+            return std::unique_ptr<FuzzyEvaluator_<T_>>(new FuzzyEvaluator_<T_>(variables_.size(), maxNestedIfs, defEps));
         }
 
         template<class T_>
@@ -96,8 +96,8 @@ namespace Dal::Script {
             }
         }
 
-        template<class T_>
-        void Evaluate(const Scenario_<T_>& scenario, Evaluator_<T_> &eval) const {
+        template<class T_, class E_>
+        void Evaluate(const Scenario_<T_>& scenario, E_ &eval) const {
             eval.SetScenario(&scenario);
             eval.Init();
             for (size_t i = 0; i < events_.size(); ++i) {

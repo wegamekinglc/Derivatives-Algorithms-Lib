@@ -24,6 +24,7 @@ namespace Dal::Script {
         }
 
         using Visitor_<IFProcessor_>::operator();
+        using Visitor_<IFProcessor_>::Visit;
 
         void operator()(std::unique_ptr<NodeIf_> &node);
         void operator()(std::unique_ptr<NodeAssign_> &node);

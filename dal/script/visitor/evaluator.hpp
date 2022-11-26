@@ -29,7 +29,7 @@ namespace Dal::Script {
         template<class N_>
         void EvalArgs(const N_ &node) {
             for (auto it = node.arguments_.rbegin(); it != node.arguments_.rend(); ++it)
-                this->Visit(*it);
+                Visit(*it);
         }
 
         std::pair<T_, T_> Pop2() {
@@ -79,6 +79,7 @@ namespace Dal::Script {
         void SetCurEvt(size_t curEvt) { curEvt_ = curEvt; }
 
         using ConstVisitor_<Evaluator_<T_>>::operator();
+        using ConstVisitor_<Evaluator_<T_>>::Visit;
 
         void operator()(const std::unique_ptr<NodePlus_>& node) {
             EvalArgs(*node);
@@ -168,10 +169,10 @@ namespace Dal::Script {
 
         void operator()(const std::unique_ptr<NodeAssign_>& node) {
             lhsVar_ = true;
-            this->Visit(node->arguments_[0]);
+            Visit(node->arguments_[0]);
             lhsVar_ = false;
 
-            this->Visit(node->arguments_[1]);
+            Visit(node->arguments_[1]);
             *lhsVarAdr_ = dStack_.TopAndPop();
         }
 
@@ -180,32 +181,32 @@ namespace Dal::Script {
         }
 
         void operator()(const std::unique_ptr<NodeIf_>& node) {
-            this->Visit(node->arguments_[0]);
+            Visit(node->arguments_[0]);
             const bool isTrue = bStack_.TopAndPop();
 
             if (isTrue) {
                 const int lastTrue = node->firstElse_ == -1 ? node->arguments_.size() - 1 : node->firstElse_ - 1;
                 for (int i = 1; i <= lastTrue; ++i)
-                    this->Visit(node->arguments_[i]);
+                    Visit(node->arguments_[i]);
             } else if (node->firstElse_ != -1) {
                 for (int i = node->firstElse_; i < node->arguments_.size(); ++i)
-                    this->Visit(node->arguments_[i]);
+                    Visit(node->arguments_[i]);
             }
         }
 
         void operator()(const std::unique_ptr<NodePays_>& node) {
             lhsVar_ = true;
-            this->Visit(node->arguments_[0]);
+            Visit(node->arguments_[0]);
             lhsVar_ = false;
 
-            this->Visit(node->arguments_[1]);
+            Visit(node->arguments_[1]);
             *lhsVarAdr_ += dStack_.TopAndPop() / (*scenario_)[curEvt_].numeraire_;
         }
 
         void operator()(const std::unique_ptr<NodeEqual_>& node) {
             EvalArgs(*node);
             const T_ res = dStack_.TopAndPop();
-            bStack_.Push(AAD::Fabs(res) < node->eps_);
+            bStack_.Push(AAD::Fabs(res) < EPSILON);
         }
 
         void operator()(const std::unique_ptr<NodeNot_>& node) {
@@ -217,13 +218,13 @@ namespace Dal::Script {
         void operator()(const std::unique_ptr<NodeSuperior_>& node) {
             EvalArgs(*node);
             const T_ res = dStack_.TopAndPop();
-            bStack_.Push(res > node->eps_);
+            bStack_.Push(res > EPSILON);
         }
 
         void operator()(const std::unique_ptr<NodeSupEqual_>& node) {
             EvalArgs(*node);
             const T_ res = dStack_.TopAndPop();
-            bStack_.Push(res > -node->eps_);
+            bStack_.Push(res > -EPSILON);
         }
 
         void operator()(const std::unique_ptr<NodeAnd_>& node) {
@@ -240,25 +241,25 @@ namespace Dal::Script {
 
         void operator()(const std::unique_ptr<NodeSmooth_>& node) {
             //	Eval the condition
-            this->Visit(node->arguments_[0]);
+            Visit(node->arguments_[0]);
             const T_ x = dStack_.TopAndPop();
 
             //	Eval the epsilon
-            this->Visit(node->arguments_[3]);
+            Visit(node->arguments_[3]);
             const T_ halfEps = 0.5 * dStack_.TopAndPop();
 
             //	Left
             if (x < -halfEps)
-                this->Visit(node->arguments_[2]);
+                Visit(node->arguments_[2]);
             //	Right
             else if (x > halfEps)
-                this->Visit(node->arguments_[1]);
+                Visit(node->arguments_[1]);
             //	Fuzzy
             else {
-                this->Visit(node->arguments_[1]);
+                Visit(node->arguments_[1]);
                 const T_ vPos = dStack_.TopAndPop();
 
-                this->Visit(node->arguments_[2]);
+                Visit(node->arguments_[2]);
                 const T_ vNeg = dStack_.TopAndPop();
                 dStack_.Push(vNeg + 0.5 * (vPos - vNeg) / halfEps * (x + halfEps));
             }
