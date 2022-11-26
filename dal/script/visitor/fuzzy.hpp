@@ -85,7 +85,7 @@ namespace Dal::Script {
             //	Continuous case: 0 is part of expr's continuous domain
             else {
                 // effective epsilon: take default unless overwritten on the node
-                const double eps = node->eps_ < 0 ? eps_ : node->eps_;
+                const double eps = node->eps_ < 0 ? eps_ * (double)(expr) : node->eps_;
                 // call Spread
                 fuzzyStack_.Push( CSpr(expr, eps));
             }
@@ -195,7 +195,7 @@ namespace Dal::Script {
             if (node->discrete_)
                 fuzzyStack_.Push(BFly(expr, node->lb_, node->ub_));
             else {
-                double eps = node->eps_ < 0 ? eps_ : node->eps_;
+                double eps = node->eps_ < 0 ? eps_ * (double)(expr) : node->eps_;
                 fuzzyStack_.Push(BFly(expr, eps));
             }
         }
