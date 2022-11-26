@@ -96,4 +96,8 @@ finally we price this product with the model:
 | value |4.0389  |
 |-------|-----|
 
+### Some screenshot
+
+![img.png](resource/screenshot.png)
+
 
