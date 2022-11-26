@@ -13,7 +13,7 @@
 
 namespace Dal::Script {
 
-    template <class T_> class Evaluator_: public ConstVisitor_<Evaluator_<T_>> {
+    template <class T_ = double> class Evaluator_: public ConstVisitor_<Evaluator_<T_>> {
 
     protected:
         Vector_<T_> variables_;
@@ -64,10 +64,8 @@ namespace Dal::Script {
         void Init() {
             for (auto& var : variables_)
                 var = 0.0;
-            while (!dStack_.IsEmpty())
-                dStack_.Pop();
-            while (!bStack_.IsEmpty())
-                bStack_.Pop();
+            dStack_.Reset();
+            bStack_.Reset();
             lhsVar_ = false;
             lhsVarAdr_ = nullptr;
         }

@@ -158,12 +158,9 @@ namespace Dal::Script {
         void Init() {
             for (auto& var : variables_)
                 var = 0.0;
-            while (!dStack_.IsEmpty())
-                dStack_.Pop();
-            while (!bStack_.IsEmpty())
-                bStack_.Pop();
-            while (!fuzzyStack_.IsEmpty())
-                fuzzyStack_.Pop();
+            dStack_.Reset();
+            bStack_.Reset();
+            fuzzyStack_.Reset();
             lhsVar_ = false;
             lhsVarAdr_ = nullptr;
         }

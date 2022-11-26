@@ -13,7 +13,7 @@
 
 namespace Dal::Script {
 
-    constexpr const int BATCH_SIZE = 8192;
+    constexpr const int BATCH_SIZE = 4096;
     std::unique_ptr<Random_> CreateRNG(const String_& method, size_t n_dim, bool use_bb = false);
     void InitModel4ParallelAAD(const ScriptProduct_& prd, AAD::Model_<AAD::Number_>& clonedMdl, Scenario_<AAD::Number_>& path);
 

@@ -93,7 +93,7 @@ namespace Dal {
         inline iterator end() { return std::reverse_iterator<E_*>(data_); }
         inline const_iterator end() const { return std::reverse_iterator<const E_*>(data_); }
 
-        template <typename T_> inline void Push(T_&& value) {
+        template <typename T_> void Push(T_&& value) {
             data_[sp_] = std::forward<T_>(value);
             ++sp_;
             if (sp_ >= size_) {
@@ -111,12 +111,12 @@ namespace Dal {
             }
         }
 
-        inline E_& Top() { return data_[sp_ - 1]; }
-        inline const E_& Top() const { return data_[sp_ - 1]; }
-        inline E_& operator[](const size_t i) { return data_[sp_ - 1 - i]; }
-        inline const E_& operator[](const size_t i) const { return data_[sp_ - 1 - i]; }
+        E_& Top() { return data_[sp_ - 1]; }
+        const E_& Top() const { return data_[sp_ - 1]; }
+        E_& operator[](const size_t i) { return data_[sp_ - 1 - i]; }
+        const E_& operator[](const size_t i) const { return data_[sp_ - 1 - i]; }
 
-        inline E_ TopAndPop() {
+        E_ TopAndPop() {
             return std::move(data_[--sp_]);
         }
 

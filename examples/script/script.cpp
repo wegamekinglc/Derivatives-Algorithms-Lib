@@ -53,23 +53,27 @@ int main() {
     std::cout << "Type of rsg:";
     std::cin >> rsg;
 
-    ScriptProduct_ product;
-    std::map<Date_, String_> events;
-    auto tenor = Date::ParseIncrement("1W");
+    auto tenor = Date::ParseIncrement("1M");
     const auto schedule = DateGenerate(start, maturity, tenor);
 
-    events[schedule[0]] = "alive = 1";
-    for (int i = 1; i < schedule.size(); ++i)
-        events[schedule[i]] = "if spot() > 150 then alive = 0 endif";
-    events[schedule[schedule.size() - 1]] = String_("K = " + ToString(strike) + "\n call pays alive * MAX(spot() - K, 0.0)");
+    Vector_<Date_> eventDates;
+    Vector_<String_> events;
+    eventDates.push_back(schedule[0]);
+    events.push_back("alive = 1");
+    for (int i = 1; i < schedule.size(); ++i) {
+        eventDates.push_back(schedule[i]);
+        events.push_back("if spot() >= 150:0.5 then alive = 0 endif");
+    }
+    eventDates.push_back(schedule[schedule.size() - 1]);
+    events.push_back(String_("K = " + ToString(strike) + "\n call pays alive * MAX(spot() - K, 0.0)"));
 
-    product.ParseEvents(events.begin(), events.end());
+    ScriptProduct_ product("script_product", eventDates, events);
     int max_nested_ifs = product.PreProcess(true, true);
     std::unique_ptr<Model_<Real_>> model = std::make_unique<BlackScholes_<Real_>>(spot, vol, false, rate, div);
 
     timer.Reset();
 
-    SimResults_<Real_> results = MCSimulation(product, *model, n_paths, String_(rsg), use_bb, max_nested_ifs, 0.5);
+    SimResults_<Real_> results = MCSimulation(product, *model, n_paths, String_(rsg), use_bb, max_nested_ifs);
 
     auto sum = 0.0;
     for (auto row = 0; row < results.Rows(); ++row)

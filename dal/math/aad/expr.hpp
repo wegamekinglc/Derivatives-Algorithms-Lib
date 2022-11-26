@@ -486,8 +486,6 @@ namespace Dal::AAD {
             return *this;
         }
 
-        explicit operator double&() { return Value(); }
-
         void PutOnTape() { node_ = CreateMultiNode<0>(); }
 
         double& Value() { return value_; }
