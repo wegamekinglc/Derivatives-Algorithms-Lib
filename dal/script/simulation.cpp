@@ -41,7 +41,8 @@ namespace Dal::Script {
                                const AAD::Model_<double>& model,
                                int n_paths,
                                const String_& rsg,
-                               bool use_bb) {
+                               bool use_bb,
+                               int max_nested_ifs) {
         auto mdl = model.Clone();
 
         mdl->Allocate(product.TimeLine(), product.DefLine());
@@ -111,7 +112,8 @@ namespace Dal::Script {
                                            const AAD::Model_<AAD::Number_>& model,
                                            int n_paths,
                                            const String_& rsg,
-                                           bool use_bb) {
+                                           bool use_bb,
+                                           int max_nested_ifs) {
         auto mdl = model.Clone();
         mdl->Allocate(product.TimeLine(), product.DefLine());
         std::unique_ptr<Random_> rng = CreateRNG(rsg, mdl->SimDim(), use_bb);
@@ -149,8 +151,12 @@ namespace Dal::Script {
             InitializePath(path);
         }
 
-        for (auto& eval : eval_s)
-            eval = product.BuildEvaluator<AAD::Number_>();
+        for (auto& eval : eval_s) {
+            if (max_nested_ifs >= 0)
+                eval = product.BuildFuzzyEvaluator<AAD::Number_>(max_nested_ifs, 0.01);
+            else
+                eval = product.BuildEvaluator<AAD::Number_>();
+        }
 
         Vector_<AAD::Tape_> tapes(nThread);
         Vector_<bool> mdlInit(nThread + 1, false);

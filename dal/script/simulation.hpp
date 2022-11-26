@@ -38,11 +38,13 @@ namespace Dal::Script {
                                const AAD::Model_<double>& model,
                                int n_paths,
                                const String_& rsg = "sobol",
-                               bool use_bb = false);
+                               bool use_bb = false,
+                               int max_nested_ifs = -1);
 
     SimResults_<AAD::Number_> MCSimulation(const ScriptProduct_& product,
-                                 const AAD::Model_<AAD::Number_>& model,
-                                 int n_paths,
-                                 const String_& rsg = "sobol",
-                                 bool use_bb = false);
+                                           const AAD::Model_<AAD::Number_>& model,
+                                           int n_paths,
+                                           const String_& rsg = "sobol",
+                                           bool use_bb = false,
+                                           int max_nested_ifs = -1);
 }

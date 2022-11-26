@@ -57,12 +57,12 @@ int main() {
                                "call pays MAX(spot() - K, 0.0)");
 
     product.ParseEvents(events.begin(), events.end());
-    int maxNestedIfs = product.PreProcess(false, false);
+    int max_nested_ifs = product.PreProcess(false, false);
     std::unique_ptr<Model_<Real_>> model = std::make_unique<BlackScholes_<Real_>>(spot, vol, false, rate, div);
 
     timer.Reset();
 
-    SimResults_<Real_> results = MCSimulation(product, *model, n_paths, String_(rsg), use_bb);
+    SimResults_<Real_> results = MCSimulation(product, *model, n_paths, String_(rsg), use_bb, max_nested_ifs);
 
     auto sum = 0.0;
     for (auto row = 0; row < results.Rows(); ++row)

@@ -40,10 +40,10 @@ namespace Dal::Script {
     }
 
     //	All preprocessing
-    size_t ScriptProduct_::PreProcess(bool fuzzy, bool skipDoms) {
+    size_t ScriptProduct_::PreProcess(bool fuzzy, bool skip_domain) {
         IndexVariables();
         size_t maxNestedIfs = 0;
-        if (fuzzy || !skipDoms) {
+        if (fuzzy || !skip_domain) {
             maxNestedIfs = IFProcess();
             DomainProcess(fuzzy);
             ConstCondProcess();

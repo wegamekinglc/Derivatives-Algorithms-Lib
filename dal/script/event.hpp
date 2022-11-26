@@ -97,8 +97,8 @@ namespace Dal::Script {
         }
 
         template<class T_>
-        void Evaluate(const Scenario_<T_> &scen, Evaluator_<T_> &eval) const {
-            eval.SetScenario(&scen);
+        void Evaluate(const Scenario_<T_>& scenario, Evaluator_<T_> &eval) const {
+            eval.SetScenario(&scenario);
             eval.Init();
             for (size_t i = 0; i < events_.size(); ++i) {
                 eval.SetCurEvt(i);
@@ -112,7 +112,7 @@ namespace Dal::Script {
         void DomainProcess(bool fuzzy);
         void ConstCondProcess();
 
-        size_t PreProcess(bool fuzzy, bool skipDoms);
+        size_t PreProcess(bool fuzzy, bool skip_domain);
         void Debug(std::ostream &ost) const;
 
         void Write(Archive::Store_& dst) const override;
