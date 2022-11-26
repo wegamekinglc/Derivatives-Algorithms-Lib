@@ -17,7 +17,9 @@ namespace Dal {
                                                 const Handle_<ModelData_>& modelData,
                                                 int num_path,
                                                 const String_& rsg = "sobol",
-                                                bool use_bb = false);
+                                                bool use_bb = false,
+                                                bool enable_aad = false,
+                                                double smooth = 0.01);
 
 
 }

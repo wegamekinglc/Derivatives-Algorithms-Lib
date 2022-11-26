@@ -1312,7 +1312,7 @@ _dal.Dictionary_swigregister(Dictionary)
 
 def MonteCarlo_Value(*args) -> "std::map< std::string,double,std::less< std::string >,std::allocator< std::pair< std::string const,double > > >":
     r"""
-    MonteCarlo_Value(product, modelData, num_path, method="sobol", use_bb=False) -> Dictionary
+    MonteCarlo_Value(product, modelData, num_path, method="sobol", use_bb=False, enable_aad=False, smooth=0.01) -> Dictionary
 
     Parameters
     ----------
@@ -1321,6 +1321,8 @@ def MonteCarlo_Value(*args) -> "std::map< std::string,double,std::less< std::str
     num_path: int
     method: std::string const &
     use_bb: bool
+    enable_aad: bool
+    smooth: double
 
     """
     return _dal.MonteCarlo_Value(*args)

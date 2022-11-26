@@ -16,8 +16,10 @@
                                                    const Handle_<ModelData_>& modelData,
                                                    int num_path,
                                                    const std::string& method = "sobol",
-                                                   bool use_bb = false) {
-    auto res = ValueByMonteCarlo(product, modelData, num_path, String_(method), use_bb);
+                                                   bool use_bb = false,
+                                                   bool enable_aad = false,
+                                                   double smooth = 0.01) {
+    auto res = ValueByMonteCarlo(product, modelData, num_path, String_(method), use_bb, enable_aad, smooth);
     std::map<std::string, double> rtn;
     for (auto& d : res)
         rtn[d.first.c_str()] = d.second;

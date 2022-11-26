@@ -6,4 +6,7 @@ dates = [d]
 events = ["call pays MAX(spot() - 120, 0.0)"]
 product = Product_New(dates, events)
 model = BSModelData_New(100, 0.15, 0.0, 0.0)
-print(MonteCarlo_Value(product, model, 2 ** 20)["value"])
+res = MonteCarlo_Value(product, model, 2 ** 20, "sobol", False, True, 0.01)
+
+for k, v in res.items():
+    print(f"{k}: {v}")

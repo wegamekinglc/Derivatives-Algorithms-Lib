@@ -21,6 +21,10 @@ rsg is string
     method of random number generation
 use_bb is boolean
     whether to use brownian bridge to generate path
+enable_aad is boolean
+    whether to enable aad mode
+smooth is number
+    smooth factor for non-continuous
 &outputs
 values is cell[][]
     the output values
@@ -34,8 +38,10 @@ namespace Dal {
                               double n_paths,
                               const String_& rsg,
                               bool use_bb,
+                              bool enable_aad,
+                              double smooth,
                               Matrix_<Cell_>* values) {
-            auto val = ValueByMonteCarlo(product, modelData, (int)n_paths, rsg, use_bb);
+            auto val = ValueByMonteCarlo(product, modelData, (int)n_paths, rsg, use_bb, enable_aad, smooth);
             values->Resize(val.size(), 2);
             int i = 0;
             for (auto& d : val) {
