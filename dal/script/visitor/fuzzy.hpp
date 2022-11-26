@@ -10,8 +10,8 @@
 #include <dal/script/visitor/evaluator.hpp>
 
 namespace Dal::Script {
-    template <class T_>
-    class FuzzyEvaluator_: public Evaluator_<T_> {
+    template<class T_>
+    class FuzzyEvaluator_ : public Evaluator_<T_> {
         double eps_;
         Stack_<T_> fuzzyStack_;
 
@@ -27,10 +27,11 @@ namespace Dal::Script {
             res.second = fuzzyStack_.TopAndPop();
             return res;
         }
+
         // call spread (-eps/2, +eps/2)
-        static T_ CSpr(const T_& x, double eps) {
+        static T_ CSpr(const T_ &x, double eps) {
             const double halfEps = 0.5 * eps;
-            if (x < - halfEps)
+            if (x < -halfEps)
                 return 0.0;
             else if (x > halfEps)
                 return 1.0;
@@ -39,7 +40,7 @@ namespace Dal::Script {
         }
 
         // call spread (lb, rb)
-        static T_ CSpr(const T_& x, double lb, double rb) {
+        static T_ CSpr(const T_ &x, double lb, double rb) {
             if (x < lb)
                 return 0.0;
             else if (x > rb)
@@ -49,19 +50,17 @@ namespace Dal::Script {
         }
 
         // butterfly (-eps/2, +eps/2)
-        static T_ BFly( const T_& x, double eps)
-        {
+        static T_ BFly(const T_ &x, double eps) {
             const double halfEps = 0.5 * eps;
-            if (x < - halfEps || x > halfEps)
+            if (x < -halfEps || x > halfEps)
                 return 0.0;
             else
                 return (halfEps - Fabs(x)) / halfEps;
         }
 
         // butterfly (lb, 0, rb)
-        static T_ BFly( const T_& x, double lb, double rb)
-        {
-            if( x < lb || x > rb)
+        static T_ BFly(const T_ &x, double lb, double rb) {
+            if (x < lb || x > rb)
                 return 0.0;
             else if (x < 0.0)
                 return 1.0 - x / lb;
@@ -70,8 +69,7 @@ namespace Dal::Script {
         }
 
         template<class NodeSup_>
-        void VisitImpl(const std::unique_ptr<NodeSup_>& node)
-        {
+        void VisitImpl(const std::unique_ptr<NodeSup_> &node) {
             // evaluate expression to be compared to 0
             this->Visit(node->arguments_[0]);
             const T_ expr = Evaluator_<T_>::dStack_.TopAndPop();
@@ -80,33 +78,34 @@ namespace Dal::Script {
             // either 0 is a singleton in expr's domain
             // or 0 is not part of expr's domain, but expr's domain has subdomains left and right of 0
             // otherwise the condition would be always true/false
-            if( node->discrete_)
-                fuzzyStack_.Push( CSpr(expr, node->lb_, node->ub_));
-            //	Continuous case: 0 is part of expr's continuous domain
+            if (node->discrete_)
+                fuzzyStack_.Push(CSpr(expr, node->lb_, node->ub_));
+                //	Continuous case: 0 is part of expr's continuous domain
             else {
                 // effective epsilon: take default unless overwritten on the node
-                const double eps = node->eps_ < 0 ? eps_ * (double)(expr) : node->eps_;
+                const double eps = node->eps_ < 0 ? eps_ * (double) (expr) : node->eps_;
                 // call Spread
-                fuzzyStack_.Push( CSpr(expr, eps));
+                fuzzyStack_.Push(CSpr(expr, eps));
             }
         }
 
     public:
         FuzzyEvaluator_(size_t nVar, size_t maxNestedIFs, double eps)
-        : Evaluator_<T_>(nVar), eps_(eps), varStore0_(maxNestedIFs), varStore1_(maxNestedIFs), nestedIFLv_(0) {
-            for (auto& store: varStore0_)
+                : Evaluator_<T_>(nVar), eps_(eps), varStore0_(maxNestedIFs), varStore1_(maxNestedIFs), nestedIFLv_(0) {
+            for (auto &store: varStore0_)
                 store.Resize(nVar);
-            for (auto& store: varStore1_)
+            for (auto &store: varStore1_)
                 store.Resize(nVar);
         }
 
-        FuzzyEvaluator_(const FuzzyEvaluator_& rhs)
-        : Evaluator_<T_>(rhs), eps_( rhs.eps_), varStore0_( rhs.varStore0_.size()), varStore1_( rhs.varStore1_.size()), nestedIFLv_( 0) {
-            for( auto& store : varStore0_) store.resize(Evaluator_<T_>::variables_.size());
-            for( auto& store : varStore1_) store.resize(Evaluator_<T_>::variables_.size());
+        FuzzyEvaluator_(const FuzzyEvaluator_ &rhs)
+                : Evaluator_<T_>(rhs), eps_(rhs.eps_), varStore0_(rhs.varStore0_.size()),
+                  varStore1_(rhs.varStore1_.size()), nestedIFLv_(0) {
+            for (auto &store: varStore0_) store.resize(Evaluator_<T_>::variables_.size());
+            for (auto &store: varStore1_) store.resize(Evaluator_<T_>::variables_.size());
         }
 
-        FuzzyEvaluator_& operator=(const FuzzyEvaluator_& rhs) {
+        FuzzyEvaluator_ &operator=(const FuzzyEvaluator_ &rhs) {
             if (this == &rhs)
                 return *this;
 
@@ -115,16 +114,17 @@ namespace Dal::Script {
             varStore0_.Resize(rhs.varStore0_.size());
             varStore1_.Resize(rhs.varStore1_.size());
 
-            for( auto& store : varStore0_) store.resize(Evaluator_<T_>::variables_.size());
-            for( auto& store : varStore1_) store.resize(Evaluator_<T_>::variables_.size());
+            for (auto &store: varStore0_) store.resize(Evaluator_<T_>::variables_.size());
+            for (auto &store: varStore1_) store.resize(Evaluator_<T_>::variables_.size());
             nestedIFLv_ = 0;
             return *this;
         }
 
-        FuzzyEvaluator_(FuzzyEvaluator_&& rhs) noexcept
-        : Evaluator_<T_>(std::move(rhs)), eps_(rhs.eps_), varStore0_(std::move(rhs.varStore0_)), varStore1_(std::move(rhs.varStore1_)), nestedIFLv_( 0) {}
+        FuzzyEvaluator_(FuzzyEvaluator_ &&rhs) noexcept
+                : Evaluator_<T_>(std::move(rhs)), eps_(rhs.eps_), varStore0_(std::move(rhs.varStore0_)),
+                  varStore1_(std::move(rhs.varStore1_)), nestedIFLv_(0) {}
 
-        FuzzyEvaluator_& operator=(FuzzyEvaluator_&& rhs) {
+        FuzzyEvaluator_ &operator=(FuzzyEvaluator_ &&rhs) {
             Evaluator_<T_>::operator=(std::move(rhs));
             eps_ = rhs.eps_;
             varStore0_ = std::move(rhs.varStore0_);
@@ -138,9 +138,10 @@ namespace Dal::Script {
         }
 
         using Evaluator_<T_>::operator();
+
         // override visitors
         // If
-        void operator()(const std::unique_ptr<NodeIf_>& node) {
+        void operator()(const std::unique_ptr<NodeIf_> &node) {
             const size_t lastTrueStat = node->firstElse_ == -1 ? node->arguments_.size() - 1 : node->firstElse_ - 1;
             ++nestedIFLv_;
             this->Visit(node->arguments_[0]);
@@ -155,78 +156,78 @@ namespace Dal::Script {
                         this->Visit(node->arguments_[i]);
             } else {
                 // record values of variables to be changed
-                for( auto idx : node->affectedVars_)
+                for (auto idx: node->affectedVars_)
                     varStore0_[nestedIFLv_ - 1][idx] = Evaluator_<T_>::variables_[idx];
 
                 // eval "if true" statements
-                for (size_t i = 1; i<=lastTrueStat; ++i)
+                for (size_t i = 1; i <= lastTrueStat; ++i)
                     this->Visit(node->arguments_[i]);
 
                 // record and reset values of variables to be changed
-                for (auto idx : node->affectedVars_) {
+                for (auto idx: node->affectedVars_) {
                     varStore1_[nestedIFLv_ - 1][idx] = Evaluator_<T_>::variables_[idx];
                     Evaluator_<T_>::variables_[idx] = varStore0_[nestedIFLv_ - 1][idx];
                 }
 
                 // eval "if false" statements if any
                 if (node->firstElse_ != -1)
-                    for( size_t i=node->firstElse_; i<node->arguments_.size(); ++i)
+                    for (size_t i = node->firstElse_; i < node->arguments_.size(); ++i)
                         this->Visit(node->arguments_[i]);
                 // set values of variables to fuzzy values
-                for (auto idx : node->affectedVars_)
+                for (auto idx: node->affectedVars_)
                     Evaluator_<T_>::variables_[idx] =
-                        dt * varStore1_[nestedIFLv_ - 1][idx] + (1.0 - dt) * Evaluator_<T_>::variables_[idx];
+                            dt * varStore1_[nestedIFLv_ - 1][idx] + (1.0 - dt) * Evaluator_<T_>::variables_[idx];
             }
             --nestedIFLv_;
         }
 
-        void operator()(const std::unique_ptr<NodeTrue_>& node) {
+        void operator()(const std::unique_ptr<NodeTrue_> &node) {
             fuzzyStack_.Push(T_(1.0));
         }
 
-        void operator()(const std::unique_ptr<NodeFalse_>& node) {
+        void operator()(const std::unique_ptr<NodeFalse_> &node) {
             fuzzyStack_.Push(T_(0.0));
         }
 
-        void operator()(const std::unique_ptr<NodeEqual_>& node) {
+        void operator()(const std::unique_ptr<NodeEqual_> &node) {
             this->Visit(node->arguments_[0]);
             const T_ expr = Evaluator_<T_>::dStack_.TopAndPop();
 
             if (node->discrete_)
                 fuzzyStack_.Push(BFly(expr, node->lb_, node->ub_));
             else {
-                double eps = node->eps_ < 0 ? eps_ * (double)(expr) : node->eps_;
+                double eps = node->eps_ < 0 ? eps_ * (double) (expr) : node->eps_;
                 fuzzyStack_.Push(BFly(expr, eps));
             }
         }
 
         // inequality
         // for visiting superior and supEqual
-        void operator()(const std::unique_ptr<NodeSuperior_>& node) {
+        void operator()(const std::unique_ptr<NodeSuperior_> &node) {
             VisitImpl(node);
         }
 
-        void operator()(const std::unique_ptr<NodeSupEqual_>& node) {
+        void operator()(const std::unique_ptr<NodeSupEqual_> &node) {
             VisitImpl(node);
         }
 
         // negation
-        void operator()(const std::unique_ptr<NodeNot_>& node) {
+        void operator()(const std::unique_ptr<NodeNot_> &node) {
             Evaluator_<T_>::EvalArgs(node);
             fuzzyStack_.Top() = 1.0 - fuzzyStack_.Top();
         }
 
         // combinators
         // hard coded proba stlye and->dt(lhs)*dt(rhs), or->dt(lhs)+dt(rhs)-dt(lhs)*dt(rhs)
-        void operator()(const std::unique_ptr<NodeAnd_>& node) {
-            Evaluator_<T_>::EvalArgs( node);
-            const auto& args = Pop2f();
+        void operator()(const std::unique_ptr<NodeAnd_> &node) {
+            Evaluator_<T_>::EvalArgs(node);
+            const auto &args = Pop2f();
             fuzzyStack_.Push(args.first * args.second);
         }
 
-        void operator()( const std::unique_ptr<NodeOr_>& node) {
-            Evaluator_<T_>::EvalArgs( node);
-            const auto& args = Pop2f();
+        void operator()(const std::unique_ptr<NodeOr_> &node) {
+            Evaluator_<T_>::EvalArgs(node);
+            const auto &args = Pop2f();
             fuzzyStack_.Push(args.first + args.second - args.first * args.second);
         }
     };
