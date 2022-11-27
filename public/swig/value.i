@@ -12,7 +12,7 @@
 %template(Dictionary) std::map<std::string, double>;
 
 %inline %{
-    std::map<std::string, double> MonteCarlo_Value(const Handle_<ScriptProduct_>& product,
+    std::map<std::string, double> MonteCarlo_Value(const Handle_<ScriptProductData_>& product,
                                                    const Handle_<ModelData_>& modelData,
                                                    int num_path,
                                                    const std::string& method = "sobol",

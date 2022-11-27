@@ -13,7 +13,7 @@ namespace Dal {
     using AAD::BSModelData_;
     using Script::SimResults_;
 
-    std::map<String_, double> ValueByMonteCarlo(const Handle_<ScriptProduct_>& product,
+    std::map<String_, double> ValueByMonteCarlo(const Handle_<ScriptProductData_>& product,
                                                 const Handle_<ModelData_>& modelData,
                                                 int n_paths,
                                                 const String_& rsg,
@@ -24,7 +24,7 @@ namespace Dal {
         auto model_imp = dynamic_cast<const BSModelData_*>(modelData.get());
         std::unique_ptr<Model_<double>> mdl;
         std::unique_ptr<Model_<AAD::Number_>> aad_model;
-        auto prd = product->Clone();
+        auto& prd = product->Product();
         std::map<String_, double> res;
         if (enable_aad) {
             aad_model = std::make_unique<BlackScholes_<AAD::Number_>>(model_imp->spot_,
@@ -32,8 +32,8 @@ namespace Dal {
                                                                       model_imp->spotMeasure_,
                                                                       model_imp->rate_,
                                                                       model_imp->div_);
-            int max_nested_ifs = prd->PreProcess(true, true);
-            SimResults_<AAD::Number_> results = MCSimulation(*prd, *aad_model, n_paths, rsg, use_bb, max_nested_ifs, smooth);
+            int max_nested_ifs = prd.PreProcess(true, true);
+            SimResults_<AAD::Number_> results = MCSimulation(prd, *aad_model, n_paths, rsg, use_bb, max_nested_ifs, smooth);
             Vector_<String_> parameters = aad_model->ParameterLabels();
             auto sum = 0.0;
             auto n = results.Rows();
@@ -49,8 +49,8 @@ namespace Dal {
                                                     model_imp->spotMeasure_,
                                                     model_imp->rate_,
                                                     model_imp->div_);
-            prd->PreProcess(false, false);
-            SimResults_<> results = MCSimulation(*prd, *mdl, n_paths, rsg, use_bb);
+            prd.PreProcess(false, false);
+            SimResults_<> results = MCSimulation(prd, *mdl, n_paths, rsg, use_bb);
             auto sum = 0.0;
             auto n = results.Rows();
             for (auto row = 0; row < n; ++row)

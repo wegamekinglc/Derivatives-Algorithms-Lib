@@ -67,7 +67,7 @@ int main() {
     eventDates.push_back(schedule[schedule.size() - 1]);
     events.push_back(String_("K = " + ToString(strike) + "\n call pays alive * MAX(spot() - K, 0.0)"));
 
-    ScriptProduct_ product("script_product", eventDates, events);
+    ScriptProduct_ product(eventDates, events);
     int max_nested_ifs = product.PreProcess(true, true);
     std::unique_ptr<Model_<Real_>> model = std::make_unique<BlackScholes_<Real_>>(spot, vol, false, rate, div);
 

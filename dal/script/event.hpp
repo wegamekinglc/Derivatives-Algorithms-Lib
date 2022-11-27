@@ -20,8 +20,8 @@
 
 
 /*IF--------------------------------------------------------------------------
-storable ScriptProduct
-        Script product from an events table
+storable ScriptProductData
+   data for script product from an events table
 version 1
 &members
 name is ?string
@@ -35,26 +35,20 @@ namespace Dal::Script {
 
     using Event_ = Vector_<ScriptNode_>;
 
-    class ScriptProduct_ : public Storable_ {
+    class ScriptProduct_ {
         Vector_<Date_> eventDates_;
         Vector_<Event_> events_;
-        Vector_<String_> eventStrings_;
         Vector_<String_> variables_;
 
         Vector_<double> timeLine_;
         Vector_<Dal::AAD::SampleDef_> defLine_;
 
     public:
-        ScriptProduct_(const String_& name = ""): Storable_("ScriptProduct", name) {}
-        ScriptProduct_(const String_& name, const std::map<Date_, String_>& events)
-        : Storable_("ScriptProduct", name) { ParseEvents(events.begin(), events.end()); }
-
-        ScriptProduct_(const String_& name, const Vector_<Date_>& dates, const Vector_<String_>& events)
-        : Storable_("ScriptProduct", name) {
+        ScriptProduct_(const std::map<Date_, String_>& events) { ParseEvents(events.begin(), events.end()); }
+        ScriptProduct_(const Vector_<Date_>& dates, const Vector_<String_>& events) {
             REQUIRE(dates.size() == events.size(), "");
             for (int i = 0; i < dates.size(); ++i) {
                 eventDates_.push_back(dates[i]);
-                eventStrings_.push_back(events[i]);
                 events_.push_back(Parse(events[i]));
             }
         }
@@ -83,7 +77,6 @@ namespace Dal::Script {
         void ParseEvents(EvtIt_ begin, EvtIt_ end) {
             for (EvtIt_ evtIt = begin; evtIt != end; ++evtIt) {
                 eventDates_.push_back(evtIt->first);
-                eventStrings_.push_back(evtIt->second);
                 events_.push_back(Parse(evtIt->second));
             }
         }
@@ -114,12 +107,22 @@ namespace Dal::Script {
 
         size_t PreProcess(bool fuzzy, bool skip_domain);
         void Debug(std::ostream &ost) const;
+    };
 
+    class ScriptProductData_ : public Storable_ {
+        Vector_<Date_> eventDates_;
+        Vector_<String_> eventDesc_;
+        mutable ScriptProduct_ product_;
+
+    public:
+
+        ScriptProductData_(const String_& name, const Vector_<Date_>& dates, const Vector_<String_>& events)
+            : Storable_("ScriptProduct", name), eventDates_(dates), eventDesc_(events), product_(eventDates_, eventDesc_) {}
         void Write(Archive::Store_& dst) const override;
 
-        [[nodiscard]] std::unique_ptr<ScriptProduct_> Clone() const {
-            auto clone = std::make_unique<ScriptProduct_>(this->name_, this->eventDates_, this->eventStrings_);
-            return clone;
+        ScriptProduct_& Product() const {
+            return product_;
         }
+
     };
 }

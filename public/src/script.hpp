@@ -8,17 +8,17 @@
 #include <dal/script/event.hpp>
 
 namespace Dal {
-    using Dal::Script::ScriptProduct_;
+    using Dal::Script::ScriptProductData_;
 
-    FORCE_INLINE Handle_<ScriptProduct_> NewScriptProduct(const String_& name,
+    FORCE_INLINE Handle_<ScriptProductData_> NewScriptProduct(const String_& name,
                                                           const Vector_<Date_>& dates,
                                                           const Vector_<String_>& events) {
-        return Handle_<ScriptProduct_>(new ScriptProduct_(name, dates, events));
+        return Handle_<ScriptProductData_>(new ScriptProductData_(name, dates, events));
     }
 
-    FORCE_INLINE String_ DebugScriptProduct(const Handle_<ScriptProduct_>& product) {
+    FORCE_INLINE String_ DebugScriptProduct(const Handle_<ScriptProductData_>& product) {
         std::ostringstream out;
-        product->Debug(out);
+        product->Product().Debug(out);
         return String_(out.str());
     }
 }

@@ -10,8 +10,8 @@
 
 namespace Dal::Script {
 
-#include <dal/auto/MG_ScriptProduct_v1_Read.inc>
-#include <dal/auto/MG_ScriptProduct_v1_Write.inc>
+#include <dal/auto/MG_ScriptProductData_v1_Read.inc>
+#include <dal/auto/MG_ScriptProductData_v1_Write.inc>
 
     void ScriptProduct_::IndexVariables() {
         VarIndexer_ indexer;
@@ -83,7 +83,7 @@ namespace Dal::Script {
         }
     }
 
-    void ScriptProduct_::Write(Archive::Store_& dst) const {
-        ScriptProduct_v1::XWrite(dst, name_, eventDates_, eventStrings_);
+    void ScriptProductData_::Write(Archive::Store_& dst) const {
+        ScriptProductData_v1::XWrite(dst, name_, eventDates_, eventDesc_);
     }
 }
