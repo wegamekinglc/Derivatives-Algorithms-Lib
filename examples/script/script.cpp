@@ -7,7 +7,7 @@
 #include <dal/time/dateincrement.hpp>
 #include <dal/script/event.hpp>
 #include <dal/math/aad/models/blackscholes.hpp>
-
+#include <dal/math/aad/models/dupire.hpp>
 #include <dal/storage/globals.hpp>
 #include <dal/utilities/timer.hpp>
 #include <dal/script/simulation.hpp>
@@ -18,7 +18,7 @@ using namespace Dal;
 using namespace Dal::Script;
 using namespace Dal::AAD;
 
-#define USE_AAD
+//#define USE_AAD
 
 
 int main() {
@@ -53,6 +53,10 @@ int main() {
     std::cout << "Type of rsg:";
     std::cin >> rsg;
 
+    std::string model_name = "bs";
+    std::cout << "Type of model:";
+    std::cin >> model_name;
+
     timer.Reset();
     auto tenor = Date::ParseIncrement("1W");
     const auto schedule = DateGenerate(start, maturity, tenor);
@@ -69,12 +73,25 @@ int main() {
     events.push_back(String_("K = " + ToString(strike) + "\n call pays alive * MAX(spot() - K, 0.0)"));
 
     ScriptProduct_ product(eventDates, events);
-    int max_nested_ifs = product.PreProcess(true, true);
-    std::unique_ptr<Model_<Real_>> model = std::make_unique<BlackScholes_<Real_>>(spot, vol, false, rate, div);
+
+    std::unique_ptr<Model_<Real_>> model;
+    if (model_name == "bs")
+        model = std::make_unique<BlackScholes_<Real_>>(spot, vol, false, rate, div);
+    else if (model_name == "dupire") {
+        auto times = Vector::XRange(0.0, 5.0, 61);
+        auto spots = Vector::XRange(50.0, 200.0, 31);
+        model = std::make_unique<Dupire_<Real_>>(Real_(spot), spots, times, Matrix_<Real_>(spots.size(), times.size(), Real_(0.15)), 10.0);
+    }
     std::cout << "\nParsing " << std::setprecision(8) << "\tElapsed: " << timer.Elapsed<milliseconds>() << " ms" << std::endl;
 
     timer.Reset();
+#ifdef USE_AAD
+    int max_nested_ifs = product.PreProcess(true, true);
     SimResults_<Real_> results = MCSimulation(product, *model, n_paths, String_(rsg), use_bb, max_nested_ifs);
+#else
+    int max_nested_ifs = product.PreProcess(false, true);
+    SimResults_<Real_> results = MCSimulation(product, *model, n_paths, String_(rsg), use_bb);
+#endif
 
     auto sum = 0.0;
     for (auto row = 0; row < results.Rows(); ++row)
@@ -82,9 +99,17 @@ int main() {
     auto calculated = sum / static_cast<double>(results.Rows());
     std::cout << "\nEuropean       w. B-S: price " << std::setprecision(8) << calculated << "\tElapsed: " << timer.Elapsed<milliseconds>() << " ms" << std::endl;
 #ifdef USE_AAD
-    std::cout << "                     : delta " << std::setprecision(8) << results.risks_[0] << std::endl;
-    std::cout << "                     : vega  " << std::setprecision(8) << results.risks_[1] << std::endl;
-    std::cout << "                     : rho   " << std::setprecision(8) << results.risks_[2] << std::endl;
+    if (model_name == "bs") {
+        std::cout << "                     : delta " << std::setprecision(8) << results.risks_[0] << std::endl;
+        std::cout << "                     : vega  " << std::setprecision(8) << results.risks_[1] << std::endl;
+        std::cout << "                     : rho   " << std::setprecision(8) << results.risks_[2] << std::endl;
+    } else if (model_name == "dupire") {
+        auto vega = 0.0;
+        for (int i = 1; i < results.risks_.size(); ++i)
+            vega += results.risks_[i];
+        std::cout << "                     : delta " << std::setprecision(8) << results.risks_[0] << std::endl;
+        std::cout << "                     : vega  " << std::setprecision(8) << vega << std::endl;
+    }
 #endif
 
     return 0;
