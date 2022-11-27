@@ -18,13 +18,8 @@
 """
 
 import os, sys, math
-
-try:
-    from setuptools import setup, Extension
-    from setuptools import Command
-except:
-    from distutils.core import setup, Extension
-    from distutils.cmd import Command
+from setuptools import setup, Extension, find_packages
+from setuptools import Command
 from distutils.command.build_ext import build_ext
 from distutils.command.build import build
 from distutils.ccompiler import get_default_compiler
@@ -192,6 +187,8 @@ setup(name="dal-python",
       author_email="wegamekinglc@hotmail.copm",
       license="BSD 3-Clause",
       classifiers=classifiers,
+      include_package_data=True,
+      packages=find_packages(),
       py_modules=['dal.__init__', 'dal.dal'],
       ext_modules=[Extension("dal._dal",
                              ["dal/dal_wrap.cpp"])

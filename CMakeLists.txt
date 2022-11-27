@@ -86,6 +86,10 @@ add_subdirectory(dal)
 add_subdirectory(public)
 add_subdirectory(examples)
 
+if (NOT DEFINED SKIP_TESTS)
+    set(SKIP_TESTS true)
+endif()
+
 message("-- SKIP_TESTS: ${SKIP_TESTS}")
 if ("${SKIP_TESTS}" STREQUAL "false")
     add_subdirectory(tests)

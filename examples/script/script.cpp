@@ -53,7 +53,7 @@ int main() {
     std::cout << "Type of rsg:";
     std::cin >> rsg;
 
-    auto tenor = Date::ParseIncrement("1M");
+    auto tenor = Date::ParseIncrement("1W");
     const auto schedule = DateGenerate(start, maturity, tenor);
 
     Vector_<Date_> eventDates;

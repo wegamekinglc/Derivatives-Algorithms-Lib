@@ -13,3 +13,5 @@ dist
 build
 *.egg-info
 *.idb
+__pycache__
+public/lib/*
