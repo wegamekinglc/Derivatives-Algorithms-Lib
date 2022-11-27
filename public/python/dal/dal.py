@@ -993,24 +993,24 @@ class DoubleMatrix_(object):
 # Register DoubleMatrix_ in _dal:
 _dal.DoubleMatrix__swigregister(DoubleMatrix_)
 
-class ScriptProduct_(object):
-    r"""Proxy of C++ Handle_< ScriptProduct_ > class."""
+class ScriptProductData_(object):
+    r"""Proxy of C++ Handle_< ScriptProductData_ > class."""
 
     thisown = property(lambda x: x.this.own(), lambda x, v: x.this.own(v), doc="The membership flag")
     __repr__ = _swig_repr
 
     def __init__(self):
-        r"""__init__(self) -> ScriptProduct_"""
-        _dal.ScriptProduct__swiginit(self, _dal.new_ScriptProduct_())
-    __swig_destroy__ = _dal.delete_ScriptProduct_
+        r"""__init__(self) -> ScriptProductData_"""
+        _dal.ScriptProductData__swiginit(self, _dal.new_ScriptProductData_())
+    __swig_destroy__ = _dal.delete_ScriptProductData_
 
-# Register ScriptProduct_ in _dal:
-_dal.ScriptProduct__swigregister(ScriptProduct_)
+# Register ScriptProductData_ in _dal:
+_dal.ScriptProductData__swigregister(ScriptProductData_)
 
 
-def Product_New(dates: "DateVector", events: "StrVector") -> "Handle_< ScriptProduct_ >":
+def Product_New(dates: "DateVector", events: "StrVector") -> "Handle_< ScriptProductData_ >":
     r"""
-    Product_New(dates, events) -> ScriptProduct_
+    Product_New(dates, events) -> ScriptProductData_
 
     Parameters
     ----------
@@ -1020,13 +1020,13 @@ def Product_New(dates: "DateVector", events: "StrVector") -> "Handle_< ScriptPro
     """
     return _dal.Product_New(dates, events)
 
-def Product_Debug(product: "ScriptProduct_") -> "std::string":
+def Product_Debug(product: "ScriptProductData_") -> "std::string":
     r"""
     Product_Debug(product) -> std::string
 
     Parameters
     ----------
-    product: Handle_< ScriptProduct_ > const &
+    product: Handle_< ScriptProductData_ > const &
 
     """
     return _dal.Product_Debug(product)
@@ -1316,7 +1316,7 @@ def MonteCarlo_Value(*args) -> "std::map< std::string,double,std::less< std::str
 
     Parameters
     ----------
-    product: Handle_< ScriptProduct_ > const &
+    product: Handle_< ScriptProductData_ > const &
     modelData: Handle_< ModelData_ > const &
     num_path: int
     method: std::string const &

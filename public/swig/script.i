@@ -8,10 +8,10 @@
 %include date.i
 %include strings.i
 
-%template(ScriptProduct_) Handle_<ScriptProductData_>;
+%template(ScriptProductData_) Handle_<ScriptProductData_>;
 
 %inline %{
-    Handle_<ScriptProduct_> Product_New(const std::vector<Date_>& dates, const std::vector<std::string>& events) {
+    Handle_<ScriptProductData_> Product_New(const std::vector<Date_>& dates, const std::vector<std::string>& events) {
         Vector_<Date_> new_dates;
         for(auto& d : dates)
             new_dates.push_back(d);

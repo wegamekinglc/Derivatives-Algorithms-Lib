@@ -21,15 +21,19 @@ dates.append(maturity)
 event_dates = []
 events = []
 
+barrier = 150.0
+strike = 120.0
+smooth = 0.5
+
 event_dates.append(to_dal_date(dates[0]))
 events.append("alive = 1")
 
 for d in dates[1:]:
     event_dates.append(to_dal_date(d))
-    events.append("if spot() >= 150:1 then alive = 0 endif")
+    events.append(f"if spot() >= {barrier}:{smooth} then alive = 0 endif")
 
 event_dates.append(to_dal_date(dates[-1]))
-events.append("uoc pays alive * MAX(spot() - 120, 0.0)")
+events.append(f"uoc pays alive * MAX(spot() - {strike}, 0.0)")
 
 product = Product_New(event_dates, events)
 model = BSModelData_New(100, 0.15, 0.0, 0.0)

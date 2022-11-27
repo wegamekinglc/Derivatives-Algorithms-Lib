@@ -2695,7 +2695,7 @@ SWIGINTERN PyObject *SWIG_PyStaticMethod_New(PyObject *SWIGUNUSEDPARM(self), PyO
 #define SWIGTYPE_p_Date_ swig_types[0]
 #define SWIGTYPE_p_Handle_T_ModelData__t swig_types[1]
 #define SWIGTYPE_p_Handle_T_PseudoRSG__t swig_types[2]
-#define SWIGTYPE_p_Handle_T_ScriptProduct__t swig_types[3]
+#define SWIGTYPE_p_Handle_T_ScriptProductData__t swig_types[3]
 #define SWIGTYPE_p_Handle_T_SobolRSG__t swig_types[4]
 #define SWIGTYPE_p_Matrix_T_double_t swig_types[5]
 #define SWIGTYPE_p_String_ swig_types[6]
@@ -5095,7 +5095,7 @@ SWIGINTERN double Matrix__Sl__Sg____call__(Matrix_< > *self,int i,int j){ return
 #include <public/src/script.hpp>
 
 
-    Handle_<ScriptProduct_> Product_New(const std::vector<Date_>& dates, const std::vector<std::string>& events) {
+    Handle_<ScriptProductData_> Product_New(const std::vector<Date_>& dates, const std::vector<std::string>& events) {
         Vector_<Date_> new_dates;
         for(auto& d : dates)
             new_dates.push_back(d);
@@ -5103,10 +5103,10 @@ SWIGINTERN double Matrix__Sl__Sg____call__(Matrix_< > *self,int i,int j){ return
         for(auto& e : events)
             new_events.push_back(String_(e));
 
-        return Handle_<ScriptProduct_>(new ScriptProduct_("script_product", new_dates, new_events));
+        return Handle_<ScriptProductData_>(new ScriptProductData_("script_product", new_dates, new_events));
     }
 
-    std::string Product_Debug(const Handle_<ScriptProduct_>& product) {
+    std::string Product_Debug(const Handle_<ScriptProductData_>& product) {
         return DebugScriptProduct(product).c_str();
     }
 
@@ -5572,7 +5572,7 @@ SWIGINTERN PyObject *std_map_Sl_std_string_Sc_double_Sg__asdict(std::map< std::s
 SWIGINTERN void std_map_Sl_std_string_Sc_double_Sg__erase__SWIG_1(std::map< std::string,double > *self,std::map< std::string,double >::iterator position){ self->erase(position); }
 SWIGINTERN void std_map_Sl_std_string_Sc_double_Sg__erase__SWIG_2(std::map< std::string,double > *self,std::map< std::string,double >::iterator first,std::map< std::string,double >::iterator last){ self->erase(first, last); }
 
-    std::map<std::string, double> MonteCarlo_Value(const Handle_<ScriptProduct_>& product,
+    std::map<std::string, double> MonteCarlo_Value(const Handle_<ScriptProductData_>& product,
                                                    const Handle_<ModelData_>& modelData,
                                                    int num_path,
                                                    const std::string& method = "sobol",
@@ -10557,33 +10557,33 @@ SWIGINTERN PyObject *DoubleMatrix__swiginit(PyObject *SWIGUNUSEDPARM(self), PyOb
   return SWIG_Python_InitShadowInstance(args);
 }
 
-SWIGINTERN PyObject *_wrap_new_ScriptProduct_(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+SWIGINTERN PyObject *_wrap_new_ScriptProductData_(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
   PyObject *resultobj = 0;
-  Handle_< ScriptProduct_ > *result = 0 ;
+  Handle_< ScriptProductData_ > *result = 0 ;
   
-  if (!SWIG_Python_UnpackTuple(args, "new_ScriptProduct_", 0, 0, 0)) SWIG_fail;
-  result = (Handle_< ScriptProduct_ > *)new Handle_< ScriptProduct_ >();
-  resultobj = SWIG_NewPointerObj(SWIG_as_voidptr(result), SWIGTYPE_p_Handle_T_ScriptProduct__t, SWIG_POINTER_NEW |  0 );
+  if (!SWIG_Python_UnpackTuple(args, "new_ScriptProductData_", 0, 0, 0)) SWIG_fail;
+  result = (Handle_< ScriptProductData_ > *)new Handle_< ScriptProductData_ >();
+  resultobj = SWIG_NewPointerObj(SWIG_as_voidptr(result), SWIGTYPE_p_Handle_T_ScriptProductData__t, SWIG_POINTER_NEW |  0 );
   return resultobj;
 fail:
   return NULL;
 }
 
 
-SWIGINTERN PyObject *_wrap_delete_ScriptProduct_(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+SWIGINTERN PyObject *_wrap_delete_ScriptProductData_(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
   PyObject *resultobj = 0;
-  Handle_< ScriptProduct_ > *arg1 = (Handle_< ScriptProduct_ > *) 0 ;
+  Handle_< ScriptProductData_ > *arg1 = (Handle_< ScriptProductData_ > *) 0 ;
   void *argp1 = 0 ;
   int res1 = 0 ;
   PyObject *swig_obj[1] ;
   
   if (!args) SWIG_fail;
   swig_obj[0] = args;
-  res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_Handle_T_ScriptProduct__t, SWIG_POINTER_DISOWN |  0 );
+  res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_Handle_T_ScriptProductData__t, SWIG_POINTER_DISOWN |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "delete_ScriptProduct_" "', argument " "1"" of type '" "Handle_< ScriptProduct_ > *""'"); 
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "delete_ScriptProductData_" "', argument " "1"" of type '" "Handle_< ScriptProductData_ > *""'"); 
   }
-  arg1 = reinterpret_cast< Handle_< ScriptProduct_ > * >(argp1);
+  arg1 = reinterpret_cast< Handle_< ScriptProductData_ > * >(argp1);
   delete arg1;
   resultobj = SWIG_Py_Void();
   return resultobj;
@@ -10592,14 +10592,14 @@ fail:
 }
 
 
-SWIGINTERN PyObject *ScriptProduct__swigregister(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+SWIGINTERN PyObject *ScriptProductData__swigregister(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
   PyObject *obj;
   if (!SWIG_Python_UnpackTuple(args, "swigregister", 1, 1, &obj)) return NULL;
-  SWIG_TypeNewClientData(SWIGTYPE_p_Handle_T_ScriptProduct__t, SWIG_NewClientData(obj));
+  SWIG_TypeNewClientData(SWIGTYPE_p_Handle_T_ScriptProductData__t, SWIG_NewClientData(obj));
   return SWIG_Py_Void();
 }
 
-SWIGINTERN PyObject *ScriptProduct__swiginit(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+SWIGINTERN PyObject *ScriptProductData__swiginit(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
   return SWIG_Python_InitShadowInstance(args);
 }
 
@@ -10610,7 +10610,7 @@ SWIGINTERN PyObject *_wrap_Product_New(PyObject *SWIGUNUSEDPARM(self), PyObject 
   int res1 = SWIG_OLDOBJ ;
   int res2 = SWIG_OLDOBJ ;
   PyObject *swig_obj[2] ;
-  Handle_< ScriptProduct_ > result;
+  Handle_< ScriptProductData_ > result;
   
   if (!SWIG_Python_UnpackTuple(args, "Product_New", 2, 2, swig_obj)) SWIG_fail;
   {
@@ -10636,7 +10636,7 @@ SWIGINTERN PyObject *_wrap_Product_New(PyObject *SWIGUNUSEDPARM(self), PyObject 
     arg2 = ptr;
   }
   result = Product_New((std::vector< Date_,std::allocator< Date_ > > const &)*arg1,(std::vector< std::string,std::allocator< std::string > > const &)*arg2);
-  resultobj = SWIG_NewPointerObj((new Handle_< ScriptProduct_ >(static_cast< const Handle_< ScriptProduct_ >& >(result))), SWIGTYPE_p_Handle_T_ScriptProduct__t, SWIG_POINTER_OWN |  0 );
+  resultobj = SWIG_NewPointerObj((new Handle_< ScriptProductData_ >(static_cast< const Handle_< ScriptProductData_ >& >(result))), SWIGTYPE_p_Handle_T_ScriptProductData__t, SWIG_POINTER_OWN |  0 );
   if (SWIG_IsNewObj(res1)) delete arg1;
   if (SWIG_IsNewObj(res2)) delete arg2;
   return resultobj;
@@ -10649,7 +10649,7 @@ fail:
 
 SWIGINTERN PyObject *_wrap_Product_Debug(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
   PyObject *resultobj = 0;
-  Handle_< ScriptProduct_ > *arg1 = 0 ;
+  Handle_< ScriptProductData_ > *arg1 = 0 ;
   void *argp1 = 0 ;
   int res1 = 0 ;
   PyObject *swig_obj[1] ;
@@ -10657,15 +10657,15 @@ SWIGINTERN PyObject *_wrap_Product_Debug(PyObject *SWIGUNUSEDPARM(self), PyObjec
   
   if (!args) SWIG_fail;
   swig_obj[0] = args;
-  res1 = SWIG_ConvertPtr(swig_obj[0], &argp1, SWIGTYPE_p_Handle_T_ScriptProduct__t,  0  | 0);
+  res1 = SWIG_ConvertPtr(swig_obj[0], &argp1, SWIGTYPE_p_Handle_T_ScriptProductData__t,  0  | 0);
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Product_Debug" "', argument " "1"" of type '" "Handle_< ScriptProduct_ > const &""'"); 
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Product_Debug" "', argument " "1"" of type '" "Handle_< ScriptProductData_ > const &""'"); 
   }
   if (!argp1) {
-    SWIG_exception_fail(SWIG_ValueError, "invalid null reference " "in method '" "Product_Debug" "', argument " "1"" of type '" "Handle_< ScriptProduct_ > const &""'"); 
+    SWIG_exception_fail(SWIG_ValueError, "invalid null reference " "in method '" "Product_Debug" "', argument " "1"" of type '" "Handle_< ScriptProductData_ > const &""'"); 
   }
-  arg1 = reinterpret_cast< Handle_< ScriptProduct_ > * >(argp1);
-  result = Product_Debug((Handle_< ScriptProduct_ > const &)*arg1);
+  arg1 = reinterpret_cast< Handle_< ScriptProductData_ > * >(argp1);
+  result = Product_Debug((Handle_< ScriptProductData_ > const &)*arg1);
   resultobj = SWIG_From_std_string(static_cast< std::string >(result));
   return resultobj;
 fail:
@@ -11976,7 +11976,7 @@ SWIGINTERN PyObject *Dictionary_swiginit(PyObject *SWIGUNUSEDPARM(self), PyObjec
 
 SWIGINTERN PyObject *_wrap_MonteCarlo_Value__SWIG_0(PyObject *SWIGUNUSEDPARM(self), Py_ssize_t nobjs, PyObject **swig_obj) {
   PyObject *resultobj = 0;
-  Handle_< ScriptProduct_ > *arg1 = 0 ;
+  Handle_< ScriptProductData_ > *arg1 = 0 ;
   Handle_< ModelData_ > *arg2 = 0 ;
   int arg3 ;
   std::string *arg4 = 0 ;
@@ -11999,14 +11999,14 @@ SWIGINTERN PyObject *_wrap_MonteCarlo_Value__SWIG_0(PyObject *SWIGUNUSEDPARM(sel
   std::map< std::string,double,std::less< std::string >,std::allocator< std::pair< std::string const,double > > > result;
   
   if ((nobjs < 7) || (nobjs > 7)) SWIG_fail;
-  res1 = SWIG_ConvertPtr(swig_obj[0], &argp1, SWIGTYPE_p_Handle_T_ScriptProduct__t,  0  | 0);
+  res1 = SWIG_ConvertPtr(swig_obj[0], &argp1, SWIGTYPE_p_Handle_T_ScriptProductData__t,  0  | 0);
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "MonteCarlo_Value" "', argument " "1"" of type '" "Handle_< ScriptProduct_ > const &""'"); 
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "MonteCarlo_Value" "', argument " "1"" of type '" "Handle_< ScriptProductData_ > const &""'"); 
   }
   if (!argp1) {
-    SWIG_exception_fail(SWIG_ValueError, "invalid null reference " "in method '" "MonteCarlo_Value" "', argument " "1"" of type '" "Handle_< ScriptProduct_ > const &""'"); 
+    SWIG_exception_fail(SWIG_ValueError, "invalid null reference " "in method '" "MonteCarlo_Value" "', argument " "1"" of type '" "Handle_< ScriptProductData_ > const &""'"); 
   }
-  arg1 = reinterpret_cast< Handle_< ScriptProduct_ > * >(argp1);
+  arg1 = reinterpret_cast< Handle_< ScriptProductData_ > * >(argp1);
   res2 = SWIG_ConvertPtr(swig_obj[1], &argp2, SWIGTYPE_p_Handle_T_ModelData__t,  0  | 0);
   if (!SWIG_IsOK(res2)) {
     SWIG_exception_fail(SWIG_ArgError(res2), "in method '" "MonteCarlo_Value" "', argument " "2"" of type '" "Handle_< ModelData_ > const &""'"); 
@@ -12046,7 +12046,7 @@ SWIGINTERN PyObject *_wrap_MonteCarlo_Value__SWIG_0(PyObject *SWIGUNUSEDPARM(sel
     SWIG_exception_fail(SWIG_ArgError(ecode7), "in method '" "MonteCarlo_Value" "', argument " "7"" of type '" "double""'");
   } 
   arg7 = static_cast< double >(val7);
-  result = MonteCarlo_Value((Handle_< ScriptProduct_ > const &)*arg1,(Handle_< ModelData_ > const &)*arg2,arg3,(std::string const &)*arg4,arg5,arg6,arg7);
+  result = MonteCarlo_Value((Handle_< ScriptProductData_ > const &)*arg1,(Handle_< ModelData_ > const &)*arg2,arg3,(std::string const &)*arg4,arg5,arg6,arg7);
   resultobj = swig::from(static_cast< std::map< std::string,double,std::less< std::string >,std::allocator< std::pair< std::string const,double > > > >(result));
   if (SWIG_IsNewObj(res4)) delete arg4;
   return resultobj;
@@ -12058,7 +12058,7 @@ fail:
 
 SWIGINTERN PyObject *_wrap_MonteCarlo_Value__SWIG_1(PyObject *SWIGUNUSEDPARM(self), Py_ssize_t nobjs, PyObject **swig_obj) {
   PyObject *resultobj = 0;
-  Handle_< ScriptProduct_ > *arg1 = 0 ;
+  Handle_< ScriptProductData_ > *arg1 = 0 ;
   Handle_< ModelData_ > *arg2 = 0 ;
   int arg3 ;
   std::string *arg4 = 0 ;
@@ -12078,14 +12078,14 @@ SWIGINTERN PyObject *_wrap_MonteCarlo_Value__SWIG_1(PyObject *SWIGUNUSEDPARM(sel
   std::map< std::string,double,std::less< std::string >,std::allocator< std::pair< std::string const,double > > > result;
   
   if ((nobjs < 6) || (nobjs > 6)) SWIG_fail;
-  res1 = SWIG_ConvertPtr(swig_obj[0], &argp1, SWIGTYPE_p_Handle_T_ScriptProduct__t,  0  | 0);
+  res1 = SWIG_ConvertPtr(swig_obj[0], &argp1, SWIGTYPE_p_Handle_T_ScriptProductData__t,  0  | 0);
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "MonteCarlo_Value" "', argument " "1"" of type '" "Handle_< ScriptProduct_ > const &""'"); 
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "MonteCarlo_Value" "', argument " "1"" of type '" "Handle_< ScriptProductData_ > const &""'"); 
   }
   if (!argp1) {
-    SWIG_exception_fail(SWIG_ValueError, "invalid null reference " "in method '" "MonteCarlo_Value" "', argument " "1"" of type '" "Handle_< ScriptProduct_ > const &""'"); 
+    SWIG_exception_fail(SWIG_ValueError, "invalid null reference " "in method '" "MonteCarlo_Value" "', argument " "1"" of type '" "Handle_< ScriptProductData_ > const &""'"); 
   }
-  arg1 = reinterpret_cast< Handle_< ScriptProduct_ > * >(argp1);
+  arg1 = reinterpret_cast< Handle_< ScriptProductData_ > * >(argp1);
   res2 = SWIG_ConvertPtr(swig_obj[1], &argp2, SWIGTYPE_p_Handle_T_ModelData__t,  0  | 0);
   if (!SWIG_IsOK(res2)) {
     SWIG_exception_fail(SWIG_ArgError(res2), "in method '" "MonteCarlo_Value" "', argument " "2"" of type '" "Handle_< ModelData_ > const &""'"); 
@@ -12120,7 +12120,7 @@ SWIGINTERN PyObject *_wrap_MonteCarlo_Value__SWIG_1(PyObject *SWIGUNUSEDPARM(sel
     SWIG_exception_fail(SWIG_ArgError(ecode6), "in method '" "MonteCarlo_Value" "', argument " "6"" of type '" "bool""'");
   } 
   arg6 = static_cast< bool >(val6);
-  result = MonteCarlo_Value((Handle_< ScriptProduct_ > const &)*arg1,(Handle_< ModelData_ > const &)*arg2,arg3,(std::string const &)*arg4,arg5,arg6);
+  result = MonteCarlo_Value((Handle_< ScriptProductData_ > const &)*arg1,(Handle_< ModelData_ > const &)*arg2,arg3,(std::string const &)*arg4,arg5,arg6);
   resultobj = swig::from(static_cast< std::map< std::string,double,std::less< std::string >,std::allocator< std::pair< std::string const,double > > > >(result));
   if (SWIG_IsNewObj(res4)) delete arg4;
   return resultobj;
@@ -12132,7 +12132,7 @@ fail:
 
 SWIGINTERN PyObject *_wrap_MonteCarlo_Value__SWIG_2(PyObject *SWIGUNUSEDPARM(self), Py_ssize_t nobjs, PyObject **swig_obj) {
   PyObject *resultobj = 0;
-  Handle_< ScriptProduct_ > *arg1 = 0 ;
+  Handle_< ScriptProductData_ > *arg1 = 0 ;
   Handle_< ModelData_ > *arg2 = 0 ;
   int arg3 ;
   std::string *arg4 = 0 ;
@@ -12149,14 +12149,14 @@ SWIGINTERN PyObject *_wrap_MonteCarlo_Value__SWIG_2(PyObject *SWIGUNUSEDPARM(sel
   std::map< std::string,double,std::less< std::string >,std::allocator< std::pair< std::string const,double > > > result;
   
   if ((nobjs < 5) || (nobjs > 5)) SWIG_fail;
-  res1 = SWIG_ConvertPtr(swig_obj[0], &argp1, SWIGTYPE_p_Handle_T_ScriptProduct__t,  0  | 0);
+  res1 = SWIG_ConvertPtr(swig_obj[0], &argp1, SWIGTYPE_p_Handle_T_ScriptProductData__t,  0  | 0);
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "MonteCarlo_Value" "', argument " "1"" of type '" "Handle_< ScriptProduct_ > const &""'"); 
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "MonteCarlo_Value" "', argument " "1"" of type '" "Handle_< ScriptProductData_ > const &""'"); 
   }
   if (!argp1) {
-    SWIG_exception_fail(SWIG_ValueError, "invalid null reference " "in method '" "MonteCarlo_Value" "', argument " "1"" of type '" "Handle_< ScriptProduct_ > const &""'"); 
+    SWIG_exception_fail(SWIG_ValueError, "invalid null reference " "in method '" "MonteCarlo_Value" "', argument " "1"" of type '" "Handle_< ScriptProductData_ > const &""'"); 
   }
-  arg1 = reinterpret_cast< Handle_< ScriptProduct_ > * >(argp1);
+  arg1 = reinterpret_cast< Handle_< ScriptProductData_ > * >(argp1);
   res2 = SWIG_ConvertPtr(swig_obj[1], &argp2, SWIGTYPE_p_Handle_T_ModelData__t,  0  | 0);
   if (!SWIG_IsOK(res2)) {
     SWIG_exception_fail(SWIG_ArgError(res2), "in method '" "MonteCarlo_Value" "', argument " "2"" of type '" "Handle_< ModelData_ > const &""'"); 
@@ -12186,7 +12186,7 @@ SWIGINTERN PyObject *_wrap_MonteCarlo_Value__SWIG_2(PyObject *SWIGUNUSEDPARM(sel
     SWIG_exception_fail(SWIG_ArgError(ecode5), "in method '" "MonteCarlo_Value" "', argument " "5"" of type '" "bool""'");
   } 
   arg5 = static_cast< bool >(val5);
-  result = MonteCarlo_Value((Handle_< ScriptProduct_ > const &)*arg1,(Handle_< ModelData_ > const &)*arg2,arg3,(std::string const &)*arg4,arg5);
+  result = MonteCarlo_Value((Handle_< ScriptProductData_ > const &)*arg1,(Handle_< ModelData_ > const &)*arg2,arg3,(std::string const &)*arg4,arg5);
   resultobj = swig::from(static_cast< std::map< std::string,double,std::less< std::string >,std::allocator< std::pair< std::string const,double > > > >(result));
   if (SWIG_IsNewObj(res4)) delete arg4;
   return resultobj;
@@ -12198,7 +12198,7 @@ fail:
 
 SWIGINTERN PyObject *_wrap_MonteCarlo_Value__SWIG_3(PyObject *SWIGUNUSEDPARM(self), Py_ssize_t nobjs, PyObject **swig_obj) {
   PyObject *resultobj = 0;
-  Handle_< ScriptProduct_ > *arg1 = 0 ;
+  Handle_< ScriptProductData_ > *arg1 = 0 ;
   Handle_< ModelData_ > *arg2 = 0 ;
   int arg3 ;
   std::string *arg4 = 0 ;
@@ -12212,14 +12212,14 @@ SWIGINTERN PyObject *_wrap_MonteCarlo_Value__SWIG_3(PyObject *SWIGUNUSEDPARM(sel
   std::map< std::string,double,std::less< std::string >,std::allocator< std::pair< std::string const,double > > > result;
   
   if ((nobjs < 4) || (nobjs > 4)) SWIG_fail;
-  res1 = SWIG_ConvertPtr(swig_obj[0], &argp1, SWIGTYPE_p_Handle_T_ScriptProduct__t,  0  | 0);
+  res1 = SWIG_ConvertPtr(swig_obj[0], &argp1, SWIGTYPE_p_Handle_T_ScriptProductData__t,  0  | 0);
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "MonteCarlo_Value" "', argument " "1"" of type '" "Handle_< ScriptProduct_ > const &""'"); 
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "MonteCarlo_Value" "', argument " "1"" of type '" "Handle_< ScriptProductData_ > const &""'"); 
   }
   if (!argp1) {
-    SWIG_exception_fail(SWIG_ValueError, "invalid null reference " "in method '" "MonteCarlo_Value" "', argument " "1"" of type '" "Handle_< ScriptProduct_ > const &""'"); 
+    SWIG_exception_fail(SWIG_ValueError, "invalid null reference " "in method '" "MonteCarlo_Value" "', argument " "1"" of type '" "Handle_< ScriptProductData_ > const &""'"); 
   }
-  arg1 = reinterpret_cast< Handle_< ScriptProduct_ > * >(argp1);
+  arg1 = reinterpret_cast< Handle_< ScriptProductData_ > * >(argp1);
   res2 = SWIG_ConvertPtr(swig_obj[1], &argp2, SWIGTYPE_p_Handle_T_ModelData__t,  0  | 0);
   if (!SWIG_IsOK(res2)) {
     SWIG_exception_fail(SWIG_ArgError(res2), "in method '" "MonteCarlo_Value" "', argument " "2"" of type '" "Handle_< ModelData_ > const &""'"); 
@@ -12244,7 +12244,7 @@ SWIGINTERN PyObject *_wrap_MonteCarlo_Value__SWIG_3(PyObject *SWIGUNUSEDPARM(sel
     }
     arg4 = ptr;
   }
-  result = MonteCarlo_Value((Handle_< ScriptProduct_ > const &)*arg1,(Handle_< ModelData_ > const &)*arg2,arg3,(std::string const &)*arg4);
+  result = MonteCarlo_Value((Handle_< ScriptProductData_ > const &)*arg1,(Handle_< ModelData_ > const &)*arg2,arg3,(std::string const &)*arg4);
   resultobj = swig::from(static_cast< std::map< std::string,double,std::less< std::string >,std::allocator< std::pair< std::string const,double > > > >(result));
   if (SWIG_IsNewObj(res4)) delete arg4;
   return resultobj;
@@ -12256,7 +12256,7 @@ fail:
 
 SWIGINTERN PyObject *_wrap_MonteCarlo_Value__SWIG_4(PyObject *SWIGUNUSEDPARM(self), Py_ssize_t nobjs, PyObject **swig_obj) {
   PyObject *resultobj = 0;
-  Handle_< ScriptProduct_ > *arg1 = 0 ;
+  Handle_< ScriptProductData_ > *arg1 = 0 ;
   Handle_< ModelData_ > *arg2 = 0 ;
   int arg3 ;
   void *argp1 = 0 ;
@@ -12268,14 +12268,14 @@ SWIGINTERN PyObject *_wrap_MonteCarlo_Value__SWIG_4(PyObject *SWIGUNUSEDPARM(sel
   std::map< std::string,double,std::less< std::string >,std::allocator< std::pair< std::string const,double > > > result;
   
   if ((nobjs < 3) || (nobjs > 3)) SWIG_fail;
-  res1 = SWIG_ConvertPtr(swig_obj[0], &argp1, SWIGTYPE_p_Handle_T_ScriptProduct__t,  0  | 0);
+  res1 = SWIG_ConvertPtr(swig_obj[0], &argp1, SWIGTYPE_p_Handle_T_ScriptProductData__t,  0  | 0);
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "MonteCarlo_Value" "', argument " "1"" of type '" "Handle_< ScriptProduct_ > const &""'"); 
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "MonteCarlo_Value" "', argument " "1"" of type '" "Handle_< ScriptProductData_ > const &""'"); 
   }
   if (!argp1) {
-    SWIG_exception_fail(SWIG_ValueError, "invalid null reference " "in method '" "MonteCarlo_Value" "', argument " "1"" of type '" "Handle_< ScriptProduct_ > const &""'"); 
+    SWIG_exception_fail(SWIG_ValueError, "invalid null reference " "in method '" "MonteCarlo_Value" "', argument " "1"" of type '" "Handle_< ScriptProductData_ > const &""'"); 
   }
-  arg1 = reinterpret_cast< Handle_< ScriptProduct_ > * >(argp1);
+  arg1 = reinterpret_cast< Handle_< ScriptProductData_ > * >(argp1);
   res2 = SWIG_ConvertPtr(swig_obj[1], &argp2, SWIGTYPE_p_Handle_T_ModelData__t,  0  | 0);
   if (!SWIG_IsOK(res2)) {
     SWIG_exception_fail(SWIG_ArgError(res2), "in method '" "MonteCarlo_Value" "', argument " "2"" of type '" "Handle_< ModelData_ > const &""'"); 
@@ -12289,7 +12289,7 @@ SWIGINTERN PyObject *_wrap_MonteCarlo_Value__SWIG_4(PyObject *SWIGUNUSEDPARM(sel
     SWIG_exception_fail(SWIG_ArgError(ecode3), "in method '" "MonteCarlo_Value" "', argument " "3"" of type '" "int""'");
   } 
   arg3 = static_cast< int >(val3);
-  result = MonteCarlo_Value((Handle_< ScriptProduct_ > const &)*arg1,(Handle_< ModelData_ > const &)*arg2,arg3);
+  result = MonteCarlo_Value((Handle_< ScriptProductData_ > const &)*arg1,(Handle_< ModelData_ > const &)*arg2,arg3);
   resultobj = swig::from(static_cast< std::map< std::string,double,std::less< std::string >,std::allocator< std::pair< std::string const,double > > > >(result));
   return resultobj;
 fail:
@@ -12307,7 +12307,7 @@ SWIGINTERN PyObject *_wrap_MonteCarlo_Value(PyObject *self, PyObject *args) {
   --argc;
   if (argc == 3) {
     int _v;
-    int res = SWIG_ConvertPtr(argv[0], 0, SWIGTYPE_p_Handle_T_ScriptProduct__t, SWIG_POINTER_NO_NULL | 0);
+    int res = SWIG_ConvertPtr(argv[0], 0, SWIGTYPE_p_Handle_T_ScriptProductData__t, SWIG_POINTER_NO_NULL | 0);
     _v = SWIG_CheckState(res);
     if (_v) {
       int res = SWIG_ConvertPtr(argv[1], 0, SWIGTYPE_p_Handle_T_ModelData__t, SWIG_POINTER_NO_NULL | 0);
@@ -12325,7 +12325,7 @@ SWIGINTERN PyObject *_wrap_MonteCarlo_Value(PyObject *self, PyObject *args) {
   }
   if (argc == 4) {
     int _v;
-    int res = SWIG_ConvertPtr(argv[0], 0, SWIGTYPE_p_Handle_T_ScriptProduct__t, SWIG_POINTER_NO_NULL | 0);
+    int res = SWIG_ConvertPtr(argv[0], 0, SWIGTYPE_p_Handle_T_ScriptProductData__t, SWIG_POINTER_NO_NULL | 0);
     _v = SWIG_CheckState(res);
     if (_v) {
       int res = SWIG_ConvertPtr(argv[1], 0, SWIGTYPE_p_Handle_T_ModelData__t, SWIG_POINTER_NO_NULL | 0);
@@ -12347,7 +12347,7 @@ SWIGINTERN PyObject *_wrap_MonteCarlo_Value(PyObject *self, PyObject *args) {
   }
   if (argc == 5) {
     int _v;
-    int res = SWIG_ConvertPtr(argv[0], 0, SWIGTYPE_p_Handle_T_ScriptProduct__t, SWIG_POINTER_NO_NULL | 0);
+    int res = SWIG_ConvertPtr(argv[0], 0, SWIGTYPE_p_Handle_T_ScriptProductData__t, SWIG_POINTER_NO_NULL | 0);
     _v = SWIG_CheckState(res);
     if (_v) {
       int res = SWIG_ConvertPtr(argv[1], 0, SWIGTYPE_p_Handle_T_ModelData__t, SWIG_POINTER_NO_NULL | 0);
@@ -12375,7 +12375,7 @@ SWIGINTERN PyObject *_wrap_MonteCarlo_Value(PyObject *self, PyObject *args) {
   }
   if (argc == 6) {
     int _v;
-    int res = SWIG_ConvertPtr(argv[0], 0, SWIGTYPE_p_Handle_T_ScriptProduct__t, SWIG_POINTER_NO_NULL | 0);
+    int res = SWIG_ConvertPtr(argv[0], 0, SWIGTYPE_p_Handle_T_ScriptProductData__t, SWIG_POINTER_NO_NULL | 0);
     _v = SWIG_CheckState(res);
     if (_v) {
       int res = SWIG_ConvertPtr(argv[1], 0, SWIGTYPE_p_Handle_T_ModelData__t, SWIG_POINTER_NO_NULL | 0);
@@ -12409,7 +12409,7 @@ SWIGINTERN PyObject *_wrap_MonteCarlo_Value(PyObject *self, PyObject *args) {
   }
   if (argc == 7) {
     int _v;
-    int res = SWIG_ConvertPtr(argv[0], 0, SWIGTYPE_p_Handle_T_ScriptProduct__t, SWIG_POINTER_NO_NULL | 0);
+    int res = SWIG_ConvertPtr(argv[0], 0, SWIGTYPE_p_Handle_T_ScriptProductData__t, SWIG_POINTER_NO_NULL | 0);
     _v = SWIG_CheckState(res);
     if (_v) {
       int res = SWIG_ConvertPtr(argv[1], 0, SWIGTYPE_p_Handle_T_ModelData__t, SWIG_POINTER_NO_NULL | 0);
@@ -12451,11 +12451,11 @@ SWIGINTERN PyObject *_wrap_MonteCarlo_Value(PyObject *self, PyObject *args) {
 fail:
   SWIG_Python_RaiseOrModifyTypeError("Wrong number or type of arguments for overloaded function 'MonteCarlo_Value'.\n"
     "  Possible C/C++ prototypes are:\n"
-    "    MonteCarlo_Value(Handle_< ScriptProduct_ > const &,Handle_< ModelData_ > const &,int,std::string const &,bool,bool,double)\n"
-    "    MonteCarlo_Value(Handle_< ScriptProduct_ > const &,Handle_< ModelData_ > const &,int,std::string const &,bool,bool)\n"
-    "    MonteCarlo_Value(Handle_< ScriptProduct_ > const &,Handle_< ModelData_ > const &,int,std::string const &,bool)\n"
-    "    MonteCarlo_Value(Handle_< ScriptProduct_ > const &,Handle_< ModelData_ > const &,int,std::string const &)\n"
-    "    MonteCarlo_Value(Handle_< ScriptProduct_ > const &,Handle_< ModelData_ > const &,int)\n");
+    "    MonteCarlo_Value(Handle_< ScriptProductData_ > const &,Handle_< ModelData_ > const &,int,std::string const &,bool,bool,double)\n"
+    "    MonteCarlo_Value(Handle_< ScriptProductData_ > const &,Handle_< ModelData_ > const &,int,std::string const &,bool,bool)\n"
+    "    MonteCarlo_Value(Handle_< ScriptProductData_ > const &,Handle_< ModelData_ > const &,int,std::string const &,bool)\n"
+    "    MonteCarlo_Value(Handle_< ScriptProductData_ > const &,Handle_< ModelData_ > const &,int,std::string const &)\n"
+    "    MonteCarlo_Value(Handle_< ScriptProductData_ > const &,Handle_< ModelData_ > const &,int)\n");
   return 0;
 }
 
@@ -13483,12 +13483,12 @@ static PyMethodDef SwigMethods[] = {
 	 { "delete_DoubleMatrix_", _wrap_delete_DoubleMatrix_, METH_O, "delete_DoubleMatrix_(self)"},
 	 { "DoubleMatrix__swigregister", DoubleMatrix__swigregister, METH_O, NULL},
 	 { "DoubleMatrix__swiginit", DoubleMatrix__swiginit, METH_VARARGS, NULL},
-	 { "new_ScriptProduct_", _wrap_new_ScriptProduct_, METH_NOARGS, "new_ScriptProduct_() -> ScriptProduct_"},
-	 { "delete_ScriptProduct_", _wrap_delete_ScriptProduct_, METH_O, "delete_ScriptProduct_(self)"},
-	 { "ScriptProduct__swigregister", ScriptProduct__swigregister, METH_O, NULL},
-	 { "ScriptProduct__swiginit", ScriptProduct__swiginit, METH_VARARGS, NULL},
+	 { "new_ScriptProductData_", _wrap_new_ScriptProductData_, METH_NOARGS, "new_ScriptProductData_() -> ScriptProductData_"},
+	 { "delete_ScriptProductData_", _wrap_delete_ScriptProductData_, METH_O, "delete_ScriptProductData_(self)"},
+	 { "ScriptProductData__swigregister", ScriptProductData__swigregister, METH_O, NULL},
+	 { "ScriptProductData__swiginit", ScriptProductData__swiginit, METH_VARARGS, NULL},
 	 { "Product_New", _wrap_Product_New, METH_VARARGS, "\n"
-		"Product_New(dates, events) -> ScriptProduct_\n"
+		"Product_New(dates, events) -> ScriptProductData_\n"
 		"\n"
 		"Parameters\n"
 		"----------\n"
@@ -13501,7 +13501,7 @@ static PyMethodDef SwigMethods[] = {
 		"\n"
 		"Parameters\n"
 		"----------\n"
-		"product: Handle_< ScriptProduct_ > const &\n"
+		"product: Handle_< ScriptProductData_ > const &\n"
 		"\n"
 		""},
 	 { "new_BSModelData_", _wrap_new_BSModelData_, METH_NOARGS, "new_BSModelData_() -> BSModelData_"},
@@ -13668,7 +13668,7 @@ static PyMethodDef SwigMethods[] = {
 		"\n"
 		"Parameters\n"
 		"----------\n"
-		"product: Handle_< ScriptProduct_ > const &\n"
+		"product: Handle_< ScriptProductData_ > const &\n"
 		"modelData: Handle_< ModelData_ > const &\n"
 		"num_path: int\n"
 		"method: std::string const &\n"
@@ -13752,7 +13752,7 @@ static PyMethodDef SwigMethods_proxydocs[] = {
 static swig_type_info _swigt__p_Date_ = {"_p_Date_", "std::vector< Date_ >::value_type *|Date_ *", 0, 0, (void*)0, 0};
 static swig_type_info _swigt__p_Handle_T_ModelData__t = {"_p_Handle_T_ModelData__t", "Handle_< ModelData_ > *", 0, 0, (void*)0, 0};
 static swig_type_info _swigt__p_Handle_T_PseudoRSG__t = {"_p_Handle_T_PseudoRSG__t", "Handle_< PseudoRSG_ > *", 0, 0, (void*)0, 0};
-static swig_type_info _swigt__p_Handle_T_ScriptProduct__t = {"_p_Handle_T_ScriptProduct__t", "Handle_< ScriptProduct_ > *", 0, 0, (void*)0, 0};
+static swig_type_info _swigt__p_Handle_T_ScriptProductData__t = {"_p_Handle_T_ScriptProductData__t", "Handle_< ScriptProductData_ > *", 0, 0, (void*)0, 0};
 static swig_type_info _swigt__p_Handle_T_SobolRSG__t = {"_p_Handle_T_SobolRSG__t", "Handle_< SobolRSG_ > *", 0, 0, (void*)0, 0};
 static swig_type_info _swigt__p_Matrix_T_double_t = {"_p_Matrix_T_double_t", "Matrix_< > *|Matrix_< double > *", 0, 0, (void*)0, 0};
 static swig_type_info _swigt__p_String_ = {"_p_String_", "String_ *", 0, 0, (void*)0, 0};
@@ -13778,7 +13778,7 @@ static swig_type_info *swig_type_initial[] = {
   &_swigt__p_Date_,
   &_swigt__p_Handle_T_ModelData__t,
   &_swigt__p_Handle_T_PseudoRSG__t,
-  &_swigt__p_Handle_T_ScriptProduct__t,
+  &_swigt__p_Handle_T_ScriptProductData__t,
   &_swigt__p_Handle_T_SobolRSG__t,
   &_swigt__p_Matrix_T_double_t,
   &_swigt__p_String_,
@@ -13804,7 +13804,7 @@ static swig_type_info *swig_type_initial[] = {
 static swig_cast_info _swigc__p_Date_[] = {  {&_swigt__p_Date_, 0, 0, 0},{0, 0, 0, 0}};
 static swig_cast_info _swigc__p_Handle_T_ModelData__t[] = {  {&_swigt__p_Handle_T_ModelData__t, 0, 0, 0},{0, 0, 0, 0}};
 static swig_cast_info _swigc__p_Handle_T_PseudoRSG__t[] = {  {&_swigt__p_Handle_T_PseudoRSG__t, 0, 0, 0},{0, 0, 0, 0}};
-static swig_cast_info _swigc__p_Handle_T_ScriptProduct__t[] = {  {&_swigt__p_Handle_T_ScriptProduct__t, 0, 0, 0},{0, 0, 0, 0}};
+static swig_cast_info _swigc__p_Handle_T_ScriptProductData__t[] = {  {&_swigt__p_Handle_T_ScriptProductData__t, 0, 0, 0},{0, 0, 0, 0}};
 static swig_cast_info _swigc__p_Handle_T_SobolRSG__t[] = {  {&_swigt__p_Handle_T_SobolRSG__t, 0, 0, 0},{0, 0, 0, 0}};
 static swig_cast_info _swigc__p_Matrix_T_double_t[] = {  {&_swigt__p_Matrix_T_double_t, 0, 0, 0},{0, 0, 0, 0}};
 static swig_cast_info _swigc__p_String_[] = {  {&_swigt__p_String_, 0, 0, 0},{0, 0, 0, 0}};
@@ -13830,7 +13830,7 @@ static swig_cast_info *swig_cast_initial[] = {
   _swigc__p_Date_,
   _swigc__p_Handle_T_ModelData__t,
   _swigc__p_Handle_T_PseudoRSG__t,
-  _swigc__p_Handle_T_ScriptProduct__t,
+  _swigc__p_Handle_T_ScriptProductData__t,
   _swigc__p_Handle_T_SobolRSG__t,
   _swigc__p_Matrix_T_double_t,
   _swigc__p_String_,
