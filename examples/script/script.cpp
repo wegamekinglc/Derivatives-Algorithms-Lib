@@ -53,6 +53,7 @@ int main() {
     std::cout << "Type of rsg:";
     std::cin >> rsg;
 
+    timer.Reset();
     auto tenor = Date::ParseIncrement("1W");
     const auto schedule = DateGenerate(start, maturity, tenor);
 
@@ -70,9 +71,9 @@ int main() {
     ScriptProduct_ product(eventDates, events);
     int max_nested_ifs = product.PreProcess(true, true);
     std::unique_ptr<Model_<Real_>> model = std::make_unique<BlackScholes_<Real_>>(spot, vol, false, rate, div);
+    std::cout << "\nParsing " << std::setprecision(8) << "\tElapsed: " << timer.Elapsed<milliseconds>() << " ms" << std::endl;
 
     timer.Reset();
-
     SimResults_<Real_> results = MCSimulation(product, *model, n_paths, String_(rsg), use_bb, max_nested_ifs);
 
     auto sum = 0.0;

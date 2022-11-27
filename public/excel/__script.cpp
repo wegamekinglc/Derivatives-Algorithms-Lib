@@ -17,7 +17,7 @@ dates is date[]
 events is string[]
     The event strings
 &outputs
-product is handle ScriptProduct
+product is handle ScriptProductData
     The product
 -IF-------------------------------------------------------------------------*/
 
@@ -26,7 +26,7 @@ product is handle ScriptProduct
 public Product_Debug
     output the debug information of a product
 &inputs
-product is handle ScriptProduct
+product is handle ScriptProductData
     The product
 &outputs
 out is string[]
@@ -41,11 +41,11 @@ namespace Dal {
         void Product_New(const String_& name,
                          const Vector_<Date_>& dates,
                          const Vector_<String_>& events,
-                         Handle_<ScriptProduct_>* product) {
+                         Handle_<ScriptProductData_>* product) {
             NewScriptProduct(name, dates, events).swap(*product);
         }
 
-        void Product_Debug(const Handle_<ScriptProduct_>& product, Vector_<String_>* out) {
+        void Product_Debug(const Handle_<ScriptProductData_>& product, Vector_<String_>* out) {
             String_ desc = DebugScriptProduct(product);
             *out = String::Split(desc, '\n', true);
         }

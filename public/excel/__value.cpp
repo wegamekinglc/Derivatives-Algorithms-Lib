@@ -11,8 +11,8 @@
 public MonteCarlo_Value
     valuation with monte carlo by a script product and a dedicated model
 &inputs
-product is handle ScriptProduct
-    a product
+product is handle ScriptProductData
+    a product's data
 modelData is handle ModelData
     a model's data
 n_paths is number
@@ -33,7 +33,7 @@ values is cell[][]
 
 namespace Dal {
     namespace {
-        void MonteCarlo_Value(const Handle_<ScriptProduct_>& product,
+        void MonteCarlo_Value(const Handle_<ScriptProductData_>& product,
                               const Handle_<ModelData_>& modelData,
                               double n_paths,
                               const String_& rsg,

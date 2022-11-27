@@ -10,7 +10,7 @@ ENV_SEED_TYPE(ObjectAccess_);
     {	
         Logging::Write("Product_Debug");        
         argName = "product (input #1)";
-        const Handle_<ScriptProduct_> product = Excel::ToHandle<ScriptProduct_>(_env, xl_product);
+        const Handle_<ScriptProductData_> product = Excel::ToHandle<ScriptProductData_>(_env, xl_product);
         argName = 0;
 		Vector_<String_> out;
         Product_Debug(product, &out);

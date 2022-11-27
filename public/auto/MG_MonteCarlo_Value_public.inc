@@ -10,7 +10,7 @@ ENV_SEED_TYPE(ObjectAccess_);
     {	
         Logging::Write("MonteCarlo_Value");        
         argName = "product (input #1)";
-        const Handle_<ScriptProduct_> product = Excel::ToHandle<ScriptProduct_>(_env, xl_product);
+        const Handle_<ScriptProductData_> product = Excel::ToHandle<ScriptProductData_>(_env, xl_product);
         argName = "modelData (input #2)";
         const Handle_<ModelData_> modelData = Excel::ToHandle<ModelData_>(_env, xl_modelData);
         argName = "n_paths (input #3)";
@@ -45,7 +45,7 @@ struct XlRegister_MonteCarlo_Value_
     XlRegister_MonteCarlo_Value_()
     {
         Vector_<String_> argHelp;        
-        argHelp.push_back("a product");
+        argHelp.push_back("a product's data");
         argHelp.push_back("a model's data");
         argHelp.push_back("# of paths need for valuation");
         argHelp.push_back("method of random number generation");

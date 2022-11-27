@@ -16,7 +16,7 @@ ENV_SEED_TYPE(ObjectAccess_);
         argName = "events (input #3)";
         const Vector_<String_> events = Excel::ToStringVector(xl_events);
         argName = 0;
-		Handle_<ScriptProduct_> product;
+		Handle_<ScriptProductData_> product;
         Product_New(name, dates, events, &product);
         Excel::Retval_ retval;
         retval.Load(_env, product);
