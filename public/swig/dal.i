@@ -18,6 +18,7 @@
 %include "std_vector.i"
 
     %include handle.i
+    %include repository.i
     %include date.i
     %include global.i
     %include strings.i

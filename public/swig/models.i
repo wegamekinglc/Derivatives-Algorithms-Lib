@@ -5,7 +5,7 @@
 #include <public/src/models.hpp>
 %}
 
-%template(BSModelData_) Handle_<ModelData_>;
+%template(ModelData_) Handle_<ModelData_>;
 
 %inline %{
     Handle_<ModelData_> BSModelData_New(double spot,

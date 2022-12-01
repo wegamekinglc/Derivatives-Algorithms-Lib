@@ -8,4 +8,6 @@
     template <class T_> class Handle_ {
     };
 
+    %template(Storable_) Handle_<Storable_>;
+
 #endif

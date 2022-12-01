@@ -4,6 +4,7 @@
 
 #include <dal/platform/platform.hpp>
 #include <public/excel/__platform.hpp>
+#include <public/src/repository.hpp>
 
 /*IF--------------------------------------------------------------------------
 public Repository_Erase
@@ -41,31 +42,15 @@ namespace Dal {
     namespace {
 
         void Repository_Erase(const Vector_<Handle_<Storable_>>& objects, int* num_erased) {
-            ENV_SEED_TYPE(ObjectAccess_); // POSTPONED -- mark this function as taking _ENV input
-            auto repo = Environment::Find<ObjectAccess_>(_env);
-            assert(repo);
-
-            *num_erased = 0;
-            for (const auto& obj : objects)
-                if (repo->Erase(*obj))
-                    ++*num_erased;
+            *num_erased = EraseRepository(objects);
         }
 
         void Repository_Find(const String_& pattern, Vector_<Handle_<Storable_>>* objects) {
-            ENV_SEED_TYPE(ObjectAccess_); // POSTPONED -- mark this function as taking _ENV input
-            auto repo = Environment::Find<ObjectAccess_>(_env);
-            assert(repo);
-            *objects = repo->Find(pattern);
-            REQUIRE(!objects->empty(), "No objects found");
+            *objects = FindRepository(pattern);
         }
 
-
-
         void Repository_Size(int* size) {
-            ENV_SEED_TYPE(ObjectAccess_); // POSTPONED -- mark this function as taking _ENV input
-            auto repo = Environment::Find<ObjectAccess_>(_env);
-            assert(repo);
-            *size = repo->Size();
+            *size = SizeRepository();
         }
     } // namespace
 
