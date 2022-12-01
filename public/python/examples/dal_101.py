@@ -41,3 +41,5 @@ res = MonteCarlo_Value(product, model, 2 ** 20, "sobol", False, True, 1.0)
 
 for k, v in res.items():
     print(f"{k}: {v}")
+
+print(f"# of objects: {Repository_Size()}")

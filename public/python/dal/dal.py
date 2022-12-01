@@ -223,6 +223,24 @@ class SwigPyIterator(object):
 # Register SwigPyIterator in _dal:
 _dal.SwigPyIterator_swigregister(SwigPyIterator)
 
+class Storable_(object):
+    r"""Proxy of C++ Handle_< Storable_ > class."""
+
+    thisown = property(lambda x: x.this.own(), lambda x, v: x.this.own(v), doc="The membership flag")
+    __repr__ = _swig_repr
+
+    def __init__(self):
+        r"""__init__(self) -> Storable_"""
+        _dal.Storable__swiginit(self, _dal.new_Storable_())
+    __swig_destroy__ = _dal.delete_Storable_
+
+# Register Storable_ in _dal:
+_dal.Storable__swigregister(Storable_)
+
+
+def Repository_Size() -> "int":
+    r"""Repository_Size() -> int"""
+    return _dal.Repository_Size()
 class Date_(object):
     r"""Proxy of C++ Date_ class."""
 
@@ -1030,24 +1048,24 @@ def Product_Debug(product: "ScriptProductData_") -> "std::string":
 
     """
     return _dal.Product_Debug(product)
-class BSModelData_(object):
+class ModelData_(object):
     r"""Proxy of C++ Handle_< ModelData_ > class."""
 
     thisown = property(lambda x: x.this.own(), lambda x, v: x.this.own(v), doc="The membership flag")
     __repr__ = _swig_repr
 
     def __init__(self):
-        r"""__init__(self) -> BSModelData_"""
-        _dal.BSModelData__swiginit(self, _dal.new_BSModelData_())
-    __swig_destroy__ = _dal.delete_BSModelData_
+        r"""__init__(self) -> ModelData_"""
+        _dal.ModelData__swiginit(self, _dal.new_ModelData_())
+    __swig_destroy__ = _dal.delete_ModelData_
 
-# Register BSModelData_ in _dal:
-_dal.BSModelData__swigregister(BSModelData_)
+# Register ModelData_ in _dal:
+_dal.ModelData__swigregister(ModelData_)
 
 
 def BSModelData_New(spot: "double", vol: "double", rate: "double", div: "double") -> "Handle_< ModelData_ >":
     r"""
-    BSModelData_New(spot, vol, rate, div) -> BSModelData_
+    BSModelData_New(spot, vol, rate, div) -> ModelData_
 
     Parameters
     ----------
