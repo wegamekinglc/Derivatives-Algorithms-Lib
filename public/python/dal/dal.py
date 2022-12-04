@@ -237,10 +237,6 @@ class Storable_(object):
 # Register Storable_ in _dal:
 _dal.Storable__swigregister(Storable_)
 
-
-def Repository_Size() -> "int":
-    r"""Repository_Size() -> int"""
-    return _dal.Repository_Size()
 class Date_(object):
     r"""Proxy of C++ Date_ class."""
 

@@ -3341,21 +3341,6 @@ SWIG_AsVal_ptrdiff_t (PyObject * obj, ptrdiff_t *val)
 #include <dal/platform/platform.hpp>
     
 
-#include <public/src/repository.hpp>
-
-
-    int Repository_Size() {
-        return SizeRepository();
-    }
-
-
-SWIGINTERNINLINE PyObject*
-  SWIG_From_int  (int value)
-{
-  return PyInt_FromLong((long) value);
-}
-
-
 #include <dal/time/date.hpp>
 
 
@@ -6506,19 +6491,6 @@ SWIGINTERN PyObject *Storable__swigregister(PyObject *SWIGUNUSEDPARM(self), PyOb
 SWIGINTERN PyObject *Storable__swiginit(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
   return SWIG_Python_InitShadowInstance(args);
 }
-
-SWIGINTERN PyObject *_wrap_Repository_Size(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
-  PyObject *resultobj = 0;
-  int result;
-  
-  if (!SWIG_Python_UnpackTuple(args, "Repository_Size", 0, 0, 0)) SWIG_fail;
-  result = (int)Repository_Size();
-  resultobj = SWIG_From_int(static_cast< int >(result));
-  return resultobj;
-fail:
-  return NULL;
-}
-
 
 SWIGINTERN PyObject *_wrap_new_Date_(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
   PyObject *resultobj = 0;
@@ -13054,7 +13026,6 @@ static PyMethodDef SwigMethods[] = {
 	 { "delete_Storable_", _wrap_delete_Storable_, METH_O, "delete_Storable_(self)"},
 	 { "Storable__swigregister", Storable__swigregister, METH_O, NULL},
 	 { "Storable__swiginit", Storable__swiginit, METH_VARARGS, NULL},
-	 { "Repository_Size", _wrap_Repository_Size, METH_NOARGS, "Repository_Size() -> int"},
 	 { "new_Date_", _wrap_new_Date_, METH_VARARGS, "\n"
 		"new_Date_(yyyy, mm, dd) -> Date_\n"
 		"\n"

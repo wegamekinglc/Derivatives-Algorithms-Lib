@@ -1225,7 +1225,7 @@ namespace Dal {
         static const RepositoryErase_ ERASE; // defaults to NAME_NONEMPTY
         REQUIRE(s, "Output handle is NULL");
         auto repo = Environment::Find<ObjectAccess_>(_env);
-        assert(repo);
+        REQUIRE(repo, "no repo found");
         Load(repo->Add(s, ERASE)); // Excel can't tell the difference
     }
 
@@ -1252,7 +1252,7 @@ namespace Dal {
     void Excel::Retval_::LoadBase(_ENV, const Vector_<Handle_<Storable_>>& v) {
         static const RepositoryErase_ ERASE; // defaults to NAME_NONEMPTY
         auto repo = Environment::Find<ObjectAccess_>(_env);
-        assert(repo);
+        REQUIRE(repo, "no repo found");
         Vector_<Cell_> toStore(v.size());
         Transform(
             v, [&](const Handle_<Storable_>& h) -> String_ { return repo->Add(h, ERASE); }, &toStore);
