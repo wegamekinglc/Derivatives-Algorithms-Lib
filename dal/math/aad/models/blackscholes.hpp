@@ -66,8 +66,7 @@ namespace Dal::AAD {
                       const U_& vol,
                       const U_& rate = U_(0.0),
                       const U_& div = U_(0.0))
-            : spot_(spot), vol_(vol), rate_(rate), div_(div), parameters_(4),
-              parameterLabels_(4) {
+            : spot_(spot), vol_(vol), rate_(rate), div_(div), parameters_(4), parameterLabels_(4) {
             parameterLabels_[0] = "spot";
             parameterLabels_[1] = "vol";
             parameterLabels_[2] = "rate";

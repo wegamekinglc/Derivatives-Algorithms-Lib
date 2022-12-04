@@ -20,7 +20,7 @@ namespace Dal {
                                                 bool use_bb,
                                                 bool enable_aad,
                                                 double smooth) {
-        REQUIRE(modelData->Type() == "BSModelData", "only support black scholes model now");
+        REQUIRE(modelData->Type() == "BSModelData_", "only support black scholes model now");
         auto model_imp = dynamic_cast<const BSModelData_*>(modelData.get());
         std::unique_ptr<Model_<double>> mdl;
         std::unique_ptr<Model_<AAD::Number_>> aad_model;

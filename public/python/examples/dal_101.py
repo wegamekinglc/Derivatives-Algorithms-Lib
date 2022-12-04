@@ -37,7 +37,7 @@ events.append(f"uoc pays alive * MAX(spot() - {strike}, 0.0)")
 
 product = Product_New(event_dates, events)
 model = BSModelData_New(100, 0.15, 0.0, 0.0)
-res = MonteCarlo_Value(product, model, 2 ** 20, "sobol", False, True, 1.0)
+res = MonteCarlo_Value(product, model, 2 ** 20, "sobol", True, True, 1.0)
 
 for k, v in res.items():
     print(f"{k}: {v}")
