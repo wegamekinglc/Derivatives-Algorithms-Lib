@@ -27,7 +27,7 @@ barrier = 150.0
 strike = 120.0
 smooth = 0.5
 vol = 0.15
-num_paths = 2 ** 18
+num_paths = 2 ** 20
 
 event_dates.append(to_dal_date(dates[0]))
 events.append("alive = 1")

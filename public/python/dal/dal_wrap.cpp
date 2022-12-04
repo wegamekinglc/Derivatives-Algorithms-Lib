@@ -5214,9 +5214,6 @@ SWIGINTERN void std_vector_Sl_std_string_Sg__insert__SWIG_1(std::vector< std::st
 
 #include <dal/math/matrix/matrixs.hpp>
     
-SWIGINTERN Matrix_< double > *new_Matrix__Sl_double_Sg___SWIG_0(int row,int col,double val=double()){
-              return new Matrix_(row, col, val);
-          }
 SWIGINTERN double Matrix__Sl_double_Sg____call__(Matrix_< double > *self,int i,int j){ return (*self)(i, j);}
 
 #include <public/src/script.hpp>
@@ -12495,7 +12492,7 @@ SWIGINTERN PyObject *_wrap_new_DoubleMatrix___SWIG_0(PyObject *SWIGUNUSEDPARM(se
     SWIG_exception_fail(SWIG_ArgError(ecode3), "in method '" "new_DoubleMatrix_" "', argument " "3"" of type '" "double""'");
   } 
   arg3 = static_cast< double >(val3);
-  result = (Matrix_< double > *)new_Matrix__Sl_double_Sg___SWIG_0(arg1,arg2,arg3);
+  result = (Matrix_< double > *)new Matrix_< double >(arg1,arg2,arg3);
   resultobj = SWIG_NewPointerObj(SWIG_as_voidptr(result), SWIGTYPE_p_Matrix_T_double_t, SWIG_POINTER_NEW |  0 );
   return resultobj;
 fail:
@@ -12524,7 +12521,7 @@ SWIGINTERN PyObject *_wrap_new_DoubleMatrix___SWIG_1(PyObject *SWIGUNUSEDPARM(se
     SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "new_DoubleMatrix_" "', argument " "2"" of type '" "int""'");
   } 
   arg2 = static_cast< int >(val2);
-  result = (Matrix_< double > *)new_Matrix__Sl_double_Sg___SWIG_0(arg1,arg2);
+  result = (Matrix_< double > *)new Matrix_< double >(arg1,arg2);
   resultobj = SWIG_NewPointerObj(SWIG_as_voidptr(result), SWIGTYPE_p_Matrix_T_double_t, SWIG_POINTER_NEW |  0 );
   return resultobj;
 fail:
