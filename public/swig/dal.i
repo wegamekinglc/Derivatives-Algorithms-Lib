@@ -17,6 +17,8 @@
 %include "std_string.i"
 %include "std_vector.i"
 
+%template(DoubleVector) std::vector<double>;
+
     %include handle.i
     %include date.i
     %include global.i

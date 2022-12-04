@@ -223,6 +223,326 @@ class SwigPyIterator(object):
 # Register SwigPyIterator in _dal:
 _dal.SwigPyIterator_swigregister(SwigPyIterator)
 
+class DoubleVector(object):
+    r"""Proxy of C++ std::vector< double > class."""
+
+    thisown = property(lambda x: x.this.own(), lambda x, v: x.this.own(v), doc="The membership flag")
+    __repr__ = _swig_repr
+
+    def iterator(self) -> "swig::SwigPyIterator *":
+        r"""iterator(self) -> SwigPyIterator"""
+        return _dal.DoubleVector_iterator(self)
+    def __iter__(self):
+        return self.iterator()
+
+    def __nonzero__(self) -> "bool":
+        r"""__nonzero__(self) -> bool"""
+        return _dal.DoubleVector___nonzero__(self)
+
+    def __bool__(self) -> "bool":
+        r"""__bool__(self) -> bool"""
+        return _dal.DoubleVector___bool__(self)
+
+    def __len__(self) -> "std::vector< double >::size_type":
+        r"""__len__(self) -> std::vector< double >::size_type"""
+        return _dal.DoubleVector___len__(self)
+
+    def __getslice__(self, i: "std::vector< double >::difference_type", j: "std::vector< double >::difference_type") -> "std::vector< double,std::allocator< double > > *":
+        r"""
+        __getslice__(self, i, j) -> DoubleVector
+
+        Parameters
+        ----------
+        i: std::vector< double >::difference_type
+        j: std::vector< double >::difference_type
+
+        """
+        return _dal.DoubleVector___getslice__(self, i, j)
+
+    def __setslice__(self, *args) -> "void":
+        r"""
+        __setslice__(self, i, j)
+
+        Parameters
+        ----------
+        i: std::vector< double >::difference_type
+        j: std::vector< double >::difference_type
+
+        __setslice__(self, i, j, v)
+
+        Parameters
+        ----------
+        i: std::vector< double >::difference_type
+        j: std::vector< double >::difference_type
+        v: std::vector< double,std::allocator< double > > const &
+
+        """
+        return _dal.DoubleVector___setslice__(self, *args)
+
+    def __delslice__(self, i: "std::vector< double >::difference_type", j: "std::vector< double >::difference_type") -> "void":
+        r"""
+        __delslice__(self, i, j)
+
+        Parameters
+        ----------
+        i: std::vector< double >::difference_type
+        j: std::vector< double >::difference_type
+
+        """
+        return _dal.DoubleVector___delslice__(self, i, j)
+
+    def __delitem__(self, *args) -> "void":
+        r"""
+        __delitem__(self, i)
+
+        Parameters
+        ----------
+        i: std::vector< double >::difference_type
+
+        __delitem__(self, slice)
+
+        Parameters
+        ----------
+        slice: PySliceObject *
+
+        """
+        return _dal.DoubleVector___delitem__(self, *args)
+
+    def __getitem__(self, *args) -> "std::vector< double >::value_type const &":
+        r"""
+        __getitem__(self, slice) -> DoubleVector
+
+        Parameters
+        ----------
+        slice: PySliceObject *
+
+        __getitem__(self, i) -> std::vector< double >::value_type const &
+
+        Parameters
+        ----------
+        i: std::vector< double >::difference_type
+
+        """
+        return _dal.DoubleVector___getitem__(self, *args)
+
+    def __setitem__(self, *args) -> "void":
+        r"""
+        __setitem__(self, slice, v)
+
+        Parameters
+        ----------
+        slice: PySliceObject *
+        v: std::vector< double,std::allocator< double > > const &
+
+        __setitem__(self, slice)
+
+        Parameters
+        ----------
+        slice: PySliceObject *
+
+        __setitem__(self, i, x)
+
+        Parameters
+        ----------
+        i: std::vector< double >::difference_type
+        x: std::vector< double >::value_type const &
+
+        """
+        return _dal.DoubleVector___setitem__(self, *args)
+
+    def pop(self) -> "std::vector< double >::value_type":
+        r"""pop(self) -> std::vector< double >::value_type"""
+        return _dal.DoubleVector_pop(self)
+
+    def append(self, x: "std::vector< double >::value_type const &") -> "void":
+        r"""
+        append(self, x)
+
+        Parameters
+        ----------
+        x: std::vector< double >::value_type const &
+
+        """
+        return _dal.DoubleVector_append(self, x)
+
+    def empty(self) -> "bool":
+        r"""empty(self) -> bool"""
+        return _dal.DoubleVector_empty(self)
+
+    def size(self) -> "std::vector< double >::size_type":
+        r"""size(self) -> std::vector< double >::size_type"""
+        return _dal.DoubleVector_size(self)
+
+    def swap(self, v: "DoubleVector") -> "void":
+        r"""
+        swap(self, v)
+
+        Parameters
+        ----------
+        v: std::vector< double > &
+
+        """
+        return _dal.DoubleVector_swap(self, v)
+
+    def begin(self) -> "std::vector< double >::iterator":
+        r"""begin(self) -> std::vector< double >::iterator"""
+        return _dal.DoubleVector_begin(self)
+
+    def end(self) -> "std::vector< double >::iterator":
+        r"""end(self) -> std::vector< double >::iterator"""
+        return _dal.DoubleVector_end(self)
+
+    def rbegin(self) -> "std::vector< double >::reverse_iterator":
+        r"""rbegin(self) -> std::vector< double >::reverse_iterator"""
+        return _dal.DoubleVector_rbegin(self)
+
+    def rend(self) -> "std::vector< double >::reverse_iterator":
+        r"""rend(self) -> std::vector< double >::reverse_iterator"""
+        return _dal.DoubleVector_rend(self)
+
+    def clear(self) -> "void":
+        r"""clear(self)"""
+        return _dal.DoubleVector_clear(self)
+
+    def get_allocator(self) -> "std::vector< double >::allocator_type":
+        r"""get_allocator(self) -> std::vector< double >::allocator_type"""
+        return _dal.DoubleVector_get_allocator(self)
+
+    def pop_back(self) -> "void":
+        r"""pop_back(self)"""
+        return _dal.DoubleVector_pop_back(self)
+
+    def erase(self, *args) -> "std::vector< double >::iterator":
+        r"""
+        erase(self, pos) -> std::vector< double >::iterator
+
+        Parameters
+        ----------
+        pos: std::vector< double >::iterator
+
+        erase(self, first, last) -> std::vector< double >::iterator
+
+        Parameters
+        ----------
+        first: std::vector< double >::iterator
+        last: std::vector< double >::iterator
+
+        """
+        return _dal.DoubleVector_erase(self, *args)
+
+    def __init__(self, *args):
+        r"""
+        __init__(self) -> DoubleVector
+        __init__(self, other) -> DoubleVector
+
+        Parameters
+        ----------
+        other: std::vector< double > const &
+
+        __init__(self, size) -> DoubleVector
+
+        Parameters
+        ----------
+        size: std::vector< double >::size_type
+
+        __init__(self, size, value) -> DoubleVector
+
+        Parameters
+        ----------
+        size: std::vector< double >::size_type
+        value: std::vector< double >::value_type const &
+
+        """
+        _dal.DoubleVector_swiginit(self, _dal.new_DoubleVector(*args))
+
+    def push_back(self, x: "std::vector< double >::value_type const &") -> "void":
+        r"""
+        push_back(self, x)
+
+        Parameters
+        ----------
+        x: std::vector< double >::value_type const &
+
+        """
+        return _dal.DoubleVector_push_back(self, x)
+
+    def front(self) -> "std::vector< double >::value_type const &":
+        r"""front(self) -> std::vector< double >::value_type const &"""
+        return _dal.DoubleVector_front(self)
+
+    def back(self) -> "std::vector< double >::value_type const &":
+        r"""back(self) -> std::vector< double >::value_type const &"""
+        return _dal.DoubleVector_back(self)
+
+    def assign(self, n: "std::vector< double >::size_type", x: "std::vector< double >::value_type const &") -> "void":
+        r"""
+        assign(self, n, x)
+
+        Parameters
+        ----------
+        n: std::vector< double >::size_type
+        x: std::vector< double >::value_type const &
+
+        """
+        return _dal.DoubleVector_assign(self, n, x)
+
+    def resize(self, *args) -> "void":
+        r"""
+        resize(self, new_size)
+
+        Parameters
+        ----------
+        new_size: std::vector< double >::size_type
+
+        resize(self, new_size, x)
+
+        Parameters
+        ----------
+        new_size: std::vector< double >::size_type
+        x: std::vector< double >::value_type const &
+
+        """
+        return _dal.DoubleVector_resize(self, *args)
+
+    def insert(self, *args) -> "void":
+        r"""
+        insert(self, pos, x) -> std::vector< double >::iterator
+
+        Parameters
+        ----------
+        pos: std::vector< double >::iterator
+        x: std::vector< double >::value_type const &
+
+        insert(self, pos, n, x)
+
+        Parameters
+        ----------
+        pos: std::vector< double >::iterator
+        n: std::vector< double >::size_type
+        x: std::vector< double >::value_type const &
+
+        """
+        return _dal.DoubleVector_insert(self, *args)
+
+    def reserve(self, n: "std::vector< double >::size_type") -> "void":
+        r"""
+        reserve(self, n)
+
+        Parameters
+        ----------
+        n: std::vector< double >::size_type
+
+        """
+        return _dal.DoubleVector_reserve(self, n)
+
+    def capacity(self) -> "std::vector< double >::size_type":
+        r"""capacity(self) -> std::vector< double >::size_type"""
+        return _dal.DoubleVector_capacity(self)
+    __swig_destroy__ = _dal.delete_DoubleVector
+
+# Register DoubleVector in _dal:
+_dal.DoubleVector_swigregister(DoubleVector)
+
 class Storable_(object):
     r"""Proxy of C++ Handle_< Storable_ > class."""
 
@@ -982,10 +1302,23 @@ class StrVector(object):
 _dal.StrVector_swigregister(StrVector)
 
 class DoubleMatrix_(object):
-    r"""Proxy of C++ Matrix_< > class."""
+    r"""Proxy of C++ Matrix_< double > class."""
 
     thisown = property(lambda x: x.this.own(), lambda x, v: x.this.own(v), doc="The membership flag")
     __repr__ = _swig_repr
+
+    def __init__(self, *args):
+        r"""
+        __init__(self, row, col, val=double()) -> DoubleMatrix_
+
+        Parameters
+        ----------
+        row: int
+        col: int
+        val: double
+
+        """
+        _dal.DoubleMatrix__swiginit(self, _dal.new_DoubleMatrix_(*args))
 
     def __call__(self, i: "int", j: "int") -> "double":
         r"""
@@ -998,10 +1331,6 @@ class DoubleMatrix_(object):
 
         """
         return _dal.DoubleMatrix____call__(self, i, j)
-
-    def __init__(self):
-        r"""__init__(self) -> DoubleMatrix_"""
-        _dal.DoubleMatrix__swiginit(self, _dal.new_DoubleMatrix_())
     __swig_destroy__ = _dal.delete_DoubleMatrix_
 
 # Register DoubleMatrix_ in _dal:
@@ -1072,6 +1401,20 @@ def BSModelData_New(spot: "double", vol: "double", rate: "double", div: "double"
 
     """
     return _dal.BSModelData_New(spot, vol, rate, div)
+
+def DupireModelData_New(spot: "double", spots: "DoubleVector", times: "DoubleVector", vols: "DoubleMatrix_") -> "Handle_< ModelData_ >":
+    r"""
+    DupireModelData_New(spot, spots, times, vols) -> ModelData_
+
+    Parameters
+    ----------
+    spot: double
+    spots: std::vector< double,std::allocator< double > > const &
+    times: std::vector< double,std::allocator< double > > const &
+    vols: Matrix_< double > const &
+
+    """
+    return _dal.DupireModelData_New(spot, spots, times, vols)
 class Dictionary(object):
     r"""Proxy of C++ std::map< std::string,double > class."""
 

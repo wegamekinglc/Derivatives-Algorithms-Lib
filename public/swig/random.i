@@ -10,7 +10,7 @@
 
     %inline %{
         Handle_<PseudoRSG_> PseudoRSG_New(int seed, int ndim = 1) {
-            return NewPseudoRSG(String_("pseudo"), seed, ndim);
+            return NewPseudoRSG(String_("PseudoRSG_"), seed, ndim);
         }
 
         Matrix_<> PseudoRSG_Get_Uniform(const Handle_<PseudoRSG_>& rsg, int num_path) {
@@ -26,7 +26,7 @@
         }
 
         Handle_<SobolRSG_> SobolRSG_New(int i_path, int ndim = 1) {
-            return NewSobolRSG(String_("sobol"), i_path, ndim);
+            return NewSobolRSG(String_("SobolRSG_"), i_path, ndim);
         }
 
         Matrix_<> SobolRSG_Get_Uniform(const Handle_<SobolRSG_>& rsg, int num_path) {

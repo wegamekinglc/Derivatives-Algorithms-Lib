@@ -19,7 +19,7 @@
         for(auto& e : events)
             new_events.push_back(String_(e));
 
-        return Handle_<ScriptProductData_>(new ScriptProductData_("script_product", new_dates, new_events));
+        return Handle_<ScriptProductData_>(new ScriptProductData_("ScriptProductData_", new_dates, new_events));
     }
 
     std::string Product_Debug(const Handle_<ScriptProductData_>& product) {
