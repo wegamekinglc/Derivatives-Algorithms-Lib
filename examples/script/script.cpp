@@ -76,7 +76,7 @@ int main() {
 
     std::unique_ptr<Model_<Real_>> model;
     if (model_name == "bs")
-        model = std::make_unique<BlackScholes_<Real_>>(spot, vol, false, rate, div);
+        model = std::make_unique<BlackScholes_<Real_>>(spot, vol, rate, div);
     else if (model_name == "dupire") {
         auto times = Vector::XRange(0.0, 5.0, 61);
         auto spots = Vector::XRange(50.0, 200.0, 31);

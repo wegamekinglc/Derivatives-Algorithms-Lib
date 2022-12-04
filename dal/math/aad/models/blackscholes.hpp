@@ -16,7 +16,6 @@ version 1
 name is ?string
 spot is number
 vol is number
-spotMeasure is boolean
 rate is number
 div is number
 -IF-------------------------------------------------------------------------*/
@@ -29,7 +28,6 @@ namespace Dal::AAD {
         T_ div_;
         T_ vol_;
 
-        const bool spotMeasure_;
         Vector_<> timeLine_;
         bool todayOnTimeLine_;
         const Vector_<SampleDef_>* defLine_;
@@ -53,11 +51,8 @@ namespace Dal::AAD {
         }
 
         void FillScenario(const size_t& idx, const T_& spot, Sample_<T_>& scenario, const SampleDef_& def) const {
-            if (def.numeraire_) {
+            if (def.numeraire_)
                 scenario.numeraire_ = numeraires_[idx];
-                if (spotMeasure_)
-                    scenario.numeraire_ *= spot;
-            }
             scenario.spot_ = spot;
             Transform(forwardFactors_[idx], [&spot](const T_& ff) { return spot * ff; }, &scenario.forwards_.front());
 
@@ -69,10 +64,9 @@ namespace Dal::AAD {
         template <class U_>
         BlackScholes_(const U_& spot,
                       const U_& vol,
-                      bool spotMeasure = false,
                       const U_& rate = U_(0.0),
                       const U_& div = U_(0.0))
-            : spot_(spot), vol_(vol), rate_(rate), div_(div), spotMeasure_(spotMeasure), parameters_(4),
+            : spot_(spot), vol_(vol), rate_(rate), div_(div), parameters_(4),
               parameterLabels_(4) {
             parameterLabels_[0] = "spot";
             parameterLabels_[1] = "vol";
@@ -136,20 +130,13 @@ namespace Dal::AAD {
                 const double dt = timeLine_[i + 1] - timeLine_[i];
                 stds_[i] = vol_ * Sqrt(dt);
 
-                if (spotMeasure_)
-                    drifts_[i] = (mu + 0.5 * vol_ * vol_) * dt;
-                else
-                    drifts_[i] = (mu - 0.5 * vol_ * vol_) * dt;
+                drifts_[i] = (mu - 0.5 * vol_ * vol_) * dt;
             }
 
             const size_t m = productTimeline.size();
             for (size_t i = 0; i < m; ++i) {
-                if (defLine[i].numeraire_) {
-                    if (spotMeasure_)
-                        numeraires_[i] = Exp(div_ * productTimeline[i]) / spot_;
-                    else
-                        numeraires_[i] = Exp(rate_ * productTimeline[i]);
-                }
+                if (defLine[i].numeraire_)
+                    numeraires_[i] = Exp(rate_ * productTimeline[i]);
 
                 const size_t pDF = defLine[i].discountMats_.size();
                 for (size_t j = 0; j < pDF; ++j)
@@ -190,17 +177,15 @@ namespace Dal::AAD {
     struct BSModelData_: public ModelData_ {
         double spot_;
         double vol_;
-        bool spotMeasure_;
         double rate_;
         double div_;
 
         BSModelData_(const String_& name,
                      double spot,
                      double vol,
-                     bool spotMeasure = false,
                      double rate = 0.0,
                      double div = 0.0)
-                     : ModelData_("BSModelData_", name), spot_(spot), vol_(vol), spotMeasure_(spotMeasure), rate_(rate), div_(div) {}
+                     : ModelData_("BSModelData_", name), spot_(spot), vol_(vol), rate_(rate), div_(div) {}
 
         void Write(Archive::Store_& dst) const override;
     };

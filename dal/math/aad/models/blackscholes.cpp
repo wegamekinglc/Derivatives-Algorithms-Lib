@@ -11,6 +11,6 @@ namespace Dal::AAD {
 #include <dal/auto/MG_BSModelData_v1_Write.inc>
 
     void BSModelData_::Write(Archive::Store_& dst) const {
-        BSModelData_v1::XWrite(dst, name_, spot_, vol_, spotMeasure_, rate_, div_);
+        BSModelData_v1::XWrite(dst, name_, spot_, vol_, rate_, div_);
     }
 }

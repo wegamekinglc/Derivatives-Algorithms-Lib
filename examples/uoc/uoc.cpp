@@ -36,9 +36,9 @@ auto UOCProducts(double strike, double barrier, const Schedule_& schedule, doubl
 auto BSModels(double spot, double vol, double rate, double div) {
 
     std::unique_ptr<Model_<>> mdl = std::make_unique<BlackScholes_<>>(
-        spot, vol, false, rate, div);
+        spot, vol, rate, div);
     std::unique_ptr<Model_<Number_>> riskMdl = std::make_unique<BlackScholes_<Number_>>(
-        spot, vol, false, rate, div);
+        spot, vol, rate, div);
     return std::make_pair(std::move(mdl), std::move(riskMdl));
 }
 
@@ -51,7 +51,7 @@ auto DupireModels(double spot, double timeLow, double timeHigh, int timeSteps, d
                                                                                   spots,
                                                                                   times,
                                                                                   Matrix_<Number_>(spots.size(), times.size(), Number_(0.15)),
-                                                                                      10.0);
+                                                                                  10.0);
     return std::make_pair(std::move(mdl), std::move(riskMdl));
 }
 

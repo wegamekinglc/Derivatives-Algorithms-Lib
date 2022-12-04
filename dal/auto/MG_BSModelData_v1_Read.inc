@@ -4,7 +4,6 @@ namespace BSModelData_v1 {
         String_ name_;
         double spot_;
         double vol_;
-        bool spotMeasure_;
         double rate_;
         double div_;
         Reader_(const Archive::View_& src, Archive::Built_& share) {
@@ -14,13 +13,12 @@ namespace BSModelData_v1 {
             GetOptional(src, "name", &name_, std::mem_fn(&Archive::View_::AsString));
             Get(src, "spot", &spot_, std::mem_fn(&Archive::View_::AsDouble));
             Get(src, "vol", &vol_, std::mem_fn(&Archive::View_::AsDouble));
-            Get(src, "spotMeasure", &spotMeasure_, std::mem_fn(&Archive::View_::AsBool));
             Get(src, "rate", &rate_, std::mem_fn(&Archive::View_::AsDouble));
             Get(src, "div", &div_, std::mem_fn(&Archive::View_::AsDouble));
         }
         BSModelData_* Build() const
         {
-         return new BSModelData_(name_, spot_, vol_, spotMeasure_, rate_, div_);
+         return new BSModelData_(name_, spot_, vol_, rate_, div_);
         }
         BSModelData_* Build(const Archive::View_& src, Archive::Built_& share) const {
             return Reader_(src, share).Build();

@@ -19,6 +19,18 @@
 
 #define HALF_DAY 0.00136986301369863
 
+/*IF--------------------------------------------------------------------------
+storable DupireModelData
+    Dupire local volatility model data
+version 1
+&members
+name is ?string
+spot is number
+spots is number[]
+times is number[]
+vols is number[][]
+-IF-------------------------------------------------------------------------*/
+
 namespace Dal::AAD {
     template <class T_ = double> class Dupire_ : public Model_<T_> {
         T_ spot_;
@@ -41,7 +53,7 @@ namespace Dal::AAD {
                 const Vector_<>& spots,
                 const Vector_<>& times,
                 const Matrix_<U_>& vols,
-                double maxDt = 0.25)
+                double maxDt = 1.0)
             : spot_(spot), spots_(spots), logSpots_(spots.size()), times_(times), vols_(vols), maxDt_(maxDt),
               parameters_(vols.Rows() * vols.Cols() + 1), parameterLabels_(vols.Rows() * vols.Cols() + 1) {
             Transform(spots_, [](double x) { return Log(x); }, &logSpots_);
@@ -205,5 +217,14 @@ namespace Dal::AAD {
         Vector_<> spots_;
         Vector_<> times_;
         Matrix_<> vols_;
+
+        DupireModelData_(const String_& name,
+                         double spot,
+                         const Vector_<>& spots,
+                         const Vector_<>& times,
+                         const Matrix_<> vols)
+                : ModelData_("BSModelData_", name), spot_(spot), spots_(spots), times_(times), vols_(vols) {}
+
+        void Write(Archive::Store_& dst) const override;
     };
 } // namespace Dal::AAD

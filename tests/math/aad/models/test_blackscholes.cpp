@@ -23,7 +23,7 @@ TEST(BlackScholesTest, TestBlackScholes) {
     const size_t n_paths = 10000000;
 
     European_<double> prd(strike, exerciseDate);
-    BlackScholes_<double> mdl(spot, vol, false, rate, div);
+    BlackScholes_<double> mdl(spot, vol, rate, div);
 
     auto res = MCSimulation(prd, mdl, "sobol", n_paths);
     auto sum = 0.0;
@@ -46,7 +46,7 @@ TEST(BlackScholesTest, TestBlackScholesParallel) {
     const size_t n_paths = 10000000;
 
     European_<double> prd(strike, exerciseDate);
-    BlackScholes_<double> mdl(spot, vol, false, rate, div);
+    BlackScholes_<double> mdl(spot, vol, rate, div);
     auto res = MCParallelSimulation(prd, mdl, "sobol", n_paths);
     auto sum = 0.0;
     for (auto row = 0; row < res.Rows(); ++row)
@@ -68,7 +68,7 @@ TEST(BlackScholesTest, TestBlackScholesAAD) {
     const size_t n_paths = 10000000;
 
     European_<Number_> prd(strike, exerciseDate);
-    BlackScholes_<Number_> mdl(spot, vol, false, rate, div);
+    BlackScholes_<Number_> mdl(spot, vol, rate, div);
 
     auto res = MCSimulationAAD(prd, mdl, "sobol", n_paths);
     ASSERT_NEAR(res.risks_[0], 0.43986485, 1e-6);
@@ -89,7 +89,7 @@ TEST(BlackScholesTest, TestBlackScholesAADParallel) {
     const size_t n_paths = 10000000;
 
     European_<Number_> prd(strike, exerciseDate);
-    BlackScholes_<Number_> mdl(spot, vol, false, rate, div);
+    BlackScholes_<Number_> mdl(spot, vol, rate, div);
     auto res = MCParallelSimulationAAD(prd, mdl, "sobol", n_paths);
     ASSERT_NEAR(res.risks_[0], 0.43986485, 1e-5);
     ASSERT_NEAR(res.risks_[1], 5.38087423, 1e-4);

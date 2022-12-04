@@ -29,7 +29,6 @@ namespace Dal {
         if (enable_aad) {
             aad_model = std::make_unique<BlackScholes_<AAD::Number_>>(model_imp->spot_,
                                                                       model_imp->vol_,
-                                                                      model_imp->spotMeasure_,
                                                                       model_imp->rate_,
                                                                       model_imp->div_);
             int max_nested_ifs = prd.PreProcess(true, true);
@@ -46,7 +45,6 @@ namespace Dal {
         else {
             mdl = std::make_unique<BlackScholes_<>>(model_imp->spot_,
                                                     model_imp->vol_,
-                                                    model_imp->spotMeasure_,
                                                     model_imp->rate_,
                                                     model_imp->div_);
             prd.PreProcess(false, false);

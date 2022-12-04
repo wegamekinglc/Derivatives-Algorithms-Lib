@@ -1,0 +1,41 @@
+
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+<title>DupireModelData_New</title>
+<link href="tablecloth/tablecloth.css" rel="stylesheet" type="text/css" media="screen" />
+<link href="hbk.css" rel="stylesheet" type="text/css" media="screen" />
+<script type="text/javascript" src="tablecloth/tablecloth.js"></script>
+</head>
+<body>
+<h1>DupireModelData_New (in Excel: DUPIREMODELDATA.NEW)</h1>
+Dupire local volality model's data description
+
+<h2>Inputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th>Optional?</th><th></th></tr>
+
+<tr><td>name</td><td>string</td><td></td><td>A name for the object being created</td></tr>
+<tr><td>spot</td><td>number</td><td></td><td>current spot value</td></tr>
+<tr><td>spots</td><td>vector of numbers</td><td></td><td>local vol surface spots data</td></tr>
+<tr><td>times</td><td>vector of numbers</td><td></td><td>local vol surface times data</td></tr>
+<tr><td>vols</td><td>matrix of numbers</td><td></td><td>local vol surface data</td></tr>
+
+</table>
+
+
+
+
+
+<h2>Outputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th></th></tr>
+
+<tr><td>model</td><td>handle of type ModelData</td><td>The model data</td></tr>
+</table>
+
+
+
+
+
+
