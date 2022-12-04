@@ -167,7 +167,7 @@ namespace Dal::AAD {
         // Standard deviation, approx. atm call * sqrt(2pi)
         const double std = atmCall * 2.506628274631;
 
-        //  Skip spots below and above 2.5 std
+        // Skip spots below and above 2.5 std
         int il = 0;
         while (il < nSpots && spots[il] < ivs.Spot() - 2.5 * std)
             ++il;
@@ -175,13 +175,13 @@ namespace Dal::AAD {
         while (ih >= 0 && spots[ih] > ivs.Spot() + 2.5 * std)
             --ih;
 
-        //  Loop on spots
+        // Loop on spots
         for (int i = il; i <= ih; ++i) {
             //  Dupire's formula
             lVolsBegin[i] = ivs.LocalVol(spots[i], maturity, &riskView);
         }
 
-        //  Extrapolate flat outside std
+        // Extrapolate flat outside std
         for (int i = 0; i < il; ++i)
             lVolsBegin[i] = lVolsBegin[il];
         for (int i = ih + 1; i < nSpots; ++i)
@@ -222,7 +222,7 @@ namespace Dal::AAD {
                          double spot,
                          const Vector_<>& spots,
                          const Vector_<>& times,
-                         const Matrix_<> vols)
+                         const Matrix_<>& vols)
                 : ModelData_("BSModelData_", name), spot_(spot), spots_(spots), times_(times), vols_(vols) {}
 
         void Write(Archive::Store_& dst) const override;
