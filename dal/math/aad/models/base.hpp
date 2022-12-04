@@ -24,9 +24,9 @@ namespace Dal::AAD {
 
         [[nodiscard]] virtual const Vector_<String_>& AssetNames() const { return DefaultAssetNames(); }
 
-        virtual void Allocate(const Vector_<Time_>& prdTimeLine, const Vector_<SampleDef_>& prdDefLine) = 0;
+        virtual void Allocate(const Vector_<>& prdTimeLine, const Vector_<SampleDef_>& prdDefLine) = 0;
 
-        virtual void Init(const Vector_<Time_>& prdTimeLine, const Vector_<SampleDef_>& prdDefLine) = 0;
+        virtual void Init(const Vector_<>& prdTimeLine, const Vector_<SampleDef_>& prdDefLine) = 0;
 
         [[nodiscard]] virtual size_t SimDim() const = 0;
 

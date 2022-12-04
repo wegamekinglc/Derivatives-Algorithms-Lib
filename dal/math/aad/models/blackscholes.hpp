@@ -30,7 +30,7 @@ namespace Dal::AAD {
         T_ vol_;
 
         const bool spotMeasure_;
-        Vector_<Time_> timeLine_;
+        Vector_<> timeLine_;
         bool todayOnTimeLine_;
         const Vector_<SampleDef_>* defLine_;
 
@@ -100,7 +100,7 @@ namespace Dal::AAD {
             return clone;
         }
 
-        void Allocate(const Vector_<Time_>& productTimeLine, const Vector_<SampleDef_>& defLine) override {
+        void Allocate(const Vector_<>& productTimeLine, const Vector_<SampleDef_>& defLine) override {
             timeLine_.clear();
             timeLine_.push_back(0);
 
@@ -128,7 +128,7 @@ namespace Dal::AAD {
             }
         }
 
-        void Init(const Vector_<Time_>& productTimeline, const Vector_<SampleDef_>& defLine) override {
+        void Init(const Vector_<>& productTimeline, const Vector_<SampleDef_>& defLine) override {
             const T_ mu = rate_ - div_;
             const size_t n = timeLine_.size() - 1;
 
@@ -200,7 +200,7 @@ namespace Dal::AAD {
                      bool spotMeasure = false,
                      double rate = 0.0,
                      double div = 0.0)
-                     : ModelData_("BSModelData", name), spot_(spot), vol_(vol), spotMeasure_(spotMeasure), rate_(rate), div_(div) {}
+                     : ModelData_("BSModelData_", name), spot_(spot), vol_(vol), spotMeasure_(spotMeasure), rate_(rate), div_(div) {}
 
         void Write(Archive::Store_& dst) const override;
     };

@@ -40,11 +40,11 @@ namespace Dal::AAD {
             Product_<T_>::labels_.Resize(1);
             for(const auto& date: events) {
                 if (date > evaluationDate) {
-                    Time_ time = (date - evaluationDate) / 365.0;
+                    double time = (date - evaluationDate) / 365.0;
                     Product_<T_>::timeLine_.push_back(time);
                     Product_<T_>::defLine_.push_back(SampleDef_());
                     Product_<T_>::defLine_.back().numeraire_ = true;
-                    Product_<T_>::defLine_.back().forwardMats_ =  Vector_<Vector_<Time_>>(numAssets_, Vector_<Time_>(1, time));
+                    Product_<T_>::defLine_.back().forwardMats_ =  Vector_<Vector_<>>(numAssets_, Vector_<>(1, time));
                 }
             }
             numPeriods_ = Product_<T_>::timeLine_.size();

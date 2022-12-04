@@ -18,7 +18,7 @@ namespace Dal::AAD {
         }
 
     protected:
-        Vector_<Time_> timeLine_;
+        Vector_<> timeLine_;
         Vector_<SampleDef_> defLine_;
         Vector_<String_> labels_;
 
@@ -27,7 +27,7 @@ namespace Dal::AAD {
          * access to the products time line
          * along with the sample definitions (def line)
          */
-        [[nodiscard]] const Vector_<Time_>& TimeLine() const { return timeLine_; }
+        [[nodiscard]] const Vector_<>& TimeLine() const { return timeLine_; }
         [[nodiscard]] const Vector_<SampleDef_>& DefLine() const { return defLine_; }
         /*
          * labels of all payoffs in the products and

@@ -15,18 +15,18 @@ namespace Dal::AAD {
     class RiskView_ {
         bool isEmpty_;
         Vector_<> strikes_;
-        Vector_<Time_> mats_;
+        Vector_<> mats_;
         Matrix_<T_> spreads_;
 
     public:
         RiskView_() : isEmpty_(true){};
-        RiskView_(const Vector_<>& strikes, const Vector_<Time_>& mats)
+        RiskView_(const Vector_<>& strikes, const Vector_<>& mats)
             : isEmpty_(false), strikes_(strikes), mats_(mats), spreads_(strikes.size(), mats.size()) {
             for (auto& spr : spreads_)
                 spr = T_(0.0);
         }
 
-        T_ Spread(double strike, Time_ mat) const {
+        T_ Spread(double strike, double mat) const {
             return isEmpty_ ? T_(0.0) : Interp2DLinearImplX(strikes_, mats_, spreads_, strike, mat);
         }
 
@@ -34,7 +34,7 @@ namespace Dal::AAD {
         [[nodiscard]] size_t Rows() const { return strikes_.size(); }
         [[nodiscard]] size_t Cols() const { return mats_.size(); }
         [[nodiscard]] const Vector_<>& Strikes() const { return strikes_; }
-        [[nodiscard]] const Vector_<Time_>& Mats() const { return mats_; }
+        [[nodiscard]] const Vector_<>& Mats() const { return mats_; }
         const Matrix_<T_>& Risks() const { return spreads_; }
 
         using I_ = typename Matrix_<T_>::I_;
@@ -55,10 +55,10 @@ namespace Dal::AAD {
     public:
         explicit IVS_(double spot) : spot_(spot) {}
         [[nodiscard]] double Spot() const { return spot_; }
-        [[nodiscard]] virtual double ImpliedVol(double strike, const Time_& mat) const = 0;
+        [[nodiscard]] virtual double ImpliedVol(double strike, double mat) const = 0;
 
         template <class T_ = double>
-        T_ Call(double strike, const Time_& mat, const RiskView_<T_>* risk = nullptr) const {
+        T_ Call(double strike, double mat, const RiskView_<T_>* risk = nullptr) const {
             return BlackScholes<T_>(spot_, strike, ImpliedVol(strike, mat) + (risk ? risk->Spread(strike, mat) : T_(0.0)), mat);
         }
 
@@ -91,6 +91,6 @@ namespace Dal::AAD {
         MertonIVS_(double spot, double vol, double intens, double aveJmp, double stdJmp)
             : IVS_(spot), vol_(vol), intensity_(intens), averageJmp_(aveJmp), jmpStd(stdJmp) {}
 
-        [[nodiscard]] double ImpliedVol(double strike, const Time_& mat) const override;
+        [[nodiscard]] double ImpliedVol(double strike, double mat) const override;
     };
 } // namespace Dal::AAD

@@ -55,7 +55,7 @@ namespace Dal::Script {
 
         [[nodiscard]] const Vector_<Date_> &EventDates() const { return eventDates_; }
         [[nodiscard]] const Vector_<String_> &VarNames() const { return variables_; }
-        [[nodiscard]] const Vector_<Time_>& TimeLine() const { return timeLine_; }
+        [[nodiscard]] const Vector_<>& TimeLine() const { return timeLine_; }
         [[nodiscard]] const Vector_<Dal::AAD::SampleDef_>& DefLine() const { return defLine_; }
 
         template<class T_>

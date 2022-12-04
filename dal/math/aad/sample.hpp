@@ -15,17 +15,17 @@ namespace Dal::AAD {
 
     struct SampleDef_ {
         struct RateDef_ {
-            Time_ start_;
-            Time_ end_;
+            double start_;
+            double end_;
             String_ curve_;
 
-            RateDef_(const Time_& s, const Time_& e, const String_& c) : start_(s), end_(e), curve_(c) {}
+            RateDef_(const double& s, const double& e, const String_& c) : start_(s), end_(e), curve_(c) {}
         };
 
         bool numeraire_ = true;
-        Vector_<Time_> discountMats_;
+        Vector_<> discountMats_;
         Vector_<RateDef_> liborDefs_;
-        Vector_<Vector_<Time_>> forwardMats_;
+        Vector_<Vector_<>> forwardMats_;
     };
 
     template <class T_ = double> struct Sample_ {

@@ -5,6 +5,7 @@
 #pragma once
 
 #include <cmath>
+#include <dal/storage/archive.hpp>
 #include <dal/math/matrix/matrixutils.hpp>
 #include <dal/math/aad/models/base.hpp>
 #include <dal/math/aad/models/ivs.hpp>
@@ -21,14 +22,14 @@
 namespace Dal::AAD {
     template <class T_ = double> class Dupire_ : public Model_<T_> {
         T_ spot_;
+        const Vector_<SampleDef_>* defLine_;
         const Vector_<> spots_;
         Vector_<> logSpots_;
-        const Vector_<Time_> times_;
+        const Vector_<> times_;
         Matrix_<T_> vols_;
-        const Time_ maxDt_;
-        Vector_<Time_> timeLine_;
+        const double maxDt_;
+        Vector_<> timeLine_;
         Vector_<bool> commonSteps_;
-        const Vector_<SampleDef_>* defLine_;
 
         Matrix_<T_> interpVols_;
         Vector_<T_*> parameters_;
@@ -38,9 +39,9 @@ namespace Dal::AAD {
         template<class U_>
         Dupire_(const U_& spot,
                 const Vector_<>& spots,
-                const Vector_<Time_>& times,
+                const Vector_<>& times,
                 const Matrix_<U_>& vols,
-                Time_ maxDt = 0.25)
+                double maxDt = 0.25)
             : spot_(spot), spots_(spots), logSpots_(spots.size()), times_(times), vols_(vols), maxDt_(maxDt),
               parameters_(vols.Rows() * vols.Cols() + 1), parameterLabels_(vols.Rows() * vols.Cols() + 1) {
             Transform(spots_, [](double x) { return Log(x); }, &logSpots_);
@@ -61,7 +62,7 @@ namespace Dal::AAD {
 
         [[nodiscard]] const Vector_<>& Spots() const { return spots_; }
 
-        [[nodiscard]] const Vector_<Time_>& Times() const { return times_; }
+        [[nodiscard]] const Vector_<>& Times() const { return times_; }
 
         const Vector_<T_>& Vols() const { return vols_; }
 
@@ -76,17 +77,17 @@ namespace Dal::AAD {
         }
 
         //  Initialize timeline
-        void Allocate(const Vector_<Time_>& productTimeline, const Vector_<SampleDef_>& defLine) override {
-            Vector_<Time_> added(1, 0); // just to add 0
+        void Allocate(const Vector_<>& productTimeline, const Vector_<SampleDef_>& defLine) override {
+            Vector_<> added(1, 0); // just to add 0
             timeLine_ = FillData(productTimeline, maxDt_, HALF_DAY, added.begin(), added.end());
             commonSteps_.Resize(timeLine_.size());
             Transform(&commonSteps_, timeLine_,
-                      [&](Time_ t) { return std::binary_search(productTimeline.begin(), productTimeline.end(), t); });
+                      [&](double t) { return std::binary_search(productTimeline.begin(), productTimeline.end(), t); });
             defLine_ = &defLine;
             interpVols_.Resize(timeLine_.size() - 1, spots_.size());
         }
 
-        void Init(const Vector_<Time_>& productTimeline, const Vector_<SampleDef_>& defLine) override {
+        void Init(const Vector_<>& productTimeline, const Vector_<SampleDef_>& defLine) override {
             const size_t n = timeLine_.size() - 1;
             const size_t m = logSpots_.size();
             for (size_t i = 0; i < n; ++i) {
@@ -140,7 +141,7 @@ namespace Dal::AAD {
 
     template <class IT_, class OT_, class T_ = double>
     void DupireCalibMaturity(const IVS_& ivs,
-                             const Time_ maturity,
+                             double maturity,
                              IT_ spotsBegin,
                              IT_ spotsEnd,
                              OT_ lVolsBegin,
@@ -177,10 +178,10 @@ namespace Dal::AAD {
 
     // Returns a struct with spots, times and lVols
     template <class T_ = double>
-    inline auto DupireCalib(const IVS_& ivs, const Vector_<>& inclSpots, double maxDs, const Vector_<Time_>& inclTimes, double maxDt, const RiskView_<T_>& riskView = RiskView_<double>()) {
+    inline auto DupireCalib(const IVS_& ivs, const Vector_<>& inclSpots, double maxDs, const Vector_<>& inclTimes, double maxDt, const RiskView_<T_>& riskView = RiskView_<double>()) {
         struct {
             Vector_<> spots_;
-            Vector_<Time_> times_;
+            Vector_<> times_;
             Matrix_<T_> lVols_;
         } results;
 
@@ -198,4 +199,11 @@ namespace Dal::AAD {
         results.lVols_ = Dal::Matrix::MakeTranspose(lVolsT);
         return results;
     }
+
+    struct DupireModelData_: public ModelData_ {
+        double spot_;
+        Vector_<> spots_;
+        Vector_<> times_;
+        Matrix_<> vols_;
+    };
 } // namespace Dal::AAD

@@ -27,8 +27,6 @@ template <class T_> using scoped_ptr = const std::unique_ptr<T_>;
 
 namespace Dal {
 
-    using Time_ = double;
-
     template <class = double, size_t DefaultSize = 64> class Stack_;
 
     template <class = double> class Vector_;
