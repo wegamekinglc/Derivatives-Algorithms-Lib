@@ -5,6 +5,7 @@
 #pragma once
 
 #include <dal/math/aad/models/blackscholes.hpp>
+#include <dal/math/aad/models/dupire.hpp>
 #include <dal/script/simulation.hpp>
 
 namespace Dal {

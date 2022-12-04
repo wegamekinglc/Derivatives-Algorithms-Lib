@@ -48,7 +48,7 @@ namespace Dal::AAD {
         Vector_<String_> parameterLabels_;
 
     public:
-        template<class U_>
+        template <class U_>
         Dupire_(const U_& spot,
                 const Vector_<>& spots,
                 const Vector_<>& times,
@@ -223,7 +223,7 @@ namespace Dal::AAD {
                          const Vector_<>& spots,
                          const Vector_<>& times,
                          const Matrix_<>& vols)
-                : ModelData_("BSModelData_", name), spot_(spot), spots_(spots), times_(times), vols_(vols) {}
+                : ModelData_("DupireModelData_", name), spot_(spot), spots_(spots), times_(times), vols_(vols) {}
 
         void Write(Archive::Store_& dst) const override;
     };
