@@ -56,7 +56,7 @@ namespace Dal::Matrix {
         }
     }    // leave local
 
-    void Matrix::Multiply(const Matrix_<> &left, const Matrix_<> &right, Matrix_<> *result) {
+    void Multiply(const Matrix_<> &left, const Matrix_<> &right, Matrix_<> *result) {
         REQUIRE(left.Cols() == right.Rows(), "left and right size is not compatible");
         if (result == &left)
             Multiply(Matrix_<>(left), right, result);
@@ -66,7 +66,7 @@ namespace Dal::Matrix {
             MultiplyAliasFree(left, right, result);
     }
 
-    void Matrix::Multiply(const Matrix_<> &left, const Vector_<> &right, Vector_<> *result) {
+    void Multiply(const Matrix_<> &left, const Vector_<> &right, Vector_<> *result) {
         REQUIRE(left.Cols() == right.size(), "left and right size is not compatible");
         if (result == &right)    // aliased
             Multiply(left, Vector_<>(right), result);
@@ -74,7 +74,7 @@ namespace Dal::Matrix {
             MultiplyAliasFree(left, right, result);
     }
 
-    void Matrix::Multiply(const Vector_<> &left, const Matrix_<> &right, Vector_<> *result) {
+    void Multiply(const Vector_<> &left, const Matrix_<> &right, Vector_<> *result) {
         REQUIRE(left.size() == right.Rows(), "left and right size is not compatible");
         if (result == &left)    // aliased
             Multiply(Vector_<>(left), right, result);
@@ -82,7 +82,7 @@ namespace Dal::Matrix {
             MultiplyAliasFree(left, right, result);
     }
 
-    double Matrix::WeightedInnerProduct(const Vector_<> &left, const Matrix_<> &w, const Vector_<> &right) {
+    double WeightedInnerProduct(const Vector_<> &left, const Matrix_<> &w, const Vector_<> &right) {
         REQUIRE(left.size() == w.Rows(), "left and w size is not compatible");
         REQUIRE(right.size() == w.Cols(), "right and w size is not compatible");
         double retval = 0.0;
@@ -92,7 +92,7 @@ namespace Dal::Matrix {
     }
 
 
-    void Matrix::AddJSquaredToUpper(const Matrix_<> &a, Matrix_<> *h) {
+    void AddJSquaredToUpper(const Matrix_<> &a, Matrix_<> *h) {
         static const int CACHE_SIZE = 16;    // number of doubles in a cached row
 
         const int n = a.Rows(), nf = a.Cols();
