@@ -93,8 +93,7 @@ namespace Dal::AAD {
             Vector_<> added(1, 0); // just to add 0
             timeLine_ = FillData(productTimeline, maxDt_, HALF_DAY, added.begin(), added.end());
             commonSteps_.Resize(timeLine_.size());
-            Transform(&commonSteps_, timeLine_,
-                      [&](double t) { return std::binary_search(productTimeline.begin(), productTimeline.end(), t); });
+            Transform(timeLine_, [&productTimeline](double t) { return std::binary_search(productTimeline.begin(), productTimeline.end(), t); }, &commonSteps_);
             defLine_ = &defLine;
             interpVols_.Resize(timeLine_.size() - 1, spots_.size());
         }
