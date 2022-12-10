@@ -1,4 +1,4 @@
-name: CMake Linux build gcc-10
+name: CMake Linux build gcc-11
 on: [push, pull_request]
 jobs:
   build:
@@ -9,15 +9,15 @@ jobs:
           submodules: recursive
       - name: Setup
         run: |
-          sudo apt install -y g++-10 libgtest-dev libc++-dev make cmake libpython3-dev
+          sudo apt install -y gcc-11 libgtest-dev libc++-dev make cmake libpython3-dev
       - name: Prepare
         env:
           CXXFLAGS: -O2
-          CC: gcc-10
-          CXX: g++-10
+          CC: gcc-11
+          CXX: g++-101
         run: |
-          sudo ln -sf /usr/bin/gcov-10 /usr/bin/gcov
-          sudo ln -sf /usr/bin/gcov-10 /usr/bin/gcov
+          sudo ln -sf /usr/bin/gcov-11 /usr/bin/gcov
+          sudo ln -sf /usr/bin/gcov-11 /usr/bin/gcov
           wget http://mirrors.edge.kernel.org/ubuntu//pool/universe/l/lcov/lcov_1.14-2_all.deb
           sudo dpkg -i lcov_1.14-2_all.deb || sudo apt-get install -f -y
           export CWD=$PWD
@@ -31,8 +31,8 @@ jobs:
       - name: Compile
         env:
           CXXFLAGS: -O2
-          CC: gcc-10
-          CXX: g++-10
+          CC: gcc-11
+          CXX: g++-11
         run: |
           bash -e ./build_linux.sh
       - name: Coverage

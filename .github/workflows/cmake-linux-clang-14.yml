@@ -1,4 +1,4 @@
-name: CMake Linux build clang-10
+name: CMake Linux build clang-14
 on: [push, pull_request]
 jobs:
   build:
@@ -9,12 +9,12 @@ jobs:
           submodules: recursive
       - name: Setup
         run: |
-          sudo apt install -y clang-10 libgtest-dev libstdc++-10-dev libc++-10-dev libc++abi-10-dev make cmake libpython3.8-dev
+          sudo apt install -y clang-14 libgtest-dev libstdc++-14-dev libc++-14-dev libc++abi-14-dev make cmake libpython3-dev
       - name: Prepare
         env:
           CXXFLAGS: -O2
-          CC: clang-10
-          CXX: clang++-10
+          CC: clang-14
+          CXX: clang++-14
         run: |
           export CWD=$PWD
           mkdir gtest
@@ -27,7 +27,7 @@ jobs:
       - name: Compile
         env:
           CXXFLAGS: -O2
-          CC: clang-10
-          CXX: clang++-10
+          CC: clang-14
+          CXX: clang++-14
         run: |
           bash -e ./build_linux.sh
