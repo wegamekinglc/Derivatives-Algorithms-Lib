@@ -53,4 +53,8 @@ namespace Dal {
         String_ ToString(const Dictionary_& dict);
         Dictionary_ FromString(const String_& src);
     } // namespace Dictionary
+
+    template<class T_> class StoreAsDictionary_ {
+
+    };	// no content
 } // namespace Dal
