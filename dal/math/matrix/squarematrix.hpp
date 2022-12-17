@@ -12,7 +12,7 @@ namespace Dal {
 
     public:
         SquareMatrix_() = default;
-        explicit SquareMatrix_(int size) : val_(size, size) {}
+        explicit SquareMatrix_(int size, E_ val = E_()) : val_(size, size, val) {}
         void Resize(int size) { val_.Resize(size, size); }
 
         operator const Matrix_<E_>&() const { return val_; };

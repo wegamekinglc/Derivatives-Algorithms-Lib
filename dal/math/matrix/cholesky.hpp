@@ -7,8 +7,8 @@
 #include <dal/platform/platform.hpp>
 
 namespace Dal {
-    class SymmetricMatrixDecomposition_;
+    class SquareMatrixDecomposition_;
 
-    SymmetricMatrixDecomposition_* CholeskyDecomposition(const SquareMatrix_<>& src);
+    SquareMatrixDecomposition_* CholeskyDecomposition(const SquareMatrix_<>& src);
     void CholeskySolve(SquareMatrix_<>* a, Vector_<Vector_<>>* b, double regularization = Dal::EPSILON);
 }
