@@ -48,25 +48,25 @@ namespace Dal {
         public:
             virtual ~Jacobian_() = default;
 
-            virtual int Rows() const = 0;
-            virtual int Columns() const = 0;
+            [[nodiscard]] virtual int Rows() const = 0;
+            [[nodiscard]] virtual int Columns() const = 0;
             virtual void DivideRows(const Vector_<>& tol) = 0;
-            virtual Vector_<> MultiplyLeft(const Vector_<>& dx) const = 0;
-            virtual Vector_<> MultiplyRight(const Vector_<>& t) const = 0;
+            [[nodiscard]] virtual Vector_<> MultiplyLeft(const Vector_<>& dx) const = 0;
+            [[nodiscard]] virtual Vector_<> MultiplyRight(const Vector_<>& t) const = 0;
             virtual void QForm(const Sparse::SymmetricDecomposition_& w, SquareMatrix_<>* form) const = 0;
             virtual void SecantUpdate(const Vector_<>& dx, const Vector_<>& df) = 0;
         };
 
         class Function_ {
-            virtual double BumpSize() const { return 1.0e-4; };
+            [[nodiscard]] virtual double BumpSize() const { return 1.0e-4; };
             virtual void FFast(const Vector_<>& x, Vector_<>* f) const {
                 *f = F(x);
             }
 
         public:
             virtual ~Function_() = default;
-            virtual Vector_<> F(const Vector_<>& x) const = 0;
-            virtual Jacobian_* Gradient(const Vector_<>& x, const Vector_<>& f) const {
+            [[nodiscard]] virtual Vector_<> F(const Vector_<>& x) const = 0;
+            [[nodiscard]] virtual Jacobian_* Gradient(const Vector_<>& x, const Vector_<>& f) const {
                 return nullptr;
             }
             virtual void Gradient(const Vector_<>& x, const Vector_<>& f, Matrix_<>* j) const;

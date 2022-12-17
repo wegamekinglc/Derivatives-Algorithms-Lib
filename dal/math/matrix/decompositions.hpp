@@ -17,7 +17,7 @@ namespace Dal {
 
     public:
         virtual ~SquareMatrixDecomposition_() = default;
-        virtual int Size() const = 0;
+        [[nodiscard]] virtual int Size() const = 0;
         void MultiplyLeft(const Vector_<>& x, Vector_<>* b) const;
         void MultiplyRight(const Vector_<>& x, Vector_<>* b) const;
         void SolveLeft(const Vector_<>& b, Vector_<>* x) const;
@@ -40,9 +40,8 @@ namespace Dal {
         void XSolveRight_af(const Vector_<>& b, Vector_<>* x) const override { return XSolve_af(b, x); }
 
     public:
-        virtual int Rank() const { return Size(); }
-        virtual Vector_<>::const_iterator MakeCorrelated(Vector_<>::const_iterator iid_begin,
-                                                         Vector_<>* correlated) const = 0;
+        [[nodiscard]] virtual int Rank() const { return Size(); }
+        virtual Vector_<>::const_iterator MakeCorrelated(Vector_<>::const_iterator iid_begin, Vector_<>* correlated) const = 0;
 
         void Multiply(const Vector_<>& x, Vector_<>* b) const;
         void Solve(const Vector_<>& b, Vector_<>* x) const;

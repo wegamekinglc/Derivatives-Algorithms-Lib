@@ -16,13 +16,13 @@ namespace Dal::Sparse {
 
     class Square_ : noncopyable {
     public:
-        virtual int Size() const = 0;
+        [[nodiscard]] virtual int Size() const = 0;
         virtual void MultiplyLeft(const Vector_<>& x, Vector_<>* b) const = 0;
         virtual void MultiplyRight(const Vector_<>& x, Vector_<>* b) const = 0;
 
-        virtual bool IsSymmetric() const = 0;
-        virtual SquareMatrixDecomposition_* Decompose() const = 0;
-        SymmetricDecomposition_* DecomposeSymmetric() const;
+        [[nodiscard]] virtual bool IsSymmetric() const = 0;
+        [[nodiscard]] virtual SquareMatrixDecomposition_* Decompose() const = 0;
+        [[nodiscard]] SymmetricDecomposition_* DecomposeSymmetric() const;
         virtual const double& operator()(int i_row, int j_col) const = 0;
         virtual void Set(int i_row, int j_col, double val) = 0;
         virtual void Add(int i_row, int j_col, double val) { Set(i_row, j_col, val + operator()(i_row, j_col)); }
