@@ -3,6 +3,7 @@
 //
 
 #include <dal/utilities/algorithms.hpp>
+#include <dal/math/operators.hpp>
 #include <dal/math/matrix/squarematrix.hpp>
 #include <dal/math/matrix/decompositions.hpp>
 #include <dal/math/matrix/decompositionsmisc.hpp>
@@ -47,7 +48,7 @@ namespace Dal {
                 devs->Resize(n);
                 for (int ii = 0; ii < n; +ii, ++iid_begin) {
                     REQUIRE(!IsNegative(vals_[ii]), "Negative variance, can't MakeCorrelated");
-                    (*devs)[ii] = sqrt(Max(vals_[ii], 0.0)) * *iid_begin;
+                    (*devs)[ii] = Sqrt(Max(vals_[ii], 0.0)) * *iid_begin;
                 }
                 return iid_begin;
             }
