@@ -4,9 +4,9 @@
 
 #pragma once
 
-#include <dal/math/vectors.hpp>
-#include <dal/math/aad/operators.hpp>
+#include <dal/math/operators.hpp>
 #include <dal/math/aad/products/base.hpp>
+#include <dal/math/vectors.hpp>
 #include <dal/storage/globals.hpp>
 #include <dal/time/date.hpp>
 #include <dal/time/schedules.hpp>

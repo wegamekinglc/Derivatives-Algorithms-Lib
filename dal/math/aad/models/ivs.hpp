@@ -74,7 +74,7 @@ namespace Dal::AAD {
             const T_ c10 = Call(strike - ds, mat, risk);
             const T_ c20 = Call(strike + ds, mat, risk);
             const T_ ckk = (c10 + c20 - 2.0 * c00) / ds / ds;
-            return Sqrt(2.0 * ct / ckk) / strike;
+            return Dal::Sqrt(2.0 * ct / ckk) / strike;
         }
 
         virtual ~IVS_() = default;

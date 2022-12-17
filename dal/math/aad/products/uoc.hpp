@@ -4,14 +4,12 @@
 
 #pragma once
 
-#include <dal/time/date.hpp>
-#include <dal/math/aad/aad.hpp>
+#include <dal/math/operators.hpp>
 #include <dal/math/aad/products/base.hpp>
-#include <dal/math/aad/operators.hpp>
 #include <dal/storage/globals.hpp>
+#include <dal/time/date.hpp>
 #include <dal/time/schedules.hpp>
 #include <sstream>
-
 
 namespace Dal::AAD {
     template <class T_ = double> class UOC_ : public Product_<T_> {
@@ -55,7 +53,7 @@ namespace Dal::AAD {
             T_ alive(1.0);
             if (smooth_ >= Dal::EPSILON) {
                 for (const auto& sample : path) {
-                    alive = Min(alive, Min(1.0, Max(0.0, 0.5 - (sample.forwards_[0][0] - barrier_) / twoSmooth)));
+                    alive = Dal::Min(alive, Dal::Min(1.0, Dal::Max(0.0, 0.5 - (sample.forwards_[0][0] - barrier_) / twoSmooth)));
                 }
             } else {
                 for (const auto& sample : path) {
@@ -67,9 +65,9 @@ namespace Dal::AAD {
             }
 
             if (callPut_)
-                (*payoffs)[0] = alive * Max(strike_ - path.back().forwards_[0][0], 0.0) / path.back().numeraire_;
+                (*payoffs)[0] = alive * Dal::Max(strike_ - path.back().forwards_[0][0], 0.0) / path.back().numeraire_;
             else
-                (*payoffs)[0] = alive * Max(path.back().forwards_[0][0] - strike_, 0.0) / path.back().numeraire_;
+                (*payoffs)[0] = alive * Dal::Max(path.back().forwards_[0][0] - strike_, 0.0) / path.back().numeraire_;
         }
 
         inline void PayoffsImpl(const Scenario_<T_>& path, Vector_<T_>* payoffs) const override {

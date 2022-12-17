@@ -2,10 +2,10 @@
 // Created by wegam on 2022/10/29.
 //
 
+#include <dal/math/operators.hpp>
 #include <dal/math/random/brownianbridge.hpp>
-#include <dal/utilities/exceptions.hpp>
 #include <dal/utilities/algorithms.hpp>
-#include <dal/math/aad/operators.hpp>
+#include <dal/utilities/exceptions.hpp>
 
 namespace Dal {
 

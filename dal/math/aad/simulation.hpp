@@ -4,18 +4,16 @@
 
 #pragma once
 
-#include <dal/math/random/pseudorandom.hpp>
+#include <dal/math/operators.hpp>
+#include <dal/concurrency/threadpool.hpp>
 #include <dal/math/aad/aad.hpp>
-#include <dal/math/aad/operators.hpp>
 #include <dal/math/matrix/matrixs.hpp>
+#include <dal/math/random/brownianbridge.hpp>
+#include <dal/math/random/pseudorandom.hpp>
+#include <dal/math/random/sobol.hpp>
 #include <dal/math/vectors.hpp>
 #include <dal/platform/platform.hpp>
 #include <dal/string/strings.hpp>
-#include <dal/concurrency/threadpool.hpp>
-#include <dal/math/random/brownianbridge.hpp>
-#include <dal/math/random/sobol.hpp>
-#include <dal/math/random/pseudorandom.hpp>
-
 
 namespace Dal::AAD {
     /*
@@ -184,7 +182,7 @@ namespace Dal::AAD {
         size_t firstPath = 0;
         size_t pathsLeft = nPath;
         while (pathsLeft > 0) {
-            size_t pathsInTask = Min(pathsLeft, BATCH_SIZE);
+            size_t pathsInTask = Dal::Min(pathsLeft, BATCH_SIZE);
 
             futures.push_back(pool->SpawnTask([&, firstPath, pathsInTask]() {
                 const size_t threadNum = pool->ThreadNum();

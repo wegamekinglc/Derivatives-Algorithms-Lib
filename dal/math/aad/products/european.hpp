@@ -4,10 +4,10 @@
 
 #pragma once
 
-#include <dal/time/date.hpp>
+#include <dal/math/operators.hpp>
 #include <dal/math/aad/products/base.hpp>
-#include <dal/math/aad/operators.hpp>
 #include <dal/storage/globals.hpp>
+#include <dal/time/date.hpp>
 #include <sstream>
 
 namespace Dal::AAD {
@@ -50,7 +50,7 @@ namespace Dal::AAD {
         void PayoffsImplX(const Scenario_<T_>& path, C_ payoffs) const {
             const auto& sample = path[0];
             const auto spot = sample.forwards_[0][0];
-            (*payoffs)[0] = Max(spot - strike_, 0.0) * sample.discounts_[0]/ sample.numeraire_;
+            (*payoffs)[0] = Dal::Max(spot - strike_, 0.0) * sample.discounts_[0]/ sample.numeraire_;
         }
 
         inline void PayoffsImpl(const Scenario_<T_>& path, Vector_<T_>* payoffs) const override {

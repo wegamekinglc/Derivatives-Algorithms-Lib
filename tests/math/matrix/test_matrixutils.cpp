@@ -2,8 +2,7 @@
 // Created by wegam on 2022/4/10.
 //
 
-#include "dal/math/aad/operators.hpp"
-#include <cmath>
+#include <dal/math/operators.hpp>
 #include <dal/math/matrix/matrixutils.hpp>
 #include <gtest/gtest.h>
 

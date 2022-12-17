@@ -4,20 +4,20 @@
 
 #pragma once
 
-#include <dal/platform/platform.hpp>
-#include <dal/math/aad/operators.hpp>
+#include <dal/math/operators.hpp>
 #include <dal/math/distribution/black.hpp>
+#include <dal/platform/platform.hpp>
 
 namespace Dal::AAD {
 
     template <class T_>
     T_ BlackScholes(const T_& spot, const T_& strike, const T_& vol, const T_& mat) {
-        const auto std = vol * Sqrt(mat);
+        const auto std = vol * Dal::Sqrt(mat);
         if (std <= EPSILON)
-            return Max(T_(0.0), T_(spot - strike));
-        const T_ d2 = Log(spot / strike) / std - 0.5 * std;
+            return Dal::Max(T_(0.0), T_(spot - strike));
+        const T_ d2 = Dal::Log(spot / strike) / std - 0.5 * std;
         const T_ d1 = d2 + std;
-        return spot * NCDF(static_cast<T_>(d1)) - strike * NCDF(static_cast<T_>(d2));
+        return spot * Dal::NCDF(static_cast<T_>(d1)) - strike * Dal::NCDF(static_cast<T_>(d2));
     }
 
     double BlackScholesIVol(double spot, double strike, double prem, double mat);
@@ -33,7 +33,7 @@ namespace Dal::AAD {
               const T_& stdJmp) {
         const T_ varJmp = stdJmp * stdJmp;
         const T_ mv2 = meanJmp + 0.5 * varJmp;
-        const T_ comp = intens * (Exp(mv2) - 1);
+        const T_ comp = intens * (Dal::Exp(mv2) - 1);
         const T_ var = vol * vol;
         const T_ intensT = intens * mat;
 
@@ -42,9 +42,9 @@ namespace Dal::AAD {
         const size_t cut = 10;
         T_ result = 0.0;
         for (size_t n = 0; n < cut; ++n) {
-            const T_ s = spot * Exp(n * mv2 - comp * mat);
-            const T_ v = Sqrt(var + n * varJmp / mat);
-            const T_ prob = Exp(-intensT) * iT / fact;
+            const T_ s = spot * Dal::Exp(n * mv2 - comp * mat);
+            const T_ v = Dal::Sqrt(var + n * varJmp / mat);
+            const T_ prob = Dal::Exp(-intensT) * iT / fact;
             result += prob * BlackScholes<T_>(s, strike, v, mat);
             fact *= n + 1;
             iT *= intensT;

@@ -4,10 +4,10 @@
 
 #pragma once
 
-#include <dal/platform/platform.hpp>
-#include <dal/math/aad/operators.hpp>
+#include <dal/math/operators.hpp>
 #include <dal/math/aad/sample.hpp>
 #include <dal/math/stacks.hpp>
+#include <dal/platform/platform.hpp>
 #include <dal/script/node.hpp>
 #include <dal/script/visitor.hpp>
 
@@ -110,7 +110,7 @@ namespace Dal::Script {
         void operator()(const std::unique_ptr<NodePower_>& node) {
             EvalArgs(*node);
             const auto& args = Pop2();
-            dStack_.Push(AAD::Pow(args.first, args.second));
+            dStack_.Push(Pow(args.first, args.second));
         }
 
         void operator()(const std::unique_ptr<NodeUPlus_>& node) {
@@ -124,13 +124,13 @@ namespace Dal::Script {
 
         void operator()(const std::unique_ptr<NodeLog_>& node) {
             EvalArgs(*node);
-            const T_ res = AAD::Log(dStack_.TopAndPop());
+            const T_ res = Log(dStack_.TopAndPop());
             dStack_.Push(res);
         }
 
         void operator()(const std::unique_ptr<NodeSqrt_>& node) {
             EvalArgs(*node);
-            const T_ res = AAD::Sqrt(dStack_.TopAndPop());
+            const T_ res = Sqrt(dStack_.TopAndPop());
             dStack_.Push(res);
         }
 
@@ -138,7 +138,7 @@ namespace Dal::Script {
             EvalArgs(*node);
             T_ m = dStack_.TopAndPop();
             for (size_t i = 1; i < node->arguments_.size(); ++i)
-                m = AAD::Max(m, dStack_.TopAndPop());
+                m = Max(m, dStack_.TopAndPop());
             dStack_.Push(m);
         }
 
@@ -146,7 +146,7 @@ namespace Dal::Script {
             EvalArgs(*node);
             T_ m = dStack_.TopAndPop();
             for (size_t i = 1; i < node->arguments_.size(); ++i)
-                m = AAD::Min(m, dStack_.TopAndPop());
+                m = Min(m, dStack_.TopAndPop());
             dStack_.Push(m);
         }
 
@@ -204,7 +204,7 @@ namespace Dal::Script {
         void operator()(const std::unique_ptr<NodeEqual_>& node) {
             EvalArgs(*node);
             const T_ res = dStack_.TopAndPop();
-            bStack_.Push(AAD::Fabs(res) < EPSILON);
+            bStack_.Push(Fabs(res) < EPSILON);
         }
 
         void operator()(const std::unique_ptr<NodeNot_>& node) {

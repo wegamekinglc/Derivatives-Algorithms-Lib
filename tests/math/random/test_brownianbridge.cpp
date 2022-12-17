@@ -2,10 +2,10 @@
 // Created by wegam on 2022/10/30.
 //
 
-#include <gtest/gtest.h>
-#include <dal/math/aad/operators.hpp>
-#include <dal/math/random/sobol.hpp>
+#include <dal/math/operators.hpp>
 #include <dal/math/random/brownianbridge.hpp>
+#include <dal/math/random/sobol.hpp>
+#include <gtest/gtest.h>
 
 using namespace Dal;
 
@@ -13,7 +13,7 @@ using namespace Dal;
 TEST(BrownianBridgeTest, TestFillNormal) {
     int ndim = 10;
     auto bw = std::make_unique<BrownianBridge_>(std::unique_ptr<Random_>(NewSobol(ndim, 1024)));
-    int n_paths = AAD::Pow(2, 24);
+    int n_paths = Pow(2, 24);
     Vector_<> deviates;
 
     Vector_<> means(ndim, 0.);

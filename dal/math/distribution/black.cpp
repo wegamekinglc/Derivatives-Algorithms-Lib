@@ -2,7 +2,7 @@
 // Created by wegam on 2022/5/5.
 //
 
-#include "dal/math/aad/operators.hpp"
+#include <dal/math/operators.hpp>
 #include <dal/math/distribution/black.hpp>
 #include <dal/math/rootfind.hpp>
 #include <dal/math/specialfunctions.hpp>
@@ -14,7 +14,7 @@ namespace Dal {
         double BlackOpt(double fwd, double vol, double strike, const OptionType_& type) {
             if (IsZero(vol) || !IsPositive(fwd * strike))
                 return type.Payout(fwd, strike);
-            const double dMinus = AAD::Log(fwd / strike) / vol - 0.5 * vol;
+            const double dMinus = Log(fwd / strike) / vol - 0.5 * vol;
             const double dPlus = dMinus + vol;
             switch (type.Switch()) {
             case OptionType_::Value_::CALL:
@@ -32,10 +32,10 @@ namespace Dal {
             static const int MAX_ITERATIONS = 30;
             static const double TOL = 1.0e-10;
             REQUIRE(price >= type.Payout(fwd, strike), "value below intrinsic value in BlackIV");
-            Brent_ task(guess ? AAD::Log(guess) : -1.5);
-            Converged_ done(TOL * AAD::Max(1.0, fwd), TOL * AAD::Max(1.0, price));
+            Brent_ task(guess ? Log(guess) : -1.5);
+            Converged_ done(TOL * Max(1.0, fwd), TOL * Max(1.0, price));
             for (int i = 0; i < MAX_ITERATIONS; ++i) {
-                const double vol = AAD::Exp(task.NextX());
+                const double vol = Exp(task.NextX());
                 if (done(task, BlackOpt(fwd, vol, strike, type) - price))
                     return vol;
             }
@@ -43,7 +43,7 @@ namespace Dal {
         }
 
         Vector_<> BlackGreeks(double fwd, double vol, double strike, const OptionType_& type) {
-            const double dMinus = AAD::Log(fwd / strike) / vol - 0.5 * vol;
+            const double dMinus = Log(fwd / strike) / vol - 0.5 * vol;
             const double dPlus = dMinus + vol;
             double fwdDelta = 0.0;
             double vega = 0.0;

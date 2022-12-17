@@ -2,12 +2,11 @@
 // Created by wegamekinglc on 22-10-27.
 //
 
-#include <chrono>
-#include <iostream>
+#include <dal/math/operators.hpp>
 #include <dal/concurrency/threadpool.hpp>
-#include <dal/utilities/timer.hpp>
-#include <dal/math/aad/operators.hpp>
 #include <dal/math/specialfunctions.hpp>
+#include <dal/utilities/timer.hpp>
+#include <iostream>
 
 using namespace Dal;
 using namespace std::chrono_literals;
@@ -15,7 +14,7 @@ using namespace std::chrono_literals;
 
 void LongRunningTask(int n1, int n2) {
     for(int i = n1; i < n2; ++i) {
-        NCDF(1. / (AAD::Log(static_cast<double>(i))+ 1.0001), true);
+        NCDF(1. / (Log(static_cast<double>(i))+ 1.0001), true);
     }
 }
 

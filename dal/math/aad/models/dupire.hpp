@@ -4,16 +4,15 @@
 
 #pragma once
 
-#include <cmath>
-#include <dal/storage/archive.hpp>
-#include <dal/math/matrix/matrixutils.hpp>
+#include <dal/math/operators.hpp>
 #include <dal/math/aad/models/base.hpp>
 #include <dal/math/aad/models/ivs.hpp>
 #include <dal/math/aad/models/utilities.hpp>
 #include <dal/math/interp/interp.hpp>
-#include <dal/math/aad/operators.hpp>
 #include <dal/math/matrix/matrixs.hpp>
+#include <dal/math/matrix/matrixutils.hpp>
 #include <dal/math/vectors.hpp>
+#include <dal/storage/archive.hpp>
 #include <iomanip>
 #include <sstream>
 
@@ -56,7 +55,7 @@ namespace Dal::AAD {
                 double maxDt = 1.0)
             : spot_(spot), spots_(spots), logSpots_(spots.size()), times_(times), vols_(vols), maxDt_(maxDt),
               parameters_(vols.Rows() * vols.Cols() + 1), parameterLabels_(vols.Rows() * vols.Cols() + 1) {
-            Transform(spots_, [](double x) { return Log(x); }, &logSpots_);
+            Transform(spots_, [](double x) { return Dal::Log(x); }, &logSpots_);
             parameterLabels_[0] = "spot";
             size_t p = 0;
             for (size_t i = 0; i < vols_.Rows(); ++i)
@@ -102,7 +101,7 @@ namespace Dal::AAD {
             const size_t n = timeLine_.size() - 1;
             const size_t m = logSpots_.size();
             for (size_t i = 0; i < n; ++i) {
-                const double sqrtDt = Sqrt(timeLine_[i + 1] - timeLine_[i]);
+                const double sqrtDt = Dal::Sqrt(timeLine_[i + 1] - timeLine_[i]);
                 for (size_t j = 0; j < m; ++j) {
                     interpVols_(i, j) = sqrtDt * InterpLinearImplX<T_>(times_, vols_.Row(j), T_(timeLine_[i]));
                 }
@@ -112,10 +111,10 @@ namespace Dal::AAD {
         [[nodiscard]] size_t SimDim() const override { return timeLine_.size() - 1; }
 
         void GeneratePath(const Vector_<>& gaussVec, Scenario_<T_>* path) const override {
-            T_ logSpot = Log(spot_);
+            T_ logSpot = Dal::Log(spot_);
             size_t idx = 0;
             if (commonSteps_[idx]) {
-                FillScenario(Exp(logSpot), (*path)[idx]);
+                FillScenario(Dal::Exp(logSpot), (*path)[idx]);
                 ++idx;
             }
 
@@ -125,7 +124,7 @@ namespace Dal::AAD {
                 T_ vol = InterpLinearImplX<T_>(logSpots_, interpVols_.Row(i), logSpot);
                 logSpot += vol * (-0.5 * vol + gaussVec[i]);
                 if (commonSteps_[i + 1]) {
-                    FillScenario(Exp(logSpot), (*path)[idx]);
+                    FillScenario(Dal::Exp(logSpot), (*path)[idx]);
                     ++idx;
                 }
             }

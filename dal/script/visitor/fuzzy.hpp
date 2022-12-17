@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include <dal/math/aad/operators.hpp>
+#include <dal/math/operators.hpp>
 #include <dal/math/stacks.hpp>
 #include <dal/math/vectors.hpp>
 #include <dal/script/visitor/evaluator.hpp>

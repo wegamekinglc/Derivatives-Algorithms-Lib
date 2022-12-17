@@ -6,6 +6,7 @@
 #include <dal/math/distribution/black.hpp>
 #include <dal/math/aad/models/ivs.hpp>
 
+using namespace Dal;
 using namespace Dal::AAD;
 
 

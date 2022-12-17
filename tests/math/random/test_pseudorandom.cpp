@@ -2,11 +2,11 @@
 // Created by wegamekinglc on 2020/12/19.
 //
 
-#include <gtest/gtest.h>
-#include <dal/platform/platform.hpp>
-#include <dal/math/aad/operators.hpp>
+#include <dal/math/operators.hpp>
+#include <dal/math/random/pseudorandom.hpp>
 #include <dal/math/vectors.hpp>
-#include "dal/math/random/pseudorandom.hpp"
+#include <dal/platform/platform.hpp>
+#include <gtest/gtest.h>
 
 using namespace Dal;
 
@@ -107,7 +107,7 @@ TEST(PseudoRandomTest, TestPseudoRandomClone) {
 TEST(PseudoRandomTest, TestNewPseudoRandomMRG32SkipTo) {
     int dim = 1;
     int seed = 1024;
-    int size_to_skip = AAD::Pow(2, 15);
+    int size_to_skip = Pow(2, 15);
     std::unique_ptr<Random_> gen(New(RNGType_("MRG32"), seed, dim));
     std::unique_ptr<Random_> gen2(New(RNGType_("MRG32"), seed, dim));
 

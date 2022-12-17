@@ -2,7 +2,7 @@
 // Created by wegam on 2020/12/21.
 //
 
-#include <dal/math/aad/operators.hpp>
+#include <dal/math/operators.hpp>
 #include <dal/math/aad/aad.hpp>
 #include <dal/math/vectors.hpp>
 #include <dal/utilities/timer.hpp>
