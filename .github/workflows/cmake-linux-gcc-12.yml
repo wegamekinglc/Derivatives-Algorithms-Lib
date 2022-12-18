@@ -16,10 +16,10 @@ jobs:
           CC: gcc-12
           CXX: g++-12
         run: |
-          sudo ln -sf /usr/bin/gcov-11 /usr/bin/gcov
-          sudo ln -sf /usr/bin/gcov-11 /usr/bin/gcov
-          wget http://mirrors.edge.kernel.org/ubuntu//pool/universe/l/lcov/lcov_1.14-2_all.deb
-          sudo dpkg -i lcov_1.14-2_all.deb || sudo apt-get install -f -y
+          sudo ln -sf /usr/bin/gcov-12 /usr/bin/gcov
+          sudo ln -sf /usr/bin/gcov-12 /usr/bin/gcov
+          wget http://mirrors.edge.kernel.org/ubuntu//pool/universe/l/lcov/lcov_1.16-1_all.deb
+          sudo dpkg -i lcov_1.16-1_all.deb || sudo apt-get install -f -y
           export CWD=$PWD
           mkdir gtest
           cp -r /usr/src/gtest/* gtest/
