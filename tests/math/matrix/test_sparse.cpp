@@ -19,7 +19,7 @@ TEST(SparseTest, TestSymmetricDecomposition) {
         if (i >= 1)
             diag.Set(i, i-1, 3.0);
     }
-    
+
     std::unique_ptr<SymmetricDecomposition_> de_comp(dynamic_cast<SymmetricDecomposition_*>(diag.Decompose()));
     Vector_<> b(n, 1.0);
     Vector_<> x(n);
