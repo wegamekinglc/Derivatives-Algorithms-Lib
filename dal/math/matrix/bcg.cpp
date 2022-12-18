@@ -54,7 +54,9 @@ namespace Dal {
 
         double tNorm = tol_rel * Sqrt(InnerProduct(b, b)) + tol_abs;
         XPrecondition_ precondition(A);
-        Vector_<> r(n), z(n), p(n);
+        Vector_<> r(n);
+        Vector_<> z(n);
+        Vector_<> p(n);
         A.MultiplyLeft(*x, &r);
         Transform(b, r, std::minus<>(), &r); // r = b - Ax
         double betaPrev;

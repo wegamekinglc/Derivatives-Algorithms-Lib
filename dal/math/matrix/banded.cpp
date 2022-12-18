@@ -24,7 +24,7 @@ namespace Dal {
             for (auto px = x.begin() + 1, pa = above.begin(); pa != above.end(); ++px, ++pa, ++pr)
                 *pr += *px * *pa;
             pr = r->begin() + 1;
-            for (auto px = x.begin(), pb = below.begin(); px != below.end(); ++px, ++pb, ++pr)
+            for (auto px = x.begin(), pb = below.begin(); pb != below.end(); ++px, ++pb, ++pr)
                 *pr += *px * *pb;
         }
 
