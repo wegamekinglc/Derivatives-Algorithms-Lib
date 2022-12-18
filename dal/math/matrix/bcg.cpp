@@ -68,7 +68,7 @@ namespace Dal {
             const double alphaK = beta / InnerProduct(z, p);
             Transform(x, p, LinearIncrement(alphaK));
             Transform(&r, z, LinearIncrement(-alphaK));
-            if (sqrt(InnerProduct(r, r)) <= tNorm)
+            if (Sqrt(InnerProduct(r, r)) <= tNorm)
                 return;
         }
         THROW("Exhausted iterations in CGSolve");
