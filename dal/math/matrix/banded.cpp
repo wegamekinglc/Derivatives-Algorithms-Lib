@@ -4,12 +4,10 @@
 
 #include <dal/platform/platform.hpp>
 #include <dal/math/matrix/banded.hpp>
-#include <dal/platform/strict.hpp>
-#include <cmath>
-#include <dal/math/matrix/sparse.hpp>
 #include <dal/math/matrix/squarematrix.hpp>
 #include <dal/utilities/algorithms.hpp>
 #include <dal/utilities/numerics.hpp>
+#include <dal/platform/strict.hpp>
 
 namespace Dal {
     namespace {
@@ -114,49 +112,6 @@ namespace Dal {
                 return &diag[i_row];
             return i_row > j_col ? &below[j_col] : &above[i_row];
         }
-
-        class TriDiagonal_ : public Sparse::Square_ {
-            Vector_<> diag_, above_, below_;
-
-        public:
-            explicit TriDiagonal_(int size) : diag_(size, 0.0), above_(size - 1, 0.0), below_(size - 1, 0.0) {}
-            int Size() const override { return diag_.size(); }
-            bool IsSymmetric() const override { return above_ == below_; }
-
-            double* At(int i_row, int j_col) { return TridiagAt(diag_, above_, below_, i_row, j_col); }
-
-            const double& operator()(int i_row, int j_col) const override {
-                const double* temp = TridiagAt(diag_, above_, below_, i_row, j_col);
-                if (temp)
-                    return *temp;
-                else
-                    return ZERO;
-            }
-
-            void Set(int i_row, int j_col, double val) override {
-                double* dst = At(i_row, j_col);
-                REQUIRE(dst, "out of band write to tri-diagonal");
-                *dst = val;
-            }
-
-            void Add(int i_row, int j_col, double inc) override {
-                double* dst = At(i_row, j_col);
-                REQUIRE(dst, "out of band write to tri-diagonal");
-                *dst += inc;
-            }
-
-            void MultiplyLeft(const Vector_<>& x, Vector_<>* b) const override {
-                TriMultiply(x, diag_, above_, below_, b);
-            }
-            void MultiplyRight(const Vector_<>& x, Vector_<>* b) const override {
-                TriMultiply(x, diag_, below_, above_, b);
-            }
-            SquareMatrixDecomposition_* Decompose() const override {
-                if (IsSymmetric())
-                    return new TriDecompSymm_(diag_, above_);
-                return new TriDecomp_(diag_, above_, below_);
-            }
-        };
 
         /*
          * more general band diagonals
@@ -346,6 +301,30 @@ namespace Dal {
     } // namespace
 
     namespace Sparse {
+
+        double* TriDiagonal_::At(int i_row, int j_col) {
+            return TridiagAt(diag_, above_, below_, i_row, j_col);
+        }
+
+        const double& TriDiagonal_::operator()(int i_row, int j_col) const {
+            const double* temp = TridiagAt(diag_, above_, below_, i_row, j_col);
+            if (temp)
+                return *temp;
+            else
+                return ZERO;
+        }
+        void TriDiagonal_::MultiplyLeft(const Vector_<>& x, Vector_<>* b) const {
+            TriMultiply(x, diag_, above_, below_, b);
+        }
+        void TriDiagonal_::MultiplyRight(const Vector_<>& x, Vector_<>* b) const {
+            TriMultiply(x, diag_, below_, above_, b);
+        }
+        SquareMatrixDecomposition_* TriDiagonal_::Decompose() const {
+            if (IsSymmetric())
+                return new TriDecompSymm_(diag_, above_);
+            return new TriDecomp_(diag_, above_, below_);
+        }
+
         Square_* NewBandDiagonal(int size, int n_above, int n_below) {
             REQUIRE(size > 0, "size should be larger than 0");
             if (n_above <= 1 && n_below <= 1)
