@@ -22,7 +22,7 @@ namespace Dal {
         struct MultiplyBySqrt_ {
             double operator()(double lhs, double rhs) const {
                 REQUIRE(!IsNegative(rhs), "Negative variance");
-                return lhs * sqrt(Max(rhs, 0.0));
+                return lhs * Sqrt(Max(rhs, 0.0));
             }
         };
 
