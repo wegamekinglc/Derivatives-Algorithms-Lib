@@ -97,7 +97,7 @@ int main() {
     for (auto row = 0; row < results.Rows(); ++row)
         sum += results.aggregated_[row];
     auto calculated = sum / static_cast<double>(results.Rows());
-    std::cout << "\nEuropean       w. B-S: price " << std::setprecision(8) << calculated << "\tElapsed: " << timer.Elapsed<milliseconds>() << " ms" << std::endl;
+    std::cout << "\nEuropean       w. " << model_name << ": price " << std::setprecision(8) << calculated << "\tElapsed: " << timer.Elapsed<milliseconds>() << " ms" << std::endl;
 #ifdef USE_AAD
     if (model_name == "bs") {
         std::cout << "                     : delta " << std::setprecision(8) << results.risks_[0] << std::endl;
