@@ -8,5 +8,4 @@
 using namespace Dal;
 
 TEST(UnderdeterminedTest, TestFind) {
-
 }

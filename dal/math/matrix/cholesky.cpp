@@ -3,6 +3,7 @@
 //
 
 #include <dal/math/matrix/cholesky.hpp>
+#include <dal/math/matrix/sparse.hpp>
 #include <dal/math/matrix/squarematrix.hpp>
 #include <dal/math/matrix/decompositions.hpp>
 #include <dal/math/matrix/decompositionsmisc.hpp>
@@ -34,32 +35,68 @@ namespace Dal {
             }
             return meanDiag;
         }
+
+        class Cholesky_ : public Sparse::SymmetricDecomposition_ {
+            SquareMatrix_<>* lower_;
+            bool needKeep_;
+
+        public:
+            Cholesky_(const SquareMatrix_<>& src, SquareMatrix_<>* lower = nullptr, double regularization = Dal::EPSILON) {
+                if (lower) {
+                    lower_ = lower;
+                    needKeep_ = true;
+                }
+                else {
+                    lower_ = new SquareMatrix_<>(src.Rows(), src.Cols());
+                    needKeep_ = false;
+                }
+
+                const double meanDiag = CholeskyImpl(src, lower_);
+                const double reg = Square(regularization * meanDiag);
+                const int n = lower_->Rows();
+                REQUIRE(reg > 0.0, "regularization factor should be greater than 0.0");
+                for (int ii = 0; ii < n; ++ii)
+                    (*lower_)(ii, ii) /= reg + Square((*lower_)(ii, ii));
+            }
+
+            ~Cholesky_() {
+                if (!needKeep_)
+                    delete lower_;
+            }
+
+            void XMultiply_af(const Vector_<>& x, Vector_<>* b) const {
+                THROW("not implemented");
+            }
+
+            void XSolve_af(const Vector_<>& b, Vector_<>* x) const {
+                const int n = Size();
+                for (int ii = 0; ii < n; ++ii) {
+                    (*x)[ii] = b[ii] - std::inner_product(x->begin(), x->begin() + ii, lower_->Row(ii).begin(), 0.0);
+                    (*x)[ii] *= (*lower_)(ii, ii);
+                }
+                for (int ii = n - 1; ii >= 0; --ii) {
+                    (*x)[ii] *= (*lower_)(ii, ii);
+                    std::transform(x->begin(), x->begin() + ii, lower_->Row(ii).begin(), x->begin(), LinearIncrement(-(*x)[ii]));
+                }
+            }
+
+            [[nodiscard]] int Size() const { return lower_->Rows(); }
+
+            virtual Vector_<>::const_iterator MakeCorrelated(Vector_<>::const_iterator iid_begin, Vector_<>* correlated) const {
+                THROW("not implemented");
+            }
+        };
     }
 
-    SquareMatrixDecomposition_* CholeskyDecomposition(const SquareMatrix_<>& src) {
-        const int n = src.Rows();
-        SquareMatrix_<> out(n);
-        CholeskyImpl(src, &out);
-        return LowerTriangularAsDecomposition(out);
+    Sparse::SymmetricDecomposition_* CholeskyDecomposition(const SquareMatrix_<>& src) {
+        return new Cholesky_(src);
     }
 
     void CholeskySolve(SquareMatrix_<>* a, Vector_<Vector_<>>* b, double regularization) {
-        const double meanDiag = CholeskyImpl(*a, a, regularization);
-        const double reg = Square(regularization * meanDiag);
-        const int n = a->Rows();
-        REQUIRE(reg > 0.0, "regularization factor should be greater than 0.0");
-        for (int ii = 0; ii < n; ++ii)
-            (*a)(ii, ii) /= reg + Square((*a)(ii, ii));
+        Cholesky_ cholesky(*a, a, regularization);
         for (int ib = 0; ib < b->size(); ++ib) {
             Vector_<>& bb = (*b)[ib];
-            for (int ii = 0; ii < n; ++ii) {
-                bb[ii] -= std::inner_product(bb.begin(), bb.begin() + ii, a->Row(ii).begin(), 0.0);
-                bb[ii] *= (*a)(ii, ii);
-            }
-            for (int ii = n - 1; ii >= 0; --ii) {
-                bb[ii] *= (*a)(ii, ii);
-                std::transform(bb.begin(), bb.begin() + ii, a->Row(ii).begin(), bb.begin(), LinearIncrement(-bb[ii]));
-            }
+            cholesky.Solve(bb, &bb);
         }
     }
 } // namespace Dal

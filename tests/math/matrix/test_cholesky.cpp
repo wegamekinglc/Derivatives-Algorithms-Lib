@@ -47,12 +47,12 @@ TEST(CholeskyTest, TestCholeskyDecompositionV2) {
         for (int j = 0; j < n; ++j)
             m(i, j) = tmp[i][j];
 
-    Vector_<> b(n, 1.0);
+    Vector_<> b{1.0, 2.0, 3.0};
     Vector_<> x(n);
-    Handle_<SquareMatrixDecomposition_> de_comp(CholeskyDecomposition(m));
+    Handle_<SymmetricMatrixDecomposition_> de_comp(CholeskyDecomposition(m));
 
-    de_comp->SolveLeft(b, &x);
-    Vector_<> expected = {0.40824829, 0.23094011, 0.14744196};
+    de_comp->Solve(b, &x);
+    Vector_<> expected = {-0.00869565, 0.2,  0.2173913};
     for(int i = 0; i < n; ++i)
         ASSERT_NEAR(expected[i], x[i], 1e-7);
 }
