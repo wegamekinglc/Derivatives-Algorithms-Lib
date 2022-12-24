@@ -65,7 +65,21 @@ namespace Dal {
             }
 
             void XMultiply_af(const Vector_<>& x, Vector_<>* b) const {
-                THROW("not implemented");
+                const int n = Size();
+                Vector_<> temp(n, 0.0);
+                // multiply by L^T
+                for (int ii = 0; ii < n; ++ii) {
+                    temp[ii] = std::inner_product(x.begin() + ii + 1, x.end(), lower_->Col(ii).begin() + ii + 1, 0.0);
+                    temp[ii] += x[ii] / (*lower_)(ii, ii);
+                }
+
+                // multiply by L
+                b->Resize(n);
+                b->Fill(0.0);
+                for (int ii = 0; ii < n; ++ii) {
+                    (*b)[ii] = std::inner_product(temp.begin(), temp.begin() + ii, lower_->Row(ii).begin(), 0.0);
+                    (*b)[ii] += temp[ii] / (*lower_)(ii, ii);
+                }
             }
 
             void XSolve_af(const Vector_<>& b, Vector_<>* x) const {
@@ -83,7 +97,14 @@ namespace Dal {
             [[nodiscard]] int Size() const { return lower_->Rows(); }
 
             virtual Vector_<>::const_iterator MakeCorrelated(Vector_<>::const_iterator iid_begin, Vector_<>* correlated) const {
-                THROW("not implemented");
+                const int n = Size();
+                correlated->Resize(n);
+                correlated->Fill(0.0);
+                for (int ii = 0; ii < n; ++ii) {
+                    (*correlated)[ii] = std::inner_product(iid_begin, iid_begin + ii, lower_->Row(ii).begin(), 0.0);
+                    (*correlated)[ii] += *(iid_begin + ii) / (*lower_)(ii, ii);
+                }
+                return correlated->begin();
             }
         };
     }

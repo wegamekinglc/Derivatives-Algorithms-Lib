@@ -8,6 +8,8 @@
 #include <dal/math/matrix/matrixutils.hpp>
 #include <dal/math/matrix/matrixarithmetic.hpp>
 #include <dal/math/matrix/cholesky.hpp>
+#include <dal/math/random/sobol.hpp>
+#include <dal/utilities/numerics.hpp>
 
 using namespace Dal;
 
@@ -77,4 +79,68 @@ TEST(CholeskyTest, TestCholeskySolve) {
     Vector_<> expected = {-0.00869565, 0.2,  0.2173913};
     for(int i = 0; i < n; ++i)
         ASSERT_NEAR(expected[i], b[0][i], 1e-7);
+}
+
+TEST(CholeskyTest, TestCholeskyMultiply) {
+    const int n = 3;
+    double tmp[n][n] = {
+            {6.0, 2.0, 3.0},
+            {2.0, 9.0, 1.0},
+            {3.0, 1.0, 13.0}
+    };
+
+    SquareMatrix_<> m(n);
+    for (int i = 0; i < n; ++i)
+        for (int j = 0; j < n; ++j)
+            m(i, j) = tmp[i][j];
+
+    Handle_<SymmetricMatrixDecomposition_> de_comp(CholeskyDecomposition(m));
+
+    Vector_<> x{1.0, 2.0, 3.0};
+    Vector_<> b(n, 0.0);
+    de_comp->Multiply(x, &b);
+
+    Vector_<> expected = {19.0, 23.0,  44.0};
+    for(int i = 0; i < n; ++i)
+        ASSERT_NEAR(expected[i], b[i], 1e-7);
+}
+
+TEST(CholeskyTest, TestCholeskyMakeCorrelated) {
+    const int n = 3;
+    double tmp[n][n] = {
+            {1.2, 0.2, -0.3},
+            {0.2, 1.0, 0.1},
+            {-0.3, 0.1, 0.8}
+    };
+
+    SquareMatrix_<> m(n);
+    for (int i = 0; i < n; ++i)
+        for (int j = 0; j < n; ++j)
+            m(i, j) = tmp[i][j];
+
+    Handle_<SymmetricMatrixDecomposition_> de_comp(CholeskyDecomposition(m));
+
+    int i_path = 0;
+    std::unique_ptr<SequenceSet_> set(NewSobol(n, i_path));
+    Vector_<> dst(n);
+    Vector_<> correlated(n);
+    int num_path = 500000;
+
+    Matrix_<> deviates(num_path, n);
+
+    for (int i = 0; i < num_path; ++i) {
+        set->FillNormal(&dst);
+        de_comp->MakeCorrelated(dst.begin(), &correlated);
+        for (int j = 0; j < n; ++j)
+            deviates(i, j) = correlated[j];
+    }
+
+    SquareMatrix_<> calcVar(n);
+    for (int i = 0; i < n; ++i)
+        for (int j = 0; j < n; ++j) {
+            auto c1 = deviates.Col(i);
+            auto c2 = deviates.Col(j);
+            calcVar(i, j) = InnerProduct(c1, c2) / num_path;
+            ASSERT_NEAR(calcVar(i, j), m(i, j), 1e-4);
+        }
 }
