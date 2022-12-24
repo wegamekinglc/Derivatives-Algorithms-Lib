@@ -75,7 +75,6 @@ namespace Dal {
 
                 // multiply by L
                 b->Resize(n);
-                b->Fill(0.0);
                 for (int ii = 0; ii < n; ++ii) {
                     (*b)[ii] = std::inner_product(temp.begin(), temp.begin() + ii, lower_->Row(ii).begin(), 0.0);
                     (*b)[ii] += temp[ii] / (*lower_)(ii, ii);
@@ -99,7 +98,6 @@ namespace Dal {
             virtual Vector_<>::const_iterator MakeCorrelated(Vector_<>::const_iterator iid_begin, Vector_<>* correlated) const {
                 const int n = Size();
                 correlated->Resize(n);
-                correlated->Fill(0.0);
                 for (int ii = 0; ii < n; ++ii) {
                     (*correlated)[ii] = std::inner_product(iid_begin, iid_begin + ii, lower_->Row(ii).begin(), 0.0);
                     (*correlated)[ii] += *(iid_begin + ii) / (*lower_)(ii, ii);
