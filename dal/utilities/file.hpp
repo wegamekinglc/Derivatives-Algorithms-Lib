@@ -12,5 +12,6 @@ namespace Dal {
     namespace File {
         void Read(const String_& file_name, Vector_<String_>* dst);
         void Write(const String_& file_name, const Vector_<String_>& src);
+        void Remove(const String_& file_name);
     } // namespace File
 } // namespace Dal

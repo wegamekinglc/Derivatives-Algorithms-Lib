@@ -19,4 +19,5 @@ TEST(FileTest, TestReadWrite) {
     ASSERT_EQ(dst.size(), 2);
     for (auto i = 0; i < src.size(); ++i)
         ASSERT_EQ(src[i], dst[i]);
+    File::Remove(file_name);
 }
