@@ -41,8 +41,10 @@ namespace Dal {
 
         bool ContainsOnlyWeekends(const Vector_<Date_>& dates) {
             for (const auto& d : dates)
-                if (Date::DayOfWeek(d) % 6 != 0)
+                if (Date::DayOfWeek(d) % 6 != 0) {
+                    std::cout << Date::ToString(d) << std::endl;
                     return false;
+                }
             return true;
         }
     } // namespace
