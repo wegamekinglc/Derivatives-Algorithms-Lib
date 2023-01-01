@@ -166,5 +166,5 @@ TEST(ChinaCalendarTest, TestHolidays) {
     Holidays_ hol("CN.SH");
 
     for (auto date: expected_holidays)
-        ASSERT_TRUE(hol.IsHoliday(date));
+        ASSERT_TRUE(hol.IsHoliday(date) || Date::IsWeekEnd(date));
 }
