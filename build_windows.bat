@@ -86,7 +86,9 @@ if %errorlevel% neq 0 exit /b 1
 
 cd ..
 
+
 if "%SKIP_TESTS%"=="false" (
+    echo "starting run unit tests suite"
     bin\test_suite.exe
 )
 

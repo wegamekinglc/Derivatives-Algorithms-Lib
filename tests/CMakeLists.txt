@@ -2,7 +2,7 @@ file(GLOB_RECURSE TEST_FILES "*.hpp" "*.cpp")
 
 add_executable(test_suite ${TEST_FILES})
 if(MSVC)
-    find_package(gtest)
+#    find_package(gtest)
 else()
     target_link_libraries(test_suite pthread)
 endif()
