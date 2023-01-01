@@ -163,8 +163,88 @@ TEST(ChinaCalendarTest, TestHolidays) {
             Date_(2023, 10, 1), Date_(2023, 10, 2), Date_(2023, 10, 3), Date_(2023, 10, 4), Date_(2023, 10, 5),
             Date_(2023, 10, 6)
     };
+
     Holidays_ hol("CN.SH");
 
-    for (auto date: expected_holidays)
-        ASSERT_TRUE(hol.IsHoliday(date) || Date::IsWeekEnd(date));
+    for (auto Date_: expected_holidays)
+        ASSERT_TRUE(hol.IsHoliday(Date_) || Date::IsWeekEnd(Date_));
+}
+
+TEST(ChinaCalendarTest, TestIBWorkingWeekEnds) {
+    Vector_<Date_> expected_ib_working_ends{
+            Date_(2014, 1, 26),
+            Date_(2014, 2, 8),
+            Date_(2014, 5, 4),
+            Date_(2014, 9, 28),
+            Date_(2014, 10, 11),
+// China Inter Bank working weekend list in the year 2015
+            Date_(2015, 1, 4),
+            Date_(2015, 2, 15),
+            Date_(2015, 2, 28),
+            Date_(2015, 9, 6),
+            Date_(2015, 10, 10),
+// China Inter Bank working weekend list in the year 2016
+            Date_(2016, 2, 6),
+            Date_(2016, 2, 14),
+            Date_(2016, 6, 12),
+            Date_(2016, 9, 18),
+            Date_(2016, 10, 8),
+            Date_(2016, 10, 9),
+// China Inter Bank working weekend list in the year 2017
+            Date_(2017, 1, 22),
+            Date_(2017, 2, 4),
+            Date_(2017, 4, 1),
+            Date_(2017, 5, 27),
+            Date_(2017, 9, 30),
+// China Inter Bank working weekend list in the year 2018
+            Date_(2018, 2, 11),
+            Date_(2018, 2, 24),
+            Date_(2018, 4, 8),
+            Date_(2018, 4, 28),
+            Date_(2018, 9, 29),
+            Date_(2018, 9, 30),
+// China Inter Bank working weekend list in the year 2019
+            Date_(2019, 2, 2),
+            Date_(2019, 2, 3),
+            Date_(2019, 4, 28),
+            Date_(2019, 5, 5),
+            Date_(2019, 9, 29),
+            Date_(2019, 10, 12),
+// China Inter Bank working weekend list in the year 2020
+            Date_(2020, 1, 19),
+            Date_(2020, 4, 26),
+            Date_(2020, 5, 9),
+            Date_(2020, 6, 28),
+            Date_(2020, 9, 27),
+            Date_(2020, 10, 10),
+// China Inter Bank working weekend list in the year 2021
+            Date_(2021, 2, 7),
+            Date_(2021, 2, 20),
+            Date_(2021, 4, 25),
+            Date_(2021, 5, 8),
+            Date_(2021, 9, 18),
+            Date_(2021, 9, 26),
+            Date_(2021, 10, 9),
+// China Inter Bank working weekend list in the year 2022
+            Date_(2022, 1, 29),
+            Date_(2022, 1, 30),
+            Date_(2022, 4, 2),
+            Date_(2022, 4, 24),
+            Date_(2022, 5, 7),
+            Date_(2022, 10, 8),
+            Date_(2022, 10, 9),
+// China Inter Bank working weekend list in the year 2023
+            Date_(2023, 1, 28),
+            Date_(2023, 1, 29),
+            Date_(2023, 4, 23),
+            Date_(2023, 5, 6),
+            Date_(2023, 6, 25),
+            Date_(2023, 10, 7),
+            Date_(2023, 10, 8)
+    };
+
+    Holidays_ hol("CN.IB");
+
+    for (auto date: expected_ib_working_ends)
+        ASSERT_TRUE(hol.IsWorkWeekends(date));
 }
