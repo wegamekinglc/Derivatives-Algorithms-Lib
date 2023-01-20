@@ -172,4 +172,9 @@ namespace Dal {
         return std::all_of(val.begin(), val.end(), pred);
     }
 
+    template<class C1_, class C2_> auto Zip(const C1_& v1, const C2_& v2)
+        -> Vector_<decltype(std::make_pair(v1.front(), v2.front()))> {
+        return Apply(std::make_pair<decltype(v1.front()), decltype(v2.front())>, v1, v2);
+    }
+
 } // namespace Dal

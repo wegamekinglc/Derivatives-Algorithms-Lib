@@ -210,3 +210,11 @@ TEST(AlgorithmsTest, TestMinElement) {
     auto pos = Dal::MinElement(s1);
     ASSERT_DOUBLE_EQ(s1[0], *pos);
 }
+
+TEST(AlgorithmsTest, TestZip) {
+    vector_t s1 = {1., 2., 3., 4., 5.};
+    vector_t s2 = {2., 4., 6., 8., 10.};
+    auto s3 = Dal::Zip(s1, s2);
+    for(auto pair: s3)
+        ASSERT_DOUBLE_EQ(pair.first * 2.0, pair.second);
+}

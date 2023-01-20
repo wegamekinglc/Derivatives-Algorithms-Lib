@@ -18,7 +18,7 @@ using namespace Dal;
 using namespace Dal::Script;
 using namespace Dal::AAD;
 
-//#define USE_AAD
+#define USE_AAD
 
 
 int main() {

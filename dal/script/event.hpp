@@ -6,7 +6,9 @@
 
 #include <dal/math/vectors.hpp>
 #include <dal/storage/archive.hpp>
+#include <dal/storage/globals.hpp>
 #include <dal/time/date.hpp>
+#include <dal/utilities/algorithms.hpp>
 #include <dal/script/node.hpp>
 #include <dal/script/visitor/evaluator.hpp>
 #include <dal/script/visitor/fuzzy.hpp>
@@ -46,11 +48,9 @@ namespace Dal::Script {
     public:
         ScriptProduct_(const std::map<Date_, String_>& events) { ParseEvents(events.begin(), events.end()); }
         ScriptProduct_(const Vector_<Date_>& dates, const Vector_<String_>& events) {
-            REQUIRE(dates.size() == events.size(), "");
-            for (int i = 0; i < dates.size(); ++i) {
-                eventDates_.push_back(dates[i]);
-                events_.push_back(Parse(events[i]));
-            }
+            REQUIRE(dates.size() == events.size(), "dates size is not equal to events size");
+            auto date_events = Dal::Zip(dates, events);
+            ParseEvents(date_events.begin(), date_events.end());
         }
 
         [[nodiscard]] const Vector_<Date_> &EventDates() const { return eventDates_; }
@@ -76,8 +76,14 @@ namespace Dal::Script {
         template<class EvtIt_>
         void ParseEvents(EvtIt_ begin, EvtIt_ end) {
             for (EvtIt_ evtIt = begin; evtIt != end; ++evtIt) {
-                eventDates_.push_back(evtIt->first);
-                events_.push_back(Parse(evtIt->second));
+                Date_ evaluationDate = Global::Dates_().EvaluationDate();
+                if (evtIt->first >= evaluationDate)
+                    /*
+                     * we only keep the events after evalution date
+                     * TODO: need to keep the historical events and visits them with dedicated a past evaluator
+                     * */
+                    eventDates_.push_back(evtIt->first);
+                    events_.push_back(Parse(evtIt->second));
             }
         }
 

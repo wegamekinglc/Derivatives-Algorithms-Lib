@@ -13,6 +13,7 @@ namespace Dal {
     FORCE_INLINE double Fabs(double t) { return std::fabs(t); }
     FORCE_INLINE double Log(double t) { return std::log(t); }
     FORCE_INLINE double Pow(double t, int u) { return std::pow(t, u); }
+    FORCE_INLINE int Pow(int t, int u) { return static_cast<int>(std::pow(t, u)); }
     FORCE_INLINE double Pow(double t, double u) { return std::pow(t, u); }
     FORCE_INLINE double Plus(double t1, double t2) { return t1 + t2; }
 
