@@ -33,7 +33,7 @@ auto BSModels(double spot, double vol, double rate, double div) {
 
 int main() {
 
-    XGLOBAL::SetEvaluationDate(Date_(2022, 9, 25));
+    Global::Dates_().SetEvaluationDate(Date_(2022, 9, 25));
     Date_ exerciseDate(2025, 9, 25);
     double strike = 120.0;
     double spot = 100.0;

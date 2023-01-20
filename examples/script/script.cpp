@@ -23,7 +23,7 @@ using namespace Dal::AAD;
 
 int main() {
 
-    XGLOBAL::SetEvaluationDate(Date_(2022, 9, 25));
+    Global::Dates_().SetEvaluationDate(Date_(2022, 9, 25));
     Timer_ timer;
 
 #ifdef USE_AAD

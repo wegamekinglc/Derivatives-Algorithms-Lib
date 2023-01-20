@@ -33,6 +33,8 @@ namespace Dal {
         public:
             Date_ AccountingDate() const;
             Date_ EvaluationDate() const;
+            void SetAccountingDate(const Date_& date) const;
+            void SetEvaluationDate(const Date_& date) const;
         };
 
         Store_& TheFixingsStore();

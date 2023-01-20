@@ -15,3 +15,4 @@ build
 *.idb
 __pycache__
 public/lib/*
+*.xlsx

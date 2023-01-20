@@ -60,7 +60,7 @@ int main() {
     /*
      * some global evaluation settings
      */
-    XGLOBAL::SetEvaluationDate(Date_(2022, 9, 25));
+    Global::Dates_().SetEvaluationDate(Date_(2022, 9, 25));
     const Date_ start = Global::Dates_().EvaluationDate();
     const double spot = 100.0;
     const double vol = 0.15;

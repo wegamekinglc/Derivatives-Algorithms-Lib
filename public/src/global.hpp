@@ -10,7 +10,7 @@
 namespace Dal {
 
     FORCE_INLINE void SetEvaluationDate(const Date_& d) {
-        XGLOBAL::SetEvaluationDate(d);
+        Global::Dates_().SetEvaluationDate(d);
     }
 
     FORCE_INLINE Date_ GetEvaluationDate() {

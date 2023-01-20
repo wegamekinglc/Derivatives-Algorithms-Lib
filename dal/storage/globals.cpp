@@ -13,6 +13,7 @@
 #include <dal/platform/host.hpp>
 #include <dal/math/matrix/matrixs.hpp>
 #include <dal/math/matrix/matrixutils.hpp>
+#include <dal/time/dateutils.hpp>
 
 namespace Dal {
 
@@ -32,9 +33,7 @@ namespace Dal {
             const Matrix_<Cell_>& stored = Global::TheDateStore().Get(which);
             if (stored.Empty() || Cell::IsEmpty(stored(0, 0))) {
                 // no global date set; initialize to system date
-                int yy, mm, dd;
-                Host::LocalTime(&yy, &mm, &dd);
-                Date_ retval(yy, mm, dd);
+                Date_ retval = Date::Today();
                 Global::TheDateStore().Set(which, Matrix::M1x1(Cell_(retval)));
                 return retval;
             }
@@ -58,6 +57,8 @@ namespace Dal {
 
     Date_ Global::Dates_::AccountingDate() const { return GetGlobalDate(ACCOUNTING()); }
     Date_ Global::Dates_::EvaluationDate() const { return GetGlobalDate(EVALUATION()); }
+    void Global::Dates_::SetAccountingDate(const Date_& date) const { XGLOBAL::SetAccountingDate(date); }
+    void Global::Dates_::SetEvaluationDate(const Date_& date) const { XGLOBAL::SetEvaluationDate(date); }
 
     void XGLOBAL::SetAccountingDate(const Date_& when) {
         Global::TheDateStore().Set(ACCOUNTING(), Matrix::M1x1(Cell_(when)));

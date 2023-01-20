@@ -12,5 +12,6 @@ namespace Dal {
         Date_ FromString(const String_& src);  // tries our best to recognize the string -- rejects both mm/dd/yyyy and
                                                // dd/mm/yyyy due to ambiguity
         int MonthFromFutureCode(char code);
+        Date_ Today();
     } // namespace Date
 } // namespace Dal

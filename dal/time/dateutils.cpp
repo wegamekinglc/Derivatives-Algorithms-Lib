@@ -48,4 +48,11 @@ namespace Dal {
         return ret_val;
     }
 
+    Date_ Date::Today() {
+        int yy, mm, dd;
+        Host::LocalTime(&yy, &mm, &dd);
+        Date_ ret_val(yy, mm, dd);
+        return ret_val;
+    }
+
 } // namespace Dal
