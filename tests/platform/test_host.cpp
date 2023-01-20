@@ -18,7 +18,7 @@ TEST(HostTest, LocalTimeTest) {
 
     time_t t = time(nullptr);
     struct tm now = {0, 0, 0, 0, 0, 0, 0, 0, 0};
-#ifdef _MSC_VER
+#ifdef _WIN32
     localtime_s(&now, &t);
 #else
     localtime_r(&t, &now);

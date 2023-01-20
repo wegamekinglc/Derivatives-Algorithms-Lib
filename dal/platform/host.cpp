@@ -12,7 +12,7 @@ namespace Dal {
         void LocalTime(int* year, int* month, int* day, int* hour, int* minute, int* second) {
             time_t t = time(nullptr);
             struct tm now = {0, 0, 0, 0, 0, 0, 0, 0, 0};
-#ifdef WIN32
+#ifdef _WIN32
             localtime_s(&now, &t);
 #else
             localtime_r(&t, &now);

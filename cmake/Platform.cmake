@@ -58,6 +58,18 @@ if (MSVC)
 
     # Remove warnings
     add_definitions(-D_SCL_SECURE_NO_WARNINGS -D_CRT_SECURE_NO_WARNINGS)
+elseif (WIN32)
+    INCLUDE_DIRECTORIES($ENV{GTEST_ROOT}/include)
+
+    if(CMAKE_SIZEOF_VOID_P EQUAL 8)
+        # 64 bits
+        link_directories($ENV{GTEST_ROOT}/lib/Win64/${CMAKE_BUILD_TYPE}/MT)
+        message("-- GTEST_DIR: $ENV{GTEST_ROOT}/lib/Win64/${CMAKE_BUILD_TYPE}/MT")
+    elseif(CMAKE_SIZEOF_VOID_P EQUAL 4)
+        # 32 bits
+        link_directories($ENV{GTEST_ROOT}/lib/Win32/${CMAKE_BUILD_TYPE}/MT)
+        message("-- GTEST_DIR: $ENV{GTEST_ROOT}/lib/Win32/${CMAKE_BUILD_TYPE}/MT")
+    endif()
 elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
     set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
     if ("${SKIP_TESTS}" STREQUAL "false")

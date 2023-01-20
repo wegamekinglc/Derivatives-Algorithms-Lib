@@ -17,7 +17,6 @@ jobs:
           CXX: g++-12
         run: |
           sudo ln -sf /usr/bin/gcov-12 /usr/bin/gcov
-          sudo ln -sf /usr/bin/gcov-12 /usr/bin/gcov
           wget http://mirrors.edge.kernel.org/ubuntu//pool/universe/l/lcov/lcov_1.16-1_all.deb
           sudo dpkg -i lcov_1.16-1_all.deb || sudo apt-get install -f -y
           export CWD=$PWD
