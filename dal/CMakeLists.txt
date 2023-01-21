@@ -2,7 +2,7 @@ if (MSVC)
     add_definitions(-DIS_BASE)
 endif()
 
-file(GLOB_RECURSE DAL_FILES "*.hpp" "*.cpp")
+file(GLOB_RECURSE DAL_FILES "*.h" "*.hpp" "*.cpp")
 list(FILTER DAL_FILES EXCLUDE REGEX "${PROJECT_SOURCE_DIR}/dal/auto/.*")
 list(FILTER DAL_FILES EXCLUDE REGEX "${PROJECT_SOURCE_DIR}/dal/storage/_repository.*")
 
