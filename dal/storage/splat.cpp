@@ -111,19 +111,20 @@ namespace Dal {
                 }
             }
 
-            void operator=(double d) override { SetScalar(d); }
-            void operator=(const Date_& d) override { SetScalar(d); }
-            void operator=(const String_& s) override { SetScalar(s); }
-            void operator=(const Vector_<>& v) override { SetVector(v); }
-            void operator=(const Vector_<int>& v) override { SetVector(v); }
-            void operator=(const Vector_<bool>& v) override { SetVector(v); }
-            void operator=(const Vector_<String_>& v) override { SetVector(v); }
-            void operator=(const Vector_<Date_>& v) override { SetVector(v); }
-            void operator=(const Vector_<DateTime_>& v) override { SetVector(v); }
-            void operator=(const Matrix_<>& m) override { SetMatrix(m); }
-            void operator=(const Matrix_<String_>& m) override { SetMatrix(m); }
-            void operator=(const Matrix_<Cell_>& m) override { SetMatrix(m); }
-            void operator=(const Dictionary_& d) override {
+            XSplat_& operator=(double d) override { SetScalar(d); return *this; }
+            XSplat_& operator=(const Date_& d) override { SetScalar(d); return *this; }
+            XSplat_& operator=(const DateTime_& d) override { SetScalar(d); return *this; }
+            XSplat_& operator=(const String_& s) override { SetScalar(s); return *this; }
+            XSplat_& operator=(const Vector_<>& v) override { SetVector(v); return *this; }
+            XSplat_& operator=(const Vector_<int>& v) override { SetVector(v); return *this; }
+            XSplat_& operator=(const Vector_<bool>& v) override { SetVector(v); return *this; }
+            XSplat_& operator=(const Vector_<String_>& v) override { SetVector(v); return *this; }
+            XSplat_& operator=(const Vector_<Date_>& v) override { SetVector(v); return *this; }
+            XSplat_& operator=(const Vector_<DateTime_>& v) override { SetVector(v); return *this; }
+            XSplat_& operator=(const Matrix_<>& m) override { SetMatrix(m); return *this; }
+            XSplat_& operator=(const Matrix_<String_>& m) override { SetMatrix(m); return *this; }
+            XSplat_& operator=(const Matrix_<Cell_>& m) override { SetMatrix(m); return *this; }
+            XSplat_& operator=(const Dictionary_& d) override {
                 val_.Resize(d.Size(), 2);
                 int ir = 0;
                 for (const auto& k_v : d) {
@@ -131,6 +132,7 @@ namespace Dal {
                     val_(ir, 1) = k_v.second;
                     ++ir;
                 }
+                return *this;
             }
         };
 

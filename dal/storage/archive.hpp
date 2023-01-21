@@ -29,19 +29,20 @@ namespace Dal {
             virtual Store_& Child(const String_& name) = 0;
             Store_& Element(int index); // just converts to String_ name and gets a child
 
-            virtual void operator=(double val) = 0;
-            virtual void operator=(const String_& val) = 0;
-            virtual void operator=(const Date_& val) = 0;
-            virtual void operator=(const Vector_<>& val) = 0;
-            virtual void operator=(const Vector_<int>& val) = 0;
-            virtual void operator=(const Vector_<bool>& val) = 0;
-            virtual void operator=(const Vector_<String_>& val) = 0;
-            virtual void operator=(const Vector_<Date_>& val) = 0;
-            virtual void operator=(const Vector_<DateTime_>& val) = 0;
-            virtual void operator=(const Matrix_<>& val) = 0;
-            virtual void operator=(const Matrix_<String_>& val) = 0;
-            virtual void operator=(const Matrix_<Cell_>& val) = 0;
-            virtual void operator=(const Dictionary_& val) = 0;
+            virtual Store_& operator=(double val) = 0;
+            virtual Store_& operator=(const String_& val) = 0;
+            virtual Store_& operator=(const Date_& val) = 0;
+            virtual Store_& operator=(const DateTime_& val) = 0;
+            virtual Store_& operator=(const Vector_<>& val) = 0;
+            virtual Store_& operator=(const Vector_<int>& val) = 0;
+            virtual Store_& operator=(const Vector_<bool>& val) = 0;
+            virtual Store_& operator=(const Vector_<String_>& val) = 0;
+            virtual Store_& operator=(const Vector_<Date_>& val) = 0;
+            virtual Store_& operator=(const Vector_<DateTime_>& val) = 0;
+            virtual Store_& operator=(const Matrix_<>& val) = 0;
+            virtual Store_& operator=(const Matrix_<String_>& val) = 0;
+            virtual Store_& operator=(const Matrix_<Cell_>& val) = 0;
+            virtual Store_& operator=(const Dictionary_& val) = 0;
         };
 
         class Built_ {
