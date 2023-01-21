@@ -31,7 +31,7 @@ namespace Dal {
             REQUIRE(!type.empty(), "No type supplied: can't extract a handle");
             NOTICE(type);
             auto pb = TheBuilders().equal_range(type);
-            REQUIRE(pb.first != pb.second, "Type has bo builder");
+            REQUIRE(pb.first != pb.second, "Type has no builder");
             REQUIRE(pb.first == --pb.second, "Builder is not unique");
             ret_val.reset(pb.first->second->Build(src, built));
         }

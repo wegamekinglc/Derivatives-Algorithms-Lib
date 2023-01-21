@@ -26,7 +26,7 @@ namespace Dal {
         const char* TYPE_LABEL = "~type";
         const char* TAG_LABEL = "$tag";
         const char* COLS_LABEL = "cols";
-        const char* VALUES_LABEL = "vals";
+        const char* VALS_LABEL = "vals";
         using element_t = rapidjson::GenericValue<rapidjson::UTF8<>>;
         using allocator_t = rapidjson::GenericDocument<rapidjson::UTF8<>>::AllocatorType ;
         using rapidjson::Value;
@@ -90,7 +90,7 @@ namespace Dal {
             // store atoms
             XDocStore_& operator=(double val) override {
                 int i = AsInt(val);
-                dst_ << (i == val ? String::FromInt(i) : String::FromDouble(val)); // no prep
+                dst_ << String::FromDouble(val);
                 return *this;
             }
             XDocStore_& operator=(const String_& val) override { dst_ << "\"" << val << "\""; return *this; }
@@ -262,13 +262,13 @@ namespace Dal {
             //		the matrix has a child "cols" that gives the number of columns
             //		and a child "vals" that gives all the values, scanning each row in turn
             Matrix_<> AsDoubleMatrix() const override {
-                return AsMatrix(EInt(doc_[COLS_LABEL]), AsVector(doc_[VALUES_LABEL], EDouble));
+                return AsMatrix(EInt(doc_[COLS_LABEL]), AsVector(doc_[VALS_LABEL], EDouble));
             }
             Matrix_<String_> AsStringMatrix() const override {
-                return AsMatrix(EInt(doc_[COLS_LABEL]), AsVector(doc_[VALUES_LABEL], EString));
+                return AsMatrix(EInt(doc_[COLS_LABEL]), AsVector(doc_[VALS_LABEL], EString));
             }
             Matrix_<Cell_> AsCellMatrix() const override {
-                return AsMatrix(EInt(doc_[COLS_LABEL]), AsVector(doc_[VALUES_LABEL], ECell));
+                return AsMatrix(EInt(doc_[COLS_LABEL]), AsVector(doc_[VALS_LABEL], ECell));
             }
 
             // object query interface
