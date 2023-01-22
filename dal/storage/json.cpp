@@ -173,7 +173,7 @@ namespace Dal {
 
         // need checked access at every level -- support with "E" element-extractors
         double EDouble(const element_t& doc) {
-            REQUIRE(doc.IsDouble(), "Can't get a numeric value");
+            REQUIRE(doc.IsDouble() || doc.IsInt(), "Can't get a numeric value");
             return doc.GetDouble();
         }
         int EInt(const element_t& doc) {
