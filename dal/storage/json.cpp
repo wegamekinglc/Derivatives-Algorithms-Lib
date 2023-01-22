@@ -8,6 +8,7 @@
 
 #include <fstream>
 #include <sstream>
+#include <regex>
 #include <dal/utilities/rapidjson/document.h>
 #include <dal/utilities/rapidjson/writer.h>
 #include <dal/utilities/rapidjson/prettywriter.h>
@@ -89,8 +90,16 @@ namespace Dal {
 
             // store atoms
             XDocStore_& operator=(double val) override {
-                int i = AsInt(val);
                 dst_ << String::FromDouble(val);
+                return *this;
+            }
+
+            XDocStore_& operator=(int val) {
+                dst_ << String::FromDouble(val);
+                return *this;
+            }
+            XDocStore_& operator=(bool val) {
+                dst_ << String::FromBool(val);
                 return *this;
             }
             XDocStore_& operator=(const String_& val) override { dst_ << "\"" << val << "\""; return *this; }
@@ -134,7 +143,7 @@ namespace Dal {
             XDocStore_& operator=(const Vector_<DateTime_>& val) override { SetArray(val); return *this; }
 
             template <class E_> void SetMatrix(const Matrix_<E_>& val) {
-                dst_ << "{ \"rows\": " << val.Rows() << ",\n\"vals\": [";
+                dst_ << "{ \"rows\": " << val.Rows() << ",\n\"cols\": " << val.Cols() << ",\n\"vals\": [";
                 bool first = true;
                 for (int ir = 0; ir < val.Rows(); ++ir)
                     for (const auto& v : val.Row(ir)) {
@@ -167,7 +176,7 @@ namespace Dal {
             const int rows = vals.size() / cols;
             Matrix_<E_> ret_val(rows, cols);
             for (int ir = 0; ir < rows; ++ir)
-                std::copy(&vals[ir * cols], &vals[(ir + 1) * cols], ret_val.Row(ir).begin());
+                std::copy(vals.begin() + ir * cols, vals.begin() + (ir + 1) * cols, ret_val.Row(ir).begin());
             return ret_val;
         }
 
@@ -208,12 +217,21 @@ namespace Dal {
         }
         Cell_ ECell(const element_t& doc) {
             // POSTPONED -- store date/time attribute -- right now they are reconstituted as numbers
+            static const std::regex DATE_PATTERN("\\d{4}-\\d{2}-\\d{2}");
+            static const std::regex DATE_TIME_PATTERN("\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}");
             if (doc.IsDouble())
                 return Cell_(doc.GetDouble());
             if (doc.IsBool())
                 return Cell_(doc.GetBool());
-            if (doc.IsString())
-                return Cell_(String_(doc.GetString()));
+            if (doc.IsString()) {
+                const std::string src = doc.GetString();
+                if (std::regex_match(src, DATE_PATTERN))
+                    return Cell_(Date::FromString(String_(src)));
+                else if (std::regex_match(src, DATE_TIME_PATTERN))
+                    return Cell_(DateTime::FromString(String_(src)));
+                else
+                    return Cell_(String_(src));
+            }
             if (doc.IsNull())
                 return Cell_();
             THROW("Invalid cell type");

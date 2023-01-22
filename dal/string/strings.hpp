@@ -95,6 +95,7 @@ namespace Dal {
         int ToInt(const String_& src);
         String_ FromDouble(double src);
         String_ FromInt(int src);
+        String_ FromBool(bool src);
         String_ Condensed(const String_& src);
         bool Equivalent(const String_& lhs, const char* rhs);
         String_ NextName(const String_& name);
