@@ -26,7 +26,7 @@ namespace Dal {
             READING_EXCLUSIVE, // avoid vast memory use
             SHOWING,
         } mode_;
-
+        AuditorImp_(): mine_(new Bag_("bag", Bag_::map_t())) {}
         void Notice(const String_& key, const Handle_<Storable_>& value) const override;
         [[nodiscard]] Vector_<Handle_<Storable_>> Find(const String_& key) const override;
     };
@@ -42,14 +42,14 @@ namespace Dal {
             const Environment_* env_;
             const String_ key_;
             Handle_<T_>* value_;
-            Recall_(_ENV, String_&& key, Handle_<T_>* value) : env_(_env), key_(std::move(key)), value_(value) {}
+            Recall_(_ENV, const String_& key, Handle_<T_>* value) : env_(_env), key_(key), value_(value) {}
             void operator()(const Entry_& env) const {
                 if (auto audit = dynamic_cast<const Auditor_*>(&env)) {
                     auto fh = audit->Find(key_);
                     for (const auto& h : fh) {
                         Handle_<T_> temp = handle_cast<T_>(h);
-                        if (!temp.Empty() && temp != *value_) {
-                            REQUIRE(value_->Empty(), "conflicting recollections");
+                        if (!temp.IsEmpty() && temp != *value_) {
+                            REQUIRE(value_->IsEmpty(), "conflicting recollections");
                             *value_ = temp;
                         }
                     }
@@ -58,7 +58,7 @@ namespace Dal {
         };
 
         template <class T_> void Recall(_ENV, const String_& key, Handle_<T_>* value) {
-            REQUIRE(value && value->Empty(), "value should no be empty");
+            REQUIRE(value && value->IsEmpty(), "value should be empty");
             auto func = Recall_<T_>(_env, key, value);
             Iterate(_env, func);
         }
