@@ -216,7 +216,6 @@ namespace Dal {
             THROW("Can't get a datetime value");
         }
         Cell_ ECell(const element_t& doc) {
-            // POSTPONED -- store date/time attribute -- right now they are reconstituted as numbers
             static const std::regex DATE_PATTERN("\\d{4}-\\d{2}-\\d{2}");
             static const std::regex DATE_TIME_PATTERN("\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}");
             if (doc.IsDouble())
