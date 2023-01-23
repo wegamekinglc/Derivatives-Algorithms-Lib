@@ -2,6 +2,8 @@
 // Created by wegam on 2023/1/23.
 //
 
+#ifdef _WIN32
+
 #include <dal/math/matrix/matrixutils.hpp>
 #include <dal/report/exceldriverlite.hpp>
 #include <dal/report/excelimport.hpp>
@@ -301,3 +303,5 @@ namespace Dal {
         }
     }
 }
+
+#endif
