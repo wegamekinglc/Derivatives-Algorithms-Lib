@@ -43,7 +43,7 @@ namespace Dal {
     }
 
     void Environment::AuditBase(_ENV, const String_& key, const Handle_<Storable_>& value) {
-        ShowToAuditor_ f(key, handle_cast<Storable_>(value));
+        ShowToAuditor_ f(key, value);
         Environment::Iterate(_env, f);
     }
 }
