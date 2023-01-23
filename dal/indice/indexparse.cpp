@@ -7,6 +7,7 @@
 #include <dal/string/strings.hpp>
 #include <dal/utilities/exceptions.hpp>
 #include <map>
+#include <mutex>
 
 namespace Dal {
     namespace {
@@ -33,6 +34,14 @@ namespace Dal {
         if (Index::Composite_* test = ParseComposite(name))
             return test;
         return ParseSingle(name);
+    }
+
+    std::mutex TheParserMutex;
+#define LOCK_PARSERS std::lock_guard<std::mutex> l(TheParserMutex);
+
+    void Index::RegisterParser(const String_& name, Index::parser_t func) {
+        LOCK_PARSERS;
+        TheIndexParsers().insert(std::make_pair(name, func));
     }
 
     Handle_<Index_> Index::Clone(const Index_& src) { return Handle_<Index_>(Parse(src.Name())); }
