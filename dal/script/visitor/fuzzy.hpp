@@ -206,7 +206,7 @@ namespace Dal::Script {
         void operator()(const std::unique_ptr<NodePower_>& node) {
             EvalArgs(*node);
             const auto& args = Pop2();
-            dStack_.Push(AAD::Pow(args.first, args.second));
+            dStack_.Push(Pow(args.first, args.second));
         }
 
         void operator()(const std::unique_ptr<NodeUPlus_>& node) {
@@ -220,13 +220,13 @@ namespace Dal::Script {
 
         void operator()(const std::unique_ptr<NodeLog_>& node) {
             EvalArgs(*node);
-            const T_ res = AAD::Log(dStack_.TopAndPop());
+            const T_ res = Log(dStack_.TopAndPop());
             dStack_.Push(res);
         }
 
         void operator()(const std::unique_ptr<NodeSqrt_>& node) {
             EvalArgs(*node);
-            const T_ res = AAD::Sqrt(dStack_.TopAndPop());
+            const T_ res = Sqrt(dStack_.TopAndPop());
             dStack_.Push(res);
         }
 
@@ -234,7 +234,7 @@ namespace Dal::Script {
             EvalArgs(*node);
             T_ m = dStack_.TopAndPop();
             for (size_t i = 1; i < node->arguments_.size(); ++i)
-                m = AAD::Max(m, dStack_.TopAndPop());
+                m = Max(m, dStack_.TopAndPop());
             dStack_.Push(m);
         }
 
@@ -242,7 +242,7 @@ namespace Dal::Script {
             EvalArgs(*node);
             T_ m = dStack_.TopAndPop();
             for (size_t i = 1; i < node->arguments_.size(); ++i)
-                m = AAD::Min(m, dStack_.TopAndPop());
+                m = Min(m, dStack_.TopAndPop());
             dStack_.Push(m);
         }
 

@@ -11,99 +11,56 @@
 
 using namespace std;
 using namespace Dal;
-using namespace Dal::AAD;
-
-double f(const Vector_<>& x) {
-    auto y1 = x[2] * (5.0 * x[0] + x[1]);
-    auto y2 = Log(y1);
-    auto y3 = (y1 + x[3] * y2) * (y1 + y2);
-    auto y4 = Pow(y3, x[4] / 10.);
-    auto y5 = Max(y4, x[5]);
-    auto y6 = y5 - x[6] + x[7];
-    auto y = y6 * x[8] / x[9];
-    return y;
-}
-
-
-auto f_ad(const Vector_<Number_>& x) {
-    auto y1 = x[2] * (5.0 * x[0] + x[1]);
-    auto y2 = Log(y1);
-    auto y3 = (y1 + x[3] * y2) * (y1 + y2);
-    auto y4 = Pow(y3, x[4] / 10.);
-    auto y5 = Max(y4, x[5]);
-    auto y6 = y5 - x[6] + x[7];
-    auto y = y6 * x[8] / x[9];
-    return y;
-}
+using Dal::AAD::Number_;
+using Dal::AAD::Tape_;
 
 
 template <class T_>
-void f_der(Vector_<T_>& x, const Vector_<>& base_value, Vector_<>* ret_val, int num_params, double eps=1.e-8) {
-    for (size_t i = 0; i < num_params; ++i) {
-        x[i] = base_value[i] + eps;
-        auto up_y = f(x);
-        x[i] = base_value[i] - eps;
-        auto down_y = f(x);
-        (*ret_val)[i] = (up_y - down_y) / (2. * eps);
-    }
+T_ BlackTest(T_ fwd, T_ vol, T_ numeraire, T_ strike, T_ expiry, bool is_call) {
+    const double omega = is_call ? 1.0 : -1.0;
+    const auto sqrt_var = vol * Sqrt(expiry);
+    const auto dMinus = Log(fwd / strike) / sqrt_var - 0.5 * sqrt_var;
+    const auto dPlus = dMinus + sqrt_var;
+    return numeraire * omega * (fwd * NCDF(dPlus) - strike * NCDF(dMinus));
 }
 
-int main() {
-    constexpr auto num_param = 10;
-    Number_::tape_->Clear();
-    auto resetter = SetNumResultsForAAD();
 
-    Vector_<> base_value = {1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.};
-    Vector_<> parameters = base_value;
+int main() {
+    int n_rounds = 1000000;
+    double fwd = 1.00;
+    double vol = 0.20;
+    double numeraire = 1.0;
+    double strike = 1.20;
+    double expiry = 3.0;
+    bool is_call = true;
     Timer_ timer;
 
-    size_t n_loops = 10;
-    // simple primitive double calculation
-    double y_raw = 0.;
-    for (size_t i = 0; i < n_loops; ++i) {
-        // add small randomness to avoid compiler optimization
-        parameters[9] = base_value[9] + static_cast<double>(i) * 1e-14;
-        y_raw = f(parameters);
-    }
-    cout << "y: " << setprecision(9) << y_raw << endl;
-    std::cout << "Primitive aprox. time: "
-              << timer.Elapsed<nanoseconds>() / n_loops << " ns\n";
-
-    // Using automatic adjoint differentiation
     timer.Reset();
-    Number_ y;
-    Vector_<Number_> x(num_param);
-    for (size_t i = 0; i < n_loops; ++i) {
-        for (auto k = 0; k < num_param; ++k) {
-            x[k] = base_value[k];
-            x[k].PutOnTape();
-        }
-        y = f_ad(x);
-        y.Value();
-        y.PropagateToStart();
-        Number_::tape_->Rewind();
-    }
-    cout << "y: " << setprecision(9) << y.Value() << endl;
-    for (size_t i = 0; i < num_param; ++i) {
-        cout << "AAD a" << i << " = "
-             << setprecision(9) << x[i].Adjoint() << endl;
-    }
-    std::cout << "AAD aprox. time: "
-              << timer.Elapsed<nanoseconds>() / n_loops << " ns\n";
+    double price;
+    for (int i = 0; i < n_rounds; ++i)
+        price = BlackTest(fwd, vol, numeraire, strike, expiry, is_call);
+    std::cout << "Normal Mode: " << std::setprecision(8) << price << " with " << timer.Elapsed<milliseconds>() << " ms" << std::endl;
 
-    // Using finite difference
+    Number_ fwd_aad(fwd);
+    Number_ vol_aad(vol);
+    Number_ numeraire_aad(numeraire);
+    Number_ strike_aad(strike);
+    Number_ expiry_aad(expiry);
+
+    Tape_& tape = *Number_::tape_;
+    tape.Clear();
+    auto aad_resetter = AAD::SetNumResultsForAAD();
+
+    fwd_aad.PutOnTape();
+    vol_aad.PutOnTape();
+    strike_aad.PutOnTape();
+
     timer.Reset();
-    Vector_<> ret_value(num_param);
-    parameters = base_value;
-    cout << "y: " << setprecision(9) << f(parameters) << endl;
-    for (size_t i=0; i < n_loops; ++i)
-        f_der(parameters, base_value, &ret_value, num_param, 1e-8);
-    for (size_t i = 0; i < num_param; ++i) {
-        cout << "Finite difference a" << i << " = "
-             << setprecision(9) << ret_value[i] << endl;
+    Number_ price_aad;
+    for (int i = 0; i < n_rounds; ++i) {
+        tape.Rewind();
+        price_aad = BlackTest(fwd_aad, vol_aad, numeraire_aad, strike_aad, expiry_aad, is_call);
     }
-    std::cout << "Finite difference aprox. time: "
-              << timer.Elapsed<nanoseconds>() / n_loops << " ns\n";
-
+    std::cout << "   AAD Mode: " << std::setprecision(8) << price_aad.Value() << " with " << timer.Elapsed<milliseconds>() << " ms" << std::endl;
     return 0;
 }
