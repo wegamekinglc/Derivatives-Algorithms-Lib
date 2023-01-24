@@ -5,6 +5,7 @@
 #include <functional>
 #include <dal/concurrency/threadpool.hpp>
 #include <dal/platform/strict.hpp>
+#include <dal/utilities/exceptions.hpp>
 
 namespace Dal {
 
@@ -21,7 +22,11 @@ namespace Dal {
         }
     }
 
-    void ThreadPool_::Start(const size_t& nThread) {
+    void ThreadPool_::Start(const size_t& nThread, bool restart) {
+        if (active_ && restart) {
+            Stop();
+        }
+
         if (!active_) {
             threads_.reserve(nThread);
             for (size_t i = 0; i < nThread; ++i)
