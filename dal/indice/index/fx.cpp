@@ -12,6 +12,6 @@ namespace Dal::Index {
 
     String_ Index::Fx_::XName(bool invert) const {
         static const String_ SEP("/");
-        return (invert ? dom_ : fgn_).String() + SEP + (invert ? fgn_ : dom_).String();
+        return String_("FX[") + (invert ? dom_ : fgn_).String() + SEP + (invert ? fgn_ : dom_).String() + String_("]");
     }
 }

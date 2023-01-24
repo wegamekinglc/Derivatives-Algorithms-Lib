@@ -8,6 +8,18 @@
 #include <dal/time/datetime.hpp>
 #include <map>
 
+/*IF--------------------------------------------------------------------------
+storable Fixings
+     Holder for historical fixings
+manual
+&members
+name is ?string
+fixings is number[]
+     Objects in the bag
+fixing_times is datetime[]
+     Keys of the map in the bag
+-IF-------------------------------------------------------------------------*/
+
 namespace Dal {
     class FixHistory_ {
     public:
@@ -31,5 +43,6 @@ namespace Dal {
         const vals_t vals_;
         Fixings_(const String_& index_name, const vals_t& vals = vals_t())
             : Storable_("Fixings", index_name), vals_(vals) {}
+        void Write(Archive::Store_& dst) const override;
     };
 } // namespace Dal
