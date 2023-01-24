@@ -53,14 +53,30 @@ int main() {
 
     fwd_aad.PutOnTape();
     vol_aad.PutOnTape();
+    numeraire_aad.PutOnTape();
     strike_aad.PutOnTape();
+    expiry_aad.PutOnTape();
 
+    tape.Mark();
     timer.Reset();
     Number_ price_aad;
+
     for (int i = 0; i < n_rounds; ++i) {
-        tape.Rewind();
+        tape.RewindToMark();
         price_aad = BlackTest(fwd_aad, vol_aad, numeraire_aad, strike_aad, expiry_aad, is_call);
+        price_aad.PropagateToMark();
     }
+    price_aad.PropagateToMark();
+    double d_fwd_aad = fwd_aad.Adjoint() / n_rounds;
+    double d_vol_aad = vol_aad.Adjoint() / n_rounds;
+    double d_numeraire_aad = numeraire_aad.Adjoint() / n_rounds;
+    double d_strike_aad = strike_aad.Adjoint() / n_rounds;
+    double d_expiry_aad = expiry_aad.Adjoint() / n_rounds;
     std::cout << "   AAD Mode: " << std::setprecision(8) << price_aad.Value() << " with " << timer.Elapsed<milliseconds>() << " ms" << std::endl;
+    std::cout << "    dP/dFwd: " << std::setprecision(8) << d_fwd_aad << std::endl;
+    std::cout << "    dP/dVol: " << std::setprecision(8) << d_vol_aad << std::endl;
+    std::cout << "    dP/dNum: " << std::setprecision(8) << d_numeraire_aad << std::endl;
+    std::cout << "    dP/dK  : " << std::setprecision(8) << d_strike_aad << std::endl;
+    std::cout << "    dP/dT  : " << std::setprecision(8) << d_expiry_aad << std::endl;
     return 0;
 }
