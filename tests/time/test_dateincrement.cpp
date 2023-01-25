@@ -4,6 +4,7 @@
 
 #include <gtest/gtest.h>
 #include <dal/time/dateincrement.hpp>
+#include <dal/time/holidays.hpp>
 
 using namespace Dal;
 
@@ -89,6 +90,16 @@ TEST(DateIncrementTest, TestIncrementMultistep) {
     // BD with holiday center
     s1 = Date::ParseIncrement("1BD;CN.SH");
     s2 = ref_date + *s1;
+    ASSERT_EQ(Date_(2020, 10, 12), s2);
+    s2 = ref_date - *s1;
+    ASSERT_EQ(Date_(2020, 9, 30), s2);
+}
+
+TEST(DateIncrementTest, TestNBusDays) {
+    Date_ ref_date(2020, 10, 9);
+    auto s1 = Date::NBusDays(1, Holidays_(String_("CN.SH")));
+
+    auto s2 = ref_date + *s1;
     ASSERT_EQ(Date_(2020, 10, 12), s2);
     s2 = ref_date - *s1;
     ASSERT_EQ(Date_(2020, 9, 30), s2);

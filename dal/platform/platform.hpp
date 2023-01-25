@@ -81,6 +81,10 @@ namespace Dal {
         return Handle_<T_>(std::dynamic_pointer_cast<const T_>(src));
     };
 
+    template<class T_, class... Args > Handle_<T_> make_handle(Args&&... args) {
+        return std::make_shared<const T_>(std::forward<Args>(args)...);
+    }
+
 } // namespace Dal
 
 #ifdef WIN32

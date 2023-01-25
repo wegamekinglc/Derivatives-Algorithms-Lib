@@ -169,6 +169,11 @@ namespace {
 } // namespace
 
 namespace Dal {
+    Handle_<Date::Increment_> Date::NBusDays(int n, const Holidays_& hols) {
+        static const DateStepSize_ BD("BD");
+        return Handle_<Date::Increment_>(new IncrementMultistep_(n, BD, hols));
+    }
+
     Handle_<Date::Increment_> Date::ToIMM(bool monthly) {
         static const Handle_<Date::Increment_> QUARTERLY(new IncrementNextSpecial_(SpecialDay_("IMM")));
         static const Handle_<Date::Increment_> MONTHLY(new IncrementNextSpecial_(SpecialDay_("IMM_MONTHLY")));
