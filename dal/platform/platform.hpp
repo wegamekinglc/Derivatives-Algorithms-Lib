@@ -35,6 +35,10 @@ namespace Dal {
 
     template <class = double> class SquareMatrix_;
 
+    template <class = double> class ArrayN_;
+
+    template <class = double> class Cube_;
+
     class Dictionary_;
 
     constexpr double EPSILON = 2e-14;

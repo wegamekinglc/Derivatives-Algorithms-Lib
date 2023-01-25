@@ -74,6 +74,7 @@ namespace Dal {
         using std::vector<E_>::empty;
         using std::vector<E_>::operator[];
         using std::vector<E_>::begin;
+        using std::vector<E_>::cbegin;
         using std::vector<E_>::end;
         using std::vector<E_>::rbegin;
         using std::vector<E_>::rend;
