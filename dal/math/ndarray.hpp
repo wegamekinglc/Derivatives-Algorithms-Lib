@@ -35,9 +35,9 @@ namespace Dal {
         void operator*=(double scale) { vals_ *= scale; }
 
         void Swap(ArrayN_<E_>* other) {
-            sizes_.Swap(other->sizes_);
-            strides_.Swap(other->strides_);
-            vals_.Swap(other->vals_);
+            sizes_.Swap(&other->sizes_);
+            strides_.Swap(&other->strides_);
+            vals_.Swap(&other->vals_);
         }
 
         // also allow Swap with a vector, iff we are effectively one-dimensional
@@ -85,14 +85,14 @@ namespace Dal {
     class Cube_ : public ArrayN_<E_> {
     public:
         Cube_() :ArrayN_(Vector_<int>({ 0, 0, 0 }), E_()) {}
-        Cube_(int size_i, int size_j, int size_k): ArrayN_(Vector_<int>({ size_i, size_j, size_k })) {}
+        Cube_(int size_i, int size_j, int size_k): ArrayN_<E_>(Vector_<int>({ size_i, size_j, size_k })) {}
 
         // support lookups without constructing a temporary vector
         const double& operator()(int ii, int jj, int kk) const {
-            return ArrayN_::At(ArrayN_::Goto()(ii)(jj)(kk));
+            return ArrayN_<E_>::At(ArrayN_<E_>::Goto()(ii)(jj)(kk));
         }
         double& operator()(int ii, int jj, int kk) {
-            return ArrayN_::At(ArrayN_::Goto()(ii)(jj)(kk));
+            return ArrayN_<E_>::At(ArrayN_<E_>::Goto()(ii)(jj)(kk));
         }
         // allow access to slices (last dimension)
         [[nodiscard]] inline double* SliceBegin(int ii, int jj) {
@@ -104,15 +104,15 @@ namespace Dal {
         }
 
         [[nodiscard]] inline const double* SliceEnd(int ii, int jj) const {
-            return SliceBegin(ii, jj) + ArrayN_::Goto()(0)(1)(0).Offset();
+            return SliceBegin(ii, jj) + ArrayN_<E_>::Goto()(0)(1)(0).Offset();
         }
 
-        [[nodiscard]] inline int SizeI() const { return ArrayN_::Sizes()[0]; }
-        [[nodiscard]] inline int SizeJ() const { return ArrayN_::Sizes()[1]; }
-        [[nodiscard]] inline int SizeK() const { return ArrayN_::Sizes()[2]; }
+        [[nodiscard]] inline int SizeI() const { return ArrayN_<E_>::Sizes()[0]; }
+        [[nodiscard]] inline int SizeJ() const { return ArrayN_<E_>::Sizes()[1]; }
+        [[nodiscard]] inline int SizeK() const { return ArrayN_<E_>::Sizes()[2]; }
 
         void Resize(int size_i, int size_j, int size_k) {
-            ArrayN_::Resize(Vector_<int>({ size_i, size_j, size_k }));
+            ArrayN_<E_>::Resize(Vector_<int>({ size_i, size_j, size_k }));
         }
 
     };
