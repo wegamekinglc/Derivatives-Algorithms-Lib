@@ -7,79 +7,142 @@
 #include <dal/platform/platform.hpp>
 #include <dal/math/stacks.hpp>
 #include <dal/script/node.hpp>
-#include <dal/script/visitor.hpp>
-#include <dal/string/strings.hpp>
 
 
 namespace Dal::Script {
-    class Debugger_ : public ConstVisitor_<Debugger_> {
-        String_ prefix_;
-        Stack_<String_> stack_;
+    class Debugger_ : public constVisitor<Debugger_> {
+        String_ myPrefix;
+        StaticStack_<String_> myStack;
 
-        template <class T_>
-        void Debug(const T_& node, const String_& nodeId) {
-            prefix_ += " ";
-            bool isEmpty = node->arguments_.empty();
-            if (!isEmpty)
-                for (auto it = node->arguments_.rbegin(); it != node->arguments_.rend(); ++it)
-                    Visit(*it);
+        //	The main function call from every node visitor
+        void debug(const Node& node, const String_& nodeId) {
+            //	One more tab
+            myPrefix += '\t';
 
-            prefix_.pop_back();
+            //	Visit arguments, right to left
+            for (auto it = node.arguments.rbegin(); it != node.arguments.rend(); ++it)
+                (*it)->accept(*this);
 
-            String_ str(prefix_ + nodeId);
-            if (!isEmpty) {
+            //	One less tab
+            myPrefix.pop_back();
+
+            String_ str(myPrefix + nodeId);
+            if (!node.arguments.empty()) {
                 str += "(\n";
-                str += stack_.Top();
-                stack_.Pop();
-                if (node->arguments_.size() > 1)
-                    str += prefix_ + ",\n";
-                for (size_t i = 1; i < node->arguments_.size() - 1; ++i) {
-                    str += stack_.Top() + prefix_ + ",\n";
-                    stack_.Pop();
-                }
-                if (node->arguments_.size() > 1) {
-                    str += stack_.Top();
-                    stack_.Pop();
+
+                //	First argument, pushed last
+                str += myStack.top();
+                myStack.pop();
+                if (node.arguments.size() > 1)
+                    str += myPrefix + ",\n";
+
+                //	Args 2 to n-1
+                for (size_t i = 1; i < node.arguments.size() - 1; ++i) {
+                    str += myStack.top() + myPrefix + ",\n";
+                    myStack.pop();
                 }
 
-                str += prefix_ + ')';
+                if (node.arguments.size() > 1) {
+                    //	Last argument, pushed first
+                    str += myStack.top();
+                    myStack.pop();
+                }
+
+                //	Close ')'
+                str += myPrefix + ')';
             }
+
             str += '\n';
-            stack_.Push(std::move(str));
+            myStack.push(std::move(str));
         }
 
     public:
-        [[nodiscard]] String_ String() const;
+        using constVisitor<Debugger_>::Visit;
 
-        using ConstVisitor_<Debugger_>::operator();
-        using ConstVisitor_<Debugger_>::Visit;
+        //	Access the top of the stack, contains the functional form after the tree is traversed
+        const String_& String() const { return myStack.top(); }
 
-        void operator()(const std::unique_ptr<NodeCollect_>& node);
-        void operator()(const std::unique_ptr<NodeTrue_>& node);
-        void operator()(const std::unique_ptr<NodeFalse_>& node);
-        void operator()(const std::unique_ptr<NodeUPlus_>& node);
-        void operator()(const std::unique_ptr<NodeUMinus_>& node);
-        void operator()(const std::unique_ptr<NodePlus_>& node);
-        void operator()(const std::unique_ptr<NodeMinus_>& node);
-        void operator()(const std::unique_ptr<NodeMultiply_>& node);
-        void operator()(const std::unique_ptr<NodeDivide_>& node);
-        void operator()(const std::unique_ptr<NodePower_>& node);
-        void operator()(const std::unique_ptr<NodeLog_>& node);
-        void operator()(const std::unique_ptr<NodeSqrt_>& node);
-        void operator()(const std::unique_ptr<NodeMax_>& node);
-        void operator()(const std::unique_ptr<NodeMin_>& node);
-        void operator()(const std::unique_ptr<NodeConst_>& node);
-        void operator()(const std::unique_ptr<NodeVar_>& node);
-        void operator()(const std::unique_ptr<NodeAssign_>& node);
-        void operator()(const std::unique_ptr<NodeIf_>& node);
-        void operator()(const std::unique_ptr<NodeEqual_>& node);
-        void operator()(const std::unique_ptr<NodeNot_>& node);
-        void operator()(const std::unique_ptr<NodeSuperior_>& node);
-        void operator()(const std::unique_ptr<NodeSupEqual_>& node);
-        void operator()(const std::unique_ptr<NodeAnd_>& node);
-        void operator()(const std::unique_ptr<NodeOr_>& node);
-        void operator()(const std::unique_ptr<NodePays_>& node);
-        void operator()(const std::unique_ptr<NodeSpot_>& node);
-        void operator()(const std::unique_ptr<NodeSmooth_>& node);
+        //	All concrete node visitors, Visit arguments by default unless overridden
+
+        void Visit(const NodeCollect& node) { debug(node, "COLLECT"); }
+
+        void Visit(const NodeUplus& node) { debug(node, "UPLUS"); }
+        void Visit(const NodeUminus& node) { debug(node, "UMINUS"); }
+        void Visit(const NodeAdd& node) { debug(node, "ADD"); }
+        void Visit(const NodeSub& node) { debug(node, "SUBTRACT"); }
+        void Visit(const NodeMult& node) { debug(node, "MULT"); }
+        void Visit(const NodeDiv& node) { debug(node, "DIV"); }
+        void Visit(const NodePow& node) { debug(node, "POW"); }
+        void Visit(const NodeLog& node) { debug(node, "LOG"); }
+        void Visit(const NodeSqrt& node) { debug(node, "SQRT"); }
+        void Visit(const NodeMax& node) { debug(node, "MAX"); }
+        void Visit(const NodeMin& node) { debug(node, "MIN"); }
+        void Visit(const NodeSmooth& node) { debug(node, "SMOOTH"); }
+
+        void Visit(const NodeEqual& node) {
+            String_ s = "EQUALZERO";
+
+            if (!node.discrete) {
+                s += String_("[CONT,EPS=" + std::to_string(node.eps) + "]");
+            } else {
+                s += String_("[DISCRETE,");
+                s += String_("BOUNDS=" + std::to_string(node.lb) + "," + std::to_string(node.rb) + "]");
+            }
+            debug(node, s);
+        }
+
+        void Visit(const NodeNot& node) {
+            String_ s = "NOT";
+            debug(node, s);
+        }
+
+        void Visit(const NodeSup& node) {
+            String_ s = "GTZERO";
+            if (!node.discrete) {
+                s += String_("[CONT,EPS=" + std::to_string(node.eps) + "]");
+            } else {
+                s += "[DISCRETE,";
+                s += String_("BOUNDS=" + std::to_string(node.lb) + "," + std::to_string(node.rb) + "]");
+            }
+            debug(node, s);
+        }
+
+        void Visit(const NodeSupEqual& node) {
+            String_ s = "GTEQUALZERO";
+            if (!node.discrete) {
+                s += String_("[CONT,EPS=" + std::to_string(node.eps) + "]");
+            } else {
+                s += "[DISCRETE,";
+                s += String_("BOUNDS=" + std::to_string(node.lb) + "," + std::to_string(node.rb) + "]");
+            }
+            debug(node, s);
+        }
+
+        void Visit(const NodeAnd& node) {
+            String_ s = "AND";
+            debug(node, s);
+        }
+
+        void Visit(const NodeOr& node) {
+            String_ s = "OR";
+            debug(node, s);
+        }
+
+        void Visit(const NodeAssign& node) { debug(node, "ASSIGN"); }
+        void Visit(const NodePays& node) { debug(node, "PAYS"); }
+        void Visit(const NodeSpot& node) { debug(node, "SPOT"); }
+
+        void Visit(const NodeIf& node) {
+            String_ s = "IF";
+            s += String_("[FIRSTELSE=" + std::to_string(node.firstElse) + "]");
+
+            debug(node, s);
+        }
+
+        void Visit(const NodeTrue& node) { debug(node, "TRUE"); }
+        void Visit(const NodeFalse& node) { debug(node, "FALSE"); }
+
+        void Visit(const NodeConst& node) { debug(node, String_("CONST[") + String_(std::to_string(node.constVal) + ']')); }
+        void Visit(const NodeVar& node) { debug(node, String_("VAR[") + node.name + String_(',' + std::to_string(node.index) + ']')); }
     };
-} // namespace Dal::Script
+}

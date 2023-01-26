@@ -4,62 +4,108 @@
 
 #pragma once
 
-#include <dal/script/visitor.hpp>
-#include <memory>
+#include <dal/script/node.hpp>
 
 namespace Dal::Script {
 
-    class ConstCondProcessor_ : public Visitor_<ConstCondProcessor_> {
-        ScriptNode_* current_;
-        template <class N_>
-        void VisitArguments(N_& node) {
-            for (auto &arg: node.arguments_) {
-                current_ = &arg;
-                Visit(arg);
+    //	ConstCond processor
+    //	Processes all constant (always true/false) conditions and conditional statements
+    //	Remove all the if and condition nodes that are always true or always false
+    //	The domain proc must have been run first, so always true/false flags are properly set inside the nodes
+    //	The always true/false if nodes are replaced by collections of statements to be evaluated
+    //	The always true/false conditions are replaced by true/false nodes
+
+    class ConstCondProcessor_ : public Visitor<ConstCondProcessor_> {
+        //	The (unique) pointer on the node currently being visited
+        ExprTree* myCurrent;
+
+        //  Visit arguments plus set myCurrent pointer
+        void visitArgsSetCurrent(Node& node) {
+            for (auto& arg : node.arguments) {
+                myCurrent = &arg;
+                arg->accept(*this);
             }
         }
 
     public:
-        void ProcessFromTop(ScriptNode_& top);
+        //	Overload catch-all-nodes visitor to Visit arguments plus set myCurrent
+        template <class NODE>
+        std::enable_if_t<std::is_same<NODE, std::remove_const_t<NODE>>::value &&
+                    !hasConstVisit<ConstCondProcessor_>::forNodeType<NODE>()>
+        Visit(NODE& node) {
+            visitArgsSetCurrent(node);
+        }
 
-        template<class NodeCond_>
-        void VisitCondT(NodeCond_& node) {
-            if (node->alwaysTrue_)
-                *current_ = std::make_unique<NodeTrue_>();
-            else if(node->alwaysFalse_)
-                *current_ = std::make_unique<NodeFalse_>();
+        //	This patricular visitor modifies the structure of the tree, hence it must be called only
+        //		with this method from the top of every tree, passing a ref on the unique_ptr holding
+        //		the top node of the tree
+        void processFromTop(std::unique_ptr<Node>& top) {
+            myCurrent = &top;
+            top->accept(*this);
+        }
+
+        //	Conditions
+
+        //	One visitor for all booleans
+        void visitBool(boolNode& node) {
+            //	Always true ==> replace the tree by a True node
+            if (node.alwaysTrue)
+                myCurrent->reset(new NodeTrue);
+
+            //	Always false ==> replace the tree by a False node
+            else if (node.alwaysFalse)
+                myCurrent->reset(new NodeFalse);
+
+            //	Nothing to do here ==> Visit the arguments
             else
-                VisitArguments(*node);
+                visitArgsSetCurrent(node);
         }
 
-        using Visitor_<ConstCondProcessor_>::operator();
-        using Visitor_<ConstCondProcessor_>::Visit;
-        
-        void operator()(std::unique_ptr<NodeEqual_>& node) {
-            VisitCondT(node);
-        }
+        //	Visitors
+        void Visit(NodeEqual& node) { visitBool(node); }
+        void Visit(NodeSup& node) { visitBool(node); }
+        void Visit(NodeSupEqual& node) { visitBool(node); }
+        void Visit(NodeNot& node) { visitBool(node); }
+        void Visit(NodeAnd& node) { visitBool(node); }
+        void Visit(NodeOr& node) { visitBool(node); }
 
-        void operator()(std::unique_ptr<NodeNot_>& node) {
-            VisitCondT(node);
-        }
+        //	If
+        void Visit(NodeIf& node) {
+            //	Always true ==> replace the tree by the collection of "if true" statements
+            if (node.alwaysTrue) {
+                size_t lastTrueStat = node.firstElse == -1 ? node.arguments.size() - 1 : node.firstElse - 1;
 
-        void operator()(std::unique_ptr<NodeSuperior_>& node) {
-            VisitCondT(node);
-        }
+                //	Move arguments, destroy node
+                Vector_<ExprTree> args = std::move(node.arguments);
+                myCurrent->reset(new NodeCollect);
 
-        void operator()(std::unique_ptr<NodeSupEqual_>& node) {
-            VisitCondT(node);
-        }
+                for (size_t i = 1; i <= lastTrueStat; ++i) {
+                    (*myCurrent)->arguments.push_back(std::move(args[i]));
+                }
 
-        void operator()(std::unique_ptr<NodeAnd_>& node) {
-            VisitCondT(node);
-        }
+                visitArgsSetCurrent(**myCurrent);
+            }
 
-        void operator()(std::unique_ptr<NodeOr_>& node) {
-            VisitCondT(node);
-        }
+            //	Always false ==> replace the tree by the collection of "else" statements
+            else if (node.alwaysFalse) {
+                int firstElseStatement = node.firstElse;
 
-        void operator()(std::unique_ptr<NodeIf_>& node);
+                //	Move arguments, destroy node
+                Vector_<ExprTree> args = std::move(node.arguments);
+                myCurrent->reset(new NodeCollect);
+
+                if (firstElseStatement != -1) {
+                    for (size_t i = firstElseStatement; i < args.size(); ++i) {
+                        (*myCurrent)->arguments.push_back(std::move(args[i]));
+                    }
+                }
+
+                visitArgsSetCurrent(**myCurrent);
+            }
+
+            //	Nothing to do here ==> Visit the arguments
+            else
+                visitArgsSetCurrent(node);
+        }
     };
-
-}
+} // namespace Dal::Script

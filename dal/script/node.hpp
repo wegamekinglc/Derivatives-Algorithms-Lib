@@ -4,204 +4,187 @@
 
 #pragma once
 
-#include <variant>
-#include <memory>
-#include <dal/string/strings.hpp>
 #include <dal/math/vectors.hpp>
+#include <dal/script/visitor.hpp>
+#include <dal/string/strings.hpp>
+#include <memory>
+#include <variant>
 
 namespace Dal::Script {
+    struct Node;
+    using ExprTree = std::unique_ptr<Node>;
+    using Expression = ExprTree;
+    using Statement = ExprTree;
+    using Event_ = Vector_<Statement>;
 
-    struct NodeCollect_;
-    struct NodeTrue_;
-    struct NodeFalse_;
-    struct NodeUPlus_;
-    struct NodeUMinus_;
-    struct NodePlus_;
-    struct NodeMinus_;
-    struct NodeMultiply_;
-    struct NodeDivide_;
-    struct NodePower_;
-    struct NodeLog_;
-    struct NodeSqrt_;
-    struct NodeMax_;
-    struct NodeMin_;
-    struct NodeConst_;
-    struct NodeVar_;
-    struct NodeAssign_;
-    struct NodeIf_;
-    struct NodeEqual_;
-    struct NodeNot_;
-    struct NodeSuperior_;
-    struct NodeSupEqual_;
-    struct NodeAnd_;
-    struct NodeOr_;
-    struct NodePays_;
-    struct NodeSpot_;
-    struct NodeSmooth_;
-
-    using ScriptNode_ = std::variant<
-            std::unique_ptr<NodePlus_>,
-            std::unique_ptr<NodeMinus_>,
-            std::unique_ptr<NodeConst_>,
-            std::unique_ptr<NodeCollect_>,
-            std::unique_ptr<NodeTrue_>,
-            std::unique_ptr<NodeFalse_>,
-            std::unique_ptr<NodeUPlus_>,
-            std::unique_ptr<NodeUMinus_>,
-            std::unique_ptr<NodeMultiply_>,
-            std::unique_ptr<NodeDivide_>,
-            std::unique_ptr<NodePower_>,
-            std::unique_ptr<NodeLog_>,
-            std::unique_ptr<NodeSqrt_>,
-            std::unique_ptr<NodeMax_>,
-            std::unique_ptr<NodeMin_>,
-            std::unique_ptr<NodeVar_>,
-            std::unique_ptr<NodeAssign_>,
-            std::unique_ptr<NodeIf_>,
-            std::unique_ptr<NodeEqual_>,
-            std::unique_ptr<NodeNot_>,
-            std::unique_ptr<NodeSuperior_>,
-            std::unique_ptr<NodeSupEqual_>,
-            std::unique_ptr<NodeAnd_>,
-            std::unique_ptr<NodeOr_>,
-            std::unique_ptr<NodePays_>,
-            std::unique_ptr<NodeSpot_>,
-            std::unique_ptr<NodeSmooth_>>;
-
-    struct BaseNode_ {
-        Vector_<ScriptNode_> arguments_;
+    struct Node : VisitableBase<VISITORS> {
+        using VisitableBase<VISITORS>::accept;
+        Vector_<ExprTree> arguments;
+        virtual ~Node() {}
     };
 
-    struct NodeCollect_ : public BaseNode_ {
+    //  Hierarchy
+
+    //  Nodes that return a number
+    struct exprNode : Node {
+        bool isConst = false;
+        double constVal;
     };
 
-    struct NodeTrue_ : public BaseNode_ {
+    //  Action nodes
+    struct actNode : Node {};
+
+    //  Nodes that return a bool
+    struct boolNode : Node {
+        bool alwaysTrue;
+        bool alwaysFalse;
     };
 
-    struct NodeFalse_ : public BaseNode_ {
+    //  All the concrete nodes
+
+    //  Binary expressions
+
+    struct NodeAdd : Visitable<exprNode, NodeAdd, VISITORS> {};
+    struct NodeSub : Visitable<exprNode, NodeSub, VISITORS> {};
+    struct NodeMult : Visitable<exprNode, NodeMult, VISITORS> {};
+    struct NodeDiv : Visitable<exprNode, NodeDiv, VISITORS> {};
+    struct NodePow : Visitable<exprNode, NodePow, VISITORS> {};
+    struct NodeMax : Visitable<exprNode, NodeMax, VISITORS> {};
+    struct NodeMin : Visitable<exprNode, NodeMin, VISITORS> {};
+
+    //  Unary expressions
+
+    struct NodeUplus : Visitable<exprNode, NodeUplus, VISITORS> {};
+    struct NodeUminus : Visitable<exprNode, NodeUminus, VISITORS> {};
+
+    //	Math operators
+
+    struct NodeLog : Visitable<exprNode, NodeLog, VISITORS> {};
+    struct NodeSqrt : Visitable<exprNode, NodeSqrt, VISITORS> {};
+
+    //  Multi expressions
+
+    struct NodeSmooth : Visitable<exprNode, NodeSmooth, VISITORS> {};
+
+    //  Comparisons
+
+    struct compNode : boolNode {
+        //	Fuzzying stuff
+        bool discrete; //	Continuous or discrete
+                       //	Continuous eps
+        double eps;
+        //	Discrete butterfly bounds
+        double lb;
+        double rb;
+        //	End of fuzzying stuff
     };
 
-    struct NodeUPlus_ : public BaseNode_ {
+    struct NodeEqual : Visitable<compNode, NodeEqual, VISITORS> {};
+
+    struct NodeSup : Visitable<compNode, NodeSup, VISITORS> {};
+
+    struct NodeSupEqual : Visitable<compNode, NodeSupEqual, VISITORS> {};
+
+    //	And/or/not
+
+    struct NodeAnd : Visitable<boolNode, NodeAnd, VISITORS> {};
+
+    struct NodeOr : Visitable<boolNode, NodeOr, VISITORS> {};
+
+    struct NodeNot : Visitable<boolNode, NodeNot, VISITORS> {};
+
+    //  Leaves
+
+    //	Market access
+    struct NodeSpot : Visitable<exprNode, NodeSpot, VISITORS> {};
+
+    //  Const
+    struct NodeConst : Visitable<exprNode, NodeConst, VISITORS> {
+        NodeConst(const double val) {
+            isConst = true;
+            constVal = val;
+        }
     };
 
-    struct NodeUMinus_ : public BaseNode_ {
+    struct NodeTrue : Visitable<boolNode, NodeTrue, VISITORS> {
+        NodeTrue() { alwaysTrue = true; }
     };
 
-    struct NodePlus_ : public BaseNode_ {
+    struct NodeFalse : Visitable<boolNode, NodeFalse, VISITORS> {
+        NodeFalse() { alwaysFalse = true; }
     };
 
-    struct NodeMinus_ : public BaseNode_ {
+    //  Variable
+    struct NodeVar : Visitable<exprNode, NodeVar, VISITORS> {
+        NodeVar(const String_& n) : name(n) {
+            isConst = true;
+            constVal = 0.0;
+        }
+
+        const String_ name;
+        size_t index;
     };
 
-    struct NodeMultiply_ : public BaseNode_ {
+    //	Assign, Pays
+
+    struct NodeAssign : Visitable<actNode, NodeAssign, VISITORS> {};
+
+    struct NodePays : Visitable<actNode, NodePays, VISITORS> {};
+
+    //	If
+    struct NodeIf : Visitable<actNode, NodeIf, VISITORS> {
+        int firstElse;
+        //	For fuzzy eval: indices of variables affected in statements, including nested
+        std::vector<size_t> affectedVars;
+        //	Always true/false as per domain processor
+        bool alwaysTrue;
+        bool alwaysFalse;
     };
 
-    struct NodeDivide_ : public BaseNode_ {
-    };
+    //	Collection of statements
+    struct NodeCollect : Visitable<actNode, NodeCollect, VISITORS> {};
 
-    struct NodePower_ : public BaseNode_ {
-    };
+    //	Utilities
 
-    struct NodeLog_ : public BaseNode_ {
-    };
+    //  Downcast Node to concrete type, crashes if used on another Node type
 
-    struct NodeSqrt_ : public BaseNode_ {
-
-    };
-
-    struct NodeMax_ : public BaseNode_ {
-    };
-
-    struct NodeMin_ : public BaseNode_ {
-    };
-
-    struct NodeConst_ : public BaseNode_ {
-        double val_;
-        explicit NodeConst_(double val) : val_(val) {}
-
-    };
-
-    struct NodeVar_ : public BaseNode_ {
-        String_ name_;
-        int index_;
-        explicit NodeVar_(String_ &&name) : name_(std::move(name)), index_(-1) {}
-    };
-
-    struct NodeAssign_ : public BaseNode_ {
-
-    };
-
-    struct NodeIf_ : public BaseNode_ {
-        int firstElse_;
-        Vector_<int> affectedVars_;
-        bool alwaysTrue_;
-        bool alwaysFalse_;
-    };
-
-    struct NodeEqual_ : public BaseNode_ {
-        bool alwaysTrue_;
-        bool alwaysFalse_;
-        bool discrete_;
-        double eps_;
-        double lb_;
-        double ub_;
-    };
-
-    struct NodeNot_ : public BaseNode_ {
-        bool alwaysTrue_;
-        bool alwaysFalse_;
-    };
-
-    struct NodeSuperior_ : public BaseNode_ {
-        bool alwaysTrue_;
-        bool alwaysFalse_;
-        bool discrete_;
-        double eps_;
-        double lb_;
-        double ub_;
-    };
-
-    struct NodeSupEqual_ : public BaseNode_ {
-        bool alwaysTrue_;
-        bool alwaysFalse_;
-        bool discrete_;
-        double eps_;
-        double lb_;
-        double ub_;
-    };
-
-    struct NodeAnd_ : public BaseNode_ {
-        bool alwaysTrue_;
-        bool alwaysFalse_;
-    };
-
-    struct NodeOr_ : public BaseNode_ {
-        bool alwaysTrue_;
-        bool alwaysFalse_;
-    };
-
-    struct NodePays_ : public BaseNode_ {
-    };
-
-    struct NodeSpot_ : public BaseNode_ {
-    };
-
-    struct NodeSmooth_ : public BaseNode_ {
-    };
-
-    template<class ConcreteNode_, typename... Args_>
-    ScriptNode_ MakeBaseNode(Args_ &&... args) {
-        return ScriptNode_(std::make_unique<ConcreteNode_>(std::forward<Args_>(args)...));
+    template <class Concrete> const Concrete* downcast(const std::unique_ptr<Node>& node) {
+        return static_cast<const Concrete*>(node.get());
     }
 
-    template<class NodeType_>
-    ScriptNode_ BuildBinary(ScriptNode_& lhs, ScriptNode_& rhs) {
-        auto top = std::make_unique<NodeType_>();
-        top->arguments_.Resize(2);
-        top->arguments_[0] = std::move(lhs);
-        top->arguments_[1] = std::move(rhs);
+    template <class Concrete> Concrete* downcast(std::unique_ptr<Node>& node) { return static_cast<Concrete*>(node.get()); }
+
+    //  Factories
+
+    //  Make concrete node
+    template <typename ConcreteNode, typename... Args> std::unique_ptr<ConcreteNode> make_node(Args&&... args) {
+        return std::unique_ptr<ConcreteNode>(new ConcreteNode(std::forward<Args>(args)...));
+    }
+
+    //  Same but return as pointer on base
+    template <typename ConcreteNode, typename... Args> std::unique_ptr<Node> make_base_node(Args&&... args) {
+        return std::unique_ptr<Node>(new ConcreteNode(std::forward<Args>(args)...));
+    }
+
+    //	Build binary concrete, and set its arguments to lhs and rhs
+    template <class NodeType> std::unique_ptr<NodeType> make_binary(ExprTree& lhs, ExprTree& rhs) {
+        auto top = make_node<NodeType>();
+        top->arguments.Resize(2);
+        //	Take ownership of lhs and rhs
+        top->arguments[0] = std::move(lhs);
+        top->arguments[1] = std::move(rhs);
+        //	Return
         return top;
     }
 
-
-}
+    //  Same but return as pointer on base
+    template <class ConcreteNode> ExprTree make_base_binary(ExprTree& lhs, ExprTree& rhs) {
+        auto top = make_base_node<ConcreteNode>();
+        top->arguments.Resize(2);
+        //	Take ownership of lhs and rhs
+        top->arguments[0] = std::move(lhs);
+        top->arguments[1] = std::move(rhs);
+        //	Return
+        return top;
+    }
+} // namespace Dal::Script

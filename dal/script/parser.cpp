@@ -4,135 +4,99 @@
 
 #include <dal/script/node.hpp>
 #include <dal/script/parser.hpp>
+#include <dal/script/visitor/all.hpp>
+
 
 namespace Dal::Script {
-    ScriptNode_ Parser_::ParseExpr(TokIt_& cur, const TokIt_& end) {
+    Expression Parser_::ParseExpr(TokIt_& cur, const TokIt_& end) {
         auto lhs = ParseExprL2(cur, end);
         while (cur != end && ((*cur)[0] == '+' || (*cur)[0] == '-')) {
             char op = (*cur)[0];
             ++cur;
             REQUIRE2(cur != end, "unexpected end of statement", ScriptError_);
             auto rhs = ParseExprL2(cur, end);
-            lhs = op == '+' ? BuildBinary<NodePlus_>(lhs, rhs) : BuildBinary<NodeMinus_>(lhs, rhs);
+            lhs = op == '+' ? make_base_binary<NodeAdd>(lhs, rhs) : make_base_binary<NodeSub>(lhs, rhs);
         }
         return lhs;
     }
 
-    ScriptNode_ Parser_::ParseExprL2(TokIt_& cur, const TokIt_& end) {
+    Expression Parser_::ParseExprL2(TokIt_& cur, const TokIt_& end) {
         auto lhs = ParseExprL3(cur, end);
         while (cur != end && ((*cur)[0] == '*' || (*cur)[0] == '/')) {
             char op = (*cur)[0];
             ++cur;
             REQUIRE2(cur != end, "unexpected end of statement", ScriptError_);
             auto rhs = ParseExprL3(cur, end);
-            lhs = op == '*' ? BuildBinary<NodeMultiply_>(lhs, rhs) : BuildBinary<NodeDivide_>(lhs, rhs);
+            lhs = op == '*' ? make_base_binary<NodeMult>(lhs, rhs) : make_base_binary<NodeDiv>(lhs, rhs);
         }
         return lhs;
     }
 
-    ScriptNode_ Parser_::ParseExprL3(TokIt_& cur, const TokIt_& end) {
+    Expression Parser_::ParseExprL3(TokIt_& cur, const TokIt_& end) {
         auto lhs = ParseExprL4(cur, end);
         while (cur != end && (*cur)[0] == '^') {
             ++cur;
             REQUIRE(cur != end, "unexpected end of statement");
             auto rhs = ParseExprL4(cur, end);
-            lhs = BuildBinary<NodePower_>(lhs, rhs);
+            lhs = make_base_binary<NodePow>(lhs, rhs);
         }
         return lhs;
     }
 
-    ScriptNode_ Parser_::ParseExprL4(TokIt_& cur, const TokIt_& end) {
+    Expression Parser_::ParseExprL4(TokIt_& cur, const TokIt_& end) {
         if (cur != end && ((*cur)[0] == '+' || (*cur)[0] == '-')) {
             char op = (*cur)[0];
             ++cur;
             REQUIRE2(cur != end, "unexpected end of statement", ScriptError_);
             auto rhs = ParseExprL4(cur, end);
-            auto top = op == '+' ? MakeBaseNode<NodeUPlus_>() : MakeBaseNode<NodeUMinus_>();
-            if (op == '+') {
-                std::get<std::unique_ptr<NodeUPlus_>>(top)->arguments_.Resize(1);
-                std::get<std::unique_ptr<NodeUPlus_>>(top)->arguments_[0] = move(rhs);
-            } else {
-                std::get<std::unique_ptr<NodeUMinus_>>(top)->arguments_.Resize(1);
-                std::get<std::unique_ptr<NodeUMinus_>>(top)->arguments_[0] = move(rhs);
-            }
+            auto top = op == '+' ? make_base_node<NodeUplus>() : make_base_node<NodeUminus>();
+            top->arguments.Resize( 1);
+            top->arguments[0] = move( rhs);
             return top;
         }
         return ParseParentheses<ParseExpr, ParseVarConstFunc>(cur, end);
     }
 
-    ScriptNode_ Parser_::ParseVarConstFunc(TokIt_& cur, const TokIt_& end) {
+    Expression Parser_::ParseVarConstFunc(TokIt_& cur, const TokIt_& end) {
         if ((*cur)[0] == '.' || ((*cur)[0] >= '0' && (*cur)[0] <= '9'))
             return ParseConst(cur);
 
-        ScriptNode_ top;
+        Expression top;
         bool empty = true;
         unsigned minArg, maxArg;
         if(*cur == "SPOT") {
-            auto res = std::make_unique<NodeSpot_>();
+            top = make_base_node<NodeSpot>();
             minArg = maxArg = 0;
-            String_ func = *cur;
-            ++cur;
-            res->arguments_ = ParseFuncArg(cur, end);
-            REQUIRE2(res->arguments_.size() >= minArg && res->arguments_.size() <= maxArg,
-                     String_("function ") + func + ": wrong number of arguments", ScriptError_);
-            top = std::move(res);
-            empty = false;
         } else if (*cur == "LOG") {
-            auto res = std::make_unique<NodeLog_>();
+            top = make_base_node<NodeLog>();
             minArg = maxArg = 1;
-            String_ func = *cur;
-            ++cur;
-            res->arguments_ = ParseFuncArg(cur, end);
-            REQUIRE2(res->arguments_.size() >= minArg && res->arguments_.size() <= maxArg,
-                     String_("function ") + func + ": wrong number of arguments", ScriptError_);
-            top = std::move(res);
-            empty = false;
         } else if (*cur == "SQRT") {
-            auto res = std::make_unique<NodeSqrt_>();
+            top = make_base_node<NodeSqrt>();
             minArg = maxArg = 1;
-            String_ func = *cur;
-            ++cur;
-            res->arguments_ = ParseFuncArg(cur, end);
-            REQUIRE2(res->arguments_.size() >= minArg && res->arguments_.size() <= maxArg,
-                     String_("function ") + func + ": wrong number of arguments", ScriptError_);
-            top = std::move(res);
-            empty = false;
         } else if (*cur == "MIN") {
-            auto res = std::make_unique<NodeMin_>();
-            minArg = 2;
-            maxArg = 100;
-            String_ func = *cur;
-            ++cur;
-            res->arguments_ = ParseFuncArg(cur, end);
-            REQUIRE2(res->arguments_.size() >= minArg && res->arguments_.size() <= maxArg,
-                     String_("function ") + func + ": wrong number of arguments", ScriptError_);
-            top = std::move(res);
-            empty = false;
-        } else if (*cur == "MAX") {
-            auto res = std::make_unique<NodeMax_>();
+            top = make_base_node<NodeMin>();
             minArg = 2;
             maxArg = 1000;
-            String_ func = *cur;
-            ++cur;
-            res->arguments_ = ParseFuncArg(cur, end);
-            REQUIRE2(res->arguments_.size() >= minArg && res->arguments_.size() <= maxArg,
-                     String_("function ") + func + ": wrong number of arguments", ScriptError_);
-            top = std::move(res);
-            empty = false;
+        } else if (*cur == "MAX") {
+            top = make_base_node<NodeMax>();
+            minArg = 2;
+            maxArg = 1000;
         } else if(*cur == "SMOOTH") {
-            auto res = std::make_unique<NodeSmooth_>();
+            top = make_base_node<NodeSmooth>();
             minArg = 4;
             maxArg = 4;
-            String_ func = *cur;
-            ++cur;
-            res->arguments_ = ParseFuncArg(cur, end);
-            REQUIRE2(res->arguments_.size() >= minArg && res->arguments_.size() <= maxArg,
-                     String_("function ") + func + ": wrong number of arguments", ScriptError_);
-            top = std::move(res);
-            empty = false;
         }
 
-        if (!empty) {
+        if (top) {
+            String_ func = *cur;
+            ++cur;
+
+            //	Matched a function, parse its arguments and check
+            top->arguments = ParseFuncArg(cur, end);
+            if( top->arguments.size() < minArg || top->arguments.size() > maxArg)
+                THROW2(String_( "Function ") + func + String_(": wrong number of arguments"), ScriptError_);
+
+            //	Return
             return top;
         }
 
@@ -140,33 +104,33 @@ namespace Dal::Script {
         return ParseVar(cur);
     }
 
-    ScriptNode_ Parser_::ParseConst(TokIt_& cur) {
+    Expression Parser_::ParseConst(TokIt_& cur) {
         double v = String::ToDouble(*cur);
-        auto top = std::make_unique<NodeConst_>(v);
+        auto top = make_node<NodeConst>(v);
         ++cur;
         return std::move(top);
     }
 
-    ScriptNode_ Parser_::ParseVar(TokIt_& cur) {
+    Expression Parser_::ParseVar(TokIt_& cur) {
         REQUIRE2((*cur)[0] >= 'A' && (*cur)[0] <= 'z', String_("Variable name ") + *cur + " is invalid", ScriptError_);
-        auto top = std::make_unique<NodeVar_>(String_(*cur));
+        auto top = make_node<NodeVar>(String_(*cur));
         ++cur;
         return std::move(top);
     }
 
-    ScriptNode_ Parser_::ParseIf(TokIt_& cur, const TokIt_& end) {
+    Statement Parser_::ParseIf(TokIt_& cur, const TokIt_& end) {
         ++cur;
         REQUIRE2(cur != end, "`if` is not followed by `then`", ScriptError_);
         auto cond = ParseCond(cur, end);
         if (cur == end || *cur != "then")
             THROW2("`if` is not followed by `then`", ScriptError_);
         ++cur;
-        Vector_<ScriptNode_> stats;
+        Vector_<Statement> stats;
         while (cur != end && *cur != "ELSE" && *cur != "ENDIF")
             stats.push_back(ParseStatement(cur, end));
 
         REQUIRE2(cur != end, "`if/then` is not followed by `else` or `endif`", ScriptError_);
-        Vector_<ScriptNode_> elseStats;
+        Vector_<Statement> elseStats;
         int elseIdx = -1;
         while (*cur == "ELSE") {
             ++cur;
@@ -176,56 +140,56 @@ namespace Dal::Script {
             elseIdx = stats.size() + 1;
         }
 
-        auto top = std::make_unique<NodeIf_>();
-        top->arguments_.Resize(1 + stats.size() + elseStats.size());
-        top->arguments_[0] = std::move(cond);
+        auto top = make_node<NodeIf>();
+        top->arguments.Resize(1 + stats.size() + elseStats.size());
+        top->arguments[0] = std::move(cond);
         for (auto i = 0; i < stats.size(); ++i)
-            top->arguments_[i + 1] = std::move(stats[i]);
+            top->arguments[i + 1] = std::move(stats[i]);
         for (auto i = 0; i < elseStats.size(); ++i)
-            top->arguments_[i + elseIdx] = std::move(elseStats[i]);
-        top->firstElse_ = elseIdx;
+            top->arguments[i + elseIdx] = std::move(elseStats[i]);
+        top->firstElse = elseIdx;
 
         ++cur;
         return std::move(top);
     }
 
-    ScriptNode_ Parser_::ParseAssign(TokIt_& cur, const TokIt_& end, ScriptNode_& lhs) {
+    Statement Parser_::ParseAssign(TokIt_& cur, const TokIt_& end, Expression& lhs) {
         ++cur;
         REQUIRE2(cur != end, "unexpected end of statement", ScriptError_);
         auto rhs = ParseExpr(cur, end);
-        return BuildBinary<NodeAssign_>(lhs, rhs);
+        return make_base_binary<NodeAssign>(lhs, rhs);
     }
 
-    ScriptNode_ Parser_::ParsePays(TokIt_& cur, const TokIt_& end, ScriptNode_& lhs) {
+    Statement Parser_::ParsePays(TokIt_& cur, const TokIt_& end, Expression& lhs) {
         ++cur;
         REQUIRE2(cur != end, "unexpected end of statement", ScriptError_);
         auto rhs = ParseExpr(cur, end);
-        return BuildBinary<NodePays_>(lhs, rhs);
+        return make_base_binary<NodePays>(lhs, rhs);
     }
 
-    ScriptNode_ Parser_::ParseCond(TokIt_& cur, const TokIt_& end) {
+    Expression Parser_::ParseCond(TokIt_& cur, const TokIt_& end) {
         auto lhs = ParseCondL2(cur, end);
         while (cur != end && *cur == "OR") {
             ++cur;
             REQUIRE2(cur != end, "unexpected end of statement", ScriptError_);
             auto rhs = ParseCondL2(cur, end);
-            lhs = BuildBinary<NodeOr_>(lhs, rhs);
+            lhs = make_base_binary<NodeOr>(lhs, rhs);
         }
         return lhs;
     }
 
-    ScriptNode_ Parser_::ParseCondL2(TokIt_& cur, const TokIt_& end) {
+    Expression Parser_::ParseCondL2(TokIt_& cur, const TokIt_& end) {
         auto lhs = ParseParentheses<ParseCond, ParseCondElem>(cur, end);
         while (cur != end && *cur == "AND") {
             ++cur;
             REQUIRE2(cur != end, "unexpected end of statement", ScriptError_);
             auto rhs = ParseParentheses<ParseCond, ParseCondElem>(cur, end);
-            lhs = BuildBinary<NodeAnd_>(lhs, rhs);
+            lhs = make_base_binary<NodeAnd>(lhs, rhs);
         }
         return lhs;
     }
 
-    ScriptNode_ Parser_::ParseCondElem(TokIt_& cur, const TokIt_& end) {
+    Expression Parser_::ParseCondElem(TokIt_& cur, const TokIt_& end) {
         auto lhs = ParseExpr(cur, end);
         REQUIRE2(cur != end, "unexpected end of statement", ScriptError_);
         String_ comparator = *cur;
@@ -264,12 +228,12 @@ namespace Dal::Script {
         }
     }
 
-    Vector_<ScriptNode_> Parser_::ParseFuncArg(TokIt_& cur, const TokIt_& end) {
+    Vector_<Expression> Parser_::ParseFuncArg(TokIt_& cur, const TokIt_& end) {
         REQUIRE2((*cur)[0] == '(', "No opening ( following function name", ScriptError_);
         TokIt_ closeIt = FindMatch<'(', ')'>(cur, end);
 
         //	Parse expressions between parentheses
-        Vector_<ScriptNode_> args;
+        Vector_<Expression> args;
         ++cur;
         while (cur != closeIt) {
             args.push_back(ParseExpr(cur, end));
@@ -282,42 +246,42 @@ namespace Dal::Script {
         return args;
     }
 
-    ScriptNode_ Parser_::BuildEqual(ScriptNode_& lhs, ScriptNode_& rhs, double eps) {
-        auto expr = BuildBinary<NodeMinus_>(lhs, rhs);
-        auto top = std::make_unique<NodeEqual_>();
-        top->arguments_.Resize(1);
-        top->arguments_[0] = std::move(expr);
-        top->eps_ = eps;
+    Expression Parser_::BuildEqual(Expression& lhs, Expression& rhs, double eps) {
+        auto expr = make_base_binary<NodeSub>(lhs, rhs);
+        auto top = make_node<NodeEqual>();
+        top->arguments.Resize(1);
+        top->arguments[0] = std::move(expr);
+        top->eps = eps;
         return top;
     }
 
-    ScriptNode_ Parser_::BuildDifferent(ScriptNode_& lhs, ScriptNode_& rhs, double eps) {
+    Expression Parser_::BuildDifferent(Expression& lhs, Expression& rhs, double eps) {
         auto eq = BuildEqual(lhs, rhs, eps);
-        auto top = std::make_unique<NodeNot_>();
-        top->arguments_.Resize(1);
-        top->arguments_[0] = std::move(eq);
+        auto top = std::make_unique<NodeNot>();
+        top->arguments.Resize(1);
+        top->arguments[0] = std::move(eq);
         return top;
     }
 
-    ScriptNode_ Parser_::BuildSuperior(ScriptNode_& lhs, ScriptNode_& rhs, double eps) {
-        auto eq = BuildBinary<NodeMinus_>(lhs, rhs);
-        auto top = std::make_unique<NodeSuperior_>();
-        top->arguments_.Resize(1);
-        top->arguments_[0] = std::move(eq);
-        top->eps_ = eps;
+    Expression Parser_::BuildSuperior(Expression& lhs, Expression& rhs, double eps) {
+        auto eq = make_base_binary<NodeSub>(lhs, rhs);
+        auto top = make_node<NodeSup>();
+        top->arguments.Resize(1);
+        top->arguments[0] = std::move(eq);
+        top->eps = eps;
         return top;
     }
 
-    ScriptNode_ Parser_::BuildSupEqual(ScriptNode_& lhs, ScriptNode_& rhs, double eps) {
-        auto eq = BuildBinary<NodeMinus_>(lhs, rhs);
-        auto top = std::make_unique<NodeSupEqual_>();
-        top->arguments_.Resize(1);
-        top->arguments_[0] = std::move(eq);
-        top->eps_ = eps;
+    Expression Parser_::BuildSupEqual(Expression& lhs, Expression& rhs, double eps) {
+        auto eq = make_base_binary<NodeSub>(lhs, rhs);
+        auto top = make_node<NodeSupEqual>();
+        top->arguments.Resize(1);
+        top->arguments[0] = std::move(eq);
+        top->eps = eps;
         return top;
     }
 
-    ScriptNode_ Parser_::ParseStatement(TokIt_& cur, const TokIt_& end) {
+    Statement Parser_::ParseStatement(TokIt_& cur, const TokIt_& end) {
         if (*cur == "IF")
             return ParseIf(cur, end);
         auto lhs = ParseVar(cur);
@@ -336,8 +300,8 @@ namespace Dal::Script {
         return v;
     }
 
-    Vector_<ScriptNode_> Parse(const String_& event) {
-        Vector_<ScriptNode_> e;
+    Event_ Parse(const String_& event) {
+        Event_ e;
         auto tokens = Tokenize(event);
         Vector_<String_>::const_iterator it = tokens.begin();
         while (it != tokens.end())

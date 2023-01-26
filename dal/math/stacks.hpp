@@ -7,8 +7,7 @@
 #include <iterator>
 
 namespace Dal {
-    template <class E_, size_t DefaultSize>
-    class Stack_ {
+    template <class E_, size_t DefaultSize> class Stack_ {
 
     private:
         E_* data_;
@@ -116,9 +115,7 @@ namespace Dal {
         E_& operator[](const size_t i) { return data_[sp_ - 1 - i]; }
         const E_& operator[](const size_t i) const { return data_[sp_ - 1 - i]; }
 
-        E_ TopAndPop() {
-            return std::move(data_[--sp_]);
-        }
+        E_ TopAndPop() { return std::move(data_[--sp_]); }
 
         void Pop() { --sp_; }
         void Pop(const size_t n) { sp_ -= n; }
@@ -134,5 +131,36 @@ namespace Dal {
         [[nodiscard]] int Size() const { return sp_; }
         [[nodiscard]] int Capacity() const { return size_; }
         [[nodiscard]] bool IsEmpty() const { return sp_ == 0; }
+    };
+
+    template <class T, size_t Size = 64> class StaticStack_ {
+
+    private:
+        T myData[Size];
+        int mySp = -1;
+
+    public:
+        template <typename T2> inline void push(T2&& value) { myData[++mySp] = std::forward<T2>(value); }
+
+        inline T& top() { return myData[mySp]; }
+
+        inline const T& top() const { return myData[mySp]; }
+
+        //	Random access
+        inline T& operator[](const int i) { return myData[mySp - i]; }
+
+        inline const T& operator[](const int i) const { return myData[mySp - i]; }
+
+        inline T topAndPop() { return move(myData[--mySp]); }
+
+        void pop() { --mySp; }
+
+        void pop(const int n) { mySp -= n; }
+
+        void reset() { mySp = -1; }
+
+        size_t size() const { return static_cast<size_t>((mySp + 1)); }
+
+        bool empty() const { return mySp < 0; }
     };
 } // namespace Dal

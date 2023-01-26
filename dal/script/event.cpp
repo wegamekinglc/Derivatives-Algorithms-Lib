@@ -4,9 +4,8 @@
 
 #include <dal/platform/strict.hpp>
 #include <dal/script/event.hpp>
-#include <dal/storage/globals.hpp>
 #include <dal/script/visitor/debugger.hpp>
-
+#include <dal/storage/globals.hpp>
 
 namespace Dal::Script {
 
@@ -16,13 +15,13 @@ namespace Dal::Script {
     void ScriptProduct_::IndexVariables() {
         VarIndexer_ indexer;
         Visit(indexer);
-        variables_ = indexer.GetVarNames();
+        variables_ = indexer.getVarNames();
     }
 
     size_t ScriptProduct_::IFProcess() {
         IFProcessor_ ifProc;
         Visit(ifProc);
-        return ifProc.MaxNestedIFs();
+        return ifProc.maxNestedIfs();
     }
 
     //	Domain processing
@@ -31,11 +30,16 @@ namespace Dal::Script {
         Visit(domProc);
     }
 
+    void ScriptProduct_::ConstProcess() {
+        ConstProcessor_ domProc(variables_.size());
+        Visit(domProc);
+    }
+
     void ScriptProduct_::ConstCondProcess() {
         ConstCondProcessor_ ccProc;
-        for (auto &evt: events_) {
-            for (auto &stat: evt)
-                ccProc.ProcessFromTop(stat);
+        for (auto& evt : events_) {
+            for (auto& stat : evt)
+                ccProc.processFromTop(stat);
         }
     }
 
@@ -52,7 +56,7 @@ namespace Dal::Script {
         // generate time line and definition
         // TODO: more specific data settings
         const auto evaluationDate = Global::Dates_().EvaluationDate();
-        for(auto& date: eventDates_) {
+        for (auto& date : eventDates_) {
             const double ttm = (date - evaluationDate) / 365.0;
             timeLine_.emplace_back(ttm);
             Dal::AAD::SampleDef_ sampleDef;
@@ -65,25 +69,57 @@ namespace Dal::Script {
     }
 
     //	Debug whole product
-    void ScriptProduct_::Debug(std::ostream &ost) const {
+    void ScriptProduct_::Debug(std::ostream& ost) const {
         size_t v = 0;
-        for (auto& variable: variables_)
+        for (auto& variable : variables_)
             ost << "Var[" << v++ << "] = " << variable << std::endl;
 
         Debugger_ d;
         size_t e = 0;
-        for (auto& evtIt: events_) {
-            ost << "Event: " << ++e << std::endl;
+        for (auto& evtIt : events_) {
+            ost << "Event_: " << ++e << std::endl;
             unsigned s = 0;
-            for (const auto &stat: evtIt) {
-                d.Visit(stat);
+            for (const auto& stat : evtIt) {
+                stat->accept(d);
                 ost << "Statement: " << ++s << std::endl;
                 ost << d.String() << std::endl;
             }
         }
     }
 
+    void ScriptProduct_::Compile() {
+        //  First, identify constants
+        ConstProcess();
+
+        //  Clear
+        myNodeStreams.clear();
+        myConstStreams.clear();
+        myDataStreams.clear();
+
+        //  One per event date
+        myNodeStreams.reserve(events_.size());
+        myConstStreams.reserve(events_.size());
+        myDataStreams.reserve(events_.size());
+
+        //	Visit
+        for (auto& evt : events_) {
+            //	The compiler
+            Compiler_ comp;
+
+            //	Loop over statements in event
+            for (auto& stat : evt) {
+                //	Visit statement
+                stat->accept(comp);
+            }
+
+            //  Get compiled
+            myNodeStreams.push_back(comp.nodeStream());
+            myConstStreams.push_back(comp.constStream());
+            myDataStreams.push_back(comp.dataStream());
+        }
+    }
+
     void ScriptProductData_::Write(Archive::Store_& dst) const {
         ScriptProductData_v1::XWrite(dst, name_, eventDates_, eventDesc_);
     }
-}
+} // namespace Dal::Script

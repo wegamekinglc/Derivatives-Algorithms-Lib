@@ -42,11 +42,11 @@ namespace Dal::Script {
         }
 
         // Parentheses, Level5
-        using ParseFunc = ScriptNode_(TokIt_&, const TokIt_&);
+        typedef Expression (*ParseFunc)(TokIt_&, const TokIt_&);
 
         template <ParseFunc FuncOnMatch, ParseFunc FuncOnNoMatch>
-        static ScriptNode_ ParseParentheses( TokIt_& cur, const TokIt_& end) {
-            ScriptNode_ tree;
+        static Expression ParseParentheses( TokIt_& cur, const TokIt_& end) {
+            Expression tree;
 
             // Do we have an opening '('?
             if( *cur == "(") {
@@ -70,38 +70,38 @@ namespace Dal::Script {
         static void ParseCondOptionals(TokIt_& cur, const TokIt_& end, double& eps);
 
         // Expressions
-        static ScriptNode_ ParseAssign(TokIt_& cur, const TokIt_& end, ScriptNode_& lhs);
-        static ScriptNode_ ParsePays(TokIt_& cur, const TokIt_& end, ScriptNode_& lhs);
+        static Statement ParseAssign(TokIt_& cur, const TokIt_& end, Expression & lhs);
+        static Statement ParsePays(TokIt_& cur, const TokIt_& end, Expression& lhs);
 
         // Parent, Level1, '+' and '-'
-        static ScriptNode_ ParseExpr(TokIt_& cur, const TokIt_& end);
+        static Expression ParseExpr(TokIt_& cur, const TokIt_& end);
         // Level2, '*' and '/'
-        static ScriptNode_ ParseExprL2(TokIt_& cur, const TokIt_& end);
+        static Expression ParseExprL2(TokIt_& cur, const TokIt_& end);
         // Level3, '^'
-        static ScriptNode_ ParseExprL3(TokIt_& cur, const TokIt_& end);
+        static Expression ParseExprL3(TokIt_& cur, const TokIt_& end);
         // Level 4, unaries
-        static ScriptNode_ ParseExprL4(TokIt_& cur, const TokIt_& end);
+        static Expression ParseExprL4(TokIt_& cur, const TokIt_& end);
 
         // Level 6, variables, constants, functions
-        static ScriptNode_ ParseVarConstFunc(TokIt_& cur, const TokIt_& end);
-        static ScriptNode_ ParseConst(TokIt_& cur);
-        static ScriptNode_ ParseVar(TokIt_& cur);
-        static ScriptNode_ ParseCond(TokIt_& cur, const TokIt_& end);
-        static ScriptNode_ ParseCondL2(TokIt_& cur, const TokIt_& end);
-        static ScriptNode_ ParseCondElem(TokIt_& cur, const TokIt_& end);
-        static Vector_<ScriptNode_> ParseFuncArg(TokIt_& cur, const TokIt_& end);
+        static Expression ParseVarConstFunc(TokIt_& cur, const TokIt_& end);
+        static Expression ParseConst(TokIt_& cur);
+        static Expression ParseVar(TokIt_& cur);
+        static Expression ParseCond(TokIt_& cur, const TokIt_& end);
+        static Expression ParseCondL2(TokIt_& cur, const TokIt_& end);
+        static Expression ParseCondElem(TokIt_& cur, const TokIt_& end);
+        static Vector_<Expression> ParseFuncArg(TokIt_& cur, const TokIt_& end);
 
-        static ScriptNode_ ParseIf(TokIt_& cur, const TokIt_& end);
+        static Statement ParseIf(TokIt_& cur, const TokIt_& end);
 
-        static ScriptNode_ BuildEqual(ScriptNode_& lhs, ScriptNode_& rhs, double eps);
-        static ScriptNode_ BuildDifferent(ScriptNode_& lhs, ScriptNode_& rhs, double eps);
-        static ScriptNode_ BuildSuperior(ScriptNode_& lhs, ScriptNode_& rhs, double eps);
-        static ScriptNode_ BuildSupEqual(ScriptNode_& lhs, ScriptNode_& rhs, double eps);
+        static Expression BuildEqual(Expression& lhs, Expression& rhs, double eps);
+        static Expression BuildDifferent(Expression& lhs, Expression& rhs, double eps);
+        static Expression BuildSuperior(Expression& lhs, Expression& rhs, double eps);
+        static Expression BuildSupEqual(Expression& lhs, Expression& rhs, double eps);
 
     public:
-        static ScriptNode_ ParseStatement(TokIt_& cur, const TokIt_& end);
+        static Statement ParseStatement(TokIt_& cur, const TokIt_& end);
     };
 
     Vector_<String_> Tokenize(const String_& str);
-    Vector_<ScriptNode_> Parse(const String_& event);
+    Event_ Parse(const String_& event);
 }

@@ -4,8 +4,8 @@
 
 #pragma once
 
-#include <dal/math/operators.hpp>
 #include <dal/math/aad/sample.hpp>
+#include <dal/math/operators.hpp>
 #include <dal/math/stacks.hpp>
 #include <dal/platform/platform.hpp>
 #include <dal/script/node.hpp>
@@ -13,255 +13,271 @@
 
 namespace Dal::Script {
 
-    template <class T_ = double> class Evaluator_: public ConstVisitor_<Evaluator_<T_>> {
-
+    template <class T, template <typename> class EVAL> class EvaluatorBase : public constVisitor<EVAL<T>> {
     protected:
-        Vector_<T_> variables_;
-        Stack_<T_> dStack_;
-        Stack_<bool> bStack_;
+        //	State
+        Vector_<T> myVariables;
 
-        bool lhsVar_;
-        T_* lhsVarAdr_;
+        //	Stacks
+        StaticStack_<T> myDstack;
+        StaticStack_<char> myBstack;
 
-        const AAD::Scenario_<T_>* scenario_;
-        size_t curEvt_;
+        //	Reference to current scenario
+        const AAD::Scenario_<T>* myScenario;
 
-        template<class N_>
-        void EvalArgs(const N_ &node) {
-            for (auto it = node.arguments_.rbegin(); it != node.arguments_.rend(); ++it)
-                Visit(*it);
-        }
-
-        std::pair<T_, T_> Pop2() {
-            std::pair<T_, T_> res;
-            res.first = dStack_.TopAndPop();
-            res.second = dStack_.TopAndPop();
-            return std::move(res);
-        }
-
-        std::pair<bool, bool> Pop2b() {
-            std::pair<bool, bool> res;
-            res.first = bStack_.TopAndPop();
-            res.second = bStack_.TopAndPop();
-            return res;
-        }
+        //	Index of current event
+        size_t myCurEvt;
 
     public:
-        explicit Evaluator_(size_t nVar) : variables_(nVar) {}
-        Evaluator_& operator=(const Evaluator_& rhs) {
+        using constVisitor<EVAL<T>>::Visit;
+        using constVisitor<EVAL<T>>::visitNode;
+
+        //	Constructor, nVar = number of variables, from Product after parsing and variable indexation
+        EvaluatorBase(const size_t nVar) : myVariables(nVar) {}
+
+        //	Copy/Move
+
+        EvaluatorBase(const EvaluatorBase& rhs) : myVariables(rhs.myVariables) {}
+        EvaluatorBase& operator=(const EvaluatorBase& rhs) {
             if (this == &rhs)
                 return *this;
-            variables_ = rhs.variables_;
+            myVariables = rhs.myVariables;
             return *this;
         }
 
-        Evaluator_(Evaluator_&& rhs) noexcept : variables_(std::move(rhs.variables_)) {}
-        Evaluator_& operator=(Evaluator_&& rhs) noexcept {
-            variables_ = std::move(rhs.variables_);
+        EvaluatorBase(EvaluatorBase&& rhs) : myVariables(move(rhs.myVariables)) {}
+        EvaluatorBase& operator=(EvaluatorBase&& rhs) {
+            myVariables = move(rhs.myVariables);
             return *this;
         }
 
+        //	(Re-)initialize before evaluation in each scenario
         void Init() {
-            for (auto& var : variables_)
-                var = 0.0;
-            dStack_.Reset();
-            bStack_.Reset();
-            lhsVar_ = false;
-            lhsVarAdr_ = nullptr;
+            for (auto& varIt : myVariables)
+                varIt = 0.0;
+            //	Stacks should be empty, if this is not the case the empty them
+            //		without affecting capacity for added performance
+            myDstack.reset();
+            myBstack.reset();
         }
 
-        const Vector_<T_>& VarVals() const { return variables_; }
+        //	Accessors
 
-        void SetScenario(const AAD::Scenario_<T_>* scenario) { scenario_ = scenario; }
+        //	Access to variable values after evaluation
+        const Vector_<T>& VarVals() const { return myVariables; }
 
-        void SetCurEvt(size_t curEvt) { curEvt_ = curEvt; }
+        //	Set generated scenarios and current event
 
-        using ConstVisitor_<Evaluator_<T_>>::operator();
-        using ConstVisitor_<Evaluator_<T_>>::Visit;
+        //	Set reference to current scenario
+        void SetScenario(const AAD::Scenario_<T>* scen) { myScenario = scen; }
 
-        void operator()(const std::unique_ptr<NodePlus_>& node) {
-            EvalArgs(*node);
-            const auto& args = Pop2();
-            dStack_.Push(args.first + args.second);
+        //	Set index of current event
+        void SetCurEvt(size_t curEvt) { myCurEvt = curEvt; }
+
+        //	Visitors
+
+        //	Expressions
+
+        //	Binaries
+
+        template <class OP> void visitBinary(const exprNode& node, OP op) {
+            visitNode(*node.arguments[0]);
+            visitNode(*node.arguments[1]);
+            op(myDstack[1], myDstack.top());
+            myDstack.pop();
         }
 
-        void operator()(const std::unique_ptr<NodeMinus_>& node) {
-            EvalArgs(*node);
-            const auto& args = Pop2();
-            dStack_.Push(args.first - args.second);
+        void Visit(const NodeAdd& node) {
+            visitBinary(node, [](T& x, const T y) { x += y; });
+        }
+        void Visit(const NodeSub& node) {
+            visitBinary(node, [](T& x, const T y) { x -= y; });
+        }
+        void Visit(const NodeMult& node) {
+            visitBinary(node, [](T& x, const T y) { x *= y; });
+        }
+        void Visit(const NodeDiv& node) {
+            visitBinary(node, [](T& x, const T y) { x /= y; });
+        }
+        void Visit(const NodePow& node) {
+            visitBinary(node, [](T& x, const T y) { x = pow(x, y); });
+        }
+        void Visit(const NodeMax& node) {
+            visitBinary(node, [](T& x, const T y) {
+                if (x < y)
+                    x = y;
+            });
+        }
+        void Visit(const NodeMin& node) {
+            visitBinary(node, [](T& x, const T y) {
+                if (x > y)
+                    x = y;
+            });
         }
 
-        void operator()(const std::unique_ptr<NodeConst_>& node) {
-            dStack_.Push(node->val_);
+        //	Unaries
+        template <class OP> inline void visitUnary(const exprNode& node, OP op) {
+            visitNode(*node.arguments[0]);
+            op(myDstack.top());
         }
 
-        void operator()(const std::unique_ptr<NodeMultiply_>& node) {
-            EvalArgs(*node);
-            const auto& args = Pop2();
-            dStack_.Push(args.first * args.second);
+        void Visit(const NodeUplus& node) {
+            visitUnary(node, [](T& x) {});
+        }
+        void Visit(const NodeUminus& node) {
+            visitUnary(node, [](T& x) { x = -x; });
         }
 
-        void operator()(const std::unique_ptr<NodeDivide_>& node) {
-            EvalArgs(*node);
-            const auto& args = Pop2();
-            dStack_.Push(args.first / args.second);
+        //	Functions
+        void Visit(const NodeLog& node) {
+            visitUnary(node, [](T& x) { x = log(x); });
+        }
+        void Visit(const NodeSqrt& node) {
+            visitUnary(node, [](T& x) { x = sqrt(x); });
         }
 
-        void operator()(const std::unique_ptr<NodePower_>& node) {
-            EvalArgs(*node);
-            const auto& args = Pop2();
-            dStack_.Push(pow(args.first, args.second));
-        }
-
-        void operator()(const std::unique_ptr<NodeUPlus_>& node) {
-            EvalArgs(*node);
-        }
-
-        void operator()(const std::unique_ptr<NodeUMinus_>& node) {
-            EvalArgs(*node);
-            dStack_.Top() *= 1;
-        }
-
-        void operator()(const std::unique_ptr<NodeLog_>& node) {
-            EvalArgs(*node);
-            const T_ res = log(dStack_.TopAndPop());
-            dStack_.Push(res);
-        }
-
-        void operator()(const std::unique_ptr<NodeSqrt_>& node) {
-            EvalArgs(*node);
-            const T_ res = sqrt(dStack_.TopAndPop());
-            dStack_.Push(res);
-        }
-
-        void operator()(const std::unique_ptr<NodeMax_>& node) {
-            EvalArgs(*node);
-            T_ m = dStack_.TopAndPop();
-            for (size_t i = 1; i < node->arguments_.size(); ++i)
-                m = max(m, dStack_.TopAndPop());
-            dStack_.Push(m);
-        }
-
-        void operator()(const std::unique_ptr<NodeMin_>& node) {
-            EvalArgs(*node);
-            T_ m = dStack_.TopAndPop();
-            for (size_t i = 1; i < node->arguments_.size(); ++i)
-                m = min(m, dStack_.TopAndPop());
-            dStack_.Push(m);
-        }
-
-        void operator()(const std::unique_ptr<NodeTrue_>& node) {
-            bStack_.Push(true);
-        }
-
-        void operator()(const std::unique_ptr<NodeFalse_>& node) {
-            bStack_.Push(false);
-        }
-
-        void operator()(const std::unique_ptr<NodeVar_>& node) {
-            if (lhsVar_)
-                lhsVarAdr_ = &variables_[node->index_];
-            else
-                dStack_.Push(variables_[node->index_]);
-        }
-
-        void operator()(const std::unique_ptr<NodeAssign_>& node) {
-            lhsVar_ = true;
-            Visit(node->arguments_[0]);
-            lhsVar_ = false;
-
-            Visit(node->arguments_[1]);
-            *lhsVarAdr_ = dStack_.TopAndPop();
-        }
-
-        void operator()(const std::unique_ptr<NodeSpot_>& node) {
-            dStack_.Push((*scenario_)[curEvt_].spot_);
-        }
-
-        void operator()(const std::unique_ptr<NodeIf_>& node) {
-            Visit(node->arguments_[0]);
-            const bool isTrue = bStack_.TopAndPop();
-
-            if (isTrue) {
-                const int lastTrue = node->firstElse_ == -1 ? node->arguments_.size() - 1 : node->firstElse_ - 1;
-                for (int i = 1; i <= lastTrue; ++i)
-                    Visit(node->arguments_[i]);
-            } else if (node->firstElse_ != -1) {
-                for (int i = node->firstElse_; i < node->arguments_.size(); ++i)
-                    Visit(node->arguments_[i]);
-            }
-        }
-
-        void operator()(const std::unique_ptr<NodePays_>& node) {
-            lhsVar_ = true;
-            Visit(node->arguments_[0]);
-            lhsVar_ = false;
-
-            Visit(node->arguments_[1]);
-            *lhsVarAdr_ += dStack_.TopAndPop() / (*scenario_)[curEvt_].numeraire_;
-        }
-
-        void operator()(const std::unique_ptr<NodeEqual_>& node) {
-            EvalArgs(*node);
-            const T_ res = dStack_.TopAndPop();
-            bStack_.Push(fabs(res) < EPSILON);
-        }
-
-        void operator()(const std::unique_ptr<NodeNot_>& node) {
-            EvalArgs(*node);
-            const bool res = bStack_.TopAndPop();
-            bStack_.Push(!res);
-        }
-
-        void operator()(const std::unique_ptr<NodeSuperior_>& node) {
-            EvalArgs(*node);
-            const T_ res = dStack_.TopAndPop();
-            bStack_.Push(res > EPSILON);
-        }
-
-        void operator()(const std::unique_ptr<NodeSupEqual_>& node) {
-            EvalArgs(*node);
-            const T_ res = dStack_.TopAndPop();
-            bStack_.Push(res > -EPSILON);
-        }
-
-        void operator()(const std::unique_ptr<NodeAnd_>& node) {
-            EvalArgs(*node);
-            const auto& args = Pop2b();
-            bStack_.Push(args.first && args.second);
-        }
-
-        void operator()(const std::unique_ptr<NodeOr_>& node) {
-            EvalArgs(*node);
-            const auto& args = Pop2b();
-            bStack_.Push(args.first || args.second);
-        }
-
-        void operator()(const std::unique_ptr<NodeSmooth_>& node) {
+        //  Multies
+        void Visit(const NodeSmooth& node) {
             //	Eval the condition
-            Visit(node->arguments_[0]);
-            const T_ x = dStack_.TopAndPop();
+            visitNode(*node.arguments[0]);
+            const T x = myDstack.top();
+            myDstack.pop();
 
             //	Eval the epsilon
-            Visit(node->arguments_[3]);
-            const T_ halfEps = 0.5 * dStack_.TopAndPop();
+            visitNode(*node.arguments[3]);
+            const T halfEps = 0.5 * myDstack.top();
+            myDstack.pop();
 
             //	Left
             if (x < -halfEps)
-                Visit(node->arguments_[2]);
+                visitNode(*node.arguments[2]);
+
             //	Right
             else if (x > halfEps)
-                Visit(node->arguments_[1]);
+                visitNode(*node.arguments[1]);
+
             //	Fuzzy
             else {
-                Visit(node->arguments_[1]);
-                const T_ vPos = dStack_.TopAndPop();
+                visitNode(*node.arguments[1]);
+                const T vPos = myDstack.top();
+                myDstack.pop();
 
-                Visit(node->arguments_[2]);
-                const T_ vNeg = dStack_.TopAndPop();
-                dStack_.Push(vNeg + 0.5 * (vPos - vNeg) / halfEps * (x + halfEps));
+                visitNode(*node.arguments[2]);
+                const T vNeg = myDstack.top();
+                myDstack.pop();
+
+                myDstack.push(vNeg + 0.5 * (vPos - vNeg) / halfEps * (x + halfEps));
             }
         }
+
+        //	Conditions
+        template <class OP> inline void visitCondition(const boolNode& node, OP op) {
+            visitNode(*node.arguments[0]);
+            myBstack.push(op(myDstack.top()));
+            myDstack.pop();
+        }
+
+        void Visit(const NodeEqual& node) {
+            visitCondition(node, [](const T x) { return x == 0; });
+        }
+        void Visit(const NodeSup& node) {
+            visitCondition(node, [](const T x) { return x > 0; });
+        }
+        void Visit(const NodeSupEqual& node) {
+            visitCondition(node, [](const T x) { return x >= 0; });
+        }
+
+        void Visit(const NodeAnd& node) {
+            visitNode(*node.arguments[0]);
+            if (myBstack.top()) {
+                myBstack.pop();
+                visitNode(*node.arguments[1]);
+            }
+        }
+        void Visit(const NodeOr& node) {
+            visitNode(*node.arguments[0]);
+            if (!myBstack.top()) {
+                myBstack.pop();
+                visitNode(*node.arguments[1]);
+            }
+        }
+        void Visit(const NodeNot& node) {
+            visitNode(*node.arguments[0]);
+            auto& b = myBstack.top();
+            b = !b;
+        }
+
+        //	Instructions
+        void Visit(const NodeIf& node) {
+            //	Eval the condition
+            visitNode(*node.arguments[0]);
+
+            //	Pick the result
+            const auto isTrue = myBstack.top();
+            myBstack.pop();
+
+            //	Evaluate the relevant statements
+            if (isTrue) {
+                const auto lastTrue = node.firstElse == -1 ? node.arguments.size() - 1 : node.firstElse - 1;
+                for (unsigned i = 1; i <= lastTrue; ++i) {
+                    visitNode(*node.arguments[i]);
+                }
+            } else if (node.firstElse != -1) {
+                const size_t n = node.arguments.size();
+                for (unsigned i = node.firstElse; i < n; ++i) {
+                    visitNode(*node.arguments[i]);
+                }
+            }
+        }
+
+        void Visit(const NodeAssign& node) {
+            const auto varIdx = downcast<NodeVar>(node.arguments[0])->index;
+
+            //	Visit the RHS expression
+            visitNode(*node.arguments[1]);
+
+            //	Write result into variable
+            myVariables[varIdx] = myDstack.top();
+            myDstack.pop();
+        }
+
+        void Visit(const NodePays& node) {
+            const auto varIdx = downcast<NodeVar>(node.arguments[0])->index;
+
+            //	Visit the RHS expression
+            visitNode(*node.arguments[1]);
+
+            //	Write result into variable
+            myVariables[varIdx] += myDstack.top() / (*myScenario)[myCurEvt].numeraire_;
+            myDstack.pop();
+        }
+
+        //	Variables and constants
+        void Visit(const NodeVar& node) {
+            //	Push value onto the stack
+            myDstack.push(myVariables[node.index]);
+        }
+
+        void Visit(const NodeConst& node) { myDstack.push(node.constVal); }
+
+        void Visit(const NodeTrue& node) { myBstack.push(true); }
+        void Visit(const NodeFalse& node) { myBstack.push(false); }
+
+        //	Scenario related
+        void Visit(const NodeSpot& node) { myDstack.push((*myScenario)[myCurEvt].spot_); }
+    };
+
+    //  Concrete Evaluator_
+    template <class T> class Evaluator_ : public EvaluatorBase<T, Evaluator_> {
+
+    public:
+        using Base = EvaluatorBase<T, Evaluator_>;
+
+        Evaluator_(const size_t nVar) : Base(nVar) {}
+        Evaluator_(const Evaluator_& rhs) : Base(rhs) {}
+        Evaluator_(Evaluator_&& rhs) : Base(move(rhs)) {}
+        Evaluator_& operator=(const Evaluator_& rhs) { Base::operator=(rhs); }
+        Evaluator_& operator=(const Evaluator_&& rhs) { Base::operator=(move(rhs)); }
     };
 
 } // namespace Dal::Script

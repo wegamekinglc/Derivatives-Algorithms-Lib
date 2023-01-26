@@ -482,7 +482,7 @@ RAPIDJSON_NAMESPACE_END
 ///////////////////////////////////////////////////////////////////////////////
 // RAPIDJSON_LIKELY, RAPIDJSON_UNLIKELY
 
-//! Compiler branching hint for expression with high probability to be true.
+//! Compiler_ branching hint for expression with high probability to be true.
 /*!
     \ingroup RAPIDJSON_CONFIG
     \param x Boolean expression likely to be true.
@@ -495,7 +495,7 @@ RAPIDJSON_NAMESPACE_END
 #endif
 #endif
 
-//! Compiler branching hint for expression with low probability to be true.
+//! Compiler_ branching hint for expression with low probability to be true.
 /*!
     \ingroup RAPIDJSON_CONFIG
     \param x Boolean expression unlikely to be true.

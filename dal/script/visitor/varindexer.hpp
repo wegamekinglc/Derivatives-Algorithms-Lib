@@ -6,20 +6,40 @@
 
 #include <map>
 #include <dal/math/vectors.hpp>
-#include <dal/script/visitor.hpp>
+#include <dal/script/node.hpp>
 
 
 namespace Dal::Script {
 
-    class VarIndexer_ : public Visitor_<VarIndexer_> {
-        std::map<String_, int> varMap_;
+    class VarIndexer_ : public Visitor<VarIndexer_>
+    {
+        //	State
+        std::map<String_, size_t>	myVarMap;
 
     public:
-        [[nodiscard]] Vector_<String_> GetVarNames() const;
 
-        using Visitor_<VarIndexer_>::operator();
-        using Visitor_<VarIndexer_>::Visit;
-        void operator()(std::unique_ptr<NodeVar_> &node);
+        using Visitor<VarIndexer_>::Visit;
+
+        //	Access vector of variable names v[index]=name after Visit to all events
+        Vector_<String_> getVarNames() const
+        {
+            Vector_<String_> v( myVarMap.size());
+            for( auto varMapIt = myVarMap.begin(); varMapIt != myVarMap.end(); ++varMapIt)
+            {
+                v[varMapIt->second] = varMapIt->first;
+            }
+
+            //	C++11: move not copy
+            return v;
+        }
+
+        //	Variable indexer: build map of names to indices and write indices on variable nodes
+        void Visit( NodeVar& node)
+        {
+            auto varIt = myVarMap.find( node.name);
+            if( varIt == myVarMap.end())
+                node.index = myVarMap[node.name] = myVarMap.size();
+            else node.index = varIt->second;
+        }
     };
-
 }
