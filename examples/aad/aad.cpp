@@ -16,17 +16,22 @@ using Dal::AAD::Tape_;
 
 
 template <class T_>
-T_ BlackTest(T_ fwd, T_ vol, T_ numeraire, T_ strike, T_ expiry, bool is_call) {
+T_ BlackTest(T_ fwd, T_ vol, T_ numeraire, T_ strike, T_ expiry, bool is_call, int n_repetition) {
     const double omega = is_call ? 1.0 : -1.0;
-    const auto sqrt_var = vol * Sqrt(expiry);
-    const auto dMinus = Log(fwd / strike) / sqrt_var - 0.5 * sqrt_var;
-    const auto dPlus = dMinus + sqrt_var;
-    return numeraire * omega * (fwd * NCDF(dPlus) - strike * NCDF(dMinus));
+    T_ y(0.0);
+    for(int i = 0; i < n_repetition; ++i) {
+        const auto sqrt_var = vol * Sqrt(expiry);
+        const auto dMinus = Log(fwd / strike) / sqrt_var - 0.5 * sqrt_var;
+        const auto dPlus = dMinus + sqrt_var;
+        y += numeraire * omega * (fwd * NCDF(dPlus) - strike * NCDF(dMinus));
+    }
+    return y;
 }
 
 
 int main() {
-    int n_rounds = 1000000;
+    int n_rounds = 10000000;
+    int n_repetition = 1;
     double fwd = 1.00;
     double vol = 0.20;
     double numeraire = 1.0;
@@ -38,7 +43,7 @@ int main() {
     timer.Reset();
     double price;
     for (int i = 0; i < n_rounds; ++i)
-        price = BlackTest(fwd, vol, numeraire, strike, expiry, is_call);
+        price = BlackTest(fwd, vol, numeraire, strike, expiry, is_call, n_repetition);
     std::cout << "Normal Mode: " << std::setprecision(8) << price << " with " << timer.Elapsed<milliseconds>() << " ms" << std::endl;
 
     Number_ fwd_aad(fwd);
@@ -58,21 +63,29 @@ int main() {
     expiry_aad.PutOnTape();
 
     tape.Mark();
+    double d_fwd_aad = 0.0;
+    double d_vol_aad = 0.0;
+    double d_numeraire_aad = 0.0;
+    double d_strike_aad = 0.0;
+    double d_expiry_aad = 0.0;
+
     timer.Reset();
     Number_ price_aad;
 
     for (int i = 0; i < n_rounds; ++i) {
         tape.RewindToMark();
-        price_aad = BlackTest(fwd_aad, vol_aad, numeraire_aad, strike_aad, expiry_aad, is_call);
+        price_aad = BlackTest(fwd_aad, vol_aad, numeraire_aad, strike_aad, expiry_aad, is_call, n_repetition);
         price_aad.PropagateToMark();
+
+        price = price_aad.Value() / n_repetition;
+        d_fwd_aad = fwd_aad.Adjoint() / n_repetition;
+        d_vol_aad = vol_aad.Adjoint() / n_repetition;
+        d_numeraire_aad = numeraire_aad.Adjoint() / n_repetition;
+        d_strike_aad = strike_aad.Adjoint() / n_repetition;
+        d_expiry_aad = expiry_aad.Adjoint() / n_repetition;
     }
-    price_aad.PropagateToMark();
-    double d_fwd_aad = fwd_aad.Adjoint() / n_rounds;
-    double d_vol_aad = vol_aad.Adjoint() / n_rounds;
-    double d_numeraire_aad = numeraire_aad.Adjoint() / n_rounds;
-    double d_strike_aad = strike_aad.Adjoint() / n_rounds;
-    double d_expiry_aad = expiry_aad.Adjoint() / n_rounds;
-    std::cout << "   AAD Mode: " << std::setprecision(8) << price_aad.Value() << " with " << timer.Elapsed<milliseconds>() << " ms" << std::endl;
+
+    std::cout << "   AAD Mode: " << std::setprecision(8) << price << " with " << timer.Elapsed<milliseconds>() << " ms" << std::endl;
     std::cout << "    dP/dFwd: " << std::setprecision(8) << d_fwd_aad << std::endl;
     std::cout << "    dP/dVol: " << std::setprecision(8) << d_vol_aad << std::endl;
     std::cout << "    dP/dNum: " << std::setprecision(8) << d_numeraire_aad << std::endl;

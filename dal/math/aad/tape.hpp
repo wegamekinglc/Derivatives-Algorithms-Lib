@@ -16,9 +16,9 @@
 #include <dal/math/aad/node.hpp>
 
 namespace Dal::AAD {
-    constexpr size_t BLOCK_SIZE = 16384;
-    constexpr size_t ADJ_SIZE = 32768;
-    constexpr size_t DATA_SIZE = 65536;
+    constexpr size_t BLOCK_SIZE = 16384 * 8;
+    constexpr size_t ADJ_SIZE = 32768 * 8;
+    constexpr size_t DATA_SIZE = 65536 * 8;
 
     class Tape_ {
         static bool multi_;
