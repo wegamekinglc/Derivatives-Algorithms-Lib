@@ -14,7 +14,7 @@ namespace Dal {
         REQUIRE(y.size() == n && n > 1, "y values size should be same with x and size should bigger than 1");
         Vector_<> coupling(n);
         for (int i = 1; i < n; ++i)
-            coupling[i] = lambda / Max(x[i] - x[i-1], DX_MIN);
+            coupling[i] = lambda / max(x[i] - x[i-1], DX_MIN);
         coupling.back() = 0.0;
 
         Vector_<> beta(n), gamma(n);

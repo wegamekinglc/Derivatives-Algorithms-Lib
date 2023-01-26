@@ -35,7 +35,7 @@ namespace Dal::AAD {
                   double cpn,
                   double smooth)
             : numAssets_(assets.size()), assetNames_(assets), refs_(refs), maturity_(events.back()),
-              ko_(ko), strike_(strike), cpn_(cpn), smooth_(Max(smooth, EPSILON)) {
+              ko_(ko), strike_(strike), cpn_(cpn), smooth_(max(smooth, EPSILON)) {
             const auto evaluationDate = Global::Dates_().EvaluationDate();
             Product_<T_>::labels_.Resize(1);
             for(const auto& date: events) {
@@ -76,7 +76,7 @@ namespace Dal::AAD {
                     &perfs);
                 T_ worst = *MinElement(perfs);
                 (*payoffs)[0] += notionalAlive * cpn_ * dt / state.numeraire_;
-                T_ notionalSurviving = notionalAlive * Min(1.0, Max(0.0, (ko_ + smooth_ - worst) / 2 / smooth_));
+                T_ notionalSurviving = notionalAlive * min(1.0, max(0.0, (ko_ + smooth_ - worst) / 2 / smooth_));
                 T_ notionalDead = notionalAlive - notionalSurviving;
                 (*payoffs)[0] += notionalDead / state.numeraire_;
                 notionalAlive = notionalSurviving;
@@ -92,7 +92,7 @@ namespace Dal::AAD {
             T_ worst = *MinElement(perfs);
             (*payoffs)[0] += notionalAlive * cpn_ * dt / state.numeraire_;
             (*payoffs)[0] += notionalAlive / state.numeraire_;
-            (*payoffs)[0] -= notionalAlive * Max(strike_ - worst, 0.0) / strike_ / state.numeraire;
+            (*payoffs)[0] -= notionalAlive * max(strike_ - worst, 0.0) / strike_ / state.numeraire;
         }
 
         inline void PayoffsImpl(const Scenario_<T_>& path, Vector_<T_>* payoffs) const override {

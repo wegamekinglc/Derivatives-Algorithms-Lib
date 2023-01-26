@@ -119,17 +119,17 @@ namespace Dal::AAD {
     }
 
     template <class LHS_, class RHS_>
-    BinaryExpression_<LHS_, RHS_, OPPow_> Pow(const Expression_<LHS_>& lhs, const Expression_<RHS_>& rhs) {
+    BinaryExpression_<LHS_, RHS_, OPPow_> pow(const Expression_<LHS_>& lhs, const Expression_<RHS_>& rhs) {
         return BinaryExpression_<LHS_, RHS_, OPPow_>(lhs, rhs);
     }
 
     template <class LHS_, class RHS_>
-    BinaryExpression_<LHS_, RHS_, OPMax_> Max(const Expression_<LHS_>& lhs, const Expression_<RHS_>& rhs) {
+    BinaryExpression_<LHS_, RHS_, OPMax_> max(const Expression_<LHS_>& lhs, const Expression_<RHS_>& rhs) {
         return BinaryExpression_<LHS_, RHS_, OPMax_>(lhs, rhs);
     }
 
     template <class LHS_, class RHS_>
-    BinaryExpression_<LHS_, RHS_, OPMin_> Min(const Expression_<LHS_>& lhs, const Expression_<RHS_>& rhs) {
+    BinaryExpression_<LHS_, RHS_, OPMin_> min(const Expression_<LHS_>& lhs, const Expression_<RHS_>& rhs) {
         return BinaryExpression_<LHS_, RHS_, OPMin_>(lhs, rhs);
     }
 
@@ -260,22 +260,22 @@ namespace Dal::AAD {
     // overloading
 
     template <class ARG_>
-    UnaryExpression_<ARG_, OPExp_> Exp(const Expression_<ARG_>& arg) {
+    UnaryExpression_<ARG_, OPExp_> exp(const Expression_<ARG_>& arg) {
         return UnaryExpression_<ARG_, OPExp_>(arg);
     }
 
     template <class ARG_>
-    UnaryExpression_<ARG_, OPLog_> Log(const Expression_<ARG_>& arg) {
+    UnaryExpression_<ARG_, OPLog_> log(const Expression_<ARG_>& arg) {
         return UnaryExpression_<ARG_, OPLog_>(arg);
     }
 
     template <class ARG_>
-    UnaryExpression_<ARG_, OPSqrt_> Sqrt(const Expression_<ARG_>& arg) {
+    UnaryExpression_<ARG_, OPSqrt_> sqrt(const Expression_<ARG_>& arg) {
         return UnaryExpression_<ARG_, OPSqrt_>(arg);
     }
 
     template <class ARG_>
-    UnaryExpression_<ARG_, OPFabs_> Fabs(const Expression_<ARG_>& arg) {
+    UnaryExpression_<ARG_, OPFabs_> fabs(const Expression_<ARG_>& arg) {
         return UnaryExpression_<ARG_, OPFabs_>(arg);
     }
 
@@ -332,32 +332,32 @@ namespace Dal::AAD {
     }
 
     template <class ARG_>
-    UnaryExpression_<ARG_, OPPowDL_> Pow(double d, const Expression_<ARG_>& rhs) {
+    UnaryExpression_<ARG_, OPPowDL_> pow(double d, const Expression_<ARG_>& rhs) {
         return UnaryExpression_<ARG_, OPPowDL_>(rhs, d);
     }
 
     template <class ARG_>
-    UnaryExpression_<ARG_, OPPowDR_> Pow(const Expression_<ARG_>& lhs, double d) {
+    UnaryExpression_<ARG_, OPPowDR_> pow(const Expression_<ARG_>& lhs, double d) {
         return UnaryExpression_<ARG_, OPPowDR_>(lhs, d);
     }
 
     template <class ARG_>
-    UnaryExpression_<ARG_, OPMaxD_> Max(double d, const Expression_<ARG_>& rhs) {
+    UnaryExpression_<ARG_, OPMaxD_> max(double d, const Expression_<ARG_>& rhs) {
         return UnaryExpression_<ARG_, OPMaxD_>(rhs, d);
     }
 
     template <class ARG_>
-    UnaryExpression_<ARG_, OPMaxD_> Max(const Expression_<ARG_>& lhs, double d) {
+    UnaryExpression_<ARG_, OPMaxD_> max(const Expression_<ARG_>& lhs, double d) {
         return UnaryExpression_<ARG_, OPMaxD_>(lhs, d);
     }
 
     template <class ARG_>
-    UnaryExpression_<ARG_, OPMinD_> Min(double d, const Expression_<ARG_>& rhs) {
+    UnaryExpression_<ARG_, OPMinD_> min(double d, const Expression_<ARG_>& rhs) {
         return UnaryExpression_<ARG_, OPMinD_>(rhs, d);
     }
 
     template <class ARG_>
-    UnaryExpression_<ARG_, OPMinD_> Min(const Expression_<ARG_>& lhs, double d) {
+    UnaryExpression_<ARG_, OPMinD_> min(const Expression_<ARG_>& lhs, double d) {
         return UnaryExpression_<ARG_, OPMinD_>(lhs, d);
     }
 

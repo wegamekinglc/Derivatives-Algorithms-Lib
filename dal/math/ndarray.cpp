@@ -17,7 +17,7 @@ namespace Dal::ArrayN {
     Vector_<pair<int, int>> Moves(const Vector_<int>& old_sizes, const Vector_<int>& new_sizes) {
         const int nd = old_sizes.size();
         REQUIRE(new_sizes.size() == nd, "Resize() can't change the dimension of an array");
-        static const auto func = [](int x, int y) { return Min(x, y);};
+        static const auto func = [](int x, int y) { return min(x, y);};
         Vector_<int> oldStrides = Strides(old_sizes), newStrides = Strides(new_sizes);
         Vector_<int> mins = Apply(func, old_sizes, new_sizes);
         Vector_<int> loc(nd, 0);

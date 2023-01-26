@@ -127,7 +127,7 @@ namespace Dal::AAD {
 
             for (size_t i = 0; i < n; ++i) {
                 const double dt = timeLine_[i + 1] - timeLine_[i];
-                stds_[i] = vol_ * Dal::Sqrt(dt);
+                stds_[i] = vol_ * Dal::sqrt(dt);
 
                 drifts_[i] = (mu - 0.5 * vol_ * vol_) * dt;
             }
@@ -135,20 +135,20 @@ namespace Dal::AAD {
             const size_t m = productTimeline.size();
             for (size_t i = 0; i < m; ++i) {
                 if (defLine[i].numeraire_)
-                    numeraires_[i] = Dal::Exp(rate_ * productTimeline[i]);
+                    numeraires_[i] = Dal::exp(rate_ * productTimeline[i]);
 
                 const size_t pDF = defLine[i].discountMats_.size();
                 for (size_t j = 0; j < pDF; ++j)
-                    discounts_[i][j] = Dal::Exp(-rate_ * (defLine[i].discountMats_[j] - productTimeline[i]));
+                    discounts_[i][j] = Dal::exp(-rate_ * (defLine[i].discountMats_[j] - productTimeline[i]));
 
                 const size_t pFF = defLine[i].forwardMats_.front().size();
                 for (size_t j = 0; j < pFF; ++j)
-                    forwardFactors_[i][j] = Dal::Exp(mu * (defLine[i].forwardMats_.front()[j] - productTimeline[i]));
+                    forwardFactors_[i][j] = Dal::exp(mu * (defLine[i].forwardMats_.front()[j] - productTimeline[i]));
 
                 const size_t pL = defLine[i].liborDefs_.size();
                 for (size_t j = 0; j < pL; ++j) {
                     const double dt = defLine[i].liborDefs_[j].end_ - defLine[i].liborDefs_[j].start_;
-                    libors_[i][j] = (Dal::Exp(rate_ * dt) - 1.0) / dt;
+                    libors_[i][j] = (Dal::exp(rate_ * dt) - 1.0) / dt;
                 }
             }
         }
@@ -163,11 +163,11 @@ namespace Dal::AAD {
                 ++idx;
             }
 
-            T_ logSpot = Dal::Log(spot);
+            T_ logSpot = Dal::log(spot);
             const size_t n = timeLine_.size() - 1;
             for (size_t i = 0; i < n; ++i) {
                 logSpot = logSpot + drifts_[i] + stds_[i] * gaussVec[i];
-                FillScenario(idx, Dal::Exp(logSpot), (*path)[idx], (*defLine_)[idx]);
+                FillScenario(idx, Dal::exp(logSpot), (*path)[idx], (*defLine_)[idx]);
                 ++idx;
             }
         }

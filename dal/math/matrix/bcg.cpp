@@ -52,7 +52,7 @@ namespace Dal {
         REQUIRE(b.size() == n && x->size() == n, "matrix size is not compatible");
         REQUIRE((IsPositive(tol_rel) || IsPositive(tol_abs)) && max_iterations > 0, "parameters is not valid");
 
-        double tNorm = tol_rel * Sqrt(InnerProduct(b, b)) + tol_abs;
+        double tNorm = tol_rel * sqrt(InnerProduct(b, b)) + tol_abs;
         XPrecondition_ precondition(A);
         Vector_<> r(n);
         Vector_<> z(n);
@@ -70,7 +70,7 @@ namespace Dal {
             const double alphaK = beta / InnerProduct(z, p);
             Transform(x, p, LinearIncrement(alphaK));
             Transform(&r, z, LinearIncrement(-alphaK));
-            if (Sqrt(InnerProduct(r, r)) <= tNorm)
+            if (sqrt(InnerProduct(r, r)) <= tNorm)
                 return;
         }
         THROW("Exhausted iterations in CGSolve");
@@ -85,7 +85,7 @@ namespace Dal {
         REQUIRE(b.size() == n && x->size() == n, "matrix size is not compatible");
         REQUIRE((IsPositive(tol_rel) || IsPositive(tol_abs)) && max_iterations > 0, "parameters is not valid");
 
-        double tNorm = tol_rel * Sqrt(InnerProduct(b, b)) + tol_abs;
+        double tNorm = tol_rel * sqrt(InnerProduct(b, b)) + tol_abs;
         XPrecondition_ precondition(A);
         Vector_<> r(n);
         Vector_<> rr(n);
@@ -115,7 +115,7 @@ namespace Dal {
             Transform(x, p, LinearIncrement(alphaK));
             Transform(&r, z, LinearIncrement(-alphaK));
             Transform(&rr, zz, LinearIncrement(-alphaK));
-            if (Sqrt(InnerProduct(r, r)) <= tNorm)
+            if (sqrt(InnerProduct(r, r)) <= tNorm)
                 return;
         }
         THROW("Exhausted iterations in CGSolve");

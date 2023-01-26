@@ -43,7 +43,7 @@ int main() {
     int n;
     std::cout << "Plz input # of paths (power of 2):";
     std::cin >> n;
-    const int n_paths = Pow(2, n);
+    const int n_paths = pow(2, n);
 
     bool use_bb = false;
     std::cout << "Use brownian bridge?:";

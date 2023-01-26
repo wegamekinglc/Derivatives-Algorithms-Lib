@@ -188,7 +188,7 @@ namespace Dal::AAD {
             return result;
         }
 
-        friend Number_ Pow(const Number_& lhs, const Number_& rhs) {
+        friend Number_ pow(const Number_& lhs, const Number_& rhs) {
             const double e = std::pow(lhs.Value(), rhs.Value());
             Number_ result(lhs.Node(), rhs.Node(), e);
             result.LeftDer() = rhs.Value() * e / lhs.Value();
@@ -197,21 +197,21 @@ namespace Dal::AAD {
             return result;
         }
 
-        friend Number_ Pow(const Number_& lhs, double rhs) {
+        friend Number_ pow(const Number_& lhs, double rhs) {
             const double e = std::pow(lhs.Value(), rhs);
             Number_ result(lhs.Node(), e);
             result.Derivative() = rhs * e / lhs.Value();
             return result;
         }
 
-        friend Number_ Pow(double lhs, const Number_& rhs) {
+        friend Number_ pow(double lhs, const Number_& rhs) {
             const double e = std::pow(lhs, rhs.Value());
             Number_ result(rhs.Node(), e);
             result.Derivative() = std::log(lhs) * e;
             return result;
         }
 
-        friend Number_ Max(const Number_& lhs, const Number_& rhs) {
+        friend Number_ max(const Number_& lhs, const Number_& rhs) {
             const bool l_max = lhs.Value() > rhs.Value();
             Number_ result(lhs.Node(), rhs.Node(), l_max ? lhs.Value() : rhs.Value());
             if (l_max) {
@@ -224,21 +224,21 @@ namespace Dal::AAD {
             return result;
         }
 
-        friend Number_ Max(const Number_& lhs, double rhs) {
+        friend Number_ max(const Number_& lhs, double rhs) {
             const bool l_max = lhs.Value() > rhs;
             Number_ result(lhs.Node(), l_max ? lhs.Value() : rhs);
             result.Derivative() = l_max ? 1.0 : 0.0;
             return result;
         }
 
-        friend Number_ Max(double lhs, const Number_& rhs) {
+        friend Number_ max(double lhs, const Number_& rhs) {
             const bool r_max = rhs.Value() > lhs;
             Number_ result(rhs.Node(), r_max ? rhs.Value() : lhs);
             result.Derivative() = r_max ? 1.0 : 0.0;
             return result;
         }
 
-        friend Number_ Min(const Number_& lhs, const Number_& rhs) {
+        friend Number_ min(const Number_& lhs, const Number_& rhs) {
             const bool l_min = lhs.Value() < rhs.Value();
             Number_ result(lhs.Node(), rhs.Node(), l_min ? lhs.Value() : rhs.Value());
             if (l_min) {
@@ -251,14 +251,14 @@ namespace Dal::AAD {
             return result;
         }
 
-        friend Number_ Min(const Number_& lhs, double rhs) {
+        friend Number_ min(const Number_& lhs, double rhs) {
             const bool l_min = lhs.Value() < rhs;
             Number_ result(lhs.Node(), l_min ? lhs.Value() : rhs);
             result.Derivative() = l_min ? 1.0 : 0.0;
             return result;
         }
 
-        friend Number_ Min(double lhs, const Number_& rhs) {
+        friend Number_ min(double lhs, const Number_& rhs) {
             const bool r_min = rhs.Value() < lhs;
             Number_ result(rhs.Node(), r_min ? rhs.Value() : lhs);
             result.Derivative() = r_min ? 1.0 : 0.0;
@@ -309,35 +309,35 @@ namespace Dal::AAD {
 
         Number_ operator+() const { return *this; }
 
-        friend Number_ Exp(const Number_& arg) {
+        friend Number_ exp(const Number_& arg) {
             const double e = std::exp(arg.Value());
             Number_ result(arg.Node(), e);
             result.Derivative() = e;
             return result;
         }
 
-        friend Number_ Log(const Number_& arg) {
+        friend Number_ log(const Number_& arg) {
             const double e = std::log(arg.Value());
             Number_ result(arg.Node(), e);
             result.Derivative() = 1.0 / arg.Value();
             return result;
         }
 
-        friend Number_ Sqrt(const Number_& arg) {
+        friend Number_ sqrt(const Number_& arg) {
             const double e = std::sqrt(arg.Value());
             Number_ result(arg.Node(), e);
             result.Derivative() = 0.5 / e;
             return result;
         }
 
-        friend Number_ Square(const Number_& arg) {
+        friend Number_ square(const Number_& arg) {
             const double e = arg.Value() * arg.Value();
             Number_ result(arg.Node(), e);
             result.Derivative() = 2.0 * arg.Value();
             return result;
         }
 
-        friend Number_ Fabs(const Number_& arg) {
+        friend Number_ fabs(const Number_& arg) {
             const double e = std::fabs(arg.Value());
             Number_ result(arg.Node(), e);
             result.Derivative() = arg.Value() > 0.0 ? 1.0 : -1.0;

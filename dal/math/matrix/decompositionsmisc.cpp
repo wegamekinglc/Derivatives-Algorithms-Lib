@@ -22,7 +22,7 @@ namespace Dal {
         struct MultiplyBySqrt_ {
             double operator()(double lhs, double rhs) const {
                 REQUIRE(!IsNegative(rhs), "Negative variance");
-                return lhs * Sqrt(Max(rhs, 0.0));
+                return lhs * sqrt(max(rhs, 0.0));
             }
         };
 
@@ -48,7 +48,7 @@ namespace Dal {
                 devs->Resize(n);
                 for (int ii = 0; ii < n; +ii, ++iid_begin) {
                     REQUIRE(!IsNegative(vals_[ii]), "Negative variance, can't MakeCorrelated");
-                    (*devs)[ii] = Sqrt(Max(vals_[ii], 0.0)) * *iid_begin;
+                    (*devs)[ii] = sqrt(max(vals_[ii], 0.0)) * *iid_begin;
                 }
                 return iid_begin;
             }

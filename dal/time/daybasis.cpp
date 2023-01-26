@@ -55,7 +55,7 @@ namespace Dal {
                 d1 = 30;
             }
             if (d1 > 30)
-                d2 = Min(d1, d2);
+                d2 = min(d1, d2);
             return (360 * (y2 - y1) + 30 * (m2 - m1) + (d2 - d1)) / 360.0;
         }
     } // namespace

@@ -47,14 +47,14 @@ namespace Dal::Script {
     bool Bound_::IsInf() const { return plusInf_ || minusInf_; }
     bool Bound_::IsPositive(bool strict) const { return plusInf_ || real_ > (strict ? EPS : -EPS); }
     bool Bound_::IsNegative(bool strict) const { return minusInf_ || real_ < (strict ? -EPS : EPS); }
-    bool Bound_::IsZero() const { return !IsInf() && Fabs(real_) < EPS; }
+    bool Bound_::IsZero() const { return !IsInf() && fabs(real_) < EPS; }
     bool Bound_::IsPlusInf() const { return plusInf_; }
     bool Bound_::IsMinusInf() const { return minusInf_; }
     double Bound_::Value() const { return real_; }
 
     // comparison
     bool Bound_::operator==(const Bound_& rhs) const {
-        return plusInf_ && rhs.plusInf_ || minusInf_ && rhs.minusInf_ || Fabs(real_ - rhs.real_) < EPS;
+        return plusInf_ && rhs.plusInf_ || minusInf_ && rhs.minusInf_ || fabs(real_ - rhs.real_) < EPS;
     }
     bool Bound_::operator!=(const Bound_& rhs) const { return !operator==(rhs); }
     bool Bound_::operator<(const Bound_& rhs) const {
@@ -628,7 +628,7 @@ namespace Dal::Script {
 
         // shortcuts for shifting all intervals
         Domain_ Domain_::operator+=(const double x) {
-            if (Fabs(x) < EPS)
+            if (fabs(x) < EPS)
                 return *this;
 
             std::set<Interval_> newIntervals;
@@ -639,7 +639,7 @@ namespace Dal::Script {
         }
 
         Domain_ Domain_::operator-=(const double x) {
-            if (Fabs(x) < EPS)
+            if (fabs(x) < EPS)
                 return *this;
 
             std::set<Interval_> newIntervals;

@@ -4,9 +4,14 @@
 
 #pragma once
 
+#ifndef USE_ADEPT
 #include <dal/math/operators.hpp>
-#include <dal/concurrency/threadpool.hpp>
 #include <dal/math/aad/aad.hpp>
+#else
+#include <adept.h>
+#endif
+
+#include <dal/concurrency/threadpool.hpp>
 #include <dal/math/matrix/matrixs.hpp>
 #include <dal/math/random/brownianbridge.hpp>
 #include <dal/math/random/pseudorandom.hpp>
@@ -96,20 +101,26 @@ namespace Dal::AAD {
         const Vector_<Number_*>& params = cMdl->Parameters();
         const size_t nParam = params.size();
 
+#ifndef USE_ADEPT
         Tape_& tape = *Number_::tape_;
         tape.Clear();
         auto re_setter = SetNumResultsForAAD();
         cMdl->PutParametersOnTape();
+#endif
         cMdl->Init(prd.TimeLine(), prd.DefLine());
         InitializePath(path);
+#ifndef USE_ADEPT
         tape.Mark();
+#endif
 
         Vector_<Number_> nPayoffs(nPay);
         Vector_<> gaussVec(cMdl->SimDim());
         AADResults_ results(nPath, nPay, nParam);
 
         for (size_t i = 0; i < nPath; i++) {
+#ifndef USE_ADEPT
             tape.RewindToMark();
+#endif
             rng->FillNormal(&gaussVec);
             cMdl->GeneratePath(gaussVec, &path);
             prd.Payoffs(path, &nPayoffs);
@@ -123,7 +134,9 @@ namespace Dal::AAD {
         Number_::PropagateMarkToStart();
         Transform(
             params, [nPath](const Number_* p) { return p->Adjoint() / nPath; }, &results.risks_);
+#ifndef USE_ADEPT
         tape.Clear();
+#endif
         return results;
     }
 
@@ -182,7 +195,7 @@ namespace Dal::AAD {
         size_t firstPath = 0;
         size_t pathsLeft = nPath;
         while (pathsLeft > 0) {
-            size_t pathsInTask = Dal::Min(pathsLeft, BATCH_SIZE);
+            size_t pathsInTask = Dal::min(pathsLeft, BATCH_SIZE);
 
             futures.push_back(pool->SpawnTask([&, firstPath, pathsInTask]() {
                 const size_t threadNum = pool->ThreadNum();

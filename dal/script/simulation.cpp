@@ -78,7 +78,7 @@ namespace Dal::Script {
         int pathsLeft = n_paths;
 
         while (pathsLeft > 0) {
-            int pathsInTask = Min(pathsLeft, BATCH_SIZE);
+            int pathsInTask = min(pathsLeft, BATCH_SIZE);
             futures.push_back(pool->SpawnTask([&, firstPath, pathsInTask]() {
                 const size_t threadNum = pool->ThreadNum();
                 Vector_<>& gaussVec = gaussVecs[threadNum];
@@ -173,7 +173,7 @@ namespace Dal::Script {
         int pathsLeft = n_paths;
 
         while (pathsLeft > 0) {
-            int pathsInTask = Min(pathsLeft, BATCH_SIZE);
+            int pathsInTask = min(pathsLeft, BATCH_SIZE);
             futures.push_back(pool->SpawnTask([&, firstPath, pathsInTask]() {
                 const size_t threadNum = pool->ThreadNum();
                 if (threadNum > 0)

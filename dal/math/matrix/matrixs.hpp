@@ -228,7 +228,7 @@ namespace Dal {
                 hooks_.Resize(rows);
                 SetHook(hooks_[0] == vals_.begin() ? old_rows : 0);
             } else {
-                const auto n_copy = Min(cols, cols_);
+                const auto n_copy = min(cols, cols_);
                 cols_ = cols;
                 Vector_<E_> new_vals((rows + 1) * cols);
                 for (int ir = 0; ir < rows && ir < old_rows; ++ir) {

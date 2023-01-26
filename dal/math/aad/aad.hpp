@@ -13,6 +13,14 @@
 #pragma once
 
 #include <dal/platform/platform.hpp>
+
+#ifdef USE_ADEPT
+#include <adept.h>
+namespace Dal::AAD {
+    using Number_ = adept::adouble;
+    using adept::Stack;
+}
+#else
 #ifdef AADET_ENABLED
 #include <dal/math/aad/expr.hpp>
 #else
@@ -44,3 +52,4 @@ namespace Dal::AAD {
     }
 
 } // namespace Dal
+#endif

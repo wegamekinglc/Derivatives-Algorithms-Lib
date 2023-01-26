@@ -20,10 +20,10 @@ int main()
     double B = 3.0; // Interval
     auto x = Vector::XRange(A, B, N);
 
-    auto fun = [](double x) { return Log(x + 0.01); };
+    auto fun = [](double x) { return log(x + 0.01); };
     auto fun2 = [](double x) { return x * x; };
     auto fun3= [](double x) { return x * x * x; };
-    auto fun4 = [](double x) { return Exp(x); };
+    auto fun4 = [](double x) { return exp(x); };
     auto fun5 = [](double x) { return x; };
 
     // Exx.Higher order functions in C++11 g = f op h, e.g. g = f - h

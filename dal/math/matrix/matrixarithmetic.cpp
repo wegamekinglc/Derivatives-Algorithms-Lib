@@ -16,7 +16,7 @@ namespace Dal::Matrix {
             ret_val[i] = sqrt(cov(i, i));
             if (corr) {
                 auto scale = [&ret_val, &i](double x) {
-                    return x / Max(Dal::EPSILON, ret_val[i]);
+                    return x / max(Dal::EPSILON, ret_val[i]);
                 };
                 auto r = corr->Row(i);
                 Transform(&r, scale);
@@ -101,11 +101,11 @@ namespace Dal::Matrix {
         for (int ii = 0; ii < n; ++ii) {
             for (int jOuter = ii; jOuter < n; jOuter += CACHE_SIZE) {
                 auto src = a.Row(ii).begin();
-                const int jStop = Min(n, jOuter + CACHE_SIZE);        // last j in this segment
+                const int jStop = min(n, jOuter + CACHE_SIZE);        // last j in this segment
 
                 for (int kOuter = 0; kOuter < nf; kOuter += CACHE_SIZE, src += CACHE_SIZE) {
                     auto dst = h->Row(ii).begin() + jOuter;
-                    const int nfHere = Min(nf - kOuter, CACHE_SIZE);
+                    const int nfHere = min(nf - kOuter, CACHE_SIZE);
                     auto srcStop = src + nfHere;
 
                     for (int jInner = jOuter; jInner < jStop; ++jInner, ++dst) {

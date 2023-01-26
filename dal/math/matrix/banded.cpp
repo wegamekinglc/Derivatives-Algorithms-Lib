@@ -155,8 +155,8 @@ namespace Dal {
             b->Resize(n);
             b->Fill(0.0);
             for (int ii = 0; ii < n; ++ii) {
-                const int jStop = Min(n, ii + val.view_.Cols() - val.nBelow_);
-                for (int jj = Max(0, ii - val.nBelow_); jj < jStop; ++jj) {
+                const int jStop = min(n, ii + val.view_.Cols() - val.nBelow_);
+                for (int jj = max(0, ii - val.nBelow_); jj < jStop; ++jj) {
                     (*b)[transpose ? jj : ii] += x[transpose ? ii : jj] * val(ii, jj);
                 }
             }
@@ -170,7 +170,7 @@ namespace Dal {
             x->Resize(n);
             for (int ii = 0; ii < n; ++ii) {
                 double residual = b[ii];
-                for (int jj = Max(0, ii - val.nBelow_); jj < ii; ++jj)
+                for (int jj = max(0, ii - val.nBelow_); jj < ii; ++jj)
                     residual -= (*x)[jj] * val(ii, jj);
                 REQUIRE(!IsZero(val(ii, ii)), "Overflow in banded L-solve");
                 (*x)[ii] = residual / val(ii, ii);
@@ -185,7 +185,7 @@ namespace Dal {
             x->Resize(n);
             for (int ii = n - 1; ii >= 0; --ii) {
                 double residual = b[ii];
-                for (int jj = Max(n - 1, ii + val.nBelow_); jj > ii; --jj)
+                for (int jj = max(n - 1, ii + val.nBelow_); jj > ii; --jj)
                     residual -= (*x)[jj] * val(jj, ii);
                 REQUIRE(!IsZero(val(ii, ii)), "Overflow in banded L-solve");
                 (*x)[ii] = residual / val(ii, ii);
@@ -202,7 +202,7 @@ namespace Dal {
                 REQUIRE(llt.view_.Cols() == 2 * llt.nBelow_ + 1, "Cols should be 2 * n_below + 1");
                 const int n = llt.view_.Rows();
                 for (int ii = 0; ii < n; ++ii) {
-                    const int iMin = Max(0, ii - llt.nBelow_);
+                    const int iMin = max(0, ii - llt.nBelow_);
                     for (int jj = iMin; jj <= ii; ++jj) {
                         double residual = llt(ii, jj);
                         for (int kk = iMin; kk < jj; ++kk)
@@ -241,7 +241,7 @@ namespace Dal {
                 correlated->Resize(n);
                 correlated->Fill(0.0);
                 for (int ii = 0; ii < n; ++ii, ++iid_begin) {
-                    for (int jj = Min(n - 1, ii + val_.nBelow_); jj >= ii; --jj)
+                    for (int jj = min(n - 1, ii + val_.nBelow_); jj >= ii; --jj)
                         (*correlated)[jj] += val_(jj, ii) * (*iid_begin);
                 }
 
@@ -281,9 +281,9 @@ namespace Dal {
             bool IsSymmetric() const override {
                 // brute-force check
                 const int n = Size();
-                const int width = Max(val_.nBelow_, val_.view_.Cols() - val_.nBelow_ - 1);
+                const int width = max(val_.nBelow_, val_.view_.Cols() - val_.nBelow_ - 1);
                 for (int ii = 0; ii < n; ++ii) {
-                    for (int jj = Max(0, ii - width); jj <= Max(n - 1, ii + width); ++jj)
+                    for (int jj = max(0, ii - width); jj <= max(n - 1, ii + width); ++jj)
                         if (!IsZero(val_(ii, jj) - val_(jj, ii)))
                             return false;
                 }
@@ -361,7 +361,7 @@ namespace Dal {
             if (AllOf(v, IsZero<double>))
                 break;
             if (v.empty())
-                v = PadAtFront(v_in, Min(iRow + 1, val_.Cols()));
+                v = PadAtFront(v_in, min(iRow + 1, val_.Cols()));
             const double r = std::sqrt(Square(v.back()) + Square(row.back()));
             const double c = row.back() / r;
             const double s = v.back() / r;

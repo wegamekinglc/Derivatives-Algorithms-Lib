@@ -53,7 +53,7 @@ namespace Dal {
                     return val_.Cols();
                 int ret_val = 0;
                 for (const auto& c : children_)
-                    ret_val += Max(ret_val, c.second->Cols());
+                    ret_val += max(ret_val, c.second->Cols());
                 return 2 + ret_val;
             }
 
@@ -388,7 +388,7 @@ namespace Dal {
             Vector_<Vector_<Cell_>> data = Apply(AsFunctor(SplitLine), lines);
             int cols = 0;
             for (const auto& d : data)
-                cols = Max(cols, int(d.size()));
+                cols = max(cols, int(d.size()));
             Matrix_<Cell_> ret_val(data.size(), cols);
             for (int i = 0; i < data.size(); ++i)
                 std::copy(data[i].begin(), data[i].end(), ret_val.Row(i).begin());

@@ -50,7 +50,7 @@ namespace Dal::AAD {
         void PayoffsImplX(const Scenario_<T_>& path, C_ payoffs) const {
             const auto& sample = path[0];
             const auto spot = sample.forwards_[0][0];
-            (*payoffs)[0] = Dal::Max(spot - strike_, 0.0) * sample.discounts_[0]/ sample.numeraire_;
+            (*payoffs)[0] = Dal::max(spot - strike_, 0.0) * sample.discounts_[0]/ sample.numeraire_;
         }
 
         inline void PayoffsImpl(const Scenario_<T_>& path, Vector_<T_>* payoffs) const override {

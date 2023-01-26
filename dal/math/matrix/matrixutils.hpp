@@ -25,7 +25,7 @@ namespace Dal {
             REQUIRE(above != nullptr, "above matrix is null");
             const int offset = above->Rows();
             // efficient unless below is too wide
-            above->Resize(offset + below.Rows(), Max(above->Cols(), below.Cols()));
+            above->Resize(offset + below.Rows(), max(above->Cols(), below.Cols()));
             for (int ir = 0; ir < below.Rows(); ++ir) {
                 auto t_row = above->Row(ir + offset);
                 Copy(below.Row(ir), &t_row);

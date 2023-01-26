@@ -71,7 +71,7 @@ int main() {
     int n;
     std::cout << "Plz input # of paths (power of 2):";
     std::cin >> n;
-    const int n_paths = Pow(2, n);
+    const int n_paths = pow(2, n);
 
     double smooth;
     std::cout << "Plz input smooth factor:";
@@ -224,7 +224,7 @@ int main() {
 
     // for matrix of risk report for UOC under B-S
     for (int round = 12; round <= 27; ++round) {
-        const int n_paths = Pow(2, round);
+        const int n_paths = pow(2, round);
         timer.Reset();
         if (use_parallel)
             resAAD = MCParallelSimulationAAD(*products.second, *dupireModels.second, String_(rsg_type), n_paths, use_bb);

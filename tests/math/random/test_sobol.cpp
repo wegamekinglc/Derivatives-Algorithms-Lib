@@ -58,7 +58,7 @@ TEST(SobolTest, TestNewSobol) {
 TEST(SobolTest, TestNewSobolWithSkip) {
     int dim = 1;
     int i_path = 0;
-    int size_to_skip = Pow(2, 20);
+    int size_to_skip = pow(2, 20);
     std::unique_ptr<SequenceSet_> set(NewSobol(dim, i_path));
     std::unique_ptr<SequenceSet_> set2(NewSobol(dim, i_path));
 
@@ -74,7 +74,7 @@ TEST(SobolTest, TestNewSobolWithSkip) {
     ASSERT_DOUBLE_EQ(data[0], data2[0]);
 
     dim = 441;
-    i_path = Pow(2, 12);
+    i_path = pow(2, 12);
     set = std::unique_ptr<SequenceSet_>(NewSobol(dim, i_path));
     set2 = std::unique_ptr<SequenceSet_>(NewSobol(dim, i_path));
 

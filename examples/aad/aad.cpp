@@ -20,8 +20,8 @@ T_ BlackTest(T_ fwd, T_ vol, T_ numeraire, T_ strike, T_ expiry, bool is_call, i
     const double omega = is_call ? 1.0 : -1.0;
     T_ y(0.0);
     for(int i = 0; i < n_repetition; ++i) {
-        const auto sqrt_var = vol * Sqrt(expiry);
-        const auto dMinus = Log(fwd / strike) / sqrt_var - 0.5 * sqrt_var;
+        const auto sqrt_var = vol * sqrt(expiry);
+        const auto dMinus = log(fwd / strike) / sqrt_var - 0.5 * sqrt_var;
         const auto dPlus = dMinus + sqrt_var;
         y += numeraire * omega * (fwd * NCDF(dPlus) - strike * NCDF(dMinus));
     }

@@ -30,7 +30,7 @@ namespace Dal {
                 const double lockedIn = std::inner_product(out->Row(ii).begin(), out->Row(ii).begin() + ii,
                                                            out->Row(ii).begin(), 0.0);
                 const double needMore = a(ii, ii) - lockedIn;
-                (*out)(ii, ii) = Sqrt(Max(0.0, needMore));
+                (*out)(ii, ii) = sqrt(max(0.0, needMore));
                 meanDiag += ((*out)(ii, ii) - meanDiag) / (1.0 + ii);
             }
             return meanDiag;

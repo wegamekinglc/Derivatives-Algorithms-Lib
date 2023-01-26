@@ -107,7 +107,7 @@ namespace Dal {
             int Rows(const Vector_<const Table_*>& args) const {
                 int ret_val = 0;
                 for (const auto& e : elements_)
-                    ret_val = Max(ret_val, e->Rows(args));
+                    ret_val = max(ret_val, e->Rows(args));
                 return ret_val;
             }
             int Cols(const Vector_<const Table_*>& args) const {
@@ -138,7 +138,7 @@ namespace Dal {
             int Cols(const Vector_<const Table_*>& args) const {
                 int ret_val = 0;
                 for (const auto& e : elements_)
-                    ret_val = Max(ret_val, e->Cols(args));
+                    ret_val = max(ret_val, e->Cols(args));
                 return ret_val;
             }
             int Rows(const Vector_<const Table_*>& args) const {

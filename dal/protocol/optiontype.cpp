@@ -13,11 +13,11 @@ namespace Dal {
     double OptionType_::Payout(double spot, double strike) const {
         switch (Switch()) {
         case Value_::CALL:
-            return Max(0.0, spot - strike);
+            return max(0.0, spot - strike);
         case Value_::PUT:
-            return Max(0.0, strike - spot);
+            return max(0.0, strike - spot);
         case Value_::STRADDLE:
-            return Fabs(spot - strike);
+            return fabs(spot - strike);
         default:
             THROW("invalid option type");
         }

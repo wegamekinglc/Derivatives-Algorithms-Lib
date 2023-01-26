@@ -359,7 +359,7 @@ private:
                     Frag e2 = *operandStack.template Pop<Frag>(1);
                     Frag e1 = *operandStack.template Pop<Frag>(1);
                     Patch(e1.out, e2.start);
-                    *operandStack.template Push<Frag>() = Frag(e1.start, e2.out, Min(e1.minIndex, e2.minIndex));
+                    *operandStack.template Push<Frag>() = Frag(e1.start, e2.out, min(e1.minIndex, e2.minIndex));
                 }
                 return true;
 
@@ -368,7 +368,7 @@ private:
                     Frag e2 = *operandStack.template Pop<Frag>(1);
                     Frag e1 = *operandStack.template Pop<Frag>(1);
                     SizeType s = NewState(e1.start, e2.start, 0);
-                    *operandStack.template Push<Frag>() = Frag(s, Append(e1.out, e2.out), Min(e1.minIndex, e2.minIndex));
+                    *operandStack.template Push<Frag>() = Frag(s, Append(e1.out, e2.out), min(e1.minIndex, e2.minIndex));
                     return true;
                 }
                 return false;
@@ -447,7 +447,7 @@ private:
         return true;
     }
 
-    static SizeType Min(SizeType a, SizeType b) { return a < b ? a : b; }
+    static SizeType min(SizeType a, SizeType b) { return a < b ? a : b; }
 
     void CloneTopOperand(Stack<Allocator>& operandStack) {
         const Frag src = *operandStack.template Top<Frag>(); // Copy constructor to prevent invalidation

@@ -371,8 +371,8 @@ namespace Dal {
         void WriteToOper(const String_& src, OPER_* lpx, bool temp_memory = false) {
             static const int LIMIT = 1 << (8 * sizeof(OPER_::char_type));
             static const int MAX_SIZE = LIMIT - 1;
-            const int size = Min(MAX_SIZE, static_cast<int>(src.size()));
-            const int bytes = Max(size + 1, 256) * sizeof(OPER_::char_type); // don't allocate <256 characters
+            const int size = min(MAX_SIZE, static_cast<int>(src.size()));
+            const int bytes = max(size + 1, 256) * sizeof(OPER_::char_type); // don't allocate <256 characters
             lpx->val.str = (OPER_::char_type*)(temp_memory ? GetTempMemory(bytes) : GetMemoryForExcel(bytes));
             lpx->val.str[0] = (OPER_::char_type)(size);
             for (int ii = 0; ii < size; ++ii)
@@ -1291,10 +1291,10 @@ namespace Dal {
         lpx->xltype = xltypeMulti | xlbitDLLFree;
         int nRows = scalars_.size();
         for (const auto& v : vectors_)
-            nRows = Max(nRows, values_[v].Rows());
+            nRows = max(nRows, values_[v].Rows());
         int nCols = (scalars_.empty() ? 0 : 1) + vectors_.size();
         for (const auto& m : matrices_) {
-            nRows = Max(nRows, values_[m].Rows());
+            nRows = max(nRows, values_[m].Rows());
             nCols += values_[m].Cols();
         }
         lpx->val.array.rows = nRows;

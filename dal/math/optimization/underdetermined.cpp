@@ -245,7 +245,7 @@ namespace Dal {
                 }
                 if (kMin > controls.restartTolerance_)
                     restart = true;
-                double k = Min(controls.maxBacktrack_, Min(kMin, 2 * (kMin - controls.backtrackTolerance_)));
+                double k = min(controls.maxBacktrack_, min(kMin, 2 * (kMin - controls.backtrackTolerance_)));
                 assert(k > 0.0);
                 s *= 1.0 - k;
             } // end backtracking loop

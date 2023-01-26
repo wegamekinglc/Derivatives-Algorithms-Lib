@@ -19,7 +19,7 @@ TEST(IVSTest, TestMertonIVS) {
     auto implied_vol = ivs.ImpliedVol(strike, T);
     auto expected = ivs.Call(strike, T);
 
-    const auto dean_vol = implied_vol * Sqrt(T);
+    const auto dean_vol = implied_vol * sqrt(T);
     Dal::DistributionBlack_ black(spot, dean_vol);
     const auto calculated = black.OptionPrice(strike, Dal::OptionType_("Call"));
     ASSERT_NEAR(calculated, expected, 1e-5);
