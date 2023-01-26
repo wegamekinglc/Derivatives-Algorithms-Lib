@@ -31,7 +31,7 @@ using namespace Dal;
 using adept::adouble;
 
 int main() {
-    int n_rounds = 10000000;
+    int n_rounds = 1000000;
     int n_repetition = 1;
     double fwd = 1.00;
     double vol = 0.20;
