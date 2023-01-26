@@ -84,7 +84,7 @@ namespace Dal {
     template <class E_>
     class Cube_ : public ArrayN_<E_> {
     public:
-        Cube_() :ArrayN_(Vector_<int>({ 0, 0, 0 }), E_()) {}
+        Cube_() :ArrayN_<E_>(Vector_<int>({ 0, 0, 0 }), E_()) {}
         Cube_(int size_i, int size_j, int size_k): ArrayN_<E_>(Vector_<int>({ size_i, size_j, size_k })) {}
 
         // support lookups without constructing a temporary vector
