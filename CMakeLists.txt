@@ -81,6 +81,7 @@ set(DAL_HEX_VERSION ${PACKAGE_VERSION_HEX})
 include(Platform)
 
 include_directories(${CMAKE_SOURCE_DIR})
+include_directories(${CMAKE_SOURCE_DIR}/externals/adept)
 
 add_subdirectory(dal)
 add_subdirectory(public)
