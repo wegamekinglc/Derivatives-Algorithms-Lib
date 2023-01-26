@@ -30,7 +30,7 @@ T_ BlackTest(T_ fwd, T_ vol, T_ numeraire, T_ strike, T_ expiry, bool is_call, i
 
 
 int main() {
-    int n_rounds = 10000000;
+    int n_rounds = 1000000;
     int n_repetition = 1;
     double fwd = 1.00;
     double vol = 0.20;
@@ -83,6 +83,7 @@ int main() {
         d_numeraire_aad = numeraire_aad.Adjoint() / n_repetition;
         d_strike_aad = strike_aad.Adjoint() / n_repetition;
         d_expiry_aad = expiry_aad.Adjoint() / n_repetition;
+        tape.ResetAdjoints();
     }
 
     std::cout << "   AAD Mode: " << std::setprecision(8) << price << " with " << timer.Elapsed<milliseconds>() << " ms" << std::endl;

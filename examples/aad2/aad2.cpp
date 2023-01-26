@@ -20,9 +20,7 @@ T_ BlackTest(T_ fwd, T_ vol, T_ numeraire, T_ strike, T_ expiry, bool is_call, i
         T_ sqrt_var = vol * sqrt(expiry);
         T_ d_minus = log(fwd / strike) / sqrt_var - 0.5 * sqrt_var;
         T_ d_plus = d_minus + sqrt_var;
-        T_ ncdf_dplus = 0.5 * erfc(-d_plus / M_SQRT_2);
-        T_ ncdf_dminus = 0.5 * erfc(-d_minus / M_SQRT_2);
-        y += numeraire * omega * (fwd * ncdf_dplus - strike * ncdf_dminus);
+        y += numeraire * omega * (0.5 * fwd * erfc(-d_plus / M_SQRT_2) - strike * 0.5 * erfc(-d_minus / M_SQRT_2));
     }
     return y;
 }
