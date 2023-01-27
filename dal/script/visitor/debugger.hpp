@@ -83,11 +83,11 @@ namespace Dal::Script {
         void Visit(const NodeEqual& node) {
             String_ s = "EQUALZERO";
 
-            if (!node.discrete) {
-                s += String_("[CONT,EPS=" + std::to_string(node.eps) + "]");
+            if (!node.isDiscrete_) {
+                s += String_("[CONT,EPS=" + std::to_string(node.eps_) + "]");
             } else {
                 s += String_("[DISCRETE,");
-                s += String_("BOUNDS=" + std::to_string(node.lb) + "," + std::to_string(node.rb) + "]");
+                s += String_("BOUNDS=" + std::to_string(node.lb_) + "," + std::to_string(node.rb_) + "]");
             }
             Debug(node, s);
         }
@@ -99,22 +99,22 @@ namespace Dal::Script {
 
         void Visit(const NodeSup& node) {
             String_ s = "GTZERO";
-            if (!node.discrete) {
-                s += String_("[CONT,EPS=" + std::to_string(node.eps) + "]");
+            if (!node.isDiscrete_) {
+                s += String_("[CONT,EPS=" + std::to_string(node.eps_) + "]");
             } else {
                 s += "[DISCRETE,";
-                s += String_("BOUNDS=" + std::to_string(node.lb) + "," + std::to_string(node.rb) + "]");
+                s += String_("BOUNDS=" + std::to_string(node.lb_) + "," + std::to_string(node.rb_) + "]");
             }
             Debug(node, s);
         }
 
         void Visit(const NodeSupEqual& node) {
             String_ s = "GTEQUALZERO";
-            if (!node.discrete) {
-                s += String_("[CONT,EPS=" + std::to_string(node.eps) + "]");
+            if (!node.isDiscrete_) {
+                s += String_("[CONT,EPS=" + std::to_string(node.eps_) + "]");
             } else {
                 s += "[DISCRETE,";
-                s += String_("BOUNDS=" + std::to_string(node.lb) + "," + std::to_string(node.rb) + "]");
+                s += String_("BOUNDS=" + std::to_string(node.lb_) + "," + std::to_string(node.rb_) + "]");
             }
             Debug(node, s);
         }
@@ -135,7 +135,7 @@ namespace Dal::Script {
 
         void Visit(const NodeIf& node) {
             String_ s = "IF";
-            s += String_("[FIRSTELSE=" + std::to_string(node.firstElse) + "]");
+            s += String_("[FIRSTELSE=" + std::to_string(node.firstElse_) + "]");
 
             Debug(node, s);
         }
@@ -144,8 +144,8 @@ namespace Dal::Script {
         void Visit(const NodeFalse& node) { Debug(node, "FALSE"); }
 
         void Visit(const NodeConst& node) {
-            Debug(node, String_("CONST[") + String_(std::to_string(node.constVal) + ']')); }
+            Debug(node, String_("CONST[") + String_(std::to_string(node.constVal_) + ']')); }
         void Visit(const NodeVar& node) {
-            Debug(node, String_("VAR[") + node.name + String_(',' + std::to_string(node.index) + ']')); }
+            Debug(node, String_("VAR[") + node.name_ + String_(',' + std::to_string(node.index_) + ']')); }
     };
 }

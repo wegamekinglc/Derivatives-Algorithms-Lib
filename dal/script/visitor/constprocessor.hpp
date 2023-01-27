@@ -34,7 +34,7 @@ namespace Dal::Script {
 
         //  Is this node a constant?
         //  Note the argument must be of ExprNode_ type
-        static bool ConstArg(const ExprTree_& node) { return Downcast<const ExprNode_>(node)->isConst; }
+        static bool ConstArg(const ExprTree_& node) { return Downcast<const ExprNode_>(node)->isConst_; }
 
         //  Are all the arguments to this node constant?
         //  Note the arguments must be of ExprNode_ type
@@ -62,11 +62,11 @@ namespace Dal::Script {
         template <class OP> void VisitBinary(ExprNode_& node, const OP op) {
             VisitArguments(node);
             if (ConstArgs(node)) {
-                node.isConst = true;
+                node.isConst_ = true;
 
-                const double lhs = Downcast<ExprNode_>(node.arguments[0])->constVal;
-                const double rhs = Downcast<ExprNode_>(node.arguments[1])->constVal;
-                node.constVal = op(lhs, rhs);
+                const double lhs = Downcast<ExprNode_>(node.arguments[0])->constVal_;
+                const double rhs = Downcast<ExprNode_>(node.arguments[1])->constVal_;
+                node.constVal_ = op(lhs, rhs);
             }
         }
 
@@ -96,10 +96,10 @@ namespace Dal::Script {
         template <class OP> void VisitUnary(ExprNode_& node, const OP op) {
             VisitArguments(node);
             if (ConstArgs(node)) {
-                node.isConst = true;
+                node.isConst_ = true;
 
-                const double arg = Downcast<ExprNode_>(node.arguments[0])->constVal;
-                node.constVal = op(arg);
+                const double arg = Downcast<ExprNode_>(node.arguments[0])->constVal_;
+                node.constVal_ = op(arg);
             }
         }
 
@@ -123,19 +123,19 @@ namespace Dal::Script {
         void Visit(NodeSmooth& node) {
             VisitArguments(node);
             if (ConstArgs(node)) {
-                node.isConst = true;
+                node.isConst_ = true;
 
-                const double x = reinterpret_cast<ExprNode_*>(node.arguments[0].get())->constVal;
-                const double vPos = reinterpret_cast<ExprNode_*>(node.arguments[1].get())->constVal;
-                const double vNeg = reinterpret_cast<ExprNode_*>(node.arguments[2].get())->constVal;
-                const double halfEps = 0.5 * reinterpret_cast<ExprNode_*>(node.arguments[3].get())->constVal;
+                const double x = reinterpret_cast<ExprNode_*>(node.arguments[0].get())->constVal_;
+                const double vPos = reinterpret_cast<ExprNode_*>(node.arguments[1].get())->constVal_;
+                const double vNeg = reinterpret_cast<ExprNode_*>(node.arguments[2].get())->constVal_;
+                const double halfEps = 0.5 * reinterpret_cast<ExprNode_*>(node.arguments[3].get())->constVal_;
 
                 if (x < -halfEps)
-                    node.constVal = vNeg;
+                    node.constVal_ = vNeg;
                 else if (x > halfEps)
-                    node.constVal = vPos;
+                    node.constVal_ = vPos;
                 else {
-                    node.constVal = vNeg + 0.5 * (vPos - vNeg) / halfEps * (x + halfEps);
+                    node.constVal_ = vNeg + 0.5 * (vPos - vNeg) / halfEps * (x + halfEps);
                 }
             }
         }
@@ -161,7 +161,7 @@ namespace Dal::Script {
 
         void Visit(NodeAssign& node) {
             //  Get index from LHS
-            const size_t varIndex = Downcast<const NodeVar>(node.arguments[0])->index;
+            const size_t varIndex = Downcast<const NodeVar>(node.arguments[0])->index_;
 
             //  Visit RHS
             node.arguments[1]->Accept(*this);
@@ -171,7 +171,7 @@ namespace Dal::Script {
                 //  RHS constant?
                 if (ConstArg(node.arguments[1])) {
                     myVarConst[varIndex] = true;
-                    myVarConstVal[varIndex] = Downcast<const ExprNode_>(node.arguments[1])->constVal;
+                    myVarConstVal[varIndex] = Downcast<const ExprNode_>(node.arguments[1])->constVal_;
                 } else {
                     myVarConst[varIndex] = false;
                 }
@@ -182,7 +182,7 @@ namespace Dal::Script {
 
         void Visit(NodePays& node) {
             //  A payment is always non constant because it is normalized by a possibly stochastic numeraire
-            const size_t varIndex = Downcast<const NodeVar>(node.arguments[0])->index;
+            const size_t varIndex = Downcast<const NodeVar>(node.arguments[0])->index_;
             myVarConst[varIndex] = false;
 
             //  Visit RHS
@@ -191,11 +191,11 @@ namespace Dal::Script {
 
         //	Variables, RHS only, we don't Visit LHS vars
         void Visit(NodeVar& node) {
-            if (myVarConst[node.index]) {
-                node.isConst = true;
-                node.constVal = myVarConstVal[node.index];
+            if (myVarConst[node.index_]) {
+                node.isConst_ = true;
+                node.constVal_ = myVarConstVal[node.index_];
             } else {
-                node.isConst = false;
+                node.isConst_ = false;
             }
         }
 

@@ -18,8 +18,8 @@ TEST(VarIndexerTest, TestVarIndexerVisit) {
     const1->Accept(visitor);
     var2->Accept(visitor);
 
-    ASSERT_EQ(dynamic_cast<NodeVar*>(var1.get())->index, 0);
-    ASSERT_EQ(dynamic_cast<NodeVar*>(var2.get())->index, 1);
+    ASSERT_EQ(dynamic_cast<NodeVar*>(var1.get())->index_, 0);
+    ASSERT_EQ(dynamic_cast<NodeVar*>(var2.get())->index_, 1);
 
     Vector_<String_> names = visitor.VarNames();
     ASSERT_EQ(names[0], "x");

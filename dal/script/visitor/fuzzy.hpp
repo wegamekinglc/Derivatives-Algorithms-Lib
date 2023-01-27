@@ -38,7 +38,7 @@ namespace Dal::Script {
             return res;
         }
 
-        //	Call Spread (-eps/2,+eps/2)
+        //	Call Spread (-eps_/2,+eps_/2)
         static T CSpr(const T x, const double eps) {
             const double halfEps = 0.5 * eps;
 
@@ -50,7 +50,7 @@ namespace Dal::Script {
                 return (x + halfEps) / eps;
         }
 
-        //	Call Spread (lb,rb)
+        //	Call Spread (lb_,rb_)
         static T CSpr(const T x, const double lb, const double rb) {
             if (x < lb)
                 return T(0.0);
@@ -60,7 +60,7 @@ namespace Dal::Script {
                 return (x - lb) / (rb - lb);
         }
 
-        //	Butterfly (-eps/2,+eps/2)
+        //	Butterfly (-eps_/2,+eps_/2)
         static T BFly(const T x, const double eps) {
             const double halfEps = 0.5 * eps;
 
@@ -70,7 +70,7 @@ namespace Dal::Script {
                 return (halfEps - fabs(x)) / halfEps;
         }
 
-        //	Butterfly (lb,0,rb)
+        //	Butterfly (lb_,0,rb_)
         static T BFly(const T x, const double lb, const double rb) {
             if (x < lb || x > rb)
                 return T(0.0);
@@ -141,7 +141,7 @@ namespace Dal::Script {
         //	If
         void Visit(const NodeIf& node) {
             //	Last "if true" statement index
-            const size_t lastTrueStat = node.firstElse == -1 ? node.arguments.size() - 1 : node.firstElse - 1;
+            const size_t lastTrueStat = node.firstElse_ == -1 ? node.arguments.size() - 1 : node.firstElse_ - 1;
 
             //	Increase nested if level
             ++myNestedIfLvl;
@@ -161,15 +161,15 @@ namespace Dal::Script {
             //	Absolutely false
             else if (dt < EPSILON) {
                 //	Eval "if false" statements if any
-                if (node.firstElse != -1)
-                    for (size_t i = node.firstElse; i < node.arguments.size(); ++i)
+                if (node.firstElse_ != -1)
+                    for (size_t i = node.firstElse_; i < node.arguments.size(); ++i)
                         VisitNode(*node.arguments[i]);
 
             }
             //	Fuzzy
             else {
                 //	Record values of variables to be changed
-                for (auto idx : node.affectedVars)
+                for (auto idx : node.affectedVars_)
                     myVarStore0[myNestedIfLvl - 1][idx] = myVariables[idx];
 
                 //	Eval "if true" statements
@@ -177,18 +177,18 @@ namespace Dal::Script {
                     VisitNode(*node.arguments[i]);
 
                 //	Record and reset values of variables to be changed
-                for (auto idx : node.affectedVars) {
+                for (auto idx : node.affectedVars_) {
                     myVarStore1[myNestedIfLvl - 1][idx] = myVariables[idx];
                     myVariables[idx] = myVarStore0[myNestedIfLvl - 1][idx];
                 }
 
                 //	Eval "if false" statements if any
-                if (node.firstElse != -1)
-                    for (size_t i = node.firstElse; i < node.arguments.size(); ++i)
+                if (node.firstElse_ != -1)
+                    for (size_t i = node.firstElse_; i < node.arguments.size(); ++i)
                         VisitNode(*node.arguments[i]);
 
                 //	Set values of variables to fuzzy values
-                for (auto idx : node.affectedVars)
+                for (auto idx : node.affectedVars_)
                     myVariables[idx] = dt * myVarStore1[myNestedIfLvl - 1][idx] + (1.0 - dt) * myVariables[idx];
             }
 
@@ -209,13 +209,13 @@ namespace Dal::Script {
             myDstack.pop();
 
             //	Discrete case: 0 is a singleton in expr's domain
-            if (node.discrete) {
-                myFuzzyStack.push(BFly(expr, node.lb, node.rb));
+            if (node.isDiscrete_) {
+                myFuzzyStack.push(BFly(expr, node.lb_, node.rb_));
             }
             //	Continuous case: 0 is part of expr's continuous domain
             else {
                 //	Effective epsilon: take default unless overwritten on the node
-                double eps = node.eps < 0 ? myDefEps : node.eps;
+                double eps = node.eps_ < 0 ? myDefEps : node.eps_;
 
                 //	Butterfly
                 myFuzzyStack.push(BFly(expr, eps));
@@ -235,14 +235,14 @@ namespace Dal::Script {
             //	Either 0 is a singleton in expr's domain
             //	Or 0 is not part of expr's domain, but expr's domain has subdomains left and right of 0
             //		otherwise the condition would be always true/false
-            if (node.discrete) {
+            if (node.isDiscrete_) {
                 //	Call spread on the right
-                myFuzzyStack.push(CSpr(expr, node.lb, node.rb));
+                myFuzzyStack.push(CSpr(expr, node.lb_, node.rb_));
             }
             //	Continuous case: 0 is part of expr's continuous domain
             else {
                 //	Effective epsilon: take default unless overwritten on the node
-                const double eps = node.eps < 0 ? myDefEps : node.eps;
+                const double eps = node.eps_ < 0 ? myDefEps : node.eps_;
 
                 //	Call Spread
                 myFuzzyStack.push(CSpr(expr, eps));

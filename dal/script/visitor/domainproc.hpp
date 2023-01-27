@@ -41,8 +41,8 @@ namespace Dal::Script {
             This processor sets the "always true" and "always false" flags
             on the if, equal, superior, not, and and or nodes according to the condition's domain
 
-            In addition, when fuzzy processing is requested, the processor sets the continuous/discrete flag on the
-       equal and superior nodes and if discrete, the left and right interpolation bounds
+            In addition, when fuzzy processing is requested, the processor sets the continuous/isDiscrete_ flag on the
+       equal and superior nodes and if isDiscrete_, the left and right interpolation bounds
 
     */
 
@@ -57,7 +57,7 @@ namespace Dal::Script {
         StaticStack_<Domain> myDomStack;
 
         //	Stack of always true/false properties for conditions
-        enum CondProp { alwaysTrue, alwaysFalse, trueOrFalse };
+        enum CondProp { alwaysTrue_, alwaysFalse_, trueOrFalse };
         StaticStack_<CondProp> myCondStack;
 
         //	LHS variable being visited?
@@ -153,12 +153,12 @@ namespace Dal::Script {
         void Visit(NodeSmooth& node) {
             VisitArguments(node);
 
-            //	Pop eps
+            //	Pop eps_
             myDomStack.pop();
 
             //	Makes no sense with non-continuous x
-            if (myDomStack[2].discrete()) {
-                throw std::runtime_error("Smooth called with discrete x");
+            if (myDomStack[2].IsDiscrete()) {
+                throw std::runtime_error("Smooth called with isDiscrete_ x");
             }
 
             //	Get min and max val if neg and if pos
@@ -184,31 +184,31 @@ namespace Dal::Script {
 
             //	Always true / false?
             if (!dom.canBeZero()) {
-                node.alwaysTrue = false;
-                node.alwaysFalse = true;
+                node.alwaysTrue_ = false;
+                node.alwaysFalse_ = true;
 
-                myCondStack.push(alwaysFalse);
+                myCondStack.push(alwaysFalse_);
             } else if (!dom.canBeNonZero()) {
-                node.alwaysTrue = true;
-                node.alwaysFalse = false;
-                myCondStack.push(alwaysTrue);
+                node.alwaysTrue_ = true;
+                node.alwaysFalse_ = false;
+                myCondStack.push(alwaysTrue_);
             } else {
-                node.alwaysTrue = node.alwaysFalse = false;
+                node.alwaysTrue_ = node.alwaysFalse_ = false;
                 myCondStack.push(trueOrFalse);
 
                 if (myFuzzy) {
-                    //	Continuous or discrete?
-                    node.discrete = dom.zeroIsDiscrete();
+                    //	Continuous or isDiscrete_?
+                    node.isDiscrete_ = dom.zeroIsDiscrete();
 
                     //	Discrete
-                    if (node.discrete) {
-                        bool subDomRightOfZero = dom.smallestPosLb(node.rb, true);
+                    if (node.isDiscrete_) {
+                        bool subDomRightOfZero = dom.smallestPosLb(node.rb_, true);
                         if (!subDomRightOfZero)
-                            node.rb = 0.5;
+                            node.rb_ = 0.5;
 
-                        bool subDomLeftOfZero = dom.biggestNegRb(node.lb, true);
+                        bool subDomLeftOfZero = dom.biggestNegRb(node.lb_, true);
                         if (!subDomLeftOfZero)
-                            node.lb = -0.5;
+                            node.lb_ = -0.5;
                     }
                 }
             }
@@ -221,9 +221,9 @@ namespace Dal::Script {
                 ofstream ofs(string("c:\\temp\\equal") + to_string(iii) + ".txt");
                 ofs << "Equality " << iii << endl;
                 ofs << "Domain = " << dom << endl;
-                ofs << "Node discrete = " << node.discrete << endl;
-                if (node.discrete)
-                    ofs << "Node lB, rB = " << node.lb << "," << node.rb << endl;
+                ofs << "Node isDiscrete_ = " << node.isDiscrete_ << endl;
+                if (node.isDiscrete_)
+                    ofs << "Node lB, rB = " << node.lb_ << "," << node.rb_ << endl;
             }
 #endif
             //	End of dump
@@ -236,16 +236,16 @@ namespace Dal::Script {
             CondProp cp = myCondStack.top();
             myCondStack.pop();
 
-            if (cp == alwaysTrue) {
-                node.alwaysTrue = false;
-                node.alwaysFalse = true;
-                myCondStack.push(alwaysFalse);
-            } else if (cp == alwaysFalse) {
-                node.alwaysTrue = true;
-                node.alwaysFalse = false;
-                myCondStack.push(alwaysTrue);
+            if (cp == alwaysTrue_) {
+                node.alwaysTrue_ = false;
+                node.alwaysFalse_ = true;
+                myCondStack.push(alwaysFalse_);
+            } else if (cp == alwaysFalse_) {
+                node.alwaysTrue_ = true;
+                node.alwaysFalse_ = false;
+                myCondStack.push(alwaysTrue_);
             } else {
-                node.alwaysTrue = node.alwaysFalse = false;
+                node.alwaysTrue_ = node.alwaysFalse_ = false;
                 myCondStack.push(trueOrFalse);
             }
         }
@@ -258,39 +258,39 @@ namespace Dal::Script {
 
             //	Always true / false?
             if (!dom.canBePositive(strict)) {
-                node.alwaysTrue = false;
-                node.alwaysFalse = true;
-                myCondStack.push(alwaysFalse);
+                node.alwaysTrue_ = false;
+                node.alwaysFalse_ = true;
+                myCondStack.push(alwaysFalse_);
             } else if (!dom.canBeNegative(!strict)) {
-                node.alwaysTrue = true;
-                node.alwaysFalse = false;
-                myCondStack.push(alwaysTrue);
+                node.alwaysTrue_ = true;
+                node.alwaysFalse_ = false;
+                myCondStack.push(alwaysTrue_);
             }
             //	Can be true or false
             else {
-                node.alwaysTrue = node.alwaysFalse = false;
+                node.alwaysTrue_ = node.alwaysFalse_ = false;
                 myCondStack.push(trueOrFalse);
 
                 if (myFuzzy) {
-                    //	Continuous or discrete?
-                    node.discrete = !dom.canBeZero() || dom.zeroIsDiscrete();
+                    //	Continuous or isDiscrete_?
+                    node.isDiscrete_ = !dom.canBeZero() || dom.zeroIsDiscrete();
 
                     //	Fuzzy logic processing
-                    if (node.discrete) {
+                    if (node.isDiscrete_) {
                         //	Case 1: expr cannot be zero
                         if (!dom.canBeZero()) {
                             //		we know we have subdomains on the left and on the right of 0
-                            dom.smallestPosLb(node.rb, true);
-                            dom.biggestNegRb(node.lb, true);
+                            dom.smallestPosLb(node.rb_, true);
+                            dom.biggestNegRb(node.lb_, true);
                         }
                         //	Case 2: {0} is a singleton
                         else {
                             if (strict) {
-                                node.lb = 0.0;
-                                dom.smallestPosLb(node.rb, true);
+                                node.lb_ = 0.0;
+                                dom.smallestPosLb(node.rb_, true);
                             } else {
-                                node.rb = 0.0;
-                                dom.biggestNegRb(node.lb, true);
+                                node.rb_ = 0.0;
+                                dom.biggestNegRb(node.lb_, true);
                             }
                         }
                     }
@@ -305,9 +305,9 @@ namespace Dal::Script {
                 ofstream ofs(string("c:\\temp\\sup") + (strict ? "" : "equal") + to_string(iii) + ".txt");
                 ofs << "Inequality " << iii << endl;
                 ofs << "Domain = " << dom << endl;
-                ofs << "Node discrete = " << node.discrete << endl;
-                if (node.discrete)
-                    ofs << "Node lB, rB = " << node.lb << "," << node.rb << endl;
+                ofs << "Node isDiscrete_ = " << node.isDiscrete_ << endl;
+                if (node.isDiscrete_)
+                    ofs << "Node lB, rB = " << node.lb_ << "," << node.rb_ << endl;
             }
 #endif
             //	End of dump
@@ -326,16 +326,16 @@ namespace Dal::Script {
             CondProp cp2 = myCondStack.top();
             myCondStack.pop();
 
-            if (cp1 == alwaysTrue && cp2 == alwaysTrue) {
-                node.alwaysTrue = true;
-                node.alwaysFalse = false;
-                myCondStack.push(alwaysTrue);
-            } else if (cp1 == alwaysFalse || cp2 == alwaysFalse) {
-                node.alwaysTrue = false;
-                node.alwaysFalse = true;
-                myCondStack.push(alwaysFalse);
+            if (cp1 == alwaysTrue_ && cp2 == alwaysTrue_) {
+                node.alwaysTrue_ = true;
+                node.alwaysFalse_ = false;
+                myCondStack.push(alwaysTrue_);
+            } else if (cp1 == alwaysFalse_ || cp2 == alwaysFalse_) {
+                node.alwaysTrue_ = false;
+                node.alwaysFalse_ = true;
+                myCondStack.push(alwaysFalse_);
             } else {
-                node.alwaysTrue = node.alwaysFalse = false;
+                node.alwaysTrue_ = node.alwaysFalse_ = false;
                 myCondStack.push(trueOrFalse);
             }
         }
@@ -346,16 +346,16 @@ namespace Dal::Script {
             CondProp cp2 = myCondStack.top();
             myCondStack.pop();
 
-            if (cp1 == alwaysTrue || cp2 == alwaysTrue) {
-                node.alwaysTrue = true;
-                node.alwaysFalse = false;
-                myCondStack.push(alwaysTrue);
-            } else if (cp1 == alwaysFalse && cp2 == alwaysFalse) {
-                node.alwaysTrue = false;
-                node.alwaysFalse = true;
-                myCondStack.push(alwaysFalse);
+            if (cp1 == alwaysTrue_ || cp2 == alwaysTrue_) {
+                node.alwaysTrue_ = true;
+                node.alwaysFalse_ = false;
+                myCondStack.push(alwaysTrue_);
+            } else if (cp1 == alwaysFalse_ && cp2 == alwaysFalse_) {
+                node.alwaysTrue_ = false;
+                node.alwaysFalse_ = true;
+                myCondStack.push(alwaysFalse_);
             } else {
-                node.alwaysTrue = node.alwaysFalse = false;
+                node.alwaysTrue_ = node.alwaysFalse_ = false;
                 myCondStack.push(trueOrFalse);
             }
         }
@@ -363,7 +363,7 @@ namespace Dal::Script {
         //	Instructions
         void Visit(NodeIf& node) {
             //	Last "if true" statement index
-            size_t lastTrueStat = node.firstElse == -1 ? node.arguments.size() - 1 : node.firstElse - 1;
+            size_t lastTrueStat = node.firstElse_ == -1 ? node.arguments.size() - 1 : node.firstElse_ - 1;
 
             //	Visit condition
             node.arguments[0]->Accept(*this);
@@ -372,48 +372,48 @@ namespace Dal::Script {
             CondProp cp = myCondStack.top();
             myCondStack.pop();
 
-            if (cp == alwaysTrue) {
-                node.alwaysTrue = true;
-                node.alwaysFalse = false;
+            if (cp == alwaysTrue_) {
+                node.alwaysTrue_ = true;
+                node.alwaysFalse_ = false;
                 //	Visit "if true" statements
                 for (size_t i = 1; i <= lastTrueStat; ++i)
                     node.arguments[i]->Accept(*this);
-            } else if (cp == alwaysFalse) {
-                node.alwaysTrue = false;
-                node.alwaysFalse = true;
+            } else if (cp == alwaysFalse_) {
+                node.alwaysTrue_ = false;
+                node.alwaysFalse_ = true;
                 //	Visit "if false" statements, if any
-                if (node.firstElse != -1)
-                    for (size_t i = node.firstElse; i < node.arguments.size(); ++i)
+                if (node.firstElse_ != -1)
+                    for (size_t i = node.firstElse_; i < node.arguments.size(); ++i)
                         node.arguments[i]->Accept(*this);
             } else {
-                node.alwaysTrue = node.alwaysFalse = false;
+                node.alwaysTrue_ = node.alwaysFalse_ = false;
 
                 //	Record variable domain before if statements are executed
-                Vector_<Domain> domStore0(node.affectedVars.size());
-                for (size_t i = 0; i < node.affectedVars.size(); ++i)
-                    domStore0[i] = myVarDomains[node.affectedVars[i]];
+                Vector_<Domain> domStore0(node.affectedVars_.size());
+                for (size_t i = 0; i < node.affectedVars_.size(); ++i)
+                    domStore0[i] = myVarDomains[node.affectedVars_[i]];
 
                 //	Execute if statements
                 for (size_t i = 1; i <= lastTrueStat; ++i)
                     node.arguments[i]->Accept(*this);
 
                 //	Record variable domain after if statements are executed
-                Vector_<Domain> domStore1(node.affectedVars.size());
-                for (size_t i = 0; i < node.affectedVars.size(); ++i)
-                    domStore1[i] = std::move(myVarDomains[node.affectedVars[i]]);
+                Vector_<Domain> domStore1(node.affectedVars_.size());
+                for (size_t i = 0; i < node.affectedVars_.size(); ++i)
+                    domStore1[i] = std::move(myVarDomains[node.affectedVars_[i]]);
 
                 //	Reset variable domains
-                for (size_t i = 0; i < node.affectedVars.size(); ++i)
-                    myVarDomains[node.affectedVars[i]] = std::move(domStore0[i]);
+                for (size_t i = 0; i < node.affectedVars_.size(); ++i)
+                    myVarDomains[node.affectedVars_[i]] = std::move(domStore0[i]);
 
                 //	Execute else statements if any
-                if (node.firstElse != -1)
-                    for (size_t i = node.firstElse; i < node.arguments.size(); ++i)
+                if (node.firstElse_ != -1)
+                    for (size_t i = node.firstElse_; i < node.arguments.size(); ++i)
                         node.arguments[i]->Accept(*this);
 
                 //	Merge domains
-                for (size_t i = 0; i < node.affectedVars.size(); ++i)
-                    myVarDomains[node.affectedVars[i]].addDomain(domStore1[i]);
+                for (size_t i = 0; i < node.affectedVars_.size(); ++i)
+                    myVarDomains[node.affectedVars_[i]].addDomain(domStore1[i]);
             }
         }
 
@@ -463,15 +463,15 @@ namespace Dal::Script {
             if (myLhsVar) //	Write
             {
                 //	Record address in myLhsVarAdr
-                myLhsVarIdx = node.index;
+                myLhsVarIdx = node.index_;
             } else //	Read
             {
                 //	Push domain onto the stack
-                myDomStack.push(myVarDomains[node.index]);
+                myDomStack.push(myVarDomains[node.index_]);
             }
         }
 
-        void Visit(NodeConst& node) { myDomStack.push(node.constVal); }
+        void Visit(NodeConst& node) { myDomStack.push(node.constVal_); }
 
         //	Scenario related
         void Visit(NodeSpot& node) {

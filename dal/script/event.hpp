@@ -36,9 +36,9 @@ namespace Dal::Script {
         Vector_<Dal::AAD::SampleDef_> defLine_;
 
         //  Compiled form
-        Vector_<Vector_<int>>         myNodeStreams;
-        Vector_<Vector_<double>>      myConstStreams;
-        Vector_<Vector_<const void*>> myDataStreams;
+        Vector_<Vector_<int>> nodeStreams_;
+        Vector_<Vector_<double>> constStreams_;
+        Vector_<Vector_<const void*>> dataStreams_;
 
     public:
         ScriptProduct_(const std::map<Date_, String_>& events) { ParseEvents(events.begin(), events.end()); }
@@ -107,7 +107,7 @@ namespace Dal::Script {
             //	Loop over events
             for (size_t i = 0; i < events_.size(); ++i)
                 //	Evaluate the compiled events
-                EvalCompiled(myNodeStreams[i], myConstStreams[i], myDataStreams[i], scen[i], state);
+                EvalCompiled(nodeStreams_[i], constStreams_[i], dataStreams_[i], scen[i], state);
         }
 
         void IndexVariables();

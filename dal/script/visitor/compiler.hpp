@@ -28,14 +28,14 @@ As long as this comment is preserved at the top of the file
 namespace Dal::Script {
     template <class T> struct EvalState_ {
         //	State
-        Vector_<T> variables;
+        Vector_<T> variables_;
 
         //  Constructor
-        EvalState_(size_t nVar) : variables(nVar) {}
+        EvalState_(size_t nVar) : variables_(nVar) {}
 
         //  Initializer
         void Init() {
-            for (auto& var : variables)
+            for (auto& var : variables_)
                 var = 0.0;
         }
     };
@@ -81,8 +81,6 @@ namespace Dal::Script {
         False
     };
 
-#define EPS 1.0e-12
-
     class Compiler_ : public ConstVisitor_<Compiler_> {
         //	State
         Vector_<int> nodeStream_;
@@ -106,24 +104,24 @@ namespace Dal::Script {
         //  Binaries
 
         template <NodeType IfBin, NodeType IfConstLeft, NodeType IfConstRight> void VisitBinary(const ExprNode_& node) {
-            if (node.isConst) {
+            if (node.isConst_) {
                 nodeStream_.push_back(Const);
                 nodeStream_.push_back(int(constStream_.size()));
-                constStream_.push_back(node.constVal);
+                constStream_.push_back(node.constVal_);
             } else {
                 const ExprNode_* lhs = Downcast<ExprNode_>(node.arguments[0]);
                 const ExprNode_* rhs = Downcast<ExprNode_>(node.arguments[1]);
 
-                if (lhs->isConst) {
+                if (lhs->isConst_) {
                     node.arguments[1]->Accept(*this);
                     nodeStream_.push_back(IfConstLeft);
                     nodeStream_.push_back(int(constStream_.size()));
-                    constStream_.push_back(lhs->constVal);
-                } else if (rhs->isConst) {
+                    constStream_.push_back(lhs->constVal_);
+                } else if (rhs->isConst_) {
                     node.arguments[0]->Accept(*this);
                     nodeStream_.push_back(IfConstRight);
                     nodeStream_.push_back(int(constStream_.size()));
-                    constStream_.push_back(rhs->constVal);
+                    constStream_.push_back(rhs->constVal_);
                 } else {
                     node.arguments[0]->Accept(*this);
                     node.arguments[1]->Accept(*this);
@@ -144,10 +142,10 @@ namespace Dal::Script {
 
         //	Unaries
         template <NodeType NT> void VisitUnary(const ExprNode_& node) {
-            if (node.isConst) {
+            if (node.isConst_) {
                 nodeStream_.push_back(Const);
                 nodeStream_.push_back(int(constStream_.size()));
-                constStream_.push_back(node.constVal);
+                constStream_.push_back(node.constVal_);
             } else {
                 node.arguments[0]->Accept(*this);
                 nodeStream_.push_back(NT);
@@ -164,10 +162,10 @@ namespace Dal::Script {
 
         void Visit(const NodeSmooth& node) {
             //  Const?
-            if (node.isConst) {
+            if (node.isConst_) {
                 nodeStream_.push_back(Const);
                 nodeStream_.push_back(int(constStream_.size()));
-                constStream_.push_back(node.constVal);
+                constStream_.push_back(node.constVal_);
             } else {
                 //  Must come back to optimize that one
                 VisitArguments(node);
@@ -180,8 +178,8 @@ namespace Dal::Script {
         template <NodeType NT, typename OP> void VisitCondition(const BoolNode_& node, OP op) {
             const ExprNode_* arg = Downcast<ExprNode_>(node.arguments[0]);
 
-            if (arg->isConst) {
-                nodeStream_.push_back(op(arg->constVal) ? True : False);
+            if (arg->isConst_) {
+                nodeStream_.push_back(op(arg->constVal_) ? True : False);
 
             } else {
                 node.arguments[0]->Accept(*this);
@@ -197,7 +195,7 @@ namespace Dal::Script {
             VisitCondition<Sup>(node, [](const double x) { return x > 0.0; });
         }
         void Visit(const NodeSupEqual& node) {
-            VisitCondition<SupEqual>(node, [](const double x) { return x > -EPS; });
+            VisitCondition<SupEqual>(node, [](const double x) { return x > -Dal::EPSILON; });
         }
 
         //  And/Or/Not
@@ -225,43 +223,43 @@ namespace Dal::Script {
             const NodeVar* var = Downcast<NodeVar>(node.arguments[0]);
             const ExprNode_* rhs = Downcast<ExprNode_>(node.arguments[1]);
 
-            if (rhs->isConst) {
+            if (rhs->isConst_) {
                 nodeStream_.push_back(AssignConst);
                 nodeStream_.push_back(int(constStream_.size()));
-                constStream_.push_back(rhs->constVal);
+                constStream_.push_back(rhs->constVal_);
             } else {
                 node.arguments[1]->Accept(*this);
                 nodeStream_.push_back(Assign);
             }
-            nodeStream_.push_back(int(var->index));
+            nodeStream_.push_back(int(var->index_));
         }
 
         void Visit(const NodePays& node) {
             const NodeVar* var = Downcast<NodeVar>(node.arguments[0]);
             const ExprNode_* rhs = Downcast<ExprNode_>(node.arguments[1]);
 
-            if (rhs->isConst) {
+            if (rhs->isConst_) {
                 nodeStream_.push_back(PaysConst);
                 nodeStream_.push_back(int(constStream_.size()));
-                constStream_.push_back(rhs->constVal);
+                constStream_.push_back(rhs->constVal_);
             } else {
                 node.arguments[1]->Accept(*this);
                 nodeStream_.push_back(Pays);
             }
-            nodeStream_.push_back(int(var->index));
+            nodeStream_.push_back(int(var->index_));
         }
 
         //  Leaves
 
         void Visit(const NodeVar& node) {
             nodeStream_.push_back(Var);
-            nodeStream_.push_back(int(node.index));
+            nodeStream_.push_back(int(node.index_));
         }
 
         void Visit(const NodeConst& node) {
             nodeStream_.push_back(Const);
             nodeStream_.push_back(int(constStream_.size()));
-            constStream_.push_back(node.constVal);
+            constStream_.push_back(node.constVal_);
         }
 
         void Visit(const NodeTrue& node) { nodeStream_.push_back(True); }
@@ -277,16 +275,16 @@ namespace Dal::Script {
             node.arguments[0]->Accept(*this);
 
             //  Mark instruction
-            nodeStream_.push_back(node.firstElse == -1 ? If : IfElse);
+            nodeStream_.push_back(node.firstElse_ == -1 ? If : IfElse);
             //  Record space
             const size_t thisSpace = nodeStream_.size() - 1;
             //  Make 2 spaces for last if-true and last if-false
             nodeStream_.push_back(0);
-            if (node.firstElse != -1)
+            if (node.firstElse_ != -1)
                 nodeStream_.push_back(0);
 
             //  Visit if-true statements
-            const auto lastTrue = node.firstElse == -1 ? node.arguments.size() - 1 : node.firstElse - 1;
+            const auto lastTrue = node.firstElse_ == -1 ? node.arguments.size() - 1 : node.firstElse_ - 1;
             for (size_t i = 1; i <= lastTrue; ++i) {
                 node.arguments[i]->Accept(*this);
             }
@@ -295,8 +293,8 @@ namespace Dal::Script {
 
             //  Visit if-false statements
             const size_t n = node.arguments.size();
-            if (node.firstElse != -1) {
-                for (size_t i = node.firstElse; i < n; ++i) {
+            if (node.firstElse_ != -1) {
+                for (size_t i = node.firstElse_; i < n; ++i) {
                     {
                         node.arguments[i]->Accept(*this);
                     }
@@ -481,7 +479,7 @@ namespace Dal::Script {
 
             case Var:
 
-                dStack.push(state.variables[nodeStream[++i]]);
+                dStack.push(state.variables_[nodeStream[++i]]);
 
                 ++i;
                 break;
@@ -496,7 +494,7 @@ namespace Dal::Script {
             case Assign:
 
                 idx = nodeStream[++i];
-                state.variables[idx] = dStack.top();
+                state.variables_[idx] = dStack.top();
                 dStack.pop();
 
                 ++i;
@@ -506,7 +504,7 @@ namespace Dal::Script {
 
                 x = constStream[nodeStream[++i]];
                 idx = nodeStream[++i];
-                state.variables[idx] = x;
+                state.variables_[idx] = x;
 
                 ++i;
                 break;
@@ -515,7 +513,7 @@ namespace Dal::Script {
 
                 ++i;
                 idx = nodeStream[i];
-                state.variables[idx] += dStack.top() / scen.numeraire;
+                state.variables_[idx] += dStack.top() / scen.numeraire;
                 dStack.pop();
 
                 ++i;
@@ -525,7 +523,7 @@ namespace Dal::Script {
 
                 x = constStream[nodeStream[++i]];
                 idx = nodeStream[++i];
-                state.variables[idx] += x / scen.numeraire;
+                state.variables_[idx] += x / scen.numeraire;
 
                 ++i;
                 break;

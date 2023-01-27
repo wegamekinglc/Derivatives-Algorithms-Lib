@@ -47,8 +47,8 @@ namespace Dal::Script {
                 node.arguments[i]->Accept(*this);
 
             //	Copy the top of the stack into the node
-            node.affectedVars.clear();
-            copy(myVarStack.top().begin(), myVarStack.top().end(), back_inserter(node.affectedVars));
+            node.affectedVars_.clear();
+            copy(myVarStack.top().begin(), myVarStack.top().end(), back_inserter(node.affectedVars_));
 
             //	Pop
             myVarStack.pop();
@@ -59,7 +59,7 @@ namespace Dal::Script {
             //	If not outmost if, copy changed vars into the immediately outer if
             //	Variables changed in a nested if are also changed in the englobing if
             if (myNestedIfLvl)
-                copy(node.affectedVars.begin(), node.affectedVars.end(),
+                copy(node.affectedVars_.begin(), node.affectedVars_.end(),
                      inserter(myVarStack.top(), myVarStack.top().end()));
         }
 
@@ -78,7 +78,7 @@ namespace Dal::Script {
         void Visit(NodeVar& node) {
             //	Insert the var idx
             if (myNestedIfLvl)
-                myVarStack.top().insert(node.index);
+                myVarStack.top().insert(node.index_);
         }
     };
 } // namespace Dal::Script

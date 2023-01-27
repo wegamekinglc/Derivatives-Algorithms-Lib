@@ -17,7 +17,7 @@ TEST(ParserTest, TestParseAssign) {
     auto toTest1 = dynamic_cast<NodeAssign*>(res[0].get());
     ASSERT_NE(dynamic_cast<NodeVar*>(toTest1->arguments[0].get()), nullptr);
     auto toTest3 = dynamic_cast<NodeConst*>(toTest1->arguments[1].get());
-    ASSERT_NEAR(toTest3->constVal, 2.0, 1e-10);
+    ASSERT_NEAR(toTest3->constVal_, 2.0, 1e-10);
 }
 
 TEST(ParserTest, TestParseIf) {
@@ -29,7 +29,7 @@ TEST(ParserTest, TestParseIf) {
     auto res = Parse(event);
     ASSERT_EQ(res.size(), 1);
     auto toTest1 = dynamic_cast<NodeIf*>(res[0].get());
-    ASSERT_EQ(toTest1->firstElse, -1);
+    ASSERT_EQ(toTest1->firstElse_, -1);
 
     auto toTest2 = dynamic_cast<NodeSupEqual*>(toTest1->arguments[0].get());
     auto toTest3 = dynamic_cast<NodeSub*>(toTest2->arguments[0].get());
@@ -55,7 +55,7 @@ TEST(ParserTest, TestParseIfWithElse) {
     ASSERT_EQ(res.size(), 1);
     auto toTest1 = dynamic_cast<NodeIf*>(res[0].get());
     ASSERT_TRUE(toTest1);
-    ASSERT_EQ(toTest1->firstElse, 2);
+    ASSERT_EQ(toTest1->firstElse_, 2);
 
     auto toTest2 = dynamic_cast<NodeSupEqual*>(toTest1->arguments[0].get());
     auto toTest3 = dynamic_cast<NodeSub*>(toTest2->arguments[0].get());

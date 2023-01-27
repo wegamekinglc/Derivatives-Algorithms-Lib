@@ -147,7 +147,7 @@ namespace Dal::Script {
             top->arguments[i + 1] = std::move(stats[i]);
         for (auto i = 0; i < elseStats.size(); ++i)
             top->arguments[i + elseIdx] = std::move(elseStats[i]);
-        top->firstElse = elseIdx;
+        top->firstElse_ = elseIdx;
 
         ++cur;
         return std::move(top);
@@ -251,7 +251,7 @@ namespace Dal::Script {
         auto top = MakeNode<NodeEqual>();
         top->arguments.Resize(1);
         top->arguments[0] = std::move(expr);
-        top->eps = eps;
+        top->eps_ = eps;
         return top;
     }
 
@@ -268,7 +268,7 @@ namespace Dal::Script {
         auto top = MakeNode<NodeSup>();
         top->arguments.Resize(1);
         top->arguments[0] = std::move(eq);
-        top->eps = eps;
+        top->eps_ = eps;
         return top;
     }
 
@@ -277,7 +277,7 @@ namespace Dal::Script {
         auto top = MakeNode<NodeSupEqual>();
         top->arguments.Resize(1);
         top->arguments[0] = std::move(eq);
-        top->eps = eps;
+        top->eps_ = eps;
         return top;
     }
 

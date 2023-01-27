@@ -92,14 +92,14 @@ namespace Dal::Script {
         ConstProcess();
 
         //  Clear
-        myNodeStreams.clear();
-        myConstStreams.clear();
-        myDataStreams.clear();
+        nodeStreams_.clear();
+        constStreams_.clear();
+        dataStreams_.clear();
 
         //  One per event date
-        myNodeStreams.reserve(events_.size());
-        myConstStreams.reserve(events_.size());
-        myDataStreams.reserve(events_.size());
+        nodeStreams_.reserve(events_.size());
+        constStreams_.reserve(events_.size());
+        dataStreams_.reserve(events_.size());
 
         //	Visit
         for (auto& evt : events_) {
@@ -113,9 +113,9 @@ namespace Dal::Script {
             }
 
             //  Get compiled
-            myNodeStreams.push_back(comp.NodeStream());
-            myConstStreams.push_back(comp.ConstStream());
-            myDataStreams.push_back(comp.DataStream());
+            nodeStreams_.push_back(comp.NodeStream());
+            constStreams_.push_back(comp.ConstStream());
+            dataStreams_.push_back(comp.DataStream());
         }
     }
 

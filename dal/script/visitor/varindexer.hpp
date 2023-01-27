@@ -31,11 +31,11 @@ namespace Dal::Script {
 
         //	Variable indexer: build map of names to indices and write indices on variable nodes
         void Visit(NodeVar& node) {
-            auto varIt = myVarMap.find(node.name);
+            auto varIt = myVarMap.find(node.name_);
             if (varIt == myVarMap.end())
-                node.index = myVarMap[node.name] = myVarMap.size();
+                node.index_ = myVarMap[node.name_] = myVarMap.size();
             else
-                node.index = varIt->second;
+                node.index_ = varIt->second;
         }
     };
 } // namespace Dal::Script

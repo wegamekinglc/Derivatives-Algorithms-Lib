@@ -18,18 +18,18 @@ namespace Dal::Script {
 
     class ConstCondProcessor_ : public Visitor_<ConstCondProcessor_> {
         //	The (unique) pointer on the node currently being visited
-        ExprTree_* myCurrent;
+        ExprTree_* current_;
 
-        //  Visit arguments plus set myCurrent pointer
+        //  Visit arguments plus set current_ pointer
         void VisitArgsSetCurrent(Node_& node) {
             for (auto& arg : node.arguments) {
-                myCurrent = &arg;
+                current_ = &arg;
                 arg->Accept(*this);
             }
         }
 
     public:
-        //	Overload catch-all-nodes visitor to Visit arguments plus set myCurrent
+        //	Overload catch-all-nodes visitor to Visit arguments plus set current_
         template <class NODE>
         std::enable_if_t<std::is_same<NODE, std::remove_const_t<NODE>>::value &&
                     !HasConstVisit_<ConstCondProcessor_>::ForNodeType<NODE>()>
@@ -41,7 +41,7 @@ namespace Dal::Script {
         //		with this method from the top of every tree, passing a ref on the unique_ptr holding
         //		the top node of the tree
         void ProcessFromTop(std::unique_ptr<Node_>& top) {
-            myCurrent = &top;
+            current_ = &top;
             top->Accept(*this);
         }
 
@@ -50,12 +50,12 @@ namespace Dal::Script {
         //	One visitor for all booleans
         void VisitBool(BoolNode_& node) {
             //	Always true ==> replace the tree by a True node
-            if (node.alwaysTrue)
-                myCurrent->reset(new NodeTrue);
+            if (node.alwaysTrue_)
+                current_->reset(new NodeTrue);
 
             //	Always false ==> replace the tree by a False node
-            else if (node.alwaysFalse)
-                myCurrent->reset(new NodeFalse);
+            else if (node.alwaysFalse_)
+                current_->reset(new NodeFalse);
 
             //	Nothing to do here ==> Visit the arguments
             else
@@ -73,35 +73,35 @@ namespace Dal::Script {
         //	If
         void Visit(NodeIf& node) {
             //	Always true ==> replace the tree by the collection of "if true" statements
-            if (node.alwaysTrue) {
-                size_t lastTrueStat = node.firstElse == -1 ? node.arguments.size() - 1 : node.firstElse - 1;
+            if (node.alwaysTrue_) {
+                size_t lastTrueStat = node.firstElse_ == -1 ? node.arguments.size() - 1 : node.firstElse_ - 1;
 
                 //	Move arguments, destroy node
                 Vector_<ExprTree_> args = std::move(node.arguments);
-                myCurrent->reset(new NodeCollect);
+                current_->reset(new NodeCollect);
 
                 for (size_t i = 1; i <= lastTrueStat; ++i) {
-                    (*myCurrent)->arguments.push_back(std::move(args[i]));
+                    (*current_)->arguments.push_back(std::move(args[i]));
                 }
 
-                VisitArgsSetCurrent(**myCurrent);
+                VisitArgsSetCurrent(**current_);
             }
 
             //	Always false ==> replace the tree by the collection of "else" statements
-            else if (node.alwaysFalse) {
-                int firstElseStatement = node.firstElse;
+            else if (node.alwaysFalse_) {
+                int firstElseStatement = node.firstElse_;
 
                 //	Move arguments, destroy node
                 Vector_<ExprTree_> args = std::move(node.arguments);
-                myCurrent->reset(new NodeCollect);
+                current_->reset(new NodeCollect);
 
                 if (firstElseStatement != -1) {
                     for (size_t i = firstElseStatement; i < args.size(); ++i) {
-                        (*myCurrent)->arguments.push_back(std::move(args[i]));
+                        (*current_)->arguments.push_back(std::move(args[i]));
                     }
                 }
 
-                VisitArgsSetCurrent(**myCurrent);
+                VisitArgsSetCurrent(**current_);
             }
 
             //	Nothing to do here ==> Visit the arguments

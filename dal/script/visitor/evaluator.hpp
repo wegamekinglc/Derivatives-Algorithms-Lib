@@ -218,20 +218,20 @@ namespace Dal::Script {
 
             //	Evaluate the relevant statements
             if (isTrue) {
-                const auto lastTrue = node.firstElse == -1 ? node.arguments.size() - 1 : node.firstElse - 1;
+                const auto lastTrue = node.firstElse_ == -1 ? node.arguments.size() - 1 : node.firstElse_ - 1;
                 for (unsigned i = 1; i <= lastTrue; ++i) {
                     VisitNode(*node.arguments[i]);
                 }
-            } else if (node.firstElse != -1) {
+            } else if (node.firstElse_ != -1) {
                 const size_t n = node.arguments.size();
-                for (unsigned i = node.firstElse; i < n; ++i) {
+                for (unsigned i = node.firstElse_; i < n; ++i) {
                     VisitNode(*node.arguments[i]);
                 }
             }
         }
 
         void Visit(const NodeAssign& node) {
-            const auto varIdx = Downcast<NodeVar>(node.arguments[0])->index;
+            const auto varIdx = Downcast<NodeVar>(node.arguments[0])->index_;
 
             //	Visit the RHS expression
             VisitNode(*node.arguments[1]);
@@ -242,7 +242,7 @@ namespace Dal::Script {
         }
 
         void Visit(const NodePays& node) {
-            const auto varIdx = Downcast<NodeVar>(node.arguments[0])->index;
+            const auto varIdx = Downcast<NodeVar>(node.arguments[0])->index_;
 
             //	Visit the RHS expression
             VisitNode(*node.arguments[1]);
@@ -255,10 +255,10 @@ namespace Dal::Script {
         //	Variables and constants
         void Visit(const NodeVar& node) {
             //	Push value onto the stack
-            myDstack.push(myVariables[node.index]);
+            myDstack.push(myVariables[node.index_]);
         }
 
-        void Visit(const NodeConst& node) { myDstack.push(node.constVal); }
+        void Visit(const NodeConst& node) { myDstack.push(node.constVal_); }
 
         void Visit(const NodeTrue& node) { myBstack.push(true); }
         void Visit(const NodeFalse& node) { myBstack.push(false); }

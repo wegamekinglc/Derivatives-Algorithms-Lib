@@ -14,8 +14,8 @@ namespace Dal::Script {
 
     //  Nodes that return a number
     struct ExprNode_ : public Node_ {
-        bool isConst = false;
-        double constVal;
+        bool isConst_ = false;
+        double constVal_;
     };
 
     //  Action nodes
@@ -23,8 +23,8 @@ namespace Dal::Script {
 
     //  Nodes that return a bool
     struct BoolNode_ : public Node_ {
-        bool alwaysTrue;
-        bool alwaysFalse;
+        bool alwaysTrue_;
+        bool alwaysFalse_;
     };
 
     //  All the concrete nodes
@@ -57,12 +57,12 @@ namespace Dal::Script {
 
     struct CompNode_ : public BoolNode_ {
         //	Fuzzying stuff
-        bool discrete; //	Continuous or discrete
-                       //	Continuous eps
-        double eps;
+        bool isDiscrete_; //	Continuous or isDiscrete_
+                       //	Continuous eps_
+        double eps_;
         //	Discrete butterfly bounds
-        double lb;
-        double rb;
+        double lb_;
+        double rb_;
         //	End of fuzzying stuff
     };
 
@@ -88,28 +88,28 @@ namespace Dal::Script {
     //  Const
     struct NodeConst : public Visitable_<ExprNode_, NodeConst, VISITORS> {
         NodeConst(const double val) {
-            ExprNode_::isConst = true;
-            ExprNode_::constVal = val;
+            ExprNode_::isConst_ = true;
+            ExprNode_::constVal_ = val;
         }
     };
 
     struct NodeTrue : public Visitable_<BoolNode_, NodeTrue, VISITORS> {
-        NodeTrue() { BoolNode_::alwaysTrue = true; }
+        NodeTrue() { BoolNode_::alwaysTrue_ = true; }
     };
 
     struct NodeFalse : public Visitable_<BoolNode_, NodeFalse, VISITORS> {
-        NodeFalse() { alwaysFalse = true; }
+        NodeFalse() { alwaysFalse_ = true; }
     };
 
     //  Variable
     struct NodeVar : public Visitable_<ExprNode_, NodeVar, VISITORS> {
-        NodeVar(const String_& n) : name(n), index(-1) {
-            ExprNode_::isConst = true;
-            ExprNode_::constVal = 0.0;
+        NodeVar(const String_& n) : name_(n), index_(-1) {
+            ExprNode_::isConst_ = true;
+            ExprNode_::constVal_ = 0.0;
         }
 
-        const String_ name;
-        int index;
+        const String_ name_;
+        int index_;
     };
 
     //	Assign, Pays
@@ -120,12 +120,12 @@ namespace Dal::Script {
 
     //	If
     struct NodeIf : public Visitable_<ActNode_, NodeIf, VISITORS> {
-        int firstElse;
+        int firstElse_;
         //	For fuzzy eval: indices of variables affected in statements, including nested
-        Vector_<size_t> affectedVars;
+        Vector_<size_t> affectedVars_;
         //	Always true/false as per domain processor
-        bool alwaysTrue;
-        bool alwaysFalse;
+        bool alwaysTrue_;
+        bool alwaysFalse_;
     };
 
     //	Collection of statements

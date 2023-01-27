@@ -19,8 +19,6 @@
 #include <set>
 
 namespace Dal::Script {
-#define EPS 1.0e-12
-#define BIG 1.0e+12
 
     class Bound {
         bool myPlusInf;
@@ -37,8 +35,8 @@ namespace Dal::Script {
         Bound(const double val = 0.0) : myPlusInf(false), myMinusInf(false), myReal(val) {}
 
         //	Infinite
-        Bound(const PlusInfinity) : myPlusInf(true), myMinusInf(false), myReal(BIG) {}
-        Bound(const MinusInfinity) : myPlusInf(false), myMinusInf(true), myReal(-BIG) {}
+        Bound(const PlusInfinity) : myPlusInf(true), myMinusInf(false), myReal(Dal::INF) {}
+        Bound(const MinusInfinity) : myPlusInf(false), myMinusInf(true), myReal(-Dal::INF) {}
 
         Bound(const Bound& rhs) : myPlusInf(rhs.myPlusInf), myMinusInf(rhs.myMinusInf), myReal(rhs.myReal) {}
 
@@ -51,14 +49,14 @@ namespace Dal::Script {
         Bound& operator=(const PlusInfinity) {
             myPlusInf = true;
             myMinusInf = false;
-            myReal = BIG;
+            myReal = Dal::INF;
 
             return *this;
         }
         Bound& operator=(const MinusInfinity) {
             myPlusInf = false;
             myMinusInf = true;
-            myReal = -BIG;
+            myReal = -Dal::INF;
 
             return *this;
         }
@@ -77,11 +75,11 @@ namespace Dal::Script {
 
         bool infinite() const { return myPlusInf || myMinusInf; }
 
-        bool positive(const bool strict = false) const { return myPlusInf || myReal > (strict ? EPS : -EPS); }
+        bool positive(const bool strict = false) const { return myPlusInf || myReal > (strict ? Dal::EPSILON : -Dal::EPSILON); }
 
-        bool negative(const bool strict = false) const { return myMinusInf || myReal < (strict ? -EPS : EPS); }
+        bool negative(const bool strict = false) const { return myMinusInf || myReal < (strict ? -Dal::EPSILON : Dal::EPSILON); }
 
-        bool zero() const { return !infinite() && fabs(myReal) < EPS; }
+        bool zero() const { return !infinite() && fabs(myReal) < Dal::EPSILON; }
 
         bool plusInf() const { return myPlusInf; }
 
@@ -92,17 +90,17 @@ namespace Dal::Script {
         //	Comparison
 
         bool operator==(const Bound& rhs) const {
-            return myPlusInf && rhs.myPlusInf || myMinusInf && rhs.myMinusInf || fabs(myReal - rhs.myReal) < EPS;
+            return myPlusInf && rhs.myPlusInf || myMinusInf && rhs.myMinusInf || fabs(myReal - rhs.myReal) < Dal::EPSILON;
         }
 
         bool operator!=(const Bound& rhs) const { return !operator==(rhs); }
 
         bool operator<(const Bound& rhs) const {
-            return myMinusInf && !rhs.myMinusInf || !myPlusInf && rhs.myPlusInf || myReal < rhs.myReal - EPS;
+            return myMinusInf && !rhs.myMinusInf || !myPlusInf && rhs.myPlusInf || myReal < rhs.myReal - Dal::EPSILON;
         }
 
         bool operator>(const Bound& rhs) const {
-            return !myMinusInf && rhs.myMinusInf || myPlusInf && !rhs.myPlusInf || myReal > rhs.myReal + EPS;
+            return !myMinusInf && rhs.myMinusInf || myPlusInf && !rhs.myPlusInf || myReal > rhs.myReal + Dal::EPSILON;
         }
 
         bool operator<=(const Bound& rhs) const { return !operator>(rhs); }
@@ -601,7 +599,7 @@ namespace Dal::Script {
             return false;
         }
 
-        bool discrete() const {
+        bool IsDiscrete() const {
             for (auto& interval : myIntervals)
                 if (!interval.singleton())
                     return false;
@@ -623,7 +621,7 @@ namespace Dal::Script {
         }
 
         //	At least one continuous interval
-        bool continuous() const { return !discrete(); }
+        bool continuous() const { return !IsDiscrete(); }
 
         //	Shortcut for 2 singletons
         bool boolean(pair<double, double>* vals = nullptr) const {
@@ -766,7 +764,7 @@ namespace Dal::Script {
 
         //	Shortcuts for shifting all intervals
         Domain operator+=(const double x) {
-            if (fabs(x) < EPS)
+            if (fabs(x) < Dal::EPSILON)
                 return *this;
 
             std::set<Interval> newIntervals;
@@ -778,7 +776,7 @@ namespace Dal::Script {
         }
 
         Domain operator-=(const double x) {
-            if (fabs(x) < EPS)
+            if (fabs(x) < Dal::EPSILON)
                 return *this;
 
             std::set<Interval> newIntervals;
@@ -901,7 +899,7 @@ namespace Dal::Script {
         bool canBePositive(const bool strict) const {
             if (empty())
                 return false;
-            if (myIntervals.rbegin()->right().val() > (strict ? EPS : -EPS))
+            if (myIntervals.rbegin()->right().val() > (strict ? Dal::EPSILON : -Dal::EPSILON))
                 return true;
             return false;
         }
@@ -909,7 +907,7 @@ namespace Dal::Script {
         bool canBeNegative(const bool strict) const {
             if (empty())
                 return false;
-            if (myIntervals.begin()->left().val() < (strict ? -EPS : EPS))
+            if (myIntervals.begin()->left().val() < (strict ? -Dal::EPSILON : Dal::EPSILON))
                 return true;
 
             return false;
