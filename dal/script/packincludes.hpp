@@ -3,14 +3,13 @@
 //
 
 #pragma once
+#include <type_traits>
 
 namespace Dal::Script {
     template <typename... Vs> struct Pack;
 
-    template <typename V> struct Pack<typename V> {
-        template <class T> static constexpr bool includes() { return false; }
-
-        template <> static constexpr bool includes<V>() { return true; }
+    template <typename V> struct Pack<V> {
+        template <class T> static constexpr bool includes() { return std::is_same<V, T>::value; }
     };
 
     template <typename V, typename... Vs> struct Pack<V, Vs...> {

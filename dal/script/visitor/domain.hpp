@@ -281,7 +281,7 @@ namespace Dal::Script {
             b[2] = myLeft * rhs.myRight;
             b[3] = myLeft * rhs.myLeft;
 
-            return Interval(*min_element(b.begin(), b.end()), *max_element(b.begin(), b.end()));
+            return Interval(*std::min_element(b.begin(), b.end()), *std::max_element(b.begin(), b.end()));
         }
 
         //	Inverse (1/x)

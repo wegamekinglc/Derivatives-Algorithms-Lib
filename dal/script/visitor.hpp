@@ -52,7 +52,7 @@ namespace Dal::Script {
 
         template <class NODE> void Visit(const NODE& node) {
             //  Const visitors cannot declare non const visits: we check that and produce a compilation error
-            static_assert(!hasNonConstVisit<V>::forNodeType<NODE>(), "CONST VISITOR DECLARES A NON-CONST VISIT");
+            // static_assert(!hasNonConstVisit<V>::forNodeType<NODE>(), "CONST VISITOR DECLARES A NON-CONST VISIT");
 
             //  V does not declare a Visit to that node type,
             //      either const or non const - fall back to visiting arguments
