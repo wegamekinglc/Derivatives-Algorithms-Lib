@@ -7,6 +7,7 @@
 #include <dal/platform/platform.hpp>
 #include <dal/math/stacks.hpp>
 #include <dal/script/node.hpp>
+#include <dal/script/visitor.hpp>
 
 
 namespace Dal::Script {

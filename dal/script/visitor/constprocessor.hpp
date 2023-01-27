@@ -17,6 +17,7 @@ As long as this comment is preserved at the top of the file
 
 #include <dal/platform/platform.hpp>
 #include <dal/script/node.hpp>
+#include <dal/script/visitor.hpp>
 
 
 namespace Dal::Script {

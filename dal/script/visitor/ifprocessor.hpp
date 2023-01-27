@@ -8,6 +8,7 @@
 #include <iterator>
 #include <dal/platform/platform.hpp>
 #include <dal/script/node.hpp>
+#include <dal/script/visitor.hpp>
 #include <dal/math/stacks.hpp>
 
 namespace Dal::Script {

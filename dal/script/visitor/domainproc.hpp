@@ -8,6 +8,7 @@
 #include <dal/math/stacks.hpp>
 #include <dal/math/vectors.hpp>
 #include <dal/script/node.hpp>
+#include <dal/script/visitor.hpp>
 #include <dal/script/visitor/domain.hpp>
 
 // #define DUMP

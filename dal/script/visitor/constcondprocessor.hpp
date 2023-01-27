@@ -5,6 +5,7 @@
 #pragma once
 
 #include <dal/script/node.hpp>
+#include <dal/script/visitor.hpp>
 
 namespace Dal::Script {
 

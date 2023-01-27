@@ -4,25 +4,12 @@
 
 #pragma once
 
-#include <dal/math/vectors.hpp>
-#include <dal/script/visitor.hpp>
+#include <dal/script/nodebase.hpp>
 #include <dal/string/strings.hpp>
 #include <memory>
 #include <variant>
 
 namespace Dal::Script {
-    struct Node;
-    using ExprTree = std::unique_ptr<Node>;
-    using Expression = ExprTree;
-    using Statement = ExprTree;
-    using Event_ = Vector_<Statement>;
-
-    struct Node : VisitableBase<VISITORS> {
-        using VisitableBase<VISITORS>::accept;
-        Vector_<ExprTree> arguments;
-        virtual ~Node() {}
-    };
-
     //  Hierarchy
 
     //  Nodes that return a number
