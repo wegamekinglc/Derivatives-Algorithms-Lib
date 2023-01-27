@@ -12,7 +12,7 @@
 #include <dal/math/stacks.hpp>
 
 namespace Dal::Script {
-    class IFProcessor_ : public Visitor<IFProcessor_>
+    class IFProcessor_ : public Visitor_<IFProcessor_>
     {
         //	Top of the stack: current (possibly nested) if being processed
         //	Each element in stack: set of indices of variables modified by the corresponding if and nested ifs
@@ -26,7 +26,7 @@ namespace Dal::Script {
 
     public:
 
-        using Visitor<IFProcessor_>::Visit;
+        using Visitor_<IFProcessor_>::Visit;
 
         IFProcessor_() : myNestedIfLvl( 0), myMaxNestedIfs( 0) {}
 
@@ -48,7 +48,8 @@ namespace Dal::Script {
             myVarStack.push(std::set<size_t>());
 
             //	Visit arguments, excluding condition
-            for(size_t i = 1; i < node.arguments.size(); ++i) node.arguments[i]->accept( *this);
+            for(size_t i = 1; i < node.arguments.size(); ++i)
+                node.arguments[i]->Accept(*this);
 
             //	Copy the top of the stack into the node
             node.affectedVars.clear();
@@ -68,13 +69,15 @@ namespace Dal::Script {
         void Visit( NodeAssign& node)
         {
             //	Visit the lhs var
-            if( myNestedIfLvl) node.arguments[0]->accept( *this);
+            if( myNestedIfLvl)
+                node.arguments[0]->Accept(*this);
         }
 
         void Visit( NodePays& node)
         {
             //	Visit the lhs var
-            if( myNestedIfLvl) node.arguments[0]->accept( *this);
+            if( myNestedIfLvl)
+                node.arguments[0]->Accept(*this);
         }
 
         void Visit( NodeVar& node)

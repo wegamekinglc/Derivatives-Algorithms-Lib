@@ -16,15 +16,15 @@ namespace Dal::Script {
     //	The always true/false if nodes are replaced by collections of statements to be evaluated
     //	The always true/false conditions are replaced by true/false nodes
 
-    class ConstCondProcessor_ : public Visitor<ConstCondProcessor_> {
+    class ConstCondProcessor_ : public Visitor_<ConstCondProcessor_> {
         //	The (unique) pointer on the node currently being visited
-        ExprTree* myCurrent;
+        ExprTree_* myCurrent;
 
         //  Visit arguments plus set myCurrent pointer
-        void visitArgsSetCurrent(Node& node) {
+        void visitArgsSetCurrent(Node_& node) {
             for (auto& arg : node.arguments) {
                 myCurrent = &arg;
-                arg->accept(*this);
+                arg->Accept(*this);
             }
         }
 
@@ -32,7 +32,7 @@ namespace Dal::Script {
         //	Overload catch-all-nodes visitor to Visit arguments plus set myCurrent
         template <class NODE>
         std::enable_if_t<std::is_same<NODE, std::remove_const_t<NODE>>::value &&
-                    !hasConstVisit<ConstCondProcessor_>::forNodeType<NODE>()>
+                    !HasConstVisit_<ConstCondProcessor_>::ForNodeType<NODE>()>
         Visit(NODE& node) {
             visitArgsSetCurrent(node);
         }
@@ -40,15 +40,15 @@ namespace Dal::Script {
         //	This patricular visitor modifies the structure of the tree, hence it must be called only
         //		with this method from the top of every tree, passing a ref on the unique_ptr holding
         //		the top node of the tree
-        void processFromTop(std::unique_ptr<Node>& top) {
+        void processFromTop(std::unique_ptr<Node_>& top) {
             myCurrent = &top;
-            top->accept(*this);
+            top->Accept(*this);
         }
 
         //	Conditions
 
         //	One visitor for all booleans
-        void visitBool(boolNode& node) {
+        void visitBool(BoolNode_& node) {
             //	Always true ==> replace the tree by a True node
             if (node.alwaysTrue)
                 myCurrent->reset(new NodeTrue);
@@ -77,7 +77,7 @@ namespace Dal::Script {
                 size_t lastTrueStat = node.firstElse == -1 ? node.arguments.size() - 1 : node.firstElse - 1;
 
                 //	Move arguments, destroy node
-                Vector_<ExprTree> args = std::move(node.arguments);
+                Vector_<ExprTree_> args = std::move(node.arguments);
                 myCurrent->reset(new NodeCollect);
 
                 for (size_t i = 1; i <= lastTrueStat; ++i) {
@@ -92,7 +92,7 @@ namespace Dal::Script {
                 int firstElseStatement = node.firstElse;
 
                 //	Move arguments, destroy node
-                Vector_<ExprTree> args = std::move(node.arguments);
+                Vector_<ExprTree_> args = std::move(node.arguments);
                 myCurrent->reset(new NodeCollect);
 
                 if (firstElseStatement != -1) {

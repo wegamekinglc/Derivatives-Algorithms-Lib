@@ -11,18 +11,18 @@
 
 
 namespace Dal::Script {
-    class Debugger_ : public constVisitor<Debugger_> {
+    class Debugger_ : public ConstVisitor_<Debugger_> {
         String_ myPrefix;
         StaticStack_<String_> myStack;
 
         //	The main function call from every node visitor
-        void debug(const Node& node, const String_& nodeId) {
+        void debug(const Node_& node, const String_& nodeId) {
             //	One more tab
             myPrefix += '\t';
 
             //	Visit arguments, right to left
             for (auto it = node.arguments.rbegin(); it != node.arguments.rend(); ++it)
-                (*it)->accept(*this);
+                (*it)->Accept(*this);
 
             //	One less tab
             myPrefix.pop_back();
@@ -58,7 +58,7 @@ namespace Dal::Script {
         }
 
     public:
-        using constVisitor<Debugger_>::Visit;
+        using ConstVisitor_<Debugger_>::Visit;
 
         //	Access the top of the stack, contains the functional form after the tree is traversed
         const String_& String() const { return myStack.top(); }

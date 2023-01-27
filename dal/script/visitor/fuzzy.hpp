@@ -226,7 +226,7 @@ namespace Dal::Script {
         //	Inequality
 
         //	For visiting superior and supEqual
-        void visitComp(const compNode& node) {
+        void visitComp(const CompNode_& node) {
             //	Evaluate expression to be compared to 0
             visitNode(*node.arguments[0]);
             const T expr = myDstack.top();

@@ -19,7 +19,7 @@ namespace Dal {
             return false;
         if (!Date::IsDateString(String_(src.substr(0, space))))
             return false;
-        // accept anything with a date, space, something, colon, something
+        // Accept anything with a date, space, something, colon, something
         auto colon = src.find(':', space);
         return colon != String_::npos && colon > space + 1 && colon + 1 < src.size();
     }

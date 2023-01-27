@@ -13,7 +13,7 @@
 
 namespace Dal::Script {
 
-    template <class T, template <typename> class EVAL> class EvaluatorBase : public constVisitor<EVAL<T>> {
+    template <class T, template <typename> class EVAL> class EvaluatorBase : public ConstVisitor_<EVAL<T>> {
     protected:
         //	State
         Vector_<T> myVariables;
@@ -29,8 +29,8 @@ namespace Dal::Script {
         size_t myCurEvt;
 
     public:
-        using constVisitor<EVAL<T>>::Visit;
-        using constVisitor<EVAL<T>>::visitNode;
+        using ConstVisitor_<EVAL<T>>::Visit;
+        using ConstVisitor_<EVAL<T>>::visitNode;
 
         //	Constructor, nVar = number of variables, from Product after parsing and variable indexation
         EvaluatorBase(const size_t nVar) : myVariables(nVar) {}
@@ -80,7 +80,7 @@ namespace Dal::Script {
 
         //	Binaries
 
-        template <class OP> void visitBinary(const exprNode& node, OP op) {
+        template <class OP> void visitBinary(const ExprNode_& node, OP op) {
             visitNode(*node.arguments[0]);
             visitNode(*node.arguments[1]);
             op(myDstack[1], myDstack.top());
@@ -116,7 +116,7 @@ namespace Dal::Script {
         }
 
         //	Unaries
-        template <class OP> inline void visitUnary(const exprNode& node, OP op) {
+        template <class OP> inline void visitUnary(const ExprNode_& node, OP op) {
             visitNode(*node.arguments[0]);
             op(myDstack.top());
         }
@@ -171,7 +171,7 @@ namespace Dal::Script {
         }
 
         //	Conditions
-        template <class OP> inline void visitCondition(const boolNode& node, OP op) {
+        template <class OP> inline void visitCondition(const BoolNode_& node, OP op) {
             visitNode(*node.arguments[0]);
             myBstack.push(op(myDstack.top()));
             myDstack.pop();
@@ -231,7 +231,7 @@ namespace Dal::Script {
         }
 
         void Visit(const NodeAssign& node) {
-            const auto varIdx = downcast<NodeVar>(node.arguments[0])->index;
+            const auto varIdx = Downcast<NodeVar>(node.arguments[0])->index;
 
             //	Visit the RHS expression
             visitNode(*node.arguments[1]);
@@ -242,7 +242,7 @@ namespace Dal::Script {
         }
 
         void Visit(const NodePays& node) {
-            const auto varIdx = downcast<NodeVar>(node.arguments[0])->index;
+            const auto varIdx = Downcast<NodeVar>(node.arguments[0])->index;
 
             //	Visit the RHS expression
             visitNode(*node.arguments[1]);

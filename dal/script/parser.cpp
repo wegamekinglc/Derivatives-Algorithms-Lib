@@ -8,7 +8,7 @@
 
 
 namespace Dal::Script {
-    Expression Parser_::ParseExpr(TokIt_& cur, const TokIt_& end) {
+    Expression_ Parser_::ParseExpr(TokIt_& cur, const TokIt_& end) {
         auto lhs = ParseExprL2(cur, end);
         while (cur != end && ((*cur)[0] == '+' || (*cur)[0] == '-')) {
             char op = (*cur)[0];
@@ -20,7 +20,7 @@ namespace Dal::Script {
         return lhs;
     }
 
-    Expression Parser_::ParseExprL2(TokIt_& cur, const TokIt_& end) {
+    Expression_ Parser_::ParseExprL2(TokIt_& cur, const TokIt_& end) {
         auto lhs = ParseExprL3(cur, end);
         while (cur != end && ((*cur)[0] == '*' || (*cur)[0] == '/')) {
             char op = (*cur)[0];
@@ -32,7 +32,7 @@ namespace Dal::Script {
         return lhs;
     }
 
-    Expression Parser_::ParseExprL3(TokIt_& cur, const TokIt_& end) {
+    Expression_ Parser_::ParseExprL3(TokIt_& cur, const TokIt_& end) {
         auto lhs = ParseExprL4(cur, end);
         while (cur != end && (*cur)[0] == '^') {
             ++cur;
@@ -43,7 +43,7 @@ namespace Dal::Script {
         return lhs;
     }
 
-    Expression Parser_::ParseExprL4(TokIt_& cur, const TokIt_& end) {
+    Expression_ Parser_::ParseExprL4(TokIt_& cur, const TokIt_& end) {
         if (cur != end && ((*cur)[0] == '+' || (*cur)[0] == '-')) {
             char op = (*cur)[0];
             ++cur;
@@ -57,11 +57,11 @@ namespace Dal::Script {
         return ParseParentheses<ParseExpr, ParseVarConstFunc>(cur, end);
     }
 
-    Expression Parser_::ParseVarConstFunc(TokIt_& cur, const TokIt_& end) {
+    Expression_ Parser_::ParseVarConstFunc(TokIt_& cur, const TokIt_& end) {
         if ((*cur)[0] == '.' || ((*cur)[0] >= '0' && (*cur)[0] <= '9'))
             return ParseConst(cur);
 
-        Expression top;
+        Expression_ top;
         bool empty = true;
         unsigned minArg, maxArg;
         if(*cur == "SPOT") {
@@ -104,33 +104,33 @@ namespace Dal::Script {
         return ParseVar(cur);
     }
 
-    Expression Parser_::ParseConst(TokIt_& cur) {
+    Expression_ Parser_::ParseConst(TokIt_& cur) {
         double v = String::ToDouble(*cur);
         auto top = MakeNode<NodeConst>(v);
         ++cur;
         return std::move(top);
     }
 
-    Expression Parser_::ParseVar(TokIt_& cur) {
+    Expression_ Parser_::ParseVar(TokIt_& cur) {
         REQUIRE2((*cur)[0] >= 'A' && (*cur)[0] <= 'z', String_("Variable name ") + *cur + " is invalid", ScriptError_);
         auto top = MakeNode<NodeVar>(String_(*cur));
         ++cur;
         return std::move(top);
     }
 
-    Statement Parser_::ParseIf(TokIt_& cur, const TokIt_& end) {
+    Statement_ Parser_::ParseIf(TokIt_& cur, const TokIt_& end) {
         ++cur;
         REQUIRE2(cur != end, "`if` is not followed by `then`", ScriptError_);
         auto cond = ParseCond(cur, end);
         if (cur == end || *cur != "then")
             THROW2("`if` is not followed by `then`", ScriptError_);
         ++cur;
-        Vector_<Statement> stats;
+        Vector_<Statement_> stats;
         while (cur != end && *cur != "ELSE" && *cur != "ENDIF")
             stats.push_back(ParseStatement(cur, end));
 
         REQUIRE2(cur != end, "`if/then` is not followed by `else` or `endif`", ScriptError_);
-        Vector_<Statement> elseStats;
+        Vector_<Statement_> elseStats;
         int elseIdx = -1;
         while (*cur == "ELSE") {
             ++cur;
@@ -153,21 +153,21 @@ namespace Dal::Script {
         return std::move(top);
     }
 
-    Statement Parser_::ParseAssign(TokIt_& cur, const TokIt_& end, Expression& lhs) {
+    Statement_ Parser_::ParseAssign(TokIt_& cur, const TokIt_& end, Expression_& lhs) {
         ++cur;
         REQUIRE2(cur != end, "unexpected end of statement", ScriptError_);
         auto rhs = ParseExpr(cur, end);
         return MakeBaseBinary<NodeAssign>(lhs, rhs);
     }
 
-    Statement Parser_::ParsePays(TokIt_& cur, const TokIt_& end, Expression& lhs) {
+    Statement_ Parser_::ParsePays(TokIt_& cur, const TokIt_& end, Expression_& lhs) {
         ++cur;
         REQUIRE2(cur != end, "unexpected end of statement", ScriptError_);
         auto rhs = ParseExpr(cur, end);
         return MakeBaseBinary<NodePays>(lhs, rhs);
     }
 
-    Expression Parser_::ParseCond(TokIt_& cur, const TokIt_& end) {
+    Expression_ Parser_::ParseCond(TokIt_& cur, const TokIt_& end) {
         auto lhs = ParseCondL2(cur, end);
         while (cur != end && *cur == "OR") {
             ++cur;
@@ -178,7 +178,7 @@ namespace Dal::Script {
         return lhs;
     }
 
-    Expression Parser_::ParseCondL2(TokIt_& cur, const TokIt_& end) {
+    Expression_ Parser_::ParseCondL2(TokIt_& cur, const TokIt_& end) {
         auto lhs = ParseParentheses<ParseCond, ParseCondElem>(cur, end);
         while (cur != end && *cur == "AND") {
             ++cur;
@@ -189,7 +189,7 @@ namespace Dal::Script {
         return lhs;
     }
 
-    Expression Parser_::ParseCondElem(TokIt_& cur, const TokIt_& end) {
+    Expression_ Parser_::ParseCondElem(TokIt_& cur, const TokIt_& end) {
         auto lhs = ParseExpr(cur, end);
         REQUIRE2(cur != end, "unexpected end of statement", ScriptError_);
         String_ comparator = *cur;
@@ -228,12 +228,12 @@ namespace Dal::Script {
         }
     }
 
-    Vector_<Expression> Parser_::ParseFuncArg(TokIt_& cur, const TokIt_& end) {
+    Vector_<Expression_> Parser_::ParseFuncArg(TokIt_& cur, const TokIt_& end) {
         REQUIRE2((*cur)[0] == '(', "No opening ( following function name", ScriptError_);
         TokIt_ closeIt = FindMatch<'(', ')'>(cur, end);
 
         //	Parse expressions between parentheses
-        Vector_<Expression> args;
+        Vector_<Expression_> args;
         ++cur;
         while (cur != closeIt) {
             args.push_back(ParseExpr(cur, end));
@@ -246,7 +246,7 @@ namespace Dal::Script {
         return args;
     }
 
-    Expression Parser_::BuildEqual(Expression& lhs, Expression& rhs, double eps) {
+    Expression_ Parser_::BuildEqual(Expression_& lhs, Expression_& rhs, double eps) {
         auto expr = MakeBaseBinary<NodeSub>(lhs, rhs);
         auto top = MakeNode<NodeEqual>();
         top->arguments.Resize(1);
@@ -255,7 +255,7 @@ namespace Dal::Script {
         return top;
     }
 
-    Expression Parser_::BuildDifferent(Expression& lhs, Expression& rhs, double eps) {
+    Expression_ Parser_::BuildDifferent(Expression_& lhs, Expression_& rhs, double eps) {
         auto eq = BuildEqual(lhs, rhs, eps);
         auto top = std::make_unique<NodeNot>();
         top->arguments.Resize(1);
@@ -263,7 +263,7 @@ namespace Dal::Script {
         return top;
     }
 
-    Expression Parser_::BuildSuperior(Expression& lhs, Expression& rhs, double eps) {
+    Expression_ Parser_::BuildSuperior(Expression_& lhs, Expression_& rhs, double eps) {
         auto eq = MakeBaseBinary<NodeSub>(lhs, rhs);
         auto top = MakeNode<NodeSup>();
         top->arguments.Resize(1);
@@ -272,7 +272,7 @@ namespace Dal::Script {
         return top;
     }
 
-    Expression Parser_::BuildSupEqual(Expression& lhs, Expression& rhs, double eps) {
+    Expression_ Parser_::BuildSupEqual(Expression_& lhs, Expression_& rhs, double eps) {
         auto eq = MakeBaseBinary<NodeSub>(lhs, rhs);
         auto top = MakeNode<NodeSupEqual>();
         top->arguments.Resize(1);
@@ -281,7 +281,7 @@ namespace Dal::Script {
         return top;
     }
 
-    Statement Parser_::ParseStatement(TokIt_& cur, const TokIt_& end) {
+    Statement_ Parser_::ParseStatement(TokIt_& cur, const TokIt_& end) {
         if (*cur == "IF")
             return ParseIf(cur, end);
         auto lhs = ParseVar(cur);

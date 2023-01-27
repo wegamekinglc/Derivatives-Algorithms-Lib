@@ -11,25 +11,25 @@
 
 namespace Dal::Script {
 
-    template <class V> struct Visitor {
+    template <class V_> struct Visitor_ {
         //  Visit a node with concrete visitor
         //      use this to hide the statc_cast
-        void visitNode(Node& node) {
+        void visitNode(Node_& node) {
             //  static_cast : Visit as concrete visitor
-            node.accept(static_cast<V&>(*this));
+            node.Accept(static_cast<V_&>(*this));
         }
 
-        //  Visit all the arguments with concrete (type V) visitor
-        void visitArguments(Node& node) {
+        //  Visit all the arguments with concrete (type V_) visitor
+        void visitArguments(Node_& node) {
             for (auto& arg : node.arguments) {
                 //  static_cast : Visit as concrete visitor
-                arg->accept(static_cast<V&>(*this));
+                arg->Accept(static_cast<V_&>(*this));
             }
         }
 
         //  Default catch all = Visit arguments
-        void Visit(Node& node) {
-            //  V does not declare a Visit to that node type,
+        void Visit(Node_& node) {
+            //  V_ does not declare a Visit to that node type,
             //      either const or non const - fall back to default Visit arguments
             visitArguments(node);
         }
@@ -37,63 +37,63 @@ namespace Dal::Script {
 
     //  Const visitor
 
-    template <class V> struct constVisitor {
-        void visitNode(const Node& node) {
+    template <class V_> struct ConstVisitor_ {
+        void visitNode(const Node_& node) {
             //  static_cast : Visit as concrete visitor
-            node.accept(static_cast<V&>(*this));
+            node.Accept(static_cast<V_&>(*this));
         }
 
-        void visitArguments(const Node& node) {
+        void visitArguments(const Node_& node) {
             for (const auto& arg : node.arguments) {
-                //  static_cast : Visit as visitor of type V
-                arg->accept(static_cast<V&>(*this));
+                //  static_cast : Visit as visitor of type V_
+                arg->Accept(static_cast<V_&>(*this));
             }
         }
 
         template <class NODE> void Visit(const NODE& node) {
             //  Const visitors cannot declare non const visits: we check that and produce a compilation error
-            // static_assert(!hasNonConstVisit<V>::forNodeType<NODE>(), "CONST VISITOR DECLARES A NON-CONST VISIT");
+            // static_assert(!HasNonConstVisit_<V_>::ForNodeType<NODE>(), "CONST VISITOR DECLARES A NON-CONST VISIT");
 
-            //  V does not declare a Visit to that node type,
+            //  V_ does not declare a Visit to that node type,
             //      either const or non const - fall back to visiting arguments
             visitArguments(node);
         }
     };
 
-    //  Visitable classes
+    //  Visitable_ classes
 
-    //  Base Node must inherit visitableBase
-    //      so it (automatically) declares pure virtual accept methods for all visitors on the list
+    //  Base Node_ must inherit visitableBase
+    //      so it (automatically) declares pure virtual Accept methods for all visitors on the list
 
-    //  Concrete Nodes must inherit Visitable
+    //  Concrete Nodes must inherit Visitable_
     //      so they (automatically) declare overrides accepts for all visitors on the list
 
     /*
     Note that despite the complexity of that meta code, its use is trivial:
 
-    To declare struct Node : VisitableBase<Visitor1, Visitor2, ...> {};
+    To declare struct Node_ : VisitableBase_<Visitor1, Visitor2, ...> {};
 
         is only sugar for :
 
-        struct Node
+        struct Node_
         {
-            virtual void accept(Visitor1&) = 0;
-            virtual void accept(Visitor2&) = 0;
+            virtual void Accept(Visitor1&) = 0;
+            virtual void Accept(Visitor2&) = 0;
             ...
         };
 
-    And to declare a concrete node (say, NodeAdd) as NodeAdd : Visitable<Node, AddNode, Visitor1, Visitor2, ...> {};
+    And to declare a concrete node (say, NodeAdd) as NodeAdd : Visitable_<Node_, AddNode, Visitor1, Visitor2, ...> {};
 
         is sugar for:
 
-        struct NodeAdd : Node
+        struct NodeAdd : Node_
         {
-            void accept(Visitor1& v) override
+            void Accept(Visitor1& v) override
             {
                 v.Visit(*this);
             }
 
-            void accept(Visitor2& v) override
+            void Accept(Visitor2& v) override
             {
                 v.Visit(*this);
             }

@@ -76,17 +76,17 @@ namespace Dal::Script {
             }
         }
 
-        template <class V_> void Visit(Visitor<V_>& v) {
+        template <class V_> void Visit(Visitor_<V_>& v) {
             for (auto& evt : events_) {
                 for (auto& stat : evt)
-                    stat->accept(static_cast<V_&>(v));
+                    stat->Accept(static_cast<V_&>(v));
             }
         }
 
-        template <class V_> void Visit(constVisitor<V_>& v) const {
+        template <class V_> void Visit(ConstVisitor_<V_>& v) const {
             for (const auto& evt : events_) {
                 for (const auto& stat : evt)
-                    stat->accept(static_cast<V_&>(v));
+                    stat->Accept(static_cast<V_&>(v));
             }
         }
 
@@ -96,7 +96,7 @@ namespace Dal::Script {
             for (size_t i = 0; i < events_.size(); ++i) {
                 eval.SetCurEvt(i);
                 for (auto& statIt : events_[i])
-                    statIt->accept(eval);
+                    statIt->Accept(eval);
             }
         }
 

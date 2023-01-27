@@ -46,7 +46,7 @@ namespace Dal::Script {
 
     */
 
-    class DomainProcessor_ : public Visitor<DomainProcessor_> {
+    class DomainProcessor_ : public Visitor_<DomainProcessor_> {
         //	Fuzzy?
         const bool myFuzzy;
 
@@ -65,7 +65,7 @@ namespace Dal::Script {
         size_t myLhsVarIdx;
 
     public:
-        using Visitor<DomainProcessor_>::Visit;
+        using Visitor_<DomainProcessor_>::Visit;
 
         //	Domains start with the singleton 0
         DomainProcessor_(const size_t nVar, const bool fuzzy)
@@ -366,7 +366,7 @@ namespace Dal::Script {
             size_t lastTrueStat = node.firstElse == -1 ? node.arguments.size() - 1 : node.firstElse - 1;
 
             //	Visit condition
-            node.arguments[0]->accept(*this);
+            node.arguments[0]->Accept(*this);
 
             //	Always true/false?
             CondProp cp = myCondStack.top();
@@ -377,14 +377,14 @@ namespace Dal::Script {
                 node.alwaysFalse = false;
                 //	Visit "if true" statements
                 for (size_t i = 1; i <= lastTrueStat; ++i)
-                    node.arguments[i]->accept(*this);
+                    node.arguments[i]->Accept(*this);
             } else if (cp == alwaysFalse) {
                 node.alwaysTrue = false;
                 node.alwaysFalse = true;
                 //	Visit "if false" statements, if any
                 if (node.firstElse != -1)
                     for (size_t i = node.firstElse; i < node.arguments.size(); ++i)
-                        node.arguments[i]->accept(*this);
+                        node.arguments[i]->Accept(*this);
             } else {
                 node.alwaysTrue = node.alwaysFalse = false;
 
@@ -395,7 +395,7 @@ namespace Dal::Script {
 
                 //	Execute if statements
                 for (size_t i = 1; i <= lastTrueStat; ++i)
-                    node.arguments[i]->accept(*this);
+                    node.arguments[i]->Accept(*this);
 
                 //	Record variable domain after if statements are executed
                 Vector_<Domain> domStore1(node.affectedVars.size());
@@ -409,7 +409,7 @@ namespace Dal::Script {
                 //	Execute else statements if any
                 if (node.firstElse != -1)
                     for (size_t i = node.firstElse; i < node.arguments.size(); ++i)
-                        node.arguments[i]->accept(*this);
+                        node.arguments[i]->Accept(*this);
 
                 //	Merge domains
                 for (size_t i = 0; i < node.affectedVars.size(); ++i)
@@ -420,11 +420,11 @@ namespace Dal::Script {
         void Visit(NodeAssign& node) {
             //	Visit the LHS variable
             myLhsVar = true;
-            node.arguments[0]->accept(*this);
+            node.arguments[0]->Accept(*this);
             myLhsVar = false;
 
             //	Visit the RHS expression
-            node.arguments[1]->accept(*this);
+            node.arguments[1]->Accept(*this);
 
             //	Write RHS domain into variable
             myVarDomains[myLhsVarIdx] = myDomStack.top();
@@ -436,11 +436,11 @@ namespace Dal::Script {
         void Visit(NodePays& node) {
             //	Visit the LHS variable
             myLhsVar = true;
-            node.arguments[0]->accept(*this);
+            node.arguments[0]->Accept(*this);
             myLhsVar = false;
 
             //	Visit the RHS expression
-            node.arguments[1]->accept(*this);
+            node.arguments[1]->Accept(*this);
 
             //	Write RHS domain into variable
 

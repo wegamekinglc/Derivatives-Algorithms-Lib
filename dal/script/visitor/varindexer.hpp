@@ -12,14 +12,14 @@
 
 namespace Dal::Script {
 
-    class VarIndexer_ : public Visitor<VarIndexer_>
+    class VarIndexer_ : public Visitor_<VarIndexer_>
     {
         //	State
         std::map<String_, size_t>	myVarMap;
 
     public:
 
-        using Visitor<VarIndexer_>::Visit;
+        using Visitor_<VarIndexer_>::Visit;
 
         //	Access vector of variable names v[index]=name after Visit to all events
         Vector_<String_> getVarNames() const

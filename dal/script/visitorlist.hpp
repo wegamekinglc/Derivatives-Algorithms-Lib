@@ -32,56 +32,54 @@ namespace Dal::Script {
 
     //  Various meta-programming utilities
 
-    //  Is V a const visitor?
+    //  Is V_ a const visitor?
 
-    template <class V>
-    inline constexpr bool isVisitorConst()
+    template <class V_>
+    inline constexpr bool IsVisitorConst()
     {
-        return Pack<CVISITORS>::includes<V>();
+        return Pack_<CVISITORS>::Includes<V_>();
     }
 
-    //  Use : isVisitorConst<V>() returns true if V is const, or false
-    //  isVisitorConst() resolves at compile time
+    //  Use : IsVisitorConst<V_>() returns true if V_ is const, or false
+    //  IsVisitorConst() resolves at compile time
 
-    //  Does V have a Visit for a const N? A non-const N?
+    //  Does V_ have a Visit for a const N_? A non-const N_?
 
-    template <typename V>
-    struct hasNonConstVisit
-    {
-        template <typename N, void (V::*) (N&) = &V::Visit>
-        static bool constexpr forNodeType()
+    template <typename V_>
+    struct HasNonConstVisit_ {
+        template <typename N_, void (V_::*) (N_&) = &V_::Visit>
+        static bool constexpr ForNodeType()
         {
             return true;
         }
 
-        template <typename N>
-        static bool constexpr forNodeType(...)
+        template <typename N_>
+        static bool constexpr ForNodeType(...)
         {
             return false;
         }
     };
 
-    template <typename V>
-    struct hasConstVisit
-    {
-        template <typename N, void (V::*) (const N&) = &V::Visit>
-        static bool constexpr forNodeType()
+    template <typename V_>
+    struct HasConstVisit_ {
+        template <typename N_, void (V_::*) (const N_&) = &V_::Visit>
+        static bool constexpr ForNodeType()
         {
             return true;
         }
 
-        template <typename N>
-        static bool constexpr forNodeType(...)
+        template <typename N_>
+        static bool constexpr ForNodeType(...)
         {
             return false;
         }
     };
 
-    //  Use: hasConstVisit<V>::forNodeType<N>() returns true
-    //      if V declares a method void Visit(const N&)
+    //  Use: HasConstVisit_<V_>::ForNodeType<N_>() returns true
+    //      if V_ declares a method void Visit(const N_&)
     //      false otherwise
     //  Everything resolves at compile time
-    //  hasNonConstVisit is the same: hasNonConstVisit<V>::forNodeType<N>()
-    //      returns true if V declares void Visit(N&)
+    //  HasNonConstVisit_ is the same: HasNonConstVisit_<V_>::ForNodeType<N_>()
+    //      returns true if V_ declares void Visit(N_&)
 
 }

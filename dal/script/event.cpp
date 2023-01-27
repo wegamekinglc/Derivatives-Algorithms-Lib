@@ -80,8 +80,8 @@ namespace Dal::Script {
             ost << "Event_: " << ++e << std::endl;
             unsigned s = 0;
             for (const auto& stat : evtIt) {
-                stat->accept(d);
-                ost << "Statement: " << ++s << std::endl;
+                stat->Accept(d);
+                ost << "Statement_: " << ++s << std::endl;
                 ost << d.String() << std::endl;
             }
         }
@@ -109,7 +109,7 @@ namespace Dal::Script {
             //	Loop over statements in event
             for (auto& stat : evt) {
                 //	Visit statement
-                stat->accept(comp);
+                stat->Accept(comp);
             }
 
             //  Get compiled

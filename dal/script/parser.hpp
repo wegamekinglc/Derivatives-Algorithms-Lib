@@ -42,11 +42,11 @@ namespace Dal::Script {
         }
 
         // Parentheses, Level5
-        typedef Expression (*ParseFunc)(TokIt_&, const TokIt_&);
+        typedef Expression_ (*ParseFunc)(TokIt_&, const TokIt_&);
 
         template <ParseFunc FuncOnMatch, ParseFunc FuncOnNoMatch>
-        static Expression ParseParentheses( TokIt_& cur, const TokIt_& end) {
-            Expression tree;
+        static Expression_ ParseParentheses( TokIt_& cur, const TokIt_& end) {
+            Expression_ tree;
 
             // Do we have an opening '('?
             if( *cur == "(") {
@@ -70,36 +70,36 @@ namespace Dal::Script {
         static void ParseCondOptionals(TokIt_& cur, const TokIt_& end, double& eps);
 
         // Expressions
-        static Statement ParseAssign(TokIt_& cur, const TokIt_& end, Expression & lhs);
-        static Statement ParsePays(TokIt_& cur, const TokIt_& end, Expression& lhs);
+        static Statement_ ParseAssign(TokIt_& cur, const TokIt_& end, Expression_& lhs);
+        static Statement_ ParsePays(TokIt_& cur, const TokIt_& end, Expression_& lhs);
 
         // Parent, Level1, '+' and '-'
-        static Expression ParseExpr(TokIt_& cur, const TokIt_& end);
+        static Expression_ ParseExpr(TokIt_& cur, const TokIt_& end);
         // Level2, '*' and '/'
-        static Expression ParseExprL2(TokIt_& cur, const TokIt_& end);
+        static Expression_ ParseExprL2(TokIt_& cur, const TokIt_& end);
         // Level3, '^'
-        static Expression ParseExprL3(TokIt_& cur, const TokIt_& end);
+        static Expression_ ParseExprL3(TokIt_& cur, const TokIt_& end);
         // Level 4, unaries
-        static Expression ParseExprL4(TokIt_& cur, const TokIt_& end);
+        static Expression_ ParseExprL4(TokIt_& cur, const TokIt_& end);
 
         // Level 6, variables, constants, functions
-        static Expression ParseVarConstFunc(TokIt_& cur, const TokIt_& end);
-        static Expression ParseConst(TokIt_& cur);
-        static Expression ParseVar(TokIt_& cur);
-        static Expression ParseCond(TokIt_& cur, const TokIt_& end);
-        static Expression ParseCondL2(TokIt_& cur, const TokIt_& end);
-        static Expression ParseCondElem(TokIt_& cur, const TokIt_& end);
-        static Vector_<Expression> ParseFuncArg(TokIt_& cur, const TokIt_& end);
+        static Expression_ ParseVarConstFunc(TokIt_& cur, const TokIt_& end);
+        static Expression_ ParseConst(TokIt_& cur);
+        static Expression_ ParseVar(TokIt_& cur);
+        static Expression_ ParseCond(TokIt_& cur, const TokIt_& end);
+        static Expression_ ParseCondL2(TokIt_& cur, const TokIt_& end);
+        static Expression_ ParseCondElem(TokIt_& cur, const TokIt_& end);
+        static Vector_<Expression_> ParseFuncArg(TokIt_& cur, const TokIt_& end);
 
-        static Statement ParseIf(TokIt_& cur, const TokIt_& end);
+        static Statement_ ParseIf(TokIt_& cur, const TokIt_& end);
 
-        static Expression BuildEqual(Expression& lhs, Expression& rhs, double eps);
-        static Expression BuildDifferent(Expression& lhs, Expression& rhs, double eps);
-        static Expression BuildSuperior(Expression& lhs, Expression& rhs, double eps);
-        static Expression BuildSupEqual(Expression& lhs, Expression& rhs, double eps);
+        static Expression_ BuildEqual(Expression_& lhs, Expression_& rhs, double eps);
+        static Expression_ BuildDifferent(Expression_& lhs, Expression_& rhs, double eps);
+        static Expression_ BuildSuperior(Expression_& lhs, Expression_& rhs, double eps);
+        static Expression_ BuildSupEqual(Expression_& lhs, Expression_& rhs, double eps);
 
     public:
-        static Statement ParseStatement(TokIt_& cur, const TokIt_& end);
+        static Statement_ ParseStatement(TokIt_& cur, const TokIt_& end);
     };
 
     Vector_<String_> Tokenize(const String_& str);

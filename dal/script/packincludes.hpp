@@ -6,15 +6,15 @@
 #include <type_traits>
 
 namespace Dal::Script {
-    template <typename... Vs> struct Pack;
+    template <typename... Vs_> struct Pack_;
 
-    template <typename V> struct Pack<V> {
-        template <class T> static constexpr bool includes() { return std::is_same<V, T>::value; }
+    template <typename V_> struct Pack_<V_> {
+        template <class T> static constexpr bool Includes() { return std::is_same<V_, T>::value; }
     };
 
-    template <typename V, typename... Vs> struct Pack<V, Vs...> {
-        template <class T> static constexpr bool includes() {
-            return Pack<V>::template includes<T>() || Pack<Vs...>::template includes<T>();
+    template <typename V_, typename... Vs_> struct Pack_<V_, Vs_...> {
+        template <class T> static constexpr bool Includes() {
+            return Pack_<V_>::template Includes<T>() || Pack_<Vs_...>::template Includes<T>();
         }
     };
 }

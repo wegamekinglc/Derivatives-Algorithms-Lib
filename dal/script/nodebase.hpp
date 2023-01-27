@@ -8,76 +8,76 @@
 #include <dal/script/visitorlist.hpp>
 
 namespace Dal::Script {
-    struct Node;
-    using ExprTree = std::unique_ptr<Node>;
-    using Expression = ExprTree;
-    using Statement = ExprTree;
-    using Event_ = Vector_<Statement>;
+    struct Node_;
+    using ExprTree_ = std::unique_ptr<Node_>;
+    using Expression_ = ExprTree_;
+    using Statement_ = ExprTree_;
+    using Event_ = Vector_<Statement_>;
 
-    //  Visitable Base
+    //  Visitable_ Base
 
-    template <typename V, bool CONST> struct BaseImpl;
+    template <typename V_, bool CONST> struct BaseImpl_;
 
-    template <typename V> struct BaseImpl<V, false> {
-        virtual void accept(V& visitor) = 0;
+    template <typename V_> struct BaseImpl_<V_, false> {
+        virtual void Accept(V_& visitor) = 0;
     };
 
-    template <typename V> struct BaseImpl<V, true> {
-        virtual void accept(V& visitor) const = 0;
+    template <typename V_> struct BaseImpl_<V_, true> {
+        virtual void Accept(V_& visitor) const = 0;
     };
 
-    template <typename... Vs> struct VisitableBase;
+    template <typename... Vs_> struct VisitableBase_;
 
-    template <typename V> struct VisitableBase<V> : public BaseImpl<V, isVisitorConst<V>()> {
-        using BaseImpl<V, isVisitorConst<V>()>::accept;
+    template <typename V_> struct VisitableBase_<V_> : public BaseImpl_<V_, IsVisitorConst<V_>()> {
+        using BaseImpl_<V_, IsVisitorConst<V_>()>::Accept;
     };
 
-    template <typename V, typename... Vs> struct VisitableBase<V, Vs...> : public VisitableBase<V>, VisitableBase<Vs...> {
-        using VisitableBase<V>::accept;
-        using VisitableBase<Vs...>::accept;
+    template <typename V_, typename... Vs_> struct VisitableBase_<V_, Vs_...> : public VisitableBase_<V_>, VisitableBase_<Vs_...> {
+        using VisitableBase_<V_>::Accept;
+        using VisitableBase_<Vs_...>::Accept;
     };
 
-    //  Visitable
+    //  Visitable_
 
-    template <typename V, typename Base, typename Concrete, bool CONST, typename... Vs> struct DerImpl;
+    template <typename V_, typename Base_, typename Concrete_, bool CONST, typename... Vs_> struct DerImpl_;
 
-    template <typename V, typename Base, typename Concrete> struct DerImpl<V, Base, Concrete, false> : public Base {
-        void accept(V& visitor) override { visitor.Visit(static_cast<Concrete&>(*this)); }
+    template <typename V_, typename Base_, typename Concrete_> struct DerImpl_<V_, Base_, Concrete_, false> : public Base_ {
+        void Accept(V_& visitor) override { visitor.Visit(static_cast<Concrete_&>(*this)); }
     };
 
-    template <typename V, typename Base, typename Concrete> struct DerImpl<V, Base, Concrete, true> : public Base {
-        void accept(V& visitor) const override { visitor.Visit(static_cast<const Concrete&>(*this)); }
+    template <typename V_, typename Base_, typename Concrete_> struct DerImpl_<V_, Base_, Concrete_, true> : public Base_ {
+        void Accept(V_& visitor) const override { visitor.Visit(static_cast<const Concrete_&>(*this)); }
     };
 
-    template <typename Base, typename Concrete, typename... Vs> struct Visitable;
+    template <typename Base_, typename Concrete_, typename... Vs_> struct Visitable_;
 
-    template <typename Base, typename Concrete, typename V>
-    struct Visitable<Base, Concrete, V> : public DerImpl<V, Base, Concrete, isVisitorConst<V>()> {
-        using DerImpl<V, Base, Concrete, isVisitorConst<V>()>::accept;
+    template <typename Base_, typename Concrete_, typename V_>
+    struct Visitable_<Base_, Concrete_, V_> : public DerImpl_<V_, Base_, Concrete_, IsVisitorConst<V_>()> {
+        using DerImpl_<V_, Base_, Concrete_, IsVisitorConst<V_>()>::Accept;
     };
 
-    template <typename V, typename Base, typename Concrete, typename... Vs>
-    struct DerImpl<V, Base, Concrete, false, Vs...> : public Visitable<Base, Concrete, Vs...> {
-        using Visitable<Base, Concrete, Vs...>::accept;
+    template <typename V_, typename Base_, typename Concrete_, typename... Vs_>
+    struct DerImpl_<V_, Base_, Concrete_, false, Vs_...> : public Visitable_<Base_, Concrete_, Vs_...> {
+        using Visitable_<Base_, Concrete_, Vs_...>::Accept;
 
-        void accept(V& visitor) override { visitor.Visit(static_cast<Concrete&>(*this)); }
+        void Accept(V_& visitor) override { visitor.Visit(static_cast<Concrete_&>(*this)); }
     };
 
-    template <typename V, typename Base, typename Concrete, typename... Vs>
-    struct DerImpl<V, Base, Concrete, true, Vs...> : public Visitable<Base, Concrete, Vs...> {
-        using Visitable<Base, Concrete, Vs...>::accept;
+    template <typename V_, typename Base_, typename Concrete_, typename... Vs_>
+    struct DerImpl_<V_, Base_, Concrete_, true, Vs_...> : public Visitable_<Base_, Concrete_, Vs_...> {
+        using Visitable_<Base_, Concrete_, Vs_...>::Accept;
 
-        void accept(V& visitor) const override { visitor.Visit(static_cast<const Concrete&>(*this)); }
+        void Accept(V_& visitor) const override { visitor.Visit(static_cast<const Concrete_&>(*this)); }
     };
 
-    template <typename Base, typename Concrete, typename V, typename... Vs>
-    struct Visitable<Base, Concrete, V, Vs...> : public DerImpl<V, Base, Concrete, isVisitorConst<V>(), Vs...> {
-        using DerImpl<V, Base, Concrete, isVisitorConst<V>(), Vs...>::accept;
+    template <typename Base_, typename Concrete_, typename V_, typename... Vs_>
+    struct Visitable_<Base_, Concrete_, V_, Vs_...> : public DerImpl_<V_, Base_, Concrete_, IsVisitorConst<V_>(), Vs_...> {
+        using DerImpl_<V_, Base_, Concrete_, IsVisitorConst<V_>(), Vs_...>::Accept;
     };
 
-    struct Node : public VisitableBase<VISITORS> {
-        using VisitableBase<VISITORS>::accept;
-        Vector_<ExprTree> arguments;
-        virtual ~Node() {}
+    struct Node_ : public VisitableBase_<VISITORS> {
+        using VisitableBase_<VISITORS>::Accept;
+        Vector_<ExprTree_> arguments;
+        virtual ~Node_() {}
     };
 }

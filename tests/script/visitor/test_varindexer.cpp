@@ -9,14 +9,14 @@ using namespace Dal;
 using namespace Dal::Script;
 
 TEST(VarIndexerTest, TestVarIndexerVisit) {
-    Expression var1 = MakeBaseNode<NodeVar>("x");
-    Expression var2 = MakeBaseNode<NodeVar>("y");
-    Expression const1 = MakeBaseNode<NodeConst>(20);
+    Expression_ var1 = MakeBaseNode<NodeVar>("x");
+    Expression_ var2 = MakeBaseNode<NodeVar>("y");
+    Expression_ const1 = MakeBaseNode<NodeConst>(20);
 
     VarIndexer_ visitor;
-    var1->accept(visitor);
-    const1->accept(visitor);
-    var2->accept(visitor);
+    var1->Accept(visitor);
+    const1->Accept(visitor);
+    var2->Accept(visitor);
 
     ASSERT_EQ(dynamic_cast<NodeVar*>(var1.get())->index, 0);
     ASSERT_EQ(dynamic_cast<NodeVar*>(var2.get())->index, 1);
