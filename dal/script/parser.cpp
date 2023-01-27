@@ -50,8 +50,8 @@ namespace Dal::Script {
             REQUIRE2(cur != end, "unexpected end of statement", ScriptError_);
             auto rhs = ParseExprL4(cur, end);
             auto top = op == '+' ? MakeBaseNode<NodeUplus>() : MakeBaseNode<NodeUminus>();
-            top->arguments.Resize( 1);
-            top->arguments[0] = move( rhs);
+            top->arguments_.Resize( 1);
+            top->arguments_[0] = move( rhs);
             return top;
         }
         return ParseParentheses<ParseExpr, ParseVarConstFunc>(cur, end);
@@ -91,10 +91,10 @@ namespace Dal::Script {
             String_ func = *cur;
             ++cur;
 
-            //	Matched a function, parse its arguments and check
-            top->arguments = ParseFuncArg(cur, end);
-            if( top->arguments.size() < minArg || top->arguments.size() > maxArg)
-                THROW2(String_( "Function ") + func + String_(": wrong number of arguments"), ScriptError_);
+            //	Matched a function, parse its arguments_ and check
+            top->arguments_ = ParseFuncArg(cur, end);
+            if( top->arguments_.size() < minArg || top->arguments_.size() > maxArg)
+                THROW2(String_( "Function ") + func + String_(": wrong number of arguments_"), ScriptError_);
 
             //	Return
             return top;
@@ -141,12 +141,12 @@ namespace Dal::Script {
         }
 
         auto top = MakeNode<NodeIf>();
-        top->arguments.Resize(1 + stats.size() + elseStats.size());
-        top->arguments[0] = std::move(cond);
+        top->arguments_.Resize(1 + stats.size() + elseStats.size());
+        top->arguments_[0] = std::move(cond);
         for (auto i = 0; i < stats.size(); ++i)
-            top->arguments[i + 1] = std::move(stats[i]);
+            top->arguments_[i + 1] = std::move(stats[i]);
         for (auto i = 0; i < elseStats.size(); ++i)
-            top->arguments[i + elseIdx] = std::move(elseStats[i]);
+            top->arguments_[i + elseIdx] = std::move(elseStats[i]);
         top->firstElse_ = elseIdx;
 
         ++cur;
@@ -249,8 +249,8 @@ namespace Dal::Script {
     Expression_ Parser_::BuildEqual(Expression_& lhs, Expression_& rhs, double eps) {
         auto expr = MakeBaseBinary<NodeSub>(lhs, rhs);
         auto top = MakeNode<NodeEqual>();
-        top->arguments.Resize(1);
-        top->arguments[0] = std::move(expr);
+        top->arguments_.Resize(1);
+        top->arguments_[0] = std::move(expr);
         top->eps_ = eps;
         return top;
     }
@@ -258,16 +258,16 @@ namespace Dal::Script {
     Expression_ Parser_::BuildDifferent(Expression_& lhs, Expression_& rhs, double eps) {
         auto eq = BuildEqual(lhs, rhs, eps);
         auto top = std::make_unique<NodeNot>();
-        top->arguments.Resize(1);
-        top->arguments[0] = std::move(eq);
+        top->arguments_.Resize(1);
+        top->arguments_[0] = std::move(eq);
         return top;
     }
 
     Expression_ Parser_::BuildSuperior(Expression_& lhs, Expression_& rhs, double eps) {
         auto eq = MakeBaseBinary<NodeSub>(lhs, rhs);
         auto top = MakeNode<NodeSup>();
-        top->arguments.Resize(1);
-        top->arguments[0] = std::move(eq);
+        top->arguments_.Resize(1);
+        top->arguments_[0] = std::move(eq);
         top->eps_ = eps;
         return top;
     }
@@ -275,8 +275,8 @@ namespace Dal::Script {
     Expression_ Parser_::BuildSupEqual(Expression_& lhs, Expression_& rhs, double eps) {
         auto eq = MakeBaseBinary<NodeSub>(lhs, rhs);
         auto top = MakeNode<NodeSupEqual>();
-        top->arguments.Resize(1);
-        top->arguments[0] = std::move(eq);
+        top->arguments_.Resize(1);
+        top->arguments_[0] = std::move(eq);
         top->eps_ = eps;
         return top;
     }

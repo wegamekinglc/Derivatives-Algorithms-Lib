@@ -26,21 +26,21 @@ namespace Dal::Script {
         //	State
 
         //  Const status of variables
-        Vector_<char> myVarConst;
-        Vector_<double> myVarConstVal;
+        Vector_<char> varConst_;
+        Vector_<double> varConstVal_;
 
         //	Inside an if?
-        bool myInConditional;
+        bool isInConditional_;
 
         //  Is this node a constant?
         //  Note the argument must be of ExprNode_ type
         static bool ConstArg(const ExprTree_& node) { return Downcast<const ExprNode_>(node)->isConst_; }
 
-        //  Are all the arguments to this node constant?
-        //  Note the arguments must be of ExprNode_ type
+        //  Are all the arguments_ to this node constant?
+        //  Note the arguments_ must be of ExprNode_ type
         static bool ConstArgs(const Node_& node, const size_t first = 0) {
-            for (size_t i = first; i < node.arguments.size(); ++i) {
-                if (!ConstArg(node.arguments[i]))
+            for (size_t i = first; i < node.arguments_.size(); ++i) {
+                if (!ConstArg(node.arguments_[i]))
                     return false;
             }
             return true;
@@ -51,7 +51,7 @@ namespace Dal::Script {
 
         //	Constructor, nVar = number of variables, from Product after parsing and variable indexation
         //  All variables start as constants with value 0
-        ConstProcessor_(const size_t nVar) : myVarConst(nVar, true), myVarConstVal(nVar, 0.0), myInConditional(false) {}
+        ConstProcessor_(const size_t nVar) : varConst_(nVar, true), varConstVal_(nVar, 0.0), isInConditional_(false) {}
 
         //	Visitors
 
@@ -64,8 +64,8 @@ namespace Dal::Script {
             if (ConstArgs(node)) {
                 node.isConst_ = true;
 
-                const double lhs = Downcast<ExprNode_>(node.arguments[0])->constVal_;
-                const double rhs = Downcast<ExprNode_>(node.arguments[1])->constVal_;
+                const double lhs = Downcast<ExprNode_>(node.arguments_[0])->constVal_;
+                const double rhs = Downcast<ExprNode_>(node.arguments_[1])->constVal_;
                 node.constVal_ = op(lhs, rhs);
             }
         }
@@ -98,7 +98,7 @@ namespace Dal::Script {
             if (ConstArgs(node)) {
                 node.isConst_ = true;
 
-                const double arg = Downcast<ExprNode_>(node.arguments[0])->constVal_;
+                const double arg = Downcast<ExprNode_>(node.arguments_[0])->constVal_;
                 node.constVal_ = op(arg);
             }
         }
@@ -125,10 +125,10 @@ namespace Dal::Script {
             if (ConstArgs(node)) {
                 node.isConst_ = true;
 
-                const double x = reinterpret_cast<ExprNode_*>(node.arguments[0].get())->constVal_;
-                const double vPos = reinterpret_cast<ExprNode_*>(node.arguments[1].get())->constVal_;
-                const double vNeg = reinterpret_cast<ExprNode_*>(node.arguments[2].get())->constVal_;
-                const double halfEps = 0.5 * reinterpret_cast<ExprNode_*>(node.arguments[3].get())->constVal_;
+                const double x = reinterpret_cast<ExprNode_*>(node.arguments_[0].get())->constVal_;
+                const double vPos = reinterpret_cast<ExprNode_*>(node.arguments_[1].get())->constVal_;
+                const double vNeg = reinterpret_cast<ExprNode_*>(node.arguments_[2].get())->constVal_;
+                const double halfEps = 0.5 * reinterpret_cast<ExprNode_*>(node.arguments_[3].get())->constVal_;
 
                 if (x < -halfEps)
                     node.constVal_ = vNeg;
@@ -145,55 +145,55 @@ namespace Dal::Script {
             //  Mark conditional
 
             //  Identify nested
-            bool nested = myInConditional;
+            bool nested = isInConditional_;
 
             //  Mark
             if (!nested)
-                myInConditional = true;
+                isInConditional_ = true;
 
-            //  Visit arguments
+            //  Visit arguments_
             VisitArguments(node);
 
             //  Reset (unless nested)
             if (!nested)
-                myInConditional = false;
+                isInConditional_ = false;
         }
 
         void Visit(NodeAssign& node) {
             //  Get index from LHS
-            const size_t varIndex = Downcast<const NodeVar>(node.arguments[0])->index_;
+            const size_t varIndex = Downcast<const NodeVar>(node.arguments_[0])->index_;
 
             //  Visit RHS
-            node.arguments[1]->Accept(*this);
+            node.arguments_[1]->Accept(*this);
 
             //  All conditional assignments result in non const vars
-            if (!myInConditional) {
+            if (!isInConditional_) {
                 //  RHS constant?
-                if (ConstArg(node.arguments[1])) {
-                    myVarConst[varIndex] = true;
-                    myVarConstVal[varIndex] = Downcast<const ExprNode_>(node.arguments[1])->constVal_;
+                if (ConstArg(node.arguments_[1])) {
+                    varConst_[varIndex] = true;
+                    varConstVal_[varIndex] = Downcast<const ExprNode_>(node.arguments_[1])->constVal_;
                 } else {
-                    myVarConst[varIndex] = false;
+                    varConst_[varIndex] = false;
                 }
             } else {
-                myVarConst[varIndex] = false;
+                varConst_[varIndex] = false;
             }
         }
 
         void Visit(NodePays& node) {
             //  A payment is always non constant because it is normalized by a possibly stochastic numeraire
-            const size_t varIndex = Downcast<const NodeVar>(node.arguments[0])->index_;
-            myVarConst[varIndex] = false;
+            const size_t varIndex = Downcast<const NodeVar>(node.arguments_[0])->index_;
+            varConst_[varIndex] = false;
 
             //  Visit RHS
-            node.arguments[1]->Accept(*this);
+            node.arguments_[1]->Accept(*this);
         }
 
         //	Variables, RHS only, we don't Visit LHS vars
         void Visit(NodeVar& node) {
-            if (myVarConst[node.index_]) {
+            if (varConst_[node.index_]) {
                 node.isConst_ = true;
-                node.constVal_ = myVarConstVal[node.index_];
+                node.constVal_ = varConstVal_[node.index_];
             } else {
                 node.isConst_ = false;
             }

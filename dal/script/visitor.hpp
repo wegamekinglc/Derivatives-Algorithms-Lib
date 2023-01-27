@@ -19,18 +19,18 @@ namespace Dal::Script {
             node.Accept(static_cast<V_&>(*this));
         }
 
-        //  Visit all the arguments with concrete (type V_) visitor
+        //  Visit all the arguments_ with concrete (type V_) visitor
         void VisitArguments(Node_& node) {
-            for (auto& arg : node.arguments) {
+            for (auto& arg : node.arguments_) {
                 //  static_cast : Visit as concrete visitor
                 arg->Accept(static_cast<V_&>(*this));
             }
         }
 
-        //  Default catch all = Visit arguments
+        //  Default catch all = Visit arguments_
         void Visit(Node_& node) {
             //  V_ does not declare a Visit to that node type,
-            //      either const or non const - fall back to default Visit arguments
+            //      either const or non const - fall back to default Visit arguments_
             VisitArguments(node);
         }
     };
@@ -44,7 +44,7 @@ namespace Dal::Script {
         }
 
         void VisitArguments(const Node_& node) {
-            for (const auto& arg : node.arguments) {
+            for (const auto& arg : node.arguments_) {
                 //  static_cast : Visit as visitor of type V_
                 arg->Accept(static_cast<V_&>(*this));
             }
@@ -55,7 +55,7 @@ namespace Dal::Script {
             // static_assert(!HasNonConstVisit_<V_>::ForNodeType<NODE>(), "CONST VISITOR DECLARES A NON-CONST VISIT");
 
             //  V_ does not declare a Visit to that node type,
-            //      either const or non const - fall back to visiting arguments
+            //      either const or non const - fall back to visiting arguments_
             VisitArguments(node);
         }
     };

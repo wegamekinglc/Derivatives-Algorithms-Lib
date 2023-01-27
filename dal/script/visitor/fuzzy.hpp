@@ -83,8 +83,8 @@ namespace Dal::Script {
     public:
         using Base = EvaluatorBase_<T, FuzzyEvaluator_>;
 
-        using Base::myDstack;
-        using Base::myVariables;
+        using Base::dStack_;
+        using Base::variables_;
         using Base::Visit;
         using Base::VisitNode;
 
@@ -102,9 +102,9 @@ namespace Dal::Script {
             : Base(rhs), myDefEps(rhs.myDefEps), myVarStore0(rhs.myVarStore0.size()),
               myVarStore1(rhs.myVarStore1.size()), myNestedIfLvl(0) {
             for (auto& varStore : myVarStore0)
-                varStore.Resize(myVariables.size());
+                varStore.Resize(variables_.size());
             for (auto& varStore : myVarStore1)
-                varStore.Resize(myVariables.size());
+                varStore.Resize(variables_.size());
         }
         FuzzyEvaluator_& operator=(const FuzzyEvaluator_& rhs) {
             if (this == &rhs)
@@ -114,9 +114,9 @@ namespace Dal::Script {
             myVarStore0.Resize(rhs.myVarStore0.size());
             myVarStore1.Resize(rhs.myVarStore1.size());
             for (auto& varStore : myVarStore0)
-                varStore.Resize(myVariables.size());
+                varStore.Resize(variables_.size());
             for (auto& varStore : myVarStore1)
-                varStore.Resize(myVariables.size());
+                varStore.Resize(variables_.size());
             myNestedIfLvl = 0;
             return *this;
         }
@@ -141,13 +141,13 @@ namespace Dal::Script {
         //	If
         void Visit(const NodeIf& node) {
             //	Last "if true" statement index
-            const size_t lastTrueStat = node.firstElse_ == -1 ? node.arguments.size() - 1 : node.firstElse_ - 1;
+            const size_t lastTrueStat = node.firstElse_ == -1 ? node.arguments_.size() - 1 : node.firstElse_ - 1;
 
             //	Increase nested if level
             ++myNestedIfLvl;
 
             //	Visit the condition and compute its degree of truth dt
-            VisitNode(*node.arguments[0]);
+            VisitNode(*node.arguments_[0]);
             const T dt = myFuzzyStack.top();
             myFuzzyStack.pop();
 
@@ -155,41 +155,41 @@ namespace Dal::Script {
             if (dt > 1.0 - EPSILON) {
                 //	Eval "if true" statements
                 for (size_t i = 1; i <= lastTrueStat; ++i)
-                    VisitNode(*node.arguments[i]);
+                    VisitNode(*node.arguments_[i]);
 
             }
             //	Absolutely false
             else if (dt < EPSILON) {
                 //	Eval "if false" statements if any
                 if (node.firstElse_ != -1)
-                    for (size_t i = node.firstElse_; i < node.arguments.size(); ++i)
-                        VisitNode(*node.arguments[i]);
+                    for (size_t i = node.firstElse_; i < node.arguments_.size(); ++i)
+                        VisitNode(*node.arguments_[i]);
 
             }
             //	Fuzzy
             else {
                 //	Record values of variables to be changed
                 for (auto idx : node.affectedVars_)
-                    myVarStore0[myNestedIfLvl - 1][idx] = myVariables[idx];
+                    myVarStore0[myNestedIfLvl - 1][idx] = variables_[idx];
 
                 //	Eval "if true" statements
                 for (size_t i = 1; i <= lastTrueStat; ++i)
-                    VisitNode(*node.arguments[i]);
+                    VisitNode(*node.arguments_[i]);
 
                 //	Record and reset values of variables to be changed
                 for (auto idx : node.affectedVars_) {
-                    myVarStore1[myNestedIfLvl - 1][idx] = myVariables[idx];
-                    myVariables[idx] = myVarStore0[myNestedIfLvl - 1][idx];
+                    myVarStore1[myNestedIfLvl - 1][idx] = variables_[idx];
+                    variables_[idx] = myVarStore0[myNestedIfLvl - 1][idx];
                 }
 
                 //	Eval "if false" statements if any
                 if (node.firstElse_ != -1)
-                    for (size_t i = node.firstElse_; i < node.arguments.size(); ++i)
-                        VisitNode(*node.arguments[i]);
+                    for (size_t i = node.firstElse_; i < node.arguments_.size(); ++i)
+                        VisitNode(*node.arguments_[i]);
 
                 //	Set values of variables to fuzzy values
                 for (auto idx : node.affectedVars_)
-                    myVariables[idx] = dt * myVarStore1[myNestedIfLvl - 1][idx] + (1.0 - dt) * myVariables[idx];
+                    variables_[idx] = dt * myVarStore1[myNestedIfLvl - 1][idx] + (1.0 - dt) * variables_[idx];
             }
 
             //	Decrease nested if level
@@ -204,9 +204,9 @@ namespace Dal::Script {
         //	Equality
         void Visit(const NodeEqual& node) {
             //	Evaluate expression to be compared to 0
-            VisitNode(*node.arguments[0]);
-            const T expr = myDstack.top();
-            myDstack.pop();
+            VisitNode(*node.arguments_[0]);
+            const T expr = dStack_.top();
+            dStack_.pop();
 
             //	Discrete case: 0 is a singleton in expr's domain
             if (node.isDiscrete_) {
@@ -227,9 +227,9 @@ namespace Dal::Script {
         //	For visiting superior and supEqual
         void VisitComp(const CompNode_& node) {
             //	Evaluate expression to be compared to 0
-            VisitNode(*node.arguments[0]);
-            const T expr = myDstack.top();
-            myDstack.pop();
+            VisitNode(*node.arguments_[0]);
+            const T expr = dStack_.top();
+            dStack_.pop();
 
             //	Discrete case:
             //	Either 0 is a singleton in expr's domain
@@ -255,21 +255,21 @@ namespace Dal::Script {
 
         //	Negation
         void visitNot(const NodeNot& node) {
-            VisitNode(*node.arguments[0]);
+            VisitNode(*node.arguments_[0]);
             myFuzzyStack.top() = 1.0 - myFuzzyStack.top();
         }
 
         //	Combinators
         //	Hard coded proba stlye and->dt(lhs)*dt(rhs), or->dt(lhs)+dt(rhs)-dt(lhs)*dt(rhs)
         void Visit(const NodeAnd& node) {
-            VisitNode(*node.arguments[0]);
-            VisitNode(*node.arguments[1]);
+            VisitNode(*node.arguments_[0]);
+            VisitNode(*node.arguments_[1]);
             const auto args = Pop2f();
             myFuzzyStack.push(args.first * args.second);
         }
         void Visit(const NodeOr& node) {
-            VisitNode(*node.arguments[0]);
-            VisitNode(*node.arguments[1]);
+            VisitNode(*node.arguments_[0]);
+            VisitNode(*node.arguments_[1]);
             const auto args = Pop2f();
             myFuzzyStack.push(args.first + args.second - args.first * args.second);
         }

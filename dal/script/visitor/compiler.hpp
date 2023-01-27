@@ -109,22 +109,22 @@ namespace Dal::Script {
                 nodeStream_.push_back(int(constStream_.size()));
                 constStream_.push_back(node.constVal_);
             } else {
-                const ExprNode_* lhs = Downcast<ExprNode_>(node.arguments[0]);
-                const ExprNode_* rhs = Downcast<ExprNode_>(node.arguments[1]);
+                const ExprNode_* lhs = Downcast<ExprNode_>(node.arguments_[0]);
+                const ExprNode_* rhs = Downcast<ExprNode_>(node.arguments_[1]);
 
                 if (lhs->isConst_) {
-                    node.arguments[1]->Accept(*this);
+                    node.arguments_[1]->Accept(*this);
                     nodeStream_.push_back(IfConstLeft);
                     nodeStream_.push_back(int(constStream_.size()));
                     constStream_.push_back(lhs->constVal_);
                 } else if (rhs->isConst_) {
-                    node.arguments[0]->Accept(*this);
+                    node.arguments_[0]->Accept(*this);
                     nodeStream_.push_back(IfConstRight);
                     nodeStream_.push_back(int(constStream_.size()));
                     constStream_.push_back(rhs->constVal_);
                 } else {
-                    node.arguments[0]->Accept(*this);
-                    node.arguments[1]->Accept(*this);
+                    node.arguments_[0]->Accept(*this);
+                    node.arguments_[1]->Accept(*this);
                     nodeStream_.push_back(IfBin);
                 }
             }
@@ -147,12 +147,12 @@ namespace Dal::Script {
                 nodeStream_.push_back(int(constStream_.size()));
                 constStream_.push_back(node.constVal_);
             } else {
-                node.arguments[0]->Accept(*this);
+                node.arguments_[0]->Accept(*this);
                 nodeStream_.push_back(NT);
             }
         }
 
-        void Visit(const NodeUplus& node) { node.arguments[0]->Accept(*this); }
+        void Visit(const NodeUplus& node) { node.arguments_[0]->Accept(*this); }
 
         void Visit(const NodeUminus& node) { VisitUnary<Uminus>(node); }
         void Visit(const NodeLog& node) { VisitUnary<Log>(node); }
@@ -176,13 +176,13 @@ namespace Dal::Script {
         //	Conditions
 
         template <NodeType NT, typename OP> void VisitCondition(const BoolNode_& node, OP op) {
-            const ExprNode_* arg = Downcast<ExprNode_>(node.arguments[0]);
+            const ExprNode_* arg = Downcast<ExprNode_>(node.arguments_[0]);
 
             if (arg->isConst_) {
                 nodeStream_.push_back(op(arg->constVal_) ? True : False);
 
             } else {
-                node.arguments[0]->Accept(*this);
+                node.arguments_[0]->Accept(*this);
                 nodeStream_.push_back(NT);
             }
         }
@@ -201,49 +201,49 @@ namespace Dal::Script {
         //  And/Or/Not
 
         void Visit(const NodeAnd& node) {
-            node.arguments[0]->Accept(*this);
-            node.arguments[1]->Accept(*this);
+            node.arguments_[0]->Accept(*this);
+            node.arguments_[1]->Accept(*this);
             nodeStream_.push_back(And);
         }
 
         void Visit(const NodeOr& node) {
-            node.arguments[0]->Accept(*this);
-            node.arguments[1]->Accept(*this);
+            node.arguments_[0]->Accept(*this);
+            node.arguments_[1]->Accept(*this);
             nodeStream_.push_back(Or);
         }
 
         void Visit(const NodeNot& node) {
-            node.arguments[0]->Accept(*this);
+            node.arguments_[0]->Accept(*this);
             nodeStream_.push_back(Not);
         }
 
         //  Assign, pays
 
         void Visit(const NodeAssign& node) {
-            const NodeVar* var = Downcast<NodeVar>(node.arguments[0]);
-            const ExprNode_* rhs = Downcast<ExprNode_>(node.arguments[1]);
+            const NodeVar* var = Downcast<NodeVar>(node.arguments_[0]);
+            const ExprNode_* rhs = Downcast<ExprNode_>(node.arguments_[1]);
 
             if (rhs->isConst_) {
                 nodeStream_.push_back(AssignConst);
                 nodeStream_.push_back(int(constStream_.size()));
                 constStream_.push_back(rhs->constVal_);
             } else {
-                node.arguments[1]->Accept(*this);
+                node.arguments_[1]->Accept(*this);
                 nodeStream_.push_back(Assign);
             }
             nodeStream_.push_back(int(var->index_));
         }
 
         void Visit(const NodePays& node) {
-            const NodeVar* var = Downcast<NodeVar>(node.arguments[0]);
-            const ExprNode_* rhs = Downcast<ExprNode_>(node.arguments[1]);
+            const NodeVar* var = Downcast<NodeVar>(node.arguments_[0]);
+            const ExprNode_* rhs = Downcast<ExprNode_>(node.arguments_[1]);
 
             if (rhs->isConst_) {
                 nodeStream_.push_back(PaysConst);
                 nodeStream_.push_back(int(constStream_.size()));
                 constStream_.push_back(rhs->constVal_);
             } else {
-                node.arguments[1]->Accept(*this);
+                node.arguments_[1]->Accept(*this);
                 nodeStream_.push_back(Pays);
             }
             nodeStream_.push_back(int(var->index_));
@@ -272,7 +272,7 @@ namespace Dal::Script {
         //	Instructions
         void Visit(const NodeIf& node) {
             //  Visit condition
-            node.arguments[0]->Accept(*this);
+            node.arguments_[0]->Accept(*this);
 
             //  Mark instruction
             nodeStream_.push_back(node.firstElse_ == -1 ? If : IfElse);
@@ -284,19 +284,19 @@ namespace Dal::Script {
                 nodeStream_.push_back(0);
 
             //  Visit if-true statements
-            const auto lastTrue = node.firstElse_ == -1 ? node.arguments.size() - 1 : node.firstElse_ - 1;
+            const auto lastTrue = node.firstElse_ == -1 ? node.arguments_.size() - 1 : node.firstElse_ - 1;
             for (size_t i = 1; i <= lastTrue; ++i) {
-                node.arguments[i]->Accept(*this);
+                node.arguments_[i]->Accept(*this);
             }
             //  Record last if-true space
             nodeStream_[thisSpace + 1] = int(nodeStream_.size());
 
             //  Visit if-false statements
-            const size_t n = node.arguments.size();
+            const size_t n = node.arguments_.size();
             if (node.firstElse_ != -1) {
                 for (size_t i = node.firstElse_; i < n; ++i) {
                     {
-                        node.arguments[i]->Accept(*this);
+                        node.arguments_[i]->Accept(*this);
                     }
                 }
                 //  Record last if-false space

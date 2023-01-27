@@ -12,58 +12,58 @@
 
 namespace Dal::Script {
     class Debugger_ : public ConstVisitor_<Debugger_> {
-        String_ myPrefix;
-        StaticStack_<String_> myStack;
+        String_ prefix_;
+        StaticStack_<String_> stack_;
 
         //	The main function call from every node visitor
         void Debug(const Node_& node, const String_& nodeId) {
             //	One more tab
-            myPrefix += '\t';
+            prefix_ += '\t';
 
-            //	Visit arguments, right to left
-            for (auto it = node.arguments.rbegin(); it != node.arguments.rend(); ++it)
+            //	Visit arguments_, right to left
+            for (auto it = node.arguments_.rbegin(); it != node.arguments_.rend(); ++it)
                 (*it)->Accept(*this);
 
             //	One less tab
-            myPrefix.pop_back();
+            prefix_.pop_back();
 
-            String_ str(myPrefix + nodeId);
-            if (!node.arguments.empty()) {
+            String_ str(prefix_ + nodeId);
+            if (!node.arguments_.empty()) {
                 str += "(\n";
 
                 //	First argument, pushed last
-                str += myStack.top();
-                myStack.pop();
-                if (node.arguments.size() > 1)
-                    str += myPrefix + ",\n";
+                str += stack_.top();
+                stack_.pop();
+                if (node.arguments_.size() > 1)
+                    str += prefix_ + ",\n";
 
                 //	Args 2 to n-1
-                for (size_t i = 1; i < node.arguments.size() - 1; ++i) {
-                    str += myStack.top() + myPrefix + ",\n";
-                    myStack.pop();
+                for (size_t i = 1; i < node.arguments_.size() - 1; ++i) {
+                    str += stack_.top() + prefix_ + ",\n";
+                    stack_.pop();
                 }
 
-                if (node.arguments.size() > 1) {
+                if (node.arguments_.size() > 1) {
                     //	Last argument, pushed first
-                    str += myStack.top();
-                    myStack.pop();
+                    str += stack_.top();
+                    stack_.pop();
                 }
 
                 //	Close ')'
-                str += myPrefix + ')';
+                str += prefix_ + ')';
             }
 
             str += '\n';
-            myStack.push(std::move(str));
+            stack_.push(std::move(str));
         }
 
     public:
         using ConstVisitor_<Debugger_>::Visit;
 
         //	Access the top of the stack, contains the functional form after the tree is traversed
-        const String_& String() const { return myStack.top(); }
+        const String_& String() const { return stack_.top(); }
 
-        //	All concrete node visitors, Visit arguments by default unless overridden
+        //	All concrete node visitors, Visit arguments_ by default unless overridden
 
         void Visit(const NodeCollect& node) { Debug(node, "COLLECT"); }
 

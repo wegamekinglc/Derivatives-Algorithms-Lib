@@ -77,7 +77,7 @@ namespace Dal::Script {
 
     struct Node_ : public VisitableBase_<VISITORS> {
         using VisitableBase_<VISITORS>::Accept;
-        Vector_<ExprTree_> arguments;
+        Vector_<ExprTree_> arguments_;
         virtual ~Node_() {}
     };
 }

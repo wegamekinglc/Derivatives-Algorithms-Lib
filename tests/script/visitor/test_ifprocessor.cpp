@@ -53,7 +53,7 @@ TEST(IFProcessorTest, TestIFProcessorNested) {
     ASSERT_EQ(visitor2.MaxNestedIFs(), 2);
     ASSERT_EQ(dynamic_cast<NodeIf*>(res[0].get())->affectedVars_, Vector_<size_t>({1, 2}));
 
-    auto& nestedIF = res[0]->arguments[1];
+    auto& nestedIF = res[0]->arguments_[1];
     ASSERT_EQ(dynamic_cast<NodeIf*>(nestedIF.get())->affectedVars_, Vector_<size_t>({1}));
 }
 

@@ -16,63 +16,63 @@ namespace Dal::Script {
     template <class T, template <typename> class EVAL_> class EvaluatorBase_ : public ConstVisitor_<EVAL_<T>> {
     protected:
         //	State
-        Vector_<T> myVariables;
+        Vector_<T> variables_;
 
         //	Stacks
-        StaticStack_<T> myDstack;
-        StaticStack_<char> myBstack;
+        StaticStack_<T> dStack_;
+        StaticStack_<char> bStack_;
 
         //	Reference to current scenario
-        const AAD::Scenario_<T>* myScenario;
+        const AAD::Scenario_<T>* scenario_;
 
         //	Index of current event
-        size_t myCurEvt;
+        size_t curEvt_;
 
     public:
         using ConstVisitor_<EVAL_<T>>::Visit;
         using ConstVisitor_<EVAL_<T>>::VisitNode;
 
         //	Constructor, nVar = number of variables, from Product after parsing and variable indexation
-        EvaluatorBase_(const size_t nVar) : myVariables(nVar) {}
+        EvaluatorBase_(const size_t nVar) : variables_(nVar) {}
 
         //	Copy/Move
 
-        EvaluatorBase_(const EvaluatorBase_& rhs) : myVariables(rhs.myVariables) {}
+        EvaluatorBase_(const EvaluatorBase_& rhs) : variables_(rhs.variables_) {}
         EvaluatorBase_& operator=(const EvaluatorBase_& rhs) {
             if (this == &rhs)
                 return *this;
-            myVariables = rhs.myVariables;
+            variables_ = rhs.variables_;
             return *this;
         }
 
-        EvaluatorBase_(EvaluatorBase_&& rhs) : myVariables(move(rhs.myVariables)) {}
+        EvaluatorBase_(EvaluatorBase_&& rhs) : variables_(move(rhs.variables_)) {}
         EvaluatorBase_& operator=(EvaluatorBase_&& rhs) {
-            myVariables = move(rhs.myVariables);
+            variables_ = move(rhs.variables_);
             return *this;
         }
 
         //	(Re-)initialize before evaluation in each scenario
         void Init() {
-            for (auto& varIt : myVariables)
+            for (auto& varIt : variables_)
                 varIt = 0.0;
             //	Stacks should be empty, if this is not the case the empty them
             //		without affecting capacity for added performance
-            myDstack.reset();
-            myBstack.reset();
+            dStack_.reset();
+            bStack_.reset();
         }
 
         //	Accessors
 
         //	Access to variable values after evaluation
-        const Vector_<T>& VarVals() const { return myVariables; }
+        const Vector_<T>& VarVals() const { return variables_; }
 
         //	Set generated scenarios and current event
 
         //	Set reference to current scenario
-        void SetScenario(const AAD::Scenario_<T>* scen) { myScenario = scen; }
+        void SetScenario(const AAD::Scenario_<T>* scen) { scenario_ = scen; }
 
         //	Set index of current event
-        void SetCurEvt(size_t curEvt) { myCurEvt = curEvt; }
+        void SetCurEvt(size_t curEvt) { curEvt_ = curEvt; }
 
         //	Visitors
 
@@ -81,10 +81,10 @@ namespace Dal::Script {
         //	Binaries
 
         template <class OP> void VisitBinary(const ExprNode_& node, OP op) {
-            VisitNode(*node.arguments[0]);
-            VisitNode(*node.arguments[1]);
-            op(myDstack[1], myDstack.top());
-            myDstack.pop();
+            VisitNode(*node.arguments_[0]);
+            VisitNode(*node.arguments_[1]);
+            op(dStack_[1], dStack_.top());
+            dStack_.pop();
         }
 
         void Visit(const NodeAdd& node) {
@@ -117,8 +117,8 @@ namespace Dal::Script {
 
         //	Unaries
         template <class OP> inline void VisitUnary(const ExprNode_& node, OP op) {
-            VisitNode(*node.arguments[0]);
-            op(myDstack.top());
+            VisitNode(*node.arguments_[0]);
+            op(dStack_.top());
         }
 
         void Visit(const NodeUplus& node) {
@@ -139,42 +139,42 @@ namespace Dal::Script {
         //  Multies
         void Visit(const NodeSmooth& node) {
             //	Eval the condition
-            VisitNode(*node.arguments[0]);
-            const T x = myDstack.top();
-            myDstack.pop();
+            VisitNode(*node.arguments_[0]);
+            const T x = dStack_.top();
+            dStack_.pop();
 
             //	Eval the epsilon
-            VisitNode(*node.arguments[3]);
-            const T halfEps = 0.5 * myDstack.top();
-            myDstack.pop();
+            VisitNode(*node.arguments_[3]);
+            const T halfEps = 0.5 * dStack_.top();
+            dStack_.pop();
 
             //	Left
             if (x < -halfEps)
-                VisitNode(*node.arguments[2]);
+                VisitNode(*node.arguments_[2]);
 
             //	Right
             else if (x > halfEps)
-                VisitNode(*node.arguments[1]);
+                VisitNode(*node.arguments_[1]);
 
             //	Fuzzy
             else {
-                VisitNode(*node.arguments[1]);
-                const T vPos = myDstack.top();
-                myDstack.pop();
+                VisitNode(*node.arguments_[1]);
+                const T vPos = dStack_.top();
+                dStack_.pop();
 
-                VisitNode(*node.arguments[2]);
-                const T vNeg = myDstack.top();
-                myDstack.pop();
+                VisitNode(*node.arguments_[2]);
+                const T vNeg = dStack_.top();
+                dStack_.pop();
 
-                myDstack.push(vNeg + 0.5 * (vPos - vNeg) / halfEps * (x + halfEps));
+                dStack_.push(vNeg + 0.5 * (vPos - vNeg) / halfEps * (x + halfEps));
             }
         }
 
         //	Conditions
         template <class OP> inline void VisitCondition(const BoolNode_& node, OP op) {
-            VisitNode(*node.arguments[0]);
-            myBstack.push(op(myDstack.top()));
-            myDstack.pop();
+            VisitNode(*node.arguments_[0]);
+            bStack_.push(op(dStack_.top()));
+            dStack_.pop();
         }
 
         void Visit(const NodeEqual& node) {
@@ -188,83 +188,83 @@ namespace Dal::Script {
         }
 
         void Visit(const NodeAnd& node) {
-            VisitNode(*node.arguments[0]);
-            if (myBstack.top()) {
-                myBstack.pop();
-                VisitNode(*node.arguments[1]);
+            VisitNode(*node.arguments_[0]);
+            if (bStack_.top()) {
+                bStack_.pop();
+                VisitNode(*node.arguments_[1]);
             }
         }
         void Visit(const NodeOr& node) {
-            VisitNode(*node.arguments[0]);
-            if (!myBstack.top()) {
-                myBstack.pop();
-                VisitNode(*node.arguments[1]);
+            VisitNode(*node.arguments_[0]);
+            if (!bStack_.top()) {
+                bStack_.pop();
+                VisitNode(*node.arguments_[1]);
             }
         }
         void Visit(const NodeNot& node) {
-            VisitNode(*node.arguments[0]);
-            auto& b = myBstack.top();
+            VisitNode(*node.arguments_[0]);
+            auto& b = bStack_.top();
             b = !b;
         }
 
         //	Instructions
         void Visit(const NodeIf& node) {
             //	Eval the condition
-            VisitNode(*node.arguments[0]);
+            VisitNode(*node.arguments_[0]);
 
             //	Pick the result
-            const auto isTrue = myBstack.top();
-            myBstack.pop();
+            const auto isTrue = bStack_.top();
+            bStack_.pop();
 
             //	Evaluate the relevant statements
             if (isTrue) {
-                const auto lastTrue = node.firstElse_ == -1 ? node.arguments.size() - 1 : node.firstElse_ - 1;
+                const auto lastTrue = node.firstElse_ == -1 ? node.arguments_.size() - 1 : node.firstElse_ - 1;
                 for (unsigned i = 1; i <= lastTrue; ++i) {
-                    VisitNode(*node.arguments[i]);
+                    VisitNode(*node.arguments_[i]);
                 }
             } else if (node.firstElse_ != -1) {
-                const size_t n = node.arguments.size();
+                const size_t n = node.arguments_.size();
                 for (unsigned i = node.firstElse_; i < n; ++i) {
-                    VisitNode(*node.arguments[i]);
+                    VisitNode(*node.arguments_[i]);
                 }
             }
         }
 
         void Visit(const NodeAssign& node) {
-            const auto varIdx = Downcast<NodeVar>(node.arguments[0])->index_;
+            const auto varIdx = Downcast<NodeVar>(node.arguments_[0])->index_;
 
             //	Visit the RHS expression
-            VisitNode(*node.arguments[1]);
+            VisitNode(*node.arguments_[1]);
 
             //	Write result into variable
-            myVariables[varIdx] = myDstack.top();
-            myDstack.pop();
+            variables_[varIdx] = dStack_.top();
+            dStack_.pop();
         }
 
         void Visit(const NodePays& node) {
-            const auto varIdx = Downcast<NodeVar>(node.arguments[0])->index_;
+            const auto varIdx = Downcast<NodeVar>(node.arguments_[0])->index_;
 
             //	Visit the RHS expression
-            VisitNode(*node.arguments[1]);
+            VisitNode(*node.arguments_[1]);
 
             //	Write result into variable
-            myVariables[varIdx] += myDstack.top() / (*myScenario)[myCurEvt].numeraire_;
-            myDstack.pop();
+            variables_[varIdx] += dStack_.top() / (*scenario_)[curEvt_].numeraire_;
+            dStack_.pop();
         }
 
         //	Variables and constants
         void Visit(const NodeVar& node) {
             //	Push value onto the stack
-            myDstack.push(myVariables[node.index_]);
+            dStack_.push(variables_[node.index_]);
         }
 
-        void Visit(const NodeConst& node) { myDstack.push(node.constVal_); }
+        void Visit(const NodeConst& node) { dStack_.push(node.constVal_); }
 
-        void Visit(const NodeTrue& node) { myBstack.push(true); }
-        void Visit(const NodeFalse& node) { myBstack.push(false); }
+        void Visit(const NodeTrue& node) { bStack_.push(true); }
+        void Visit(const NodeFalse& node) { bStack_.push(false); }
 
         //	Scenario related
-        void Visit(const NodeSpot& node) { myDstack.push((*myScenario)[myCurEvt].spot_); }
+        void Visit(const NodeSpot& node) { dStack_.push((*scenario_)[curEvt_].spot_); }
     };
 
     //  Concrete Evaluator_

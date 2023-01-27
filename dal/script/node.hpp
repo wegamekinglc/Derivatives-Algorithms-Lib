@@ -153,13 +153,13 @@ namespace Dal::Script {
         return std::unique_ptr<Node_>(new ConcreteNode(std::forward<Args>(args)...));
     }
 
-    //	Build binary concrete, and set its arguments to lhs and rhs
+    //	Build binary concrete, and set its arguments_ to lhs and rhs
     template <class NodeType> std::unique_ptr<NodeType> MakeBinary(ExprTree_& lhs, ExprTree_& rhs) {
         auto top = MakeNode<NodeType>();
-        top->arguments.Resize(2);
+        top->arguments_.Resize(2);
         //	Take ownership of lhs and rhs
-        top->arguments[0] = std::move(lhs);
-        top->arguments[1] = std::move(rhs);
+        top->arguments_[0] = std::move(lhs);
+        top->arguments_[1] = std::move(rhs);
         //	Return
         return top;
     }
@@ -167,10 +167,10 @@ namespace Dal::Script {
     //  Same but return as pointer on base
     template <class ConcreteNode> ExprTree_ MakeBaseBinary(ExprTree_& lhs, ExprTree_& rhs) {
         auto top = MakeBaseNode<ConcreteNode>();
-        top->arguments.Resize(2);
+        top->arguments_.Resize(2);
         //	Take ownership of lhs and rhs
-        top->arguments[0] = std::move(lhs);
-        top->arguments[1] = std::move(rhs);
+        top->arguments_[0] = std::move(lhs);
+        top->arguments_[1] = std::move(rhs);
         //	Return
         return top;
     }

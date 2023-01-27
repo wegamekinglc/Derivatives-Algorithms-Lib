@@ -21,42 +21,42 @@
 namespace Dal::Script {
 
     class Bound {
-        bool myPlusInf;
-        bool myMinusInf;
-        double myReal;
+        bool isPlusInf_;
+        bool isMinusInf_;
+        double real_;
 
     public:
         struct PlusInfinity {};
         struct MinusInfinity {};
-        static const PlusInfinity plusInfinity;
-        static const MinusInfinity minusInfinity;
+        static const PlusInfinity plusInfinity_;
+        static const MinusInfinity minusInfinity_;
 
         //	Real
-        Bound(const double val = 0.0) : myPlusInf(false), myMinusInf(false), myReal(val) {}
+        Bound(const double val = 0.0) : isPlusInf_(false), isMinusInf_(false), real_(val) {}
 
         //	Infinite
-        Bound(const PlusInfinity) : myPlusInf(true), myMinusInf(false), myReal(Dal::INF) {}
-        Bound(const MinusInfinity) : myPlusInf(false), myMinusInf(true), myReal(-Dal::INF) {}
+        Bound(const PlusInfinity) : isPlusInf_(true), isMinusInf_(false), real_(Dal::INF) {}
+        Bound(const MinusInfinity) : isPlusInf_(false), isMinusInf_(true), real_(-Dal::INF) {}
 
-        Bound(const Bound& rhs) : myPlusInf(rhs.myPlusInf), myMinusInf(rhs.myMinusInf), myReal(rhs.myReal) {}
+        Bound(const Bound& rhs) : isPlusInf_(rhs.isPlusInf_), isMinusInf_(rhs.isMinusInf_), real_(rhs.real_) {}
 
         Bound& operator=(const double val) {
-            myPlusInf = myMinusInf = false;
-            myReal = val;
+            isPlusInf_ = isMinusInf_ = false;
+            real_ = val;
 
             return *this;
         }
         Bound& operator=(const PlusInfinity) {
-            myPlusInf = true;
-            myMinusInf = false;
-            myReal = Dal::INF;
+            isPlusInf_ = true;
+            isMinusInf_ = false;
+            real_ = Dal::INF;
 
             return *this;
         }
         Bound& operator=(const MinusInfinity) {
-            myPlusInf = false;
-            myMinusInf = true;
-            myReal = -Dal::INF;
+            isPlusInf_ = false;
+            isMinusInf_ = true;
+            real_ = -Dal::INF;
 
             return *this;
         }
@@ -64,43 +64,43 @@ namespace Dal::Script {
             if (this == &rhs)
                 return *this;
 
-            myPlusInf = rhs.myPlusInf;
-            myMinusInf = rhs.myMinusInf;
-            myReal = rhs.myReal;
+            isPlusInf_ = rhs.isPlusInf_;
+            isMinusInf_ = rhs.isMinusInf_;
+            real_ = rhs.real_;
 
             return *this;
         }
 
         //	Accessors
 
-        bool infinite() const { return myPlusInf || myMinusInf; }
+        bool infinite() const { return isPlusInf_ || isMinusInf_; }
 
-        bool positive(const bool strict = false) const { return myPlusInf || myReal > (strict ? Dal::EPSILON : -Dal::EPSILON); }
+        bool positive(const bool strict = false) const { return isPlusInf_ || real_ > (strict ? Dal::EPSILON : -Dal::EPSILON); }
 
-        bool negative(const bool strict = false) const { return myMinusInf || myReal < (strict ? -Dal::EPSILON : Dal::EPSILON); }
+        bool negative(const bool strict = false) const { return isMinusInf_ || real_ < (strict ? -Dal::EPSILON : Dal::EPSILON); }
 
-        bool zero() const { return !infinite() && fabs(myReal) < Dal::EPSILON; }
+        bool zero() const { return !infinite() && fabs(real_) < Dal::EPSILON; }
 
-        bool plusInf() const { return myPlusInf; }
+        bool plusInf() const { return isPlusInf_; }
 
-        bool minusInf() const { return myMinusInf; }
+        bool minusInf() const { return isMinusInf_; }
 
-        double val() const { return myReal; }
+        double val() const { return real_; }
 
         //	Comparison
 
         bool operator==(const Bound& rhs) const {
-            return myPlusInf && rhs.myPlusInf || myMinusInf && rhs.myMinusInf || fabs(myReal - rhs.myReal) < Dal::EPSILON;
+            return isPlusInf_ && rhs.isPlusInf_ || isMinusInf_ && rhs.isMinusInf_ || fabs(real_ - rhs.real_) < Dal::EPSILON;
         }
 
         bool operator!=(const Bound& rhs) const { return !operator==(rhs); }
 
         bool operator<(const Bound& rhs) const {
-            return myMinusInf && !rhs.myMinusInf || !myPlusInf && rhs.myPlusInf || myReal < rhs.myReal - Dal::EPSILON;
+            return isMinusInf_ && !rhs.isMinusInf_ || !isPlusInf_ && rhs.isPlusInf_ || real_ < rhs.real_ - Dal::EPSILON;
         }
 
         bool operator>(const Bound& rhs) const {
-            return !myMinusInf && rhs.myMinusInf || myPlusInf && !rhs.myPlusInf || myReal > rhs.myReal + Dal::EPSILON;
+            return !isMinusInf_ && rhs.isMinusInf_ || isPlusInf_ && !rhs.isPlusInf_ || real_ > rhs.real_ + Dal::EPSILON;
         }
 
         bool operator<=(const Bound& rhs) const { return !operator>(rhs); }
@@ -110,12 +110,12 @@ namespace Dal::Script {
         //	Writers
 
         friend std::ostream& operator<<(std::ostream& ost, const Bound bnd) {
-            if (bnd.myPlusInf)
+            if (bnd.isPlusInf_)
                 ost << "+INF";
-            else if (bnd.myMinusInf)
+            else if (bnd.isMinusInf_)
                 ost << "-INF";
             else
-                ost << bnd.myReal;
+                ost << bnd.real_;
 
             return ost;
         }
@@ -130,25 +130,25 @@ namespace Dal::Script {
         Bound operator*(const Bound& rhs) const {
             if (infinite() || rhs.infinite()) {
                 if (positive(true) && rhs.positive(true) || negative(true) && rhs.negative(true))
-                    return plusInfinity;
+                    return plusInfinity_;
                 else if (zero())
                     return rhs; //	Here 0 * inf = inf
                 else if (rhs.zero())
                     return *this; //	Same
                 else
-                    return minusInfinity;
+                    return minusInfinity_;
             } else
-                return myReal * rhs.myReal;
+                return real_ * rhs.real_;
         }
 
         //	Negation
         Bound operator-() const {
-            if (myMinusInf)
-                return plusInfinity;
-            else if (myPlusInf)
-                return minusInfinity;
+            if (isMinusInf_)
+                return plusInfinity_;
+            else if (isPlusInf_)
+                return minusInfinity_;
             else
-                return -myReal;
+                return -real_;
         }
     };
 
@@ -163,7 +163,7 @@ namespace Dal::Script {
         //	Interval
         Interval(const Bound& left, const Bound& right) : myLeft(left), myRight(right) {
             // #ifdef _DEBUG
-            if (left == Bound::plusInfinity || right == Bound::minusInfinity || left > right)
+            if (left == Bound::plusInfinity_ || right == Bound::minusInfinity_ || left > right)
                 throw std::runtime_error("Inconsistent bounds");
             // #endif
         }
@@ -237,12 +237,12 @@ namespace Dal::Script {
             Bound lb, rb;
 
             if (myLeft.minusInf() || rhs.myLeft.minusInf())
-                lb = Bound::minusInfinity;
+                lb = Bound::minusInfinity_;
             else
                 lb = myLeft.val() + rhs.myLeft.val();
 
             if (myRight.plusInf() || rhs.myRight.plusInf())
-                rb = Bound::plusInfinity;
+                rb = Bound::plusInfinity_;
             else
                 rb = myRight.val() + rhs.myRight.val();
 
@@ -308,19 +308,19 @@ namespace Dal::Script {
             {
                 if (infinite()) {
                     if (positive())
-                        return Interval(0.0, Bound::plusInfinity);
+                        return Interval(0.0, Bound::plusInfinity_);
                     else
-                        return Interval(Bound::minusInfinity, 0.0);
+                        return Interval(Bound::minusInfinity_, 0.0);
                 } else {
                     if (positive())
-                        return Interval(1.0 / myRight.val(), Bound::plusInfinity);
+                        return Interval(1.0 / myRight.val(), Bound::plusInfinity_);
                     else
-                        return Interval(Bound::minusInfinity, 1.0 / myLeft.val());
+                        return Interval(Bound::minusInfinity_, 1.0 / myLeft.val());
                 }
             }
             //	Interval contains 0 and 0 is not a bound: inverse spans real space
             else
-                return Interval(Bound::minusInfinity, Bound::plusInfinity);
+                return Interval(Bound::minusInfinity_, Bound::plusInfinity_);
         }
 
         //	Division
@@ -505,7 +505,7 @@ namespace Dal::Script {
                 const Bound& l = interval.left();
                 const Bound& r = interval.right();
                 if (l.minusInf() && r.plusInf()) {
-                    static const Interval realSpace(Bound::minusInfinity, Bound::plusInfinity);
+                    static const Interval realSpace(Bound::minusInfinity_, Bound::plusInfinity_);
                     myIntervals.clear();
                     myIntervals.insert(realSpace);
                     return;
@@ -662,13 +662,13 @@ namespace Dal::Script {
             if (!empty())
                 return myIntervals.begin()->left();
             else
-                return Bound::minusInfinity;
+                return Bound::minusInfinity_;
         }
         Bound maxBound() const {
             if (!empty())
                 return myIntervals.rbegin()->right();
             else
-                return Bound::plusInfinity;
+                return Bound::plusInfinity_;
         }
 
         bool empty() const { return myIntervals.empty(); }

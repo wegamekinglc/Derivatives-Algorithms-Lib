@@ -15,70 +15,70 @@ namespace Dal::Script {
     class IFProcessor_ : public Visitor_<IFProcessor_> {
         //	Top of the stack: current (possibly nested) if being processed
         //	Each element in stack: set of indices of variables modified by the corresponding if and nested ifs
-        StaticStack_<std::set<size_t>> myVarStack;
+        StaticStack_<std::set<size_t>> varStack_;
 
         //	Nested if level, 0: not in an if, 1: in the outermost if, 2: if nested in another if, etc.
-        size_t myNestedIfLvl;
+        size_t nestedIfLvl_;
 
         //	Keep track of the maximum number of nested ifs
-        size_t myMaxNestedIfs;
+        size_t maxNestedIfs_;
 
     public:
         using Visitor_<IFProcessor_>::Visit;
 
-        IFProcessor_() : myNestedIfLvl(0), myMaxNestedIfs(0) {}
+        IFProcessor_() : nestedIfLvl_(0), maxNestedIfs_(0) {}
 
         //	Access to the max nested ifs after the prcessor is run
-        const size_t MaxNestedIFs() const { return myMaxNestedIfs; }
+        const size_t MaxNestedIFs() const { return maxNestedIfs_; }
 
         //	Visitors
 
         void Visit(NodeIf& node) {
             //	Increase nested if level
-            ++myNestedIfLvl;
-            if (myNestedIfLvl > myMaxNestedIfs)
-                myMaxNestedIfs = myNestedIfLvl;
+            ++nestedIfLvl_;
+            if (nestedIfLvl_ > maxNestedIfs_)
+                maxNestedIfs_ = nestedIfLvl_;
 
             //	Put new element on the stack
-            myVarStack.push(std::set<size_t>());
+            varStack_.push(std::set<size_t>());
 
-            //	Visit arguments, excluding condition
-            for (size_t i = 1; i < node.arguments.size(); ++i)
-                node.arguments[i]->Accept(*this);
+            //	Visit arguments_, excluding condition
+            for (size_t i = 1; i < node.arguments_.size(); ++i)
+                node.arguments_[i]->Accept(*this);
 
             //	Copy the top of the stack into the node
             node.affectedVars_.clear();
-            copy(myVarStack.top().begin(), myVarStack.top().end(), back_inserter(node.affectedVars_));
+            copy(varStack_.top().begin(), varStack_.top().end(), back_inserter(node.affectedVars_));
 
             //	Pop
-            myVarStack.pop();
+            varStack_.pop();
 
             //	Decrease nested if level
-            --myNestedIfLvl;
+            --nestedIfLvl_;
 
             //	If not outmost if, copy changed vars into the immediately outer if
             //	Variables changed in a nested if are also changed in the englobing if
-            if (myNestedIfLvl)
+            if (nestedIfLvl_)
                 copy(node.affectedVars_.begin(), node.affectedVars_.end(),
-                     inserter(myVarStack.top(), myVarStack.top().end()));
+                     inserter(varStack_.top(), varStack_.top().end()));
         }
 
         void Visit(NodeAssign& node) {
             //	Visit the lhs var
-            if (myNestedIfLvl)
-                node.arguments[0]->Accept(*this);
+            if (nestedIfLvl_)
+                node.arguments_[0]->Accept(*this);
         }
 
         void Visit(NodePays& node) {
             //	Visit the lhs var
-            if (myNestedIfLvl)
-                node.arguments[0]->Accept(*this);
+            if (nestedIfLvl_)
+                node.arguments_[0]->Accept(*this);
         }
 
         void Visit(NodeVar& node) {
             //	Insert the var idx
-            if (myNestedIfLvl)
-                myVarStack.top().insert(node.index_);
+            if (nestedIfLvl_)
+                varStack_.top().insert(node.index_);
         }
     };
 } // namespace Dal::Script

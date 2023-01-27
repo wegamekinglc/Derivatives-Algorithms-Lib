@@ -48,28 +48,28 @@ namespace Dal::Script {
 
     class DomainProcessor_ : public Visitor_<DomainProcessor_> {
         //	Fuzzy?
-        const bool myFuzzy;
+        const bool fuzzy_;
 
         //	Domains for all variables
-        Vector_<Domain> myVarDomains;
+        Vector_<Domain> varDomains_;
 
         //	Stack of domains for expressions
-        StaticStack_<Domain> myDomStack;
+        StaticStack_<Domain> domStack_;
 
         //	Stack of always true/false properties for conditions
         enum CondProp { alwaysTrue_, alwaysFalse_, trueOrFalse };
-        StaticStack_<CondProp> myCondStack;
+        StaticStack_<CondProp> condStack_;
 
         //	LHS variable being visited?
-        bool myLhsVar;
-        size_t myLhsVarIdx;
+        bool isLhsVar_;
+        size_t lhsVarIdx_;
 
     public:
         using Visitor_<DomainProcessor_>::Visit;
 
         //	Domains start with the singleton 0
         DomainProcessor_(const size_t nVar, const bool fuzzy)
-            : myFuzzy(fuzzy), myVarDomains(nVar, 0.0), myLhsVar(false) {}
+            : fuzzy_(fuzzy), varDomains_(nVar, 0.0), isLhsVar_(false) {}
 
         //	Visitors
 
@@ -79,100 +79,100 @@ namespace Dal::Script {
 
         void Visit(NodeAdd& node) {
             VisitArguments(node);
-            Domain res = myDomStack[1] + myDomStack[0];
-            myDomStack.pop(2);
-            myDomStack.push(std::move(res));
+            Domain res = domStack_[1] + domStack_[0];
+            domStack_.pop(2);
+            domStack_.push(std::move(res));
         }
         void Visit(NodeSub& node) {
             VisitArguments(node);
-            Domain res = myDomStack[1] - myDomStack[0];
-            myDomStack.pop(2);
-            myDomStack.push(std::move(res));
+            Domain res = domStack_[1] - domStack_[0];
+            domStack_.pop(2);
+            domStack_.push(std::move(res));
         }
         void Visit(NodeMult& node) {
             VisitArguments(node);
-            Domain res = myDomStack[1] * myDomStack[0];
-            myDomStack.pop(2);
-            myDomStack.push(std::move(res));
+            Domain res = domStack_[1] * domStack_[0];
+            domStack_.pop(2);
+            domStack_.push(std::move(res));
         }
         void Visit(NodeDiv& node) {
             VisitArguments(node);
-            Domain res = myDomStack[1] / myDomStack[0];
-            myDomStack.pop(2);
-            myDomStack.push(std::move(res));
+            Domain res = domStack_[1] / domStack_[0];
+            domStack_.pop(2);
+            domStack_.push(std::move(res));
         }
         void Visit(NodePow& node) {
             VisitArguments(node);
-            Domain res = myDomStack[1].applyFunc2<double (*)(const double, const double)>(
-                pow, myDomStack[0], Interval(Bound::minusInfinity, Bound::plusInfinity));
-            myDomStack.pop(2);
-            myDomStack.push(std::move(res));
+            Domain res = domStack_[1].applyFunc2<double (*)(const double, const double)>(
+                pow, domStack_[0], Interval(Bound::minusInfinity_, Bound::plusInfinity_));
+            domStack_.pop(2);
+            domStack_.push(std::move(res));
         }
 
         //	Unaries
         void Visit(NodeUplus& node) { VisitArguments(node); }
         void Visit(NodeUminus& node) {
             VisitArguments(node);
-            myDomStack.top() = -myDomStack.top();
+            domStack_.top() = -domStack_.top();
         }
 
         //	Functions
         void Visit(NodeLog& node) {
             VisitArguments(node);
-            Domain res = myDomStack.top().applyFunc<double (*)(const double)>(
-                log, Interval(Bound::minusInfinity, Bound::plusInfinity));
-            myDomStack.pop();
-            myDomStack.push(std::move(res));
+            Domain res = domStack_.top().applyFunc<double (*)(const double)>(
+                log, Interval(Bound::minusInfinity_, Bound::plusInfinity_));
+            domStack_.pop();
+            domStack_.push(std::move(res));
         }
         void Visit(NodeSqrt& node) {
             VisitArguments(node);
-            Domain res = myDomStack.top().applyFunc<double (*)(const double)>(sqrt, Interval(0.0, Bound::plusInfinity));
-            myDomStack.pop();
-            myDomStack.push(std::move(res));
+            Domain res = domStack_.top().applyFunc<double (*)(const double)>(sqrt, Interval(0.0, Bound::plusInfinity_));
+            domStack_.pop();
+            domStack_.push(std::move(res));
         }
         void Visit(NodeMax& node) {
             VisitArguments(node);
-            Domain res = myDomStack.top();
-            myDomStack.pop();
-            for (size_t i = 1; i < node.arguments.size(); ++i) {
-                res = res.dmax(myDomStack.top());
-                myDomStack.pop();
+            Domain res = domStack_.top();
+            domStack_.pop();
+            for (size_t i = 1; i < node.arguments_.size(); ++i) {
+                res = res.dmax(domStack_.top());
+                domStack_.pop();
             }
-            myDomStack.push(std::move(res));
+            domStack_.push(std::move(res));
         }
         void Visit(NodeMin& node) {
             VisitArguments(node);
-            Domain res = myDomStack.top();
-            myDomStack.pop();
-            for (size_t i = 1; i < node.arguments.size(); ++i) {
-                res = res.dmin(myDomStack.top());
-                myDomStack.pop();
+            Domain res = domStack_.top();
+            domStack_.pop();
+            for (size_t i = 1; i < node.arguments_.size(); ++i) {
+                res = res.dmin(domStack_.top());
+                domStack_.pop();
             }
-            myDomStack.push(std::move(res));
+            domStack_.push(std::move(res));
         }
         void Visit(NodeSmooth& node) {
             VisitArguments(node);
 
             //	Pop eps_
-            myDomStack.pop();
+            domStack_.pop();
 
             //	Makes no sense with non-continuous x
-            if (myDomStack[2].IsDiscrete()) {
+            if (domStack_[2].IsDiscrete()) {
                 throw std::runtime_error("Smooth called with isDiscrete_ x");
             }
 
             //	Get min and max val if neg and if pos
-            Bound minIfNeg = myDomStack[0].minBound();
-            Bound maxIfNeg = myDomStack[0].maxBound();
-            Bound minIfPos = myDomStack[1].minBound();
-            Bound maxIfPos = myDomStack[1].maxBound();
+            Bound minIfNeg = domStack_[0].minBound();
+            Bound maxIfNeg = domStack_[0].maxBound();
+            Bound minIfPos = domStack_[1].minBound();
+            Bound maxIfPos = domStack_[1].maxBound();
             Bound minB = min(minIfNeg, minIfPos), maxB = max(maxIfNeg, maxIfPos);
 
             //	Pop
-            myDomStack.pop(3);
+            domStack_.pop(3);
 
             //	Result
-            myDomStack.push(Interval(minB, maxB));
+            domStack_.push(Interval(minB, maxB));
         }
 
         //	Conditions
@@ -180,23 +180,23 @@ namespace Dal::Script {
         void Visit(NodeEqual& node) {
             VisitArguments(node);
 
-            Domain& dom = myDomStack.top();
+            Domain& dom = domStack_.top();
 
             //	Always true / false?
             if (!dom.canBeZero()) {
                 node.alwaysTrue_ = false;
                 node.alwaysFalse_ = true;
 
-                myCondStack.push(alwaysFalse_);
+                condStack_.push(alwaysFalse_);
             } else if (!dom.canBeNonZero()) {
                 node.alwaysTrue_ = true;
                 node.alwaysFalse_ = false;
-                myCondStack.push(alwaysTrue_);
+                condStack_.push(alwaysTrue_);
             } else {
                 node.alwaysTrue_ = node.alwaysFalse_ = false;
-                myCondStack.push(trueOrFalse);
+                condStack_.push(trueOrFalse);
 
-                if (myFuzzy) {
+                if (fuzzy_) {
                     //	Continuous or isDiscrete_?
                     node.isDiscrete_ = dom.zeroIsDiscrete();
 
@@ -228,25 +228,25 @@ namespace Dal::Script {
 #endif
             //	End of dump
 
-            myDomStack.pop();
+            domStack_.pop();
         }
 
         void Visit(NodeNot& node) {
             VisitArguments(node);
-            CondProp cp = myCondStack.top();
-            myCondStack.pop();
+            CondProp cp = condStack_.top();
+            condStack_.pop();
 
             if (cp == alwaysTrue_) {
                 node.alwaysTrue_ = false;
                 node.alwaysFalse_ = true;
-                myCondStack.push(alwaysFalse_);
+                condStack_.push(alwaysFalse_);
             } else if (cp == alwaysFalse_) {
                 node.alwaysTrue_ = true;
                 node.alwaysFalse_ = false;
-                myCondStack.push(alwaysTrue_);
+                condStack_.push(alwaysTrue_);
             } else {
                 node.alwaysTrue_ = node.alwaysFalse_ = false;
-                myCondStack.push(trueOrFalse);
+                condStack_.push(trueOrFalse);
             }
         }
 
@@ -254,24 +254,24 @@ namespace Dal::Script {
         template <bool strict, class NodeSup> inline void visitSupT(NodeSup& node) {
             VisitArguments(node);
 
-            Domain& dom = myDomStack.top();
+            Domain& dom = domStack_.top();
 
             //	Always true / false?
             if (!dom.canBePositive(strict)) {
                 node.alwaysTrue_ = false;
                 node.alwaysFalse_ = true;
-                myCondStack.push(alwaysFalse_);
+                condStack_.push(alwaysFalse_);
             } else if (!dom.canBeNegative(!strict)) {
                 node.alwaysTrue_ = true;
                 node.alwaysFalse_ = false;
-                myCondStack.push(alwaysTrue_);
+                condStack_.push(alwaysTrue_);
             }
             //	Can be true or false
             else {
                 node.alwaysTrue_ = node.alwaysFalse_ = false;
-                myCondStack.push(trueOrFalse);
+                condStack_.push(trueOrFalse);
 
-                if (myFuzzy) {
+                if (fuzzy_) {
                     //	Continuous or isDiscrete_?
                     node.isDiscrete_ = !dom.canBeZero() || dom.zeroIsDiscrete();
 
@@ -312,7 +312,7 @@ namespace Dal::Script {
 #endif
             //	End of dump
 
-            myDomStack.pop();
+            domStack_.pop();
         }
 
         void Visit(NodeSup& node) { visitSupT<true>(node); }
@@ -321,162 +321,162 @@ namespace Dal::Script {
 
         void Visit(NodeAnd& node) {
             VisitArguments(node);
-            CondProp cp1 = myCondStack.top();
-            myCondStack.pop();
-            CondProp cp2 = myCondStack.top();
-            myCondStack.pop();
+            CondProp cp1 = condStack_.top();
+            condStack_.pop();
+            CondProp cp2 = condStack_.top();
+            condStack_.pop();
 
             if (cp1 == alwaysTrue_ && cp2 == alwaysTrue_) {
                 node.alwaysTrue_ = true;
                 node.alwaysFalse_ = false;
-                myCondStack.push(alwaysTrue_);
+                condStack_.push(alwaysTrue_);
             } else if (cp1 == alwaysFalse_ || cp2 == alwaysFalse_) {
                 node.alwaysTrue_ = false;
                 node.alwaysFalse_ = true;
-                myCondStack.push(alwaysFalse_);
+                condStack_.push(alwaysFalse_);
             } else {
                 node.alwaysTrue_ = node.alwaysFalse_ = false;
-                myCondStack.push(trueOrFalse);
+                condStack_.push(trueOrFalse);
             }
         }
         void Visit(NodeOr& node) {
             VisitArguments(node);
-            CondProp cp1 = myCondStack.top();
-            myCondStack.pop();
-            CondProp cp2 = myCondStack.top();
-            myCondStack.pop();
+            CondProp cp1 = condStack_.top();
+            condStack_.pop();
+            CondProp cp2 = condStack_.top();
+            condStack_.pop();
 
             if (cp1 == alwaysTrue_ || cp2 == alwaysTrue_) {
                 node.alwaysTrue_ = true;
                 node.alwaysFalse_ = false;
-                myCondStack.push(alwaysTrue_);
+                condStack_.push(alwaysTrue_);
             } else if (cp1 == alwaysFalse_ && cp2 == alwaysFalse_) {
                 node.alwaysTrue_ = false;
                 node.alwaysFalse_ = true;
-                myCondStack.push(alwaysFalse_);
+                condStack_.push(alwaysFalse_);
             } else {
                 node.alwaysTrue_ = node.alwaysFalse_ = false;
-                myCondStack.push(trueOrFalse);
+                condStack_.push(trueOrFalse);
             }
         }
 
         //	Instructions
         void Visit(NodeIf& node) {
             //	Last "if true" statement index
-            size_t lastTrueStat = node.firstElse_ == -1 ? node.arguments.size() - 1 : node.firstElse_ - 1;
+            size_t lastTrueStat = node.firstElse_ == -1 ? node.arguments_.size() - 1 : node.firstElse_ - 1;
 
             //	Visit condition
-            node.arguments[0]->Accept(*this);
+            node.arguments_[0]->Accept(*this);
 
             //	Always true/false?
-            CondProp cp = myCondStack.top();
-            myCondStack.pop();
+            CondProp cp = condStack_.top();
+            condStack_.pop();
 
             if (cp == alwaysTrue_) {
                 node.alwaysTrue_ = true;
                 node.alwaysFalse_ = false;
                 //	Visit "if true" statements
                 for (size_t i = 1; i <= lastTrueStat; ++i)
-                    node.arguments[i]->Accept(*this);
+                    node.arguments_[i]->Accept(*this);
             } else if (cp == alwaysFalse_) {
                 node.alwaysTrue_ = false;
                 node.alwaysFalse_ = true;
                 //	Visit "if false" statements, if any
                 if (node.firstElse_ != -1)
-                    for (size_t i = node.firstElse_; i < node.arguments.size(); ++i)
-                        node.arguments[i]->Accept(*this);
+                    for (size_t i = node.firstElse_; i < node.arguments_.size(); ++i)
+                        node.arguments_[i]->Accept(*this);
             } else {
                 node.alwaysTrue_ = node.alwaysFalse_ = false;
 
                 //	Record variable domain before if statements are executed
                 Vector_<Domain> domStore0(node.affectedVars_.size());
                 for (size_t i = 0; i < node.affectedVars_.size(); ++i)
-                    domStore0[i] = myVarDomains[node.affectedVars_[i]];
+                    domStore0[i] = varDomains_[node.affectedVars_[i]];
 
                 //	Execute if statements
                 for (size_t i = 1; i <= lastTrueStat; ++i)
-                    node.arguments[i]->Accept(*this);
+                    node.arguments_[i]->Accept(*this);
 
                 //	Record variable domain after if statements are executed
                 Vector_<Domain> domStore1(node.affectedVars_.size());
                 for (size_t i = 0; i < node.affectedVars_.size(); ++i)
-                    domStore1[i] = std::move(myVarDomains[node.affectedVars_[i]]);
+                    domStore1[i] = std::move(varDomains_[node.affectedVars_[i]]);
 
                 //	Reset variable domains
                 for (size_t i = 0; i < node.affectedVars_.size(); ++i)
-                    myVarDomains[node.affectedVars_[i]] = std::move(domStore0[i]);
+                    varDomains_[node.affectedVars_[i]] = std::move(domStore0[i]);
 
                 //	Execute else statements if any
                 if (node.firstElse_ != -1)
-                    for (size_t i = node.firstElse_; i < node.arguments.size(); ++i)
-                        node.arguments[i]->Accept(*this);
+                    for (size_t i = node.firstElse_; i < node.arguments_.size(); ++i)
+                        node.arguments_[i]->Accept(*this);
 
                 //	Merge domains
                 for (size_t i = 0; i < node.affectedVars_.size(); ++i)
-                    myVarDomains[node.affectedVars_[i]].addDomain(domStore1[i]);
+                    varDomains_[node.affectedVars_[i]].addDomain(domStore1[i]);
             }
         }
 
         void Visit(NodeAssign& node) {
             //	Visit the LHS variable
-            myLhsVar = true;
-            node.arguments[0]->Accept(*this);
-            myLhsVar = false;
+            isLhsVar_ = true;
+            node.arguments_[0]->Accept(*this);
+            isLhsVar_ = false;
 
             //	Visit the RHS expression
-            node.arguments[1]->Accept(*this);
+            node.arguments_[1]->Accept(*this);
 
             //	Write RHS domain into variable
-            myVarDomains[myLhsVarIdx] = myDomStack.top();
+            varDomains_[lhsVarIdx_] = domStack_.top();
 
             //	Pop
-            myDomStack.pop();
+            domStack_.pop();
         }
 
         void Visit(NodePays& node) {
             //	Visit the LHS variable
-            myLhsVar = true;
-            node.arguments[0]->Accept(*this);
-            myLhsVar = false;
+            isLhsVar_ = true;
+            node.arguments_[0]->Accept(*this);
+            isLhsVar_ = false;
 
             //	Visit the RHS expression
-            node.arguments[1]->Accept(*this);
+            node.arguments_[1]->Accept(*this);
 
             //	Write RHS domain into variable
 
             //	Numeraire domain = (0,+inf)
-            static const Domain numDomain(Interval(0.0, Bound::plusInfinity));
+            static const Domain numDomain(Interval(0.0, Bound::plusInfinity_));
 
             //	Payment domain
-            Domain payDomain = myDomStack.top() / numDomain;
+            Domain payDomain = domStack_.top() / numDomain;
 
             //	Write
-            myVarDomains[myLhsVarIdx] = myVarDomains[myLhsVarIdx] + payDomain;
+            varDomains_[lhsVarIdx_] = varDomains_[lhsVarIdx_] + payDomain;
 
             //	Pop
-            myDomStack.pop();
+            domStack_.pop();
         }
 
         //	Variables and constants
         void Visit(NodeVar& node) {
             //	LHS?
-            if (myLhsVar) //	Write
+            if (isLhsVar_) //	Write
             {
                 //	Record address in myLhsVarAdr
-                myLhsVarIdx = node.index_;
+                lhsVarIdx_ = node.index_;
             } else //	Read
             {
                 //	Push domain onto the stack
-                myDomStack.push(myVarDomains[node.index_]);
+                domStack_.push(varDomains_[node.index_]);
             }
         }
 
-        void Visit(NodeConst& node) { myDomStack.push(node.constVal_); }
+        void Visit(NodeConst& node) { domStack_.push(node.constVal_); }
 
         //	Scenario related
         void Visit(NodeSpot& node) {
-            static const Domain realDom(Interval(Bound::minusInfinity, Bound::plusInfinity));
-            myDomStack.push(realDom);
+            static const Domain realDom(Interval(Bound::minusInfinity_, Bound::plusInfinity_));
+            domStack_.push(realDom);
         }
     };
 } // namespace Dal::Script

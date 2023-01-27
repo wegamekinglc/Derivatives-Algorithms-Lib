@@ -13,15 +13,15 @@ namespace Dal::Script {
 
     class VarIndexer_ : public Visitor_<VarIndexer_> {
         //	State
-        std::map<String_, size_t> myVarMap;
+        std::map<String_, size_t> varMap_;
 
     public:
         using Visitor_<VarIndexer_>::Visit;
 
         //	Access vector of variable names v[index]=name after Visit to all events
         Vector_<String_> VarNames() const {
-            Vector_<String_> v(myVarMap.size());
-            for (auto varMapIt = myVarMap.begin(); varMapIt != myVarMap.end(); ++varMapIt) {
+            Vector_<String_> v(varMap_.size());
+            for (auto varMapIt = varMap_.begin(); varMapIt != varMap_.end(); ++varMapIt) {
                 v[varMapIt->second] = varMapIt->first;
             }
 
@@ -31,9 +31,9 @@ namespace Dal::Script {
 
         //	Variable indexer: build map of names to indices and write indices on variable nodes
         void Visit(NodeVar& node) {
-            auto varIt = myVarMap.find(node.name_);
-            if (varIt == myVarMap.end())
-                node.index_ = myVarMap[node.name_] = myVarMap.size();
+            auto varIt = varMap_.find(node.name_);
+            if (varIt == varMap_.end())
+                node.index_ = varMap_[node.name_] = varMap_.size();
             else
                 node.index_ = varIt->second;
         }
