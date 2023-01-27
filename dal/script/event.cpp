@@ -15,13 +15,13 @@ namespace Dal::Script {
     void ScriptProduct_::IndexVariables() {
         VarIndexer_ indexer;
         Visit(indexer);
-        variables_ = indexer.getVarNames();
+        variables_ = indexer.VarNames();
     }
 
     size_t ScriptProduct_::IFProcess() {
         IFProcessor_ ifProc;
         Visit(ifProc);
-        return ifProc.maxNestedIfs();
+        return ifProc.MaxNestedIFs();
     }
 
     //	Domain processing
@@ -39,7 +39,7 @@ namespace Dal::Script {
         ConstCondProcessor_ ccProc;
         for (auto& evt : events_) {
             for (auto& stat : evt)
-                ccProc.processFromTop(stat);
+                ccProc.ProcessFromTop(stat);
         }
     }
 
@@ -113,9 +113,9 @@ namespace Dal::Script {
             }
 
             //  Get compiled
-            myNodeStreams.push_back(comp.nodeStream());
-            myConstStreams.push_back(comp.constStream());
-            myDataStreams.push_back(comp.dataStream());
+            myNodeStreams.push_back(comp.NodeStream());
+            myConstStreams.push_back(comp.ConstStream());
+            myDataStreams.push_back(comp.DataStream());
         }
     }
 

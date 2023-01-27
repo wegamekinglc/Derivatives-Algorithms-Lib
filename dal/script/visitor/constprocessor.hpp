@@ -34,13 +34,13 @@ namespace Dal::Script {
 
         //  Is this node a constant?
         //  Note the argument must be of ExprNode_ type
-        static bool constArg(const ExprTree_& node) { return Downcast<const ExprNode_>(node)->isConst; }
+        static bool ConstArg(const ExprTree_& node) { return Downcast<const ExprNode_>(node)->isConst; }
 
         //  Are all the arguments to this node constant?
         //  Note the arguments must be of ExprNode_ type
-        static bool constArgs(const Node_& node, const size_t first = 0) {
+        static bool ConstArgs(const Node_& node, const size_t first = 0) {
             for (size_t i = first; i < node.arguments.size(); ++i) {
-                if (!constArg(node.arguments[i]))
+                if (!ConstArg(node.arguments[i]))
                     return false;
             }
             return true;
@@ -59,9 +59,9 @@ namespace Dal::Script {
 
         //	Binaries
 
-        template <class OP> void visitBinary(ExprNode_& node, const OP op) {
-            visitArguments(node);
-            if (constArgs(node)) {
+        template <class OP> void VisitBinary(ExprNode_& node, const OP op) {
+            VisitArguments(node);
+            if (ConstArgs(node)) {
                 node.isConst = true;
 
                 const double lhs = Downcast<ExprNode_>(node.arguments[0])->constVal;
@@ -71,31 +71,31 @@ namespace Dal::Script {
         }
 
         void Visit(NodeAdd& node) {
-            visitBinary(node, [](const double& x, const double& y) { return x + y; });
+            VisitBinary(node, [](const double& x, const double& y) { return x + y; });
         }
         void Visit(NodeSub& node) {
-            visitBinary(node, [](const double& x, const double& y) { return x - y; });
+            VisitBinary(node, [](const double& x, const double& y) { return x - y; });
         }
         void Visit(NodeMult& node) {
-            visitBinary(node, [](const double& x, const double& y) { return x * y; });
+            VisitBinary(node, [](const double& x, const double& y) { return x * y; });
         }
         void Visit(NodeDiv& node) {
-            visitBinary(node, [](const double& x, const double& y) { return x / y; });
+            VisitBinary(node, [](const double& x, const double& y) { return x / y; });
         }
         void Visit(NodePow& node) {
-            visitBinary(node, [](const double& x, const double& y) { return pow(x, y); });
+            VisitBinary(node, [](const double& x, const double& y) { return pow(x, y); });
         }
         void Visit(NodeMax& node) {
-            visitBinary(node, [](const double& x, const double& y) { return max(x, y); });
+            VisitBinary(node, [](const double& x, const double& y) { return max(x, y); });
         }
         void Visit(NodeMin& node) {
-            visitBinary(node, [](const double& x, const double& y) { return min(x, y); });
+            VisitBinary(node, [](const double& x, const double& y) { return min(x, y); });
         }
 
         //	Unaries
-        template <class OP> void visitUnary(ExprNode_& node, const OP op) {
-            visitArguments(node);
-            if (constArgs(node)) {
+        template <class OP> void VisitUnary(ExprNode_& node, const OP op) {
+            VisitArguments(node);
+            if (ConstArgs(node)) {
                 node.isConst = true;
 
                 const double arg = Downcast<ExprNode_>(node.arguments[0])->constVal;
@@ -104,25 +104,25 @@ namespace Dal::Script {
         }
 
         void Visit(NodeUplus& node) {
-            visitUnary(node, [](const double& x) { return x; });
+            VisitUnary(node, [](const double& x) { return x; });
         }
         void Visit(NodeUminus& node) {
-            visitUnary(node, [](const double& x) { return -x; });
+            VisitUnary(node, [](const double& x) { return -x; });
         }
 
         //	Functions
         void Visit(NodeLog& node) {
-            visitUnary(node, [](const double& x) { return log(x); });
+            VisitUnary(node, [](const double& x) { return log(x); });
         }
         void Visit(NodeSqrt& node) {
-            visitUnary(node, [](const double& x) { return sqrt(x); });
+            VisitUnary(node, [](const double& x) { return sqrt(x); });
         }
 
         //  Multies
 
         void Visit(NodeSmooth& node) {
-            visitArguments(node);
-            if (constArgs(node)) {
+            VisitArguments(node);
+            if (ConstArgs(node)) {
                 node.isConst = true;
 
                 const double x = reinterpret_cast<ExprNode_*>(node.arguments[0].get())->constVal;
@@ -152,7 +152,7 @@ namespace Dal::Script {
                 myInConditional = true;
 
             //  Visit arguments
-            visitArguments(node);
+            VisitArguments(node);
 
             //  Reset (unless nested)
             if (!nested)
@@ -169,7 +169,7 @@ namespace Dal::Script {
             //  All conditional assignments result in non const vars
             if (!myInConditional) {
                 //  RHS constant?
-                if (constArg(node.arguments[1])) {
+                if (ConstArg(node.arguments[1])) {
                     myVarConst[varIndex] = true;
                     myVarConstVal[varIndex] = Downcast<const ExprNode_>(node.arguments[1])->constVal;
                 } else {

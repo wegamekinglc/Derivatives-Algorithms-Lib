@@ -21,7 +21,7 @@ TEST(VarIndexerTest, TestVarIndexerVisit) {
     ASSERT_EQ(dynamic_cast<NodeVar*>(var1.get())->index, 0);
     ASSERT_EQ(dynamic_cast<NodeVar*>(var2.get())->index, 1);
 
-    Vector_<String_> names = visitor.getVarNames();
+    Vector_<String_> names = visitor.VarNames();
     ASSERT_EQ(names[0], "x");
     ASSERT_EQ(names[1], "y");
 }

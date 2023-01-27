@@ -14,13 +14,13 @@ namespace Dal::Script {
     template <class V_> struct Visitor_ {
         //  Visit a node with concrete visitor
         //      use this to hide the statc_cast
-        void visitNode(Node_& node) {
+        void VisitNode(Node_& node) {
             //  static_cast : Visit as concrete visitor
             node.Accept(static_cast<V_&>(*this));
         }
 
         //  Visit all the arguments with concrete (type V_) visitor
-        void visitArguments(Node_& node) {
+        void VisitArguments(Node_& node) {
             for (auto& arg : node.arguments) {
                 //  static_cast : Visit as concrete visitor
                 arg->Accept(static_cast<V_&>(*this));
@@ -31,19 +31,19 @@ namespace Dal::Script {
         void Visit(Node_& node) {
             //  V_ does not declare a Visit to that node type,
             //      either const or non const - fall back to default Visit arguments
-            visitArguments(node);
+            VisitArguments(node);
         }
     };
 
     //  Const visitor
 
     template <class V_> struct ConstVisitor_ {
-        void visitNode(const Node_& node) {
+        void VisitNode(const Node_& node) {
             //  static_cast : Visit as concrete visitor
             node.Accept(static_cast<V_&>(*this));
         }
 
-        void visitArguments(const Node_& node) {
+        void VisitArguments(const Node_& node) {
             for (const auto& arg : node.arguments) {
                 //  static_cast : Visit as visitor of type V_
                 arg->Accept(static_cast<V_&>(*this));
@@ -56,7 +56,7 @@ namespace Dal::Script {
 
             //  V_ does not declare a Visit to that node type,
             //      either const or non const - fall back to visiting arguments
-            visitArguments(node);
+            VisitArguments(node);
         }
     };
 

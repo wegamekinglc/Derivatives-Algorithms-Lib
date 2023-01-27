@@ -78,31 +78,31 @@ namespace Dal::Script {
         //	Binaries
 
         void Visit(NodeAdd& node) {
-            visitArguments(node);
+            VisitArguments(node);
             Domain res = myDomStack[1] + myDomStack[0];
             myDomStack.pop(2);
             myDomStack.push(std::move(res));
         }
         void Visit(NodeSub& node) {
-            visitArguments(node);
+            VisitArguments(node);
             Domain res = myDomStack[1] - myDomStack[0];
             myDomStack.pop(2);
             myDomStack.push(std::move(res));
         }
         void Visit(NodeMult& node) {
-            visitArguments(node);
+            VisitArguments(node);
             Domain res = myDomStack[1] * myDomStack[0];
             myDomStack.pop(2);
             myDomStack.push(std::move(res));
         }
         void Visit(NodeDiv& node) {
-            visitArguments(node);
+            VisitArguments(node);
             Domain res = myDomStack[1] / myDomStack[0];
             myDomStack.pop(2);
             myDomStack.push(std::move(res));
         }
         void Visit(NodePow& node) {
-            visitArguments(node);
+            VisitArguments(node);
             Domain res = myDomStack[1].applyFunc2<double (*)(const double, const double)>(
                 pow, myDomStack[0], Interval(Bound::minusInfinity, Bound::plusInfinity));
             myDomStack.pop(2);
@@ -110,28 +110,28 @@ namespace Dal::Script {
         }
 
         //	Unaries
-        void Visit(NodeUplus& node) { visitArguments(node); }
+        void Visit(NodeUplus& node) { VisitArguments(node); }
         void Visit(NodeUminus& node) {
-            visitArguments(node);
+            VisitArguments(node);
             myDomStack.top() = -myDomStack.top();
         }
 
         //	Functions
         void Visit(NodeLog& node) {
-            visitArguments(node);
+            VisitArguments(node);
             Domain res = myDomStack.top().applyFunc<double (*)(const double)>(
                 log, Interval(Bound::minusInfinity, Bound::plusInfinity));
             myDomStack.pop();
             myDomStack.push(std::move(res));
         }
         void Visit(NodeSqrt& node) {
-            visitArguments(node);
+            VisitArguments(node);
             Domain res = myDomStack.top().applyFunc<double (*)(const double)>(sqrt, Interval(0.0, Bound::plusInfinity));
             myDomStack.pop();
             myDomStack.push(std::move(res));
         }
         void Visit(NodeMax& node) {
-            visitArguments(node);
+            VisitArguments(node);
             Domain res = myDomStack.top();
             myDomStack.pop();
             for (size_t i = 1; i < node.arguments.size(); ++i) {
@@ -141,7 +141,7 @@ namespace Dal::Script {
             myDomStack.push(std::move(res));
         }
         void Visit(NodeMin& node) {
-            visitArguments(node);
+            VisitArguments(node);
             Domain res = myDomStack.top();
             myDomStack.pop();
             for (size_t i = 1; i < node.arguments.size(); ++i) {
@@ -151,7 +151,7 @@ namespace Dal::Script {
             myDomStack.push(std::move(res));
         }
         void Visit(NodeSmooth& node) {
-            visitArguments(node);
+            VisitArguments(node);
 
             //	Pop eps
             myDomStack.pop();
@@ -178,7 +178,7 @@ namespace Dal::Script {
         //	Conditions
 
         void Visit(NodeEqual& node) {
-            visitArguments(node);
+            VisitArguments(node);
 
             Domain& dom = myDomStack.top();
 
@@ -232,7 +232,7 @@ namespace Dal::Script {
         }
 
         void Visit(NodeNot& node) {
-            visitArguments(node);
+            VisitArguments(node);
             CondProp cp = myCondStack.top();
             myCondStack.pop();
 
@@ -252,7 +252,7 @@ namespace Dal::Script {
 
         //	For visiting superior and supEqual
         template <bool strict, class NodeSup> inline void visitSupT(NodeSup& node) {
-            visitArguments(node);
+            VisitArguments(node);
 
             Domain& dom = myDomStack.top();
 
@@ -320,7 +320,7 @@ namespace Dal::Script {
         void Visit(NodeSupEqual& node) { visitSupT<false>(node); }
 
         void Visit(NodeAnd& node) {
-            visitArguments(node);
+            VisitArguments(node);
             CondProp cp1 = myCondStack.top();
             myCondStack.pop();
             CondProp cp2 = myCondStack.top();
@@ -340,7 +340,7 @@ namespace Dal::Script {
             }
         }
         void Visit(NodeOr& node) {
-            visitArguments(node);
+            VisitArguments(node);
             CondProp cp1 = myCondStack.top();
             myCondStack.pop();
             CondProp cp2 = myCondStack.top();

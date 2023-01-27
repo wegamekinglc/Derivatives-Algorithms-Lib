@@ -29,7 +29,7 @@ namespace Dal::Script {
 
     //  All the concrete nodes
 
-    //  Binary expressions
+    //  VisitBinary expressions
 
     struct NodeAdd : public Visitable_<ExprNode_, NodeAdd, VISITORS> {};
     struct NodeSub : public Visitable_<ExprNode_, NodeSub, VISITORS> {};

@@ -21,7 +21,7 @@ namespace Dal::Script {
         ExprTree_* myCurrent;
 
         //  Visit arguments plus set myCurrent pointer
-        void visitArgsSetCurrent(Node_& node) {
+        void VisitArgsSetCurrent(Node_& node) {
             for (auto& arg : node.arguments) {
                 myCurrent = &arg;
                 arg->Accept(*this);
@@ -34,13 +34,13 @@ namespace Dal::Script {
         std::enable_if_t<std::is_same<NODE, std::remove_const_t<NODE>>::value &&
                     !HasConstVisit_<ConstCondProcessor_>::ForNodeType<NODE>()>
         Visit(NODE& node) {
-            visitArgsSetCurrent(node);
+            VisitArgsSetCurrent(node);
         }
 
         //	This patricular visitor modifies the structure of the tree, hence it must be called only
         //		with this method from the top of every tree, passing a ref on the unique_ptr holding
         //		the top node of the tree
-        void processFromTop(std::unique_ptr<Node_>& top) {
+        void ProcessFromTop(std::unique_ptr<Node_>& top) {
             myCurrent = &top;
             top->Accept(*this);
         }
@@ -48,7 +48,7 @@ namespace Dal::Script {
         //	Conditions
 
         //	One visitor for all booleans
-        void visitBool(BoolNode_& node) {
+        void VisitBool(BoolNode_& node) {
             //	Always true ==> replace the tree by a True node
             if (node.alwaysTrue)
                 myCurrent->reset(new NodeTrue);
@@ -59,16 +59,16 @@ namespace Dal::Script {
 
             //	Nothing to do here ==> Visit the arguments
             else
-                visitArgsSetCurrent(node);
+                VisitArgsSetCurrent(node);
         }
 
         //	Visitors
-        void Visit(NodeEqual& node) { visitBool(node); }
-        void Visit(NodeSup& node) { visitBool(node); }
-        void Visit(NodeSupEqual& node) { visitBool(node); }
-        void Visit(NodeNot& node) { visitBool(node); }
-        void Visit(NodeAnd& node) { visitBool(node); }
-        void Visit(NodeOr& node) { visitBool(node); }
+        void Visit(NodeEqual& node) { VisitBool(node); }
+        void Visit(NodeSup& node) { VisitBool(node); }
+        void Visit(NodeSupEqual& node) { VisitBool(node); }
+        void Visit(NodeNot& node) { VisitBool(node); }
+        void Visit(NodeAnd& node) { VisitBool(node); }
+        void Visit(NodeOr& node) { VisitBool(node); }
 
         //	If
         void Visit(NodeIf& node) {
@@ -84,7 +84,7 @@ namespace Dal::Script {
                     (*myCurrent)->arguments.push_back(std::move(args[i]));
                 }
 
-                visitArgsSetCurrent(**myCurrent);
+                VisitArgsSetCurrent(**myCurrent);
             }
 
             //	Always false ==> replace the tree by the collection of "else" statements
@@ -101,12 +101,12 @@ namespace Dal::Script {
                     }
                 }
 
-                visitArgsSetCurrent(**myCurrent);
+                VisitArgsSetCurrent(**myCurrent);
             }
 
             //	Nothing to do here ==> Visit the arguments
             else
-                visitArgsSetCurrent(node);
+                VisitArgsSetCurrent(node);
         }
     };
 } // namespace Dal::Script

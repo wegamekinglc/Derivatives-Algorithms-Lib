@@ -13,8 +13,7 @@ namespace Dal::Script {
 
     //	The fuzzy evaluator
 
-    template <class T>
-    class FuzzyEvaluator_ : public EvaluatorBase<T, FuzzyEvaluator_> {
+    template <class T> class FuzzyEvaluator_ : public EvaluatorBase_<T, FuzzyEvaluator_> {
         //	Default smoothing factor for conditions that don't override it
         double myDefEps;
 
@@ -30,7 +29,7 @@ namespace Dal::Script {
         size_t myNestedIfLvl;
 
         //	Pop the top 2 numbers of the fuzzy condition stack
-        pair<T, T> pop2f() {
+        pair<T, T> Pop2f() {
             pair<T, T> res;
             res.first = myFuzzyStack.top();
             myFuzzyStack.pop();
@@ -40,7 +39,7 @@ namespace Dal::Script {
         }
 
         //	Call Spread (-eps/2,+eps/2)
-        static T cSpr(const T x, const double eps) {
+        static T CSpr(const T x, const double eps) {
             const double halfEps = 0.5 * eps;
 
             if (x < -halfEps)
@@ -52,7 +51,7 @@ namespace Dal::Script {
         }
 
         //	Call Spread (lb,rb)
-        static T cSpr(const T x, const double lb, const double rb) {
+        static T CSpr(const T x, const double lb, const double rb) {
             if (x < lb)
                 return T(0.0);
             else if (x > rb)
@@ -62,7 +61,7 @@ namespace Dal::Script {
         }
 
         //	Butterfly (-eps/2,+eps/2)
-        static T bFly(const T x, const double eps) {
+        static T BFly(const T x, const double eps) {
             const double halfEps = 0.5 * eps;
 
             if (x < -halfEps || x > halfEps)
@@ -72,7 +71,7 @@ namespace Dal::Script {
         }
 
         //	Butterfly (lb,0,rb)
-        static T bFly(const T x, const double lb, const double rb) {
+        static T BFly(const T x, const double lb, const double rb) {
             if (x < lb || x > rb)
                 return T(0.0);
             else if (x < 0.0)
@@ -82,12 +81,12 @@ namespace Dal::Script {
         }
 
     public:
-        using Base = EvaluatorBase<T, FuzzyEvaluator_>;
+        using Base = EvaluatorBase_<T, FuzzyEvaluator_>;
 
-        using Base::Visit;
-        using Base::visitNode;
         using Base::myDstack;
         using Base::myVariables;
+        using Base::Visit;
+        using Base::VisitNode;
 
         FuzzyEvaluator_(const size_t nVar, const size_t maxNestedIfs, const double defEps = 0)
             : Base(nVar), myDefEps(defEps), myVarStore0(maxNestedIfs), myVarStore1(maxNestedIfs), myNestedIfLvl(0) {
@@ -135,7 +134,7 @@ namespace Dal::Script {
         }
 
         //	(Re)set default smoothing factor
-        void setDefEps(const double defEps) { myDefEps = defEps; }
+        void SetDefEps(double defEps) { myDefEps = defEps; }
 
         //	Overriden visitors
 
@@ -148,7 +147,7 @@ namespace Dal::Script {
             ++myNestedIfLvl;
 
             //	Visit the condition and compute its degree of truth dt
-            visitNode(*node.arguments[0]);
+            VisitNode(*node.arguments[0]);
             const T dt = myFuzzyStack.top();
             myFuzzyStack.pop();
 
@@ -156,7 +155,7 @@ namespace Dal::Script {
             if (dt > 1.0 - EPSILON) {
                 //	Eval "if true" statements
                 for (size_t i = 1; i <= lastTrueStat; ++i)
-                    visitNode(*node.arguments[i]);
+                    VisitNode(*node.arguments[i]);
 
             }
             //	Absolutely false
@@ -164,7 +163,7 @@ namespace Dal::Script {
                 //	Eval "if false" statements if any
                 if (node.firstElse != -1)
                     for (size_t i = node.firstElse; i < node.arguments.size(); ++i)
-                        visitNode(*node.arguments[i]);
+                        VisitNode(*node.arguments[i]);
 
             }
             //	Fuzzy
@@ -175,7 +174,7 @@ namespace Dal::Script {
 
                 //	Eval "if true" statements
                 for (size_t i = 1; i <= lastTrueStat; ++i)
-                    visitNode(*node.arguments[i]);
+                    VisitNode(*node.arguments[i]);
 
                 //	Record and reset values of variables to be changed
                 for (auto idx : node.affectedVars) {
@@ -186,7 +185,7 @@ namespace Dal::Script {
                 //	Eval "if false" statements if any
                 if (node.firstElse != -1)
                     for (size_t i = node.firstElse; i < node.arguments.size(); ++i)
-                        visitNode(*node.arguments[i]);
+                        VisitNode(*node.arguments[i]);
 
                 //	Set values of variables to fuzzy values
                 for (auto idx : node.affectedVars)
@@ -205,13 +204,13 @@ namespace Dal::Script {
         //	Equality
         void Visit(const NodeEqual& node) {
             //	Evaluate expression to be compared to 0
-            visitNode(*node.arguments[0]);
+            VisitNode(*node.arguments[0]);
             const T expr = myDstack.top();
             myDstack.pop();
 
             //	Discrete case: 0 is a singleton in expr's domain
             if (node.discrete) {
-                myFuzzyStack.push(bFly(expr, node.lb, node.rb));
+                myFuzzyStack.push(BFly(expr, node.lb, node.rb));
             }
             //	Continuous case: 0 is part of expr's continuous domain
             else {
@@ -219,16 +218,16 @@ namespace Dal::Script {
                 double eps = node.eps < 0 ? myDefEps : node.eps;
 
                 //	Butterfly
-                myFuzzyStack.push(bFly(expr, eps));
+                myFuzzyStack.push(BFly(expr, eps));
             }
         }
 
         //	Inequality
 
         //	For visiting superior and supEqual
-        void visitComp(const CompNode_& node) {
+        void VisitComp(const CompNode_& node) {
             //	Evaluate expression to be compared to 0
-            visitNode(*node.arguments[0]);
+            VisitNode(*node.arguments[0]);
             const T expr = myDstack.top();
             myDstack.pop();
 
@@ -238,7 +237,7 @@ namespace Dal::Script {
             //		otherwise the condition would be always true/false
             if (node.discrete) {
                 //	Call spread on the right
-                myFuzzyStack.push(cSpr(expr, node.lb, node.rb));
+                myFuzzyStack.push(CSpr(expr, node.lb, node.rb));
             }
             //	Continuous case: 0 is part of expr's continuous domain
             else {
@@ -246,33 +245,33 @@ namespace Dal::Script {
                 const double eps = node.eps < 0 ? myDefEps : node.eps;
 
                 //	Call Spread
-                myFuzzyStack.push(cSpr(expr, eps));
+                myFuzzyStack.push(CSpr(expr, eps));
             }
         }
 
-        void Visit(const NodeSup& node) { visitComp(node); }
+        void Visit(const NodeSup& node) { VisitComp(node); }
 
-        void Visit(const NodeSupEqual& node) { visitComp(node); }
+        void Visit(const NodeSupEqual& node) { VisitComp(node); }
 
         //	Negation
         void visitNot(const NodeNot& node) {
-            visitNode(*node.arguments[0]);
+            VisitNode(*node.arguments[0]);
             myFuzzyStack.top() = 1.0 - myFuzzyStack.top();
         }
 
         //	Combinators
         //	Hard coded proba stlye and->dt(lhs)*dt(rhs), or->dt(lhs)+dt(rhs)-dt(lhs)*dt(rhs)
         void Visit(const NodeAnd& node) {
-            visitNode(*node.arguments[0]);
-            visitNode(*node.arguments[1]);
-            const auto args = pop2f();
+            VisitNode(*node.arguments[0]);
+            VisitNode(*node.arguments[1]);
+            const auto args = Pop2f();
             myFuzzyStack.push(args.first * args.second);
         }
         void Visit(const NodeOr& node) {
-            visitNode(*node.arguments[0]);
-            visitNode(*node.arguments[1]);
-            const auto args = pop2f();
+            VisitNode(*node.arguments[0]);
+            VisitNode(*node.arguments[1]);
+            const auto args = Pop2f();
             myFuzzyStack.push(args.first + args.second - args.first * args.second);
         }
     };
-}
+} // namespace Dal::Script
