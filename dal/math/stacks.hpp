@@ -87,10 +87,10 @@ namespace Dal {
         using iterator = std::reverse_iterator<E_*>;
         using const_iterator = std::reverse_iterator<const E_*>;
 
-        inline iterator begin() { return std::reverse_iterator<E_*>(data_ + sp_); }
-        inline const_iterator begin() const { return std::reverse_iterator<const E_*>(data_ + sp_); }
-        inline iterator end() { return std::reverse_iterator<E_*>(data_); }
-        inline const_iterator end() const { return std::reverse_iterator<const E_*>(data_); }
+        FORCE_INLINE iterator begin() { return std::reverse_iterator<E_*>(data_ + sp_); }
+        FORCE_INLINE const_iterator begin() const { return std::reverse_iterator<const E_*>(data_ + sp_); }
+        FORCE_INLINE iterator end() { return std::reverse_iterator<E_*>(data_); }
+        FORCE_INLINE const_iterator end() const { return std::reverse_iterator<const E_*>(data_); }
 
         template <typename T_> void Push(T_&& value) {
             data_[sp_] = std::forward<T_>(value);
@@ -110,16 +110,16 @@ namespace Dal {
             }
         }
 
-        E_& Top() { return data_[sp_ - 1]; }
-        const E_& Top() const { return data_[sp_ - 1]; }
-        E_& operator[](const size_t i) { return data_[sp_ - 1 - i]; }
-        const E_& operator[](const size_t i) const { return data_[sp_ - 1 - i]; }
+        FORCE_INLINE E_& Top() { return data_[sp_ - 1]; }
+        FORCE_INLINE const E_& Top() const { return data_[sp_ - 1]; }
+        FORCE_INLINE E_& operator[](const size_t i) { return data_[sp_ - 1 - i]; }
+        FORCE_INLINE const E_& operator[](const size_t i) const { return data_[sp_ - 1 - i]; }
 
-        E_ TopAndPop() { return std::move(data_[--sp_]); }
+        FORCE_INLINE E_ TopAndPop() { return std::move(data_[--sp_]); }
 
-        void Pop() { --sp_; }
-        void Pop(const size_t n) { sp_ -= n; }
-        void Reset() { sp_ = 0; }
+        FORCE_INLINE void Pop() { --sp_; }
+        FORCE_INLINE void Pop(const size_t n) { sp_ -= n; }
+        FORCE_INLINE void Reset() { sp_ = 0; }
 
         void Clear() {
             if (data_)
@@ -128,39 +128,39 @@ namespace Dal {
             size_ = sp_ = 0;
         }
 
-        [[nodiscard]] int Size() const { return sp_; }
-        [[nodiscard]] int Capacity() const { return size_; }
-        [[nodiscard]] bool IsEmpty() const { return sp_ == 0; }
+        [[nodiscard]] FORCE_INLINE int Size() const { return sp_; }
+        [[nodiscard]] FORCE_INLINE int Capacity() const { return size_; }
+        [[nodiscard]] FORCE_INLINE bool IsEmpty() const { return sp_ == 0; }
     };
 
-    template <class T, size_t Size = 64> class StaticStack_ {
+    template <class T, size_t SIZE = 64> class StaticStack_ {
 
     private:
-        T data_[Size];
+        T data_[SIZE];
         int sp_ = -1;
 
     public:
         template <typename T2> inline void Push(T2&& value) { data_[++sp_] = std::forward<T2>(value); }
 
-        inline T& Top() { return data_[sp_]; }
+        FORCE_INLINE T& Top() { return data_[sp_]; }
 
-        inline const T& Top() const { return data_[sp_]; }
+        FORCE_INLINE const T& Top() const { return data_[sp_]; }
 
         //	Random access
-        inline T& operator[](const int i) { return data_[sp_ - i]; }
+        FORCE_INLINE T& operator[](const int i) { return data_[sp_ - i]; }
 
-        inline const T& operator[](const int i) const { return data_[sp_ - i]; }
+        FORCE_INLINE const T& operator[](const int i) const { return data_[sp_ - i]; }
 
-        inline T TopAndPop() { return move(data_[--sp_]); }
+        FORCE_INLINE T TopAndPop() { return move(data_[--sp_]); }
 
-        void Pop() { --sp_; }
+        FORCE_INLINE void Pop() { --sp_; }
 
-        void Pop(const int n) { sp_ -= n; }
+        FORCE_INLINE void Pop(const int n) { sp_ -= n; }
 
-        void Reset() { sp_ = -1; }
+        FORCE_INLINE void Reset() { sp_ = -1; }
 
-        size_t Size() const { return static_cast<size_t>((sp_ + 1)); }
+        FORCE_INLINE size_t Size() const { return static_cast<size_t>((sp_ + 1)); }
 
-        bool IsEmpty() const { return sp_ < 0; }
+        FORCE_INLINE bool IsEmpty() const { return sp_ < 0; }
     };
 } // namespace Dal
