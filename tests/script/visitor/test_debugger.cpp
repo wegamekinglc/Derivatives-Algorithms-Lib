@@ -3,19 +3,19 @@
 //
 
 #include <gtest/gtest.h>
-#include <dal/script/visitor/debugger.hpp>
+#include <dal/script/visitor/all.hpp>
 
 using namespace Dal;
 using namespace Dal::Script;
 
 TEST(DebuggerTest, TestDebuggerVisit) {
-    ScriptNode_ var1 = std::make_unique<NodeVar_>("x");
-    ScriptNode_ const1 = std::make_unique<NodeConst_>(20);
+    Expression var1 = MakeBaseNode<NodeVar>("x");
+    Expression const1 = MakeBaseNode<NodeConst>(20);
 
     Debugger_ visitor;
-    visitor.Visit(var1);
-    ASSERT_EQ(visitor.String(), String_("VAR[-1]\n"));
+    var1->accept(visitor);
+    ASSERT_EQ(visitor.String(), String_("VAR[x,-1]\n"));
 
-    visitor.Visit(const1);
+    const1->accept(visitor);
     ASSERT_EQ(visitor.String(), String_("CONST[20.000000]\n"));
 }

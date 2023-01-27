@@ -4,8 +4,7 @@
 
 #include <gtest/gtest.h>
 #include <dal/script/parser.hpp>
-#include <dal/script/visitor/varindexer.hpp>
-#include <dal/script/visitor/ifprocessor.hpp>
+#include <dal/script/visitor/all.hpp>
 
 using namespace Dal;
 using namespace Dal::Script;
@@ -23,11 +22,11 @@ TEST(IFProcessorTest, TestIFProcessor) {
     VarIndexer_ visitor1;
     IFProcessor_ visitor2;
 
-    visitor1.Visit(res[0]);
-    visitor2.Visit(res[0]);
+    res[0]->accept(visitor1);
+    res[0]->accept(visitor2);
 
-    ASSERT_EQ(visitor2.MaxNestedIFs(), 1);
-    ASSERT_EQ(std::get<std::unique_ptr<NodeIf_>>(res[0])->affectedVars_, Vector_<int>({1}));
+    ASSERT_EQ(visitor2.maxNestedIfs(), 1);
+    ASSERT_EQ(dynamic_cast<NodeIf*>(res[0].get())->affectedVars, Vector_<size_t>({1}));
 }
 
 TEST(IFProcessorTest, TestIFProcessorNested) {
@@ -48,13 +47,13 @@ TEST(IFProcessorTest, TestIFProcessorNested) {
     VarIndexer_ visitor1;
     IFProcessor_ visitor2;
 
-    visitor1.Visit(res[0]);
-    visitor2.Visit(res[0]);
+    res[0]->accept(visitor1);
+    res[0]->accept(visitor2);
 
-    ASSERT_EQ(visitor2.MaxNestedIFs(), 2);
-    ASSERT_EQ(std::get<std::unique_ptr<NodeIf_>>(res[0])->affectedVars_, Vector_<int>({1, 2}));
+    ASSERT_EQ(visitor2.maxNestedIfs(), 2);
+    ASSERT_EQ(dynamic_cast<NodeIf*>(res[0].get())->affectedVars, Vector_<size_t>({1, 2}));
 
-    auto& nestedIF = std::get<std::unique_ptr<NodeIf_>>(res[0])->arguments_[1];
-    ASSERT_EQ(std::get<std::unique_ptr<NodeIf_>>(nestedIF)->affectedVars_, Vector_<int>({1}));
+    auto& nestedIF = res[0]->arguments[1];
+    ASSERT_EQ(dynamic_cast<NodeIf*>(nestedIF.get())->affectedVars, Vector_<size_t>({1}));
 }
 

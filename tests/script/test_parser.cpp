@@ -5,6 +5,7 @@
 #include <gtest/gtest.h>
 #include <dal/script/parser.hpp>
 #include <dal/script/node.hpp>
+#include <dal/script/visitor/all.hpp>
 
 using namespace Dal;
 using namespace Dal::Script;
@@ -13,10 +14,10 @@ TEST(ParserTest, TestParseAssign) {
     String_ event = "x = 2";
     auto res = Parse(event);
     ASSERT_EQ(res.size(), 1);
-    auto& toTest1 = std::get<std::unique_ptr<NodeAssign_>>(res[0]);
-    auto& toTest2 = std::get<std::unique_ptr<NodeVar_>>(toTest1->arguments_[0]);
-    auto& toTest3 = std::get<std::unique_ptr<NodeConst_>>(toTest1->arguments_[1]);
-    ASSERT_NEAR(toTest3->val_, 2.0, 1e-10);
+    auto toTest1 = dynamic_cast<NodeAssign*>(res[0].get());
+    ASSERT_NE(dynamic_cast<NodeVar*>(toTest1->arguments[0].get()), nullptr);
+    auto toTest3 = dynamic_cast<NodeConst*>(toTest1->arguments[1].get());
+    ASSERT_NEAR(toTest3->constVal, 2.0, 1e-10);
 }
 
 TEST(ParserTest, TestParseIf) {
@@ -27,19 +28,19 @@ TEST(ParserTest, TestParseIf) {
     )";
     auto res = Parse(event);
     ASSERT_EQ(res.size(), 1);
-    auto& toTest1 = std::get<std::unique_ptr<NodeIf_>>(res[0]);
-    ASSERT_EQ(toTest1->firstElse_, -1);
+    auto toTest1 = dynamic_cast<NodeIf*>(res[0].get());
+    ASSERT_EQ(toTest1->firstElse, -1);
 
-    auto& toTest2 = std::get<std::unique_ptr<NodeSupEqual_>>(toTest1->arguments_[0]);
-    auto& toTest3 = std::get<std::unique_ptr<NodeMinus_>>(toTest2->arguments_[0]);
-    auto& toTest4 = std::get<std::unique_ptr<NodeVar_>>(toTest3->arguments_[0]);
-    auto& toTest5 = std::get<std::unique_ptr<NodeConst_>>(toTest3->arguments_[1]);
+    auto toTest2 = dynamic_cast<NodeSupEqual*>(toTest1->arguments[0].get());
+    auto toTest3 = dynamic_cast<NodeSub*>(toTest2->arguments[0].get());
+    ASSERT_NE(dynamic_cast<NodeVar*>(toTest3->arguments[0].get()), nullptr);
+    ASSERT_NE(dynamic_cast<NodeConst*>(toTest3->arguments[1].get()), nullptr);
 
-    auto& toTest6 = std::get<std::unique_ptr<NodeAssign_>>(toTest1->arguments_[1]);
-    auto& toTest7 = std::get<std::unique_ptr<NodeVar_>>(toTest6->arguments_[0]);
-    auto& toTest8 = std::get<std::unique_ptr<NodePlus_>>(toTest6->arguments_[1]);
-    auto& toTest9 = std::get<std::unique_ptr<NodeConst_>>(toTest8->arguments_[0]);
-    auto& toTest10 = std::get<std::unique_ptr<NodeVar_>>(toTest8->arguments_[1]);
+    auto toTest6 = dynamic_cast<NodeAssign*>(toTest1->arguments[1].get());
+    ASSERT_NE(dynamic_cast<NodeVar*>(toTest6->arguments[0].get()), nullptr);
+    auto toTest8 = dynamic_cast<NodeAdd*>(toTest6->arguments[1].get());
+    ASSERT_NE(dynamic_cast<NodeConst*>(toTest8->arguments[0].get()), nullptr);
+    ASSERT_NE(dynamic_cast<NodeVar*>(toTest8->arguments[1].get()), nullptr);
 }
 
 TEST(ParserTest, TestParseIfWithElse) {
@@ -52,22 +53,22 @@ TEST(ParserTest, TestParseIfWithElse) {
     )";
     auto res = Parse(event);
     ASSERT_EQ(res.size(), 1);
-    auto& toTest1 = std::get<std::unique_ptr<NodeIf_>>(res[0]);
+    auto toTest1 = dynamic_cast<NodeIf*>(res[0].get());
     ASSERT_TRUE(toTest1);
-    ASSERT_EQ(toTest1->firstElse_, 2);
+    ASSERT_EQ(toTest1->firstElse, 2);
 
-    auto& toTest2 = std::get<std::unique_ptr<NodeSupEqual_>>(toTest1->arguments_[0]);
-    auto& toTest3 = std::get<std::unique_ptr<NodeMinus_>>(toTest2->arguments_[0]);
-    auto& toTest4 = std::get<std::unique_ptr<NodeVar_>>(toTest3->arguments_[0]);
-    auto& toTest5 = std::get<std::unique_ptr<NodeConst_>>(toTest3->arguments_[1]);
+    auto toTest2 = dynamic_cast<NodeSupEqual*>(toTest1->arguments[0].get());
+    auto toTest3 = dynamic_cast<NodeSub*>(toTest2->arguments[0].get());
+    ASSERT_NE(dynamic_cast<NodeVar*>(toTest3->arguments[0].get()), nullptr);
+    ASSERT_NE(dynamic_cast<NodeConst*>(toTest3->arguments[1].get()), nullptr);
 
-    auto& toTest6 = std::get<std::unique_ptr<NodeAssign_>>(toTest1->arguments_[1]);
-    auto& toTest7 = std::get<std::unique_ptr<NodeVar_>>(toTest6->arguments_[0]);
-    auto& toTest8 = std::get<std::unique_ptr<NodePlus_>>(toTest6->arguments_[1]);
-    auto& toTest9 = std::get<std::unique_ptr<NodeConst_>>(toTest8->arguments_[0]);
-    auto& toTest10 = std::get<std::unique_ptr<NodeVar_>>(toTest8->arguments_[1]);
+    auto toTest6 = dynamic_cast<NodeAssign*>(toTest1->arguments[1].get());
+    ASSERT_NE(dynamic_cast<NodeVar*>(toTest6->arguments[0].get()), nullptr);
+    auto toTest8 = dynamic_cast<NodeAdd*>(toTest6->arguments[1].get());
+    ASSERT_NE(dynamic_cast<NodeConst*>(toTest8->arguments[0].get()), nullptr);
+    ASSERT_NE(dynamic_cast<NodeVar*>(toTest8->arguments[1].get()), nullptr);
 
-    auto& toTest11 = std::get<std::unique_ptr<NodeAssign_>>(toTest1->arguments_[2]);
-    auto& toTest12 = std::get<std::unique_ptr<NodeVar_>>(toTest11->arguments_[0]);
-    auto& toTest13 = std::get<std::unique_ptr<NodeVar_>>(toTest11->arguments_[1]);
+    auto toTest11 = dynamic_cast<NodeAssign*>(toTest1->arguments[2].get());
+    ASSERT_NE(dynamic_cast<NodeVar*>(toTest11->arguments[0].get()), nullptr);
+    ASSERT_NE(dynamic_cast<NodeVar*>(toTest11->arguments[1].get()), nullptr);
 }

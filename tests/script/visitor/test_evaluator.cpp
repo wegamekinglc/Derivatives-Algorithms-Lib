@@ -3,24 +3,25 @@
 //
 
 #include <gtest/gtest.h>
-#include <dal/script/visitor/varindexer.hpp>
+#include <dal/script/node.hpp>
+#include <dal/script/visitor/all.hpp>
 #include <dal/script/visitor/evaluator.hpp>
 
 using namespace Dal;
 using namespace Dal::Script;
 
 TEST(EvaluatorTest, TestEvaluator) {
-    ScriptNode_ const1 = MakeBaseNode<NodeConst_>(20.0);
-    ScriptNode_ const2 = MakeBaseNode<NodeConst_>(30.0);
+    Expression const1 = MakeBaseNode<NodeConst>(20.0);
+    Expression const2 = MakeBaseNode<NodeConst>(30.0);
 
-    auto plusExpr = BuildBinary<NodePlus_>(const1, const2);
+    auto plusExpr = MakeBaseBinary<NodeAdd>(const1, const2);
 
-    ScriptNode_ var = MakeBaseNode<NodeVar_>("x");
-    auto assignExpr = BuildBinary<NodeAssign_>(var, plusExpr);
+    Expression var = MakeBaseNode<NodeVar>("x");
+    auto assignExpr = MakeBinary<NodeAssign>(var, plusExpr);
 
     VarIndexer_ visitor1;
     Evaluator_<double> visitor2(1);
-    visitor1.Visit(assignExpr);
-    visitor2.Visit(assignExpr);
+    assignExpr->accept(visitor1);
+    assignExpr->accept(visitor2);
     ASSERT_DOUBLE_EQ(visitor2.VarVals()[0], 50);
 }

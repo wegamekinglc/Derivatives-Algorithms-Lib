@@ -116,13 +116,13 @@ namespace Dal::Script {
 
     //  Variable
     struct NodeVar : Visitable<exprNode, NodeVar, VISITORS> {
-        NodeVar(const String_& n) : name(n) {
+        NodeVar(const String_& n) : name(n), index(-1) {
             isConst = true;
             constVal = 0.0;
         }
 
         const String_ name;
-        size_t index;
+        int index;
     };
 
     //	Assign, Pays
@@ -135,7 +135,7 @@ namespace Dal::Script {
     struct NodeIf : Visitable<actNode, NodeIf, VISITORS> {
         int firstElse;
         //	For fuzzy eval: indices of variables affected in statements, including nested
-        std::vector<size_t> affectedVars;
+        Vector_<size_t> affectedVars;
         //	Always true/false as per domain processor
         bool alwaysTrue;
         bool alwaysFalse;
@@ -157,18 +157,18 @@ namespace Dal::Script {
     //  Factories
 
     //  Make concrete node
-    template <typename ConcreteNode, typename... Args> std::unique_ptr<ConcreteNode> make_node(Args&&... args) {
+    template <typename ConcreteNode, typename... Args> std::unique_ptr<ConcreteNode> MakeNode(Args&&... args) {
         return std::unique_ptr<ConcreteNode>(new ConcreteNode(std::forward<Args>(args)...));
     }
 
     //  Same but return as pointer on base
-    template <typename ConcreteNode, typename... Args> std::unique_ptr<Node> make_base_node(Args&&... args) {
+    template <typename ConcreteNode, typename... Args> std::unique_ptr<Node> MakeBaseNode(Args&&... args) {
         return std::unique_ptr<Node>(new ConcreteNode(std::forward<Args>(args)...));
     }
 
     //	Build binary concrete, and set its arguments to lhs and rhs
-    template <class NodeType> std::unique_ptr<NodeType> make_binary(ExprTree& lhs, ExprTree& rhs) {
-        auto top = make_node<NodeType>();
+    template <class NodeType> std::unique_ptr<NodeType> MakeBinary(ExprTree& lhs, ExprTree& rhs) {
+        auto top = MakeNode<NodeType>();
         top->arguments.Resize(2);
         //	Take ownership of lhs and rhs
         top->arguments[0] = std::move(lhs);
@@ -178,8 +178,8 @@ namespace Dal::Script {
     }
 
     //  Same but return as pointer on base
-    template <class ConcreteNode> ExprTree make_base_binary(ExprTree& lhs, ExprTree& rhs) {
-        auto top = make_base_node<ConcreteNode>();
+    template <class ConcreteNode> ExprTree MakeBaseBinary(ExprTree& lhs, ExprTree& rhs) {
+        auto top = MakeBaseNode<ConcreteNode>();
         top->arguments.Resize(2);
         //	Take ownership of lhs and rhs
         top->arguments[0] = std::move(lhs);
