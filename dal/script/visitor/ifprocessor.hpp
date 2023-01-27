@@ -40,18 +40,18 @@ namespace Dal::Script {
                 maxNestedIfs_ = nestedIfLvl_;
 
             //	Put new element on the stack
-            varStack_.push(std::set<size_t>());
+            varStack_.Push(std::set<size_t>());
 
             //	Visit arguments_, excluding condition
             for (size_t i = 1; i < node.arguments_.size(); ++i)
                 node.arguments_[i]->Accept(*this);
 
-            //	Copy the top of the stack into the node
+            //	Copy the Top of the stack into the node
             node.affectedVars_.clear();
-            copy(varStack_.top().begin(), varStack_.top().end(), back_inserter(node.affectedVars_));
+            copy(varStack_.Top().begin(), varStack_.Top().end(), back_inserter(node.affectedVars_));
 
             //	Pop
-            varStack_.pop();
+            varStack_.Pop();
 
             //	Decrease nested if level
             --nestedIfLvl_;
@@ -60,7 +60,7 @@ namespace Dal::Script {
             //	Variables changed in a nested if are also changed in the englobing if
             if (nestedIfLvl_)
                 copy(node.affectedVars_.begin(), node.affectedVars_.end(),
-                     inserter(varStack_.top(), varStack_.top().end()));
+                     inserter(varStack_.Top(), varStack_.Top().end()));
         }
 
         void Visit(NodeAssign& node) {
@@ -78,7 +78,7 @@ namespace Dal::Script {
         void Visit(NodeVar& node) {
             //	Insert the var idx
             if (nestedIfLvl_)
-                varStack_.top().insert(node.index_);
+                varStack_.Top().insert(node.index_);
         }
     };
 } // namespace Dal::Script

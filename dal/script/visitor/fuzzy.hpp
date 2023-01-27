@@ -28,13 +28,13 @@ namespace Dal::Script {
         //	Nested if level, 0: not in an if, 1: in the outermost if, 2: if nested in another if, etc.
         size_t myNestedIfLvl;
 
-        //	Pop the top 2 numbers of the fuzzy condition stack
+        //	Pop the Top 2 numbers of the fuzzy condition stack
         pair<T, T> Pop2f() {
             pair<T, T> res;
-            res.first = myFuzzyStack.top();
-            myFuzzyStack.pop();
-            res.second = myFuzzyStack.top();
-            myFuzzyStack.pop();
+            res.first = myFuzzyStack.Top();
+            myFuzzyStack.Pop();
+            res.second = myFuzzyStack.Top();
+            myFuzzyStack.Pop();
             return res;
         }
 
@@ -148,8 +148,8 @@ namespace Dal::Script {
 
             //	Visit the condition and compute its degree of truth dt
             VisitNode(*node.arguments_[0]);
-            const T dt = myFuzzyStack.top();
-            myFuzzyStack.pop();
+            const T dt = myFuzzyStack.Top();
+            myFuzzyStack.Pop();
 
             //	Absolutely true
             if (dt > 1.0 - EPSILON) {
@@ -176,7 +176,7 @@ namespace Dal::Script {
                 for (size_t i = 1; i <= lastTrueStat; ++i)
                     VisitNode(*node.arguments_[i]);
 
-                //	Record and reset values of variables to be changed
+                //	Record and Reset values of variables to be changed
                 for (auto idx : node.affectedVars_) {
                     myVarStore1[myNestedIfLvl - 1][idx] = variables_[idx];
                     variables_[idx] = myVarStore0[myNestedIfLvl - 1][idx];
@@ -198,19 +198,19 @@ namespace Dal::Script {
 
         //	Conditions
 
-        void Visit(const NodeTrue& node) { myFuzzyStack.push(1.0); }
-        void Visit(const NodeFalse& node) { myFuzzyStack.push(0.0); }
+        void Visit(const NodeTrue& node) { myFuzzyStack.Push(1.0); }
+        void Visit(const NodeFalse& node) { myFuzzyStack.Push(0.0); }
 
         //	Equality
         void Visit(const NodeEqual& node) {
             //	Evaluate expression to be compared to 0
             VisitNode(*node.arguments_[0]);
-            const T expr = dStack_.top();
-            dStack_.pop();
+            const T expr = dStack_.Top();
+            dStack_.Pop();
 
             //	Discrete case: 0 is a singleton in expr's domain
             if (node.isDiscrete_) {
-                myFuzzyStack.push(BFly(expr, node.lb_, node.rb_));
+                myFuzzyStack.Push(BFly(expr, node.lb_, node.rb_));
             }
             //	Continuous case: 0 is part of expr's continuous domain
             else {
@@ -218,7 +218,7 @@ namespace Dal::Script {
                 double eps = node.eps_ < 0 ? myDefEps : node.eps_;
 
                 //	Butterfly
-                myFuzzyStack.push(BFly(expr, eps));
+                myFuzzyStack.Push(BFly(expr, eps));
             }
         }
 
@@ -228,8 +228,8 @@ namespace Dal::Script {
         void VisitComp(const CompNode_& node) {
             //	Evaluate expression to be compared to 0
             VisitNode(*node.arguments_[0]);
-            const T expr = dStack_.top();
-            dStack_.pop();
+            const T expr = dStack_.Top();
+            dStack_.Pop();
 
             //	Discrete case:
             //	Either 0 is a singleton in expr's domain
@@ -237,7 +237,7 @@ namespace Dal::Script {
             //		otherwise the condition would be always true/false
             if (node.isDiscrete_) {
                 //	Call spread on the right
-                myFuzzyStack.push(CSpr(expr, node.lb_, node.rb_));
+                myFuzzyStack.Push(CSpr(expr, node.lb_, node.rb_));
             }
             //	Continuous case: 0 is part of expr's continuous domain
             else {
@@ -245,7 +245,7 @@ namespace Dal::Script {
                 const double eps = node.eps_ < 0 ? myDefEps : node.eps_;
 
                 //	Call Spread
-                myFuzzyStack.push(CSpr(expr, eps));
+                myFuzzyStack.Push(CSpr(expr, eps));
             }
         }
 
@@ -256,7 +256,7 @@ namespace Dal::Script {
         //	Negation
         void visitNot(const NodeNot& node) {
             VisitNode(*node.arguments_[0]);
-            myFuzzyStack.top() = 1.0 - myFuzzyStack.top();
+            myFuzzyStack.Top() = 1.0 - myFuzzyStack.Top();
         }
 
         //	Combinators
@@ -265,13 +265,13 @@ namespace Dal::Script {
             VisitNode(*node.arguments_[0]);
             VisitNode(*node.arguments_[1]);
             const auto args = Pop2f();
-            myFuzzyStack.push(args.first * args.second);
+            myFuzzyStack.Push(args.first * args.second);
         }
         void Visit(const NodeOr& node) {
             VisitNode(*node.arguments_[0]);
             VisitNode(*node.arguments_[1]);
             const auto args = Pop2f();
-            myFuzzyStack.push(args.first + args.second - args.first * args.second);
+            myFuzzyStack.Push(args.first + args.second - args.first * args.second);
         }
     };
 } // namespace Dal::Script

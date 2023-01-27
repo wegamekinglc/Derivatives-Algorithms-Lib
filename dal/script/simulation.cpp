@@ -41,7 +41,8 @@ namespace Dal::Script {
                                const AAD::Model_<double>& model,
                                int n_paths,
                                const String_& rsg,
-                               bool use_bb) {
+                               bool use_bb,
+                               bool compiled) {
         auto mdl = model.Clone();
 
         mdl->Allocate(product.TimeLine(), product.DefLine());
@@ -67,6 +68,7 @@ namespace Dal::Script {
         }
 
         Vector_<Evaluator_<double>> eval_s(nThread + 1, product.BuildEvaluator<double>());
+        Vector_<EvalState_<double>> eval_state_s(nThread + 1, EvalState_<double>(product.VarNames().size()));
 
         SimResults_<double> results(n_paths);
 
@@ -82,16 +84,25 @@ namespace Dal::Script {
                 const size_t threadNum = pool->ThreadNum();
                 Vector_<>& gaussVec = gaussVecs[threadNum];
                 Scenario_<>& path = paths[threadNum];
-                Evaluator_<double>& eval = eval_s[threadNum];
-
                 auto& random = rng_s[threadNum];
                 random->SkipTo(firstPath);
 
-                for (size_t i = 0; i < pathsInTask; ++i) {
-                    random->FillNormal(&gaussVec);
-                    mdl->GeneratePath(gaussVec, &path);
-                    product.Evaluate(path, eval);
-                    results.aggregated_[firstPath + i] = eval.VarVals()[eval.VarVals().size() - 1];
+                if (compiled) {
+                    EvalState_<double>& eval_state = eval_state_s[threadNum];
+                    for (size_t i = 0; i < pathsInTask; ++i) {
+                        random->FillNormal(&gaussVec);
+                        mdl->GeneratePath(gaussVec, &path);
+                        product.EvaluateCompiled(path, eval_state);
+                        results.aggregated_[firstPath + i] = eval_state.VarVals()[eval_state.VarVals().size() - 1];
+                    }
+                } else {
+                    Evaluator_<double>& eval = eval_s[threadNum];
+                    for (size_t i = 0; i < pathsInTask; ++i) {
+                        random->FillNormal(&gaussVec);
+                        mdl->GeneratePath(gaussVec, &path);
+                        product.Evaluate(path, eval);
+                        results.aggregated_[firstPath + i] = eval.VarVals()[eval.VarVals().size() - 1];
+                    }
                 }
                 return true;
             }));
@@ -140,7 +151,7 @@ namespace Dal::Script {
 
         Vector_<Vector_<>> gaussVecs(nThread + 1);
         Vector_<Scenario_<AAD::Number_>> paths(nThread + 1);
-        Vector_<Evaluator_<AAD::Number_>> eval_s;(nThread + 1);
+        Vector_<Evaluator_<AAD::Number_>> eval_s;
         Vector_<FuzzyEvaluator_<AAD::Number_>> fuzzy_eval_s;
 
         for (auto& vec : gaussVecs)

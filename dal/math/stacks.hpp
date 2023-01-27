@@ -136,31 +136,31 @@ namespace Dal {
     template <class T, size_t Size = 64> class StaticStack_ {
 
     private:
-        T myData[Size];
-        int mySp = -1;
+        T data_[Size];
+        int sp_ = -1;
 
     public:
-        template <typename T2> inline void push(T2&& value) { myData[++mySp] = std::forward<T2>(value); }
+        template <typename T2> inline void Push(T2&& value) { data_[++sp_] = std::forward<T2>(value); }
 
-        inline T& top() { return myData[mySp]; }
+        inline T& Top() { return data_[sp_]; }
 
-        inline const T& top() const { return myData[mySp]; }
+        inline const T& Top() const { return data_[sp_]; }
 
         //	Random access
-        inline T& operator[](const int i) { return myData[mySp - i]; }
+        inline T& operator[](const int i) { return data_[sp_ - i]; }
 
-        inline const T& operator[](const int i) const { return myData[mySp - i]; }
+        inline const T& operator[](const int i) const { return data_[sp_ - i]; }
 
-        inline T topAndPop() { return move(myData[--mySp]); }
+        inline T TopAndPop() { return move(data_[--sp_]); }
 
-        void pop() { --mySp; }
+        void Pop() { --sp_; }
 
-        void pop(const int n) { mySp -= n; }
+        void Pop(const int n) { sp_ -= n; }
 
-        void reset() { mySp = -1; }
+        void Reset() { sp_ = -1; }
 
-        size_t size() const { return static_cast<size_t>((mySp + 1)); }
+        size_t Size() const { return static_cast<size_t>((sp_ + 1)); }
 
-        bool empty() const { return mySp < 0; }
+        bool IsEmpty() const { return sp_ < 0; }
     };
 } // namespace Dal

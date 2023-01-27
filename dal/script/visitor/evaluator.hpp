@@ -57,8 +57,8 @@ namespace Dal::Script {
                 varIt = 0.0;
             //	Stacks should be empty, if this is not the case the empty them
             //		without affecting capacity for added performance
-            dStack_.reset();
-            bStack_.reset();
+            dStack_.Reset();
+            bStack_.Reset();
         }
 
         //	Accessors
@@ -83,8 +83,8 @@ namespace Dal::Script {
         template <class OP> void VisitBinary(const ExprNode_& node, OP op) {
             VisitNode(*node.arguments_[0]);
             VisitNode(*node.arguments_[1]);
-            op(dStack_[1], dStack_.top());
-            dStack_.pop();
+            op(dStack_[1], dStack_.Top());
+            dStack_.Pop();
         }
 
         void Visit(const NodeAdd& node) {
@@ -118,7 +118,7 @@ namespace Dal::Script {
         //	Unaries
         template <class OP> inline void VisitUnary(const ExprNode_& node, OP op) {
             VisitNode(*node.arguments_[0]);
-            op(dStack_.top());
+            op(dStack_.Top());
         }
 
         void Visit(const NodeUplus& node) {
@@ -140,13 +140,13 @@ namespace Dal::Script {
         void Visit(const NodeSmooth& node) {
             //	Eval the condition
             VisitNode(*node.arguments_[0]);
-            const T x = dStack_.top();
-            dStack_.pop();
+            const T x = dStack_.Top();
+            dStack_.Pop();
 
             //	Eval the epsilon
             VisitNode(*node.arguments_[3]);
-            const T halfEps = 0.5 * dStack_.top();
-            dStack_.pop();
+            const T halfEps = 0.5 * dStack_.Top();
+            dStack_.Pop();
 
             //	Left
             if (x < -halfEps)
@@ -159,22 +159,22 @@ namespace Dal::Script {
             //	Fuzzy
             else {
                 VisitNode(*node.arguments_[1]);
-                const T vPos = dStack_.top();
-                dStack_.pop();
+                const T vPos = dStack_.Top();
+                dStack_.Pop();
 
                 VisitNode(*node.arguments_[2]);
-                const T vNeg = dStack_.top();
-                dStack_.pop();
+                const T vNeg = dStack_.Top();
+                dStack_.Pop();
 
-                dStack_.push(vNeg + 0.5 * (vPos - vNeg) / halfEps * (x + halfEps));
+                dStack_.Push(vNeg + 0.5 * (vPos - vNeg) / halfEps * (x + halfEps));
             }
         }
 
         //	Conditions
         template <class OP> inline void VisitCondition(const BoolNode_& node, OP op) {
             VisitNode(*node.arguments_[0]);
-            bStack_.push(op(dStack_.top()));
-            dStack_.pop();
+            bStack_.Push(op(dStack_.Top()));
+            dStack_.Pop();
         }
 
         void Visit(const NodeEqual& node) {
@@ -189,21 +189,21 @@ namespace Dal::Script {
 
         void Visit(const NodeAnd& node) {
             VisitNode(*node.arguments_[0]);
-            if (bStack_.top()) {
-                bStack_.pop();
+            if (bStack_.Top()) {
+                bStack_.Pop();
                 VisitNode(*node.arguments_[1]);
             }
         }
         void Visit(const NodeOr& node) {
             VisitNode(*node.arguments_[0]);
-            if (!bStack_.top()) {
-                bStack_.pop();
+            if (!bStack_.Top()) {
+                bStack_.Pop();
                 VisitNode(*node.arguments_[1]);
             }
         }
         void Visit(const NodeNot& node) {
             VisitNode(*node.arguments_[0]);
-            auto& b = bStack_.top();
+            auto& b = bStack_.Top();
             b = !b;
         }
 
@@ -213,8 +213,8 @@ namespace Dal::Script {
             VisitNode(*node.arguments_[0]);
 
             //	Pick the result
-            const auto isTrue = bStack_.top();
-            bStack_.pop();
+            const auto isTrue = bStack_.Top();
+            bStack_.Pop();
 
             //	Evaluate the relevant statements
             if (isTrue) {
@@ -237,8 +237,8 @@ namespace Dal::Script {
             VisitNode(*node.arguments_[1]);
 
             //	Write result into variable
-            variables_[varIdx] = dStack_.top();
-            dStack_.pop();
+            variables_[varIdx] = dStack_.Top();
+            dStack_.Pop();
         }
 
         void Visit(const NodePays& node) {
@@ -248,23 +248,23 @@ namespace Dal::Script {
             VisitNode(*node.arguments_[1]);
 
             //	Write result into variable
-            variables_[varIdx] += dStack_.top() / (*scenario_)[curEvt_].numeraire_;
-            dStack_.pop();
+            variables_[varIdx] += dStack_.Top() / (*scenario_)[curEvt_].numeraire_;
+            dStack_.Pop();
         }
 
         //	Variables and constants
         void Visit(const NodeVar& node) {
             //	Push value onto the stack
-            dStack_.push(variables_[node.index_]);
+            dStack_.Push(variables_[node.index_]);
         }
 
-        void Visit(const NodeConst& node) { dStack_.push(node.constVal_); }
+        void Visit(const NodeConst& node) { dStack_.Push(node.constVal_); }
 
-        void Visit(const NodeTrue& node) { bStack_.push(true); }
-        void Visit(const NodeFalse& node) { bStack_.push(false); }
+        void Visit(const NodeTrue& node) { bStack_.Push(true); }
+        void Visit(const NodeFalse& node) { bStack_.Push(false); }
 
         //	Scenario related
-        void Visit(const NodeSpot& node) { dStack_.push((*scenario_)[curEvt_].spot_); }
+        void Visit(const NodeSpot& node) { dStack_.Push((*scenario_)[curEvt_].spot_); }
     };
 
     //  Concrete Evaluator_

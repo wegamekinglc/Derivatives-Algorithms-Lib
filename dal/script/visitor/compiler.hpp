@@ -11,7 +11,7 @@ Modern Computational Finance: Scripting for Derivatives and XVA
 Jesper Andreasen & Antoine Savine
 Wiley, 2018
 
-As long as this comment is preserved at the top of the file
+As long as this comment is preserved at the Top of the file
 */
 
 #pragma once
@@ -26,9 +26,9 @@ As long as this comment is preserved at the top of the file
 #include <functional>
 
 namespace Dal::Script {
-    template <class T> struct EvalState_ {
+    template <class T_> struct EvalState_ {
         //	State
-        Vector_<T> variables_;
+        Vector_<T_> variables_;
 
         //  Constructor
         EvalState_(size_t nVar) : variables_(nVar) {}
@@ -38,6 +38,8 @@ namespace Dal::Script {
             for (auto& var : variables_)
                 var = 0.0;
         }
+
+        const Vector_<T_>& VarVals() const { return variables_; }
     };
 
     enum NodeType {
@@ -295,9 +297,7 @@ namespace Dal::Script {
             const size_t n = node.arguments_.size();
             if (node.firstElse_ != -1) {
                 for (size_t i = node.firstElse_; i < n; ++i) {
-                    {
-                        node.arguments_[i]->Accept(*this);
-                    }
+                    node.arguments_[i]->Accept(*this);
                 }
                 //  Record last if-false space
                 nodeStream_[thisSpace + 2] = int(nodeStream_.size());
@@ -336,107 +336,107 @@ namespace Dal::Script {
 
             case Add:
 
-                dStack[1] += dStack.top();
-                dStack.pop();
+                dStack[1] += dStack.Top();
+                dStack.Pop();
 
                 ++i;
                 break;
 
             case AddConst:
 
-                dStack.top() += constStream[nodeStream[++i]];
+                dStack.Top() += constStream[nodeStream[++i]];
 
                 ++i;
                 break;
 
             case Sub:
 
-                dStack[1] -= dStack.top();
-                dStack.pop();
+                dStack[1] -= dStack.Top();
+                dStack.Pop();
 
                 ++i;
                 break;
 
             case SubConst:
 
-                dStack.top() -= constStream[nodeStream[++i]];
+                dStack.Top() -= constStream[nodeStream[++i]];
 
                 ++i;
                 break;
 
             case ConstSub:
 
-                dStack.top() = constStream[nodeStream[++i]] - dStack.top();
+                dStack.Top() = constStream[nodeStream[++i]] - dStack.Top();
 
                 ++i;
                 break;
 
             case Mult:
 
-                dStack[1] *= dStack.top();
-                dStack.pop();
+                dStack[1] *= dStack.Top();
+                dStack.Pop();
 
                 ++i;
                 break;
 
             case MultConst:
 
-                dStack.top() *= constStream[nodeStream[++i]];
+                dStack.Top() *= constStream[nodeStream[++i]];
 
                 ++i;
                 break;
 
             case Div:
 
-                dStack[1] /= dStack.top();
-                dStack.pop();
+                dStack[1] /= dStack.Top();
+                dStack.Pop();
 
                 ++i;
                 break;
 
             case DivConst:
 
-                dStack.top() /= constStream[nodeStream[++i]];
+                dStack.Top() /= constStream[nodeStream[++i]];
 
                 ++i;
                 break;
 
             case ConstDiv:
 
-                dStack.top() = constStream[nodeStream[++i]] / dStack.top();
+                dStack.Top() = constStream[nodeStream[++i]] / dStack.Top();
 
                 ++i;
                 break;
 
             case Pow:
 
-                dStack[1] = pow(dStack[1], dStack.top());
-                dStack.pop();
+                dStack[1] = pow(dStack[1], dStack.Top());
+                dStack.Pop();
 
                 ++i;
                 break;
 
             case PowConst:
 
-                dStack.top() = pow(dStack.top(), constStream[nodeStream[++i]]);
+                dStack.Top() = pow(dStack.Top(), constStream[nodeStream[++i]]);
 
                 ++i;
                 break;
 
             case ConstPow:
 
-                dStack.top() = pow(constStream[nodeStream[++i]], dStack.top());
+                dStack.Top() = pow(constStream[nodeStream[++i]], dStack.Top());
 
                 ++i;
                 break;
 
             case Max2:
 
-                y = dStack.top();
+                y = dStack.Top();
 
                 if (y > dStack[1])
                     dStack[1] = y;
-                dStack.pop();
+                dStack.Pop();
 
                 ++i;
                 break;
@@ -444,19 +444,19 @@ namespace Dal::Script {
             case Max2Const:
 
                 y = constStream[nodeStream[++i]];
-                if (y > dStack.top())
-                    dStack.top() = y;
+                if (y > dStack.Top())
+                    dStack.Top() = y;
 
                 ++i;
                 break;
 
             case Min2:
 
-                y = dStack.top();
+                y = dStack.Top();
 
                 if (y < dStack[1])
                     dStack[1] = y;
-                dStack.pop();
+                dStack.Pop();
 
                 ++i;
                 break;
@@ -464,29 +464,29 @@ namespace Dal::Script {
             case Min2Const:
 
                 y = constStream[nodeStream[++i]];
-                if (y < dStack.top())
-                    dStack.top() = y;
+                if (y < dStack.Top())
+                    dStack.Top() = y;
 
                 ++i;
                 break;
 
             case Spot:
 
-                dStack.push(scen.spot);
+                dStack.Push(scen.spot_);
 
                 ++i;
                 break;
 
             case Var:
 
-                dStack.push(state.variables_[nodeStream[++i]]);
+                dStack.Push(state.variables_[nodeStream[++i]]);
 
                 ++i;
                 break;
 
             case Const:
 
-                dStack.push(constStream[nodeStream[++i]]);
+                dStack.Push(constStream[nodeStream[++i]]);
 
                 ++i;
                 break;
@@ -494,8 +494,8 @@ namespace Dal::Script {
             case Assign:
 
                 idx = nodeStream[++i];
-                state.variables_[idx] = dStack.top();
-                dStack.pop();
+                state.variables_[idx] = dStack.Top();
+                dStack.Pop();
 
                 ++i;
                 break;
@@ -513,8 +513,8 @@ namespace Dal::Script {
 
                 ++i;
                 idx = nodeStream[i];
-                state.variables_[idx] += dStack.top() / scen.numeraire;
-                dStack.pop();
+                state.variables_[idx] += dStack.Top() / scen.numeraire_;
+                dStack.Pop();
 
                 ++i;
                 break;
@@ -523,26 +523,26 @@ namespace Dal::Script {
 
                 x = constStream[nodeStream[++i]];
                 idx = nodeStream[++i];
-                state.variables_[idx] += x / scen.numeraire;
+                state.variables_[idx] += x / scen.numeraire_;
 
                 ++i;
                 break;
 
             case If:
 
-                if (bStack.top()) {
+                if (bStack.Top()) {
                     i += 2;
                 } else {
                     i = nodeStream[++i];
                 }
 
-                bStack.pop();
+                bStack.Pop();
 
                 break;
 
             case IfElse:
 
-                if (!bStack.top()) {
+                if (!bStack.Top()) {
                     i = nodeStream[++i];
                 } else {
                     //  Cannot avoid nested call here
@@ -550,30 +550,30 @@ namespace Dal::Script {
                     i = nodeStream[i + 2];
                 }
 
-                bStack.pop();
+                bStack.Pop();
 
                 break;
 
             case Equal:
 
-                bStack.push(dStack.top() == 0);
-                dStack.pop();
+                bStack.Push(dStack.Top() == 0);
+                dStack.Pop();
 
                 ++i;
                 break;
 
             case Sup:
 
-                bStack.push(dStack.top() > 0);
-                dStack.pop();
+                bStack.Push(dStack.Top() > 0);
+                dStack.Pop();
 
                 ++i;
                 break;
 
             case SupEqual:
 
-                bStack.push(dStack.top() >= 0);
-                dStack.pop();
+                bStack.Push(dStack.Top() >= 0);
+                dStack.Pop();
 
                 ++i;
                 break;
@@ -581,9 +581,9 @@ namespace Dal::Script {
             case And:
 
                 if (bStack[1]) {
-                    bStack[1] = bStack.top();
+                    bStack[1] = bStack.Top();
                 }
-                bStack.pop();
+                bStack.Pop();
 
                 ++i;
                 break;
@@ -591,9 +591,9 @@ namespace Dal::Script {
             case Or:
 
                 if (!bStack[1]) {
-                    bStack[1] = bStack.top();
+                    bStack[1] = bStack.Top();
                 }
-                bStack.pop();
+                bStack.Pop();
 
                 ++i;
                 break;
@@ -602,23 +602,23 @@ namespace Dal::Script {
 
                 //	Eval the condition
                 x = dStack[3];
-                y = 0.5 * dStack.top();
+                y = 0.5 * dStack.Top();
                 z = dStack[2];
                 t = dStack[1];
 
-                dStack.pop(3);
+                dStack.Pop(3);
 
                 //	Left
                 if (x < -y)
-                    dStack.top() = t;
+                    dStack.Top() = t;
 
                 //	Right
                 if (x < -y)
-                    dStack.top() = z;
+                    dStack.Top() = z;
 
                 //	Fuzzy
                 else {
-                    dStack.top() = t + 0.5 * (z - t) / y * (x + y);
+                    dStack.Top() = t + 0.5 * (z - t) / y * (x + y);
                 }
 
                 ++i;
@@ -626,42 +626,42 @@ namespace Dal::Script {
 
             case Sqrt:
 
-                dStack.top() = sqrt(dStack.top());
+                dStack.Top() = sqrt(dStack.Top());
 
                 ++i;
                 break;
 
             case Log:
 
-                dStack.top() = log(dStack.top());
+                dStack.Top() = log(dStack.Top());
 
                 ++i;
                 break;
 
             case Not:
 
-                bStack.top() = !bStack.top();
+                bStack.Top() = !bStack.Top();
 
                 ++i;
                 break;
 
             case Uminus:
 
-                dStack.top() = -dStack.top();
+                dStack.Top() = -dStack.Top();
 
                 ++i;
                 break;
 
             case True:
 
-                bStack.push(true);
+                bStack.Push(true);
 
                 ++i;
                 break;
 
             case False:
 
-                bStack.push(false);
+                bStack.Push(false);
 
                 ++i;
                 break;

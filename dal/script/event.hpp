@@ -100,7 +100,7 @@ namespace Dal::Script {
             }
         }
 
-        template <class T_> void evaluateCompiled(const Scenario_<T_>& scen, EvalState_<T_>& state) const {
+        template <class T_> void EvaluateCompiled(const Scenario_<T_>& scen, EvalState_<T_>& state) const {
             //	Initialize state
             state.Init();
 

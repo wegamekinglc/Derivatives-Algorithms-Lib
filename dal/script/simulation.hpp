@@ -38,7 +38,8 @@ namespace Dal::Script {
                                const AAD::Model_<double>& model,
                                int n_paths,
                                const String_& rsg = "sobol",
-                               bool use_bb = false);
+                               bool use_bb = false,
+                               bool compiled = false);
 
     SimResults_<AAD::Number_> MCSimulation(const ScriptProduct_& product,
                                            const AAD::Model_<AAD::Number_>& model,

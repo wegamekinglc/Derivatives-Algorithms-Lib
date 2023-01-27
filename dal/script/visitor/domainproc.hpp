@@ -80,81 +80,81 @@ namespace Dal::Script {
         void Visit(NodeAdd& node) {
             VisitArguments(node);
             Domain res = domStack_[1] + domStack_[0];
-            domStack_.pop(2);
-            domStack_.push(std::move(res));
+            domStack_.Pop(2);
+            domStack_.Push(std::move(res));
         }
         void Visit(NodeSub& node) {
             VisitArguments(node);
             Domain res = domStack_[1] - domStack_[0];
-            domStack_.pop(2);
-            domStack_.push(std::move(res));
+            domStack_.Pop(2);
+            domStack_.Push(std::move(res));
         }
         void Visit(NodeMult& node) {
             VisitArguments(node);
             Domain res = domStack_[1] * domStack_[0];
-            domStack_.pop(2);
-            domStack_.push(std::move(res));
+            domStack_.Pop(2);
+            domStack_.Push(std::move(res));
         }
         void Visit(NodeDiv& node) {
             VisitArguments(node);
             Domain res = domStack_[1] / domStack_[0];
-            domStack_.pop(2);
-            domStack_.push(std::move(res));
+            domStack_.Pop(2);
+            domStack_.Push(std::move(res));
         }
         void Visit(NodePow& node) {
             VisitArguments(node);
             Domain res = domStack_[1].applyFunc2<double (*)(const double, const double)>(
                 pow, domStack_[0], Interval(Bound::minusInfinity_, Bound::plusInfinity_));
-            domStack_.pop(2);
-            domStack_.push(std::move(res));
+            domStack_.Pop(2);
+            domStack_.Push(std::move(res));
         }
 
         //	Unaries
         void Visit(NodeUplus& node) { VisitArguments(node); }
         void Visit(NodeUminus& node) {
             VisitArguments(node);
-            domStack_.top() = -domStack_.top();
+            domStack_.Top() = -domStack_.Top();
         }
 
         //	Functions
         void Visit(NodeLog& node) {
             VisitArguments(node);
-            Domain res = domStack_.top().applyFunc<double (*)(const double)>(
+            Domain res = domStack_.Top().applyFunc<double (*)(const double)>(
                 log, Interval(Bound::minusInfinity_, Bound::plusInfinity_));
-            domStack_.pop();
-            domStack_.push(std::move(res));
+            domStack_.Pop();
+            domStack_.Push(std::move(res));
         }
         void Visit(NodeSqrt& node) {
             VisitArguments(node);
-            Domain res = domStack_.top().applyFunc<double (*)(const double)>(sqrt, Interval(0.0, Bound::plusInfinity_));
-            domStack_.pop();
-            domStack_.push(std::move(res));
+            Domain res = domStack_.Top().applyFunc<double (*)(const double)>(sqrt, Interval(0.0, Bound::plusInfinity_));
+            domStack_.Pop();
+            domStack_.Push(std::move(res));
         }
         void Visit(NodeMax& node) {
             VisitArguments(node);
-            Domain res = domStack_.top();
-            domStack_.pop();
+            Domain res = domStack_.Top();
+            domStack_.Pop();
             for (size_t i = 1; i < node.arguments_.size(); ++i) {
-                res = res.dmax(domStack_.top());
-                domStack_.pop();
+                res = res.dmax(domStack_.Top());
+                domStack_.Pop();
             }
-            domStack_.push(std::move(res));
+            domStack_.Push(std::move(res));
         }
         void Visit(NodeMin& node) {
             VisitArguments(node);
-            Domain res = domStack_.top();
-            domStack_.pop();
+            Domain res = domStack_.Top();
+            domStack_.Pop();
             for (size_t i = 1; i < node.arguments_.size(); ++i) {
-                res = res.dmin(domStack_.top());
-                domStack_.pop();
+                res = res.dmin(domStack_.Top());
+                domStack_.Pop();
             }
-            domStack_.push(std::move(res));
+            domStack_.Push(std::move(res));
         }
         void Visit(NodeSmooth& node) {
             VisitArguments(node);
 
             //	Pop eps_
-            domStack_.pop();
+            domStack_.Pop();
 
             //	Makes no sense with non-continuous x
             if (domStack_[2].IsDiscrete()) {
@@ -169,10 +169,10 @@ namespace Dal::Script {
             Bound minB = min(minIfNeg, minIfPos), maxB = max(maxIfNeg, maxIfPos);
 
             //	Pop
-            domStack_.pop(3);
+            domStack_.Pop(3);
 
             //	Result
-            domStack_.push(Interval(minB, maxB));
+            domStack_.Push(Interval(minB, maxB));
         }
 
         //	Conditions
@@ -180,21 +180,21 @@ namespace Dal::Script {
         void Visit(NodeEqual& node) {
             VisitArguments(node);
 
-            Domain& dom = domStack_.top();
+            Domain& dom = domStack_.Top();
 
             //	Always true / false?
             if (!dom.canBeZero()) {
                 node.alwaysTrue_ = false;
                 node.alwaysFalse_ = true;
 
-                condStack_.push(alwaysFalse_);
+                condStack_.Push(alwaysFalse_);
             } else if (!dom.canBeNonZero()) {
                 node.alwaysTrue_ = true;
                 node.alwaysFalse_ = false;
-                condStack_.push(alwaysTrue_);
+                condStack_.Push(alwaysTrue_);
             } else {
                 node.alwaysTrue_ = node.alwaysFalse_ = false;
-                condStack_.push(trueOrFalse);
+                condStack_.Push(trueOrFalse);
 
                 if (fuzzy_) {
                     //	Continuous or isDiscrete_?
@@ -228,25 +228,25 @@ namespace Dal::Script {
 #endif
             //	End of dump
 
-            domStack_.pop();
+            domStack_.Pop();
         }
 
         void Visit(NodeNot& node) {
             VisitArguments(node);
-            CondProp cp = condStack_.top();
-            condStack_.pop();
+            CondProp cp = condStack_.Top();
+            condStack_.Pop();
 
             if (cp == alwaysTrue_) {
                 node.alwaysTrue_ = false;
                 node.alwaysFalse_ = true;
-                condStack_.push(alwaysFalse_);
+                condStack_.Push(alwaysFalse_);
             } else if (cp == alwaysFalse_) {
                 node.alwaysTrue_ = true;
                 node.alwaysFalse_ = false;
-                condStack_.push(alwaysTrue_);
+                condStack_.Push(alwaysTrue_);
             } else {
                 node.alwaysTrue_ = node.alwaysFalse_ = false;
-                condStack_.push(trueOrFalse);
+                condStack_.Push(trueOrFalse);
             }
         }
 
@@ -254,22 +254,22 @@ namespace Dal::Script {
         template <bool strict, class NodeSup> inline void visitSupT(NodeSup& node) {
             VisitArguments(node);
 
-            Domain& dom = domStack_.top();
+            Domain& dom = domStack_.Top();
 
             //	Always true / false?
             if (!dom.canBePositive(strict)) {
                 node.alwaysTrue_ = false;
                 node.alwaysFalse_ = true;
-                condStack_.push(alwaysFalse_);
+                condStack_.Push(alwaysFalse_);
             } else if (!dom.canBeNegative(!strict)) {
                 node.alwaysTrue_ = true;
                 node.alwaysFalse_ = false;
-                condStack_.push(alwaysTrue_);
+                condStack_.Push(alwaysTrue_);
             }
             //	Can be true or false
             else {
                 node.alwaysTrue_ = node.alwaysFalse_ = false;
-                condStack_.push(trueOrFalse);
+                condStack_.Push(trueOrFalse);
 
                 if (fuzzy_) {
                     //	Continuous or isDiscrete_?
@@ -312,7 +312,7 @@ namespace Dal::Script {
 #endif
             //	End of dump
 
-            domStack_.pop();
+            domStack_.Pop();
         }
 
         void Visit(NodeSup& node) { visitSupT<true>(node); }
@@ -321,42 +321,42 @@ namespace Dal::Script {
 
         void Visit(NodeAnd& node) {
             VisitArguments(node);
-            CondProp cp1 = condStack_.top();
-            condStack_.pop();
-            CondProp cp2 = condStack_.top();
-            condStack_.pop();
+            CondProp cp1 = condStack_.Top();
+            condStack_.Pop();
+            CondProp cp2 = condStack_.Top();
+            condStack_.Pop();
 
             if (cp1 == alwaysTrue_ && cp2 == alwaysTrue_) {
                 node.alwaysTrue_ = true;
                 node.alwaysFalse_ = false;
-                condStack_.push(alwaysTrue_);
+                condStack_.Push(alwaysTrue_);
             } else if (cp1 == alwaysFalse_ || cp2 == alwaysFalse_) {
                 node.alwaysTrue_ = false;
                 node.alwaysFalse_ = true;
-                condStack_.push(alwaysFalse_);
+                condStack_.Push(alwaysFalse_);
             } else {
                 node.alwaysTrue_ = node.alwaysFalse_ = false;
-                condStack_.push(trueOrFalse);
+                condStack_.Push(trueOrFalse);
             }
         }
         void Visit(NodeOr& node) {
             VisitArguments(node);
-            CondProp cp1 = condStack_.top();
-            condStack_.pop();
-            CondProp cp2 = condStack_.top();
-            condStack_.pop();
+            CondProp cp1 = condStack_.Top();
+            condStack_.Pop();
+            CondProp cp2 = condStack_.Top();
+            condStack_.Pop();
 
             if (cp1 == alwaysTrue_ || cp2 == alwaysTrue_) {
                 node.alwaysTrue_ = true;
                 node.alwaysFalse_ = false;
-                condStack_.push(alwaysTrue_);
+                condStack_.Push(alwaysTrue_);
             } else if (cp1 == alwaysFalse_ && cp2 == alwaysFalse_) {
                 node.alwaysTrue_ = false;
                 node.alwaysFalse_ = true;
-                condStack_.push(alwaysFalse_);
+                condStack_.Push(alwaysFalse_);
             } else {
                 node.alwaysTrue_ = node.alwaysFalse_ = false;
-                condStack_.push(trueOrFalse);
+                condStack_.Push(trueOrFalse);
             }
         }
 
@@ -369,8 +369,8 @@ namespace Dal::Script {
             node.arguments_[0]->Accept(*this);
 
             //	Always true/false?
-            CondProp cp = condStack_.top();
-            condStack_.pop();
+            CondProp cp = condStack_.Top();
+            condStack_.Pop();
 
             if (cp == alwaysTrue_) {
                 node.alwaysTrue_ = true;
@@ -427,10 +427,10 @@ namespace Dal::Script {
             node.arguments_[1]->Accept(*this);
 
             //	Write RHS domain into variable
-            varDomains_[lhsVarIdx_] = domStack_.top();
+            varDomains_[lhsVarIdx_] = domStack_.Top();
 
             //	Pop
-            domStack_.pop();
+            domStack_.Pop();
         }
 
         void Visit(NodePays& node) {
@@ -448,13 +448,13 @@ namespace Dal::Script {
             static const Domain numDomain(Interval(0.0, Bound::plusInfinity_));
 
             //	Payment domain
-            Domain payDomain = domStack_.top() / numDomain;
+            Domain payDomain = domStack_.Top() / numDomain;
 
             //	Write
             varDomains_[lhsVarIdx_] = varDomains_[lhsVarIdx_] + payDomain;
 
             //	Pop
-            domStack_.pop();
+            domStack_.Pop();
         }
 
         //	Variables and constants
@@ -467,16 +467,16 @@ namespace Dal::Script {
             } else //	Read
             {
                 //	Push domain onto the stack
-                domStack_.push(varDomains_[node.index_]);
+                domStack_.Push(varDomains_[node.index_]);
             }
         }
 
-        void Visit(NodeConst& node) { domStack_.push(node.constVal_); }
+        void Visit(NodeConst& node) { domStack_.Push(node.constVal_); }
 
         //	Scenario related
         void Visit(NodeSpot& node) {
             static const Domain realDom(Interval(Bound::minusInfinity_, Bound::plusInfinity_));
-            domStack_.push(realDom);
+            domStack_.Push(realDom);
         }
     };
 } // namespace Dal::Script

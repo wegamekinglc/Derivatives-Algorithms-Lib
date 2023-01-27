@@ -32,21 +32,21 @@ namespace Dal::Script {
                 str += "(\n";
 
                 //	First argument, pushed last
-                str += stack_.top();
-                stack_.pop();
+                str += stack_.Top();
+                stack_.Pop();
                 if (node.arguments_.size() > 1)
                     str += prefix_ + ",\n";
 
                 //	Args 2 to n-1
                 for (size_t i = 1; i < node.arguments_.size() - 1; ++i) {
-                    str += stack_.top() + prefix_ + ",\n";
-                    stack_.pop();
+                    str += stack_.Top() + prefix_ + ",\n";
+                    stack_.Pop();
                 }
 
                 if (node.arguments_.size() > 1) {
                     //	Last argument, pushed first
-                    str += stack_.top();
-                    stack_.pop();
+                    str += stack_.Top();
+                    stack_.Pop();
                 }
 
                 //	Close ')'
@@ -54,14 +54,14 @@ namespace Dal::Script {
             }
 
             str += '\n';
-            stack_.push(std::move(str));
+            stack_.Push(std::move(str));
         }
 
     public:
         using ConstVisitor_<Debugger_>::Visit;
 
-        //	Access the top of the stack, contains the functional form after the tree is traversed
-        const String_& String() const { return stack_.top(); }
+        //	Access the Top of the stack, contains the functional form after the tree is traversed
+        const String_& String() const { return stack_.Top(); }
 
         //	All concrete node visitors, Visit arguments_ by default unless overridden
 
