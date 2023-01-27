@@ -31,75 +31,27 @@ namespace Dal::Script {
 
     //  Binary expressions
 
-    struct NodeAdd : public Visitable<exprNode, NodeAdd, VISITORS> {
-        using Visitable<exprNode, NodeAdd, VISITORS>::accept;
-        using exprNode::isConst;
-        using exprNode::constVal;
-    };
-    struct NodeSub : public Visitable<exprNode, NodeSub, VISITORS> {
-        using Visitable<exprNode, NodeSub, VISITORS>::accept;
-        using exprNode::isConst;
-        using exprNode::constVal;
-    };
-    struct NodeMult : public Visitable<exprNode, NodeMult, VISITORS> {
-        using Visitable<exprNode, NodeMult, VISITORS>::accept;
-        using exprNode::isConst;
-        using exprNode::constVal;
-    };
-    struct NodeDiv : public Visitable<exprNode, NodeDiv, VISITORS> {
-        using Visitable<exprNode, NodeDiv, VISITORS>::accept;
-        using exprNode::isConst;
-        using exprNode::constVal;
-    };
-    struct NodePow : public Visitable<exprNode, NodePow, VISITORS> {
-        using Visitable<exprNode, NodePow, VISITORS>::accept;
-        using exprNode::isConst;
-        using exprNode::constVal;
-    };
-    struct NodeMax : public Visitable<exprNode, NodeMax, VISITORS> {
-        using Visitable<exprNode, NodeMax, VISITORS>::accept;
-        using exprNode::isConst;
-        using exprNode::constVal;
-    };
-    struct NodeMin : public Visitable<exprNode, NodeMin, VISITORS> {
-        using Visitable<exprNode, NodeMin, VISITORS>::accept;
-        using exprNode::isConst;
-        using exprNode::constVal;
-    };
+    struct NodeAdd : public Visitable<exprNode, NodeAdd, VISITORS> {};
+    struct NodeSub : public Visitable<exprNode, NodeSub, VISITORS> {};
+    struct NodeMult : public Visitable<exprNode, NodeMult, VISITORS> {};
+    struct NodeDiv : public Visitable<exprNode, NodeDiv, VISITORS> {};
+    struct NodePow : public Visitable<exprNode, NodePow, VISITORS> {};
+    struct NodeMax : public Visitable<exprNode, NodeMax, VISITORS> {};
+    struct NodeMin : public Visitable<exprNode, NodeMin, VISITORS> {};
 
     //  Unary expressions
 
-    struct NodeUplus : public Visitable<exprNode, NodeUplus, VISITORS> {
-        using Visitable<exprNode, NodeUplus, VISITORS>::accept;
-        using exprNode::isConst;
-        using exprNode::constVal;
-    };
-    struct NodeUminus : public Visitable<exprNode, NodeUminus, VISITORS> {
-        using Visitable<exprNode, NodeUminus, VISITORS>::accept;
-        using exprNode::isConst;
-        using exprNode::constVal;
-    };
+    struct NodeUplus : public Visitable<exprNode, NodeUplus, VISITORS> {};
+    struct NodeUminus : public Visitable<exprNode, NodeUminus, VISITORS> {};
 
     //	Math operators
 
-    struct NodeLog : public Visitable<exprNode, NodeLog, VISITORS> {
-        using Visitable<exprNode, NodeLog, VISITORS>::accept;
-        using exprNode::isConst;
-        using exprNode::constVal;
-    };
-    struct NodeSqrt : public Visitable<exprNode, NodeSqrt, VISITORS> {
-        using Visitable<exprNode, NodeSqrt, VISITORS>::accept;
-        using exprNode::isConst;
-        using exprNode::constVal;
-    };
+    struct NodeLog : public Visitable<exprNode, NodeLog, VISITORS> {};
+    struct NodeSqrt : public Visitable<exprNode, NodeSqrt, VISITORS> {};
 
     //  Multi expressions
 
-    struct NodeSmooth : public Visitable<exprNode, NodeSmooth, VISITORS> {
-        using Visitable<exprNode, NodeSmooth, VISITORS>::accept;
-        using exprNode::isConst;
-        using exprNode::constVal;
-    };
+    struct NodeSmooth : public Visitable<exprNode, NodeSmooth, VISITORS> {};
 
     //  Comparisons
 
@@ -114,71 +66,27 @@ namespace Dal::Script {
         //	End of fuzzying stuff
     };
 
-    struct NodeEqual : public Visitable<compNode, NodeEqual, VISITORS> {
-        using Visitable<compNode, NodeEqual, VISITORS>::accept;
-        using boolNode::alwaysTrue;
-        using boolNode::alwaysFalse;
-        using compNode::discrete;
-        using compNode::eps;
-        using compNode::lb;
-        using compNode::rb;
-    };
+    struct NodeEqual : public Visitable<compNode, NodeEqual, VISITORS> {};
 
-    struct NodeSup : public Visitable<compNode, NodeSup, VISITORS> {
-        using Visitable<compNode, NodeSup, VISITORS>::accept;
-        using boolNode::alwaysTrue;
-        using boolNode::alwaysFalse;
-        using compNode::discrete;
-        using compNode::eps;
-        using compNode::lb;
-        using compNode::rb;
-    };
+    struct NodeSup : public Visitable<compNode, NodeSup, VISITORS> {};
 
-    struct NodeSupEqual : public Visitable<compNode, NodeSupEqual, VISITORS> {
-        using Visitable<compNode, NodeSupEqual, VISITORS>::accept;
-        using boolNode::alwaysTrue;
-        using boolNode::alwaysFalse;
-        using compNode::discrete;
-        using compNode::eps;
-        using compNode::lb;
-        using compNode::rb;
-    };
+    struct NodeSupEqual : public Visitable<compNode, NodeSupEqual, VISITORS> {};
 
     //	And/or/not
 
-    struct NodeAnd : public Visitable<boolNode, NodeAnd, VISITORS> {
-        using Visitable<boolNode, NodeAnd, VISITORS>::accept;
-        using boolNode::alwaysTrue;
-        using boolNode::alwaysFalse;
-    };
+    struct NodeAnd : public Visitable<boolNode, NodeAnd, VISITORS> {};
 
-    struct NodeOr : public Visitable<boolNode, NodeOr, VISITORS> {
-        using Visitable<boolNode, NodeOr, VISITORS>::accept;
-        using boolNode::alwaysTrue;
-        using boolNode::alwaysFalse;
-    };
+    struct NodeOr : public Visitable<boolNode, NodeOr, VISITORS> {};
 
-    struct NodeNot : public Visitable<boolNode, NodeNot, VISITORS> {
-        using Visitable<boolNode, NodeNot, VISITORS>::accept;
-        using boolNode::alwaysTrue;
-        using boolNode::alwaysFalse;
-    };
+    struct NodeNot : public Visitable<boolNode, NodeNot, VISITORS> {};
 
     //  Leaves
 
     //	Market access
-    struct NodeSpot : public Visitable<exprNode, NodeSpot, VISITORS> {
-        using Visitable<exprNode, NodeSpot, VISITORS>::accept;
-        using exprNode::isConst;
-        using exprNode::constVal;
-    };
+    struct NodeSpot : public Visitable<exprNode, NodeSpot, VISITORS> {};
 
     //  Const
     struct NodeConst : public Visitable<exprNode, NodeConst, VISITORS> {
-        using Visitable<exprNode, NodeConst, VISITORS>::accept;
-        using exprNode::isConst;
-        using exprNode::constVal;
-
         NodeConst(const double val) {
             exprNode::isConst = true;
             exprNode::constVal = val;
@@ -186,27 +94,15 @@ namespace Dal::Script {
     };
 
     struct NodeTrue : public Visitable<boolNode, NodeTrue, VISITORS> {
-        using Visitable<boolNode, NodeTrue, VISITORS>::accept;
-        using boolNode::alwaysTrue;
-        using boolNode::alwaysFalse;
-
         NodeTrue() { boolNode::alwaysTrue = true; }
     };
 
     struct NodeFalse : public Visitable<boolNode, NodeFalse, VISITORS> {
-        using Visitable<boolNode, NodeFalse, VISITORS>::accept;
-        using boolNode::alwaysTrue;
-        using boolNode::alwaysFalse;
-
         NodeFalse() { alwaysFalse = true; }
     };
 
     //  Variable
     struct NodeVar : public Visitable<exprNode, NodeVar, VISITORS> {
-        using Visitable<exprNode, NodeVar, VISITORS>::accept;
-        using exprNode::isConst;
-        using exprNode::constVal;
-
         NodeVar(const String_& n) : name(n), index(-1) {
             exprNode::isConst = true;
             exprNode::constVal = 0.0;
@@ -218,18 +114,12 @@ namespace Dal::Script {
 
     //	Assign, Pays
 
-    struct NodeAssign : public Visitable<actNode, NodeAssign, VISITORS> {
-        using Visitable<actNode, NodeAssign, VISITORS>::accept;
-    };
+    struct NodeAssign : public Visitable<actNode, NodeAssign, VISITORS> {};
 
-    struct NodePays : public Visitable<actNode, NodePays, VISITORS> {
-        using Visitable<actNode, NodePays, VISITORS>::accept;
-    };
+    struct NodePays : public Visitable<actNode, NodePays, VISITORS> {};
 
     //	If
     struct NodeIf : public Visitable<actNode, NodeIf, VISITORS> {
-        using Visitable<actNode, NodeIf, VISITORS>::accept;
-
         int firstElse;
         //	For fuzzy eval: indices of variables affected in statements, including nested
         Vector_<size_t> affectedVars;
@@ -239,9 +129,7 @@ namespace Dal::Script {
     };
 
     //	Collection of statements
-    struct NodeCollect : public Visitable<actNode, NodeCollect, VISITORS> {
-        using Visitable<actNode, NodeCollect, VISITORS>::accept;
-    };
+    struct NodeCollect : public Visitable<actNode, NodeCollect, VISITORS> {};
 
     //	Utilities
 
