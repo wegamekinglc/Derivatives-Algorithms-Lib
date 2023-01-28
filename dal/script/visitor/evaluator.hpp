@@ -140,13 +140,11 @@ namespace Dal::Script {
         void Visit(const NodeSmooth& node) {
             //	Eval the condition
             VisitNode(*node.arguments_[0]);
-            const T x = dStack_.Top();
-            dStack_.Pop();
+            const T x = dStack_.TopAndPop();
 
             //	Eval the epsilon
             VisitNode(*node.arguments_[3]);
-            const T halfEps = 0.5 * dStack_.Top();
-            dStack_.Pop();
+            const T halfEps = 0.5 * dStack_.TopAndPop();
 
             //	Left
             if (x < -halfEps)
@@ -159,12 +157,10 @@ namespace Dal::Script {
             //	Fuzzy
             else {
                 VisitNode(*node.arguments_[1]);
-                const T vPos = dStack_.Top();
-                dStack_.Pop();
+                const T vPos = dStack_.TopAndPop();
 
                 VisitNode(*node.arguments_[2]);
-                const T vNeg = dStack_.Top();
-                dStack_.Pop();
+                const T vNeg = dStack_.TopAndPop();
 
                 dStack_.Push(vNeg + 0.5 * (vPos - vNeg) / halfEps * (x + halfEps));
             }
@@ -173,8 +169,7 @@ namespace Dal::Script {
         //	Conditions
         template <class OP> FORCE_INLINE void VisitCondition(const BoolNode_& node, OP op) {
             VisitNode(*node.arguments_[0]);
-            bStack_.Push(op(dStack_.Top()));
-            dStack_.Pop();
+            bStack_.Push(op(dStack_.TopAndPop()));
         }
 
         FORCE_INLINE void Visit(const NodeEqual& node) {
@@ -213,8 +208,7 @@ namespace Dal::Script {
             VisitNode(*node.arguments_[0]);
 
             //	Pick the result
-            const auto isTrue = bStack_.Top();
-            bStack_.Pop();
+            const auto isTrue = bStack_.TopAndPop();
 
             //	Evaluate the relevant statements
             if (isTrue) {
@@ -237,8 +231,7 @@ namespace Dal::Script {
             VisitNode(*node.arguments_[1]);
 
             //	Write result into variable
-            variables_[varIdx] = dStack_.Top();
-            dStack_.Pop();
+            variables_[varIdx] = dStack_.TopAndPop();
         }
 
         FORCE_INLINE void Visit(const NodePays& node) {
@@ -248,8 +241,7 @@ namespace Dal::Script {
             VisitNode(*node.arguments_[1]);
 
             //	Write result into variable
-            variables_[varIdx] += dStack_.Top() / (*scenario_)[curEvt_].numeraire_;
-            dStack_.Pop();
+            variables_[varIdx] += dStack_.TopAndPop() / (*scenario_)[curEvt_].numeraire_;
         }
 
         //	Variables and constants

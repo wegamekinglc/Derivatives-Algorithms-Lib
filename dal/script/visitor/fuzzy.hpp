@@ -29,17 +29,15 @@ namespace Dal::Script {
         size_t nestedIfLvl_;
 
         //	Pop the Top 2 numbers of the fuzzy condition stack
-        pair<T, T> Pop2f() {
+        FORCE_INLINE pair<T, T> Pop2f() {
             pair<T, T> res;
-            res.first = fuzzyStack_.Top();
-            fuzzyStack_.Pop();
-            res.second = fuzzyStack_.Top();
-            fuzzyStack_.Pop();
+            res.first = fuzzyStack_.TopAndPop();
+            res.second = fuzzyStack_.TopAndPop();
             return res;
         }
 
         //	Call Spread (-eps_/2,+eps_/2)
-        static T CSpr(const T x, const double eps) {
+        FORCE_INLINE static T CSpr(const T x, const double eps) {
             const double halfEps = 0.5 * eps;
 
             if (x < -halfEps)
@@ -51,7 +49,7 @@ namespace Dal::Script {
         }
 
         //	Call Spread (lb_,rb_)
-        static T CSpr(const T x, const double lb, const double rb) {
+        FORCE_INLINE static T CSpr(const T x, const double lb, const double rb) {
             if (x < lb)
                 return T(0.0);
             else if (x > rb)
@@ -61,7 +59,7 @@ namespace Dal::Script {
         }
 
         //	Butterfly (-eps_/2,+eps_/2)
-        static T BFly(const T x, const double eps) {
+        FORCE_INLINE static T BFly(const T x, const double eps) {
             const double halfEps = 0.5 * eps;
 
             if (x < -halfEps || x > halfEps)
@@ -71,7 +69,7 @@ namespace Dal::Script {
         }
 
         //	Butterfly (lb_,0,rb_)
-        static T BFly(const T x, const double lb, const double rb) {
+        FORCE_INLINE static T BFly(const T x, const double lb, const double rb) {
             if (x < lb || x > rb)
                 return T(0.0);
             else if (x < 0.0)
@@ -148,8 +146,7 @@ namespace Dal::Script {
 
             //	Visit the condition and compute its degree of truth dt
             VisitNode(*node.arguments_[0]);
-            const T dt = fuzzyStack_.Top();
-            fuzzyStack_.Pop();
+            const T dt = fuzzyStack_.TopAndPop();
 
             //	Absolutely true
             if (dt > 1.0 - EPSILON) {
@@ -205,8 +202,7 @@ namespace Dal::Script {
         FORCE_INLINE void Visit(const NodeEqual& node) {
             //	Evaluate expression to be compared to 0
             VisitNode(*node.arguments_[0]);
-            const T expr = dStack_.Top();
-            dStack_.Pop();
+            const T expr = dStack_.TopAndPop();
 
             //	Discrete case: 0 is a singleton in expr's domain
             if (node.isDiscrete_) {
@@ -228,8 +224,7 @@ namespace Dal::Script {
         void VisitComp(const CompNode_& node) {
             //	Evaluate expression to be compared to 0
             VisitNode(*node.arguments_[0]);
-            const T expr = dStack_.Top();
-            dStack_.Pop();
+            const T expr = dStack_.TopAndPop();
 
             //	Discrete case:
             //	Either 0 is a singleton in expr's domain
@@ -254,7 +249,7 @@ namespace Dal::Script {
         FORCE_INLINE void Visit(const NodeSupEqual& node) { VisitComp(node); }
 
         //	Negation
-        void visitNot(const NodeNot& node) {
+        FORCE_INLINE void visitNot(const NodeNot& node) {
             VisitNode(*node.arguments_[0]);
             fuzzyStack_.Top() = 1.0 - fuzzyStack_.Top();
         }

@@ -115,7 +115,7 @@ namespace Dal {
         FORCE_INLINE E_& operator[](const size_t i) { return data_[sp_ - 1 - i]; }
         FORCE_INLINE const E_& operator[](const size_t i) const { return data_[sp_ - 1 - i]; }
 
-        FORCE_INLINE E_ TopAndPop() { return std::move(data_[--sp_]); }
+        FORCE_INLINE E_ TopAndPop() { return std::move(data_[sp_--]); }
 
         FORCE_INLINE void Pop() { --sp_; }
         FORCE_INLINE void Pop(const size_t n) { sp_ -= n; }
@@ -151,7 +151,8 @@ namespace Dal {
 
         FORCE_INLINE const T& operator[](int i) const { return data_[sp_ - i]; }
 
-        FORCE_INLINE T TopAndPop() { return std::move(data_[--sp_]); }
+        FORCE_INLINE T TopAndPop() { return std::move(data_[sp_--]); }
+        FORCE_INLINE T PopAndTop() { return std::move(data_[--sp_]); }
 
         FORCE_INLINE void Pop() { --sp_; }
 
