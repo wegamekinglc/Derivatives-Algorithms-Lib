@@ -107,27 +107,27 @@ namespace Dal::Script {
 
         template <NodeType IfBin, NodeType IfConstLeft, NodeType IfConstRight> void VisitBinary(const ExprNode_& node) {
             if (node.isConst_) {
-                nodeStream_.push_back(Const);
-                nodeStream_.push_back(int(constStream_.size()));
-                constStream_.push_back(node.constVal_);
+                nodeStream_.emplace_back(Const);
+                nodeStream_.emplace_back(int(constStream_.size()));
+                constStream_.emplace_back(node.constVal_);
             } else {
                 const ExprNode_* lhs = Downcast<ExprNode_>(node.arguments_[0]);
                 const ExprNode_* rhs = Downcast<ExprNode_>(node.arguments_[1]);
 
                 if (lhs->isConst_) {
                     node.arguments_[1]->Accept(*this);
-                    nodeStream_.push_back(IfConstLeft);
-                    nodeStream_.push_back(int(constStream_.size()));
-                    constStream_.push_back(lhs->constVal_);
+                    nodeStream_.emplace_back(IfConstLeft);
+                    nodeStream_.emplace_back(int(constStream_.size()));
+                    constStream_.emplace_back(lhs->constVal_);
                 } else if (rhs->isConst_) {
                     node.arguments_[0]->Accept(*this);
-                    nodeStream_.push_back(IfConstRight);
-                    nodeStream_.push_back(int(constStream_.size()));
-                    constStream_.push_back(rhs->constVal_);
+                    nodeStream_.emplace_back(IfConstRight);
+                    nodeStream_.emplace_back(int(constStream_.size()));
+                    constStream_.emplace_back(rhs->constVal_);
                 } else {
                     node.arguments_[0]->Accept(*this);
                     node.arguments_[1]->Accept(*this);
-                    nodeStream_.push_back(IfBin);
+                    nodeStream_.emplace_back(IfBin);
                 }
             }
         }
@@ -145,12 +145,12 @@ namespace Dal::Script {
         //	Unaries
         template <NodeType NT> void VisitUnary(const ExprNode_& node) {
             if (node.isConst_) {
-                nodeStream_.push_back(Const);
-                nodeStream_.push_back(int(constStream_.size()));
-                constStream_.push_back(node.constVal_);
+                nodeStream_.emplace_back(Const);
+                nodeStream_.emplace_back(int(constStream_.size()));
+                constStream_.emplace_back(node.constVal_);
             } else {
                 node.arguments_[0]->Accept(*this);
-                nodeStream_.push_back(NT);
+                nodeStream_.emplace_back(NT);
             }
         }
 
@@ -165,13 +165,13 @@ namespace Dal::Script {
         void Visit(const NodeSmooth& node) {
             //  Const?
             if (node.isConst_) {
-                nodeStream_.push_back(Const);
-                nodeStream_.push_back(int(constStream_.size()));
-                constStream_.push_back(node.constVal_);
+                nodeStream_.emplace_back(Const);
+                nodeStream_.emplace_back(static_cast<int>(constStream_.size()));
+                constStream_.emplace_back(node.constVal_);
             } else {
                 //  Must come back to optimize that one
                 VisitArguments(node);
-                nodeStream_.push_back(Smooth);
+                nodeStream_.emplace_back(Smooth);
             }
         }
 
@@ -181,23 +181,23 @@ namespace Dal::Script {
             const ExprNode_* arg = Downcast<ExprNode_>(node.arguments_[0]);
 
             if (arg->isConst_) {
-                nodeStream_.push_back(op(arg->constVal_) ? True : False);
+                nodeStream_.emplace_back(op(arg->constVal_) ? True : False);
 
             } else {
                 node.arguments_[0]->Accept(*this);
-                nodeStream_.push_back(NT);
+                nodeStream_.emplace_back(NT);
             }
         }
 
         void Visit(const NodeEqual& node) {
-            VisitCondition<Equal>(node, [](const double x) { return x == 0.0; });
+            VisitCondition<Equal>(node, [](double x) { return x == 0.0; });
         }
 
         void Visit(const NodeSup& node) {
-            VisitCondition<Sup>(node, [](const double x) { return x > 0.0; });
+            VisitCondition<Sup>(node, [](double x) { return x > 0.0; });
         }
         void Visit(const NodeSupEqual& node) {
-            VisitCondition<SupEqual>(node, [](const double x) { return x > -Dal::EPSILON; });
+            VisitCondition<SupEqual>(node, [](double x) { return x > -Dal::EPSILON; });
         }
 
         //  And/Or/Not
@@ -205,18 +205,18 @@ namespace Dal::Script {
         void Visit(const NodeAnd& node) {
             node.arguments_[0]->Accept(*this);
             node.arguments_[1]->Accept(*this);
-            nodeStream_.push_back(And);
+            nodeStream_.emplace_back(And);
         }
 
         void Visit(const NodeOr& node) {
             node.arguments_[0]->Accept(*this);
             node.arguments_[1]->Accept(*this);
-            nodeStream_.push_back(Or);
+            nodeStream_.emplace_back(Or);
         }
 
         void Visit(const NodeNot& node) {
             node.arguments_[0]->Accept(*this);
-            nodeStream_.push_back(Not);
+            nodeStream_.emplace_back(Not);
         }
 
         //  Assign, pays
@@ -226,14 +226,14 @@ namespace Dal::Script {
             const ExprNode_* rhs = Downcast<ExprNode_>(node.arguments_[1]);
 
             if (rhs->isConst_) {
-                nodeStream_.push_back(AssignConst);
-                nodeStream_.push_back(int(constStream_.size()));
-                constStream_.push_back(rhs->constVal_);
+                nodeStream_.emplace_back(AssignConst);
+                nodeStream_.emplace_back(static_cast<int>(constStream_.size()));
+                constStream_.emplace_back(rhs->constVal_);
             } else {
                 node.arguments_[1]->Accept(*this);
-                nodeStream_.push_back(Assign);
+                nodeStream_.emplace_back(Assign);
             }
-            nodeStream_.push_back(int(var->index_));
+            nodeStream_.emplace_back(int(var->index_));
         }
 
         void Visit(const NodePays& node) {
@@ -241,35 +241,35 @@ namespace Dal::Script {
             const ExprNode_* rhs = Downcast<ExprNode_>(node.arguments_[1]);
 
             if (rhs->isConst_) {
-                nodeStream_.push_back(PaysConst);
-                nodeStream_.push_back(int(constStream_.size()));
-                constStream_.push_back(rhs->constVal_);
+                nodeStream_.emplace_back(PaysConst);
+                nodeStream_.emplace_back(static_cast<int>(constStream_.size()));
+                constStream_.emplace_back(rhs->constVal_);
             } else {
                 node.arguments_[1]->Accept(*this);
-                nodeStream_.push_back(Pays);
+                nodeStream_.emplace_back(Pays);
             }
-            nodeStream_.push_back(int(var->index_));
+            nodeStream_.emplace_back(var->index_);
         }
 
         //  Leaves
 
         void Visit(const NodeVar& node) {
-            nodeStream_.push_back(Var);
-            nodeStream_.push_back(int(node.index_));
+            nodeStream_.emplace_back(Var);
+            nodeStream_.emplace_back(node.index_);
         }
 
         void Visit(const NodeConst& node) {
-            nodeStream_.push_back(Const);
-            nodeStream_.push_back(int(constStream_.size()));
-            constStream_.push_back(node.constVal_);
+            nodeStream_.emplace_back(Const);
+            nodeStream_.emplace_back(static_cast<int>(constStream_.size()));
+            constStream_.emplace_back(node.constVal_);
         }
 
-        void Visit(const NodeTrue& node) { nodeStream_.push_back(True); }
+        void Visit(const NodeTrue& node) { nodeStream_.emplace_back(True); }
 
-        void Visit(const NodeFalse& node) { nodeStream_.push_back(False); }
+        void Visit(const NodeFalse& node) { nodeStream_.emplace_back(False); }
 
         //	Scenario related
-        void Visit(const NodeSpot& node) { nodeStream_.push_back(Spot); }
+        void Visit(const NodeSpot& node) { nodeStream_.emplace_back(Spot); }
 
         //	Instructions
         void Visit(const NodeIf& node) {
@@ -277,13 +277,13 @@ namespace Dal::Script {
             node.arguments_[0]->Accept(*this);
 
             //  Mark instruction
-            nodeStream_.push_back(node.firstElse_ == -1 ? If : IfElse);
+            nodeStream_.emplace_back(node.firstElse_ == -1 ? If : IfElse);
             //  Record space
             const size_t thisSpace = nodeStream_.size() - 1;
             //  Make 2 spaces for last if-true and last if-false
-            nodeStream_.push_back(0);
+            nodeStream_.emplace_back(0);
             if (node.firstElse_ != -1)
-                nodeStream_.push_back(0);
+                nodeStream_.emplace_back(0);
 
             //  Visit if-true statements
             const auto lastTrue = node.firstElse_ == -1 ? node.arguments_.size() - 1 : node.firstElse_ - 1;
@@ -335,213 +335,136 @@ namespace Dal::Script {
             switch (nodeStream[i]) {
 
             case Add:
-
                 dStack[1] += dStack.Top();
                 dStack.Pop();
-
                 ++i;
                 break;
 
             case AddConst:
-
                 dStack.Top() += constStream[nodeStream[++i]];
-
                 ++i;
                 break;
-
             case Sub:
-
                 dStack[1] -= dStack.Top();
                 dStack.Pop();
-
                 ++i;
                 break;
 
             case SubConst:
-
                 dStack.Top() -= constStream[nodeStream[++i]];
-
                 ++i;
                 break;
-
             case ConstSub:
-
                 dStack.Top() = constStream[nodeStream[++i]] - dStack.Top();
-
                 ++i;
                 break;
-
             case Mult:
-
                 dStack[1] *= dStack.Top();
                 dStack.Pop();
-
                 ++i;
                 break;
-
             case MultConst:
-
                 dStack.Top() *= constStream[nodeStream[++i]];
-
                 ++i;
                 break;
-
             case Div:
-
                 dStack[1] /= dStack.Top();
                 dStack.Pop();
-
                 ++i;
                 break;
-
             case DivConst:
-
                 dStack.Top() /= constStream[nodeStream[++i]];
-
                 ++i;
                 break;
-
             case ConstDiv:
-
                 dStack.Top() = constStream[nodeStream[++i]] / dStack.Top();
-
                 ++i;
                 break;
-
             case Pow:
-
                 dStack[1] = pow(dStack[1], dStack.Top());
                 dStack.Pop();
-
                 ++i;
                 break;
-
             case PowConst:
-
                 dStack.Top() = pow(dStack.Top(), constStream[nodeStream[++i]]);
-
                 ++i;
                 break;
-
             case ConstPow:
-
                 dStack.Top() = pow(constStream[nodeStream[++i]], dStack.Top());
-
                 ++i;
                 break;
-
             case Max2:
-
                 y = dStack.Top();
-
                 if (y > dStack[1])
                     dStack[1] = y;
                 dStack.Pop();
-
                 ++i;
                 break;
-
             case Max2Const:
-
                 y = constStream[nodeStream[++i]];
                 if (y > dStack.Top())
                     dStack.Top() = y;
-
                 ++i;
                 break;
-
             case Min2:
-
                 y = dStack.Top();
-
                 if (y < dStack[1])
                     dStack[1] = y;
                 dStack.Pop();
-
                 ++i;
                 break;
-
             case Min2Const:
-
                 y = constStream[nodeStream[++i]];
                 if (y < dStack.Top())
                     dStack.Top() = y;
-
                 ++i;
                 break;
-
             case Spot:
-
                 dStack.Push(scen.spot_);
-
                 ++i;
                 break;
-
             case Var:
-
                 dStack.Push(state.variables_[nodeStream[++i]]);
-
                 ++i;
                 break;
-
             case Const:
-
                 dStack.Push(constStream[nodeStream[++i]]);
-
                 ++i;
                 break;
-
             case Assign:
-
                 idx = nodeStream[++i];
                 state.variables_[idx] = dStack.Top();
                 dStack.Pop();
-
                 ++i;
                 break;
-
             case AssignConst:
-
                 x = constStream[nodeStream[++i]];
                 idx = nodeStream[++i];
                 state.variables_[idx] = x;
-
                 ++i;
                 break;
-
             case Pays:
-
                 ++i;
                 idx = nodeStream[i];
                 state.variables_[idx] += dStack.Top() / scen.numeraire_;
                 dStack.Pop();
-
                 ++i;
                 break;
-
             case PaysConst:
-
                 x = constStream[nodeStream[++i]];
                 idx = nodeStream[++i];
                 state.variables_[idx] += x / scen.numeraire_;
-
                 ++i;
                 break;
-
             case If:
-
                 if (bStack.Top()) {
                     i += 2;
                 } else {
                     i = nodeStream[++i];
                 }
-
                 bStack.Pop();
-
                 break;
-
             case IfElse:
-
                 if (!bStack.Top()) {
                     i = nodeStream[++i];
                 } else {
@@ -549,57 +472,38 @@ namespace Dal::Script {
                     EvalCompiled(nodeStream, constStream, dataStream, scen, state, i + 3, nodeStream[i + 1]);
                     i = nodeStream[i + 2];
                 }
-
                 bStack.Pop();
-
                 break;
-
             case Equal:
-
                 bStack.Push(dStack.Top() == 0);
                 dStack.Pop();
-
                 ++i;
                 break;
-
             case Sup:
-
                 bStack.Push(dStack.Top() > 0);
                 dStack.Pop();
-
                 ++i;
                 break;
-
             case SupEqual:
-
                 bStack.Push(dStack.Top() >= 0);
                 dStack.Pop();
-
                 ++i;
                 break;
-
             case And:
-
                 if (bStack[1]) {
                     bStack[1] = bStack.Top();
                 }
                 bStack.Pop();
-
                 ++i;
                 break;
-
             case Or:
-
                 if (!bStack[1]) {
                     bStack[1] = bStack.Top();
                 }
                 bStack.Pop();
-
                 ++i;
                 break;
-
             case Smooth:
-
                 //	Eval the condition
                 x = dStack[3];
                 y = 0.5 * dStack.Top();
@@ -607,11 +511,9 @@ namespace Dal::Script {
                 t = dStack[1];
 
                 dStack.Pop(3);
-
                 //	Left
                 if (x < -y)
                     dStack.Top() = t;
-
                 //	Right
                 if (x < -y)
                     dStack.Top() = z;
@@ -620,49 +522,30 @@ namespace Dal::Script {
                 else {
                     dStack.Top() = t + 0.5 * (z - t) / y * (x + y);
                 }
-
                 ++i;
                 break;
-
             case Sqrt:
-
                 dStack.Top() = sqrt(dStack.Top());
-
                 ++i;
                 break;
-
             case Log:
-
                 dStack.Top() = log(dStack.Top());
-
                 ++i;
                 break;
-
             case Not:
-
                 bStack.Top() = !bStack.Top();
-
                 ++i;
                 break;
-
             case Uminus:
-
                 dStack.Top() = -dStack.Top();
-
                 ++i;
                 break;
-
             case True:
-
                 bStack.Push(true);
-
                 ++i;
                 break;
-
             case False:
-
                 bStack.Push(false);
-
                 ++i;
                 break;
             }

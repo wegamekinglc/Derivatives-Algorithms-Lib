@@ -55,15 +55,13 @@ namespace Dal {
                 d1 = 30;
             }
             if (d1 > 30)
-                d2 = min(d1, d2);
+                d2 = std::min(d1, d2);
             return (360 * (y2 - y1) + 30 * (m2 - m1) + (d2 - d1)) / 360.0;
         }
     } // namespace
 
     double DayBasis_::operator()(const Date_& from, const Date_& to, const DayBasis::Context_* info) const {
         switch (val_) {
-        default:
-            assert(!"Unrecognized day basis");
         case Value_::ACT_360:
             return (to - from) / 360.0;
         case Value_::ACT_365F:
@@ -75,6 +73,9 @@ namespace Dal {
             return Act365L(from, to, info->couponMonths_ == 12, info->nominalEnd_);
         case Value_::BOND:
             return Bond(from, to);
+        default:
+            assert(!"Unrecognized day basis");
+            return 0.0;
         }
     }
 } // namespace Dal

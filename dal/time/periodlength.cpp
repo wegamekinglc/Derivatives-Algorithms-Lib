@@ -30,7 +30,7 @@ namespace Dal {
         int mm = Month(start) + step.Months();
         while (mm > 12)
             ++yy, mm -= 12;
-        int dd = min(Day(start), DaysInMonth(yy, mm));
+        int dd = std::min(Day(start), DaysInMonth(yy, mm));
         return Date_(yy, mm, dd);
     }
 } // namespace Dal

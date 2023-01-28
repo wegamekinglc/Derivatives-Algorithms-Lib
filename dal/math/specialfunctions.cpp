@@ -90,7 +90,7 @@ namespace Dal {
 
         if (polish) {
             const double err = NCDF(z, precise) - x;
-            z -= err * INV_NORM * std::exp(min(8.0, 0.5 * Square(z)));
+            z -= err * INV_NORM * std::exp(std::min(8.0, 0.5 * Square(z)));
         }
         return z;
     }

@@ -53,7 +53,7 @@ namespace Dal {
             auto pGE = LowerBound(x_, x);
             if (pGE != x_.end() && *pGE == x)
                 return f_[pGE - x_.begin()];
-            const ptrdiff_t iGE = min(static_cast<ptrdiff_t>(x_.size() - 1), max(static_cast<ptrdiff_t>(1), pGE - x_.begin()));
+            const ptrdiff_t iGE = std::min(static_cast<ptrdiff_t>(x_.size() - 1), std::max(static_cast<ptrdiff_t>(1), pGE - x_.begin()));
             const ptrdiff_t iLT = iGE - 1;
             const double h = x_[iGE] - x_[iLT];
             const double b = (x - x_[iLT]) / h;

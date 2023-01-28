@@ -56,16 +56,6 @@ namespace Dal {
 
     FORCE_INLINE double Square(double x) { return x * x; }
     FORCE_INLINE double Cube(double x) { return x * x * x; }
-    FORCE_INLINE double max(double a, double b) { return a > b ? a : b; }
-    FORCE_INLINE size_t max(size_t a, size_t b) { return a > b ? a : b; }
-    FORCE_INLINE int max(int a, int b) { return a > b ? a : b; }
-    FORCE_INLINE short max(short a, short b) { return a > b ? a : b; }
-    FORCE_INLINE ptrdiff_t max(ptrdiff_t a, ptrdiff_t b) { return a > b ? a : b; }
-    FORCE_INLINE double min(double a, double b) { return a < b ? a : b; }
-    FORCE_INLINE size_t min(size_t a, size_t b) { return a < b ? a : b; }
-    FORCE_INLINE int min(int a, int b) { return a < b ? a : b; }
-    FORCE_INLINE short min(short a, short b) { return a < b ? a : b; }
-    FORCE_INLINE ptrdiff_t min(ptrdiff_t a, ptrdiff_t b) { return a < b ? a : b; }
 
     struct Empty_ {};
 

@@ -3,6 +3,7 @@
 //
 
 #include <dal/platform/platform.hpp>
+#include <dal/math/operators.hpp>
 #include <gtest/gtest.h>
 
 TEST(PlatformTest, IsZeroTest) { ASSERT_TRUE(Dal::IsZero(0.)); }

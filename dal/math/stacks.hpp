@@ -147,15 +147,15 @@ namespace Dal {
         FORCE_INLINE const T& Top() const { return data_[sp_]; }
 
         //	Random access
-        FORCE_INLINE T& operator[](const int i) { return data_[sp_ - i]; }
+        FORCE_INLINE T& operator[](int i) { return data_[sp_ - i]; }
 
-        FORCE_INLINE const T& operator[](const int i) const { return data_[sp_ - i]; }
+        FORCE_INLINE const T& operator[](int i) const { return data_[sp_ - i]; }
 
-        FORCE_INLINE T TopAndPop() { return move(data_[--sp_]); }
+        FORCE_INLINE T TopAndPop() { return std::move(data_[--sp_]); }
 
         FORCE_INLINE void Pop() { --sp_; }
 
-        FORCE_INLINE void Pop(const int n) { sp_ -= n; }
+        FORCE_INLINE void Pop(int n) { sp_ -= n; }
 
         FORCE_INLINE void Reset() { sp_ = -1; }
 
