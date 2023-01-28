@@ -118,7 +118,7 @@ namespace Dal::Script {
 
         size_t PreProcess(bool fuzzy, bool skip_domain);
         void Debug(std::ostream& ost) const;
-        void Compile();
+        void Compile(bool isFuzzy = false);
     };
 
     class ScriptProductData_ : public Storable_ {

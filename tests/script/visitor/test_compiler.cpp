@@ -42,7 +42,7 @@ TEST(CompilerTest, TestCompileWithVariable) {
 
     ScriptProduct_ product(eventDates, events);
     product.PreProcess(false, true);
-    product.Compile();
+    product.Compile(true);
 
     EvalState_<double> eval_state(product.VarNames().size());
     Scenario_<double> scenario(1);
@@ -50,4 +50,28 @@ TEST(CompilerTest, TestCompileWithVariable) {
     product.EvaluateCompiled(scenario, eval_state);
 
     ASSERT_DOUBLE_EQ(eval_state.variables_[0], 7);
+}
+
+TEST(CompilerTest, TestCompileWithSeveralEvents) {
+    Vector_<String_> events = {R"(
+        x = 4
+        y = 1
+    )",
+    R"(
+    IF x >= 2 THEN
+        y = 3 + x
+    ENDIF
+    )"};
+    Vector_<Date_> eventDates{Date_(2023, 1, 28), Date_(2023, 1, 30)};
+
+    ScriptProduct_ product(eventDates, events);
+    product.PreProcess(false, true);
+    product.Compile();
+
+    EvalState_<double> eval_state(product.VarNames().size());
+    Scenario_<double> scenario(2);
+    product.EvaluateCompiled(scenario, eval_state);
+
+    ASSERT_DOUBLE_EQ(eval_state.variables_[0], 4);
+    ASSERT_DOUBLE_EQ(eval_state.variables_[1], 7);
 }
