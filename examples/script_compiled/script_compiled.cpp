@@ -18,7 +18,7 @@ using namespace Dal;
 using namespace Dal::Script;
 using namespace Dal::AAD;
 
-//#define USE_AAD
+#define USE_AAD
 
 
 int main() {
@@ -71,7 +71,7 @@ int main() {
     events.push_back("alive = 1");
     for (int i = 1; i < schedule.size(); ++i) {
         eventDates.push_back(schedule[i]);
-        events.push_back("if spot() >= 150:0.5 then alive = 0 endif");
+        events.push_back("if spot() >= 150 then alive = 0 endif");
     }
     eventDates.push_back(schedule[schedule.size() - 1]);
     events.push_back(String_("K = " + ToString(strike) + "\n call pays alive * MAX(spot() - K, 0.0)"));
@@ -93,7 +93,7 @@ int main() {
     if (compiled)
         product.Compile();
     timer.Reset();
-    SimResults_<Real_> results = MCSimulation(product, *model, n_paths, String_(rsg), use_bb, max_nested_ifs);
+    SimResults_<Real_> results = MCSimulation(product, *model, n_paths, String_(rsg), use_bb, max_nested_ifs, 0.01, compiled);
 #else
     int max_nested_ifs = product.PreProcess(false, true);
     if (compiled)

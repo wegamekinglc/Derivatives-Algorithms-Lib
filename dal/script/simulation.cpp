@@ -123,7 +123,8 @@ namespace Dal::Script {
                                            const String_& rsg,
                                            bool use_bb,
                                            int max_nested_ifs,
-                                           double eps) {
+                                           double eps,
+                                           bool compiled) {
         auto mdl = model.Clone();
         mdl->Allocate(product.TimeLine(), product.DefLine());
         std::unique_ptr<Random_> rng = CreateRNG(rsg, mdl->SimDim(), use_bb);
@@ -153,6 +154,7 @@ namespace Dal::Script {
         Vector_<Scenario_<AAD::Number_>> paths(nThread + 1);
         Vector_<Evaluator_<AAD::Number_>> eval_s;
         Vector_<FuzzyEvaluator_<AAD::Number_>> fuzzy_eval_s;
+        Vector_<EvalState_<AAD::Number_>> eval_state_s;
 
         for (auto& vec : gaussVecs)
             vec.Resize(mdl->SimDim());
@@ -161,12 +163,12 @@ namespace Dal::Script {
             AllocatePath(product.DefLine(), path);
             InitializePath(path);
         }
-
-        if (max_nested_ifs > 0) {
+        if (compiled)
+            eval_state_s = Vector_<EvalState_<AAD::Number_>>(nThread + 1, EvalState_<AAD::Number_>(product.VarNames().size()));
+        else if (max_nested_ifs > 0)
             fuzzy_eval_s = Vector_<FuzzyEvaluator_<AAD::Number_>>(nThread + 1, product.BuildFuzzyEvaluator<AAD::Number_>(max_nested_ifs, eps));
-        } else {
+        else
             eval_s = Vector_<Evaluator_<AAD::Number_>>(nThread + 1, product.BuildEvaluator<AAD::Number_>());
-        }
 
         Vector_<AAD::Tape_> tapes(nThread);
         Vector_<bool> mdlInit(nThread + 1, false);
@@ -199,8 +201,19 @@ namespace Dal::Script {
                 auto& gVec = gaussVecs[threadNum];
                 auto& model = models[threadNum];
                 random->SkipTo(firstPath);
-
-                if (max_nested_ifs > 0) {
+                if (compiled) {
+                    EvalState_<AAD::Number_>& eval_state = eval_state_s[threadNum];
+                    for (size_t i = 0; i < pathsInTask; i++) {
+                        AAD::Number_::tape_->RewindToMark();
+                        random->FillNormal(&gVec);
+                        models[threadNum]->GeneratePath(gVec, &path);
+                        product.EvaluateCompiled(path, eval_state);
+                        AAD::Number_ res = eval_state.VarVals()[eval_state.VarVals().size() - 1];
+                        res.PropagateToMark();
+                        results.aggregated_[firstPath + i] = res.Value();
+                    }
+                }
+                else if (max_nested_ifs > 0) {
                     FuzzyEvaluator_<AAD::Number_>& eval = fuzzy_eval_s[threadNum];
                     for (size_t i = 0; i < pathsInTask; i++) {
                         AAD::Number_::tape_->RewindToMark();

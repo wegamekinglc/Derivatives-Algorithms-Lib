@@ -107,10 +107,8 @@ namespace Dal::Script {
             Compiler_ comp;
 
             //	Loop over statements in event
-            for (auto& stat : evt) {
-                //	Visit statement
+            for (auto& stat : evt)
                 stat->Accept(comp);
-            }
 
             //  Get compiled
             nodeStreams_.push_back(comp.NodeStream());

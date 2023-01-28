@@ -15,26 +15,26 @@ namespace Dal::Script {
 
     template <class T> class FuzzyEvaluator_ : public EvaluatorBase_<T, FuzzyEvaluator_> {
         //	Default smoothing factor for conditions that don't override it
-        double myDefEps;
+        double defEps_;
 
         //	Stack for the fuzzy evaluation of conditions
-        StaticStack_<T> myFuzzyStack;
+        StaticStack_<T> fuzzyStack_;
 
         //	Temp storage for variables, preallocated for performance
         //	[i][j] = nested if level i variable j
-        Vector_<Vector_<T>> myVarStore0;
-        Vector_<Vector_<T>> myVarStore1;
+        Vector_<Vector_<T>> varStore0_;
+        Vector_<Vector_<T>> varStore1_;
 
         //	Nested if level, 0: not in an if, 1: in the outermost if, 2: if nested in another if, etc.
-        size_t myNestedIfLvl;
+        size_t nestedIfLvl_;
 
         //	Pop the Top 2 numbers of the fuzzy condition stack
         pair<T, T> Pop2f() {
             pair<T, T> res;
-            res.first = myFuzzyStack.Top();
-            myFuzzyStack.Pop();
-            res.second = myFuzzyStack.Top();
-            myFuzzyStack.Pop();
+            res.first = fuzzyStack_.Top();
+            fuzzyStack_.Pop();
+            res.second = fuzzyStack_.Top();
+            fuzzyStack_.Pop();
             return res;
         }
 
@@ -89,52 +89,52 @@ namespace Dal::Script {
         using Base::VisitNode;
 
         FuzzyEvaluator_(const size_t nVar, const size_t maxNestedIfs, const double defEps = 0)
-            : Base(nVar), myDefEps(defEps), myVarStore0(maxNestedIfs), myVarStore1(maxNestedIfs), myNestedIfLvl(0) {
-            for (auto& varStore : myVarStore0)
+            : Base(nVar), defEps_(defEps), varStore0_(maxNestedIfs), varStore1_(maxNestedIfs), nestedIfLvl_(0) {
+            for (auto& varStore : varStore0_)
                 varStore.Resize(nVar);
-            for (auto& varStore : myVarStore1)
+            for (auto& varStore : varStore1_)
                 varStore.Resize(nVar);
         }
 
         //	Copy/Move
 
         FuzzyEvaluator_(const FuzzyEvaluator_& rhs)
-            : Base(rhs), myDefEps(rhs.myDefEps), myVarStore0(rhs.myVarStore0.size()),
-              myVarStore1(rhs.myVarStore1.size()), myNestedIfLvl(0) {
-            for (auto& varStore : myVarStore0)
+            : Base(rhs), defEps_(rhs.defEps_), varStore0_(rhs.varStore0_.size()), varStore1_(rhs.varStore1_.size()),
+              nestedIfLvl_(0) {
+            for (auto& varStore : varStore0_)
                 varStore.Resize(variables_.size());
-            for (auto& varStore : myVarStore1)
+            for (auto& varStore : varStore1_)
                 varStore.Resize(variables_.size());
         }
         FuzzyEvaluator_& operator=(const FuzzyEvaluator_& rhs) {
             if (this == &rhs)
                 return *this;
             Base::operator=(rhs);
-            myDefEps = rhs.myDefEps;
-            myVarStore0.Resize(rhs.myVarStore0.size());
-            myVarStore1.Resize(rhs.myVarStore1.size());
-            for (auto& varStore : myVarStore0)
+            defEps_ = rhs.defEps_;
+            varStore0_.Resize(rhs.varStore0_.size());
+            varStore1_.Resize(rhs.varStore1_.size());
+            for (auto& varStore : varStore0_)
                 varStore.Resize(variables_.size());
-            for (auto& varStore : myVarStore1)
+            for (auto& varStore : varStore1_)
                 varStore.Resize(variables_.size());
-            myNestedIfLvl = 0;
+            nestedIfLvl_ = 0;
             return *this;
         }
 
         FuzzyEvaluator_(FuzzyEvaluator_&& rhs)
-            : Base(move(rhs)), myDefEps(rhs.myDefEps), myVarStore0(move(rhs.myVarStore0)),
-              myVarStore1(move(rhs.myVarStore1)), myNestedIfLvl(0) {}
+            : Base(move(rhs)), defEps_(rhs.defEps_), varStore0_(move(rhs.varStore0_)), varStore1_(move(rhs.varStore1_)),
+              nestedIfLvl_(0) {}
         FuzzyEvaluator_& operator=(FuzzyEvaluator_&& rhs) {
             Base::operator=(move(rhs));
-            myDefEps = rhs.myDefEps;
-            myVarStore0 = move(rhs.myVarStore0);
-            myVarStore1 = move(rhs.myVarStore1);
-            myNestedIfLvl = 0;
+            defEps_ = rhs.defEps_;
+            varStore0_ = move(rhs.varStore0_);
+            varStore1_ = move(rhs.varStore1_);
+            nestedIfLvl_ = 0;
             return *this;
         }
 
         //	(Re)set default smoothing factor
-        void SetDefEps(double defEps) { myDefEps = defEps; }
+        FORCE_INLINE void SetDefEps(double defEps) { defEps_ = defEps; }
 
         //	Overriden visitors
 
@@ -144,12 +144,12 @@ namespace Dal::Script {
             const size_t lastTrueStat = node.firstElse_ == -1 ? node.arguments_.size() - 1 : node.firstElse_ - 1;
 
             //	Increase nested if level
-            ++myNestedIfLvl;
+            ++nestedIfLvl_;
 
             //	Visit the condition and compute its degree of truth dt
             VisitNode(*node.arguments_[0]);
-            const T dt = myFuzzyStack.Top();
-            myFuzzyStack.Pop();
+            const T dt = fuzzyStack_.Top();
+            fuzzyStack_.Pop();
 
             //	Absolutely true
             if (dt > 1.0 - EPSILON) {
@@ -170,7 +170,7 @@ namespace Dal::Script {
             else {
                 //	Record values of variables to be changed
                 for (auto idx : node.affectedVars_)
-                    myVarStore0[myNestedIfLvl - 1][idx] = variables_[idx];
+                    varStore0_[nestedIfLvl_ - 1][idx] = variables_[idx];
 
                 //	Eval "if true" statements
                 for (size_t i = 1; i <= lastTrueStat; ++i)
@@ -178,8 +178,8 @@ namespace Dal::Script {
 
                 //	Record and Reset values of variables to be changed
                 for (auto idx : node.affectedVars_) {
-                    myVarStore1[myNestedIfLvl - 1][idx] = variables_[idx];
-                    variables_[idx] = myVarStore0[myNestedIfLvl - 1][idx];
+                    varStore1_[nestedIfLvl_ - 1][idx] = variables_[idx];
+                    variables_[idx] = varStore0_[nestedIfLvl_ - 1][idx];
                 }
 
                 //	Eval "if false" statements if any
@@ -189,20 +189,20 @@ namespace Dal::Script {
 
                 //	Set values of variables to fuzzy values
                 for (auto idx : node.affectedVars_)
-                    variables_[idx] = dt * myVarStore1[myNestedIfLvl - 1][idx] + (1.0 - dt) * variables_[idx];
+                    variables_[idx] = dt * varStore1_[nestedIfLvl_ - 1][idx] + (1.0 - dt) * variables_[idx];
             }
 
             //	Decrease nested if level
-            --myNestedIfLvl;
+            --nestedIfLvl_;
         }
 
         //	Conditions
 
-        void Visit(const NodeTrue& node) { myFuzzyStack.Push(1.0); }
-        void Visit(const NodeFalse& node) { myFuzzyStack.Push(0.0); }
+        FORCE_INLINE void Visit(const NodeTrue& node) { fuzzyStack_.Push(1.0); }
+        FORCE_INLINE void Visit(const NodeFalse& node) { fuzzyStack_.Push(0.0); }
 
         //	Equality
-        void Visit(const NodeEqual& node) {
+        FORCE_INLINE void Visit(const NodeEqual& node) {
             //	Evaluate expression to be compared to 0
             VisitNode(*node.arguments_[0]);
             const T expr = dStack_.Top();
@@ -210,15 +210,15 @@ namespace Dal::Script {
 
             //	Discrete case: 0 is a singleton in expr's domain
             if (node.isDiscrete_) {
-                myFuzzyStack.Push(BFly(expr, node.lb_, node.rb_));
+                fuzzyStack_.Push(BFly(expr, node.lb_, node.rb_));
             }
             //	Continuous case: 0 is part of expr's continuous domain
             else {
                 //	Effective epsilon: take default unless overwritten on the node
-                double eps = node.eps_ < 0 ? myDefEps : node.eps_;
+                double eps = node.eps_ < 0 ? defEps_ : node.eps_;
 
                 //	Butterfly
-                myFuzzyStack.Push(BFly(expr, eps));
+                fuzzyStack_.Push(BFly(expr, eps));
             }
         }
 
@@ -237,41 +237,41 @@ namespace Dal::Script {
             //		otherwise the condition would be always true/false
             if (node.isDiscrete_) {
                 //	Call spread on the right
-                myFuzzyStack.Push(CSpr(expr, node.lb_, node.rb_));
+                fuzzyStack_.Push(CSpr(expr, node.lb_, node.rb_));
             }
             //	Continuous case: 0 is part of expr's continuous domain
             else {
                 //	Effective epsilon: take default unless overwritten on the node
-                const double eps = node.eps_ < 0 ? myDefEps : node.eps_;
+                const double eps = node.eps_ < 0 ? defEps_ : node.eps_;
 
                 //	Call Spread
-                myFuzzyStack.Push(CSpr(expr, eps));
+                fuzzyStack_.Push(CSpr(expr, eps));
             }
         }
 
-        void Visit(const NodeSup& node) { VisitComp(node); }
+        FORCE_INLINE void Visit(const NodeSup& node) { VisitComp(node); }
 
-        void Visit(const NodeSupEqual& node) { VisitComp(node); }
+        FORCE_INLINE void Visit(const NodeSupEqual& node) { VisitComp(node); }
 
         //	Negation
         void visitNot(const NodeNot& node) {
             VisitNode(*node.arguments_[0]);
-            myFuzzyStack.Top() = 1.0 - myFuzzyStack.Top();
+            fuzzyStack_.Top() = 1.0 - fuzzyStack_.Top();
         }
 
         //	Combinators
         //	Hard coded proba stlye and->dt(lhs)*dt(rhs), or->dt(lhs)+dt(rhs)-dt(lhs)*dt(rhs)
-        void Visit(const NodeAnd& node) {
+        FORCE_INLINE void Visit(const NodeAnd& node) {
             VisitNode(*node.arguments_[0]);
             VisitNode(*node.arguments_[1]);
             const auto args = Pop2f();
-            myFuzzyStack.Push(args.first * args.second);
+            fuzzyStack_.Push(args.first * args.second);
         }
-        void Visit(const NodeOr& node) {
+        FORCE_INLINE void Visit(const NodeOr& node) {
             VisitNode(*node.arguments_[0]);
             VisitNode(*node.arguments_[1]);
             const auto args = Pop2f();
-            myFuzzyStack.Push(args.first + args.second - args.first * args.second);
+            fuzzyStack_.Push(args.first + args.second - args.first * args.second);
         }
     };
 } // namespace Dal::Script

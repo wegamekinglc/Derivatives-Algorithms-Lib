@@ -312,7 +312,7 @@ namespace Dal::Script {
         const Vector_<double>& constStream,
         const Vector_<const void*>& dataStream,
         //  Scenario
-        const AAD::Sample_<T>& scen,
+        const AAD::Sample_<T>& scenario,
         //  State
         EvalState_<T>& state,
         //  First (included), last (excluded)
@@ -420,7 +420,7 @@ namespace Dal::Script {
                 ++i;
                 break;
             case Spot:
-                dStack.Push(scen.spot_);
+                dStack.Push(scenario.spot_);
                 ++i;
                 break;
             case Var:
@@ -446,14 +446,14 @@ namespace Dal::Script {
             case Pays:
                 ++i;
                 idx = nodeStream[i];
-                state.variables_[idx] += dStack.Top() / scen.numeraire_;
+                state.variables_[idx] += dStack.Top() / scenario.numeraire_;
                 dStack.Pop();
                 ++i;
                 break;
             case PaysConst:
                 x = constStream[nodeStream[++i]];
                 idx = nodeStream[++i];
-                state.variables_[idx] += x / scen.numeraire_;
+                state.variables_[idx] += x / scenario.numeraire_;
                 ++i;
                 break;
             case If:
@@ -469,7 +469,7 @@ namespace Dal::Script {
                     i = nodeStream[++i];
                 } else {
                     //  Cannot avoid nested call here
-                    EvalCompiled(nodeStream, constStream, dataStream, scen, state, i + 3, nodeStream[i + 1]);
+                    EvalCompiled(nodeStream, constStream, dataStream, scenario, state, i + 3, nodeStream[i + 1]);
                     i = nodeStream[i + 2];
                 }
                 bStack.Pop();

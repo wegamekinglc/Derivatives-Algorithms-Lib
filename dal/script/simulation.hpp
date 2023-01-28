@@ -47,5 +47,6 @@ namespace Dal::Script {
                                            const String_& rsg = "sobol",
                                            bool use_bb = false,
                                            int max_nested_ifs = -1,
-                                           double eps = 0.01);
+                                           double eps = 0.01,
+                                           bool compiled = false);
 }
