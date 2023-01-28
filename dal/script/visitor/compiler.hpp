@@ -32,7 +32,7 @@ namespace Dal::Script {
         bool isFuzzy_;
 
         //  Constructor
-        EvalState_(int nVar, bool isFuzzy) : variables_(nVar), isFuzzy_(isFuzzy) {}
+        EvalState_(int nVar, bool isFuzzy = false) : variables_(nVar), isFuzzy_(isFuzzy) {}
 
         //  Initializer
         void Init() {
