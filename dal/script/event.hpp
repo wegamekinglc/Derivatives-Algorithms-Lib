@@ -100,14 +100,14 @@ namespace Dal::Script {
             }
         }
 
-        template <class T_> void EvaluateCompiled(const Scenario_<T_>& scen, EvalState_<T_>& state) const {
+        template <class T_> void EvaluateCompiled(const Scenario_<T_>& scenario, EvalState_<T_>& state) const {
             //	Initialize state
             state.Init();
 
             //	Loop over events
             for (size_t i = 0; i < events_.size(); ++i)
                 //	Evaluate the compiled events
-                EvalCompiled(nodeStreams_[i], constStreams_[i], dataStreams_[i], scen[i], state);
+                EvalCompiled(nodeStreams_[i], constStreams_[i], dataStreams_[i], scenario[i], state);
         }
 
         void IndexVariables();

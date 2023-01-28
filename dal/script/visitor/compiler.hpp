@@ -29,9 +29,10 @@ namespace Dal::Script {
     template <class T_> struct EvalState_ {
         //	State
         Vector_<T_> variables_;
+        bool isFuzzy_;
 
         //  Constructor
-        EvalState_(size_t nVar) : variables_(nVar) {}
+        EvalState_(int nVar, bool isFuzzy) : variables_(nVar), isFuzzy_(isFuzzy) {}
 
         //  Initializer
         void Init() {
@@ -43,44 +44,44 @@ namespace Dal::Script {
     };
 
     enum NodeType {
-        Add,
-        AddConst,
-        Sub,
-        SubConst,
-        ConstSub,
-        Mult,
-        MultConst,
-        Div,
-        DivConst,
-        ConstDiv,
-        Pow,
-        PowConst,
-        ConstPow,
-        Max2,
-        Max2Const,
-        Min2,
-        Min2Const,
-        Spot,
-        Var,
-        Const,
-        Assign,
-        AssignConst,
-        Pays,
-        PaysConst,
-        If,
-        IfElse,
-        Equal,
-        Sup,
-        SupEqual,
-        And,
-        Or,
-        Smooth,
-        Sqrt,
-        Log,
-        Not,
-        Uminus,
-        True,
-        False
+        Add = 0,
+        AddConst = 1,
+        Sub = 2,
+        SubConst = 3,
+        ConstSub = 4,
+        Mult = 5,
+        MultConst = 6,
+        Div = 7,
+        DivConst = 8,
+        ConstDiv = 9,
+        Pow = 10,
+        PowConst = 11,
+        ConstPow = 12,
+        Max2 = 13,
+        Max2Const = 14,
+        Min2 = 15,
+        Min2Const = 16,
+        Spot = 17,
+        Var = 18,
+        Const = 19,
+        Assign = 20,
+        AssignConst = 21,
+        Pays = 22,
+        PaysConst = 23,
+        If = 24,
+        IfElse = 25,
+        Equal = 26,
+        Sup = 27,
+        SupEqual = 28,
+        And = 29,
+        Or = 30,
+        Smooth = 31,
+        Sqrt = 32,
+        Log = 33,
+        Not = 34,
+        Uminus = 35,
+        True = 36,
+        False = 37
     };
 
     class Compiler_ : public ConstVisitor_<Compiler_> {
@@ -394,10 +395,9 @@ namespace Dal::Script {
                 ++i;
                 break;
             case Max2:
-                y = dStack.Top();
-                if (y > dStack[1])
-                    dStack[1] = y;
-                dStack.Pop();
+                y = dStack.TopAndPop();
+                if (y > dStack[0])
+                    dStack[0] = y;
                 ++i;
                 break;
             case Max2Const:
@@ -433,8 +433,7 @@ namespace Dal::Script {
                 break;
             case Assign:
                 idx = nodeStream[++i];
-                state.variables_[idx] = dStack.Top();
-                dStack.Pop();
+                state.variables_[idx] = dStack.TopAndPop();
                 ++i;
                 break;
             case AssignConst:
@@ -446,8 +445,7 @@ namespace Dal::Script {
             case Pays:
                 ++i;
                 idx = nodeStream[i];
-                state.variables_[idx] += dStack.Top() / scenario.numeraire_;
-                dStack.Pop();
+                state.variables_[idx] += dStack.TopAndPop() / scenario.numeraire_;
                 ++i;
                 break;
             case PaysConst:
@@ -475,18 +473,15 @@ namespace Dal::Script {
                 bStack.Pop();
                 break;
             case Equal:
-                bStack.Push(dStack.Top() == 0);
-                dStack.Pop();
+                bStack.Push(dStack.TopAndPop() == 0);
                 ++i;
                 break;
             case Sup:
-                bStack.Push(dStack.Top() > 0);
-                dStack.Pop();
+                bStack.Push(dStack.TopAndPop() > 0);
                 ++i;
                 break;
             case SupEqual:
-                bStack.Push(dStack.Top() >= 0);
-                dStack.Pop();
+                bStack.Push(dStack.TopAndPop() >= 0);
                 ++i;
                 break;
             case And:
@@ -519,9 +514,8 @@ namespace Dal::Script {
                     dStack.Top() = z;
 
                 //	Fuzzy
-                else {
+                else
                     dStack.Top() = t + 0.5 * (z - t) / y * (x + y);
-                }
                 ++i;
                 break;
             case Sqrt:
