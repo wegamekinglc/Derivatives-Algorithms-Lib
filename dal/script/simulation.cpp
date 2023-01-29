@@ -10,6 +10,7 @@
 namespace Dal::Script {
 
     void InitModel4ParallelAAD(const ScriptProduct_& prd, AAD::Model_<AAD::Number_>& clonedMdl, Scenario_<AAD::Number_>& path) {
+
         AAD::Tape_& tape = *AAD::Number_::tape_;
         tape.Rewind();
         clonedMdl.PutParametersOnTape();
@@ -34,8 +35,6 @@ namespace Dal::Script {
         else
             return rsg;
     }
-
-    void InitModel4ParallelAAD(const ScriptProduct_& prd, AAD::Model_<AAD::Number_>& clonedMdl, Scenario_<AAD::Number_>& path);
 
     SimResults_<> MCSimulation(const ScriptProduct_& product,
                                const AAD::Model_<double>& model,
@@ -129,14 +128,13 @@ namespace Dal::Script {
         mdl->Allocate(product.TimeLine(), product.DefLine());
         std::unique_ptr<Random_> rng = CreateRNG(rsg, mdl->SimDim(), use_bb);
 
-        const Vector_<AAD::Number_*>& params = mdl->Parameters();
-        const size_t nParam = params.size();
+        const size_t nParam = mdl->Parameters().size();
         SimResults_<AAD::Number_> results(n_paths, nParam);
 
         AAD::Tape_& tape = *AAD::Number_::tape_;
         tape.Clear();
-
         auto re_setter = AAD::SetNumResultsForAAD();
+
         ThreadPool_* pool = ThreadPool_::GetInstance();
         const size_t nThread = pool->NumThreads();
 
@@ -183,7 +181,7 @@ namespace Dal::Script {
         int pathsLeft = n_paths;
 
         while (pathsLeft > 0) {
-            int pathsInTask = min(pathsLeft, BATCH_SIZE);
+            int pathsInTask = std::min(pathsLeft, BATCH_SIZE);
             futures.push_back(pool->SpawnTask([&, firstPath, pathsInTask]() {
                 const size_t threadNum = pool->ThreadNum();
                 if (threadNum > 0)

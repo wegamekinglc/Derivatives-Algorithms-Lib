@@ -63,11 +63,11 @@ int main() {
     expiry_aad.PutOnTape();
 
     tape.Mark();
-    double d_fwd_aad = 0.0;
-    double d_vol_aad = 0.0;
-    double d_numeraire_aad = 0.0;
-    double d_strike_aad = 0.0;
-    double d_expiry_aad = 0.0;
+    double d_fwd_aad ;
+    double d_vol_aad;
+    double d_numeraire_aad;
+    double d_strike_aad;
+    double d_expiry_aad;
 
     timer.Reset();
     Number_ price_aad;
