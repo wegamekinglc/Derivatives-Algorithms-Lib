@@ -4,7 +4,7 @@
 
 #pragma once
 
-#ifdef _WIN32
+#ifdef USE_EXCEL_REPORT
 
 // ExcelImports.cpp
 //

@@ -87,7 +87,7 @@ namespace Dal::Script {
         }
     }
 
-    void ScriptProduct_::Compile(bool isFuzzy) {
+    void ScriptProduct_::Compile() {
         //  First, identify constants
         ConstProcess();
 
@@ -104,7 +104,7 @@ namespace Dal::Script {
         //	Visit
         for (auto& evt : events_) {
             //	The compiler
-            Compiler_ comp(isFuzzy);
+            Compiler_ comp;
 
             //	Loop over statements in event
             for (auto& stat : evt)

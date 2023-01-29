@@ -2,6 +2,8 @@
 // Created by wegam on 2023/1/23.
 //
 
+#ifdef USE_EXCEL
+
 #include <dal/report/exceldriverlite.hpp>
 #include <dal/math/vectors.hpp>
 #include <dal/math/operators.hpp>
@@ -47,3 +49,10 @@ int main()
 
     return 0;
 }
+#else
+
+int main() {
+    return 0;
+}
+
+#endif

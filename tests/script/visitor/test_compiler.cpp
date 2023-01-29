@@ -42,7 +42,7 @@ TEST(CompilerTest, TestCompileWithVariable) {
 
     ScriptProduct_ product(eventDates, events);
     product.PreProcess(false, true);
-    product.Compile(true);
+    product.Compile();
 
     EvalState_<double> eval_state(product.VarNames().size());
     Scenario_<double> scenario(1);

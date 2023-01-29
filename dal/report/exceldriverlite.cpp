@@ -2,7 +2,7 @@
 // Created by wegam on 2023/1/23.
 //
 
-#ifdef _WIN32
+#ifdef USE_EXCEL_REPORT
 
 #include <dal/math/matrix/matrixutils.hpp>
 #include <dal/report/exceldriverlite.hpp>

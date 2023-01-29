@@ -11,7 +11,7 @@
 
 #pragma once
 
-#ifdef _WIN32
+#ifdef USE_EXCEL_REPORT
 
 // PLEASE USE CORRECT VERSION OF OFFICE
 #include <dal/math/matrix/matrixs.hpp>

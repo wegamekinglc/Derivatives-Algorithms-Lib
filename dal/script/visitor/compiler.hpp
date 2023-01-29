@@ -31,7 +31,7 @@ namespace Dal::Script {
         Vector_<T_> variables_;
 
         //  Constructor
-        EvalState_(int nVar, bool isFuzzy = false) : variables_(nVar) {}
+        EvalState_(int nVar) : variables_(nVar) {}
 
         //  Initializer
         void Init() {
@@ -72,7 +72,6 @@ namespace Dal::Script {
         Equal = 26,
         Sup = 27,
         SupEqual = 28,
-        SupEqualFuzzy = 38,
         And = 29,
         Or = 30,
         Smooth = 31,
@@ -90,13 +89,8 @@ namespace Dal::Script {
         Vector_<double> constStream_;
         Vector_<const void*> dataStream_;
 
-        bool isFuzzy_;
-
     public:
         using ConstVisitor_<Compiler_>::Visit;
-
-        explicit Compiler_(bool isFuzzy = false): isFuzzy_(isFuzzy) {}
-
         //	Accessors
 
         //	Access the streams after traversal
@@ -202,10 +196,7 @@ namespace Dal::Script {
             VisitCondition<Sup>(node, [](double x) { return x > 0.0; });
         }
         void Visit(const NodeSupEqual& node) {
-            if (isFuzzy_)
-                VisitCondition<SupEqualFuzzy>(node, [](double x) { return x > -Dal::EPSILON; });
-            else
-                VisitCondition<SupEqual>(node, [](double x) { return x > -Dal::EPSILON; });
+            VisitCondition<SupEqual>(node, [](double x) { return x > -Dal::EPSILON; });
         }
 
         //  And/Or/Not
@@ -313,18 +304,7 @@ namespace Dal::Script {
         }
     };
 
-    template <class T_>
-    FORCE_INLINE T_ CSpr(const T_ x, const double eps) {
-        const double halfEps = 0.5 * eps;
-
-        if (x < -halfEps)
-            return T_(0.0);
-        else if (x > halfEps)
-            return T_(1.0);
-        else
-            return (x + halfEps) / eps;
-    }
-
+    
     template <class T>
     inline void EvalCompiled(
         //  Stream to eval
@@ -501,10 +481,6 @@ namespace Dal::Script {
                 break;
             case SupEqual:
                 bStack.Push(dStack.TopAndPop() >= 0);
-                ++i;
-                break;
-            case SupEqualFuzzy:
-                bStack.Push(CSpr(dStack.TopAndPop(), 0.01) >= 0);
                 ++i;
                 break;
             case And:
