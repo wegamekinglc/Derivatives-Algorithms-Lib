@@ -195,6 +195,12 @@ namespace Dal::AAD {
         static double Derivative(double r, double v, double d) { return Dal::NPDF(r); }
     };
 
+    struct OPErfc_ {
+        static double Eval(double r, double d) { return std::erfc(r); }
+
+        static double Derivative(double r, double v, double d) { return -1.12837916709551 * std::exp(-r*r); }
+    };
+
     // binary operators with a double on one side
 
     struct OPMultD_ {
@@ -287,6 +293,11 @@ namespace Dal::AAD {
     template <class ARG_>
     UnaryExpression_<ARG_, OPNormalCdf_> NCDF(const Expression_<ARG_>& arg) {
         return UnaryExpression_<ARG_, OPNormalCdf_>(arg);
+    }
+
+    template <class ARG_>
+    UnaryExpression_<ARG_, OPErfc_> erfc(const Expression_<ARG_>& arg) {
+        return UnaryExpression_<ARG_, OPErfc_>(arg);
     }
 
     // binary operators with a double on one side

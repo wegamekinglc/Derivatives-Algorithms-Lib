@@ -56,6 +56,7 @@ namespace Dal {
     using AAD::pow;
     using AAD::NCDF;
     using AAD::NPDF;
+    using AAD::erfc;
     using AAD::sqrt;
 #endif
 } // namespace Dal
