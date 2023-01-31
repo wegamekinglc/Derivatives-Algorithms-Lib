@@ -20,7 +20,7 @@ namespace Dal::Script {
 
         //	Stacks
         StaticStack_<T> dStack_;
-        StaticStack_<char> bStack_;
+        StaticStack_<bool> bStack_;
 
         //	Reference to current scenario
         const AAD::Scenario_<T>* scenario_;

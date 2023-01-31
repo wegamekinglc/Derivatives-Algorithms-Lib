@@ -327,7 +327,7 @@ namespace Dal::Script {
 
         //  Stacks
         StaticStack_<T> dStack;
-        StaticStack_<char> bStack;
+        StaticStack_<bool> bStack;
 
         //  Loop on instructions
         while (i < n) {
@@ -484,16 +484,14 @@ namespace Dal::Script {
                 ++i;
                 break;
             case And:
-                if (bStack[1]) {
+                if (bStack[1])
                     bStack[1] = bStack.Top();
-                }
                 bStack.Pop();
                 ++i;
                 break;
             case Or:
-                if (!bStack[1]) {
+                if (!bStack[1])
                     bStack[1] = bStack.Top();
-                }
                 bStack.Pop();
                 ++i;
                 break;
