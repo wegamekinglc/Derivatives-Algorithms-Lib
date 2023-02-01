@@ -85,21 +85,20 @@ int main() {
         price_aad = BlackTest(fwd_aad, vol_aad, numeraire_aad, strike_aad, expiry_aad, is_call, n_repetition);
         price_aad.PropagateToMark();
 
-        price = price_aad.Value() / n_repetition;
-        d_fwd_aad = fwd_aad.Adjoint() / n_repetition;
-        d_vol_aad = vol_aad.Adjoint() / n_repetition;
-        d_numeraire_aad = numeraire_aad.Adjoint() / n_repetition;
-        d_strike_aad = strike_aad.Adjoint() / n_repetition;
-        d_expiry_aad = expiry_aad.Adjoint() / n_repetition;
-        tape.ResetAdjoints();
+        price = price_aad.Value() / n_repetition / n_rounds;
+        d_fwd_aad = fwd_aad.Adjoint() / n_repetition / n_rounds;
+        d_vol_aad = vol_aad.Adjoint() / n_repetition / n_rounds;
+        d_numeraire_aad = numeraire_aad.Adjoint() / n_repetition / n_rounds;
+        d_strike_aad = strike_aad.Adjoint() / n_repetition / n_rounds;
+        d_expiry_aad = expiry_aad.Adjoint() / n_repetition / n_rounds;
     }
 
-    std::cout << " DAL   AAD Mode: " << std::setprecision(8) << price << " with " << timer.Elapsed<milliseconds>() << " ms" << std::endl;
-    std::cout << "       dP/dFwd : " << std::setprecision(8) << d_fwd_aad << std::endl;
-    std::cout << "       dP/dVol : " << std::setprecision(8) << d_vol_aad << std::endl;
-    std::cout << "       dP/dNum : " << std::setprecision(8) << d_numeraire_aad << std::endl;
-    std::cout << "       dP/dK   : " << std::setprecision(8) << d_strike_aad << std::endl;
-    std::cout << "       dP/dT   : " << std::setprecision(8) << d_expiry_aad << std::endl;
+    std::cout << " DAL  AAD Mode: " << std::setprecision(8) << price << " with " << timer.Elapsed<milliseconds>() << " ms" << std::endl;
+    std::cout << "      dP/dFwd : " << std::setprecision(8) << d_fwd_aad << std::endl;
+    std::cout << "      dP/dVol : " << std::setprecision(8) << d_vol_aad << std::endl;
+    std::cout << "      dP/dNum : " << std::setprecision(8) << d_numeraire_aad << std::endl;
+    std::cout << "      dP/dK   : " << std::setprecision(8) << d_strike_aad << std::endl;
+    std::cout << "      dP/dT   : " << std::setprecision(8) << d_expiry_aad << std::endl;
     tape.Clear();
 
     timer.Reset();
