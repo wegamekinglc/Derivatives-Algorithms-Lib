@@ -42,6 +42,14 @@ set(DAL_INSTALL_INCLUDEDIR "include" CACHE STRING "Installation directory for he
 set(DAL_INSTALL_EXAMPLESDIR "lib/dal/examples" CACHE STRING "Installation directory for examples")
 set(DAL_INSTALL_CMAKEDIR "lib/cmake/${PACKAGE_NAME}" CACHE STRING "Installation directory for CMake scripts")
 
+if (NOT "${CMAKE_BUILD_TYPE}" STREQUAL "Debug")
+    add_definitions(-DCODI_ForcedInlines)
+    add_definitions(-DADEPT_FAST)
+    add_definitions(-D__FAST_MATH__)
+    add_definitions(-DADEPT_FAST_EXPONENTIAL=1)
+    message("-- using forced inline for Codi and fast math for adept")
+endif()
+
 # Project shared libs ON for UNIX
 if (NOT DEFINED BUILD_SHARED_LIBS)
     set(BUILD_SHARED_LIBS ${UNIX})
@@ -83,6 +91,7 @@ include(Platform)
 
 include_directories(${CMAKE_SOURCE_DIR})
 include_directories(${CMAKE_SOURCE_DIR}/externals/adept)
+include_directories(${CMAKE_SOURCE_DIR}/externals/codi)
 
 add_subdirectory(dal)
 add_subdirectory(public)

@@ -2,9 +2,6 @@
 // Created by wegam on 2023/1/26.
 //
 
-#define ADEPT_FAST
-#define ADEPT_FAST_EXPONENTIAL 1
-
 #include <dal/math/operators.hpp>
 #include <dal/math/aad/aad.hpp>
 #include <dal/math/vectors.hpp>
@@ -13,6 +10,7 @@
 #include <iostream>
 #include <adept.h>
 #include <adept_source.h>
+#include <codi.hpp>
 
 using namespace std;
 using namespace Dal;
@@ -20,9 +18,14 @@ using Dal::AAD::Number_;
 using Dal::AAD::Tape_;
 using adept::adouble;
 
+using RealReverse = codi::RealReverseUnchecked;
+using CodiTape = typename RealReverse::Tape;
+using Positon = typename CodiTape::Position;
+using Gradient = typename RealReverse::Gradient;
+
 
 template <class T_>
-T_ BlackTest(T_ fwd, T_ vol, T_ numeraire, T_ strike, T_ expiry, bool is_call, int n_repetition) {
+T_ BlackTest(const T_& fwd, const T_& vol, const T_& numeraire, const T_& strike, const T_& expiry, bool is_call, int n_repetition) {
     static const double M_SQRT_2 = 1.4142135623730951;
     const double omega = is_call ? 1.0 : -1.0;
     T_ y(0.0);
@@ -39,8 +42,8 @@ using namespace Dal;
 using adept::adouble;
 
 int main() {
-    int n_rounds = 10;
-    int n_repetition = 10000000;
+    int n_rounds = 10000;
+    int n_repetition = 10000;
     double fwd = 1.00;
     double vol = 0.20;
     double numeraire = 1.0;
@@ -113,6 +116,34 @@ int main() {
     fwd_adept.set_gradient(fwd_adept_val);
     stack.compute_adjoint();
     std::cout << "      dP/dSpt : " << std::setprecision(8) << spot_adept.get_gradient() / n_repetition << std::endl;
+
+    timer.Reset();
+    RealReverse x_codi[5] = {fwd * 2.0, vol, numeraire, strike, expiry};
+    RealReverse  y;
+    CodiTape& codi_tape = RealReverse::getTape();
+
+    codi_tape.setActive();
+    for (auto& x: x_codi)
+        codi_tape.registerInput(x);
+
+    RealReverse fwd_codi = x_codi[0] / 2.0;
+    double d_fwd_codi;
+    Positon begin  = codi_tape.getPosition();
+    for (int i = 0; i < n_rounds; ++i) {
+        y = BlackTest(fwd_codi, x_codi[1], x_codi[2], x_codi[3], x_codi[4], is_call, n_repetition);
+        y.gradient() = 1.0;
+        codi_tape.evaluate(codi_tape.getPosition(), begin);
+        d_fwd_codi = fwd_codi.getGradient();
+        codi_tape.resetTo(begin);
+    }
+    codi_tape.evaluate(begin, codi_tape.getZeroPosition());
+    std::cout << " Codi AAD Mode: " << std::setprecision(8) << y / n_repetition << " with " << timer.Elapsed<milliseconds>() << " ms" << std::endl;
+    std::cout << "      dP/dSpt : " << std::setprecision(8) << x_codi[0].getGradient() / n_repetition / n_rounds << std::endl;
+    std::cout << "      dP/dFwd : " << std::setprecision(8) << d_fwd_codi / n_repetition / n_rounds << std::endl;
+    std::cout << "      dP/dVol : " << std::setprecision(8) << x_codi[1].getGradient() / n_repetition / n_rounds << std::endl;
+    std::cout << "      dP/dNum : " << std::setprecision(8) << x_codi[2].getGradient() / n_repetition / n_rounds << std::endl;
+    std::cout << "      dP/dK   : " << std::setprecision(8) << x_codi[3].getGradient() / n_repetition / n_rounds << std::endl;
+    std::cout << "      dP/dT   : " << std::setprecision(8) << x_codi[4].getGradient() / n_repetition / n_rounds << std::endl;
 
     return 0;
 }
