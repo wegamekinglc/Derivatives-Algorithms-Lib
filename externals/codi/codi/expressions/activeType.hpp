@@ -79,7 +79,7 @@ namespace codi {
       Real primalValue;
       Identifier identifier;
 
-      static Tape tape;
+      static thread_local Tape tape;
 
     public:
 
@@ -159,5 +159,5 @@ namespace codi {
   };
 
   template<typename Tape>
-  Tape ActiveType<Tape>::tape{};
+  thread_local Tape ActiveType<Tape>::tape{};
 }
