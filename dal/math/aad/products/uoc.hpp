@@ -53,7 +53,7 @@ namespace Dal::AAD {
             T_ alive(1.0);
             if (smooth_ >= Dal::EPSILON) {
                 for (const auto& sample : path) {
-                    alive = Dal::min(alive, Dal::min(1.0, Dal::max(0.0, 0.5 - (sample.forwards_[0][0] - barrier_) / twoSmooth)));
+                    alive *= Dal::min(1.0, Dal::max(0.0, 0.5 - (sample.forwards_[0][0] - barrier_) / twoSmooth));
                 }
             } else {
                 for (const auto& sample : path) {
