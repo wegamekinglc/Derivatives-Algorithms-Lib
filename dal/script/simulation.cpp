@@ -131,10 +131,6 @@ namespace Dal::Script {
         const size_t nParam = mdl->Parameters().size();
         SimResults_<AAD::Number_> results(n_paths, nParam);
 
-        AAD::Tape_* tape = &AAD::Number_::getTape();
-        tape->reset();
-        tape->setActive();
-
         ThreadPool_* pool = ThreadPool_::GetInstance();
         const size_t nThread = pool->NumThreads();
 
@@ -211,7 +207,6 @@ namespace Dal::Script {
                         res.setGradient(1.0);
                         tape->evaluate(tape->getPosition(), pos);
                         results.aggregated_[firstPath + i] = res.value();
-                        
                         tape->resetTo(pos);
                     }
                 } else {
@@ -243,7 +238,6 @@ namespace Dal::Script {
 
         for (size_t j = 0; j < nParam; ++j)
             results.risks_[j] /= n_paths;
-        tape->reset();
         return results;
     }
 }

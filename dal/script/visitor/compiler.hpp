@@ -326,8 +326,10 @@ namespace Dal::Script {
         size_t idx;
 
         //  Stacks
-        StaticStack_<T> dStack;
-        StaticStack_<bool> bStack;
+        thread_local  static StaticStack_<T> dStack;
+        dStack.Reset();
+        thread_local static StaticStack_<bool> bStack;
+        bStack.Reset();
 
         //  Loop on instructions
         while (i < n) {
