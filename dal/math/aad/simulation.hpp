@@ -128,9 +128,6 @@ namespace Dal::AAD {
 
         AADResults_ results(nPath, nParam);
 
-        AAD::Tape_* tape = &AAD::Number_::getTape();
-        tape->reset();
-
         ThreadPool_* pool = ThreadPool_::GetInstance();
         const size_t nThread = pool->NumThreads();
 
@@ -194,7 +191,6 @@ namespace Dal::AAD {
 
         for (size_t j = 0; j < nParam; ++j)
             results.risks_[j] /= nPath;
-        tape->reset();
         return results;
     }
 

@@ -26,7 +26,11 @@ namespace Dal::AAD {
 #include <codi.hpp>
 
 namespace Dal::AAD {
+#ifndef NDEBUG
     using Number_ = codi::RealReverse;
+#else
+    using Number_ = codi::RealReverseUnchecked;
+#endif
     using Tape_ = typename Number_::Tape;
     using Position_ = typename Tape_::Position;
 }
