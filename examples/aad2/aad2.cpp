@@ -18,11 +18,6 @@ using Dal::AAD::Number_;
 using Dal::AAD::Tape_;
 using adept::adouble;
 
-using RealReverse = codi::RealReverse;
-using CodiTape = typename RealReverse::Tape;
-using Position = typename CodiTape::Position;
-using Gradient = typename RealReverse::Gradient;
-
 
 template <class T_>
 T_ BlackTest(const T_& fwd, const T_& vol, const T_& numeraire, const T_& strike, const T_& expiry, bool is_call, int n_repetition) {
@@ -70,7 +65,7 @@ int main() {
     tape.registerInput(expiry_aad);
 
     Number_ fwd_aad = spot_aad / 2.0;
-    Position begin = tape.getPosition();
+    auto begin = tape.getPosition();
 
     Number_ price_aad;
     double d_fwd_aad = 0.0;
@@ -119,34 +114,6 @@ int main() {
     fwd_adept.set_gradient(fwd_adept_val);
     stack.compute_adjoint();
     std::cout << "      dP/dSpt : " << std::setprecision(8) << spot_adept.get_gradient() / n_repetition << std::endl;
-
-    timer.Reset();
-    RealReverse x_codi[5] = {fwd * 2.0, vol, numeraire, strike, expiry};
-    RealReverse  y;
-    CodiTape& codi_tape = RealReverse::getTape();
-
-    codi_tape.setActive();
-    for (auto& x: x_codi)
-        codi_tape.registerInput(x);
-
-    RealReverse fwd_codi = x_codi[0] / 2.0;
-    double d_fwd_codi;
-    begin  = codi_tape.getPosition();
-    for (int i = 0; i < n_rounds; ++i) {
-        y = BlackTest(fwd_codi, x_codi[1], x_codi[2], x_codi[3], x_codi[4], is_call, n_repetition);
-        y.gradient() = 1.0;
-        codi_tape.evaluate(codi_tape.getPosition(), begin);
-        d_fwd_codi = fwd_codi.getGradient();
-        codi_tape.resetTo(begin);
-    }
-    codi_tape.evaluate(begin, codi_tape.getZeroPosition());
-    std::cout << " Codi AAD Mode: " << std::setprecision(8) << y / n_repetition << " with " << timer.Elapsed<milliseconds>() << " ms" << std::endl;
-    std::cout << "      dP/dSpt : " << std::setprecision(8) << x_codi[0].getGradient() / n_repetition / n_rounds << std::endl;
-    std::cout << "      dP/dFwd : " << std::setprecision(8) << d_fwd_codi / n_repetition / n_rounds << std::endl;
-    std::cout << "      dP/dVol : " << std::setprecision(8) << x_codi[1].getGradient() / n_repetition / n_rounds << std::endl;
-    std::cout << "      dP/dNum : " << std::setprecision(8) << x_codi[2].getGradient() / n_repetition / n_rounds << std::endl;
-    std::cout << "      dP/dK   : " << std::setprecision(8) << x_codi[3].getGradient() / n_repetition / n_rounds << std::endl;
-    std::cout << "      dP/dT   : " << std::setprecision(8) << x_codi[4].getGradient() / n_repetition / n_rounds << std::endl;
 
     return 0;
 }

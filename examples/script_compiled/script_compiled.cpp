@@ -71,7 +71,7 @@ int main() {
     events.push_back("alive = 1");
     for (int i = 1; i < schedule.size(); ++i) {
         eventDates.push_back(schedule[i]);
-        events.push_back("if spot() >= 150 then alive = 0 endif");
+        events.push_back("if spot() >= 150:0.5 then alive = 0 endif");
     }
     eventDates.push_back(schedule[schedule.size() - 1]);
     events.push_back(String_("K = " + ToString(strike) + "\n call pays alive * MAX(spot() - K, 0.0)"));

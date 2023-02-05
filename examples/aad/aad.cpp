@@ -18,10 +18,6 @@ using Dal::AAD::Number_;
 using Dal::AAD::Tape_;
 using adept::adouble;
 
-using RealReverse = codi::RealReverse;
-using CodiTape = typename RealReverse::Tape;
-using Position = typename CodiTape::Position;
-
 
 template <class T_>
 T_ BlackTest(const T_& fwd, const T_& vol, const T_& numeraire, const T_& strike, const T_& expiry, bool is_call, int n_repetition) {
@@ -106,29 +102,6 @@ int main() {
     std::cout << "      dP/dNum : " << std::setprecision(8) << x[2].get_gradient() / n_repetition << std::endl;
     std::cout << "      dP/dK   : " << std::setprecision(8) << x[3].get_gradient() / n_repetition << std::endl;
     std::cout << "      dP/dT   : " << std::setprecision(8) << x[4].get_gradient() / n_repetition << std::endl;
-
-    timer.Reset();
-    RealReverse x_codi[5] = {fwd, vol, numeraire, strike, expiry};
-    RealReverse  y;
-    CodiTape& codi_tape = RealReverse::getTape();
-
-    codi_tape.setActive();
-    for (auto& x: x_codi)
-        codi_tape.registerInput(x);
-    begin = codi_tape.getPosition();
-    for (int i = 0; i < n_rounds; ++i) {
-        codi_tape.resetTo(begin);
-        y = BlackTest(x_codi[0], x_codi[1], x_codi[2], x_codi[3], x_codi[4], is_call, n_repetition);
-        codi_tape.registerOutput(y);
-        y.setGradient(1.0);
-        codi_tape.evaluate();
-    }
-    std::cout << " Codi AAD Mode: " << std::setprecision(8) << y / n_repetition << " with " << timer.Elapsed<milliseconds>() << " ms" << std::endl;
-    std::cout << "      dP/dFwd : " << std::setprecision(8) << x_codi[0].getGradient() / n_repetition / n_rounds << std::endl;
-    std::cout << "      dP/dVol : " << std::setprecision(8) << x_codi[1].getGradient() / n_repetition / n_rounds << std::endl;
-    std::cout << "      dP/dNum : " << std::setprecision(8) << x_codi[2].getGradient() / n_repetition / n_rounds << std::endl;
-    std::cout << "      dP/dK   : " << std::setprecision(8) << x_codi[3].getGradient() / n_repetition / n_rounds << std::endl;
-    std::cout << "      dP/dT   : " << std::setprecision(8) << x_codi[4].getGradient() / n_repetition / n_rounds << std::endl;
 
     return 0;
 }
