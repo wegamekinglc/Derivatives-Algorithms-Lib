@@ -4,6 +4,10 @@
 
 #pragma once
 
+#define AADET_ENABLED
+//#define USE_ADEPT
+#define USE_CODI
+
 #include <cassert>
 #include <dal/utilities/noncopyable.hpp>
 #include <dal/platform/host.hpp>
@@ -17,9 +21,6 @@
 #ifdef MAX
 #undef MAX
 #endif
-
-#define AADET_ENABLED
-//#define USE_ADEPT
 
 using std::make_pair;
 using std::pair;

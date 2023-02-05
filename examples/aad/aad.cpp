@@ -18,8 +18,9 @@ using Dal::AAD::Number_;
 using Dal::AAD::Tape_;
 using adept::adouble;
 
-using RealReverse = codi::RealReverseUnchecked;
+using RealReverse = codi::RealReverse;
 using CodiTape = typename RealReverse::Tape;
+using Position = typename CodiTape::Position;
 
 
 template <class T_>
@@ -60,34 +61,33 @@ int main() {
     Number_ strike_aad(strike);
     Number_ expiry_aad(expiry);
 
-    Tape_& dal_tape = *Number_::tape_;
-    dal_tape.Clear();
-    auto aad_resetter = AAD::SetNumResultsForAAD();
+    Tape_& tape = Number_::getTape();
+    tape.reset();
+    tape.setActive();
 
-    fwd_aad.PutOnTape();
-    vol_aad.PutOnTape();
-    numeraire_aad.PutOnTape();
-    strike_aad.PutOnTape();
-    expiry_aad.PutOnTape();
-
-    dal_tape.Mark();
+    tape.registerInput(fwd_aad);
+    tape.registerInput(vol_aad);
+    tape.registerInput(numeraire_aad);
+    tape.registerInput(strike_aad);
+    tape.registerInput(expiry_aad);
 
     timer.Reset();
     Number_ price_aad;
-
+    auto begin = tape.getPosition();
     for (int i = 0; i < n_rounds; ++i) {
-        dal_tape.RewindToMark();
+        tape.resetTo(begin);
         price_aad = BlackTest(fwd_aad, vol_aad, numeraire_aad, strike_aad, expiry_aad, is_call, n_repetition);
-        price_aad.PropagateToMark();
+        price_aad.setGradient(1.0);
+        tape.evaluate(tape.getPosition(), begin);
     }
 
-    std::cout << " DAL  AAD Mode: " << std::setprecision(8) << price_aad.Value() / n_repetition << " with " << timer.Elapsed<milliseconds>() << " ms" << std::endl;
-    std::cout << "      dP/dFwd : " << std::setprecision(8) << fwd_aad.Adjoint() / n_repetition / n_rounds << std::endl;
-    std::cout << "      dP/dVol : " << std::setprecision(8) << vol_aad.Adjoint() / n_repetition / n_rounds << std::endl;
-    std::cout << "      dP/dNum : " << std::setprecision(8) << numeraire_aad.Adjoint() / n_repetition / n_rounds << std::endl;
-    std::cout << "      dP/dK   : " << std::setprecision(8) << strike_aad.Adjoint() / n_repetition / n_rounds << std::endl;
-    std::cout << "      dP/dT   : " << std::setprecision(8) << expiry_aad.Adjoint() / n_repetition / n_rounds << std::endl;
-    dal_tape.Clear();
+    std::cout << " DAL  AAD Mode: " << std::setprecision(8) << price_aad.value() / n_repetition << " with " << timer.Elapsed<milliseconds>() << " ms" << std::endl;
+    std::cout << "      dP/dFwd : " << std::setprecision(8) << fwd_aad.getGradient() / n_repetition / n_rounds << std::endl;
+    std::cout << "      dP/dVol : " << std::setprecision(8) << vol_aad.getGradient() / n_repetition / n_rounds << std::endl;
+    std::cout << "      dP/dNum : " << std::setprecision(8) << numeraire_aad.getGradient() / n_repetition / n_rounds << std::endl;
+    std::cout << "      dP/dK   : " << std::setprecision(8) << strike_aad.getGradient() / n_repetition / n_rounds << std::endl;
+    std::cout << "      dP/dT   : " << std::setprecision(8) << expiry_aad.getGradient() / n_repetition / n_rounds << std::endl;
+    tape.reset();
 
     timer.Reset();
     double y_value;
@@ -115,10 +115,10 @@ int main() {
     codi_tape.setActive();
     for (auto& x: x_codi)
         codi_tape.registerInput(x);
-    auto begin = codi_tape.getPosition();
+    begin = codi_tape.getPosition();
     for (int i = 0; i < n_rounds; ++i) {
         codi_tape.resetTo(begin);
-        y = BlackTest<RealReverse>(x_codi[0], x_codi[1], x_codi[2], x_codi[3], x_codi[4], is_call, n_repetition);
+        y = BlackTest(x_codi[0], x_codi[1], x_codi[2], x_codi[3], x_codi[4], is_call, n_repetition);
         codi_tape.registerOutput(y);
         y.setGradient(1.0);
         codi_tape.evaluate();

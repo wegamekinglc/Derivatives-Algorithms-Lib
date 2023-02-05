@@ -2,11 +2,11 @@
 // Created by wegam on 2021/1/18.
 //
 
-#ifndef AADET_ENABLED
-
 #include <dal/math/aad/aad.hpp>
 #include <cmath>
 #include <gtest/gtest.h>
+
+#ifndef USE_CODI
 
 using namespace Dal::AAD;
 
@@ -15,7 +15,7 @@ TEST(AADNumberTest, TestNumberAdd) {
     Number_::tape_->Clear();
 
     Number_ s1(1.0); 
-    Number_ s2(2.0); 
+    Number_ s2(2.0);
     s1.PutOnTape();
     s2.PutOnTape();
     Number_ value = s1 + s2;

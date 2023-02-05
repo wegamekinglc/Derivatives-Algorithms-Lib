@@ -17,6 +17,8 @@ namespace Dal {
     using std::pow;
     using std::erfc;
     using std::log;
+    using AAD::Number_;
+    FORCE_INLINE double value(double d) { return d; }
 
 #ifdef USE_ADEPT
     using adept::operator*;
@@ -37,6 +39,15 @@ namespace Dal {
     using adept::pow;
     using adept::erfc;
     using adept::sqrt;
+    FORCE_INLINE double value(const adept::adouble& d) { return d.value(); }
+    template <class T_>
+    FORCE_INLINE T_ NCDF(const T_& z) { return 0.5 * erfc(-z / M_SQRT_2); }
+#endif
+
+#ifdef USE_CODI
+    FORCE_INLINE double value(const Number_& d) { return d.value(); }
+    template <class T_>
+    FORCE_INLINE T_ NCDF(const T_& z) { return 0.5 * erfc(-z / M_SQRT_2); }
 #else
     using AAD::operator*;
     using AAD::operator+;
@@ -58,5 +69,6 @@ namespace Dal {
     using AAD::NPDF;
     using AAD::erfc;
     using AAD::sqrt;
+    FORCE_INLINE double value(const Number_& d) { return d.Value(); }
 #endif
 } // namespace Dal

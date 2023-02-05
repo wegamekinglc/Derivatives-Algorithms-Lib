@@ -1,5 +1,6 @@
 add_subdirectory(aad)
 add_subdirectory(aad2)
+add_subdirectory(aad3)
 add_subdirectory(concurrency)
 add_subdirectory(date_utilities)
 add_subdirectory(european)

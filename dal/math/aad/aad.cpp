@@ -13,6 +13,7 @@
 #include <dal/math/aad/aad.hpp>
 #include <dal/platform/strict.hpp>
 
+#ifndef USE_CODI
 namespace Dal::AAD {
     namespace {
         Tape_* CreateGlobalTape() {
@@ -25,3 +26,4 @@ namespace Dal::AAD {
 
     thread_local Tape_* Number_::tape_ = CreateGlobalTape();
 } // namespace Dal
+#endif

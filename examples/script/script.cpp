@@ -16,7 +16,10 @@
 using namespace std;
 using namespace Dal;
 using namespace Dal::Script;
-using namespace Dal::AAD;
+using Dal::AAD::Model_;
+using Dal::AAD::BlackScholes_;
+using Dal::AAD::Dupire_;
+
 
 #define USE_AAD
 

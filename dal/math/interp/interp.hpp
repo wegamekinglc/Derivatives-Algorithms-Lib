@@ -5,6 +5,7 @@
 #pragma once
 
 #include <dal/storage/archive.hpp>
+#include <dal/math/operators.hpp>
 #include <map>
 
 namespace Dal {
@@ -32,14 +33,14 @@ namespace Dal {
 
     template <class T_ = double>
     inline T_ InterpLinearImplX(const Vector_<>& x, const Vector_<T_>& y, const T_& x0) {
-        auto pge = LowerBound(x, static_cast<Vector_<>::value_type>(x0));
+        auto pge = LowerBound(x, value(x0));
         if (pge == x.end())
             return y.back();
         else if (pge == x.begin() || IsZero(x0 - *pge))
             return y[pge - x.begin()];
         else {
             auto plt = Previous(pge);
-            const auto gFrac = static_cast<double>((x0 - *plt) / (*pge - *plt));
+            const auto gFrac = value((x0 - *plt) / (*pge - *plt));
             auto flt = y.begin() + (plt - x.begin());
             return *flt + gFrac * (*Next(flt) - *flt);
         }

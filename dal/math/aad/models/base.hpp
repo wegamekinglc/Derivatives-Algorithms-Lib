@@ -41,19 +41,12 @@ namespace Dal::AAD {
 
         [[nodiscard]] size_t NumParams() const { return const_cast<Model_*>(this)->Parameters().size(); }
 
-        void PutParametersOnTape();
-    };
-
-    namespace {
-        template <class T_> void PutParametersOnTapeT(const Vector_<T_*>&) {}
-
-        template <> void PutParametersOnTapeT<Number_>(const Vector_<Number_*>& parameters) {
-            for (Number_* param : parameters)
-                param->PutOnTape();
+        template <class Tape_>
+        void PutParametersOnTape(Tape_& tape) {
+            for (Number_* param : Parameters())
+                tape.registerInput(*param);
         }
-    } // namespace
-
-    template <class T_> void Model_<T_>::PutParametersOnTape() { PutParametersOnTapeT<T_>(Parameters()); }
+    };
 
     struct ModelData_: public Storable_ {
         ModelData_(const String_& type, const String_& name): Storable_(type.c_str(), name) {}

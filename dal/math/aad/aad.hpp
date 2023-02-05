@@ -20,6 +20,17 @@ namespace Dal::AAD {
     using Number_ = adept::adouble;
     using adept::Stack;
 }
+#endif
+
+#ifdef USE_CODI
+#include <codi.hpp>
+
+namespace Dal::AAD {
+    using Number_ = codi::RealReverse;
+    using Tape_ = typename Number_::Tape;
+    using Position_ = typename Tape_::Position;
+}
+
 #else
 #ifdef AADET_ENABLED
 #include <dal/math/aad/expr.hpp>
@@ -44,11 +55,6 @@ namespace Dal::AAD {
 
     template <class IT_> inline void PutOnTape(IT_ begin, IT_ end) {
         std::for_each(begin, end, [](Number_& n) { n.PutOnTape(); });
-    }
-
-    template <class IT1_, class IT2_> inline void ConvertCollection(IT1_ src_begin, IT1_ src_end, IT2_ dest_begin) {
-        using dest_type = std::remove_reference_t<decltype(*dest_begin)>;
-        std::transform(src_begin, src_end, dest_begin, [](const auto& source) { return dest_type(source); });
     }
 
 } // namespace Dal

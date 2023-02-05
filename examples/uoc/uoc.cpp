@@ -112,7 +112,7 @@ int main() {
     std::cout << "\nEuropean       w. B-S: price " << std::setprecision(8) << calculated << "\tElapsed: " << timer.Elapsed<milliseconds>() << " ms" << std::endl;
 
     timer.Reset();
-    AADResults_ resAAD(1, 1, 1);
+    AADResults_ resAAD(1, 1);
 
     if (use_parallel)
         resAAD = MCParallelSimulationAAD(*products.second, *bsModels.second, String_(rsg_type), n_paths, use_bb);

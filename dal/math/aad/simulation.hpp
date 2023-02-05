@@ -4,31 +4,19 @@
 
 #pragma once
 
-#ifndef USE_ADEPT
-#include <dal/math/operators.hpp>
-#include <dal/math/aad/aad.hpp>
-#else
-#include <adept.h>
-#endif
-
+#include <dal/platform/platform.hpp>
 #include <dal/concurrency/threadpool.hpp>
 #include <dal/math/matrix/matrixs.hpp>
+#include <dal/math/aad/aad.hpp>
+#include <dal/math/aad/products/base.hpp>
+#include <dal/math/aad/models/base.hpp>
 #include <dal/math/random/brownianbridge.hpp>
 #include <dal/math/random/pseudorandom.hpp>
 #include <dal/math/random/sobol.hpp>
 #include <dal/math/vectors.hpp>
-#include <dal/platform/platform.hpp>
 #include <dal/string/strings.hpp>
 
 namespace Dal::AAD {
-    /*
-     * random number generators
-     */
-
-    template <class T_> class Product_;
-
-    template <class T_> class Model_;
-
     /*
      * Template algorithms
      * check compatibility of model and products
@@ -46,7 +34,7 @@ namespace Dal::AAD {
                            int nPath,
                            bool use_bb = false);
 
-    constexpr const size_t BATCH_SIZE = 4096;
+    constexpr const size_t BATCH_SIZE = 8192;
 
     Matrix_<> MCParallelSimulation(const Product_<double>& prd,
                                    const Model_<double>& mdl,
@@ -73,22 +61,17 @@ namespace Dal::AAD {
     }
 
     struct AADResults_ {
-        AADResults_(int nPath, int nPay, int nParam) : payoffs_(nPath, nPay), aggregated_(nPath), risks_(nParam) {}
-        int Rows() const { return payoffs_.Rows();  }
-        Matrix_<> payoffs_;
+        AADResults_(int nPath, int nParam) : aggregated_(nPath), risks_(nParam) {}
+        int Rows() const { return aggregated_.size();  }
         Vector_<> aggregated_;
         Vector_<> risks_;
     };
 
-    const auto DEFAULT_AGGREGATOR = [](const Vector_<Number_>& v) { return v[0]; };
-
-    template <class F_ = decltype(DEFAULT_AGGREGATOR)>
-    AADResults_ MCSimulationAAD(const Product_<Number_>& prd,
+    inline AADResults_ MCSimulationAAD(const Product_<Number_>& prd,
                                 const Model_<Number_>& mdl,
                                 const String_& method,
                                 int nPath,
-                                bool use_bb = false,
-                                const F_& aggFun = DEFAULT_AGGREGATOR) {
+                                bool use_bb = false) {
         REQUIRE(CheckCompatibility(prd, mdl), "model and products are not compatible");
         auto cMdl = mdl.Clone();
 
@@ -101,66 +84,56 @@ namespace Dal::AAD {
         const Vector_<Number_*>& params = cMdl->Parameters();
         const size_t nParam = params.size();
 
-#ifndef USE_ADEPT
-        Tape_& tape = *Number_::tape_;
-        tape.Clear();
-        auto re_setter = SetNumResultsForAAD();
-        cMdl->PutParametersOnTape();
-#endif
+        AAD::Tape_* tape = &AAD::Number_::getTape();
+        tape->reset();
+        tape->setActive();
+        cMdl->PutParametersOnTape(*tape);
+
         cMdl->Init(prd.TimeLine(), prd.DefLine());
         InitializePath(path);
-#ifndef USE_ADEPT
-        tape.Mark();
-#endif
+        auto begin = tape->getPosition();
 
         Vector_<Number_> nPayoffs(nPay);
         Vector_<> gaussVec(cMdl->SimDim());
-        AADResults_ results(nPath, nPay, nParam);
+        AADResults_ results(nPath, nParam);
 
         for (size_t i = 0; i < nPath; i++) {
-#ifndef USE_ADEPT
-            tape.RewindToMark();
-#endif
+            tape->resetTo(begin);
             rng->FillNormal(&gaussVec);
             cMdl->GeneratePath(gaussVec, &path);
             prd.Payoffs(path, &nPayoffs);
-            Number_ result = aggFun(nPayoffs);
-
-            result.PropagateToMark();
-            results.aggregated_[i] = result.Value();
-            ConvertCollection(nPayoffs.begin(), nPayoffs.end(), results.payoffs_[i].begin());
+            Number_ result = nPayoffs[0];
+            result.setGradient(1.0);
+            tape->evaluate(tape->getPosition(), begin);
+            results.aggregated_[i] = result.value();
         }
 
-        Number_::PropagateMarkToStart();
-        Transform(
-            params, [nPath](const Number_* p) { return p->Adjoint() / nPath; }, &results.risks_);
-#ifndef USE_ADEPT
-        tape.Clear();
-#endif
+        tape->evaluate(begin, tape->getZeroPosition());
+        Transform(params, [nPath](const Number_* p) { return p->getGradient() / nPath; }, &results.risks_);
+        tape->reset();
         return results;
     }
 
-    void InitModel4ParallelAAD(const Product_<Number_>& prd, Model_<Number_>& clonedMdl, Scenario_<Number_>& path);
+    typename AAD::Position_ InitModel4ParallelAAD(AAD::Tape_& tape, const Product_<Number_>& prd, Model_<Number_>& clonedMdl, Scenario_<Number_>& path);
 
-    template <class F_ = decltype(DEFAULT_AGGREGATOR)>
-    AADResults_ MCParallelSimulationAAD(const Product_<Number_>& prd,
+    inline AADResults_ MCParallelSimulationAAD(const Product_<Number_>& prd,
                                         const Model_<Number_>& mdl,
                                         const String_& method,
                                         int nPath,
-                                        bool use_bb = false,
-                                        const F_& aggFun = DEFAULT_AGGREGATOR) {
+                                        bool use_bb = false) {
         REQUIRE(CheckCompatibility(prd, mdl), "model and products are not compatible");
 
         const size_t nPay = prd.PayoffLabels().size();
         const size_t nParam = mdl.NumParams();
 
-        AADResults_ results(nPath, nPay, nParam);
+        AADResults_ results(nPath, nParam);
 
-        Number_::tape_->Clear();
-        auto re_setter = SetNumResultsForAAD();
+        AAD::Tape_* tape = &AAD::Number_::getTape();
+        tape->reset();
 
         ThreadPool_* pool = ThreadPool_::GetInstance();
         const size_t nThread = pool->NumThreads();
+        Vector_<AAD::Tape_*> tapes(nThread);
 
         Vector_<std::unique_ptr<Model_<Number_>>> models(nThread + 1);
         for (auto& model : models) {
@@ -175,11 +148,10 @@ namespace Dal::AAD {
         }
 
         Vector_<Vector_<Number_>> payoffs(nThread + 1, Vector_<Number_>(nPay));
-
-        Vector_<Tape_> tapes(nThread);
         Vector_<bool> mdlInit(nThread + 1, false);
 
-        InitModel4ParallelAAD(prd, *models[0], paths[0]);
+        Vector_<AAD::Position_> begin_positions(nThread + 1);
+        begin_positions[0] = InitModel4ParallelAAD(*tape, prd, *models[0], paths[0]);
 
         mdlInit[0] = true;
 
@@ -195,62 +167,46 @@ namespace Dal::AAD {
         size_t firstPath = 0;
         size_t pathsLeft = nPath;
         while (pathsLeft > 0) {
-            size_t pathsInTask = Dal::min(pathsLeft, BATCH_SIZE);
-
+            size_t pathsInTask = std::min(pathsLeft, BATCH_SIZE);
             futures.push_back(pool->SpawnTask([&, firstPath, pathsInTask]() {
                 const size_t threadNum = pool->ThreadNum();
-                if (threadNum > 0)
-                    Number_::tape_ = &tapes[threadNum - 1];
+                AAD::Tape_* tape = &AAD::Number_::getTape();
 
                 //  Initialize once on each thread
-                if (!mdlInit[threadNum]) {
-                    InitModel4ParallelAAD(prd, *models[threadNum], paths[threadNum]);
-                    mdlInit[threadNum] = true;
-                }
+                begin_positions[threadNum] = InitModel4ParallelAAD(*tape, prd, *models[threadNum], paths[threadNum]);
+                mdlInit[threadNum] = true;
 
                 auto& random = rngs[threadNum];
                 random->SkipTo(firstPath);
-
+                auto pos = begin_positions[threadNum];
                 for (size_t i = 0; i < pathsInTask; i++) {
-                    Number_::tape_->RewindToMark();
+                    tape->resetTo(pos);
                     random->FillNormal(&gaussVecs[threadNum]);
                     models[threadNum]->GeneratePath(gaussVecs[threadNum], &paths[threadNum]);
                     prd.Payoffs(paths[threadNum], &payoffs[threadNum]);
 
-                    Number_ result = aggFun(payoffs[threadNum]);
-                    result.PropagateToMark();
-                    results.aggregated_[firstPath + i] = result.Value();
-                    ConvertCollection(payoffs[threadNum].begin(), payoffs[threadNum].end(), results.payoffs_[firstPath + i].begin());
+                    Number_ result = payoffs[threadNum][0];
+                    result.setGradient(1.0);
+                    tape->evaluate(tape->getPosition(), pos);
+                    results.aggregated_[firstPath + i] = result.value();
                 }
+                tape->resetTo(pos);
+                tape->evaluate(pos, tape->getZeroPosition());
+                for (size_t j = 0; j < nParam; ++j)
+                    results.risks_[j] += models[threadNum]->Parameters()[j]->getGradient();
+                tape->reset();
                 return true;
             }));
 
             pathsLeft -= pathsInTask;
             firstPath += pathsInTask;
         }
-
         for (auto& future : futures)
             pool->ActiveWait(future);
 
-        Number_::PropagateMarkToStart();
-        Tape_* mainThreadPtr = Number_::tape_;
-        for (size_t i = 0; i < nThread; ++i) {
-            if (mdlInit[i + 1]) {
-                Number_::tape_ = &tapes[i];
-                Number_::PropagateMarkToStart();
-            }
-        }
-        Number_::tape_ = mainThreadPtr;
-
-        for (size_t j = 0; j < nParam; ++j) {
-            results.risks_[j] = 0.0;
-            for (size_t i = 0; i < models.size(); ++i) {
-                if (mdlInit[i])
-                    results.risks_[j] += models[i]->Parameters()[j]->Adjoint();
-            }
+        for (size_t j = 0; j < nParam; ++j)
             results.risks_[j] /= nPath;
-        }
-        Number_::tape_->Clear();
+        tape->reset();
         return results;
     }
 

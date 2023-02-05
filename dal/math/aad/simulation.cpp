@@ -2,10 +2,10 @@
 // Created by wegam on 2021/7/11.
 //
 
+#include <dal/math/aad/simulation.hpp>
 #include <dal/concurrency/threadpool.hpp>
 #include <dal/math/aad/models/base.hpp>
 #include <dal/math/aad/products/base.hpp>
-#include <dal/math/aad/simulation.hpp>
 #include <dal/platform/strict.hpp>
 
 namespace Dal::AAD {
@@ -100,13 +100,13 @@ namespace Dal::AAD {
         return results;
     }
 
-    void InitModel4ParallelAAD(const Product_<Number_>& prd, Model_<Number_>& clonedMdl, Scenario_<Number_>& path) {
-        Tape_& tape = *Number_::tape_;
-        tape.Rewind();
-        clonedMdl.PutParametersOnTape();
+    AAD::Position_ InitModel4ParallelAAD(Tape_& tape, const Product_<Number_>& prd, Model_<Number_>& clonedMdl, Scenario_<Number_>& path) {
+        tape.reset();
+        tape.setActive();
+        clonedMdl.PutParametersOnTape(tape);
         clonedMdl.Init(prd.TimeLine(), prd.DefLine());
         InitializePath(path);
-        tape.Mark();
+        return tape.getPosition();
     }
 
 } // namespace Dal::AAD

@@ -3,20 +3,20 @@
 //
 
 #include <dal/concurrency/threadpool.hpp>
+#include <dal/math/aad/aad.hpp>
 #include <dal/script/simulation.hpp>
 #include <dal/platform/strict.hpp>
 
 
 namespace Dal::Script {
 
-    void InitModel4ParallelAAD(const ScriptProduct_& prd, AAD::Model_<AAD::Number_>& clonedMdl, Scenario_<AAD::Number_>& path) {
-
-        AAD::Tape_& tape = *AAD::Number_::tape_;
-        tape.Rewind();
-        clonedMdl.PutParametersOnTape();
+    AAD::Position_ InitModel4ParallelAAD(AAD::Tape_& tape, const ScriptProduct_& prd, AAD::Model_<AAD::Number_>& clonedMdl, Scenario_<AAD::Number_>& path) {
+        tape.reset();
+        tape.setActive();
+        clonedMdl.PutParametersOnTape(tape);
         clonedMdl.Init(prd.TimeLine(), prd.DefLine());
         InitializePath(path);
-        tape.Mark();
+        return tape.getPosition();
     }
 
     std::unique_ptr<Random_> CreateRNG(const String_& method, size_t n_dim, bool use_bb) {
@@ -131,12 +131,14 @@ namespace Dal::Script {
         const size_t nParam = mdl->Parameters().size();
         SimResults_<AAD::Number_> results(n_paths, nParam);
 
-        AAD::Tape_& tape = *AAD::Number_::tape_;
-        tape.Clear();
-        auto re_setter = AAD::SetNumResultsForAAD();
+        AAD::Tape_* tape = &AAD::Number_::getTape();
+        tape->reset();
+        tape->setActive();
 
         ThreadPool_* pool = ThreadPool_::GetInstance();
         const size_t nThread = pool->NumThreads();
+
+        Vector_<AAD::Tape_*> tapes(nThread);
 
         Vector_<std::unique_ptr<AAD::Model_<AAD::Number_>>> models(nThread + 1);
         for (auto& model : models) {
@@ -168,9 +170,10 @@ namespace Dal::Script {
         else
             eval_s = Vector_<Evaluator_<AAD::Number_>>(nThread + 1, product.BuildEvaluator<AAD::Number_>());
 
-        Vector_<AAD::Tape_> tapes(nThread);
         Vector_<bool> mdlInit(nThread + 1, false);
-        InitModel4ParallelAAD(product, *models[0], paths[0]);
+        Vector_<AAD::Position_> begin_positions(nThread + 1);
+
+        begin_positions[0] = InitModel4ParallelAAD(*tape, product, *models[0], paths[0]);
 
         mdlInit[0] = true;
 
@@ -184,14 +187,11 @@ namespace Dal::Script {
             int pathsInTask = std::min(pathsLeft, BATCH_SIZE);
             futures.push_back(pool->SpawnTask([&, firstPath, pathsInTask]() {
                 const size_t threadNum = pool->ThreadNum();
-                if (threadNum > 0)
-                    AAD::Number_::tape_ = &tapes[threadNum - 1];
+                AAD::Tape_* tape = &AAD::Number_::getTape();
 
                 //  Initialize once on each thread
-                if (!mdlInit[threadNum]) {
-                    InitModel4ParallelAAD(product, *models[threadNum], paths[threadNum]);
-                    mdlInit[threadNum] = true;
-                }
+                begin_positions[threadNum] = InitModel4ParallelAAD(*tape, product, *models[threadNum], paths[threadNum]);
+                mdlInit[threadNum] = true;
 
                 Scenario_<AAD::Number_>& path = paths[threadNum];
 
@@ -199,41 +199,50 @@ namespace Dal::Script {
                 auto& gVec = gaussVecs[threadNum];
                 auto& model = models[threadNum];
                 random->SkipTo(firstPath);
+                auto pos = begin_positions[threadNum];
                 if (compiled) {
                     EvalState_<AAD::Number_>& eval_state = eval_state_s[threadNum];
                     for (size_t i = 0; i < pathsInTask; i++) {
-                        AAD::Number_::tape_->RewindToMark();
+                        tape->resetTo(pos);
                         random->FillNormal(&gVec);
                         models[threadNum]->GeneratePath(gVec, &path);
                         product.EvaluateCompiled(path, eval_state);
                         AAD::Number_ res = eval_state.VarVals()[eval_state.VarVals().size() - 1];
-                        res.PropagateToMark();
-                        results.aggregated_[firstPath + i] = res.Value();
+                        res.setGradient(1.0);
+                        tape->evaluate(tape->getPosition(), pos);
+                        results.aggregated_[firstPath + i] = res.value();
                     }
                 }
                 else if (max_nested_ifs > 0) {
                     FuzzyEvaluator_<AAD::Number_>& eval = fuzzy_eval_s[threadNum];
                     for (size_t i = 0; i < pathsInTask; i++) {
-                        AAD::Number_::tape_->RewindToMark();
+                        tape->resetTo(pos);
                         random->FillNormal(&gVec);
                         models[threadNum]->GeneratePath(gVec, &path);
                         product.Evaluate(path, eval);
                         AAD::Number_ res = eval.VarVals()[eval.VarVals().size() - 1];
-                        res.PropagateToMark();
-                        results.aggregated_[firstPath + i] = res.Value();
+                        res.setGradient(1.0);
+                        tape->evaluate(tape->getPosition(), pos);
+                        results.aggregated_[firstPath + i] = res.value();
                     }
                 } else {
                     Evaluator_<AAD::Number_>& eval = eval_s[threadNum];
                     for (size_t i = 0; i < pathsInTask; i++) {
-                        AAD::Number_::tape_->RewindToMark();
+                        tape->resetTo(pos);
                         random->FillNormal(&gVec);
                         model->GeneratePath(gVec, &path);
                         product.Evaluate(path, eval);
                         AAD::Number_ res = eval.VarVals()[eval.VarVals().size() - 1];
-                        res.PropagateToMark();
-                        results.aggregated_[firstPath + i] = res.Value();
+                        res.setGradient(1.0);
+                        tape->evaluate(tape->getPosition(), pos);
+                        results.aggregated_[firstPath + i] = res.value();
                     }
                 }
+                tape->resetTo(pos);
+                tape->evaluate(pos, tape->getZeroPosition());
+                for (size_t j = 0; j < nParam; ++j)
+                    results.risks_[j] += models[threadNum]->Parameters()[j]->getGradient();
+                tape->reset();
                 return true;
             }));
 
@@ -244,25 +253,9 @@ namespace Dal::Script {
         for (auto& future : futures)
             pool->ActiveWait(future);
 
-        AAD::Number_::PropagateMarkToStart();
-        AAD::Tape_* mainThreadPtr = AAD::Number_::tape_;
-        for (size_t i = 0; i < nThread; ++i) {
-            if (mdlInit[i + 1]) {
-                AAD::Number_::tape_ = &tapes[i];
-                AAD::Number_::PropagateMarkToStart();
-            }
-        }
-        AAD::Number_::tape_ = mainThreadPtr;
-
-        for (size_t j = 0; j < nParam; ++j) {
-            results.risks_[j] = 0.0;
-            for (size_t i = 0; i < models.size(); ++i) {
-                if (mdlInit[i])
-                    results.risks_[j] += models[i]->Parameters()[j]->Adjoint();
-            }
+        for (size_t j = 0; j < nParam; ++j)
             results.risks_[j] /= n_paths;
-        }
-        AAD::Number_::tape_->Clear();
+        tape->reset();
         return results;
     }
 }
