@@ -34,7 +34,7 @@ namespace Dal::AAD {
                            int nPath,
                            bool use_bb = false);
 
-    constexpr const size_t BATCH_SIZE = 8192;
+    constexpr const size_t BATCH_SIZE = 2048;
 
     Matrix_<> MCParallelSimulation(const Product_<double>& prd,
                                    const Model_<double>& mdl,
@@ -133,7 +133,6 @@ namespace Dal::AAD {
 
         ThreadPool_* pool = ThreadPool_::GetInstance();
         const size_t nThread = pool->NumThreads();
-        Vector_<AAD::Tape_*> tapes(nThread);
 
         Vector_<std::unique_ptr<Model_<Number_>>> models(nThread + 1);
         for (auto& model : models) {
@@ -148,12 +147,6 @@ namespace Dal::AAD {
         }
 
         Vector_<Vector_<Number_>> payoffs(nThread + 1, Vector_<Number_>(nPay));
-        Vector_<bool> mdlInit(nThread + 1, false);
-
-        Vector_<AAD::Position_> begin_positions(nThread + 1);
-        begin_positions[0] = InitModel4ParallelAAD(*tape, prd, *models[0], paths[0]);
-
-        mdlInit[0] = true;
 
         Vector_<std::unique_ptr<Random_>> rngs(nThread + 1);
         for (auto& random : rngs)
@@ -173,24 +166,19 @@ namespace Dal::AAD {
                 AAD::Tape_* tape = &AAD::Number_::getTape();
 
                 //  Initialize once on each thread
-                begin_positions[threadNum] = InitModel4ParallelAAD(*tape, prd, *models[threadNum], paths[threadNum]);
-                mdlInit[threadNum] = true;
-
+                auto pos = InitModel4ParallelAAD(*tape, prd, *models[threadNum], paths[threadNum]);
                 auto& random = rngs[threadNum];
                 random->SkipTo(firstPath);
-                auto pos = begin_positions[threadNum];
-                for (size_t i = 0; i < pathsInTask; i++) {
-                    tape->resetTo(pos);
+                for (size_t i = 0; i < pathsInTask; ++i) {
                     random->FillNormal(&gaussVecs[threadNum]);
                     models[threadNum]->GeneratePath(gaussVecs[threadNum], &paths[threadNum]);
                     prd.Payoffs(paths[threadNum], &payoffs[threadNum]);
-
                     Number_ result = payoffs[threadNum][0];
                     result.setGradient(1.0);
                     tape->evaluate(tape->getPosition(), pos);
                     results.aggregated_[firstPath + i] = result.value();
+                    tape->resetTo(pos);
                 }
-                tape->resetTo(pos);
                 tape->evaluate(pos, tape->getZeroPosition());
                 for (size_t j = 0; j < nParam; ++j)
                     results.risks_[j] += models[threadNum]->Parameters()[j]->getGradient();
