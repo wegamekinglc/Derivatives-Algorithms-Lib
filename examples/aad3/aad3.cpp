@@ -19,11 +19,6 @@ using Dal::AAD::Number_;
 using Dal::AAD::Tape_;
 using adept::adouble;
 
-using RealReverse = codi::RealReverse;
-using CodiTape = typename RealReverse::Tape;
-using Position = typename CodiTape::Position;
-using Gradient = typename RealReverse::Gradient;
-
 
 template <class T_>
 T_ BlackTest(const T_& fwd, const T_& vol, const T_& numeraire, const T_& strike, const T_& expiry, bool is_call, int n_repetition) {
@@ -72,7 +67,7 @@ bool test_example(const ThreadPool_* pool) {
     tape.registerInput(expiry_aad);
 
     Number_ fwd_aad = spot_aad / 2.0 * (threadNum + 1);
-    Position begin = tape.getPosition();
+    auto begin = tape.getPosition();
 
     Number_ price_aad;
     for (int i = 0; i < n_rounds; ++i) {
