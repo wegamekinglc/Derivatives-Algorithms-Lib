@@ -158,6 +158,6 @@ namespace codi {
       /// @}
   };
 
-  template<typename Tape>
-  thread_local Tape ActiveType<Tape>::tape{};
+  template<typename T_Tape>
+  thread_local typename ActiveType<T_Tape>::Tape ActiveType<T_Tape>::tape{};
 }
