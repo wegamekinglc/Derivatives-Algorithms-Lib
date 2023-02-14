@@ -51,7 +51,7 @@ namespace Dal::Script {
             auto rhs = ParseExprL4(cur, end);
             auto top = op == '+' ? MakeBaseNode<NodeUplus>() : MakeBaseNode<NodeUminus>();
             top->arguments_.Resize( 1);
-            top->arguments_[0] = move( rhs);
+            top->arguments_[0] = std::move( rhs);
             return top;
         }
         return ParseParentheses<ParseExpr, ParseVarConstFunc>(cur, end);

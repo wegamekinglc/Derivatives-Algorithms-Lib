@@ -53,6 +53,10 @@ namespace Dal {
         case RepositoryErase_::Value_::TYPE:
             EraseByStart(TypeTag(*s)); // squash anything with this type
             break;
+        case RepositoryErase_::Value_::_NOT_SET:
+        case RepositoryErase_::Value_::NONE:
+        case RepositoryErase_::Value_::_N_VALUES:
+            break;
         }
         // call to LOCK_OBJECTS must be after EraseByStart, because that will also acquire the lock
         LOCK_OBJECTS;

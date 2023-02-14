@@ -22,6 +22,7 @@ namespace Dal {
         public:
             virtual void SetDefault(const V_& val) = 0;
             virtual void operator()(const K_& key, const V_& val) = 0;
+            virtual ~Writer_() = default;
         };
         virtual Writer_& XWrite() const = 0;
     };

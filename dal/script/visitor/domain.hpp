@@ -472,7 +472,7 @@ namespace Dal::Script {
 
         Domain(const Domain& rhs) : myIntervals(rhs.myIntervals) {}
 
-        Domain(Domain&& rhs) : myIntervals(move(rhs.myIntervals)) {}
+        Domain(Domain&& rhs) : myIntervals(std::move(rhs.myIntervals)) {}
 
         Domain& operator=(const Domain& rhs) {
             if (this == &rhs)
@@ -484,7 +484,7 @@ namespace Dal::Script {
         Domain& operator=(Domain&& rhs) {
             if (this == &rhs)
                 return *this;
-            myIntervals = move(rhs.myIntervals);
+            myIntervals = std::move(rhs.myIntervals);
             return *this;
         }
 
@@ -770,7 +770,7 @@ namespace Dal::Script {
             std::set<Interval> newIntervals;
             for (auto& i : myIntervals)
                 newIntervals.insert(i + x);
-            myIntervals = move(newIntervals);
+            myIntervals = std::move(newIntervals);
 
             return *this;
         }
@@ -782,7 +782,7 @@ namespace Dal::Script {
             std::set<Interval> newIntervals;
             for (auto& i : myIntervals)
                 newIntervals.insert(i - x);
-            myIntervals = move(newIntervals);
+            myIntervals = std::move(newIntervals);
 
             return *this;
         }
