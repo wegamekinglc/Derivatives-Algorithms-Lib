@@ -25,54 +25,36 @@ namespace Dal::Script {
 #define MVISITORS VarIndexer_, ConstProcessor_, ConstCondProcessor_, IFProcessor_, DomainProcessor_
 
 //  Const visitors
-#define CVISITORS Debugger_, Evaluator_<double>, Evaluator_<AAD::Number_>, Compiler_, FuzzyEvaluator_<double>, FuzzyEvaluator_<AAD::Number_>
+#define CVISITORS                                                                                                      \
+    Debugger_, Evaluator_<double>, Evaluator_<AAD::Number_>, Compiler_, FuzzyEvaluator_<double>,                       \
+        FuzzyEvaluator_<AAD::Number_>
 
 //  All visitors
-#define VISITORS MVISITORS , CVISITORS
+#define VISITORS MVISITORS, CVISITORS
 
     //  Various meta-programming utilities
 
     //  Is V_ a const visitor?
 
-    template <class V_>
-    inline constexpr bool IsVisitorConst()
-    {
-        return Pack_<CVISITORS>::Includes<V_>();
-    }
+    template <class V_> inline constexpr bool IsVisitorConst() { return Pack_<CVISITORS>::Includes<V_>(); }
 
     //  Use : IsVisitorConst<V_>() returns true if V_ is const, or false
     //  IsVisitorConst() resolves at compile time
 
     //  Does V_ have a Visit for a const N_? A non-const N_?
 
-    template <typename V_>
-    struct HasNonConstVisit_ {
-        template <typename N_, void (V_::*) (N_&) = &V_::Visit>
-        static bool constexpr ForNodeType()
-        {
-            return true;
-        }
+    template <typename V_> struct HasNonConstVisit_ {
+        template <typename N_, void (V_::*)(N_&) = &V_::Visit> static bool constexpr ForNodeType() { return true; }
 
-        template <typename N_>
-        static bool constexpr ForNodeType(...)
-        {
-            return false;
-        }
+        template <typename N_> static bool constexpr ForNodeType(...) { return false; }
     };
 
-    template <typename V_>
-    struct HasConstVisit_ {
-        template <typename N_, void (V_::*) (const N_&) = &V_::Visit>
-        static bool constexpr ForNodeType()
-        {
+    template <typename V_> struct HasConstVisit_ {
+        template <typename N_, void (V_::*)(const N_&) = &V_::Visit> static bool constexpr ForNodeType() {
             return true;
         }
 
-        template <typename N_>
-        static bool constexpr ForNodeType(...)
-        {
-            return false;
-        }
+        template <typename N_> static bool constexpr ForNodeType(...) { return false; }
     };
 
     //  Use: HasConstVisit_<V_>::ForNodeType<N_>() returns true
@@ -82,4 +64,4 @@ namespace Dal::Script {
     //  HasNonConstVisit_ is the same: HasNonConstVisit_<V_>::ForNodeType<N_>()
     //      returns true if V_ declares void Visit(N_&)
 
-}
+} // namespace Dal::Script

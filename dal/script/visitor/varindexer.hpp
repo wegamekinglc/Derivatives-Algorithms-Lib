@@ -30,7 +30,7 @@ namespace Dal::Script {
         }
 
         //	Variable indexer: build map of names to indices and write indices on variable nodes
-        void Visit(NodeVar& node) {
+        void Visit(NodeVar_& node) {
             auto varIt = varMap_.find(node.name_);
             if (varIt == varMap_.end())
                 node.index_ = varMap_[node.name_] = varMap_.size();

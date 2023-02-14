@@ -11,13 +11,13 @@ using namespace Dal;
 using namespace Dal::Script;
 
 TEST(EvaluatorTest, TestEvaluator) {
-    Expression_ const1 = MakeBaseNode<NodeConst>(20.0);
-    Expression_ const2 = MakeBaseNode<NodeConst>(30.0);
+    Expression_ const1 = MakeBaseNode<NodeConst_>(20.0);
+    Expression_ const2 = MakeBaseNode<NodeConst_>(30.0);
 
-    auto plusExpr = MakeBaseBinary<NodeAdd>(const1, const2);
+    auto plusExpr = MakeBaseBinary<NodeAdd_>(const1, const2);
 
-    Expression_ var = MakeBaseNode<NodeVar>("x");
-    auto assignExpr = MakeBinary<NodeAssign>(var, plusExpr);
+    Expression_ var = MakeBaseNode<NodeVar_>("x");
+    auto assignExpr = MakeBinary<NodeAssign_>(var, plusExpr);
 
     VarIndexer_ visitor1;
     Evaluator_<double> visitor2(1);

@@ -33,7 +33,7 @@ namespace Dal::Script {
 
         //	Visitors
 
-        void Visit(NodeIf& node) {
+        void Visit(NodeIf_& node) {
             //	Increase nested if level
             ++nestedIfLvl_;
             if (nestedIfLvl_ > maxNestedIfs_)
@@ -63,19 +63,19 @@ namespace Dal::Script {
                      inserter(varStack_.Top(), varStack_.Top().end()));
         }
 
-        void Visit(NodeAssign& node) {
+        void Visit(NodeAssign_& node) {
             //	Visit the lhs var
             if (nestedIfLvl_)
                 node.arguments_[0]->Accept(*this);
         }
 
-        void Visit(NodePays& node) {
+        void Visit(NodePays_& node) {
             //	Visit the lhs var
             if (nestedIfLvl_)
                 node.arguments_[0]->Accept(*this);
         }
 
-        void Visit(NodeVar& node) {
+        void Visit(NodeVar_& node) {
             //	Insert the var idx
             if (nestedIfLvl_)
                 varStack_.Top().insert(node.index_);

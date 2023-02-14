@@ -70,25 +70,25 @@ namespace Dal::Script {
             }
         }
 
-        void Visit(NodeAdd& node) {
+        void Visit(NodeAdd_& node) {
             VisitBinary(node, [](const double& x, const double& y) { return x + y; });
         }
-        void Visit(NodeSub& node) {
+        void Visit(NodeSub_& node) {
             VisitBinary(node, [](const double& x, const double& y) { return x - y; });
         }
-        void Visit(NodeMult& node) {
+        void Visit(NodeMult_& node) {
             VisitBinary(node, [](const double& x, const double& y) { return x * y; });
         }
-        void Visit(NodeDiv& node) {
+        void Visit(NodeDiv_& node) {
             VisitBinary(node, [](const double& x, const double& y) { return x / y; });
         }
-        void Visit(NodePow& node) {
+        void Visit(NodePow_& node) {
             VisitBinary(node, [](const double& x, const double& y) { return pow(x, y); });
         }
-        void Visit(NodeMax& node) {
+        void Visit(NodeMax_& node) {
             VisitBinary(node, [](const double& x, const double& y) { return max(x, y); });
         }
-        void Visit(NodeMin& node) {
+        void Visit(NodeMin_& node) {
             VisitBinary(node, [](const double& x, const double& y) { return min(x, y); });
         }
 
@@ -103,24 +103,24 @@ namespace Dal::Script {
             }
         }
 
-        void Visit(NodeUplus& node) {
+        void Visit(NodeUplus_& node) {
             VisitUnary(node, [](const double& x) { return x; });
         }
-        void Visit(NodeUminus& node) {
+        void Visit(NodeUminus_& node) {
             VisitUnary(node, [](const double& x) { return -x; });
         }
 
         //	Functions
-        void Visit(NodeLog& node) {
+        void Visit(NodeLog_& node) {
             VisitUnary(node, [](const double& x) { return log(x); });
         }
-        void Visit(NodeSqrt& node) {
+        void Visit(NodeSqrt_& node) {
             VisitUnary(node, [](const double& x) { return sqrt(x); });
         }
 
         //  Multies
 
-        void Visit(NodeSmooth& node) {
+        void Visit(NodeSmooth_& node) {
             VisitArguments(node);
             if (ConstArgs(node)) {
                 node.isConst_ = true;
@@ -141,7 +141,7 @@ namespace Dal::Script {
         }
 
         //	If
-        void Visit(NodeIf& node) {
+        void Visit(NodeIf_& node) {
             //  Mark conditional
 
             //  Identify nested
@@ -159,9 +159,9 @@ namespace Dal::Script {
                 isInConditional_ = false;
         }
 
-        void Visit(NodeAssign& node) {
+        void Visit(NodeAssign_& node) {
             //  Get index from LHS
-            const size_t varIndex = Downcast<const NodeVar>(node.arguments_[0])->index_;
+            const size_t varIndex = Downcast<const NodeVar_>(node.arguments_[0])->index_;
 
             //  Visit RHS
             node.arguments_[1]->Accept(*this);
@@ -180,9 +180,9 @@ namespace Dal::Script {
             }
         }
 
-        void Visit(NodePays& node) {
+        void Visit(NodePays_& node) {
             //  A payment is always non constant because it is normalized by a possibly stochastic numeraire
-            const size_t varIndex = Downcast<const NodeVar>(node.arguments_[0])->index_;
+            const size_t varIndex = Downcast<const NodeVar_>(node.arguments_[0])->index_;
             varConst_[varIndex] = false;
 
             //  Visit RHS
@@ -190,7 +190,7 @@ namespace Dal::Script {
         }
 
         //	Variables, RHS only, we don't Visit LHS vars
-        void Visit(NodeVar& node) {
+        void Visit(NodeVar_& node) {
             if (varConst_[node.index_]) {
                 node.isConst_ = true;
                 node.constVal_ = varConstVal_[node.index_];

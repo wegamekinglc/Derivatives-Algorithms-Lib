@@ -50,7 +50,7 @@ namespace Dal::Script {
             }
         }
 
-        template <class NODE> void Visit(const NODE& node) {
+        template <class N_> void Visit(const N_& node) {
             //  Const visitors cannot declare non const visits: we check that and produce a compilation error
             // static_assert(!HasNonConstVisit_<V_>::ForNodeType<NODE>(), "CONST VISITOR DECLARES A NON-CONST VISIT");
 
@@ -82,11 +82,11 @@ namespace Dal::Script {
             ...
         };
 
-    And to declare a concrete node (say, NodeAdd) as NodeAdd : Visitable_<Node_, AddNode, Visitor1, Visitor2, ...> {};
+    And to declare a concrete node (say, NodeAdd_) as NodeAdd_ : Visitable_<Node_, AddNode, Visitor1, Visitor2, ...> {};
 
         is sugar for:
 
-        struct NodeAdd : Node_
+        struct NodeAdd_ : Node_
         {
             void Accept(Visitor1& v) override
             {

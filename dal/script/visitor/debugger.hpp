@@ -65,22 +65,22 @@ namespace Dal::Script {
 
         //	All concrete node visitors, Visit arguments_ by default unless overridden
 
-        void Visit(const NodeCollect& node) { Debug(node, "COLLECT"); }
+        void Visit(const NodeCollect_& node) { Debug(node, "COLLECT"); }
 
-        void Visit(const NodeUplus& node) { Debug(node, "UPLUS"); }
-        void Visit(const NodeUminus& node) { Debug(node, "UMINUS"); }
-        void Visit(const NodeAdd& node) { Debug(node, "ADD"); }
-        void Visit(const NodeSub& node) { Debug(node, "SUBTRACT"); }
-        void Visit(const NodeMult& node) { Debug(node, "MULT"); }
-        void Visit(const NodeDiv& node) { Debug(node, "DIV"); }
-        void Visit(const NodePow& node) { Debug(node, "POW"); }
-        void Visit(const NodeLog& node) { Debug(node, "LOG"); }
-        void Visit(const NodeSqrt& node) { Debug(node, "SQRT"); }
-        void Visit(const NodeMax& node) { Debug(node, "MAX"); }
-        void Visit(const NodeMin& node) { Debug(node, "MIN"); }
-        void Visit(const NodeSmooth& node) { Debug(node, "SMOOTH"); }
+        void Visit(const NodeUplus_& node) { Debug(node, "UPLUS"); }
+        void Visit(const NodeUminus_& node) { Debug(node, "UMINUS"); }
+        void Visit(const NodeAdd_& node) { Debug(node, "ADD"); }
+        void Visit(const NodeSub_& node) { Debug(node, "SUBTRACT"); }
+        void Visit(const NodeMult_& node) { Debug(node, "MULT"); }
+        void Visit(const NodeDiv_& node) { Debug(node, "DIV"); }
+        void Visit(const NodePow_& node) { Debug(node, "POW"); }
+        void Visit(const NodeLog_& node) { Debug(node, "LOG"); }
+        void Visit(const NodeSqrt_& node) { Debug(node, "SQRT"); }
+        void Visit(const NodeMax_& node) { Debug(node, "MAX"); }
+        void Visit(const NodeMin_& node) { Debug(node, "MIN"); }
+        void Visit(const NodeSmooth_& node) { Debug(node, "SMOOTH"); }
 
-        void Visit(const NodeEqual& node) {
+        void Visit(const NodeEqual_& node) {
             String_ s = "EQUALZERO";
 
             if (!node.isDiscrete_) {
@@ -92,12 +92,12 @@ namespace Dal::Script {
             Debug(node, s);
         }
 
-        void Visit(const NodeNot& node) {
+        void Visit(const NodeNot_& node) {
             String_ s = "NOT";
             Debug(node, s);
         }
 
-        void Visit(const NodeSup& node) {
+        void Visit(const NodeSup_& node) {
             String_ s = "GTZERO";
             if (!node.isDiscrete_) {
                 s += String_("[CONT,EPS=" + std::to_string(node.eps_) + "]");
@@ -108,7 +108,7 @@ namespace Dal::Script {
             Debug(node, s);
         }
 
-        void Visit(const NodeSupEqual& node) {
+        void Visit(const NodeSupEqual_& node) {
             String_ s = "GTEQUALZERO";
             if (!node.isDiscrete_) {
                 s += String_("[CONT,EPS=" + std::to_string(node.eps_) + "]");
@@ -119,33 +119,33 @@ namespace Dal::Script {
             Debug(node, s);
         }
 
-        void Visit(const NodeAnd& node) {
+        void Visit(const NodeAnd_& node) {
             String_ s = "AND";
             Debug(node, s);
         }
 
-        void Visit(const NodeOr& node) {
+        void Visit(const NodeOr_& node) {
             String_ s = "OR";
             Debug(node, s);
         }
 
-        void Visit(const NodeAssign& node) { Debug(node, "ASSIGN"); }
-        void Visit(const NodePays& node) { Debug(node, "PAYS"); }
-        void Visit(const NodeSpot& node) { Debug(node, "SPOT"); }
+        void Visit(const NodeAssign_& node) { Debug(node, "ASSIGN"); }
+        void Visit(const NodePays_& node) { Debug(node, "PAYS"); }
+        void Visit(const NodeSpot_& node) { Debug(node, "SPOT"); }
 
-        void Visit(const NodeIf& node) {
+        void Visit(const NodeIf_& node) {
             String_ s = "IF";
             s += String_("[FIRSTELSE=" + std::to_string(node.firstElse_) + "]");
 
             Debug(node, s);
         }
 
-        void Visit(const NodeTrue& node) { Debug(node, "TRUE"); }
-        void Visit(const NodeFalse& node) { Debug(node, "FALSE"); }
+        void Visit(const NodeTrue_& node) { Debug(node, "TRUE"); }
+        void Visit(const NodeFalse_& node) { Debug(node, "FALSE"); }
 
-        void Visit(const NodeConst& node) {
+        void Visit(const NodeConst_& node) {
             Debug(node, String_("CONST[") + String_(std::to_string(node.constVal_) + ']')); }
-        void Visit(const NodeVar& node) {
+        void Visit(const NodeVar_& node) {
             Debug(node, String_("VAR[") + node.name_ + String_(',' + std::to_string(node.index_) + ']')); }
     };
 }

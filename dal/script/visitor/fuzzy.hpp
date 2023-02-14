@@ -137,7 +137,7 @@ namespace Dal::Script {
         //	Overriden visitors
 
         //	If
-        void Visit(const NodeIf& node) {
+        void Visit(const NodeIf_& node) {
             //	Last "if true" statement index
             const size_t lastTrueStat = node.firstElse_ == -1 ? node.arguments_.size() - 1 : node.firstElse_ - 1;
 
@@ -195,11 +195,11 @@ namespace Dal::Script {
 
         //	Conditions
 
-        FORCE_INLINE void Visit(const NodeTrue& node) { fuzzyStack_.Push(1.0); }
-        FORCE_INLINE void Visit(const NodeFalse& node) { fuzzyStack_.Push(0.0); }
+        FORCE_INLINE void Visit(const NodeTrue_& node) { fuzzyStack_.Push(1.0); }
+        FORCE_INLINE void Visit(const NodeFalse_& node) { fuzzyStack_.Push(0.0); }
 
         //	Equality
-        FORCE_INLINE void Visit(const NodeEqual& node) {
+        FORCE_INLINE void Visit(const NodeEqual_& node) {
             //	Evaluate expression to be compared to 0
             VisitNode(*node.arguments_[0]);
             const T expr = dStack_.TopAndPop();
@@ -244,25 +244,25 @@ namespace Dal::Script {
             }
         }
 
-        FORCE_INLINE void Visit(const NodeSup& node) { VisitComp(node); }
+        FORCE_INLINE void Visit(const NodeSup_& node) { VisitComp(node); }
 
-        FORCE_INLINE void Visit(const NodeSupEqual& node) { VisitComp(node); }
+        FORCE_INLINE void Visit(const NodeSupEqual_& node) { VisitComp(node); }
 
         //	Negation
-        FORCE_INLINE void visitNot(const NodeNot& node) {
+        FORCE_INLINE void visitNot(const NodeNot_& node) {
             VisitNode(*node.arguments_[0]);
             fuzzyStack_.Top() = 1.0 - fuzzyStack_.Top();
         }
 
         //	Combinators
         //	Hard coded proba stlye and->dt(lhs)*dt(rhs), or->dt(lhs)+dt(rhs)-dt(lhs)*dt(rhs)
-        FORCE_INLINE void Visit(const NodeAnd& node) {
+        FORCE_INLINE void Visit(const NodeAnd_& node) {
             VisitNode(*node.arguments_[0]);
             VisitNode(*node.arguments_[1]);
             const auto args = Pop2f();
             fuzzyStack_.Push(args.first * args.second);
         }
-        FORCE_INLINE void Visit(const NodeOr& node) {
+        FORCE_INLINE void Visit(const NodeOr_& node) {
             VisitNode(*node.arguments_[0]);
             VisitNode(*node.arguments_[1]);
             const auto args = Pop2f();

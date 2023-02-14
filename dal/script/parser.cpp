@@ -15,7 +15,7 @@ namespace Dal::Script {
             ++cur;
             REQUIRE2(cur != end, "unexpected end of statement", ScriptError_);
             auto rhs = ParseExprL2(cur, end);
-            lhs = op == '+' ? MakeBaseBinary<NodeAdd>(lhs, rhs) : MakeBaseBinary<NodeSub>(lhs, rhs);
+            lhs = op == '+' ? MakeBaseBinary<NodeAdd_>(lhs, rhs) : MakeBaseBinary<NodeSub_>(lhs, rhs);
         }
         return lhs;
     }
@@ -27,7 +27,7 @@ namespace Dal::Script {
             ++cur;
             REQUIRE2(cur != end, "unexpected end of statement", ScriptError_);
             auto rhs = ParseExprL3(cur, end);
-            lhs = op == '*' ? MakeBaseBinary<NodeMult>(lhs, rhs) : MakeBaseBinary<NodeDiv>(lhs, rhs);
+            lhs = op == '*' ? MakeBaseBinary<NodeMult_>(lhs, rhs) : MakeBaseBinary<NodeDiv_>(lhs, rhs);
         }
         return lhs;
     }
@@ -38,7 +38,7 @@ namespace Dal::Script {
             ++cur;
             REQUIRE(cur != end, "unexpected end of statement");
             auto rhs = ParseExprL4(cur, end);
-            lhs = MakeBaseBinary<NodePow>(lhs, rhs);
+            lhs = MakeBaseBinary<NodePow_>(lhs, rhs);
         }
         return lhs;
     }
@@ -49,7 +49,7 @@ namespace Dal::Script {
             ++cur;
             REQUIRE2(cur != end, "unexpected end of statement", ScriptError_);
             auto rhs = ParseExprL4(cur, end);
-            auto top = op == '+' ? MakeBaseNode<NodeUplus>() : MakeBaseNode<NodeUminus>();
+            auto top = op == '+' ? MakeBaseNode<NodeUplus_>() : MakeBaseNode<NodeUminus_>();
             top->arguments_.Resize( 1);
             top->arguments_[0] = std::move( rhs);
             return top;
@@ -65,24 +65,24 @@ namespace Dal::Script {
         bool empty = true;
         unsigned minArg, maxArg;
         if(*cur == "SPOT") {
-            top = MakeBaseNode<NodeSpot>();
+            top = MakeBaseNode<NodeSpot_>();
             minArg = maxArg = 0;
         } else if (*cur == "LOG") {
-            top = MakeBaseNode<NodeLog>();
+            top = MakeBaseNode<NodeLog_>();
             minArg = maxArg = 1;
         } else if (*cur == "SQRT") {
-            top = MakeBaseNode<NodeSqrt>();
+            top = MakeBaseNode<NodeSqrt_>();
             minArg = maxArg = 1;
         } else if (*cur == "MIN") {
-            top = MakeBaseNode<NodeMin>();
+            top = MakeBaseNode<NodeMin_>();
             minArg = 2;
             maxArg = 1000;
         } else if (*cur == "MAX") {
-            top = MakeBaseNode<NodeMax>();
+            top = MakeBaseNode<NodeMax_>();
             minArg = 2;
             maxArg = 1000;
         } else if(*cur == "SMOOTH") {
-            top = MakeBaseNode<NodeSmooth>();
+            top = MakeBaseNode<NodeSmooth_>();
             minArg = 4;
             maxArg = 4;
         }
@@ -106,14 +106,14 @@ namespace Dal::Script {
 
     Expression_ Parser_::ParseConst(TokIt_& cur) {
         double v = String::ToDouble(*cur);
-        auto top = MakeNode<NodeConst>(v);
+        auto top = MakeNode<NodeConst_>(v);
         ++cur;
         return std::move(top);
     }
 
     Expression_ Parser_::ParseVar(TokIt_& cur) {
         REQUIRE2((*cur)[0] >= 'A' && (*cur)[0] <= 'z', String_("Variable name ") + *cur + " is invalid", ScriptError_);
-        auto top = MakeNode<NodeVar>(String_(*cur));
+        auto top = MakeNode<NodeVar_>(String_(*cur));
         ++cur;
         return std::move(top);
     }
@@ -140,7 +140,7 @@ namespace Dal::Script {
             elseIdx = stats.size() + 1;
         }
 
-        auto top = MakeNode<NodeIf>();
+        auto top = MakeNode<NodeIf_>();
         top->arguments_.Resize(1 + stats.size() + elseStats.size());
         top->arguments_[0] = std::move(cond);
         for (auto i = 0; i < stats.size(); ++i)
@@ -157,14 +157,14 @@ namespace Dal::Script {
         ++cur;
         REQUIRE2(cur != end, "unexpected end of statement", ScriptError_);
         auto rhs = ParseExpr(cur, end);
-        return MakeBaseBinary<NodeAssign>(lhs, rhs);
+        return MakeBaseBinary<NodeAssign_>(lhs, rhs);
     }
 
     Statement_ Parser_::ParsePays(TokIt_& cur, const TokIt_& end, Expression_& lhs) {
         ++cur;
         REQUIRE2(cur != end, "unexpected end of statement", ScriptError_);
         auto rhs = ParseExpr(cur, end);
-        return MakeBaseBinary<NodePays>(lhs, rhs);
+        return MakeBaseBinary<NodePays_>(lhs, rhs);
     }
 
     Expression_ Parser_::ParseCond(TokIt_& cur, const TokIt_& end) {
@@ -173,7 +173,7 @@ namespace Dal::Script {
             ++cur;
             REQUIRE2(cur != end, "unexpected end of statement", ScriptError_);
             auto rhs = ParseCondL2(cur, end);
-            lhs = MakeBaseBinary<NodeOr>(lhs, rhs);
+            lhs = MakeBaseBinary<NodeOr_>(lhs, rhs);
         }
         return lhs;
     }
@@ -184,7 +184,7 @@ namespace Dal::Script {
             ++cur;
             REQUIRE2(cur != end, "unexpected end of statement", ScriptError_);
             auto rhs = ParseParentheses<ParseCond, ParseCondElem>(cur, end);
-            lhs = MakeBaseBinary<NodeAnd>(lhs, rhs);
+            lhs = MakeBaseBinary<NodeAnd_>(lhs, rhs);
         }
         return lhs;
     }
@@ -247,8 +247,8 @@ namespace Dal::Script {
     }
 
     Expression_ Parser_::BuildEqual(Expression_& lhs, Expression_& rhs, double eps) {
-        auto expr = MakeBaseBinary<NodeSub>(lhs, rhs);
-        auto top = MakeNode<NodeEqual>();
+        auto expr = MakeBaseBinary<NodeSub_>(lhs, rhs);
+        auto top = MakeNode<NodeEqual_>();
         top->arguments_.Resize(1);
         top->arguments_[0] = std::move(expr);
         top->eps_ = eps;
@@ -257,15 +257,15 @@ namespace Dal::Script {
 
     Expression_ Parser_::BuildDifferent(Expression_& lhs, Expression_& rhs, double eps) {
         auto eq = BuildEqual(lhs, rhs, eps);
-        auto top = std::make_unique<NodeNot>();
+        auto top = std::make_unique<NodeNot_>();
         top->arguments_.Resize(1);
         top->arguments_[0] = std::move(eq);
         return top;
     }
 
     Expression_ Parser_::BuildSuperior(Expression_& lhs, Expression_& rhs, double eps) {
-        auto eq = MakeBaseBinary<NodeSub>(lhs, rhs);
-        auto top = MakeNode<NodeSup>();
+        auto eq = MakeBaseBinary<NodeSub_>(lhs, rhs);
+        auto top = MakeNode<NodeSup_>();
         top->arguments_.Resize(1);
         top->arguments_[0] = std::move(eq);
         top->eps_ = eps;
@@ -273,8 +273,8 @@ namespace Dal::Script {
     }
 
     Expression_ Parser_::BuildSupEqual(Expression_& lhs, Expression_& rhs, double eps) {
-        auto eq = MakeBaseBinary<NodeSub>(lhs, rhs);
-        auto top = MakeNode<NodeSupEqual>();
+        auto eq = MakeBaseBinary<NodeSub_>(lhs, rhs);
+        auto top = MakeNode<NodeSupEqual_>();
         top->arguments_.Resize(1);
         top->arguments_[0] = std::move(eq);
         top->eps_ = eps;

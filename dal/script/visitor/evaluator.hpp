@@ -87,28 +87,28 @@ namespace Dal::Script {
             dStack_.Pop();
         }
 
-        FORCE_INLINE void Visit(const NodeAdd& node) {
+        FORCE_INLINE void Visit(const NodeAdd_& node) {
             VisitBinary(node, [](T& x, const T y) { x += y; });
         }
-        FORCE_INLINE void Visit(const NodeSub& node) {
+        FORCE_INLINE void Visit(const NodeSub_& node) {
             VisitBinary(node, [](T& x, const T y) { x -= y; });
         }
-        FORCE_INLINE void Visit(const NodeMult& node) {
+        FORCE_INLINE void Visit(const NodeMult_& node) {
             VisitBinary(node, [](T& x, const T y) { x *= y; });
         }
-        FORCE_INLINE void Visit(const NodeDiv& node) {
+        FORCE_INLINE void Visit(const NodeDiv_& node) {
             VisitBinary(node, [](T& x, const T y) { x /= y; });
         }
-        FORCE_INLINE void Visit(const NodePow& node) {
+        FORCE_INLINE void Visit(const NodePow_& node) {
             VisitBinary(node, [](T& x, const T y) { x = pow(x, y); });
         }
-        FORCE_INLINE void Visit(const NodeMax& node) {
+        FORCE_INLINE void Visit(const NodeMax_& node) {
             VisitBinary(node, [](T& x, const T y) {
                 if (x < y)
                     x = y;
             });
         }
-        FORCE_INLINE void Visit(const NodeMin& node) {
+        FORCE_INLINE void Visit(const NodeMin_& node) {
             VisitBinary(node, [](T& x, const T y) {
                 if (x > y)
                     x = y;
@@ -121,23 +121,23 @@ namespace Dal::Script {
             op(dStack_.Top());
         }
 
-        FORCE_INLINE void Visit(const NodeUplus& node) {
+        FORCE_INLINE void Visit(const NodeUplus_& node) {
             VisitUnary(node, [](T& x) {});
         }
-        FORCE_INLINE void Visit(const NodeUminus& node) {
+        FORCE_INLINE void Visit(const NodeUminus_& node) {
             VisitUnary(node, [](T& x) { x = -x; });
         }
 
         //	Functions
-        FORCE_INLINE void Visit(const NodeLog& node) {
+        FORCE_INLINE void Visit(const NodeLog_& node) {
             VisitUnary(node, [](T& x) { x = log(x); });
         }
-        FORCE_INLINE void Visit(const NodeSqrt& node) {
+        FORCE_INLINE void Visit(const NodeSqrt_& node) {
             VisitUnary(node, [](T& x) { x = sqrt(x); });
         }
 
         //  Multies
-        void Visit(const NodeSmooth& node) {
+        void Visit(const NodeSmooth_& node) {
             //	Eval the condition
             VisitNode(*node.arguments_[0]);
             const T x = dStack_.TopAndPop();
@@ -172,38 +172,38 @@ namespace Dal::Script {
             bStack_.Push(op(dStack_.TopAndPop()));
         }
 
-        FORCE_INLINE void Visit(const NodeEqual& node) {
+        FORCE_INLINE void Visit(const NodeEqual_& node) {
             VisitCondition(node, [](const T x) { return x == 0; });
         }
-        FORCE_INLINE void Visit(const NodeSup& node) {
+        FORCE_INLINE void Visit(const NodeSup_& node) {
             VisitCondition(node, [](const T x) { return x > 0; });
         }
-        FORCE_INLINE void Visit(const NodeSupEqual& node) {
+        FORCE_INLINE void Visit(const NodeSupEqual_& node) {
             VisitCondition(node, [](const T x) { return x >= 0; });
         }
 
-        FORCE_INLINE void Visit(const NodeAnd& node) {
+        FORCE_INLINE void Visit(const NodeAnd_& node) {
             VisitNode(*node.arguments_[0]);
             if (bStack_.Top()) {
                 bStack_.Pop();
                 VisitNode(*node.arguments_[1]);
             }
         }
-        FORCE_INLINE void Visit(const NodeOr& node) {
+        FORCE_INLINE void Visit(const NodeOr_& node) {
             VisitNode(*node.arguments_[0]);
             if (!bStack_.Top()) {
                 bStack_.Pop();
                 VisitNode(*node.arguments_[1]);
             }
         }
-        FORCE_INLINE void Visit(const NodeNot& node) {
+        FORCE_INLINE void Visit(const NodeNot_& node) {
             VisitNode(*node.arguments_[0]);
             auto& b = bStack_.Top();
             b = !b;
         }
 
         //	Instructions
-        void Visit(const NodeIf& node) {
+        void Visit(const NodeIf_& node) {
             //	Eval the condition
             VisitNode(*node.arguments_[0]);
 
@@ -224,8 +224,8 @@ namespace Dal::Script {
             }
         }
 
-        FORCE_INLINE void Visit(const NodeAssign& node) {
-            const auto varIdx = Downcast<NodeVar>(node.arguments_[0])->index_;
+        FORCE_INLINE void Visit(const NodeAssign_& node) {
+            const auto varIdx = Downcast<NodeVar_>(node.arguments_[0])->index_;
 
             //	Visit the RHS expression
             VisitNode(*node.arguments_[1]);
@@ -234,8 +234,8 @@ namespace Dal::Script {
             variables_[varIdx] = dStack_.TopAndPop();
         }
 
-        FORCE_INLINE void Visit(const NodePays& node) {
-            const auto varIdx = Downcast<NodeVar>(node.arguments_[0])->index_;
+        FORCE_INLINE void Visit(const NodePays_& node) {
+            const auto varIdx = Downcast<NodeVar_>(node.arguments_[0])->index_;
 
             //	Visit the RHS expression
             VisitNode(*node.arguments_[1]);
@@ -245,18 +245,18 @@ namespace Dal::Script {
         }
 
         //	Variables and constants
-        FORCE_INLINE void Visit(const NodeVar& node) {
+        FORCE_INLINE void Visit(const NodeVar_& node) {
             //	Push value onto the stack
             dStack_.Push(variables_[node.index_]);
         }
 
-        FORCE_INLINE void Visit(const NodeConst& node) { dStack_.Push(node.constVal_); }
+        FORCE_INLINE void Visit(const NodeConst_& node) { dStack_.Push(node.constVal_); }
 
-        FORCE_INLINE void Visit(const NodeTrue& node) { bStack_.Push(true); }
-        FORCE_INLINE void Visit(const NodeFalse& node) { bStack_.Push(false); }
+        FORCE_INLINE void Visit(const NodeTrue_& node) { bStack_.Push(true); }
+        FORCE_INLINE void Visit(const NodeFalse_& node) { bStack_.Push(false); }
 
         //	Scenario related
-        FORCE_INLINE void Visit(const NodeSpot& node) { dStack_.Push((*scenario_)[curEvt_].spot_); }
+        FORCE_INLINE void Visit(const NodeSpot_& node) { dStack_.Push((*scenario_)[curEvt_].spot_); }
     };
 
     //  Concrete Evaluator_

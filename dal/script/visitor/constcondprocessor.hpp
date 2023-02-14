@@ -51,11 +51,11 @@ namespace Dal::Script {
         void VisitBool(BoolNode_& node) {
             //	Always true ==> replace the tree by a True node
             if (node.alwaysTrue_)
-                current_->reset(new NodeTrue);
+                current_->reset(new NodeTrue_);
 
             //	Always false ==> replace the tree by a False node
             else if (node.alwaysFalse_)
-                current_->reset(new NodeFalse);
+                current_->reset(new NodeFalse_);
 
             //	Nothing to do here ==> Visit the arguments_
             else
@@ -63,22 +63,22 @@ namespace Dal::Script {
         }
 
         //	Visitors
-        void Visit(NodeEqual& node) { VisitBool(node); }
-        void Visit(NodeSup& node) { VisitBool(node); }
-        void Visit(NodeSupEqual& node) { VisitBool(node); }
-        void Visit(NodeNot& node) { VisitBool(node); }
-        void Visit(NodeAnd& node) { VisitBool(node); }
-        void Visit(NodeOr& node) { VisitBool(node); }
+        void Visit(NodeEqual_& node) { VisitBool(node); }
+        void Visit(NodeSup_& node) { VisitBool(node); }
+        void Visit(NodeSupEqual_& node) { VisitBool(node); }
+        void Visit(NodeNot_& node) { VisitBool(node); }
+        void Visit(NodeAnd_& node) { VisitBool(node); }
+        void Visit(NodeOr_& node) { VisitBool(node); }
 
         //	If
-        void Visit(NodeIf& node) {
+        void Visit(NodeIf_& node) {
             //	Always true ==> replace the tree by the collection of "if true" statements
             if (node.alwaysTrue_) {
                 size_t lastTrueStat = node.firstElse_ == -1 ? node.arguments_.size() - 1 : node.firstElse_ - 1;
 
                 //	Move arguments_, destroy node
                 Vector_<ExprTree_> args = std::move(node.arguments_);
-                current_->reset(new NodeCollect);
+                current_->reset(new NodeCollect_);
 
                 for (size_t i = 1; i <= lastTrueStat; ++i) {
                     (*current_)->arguments_.push_back(std::move(args[i]));
@@ -93,7 +93,7 @@ namespace Dal::Script {
 
                 //	Move arguments_, destroy node
                 Vector_<ExprTree_> args = std::move(node.arguments_);
-                current_->reset(new NodeCollect);
+                current_->reset(new NodeCollect_);
 
                 if (firstElseStatement != -1) {
                     for (size_t i = firstElseStatement; i < args.size(); ++i) {

@@ -42,7 +42,7 @@ namespace Dal::Script {
         const Vector_<T_>& VarVals() const { return variables_; }
     };
 
-    enum NodeType {
+    enum NodeType_ {
         Add = 0,
         AddConst = 1,
         Sub = 2,
@@ -104,7 +104,7 @@ namespace Dal::Script {
 
         //  Binaries
 
-        template <NodeType IfBin, NodeType IfConstLeft, NodeType IfConstRight> void VisitBinary(const ExprNode_& node) {
+        template <NodeType_ IfBin, NodeType_ IfConstLeft, NodeType_ IfConstRight> void VisitBinary(const ExprNode_& node) {
             if (node.isConst_) {
                 nodeStream_.emplace_back(Const);
                 nodeStream_.emplace_back(int(constStream_.size()));
@@ -131,18 +131,18 @@ namespace Dal::Script {
             }
         }
 
-        void Visit(const NodeAdd& node) { VisitBinary<Add, AddConst, AddConst>(node); }
-        void Visit(const NodeSub& node) { VisitBinary<Sub, ConstSub, SubConst>(node); }
-        void Visit(const NodeMult& node) { VisitBinary<Mult, MultConst, MultConst>(node); }
-        void Visit(const NodeDiv& node) { VisitBinary<Div, ConstDiv, DivConst>(node); }
-        void Visit(const NodePow& node) { VisitBinary<Pow, ConstPow, PowConst>(node); }
+        void Visit(const NodeAdd_& node) { VisitBinary<Add, AddConst, AddConst>(node); }
+        void Visit(const NodeSub_& node) { VisitBinary<Sub, ConstSub, SubConst>(node); }
+        void Visit(const NodeMult_& node) { VisitBinary<Mult, MultConst, MultConst>(node); }
+        void Visit(const NodeDiv_& node) { VisitBinary<Div, ConstDiv, DivConst>(node); }
+        void Visit(const NodePow_& node) { VisitBinary<Pow, ConstPow, PowConst>(node); }
 
-        void Visit(const NodeMax& node) { VisitBinary<Max2, Max2Const, Max2Const>(node); }
+        void Visit(const NodeMax_& node) { VisitBinary<Max2, Max2Const, Max2Const>(node); }
 
-        void Visit(const NodeMin& node) { VisitBinary<Min2, Min2Const, Min2Const>(node); }
+        void Visit(const NodeMin_& node) { VisitBinary<Min2, Min2Const, Min2Const>(node); }
 
         //	Unaries
-        template <NodeType NT> void VisitUnary(const ExprNode_& node) {
+        template <NodeType_ NT> void VisitUnary(const ExprNode_& node) {
             if (node.isConst_) {
                 nodeStream_.emplace_back(Const);
                 nodeStream_.emplace_back(int(constStream_.size()));
@@ -153,15 +153,15 @@ namespace Dal::Script {
             }
         }
 
-        void Visit(const NodeUplus& node) { node.arguments_[0]->Accept(*this); }
+        void Visit(const NodeUplus_& node) { node.arguments_[0]->Accept(*this); }
 
-        void Visit(const NodeUminus& node) { VisitUnary<Uminus>(node); }
-        void Visit(const NodeLog& node) { VisitUnary<Log>(node); }
-        void Visit(const NodeSqrt& node) { VisitUnary<Sqrt>(node); }
+        void Visit(const NodeUminus_& node) { VisitUnary<Uminus>(node); }
+        void Visit(const NodeLog_& node) { VisitUnary<Log>(node); }
+        void Visit(const NodeSqrt_& node) { VisitUnary<Sqrt>(node); }
 
         //  Multies
 
-        void Visit(const NodeSmooth& node) {
+        void Visit(const NodeSmooth_& node) {
             //  Const?
             if (node.isConst_) {
                 nodeStream_.emplace_back(Const);
@@ -176,7 +176,7 @@ namespace Dal::Script {
 
         //	Conditions
 
-        template <NodeType NT, typename OP> void VisitCondition(const BoolNode_& node, OP op) {
+        template <NodeType_ NT, typename OP> void VisitCondition(const BoolNode_& node, OP op) {
             const ExprNode_* arg = Downcast<ExprNode_>(node.arguments_[0]);
 
             if (arg->isConst_) {
@@ -188,40 +188,40 @@ namespace Dal::Script {
             }
         }
 
-        void Visit(const NodeEqual& node) {
+        void Visit(const NodeEqual_& node) {
             VisitCondition<Equal>(node, [](double x) { return x == 0.0; });
         }
 
-        void Visit(const NodeSup& node) {
+        void Visit(const NodeSup_& node) {
             VisitCondition<Sup>(node, [](double x) { return x > 0.0; });
         }
-        void Visit(const NodeSupEqual& node) {
+        void Visit(const NodeSupEqual_& node) {
             VisitCondition<SupEqual>(node, [](double x) { return x > -Dal::EPSILON; });
         }
 
         //  And/Or/Not
 
-        void Visit(const NodeAnd& node) {
+        void Visit(const NodeAnd_& node) {
             node.arguments_[0]->Accept(*this);
             node.arguments_[1]->Accept(*this);
             nodeStream_.emplace_back(And);
         }
 
-        void Visit(const NodeOr& node) {
+        void Visit(const NodeOr_& node) {
             node.arguments_[0]->Accept(*this);
             node.arguments_[1]->Accept(*this);
             nodeStream_.emplace_back(Or);
         }
 
-        void Visit(const NodeNot& node) {
+        void Visit(const NodeNot_& node) {
             node.arguments_[0]->Accept(*this);
             nodeStream_.emplace_back(Not);
         }
 
         //  Assign, pays
 
-        void Visit(const NodeAssign& node) {
-            const NodeVar* var = Downcast<NodeVar>(node.arguments_[0]);
+        void Visit(const NodeAssign_& node) {
+            const NodeVar_* var = Downcast<NodeVar_>(node.arguments_[0]);
             const ExprNode_* rhs = Downcast<ExprNode_>(node.arguments_[1]);
 
             if (rhs->isConst_) {
@@ -235,8 +235,8 @@ namespace Dal::Script {
             nodeStream_.emplace_back(int(var->index_));
         }
 
-        void Visit(const NodePays& node) {
-            const NodeVar* var = Downcast<NodeVar>(node.arguments_[0]);
+        void Visit(const NodePays_& node) {
+            const NodeVar_* var = Downcast<NodeVar_>(node.arguments_[0]);
             const ExprNode_* rhs = Downcast<ExprNode_>(node.arguments_[1]);
 
             if (rhs->isConst_) {
@@ -252,26 +252,26 @@ namespace Dal::Script {
 
         //  Leaves
 
-        void Visit(const NodeVar& node) {
+        void Visit(const NodeVar_& node) {
             nodeStream_.emplace_back(Var);
             nodeStream_.emplace_back(node.index_);
         }
 
-        void Visit(const NodeConst& node) {
+        void Visit(const NodeConst_& node) {
             nodeStream_.emplace_back(Const);
             nodeStream_.emplace_back(static_cast<int>(constStream_.size()));
             constStream_.emplace_back(node.constVal_);
         }
 
-        void Visit(const NodeTrue& node) { nodeStream_.emplace_back(True); }
+        void Visit(const NodeTrue_& node) { nodeStream_.emplace_back(True); }
 
-        void Visit(const NodeFalse& node) { nodeStream_.emplace_back(False); }
+        void Visit(const NodeFalse_& node) { nodeStream_.emplace_back(False); }
 
         //	Scenario related
-        void Visit(const NodeSpot& node) { nodeStream_.emplace_back(Spot); }
+        void Visit(const NodeSpot_& node) { nodeStream_.emplace_back(Spot); }
 
         //	Instructions
-        void Visit(const NodeIf& node) {
+        void Visit(const NodeIf_& node) {
             //  Visit condition
             node.arguments_[0]->Accept(*this);
 
