@@ -363,7 +363,7 @@ namespace Dal::Script {
                 try {
                     val = func(val);
                 } catch (const std::domain_error& dErr) {
-                    throw std::runtime_error("Domain error on function applied to singleton");
+                    throw std::runtime_error("Domain_ error on function applied to singleton");
                 }
             }
 
@@ -383,7 +383,7 @@ namespace Dal::Script {
                 try {
                     val = func(val, val2);
                 } catch (const std::domain_error& dErr) {
-                    throw std::runtime_error("Domain error on function applied to singleton");
+                    throw std::runtime_error("Domain_ error on function applied to singleton");
                 }
             }
 
@@ -464,33 +464,33 @@ namespace Dal::Script {
         }
     };
 
-    class Domain {
+    class Domain_ {
         std::set<Interval> intervals_;
 
     public:
-        Domain() {}
+        Domain_() {}
 
-        Domain(const Domain& rhs) : intervals_(rhs.intervals_) {}
+        Domain_(const Domain_& rhs) : intervals_(rhs.intervals_) {}
 
-        Domain(Domain&& rhs) : intervals_(std::move(rhs.intervals_)) {}
+        Domain_(Domain_&& rhs) : intervals_(std::move(rhs.intervals_)) {}
 
-        Domain& operator=(const Domain& rhs) {
+        Domain_& operator=(const Domain_& rhs) {
             if (this == &rhs)
                 return *this;
             intervals_ = rhs.intervals_;
             return *this;
         }
 
-        Domain& operator=(Domain&& rhs) {
+        Domain_& operator=(Domain_&& rhs) {
             if (this == &rhs)
                 return *this;
             intervals_ = std::move(rhs.intervals_);
             return *this;
         }
 
-        Domain(const double val) { addSingleton(val); }
+        Domain_(const double val) { addSingleton(val); }
 
-        Domain(const Interval& i) { addInterval(i); }
+        Domain_(const Interval& i) { addInterval(i); }
 
         void addInterval(Interval interval) {
             while (true) {
@@ -567,7 +567,7 @@ namespace Dal::Script {
             }
         }
 
-        void addDomain(const Domain& rhs) {
+        void addDomain(const Domain_& rhs) {
             for (auto& interval : rhs.intervals_)
                 addInterval(interval);
         }
@@ -648,8 +648,8 @@ namespace Dal::Script {
         }
 
         //	Get all continuous intervals, dropping singletons
-        Domain getContinuous() const {
-            Domain res;
+        Domain_ getContinuous() const {
+            Domain_ res;
             for (auto& interval : intervals_) {
                 if (interval.continuous())
                     res.addInterval(interval);
@@ -677,7 +677,7 @@ namespace Dal::Script {
 
         //	Writers
 
-        friend std::ostream& operator<<(std::ostream& ost, const Domain d) {
+        friend std::ostream& operator<<(std::ostream& ost, const Domain_ d) {
             ost << "{";
             auto i = d.intervals_.begin();
             while (i != d.intervals_.end()) {
@@ -698,8 +698,8 @@ namespace Dal::Script {
         }
 
         //	Arithmetics
-        Domain operator+(const Domain& rhs) const {
-            Domain res;
+        Domain_ operator+(const Domain_& rhs) const {
+            Domain_ res;
 
             for (auto& i : intervals_) {
                 for (auto& j : rhs.intervals_) {
@@ -709,8 +709,8 @@ namespace Dal::Script {
 
             return res;
         }
-        Domain operator-() const {
-            Domain res;
+        Domain_ operator-() const {
+            Domain_ res;
 
             for (auto& i : intervals_) {
                 res.addInterval(-i);
@@ -718,8 +718,8 @@ namespace Dal::Script {
 
             return res;
         }
-        Domain operator-(const Domain& rhs) const {
-            Domain res;
+        Domain_ operator-(const Domain_& rhs) const {
+            Domain_ res;
 
             for (auto& i : intervals_) {
                 for (auto& j : rhs.intervals_) {
@@ -729,8 +729,8 @@ namespace Dal::Script {
 
             return res;
         }
-        Domain operator*(const Domain& rhs) const {
-            Domain res;
+        Domain_ operator*(const Domain_& rhs) const {
+            Domain_ res;
 
             for (auto& i : intervals_) {
                 for (auto& j : rhs.intervals_) {
@@ -741,8 +741,8 @@ namespace Dal::Script {
 
             return res;
         }
-        Domain inverse() const {
-            Domain res;
+        Domain_ inverse() const {
+            Domain_ res;
 
             for (auto& i : intervals_) {
                 res.addInterval(i.inverse());
@@ -750,8 +750,8 @@ namespace Dal::Script {
 
             return res;
         }
-        Domain operator/(const Domain& rhs) const {
-            Domain res;
+        Domain_ operator/(const Domain_& rhs) const {
+            Domain_ res;
 
             for (auto& i : intervals_) {
                 for (auto& j : rhs.intervals_) {
@@ -763,7 +763,7 @@ namespace Dal::Script {
         }
 
         //	Shortcuts for shifting all intervals
-        Domain operator+=(const double x) {
+        Domain_ operator+=(const double x) {
             if (fabs(x) < Dal::EPSILON)
                 return *this;
 
@@ -775,7 +775,7 @@ namespace Dal::Script {
             return *this;
         }
 
-        Domain operator-=(const double x) {
+        Domain_ operator-=(const double x) {
             if (fabs(x) < Dal::EPSILON)
                 return *this;
 
@@ -788,8 +788,8 @@ namespace Dal::Script {
         }
 
         //	Min/Max
-        Domain dmin(const Domain& rhs) const {
-            Domain res;
+        Domain_ dmin(const Domain_& rhs) const {
+            Domain_ res;
 
             for (auto& i : intervals_) {
                 for (auto& j : rhs.intervals_) {
@@ -799,8 +799,8 @@ namespace Dal::Script {
 
             return res;
         }
-        Domain dmax(const Domain& rhs) const {
-            Domain res;
+        Domain_ dmax(const Domain_& rhs) const {
+            Domain_ res;
 
             for (auto& i : intervals_) {
                 for (auto& j : rhs.intervals_) {
@@ -812,8 +812,8 @@ namespace Dal::Script {
         }
 
         //	Apply function
-        template <class Func> Domain applyFunc(const Func func, const Interval& funcDomain) {
-            Domain res;
+        template <class Func> Domain_ applyFunc(const Func func, const Interval& funcDomain) {
+            Domain_ res;
 
             auto vec = getSingletons();
 
@@ -825,7 +825,7 @@ namespace Dal::Script {
                 try {
                     res.addSingleton(func(v));
                 } catch (const std::domain_error&) {
-                    throw std::runtime_error("Domain error on function applied to singleton");
+                    throw std::runtime_error("Domain_ error on function applied to singleton");
                 }
             }
 
@@ -833,8 +833,8 @@ namespace Dal::Script {
         }
 
         //	Apply function 2 params
-        template <class Func> Domain applyFunc2(const Func func, const Domain& rhs, const Interval& funcDomain) {
-            Domain res;
+        template <class Func> Domain_ applyFunc2(const Func func, const Domain_& rhs, const Interval& funcDomain) {
+            Domain_ res;
 
             auto vec1 = getSingletons(), vec2 = rhs.getSingletons();
 
@@ -846,7 +846,7 @@ namespace Dal::Script {
                     try {
                         res.addSingleton(func(v1, v2));
                     } catch (const std::domain_error&) {
-                        throw std::runtime_error("Domain error on function applied to singleton");
+                        throw std::runtime_error("Domain_ error on function applied to singleton");
                     }
                 }
             }
