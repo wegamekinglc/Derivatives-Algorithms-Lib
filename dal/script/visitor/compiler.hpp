@@ -25,6 +25,50 @@ As long as this comment is preserved at the Top of the file
 #include <dal/script/visitor.hpp>
 #include <functional>
 
+/*IF--------------------------------------------------------------------------
+enumeration NodeType
+    node type list
+switchable
+alternative Add
+alternative AddConst
+alternative Sub
+alternative SubConst
+alternative ConstSub
+alternative Mult
+alternative MultConst
+alternative Div
+alternative DivConst
+alternative ConstDiv
+alternative Pow
+alternative PowConst
+alternative ConstPow
+alternative Max2
+alternative Max2Const
+alternative Min2
+alternative Min2Const
+alternative Spot
+alternative Var
+alternative Const
+alternative Assign
+alternative AssignConst
+alternative Pays
+alternative PaysConst
+alternative If
+alternative IfElse
+alternative Equal
+alternative Sup
+alternative SupEqual
+alternative And
+alternative Or
+alternative Smooth
+alternative Sqrt
+alternative Log
+alternative Not
+alternative Uminus
+alternative True
+alternative False = 37
+-IF-------------------------------------------------------------------------*/
+
 namespace Dal::Script {
     template <class T_> struct EvalState_ {
         //	State
