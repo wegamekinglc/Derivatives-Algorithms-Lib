@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <dal/platform/config.hpp>
 #include <dal/math/vectors.hpp>
 #include <dal/string/strings.hpp>
 #include <exception>
@@ -65,12 +66,17 @@ namespace Dal {
 #define ASSERT(cond, msg)
 #endif
 
+#ifdef DAL_USE_REQUIRE
 #define REQUIRE(cond, msg)                                                                                             \
     if (cond)                                                                                                          \
         ;                                                                                                              \
     else                                                                                                               \
         THROW(msg)
+#else
+#define REQUIRE(cond, msg)
+#endif
 
+#ifdef DAL_USE_REQUIRE
 #define REQUIRE2(cond, msg, exception_type)                                                                                             \
     if (cond)                                                                                                          \
         ;                                                                                                              \
@@ -81,7 +87,11 @@ namespace Dal {
         ;                                                                                                              \
     else                                                                                                               \
         THROW(msg)
+#else
+#define REQUIRE2(cond, msg, exception_type)
+#endif
 
+#ifdef DAL_USE_NOTE
 #define XXNOTICE(u, n, v) Dal::exception::StackRegister_ __xsr##u(n, v)
 #define XNOTICE(u, n, v) XXNOTICE(u, n, v)
 #define NOTICE2(n, v) XNOTICE(__COUNTER__, n, v)
@@ -90,3 +100,13 @@ namespace Dal {
 #define XXNOTE(u, m) Dal::exception::StackRegister_ __xsr##u(m)
 #define XNOTE(u, m) XXNOTE(u, m)
 #define NOTE(msg) XNOTE(__COUNTER__, msg)
+#else
+#define XXNOTICE(u, n, v)
+#define XNOTICE(u, n, v)
+#define NOTICE2(n, v)
+#define NOTICE(x)
+
+#define XXNOTE(u, m)
+#define XNOTE(u, m)
+#define NOTE(msg)
+#endif

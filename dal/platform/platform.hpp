@@ -4,10 +4,7 @@
 
 #pragma once
 
-#define USE_AADET
-//#define USE_ADEPT
-//#define USE_CODI
-
+#include <dal/platform/config.hpp>
 #include <cassert>
 #include <dal/utilities/noncopyable.hpp>
 #include <dal/platform/host.hpp>
