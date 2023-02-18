@@ -2,6 +2,8 @@
 // Created by wegam on 2023/2/18.
 //
 
+#include <dal/platform/platform.hpp>
+
 #ifdef USE_AADET
 
 #include <dal/math/aad/expr.hpp>
@@ -36,22 +38,6 @@ namespace Dal::AAD {
         ders_.Rewind();
         arg_ptrs_.Rewind();
         nodes_.Rewind();
-    }
-
-    void Tape_::Mark() {
-        if (multi_)
-            adjoints_multi_.SetMark();
-        ders_.SetMark();
-        arg_ptrs_.SetMark();
-        nodes_.SetMark();
-    }
-
-    void Tape_::RewindToMark() {
-        if (multi_)
-            adjoints_multi_.RewindToMark();
-        ders_.RewindToMark();
-        arg_ptrs_.RewindToMark();
-        nodes_.RewindToMark();
     }
 
     Tape_::Position_ Tape_::getPosition() {

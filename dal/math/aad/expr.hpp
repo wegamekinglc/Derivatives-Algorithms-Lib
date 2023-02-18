@@ -10,8 +10,8 @@
 
 namespace Dal::AAD {
     template <class E_> struct Expression_ {
-        [[nodiscard]] double Value() const { return static_cast<const E_*>(this)->Value(); }
-        explicit operator double() const { return Value(); }
+        [[nodiscard]] double value() const { return static_cast<const E_*>(this)->value(); }
+        explicit operator double() const { return value(); }
     };
 
     template <class LHS_, class RHS_, class OP_>
@@ -22,20 +22,20 @@ namespace Dal::AAD {
 
     public:
         explicit BinaryExpression_(const Expression_<LHS_>& l, const Expression_<RHS_>& r)
-            : value_(OP_::Eval(l.Value(), r.Value())), lhs_(static_cast<const LHS_&>(l)),
+            : value_(OP_::Eval(l.value(), r.value())), lhs_(static_cast<const LHS_&>(l)),
               rhs_(static_cast<const RHS_&>(r)) {}
 
-        [[nodiscard]]  double Value() const { return value_; }
+        [[nodiscard]]  double value() const { return value_; }
 
         enum { numNumbers_ = LHS_::numNumbers_ + RHS_::numNumbers_ };
 
         template <size_t N_, size_t n_> void PushAdjoint(TapNode_& exprNode, double adjoint) const {
             if (LHS_::numNumbers_ > 0)
-                lhs_.template PushAdjoint<N_, n_>(exprNode, adjoint * OP_::LeftDerivative(lhs_.Value(), rhs_.Value(), Value()));
+                lhs_.template PushAdjoint<N_, n_>(exprNode, adjoint * OP_::LeftDerivative(lhs_.value(), rhs_.value(), value()));
 
             if (RHS_::numNumbers_ > 0)
                 rhs_.template PushAdjoint<N_, n_ + LHS_::numNumbers_>(
-                    exprNode, adjoint * OP_::RightDerivative(lhs_.Value(), rhs_.Value(), Value()));
+                    exprNode, adjoint * OP_::RightDerivative(lhs_.value(), rhs_.value(), value()));
         }
     };
 
@@ -144,18 +144,18 @@ namespace Dal::AAD {
 
     public:
         explicit UnaryExpression_(const Expression_<ARG_>& a)
-            : value_(OP_::Eval(a.Value(), 0.0)), arg_(static_cast<const ARG_&>(a)) {}
+            : value_(OP_::Eval(a.value(), 0.0)), arg_(static_cast<const ARG_&>(a)) {}
 
         explicit UnaryExpression_(const Expression_<ARG_>& a, double b)
-            : value_(OP_::Eval(a.Value(), b)), arg_(static_cast<const ARG_&>(a)), d_arg_(b) {}
+            : value_(OP_::Eval(a.value(), b)), arg_(static_cast<const ARG_&>(a)), d_arg_(b) {}
 
-        [[nodiscard]] double Value() const { return value_; }
+        [[nodiscard]] double value() const { return value_; }
 
         enum { numNumbers_ = ARG_::numNumbers_ };
 
         template <size_t N_, size_t n_> void PushAdjoint(TapNode_& exprNode, double adjoint) const {
             if (ARG_::numNumbers_ > 0)
-                arg_.template PushAdjoint<N_, n_>(exprNode, adjoint * OP_::Derivative(arg_.Value(), Value(), d_arg_));
+                arg_.template PushAdjoint<N_, n_>(exprNode, adjoint * OP_::Derivative(arg_.value(), value(), d_arg_));
         }
     };
 
@@ -376,69 +376,69 @@ namespace Dal::AAD {
 
     template <class E_, class F_>
     bool operator==(const Expression_<E_>& lhs, const Expression_<F_>& rhs) {
-        return lhs.Value() == rhs.Value();
+        return lhs.value() == rhs.value();
     }
 
     template <class E_>
-    bool operator==(const Expression_<E_>& lhs, double rhs) { return lhs.Value() == rhs; }
+    bool operator==(const Expression_<E_>& lhs, double rhs) { return lhs.value() == rhs; }
 
     template <class E_>
-    bool operator==(double lhs, const Expression_<E_>& rhs) { return lhs == rhs.Value(); }
+    bool operator==(double lhs, const Expression_<E_>& rhs) { return lhs == rhs.value(); }
 
     template <class E_, class F_>
     bool operator!=(const Expression_<E_>& lhs, const Expression_<F_>& rhs) {
-        return lhs.Value() != rhs.Value();
+        return lhs.value() != rhs.value();
     }
 
     template <class E_>
-    bool operator!=(const Expression_<E_>& lhs, double rhs) { return lhs.Value() != rhs; }
+    bool operator!=(const Expression_<E_>& lhs, double rhs) { return lhs.value() != rhs; }
 
     template <class E_>
-    bool operator!=(double lhs, const Expression_<E_>& rhs) { return lhs != rhs.Value(); }
+    bool operator!=(double lhs, const Expression_<E_>& rhs) { return lhs != rhs.value(); }
 
     template <class E_, class F_>
     bool operator<(const Expression_<E_>& lhs, const Expression_<F_>& rhs) {
-        return lhs.Value() < rhs.Value();
+        return lhs.value() < rhs.value();
     }
 
     template <class E_>
-    bool operator<(const Expression_<E_>& lhs, double rhs) { return lhs.Value() < rhs; }
+    bool operator<(const Expression_<E_>& lhs, double rhs) { return lhs.value() < rhs; }
 
     template <class E_>
-    bool operator<(double lhs, const Expression_<E_>& rhs) { return lhs < rhs.Value(); }
+    bool operator<(double lhs, const Expression_<E_>& rhs) { return lhs < rhs.value(); }
 
     template <class E_, class F_>
     bool operator>(const Expression_<E_>& lhs, const Expression_<F_>& rhs) {
-        return lhs.Value() > rhs.Value();
+        return lhs.value() > rhs.value();
     }
 
     template <class E_>
-    bool operator>(const Expression_<E_>& lhs, double rhs) { return lhs.Value() > rhs; }
+    bool operator>(const Expression_<E_>& lhs, double rhs) { return lhs.value() > rhs; }
 
     template <class E_>
-    bool operator>(double lhs, const Expression_<E_>& rhs) { return lhs > rhs.Value(); }
+    bool operator>(double lhs, const Expression_<E_>& rhs) { return lhs > rhs.value(); }
 
     template <class E_, class F_>
     bool operator<=(const Expression_<E_>& lhs, const Expression_<F_>& rhs) {
-        return lhs.Value() <= rhs.Value();
+        return lhs.value() <= rhs.value();
     }
 
     template <class E_>
-    bool operator<=(const Expression_<E_>& lhs, double rhs) { return lhs.Value() <= rhs; }
+    bool operator<=(const Expression_<E_>& lhs, double rhs) { return lhs.value() <= rhs; }
 
     template <class E_>
-    bool operator<=(double lhs, const Expression_<E_>& rhs) { return lhs <= rhs.Value(); }
+    bool operator<=(double lhs, const Expression_<E_>& rhs) { return lhs <= rhs.value(); }
 
     template <class E_, class F_>
     bool operator>=(const Expression_<E_>& lhs, const Expression_<F_>& rhs) {
-        return lhs.Value() >= rhs.Value();
+        return lhs.value() >= rhs.value();
     }
 
     template <class E_>
-    bool operator>=(const Expression_<E_>& lhs, double rhs) { return lhs.Value() >= rhs; }
+    bool operator>=(const Expression_<E_>& lhs, double rhs) { return lhs.value() >= rhs; }
 
     template <class E_>
-    bool operator>=(double lhs, const Expression_<E_>& rhs) { return lhs >= rhs.Value(); }
+    bool operator>=(double lhs, const Expression_<E_>& rhs) { return lhs >= rhs.value(); }
 
     // unary operators +/-
 
@@ -489,34 +489,25 @@ namespace Dal::AAD {
             return *this;
         }
 
-        template <class E_> Number_(const Expression_<E_>& e) : value_(e.Value()) {
+        template <class E_> Number_(const Expression_<E_>& e) : value_(e.value()) {
             FromExpr<E_>(static_cast<const E_&>(e));
         }
 
         template <class E_> Number_& operator=(const Expression_<E_>& e) {
-            value_ = e.Value();
+            value_ = e.value();
             FromExpr<E_>(static_cast<const E_&>(e));
             return *this;
         }
 
         void PutOnTape() { node_ = CreateMultiNode<0>(); }
 
-        double& Value() { return value_; }
-        [[nodiscard]] double Value() const { return value_; }
+        double& value() { return value_; }
         [[nodiscard]] double value() const { return value_; }
-
-        double& Adjoint() { return node_->Adjoint(); }
-
-        [[nodiscard]] double Adjoint() const { return node_->Adjoint(); }
         [[nodiscard]] double getGradient() const { return node_->Adjoint(); }
 
         void setGradient(double adjoint) {
             node_->Adjoint() = adjoint;
         }
-
-        double& Adjoint(size_t n) { return node_->Adjoint(n); }
-
-        double Adjoint(size_t n) const { return node_->Adjoint(n); }
 
         void ResetAdjoints() { tape_.ResetAdjoints(); }
 
@@ -539,18 +530,6 @@ namespace Dal::AAD {
                 it->PropagateOne();
             }
         }
-
-        void PropagateAdjoints(Tape_::Iterator_ propagate_to) {
-            Adjoint() = 1.0;
-            auto propagate_from = tape_.Find(node_);
-            PropagateAdjoints(propagate_from, propagate_to);
-        }
-
-        void PropagateToStart() { PropagateAdjoints(tape_.Begin()); }
-
-        void PropagateToMark() { PropagateAdjoints(tape_.MarkIt()); }
-
-        static void PropagateMarkToStart() { PropagateAdjoints(std::prev(tape_.MarkIt()), tape_.Begin()); }
 
         static void PropagateAdjointsMulti(Tape_::Iterator_ propagate_from, Tape_::Iterator_ propagate_to) {
             auto it = propagate_from;

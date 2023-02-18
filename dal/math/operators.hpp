@@ -69,6 +69,6 @@ namespace Dal {
     using AAD::NPDF;
     using AAD::erfc;
     using AAD::sqrt;
-    FORCE_INLINE double value(const Number_& d) { return d.Value(); }
+    FORCE_INLINE double value(const Number_& d) { return d.value(); }
 #endif
 } // namespace Dal

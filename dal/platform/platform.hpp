@@ -4,9 +4,9 @@
 
 #pragma once
 
-//#define USE_AADET
+#define USE_AADET
 //#define USE_ADEPT
-#define USE_CODI
+//#define USE_CODI
 
 #include <cassert>
 #include <dal/utilities/noncopyable.hpp>

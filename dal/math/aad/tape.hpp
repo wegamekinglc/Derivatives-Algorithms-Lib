@@ -47,16 +47,13 @@ namespace Dal::AAD {
             return node;
         }
 
-        void ResetAdjoints();
-
+        void Tape_::ResetAdjoints();
         void Clear();
 
         void setActive();
         void registerInput(Number_& input);
 
         void reset();
-        void Mark();
-        void RewindToMark();
 
         using Iterator_ = typename BlockList_<TapNode_, BLOCK_SIZE>::Iterator_;
 
@@ -69,7 +66,6 @@ namespace Dal::AAD {
 
         Iterator_ Begin() { return nodes_.Begin(); }
         Iterator_ End() { return nodes_.End(); }
-        Iterator_ MarkIt() { return nodes_.Mark(); }
         Iterator_ Find(TapNode_* node) { return nodes_.Find(node); }
 
         Position_ getPosition();
