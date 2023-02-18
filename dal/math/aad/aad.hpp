@@ -61,5 +61,7 @@ namespace Dal::AAD {
         std::for_each(begin, end, [](Number_& n) { n.PutOnTape(); });
     }
 
+    using Position_ = typename Tape_::Position_;
+
 } // namespace Dal
 #endif

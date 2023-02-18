@@ -54,11 +54,12 @@ namespace Dal::AAD {
         }
 
     public:
+        friend class Tape_;
         static thread_local Tape_* tape_;
 
         Number_() = default;
 
-        explicit Number_(double val) : value_(val) { node_ = CreateNode<0>(); }
+        explicit Number_(double val) : value_(val) {}
 
         Number_& operator=(double val) {
             value_ = val;
@@ -70,9 +71,8 @@ namespace Dal::AAD {
 
         explicit operator double() const { return value_; }
 
-        double& Value() { return value_; }
-
         [[nodiscard]] double Value() const { return value_; }
+        [[nodiscard]] double value() const { return value_; }
 
         double& Adjoint() { return node_->Adjoint(); }
         [[nodiscard]] const double& Adjoint() const { return node_->Adjoint();}

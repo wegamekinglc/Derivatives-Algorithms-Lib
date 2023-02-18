@@ -54,6 +54,14 @@ namespace Dal::AAD {
         }
 
     public:
+        struct BlockPosition_ {
+            iterator curr_block_;
+            block_iter next_space_;
+
+            BlockPosition_() = default;
+            BlockPosition_(iterator curr_block, block_iter next_space): curr_block_(curr_block), next_space_(next_space) {}
+        };
+
         BlockList_() { NewBlock(); }
 
         void Clear() {
@@ -118,20 +126,41 @@ namespace Dal::AAD {
             marked_space_ = next_space_;
         }
 
+        auto GetPosition() {
+            if (next_space_ == last_space_)
+                NextBlock();
+            return Iterator_(curr_block_, next_space_, curr_block_->begin(), curr_block_->end());
+        }
+
+        auto GetPosition() const {
+            if (next_space_ == last_space_)
+                NextBlock();
+            return ConstIterator_(curr_block_, next_space_, curr_block_->begin(), curr_block_->end());
+        }
+
+        auto GetZeroPosition() {
+            return Iterator_(data_.begin(), data_.begin()->begin(), data_.begin()->begin(), data_.begin()->end());
+        }
+
+        auto GetZeroPosition() const {
+            return ConstIterator_(data_.begin(), data_.begin()->begin(), data_.begin()->begin(), data_.begin()->end());
+        }
+
         void RewindToMark() {
             curr_block_ = marked_block_;
             next_space_ = marked_space_;
             last_space_ = curr_block_->end();
         }
 
+
+
         class Iterator_ {
-        private:
+        public:
             iterator curr_block_;
             block_iter curr_space_;
             block_iter first_space_;
             block_iter last_space_;
 
-        public:
             using difference_type = std::ptrdiff_t;
             using reference = T_&;
             using pointer = T_*;
@@ -190,13 +219,12 @@ namespace Dal::AAD {
         };
 
         class ConstIterator_ {
-        private:
+        public:
             const_iterator curr_block_;
             const_block_iter curr_space_;
             const_block_iter first_space_;
             const_block_iter last_space_;
 
-        public:
             using difference_type = std::ptrdiff_t;
             using reference = const T_&;
             using pointer = const T_*;
@@ -289,6 +317,12 @@ namespace Dal::AAD {
                 return it;
 
             return End();
+        }
+
+        void RewindTo(const Iterator_& position) {
+            curr_block_ = position.curr_block_;
+            next_space_ = position.curr_space_;
+            last_space_ = curr_block_->end();
         }
     };
 } // namespace Dal

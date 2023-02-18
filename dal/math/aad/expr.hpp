@@ -458,7 +458,7 @@ namespace Dal::AAD {
         double value_;
         TapNode_* node_;
 
-        template <size_t N_> TapNode_* CreateMultiNode() { return tape_->template RecordNode<N_>(); }
+        template <size_t N_> TapNode_* CreateMultiNode() { return tape_.RecordNode<N_>(); }
 
         template <class E_> void FromExpr(const Expression_<E_>& e) {
             auto* node = this->CreateMultiNode<E_::numNumbers_>();
@@ -467,7 +467,9 @@ namespace Dal::AAD {
         }
 
     public:
-        static thread_local Tape_* tape_;
+        static thread_local Tape_ tape_;
+
+        static Tape_& getTape() { return tape_;}
 
         enum { numNumbers_ = 1 };
 
@@ -501,16 +503,22 @@ namespace Dal::AAD {
 
         double& Value() { return value_; }
         [[nodiscard]] double Value() const { return value_; }
+        [[nodiscard]] double value() const { return value_; }
 
         double& Adjoint() { return node_->Adjoint(); }
 
         [[nodiscard]] double Adjoint() const { return node_->Adjoint(); }
+        [[nodiscard]] double getGradient() const { return node_->Adjoint(); }
+
+        void setGradient(double adjoint) {
+            node_->Adjoint() = adjoint;
+        }
 
         double& Adjoint(size_t n) { return node_->Adjoint(n); }
 
         double Adjoint(size_t n) const { return node_->Adjoint(n); }
 
-        void ResetAdjoints() { tape_->ResetAdjoints(); }
+        void ResetAdjoints() { tape_.ResetAdjoints(); }
 
         // propagation
 
@@ -523,17 +531,26 @@ namespace Dal::AAD {
             it->PropagateOne();
         }
 
+        static void evaluate(const Tape_::Position_& from, const Tape_::Position_& to) {
+            auto it = from.nodes_pos_;
+            auto to_it = to.nodes_pos_;
+            while (it != to_it) {
+                --it;
+                it->PropagateOne();
+            }
+        }
+
         void PropagateAdjoints(Tape_::Iterator_ propagate_to) {
             Adjoint() = 1.0;
-            auto propagate_from = tape_->Find(node_);
+            auto propagate_from = tape_.Find(node_);
             PropagateAdjoints(propagate_from, propagate_to);
         }
 
-        void PropagateToStart() { PropagateAdjoints(tape_->Begin()); }
+        void PropagateToStart() { PropagateAdjoints(tape_.Begin()); }
 
-        void PropagateToMark() { PropagateAdjoints(tape_->MarkIt()); }
+        void PropagateToMark() { PropagateAdjoints(tape_.MarkIt()); }
 
-        static void PropagateMarkToStart() { PropagateAdjoints(std::prev(tape_->MarkIt()), tape_->Begin()); }
+        static void PropagateMarkToStart() { PropagateAdjoints(std::prev(tape_.MarkIt()), tape_.Begin()); }
 
         static void PropagateAdjointsMulti(Tape_::Iterator_ propagate_from, Tape_::Iterator_ propagate_to) {
             auto it = propagate_from;

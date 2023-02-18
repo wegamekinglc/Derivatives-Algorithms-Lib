@@ -35,7 +35,7 @@ TEST(AnalyticsTest, TestBlackScholesAAD) {
     ASSERT_NEAR(call_price.value(), 8.53592506466286, 1e-10);
 
     call_price.setGradient(1.0);
-    tape.evaluate();
+    tape.evaluate(tape.getPosition(), tape.getZeroPosition());
     ASSERT_NEAR(forward.getGradient(), 0.433995720171781, 1e-8);
     ASSERT_NEAR(vol.getGradient(), 61.2095050098522, 1e-8);
     ASSERT_NEAR(T.getGradient(), 3.06047525, 1e-8);

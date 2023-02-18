@@ -163,20 +163,20 @@ namespace Dal::AAD {
                 AAD::Tape_* tape = &AAD::Number_::getTape();
 
                 //  Initialize once on each thread
-                auto pos = InitModel4ParallelAAD(*tape, prd, *models[threadNum], paths[threadNum]);
+                auto begin = InitModel4ParallelAAD(*tape, prd, *models[threadNum], paths[threadNum]);
                 auto& random = rngs[threadNum];
                 random->SkipTo(firstPath);
                 for (size_t i = 0; i < pathsInTask; ++i) {
+                    tape->resetTo(begin);
                     random->FillNormal(&gaussVecs[threadNum]);
                     models[threadNum]->GeneratePath(gaussVecs[threadNum], &paths[threadNum]);
                     prd.Payoffs(paths[threadNum], &payoffs[threadNum]);
                     Number_ result = payoffs[threadNum][0];
                     result.setGradient(1.0);
-                    tape->evaluate(tape->getPosition(), pos);
+                    tape->evaluate(tape->getPosition(), begin);
                     results.aggregated_[firstPath + i] = result.value();
-                    tape->resetTo(pos);
                 }
-                tape->evaluate(pos, tape->getZeroPosition());
+                tape->evaluate(begin, tape->getZeroPosition());
                 for (size_t j = 0; j < nParam; ++j)
                     results.risks_[j] += models[threadNum]->Parameters()[j]->getGradient();
                 tape->reset();

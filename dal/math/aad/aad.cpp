@@ -24,6 +24,6 @@ namespace Dal::AAD {
     size_t TapNode_::num_adj_ = 1;
     bool Tape_::multi_ = false;
 
-    thread_local Tape_* Number_::tape_ = CreateGlobalTape();
+    thread_local Tape_ Number_::tape_{};
 } // namespace Dal
 #endif

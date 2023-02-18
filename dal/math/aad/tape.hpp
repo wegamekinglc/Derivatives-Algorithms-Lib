@@ -40,61 +40,42 @@ namespace Dal::AAD {
                 std::fill(node->p_adjoints_, node->p_adjoints_ + TapNode_::num_adj_, 0.0);
             }
 
-            if constexpr(static_cast<bool>(N_)) {
+            if constexpr (static_cast<bool>(N_)) {
                 node->p_derivatives_ = ders_.EmplaceBackMulti<N_>();
                 node->p_adj_ptrs_ = arg_ptrs_.EmplaceBackMulti<N_>();
             }
             return node;
         }
 
-        void ResetAdjoints() {
-            if (multi_)
-                adjoints_multi_.Memset(0);
-            else {
-                for (auto it = nodes_.Begin(); it != nodes_.End(); ++it)
-                    it->adjoint_ = 0.;
-            }
-        }
+        void ResetAdjoints();
 
-        void Clear() {
-            adjoints_multi_.Clear();
-            ders_.Clear();
-            arg_ptrs_.Clear();
-            nodes_.Clear();
-        }
+        void Clear();
 
-        void Rewind() {
-            if (multi_)
-                adjoints_multi_.Rewind();
-            ders_.Rewind();
-            arg_ptrs_.Rewind();
-            nodes_.Rewind();
-        }
+        void setActive();
+        void registerInput(Number_& input);
 
-        void Mark() {
-            if (multi_)
-                adjoints_multi_.SetMark();
-            ders_.SetMark();
-            arg_ptrs_.SetMark();
-            nodes_.SetMark();
-        }
-
-        void RewindToMark() {
-            if (multi_)
-                adjoints_multi_.RewindToMark();
-            ders_.RewindToMark();
-            arg_ptrs_.RewindToMark();
-            nodes_.RewindToMark();
-        }
+        void reset();
+        void Mark();
+        void RewindToMark();
 
         using Iterator_ = typename BlockList_<TapNode_, BLOCK_SIZE>::Iterator_;
 
-        auto Begin() { return nodes_.Begin(); }
+        struct Position_ {
+            BlockList_<double, ADJ_SIZE>::Iterator_ adjoints_multi_pos_;
+            BlockList_<double, DATA_SIZE>::Iterator_ ders_pos_;
+            BlockList_<double*, DATA_SIZE>::Iterator_ arg_ptrs_pos_;
+            BlockList_<TapNode_, BLOCK_SIZE>::Iterator_ nodes_pos_;
+        };
 
-        auto End() { return nodes_.End(); }
+        Iterator_ Begin() { return nodes_.Begin(); }
+        Iterator_ End() { return nodes_.End(); }
+        Iterator_ MarkIt() { return nodes_.Mark(); }
+        Iterator_ Find(TapNode_* node) { return nodes_.Find(node); }
 
-        auto MarkIt() { return nodes_.Mark(); }
-
-        auto Find(TapNode_* node) { return nodes_.Find(node); }
+        Position_ getPosition();
+        Position_ getZeroPosition();
+        void resetTo(const Position_&);
+        void evaluate(const Position_&, const Position_&);
+        void evaluate();
     };
-} // namespace Dal
+} // namespace Dal::AAD

@@ -6,436 +6,502 @@
 #include <cmath>
 #include <gtest/gtest.h>
 
-#ifndef USE_CODI
+#ifndef USE_ADEPT
 
 using namespace Dal::AAD;
 
 TEST(AADNumberTest, TestNumberAdd) {
 
-    Number_::tape_->Clear();
+    auto& tape = Number_::getTape();
+    tape.setActive();
 
     Number_ s1(1.0); 
     Number_ s2(2.0);
-    s1.PutOnTape();
-    s2.PutOnTape();
+    tape.registerInput(s1);
+    tape.registerInput(s2);
     Number_ value = s1 + s2;
-    ASSERT_NEAR(value.Value(), 3.0, 1e-10);
-    value.PropagateToStart();
-    ASSERT_NEAR(s1.Adjoint(), 1.0, 1e-10);
-    ASSERT_NEAR(s2.Adjoint(), 1.0, 1e-10);
-    Number_::tape_->Rewind();
+    value.setGradient(1.0);
+    tape.evaluate();
+    ASSERT_NEAR(value.value(), 3.0, 1e-10);
+    ASSERT_NEAR(s1.getGradient(), 1.0, 1e-10);
+    ASSERT_NEAR(s2.getGradient(), 1.0, 1e-10);
+    tape.reset();
 
     s1 = 1.0;
-    s1.PutOnTape();
+    tape.registerInput(s1);
     value = s1 + 2.0;
-    value.PropagateToStart();
-    ASSERT_NEAR(s1.Adjoint(), 1.0, 1e-10);
-    Number_::tape_->Rewind();
+    value.setGradient(1.0);
+    tape.evaluate();
+    ASSERT_NEAR(s1.getGradient(), 1.0, 1e-10);
+    tape.reset();
 
     s2 = 2.0;
-    s2.PutOnTape();
+    tape.registerInput(s2);
     value = 1.0 + s2;
-    value.PropagateToStart();
-    ASSERT_NEAR(s2.Adjoint(), 1.0, 1e-10);
-    Number_::tape_->Clear();
+    value.setGradient(1.0);
+    tape.evaluate();
+    ASSERT_NEAR(s2.getGradient(), 1.0, 1e-10);
+    tape.reset();
 }
 
 TEST(AADNumberTest, TestNumberSub) {
 
-    Number_::tape_->Clear();
+    auto& tape = Number_::getTape();
+    tape.setActive();
 
     Number_ s1(1.0);
     Number_ s2(2.0);
-    s1.PutOnTape();
-    s2.PutOnTape();
+    tape.registerInput(s1);
+    tape.registerInput(s2);
     Number_ value = s1 - s2;
-    ASSERT_NEAR(value.Value(), -1.0, 1e-10);
-    value.PropagateToStart();
-    ASSERT_NEAR(s1.Adjoint(), 1.0, 1e-10);
-    ASSERT_NEAR(s2.Adjoint(), -1.0, 1e-10);
-    Number_::tape_->Rewind();
+    value.setGradient(1.0);
+    tape.evaluate();
+    ASSERT_NEAR(value.value(), -1.0, 1e-10);
+    ASSERT_NEAR(s1.getGradient(), 1.0, 1e-10);
+    ASSERT_NEAR(s2.getGradient(), -1.0, 1e-10);
+    tape.reset();
 
     s1 = 1.0;
-    s1.PutOnTape();
+    tape.registerInput(s1);
     value = s1 - 2.0;
-    value.PropagateToStart();
-    ASSERT_NEAR(s1.Adjoint(), 1.0, 1e-10);
-    Number_::tape_->Rewind();
+    value.setGradient(1.0);
+    tape.evaluate();
+    ASSERT_NEAR(s1.getGradient(), 1.0, 1e-10);
+    tape.reset();
 
     s2 = 2.0;
-    s2.PutOnTape();
+    tape.registerInput(s2);
     value = 1.0 - s2;
-    value.PropagateToStart();
-    ASSERT_NEAR(s2.Adjoint(), -1.0, 1e-10);
-    Number_::tape_->Clear();
+    value.setGradient(1.0);
+    tape.evaluate();
+    ASSERT_NEAR(s2.getGradient(), -1.0, 1e-10);
+    tape.reset();
 }
 
 TEST(AADNumberTest, TestNumberMultiply) {
 
-    Number_::tape_->Clear();
+    auto& tape = Number_::getTape();
+    tape.setActive();
 
     Number_ s1(3.0);
     Number_ s2(2.0);
-    s1.PutOnTape();
-    s2.PutOnTape();
+    tape.registerInput(s1);
+    tape.registerInput(s2);
     Number_ value = s1 * s2;
-    ASSERT_NEAR(value.Value(), 6.0, 1e-10);
-    value.PropagateToStart();
-    ASSERT_NEAR(s1.Adjoint(), 2.0, 1e-10);
-    ASSERT_NEAR(s2.Adjoint(), 3.0, 1e-10);
-    Number_::tape_->Rewind();
+    value.setGradient(1.0);
+    tape.evaluate();
+    ASSERT_NEAR(value.value(), 6.0, 1e-10);
+    ASSERT_NEAR(s1.getGradient(), 2.0, 1e-10);
+    ASSERT_NEAR(s2.getGradient(), 3.0, 1e-10);
+    tape.reset();
 
     s1 = 3.0;
-    s1.PutOnTape();
+    tape.registerInput(s1);
     value = s1 * 2.0;
-    value.PropagateToStart();
-    ASSERT_NEAR(s1.Adjoint(), 2.0, 1e-10);
-    Number_::tape_->Rewind();
+    value.setGradient(1.0);
+    tape.evaluate();
+    ASSERT_NEAR(s1.getGradient(), 2.0, 1e-10);
+    tape.reset();
 
     s2 = 2.0;
-    s2.PutOnTape();
+    tape.registerInput(s2);
     value = 3.0 * s2;
-    value.PropagateToStart();
-    ASSERT_NEAR(s2.Adjoint(), 3.0, 1e-10);
-    Number_::tape_->Clear();
+    value.setGradient(1.0);
+    tape.evaluate();
+    ASSERT_NEAR(s2.getGradient(), 3.0, 1e-10);
+    tape.reset();
 }
 
 TEST(AADNumberTest, TestNumberDivide) {
 
-    Number_::tape_->Clear();
+    auto& tape = Number_::getTape();
+    tape.setActive();
 
     Number_ s1(3.0);
     Number_ s2(2.0);
-    s1.PutOnTape();
-    s2.PutOnTape();
+    tape.registerInput(s1);
+    tape.registerInput(s2);
     Number_ value = s1 / s2;
-    ASSERT_NEAR(value.Value(), 1.5, 1e-10);
-    value.PropagateToStart();
-    ASSERT_NEAR(s1.Adjoint(), 1./ s2.Value(), 1e-10);
-    ASSERT_NEAR(s2.Adjoint(), -s1.Value() / s2.Value() / s2.Value(), 1e-10);
-    Number_::tape_->Rewind();
+    ASSERT_NEAR(value.value(), 1.5, 1e-10);
+    value.setGradient(1.0);
+    tape.evaluate();
+    ASSERT_NEAR(s1.getGradient(), 1./ s2.value(), 1e-10);
+    ASSERT_NEAR(s2.getGradient(), -s1.value() / s2.value() / s2.value(), 1e-10);
+    tape.reset();
 
     s1 = 3.0;
-    s1.PutOnTape();
+    tape.registerInput(s1);
     value = s1 / 2.0;
-    value.PropagateToStart();
-    ASSERT_NEAR(s1.Adjoint(), 1. / 2.0, 1e-10);
-    Number_::tape_->Rewind();
+    value.setGradient(1.0);
+    tape.evaluate();
+    ASSERT_NEAR(s1.getGradient(), 1. / 2.0, 1e-10);
+    tape.reset();
 
     s2 = 2.0;
-    s2.PutOnTape();
+    tape.registerInput(s2);
     value = 3.0 / s2;
-    value.PropagateToStart();
-    ASSERT_NEAR(s2.Adjoint(), -3.0 / s2.Value() / s2.Value(), 1e-10);
-    Number_::tape_->Clear();
+    value.setGradient(1.0);
+    tape.evaluate();
+    ASSERT_NEAR(s2.getGradient(), -3.0 / s2.value() / s2.value(), 1e-10);
+    tape.reset();
 }
 
 TEST(AADNumberTest, TestNumberPow) {
-    Number_::tape_->Clear();
+    auto& tape = Number_::getTape();
+    tape.setActive();
 
     Number_ s1(3.0);
     Number_ s2(2.0);
-    s1.PutOnTape();
-    s2.PutOnTape();
+    tape.registerInput(s1);
+    tape.registerInput(s2);
     Number_ value = pow(s1, s2);
-    ASSERT_NEAR(value.Value(), std::pow(s1.Value(), s2.Value()), 1e-10);
-    value.PropagateToStart();
-    ASSERT_NEAR(s1.Adjoint(), s2.Value() * std::pow(s1.Value(), s2.Value() - 1), 1e-10);
-    ASSERT_NEAR(s2.Adjoint(), value.Value() * std::log(s1.Value()), 1e-10);
-    Number_::tape_->Rewind();
+    ASSERT_NEAR(value.value(), std::pow(s1.value(), s2.value()), 1e-10);
+    value.setGradient(1.0);
+    tape.evaluate();
+    ASSERT_NEAR(s1.getGradient(), s2.value() * std::pow(s1.value(), s2.value() - 1), 1e-10);
+    ASSERT_NEAR(s2.getGradient(), value.value() * std::log(s1.value()), 1e-10);
+    tape.reset();
 
     s1 = 3.0;
-    s1.PutOnTape();
+    tape.registerInput(s1);
     value = pow(s1, 2.0);
-    value.PropagateToStart();
-    ASSERT_NEAR(s1.Adjoint(), s2.Value() * std::pow(s1.Value(), 1.0), 1e-10);
-    Number_::tape_->Rewind();
+    value.setGradient(1.0);
+    tape.evaluate();
+    ASSERT_NEAR(s1.getGradient(), s2.value() * std::pow(s1.value(), 1.0), 1e-10);
+    tape.reset();
 
     s2 = 2.0;
-    s2.PutOnTape();
+    tape.registerInput(s2);
     value = pow(3.0, s2);
-    value.PropagateToStart();
-    ASSERT_NEAR(s2.Adjoint(), value.Value() * std::log(3.0), 1e-10);
-    Number_::tape_->Clear();
+    value.setGradient(1.0);
+    tape.evaluate();
+    ASSERT_NEAR(s2.getGradient(), value.value() * std::log(3.0), 1e-10);
+    tape.reset();
 }
 
 TEST(AADNumberTest, TestNumberMax) {
-    Number_::tape_->Clear();
+    auto& tape = Number_::getTape();
+    tape.setActive();
 
     Number_ s1(3.0);
     Number_ s2(2.0);
-    s1.PutOnTape();
-    s2.PutOnTape();
+    tape.registerInput(s1);
+    tape.registerInput(s2);
     Number_ value = max(s1, s2);
-    ASSERT_NEAR(value.Value(), 3.0, 1e-10);
-    value.PropagateToStart();
-    ASSERT_NEAR(s1.Adjoint(), 1.0, 1e-10);
-    ASSERT_NEAR(s2.Adjoint(), 0.0, 1e-10);
-    Number_::tape_->Rewind();
+    ASSERT_NEAR(value.value(), 3.0, 1e-10);
+    value.setGradient(1.0);
+    tape.evaluate();
+    ASSERT_NEAR(s1.getGradient(), 1.0, 1e-10);
+    ASSERT_NEAR(s2.getGradient(), 0.0, 1e-10);
+    tape.reset();
 
     s1 = 3.0;
-    s1.PutOnTape();
+    tape.registerInput(s1);
     value = max(s1, 2.0);
-    value.PropagateToStart();
-    ASSERT_NEAR(s1.Adjoint(), 1.0, 1e-10);
-    Number_::tape_->Rewind();
+    value.setGradient(1.0);
+    tape.evaluate();
+    ASSERT_NEAR(s1.getGradient(), 1.0, 1e-10);
+    tape.reset();
 
     s2 = 2.0;
-    s2.PutOnTape();
+    tape.registerInput(s2);
     value = max(3.0, s2);
-    value.PropagateToStart();
-    ASSERT_NEAR(s2.Adjoint(), 0.0, 1e-10);
-    Number_::tape_->Rewind();
+    value.setGradient(1.0);
+    tape.evaluate();
+    ASSERT_NEAR(s2.getGradient(), 0.0, 1e-10);
+    tape.reset();
 
     s1 = 2.0;
     s2 = 3.0;
-    s1.PutOnTape();
-    s2.PutOnTape();
+    tape.registerInput(s1);
+    tape.registerInput(s2);
     value = max(s1, s2);
-    ASSERT_NEAR(value.Value(), 3.0, 1e-10);
-    value.PropagateToStart();
-    ASSERT_NEAR(s1.Adjoint(), 0.0, 1e-10);
-    ASSERT_NEAR(s2.Adjoint(), 1.0, 1e-10);
+    ASSERT_NEAR(value.value(), 3.0, 1e-10);
+    value.setGradient(1.0);
+    tape.evaluate();
+    ASSERT_NEAR(s1.getGradient(), 0.0, 1e-10);
+    ASSERT_NEAR(s2.getGradient(), 1.0, 1e-10);
 
     s1 = 2.0;
-    s1.PutOnTape();
+    tape.registerInput(s1);
     value = max(s1, 3.0);
-    value.PropagateToStart();
-    ASSERT_NEAR(s1.Adjoint(), 0.0, 1e-10);
-    Number_::tape_->Rewind();
+    value.setGradient(1.0);
+    tape.evaluate();
+    ASSERT_NEAR(s1.getGradient(), 0.0, 1e-10);
+    tape.reset();
 
     s2 = 3.0;
-    s2.PutOnTape();
+    tape.registerInput(s2);
     value = max(2.0, s2);
-    value.PropagateToStart();
-    ASSERT_NEAR(s2.Adjoint(), 1.0, 1e-10);
-    Number_::tape_->Clear();
+    value.setGradient(1.0);
+    tape.evaluate();
+    ASSERT_NEAR(s2.getGradient(), 1.0, 1e-10);
+    tape.reset();
 }
 
 TEST(AADNumberTest, TestNumberMin) {
-    Number_::tape_->Clear();
+    auto& tape = Number_::getTape();
+    tape.setActive();
 
     Number_ s1(3.0);
     Number_ s2(2.0);
-    s1.PutOnTape();
-    s2.PutOnTape();
+    tape.registerInput(s1);
+    tape.registerInput(s2);
     Number_ value = min(s1, s2);
-    ASSERT_NEAR(value.Value(), 2.0, 1e-10);
-    value.PropagateToStart();
-    ASSERT_NEAR(s1.Adjoint(), 0.0, 1e-10);
-    ASSERT_NEAR(s2.Adjoint(), 1.0, 1e-10);
-    Number_::tape_->Rewind();
+    ASSERT_NEAR(value.value(), 2.0, 1e-10);
+    value.setGradient(1.0);
+    tape.evaluate();
+    ASSERT_NEAR(s1.getGradient(), 0.0, 1e-10);
+    ASSERT_NEAR(s2.getGradient(), 1.0, 1e-10);
+    tape.reset();
 
     s1 = 3.0;
-    s1.PutOnTape();
+    tape.registerInput(s1);
     value = min(s1, 2.0);
-    value.PropagateToStart();
-    ASSERT_NEAR(s1.Adjoint(), 0.0, 1e-10);
-    Number_::tape_->Rewind();
+    value.setGradient(1.0);
+    tape.evaluate();
+    ASSERT_NEAR(s1.getGradient(), 0.0, 1e-10);
+    tape.reset();
 
     s2 = 2.0;
-    s2.PutOnTape();
+    tape.registerInput(s2);
     value = min(3.0, s2);
-    value.PropagateToStart();
-    ASSERT_NEAR(s2.Adjoint(), 1.0, 1e-10);
-    Number_::tape_->Rewind();
+    value.setGradient(1.0);
+    tape.evaluate();
+    ASSERT_NEAR(s2.getGradient(), 1.0, 1e-10);
+    tape.reset();
 
     s1 = 2.0;
     s2 = 3.0;
-    s1.PutOnTape();
-    s2.PutOnTape();
+    tape.registerInput(s1);
+    tape.registerInput(s2);
     value = min(s1, s2);
-    ASSERT_NEAR(value.Value(), 2.0, 1e-10);
-    value.PropagateToStart();
-    ASSERT_NEAR(s1.Adjoint(), 1.0, 1e-10);
-    ASSERT_NEAR(s2.Adjoint(), 0.0, 1e-10);
-    Number_::tape_->Rewind();
+    ASSERT_NEAR(value.value(), 2.0, 1e-10);
+    value.setGradient(1.0);
+    tape.evaluate();
+    ASSERT_NEAR(s1.getGradient(), 1.0, 1e-10);
+    ASSERT_NEAR(s2.getGradient(), 0.0, 1e-10);
+    tape.reset();
 
     s1 = 2.0;
-    s1.PutOnTape();
+    tape.registerInput(s1);
     value = min(s1, 3.0);
-    value.PropagateToStart();
-    ASSERT_NEAR(s1.Adjoint(), 1.0, 1e-10);
-    Number_::tape_->Rewind();
+    value.setGradient(1.0);
+    tape.evaluate();
+    ASSERT_NEAR(s1.getGradient(), 1.0, 1e-10);
+    tape.reset();
 
     s2 = 3.0;
-    s2.PutOnTape();
+    tape.registerInput(s2);
     value = min(2.0, s2);
-    value.PropagateToStart();
-    ASSERT_NEAR(s2.Adjoint(), 0.0, 1e-10);
-    Number_::tape_->Clear();
+    value.setGradient(1.0);
+    tape.evaluate();
+    ASSERT_NEAR(s2.getGradient(), 0.0, 1e-10);
+    tape.reset();
 }
 
 
 TEST(AADNumberTest, TestNumberEqualAdd) {
 
-    Number_::tape_->Clear();
+    auto& tape = Number_::getTape();
+    tape.setActive();
 
     Number_ s1(1.0);
     Number_ s2(2.0);
-    s1.PutOnTape();
-    s2.PutOnTape();
-    s1 += s2;
-    ASSERT_NEAR(s1.Value(), 3.0, 1e-10);
-    s1.PropagateToStart();
-    ASSERT_NEAR(s1.Adjoint(), 1.0, 1e-10);
-    ASSERT_NEAR(s2.Adjoint(), 1.0, 1e-10);
-    Number_::tape_->Rewind();
+    tape.registerInput(s1);
+    tape.registerInput(s2);
+    Number_ s3 = s1;
+    s3 += s2;
+    ASSERT_NEAR(s3.value(), 3.0, 1e-10);
+    s3.setGradient(1.0);
+    tape.evaluate();
+    ASSERT_NEAR(s1.getGradient(), 1.0, 1e-10);
+    ASSERT_NEAR(s2.getGradient(), 1.0, 1e-10);
+    tape.reset();
 
     s1 = 1.0;
-    s1.PutOnTape();
-    s1 += 2.0;
-    ASSERT_NEAR(s1.Value(), 3.0, 1e-10);
-    s1.PropagateToStart();
-    ASSERT_NEAR(s1.Adjoint(), 1.0, 1e-10);
-    Number_::tape_->Clear();
+    tape.registerInput(s1);
+    s3 = s1;
+    s3 += 2.0;
+    ASSERT_NEAR(s3.value(), 3.0, 1e-10);
+    s3.setGradient(1.0);
+    tape.evaluate();
+    ASSERT_NEAR(s1.getGradient(), 1.0, 1e-10);
+    tape.reset();
 }
 
 
 TEST(AADNumberTest, TestNumberEqualSub) {
 
-    Number_::tape_->Clear();
+    auto& tape = Number_::getTape();
+    tape.setActive();
 
     Number_ s1(1.0);
     Number_ s2(2.0);
-    s1.PutOnTape();
-    s2.PutOnTape();
-    s1 -= s2;
-    ASSERT_NEAR(s1.Value(), -1.0, 1e-10);
-    s1.PropagateToStart();
-    ASSERT_NEAR(s1.Adjoint(), 1.0, 1e-10);
-    ASSERT_NEAR(s2.Adjoint(), -1.0, 1e-10);
-    Number_::tape_->Rewind();
+    tape.registerInput(s1);
+    tape.registerInput(s2);
+    Number_ s3 = s1;
+    s3 -= s2;
+    ASSERT_NEAR(s3.value(), -1.0, 1e-10);
+    s3.setGradient(1.0);
+    tape.evaluate();
+    ASSERT_NEAR(s1.getGradient(), 1.0, 1e-10);
+    ASSERT_NEAR(s2.getGradient(), -1.0, 1e-10);
+    tape.reset();
 
     s1 = 1.0;
-    s1.PutOnTape();
-    s1 -= 2.0;
-    ASSERT_NEAR(s1.Value(), -1.0, 1e-10);
-    s1.PropagateToStart();
-    ASSERT_NEAR(s1.Adjoint(), 1.0, 1e-10);
-    Number_::tape_->Clear();
+    tape.registerInput(s1);
+    s3 = s1;
+    s3 -= 2.0;
+    ASSERT_NEAR(s3.value(), -1.0, 1e-10);
+    s3.setGradient(1.0);
+    tape.evaluate();
+    ASSERT_NEAR(s1.getGradient(), 1.0, 1e-10);
+    tape.reset();
 }
 
 
 TEST(AADNumberTest, TestNumberEqualMultiply) {
 
-    Number_::tape_->Clear();
+    auto& tape = Number_::getTape();
+    tape.setActive();
 
     Number_ s1(2.0);
     Number_ s2(3.0);
-    s1.PutOnTape();
-    s2.PutOnTape();
-    s1 *= s2;
-    ASSERT_NEAR(s1.Value(), 6.0, 1e-10);
-    s1.PropagateToStart();
-    ASSERT_NEAR(s1.Adjoint(), 1.0, 1e-10);
-    ASSERT_NEAR(s2.Adjoint(), 2.0, 1e-10);
-    Number_::tape_->Rewind();
+    tape.registerInput(s1);
+    tape.registerInput(s2);
+    Number_ s3 = s1;
+    s3 *= s2;
+    ASSERT_NEAR(s3.value(), 6.0, 1e-10);
+    s3.setGradient(1.0);
+    tape.evaluate();
+    ASSERT_NEAR(s1.getGradient(), 3.0, 1e-10);
+    ASSERT_NEAR(s2.getGradient(), 2.0, 1e-10);
+    tape.reset();
 
     s1 = 2.0;
-    s1.PutOnTape();
-    s1 *= 3.0;
-    ASSERT_NEAR(s1.Value(), 6.0, 1e-10);
-    s1.PropagateToStart();
-    ASSERT_NEAR(s1.Adjoint(), 1.0, 1e-10);
-    Number_::tape_->Clear();
+    tape.registerInput(s1);
+    s3 = s1;
+    s3 *= 3.0;
+    ASSERT_NEAR(s3.value(), 6.0, 1e-10);
+    s3.setGradient(1.0);
+    tape.evaluate();
+    ASSERT_NEAR(s1.getGradient(), 3.0, 1e-10);
+    tape.reset();
 }
 
 
 TEST(AADNumberTest, TestNumberEqualDivide) {
 
-    Number_::tape_->Clear();
+    auto& tape = Number_::getTape();
+    tape.setActive();
 
     Number_ s1(2.0);
     Number_ s2(3.0);
-    s1.PutOnTape();
-    s2.PutOnTape();
-    s1 /= s2;
-    ASSERT_NEAR(s1.Value(), 0.66666666666666, 1e-10);
-    s1.PropagateToStart();
-    ASSERT_NEAR(s1.Adjoint(), 1.0, 1e-10);
-    ASSERT_NEAR(s2.Adjoint(), -2.0 / 9.0, 1e-10);
-    Number_::tape_->Rewind();
+    tape.registerInput(s1);
+    tape.registerInput(s2);
+    Number_ s3 = s1;
+    s3 /= s2;
+    ASSERT_NEAR(s3.value(), 0.66666666666666, 1e-10);
+    s3.setGradient(1.0);
+    tape.evaluate();
+    ASSERT_NEAR(s1.getGradient(), 1 / 3.0, 1e-10);
+    ASSERT_NEAR(s2.getGradient(), -2.0 / 9.0, 1e-10);
+    tape.reset();
 
     s1 = 2.0;
-    s1.PutOnTape();
-    s1 /= 3.0;
-    ASSERT_NEAR(s1.Value(), 0.66666666666666, 1e-10);
-    s1.PropagateToStart();
-    ASSERT_NEAR(s1.Adjoint(), 1.0, 1e-10);
-    Number_::tape_->Rewind();
+    tape.registerInput(s1);
+    s3 = s1;
+    s3 /= 3.0;
+    ASSERT_NEAR(s3.value(), 0.66666666666666, 1e-10);
+    s3.setGradient(1.0);
+    tape.evaluate();
+    ASSERT_NEAR(s1.getGradient(), 1 / 3.0, 1e-10);
+    tape.reset();
 }
 
 
 TEST(AADNumberTest, TestNumberNegative) {
-    Number_::tape_->Clear();
+    auto& tape = Number_::getTape();
+    tape.setActive();
     Number_ s1(2.0);
-    s1.PutOnTape();
+    tape.registerInput(s1);
     Number_ value = -s1;
-    ASSERT_NEAR(value.Value(), -2.0, 1e-10);
-    value.PropagateToStart();
-    ASSERT_NEAR(s1.Adjoint(), -1.0, 1e-10);
-    Number_::tape_->Clear();
+    ASSERT_NEAR(value.value(), -2.0, 1e-10);
+    value.setGradient(1.0);
+    tape.evaluate();
+    ASSERT_NEAR(s1.getGradient(), -1.0, 1e-10);
+    tape.reset();
 }
 
 
 TEST(AADNumberTest, TestNumberPositive) {
-    Number_::tape_->Clear();
+    auto& tape = Number_::getTape();
+    tape.setActive();
     Number_ s1(2.0);
-    s1.PutOnTape();
+    tape.registerInput(s1);
     Number_ value = +s1;
-    ASSERT_NEAR(value.Value(), 2.0, 1e-10);
-    value.PropagateToStart();
-    ASSERT_NEAR(s1.Adjoint(), 1.0, 1e-10);
-    Number_::tape_->Clear();
+    ASSERT_NEAR(value.value(), 2.0, 1e-10);
+    value.setGradient(1.0);
+    tape.evaluate();
+    ASSERT_NEAR(s1.getGradient(), 1.0, 1e-10);
+    tape.reset();
 }
 
 
 TEST(AADNumberTest, TestNumberExp) {
-    Number_::tape_->Clear();
+    auto& tape = Number_::getTape();
+    tape.setActive();
     Number_ s1(2.0);
-    s1.PutOnTape();
+    tape.registerInput(s1);
     Number_ value = exp(s1);
-    ASSERT_NEAR(value.Value(), std::exp(2.0), 1e-10);
-    value.PropagateToStart();
-    ASSERT_NEAR(s1.Adjoint(), std::exp(2.0), 1e-10);
-    Number_::tape_->Clear();
+    ASSERT_NEAR(value.value(), std::exp(2.0), 1e-10);
+    value.setGradient(1.0);
+    tape.evaluate();
+    ASSERT_NEAR(s1.getGradient(), std::exp(2.0), 1e-10);
+    tape.reset();
 }
 
 
 TEST(AADNumberTest, TestNumberLog) {
-    Number_::tape_->Clear();
+    auto& tape = Number_::getTape();
+    tape.setActive();
     Number_ s1(2.0);
-    s1.PutOnTape();
+    tape.registerInput(s1);
     Number_ value = log(s1);
-    ASSERT_NEAR(value.Value(), std::log(2.0), 1e-10);
-    value.PropagateToStart();
-    ASSERT_NEAR(s1.Adjoint(), 0.5, 1e-10);
-    Number_::tape_->Clear();
+    ASSERT_NEAR(value.value(), std::log(2.0), 1e-10);
+    value.setGradient(1.0);
+    tape.evaluate();
+    ASSERT_NEAR(s1.getGradient(), 0.5, 1e-10);
+    tape.reset();
 }
 
 
 TEST(AADNumberTest, TestNumberSqrt) {
-    Number_::tape_->Clear();
+    auto& tape = Number_::getTape();
+    tape.setActive();
     Number_ s1(2.0);
-    s1.PutOnTape();
+    tape.registerInput(s1);
     Number_ value = sqrt(s1);
-    ASSERT_NEAR(value.Value(), std::sqrt(2.0), 1e-10);
-    value.PropagateToStart();
-    ASSERT_NEAR(s1.Adjoint(), 0.5 / std::sqrt(2.0), 1e-10);
-    Number_::tape_->Clear();
+    ASSERT_NEAR(value.value(), std::sqrt(2.0), 1e-10);
+    value.setGradient(1.0);
+    tape.evaluate();
+    ASSERT_NEAR(s1.getGradient(), 0.5 / std::sqrt(2.0), 1e-10);
+    tape.reset();
 }
 
 
 TEST(AADNumberTest, TestNumberFabs) {
-    Number_::tape_->Clear();
+    auto& tape = Number_::getTape();
+    tape.setActive();
     Number_ s1(-2.0);
-    s1.PutOnTape();
+    tape.registerInput(s1);
     Number_ value = fabs(s1);
-    ASSERT_NEAR(value.Value(), 2.0, 1e-10);
-    value.PropagateToStart();
-    ASSERT_NEAR(s1.Adjoint(), -1.0, 1e-10);
-    Number_::tape_->Clear();
+    ASSERT_NEAR(value.value(), 2.0, 1e-10);
+    value.setGradient(1.0);
+    tape.evaluate();
+    ASSERT_NEAR(s1.getGradient(), -1.0, 1e-10);
+    tape.reset();
 }
 
 #endif
