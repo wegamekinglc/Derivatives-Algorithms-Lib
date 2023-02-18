@@ -36,7 +36,7 @@ namespace Dal::AAD {
 }
 
 #else
-#ifdef AADET_ENABLED
+#ifdef USE_AADET
 #include <dal/math/aad/expr.hpp>
 #else
 #include <dal/math/aad/number.hpp>

@@ -2,6 +2,8 @@
 // Created by wegam on 2023/2/18.
 //
 
+#ifdef USE_AADET
+
 #include <dal/math/aad/expr.hpp>
 #include <dal/math/aad/tape.hpp>
 
@@ -89,3 +91,4 @@ namespace Dal::AAD {
     }
 
 } // namespace Dal::AAD
+#endif

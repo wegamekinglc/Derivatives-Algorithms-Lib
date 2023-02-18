@@ -4,7 +4,7 @@
 
 #pragma once
 
-//#define AADET_ENABLED
+//#define USE_AADET
 //#define USE_ADEPT
 #define USE_CODI
 
