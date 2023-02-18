@@ -34,13 +34,10 @@ namespace Dal::AAD {
     using Tape_ = typename Number_::Tape;
     using Position_ = typename Tape_::Position;
 }
+#endif
 
-#else
 #ifdef USE_AADET
 #include <dal/math/aad/expr.hpp>
-#else
-#include <dal/math/aad/number.hpp>
-#endif
 
 namespace Dal::AAD {
 
