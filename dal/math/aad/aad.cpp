@@ -13,14 +13,8 @@
 #include <dal/math/aad/aad.hpp>
 #include <dal/platform/strict.hpp>
 
-#ifndef USE_CODI
+#ifdef USE_AADET
 namespace Dal::AAD {
-    namespace {
-        Tape_* CreateGlobalTape() {
-            static Tape_ GLOBAL_TAP;
-            return &GLOBAL_TAP;
-        }
-    } // namespace
     size_t TapNode_::num_adj_ = 1;
     bool Tape_::multi_ = false;
 

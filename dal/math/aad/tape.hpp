@@ -15,7 +15,9 @@
 #include <dal/math/aad/blocklist.hpp>
 #include <dal/math/aad/node.hpp>
 
+
 namespace Dal::AAD {
+    class Number_;
     constexpr size_t BLOCK_SIZE = 16384 * 8;
     constexpr size_t ADJ_SIZE = 32768 * 8;
     constexpr size_t DATA_SIZE = 65536 * 8;
@@ -47,7 +49,7 @@ namespace Dal::AAD {
             return node;
         }
 
-        void Tape_::ResetAdjoints();
+        void ResetAdjoints();
         void Clear();
 
         void setActive();

@@ -5,7 +5,6 @@
 #include <dal/platform/platform.hpp>
 
 #ifdef USE_AADET
-
 #include <dal/math/aad/expr.hpp>
 #include <dal/math/aad/tape.hpp>
 
