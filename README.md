@@ -30,13 +30,11 @@ At current stage, this codes repository is simply for prototyping and practice. 
 
 > Some codes are directly copied from Tom and Antoine's books.
 
-## Interface
+## Excel Interface
 
 > **NOTE**: This part is only in infancy and should evolve quickly.
 
 We will give a public interface to show the functionality of this project.
-
-### Excel
 
 we have following data table
 
@@ -59,7 +57,7 @@ later we can use the interpolator:
 =INTERP1.GET("~Interp1~my.interp~2F18E558", 6.5)  # will return 4.5
 ```
 
-### Some more interesting example
+### Scripted Exotic Option Pricing
 
 We will price an european option with our script ability and a basic BS model
 
