@@ -84,7 +84,7 @@ int main() {
     else if (model_name == "dupire") {
         auto times = Vector::XRange(0.0, 5.0, 61);
         auto spots = Vector::XRange(50.0, 200.0, 31);
-        model = std::make_unique<Dupire_<Real_>>(Real_(spot), spots, times, Matrix_<Real_>(spots.size(), times.size(), Real_(0.15)), 10.0);
+        model = std::make_unique<Dupire_<Real_>>(Real_(spot), Real_(rate), Real_(div), spots, times, Matrix_<Real_>(spots.size(), times.size(), Real_(0.15)), 10.0);
     }
     std::cout << "\nParsing " << std::setprecision(8) << "\tElapsed: " << timer.Elapsed<milliseconds>() << " ms" << std::endl;
 
@@ -114,10 +114,11 @@ int main() {
         std::cout << "                     : rho   " << std::setprecision(8) << results.risks_[2] << std::endl;
     } else if (model_name == "dupire") {
         auto vega = 0.0;
-        for (int i = 1; i < results.risks_.size(); ++i)
+        for (int i = 3; i < results.risks_.size(); ++i)
             vega += results.risks_[i];
         std::cout << "                     : delta " << std::setprecision(8) << results.risks_[0] << std::endl;
         std::cout << "                     : vega  " << std::setprecision(8) << vega << std::endl;
+        std::cout << "                     : rho   " << std::setprecision(8) << results.risks_[1] << std::endl;
     }
 #endif
 

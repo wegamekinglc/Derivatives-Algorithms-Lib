@@ -25,6 +25,8 @@ version 1
 &members
 name is ?string
 spot is number
+rate is number
+repo is number
 spots is number[]
 times is number[]
 vols is number[][]
@@ -33,6 +35,8 @@ vols is number[][]
 namespace Dal::AAD {
     template <class T_ = double> class Dupire_ : public Model_<T_> {
         T_ spot_;
+        T_ r_;
+        T_ q_;
         const Vector_<SampleDef_>* defLine_;
         const Vector_<> spots_;
         Vector_<> logSpots_;
@@ -43,21 +47,28 @@ namespace Dal::AAD {
         Vector_<bool> commonSteps_;
 
         Matrix_<T_> interpVols_;
+        Vector_<T_> drifts_;
+        Vector_<T_> numeraires_;
+        Vector_<Vector_<T_>> discounts_;
         Vector_<T_*> parameters_;
         Vector_<String_> parameterLabels_;
 
     public:
         template <class U_>
         Dupire_(const U_& spot,
+                const U_& r,
+                const U_& q,
                 const Vector_<>& spots,
                 const Vector_<>& times,
                 const Matrix_<U_>& vols,
                 double maxDt = 1.0)
-            : spot_(spot), spots_(spots), logSpots_(spots.size()), times_(times), vols_(vols), maxDt_(maxDt),
-              parameters_(vols.Rows() * vols.Cols() + 1), parameterLabels_(vols.Rows() * vols.Cols() + 1) {
+            : spot_(spot), r_(r), q_(q), spots_(spots), logSpots_(spots.size()), times_(times), vols_(vols), maxDt_(maxDt),
+              parameters_(vols.Rows() * vols.Cols() + 3), parameterLabels_(vols.Rows() * vols.Cols() + 3) {
             Transform(spots_, [](double x) { return Dal::log(x); }, &logSpots_);
             parameterLabels_[0] = "spot";
-            size_t p = 0;
+            parameterLabels_[1] = "risk-free";
+            parameterLabels_[2] = "repo";
+            size_t p = 2;
             for (size_t i = 0; i < vols_.Rows(); ++i)
                 for (size_t j = 0; j < vols_.Cols(); ++j) {
                     std::ostringstream ost;
@@ -95,16 +106,35 @@ namespace Dal::AAD {
             Transform(timeLine_, [&productTimeline](double t) { return std::binary_search(productTimeline.begin(), productTimeline.end(), t); }, &commonSteps_);
             defLine_ = &defLine;
             interpVols_.Resize(timeLine_.size() - 1, spots_.size());
+            drifts_.Resize(timeLine_.size() - 1);
+
+            const size_t n = productTimeline.size();
+            numeraires_.Resize(n);
+            discounts_.Resize(n);
+            for (size_t j = 0; j < n; ++j)
+                discounts_[j].Resize(defLine[j].discountMats_.size());
         }
 
         void Init(const Vector_<>& productTimeline, const Vector_<SampleDef_>& defLine) override {
             const size_t n = timeLine_.size() - 1;
             const size_t m = logSpots_.size();
             for (size_t i = 0; i < n; ++i) {
-                const double sqrtDt = Dal::sqrt(timeLine_[i + 1] - timeLine_[i]);
+                const double dt = timeLine_[i + 1] - timeLine_[i];
+                const double sqrtDt = Dal::sqrt(dt);
+                drifts_[i] = dt * (r_ - q_);
                 for (size_t j = 0; j < m; ++j) {
                     interpVols_(i, j) = sqrtDt * InterpLinearImplX<T_>(times_, vols_.Row(j), T_(timeLine_[i]));
                 }
+            }
+
+            const size_t k = productTimeline.size();
+            for (size_t i = 0; i < k; ++i) {
+                if (defLine[i].numeraire_)
+                    numeraires_[i] = Dal::exp(r_ * productTimeline[i]);
+
+                const size_t pDF = defLine[i].discountMats_.size();
+                for (size_t j = 0; j < pDF; ++j)
+                    discounts_[i][j] = Dal::exp(-r_ * (defLine[i].discountMats_[j] - productTimeline[i]));
             }
         }
 
@@ -114,7 +144,7 @@ namespace Dal::AAD {
             T_ logSpot = Dal::log(spot_);
             size_t idx = 0;
             if (commonSteps_[idx]) {
-                FillScenario(Dal::exp(logSpot), (*path)[idx]);
+                FillScenario(idx,Dal::exp(logSpot), (*path)[idx], (*defLine_)[idx]);
                 ++idx;
             }
 
@@ -122,9 +152,9 @@ namespace Dal::AAD {
             const size_t n = timeLine_.size() - 1;
             for (size_t i = 0; i < n; ++i) {
                 T_ vol = InterpLinearImplX<T_>(logSpots_, interpVols_.Row(i), logSpot);
-                logSpot += vol * (-0.5 * vol + gaussVec[i]);
+                logSpot += drifts_[i] + vol * (-0.5 * vol + gaussVec[i]);
                 if (commonSteps_[i + 1]) {
-                    FillScenario(Dal::exp(logSpot), (*path)[idx]);
+                    FillScenario(idx, Dal::exp(logSpot), (*path)[idx], (*defLine_)[idx]);
                     ++idx;
                 }
             }
@@ -133,7 +163,9 @@ namespace Dal::AAD {
     private:
         void SetParameterPointers() {
             parameters_[0] = &spot_;
-            int k = 0;
+            parameters_[1] = &r_;
+            parameters_[2] = &q_;
+            int k = 2;
             for(size_t i = 0; i < vols_.Rows(); ++i) {
                 for (size_t j = 0; j < vols_.Cols(); ++j) {
                     ++k;
@@ -143,9 +175,12 @@ namespace Dal::AAD {
         }
 
         //  Helper function, fills a sample given the spot
-        inline static void FillScenario(const T_& spot, Sample_<T_>& scenario) {
+        inline void FillScenario(const size_t& idx, const T_& spot, Sample_<T_>& scenario, const SampleDef_& def) const {
+            if (def.numeraire_)
+                scenario.numeraire_ = numeraires_[idx];
             scenario.spot_ = spot;
             std::fill(scenario.forwards_.front().begin(), scenario.forwards_.front().end(), spot);
+            Copy(discounts_[idx], &scenario.discounts_);
         }
     };
 
@@ -161,7 +196,7 @@ namespace Dal::AAD {
         const size_t nSpots = distance(spotsBegin, spotsEnd);
 
         // Estimate ATM, and we cut the grid 2 stdevs away to avoid instabilities
-        const double atmCall = double(ivs.Call(ivs.Spot(), maturity));
+        const double atmCall = static_cast<double>(ivs.Call(ivs.Spot(), maturity));
         // Standard deviation, approx. atm call * sqrt(2pi)
         const double std = atmCall * 2.506628274631;
 
@@ -212,16 +247,20 @@ namespace Dal::AAD {
 
     struct DupireModelData_: public ModelData_ {
         double spot_;
+        double rate_;
+        double repo_;
         Vector_<> spots_;
         Vector_<> times_;
         Matrix_<> vols_;
 
         DupireModelData_(const String_& name,
                          double spot,
+                         double rate,
+                         double repo,
                          const Vector_<>& spots,
                          const Vector_<>& times,
                          const Matrix_<>& vols)
-                : ModelData_("DupireModelData_", name), spot_(spot), spots_(spots), times_(times), vols_(vols) {}
+                : ModelData_("DupireModelData_", name), spot_(spot), rate_(rate), repo_(repo), spots_(spots), times_(times), vols_(vols) {}
 
         void Write(Archive::Store_& dst) const override;
     };

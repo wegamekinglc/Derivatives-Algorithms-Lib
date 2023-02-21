@@ -51,9 +51,11 @@ namespace Dal::AAD {
 
     class IVS_ {
         double spot_;
+        double r_;
+        double q_;
 
     public:
-        explicit IVS_(double spot) : spot_(spot) {}
+        explicit IVS_(double spot, double r = 0.0, double q = 0.0) : spot_(spot), r_(r), q_(q) {}
         [[nodiscard]] double Spot() const { return spot_; }
         [[nodiscard]] virtual double ImpliedVol(double strike, double mat) const = 0;
 
@@ -74,7 +76,8 @@ namespace Dal::AAD {
             const T_ c10 = Call(strike - ds, mat, risk);
             const T_ c20 = Call(strike + ds, mat, risk);
             const T_ ckk = (c10 + c20 - 2.0 * c00) / ds / ds;
-            return Dal::sqrt(2.0 * ct / ckk) / strike;
+            const T_ ck = (c20 - c10) * 0.5 / ds;
+            return Dal::sqrt(2.0 * (ct + q_ * c00 + (r_ - q_) * ck) / ckk) / strike;
         }
 
         virtual ~IVS_() = default;

@@ -20,9 +20,11 @@ namespace Dal {
 
     FORCE_INLINE Handle_<ModelData_> NewDupireModelData(const String_& name,
                                                         double spot,
+                                                        double rate,
+                                                        double repo,
                                                         const Vector_<>& spots,
                                                         const Vector_<>& times,
                                                         const Matrix_<>& vols) {
-        return Handle_<ModelData_>(new AAD::DupireModelData_(name, spot, spots, times, vols));
+        return Handle_<ModelData_>(new AAD::DupireModelData_(name, spot, rate, repo, spots, times, vols));
     }
 }

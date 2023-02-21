@@ -42,12 +42,14 @@ auto BSModels(double spot, double vol, double rate, double div) {
     return std::make_pair(std::move(mdl), std::move(riskMdl));
 }
 
-auto DupireModels(double spot, double timeLow, double timeHigh, int timeSteps, double spotLow, double spotHigh, int spotSteps, double vol) {
+auto DupireModels(double spot, double rate, double repo, double timeLow, double timeHigh, int timeSteps, double spotLow, double spotHigh, int spotSteps, double vol) {
     auto times = Vector::XRange(timeLow, timeHigh, timeSteps + 1);
     auto spots = Vector::XRange(spotLow, spotHigh, spotSteps + 1);
 
-    std::unique_ptr<Model_<>> mdl = std::make_unique<Dupire_<>>(spot, spots, times, Matrix_<>(spots.size(), times.size(), 0.15), 10.0);
+    std::unique_ptr<Model_<>> mdl = std::make_unique<Dupire_<>>(spot, rate, repo, spots, times, Matrix_<>(spots.size(), times.size(), 0.15), 10.0);
     std::unique_ptr<Model_<Number_>> riskMdl = std::make_unique<Dupire_<Number_>>(Number_(spot),
+                                                                                  Number_(rate),
+                                                                                  Number_(repo),
                                                                                   spots,
                                                                                   times,
                                                                                   Matrix_<Number_>(spots.size(), times.size(), Number_(0.15)),
@@ -64,8 +66,8 @@ int main() {
     const Date_ start = Global::Dates_().EvaluationDate();
     const double spot = 100.0;
     const double vol = 0.15;
-    const double rate = 0.0;
-    const double div = 0.0;
+    const double rate = 0.05;
+    const double div = 0.02;
     const double strike = 120.0;
     const Date_ maturity(2025, 9, 25);
     int n;
@@ -129,7 +131,7 @@ int main() {
 
 
     // use a flat dupire model
-    auto dupireModels = DupireModels(spot, 0, 5, 60, 50, 200, 30, vol);
+    auto dupireModels = DupireModels(spot, rate, div, 0, 5, 60, 50, 200, 30, vol);
     timer.Reset();
     if (use_parallel)
         res = MCParallelSimulation(*products.first, *dupireModels.first, String_(rsg_type), n_paths, use_bb);
@@ -154,9 +156,10 @@ int main() {
     std::cout << "                        : delta " << std::setprecision(8) << resAAD.risks_[0] << std::endl;
     // for flat dupire model, we have to aggregate all the vega risk together to get a whole picture.
     auto risk_sum = 0.0;
-    for (int i = 1; i < resAAD.risks_.size(); ++i)
+    for (int i = 3; i < resAAD.risks_.size(); ++i)
         risk_sum += resAAD.risks_[i];
     std::cout << "                        : vega  " << std::setprecision(8) << risk_sum << std::endl;
+    std::cout << "                        : rho   " << std::setprecision(8) << resAAD.risks_[1] << std::endl;
 
     /*
      * up and out call
@@ -218,9 +221,10 @@ int main() {
     std::cout << "                   : delta " << std::setprecision(8) << resAAD.risks_[0] << std::endl;
     // for flat dupire model, we have to aggregate all the vega risk together to get a whole picture.
     risk_sum = 0.0;
-    for (int i = 1; i < resAAD.risks_.size(); ++i)
+    for (int i = 3; i < resAAD.risks_.size(); ++i)
         risk_sum += resAAD.risks_[i];
     std::cout << "                   : vega  " << std::setprecision(8) << risk_sum << std::endl;
+    std::cout << "                   : rho " << std::setprecision(8) << resAAD.risks_[1] << std::endl;
 
     // for matrix of risk report for UOC under B-S
     for (int round = 12; round <= 27; ++round) {
@@ -235,10 +239,11 @@ int main() {
             sum += resAAD.aggregated_[row];
         auto price = sum / static_cast<double>(resAAD.Rows());
         auto delta = resAAD.risks_[0];
+        auto rho = resAAD.risks_[1];
         auto vega = 0.0;
-        for (int i = 1; i < resAAD.risks_.size(); ++i)
+        for (int i = 3; i < resAAD.risks_.size(); ++i)
             vega += resAAD.risks_[i];
-        std::cout << round << ", " << price << ", " << delta << ", " << vega << ", " << timer.Elapsed<milliseconds>() << std::endl;
+        std::cout << round << ", " << price << ", " << delta << ", " << rho << ", " << vega << ", " << timer.Elapsed<milliseconds>() << std::endl;
     }
 
     return 0;

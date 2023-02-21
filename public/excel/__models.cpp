@@ -33,6 +33,10 @@ name is string
     A name for the object being created
 spot is number
     current spot value
+rate is number
+    risk-free rate
+repo is number
+    repo rate including dividend
 spots is number[]
     local vol surface spots data
 times is number[]
@@ -59,11 +63,13 @@ namespace Dal {
 
         void DupireModelData_New(const String_& name,
                                  double spot,
+                                 double rate,
+                                 double repo,
                                  const Vector_<>& spots,
                                  const Vector_<>& times,
                                  const Matrix_<>& vols,
                                  Handle_<ModelData_>* model) {
-            NewDupireModelData(name, spot, spots, times, vols).swap(*model);
+            NewDupireModelData(name, spot, rate, repo, spots, times, vols).swap(*model);
         }
     }
 #ifdef _WIN32

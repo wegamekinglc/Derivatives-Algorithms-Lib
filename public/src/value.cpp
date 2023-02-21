@@ -56,6 +56,8 @@ namespace Dal {
             else if (model_type == "DupireModelData_") {
                 auto model_imp = dynamic_cast<const DupireModelData_*>(modelData.get());
                 aad_model = std::make_unique<Dupire_<AAD::Number_>>(AAD::Number_(model_imp->spot_),
+                                                                    AAD::Number_(model_imp->rate_),
+                                                                    AAD::Number_(model_imp->repo_),
                                                                     model_imp->spots_,
                                                                     model_imp->times_,
                                                                     ToMatrix<AAD::Number_>(model_imp->vols_));
@@ -82,6 +84,8 @@ namespace Dal {
             else if (model_type == "DupireModelData_") {
                 auto model_imp = dynamic_cast<const DupireModelData_*>(modelData.get());
                 model = std::make_unique<Dupire_<>>(model_imp->spot_,
+                                                    model_imp->rate_,
+                                                    model_imp->repo_,
                                                     model_imp->spots_,
                                                     model_imp->times_,
                                                     model_imp->vols_);

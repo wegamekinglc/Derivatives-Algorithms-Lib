@@ -3,6 +3,8 @@ namespace DupireModelData_v1 {
     struct Reader_ : Archive::Reader_ {
         String_ name_;
         double spot_;
+        double rate_;
+        double repo_;
         Vector_<double> spots_;
         Vector_<double> times_;
         Matrix_<double> vols_;
@@ -12,13 +14,15 @@ namespace DupireModelData_v1 {
             assert(src.Type() == "DupireModelData_v1");
             GetOptional(src, "name", &name_, std::mem_fn(&Archive::View_::AsString));
             Get(src, "spot", &spot_, std::mem_fn(&Archive::View_::AsDouble));
+            Get(src, "rate", &rate_, std::mem_fn(&Archive::View_::AsDouble));
+            Get(src, "repo", &repo_, std::mem_fn(&Archive::View_::AsDouble));
             Get(src, "spots", &spots_, std::mem_fn(&Archive::View_::AsDoubleVector));
             Get(src, "times", &times_, std::mem_fn(&Archive::View_::AsDoubleVector));
             Get(src, "vols", &vols_, std::mem_fn(&Archive::View_::AsDoubleMatrix));
         }
         DupireModelData_* Build() const
         {
-         return new DupireModelData_(name_, spot_, spots_, times_, vols_);
+         return new DupireModelData_(name_, spot_, rate_, repo_, spots_, times_, vols_);
         }
         DupireModelData_* Build(const Archive::View_& src, Archive::Built_& share) const {
             return Reader_(src, share).Build();

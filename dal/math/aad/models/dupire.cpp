@@ -11,6 +11,6 @@ namespace Dal::AAD {
 #include <dal/auto/MG_DupireModelData_v1_Write.inc>
 
     void DupireModelData_::Write(Archive::Store_& dst) const {
-        DupireModelData_v1::XWrite(dst, name_, spot_, spots_, times_, vols_);
+        DupireModelData_v1::XWrite(dst, name_, spot_, rate_, repo_, spots_, times_, vols_);
     }
 }
