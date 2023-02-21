@@ -18,6 +18,8 @@
     }
 
     Handle_<ModelData_> DupireModelData_New(double spot,
+                                            double rate,
+                                            double repo,
                                             const std::vector<double>& spots,
                                             const std::vector<double>& times,
                                             const Matrix_<double>& vols) {
@@ -30,7 +32,7 @@
     for (int i = 0; i < times.size(); ++i)
         new_times.push_back(times[i]);
 
-    return NewDupireModelData("DupireModelData_", spot, new_spots, new_times, vols);
+    return NewDupireModelData("DupireModelData_", spot, rate, repo, new_spots, new_times, vols);
 }
 %}
 

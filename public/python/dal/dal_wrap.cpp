@@ -5246,6 +5246,8 @@ SWIGINTERN double Matrix__Sl_double_Sg____call__(Matrix_< double > *self,int i,i
     }
 
     Handle_<ModelData_> DupireModelData_New(double spot,
+                                            double rate,
+                                            double repo,
                                             const std::vector<double>& spots,
                                             const std::vector<double>& times,
                                             const Matrix_<double>& vols) {
@@ -5258,7 +5260,7 @@ SWIGINTERN double Matrix__Sl_double_Sg____call__(Matrix_< double > *self,int i,i
     for (int i = 0; i < times.size(); ++i)
         new_times.push_back(times[i]);
 
-    return NewDupireModelData("DupireModelData_", spot, new_spots, new_times, vols);
+    return NewDupireModelData("DupireModelData_", spot, rate, repo, new_spots, new_times, vols);
 }
 
 
@@ -12867,62 +12869,78 @@ fail:
 SWIGINTERN PyObject *_wrap_DupireModelData_New(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
   PyObject *resultobj = 0;
   double arg1 ;
-  std::vector< double,std::allocator< double > > *arg2 = 0 ;
-  std::vector< double,std::allocator< double > > *arg3 = 0 ;
-  Matrix_< double > *arg4 = 0 ;
+  double arg2 ;
+  double arg3 ;
+  std::vector< double,std::allocator< double > > *arg4 = 0 ;
+  std::vector< double,std::allocator< double > > *arg5 = 0 ;
+  Matrix_< double > *arg6 = 0 ;
   double val1 ;
   int ecode1 = 0 ;
-  int res2 = SWIG_OLDOBJ ;
-  int res3 = SWIG_OLDOBJ ;
-  void *argp4 = 0 ;
-  int res4 = 0 ;
-  PyObject *swig_obj[4] ;
+  double val2 ;
+  int ecode2 = 0 ;
+  double val3 ;
+  int ecode3 = 0 ;
+  int res4 = SWIG_OLDOBJ ;
+  int res5 = SWIG_OLDOBJ ;
+  void *argp6 = 0 ;
+  int res6 = 0 ;
+  PyObject *swig_obj[6] ;
   Handle_< ModelData_ > result;
   
-  if (!SWIG_Python_UnpackTuple(args, "DupireModelData_New", 4, 4, swig_obj)) SWIG_fail;
+  if (!SWIG_Python_UnpackTuple(args, "DupireModelData_New", 6, 6, swig_obj)) SWIG_fail;
   ecode1 = SWIG_AsVal_double(swig_obj[0], &val1);
   if (!SWIG_IsOK(ecode1)) {
     SWIG_exception_fail(SWIG_ArgError(ecode1), "in method '" "DupireModelData_New" "', argument " "1"" of type '" "double""'");
   } 
   arg1 = static_cast< double >(val1);
+  ecode2 = SWIG_AsVal_double(swig_obj[1], &val2);
+  if (!SWIG_IsOK(ecode2)) {
+    SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "DupireModelData_New" "', argument " "2"" of type '" "double""'");
+  } 
+  arg2 = static_cast< double >(val2);
+  ecode3 = SWIG_AsVal_double(swig_obj[2], &val3);
+  if (!SWIG_IsOK(ecode3)) {
+    SWIG_exception_fail(SWIG_ArgError(ecode3), "in method '" "DupireModelData_New" "', argument " "3"" of type '" "double""'");
+  } 
+  arg3 = static_cast< double >(val3);
   {
     std::vector< double,std::allocator< double > > *ptr = (std::vector< double,std::allocator< double > > *)0;
-    res2 = swig::asptr(swig_obj[1], &ptr);
-    if (!SWIG_IsOK(res2)) {
-      SWIG_exception_fail(SWIG_ArgError(res2), "in method '" "DupireModelData_New" "', argument " "2"" of type '" "std::vector< double,std::allocator< double > > const &""'"); 
+    res4 = swig::asptr(swig_obj[3], &ptr);
+    if (!SWIG_IsOK(res4)) {
+      SWIG_exception_fail(SWIG_ArgError(res4), "in method '" "DupireModelData_New" "', argument " "4"" of type '" "std::vector< double,std::allocator< double > > const &""'"); 
     }
     if (!ptr) {
-      SWIG_exception_fail(SWIG_ValueError, "invalid null reference " "in method '" "DupireModelData_New" "', argument " "2"" of type '" "std::vector< double,std::allocator< double > > const &""'"); 
+      SWIG_exception_fail(SWIG_ValueError, "invalid null reference " "in method '" "DupireModelData_New" "', argument " "4"" of type '" "std::vector< double,std::allocator< double > > const &""'"); 
     }
-    arg2 = ptr;
+    arg4 = ptr;
   }
   {
     std::vector< double,std::allocator< double > > *ptr = (std::vector< double,std::allocator< double > > *)0;
-    res3 = swig::asptr(swig_obj[2], &ptr);
-    if (!SWIG_IsOK(res3)) {
-      SWIG_exception_fail(SWIG_ArgError(res3), "in method '" "DupireModelData_New" "', argument " "3"" of type '" "std::vector< double,std::allocator< double > > const &""'"); 
+    res5 = swig::asptr(swig_obj[4], &ptr);
+    if (!SWIG_IsOK(res5)) {
+      SWIG_exception_fail(SWIG_ArgError(res5), "in method '" "DupireModelData_New" "', argument " "5"" of type '" "std::vector< double,std::allocator< double > > const &""'"); 
     }
     if (!ptr) {
-      SWIG_exception_fail(SWIG_ValueError, "invalid null reference " "in method '" "DupireModelData_New" "', argument " "3"" of type '" "std::vector< double,std::allocator< double > > const &""'"); 
+      SWIG_exception_fail(SWIG_ValueError, "invalid null reference " "in method '" "DupireModelData_New" "', argument " "5"" of type '" "std::vector< double,std::allocator< double > > const &""'"); 
     }
-    arg3 = ptr;
+    arg5 = ptr;
   }
-  res4 = SWIG_ConvertPtr(swig_obj[3], &argp4, SWIGTYPE_p_Matrix_T_double_t,  0  | 0);
-  if (!SWIG_IsOK(res4)) {
-    SWIG_exception_fail(SWIG_ArgError(res4), "in method '" "DupireModelData_New" "', argument " "4"" of type '" "Matrix_< double > const &""'"); 
+  res6 = SWIG_ConvertPtr(swig_obj[5], &argp6, SWIGTYPE_p_Matrix_T_double_t,  0  | 0);
+  if (!SWIG_IsOK(res6)) {
+    SWIG_exception_fail(SWIG_ArgError(res6), "in method '" "DupireModelData_New" "', argument " "6"" of type '" "Matrix_< double > const &""'"); 
   }
-  if (!argp4) {
-    SWIG_exception_fail(SWIG_ValueError, "invalid null reference " "in method '" "DupireModelData_New" "', argument " "4"" of type '" "Matrix_< double > const &""'"); 
+  if (!argp6) {
+    SWIG_exception_fail(SWIG_ValueError, "invalid null reference " "in method '" "DupireModelData_New" "', argument " "6"" of type '" "Matrix_< double > const &""'"); 
   }
-  arg4 = reinterpret_cast< Matrix_< double > * >(argp4);
-  result = DupireModelData_New(arg1,(std::vector< double,std::allocator< double > > const &)*arg2,(std::vector< double,std::allocator< double > > const &)*arg3,(Matrix_< double > const &)*arg4);
+  arg6 = reinterpret_cast< Matrix_< double > * >(argp6);
+  result = DupireModelData_New(arg1,arg2,arg3,(std::vector< double,std::allocator< double > > const &)*arg4,(std::vector< double,std::allocator< double > > const &)*arg5,(Matrix_< double > const &)*arg6);
   resultobj = SWIG_NewPointerObj((new Handle_< ModelData_ >(static_cast< const Handle_< ModelData_ >& >(result))), SWIGTYPE_p_Handle_T_ModelData__t, SWIG_POINTER_OWN |  0 );
-  if (SWIG_IsNewObj(res2)) delete arg2;
-  if (SWIG_IsNewObj(res3)) delete arg3;
+  if (SWIG_IsNewObj(res4)) delete arg4;
+  if (SWIG_IsNewObj(res5)) delete arg5;
   return resultobj;
 fail:
-  if (SWIG_IsNewObj(res2)) delete arg2;
-  if (SWIG_IsNewObj(res3)) delete arg3;
+  if (SWIG_IsNewObj(res4)) delete arg4;
+  if (SWIG_IsNewObj(res5)) delete arg5;
   return NULL;
 }
 
@@ -15910,11 +15928,13 @@ static PyMethodDef SwigMethods[] = {
 		"\n"
 		""},
 	 { "DupireModelData_New", _wrap_DupireModelData_New, METH_VARARGS, "\n"
-		"DupireModelData_New(spot, spots, times, vols) -> ModelData_\n"
+		"DupireModelData_New(spot, rate, repo, spots, times, vols) -> ModelData_\n"
 		"\n"
 		"Parameters\n"
 		"----------\n"
 		"spot: double\n"
+		"rate: double\n"
+		"repo: double\n"
 		"spots: std::vector< double,std::allocator< double > > const &\n"
 		"times: std::vector< double,std::allocator< double > > const &\n"
 		"vols: Matrix_< double > const &\n"

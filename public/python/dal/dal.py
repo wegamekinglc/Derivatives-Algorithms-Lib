@@ -1402,19 +1402,21 @@ def BSModelData_New(spot: "double", vol: "double", rate: "double", div: "double"
     """
     return _dal.BSModelData_New(spot, vol, rate, div)
 
-def DupireModelData_New(spot: "double", spots: "DoubleVector", times: "DoubleVector", vols: "DoubleMatrix_") -> "Handle_< ModelData_ >":
+def DupireModelData_New(spot: "double", rate: "double", repo: "double", spots: "DoubleVector", times: "DoubleVector", vols: "DoubleMatrix_") -> "Handle_< ModelData_ >":
     r"""
-    DupireModelData_New(spot, spots, times, vols) -> ModelData_
+    DupireModelData_New(spot, rate, repo, spots, times, vols) -> ModelData_
 
     Parameters
     ----------
     spot: double
+    rate: double
+    repo: double
     spots: std::vector< double,std::allocator< double > > const &
     times: std::vector< double,std::allocator< double > > const &
     vols: Matrix_< double > const &
 
     """
-    return _dal.DupireModelData_New(spot, spots, times, vols)
+    return _dal.DupireModelData_New(spot, rate, repo, spots, times, vols)
 class Dictionary(object):
     r"""Proxy of C++ std::map< std::string,double > class."""
 
