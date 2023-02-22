@@ -33,7 +33,7 @@ At current stage, this codes repository is simply for prototyping and practice. 
 ## Examples
 
 * [C++ examples](examples)
-* [Excel/python bindings](misc)
+* [Excel/python bindings](miscs)
 
 ## Interface
 
@@ -107,7 +107,7 @@ finally we price this product with the model:
 
 ### Python
 
-The above option pricing example can also be replicated in python:
+The above simple european option pricing example can also be replicated in python:
 
 ```python
 from dal import *
