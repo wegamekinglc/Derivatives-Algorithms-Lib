@@ -30,6 +30,11 @@ At current stage, this codes repository is simply for prototyping and practice. 
 
 > Some codes are directly copied from Tom and Antoine's books.
 
+## Examples
+
+* [C++ examples](examples)
+* [Excel/python bindings](misc)
+
 ## Interface
 
 ### Excel
