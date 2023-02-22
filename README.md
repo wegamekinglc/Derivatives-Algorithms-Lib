@@ -30,7 +30,9 @@ At current stage, this codes repository is simply for prototyping and practice. 
 
 > Some codes are directly copied from Tom and Antoine's books.
 
-## Excel Interface
+## Interface
+
+### Excel
 
 > **NOTE**: This part is only in infancy and should evolve quickly.
 
@@ -57,7 +59,7 @@ later we can use the interpolator:
 =INTERP1.GET("~Interp1~my.interp~2F18E558", 6.5)  # will return 4.5
 ```
 
-### Scripted Exotic Option Pricing
+#### Scripted Exotic Option Pricing
 
 We will price an european option with our script ability and a basic BS model
 
@@ -94,8 +96,49 @@ finally we price this product with the model:
 | value |4.0389  |
 |-------|-----|
 
-### Some screenshot
+#### Some screenshot
 
 ![img.png](resource/screenshot.png)
 
+### Python
 
+The above option pricing example can also be replicated in python:
+
+```python
+from dal import *
+
+today = Date_(2022, 9, 15)
+EvaluationDate_Set(today)
+
+spot = 100.0
+vol = 0.15
+rate = 0.0
+div = 0.0
+strike = 120.0
+maturity = Date_(2025, 9, 15)
+
+n_paths = 2 ** 20
+use_bb = False
+rsg = "sobol"
+model_name = "bs"
+
+event_dates = [maturity]
+events = [f"call pays MAX(spot() - {strike}, 0.0)"]
+
+product = Product_New(event_dates, events)
+model = BSModelData_New(spot, vol, rate, div)
+
+res = MonteCarlo_Value(product, model, n_paths, rsg, False, True)
+vega = 0.0
+for k, v in res.items():
+    print(f"{k:<8}: {v:>10.4f}")
+```
+The output should look like:
+
+```python
+d_div   :   -85.2290
+d_rate  :    73.1011
+d_spot  :     0.2838
+d_vol   :    58.7140
+value   :     4.0389
+```
