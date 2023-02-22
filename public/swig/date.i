@@ -10,6 +10,7 @@
 class Date_ {
 public:
     Date_(int yyyy, int mm, int dd);
+    Date_ AddDays(int days);
 };
 
 namespace Dal::Date {
@@ -24,7 +25,27 @@ namespace Dal::Date {
         std::ostringstream out;
         out << Date::ToString(*$self);
         return out.str();
-      }
+    }
+
+    bool __lt__(Date_* other) {
+        return *$self < *other;
+    }
+
+    bool __le__(Date_* other) {
+        return *$self <= *other;
+    }
+
+    bool __gt__(Date_* other) {
+        return *$self > *other;
+    }
+
+    bool __ge__(Date_* other) {
+        return *$self >= *other;
+    }
+
+    bool __eq__(Date_* other) {
+        return *$self == *other;
+    }
 };
 
 %template(DateVector) std::vector<Date_>;

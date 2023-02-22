@@ -4747,7 +4747,7 @@ SWIGINTERN std::string Date____repr__(Date_ *self){
         std::ostringstream out;
         out << Date::ToString(*self);
         return out.str();
-      }
+    }
 
 SWIGINTERN swig_type_info*
 SWIG_pchar_descriptor(void)
@@ -4793,6 +4793,24 @@ SWIG_From_std_string  (const std::string& s)
   return SWIG_FromCharPtrAndSize(s.data(), s.size());
 }
 
+SWIGINTERN Date_ Date____add__(Date_ *self,int days){
+        return self->AddDays(days);
+    }
+SWIGINTERN bool Date____lt__(Date_ *self,Date_ *other){
+        return *self < *other;
+    }
+SWIGINTERN bool Date____le__(Date_ *self,Date_ *other){
+        return *self <= *other;
+    }
+SWIGINTERN bool Date____gt__(Date_ *self,Date_ *other){
+        return *self > *other;
+    }
+SWIGINTERN bool Date____ge__(Date_ *self,Date_ *other){
+        return *self >= *other;
+    }
+SWIGINTERN bool Date____eq__(Date_ *self,Date_ *other){
+        return *self == *other;
+    }
 
 SWIGINTERNINLINE PyObject *
 SWIG_From_short  (short value)
@@ -8475,6 +8493,36 @@ fail:
 }
 
 
+SWIGINTERN PyObject *_wrap_Date__AddDays(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+  PyObject *resultobj = 0;
+  Date_ *arg1 = (Date_ *) 0 ;
+  int arg2 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  int val2 ;
+  int ecode2 = 0 ;
+  PyObject *swig_obj[2] ;
+  SwigValueWrapper< Date_ > result;
+  
+  if (!SWIG_Python_UnpackTuple(args, "Date__AddDays", 2, 2, swig_obj)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_Date_, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Date__AddDays" "', argument " "1"" of type '" "Date_ *""'"); 
+  }
+  arg1 = reinterpret_cast< Date_ * >(argp1);
+  ecode2 = SWIG_AsVal_int(swig_obj[1], &val2);
+  if (!SWIG_IsOK(ecode2)) {
+    SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Date__AddDays" "', argument " "2"" of type '" "int""'");
+  } 
+  arg2 = static_cast< int >(val2);
+  result = (arg1)->AddDays(arg2);
+  resultobj = SWIG_NewPointerObj((new Date_(static_cast< const Date_& >(result))), SWIGTYPE_p_Date_, SWIG_POINTER_OWN |  0 );
+  return resultobj;
+fail:
+  return NULL;
+}
+
+
 SWIGINTERN PyObject *_wrap_Date____repr__(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
   PyObject *resultobj = 0;
   Date_ *arg1 = (Date_ *) 0 ;
@@ -8495,6 +8543,198 @@ SWIGINTERN PyObject *_wrap_Date____repr__(PyObject *SWIGUNUSEDPARM(self), PyObje
   return resultobj;
 fail:
   return NULL;
+}
+
+
+SWIGINTERN PyObject *_wrap_Date____add__(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+  PyObject *resultobj = 0;
+  Date_ *arg1 = (Date_ *) 0 ;
+  int arg2 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  int val2 ;
+  int ecode2 = 0 ;
+  PyObject *swig_obj[2] ;
+  SwigValueWrapper< Date_ > result;
+  
+  if (!SWIG_Python_UnpackTuple(args, "Date____add__", 2, 2, swig_obj)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_Date_, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Date____add__" "', argument " "1"" of type '" "Date_ *""'"); 
+  }
+  arg1 = reinterpret_cast< Date_ * >(argp1);
+  ecode2 = SWIG_AsVal_int(swig_obj[1], &val2);
+  if (!SWIG_IsOK(ecode2)) {
+    SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Date____add__" "', argument " "2"" of type '" "int""'");
+  } 
+  arg2 = static_cast< int >(val2);
+  result = Date____add__(arg1,arg2);
+  resultobj = SWIG_NewPointerObj((new Date_(static_cast< const Date_& >(result))), SWIGTYPE_p_Date_, SWIG_POINTER_OWN |  0 );
+  return resultobj;
+fail:
+  PyErr_Clear();
+  Py_INCREF(Py_NotImplemented);
+  return Py_NotImplemented;
+}
+
+
+SWIGINTERN PyObject *_wrap_Date____lt__(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+  PyObject *resultobj = 0;
+  Date_ *arg1 = (Date_ *) 0 ;
+  Date_ *arg2 = (Date_ *) 0 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  void *argp2 = 0 ;
+  int res2 = 0 ;
+  PyObject *swig_obj[2] ;
+  bool result;
+  
+  if (!SWIG_Python_UnpackTuple(args, "Date____lt__", 2, 2, swig_obj)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_Date_, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Date____lt__" "', argument " "1"" of type '" "Date_ *""'"); 
+  }
+  arg1 = reinterpret_cast< Date_ * >(argp1);
+  res2 = SWIG_ConvertPtr(swig_obj[1], &argp2,SWIGTYPE_p_Date_, 0 |  0 );
+  if (!SWIG_IsOK(res2)) {
+    SWIG_exception_fail(SWIG_ArgError(res2), "in method '" "Date____lt__" "', argument " "2"" of type '" "Date_ *""'"); 
+  }
+  arg2 = reinterpret_cast< Date_ * >(argp2);
+  result = (bool)Date____lt__(arg1,arg2);
+  resultobj = SWIG_From_bool(static_cast< bool >(result));
+  return resultobj;
+fail:
+  PyErr_Clear();
+  Py_INCREF(Py_NotImplemented);
+  return Py_NotImplemented;
+}
+
+
+SWIGINTERN PyObject *_wrap_Date____le__(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+  PyObject *resultobj = 0;
+  Date_ *arg1 = (Date_ *) 0 ;
+  Date_ *arg2 = (Date_ *) 0 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  void *argp2 = 0 ;
+  int res2 = 0 ;
+  PyObject *swig_obj[2] ;
+  bool result;
+  
+  if (!SWIG_Python_UnpackTuple(args, "Date____le__", 2, 2, swig_obj)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_Date_, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Date____le__" "', argument " "1"" of type '" "Date_ *""'"); 
+  }
+  arg1 = reinterpret_cast< Date_ * >(argp1);
+  res2 = SWIG_ConvertPtr(swig_obj[1], &argp2,SWIGTYPE_p_Date_, 0 |  0 );
+  if (!SWIG_IsOK(res2)) {
+    SWIG_exception_fail(SWIG_ArgError(res2), "in method '" "Date____le__" "', argument " "2"" of type '" "Date_ *""'"); 
+  }
+  arg2 = reinterpret_cast< Date_ * >(argp2);
+  result = (bool)Date____le__(arg1,arg2);
+  resultobj = SWIG_From_bool(static_cast< bool >(result));
+  return resultobj;
+fail:
+  PyErr_Clear();
+  Py_INCREF(Py_NotImplemented);
+  return Py_NotImplemented;
+}
+
+
+SWIGINTERN PyObject *_wrap_Date____gt__(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+  PyObject *resultobj = 0;
+  Date_ *arg1 = (Date_ *) 0 ;
+  Date_ *arg2 = (Date_ *) 0 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  void *argp2 = 0 ;
+  int res2 = 0 ;
+  PyObject *swig_obj[2] ;
+  bool result;
+  
+  if (!SWIG_Python_UnpackTuple(args, "Date____gt__", 2, 2, swig_obj)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_Date_, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Date____gt__" "', argument " "1"" of type '" "Date_ *""'"); 
+  }
+  arg1 = reinterpret_cast< Date_ * >(argp1);
+  res2 = SWIG_ConvertPtr(swig_obj[1], &argp2,SWIGTYPE_p_Date_, 0 |  0 );
+  if (!SWIG_IsOK(res2)) {
+    SWIG_exception_fail(SWIG_ArgError(res2), "in method '" "Date____gt__" "', argument " "2"" of type '" "Date_ *""'"); 
+  }
+  arg2 = reinterpret_cast< Date_ * >(argp2);
+  result = (bool)Date____gt__(arg1,arg2);
+  resultobj = SWIG_From_bool(static_cast< bool >(result));
+  return resultobj;
+fail:
+  PyErr_Clear();
+  Py_INCREF(Py_NotImplemented);
+  return Py_NotImplemented;
+}
+
+
+SWIGINTERN PyObject *_wrap_Date____ge__(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+  PyObject *resultobj = 0;
+  Date_ *arg1 = (Date_ *) 0 ;
+  Date_ *arg2 = (Date_ *) 0 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  void *argp2 = 0 ;
+  int res2 = 0 ;
+  PyObject *swig_obj[2] ;
+  bool result;
+  
+  if (!SWIG_Python_UnpackTuple(args, "Date____ge__", 2, 2, swig_obj)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_Date_, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Date____ge__" "', argument " "1"" of type '" "Date_ *""'"); 
+  }
+  arg1 = reinterpret_cast< Date_ * >(argp1);
+  res2 = SWIG_ConvertPtr(swig_obj[1], &argp2,SWIGTYPE_p_Date_, 0 |  0 );
+  if (!SWIG_IsOK(res2)) {
+    SWIG_exception_fail(SWIG_ArgError(res2), "in method '" "Date____ge__" "', argument " "2"" of type '" "Date_ *""'"); 
+  }
+  arg2 = reinterpret_cast< Date_ * >(argp2);
+  result = (bool)Date____ge__(arg1,arg2);
+  resultobj = SWIG_From_bool(static_cast< bool >(result));
+  return resultobj;
+fail:
+  PyErr_Clear();
+  Py_INCREF(Py_NotImplemented);
+  return Py_NotImplemented;
+}
+
+
+SWIGINTERN PyObject *_wrap_Date____eq__(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+  PyObject *resultobj = 0;
+  Date_ *arg1 = (Date_ *) 0 ;
+  Date_ *arg2 = (Date_ *) 0 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  void *argp2 = 0 ;
+  int res2 = 0 ;
+  PyObject *swig_obj[2] ;
+  bool result;
+  
+  if (!SWIG_Python_UnpackTuple(args, "Date____eq__", 2, 2, swig_obj)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_Date_, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Date____eq__" "', argument " "1"" of type '" "Date_ *""'"); 
+  }
+  arg1 = reinterpret_cast< Date_ * >(argp1);
+  res2 = SWIG_ConvertPtr(swig_obj[1], &argp2,SWIGTYPE_p_Date_, 0 |  0 );
+  if (!SWIG_IsOK(res2)) {
+    SWIG_exception_fail(SWIG_ArgError(res2), "in method '" "Date____eq__" "', argument " "2"" of type '" "Date_ *""'"); 
+  }
+  arg2 = reinterpret_cast< Date_ * >(argp2);
+  result = (bool)Date____eq__(arg1,arg2);
+  resultobj = SWIG_From_bool(static_cast< bool >(result));
+  return resultobj;
+fail:
+  PyErr_Clear();
+  Py_INCREF(Py_NotImplemented);
+  return Py_NotImplemented;
 }
 
 
@@ -15384,7 +15624,63 @@ static PyMethodDef SwigMethods[] = {
 		"dd: int\n"
 		"\n"
 		""},
+	 { "Date__AddDays", _wrap_Date__AddDays, METH_VARARGS, "\n"
+		"Date__AddDays(self, days) -> Date_\n"
+		"\n"
+		"Parameters\n"
+		"----------\n"
+		"days: int\n"
+		"\n"
+		""},
 	 { "Date____repr__", _wrap_Date____repr__, METH_O, "Date____repr__(self) -> std::string"},
+	 { "Date____add__", _wrap_Date____add__, METH_VARARGS, "\n"
+		"Date____add__(self, days) -> Date_\n"
+		"\n"
+		"Parameters\n"
+		"----------\n"
+		"days: int\n"
+		"\n"
+		""},
+	 { "Date____lt__", _wrap_Date____lt__, METH_VARARGS, "\n"
+		"Date____lt__(self, other) -> bool\n"
+		"\n"
+		"Parameters\n"
+		"----------\n"
+		"other: Date_ *\n"
+		"\n"
+		""},
+	 { "Date____le__", _wrap_Date____le__, METH_VARARGS, "\n"
+		"Date____le__(self, other) -> bool\n"
+		"\n"
+		"Parameters\n"
+		"----------\n"
+		"other: Date_ *\n"
+		"\n"
+		""},
+	 { "Date____gt__", _wrap_Date____gt__, METH_VARARGS, "\n"
+		"Date____gt__(self, other) -> bool\n"
+		"\n"
+		"Parameters\n"
+		"----------\n"
+		"other: Date_ *\n"
+		"\n"
+		""},
+	 { "Date____ge__", _wrap_Date____ge__, METH_VARARGS, "\n"
+		"Date____ge__(self, other) -> bool\n"
+		"\n"
+		"Parameters\n"
+		"----------\n"
+		"other: Date_ *\n"
+		"\n"
+		""},
+	 { "Date____eq__", _wrap_Date____eq__, METH_VARARGS, "\n"
+		"Date____eq__(self, other) -> bool\n"
+		"\n"
+		"Parameters\n"
+		"----------\n"
+		"other: Date_ *\n"
+		"\n"
+		""},
 	 { "delete_Date_", _wrap_delete_Date_, METH_O, "delete_Date_(self)"},
 	 { "Date__swigregister", Date__swigregister, METH_O, NULL},
 	 { "Date__swiginit", Date__swiginit, METH_VARARGS, NULL},

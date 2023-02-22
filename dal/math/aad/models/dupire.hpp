@@ -66,7 +66,7 @@ namespace Dal::AAD {
               parameters_(vols.Rows() * vols.Cols() + 3), parameterLabels_(vols.Rows() * vols.Cols() + 3) {
             Transform(spots_, [](double x) { return Dal::log(x); }, &logSpots_);
             parameterLabels_[0] = "spot";
-            parameterLabels_[1] = "risk-free";
+            parameterLabels_[1] = "rate";
             parameterLabels_[2] = "repo";
             size_t p = 2;
             for (size_t i = 0; i < vols_.Rows(); ++i)

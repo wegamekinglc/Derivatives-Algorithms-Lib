@@ -40,7 +40,7 @@ namespace Dal {
                                                 bool enable_aad,
                                                 double smooth) {
         const auto model_type = modelData->Type();
-        REQUIRE(MODEL_STORE.find(model_type) != MODEL_STORE.end(), "only support black scholes model now");
+        REQUIRE(MODEL_STORE.find(model_type) != MODEL_STORE.end(), "only support black scholes and Dupire model now");
         std::unique_ptr<Model_<double>> model;
         std::unique_ptr<Model_<AAD::Number_>> aad_model;
         auto& prd = product->Product();

@@ -575,9 +575,86 @@ class Date_(object):
         """
         _dal.Date__swiginit(self, _dal.new_Date_(yyyy, mm, dd))
 
+    def AddDays(self, days: "int") -> "Date_":
+        r"""
+        AddDays(self, days) -> Date_
+
+        Parameters
+        ----------
+        days: int
+
+        """
+        return _dal.Date__AddDays(self, days)
+
     def __repr__(self) -> "std::string":
         r"""__repr__(self) -> std::string"""
         return _dal.Date____repr__(self)
+
+    def __add__(self, days: "int") -> "Date_":
+        r"""
+        __add__(self, days) -> Date_
+
+        Parameters
+        ----------
+        days: int
+
+        """
+        return _dal.Date____add__(self, days)
+
+    def __lt__(self, other: "Date_") -> "bool":
+        r"""
+        __lt__(self, other) -> bool
+
+        Parameters
+        ----------
+        other: Date_ *
+
+        """
+        return _dal.Date____lt__(self, other)
+
+    def __le__(self, other: "Date_") -> "bool":
+        r"""
+        __le__(self, other) -> bool
+
+        Parameters
+        ----------
+        other: Date_ *
+
+        """
+        return _dal.Date____le__(self, other)
+
+    def __gt__(self, other: "Date_") -> "bool":
+        r"""
+        __gt__(self, other) -> bool
+
+        Parameters
+        ----------
+        other: Date_ *
+
+        """
+        return _dal.Date____gt__(self, other)
+
+    def __ge__(self, other: "Date_") -> "bool":
+        r"""
+        __ge__(self, other) -> bool
+
+        Parameters
+        ----------
+        other: Date_ *
+
+        """
+        return _dal.Date____ge__(self, other)
+
+    def __eq__(self, other: "Date_") -> "bool":
+        r"""
+        __eq__(self, other) -> bool
+
+        Parameters
+        ----------
+        other: Date_ *
+
+        """
+        return _dal.Date____eq__(self, other)
     __swig_destroy__ = _dal.delete_Date_
 
 # Register Date_ in _dal:
