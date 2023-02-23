@@ -11,29 +11,4 @@ namespace Dal::AAD {
         const auto std_dev = Dal::Distribution::BlackIV(spot, strike, type, prem);
         return std_dev / Dal::sqrt(mat);
     }
-
-    double BlackScholesKO(double spot,
-                          double rate,
-                          double div,
-                          double strike,
-                          double barrier,
-                          double mat,
-                          double vol) {
-        const double std = vol * Dal::sqrt(mat);
-        const double fwdFact = Dal::exp((rate - div) * mat);
-        const double fwd = spot * fwdFact;
-        const double disc = Dal::exp(-rate * mat);
-        const double v = rate - div - 0.5 * vol * vol;
-        const double d2 = (Dal::log(spot / barrier) + v * mat) / std;
-        const double d2prime = (Dal::log(barrier / spot) + v * mat) / std;
-
-        const double bar = BlackScholes(fwd, strike, vol, mat) - BlackScholes(fwd, barrier, vol, mat) -
-                           (barrier - strike) * Dal::NCDF(d2) -
-                           Dal::pow(barrier / spot, 2 * v / vol / vol) *
-                               (BlackScholes(fwdFact * barrier * barrier / spot, strike, vol, mat) -
-                                BlackScholes(fwdFact * barrier * barrier / spot, barrier, vol, mat) -
-                                (barrier - strike) * Dal::NCDF(d2prime));
-
-        return disc * bar;
-    }
 }

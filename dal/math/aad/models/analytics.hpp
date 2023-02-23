@@ -52,6 +52,4 @@ namespace Dal::AAD {
 
         return result;
     }
-
-    double BlackScholesKO(double spot, double rate, double div, double strike, double barrier, double mat, double vol);
 } // namespace Dal::AAD
