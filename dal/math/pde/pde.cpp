@@ -9,7 +9,7 @@
 
 namespace Dal::PDE {
     namespace {
-        struct IdentityMap_ : PDE::CoordinateMap_ {
+        struct IdentityMap_ : CoordinateMap_ {
             double operator()(double y, double* xp = nullptr, double* xpp = nullptr) const override {
                 ASSIGN(xp, 1.0);
                 ASSIGN(xpp, 0.0);
@@ -18,7 +18,7 @@ namespace Dal::PDE {
             double Y(double x) const override { return x; }
         };
 
-        struct SinhMap_ : PDE::CoordinateMap_ {
+        struct SinhMap_ : CoordinateMap_ {
             // x = \lambda sinh(y / \lambda)
             double lambda_;
             SinhMap_(double lambda) : lambda_(lambda) {}
@@ -31,7 +31,7 @@ namespace Dal::PDE {
         };
     } // namespace
 
-    PDE::CoordinateMap_* PDE::NewSinhMap(double x_width, double dxdy_range) {
+    CoordinateMap_* NewSinhMap(double x_width, double dxdy_range) {
         REQUIRE(IsPositive(x_width) && dxdy_range >= 1.0, "x_width should be positive and dxdy_range should be greater than 1");
         double sinhMaxY = std::sqrt(Square(dxdy_range) - 1.0);
         return IsZero(Square(sinhMaxY)) ? (CoordinateMap_*)new IdentityMap_ : new SinhMap_(x_width / sinhMaxY);
