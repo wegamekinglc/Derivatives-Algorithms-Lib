@@ -18,7 +18,7 @@
 
 ## Introduction
 
-This is a project inspired by following books:
+This is a project inspired by following books & codes repositories:
 
 * [*Derivatives Algorithms:  Volume 1: Bones* by Tom Hyer](https://github.com/TomHyer/DA_Bones_Mirror)
   
@@ -26,9 +26,11 @@ This is a project inspired by following books:
 
 * [*Modern Computational Finance: Scripting for Derivatives and xVA* by Antoine Savine](https://github.com/asavine/Scripting)
 
+* [*Finite Difference Methods for Financial Partial Differential Equations* by Brian Huge & Jesper Andreasen](https://github.com/brnohu/CompFin)
+
 At current stage, this codes repository is simply for prototyping and practice. Don't use them in serious situation.
 
-> Some codes are directly copied from Tom and Antoine's books.
+> Some codes are directly copied from above resources.
 
 ## Examples
 
