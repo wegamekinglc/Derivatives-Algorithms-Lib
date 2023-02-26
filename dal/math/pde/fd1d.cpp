@@ -69,7 +69,6 @@ namespace Dal::PDE {
 
         A_.Resize(x_.size(), numC);
         vs_.Resize(x_.size());
-        ws_.Resize(x_.size());
     }
 
     void FD1D_::CalcAx(double one, double dtTheta, int wind, bool tr, Matrix_<>& A) const {

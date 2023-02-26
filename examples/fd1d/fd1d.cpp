@@ -2,6 +2,7 @@
 // Created by wegam on 2023/2/26.
 //
 
+#include <iomanip>
 #include <dal/math/pde/fdi1d.hpp>
 
 using namespace Dal;
@@ -16,7 +17,7 @@ int main() {
     int num_t = 100;
     int fb = -1;
     bool log = false;
-    int wind = 2;
+    int wind = 0;
 
     Vector_<> x = Vector::XRange(-0.25, 0.25, num_x);
     Vector_<> r(num_x, 0.0);
@@ -43,7 +44,7 @@ int main() {
     }
 
     for (int n = 0; n < num_x; ++n)
-        std::cout << fd.X()[n] << ": " << fd.Res()[0][n] << std::endl;
+        std::cout << std::setprecision(4) << fd.X()[n] << ": " << std::setprecision(8) << fd.Res()[0][n] << std::endl;
 
     return 0;
 }

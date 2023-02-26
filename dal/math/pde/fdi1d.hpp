@@ -43,7 +43,6 @@ namespace Dal::PDE {
         Matrix_<> dxx_;
         Matrix_<> A_;
         Vector_<> vs_;
-        Vector_<> ws_;
         Vector_<Vector_<>> res_;
     };
 
