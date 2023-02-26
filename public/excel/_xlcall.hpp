@@ -19,7 +19,7 @@
 
 #ifdef _WIN32
 
-//#include <Windows.h>
+#include <Windows.h>
 /*
 ** XL 12 Basic Datatypes
 **/
@@ -28,7 +28,7 @@ typedef int BOOL;              /* Boolean */
 typedef wchar_t XCHAR;         /* Wide Character */
 typedef int RW;                /* XL 12 Row */
 typedef int COL;               /* XL 12 Column */
-typedef unsigned long IDSHEET; /* XL12 Sheet ID */
+typedef DWORD_PTR IDSHEET; /* XL12 Sheet ID */
 
 /*
 ** XLREF structure

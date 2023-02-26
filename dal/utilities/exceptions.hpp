@@ -89,6 +89,7 @@ namespace Dal {
         THROW(msg)
 #else
 #define REQUIRE2(cond, msg, exception_type)
+#define ASSURE(cond, msg)
 #endif
 
 #ifdef DAL_USE_NOTE
