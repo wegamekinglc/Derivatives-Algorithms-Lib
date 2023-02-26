@@ -16,7 +16,7 @@
  #define USE_CODI
 #endif
 
-#ifndef NDEBUG
+#ifndef DAL_USE_REQUIRE
 #define DAL_USE_REQUIRE
 #endif
 
