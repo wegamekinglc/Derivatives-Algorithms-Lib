@@ -12,13 +12,19 @@ namespace Dal::PDE {
 
     class FD1D_ {
     public:
-        void Init(int numV, const Vector_<>& x, bool log);
+        FD1D_(int num_t = 1): res_(num_t) {}
+        void Init(int num_v, bool log);
 
         const Vector_<>& R() const { return r_; }
+        Vector_<>& R() { return r_; }
         const Vector_<>& Mu() const { return mu_; }
+        Vector_<>& Mu() { return mu_; }
         const Vector_<>& Var() const { return var_; }
+        Vector_<>& Var() { return var_; }
         const Vector_<>& X() const { return x_; }
+        Vector_<>& X() { return x_; }
         const Vector_<Vector_<>>& Res() const { return res_; }
+        Vector_<Vector_<>>& Res() { return res_; }
 
         void CalcAx(double one, double dtTheta, int wind, bool tr, Matrix_<>& A) const;
         void RollBwd(double dt, double theta, int wind, Vector_<Vector_<>>& res);
