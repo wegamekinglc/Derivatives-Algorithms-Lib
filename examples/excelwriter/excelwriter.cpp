@@ -2,7 +2,9 @@
 // Created by wegam on 2023/1/23.
 //
 
-#ifdef USE_EXCEL
+#include <dal/platform/config.hpp>
+
+#ifdef USE_EXCEL_REPORT
 
 #include <dal/report/exceldriverlite.hpp>
 #include <dal/math/vectors.hpp>

@@ -2,6 +2,8 @@
 // Created by wegam on 2023/1/23.
 //
 
+#include <dal/platform/config.hpp>
+
 #ifdef USE_EXCEL_REPORT
 
 #include <dal/math/matrix/matrixutils.hpp>

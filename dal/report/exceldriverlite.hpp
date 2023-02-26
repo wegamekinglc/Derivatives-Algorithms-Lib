@@ -11,6 +11,8 @@
 
 #pragma once
 
+#include <dal/platform/config.hpp>
+
 #ifdef USE_EXCEL_REPORT
 
 // PLEASE USE CORRECT VERSION OF OFFICE
