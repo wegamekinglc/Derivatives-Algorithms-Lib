@@ -86,6 +86,9 @@ namespace Dal {
         using std::vector<E_>::reserve;
         using std::vector<E_>::clear;
 
+        E_& operator()(int i) { return (*this)[i];}
+        const E_& operator()(int i) const { return (*this)[i];}
+
         // emplace_back is a special case; because it is not part of std::vector<bool>, we have to explicitly forward
         template <class... _Valty> void emplace_back(_Valty&&... _Val) { base_t::emplace_back(_Val...); }
     };
