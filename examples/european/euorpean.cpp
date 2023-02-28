@@ -1,95 +1,61 @@
 //
-// Created by wegam on 2021/8/8.
+// Created by wegam on 2020/12/21.
 //
 
-#include <dal/math/aad/models/blackscholes.hpp>
-#include <dal/math/aad/products/european.hpp>
-#include <dal/math/aad/simulation.hpp>
-#include <dal/math/random/pseudorandom.hpp>
-#include <dal/math/random/quasirandom.hpp>
-#include <dal/math/random/sobol.hpp>
-#include <dal/utilities/timer.hpp>
-#include <dal/concurrency/threadpool.hpp>
 #include <iostream>
+#include <dal/time/dateincrement.hpp>
+#include <dal/script/event.hpp>
+#include <dal/math/aad/models/blackscholes.hpp>
+#include <dal/storage/globals.hpp>
+#include <dal/utilities/timer.hpp>
+#include <dal/script/simulation.hpp>
 #include <iomanip>
 
-using namespace Dal;
 using namespace std;
-using namespace Dal::AAD;
-
-auto EuropeanProducts(double strike, const Date_& maturity) {
-    std::unique_ptr<Product_<>> prd = std::make_unique<European_<>>(strike, maturity, maturity);
-    std::unique_ptr<Product_<Number_>> riskPrd = std::make_unique<European_<Number_>>(strike, maturity, maturity);
-    return std::make_pair(std::move(prd), std::move(riskPrd));
-}
-
-auto BSModels(double spot, double vol, double rate, double div) {
-
-    std::unique_ptr<Model_<>> mdl = std::make_unique<BlackScholes_<>>(spot, vol, rate, div);
-    std::unique_ptr<Model_<Number_>> riskMdl = std::make_unique<BlackScholes_<Number_>>(spot, vol, rate, div);
-    return std::make_pair(std::move(mdl), std::move(riskMdl));
-}
+using namespace Dal;
+using namespace Dal::Script;
+using Dal::AAD::Model_;
+using Dal::AAD::BlackScholes_;
 
 
 int main() {
 
     Global::Dates_().SetEvaluationDate(Date_(2022, 9, 25));
-    Date_ exerciseDate(2025, 9, 25);
-    double strike = 120.0;
-    double spot = 100.0;
-    double vol = 0.15;
-    double rate = 0.0;
-    double div = 0.0;
-    int n;
-    std::cout << "Plz input # of paths (power of 2): ";
-    std::cin >> n;
-    const int n_paths = pow(2, n);
-
-    auto products = EuropeanProducts(strike, exerciseDate);
-    auto bsModels = BSModels(spot, vol, rate, div);
-
-    // single thread simulation
     Timer_ timer;
-    auto res = MCSimulation(*products.first, *bsModels.first, "sobol", n_paths);
+
+    using Real_ = Number_;
+
+    const double spot = 100.0;
+    const double vol = 0.15;
+    const double rate = 0.0;
+    const double div = 0.0;
+    const double strike = 120.0;
+    const Date_ maturity(2025, 9, 25);
+
+    timer.Reset();
+
+    Vector_<Date_> eventDates;
+    Vector_<String_> events;
+    eventDates.push_back(maturity);
+    events.push_back("call pays MAX(spot() - " + ToString(strike) + ", 0.0)");
+
+    ScriptProduct_ product(eventDates, events);
+
+    std::unique_ptr<Model_<Real_>> model = std::make_unique<BlackScholes_<Real_>>(spot, vol, rate, div);
+    std::cout << "\nParsing " << std::setprecision(8) << "\tElapsed: " << timer.Elapsed<milliseconds>() << " ms" << std::endl;
+
+    timer.Reset();
+    int max_nested_ifs = product.PreProcess(true, true);
+    SimResults_<Real_> results = MCSimulation(product, *model, std::pow(2, 20), String_("sobol"), false, max_nested_ifs);
+
     auto sum = 0.0;
-    for (auto row = 0; row < res.Rows(); ++row)
-        sum += res(row, 0);
-    auto calculated = sum / static_cast<double>(res.Rows());
-    cout << "Single-threaded: " << setprecision(8) << calculated << "\tElapsed: " << timer.Elapsed<milliseconds>() << " ms" << endl;
-
-    // multi-threads simulation
-    timer.Reset();
-    res = MCParallelSimulation(*products.first, *bsModels.first, "sobol", n_paths);
-    sum = 0.0;
-    for (auto row = 0; row < res.Rows(); ++row)
-        sum += res(row, 0);
-    calculated = sum / static_cast<double>(res.Rows());
-    cout << "Multi-threaded: " << setprecision(8) << calculated<< "\tElapsed: " << timer.Elapsed<milliseconds>() << " ms" << endl;
-
-    // single thread simulation (AAD)
-    timer.Reset();
-    auto resAAD = MCSimulationAAD(*products.second, *bsModels.second, "sobol", n_paths);
-    sum = 0.0;
-    for (auto row = 0; row < resAAD.Rows(); ++row)
-        sum += resAAD.aggregated_[row];
-    calculated = sum / static_cast<double>(res.Rows());
-    cout << "Single-threaded (AAD): price " << setprecision(8) << calculated << "\tElapsed: " << timer.Elapsed<milliseconds>() << " ms" << endl;
-    cout << "                     : delta " << setprecision(8) << resAAD.risks_[0] << endl;
-    cout << "                     : vega  " << setprecision(8) << resAAD.risks_[1] << endl;
-    cout << "                     : rho   " << setprecision(8) << resAAD.risks_[2] << endl;
-
-    // multi-threads simulation (AAD)
-    timer.Reset();
-    resAAD = MCParallelSimulationAAD(*products.second, *bsModels.second, "sobol", n_paths);
-    sum = 0.0;
-    for (auto row = 0; row < resAAD.Rows(); ++row)
-        sum += resAAD.aggregated_[row];
-    calculated = sum / static_cast<double>(res.Rows());
-    cout << "Multi-threaded (AAD) : price " << setprecision(8) << calculated
-         << "\tElapsed: " << timer.Elapsed<milliseconds>() << " ms" << endl;
-    cout << "                     : delta " << setprecision(8) << resAAD.risks_[0] << endl;
-    cout << "                     : vega  " << setprecision(8) << resAAD.risks_[1] << endl;
-    cout << "                     : rho   " << setprecision(8) << resAAD.risks_[2] << endl;
+    for (auto row = 0; row < results.Rows(); ++row)
+        sum += results.aggregated_[row];
+    auto calculated = sum / static_cast<double>(results.Rows());
+    std::cout << "\nEuropean       w. BS : price " << std::setprecision(8) << calculated << "\tElapsed: " << timer.Elapsed<milliseconds>() << " ms" << std::endl;
+    std::cout << "                     : delta " << std::setprecision(8) << results.risks_[0] << std::endl;
+    std::cout << "                     : vega  " << std::setprecision(8) << results.risks_[1] << std::endl;
+    std::cout << "                     : rho   " << std::setprecision(8) << results.risks_[2] << std::endl;
 
     return 0;
 }

@@ -67,7 +67,8 @@ int main() {
 
     timer.Reset();
     int max_nested_ifs = product.PreProcess(true, true);
-    SimResults_<Real_> results = MCSimulation(product, *model, std::pow(2, 20), String_("sobol"), false, max_nested_ifs);
+    product.Compile();
+    SimResults_<Real_> results = MCSimulation(product, *model, std::pow(2, 20), String_("sobol"), false, max_nested_ifs, 0.01, true);
 
     auto sum = 0.0;
     for (auto row = 0; row < results.Rows(); ++row)
