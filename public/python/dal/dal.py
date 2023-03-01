@@ -590,17 +590,6 @@ class Date_(object):
         r"""__repr__(self) -> std::string"""
         return _dal.Date____repr__(self)
 
-    def __add__(self, days: "int") -> "Date_":
-        r"""
-        __add__(self, days) -> Date_
-
-        Parameters
-        ----------
-        days: int
-
-        """
-        return _dal.Date____add__(self, days)
-
     def __lt__(self, other: "Date_") -> "bool":
         r"""
         __lt__(self, other) -> bool
@@ -655,6 +644,17 @@ class Date_(object):
 
         """
         return _dal.Date____eq__(self, other)
+
+    def __sub__(self, other: "Date_") -> "int":
+        r"""
+        __sub__(self, other) -> int
+
+        Parameters
+        ----------
+        other: Date_ *
+
+        """
+        return _dal.Date____sub__(self, other)
     __swig_destroy__ = _dal.delete_Date_
 
 # Register Date_ in _dal:

@@ -46,6 +46,10 @@ namespace Dal::Date {
     bool __eq__(Date_* other) {
         return *$self == *other;
     }
+
+    int __sub__(Date_* other) {
+        return *$self - *other;
+    }
 };
 
 %template(DateVector) std::vector<Date_>;

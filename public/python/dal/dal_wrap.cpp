@@ -4793,9 +4793,6 @@ SWIG_From_std_string  (const std::string& s)
   return SWIG_FromCharPtrAndSize(s.data(), s.size());
 }
 
-SWIGINTERN Date_ Date____add__(Date_ *self,int days){
-        return self->AddDays(days);
-    }
 SWIGINTERN bool Date____lt__(Date_ *self,Date_ *other){
         return *self < *other;
     }
@@ -4811,6 +4808,16 @@ SWIGINTERN bool Date____ge__(Date_ *self,Date_ *other){
 SWIGINTERN bool Date____eq__(Date_ *self,Date_ *other){
         return *self == *other;
     }
+SWIGINTERN int Date____sub__(Date_ *self,Date_ *other){
+        return *self - *other;
+    }
+
+SWIGINTERNINLINE PyObject*
+  SWIG_From_int  (int value)
+{
+  return PyInt_FromLong((long) value);
+}
+
 
 SWIGINTERNINLINE PyObject *
 SWIG_From_short  (short value)
@@ -8546,38 +8553,6 @@ fail:
 }
 
 
-SWIGINTERN PyObject *_wrap_Date____add__(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
-  PyObject *resultobj = 0;
-  Date_ *arg1 = (Date_ *) 0 ;
-  int arg2 ;
-  void *argp1 = 0 ;
-  int res1 = 0 ;
-  int val2 ;
-  int ecode2 = 0 ;
-  PyObject *swig_obj[2] ;
-  SwigValueWrapper< Date_ > result;
-  
-  if (!SWIG_Python_UnpackTuple(args, "Date____add__", 2, 2, swig_obj)) SWIG_fail;
-  res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_Date_, 0 |  0 );
-  if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Date____add__" "', argument " "1"" of type '" "Date_ *""'"); 
-  }
-  arg1 = reinterpret_cast< Date_ * >(argp1);
-  ecode2 = SWIG_AsVal_int(swig_obj[1], &val2);
-  if (!SWIG_IsOK(ecode2)) {
-    SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Date____add__" "', argument " "2"" of type '" "int""'");
-  } 
-  arg2 = static_cast< int >(val2);
-  result = Date____add__(arg1,arg2);
-  resultobj = SWIG_NewPointerObj((new Date_(static_cast< const Date_& >(result))), SWIGTYPE_p_Date_, SWIG_POINTER_OWN |  0 );
-  return resultobj;
-fail:
-  PyErr_Clear();
-  Py_INCREF(Py_NotImplemented);
-  return Py_NotImplemented;
-}
-
-
 SWIGINTERN PyObject *_wrap_Date____lt__(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
   PyObject *resultobj = 0;
   Date_ *arg1 = (Date_ *) 0 ;
@@ -8730,6 +8705,38 @@ SWIGINTERN PyObject *_wrap_Date____eq__(PyObject *SWIGUNUSEDPARM(self), PyObject
   arg2 = reinterpret_cast< Date_ * >(argp2);
   result = (bool)Date____eq__(arg1,arg2);
   resultobj = SWIG_From_bool(static_cast< bool >(result));
+  return resultobj;
+fail:
+  PyErr_Clear();
+  Py_INCREF(Py_NotImplemented);
+  return Py_NotImplemented;
+}
+
+
+SWIGINTERN PyObject *_wrap_Date____sub__(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+  PyObject *resultobj = 0;
+  Date_ *arg1 = (Date_ *) 0 ;
+  Date_ *arg2 = (Date_ *) 0 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  void *argp2 = 0 ;
+  int res2 = 0 ;
+  PyObject *swig_obj[2] ;
+  int result;
+  
+  if (!SWIG_Python_UnpackTuple(args, "Date____sub__", 2, 2, swig_obj)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_Date_, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Date____sub__" "', argument " "1"" of type '" "Date_ *""'"); 
+  }
+  arg1 = reinterpret_cast< Date_ * >(argp1);
+  res2 = SWIG_ConvertPtr(swig_obj[1], &argp2,SWIGTYPE_p_Date_, 0 |  0 );
+  if (!SWIG_IsOK(res2)) {
+    SWIG_exception_fail(SWIG_ArgError(res2), "in method '" "Date____sub__" "', argument " "2"" of type '" "Date_ *""'"); 
+  }
+  arg2 = reinterpret_cast< Date_ * >(argp2);
+  result = (int)Date____sub__(arg1,arg2);
+  resultobj = SWIG_From_int(static_cast< int >(result));
   return resultobj;
 fail:
   PyErr_Clear();
@@ -15633,14 +15640,6 @@ static PyMethodDef SwigMethods[] = {
 		"\n"
 		""},
 	 { "Date____repr__", _wrap_Date____repr__, METH_O, "Date____repr__(self) -> std::string"},
-	 { "Date____add__", _wrap_Date____add__, METH_VARARGS, "\n"
-		"Date____add__(self, days) -> Date_\n"
-		"\n"
-		"Parameters\n"
-		"----------\n"
-		"days: int\n"
-		"\n"
-		""},
 	 { "Date____lt__", _wrap_Date____lt__, METH_VARARGS, "\n"
 		"Date____lt__(self, other) -> bool\n"
 		"\n"
@@ -15675,6 +15674,14 @@ static PyMethodDef SwigMethods[] = {
 		""},
 	 { "Date____eq__", _wrap_Date____eq__, METH_VARARGS, "\n"
 		"Date____eq__(self, other) -> bool\n"
+		"\n"
+		"Parameters\n"
+		"----------\n"
+		"other: Date_ *\n"
+		"\n"
+		""},
+	 { "Date____sub__", _wrap_Date____sub__, METH_VARARGS, "\n"
+		"Date____sub__(self, other) -> int\n"
 		"\n"
 		"Parameters\n"
 		"----------\n"
