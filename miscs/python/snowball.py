@@ -33,10 +33,10 @@ for d in event_dates[1:]:
         events.append("alive = 1")   # initial and 3m lock
     elif d < event_dates[-1]:
         events.append(
-            f"""if spot() < {ki:.2f}:0.001 then knock_in = 1 endif\nif spot() > {ko:.2f}:0.001 then call pays alive * {coupon * (d - event_dates[0]) / 365.0:.4f} alive = 0 endif"""
+            f"""if spot() < {ki:.2f}:0.001 then ki = 1 endif\nif spot() > {ko:.2f}:0.001 then call pays alive * {coupon * (d - event_dates[0]) / 365.0:.4f} alive = 0 endif"""
         )
 events.append(
-    f"""if spot() < {ki:.2f}:0.001 then knock_in = 1 endif\nif spot() > {ko:.2f}:0.001 then call pays alive * {coupon * (d - event_dates[0]) / 365.0:.4f} alive = 0 endif\ncall pays alive * knock_in * (spot() - {spot:.4f})"""
+    f"""if spot() < {ki:.2f}:0.001 then ki = 1 endif\nif spot() > {ko:.2f}:0.001 then call pays alive * {coupon * (d - event_dates[0]) / 365.0:.4f} alive = 0 endif\ncall pays alive * ki * (spot() - {spot:.4f})"""
 )
 
 for d, e in zip(event_dates, events):
