@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <dal/math/matrix/banded.hpp>
 #include <dal/math/matrix/matrixs.hpp>
 #include <dal/math/vectors.hpp>
 #include <dal/platform/platform.hpp>
@@ -13,7 +14,7 @@ namespace Dal::PDE {
     class FD1D_ {
     public:
         FD1D_(int num_t = 1): res_(num_t) {}
-        void Init(int num_v, bool log);
+        void Init(int num_v);
 
         const Vector_<>& R() const { return r_; }
         Vector_<>& R() { return r_; }
@@ -26,22 +27,18 @@ namespace Dal::PDE {
         const Vector_<Vector_<>>& Res() const { return res_; }
         Vector_<Vector_<>>& Res() { return res_; }
 
-        void CalcAx(double one, double dtTheta, int wind, bool tr, Matrix_<>& A) const;
-        void RollBwd(double dt, double theta, int wind, Vector_<Vector_<>>& res);
-        void RollFwd(double dt, double theta, int wind, Vector_<Vector_<>>& res);
+        void CalcAx(double one, double dtTheta);
+        void RollBwd(double dt, double theta, Vector_<Vector_<>>& res);
 
     private:
-        bool log_{false};
         Vector_<> x_;
         Vector_<> r_;
         Vector_<> mu_;
         Vector_<> var_;
 
-        Matrix_<> dxd_;
-        Matrix_<> dxu_;
-        Matrix_<> dx_;
-        Matrix_<> dxx_;
-        Matrix_<> A_;
+        std::unique_ptr<Sparse::TriDiagonal_> dx_;
+        std::unique_ptr<Sparse::TriDiagonal_> dxx_;
+        std::unique_ptr<Sparse::TriDiagonal_> A_;
         Vector_<> vs_;
         Vector_<Vector_<>> res_;
     };

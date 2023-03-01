@@ -13,11 +13,8 @@ int main() {
     double strike = -0.005;
     int num_x = 51;
 
-    double theta = 0.5;
+    double theta = 0.0;
     int num_t = 100;
-    int fb = -1;
-    bool log = false;
-    int wind = 0;
 
     Vector_<> x = Vector::XRange(-0.25, 0.25, num_x);
     Vector_<> r(num_x, 0.0);
@@ -28,7 +25,7 @@ int main() {
     PDE::FD1D_ fd(num_t);
 
     fd.X() = x;
-    fd.Init(1, log);
+    fd.Init(1);
 
     fd.Mu() = mu;
     fd.Var() = Apply([](double x) { return x * x; }, sigma);
@@ -36,12 +33,8 @@ int main() {
 
 
     double dt = t / num_t;
-    for (int n = 0; n < num_t; ++n) {
-        if (fb <= 0)
-            fd.RollBwd(dt, theta, wind, fd.Res());
-        else
-            fd.RollFwd(dt, theta, wind, fd.Res());
-    }
+    for (int n = 0; n < num_t; ++n)
+        fd.RollBwd(dt, theta, fd.Res());
 
     for (int n = 0; n < num_x; ++n)
         std::cout << std::setprecision(4) << fd.X()[n] << ": " << std::setprecision(8) << fd.Res()[0][n] << std::endl;
