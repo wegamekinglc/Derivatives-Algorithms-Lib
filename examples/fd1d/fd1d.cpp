@@ -13,7 +13,7 @@ int main() {
     double strike = -0.005;
     int num_x = 51;
 
-    double theta = 0.0;
+    double theta = 0.5;
     int num_t = 100;
 
     Vector_<> x = Vector::XRange(-0.25, 0.25, num_x);

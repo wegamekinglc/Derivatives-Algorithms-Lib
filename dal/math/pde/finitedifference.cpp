@@ -11,10 +11,6 @@ namespace Dal::PDE {
 
         Sparse::TriDiagonal_* rtn = new Sparse::TriDiagonal_(n);
 
-        Vector_<> c(n);
-        Vector_<> l(n - 1);
-        Vector_<> u(n - 1);
-
         double dxl, dxm, dxu;
 
         dxu = x[1] - x[0];
@@ -52,7 +48,7 @@ namespace Dal::PDE {
             rtn->Set(i, i, -(1.0 / dxl + 1.0 / dxu) / dxm);
             rtn->Set(i, i + 1, 1.0 / dxu / dxm);
         }
-        rtn->Set(n - 2, n - 1, 0.0);
+        rtn->Set(n - 1, n - 2, 0.0);
         rtn->Set(n - 1, n - 1, 0.0);
         return rtn;
     }

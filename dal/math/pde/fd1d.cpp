@@ -28,7 +28,7 @@ namespace Dal::PDE {
 
         for (int i = 0; i < n; ++i) {
             if (i != 0)
-                A_->Set(i - 1, i, dtTheta * (mu_(i) * (*dx_)(i - 1, i) + 0.5 * var_(i) * (*dxx_)(i - 1, i)));
+                A_->Set(i, i - 1, dtTheta * (mu_(i) * (*dx_)(i, i - 1) + 0.5 * var_(i) * (*dxx_)(i, i - 1)));
 
             if (i != n - 1)
                 A_->Set(i, i + 1, dtTheta * (mu_(i) * (*dx_)(i, i + 1) + 0.5 * var_(i) * (*dxx_)(i, i + 1)));
