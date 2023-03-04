@@ -13,7 +13,7 @@ namespace Dal::PDE {
 
     class FD1D_ {
     public:
-        FD1D_(int num_t = 1): res_(num_t) {}
+        FD1D_() = default;
         void Init(int num_v);
 
         const Vector_<>& R() const { return r_; }
