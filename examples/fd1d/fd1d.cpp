@@ -14,10 +14,10 @@ int main() {
     double rate = 0.0;
     double vol = 0.15;
     double strike = 120.0;
-    int num_x = 500;
+    int num_x = 499 * 10 + 1;
 
     double theta = 0.5;
-    int num_t = 500;
+    int num_t = 5000;
 
     Vector_<> x = Apply([](double x) { return std::log(x); }, Vector::XRange(1.0, 500.0, num_x));
     Vector_<> r(num_x, rate);
@@ -28,11 +28,11 @@ int main() {
     PDE::FD1D_ fd;
 
     fd.X() = x;
-    fd.Init(1);
+    fd.Init();
 
     fd.Mu() = mu;
     fd.Var() = Apply([](double x) { return x * x; }, sigma);
-    fd.Res()[0] = v0;
+    fd.Res() = v0;
 
     double dt = t / num_t;
     for (int n = 0; n < num_t; ++n)
@@ -44,9 +44,9 @@ int main() {
         const double spot = std::exp(fd.X()[n]);
         const double fwd = std::exp(rate * t) * spot;
         const double benchmark_price = discounts * Distribution::BlackOpt(fwd, vol_std, strike, OptionType_::Value_::CALL) ;
-        std::cout << std::setprecision(8) << spot << ": " << std::setprecision(8) << fd.Res()[0][n]
+        std::cout << std::setprecision(8) << spot << ": " << std::setprecision(8) << fd.Res()[n]
                   << ", " << benchmark_price
-                  << ", " << (fd.Res()[0][n] - benchmark_price) / benchmark_price * 10000 << std::endl;
+                  << ", " << (fd.Res()[n] - benchmark_price) / benchmark_price * 10000 << std::endl;
     }
 
     return 0;

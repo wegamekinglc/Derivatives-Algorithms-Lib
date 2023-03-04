@@ -12,4 +12,6 @@
 namespace Dal::PDE {
     Sparse::TriDiagonal_* Dx(const Vector_<>& x);
     Sparse::TriDiagonal_* Dxx(const Vector_<>& x);
+    Vector_<> BCx(const Vector_<>& x);
+    Vector_<> BCxx(const Vector_<>& x);
 }

@@ -14,7 +14,7 @@ namespace Dal::PDE {
     class FD1D_ {
     public:
         FD1D_() = default;
-        void Init(int num_v);
+        void Init();
 
         const Vector_<>& R() const { return r_; }
         Vector_<>& R() { return r_; }
@@ -24,11 +24,12 @@ namespace Dal::PDE {
         Vector_<>& Var() { return var_; }
         const Vector_<>& X() const { return x_; }
         Vector_<>& X() { return x_; }
-        const Vector_<Vector_<>>& Res() const { return res_; }
-        Vector_<Vector_<>>& Res() { return res_; }
+        const Vector_<>& Res() const { return res_; }
+        Vector_<>& Res() { return res_; }
 
         void CalcAx(double one, double dtTheta);
-        void RollBwd(double dt, double theta, Vector_<Vector_<>>& res);
+        void CalcBC(double dtTheta, Vector_<>* v) const;
+        void RollBwd(double dt, double theta, Vector_<>& res);
 
     private:
         Vector_<> x_;
@@ -38,9 +39,11 @@ namespace Dal::PDE {
 
         std::unique_ptr<Sparse::TriDiagonal_> dx_;
         std::unique_ptr<Sparse::TriDiagonal_> dxx_;
+        Vector_<> bcx_;
+        Vector_<> bcxx_;
         std::unique_ptr<Sparse::TriDiagonal_> A_;
         Vector_<> vs_;
-        Vector_<Vector_<>> res_;
+        Vector_<> res_;
     };
 
 } // namespace Dal::PDE
