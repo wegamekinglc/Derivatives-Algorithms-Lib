@@ -3,6 +3,7 @@
 //
 
 #include <iomanip>
+#include <dal/math/operators.hpp>
 #include <dal/math/pde/fdi1d.hpp>
 #include <dal/math/distribution/black.hpp>
 
@@ -14,12 +15,12 @@ int main() {
     double rate = 0.0;
     double vol = 0.15;
     double strike = 120.0;
-    int num_x = 499 * 10 + 1;
+    int num_x = 299 * 10 + 1;
 
     double theta = 0.5;
-    int num_t = 5000;
+    int num_t = 3000;
 
-    Vector_<> x = Apply([](double x) { return std::log(x); }, Vector::XRange(1.0, 500.0, num_x));
+    Vector_<> x = Apply([](double x) { return std::log(x); }, Vector::XRange(1.0, 300.0, num_x));
     Vector_<> r(num_x, rate);
     Vector_<> mu(num_x, rate - 0.5 * vol * vol);
     Vector_<> sigma(num_x, vol);
