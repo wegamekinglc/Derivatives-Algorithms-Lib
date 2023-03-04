@@ -53,14 +53,17 @@ int main() {
         if (i < 4)
             events.push_back("alive = 1");
         else
-            events.push_back("if spot() < 0.88:0.001 then ki = 1 endif\n"
-                             "if spot() > 1.00:0.001 then call pays alive * " + ToString(this_coupon) + " alive = 0  endif");
+            events.push_back("if spot() < " + ToString(ki) + ":0.001 then ki = 1 endif\n"
+                             "if spot() > " + ToString(ko) + ":0.001 then call pays alive * " + ToString(this_coupon) + " alive = 0  endif");
     }
     const double this_coupon = coupon * (schedule[schedule.size() - 1] - schedule[0]) / 365.0;
     eventDates.push_back(schedule[schedule.size() - 1]);
-    events.push_back("if spot() < 0.88:0.001 then ki = 1 endif\n"
-                     "if spot() > 1.00:0.001 then call pays alive * " + ToString(this_coupon) + " alive = 0  endif\n"
+    events.push_back("if spot() < " + ToString(ki) + ":0.001 then ki = 1 endif\n"
+                     "if spot() > " + ToString(ko) + ":0.001 then call pays alive * " + ToString(this_coupon) + " alive = 0  endif\n"
                      "call pays alive * ki * (spot() - " + ToString(spot) + ")");
+
+    std::cout << "# of paths: " << static_cast<int>(std::pow(2, 20)) << std::endl;
+    std::cout << "# of obs. : " << events.size() << std::endl;
 
     {
         ScriptProduct_ product(eventDates, events);
@@ -76,7 +79,7 @@ int main() {
             sum += results.aggregated_[row];
         auto calculated = sum / static_cast<double>(results.Rows());
         std::cout << "Snowball       w. BS : price " << std::setprecision(4) << calculated
-                  << "\tElapsed: " << timer.Elapsed<milliseconds>() << " ms\n" << std::endl;
+                  << "\tElapsed: " << timer.Elapsed<milliseconds>() << " ms" << std::endl;
     }
 
     {
