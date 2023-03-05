@@ -62,7 +62,8 @@ namespace Dal::PDE {
             CalcAx(1.0, -dt * theta);
             vs_ = Vector_<>(res.begin() + 1, res.end() - 1);
             CalcBC(dt * theta, &vs_);
-            A_->Decompose()->SolveLeft(vs_, &tmp);
+            std::unique_ptr<SquareMatrixDecomposition_> comp(A_->Decompose());
+            comp->SolveLeft(vs_, &tmp);
             for (int i = 0; i < n; ++i)
                 res[i + 1] = tmp[i];
         }
