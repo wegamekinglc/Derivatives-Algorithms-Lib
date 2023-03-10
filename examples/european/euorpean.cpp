@@ -27,7 +27,7 @@ int main() {
 
     using Real_ = double;
 
-    const double spot = 120.0;
+    const double spot = 100.0;
     const double vol = 0.15;
     const double rate = 0.0;
     const double div = 0.0;
@@ -47,8 +47,7 @@ int main() {
 
     std::unique_ptr<Model_<Real_>> model = std::make_unique<BlackScholes_<Real_>>(spot, vol, rate, div);
     std::cout << "\nParsing " << std::setprecision(8) << "\tElapsed: " << timer.Elapsed<milliseconds>() << " ms" << std::endl;
-
-
+    
     product.PreProcess(false, false);
     for (int i = 10; i <= 30; ++i) {
         timer.Reset();
@@ -67,7 +66,8 @@ int main() {
         const double benchmark_price = discounts * Distribution::BlackOpt(fwd, vol_std, strike, OptionType_::Value_::CALL);
         std::cout << std::setprecision(12) << "2^" << i << "," << spot << "," << calculated
                   << "," << benchmark_price
-                  << "," << (calculated - benchmark_price) / benchmark_price * 10000 << "," << timer.Elapsed<milliseconds>() <<std::endl;
+                  << "," << (calculated - benchmark_price) / benchmark_price * 10000 << ","
+                  << timer.Elapsed<milliseconds>() <<std::endl;
     }
 
     return 0;

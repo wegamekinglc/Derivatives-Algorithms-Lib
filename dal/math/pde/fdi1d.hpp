@@ -28,7 +28,6 @@ namespace Dal::PDE {
         Vector_<>& Res() { return res_; }
 
         void CalcAx(double one, double dtTheta);
-        void CalcBC(double dtTheta, Vector_<>* v) const;
         void RollBwd(double dt, double theta, Vector_<>& res);
 
     private:
@@ -39,8 +38,6 @@ namespace Dal::PDE {
 
         std::unique_ptr<Sparse::TriDiagonal_> dx_;
         std::unique_ptr<Sparse::TriDiagonal_> dxx_;
-        Vector_<> bcx_;
-        Vector_<> bcxx_;
         std::unique_ptr<Sparse::TriDiagonal_> A_;
         Vector_<> vs_;
         Vector_<> res_;

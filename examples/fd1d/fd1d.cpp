@@ -19,9 +19,9 @@ int main() {
 
     double theta = 0.5;
 
-    for (int i = 1; i <= 400; ++i) {
-        int num_x = 50 * i + 1;
-        int num_t = 50 * i;
+    for (int i = 1; i <= 10; ++i) {
+        int num_x = 5000 * i + 1;
+        int num_t = 5000 * i;
 
         Timer_ timer;
 
@@ -46,8 +46,8 @@ int main() {
         double discounts = std::exp(-rate * t);
         double vol_std = std::sqrt(t) * vol;
 
-        double x_n = fd.X()[i * 22];
-        double res_n = fd.Res()[i * 22];
+        double x_n = fd.X()[i * 1800];
+        double res_n = fd.Res()[i * 1800];
         const double spot = std::exp(x_n);
         const double fwd = std::exp(rate * t) * spot;
         const double benchmark_price = discounts * Distribution::BlackOpt(fwd, vol_std, strike, OptionType_::Value_::CALL);
