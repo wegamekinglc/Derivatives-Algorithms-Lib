@@ -4,11 +4,11 @@
 
 #pragma once
 
+#include <dal/math/analytics/vanilla.hpp>
 #include <dal/math/interp/interp2d.hpp>
 #include <dal/math/matrix/matrixs.hpp>
 #include <dal/math/vectors.hpp>
 #include <dal/platform/platform.hpp>
-#include <dal/math/aad/models/analytics.hpp>
 
 namespace Dal::AAD {
     template <class T_>

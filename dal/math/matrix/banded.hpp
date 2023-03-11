@@ -34,6 +34,11 @@ namespace Dal {
                 *dst += inc;
             }
 
+            [[nodiscard]] const Vector_<>& Above() const { return above_; }
+            [[nodiscard]] const Vector_<>& Diag() const { return diag_; }
+            [[nodiscard]] const Vector_<>& Below() const { return below_; }
+
+
             void MultiplyLeft(const Vector_<>& x, Vector_<>* b) const override;
             void MultiplyRight(const Vector_<>& x, Vector_<>* b) const override ;
             [[nodiscard]] SquareMatrixDecomposition_* Decompose() const override ;

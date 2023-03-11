@@ -2,8 +2,8 @@
 // Created by wegam on 2022/9/11.
 //
 
-#include <dal/math/aad/models/analytics.hpp>
 #include <dal/math/aad/aad.hpp>
+#include "dal/math/analytics/vanilla.hpp"
 #include <gtest/gtest.h>
 
 using namespace Dal::AAD;
@@ -28,8 +28,8 @@ TEST(AnalyticsTest, TestBlackScholesAAD) {
     tape.reset();
     tape.registerInput(vol);
     tape.registerInput(T);
-    tape.registerInput(forward);
     tape.registerInput(strike);
+    tape.registerInput(forward);
     
     auto call_price = BlackScholes<Number_>(forward, strike, vol, T);
     ASSERT_NEAR(call_price.value(), 8.53592506466286, 1e-10);
