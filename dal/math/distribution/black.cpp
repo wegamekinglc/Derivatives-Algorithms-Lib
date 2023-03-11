@@ -2,7 +2,6 @@
 // Created by wegam on 2022/5/5.
 //
 
-#include <dal/math/operators.hpp>
 #include <dal/math/distribution/black.hpp>
 #include <dal/math/rootfind.hpp>
 #include <dal/math/specialfunctions.hpp>

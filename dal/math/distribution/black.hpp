@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <dal/math/operators.hpp>
 #include <dal/platform/platform.hpp>
 #include <dal/math/distribution/base.hpp>
 #include <dal/protocol/optiontype.hpp>
