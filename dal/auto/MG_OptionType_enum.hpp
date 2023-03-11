@@ -27,7 +27,7 @@ public:
     const char* String() const;
     Value_ Switch() const {return val_;}
 	// idiosyncratic (hand-written) members:
-    double Payout(double spot, double strike) const;
+    template<class T_> T_ Payout(T_ spot, T_ strike) const;
     OptionType_ Opposite() const;
     OptionType_() : val_(Value_::_NOT_SET) {};
 };

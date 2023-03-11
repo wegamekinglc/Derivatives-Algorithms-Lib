@@ -31,7 +31,7 @@ TEST(AnalyticsTest, TestBlackScholesAAD) {
     tape.registerInput(strike);
     tape.registerInput(forward);
     
-    auto call_price = BlackScholes<Number_>(forward, strike, vol, T);
+    auto call_price = BlackScholes(forward, strike, vol, T);
     ASSERT_NEAR(call_price.value(), 8.53592506466286, 1e-10);
 
     call_price.setGradient(1.0);

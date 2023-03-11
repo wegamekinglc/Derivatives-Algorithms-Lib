@@ -12,12 +12,8 @@ namespace Dal::AAD {
 
     template <class T_>
     T_ BlackScholes(const T_& spot, const T_& strike, const T_& vol, const T_& mat) {
-        const auto std = vol * Dal::sqrt(mat);
-        if (std <= EPSILON)
-            return Dal::max(T_(0.0), T_(spot - strike));
-        const T_ d2 = Dal::log(spot / strike) / std - 0.5 * std;
-        const T_ d1 = d2 + std;
-        return spot * Dal::NCDF(static_cast<T_>(d1)) - strike * Dal::NCDF(static_cast<T_>(d2));
+        T_ std = vol * sqrt(mat);
+        return Distribution::BlackOpt(spot, std, strike, OptionType_("CALL"));
     }
 
     double BlackScholesIVol(double spot, double strike, double prem, double mat);
@@ -49,7 +45,12 @@ namespace Dal::AAD {
             fact *= n + 1;
             iT *= intensT;
         }
-
         return result;
+    }
+
+    template <class T_>
+    T_ Bachelier(const T_& spot, const T_& strike, const T_& vol, const T_& mat) {
+        T_ std = vol * sqrt(mat);
+        return Distribution::BachelierOpt(spot, std, strike, OptionType_("CALL"));
     }
 } // namespace Dal::AAD

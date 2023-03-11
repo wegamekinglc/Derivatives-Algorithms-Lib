@@ -11,23 +11,6 @@
 
 namespace Dal {
     namespace Distribution {
-        double BlackOpt(double fwd, double vol, double strike, const OptionType_& type) {
-            if (IsZero(vol) || !IsPositive(fwd * strike))
-                return type.Payout(fwd, strike);
-            const double dMinus = log(fwd / strike) / vol - 0.5 * vol;
-            const double dPlus = dMinus + vol;
-            switch (type.Switch()) {
-            case OptionType_::Value_::CALL:
-                return fwd * NCDF(dPlus) - strike * NCDF(dMinus);
-            case OptionType_::Value_::PUT:
-                return strike * NCDF(-dMinus) - fwd * NCDF(-dPlus);
-            case OptionType_::Value_::STRADDLE:
-                return fwd * (1.0 - 2.0 * NCDF(-dPlus)) + strike * (1.0 - 2.0 * NCDF(dMinus));
-            default:
-                THROW("invalid option type");
-            }
-        }
-
         double BlackIV(double fwd, double strike, const OptionType_& type, double price, double guess) {
             static const int MAX_ITERATIONS = 30;
             static const double TOL = 1.0e-10;
@@ -67,23 +50,6 @@ namespace Dal {
             ret_val.push_back(fwdDelta);
             ret_val.push_back(vega);
             return ret_val;
-        }
-
-        double BachelierOpt(double fwd, double vol, double strike, const OptionType_& type) {
-            if (IsZero(vol) || !IsPositive(fwd * strike))
-                return type.Payout(fwd, strike);
-            const double diff = fwd - strike;
-            const double d = diff / vol;
-            switch (type.Switch()) {
-            case OptionType_::Value_::CALL:
-                return diff * NCDF(d) + vol * NPDF(d);
-            case OptionType_::Value_::PUT:
-                return -diff * NCDF(-d) + vol * NPDF(d);
-            case OptionType_::Value_::STRADDLE:
-                return diff * (2.0 * NCDF(d) - 1.0) + 2.0 * vol * NPDF(d);
-            default:
-                THROW("invalid option type");
-            }
         }
 
         double BachelierIV(double fwd, double strike, const OptionType_& type, double price, double guess) {

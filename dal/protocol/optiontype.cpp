@@ -9,17 +9,4 @@
 
 namespace Dal {
 #include <dal/auto/MG_OptionType_enum.inc>
-
-    double OptionType_::Payout(double spot, double strike) const {
-        switch (Switch()) {
-        case Value_::CALL:
-            return max(0.0, spot - strike);
-        case Value_::PUT:
-            return max(0.0, strike - spot);
-        case Value_::STRADDLE:
-            return fabs(spot - strike);
-        default:
-            THROW("invalid option type");
-        }
-    }
 }

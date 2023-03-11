@@ -10,11 +10,45 @@
 
 namespace Dal {
     namespace Distribution {
-        double BlackOpt(double fwd, double vol, double strike, const OptionType_& type);
+        template <class T_>
+        T_ BlackOpt(const T_& fwd, const T_& vol, const T_& strike, const OptionType_& type) {
+            if (IsZero(vol) || !IsPositive(fwd * strike))
+                return type.Payout(fwd, strike);
+            T_ dMinus = log(fwd / strike) / vol - 0.5 * vol;
+            T_ dPlus = dMinus + vol;
+            switch (type.Switch()) {
+            case OptionType_::Value_::CALL:
+                return fwd * NCDF(dPlus) - strike * NCDF(dMinus);
+            case OptionType_::Value_::PUT:
+                return strike * NCDF(T_(-dMinus)) - fwd * NCDF(T_(-dPlus));
+            case OptionType_::Value_::STRADDLE:
+                return fwd * (1.0 - 2.0 * NCDF(T_(-dPlus))) + strike * (1.0 - 2.0 * NCDF(dMinus));
+            default:
+                THROW("invalid option type");
+            }
+        }
+
         double BlackIV(double fwd, double strike, const OptionType_& type, double price, double guess = 0.0);
         Vector_<> BlackGreeks(double fwd, double vol, double strike, const OptionType_& type);
 
-        double BachelierOpt(double fwd, double vol, double strike, const OptionType_& type);
+        template <class T_>
+        T_ BachelierOpt(const T_& fwd, const T_& vol, const T_& strike, const OptionType_& type)  {
+            if (IsZero(vol) || !IsPositive(fwd * strike))
+                return type.Payout(fwd, strike);
+            T_ diff = fwd - strike;
+            T_ d = diff / vol;
+            switch (type.Switch()) {
+            case OptionType_::Value_::CALL:
+                return diff * NCDF(d) + vol * NPDF(d);
+            case OptionType_::Value_::PUT:
+                return -diff * NCDF(T_(-d)) + vol * NPDF(d);
+            case OptionType_::Value_::STRADDLE:
+                return diff * (2.0 * NCDF(d) - 1.0) + 2.0 * vol * NPDF(d);
+            default:
+                THROW("invalid option type");
+            }
+        }
+
         double BachelierIV(double fwd, double strike, const OptionType_& type, double price, double guess = 0.0);
         Vector_<> BachelierGreeks(double fwd, double vol, double strike, const OptionType_& type);
 
