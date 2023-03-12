@@ -11,4 +11,10 @@ namespace Dal::AAD {
         const auto std_dev = Dal::Distribution::BlackIV(spot, strike, type, prem);
         return std_dev / Dal::sqrt(mat);
     }
+
+    double BachelierIVol(double spot, double strike, double prem, double mat) {
+        static const OptionType_ type("CALL");
+        const auto std_dev = Dal::Distribution::BachelierIV(spot, strike, type, prem);
+        return std_dev / Dal::sqrt(mat);
+    }
 }

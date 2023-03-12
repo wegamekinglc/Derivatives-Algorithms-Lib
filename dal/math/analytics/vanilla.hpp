@@ -53,4 +53,6 @@ namespace Dal::AAD {
         T_ std = vol * sqrt(mat);
         return Distribution::BachelierOpt(spot, std, strike, OptionType_("CALL"));
     }
+
+    double BachelierIVol(double spot, double strike, double prem, double mat);
 } // namespace Dal::AAD
