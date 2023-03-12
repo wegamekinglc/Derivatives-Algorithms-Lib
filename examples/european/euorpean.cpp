@@ -29,8 +29,8 @@ int main() {
 
     const double spot = 100.0;
     const double vol = 0.15;
-    const double rate = 0.0;
-    const double div = 0.0;
+    const double rate = 0.05;
+    const double div = 0.03;
     const double strike = 120.0;
     const String_ rsg = "sobol";
     const Date_ maturity(2025, 9, 25);
@@ -49,6 +49,20 @@ int main() {
     std::cout << "\nParsing " << std::setprecision(8) << "\tElapsed: " << timer.Elapsed<milliseconds>() << " ms" << std::endl;
     
     product.PreProcess(false, false);
+
+    Vector_<int> widths = {14, 14, 14, 14, 14, 14};
+    double discounts = std::exp(-rate * t);
+    double fwd = std::exp((rate - div) * t) * spot;
+    double vol_std = std::sqrt(t) * vol;
+    const auto benchmark = discounts * Distribution::BlackOpt(fwd, vol_std, strike, OptionType_::Value_::CALL);
+
+    std::cout << std::setw(widths[0]) << std::left << "# of pathes"
+              << std::setw(widths[1]) << std::left << "spot"
+              << std::setw(widths[2]) << std::left << "price"
+              << std::setw(widths[3]) << std::left << "benchmark"
+              << std::setw(widths[4]) << std::left << "Diff (bps)"
+              << std::setw(widths[5]) << std::left << "Elapsed (ms)"
+              << std::endl;
     for (int i = 10; i <= 30; ++i) {
         timer.Reset();
         int num_paths = std::pow(2, i);
@@ -59,16 +73,15 @@ int main() {
         for (auto row = 0; row < results.Rows(); ++row)
             sum += results.aggregated_[row];
         auto calculated = sum / static_cast<double>(results.Rows());
-
-        double discounts = std::exp(-rate * t);
-        double vol_std = std::sqrt(t) * vol;
-        const double fwd = std::exp(rate * t) * spot;
-        const double benchmark_price = discounts * Distribution::BlackOpt(fwd, vol_std, strike, OptionType_::Value_::CALL);
-        std::cout << std::setprecision(12) << "2^" << i << "," << spot << "," << calculated
-                  << "," << benchmark_price
-                  << "," << (calculated - benchmark_price) / benchmark_price * 10000 << ","
-                  << timer.Elapsed<milliseconds>() <<std::endl;
+        std::cout << std::setw(widths[0]) << std::left << int(std::pow(2, i))
+                  << std::fixed
+                  << std::setw(widths[1]) << std::left << spot
+                  << std::setprecision(8)
+                  << std::setw(widths[2]) << std::left << calculated
+                  << std::setw(widths[3]) << std::left << benchmark
+                  << std::setw(widths[4]) << std::left << (calculated - benchmark) / benchmark * 10000
+                  << std::setw(widths[5]) << std::left << int(timer.Elapsed<milliseconds>())
+                  << std::endl;
     }
-
     return 0;
 }

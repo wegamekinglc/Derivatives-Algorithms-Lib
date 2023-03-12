@@ -13,21 +13,41 @@ using namespace Dal;
 int main() {
 
     double t = 3.002739726;
-    double rate = 0.0;
+    double rate = 0.05;
+    double div = 0.03;
     double vol = 0.15;
     double strike = 120.0;
-
+    double spot = 100.0;
     double theta = 0.5;
 
-    for (int i = 1; i <= 10; ++i) {
-        int num_x = 5000 * i + 1;
-        int num_t = 5000 * i;
+    Vector_<int> widths = {25, 14, 14, 14, 14, 14};
+    double discounts = std::exp(-rate * t);
+    double fwd = std::exp((rate - div) * t) * spot;
+    double vol_std = std::sqrt(t) * vol;
+    const auto benchmark = discounts * Distribution::BlackOpt(fwd, vol_std, strike, OptionType_::Value_::CALL);
+
+    std::cout << std::setw(widths[0]) << std::left << "# of grids (x/t)"
+              << std::setw(widths[1]) << std::left << "spot"
+              << std::setw(widths[2]) << std::left << "price"
+              << std::setw(widths[3]) << std::left << "benchmark"
+              << std::setw(widths[4]) << std::left << "Diff (bps)"
+              << std::setw(widths[5]) << std::left << "Elapsed (ms)"
+              << std::endl;
+
+    double min_x = 10.00;
+    double max_x = 510.00;
+    int steps = 250;
+    int n_round = 200;
+
+    for (int i = 1; i <= n_round; ++i) {
+        int num_x = steps * i + 1;
+        int num_t = steps * i;
 
         Timer_ timer;
 
-        Vector_<> x = Apply([](double x) { return std::log(x); }, Vector::XRange(10.0, 260.0, num_x));
+        Vector_<> x = Apply([](double x) { return std::log(x); }, Vector::XRange(min_x, max_x, num_x));
         Vector_<> r(num_x, rate);
-        Vector_<> mu(num_x, rate - 0.5 * vol * vol);
+        Vector_<> mu(num_x, rate - div - 0.5 * vol * vol);
         Vector_<> sigma(num_x, vol);
         Vector_<> v0 = Apply([&strike](double x) { return std::max(std::exp(x) - strike, 0.0); }, x);
 
@@ -36,24 +56,28 @@ int main() {
         fd.Init();
 
         fd.Mu() = mu;
+        fd.R() = r;
         fd.Var() = Apply([](double x) { return x * x; }, sigma);
         fd.Res() = v0;
 
         double dt = t / num_t;
-        for (int n = 0; n < num_t; ++n)
+        for (int n = 0; n < num_t; ++n) {
             fd.RollBwd(dt, theta, fd.Res());
+            fd.Res()[fd.Res().size() - 1] *= std::exp(-rate * dt);
+        }
 
-        double discounts = std::exp(-rate * t);
-        double vol_std = std::sqrt(t) * vol;
-
-        double x_n = fd.X()[i * 1800];
-        double res_n = fd.Res()[i * 1800];
-        const double spot = std::exp(x_n);
-        const double fwd = std::exp(rate * t) * spot;
-        const double benchmark_price = discounts * Distribution::BlackOpt(fwd, vol_std, strike, OptionType_::Value_::CALL);
-        std::cout << std::setprecision(12) << num_x << ","  << num_t << "," << spot << "," << res_n
-                  << "," << benchmark_price
-                  << "," << (res_n - benchmark_price) / benchmark_price * 10000 << "," << timer.Elapsed<milliseconds>() <<std::endl;
+        int centered = int((spot - min_x) / (max_x - min_x) * steps);
+        double x_n = fd.X()[i * centered];
+        double calculated = fd.Res()[i * centered];
+        std::cout << std::setw(widths[0]) << std::left << num_t
+                  << std::fixed
+                  << std::setw(widths[1]) << std::left << std::exp(x_n)
+                  << std::setprecision(8)
+                  << std::setw(widths[2]) << std::left << calculated
+                  << std::setw(widths[3]) << std::left << benchmark
+                  << std::setw(widths[4]) << std::left << (calculated - benchmark) / benchmark * 10000
+                  << std::setw(widths[5]) << std::left << int(timer.Elapsed<milliseconds>())
+                  << std::endl;
     }
 
     return 0;
