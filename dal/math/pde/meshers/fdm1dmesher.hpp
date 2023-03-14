@@ -11,6 +11,7 @@ namespace Dal {
     class FDM1DMesher_ {
     public:
         explicit FDM1DMesher_(int size): locations_(size), dplus_(size), dminus_(size) {}
+        virtual ~FDM1DMesher_() = default;
 
         int Size() const { return locations_.size(); }
         double DPlus(int i) const { return dplus_[i]; }
@@ -18,7 +19,7 @@ namespace Dal {
         double Location(int i) const { return locations_[i]; }
         const Vector_<>& Locations() const { return locations_; }
 
-    private:
+    protected:
         Vector_<> locations_;
         Vector_<> dplus_;
         Vector_<> dminus_;
