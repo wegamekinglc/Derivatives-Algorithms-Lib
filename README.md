@@ -156,5 +156,5 @@ value   :     4.0389
 ```
 #### other python based exotic products example
 
-* [up and out call](miscs/python/uoc.py)
-* [snowball](miscs/python/snowball.py)
+* [up and out call](miscs/python/002.uoc.py)
+* [snowball](miscs/python/003.snowball.py)
