@@ -6,11 +6,17 @@
 #include <dal/math/operators.hpp>
 #include <dal/math/pde/fdi1d.hpp>
 #include <dal/math/distribution/black.hpp>
+#include <dal/math/interp/interpcubic.hpp>
 #include <dal/utilities/timer.hpp>
 
 using namespace Dal;
 
 int main() {
+
+    double min_x = 10.00;
+    double max_x = 510.00;
+    int steps = 250;
+    int n_round = 200;
 
     double t = 3.002739726;
     double rate = 0.05;
@@ -34,13 +40,8 @@ int main() {
               << std::setw(widths[5]) << std::left << "Elapsed (ms)"
               << std::endl;
 
-    double min_x = 10.00;
-    double max_x = 510.00;
-    int steps = 250;
-    int n_round = 200;
-
     for (int i = 1; i <= n_round; ++i) {
-        int num_x = steps * i + 1;
+        int num_x = steps * i;
         int num_t = steps * i;
 
         Timer_ timer;
@@ -63,15 +64,17 @@ int main() {
         double dt = t / num_t;
         for (int n = 0; n < num_t; ++n) {
             fd.RollBwd(dt, theta, fd.Res());
-            fd.Res()[fd.Res().size() - 1] *= std::exp(-rate * dt);
+            fd.Res()[0] = 0.0;
+            fd.Res()[fd.Res().size() - 1] = max_x * exp(-div * (n + 1) * dt) - std::exp(-rate * (n + 1) * dt) * strike;
         }
 
-        int centered = int((spot - min_x) / (max_x - min_x) * steps);
-        double x_n = fd.X()[i * centered];
-        double calculated = fd.Res()[i * centered];
+        Interp::Boundary_ lhs(2, 0.);
+        Interp::Boundary_ rhs(2, 0);
+        std::unique_ptr<Interp1_> interp(Interp::NewCubic("cubic", fd.X(), fd.Res(), lhs, rhs));
+        double calculated = (*interp)(std::log(spot));
         std::cout << std::setw(widths[0]) << std::left << num_t
                   << std::fixed
-                  << std::setw(widths[1]) << std::left << std::exp(x_n)
+                  << std::setw(widths[1]) << std::left << spot
                   << std::setprecision(8)
                   << std::setw(widths[2]) << std::left << calculated
                   << std::setw(widths[3]) << std::left << benchmark
