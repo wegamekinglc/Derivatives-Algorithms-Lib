@@ -103,6 +103,11 @@ finally we price this product with the model:
 | value |4.0389  |
 |-------|-----|
 
+#### other excel based exotic products example
+
+* [up and out call](miscs/excel/004.up%20and%20out%20call.xlsx)
+* [snowball](miscs/excel/005.snowball.xlsx)
+
 #### Some screenshot
 
 ![img.png](resource/screenshot.png)
@@ -149,3 +154,7 @@ d_spot  :     0.2838
 d_vol   :    58.7140
 value   :     4.0389
 ```
+#### other python based exotic products example
+
+* [up and out call](miscs/python/uoc.py)
+* [snowball](miscs/python/snowball.py)
