@@ -8,7 +8,7 @@
 
 using namespace Dal;
 
-TEST(BandedTest, TestNewBandedDiagonal) {
+TEST(MatrixTest, TestNewBandedDiagonal) {
     const int n = 10;
     Sparse::Square_* mat = Sparse::NewBandDiagonal(n, 1, 1);
     ASSERT_EQ(mat->Size(), n);
@@ -25,7 +25,7 @@ TEST(BandedTest, TestNewBandedDiagonal) {
 /*
  * TODO: make the tests meaningful
  */
-TEST(BandedTest, TestNewBandedBanded) {
+TEST(MatrixTest, TestNewBandedBanded) {
     const int n = 10;
     Sparse::Square_* mat = Sparse::NewBandDiagonal(n, 2, 1);
     ASSERT_EQ(mat->Size(), n);
@@ -37,7 +37,7 @@ TEST(BandedTest, TestNewBandedBanded) {
     ASSERT_EQ((*mat)(9, 8), 3.0);
 }
 
-TEST(BandedTest, TestLowerBandAccumulator) {
+TEST(MatrixTest, TestLowerBandAccumulator) {
     LowerBandAccumulator_ acc(3, 1);
     auto offset = 0;
     Vector_<> v_in{1.0, 2.0};
@@ -45,7 +45,7 @@ TEST(BandedTest, TestLowerBandAccumulator) {
     acc.Add(2.0 * v_in, offset);
 }
 
-TEST(BandedTest, TestTriDiagonalMultiply) {
+TEST(MatrixTest, TestTriDiagonalMultiply) {
     const auto n = 10;
     Sparse::TriDiagonal_ trig(n);
     for(int i = 0; i < n; ++i) {
@@ -77,7 +77,7 @@ TEST(BandedTest, TestTriDiagonalMultiply) {
         ASSERT_DOUBLE_EQ(calculated[i], expected[i]);
 }
 
-TEST(BandedTest, TestTriDiagonalSolve) {
+TEST(MatrixTest, TestTriDiagonalSolve) {
     const auto n = 10;
     Sparse::TriDiagonal_ trig(n);
     for(int i = 0; i < n; ++i) {

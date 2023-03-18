@@ -9,7 +9,7 @@
 using namespace Dal;
 
 #ifdef NDEBUG
-TEST(MatrixArithmeticTest, TestVols) {
+TEST(MatrixTest, TestVols) {
     const int n = 3;
     Matrix_<> cov(n, n);
 

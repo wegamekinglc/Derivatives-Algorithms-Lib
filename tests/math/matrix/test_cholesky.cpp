@@ -13,7 +13,7 @@
 
 using namespace Dal;
 
-TEST(CholeskyTest, TestCholeskyDecomposition) {
+TEST(MatrixTest, TestCholeskyDecomposition) {
     const int n = 11;
     double tmp[n][n] = {
       {6.4e-05, 5.28e-05, 2.28e-05,  0.00032, 0.00036, 6.4e-05, 6.3968010664e-06,  7.2e-05, 7.19460269899e-06, 1.2e-05, 1.19970004999e-06},
@@ -36,7 +36,7 @@ TEST(CholeskyTest, TestCholeskyDecomposition) {
     Handle_<SquareMatrixDecomposition_> de_comp(CholeskyDecomposition(m));
 }
 
-TEST(CholeskyTest, TestCholeskyDecompositionV2) {
+TEST(MatrixTest, TestCholeskyDecompositionV2) {
     const int n = 3;
     double tmp[n][n] = {
         {6.0, 2.0, 3.0},
@@ -59,7 +59,7 @@ TEST(CholeskyTest, TestCholeskyDecompositionV2) {
         ASSERT_NEAR(expected[i], x[i], 1e-7);
 }
 
-TEST(CholeskyTest, TestCholeskySolve) {
+TEST(MatrixTest, TestCholeskySolve) {
     const int n = 3;
     double tmp[n][n] = {
       {6.0, 2.0, 3.0},
@@ -81,7 +81,7 @@ TEST(CholeskyTest, TestCholeskySolve) {
         ASSERT_NEAR(expected[i], b[0][i], 1e-7);
 }
 
-TEST(CholeskyTest, TestCholeskyMultiply) {
+TEST(MatrixTest, TestCholeskyMultiply) {
     const int n = 3;
     double tmp[n][n] = {
             {6.0, 2.0, 3.0},
@@ -105,7 +105,7 @@ TEST(CholeskyTest, TestCholeskyMultiply) {
         ASSERT_NEAR(expected[i], b[i], 1e-7);
 }
 
-TEST(CholeskyTest, TestCholeskyMakeCorrelated) {
+TEST(MatrixTest, TestCholeskyMakeCorrelated) {
     const int n = 3;
     double tmp[n][n] = {
             {1.2, 0.2, -0.3},

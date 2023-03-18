@@ -10,7 +10,7 @@
 using namespace Dal;
 
 
-TEST(BrownianBridgeTest, TestFillNormal) {
+TEST(RandomTest, TestBrownBridgeFillNormal) {
     int ndim = 10;
     auto bw = std::make_unique<BrownianBridge_>(std::unique_ptr<Random_>(NewSobol(ndim, 1024)));
     int n_paths = pow(2, 24);

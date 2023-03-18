@@ -9,7 +9,7 @@
 
 using namespace Dal;
 
-TEST(BCGTest, TestCGSolve) {
+TEST(MatrixTest, TestCGSolve) {
     const int n = 10;
     Sparse::Square_* mat = Sparse::NewBandDiagonal(n, 1, 1);
     mat->Set(9, 8, 3.0);
@@ -26,7 +26,7 @@ TEST(BCGTest, TestCGSolve) {
     ASSERT_NEAR(result[9], 0.07692308, 1e-8);
 }
 
-TEST(BCGTest, TestBCGSolve) {
+TEST(MatrixTest, TestBCGSolve) {
     const int n = 10;
     Sparse::Square_* mat = Sparse::NewBandDiagonal(n, 1, 1);
     mat->Set(9, 8, 3.0);

@@ -2,15 +2,15 @@
 // Created by wegam on 2023/1/23.
 //
 
-#include <gtest/gtest.h>
 #include <dal/indice/index.hpp>
 #include <dal/indice/index/fx.hpp>
 #include <dal/indice/parser/fx.hpp>
 #include <dal/utilities/environment.hpp>
+#include <gtest/gtest.h>
 
 using namespace Dal;
 
-TEST(IndexFXTest, TestIndexFxFixing) {
+TEST(IndexTest, TestIndexFxFixing) {
     String_ name("FX[USD/GBP]");
     std::unique_ptr<Index_> index(Index::FxParser(name));
 

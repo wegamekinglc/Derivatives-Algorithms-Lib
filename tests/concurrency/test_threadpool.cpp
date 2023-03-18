@@ -9,7 +9,7 @@
 using namespace Dal;
 
 
-TEST(ThreadPoolTest, TestThreadPoolStart) {
+TEST(ConcurrencyTest, TestThreadPoolStart) {
     ThreadPool_* thread_pool = ThreadPool_::GetInstance();
     ASSERT_EQ(thread_pool->NumThreads(), std::thread::hardware_concurrency() - 1);
 

@@ -9,7 +9,7 @@
 
 using namespace Dal;
 
-TEST(FxParserTest, TestFxParser) {
+TEST(IndexTest, TestFxParser) {
     String_ name = "FX[USD/JPY]";
     std::unique_ptr<Index_> index(Index::FxParser(name));
     ASSERT_EQ(index->Name(), name);

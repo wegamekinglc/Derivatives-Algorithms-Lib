@@ -8,7 +8,7 @@
 
 using namespace Dal;
 
-TEST(CurrencyDataTest, TestFactRead) {
+TEST(CurrencyTest, TestFactRead) {
     ASSERT_EQ(Ccy::Conventions::LiborFixDays()(Ccy_("CNY")), 1);
     ASSERT_EQ(Ccy::Conventions::LiborFixDays()(Ccy_("USD")), 2);
 

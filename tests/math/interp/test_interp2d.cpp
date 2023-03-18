@@ -13,7 +13,7 @@ using Dal::Interp2_;
 using Dal::Handle_;
 using Dal::Interp::NewLinear2;
 
-TEST(Interp2DTest, TestInterp2Linear) {
+TEST(InterpTest, TestInterp2Linear) {
     Vector_<> x = {1., 2.};
     Vector_<> y = {1., 2.};
     Matrix_<> f(2, 2);

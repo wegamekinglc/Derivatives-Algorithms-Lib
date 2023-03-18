@@ -8,7 +8,7 @@
 
 using namespace Dal;
 
-TEST(DistributionBlackTest, TestBlackOptionPrice) {
+TEST(DistributionTest, TestBlackOptionPrice) {
     const auto vol = 0.2;
     const auto T = 2.0;
     const auto forward = 110.0;
@@ -25,7 +25,7 @@ TEST(DistributionBlackTest, TestBlackOptionPrice) {
     ASSERT_NEAR(straddle_price, 27.07185013, 1e-6);
 }
 
-TEST(DistributionBlackTest, TestBlackOptionIV) {
+TEST(DistributionTest, TestBlackOptionIV) {
     const auto vol = 0.2;
     const auto T = 2.0;
     const auto forward = 110.0;
@@ -46,7 +46,7 @@ TEST(DistributionBlackTest, TestBlackOptionIV) {
     ASSERT_NEAR(straddle_iv, vol * sqrt(T), 1e-6);
 }
 
-TEST(DistributionBlackTest, TestBlackParameterDerivatives) {
+TEST(DistributionTest, TestBlackParameterDerivatives) {
     const auto vol = 0.2;
     const auto T = 2.0;
     const auto forward = 110.0;
@@ -70,7 +70,7 @@ TEST(DistributionBlackTest, TestBlackParameterDerivatives) {
     ASSERT_NEAR(straddle_greeks["volvega"], call_greeks["volvega"] + put_greeks["volvega"], 1e-6);
 }
 
-TEST(DistributionBachelierTest, TestBachelierOptionPrice) {
+TEST(DistributionTest, TestBachelierOptionPrice) {
     const auto vol = 22.0;
     const auto T = 2.0;
     const auto forward = 110.0;
@@ -87,7 +87,7 @@ TEST(DistributionBachelierTest, TestBachelierOptionPrice) {
     ASSERT_NEAR(straddle_price, 26.09566508, 1e-6);
 }
 
-TEST(DistributionBachelierTest, TestBachelierOptionIV) {
+TEST(DistributionTest, TestBachelierOptionIV) {
     const auto vol = 22.0;
     const auto T = 2.0;
     const auto forward = 110.0;
@@ -108,7 +108,7 @@ TEST(DistributionBachelierTest, TestBachelierOptionIV) {
     ASSERT_NEAR(straddle_iv, vol * sqrt(T), 1e-6);
 }
 
-TEST(DistributionBachelierTest, TestBachelierParameterDerivatives) {
+TEST(DistributionTest, TestBachelierParameterDerivatives) {
     const auto vol = 22.0;
     const auto T = 2.0;
     const auto forward = 110.0;

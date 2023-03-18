@@ -8,7 +8,7 @@
 
 using namespace Dal;
 
-TEST(SparseUtilsTest, TestAddCoupling) {
+TEST(MatrixTest, TestAddCoupling) {
     const int n = 10;
     std::unique_ptr <Sparse::TriDiagonal_> ret_val(new Sparse::TriDiagonal_(n));
     Sparse::AddCoupling(ret_val.get(), 2, 3, 1.0);

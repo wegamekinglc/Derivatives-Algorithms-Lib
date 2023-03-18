@@ -11,7 +11,7 @@
 using namespace Dal;
 
 
-TEST(PseudoRandomTest, TestNewPseudoRandomIRN) {
+TEST(RandomTest, TestNewPseudoRandomIRN) {
     auto n_dim = 10;
     auto n_samples = 10000000;
     std::unique_ptr<Random_> gen(New(RNGType_("IRN"), 1024, n_dim));

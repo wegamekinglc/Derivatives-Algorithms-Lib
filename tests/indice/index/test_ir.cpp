@@ -7,14 +7,14 @@
 
 using namespace Dal;
 
-TEST(IndexIRTest, TestLiborName) {
+TEST(IndexTest, TestLiborName) {
     Ccy_ ccy("USD");
     TradedRate_ tenor("LIBOR3MLCH");
     Index::Libor_ libor(ccy, tenor);
     ASSERT_EQ(libor.Name(), "IR:USD,LIBOR_3M_LCH");
 }
 
-TEST(IndexIRTest, TestLiborNameWithStart) {
+TEST(IndexTest, TestLiborNameWithStart) {
     Ccy_ ccy("USD");
     TradedRate_ tenor("LIBOR3MLCH");
     Cell_ start(Date_(2022, 2, 3));

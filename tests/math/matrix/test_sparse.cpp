@@ -9,7 +9,7 @@
 using namespace Dal;
 using namespace Dal::Sparse;
 
-TEST(SparseTest, TestSymmetricDecomposition) {
+TEST(MatrixTest, TestSymmetricDecomposition) {
     const int n = 10;
     TriDiagonal_ diag(n);
     for (int i = 0; i < n; ++i) {

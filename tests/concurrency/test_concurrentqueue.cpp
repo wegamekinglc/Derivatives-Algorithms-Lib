@@ -9,7 +9,7 @@
 using std::thread;
 using Dal::ConcurrentQueue_;
 
-TEST(ConcurrentQueueTest, TestPushAndPop) {
+TEST(ConcurrencyTest, TestConcurrentQueuePushAndPop) {
     ConcurrentQueue_<int> queue;
     auto push_func = [](int i, ConcurrentQueue_<int>* queue) {
         queue->Push(i);

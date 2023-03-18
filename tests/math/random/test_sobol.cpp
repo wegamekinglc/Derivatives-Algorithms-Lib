@@ -11,7 +11,7 @@
 
 using namespace Dal;
 
-TEST(SobolTest, TestNewSobol) {
+TEST(RandomTest, TestNewSobol) {
     int dim = 443;
     int i_path = 0;
     std::unique_ptr<SequenceSet_> set(NewSobol(dim, i_path));

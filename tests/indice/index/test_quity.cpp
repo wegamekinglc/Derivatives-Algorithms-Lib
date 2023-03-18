@@ -7,7 +7,7 @@
 
 using namespace Dal;
 
-TEST(IndexEquityTest, TestEquityName) {
+TEST(IndexTest, TestEquityName) {
     String_ delay("3M");
     Index::Equity_ eq("HS300", nullptr, &delay);
     ASSERT_EQ(String_("EQ[HS300]>3M"), eq.Name());
@@ -17,7 +17,7 @@ TEST(IndexEquityTest, TestEquityName) {
     ASSERT_EQ(String_("EQ[HS300]@2022-01-22"), eq2.Name());
 }
 
-TEST(IndexEquityTest, TestEquityDelivery) {
+TEST(IndexTest, TestEquityDelivery) {
     DateTime_ fixing_time(Date_(2022,1,22), 0.0);
 
     String_ delay("3M");

@@ -8,7 +8,7 @@
 
 using matrix_t = Dal::Matrix_<>;
 
-TEST(MatrixUtilsTest, TestMakeTranspose) {
+TEST(MatrixTest, TestMakeTranspose) {
     matrix_t m1(2, 3);
     m1(0, 0) = 1.0; m1(0, 1) = 2.0; m1(0, 2) = 3.0;
     m1(1, 0) = 4.0; m1(1, 1) = 5.0; m1(1, 2) = 6.0;
@@ -20,7 +20,7 @@ TEST(MatrixUtilsTest, TestMakeTranspose) {
     ASSERT_EQ(m2(2, 0), m1(0, 2)); ASSERT_EQ(m2(2, 1), m1(1, 2));
 }
 
-TEST(MatrixUtilsTest, TestAppend) {
+TEST(MatrixTest, TestAppend) {
     matrix_t m1(2, 3);
     m1(0, 0) = 1.0; m1(0, 1) = 2.0; m1(0, 2) = 3.0;
     m1(1, 0) = 4.0; m1(1, 1) = 5.0; m1(1, 2) = 6.0;
@@ -37,7 +37,7 @@ TEST(MatrixUtilsTest, TestAppend) {
     ASSERT_EQ(m1(2, 0), 1); ASSERT_EQ(m1(2, 1), 2); ASSERT_EQ(m1(2, 2), 3);
 }
 
-TEST(MatrixUtilsTest, TestAppendWithBigMatrix) {
+TEST(MatrixTest, TestAppendWithBigMatrix) {
     matrix_t m1(2, 1);
     m1(0, 0) = 1.0;
     m1(1, 0) = 2.0;
@@ -54,7 +54,7 @@ TEST(MatrixUtilsTest, TestAppendWithBigMatrix) {
     ASSERT_EQ(m1(2, 0), 1); ASSERT_EQ(m1(2, 1), 2); ASSERT_EQ(m1(2, 2), 3);
 }
 
-TEST(MatrixUtilsTest, TestSingleTransformInplace) {
+TEST(MatrixTest, TestSingleTransformInplace) {
     matrix_t m1(2, 3);
     m1(0, 0) = 1.0; m1(0, 1) = 2.0; m1(0, 2) = 3.0;
     m1(1, 0) = 4.0; m1(1, 1) = 5.0; m1(1, 2) = 6.0;
@@ -64,7 +64,7 @@ TEST(MatrixUtilsTest, TestSingleTransformInplace) {
     ASSERT_EQ(m1(1, 0), 16); ASSERT_EQ(m1(1, 1), 25); ASSERT_EQ(m1(1, 2), 36);
 }
 
-TEST(MatrixUtilsTest, TestBinaryTransformInplace) {
+TEST(MatrixTest, TestBinaryTransformInplace) {
     matrix_t m1(2, 3);
     m1(0, 0) = 1.0; m1(0, 1) = 2.0; m1(0, 2) = 3.0;
     m1(1, 0) = 4.0; m1(1, 1) = 5.0; m1(1, 2) = 6.0;
@@ -78,7 +78,7 @@ TEST(MatrixUtilsTest, TestBinaryTransformInplace) {
     ASSERT_EQ(m1(1, 0), 16); ASSERT_EQ(m1(1, 1), 25); ASSERT_EQ(m1(1, 2), 36);
 }
 
-TEST(MatrixUtilsTest, TestSingleTransformWithOutput) {
+TEST(MatrixTest, TestSingleTransformWithOutput) {
     matrix_t m1(2, 3);
     m1(0, 0) = 1.0; m1(0, 1) = 2.0; m1(0, 2) = 3.0;
     m1(1, 0) = 4.0; m1(1, 1) = 5.0; m1(1, 2) = 6.0;
@@ -89,7 +89,7 @@ TEST(MatrixUtilsTest, TestSingleTransformWithOutput) {
     ASSERT_EQ(m2(1, 0), 16); ASSERT_EQ(m2(1, 1), 25); ASSERT_EQ(m2(1, 2), 36);
 }
 
-TEST(MatrixUtilsTest, TestBinaryTransformWithOutput) {
+TEST(MatrixTest, TestBinaryTransformWithOutput) {
     matrix_t m1(2, 3);
     m1(0, 0) = 1.0; m1(0, 1) = 2.0; m1(0, 2) = 3.0;
     m1(1, 0) = 4.0; m1(1, 1) = 5.0; m1(1, 2) = 6.0;
