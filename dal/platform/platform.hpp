@@ -7,6 +7,7 @@
 #include <dal/platform/config.hpp>
 #include <cassert>
 #include <dal/utilities/noncopyable.hpp>
+#include <dal/utilities/null.hpp>
 #include <dal/platform/host.hpp>
 #include <memory>
 #include <utility>

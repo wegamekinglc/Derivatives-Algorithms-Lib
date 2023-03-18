@@ -13,11 +13,11 @@ namespace Dal {
         explicit FDM1DMesher_(int size): locations_(size), dplus_(size), dminus_(size) {}
         virtual ~FDM1DMesher_() = default;
 
-        int Size() const { return locations_.size(); }
-        double DPlus(int i) const { return dplus_[i]; }
-        double DMinus(int i) const { return dminus_[i]; }
-        double Location(int i) const { return locations_[i]; }
-        const Vector_<>& Locations() const { return locations_; }
+        [[nodiscard]] int Size() const { return locations_.size(); }
+        [[nodiscard]] double DPlus(int i) const { return dplus_[i]; }
+        [[nodiscard]] double DMinus(int i) const { return dminus_[i]; }
+        [[nodiscard]] double Location(int i) const { return locations_[i]; }
+        [[nodiscard]] const Vector_<>& Locations() const { return locations_; }
 
     protected:
         Vector_<> locations_;

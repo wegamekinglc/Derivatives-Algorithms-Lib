@@ -10,9 +10,9 @@
 namespace Dal::PDE {
 
     void FD1D_::Init() {
-        r_ = Vector_<>(x_.size(), 0.0);
-        mu_ = Vector_<>(x_.size(), 0.0);
-        var_ = Vector_<>(x_.size(), 0.0);
+        r_ = Vector_<>(x_.Size(), 0.0);
+        mu_ = Vector_<>(x_.Size(), 0.0);
+        var_ = Vector_<>(x_.Size(), 0.0);
 
         dx_.reset(Dx(x_));
         dxx_.reset(Dxx(x_));

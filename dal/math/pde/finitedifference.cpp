@@ -6,8 +6,8 @@
 
 namespace Dal::PDE {
 
-    Sparse::TriDiagonal_* Dx(const Vector_<>& x) {
-        int n = x.size();
+    Sparse::TriDiagonal_* Dx(const FDM1DMesher_& x) {
+        int n = x.Size();
         REQUIRE(n > 2, "grids size should not less then 3");
 
         Sparse::TriDiagonal_* rtn = new Sparse::TriDiagonal_(n);
@@ -15,8 +15,8 @@ namespace Dal::PDE {
         double dxl, dxm, dxu;
         rtn->Set(0, 0, 1.0);
         for (int i = 1; i < n - 1; ++i) {
-            dxl = x[i] - x[i - 1];
-            dxu = x[i + 1] - x[i];
+            dxl = x.DMinus(i);
+            dxu = x.DPlus(i);
             dxm = dxl + dxu;
 
             rtn->Set(i, i - 1, -dxu / dxl / dxm);
@@ -27,16 +27,16 @@ namespace Dal::PDE {
         return rtn;
     }
 
-    Sparse::TriDiagonal_* Dxx(const Vector_<>& x) {
-        int n = x.size();
+    Sparse::TriDiagonal_* Dxx(const FDM1DMesher_& x) {
+        int n = x.Size();
         REQUIRE(n > 2, "grids size should not less then 3");
         Sparse::TriDiagonal_* rtn = new Sparse::TriDiagonal_(n);
 
         double dxl, dxu, dxm;
         rtn->Set(0, 0, 1.0);
         for (int i = 1; i < n - 1; ++i) {
-            dxl = x[i] - x[i - 1];
-            dxu = x[i + 1] - x[i];
+            dxl = x.DMinus(i);
+            dxu = x.DPlus(i);
             dxm = 0.5 * (dxl + dxu);
             rtn->Set(i, i - 1, 1.0 / dxl / dxm);
             rtn->Set(i, i, -(1.0 / dxl + 1.0 / dxu) / dxm);

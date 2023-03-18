@@ -7,13 +7,14 @@
 #include <dal/math/matrix/banded.hpp>
 #include <dal/math/matrix/matrixs.hpp>
 #include <dal/math/vectors.hpp>
+#include <dal/math/pde/meshers/fdm1dmesher.hpp>
 #include <dal/platform/platform.hpp>
 
 namespace Dal::PDE {
 
     class FD1D_ {
     public:
-        FD1D_() = default;
+        FD1D_(const FDM1DMesher_& x): x_(x) {};
         void Init();
 
         const Vector_<>& R() const { return r_; }
@@ -22,16 +23,15 @@ namespace Dal::PDE {
         Vector_<>& Mu() { return mu_; }
         const Vector_<>& Var() const { return var_; }
         Vector_<>& Var() { return var_; }
-        const Vector_<>& X() const { return x_; }
-        Vector_<>& X() { return x_; }
         const Vector_<>& Res() const { return res_; }
         Vector_<>& Res() { return res_; }
+        const Vector_<>& X() const { return x_.Locations(); }
 
         void CalcAx(double one, double dtTheta);
         void RollBwd(double dt, double theta, Vector_<>& res);
 
     private:
-        Vector_<> x_;
+        const FDM1DMesher_& x_;
         Vector_<> r_;
         Vector_<> mu_;
         Vector_<> var_;

@@ -7,6 +7,7 @@
 #include <dal/math/pde/fdi1d.hpp>
 #include <dal/math/distribution/black.hpp>
 #include <dal/math/interp/interpcubic.hpp>
+#include <dal/math/pde/meshers/uniform1dmesher.hpp>
 #include <dal/utilities/timer.hpp>
 
 using namespace Dal;
@@ -46,14 +47,13 @@ int main() {
 
         Timer_ timer;
 
-        Vector_<> x = Apply([](double x) { return std::log(x); }, Vector::XRange(min_x, max_x, num_x));
+        Uniform1DMesher_ x(std::log(min_x), std::log(max_x), num_x);
         Vector_<> r(num_x, rate);
         Vector_<> mu(num_x, rate - div - 0.5 * vol * vol);
         Vector_<> sigma(num_x, vol);
-        Vector_<> v0 = Apply([&strike](double x) { return std::max(std::exp(x) - strike, 0.0); }, x);
+        Vector_<> v0 = Apply([&strike](double x) { return std::max(std::exp(x) - strike, 0.0); }, x.Locations());
 
-        PDE::FD1D_ fd;
-        fd.X() = x;
+        PDE::FD1D_ fd(x);
         fd.Init();
 
         fd.Mu() = mu;
@@ -75,7 +75,7 @@ int main() {
         std::cout << std::setw(widths[0]) << std::left << num_t
                   << std::fixed
                   << std::setw(widths[1]) << std::left << spot
-                  << std::setprecision(8)
+                  << std::setprecision(6)
                   << std::setw(widths[2]) << std::left << calculated
                   << std::setw(widths[3]) << std::left << benchmark
                   << std::setw(widths[4]) << std::left << (calculated - benchmark) / benchmark * 10000
