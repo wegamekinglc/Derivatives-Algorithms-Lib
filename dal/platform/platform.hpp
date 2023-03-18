@@ -11,6 +11,7 @@
 #include <dal/platform/host.hpp>
 #include <memory>
 #include <utility>
+#include <cmath>
 
 #ifdef MIN
 #undef MIN
@@ -53,6 +54,15 @@ namespace Dal {
     template <class T_> bool IsPositive(const T_& x) { return x >= Dal::EPSILON; }
 
     template <class T_> bool IsNegative(const T_& x) { return x <= -Dal::EPSILON; }
+
+    template <class T_> bool IsClose(const T_& x, const T_& y) {
+        T_ diff = std::fabs(x-y);
+        constexpr double tolerance = 42 * Dal::EPSILON;
+
+        if (x == 0.0 || y == 0.0)
+            return diff < (tolerance * tolerance);
+        return diff <= tolerance * std::fabs(x) && diff <= tolerance * std::fabs(y);
+    }
 
     FORCE_INLINE double Square(double x) { return x * x; }
     FORCE_INLINE double Cube(double x) { return x * x * x; }
