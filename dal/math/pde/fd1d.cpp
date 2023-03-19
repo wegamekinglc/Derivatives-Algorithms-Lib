@@ -10,9 +10,6 @@
 namespace Dal::PDE {
 
     void FD1D_::Init() {
-        r_ = Vector_<>(x_.Size(), 0.0);
-        mu_ = Vector_<>(x_.Size(), 0.0);
-        var_ = Vector_<>(x_.Size(), 0.0);
 
         dx_.reset(Dx(x_));
         dxx_.reset(Dxx(x_));
@@ -25,11 +22,13 @@ namespace Dal::PDE {
         int n = dx_->Size();
 
         for (int i = 0; i < n; ++i) {
-            if (i != 0)
-                A_->Set(i, i - 1, dtTheta * (mu_(i - 1) * (*dx_)(i, i - 1) + 0.5 * var_(i - 1) * (*dxx_)(i, i - 1)));
-            if (i != n - 1)
-                A_->Set(i, i + 1, dtTheta * (mu_(i + 1) * (*dx_)(i, i + 1) + 0.5 * var_(i + 1) * (*dxx_)(i, i + 1)));
-            A_->Set(i, i, dtTheta * (mu_(i) * (*dx_)(i, i) + 0.5 * var_(i) * (*dxx_)(i, i)) + one - dtTheta * r_(i));
+            if (i != 0 && i != n -1) {
+                A_->Set(i, i - 1, dtTheta * (mu_(i) * (*dx_)(i, i - 1) + 0.5 * var_(i) * (*dxx_)(i, i - 1)));
+                A_->Set(i, i + 1, dtTheta * (mu_(i) * (*dx_)(i, i + 1) + 0.5 * var_(i) * (*dxx_)(i, i + 1)));
+                A_->Set(i, i, dtTheta * (mu_(i) * (*dx_)(i, i) + 0.5 * var_(i) * (*dxx_)(i, i)) + one - dtTheta * r_(i));
+            }
+            else
+                A_->Set(i, i, 1.0);
         }
     }
 

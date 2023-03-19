@@ -8,23 +8,24 @@
 #include <dal/math/distribution/black.hpp>
 #include <dal/math/interp/interpcubic.hpp>
 #include <dal/math/pde/meshers/uniform1dmesher.hpp>
+#include <dal/math/pde/meshers/concentrating1dmesher.hpp>
 #include <dal/utilities/timer.hpp>
 
 using namespace Dal;
 
 int main() {
 
-    double min_x = 10.00;
-    double max_x = 510.00;
+    double min_x = 0.00;
+    double max_x = 500.00;
     int steps = 250;
     int n_round = 200;
 
     double t = 3.002739726;
     double rate = 0.05;
-    double div = 0.03;
+    double div = 0.02;
     double vol = 0.15;
     double strike = 120.0;
-    double spot = 100.0;
+    double spot = 120.0;
     double theta = 0.5;
 
     Vector_<int> widths = {25, 14, 14, 14, 14, 14};
@@ -42,23 +43,19 @@ int main() {
               << std::endl;
 
     for (int i = 1; i <= n_round; ++i) {
-        int num_x = steps * i;
+        int num_x = steps * i + 1;
         int num_t = steps * i;
 
         Timer_ timer;
-
-        Uniform1DMesher_ x(std::log(min_x), std::log(max_x), num_x);
-        Vector_<> r(num_x, rate);
-        Vector_<> mu(num_x, rate - div - 0.5 * vol * vol);
-        Vector_<> sigma(num_x, vol);
-        Vector_<> v0 = Apply([&strike](double x) { return std::max(std::exp(x) - strike, 0.0); }, x.Locations());
+        Uniform1DMesher_ x(min_x, max_x, num_x);
+        Vector_<> v0 = Apply([&strike](double x) { return std::max(x - strike, 0.0); }, x.Locations());
 
         PDE::FD1D_ fd(x);
         fd.Init();
 
-        fd.Mu() = mu;
-        fd.R() = r;
-        fd.Var() = Apply([](double x) { return x * x; }, sigma);
+        fd.Mu() = (rate - div) * x.Locations();
+        fd.R() = Vector_<>(num_x, rate);
+        fd.Var() = vol * vol * x.Locations() * x.Locations();
         fd.Res() = v0;
 
         double dt = t / num_t;
@@ -71,7 +68,7 @@ int main() {
         Interp::Boundary_ lhs(2, 0.);
         Interp::Boundary_ rhs(2, 0);
         std::unique_ptr<Interp1_> interp(Interp::NewCubic("cubic", fd.X(), fd.Res(), lhs, rhs));
-        double calculated = (*interp)(std::log(spot));
+        double calculated = (*interp)(spot);
         std::cout << std::setw(widths[0]) << std::left << num_t
                   << std::fixed
                   << std::setw(widths[1]) << std::left << spot

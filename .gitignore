@@ -16,3 +16,4 @@ build
 __pycache__
 public/lib/*
 *.xlsx
+notebooks
