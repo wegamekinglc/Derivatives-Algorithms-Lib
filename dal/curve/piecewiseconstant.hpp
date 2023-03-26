@@ -21,7 +21,9 @@ namespace Dal {
         void Update() { sofar_ = Sofar(); }
 
         PiecewiseConstant_(const Vector_ <Date_> &knots, const Vector_<> &f_right, const String_ &name = String_())
-                : Storable_("PiecewiseConstant", name), knotDates_(knots), fRight_(f_right) { Update(); }
+                : Storable_("PiecewiseConstant", name), knotDates_(knots), fRight_(f_right) {
+            Update();
+        }
 
         [[nodiscard]] double IntegralTo(const Date_ &dt) const;
 
