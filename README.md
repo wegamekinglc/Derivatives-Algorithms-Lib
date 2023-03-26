@@ -5,7 +5,7 @@
   <td>Build Status</td>
   <td>
     <a href="https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/actions">
-    <img src="https://github.com/wegamekinglc/Derivatives/workflows/Build%20and%20test/badge.svg" alt="Build and test"/>
+    <img src="https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/workflows/CMake%20Linux%20build%20gcc-12/badge.svg?branch=master" alt="Build and test"/>
   </a>
     </a>
   </td>
