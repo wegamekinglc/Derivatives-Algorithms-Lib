@@ -79,7 +79,7 @@ namespace Dal {
             DiscountPWLF_v1::XWrite(dst, name_, fwds_.knotDates_, fwds_.fLeft_, fwds_.fRight_, base_);
         }
 
-        DiscountPWLF_ *Clone(const String_ &new_name, const substitutions_t &base_changes) const override {
+        [[nodiscard]] DiscountPWLF_ *Clone(const String_ &new_name, const substitutions_t &base_changes) const override {
             return new DiscountPWLF_(new_name, fwds_, NewBase(base_changes));
         }
     };
