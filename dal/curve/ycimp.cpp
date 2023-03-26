@@ -19,7 +19,6 @@ manual
 name is ?string
 knotDates is date[]
 leftVals is number
-
 rightVals is number[]
 base is ?handle DiscountCurve
 -IF-------------------------------------------------------------------------*/
