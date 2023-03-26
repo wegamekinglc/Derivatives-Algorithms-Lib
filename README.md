@@ -4,8 +4,9 @@
 <tr>
   <td>Build Status</td>
   <td>
-    <a href="https://travis-ci.org/wegamekinglc/Derivatives-Algorithms-Lib">
-    <img src="https://travis-ci.org/wegamekinglc/Derivatives-Algorithms-Lib.svg?branch=master" alt="travis build status" />
+    <a href="https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/actions">
+    <img src="https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/workflows/CMake%20Linux%20build%20gcc-12/badge.svg?branch=master" alt="Build and test"/>
+  </a>
     </a>
   </td>
 </tr>
