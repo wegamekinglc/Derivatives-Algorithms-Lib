@@ -20,7 +20,7 @@ namespace Dal {
 
         void Update() { sofar_ = Sofar(); }
 
-        PiecewiseLinear_(const Vector_ <Date_> &knots, const Vector_<> &f_left, const Vector_<> &f_right) : knotDates_(
+        PiecewiseLinear_(const Vector_<Date_>& knots, const Vector_<>& f_left, const Vector_<>& f_right) : knotDates_(
                 knots), fLeft_(f_left), fRight_(f_right) { Update(); }
 
         [[nodiscard]] double IntegralTo(const Date_ &date) const;

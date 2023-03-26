@@ -18,7 +18,7 @@ manual
 &members
 name is ?string
 knotDates is date[]
-leftVals is number
+leftVals is number[]
 rightVals is number[]
 base is ?handle DiscountCurve
 -IF-------------------------------------------------------------------------*/
@@ -28,7 +28,7 @@ namespace Dal {
     class FittableCurve_ {
     public:
         [[nodiscard]] virtual int NX() const = 0;
-        [[nodiscard]] virtual void ApplyDX(Vector_<>::const_iterator dx, double leverage) = 0;
+        virtual void ApplyDX(Vector_<>::const_iterator dx, double leverage) = 0;
     };
 
     namespace {
