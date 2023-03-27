@@ -23,21 +23,21 @@ As long as this comment is preserved at the Top of the file
 namespace Dal::Script {
     class ConstProcessor_ : public Visitor_<ConstProcessor_> {
     protected:
-        //	State
+        // State
 
-        //  Const status of variables
+        // Const status of variables
         Vector_<char> varConst_;
         Vector_<double> varConstVal_;
 
-        //	Inside an if?
+        // Inside an if?
         bool isInConditional_;
 
-        //  Is this node a constant?
-        //  Note the argument must be of ExprNode_ type
+        // Is this node a IsConstant?
+        // Note the argument must be of ExprNode_ type
         static bool ConstArg(const ExprTree_& node) { return Downcast<const ExprNode_>(node)->isConst_; }
 
-        //  Are all the arguments_ to this node constant?
-        //  Note the arguments_ must be of ExprNode_ type
+        // Are all the arguments_ to this node IsConstant?
+        // Note the arguments_ must be of ExprNode_ type
         static bool ConstArgs(const Node_& node, const size_t first = 0) {
             for (size_t i = first; i < node.arguments_.size(); ++i) {
                 if (!ConstArg(node.arguments_[i]))
@@ -49,21 +49,17 @@ namespace Dal::Script {
     public:
         using Visitor_<ConstProcessor_>::Visit;
 
-        //	Constructor, nVar = number of variables, from Product after parsing and variable indexation
-        //  All variables start as constants with value 0
+        // Constructor, nVar = number of variables, from Product after parsing and variable indexation
+        // All variables start as constants with value 0
         ConstProcessor_(const size_t nVar) : varConst_(nVar, true), varConstVal_(nVar, 0.0), isInConditional_(false) {}
 
-        //	Visitors
-
-        //	Expressions
-
-        //	Binaries
-
-        template <class OP> void VisitBinary(ExprNode_& node, const OP op) {
+        // Visitors
+        // Expressions
+        // Binaries
+        template <class OP_> void VisitBinary(ExprNode_& node, const OP_& op) {
             VisitArguments(node);
             if (ConstArgs(node)) {
                 node.isConst_ = true;
-
                 const double lhs = Downcast<ExprNode_>(node.arguments_[0])->constVal_;
                 const double rhs = Downcast<ExprNode_>(node.arguments_[1])->constVal_;
                 node.constVal_ = op(lhs, rhs);
@@ -71,65 +67,61 @@ namespace Dal::Script {
         }
 
         void Visit(NodeAdd_& node) {
-            VisitBinary(node, [](const double& x, const double& y) { return x + y; });
+            VisitBinary(node, [](double x, double y) { return x + y; });
         }
         void Visit(NodeSub_& node) {
-            VisitBinary(node, [](const double& x, const double& y) { return x - y; });
+            VisitBinary(node, [](double x, double y) { return x - y; });
         }
         void Visit(NodeMult_& node) {
-            VisitBinary(node, [](const double& x, const double& y) { return x * y; });
+            VisitBinary(node, [](double x, double y) { return x * y; });
         }
         void Visit(NodeDiv_& node) {
-            VisitBinary(node, [](const double& x, const double& y) { return x / y; });
+            VisitBinary(node, [](double x, double y) { return x / y; });
         }
         void Visit(NodePow_& node) {
-            VisitBinary(node, [](const double& x, const double& y) { return pow(x, y); });
+            VisitBinary(node, [](double x, double y) { return pow(x, y); });
         }
         void Visit(NodeMax_& node) {
-            VisitBinary(node, [](const double& x, const double& y) { return max(x, y); });
+            VisitBinary(node, [](double x, double y) { return max(x, y); });
         }
         void Visit(NodeMin_& node) {
-            VisitBinary(node, [](const double& x, const double& y) { return min(x, y); });
+            VisitBinary(node, [](double x, double y) { return min(x, y); });
         }
 
-        //	Unaries
-        template <class OP> void VisitUnary(ExprNode_& node, const OP op) {
+        // Unaries
+        template <class OP_> void VisitUnary(ExprNode_& node, const OP_& op) {
             VisitArguments(node);
             if (ConstArgs(node)) {
                 node.isConst_ = true;
-
-                const double arg = Downcast<ExprNode_>(node.arguments_[0])->constVal_;
+                const auto arg = Downcast<ExprNode_>(node.arguments_[0])->constVal_;
                 node.constVal_ = op(arg);
             }
         }
 
         void Visit(NodeUplus_& node) {
-            VisitUnary(node, [](const double& x) { return x; });
+            VisitUnary(node, [](double x) { return x; });
         }
         void Visit(NodeUminus_& node) {
-            VisitUnary(node, [](const double& x) { return -x; });
+            VisitUnary(node, [](double x) { return -x; });
         }
 
-        //	Functions
+        // Functions
         void Visit(NodeLog_& node) {
-            VisitUnary(node, [](const double& x) { return log(x); });
+            VisitUnary(node, [](double x) { return log(x); });
         }
         void Visit(NodeSqrt_& node) {
-            VisitUnary(node, [](const double& x) { return sqrt(x); });
+            VisitUnary(node, [](double x) { return sqrt(x); });
         }
 
-        //  Multies
-
+        // Multi
         void Visit(NodeSmooth_& node) {
             VisitArguments(node);
             if (ConstArgs(node)) {
                 node.isConst_ = true;
-
-                const double x = reinterpret_cast<ExprNode_*>(node.arguments_[0].get())->constVal_;
-                const double vPos = reinterpret_cast<ExprNode_*>(node.arguments_[1].get())->constVal_;
-                const double vNeg = reinterpret_cast<ExprNode_*>(node.arguments_[2].get())->constVal_;
-                const double halfEps = 0.5 * reinterpret_cast<ExprNode_*>(node.arguments_[3].get())->constVal_;
-
+                const auto x = reinterpret_cast<ExprNode_*>(node.arguments_[0].get())->constVal_;
+                const auto vPos = reinterpret_cast<ExprNode_*>(node.arguments_[1].get())->constVal_;
+                const auto vNeg = reinterpret_cast<ExprNode_*>(node.arguments_[2].get())->constVal_;
+                const auto halfEps = 0.5 * reinterpret_cast<ExprNode_*>(node.arguments_[3].get())->constVal_;
                 if (x < -halfEps)
                     node.constVal_ = vNeg;
                 else if (x > halfEps)
@@ -140,68 +132,63 @@ namespace Dal::Script {
             }
         }
 
-        //	If
+        // If
         void Visit(NodeIf_& node) {
-            //  Mark conditional
-
-            //  Identify nested
+            // Mark conditional
+            // Identify nested
             bool nested = isInConditional_;
 
-            //  Mark
+            // Mark
             if (!nested)
                 isInConditional_ = true;
 
-            //  Visit arguments_
+            // Visit arguments_
             VisitArguments(node);
 
-            //  Reset (unless nested)
+            // Reset (unless nested)
             if (!nested)
                 isInConditional_ = false;
         }
 
         void Visit(NodeAssign_& node) {
-            //  Get index from LHS
+            // Get index from LHS
             const size_t varIndex = Downcast<const NodeVar_>(node.arguments_[0])->index_;
 
-            //  Visit RHS
+            // Visit RHS
             node.arguments_[1]->Accept(*this);
 
-            //  All conditional assignments result in non const vars
+            // All conditional assignments result in non const vars
             if (!isInConditional_) {
-                //  RHS constant?
+                //  RHS IsConstant?
                 if (ConstArg(node.arguments_[1])) {
                     varConst_[varIndex] = true;
                     varConstVal_[varIndex] = Downcast<const ExprNode_>(node.arguments_[1])->constVal_;
-                } else {
+                } else
                     varConst_[varIndex] = false;
-                }
-            } else {
+            } else
                 varConst_[varIndex] = false;
-            }
         }
 
         void Visit(NodePays_& node) {
-            //  A payment is always non constant because it is normalized by a possibly stochastic numeraire
+            // A payment is always non IsConstant because it is normalized by a possibly stochastic numeraire
             const size_t varIndex = Downcast<const NodeVar_>(node.arguments_[0])->index_;
             varConst_[varIndex] = false;
 
-            //  Visit RHS
+            // Visit RHS
             node.arguments_[1]->Accept(*this);
         }
 
-        //	Variables, RHS only, we don't Visit LHS vars
+        // Variables, RHS only, we don't Visit LHS vars
         void Visit(NodeVar_& node) {
             if (varConst_[node.index_]) {
                 node.isConst_ = true;
                 node.constVal_ = varConstVal_[node.index_];
-            } else {
+            } else
                 node.isConst_ = false;
-            }
         }
 
-        //  We don't Visit boolean nodes, that is best left to fuzzy logic
-
-        //  We don't Visit constants (which are always const) or spots (which are never const)
+        // We don't Visit IsBoolean nodes, that is best left to fuzzy logic
+        // We don't Visit constants (which are always const) or spots (which are never const)
     };
 }
 

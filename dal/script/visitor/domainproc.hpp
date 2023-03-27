@@ -37,14 +37,14 @@ namespace Dal::Script {
             Variable indexer and if processor must have been run prior
 
             Determines the domains of all variables and expressions. Note that the goal is to identify singletons from
-       continuous intervals, not necessarily to compute all intervals accurately. For example, is x's domain is {0} and
+       IsContinuous intervals, not necessarily to compute all intervals accurately. For example, is x's domain is {0} and
        y's domain is (-inf, inf) then xy's domain is {0}, but if x and y have domain (-inf, inf), then xy's domain is
        (-inf, inf), even if it turns out that y=x.
 
             This processor sets the "always true" and "always false" flags
             on the if, equal, superior, not, and and or nodes according to the condition's domain
 
-            In addition, when fuzzy processing is requested, the processor sets the continuous/isDiscrete_ flag on the
+            In addition, when fuzzy processing is requested, the processor sets the IsContinuous/isDiscrete_ flag on the
        equal and superior nodes and if isDiscrete_, the left and right interpolation bounds
 
     */
@@ -68,7 +68,7 @@ namespace Dal::Script {
     public:
         using Visitor_<DomainProcessor_>::Visit;
 
-        //	Domains start with the singleton 0
+        //	Domains start with the IsSingleton 0
         DomainProcessor_(const size_t nVar, const bool fuzzy)
             : fuzzy_(fuzzy), varDomains_(nVar, 0.0), isLhsVar_(false) {}
 
@@ -157,7 +157,7 @@ namespace Dal::Script {
             //	Pop eps_
             domStack_.Pop();
 
-            //	Makes no sense with non-continuous x
+            //	Makes no sense with non-IsContinuous x
             if (domStack_[2].IsDiscrete()) {
                 throw std::runtime_error("Smooth called with isDiscrete_ x");
             }
@@ -278,13 +278,13 @@ namespace Dal::Script {
 
                     //	Fuzzy logic processing
                     if (node.isDiscrete_) {
-                        //	Case 1: expr cannot be zero
+                        //	Case 1: expr cannot be IsZero
                         if (!dom.canBeZero()) {
                             //		we know we have subdomains on the left and on the right of 0
                             dom.smallestPosLb(node.rb_, true);
                             dom.biggestNegRb(node.lb_, true);
                         }
-                        //	Case 2: {0} is a singleton
+                        //	Case 2: {0} is a IsSingleton
                         else {
                             if (strict) {
                                 node.lb_ = 0.0;

@@ -31,33 +31,30 @@ namespace Dal::Script {
         static const PlusInfinity plusInfinity_;
         static const MinusInfinity minusInfinity_;
 
-        //	Real
-        Bound(const double val = 0.0) : isPlusInf_(false), isMinusInf_(false), real_(val) {}
+        // Real
+        Bound(double val = 0.0) : isPlusInf_(false), isMinusInf_(false), real_(val) {}
 
-        //	Infinite
-        Bound(const PlusInfinity) : isPlusInf_(true), isMinusInf_(false), real_(Dal::INF) {}
-        Bound(const MinusInfinity) : isPlusInf_(false), isMinusInf_(true), real_(-Dal::INF) {}
+        // Infinite
+        Bound(const PlusInfinity&) : isPlusInf_(true), isMinusInf_(false), real_(Dal::INF) {}
+        Bound(const MinusInfinity&) : isPlusInf_(false), isMinusInf_(true), real_(-Dal::INF) {}
 
         Bound(const Bound& rhs) : isPlusInf_(rhs.isPlusInf_), isMinusInf_(rhs.isMinusInf_), real_(rhs.real_) {}
 
-        Bound& operator=(const double val) {
+        Bound& operator=(double val) {
             isPlusInf_ = isMinusInf_ = false;
             real_ = val;
-
             return *this;
         }
-        Bound& operator=(const PlusInfinity) {
+        Bound& operator=(const PlusInfinity&) {
             isPlusInf_ = true;
             isMinusInf_ = false;
             real_ = Dal::INF;
-
             return *this;
         }
-        Bound& operator=(const MinusInfinity) {
+        Bound& operator=(const MinusInfinity&) {
             isPlusInf_ = false;
             isMinusInf_ = true;
             real_ = -Dal::INF;
-
             return *this;
         }
         Bound& operator=(const Bound& rhs) {
@@ -67,28 +64,25 @@ namespace Dal::Script {
             isPlusInf_ = rhs.isPlusInf_;
             isMinusInf_ = rhs.isMinusInf_;
             real_ = rhs.real_;
-
             return *this;
         }
 
-        //	Accessors
+        // Accessors
+        bool IsInfinite() const { return isPlusInf_ || isMinusInf_; }
 
-        bool infinite() const { return isPlusInf_ || isMinusInf_; }
+        bool IsPositive(bool strict = false) const { return isPlusInf_ || real_ > (strict ? Dal::EPSILON : -Dal::EPSILON); }
 
-        bool positive(const bool strict = false) const { return isPlusInf_ || real_ > (strict ? Dal::EPSILON : -Dal::EPSILON); }
+        bool IsNegative(bool strict = false) const { return isMinusInf_ || real_ < (strict ? -Dal::EPSILON : Dal::EPSILON); }
 
-        bool negative(const bool strict = false) const { return isMinusInf_ || real_ < (strict ? -Dal::EPSILON : Dal::EPSILON); }
+        bool IsZero() const { return !IsInfinite() && fabs(real_) < Dal::EPSILON; }
 
-        bool zero() const { return !infinite() && fabs(real_) < Dal::EPSILON; }
+        bool IsPlusInf() const { return isPlusInf_; }
 
-        bool plusInf() const { return isPlusInf_; }
-
-        bool minusInf() const { return isMinusInf_; }
+        bool IsMinusInf() const { return isMinusInf_; }
 
         double val() const { return real_; }
 
-        //	Comparison
-
+        // Comparison
         bool operator==(const Bound& rhs) const {
             return isPlusInf_ && rhs.isPlusInf_ || isMinusInf_ && rhs.isMinusInf_ || fabs(real_ - rhs.real_) < Dal::EPSILON;
         }
@@ -107,9 +101,8 @@ namespace Dal::Script {
 
         bool operator>=(const Bound& rhs) const { return !operator<(rhs); }
 
-        //	Writers
-
-        friend std::ostream& operator<<(std::ostream& ost, const Bound bnd) {
+        // Writers
+        friend std::ostream& operator<<(std::ostream& ost, const Bound& bnd) {
             if (bnd.isPlusInf_)
                 ost << "+INF";
             else if (bnd.isMinusInf_)
@@ -126,14 +119,14 @@ namespace Dal::Script {
             return ost.str();
         }
 
-        //	Multiplication
+        // Multiplication
         Bound operator*(const Bound& rhs) const {
-            if (infinite() || rhs.infinite()) {
-                if (positive(true) && rhs.positive(true) || negative(true) && rhs.negative(true))
+            if (IsInfinite() || rhs.IsInfinite()) {
+                if (IsPositive(true) && rhs.IsPositive(true) || IsNegative(true) && rhs.IsNegative(true))
                     return plusInfinity_;
-                else if (zero())
+                else if (IsZero())
                     return rhs; //	Here 0 * inf = inf
-                else if (rhs.zero())
+                else if (rhs.IsZero())
                     return *this; //	Same
                 else
                     return minusInfinity_;
@@ -141,7 +134,7 @@ namespace Dal::Script {
                 return real_ * rhs.real_;
         }
 
-        //	Negation
+        // Negation
         Bound operator-() const {
             if (isMinusInf_)
                 return plusInfinity_;
@@ -157,10 +150,10 @@ namespace Dal::Script {
         Bound right_;
 
     public:
-        //	Singleton
-        Interval(const double val = 0.0) : left_(val), right_(val) {}
+        // Singleton
+        Interval(double val = 0.0) : left_(val), right_(val) {}
 
-        //	Interval
+        // Interval
         Interval(const Bound& left, const Bound& right) : left_(left), right_(right) {
             // #ifdef _DEBUG
             if (left == Bound::plusInfinity_ || right == Bound::minusInfinity_ || left > right)
@@ -168,22 +161,21 @@ namespace Dal::Script {
             // #endif
         }
 
-        //	Accessors
-
+        // Accessors
         Bound left() const { return left_; }
 
         Bound right() const { return right_; }
 
-        bool positive(const bool strict = false) const { return left_.positive(strict); }
+        bool IsPositive(bool strict = false) const { return left_.IsPositive(strict); }
 
-        bool negative(const bool strict = false) const { return right_.negative(strict); }
+        bool IsNegative(bool strict = false) const { return right_.IsNegative(strict); }
 
-        bool posOrNeg(const bool strict = false) const { return positive(strict) || negative(strict); }
+        bool IsPosOrNeg(bool strict = false) const { return IsPositive(strict) || IsNegative(strict); }
 
-        bool infinite() const { return left_.infinite() || right_.infinite(); }
+        bool IsInfinite() const { return left_.IsInfinite() || right_.IsInfinite(); }
 
-        bool singleton(double* val = nullptr) const {
-            if (!infinite() && left_ == right_) {
+        bool IsSingleton(double* val = nullptr) const {
+            if (!IsInfinite() && left_ == right_) {
                 if (val)
                     *val = left_.val();
                 return true;
@@ -191,15 +183,14 @@ namespace Dal::Script {
             return false;
         }
 
-        bool zero() const { return singleton() && left_.zero(); }
+        bool IsZero() const { return IsSingleton() && left_.IsZero(); }
 
-        bool continuous() const { return !singleton(); }
+        bool IsContinuous() const { return !IsSingleton(); }
 
-        //	Writers
-
+        // Writers
         friend std::ostream& operator<<(std::ostream& ost, const Interval i) {
             double s;
-            if (i.singleton(&s)) {
+            if (i.IsSingleton(&s)) {
                 ost << "{" << s << "}";
             } else {
                 ost << "(" << i.left_ << "," << i.right_ << ")";
@@ -214,8 +205,7 @@ namespace Dal::Script {
             return ost.str();
         }
 
-        //	Sorting
-
+        // Sorting
         bool operator==(const Interval& rhs) const { return left_ == rhs.left_ && right_ == rhs.right_; }
 
         bool operator<(const Interval& rhs) const {
@@ -230,18 +220,17 @@ namespace Dal::Script {
 
         bool operator>=(const Interval& rhs) const { return !operator<(rhs); }
 
-        //	Arithmetics
-
-        //	Addition
+        // Arithmetics
+        // Addition
         Interval operator+(const Interval& rhs) const {
             Bound lb, rb;
 
-            if (left_.minusInf() || rhs.left_.minusInf())
+            if (left_.IsMinusInf() || rhs.left_.IsMinusInf())
                 lb = Bound::minusInfinity_;
             else
                 lb = left_.val() + rhs.left_.val();
 
-            if (right_.plusInf() || rhs.right_.plusInf())
+            if (right_.IsPlusInf() || rhs.right_.IsPlusInf())
                 rb = Bound::plusInfinity_;
             else
                 rb = right_.val() + rhs.right_.val();
@@ -254,10 +243,10 @@ namespace Dal::Script {
             return *this;
         }
 
-        //	Unary minus
+        // Unary minus
         Interval operator-() const { return Interval(-right_, -left_); }
 
-        //	Subtraction
+        // Subtraction
         Interval operator-(const Interval& rhs) const { return *this + -rhs; }
 
         Interval& operator-=(const Interval& rhs) {
@@ -265,14 +254,13 @@ namespace Dal::Script {
             return *this;
         }
 
-        //	Multiplication
-
+        // Multiplication
         Interval operator*(const Interval& rhs) const {
-            //	If we have a zero singleton, the result is a zero singleton
-            if (zero() || rhs.zero())
+            // If we have a IsZero singleton, the result is a IsZero IsSingleton
+            if (IsZero() || rhs.IsZero())
                 return 0.0;
 
-            //	Otherwise we multiply the bounds and go from smallest to largest
+            // Otherwise we multiply the bounds and go from smallest to largest
             std::array<Bound, 4> b;
             b[0] = right_ * rhs.right_;
             b[1] = right_ * rhs.left_;
@@ -286,33 +274,33 @@ namespace Dal::Script {
         Interval inverse() const {
             double v;
 
-            //	Cannot inverse a zero singleton
-            if (zero())
+            //	Cannot inverse a IsZero IsSingleton
+            if (IsZero())
                 throw std::runtime_error("Division by {0}");
 
             //	Singleton
-            else if (singleton(&v))
+            else if (IsSingleton(&v))
                 return 1.0 / v;
 
             //	Continuous
-            else if (posOrNeg(true)) //	Strict, no 0
+            else if (IsPosOrNeg(true)) //	Strict, no 0
             {
-                if (infinite()) {
-                    if (positive())
+                if (IsInfinite()) {
+                    if (IsPositive())
                         return Interval(0.0, 1.0 / left_.val());
                     else
                         return Interval(1.0 / right_.val(), 0.0);
                 }
                 return Interval(1.0 / right_.val(), 1.0 / left_.val());
-            } else if (left_.zero() || right_.zero()) //	One of the bounds is 0
+            } else if (left_.IsZero() || right_.IsZero()) //	One of the bounds is 0
             {
-                if (infinite()) {
-                    if (positive())
+                if (IsInfinite()) {
+                    if (IsPositive())
                         return Interval(0.0, Bound::plusInfinity_);
                     else
                         return Interval(Bound::minusInfinity_, 0.0);
                 } else {
-                    if (positive())
+                    if (IsPositive())
                         return Interval(1.0 / right_.val(), Bound::plusInfinity_);
                     else
                         return Interval(Bound::minusInfinity_, 1.0 / left_.val());
@@ -323,10 +311,10 @@ namespace Dal::Script {
                 return Interval(Bound::minusInfinity_, Bound::plusInfinity_);
         }
 
-        //	Division
+        // Division
         Interval operator/(const Interval& rhs) const { return *this * rhs.inverse(); }
 
-        //	Min/Max
+        // Min/Max
         Interval imin(const Interval& rhs) const {
             Bound lb = left_;
             if (rhs.left_ < lb)
@@ -338,6 +326,7 @@ namespace Dal::Script {
 
             return Interval(lb, rb);
         }
+
         Interval imax(const Interval& rhs) const {
             Bound lb = left_;
             if (rhs.left_ > lb)
@@ -350,57 +339,57 @@ namespace Dal::Script {
             return Interval(lb, rb);
         }
 
-        //	Apply function
+        // Apply function
         template <class Func> Interval applyFunc(const Func func, const Interval& funcDomain) {
             double val;
 
             //	Continuous interval, we know nothing of the function, so we just apply the function domain
-            if (!singleton(&val))
+            if (!IsSingleton(&val))
                 return funcDomain;
 
-            //	Singleton, we apply the function to find the target singleton
+            // Singleton, we apply the function to find the target IsSingleton
             else {
                 try {
                     val = func(val);
                 } catch (const std::domain_error& dErr) {
-                    throw std::runtime_error("Domain_ error on function applied to singleton");
+                    throw std::runtime_error("Domain_ error on function applied to IsSingleton");
                 }
             }
 
             return val;
         }
 
-        //	Apply function 2 params
+        // Apply function 2 params
         template <class Func> Interval applyFunc2(const Func func, const Interval& rhs, const Interval& funcDomain) {
             double val, val2;
 
             //	Continuous interval, we know nothing of the function, so we just apply the function domain
-            if (!singleton(&val) || !rhs.singleton(&val2))
+            if (!IsSingleton(&val) || !rhs.IsSingleton(&val2))
                 return funcDomain;
 
-            //	Singleton, we apply the function to find the target singleton
+            //	Singleton, we apply the function to find the target IsSingleton
             else {
                 try {
                     val = func(val, val2);
                 } catch (const std::domain_error& dErr) {
-                    throw std::runtime_error("Domain_ error on function applied to singleton");
+                    throw std::runtime_error("Domain_ error on function applied to IsSingleton");
                 }
             }
 
             return val;
         }
 
-        //	Inclusion
+        // Inclusion
         bool includes(const double x) const { return left_ <= x && right_ >= x; }
 
         bool includes(const Interval& rhs) const { return left_ <= rhs.left_ && right_ >= rhs.right_; }
 
         bool isIncludedIn(const Interval& rhs) const { return left_ >= rhs.left_ && right_ <= rhs.right_; }
 
-        //	Adjacence
-        //	0: is not adjacent
-        //	1: *this is adjacent to rhs on the left of rhs
-        //	2: *this is adjacent to rhs on the right of rhs
+        // Adjacence
+        // 0: is not adjacent
+        // 1: *this is adjacent to rhs on the left of rhs
+        // 2: *this is adjacent to rhs on the right of rhs
         unsigned isAdjacent(const Interval& rhs) const {
             if (right_ == rhs.left_)
                 return 1;
@@ -410,8 +399,8 @@ namespace Dal::Script {
                 return 0;
         }
 
-        //	Intersection, returns false if no intersect, true otherwise
-        //		in which case iSect is set to the intersection unless nullptr
+        // Intersection, returns false if no intersect, true otherwise
+        // in which case iSect is set to the intersection unless nullptr
         friend bool intersect(const Interval& lhs, const Interval& rhs, Interval* iSect = nullptr) {
             Bound lb = lhs.left_;
             if (rhs.left_ > lb)
@@ -433,8 +422,8 @@ namespace Dal::Script {
                 return false;
         }
 
-        //	Merge, returns false if no intersect, true otherwise
-        //		in which case iMerge is set to the merged interval unless nullptr
+        // Merge, returns false if no intersect, true otherwise
+        // in which case iMerge is set to the merged interval unless nullptr
         friend bool merge(const Interval& lhs, const Interval& rhs, Interval* iMerge = nullptr) {
             if (!intersect(lhs, rhs))
                 return false;
@@ -455,7 +444,7 @@ namespace Dal::Script {
             return true;
         }
 
-        //	Another merge function that merges rhs into this, assuming we already know that they intersect
+        // Another merge function that merges rhs into this, assuming we already know that they intersect
         void merge(const Interval& rhs) {
             if (rhs.left_ < left_)
                 left_ = rhs.left_;
@@ -494,33 +483,30 @@ namespace Dal::Script {
 
         void addInterval(Interval interval) {
             while (true) {
-                //	Particular case 1: domain is empty, just add the interval
+                // Particular case 1: domain is empty, just add the interval
                 const auto itb = intervals_.begin(), ite = intervals_.end();
                 if (itb == ite) {
                     intervals_.insert(interval);
                     return;
                 }
 
-                //	Particular case 2: interval spans real space, then domain becomes the real space
+                // Particular case 2: interval spans real space, then domain becomes the real space
                 const Bound& l = interval.left();
                 const Bound& r = interval.right();
-                if (l.minusInf() && r.plusInf()) {
+                if (l.IsMinusInf() && r.IsPlusInf()) {
                     static const Interval realSpace(Bound::minusInfinity_, Bound::plusInfinity_);
                     intervals_.clear();
                     intervals_.insert(realSpace);
                     return;
                 }
 
-                //	General case: we insert the interval in such a way that the resulting set of intervals are all distinct
-
-                //	Find an interval in intervals_ that intersects interval, or myinterval.end() if none
-
-                //	STL implementation, nice and elegant, unfortunately poor performance
-                //	auto it = find_if( intervals_.begin(), intervals_.end(), [&interval] (const Interval& i) { return intersect( i, interval); });
-
-                //	Custom implementation, for performance, much less elegant
+                // General case: we insert the interval in such a way that the resulting set of intervals are all distinct
+                // Find an interval in intervals_ that intersects interval, or interval.end() if none
+                // STL implementation, nice and elegant, unfortunately poor performance
+                // auto it = find_if( intervals_.begin(), intervals_.end(), [&interval] (const Interval& i) { return intersect( i, interval); });
+                // Custom implementation, for performance, much less elegant
                 auto it = itb;
-                //	First interval is on the strict right of interval, there will be no intersection
+                // First interval is on the strict right of interval, there will be no intersection
                 if (itb->left() > r)
                     it = ite;
                 else {
@@ -532,38 +518,37 @@ namespace Dal::Script {
                         it = ite;
 
                     else {
-                        //	We may have an intersection, find it
+                        // We may have an intersection, find it
                         it = intervals_.lower_bound(
-                            interval); //	Smallest myInterval >= interval, means it.left() >= l
+                            interval); // Smallest myInterval >= interval, means it.left() >= l
                         if (it == ite || it->left() > r)
-                            --it; //	Now it.left() <= l <= r
+                            --it; // Now it.left() <= l <= r
                         if (it->right() < l)
-                            it = ite; //	it does not intersect
+                            it = ite; // it does not intersect
                     }
                 }
 
-                //	End of find an interval in intervals_ that intersects interval
-                //		it points to an interval in intervals_ that intersects interval, or ite if none
-
-                //	No intersection, just add the interval
+                // End of find an interval in intervals_ that intersects interval
+                // it points to an interval in intervals_ that intersects interval, or ite if none
+                // No intersection, just add the interval
                 if (it == ite) {
                     intervals_.insert(interval);
                     return;
                 }
 
-                //	We have an intersection
+                // We have an intersection
 
-                //	Merge the intersecting interval from intervals_ into interval
+                // Merge the intersecting interval from intervals_ into interval
 
-                //	We don't use the generic merge: too slow
-                //	merge( interval, *it, &interval);
-                //	Quick merge
+                // We don't use the generic merge: too slow
+                // merge( interval, *it, &interval);
+                // Quick merge
                 interval.merge(*it);
 
-                //	Remove the merged interval from set
+                // Remove the merged interval from set
                 intervals_.erase(it);
 
-                //	Go again until we find no more intersect
+                // Go again until we find no more intersect
             }
         }
 
@@ -572,46 +557,45 @@ namespace Dal::Script {
                 addInterval(interval);
         }
 
-        void addSingleton(const double val) { addInterval(val); }
+        void addSingleton(double val) { addInterval(val); }
 
-        //	Accessors
-
-        bool positive(const bool strict = false) const {
+        // Accessors
+        bool IsPositive(bool strict = false) const {
             for (auto& interval : intervals_)
-                if (!interval.positive(strict))
+                if (!interval.IsPositive(strict))
                     return false;
             return true;
         }
 
-        bool negative(const bool strict = false) const {
+        bool IsNegative(bool strict = false) const {
             for (auto& interval : intervals_)
-                if (!interval.negative(strict))
+                if (!interval.IsNegative(strict))
                     return false;
             return true;
         }
 
-        bool posOrNeg(const bool strict = false) const { return positive(strict) || negative(strict); }
+        bool IsPosOrNeg(bool strict = false) const { return IsPositive(strict) || IsNegative(strict); }
 
-        bool infinite() const {
+        bool IsInfinite() const {
             for (auto& interval : intervals_)
-                if (interval.infinite())
+                if (interval.IsInfinite())
                     return true;
             return false;
         }
 
         bool IsDiscrete() const {
             for (auto& interval : intervals_)
-                if (!interval.singleton())
+                if (!interval.IsSingleton())
                     return false;
             return true;
         }
 
-        //	Discrete only is true: return empty if continuous intervals found, false: return all singletons anyway
-        Vector_<double> getSingletons(const bool discreteOnly = true) const {
+        // Discrete only is true: return empty if IsContinuous intervals found, false: return all singletons anyway
+        Vector_<double> getSingletons(bool discreteOnly = true) const {
             Vector_<double> res;
             for (auto& interval : intervals_) {
                 double val;
-                if (!interval.singleton(&val)) {
+                if (!interval.IsSingleton(&val)) {
                     if (discreteOnly)
                         return Vector_<double>();
                 } else
@@ -620,11 +604,11 @@ namespace Dal::Script {
             return res;
         }
 
-        //	At least one continuous interval
-        bool continuous() const { return !IsDiscrete(); }
+        // At least one IsContinuous interval
+        bool IsContinuous() const { return !IsDiscrete(); }
 
-        //	Shortcut for 2 singletons
-        bool boolean(pair<double, double>* vals = nullptr) const {
+        // Shortcut for 2 singletons
+        bool IsBoolean(pair<double, double>* vals = nullptr) const {
             Vector_<double> s = getSingletons();
             if (s.size() == 2) {
                 if (vals) {
@@ -636,8 +620,8 @@ namespace Dal::Script {
                 return false;
         }
 
-        //	Shortcut for 1 singleton
-        bool constant(double* val = nullptr) const {
+        // Shortcut for 1 IsSingleton
+        bool IsConstant(double* val = nullptr) const {
             Vector_<double> s = getSingletons();
             if (s.size() == 1) {
                 if (val)
@@ -647,31 +631,32 @@ namespace Dal::Script {
                 return false;
         }
 
-        //	Get all continuous intervals, dropping singletons
+        // Get all IsContinuous intervals, dropping singletons
         Domain_ getContinuous() const {
             Domain_ res;
             for (auto& interval : intervals_) {
-                if (interval.continuous())
+                if (interval.IsContinuous())
                     res.addInterval(interval);
             }
             return res;
         }
 
-        //	Get min and max bounds
+        // Get min and max bounds
         Bound minBound() const {
-            if (!empty())
+            if (!IsEmpty())
                 return intervals_.begin()->left();
             else
                 return Bound::minusInfinity_;
         }
+
         Bound maxBound() const {
-            if (!empty())
+            if (!IsEmpty())
                 return intervals_.rbegin()->right();
             else
                 return Bound::plusInfinity_;
         }
 
-        bool empty() const { return intervals_.empty(); }
+        bool IsEmpty() const { return intervals_.empty(); }
 
         size_t size() const { return intervals_.size(); }
 
@@ -825,7 +810,7 @@ namespace Dal::Script {
                 try {
                     res.addSingleton(func(v));
                 } catch (const std::domain_error&) {
-                    throw std::runtime_error("Domain_ error on function applied to singleton");
+                    throw std::runtime_error("Domain_ error on function applied to IsSingleton");
                 }
             }
 
@@ -846,7 +831,7 @@ namespace Dal::Script {
                     try {
                         res.addSingleton(func(v1, v2));
                     } catch (const std::domain_error&) {
-                        throw std::runtime_error("Domain_ error on function applied to singleton");
+                        throw std::runtime_error("Domain_ error on function applied to IsSingleton");
                     }
                 }
             }
@@ -874,9 +859,9 @@ namespace Dal::Script {
         bool canBeZero() const { return includes(0.0); }
 
         bool canBeNonZero() const {
-            if (empty())
+            if (IsEmpty())
                 return false;
-            else if (intervals_.size() == 1 && intervals_.begin()->zero())
+            else if (intervals_.size() == 1 && intervals_.begin()->IsZero())
                 return false;
             else
                 return true;
@@ -884,20 +869,20 @@ namespace Dal::Script {
 
         bool zeroIsDiscrete() const {
             for (auto& interval : intervals_)
-                if (interval.zero())
+                if (interval.IsZero())
                     return true;
             return false;
         }
 
         bool zeroIsCont() const {
             for (auto& interval : intervals_)
-                if (interval.continuous() && interval.includes(0.0))
+                if (interval.IsContinuous() && interval.includes(0.0))
                     return true;
             return false;
         }
 
         bool canBePositive(const bool strict) const {
-            if (empty())
+            if (IsEmpty())
                 return false;
             if (intervals_.rbegin()->right().val() > (strict ? Dal::EPSILON : -Dal::EPSILON))
                 return true;
@@ -905,7 +890,7 @@ namespace Dal::Script {
         }
 
         bool canBeNegative(const bool strict) const {
-            if (empty())
+            if (IsEmpty())
                 return false;
             if (intervals_.begin()->left().val() < (strict ? -Dal::EPSILON : Dal::EPSILON))
                 return true;
@@ -913,25 +898,25 @@ namespace Dal::Script {
             return false;
         }
 
-        //	Smallest positive left bound if any
+        // Smallest IsPositive left bound if any
         bool smallestPosLb(double& res, const bool strict = false) const {
-            if (intervals_.rbegin()->left().negative(!strict))
+            if (intervals_.rbegin()->left().IsNegative(!strict))
                 return false;
 
             auto it = intervals_.begin();
-            while (it->left().negative(!strict))
+            while (it->left().IsNegative(!strict))
                 ++it;
             res = it->left().val();
             return true;
         }
 
-        //	Biggest negative right bound if any
+        // Biggest IsNegative right bound if any
         bool biggestNegRb(double& res, const bool strict = false) const {
-            if (intervals_.begin()->right().positive(!strict))
+            if (intervals_.begin()->right().IsPositive(!strict))
                 return false;
 
             auto it = intervals_.rbegin();
-            while (it->right().positive(!strict))
+            while (it->right().IsPositive(!strict))
                 ++it;
             res = it->right().val();
             return true;

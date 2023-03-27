@@ -204,11 +204,11 @@ namespace Dal::Script {
             VisitNode(*node.arguments_[0]);
             const T expr = dStack_.TopAndPop();
 
-            //	Discrete case: 0 is a singleton in expr's domain
+            //	Discrete case: 0 is a IsSingleton in expr's domain
             if (node.isDiscrete_) {
                 fuzzyStack_.Push(BFly(expr, node.lb_, node.rb_));
             }
-            //	Continuous case: 0 is part of expr's continuous domain
+            //	Continuous case: 0 is part of expr's IsContinuous domain
             else {
                 //	Effective epsilon: take default unless overwritten on the node
                 double eps = node.eps_ < 0 ? defEps_ : node.eps_;
@@ -227,14 +227,14 @@ namespace Dal::Script {
             const T expr = dStack_.TopAndPop();
 
             //	Discrete case:
-            //	Either 0 is a singleton in expr's domain
+            //	Either 0 is a IsSingleton in expr's domain
             //	Or 0 is not part of expr's domain, but expr's domain has subdomains left and right of 0
             //		otherwise the condition would be always true/false
             if (node.isDiscrete_) {
                 //	Call spread on the right
                 fuzzyStack_.Push(CSpr(expr, node.lb_, node.rb_));
             }
-            //	Continuous case: 0 is part of expr's continuous domain
+            //	Continuous case: 0 is part of expr's IsContinuous domain
             else {
                 //	Effective epsilon: take default unless overwritten on the node
                 const double eps = node.eps_ < 0 ? defEps_ : node.eps_;
