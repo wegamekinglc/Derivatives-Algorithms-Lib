@@ -125,9 +125,9 @@ namespace Dal::Script {
                 if (IsPositive(true) && rhs.IsPositive(true) || IsNegative(true) && rhs.IsNegative(true))
                     return plusInfinity_;
                 else if (IsZero())
-                    return rhs; //	Here 0 * inf = inf
+                    return rhs; // Here 0 * inf = inf
                 else if (rhs.IsZero())
-                    return *this; //	Same
+                    return *this; // Same
                 else
                     return minusInfinity_;
             } else
@@ -270,20 +270,20 @@ namespace Dal::Script {
             return Interval(*std::min_element(b.begin(), b.end()), *std::max_element(b.begin(), b.end()));
         }
 
-        //	Inverse (1/x)
+        // Inverse (1/x)
         Interval inverse() const {
             double v;
 
-            //	Cannot inverse a IsZero IsSingleton
+            // Cannot inverse a IsZero IsSingleton
             if (IsZero())
                 throw std::runtime_error("Division by {0}");
 
-            //	Singleton
+            // Singleton
             else if (IsSingleton(&v))
                 return 1.0 / v;
 
-            //	Continuous
-            else if (IsPosOrNeg(true)) //	Strict, no 0
+            // Continuous
+            else if (IsPosOrNeg(true)) // Strict, no 0
             {
                 if (IsInfinite()) {
                     if (IsPositive())
@@ -292,7 +292,7 @@ namespace Dal::Script {
                         return Interval(1.0 / right_.val(), 0.0);
                 }
                 return Interval(1.0 / right_.val(), 1.0 / left_.val());
-            } else if (left_.IsZero() || right_.IsZero()) //	One of the bounds is 0
+            } else if (left_.IsZero() || right_.IsZero()) // One of the bounds is 0
             {
                 if (IsInfinite()) {
                     if (IsPositive())
@@ -306,7 +306,7 @@ namespace Dal::Script {
                         return Interval(Bound::minusInfinity_, 1.0 / left_.val());
                 }
             }
-            //	Interval contains 0 and 0 is not a bound: inverse spans real space
+            // Interval contains 0 and 0 is not a bound: inverse spans real space
             else
                 return Interval(Bound::minusInfinity_, Bound::plusInfinity_);
         }
@@ -343,7 +343,7 @@ namespace Dal::Script {
         template <class Func> Interval applyFunc(const Func func, const Interval& funcDomain) {
             double val;
 
-            //	Continuous interval, we know nothing of the function, so we just apply the function domain
+            // Continuous interval, we know nothing of the function, so we just apply the function domain
             if (!IsSingleton(&val))
                 return funcDomain;
 
@@ -363,11 +363,11 @@ namespace Dal::Script {
         template <class Func> Interval applyFunc2(const Func func, const Interval& rhs, const Interval& funcDomain) {
             double val, val2;
 
-            //	Continuous interval, we know nothing of the function, so we just apply the function domain
+            // Continuous interval, we know nothing of the function, so we just apply the function domain
             if (!IsSingleton(&val) || !rhs.IsSingleton(&val2))
                 return funcDomain;
 
-            //	Singleton, we apply the function to find the target IsSingleton
+            // Singleton, we apply the function to find the target IsSingleton
             else {
                 try {
                     val = func(val, val2);
@@ -510,10 +510,10 @@ namespace Dal::Script {
                 if (itb->left() > r)
                     it = ite;
                 else {
-                    //	Last interval in intervals_, we know there is one
+                    // Last interval in intervals_, we know there is one
                     const Interval& last = *intervals_.rbegin();
 
-                    //	Last interval is on the strict left of interval, there will be no intersection
+                    // Last interval is on the strict left of interval, there will be no intersection
                     if (last.right() < l)
                         it = ite;
 
@@ -660,7 +660,7 @@ namespace Dal::Script {
 
         size_t size() const { return intervals_.size(); }
 
-        //	Writers
+        // Writers
 
         friend std::ostream& operator<<(std::ostream& ost, const Domain_ d) {
             ost << "{";
@@ -682,7 +682,7 @@ namespace Dal::Script {
             return ost.str();
         }
 
-        //	Arithmetics
+        // Arithmetics
         Domain_ operator+(const Domain_& rhs) const {
             Domain_ res;
 
@@ -747,7 +747,7 @@ namespace Dal::Script {
             return res;
         }
 
-        //	Shortcuts for shifting all intervals
+        // Shortcuts for shifting all intervals
         Domain_ operator+=(const double x) {
             if (fabs(x) < Dal::EPSILON)
                 return *this;
@@ -772,7 +772,7 @@ namespace Dal::Script {
             return *this;
         }
 
-        //	Min/Max
+        // Min/Max
         Domain_ dmin(const Domain_& rhs) const {
             Domain_ res;
 
@@ -796,7 +796,7 @@ namespace Dal::Script {
             return res;
         }
 
-        //	Apply function
+        // Apply function
         template <class Func> Domain_ applyFunc(const Func func, const Interval& funcDomain) {
             Domain_ res;
 
@@ -805,7 +805,7 @@ namespace Dal::Script {
             if (vec.empty())
                 return funcDomain;
 
-            //	Singletons, apply func
+            // Singletons, apply func
             for (auto v : vec) {
                 try {
                     res.addSingleton(func(v));
@@ -817,7 +817,7 @@ namespace Dal::Script {
             return res;
         }
 
-        //	Apply function 2 params
+        // Apply function 2 params
         template <class Func> Domain_ applyFunc2(const Func func, const Domain_& rhs, const Interval& funcDomain) {
             Domain_ res;
 
@@ -839,7 +839,7 @@ namespace Dal::Script {
             return res;
         }
 
-        //	Inclusion
+        // Inclusion
         bool includes(const double x) const {
             for (auto& interval : intervals_)
                 if (interval.includes(x))
@@ -854,7 +854,7 @@ namespace Dal::Script {
             return false;
         }
 
-        //	Useful shortcuts for fuzzying
+        // Useful shortcuts for fuzzying
 
         bool canBeZero() const { return includes(0.0); }
 

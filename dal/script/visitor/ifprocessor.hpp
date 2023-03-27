@@ -13,14 +13,14 @@
 
 namespace Dal::Script {
     class IFProcessor_ : public Visitor_<IFProcessor_> {
-        //	Top of the stack: current (possibly nested) if being processed
-        //	Each element in stack: set of indices of variables modified by the corresponding if and nested ifs
+        // Top of the stack: current (possibly nested) if being processed
+        // Each element in stack: set of indices of variables modified by the corresponding if and nested ifs
         StaticStack_<std::set<size_t>> varStack_;
 
-        //	Nested if level, 0: not in an if, 1: in the outermost if, 2: if nested in another if, etc.
+        // Nested if level, 0: not in an if, 1: in the outermost if, 2: if nested in another if, etc.
         size_t nestedIfLvl_;
 
-        //	Keep track of the maximum number of nested ifs
+        // Keep track of the maximum number of nested ifs
         size_t maxNestedIfs_;
 
     public:
@@ -28,11 +28,10 @@ namespace Dal::Script {
 
         IFProcessor_() : nestedIfLvl_(0), maxNestedIfs_(0) {}
 
-        //	Access to the max nested ifs after the prcessor is run
+        // Access to the max nested ifs after the prcessor is run
         const size_t MaxNestedIFs() const { return maxNestedIfs_; }
 
-        //	Visitors
-
+        // Visitors
         void Visit(NodeIf_& node) {
             //	Increase nested if level
             ++nestedIfLvl_;

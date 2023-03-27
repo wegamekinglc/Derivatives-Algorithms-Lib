@@ -50,33 +50,33 @@ namespace Dal::Script {
     */
 
     class DomainProcessor_ : public Visitor_<DomainProcessor_> {
-        //	Fuzzy?
+        // Fuzzy?
         const bool fuzzy_;
 
-        //	Domains for all variables
+        // Domains for all variables
         Vector_<Domain_> varDomains_;
 
-        //	Stack of domains for expressions
+        // Stack of domains for expressions
         StaticStack_<Domain_> domStack_;
         using Value_ = typename DomainCondProp_::Value_;
         StaticStack_<Value_> condStack_;
 
-        //	LHS variable being visited?
+        // LHS variable being visited?
         bool isLhsVar_;
         size_t lhsVarIdx_;
 
     public:
         using Visitor_<DomainProcessor_>::Visit;
 
-        //	Domains start with the IsSingleton 0
+        // Domains start with the IsSingleton 0
         DomainProcessor_(const size_t nVar, const bool fuzzy)
             : fuzzy_(fuzzy), varDomains_(nVar, 0.0), isLhsVar_(false) {}
 
-        //	Visitors
+        // Visitors
 
-        //	Expressions
+        // Expressions
 
-        //	Binaries
+        // Binaries
 
         void Visit(NodeAdd_& node) {
             VisitArguments(node);
@@ -110,14 +110,14 @@ namespace Dal::Script {
             domStack_.Push(std::move(res));
         }
 
-        //	Unaries
+        // Unaries
         void Visit(NodeUplus_& node) { VisitArguments(node); }
         void Visit(NodeUminus_& node) {
             VisitArguments(node);
             domStack_.Top() = -domStack_.Top();
         }
 
-        //	Functions
+        // Functions
         void Visit(NodeLog_& node) {
             VisitArguments(node);
             Domain_ res = domStack_.Top().applyFunc<double (*)(const double)>(
@@ -154,36 +154,36 @@ namespace Dal::Script {
         void Visit(NodeSmooth_& node) {
             VisitArguments(node);
 
-            //	Pop eps_
+            // Pop eps_
             domStack_.Pop();
 
-            //	Makes no sense with non-IsContinuous x
+            // Makes no sense with non-IsContinuous x
             if (domStack_[2].IsDiscrete()) {
                 throw std::runtime_error("Smooth called with isDiscrete_ x");
             }
 
-            //	Get min and max val if neg and if pos
+            // Get min and max val if neg and if pos
             Bound minIfNeg = domStack_[0].minBound();
             Bound maxIfNeg = domStack_[0].maxBound();
             Bound minIfPos = domStack_[1].minBound();
             Bound maxIfPos = domStack_[1].maxBound();
             Bound minB = min(minIfNeg, minIfPos), maxB = max(maxIfNeg, maxIfPos);
 
-            //	Pop
+            // Pop
             domStack_.Pop(3);
 
-            //	Result
+            // Result
             domStack_.Push(Interval(minB, maxB));
         }
 
-        //	Conditions
+        // Conditions
 
         void Visit(NodeEqual_& node) {
             VisitArguments(node);
 
             Domain_& dom = domStack_.Top();
 
-            //	Always true / false?
+            // Always true / false?
             if (!dom.canBeZero()) {
                 node.alwaysTrue_ = false;
                 node.alwaysFalse_ = true;
@@ -198,10 +198,10 @@ namespace Dal::Script {
                 condStack_.Push(Value_::TrueOrFalse);
 
                 if (fuzzy_) {
-                    //	Continuous or isDiscrete_?
+                    // Continuous or isDiscrete_?
                     node.isDiscrete_ = dom.zeroIsDiscrete();
 
-                    //	Discrete
+                    // Discrete
                     if (node.isDiscrete_) {
                         bool subDomRightOfZero = dom.smallestPosLb(node.rb_, true);
                         if (!subDomRightOfZero)
@@ -214,7 +214,7 @@ namespace Dal::Script {
                 }
             }
 
-            //	Dump domain info to file, comment when not using
+            // Dump domain info to file, comment when not using
 #ifdef DUMP
             static int iii = 0;
             ++iii;
@@ -227,7 +227,7 @@ namespace Dal::Script {
                     ofs << "Node lB, rB = " << node.lb_ << "," << node.rb_ << endl;
             }
 #endif
-            //	End of dump
+            // End of dump
 
             domStack_.Pop();
         }
@@ -251,13 +251,13 @@ namespace Dal::Script {
             }
         }
 
-        //	For visiting superior and supEqual
+        // For visiting superior and supEqual
         template <bool strict, class NodeSup> inline void visitSupT(NodeSup& node) {
             VisitArguments(node);
 
             Domain_& dom = domStack_.Top();
 
-            //	Always true / false?
+            // Always true / false?
             if (!dom.canBePositive(strict)) {
                 node.alwaysTrue_ = false;
                 node.alwaysFalse_ = true;
@@ -267,24 +267,24 @@ namespace Dal::Script {
                 node.alwaysFalse_ = false;
                 condStack_.Push(Value_::AlwaysTrue);
             }
-            //	Can be true or false
+            // Can be true or false
             else {
                 node.alwaysTrue_ = node.alwaysFalse_ = false;
                 condStack_.Push(Value_::TrueOrFalse);
 
                 if (fuzzy_) {
-                    //	Continuous or isDiscrete_?
+                    // Continuous or isDiscrete_?
                     node.isDiscrete_ = !dom.canBeZero() || dom.zeroIsDiscrete();
 
-                    //	Fuzzy logic processing
+                    // Fuzzy logic processing
                     if (node.isDiscrete_) {
-                        //	Case 1: expr cannot be IsZero
+                        // Case 1: expr cannot be IsZero
                         if (!dom.canBeZero()) {
-                            //		we know we have subdomains on the left and on the right of 0
+                            //  we know we have subdomains on the left and on the right of 0
                             dom.smallestPosLb(node.rb_, true);
                             dom.biggestNegRb(node.lb_, true);
                         }
-                        //	Case 2: {0} is a IsSingleton
+                        // Case 2: {0} is a IsSingleton
                         else {
                             if (strict) {
                                 node.lb_ = 0.0;
@@ -298,7 +298,7 @@ namespace Dal::Script {
                 }
             }
 
-            //	Dump domain info to file, comment when not using
+            // Dump domain info to file, comment when not using
 #ifdef DUMP
             static int iii = 0;
             ++iii;
@@ -311,7 +311,7 @@ namespace Dal::Script {
                     ofs << "Node lB, rB = " << node.lb_ << "," << node.rb_ << endl;
             }
 #endif
-            //	End of dump
+            // End of dump
 
             domStack_.Pop();
         }
@@ -361,120 +361,120 @@ namespace Dal::Script {
             }
         }
 
-        //	Instructions
+        // Instructions
         void Visit(NodeIf_& node) {
-            //	Last "if true" statement index
+            // Last "if true" statement index
             size_t lastTrueStat = node.firstElse_ == -1 ? node.arguments_.size() - 1 : node.firstElse_ - 1;
 
-            //	Visit condition
+            // Visit condition
             node.arguments_[0]->Accept(*this);
 
-            //	Always true/false?
+            // Always true/false?
             DomainCondProp_ cp = condStack_.Top();
             condStack_.Pop();
 
             if (cp == Value_::AlwaysTrue) {
                 node.alwaysTrue_ = true;
                 node.alwaysFalse_ = false;
-                //	Visit "if true" statements
+                // Visit "if true" statements
                 for (size_t i = 1; i <= lastTrueStat; ++i)
                     node.arguments_[i]->Accept(*this);
             } else if (cp == Value_::AlwaysFalse) {
                 node.alwaysTrue_ = false;
                 node.alwaysFalse_ = true;
-                //	Visit "if false" statements, if any
+                // Visit "if false" statements, if any
                 if (node.firstElse_ != -1)
                     for (size_t i = node.firstElse_; i < node.arguments_.size(); ++i)
                         node.arguments_[i]->Accept(*this);
             } else {
                 node.alwaysTrue_ = node.alwaysFalse_ = false;
 
-                //	Record variable domain before if statements are executed
+                // Record variable domain before if statements are executed
                 Vector_<Domain_> domStore0(node.affectedVars_.size());
                 for (size_t i = 0; i < node.affectedVars_.size(); ++i)
                     domStore0[i] = varDomains_[node.affectedVars_[i]];
 
-                //	Execute if statements
+                // Execute if statements
                 for (size_t i = 1; i <= lastTrueStat; ++i)
                     node.arguments_[i]->Accept(*this);
 
-                //	Record variable domain after if statements are executed
+                // Record variable domain after if statements are executed
                 Vector_<Domain_> domStore1(node.affectedVars_.size());
                 for (size_t i = 0; i < node.affectedVars_.size(); ++i)
                     domStore1[i] = std::move(varDomains_[node.affectedVars_[i]]);
 
-                //	Reset variable domains
+                // Reset variable domains
                 for (size_t i = 0; i < node.affectedVars_.size(); ++i)
                     varDomains_[node.affectedVars_[i]] = std::move(domStore0[i]);
 
-                //	Execute else statements if any
+                // Execute else statements if any
                 if (node.firstElse_ != -1)
                     for (size_t i = node.firstElse_; i < node.arguments_.size(); ++i)
                         node.arguments_[i]->Accept(*this);
 
-                //	Merge domains
+                // Merge domains
                 for (size_t i = 0; i < node.affectedVars_.size(); ++i)
                     varDomains_[node.affectedVars_[i]].addDomain(domStore1[i]);
             }
         }
 
         void Visit(NodeAssign_& node) {
-            //	Visit the LHS variable
+            // Visit the LHS variable
             isLhsVar_ = true;
             node.arguments_[0]->Accept(*this);
             isLhsVar_ = false;
 
-            //	Visit the RHS expression
+            // Visit the RHS expression
             node.arguments_[1]->Accept(*this);
 
-            //	Write RHS domain into variable
+            // Write RHS domain into variable
             varDomains_[lhsVarIdx_] = domStack_.Top();
 
-            //	Pop
+            // Pop
             domStack_.Pop();
         }
 
         void Visit(NodePays_& node) {
-            //	Visit the LHS variable
+            // Visit the LHS variable
             isLhsVar_ = true;
             node.arguments_[0]->Accept(*this);
             isLhsVar_ = false;
 
-            //	Visit the RHS expression
+            // Visit the RHS expression
             node.arguments_[1]->Accept(*this);
 
-            //	Write RHS domain into variable
+            // Write RHS domain into variable
 
-            //	Numeraire domain = (0,+inf)
+            // Numeraire domain = (0,+inf)
             static const Domain_ numDomain(Interval(0.0, Bound::plusInfinity_));
 
-            //	Payment domain
+            // Payment domain
             Domain_ payDomain = domStack_.Top() / numDomain;
 
-            //	Write
+            // Write
             varDomains_[lhsVarIdx_] = varDomains_[lhsVarIdx_] + payDomain;
 
-            //	Pop
+            // Pop
             domStack_.Pop();
         }
 
-        //	Variables and constants
+        // Variables and constants
         void Visit(NodeVar_& node) {
-            //	LHS?
-            if (isLhsVar_) //	Write
+            // LHS?
+            if (isLhsVar_) // Write
             {
-                //	Record address in myLhsVarAdr
+                // Record address in myLhsVarAdr
                 lhsVarIdx_ = node.index_;
-            } else //	Read
+            } else // Read
             {
-                //	Push domain onto the stack
+                // Push domain onto the stack
                 domStack_.Push(varDomains_[node.index_]);
             }
         }
 
         void Visit(NodeConst_& node) { domStack_.Push(node.constVal_); }
 
-        //	Scenario related
+        // Scenario related
         void Visit(NodeSpot_& node) {
             static const Domain_ realDom(Interval(Bound::minusInfinity_, Bound::plusInfinity_));
             domStack_.Push(realDom);

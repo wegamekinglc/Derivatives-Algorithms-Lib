@@ -15,28 +15,27 @@ namespace Dal::Script {
 
     template <class T, template <typename> class EVAL_> class EvaluatorBase_ : public ConstVisitor_<EVAL_<T>> {
     protected:
-        //	State
+        // State
         Vector_<T> variables_;
 
-        //	Stacks
+        // Stacks
         StaticStack_<T> dStack_;
         StaticStack_<bool> bStack_;
 
-        //	Reference to current scenario
+        // Reference to current scenario
         const AAD::Scenario_<T>* scenario_;
 
-        //	Index of current event
+        // Index of current event
         size_t curEvt_;
 
     public:
         using ConstVisitor_<EVAL_<T>>::Visit;
         using ConstVisitor_<EVAL_<T>>::VisitNode;
 
-        //	Constructor, nVar = number of variables, from Product after parsing and variable indexation
+        // Constructor, nVar = number of variables, from Product after parsing and variable indexation
         EvaluatorBase_(const size_t nVar) : variables_(nVar) {}
 
-        //	Copy/Move
-
+        // Copy/Move
         EvaluatorBase_(const EvaluatorBase_& rhs) : variables_(rhs.variables_) {}
         EvaluatorBase_& operator=(const EvaluatorBase_& rhs) {
             if (this == &rhs)
@@ -51,35 +50,30 @@ namespace Dal::Script {
             return *this;
         }
 
-        //	(Re-)initialize before evaluation in each scenario
+        // (Re-)initialize before evaluation in each scenario
         void Init() {
             for (auto& varIt : variables_)
                 varIt = 0.0;
             //	Stacks should be empty, if this is not the case the empty them
-            //		without affecting capacity for added performance
+            //	without affecting capacity for added performance
             dStack_.Reset();
             bStack_.Reset();
         }
 
-        //	Accessors
-
-        //	Access to variable values after evaluation
+        // Accessors
+        // Access to variable values after evaluation
         [[nodiscard]] FORCE_INLINE const Vector_<T>& VarVals() const { return variables_; }
 
-        //	Set generated scenarios and current event
-
-        //	Set reference to current scenario
+        // Set generated scenarios and current event
+        // Set reference to current scenario
         FORCE_INLINE void SetScenario(const AAD::Scenario_<T>* scenario) { scenario_ = scenario; }
 
-        //	Set index of current event
+        // Set index of current event
         FORCE_INLINE void SetCurEvt(size_t curEvt) { curEvt_ = curEvt; }
 
-        //	Visitors
-
-        //	Expressions
-
-        //	Binaries
-
+        // Visitors
+        // Expressions
+        // Binaries
         template <class OP> FORCE_INLINE void VisitBinary(const ExprNode_& node, OP op) {
             VisitNode(*node.arguments_[0]);
             VisitNode(*node.arguments_[1]);
@@ -90,24 +84,30 @@ namespace Dal::Script {
         FORCE_INLINE void Visit(const NodeAdd_& node) {
             VisitBinary(node, [](T& x, const T y) { x += y; });
         }
+
         FORCE_INLINE void Visit(const NodeSub_& node) {
             VisitBinary(node, [](T& x, const T y) { x -= y; });
         }
+
         FORCE_INLINE void Visit(const NodeMult_& node) {
             VisitBinary(node, [](T& x, const T y) { x *= y; });
         }
+
         FORCE_INLINE void Visit(const NodeDiv_& node) {
             VisitBinary(node, [](T& x, const T y) { x /= y; });
         }
+
         FORCE_INLINE void Visit(const NodePow_& node) {
             VisitBinary(node, [](T& x, const T y) { x = pow(x, y); });
         }
+
         FORCE_INLINE void Visit(const NodeMax_& node) {
             VisitBinary(node, [](T& x, const T y) {
                 if (x < y)
                     x = y;
             });
         }
+
         FORCE_INLINE void Visit(const NodeMin_& node) {
             VisitBinary(node, [](T& x, const T y) {
                 if (x > y)
@@ -115,7 +115,7 @@ namespace Dal::Script {
             });
         }
 
-        //	Unaries
+        // Unaries
         template <class OP> FORCE_INLINE void VisitUnary(const ExprNode_& node, OP op) {
             VisitNode(*node.arguments_[0]);
             op(dStack_.Top());
@@ -128,7 +128,7 @@ namespace Dal::Script {
             VisitUnary(node, [](T& x) { x = -x; });
         }
 
-        //	Functions
+        // Functions
         FORCE_INLINE void Visit(const NodeLog_& node) {
             VisitUnary(node, [](T& x) { x = log(x); });
         }
@@ -166,7 +166,7 @@ namespace Dal::Script {
             }
         }
 
-        //	Conditions
+        // Conditions
         template <class OP> FORCE_INLINE void VisitCondition(const BoolNode_& node, OP op) {
             VisitNode(*node.arguments_[0]);
             bStack_.Push(op(dStack_.TopAndPop()));
@@ -175,9 +175,11 @@ namespace Dal::Script {
         FORCE_INLINE void Visit(const NodeEqual_& node) {
             VisitCondition(node, [](const T x) { return x == 0; });
         }
+
         FORCE_INLINE void Visit(const NodeSup_& node) {
             VisitCondition(node, [](const T x) { return x > 0; });
         }
+
         FORCE_INLINE void Visit(const NodeSupEqual_& node) {
             VisitCondition(node, [](const T x) { return x >= 0; });
         }
@@ -189,6 +191,7 @@ namespace Dal::Script {
                 VisitNode(*node.arguments_[1]);
             }
         }
+
         FORCE_INLINE void Visit(const NodeOr_& node) {
             VisitNode(*node.arguments_[0]);
             if (!bStack_.Top()) {
@@ -196,13 +199,14 @@ namespace Dal::Script {
                 VisitNode(*node.arguments_[1]);
             }
         }
+
         FORCE_INLINE void Visit(const NodeNot_& node) {
             VisitNode(*node.arguments_[0]);
             auto& b = bStack_.Top();
             b = !b;
         }
 
-        //	Instructions
+        // Instructions
         void Visit(const NodeIf_& node) {
             //	Eval the condition
             VisitNode(*node.arguments_[0]);
@@ -244,7 +248,7 @@ namespace Dal::Script {
             variables_[varIdx] += dStack_.TopAndPop() / (*scenario_)[curEvt_].numeraire_;
         }
 
-        //	Variables and constants
+        // Variables and constants
         FORCE_INLINE void Visit(const NodeVar_& node) {
             //	Push value onto the stack
             dStack_.Push(variables_[node.index_]);
@@ -255,7 +259,7 @@ namespace Dal::Script {
         FORCE_INLINE void Visit(const NodeTrue_& node) { bStack_.Push(true); }
         FORCE_INLINE void Visit(const NodeFalse_& node) { bStack_.Push(false); }
 
-        //	Scenario related
+        // Scenario related
         FORCE_INLINE void Visit(const NodeSpot_& node) { dStack_.Push((*scenario_)[curEvt_].spot_); }
     };
 

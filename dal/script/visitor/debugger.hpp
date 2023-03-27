@@ -15,41 +15,41 @@ namespace Dal::Script {
         String_ prefix_;
         StaticStack_<String_> stack_;
 
-        //	The main function call from every node visitor
+        // The main function call from every node visitor
         void Debug(const Node_& node, const String_& nodeId) {
-            //	One more tab
+            // One more tab
             prefix_ += '\t';
 
-            //	Visit arguments_, right to left
+            // Visit arguments_, right to left
             for (auto it = node.arguments_.rbegin(); it != node.arguments_.rend(); ++it)
                 (*it)->Accept(*this);
 
-            //	One less tab
+            // One less tab
             prefix_.pop_back();
 
             String_ str(prefix_ + nodeId);
             if (!node.arguments_.empty()) {
                 str += "(\n";
 
-                //	First argument, pushed last
+                // First argument, pushed last
                 str += stack_.Top();
                 stack_.Pop();
                 if (node.arguments_.size() > 1)
                     str += prefix_ + ",\n";
 
-                //	Args 2 to n-1
+                // Args 2 to n-1
                 for (size_t i = 1; i < node.arguments_.size() - 1; ++i) {
                     str += stack_.Top() + prefix_ + ",\n";
                     stack_.Pop();
                 }
 
                 if (node.arguments_.size() > 1) {
-                    //	Last argument, pushed first
+                    // Last argument, pushed first
                     str += stack_.Top();
                     stack_.Pop();
                 }
 
-                //	Close ')'
+                // Close ')'
                 str += prefix_ + ')';
             }
 
@@ -60,10 +60,10 @@ namespace Dal::Script {
     public:
         using ConstVisitor_<Debugger_>::Visit;
 
-        //	Access the Top of the stack, contains the functional form after the tree is traversed
+        // Access the Top of the stack, contains the functional form after the tree is traversed
         const String_& String() const { return stack_.Top(); }
 
-        //	All concrete node visitors, Visit arguments_ by default unless overridden
+        // All concrete node visitors, Visit arguments_ by default unless overridden
 
         void Visit(const NodeCollect_& node) { Debug(node, "COLLECT"); }
 

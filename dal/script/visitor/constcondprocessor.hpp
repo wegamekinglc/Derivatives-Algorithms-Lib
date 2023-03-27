@@ -10,11 +10,11 @@
 namespace Dal::Script {
 
     // ConstCond processor
-    //	Processes all IsConstant (always true/false) conditions and conditional statements
-    //	Remove all the if and condition nodes that are always true or always false
-    //	The domain proc must have been run first, so always true/false flags are properly set inside the nodes
-    //	The always true/false if nodes are replaced by collections of statements to be evaluated
-    //	The always true/false conditions are replaced by true/false nodes
+    // Processes all IsConstant (always true/false) conditions and conditional statements
+    // Remove all the if and condition nodes that are always true or always false
+    // The domain proc must have been run first, so always true/false flags are properly set inside the nodes
+    // The always true/false if nodes are replaced by collections of statements to be evaluated
+    // The always true/false conditions are replaced by true/false nodes
 
     class ConstCondProcessor_ : public Visitor_<ConstCondProcessor_> {
         // The (unique) pointer on the node currently being visited
@@ -53,11 +53,11 @@ namespace Dal::Script {
             if (node.alwaysTrue_)
                 current_->reset(new NodeTrue_);
 
-            //	Always false ==> replace the tree by a False node
+            // Always false ==> replace the tree by a False node
             else if (node.alwaysFalse_)
                 current_->reset(new NodeFalse_);
 
-            //	Nothing to do here ==> Visit the arguments_
+            // Nothing to do here ==> Visit the arguments_
             else
                 VisitArgsSetCurrent(node);
         }
@@ -72,7 +72,7 @@ namespace Dal::Script {
 
         // If
         void Visit(NodeIf_& node) {
-            //	Always true ==> replace the tree by the collection of "if true" statements
+            // Always true ==> replace the tree by the collection of "if true" statements
             if (node.alwaysTrue_) {
                 size_t lastTrueStat = node.firstElse_ == -1 ? node.arguments_.size() - 1 : node.firstElse_ - 1;
 
@@ -86,7 +86,7 @@ namespace Dal::Script {
                 VisitArgsSetCurrent(**current_);
             }
 
-            //	Always false ==> replace the tree by the collection of "else" statements
+            // Always false ==> replace the tree by the collection of "else" statements
             else if (node.alwaysFalse_) {
                 int firstElseStatement = node.firstElse_;
 
@@ -101,7 +101,7 @@ namespace Dal::Script {
                 }
                 VisitArgsSetCurrent(**current_);
             }
-            //	Nothing to do here ==> Visit the arguments_
+            // Nothing to do here ==> Visit the arguments_
             else
                 VisitArgsSetCurrent(node);
         }

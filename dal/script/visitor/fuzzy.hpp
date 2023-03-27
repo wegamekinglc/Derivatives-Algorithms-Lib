@@ -11,24 +11,23 @@
 
 namespace Dal::Script {
 
-    //	The fuzzy evaluator
-
+    // The fuzzy evaluator
     template <class T> class FuzzyEvaluator_ : public EvaluatorBase_<T, FuzzyEvaluator_> {
-        //	Default smoothing factor for conditions that don't override it
+        // Default smoothing factor for conditions that don't override it
         double defEps_;
 
-        //	Stack for the fuzzy evaluation of conditions
+        // Stack for the fuzzy evaluation of conditions
         StaticStack_<T> fuzzyStack_;
 
-        //	Temp storage for variables, preallocated for performance
-        //	[i][j] = nested if level i variable j
+        // Temp storage for variables, preallocated for performance
+        // [i][j] = nested if level i variable j
         Vector_<Vector_<T>> varStore0_;
         Vector_<Vector_<T>> varStore1_;
 
-        //	Nested if level, 0: not in an if, 1: in the outermost if, 2: if nested in another if, etc.
+        // Nested if level, 0: not in an if, 1: in the outermost if, 2: if nested in another if, etc.
         size_t nestedIfLvl_;
 
-        //	Pop the Top 2 numbers of the fuzzy condition stack
+        // Pop the Top 2 numbers of the fuzzy condition stack
         FORCE_INLINE pair<T, T> Pop2f() {
             pair<T, T> res;
             res.first = fuzzyStack_.TopAndPop();
@@ -36,7 +35,7 @@ namespace Dal::Script {
             return res;
         }
 
-        //	Call Spread (-eps_/2,+eps_/2)
+        // Call Spread (-eps_/2,+eps_/2)
         FORCE_INLINE static T CSpr(const T x, const double eps) {
             const double halfEps = 0.5 * eps;
 
@@ -48,7 +47,7 @@ namespace Dal::Script {
                 return (x + halfEps) / eps;
         }
 
-        //	Call Spread (lb_,rb_)
+        // Call Spread (lb_,rb_)
         FORCE_INLINE static T CSpr(const T x, const double lb, const double rb) {
             if (x < lb)
                 return T(0.0);
@@ -58,7 +57,7 @@ namespace Dal::Script {
                 return (x - lb) / (rb - lb);
         }
 
-        //	Butterfly (-eps_/2,+eps_/2)
+        // Butterfly (-eps_/2,+eps_/2)
         FORCE_INLINE static T BFly(const T x, const double eps) {
             const double halfEps = 0.5 * eps;
 
@@ -68,7 +67,7 @@ namespace Dal::Script {
                 return (halfEps - fabs(x)) / halfEps;
         }
 
-        //	Butterfly (lb_,0,rb_)
+        // Butterfly (lb_,0,rb_)
         FORCE_INLINE static T BFly(const T x, const double lb, const double rb) {
             if (x < lb || x > rb)
                 return T(0.0);
@@ -94,8 +93,7 @@ namespace Dal::Script {
                 varStore.Resize(nVar);
         }
 
-        //	Copy/Move
-
+        // Copy/Move
         FuzzyEvaluator_(const FuzzyEvaluator_& rhs)
             : Base(rhs), defEps_(rhs.defEps_), varStore0_(rhs.varStore0_.size()), varStore1_(rhs.varStore1_.size()),
               nestedIfLvl_(0) {
@@ -104,6 +102,7 @@ namespace Dal::Script {
             for (auto& varStore : varStore1_)
                 varStore.Resize(variables_.size());
         }
+
         FuzzyEvaluator_& operator=(const FuzzyEvaluator_& rhs) {
             if (this == &rhs)
                 return *this;
@@ -131,12 +130,11 @@ namespace Dal::Script {
             return *this;
         }
 
-        //	(Re)set default smoothing factor
+        // (Re)set default smoothing factor
         FORCE_INLINE void SetDefEps(double defEps) { defEps_ = defEps; }
 
-        //	Overriden visitors
-
-        //	If
+        // Overriden visitors
+        // If
         void Visit(const NodeIf_& node) {
             //	Last "if true" statement index
             const size_t lastTrueStat = node.firstElse_ == -1 ? node.arguments_.size() - 1 : node.firstElse_ - 1;
@@ -193,12 +191,11 @@ namespace Dal::Script {
             --nestedIfLvl_;
         }
 
-        //	Conditions
-
+        // Conditions
         FORCE_INLINE void Visit(const NodeTrue_& node) { fuzzyStack_.Push(1.0); }
         FORCE_INLINE void Visit(const NodeFalse_& node) { fuzzyStack_.Push(0.0); }
 
-        //	Equality
+        // Equality
         FORCE_INLINE void Visit(const NodeEqual_& node) {
             //	Evaluate expression to be compared to 0
             VisitNode(*node.arguments_[0]);
@@ -218,9 +215,8 @@ namespace Dal::Script {
             }
         }
 
-        //	Inequality
-
-        //	For visiting superior and supEqual
+        // Inequality
+        // For visiting superior and supEqual
         void VisitComp(const CompNode_& node) {
             //	Evaluate expression to be compared to 0
             VisitNode(*node.arguments_[0]);
@@ -248,20 +244,21 @@ namespace Dal::Script {
 
         FORCE_INLINE void Visit(const NodeSupEqual_& node) { VisitComp(node); }
 
-        //	Negation
+        // Negation
         FORCE_INLINE void visitNot(const NodeNot_& node) {
             VisitNode(*node.arguments_[0]);
             fuzzyStack_.Top() = 1.0 - fuzzyStack_.Top();
         }
 
-        //	Combinators
-        //	Hard coded proba stlye and->dt(lhs)*dt(rhs), or->dt(lhs)+dt(rhs)-dt(lhs)*dt(rhs)
+        // Combinators
+        // Hard coded proba stlye and->dt(lhs)*dt(rhs), or->dt(lhs)+dt(rhs)-dt(lhs)*dt(rhs)
         FORCE_INLINE void Visit(const NodeAnd_& node) {
             VisitNode(*node.arguments_[0]);
             VisitNode(*node.arguments_[1]);
             const auto args = Pop2f();
             fuzzyStack_.Push(args.first * args.second);
         }
+
         FORCE_INLINE void Visit(const NodeOr_& node) {
             VisitNode(*node.arguments_[0]);
             VisitNode(*node.arguments_[1]);

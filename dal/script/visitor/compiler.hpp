@@ -71,7 +71,7 @@ alternative False = 37
 
 namespace Dal::Script {
     template <class T_> struct EvalState_ {
-        //	State
+        // State
         Vector_<T_> variables_;
 
         //  Constructor
@@ -128,26 +128,22 @@ namespace Dal::Script {
     };
 
     class Compiler_ : public ConstVisitor_<Compiler_> {
-        //	State
+        // State
         Vector_<int> nodeStream_;
         Vector_<double> constStream_;
         Vector_<const void*> dataStream_;
 
     public:
         using ConstVisitor_<Compiler_>::Visit;
-        //	Accessors
-
-        //	Access the streams after traversal
+        // Accessors
+        // Access the streams after traversal
         const Vector_<int>& NodeStream() const { return nodeStream_; }
         const Vector_<double>& ConstStream() const { return constStream_; }
         const Vector_<const void*>& DataStream() const { return dataStream_; }
 
-        //	Visitors
-
-        //	Expressions
-
+        // Visitors
+        // Expressions
         //  Binaries
-
         template <NodeType_ IfBin, NodeType_ IfConstLeft, NodeType_ IfConstRight> void VisitBinary(const ExprNode_& node) {
             if (node.isConst_) {
                 nodeStream_.emplace_back(Const);
@@ -185,7 +181,7 @@ namespace Dal::Script {
 
         void Visit(const NodeMin_& node) { VisitBinary<Min2, Min2Const, Min2Const>(node); }
 
-        //	Unaries
+        // Unaries
         template <NodeType_ NT> void VisitUnary(const ExprNode_& node) {
             if (node.isConst_) {
                 nodeStream_.emplace_back(Const);
@@ -204,7 +200,6 @@ namespace Dal::Script {
         void Visit(const NodeSqrt_& node) { VisitUnary<Sqrt>(node); }
 
         //  Multies
-
         void Visit(const NodeSmooth_& node) {
             //  Const?
             if (node.isConst_) {
@@ -218,8 +213,7 @@ namespace Dal::Script {
             }
         }
 
-        //	Conditions
-
+        // Conditions
         template <NodeType_ NT, typename OP> void VisitCondition(const BoolNode_& node, OP op) {
             const ExprNode_* arg = Downcast<ExprNode_>(node.arguments_[0]);
 
@@ -311,10 +305,10 @@ namespace Dal::Script {
 
         void Visit(const NodeFalse_& node) { nodeStream_.emplace_back(False); }
 
-        //	Scenario related
+        // Scenario related
         void Visit(const NodeSpot_& node) { nodeStream_.emplace_back(Spot); }
 
-        //	Instructions
+        // Instructions
         void Visit(const NodeIf_& node) {
             //  Visit condition
             node.arguments_[0]->Accept(*this);
@@ -542,21 +536,21 @@ namespace Dal::Script {
                 ++i;
                 break;
             case Smooth:
-                //	Eval the condition
+                // Eval the condition
                 x = dStack[3];
                 y = 0.5 * dStack.Top();
                 z = dStack[2];
                 t = dStack[1];
 
                 dStack.Pop(3);
-                //	Left
+                // Left
                 if (x < -y)
                     dStack.Top() = t;
-                //	Right
+                // Right
                 if (x < -y)
                     dStack.Top() = z;
 
-                //	Fuzzy
+                // Fuzzy
                 else
                     dStack.Top() = t + 0.5 * (z - t) / y * (x + y);
                 ++i;

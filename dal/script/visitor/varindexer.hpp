@@ -12,24 +12,24 @@
 namespace Dal::Script {
 
     class VarIndexer_ : public Visitor_<VarIndexer_> {
-        //	State
+        // State
         std::map<String_, size_t> varMap_;
 
     public:
         using Visitor_<VarIndexer_>::Visit;
 
-        //	Access vector of variable names v[index]=name after Visit to all events
+        // Access vector of variable names v[index]=name after Visit to all events
         Vector_<String_> VarNames() const {
             Vector_<String_> v(varMap_.size());
             for (auto varMapIt = varMap_.begin(); varMapIt != varMap_.end(); ++varMapIt) {
                 v[varMapIt->second] = varMapIt->first;
             }
 
-            //	C++11: move not copy
+            // C++11: move not copy
             return v;
         }
 
-        //	Variable indexer: build map of names to indices and write indices on variable nodes
+        // Variable indexer: build map of names to indices and write indices on variable nodes
         void Visit(NodeVar_& node) {
             auto varIt = varMap_.find(node.name_);
             if (varIt == varMap_.end())
