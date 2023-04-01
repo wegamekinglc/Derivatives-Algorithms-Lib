@@ -10,7 +10,7 @@
 using namespace Dal;
 using namespace Dal::Script;
 
-TEST(CompilerTest, TestCompile) {
+TEST(VisitorTest, TestCompile) {
     Vector_<String_> events = {R"(
         x = 4
         y = 1
@@ -32,7 +32,7 @@ TEST(CompilerTest, TestCompile) {
     ASSERT_DOUBLE_EQ(eval_state.variables_[1], 7);
 }
 
-TEST(CompilerTest, TestCompileWithVariable) {
+TEST(VisitorTest, TestCompileWithVariable) {
     Vector_<String_> events = {R"(
         IF spot() >= 2:0.1 THEN
             y = 3 + spot()
@@ -52,7 +52,7 @@ TEST(CompilerTest, TestCompileWithVariable) {
     ASSERT_DOUBLE_EQ(eval_state.variables_[0], 7);
 }
 
-TEST(CompilerTest, TestCompileWithSeveralEvents) {
+TEST(VisitorTest, TestCompileWithSeveralEvents) {
     Vector_<String_> events = {R"(
         x = 4
         y = 1

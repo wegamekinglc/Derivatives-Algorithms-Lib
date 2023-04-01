@@ -10,7 +10,7 @@
 using namespace Dal;
 using namespace Dal::Script;
 
-TEST(EvaluatorTest, TestEvaluator) {
+TEST(VisitorTest, TestEvaluator) {
     Expression_ const1 = MakeBaseNode<NodeConst_>(20.0);
     Expression_ const2 = MakeBaseNode<NodeConst_>(30.0);
 

@@ -8,7 +8,7 @@
 using namespace Dal;
 using namespace Dal::Script;
 
-TEST(DebuggerTest, TestDebuggerVisit) {
+TEST(VisitorTest, TestDebuggerVisit) {
     Expression_ var1 = MakeBaseNode<NodeVar_>("x");
     Expression_ const1 = MakeBaseNode<NodeConst_>(20);
 
