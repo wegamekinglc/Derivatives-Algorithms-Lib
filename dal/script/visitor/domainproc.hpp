@@ -70,7 +70,11 @@ namespace Dal::Script {
 
         // Domains start with the IsSingleton 0
         DomainProcessor_(const size_t nVar, const bool fuzzy)
-            : fuzzy_(fuzzy), varDomains_(nVar, 0.0), isLhsVar_(false) {}
+            : fuzzy_(fuzzy), varDomains_(nVar, 0.0), isLhsVar_(false), lhsVarIdx_(-1) {}
+
+        [[nodiscard]] const Vector_<Domain_>& VarDomains() const {
+            return varDomains_;
+        }
 
         // Visitors
 
@@ -104,7 +108,7 @@ namespace Dal::Script {
         }
         void Visit(NodePow_& node) {
             VisitArguments(node);
-            Domain_ res = domStack_[1].applyFunc2<double (*)(const double, const double)>(
+            Domain_ res = domStack_[1].applyFunc2<double (*)(double, double)>(
                 pow, domStack_[0], Interval(Bound::minusInfinity_, Bound::plusInfinity_));
             domStack_.Pop(2);
             domStack_.Push(std::move(res));
@@ -120,17 +124,18 @@ namespace Dal::Script {
         // Functions
         void Visit(NodeLog_& node) {
             VisitArguments(node);
-            Domain_ res = domStack_.Top().applyFunc<double (*)(const double)>(
-                log, Interval(Bound::minusInfinity_, Bound::plusInfinity_));
+            Domain_ res = domStack_.Top().applyFunc<double (*)(double)>(
+                log, Interval(0.0, Bound::plusInfinity_));
             domStack_.Pop();
             domStack_.Push(std::move(res));
         }
         void Visit(NodeSqrt_& node) {
             VisitArguments(node);
-            Domain_ res = domStack_.Top().applyFunc<double (*)(const double)>(sqrt, Interval(0.0, Bound::plusInfinity_));
+            Domain_ res = domStack_.Top().applyFunc<double (*)(double)>(sqrt, Interval(0.0, Bound::plusInfinity_));
             domStack_.Pop();
             domStack_.Push(std::move(res));
         }
+
         void Visit(NodeMax_& node) {
             VisitArguments(node);
             Domain_ res = domStack_.Top();
@@ -141,6 +146,7 @@ namespace Dal::Script {
             }
             domStack_.Push(std::move(res));
         }
+
         void Visit(NodeMin_& node) {
             VisitArguments(node);
             Domain_ res = domStack_.Top();
@@ -163,10 +169,10 @@ namespace Dal::Script {
             }
 
             // Get min and max val if neg and if pos
-            Bound minIfNeg = domStack_[0].minBound();
-            Bound maxIfNeg = domStack_[0].maxBound();
-            Bound minIfPos = domStack_[1].minBound();
-            Bound maxIfPos = domStack_[1].maxBound();
+            Bound minIfNeg = domStack_[0].MinBound();
+            Bound maxIfNeg = domStack_[0].MaxBound();
+            Bound minIfPos = domStack_[1].MinBound();
+            Bound maxIfPos = domStack_[1].MaxBound();
             Bound minB = min(minIfNeg, minIfPos), maxB = max(maxIfNeg, maxIfPos);
 
             // Pop

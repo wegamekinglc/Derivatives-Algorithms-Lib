@@ -642,14 +642,14 @@ namespace Dal::Script {
         }
 
         // Get min and max bounds
-        Bound minBound() const {
+        Bound MinBound() const {
             if (!IsEmpty())
                 return intervals_.begin()->left();
             else
                 return Bound::minusInfinity_;
         }
 
-        Bound maxBound() const {
+        Bound MaxBound() const {
             if (!IsEmpty())
                 return intervals_.rbegin()->right();
             else
@@ -658,7 +658,7 @@ namespace Dal::Script {
 
         bool IsEmpty() const { return intervals_.empty(); }
 
-        size_t size() const { return intervals_.size(); }
+        size_t Size() const { return intervals_.size(); }
 
         // Writers
 
@@ -719,7 +719,7 @@ namespace Dal::Script {
 
             for (auto& i : intervals_) {
                 for (auto& j : rhs.intervals_) {
-                    size_t s = res.size();
+                    size_t s = res.Size();
                     res.addInterval(i * j);
                 }
             }
