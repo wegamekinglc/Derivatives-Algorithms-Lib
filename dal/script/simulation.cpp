@@ -57,7 +57,6 @@ namespace Dal::Script {
         Vector_<Vector_<>> gaussVecs(nThread + 1);
         Vector_<Scenario_<>> paths(nThread + 1);
 
-
         for (auto& vec : gaussVecs)
             vec.Resize(mdl->SimDim());
 
