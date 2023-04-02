@@ -37,7 +37,7 @@ namespace Dal::Script {
             VisitArgsSetCurrent(node);
         }
 
-        // This patricular visitor modifies the structure of the tree, hence it must be called only
+        // This particular visitor modifies the structure of the tree, hence it must be called only
         // with this method from the Top of every tree, passing a ref on the unique_ptr holding
         // the Top node of the tree
         void ProcessFromTop(std::unique_ptr<Node_>& top) {
