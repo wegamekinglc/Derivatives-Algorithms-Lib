@@ -86,8 +86,8 @@ namespace Dal {
         using std::vector<E_>::reserve;
         using std::vector<E_>::clear;
 
-        E_& operator()(int i) { return (*this)[i];}
-        const E_& operator()(int i) const { return (*this)[i];}
+        E_& operator()(size_t i) { return (*this)[i];}
+        const E_& operator()(size_t i) const { return (*this)[i];}
 
         // emplace_back is a special case; because it is not part of std::vector<bool>, we have to explicitly forward
         template <class... _Valty> void emplace_back(_Valty&&... _Val) { base_t::emplace_back(_Val...); }
@@ -121,7 +121,7 @@ namespace Dal {
         template <class E_> Vector_<E_> XRange(E_ start, E_ finish, size_t points) {
             Vector_<E_> x(points);
             E_ dx = (finish - start) / (points - 1);
-            for (int i = 0; i < points - 1; ++i)
+            for (size_t i = 0; i < points - 1; ++i)
                 x[i] = start + i * dx;
             x[points - 1] = finish;
             return x;

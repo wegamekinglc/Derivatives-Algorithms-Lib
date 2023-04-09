@@ -19,7 +19,7 @@ precise is boolean
 -IF-------------------------------------------------------------------------*/
 
 namespace Dal {
-    SequenceSet_* NewSobol(int size, int i_path, bool precise = false);
+    SequenceSet_* NewSobol(int size, size_t i_path, bool precise = false);
 
     class BASE_EXPORT SobolRSG_: public Storable_ {
         std::unique_ptr<SequenceSet_> rsg_;

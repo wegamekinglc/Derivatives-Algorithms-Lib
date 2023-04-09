@@ -55,7 +55,7 @@ TEST(RandomTest, TestNewSobol) {
     }
 }
 
-TEST(SobolTest, TestNewSobolWithSkip) {
+TEST(RandomTest, TestNewSobolWithSkip) {
     int dim = 1;
     int i_path = 0;
     int size_to_skip = pow(2, 20);
@@ -97,4 +97,11 @@ TEST(SobolTest, TestNewSobolWithSkip) {
     set2->FillUniform(&data2);
     for (int k = 0; k < dim; ++k)
         ASSERT_DOUBLE_EQ(data[k], data2[k]);
+}
+
+TEST(RandomTest, TestNewSobolWithLargePath) {
+    // TODO: this test currently does not work
+    int dim = 443;
+    size_t i_path = std::pow(2, 30);
+    std::unique_ptr<SequenceSet_> set(NewSobol(dim, i_path));
 }

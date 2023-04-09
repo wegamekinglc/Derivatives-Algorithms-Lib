@@ -38,7 +38,7 @@ namespace Dal::Script {
 
     SimResults_<> MCSimulation(const ScriptProduct_& product,
                                const AAD::Model_<double>& model,
-                               int n_paths,
+                               size_t n_paths,
                                const String_& rsg,
                                bool use_bb,
                                bool compiled) {
@@ -73,8 +73,8 @@ namespace Dal::Script {
         Vector_<TaskHandle_> futures;
         futures.reserve(n_paths / BATCH_SIZE + 1);
 
-        int firstPath = 0;
-        int pathsLeft = n_paths;
+        size_t firstPath = 0;
+        size_t pathsLeft = n_paths;
 
         while (pathsLeft > 0) {
             int pathsInTask = min(pathsLeft, BATCH_SIZE);
@@ -117,7 +117,7 @@ namespace Dal::Script {
 
     SimResults_<AAD::Number_> MCSimulation(const ScriptProduct_& product,
                                            const AAD::Model_<AAD::Number_>& model,
-                                           int n_paths,
+                                           size_t n_paths,
                                            const String_& rsg,
                                            bool use_bb,
                                            int max_nested_ifs,
@@ -166,8 +166,8 @@ namespace Dal::Script {
         Vector_<TaskHandle_> futures;
         futures.reserve(n_paths / BATCH_SIZE + 1);
 
-        int firstPath = 0;
-        int pathsLeft = n_paths;
+        size_t firstPath = 0;
+        size_t pathsLeft = n_paths;
 
         while (pathsLeft > 0) {
             int pathsInTask = std::min(pathsLeft, BATCH_SIZE);

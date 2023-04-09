@@ -13,7 +13,7 @@
 
 namespace Dal::Script {
 
-    constexpr const int BATCH_SIZE = 8192;
+    constexpr const size_t BATCH_SIZE = 8192;
     std::unique_ptr<Random_> CreateRNG(const String_& method, size_t n_dim, bool use_bb = false);
     AAD::Position_ InitModel4ParallelAAD(AAD::Tape_& tape, const ScriptProduct_& prd, AAD::Model_<AAD::Number_>& clonedMdl, Scenario_<AAD::Number_>& path);
 
@@ -21,29 +21,29 @@ namespace Dal::Script {
 
     template <>
     struct SimResults_<double> {
-        explicit SimResults_(int n_paths) : aggregated_(n_paths) {}
-        [[nodiscard]] int Rows() const { return aggregated_.size();  }
+        explicit SimResults_(size_t n_paths) : aggregated_(n_paths) {}
+        [[nodiscard]] size_t Rows() const { return aggregated_.size();  }
         Vector_<> aggregated_;
     };
 
     template <>
     struct SimResults_<AAD::Number_> {
-        SimResults_(int nPath, int nParam) : aggregated_(nPath), risks_(nParam) {}
-        [[nodiscard]] int Rows() const { return aggregated_.size();  }
+        SimResults_(size_t nPath, int nParam) : aggregated_(nPath), risks_(nParam) {}
+        [[nodiscard]] size_t Rows() const { return aggregated_.size();  }
         Vector_<> aggregated_;
         Vector_<> risks_;
     };
 
     SimResults_<> MCSimulation(const ScriptProduct_& product,
                                const AAD::Model_<double>& model,
-                               int n_paths,
+                               size_t n_paths,
                                const String_& rsg = "sobol",
                                bool use_bb = false,
                                bool compiled = false);
 
     SimResults_<AAD::Number_> MCSimulation(const ScriptProduct_& product,
                                            const AAD::Model_<AAD::Number_>& model,
-                                           int n_paths,
+                                           size_t n_paths,
                                            const String_& rsg = "sobol",
                                            bool use_bb = false,
                                            int max_nested_ifs = -1,
