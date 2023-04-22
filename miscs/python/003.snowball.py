@@ -1,5 +1,6 @@
-import pprint
 import datetime as dt
+import pandas as pd
+import numpy as np
 from dateutil.relativedelta import relativedelta
 from dal import *
 
@@ -21,7 +22,7 @@ while today <= maturity:
 event_dates = [Date_(d.year, d.month, d.day) for d in event_dates]
 EvaluationDate_Set(event_dates[0])
 
-n_paths = 2 ** 20
+n_paths = 500_000
 use_bb = False
 rsg = "sobol"
 model_name = "bs"
@@ -62,12 +63,14 @@ print(f"# of paths: {n_paths}\n")
 print("------ Product Evaluation  ------")
 now = dt.datetime.now()
 res = MonteCarlo_Value(product, model, n_paths, rsg, use_bb, False)
-for k, v in res.items():
-    print(f"{k:<8}: {v:>10.4f}")
-print(f"Non-AAD w.t {model_name} using - {dt.datetime.now() - now}\n")
+all_res = {"Non-AAD": [res["value"], np.nan, np.nan, np.nan, np.nan, (dt.datetime.now() - now).total_seconds() * 1000]}
 
 now = dt.datetime.now()
 res = MonteCarlo_Value(product, model, n_paths, rsg, use_bb, True)
-for k, v in res.items():
-    print(f"{k:<8}: {v:>10.4f}")
-print(f"AAD     w.t {model_name} using - {dt.datetime.now() - now}\n")
+all_res["AAD"] = [res["value"], res["d_spot"], res["d_vol"], res["d_rate"], res["d_div"], (dt.datetime.now() - now).total_seconds() * 1000]
+
+df = pd.DataFrame.from_dict(all_res)
+df.index = ["NPV", "delta", "vega", "dP/dR", "dP/dDiv", "Elapsed (ms)"]
+print(df.T.to_markdown())
+
+

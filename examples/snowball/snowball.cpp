@@ -90,7 +90,7 @@ int main() {
             sum += results.aggregated_[row];
         auto calculated = sum / static_cast<double>(results.Rows());
 
-        std::cout << std::setw(widths[0]) << std::left << "Normal"
+        std::cout << std::setw(widths[0]) << std::left << "Non-AAD"
                   << std::setw(widths[1]) << std::right << num_path
                   << std::setw(widths[2]) << std::right << events.size()
                   << std::fixed
