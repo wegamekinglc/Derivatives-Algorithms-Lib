@@ -29,8 +29,6 @@ This is a project inspired by following books & codes repositories:
 
 * [*Finite Difference Methods for Financial Partial Differential Equations* by Brian Huge & Jesper Andreasen](https://github.com/brnohu/CompFin)
 
-At current stage, this codes repository is simply for prototyping and practice. Don't use them in serious situation.
-
 > Some codes are directly copied from above resources.
 
 ## Examples
