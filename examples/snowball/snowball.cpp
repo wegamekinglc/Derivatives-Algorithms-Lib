@@ -38,7 +38,7 @@ int main() {
     const double coupon = 0.069;
     const Date_ maturity(2025, 3, 1);
     const Date_ start = Global::Dates_().EvaluationDate();
-    const int num_path = int(std::pow(2, 20));
+    const int num_path = 500000;
 
     timer.Reset();
     auto tenor = Date::ParseIncrement("1M");
