@@ -50,20 +50,20 @@ int main() {
     
     product.PreProcess(false, false);
 
-    Vector_<int> widths = {14, 14, 14, 14, 14, 14};
+    Vector_<int> widths = {28, 14, 14, 14, 14, 14};
     double discounts = std::exp(-rate * t);
     double fwd = std::exp((rate - div) * t) * spot;
     double vol_std = std::sqrt(t) * vol;
     const auto benchmark = discounts * Distribution::BlackOpt(fwd, vol_std, strike, OptionType_::Value_::CALL);
 
-    std::cout << std::setw(widths[0]) << std::left << "# of pathes"
-              << std::setw(widths[1]) << std::left << "spot"
-              << std::setw(widths[2]) << std::left << "price"
-              << std::setw(widths[3]) << std::left << "benchmark"
-              << std::setw(widths[4]) << std::left << "Diff (bps)"
-              << std::setw(widths[5]) << std::left << "Elapsed (ms)"
+    std::cout << std::setw(widths[0]) << std::right << "# of pathes"
+              << std::setw(widths[1]) << std::right << "spot"
+              << std::setw(widths[2]) << std::right << "price"
+              << std::setw(widths[3]) << std::right << "benchmark"
+              << std::setw(widths[4]) << std::right << "Diff (bps)"
+              << std::setw(widths[5]) << std::right << "Elapsed (ms)"
               << std::endl;
-    for (int i = 10; i <= 30; ++i) {
+    for (int i = 10; i <= 25; ++i) {
         timer.Reset();
         int num_paths = std::pow(2, i);
         SimResults_<Real_> results =
@@ -73,14 +73,14 @@ int main() {
         for (auto row = 0; row < results.Rows(); ++row)
             sum += results.aggregated_[row];
         auto calculated = sum / static_cast<double>(results.Rows());
-        std::cout << std::setw(widths[0]) << std::left << int(std::pow(2, i))
+        std::cout << std::setw(widths[0]) << std::right << int(std::pow(2, i))
                   << std::fixed
-                  << std::setw(widths[1]) << std::left << spot
+                  << std::setw(widths[1]) << std::right << spot
                   << std::setprecision(8)
-                  << std::setw(widths[2]) << std::left << calculated
-                  << std::setw(widths[3]) << std::left << benchmark
-                  << std::setw(widths[4]) << std::left << (calculated - benchmark) / benchmark * 10000
-                  << std::setw(widths[5]) << std::left << int(timer.Elapsed<milliseconds>())
+                  << std::setw(widths[2]) << std::right << calculated
+                  << std::setw(widths[3]) << std::right << benchmark
+                  << std::setw(widths[4]) << std::right << (calculated - benchmark) / benchmark * 10000
+                  << std::setw(widths[5]) << std::right << int(timer.Elapsed<milliseconds>())
                   << std::endl;
     }
     return 0;

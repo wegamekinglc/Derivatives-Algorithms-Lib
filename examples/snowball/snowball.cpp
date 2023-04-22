@@ -38,6 +38,7 @@ int main() {
     const double coupon = 0.069;
     const Date_ maturity(2025, 3, 1);
     const Date_ start = Global::Dates_().EvaluationDate();
+    const int num_path = int(std::pow(2, 20));
 
     timer.Reset();
     auto tenor = Date::ParseIncrement("1M");
@@ -62,8 +63,18 @@ int main() {
                      "if spot() > " + ToString(ko) + ":0.001 then call pays alive * " + ToString(this_coupon) + " alive = 0  endif\n"
                      "call pays alive * ki * (spot() - " + ToString(spot) + ")");
 
-    std::cout << "# of paths: " << static_cast<int>(std::pow(2, 20)) << std::endl;
-    std::cout << "# of obs. : " << events.size() << std::endl;
+    Vector_<int> widths = {14, 14, 14, 14, 14, 14, 14, 14, 14};
+
+    std::cout << std::setw(widths[0]) << std::left << "Method"
+              << std::setw(widths[1]) << std::right << "# of paths"
+              << std::setw(widths[2]) << std::right << "# of obs"
+              << std::setw(widths[3]) << std::right << "PV"
+              << std::setw(widths[4]) << std::right << "delta"
+              << std::setw(widths[5]) << std::right << "vega"
+              << std::setw(widths[6]) << std::right << "dP/dR"
+              << std::setw(widths[7]) << std::right << "dP/dDiv"
+              << std::setw(widths[8]) << std::right << "Elapsed (ms)"
+              << std::endl;
 
     {
         ScriptProduct_ product(eventDates, events);
@@ -72,14 +83,25 @@ int main() {
         timer.Reset();
         int max_nested_ifs = product.PreProcess(false, false);
         SimResults_<double> results =
-            MCSimulation(product, *model, std::pow(2, 20), String_("sobol"), false);
+            MCSimulation(product, *model, num_path, String_("sobol"), false);
 
         auto sum = 0.0;
         for (auto row = 0; row < results.Rows(); ++row)
             sum += results.aggregated_[row];
         auto calculated = sum / static_cast<double>(results.Rows());
-        std::cout << "Snowball       w. BS : price " << std::setprecision(4) << calculated
-                  << "\tElapsed: " << timer.Elapsed<milliseconds>() << " ms" << std::endl;
+
+        std::cout << std::setw(widths[0]) << std::left << "Normal"
+                  << std::setw(widths[1]) << std::right << num_path
+                  << std::setw(widths[2]) << std::right << events.size()
+                  << std::fixed
+                  << std::setprecision(6)
+                  << std::setw(widths[3]) << std::right << calculated
+                  << std::setw(widths[4]) << std::right << "#NA"
+                  << std::setw(widths[5]) << std::right << "#NA"
+                  << std::setw(widths[6]) << std::right << "#NA"
+                  << std::setw(widths[7]) << std::right << "#NA"
+                  << std::setw(widths[8]) << std::right << int(timer.Elapsed<milliseconds>())
+                  << std::endl;
     }
 
     {
@@ -89,19 +111,25 @@ int main() {
         timer.Reset();
         int max_nested_ifs = product.PreProcess(true, true);
         SimResults_<Number_> results =
-            MCSimulation(product, *model, std::pow(2, 20), String_("sobol"), false, max_nested_ifs);
+            MCSimulation(product, *model, num_path, String_("sobol"), false, max_nested_ifs);
 
         auto sum = 0.0;
         for (auto row = 0; row < results.Rows(); ++row)
             sum += results.aggregated_[row];
         auto calculated = sum / static_cast<double>(results.Rows());
-        std::cout << "Snowball (AAD) w. BS : price " << std::setprecision(4) << calculated
-                  << "\tElapsed: " << timer.Elapsed<milliseconds>() << " ms" << std::endl;
-        auto parameters = model->ParameterLabels();
-        std::cout << "                     : " << parameters[0] << " " << std::setprecision(4) << results.risks_[0] << std::endl;
-        std::cout << "                     : " << parameters[1] << " " << std::setprecision(4) << results.risks_[1] << std::endl;
-        std::cout << "                     : " << parameters[2] << " " << std::setprecision(4) << results.risks_[2] << std::endl;
-        std::cout << "                     : " << parameters[3] << " " << std::setprecision(4) << results.risks_[3] << std::endl;
+
+        std::cout << std::setw(widths[0]) << std::left << "AAD"
+                  << std::setw(widths[1]) << std::right << num_path
+                  << std::setw(widths[2]) << std::right << events.size()
+                  << std::fixed
+                  << std::setprecision(6)
+                  << std::setw(widths[3]) << std::right << calculated
+                  << std::setw(widths[4]) << std::right << results.risks_[0]
+                  << std::setw(widths[5]) << std::right << results.risks_[1]
+                  << std::setw(widths[6]) << std::right << results.risks_[2]
+                  << std::setw(widths[7]) << std::right << results.risks_[3]
+                  << std::setw(widths[8]) << std::right << int(timer.Elapsed<milliseconds>())
+                  << std::endl;
     }
 
     return 0;
