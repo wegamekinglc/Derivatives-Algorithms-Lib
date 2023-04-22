@@ -63,6 +63,12 @@ int main() {
                      "if spot() > " + ToString(ko) + ":0.001 then call pays alive * " + ToString(this_coupon) + " alive = 0  endif\n"
                      "call pays alive * ki * (spot() - " + ToString(spot) + ")");
 
+    // print the events description
+    for(auto i = 0; i < eventDates.size(); ++i) {
+        std::cout << Date::ToString(eventDates[i]) << std::endl;
+        std::cout << events[i] << "\n" << std::endl;
+    }
+
     Vector_<int> widths = {14, 14, 14, 14, 14, 14, 14, 14, 14};
 
     std::cout << std::setw(widths[0]) << std::left << "Method"
