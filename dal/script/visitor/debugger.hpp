@@ -75,6 +75,7 @@ namespace Dal::Script {
         void Visit(const NodeDiv_& node) { Debug(node, "DIV"); }
         void Visit(const NodePow_& node) { Debug(node, "POW"); }
         void Visit(const NodeLog_& node) { Debug(node, "LOG"); }
+        void Visit(const NodeExp_& node) { Debug(node, "EXP"); }
         void Visit(const NodeSqrt_& node) { Debug(node, "SQRT"); }
         void Visit(const NodeMax_& node) { Debug(node, "MAX"); }
         void Visit(const NodeMin_& node) { Debug(node, "MIN"); }

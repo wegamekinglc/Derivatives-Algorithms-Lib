@@ -73,6 +73,9 @@ namespace Dal::Script {
         } else if (*cur == "SQRT") {
             top = MakeBaseNode<NodeSqrt_>();
             minArg = maxArg = 1;
+        } else if(*cur == "EXP") {
+            top = MakeBaseNode<NodeExp_>();
+            minArg = maxArg = 1;
         } else if (*cur == "MIN") {
             top = MakeBaseNode<NodeMin_>();
             minArg = 2;

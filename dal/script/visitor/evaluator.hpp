@@ -33,18 +33,18 @@ namespace Dal::Script {
         using ConstVisitor_<EVAL_<T>>::VisitNode;
 
         // Constructor, nVar = number of variables, from Product after parsing and variable indexation
-        EvaluatorBase_(const size_t nVar) : variables_(nVar) {}
+        explicit EvaluatorBase_(const size_t nVar) : variables_(nVar) {}
 
         // Copy/Move
         EvaluatorBase_(const EvaluatorBase_& rhs) : variables_(rhs.variables_) {}
         EvaluatorBase_& operator=(const EvaluatorBase_& rhs) {
-            if (this == &rhs)
+            if (*this == rhs)
                 return *this;
             variables_ = rhs.variables_;
             return *this;
         }
 
-        EvaluatorBase_(EvaluatorBase_&& rhs) : variables_(move(rhs.variables_)) {}
+        EvaluatorBase_(EvaluatorBase_&& rhs) noexcept : variables_(move(rhs.variables_)) {}
         EvaluatorBase_& operator=(EvaluatorBase_&& rhs) {
             variables_ = move(rhs.variables_);
             return *this;
@@ -124,6 +124,7 @@ namespace Dal::Script {
         FORCE_INLINE void Visit(const NodeUplus_& node) {
             VisitUnary(node, [](T& x) {});
         }
+
         FORCE_INLINE void Visit(const NodeUminus_& node) {
             VisitUnary(node, [](T& x) { x = -x; });
         }
@@ -132,8 +133,13 @@ namespace Dal::Script {
         FORCE_INLINE void Visit(const NodeLog_& node) {
             VisitUnary(node, [](T& x) { x = log(x); });
         }
+
         FORCE_INLINE void Visit(const NodeSqrt_& node) {
             VisitUnary(node, [](T& x) { x = sqrt(x); });
+        }
+
+        FORCE_INLINE void Visit(const NodeExp_& node) {
+            VisitUnary(node, [](T& x) { x = exp(x); });
         }
 
         //  Multies

@@ -121,10 +121,11 @@ namespace Dal::Script {
         Smooth = 31,
         Sqrt = 32,
         Log = 33,
-        Not = 34,
-        Uminus = 35,
-        True = 36,
-        False = 37
+        Exp = 34,
+        Not = 35,
+        Uminus = 36,
+        True = 37,
+        False = 38
     };
 
     class Compiler_ : public ConstVisitor_<Compiler_> {
@@ -198,6 +199,7 @@ namespace Dal::Script {
         void Visit(const NodeUminus_& node) { VisitUnary<Uminus>(node); }
         void Visit(const NodeLog_& node) { VisitUnary<Log>(node); }
         void Visit(const NodeSqrt_& node) { VisitUnary<Sqrt>(node); }
+        void Visit(const NodeExp_& node) { VisitUnary<Exp>(node); }
 
         //  Multies
         void Visit(const NodeSmooth_& node) {
@@ -561,6 +563,10 @@ namespace Dal::Script {
                 break;
             case Log:
                 dStack.Top() = log(dStack.Top());
+                ++i;
+                break;
+            case Exp:
+                dStack.Top() = exp(dStack.Top());
                 ++i;
                 break;
             case Not:

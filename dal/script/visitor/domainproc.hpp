@@ -129,9 +129,18 @@ namespace Dal::Script {
             domStack_.Pop();
             domStack_.Push(std::move(res));
         }
+
         void Visit(NodeSqrt_& node) {
             VisitArguments(node);
             Domain_ res = domStack_.Top().applyFunc<double (*)(double)>(sqrt, Interval(0.0, Bound::plusInfinity_));
+            domStack_.Pop();
+            domStack_.Push(std::move(res));
+        }
+
+        void Visit(NodeExp_& node) {
+            VisitArguments(node);
+            Domain_ res = domStack_.Top().applyFunc<double (*)(double)>(
+                    exp, Interval(Bound::minusInfinity_, Bound::plusInfinity_));
             domStack_.Pop();
             domStack_.Push(std::move(res));
         }

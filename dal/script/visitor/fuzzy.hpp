@@ -118,7 +118,7 @@ namespace Dal::Script {
             return *this;
         }
 
-        FuzzyEvaluator_(FuzzyEvaluator_&& rhs)
+        FuzzyEvaluator_(FuzzyEvaluator_&& rhs) noexcept
             : Base(move(rhs)), defEps_(rhs.defEps_), varStore0_(move(rhs.varStore0_)), varStore1_(move(rhs.varStore1_)),
               nestedIfLvl_(0) {}
         FuzzyEvaluator_& operator=(FuzzyEvaluator_&& rhs) {

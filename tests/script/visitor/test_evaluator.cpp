@@ -25,3 +25,51 @@ TEST(VisitorTest, TestEvaluator) {
     assignExpr->Accept(visitor2);
     ASSERT_DOUBLE_EQ(visitor2.VarVals()[0], 50);
 }
+
+TEST(VisitorTest, TestEvaluatorWithSqrt) {
+    auto const1 = MakeBaseNode<NodeConst_>(2.0);
+    auto expExpr = MakeBaseNode<NodeSqrt_>();
+    Vector_<Expression_> args;
+    args.push_back(std::move(const1));
+    expExpr->arguments_ = std::move(args);
+    auto var = MakeBaseNode<NodeVar_>("x");
+    auto assignExpr = MakeBinary<NodeAssign_>(var, expExpr);
+
+    Evaluator_<double> visitor2(1);
+    VarIndexer_ visitor1;
+    assignExpr->Accept(visitor1);
+    assignExpr->Accept(visitor2);
+    ASSERT_DOUBLE_EQ(visitor2.VarVals()[0], 1.4142135623730951);
+}
+
+TEST(VisitorTest, TestEvaluatorWithLog) {
+    auto const1 = MakeBaseNode<NodeConst_>(2.0);
+    auto expExpr = MakeBaseNode<NodeLog_>();
+    Vector_<Expression_> args;
+    args.push_back(std::move(const1));
+    expExpr->arguments_ = std::move(args);
+    auto var = MakeBaseNode<NodeVar_>("x");
+    auto assignExpr = MakeBinary<NodeAssign_>(var, expExpr);
+
+    Evaluator_<double> visitor2(1);
+    VarIndexer_ visitor1;
+    assignExpr->Accept(visitor1);
+    assignExpr->Accept(visitor2);
+    ASSERT_DOUBLE_EQ(visitor2.VarVals()[0], 0.69314718055994529);
+}
+
+TEST(VisitorTest, TestEvaluatorWithExp) {
+    auto const1 = MakeBaseNode<NodeConst_>(2.0);
+    auto expExpr = MakeBaseNode<NodeExp_>();
+    Vector_<Expression_> args;
+    args.push_back(std::move(const1));
+    expExpr->arguments_ = std::move(args);
+    auto var = MakeBaseNode<NodeVar_>("x");
+    auto assignExpr = MakeBinary<NodeAssign_>(var, expExpr);
+
+    Evaluator_<double> visitor2(1);
+    VarIndexer_ visitor1;
+    assignExpr->Accept(visitor1);
+    assignExpr->Accept(visitor2);
+    ASSERT_DOUBLE_EQ(visitor2.VarVals()[0], 7.3890560989306504);
+}

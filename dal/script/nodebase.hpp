@@ -41,6 +41,7 @@ namespace Dal::Script {
 
     template <typename V_, typename Base_, typename Concrete_, bool CONST, typename... Vs_> struct DerImpl_;
 
+
     template <typename V_, typename Base_, typename Concrete_> struct DerImpl_<V_, Base_, Concrete_, false> : public Base_ {
         void Accept(V_& visitor) override { visitor.Visit(static_cast<Concrete_&>(*this)); }
     };
@@ -78,6 +79,6 @@ namespace Dal::Script {
     struct Node_ : public VisitableBase_<VISITORS> {
         using VisitableBase_<VISITORS>::Accept;
         Vector_<ExprTree_> arguments_;
-        virtual ~Node_() {}
+        virtual ~Node_() = default;
     };
 }

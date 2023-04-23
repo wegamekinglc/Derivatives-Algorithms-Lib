@@ -19,11 +19,10 @@ namespace Dal::Script {
         using Visitor_<VarIndexer_>::Visit;
 
         // Access vector of variable names v[index]=name after Visit to all events
-        Vector_<String_> VarNames() const {
+        [[nodiscard]] Vector_<String_> VarNames() const {
             Vector_<String_> v(varMap_.size());
-            for (auto varMapIt = varMap_.begin(); varMapIt != varMap_.end(); ++varMapIt) {
-                v[varMapIt->second] = varMapIt->first;
-            }
+            for(const auto& val: varMap_)
+                v[val.second] = val.first;
 
             // C++11: move not copy
             return v;
@@ -32,10 +31,12 @@ namespace Dal::Script {
         // Variable indexer: build map of names to indices and write indices on variable nodes
         void Visit(NodeVar_& node) {
             auto varIt = varMap_.find(node.name_);
-            if (varIt == varMap_.end())
-                node.index_ = varMap_[node.name_] = varMap_.size();
+            if (varIt == varMap_.end()) {
+                varMap_[node.name_] = varMap_.size();
+                node.index_ = static_cast<int>(varMap_[node.name_]);
+            }
             else
-                node.index_ = varIt->second;
+                node.index_ = static_cast<int>(varIt->second);
         }
     };
 } // namespace Dal::Script

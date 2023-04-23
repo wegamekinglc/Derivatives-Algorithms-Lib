@@ -40,17 +40,15 @@ namespace Dal::Script {
     struct NodeMin_ : public Visitable_<ExprNode_, NodeMin_, VISITORS> {};
 
     //  Unary expressions
-
     struct NodeUplus_ : public Visitable_<ExprNode_, NodeUplus_, VISITORS> {};
     struct NodeUminus_ : public Visitable_<ExprNode_, NodeUminus_, VISITORS> {};
 
     //	Math operators
-
     struct NodeLog_ : public Visitable_<ExprNode_, NodeLog_, VISITORS> {};
     struct NodeSqrt_ : public Visitable_<ExprNode_, NodeSqrt_, VISITORS> {};
+    struct NodeExp_ : public Visitable_<ExprNode_, NodeExp_, VISITORS> {};
 
     //  Multi expressions
-
     struct NodeSmooth_ : public Visitable_<ExprNode_, NodeSmooth_, VISITORS> {};
 
     //  Comparisons
@@ -87,7 +85,7 @@ namespace Dal::Script {
 
     //  Const
     struct NodeConst_ : public Visitable_<ExprNode_, NodeConst_, VISITORS> {
-        NodeConst_(const double val) {
+        explicit NodeConst_(double val) {
             ExprNode_::isConst_ = true;
             ExprNode_::constVal_ = val;
         }
@@ -103,7 +101,7 @@ namespace Dal::Script {
 
     //  Variable
     struct NodeVar_ : public Visitable_<ExprNode_, NodeVar_, VISITORS> {
-        NodeVar_(const String_& n) : name_(n), index_(-1) {
+        explicit NodeVar_(const String_& name) : name_(name), index_(-1) {
             ExprNode_::isConst_ = true;
             ExprNode_::constVal_ = 0.0;
         }

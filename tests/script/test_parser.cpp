@@ -20,6 +20,39 @@ TEST(ParserTest, TestParseAssign) {
     ASSERT_NEAR(toTest3->constVal_, 2.0, 1e-10);
 }
 
+TEST(ParserTest, TestParseLog) {
+    String_ event = R"(
+        y = 2.0
+        x = Log(y)
+    )";
+    auto res = Parse(event);
+    ASSERT_EQ(res.size(), 2);
+    auto toTest1 = dynamic_cast<NodeLog_*>(res[1]->arguments_[1].get());
+    ASSERT_NE(toTest1, nullptr);
+}
+
+TEST(ParserTest, TestParseExp) {
+    String_ event = R"(
+        y = 2.0
+        x = Exp(y)
+    )";
+    auto res = Parse(event);
+    ASSERT_EQ(res.size(), 2);
+    auto toTest1 = dynamic_cast<NodeExp_*>(res[1]->arguments_[1].get());
+    ASSERT_NE(toTest1, nullptr);
+}
+
+TEST(ParserTest, TestParseSqrt) {
+    String_ event = R"(
+        y = 2.0
+        x = Sqrt(y)
+    )";
+    auto res = Parse(event);
+    ASSERT_EQ(res.size(), 2);
+    auto toTest1 = dynamic_cast<NodeSqrt_*>(res[1]->arguments_[1].get());
+    ASSERT_NE(toTest1, nullptr);
+}
+
 TEST(ParserTest, TestParseIf) {
     String_ event = R"(
         IF x >= 2 THEN

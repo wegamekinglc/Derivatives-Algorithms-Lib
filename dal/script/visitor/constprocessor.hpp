@@ -25,7 +25,7 @@ namespace Dal::Script {
     protected:
         // State
 
-        // Const status of variables
+        // Const's status of variables
         Vector_<char> varConst_;
         Vector_<double> varConstVal_;
 
@@ -51,7 +51,7 @@ namespace Dal::Script {
 
         // Constructor, nVar = number of variables, from Product after parsing and variable indexation
         // All variables start as constants with value 0
-        ConstProcessor_(const size_t nVar) : varConst_(nVar, true), varConstVal_(nVar, 0.0), isInConditional_(false) {}
+        explicit ConstProcessor_(const size_t nVar) : varConst_(nVar, true), varConstVal_(nVar, 0.0), isInConditional_(false) {}
 
         // Visitors
         // Expressions
@@ -88,7 +88,7 @@ namespace Dal::Script {
             VisitBinary(node, [](double x, double y) { return min(x, y); });
         }
 
-        // Unaries
+        // Unary
         template <class OP_> void VisitUnary(ExprNode_& node, const OP_& op) {
             VisitArguments(node);
             if (ConstArgs(node)) {
@@ -109,8 +109,13 @@ namespace Dal::Script {
         void Visit(NodeLog_& node) {
             VisitUnary(node, [](double x) { return log(x); });
         }
+
         void Visit(NodeSqrt_& node) {
             VisitUnary(node, [](double x) { return sqrt(x); });
+        }
+
+        void Visit(NodeExp_& node) {
+            VisitUnary(node, [](double x) { return exp(x); });
         }
 
         // Multi

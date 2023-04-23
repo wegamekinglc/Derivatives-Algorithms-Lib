@@ -28,8 +28,8 @@ namespace Dal::Script {
 
         IFProcessor_() : nestedIfLvl_(0), maxNestedIfs_(0) {}
 
-        // Access to the max nested ifs after the prcessor is run
-        const size_t MaxNestedIFs() const { return maxNestedIfs_; }
+        // Access to the max nested ifs after the processor is run
+        [[nodiscard]] const size_t MaxNestedIFs() const { return maxNestedIfs_; }
 
         // Visitors
         void Visit(NodeIf_& node) {
@@ -55,8 +55,8 @@ namespace Dal::Script {
             //	Decrease nested if level
             --nestedIfLvl_;
 
-            //	If not outmost if, copy changed vars into the immediately outer if
-            //	Variables changed in a nested if are also changed in the englobing if
+            //	If not out-most if, copy changed vars into the immediately outer if
+            //	Variables changed in a nested if are also changed in the in-globing if
             if (nestedIfLvl_)
                 copy(node.affectedVars_.begin(), node.affectedVars_.end(),
                      inserter(varStack_.Top(), varStack_.Top().end()));

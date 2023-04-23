@@ -52,7 +52,6 @@ namespace Dal::Script {
             // Always true ==> replace the tree by a True node
             if (node.alwaysTrue_)
                 current_->reset(new NodeTrue_);
-
             // Always false ==> replace the tree by a False node
             else if (node.alwaysFalse_)
                 current_->reset(new NodeFalse_);
@@ -80,9 +79,8 @@ namespace Dal::Script {
                 Vector_<ExprTree_> args = std::move(node.arguments_);
                 current_->reset(new NodeCollect_);
 
-                for (size_t i = 1; i <= lastTrueStat; ++i) {
+                for (size_t i = 1; i <= lastTrueStat; ++i)
                     (*current_)->arguments_.push_back(std::move(args[i]));
-                }
                 VisitArgsSetCurrent(**current_);
             }
 
@@ -94,11 +92,9 @@ namespace Dal::Script {
                 Vector_<ExprTree_> args = std::move(node.arguments_);
                 current_->reset(new NodeCollect_);
 
-                if (firstElseStatement != -1) {
-                    for (size_t i = firstElseStatement; i < args.size(); ++i) {
+                if (firstElseStatement != -1)
+                    for (size_t i = firstElseStatement; i < args.size(); ++i)
                         (*current_)->arguments_.push_back(std::move(args[i]));
-                    }
-                }
                 VisitArgsSetCurrent(**current_);
             }
             // Nothing to do here ==> Visit the arguments_
