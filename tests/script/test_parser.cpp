@@ -53,6 +53,13 @@ TEST(ParserTest, TestParseSqrt) {
     ASSERT_NE(toTest1, nullptr);
 }
 
+TEST(ParserTest, TestParserDCF) {
+    String_ event = "x = DCF(ACT365F, 2023-04-23, 2024-04-23)";
+    auto res = Parse(event);
+    const auto val = dynamic_cast<NodeConst_*>(res[0]->arguments_[1].get())->constVal_;
+    ASSERT_NEAR(val, 1.00274, 1e-5);
+}
+
 TEST(ParserTest, TestParseIf) {
     String_ event = R"(
         IF x >= 2 THEN

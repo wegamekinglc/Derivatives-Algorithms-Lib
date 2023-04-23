@@ -69,7 +69,7 @@ namespace Dal {
         case Value_::ACT_ACT:
             return ActActISDA(from, to);
         case Value_::ACT_365L:
-            REQUIRE(info, "ACT/365L daycount requires nominal end date");
+            REQUIRE(info, "ACT/365L day-count requires nominal end date");
             return Act365L(from, to, info->couponMonths_ == 12, info->nominalEnd_);
         case Value_::BOND:
             return Bond(from, to);

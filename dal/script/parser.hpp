@@ -90,6 +90,7 @@ namespace Dal::Script {
         static Expression_ ParseCondL2(TokIt_& cur, const TokIt_& end);
         static Expression_ ParseCondElem(TokIt_& cur, const TokIt_& end);
         static Vector_<Expression_> ParseFuncArg(TokIt_& cur, const TokIt_& end);
+        static double ParseDCF(TokIt_& cur, const TokIt_& end);
 
         static Statement_ ParseIf(TokIt_& cur, const TokIt_& end);
 

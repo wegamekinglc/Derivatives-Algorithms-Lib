@@ -5,6 +5,8 @@
 #include <dal/script/node.hpp>
 #include <dal/script/parser.hpp>
 #include <dal/script/visitor/all.hpp>
+#include <dal/time/daybasis.hpp>
+#include <dal/time/dateutils.hpp>
 
 
 namespace Dal::Script {
@@ -88,17 +90,25 @@ namespace Dal::Script {
             top = MakeBaseNode<NodeSmooth_>();
             minArg = 4;
             maxArg = 4;
+        } else if(*cur == "DCF") {
+            top = MakeBaseNode<NodeConst_>(0.0);
+            minArg = 3;
+            maxArg = 3;
         }
 
         if (top) {
             String_ func = *cur;
             ++cur;
 
-            //	Matched a function, parse its arguments_ and check
-            top->arguments_ = ParseFuncArg(cur, end);
-            if( top->arguments_.size() < minArg || top->arguments_.size() > maxArg)
-                THROW2(String_( "Function ") + func + String_(": wrong number of arguments_"), ScriptError_);
-
+            if (func == "DCF") {
+                dynamic_cast<NodeConst_*>(top.get())->constVal_ = ParseDCF(cur, end);
+            }
+            else {
+                //	Matched a function, parse its arguments_ and check
+                top->arguments_ = ParseFuncArg(cur, end);
+                if (top->arguments_.size() < minArg || top->arguments_.size() > maxArg)
+                    THROW2(String_("Function ") + func + String_(": wrong number of arguments_"), ScriptError_);
+            }
             //	Return
             return top;
         }
@@ -229,6 +239,43 @@ namespace Dal::Script {
             eps = String::ToDouble(*cur);
             ++cur;
         }
+    }
+
+    double Parser_::ParseDCF(TokIt_& cur, const TokIt_& end) {
+        REQUIRE2((*cur)[0] == '(', "No opening ( following `DCF`", ScriptError_);
+        TokIt_ closeIt = FindMatch<'(', ')'>(cur, end);
+        ++cur;
+
+        // Parse basis and dates between parentheses
+        REQUIRE2(cur != closeIt, "doesn't find `basis` for `DCF", ScriptError_);
+        String_ day_basis = "";
+        while (cur != closeIt && (*cur)[0] != ',') {
+            day_basis += *cur;
+            ++cur;
+        }
+        ++cur;
+        while (cur != closeIt && (*cur)[0] == ',')
+            ++cur;
+        REQUIRE2(cur != closeIt, "doesn't find `start` for `DCF", ScriptError_);
+
+        String_ start_date = "";
+        while (cur != closeIt && (*cur)[0] != ',') {
+            start_date += *cur;
+            ++cur;
+        }
+        ++cur;
+        while (cur != closeIt && (*cur)[0] == ',')
+            ++cur;
+        REQUIRE2(cur != closeIt, "doesn't find `end` for `DCF", ScriptError_);
+
+        String_ end_date = "";
+        while (cur != closeIt && (*cur)[0] != ',') {
+            end_date += *cur;
+            ++cur;
+        }
+
+        cur = ++closeIt;
+        return DayBasis_(day_basis)(Date::FromString(start_date), Date::FromString(end_date), nullptr);
     }
 
     Vector_<Expression_> Parser_::ParseFuncArg(TokIt_& cur, const TokIt_& end) {
