@@ -34,10 +34,17 @@ for d in event_dates[1:]:
         events.append("alive = 1")   # initial and 3m lock
     elif d < event_dates[-1]:
         events.append(
-            f"""if spot() < {ki:.6f}:0.001 then ki = 1 endif\nif spot() > {ko:.6f}:0.001 then call pays alive * {coupon * (d - event_dates[0]) / 365.0:.6f} alive = 0 endif"""
+    f"""
+    if spot() < {ki:.6f}:0.001 then ki = 1 endif
+    if spot() > {ko:.6f}:0.001 then call pays alive * {coupon:.6f} * DCF(ACT365F, {event_dates[0]}, {d}) alive = 0 endif
+    """
         )
 events.append(
-    f"""if spot() < {ki:.6f}:0.001 then ki = 1 endif\nif spot() > {ko:.6f}:0.001 then call pays alive * {coupon * (d - event_dates[0]) / 365.0:.6f} alive = 0 endif\ncall pays alive * ki * (spot() - {spot:.6f})"""
+    f"""
+    if spot() < {ki:.6f}:0.001 then ki = 1 endif
+    if spot() > {ko:.6f}:0.001 then call pays alive * {coupon:.6f} * DCF(ACT365F, {event_dates[0]}, {d}) alive = 0 endif
+    call pays alive * ki * (spot() - {spot:.6f})
+    """
 )
 
 for d, e in zip(event_dates, events):

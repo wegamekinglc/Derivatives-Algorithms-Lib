@@ -49,18 +49,19 @@ int main() {
     eventDates.push_back(schedule[0]);
     events.push_back("alive = 1 ki = 0");
     for (int i = 1; i < schedule.size() - 1; ++i) {
-        const double this_coupon = coupon * (schedule[i] - schedule[0]) / 365.0;
-        eventDates.push_back(schedule[i]);
-        if (i < 4)
-            events.push_back("alive = 1");
-        else
+        const auto this_coupon = ToString(coupon) + " * DCF(ACT365F, " + Date::ToString(schedule[0]) + ", " + Date::ToString(schedule[i]) + ")";
+
+        if ( i >= 4) {
+            eventDates.push_back(schedule[i]);
             events.push_back("if spot() < " + ToString(ki) + ":0.001 then ki = 1 endif\n"
-                             "if spot() > " + ToString(ko) + ":0.001 then call pays alive * " + ToString(this_coupon) + " alive = 0  endif");
+                                                             "if spot() > " + ToString(ko) +
+                             ":0.001 then call pays alive * " + this_coupon + " alive = 0  endif");
+        }
     }
-    const double this_coupon = coupon * (schedule[schedule.size() - 1] - schedule[0]) / 365.0;
+    const auto this_coupon = ToString(coupon) + " * DCF(ACT365F, " + Date::ToString(schedule[0]) + ", " + Date::ToString(schedule[schedule.size() - 1]) + ")";
     eventDates.push_back(schedule[schedule.size() - 1]);
     events.push_back("if spot() < " + ToString(ki) + ":0.001 then ki = 1 endif\n"
-                     "if spot() > " + ToString(ko) + ":0.001 then call pays alive * " + ToString(this_coupon) + " alive = 0  endif\n"
+                     "if spot() > " + ToString(ko) + ":0.001 then call pays alive * " + this_coupon + " alive = 0  endif\n"
                      "call pays alive * ki * (spot() - " + ToString(spot) + ")");
 
     // print the events description
