@@ -182,7 +182,7 @@ classifiers = [
 ]
 
 setup(name="dal-python",
-      version="0.1.3",
+      version="0.1.6",
       description="Python bindings for the DAL library",
       author="cheng li",
       author_email="wegamekinglc@hotmail.copm",
@@ -190,6 +190,7 @@ setup(name="dal-python",
       classifiers=classifiers,
       include_package_data=True,
       packages=find_packages(),
+      package_data={'dal': ['*.so*']},
       py_modules=['dal.__init__', 'dal.dal'],
       ext_modules=[Extension("dal._dal",
                              ["dal/dal_wrap.cpp"])

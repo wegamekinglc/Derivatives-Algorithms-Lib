@@ -5,7 +5,7 @@
 #pragma once
 
 #ifndef USE_AADET
- #define USE_AADET
+//  #define USE_AADET
 #endif
 
 #ifndef USE_ADEPT
@@ -13,7 +13,7 @@
 #endif
 
 #ifndef USE_ADEPT
-// #define USE_CODI
+#define USE_CODI
 #endif
 
 #ifndef DAL_USE_REQUIRE
