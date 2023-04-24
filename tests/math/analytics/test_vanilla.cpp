@@ -55,9 +55,9 @@ TEST(AnalyticsTest, TestBachelier) {
 }
 
 TEST(AnalyticsTest, TestBachelierAAD) {
-    Number_ vol = 22.0;
-    Number_ T = 2.0;
-    Number_ forward = 110.0;
+    Number_ vol(22.0);
+    Number_ T(2.0);
+    Number_ forward(110.0);
     Number_ strike(120.0);
 
     auto& tape = Number_::getTape();

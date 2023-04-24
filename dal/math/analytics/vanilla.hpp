@@ -12,7 +12,7 @@ namespace Dal::AAD {
 
     template <class T_>
     T_ BlackScholes(const T_& spot, const T_& strike, const T_& vol, const T_& mat) {
-        T_ std = vol * sqrt(mat);
+        T_ std = vol * Dal::sqrt(mat);
         return Distribution::BlackOpt(spot, std, strike, OptionType_("CALL"));
     }
 
@@ -50,7 +50,7 @@ namespace Dal::AAD {
 
     template <class T_>
     T_ Bachelier(const T_& spot, const T_& strike, const T_& vol, const T_& mat) {
-        T_ std = vol * sqrt(mat);
+        T_ std = vol * Dal::sqrt(mat);
         return Distribution::BachelierOpt(spot, std, strike, OptionType_("CALL"));
     }
 
