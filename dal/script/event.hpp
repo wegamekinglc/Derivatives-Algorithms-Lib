@@ -42,7 +42,7 @@ namespace Dal::Script {
         Vector_<Vector_<const void*>> dataStreams_;
 
     public:
-        ScriptProduct_(const std::map<Cell_, String_>& events) { ParseEvents(events.begin(), events.end()); }
+        explicit ScriptProduct_(const std::map<Cell_, String_>& events) { ParseEvents(events.begin(), events.end()); }
         ScriptProduct_(const Vector_<Cell_>& dates, const Vector_<String_>& events) {
             REQUIRE(dates.size() == events.size(), "dates size is not equal to events size");
             auto date_events = Dal::Zip(dates, events);
@@ -75,9 +75,9 @@ namespace Dal::Script {
                     REQUIRE(macros.find(macro_name) == macros.end(), "macro name has already registered");
                     REQUIRE(processed_events.empty(), "macros should always at the front");
                     macros[Cell::ToString(cell)] = evtIt->second;
-                }else if(Cell::IsDate(cell) && Cell::ToDate(cell) >= evaluationDate) {
+                } else if(Cell::IsDate(cell) && Cell::ToDate(cell) >= evaluationDate) {
                     /*
-                     * we only keep the events after evalution date
+                     * we only keep the events after evaluation date
                      * TODO: need to keep the historical events and visits them with dedicated a past evaluator
                      * */
                     String_ replaced = evtIt->second;
