@@ -22,7 +22,7 @@ namespace Dal::Script {
     std::unique_ptr<Random_> CreateRNG(const String_& method, size_t n_dim, bool use_bb) {
         std::unique_ptr<Random_> rsg;
         if (method == "sobol")
-            rsg = std::unique_ptr<Random_>(NewSobol(n_dim, 2048));
+            rsg = std::unique_ptr<Random_>(NewSobol(static_cast<int>(n_dim), 2048));
         else if (method == "mrg32")
             rsg = std::unique_ptr<Random_>(New(RNGType_("MRG32"), 1024, n_dim));
         else if (method == "irn")
@@ -66,7 +66,8 @@ namespace Dal::Script {
         }
 
         Vector_<Evaluator_<double>> eval_s(nThread + 1, product.BuildEvaluator<double>());
-        Vector_<EvalState_<double>> eval_state_s(nThread + 1, EvalState_<double>(product.VarNames().size()));
+        Vector_<EvalState_<double>> eval_state_s(nThread + 1,
+                                                 EvalState_<double>(static_cast<int>(product.VarNames().size())));
 
         SimResults_<double> results(n_paths);
 

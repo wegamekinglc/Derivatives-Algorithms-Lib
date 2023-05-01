@@ -30,7 +30,7 @@ namespace Dal {
         if (!active_) {
             threads_.reserve(nThread);
             for (size_t i = 0; i < nThread; ++i)
-                threads_.emplace_back(std::thread(&ThreadPool_::ThreadFunc, this, i + 1));
+                threads_.emplace_back(&ThreadPool_::ThreadFunc, this, i + 1);
             active_ = true;
         }
     }
@@ -56,8 +56,7 @@ namespace Dal {
             if (queue_.TryPop(t)) {
                 t();
                 b = true;
-            } else
-                f.wait();
+            }
             f.wait();
         }
         return b;
