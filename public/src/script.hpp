@@ -11,7 +11,7 @@ namespace Dal {
     using Dal::Script::ScriptProductData_;
 
     FORCE_INLINE Handle_<ScriptProductData_> NewScriptProduct(const String_& name,
-                                                          const Vector_<Date_>& dates,
+                                                          const Matrix_<Cell_>& dates,
                                                           const Vector_<String_>& events) {
         return Handle_<ScriptProductData_>(new ScriptProductData_(name, dates, events));
     }

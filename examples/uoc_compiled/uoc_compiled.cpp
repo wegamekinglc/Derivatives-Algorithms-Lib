@@ -39,15 +39,15 @@ int main() {
     auto tenor = Date::ParseIncrement("1W");
     const auto schedule = DateGenerate(start, maturity, tenor);
 
-    Vector_<Date_> eventDates;
+    Vector_<Cell_> eventDates;
     Vector_<String_> events;
-    eventDates.push_back(schedule[0]);
+    eventDates.push_back(Cell_(schedule[0]));
     events.push_back("alive = 1");
     for (int i = 1; i < schedule.size(); ++i) {
-        eventDates.push_back(schedule[i]);
+        eventDates.push_back(Cell_(schedule[i]));
         events.push_back("if spot() >= 150:0.5 then alive = 0 endif");
     }
-    eventDates.push_back(schedule[schedule.size() - 1]);
+    eventDates.push_back(Cell_(schedule[schedule.size() - 1]));
     events.push_back(String_("K = " + ToString(strike) + "\n call pays alive * MAX(spot() - K, 0.0)"));
 
     ScriptProduct_ product(eventDates, events);

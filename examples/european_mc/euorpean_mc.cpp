@@ -38,9 +38,9 @@ int main() {
 
     timer.Reset();
 
-    Vector_<Date_> eventDates;
+    Vector_<Cell_> eventDates;
     Vector_<String_> events;
-    eventDates.push_back(maturity);
+    eventDates.push_back(Cell_(maturity));
     events.push_back("call pays MAX(spot() - " + ToString(strike) + ", 0.0)");
 
     ScriptProduct_ product(eventDates, events);

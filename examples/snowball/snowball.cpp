@@ -44,29 +44,29 @@ int main() {
     auto tenor = Date::ParseIncrement("1M");
     const auto schedule = DateGenerate(start, maturity, tenor);
 
-    Vector_<Date_> eventDates;
+    Vector_<Cell_> eventDates;
     Vector_<String_> events;
-    eventDates.push_back(schedule[0]);
+    eventDates.push_back(Cell_(schedule[0]));
     events.push_back("alive = 1 ki = 0");
     for (int i = 1; i < schedule.size() - 1; ++i) {
         const auto this_coupon = ToString(coupon) + " * DCF(ACT365F, " + Date::ToString(schedule[0]) + ", " + Date::ToString(schedule[i]) + ")";
 
         if ( i >= 4) {
-            eventDates.push_back(schedule[i]);
+            eventDates.push_back(Cell_(schedule[i]));
             events.push_back("if spot() < " + ToString(ki) + ":0.001 then ki = 1 endif\n"
                                                              "if spot() > " + ToString(ko) +
                              ":0.001 then call pays alive * " + this_coupon + " alive = 0  endif");
         }
     }
     const auto this_coupon = ToString(coupon) + " * DCF(ACT365F, " + Date::ToString(schedule[0]) + ", " + Date::ToString(schedule[schedule.size() - 1]) + ")";
-    eventDates.push_back(schedule[schedule.size() - 1]);
+    eventDates.push_back(Cell_(schedule[schedule.size() - 1]));
     events.push_back("if spot() < " + ToString(ki) + ":0.001 then ki = 1 endif\n"
                      "if spot() > " + ToString(ko) + ":0.001 then call pays alive * " + this_coupon + " alive = 0  endif\n"
                      "call pays alive * ki * (spot() - " + ToString(spot) + ")");
 
     // print the events description
     for(auto i = 0; i < eventDates.size(); ++i) {
-        std::cout << Date::ToString(eventDates[i]) << std::endl;
+        std::cout << Date::ToString(Cell::ToDate(eventDates[i])) << std::endl;
         std::cout << events[i] << "\n" << std::endl;
     }
 

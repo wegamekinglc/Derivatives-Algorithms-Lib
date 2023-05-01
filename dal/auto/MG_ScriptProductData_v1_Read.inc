@@ -2,14 +2,14 @@
 namespace ScriptProductData_v1 {
     struct Reader_ : Archive::Reader_ {
         String_ name_;
-        Vector_<Date_> dates_;
+        Matrix_<Cell_> dates_;
         Vector_<String_> events_;
         Reader_(const Archive::View_& src, Archive::Built_& share) {
             using namespace Archive::Utils;
             NOTE("Reading ScriptProductData_v1 from store");
             assert(src.Type() == "ScriptProductData_v1");
             GetOptional(src, "name", &name_, std::mem_fn(&Archive::View_::AsString));
-            Get(src, "dates", &dates_, std::mem_fn(&Archive::View_::AsDateVector));
+            Get(src, "dates", &dates_, std::mem_fn(&Archive::View_::AsCellMatrix));
             Get(src, "events", &events_, std::mem_fn(&Archive::View_::AsStringVector));
         }
         ScriptProductData_* Build() const

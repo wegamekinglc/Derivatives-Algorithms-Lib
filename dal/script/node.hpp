@@ -101,7 +101,7 @@ namespace Dal::Script {
 
     //  Variable
     struct NodeVar_ : public Visitable_<ExprNode_, NodeVar_, VISITORS> {
-        explicit NodeVar_(const String_& name) : name_(name), index_(-1) {
+        explicit NodeVar_(String_ name) : name_(std::move(name)), index_(-1) {
             ExprNode_::isConst_ = true;
             ExprNode_::constVal_ = 0.0;
         }

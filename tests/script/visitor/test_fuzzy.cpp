@@ -19,7 +19,7 @@ TEST(VisitorTest, TestFuzzyContinuous) {
             x = 0
         ENDIF
     )"};
-    Vector_<Date_> eventDates(1, Date_(2023, 4, 1));
+    Vector_<Cell_> eventDates(1, Cell_(Date_(2023, 4, 1)));
 
     ScriptProduct_ product(eventDates, events);
     int maxNestedIfs = product.PreProcess(false, false);

@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <regex>
 #include <dal/math/aad/sample.hpp>
 #include <dal/math/vectors.hpp>
 #include <dal/script/node.hpp>
@@ -20,7 +21,7 @@ storable ScriptProductData
 version 1
 &members
 name is ?string
-dates is date[]
+dates is cell[][]
 events is string[]
 -IF-------------------------------------------------------------------------*/
 
@@ -41,8 +42,8 @@ namespace Dal::Script {
         Vector_<Vector_<const void*>> dataStreams_;
 
     public:
-        ScriptProduct_(const std::map<Date_, String_>& events) { ParseEvents(events.begin(), events.end()); }
-        ScriptProduct_(const Vector_<Date_>& dates, const Vector_<String_>& events) {
+        ScriptProduct_(const std::map<Cell_, String_>& events) { ParseEvents(events.begin(), events.end()); }
+        ScriptProduct_(const Vector_<Cell_>& dates, const Vector_<String_>& events) {
             REQUIRE(dates.size() == events.size(), "dates size is not equal to events size");
             auto date_events = Dal::Zip(dates, events);
             ParseEvents(date_events.begin(), date_events.end());
@@ -64,14 +65,30 @@ namespace Dal::Script {
         }
 
         template <class EvtIt_> void ParseEvents(EvtIt_ begin, EvtIt_ end) {
-            for (EvtIt_ evtIt = begin; evtIt != end; ++evtIt) {
-                Date_ evaluationDate = Global::Dates_().EvaluationDate();
-                if (evtIt->first >= evaluationDate)
+            Date_ evaluationDate = Global::Dates_().EvaluationDate();
+            std::map<String_, String_> macros;
+            std::map<Date_, String_> processed_events;
+            for (auto evtIt = begin; evtIt != end; ++evtIt) {
+                Cell_ cell = evtIt->first;
+                if (!Cell::IsDate(cell)) {
+                    auto macro_name = Cell::ToString(cell);
+                    REQUIRE(macros.find(macro_name) == macros.end(), "macro name has already registered");
+                    REQUIRE(processed_events.empty(), "macros should always at the front");
+                    macros[Cell::ToString(cell)] = evtIt->second;
+                }else if(Cell::IsDate(cell) && Cell::ToDate(cell) >= evaluationDate) {
                     /*
                      * we only keep the events after evalution date
                      * TODO: need to keep the historical events and visits them with dedicated a past evaluator
                      * */
-                    eventDates_.push_back(evtIt->first);
+                    String_ replaced = evtIt->second;
+                    for (auto mIt = macros.begin(); mIt != macros.end(); ++mIt)
+                        replaced = std::regex_replace(replaced, std::regex(mIt->first), mIt->second);
+                    processed_events[Cell::ToDate(cell)] = replaced;
+                }
+            }
+
+            for (auto evtIt = processed_events.begin(); evtIt != processed_events.end(); ++evtIt) {
+                eventDates_.push_back(evtIt->first);
                 events_.push_back(Parse(evtIt->second));
             }
         }
@@ -122,13 +139,13 @@ namespace Dal::Script {
     };
 
     class ScriptProductData_ : public Storable_ {
-        Vector_<Date_> eventDates_;
+        Vector_<Cell_> eventDates_;
         Vector_<String_> eventDesc_;
         mutable ScriptProduct_ product_;
 
     public:
-        ScriptProductData_(const String_& name, const Vector_<Date_>& dates, const Vector_<String_>& events)
-            : Storable_("ScriptProduct", name), eventDates_(dates), eventDesc_(events),
+        ScriptProductData_(const String_& name, const Matrix_<Cell_>& dates, const Vector_<String_>& events)
+            : Storable_("ScriptProduct", name), eventDates_(dates.Col(0)), eventDesc_(events),
               product_(eventDates_, eventDesc_) {}
         void Write(Archive::Store_& dst) const override;
 

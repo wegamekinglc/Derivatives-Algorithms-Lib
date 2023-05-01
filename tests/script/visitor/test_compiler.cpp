@@ -11,6 +11,7 @@ using namespace Dal;
 using namespace Dal::Script;
 
 TEST(VisitorTest, TestCompile) {
+    Global::Dates_().SetEvaluationDate(Date_(2023, 1, 1));
     Vector_<String_> events = {R"(
         x = 4
         y = 1
@@ -18,7 +19,7 @@ TEST(VisitorTest, TestCompile) {
             y = 3 + x
         ENDIF
     )"};
-    Vector_<Date_> eventDates(1, Date_(2023, 1, 28));
+    Vector_<Cell_> eventDates(1, Cell_(Date_(2023, 1, 28)));
 
     ScriptProduct_ product(eventDates, events);
     product.PreProcess(false, true);
@@ -33,12 +34,13 @@ TEST(VisitorTest, TestCompile) {
 }
 
 TEST(VisitorTest, TestCompileWithVariable) {
+    Global::Dates_().SetEvaluationDate(Date_(2023, 1, 1));
     Vector_<String_> events = {R"(
         IF spot() >= 2:0.1 THEN
             y = 3 + spot()
         ENDIF
     )"};
-    Vector_<Date_> eventDates(1, Date_(2023, 1, 28));
+    Vector_<Cell_> eventDates(1, Cell_(Date_(2023, 1, 28)));
 
     ScriptProduct_ product(eventDates, events);
     product.PreProcess(false, true);
@@ -53,6 +55,7 @@ TEST(VisitorTest, TestCompileWithVariable) {
 }
 
 TEST(VisitorTest, TestCompileWithSeveralEvents) {
+    Global::Dates_().SetEvaluationDate(Date_(2023, 1, 1));
     Vector_<String_> events = {R"(
         x = 4
         y = 1
@@ -62,7 +65,7 @@ TEST(VisitorTest, TestCompileWithSeveralEvents) {
         y = 3 + x
     ENDIF
     )"};
-    Vector_<Date_> eventDates{Date_(2023, 1, 28), Date_(2023, 1, 30)};
+    Vector_<Cell_> eventDates{Cell_(Date_(2023, 1, 28)), Cell_(Date_(2023, 1, 30))};
 
     ScriptProduct_ product(eventDates, events);
     product.PreProcess(false, true);

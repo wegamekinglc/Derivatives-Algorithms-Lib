@@ -3,6 +3,7 @@
 //
 
 #include <dal/platform/strict.hpp>
+#include <dal/math/matrix/matrixutils.hpp>
 #include <dal/script/event.hpp>
 #include <dal/script/visitor/debugger.hpp>
 #include <dal/storage/globals.hpp>
@@ -118,6 +119,7 @@ namespace Dal::Script {
     }
 
     void ScriptProductData_::Write(Archive::Store_& dst) const {
-        ScriptProductData_v1::XWrite(dst, name_, eventDates_, eventDesc_);
+        Matrix_<Cell_> eventDates = Matrix::FromVectors(Vector_<Vector_<Cell_>>(1, eventDates_), true);
+        ScriptProductData_v1::XWrite(dst, name_, eventDates, eventDesc_);
     }
 } // namespace Dal::Script

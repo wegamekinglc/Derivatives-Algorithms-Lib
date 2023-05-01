@@ -12,7 +12,7 @@ ENV_SEED_TYPE(ObjectAccess_);
         argName = "name (input #1)";
         const String_ name = Excel::ToString(xl_name);
         argName = "dates (input #2)";
-        const Vector_<Date_> dates = Excel::ToDateVector(xl_dates);
+        const Matrix_<Cell_> dates = Excel::ToCellMatrix(xl_dates);
         argName = "events (input #3)";
         const Vector_<String_> events = Excel::ToStringVector(xl_events);
         argName = 0;
