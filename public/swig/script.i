@@ -12,20 +12,18 @@
 
 %inline %{
     Handle_<ScriptProductData_> Product_New(const std::vector<Date_>& dates, const std::vector<std::string>& events) {
-        Vector_<Date_> new_dates;
-        for(auto& d : dates)
-            new_dates.push_back(d);
+        Matrix_<Cell_> new_dates(dates.size(), 1);
+        for(auto i = 0; i < dates.size(); ++i)
+            new_dates(i, 0) = Cell_(dates[i]);
         Vector_<String_> new_events;
         for(auto& e : events)
             new_events.push_back(String_(e));
-
-        return Handle_<ScriptProductData_>(new ScriptProductData_("ScriptProductData_", new_dates, new_events));
+        return NewScriptProduct("ScriptProductData_", new_dates, new_events);
     }
 
     std::string Product_Debug(const Handle_<ScriptProductData_>& product) {
         return DebugScriptProduct(product).c_str();
     }
 %}
-
 
 #endif
