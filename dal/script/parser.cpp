@@ -242,8 +242,9 @@ namespace Dal::Script {
     }
 
     double Parser_::ParseDCF(TokIt_& cur, const TokIt_& end) {
+        // TODO: we assume `DCF` function won't contain another nested function
         REQUIRE2((*cur)[0] == '(', "No opening ( following `DCF`", ScriptError_);
-        TokIt_ closeIt = FindMatch<'(', ')'>(cur, end);
+        auto closeIt = FindMatch<'(', ')'>(cur, end);
         ++cur;
 
         // Parse basis and dates between parentheses
@@ -275,12 +276,13 @@ namespace Dal::Script {
         }
 
         cur = ++closeIt;
+        // TODO: we only implement normal day count fraction convention and leave `context` as empty
         return DayBasis_(day_basis)(Date::FromString(start_date), Date::FromString(end_date), nullptr);
     }
 
     Vector_<Expression_> Parser_::ParseFuncArg(TokIt_& cur, const TokIt_& end) {
         REQUIRE2((*cur)[0] == '(', "No opening ( following function name", ScriptError_);
-        TokIt_ closeIt = FindMatch<'(', ')'>(cur, end);
+        auto closeIt = FindMatch<'(', ')'>(cur, end);
 
         //	Parse expressions between parentheses
         Vector_<Expression_> args;
