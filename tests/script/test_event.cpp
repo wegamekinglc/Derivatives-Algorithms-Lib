@@ -20,5 +20,4 @@ TEST(EventTest, TestEventWithMacro) {
     Script::ScriptProduct_ product(dates, events);
 
     ASSERT_EQ(product.EventDates().size(), 1);
-    product.E
 }
