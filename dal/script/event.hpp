@@ -134,7 +134,7 @@ namespace Dal::Script {
         void ConstCondProcess();
 
         size_t PreProcess(bool fuzzy, bool skip_domain);
-        void Debug(std::ostream& ost) const;
+        void Debug(std::ostream& ost = std::cout) const;
         void Compile();
     };
 

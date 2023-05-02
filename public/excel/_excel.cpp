@@ -1297,7 +1297,7 @@ namespace Dal {
             nRows = max(nRows, values_[m].Rows());
             nCols += values_[m].Cols();
         }
-        lpx->val.array.rows = nRows;
+        lpx->val.array.rows = std::max(nRows, 1);
         lpx->val.array.columns = nCols;
         lpx->val.array.lparray = (OPER_*)GetMemoryForExcel(nRows * nCols * sizeof(OPER_));
         // initialize to NULL

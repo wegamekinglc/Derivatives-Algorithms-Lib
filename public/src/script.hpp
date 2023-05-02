@@ -19,7 +19,9 @@ namespace Dal {
     FORCE_INLINE String_ DebugScriptProduct(const Handle_<ScriptProductData_>& product) {
         std::ostringstream out;
         product->Product().Debug(out);
-        return String_(out.str());
+        String_ rtn(out.str());
+        REQUIRE2(rtn.size() != 0, "emtpy script product description", ScriptError_);
+        return rtn;
     }
 }
 
