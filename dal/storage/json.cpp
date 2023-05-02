@@ -141,6 +141,7 @@ namespace Dal {
             XDocStore_& operator=(const Vector_<String_>& val) override { SetArray(val); return *this; }
             XDocStore_& operator=(const Vector_<Date_>& val) override { SetArray(val); return *this; }
             XDocStore_& operator=(const Vector_<DateTime_>& val) override { SetArray(val); return *this; }
+            XDocStore_& operator=(const Vector_<Cell_>& val) override { SetArray(val); return *this; }
 
             template <class E_> void SetMatrix(const Matrix_<E_>& val) {
                 dst_ << "{ \"rows\": " << val.Rows() << ",\n\"cols\": " << val.Cols() << ",\n\"vals\": [";
@@ -274,6 +275,7 @@ namespace Dal {
             Vector_<String_> AsStringVector() const override { return AsVector(doc_, EString); }
             Vector_<Date_> AsDateVector() const override { return AsVector(doc_, EDate); }
             Vector_<DateTime_> AsDateTimeVector() const override { return AsVector(doc_, EDateTime); }
+            Vector_<Cell_> AsCellVector() const override { return AsVector(doc_, ECell); }
 
             // matrix storage is:
             //		the matrix has a child "cols" that gives the number of columns

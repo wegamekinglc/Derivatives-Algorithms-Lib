@@ -121,6 +121,7 @@ namespace Dal {
             XSplat_& operator=(const Vector_<String_>& v) override { SetVector(v); return *this; }
             XSplat_& operator=(const Vector_<Date_>& v) override { SetVector(v); return *this; }
             XSplat_& operator=(const Vector_<DateTime_>& v) override { SetVector(v); return *this; }
+            XSplat_& operator=(const Vector_<Cell_>& v) override { SetVector(v); return *this; }
             XSplat_& operator=(const Matrix_<>& m) override { SetMatrix(m); return *this; }
             XSplat_& operator=(const Matrix_<String_>& m) override { SetMatrix(m); return *this; }
             XSplat_& operator=(const Matrix_<Cell_>& m) override { SetMatrix(m); return *this; }
@@ -306,6 +307,7 @@ namespace Dal {
             Vector_<DateTime_> AsDateTimeVector() const override {
                 return TranslateRange(VectorRange(), ExtractDateTime);
             }
+            Vector_<Cell_> AsCellVector() const override { return TranslateRange(VectorRange(), Identity_<Cell_>()); }
 
             int MatrixStop() const {
                 for (int ret_val = colStart_ + 1;;) {

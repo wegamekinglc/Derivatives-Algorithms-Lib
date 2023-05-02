@@ -12,9 +12,9 @@
 
 %inline %{
     Handle_<ScriptProductData_> Product_New(const std::vector<Date_>& dates, const std::vector<std::string>& events) {
-        Matrix_<Cell_> new_dates(dates.size(), 1);
+        Vector_<Cell_> new_dates(dates.size());
         for(auto i = 0; i < dates.size(); ++i)
-            new_dates(i, 0) = Cell_(dates[i]);
+            new_dates[i] = Cell_(dates[i]);
         Vector_<String_> new_events;
         for(auto& e : events)
             new_events.push_back(String_(e));

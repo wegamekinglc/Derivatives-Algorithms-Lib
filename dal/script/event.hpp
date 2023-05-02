@@ -21,7 +21,7 @@ storable ScriptProductData
 version 1
 &members
 name is ?string
-dates is cell[][]
+dates is cell[]
 events is string[]
 -IF-------------------------------------------------------------------------*/
 
@@ -144,8 +144,8 @@ namespace Dal::Script {
         mutable ScriptProduct_ product_;
 
     public:
-        ScriptProductData_(const String_& name, const Matrix_<Cell_>& dates, const Vector_<String_>& events)
-            : Storable_("ScriptProduct", name), eventDates_(dates.Col(0)), eventDesc_(events),
+        ScriptProductData_(const String_& name, const Vector_<Cell_>& dates, const Vector_<String_>& events)
+            : Storable_("ScriptProduct", name), eventDates_(dates), eventDesc_(events),
               product_(eventDates_, eventDesc_) {}
         void Write(Archive::Store_& dst) const override;
 

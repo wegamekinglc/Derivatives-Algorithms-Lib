@@ -39,6 +39,7 @@ namespace Dal {
             virtual Store_& operator=(const Vector_<String_>& val) = 0;
             virtual Store_& operator=(const Vector_<Date_>& val) = 0;
             virtual Store_& operator=(const Vector_<DateTime_>& val) = 0;
+            virtual Store_& operator=(const Vector_<Cell_>& val) = 0;
             virtual Store_& operator=(const Matrix_<>& val) = 0;
             virtual Store_& operator=(const Matrix_<String_>& val) = 0;
             virtual Store_& operator=(const Matrix_<Cell_>& val) = 0;
@@ -74,6 +75,7 @@ namespace Dal {
             virtual Vector_<String_> AsStringVector() const = 0;
             virtual Vector_<Date_> AsDateVector() const = 0;
             virtual Vector_<DateTime_> AsDateTimeVector() const = 0;
+            virtual Vector_<Cell_> AsCellVector() const = 0;
             virtual Matrix_<> AsDoubleMatrix() const = 0;
             virtual Matrix_<String_> AsStringMatrix() const = 0;
             virtual Matrix_<Cell_> AsCellMatrix() const = 0;

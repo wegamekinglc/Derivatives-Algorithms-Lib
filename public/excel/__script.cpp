@@ -42,9 +42,9 @@ namespace Dal {
                          const Vector_<Date_>& dates,
                          const Vector_<String_>& events,
                          Handle_<ScriptProductData_>* product) {
-            Matrix_<Cell_> new_dates(dates.size(), 1);
+            Vector_<Cell_> new_dates(dates.size());
             for (auto i = 0; i < dates.size(); ++i)
-                new_dates(i, 0) = Cell_(dates[i]);
+                new_dates[i] = Cell_(dates[i]);
             NewScriptProduct(name, new_dates, events).swap(*product);
         }
 
