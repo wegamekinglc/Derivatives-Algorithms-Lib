@@ -51,9 +51,6 @@ for d, e in zip(event_dates, events):
     print(d)
     print(e + "\n")
 
-product = Product_New(event_dates, events)
-model = BSModelData_New(spot, vol, rate, div)
-
 print("------   Model Parameters  ------")
 print(f"rate : {rate* 100:.2f}%")
 print(f"div  : {div * 100:.2f}%")
@@ -66,6 +63,10 @@ print(f"knock in  : {ki:.2f}")
 print(f"knock out : {ko:.2f}")
 print(f"# of obs  : {len(event_dates)}")
 print(f"# of paths: {n_paths}\n")
+
+event_dates = [Cell_(d) for d in event_dates]
+product = Product_New(event_dates, events)
+model = BSModelData_New(spot, vol, rate, div)
 
 print("------ Product Evaluation  ------")
 now = dt.datetime.now()

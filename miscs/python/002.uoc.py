@@ -31,6 +31,7 @@ while curr < maturity:
 event_dates.append(maturity)
 events.append(f"K = {strike}\ncall pays alive * MAX(spot() - K, 0.0)")
 
+event_dates = [Cell_(d) for d in event_dates]
 product = Product_New(event_dates, events)
 if model_name == "bs":
     model = BSModelData_New(spot, vol, rate, div)

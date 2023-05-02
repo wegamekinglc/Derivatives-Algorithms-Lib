@@ -8,7 +8,7 @@ vol = 0.15
 rate = 0.0
 div = 0.0
 strike = 120.0
-maturity = Date_(2025, 9, 15)
+maturity = Cell_(Date_(2025, 9, 15))
 
 n_paths = 2 ** 20
 use_bb = False

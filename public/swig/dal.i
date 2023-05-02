@@ -21,6 +21,7 @@
 
     %include handle.i
     %include date.i
+    %include cell.i
     %include global.i
     %include strings.i
     %include matrix.i

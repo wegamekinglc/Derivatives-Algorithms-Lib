@@ -1013,21 +1013,6 @@ class DateVector(object):
 # Register DateVector in _dal:
 _dal.DateVector_swigregister(DateVector)
 
-
-def EvaluationDate_Get() -> "Date_":
-    r"""EvaluationDate_Get() -> Date_"""
-    return _dal.EvaluationDate_Get()
-
-def EvaluationDate_Set(d: "Date_") -> "void":
-    r"""
-    EvaluationDate_Set(d)
-
-    Parameters
-    ----------
-    d: Date_ const &
-
-    """
-    return _dal.EvaluationDate_Set(d)
 class String_(object):
     r"""Proxy of C++ String_ class."""
 
@@ -1378,6 +1363,386 @@ class StrVector(object):
 # Register StrVector in _dal:
 _dal.StrVector_swigregister(StrVector)
 
+class Cell_(object):
+    r"""Proxy of C++ Cell_ class."""
+
+    thisown = property(lambda x: x.this.own(), lambda x, v: x.this.own(v), doc="The membership flag")
+    __repr__ = _swig_repr
+
+    def __init__(self, *args):
+        r"""
+        __init__(self, b) -> Cell_
+
+        Parameters
+        ----------
+        b: bool
+
+        __init__(self, d) -> Cell_
+
+        Parameters
+        ----------
+        d: double
+
+        __init__(self, dt) -> Cell_
+
+        Parameters
+        ----------
+        dt: Date_ const &
+
+        __init__(self, s) -> Cell_
+
+        Parameters
+        ----------
+        s: String_ const &
+
+        __init__(self, s) -> Cell_
+
+        Parameters
+        ----------
+        s: char const *
+
+        """
+        _dal.Cell__swiginit(self, _dal.new_Cell_(*args))
+    __swig_destroy__ = _dal.delete_Cell_
+
+# Register Cell_ in _dal:
+_dal.Cell__swigregister(Cell_)
+
+class CellVector(object):
+    r"""Proxy of C++ std::vector< Cell_ > class."""
+
+    thisown = property(lambda x: x.this.own(), lambda x, v: x.this.own(v), doc="The membership flag")
+    __repr__ = _swig_repr
+
+    def iterator(self) -> "swig::SwigPyIterator *":
+        r"""iterator(self) -> SwigPyIterator"""
+        return _dal.CellVector_iterator(self)
+    def __iter__(self):
+        return self.iterator()
+
+    def __nonzero__(self) -> "bool":
+        r"""__nonzero__(self) -> bool"""
+        return _dal.CellVector___nonzero__(self)
+
+    def __bool__(self) -> "bool":
+        r"""__bool__(self) -> bool"""
+        return _dal.CellVector___bool__(self)
+
+    def __len__(self) -> "std::vector< Cell_ >::size_type":
+        r"""__len__(self) -> std::vector< Cell_ >::size_type"""
+        return _dal.CellVector___len__(self)
+
+    def __getslice__(self, i: "std::vector< Cell_ >::difference_type", j: "std::vector< Cell_ >::difference_type") -> "std::vector< Cell_,std::allocator< Cell_ > > *":
+        r"""
+        __getslice__(self, i, j) -> CellVector
+
+        Parameters
+        ----------
+        i: std::vector< Cell_ >::difference_type
+        j: std::vector< Cell_ >::difference_type
+
+        """
+        return _dal.CellVector___getslice__(self, i, j)
+
+    def __setslice__(self, *args) -> "void":
+        r"""
+        __setslice__(self, i, j)
+
+        Parameters
+        ----------
+        i: std::vector< Cell_ >::difference_type
+        j: std::vector< Cell_ >::difference_type
+
+        __setslice__(self, i, j, v)
+
+        Parameters
+        ----------
+        i: std::vector< Cell_ >::difference_type
+        j: std::vector< Cell_ >::difference_type
+        v: std::vector< Cell_,std::allocator< Cell_ > > const &
+
+        """
+        return _dal.CellVector___setslice__(self, *args)
+
+    def __delslice__(self, i: "std::vector< Cell_ >::difference_type", j: "std::vector< Cell_ >::difference_type") -> "void":
+        r"""
+        __delslice__(self, i, j)
+
+        Parameters
+        ----------
+        i: std::vector< Cell_ >::difference_type
+        j: std::vector< Cell_ >::difference_type
+
+        """
+        return _dal.CellVector___delslice__(self, i, j)
+
+    def __delitem__(self, *args) -> "void":
+        r"""
+        __delitem__(self, i)
+
+        Parameters
+        ----------
+        i: std::vector< Cell_ >::difference_type
+
+        __delitem__(self, slice)
+
+        Parameters
+        ----------
+        slice: PySliceObject *
+
+        """
+        return _dal.CellVector___delitem__(self, *args)
+
+    def __getitem__(self, *args) -> "std::vector< Cell_ >::value_type const &":
+        r"""
+        __getitem__(self, slice) -> CellVector
+
+        Parameters
+        ----------
+        slice: PySliceObject *
+
+        __getitem__(self, i) -> Cell_
+
+        Parameters
+        ----------
+        i: std::vector< Cell_ >::difference_type
+
+        """
+        return _dal.CellVector___getitem__(self, *args)
+
+    def __setitem__(self, *args) -> "void":
+        r"""
+        __setitem__(self, slice, v)
+
+        Parameters
+        ----------
+        slice: PySliceObject *
+        v: std::vector< Cell_,std::allocator< Cell_ > > const &
+
+        __setitem__(self, slice)
+
+        Parameters
+        ----------
+        slice: PySliceObject *
+
+        __setitem__(self, i, x)
+
+        Parameters
+        ----------
+        i: std::vector< Cell_ >::difference_type
+        x: std::vector< Cell_ >::value_type const &
+
+        """
+        return _dal.CellVector___setitem__(self, *args)
+
+    def pop(self) -> "std::vector< Cell_ >::value_type":
+        r"""pop(self) -> Cell_"""
+        return _dal.CellVector_pop(self)
+
+    def append(self, x: "Cell_") -> "void":
+        r"""
+        append(self, x)
+
+        Parameters
+        ----------
+        x: std::vector< Cell_ >::value_type const &
+
+        """
+        return _dal.CellVector_append(self, x)
+
+    def empty(self) -> "bool":
+        r"""empty(self) -> bool"""
+        return _dal.CellVector_empty(self)
+
+    def size(self) -> "std::vector< Cell_ >::size_type":
+        r"""size(self) -> std::vector< Cell_ >::size_type"""
+        return _dal.CellVector_size(self)
+
+    def swap(self, v: "CellVector") -> "void":
+        r"""
+        swap(self, v)
+
+        Parameters
+        ----------
+        v: std::vector< Cell_ > &
+
+        """
+        return _dal.CellVector_swap(self, v)
+
+    def begin(self) -> "std::vector< Cell_ >::iterator":
+        r"""begin(self) -> std::vector< Cell_ >::iterator"""
+        return _dal.CellVector_begin(self)
+
+    def end(self) -> "std::vector< Cell_ >::iterator":
+        r"""end(self) -> std::vector< Cell_ >::iterator"""
+        return _dal.CellVector_end(self)
+
+    def rbegin(self) -> "std::vector< Cell_ >::reverse_iterator":
+        r"""rbegin(self) -> std::vector< Cell_ >::reverse_iterator"""
+        return _dal.CellVector_rbegin(self)
+
+    def rend(self) -> "std::vector< Cell_ >::reverse_iterator":
+        r"""rend(self) -> std::vector< Cell_ >::reverse_iterator"""
+        return _dal.CellVector_rend(self)
+
+    def clear(self) -> "void":
+        r"""clear(self)"""
+        return _dal.CellVector_clear(self)
+
+    def get_allocator(self) -> "std::vector< Cell_ >::allocator_type":
+        r"""get_allocator(self) -> std::vector< Cell_ >::allocator_type"""
+        return _dal.CellVector_get_allocator(self)
+
+    def pop_back(self) -> "void":
+        r"""pop_back(self)"""
+        return _dal.CellVector_pop_back(self)
+
+    def erase(self, *args) -> "std::vector< Cell_ >::iterator":
+        r"""
+        erase(self, pos) -> std::vector< Cell_ >::iterator
+
+        Parameters
+        ----------
+        pos: std::vector< Cell_ >::iterator
+
+        erase(self, first, last) -> std::vector< Cell_ >::iterator
+
+        Parameters
+        ----------
+        first: std::vector< Cell_ >::iterator
+        last: std::vector< Cell_ >::iterator
+
+        """
+        return _dal.CellVector_erase(self, *args)
+
+    def __init__(self, *args):
+        r"""
+        __init__(self) -> CellVector
+        __init__(self, other) -> CellVector
+
+        Parameters
+        ----------
+        other: std::vector< Cell_ > const &
+
+        __init__(self, size) -> CellVector
+
+        Parameters
+        ----------
+        size: std::vector< Cell_ >::size_type
+
+        __init__(self, size, value) -> CellVector
+
+        Parameters
+        ----------
+        size: std::vector< Cell_ >::size_type
+        value: std::vector< Cell_ >::value_type const &
+
+        """
+        _dal.CellVector_swiginit(self, _dal.new_CellVector(*args))
+
+    def push_back(self, x: "Cell_") -> "void":
+        r"""
+        push_back(self, x)
+
+        Parameters
+        ----------
+        x: std::vector< Cell_ >::value_type const &
+
+        """
+        return _dal.CellVector_push_back(self, x)
+
+    def front(self) -> "std::vector< Cell_ >::value_type const &":
+        r"""front(self) -> Cell_"""
+        return _dal.CellVector_front(self)
+
+    def back(self) -> "std::vector< Cell_ >::value_type const &":
+        r"""back(self) -> Cell_"""
+        return _dal.CellVector_back(self)
+
+    def assign(self, n: "std::vector< Cell_ >::size_type", x: "Cell_") -> "void":
+        r"""
+        assign(self, n, x)
+
+        Parameters
+        ----------
+        n: std::vector< Cell_ >::size_type
+        x: std::vector< Cell_ >::value_type const &
+
+        """
+        return _dal.CellVector_assign(self, n, x)
+
+    def resize(self, *args) -> "void":
+        r"""
+        resize(self, new_size)
+
+        Parameters
+        ----------
+        new_size: std::vector< Cell_ >::size_type
+
+        resize(self, new_size, x)
+
+        Parameters
+        ----------
+        new_size: std::vector< Cell_ >::size_type
+        x: std::vector< Cell_ >::value_type const &
+
+        """
+        return _dal.CellVector_resize(self, *args)
+
+    def insert(self, *args) -> "void":
+        r"""
+        insert(self, pos, x) -> std::vector< Cell_ >::iterator
+
+        Parameters
+        ----------
+        pos: std::vector< Cell_ >::iterator
+        x: std::vector< Cell_ >::value_type const &
+
+        insert(self, pos, n, x)
+
+        Parameters
+        ----------
+        pos: std::vector< Cell_ >::iterator
+        n: std::vector< Cell_ >::size_type
+        x: std::vector< Cell_ >::value_type const &
+
+        """
+        return _dal.CellVector_insert(self, *args)
+
+    def reserve(self, n: "std::vector< Cell_ >::size_type") -> "void":
+        r"""
+        reserve(self, n)
+
+        Parameters
+        ----------
+        n: std::vector< Cell_ >::size_type
+
+        """
+        return _dal.CellVector_reserve(self, n)
+
+    def capacity(self) -> "std::vector< Cell_ >::size_type":
+        r"""capacity(self) -> std::vector< Cell_ >::size_type"""
+        return _dal.CellVector_capacity(self)
+    __swig_destroy__ = _dal.delete_CellVector
+
+# Register CellVector in _dal:
+_dal.CellVector_swigregister(CellVector)
+
+
+def EvaluationDate_Get() -> "Date_":
+    r"""EvaluationDate_Get() -> Date_"""
+    return _dal.EvaluationDate_Get()
+
+def EvaluationDate_Set(d: "Date_") -> "void":
+    r"""
+    EvaluationDate_Set(d)
+
+    Parameters
+    ----------
+    d: Date_ const &
+
+    """
+    return _dal.EvaluationDate_Set(d)
 class DoubleMatrix_(object):
     r"""Proxy of C++ Matrix_< double > class."""
 
@@ -1428,13 +1793,13 @@ class ScriptProductData_(object):
 _dal.ScriptProductData__swigregister(ScriptProductData_)
 
 
-def Product_New(dates: "DateVector", events: "StrVector") -> "Handle_< ScriptProductData_ >":
+def Product_New(dates: "CellVector", events: "StrVector") -> "Handle_< ScriptProductData_ >":
     r"""
     Product_New(dates, events) -> ScriptProductData_
 
     Parameters
     ----------
-    dates: std::vector< Date_,std::allocator< Date_ > > const &
+    dates: std::vector< Cell_,std::allocator< Cell_ > > const &
     events: std::vector< std::string,std::allocator< std::string > > const &
 
     """

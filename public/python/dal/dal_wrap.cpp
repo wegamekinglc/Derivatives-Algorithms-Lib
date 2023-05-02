@@ -2692,35 +2692,38 @@ SWIGINTERN PyObject *SWIG_PyStaticMethod_New(PyObject *SWIGUNUSEDPARM(self), PyO
 
 /* -------- TYPES TABLE (BEGIN) -------- */
 
-#define SWIGTYPE_p_Date_ swig_types[0]
-#define SWIGTYPE_p_Handle_T_ModelData__t swig_types[1]
-#define SWIGTYPE_p_Handle_T_PseudoRSG__t swig_types[2]
-#define SWIGTYPE_p_Handle_T_ScriptProductData__t swig_types[3]
-#define SWIGTYPE_p_Handle_T_SobolRSG__t swig_types[4]
-#define SWIGTYPE_p_Handle_T_Storable__t swig_types[5]
-#define SWIGTYPE_p_Matrix_T_double_t swig_types[6]
-#define SWIGTYPE_p_String_ swig_types[7]
-#define SWIGTYPE_p_allocator_type swig_types[8]
-#define SWIGTYPE_p_char swig_types[9]
-#define SWIGTYPE_p_difference_type swig_types[10]
-#define SWIGTYPE_p_key_type swig_types[11]
-#define SWIGTYPE_p_mapped_type swig_types[12]
-#define SWIGTYPE_p_p_PyObject swig_types[13]
-#define SWIGTYPE_p_size_type swig_types[14]
-#define SWIGTYPE_p_std__allocatorT_Date__t swig_types[15]
-#define SWIGTYPE_p_std__allocatorT_double_t swig_types[16]
-#define SWIGTYPE_p_std__allocatorT_std__pairT_std__string_const_double_t_t swig_types[17]
-#define SWIGTYPE_p_std__allocatorT_std__string_t swig_types[18]
-#define SWIGTYPE_p_std__invalid_argument swig_types[19]
-#define SWIGTYPE_p_std__lessT_std__string_t swig_types[20]
-#define SWIGTYPE_p_std__mapT_std__string_double_std__lessT_std__string_t_std__allocatorT_std__pairT_std__string_const_double_t_t_t swig_types[21]
-#define SWIGTYPE_p_std__vectorT_Date__std__allocatorT_Date__t_t swig_types[22]
-#define SWIGTYPE_p_std__vectorT_double_std__allocatorT_double_t_t swig_types[23]
-#define SWIGTYPE_p_std__vectorT_std__string_std__allocatorT_std__string_t_t swig_types[24]
-#define SWIGTYPE_p_swig__SwigPyIterator swig_types[25]
-#define SWIGTYPE_p_value_type swig_types[26]
-static swig_type_info *swig_types[28];
-static swig_module_info swig_module = {swig_types, 27, 0, 0, 0, 0};
+#define SWIGTYPE_p_Cell_ swig_types[0]
+#define SWIGTYPE_p_Date_ swig_types[1]
+#define SWIGTYPE_p_Handle_T_ModelData__t swig_types[2]
+#define SWIGTYPE_p_Handle_T_PseudoRSG__t swig_types[3]
+#define SWIGTYPE_p_Handle_T_ScriptProductData__t swig_types[4]
+#define SWIGTYPE_p_Handle_T_SobolRSG__t swig_types[5]
+#define SWIGTYPE_p_Handle_T_Storable__t swig_types[6]
+#define SWIGTYPE_p_Matrix_T_double_t swig_types[7]
+#define SWIGTYPE_p_String_ swig_types[8]
+#define SWIGTYPE_p_allocator_type swig_types[9]
+#define SWIGTYPE_p_char swig_types[10]
+#define SWIGTYPE_p_difference_type swig_types[11]
+#define SWIGTYPE_p_key_type swig_types[12]
+#define SWIGTYPE_p_mapped_type swig_types[13]
+#define SWIGTYPE_p_p_PyObject swig_types[14]
+#define SWIGTYPE_p_size_type swig_types[15]
+#define SWIGTYPE_p_std__allocatorT_Cell__t swig_types[16]
+#define SWIGTYPE_p_std__allocatorT_Date__t swig_types[17]
+#define SWIGTYPE_p_std__allocatorT_double_t swig_types[18]
+#define SWIGTYPE_p_std__allocatorT_std__pairT_std__string_const_double_t_t swig_types[19]
+#define SWIGTYPE_p_std__allocatorT_std__string_t swig_types[20]
+#define SWIGTYPE_p_std__invalid_argument swig_types[21]
+#define SWIGTYPE_p_std__lessT_std__string_t swig_types[22]
+#define SWIGTYPE_p_std__mapT_std__string_double_std__lessT_std__string_t_std__allocatorT_std__pairT_std__string_const_double_t_t_t swig_types[23]
+#define SWIGTYPE_p_std__vectorT_Cell__std__allocatorT_Cell__t_t swig_types[24]
+#define SWIGTYPE_p_std__vectorT_Date__std__allocatorT_Date__t_t swig_types[25]
+#define SWIGTYPE_p_std__vectorT_double_std__allocatorT_double_t_t swig_types[26]
+#define SWIGTYPE_p_std__vectorT_std__string_std__allocatorT_std__string_t_t swig_types[27]
+#define SWIGTYPE_p_swig__SwigPyIterator swig_types[28]
+#define SWIGTYPE_p_value_type swig_types[29]
+static swig_type_info *swig_types[31];
+static swig_module_info swig_module = {swig_types, 30, 0, 0, 0, 0};
 #define SWIG_TypeQuery(name) SWIG_TypeQueryModule(&swig_module, &swig_module, name)
 #define SWIG_MangledTypeQuery(name) SWIG_MangledTypeQueryModule(&swig_module, &swig_module, name)
 
@@ -4935,18 +4938,6 @@ SWIGINTERN std::vector< Date_ >::iterator std_vector_Sl_Date__Sg__erase__SWIG_1(
 SWIGINTERN std::vector< Date_ >::iterator std_vector_Sl_Date__Sg__insert__SWIG_0(std::vector< Date_ > *self,std::vector< Date_ >::iterator pos,std::vector< Date_ >::value_type const &x){ return self->insert(pos, x); }
 SWIGINTERN void std_vector_Sl_Date__Sg__insert__SWIG_1(std::vector< Date_ > *self,std::vector< Date_ >::iterator pos,std::vector< Date_ >::size_type n,std::vector< Date_ >::value_type const &x){ self->insert(pos, n, x); }
 
-#include <public/src/global.hpp>
-
-
-    Date_ EvaluationDate_Get() {
-        return GetEvaluationDate();
-    }
-
-    void EvaluationDate_Set(const Date_& d) {
-        SetEvaluationDate(d);
-    }
-
-
 #include <dal/string/strings.hpp>
 
 
@@ -5237,6 +5228,144 @@ SWIGINTERN std::vector< std::string >::iterator std_vector_Sl_std_string_Sg__era
 SWIGINTERN std::vector< std::string >::iterator std_vector_Sl_std_string_Sg__insert__SWIG_0(std::vector< std::string > *self,std::vector< std::string >::iterator pos,std::vector< std::string >::value_type const &x){ return self->insert(pos, x); }
 SWIGINTERN void std_vector_Sl_std_string_Sg__insert__SWIG_1(std::vector< std::string > *self,std::vector< std::string >::iterator pos,std::vector< std::string >::size_type n,std::vector< std::string >::value_type const &x){ self->insert(pos, n, x); }
 
+#include <dal/math/cell.hpp>
+    
+
+SWIGINTERN int
+SWIG_AsVal_bool (PyObject *obj, bool *val)
+{
+  int r;
+  if (!PyBool_Check(obj))
+    return SWIG_ERROR;
+  r = PyObject_IsTrue(obj);
+  if (r == -1)
+    return SWIG_ERROR;
+  if (val) *val = r ? true : false;
+  return SWIG_OK;
+}
+
+
+  namespace swig {
+    template <>  struct traits< Cell_ > {
+      typedef pointer_category category;
+      static const char* type_name() { return"Cell_"; }
+    };
+  }
+
+
+      namespace swig {
+	template <>  struct traits<std::vector< Cell_, std::allocator< Cell_ > > > {
+	  typedef pointer_category category;
+	  static const char* type_name() {
+	    return "std::vector<" "Cell_" "," "std::allocator< Cell_ >" " >";
+	  }
+	};
+      }
+    
+SWIGINTERN swig::SwigPyIterator *std_vector_Sl_Cell__Sg__iterator(std::vector< Cell_ > *self,PyObject **PYTHON_SELF){
+      return swig::make_output_iterator(self->begin(), self->begin(), self->end(), *PYTHON_SELF);
+    }
+SWIGINTERN bool std_vector_Sl_Cell__Sg____nonzero__(std::vector< Cell_ > const *self){
+      return !(self->empty());
+    }
+SWIGINTERN bool std_vector_Sl_Cell__Sg____bool__(std::vector< Cell_ > const *self){
+      return !(self->empty());
+    }
+SWIGINTERN std::vector< Cell_ >::size_type std_vector_Sl_Cell__Sg____len__(std::vector< Cell_ > const *self){
+      return self->size();
+    }
+SWIGINTERN std::vector< Cell_,std::allocator< Cell_ > > *std_vector_Sl_Cell__Sg____getslice__(std::vector< Cell_ > *self,std::vector< Cell_ >::difference_type i,std::vector< Cell_ >::difference_type j){
+      return swig::getslice(self, i, j, 1);
+    }
+SWIGINTERN void std_vector_Sl_Cell__Sg____setslice____SWIG_0(std::vector< Cell_ > *self,std::vector< Cell_ >::difference_type i,std::vector< Cell_ >::difference_type j){
+      swig::setslice(self, i, j, 1, std::vector< Cell_,std::allocator< Cell_ > >());
+    }
+SWIGINTERN void std_vector_Sl_Cell__Sg____setslice____SWIG_1(std::vector< Cell_ > *self,std::vector< Cell_ >::difference_type i,std::vector< Cell_ >::difference_type j,std::vector< Cell_,std::allocator< Cell_ > > const &v){
+      swig::setslice(self, i, j, 1, v);
+    }
+SWIGINTERN void std_vector_Sl_Cell__Sg____delslice__(std::vector< Cell_ > *self,std::vector< Cell_ >::difference_type i,std::vector< Cell_ >::difference_type j){
+      swig::delslice(self, i, j, 1);
+    }
+SWIGINTERN void std_vector_Sl_Cell__Sg____delitem____SWIG_0(std::vector< Cell_ > *self,std::vector< Cell_ >::difference_type i){
+      swig::erase(self, swig::getpos(self, i));
+    }
+SWIGINTERN std::vector< Cell_,std::allocator< Cell_ > > *std_vector_Sl_Cell__Sg____getitem____SWIG_0(std::vector< Cell_ > *self,PySliceObject *slice){
+      Py_ssize_t i, j, step;
+      if( !PySlice_Check(slice) ) {
+        SWIG_Error(SWIG_TypeError, "Slice object expected.");
+        return NULL;
+      }
+      PySlice_GetIndices(SWIGPY_SLICE_ARG(slice), (Py_ssize_t)self->size(), &i, &j, &step);
+      std::vector< Cell_,std::allocator< Cell_ > >::difference_type id = i;
+      std::vector< Cell_,std::allocator< Cell_ > >::difference_type jd = j;
+      return swig::getslice(self, id, jd, step);
+    }
+SWIGINTERN void std_vector_Sl_Cell__Sg____setitem____SWIG_0(std::vector< Cell_ > *self,PySliceObject *slice,std::vector< Cell_,std::allocator< Cell_ > > const &v){
+      Py_ssize_t i, j, step;
+      if( !PySlice_Check(slice) ) {
+        SWIG_Error(SWIG_TypeError, "Slice object expected.");
+        return;
+      }
+      PySlice_GetIndices(SWIGPY_SLICE_ARG(slice), (Py_ssize_t)self->size(), &i, &j, &step);
+      std::vector< Cell_,std::allocator< Cell_ > >::difference_type id = i;
+      std::vector< Cell_,std::allocator< Cell_ > >::difference_type jd = j;
+      swig::setslice(self, id, jd, step, v);
+    }
+SWIGINTERN void std_vector_Sl_Cell__Sg____setitem____SWIG_1(std::vector< Cell_ > *self,PySliceObject *slice){
+      Py_ssize_t i, j, step;
+      if( !PySlice_Check(slice) ) {
+        SWIG_Error(SWIG_TypeError, "Slice object expected.");
+        return;
+      }
+      PySlice_GetIndices(SWIGPY_SLICE_ARG(slice), (Py_ssize_t)self->size(), &i, &j, &step);
+      std::vector< Cell_,std::allocator< Cell_ > >::difference_type id = i;
+      std::vector< Cell_,std::allocator< Cell_ > >::difference_type jd = j;
+      swig::delslice(self, id, jd, step);
+    }
+SWIGINTERN void std_vector_Sl_Cell__Sg____delitem____SWIG_1(std::vector< Cell_ > *self,PySliceObject *slice){
+      Py_ssize_t i, j, step;
+      if( !PySlice_Check(slice) ) {
+        SWIG_Error(SWIG_TypeError, "Slice object expected.");
+        return;
+      }
+      PySlice_GetIndices(SWIGPY_SLICE_ARG(slice), (Py_ssize_t)self->size(), &i, &j, &step);
+      std::vector< Cell_,std::allocator< Cell_ > >::difference_type id = i;
+      std::vector< Cell_,std::allocator< Cell_ > >::difference_type jd = j;
+      swig::delslice(self, id, jd, step);
+    }
+SWIGINTERN std::vector< Cell_ >::value_type const &std_vector_Sl_Cell__Sg____getitem____SWIG_1(std::vector< Cell_ > const *self,std::vector< Cell_ >::difference_type i){
+      return *(swig::cgetpos(self, i));
+    }
+SWIGINTERN void std_vector_Sl_Cell__Sg____setitem____SWIG_2(std::vector< Cell_ > *self,std::vector< Cell_ >::difference_type i,std::vector< Cell_ >::value_type const &x){
+      *(swig::getpos(self,i)) = x;
+    }
+SWIGINTERN std::vector< Cell_ >::value_type std_vector_Sl_Cell__Sg__pop(std::vector< Cell_ > *self){
+      if (self->size() == 0)
+	throw std::out_of_range("pop from empty container");
+      std::vector< Cell_,std::allocator< Cell_ > >::value_type x = self->back();
+      self->pop_back();
+      return x;
+    }
+SWIGINTERN void std_vector_Sl_Cell__Sg__append(std::vector< Cell_ > *self,std::vector< Cell_ >::value_type const &x){
+      self->push_back(x);
+    }
+SWIGINTERN std::vector< Cell_ >::iterator std_vector_Sl_Cell__Sg__erase__SWIG_0(std::vector< Cell_ > *self,std::vector< Cell_ >::iterator pos){ return self->erase(pos); }
+SWIGINTERN std::vector< Cell_ >::iterator std_vector_Sl_Cell__Sg__erase__SWIG_1(std::vector< Cell_ > *self,std::vector< Cell_ >::iterator first,std::vector< Cell_ >::iterator last){ return self->erase(first, last); }
+SWIGINTERN std::vector< Cell_ >::iterator std_vector_Sl_Cell__Sg__insert__SWIG_0(std::vector< Cell_ > *self,std::vector< Cell_ >::iterator pos,std::vector< Cell_ >::value_type const &x){ return self->insert(pos, x); }
+SWIGINTERN void std_vector_Sl_Cell__Sg__insert__SWIG_1(std::vector< Cell_ > *self,std::vector< Cell_ >::iterator pos,std::vector< Cell_ >::size_type n,std::vector< Cell_ >::value_type const &x){ self->insert(pos, n, x); }
+
+#include <public/src/global.hpp>
+
+
+    Date_ EvaluationDate_Get() {
+        return GetEvaluationDate();
+    }
+
+    void EvaluationDate_Set(const Date_& d) {
+        SetEvaluationDate(d);
+    }
+
+
 #include <dal/math/matrix/matrixs.hpp>
     
 SWIGINTERN double Matrix__Sl_double_Sg____call__(Matrix_< double > *self,int i,int j){ return (*self)(i, j);}
@@ -5244,10 +5373,10 @@ SWIGINTERN double Matrix__Sl_double_Sg____call__(Matrix_< double > *self,int i,i
 #include <public/src/script.hpp>
 
 
-    Handle_<ScriptProductData_> Product_New(const std::vector<Date_>& dates, const std::vector<std::string>& events) {
+    Handle_<ScriptProductData_> Product_New(const std::vector<Cell_>& dates, const std::vector<std::string>& events) {
         Vector_<Cell_> new_dates(dates.size());
         for(auto i = 0; i < dates.size(); ++i)
-            new_dates[i] = Cell_(dates[i]);
+            new_dates[i] = dates[i];
         Vector_<String_> new_events;
         for(auto& e : events)
             new_events.push_back(String_(e));
@@ -5730,20 +5859,6 @@ SWIGINTERN void std_map_Sl_std_string_Sc_double_Sg__erase__SWIG_2(std::map< std:
     for (auto& d : res)
         rtn[d.first.c_str()] = d.second;
     return rtn;
-}
-
-
-SWIGINTERN int
-SWIG_AsVal_bool (PyObject *obj, bool *val)
-{
-  int r;
-  if (!PyBool_Check(obj))
-    return SWIG_ERROR;
-  r = PyObject_IsTrue(obj);
-  if (r == -1)
-    return SWIG_ERROR;
-  if (val) *val = r ? true : false;
-  return SWIG_OK;
 }
 
 
@@ -10677,44 +10792,6 @@ SWIGINTERN PyObject *DateVector_swiginit(PyObject *SWIGUNUSEDPARM(self), PyObjec
   return SWIG_Python_InitShadowInstance(args);
 }
 
-SWIGINTERN PyObject *_wrap_EvaluationDate_Get(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
-  PyObject *resultobj = 0;
-  SwigValueWrapper< Date_ > result;
-  
-  if (!SWIG_Python_UnpackTuple(args, "EvaluationDate_Get", 0, 0, 0)) SWIG_fail;
-  result = EvaluationDate_Get();
-  resultobj = SWIG_NewPointerObj((new Date_(static_cast< const Date_& >(result))), SWIGTYPE_p_Date_, SWIG_POINTER_OWN |  0 );
-  return resultobj;
-fail:
-  return NULL;
-}
-
-
-SWIGINTERN PyObject *_wrap_EvaluationDate_Set(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
-  PyObject *resultobj = 0;
-  Date_ *arg1 = 0 ;
-  void *argp1 = 0 ;
-  int res1 = 0 ;
-  PyObject *swig_obj[1] ;
-  
-  if (!args) SWIG_fail;
-  swig_obj[0] = args;
-  res1 = SWIG_ConvertPtr(swig_obj[0], &argp1, SWIGTYPE_p_Date_,  0  | 0);
-  if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "EvaluationDate_Set" "', argument " "1"" of type '" "Date_ const &""'"); 
-  }
-  if (!argp1) {
-    SWIG_exception_fail(SWIG_ValueError, "invalid null reference " "in method '" "EvaluationDate_Set" "', argument " "1"" of type '" "Date_ const &""'"); 
-  }
-  arg1 = reinterpret_cast< Date_ * >(argp1);
-  EvaluationDate_Set((Date_ const &)*arg1);
-  resultobj = SWIG_Py_Void();
-  return resultobj;
-fail:
-  return NULL;
-}
-
-
 SWIGINTERN PyObject *_wrap_new_String___SWIG_0(PyObject *SWIGUNUSEDPARM(self), Py_ssize_t nobjs, PyObject **swig_obj) {
   PyObject *resultobj = 0;
   char *arg1 = (char *) 0 ;
@@ -12711,6 +12788,2078 @@ SWIGINTERN PyObject *StrVector_swiginit(PyObject *SWIGUNUSEDPARM(self), PyObject
   return SWIG_Python_InitShadowInstance(args);
 }
 
+SWIGINTERN PyObject *_wrap_new_Cell___SWIG_0(PyObject *SWIGUNUSEDPARM(self), Py_ssize_t nobjs, PyObject **swig_obj) {
+  PyObject *resultobj = 0;
+  bool arg1 ;
+  bool val1 ;
+  int ecode1 = 0 ;
+  Cell_ *result = 0 ;
+  
+  if ((nobjs < 1) || (nobjs > 1)) SWIG_fail;
+  ecode1 = SWIG_AsVal_bool(swig_obj[0], &val1);
+  if (!SWIG_IsOK(ecode1)) {
+    SWIG_exception_fail(SWIG_ArgError(ecode1), "in method '" "new_Cell_" "', argument " "1"" of type '" "bool""'");
+  } 
+  arg1 = static_cast< bool >(val1);
+  result = (Cell_ *)new Cell_(arg1);
+  resultobj = SWIG_NewPointerObj(SWIG_as_voidptr(result), SWIGTYPE_p_Cell_, SWIG_POINTER_NEW |  0 );
+  return resultobj;
+fail:
+  return NULL;
+}
+
+
+SWIGINTERN PyObject *_wrap_new_Cell___SWIG_1(PyObject *SWIGUNUSEDPARM(self), Py_ssize_t nobjs, PyObject **swig_obj) {
+  PyObject *resultobj = 0;
+  double arg1 ;
+  double val1 ;
+  int ecode1 = 0 ;
+  Cell_ *result = 0 ;
+  
+  if ((nobjs < 1) || (nobjs > 1)) SWIG_fail;
+  ecode1 = SWIG_AsVal_double(swig_obj[0], &val1);
+  if (!SWIG_IsOK(ecode1)) {
+    SWIG_exception_fail(SWIG_ArgError(ecode1), "in method '" "new_Cell_" "', argument " "1"" of type '" "double""'");
+  } 
+  arg1 = static_cast< double >(val1);
+  result = (Cell_ *)new Cell_(arg1);
+  resultobj = SWIG_NewPointerObj(SWIG_as_voidptr(result), SWIGTYPE_p_Cell_, SWIG_POINTER_NEW |  0 );
+  return resultobj;
+fail:
+  return NULL;
+}
+
+
+SWIGINTERN PyObject *_wrap_new_Cell___SWIG_2(PyObject *SWIGUNUSEDPARM(self), Py_ssize_t nobjs, PyObject **swig_obj) {
+  PyObject *resultobj = 0;
+  Date_ *arg1 = 0 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  Cell_ *result = 0 ;
+  
+  if ((nobjs < 1) || (nobjs > 1)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(swig_obj[0], &argp1, SWIGTYPE_p_Date_,  0  | 0);
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "new_Cell_" "', argument " "1"" of type '" "Date_ const &""'"); 
+  }
+  if (!argp1) {
+    SWIG_exception_fail(SWIG_ValueError, "invalid null reference " "in method '" "new_Cell_" "', argument " "1"" of type '" "Date_ const &""'"); 
+  }
+  arg1 = reinterpret_cast< Date_ * >(argp1);
+  result = (Cell_ *)new Cell_((Date_ const &)*arg1);
+  resultobj = SWIG_NewPointerObj(SWIG_as_voidptr(result), SWIGTYPE_p_Cell_, SWIG_POINTER_NEW |  0 );
+  return resultobj;
+fail:
+  return NULL;
+}
+
+
+SWIGINTERN PyObject *_wrap_new_Cell___SWIG_3(PyObject *SWIGUNUSEDPARM(self), Py_ssize_t nobjs, PyObject **swig_obj) {
+  PyObject *resultobj = 0;
+  String_ *arg1 = 0 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  Cell_ *result = 0 ;
+  
+  if ((nobjs < 1) || (nobjs > 1)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(swig_obj[0], &argp1, SWIGTYPE_p_String_,  0  | 0);
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "new_Cell_" "', argument " "1"" of type '" "String_ const &""'"); 
+  }
+  if (!argp1) {
+    SWIG_exception_fail(SWIG_ValueError, "invalid null reference " "in method '" "new_Cell_" "', argument " "1"" of type '" "String_ const &""'"); 
+  }
+  arg1 = reinterpret_cast< String_ * >(argp1);
+  result = (Cell_ *)new Cell_((String_ const &)*arg1);
+  resultobj = SWIG_NewPointerObj(SWIG_as_voidptr(result), SWIGTYPE_p_Cell_, SWIG_POINTER_NEW |  0 );
+  return resultobj;
+fail:
+  return NULL;
+}
+
+
+SWIGINTERN PyObject *_wrap_new_Cell___SWIG_4(PyObject *SWIGUNUSEDPARM(self), Py_ssize_t nobjs, PyObject **swig_obj) {
+  PyObject *resultobj = 0;
+  char *arg1 = (char *) 0 ;
+  int res1 ;
+  char *buf1 = 0 ;
+  int alloc1 = 0 ;
+  Cell_ *result = 0 ;
+  
+  if ((nobjs < 1) || (nobjs > 1)) SWIG_fail;
+  res1 = SWIG_AsCharPtrAndSize(swig_obj[0], &buf1, NULL, &alloc1);
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "new_Cell_" "', argument " "1"" of type '" "char const *""'");
+  }
+  arg1 = reinterpret_cast< char * >(buf1);
+  result = (Cell_ *)new Cell_((char const *)arg1);
+  resultobj = SWIG_NewPointerObj(SWIG_as_voidptr(result), SWIGTYPE_p_Cell_, SWIG_POINTER_NEW |  0 );
+  if (alloc1 == SWIG_NEWOBJ) delete[] buf1;
+  return resultobj;
+fail:
+  if (alloc1 == SWIG_NEWOBJ) delete[] buf1;
+  return NULL;
+}
+
+
+SWIGINTERN PyObject *_wrap_new_Cell_(PyObject *self, PyObject *args) {
+  Py_ssize_t argc;
+  PyObject *argv[2] = {
+    0
+  };
+  
+  if (!(argc = SWIG_Python_UnpackTuple(args, "new_Cell_", 0, 1, argv))) SWIG_fail;
+  --argc;
+  if (argc == 1) {
+    int _v;
+    int res = SWIG_ConvertPtr(argv[0], 0, SWIGTYPE_p_Date_, SWIG_POINTER_NO_NULL | 0);
+    _v = SWIG_CheckState(res);
+    if (_v) {
+      return _wrap_new_Cell___SWIG_2(self, argc, argv);
+    }
+  }
+  if (argc == 1) {
+    int _v;
+    int res = SWIG_ConvertPtr(argv[0], 0, SWIGTYPE_p_String_, SWIG_POINTER_NO_NULL | 0);
+    _v = SWIG_CheckState(res);
+    if (_v) {
+      return _wrap_new_Cell___SWIG_3(self, argc, argv);
+    }
+  }
+  if (argc == 1) {
+    int _v;
+    {
+      int res = SWIG_AsVal_bool(argv[0], NULL);
+      _v = SWIG_CheckState(res);
+    }
+    if (_v) {
+      return _wrap_new_Cell___SWIG_0(self, argc, argv);
+    }
+  }
+  if (argc == 1) {
+    int _v;
+    {
+      int res = SWIG_AsVal_double(argv[0], NULL);
+      _v = SWIG_CheckState(res);
+    }
+    if (_v) {
+      return _wrap_new_Cell___SWIG_1(self, argc, argv);
+    }
+  }
+  if (argc == 1) {
+    int _v;
+    int res = SWIG_AsCharPtrAndSize(argv[0], 0, NULL, 0);
+    _v = SWIG_CheckState(res);
+    if (_v) {
+      return _wrap_new_Cell___SWIG_4(self, argc, argv);
+    }
+  }
+  
+fail:
+  SWIG_Python_RaiseOrModifyTypeError("Wrong number or type of arguments for overloaded function 'new_Cell_'.\n"
+    "  Possible C/C++ prototypes are:\n"
+    "    Cell_::Cell_(bool)\n"
+    "    Cell_::Cell_(double)\n"
+    "    Cell_::Cell_(Date_ const &)\n"
+    "    Cell_::Cell_(String_ const &)\n"
+    "    Cell_::Cell_(char const *)\n");
+  return 0;
+}
+
+
+SWIGINTERN PyObject *_wrap_delete_Cell_(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+  PyObject *resultobj = 0;
+  Cell_ *arg1 = (Cell_ *) 0 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  PyObject *swig_obj[1] ;
+  
+  if (!args) SWIG_fail;
+  swig_obj[0] = args;
+  res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_Cell_, SWIG_POINTER_DISOWN |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "delete_Cell_" "', argument " "1"" of type '" "Cell_ *""'"); 
+  }
+  arg1 = reinterpret_cast< Cell_ * >(argp1);
+  delete arg1;
+  resultobj = SWIG_Py_Void();
+  return resultobj;
+fail:
+  return NULL;
+}
+
+
+SWIGINTERN PyObject *Cell__swigregister(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+  PyObject *obj;
+  if (!SWIG_Python_UnpackTuple(args, "swigregister", 1, 1, &obj)) return NULL;
+  SWIG_TypeNewClientData(SWIGTYPE_p_Cell_, SWIG_NewClientData(obj));
+  return SWIG_Py_Void();
+}
+
+SWIGINTERN PyObject *Cell__swiginit(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+  return SWIG_Python_InitShadowInstance(args);
+}
+
+SWIGINTERN PyObject *_wrap_CellVector_iterator(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+  PyObject *resultobj = 0;
+  std::vector< Cell_ > *arg1 = (std::vector< Cell_ > *) 0 ;
+  PyObject **arg2 = (PyObject **) 0 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  PyObject *swig_obj[1] ;
+  swig::SwigPyIterator *result = 0 ;
+  
+  arg2 = &swig_obj[0];
+  if (!args) SWIG_fail;
+  swig_obj[0] = args;
+  res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_std__vectorT_Cell__std__allocatorT_Cell__t_t, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "CellVector_iterator" "', argument " "1"" of type '" "std::vector< Cell_ > *""'"); 
+  }
+  arg1 = reinterpret_cast< std::vector< Cell_ > * >(argp1);
+  result = (swig::SwigPyIterator *)std_vector_Sl_Cell__Sg__iterator(arg1,arg2);
+  resultobj = SWIG_NewPointerObj(SWIG_as_voidptr(result), SWIGTYPE_p_swig__SwigPyIterator, SWIG_POINTER_OWN |  0 );
+  return resultobj;
+fail:
+  return NULL;
+}
+
+
+SWIGINTERN PyObject *_wrap_CellVector___nonzero__(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+  PyObject *resultobj = 0;
+  std::vector< Cell_ > *arg1 = (std::vector< Cell_ > *) 0 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  PyObject *swig_obj[1] ;
+  bool result;
+  
+  if (!args) SWIG_fail;
+  swig_obj[0] = args;
+  res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_std__vectorT_Cell__std__allocatorT_Cell__t_t, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "CellVector___nonzero__" "', argument " "1"" of type '" "std::vector< Cell_ > const *""'"); 
+  }
+  arg1 = reinterpret_cast< std::vector< Cell_ > * >(argp1);
+  result = (bool)std_vector_Sl_Cell__Sg____nonzero__((std::vector< Cell_ > const *)arg1);
+  resultobj = SWIG_From_bool(static_cast< bool >(result));
+  return resultobj;
+fail:
+  return NULL;
+}
+
+
+SWIGINTERN PyObject *_wrap_CellVector___bool__(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+  PyObject *resultobj = 0;
+  std::vector< Cell_ > *arg1 = (std::vector< Cell_ > *) 0 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  PyObject *swig_obj[1] ;
+  bool result;
+  
+  if (!args) SWIG_fail;
+  swig_obj[0] = args;
+  res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_std__vectorT_Cell__std__allocatorT_Cell__t_t, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "CellVector___bool__" "', argument " "1"" of type '" "std::vector< Cell_ > const *""'"); 
+  }
+  arg1 = reinterpret_cast< std::vector< Cell_ > * >(argp1);
+  result = (bool)std_vector_Sl_Cell__Sg____bool__((std::vector< Cell_ > const *)arg1);
+  resultobj = SWIG_From_bool(static_cast< bool >(result));
+  return resultobj;
+fail:
+  return NULL;
+}
+
+
+SWIGINTERN PyObject *_wrap_CellVector___len__(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+  PyObject *resultobj = 0;
+  std::vector< Cell_ > *arg1 = (std::vector< Cell_ > *) 0 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  PyObject *swig_obj[1] ;
+  std::vector< Cell_ >::size_type result;
+  
+  if (!args) SWIG_fail;
+  swig_obj[0] = args;
+  res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_std__vectorT_Cell__std__allocatorT_Cell__t_t, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "CellVector___len__" "', argument " "1"" of type '" "std::vector< Cell_ > const *""'"); 
+  }
+  arg1 = reinterpret_cast< std::vector< Cell_ > * >(argp1);
+  result = std_vector_Sl_Cell__Sg____len__((std::vector< Cell_ > const *)arg1);
+  resultobj = SWIG_From_size_t(static_cast< size_t >(result));
+  return resultobj;
+fail:
+  return NULL;
+}
+
+
+SWIGINTERN PyObject *_wrap_CellVector___getslice__(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+  PyObject *resultobj = 0;
+  std::vector< Cell_ > *arg1 = (std::vector< Cell_ > *) 0 ;
+  std::vector< Cell_ >::difference_type arg2 ;
+  std::vector< Cell_ >::difference_type arg3 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  ptrdiff_t val2 ;
+  int ecode2 = 0 ;
+  ptrdiff_t val3 ;
+  int ecode3 = 0 ;
+  PyObject *swig_obj[3] ;
+  std::vector< Cell_,std::allocator< Cell_ > > *result = 0 ;
+  
+  if (!SWIG_Python_UnpackTuple(args, "CellVector___getslice__", 3, 3, swig_obj)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_std__vectorT_Cell__std__allocatorT_Cell__t_t, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "CellVector___getslice__" "', argument " "1"" of type '" "std::vector< Cell_ > *""'"); 
+  }
+  arg1 = reinterpret_cast< std::vector< Cell_ > * >(argp1);
+  ecode2 = SWIG_AsVal_ptrdiff_t(swig_obj[1], &val2);
+  if (!SWIG_IsOK(ecode2)) {
+    SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "CellVector___getslice__" "', argument " "2"" of type '" "std::vector< Cell_ >::difference_type""'");
+  } 
+  arg2 = static_cast< std::vector< Cell_ >::difference_type >(val2);
+  ecode3 = SWIG_AsVal_ptrdiff_t(swig_obj[2], &val3);
+  if (!SWIG_IsOK(ecode3)) {
+    SWIG_exception_fail(SWIG_ArgError(ecode3), "in method '" "CellVector___getslice__" "', argument " "3"" of type '" "std::vector< Cell_ >::difference_type""'");
+  } 
+  arg3 = static_cast< std::vector< Cell_ >::difference_type >(val3);
+  try {
+    result = (std::vector< Cell_,std::allocator< Cell_ > > *)std_vector_Sl_Cell__Sg____getslice__(arg1,arg2,arg3);
+  } catch(std::out_of_range &_e) {
+    SWIG_exception_fail(SWIG_IndexError, (&_e)->what());
+  } catch(std::invalid_argument &_e) {
+    SWIG_exception_fail(SWIG_ValueError, (&_e)->what());
+  }
+  resultobj = SWIG_NewPointerObj(SWIG_as_voidptr(result), SWIGTYPE_p_std__vectorT_Cell__std__allocatorT_Cell__t_t, SWIG_POINTER_OWN |  0 );
+  return resultobj;
+fail:
+  return NULL;
+}
+
+
+SWIGINTERN PyObject *_wrap_CellVector___setslice____SWIG_0(PyObject *SWIGUNUSEDPARM(self), Py_ssize_t nobjs, PyObject **swig_obj) {
+  PyObject *resultobj = 0;
+  std::vector< Cell_ > *arg1 = (std::vector< Cell_ > *) 0 ;
+  std::vector< Cell_ >::difference_type arg2 ;
+  std::vector< Cell_ >::difference_type arg3 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  ptrdiff_t val2 ;
+  int ecode2 = 0 ;
+  ptrdiff_t val3 ;
+  int ecode3 = 0 ;
+  
+  if ((nobjs < 3) || (nobjs > 3)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_std__vectorT_Cell__std__allocatorT_Cell__t_t, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "CellVector___setslice__" "', argument " "1"" of type '" "std::vector< Cell_ > *""'"); 
+  }
+  arg1 = reinterpret_cast< std::vector< Cell_ > * >(argp1);
+  ecode2 = SWIG_AsVal_ptrdiff_t(swig_obj[1], &val2);
+  if (!SWIG_IsOK(ecode2)) {
+    SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "CellVector___setslice__" "', argument " "2"" of type '" "std::vector< Cell_ >::difference_type""'");
+  } 
+  arg2 = static_cast< std::vector< Cell_ >::difference_type >(val2);
+  ecode3 = SWIG_AsVal_ptrdiff_t(swig_obj[2], &val3);
+  if (!SWIG_IsOK(ecode3)) {
+    SWIG_exception_fail(SWIG_ArgError(ecode3), "in method '" "CellVector___setslice__" "', argument " "3"" of type '" "std::vector< Cell_ >::difference_type""'");
+  } 
+  arg3 = static_cast< std::vector< Cell_ >::difference_type >(val3);
+  try {
+    std_vector_Sl_Cell__Sg____setslice____SWIG_0(arg1,arg2,arg3);
+  } catch(std::out_of_range &_e) {
+    SWIG_exception_fail(SWIG_IndexError, (&_e)->what());
+  } catch(std::invalid_argument &_e) {
+    SWIG_exception_fail(SWIG_ValueError, (&_e)->what());
+  }
+  resultobj = SWIG_Py_Void();
+  return resultobj;
+fail:
+  return NULL;
+}
+
+
+SWIGINTERN PyObject *_wrap_CellVector___setslice____SWIG_1(PyObject *SWIGUNUSEDPARM(self), Py_ssize_t nobjs, PyObject **swig_obj) {
+  PyObject *resultobj = 0;
+  std::vector< Cell_ > *arg1 = (std::vector< Cell_ > *) 0 ;
+  std::vector< Cell_ >::difference_type arg2 ;
+  std::vector< Cell_ >::difference_type arg3 ;
+  std::vector< Cell_,std::allocator< Cell_ > > *arg4 = 0 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  ptrdiff_t val2 ;
+  int ecode2 = 0 ;
+  ptrdiff_t val3 ;
+  int ecode3 = 0 ;
+  int res4 = SWIG_OLDOBJ ;
+  
+  if ((nobjs < 4) || (nobjs > 4)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_std__vectorT_Cell__std__allocatorT_Cell__t_t, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "CellVector___setslice__" "', argument " "1"" of type '" "std::vector< Cell_ > *""'"); 
+  }
+  arg1 = reinterpret_cast< std::vector< Cell_ > * >(argp1);
+  ecode2 = SWIG_AsVal_ptrdiff_t(swig_obj[1], &val2);
+  if (!SWIG_IsOK(ecode2)) {
+    SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "CellVector___setslice__" "', argument " "2"" of type '" "std::vector< Cell_ >::difference_type""'");
+  } 
+  arg2 = static_cast< std::vector< Cell_ >::difference_type >(val2);
+  ecode3 = SWIG_AsVal_ptrdiff_t(swig_obj[2], &val3);
+  if (!SWIG_IsOK(ecode3)) {
+    SWIG_exception_fail(SWIG_ArgError(ecode3), "in method '" "CellVector___setslice__" "', argument " "3"" of type '" "std::vector< Cell_ >::difference_type""'");
+  } 
+  arg3 = static_cast< std::vector< Cell_ >::difference_type >(val3);
+  {
+    std::vector< Cell_,std::allocator< Cell_ > > *ptr = (std::vector< Cell_,std::allocator< Cell_ > > *)0;
+    res4 = swig::asptr(swig_obj[3], &ptr);
+    if (!SWIG_IsOK(res4)) {
+      SWIG_exception_fail(SWIG_ArgError(res4), "in method '" "CellVector___setslice__" "', argument " "4"" of type '" "std::vector< Cell_,std::allocator< Cell_ > > const &""'"); 
+    }
+    if (!ptr) {
+      SWIG_exception_fail(SWIG_ValueError, "invalid null reference " "in method '" "CellVector___setslice__" "', argument " "4"" of type '" "std::vector< Cell_,std::allocator< Cell_ > > const &""'"); 
+    }
+    arg4 = ptr;
+  }
+  try {
+    std_vector_Sl_Cell__Sg____setslice____SWIG_1(arg1,arg2,arg3,(std::vector< Cell_,std::allocator< Cell_ > > const &)*arg4);
+  } catch(std::out_of_range &_e) {
+    SWIG_exception_fail(SWIG_IndexError, (&_e)->what());
+  } catch(std::invalid_argument &_e) {
+    SWIG_exception_fail(SWIG_ValueError, (&_e)->what());
+  }
+  resultobj = SWIG_Py_Void();
+  if (SWIG_IsNewObj(res4)) delete arg4;
+  return resultobj;
+fail:
+  if (SWIG_IsNewObj(res4)) delete arg4;
+  return NULL;
+}
+
+
+SWIGINTERN PyObject *_wrap_CellVector___setslice__(PyObject *self, PyObject *args) {
+  Py_ssize_t argc;
+  PyObject *argv[5] = {
+    0
+  };
+  
+  if (!(argc = SWIG_Python_UnpackTuple(args, "CellVector___setslice__", 0, 4, argv))) SWIG_fail;
+  --argc;
+  if (argc == 3) {
+    int _v;
+    int res = swig::asptr(argv[0], (std::vector< Cell_,std::allocator< Cell_ > >**)(0));
+    _v = SWIG_CheckState(res);
+    if (_v) {
+      {
+        int res = SWIG_AsVal_ptrdiff_t(argv[1], NULL);
+        _v = SWIG_CheckState(res);
+      }
+      if (_v) {
+        {
+          int res = SWIG_AsVal_ptrdiff_t(argv[2], NULL);
+          _v = SWIG_CheckState(res);
+        }
+        if (_v) {
+          return _wrap_CellVector___setslice____SWIG_0(self, argc, argv);
+        }
+      }
+    }
+  }
+  if (argc == 4) {
+    int _v;
+    int res = swig::asptr(argv[0], (std::vector< Cell_,std::allocator< Cell_ > >**)(0));
+    _v = SWIG_CheckState(res);
+    if (_v) {
+      {
+        int res = SWIG_AsVal_ptrdiff_t(argv[1], NULL);
+        _v = SWIG_CheckState(res);
+      }
+      if (_v) {
+        {
+          int res = SWIG_AsVal_ptrdiff_t(argv[2], NULL);
+          _v = SWIG_CheckState(res);
+        }
+        if (_v) {
+          int res = swig::asptr(argv[3], (std::vector< Cell_,std::allocator< Cell_ > >**)(0));
+          _v = SWIG_CheckState(res);
+          if (_v) {
+            return _wrap_CellVector___setslice____SWIG_1(self, argc, argv);
+          }
+        }
+      }
+    }
+  }
+  
+fail:
+  SWIG_Python_RaiseOrModifyTypeError("Wrong number or type of arguments for overloaded function 'CellVector___setslice__'.\n"
+    "  Possible C/C++ prototypes are:\n"
+    "    std::vector< Cell_ >::__setslice__(std::vector< Cell_ >::difference_type,std::vector< Cell_ >::difference_type)\n"
+    "    std::vector< Cell_ >::__setslice__(std::vector< Cell_ >::difference_type,std::vector< Cell_ >::difference_type,std::vector< Cell_,std::allocator< Cell_ > > const &)\n");
+  return 0;
+}
+
+
+SWIGINTERN PyObject *_wrap_CellVector___delslice__(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+  PyObject *resultobj = 0;
+  std::vector< Cell_ > *arg1 = (std::vector< Cell_ > *) 0 ;
+  std::vector< Cell_ >::difference_type arg2 ;
+  std::vector< Cell_ >::difference_type arg3 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  ptrdiff_t val2 ;
+  int ecode2 = 0 ;
+  ptrdiff_t val3 ;
+  int ecode3 = 0 ;
+  PyObject *swig_obj[3] ;
+  
+  if (!SWIG_Python_UnpackTuple(args, "CellVector___delslice__", 3, 3, swig_obj)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_std__vectorT_Cell__std__allocatorT_Cell__t_t, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "CellVector___delslice__" "', argument " "1"" of type '" "std::vector< Cell_ > *""'"); 
+  }
+  arg1 = reinterpret_cast< std::vector< Cell_ > * >(argp1);
+  ecode2 = SWIG_AsVal_ptrdiff_t(swig_obj[1], &val2);
+  if (!SWIG_IsOK(ecode2)) {
+    SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "CellVector___delslice__" "', argument " "2"" of type '" "std::vector< Cell_ >::difference_type""'");
+  } 
+  arg2 = static_cast< std::vector< Cell_ >::difference_type >(val2);
+  ecode3 = SWIG_AsVal_ptrdiff_t(swig_obj[2], &val3);
+  if (!SWIG_IsOK(ecode3)) {
+    SWIG_exception_fail(SWIG_ArgError(ecode3), "in method '" "CellVector___delslice__" "', argument " "3"" of type '" "std::vector< Cell_ >::difference_type""'");
+  } 
+  arg3 = static_cast< std::vector< Cell_ >::difference_type >(val3);
+  try {
+    std_vector_Sl_Cell__Sg____delslice__(arg1,arg2,arg3);
+  } catch(std::out_of_range &_e) {
+    SWIG_exception_fail(SWIG_IndexError, (&_e)->what());
+  } catch(std::invalid_argument &_e) {
+    SWIG_exception_fail(SWIG_ValueError, (&_e)->what());
+  }
+  resultobj = SWIG_Py_Void();
+  return resultobj;
+fail:
+  return NULL;
+}
+
+
+SWIGINTERN PyObject *_wrap_CellVector___delitem____SWIG_0(PyObject *SWIGUNUSEDPARM(self), Py_ssize_t nobjs, PyObject **swig_obj) {
+  PyObject *resultobj = 0;
+  std::vector< Cell_ > *arg1 = (std::vector< Cell_ > *) 0 ;
+  std::vector< Cell_ >::difference_type arg2 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  ptrdiff_t val2 ;
+  int ecode2 = 0 ;
+  
+  if ((nobjs < 2) || (nobjs > 2)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_std__vectorT_Cell__std__allocatorT_Cell__t_t, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "CellVector___delitem__" "', argument " "1"" of type '" "std::vector< Cell_ > *""'"); 
+  }
+  arg1 = reinterpret_cast< std::vector< Cell_ > * >(argp1);
+  ecode2 = SWIG_AsVal_ptrdiff_t(swig_obj[1], &val2);
+  if (!SWIG_IsOK(ecode2)) {
+    SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "CellVector___delitem__" "', argument " "2"" of type '" "std::vector< Cell_ >::difference_type""'");
+  } 
+  arg2 = static_cast< std::vector< Cell_ >::difference_type >(val2);
+  try {
+    std_vector_Sl_Cell__Sg____delitem____SWIG_0(arg1,arg2);
+  } catch(std::out_of_range &_e) {
+    SWIG_exception_fail(SWIG_IndexError, (&_e)->what());
+  } catch(std::invalid_argument &_e) {
+    SWIG_exception_fail(SWIG_ValueError, (&_e)->what());
+  }
+  resultobj = SWIG_Py_Void();
+  return resultobj;
+fail:
+  return NULL;
+}
+
+
+SWIGINTERN PyObject *_wrap_CellVector___getitem____SWIG_0(PyObject *SWIGUNUSEDPARM(self), Py_ssize_t nobjs, PyObject **swig_obj) {
+  PyObject *resultobj = 0;
+  std::vector< Cell_ > *arg1 = (std::vector< Cell_ > *) 0 ;
+  PySliceObject *arg2 = (PySliceObject *) 0 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  std::vector< Cell_,std::allocator< Cell_ > > *result = 0 ;
+  
+  if ((nobjs < 2) || (nobjs > 2)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_std__vectorT_Cell__std__allocatorT_Cell__t_t, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "CellVector___getitem__" "', argument " "1"" of type '" "std::vector< Cell_ > *""'"); 
+  }
+  arg1 = reinterpret_cast< std::vector< Cell_ > * >(argp1);
+  {
+    if (!PySlice_Check(swig_obj[1])) {
+      SWIG_exception_fail(SWIG_ArgError(SWIG_TypeError), "in method '" "CellVector___getitem__" "', argument " "2"" of type '" "PySliceObject *""'");
+    }
+    arg2 = (PySliceObject *) swig_obj[1];
+  }
+  try {
+    result = (std::vector< Cell_,std::allocator< Cell_ > > *)std_vector_Sl_Cell__Sg____getitem____SWIG_0(arg1,arg2);
+  } catch(std::out_of_range &_e) {
+    SWIG_exception_fail(SWIG_IndexError, (&_e)->what());
+  } catch(std::invalid_argument &_e) {
+    SWIG_exception_fail(SWIG_ValueError, (&_e)->what());
+  }
+  resultobj = SWIG_NewPointerObj(SWIG_as_voidptr(result), SWIGTYPE_p_std__vectorT_Cell__std__allocatorT_Cell__t_t, SWIG_POINTER_OWN |  0 );
+  return resultobj;
+fail:
+  return NULL;
+}
+
+
+SWIGINTERN PyObject *_wrap_CellVector___setitem____SWIG_0(PyObject *SWIGUNUSEDPARM(self), Py_ssize_t nobjs, PyObject **swig_obj) {
+  PyObject *resultobj = 0;
+  std::vector< Cell_ > *arg1 = (std::vector< Cell_ > *) 0 ;
+  PySliceObject *arg2 = (PySliceObject *) 0 ;
+  std::vector< Cell_,std::allocator< Cell_ > > *arg3 = 0 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  int res3 = SWIG_OLDOBJ ;
+  
+  if ((nobjs < 3) || (nobjs > 3)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_std__vectorT_Cell__std__allocatorT_Cell__t_t, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "CellVector___setitem__" "', argument " "1"" of type '" "std::vector< Cell_ > *""'"); 
+  }
+  arg1 = reinterpret_cast< std::vector< Cell_ > * >(argp1);
+  {
+    if (!PySlice_Check(swig_obj[1])) {
+      SWIG_exception_fail(SWIG_ArgError(SWIG_TypeError), "in method '" "CellVector___setitem__" "', argument " "2"" of type '" "PySliceObject *""'");
+    }
+    arg2 = (PySliceObject *) swig_obj[1];
+  }
+  {
+    std::vector< Cell_,std::allocator< Cell_ > > *ptr = (std::vector< Cell_,std::allocator< Cell_ > > *)0;
+    res3 = swig::asptr(swig_obj[2], &ptr);
+    if (!SWIG_IsOK(res3)) {
+      SWIG_exception_fail(SWIG_ArgError(res3), "in method '" "CellVector___setitem__" "', argument " "3"" of type '" "std::vector< Cell_,std::allocator< Cell_ > > const &""'"); 
+    }
+    if (!ptr) {
+      SWIG_exception_fail(SWIG_ValueError, "invalid null reference " "in method '" "CellVector___setitem__" "', argument " "3"" of type '" "std::vector< Cell_,std::allocator< Cell_ > > const &""'"); 
+    }
+    arg3 = ptr;
+  }
+  try {
+    std_vector_Sl_Cell__Sg____setitem____SWIG_0(arg1,arg2,(std::vector< Cell_,std::allocator< Cell_ > > const &)*arg3);
+  } catch(std::out_of_range &_e) {
+    SWIG_exception_fail(SWIG_IndexError, (&_e)->what());
+  } catch(std::invalid_argument &_e) {
+    SWIG_exception_fail(SWIG_ValueError, (&_e)->what());
+  }
+  resultobj = SWIG_Py_Void();
+  if (SWIG_IsNewObj(res3)) delete arg3;
+  return resultobj;
+fail:
+  if (SWIG_IsNewObj(res3)) delete arg3;
+  return NULL;
+}
+
+
+SWIGINTERN PyObject *_wrap_CellVector___setitem____SWIG_1(PyObject *SWIGUNUSEDPARM(self), Py_ssize_t nobjs, PyObject **swig_obj) {
+  PyObject *resultobj = 0;
+  std::vector< Cell_ > *arg1 = (std::vector< Cell_ > *) 0 ;
+  PySliceObject *arg2 = (PySliceObject *) 0 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  
+  if ((nobjs < 2) || (nobjs > 2)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_std__vectorT_Cell__std__allocatorT_Cell__t_t, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "CellVector___setitem__" "', argument " "1"" of type '" "std::vector< Cell_ > *""'"); 
+  }
+  arg1 = reinterpret_cast< std::vector< Cell_ > * >(argp1);
+  {
+    if (!PySlice_Check(swig_obj[1])) {
+      SWIG_exception_fail(SWIG_ArgError(SWIG_TypeError), "in method '" "CellVector___setitem__" "', argument " "2"" of type '" "PySliceObject *""'");
+    }
+    arg2 = (PySliceObject *) swig_obj[1];
+  }
+  try {
+    std_vector_Sl_Cell__Sg____setitem____SWIG_1(arg1,arg2);
+  } catch(std::out_of_range &_e) {
+    SWIG_exception_fail(SWIG_IndexError, (&_e)->what());
+  } catch(std::invalid_argument &_e) {
+    SWIG_exception_fail(SWIG_ValueError, (&_e)->what());
+  }
+  resultobj = SWIG_Py_Void();
+  return resultobj;
+fail:
+  return NULL;
+}
+
+
+SWIGINTERN PyObject *_wrap_CellVector___delitem____SWIG_1(PyObject *SWIGUNUSEDPARM(self), Py_ssize_t nobjs, PyObject **swig_obj) {
+  PyObject *resultobj = 0;
+  std::vector< Cell_ > *arg1 = (std::vector< Cell_ > *) 0 ;
+  PySliceObject *arg2 = (PySliceObject *) 0 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  
+  if ((nobjs < 2) || (nobjs > 2)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_std__vectorT_Cell__std__allocatorT_Cell__t_t, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "CellVector___delitem__" "', argument " "1"" of type '" "std::vector< Cell_ > *""'"); 
+  }
+  arg1 = reinterpret_cast< std::vector< Cell_ > * >(argp1);
+  {
+    if (!PySlice_Check(swig_obj[1])) {
+      SWIG_exception_fail(SWIG_ArgError(SWIG_TypeError), "in method '" "CellVector___delitem__" "', argument " "2"" of type '" "PySliceObject *""'");
+    }
+    arg2 = (PySliceObject *) swig_obj[1];
+  }
+  try {
+    std_vector_Sl_Cell__Sg____delitem____SWIG_1(arg1,arg2);
+  } catch(std::out_of_range &_e) {
+    SWIG_exception_fail(SWIG_IndexError, (&_e)->what());
+  } catch(std::invalid_argument &_e) {
+    SWIG_exception_fail(SWIG_ValueError, (&_e)->what());
+  }
+  resultobj = SWIG_Py_Void();
+  return resultobj;
+fail:
+  return NULL;
+}
+
+
+SWIGINTERN PyObject *_wrap_CellVector___delitem__(PyObject *self, PyObject *args) {
+  Py_ssize_t argc;
+  PyObject *argv[3] = {
+    0
+  };
+  
+  if (!(argc = SWIG_Python_UnpackTuple(args, "CellVector___delitem__", 0, 2, argv))) SWIG_fail;
+  --argc;
+  if (argc == 2) {
+    int _v;
+    int res = swig::asptr(argv[0], (std::vector< Cell_,std::allocator< Cell_ > >**)(0));
+    _v = SWIG_CheckState(res);
+    if (_v) {
+      {
+        _v = PySlice_Check(argv[1]);
+      }
+      if (_v) {
+        return _wrap_CellVector___delitem____SWIG_1(self, argc, argv);
+      }
+    }
+  }
+  if (argc == 2) {
+    int _v;
+    int res = swig::asptr(argv[0], (std::vector< Cell_,std::allocator< Cell_ > >**)(0));
+    _v = SWIG_CheckState(res);
+    if (_v) {
+      {
+        int res = SWIG_AsVal_ptrdiff_t(argv[1], NULL);
+        _v = SWIG_CheckState(res);
+      }
+      if (_v) {
+        return _wrap_CellVector___delitem____SWIG_0(self, argc, argv);
+      }
+    }
+  }
+  
+fail:
+  SWIG_Python_RaiseOrModifyTypeError("Wrong number or type of arguments for overloaded function 'CellVector___delitem__'.\n"
+    "  Possible C/C++ prototypes are:\n"
+    "    std::vector< Cell_ >::__delitem__(std::vector< Cell_ >::difference_type)\n"
+    "    std::vector< Cell_ >::__delitem__(PySliceObject *)\n");
+  return 0;
+}
+
+
+SWIGINTERN PyObject *_wrap_CellVector___getitem____SWIG_1(PyObject *SWIGUNUSEDPARM(self), Py_ssize_t nobjs, PyObject **swig_obj) {
+  PyObject *resultobj = 0;
+  std::vector< Cell_ > *arg1 = (std::vector< Cell_ > *) 0 ;
+  std::vector< Cell_ >::difference_type arg2 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  ptrdiff_t val2 ;
+  int ecode2 = 0 ;
+  std::vector< Cell_ >::value_type *result = 0 ;
+  
+  if ((nobjs < 2) || (nobjs > 2)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_std__vectorT_Cell__std__allocatorT_Cell__t_t, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "CellVector___getitem__" "', argument " "1"" of type '" "std::vector< Cell_ > const *""'"); 
+  }
+  arg1 = reinterpret_cast< std::vector< Cell_ > * >(argp1);
+  ecode2 = SWIG_AsVal_ptrdiff_t(swig_obj[1], &val2);
+  if (!SWIG_IsOK(ecode2)) {
+    SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "CellVector___getitem__" "', argument " "2"" of type '" "std::vector< Cell_ >::difference_type""'");
+  } 
+  arg2 = static_cast< std::vector< Cell_ >::difference_type >(val2);
+  try {
+    result = (std::vector< Cell_ >::value_type *) &std_vector_Sl_Cell__Sg____getitem____SWIG_1((std::vector< Cell_ > const *)arg1,arg2);
+  } catch(std::out_of_range &_e) {
+    SWIG_exception_fail(SWIG_IndexError, (&_e)->what());
+  }
+  resultobj = SWIG_NewPointerObj(SWIG_as_voidptr(result), SWIGTYPE_p_Cell_, 0 |  0 );
+  (void)swig::container_owner<swig::traits<std::vector< Cell_ >::value_type>::category>::back_reference(resultobj, swig_obj[0]);
+  return resultobj;
+fail:
+  return NULL;
+}
+
+
+SWIGINTERN PyObject *_wrap_CellVector___getitem__(PyObject *self, PyObject *args) {
+  Py_ssize_t argc;
+  PyObject *argv[3] = {
+    0
+  };
+  
+  if (!(argc = SWIG_Python_UnpackTuple(args, "CellVector___getitem__", 0, 2, argv))) SWIG_fail;
+  --argc;
+  if (argc == 2) {
+    int _v;
+    int res = swig::asptr(argv[0], (std::vector< Cell_,std::allocator< Cell_ > >**)(0));
+    _v = SWIG_CheckState(res);
+    if (_v) {
+      {
+        _v = PySlice_Check(argv[1]);
+      }
+      if (_v) {
+        return _wrap_CellVector___getitem____SWIG_0(self, argc, argv);
+      }
+    }
+  }
+  if (argc == 2) {
+    int _v;
+    int res = swig::asptr(argv[0], (std::vector< Cell_,std::allocator< Cell_ > >**)(0));
+    _v = SWIG_CheckState(res);
+    if (_v) {
+      {
+        int res = SWIG_AsVal_ptrdiff_t(argv[1], NULL);
+        _v = SWIG_CheckState(res);
+      }
+      if (_v) {
+        return _wrap_CellVector___getitem____SWIG_1(self, argc, argv);
+      }
+    }
+  }
+  
+fail:
+  SWIG_Python_RaiseOrModifyTypeError("Wrong number or type of arguments for overloaded function 'CellVector___getitem__'.\n"
+    "  Possible C/C++ prototypes are:\n"
+    "    std::vector< Cell_ >::__getitem__(PySliceObject *)\n"
+    "    std::vector< Cell_ >::__getitem__(std::vector< Cell_ >::difference_type) const\n");
+  return 0;
+}
+
+
+SWIGINTERN PyObject *_wrap_CellVector___setitem____SWIG_2(PyObject *SWIGUNUSEDPARM(self), Py_ssize_t nobjs, PyObject **swig_obj) {
+  PyObject *resultobj = 0;
+  std::vector< Cell_ > *arg1 = (std::vector< Cell_ > *) 0 ;
+  std::vector< Cell_ >::difference_type arg2 ;
+  std::vector< Cell_ >::value_type *arg3 = 0 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  ptrdiff_t val2 ;
+  int ecode2 = 0 ;
+  void *argp3 = 0 ;
+  int res3 = 0 ;
+  
+  if ((nobjs < 3) || (nobjs > 3)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_std__vectorT_Cell__std__allocatorT_Cell__t_t, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "CellVector___setitem__" "', argument " "1"" of type '" "std::vector< Cell_ > *""'"); 
+  }
+  arg1 = reinterpret_cast< std::vector< Cell_ > * >(argp1);
+  ecode2 = SWIG_AsVal_ptrdiff_t(swig_obj[1], &val2);
+  if (!SWIG_IsOK(ecode2)) {
+    SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "CellVector___setitem__" "', argument " "2"" of type '" "std::vector< Cell_ >::difference_type""'");
+  } 
+  arg2 = static_cast< std::vector< Cell_ >::difference_type >(val2);
+  res3 = SWIG_ConvertPtr(swig_obj[2], &argp3, SWIGTYPE_p_Cell_,  0  | 0);
+  if (!SWIG_IsOK(res3)) {
+    SWIG_exception_fail(SWIG_ArgError(res3), "in method '" "CellVector___setitem__" "', argument " "3"" of type '" "std::vector< Cell_ >::value_type const &""'"); 
+  }
+  if (!argp3) {
+    SWIG_exception_fail(SWIG_ValueError, "invalid null reference " "in method '" "CellVector___setitem__" "', argument " "3"" of type '" "std::vector< Cell_ >::value_type const &""'"); 
+  }
+  arg3 = reinterpret_cast< std::vector< Cell_ >::value_type * >(argp3);
+  try {
+    std_vector_Sl_Cell__Sg____setitem____SWIG_2(arg1,arg2,(Cell_ const &)*arg3);
+  } catch(std::out_of_range &_e) {
+    SWIG_exception_fail(SWIG_IndexError, (&_e)->what());
+  }
+  resultobj = SWIG_Py_Void();
+  return resultobj;
+fail:
+  return NULL;
+}
+
+
+SWIGINTERN PyObject *_wrap_CellVector___setitem__(PyObject *self, PyObject *args) {
+  Py_ssize_t argc;
+  PyObject *argv[4] = {
+    0
+  };
+  
+  if (!(argc = SWIG_Python_UnpackTuple(args, "CellVector___setitem__", 0, 3, argv))) SWIG_fail;
+  --argc;
+  if (argc == 2) {
+    int _v;
+    int res = swig::asptr(argv[0], (std::vector< Cell_,std::allocator< Cell_ > >**)(0));
+    _v = SWIG_CheckState(res);
+    if (_v) {
+      {
+        _v = PySlice_Check(argv[1]);
+      }
+      if (_v) {
+        return _wrap_CellVector___setitem____SWIG_1(self, argc, argv);
+      }
+    }
+  }
+  if (argc == 3) {
+    int _v;
+    int res = swig::asptr(argv[0], (std::vector< Cell_,std::allocator< Cell_ > >**)(0));
+    _v = SWIG_CheckState(res);
+    if (_v) {
+      {
+        _v = PySlice_Check(argv[1]);
+      }
+      if (_v) {
+        int res = swig::asptr(argv[2], (std::vector< Cell_,std::allocator< Cell_ > >**)(0));
+        _v = SWIG_CheckState(res);
+        if (_v) {
+          return _wrap_CellVector___setitem____SWIG_0(self, argc, argv);
+        }
+      }
+    }
+  }
+  if (argc == 3) {
+    int _v;
+    int res = swig::asptr(argv[0], (std::vector< Cell_,std::allocator< Cell_ > >**)(0));
+    _v = SWIG_CheckState(res);
+    if (_v) {
+      {
+        int res = SWIG_AsVal_ptrdiff_t(argv[1], NULL);
+        _v = SWIG_CheckState(res);
+      }
+      if (_v) {
+        int res = SWIG_ConvertPtr(argv[2], 0, SWIGTYPE_p_Cell_, SWIG_POINTER_NO_NULL | 0);
+        _v = SWIG_CheckState(res);
+        if (_v) {
+          return _wrap_CellVector___setitem____SWIG_2(self, argc, argv);
+        }
+      }
+    }
+  }
+  
+fail:
+  SWIG_Python_RaiseOrModifyTypeError("Wrong number or type of arguments for overloaded function 'CellVector___setitem__'.\n"
+    "  Possible C/C++ prototypes are:\n"
+    "    std::vector< Cell_ >::__setitem__(PySliceObject *,std::vector< Cell_,std::allocator< Cell_ > > const &)\n"
+    "    std::vector< Cell_ >::__setitem__(PySliceObject *)\n"
+    "    std::vector< Cell_ >::__setitem__(std::vector< Cell_ >::difference_type,std::vector< Cell_ >::value_type const &)\n");
+  return 0;
+}
+
+
+SWIGINTERN PyObject *_wrap_CellVector_pop(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+  PyObject *resultobj = 0;
+  std::vector< Cell_ > *arg1 = (std::vector< Cell_ > *) 0 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  PyObject *swig_obj[1] ;
+  SwigValueWrapper< Cell_ > result;
+  
+  if (!args) SWIG_fail;
+  swig_obj[0] = args;
+  res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_std__vectorT_Cell__std__allocatorT_Cell__t_t, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "CellVector_pop" "', argument " "1"" of type '" "std::vector< Cell_ > *""'"); 
+  }
+  arg1 = reinterpret_cast< std::vector< Cell_ > * >(argp1);
+  try {
+    result = std_vector_Sl_Cell__Sg__pop(arg1);
+  } catch(std::out_of_range &_e) {
+    SWIG_exception_fail(SWIG_IndexError, (&_e)->what());
+  }
+  resultobj = SWIG_NewPointerObj((new std::vector< Cell_ >::value_type(static_cast< const std::vector< Cell_ >::value_type& >(result))), SWIGTYPE_p_Cell_, SWIG_POINTER_OWN |  0 );
+  return resultobj;
+fail:
+  return NULL;
+}
+
+
+SWIGINTERN PyObject *_wrap_CellVector_append(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+  PyObject *resultobj = 0;
+  std::vector< Cell_ > *arg1 = (std::vector< Cell_ > *) 0 ;
+  std::vector< Cell_ >::value_type *arg2 = 0 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  void *argp2 = 0 ;
+  int res2 = 0 ;
+  PyObject *swig_obj[2] ;
+  
+  if (!SWIG_Python_UnpackTuple(args, "CellVector_append", 2, 2, swig_obj)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_std__vectorT_Cell__std__allocatorT_Cell__t_t, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "CellVector_append" "', argument " "1"" of type '" "std::vector< Cell_ > *""'"); 
+  }
+  arg1 = reinterpret_cast< std::vector< Cell_ > * >(argp1);
+  res2 = SWIG_ConvertPtr(swig_obj[1], &argp2, SWIGTYPE_p_Cell_,  0  | 0);
+  if (!SWIG_IsOK(res2)) {
+    SWIG_exception_fail(SWIG_ArgError(res2), "in method '" "CellVector_append" "', argument " "2"" of type '" "std::vector< Cell_ >::value_type const &""'"); 
+  }
+  if (!argp2) {
+    SWIG_exception_fail(SWIG_ValueError, "invalid null reference " "in method '" "CellVector_append" "', argument " "2"" of type '" "std::vector< Cell_ >::value_type const &""'"); 
+  }
+  arg2 = reinterpret_cast< std::vector< Cell_ >::value_type * >(argp2);
+  std_vector_Sl_Cell__Sg__append(arg1,(Cell_ const &)*arg2);
+  resultobj = SWIG_Py_Void();
+  return resultobj;
+fail:
+  return NULL;
+}
+
+
+SWIGINTERN PyObject *_wrap_new_CellVector__SWIG_0(PyObject *SWIGUNUSEDPARM(self), Py_ssize_t nobjs, PyObject **SWIGUNUSEDPARM(swig_obj)) {
+  PyObject *resultobj = 0;
+  std::vector< Cell_ > *result = 0 ;
+  
+  if ((nobjs < 0) || (nobjs > 0)) SWIG_fail;
+  result = (std::vector< Cell_ > *)new std::vector< Cell_ >();
+  resultobj = SWIG_NewPointerObj(SWIG_as_voidptr(result), SWIGTYPE_p_std__vectorT_Cell__std__allocatorT_Cell__t_t, SWIG_POINTER_NEW |  0 );
+  return resultobj;
+fail:
+  return NULL;
+}
+
+
+SWIGINTERN PyObject *_wrap_new_CellVector__SWIG_1(PyObject *SWIGUNUSEDPARM(self), Py_ssize_t nobjs, PyObject **swig_obj) {
+  PyObject *resultobj = 0;
+  std::vector< Cell_ > *arg1 = 0 ;
+  int res1 = SWIG_OLDOBJ ;
+  std::vector< Cell_ > *result = 0 ;
+  
+  if ((nobjs < 1) || (nobjs > 1)) SWIG_fail;
+  {
+    std::vector< Cell_,std::allocator< Cell_ > > *ptr = (std::vector< Cell_,std::allocator< Cell_ > > *)0;
+    res1 = swig::asptr(swig_obj[0], &ptr);
+    if (!SWIG_IsOK(res1)) {
+      SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "new_CellVector" "', argument " "1"" of type '" "std::vector< Cell_ > const &""'"); 
+    }
+    if (!ptr) {
+      SWIG_exception_fail(SWIG_ValueError, "invalid null reference " "in method '" "new_CellVector" "', argument " "1"" of type '" "std::vector< Cell_ > const &""'"); 
+    }
+    arg1 = ptr;
+  }
+  result = (std::vector< Cell_ > *)new std::vector< Cell_ >((std::vector< Cell_ > const &)*arg1);
+  resultobj = SWIG_NewPointerObj(SWIG_as_voidptr(result), SWIGTYPE_p_std__vectorT_Cell__std__allocatorT_Cell__t_t, SWIG_POINTER_NEW |  0 );
+  if (SWIG_IsNewObj(res1)) delete arg1;
+  return resultobj;
+fail:
+  if (SWIG_IsNewObj(res1)) delete arg1;
+  return NULL;
+}
+
+
+SWIGINTERN PyObject *_wrap_CellVector_empty(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+  PyObject *resultobj = 0;
+  std::vector< Cell_ > *arg1 = (std::vector< Cell_ > *) 0 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  PyObject *swig_obj[1] ;
+  bool result;
+  
+  if (!args) SWIG_fail;
+  swig_obj[0] = args;
+  res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_std__vectorT_Cell__std__allocatorT_Cell__t_t, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "CellVector_empty" "', argument " "1"" of type '" "std::vector< Cell_ > const *""'"); 
+  }
+  arg1 = reinterpret_cast< std::vector< Cell_ > * >(argp1);
+  result = (bool)((std::vector< Cell_ > const *)arg1)->empty();
+  resultobj = SWIG_From_bool(static_cast< bool >(result));
+  return resultobj;
+fail:
+  return NULL;
+}
+
+
+SWIGINTERN PyObject *_wrap_CellVector_size(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+  PyObject *resultobj = 0;
+  std::vector< Cell_ > *arg1 = (std::vector< Cell_ > *) 0 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  PyObject *swig_obj[1] ;
+  std::vector< Cell_ >::size_type result;
+  
+  if (!args) SWIG_fail;
+  swig_obj[0] = args;
+  res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_std__vectorT_Cell__std__allocatorT_Cell__t_t, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "CellVector_size" "', argument " "1"" of type '" "std::vector< Cell_ > const *""'"); 
+  }
+  arg1 = reinterpret_cast< std::vector< Cell_ > * >(argp1);
+  result = ((std::vector< Cell_ > const *)arg1)->size();
+  resultobj = SWIG_From_size_t(static_cast< size_t >(result));
+  return resultobj;
+fail:
+  return NULL;
+}
+
+
+SWIGINTERN PyObject *_wrap_CellVector_swap(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+  PyObject *resultobj = 0;
+  std::vector< Cell_ > *arg1 = (std::vector< Cell_ > *) 0 ;
+  std::vector< Cell_ > *arg2 = 0 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  void *argp2 = 0 ;
+  int res2 = 0 ;
+  PyObject *swig_obj[2] ;
+  
+  if (!SWIG_Python_UnpackTuple(args, "CellVector_swap", 2, 2, swig_obj)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_std__vectorT_Cell__std__allocatorT_Cell__t_t, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "CellVector_swap" "', argument " "1"" of type '" "std::vector< Cell_ > *""'"); 
+  }
+  arg1 = reinterpret_cast< std::vector< Cell_ > * >(argp1);
+  res2 = SWIG_ConvertPtr(swig_obj[1], &argp2, SWIGTYPE_p_std__vectorT_Cell__std__allocatorT_Cell__t_t,  0 );
+  if (!SWIG_IsOK(res2)) {
+    SWIG_exception_fail(SWIG_ArgError(res2), "in method '" "CellVector_swap" "', argument " "2"" of type '" "std::vector< Cell_ > &""'"); 
+  }
+  if (!argp2) {
+    SWIG_exception_fail(SWIG_ValueError, "invalid null reference " "in method '" "CellVector_swap" "', argument " "2"" of type '" "std::vector< Cell_ > &""'"); 
+  }
+  arg2 = reinterpret_cast< std::vector< Cell_ > * >(argp2);
+  (arg1)->swap(*arg2);
+  resultobj = SWIG_Py_Void();
+  return resultobj;
+fail:
+  return NULL;
+}
+
+
+SWIGINTERN PyObject *_wrap_CellVector_begin(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+  PyObject *resultobj = 0;
+  std::vector< Cell_ > *arg1 = (std::vector< Cell_ > *) 0 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  PyObject *swig_obj[1] ;
+  std::vector< Cell_ >::iterator result;
+  
+  if (!args) SWIG_fail;
+  swig_obj[0] = args;
+  res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_std__vectorT_Cell__std__allocatorT_Cell__t_t, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "CellVector_begin" "', argument " "1"" of type '" "std::vector< Cell_ > *""'"); 
+  }
+  arg1 = reinterpret_cast< std::vector< Cell_ > * >(argp1);
+  result = (arg1)->begin();
+  resultobj = SWIG_NewPointerObj(swig::make_output_iterator(static_cast< const std::vector< Cell_ >::iterator & >(result)),
+    swig::SwigPyIterator::descriptor(),SWIG_POINTER_OWN);
+  return resultobj;
+fail:
+  return NULL;
+}
+
+
+SWIGINTERN PyObject *_wrap_CellVector_end(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+  PyObject *resultobj = 0;
+  std::vector< Cell_ > *arg1 = (std::vector< Cell_ > *) 0 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  PyObject *swig_obj[1] ;
+  std::vector< Cell_ >::iterator result;
+  
+  if (!args) SWIG_fail;
+  swig_obj[0] = args;
+  res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_std__vectorT_Cell__std__allocatorT_Cell__t_t, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "CellVector_end" "', argument " "1"" of type '" "std::vector< Cell_ > *""'"); 
+  }
+  arg1 = reinterpret_cast< std::vector< Cell_ > * >(argp1);
+  result = (arg1)->end();
+  resultobj = SWIG_NewPointerObj(swig::make_output_iterator(static_cast< const std::vector< Cell_ >::iterator & >(result)),
+    swig::SwigPyIterator::descriptor(),SWIG_POINTER_OWN);
+  return resultobj;
+fail:
+  return NULL;
+}
+
+
+SWIGINTERN PyObject *_wrap_CellVector_rbegin(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+  PyObject *resultobj = 0;
+  std::vector< Cell_ > *arg1 = (std::vector< Cell_ > *) 0 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  PyObject *swig_obj[1] ;
+  std::vector< Cell_ >::reverse_iterator result;
+  
+  if (!args) SWIG_fail;
+  swig_obj[0] = args;
+  res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_std__vectorT_Cell__std__allocatorT_Cell__t_t, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "CellVector_rbegin" "', argument " "1"" of type '" "std::vector< Cell_ > *""'"); 
+  }
+  arg1 = reinterpret_cast< std::vector< Cell_ > * >(argp1);
+  result = (arg1)->rbegin();
+  resultobj = SWIG_NewPointerObj(swig::make_output_iterator(static_cast< const std::vector< Cell_ >::reverse_iterator & >(result)),
+    swig::SwigPyIterator::descriptor(),SWIG_POINTER_OWN);
+  return resultobj;
+fail:
+  return NULL;
+}
+
+
+SWIGINTERN PyObject *_wrap_CellVector_rend(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+  PyObject *resultobj = 0;
+  std::vector< Cell_ > *arg1 = (std::vector< Cell_ > *) 0 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  PyObject *swig_obj[1] ;
+  std::vector< Cell_ >::reverse_iterator result;
+  
+  if (!args) SWIG_fail;
+  swig_obj[0] = args;
+  res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_std__vectorT_Cell__std__allocatorT_Cell__t_t, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "CellVector_rend" "', argument " "1"" of type '" "std::vector< Cell_ > *""'"); 
+  }
+  arg1 = reinterpret_cast< std::vector< Cell_ > * >(argp1);
+  result = (arg1)->rend();
+  resultobj = SWIG_NewPointerObj(swig::make_output_iterator(static_cast< const std::vector< Cell_ >::reverse_iterator & >(result)),
+    swig::SwigPyIterator::descriptor(),SWIG_POINTER_OWN);
+  return resultobj;
+fail:
+  return NULL;
+}
+
+
+SWIGINTERN PyObject *_wrap_CellVector_clear(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+  PyObject *resultobj = 0;
+  std::vector< Cell_ > *arg1 = (std::vector< Cell_ > *) 0 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  PyObject *swig_obj[1] ;
+  
+  if (!args) SWIG_fail;
+  swig_obj[0] = args;
+  res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_std__vectorT_Cell__std__allocatorT_Cell__t_t, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "CellVector_clear" "', argument " "1"" of type '" "std::vector< Cell_ > *""'"); 
+  }
+  arg1 = reinterpret_cast< std::vector< Cell_ > * >(argp1);
+  (arg1)->clear();
+  resultobj = SWIG_Py_Void();
+  return resultobj;
+fail:
+  return NULL;
+}
+
+
+SWIGINTERN PyObject *_wrap_CellVector_get_allocator(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+  PyObject *resultobj = 0;
+  std::vector< Cell_ > *arg1 = (std::vector< Cell_ > *) 0 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  PyObject *swig_obj[1] ;
+  SwigValueWrapper< std::allocator< Cell_ > > result;
+  
+  if (!args) SWIG_fail;
+  swig_obj[0] = args;
+  res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_std__vectorT_Cell__std__allocatorT_Cell__t_t, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "CellVector_get_allocator" "', argument " "1"" of type '" "std::vector< Cell_ > const *""'"); 
+  }
+  arg1 = reinterpret_cast< std::vector< Cell_ > * >(argp1);
+  result = ((std::vector< Cell_ > const *)arg1)->get_allocator();
+  resultobj = SWIG_NewPointerObj((new std::vector< Cell_ >::allocator_type(static_cast< const std::vector< Cell_ >::allocator_type& >(result))), SWIGTYPE_p_std__allocatorT_Cell__t, SWIG_POINTER_OWN |  0 );
+  return resultobj;
+fail:
+  return NULL;
+}
+
+
+SWIGINTERN PyObject *_wrap_new_CellVector__SWIG_2(PyObject *SWIGUNUSEDPARM(self), Py_ssize_t nobjs, PyObject **swig_obj) {
+  PyObject *resultobj = 0;
+  std::vector< Cell_ >::size_type arg1 ;
+  size_t val1 ;
+  int ecode1 = 0 ;
+  std::vector< Cell_ > *result = 0 ;
+  
+  if ((nobjs < 1) || (nobjs > 1)) SWIG_fail;
+  ecode1 = SWIG_AsVal_size_t(swig_obj[0], &val1);
+  if (!SWIG_IsOK(ecode1)) {
+    SWIG_exception_fail(SWIG_ArgError(ecode1), "in method '" "new_CellVector" "', argument " "1"" of type '" "std::vector< Cell_ >::size_type""'");
+  } 
+  arg1 = static_cast< std::vector< Cell_ >::size_type >(val1);
+  result = (std::vector< Cell_ > *)new std::vector< Cell_ >(arg1);
+  resultobj = SWIG_NewPointerObj(SWIG_as_voidptr(result), SWIGTYPE_p_std__vectorT_Cell__std__allocatorT_Cell__t_t, SWIG_POINTER_NEW |  0 );
+  return resultobj;
+fail:
+  return NULL;
+}
+
+
+SWIGINTERN PyObject *_wrap_CellVector_pop_back(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+  PyObject *resultobj = 0;
+  std::vector< Cell_ > *arg1 = (std::vector< Cell_ > *) 0 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  PyObject *swig_obj[1] ;
+  
+  if (!args) SWIG_fail;
+  swig_obj[0] = args;
+  res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_std__vectorT_Cell__std__allocatorT_Cell__t_t, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "CellVector_pop_back" "', argument " "1"" of type '" "std::vector< Cell_ > *""'"); 
+  }
+  arg1 = reinterpret_cast< std::vector< Cell_ > * >(argp1);
+  (arg1)->pop_back();
+  resultobj = SWIG_Py_Void();
+  return resultobj;
+fail:
+  return NULL;
+}
+
+
+SWIGINTERN PyObject *_wrap_CellVector_resize__SWIG_0(PyObject *SWIGUNUSEDPARM(self), Py_ssize_t nobjs, PyObject **swig_obj) {
+  PyObject *resultobj = 0;
+  std::vector< Cell_ > *arg1 = (std::vector< Cell_ > *) 0 ;
+  std::vector< Cell_ >::size_type arg2 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  size_t val2 ;
+  int ecode2 = 0 ;
+  
+  if ((nobjs < 2) || (nobjs > 2)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_std__vectorT_Cell__std__allocatorT_Cell__t_t, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "CellVector_resize" "', argument " "1"" of type '" "std::vector< Cell_ > *""'"); 
+  }
+  arg1 = reinterpret_cast< std::vector< Cell_ > * >(argp1);
+  ecode2 = SWIG_AsVal_size_t(swig_obj[1], &val2);
+  if (!SWIG_IsOK(ecode2)) {
+    SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "CellVector_resize" "', argument " "2"" of type '" "std::vector< Cell_ >::size_type""'");
+  } 
+  arg2 = static_cast< std::vector< Cell_ >::size_type >(val2);
+  (arg1)->resize(arg2);
+  resultobj = SWIG_Py_Void();
+  return resultobj;
+fail:
+  return NULL;
+}
+
+
+SWIGINTERN PyObject *_wrap_CellVector_erase__SWIG_0(PyObject *SWIGUNUSEDPARM(self), Py_ssize_t nobjs, PyObject **swig_obj) {
+  PyObject *resultobj = 0;
+  std::vector< Cell_ > *arg1 = (std::vector< Cell_ > *) 0 ;
+  std::vector< Cell_ >::iterator arg2 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  swig::SwigPyIterator *iter2 = 0 ;
+  int res2 ;
+  std::vector< Cell_ >::iterator result;
+  
+  if ((nobjs < 2) || (nobjs > 2)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_std__vectorT_Cell__std__allocatorT_Cell__t_t, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "CellVector_erase" "', argument " "1"" of type '" "std::vector< Cell_ > *""'"); 
+  }
+  arg1 = reinterpret_cast< std::vector< Cell_ > * >(argp1);
+  res2 = SWIG_ConvertPtr(swig_obj[1], SWIG_as_voidptrptr(&iter2), swig::SwigPyIterator::descriptor(), 0);
+  if (!SWIG_IsOK(res2) || !iter2) {
+    SWIG_exception_fail(SWIG_ArgError(SWIG_TypeError), "in method '" "CellVector_erase" "', argument " "2"" of type '" "std::vector< Cell_ >::iterator""'");
+  } else {
+    swig::SwigPyIterator_T<std::vector< Cell_ >::iterator > *iter_t = dynamic_cast<swig::SwigPyIterator_T<std::vector< Cell_ >::iterator > *>(iter2);
+    if (iter_t) {
+      arg2 = iter_t->get_current();
+    } else {
+      SWIG_exception_fail(SWIG_ArgError(SWIG_TypeError), "in method '" "CellVector_erase" "', argument " "2"" of type '" "std::vector< Cell_ >::iterator""'");
+    }
+  }
+  result = std_vector_Sl_Cell__Sg__erase__SWIG_0(arg1,arg2);
+  resultobj = SWIG_NewPointerObj(swig::make_output_iterator(static_cast< const std::vector< Cell_ >::iterator & >(result)),
+    swig::SwigPyIterator::descriptor(),SWIG_POINTER_OWN);
+  return resultobj;
+fail:
+  return NULL;
+}
+
+
+SWIGINTERN PyObject *_wrap_CellVector_erase__SWIG_1(PyObject *SWIGUNUSEDPARM(self), Py_ssize_t nobjs, PyObject **swig_obj) {
+  PyObject *resultobj = 0;
+  std::vector< Cell_ > *arg1 = (std::vector< Cell_ > *) 0 ;
+  std::vector< Cell_ >::iterator arg2 ;
+  std::vector< Cell_ >::iterator arg3 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  swig::SwigPyIterator *iter2 = 0 ;
+  int res2 ;
+  swig::SwigPyIterator *iter3 = 0 ;
+  int res3 ;
+  std::vector< Cell_ >::iterator result;
+  
+  if ((nobjs < 3) || (nobjs > 3)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_std__vectorT_Cell__std__allocatorT_Cell__t_t, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "CellVector_erase" "', argument " "1"" of type '" "std::vector< Cell_ > *""'"); 
+  }
+  arg1 = reinterpret_cast< std::vector< Cell_ > * >(argp1);
+  res2 = SWIG_ConvertPtr(swig_obj[1], SWIG_as_voidptrptr(&iter2), swig::SwigPyIterator::descriptor(), 0);
+  if (!SWIG_IsOK(res2) || !iter2) {
+    SWIG_exception_fail(SWIG_ArgError(SWIG_TypeError), "in method '" "CellVector_erase" "', argument " "2"" of type '" "std::vector< Cell_ >::iterator""'");
+  } else {
+    swig::SwigPyIterator_T<std::vector< Cell_ >::iterator > *iter_t = dynamic_cast<swig::SwigPyIterator_T<std::vector< Cell_ >::iterator > *>(iter2);
+    if (iter_t) {
+      arg2 = iter_t->get_current();
+    } else {
+      SWIG_exception_fail(SWIG_ArgError(SWIG_TypeError), "in method '" "CellVector_erase" "', argument " "2"" of type '" "std::vector< Cell_ >::iterator""'");
+    }
+  }
+  res3 = SWIG_ConvertPtr(swig_obj[2], SWIG_as_voidptrptr(&iter3), swig::SwigPyIterator::descriptor(), 0);
+  if (!SWIG_IsOK(res3) || !iter3) {
+    SWIG_exception_fail(SWIG_ArgError(SWIG_TypeError), "in method '" "CellVector_erase" "', argument " "3"" of type '" "std::vector< Cell_ >::iterator""'");
+  } else {
+    swig::SwigPyIterator_T<std::vector< Cell_ >::iterator > *iter_t = dynamic_cast<swig::SwigPyIterator_T<std::vector< Cell_ >::iterator > *>(iter3);
+    if (iter_t) {
+      arg3 = iter_t->get_current();
+    } else {
+      SWIG_exception_fail(SWIG_ArgError(SWIG_TypeError), "in method '" "CellVector_erase" "', argument " "3"" of type '" "std::vector< Cell_ >::iterator""'");
+    }
+  }
+  result = std_vector_Sl_Cell__Sg__erase__SWIG_1(arg1,arg2,arg3);
+  resultobj = SWIG_NewPointerObj(swig::make_output_iterator(static_cast< const std::vector< Cell_ >::iterator & >(result)),
+    swig::SwigPyIterator::descriptor(),SWIG_POINTER_OWN);
+  return resultobj;
+fail:
+  return NULL;
+}
+
+
+SWIGINTERN PyObject *_wrap_CellVector_erase(PyObject *self, PyObject *args) {
+  Py_ssize_t argc;
+  PyObject *argv[4] = {
+    0
+  };
+  
+  if (!(argc = SWIG_Python_UnpackTuple(args, "CellVector_erase", 0, 3, argv))) SWIG_fail;
+  --argc;
+  if (argc == 2) {
+    int _v;
+    int res = swig::asptr(argv[0], (std::vector< Cell_,std::allocator< Cell_ > >**)(0));
+    _v = SWIG_CheckState(res);
+    if (_v) {
+      swig::SwigPyIterator *iter = 0;
+      int res = SWIG_ConvertPtr(argv[1], SWIG_as_voidptrptr(&iter), swig::SwigPyIterator::descriptor(), 0);
+      _v = (SWIG_IsOK(res) && iter && (dynamic_cast<swig::SwigPyIterator_T<std::vector< Cell_ >::iterator > *>(iter) != 0));
+      if (_v) {
+        return _wrap_CellVector_erase__SWIG_0(self, argc, argv);
+      }
+    }
+  }
+  if (argc == 3) {
+    int _v;
+    int res = swig::asptr(argv[0], (std::vector< Cell_,std::allocator< Cell_ > >**)(0));
+    _v = SWIG_CheckState(res);
+    if (_v) {
+      swig::SwigPyIterator *iter = 0;
+      int res = SWIG_ConvertPtr(argv[1], SWIG_as_voidptrptr(&iter), swig::SwigPyIterator::descriptor(), 0);
+      _v = (SWIG_IsOK(res) && iter && (dynamic_cast<swig::SwigPyIterator_T<std::vector< Cell_ >::iterator > *>(iter) != 0));
+      if (_v) {
+        swig::SwigPyIterator *iter = 0;
+        int res = SWIG_ConvertPtr(argv[2], SWIG_as_voidptrptr(&iter), swig::SwigPyIterator::descriptor(), 0);
+        _v = (SWIG_IsOK(res) && iter && (dynamic_cast<swig::SwigPyIterator_T<std::vector< Cell_ >::iterator > *>(iter) != 0));
+        if (_v) {
+          return _wrap_CellVector_erase__SWIG_1(self, argc, argv);
+        }
+      }
+    }
+  }
+  
+fail:
+  SWIG_Python_RaiseOrModifyTypeError("Wrong number or type of arguments for overloaded function 'CellVector_erase'.\n"
+    "  Possible C/C++ prototypes are:\n"
+    "    std::vector< Cell_ >::erase(std::vector< Cell_ >::iterator)\n"
+    "    std::vector< Cell_ >::erase(std::vector< Cell_ >::iterator,std::vector< Cell_ >::iterator)\n");
+  return 0;
+}
+
+
+SWIGINTERN PyObject *_wrap_new_CellVector__SWIG_3(PyObject *SWIGUNUSEDPARM(self), Py_ssize_t nobjs, PyObject **swig_obj) {
+  PyObject *resultobj = 0;
+  std::vector< Cell_ >::size_type arg1 ;
+  std::vector< Cell_ >::value_type *arg2 = 0 ;
+  size_t val1 ;
+  int ecode1 = 0 ;
+  void *argp2 = 0 ;
+  int res2 = 0 ;
+  std::vector< Cell_ > *result = 0 ;
+  
+  if ((nobjs < 2) || (nobjs > 2)) SWIG_fail;
+  ecode1 = SWIG_AsVal_size_t(swig_obj[0], &val1);
+  if (!SWIG_IsOK(ecode1)) {
+    SWIG_exception_fail(SWIG_ArgError(ecode1), "in method '" "new_CellVector" "', argument " "1"" of type '" "std::vector< Cell_ >::size_type""'");
+  } 
+  arg1 = static_cast< std::vector< Cell_ >::size_type >(val1);
+  res2 = SWIG_ConvertPtr(swig_obj[1], &argp2, SWIGTYPE_p_Cell_,  0  | 0);
+  if (!SWIG_IsOK(res2)) {
+    SWIG_exception_fail(SWIG_ArgError(res2), "in method '" "new_CellVector" "', argument " "2"" of type '" "std::vector< Cell_ >::value_type const &""'"); 
+  }
+  if (!argp2) {
+    SWIG_exception_fail(SWIG_ValueError, "invalid null reference " "in method '" "new_CellVector" "', argument " "2"" of type '" "std::vector< Cell_ >::value_type const &""'"); 
+  }
+  arg2 = reinterpret_cast< std::vector< Cell_ >::value_type * >(argp2);
+  result = (std::vector< Cell_ > *)new std::vector< Cell_ >(arg1,(std::vector< Cell_ >::value_type const &)*arg2);
+  resultobj = SWIG_NewPointerObj(SWIG_as_voidptr(result), SWIGTYPE_p_std__vectorT_Cell__std__allocatorT_Cell__t_t, SWIG_POINTER_NEW |  0 );
+  return resultobj;
+fail:
+  return NULL;
+}
+
+
+SWIGINTERN PyObject *_wrap_new_CellVector(PyObject *self, PyObject *args) {
+  Py_ssize_t argc;
+  PyObject *argv[3] = {
+    0
+  };
+  
+  if (!(argc = SWIG_Python_UnpackTuple(args, "new_CellVector", 0, 2, argv))) SWIG_fail;
+  --argc;
+  if (argc == 0) {
+    return _wrap_new_CellVector__SWIG_0(self, argc, argv);
+  }
+  if (argc == 1) {
+    int _v;
+    {
+      int res = SWIG_AsVal_size_t(argv[0], NULL);
+      _v = SWIG_CheckState(res);
+    }
+    if (_v) {
+      return _wrap_new_CellVector__SWIG_2(self, argc, argv);
+    }
+  }
+  if (argc == 1) {
+    int _v;
+    int res = swig::asptr(argv[0], (std::vector< Cell_,std::allocator< Cell_ > >**)(0));
+    _v = SWIG_CheckState(res);
+    if (_v) {
+      return _wrap_new_CellVector__SWIG_1(self, argc, argv);
+    }
+  }
+  if (argc == 2) {
+    int _v;
+    {
+      int res = SWIG_AsVal_size_t(argv[0], NULL);
+      _v = SWIG_CheckState(res);
+    }
+    if (_v) {
+      int res = SWIG_ConvertPtr(argv[1], 0, SWIGTYPE_p_Cell_, SWIG_POINTER_NO_NULL | 0);
+      _v = SWIG_CheckState(res);
+      if (_v) {
+        return _wrap_new_CellVector__SWIG_3(self, argc, argv);
+      }
+    }
+  }
+  
+fail:
+  SWIG_Python_RaiseOrModifyTypeError("Wrong number or type of arguments for overloaded function 'new_CellVector'.\n"
+    "  Possible C/C++ prototypes are:\n"
+    "    std::vector< Cell_ >::vector()\n"
+    "    std::vector< Cell_ >::vector(std::vector< Cell_ > const &)\n"
+    "    std::vector< Cell_ >::vector(std::vector< Cell_ >::size_type)\n"
+    "    std::vector< Cell_ >::vector(std::vector< Cell_ >::size_type,std::vector< Cell_ >::value_type const &)\n");
+  return 0;
+}
+
+
+SWIGINTERN PyObject *_wrap_CellVector_push_back(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+  PyObject *resultobj = 0;
+  std::vector< Cell_ > *arg1 = (std::vector< Cell_ > *) 0 ;
+  std::vector< Cell_ >::value_type *arg2 = 0 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  void *argp2 = 0 ;
+  int res2 = 0 ;
+  PyObject *swig_obj[2] ;
+  
+  if (!SWIG_Python_UnpackTuple(args, "CellVector_push_back", 2, 2, swig_obj)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_std__vectorT_Cell__std__allocatorT_Cell__t_t, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "CellVector_push_back" "', argument " "1"" of type '" "std::vector< Cell_ > *""'"); 
+  }
+  arg1 = reinterpret_cast< std::vector< Cell_ > * >(argp1);
+  res2 = SWIG_ConvertPtr(swig_obj[1], &argp2, SWIGTYPE_p_Cell_,  0  | 0);
+  if (!SWIG_IsOK(res2)) {
+    SWIG_exception_fail(SWIG_ArgError(res2), "in method '" "CellVector_push_back" "', argument " "2"" of type '" "std::vector< Cell_ >::value_type const &""'"); 
+  }
+  if (!argp2) {
+    SWIG_exception_fail(SWIG_ValueError, "invalid null reference " "in method '" "CellVector_push_back" "', argument " "2"" of type '" "std::vector< Cell_ >::value_type const &""'"); 
+  }
+  arg2 = reinterpret_cast< std::vector< Cell_ >::value_type * >(argp2);
+  (arg1)->push_back((std::vector< Cell_ >::value_type const &)*arg2);
+  resultobj = SWIG_Py_Void();
+  return resultobj;
+fail:
+  return NULL;
+}
+
+
+SWIGINTERN PyObject *_wrap_CellVector_front(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+  PyObject *resultobj = 0;
+  std::vector< Cell_ > *arg1 = (std::vector< Cell_ > *) 0 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  PyObject *swig_obj[1] ;
+  std::vector< Cell_ >::value_type *result = 0 ;
+  
+  if (!args) SWIG_fail;
+  swig_obj[0] = args;
+  res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_std__vectorT_Cell__std__allocatorT_Cell__t_t, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "CellVector_front" "', argument " "1"" of type '" "std::vector< Cell_ > const *""'"); 
+  }
+  arg1 = reinterpret_cast< std::vector< Cell_ > * >(argp1);
+  result = (std::vector< Cell_ >::value_type *) &((std::vector< Cell_ > const *)arg1)->front();
+  resultobj = SWIG_NewPointerObj(SWIG_as_voidptr(result), SWIGTYPE_p_Cell_, 0 |  0 );
+  (void)swig::container_owner<swig::traits<std::vector< Cell_ >::value_type>::category>::back_reference(resultobj, swig_obj[0]);
+  return resultobj;
+fail:
+  return NULL;
+}
+
+
+SWIGINTERN PyObject *_wrap_CellVector_back(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+  PyObject *resultobj = 0;
+  std::vector< Cell_ > *arg1 = (std::vector< Cell_ > *) 0 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  PyObject *swig_obj[1] ;
+  std::vector< Cell_ >::value_type *result = 0 ;
+  
+  if (!args) SWIG_fail;
+  swig_obj[0] = args;
+  res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_std__vectorT_Cell__std__allocatorT_Cell__t_t, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "CellVector_back" "', argument " "1"" of type '" "std::vector< Cell_ > const *""'"); 
+  }
+  arg1 = reinterpret_cast< std::vector< Cell_ > * >(argp1);
+  result = (std::vector< Cell_ >::value_type *) &((std::vector< Cell_ > const *)arg1)->back();
+  resultobj = SWIG_NewPointerObj(SWIG_as_voidptr(result), SWIGTYPE_p_Cell_, 0 |  0 );
+  (void)swig::container_owner<swig::traits<std::vector< Cell_ >::value_type>::category>::back_reference(resultobj, swig_obj[0]);
+  return resultobj;
+fail:
+  return NULL;
+}
+
+
+SWIGINTERN PyObject *_wrap_CellVector_assign(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+  PyObject *resultobj = 0;
+  std::vector< Cell_ > *arg1 = (std::vector< Cell_ > *) 0 ;
+  std::vector< Cell_ >::size_type arg2 ;
+  std::vector< Cell_ >::value_type *arg3 = 0 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  size_t val2 ;
+  int ecode2 = 0 ;
+  void *argp3 = 0 ;
+  int res3 = 0 ;
+  PyObject *swig_obj[3] ;
+  
+  if (!SWIG_Python_UnpackTuple(args, "CellVector_assign", 3, 3, swig_obj)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_std__vectorT_Cell__std__allocatorT_Cell__t_t, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "CellVector_assign" "', argument " "1"" of type '" "std::vector< Cell_ > *""'"); 
+  }
+  arg1 = reinterpret_cast< std::vector< Cell_ > * >(argp1);
+  ecode2 = SWIG_AsVal_size_t(swig_obj[1], &val2);
+  if (!SWIG_IsOK(ecode2)) {
+    SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "CellVector_assign" "', argument " "2"" of type '" "std::vector< Cell_ >::size_type""'");
+  } 
+  arg2 = static_cast< std::vector< Cell_ >::size_type >(val2);
+  res3 = SWIG_ConvertPtr(swig_obj[2], &argp3, SWIGTYPE_p_Cell_,  0  | 0);
+  if (!SWIG_IsOK(res3)) {
+    SWIG_exception_fail(SWIG_ArgError(res3), "in method '" "CellVector_assign" "', argument " "3"" of type '" "std::vector< Cell_ >::value_type const &""'"); 
+  }
+  if (!argp3) {
+    SWIG_exception_fail(SWIG_ValueError, "invalid null reference " "in method '" "CellVector_assign" "', argument " "3"" of type '" "std::vector< Cell_ >::value_type const &""'"); 
+  }
+  arg3 = reinterpret_cast< std::vector< Cell_ >::value_type * >(argp3);
+  (arg1)->assign(arg2,(std::vector< Cell_ >::value_type const &)*arg3);
+  resultobj = SWIG_Py_Void();
+  return resultobj;
+fail:
+  return NULL;
+}
+
+
+SWIGINTERN PyObject *_wrap_CellVector_resize__SWIG_1(PyObject *SWIGUNUSEDPARM(self), Py_ssize_t nobjs, PyObject **swig_obj) {
+  PyObject *resultobj = 0;
+  std::vector< Cell_ > *arg1 = (std::vector< Cell_ > *) 0 ;
+  std::vector< Cell_ >::size_type arg2 ;
+  std::vector< Cell_ >::value_type *arg3 = 0 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  size_t val2 ;
+  int ecode2 = 0 ;
+  void *argp3 = 0 ;
+  int res3 = 0 ;
+  
+  if ((nobjs < 3) || (nobjs > 3)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_std__vectorT_Cell__std__allocatorT_Cell__t_t, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "CellVector_resize" "', argument " "1"" of type '" "std::vector< Cell_ > *""'"); 
+  }
+  arg1 = reinterpret_cast< std::vector< Cell_ > * >(argp1);
+  ecode2 = SWIG_AsVal_size_t(swig_obj[1], &val2);
+  if (!SWIG_IsOK(ecode2)) {
+    SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "CellVector_resize" "', argument " "2"" of type '" "std::vector< Cell_ >::size_type""'");
+  } 
+  arg2 = static_cast< std::vector< Cell_ >::size_type >(val2);
+  res3 = SWIG_ConvertPtr(swig_obj[2], &argp3, SWIGTYPE_p_Cell_,  0  | 0);
+  if (!SWIG_IsOK(res3)) {
+    SWIG_exception_fail(SWIG_ArgError(res3), "in method '" "CellVector_resize" "', argument " "3"" of type '" "std::vector< Cell_ >::value_type const &""'"); 
+  }
+  if (!argp3) {
+    SWIG_exception_fail(SWIG_ValueError, "invalid null reference " "in method '" "CellVector_resize" "', argument " "3"" of type '" "std::vector< Cell_ >::value_type const &""'"); 
+  }
+  arg3 = reinterpret_cast< std::vector< Cell_ >::value_type * >(argp3);
+  (arg1)->resize(arg2,(std::vector< Cell_ >::value_type const &)*arg3);
+  resultobj = SWIG_Py_Void();
+  return resultobj;
+fail:
+  return NULL;
+}
+
+
+SWIGINTERN PyObject *_wrap_CellVector_resize(PyObject *self, PyObject *args) {
+  Py_ssize_t argc;
+  PyObject *argv[4] = {
+    0
+  };
+  
+  if (!(argc = SWIG_Python_UnpackTuple(args, "CellVector_resize", 0, 3, argv))) SWIG_fail;
+  --argc;
+  if (argc == 2) {
+    int _v;
+    int res = swig::asptr(argv[0], (std::vector< Cell_,std::allocator< Cell_ > >**)(0));
+    _v = SWIG_CheckState(res);
+    if (_v) {
+      {
+        int res = SWIG_AsVal_size_t(argv[1], NULL);
+        _v = SWIG_CheckState(res);
+      }
+      if (_v) {
+        return _wrap_CellVector_resize__SWIG_0(self, argc, argv);
+      }
+    }
+  }
+  if (argc == 3) {
+    int _v;
+    int res = swig::asptr(argv[0], (std::vector< Cell_,std::allocator< Cell_ > >**)(0));
+    _v = SWIG_CheckState(res);
+    if (_v) {
+      {
+        int res = SWIG_AsVal_size_t(argv[1], NULL);
+        _v = SWIG_CheckState(res);
+      }
+      if (_v) {
+        int res = SWIG_ConvertPtr(argv[2], 0, SWIGTYPE_p_Cell_, SWIG_POINTER_NO_NULL | 0);
+        _v = SWIG_CheckState(res);
+        if (_v) {
+          return _wrap_CellVector_resize__SWIG_1(self, argc, argv);
+        }
+      }
+    }
+  }
+  
+fail:
+  SWIG_Python_RaiseOrModifyTypeError("Wrong number or type of arguments for overloaded function 'CellVector_resize'.\n"
+    "  Possible C/C++ prototypes are:\n"
+    "    std::vector< Cell_ >::resize(std::vector< Cell_ >::size_type)\n"
+    "    std::vector< Cell_ >::resize(std::vector< Cell_ >::size_type,std::vector< Cell_ >::value_type const &)\n");
+  return 0;
+}
+
+
+SWIGINTERN PyObject *_wrap_CellVector_insert__SWIG_0(PyObject *SWIGUNUSEDPARM(self), Py_ssize_t nobjs, PyObject **swig_obj) {
+  PyObject *resultobj = 0;
+  std::vector< Cell_ > *arg1 = (std::vector< Cell_ > *) 0 ;
+  std::vector< Cell_ >::iterator arg2 ;
+  std::vector< Cell_ >::value_type *arg3 = 0 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  swig::SwigPyIterator *iter2 = 0 ;
+  int res2 ;
+  void *argp3 = 0 ;
+  int res3 = 0 ;
+  std::vector< Cell_ >::iterator result;
+  
+  if ((nobjs < 3) || (nobjs > 3)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_std__vectorT_Cell__std__allocatorT_Cell__t_t, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "CellVector_insert" "', argument " "1"" of type '" "std::vector< Cell_ > *""'"); 
+  }
+  arg1 = reinterpret_cast< std::vector< Cell_ > * >(argp1);
+  res2 = SWIG_ConvertPtr(swig_obj[1], SWIG_as_voidptrptr(&iter2), swig::SwigPyIterator::descriptor(), 0);
+  if (!SWIG_IsOK(res2) || !iter2) {
+    SWIG_exception_fail(SWIG_ArgError(SWIG_TypeError), "in method '" "CellVector_insert" "', argument " "2"" of type '" "std::vector< Cell_ >::iterator""'");
+  } else {
+    swig::SwigPyIterator_T<std::vector< Cell_ >::iterator > *iter_t = dynamic_cast<swig::SwigPyIterator_T<std::vector< Cell_ >::iterator > *>(iter2);
+    if (iter_t) {
+      arg2 = iter_t->get_current();
+    } else {
+      SWIG_exception_fail(SWIG_ArgError(SWIG_TypeError), "in method '" "CellVector_insert" "', argument " "2"" of type '" "std::vector< Cell_ >::iterator""'");
+    }
+  }
+  res3 = SWIG_ConvertPtr(swig_obj[2], &argp3, SWIGTYPE_p_Cell_,  0  | 0);
+  if (!SWIG_IsOK(res3)) {
+    SWIG_exception_fail(SWIG_ArgError(res3), "in method '" "CellVector_insert" "', argument " "3"" of type '" "std::vector< Cell_ >::value_type const &""'"); 
+  }
+  if (!argp3) {
+    SWIG_exception_fail(SWIG_ValueError, "invalid null reference " "in method '" "CellVector_insert" "', argument " "3"" of type '" "std::vector< Cell_ >::value_type const &""'"); 
+  }
+  arg3 = reinterpret_cast< std::vector< Cell_ >::value_type * >(argp3);
+  result = std_vector_Sl_Cell__Sg__insert__SWIG_0(arg1,arg2,(Cell_ const &)*arg3);
+  resultobj = SWIG_NewPointerObj(swig::make_output_iterator(static_cast< const std::vector< Cell_ >::iterator & >(result)),
+    swig::SwigPyIterator::descriptor(),SWIG_POINTER_OWN);
+  return resultobj;
+fail:
+  return NULL;
+}
+
+
+SWIGINTERN PyObject *_wrap_CellVector_insert__SWIG_1(PyObject *SWIGUNUSEDPARM(self), Py_ssize_t nobjs, PyObject **swig_obj) {
+  PyObject *resultobj = 0;
+  std::vector< Cell_ > *arg1 = (std::vector< Cell_ > *) 0 ;
+  std::vector< Cell_ >::iterator arg2 ;
+  std::vector< Cell_ >::size_type arg3 ;
+  std::vector< Cell_ >::value_type *arg4 = 0 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  swig::SwigPyIterator *iter2 = 0 ;
+  int res2 ;
+  size_t val3 ;
+  int ecode3 = 0 ;
+  void *argp4 = 0 ;
+  int res4 = 0 ;
+  
+  if ((nobjs < 4) || (nobjs > 4)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_std__vectorT_Cell__std__allocatorT_Cell__t_t, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "CellVector_insert" "', argument " "1"" of type '" "std::vector< Cell_ > *""'"); 
+  }
+  arg1 = reinterpret_cast< std::vector< Cell_ > * >(argp1);
+  res2 = SWIG_ConvertPtr(swig_obj[1], SWIG_as_voidptrptr(&iter2), swig::SwigPyIterator::descriptor(), 0);
+  if (!SWIG_IsOK(res2) || !iter2) {
+    SWIG_exception_fail(SWIG_ArgError(SWIG_TypeError), "in method '" "CellVector_insert" "', argument " "2"" of type '" "std::vector< Cell_ >::iterator""'");
+  } else {
+    swig::SwigPyIterator_T<std::vector< Cell_ >::iterator > *iter_t = dynamic_cast<swig::SwigPyIterator_T<std::vector< Cell_ >::iterator > *>(iter2);
+    if (iter_t) {
+      arg2 = iter_t->get_current();
+    } else {
+      SWIG_exception_fail(SWIG_ArgError(SWIG_TypeError), "in method '" "CellVector_insert" "', argument " "2"" of type '" "std::vector< Cell_ >::iterator""'");
+    }
+  }
+  ecode3 = SWIG_AsVal_size_t(swig_obj[2], &val3);
+  if (!SWIG_IsOK(ecode3)) {
+    SWIG_exception_fail(SWIG_ArgError(ecode3), "in method '" "CellVector_insert" "', argument " "3"" of type '" "std::vector< Cell_ >::size_type""'");
+  } 
+  arg3 = static_cast< std::vector< Cell_ >::size_type >(val3);
+  res4 = SWIG_ConvertPtr(swig_obj[3], &argp4, SWIGTYPE_p_Cell_,  0  | 0);
+  if (!SWIG_IsOK(res4)) {
+    SWIG_exception_fail(SWIG_ArgError(res4), "in method '" "CellVector_insert" "', argument " "4"" of type '" "std::vector< Cell_ >::value_type const &""'"); 
+  }
+  if (!argp4) {
+    SWIG_exception_fail(SWIG_ValueError, "invalid null reference " "in method '" "CellVector_insert" "', argument " "4"" of type '" "std::vector< Cell_ >::value_type const &""'"); 
+  }
+  arg4 = reinterpret_cast< std::vector< Cell_ >::value_type * >(argp4);
+  std_vector_Sl_Cell__Sg__insert__SWIG_1(arg1,arg2,arg3,(Cell_ const &)*arg4);
+  resultobj = SWIG_Py_Void();
+  return resultobj;
+fail:
+  return NULL;
+}
+
+
+SWIGINTERN PyObject *_wrap_CellVector_insert(PyObject *self, PyObject *args) {
+  Py_ssize_t argc;
+  PyObject *argv[5] = {
+    0
+  };
+  
+  if (!(argc = SWIG_Python_UnpackTuple(args, "CellVector_insert", 0, 4, argv))) SWIG_fail;
+  --argc;
+  if (argc == 3) {
+    int _v;
+    int res = swig::asptr(argv[0], (std::vector< Cell_,std::allocator< Cell_ > >**)(0));
+    _v = SWIG_CheckState(res);
+    if (_v) {
+      swig::SwigPyIterator *iter = 0;
+      int res = SWIG_ConvertPtr(argv[1], SWIG_as_voidptrptr(&iter), swig::SwigPyIterator::descriptor(), 0);
+      _v = (SWIG_IsOK(res) && iter && (dynamic_cast<swig::SwigPyIterator_T<std::vector< Cell_ >::iterator > *>(iter) != 0));
+      if (_v) {
+        int res = SWIG_ConvertPtr(argv[2], 0, SWIGTYPE_p_Cell_, SWIG_POINTER_NO_NULL | 0);
+        _v = SWIG_CheckState(res);
+        if (_v) {
+          return _wrap_CellVector_insert__SWIG_0(self, argc, argv);
+        }
+      }
+    }
+  }
+  if (argc == 4) {
+    int _v;
+    int res = swig::asptr(argv[0], (std::vector< Cell_,std::allocator< Cell_ > >**)(0));
+    _v = SWIG_CheckState(res);
+    if (_v) {
+      swig::SwigPyIterator *iter = 0;
+      int res = SWIG_ConvertPtr(argv[1], SWIG_as_voidptrptr(&iter), swig::SwigPyIterator::descriptor(), 0);
+      _v = (SWIG_IsOK(res) && iter && (dynamic_cast<swig::SwigPyIterator_T<std::vector< Cell_ >::iterator > *>(iter) != 0));
+      if (_v) {
+        {
+          int res = SWIG_AsVal_size_t(argv[2], NULL);
+          _v = SWIG_CheckState(res);
+        }
+        if (_v) {
+          int res = SWIG_ConvertPtr(argv[3], 0, SWIGTYPE_p_Cell_, SWIG_POINTER_NO_NULL | 0);
+          _v = SWIG_CheckState(res);
+          if (_v) {
+            return _wrap_CellVector_insert__SWIG_1(self, argc, argv);
+          }
+        }
+      }
+    }
+  }
+  
+fail:
+  SWIG_Python_RaiseOrModifyTypeError("Wrong number or type of arguments for overloaded function 'CellVector_insert'.\n"
+    "  Possible C/C++ prototypes are:\n"
+    "    std::vector< Cell_ >::insert(std::vector< Cell_ >::iterator,std::vector< Cell_ >::value_type const &)\n"
+    "    std::vector< Cell_ >::insert(std::vector< Cell_ >::iterator,std::vector< Cell_ >::size_type,std::vector< Cell_ >::value_type const &)\n");
+  return 0;
+}
+
+
+SWIGINTERN PyObject *_wrap_CellVector_reserve(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+  PyObject *resultobj = 0;
+  std::vector< Cell_ > *arg1 = (std::vector< Cell_ > *) 0 ;
+  std::vector< Cell_ >::size_type arg2 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  size_t val2 ;
+  int ecode2 = 0 ;
+  PyObject *swig_obj[2] ;
+  
+  if (!SWIG_Python_UnpackTuple(args, "CellVector_reserve", 2, 2, swig_obj)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_std__vectorT_Cell__std__allocatorT_Cell__t_t, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "CellVector_reserve" "', argument " "1"" of type '" "std::vector< Cell_ > *""'"); 
+  }
+  arg1 = reinterpret_cast< std::vector< Cell_ > * >(argp1);
+  ecode2 = SWIG_AsVal_size_t(swig_obj[1], &val2);
+  if (!SWIG_IsOK(ecode2)) {
+    SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "CellVector_reserve" "', argument " "2"" of type '" "std::vector< Cell_ >::size_type""'");
+  } 
+  arg2 = static_cast< std::vector< Cell_ >::size_type >(val2);
+  (arg1)->reserve(arg2);
+  resultobj = SWIG_Py_Void();
+  return resultobj;
+fail:
+  return NULL;
+}
+
+
+SWIGINTERN PyObject *_wrap_CellVector_capacity(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+  PyObject *resultobj = 0;
+  std::vector< Cell_ > *arg1 = (std::vector< Cell_ > *) 0 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  PyObject *swig_obj[1] ;
+  std::vector< Cell_ >::size_type result;
+  
+  if (!args) SWIG_fail;
+  swig_obj[0] = args;
+  res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_std__vectorT_Cell__std__allocatorT_Cell__t_t, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "CellVector_capacity" "', argument " "1"" of type '" "std::vector< Cell_ > const *""'"); 
+  }
+  arg1 = reinterpret_cast< std::vector< Cell_ > * >(argp1);
+  result = ((std::vector< Cell_ > const *)arg1)->capacity();
+  resultobj = SWIG_From_size_t(static_cast< size_t >(result));
+  return resultobj;
+fail:
+  return NULL;
+}
+
+
+SWIGINTERN PyObject *_wrap_delete_CellVector(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+  PyObject *resultobj = 0;
+  std::vector< Cell_ > *arg1 = (std::vector< Cell_ > *) 0 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  PyObject *swig_obj[1] ;
+  
+  if (!args) SWIG_fail;
+  swig_obj[0] = args;
+  res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_std__vectorT_Cell__std__allocatorT_Cell__t_t, SWIG_POINTER_DISOWN |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "delete_CellVector" "', argument " "1"" of type '" "std::vector< Cell_ > *""'"); 
+  }
+  arg1 = reinterpret_cast< std::vector< Cell_ > * >(argp1);
+  delete arg1;
+  resultobj = SWIG_Py_Void();
+  return resultobj;
+fail:
+  return NULL;
+}
+
+
+SWIGINTERN PyObject *CellVector_swigregister(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+  PyObject *obj;
+  if (!SWIG_Python_UnpackTuple(args, "swigregister", 1, 1, &obj)) return NULL;
+  SWIG_TypeNewClientData(SWIGTYPE_p_std__vectorT_Cell__std__allocatorT_Cell__t_t, SWIG_NewClientData(obj));
+  return SWIG_Py_Void();
+}
+
+SWIGINTERN PyObject *CellVector_swiginit(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+  return SWIG_Python_InitShadowInstance(args);
+}
+
+SWIGINTERN PyObject *_wrap_EvaluationDate_Get(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+  PyObject *resultobj = 0;
+  SwigValueWrapper< Date_ > result;
+  
+  if (!SWIG_Python_UnpackTuple(args, "EvaluationDate_Get", 0, 0, 0)) SWIG_fail;
+  result = EvaluationDate_Get();
+  resultobj = SWIG_NewPointerObj((new Date_(static_cast< const Date_& >(result))), SWIGTYPE_p_Date_, SWIG_POINTER_OWN |  0 );
+  return resultobj;
+fail:
+  return NULL;
+}
+
+
+SWIGINTERN PyObject *_wrap_EvaluationDate_Set(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+  PyObject *resultobj = 0;
+  Date_ *arg1 = 0 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  PyObject *swig_obj[1] ;
+  
+  if (!args) SWIG_fail;
+  swig_obj[0] = args;
+  res1 = SWIG_ConvertPtr(swig_obj[0], &argp1, SWIGTYPE_p_Date_,  0  | 0);
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "EvaluationDate_Set" "', argument " "1"" of type '" "Date_ const &""'"); 
+  }
+  if (!argp1) {
+    SWIG_exception_fail(SWIG_ValueError, "invalid null reference " "in method '" "EvaluationDate_Set" "', argument " "1"" of type '" "Date_ const &""'"); 
+  }
+  arg1 = reinterpret_cast< Date_ * >(argp1);
+  EvaluationDate_Set((Date_ const &)*arg1);
+  resultobj = SWIG_Py_Void();
+  return resultobj;
+fail:
+  return NULL;
+}
+
+
 SWIGINTERN PyObject *_wrap_new_DoubleMatrix___SWIG_0(PyObject *SWIGUNUSEDPARM(self), Py_ssize_t nobjs, PyObject **swig_obj) {
   PyObject *resultobj = 0;
   int arg1 ;
@@ -12952,7 +15101,7 @@ SWIGINTERN PyObject *ScriptProductData__swiginit(PyObject *SWIGUNUSEDPARM(self),
 
 SWIGINTERN PyObject *_wrap_Product_New(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
   PyObject *resultobj = 0;
-  std::vector< Date_,std::allocator< Date_ > > *arg1 = 0 ;
+  std::vector< Cell_,std::allocator< Cell_ > > *arg1 = 0 ;
   std::vector< std::string,std::allocator< std::string > > *arg2 = 0 ;
   int res1 = SWIG_OLDOBJ ;
   int res2 = SWIG_OLDOBJ ;
@@ -12961,13 +15110,13 @@ SWIGINTERN PyObject *_wrap_Product_New(PyObject *SWIGUNUSEDPARM(self), PyObject 
   
   if (!SWIG_Python_UnpackTuple(args, "Product_New", 2, 2, swig_obj)) SWIG_fail;
   {
-    std::vector< Date_,std::allocator< Date_ > > *ptr = (std::vector< Date_,std::allocator< Date_ > > *)0;
+    std::vector< Cell_,std::allocator< Cell_ > > *ptr = (std::vector< Cell_,std::allocator< Cell_ > > *)0;
     res1 = swig::asptr(swig_obj[0], &ptr);
     if (!SWIG_IsOK(res1)) {
-      SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Product_New" "', argument " "1"" of type '" "std::vector< Date_,std::allocator< Date_ > > const &""'"); 
+      SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Product_New" "', argument " "1"" of type '" "std::vector< Cell_,std::allocator< Cell_ > > const &""'"); 
     }
     if (!ptr) {
-      SWIG_exception_fail(SWIG_ValueError, "invalid null reference " "in method '" "Product_New" "', argument " "1"" of type '" "std::vector< Date_,std::allocator< Date_ > > const &""'"); 
+      SWIG_exception_fail(SWIG_ValueError, "invalid null reference " "in method '" "Product_New" "', argument " "1"" of type '" "std::vector< Cell_,std::allocator< Cell_ > > const &""'"); 
     }
     arg1 = ptr;
   }
@@ -12982,7 +15131,7 @@ SWIGINTERN PyObject *_wrap_Product_New(PyObject *SWIGUNUSEDPARM(self), PyObject 
     }
     arg2 = ptr;
   }
-  result = Product_New((std::vector< Date_,std::allocator< Date_ > > const &)*arg1,(std::vector< std::string,std::allocator< std::string > > const &)*arg2);
+  result = Product_New((std::vector< Cell_,std::allocator< Cell_ > > const &)*arg1,(std::vector< std::string,std::allocator< std::string > > const &)*arg2);
   resultobj = SWIG_NewPointerObj((new Handle_< ScriptProductData_ >(static_cast< const Handle_< ScriptProductData_ >& >(result))), SWIGTYPE_p_Handle_T_ScriptProductData__t, SWIG_POINTER_OWN |  0 );
   if (SWIG_IsNewObj(res1)) delete arg1;
   if (SWIG_IsNewObj(res2)) delete arg2;
@@ -15929,15 +18078,6 @@ static PyMethodDef SwigMethods[] = {
 	 { "delete_DateVector", _wrap_delete_DateVector, METH_O, "delete_DateVector(self)"},
 	 { "DateVector_swigregister", DateVector_swigregister, METH_O, NULL},
 	 { "DateVector_swiginit", DateVector_swiginit, METH_VARARGS, NULL},
-	 { "EvaluationDate_Get", _wrap_EvaluationDate_Get, METH_NOARGS, "EvaluationDate_Get() -> Date_"},
-	 { "EvaluationDate_Set", _wrap_EvaluationDate_Set, METH_O, "\n"
-		"EvaluationDate_Set(d)\n"
-		"\n"
-		"Parameters\n"
-		"----------\n"
-		"d: Date_ const &\n"
-		"\n"
-		""},
 	 { "new_String_", _wrap_new_String_, METH_VARARGS, "\n"
 		"String_(src)\n"
 		"\n"
@@ -16171,6 +18311,265 @@ static PyMethodDef SwigMethods[] = {
 	 { "delete_StrVector", _wrap_delete_StrVector, METH_O, "delete_StrVector(self)"},
 	 { "StrVector_swigregister", StrVector_swigregister, METH_O, NULL},
 	 { "StrVector_swiginit", StrVector_swiginit, METH_VARARGS, NULL},
+	 { "new_Cell_", _wrap_new_Cell_, METH_VARARGS, "\n"
+		"Cell_(b)\n"
+		"\n"
+		"Parameters\n"
+		"----------\n"
+		"b: bool\n"
+		"\n"
+		"Cell_(d)\n"
+		"\n"
+		"Parameters\n"
+		"----------\n"
+		"d: double\n"
+		"\n"
+		"Cell_(dt)\n"
+		"\n"
+		"Parameters\n"
+		"----------\n"
+		"dt: Date_ const &\n"
+		"\n"
+		"Cell_(s)\n"
+		"\n"
+		"Parameters\n"
+		"----------\n"
+		"s: String_ const &\n"
+		"\n"
+		"new_Cell_(s) -> Cell_\n"
+		"\n"
+		"Parameters\n"
+		"----------\n"
+		"s: char const *\n"
+		"\n"
+		""},
+	 { "delete_Cell_", _wrap_delete_Cell_, METH_O, "delete_Cell_(self)"},
+	 { "Cell__swigregister", Cell__swigregister, METH_O, NULL},
+	 { "Cell__swiginit", Cell__swiginit, METH_VARARGS, NULL},
+	 { "CellVector_iterator", _wrap_CellVector_iterator, METH_O, "CellVector_iterator(self) -> SwigPyIterator"},
+	 { "CellVector___nonzero__", _wrap_CellVector___nonzero__, METH_O, "CellVector___nonzero__(self) -> bool"},
+	 { "CellVector___bool__", _wrap_CellVector___bool__, METH_O, "CellVector___bool__(self) -> bool"},
+	 { "CellVector___len__", _wrap_CellVector___len__, METH_O, "CellVector___len__(self) -> std::vector< Cell_ >::size_type"},
+	 { "CellVector___getslice__", _wrap_CellVector___getslice__, METH_VARARGS, "\n"
+		"CellVector___getslice__(self, i, j) -> CellVector\n"
+		"\n"
+		"Parameters\n"
+		"----------\n"
+		"i: std::vector< Cell_ >::difference_type\n"
+		"j: std::vector< Cell_ >::difference_type\n"
+		"\n"
+		""},
+	 { "CellVector___setslice__", _wrap_CellVector___setslice__, METH_VARARGS, "\n"
+		"CellVector___setslice__(self, i, j)\n"
+		"\n"
+		"Parameters\n"
+		"----------\n"
+		"i: std::vector< Cell_ >::difference_type\n"
+		"j: std::vector< Cell_ >::difference_type\n"
+		"\n"
+		"CellVector___setslice__(self, i, j, v)\n"
+		"\n"
+		"Parameters\n"
+		"----------\n"
+		"i: std::vector< Cell_ >::difference_type\n"
+		"j: std::vector< Cell_ >::difference_type\n"
+		"v: std::vector< Cell_,std::allocator< Cell_ > > const &\n"
+		"\n"
+		""},
+	 { "CellVector___delslice__", _wrap_CellVector___delslice__, METH_VARARGS, "\n"
+		"CellVector___delslice__(self, i, j)\n"
+		"\n"
+		"Parameters\n"
+		"----------\n"
+		"i: std::vector< Cell_ >::difference_type\n"
+		"j: std::vector< Cell_ >::difference_type\n"
+		"\n"
+		""},
+	 { "CellVector___delitem__", _wrap_CellVector___delitem__, METH_VARARGS, "\n"
+		"CellVector___delitem__(self, i)\n"
+		"\n"
+		"Parameters\n"
+		"----------\n"
+		"i: std::vector< Cell_ >::difference_type\n"
+		"\n"
+		"CellVector___delitem__(self, slice)\n"
+		"\n"
+		"Parameters\n"
+		"----------\n"
+		"slice: PySliceObject *\n"
+		"\n"
+		""},
+	 { "CellVector___getitem__", _wrap_CellVector___getitem__, METH_VARARGS, "\n"
+		"CellVector___getitem__(self, slice) -> CellVector\n"
+		"\n"
+		"Parameters\n"
+		"----------\n"
+		"slice: PySliceObject *\n"
+		"\n"
+		"CellVector___getitem__(self, i) -> Cell_\n"
+		"\n"
+		"Parameters\n"
+		"----------\n"
+		"i: std::vector< Cell_ >::difference_type\n"
+		"\n"
+		""},
+	 { "CellVector___setitem__", _wrap_CellVector___setitem__, METH_VARARGS, "\n"
+		"CellVector___setitem__(self, slice, v)\n"
+		"\n"
+		"Parameters\n"
+		"----------\n"
+		"slice: PySliceObject *\n"
+		"v: std::vector< Cell_,std::allocator< Cell_ > > const &\n"
+		"\n"
+		"CellVector___setitem__(self, slice)\n"
+		"\n"
+		"Parameters\n"
+		"----------\n"
+		"slice: PySliceObject *\n"
+		"\n"
+		"CellVector___setitem__(self, i, x)\n"
+		"\n"
+		"Parameters\n"
+		"----------\n"
+		"i: std::vector< Cell_ >::difference_type\n"
+		"x: std::vector< Cell_ >::value_type const &\n"
+		"\n"
+		""},
+	 { "CellVector_pop", _wrap_CellVector_pop, METH_O, "CellVector_pop(self) -> Cell_"},
+	 { "CellVector_append", _wrap_CellVector_append, METH_VARARGS, "\n"
+		"CellVector_append(self, x)\n"
+		"\n"
+		"Parameters\n"
+		"----------\n"
+		"x: std::vector< Cell_ >::value_type const &\n"
+		"\n"
+		""},
+	 { "CellVector_empty", _wrap_CellVector_empty, METH_O, "CellVector_empty(self) -> bool"},
+	 { "CellVector_size", _wrap_CellVector_size, METH_O, "CellVector_size(self) -> std::vector< Cell_ >::size_type"},
+	 { "CellVector_swap", _wrap_CellVector_swap, METH_VARARGS, "\n"
+		"CellVector_swap(self, v)\n"
+		"\n"
+		"Parameters\n"
+		"----------\n"
+		"v: std::vector< Cell_ > &\n"
+		"\n"
+		""},
+	 { "CellVector_begin", _wrap_CellVector_begin, METH_O, "CellVector_begin(self) -> std::vector< Cell_ >::iterator"},
+	 { "CellVector_end", _wrap_CellVector_end, METH_O, "CellVector_end(self) -> std::vector< Cell_ >::iterator"},
+	 { "CellVector_rbegin", _wrap_CellVector_rbegin, METH_O, "CellVector_rbegin(self) -> std::vector< Cell_ >::reverse_iterator"},
+	 { "CellVector_rend", _wrap_CellVector_rend, METH_O, "CellVector_rend(self) -> std::vector< Cell_ >::reverse_iterator"},
+	 { "CellVector_clear", _wrap_CellVector_clear, METH_O, "CellVector_clear(self)"},
+	 { "CellVector_get_allocator", _wrap_CellVector_get_allocator, METH_O, "CellVector_get_allocator(self) -> std::vector< Cell_ >::allocator_type"},
+	 { "CellVector_pop_back", _wrap_CellVector_pop_back, METH_O, "CellVector_pop_back(self)"},
+	 { "CellVector_erase", _wrap_CellVector_erase, METH_VARARGS, "\n"
+		"CellVector_erase(self, pos) -> std::vector< Cell_ >::iterator\n"
+		"\n"
+		"Parameters\n"
+		"----------\n"
+		"pos: std::vector< Cell_ >::iterator\n"
+		"\n"
+		"CellVector_erase(self, first, last) -> std::vector< Cell_ >::iterator\n"
+		"\n"
+		"Parameters\n"
+		"----------\n"
+		"first: std::vector< Cell_ >::iterator\n"
+		"last: std::vector< Cell_ >::iterator\n"
+		"\n"
+		""},
+	 { "new_CellVector", _wrap_new_CellVector, METH_VARARGS, "\n"
+		"CellVector()\n"
+		"CellVector(other)\n"
+		"\n"
+		"Parameters\n"
+		"----------\n"
+		"other: std::vector< Cell_ > const &\n"
+		"\n"
+		"CellVector(size)\n"
+		"\n"
+		"Parameters\n"
+		"----------\n"
+		"size: std::vector< Cell_ >::size_type\n"
+		"\n"
+		"new_CellVector(size, value) -> CellVector\n"
+		"\n"
+		"Parameters\n"
+		"----------\n"
+		"size: std::vector< Cell_ >::size_type\n"
+		"value: std::vector< Cell_ >::value_type const &\n"
+		"\n"
+		""},
+	 { "CellVector_push_back", _wrap_CellVector_push_back, METH_VARARGS, "\n"
+		"CellVector_push_back(self, x)\n"
+		"\n"
+		"Parameters\n"
+		"----------\n"
+		"x: std::vector< Cell_ >::value_type const &\n"
+		"\n"
+		""},
+	 { "CellVector_front", _wrap_CellVector_front, METH_O, "CellVector_front(self) -> Cell_"},
+	 { "CellVector_back", _wrap_CellVector_back, METH_O, "CellVector_back(self) -> Cell_"},
+	 { "CellVector_assign", _wrap_CellVector_assign, METH_VARARGS, "\n"
+		"CellVector_assign(self, n, x)\n"
+		"\n"
+		"Parameters\n"
+		"----------\n"
+		"n: std::vector< Cell_ >::size_type\n"
+		"x: std::vector< Cell_ >::value_type const &\n"
+		"\n"
+		""},
+	 { "CellVector_resize", _wrap_CellVector_resize, METH_VARARGS, "\n"
+		"CellVector_resize(self, new_size)\n"
+		"\n"
+		"Parameters\n"
+		"----------\n"
+		"new_size: std::vector< Cell_ >::size_type\n"
+		"\n"
+		"CellVector_resize(self, new_size, x)\n"
+		"\n"
+		"Parameters\n"
+		"----------\n"
+		"new_size: std::vector< Cell_ >::size_type\n"
+		"x: std::vector< Cell_ >::value_type const &\n"
+		"\n"
+		""},
+	 { "CellVector_insert", _wrap_CellVector_insert, METH_VARARGS, "\n"
+		"CellVector_insert(self, pos, x) -> std::vector< Cell_ >::iterator\n"
+		"\n"
+		"Parameters\n"
+		"----------\n"
+		"pos: std::vector< Cell_ >::iterator\n"
+		"x: std::vector< Cell_ >::value_type const &\n"
+		"\n"
+		"CellVector_insert(self, pos, n, x)\n"
+		"\n"
+		"Parameters\n"
+		"----------\n"
+		"pos: std::vector< Cell_ >::iterator\n"
+		"n: std::vector< Cell_ >::size_type\n"
+		"x: std::vector< Cell_ >::value_type const &\n"
+		"\n"
+		""},
+	 { "CellVector_reserve", _wrap_CellVector_reserve, METH_VARARGS, "\n"
+		"CellVector_reserve(self, n)\n"
+		"\n"
+		"Parameters\n"
+		"----------\n"
+		"n: std::vector< Cell_ >::size_type\n"
+		"\n"
+		""},
+	 { "CellVector_capacity", _wrap_CellVector_capacity, METH_O, "CellVector_capacity(self) -> std::vector< Cell_ >::size_type"},
+	 { "delete_CellVector", _wrap_delete_CellVector, METH_O, "delete_CellVector(self)"},
+	 { "CellVector_swigregister", CellVector_swigregister, METH_O, NULL},
+	 { "CellVector_swiginit", CellVector_swiginit, METH_VARARGS, NULL},
+	 { "EvaluationDate_Get", _wrap_EvaluationDate_Get, METH_NOARGS, "EvaluationDate_Get() -> Date_"},
+	 { "EvaluationDate_Set", _wrap_EvaluationDate_Set, METH_O, "\n"
+		"EvaluationDate_Set(d)\n"
+		"\n"
+		"Parameters\n"
+		"----------\n"
+		"d: Date_ const &\n"
+		"\n"
+		""},
 	 { "new_DoubleMatrix_", _wrap_new_DoubleMatrix_, METH_VARARGS, "\n"
 		"DoubleMatrix_(row, col, val=double())\n"
 		"\n"
@@ -16202,7 +18601,7 @@ static PyMethodDef SwigMethods[] = {
 		"\n"
 		"Parameters\n"
 		"----------\n"
-		"dates: std::vector< Date_,std::allocator< Date_ > > const &\n"
+		"dates: std::vector< Cell_,std::allocator< Cell_ > > const &\n"
 		"events: std::vector< std::string,std::allocator< std::string > > const &\n"
 		"\n"
 		""},
@@ -16472,6 +18871,7 @@ static PyMethodDef SwigMethods_proxydocs[] = {
 
 /* -------- TYPE CONVERSION AND EQUIVALENCE RULES (BEGIN) -------- */
 
+static swig_type_info _swigt__p_Cell_ = {"_p_Cell_", "Cell_ *|std::vector< Cell_ >::value_type *", 0, 0, (void*)0, 0};
 static swig_type_info _swigt__p_Date_ = {"_p_Date_", "std::vector< Date_ >::value_type *|Date_ *", 0, 0, (void*)0, 0};
 static swig_type_info _swigt__p_Handle_T_ModelData__t = {"_p_Handle_T_ModelData__t", "Handle_< ModelData_ > *", 0, 0, (void*)0, 0};
 static swig_type_info _swigt__p_Handle_T_PseudoRSG__t = {"_p_Handle_T_PseudoRSG__t", "Handle_< PseudoRSG_ > *", 0, 0, (void*)0, 0};
@@ -16487,6 +18887,7 @@ static swig_type_info _swigt__p_key_type = {"_p_key_type", "key_type *", 0, 0, (
 static swig_type_info _swigt__p_mapped_type = {"_p_mapped_type", "mapped_type *", 0, 0, (void*)0, 0};
 static swig_type_info _swigt__p_p_PyObject = {"_p_p_PyObject", "PyObject **", 0, 0, (void*)0, 0};
 static swig_type_info _swigt__p_size_type = {"_p_size_type", "size_type *", 0, 0, (void*)0, 0};
+static swig_type_info _swigt__p_std__allocatorT_Cell__t = {"_p_std__allocatorT_Cell__t", "std::vector< Cell_ >::allocator_type *|std::allocator< Cell_ > *", 0, 0, (void*)0, 0};
 static swig_type_info _swigt__p_std__allocatorT_Date__t = {"_p_std__allocatorT_Date__t", "std::vector< Date_ >::allocator_type *|std::allocator< Date_ > *", 0, 0, (void*)0, 0};
 static swig_type_info _swigt__p_std__allocatorT_double_t = {"_p_std__allocatorT_double_t", "std::vector< double >::allocator_type *|std::allocator< double > *", 0, 0, (void*)0, 0};
 static swig_type_info _swigt__p_std__allocatorT_std__pairT_std__string_const_double_t_t = {"_p_std__allocatorT_std__pairT_std__string_const_double_t_t", "std::map< std::string,double >::allocator_type *|std::allocator< std::pair< std::string const,double > > *", 0, 0, (void*)0, 0};
@@ -16494,6 +18895,7 @@ static swig_type_info _swigt__p_std__allocatorT_std__string_t = {"_p_std__alloca
 static swig_type_info _swigt__p_std__invalid_argument = {"_p_std__invalid_argument", "std::invalid_argument *", 0, 0, (void*)0, 0};
 static swig_type_info _swigt__p_std__lessT_std__string_t = {"_p_std__lessT_std__string_t", "std::less< std::string > *", 0, 0, (void*)0, 0};
 static swig_type_info _swigt__p_std__mapT_std__string_double_std__lessT_std__string_t_std__allocatorT_std__pairT_std__string_const_double_t_t_t = {"_p_std__mapT_std__string_double_std__lessT_std__string_t_std__allocatorT_std__pairT_std__string_const_double_t_t_t", "std::map< std::string,double,std::less< std::string >,std::allocator< std::pair< std::string const,double > > > *|std::map< std::string,double > *", 0, 0, (void*)0, 0};
+static swig_type_info _swigt__p_std__vectorT_Cell__std__allocatorT_Cell__t_t = {"_p_std__vectorT_Cell__std__allocatorT_Cell__t_t", "std::vector< Cell_,std::allocator< Cell_ > > *|std::vector< Cell_ > *", 0, 0, (void*)0, 0};
 static swig_type_info _swigt__p_std__vectorT_Date__std__allocatorT_Date__t_t = {"_p_std__vectorT_Date__std__allocatorT_Date__t_t", "std::vector< Date_,std::allocator< Date_ > > *|std::vector< Date_ > *", 0, 0, (void*)0, 0};
 static swig_type_info _swigt__p_std__vectorT_double_std__allocatorT_double_t_t = {"_p_std__vectorT_double_std__allocatorT_double_t_t", "std::vector< double,std::allocator< double > > *|std::vector< double > *", 0, 0, (void*)0, 0};
 static swig_type_info _swigt__p_std__vectorT_std__string_std__allocatorT_std__string_t_t = {"_p_std__vectorT_std__string_std__allocatorT_std__string_t_t", "std::vector< std::string,std::allocator< std::string > > *|std::vector< std::string > *", 0, 0, (void*)0, 0};
@@ -16501,6 +18903,7 @@ static swig_type_info _swigt__p_swig__SwigPyIterator = {"_p_swig__SwigPyIterator
 static swig_type_info _swigt__p_value_type = {"_p_value_type", "value_type *", 0, 0, (void*)0, 0};
 
 static swig_type_info *swig_type_initial[] = {
+  &_swigt__p_Cell_,
   &_swigt__p_Date_,
   &_swigt__p_Handle_T_ModelData__t,
   &_swigt__p_Handle_T_PseudoRSG__t,
@@ -16516,6 +18919,7 @@ static swig_type_info *swig_type_initial[] = {
   &_swigt__p_mapped_type,
   &_swigt__p_p_PyObject,
   &_swigt__p_size_type,
+  &_swigt__p_std__allocatorT_Cell__t,
   &_swigt__p_std__allocatorT_Date__t,
   &_swigt__p_std__allocatorT_double_t,
   &_swigt__p_std__allocatorT_std__pairT_std__string_const_double_t_t,
@@ -16523,6 +18927,7 @@ static swig_type_info *swig_type_initial[] = {
   &_swigt__p_std__invalid_argument,
   &_swigt__p_std__lessT_std__string_t,
   &_swigt__p_std__mapT_std__string_double_std__lessT_std__string_t_std__allocatorT_std__pairT_std__string_const_double_t_t_t,
+  &_swigt__p_std__vectorT_Cell__std__allocatorT_Cell__t_t,
   &_swigt__p_std__vectorT_Date__std__allocatorT_Date__t_t,
   &_swigt__p_std__vectorT_double_std__allocatorT_double_t_t,
   &_swigt__p_std__vectorT_std__string_std__allocatorT_std__string_t_t,
@@ -16530,6 +18935,7 @@ static swig_type_info *swig_type_initial[] = {
   &_swigt__p_value_type,
 };
 
+static swig_cast_info _swigc__p_Cell_[] = {  {&_swigt__p_Cell_, 0, 0, 0},{0, 0, 0, 0}};
 static swig_cast_info _swigc__p_Date_[] = {  {&_swigt__p_Date_, 0, 0, 0},{0, 0, 0, 0}};
 static swig_cast_info _swigc__p_Handle_T_ModelData__t[] = {  {&_swigt__p_Handle_T_ModelData__t, 0, 0, 0},{0, 0, 0, 0}};
 static swig_cast_info _swigc__p_Handle_T_PseudoRSG__t[] = {  {&_swigt__p_Handle_T_PseudoRSG__t, 0, 0, 0},{0, 0, 0, 0}};
@@ -16545,6 +18951,7 @@ static swig_cast_info _swigc__p_key_type[] = {  {&_swigt__p_key_type, 0, 0, 0},{
 static swig_cast_info _swigc__p_mapped_type[] = {  {&_swigt__p_mapped_type, 0, 0, 0},{0, 0, 0, 0}};
 static swig_cast_info _swigc__p_p_PyObject[] = {  {&_swigt__p_p_PyObject, 0, 0, 0},{0, 0, 0, 0}};
 static swig_cast_info _swigc__p_size_type[] = {  {&_swigt__p_size_type, 0, 0, 0},{0, 0, 0, 0}};
+static swig_cast_info _swigc__p_std__allocatorT_Cell__t[] = {  {&_swigt__p_std__allocatorT_Cell__t, 0, 0, 0},{0, 0, 0, 0}};
 static swig_cast_info _swigc__p_std__allocatorT_Date__t[] = {  {&_swigt__p_std__allocatorT_Date__t, 0, 0, 0},{0, 0, 0, 0}};
 static swig_cast_info _swigc__p_std__allocatorT_double_t[] = {  {&_swigt__p_std__allocatorT_double_t, 0, 0, 0},{0, 0, 0, 0}};
 static swig_cast_info _swigc__p_std__allocatorT_std__pairT_std__string_const_double_t_t[] = {  {&_swigt__p_std__allocatorT_std__pairT_std__string_const_double_t_t, 0, 0, 0},{0, 0, 0, 0}};
@@ -16552,6 +18959,7 @@ static swig_cast_info _swigc__p_std__allocatorT_std__string_t[] = {  {&_swigt__p
 static swig_cast_info _swigc__p_std__invalid_argument[] = {  {&_swigt__p_std__invalid_argument, 0, 0, 0},{0, 0, 0, 0}};
 static swig_cast_info _swigc__p_std__lessT_std__string_t[] = {  {&_swigt__p_std__lessT_std__string_t, 0, 0, 0},{0, 0, 0, 0}};
 static swig_cast_info _swigc__p_std__mapT_std__string_double_std__lessT_std__string_t_std__allocatorT_std__pairT_std__string_const_double_t_t_t[] = {  {&_swigt__p_std__mapT_std__string_double_std__lessT_std__string_t_std__allocatorT_std__pairT_std__string_const_double_t_t_t, 0, 0, 0},{0, 0, 0, 0}};
+static swig_cast_info _swigc__p_std__vectorT_Cell__std__allocatorT_Cell__t_t[] = {  {&_swigt__p_std__vectorT_Cell__std__allocatorT_Cell__t_t, 0, 0, 0},{0, 0, 0, 0}};
 static swig_cast_info _swigc__p_std__vectorT_Date__std__allocatorT_Date__t_t[] = {  {&_swigt__p_std__vectorT_Date__std__allocatorT_Date__t_t, 0, 0, 0},{0, 0, 0, 0}};
 static swig_cast_info _swigc__p_std__vectorT_double_std__allocatorT_double_t_t[] = {  {&_swigt__p_std__vectorT_double_std__allocatorT_double_t_t, 0, 0, 0},{0, 0, 0, 0}};
 static swig_cast_info _swigc__p_std__vectorT_std__string_std__allocatorT_std__string_t_t[] = {  {&_swigt__p_std__vectorT_std__string_std__allocatorT_std__string_t_t, 0, 0, 0},{0, 0, 0, 0}};
@@ -16559,6 +18967,7 @@ static swig_cast_info _swigc__p_swig__SwigPyIterator[] = {  {&_swigt__p_swig__Sw
 static swig_cast_info _swigc__p_value_type[] = {  {&_swigt__p_value_type, 0, 0, 0},{0, 0, 0, 0}};
 
 static swig_cast_info *swig_cast_initial[] = {
+  _swigc__p_Cell_,
   _swigc__p_Date_,
   _swigc__p_Handle_T_ModelData__t,
   _swigc__p_Handle_T_PseudoRSG__t,
@@ -16574,6 +18983,7 @@ static swig_cast_info *swig_cast_initial[] = {
   _swigc__p_mapped_type,
   _swigc__p_p_PyObject,
   _swigc__p_size_type,
+  _swigc__p_std__allocatorT_Cell__t,
   _swigc__p_std__allocatorT_Date__t,
   _swigc__p_std__allocatorT_double_t,
   _swigc__p_std__allocatorT_std__pairT_std__string_const_double_t_t,
@@ -16581,6 +18991,7 @@ static swig_cast_info *swig_cast_initial[] = {
   _swigc__p_std__invalid_argument,
   _swigc__p_std__lessT_std__string_t,
   _swigc__p_std__mapT_std__string_double_std__lessT_std__string_t_std__allocatorT_std__pairT_std__string_const_double_t_t_t,
+  _swigc__p_std__vectorT_Cell__std__allocatorT_Cell__t_t,
   _swigc__p_std__vectorT_Date__std__allocatorT_Date__t_t,
   _swigc__p_std__vectorT_double_std__allocatorT_double_t_t,
   _swigc__p_std__vectorT_std__string_std__allocatorT_std__string_t_t,
