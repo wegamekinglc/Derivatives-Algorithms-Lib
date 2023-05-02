@@ -20,12 +20,12 @@ int main() {
     int steps = 250;
     int n_round = 20;
 
-    double t = 3.002739726;
+    double t = 3.00;
     double rate = 0.05;
-    double div = 0.02;
+    double div = 0.03;
     double vol = 0.15;
     double strike = 120.0;
-    double spot = 120.0;
+    double spot = 100.0;
     double theta = 0.5;
 
     Vector_<int> widths = {25, 14, 14, 14, 14, 14};

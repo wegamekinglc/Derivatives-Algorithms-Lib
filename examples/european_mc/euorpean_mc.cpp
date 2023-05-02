@@ -33,15 +33,15 @@ int main() {
     const double div = 0.03;
     const double strike = 120.0;
     const String_ rsg = "sobol";
-    const Date_ maturity(2025, 9, 25);
+    const Date_ maturity(2025, 9, 24);
     const double t = (maturity - Global::Dates_().EvaluationDate()) / 365.0;
 
     timer.Reset();
 
-    Vector_<Cell_> eventDates;
-    Vector_<String_> events;
+    Vector_<Cell_> eventDates(1, Cell_("STRIKE"));
+    Vector_<String_> events(1, ToString(strike));
     eventDates.push_back(Cell_(maturity));
-    events.push_back("call pays MAX(spot() - " + ToString(strike) + ", 0.0)");
+    events.push_back("call pays MAX(spot() - STRIKE, 0.0)");
 
     ScriptProduct_ product(eventDates, events);
 
