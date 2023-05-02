@@ -12,7 +12,7 @@ public Product_New
 &inputs
 name is string
     A name for the object being created
-dates is date[]
+dates is cell[]
     The event dates
 events is string[]
     The event strings
@@ -39,13 +39,18 @@ namespace Dal {
     using Dal::Script::ScriptProduct_;
     namespace {
         void Product_New(const String_& name,
-                         const Vector_<Date_>& dates,
+                         const Vector_<Cell_>& dates,
                          const Vector_<String_>& events,
                          Handle_<ScriptProductData_>* product) {
-            Vector_<Cell_> new_dates(dates.size());
-            for (auto i = 0; i < dates.size(); ++i)
-                new_dates[i] = Cell_(dates[i]);
-            NewScriptProduct(name, new_dates, events).swap(*product);
+            // excel may parse dates as a double
+            Vector_<Cell_> parsed;
+            for (const auto& v : dates) {
+                if (Cell::IsDouble(v))
+                    parsed.emplace_back(Date::FromExcel(Cell::ToInt(v)));
+                else
+                    parsed.emplace_back(v);
+            }
+            NewScriptProduct(name, parsed, events).swap(*product);
         }
 
         void Product_Debug(const Handle_<ScriptProductData_>& product, Vector_<String_>* out) {

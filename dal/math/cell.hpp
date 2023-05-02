@@ -36,7 +36,7 @@ namespace Dal {
             return *this;
         }
         Cell_& operator=(int i) {
-            val_ = static_cast<double >(i);
+            val_ = static_cast<double>(i);
             return *this;
         }
         Cell_& operator=(double d) {
