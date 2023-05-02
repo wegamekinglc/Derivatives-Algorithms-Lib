@@ -82,7 +82,7 @@ namespace Dal::Script {
                      * */
                     String_ replaced = evtIt->second;
                     for (auto mIt = macros.begin(); mIt != macros.end(); ++mIt)
-                        replaced = std::regex_replace(replaced, std::regex(mIt->first), mIt->second);
+                        replaced = std::regex_replace(replaced, std::regex(mIt->first, std::regex_constants::icase), mIt->second);
                     processed_events[Cell::ToDate(cell)] = replaced;
                 }
             }

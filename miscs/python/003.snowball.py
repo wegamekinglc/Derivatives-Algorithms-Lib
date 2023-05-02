@@ -27,7 +27,7 @@ use_bb = False
 rsg = "sobol"
 model_name = "bs"
 
-events = ["alive = 1 ki = 0"]  # initial and 3m lock
+events = ["alive = 1 is_ki = 0"]  # initial and 3m lock
 
 for d in event_dates[1:]:
     if d <= Date_(2023, 6, 1):
@@ -35,15 +35,15 @@ for d in event_dates[1:]:
     elif d < event_dates[-1]:
         events.append(
     f"""
-    if spot() < {ki:.6f}:0.001 then ki = 1 endif
-    if spot() > {ko:.6f}:0.001 then call pays alive * {coupon:.6f} * DCF(ACT365F, {event_dates[0]}, {d}) alive = 0 endif
+    if spot() < KI:0.001 then is_ki = 1 endif
+    if spot() > KO:0.001 then call pays alive * COUPON * DCF(ACT365F, {event_dates[0]}, {d}) alive = 0 endif
     """
         )
 events.append(
     f"""
-    if spot() < {ki:.6f}:0.001 then ki = 1 endif
-    if spot() > {ko:.6f}:0.001 then call pays alive * {coupon:.6f} * DCF(ACT365F, {event_dates[0]}, {d}) alive = 0 endif
-    call pays alive * ki * (spot() - {spot:.6f})
+    if spot() < KI:0.001 then is_ki = 1 endif
+    if spot() > KO:0.001 then call pays alive * COUPON * DCF(ACT365F, {event_dates[0]}, {d}) alive = 0 endif
+    call pays alive * is_ki * (spot() - STRIKE)
     """
 )
 
@@ -65,6 +65,8 @@ print(f"# of obs  : {len(event_dates)}")
 print(f"# of paths: {n_paths}\n")
 
 event_dates = [Cell_(d) for d in event_dates]
+event_dates = [Cell_("KI"), Cell_("KO"), Cell_("STRIKE"), Cell_("COUPON")] + event_dates
+events = [f"{ki:.6f}", f"{ko:.6f}", f"{spot:.6f}", f"{coupon:.6f}"] + events
 product = Product_New(event_dates, events)
 model = BSModelData_New(spot, vol, rate, div)
 

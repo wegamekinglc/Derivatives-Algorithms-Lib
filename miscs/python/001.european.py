@@ -15,8 +15,8 @@ use_bb = False
 rsg = "sobol"
 model_name = "bs"
 
-event_dates = [maturity]
-events = [f"call pays MAX(spot() - {strike}, 0.0)"]
+event_dates = [Cell_("STRIKE"), maturity]
+events = [f"{strike}", f"call pays MAX(spot() - STRIKE, 0.0)"]
 
 product = Product_New(event_dates, events)
 model = BSModelData_New(spot, vol, rate, div)

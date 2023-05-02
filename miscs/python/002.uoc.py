@@ -9,6 +9,7 @@ vol = 0.15
 rate = 0.05
 div = 0.02
 strike = 120.0
+barrier = 150.0
 maturity = Date_(2025, 9, 15)
 
 n = int(input("Plz input # of paths (power of 2):"))
@@ -25,14 +26,17 @@ events = ["alive = 1"]
 curr = start.AddDays(7)
 while curr < maturity:
     event_dates.append(curr)
-    events.append("if spot() >= 150:0.5 then alive = 0 endif")
+    events.append("if spot() >= BARRIER:0.5 then alive = 0 endif")
     curr = curr.AddDays(7)
 
 event_dates.append(maturity)
-events.append(f"K = {strike}\ncall pays alive * MAX(spot() - K, 0.0)")
+events.append(f"call pays alive * MAX(spot() - STRIKE, 0.0)")
 
 event_dates = [Cell_(d) for d in event_dates]
+event_dates = [Cell_("STRIKE"), Cell_("BARRIER")] + event_dates
+events = [f"{strike:.2f}", f"{barrier:.2f}"] + events
 product = Product_New(event_dates, events)
+
 if model_name == "bs":
     model = BSModelData_New(spot, vol, rate, div)
 elif model_name == "dupire":
