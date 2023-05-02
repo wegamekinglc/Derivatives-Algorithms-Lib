@@ -20,8 +20,8 @@ model_name = input("Plz input model name:")
 
 start = today
 
-event_dates = [start]
-events = ["alive = 1"]
+event_dates = ["STRIKE", "BARRIER", start]
+events = [f"{strike:.2f}", f"{barrier:.2f}", "alive = 1"]
 
 curr = start.AddDays(7)
 while curr < maturity:
@@ -31,10 +31,6 @@ while curr < maturity:
 
 event_dates.append(maturity)
 events.append(f"if spot() >= BARRIER:0.1 then alive = 0 endif\ncall pays alive * MAX(spot() - STRIKE, 0.0)")
-
-event_dates = [Cell_(d) for d in event_dates]
-event_dates = [Cell_("STRIKE"), Cell_("BARRIER")] + event_dates
-events = [f"{strike:.2f}", f"{barrier:.2f}"] + events
 product = Product_New(event_dates, events)
 
 if model_name == "bs":

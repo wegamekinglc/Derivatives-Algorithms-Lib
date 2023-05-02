@@ -19,30 +19,30 @@ while today <= maturity:
     event_dates.append(today)
     today = today + relativedelta(months=1)
 
-event_dates = [Date_(d.year, d.month, d.day) for d in event_dates]
-EvaluationDate_Set(event_dates[0])
+event_dates = ["KI", "KO", "STRIKE", "COUPON"] + [Date_(d.year, d.month, d.day) for d in event_dates]
+start = event_dates[4]
+events = [f"{ki:.6f}", f"{ko:.6f}", f"{spot:.6f}", f"{coupon:.6f}", "alive = 1 is_ki = 0"]
+EvaluationDate_Set(start)
 
 n_paths = 500_000
 use_bb = False
 rsg = "sobol"
 model_name = "bs"
 
-events = ["alive = 1 is_ki = 0"]  # initial and 3m lock
-
-for d in event_dates[1:]:
+for d in event_dates[5:]:
     if d <= Date_(2023, 6, 1):
         events.append("alive = 1")   # initial and 3m lock
     elif d < event_dates[-1]:
         events.append(
     f"""
     if spot() < KI:0.001 then is_ki = 1 endif
-    if spot() > KO:0.001 then call pays alive * COUPON * DCF(ACT365F, {event_dates[0]}, {d}) alive = 0 endif
+    if spot() > KO:0.001 then call pays alive * COUPON * DCF(ACT365F, {start}, {d}) alive = 0 endif
     """
         )
 events.append(
     f"""
     if spot() < KI:0.001 then is_ki = 1 endif
-    if spot() > KO:0.001 then call pays alive * COUPON * DCF(ACT365F, {event_dates[0]}, {d}) alive = 0 endif
+    if spot() > KO:0.001 then call pays alive * COUPON * DCF(ACT365F, {start}, {d}) alive = 0 endif
     call pays alive * is_ki * (spot() - STRIKE)
     """
 )
@@ -57,16 +57,14 @@ print(f"div  : {div * 100:.2f}%")
 print(f"vol  : {vol * 100:.2f}%\n")
 
 print("------ Product Description ------")
-print(f"NPV date  : {event_dates[0]}")
+print(f"NPV date  : {event_dates[4]}")
 print(f"Maturity  : {event_dates[-1]}")
 print(f"knock in  : {ki:.2f}")
 print(f"knock out : {ko:.2f}")
 print(f"# of obs  : {len(event_dates)}")
 print(f"# of paths: {n_paths}\n")
 
-event_dates = [Cell_(d) for d in event_dates]
-event_dates = [Cell_("KI"), Cell_("KO"), Cell_("STRIKE"), Cell_("COUPON")] + event_dates
-events = [f"{ki:.6f}", f"{ko:.6f}", f"{spot:.6f}", f"{coupon:.6f}"] + events
+
 product = Product_New(event_dates, events)
 model = BSModelData_New(spot, vol, rate, div)
 

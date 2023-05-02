@@ -8,14 +8,14 @@ vol = 0.15
 rate = 0.0
 div = 0.0
 strike = 120.0
-maturity = Cell_(Date_(2025, 9, 15))
+maturity = Date_(2025, 9, 15)
 
 n_paths = 2 ** 20
 use_bb = False
 rsg = "sobol"
 model_name = "bs"
 
-event_dates = [Cell_("STRIKE"), maturity]
+event_dates = ["STRIKE", maturity]
 events = [f"{strike}", f"call pays MAX(spot() - STRIKE, 0.0)"]
 
 product = Product_New(event_dates, events)
