@@ -6,11 +6,11 @@ EvaluationDate_Set(today)
 
 spot = 100.0
 vol = 0.15
-rate = 0.05
-div = 0.02
+rate = 0.00
+div = 0.00
 strike = 120.0
 barrier = 150.0
-maturity = Date_(2025, 9, 15)
+maturity = Date_(2025, 9, 14)
 
 n = int(input("Plz input # of paths (power of 2):"))
 n_paths = 2 ** n
@@ -26,11 +26,11 @@ events = ["alive = 1"]
 curr = start.AddDays(7)
 while curr < maturity:
     event_dates.append(curr)
-    events.append("if spot() >= BARRIER:0.5 then alive = 0 endif")
+    events.append("if spot() >= BARRIER:0.1 then alive = 0 endif")
     curr = curr.AddDays(7)
 
 event_dates.append(maturity)
-events.append(f"call pays alive * MAX(spot() - STRIKE, 0.0)")
+events.append(f"if spot() >= BARRIER:0.1 then alive = 0 endif\ncall pays alive * MAX(spot() - STRIKE, 0.0)")
 
 event_dates = [Cell_(d) for d in event_dates]
 event_dates = [Cell_("STRIKE"), Cell_("BARRIER")] + event_dates
