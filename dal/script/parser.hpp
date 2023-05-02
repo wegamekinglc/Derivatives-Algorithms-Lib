@@ -10,16 +10,6 @@
 
 namespace Dal::Script {
 
-    class ScriptError_: public Exception_ {
-    public:
-        ScriptError_(const std::string& file, long line, const std::string& functionName, const char* msg)
-            : Exception_(file, line, functionName, msg) {}
-        ScriptError_(const std::string& file, long line, const std::string& functionName, const std::string& msg)
-            : ScriptError_(file, line, functionName, msg.c_str()) {}
-        ScriptError_(const std::string& file, long line, const std::string& functionName, const String_& msg)
-            : ScriptError_(file, line, functionName, msg.c_str()) {}
-    };
-
     class Parser_ {
         using TokIt_ = typename Vector_<String_>::const_iterator;
 

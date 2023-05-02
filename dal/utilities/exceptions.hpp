@@ -51,6 +51,17 @@ namespace Dal {
             explicit StackRegister_(const char* msg) { PushStack(XStackInfo_(msg)); }
         };
     } // namespace exception
+
+    class ScriptError_: public Exception_ {
+    public:
+        ScriptError_(const std::string& file, long line, const std::string& functionName, const char* msg)
+            : Exception_(file, line, functionName, msg) {}
+        ScriptError_(const std::string& file, long line, const std::string& functionName, const std::string& msg)
+            : ScriptError_(file, line, functionName, msg.c_str()) {}
+        ScriptError_(const std::string& file, long line, const std::string& functionName, const String_& msg)
+            : ScriptError_(file, line, functionName, msg.c_str()) {}
+    };
+
 } // namespace Dal
 
 #define THROW(msg) throw Dal::Exception_(__FILE__, __LINE__, __func__, msg)

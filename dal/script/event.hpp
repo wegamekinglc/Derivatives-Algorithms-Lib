@@ -44,7 +44,7 @@ namespace Dal::Script {
     public:
         explicit ScriptProduct_(const std::map<Cell_, String_>& events) { ParseEvents(events.begin(), events.end()); }
         ScriptProduct_(const Vector_<Cell_>& dates, const Vector_<String_>& events) {
-            REQUIRE(dates.size() == events.size(), "dates size is not equal to events size");
+            REQUIRE2(dates.size() == events.size(), "dates size is not equal to events size", ScriptError_);
             auto date_events = Dal::Zip(dates, events);
             ParseEvents(date_events.begin(), date_events.end());
         }
@@ -72,8 +72,8 @@ namespace Dal::Script {
                 Cell_ cell = evtIt->first;
                 if (!Cell::IsDate(cell)) {
                     auto macro_name = Cell::ToString(cell);
-                    REQUIRE(macros.find(macro_name) == macros.end(), "macro name has already registered");
-                    REQUIRE(processed_events.empty(), "macros should always at the front");
+                    REQUIRE2(macros.find(macro_name) == macros.end(), "macro name has already registered", ScriptError_);
+                    REQUIRE2(processed_events.empty(), "macros should always at the front", ScriptError_);
                     macros[Cell::ToString(cell)] = evtIt->second;
                 } else if(Cell::IsDate(cell) && Cell::ToDate(cell) >= evaluationDate) {
                     /*
