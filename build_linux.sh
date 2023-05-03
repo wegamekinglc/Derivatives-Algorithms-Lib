@@ -4,7 +4,7 @@ NUM_CORES=$(grep -c processor /proc/cpuinfo)
 export DAL_DIR=$PWD
 export LD_LIBRARY_PATH=$PWD/lib:$LD_LIBRARY_PATH
 export BUILD_TYPE=Release
-export SKIP_TESTS=false  # make it false when you need a full performance lib
+export SKIP_TESTS=false  # make it true when you need a full performance lib
 export CMAKE_EXPORT_COMPILE_COMMANDS=on
 export BUILD_SHARED_LIBS=on
 
