@@ -8,12 +8,12 @@
 using namespace Dal;
 
 TEST(ChinaCalendarTest, TestConstructHolidays) {
-    Holidays_ hol("CN.SH");
-    ASSERT_EQ(hol.String(), "CN.SH");
+    Holidays_ hol("CN.SSE");
+    ASSERT_EQ(hol.String(), "CN.SSE");
 }
 
 TEST(ChinaCalendarTest, TestHolidaysClass) {
-    Holidays_ hol("CN.SH");
+    Holidays_ hol("CN.SSE");
     ASSERT_TRUE(hol.IsHoliday(Date_(2020, 10, 7)));
     ASSERT_FALSE(hol.IsWorkWeekends(Date_(2020, 10, 10)));
 
@@ -23,16 +23,16 @@ TEST(ChinaCalendarTest, TestHolidaysClass) {
 }
 
 TEST(ChinaCalendarTest, TestConstructFromMultiple) {
-    Holidays_ hol("CN.SH CN.IB");
-    ASSERT_EQ(hol.String(), "CN.IB CN.SH");
+    Holidays_ hol("CN.SSE CN.IB");
+    ASSERT_EQ(hol.String(), "CN.IB CN.SSE");
 
     ASSERT_TRUE(hol.IsHoliday(Date_(2020, 10, 7)));
     ASSERT_TRUE(hol.IsWorkWeekends(Date_(2020, 10, 10)));
 }
 
 TEST(ChinaCalendarTest, TestNextBus) {
-    Holidays_ hol("CN.SH");
-    ASSERT_EQ(hol.String(), "CN.SH");
+    Holidays_ hol("CN.SSE");
+    ASSERT_EQ(hol.String(), "CN.SSE");
 
     Date_ ref_date(2020, 10, 10);
 
@@ -45,8 +45,8 @@ TEST(ChinaCalendarTest, TestNextBus) {
 }
 
 TEST(ChinaCalendarTest, TestPrevBus) {
-    Holidays_ hol("CN.SH");
-    ASSERT_EQ(hol.String(), "CN.SH");
+    Holidays_ hol("CN.SSE");
+    ASSERT_EQ(hol.String(), "CN.SSE");
 
     Date_ ref_date(2020, 10, 10);
 
@@ -59,7 +59,7 @@ TEST(ChinaCalendarTest, TestPrevBus) {
 }
 
 TEST(ChinaCalendarTest, TestCountBusDays) {
-    CountBusDays_ counter(Holidays_("CN.SH"));
+    CountBusDays_ counter(Holidays_("CN.SSE"));
 
     Date_ start_date(2020, 10, 9);
     Date_ end_date(2020, 10, 11);
@@ -164,7 +164,7 @@ TEST(ChinaCalendarTest, TestHolidays) {
             Date_(2023, 10, 6)
     };
 
-    Holidays_ hol("CN.SH");
+    Holidays_ hol("CN.SSE");
 
     for (auto Date_: expected_holidays)
         ASSERT_TRUE(hol.IsHoliday(Date_) || Date::IsWeekEnd(Date_));

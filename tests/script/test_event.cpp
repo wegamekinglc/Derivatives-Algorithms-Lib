@@ -53,7 +53,7 @@ TEST(EventTest, TestEventWithSchedule) {
     Vector_<Cell_> dates;
     Vector_<String_> events;
 
-    dates.push_back(Cell_("START: 2022-05-07 END: 2023-05-07 FREQ: 1m CALENDAR: CN.SH"));
+    dates.push_back(Cell_("START: 2022-05-07 END: 2023-05-07 FREQ: 1m CALENDAR: CN.SSE"));
     events.push_back("STRIKE = 110.0");
     Script::ScriptProduct_ product(dates, events);
 

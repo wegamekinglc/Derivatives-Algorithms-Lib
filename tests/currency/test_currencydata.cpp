@@ -19,6 +19,6 @@ TEST(CurrencyDataTest, TestFactWrite) {
     Ccy::Conventions::LiborFixDays().XWrite()(Ccy_("EUR"), 1);
     ASSERT_EQ(Ccy::Conventions::LiborFixDays()(Ccy_("EUR")), 1);
 
-    Ccy::Conventions::LiborFixHolidays().XWrite()(Ccy_("CNY"), Holidays_("CN.SH"));
-    ASSERT_EQ(Ccy::Conventions::LiborFixHolidays()(Ccy_("CNY")).String(), "CN.SH");
+    Ccy::Conventions::LiborFixHolidays().XWrite()(Ccy_("CNY"), Holidays_("CN.SSE"));
+    ASSERT_EQ(Ccy::Conventions::LiborFixHolidays()(Ccy_("CNY")).String(), "CN.SSE");
 }

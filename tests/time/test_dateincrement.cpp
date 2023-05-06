@@ -88,7 +88,7 @@ TEST(DateIncrementTest, TestIncrementMultistep) {
     ASSERT_EQ(Date_(2020, 10, 8), s2);
 
     // BD with holiday center
-    s1 = Date::ParseIncrement("1BD;CN.SH");
+    s1 = Date::ParseIncrement("1BD;CN.SSE");
     s2 = ref_date + *s1;
     ASSERT_EQ(Date_(2020, 10, 12), s2);
     s2 = ref_date - *s1;
@@ -97,7 +97,7 @@ TEST(DateIncrementTest, TestIncrementMultistep) {
 
 TEST(DateIncrementTest, TestNBusDays) {
     Date_ ref_date(2020, 10, 9);
-    auto s1 = Date::NBusDays(1, Holidays_(String_("CN.SH")));
+    auto s1 = Date::NBusDays(1, Holidays_(String_("CN.SSE")));
 
     auto s2 = ref_date + *s1;
     ASSERT_EQ(Date_(2020, 10, 12), s2);

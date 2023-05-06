@@ -15,7 +15,7 @@ namespace Dal {
     void Calendars_::Init() {
         std::lock_guard<std::mutex> l(mutex_);
         if (!init_) {
-            Holidays::AddCenter("CN.SH", China::SSE::holidays);
+            Holidays::AddCenter("CN.SSE", China::SSE::holidays);
             Holidays::AddCenter("CN.IB", China::SSE::holidays, China::IB::workWeekends);
             init_ = true;
         }
