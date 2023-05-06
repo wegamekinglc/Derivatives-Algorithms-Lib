@@ -14,6 +14,10 @@
 #include <dal/storage/globals.hpp>
 #include <dal/time/date.hpp>
 #include <dal/utilities/algorithms.hpp>
+#include <dal/time/schedules.hpp>
+#include <dal/time/dateutils.hpp>
+#include <dal/time/dateincrement.hpp>
+#include <dal/time/holidays.hpp>
 
 /*IF--------------------------------------------------------------------------
 storable ScriptProductData
@@ -68,18 +72,66 @@ namespace Dal::Script {
             Date_ evaluationDate = Global::Dates_().EvaluationDate();
             std::map<String_, String_> macros;
             std::map<Date_, String_> processed_events;
+            /*
+             * we only keep the events after evaluation date
+             * TODO: need to keep the historical events and visits them with dedicated a past evaluator
+             * */
             for (auto evtIt = begin; evtIt != end; ++evtIt) {
                 Cell_ cell = evtIt->first;
                 if (!Cell::IsDate(cell)) {
-                    auto macro_name = Cell::ToString(cell);
-                    REQUIRE2(macros.find(macro_name) == macros.end(), "macro name has already registered", ScriptError_);
-                    REQUIRE2(processed_events.empty(), "macros should always at the front", ScriptError_);
-                    macros[Cell::ToString(cell)] = evtIt->second;
+                    // distinguish macro and schedules
+                    auto desc = Cell::ToString(cell);
+                    if (desc.find(":") < desc.size() ) {
+                        // find a schedule
+                        Vector_<String_> tokens = Tokenize(desc);
+
+                        int i = 0;
+                        Date_ start_date;
+                        Date_ end_date;
+                        Handle_<Date::Increment_> tenor;
+                        String_ holidays = "";
+
+                        for(;i < tokens.size() - 2; ++i) {
+                            REQUIRE2(tokens[i + 1] == ":", "schedule parameter name not followed by `:`", ScriptError_);
+
+                            if (tokens[i] == "START") {
+                                String_ dt_str = std::accumulate(tokens.begin() + i + 2, tokens.begin() + i + 7, String_(""), [](const String_& x, const String_& y) { return x + y; });
+                                start_date = Date::FromString(dt_str);
+                                i += 6;
+                            } else if (tokens[i] == "END") {
+                                String_ dt_str = std::accumulate(tokens.begin() + i + 2, tokens.begin() + i + 7, String_(""), [](const String_& x, const String_& y) { return x + y; });
+                                end_date = Date::FromString(dt_str);
+                                i += 6;
+                            }
+                            else if (tokens[i] == "FREQ") {
+                                tenor = Date::ParseIncrement(tokens[i + 2]);
+                                i += 2;
+                            }
+                            else if (tokens[i] == "CALENDAR") {
+                                holidays = tokens[i + 2];
+                                i += 2;
+                            }
+                            else
+                                THROW2("unknown token", ScriptError_);
+                        }
+
+                        Vector_<Date_> schedule = Dal::MakeSchedule(start_date, Cell_(end_date), Holidays_(holidays), tenor);
+                        for (const auto& d : schedule) {
+                            if (d >= evaluationDate) {
+                                // TODO: to add logic replace place holder for specific date, e.g `PeriodBegin`, `PeriodEnd`
+                                String_ replaced = evtIt->second;
+                                for (const auto& macro : macros)
+                                    replaced = std::regex_replace(
+                                        replaced, std::regex(macro.first, std::regex_constants::icase), macro.second);
+                                processed_events[d] = replaced;
+                            }
+                        }
+                    } else {
+                        REQUIRE2(macros.find(desc) == macros.end(), "macro name has already registered", ScriptError_);
+                        REQUIRE2(processed_events.empty(), "macros should always at the front", ScriptError_);
+                        macros[Cell::ToString(cell)] = evtIt->second;
+                    }
                 } else if(Cell::IsDate(cell) && Cell::ToDate(cell) >= evaluationDate) {
-                    /*
-                     * we only keep the events after evaluation date
-                     * TODO: need to keep the historical events and visits them with dedicated a past evaluator
-                     * */
                     String_ replaced = evtIt->second;
                     for (const auto& macro : macros)
                         replaced = std::regex_replace(replaced, std::regex(macro.first, std::regex_constants::icase), macro.second);

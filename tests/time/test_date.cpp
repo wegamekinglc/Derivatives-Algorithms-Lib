@@ -123,6 +123,9 @@ TEST(DateTest, TestIsWeekEnd) {
 
     src = Date_(2018, 2, 5);
     ASSERT_FALSE(IsWeekEnd(src));
+
+    src = Date_(2023, 5, 8);
+    ASSERT_FALSE(IsWeekEnd(src));
 }
 
 TEST(DateTest, TestFromExcel) {

@@ -173,3 +173,9 @@ TEST(StringsTest, TestAccumulate) {
     auto s1 = Accumulate(c, String_(","));
     ASSERT_EQ(s1, "1,2,3");
 }
+
+TEST(StringsTest, TestFind) {
+    String_ s1 = "Hello";
+    ASSERT_EQ(s1.find("HELLO"), 0);
+    ASSERT_GT(s1.find("SHELLO"), s1.size());
+}

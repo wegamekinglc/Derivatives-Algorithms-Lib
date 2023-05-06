@@ -47,3 +47,15 @@ TEST(EventTest, TestEventWithMacroDuplicated) {
 
     ASSERT_THROW(Script::ScriptProduct_(dates, events), Dal::ScriptError_);
 }
+
+TEST(EventTest, TestEventWithSchedule) {
+    auto global = XGLOBAL::SetEvaluationDateInScope(Date_(2022, 5, 1));
+    Vector_<Cell_> dates;
+    Vector_<String_> events;
+
+    dates.push_back(Cell_("START: 2022-05-07 END: 2023-05-07 FREQ: 1m CALENDAR: CN.SH"));
+    events.push_back("STRIKE = 110.0");
+    Script::ScriptProduct_ product(dates, events);
+
+    ASSERT_EQ(product.EventDates().size(), 13);
+}

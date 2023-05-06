@@ -56,9 +56,9 @@ namespace Dal {
         Date_ end = Cell::ToDate(maturity);
         Vector_<Date_> ret_val;
         Vector_<Date_> pin_dates = DateGenerate(start, end, tenor, method);
-        for (int i = 0; i < pin_dates.size(); ++i) {
+        for (const auto& pin_date : pin_dates) {
             if (convention == BizDayConvention_("Following"))
-                ret_val.push_back(Holidays::NextBus(hols, pin_dates[i]));
+                ret_val.push_back(Holidays::NextBus(hols, pin_date));
             else
                 THROW("business date rule is not recognized");
         }
