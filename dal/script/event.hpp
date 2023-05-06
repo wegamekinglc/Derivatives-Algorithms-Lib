@@ -81,15 +81,15 @@ namespace Dal::Script {
                      * TODO: need to keep the historical events and visits them with dedicated a past evaluator
                      * */
                     String_ replaced = evtIt->second;
-                    for (auto mIt = macros.begin(); mIt != macros.end(); ++mIt)
-                        replaced = std::regex_replace(replaced, std::regex(mIt->first, std::regex_constants::icase), mIt->second);
+                    for (const auto& macro : macros)
+                        replaced = std::regex_replace(replaced, std::regex(macro.first, std::regex_constants::icase), macro.second);
                     processed_events[Cell::ToDate(cell)] = replaced;
                 }
             }
 
-            for (auto evtIt = processed_events.begin(); evtIt != processed_events.end(); ++evtIt) {
-                eventDates_.push_back(evtIt->first);
-                events_.push_back(Parse(evtIt->second));
+            for (const auto& processed_event : processed_events) {
+                eventDates_.push_back(processed_event.first);
+                events_.push_back(Parse(processed_event.second));
             }
         }
 
