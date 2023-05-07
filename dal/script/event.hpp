@@ -124,9 +124,11 @@ namespace Dal::Script {
                                                                     tenor,
                                                                     gen_rule,
                                                                     biz_rule);
-                        for (const auto& d : schedule) {
+                        for (auto k = 1; k < schedule.size(); ++k) {
+                            auto d = schedule[k];
                             if (d >= evaluationDate) {
                                 // TODO: to add logic replace place holder for specific date, e.g `PeriodBegin`, `PeriodEnd`
+                                // TODO: to be able fixing at `begin` or `end`
                                 String_ replaced = evtIt->second;
                                 for (const auto& macro : macros)
                                     replaced = std::regex_replace(
