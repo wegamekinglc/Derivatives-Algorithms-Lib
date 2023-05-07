@@ -35,17 +35,22 @@ int main() {
     const double rate = 0.0;
     const double div = 0.0;
     const double strike = 120.0;
+    const double barrier = 150.0;
 
     timer.Reset();
 
     Vector_<Cell_> eventDates;
     Vector_<String_> events;
+    eventDates.push_back(Cell_("STRIKE"));
+    events.push_back(ToString(strike));
+    eventDates.push_back(Cell_("BARRIER"));
+    events.push_back(ToString(barrier));
     eventDates.push_back(Cell_(start));
     events.push_back("alive = 1");
     eventDates.push_back(Cell_("START: " + Date::ToString(start) + " END: " + Date::ToString(maturity) + " FREQ: 1W"));
-    events.push_back("if spot() >= 150:0.5 then alive = 0 endif");
+    events.push_back("if spot() >= BARRIER:0.1 then alive = 0 endif");
     eventDates.push_back(Cell_(maturity));
-    events.push_back(String_("K = " + ToString(strike) + "\n call pays alive * MAX(spot() - K, 0.0)"));
+    events.push_back(String_("if spot() >= BARRIER:0.1 then alive = 0 endif\n call pays alive * MAX(spot() - STRIKE, 0.0)"));
 
     ScriptProduct_ product(eventDates, events);
 

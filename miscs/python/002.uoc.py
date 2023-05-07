@@ -1,8 +1,9 @@
 from dal import *
 import numpy as np
 
-today = Date_(2022, 9, 15)
-EvaluationDate_Set(today)
+start = Date_(2022, 9, 15)
+maturity = Date_(2025, 9, 15)
+EvaluationDate_Set(start)
 
 spot = 100.0
 vol = 0.15
@@ -10,7 +11,6 @@ rate = 0.00
 div = 0.00
 strike = 120.0
 barrier = 150.0
-maturity = Date_(2025, 9, 14)
 
 n = int(input("Plz input # of paths (power of 2):"))
 n_paths = 2 ** n
@@ -18,17 +18,10 @@ use_bb = False
 rsg = "sobol"
 model_name = input("Plz input model name:")
 
-start = today
-
 event_dates = ["STRIKE", "BARRIER", start]
 events = [f"{strike:.2f}", f"{barrier:.2f}", "alive = 1"]
-
-curr = start.AddDays(7)
-while curr < maturity:
-    event_dates.append(curr)
-    events.append("if spot() >= BARRIER:0.1 then alive = 0 endif")
-    curr = curr.AddDays(7)
-
+event_dates.append(f"START: {start} END: {maturity} FREQ: 1W")
+events.append("if spot() >= BARRIER:0.1 then alive = 0 endif")
 event_dates.append(maturity)
 events.append(f"if spot() >= BARRIER:0.1 then alive = 0 endif\ncall pays alive * MAX(spot() - STRIKE, 0.0)")
 product = Product_New(event_dates, events)

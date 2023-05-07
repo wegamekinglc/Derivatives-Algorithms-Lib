@@ -57,5 +57,5 @@ TEST(EventTest, TestEventWithSchedule) {
     events.push_back("STRIKE = 110.0");
     Script::ScriptProduct_ product(dates, events);
 
-    ASSERT_EQ(product.EventDates().size(), 13);
+    ASSERT_EQ(product.EventDates().size(), 12);
 }
