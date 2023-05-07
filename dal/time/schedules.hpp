@@ -23,6 +23,8 @@ alternative Forward
 enumeration BizDayConvention
     These conventions specify the algorithm used to adjust a date in case it is not a valid business day
 switchable
+alternative Unadjusted
+    Do not modify the date according to the holidays
 alternative Following
     Choose the first business day after the given holiday
 alternative ModifiedFollowing

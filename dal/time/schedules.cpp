@@ -51,7 +51,6 @@ namespace Dal {
                            const Handle_<Date::Increment_>& tenor,
                            DateGeneration_ method,
                            BizDayConvention_ convention) {
-        // we only support forward generated schedule
         REQUIRE(Cell::TypeCheck_<Date_>()(maturity), "currently `end` must be a date");
         Date_ end = Cell::ToDate(maturity);
         Vector_<Date_> ret_val;
@@ -59,6 +58,8 @@ namespace Dal {
         for (const auto& pin_date : pin_dates) {
             if (convention == BizDayConvention_("Following"))
                 ret_val.push_back(Holidays::NextBus(hols, pin_date));
+            else if (convention == BizDayConvention_("Unadjusted"))
+                ret_val.push_back(pin_date);
             else
                 THROW("business date rule is not recognized");
         }

@@ -89,7 +89,9 @@ namespace Dal::Script {
                         Date_ start_date;
                         Date_ end_date;
                         Handle_<Date::Increment_> tenor;
-                        String_ holidays = "";
+                        Holidays_ holidays("");
+                        DateGeneration_ gen_rule("Forward");
+                        BizDayConvention_ biz_rule("Unadjusted");
 
                         for(;i < tokens.size() - 2; ++i) {
                             REQUIRE2(tokens[i + 1] == ":", "schedule parameter name not followed by `:`", ScriptError_);
@@ -102,20 +104,26 @@ namespace Dal::Script {
                                 String_ dt_str = std::accumulate(tokens.begin() + i + 2, tokens.begin() + i + 7, String_(""), [](const String_& x, const String_& y) { return x + y; });
                                 end_date = Date::FromString(dt_str);
                                 i += 6;
-                            }
-                            else if (tokens[i] == "FREQ") {
+                            } else if (tokens[i] == "FREQ") {
                                 tenor = Date::ParseIncrement(tokens[i + 2]);
                                 i += 2;
-                            }
-                            else if (tokens[i] == "CALENDAR") {
-                                holidays = tokens[i + 2];
+                            } else if (tokens[i] == "CALENDAR") {
+                                holidays = Holidays_(tokens[i + 2]);
+                                i += 2;
+                            } else if (tokens[i] == "BizRule") {
+                                biz_rule = BizDayConvention_(tokens[i + 2]);
                                 i += 2;
                             }
                             else
                                 THROW2("unknown token", ScriptError_);
                         }
 
-                        Vector_<Date_> schedule = Dal::MakeSchedule(start_date, Cell_(end_date), Holidays_(holidays), tenor);
+                        Vector_<Date_> schedule = Dal::MakeSchedule(start_date,
+                                                                    Cell_(end_date),
+                                                                    holidays,
+                                                                    tenor,
+                                                                    gen_rule,
+                                                                    biz_rule);
                         for (const auto& d : schedule) {
                             if (d >= evaluationDate) {
                                 // TODO: to add logic replace place holder for specific date, e.g `PeriodBegin`, `PeriodEnd`

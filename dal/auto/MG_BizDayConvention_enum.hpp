@@ -6,6 +6,7 @@ public:
     enum class Value_ : char
     {
      _NOT_SET=-1,
+     Unadjusted,
      Following,
      ModifiedFollowing,
      _N_VALUES
