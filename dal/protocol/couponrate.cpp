@@ -3,6 +3,7 @@
 //
 
 #include <dal/protocol/collateraltype.hpp>
+#include <dal/protocol/clearer.hpp>
 #include <dal/protocol/couponrate.hpp>
 #include <dal/time/periodlength.hpp>
 

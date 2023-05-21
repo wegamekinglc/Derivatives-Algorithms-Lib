@@ -6,6 +6,7 @@
 
 #include <dal/math/vectors.hpp>
 #include <dal/string/strings.hpp>
+#include <dal/utilities/exceptions.hpp>
 
 /*IF--------------------------------------------------------------------------
 enumeration PeriodLength

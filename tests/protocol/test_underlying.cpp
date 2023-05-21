@@ -8,7 +8,7 @@
 #include <dal/protocol/underlying.hpp>
 
 
-TEST(UnderlyingTest, TestUnderlying) {
+TEST(ProtocolTest, TestUnderlying) {
     using namespace Dal;
     Underlying_ underlying;
 

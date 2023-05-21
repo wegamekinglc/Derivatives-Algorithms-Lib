@@ -3,8 +3,8 @@
 //
 
 #include <dal/platform/platform.hpp>
-#include <dal/protocol/collateraltype.hpp>
+#include <dal/protocol/clearer.hpp>
 
 namespace Dal {
-#include <dal/auto/MG_CollateralType_enum.inc>
+#include <dal/auto/MG_Clearer_enum.inc>
 } // namespace Dal

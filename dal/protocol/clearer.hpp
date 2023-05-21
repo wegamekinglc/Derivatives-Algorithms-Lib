@@ -6,20 +6,19 @@
 
 #include <dal/math/vectors.hpp>
 #include <dal/utilities/exceptions.hpp>
+#include <dal/protocol/collateraltype.hpp>
 
 /*IF--------------------------------------------------------------------------
-enumeration CollateralType
-    Quantities for which discount curves are defined
+enumeration Clearer
+   Identifies a clearinghouse
 switchable
-alternative OIS
-    Collateral appropriate for OIS or similar rate
-alternative GC
-    General government collateral
-alternative NONE
+alternative CME
+alternative LCH
+method CollateralType_ Collateral() const;
 -IF-------------------------------------------------------------------------*/
 
 namespace Dal {
     class String_;
+#include <dal/auto/MG_Clearer_enum.hpp>
 
-#include <dal/auto/MG_CollateralType_enum.hpp>
 } // namespace Dal
