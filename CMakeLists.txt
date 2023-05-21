@@ -102,6 +102,5 @@ endif()
 
 message("-- SKIP_TESTS: ${SKIP_TESTS}")
 if ("${SKIP_TESTS}" STREQUAL "false")
-    find_package(GTest CONFIG REQUIRED)
     add_subdirectory(tests)
 endif()
