@@ -1,4 +1,4 @@
-file(GLOB_RECURSE PUBLIC_FILES "../src/*.hpp" "../src/*.cpp")
+file(GLOB_RECURSE PUBLIC_FILES "*.hpp" "*.cpp")
 add_definitions(-DIS_BASE)
 add_library(dal_public ${PUBLIC_FILES})
 target_link_libraries(dal_public dal_library)

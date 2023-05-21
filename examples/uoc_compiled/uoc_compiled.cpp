@@ -21,8 +21,10 @@ using Dal::AAD::Dupire_;
 
 
 int main() {
+    const Date_ start = Date_(2022, 9, 25);
+    const Date_ maturity = Date_(2025, 9, 25);
 
-    Global::Dates_().SetEvaluationDate(Date_(2022, 9, 25));
+    Global::Dates_().SetEvaluationDate(start);
     Timer_ timer;
 
     using Real_ = Number_;
@@ -32,22 +34,16 @@ int main() {
     const double rate = 0.0;
     const double div = 0.0;
     const double strike = 120.0;
-    const Date_ maturity(2025, 9, 25);
-    const Date_ start = Global::Dates_().EvaluationDate();
 
     timer.Reset();
-    auto tenor = Date::ParseIncrement("1W");
-    const auto schedule = DateGenerate(start, maturity, tenor);
 
     Vector_<Cell_> eventDates;
     Vector_<String_> events;
-    eventDates.push_back(Cell_(schedule[0]));
+    eventDates.push_back(Cell_(start));
     events.push_back("alive = 1");
-    for (int i = 1; i < schedule.size(); ++i) {
-        eventDates.push_back(Cell_(schedule[i]));
-        events.push_back("if spot() >= 150:0.5 then alive = 0 endif");
-    }
-    eventDates.push_back(Cell_(schedule[schedule.size() - 1]));
+    eventDates.push_back(Cell_("START: " + Date::ToString(start) + " END: " + Date::ToString(maturity) + " FREQ: 1W"));
+    events.push_back("if spot() >= 150:0.5 then alive = 0 endif");
+    eventDates.push_back(Cell_(maturity));
     events.push_back(String_("K = " + ToString(strike) + "\n call pays alive * MAX(spot() - K, 0.0)"));
 
     ScriptProduct_ product(eventDates, events);

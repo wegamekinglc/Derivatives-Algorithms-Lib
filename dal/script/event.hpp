@@ -71,6 +71,7 @@ namespace Dal::Script {
         template <class EvtIt_> void ParseEvents(EvtIt_ begin, EvtIt_ end) {
             Date_ evaluationDate = Global::Dates_().EvaluationDate();
             std::map<String_, String_> macros;
+            // TODO: map is not proper here as we may have several statements for 1 date
             std::map<Date_, String_> processed_events;
             /*
              * we only keep the events after evaluation date
@@ -124,9 +125,11 @@ namespace Dal::Script {
                                                                     tenor,
                                                                     gen_rule,
                                                                     biz_rule);
-                        for (const auto& d : schedule) {
+                        for (auto k = 1; k < schedule.size(); ++k) {
+                            auto d = schedule[k];
                             if (d >= evaluationDate) {
                                 // TODO: to add logic replace place holder for specific date, e.g `PeriodBegin`, `PeriodEnd`
+                                // TODO: to be able fixing at `begin` or `end`
                                 String_ replaced = evtIt->second;
                                 for (const auto& macro : macros)
                                     replaced = std::regex_replace(
