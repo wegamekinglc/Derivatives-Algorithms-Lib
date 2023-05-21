@@ -6,6 +6,7 @@ call :set_variable ADDRESS_MODEL Win64 %ADDRESS_MODEL%
 call :set_variable MSVC_RUNTIME static %MSVC_RUNTIME%
 call :set_variable MSVC_VERSION "Visual Studio 17 2022" %MSVC_VERSION%
 call :set_variable SKIP_TESTS false %SKIP_TESTS%
+call :set_variable CMAKE_TOOLCHAIN_FILE D:/dev/github/vcpkg/scripts/buildsystems/vcpkg.cmake %CMAKE_TOOLCHAIN_FILE%
 
 echo BUILD_TYPE:  %BUILD_TYPE%
 echo DAL_DIR: %DAL_DIR%
@@ -13,6 +14,7 @@ echo ADDRESS_MODEL: %ADDRESS_MODEL%
 echo MSVC_RUNTIME: %MSVC_RUNTIME%
 echo MSVC_VERSION: %MSVC_VERSION%
 echo SKIP_TESTS: %SKIP_TESTS%
+echo CMAKE_TOOLCHAIN_FILE: %CMAKE_TOOLCHAIN_FILE%
 
 git submodule init
 git submodule update

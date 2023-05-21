@@ -8,8 +8,7 @@ else()
 endif()
 
 target_link_libraries(test_suite dal_library)
-target_link_libraries(test_suite gtest)
-target_link_libraries(test_suite gtest_main)
+target_link_libraries(test_suite GTest::gtest GTest::gtest_main GTest::gmock GTest::gmock_main)
 
 install(TARGETS test_suite
         RUNTIME DESTINATION bin
