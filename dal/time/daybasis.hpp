@@ -31,6 +31,9 @@ namespace Dal {
             Date_ nominalStart_;
             Date_ nominalEnd_;
             int couponMonths_;
+
+            Context_(bool isLast, Date_ nominalStart, Date_ nominalEnd, int couponMonths)
+            : isLast_(isLast), nominalStart_(nominalStart), nominalEnd_(nominalEnd), couponMonths_(couponMonths) {}
         };
     } // namespace DayBasis
 
