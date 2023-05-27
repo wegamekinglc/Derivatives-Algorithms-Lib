@@ -10,6 +10,36 @@
 using namespace Dal;
 using namespace Dal::Script;
 
+TEST(VisitorTest, TestCSpr) {
+    double eps = 1.0;
+    ASSERT_NEAR(CSpr(0.0, eps), 0.5, 1e-4);
+    ASSERT_NEAR(CSpr(0.25, eps), 0.75, 1e-4);
+    ASSERT_NEAR(CSpr(-0.25, eps), 0.25, 1e-4);
+}
+
+TEST(VisitorTest, TestCSprWithLbAndUb) {
+    double lb = -0.5;
+    double ub = 1.0;
+    ASSERT_NEAR(CSpr(0.0, lb, ub), 0.3333, 1e-4);
+    ASSERT_NEAR(CSpr(0.5, lb, ub), 0.6666, 1e-4);
+    ASSERT_NEAR(CSpr(-0.5, lb, ub), 0.0, 1e-4);
+}
+
+TEST(VisitorTest, TestBFly) {
+    double eps = 1.0;
+    ASSERT_NEAR(BFly(0.0, eps), 1.0, 1e-4);
+    ASSERT_NEAR(BFly(0.25, eps), 0.5, 1e-4);
+    ASSERT_NEAR(BFly(-0.25, eps), 0.5, 1e-4);
+}
+
+TEST(VisitorTest, TestBFlyWithLbAndUb) {
+    double lb = -0.5;
+    double ub = 1.0;
+    ASSERT_NEAR(BFly(0.0, lb, ub), 1.0, 1e-4);
+    ASSERT_NEAR(BFly(0.5, lb, ub), 0.5, 1e-4);
+    ASSERT_NEAR(BFly(-0.5, lb, ub), 0.0, 1e-4);
+}
+
 TEST(VisitorTest, TestFuzzyContinuous) {
     Global::Dates_().SetEvaluationDate(Date_(2023, 3, 31));
     Vector_<String_> events = {R"(

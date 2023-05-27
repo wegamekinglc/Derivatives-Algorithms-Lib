@@ -9,7 +9,50 @@
 #include <dal/math/vectors.hpp>
 #include <dal/script/visitor/evaluator.hpp>
 
+
 namespace Dal::Script {
+
+    template <class T_>
+    FORCE_INLINE T_ CSpr(const T_& x, double eps) {
+        const double halfEps = 0.5 * eps;
+
+        if (x < -halfEps)
+            return T_(0.0);
+        else if (x > halfEps)
+            return T_(1.0);
+        else
+            return (x + halfEps) / eps;
+    }
+
+    template <class T_>
+    FORCE_INLINE T_ CSpr(const T_& x, double lb, double rb) {
+        if (x < lb)
+            return T_(0.0);
+        else if (x > rb)
+            return T_(1.0);
+        else
+            return (x - lb) / (rb - lb);
+    }
+
+    template <class T_>
+    FORCE_INLINE T_ BFly(const T_& x, double eps) {
+        const double halfEps = 0.5 * eps;
+
+        if (x < -halfEps || x > halfEps)
+            return T_(0.0);
+        else
+            return (halfEps - fabs(x)) / halfEps;
+    }
+
+    template <class T_>
+    FORCE_INLINE T_ BFly(const T_& x, double lb, double rb) {
+        if (x < lb || x > rb)
+            return T_(0.0);
+        else if (x < 0.0)
+            return 1.0 - x / lb;
+        else
+            return 1.0 - x / rb;
+    }
 
     // The fuzzy evaluator
     template <class T> class FuzzyEvaluator_ : public EvaluatorBase_<T, FuzzyEvaluator_> {
@@ -33,48 +76,6 @@ namespace Dal::Script {
             res.first = fuzzyStack_.TopAndPop();
             res.second = fuzzyStack_.TopAndPop();
             return res;
-        }
-
-        // Call Spread (-eps_/2,+eps_/2)
-        FORCE_INLINE static T CSpr(const T x, const double eps) {
-            const double halfEps = 0.5 * eps;
-
-            if (x < -halfEps)
-                return T(0.0);
-            else if (x > halfEps)
-                return T(1.0);
-            else
-                return (x + halfEps) / eps;
-        }
-
-        // Call Spread (lb_,rb_)
-        FORCE_INLINE static T CSpr(const T x, const double lb, const double rb) {
-            if (x < lb)
-                return T(0.0);
-            else if (x > rb)
-                return T(1.0);
-            else
-                return (x - lb) / (rb - lb);
-        }
-
-        // Butterfly (-eps_/2,+eps_/2)
-        FORCE_INLINE static T BFly(const T x, const double eps) {
-            const double halfEps = 0.5 * eps;
-
-            if (x < -halfEps || x > halfEps)
-                return T(0.0);
-            else
-                return (halfEps - fabs(x)) / halfEps;
-        }
-
-        // Butterfly (lb_,0,rb_)
-        FORCE_INLINE static T BFly(const T x, const double lb, const double rb) {
-            if (x < lb || x > rb)
-                return T(0.0);
-            else if (x < 0.0)
-                return 1.0 - x / lb;
-            else
-                return 1.0 - x / rb;
         }
 
     public:
@@ -121,7 +122,7 @@ namespace Dal::Script {
         FuzzyEvaluator_(FuzzyEvaluator_&& rhs) noexcept
             : Base(move(rhs)), defEps_(rhs.defEps_), varStore0_(move(rhs.varStore0_)), varStore1_(move(rhs.varStore1_)),
               nestedIfLvl_(0) {}
-        FuzzyEvaluator_& operator=(FuzzyEvaluator_&& rhs) {
+        FuzzyEvaluator_& operator = (FuzzyEvaluator_&& rhs) noexcept {
             Base::operator=(move(rhs));
             defEps_ = rhs.defEps_;
             varStore0_ = move(rhs.varStore0_);
@@ -241,7 +242,6 @@ namespace Dal::Script {
         }
 
         FORCE_INLINE void Visit(const NodeSup_& node) { VisitComp(node); }
-
         FORCE_INLINE void Visit(const NodeSupEqual_& node) { VisitComp(node); }
 
         // Negation
