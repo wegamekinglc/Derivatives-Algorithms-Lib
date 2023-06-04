@@ -29,6 +29,8 @@ This is a project inspired by following books & codes repositories:
 
 * [*Finite Difference Methods for Financial Partial Differential Equations* by Brian Huge & Jesper Andreasen](https://github.com/brnohu/CompFin)
 
+* [*WBS_FD* by Brian Huge](https://github.com/brnohu/WBS_FD)
+
 > Some codes are directly copied from above resources.
 
 ## Examples
