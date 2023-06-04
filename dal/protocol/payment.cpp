@@ -10,7 +10,7 @@ namespace Dal {
     Payment::Conditions_::Conditions_()
     : exerciseCondition_(Exercise_::UNCONDITIONAL) {}
 
-    Payment::Info_::Info_(String_  des,
+    Payment::Info_::Info_(String_ des,
                           const DateTime_ &known,
                           const Conditions_ &conditions,
                           const AccrualPeriod_ *accrual)
