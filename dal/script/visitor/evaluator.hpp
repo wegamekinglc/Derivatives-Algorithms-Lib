@@ -13,24 +13,24 @@
 
 namespace Dal::Script {
 
-    template <class T, template <typename> class EVAL_> class EvaluatorBase_ : public ConstVisitor_<EVAL_<T>> {
+    template <class T_, template <typename> class EVAL_> class EvaluatorBase_ : public ConstVisitor_<EVAL_<T_>> {
     protected:
         // State
-        Vector_<T> variables_;
+        Vector_<T_> variables_;
 
         // Stacks
-        StaticStack_<T> dStack_;
+        StaticStack_<T_> dStack_;
         StaticStack_<bool> bStack_;
 
         // Reference to current scenario
-        const AAD::Scenario_<T>* scenario_;
+        const AAD::Scenario_<T_>* scenario_;
 
         // Index of current event
         size_t curEvt_;
 
     public:
-        using ConstVisitor_<EVAL_<T>>::Visit;
-        using ConstVisitor_<EVAL_<T>>::VisitNode;
+        using ConstVisitor_<EVAL_<T_>>::Visit;
+        using ConstVisitor_<EVAL_<T_>>::VisitNode;
 
         // Constructor, nVar = number of variables, from Product after parsing and variable indexation
         explicit EvaluatorBase_(const size_t nVar) : variables_(nVar) {}
@@ -53,7 +53,7 @@ namespace Dal::Script {
         // (Re-)initialize before evaluation in each scenario
         void Init() {
             for (auto& varIt : variables_)
-                varIt = 0.0;
+                varIt = T_(0.0);
             //	Stacks should be empty, if this is not the case the empty them
             //	without affecting capacity for added performance
             dStack_.Reset();
@@ -62,11 +62,11 @@ namespace Dal::Script {
 
         // Accessors
         // Access to variable values after evaluation
-        [[nodiscard]] FORCE_INLINE const Vector_<T>& VarVals() const { return variables_; }
+        [[nodiscard]] FORCE_INLINE const Vector_<T_>& VarVals() const { return variables_; }
 
         // Set generated scenarios and current event
         // Set reference to current scenario
-        FORCE_INLINE void SetScenario(const AAD::Scenario_<T>* scenario) { scenario_ = scenario; }
+        FORCE_INLINE void SetScenario(const AAD::Scenario_<T_>* scenario) { scenario_ = scenario; }
 
         // Set index of current event
         FORCE_INLINE void SetCurEvt(size_t curEvt) { curEvt_ = curEvt; }
@@ -82,34 +82,34 @@ namespace Dal::Script {
         }
 
         FORCE_INLINE void Visit(const NodeAdd_& node) {
-            VisitBinary(node, [](T& x, const T y) { x += y; });
+            VisitBinary(node, [](T_& x, const T_ y) { x += y; });
         }
 
         FORCE_INLINE void Visit(const NodeSub_& node) {
-            VisitBinary(node, [](T& x, const T y) { x -= y; });
+            VisitBinary(node, [](T_& x, const T_ y) { x -= y; });
         }
 
         FORCE_INLINE void Visit(const NodeMult_& node) {
-            VisitBinary(node, [](T& x, const T y) { x *= y; });
+            VisitBinary(node, [](T_& x, const T_ y) { x *= y; });
         }
 
         FORCE_INLINE void Visit(const NodeDiv_& node) {
-            VisitBinary(node, [](T& x, const T y) { x /= y; });
+            VisitBinary(node, [](T_& x, const T_ y) { x /= y; });
         }
 
         FORCE_INLINE void Visit(const NodePow_& node) {
-            VisitBinary(node, [](T& x, const T y) { x = pow(x, y); });
+            VisitBinary(node, [](T_& x, const T_ y) { x = pow(x, y); });
         }
 
         FORCE_INLINE void Visit(const NodeMax_& node) {
-            VisitBinary(node, [](T& x, const T y) {
+            VisitBinary(node, [](T_& x, const T_ y) {
                 if (x < y)
                     x = y;
             });
         }
 
         FORCE_INLINE void Visit(const NodeMin_& node) {
-            VisitBinary(node, [](T& x, const T y) {
+            VisitBinary(node, [](T_& x, const T_ y) {
                 if (x > y)
                     x = y;
             });
@@ -122,35 +122,35 @@ namespace Dal::Script {
         }
 
         FORCE_INLINE void Visit(const NodeUplus_& node) {
-            VisitUnary(node, [](T& x) {});
+            VisitUnary(node, [](T_& x) {});
         }
 
         FORCE_INLINE void Visit(const NodeUminus_& node) {
-            VisitUnary(node, [](T& x) { x = -x; });
+            VisitUnary(node, [](T_& x) { x = -x; });
         }
 
         // Functions
         FORCE_INLINE void Visit(const NodeLog_& node) {
-            VisitUnary(node, [](T& x) { x = log(x); });
+            VisitUnary(node, [](T_& x) { x = log(x); });
         }
 
         FORCE_INLINE void Visit(const NodeSqrt_& node) {
-            VisitUnary(node, [](T& x) { x = sqrt(x); });
+            VisitUnary(node, [](T_& x) { x = sqrt(x); });
         }
 
         FORCE_INLINE void Visit(const NodeExp_& node) {
-            VisitUnary(node, [](T& x) { x = exp(x); });
+            VisitUnary(node, [](T_& x) { x = exp(x); });
         }
 
         //  Multies
         void Visit(const NodeSmooth_& node) {
             //	Eval the condition
             VisitNode(*node.arguments_[0]);
-            const T x = dStack_.TopAndPop();
+            const T_ x = dStack_.TopAndPop();
 
             //	Eval the epsilon
             VisitNode(*node.arguments_[3]);
-            const T halfEps = 0.5 * dStack_.TopAndPop();
+            const T_ halfEps = 0.5 * dStack_.TopAndPop();
 
             //	Left
             if (x < -halfEps)
@@ -163,10 +163,10 @@ namespace Dal::Script {
             //	Fuzzy
             else {
                 VisitNode(*node.arguments_[1]);
-                const T vPos = dStack_.TopAndPop();
+                const T_ vPos = dStack_.TopAndPop();
 
                 VisitNode(*node.arguments_[2]);
-                const T vNeg = dStack_.TopAndPop();
+                const T_ vNeg = dStack_.TopAndPop();
 
                 dStack_.Push(vNeg + 0.5 * (vPos - vNeg) / halfEps * (x + halfEps));
             }
@@ -179,15 +179,15 @@ namespace Dal::Script {
         }
 
         FORCE_INLINE void Visit(const NodeEqual_& node) {
-            VisitCondition(node, [](const T x) { return x == 0; });
+            VisitCondition(node, [](const T_ x) { return x == 0; });
         }
 
         FORCE_INLINE void Visit(const NodeSup_& node) {
-            VisitCondition(node, [](const T x) { return x > 0; });
+            VisitCondition(node, [](const T_ x) { return x > 0; });
         }
 
         FORCE_INLINE void Visit(const NodeSupEqual_& node) {
-            VisitCondition(node, [](const T x) { return x >= 0; });
+            VisitCondition(node, [](const T_ x) { return x >= 0; });
         }
 
         FORCE_INLINE void Visit(const NodeAnd_& node) {

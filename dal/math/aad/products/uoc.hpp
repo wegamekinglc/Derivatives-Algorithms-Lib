@@ -58,7 +58,7 @@ namespace Dal::AAD {
             } else {
                 for (const auto& sample : path) {
                     if (sample.forwards_[0][0] >= barrier_) {
-                        alive = 0.0;
+                        alive = T_(0.0);
                         break;
                     }
                 }

@@ -80,7 +80,7 @@ namespace Dal::Script {
         //  Initializer
         void Init() {
             for (auto& var : variables_)
-                var = 0.0;
+                var = T_(0.0);
         }
 
         const Vector_<T_>& VarVals() const { return variables_; }
@@ -345,16 +345,16 @@ namespace Dal::Script {
     };
 
     
-    template <class T>
+    template <class T_>
     inline void EvalCompiled(
         //  Stream to eval
         const Vector_<int>& nodeStream,
         const Vector_<double>& constStream,
         const Vector_<const void*>& dataStream,
         //  Scenario
-        const AAD::Sample_<T>& scenario,
+        const AAD::Sample_<T_>& scenario,
         //  State
-        EvalState_<T>& state,
+        EvalState_<T_>& state,
         //  First (included), last (excluded)
         size_t first = 0,
         size_t last = 0) {
@@ -362,11 +362,11 @@ namespace Dal::Script {
         size_t i = first;
 
         //  Work space
-        T x, y, z, t;
+        T_ x, y, z, t;
         size_t idx;
 
         //  Stacks
-        thread_local  static StaticStack_<T> dStack;
+        thread_local  static StaticStack_<T_> dStack;
         dStack.Reset();
         thread_local static StaticStack_<bool> bStack;
         bStack.Reset();
@@ -442,7 +442,7 @@ namespace Dal::Script {
                 ++i;
                 break;
             case Max2Const:
-                y = constStream[nodeStream[++i]];
+                y = T_(constStream[nodeStream[++i]]);
                 if (y > dStack.Top())
                     dStack.Top() = y;
                 ++i;
@@ -455,7 +455,7 @@ namespace Dal::Script {
                 ++i;
                 break;
             case Min2Const:
-                y = constStream[nodeStream[++i]];
+                y = T_(constStream[nodeStream[++i]]);
                 if (y < dStack.Top())
                     dStack.Top() = y;
                 ++i;
@@ -478,7 +478,7 @@ namespace Dal::Script {
                 ++i;
                 break;
             case AssignConst:
-                x = constStream[nodeStream[++i]];
+                x = T_(constStream[nodeStream[++i]]);
                 idx = nodeStream[++i];
                 state.variables_[idx] = x;
                 ++i;
@@ -490,7 +490,7 @@ namespace Dal::Script {
                 ++i;
                 break;
             case PaysConst:
-                x = constStream[nodeStream[++i]];
+                x = T_(constStream[nodeStream[++i]]);
                 idx = nodeStream[++i];
                 state.variables_[idx] += x / scenario.numeraire_;
                 ++i;

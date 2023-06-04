@@ -90,7 +90,7 @@ include(Platform)
 
 include_directories(${CMAKE_SOURCE_DIR})
 include_directories(${CMAKE_SOURCE_DIR}/externals/adept)
-include_directories(${CMAKE_SOURCE_DIR}/externals/codi)
+include_directories(${CMAKE_SOURCE_DIR}/externals/CodiPack/include)
 
 add_subdirectory(dal)
 add_subdirectory(public)

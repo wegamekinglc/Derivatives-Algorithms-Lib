@@ -27,7 +27,7 @@ TEST(AADNumberTest, TestNumberAdd) {
     ASSERT_NEAR(s2.getGradient(), 1.0, 1e-10);
     tape.reset();
 
-    s1 = 1.0;
+    s1 = Number_(1.0);
     tape.registerInput(s1);
     value = s1 + 2.0;
     value.setGradient(1.0);
@@ -35,7 +35,7 @@ TEST(AADNumberTest, TestNumberAdd) {
     ASSERT_NEAR(s1.getGradient(), 1.0, 1e-10);
     tape.reset();
 
-    s2 = 2.0;
+    s2 = Number_(2.0);
     tape.registerInput(s2);
     value = 1.0 + s2;
     value.setGradient(1.0);
@@ -61,7 +61,7 @@ TEST(AADNumberTest, TestNumberSub) {
     ASSERT_NEAR(s2.getGradient(), -1.0, 1e-10);
     tape.reset();
 
-    s1 = 1.0;
+    s1 = Number_(1.0);
     tape.registerInput(s1);
     value = s1 - 2.0;
     value.setGradient(1.0);
@@ -69,7 +69,7 @@ TEST(AADNumberTest, TestNumberSub) {
     ASSERT_NEAR(s1.getGradient(), 1.0, 1e-10);
     tape.reset();
 
-    s2 = 2.0;
+    s2 = Number_(2.0);
     tape.registerInput(s2);
     value = 1.0 - s2;
     value.setGradient(1.0);
@@ -95,7 +95,7 @@ TEST(AADNumberTest, TestNumberMultiply) {
     ASSERT_NEAR(s2.getGradient(), 3.0, 1e-10);
     tape.reset();
 
-    s1 = 3.0;
+    s1 = Number_(3.0);
     tape.registerInput(s1);
     value = s1 * 2.0;
     value.setGradient(1.0);
@@ -103,7 +103,7 @@ TEST(AADNumberTest, TestNumberMultiply) {
     ASSERT_NEAR(s1.getGradient(), 2.0, 1e-10);
     tape.reset();
 
-    s2 = 2.0;
+    s2 = Number_(2.0);
     tape.registerInput(s2);
     value = 3.0 * s2;
     value.setGradient(1.0);
@@ -129,7 +129,7 @@ TEST(AADNumberTest, TestNumberDivide) {
     ASSERT_NEAR(s2.getGradient(), -s1.value() / s2.value() / s2.value(), 1e-10);
     tape.reset();
 
-    s1 = 3.0;
+    s1 = Number_(3.0);
     tape.registerInput(s1);
     value = s1 / 2.0;
     value.setGradient(1.0);
@@ -137,7 +137,7 @@ TEST(AADNumberTest, TestNumberDivide) {
     ASSERT_NEAR(s1.getGradient(), 1. / 2.0, 1e-10);
     tape.reset();
 
-    s2 = 2.0;
+    s2 = Number_(2.0);
     tape.registerInput(s2);
     value = 3.0 / s2;
     value.setGradient(1.0);
@@ -162,7 +162,7 @@ TEST(AADNumberTest, TestNumberPow) {
     ASSERT_NEAR(s2.getGradient(), value.value() * std::log(s1.value()), 1e-10);
     tape.reset();
 
-    s1 = 3.0;
+    s1 = Number_(3.0);
     tape.registerInput(s1);
     value = pow(s1, 2.0);
     value.setGradient(1.0);
@@ -170,7 +170,7 @@ TEST(AADNumberTest, TestNumberPow) {
     ASSERT_NEAR(s1.getGradient(), s2.value() * std::pow(s1.value(), 1.0), 1e-10);
     tape.reset();
 
-    s2 = 2.0;
+    s2 = Number_(2.0);
     tape.registerInput(s2);
     value = pow(3.0, s2);
     value.setGradient(1.0);
@@ -195,7 +195,7 @@ TEST(AADNumberTest, TestNumberMax) {
     ASSERT_NEAR(s2.getGradient(), 0.0, 1e-10);
     tape.reset();
 
-    s1 = 3.0;
+    s1 = Number_(3.0);
     tape.registerInput(s1);
     value = max(s1, 2.0);
     value.setGradient(1.0);
@@ -203,7 +203,7 @@ TEST(AADNumberTest, TestNumberMax) {
     ASSERT_NEAR(s1.getGradient(), 1.0, 1e-10);
     tape.reset();
 
-    s2 = 2.0;
+    s2 = Number_(2.0);
     tape.registerInput(s2);
     value = max(3.0, s2);
     value.setGradient(1.0);
@@ -211,8 +211,8 @@ TEST(AADNumberTest, TestNumberMax) {
     ASSERT_NEAR(s2.getGradient(), 0.0, 1e-10);
     tape.reset();
 
-    s1 = 2.0;
-    s2 = 3.0;
+    s1 = Number_(2.0);
+    s2 = Number_(3.0);
     tape.registerInput(s1);
     tape.registerInput(s2);
     value = max(s1, s2);
@@ -222,7 +222,7 @@ TEST(AADNumberTest, TestNumberMax) {
     ASSERT_NEAR(s1.getGradient(), 0.0, 1e-10);
     ASSERT_NEAR(s2.getGradient(), 1.0, 1e-10);
 
-    s1 = 2.0;
+    s1 = Number_(2.0);
     tape.registerInput(s1);
     value = max(s1, 3.0);
     value.setGradient(1.0);
@@ -230,7 +230,7 @@ TEST(AADNumberTest, TestNumberMax) {
     ASSERT_NEAR(s1.getGradient(), 0.0, 1e-10);
     tape.reset();
 
-    s2 = 3.0;
+    s2 = Number_(3.0);
     tape.registerInput(s2);
     value = max(2.0, s2);
     value.setGradient(1.0);
@@ -255,7 +255,7 @@ TEST(AADNumberTest, TestNumberMin) {
     ASSERT_NEAR(s2.getGradient(), 1.0, 1e-10);
     tape.reset();
 
-    s1 = 3.0;
+    s1 = Number_(3.0);
     tape.registerInput(s1);
     value = min(s1, 2.0);
     value.setGradient(1.0);
@@ -263,7 +263,7 @@ TEST(AADNumberTest, TestNumberMin) {
     ASSERT_NEAR(s1.getGradient(), 0.0, 1e-10);
     tape.reset();
 
-    s2 = 2.0;
+    s2 = Number_(2.0);
     tape.registerInput(s2);
     value = min(3.0, s2);
     value.setGradient(1.0);
@@ -271,8 +271,8 @@ TEST(AADNumberTest, TestNumberMin) {
     ASSERT_NEAR(s2.getGradient(), 1.0, 1e-10);
     tape.reset();
 
-    s1 = 2.0;
-    s2 = 3.0;
+    s1 = Number_(2.0);
+    s2 = Number_(3.0);
     tape.registerInput(s1);
     tape.registerInput(s2);
     value = min(s1, s2);
@@ -283,7 +283,7 @@ TEST(AADNumberTest, TestNumberMin) {
     ASSERT_NEAR(s2.getGradient(), 0.0, 1e-10);
     tape.reset();
 
-    s1 = 2.0;
+    s1 = Number_(2.0);
     tape.registerInput(s1);
     value = min(s1, 3.0);
     value.setGradient(1.0);
@@ -291,7 +291,7 @@ TEST(AADNumberTest, TestNumberMin) {
     ASSERT_NEAR(s1.getGradient(), 1.0, 1e-10);
     tape.reset();
 
-    s2 = 3.0;
+    s2 = Number_(3.0);
     tape.registerInput(s2);
     value = min(2.0, s2);
     value.setGradient(1.0);
@@ -319,7 +319,7 @@ TEST(AADNumberTest, TestNumberEqualAdd) {
     ASSERT_NEAR(s2.getGradient(), 1.0, 1e-10);
     tape.reset();
 
-    s1 = 1.0;
+    s1 = Number_(1.0);
     tape.registerInput(s1);
     s3 = s1;
     s3 += 2.0;
@@ -349,7 +349,7 @@ TEST(AADNumberTest, TestNumberEqualSub) {
     ASSERT_NEAR(s2.getGradient(), -1.0, 1e-10);
     tape.reset();
 
-    s1 = 1.0;
+    s1 = Number_(1.0);
     tape.registerInput(s1);
     s3 = s1;
     s3 -= 2.0;
@@ -379,7 +379,7 @@ TEST(AADNumberTest, TestNumberEqualMultiply) {
     ASSERT_NEAR(s2.getGradient(), 2.0, 1e-10);
     tape.reset();
 
-    s1 = 2.0;
+    s1 = Number_(2.0);
     tape.registerInput(s1);
     s3 = s1;
     s3 *= 3.0;
@@ -409,7 +409,7 @@ TEST(AADNumberTest, TestNumberEqualDivide) {
     ASSERT_NEAR(s2.getGradient(), -2.0 / 9.0, 1e-10);
     tape.reset();
 
-    s1 = 2.0;
+    s1 = Number_(2.0);
     tape.registerInput(s1);
     s3 = s1;
     s3 /= 3.0;

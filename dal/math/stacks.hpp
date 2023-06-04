@@ -141,7 +141,7 @@ namespace Dal {
 
     public:
         template <typename T2>
-        FORCE_INLINE void Push(T2&& value) { data_[++sp_] = std::forward<T2>(value); }
+        FORCE_INLINE void Push(T2&& value) { data_[++sp_] = T(std::move(value)); }
 
         FORCE_INLINE T& Top() { return data_[sp_]; }
 
