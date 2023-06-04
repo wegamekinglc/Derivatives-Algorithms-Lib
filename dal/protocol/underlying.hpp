@@ -16,7 +16,7 @@ namespace Dal {
     struct Underlying_ {
         class Parent_ {
         public:
-            virtual ~Parent_();
+            virtual ~Parent_() = default;
         };
         Handle_<Parent_> parent_;
         std::map<Ccy_, Date_> payCcys_;

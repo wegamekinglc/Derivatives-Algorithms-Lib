@@ -16,31 +16,17 @@ namespace Dal {
     namespace Payment {
         class Tag_ : noncopyable {
         public:
-            virtual ~Tag_();
+            virtual ~Tag_() = default;
         };
         const Handle_<Tag_>& Null();
 
         namespace Amount {
             class Tag_: noncopyable {
             public:
-                virtual ~Tag_();
+                virtual ~Tag_() = default;
             };
 
         }
-
-        namespace Default {
-            class Tag_: noncopyable {
-            public:
-                virtual ~Tag_();
-            };
-
-        }
-
-        struct DefaultPeriod_ {
-            Date_ start;
-            Date_ end;
-            bool recoverable_;
-        };
 
         struct Conditions_ {
             enum class Exercise_: char {
@@ -50,13 +36,6 @@ namespace Dal {
                 ON_CONTINUATION
             } exerciseCondition_;
 
-            enum class Credit_: char {
-                RISKLESS,
-                ON_SURVIVAL,
-                ON_DEFAULT
-            } creditCondition_;
-
-            DefaultPeriod_ defaultPeriod_;
             Conditions_();
         };
 
@@ -65,10 +44,10 @@ namespace Dal {
             DateTime_ knownTime_;
             Conditions_ conditions_;
             std::optional<AccrualPeriod_> period_;
-            Info_(const String_& des = String_(),
-                  const DateTime_& known = DateTime::Minimum(),
-                  const Conditions_& conditions = Conditions_(),
-                  const AccrualPeriod_* accrual = nullptr);
+            explicit Info_(String_  des = String_(),
+                           const DateTime_& known = DateTime::Minimum(),
+                           const Conditions_& conditions = Conditions_(),
+                           const AccrualPeriod_* accrual = nullptr);
         };
     }
 
@@ -81,17 +60,22 @@ namespace Dal {
         Date_ commitDate_;
         Payment_() = default;
         Payment_(const Payment_& src) = default;
-        Payment_(const DateTime_& et, const Ccy_& ccy, const Date_& dt, const String_& s, const Payment::Info_& tag, const Date_& cd = Date::Minimum());
+        Payment_(const DateTime_& et,
+                 const Ccy_& ccy,
+                 const Date_& dt,
+                 String_ s,
+                 Payment::Info_  tag,
+                 const Date_& cd = Date::Minimum());
     };
 
     class NodeValue_: noncopyable {
     public:
-        virtual ~NodeValue_();
+        virtual ~NodeValue_() = default;
         virtual void operator+(double amount) = 0;
     };
 
     class NodeValues_: noncopyable {
-        virtual ~NodeValues_();
+        virtual ~NodeValues_() = default;
         virtual NodeValue_& operator[](const Payment::Tag_& tag) = 0;
         inline NodeValue_& operator[](const Handle_<Payment::Tag_>& tag) {
             return operator[](*tag);
@@ -102,15 +86,4 @@ namespace Dal {
             return operator[](*tag);
         }
     };
-
-    class NodeValuesDefault_ : noncopyable {
-    public:
-        virtual ~NodeValuesDefault_();
-        virtual NodeValue_& operator()(const Payment::Default::Tag_& tag, const Date_& commit_date) = 0;
-        inline NodeValue_& operator() (const Handle_<Payment::Default::Tag_>& tag, const Date_& commit_date) {
-            return operator()(*tag, commit_date);
-        }
-    };
-
-
 }
