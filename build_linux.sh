@@ -24,9 +24,9 @@ if [ $? -ne 0 ]; then
   exit 1
 fi
 
-export MACHINIST_TEMPLATE_DIR=$PWD/machinist2/template/
-./machinist2/bin/Machinist -c config/dal.ifc -l config/dal.mgl -d ./dal
-./machinist2/bin/Machinist -c config/dal.ifc -l config/dal.mgl -d ./public
+export MACHINIST_TEMPLATE_DIR=$PWD/externals/machinist/template/
+./externals/machinist/bin/Machinist -c config/dal.ifc -l config/dal.mgl -d ./dal
+./externals/machinist/bin/Machinist -c config/dal.ifc -l config/dal.mgl -d ./public
 
 if [ $? -ne 0 ]; then
   exit 1

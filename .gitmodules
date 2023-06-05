@@ -1,6 +1,6 @@
-[submodule "machinist2"]
-	path = machinist2
-	url = git@github.com:wegamekinglc/machinist2.git
 [submodule "externals/CodiPack"]
 	path = externals/CodiPack
 	url = git@github.com:wegamekinglc/CoDiPack.git
+[submodule "externals/machinist"]
+	path = externals/machinist
+	url = git@github.com:wegamekinglc/machinist2.git
