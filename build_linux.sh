@@ -16,7 +16,7 @@ echo BUILD_SHARED_LIBS: $BUILD_SHARED_LIBS
 echo CMAKE_EXPORT_COMPILE_COMMANDS: $CMAKE_EXPORT_COMPILE_COMMANDS
 
 (
-cd machinist2 || exit
+cd externals/machinist || exit
 bash -e ./build_linux.sh
 )
 
