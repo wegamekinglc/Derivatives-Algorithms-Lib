@@ -8,6 +8,11 @@ list(FILTER DAL_FILES EXCLUDE REGEX "${PROJECT_SOURCE_DIR}/dal/storage/_reposito
 
 add_library(dal_library ${DAL_FILES})
 
+find_package(OpenMP)
+if(OpenMP_CXX_FOUND)
+    target_link_libraries(dal_library PUBLIC OpenMP::OpenMP_CXX)
+endif()
+
 set_target_properties(dal_library PROPERTIES
         EXPORT_NAME ${PACKAGE_NAME}
         OUTPUT_NAME ${PACKAGE_NAME}
