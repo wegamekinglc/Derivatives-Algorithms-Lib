@@ -46,6 +46,7 @@ if (NOT "${CMAKE_BUILD_TYPE}" STREQUAL "Debug")
     add_definitions(-DADEPT_FAST)
     add_definitions(-D__FAST_MATH__)
     add_definitions(-DADEPT_FAST_EXPONENTIAL=1)
+    add_definitions(-DCODI_EnableOpenMP)
     message("-- using forced inline for Codi and fast math for adept")
 endif()
 
