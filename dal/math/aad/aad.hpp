@@ -27,9 +27,9 @@ namespace Dal::AAD {
 
 namespace Dal::AAD {
 #ifndef NDEBUG
-    using Number_ = codi::RealReverse;
+    using Number_ = codi::RealReverseIndex;
 #else
-    using Number_ = codi::RealReverseUnchecked;
+    using Number_ = codi::RealReverseIndexOpenMP;
 #endif
     using Tape_ = typename Number_::Tape;
     using Position_ = typename Tape_::Position;
