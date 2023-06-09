@@ -43,10 +43,7 @@ set(DAL_INSTALL_CMAKEDIR "lib/cmake/${PACKAGE_NAME}" CACHE STRING "Installation 
 
 if (NOT "${CMAKE_BUILD_TYPE}" STREQUAL "Debug")
     add_definitions(-DCODI_ForcedInlines)
-    add_definitions(-DADEPT_FAST)
-    add_definitions(-D__FAST_MATH__)
-    add_definitions(-DADEPT_FAST_EXPONENTIAL=1)
-    message("-- using forced inline for Codi and fast math for adept")
+    message("-- using forced inline for Codi")
 endif()
 
 # Project shared libs ON for UNIX
@@ -89,7 +86,6 @@ set(DAL_HEX_VERSION ${PACKAGE_VERSION_HEX})
 include(Platform)
 
 include_directories(${CMAKE_SOURCE_DIR})
-include_directories(${CMAKE_SOURCE_DIR}/externals/adept)
 include_directories(${CMAKE_SOURCE_DIR}/externals/CodiPack/include)
 
 add_subdirectory(dal)
