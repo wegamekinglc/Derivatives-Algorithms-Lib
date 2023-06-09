@@ -7,6 +7,7 @@ export BUILD_TYPE=Release
 export SKIP_TESTS=false  # make it true when you need a full performance lib
 export CMAKE_EXPORT_COMPILE_COMMANDS=on
 export BUILD_SHARED_LIBS=on
+export CMAKE_TOOLCHAIN_FILE=$PWD/externals/vcpkg/scripts/buildsystems/vcpkg.cmake
 
 echo NUM_CORES: NUM_CORES
 echo BUILD_TYPE: $BUILD_TYPE
@@ -14,6 +15,17 @@ echo DAL_DIR: $DAL_DIR
 echo SKIP_TESTS: $SKIP_TESTS
 echo BUILD_SHARED_LIBS: $BUILD_SHARED_LIBS
 echo CMAKE_EXPORT_COMPILE_COMMANDS: $CMAKE_EXPORT_COMPILE_COMMANDS
+echo CMAKE_TOOLCHAIN_FILE: $CMAKE_TOOLCHAIN_FILE
+
+(
+cd externals/vcpkg
+bash bootstrap-vcpkg.sh
+./vcpkg install gtest
+)
+
+if [ $? -ne 0 ]; then
+  exit 1
+fi
 
 (
 cd externals/machinist || exit
@@ -35,7 +47,7 @@ fi
 mkdir -p build
 (
 cd build || exit
-cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DCMAKE_INSTALL_PREFIX="$DAL_DIR" -DSKIP_TESTS=$SKIP_TESTS -DCMAKE_EXPORT_COMPILE_COMMANDS=$CMAKE_EXPORT_COMPILE_COMMANDS -DBUILD_SHARED_LIBS=$BUILD_SHARED_LIBS ..
+cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DCMAKE_INSTALL_PREFIX="$DAL_DIR" -DSKIP_TESTS=$SKIP_TESTS -DCMAKE_EXPORT_COMPILE_COMMANDS=$CMAKE_EXPORT_COMPILE_COMMANDS -DBUILD_SHARED_LIBS=$BUILD_SHARED_LIBS -DCMAKE_TOOLCHAIN_FILE=$CMAKE_TOOLCHAIN_FILE ..
 make -j"${NUM_CORES}"
 make install
 )
