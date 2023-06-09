@@ -8,15 +8,12 @@
 #include <dal/utilities/timer.hpp>
 #include <iomanip>
 #include <iostream>
-#include <adept.h>
-#include <adept_source.h>
 #include <codi.hpp>
 
 using namespace std;
 using namespace Dal;
 using Dal::AAD::Number_;
 using Dal::AAD::Tape_;
-using adept::adouble;
 
 
 template <class T_>
@@ -84,24 +81,6 @@ int main() {
     std::cout << "      dP/dK   : " << std::setprecision(8) << strike_aad.getGradient() / n_repetition / n_rounds << std::endl;
     std::cout << "      dP/dT   : " << std::setprecision(8) << expiry_aad.getGradient() / n_repetition / n_rounds << std::endl;
     tape.reset();
-
-    timer.Reset();
-    double y_value;
-    adept::Stack stack;
-    adouble x[5] = {fwd, vol, numeraire, strike, expiry};
-    for (int i = 0; i < n_rounds; ++i) {
-        stack.new_recording();
-        adouble y = BlackTest(x[0], x[1], x[2], x[3], x[4], is_call, n_repetition);
-        y.set_gradient(1.0);
-        stack.compute_adjoint();
-        y_value = y.value();
-    }
-    std::cout << "ADEPT AAD Mode: " << std::setprecision(8) << y_value / n_repetition << " with " << timer.Elapsed<milliseconds>() << " ms" << std::endl;
-    std::cout << "      dP/dFwd : " << std::setprecision(8) << x[0].get_gradient() / n_repetition << std::endl;
-    std::cout << "      dP/dVol : " << std::setprecision(8) << x[1].get_gradient() / n_repetition << std::endl;
-    std::cout << "      dP/dNum : " << std::setprecision(8) << x[2].get_gradient() / n_repetition << std::endl;
-    std::cout << "      dP/dK   : " << std::setprecision(8) << x[3].get_gradient() / n_repetition << std::endl;
-    std::cout << "      dP/dT   : " << std::setprecision(8) << x[4].get_gradient() / n_repetition << std::endl;
 
     return 0;
 }
