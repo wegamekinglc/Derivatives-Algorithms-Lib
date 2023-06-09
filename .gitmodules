@@ -4,3 +4,6 @@
 [submodule "externals/machinist"]
 	path = externals/machinist
 	url = git@github.com:wegamekinglc/machinist2.git
+[submodule "externals/vcpkg"]
+	path = externals/vcpkg
+	url = git@github.com:microsoft/vcpkg.git

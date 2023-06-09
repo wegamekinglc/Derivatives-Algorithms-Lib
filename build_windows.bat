@@ -6,7 +6,7 @@ call :set_variable ADDRESS_MODEL Win64 %ADDRESS_MODEL%
 call :set_variable MSVC_RUNTIME static %MSVC_RUNTIME%
 call :set_variable MSVC_VERSION "Visual Studio 17 2022" %MSVC_VERSION%
 call :set_variable SKIP_TESTS false %SKIP_TESTS%
-call :set_variable CMAKE_TOOLCHAIN_FILE D:/dev/github/vcpkg/scripts/buildsystems/vcpkg.cmake %CMAKE_TOOLCHAIN_FILE%
+call :set_variable CMAKE_TOOLCHAIN_FILE "%CD%/externals/vcpkg/scripts/buildsystems/vcpkg.cmake" %CMAKE_TOOLCHAIN_FILE%
 
 echo BUILD_TYPE:  %BUILD_TYPE%
 echo DAL_DIR: %DAL_DIR%
@@ -18,6 +18,16 @@ echo CMAKE_TOOLCHAIN_FILE: %CMAKE_TOOLCHAIN_FILE%
 
 git submodule init
 git submodule update
+
+cd externals/vcpkg
+echo Starting vcpkg install gtest
+.\bootstrap.bat
+.\vcpkg install gtest:x64-windows
+
+if %errorlevel% neq 0 exit /b 1
+cd ../..
+
+echo End vcpkg install gtest
 
 cd externals/machinist
 
