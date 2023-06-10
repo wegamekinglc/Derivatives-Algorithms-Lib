@@ -19,7 +19,12 @@ echo CMAKE_TOOLCHAIN_FILE: $CMAKE_TOOLCHAIN_FILE
 
 (
 cd externals/vcpkg
-bash bootstrap-vcpkg.sh
+if [ -f "./vcpkg" ]; then
+  echo "vcpkg executable already exists"
+else
+  bash bootstrap-vcpkg.sh
+fi
+
 ./vcpkg install gtest
 )
 
