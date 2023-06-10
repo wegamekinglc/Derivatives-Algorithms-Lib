@@ -21,7 +21,11 @@ git submodule update
 
 cd externals/vcpkg
 echo Starting vcpkg install gtest
-.\bootstrap.bat
+if exist "./vcpkg.exe" (
+    rem "vcpkg executable already exists"
+) else (
+    .\bootstrap-vcpkg.bat
+)
 .\vcpkg install gtest:x64-windows
 
 if %errorlevel% neq 0 exit /b 1
