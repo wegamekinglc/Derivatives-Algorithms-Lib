@@ -38,7 +38,7 @@ int main() {
     const double coupon = 0.069;
     const Date_ maturity(2025, 3, 1);
     const Date_ start = Global::Dates_().EvaluationDate();
-    const int num_path = 500000;
+    const int num_path = 8192;
 
     timer.Reset();
     auto tenor = Date::ParseIncrement("1M");
@@ -62,7 +62,7 @@ int main() {
     eventDates.push_back(Cell_(schedule[schedule.size() - 1]));
     events.push_back("if spot() < " + ToString(ki) + ":0.001 then ki = 1 endif\n"
                      "if spot() > " + ToString(ko) + ":0.001 then call pays alive * " + this_coupon + " alive = 0  endif\n"
-                     "call pays alive * ki * (spot() - " + ToString(spot) + ")");
+                     "call pays alive * ki * (spot() - " + ToString(spot) + ") + alive * (1.000000 - ki) * " + ToString(coupon));
 
     // print the events description
     for(auto i = 0; i < eventDates.size(); ++i) {
