@@ -46,11 +46,10 @@ namespace Dal::Script {
         Vector_<Vector_<const void*>> dataStreams_;
 
     public:
-        explicit ScriptProduct_(const std::map<Cell_, String_>& events) { ParseEvents(events.begin(), events.end()); }
         ScriptProduct_(const Vector_<Cell_>& dates, const Vector_<String_>& events) {
             REQUIRE2(dates.size() == events.size(), "dates size is not equal to events size", ScriptError_);
             auto date_events = Dal::Zip(dates, events);
-            ParseEvents(date_events.begin(), date_events.end());
+            ParseEvents(date_events);
         }
 
         [[nodiscard]] const Vector_<Date_>& EventDates() const { return eventDates_; }
@@ -68,93 +67,7 @@ namespace Dal::Script {
             return std::unique_ptr<Scenario_<T_>>(new Scenario_<T_>(eventDates_.size()));
         }
 
-        template <class EvtIt_> void ParseEvents(EvtIt_ begin, EvtIt_ end) {
-            Date_ evaluationDate = Global::Dates_().EvaluationDate();
-            std::map<String_, String_> macros;
-            // TODO: map is not proper here as we may have several statements for 1 date
-            std::map<Date_, String_> processed_events;
-            /*
-             * we only keep the events after evaluation date
-             * TODO: need to keep the historical events and visits them with dedicated a past evaluator
-             * */
-            for (auto evtIt = begin; evtIt != end; ++evtIt) {
-                Cell_ cell = evtIt->first;
-                if (!Cell::IsDate(cell)) {
-                    // distinguish macro and schedules
-                    auto desc = Cell::ToString(cell);
-                    if (desc.find(":") < desc.size() ) {
-                        // find a schedule
-                        Vector_<String_> tokens = Tokenize(desc);
-
-                        int i = 0;
-                        Date_ start_date;
-                        Date_ end_date;
-                        Handle_<Date::Increment_> tenor;
-                        Holidays_ holidays("");
-                        DateGeneration_ gen_rule("Forward");
-                        BizDayConvention_ biz_rule("Unadjusted");
-
-                        for(;i < tokens.size() - 2; ++i) {
-                            REQUIRE2(tokens[i + 1] == ":", "schedule parameter name not followed by `:`", ScriptError_);
-
-                            if (tokens[i] == "START") {
-                                String_ dt_str = std::accumulate(tokens.begin() + i + 2, tokens.begin() + i + 7, String_(""), [](const String_& x, const String_& y) { return x + y; });
-                                start_date = Date::FromString(dt_str);
-                                i += 6;
-                            } else if (tokens[i] == "END") {
-                                String_ dt_str = std::accumulate(tokens.begin() + i + 2, tokens.begin() + i + 7, String_(""), [](const String_& x, const String_& y) { return x + y; });
-                                end_date = Date::FromString(dt_str);
-                                i += 6;
-                            } else if (tokens[i] == "FREQ") {
-                                tenor = Date::ParseIncrement(tokens[i + 2]);
-                                i += 2;
-                            } else if (tokens[i] == "CALENDAR") {
-                                holidays = Holidays_(tokens[i + 2]);
-                                i += 2;
-                            } else if (tokens[i] == "BizRule") {
-                                biz_rule = BizDayConvention_(tokens[i + 2]);
-                                i += 2;
-                            }
-                            else
-                                THROW2("unknown token", ScriptError_);
-                        }
-
-                        Vector_<Date_> schedule = Dal::MakeSchedule(start_date,
-                                                                    Cell_(end_date),
-                                                                    holidays,
-                                                                    tenor,
-                                                                    gen_rule,
-                                                                    biz_rule);
-                        for (auto k = 1; k < schedule.size(); ++k) {
-                            auto d = schedule[k];
-                            if (d >= evaluationDate) {
-                                // TODO: to add logic replace place holder for specific date, e.g `PeriodBegin`, `PeriodEnd`
-                                // TODO: to be able fixing at `begin` or `end`
-                                String_ replaced = evtIt->second;
-                                for (const auto& macro : macros)
-                                    replaced = std::regex_replace(
-                                        replaced, std::regex(macro.first, std::regex_constants::icase), macro.second);
-                                processed_events[d] = replaced;
-                            }
-                        }
-                    } else {
-                        REQUIRE2(macros.find(desc) == macros.end(), "macro name has already registered", ScriptError_);
-                        REQUIRE2(processed_events.empty(), "macros should always at the front", ScriptError_);
-                        macros[Cell::ToString(cell)] = evtIt->second;
-                    }
-                } else if(Cell::IsDate(cell) && Cell::ToDate(cell) >= evaluationDate) {
-                    String_ replaced = evtIt->second;
-                    for (const auto& macro : macros)
-                        replaced = std::regex_replace(replaced, std::regex(macro.first, std::regex_constants::icase), macro.second);
-                    processed_events[Cell::ToDate(cell)] = replaced;
-                }
-            }
-
-            for (const auto& processed_event : processed_events) {
-                eventDates_.push_back(processed_event.first);
-                events_.push_back(Parse(processed_event.second));
-            }
-        }
+        void ParseEvents(const Vector_<std::pair<Cell_, String_>>& events);
 
         template <class V_> void Visit(Visitor_<V_>& v) {
             for (auto& evt : events_) {
