@@ -13,7 +13,7 @@
 namespace Dal::Script {
     class Debugger_ : public ConstVisitor_<Debugger_> {
         String_ prefix_;
-        StaticStack_<String_> stack_;
+        Stack_<String_> stack_;
 
         // The main function call from every node visitor
         void Debug(const Node_& node, const String_& nodeId) {

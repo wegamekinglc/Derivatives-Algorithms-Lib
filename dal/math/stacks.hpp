@@ -133,7 +133,7 @@ namespace Dal {
         [[nodiscard]] FORCE_INLINE bool IsEmpty() const { return sp_ == 0; }
     };
 
-    template <class T, size_t SIZE = 64> class StaticStack_ {
+    template <class T, size_t SIZE = 128> class StaticStack_ {
 
     private:
         T data_[SIZE];
@@ -141,7 +141,7 @@ namespace Dal {
 
     public:
         template <typename T2>
-        FORCE_INLINE void Push(T2&& value) { data_[++sp_] = T(std::move(value)); }
+        FORCE_INLINE void Push(T2&& value) { data_[++sp_] = T(std::forward<T2>(value)); }
 
         FORCE_INLINE T& Top() { return data_[sp_]; }
 
