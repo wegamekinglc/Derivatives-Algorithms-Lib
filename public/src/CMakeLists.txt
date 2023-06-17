@@ -1,7 +1,14 @@
-file(GLOB_RECURSE PUBLIC_FILES "*.hpp" "*.cpp")
+
 add_definitions(-DIS_BASE)
-add_library(dal_public ${PUBLIC_FILES})
-target_link_libraries(dal_public dal_library)
+if (BUILD_SHARED_LIBS)
+    file(GLOB_RECURSE PUBLIC_FILES "*.hpp" "*.cpp")
+    add_library(dal_public ${PUBLIC_FILES})
+    target_link_libraries(dal_public dal_library)
+else()
+    file(GLOB_RECURSE PUBLIC_FILES "*.hpp" "*.cpp" "../../dal/*.hpp" "../../dal/*.cpp")
+    add_library(dal_public ${PUBLIC_FILES})
+endif()
+
 
 install(DIRECTORY . DESTINATION include/public/src
         FILES_MATCHING PATTERN "*.hpp" PATTERN "*.h")

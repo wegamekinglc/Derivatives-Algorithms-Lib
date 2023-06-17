@@ -127,8 +127,8 @@ class my_build_ext(build_ext):
 
         elif compiler == 'unix':
             DAL_INSTALL_DIR = os.environ['DAL_DIR']
-            ql_compile_args = [f"-I{DAL_INSTALL_DIR}/include", f"-I{DAL_INSTALL_DIR}/externals/codi"]
-            ql_link_args = [f"-L{DAL_INSTALL_DIR}/lib", "-ldal", "-ldal_public"]
+            ql_compile_args = [f"-I{DAL_INSTALL_DIR}/include", f"-I{DAL_INSTALL_DIR}/externals/CodiPack/include"]
+            ql_link_args = [f"-L{DAL_INSTALL_DIR}/lib", "-ldal_public"]
 
             self.define += [(arg[2:], None) for arg in ql_compile_args
                             if arg.startswith('-D')]
@@ -182,7 +182,7 @@ classifiers = [
 ]
 
 setup(name="dal-python",
-      version="0.1.6",
+      version="0.2.1",
       description="Python bindings for the DAL library",
       author="cheng li",
       author_email="wegamekinglc@hotmail.copm",
