@@ -48,7 +48,7 @@ int main() {
     Vector_<String_> events;
     eventDates.emplace_back(start);
     events.push_back("alive = 1 ki = 0");
-    eventDates.emplace_back("START: 2023-06-01 END: 2025-03-01 FREQ: 1M");
+    eventDates.emplace_back("START: 2023-06-01 END: 2025-02-01 FREQ: 1M");
     auto this_coupon = ToString(coupon) + " * DCF(ACT365F, " + Date::ToString(start) + ", PeriodEnd)";
     events.push_back("if spot() < " + ToString(ki) + ":0.001 then ki = 1 endif\n"
                      "if spot() > " + ToString(ko) + ":0.001 then call pays alive * " + this_coupon + " alive = 0  endif");
