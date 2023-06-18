@@ -89,9 +89,12 @@ class my_build_ext(build_ext):
 
         if compiler == 'msvc':
             try:
-                DAL_INSTALL_DIR = os.environ['DAL_DIR']
+                if "DAL_DIR" in os.environ:
+                    DAL_INSTALL_DIR = os.environ['DAL_DIR']
+                else:
+                    DAL_INSTALL_DIR = "../../"
                 self.include_dirs += [os.path.join(DAL_INSTALL_DIR, 'include'),
-                                      os.path.join(DAL_INSTALL_DIR, 'externals/codi')]
+                                      os.path.join(DAL_INSTALL_DIR, 'externals/CodiPack/include')]
                 self.library_dirs += [os.path.join(DAL_INSTALL_DIR, 'lib')]
 
             except KeyError:
