@@ -126,7 +126,10 @@ class my_build_ext(build_ext):
                     extra_compile_args.append('/MD')
 
         elif compiler == 'unix':
-            DAL_INSTALL_DIR = os.environ['DAL_DIR']
+            if "DAL_DIR" in os.environ:
+                DAL_INSTALL_DIR = os.environ['DAL_DIR']
+            else:
+                DAL_INSTALL_DIR = "../../"
             ql_compile_args = [f"-I{DAL_INSTALL_DIR}/include", f"-I{DAL_INSTALL_DIR}/externals/CodiPack/include"]
             ql_link_args = [f"-L{DAL_INSTALL_DIR}/lib", "-ldal_public"]
 
@@ -182,7 +185,7 @@ classifiers = [
 ]
 
 setup(name="dal-python",
-      version="0.2.1",
+      version="0.3.0",
       description="Python bindings for the DAL library",
       author="cheng li",
       author_email="wegamekinglc@hotmail.copm",
@@ -190,7 +193,7 @@ setup(name="dal-python",
       classifiers=classifiers,
       include_package_data=True,
       packages=find_packages(),
-      package_data={'dal': ['*.so*']},
+      package_data={'dal': ['*.so*'], "examples": ["*.py"]},
       py_modules=['dal.__init__', 'dal.dal'],
       ext_modules=[Extension("dal._dal",
                              ["dal/dal_wrap.cpp"])

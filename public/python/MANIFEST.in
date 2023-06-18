@@ -3,3 +3,4 @@ include requirements.txt
 include setup.py
 include *.md
 recursive-include dal *.so*
+recursive-include dal *.py*
