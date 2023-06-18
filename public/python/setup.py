@@ -18,6 +18,8 @@
 """
 
 import os, sys, math
+import shutil
+import glob
 from setuptools import setup, Extension, find_packages
 from setuptools import Command
 from distutils.command.build_ext import build_ext
@@ -45,6 +47,11 @@ class my_wrap(Command):
                   '-outdir dal -o dal/dal_wrap.cpp ' +
                   '../swig/dal.i')
         print("finished wrap for dal/dal_wrap.cpp")
+
+        for f in glob.glob("../../miscs/python/*.py"):
+            f_name = f.split(os.sep)[1]
+            dest = os.path.join("dal/examples", f_name)
+            shutil.copy(f, dest)
 
 
 class my_build(build):
@@ -188,7 +195,7 @@ classifiers = [
 ]
 
 setup(name="dal-python",
-      version="0.3.0",
+      version="0.3.1",
       description="Python bindings for the DAL library",
       author="cheng li",
       author_email="wegamekinglc@hotmail.copm",
