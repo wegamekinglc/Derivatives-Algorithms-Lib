@@ -14,7 +14,7 @@ using namespace std::chrono_literals;
 
 void LongRunningTask(int n1, int n2) {
     for(int i = n1; i < n2; ++i) {
-        NCDF(1. / (log(static_cast<double>(i))+ 1.0001), true);
+        NCDF(1. / (log(static_cast<double>(i)) + 1.0001), true);
     }
 }
 
@@ -44,7 +44,7 @@ int main() {
     }
     for (auto& future : futures)
         pool->ActiveWait(future);
-    std::cout << "Elapsed (multi-threaded): " << timer.Elapsed<milliseconds>() << " ms" << std::endl;
+    std::cout << "Elapsed (multi-threaded) : " << timer.Elapsed<milliseconds>() << " ms" << std::endl;
 
     return 0;
 }
