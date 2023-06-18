@@ -43,7 +43,7 @@ events.append(
     f"""
     if spot() < KI:0.001 then is_ki = 1 endif
     if spot() > KO:0.001 then call pays alive * COUPON * DCF(ACT365F, {start}, {d}) alive = 0 endif
-    call pays alive * is_ki * (spot() - STRIKE)
+    call pays alive * is_ki * (spot() - STRIKE) + alive * (1.000000 - is_ki) * COUPON * DCF(ACT365F, {start}, {d})
     """
 )
 
