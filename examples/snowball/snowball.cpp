@@ -8,8 +8,6 @@
 //
 
 #include <iostream>
-#include <dal/time/schedules.hpp>
-#include <dal/time/dateincrement.hpp>
 #include <dal/script/event.hpp>
 #include <dal/math/aad/models/blackscholes.hpp>
 #include <dal/storage/globals.hpp>
@@ -41,22 +39,32 @@ int main() {
     const int num_path = 8192;
 
     timer.Reset();
-    auto tenor = Date::ParseIncrement("1M");
-    const auto schedule = DateGenerate(start, maturity, tenor);
 
     Vector_<Cell_> eventDates;
     Vector_<String_> events;
+
+    // parameters
+    eventDates.emplace_back("KI");
+    events.push_back(ToString(ki));
+    eventDates.emplace_back("KO");
+    events.push_back(ToString(ko));
+    eventDates.emplace_back("STRIKE");
+    events.push_back(ToString(spot));
+    eventDates.emplace_back("COUPON");
+    events.push_back(ToString(coupon));
+
+    // monitor
     eventDates.emplace_back(start);
-    events.push_back("alive = 1 ki = 0");
+    events.push_back("alive = 1 is_ki = 0");
     eventDates.emplace_back("START: 2023-06-01 END: 2025-02-01 FREQ: 1M");
-    auto this_coupon = ToString(coupon) + " * DCF(ACT365F, " + Date::ToString(start) + ", PeriodEnd)";
-    events.push_back("if spot() < " + ToString(ki) + ":0.001 then ki = 1 endif\n"
-                     "if spot() > " + ToString(ko) + ":0.001 then call pays alive * " + this_coupon + " alive = 0  endif");
+    auto dcf = "DCF(ACT365F, " + Date::ToString(start) + ", PeriodEnd)";
+    events.push_back("if spot() < KI:0.001 then is_ki = 1 endif\n"
+                     "if spot() > KO:0.001 then call pays alive * COUPON * " + dcf + " alive = 0 endif");
     eventDates.emplace_back(maturity);
-    this_coupon = ToString(coupon) + " * DCF(ACT365F, " + Date::ToString(start) + ", " + Date::ToString(maturity) + ")";
-    events.push_back("if spot() < " + ToString(ki) + ":0.001 then ki = 1 endif\n"
-                     "if spot() > " + ToString(ko) + ":0.001 then call pays alive * " + this_coupon + " alive = 0  endif\n"
-                     "call pays alive * ki * (spot() - " + ToString(spot) + ") + alive * (1.000000 - ki) * " + this_coupon);
+    dcf = "DCF(ACT365F, " + Date::ToString(start) + ", " + Date::ToString(maturity) + ")";
+    events.push_back("if spot() < KI:0.001 then is_ki = 1 endif\n"
+                     "if spot() > KO:0.001 then call pays alive * COUPON * " + dcf + " alive = 0  endif\n"
+                     "call pays alive * is_ki * (spot() - STRIKE) + alive * (1.000000 - is_ki) * COUPON * " + dcf);
     ScriptProduct_ product(eventDates, events);
     product.Debug();
 

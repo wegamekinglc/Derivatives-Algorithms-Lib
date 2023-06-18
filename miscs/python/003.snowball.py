@@ -15,41 +15,32 @@ today = dt.date(2023, 3, 1)
 maturity = dt.date(2025, 3, 1)
 
 event_dates = []
-while today <= maturity:
-    event_dates.append(today)
-    today = today + relativedelta(months=1)
-
-event_dates = ["KI", "KO", "STRIKE", "COUPON"] + [Date_(d.year, d.month, d.day) for d in event_dates]
+event_dates = ["KI", "KO", "STRIKE", "COUPON"] + [Date_(today.year, today.month, today.day)]
 start = event_dates[4]
-events = [f"{ki:.6f}", f"{ko:.6f}", f"{spot:.6f}", f"{coupon:.6f}", "alive = 1 is_ki = 0"]
-EvaluationDate_Set(start)
 
-n_paths = 500_000
+EvaluationDate_Set(start)
+events = [f"{ki:.6f}", f"{ko:.6f}", f"{spot:.6f}", f"{coupon:.6f}", "alive = 1 is_ki = 0"]
+
+n_paths = 8192
 use_bb = False
 rsg = "sobol"
 model_name = "bs"
 
-for d in event_dates[5:]:
-    if d <= Date_(2023, 6, 1):
-        events.append("alive = 1")   # initial and 3m lock
-    elif d < event_dates[-1]:
-        events.append(
-    f"""
-    if spot() < KI:0.001 then is_ki = 1 endif
-    if spot() > KO:0.001 then call pays alive * COUPON * DCF(ACT365F, {start}, {d}) alive = 0 endif
-    """
-        )
+event_dates.append("START: 2023-06-01 END: 2025-02-01 FREQ: 1M")
 events.append(
     f"""
     if spot() < KI:0.001 then is_ki = 1 endif
-    if spot() > KO:0.001 then call pays alive * COUPON * DCF(ACT365F, {start}, {d}) alive = 0 endif
-    call pays alive * is_ki * (spot() - STRIKE) + alive * (1.000000 - is_ki) * COUPON * DCF(ACT365F, {start}, {d})
+    if spot() > KO:0.001 then call pays alive * COUPON * DCF(ACT365F, {start}, PeriodEnd) alive = 0 endif
+    """)
+
+event_dates.append(Date_(maturity.year, maturity.month, maturity.day))
+events.append(
+    f"""
+    if spot() < KI:0.001 then is_ki = 1 endif
+    if spot() > KO:0.001 then call pays alive * COUPON * DCF(ACT365F, {start}, {event_dates[-1]}) alive = 0 endif
+    call pays alive * is_ki * (spot() - STRIKE) + alive * (1.000000 - is_ki) * COUPON * DCF(ACT365F, {start}, {event_dates[-1]})
     """
 )
-
-for d, e in zip(event_dates, events):
-    print(d)
-    print(e + "\n")
 
 print("------   Model Parameters  ------")
 print(f"rate : {rate* 100:.2f}%")
@@ -61,7 +52,7 @@ print(f"NPV date  : {event_dates[4]}")
 print(f"Maturity  : {event_dates[-1]}")
 print(f"knock in  : {ki:.2f}")
 print(f"knock out : {ko:.2f}")
-print(f"# of obs  : {len(event_dates)}")
+print(f"# of obs  : {len(event_dates) - 4}")
 print(f"# of paths: {n_paths}\n")
 
 
@@ -80,5 +71,3 @@ all_res["AAD"] = [res["value"], res["d_spot"], res["d_vol"], res["d_rate"], res[
 df = pd.DataFrame.from_dict(all_res)
 df.index = ["NPV", "delta", "vega", "dP/dR", "dP/dDiv", "Elapsed (ms)"]
 print(df.T.to_markdown())
-
-
