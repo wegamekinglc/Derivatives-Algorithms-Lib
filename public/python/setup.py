@@ -49,8 +49,8 @@ class my_wrap(Command):
         print("finished wrap for dal/dal_wrap.cpp")
 
         for f in glob.glob("../../miscs/python/*.py"):
-            f_name = f.split(os.sep)[1]
-            dest = os.path.join("dal/examples", f_name)
+            f_name = f.split(os.sep)[-1]
+            dest = os.path.join("dal/examples/", f_name)
             shutil.copy(f, dest)
 
 
