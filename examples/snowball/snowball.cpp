@@ -46,29 +46,19 @@ int main() {
 
     Vector_<Cell_> eventDates;
     Vector_<String_> events;
-    eventDates.push_back(Cell_(schedule[0]));
+    eventDates.emplace_back(start);
     events.push_back("alive = 1 ki = 0");
-    for (int i = 1; i < schedule.size() - 1; ++i) {
-        const auto this_coupon = ToString(coupon) + " * DCF(ACT365F, " + Date::ToString(schedule[0]) + ", " + Date::ToString(schedule[i]) + ")";
-
-        if ( i >= 4) {
-            eventDates.push_back(Cell_(schedule[i]));
-            events.push_back("if spot() < " + ToString(ki) + ":0.001 then ki = 1 endif\n"
-                                                             "if spot() > " + ToString(ko) +
-                             ":0.001 then call pays alive * " + this_coupon + " alive = 0  endif");
-        }
-    }
-    const auto this_coupon = ToString(coupon) + " * DCF(ACT365F, " + Date::ToString(schedule[0]) + ", " + Date::ToString(schedule[schedule.size() - 1]) + ")";
-    eventDates.push_back(Cell_(schedule[schedule.size() - 1]));
+    eventDates.emplace_back("START: 2023-06-01 END: 2025-03-01 FREQ: 1M");
+    auto this_coupon = ToString(coupon) + " * DCF(ACT365F, " + Date::ToString(start) + ", PeriodEnd)";
+    events.push_back("if spot() < " + ToString(ki) + ":0.001 then ki = 1 endif\n"
+                     "if spot() > " + ToString(ko) + ":0.001 then call pays alive * " + this_coupon + " alive = 0  endif");
+    eventDates.emplace_back(maturity);
+    this_coupon = ToString(coupon) + " * DCF(ACT365F, " + Date::ToString(start) + ", " + Date::ToString(maturity) + ")";
     events.push_back("if spot() < " + ToString(ki) + ":0.001 then ki = 1 endif\n"
                      "if spot() > " + ToString(ko) + ":0.001 then call pays alive * " + this_coupon + " alive = 0  endif\n"
-                     "call pays alive * ki * (spot() - " + ToString(spot) + ") + alive * (1.000000 - ki) * " + ToString(coupon));
-
-    // print the events description
-    for(auto i = 0; i < eventDates.size(); ++i) {
-        std::cout << Date::ToString(Cell::ToDate(eventDates[i])) << std::endl;
-        std::cout << events[i] << "\n" << std::endl;
-    }
+                     "call pays alive * ki * (spot() - " + ToString(spot) + ") + alive * (1.000000 - ki) * " + this_coupon);
+    ScriptProduct_ product(eventDates, events);
+    product.Debug();
 
     Vector_<int> widths = {14, 14, 14, 14, 14, 14, 14, 14, 14};
 
@@ -84,7 +74,6 @@ int main() {
               << std::endl;
 
     {
-        ScriptProduct_ product(eventDates, events);
         std::unique_ptr<Model_<double>> model = std::make_unique<BlackScholes_<double>>(spot, vol, rate, div);
 
         timer.Reset();
@@ -112,7 +101,6 @@ int main() {
     }
 
     {
-        ScriptProduct_ product(eventDates, events);
         std::unique_ptr<Model_<Number_>> model = std::make_unique<BlackScholes_<Number_>>(spot, vol, rate, div);
 
         timer.Reset();

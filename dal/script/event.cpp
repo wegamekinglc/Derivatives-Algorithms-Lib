@@ -183,8 +183,9 @@ namespace Dal::Script {
 
         Debugger_ d;
         size_t e = 0;
-        for (auto& evtIt : events_) {
-            ost << "Event_: " << ++e << std::endl;
+        for (auto i = 0; i < events_.size(); ++i) {
+            auto& evtIt = events_[i];
+            ost << "EventTime_: " << Date::ToString(eventDates_[i]) << "\tEvent_: " << ++e << std::endl;
             unsigned s = 0;
             for (const auto& stat : evtIt) {
                 stat->Accept(d);
