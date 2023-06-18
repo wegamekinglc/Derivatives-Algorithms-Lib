@@ -72,19 +72,27 @@ namespace Dal::Script {
                                                                 tenor,
                                                                 gen_rule,
                                                                 biz_rule);
+                    String_ replaced = event.second;
+                    for (const auto &macro: macros)
+                        replaced = std::regex_replace(replaced,
+                                                      std::regex(macro.first,std::regex_constants::icase),
+                                                      macro.second);
+
                     for (auto k = 1; k < schedule.size(); ++k) {
                         auto d = schedule[k];
                         if (d >= evaluationDate) {
-                            // TODO: to add logic replace place holder for specific date, e.g `PeriodBegin`, `PeriodEnd`
-                            // TODO: to be able fixing at `begin` or `end`
-                            String_ replaced = event.second;
-                            for (const auto &macro: macros)
-                                replaced = std::regex_replace(
-                                        replaced, std::regex(macro.first, std::regex_constants::icase), macro.second);
+                            // Replace placeholder of `PeriodBegin` and `PeriodEnd`
+                            auto final_statement = std::regex_replace(replaced,
+                                                                      std::regex("PeriodBegin", std::regex_constants::icase),
+                                                                      Date::ToString(schedule[k-1]));
+                            final_statement = std::regex_replace(final_statement,
+                                                                 std::regex("PeriodEnd", std::regex_constants::icase),
+                                                                 Date::ToString(d));
+
                             if (processed_events.find(d) != processed_events.end())
-                                processed_events[d] += "\n" + replaced;
+                                processed_events[d] += "\n" + final_statement;
                             else
-                                processed_events[d] = replaced;
+                                processed_events[d] = final_statement;
                         }
                     }
                 } else {
