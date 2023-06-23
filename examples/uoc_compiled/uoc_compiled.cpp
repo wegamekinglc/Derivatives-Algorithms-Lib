@@ -42,7 +42,7 @@ int main() {
     eventDates.push_back(Cell_(start));
     events.push_back("alive = 1");
     eventDates.push_back(Cell_("START: " + Date::ToString(start) + " END: " + Date::ToString(maturity) + " FREQ: 1W"));
-    events.push_back("if spot() >= 150:0.5 then alive = 0 endif");
+    events.push_back("if spot() >= 150:0.5 then alive = 0 end");
     eventDates.push_back(Cell_(maturity));
     events.push_back(String_("K = " + ToString(strike) + "\n call pays alive * MAX(spot() - K, 0.0)"));
 

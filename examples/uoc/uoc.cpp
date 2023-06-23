@@ -48,9 +48,9 @@ int main() {
     eventDates.push_back(Cell_(start));
     events.push_back("alive = 1");
     eventDates.push_back(Cell_("START: " + Date::ToString(start) + " END: " + Date::ToString(maturity) + " FREQ: 1W"));
-    events.push_back("if spot() >= BARRIER:0.1 then alive = 0 endif");
+    events.push_back("if spot() >= BARRIER:0.1 then alive = 0 end");
     eventDates.push_back(Cell_(maturity));
-    events.push_back(String_("if spot() >= BARRIER:0.1 then alive = 0 endif\n call pays alive * MAX(spot() - STRIKE, 0.0)"));
+    events.push_back(String_("if spot() >= BARRIER:0.1 then alive = 0 end\n call pays alive * MAX(spot() - STRIKE, 0.0)"));
 
     ScriptProduct_ product(eventDates, events);
 

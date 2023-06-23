@@ -42,11 +42,11 @@ int main() {
             "START: 2022-09-25\n"
             "END: 2025-09-25\n"
             "FREQ: 1W");
-    events.emplace_back("IF spot() > BARRIER:0.1 THEN alive = 0 ENDIF");
+    events.emplace_back("IF spot() > BARRIER:0.1 THEN alive = 0 END");
 
     // final payoff
     eventDates.emplace_back(Date_(2025, 9, 25));
-    events.emplace_back("IF spot() > BARRIER:0.1 THEN alive = 0 ENDIF uoc pays alive * MAX(spot() - STRIKE, 0.0)");
+    events.emplace_back("IF spot() > BARRIER:0.1 THEN alive = 0 END uoc pays alive * MAX(spot() - STRIKE, 0.0)");
 
     ScriptProduct_ product(eventDates, events);
     std::cout << DebugScriptProduct(product) << std::endl;

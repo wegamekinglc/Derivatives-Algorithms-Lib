@@ -58,12 +58,12 @@ int main() {
     events.push_back("alive = 1 is_ki = 0");
     eventDates.emplace_back("START: 2023-06-01 END: 2025-02-01 FREQ: 1M");
     auto dcf = "DCF(ACT365F, " + Date::ToString(start) + ", PeriodEnd)";
-    events.push_back("if spot() < KI:0.001 then is_ki = 1 endif\n"
-                     "if spot() > KO:0.001 then call pays alive * COUPON * " + dcf + " alive = 0 endif");
+    events.push_back("if spot() < KI:0.001 then is_ki = 1 end\n"
+                     "if spot() > KO:0.001 then call pays alive * COUPON * " + dcf + " alive = 0 end");
     eventDates.emplace_back(maturity);
     dcf = "DCF(ACT365F, " + Date::ToString(start) + ", " + Date::ToString(maturity) + ")";
-    events.push_back("if spot() < KI:0.001 then is_ki = 1 endif\n"
-                     "if spot() > KO:0.001 then call pays alive * COUPON * " + dcf + " alive = 0  endif\n"
+    events.push_back("if spot() < KI:0.001 then is_ki = 1 end\n"
+                     "if spot() > KO:0.001 then call pays alive * COUPON * " + dcf + " alive = 0  end\n"
                      "call pays alive * is_ki * (spot() - STRIKE) + alive * (1.000000 - is_ki) * COUPON * " + dcf);
     ScriptProduct_ product(eventDates, events);
     product.Debug();
