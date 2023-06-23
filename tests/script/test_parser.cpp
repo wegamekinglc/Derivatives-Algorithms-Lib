@@ -64,7 +64,7 @@ TEST(ParserTest, TestParseIf) {
     String_ event = R"(
         IF x >= 2 THEN
             y = 3 + x
-        ENDIF
+        END
     )";
     auto res = Parse(event);
     ASSERT_EQ(res.size(), 1);
@@ -89,7 +89,7 @@ TEST(ParserTest, TestParseIfWithElse) {
             y = 3 + x
         ELSE
             y = x
-        ENDIF
+        END
     )";
     auto res = Parse(event);
     ASSERT_EQ(res.size(), 1);

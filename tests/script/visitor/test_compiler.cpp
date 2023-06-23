@@ -17,7 +17,7 @@ TEST(VisitorTest, TestCompile) {
         y = 1
         IF x >= 2 THEN
             y = 3 + x
-        ENDIF
+        END
     )"};
     Vector_<Cell_> eventDates(1, Cell_(Date_(2023, 1, 28)));
 
@@ -38,7 +38,7 @@ TEST(VisitorTest, TestCompileWithVariable) {
     Vector_<String_> events = {R"(
         IF spot() >= 2:0.1 THEN
             y = 3 + spot()
-        ENDIF
+        END
     )"};
     Vector_<Cell_> eventDates(1, Cell_(Date_(2023, 1, 28)));
 
@@ -63,7 +63,7 @@ TEST(VisitorTest, TestCompileWithSeveralEvents) {
     R"(
     IF x >= 2 THEN
         y = 3 + x
-    ENDIF
+    END
     )"};
     Vector_<Cell_> eventDates{Cell_(Date_(2023, 1, 28)), Cell_(Date_(2023, 1, 30))};
 

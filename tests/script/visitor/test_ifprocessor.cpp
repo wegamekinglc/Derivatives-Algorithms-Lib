@@ -15,7 +15,7 @@ TEST(VisitorTest, TestIFProcessor) {
             y = 3 + x
         ELSE
             y = x
-        ENDIF
+        END
     )";
     auto res = Parse(event);
 
@@ -36,11 +36,11 @@ TEST(VisitorTest, TestIFProcessorNested) {
                 y = x + 5
             ELSE
                 y = x + 3
-            ENDIF
+            END
         ELSE
             y = x
             z = x
-        ENDIF
+        END
     )";
     auto res = Parse(event);
 

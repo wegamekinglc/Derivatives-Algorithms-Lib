@@ -139,18 +139,18 @@ namespace Dal::Script {
             THROW2("`if` is not followed by `then`", ScriptError_);
         ++cur;
         Vector_<Statement_> stats;
-        while (cur != end && *cur != "ELSE" && *cur != "ENDIF")
+        while (cur != end && *cur != "ELSE" && *cur != "END")
             stats.push_back(ParseStatement(cur, end));
 
-        REQUIRE2(cur != end, "`if/then` is not followed by `else` or `endif`", ScriptError_);
+        REQUIRE2(cur != end, "`if/then` is not followed by `else` or `end`", ScriptError_);
         Vector_<Statement_> elseStats;
         int elseIdx = -1;
         while (*cur == "ELSE") {
             ++cur;
-            while (cur != end && *cur != "ENDIF")
+            while (cur != end && *cur != "END")
                 elseStats.push_back(ParseStatement(cur, end));
-            REQUIRE2(cur != end, "`if/then/else` is not followed by `endif`", ScriptError_);
-            elseIdx = stats.size() + 1;
+            REQUIRE2(cur != end, "`if/then/else` is not followed by `end`", ScriptError_);
+            elseIdx = static_cast<int>(stats.size()) + 1;
         }
 
         auto top = MakeNode<NodeIf_>();

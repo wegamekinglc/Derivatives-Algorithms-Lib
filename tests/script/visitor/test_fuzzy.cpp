@@ -47,7 +47,7 @@ TEST(VisitorTest, TestFuzzyContinuous) {
             x = 1
         ELSE
             x = 0
-        ENDIF
+        END
     )"};
     Vector_<Cell_> eventDates(1, Cell_(Date_(2023, 4, 1)));
 

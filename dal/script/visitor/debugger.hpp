@@ -61,7 +61,7 @@ namespace Dal::Script {
         using ConstVisitor_<Debugger_>::Visit;
 
         // Access the Top of the stack, contains the functional form after the tree is traversed
-        const String_& String() const { return stack_.Top(); }
+        [[nodiscard]] const String_& String() const { return stack_.Top(); }
 
         // All concrete node visitors, Visit arguments_ by default unless overridden
 
