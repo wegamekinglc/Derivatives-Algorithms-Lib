@@ -112,3 +112,17 @@ TEST(ParserTest, TestParseIfWithElse) {
     ASSERT_NE(dynamic_cast<NodeVar_*>(toTest11->arguments_[0].get()), nullptr);
     ASSERT_NE(dynamic_cast<NodeVar_*>(toTest11->arguments_[1].get()), nullptr);
 }
+
+TEST(ParserTest, TestParserWithInvaildVaribaleName) {
+    String_ event = R"(
+        0X12 = 2.0;
+    )";
+    ASSERT_THROW(Parse(event), ScriptError_);
+}
+
+TEST(ParserTest, TestParserWithConflictVariableName) {
+    String_ event = R"(
+        PAYS = 2.0;
+    )";
+    ASSERT_THROW(Parse(event), ScriptError_);
+}

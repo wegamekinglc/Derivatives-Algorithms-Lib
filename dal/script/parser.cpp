@@ -9,6 +9,13 @@
 #include <dal/time/dateutils.hpp>
 
 
+namespace {
+    const std::set<Dal::String_> RESERVED_KEY_WORDS = {
+            "IF", "END", "THEN", "DCF", "PAYS"
+    };
+}
+
+
 namespace Dal::Script {
     Expression_ Parser_::ParseExpr(TokIt_& cur, const TokIt_& end) {
         auto lhs = ParseExprL2(cur, end);
@@ -126,6 +133,8 @@ namespace Dal::Script {
 
     Expression_ Parser_::ParseVar(TokIt_& cur) {
         REQUIRE2((*cur)[0] >= 'A' && (*cur)[0] <= 'z', String_("Variable name ") + *cur + " is invalid", ScriptError_);
+        REQUIRE2(RESERVED_KEY_WORDS.find(*cur) == RESERVED_KEY_WORDS.end(),
+                 String_("Variable name ") + *cur + " is conflicted with an existing key word", ScriptError_);
         auto top = MakeNode<NodeVar_>(String_(*cur));
         ++cur;
         return std::move(top);
