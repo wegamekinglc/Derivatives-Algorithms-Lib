@@ -21,9 +21,9 @@ model_name = input("Plz input model name:")
 event_dates = ["STRIKE", "BARRIER", start]
 events = [f"{strike:.2f}", f"{barrier:.2f}", "alive = 1"]
 event_dates.append(f"START: {start} END: {maturity} FREQ: 1W")
-events.append("if spot() >= BARRIER:0.1 then alive = 0 endif")
+events.append("if spot() >= BARRIER:0.1 then alive = 0 end")
 event_dates.append(maturity)
-events.append(f"if spot() >= BARRIER:0.1 then alive = 0 endif\ncall pays alive * MAX(spot() - STRIKE, 0.0)")
+events.append(f"if spot() >= BARRIER:0.1 then alive = 0 end\ncall pays alive * MAX(spot() - STRIKE, 0.0)")
 product = Product_New(event_dates, events)
 
 if model_name == "bs":

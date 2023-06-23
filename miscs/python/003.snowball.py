@@ -29,15 +29,15 @@ model_name = "bs"
 event_dates.append("START: 2023-06-01 END: 2025-02-01 FREQ: 1M")
 events.append(
     f"""
-    if spot() < KI:0.001 then is_ki = 1 endif
-    if spot() > KO:0.001 then call pays alive * COUPON * DCF(ACT365F, {start}, PeriodEnd) alive = 0 endif
+    if spot() < KI:0.001 then is_ki = 1 end
+    if spot() > KO:0.001 then call pays alive * COUPON * DCF(ACT365F, {start}, PeriodEnd) alive = 0 end
     """)
 
 event_dates.append(Date_(maturity.year, maturity.month, maturity.day))
 events.append(
     f"""
-    if spot() < KI:0.001 then is_ki = 1 endif
-    if spot() > KO:0.001 then call pays alive * COUPON * DCF(ACT365F, {start}, {event_dates[-1]}) alive = 0 endif
+    if spot() < KI:0.001 then is_ki = 1 end
+    if spot() > KO:0.001 then call pays alive * COUPON * DCF(ACT365F, {start}, {event_dates[-1]}) alive = 0 end
     call pays alive * is_ki * (spot() - STRIKE) + alive * (1.000000 - is_ki) * COUPON * DCF(ACT365F, {start}, {event_dates[-1]})
     """
 )
