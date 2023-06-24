@@ -79,7 +79,6 @@ namespace Dal::Script {
         void Visit(const NodeSqrt_& node) { Debug(node, "SQRT"); }
         void Visit(const NodeMax_& node) { Debug(node, "MAX"); }
         void Visit(const NodeMin_& node) { Debug(node, "MIN"); }
-        void Visit(const NodeSmooth_& node) { Debug(node, "SMOOTH"); }
 
         void Visit(const NodeEqual_& node) {
             String_ s = "EQUALZERO";

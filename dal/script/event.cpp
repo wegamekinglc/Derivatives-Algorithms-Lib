@@ -19,7 +19,7 @@ namespace Dal::Script {
         std::map<Date_, String_> processed_events;
         /*
          * we only keep the events after evaluation date
-         * TODO: need to keep the historical events and visits them with dedicated a past evaluator
+         * TODO: need to keep the historical events and visits them with a dedicated past evaluator
          * */
         for (const auto & event : events) {
             Cell_ cell = event.first;
@@ -143,7 +143,7 @@ namespace Dal::Script {
     }
 
     void ScriptProduct_::ConstCondProcess() {
-        ConstCondProcessor_ ccProc;
+        ConstCondProcessor_ ccProc{};
         for (auto& evt : events_) {
             for (auto& stat : evt)
                 ccProc.ProcessFromTop(stat);

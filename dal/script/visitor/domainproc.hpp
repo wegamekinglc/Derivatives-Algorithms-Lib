@@ -166,30 +166,6 @@ namespace Dal::Script {
             }
             domStack_.Push(std::move(res));
         }
-        void Visit(NodeSmooth_& node) {
-            VisitArguments(node);
-
-            // Pop eps_
-            domStack_.Pop();
-
-            // Makes no sense with non-IsContinuous x
-            if (domStack_[2].IsDiscrete()) {
-                throw std::runtime_error("Smooth called with isDiscrete_ x");
-            }
-
-            // Get min and max val if neg and if pos
-            Bound minIfNeg = domStack_[0].MinBound();
-            Bound maxIfNeg = domStack_[0].MaxBound();
-            Bound minIfPos = domStack_[1].MinBound();
-            Bound maxIfPos = domStack_[1].MaxBound();
-            Bound minB = min(minIfNeg, minIfPos), maxB = max(maxIfNeg, maxIfPos);
-
-            // Pop
-            domStack_.Pop(3);
-
-            // Result
-            domStack_.Push(Interval(minB, maxB));
-        }
 
         // Conditions
 

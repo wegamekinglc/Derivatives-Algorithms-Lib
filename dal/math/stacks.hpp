@@ -133,7 +133,7 @@ namespace Dal {
         [[nodiscard]] FORCE_INLINE bool IsEmpty() const { return sp_ == 0; }
     };
 
-    template <class T, size_t SIZE = 128> class StaticStack_ {
+    template <class T = double, size_t SIZE = 128> class StaticStack_ {
 
     private:
         T data_[SIZE];

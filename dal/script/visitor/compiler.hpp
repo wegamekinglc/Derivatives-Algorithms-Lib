@@ -201,20 +201,6 @@ namespace Dal::Script {
         void Visit(const NodeSqrt_& node) { VisitUnary<Sqrt>(node); }
         void Visit(const NodeExp_& node) { VisitUnary<Exp>(node); }
 
-        //  Multies
-        void Visit(const NodeSmooth_& node) {
-            //  Const?
-            if (node.isConst_) {
-                nodeStream_.emplace_back(Const);
-                nodeStream_.emplace_back(static_cast<int>(constStream_.size()));
-                constStream_.emplace_back(node.constVal_);
-            } else {
-                //  Must come back to optimize that one
-                VisitArguments(node);
-                nodeStream_.emplace_back(Smooth);
-            }
-        }
-
         // Conditions
         template <NodeType_ NT, typename OP> void VisitCondition(const BoolNode_& node, OP op) {
             const ExprNode_* arg = Downcast<ExprNode_>(node.arguments_[0]);

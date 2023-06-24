@@ -93,10 +93,6 @@ namespace Dal::Script {
             top = MakeBaseNode<NodeMax_>();
             minArg = 2;
             maxArg = 1000;
-        } else if(*cur == "SMOOTH") {
-            top = MakeBaseNode<NodeSmooth_>();
-            minArg = 4;
-            maxArg = 4;
         } else if(*cur == "DCF") {
             top = MakeBaseNode<NodeConst_>(0.0);
             minArg = 3;

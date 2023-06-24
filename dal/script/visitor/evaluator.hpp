@@ -33,20 +33,20 @@ namespace Dal::Script {
         using ConstVisitor_<EVAL_<T_>>::VisitNode;
 
         // Constructor, nVar = number of variables, from Product after parsing and variable indexation
-        explicit EvaluatorBase_(const size_t nVar) : variables_(nVar) {}
+        explicit EvaluatorBase_(size_t nVar) : variables_(nVar) {}
 
         // Copy/Move
         EvaluatorBase_(const EvaluatorBase_& rhs) : variables_(rhs.variables_) {}
         EvaluatorBase_& operator=(const EvaluatorBase_& rhs) {
-            if (*this == rhs)
+            if (this == &rhs)
                 return *this;
             variables_ = rhs.variables_;
             return *this;
         }
 
-        EvaluatorBase_(EvaluatorBase_&& rhs) noexcept : variables_(move(rhs.variables_)) {}
-        EvaluatorBase_& operator=(EvaluatorBase_&& rhs) {
-            variables_ = move(rhs.variables_);
+        EvaluatorBase_(EvaluatorBase_&& rhs) noexcept : variables_(std::move(rhs.variables_)) {}
+        EvaluatorBase_& operator=(EvaluatorBase_&& rhs) noexcept {
+            variables_ = std::move(rhs.variables_);
             return *this;
         }
 
@@ -140,36 +140,6 @@ namespace Dal::Script {
 
         FORCE_INLINE void Visit(const NodeExp_& node) {
             VisitUnary(node, [](T_& x) { x = exp(x); });
-        }
-
-        //  Multies
-        void Visit(const NodeSmooth_& node) {
-            //	Eval the condition
-            VisitNode(*node.arguments_[0]);
-            const T_ x = dStack_.TopAndPop();
-
-            //	Eval the epsilon
-            VisitNode(*node.arguments_[3]);
-            const T_ halfEps = 0.5 * dStack_.TopAndPop();
-
-            //	Left
-            if (x < -halfEps)
-                VisitNode(*node.arguments_[2]);
-
-            //	Right
-            else if (x > halfEps)
-                VisitNode(*node.arguments_[1]);
-
-            //	Fuzzy
-            else {
-                VisitNode(*node.arguments_[1]);
-                const T_ vPos = dStack_.TopAndPop();
-
-                VisitNode(*node.arguments_[2]);
-                const T_ vNeg = dStack_.TopAndPop();
-
-                dStack_.Push(vNeg + 0.5 * (vPos - vNeg) / halfEps * (x + halfEps));
-            }
         }
 
         // Conditions
@@ -275,11 +245,15 @@ namespace Dal::Script {
     public:
         using Base = EvaluatorBase_<T, Evaluator_>;
 
-        Evaluator_(const size_t nVar) : Base(nVar) {}
+        explicit Evaluator_(size_t nVar) : Base(nVar) {}
         Evaluator_(const Evaluator_& rhs) : Base(rhs) {}
-        Evaluator_(Evaluator_&& rhs) : Base(move(rhs)) {}
-        Evaluator_& operator=(const Evaluator_& rhs) { Base::operator=(rhs); }
-        Evaluator_& operator=(const Evaluator_&& rhs) { Base::operator=(move(rhs)); }
+        Evaluator_(Evaluator_&& rhs) noexcept: Base(std::move(rhs)) {}
+        Evaluator_& operator=(const Evaluator_& rhs) {
+            return Base::operator=(rhs);
+        }
+        Evaluator_& operator=(Evaluator_&& rhs) noexcept {
+            return Base::operator=(std::move(rhs));
+        }
     };
 
 } // namespace Dal::Script

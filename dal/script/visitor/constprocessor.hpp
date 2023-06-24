@@ -118,25 +118,6 @@ namespace Dal::Script {
             VisitUnary(node, [](double x) { return exp(x); });
         }
 
-        // Multi
-        void Visit(NodeSmooth_& node) {
-            VisitArguments(node);
-            if (ConstArgs(node)) {
-                node.isConst_ = true;
-                const auto x = reinterpret_cast<ExprNode_*>(node.arguments_[0].get())->constVal_;
-                const auto vPos = reinterpret_cast<ExprNode_*>(node.arguments_[1].get())->constVal_;
-                const auto vNeg = reinterpret_cast<ExprNode_*>(node.arguments_[2].get())->constVal_;
-                const auto halfEps = 0.5 * reinterpret_cast<ExprNode_*>(node.arguments_[3].get())->constVal_;
-                if (x < -halfEps)
-                    node.constVal_ = vNeg;
-                else if (x > halfEps)
-                    node.constVal_ = vPos;
-                else {
-                    node.constVal_ = vNeg + 0.5 * (vPos - vNeg) / halfEps * (x + halfEps);
-                }
-            }
-        }
-
         // If
         void Visit(NodeIf_& node) {
             // Mark conditional

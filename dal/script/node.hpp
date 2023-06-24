@@ -48,9 +48,6 @@ namespace Dal::Script {
     struct NodeSqrt_ : public Visitable_<ExprNode_, NodeSqrt_, VISITORS> {};
     struct NodeExp_ : public Visitable_<ExprNode_, NodeExp_, VISITORS> {};
 
-    //  Multi expressions
-    struct NodeSmooth_ : public Visitable_<ExprNode_, NodeSmooth_, VISITORS> {};
-
     //  Comparisons
 
     struct CompNode_ : public BoolNode_ {
