@@ -2,6 +2,8 @@
 // Created by wegam on 2022/4/3.
 //
 
+#pragma once
+
 #include <dal/platform/platform.hpp>
 #include <public/excel/__platform.hpp>
 #include <public/src/repository.hpp>

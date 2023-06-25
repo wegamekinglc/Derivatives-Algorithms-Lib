@@ -32,21 +32,21 @@ namespace Dal {
 #include <dal/auto/MG_RepositoryErase_enum.hpp>
 
     class ObjectAccess_ : public Environment::Entry_ {
-        String_ AddBase(const Handle_<Storable_>& object, const RepositoryErase_& erase) const;
+        [[nodiscard]] String_ AddBase(const Handle_<Storable_>& object, const RepositoryErase_& erase) const;
 
     public:
-        Handle_<Storable_> Fetch(const String_& tag, bool quiet = false) const;
+        [[nodiscard]] Handle_<Storable_> Fetch(const String_& tag, bool quiet = false) const;
 
         // count handles
-        int Size() const;
+        [[nodiscard]] int Size() const;
         // find a handle based on an input string which may be incomplete
-        Handle_<Storable_> LowerBound(const String_& partial_name) const;
+        [[nodiscard]] Handle_<Storable_> LowerBound(const String_& partial_name) const;
         // return all matching handles
-        Vector_<Handle_<Storable_>> Find(const String_& pattern) const;
+        [[nodiscard]] Vector_<Handle_<Storable_>> Find(const String_& pattern) const;
         // erase all matching handles, return number erased
-        int Erase(const String_& pattern) const;
+        [[nodiscard]] int Erase(const String_& pattern) const;
         // erase one handle
-        bool Erase(const Storable_& object) const;
+        [[nodiscard]] bool Erase(const Storable_& object) const;
 
         template <class T_> String_ Add(const Handle_<T_>& object, const RepositoryErase_& erase) const {
             return AddBase(handle_cast<Storable_>(object), erase);

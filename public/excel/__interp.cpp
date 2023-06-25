@@ -2,6 +2,8 @@
 // Created by wegam on 2022/4/3.
 //
 
+#pragma once
+
 #include <public/excel/__platform.hpp>
 #include <public/src/interp.hpp>
 #include <dal/math/interp/interp.hpp>

@@ -1449,7 +1449,7 @@ namespace Dal {
         ENV_SEED_TYPE(ObjectAccess_);
         auto repo = Environment::Find<ObjectAccess_>(_env);
         assert(repo);
-        repo->Erase(""); // everything should match empty pattern
+        auto num = repo->Erase(""); // everything should match empty pattern
 
         Vector_<XLFunc_>().Swap(&TheFunctions());
         TheFunctions().clear();

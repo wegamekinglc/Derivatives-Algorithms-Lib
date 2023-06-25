@@ -2,6 +2,8 @@
 // Created by wegam on 2022/11/19.
 //
 
+#pragma once
+
 #include <public/excel/__platform.hpp>
 #include <public/src/script.hpp>
 #include <dal/script/event.hpp>

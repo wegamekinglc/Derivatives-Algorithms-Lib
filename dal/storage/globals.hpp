@@ -21,7 +21,7 @@ namespace Dal {
     namespace Global {
         class Store_ : noncopyable {
         public:
-            virtual ~Store_();
+            virtual ~Store_() = default;
             virtual void Set(const String_& name, const Matrix_<Cell_>& value) = 0;
             virtual const Matrix_<Cell_>& Get(const String_& name) = 0;
         };
@@ -31,10 +31,10 @@ namespace Dal {
 
         class Dates_ : public Environment::Entry_ {
         public:
-            Date_ AccountingDate() const;
-            Date_ EvaluationDate() const;
-            void SetAccountingDate(const Date_& date) const;
-            void SetEvaluationDate(const Date_& date) const;
+            static Date_ AccountingDate();
+            static Date_ EvaluationDate();
+            static void SetAccountingDate(const Date_& date);
+            static void SetEvaluationDate(const Date_& date);
         };
 
         Store_& TheFixingsStore();

@@ -4,33 +4,34 @@
 
 #pragma once
 
-#include <dal/math/aad/sample.hpp>
-#include <dal/math/operators.hpp>
-#include <dal/math/stacks.hpp>
+//#include <dal/math/aad/sample.hpp>
+//#include <dal/math/operators.hpp>
+//#include <dal/math/stacks.hpp>
 #include <dal/platform/platform.hpp>
 #include <dal/script/node.hpp>
 #include <dal/script/visitor.hpp>
 
+
 namespace Dal::Script {
 
-    class PastEvaluator_ : public ConstVisitor_<PastEvaluator_> {
-    protected:
-        // State
-        Vector_<> variables_;
-
-        // Stacks
-        StaticStack_<> dStack_;
-        StaticStack_<bool> bStack_;
-
-        // Reference to current scenario
-        const AAD::Scenario_<>* scenario_;
-
-        // Index of current event
-        size_t curEvt_;
+    template <class T_, template <typename> class EVAL_>
+    class PastEvaluatorBase_ : public ConstVisitor_<EVAL_<T_>> {
+//    protected:
+//        // State
+//        Vector_<> variables_;
+//
+//        // Stacks
+//        StaticStack_<> dStack_;
+//        StaticStack_<bool> bStack_;
+//
+//        // Reference to current scenario
+//        const AAD::Scenario_<>* scenario_;
+//
+//        // Index of current event
+//        size_t curEvt_;
 
     public:
-        using ConstVisitor_<PastEvaluator_>::Visit;
-        using ConstVisitor_<PastEvaluator_>::VisitNode;
+        using ConstVisitor_<EVAL_<T_>>::Visit;
 //
 //        // Constructor, nVar = number of variables, from Product after parsing and variable indexation
 //        explicit PastEvaluator_(size_t nVar) : variables_(nVar) {}
@@ -237,6 +238,22 @@ namespace Dal::Script {
 //
 //        // Scenario related
 //        FORCE_INLINE void Visit(const NodeSpot_& node) { dStack_.Push((*scenario_)[curEvt_].spot_); }
+    };
+
+    template <class T> class PastEvaluator_ : public PastEvaluatorBase_<T, PastEvaluator_> {
+
+    public:
+        using Base = PastEvaluatorBase_<T, PastEvaluator_>;
+//
+//        explicit Evaluator_(size_t nVar) : Base(nVar) {}
+//        Evaluator_(const Evaluator_& rhs) : Base(rhs) {}
+//        Evaluator_(Evaluator_&& rhs) noexcept: Base(std::move(rhs)) {}
+//        Evaluator_& operator=(const Evaluator_& rhs) {
+//            return Base::operator=(rhs);
+//        }
+//        Evaluator_& operator=(Evaluator_&& rhs) noexcept {
+//            return Base::operator=(std::move(rhs));
+//        }
     };
 
 } // namespace Dal::Script

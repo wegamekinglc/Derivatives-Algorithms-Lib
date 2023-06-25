@@ -12,6 +12,7 @@ namespace Dal::Script {
     class Debugger_;
     class VarIndexer_;
     class ConstProcessor_;
+    template <class T> class PastEvaluator_;
     template <class T> class Evaluator_;
     class Compiler_;
     class ConstCondProcessor_;
@@ -26,7 +27,7 @@ namespace Dal::Script {
 
 //  Const visitors
 #define CVISITORS                                                                                                      \
-    Debugger_, Evaluator_<double>, Evaluator_<AAD::Number_>, Compiler_, FuzzyEvaluator_<double>,                       \
+    Debugger_, PastEvaluator_<double>, Evaluator_<double>, Evaluator_<AAD::Number_>, Compiler_, FuzzyEvaluator_<double>,                       \
         FuzzyEvaluator_<AAD::Number_>
 
 //  All visitors

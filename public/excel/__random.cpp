@@ -2,6 +2,8 @@
 // Created by wegam on 2022/9/24.
 //
 
+#pragma once
+
 #include <public/excel/__platform.hpp>
 #include <public/src/random.hpp>
 #include <dal/math/random/pseudorandom.hpp>

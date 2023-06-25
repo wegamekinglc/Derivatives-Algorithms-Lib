@@ -3,6 +3,7 @@
 //
 
 #include <public/src/repository.hpp>
+#include <dal/storage/_repository.hpp>
 
 
 namespace Dal {

@@ -1,8 +1,8 @@
-file(GLOB_RECURSE EXCEL_FILES "../src/*.hpp" "../src/*.cpp" "*.hpp" "*.cpp")
+file(GLOB_RECURSE EXCEL_FILES "*.hpp" "*.cpp")
 add_definitions(-DIS_BASE)
 add_library(dal_excel SHARED ${EXCEL_FILES})
+target_link_libraries(dal_excel dal_public)
 set_target_properties(dal_excel PROPERTIES SUFFIX .xll)
-target_link_libraries(dal_excel dal_library)
 
 install(TARGETS dal_excel
         RUNTIME DESTINATION lib

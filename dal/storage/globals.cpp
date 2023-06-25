@@ -17,8 +17,6 @@
 
 namespace Dal {
 
-    Global::Store_::~Store_() {}
-
     namespace {
         // this needs to be a Meyers singleton, not a file-scope static, because we will initialize it with a file-scope
         // static
@@ -55,10 +53,10 @@ namespace Dal {
 
     void Global::SetTheDateStore(Global::Store_* orphan) { XTheDateStore().reset(orphan); }
 
-    Date_ Global::Dates_::AccountingDate() const { return GetGlobalDate(ACCOUNTING()); }
-    Date_ Global::Dates_::EvaluationDate() const { return GetGlobalDate(EVALUATION()); }
-    void Global::Dates_::SetAccountingDate(const Date_& date) const { XGLOBAL::SetAccountingDate(date); }
-    void Global::Dates_::SetEvaluationDate(const Date_& date) const { XGLOBAL::SetEvaluationDate(date); }
+    Date_ Global::Dates_::AccountingDate() { return GetGlobalDate(ACCOUNTING()); }
+    Date_ Global::Dates_::EvaluationDate() { return GetGlobalDate(EVALUATION()); }
+    void Global::Dates_::SetAccountingDate(const Date_& date) { XGLOBAL::SetAccountingDate(date); }
+    void Global::Dates_::SetEvaluationDate(const Date_& date) { XGLOBAL::SetEvaluationDate(date); }
 
     void XGLOBAL::SetAccountingDate(const Date_& when) {
         Global::TheDateStore().Set(ACCOUNTING(), Matrix::M1x1(Cell_(when)));
@@ -88,8 +86,7 @@ namespace Dal {
         // this needs to be a Meyers singleton, not a file-scope static, because we will initialize it with a file-scope
         // static
         std::unique_ptr<Global::Store_>& XTheFixingsStore() { RETURN_STATIC(std::unique_ptr<Global::Store_>); }
-
-        static const String_ FIX_PREFIX("FixingsFor:");
+        const String_ FIX_PREFIX("FixingsFor:");
     } // namespace
 
     FixHistory_ Global::Fixings_::History(const String_& index) {

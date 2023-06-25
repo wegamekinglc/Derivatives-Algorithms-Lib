@@ -5,9 +5,7 @@
 #pragma once
 
 #include <dal/platform/platform.hpp>
-#include <dal/storage/_reader.hpp>
-#include <dal/storage/_repository.hpp>
-#include <dal/utilities/environment.hpp>
+#include <dal/storage/storable.hpp>
 #include <dal/utilities/exceptions.hpp>
 
 

@@ -5,16 +5,10 @@
 #pragma once
 
 #include <dal/platform/platform.hpp>
-#include <dal/storage/globals.hpp>
+#include <dal/time/date.hpp>
 
 namespace Dal {
 
-    FORCE_INLINE void SetEvaluationDate(const Date_& d) {
-        Global::Dates_().SetEvaluationDate(d);
-    }
-
-    FORCE_INLINE Date_ GetEvaluationDate() {
-        return Global::Dates_().EvaluationDate();
-    }
-
+    void SetEvaluationDate(const Date_& d);
+    Date_ GetEvaluationDate();
 }

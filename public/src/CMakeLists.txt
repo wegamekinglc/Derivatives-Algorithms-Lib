@@ -5,7 +5,7 @@ if (BUILD_SHARED_LIBS)
     add_library(dal_public ${PUBLIC_FILES})
     target_link_libraries(dal_public dal_library)
 else()
-    file(GLOB_RECURSE PUBLIC_FILES "*.hpp" "*.cpp" "../../dal/*.hpp" "../../dal/*.cpp")
+    file(GLOB_RECURSE PUBLIC_FILES "*.hpp" "*.cpp" "../../dal/*.h" "../../dal/*.hpp" "../../dal/*.cpp")
     add_library(dal_public ${PUBLIC_FILES})
 endif()
 

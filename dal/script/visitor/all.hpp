@@ -8,6 +8,7 @@
 #include <dal/script/visitor/varindexer.hpp>
 #include <dal/script/visitor/debugger.hpp>
 #include <dal/script/visitor/evaluator.hpp>
+#include <dal/script/visitor/pastevaluator.hpp>
 #include <dal/script/visitor/compiler.hpp>
 #include <dal/script/visitor/fuzzy.hpp>
 #include <dal/script/visitor/domainproc.hpp>
