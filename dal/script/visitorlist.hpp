@@ -12,8 +12,8 @@ namespace Dal::Script {
     class Debugger_;
     class VarIndexer_;
     class ConstProcessor_;
-    template <class T> class PastEvaluator_;
-    template <class T> class Evaluator_;
+    template <class T_> class PastEvaluator_;
+    template <class T_> class Evaluator_;
     class Compiler_;
     class ConstCondProcessor_;
     class IFProcessor_;
