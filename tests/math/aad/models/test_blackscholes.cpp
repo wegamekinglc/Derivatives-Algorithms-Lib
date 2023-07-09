@@ -91,6 +91,7 @@ TEST(BlackScholesTest, TestBlackScholesAADParallel) {
     European_<Number_> prd(strike, exerciseDate);
     BlackScholes_<Number_> mdl(spot, vol, rate, div);
     auto res = MCParallelSimulationAAD(prd, mdl, "sobol", n_paths);
+    std::cout << res.risks_[0] << " - " << res.risks_[1] << " - " << res.risks_[2] << " - " << res.risks_[3] << std::endl;
     ASSERT_NEAR(res.risks_[0], 0.43986485, 1e-5);
     ASSERT_NEAR(res.risks_[1], 5.38087423, 1e-4);
     ASSERT_NEAR(res.risks_[2], 7.18505725, 1e-4);
