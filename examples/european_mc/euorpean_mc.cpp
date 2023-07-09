@@ -49,6 +49,7 @@ int main() {
     std::cout << "\nParsing " << std::setprecision(8) << "\tElapsed: " << timer.Elapsed<milliseconds>() << " ms" << std::endl;
     
     product.PreProcess(false, false);
+    product.Compile();
 
     Vector_<int> widths = {28, 14, 14, 14, 14, 14};
     double discounts = std::exp(-rate * t);
@@ -66,8 +67,7 @@ int main() {
     for (int i = 10; i <= 25; ++i) {
         timer.Reset();
         int num_paths = std::pow(2, i);
-        SimResults_<Real_> results =
-            MCSimulation(product, *model, num_paths, rsg, false);
+        SimResults_<Real_> results = MCSimulation(product, *model, num_paths, rsg, false, true);
 
         auto sum = 0.0;
         for (auto row = 0; row < results.Rows(); ++row)
