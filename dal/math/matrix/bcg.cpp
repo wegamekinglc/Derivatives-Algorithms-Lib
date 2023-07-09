@@ -2,9 +2,9 @@
 // Created by wegamekinglc on 22-12-17.
 //
 
+#include <dal/platform/strict.hpp>
 #include <dal/math/matrix/bcg.hpp>
 #include <dal/math/matrix/sparse.hpp>
-#include <dal/platform/strict.hpp>
 #include <dal/utilities/algorithms.hpp>
 #include <dal/utilities/numerics.hpp>
 #include <dal/utilities/functionals.hpp>
@@ -12,23 +12,23 @@
 namespace Dal {
     namespace {
         struct XPrecondition_ {
-            const HasPreconditioner_* a_;
-            explicit XPrecondition_(const Sparse::Square_& a) : a_(dynamic_cast<const HasPreconditioner_*>(&a)) {}
+            const HasPreConditioner_* a_;
+            explicit XPrecondition_(const Sparse::Square_& a) : a_(dynamic_cast<const HasPreConditioner_*>(&a)) {}
             void Left(const Vector_<>& b, Vector_<>* x) const {
                 if (a_)
-                    a_->PreconditionerSolveLeft(b, x);
+                    a_->PreConditionerSolveLeft(b, x);
                 else if (x != &b)
                     Copy(b, x);
             }
             void Right(const Vector_<>& b, Vector_<>* x) const {
                 if (a_)
-                    a_->PreconditionerSolveRight(b, x);
+                    a_->PreConditionerSolveRight(b, x);
                 else if (x != &b)
                     Copy(b, x);
             }
         };
 
-        struct XSparseTransposed_ : public Sparse::Square_, public HasPreconditioner_ {
+        struct XSparseTransposed_ : public Sparse::Square_, public HasPreConditioner_ {
             const Sparse::Square_& a_;
             XPrecondition_ p_;
             explicit XSparseTransposed_(const Sparse::Square_& a) : a_(a), p_(a) {}
@@ -36,9 +36,9 @@ namespace Dal {
             [[nodiscard]] int Size() const override { return a_.Size(); }
             void XMultiplyLeft_af(const Vector_<>& x, Vector_<>* b) const { a_.MultiplyRight(x, b); }
             void XSolveLeft_af(const Vector_<>& b, Vector_<>* x) const {
-                assert(!"Unreachable: left-solve after transpose");
+                THROW("Unreachable: left-solve after transpose");
             }
-            void PreconditionerSolveLeft(const Vector_<>& x, Vector_<>* b) const override { p_.Right(x, b); }
+            void PreConditionerSolveLeft(const Vector_<>& x, Vector_<>* b) const override { p_.Right(x, b); }
         };
     } // namespace
 

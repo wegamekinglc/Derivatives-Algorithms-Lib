@@ -2,9 +2,8 @@
 // Created by wegam on 2022/12/4.
 //
 
-
-#include <dal/math/aad/models/dupire.hpp>
 #include <dal/platform/strict.hpp>
+#include <dal/math/aad/models/dupire.hpp>
 
 namespace Dal::AAD {
 #include <dal/auto/MG_DupireModelData_v1_Read.inc>

@@ -4,9 +4,9 @@
 
 #include <bitset>
 #include <sstream>
-#include <dal/math/vectors.hpp>
 #include <dal/platform/strict.hpp>
 #include <dal/string/strings.hpp>
+#include <dal/math/vectors.hpp>
 #include <dal/utilities/algorithms.hpp>
 
 namespace Dal::String {

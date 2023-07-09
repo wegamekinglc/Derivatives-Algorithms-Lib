@@ -3,8 +3,8 @@
 //
 
 #include <functional>
+#include <dal/platform/strict.hpp>
 #include <dal/math/ndarray.hpp>
-#include <dal/utilities/functionals.hpp>
 
 namespace Dal::ArrayN {
     Vector_<int> Strides(const Vector_<int>& sizes) {

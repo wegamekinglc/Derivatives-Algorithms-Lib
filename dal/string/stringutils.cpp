@@ -12,20 +12,21 @@
 namespace {
     bool CharToBool(char c) {
         switch (c) {
-        case 'T':
-        case 't':
-        case 'Y':
-        case 'y':
-        case '1':
-            return true;
-        case 'F':
-        case 'f':
-        case 'N':
-        case 'n':
-        case '0':
-            return false;
+            case 'T':
+            case 't':
+            case 'Y':
+            case 'y':
+            case '1':
+                return true;
+            case 'F':
+            case 'f':
+            case 'N':
+            case 'n':
+            case '0':
+                return false;
+            default:
+                THROW(Dal::String_("Can't convert '" + Dal::String_(1, c) + "' to a boolean"));
         }
-        THROW(Dal::String_("Can't convert '" + Dal::String_(1, c) + "' to a boolean"));
     }
 
     bool TestTrue(const Dal::String_& c) {
@@ -55,9 +56,9 @@ namespace Dal {
             return Apply(AsFunctor(ToBool), Split(src, ',', true));
         // could be literal true/false -- but could also be, e.g. ttft
         if (TestTrue(src))
-            return Vector_<bool>(1, true);
+            return {true};
         if (TestFalse(src))
-            return Vector_<bool>(1, false);
+            return {false};
         // ok, convert individual characters
         return Apply(AsFunctor(CharToBool), src);
     }

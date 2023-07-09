@@ -5,7 +5,6 @@
 #include <dal/platform/platform.hpp>
 #include <dal/platform/strict.hpp>
 #include <dal/time/datetimeutils.hpp>
-
 #include <dal/time/datetime.hpp>
 #include <dal/time/dateutils.hpp>
 #include <dal/utilities/algorithms.hpp>

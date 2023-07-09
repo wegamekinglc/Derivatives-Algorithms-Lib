@@ -2,10 +2,6 @@
 // Created by wegam on 2023/1/21.
 //
 
-
-#include <dal/platform/platform.hpp>
-#include <dal/storage/json.hpp>
-
 #include <fstream>
 #include <sstream>
 #include <regex>
@@ -14,13 +10,15 @@
 #include <dal/utilities/rapidjson/prettywriter.h>
 #include <dal/utilities/rapidjson/filereadstream.h>
 #include <dal/utilities/rapidjson/filewritestream.h>
-#include <dal/platform/strict.hpp>
 
+#include <dal/platform/strict.hpp>
+#include <dal/storage/json.hpp>
 #include <dal/utilities/numerics.hpp>
 #include <dal/utilities/dictionary.hpp>
 #include <dal/time/dateutils.hpp>
 #include <dal/time/datetimeutils.hpp>
 #include <dal/storage/archive.hpp>
+#include <utility>
 
 namespace Dal {
     namespace {
@@ -31,7 +29,7 @@ namespace Dal {
         using element_t = rapidjson::GenericValue<rapidjson::UTF8<>>;
         using allocator_t = rapidjson::GenericDocument<rapidjson::UTF8<>>::AllocatorType ;
         using rapidjson::Value;
-        inline rapidjson::GenericStringRef<char> LendToJSON(const String_& s) {
+        rapidjson::GenericStringRef<char> LendToJSON(const String_& s) {
             return rapidjson::GenericStringRef<char>(s.c_str(), static_cast<int>(s.size()));
         }
         // WRITE interface
@@ -50,8 +48,8 @@ namespace Dal {
             XDocStore_(std::ostream& dst,
                        std::map<const Storable_*, String_>& tags,
                        XDocStore_* parent,
-                       const String_& own_name)
-                : dst_(dst), sharedTags_(tags), ownName_(own_name), empty_(true) {}
+                       String_  own_name)
+                : dst_(dst), sharedTags_(tags), ownName_(std::move(own_name)), empty_(true) {}
 
             // looks like tag has to be the toplevel attribute of an object node
             const char* Prep() { return empty_ ? "{\n" : ",\n"; }

@@ -2,6 +2,7 @@
 // Created by wegam on 2023/1/23.
 //
 
+#include <dal/platform/strict.hpp>
 #include <dal/indice/index/fx.hpp>
 
 namespace Dal::Index {

@@ -3,9 +3,8 @@
 //
 
 #include <dal/platform/platform.hpp>
-#include <dal/storage/bag.hpp>
 #include <dal/platform/strict.hpp>
-
+#include <dal/storage/bag.hpp>
 #include <dal/storage/archive.hpp>
 #include <dal/utilities/maps.hpp>
 #include <dal/utilities/algorithms.hpp>

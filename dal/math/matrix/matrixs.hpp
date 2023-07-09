@@ -89,7 +89,7 @@ namespace Dal {
 
             const_iterator begin() const { return begin_; }
             const_iterator end() const { return end_; }
-            int size() const { return static_cast<int>(end_ - begin_); }
+            [[nodiscard]] int size() const { return static_cast<int>(end_ - begin_); }
             const E_& operator[](int col) const { return *(begin_ + col); }
             const E_& front() const { return *begin_; }
             const E_& back() const { return *(end_ - 1); }
@@ -186,7 +186,7 @@ namespace Dal {
 
             const_iterator begin() const { return const_iterator(begin_.val_, begin_.stride_); }
             const_iterator end() const { return const_iterator(begin_.val_ + size_ * begin_.stride_, begin_.stride_); }
-            size_t size() const { return size_; }
+            [[nodiscard]] size_t size() const { return size_; }
             const E_& operator[](int row) const { return *(begin_.val_ + row * begin_.stride_); }
         };
         ConstCol_ Col(int i_col) const { return ConstCol_(hooks_[0] + i_col, hooks_.size(), cols_); }

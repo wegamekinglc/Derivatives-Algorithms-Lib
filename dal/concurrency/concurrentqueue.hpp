@@ -13,7 +13,6 @@
 #pragma once
 
 #include <condition_variable>
-#include <dal/platform/platform.hpp>
 #include <mutex>
 #include <queue>
 

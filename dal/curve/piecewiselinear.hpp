@@ -6,11 +6,13 @@
 
 #include <dal/platform/platform.hpp>
 #include <dal/math/vectors.hpp>
-#include <dal/time/date.hpp>
 
 namespace Dal {
+    class Date_;
+
+
     struct PiecewiseLinear_ {
-        Vector_ <Date_> knotDates_;
+        Vector_<Date_> knotDates_;
         Vector_<> fLeft_;
         Vector_<> fRight_;
         Vector_<> sofar_;    // precomputed integrals to knot dates

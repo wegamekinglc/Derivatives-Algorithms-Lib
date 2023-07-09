@@ -5,7 +5,6 @@
 
 #pragma once
 
-#include <map>
 #include <dal/currency/currency.hpp>
 #include <dal/utilities/facts.hpp>
 #include <dal/time/daybasis.hpp>

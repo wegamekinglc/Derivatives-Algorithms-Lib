@@ -13,7 +13,6 @@
 #pragma once
 
 #include <dal/concurrency/concurrentqueue.hpp>
-#include <dal/platform/platform.hpp>
 #include <future>
 #include <thread>
 

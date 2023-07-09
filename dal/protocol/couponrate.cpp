@@ -2,9 +2,10 @@
 // Created by wegam on 2022/1/29.
 //
 
+#include <dal/platform/strict.hpp>
+#include <dal/protocol/couponrate.hpp>
 #include <dal/protocol/collateraltype.hpp>
 #include <dal/protocol/clearer.hpp>
-#include <dal/protocol/couponrate.hpp>
 #include <dal/time/periodlength.hpp>
 
 namespace Dal {

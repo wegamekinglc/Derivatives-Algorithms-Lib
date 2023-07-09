@@ -2,12 +2,11 @@
 // Created by wegam on 2021/2/22.
 //
 
-#include <dal/platform/platform.hpp>
+#include <dal/platform/strict.hpp>
 #include <dal/math/matrix/banded.hpp>
 #include <dal/math/matrix/squarematrix.hpp>
 #include <dal/utilities/algorithms.hpp>
 #include <dal/utilities/numerics.hpp>
-#include <dal/platform/strict.hpp>
 
 namespace Dal {
     namespace {
@@ -27,7 +26,7 @@ namespace Dal {
         }
 
         Vector_<> TridagBetaInverse(const Vector_<>& diag, const Vector_<>& above, const Vector_<>& below) {
-            const int n = diag.size();
+            const int n = static_cast<int>(diag.size());
             Vector_<> ret_val(n);
             double gammaA = 0.0;
             for (int j = 0;; ++j) {
@@ -46,7 +45,7 @@ namespace Dal {
                       const Vector_<>& below,
                       const Vector_<>& beta_inv,
                       Vector_<>* x) {
-            const int n = diag.size();
+            const int n = static_cast<int>(diag.size());
             REQUIRE(b.size() == n, "Size must be compatible");
             x->Resize(n);
             (*x)[0] = b[0] * beta_inv[0];
@@ -63,7 +62,7 @@ namespace Dal {
             TriDecomp_(const Vector_<>& diag, const Vector_<>& above, const Vector_<>& below)
                 : diag_(diag), above_(above), below_(below), betaInv_(TridagBetaInverse(diag, above, below)) {}
 
-            int Size() const override { return diag_.size(); }
+            [[nodiscard]] int Size() const override { return static_cast<int>(diag_.size()); }
             void XMultiplyLeft_af(const Vector_<>& x, Vector_<>* b) const override {
                 REQUIRE(x.size() == Size(), "Size should be compatible with x and the matrix");
                 TriMultiply(x, diag_, above_, below_, b);
@@ -90,7 +89,7 @@ namespace Dal {
             TriDecompSymm_(const Vector_<>& diag, const Vector_<>& above)
                 : diag_(diag), above_(above), betaInv_(TridagBetaInverse(diag, above, above)) {}
 
-            int Size() const override { return diag_.size(); }
+            [[nodiscard]] int Size() const override { return static_cast<int>(diag_.size()); }
             void XMultiply_af(const Vector_<>& x, Vector_<>* b) const override {
                 REQUIRE(x.size() == Size(), "Size should be compatible with x and the matrix");
                 TriMultiply(x, diag_, above_, above_, b);
@@ -150,7 +149,7 @@ namespace Dal {
         // left-multiplication
         template <bool transpose> void BandedMultiply(const BandElements_& val, const Vector_<>& x, Vector_<>* b) {
             REQUIRE(b != &x, "no aliasing here");
-            const int n = x.size();
+            const int n = static_cast<int>(x.size());
             REQUIRE(val.view_.Rows() == n, "Size should be compatible with x and the matrix");
             b->Resize(n);
             b->Fill(0.0);
@@ -165,7 +164,7 @@ namespace Dal {
         // this works even if x == &b
         void BandedLSolve(const BandElements_& val, const Vector_<>& b, Vector_<>* x) {
             REQUIRE(val.view_.Cols() == val.nBelow_ + 1, "n_below and cols are not matched");
-            const int n = b.size();
+            const int n = static_cast<int>(b.size());
             REQUIRE(val.view_.Rows() == n, "Size should be compatible with b and the matrix");
             x->Resize(n);
             for (int ii = 0; ii < n; ++ii) {
@@ -180,7 +179,7 @@ namespace Dal {
         // this works even if x == &b
         void BandedLTransposeSolve(const BandElements_& val, const Vector_<>& b, Vector_<>* x) {
             REQUIRE(val.view_.Cols() == val.nBelow_ + 1, "n_below and cols are not matched");
-            const int n = b.size();
+            const int n = static_cast<int>(b.size());
             REQUIRE(val.view_.Rows() == n, "Size should be compatible with b and the matrix");
             x->Resize(n);
             for (int ii = n - 1; ii >= 0; --ii) {
@@ -274,11 +273,11 @@ namespace Dal {
         public:
             Banded_(int size, int n_above, int n_below) : val_(size, n_above, n_below) {}
 
-            int Size() const override { return val_.view_.Rows(); }
+            [[nodiscard]] int Size() const override { return val_.view_.Rows(); }
             void MultiplyLeft(const Vector_<>& x, Vector_<>* b) const override { BandedMultiply<false>(val_, x, b); }
             void MultiplyRight(const Vector_<>& x, Vector_<>* b) const override { BandedMultiply<true>(val_, x, b); }
 
-            bool IsSymmetric() const override {
+            [[nodiscard]] bool IsSymmetric() const override {
                 // brute-force check
                 const int n = Size();
                 const int width = max(val_.nBelow_, val_.view_.Cols() - val_.nBelow_ - 1);
@@ -289,7 +288,7 @@ namespace Dal {
                 }
                 return true;
             }
-            SquareMatrixDecomposition_* Decompose() const override {
+            [[nodiscard]] SquareMatrixDecomposition_* Decompose() const override {
                 REQUIRE(IsSymmetric(), "Cholesky decomposition requires a symmetric matrix");
                 return new BandedCholesky_(val_);
             }
@@ -348,7 +347,7 @@ namespace Dal {
 
     void LowerBandAccumulator_::Add(const Vector_<>& v_in, int offset) {
         REQUIRE(v_in.size() <= val_.Cols(), "Too many nonzero elements in v");
-        int iRow = v_in.size() + offset;
+        int iRow = static_cast<int>(v_in.size()) + offset;
         REQUIRE(iRow < val_.Rows(), "V is too large");
 
         Vector_<> v = v_in;
@@ -366,7 +365,7 @@ namespace Dal {
             const double c = row.back() / r;
             const double s = v.back() / r;
 
-            auto pr = row.begin() + (row.size() - v.size());
+            auto pr = row.begin() + static_cast<int>(row.size() - v.size());
             for (auto pv = v.begin(); pv != v.end(); ++pv, ++pr) {
                 // rotation
                 const double save = *pr;

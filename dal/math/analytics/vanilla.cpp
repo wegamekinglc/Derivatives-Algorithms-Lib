@@ -2,6 +2,7 @@
 // Created by wegam on 2022/9/11.
 //
 
+#include <dal/platform/strict.hpp>
 #include <dal/math/analytics/vanilla.hpp>
 
 namespace Dal::AAD {

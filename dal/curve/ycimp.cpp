@@ -2,12 +2,15 @@
 // Created by wegam on 2023/3/26.
 //
 
+#include <dal/platform/strict.hpp>
+#include <dal/curve/ycimp.hpp>
+#include <dal/curve/yccomponent.hpp>
+#include <dal/curve/discount.hpp>
+#include <dal/curve/piecewiselinear.hpp>
 #include <dal/time/date.hpp>
 #include <dal/time/daybasis.hpp>
 #include <dal/platform/platform.hpp>
 #include <dal/math/vectors.hpp>
-#include <dal/curve/ycimp.hpp>
-#include <dal/curve/piecewiselinear.hpp>
 #include <dal/storage/archive.hpp>
 
 /*IF--------------------------------------------------------------------------

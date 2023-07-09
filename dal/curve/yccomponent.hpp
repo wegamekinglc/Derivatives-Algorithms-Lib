@@ -18,7 +18,7 @@ namespace Dal {
         virtual void Poll(std::map<const YCComponent_ *, Handle_<YCComponent_>> *) const = 0; // state which ones we have handles for
         // clone, using new base curves in place of old
         using substitutions_t = std::map<const YCComponent_*, Handle_<YCComponent_>>;
-        virtual YCComponent_ *Clone(const String_ &new_name, const substitutions_t &base_changes) const = 0;
+        [[nodiscard]] virtual YCComponent_* Clone(const String_ &new_name, const substitutions_t &base_changes) const = 0;
     };
 
     template<class T_, class B_ = T_>

@@ -8,10 +8,10 @@
 
 namespace Dal {
 
-    class HasPreconditioner_ {
+    class HasPreConditioner_ {
     public:
-        virtual void PreconditionerSolveLeft(const Vector_<>& b, Vector_<>* x) const = 0;
-        virtual void PreconditionerSolveRight(const Vector_<>& b, Vector_<>* x) const = 0;
+        virtual void PreConditionerSolveLeft(const Vector_<>& b, Vector_<>* x) const = 0;
+        virtual void PreConditionerSolveRight(const Vector_<>& b, Vector_<>* x) const = 0;
     };
 
     namespace Sparse {

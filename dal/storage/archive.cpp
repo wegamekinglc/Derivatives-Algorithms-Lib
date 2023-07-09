@@ -4,7 +4,7 @@
 
 #include <dal/platform/strict.hpp>
 #include <dal/storage/archive.hpp>
-#include <map>
+
 
 namespace {
     std::map<Dal::String_, const Dal::Archive::Reader_*>& TheBuilders() {

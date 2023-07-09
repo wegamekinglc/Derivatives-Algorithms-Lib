@@ -2,11 +2,12 @@
 // Created by wegamekinglc on 18-1-15.
 //
 
+#include <sstream>
 #include <dal/platform/platform.hpp>
+#include <dal/platform/strict.hpp>
+#include <dal/utilities/exceptions.hpp>
 #include <dal/time/date.hpp>
 #include <dal/time/datetime.hpp>
-#include <dal/utilities/exceptions.hpp>
-#include <sstream>
 
 namespace Dal {
     namespace exception {
@@ -43,9 +44,9 @@ namespace Dal {
             case Type_::DATETIME:
                 return name_ + EQUALS + DateTime::ToString(*reinterpret_cast<const DateTime_*>(value_)).c_str();
             case Type_::VOID:
-                return std::string(name_);
+                return name_;
             }
-            return std::string();
+            return {};
         }
 
         namespace {

@@ -2,9 +2,8 @@
 // Created by wegam on 2020/10/25.
 //
 
-#include <dal/math/cellutils.hpp>
-#include <dal/platform/platform.hpp>
 #include <dal/platform/strict.hpp>
+#include <dal/math/cellutils.hpp>
 #include <dal/string/strings.hpp>
 #include <dal/time/datetimeutils.hpp>
 #include <dal/time/dateutils.hpp>

@@ -2,11 +2,11 @@
 // Created by wegam on 2022/5/5.
 //
 
+#include <dal/platform/strict.hpp>
 #include <dal/math/distribution/black.hpp>
 #include <dal/math/rootfind.hpp>
 #include <dal/math/specialfunctions.hpp>
 #include <dal/platform/platform.hpp>
-#include <dal/platform/strict.hpp>
 
 namespace Dal {
     namespace Distribution {
@@ -14,7 +14,7 @@ namespace Dal {
             static const int MAX_ITERATIONS = 30;
             static const double TOL = 1.0e-10;
             REQUIRE(price >= type.Payout(fwd, strike), "value below intrinsic value in BlackIV");
-            Brent_ task(guess ? log(guess) : -1.5);
+            Brent_ task(guess > 0.0 ? log(guess) : -1.5);
             Converged_ done(TOL * max(1.0, fwd), TOL * max(1.0, price));
             for (int i = 0; i < MAX_ITERATIONS; ++i) {
                 const double vol = exp(task.NextX());
@@ -55,7 +55,7 @@ namespace Dal {
             static const int MAX_ITERATIONS = 30;
             static const double TOL = 1.0e-10;
             REQUIRE(price >= type.Payout(fwd, strike), "value below intrinsic value in BlackIV");
-            Brent_ task(guess ? guess : -1.5 * fwd);
+            Brent_ task(guess > 0.0 ? guess : -1.5 * fwd);
             Converged_ done(TOL * max(1.0, fwd), TOL * max(1.0, price));
             for (int i = 0; i < MAX_ITERATIONS; ++i) {
                 const double vol = exp(task.NextX());

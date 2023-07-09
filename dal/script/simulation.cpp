@@ -2,10 +2,10 @@
 // Created by wegam on 2022/11/6.
 //
 
+#include <dal/platform/strict.hpp>
+#include <dal/script/simulation.hpp>
 #include <dal/concurrency/threadpool.hpp>
 #include <dal/math/aad/aad.hpp>
-#include <dal/script/simulation.hpp>
-#include <dal/platform/strict.hpp>
 
 
 namespace Dal::Script {

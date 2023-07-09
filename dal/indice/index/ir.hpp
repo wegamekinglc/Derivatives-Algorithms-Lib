@@ -10,6 +10,7 @@
 #include <dal/protocol/couponrate.hpp>
 #include <dal/currency/currency.hpp>
 #include <dal/utilities/functionals.hpp>
+#include <utility>
 
 namespace Dal::Index {
     class IRForward_ : public Index_ {
@@ -17,9 +18,8 @@ namespace Dal::Index {
         const Ccy_ ccy_;
         const Cell_ start_;
 
-        IRForward_(const Ccy_& ccy, const Cell_& start = Cell_()) : ccy_(ccy), start_(start) {}
-
-        Date_ StartDate(const DateTime_& fixing_time) const;
+        explicit IRForward_(const Ccy_& ccy, const Cell_& start = Cell_()) : ccy_(ccy), start_(start) {}
+        [[nodiscard]] Date_ StartDate(const DateTime_& fixing_time) const;
     };
 
     class Libor_ : public IRForward_ {
@@ -28,16 +28,16 @@ namespace Dal::Index {
         Libor_(const Ccy_& ccy, const TradedRate_& tenor, const Cell_& start = Cell_())
             : IRForward_(ccy, start), tenor_(tenor) {}
 
-        String_ Name() const override;
+        [[nodiscard]] String_ Name() const override;
     };
 
     class Swap_ : public IRForward_ {
     public:
         const String_ tenor_;
-        Swap_(const Ccy_& ccy, const String_& tenor, const Cell_& start = Cell_())
-            : IRForward_(ccy, start), tenor_(tenor) {}
+        Swap_(const Ccy_& ccy, String_ tenor, const Cell_& start = Cell_())
+            : IRForward_(ccy, start), tenor_(std::move(tenor)) {}
 
-        String_ Name() const override;
+        [[nodiscard]] String_ Name() const override;
     };
 
     class DF_ : public Index_ {
@@ -55,8 +55,8 @@ namespace Dal::Index {
             const CollateralType_& coll = CollateralType_())
             : ccy_(ccy), maturity_(maturity), start_(Dereference(start, Cell_())) {}
 
-        String_ Name() const override;
-        Date_ Maturity(const DateTime_& event_time) const;
-        Date_ StartDate(const DateTime_& event_time) const;
+        [[nodiscard]] String_ Name() const override;
+        [[nodiscard]] Date_ Maturity(const DateTime_& event_time) const;
+        [[nodiscard]] Date_ StartDate(const DateTime_& event_time) const;
     };
 } // namespace Dal::Index

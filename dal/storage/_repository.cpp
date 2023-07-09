@@ -2,14 +2,12 @@
 // Created by wegam on 2022/4/3.
 //
 
-#define _Regex_traits _Regex_traits_Repository
-#include <dal/platform/platform.hpp>
-#include <dal/platform/strict.hpp>
-#include <dal/storage/_repository.hpp>
 #include <map>
 #include <mutex>
 #include <regex>
-
+#include <dal/platform/platform.hpp>
+#include <dal/platform/strict.hpp>
+#include <dal/storage/_repository.hpp>
 #include <dal/math/matrix/matrixutils.hpp>
 #include <dal/storage/box.hpp>
 #include <dal/storage/globals.hpp>
@@ -23,7 +21,7 @@ namespace Dal {
         // POSTPONED -- make repository thread safe
         std::map<String_, Handle_<Storable_>>& TheObjects() { RETURN_STATIC(std::map<String_, Handle_<Storable_>>); }
 
-        static std::mutex TheObjectsMutex;
+        std::mutex TheObjectsMutex;
 #define LOCK_OBJECTS std::lock_guard<std::mutex> l(TheObjectsMutex)
 
         String_ TypeTag(const Storable_& s) { return "~" + s.type_ + "~"; }
@@ -116,7 +114,7 @@ namespace Dal {
     // enable a store for low-level global objects
 
     namespace {
-        static const String_ GLOBAL_TAG("##GLOBAL##");
+        const String_ GLOBAL_TAG("##GLOBAL##");
 
         struct RepoStore_ : Global::Store_ {
             void Set(const String_& name, const Matrix_<Cell_>& value) override {
@@ -151,6 +149,6 @@ namespace Dal {
             return po->second;
         }
         REQUIRE(quiet, "Repository object not found");
-        return Handle_<Storable_>();
+        return {};
     }
 } // namespace Dal

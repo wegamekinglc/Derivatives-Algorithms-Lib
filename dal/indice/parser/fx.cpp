@@ -2,9 +2,9 @@
 // Created by wegam on 2023/1/24.
 //
 
-#include <dal/indice/index/fx.hpp>
+#include <dal/platform/strict.hpp>
 #include <dal/indice/parser/fx.hpp>
-#include <dal/string/strings.hpp>
+#include <dal/indice/index/fx.hpp>
 
 namespace Dal::Index {
     Index_* FxParser(const String_& name) {

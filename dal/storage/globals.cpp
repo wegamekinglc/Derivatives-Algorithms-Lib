@@ -2,12 +2,11 @@
 // Created by wegam on 2022/4/3.
 //
 
-#include <dal/storage/globals.hpp>
-#include <dal/platform/platform.hpp>
-#include <dal/platform/strict.hpp>
 #include <map>
 #include <mutex>
-
+#include <dal/platform/platform.hpp>
+#include <dal/platform/strict.hpp>
+#include <dal/storage/globals.hpp>
 #include <dal/math/cell.hpp>
 #include <dal/math/cellutils.hpp>
 #include <dal/platform/host.hpp>

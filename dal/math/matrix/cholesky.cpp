@@ -2,6 +2,7 @@
 // Created by wegamekinglc on 22-12-17.
 //
 
+#include <dal/platform/strict.hpp>
 #include <dal/math/matrix/cholesky.hpp>
 #include <dal/math/matrix/sparse.hpp>
 #include <dal/math/matrix/squarematrix.hpp>
@@ -9,7 +10,6 @@
 #include <dal/math/matrix/decompositionsmisc.hpp>
 #include <dal/math/operators.hpp>
 #include <dal/utilities/functionals.hpp>
-#include <dal/platform/strict.hpp>
 
 namespace Dal {
 
@@ -41,7 +41,7 @@ namespace Dal {
             bool needKeep_;
 
         public:
-            Cholesky_(const SquareMatrix_<>& src, SquareMatrix_<>* lower = nullptr, double regularization = Dal::EPSILON) {
+            explicit Cholesky_(const SquareMatrix_<>& src, SquareMatrix_<>* lower = nullptr, double regularization = Dal::EPSILON) {
                 if (lower) {
                     lower_ = lower;
                     needKeep_ = true;
@@ -51,7 +51,7 @@ namespace Dal {
                     needKeep_ = false;
                 }
 
-                const double meanDiag = CholeskyImpl(src, lower_);
+                const double meanDiag = CholeskyImpl(src, lower_, regularization);
                 const double reg = Square(regularization * meanDiag);
                 const int n = lower_->Rows();
                 REQUIRE(reg > 0.0, "regularization factor should be greater than 0.0");
@@ -59,12 +59,12 @@ namespace Dal {
                     (*lower_)(ii, ii) /= reg + Square((*lower_)(ii, ii));
             }
 
-            ~Cholesky_() {
+            ~Cholesky_() override {
                 if (!needKeep_)
                     delete lower_;
             }
 
-            void XMultiply_af(const Vector_<>& x, Vector_<>* b) const {
+            void XMultiply_af(const Vector_<>& x, Vector_<>* b) const override {
                 const int n = Size();
                 Vector_<> temp(n, 0.0);
                 // multiply by L^T
@@ -81,7 +81,7 @@ namespace Dal {
                 }
             }
 
-            void XSolve_af(const Vector_<>& b, Vector_<>* x) const {
+            void XSolve_af(const Vector_<>& b, Vector_<>* x) const override {
                 const int n = Size();
                 for (int ii = 0; ii < n; ++ii) {
                     (*x)[ii] = b[ii] - std::inner_product(x->begin(), x->begin() + ii, lower_->Row(ii).begin(), 0.0);
@@ -93,9 +93,9 @@ namespace Dal {
                 }
             }
 
-            [[nodiscard]] int Size() const { return lower_->Rows(); }
+            [[nodiscard]] int Size() const override { return lower_->Rows(); }
 
-            virtual Vector_<>::const_iterator MakeCorrelated(Vector_<>::const_iterator iid_begin, Vector_<>* correlated) const {
+            Vector_<>::const_iterator MakeCorrelated(Vector_<>::const_iterator iid_begin, Vector_<>* correlated) const override {
                 const int n = Size();
                 correlated->Resize(n);
                 for (int ii = 0; ii < n; ++ii) {
@@ -113,9 +113,7 @@ namespace Dal {
 
     void CholeskySolve(SquareMatrix_<>* a, Vector_<Vector_<>>* b, double regularization) {
         Cholesky_ cholesky(*a, a, regularization);
-        for (int ib = 0; ib < b->size(); ++ib) {
-            Vector_<>& bb = (*b)[ib];
+        for (auto & bb : *b)
             cholesky.Solve(bb, &bb);
-        }
     }
 } // namespace Dal

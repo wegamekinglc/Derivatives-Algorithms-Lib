@@ -2,10 +2,8 @@
 // Created by wegam on 2022/4/3.
 //
 
-#include <dal/math/matrix/matrixutils.hpp>
-#include <dal/platform/platform.hpp>
 #include <dal/platform/strict.hpp>
-
+#include <dal/math/matrix/matrixutils.hpp>
 #include <dal/math/cell.hpp>
 #include <dal/utilities/exceptions.hpp>
 #include <dal/math/matrix/matrixs.hpp>

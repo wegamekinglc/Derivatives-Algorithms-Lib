@@ -2,12 +2,12 @@
 // Created by wegam on 2020/12/19.
 //
 
+#include <dal/platform/strict.hpp>
 #include <dal/math/random/pseudorandom.hpp>
 #include <cmath>
 #include <dal/math/specialfunctions.hpp>
 #include <dal/math/vectors.hpp>
 #include <dal/platform/host.hpp>
-#include <dal/platform/strict.hpp>
 #include <dal/utilities/exceptions.hpp>
 
 namespace Dal {
@@ -98,7 +98,7 @@ namespace Dal {
             const double a_, b_;
             double xn_, xn1_, xn2_, yn_, yn1_, yn2_;
 
-            MRG32k32a_(const unsigned& a = 12345, const unsigned& b = 12346, size_t n_dim = 1, bool precise = false)
+            explicit MRG32k32a_(const unsigned& a = 12345, const unsigned& b = 12346, size_t n_dim = 1, bool precise = false)
                 : PseudoRandom_(n_dim, precise), a_(a), b_(b) {
                 Reset();
             }
@@ -143,9 +143,6 @@ namespace Dal {
             void SkipTo(size_t n_paths) override {
                 size_t n_points = n_paths * NDim();
                 Reset();
-
-                if (n_points < 0)
-                    return;
 
                 if (n_points & 1)
                     n_points = (n_points - 1) / 2;

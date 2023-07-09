@@ -26,7 +26,7 @@ namespace Dal {
     class Index_ : noncopyable {
     public:
         virtual ~Index_() = default;
-        virtual String_ Name() const = 0;
+        [[nodiscard]] virtual String_ Name() const = 0;
         virtual double Fixing(_ENV, const DateTime_& fixing_time) const;
     };
 

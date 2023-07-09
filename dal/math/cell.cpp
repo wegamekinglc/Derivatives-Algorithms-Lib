@@ -2,8 +2,8 @@
 // Created by wegamekinglc on 2020/5/2.
 //
 
-#include <dal/math/cell.hpp>
 #include <dal/platform/strict.hpp>
+#include <dal/math/cell.hpp>
 #include <dal/string/stringutils.hpp>
 #include <dal/utilities/exceptions.hpp>
 
@@ -88,7 +88,7 @@ namespace Dal {
 
     Vector_<bool> Cell::ToBoolVector(const Cell_& src) {
         if (auto p = std::get_if<bool>(&src.val_))
-            return Vector_<bool>(1, *p);
+            return {*p};
         if (auto p = std::get_if<String_>(&src.val_))
             return String::ToBoolVector(*p);
         THROW("Cell is not convertible to vector of booleans");

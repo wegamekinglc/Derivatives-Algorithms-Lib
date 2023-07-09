@@ -23,7 +23,7 @@ namespace Dal {
         }
 
         template <class D_ = microseconds>
-        int64_t Elapsed() const {
+        [[nodiscard]] int64_t Elapsed() const {
             return duration_cast<D_>(high_resolution_clock::now() - begin_).count();
         }
     };

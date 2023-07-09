@@ -1,9 +1,9 @@
 #include <cmath>
+#include <dal/platform/strict.hpp>
 #include <dal/math/matrix/matrixarithmetic.hpp>
 #include <dal/math/matrix/matrixs.hpp>
 #include <dal/utilities/numerics.hpp>
 #include <dal/utilities/functionals.hpp>
-#include <dal/platform/strict.hpp>
 
 namespace Dal::Matrix {
     Vector_<> Vols(const Matrix_<> &cov, Matrix_<> *corr) {

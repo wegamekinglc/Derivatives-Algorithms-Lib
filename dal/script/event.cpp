@@ -3,8 +3,8 @@
 //
 
 #include <dal/platform/strict.hpp>
-#include <dal/math/matrix/matrixutils.hpp>
 #include <dal/script/event.hpp>
+#include <dal/math/matrix/matrixutils.hpp>
 #include <dal/script/visitor/debugger.hpp>
 #include <dal/storage/globals.hpp>
 

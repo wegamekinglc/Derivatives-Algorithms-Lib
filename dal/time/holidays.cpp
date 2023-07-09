@@ -2,13 +2,13 @@
 // Created by wegam on 2020/11/27.
 //
 
+#include <mutex>
 #include <dal/platform/platform.hpp>
 #include <dal/platform/strict.hpp>
+#include <dal/time/holidays.hpp>
 #include <dal/string/strings.hpp>
 #include <dal/time/holidaydata.hpp>
-#include <dal/time/holidays.hpp>
 #include <dal/utilities/algorithms.hpp>
-#include <mutex>
 
 namespace Dal {
     namespace {

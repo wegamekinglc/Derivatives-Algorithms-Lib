@@ -3,13 +3,11 @@
 //
 
 #include <dal/platform/platform.hpp>
-#include <dal/currency/currencydata.hpp>
 #include <dal/platform/strict.hpp>
-
+#include <dal/currency/currencydata.hpp>
 #include <dal/utilities/exceptions.hpp>
 #include <dal/utilities/facts.hpp>
 #include <dal/time/holidays.hpp>
-#include <dal/time/periodlength.hpp>
 #include <dal/protocol/couponrate.hpp>
 
 namespace Dal {
@@ -43,7 +41,7 @@ namespace Dal {
                 REQUIRE(!vals_.background_.IsEmpty(), "no default for '" + String_(ccy.String()) + "'");
                 return *vals_.background_;
             }
-            writer_t& XWrite() const override { return *writer_; }
+            [[nodiscard]] writer_t& XWrite() const override { return *writer_; }
         };
     }	// leave local
 

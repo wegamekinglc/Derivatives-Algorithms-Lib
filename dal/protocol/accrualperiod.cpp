@@ -2,8 +2,8 @@
 // Created by wegam on 2022/12/9.
 //
 
-#include <dal/protocol/accrualperiod.hpp>
 #include <dal/platform/strict.hpp>
+#include <dal/protocol/accrualperiod.hpp>
 
 namespace Dal {
     AccrualPeriod_::AccrualPeriod_(const Date_ &start, const Date_ &end, double notional, const DayBasis_ &day_count)

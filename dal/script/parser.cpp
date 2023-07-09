@@ -2,6 +2,7 @@
 // Created by wegam on 2022/4/4.
 //
 
+#include <dal/platform/strict.hpp>
 #include <dal/script/node.hpp>
 #include <dal/script/parser.hpp>
 #include <dal/script/visitor/all.hpp>

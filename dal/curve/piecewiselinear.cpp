@@ -2,8 +2,10 @@
 // Created by wegam on 2023/3/26.
 //
 
-#include <dal/utilities/algorithms.hpp>
+#include <dal/platform/strict.hpp>
 #include <dal/curve/piecewiselinear.hpp>
+#include <dal/time/date.hpp>
+#include <dal/utilities/algorithms.hpp>
 
 namespace Dal {
     Vector_<> PiecewiseLinear_::Sofar() const {

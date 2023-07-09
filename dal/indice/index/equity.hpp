@@ -12,9 +12,9 @@ namespace Dal::Index {
         Cell_ delivery_;
 
     public:
-        String_ Name() const;
+        [[nodiscard]] String_ Name() const override;
         const String_ eqName_;
-        Date_ Delivery(const DateTime_& fixing_time) const;
-        Equity_(const String_& eq_name, const Date_* delivery_date = nullptr, const String_* delay_increment = nullptr);
+        [[nodiscard]] Date_ Delivery(const DateTime_& fixing_time) const;
+        explicit Equity_(const String_& eq_name, const Date_* delivery_date = nullptr, const String_* delay_increment = nullptr);
     };
 } // namespace Dal::Index

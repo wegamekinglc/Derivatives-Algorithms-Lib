@@ -4,11 +4,11 @@
 
 #pragma once
 
-#include <dal/storage/archive.hpp>
+#include <dal/platform/platform.hpp>
+#include <dal/storage/storable.hpp>
 #include <dal/math/aad/aad.hpp>
 #include <dal/math/aad/sample.hpp>
 #include <dal/math/vectors.hpp>
-#include <dal/platform/platform.hpp>
 #include <dal/string/strings.hpp>
 
 namespace Dal::AAD {
@@ -36,8 +36,8 @@ namespace Dal::AAD {
 
         virtual ~Model_() = default;
 
-        virtual const Vector_<T_*>& Parameters() const = 0;
-        virtual const Vector_<String_>& ParameterLabels() const = 0;
+        [[nodiscard]] virtual const Vector_<T_*>& Parameters() const = 0;
+        [[nodiscard]] virtual const Vector_<String_>& ParameterLabels() const = 0;
 
         [[nodiscard]] size_t NumParams() const { return const_cast<Model_*>(this)->Parameters().size(); }
 

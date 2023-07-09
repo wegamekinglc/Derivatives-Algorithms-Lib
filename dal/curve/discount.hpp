@@ -4,10 +4,12 @@
 
 #pragma once
 
-#include <dal/time/date.hpp>
 #include <dal/curve/yccomponent.hpp>
 
 namespace Dal {
+    class Date_;
+    class YCComponent_;
+
     class DiscountCurve_: public YCComponent_ {
     public:
         explicit DiscountCurve_(const String_& name);

@@ -23,7 +23,7 @@ namespace Dal {
     public:
         explicit Interp2_(const String_& name);
         virtual double operator()(double x, double y) const = 0;
-        virtual bool IsInBounds(double x, double y) const { return true; }
+        [[nodiscard]] virtual bool IsInBounds(double x, double y) const { return true; }
     };
 
     template <class T_ = double>
@@ -59,8 +59,8 @@ namespace Dal {
         Interp2Linear_(const String_& name, const Vector_<>& x, const Vector_<>& y, const Matrix_<>& f);
         void Write(Archive::Store_& dst) const override;
         double operator()(double x, double y) const override;
-        const Vector_<>& x() const { return x_; }
-        const Vector_<>& y() const { return y_; }
+        [[nodiscard]] const Vector_<>& x() const { return x_; }
+        [[nodiscard]] const Vector_<>& y() const { return y_; }
     };
 
     namespace Interp {

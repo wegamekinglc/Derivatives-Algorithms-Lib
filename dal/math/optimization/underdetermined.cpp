@@ -2,14 +2,14 @@
 // Created by wegam on 2022/12/10.
 //
 
+#include <dal/platform/strict.hpp>
+#include <dal/math/optimization/underdetermined.hpp>
 #include <dal/math/matrix/bcg.hpp>
 #include <dal/math/matrix/cholesky.hpp>
 #include <dal/math/matrix/matrixarithmetic.hpp>
 #include <dal/math/matrix/matrixs.hpp>
 #include <dal/math/matrix/sparse.hpp>
 #include <dal/math/matrix/squarematrix.hpp>
-#include <dal/math/optimization/underdetermined.hpp>
-#include <dal/platform/strict.hpp>
 #include <dal/utilities/functionals.hpp>
 #include <dal/utilities/numerics.hpp>
 

@@ -2,8 +2,8 @@
 // Created by wegam on 2021/1/2.
 //
 
-#include <dal/math/rootfind.hpp>
 #include <dal/platform/strict.hpp>
+#include <dal/math/rootfind.hpp>
 #include <dal/utilities/exceptions.hpp>
 
 namespace Dal {

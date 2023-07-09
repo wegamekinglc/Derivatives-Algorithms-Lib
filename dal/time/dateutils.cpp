@@ -2,11 +2,10 @@
 // Created by wegam on 2020/10/25.
 //
 
+#include <regex>
 #include <dal/platform/platform.hpp>
 #include <dal/platform/strict.hpp>
 #include <dal/time/dateutils.hpp>
-#include <regex>
-
 #include <dal/time/date.hpp>
 #include <dal/utilities/exceptions.hpp>
 

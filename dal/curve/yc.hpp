@@ -4,14 +4,13 @@
 
 #pragma once
 
-#include <dal/curve/discount.hpp>
 #include <dal/storage/storable.hpp>
 #include <dal/currency/currency.hpp>
 
 namespace Dal {
     class CollateralType_;
-
     class PeriodLength_;
+    class DiscountCurve_;
 
     class YieldCurve_ : public Storable_ {
     public:

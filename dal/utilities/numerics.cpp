@@ -4,8 +4,9 @@
 
 #include <cmath>
 #include <dal/platform/platform.hpp>
-#include <dal/utilities/exceptions.hpp>
+#include <dal/platform/strict.hpp>
 #include <dal/utilities/numerics.hpp>
+#include <dal/utilities/exceptions.hpp>
 
 namespace Dal {
     int AsInt(double src) {

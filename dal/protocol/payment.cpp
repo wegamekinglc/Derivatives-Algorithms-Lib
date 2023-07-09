@@ -2,9 +2,9 @@
 // Created by wegam on 2022/12/10.
 //
 
-#include <dal/protocol/payment.hpp>
-#include <dal/platform/strict.hpp>
 #include <utility>
+#include <dal/platform/strict.hpp>
+#include <dal/protocol/payment.hpp>
 
 namespace Dal {
     Payment::Conditions_::Conditions_()

@@ -4,11 +4,9 @@
 
 #pragma once
 
-namespace Dal {
-    namespace Host {
-        void
-        LocalTime(int* year, int* month, int* day, int* hour = nullptr, int* minute = nullptr, int* second = nullptr);
-    }
+namespace Dal::Host {
+    void
+    LocalTime(int* year, int* month, int* day, int* hour = nullptr, int* minute = nullptr, int* second = nullptr);
 } // namespace Dal
 
 #ifdef WIN32

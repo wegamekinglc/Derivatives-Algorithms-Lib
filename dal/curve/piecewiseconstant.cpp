@@ -2,8 +2,9 @@
 // Created by wegam on 2023/3/26.
 //
 
-#include <dal/storage/archive.hpp>
+#include <dal/platform/strict.hpp>
 #include <dal/curve/piecewiseconstant.hpp>
+#include <dal/storage/archive.hpp>
 #include <dal/utilities/algorithms.hpp>
 
 /*IF--------------------------------------------------------------------------

@@ -3,9 +3,8 @@
 //
 
 #include <functional>
-#include <dal/concurrency/threadpool.hpp>
 #include <dal/platform/strict.hpp>
-#include <dal/utilities/exceptions.hpp>
+#include <dal/concurrency/threadpool.hpp>
 
 namespace Dal {
 

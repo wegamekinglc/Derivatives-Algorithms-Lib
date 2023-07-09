@@ -2,6 +2,7 @@
 // Created by wegam on 2020/10/2.
 //
 
+#include <dal/platform/strict.hpp>
 #include <dal/utilities/environment.hpp>
 
 namespace Dal {

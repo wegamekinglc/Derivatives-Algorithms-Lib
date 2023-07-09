@@ -3,9 +3,9 @@
 //
 
 #include <cmath>
+#include <dal/platform/strict.hpp>
 #include <dal/math/pde/pde.hpp>
 #include <dal/utilities/algorithms.hpp>
-#include <dal/platform/strict.hpp>
 
 namespace Dal::PDE {
     namespace {
@@ -15,19 +15,19 @@ namespace Dal::PDE {
                 ASSIGN(xpp, 0.0);
                 return y;
             }
-            double Y(double x) const override { return x; }
+            [[nodiscard]] double Y(double x) const override { return x; }
         };
 
         struct SinhMap_ : CoordinateMap_ {
             // x = \lambda sinh(y / \lambda)
             double lambda_;
-            SinhMap_(double lambda) : lambda_(lambda) {}
+            explicit SinhMap_(double lambda) : lambda_(lambda) {}
             double operator()(double y, double* xp = nullptr, double* xpp = nullptr) const override {
                 ASSIGN(xp, std::cosh(y / lambda_));
                 ASSIGN(xpp, std::sinh(y / lambda_) / lambda_);
                 return lambda_ * std::sinh(y / lambda_);
             }
-            double Y(double x) const override { return lambda_ * asinh(x / lambda_); }
+            [[nodiscard]] double Y(double x) const override { return lambda_ * asinh(x / lambda_); }
         };
     } // namespace
 

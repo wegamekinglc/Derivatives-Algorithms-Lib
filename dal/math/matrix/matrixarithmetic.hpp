@@ -5,7 +5,6 @@
 #pragma once
 
 #include <dal/platform/platform.hpp>
-#include <dal/math/vectors.hpp>
 
 namespace Dal::Matrix {
     Vector_<> Vols(const Matrix_<>& cov, Matrix_<>* corr = nullptr);

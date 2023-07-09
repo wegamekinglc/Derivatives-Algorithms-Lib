@@ -78,8 +78,7 @@ namespace Dal {
         explicit Handle_(const T_* src) : base_t(src) {}
 
         explicit Handle_(const base_t& src) : base_t(src) {}
-
-        bool IsEmpty() const { return !base_t::get(); }
+        [[nodiscard]] bool IsEmpty() const { return !base_t::get(); }
     };
 
     template <class T_, class U_> Handle_<T_> handle_cast(const std::shared_ptr<U_>& src) {

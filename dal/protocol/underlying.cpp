@@ -2,8 +2,8 @@
 // Created by wegam on 2022/12/9.
 //
 
-#include <dal/protocol/underlying.hpp>
 #include <dal/platform/strict.hpp>
+#include <dal/protocol/underlying.hpp>
 
 namespace Dal {
     namespace {

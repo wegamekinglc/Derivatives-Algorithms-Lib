@@ -4,9 +4,8 @@
 
 
 #include <dal/platform/platform.hpp>
-#include <dal/storage/box.hpp>
 #include <dal/platform/strict.hpp>
-
+#include <dal/storage/box.hpp>
 #include <dal/storage/archive.hpp>
 
 namespace Dal {

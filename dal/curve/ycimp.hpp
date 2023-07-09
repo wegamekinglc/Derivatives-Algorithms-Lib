@@ -4,10 +4,10 @@
 
 #pragma once
 
-#include <dal/curve/piecewiselinear.hpp>
 #include <dal/curve/yc.hpp>
 
 namespace Dal {
+    struct PiecewiseLinear_;
 
     DiscountCurve_* NewDiscountPWLF(const String_ &name,
                                     const PiecewiseLinear_& fwds,

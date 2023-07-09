@@ -2,9 +2,9 @@
 // Created by wegam on 2022/1/23.
 //
 
-#include <dal/indice/index/equity.hpp>
+#include <dal/platform/strict.hpp>
 #include <dal/indice/parser/equity.hpp>
-#include <dal/string/strings.hpp>
+#include <dal/indice/index/equity.hpp>
 #include <dal/time/dateutils.hpp>
 
 namespace Dal::Index {

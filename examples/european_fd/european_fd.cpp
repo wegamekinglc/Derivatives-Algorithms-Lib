@@ -4,7 +4,7 @@
 
 #include <iomanip>
 #include <dal/math/operators.hpp>
-#include <dal/math/pde/fdi1d.hpp>
+#include <dal/math/pde/fd1d.hpp>
 #include <dal/math/distribution/black.hpp>
 #include <dal/math/interp/interpcubic.hpp>
 #include <dal/math/pde/meshers/uniform1dmesher.hpp>

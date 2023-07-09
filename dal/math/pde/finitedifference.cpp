@@ -2,6 +2,7 @@
 // Created by wegam on 2023/2/25.
 //
 
+#include <dal/platform/strict.hpp>
 #include <dal/math/pde/finitedifference.hpp>
 
 namespace Dal::PDE {
@@ -10,7 +11,7 @@ namespace Dal::PDE {
         int n = x.Size();
         REQUIRE(n > 2, "grids size should not less then 3");
 
-        Sparse::TriDiagonal_* rtn = new Sparse::TriDiagonal_(n);
+        auto* rtn = new Sparse::TriDiagonal_(n);
 
         double dxl, dxm, dxu;
         rtn->Set(0, 0, 0.0);
@@ -30,7 +31,7 @@ namespace Dal::PDE {
     Sparse::TriDiagonal_* Dxx(const FDM1DMesher_& x) {
         int n = x.Size();
         REQUIRE(n > 2, "grids size should not less then 3");
-        Sparse::TriDiagonal_* rtn = new Sparse::TriDiagonal_(n);
+        auto* rtn = new Sparse::TriDiagonal_(n);
 
         double dxl, dxu, dxm;
         rtn->Set(0, 0, 0.0);

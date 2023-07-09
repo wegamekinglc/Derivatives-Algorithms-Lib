@@ -4,9 +4,10 @@
 
 #pragma once
 
+
+#include <map>
 #include <dal/storage/archive.hpp>
 #include <dal/math/operators.hpp>
-#include <map>
 
 namespace Dal {
 
@@ -14,7 +15,7 @@ namespace Dal {
     public:
         explicit Interp1_(const String_& name);
         virtual double operator()(double x) const = 0;
-        virtual bool IsInBounds(double x) const { return true; }
+        [[nodiscard]] virtual bool IsInBounds(double x) const { return true; }
     };
 
 } // namespace Dal

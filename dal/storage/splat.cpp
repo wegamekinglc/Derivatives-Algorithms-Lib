@@ -3,9 +3,10 @@
 //
 
 #include <algorithm>
+#include <map>
 #include <dal/platform/platform.hpp>
-#include <dal/storage/splat.hpp>
 #include <dal/platform/strict.hpp>
+#include <dal/storage/splat.hpp>
 #include <dal/math/cell.hpp>
 #include <dal/math/cellutils.hpp>
 #include <dal/storage/archive.hpp>
@@ -16,7 +17,6 @@
 #include <dal/utilities/file.hpp>
 #include <dal/utilities/functionals.hpp>
 #include <dal/utilities/numerics.hpp>
-#include <map>
 
 using std::map;
 using std::shared_ptr;

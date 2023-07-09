@@ -10,6 +10,7 @@
 #include <dal/storage/storable.hpp>
 
 namespace Dal {
+
     struct PiecewiseConstant_ : Storable_ {
         Vector_<Date_> knotDates_;
         Vector_<> fRight_;    // nothing to the left of the first knot

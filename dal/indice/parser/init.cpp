@@ -3,10 +3,10 @@
 //
 
 #include <dal/platform/strict.hpp>
+#include <dal/indice/parser/init.hpp>
 #include <dal/string/strings.hpp>
 #include <dal/indice/indexparse.hpp>
 #include <dal/indice/parser/equity.hpp>
-#include <dal/indice/parser/init.hpp>
 
 namespace Dal {
 
