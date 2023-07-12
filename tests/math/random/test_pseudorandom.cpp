@@ -138,3 +138,31 @@ TEST(PseudoRandomTest, TestNewPseudoRandomMRG32SkipTo) {
     for (int k = 0; k < dim; ++k)
         ASSERT_DOUBLE_EQ(data[k], data2[k]);
 }
+
+TEST(RandomTest, NewPseudoRandomIRNPerformance) {
+    int dim = 100;
+    int seed = 1024;
+    std::unique_ptr<Random_> gen(New(RNGType_("IRN"), seed, dim));
+
+    int num_path = 2000000;
+    Vector_<> dst(dim);
+    double sum = 0.0;
+    for (int i = 0; i < num_path; ++i) {
+        gen->FillUniform(&dst);
+        sum += dst[0];
+    }
+}
+
+TEST(RandomTest, NewPseudoRandomMRG32Performance) {
+    int dim = 100;
+    int seed = 1024;
+    std::unique_ptr<Random_> gen(New(RNGType_("MRG32"), seed, dim));
+
+    int num_path = 2000000;
+    Vector_<> dst(dim);
+    double sum = 0.0;
+    for (int i = 0; i < num_path; ++i) {
+        gen->FillUniform(&dst);
+        sum += dst[0];
+    }
+}

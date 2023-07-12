@@ -105,3 +105,17 @@ TEST(RandomTest, TestNewSobolWithLargePath) {
     size_t i_path = std::pow(2, 30);
     std::unique_ptr<SequenceSet_> set(NewSobol(dim, i_path));
 }
+
+TEST(RandomTest, TestNewSobolPerformance) {
+    int dim = 100;
+    int i_path = 0;
+    std::unique_ptr<SequenceSet_> set(NewSobol(dim, i_path));
+
+    int num_path = 2000000;
+    Vector_<> dst(dim);
+    double sum = 0.0;
+    for (int i = 0; i < num_path; ++i) {
+        set->FillUniform(&dst);
+        sum += dst[0];
+    }
+}
