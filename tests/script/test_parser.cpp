@@ -10,7 +10,7 @@
 using namespace Dal;
 using namespace Dal::Script;
 
-TEST(ParserTest, TestParseAssign) {
+TEST(ScriptTest, TestParseAssign) {
     String_ event = "x = 2";
     auto res = Parse(event);
     ASSERT_EQ(res.size(), 1);
@@ -20,7 +20,7 @@ TEST(ParserTest, TestParseAssign) {
     ASSERT_NEAR(toTest3->constVal_, 2.0, 1e-10);
 }
 
-TEST(ParserTest, TestParseLog) {
+TEST(ScriptTest, TestParseLog) {
     String_ event = R"(
         y = 2.0
         x = Log(y)
@@ -31,7 +31,7 @@ TEST(ParserTest, TestParseLog) {
     ASSERT_NE(toTest1, nullptr);
 }
 
-TEST(ParserTest, TestParseExp) {
+TEST(ScriptTest, TestParseExp) {
     String_ event = R"(
         y = 2.0
         x = Exp(y)
@@ -42,7 +42,7 @@ TEST(ParserTest, TestParseExp) {
     ASSERT_NE(toTest1, nullptr);
 }
 
-TEST(ParserTest, TestParseSqrt) {
+TEST(ScriptTest, TestParseSqrt) {
     String_ event = R"(
         y = 2.0
         x = Sqrt(y)
@@ -53,14 +53,14 @@ TEST(ParserTest, TestParseSqrt) {
     ASSERT_NE(toTest1, nullptr);
 }
 
-TEST(ParserTest, TestParserDCF) {
+TEST(ScriptTest, TestParserDCF) {
     String_ event = "x = DCF(ACT365F, 2023-04-23, 2024-04-23)";
     auto res = Parse(event);
     const auto val = dynamic_cast<NodeConst_*>(res[0]->arguments_[1].get())->constVal_;
     ASSERT_NEAR(val, 1.00274, 1e-5);
 }
 
-TEST(ParserTest, TestParseIf) {
+TEST(ScriptTest, TestParseIf) {
     String_ event = R"(
         IF x >= 2 THEN
             y = 3 + x
@@ -83,7 +83,7 @@ TEST(ParserTest, TestParseIf) {
     ASSERT_NE(dynamic_cast<NodeVar_*>(toTest8->arguments_[1].get()), nullptr);
 }
 
-TEST(ParserTest, TestParseIfWithElse) {
+TEST(ScriptTest, TestParseIfWithElse) {
     String_ event = R"(
         IF x >= 2 THEN
             y = 3 + x
@@ -113,14 +113,14 @@ TEST(ParserTest, TestParseIfWithElse) {
     ASSERT_NE(dynamic_cast<NodeVar_*>(toTest11->arguments_[1].get()), nullptr);
 }
 
-TEST(ParserTest, TestParserWithInvaildVaribaleName) {
+TEST(ScriptTest, TestParserWithInvaildVaribaleName) {
     String_ event = R"(
         0X12 = 2.0;
     )";
     ASSERT_THROW(Parse(event), ScriptError_);
 }
 
-TEST(ParserTest, TestParserWithConflictVariableName) {
+TEST(ScriptTest, TestParserWithConflictVariableName) {
     String_ event = R"(
         PAYS = 2.0;
     )";

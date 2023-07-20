@@ -8,7 +8,7 @@
 
 using namespace Dal;
 
-TEST(EventTest, TestEventWithMacro) {
+TEST(ScriptTest, TestEventWithMacro) {
     Vector_<Cell_> dates;
     Vector_<String_> events;
 
@@ -23,7 +23,7 @@ TEST(EventTest, TestEventWithMacro) {
     ASSERT_EQ(product.EventDates().size(), 1);
 }
 
-TEST(EventTest, TestEventWithMacroNotFirst) {
+TEST(ScriptTest, TestEventWithMacroNotFirst) {
     Vector_<Cell_> dates;
     Vector_<String_> events;
 
@@ -36,7 +36,7 @@ TEST(EventTest, TestEventWithMacroNotFirst) {
     ASSERT_THROW(Script::ScriptProduct_(dates, events), Dal::ScriptError_);
 }
 
-TEST(EventTest, TestEventWithMacroDuplicated) {
+TEST(ScriptTest, TestEventWithMacroDuplicated) {
     Vector_<Cell_> dates;
     Vector_<String_> events;
 
@@ -49,7 +49,7 @@ TEST(EventTest, TestEventWithMacroDuplicated) {
     ASSERT_THROW(Script::ScriptProduct_(dates, events), Dal::ScriptError_);
 }
 
-TEST(EventTest, TestEventWithSchedule) {
+TEST(ScriptTest, TestEventWithSchedule) {
     auto global = XGLOBAL::SetEvaluationDateInScope(Date_(2022, 5, 1));
     Vector_<Cell_> dates;
     Vector_<String_> events;
@@ -61,7 +61,7 @@ TEST(EventTest, TestEventWithSchedule) {
     ASSERT_EQ(product.EventDates().size(), 12);
 }
 
-TEST(EventTest, TestEventWithSchedulePlaceHolder) {
+TEST(ScriptTest, TestEventWithSchedulePlaceHolder) {
     auto global = XGLOBAL::SetEvaluationDateInScope(Date_(2022, 5, 1));
     Vector_<Cell_> dates;
     Vector_<String_> events;
