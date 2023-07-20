@@ -89,10 +89,7 @@ int main() {
         SimResults_<double> results =
             MCSimulation(product, *model, num_path, String_("sobol"), false);
 
-        auto sum = 0.0;
-        for (auto row = 0; row < results.Rows(); ++row)
-            sum += results.aggregated_[row];
-        auto calculated = sum / static_cast<double>(results.Rows());
+        auto calculated = results.aggregated_ / static_cast<double>(num_path);
 
         std::cout << std::setw(widths[0]) << std::left << "Non-AAD"
                   << std::setw(widths[1]) << std::right << num_path
@@ -116,10 +113,7 @@ int main() {
         SimResults_<Number_> results =
             MCSimulation(product, *model, num_path, String_("sobol"), false, max_nested_ifs);
 
-        auto sum = 0.0;
-        for (auto row = 0; row < results.Rows(); ++row)
-            sum += results.aggregated_[row];
-        auto calculated = sum / static_cast<double>(results.Rows());
+        auto calculated = results.aggregated_ / static_cast<double>(num_path);
 
         std::cout << std::setw(widths[0]) << std::left << "AAD"
                   << std::setw(widths[1]) << std::right << num_path

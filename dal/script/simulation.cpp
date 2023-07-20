@@ -69,7 +69,7 @@ namespace Dal::Script {
         Vector_<EvalState_<double>> eval_state_s(n_threads + 1,
                                                  EvalState_<double>(static_cast<int>(product.VarNames().size())));
 
-        SimResults_<double> results(n_paths);
+        SimResults_<double> results;
 
         Vector_<TaskHandle_> futures;
         futures.reserve(n_paths / BATCH_SIZE + 1);
@@ -85,14 +85,14 @@ namespace Dal::Script {
                 Scenario_<>& path = paths[threadNum];
                 auto& random = rng_s[threadNum];
                 random->SkipTo(firstPath);
-
+                double sum_val = 0.0;
                 if (compiled) {
                     EvalState_<double>& eval_state = eval_state_s[threadNum];
                     for (size_t i = 0; i < pathsInTask; ++i) {
                         random->FillNormal(&gaussVec);
                         mdl->GeneratePath(gaussVec, &path);
                         product.EvaluateCompiled(path, eval_state);
-                        results.aggregated_[firstPath + i] = eval_state.VarVals()[eval_state.VarVals().size() - 1];
+                        sum_val += eval_state.VarVals()[eval_state.VarVals().size() - 1];
                     }
                 } else {
                     Evaluator_<double>& eval = eval_s[threadNum];
@@ -100,9 +100,10 @@ namespace Dal::Script {
                         random->FillNormal(&gaussVec);
                         mdl->GeneratePath(gaussVec, &path);
                         product.Evaluate(path, eval);
-                        results.aggregated_[firstPath + i] = eval.VarVals()[eval.VarVals().size() - 1];
+                        sum_val += eval.VarVals()[eval.VarVals().size() - 1];
                     }
                 }
+                results.aggregated_ += sum_val;
                 return true;
             }));
             pathsLeft -= pathsInTask;
@@ -129,7 +130,7 @@ namespace Dal::Script {
         std::unique_ptr<Random_> rng = CreateRNG(rsg, mdl->SimDim(), use_bb);
 
         const auto n_params = mdl->Parameters().size();
-        SimResults_<AAD::Number_> results(n_paths, n_params);
+        SimResults_<AAD::Number_> results(n_params);
 
         ThreadPool_* pool = ThreadPool_::GetInstance();
         const size_t nThread = pool->NumThreads();
@@ -185,6 +186,8 @@ namespace Dal::Script {
                 auto& gVec = gaussVectors[n_threads];
                 auto& model = models[n_threads];
                 random->SkipTo(firstPath);
+
+                double sum_val = 0.0;
                 if (compiled) {
                     EvalState_<AAD::Number_>& eval_state = eval_state_s[n_threads];
                     for (size_t i = 0; i < pathsInTask; i++) {
@@ -194,7 +197,7 @@ namespace Dal::Script {
                         AAD::Number_ res = eval_state.VarVals()[eval_state.VarVals().size() - 1];
                         res.setGradient(1.0);
                         tape->evaluate(tape->getPosition(), pos);
-                        results.aggregated_[firstPath + i] = res.value();
+                        sum_val += res.value();
                         tape->resetTo(pos);
                     }
                 }
@@ -207,7 +210,7 @@ namespace Dal::Script {
                         AAD::Number_ res = eval.VarVals()[eval.VarVals().size() - 1];
                         res.setGradient(1.0);
                         tape->evaluate(tape->getPosition(), pos);
-                        results.aggregated_[firstPath + i] = res.value();
+                        sum_val += res.value();
                         tape->resetTo(pos);
                     }
                 } else {
@@ -219,10 +222,11 @@ namespace Dal::Script {
                         AAD::Number_ res = eval.VarVals()[eval.VarVals().size() - 1];
                         res.setGradient(1.0);
                         tape->evaluate(tape->getPosition(), pos);
-                        results.aggregated_[firstPath + i] = res.value();
+                        sum_val += res.value();
                         tape->resetTo(pos);
                     }
                 }
+                results.aggregated_ += sum_val;
                 tape->evaluate(pos, tape->getZeroPosition());
                 for (size_t j = 0; j < n_params; ++j)
                     results.risks_[j] += models[n_threads]->Parameters()[j]->getGradient();

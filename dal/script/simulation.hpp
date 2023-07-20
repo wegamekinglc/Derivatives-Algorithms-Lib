@@ -21,16 +21,14 @@ namespace Dal::Script {
 
     template <>
     struct SimResults_<double> {
-        explicit SimResults_(size_t n_paths) : aggregated_(n_paths) {}
-        [[nodiscard]] size_t Rows() const { return aggregated_.size();  }
-        Vector_<> aggregated_;
+        explicit SimResults_() : aggregated_(0.0) {}
+        double aggregated_;
     };
 
     template <>
     struct SimResults_<AAD::Number_> {
-        SimResults_(size_t nPath, int nParam) : aggregated_(nPath), risks_(nParam) {}
-        [[nodiscard]] size_t Rows() const { return aggregated_.size();  }
-        Vector_<> aggregated_;
+        explicit SimResults_(int nParam) : aggregated_(0.0), risks_(nParam) {}
+        double aggregated_;
         Vector_<> risks_;
     };
 

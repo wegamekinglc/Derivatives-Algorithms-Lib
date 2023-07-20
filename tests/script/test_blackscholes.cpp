@@ -34,12 +34,8 @@ TEST(ModelsTest, TestBlackScholes) {
     product.PreProcess(false, false);
     SimResults_<> results = MCSimulation(product, *model, num_paths, rsg, false, false);
 
-    auto sum = 0.0;
-    for (auto row = 0; row < results.Rows(); ++row)
-        sum += results.aggregated_[row];
-    auto calculated = sum / static_cast<double>(results.Rows());
     auto expected = 0.806119;
-    ASSERT_NEAR(calculated, expected, 1e-5);
+    ASSERT_NEAR(results.aggregated_ / num_paths, expected, 1e-5);
 }
 
 TEST(BlackScholesTest, TestBlackScholesAAD) {

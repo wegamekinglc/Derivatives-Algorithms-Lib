@@ -71,10 +71,7 @@ int main() {
     int max_nested_ifs = product.PreProcess(true, true);
     SimResults_<Real_> results = MCSimulation(product, *model, std::pow(2, 20), String_("sobol"), false, max_nested_ifs);
 
-    auto sum = 0.0;
-    for (auto row = 0; row < results.Rows(); ++row)
-        sum += results.aggregated_[row];
-    auto calculated = sum / static_cast<double>(results.Rows());
+    auto calculated = results.aggregated_ / static_cast<double>(std::pow(2, 20));
     std::cout << "\nEuropean       w. Dupire: price " << std::setprecision(8) << calculated << "\tElapsed: " << timer.Elapsed<milliseconds>() << " ms" << std::endl;
     auto vega = 0.0;
     for (int i = 3; i < results.risks_.size(); ++i)

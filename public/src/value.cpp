@@ -65,11 +65,7 @@ namespace Dal {
             int max_nested_ifs = prd.PreProcess(true, true);
             SimResults_<AAD::Number_> results = MCSimulation(prd, *aad_model, n_paths, rsg, use_bb, max_nested_ifs, smooth);
             Vector_<String_> parameters = aad_model->ParameterLabels();
-            auto sum = 0.0;
-            auto n = results.Rows();
-            for (auto row = 0; row < n; ++row)
-                sum += results.aggregated_[row];
-            res["value"] = sum / static_cast<double>(n);
+            res["value"] = results.aggregated_ / static_cast<double>(n_paths);
             for(int i = 0; i < parameters.size(); ++i)
                 res["d_" + parameters[i]] = results.risks_[i];
         }
@@ -93,10 +89,7 @@ namespace Dal {
             prd.PreProcess(false, false);
             SimResults_<> results = MCSimulation(prd, *model, n_paths, rsg, use_bb);
             auto sum = 0.0;
-            auto n = results.Rows();
-            for (auto row = 0; row < n; ++row)
-                sum += results.aggregated_[row];
-            res["value"] = sum / static_cast<double>(n);
+            res["value"] = results.aggregated_ / static_cast<double>(n_paths);
             return res;
         }
         return res;

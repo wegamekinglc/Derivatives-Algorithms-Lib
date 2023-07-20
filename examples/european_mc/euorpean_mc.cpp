@@ -69,10 +69,7 @@ int main() {
         int num_paths = std::pow(2, i);
         SimResults_<Real_> results = MCSimulation(product, *model, num_paths, rsg, false, true);
 
-        auto sum = 0.0;
-        for (auto row = 0; row < results.Rows(); ++row)
-            sum += results.aggregated_[row];
-        auto calculated = sum / static_cast<double>(results.Rows());
+        auto calculated = results.aggregated_ / static_cast<double>(num_paths);
         std::cout << std::setw(widths[0]) << std::right << int(std::pow(2, i))
                   << std::fixed
                   << std::setw(widths[1]) << std::right << spot
