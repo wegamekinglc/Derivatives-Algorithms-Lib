@@ -4,6 +4,7 @@
 #include "_excel.hpp"
 #include "_xlcall.hpp"
 #include <dal/platform/platform.hpp>
+#include <dal/platform/initall.hpp>
 #include <dal/platform/strict.hpp>
 #include <algorithm>
 #include <deque>
@@ -1393,6 +1394,9 @@ namespace Dal {
 
     // Initialization routine
     extern "C" __declspec(dllexport) int xlAutoOpen(void) {
+        // dal initialization
+        Dal::InitAll();
+
         // Get XLL file name
         static OPER_ xDll;
         (void)XL_CALLBACK(xlGetName, &xDll, 0, 0); // assumes just a single DLL; ignores registered property

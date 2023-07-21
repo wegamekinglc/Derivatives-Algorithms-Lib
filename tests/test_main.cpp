@@ -3,14 +3,10 @@
 //
 
 #include <gtest/gtest.h>
-#include <dal/time/calendars/init.hpp>
-#include <dal/currency/init.hpp>
-#include <dal/indice/parser/init.hpp>
+#include <dal/platform/initall.hpp>
 
 int main(int argc, char** argv) {
     ::testing::InitGoogleTest(&argc, argv);
-    Dal::Calendars_::Init();
-    Dal::CcyFacts_::Init();
-    Dal::IndexParsers_::Init();
+    Dal::InitAll();
     return RUN_ALL_TESTS();
 }

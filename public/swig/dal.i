@@ -19,6 +19,7 @@
 
 %template(DoubleVector) std::vector<double>;
 
+    %include init.i
     %include handle.i
     %include date.i
     %include cell.i

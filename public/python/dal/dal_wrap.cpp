@@ -4725,6 +4725,9 @@ SWIGINTERN std::vector< double >::iterator std_vector_Sl_double_Sg__erase__SWIG_
 SWIGINTERN std::vector< double >::iterator std_vector_Sl_double_Sg__insert__SWIG_0(std::vector< double > *self,std::vector< double >::iterator pos,std::vector< double >::value_type const &x){ return self->insert(pos, x); }
 SWIGINTERN void std_vector_Sl_double_Sg__insert__SWIG_1(std::vector< double > *self,std::vector< double >::iterator pos,std::vector< double >::size_type n,std::vector< double >::value_type const &x){ self->insert(pos, n, x); }
 
+#include <dal/platform/initall.hpp>
+    
+
 #include <dal/platform/platform.hpp>
     
 
@@ -19735,6 +19738,9 @@ SWIG_init(void) {
   
   // thread safe initialization
   swig::container_owner_attribute();
+  
+  
+  Dal::InitAll();
   
 #if PY_VERSION_HEX >= 0x03000000
   return m;
