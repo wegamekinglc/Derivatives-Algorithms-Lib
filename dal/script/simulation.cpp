@@ -6,6 +6,7 @@
 #include <dal/script/simulation.hpp>
 #include <dal/concurrency/threadpool.hpp>
 #include <dal/math/aad/aad.hpp>
+#include <dal/utilities/numerics.hpp>
 
 
 namespace Dal::Script {
@@ -73,26 +74,31 @@ namespace Dal::Script {
 
         Vector_<TaskHandle_> futures;
         futures.reserve(n_paths / BATCH_SIZE + 1);
+        Vector_<> sim_results;
+        sim_results.reserve(n_paths / BATCH_SIZE + 1);
 
         size_t firstPath = 0;
         size_t pathsLeft = n_paths;
+        size_t loop_i = 0;
 
         while (pathsLeft > 0) {
             auto pathsInTask = std::min(pathsLeft, BATCH_SIZE);
+            sim_results.emplace_back(0.0);
+            auto& sim_result = sim_results[loop_i];
+            loop_i += 1;
             futures.push_back(pool->SpawnTask([&, firstPath, pathsInTask]() {
                 const size_t threadNum = ThreadPool_::ThreadNum();
                 Vector_<>& gaussVec = gaussVectors[threadNum];
                 Scenario_<>& path = paths[threadNum];
                 auto& random = rng_s[threadNum];
                 random->SkipTo(firstPath);
-                double sum_val = 0.0;
                 if (compiled) {
                     EvalState_<double>& eval_state = eval_state_s[threadNum];
                     for (size_t i = 0; i < pathsInTask; ++i) {
                         random->FillNormal(&gaussVec);
                         mdl->GeneratePath(gaussVec, &path);
                         product.EvaluateCompiled(path, eval_state);
-                        sum_val += eval_state.VarVals()[eval_state.VarVals().size() - 1];
+                        sim_result += eval_state.VarVals()[eval_state.VarVals().size() - 1];
                     }
                 } else {
                     Evaluator_<double>& eval = eval_s[threadNum];
@@ -100,10 +106,9 @@ namespace Dal::Script {
                         random->FillNormal(&gaussVec);
                         mdl->GeneratePath(gaussVec, &path);
                         product.Evaluate(path, eval);
-                        sum_val += eval.VarVals()[eval.VarVals().size() - 1];
+                        sim_result += eval.VarVals()[eval.VarVals().size() - 1];
                     }
                 }
-                results.aggregated_ += sum_val;
                 return true;
             }));
             pathsLeft -= pathsInTask;
@@ -113,6 +118,8 @@ namespace Dal::Script {
         for (auto& future : futures)
             pool->ActiveWait(future);
 
+        // aggregate all the results
+        results.aggregated_ = Accumulate(sim_results);
         return results;
     }
 
@@ -168,12 +175,18 @@ namespace Dal::Script {
 
         Vector_<TaskHandle_> futures;
         futures.reserve(n_paths / BATCH_SIZE + 1);
+        Vector_<Vector_<>> sim_results;
+        sim_results.reserve(n_paths / BATCH_SIZE + 1);
 
         size_t firstPath = 0;
         size_t pathsLeft = n_paths;
+        size_t loop_i = 0;
 
         while (pathsLeft > 0) {
             auto pathsInTask = std::min(pathsLeft, BATCH_SIZE);
+            sim_results.emplace_back(n_params + 1, 0.0);
+            auto& sim_result = sim_results[loop_i];
+            loop_i += 1;
             futures.push_back(pool->SpawnTask([&, firstPath, pathsInTask]() {
                 const size_t n_threads = ThreadPool_::ThreadNum();
                 AAD::Tape_* tape = &AAD::Number_::getTape();
@@ -226,20 +239,26 @@ namespace Dal::Script {
                         tape->resetTo(pos);
                     }
                 }
-                results.aggregated_ += sum_val;
+                sim_result[0] = sum_val;
                 tape->evaluate(pos, tape->getZeroPosition());
                 for (size_t j = 0; j < n_params; ++j)
-                    results.risks_[j] += models[n_threads]->Parameters()[j]->getGradient();
+                    sim_result[j + 1] = models[n_threads]->Parameters()[j]->getGradient();
                 tape->reset();
                 return true;
             }));
-
             pathsLeft -= pathsInTask;
             firstPath += pathsInTask;
         }
 
         for (auto& future : futures)
             pool->ActiveWait(future);
+
+        // aggregate all the results
+        for (const auto& s: sim_results) {
+            results.aggregated_ += s[0];
+            for (size_t i = 0; i < n_params; ++i)
+                results.risks_[i] += s[i + 1];
+        }
 
         for (size_t j = 0; j < n_params; ++j)
             results.risks_[j] /= static_cast<double>(n_paths);
