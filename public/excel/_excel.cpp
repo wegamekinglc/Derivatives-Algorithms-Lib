@@ -1395,7 +1395,7 @@ namespace Dal {
     // Initialization routine
     extern "C" __declspec(dllexport) int xlAutoOpen(void) {
         // dal initialization
-        Dal::InitAll();
+        Dal::RegisterAll_::Init();
 
         // Get XLL file name
         static OPER_ xDll;

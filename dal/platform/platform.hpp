@@ -5,6 +5,7 @@
 #pragma once
 
 #include <dal/platform/config.hpp>
+#include <dal/platform/initall.hpp>
 #include <cassert>
 #include <dal/utilities/noncopyable.hpp>
 #include <dal/utilities/null.hpp>

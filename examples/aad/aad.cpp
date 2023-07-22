@@ -32,6 +32,8 @@ T_ BlackTest(const T_& fwd, const T_& vol, const T_& numeraire, const T_& strike
 
 
 int main() {
+    Dal::RegisterAll_::Init();
+
     int n_rounds = 1000;
     int n_repetition = 1000;
     double fwd = 1.00;

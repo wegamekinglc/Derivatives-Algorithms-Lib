@@ -14,6 +14,7 @@
 using namespace Dal;
 
 int main() {
+    Dal::RegisterAll_::Init();
 
     double min_x = 0.00;
     double max_x = 500.00;

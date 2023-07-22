@@ -21,10 +21,12 @@ using Dal::AAD::Dupire_;
 
 
 int main() {
+    Dal::RegisterAll_::Init();
+
     const Date_ start = Date_(2022, 9, 25);
     const Date_ maturity = Date_(2025, 9, 25);
 
-    Global::Dates_().SetEvaluationDate(start);
+    Global::Dates_::SetEvaluationDate(start);
     Timer_ timer;
 
     using Real_ = Number_;

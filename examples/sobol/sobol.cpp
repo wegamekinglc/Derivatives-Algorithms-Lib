@@ -13,6 +13,7 @@ using namespace Dal;
 using namespace std;
 
 int main() {
+    Dal::RegisterAll_::Init();
 
     unique_ptr<SequenceSet_> rsg(NewSobol(10, 1000));
 

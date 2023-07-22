@@ -20,6 +20,8 @@ void LongRunningTask(int n1, int n2) {
 
 
 int main() {
+    Dal::RegisterAll_::Init();
+
     std::cout << "starting threading test ..." << std::endl;
     const int n = 200000000;
 

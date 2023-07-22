@@ -21,8 +21,9 @@ using Dal::AAD::BlackScholes_;
 
 
 int main() {
+    RegisterAll_::Init();
 
-    Global::Dates_().SetEvaluationDate(Date_(2022, 9, 25));
+    Global::Dates_::SetEvaluationDate(Date_(2022, 9, 25));
     Timer_ timer;
 
     using Real_ = double;
@@ -34,7 +35,7 @@ int main() {
     const double strike = 120.0;
     const String_ rsg = "sobol";
     const Date_ maturity(2025, 9, 24);
-    const double t = (maturity - Global::Dates_().EvaluationDate()) / 365.0;
+    const double t = (maturity - Global::Dates_::EvaluationDate()) / 365.0;
 
     timer.Reset();
 

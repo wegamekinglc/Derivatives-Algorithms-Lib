@@ -6,7 +6,7 @@
     %}
 
     %init %{
-    Dal::InitAll();
+        Dal::RegisterAll_::Init();
     %}
 
 #endif

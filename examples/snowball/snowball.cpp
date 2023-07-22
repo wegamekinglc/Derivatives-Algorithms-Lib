@@ -23,8 +23,9 @@ using Dal::AAD::BlackScholes_;
 
 
 int main() {
+    Dal::RegisterAll_::Init();
 
-    Global::Dates_().SetEvaluationDate(Date_(2023, 3, 1));
+    Global::Dates_::SetEvaluationDate(Date_(2023, 3, 1));
     Timer_ timer;
 
     const double spot = 1.0;
@@ -35,7 +36,7 @@ int main() {
     const double ki = 0.88;
     const double coupon = 0.069;
     const Date_ maturity(2025, 3, 1);
-    const Date_ start = Global::Dates_().EvaluationDate();
+    const Date_ start = Global::Dates_::EvaluationDate();
     const int num_path = 8192;
 
     timer.Reset();

@@ -21,8 +21,9 @@ String_ DebugScriptProduct(const ScriptProduct_& product) {
 
 
 int main() {
+    Dal::RegisterAll_::Init();
 
-    Global::Dates_().SetEvaluationDate(Date_(2022, 9, 25));
+    Global::Dates_::SetEvaluationDate(Date_(2022, 9, 25));
 
     Vector_<Cell_> eventDates;
     Vector_<String_> events;

@@ -14,8 +14,9 @@
 
 using namespace Dal;
 
-int main()
-{
+int main() {
+    Dal::RegisterAll_::Init();
+
     // DON'T FORGET TO MODIFY EXCELIMPORTS.CPP for correct version of Excel.
     int N = 40;
 

@@ -3,10 +3,10 @@
 //
 
 #include <gtest/gtest.h>
-#include <dal/platform/initall.hpp>
+#include <dal/platform/platform.hpp>
 
 int main(int argc, char** argv) {
     ::testing::InitGoogleTest(&argc, argv);
-    Dal::InitAll();
+    Dal::RegisterAll_::Init();
     return RUN_ALL_TESTS();
 }
