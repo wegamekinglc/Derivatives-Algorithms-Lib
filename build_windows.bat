@@ -27,6 +27,7 @@ if exist "./vcpkg.exe" (
     .\bootstrap-vcpkg.bat
 )
 .\vcpkg install gtest:x64-windows-static
+.\vcpkg install rapidjson:x64-windows-static
 
 if %errorlevel% neq 0 exit /b 1
 cd ../..

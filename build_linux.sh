@@ -26,6 +26,7 @@ else
 fi
 
 ./vcpkg install gtest
+./vcpkg install rapidjson
 )
 
 if [ $? -ne 0 ]; then

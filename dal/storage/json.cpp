@@ -5,11 +5,11 @@
 #include <fstream>
 #include <sstream>
 #include <regex>
-#include <dal/utilities/rapidjson/document.h>
-#include <dal/utilities/rapidjson/writer.h>
-#include <dal/utilities/rapidjson/prettywriter.h>
-#include <dal/utilities/rapidjson/filereadstream.h>
-#include <dal/utilities/rapidjson/filewritestream.h>
+#include <rapidjson/document.h>
+#include <rapidjson/writer.h>
+#include <rapidjson/prettywriter.h>
+#include <rapidjson/filereadstream.h>
+#include <rapidjson/filewritestream.h>
 
 #include <dal/platform/strict.hpp>
 #include <dal/storage/json.hpp>

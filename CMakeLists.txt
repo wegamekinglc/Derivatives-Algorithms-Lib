@@ -85,6 +85,9 @@ set(DAL_HEX_VERSION ${PACKAGE_VERSION_HEX})
 
 include(Platform)
 
+find_package(RapidJSON CONFIG REQUIRED)
+include_directories("${RapidJSON_INCLUDE_DIR}")
+message("-- RapidJSON INCLUDE DIR: ${RapidJSON_INCLUDE_DIR}")
 include_directories(${CMAKE_SOURCE_DIR})
 include_directories(${CMAKE_SOURCE_DIR}/externals/CodiPack/include)
 
