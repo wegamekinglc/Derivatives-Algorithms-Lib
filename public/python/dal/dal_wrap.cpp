@@ -19740,7 +19740,7 @@ SWIG_init(void) {
   swig::container_owner_attribute();
   
   
-  Dal::InitAll();
+  Dal::RegisterAll_::Init();
   
 #if PY_VERSION_HEX >= 0x03000000
   return m;

@@ -5,15 +5,14 @@ EvaluationDate_Set(today)
 
 spot = 100.0
 vol = 0.15
-rate = 0.0
-div = 0.0
+rate = 0.05
+div = 0.03
 strike = 120.0
 maturity = Date_(2025, 9, 15)
 
 n_paths = 2 ** 20
 use_bb = False
 rsg = "sobol"
-model_name = "bs"
 
 event_dates = ["STRIKE", maturity]
 events = [f"{strike}", f"call pays MAX(spot() - STRIKE, 0.0)"]

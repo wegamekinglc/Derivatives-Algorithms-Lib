@@ -24,7 +24,6 @@ events = [f"{ki:.6f}", f"{ko:.6f}", f"{spot:.6f}", f"{coupon:.6f}", "alive = 1 i
 n_paths = 8192
 use_bb = False
 rsg = "sobol"
-model_name = "bs"
 
 event_dates.append("START: 2023-06-01 END: 2025-02-01 FREQ: 1M")
 events.append(
