@@ -178,6 +178,9 @@ namespace Dal::Script {
         Vector_<Vector_<>> sim_results;
         sim_results.reserve(n_paths / BATCH_SIZE + 1);
 
+        Vector_<bool> model_init(nThread + 1, false);
+        Vector_<AAD::Position_> start_positions(nThread + 1);
+
         size_t firstPath = 0;
         size_t pathsLeft = n_paths;
         size_t loop_i = 0;
@@ -192,7 +195,12 @@ namespace Dal::Script {
                 AAD::Tape_* tape = &AAD::Number_::getTape();
 
                 //  Initialize once on each thread
-                auto pos = InitModel4ParallelAAD(*tape, product, *models[n_threads], paths[n_threads]);
+                if (!model_init[n_threads]) {
+                    start_positions[n_threads] = InitModel4ParallelAAD(*tape, product, *models[n_threads], paths[n_threads]);
+                    model_init[n_threads] = true;
+                }
+                auto& pos = start_positions[n_threads];
+
                 Scenario_<AAD::Number_>& path = paths[n_threads];
 
                 auto& random = rng_s[n_threads];
@@ -243,7 +251,6 @@ namespace Dal::Script {
                 tape->evaluate(pos, tape->getZeroPosition());
                 for (size_t j = 0; j < n_params; ++j)
                     sim_result[j + 1] = models[n_threads]->Parameters()[j]->getGradient();
-                tape->reset();
                 return true;
             }));
             pathsLeft -= pathsInTask;
