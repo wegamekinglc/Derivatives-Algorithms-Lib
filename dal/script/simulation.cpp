@@ -199,9 +199,9 @@ namespace Dal::Script {
                 auto& model = models[n_threads];
                 random->SkipTo(firstPath);
 
-                AAD::Tape_* tape = &AAD::Number_::getTape();
                 if (!tapes[n_threads])
-                    tapes[n_threads] = tape;
+                    tapes[n_threads] = &AAD::Number_::getTape();
+                AAD::Tape_* tape = tapes[n_threads];
 
                 //  Initialize once on each thread
                 if (!model_init[n_threads]) {
