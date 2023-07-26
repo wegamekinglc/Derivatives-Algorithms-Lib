@@ -59,7 +59,7 @@ namespace Dal::AAD {
         return position;
     }
 
-    void Tape_::resetTo(const Position_& pos) {
+    void Tape_::resetTo(const Position_& pos, bool resetAdjoints) {
         if (multi_)
             adjoints_multi_.RewindTo(pos.adjoints_multi_pos_);
         ders_.RewindTo(pos.ders_pos_);

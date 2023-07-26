@@ -49,8 +49,7 @@ int main() {
     std::unique_ptr<Model_<Real_>> model = std::make_unique<BlackScholes_<Real_>>(spot, vol, rate, div);
     std::cout << "\nParsing " << std::setprecision(8) << "\tElapsed: " << timer.Elapsed<milliseconds>() << " ms" << std::endl;
     
-    product.PreProcess(false, false);
-    product.Compile();
+    int max_nested = product.PreProcess(false, false);
 
     Vector_<int> widths = {28, 14, 14, 14, 14, 14, 14};
     double discounts = std::exp(-rate * t);
@@ -66,10 +65,10 @@ int main() {
               << std::setw(widths[5]) << std::right << "Diff (bps)"
               << std::setw(widths[6]) << std::right << "Elapsed (ms)"
               << std::endl;
-    for (int i = 5; i <= 20; ++i) {
+    for (int i = 12; i <= 25; ++i) {
         timer.Reset();
         int num_paths = std::pow(2, i);
-        SimResults_<Real_> results = MCSimulation(product, *model, num_paths, rsg, false, true);
+        SimResults_<Real_> results = MCSimulation(product, *model, num_paths, rsg, false, max_nested);
 
         auto calculated = results.aggregated_ / static_cast<double>(num_paths);
         std::cout << std::setw(widths[0]) << std::right << int(std::pow(2, i))

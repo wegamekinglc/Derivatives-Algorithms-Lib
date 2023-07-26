@@ -72,7 +72,7 @@ namespace Dal::AAD {
 
         Position_ getPosition();
         Position_ getZeroPosition();
-        void resetTo(const Position_&);
+        void resetTo(const Position_&, bool resetAdjoints = true);
         void evaluate(const Position_&, const Position_&);
         void evaluate();
     };

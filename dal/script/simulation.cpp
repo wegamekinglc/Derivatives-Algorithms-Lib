@@ -172,10 +172,15 @@ namespace Dal::Script {
         else
             eval_s = Vector_<Evaluator_<AAD::Number_>>(n_thread + 1, product.BuildEvaluator<AAD::Number_>());
 
+#ifndef USE_AADET
+        const size_t batch_size = std::max(BATCH_SIZE, n_paths / (n_thread + 1) + 1);
+#else
+        const size_t batch_size = BATCH_SIZE;
+#endif
         Vector_<TaskHandle_> futures;
-        futures.reserve(n_paths / BATCH_SIZE + 1);
+        futures.reserve(n_paths / batch_size + 1);
         Vector_<> sim_results;
-        sim_results.reserve(n_paths / BATCH_SIZE + 1);
+        sim_results.reserve(n_paths / batch_size + 1);
 
         Vector_<bool> model_init(n_thread + 1, false);
         Vector_<AAD::Position_> start_positions(n_thread + 1);
@@ -186,7 +191,7 @@ namespace Dal::Script {
         size_t loop_i = 0;
 
         while (pathsLeft > 0) {
-            auto pathsInTask = std::min(pathsLeft, BATCH_SIZE);
+            auto pathsInTask = std::min(pathsLeft, batch_size);
             sim_results.emplace_back(0.0);
             auto& sim_result = sim_results[loop_i];
             loop_i += 1;
@@ -221,7 +226,7 @@ namespace Dal::Script {
                         res.setGradient(1.0);
                         tape->evaluate(tape->getPosition(), pos);
                         sum_val += res.value();
-                        tape->resetTo(pos);
+                        tape->resetTo(pos, false);
                     }
                 }
                 else if (max_nested_ifs > 0) {
@@ -234,7 +239,7 @@ namespace Dal::Script {
                         res.setGradient(1.0);
                         tape->evaluate(tape->getPosition(), pos);
                         sum_val += res.value();
-                        tape->resetTo(pos);
+                        tape->resetTo(pos, false);
                     }
                 } else {
                     Evaluator_<AAD::Number_>& eval = eval_s[n_threads];
@@ -246,10 +251,16 @@ namespace Dal::Script {
                         res.setGradient(1.0);
                         tape->evaluate(tape->getPosition(), pos);
                         sum_val += res.value();
-                        tape->resetTo(pos);
+                        tape->resetTo(pos, false);
                     }
                 }
                 sim_result = sum_val;
+#ifndef USE_AADET
+                tape->evaluate(pos, tape->getZeroPosition());
+                for (size_t j = 0; j < n_params; ++j)
+                    results.risks_[j] += model->Parameters()[j]->getGradient() / static_cast<double>(n_paths);
+                tape->reset(false);
+#endif
                 return true;
             }));
             pathsLeft -= pathsInTask;
@@ -259,13 +270,14 @@ namespace Dal::Script {
         for (auto& future : futures)
             pool->ActiveWait(future);
 
-        for (size_t i = 0; i < n_thread + 1; ++i)
-            if (model_init[i])
-                tapes[i]->evaluate(start_positions[i], tapes[i]->getZeroPosition());
-
         // aggregate all the results
         for (const auto& s: sim_results)
             results.aggregated_ += s;
+
+#ifdef USE_AADET
+        for (size_t i = 0; i < n_thread + 1; ++i)
+            if (model_init[i])
+                tapes[i]->evaluate();
 
         for (size_t j = 0; j < n_params; ++j)
             for (size_t i = 0; i < models.size(); ++i)
@@ -275,6 +287,7 @@ namespace Dal::Script {
         for (size_t i = 0; i < n_thread + 1; ++i)
             if (model_init[i])
                 tapes[i]->reset();
+#endif
         return results;
     }
 }

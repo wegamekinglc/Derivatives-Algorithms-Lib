@@ -57,8 +57,8 @@ TEST(BlackScholesTest, TestBlackScholesAAD) {
     ScriptProduct_ product(eventDates, events);
     std::unique_ptr<Model_<Number_>> model = std::make_unique<BlackScholes_<Number_>>(spot, vol, rate, div);
 
-    product.PreProcess(false, false);
-    SimResults_<Number_> results = MCSimulation(product, *model, num_paths, rsg, false, false);
+    int max_nested = product.PreProcess(false, false);
+    SimResults_<Number_> results = MCSimulation(product, *model, num_paths, rsg, false, max_nested);
 
     ASSERT_NEAR(results.risks_[0], 0.43986485, 1e-6);
     ASSERT_NEAR(results.risks_[1], 5.38087423, 1e-4);

@@ -35,9 +35,6 @@ namespace Dal::AAD {
         Vector_<T_> stds_;
         Vector_<T_> drifts_;
         Vector_<T_> numeraires_;
-        Vector_<Vector_<T_>> discounts_;
-        Vector_<Vector_<T_>> forwardFactors_;
-        Vector_<Vector_<T_>> libors_;
 
         Vector_<T_*> parameters_;
         Vector_<String_> parameterLabels_;
@@ -54,10 +51,6 @@ namespace Dal::AAD {
             if (def.numeraire_)
                 scenario.numeraire_ = numeraires_[idx];
             scenario.spot_ = spot;
-            Transform(forwardFactors_[idx], [&spot](const T_& ff) { return spot * ff; }, &scenario.forwards_.front());
-
-            Copy(discounts_[idx], &scenario.discounts_);
-            Copy(libors_[idx], &scenario.libors_);
         }
 
     public:
@@ -110,15 +103,6 @@ namespace Dal::AAD {
 
             const size_t n = productTimeLine.size();
             numeraires_.Resize(n);
-
-            discounts_.Resize(n);
-            forwardFactors_.Resize(n);
-            libors_.Resize(n);
-            for (size_t j = 0; j < n; ++j) {
-                discounts_[j].Resize(defLine[j].discountMats_.size());
-                forwardFactors_[j].Resize(defLine[j].forwardMats_.size());
-                libors_[j].Resize(defLine[j].liborDefs_.size());
-            }
         }
 
         void Init(const Vector_<>& productTimeline, const Vector_<SampleDef_>& defLine) override {
@@ -133,24 +117,9 @@ namespace Dal::AAD {
             }
 
             const size_t m = productTimeline.size();
-            for (size_t i = 0; i < m; ++i) {
+            for (size_t i = 0; i < m; ++i)
                 if (defLine[i].numeraire_)
                     numeraires_[i] = Dal::exp(rate_ * productTimeline[i]);
-
-                const size_t pDF = defLine[i].discountMats_.size();
-                for (size_t j = 0; j < pDF; ++j)
-                    discounts_[i][j] = Dal::exp(-rate_ * (defLine[i].discountMats_[j] - productTimeline[i]));
-
-                const size_t pFF = defLine[i].forwardMats_.front().size();
-                for (size_t j = 0; j < pFF; ++j)
-                    forwardFactors_[i][j] = Dal::exp(mu * (defLine[i].forwardMats_.front()[j] - productTimeline[i]));
-
-                const size_t pL = defLine[i].liborDefs_.size();
-                for (size_t j = 0; j < pL; ++j) {
-                    const double dt = defLine[i].liborDefs_[j].end_ - defLine[i].liborDefs_[j].start_;
-                    libors_[i][j] = (Dal::exp(rate_ * dt) - 1.0) / dt;
-                }
-            }
         }
 
         [[nodiscard]] size_t SimDim() const override { return timeLine_.size() - 1; }
