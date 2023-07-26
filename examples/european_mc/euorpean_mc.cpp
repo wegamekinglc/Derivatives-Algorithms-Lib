@@ -26,7 +26,7 @@ int main() {
     Global::Dates_::SetEvaluationDate(Date_(2022, 9, 25));
     Timer_ timer;
 
-    using Real_ = double;
+    using Real_ = Number_;
 
     const double spot = 100.0;
     const double vol = 0.15;
@@ -52,7 +52,7 @@ int main() {
     product.PreProcess(false, false);
     product.Compile();
 
-    Vector_<int> widths = {28, 14, 14, 14, 14, 14};
+    Vector_<int> widths = {28, 14, 14, 14, 14, 14, 14};
     double discounts = std::exp(-rate * t);
     double fwd = std::exp((rate - div) * t) * spot;
     double vol_std = std::sqrt(t) * vol;
@@ -62,10 +62,11 @@ int main() {
               << std::setw(widths[1]) << std::right << "spot"
               << std::setw(widths[2]) << std::right << "price"
               << std::setw(widths[3]) << std::right << "benchmark"
-              << std::setw(widths[4]) << std::right << "Diff (bps)"
-              << std::setw(widths[5]) << std::right << "Elapsed (ms)"
+              << std::setw(widths[4]) << std::right << "delta"
+              << std::setw(widths[5]) << std::right << "Diff (bps)"
+              << std::setw(widths[6]) << std::right << "Elapsed (ms)"
               << std::endl;
-    for (int i = 10; i <= 25; ++i) {
+    for (int i = 5; i <= 20; ++i) {
         timer.Reset();
         int num_paths = std::pow(2, i);
         SimResults_<Real_> results = MCSimulation(product, *model, num_paths, rsg, false, true);
@@ -77,8 +78,9 @@ int main() {
                   << std::setprecision(8)
                   << std::setw(widths[2]) << std::right << calculated
                   << std::setw(widths[3]) << std::right << benchmark
-                  << std::setw(widths[4]) << std::right << (calculated - benchmark) / benchmark * 10000
-                  << std::setw(widths[5]) << std::right << int(timer.Elapsed<milliseconds>())
+                  << std::setw(widths[4]) << std::right << results.risks_[0]
+                  << std::setw(widths[5]) << std::right << (calculated - benchmark) / benchmark * 10000
+                  << std::setw(widths[6]) << std::right << int(timer.Elapsed<milliseconds>())
                   << std::endl;
     }
     return 0;

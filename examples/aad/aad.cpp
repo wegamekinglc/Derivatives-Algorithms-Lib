@@ -17,16 +17,14 @@ using Dal::AAD::Tape_;
 
 
 template <class T_>
-T_ BlackTest(const T_& fwd, const T_& vol, const T_& numeraire, const T_& strike, const T_& expiry, bool is_call, int n_repetition) {
+T_ BlackTest(const T_& fwd, const T_& vol, const T_& numeraire, const T_& strike, const T_& expiry, bool is_call) {
     static const double M_SQRT_2 = 1.4142135623730951;
     const double omega = is_call ? 1.0 : -1.0;
     T_ y(0.0);
-    for(int i = 0; i < n_repetition; ++i) {
-        T_ sqrt_var = vol * sqrt(expiry);
-        T_ d_minus = log(fwd / strike) / sqrt_var - 0.5 * sqrt_var;
-        T_ d_plus = d_minus + sqrt_var;
-        y += numeraire * omega * (0.5 * fwd * erfc(-d_plus / M_SQRT_2) - strike * 0.5 * erfc(-d_minus / M_SQRT_2));
-    }
+    T_ sqrt_var = vol * sqrt(expiry);
+    T_ d_minus = log(fwd / strike) / sqrt_var - 0.5 * sqrt_var;
+    T_ d_plus = d_minus + sqrt_var;
+    y = numeraire * omega * (0.5 * fwd * erfc(-d_plus / M_SQRT_2) - strike * 0.5 * erfc(-d_minus / M_SQRT_2));
     return y;
 }
 
@@ -35,7 +33,6 @@ int main() {
     Dal::RegisterAll_::Init();
 
     int n_rounds = 1000;
-    int n_repetition = 1000;
     double fwd = 1.00;
     double vol = 0.20;
     double numeraire = 1.0;
@@ -47,8 +44,8 @@ int main() {
     timer.Reset();
     double price;
     for (int i = 0; i < n_rounds; ++i)
-        price = BlackTest(fwd, vol, numeraire, strike, expiry, is_call, n_repetition);
-    std::cout << "Normal Mode: " << std::setprecision(8) << price / n_repetition << " with " << timer.Elapsed<milliseconds>() << " ms" << std::endl;
+        price = BlackTest(fwd, vol, numeraire, strike, expiry, is_call);
+    std::cout << "Normal Mode: " << std::setprecision(8) << price << " with " << timer.Elapsed<milliseconds>() << " ms" << std::endl;
 
     Number_ fwd_aad(fwd);
     Number_ vol_aad(vol);
@@ -67,21 +64,27 @@ int main() {
     tape.registerInput(expiry_aad);
 
     timer.Reset();
-    Number_ price_aad;
-    auto begin = tape.getPosition();
-    for (int i = 0; i < n_rounds; ++i) {
-        tape.resetTo(begin);
-        price_aad = BlackTest(fwd_aad, vol_aad, numeraire_aad, strike_aad, expiry_aad, is_call, n_repetition);
-        price_aad.setGradient(1.0);
-        tape.evaluate(tape.getPosition(), begin);
-    }
 
-    std::cout << " DAL  AAD Mode: " << std::setprecision(8) << price_aad.value() / n_repetition << " with " << timer.Elapsed<milliseconds>() << " ms" << std::endl;
-    std::cout << "      dP/dFwd : " << std::setprecision(8) << fwd_aad.getGradient() / n_repetition / n_rounds << std::endl;
-    std::cout << "      dP/dVol : " << std::setprecision(8) << vol_aad.getGradient() / n_repetition / n_rounds << std::endl;
-    std::cout << "      dP/dNum : " << std::setprecision(8) << numeraire_aad.getGradient() / n_repetition / n_rounds << std::endl;
-    std::cout << "      dP/dK   : " << std::setprecision(8) << strike_aad.getGradient() / n_repetition / n_rounds << std::endl;
-    std::cout << "      dP/dT   : " << std::setprecision(8) << expiry_aad.getGradient() / n_repetition / n_rounds << std::endl;
+    Number_ numeraire_aad_2 = numeraire_aad * 2.0;
+    auto begin = tape.getPosition();
+    Number_ price_aad = BlackTest(fwd_aad, vol_aad, numeraire_aad_2, strike_aad, expiry_aad, is_call);
+    price_aad.setGradient(1.0);
+    tape.evaluate(tape.getPosition(), begin);
+    tape.resetTo(begin);
+
+    price_aad = BlackTest(fwd_aad, vol_aad, numeraire_aad_2, strike_aad, expiry_aad, is_call);
+    price_aad.setGradient(1.0);
+    tape.evaluate(tape.getPosition(), begin);
+    tape.resetTo(begin);
+
+    tape.evaluate();
+
+    std::cout << " DAL  AAD Mode: " << std::setprecision(8) << price_aad.value() << " with " << timer.Elapsed<milliseconds>() << " ms" << std::endl;
+    std::cout << "      dP/dFwd : " << std::setprecision(8) << fwd_aad.getGradient() << std::endl;
+    std::cout << "      dP/dVol : " << std::setprecision(8) << vol_aad.getGradient() << std::endl;
+    std::cout << "      dP/dNum : " << std::setprecision(8) << numeraire_aad.getGradient() << std::endl;
+    std::cout << "      dP/dK   : " << std::setprecision(8) << strike_aad.getGradient() << std::endl;
+    std::cout << "      dP/dT   : " << std::setprecision(8) << expiry_aad.getGradient() << std::endl;
     tape.reset();
 
     return 0;

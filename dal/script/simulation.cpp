@@ -179,7 +179,7 @@ namespace Dal::Script {
 
         Vector_<bool> model_init(n_thread + 1, false);
         Vector_<AAD::Position_> start_positions(n_thread + 1);
-        Vector_<AAD::Tape_*> tapes(n_thread + 1);
+        Vector_<AAD::Tape_*> tapes(n_thread + 1, nullptr);
 
         size_t firstPath = 0;
         size_t pathsLeft = n_paths;
@@ -192,16 +192,6 @@ namespace Dal::Script {
             loop_i += 1;
             futures.push_back(pool->SpawnTask([&, firstPath, pathsInTask]() {
                 const size_t n_threads = ThreadPool_::ThreadNum();
-                AAD::Tape_* tape = &AAD::Number_::getTape();
-                tapes[n_threads] = tape;
-
-                //  Initialize once on each thread
-                if (!model_init[n_threads]) {
-                    start_positions[n_threads] = InitModel4ParallelAAD(*tape, product, *models[n_threads], paths[n_threads]);
-                    model_init[n_threads] = true;
-                }
-                auto& pos = start_positions[n_threads];
-
                 Scenario_<AAD::Number_>& path = paths[n_threads];
 
                 auto& random = rng_s[n_threads];
@@ -209,12 +199,23 @@ namespace Dal::Script {
                 auto& model = models[n_threads];
                 random->SkipTo(firstPath);
 
+                AAD::Tape_* tape = &AAD::Number_::getTape();
+                if (!tapes[n_threads])
+                    tapes[n_threads] = tape;
+
+                //  Initialize once on each thread
+                if (!model_init[n_threads]) {
+                    start_positions[n_threads] = InitModel4ParallelAAD(*tape, product, *model, path);
+                    model_init[n_threads] = true;
+                }
+                auto& pos = start_positions[n_threads];
+
                 double sum_val = 0.0;
                 if (compiled) {
                     EvalState_<AAD::Number_>& eval_state = eval_state_s[n_threads];
                     for (size_t i = 0; i < pathsInTask; i++) {
                         random->FillNormal(&gVec);
-                        models[n_threads]->GeneratePath(gVec, &path);
+                        model->GeneratePath(gVec, &path);
                         product.EvaluateCompiled(path, eval_state);
                         AAD::Number_ res = eval_state.VarVals()[eval_state.VarVals().size() - 1];
                         res.setGradient(1.0);
@@ -227,7 +228,7 @@ namespace Dal::Script {
                     FuzzyEvaluator_<AAD::Number_>& eval = fuzzy_eval_s[n_threads];
                     for (size_t i = 0; i < pathsInTask; i++) {
                         random->FillNormal(&gVec);
-                        models[n_threads]->GeneratePath(gVec, &path);
+                        model->GeneratePath(gVec, &path);
                         product.Evaluate(path, eval);
                         AAD::Number_ res = eval.VarVals()[eval.VarVals().size() - 1];
                         res.setGradient(1.0);
