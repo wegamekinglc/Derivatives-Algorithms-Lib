@@ -52,7 +52,7 @@ namespace Dal {
     }
 
     Vector_<bool> String::ToBoolVector(const String_& src) {
-        if (src.find(',') != src.npos)
+        if (src.find(',') != String_::npos)
             return Apply(AsFunctor(ToBool), Split(src, ',', true));
         // could be literal true/false -- but could also be, e.g. ttft
         if (TestTrue(src))

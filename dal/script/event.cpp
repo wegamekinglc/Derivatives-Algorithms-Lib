@@ -16,6 +16,7 @@ namespace Dal::Script {
     void ScriptProduct_::ParseEvents(const Vector_<std::pair<Cell_, String_>> &events) {
         Date_ evaluationDate = Global::Dates_().EvaluationDate();
         std::map<String_, String_> macros;
+        std::map<String_, double> macro_variables;
         std::map<Date_, String_> processed_events;
         /*
          * we only keep the events after evaluation date
@@ -97,8 +98,13 @@ namespace Dal::Script {
                     }
                 } else {
                     REQUIRE2(macros.find(desc) == macros.end(), "macro name has already registered", ScriptError_);
+                    REQUIRE2(macro_variables.find(desc) == macro_variables.end(), "macro variable name has already registered", ScriptError_);
                     REQUIRE2(processed_events.empty(), "macros should always at the front", ScriptError_);
-                    macros[Cell::ToString(cell)] = event.second;
+
+                    if (String::IsNumber(event.second))
+                        macro_variables[Cell::ToString(cell)] = String::ToDouble(event.second);
+                    else
+                        macros[Cell::ToString(cell)] = event.second;
                 }
             } else if (Cell::IsDate(cell) && Cell::ToDate(cell) >= evaluationDate) {
                 String_ replaced = event.second;
@@ -115,7 +121,14 @@ namespace Dal::Script {
 
         for (const auto &processed_event: processed_events) {
             eventDates_.push_back(processed_event.first);
-            events_.push_back(Parse(processed_event.second));
+            if (events_.empty()) {
+                String_ e = processed_event.second;
+                for (auto it = macro_variables.rbegin(); it != macro_variables.rend(); ++it)
+                    e = it->first + " = " + ToString(it->second) + "\n" + e;
+                events_.push_back(Parse(e));
+            }
+            else
+                events_.push_back(Parse(processed_event.second));
         }
     }
 
