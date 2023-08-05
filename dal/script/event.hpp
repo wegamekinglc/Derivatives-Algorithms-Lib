@@ -44,6 +44,8 @@ namespace Dal::Script {
         Vector_<Vector_<int>> nodeStreams_;
         Vector_<Vector_<double>> constStreams_;
         Vector_<Vector_<const void*>> dataStreams_;
+        std::map<String_, double> macro_variables_;
+        std::map<int, double> const_indexed_vars_;
 
     public:
         ScriptProduct_(const Vector_<Cell_>& dates, const Vector_<String_>& events) {
@@ -58,11 +60,13 @@ namespace Dal::Script {
         [[nodiscard]] const Vector_<>& TimeLine() const { return timeLine_; }
         [[nodiscard]] const Vector_<Dal::AAD::SampleDef_>& DefLine() const { return defLine_; }
 
-        template <class T_> Evaluator_<T_> BuildEvaluator() const { return Evaluator_<T_>(variables_.size()); }
+        template <class T_> Evaluator_<T_> BuildEvaluator() const { return Evaluator_<T_>(variables_.size(), const_indexed_vars_); }
 
         template <class T_> FuzzyEvaluator_<T_> BuildFuzzyEvaluator(int maxNestedIfs, double defEps) const {
-            return FuzzyEvaluator_<T_>(variables_.size(), maxNestedIfs, defEps);
+            return FuzzyEvaluator_<T_>(variables_.size(), const_indexed_vars_, maxNestedIfs, defEps);
         }
+
+        template <class T_> EvalState_<T_> BuildEvalState() const { return EvalState_<T_>(static_cast<int>(variables_.size()), const_indexed_vars_); }
 
         template <class T_> std::unique_ptr<Scenario_<T_>> BuildScenario() const {
             return std::unique_ptr<Scenario_<T_>>(new Scenario_<T_>(eventDates_.size()));

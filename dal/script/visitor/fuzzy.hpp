@@ -86,8 +86,8 @@ namespace Dal::Script {
         using Base::Visit;
         using Base::VisitNode;
 
-        FuzzyEvaluator_(const size_t nVar, const size_t maxNestedIfs, const double defEps = 0)
-            : Base(nVar), defEps_(defEps), varStore0_(maxNestedIfs), varStore1_(maxNestedIfs), nestedIfLvl_(0) {
+        FuzzyEvaluator_(const size_t nVar, const std::map<int, double>& const_variables, const size_t maxNestedIfs, const double defEps = 0)
+            : Base(nVar, const_variables), defEps_(defEps), varStore0_(maxNestedIfs), varStore1_(maxNestedIfs), nestedIfLvl_(0) {
             for (auto& varStore : varStore0_)
                 varStore.Resize(nVar);
             for (auto& varStore : varStore1_)

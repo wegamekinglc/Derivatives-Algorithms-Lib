@@ -17,6 +17,7 @@ namespace Dal::Script {
     protected:
         // State
         Vector_<T_> variables_;
+        std::map<int, double> const_variables_;
 
         // Stacks
         StaticStack_<T_> dStack_;
@@ -33,27 +34,35 @@ namespace Dal::Script {
         using ConstVisitor_<EVAL_<T_>>::VisitNode;
 
         // Constructor, nVar = number of variables, from Product after parsing and variable indexation
-        explicit EvaluatorBase_(size_t nVar) : variables_(nVar) {}
+        EvaluatorBase_(size_t nVar, const std::map<int, double>& const_variables) : variables_(nVar), const_variables_(const_variables) {
+            for (const auto& var: const_variables)
+                variables_[var.first] = T_(var.second);
+        }
 
         // Copy/Move
-        EvaluatorBase_(const EvaluatorBase_& rhs) : variables_(rhs.variables_) {}
+        EvaluatorBase_(const EvaluatorBase_& rhs) : variables_(rhs.variables_), const_variables_(rhs.const_variables_) {}
         EvaluatorBase_& operator=(const EvaluatorBase_& rhs) {
             if (this == &rhs)
                 return *this;
             variables_ = rhs.variables_;
+            const_variables_ = rhs.const_variables_;
             return *this;
         }
 
-        EvaluatorBase_(EvaluatorBase_&& rhs) noexcept : variables_(std::move(rhs.variables_)) {}
+        EvaluatorBase_(EvaluatorBase_&& rhs) noexcept : variables_(std::move(rhs.variables_)), const_variables_(std::move(rhs.const_variables_)) {}
         EvaluatorBase_& operator=(EvaluatorBase_&& rhs) noexcept {
             variables_ = std::move(rhs.variables_);
+            const_variables_ = std::move(rhs.const_variables_);
             return *this;
         }
 
         // (Re-)initialize before evaluation in each scenario
         void Init() {
-            for (auto& varIt : variables_)
-                varIt = T_(0.0);
+            for (int i = 0; i < variables_.size(); ++i) {
+                auto it = const_variables_.find(i);
+                if (it == const_variables_.end())
+                    variables_[i] = T_(0.0);
+            }
             //	Stacks should be empty, if this is not the case the empty them
             //	without affecting capacity for added performance
             dStack_.Reset();
@@ -245,7 +254,7 @@ namespace Dal::Script {
     public:
         using Base = EvaluatorBase_<T, Evaluator_>;
 
-        explicit Evaluator_(size_t nVar) : Base(nVar) {}
+        explicit Evaluator_(size_t nVar, const std::map<int, double>& const_variables = std::map<int, double>()) : Base(nVar, const_variables) {}
         Evaluator_(const Evaluator_& rhs) : Base(rhs) {}
         Evaluator_(Evaluator_&& rhs) noexcept: Base(std::move(rhs)) {}
         Evaluator_& operator=(const Evaluator_& rhs) {

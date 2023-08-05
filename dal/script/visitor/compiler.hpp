@@ -73,14 +73,21 @@ namespace Dal::Script {
     template <class T_> struct EvalState_ {
         // State
         Vector_<T_> variables_;
+        std::map<int, double> const_variables_;
 
         //  Constructor
-        EvalState_(int nVar) : variables_(nVar) {}
+        EvalState_(int nVar, const std::map<int, double>& const_variables = std::map<int, double>()) : variables_(nVar), const_variables_(const_variables) {
+            for (const auto& var: const_variables)
+                variables_[var.first] = T_(var.second);
+        }
 
         //  Initializer
         void Init() {
-            for (auto& var : variables_)
-                var = T_(0.0);
+            for (int i = 0; i < variables_.size(); ++i) {
+                auto it = const_variables_.find(i);
+                if (it == const_variables_.end())
+                    variables_[i] = T_(0.0);
+            }
         }
 
         const Vector_<T_>& VarVals() const { return variables_; }

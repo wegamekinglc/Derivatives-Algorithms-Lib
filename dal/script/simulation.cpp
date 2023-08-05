@@ -67,8 +67,7 @@ namespace Dal::Script {
         }
 
         Vector_<Evaluator_<double>> eval_s(n_threads + 1, product.BuildEvaluator<double>());
-        Vector_<EvalState_<double>> eval_state_s(n_threads + 1,
-                                                 EvalState_<double>(static_cast<int>(product.VarNames().size())));
+        Vector_<EvalState_<double>> eval_state_s(n_threads + 1, product.BuildEvalState<double>());
 
         SimResults_<double> results;
 
@@ -98,7 +97,7 @@ namespace Dal::Script {
                         random->FillNormal(&gaussVec);
                         mdl->GeneratePath(gaussVec, &path);
                         product.EvaluateCompiled(path, eval_state);
-                        sim_result += eval_state.VarVals()[eval_state.VarVals().size() - 1];
+                        sim_result += eval_state.VarVals()[0];
                     }
                 } else {
                     Evaluator_<double>& eval = eval_s[threadNum];
@@ -106,7 +105,7 @@ namespace Dal::Script {
                         random->FillNormal(&gaussVec);
                         mdl->GeneratePath(gaussVec, &path);
                         product.Evaluate(path, eval);
-                        sim_result += eval.VarVals()[eval.VarVals().size() - 1];
+                        sim_result += eval.VarVals()[0];
                     }
                 }
                 return true;
@@ -166,7 +165,7 @@ namespace Dal::Script {
             InitializePath(path);
         }
         if (compiled)
-            eval_state_s = Vector_<EvalState_<AAD::Number_>>(n_thread + 1, EvalState_<AAD::Number_>(static_cast<int>(product.VarNames().size())));
+            eval_state_s = Vector_<EvalState_<AAD::Number_>>(n_thread + 1, product.BuildEvalState<AAD::Number_>());
         else if (max_nested_ifs > 0)
             fuzzy_eval_s = Vector_<FuzzyEvaluator_<AAD::Number_>>(n_thread + 1, product.BuildFuzzyEvaluator<AAD::Number_>(max_nested_ifs, eps));
         else
@@ -222,7 +221,7 @@ namespace Dal::Script {
                         random->FillNormal(&gVec);
                         model->GeneratePath(gVec, &path);
                         product.EvaluateCompiled(path, eval_state);
-                        AAD::Number_ res = eval_state.VarVals()[eval_state.VarVals().size() - 1];
+                        AAD::Number_ res = eval_state.VarVals()[0];
                         res.setGradient(1.0);
                         tape->evaluate(tape->getPosition(), pos);
                         sum_val += res.value();
@@ -235,7 +234,7 @@ namespace Dal::Script {
                         random->FillNormal(&gVec);
                         model->GeneratePath(gVec, &path);
                         product.Evaluate(path, eval);
-                        AAD::Number_ res = eval.VarVals()[eval.VarVals().size() - 1];
+                        AAD::Number_ res = eval.VarVals()[0];
                         res.setGradient(1.0);
                         tape->evaluate(tape->getPosition(), pos);
                         sum_val += res.value();
@@ -247,7 +246,7 @@ namespace Dal::Script {
                         random->FillNormal(&gVec);
                         model->GeneratePath(gVec, &path);
                         product.Evaluate(path, eval);
-                        AAD::Number_ res = eval.VarVals()[eval.VarVals().size() - 1];
+                        AAD::Number_ res = eval.VarVals()[0];
                         res.setGradient(1.0);
                         tape->evaluate(tape->getPosition(), pos);
                         sum_val += res.value();
