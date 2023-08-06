@@ -65,11 +65,6 @@ if (NOT DEFINED CMAKE_CXX_EXTENSIONS)
     set(CMAKE_CXX_EXTENSIONS FALSE)
 endif()
 
-message("-- CMAKE_BUILD_TYPE: ${CMAKE_BUILD_TYPE}")
-message("-- CMAKE_CXX_FLAGS: ${CMAKE_CXX_FLAGS}")
-message("-- CMAKE_CXX_STANDARD: ${CMAKE_CXX_STANDARD}")
-message("-- BUILD_SHARED_LIBS: ${BUILD_SHARED_LIBS}")
-
 # If available, use PIC for shared libs and PIE for executables
 if (NOT DEFINED CMAKE_POSITION_INDEPENDENT_CODE)
     set(CMAKE_POSITION_INDEPENDENT_CODE ON)
@@ -83,7 +78,20 @@ endif()
 set(DAL_VERSION ${PACKAGE_VERSION})
 set(DAL_HEX_VERSION ${PACKAGE_VERSION_HEX})
 
+if (NOT DEFINED SKIP_TESTS)
+    set(SKIP_TESTS true)
+endif()
+
+if (NOT DEFINED USE_COVERAGE)
+    set(USE_COVERAGE false)
+endif()
+
 include(Platform)
+
+message("-- CMAKE_BUILD_TYPE: ${CMAKE_BUILD_TYPE}")
+message("-- CMAKE_CXX_FLAGS: ${CMAKE_CXX_FLAGS}")
+message("-- CMAKE_CXX_STANDARD: ${CMAKE_CXX_STANDARD}")
+message("-- BUILD_SHARED_LIBS: ${BUILD_SHARED_LIBS}")
 
 find_package(RapidJSON CONFIG REQUIRED)
 include_directories("${RapidJSON_INCLUDE_DIR}")
@@ -95,11 +103,8 @@ add_subdirectory(dal)
 add_subdirectory(public)
 add_subdirectory(examples)
 
-if (NOT DEFINED SKIP_TESTS)
-    set(SKIP_TESTS true)
-endif()
-
 message("-- SKIP_TESTS: ${SKIP_TESTS}")
 if ("${SKIP_TESTS}" STREQUAL "false")
     add_subdirectory(tests)
 endif()
+

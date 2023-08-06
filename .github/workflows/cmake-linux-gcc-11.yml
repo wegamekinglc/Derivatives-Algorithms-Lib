@@ -34,6 +34,7 @@ jobs:
           CC: gcc-11
           CXX: g++-11
         run: |
+          sed -i 's/USE_COVERAGE=false/USE_COVERAGE=true/g' build_linux.sh
           bash -e ./build_linux.sh
       - name: Coverage
         run: |
