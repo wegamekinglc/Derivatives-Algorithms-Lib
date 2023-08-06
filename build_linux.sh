@@ -6,7 +6,7 @@ export LD_LIBRARY_PATH=$PWD/lib:$LD_LIBRARY_PATH
 export BUILD_TYPE=Release
 export SKIP_TESTS=false  # make it true when you need a full performance lib
 export CMAKE_EXPORT_COMPILE_COMMANDS=on
-export BUILD_SHARED_LIBS=on
+export BUILD_SHARED_LIBS=off
 export CMAKE_TOOLCHAIN_FILE=$PWD/externals/vcpkg/scripts/buildsystems/vcpkg.cmake
 
 echo NUM_CORES: NUM_CORES

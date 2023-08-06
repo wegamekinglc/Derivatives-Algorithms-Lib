@@ -33,6 +33,73 @@ This is a project inspired by following books & codes repositories:
 
 > Some codes are directly copied from above resources.
 
+## Install
+
+### Downloads
+
+just download source codes from *github* and don't forget to get the submodule
+
+```bash
+$ git clone git@github.com:wegamekinglc/Derivatives-Algorithms-Lib.git
+$ cd Derivatives-Algorithms-Lib
+$ git submodule init
+$ git submodule update
+```
+
+### Windows
+
+### Prerequisite
+
+* git
+* cmake
+* anaconda python distribution (only for python binding)
+* swig (only for python)
+* Visual studio 2022 community edition
+
+
+#### build
+
+```bash
+$ ./build_windows.bat
+```
+
+after built, you will get:
+
+* ./lib: the static library and xll excel extension.
+* ./bin: all the runnable examples
+
+### Linux
+
+#### Prerequisite
+
+* git
+* cmake
+* anaconda python distribution (only for python binding)
+* swig (only for python)
+* zip
+* g++
+
+#### build
+
+```bash
+$ bash build_linux.sh
+```
+
+after built, you will get:
+
+* ./lib: the static library.
+* ./bin: all the runnable examples.
+
+### python binding
+
+both for windows and linux user:
+
+```bash
+$ cd public/python
+$ python setup.py wrap
+$ python setup.py install
+```
+
 ## Examples
 
 * [C++ examples](examples)
