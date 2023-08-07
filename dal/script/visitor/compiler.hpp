@@ -66,28 +66,23 @@ alternative Log
 alternative Not
 alternative Uminus
 alternative True
-alternative False = 37
+alternative False
+alternative ConstVar
 -IF-------------------------------------------------------------------------*/
 
 namespace Dal::Script {
     template <class T_> struct EvalState_ {
         // State
         Vector_<T_> variables_;
-        std::map<int, double> const_variables_;
+        Vector_<T_> const_variables_;
 
         //  Constructor
-        EvalState_(int nVar, const std::map<int, double>& const_variables = std::map<int, double>()) : variables_(nVar), const_variables_(const_variables) {
-            for (const auto& var: const_variables)
-                variables_[var.first] = T_(var.second);
-        }
+        EvalState_(int nVar, const Vector_<T_>& const_variables = Vector_<T_>()) : variables_(nVar), const_variables_(const_variables) {}
 
         //  Initializer
         void Init() {
-            for (int i = 0; i < variables_.size(); ++i) {
-                auto it = const_variables_.find(i);
-                if (it == const_variables_.end())
-                    variables_[i] = T_(0.0);
-            }
+            for (auto& var: variables_)
+                var = T_(0.0);
         }
 
         const Vector_<T_>& VarVals() const { return variables_; }
@@ -132,7 +127,8 @@ namespace Dal::Script {
         Not = 35,
         Uminus = 36,
         True = 37,
-        False = 38
+        False = 38,
+        ConstVar = 39
     };
 
     class Compiler_ : public ConstVisitor_<Compiler_> {
@@ -288,6 +284,12 @@ namespace Dal::Script {
         void Visit(const NodeVar_& node) {
             nodeStream_.emplace_back(Var);
             nodeStream_.emplace_back(node.index_);
+        }
+
+        void Visit(const NodeConstVar_& node) {
+            nodeStream_.emplace_back(ConstVar);
+            nodeStream_.emplace_back(static_cast<int>(constStream_.size()));
+            constStream_.emplace_back(node.constVal_);
         }
 
         void Visit(const NodeConst_& node) {
@@ -459,6 +461,10 @@ namespace Dal::Script {
                 break;
             case Var:
                 dStack.Push(state.variables_[nodeStream[++i]]);
+                ++i;
+                break;
+            case ConstVar:
+                dStack.Push(constStream[nodeStream[++i]]);
                 ++i;
                 break;
             case Const:

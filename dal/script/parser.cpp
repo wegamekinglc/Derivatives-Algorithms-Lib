@@ -64,7 +64,7 @@ namespace Dal::Script {
             top->arguments_[0] = std::move( rhs);
             return top;
         }
-        return ParseParentheses<ParseExpr, ParseVarConstFunc>(cur, end);
+        return ParseParentheses<&Parser_::ParseExpr, &Parser_::ParseVarConstFunc>(cur, end);
     }
 
     Expression_ Parser_::ParseVarConstFunc(TokIt_& cur, const TokIt_& end) {
@@ -132,7 +132,12 @@ namespace Dal::Script {
         REQUIRE2((*cur)[0] >= 'A' && (*cur)[0] <= 'z', String_("Variable name ") + *cur + " is invalid", ScriptError_);
         REQUIRE2(RESERVED_KEY_WORDS.find(*cur) == RESERVED_KEY_WORDS.end(),
                  String_("Variable name ") + *cur + " is conflicted with an existing key word", ScriptError_);
-        auto top = MakeNode<NodeVar_>(String_(*cur));
+        String_ name(*cur);
+        Expression_ top;
+        if (const_variables_.find(name) == const_variables_.end())
+            top = MakeNode<NodeVar_>(String_(*cur));
+        else
+            top = MakeNode<NodeConstVar_>(String_(*cur), const_variables_[name]);
         ++cur;
         return std::move(top);
     }
@@ -198,11 +203,11 @@ namespace Dal::Script {
     }
 
     Expression_ Parser_::ParseCondL2(TokIt_& cur, const TokIt_& end) {
-        auto lhs = ParseParentheses<ParseCond, ParseCondElem>(cur, end);
+        auto lhs = ParseParentheses<&Parser_::ParseCond, &Parser_::ParseCondElem>(cur, end);
         while (cur != end && *cur == "AND") {
             ++cur;
             REQUIRE2(cur != end, "unexpected end of statement", ScriptError_);
-            auto rhs = ParseParentheses<ParseCond, ParseCondElem>(cur, end);
+            auto rhs = ParseParentheses<&Parser_::ParseCond, &Parser_::ParseCondElem>(cur, end);
             lhs = MakeBaseBinary<NodeAnd_>(lhs, rhs);
         }
         return lhs;
@@ -358,12 +363,12 @@ namespace Dal::Script {
         return v;
     }
 
-    Event_ Parse(const String_& event) {
+    Event_ Parser_::Parse(const String_& event) {
         Event_ e;
         auto tokens = Tokenize(event);
         Vector_<String_>::const_iterator it = tokens.begin();
         while (it != tokens.end())
-            e.push_back(Parser_::ParseStatement(it, tokens.end()));
+            e.push_back(ParseStatement(it, tokens.end()));
         return e;
     }
 } // namespace Dal::Script

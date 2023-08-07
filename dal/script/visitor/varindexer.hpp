@@ -14,6 +14,7 @@ namespace Dal::Script {
     class VarIndexer_ : public Visitor_<VarIndexer_> {
         // State
         std::map<String_, size_t> varMap_;
+        std::map<String_, std::tuple<size_t, double>> constVarMap_;
 
     public:
         using Visitor_<VarIndexer_>::Visit;
@@ -28,6 +29,24 @@ namespace Dal::Script {
             return v;
         }
 
+        [[nodiscard]] Vector_<String_> ConstVarNames() const {
+            Vector_<String_> v(constVarMap_.size());
+            for(const auto& val: constVarMap_)
+                v[std::get<0>(val.second)] = val.first;
+
+            // C++11: move not copy
+            return v;
+        }
+
+        [[nodiscard]] Vector_<double> ConstVarValues() const {
+            Vector_<double> v(constVarMap_.size());
+            for(const auto& val: constVarMap_)
+                v[std::get<0>(val.second)] = std::get<1>(val.second);
+
+            // C++11: move not copy
+            return v;
+        }
+
         // Variable indexer: build map of names to indices and write indices on variable nodes
         void Visit(NodeVar_& node) {
             auto varIt = varMap_.find(node.name_);
@@ -37,6 +56,17 @@ namespace Dal::Script {
             }
             else
                 node.index_ = static_cast<int>(varIt->second);
+        }
+
+        // Variable indexer: build map of names to indices and write indices on variable nodes
+        void Visit(NodeConstVar_& node) {
+            auto varIt = constVarMap_.find(node.name_);
+            if (varIt == constVarMap_.end()) {
+                constVarMap_[node.name_] = std::make_tuple(constVarMap_.size(), node.constVal_);
+                node.index_ = static_cast<int>(std::get<0>(constVarMap_[node.name_]));
+            }
+            else
+                node.index_ = static_cast<int>(std::get<0>(varIt->second));
         }
     };
 } // namespace Dal::Script

@@ -464,6 +464,7 @@ namespace Dal::Script {
         }
 
         void Visit(NodeConst_& node) { domStack_.Push(node.constVal_); }
+        void Visit(NodeConstVar_& node) { domStack_.Push(node.constVal_); }
 
         // Scenario related
         void Visit(NodeSpot_& node) {

@@ -17,7 +17,7 @@ namespace Dal::Script {
     protected:
         // State
         Vector_<T_> variables_;
-        std::map<int, double> const_variables_;
+        Vector_<T_> const_variables_;
 
         // Stacks
         StaticStack_<T_> dStack_;
@@ -34,10 +34,7 @@ namespace Dal::Script {
         using ConstVisitor_<EVAL_<T_>>::VisitNode;
 
         // Constructor, nVar = number of variables, from Product after parsing and variable indexation
-        EvaluatorBase_(size_t nVar, const std::map<int, double>& const_variables) : variables_(nVar), const_variables_(const_variables) {
-            for (const auto& var: const_variables)
-                variables_[var.first] = T_(var.second);
-        }
+        EvaluatorBase_(size_t nVar, const Vector_<T_>& const_variables) : variables_(nVar), const_variables_(const_variables) {}
 
         // Copy/Move
         EvaluatorBase_(const EvaluatorBase_& rhs) : variables_(rhs.variables_), const_variables_(rhs.const_variables_) {}
@@ -58,11 +55,8 @@ namespace Dal::Script {
 
         // (Re-)initialize before evaluation in each scenario
         void Init() {
-            for (int i = 0; i < variables_.size(); ++i) {
-                auto it = const_variables_.find(i);
-                if (it == const_variables_.end())
-                    variables_[i] = T_(0.0);
-            }
+            for (auto& var: variables_)
+               var = T_(0.0);
             //	Stacks should be empty, if this is not the case the empty them
             //	without affecting capacity for added performance
             dStack_.Reset();
@@ -239,6 +233,12 @@ namespace Dal::Script {
             dStack_.Push(variables_[node.index_]);
         }
 
+        FORCE_INLINE void Visit(const NodeConstVar_& node) {
+            //	Push value onto the stack
+            dStack_.Push(const_variables_[node.index_]);
+        }
+
+
         FORCE_INLINE void Visit(const NodeConst_& node) { dStack_.Push(node.constVal_); }
 
         FORCE_INLINE void Visit(const NodeTrue_& node) { bStack_.Push(true); }
@@ -249,12 +249,12 @@ namespace Dal::Script {
     };
 
     //  Concrete Evaluator_
-    template <class T> class Evaluator_ : public EvaluatorBase_<T, Evaluator_> {
+    template <class T_> class Evaluator_ : public EvaluatorBase_<T_, Evaluator_> {
 
     public:
-        using Base = EvaluatorBase_<T, Evaluator_>;
+        using Base = EvaluatorBase_<T_, Evaluator_>;
 
-        explicit Evaluator_(size_t nVar, const std::map<int, double>& const_variables = std::map<int, double>()) : Base(nVar, const_variables) {}
+        explicit Evaluator_(size_t nVar, const Vector_<T_>& const_variables = Vector_<T_>()) : Base(nVar, const_variables) {}
         Evaluator_(const Evaluator_& rhs) : Base(rhs) {}
         Evaluator_(Evaluator_&& rhs) noexcept: Base(std::move(rhs)) {}
         Evaluator_& operator=(const Evaluator_& rhs) {

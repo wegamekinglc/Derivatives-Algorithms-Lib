@@ -10,6 +10,7 @@ using namespace Dal;
 using namespace Dal::Script;
 
 TEST(VisitorTest, TestIFProcessor) {
+    Parser_ parser;
     String_ event = R"(
         IF x >= 2 THEN
             y = 3 + x
@@ -17,7 +18,7 @@ TEST(VisitorTest, TestIFProcessor) {
             y = x
         END
     )";
-    auto res = Parse(event);
+    auto res = parser.Parse(event);
 
     VarIndexer_ visitor1;
     IFProcessor_ visitor2;
@@ -30,6 +31,7 @@ TEST(VisitorTest, TestIFProcessor) {
 }
 
 TEST(VisitorTest, TestIFProcessorNested) {
+    Parser_ parser;
     String_ event = R"(
         IF x >= 2 THEN
             IF x > 4 THEN
@@ -42,7 +44,7 @@ TEST(VisitorTest, TestIFProcessorNested) {
             z = x
         END
     )";
-    auto res = Parse(event);
+    auto res = parser.Parse(event);
 
     VarIndexer_ visitor1;
     IFProcessor_ visitor2;

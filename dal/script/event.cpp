@@ -16,6 +16,7 @@ namespace Dal::Script {
     void ScriptProduct_::ParseEvents(const Vector_<std::pair<Cell_, String_>> &events) {
         Date_ evaluationDate = Global::Dates_().EvaluationDate();
         std::map<String_, String_> macros;
+        std::map<String_, double> const_variables;
         std::map<Date_, String_> processed_events;
         /*
          * we only keep the events after evaluation date
@@ -97,13 +98,13 @@ namespace Dal::Script {
                     }
                 } else {
                     REQUIRE2(macros.find(desc) == macros.end(), "macro name has already registered", ScriptError_);
-                    REQUIRE2(macro_variables_.find(desc) == macro_variables_.end(), "macro variable name has already registered", ScriptError_);
+                    REQUIRE2(const_variables.find(desc) == const_variables.end(), "const macro name has already registered", ScriptError_);
                     REQUIRE2(processed_events.empty(), "macros should always at the front", ScriptError_);
 
                     if (String::IsNumber(event.second))
-                        macro_variables_[Cell::ToString(cell)] = String::ToDouble(event.second);
+                        const_variables[desc] = String::ToDouble(event.second);
                     else
-                        macros[Cell::ToString(cell)] = event.second;
+                        macros[desc] = event.second;
                 }
             } else if (Cell::IsDate(cell) && Cell::ToDate(cell) >= evaluationDate) {
                 String_ replaced = event.second;
@@ -119,8 +120,9 @@ namespace Dal::Script {
         }
 
         for (const auto &processed_event: processed_events) {
+            Parser_ parser(const_variables);
             eventDates_.push_back(processed_event.first);
-            events_.push_back(Parse(processed_event.second));
+            events_.push_back(parser.Parse(processed_event.second));
         }
     }
 
@@ -128,15 +130,8 @@ namespace Dal::Script {
         VarIndexer_ indexer;
         Visit(indexer);
         variables_ = indexer.VarNames();
-
-        // const variable indexes
-        for (auto i = 0; i < variables_.size(); ++i) {
-            for (const auto& macro: macro_variables_)
-                if (variables_[i] == macro.first) {
-                    const_indexed_vars_[i] = macro.second;
-                    break;
-                }
-        }
+        const_variables_ = indexer.ConstVarNames();
+        const_variables_values_ = indexer.ConstVarValues();
     }
 
     size_t ScriptProduct_::IFProcess() {

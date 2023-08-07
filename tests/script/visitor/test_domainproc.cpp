@@ -10,10 +10,12 @@ using namespace Dal;
 using namespace Dal::Script;
 
 TEST(VisitorTtest, TestDomainConst) {
+    Parser_ parser;
+
     String_ event = R"(
         x = 2
     )";
-    auto res = Parse(event);
+    auto res = parser.Parse(event);
 
     VarIndexer_ indexer;
     for (auto& stat : res)
@@ -30,10 +32,11 @@ TEST(VisitorTtest, TestDomainConst) {
 }
 
 TEST(VisitorTtest, TestDomainContinus) {
+    Parser_ parser;
     String_ event = R"(
         x = SQRT(spot())
     )";
-    auto res = Parse(event);
+    auto res = parser.Parse(event);
 
     VarIndexer_ indexer;
     for (auto& stat : res)

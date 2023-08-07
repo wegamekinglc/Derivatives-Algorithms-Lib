@@ -107,6 +107,16 @@ namespace Dal::Script {
         int index_;
     };
 
+    struct NodeConstVar_: public Visitable_<ExprNode_, NodeConstVar_, VISITORS> {
+        explicit NodeConstVar_(String_ name, double val) : name_(std::move(name)), index_(-1) {
+            ExprNode_::isConst_ = true;
+            ExprNode_::constVal_ = val;
+        }
+
+        const String_ name_;
+        int index_;
+    };
+
     //	Assign, Pays
 
     struct NodeAssign_ : public Visitable_<ActNode_, NodeAssign_, VISITORS> {};
