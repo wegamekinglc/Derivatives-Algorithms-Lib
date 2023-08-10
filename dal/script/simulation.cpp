@@ -11,30 +11,44 @@
 
 namespace Dal::Script {
 
-    AAD::Position_ InitModel4ParallelAAD(AAD::Tape_& tape, const ScriptProduct_& prd, AAD::Model_<AAD::Number_>& clonedMdl, Scenario_<AAD::Number_>& path) {
-        tape.reset();
-        tape.setActive();
-        clonedMdl.PutParametersOnTape(tape);
-        clonedMdl.Init(prd.TimeLine(), prd.DefLine());
-        InitializePath(path);
-        return tape.getPosition();
-    }
+    namespace {
+        constexpr const size_t BATCH_SIZE = 8192;
 
-    std::unique_ptr<Random_> CreateRNG(const String_& method, size_t n_dim, bool use_bb) {
-        std::unique_ptr<Random_> rsg;
-        if (method == "sobol")
-            rsg = std::unique_ptr<Random_>(NewSobol(static_cast<int>(n_dim), 2048));
-        else if (method == "mrg32")
-            rsg = std::unique_ptr<Random_>(New(RNGType_("MRG32"), 1024, n_dim));
-        else if (method == "irn")
-            rsg = std::unique_ptr<Random_>(New(RNGType_("IRN"), 1024, n_dim));
-        else
-            THROW("rng method is not known");
+        template<class E_>
+        AAD::Position_ InitModel4ParallelAAD(AAD::Tape_& tape,
+                                             const ScriptProduct_& prd,
+                                             AAD::Model_<AAD::Number_>& clonedMdl,
+                                             Scenario_<AAD::Number_>& path,
+                                             E_& evaluator) {
+            tape.reset();
+            tape.setActive();
+            for (Number_* param : clonedMdl.Parameters())
+                tape.registerInput(*param);
 
-        if (use_bb)
-            return std::make_unique<BrownianBridge_>(std::move(rsg));
-        else
-            return rsg;
+            for (Number_& param : evaluator.ConstVarVals())
+                tape.registerInput(param);
+
+            clonedMdl.Init(prd.TimeLine(), prd.DefLine());
+            InitializePath(path);
+            return tape.getPosition();
+        }
+
+        std::unique_ptr<Random_> CreateRNG(const String_& method, size_t n_dim, bool use_bb) {
+            std::unique_ptr<Random_> rsg;
+            if (method == "sobol")
+                rsg = std::unique_ptr<Random_>(NewSobol(static_cast<int>(n_dim), 2048));
+            else if (method == "mrg32")
+                rsg = std::unique_ptr<Random_>(New(RNGType_("MRG32"), 1024, n_dim));
+            else if (method == "irn")
+                rsg = std::unique_ptr<Random_>(New(RNGType_("IRN"), 1024, n_dim));
+            else
+                THROW("rng method is not known");
+
+            if (use_bb)
+                return std::make_unique<BrownianBridge_>(std::move(rsg));
+            else
+                return rsg;
+        }
     }
 
     SimResults_<> MCSimulation(const ScriptProduct_& product,
@@ -136,7 +150,8 @@ namespace Dal::Script {
         std::unique_ptr<Random_> rng = CreateRNG(rsg, mdl->SimDim(), use_bb);
 
         const auto n_params = mdl->Parameters().size();
-        SimResults_<AAD::Number_> results(n_params);
+        const auto n_const_vars = product.ConstVarNames().size();
+        SimResults_<AAD::Number_> results(Dal::Vector::Join(mdl->ParameterLabels(), product.ConstVarNames()));
 
         ThreadPool_* pool = ThreadPool_::GetInstance();
         const size_t n_thread = pool->NumThreads();
@@ -207,21 +222,24 @@ namespace Dal::Script {
                     tapes[n_threads] = &AAD::Number_::getTape();
                 AAD::Tape_* tape = tapes[n_threads];
 
-                //  Initialize once on each thread
-                if (!model_init[n_threads]) {
-                    start_positions[n_threads] = InitModel4ParallelAAD(*tape, product, *model, path);
-                    model_init[n_threads] = true;
-                }
                 auto& pos = start_positions[n_threads];
 
                 double sum_val = 0.0;
                 if (compiled) {
                     EvalState_<AAD::Number_>& eval_state = eval_state_s[n_threads];
+
+                    //  Initialize once on each thread
+                    if (!model_init[n_threads]) {
+                        start_positions[n_threads] = InitModel4ParallelAAD(*tape, product, *model, path, eval_state);
+                        model_init[n_threads] = true;
+                    }
+
+                    auto pay_num = eval_state.VarVals().size() - 1;
                     for (size_t i = 0; i < pathsInTask; i++) {
                         random->FillNormal(&gVec);
                         model->GeneratePath(gVec, &path);
                         product.EvaluateCompiled(path, eval_state);
-                        AAD::Number_ res = eval_state.VarVals()[0];
+                        AAD::Number_ res = eval_state.VarVals()[pay_num];
                         res.setGradient(1.0);
                         tape->evaluate(tape->getPosition(), pos);
                         sum_val += res.value();
@@ -230,11 +248,19 @@ namespace Dal::Script {
                 }
                 else if (max_nested_ifs > 0) {
                     FuzzyEvaluator_<AAD::Number_>& eval = fuzzy_eval_s[n_threads];
+
+                    //  Initialize once on each thread
+                    if (!model_init[n_threads]) {
+                        start_positions[n_threads] = InitModel4ParallelAAD(*tape, product, *model, path, eval);
+                        model_init[n_threads] = true;
+                    }
+
+                    auto pay_num = eval.VarVals().size() - 1;
                     for (size_t i = 0; i < pathsInTask; i++) {
                         random->FillNormal(&gVec);
                         model->GeneratePath(gVec, &path);
                         product.Evaluate(path, eval);
-                        AAD::Number_ res = eval.VarVals()[0];
+                        AAD::Number_ res = eval.VarVals()[pay_num];
                         res.setGradient(1.0);
                         tape->evaluate(tape->getPosition(), pos);
                         sum_val += res.value();
@@ -242,11 +268,19 @@ namespace Dal::Script {
                     }
                 } else {
                     Evaluator_<AAD::Number_>& eval = eval_s[n_threads];
+
+                    //  Initialize once on each thread
+                    if (!model_init[n_threads]) {
+                        start_positions[n_threads] = InitModel4ParallelAAD(*tape, product, *model, path, eval);
+                        model_init[n_threads] = true;
+                    }
+
+                    auto pay_num = eval.VarVals().size() - 1;
                     for (size_t i = 0; i < pathsInTask; i++) {
                         random->FillNormal(&gVec);
                         model->GeneratePath(gVec, &path);
                         product.Evaluate(path, eval);
-                        AAD::Number_ res = eval.VarVals()[0];
+                        AAD::Number_ res = eval.VarVals()[pay_num];
                         res.setGradient(1.0);
                         tape->evaluate(tape->getPosition(), pos);
                         sum_val += res.value();
@@ -258,6 +292,17 @@ namespace Dal::Script {
                 tape->evaluate(pos, tape->getZeroPosition());
                 for (size_t j = 0; j < n_params; ++j)
                     results.risks_[j] += model->Parameters()[j]->getGradient() / static_cast<double>(n_paths);
+
+                if (compiled) {
+                    for (size_t j = 0; j < n_const_vars; ++j)
+                        results.risks_[j + n_params] +=  eval_state_s[n_threads].ConstVarVals()[j].getGradient() / static_cast<double>(n_paths);
+                }  else if (max_nested_ifs > 0) {
+                    for (size_t j = 0; j < n_const_vars; ++j)
+                        esults.risks_[j + n_params] +=  fuzzy_eval_s[n_threads].ConstVarVals()[j].getGradient() / static_cast<double>(n_paths);
+                } else {
+                    for (size_t j = 0; j < n_const_vars; ++j)
+                        results.risks_[j + n_params] +=  eval_s[n_threads].ConstVarVals()[j].getGradient() / static_cast<double>(n_paths);
+                }
                 tape->reset(false);
 #endif
                 return true;
@@ -283,6 +328,22 @@ namespace Dal::Script {
                 if (model_init[i])
                     results.risks_[j] += models[i]->Parameters()[j]->getGradient() / static_cast<double>(n_paths);
 
+        if (compiled) {
+            for (size_t j = 0; j < n_const_vars; ++j)
+                for (size_t i = 0; i < eval_state_s[i].ConstVarVals().size(); ++i)
+                    if (model_init[i])
+                        results.risks_[j + n_params] +=  eval_state_s[i].ConstVarVals()[j].getGradient() / static_cast<double>(n_paths);
+        }  else if (max_nested_ifs > 0) {
+            for (size_t j = 0; j < n_const_vars; ++j)
+                for (size_t i = 0; i < fuzzy_eval_s[i].ConstVarVals().size(); ++i)
+                    if (model_init[i])
+                        results.risks_[j + n_params] +=  fuzzy_eval_s[i].ConstVarVals()[j].getGradient() / static_cast<double>(n_paths);
+        } else {
+            for (size_t j = 0; j < n_const_vars; ++j)
+                for (size_t i = 0; i < eval_s[i].ConstVarVals().size(); ++i)
+                    if (model_init[i])
+                        results.risks_[j + n_params] +=  eval_s[i].ConstVarVals()[j].getGradient() / static_cast<double>(n_paths);
+        }
         for (size_t i = 0; i < n_thread + 1; ++i)
             if (model_init[i])
                 tapes[i]->reset();

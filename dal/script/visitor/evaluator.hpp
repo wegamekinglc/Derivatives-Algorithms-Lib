@@ -53,6 +53,14 @@ namespace Dal::Script {
             return *this;
         }
 
+        Vector_<T_>& ConstVarVals() {
+            return const_variables_;
+        }
+        
+        const Vector_<T_>& ConstVarVals() const {
+            return const_variables_;
+        }
+
         // (Re-)initialize before evaluation in each scenario
         void Init() {
             for (auto& var: variables_)

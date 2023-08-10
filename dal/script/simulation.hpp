@@ -13,10 +13,6 @@
 
 namespace Dal::Script {
 
-    constexpr const size_t BATCH_SIZE = 8192;
-    std::unique_ptr<Random_> CreateRNG(const String_& method, size_t n_dim, bool use_bb = false);
-    AAD::Position_ InitModel4ParallelAAD(AAD::Tape_& tape, const ScriptProduct_& prd, AAD::Model_<AAD::Number_>& clonedMdl, Scenario_<AAD::Number_>& path);
-
     template <class T_ = double> struct SimResults_;
 
     template <>
@@ -27,9 +23,10 @@ namespace Dal::Script {
 
     template <>
     struct SimResults_<AAD::Number_> {
-        explicit SimResults_(int nParam) : aggregated_(0.0), risks_(nParam) {}
+        explicit SimResults_(const Vector_<String_>& names) : aggregated_(0.0), risks_(names.size()), names_(names) {}
         double aggregated_;
         Vector_<> risks_;
+        Vector_<String_> names_;
     };
 
     SimResults_<> MCSimulation(const ScriptProduct_& product,

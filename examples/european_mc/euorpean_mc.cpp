@@ -51,7 +51,7 @@ int main() {
     
     int max_nested = product.PreProcess(false, false);
 
-    Vector_<int> widths = {28, 14, 14, 14, 14, 14, 14};
+    Vector_<int> widths = {28, 14, 14, 14, 14, 14, 14, 14};
     double discounts = std::exp(-rate * t);
     double fwd = std::exp((rate - div) * t) * spot;
     double vol_std = std::sqrt(t) * vol;
@@ -62,8 +62,9 @@ int main() {
               << std::setw(widths[2]) << std::right << "price"
               << std::setw(widths[3]) << std::right << "benchmark"
               << std::setw(widths[4]) << std::right << "delta"
-              << std::setw(widths[5]) << std::right << "Diff (bps)"
-              << std::setw(widths[6]) << std::right << "Elapsed (ms)"
+//              << std::setw(widths[5]) << std::right << "dStrike"
+              << std::setw(widths[6]) << std::right << "Diff (bps)"
+              << std::setw(widths[7]) << std::right << "Elapsed (ms)"
               << std::endl;
     for (int i = 12; i <= 25; ++i) {
         timer.Reset();
@@ -74,13 +75,17 @@ int main() {
         std::cout << std::setw(widths[0]) << std::right << int(std::pow(2, i))
                   << std::fixed
                   << std::setw(widths[1]) << std::right << spot
-                  << std::setprecision(8)
+                  << std::setprecision(6)
                   << std::setw(widths[2]) << std::right << calculated
                   << std::setw(widths[3]) << std::right << benchmark
                   << std::setw(widths[4]) << std::right << results.risks_[0]
-                  << std::setw(widths[5]) << std::right << (calculated - benchmark) / benchmark * 10000
-                  << std::setw(widths[6]) << std::right << int(timer.Elapsed<milliseconds>())
+//                  << std::setw(widths[5]) << std::right << results.risks_[1]
+                  << std::setw(widths[6]) << std::right << (calculated - benchmark) / benchmark * 10000
+                  << std::setw(widths[7]) << std::right << int(timer.Elapsed<milliseconds>())
                   << std::endl;
+
+        for (const auto& res: Zip(results.names_, results.risks_))
+            std::cout << res.first << ": " << res.second << std::endl;
     }
     return 0;
 }

@@ -85,7 +85,11 @@ namespace Dal::Script {
                 var = T_(0.0);
         }
 
+
         const Vector_<T_>& VarVals() const { return variables_; }
+        Vector_<T_>& ConstVarVals() {
+            return const_variables_;
+        }
     };
 
     enum NodeType_ {
