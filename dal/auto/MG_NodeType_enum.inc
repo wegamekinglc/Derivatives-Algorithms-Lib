@@ -46,6 +46,7 @@ Vector_<NodeType_> NodeTypeListAll() {
         TheNodeTypeList().emplace_back(NodeType_::Value_::Uminus);
         TheNodeTypeList().emplace_back(NodeType_::Value_::True);
         TheNodeTypeList().emplace_back(NodeType_::Value_::False);
+        TheNodeTypeList().emplace_back(NodeType_::Value_::ConstVar);
    }
    return TheNodeTypeList();
 }
@@ -133,6 +134,8 @@ const char* NodeType_::String() const {
         return "True";
     case Value_::False:
         return "False";
+    case Value_::ConstVar:
+        return "ConstVar";
         
     }}
 
@@ -260,6 +263,9 @@ struct ReadStringNodeType_
 
 	else if (String::Equivalent(src, "FALSE"))
         *val = NodeType_::Value_::False;
+
+	else if (String::Equivalent(src, "CONSTVAR"))
+        *val = NodeType_::Value_::ConstVar;
         else
             ret_val = false;
         return ret_val;

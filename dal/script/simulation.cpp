@@ -298,7 +298,7 @@ namespace Dal::Script {
                         results.risks_[j + n_params] +=  eval_state_s[n_threads].ConstVarVals()[j].getGradient() / static_cast<double>(n_paths);
                 }  else if (max_nested_ifs > 0) {
                     for (size_t j = 0; j < n_const_vars; ++j)
-                        esults.risks_[j + n_params] +=  fuzzy_eval_s[n_threads].ConstVarVals()[j].getGradient() / static_cast<double>(n_paths);
+                        results.risks_[j + n_params] +=  fuzzy_eval_s[n_threads].ConstVarVals()[j].getGradient() / static_cast<double>(n_paths);
                 } else {
                     for (size_t j = 0; j < n_const_vars; ++j)
                         results.risks_[j + n_params] +=  eval_s[n_threads].ConstVarVals()[j].getGradient() / static_cast<double>(n_paths);

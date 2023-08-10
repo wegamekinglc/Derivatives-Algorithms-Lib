@@ -43,6 +43,7 @@ public class NodeType
 		UMINUS,
 		TRUE,
 		FALSE,
+		CONSTVAR,
         N_VALUES
     }
 }

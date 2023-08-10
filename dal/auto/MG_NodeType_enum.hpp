@@ -6,7 +6,7 @@ public:
     enum class Value_ : char
     {
      _NOT_SET=-1,
-    False = 37,		     Add,
+     Add,
      AddConst,
      Sub,
      SubConst,
@@ -43,6 +43,8 @@ public:
      Not,
      Uminus,
      True,
+     False,
+     ConstVar,
      _N_VALUES
     } val_;
       
