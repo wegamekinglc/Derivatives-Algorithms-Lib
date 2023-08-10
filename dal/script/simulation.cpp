@@ -330,17 +330,17 @@ namespace Dal::Script {
 
         if (compiled) {
             for (size_t j = 0; j < n_const_vars; ++j)
-                for (size_t i = 0; i < eval_state_s[i].ConstVarVals().size(); ++i)
+                for (size_t i = 0; i < eval_state_s.size(); ++i)
                     if (model_init[i])
                         results.risks_[j + n_params] +=  eval_state_s[i].ConstVarVals()[j].getGradient() / static_cast<double>(n_paths);
         }  else if (max_nested_ifs > 0) {
             for (size_t j = 0; j < n_const_vars; ++j)
-                for (size_t i = 0; i < fuzzy_eval_s[i].ConstVarVals().size(); ++i)
+                for (size_t i = 0; i < fuzzy_eval_s.size(); ++i)
                     if (model_init[i])
                         results.risks_[j + n_params] +=  fuzzy_eval_s[i].ConstVarVals()[j].getGradient() / static_cast<double>(n_paths);
         } else {
             for (size_t j = 0; j < n_const_vars; ++j)
-                for (size_t i = 0; i < eval_s[i].ConstVarVals().size(); ++i)
+                for (size_t i = 0; i < eval_s.size(); ++i)
                     if (model_init[i])
                         results.risks_[j + n_params] +=  eval_s[i].ConstVarVals()[j].getGradient() / static_cast<double>(n_paths);
         }

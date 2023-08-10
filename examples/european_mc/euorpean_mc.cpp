@@ -61,8 +61,8 @@ int main() {
               << std::setw(widths[1]) << std::right << "spot"
               << std::setw(widths[2]) << std::right << "price"
               << std::setw(widths[3]) << std::right << "benchmark"
-              << std::setw(widths[4]) << std::right << "delta"
-//              << std::setw(widths[5]) << std::right << "dStrike"
+              << std::setw(widths[4]) << std::right << "dSPOT"
+              << std::setw(widths[5]) << std::right << "dSTRIKE"
               << std::setw(widths[6]) << std::right << "Diff (bps)"
               << std::setw(widths[7]) << std::right << "Elapsed (ms)"
               << std::endl;
@@ -78,14 +78,11 @@ int main() {
                   << std::setprecision(6)
                   << std::setw(widths[2]) << std::right << calculated
                   << std::setw(widths[3]) << std::right << benchmark
-                  << std::setw(widths[4]) << std::right << results.risks_[0]
-//                  << std::setw(widths[5]) << std::right << results.risks_[1]
+                  << std::setw(widths[4]) << std::right << results["SPOT"]
+                  << std::setw(widths[5]) << std::right << results["STRIKE"]
                   << std::setw(widths[6]) << std::right << (calculated - benchmark) / benchmark * 10000
                   << std::setw(widths[7]) << std::right << int(timer.Elapsed<milliseconds>())
                   << std::endl;
-
-        for (const auto& res: Zip(results.names_, results.risks_))
-            std::cout << res.first << ": " << res.second << std::endl;
     }
     return 0;
 }

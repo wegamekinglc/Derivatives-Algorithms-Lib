@@ -9,6 +9,7 @@
 #include <dal/math/random/brownianbridge.hpp>
 #include <dal/math/random/sobol.hpp>
 #include <dal/math/random/pseudorandom.hpp>
+#include <dal/utilities/dictionary.hpp>
 
 
 namespace Dal::Script {
@@ -23,10 +24,18 @@ namespace Dal::Script {
 
     template <>
     struct SimResults_<AAD::Number_> {
-        explicit SimResults_(const Vector_<String_>& names) : aggregated_(0.0), risks_(names.size()), names_(names) {}
+        explicit SimResults_(const Vector_<String_>& names) : aggregated_(0.0), risks_(names.size()), names_(names) {
+            for(auto i = 0; i < names.size(); ++i)
+                results_[names[i]] = &risks_[i];
+        }
         double aggregated_;
         Vector_<> risks_;
         Vector_<String_> names_;
+        std::map<String_, const double*> results_;
+
+        FORCE_INLINE double operator[](const String_& name) {
+            return *results_[name];
+        }
     };
 
     SimResults_<> MCSimulation(const ScriptProduct_& product,
