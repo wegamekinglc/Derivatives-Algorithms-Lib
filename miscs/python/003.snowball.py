@@ -24,8 +24,9 @@ events = [f"{ki:.6f}", f"{ko:.6f}", f"{spot:.6f}", f"{coupon:.6f}", "alive = 1 i
 n_paths = 8192
 use_bb = False
 rsg = "sobol"
+freq = "1M"
 
-event_dates.append("START: 2023-06-01 END: 2025-02-01 FREQ: 1M")
+event_dates.append(f"START: 2023-06-01 END: 2025-02-01 FREQ: {freq}")
 events.append(
     f"""
     if spot() < KI:0.001 then is_ki = 1 end
@@ -51,7 +52,7 @@ print(f"NPV date  : {event_dates[4]}")
 print(f"Maturity  : {event_dates[-1]}")
 print(f"knock in  : {ki:.2f}")
 print(f"knock out : {ko:.2f}")
-print(f"# of obs  : {len(event_dates) - 4}")
+print(f"# of obs  : {(len(event_dates) - 4) * 12 if freq == '1M' else (len(event_dates) - 4) * 51}")
 print(f"# of paths: {n_paths}\n")
 
 
@@ -61,11 +62,11 @@ model = BSModelData_New(spot, vol, rate, div)
 print("------ Product Evaluation  ------")
 now = dt.datetime.now()
 res = MonteCarlo_Value(product, model, n_paths, rsg, use_bb, False)
-all_res = {"Non-AAD": [res["value"], np.nan, np.nan, np.nan, np.nan, (dt.datetime.now() - now).total_seconds() * 1000]}
+all_res = {"Non-AAD": [res["PV"], np.nan, np.nan, np.nan, np.nan, (dt.datetime.now() - now).total_seconds() * 1000]}
 
 now = dt.datetime.now()
 res = MonteCarlo_Value(product, model, n_paths, rsg, use_bb, True)
-all_res["AAD"] = [res["value"], res["d_spot"], res["d_vol"], res["d_rate"], res["d_div"], (dt.datetime.now() - now).total_seconds() * 1000]
+all_res["AAD"] = [res["PV"], res["d_spot"], res["d_vol"], res["d_rate"], res["d_div"], (dt.datetime.now() - now).total_seconds() * 1000]
 
 df = pd.DataFrame.from_dict(all_res)
 df.index = ["NPV", "delta", "vega", "dP/dR", "dP/dDiv", "Elapsed (ms)"]

@@ -107,19 +107,21 @@ namespace Dal::Script {
                 random->SkipTo(firstPath);
                 if (compiled) {
                     EvalState_<double>& eval_state = eval_state_s[threadNum];
+                    auto pay_num = eval_state.VarVals().size() - 1;
                     for (size_t i = 0; i < pathsInTask; ++i) {
                         random->FillNormal(&gaussVec);
                         mdl->GeneratePath(gaussVec, &path);
                         product.EvaluateCompiled(path, eval_state);
-                        sim_result += eval_state.VarVals()[0];
+                        sim_result += eval_state.VarVals()[pay_num];
                     }
                 } else {
                     Evaluator_<double>& eval = eval_s[threadNum];
+                    auto pay_num = eval.VarVals().size() - 1;
                     for (size_t i = 0; i < pathsInTask; ++i) {
                         random->FillNormal(&gaussVec);
                         mdl->GeneratePath(gaussVec, &path);
                         product.Evaluate(path, eval);
-                        sim_result += eval.VarVals()[0];
+                        sim_result += eval.VarVals()[pay_num];
                     }
                 }
                 return true;

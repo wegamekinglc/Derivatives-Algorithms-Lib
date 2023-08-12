@@ -61,11 +61,11 @@ model = BSModelData_New(spot, vol, rate, div)
 print("------ Product Evaluation  ------")
 now = dt.datetime.now()
 res = MonteCarlo_Value(product, model, n_paths, rsg, use_bb, False)
-all_res = {"Non-AAD": [res["value"], np.nan, np.nan, np.nan, np.nan, (dt.datetime.now() - now).total_seconds() * 1000]}
+all_res = {"Non-AAD": [res["PV"], np.nan, np.nan, np.nan, np.nan, (dt.datetime.now() - now).total_seconds() * 1000]}
 
 now = dt.datetime.now()
 res = MonteCarlo_Value(product, model, n_paths, rsg, use_bb, True)
-all_res["AAD"] = [res["value"], res["d_spot"], res["d_vol"], res["d_rate"], res["d_div"], (dt.datetime.now() - now).total_seconds() * 1000]
+all_res["AAD"] = [res["PV"], res["d_spot"], res["d_vol"], res["d_rate"], res["d_div"], (dt.datetime.now() - now).total_seconds() * 1000]
 
 df = pd.DataFrame.from_dict(all_res)
 df.index = ["NPV", "delta", "vega", "dP/dR", "dP/dDiv", "Elapsed (ms)"]
