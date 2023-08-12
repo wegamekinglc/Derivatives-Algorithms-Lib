@@ -21,7 +21,10 @@ namespace Dal {
         }
     }
 
-    void ThreadPool_::Start(const size_t& nThread, bool restart) {
+    void ThreadPool_::Start(size_t nThread, bool restart) {
+        if (nThread == 0 | nThread >= std::thread::hardware_concurrency() - 1)
+            nThread = std::thread::hardware_concurrency() - 1;
+
         if (active_ && restart) {
             Stop();
         }
