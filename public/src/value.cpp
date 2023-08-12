@@ -64,10 +64,9 @@ namespace Dal {
             }
             int max_nested_ifs = prd.PreProcess(true, true);
             SimResults_<AAD::Number_> results = MCSimulation(prd, *aad_model, n_paths, rsg, use_bb, max_nested_ifs, smooth);
-            Vector_<String_> parameters = aad_model->ParameterLabels();
-            res["value"] = results.aggregated_ / static_cast<double>(n_paths);
-            for(int i = 0; i < parameters.size(); ++i)
-                res["d_" + parameters[i]] = results.risks_[i];
+            res["PV"] = results.aggregated_ / static_cast<double>(n_paths);
+            for(const auto& n: results.names_)
+                res["d_" + n] = results[n];
         }
         else {
             if (model_type == "BSModelData_") {
@@ -88,8 +87,7 @@ namespace Dal {
             }
             prd.PreProcess(false, false);
             SimResults_<> results = MCSimulation(prd, *model, n_paths, rsg, use_bb);
-            auto sum = 0.0;
-            res["value"] = results.aggregated_ / static_cast<double>(n_paths);
+            res["PV"] = results.aggregated_ / static_cast<double>(n_paths);
             return res;
         }
         return res;
