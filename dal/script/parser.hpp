@@ -36,8 +36,8 @@ namespace Dal::Script {
         // Parentheses, Level5
         using ParseFunc = Expression_ (Parser_::*)(TokIt_&, const TokIt_&);
 
-        template <ParseFunc FuncOnMatch, ParseFunc FuncOnNoMatch>
-        Expression_ ParseParentheses( TokIt_& cur, const TokIt_& end) {
+        template <ParseFunc FuncOnMatch_, ParseFunc FuncOnNoMatch_>
+        Expression_ ParseParentheses(TokIt_& cur, const TokIt_& end) {
             Expression_ tree;
 
             // Do we have an opening '('?
@@ -47,14 +47,14 @@ namespace Dal::Script {
 
                 // Parse the parenthesed condition/expression, including nested parentheses,
                 // by recursively calling the parent parseCond/parseExpr
-                tree = (this->*FuncOnMatch)(++cur, closeIt);
+                tree = (this->*FuncOnMatch_)(++cur, closeIt);
 
                 // Advance cur after matching )
                 cur = ++closeIt;
             }
             else {
                 // No (, so leftmost we move one level up
-                tree = (this->*FuncOnNoMatch)(cur, end);
+                tree = (this->*FuncOnNoMatch_)(cur, end);
             }
             return tree;
         }

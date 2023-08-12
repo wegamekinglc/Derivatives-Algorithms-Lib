@@ -4,17 +4,13 @@
 
 #include <dal/platform/strict.hpp>
 #include <dal/script/event.hpp>
-#include <dal/math/matrix/matrixutils.hpp>
 #include <dal/script/visitor/debugger.hpp>
 #include <dal/storage/globals.hpp>
 
 namespace Dal::Script {
 
-#include <dal/auto/MG_ScriptProductData_v1_Read.inc>
-#include <dal/auto/MG_ScriptProductData_v1_Write.inc>
-
     void ScriptProduct_::ParseEvents(const Vector_<std::pair<Cell_, String_>> &events) {
-        Date_ evaluationDate = Global::Dates_().EvaluationDate();
+        Date_ evaluationDate = Global::Dates_::EvaluationDate();
         std::map<String_, String_> macros;
         std::map<String_, double> const_variables;
         std::map<Date_, String_> processed_events;
@@ -171,7 +167,7 @@ namespace Dal::Script {
 
         // generate time line and definition
         // TODO: more specific data settings
-        const auto evaluationDate = Global::Dates_().EvaluationDate();
+        const auto evaluationDate = Global::Dates_::EvaluationDate();
         for (auto& date : eventDates_) {
             const double ttm = (date - evaluationDate) / 365.0;
             timeLine_.emplace_back(ttm);
@@ -233,6 +229,10 @@ namespace Dal::Script {
             dataStreams_.push_back(comp.DataStream());
         }
     }
+
+
+#include <dal/auto/MG_ScriptProductData_v1_Read.inc>
+#include <dal/auto/MG_ScriptProductData_v1_Write.inc>
 
     void ScriptProductData_::Write(Archive::Store_& dst) const {
         ScriptProductData_v1::XWrite(dst, name_, eventDates_, eventDesc_);

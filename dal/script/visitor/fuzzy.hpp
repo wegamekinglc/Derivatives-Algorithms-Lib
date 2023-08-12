@@ -160,7 +160,6 @@ namespace Dal::Script {
                 if (node.firstElse_ != -1)
                     for (size_t i = node.firstElse_; i < node.arguments_.size(); ++i)
                         VisitNode(*node.arguments_[i]);
-
             }
             //	Fuzzy
             else {
@@ -203,9 +202,8 @@ namespace Dal::Script {
             const T expr = dStack_.TopAndPop();
 
             //	Discrete case: 0 is a IsSingleton in expr's domain
-            if (node.isDiscrete_) {
+            if (node.isDiscrete_)
                 fuzzyStack_.Push(BFly(expr, node.lb_, node.rb_));
-            }
             //	Continuous case: 0 is part of expr's IsContinuous domain
             else {
                 //	Effective epsilon: take default unless overwritten on the node

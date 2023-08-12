@@ -266,10 +266,12 @@ namespace Dal::Script {
         Evaluator_(const Evaluator_& rhs) : Base(rhs) {}
         Evaluator_(Evaluator_&& rhs) noexcept: Base(std::move(rhs)) {}
         Evaluator_& operator=(const Evaluator_& rhs) {
-            return Base::operator=(rhs);
+            Base::operator=(rhs);
+            return *this;
         }
         Evaluator_& operator=(Evaluator_&& rhs) noexcept {
-            return Base::operator=(std::move(rhs));
+            Base::operator=(std::move(rhs));
+            return *this;
         }
     };
 

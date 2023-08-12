@@ -137,7 +137,6 @@ namespace Dal::Script {
             : Storable_("ScriptProduct", name), eventDates_(dates), eventDesc_(events),
               product_(eventDates_, eventDesc_) {}
         void Write(Archive::Store_& dst) const override;
-
         ScriptProduct_& Product() const { return product_; }
     };
 } // namespace Dal::Script

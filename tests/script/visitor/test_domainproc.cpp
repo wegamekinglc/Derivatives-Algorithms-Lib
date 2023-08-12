@@ -26,8 +26,8 @@ TEST(VisitorTtest, TestDomainConst) {
         stat->Accept(processor);
 
     const auto domains = processor.VarDomains();
-    ASSERT_EQ(domains[0].MinBound(), 2.0);
-    ASSERT_EQ(domains[0].MaxBound(), 2.0);
+    ASSERT_EQ(domains[0].MinBound(), Bound_(2.0));
+    ASSERT_EQ(domains[0].MaxBound(), Bound_(2.0));
     ASSERT_EQ(domains[0].IsConstant(), true);
 }
 
@@ -47,6 +47,6 @@ TEST(VisitorTtest, TestDomainContinus) {
         stat->Accept(processor);
 
     const auto domains = processor.VarDomains();
-    ASSERT_EQ(domains[0].MinBound(), 0.0);
+    ASSERT_EQ(domains[0].MinBound(), Bound_(0.0));
     ASSERT_EQ(domains[0].IsPositive(), true);
 }

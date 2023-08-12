@@ -10,6 +10,6 @@
 
 namespace Dal::Script {
 
-    const Bound::PlusInfinity Bound::plusInfinity_;
-    const Bound::MinusInfinity Bound::minusInfinity_;
+    const Bound_::PlusInfinity Bound_::plusInfinity_;
+    const Bound_::MinusInfinity Bound_::minusInfinity_;
 } // namespace Dal::Script

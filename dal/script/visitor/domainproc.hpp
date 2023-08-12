@@ -69,8 +69,8 @@ namespace Dal::Script {
         using Visitor_<DomainProcessor_>::Visit;
 
         // Domains start with the IsSingleton 0
-        DomainProcessor_(const size_t nVar, const bool fuzzy)
-            : fuzzy_(fuzzy), varDomains_(nVar, 0.0), isLhsVar_(false), lhsVarIdx_(-1) {}
+        DomainProcessor_(const size_t n_vars, bool fuzzy)
+            : fuzzy_(fuzzy), varDomains_(n_vars, Domain_(0.0)), isLhsVar_(false), lhsVarIdx_(-1) {}
 
         [[nodiscard]] const Vector_<Domain_>& VarDomains() const {
             return varDomains_;
@@ -108,8 +108,8 @@ namespace Dal::Script {
         }
         void Visit(NodePow_& node) {
             VisitArguments(node);
-            Domain_ res = domStack_[1].applyFunc2<double (*)(double, double)>(
-                pow, domStack_[0], Interval(Bound::minusInfinity_, Bound::plusInfinity_));
+            Domain_ res = domStack_[1].ApplyFunc2<double (*)(double, double)>(
+                pow, domStack_[0], Interval_(Bound_(Bound_::minusInfinity_), Bound_(Bound_::plusInfinity_)));
             domStack_.Pop(2);
             domStack_.Push(std::move(res));
         }
@@ -124,23 +124,23 @@ namespace Dal::Script {
         // Functions
         void Visit(NodeLog_& node) {
             VisitArguments(node);
-            Domain_ res = domStack_.Top().applyFunc<double (*)(double)>(
-                log, Interval(0.0, Bound::plusInfinity_));
+            Domain_ res = domStack_.Top().ApplyFunc<double (*)(double)>(
+                log, Interval_(Bound_(0.0), Bound_(Bound_::plusInfinity_)));
             domStack_.Pop();
             domStack_.Push(std::move(res));
         }
 
         void Visit(NodeSqrt_& node) {
             VisitArguments(node);
-            Domain_ res = domStack_.Top().applyFunc<double (*)(double)>(sqrt, Interval(0.0, Bound::plusInfinity_));
+            Domain_ res = domStack_.Top().ApplyFunc<double (*)(double)>(sqrt, Interval_(Bound_(0.0), Bound_(Bound_::plusInfinity_)));
             domStack_.Pop();
             domStack_.Push(std::move(res));
         }
 
         void Visit(NodeExp_& node) {
             VisitArguments(node);
-            Domain_ res = domStack_.Top().applyFunc<double (*)(double)>(
-                    exp, Interval(Bound::minusInfinity_, Bound::plusInfinity_));
+            Domain_ res = domStack_.Top().ApplyFunc<double (*)(double)>(
+                    exp, Interval_(Bound_(Bound_::minusInfinity_), Bound_(Bound_::plusInfinity_)));
             domStack_.Pop();
             domStack_.Push(std::move(res));
         }
@@ -150,7 +150,7 @@ namespace Dal::Script {
             Domain_ res = domStack_.Top();
             domStack_.Pop();
             for (size_t i = 1; i < node.arguments_.size(); ++i) {
-                res = res.dmax(domStack_.Top());
+                res = res.DMax(domStack_.Top());
                 domStack_.Pop();
             }
             domStack_.Push(std::move(res));
@@ -161,7 +161,7 @@ namespace Dal::Script {
             Domain_ res = domStack_.Top();
             domStack_.Pop();
             for (size_t i = 1; i < node.arguments_.size(); ++i) {
-                res = res.dmin(domStack_.Top());
+                res = res.DMin(domStack_.Top());
                 domStack_.Pop();
             }
             domStack_.Push(std::move(res));
@@ -175,12 +175,12 @@ namespace Dal::Script {
             Domain_& dom = domStack_.Top();
 
             // Always true / false?
-            if (!dom.canBeZero()) {
+            if (!dom.CanBeZero()) {
                 node.alwaysTrue_ = false;
                 node.alwaysFalse_ = true;
 
                 condStack_.Push(Value_::AlwaysFalse);
-            } else if (!dom.canBeNonZero()) {
+            } else if (!dom.CanBeNonZero()) {
                 node.alwaysTrue_ = true;
                 node.alwaysFalse_ = false;
                 condStack_.Push(Value_::AlwaysTrue);
@@ -190,15 +190,15 @@ namespace Dal::Script {
 
                 if (fuzzy_) {
                     // Continuous or isDiscrete_?
-                    node.isDiscrete_ = dom.zeroIsDiscrete();
+                    node.isDiscrete_ = dom.ZeroIsDiscrete();
 
                     // Discrete
                     if (node.isDiscrete_) {
-                        bool subDomRightOfZero = dom.smallestPosLb(node.rb_, true);
+                        bool subDomRightOfZero = dom.SmallestPosLb(node.rb_, true);
                         if (!subDomRightOfZero)
                             node.rb_ = 0.5;
 
-                        bool subDomLeftOfZero = dom.biggestNegRb(node.lb_, true);
+                        bool subDomLeftOfZero = dom.BiggestNegRb(node.lb_, true);
                         if (!subDomLeftOfZero)
                             node.lb_ = -0.5;
                     }
@@ -243,17 +243,17 @@ namespace Dal::Script {
         }
 
         // For visiting superior and supEqual
-        template <bool strict, class NodeSup> inline void visitSupT(NodeSup& node) {
+        template <bool Strict_, class NSup_> inline void visitSupT(NSup_& node) {
             VisitArguments(node);
 
             Domain_& dom = domStack_.Top();
 
             // Always true / false?
-            if (!dom.canBePositive(strict)) {
+            if (!dom.CanBePositive(Strict_)) {
                 node.alwaysTrue_ = false;
                 node.alwaysFalse_ = true;
                 condStack_.Push(Value_::AlwaysFalse);
-            } else if (!dom.canBeNegative(!strict)) {
+            } else if (!dom.CanBeNegative(!Strict_)) {
                 node.alwaysTrue_ = true;
                 node.alwaysFalse_ = false;
                 condStack_.Push(Value_::AlwaysTrue);
@@ -265,24 +265,24 @@ namespace Dal::Script {
 
                 if (fuzzy_) {
                     // Continuous or isDiscrete_?
-                    node.isDiscrete_ = !dom.canBeZero() || dom.zeroIsDiscrete();
+                    node.isDiscrete_ = !dom.CanBeZero() || dom.ZeroIsDiscrete();
 
                     // Fuzzy logic processing
                     if (node.isDiscrete_) {
                         // Case 1: expr cannot be IsZero
-                        if (!dom.canBeZero()) {
+                        if (!dom.CanBeZero()) {
                             //  we know we have subdomains on the left and on the right of 0
-                            dom.smallestPosLb(node.rb_, true);
-                            dom.biggestNegRb(node.lb_, true);
+                            std::ignore = dom.SmallestPosLb(node.rb_, true);
+                            std::ignore = dom.BiggestNegRb(node.lb_, true);
                         }
                         // Case 2: {0} is a IsSingleton
                         else {
-                            if (strict) {
+                            if (Strict_) {
                                 node.lb_ = 0.0;
-                                dom.smallestPosLb(node.rb_, true);
+                                std::ignore = dom.SmallestPosLb(node.rb_, true);
                             } else {
                                 node.rb_ = 0.0;
-                                dom.biggestNegRb(node.lb_, true);
+                                std::ignore = dom.BiggestNegRb(node.lb_, true);
                             }
                         }
                     }
@@ -405,7 +405,7 @@ namespace Dal::Script {
 
                 // Merge domains
                 for (size_t i = 0; i < node.affectedVars_.size(); ++i)
-                    varDomains_[node.affectedVars_[i]].addDomain(domStore1[i]);
+                    varDomains_[node.affectedVars_[i]].AddDomain(domStore1[i]);
             }
         }
 
@@ -437,7 +437,7 @@ namespace Dal::Script {
             // Write RHS domain into variable
 
             // Numeraire domain = (0,+inf)
-            static const Domain_ numDomain(Interval(0.0, Bound::plusInfinity_));
+            static const Domain_ numDomain(Interval_(Bound_(0.0), Bound_(Bound_::plusInfinity_)));
 
             // Payment domain
             Domain_ payDomain = domStack_.Top() / numDomain;
@@ -467,8 +467,9 @@ namespace Dal::Script {
         void Visit(NodeConstVar_& node) { domStack_.Push(node.constVal_); }
 
         // Scenario related
-        void Visit(NodeSpot_& node) {
-            static const Domain_ realDom(Interval(Bound::minusInfinity_, Bound::plusInfinity_));
+        void Visit(NodeSpot_&) {
+            static auto interval = Interval_(Bound_(Bound_::minusInfinity_), Bound_(Bound_::plusInfinity_));
+            static const Domain_ realDom(interval);
             domStack_.Push(realDom);
         }
     };

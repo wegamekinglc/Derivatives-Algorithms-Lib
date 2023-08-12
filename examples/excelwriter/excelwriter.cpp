@@ -22,7 +22,7 @@ int main() {
 
     // Create abscissa x array
     double A = 0.0;
-    double B = 3.0; // Interval
+    double B = 3.0; // Interval_
     auto x = Vector::XRange(A, B, N);
 
     auto fun = [](double x) { return log(x + 0.01); };
