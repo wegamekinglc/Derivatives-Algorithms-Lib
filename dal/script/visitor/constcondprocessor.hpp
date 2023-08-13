@@ -6,6 +6,7 @@
 
 #include <dal/script/node.hpp>
 #include <dal/script/visitor.hpp>
+#include <memory>
 
 namespace Dal::Script {
 
@@ -51,10 +52,10 @@ namespace Dal::Script {
         void VisitBool(BoolNode_& node) {
             // Always true ==> replace the tree by a True node
             if (node.alwaysTrue_)
-                current_->reset(new NodeTrue_);
+                *current_ = std::unique_ptr<Node_>(new NodeTrue_);
             // Always false ==> replace the tree by a False node
             else if (node.alwaysFalse_)
-                current_->reset(new NodeFalse_);
+                *current_ = std::unique_ptr<Node_>(new NodeFalse_);
 
             // Nothing to do here ==> Visit the arguments_
             else
@@ -77,7 +78,7 @@ namespace Dal::Script {
 
                 // Move arguments_, destroy node
                 Vector_<ExprTree_> args = std::move(node.arguments_);
-                current_->reset(new NodeCollect_);
+                *current_ = std::unique_ptr<Node_>(new NodeCollect_);
 
                 for (size_t i = 1; i <= lastTrueStat; ++i)
                     (*current_)->arguments_.push_back(std::move(args[i]));
@@ -90,7 +91,7 @@ namespace Dal::Script {
 
                 // Move arguments_, destroy node
                 Vector_<ExprTree_> args = std::move(node.arguments_);
-                current_->reset(new NodeCollect_);
+                *current_ = std::unique_ptr<Node_>(new NodeCollect_);
 
                 if (firstElseStatement != -1)
                     for (size_t i = firstElseStatement; i < args.size(); ++i)

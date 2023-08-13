@@ -37,7 +37,7 @@ namespace Dal::Script {
             ++cur;
             REQUIRE2(cur != end, "unexpected end of statement", ScriptError_);
             auto rhs = ParseExprL3(cur, end);
-            lhs = op == '*' ? MakeBaseBinary<NodeMult_>(lhs, rhs) : MakeBaseBinary<NodeDiv_>(lhs, rhs);
+            lhs = op == '*' ? MakeBaseBinary<NodeMulti_>(lhs, rhs) : MakeBaseBinary<NodeDiv_>(lhs, rhs);
         }
         return lhs;
     }
@@ -59,7 +59,7 @@ namespace Dal::Script {
             ++cur;
             REQUIRE2(cur != end, "unexpected end of statement", ScriptError_);
             auto rhs = ParseExprL4(cur, end);
-            auto top = op == '+' ? MakeBaseNode<NodeUplus_>() : MakeBaseNode<NodeUminus_>();
+            auto top = op == '+' ? MakeBaseNode<NodeUPlus_>() : MakeBaseNode<NodeUMinus_>();
             top->arguments_.Resize( 1);
             top->arguments_[0] = std::move( rhs);
             return top;

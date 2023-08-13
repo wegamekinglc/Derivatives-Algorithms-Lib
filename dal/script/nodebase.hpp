@@ -16,7 +16,7 @@ namespace Dal::Script {
 
     //  Visitable_ Base
 
-    template <typename V_, bool CONST> struct BaseImpl_;
+    template <typename V_, bool CONST_> struct BaseImpl_;
 
     template <typename V_> struct BaseImpl_<V_, false> {
         virtual void Accept(V_& visitor) = 0;

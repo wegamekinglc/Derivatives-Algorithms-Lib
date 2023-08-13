@@ -23,21 +23,21 @@ namespace Dal::Script {
 //  List
 
 //  Modifying visitors
-#define MVISITORS VarIndexer_, ConstProcessor_, ConstCondProcessor_, IFProcessor_, DomainProcessor_
+#define MODIFY_VISITORS VarIndexer_, ConstProcessor_, ConstCondProcessor_, IFProcessor_, DomainProcessor_
 
 //  Const visitors
-#define CVISITORS                                                                                                      \
+#define CONST_VISITORS                                                                                                 \
     Debugger_, Evaluator_<double>, Evaluator_<AAD::Number_>, PastEvaluator_, Compiler_, FuzzyEvaluator_<double>,                       \
         FuzzyEvaluator_<AAD::Number_>
 
 //  All visitors
-#define VISITORS MVISITORS, CVISITORS
+#define VISITORS MODIFY_VISITORS, CONST_VISITORS
 
     //  Various meta-programming utilities
 
     //  Is V_ a const visitor?
 
-    template <class V_> inline constexpr bool IsVisitorConst() { return Pack_<CVISITORS>::Includes<V_>(); }
+    template <class V_> inline constexpr bool IsVisitorConst() { return Pack_<CONST_VISITORS>::Includes<V_>(); }
 
     //  Use : IsVisitorConst<V_>() returns true if V_ is const, or false
     //  IsVisitorConst() resolves at compile time

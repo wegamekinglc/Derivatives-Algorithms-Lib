@@ -15,7 +15,7 @@ namespace Dal::Script {
     //  Nodes that return a number
     struct ExprNode_ : public Node_ {
         bool isConst_ = false;
-        double constVal_;
+        double constVal_ = 0.0;
     };
 
     //  Action nodes
@@ -23,8 +23,8 @@ namespace Dal::Script {
 
     //  Nodes that return a bool
     struct BoolNode_ : public Node_ {
-        bool alwaysTrue_;
-        bool alwaysFalse_;
+        bool alwaysTrue_ = false;
+        bool alwaysFalse_ = false;
     };
 
     //  All the concrete nodes
@@ -33,15 +33,15 @@ namespace Dal::Script {
 
     struct NodeAdd_ : public Visitable_<ExprNode_, NodeAdd_, VISITORS> {};
     struct NodeSub_ : public Visitable_<ExprNode_, NodeSub_, VISITORS> {};
-    struct NodeMult_ : public Visitable_<ExprNode_, NodeMult_, VISITORS> {};
+    struct NodeMulti_ : public Visitable_<ExprNode_, NodeMulti_, VISITORS> {};
     struct NodeDiv_ : public Visitable_<ExprNode_, NodeDiv_, VISITORS> {};
     struct NodePow_ : public Visitable_<ExprNode_, NodePow_, VISITORS> {};
     struct NodeMax_ : public Visitable_<ExprNode_, NodeMax_, VISITORS> {};
     struct NodeMin_ : public Visitable_<ExprNode_, NodeMin_, VISITORS> {};
 
     //  Unary expressions
-    struct NodeUplus_ : public Visitable_<ExprNode_, NodeUplus_, VISITORS> {};
-    struct NodeUminus_ : public Visitable_<ExprNode_, NodeUminus_, VISITORS> {};
+    struct NodeUPlus_ : public Visitable_<ExprNode_, NodeUPlus_, VISITORS> {};
+    struct NodeUMinus_ : public Visitable_<ExprNode_, NodeUMinus_, VISITORS> {};
 
     //	Math operators
     struct NodeLog_ : public Visitable_<ExprNode_, NodeLog_, VISITORS> {};
@@ -51,14 +51,12 @@ namespace Dal::Script {
     //  Comparisons
 
     struct CompNode_ : public BoolNode_ {
-        //	Fuzzying stuff
-        bool isDiscrete_; //	Continuous or isDiscrete_
-                          //	Continuous eps_
-        double eps_;
-        //	Discrete butterfly bounds
-        double lb_;
-        double rb_;
-        //	End of fuzzying stuff
+        // Fuzzying stuff
+        bool isDiscrete_ = false; // Continuous or isDiscrete_
+        double eps_ = 0.0; //	Continuous eps
+        // Discrete butterfly bounds
+        double lb_ = 0.0;
+        double rb_ = 0.0;
     };
 
     struct NodeEqual_ : public Visitable_<CompNode_, NodeEqual_, VISITORS> {};
@@ -125,12 +123,12 @@ namespace Dal::Script {
 
     //	If
     struct NodeIf_ : public Visitable_<ActNode_, NodeIf_, VISITORS> {
-        int firstElse_;
+        int firstElse_ = 0;
         //	For fuzzy eval: indices of variables affected in statements, including nested
         Vector_<size_t> affectedVars_;
         //	Always true/false as per domain processor
-        bool alwaysTrue_;
-        bool alwaysFalse_;
+        bool alwaysTrue_ = false;
+        bool alwaysFalse_ = false;
     };
 
     //	Collection of statements
@@ -140,11 +138,11 @@ namespace Dal::Script {
 
     //  Downcast Node_ to concrete type, crashes if used on another Node_ type
 
-    template <class Concrete_> const Concrete_* Downcast(const std::unique_ptr<Node_>& node) {
+    template <class Concrete_> FORCE_INLINE const Concrete_* Downcast(const std::unique_ptr<Node_>& node) {
         return static_cast<const Concrete_*>(node.get());
     }
 
-    template <class Concrete_> Concrete_* Downcast(std::unique_ptr<Node_>& node) {
+    template <class Concrete_> FORCE_INLINE Concrete_* Downcast(std::unique_ptr<Node_>& node) {
         return static_cast<Concrete_*>(node.get());
     }
 

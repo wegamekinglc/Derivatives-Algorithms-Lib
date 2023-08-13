@@ -98,8 +98,8 @@ namespace Dal::Script {
         Sub = 2,
         SubConst = 3,
         ConstSub = 4,
-        Mult = 5,
-        MultConst = 6,
+        Multi = 5,
+        MultiConst = 6,
         Div = 7,
         DivConst = 8,
         ConstDiv = 9,
@@ -129,7 +129,7 @@ namespace Dal::Script {
         Log = 33,
         Exp = 34,
         Not = 35,
-        Uminus = 36,
+        UMinus = 36,
         True = 37,
         False = 38,
         ConstVar = 39
@@ -145,9 +145,9 @@ namespace Dal::Script {
         using ConstVisitor_<Compiler_>::Visit;
         // Accessors
         // Access the streams after traversal
-        const Vector_<int>& NodeStream() const { return nodeStream_; }
-        const Vector_<double>& ConstStream() const { return constStream_; }
-        const Vector_<const void*>& DataStream() const { return dataStream_; }
+        [[nodiscard]] const Vector_<int>& NodeStream() const { return nodeStream_; }
+        [[nodiscard]] const Vector_<double>& ConstStream() const { return constStream_; }
+        [[nodiscard]] const Vector_<const void*>& DataStream() const { return dataStream_; }
 
         // Visitors
         // Expressions
@@ -158,8 +158,8 @@ namespace Dal::Script {
                 nodeStream_.emplace_back(int(constStream_.size()));
                 constStream_.emplace_back(node.constVal_);
             } else {
-                const ExprNode_* lhs = Downcast<ExprNode_>(node.arguments_[0]);
-                const ExprNode_* rhs = Downcast<ExprNode_>(node.arguments_[1]);
+                const auto* lhs = Downcast<ExprNode_>(node.arguments_[0]);
+                const auto* rhs = Downcast<ExprNode_>(node.arguments_[1]);
 
                 if (lhs->isConst_) {
                     node.arguments_[1]->Accept(*this);
@@ -181,7 +181,7 @@ namespace Dal::Script {
 
         void Visit(const NodeAdd_& node) { VisitBinary<Add, AddConst, AddConst>(node); }
         void Visit(const NodeSub_& node) { VisitBinary<Sub, ConstSub, SubConst>(node); }
-        void Visit(const NodeMult_& node) { VisitBinary<Mult, MultConst, MultConst>(node); }
+        void Visit(const NodeMulti_& node) { VisitBinary<Multi, MultiConst, MultiConst>(node); }
         void Visit(const NodeDiv_& node) { VisitBinary<Div, ConstDiv, DivConst>(node); }
         void Visit(const NodePow_& node) { VisitBinary<Pow, ConstPow, PowConst>(node); }
 
@@ -189,7 +189,7 @@ namespace Dal::Script {
 
         void Visit(const NodeMin_& node) { VisitBinary<Min2, Min2Const, Min2Const>(node); }
 
-        // Unaries
+        // unary
         template <NodeType_ NT> void VisitUnary(const ExprNode_& node) {
             if (node.isConst_) {
                 nodeStream_.emplace_back(Const);
@@ -201,16 +201,16 @@ namespace Dal::Script {
             }
         }
 
-        void Visit(const NodeUplus_& node) { node.arguments_[0]->Accept(*this); }
+        void Visit(const NodeUPlus_& node) { node.arguments_[0]->Accept(*this); }
 
-        void Visit(const NodeUminus_& node) { VisitUnary<Uminus>(node); }
+        void Visit(const NodeUMinus_& node) { VisitUnary<UMinus>(node); }
         void Visit(const NodeLog_& node) { VisitUnary<Log>(node); }
         void Visit(const NodeSqrt_& node) { VisitUnary<Sqrt>(node); }
         void Visit(const NodeExp_& node) { VisitUnary<Exp>(node); }
 
         // Conditions
         template <NodeType_ NT, typename OP> void VisitCondition(const BoolNode_& node, OP op) {
-            const ExprNode_* arg = Downcast<ExprNode_>(node.arguments_[0]);
+            const auto* arg = Downcast<ExprNode_>(node.arguments_[0]);
 
             if (arg->isConst_) {
                 nodeStream_.emplace_back(op(arg->constVal_) ? True : False);
@@ -254,8 +254,8 @@ namespace Dal::Script {
         //  Assign, pays
 
         void Visit(const NodeAssign_& node) {
-            const NodeVar_* var = Downcast<NodeVar_>(node.arguments_[0]);
-            const ExprNode_* rhs = Downcast<ExprNode_>(node.arguments_[1]);
+            const auto* var = Downcast<NodeVar_>(node.arguments_[0]);
+            const auto* rhs = Downcast<ExprNode_>(node.arguments_[1]);
 
             if (rhs->isConst_) {
                 nodeStream_.emplace_back(AssignConst);
@@ -269,8 +269,8 @@ namespace Dal::Script {
         }
 
         void Visit(const NodePays_& node) {
-            const NodeVar_* var = Downcast<NodeVar_>(node.arguments_[0]);
-            const ExprNode_* rhs = Downcast<ExprNode_>(node.arguments_[1]);
+            const auto* var = Downcast<NodeVar_>(node.arguments_[0]);
+            const auto* rhs = Downcast<ExprNode_>(node.arguments_[1]);
 
             if (rhs->isConst_) {
                 nodeStream_.emplace_back(PaysConst);
@@ -399,12 +399,12 @@ namespace Dal::Script {
                 dStack.Top() = constStream[nodeStream[++i]] - dStack.Top();
                 ++i;
                 break;
-            case Mult:
+            case Multi:
                 dStack[1] *= dStack.Top();
                 dStack.Pop();
                 ++i;
                 break;
-            case MultConst:
+            case MultiConst:
                 dStack.Top() *= constStream[nodeStream[++i]];
                 ++i;
                 break;
@@ -468,9 +468,6 @@ namespace Dal::Script {
                 ++i;
                 break;
             case ConstVar:
-                dStack.Push(constStream[nodeStream[++i]]);
-                ++i;
-                break;
             case Const:
                 dStack.Push(constStream[nodeStream[++i]]);
                 ++i;
@@ -576,7 +573,7 @@ namespace Dal::Script {
                 bStack.Top() = !bStack.Top();
                 ++i;
                 break;
-            case Uminus:
+            case UMinus:
                 dStack.Top() = -dStack.Top();
                 ++i;
                 break;

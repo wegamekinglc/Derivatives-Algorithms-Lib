@@ -67,11 +67,11 @@ namespace Dal::Script {
 
         void Visit(const NodeCollect_& node) { Debug(node, "COLLECT"); }
 
-        void Visit(const NodeUplus_& node) { Debug(node, "UPLUS"); }
-        void Visit(const NodeUminus_& node) { Debug(node, "UMINUS"); }
+        void Visit(const NodeUPlus_& node) { Debug(node, "UPLUS"); }
+        void Visit(const NodeUMinus_& node) { Debug(node, "UMINUS"); }
         void Visit(const NodeAdd_& node) { Debug(node, "ADD"); }
         void Visit(const NodeSub_& node) { Debug(node, "SUBTRACT"); }
-        void Visit(const NodeMult_& node) { Debug(node, "MULT"); }
+        void Visit(const NodeMulti_& node) { Debug(node, "MULT"); }
         void Visit(const NodeDiv_& node) { Debug(node, "DIV"); }
         void Visit(const NodePow_& node) { Debug(node, "POW"); }
         void Visit(const NodeLog_& node) { Debug(node, "LOG"); }

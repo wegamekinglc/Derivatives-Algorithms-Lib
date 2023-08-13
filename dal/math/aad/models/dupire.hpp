@@ -63,7 +63,7 @@ namespace Dal::AAD {
                 const Matrix_<U_>& vols,
                 double maxDt = 1.0)
             : spot_(spot), r_(r), q_(q), spots_(spots), logSpots_(spots.size()), times_(times), vols_(vols), maxDt_(maxDt),
-              parameters_(vols.Rows() * vols.Cols() + 3), parameterLabels_(vols.Rows() * vols.Cols() + 3) {
+              parameters_(vols.Rows() * vols.Cols() + 3), parameterLabels_(vols.Rows() * vols.Cols() + 3), defLine_(nullptr) {
             Transform(spots_, [](double x) { return Dal::log(x); }, &logSpots_);
             parameterLabels_[0] = "spot";
             parameterLabels_[1] = "rate";
@@ -196,7 +196,7 @@ namespace Dal::AAD {
         const size_t nSpots = distance(spotsBegin, spotsEnd);
 
         // Estimate ATM, and we cut the grid 2 stdevs away to avoid instabilities
-        const double atmCall = static_cast<double>(ivs.Call(ivs.Spot(), maturity));
+        const auto atmCall = static_cast<double>(ivs.Call(ivs.Spot(), maturity));
         // Standard deviation, approx. atm call * sqrt(2pi)
         const double std = atmCall * 2.506628274631;
 

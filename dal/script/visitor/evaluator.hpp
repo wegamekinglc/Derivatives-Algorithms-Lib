@@ -100,7 +100,7 @@ namespace Dal::Script {
             VisitBinary(node, [](T_& x, const T_ y) { x -= y; });
         }
 
-        FORCE_INLINE void Visit(const NodeMult_& node) {
+        FORCE_INLINE void Visit(const NodeMulti_& node) {
             VisitBinary(node, [](T_& x, const T_ y) { x *= y; });
         }
 
@@ -132,11 +132,11 @@ namespace Dal::Script {
             op(dStack_.Top());
         }
 
-        FORCE_INLINE void Visit(const NodeUplus_& node) {
+        FORCE_INLINE void Visit(const NodeUPlus_& node) {
             VisitUnary(node, [](T_& x) {});
         }
 
-        FORCE_INLINE void Visit(const NodeUminus_& node) {
+        FORCE_INLINE void Visit(const NodeUMinus_& node) {
             VisitUnary(node, [](T_& x) { x = -x; });
         }
 

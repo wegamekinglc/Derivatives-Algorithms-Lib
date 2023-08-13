@@ -94,7 +94,7 @@ namespace Dal::Script {
             domStack_.Pop(2);
             domStack_.Push(std::move(res));
         }
-        void Visit(NodeMult_& node) {
+        void Visit(NodeMulti_& node) {
             VisitArguments(node);
             Domain_ res = domStack_[1] * domStack_[0];
             domStack_.Pop(2);
@@ -115,8 +115,8 @@ namespace Dal::Script {
         }
 
         // Unaries
-        void Visit(NodeUplus_& node) { VisitArguments(node); }
-        void Visit(NodeUminus_& node) {
+        void Visit(NodeUPlus_& node) { VisitArguments(node); }
+        void Visit(NodeUMinus_& node) {
             VisitArguments(node);
             domStack_.Top() = -domStack_.Top();
         }

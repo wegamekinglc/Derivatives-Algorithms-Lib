@@ -232,7 +232,7 @@ namespace Dal::Script {
             else
                 rb = right_.val() + rhs.right_.val();
 
-            return Interval_(lb, rb);
+            return {lb, rb};
         }
 
         Interval_& operator+=(const Interval_& rhs) {
@@ -312,7 +312,7 @@ namespace Dal::Script {
         Interval_ operator/(const Interval_& rhs) const { return *this * rhs.Inverse(); }
 
         // Min/Max
-        Interval_ imin(const Interval_& rhs) const {
+        [[nodiscard]] Interval_ IMin(const Interval_& rhs) const {
             Bound_ lb = left_;
             if (rhs.left_ < lb)
                 lb = rhs.left_;
@@ -321,10 +321,10 @@ namespace Dal::Script {
             if (rhs.right_ < rb)
                 rb = rhs.right_;
 
-            return Interval_(lb, rb);
+            return {lb, rb};
         }
 
-        Interval_ imax(const Interval_& rhs) const {
+        [[nodiscard]] Interval_ IMax(const Interval_& rhs) const {
             Bound_ lb = left_;
             if (rhs.left_ > lb)
                 lb = rhs.left_;
@@ -333,11 +333,11 @@ namespace Dal::Script {
             if (rhs.right_ > rb)
                 rb = rhs.right_;
 
-            return Interval_(lb, rb);
+            return {lb, rb};
         }
 
         // Apply function
-        template <class Func> Interval_ applyFunc(const Func func, const Interval_& funcDomain) {
+        template <class Func> Interval_ ApplyFunc(const Func& func, const Interval_& funcDomain) {
             double val;
 
             // Continuous interval, we know nothing of the function, so we just apply the function domain
@@ -357,7 +357,7 @@ namespace Dal::Script {
         }
 
         // Apply function 2 params
-        template <class Func> Interval_ applyFunc2(const Func func, const Interval_& rhs, const Interval_& funcDomain) {
+        template <class Func> Interval_ ApplyFunc2(const Func func, const Interval_& rhs, const Interval_& funcDomain) {
             double val, val2;
 
             // Continuous interval, we know nothing of the function, so we just apply the function domain
@@ -377,17 +377,17 @@ namespace Dal::Script {
         }
 
         // Inclusion
-        [[nodiscard]] bool includes(double x) const { return left_ <= Bound_(x) && right_ >= Bound_(x); }
+        [[nodiscard]] bool Includes(double x) const { return left_ <= Bound_(x) && right_ >= Bound_(x); }
 
-        [[nodiscard]] bool includes(const Interval_& rhs) const { return left_ <= rhs.left_ && right_ >= rhs.right_; }
+        [[nodiscard]] bool Includes(const Interval_& rhs) const { return left_ <= rhs.left_ && right_ >= rhs.right_; }
 
-        [[nodiscard]] bool isIncludedIn(const Interval_& rhs) const { return left_ >= rhs.left_ && right_ <= rhs.right_; }
+        [[nodiscard]] bool IsIncludedIn(const Interval_& rhs) const { return left_ >= rhs.left_ && right_ <= rhs.right_; }
 
         // Adjacence
         // 0: is not adjacent
         // 1: *this is adjacent to rhs on the left of rhs
         // 2: *this is adjacent to rhs on the right of rhs
-        [[nodiscard]] unsigned isAdjacent(const Interval_& rhs) const {
+        [[nodiscard]] unsigned IsAdjacent(const Interval_& rhs) const {
             if (right_ == rhs.left_)
                 return 1;
             else if (left_ == rhs.right_)
@@ -398,7 +398,7 @@ namespace Dal::Script {
 
         // Intersection, returns false if no intersect, true otherwise
         // in which case iSect is set to the intersection unless nullptr
-        friend bool intersect(const Interval_& lhs, const Interval_& rhs, Interval_* iSect = nullptr) {
+        friend bool Intersect(const Interval_& lhs, const Interval_& rhs, Interval_* iSect = nullptr) {
             Bound_ lb = lhs.left_;
             if (rhs.left_ > lb)
                 lb = rhs.left_;
@@ -421,8 +421,8 @@ namespace Dal::Script {
 
         // Merge, returns false if no intersect, true otherwise
         // in which case iMerge is set to the merged interval unless nullptr
-        friend bool merge(const Interval_& lhs, const Interval_& rhs, Interval_* iMerge = nullptr) {
-            if (!intersect(lhs, rhs))
+        friend bool Merge(const Interval_& lhs, const Interval_& rhs, Interval_* iMerge = nullptr) {
+            if (!Intersect(lhs, rhs))
                 return false;
 
             if (iMerge) {
@@ -442,7 +442,7 @@ namespace Dal::Script {
         }
 
         // Another merge function that merges rhs into this, assuming we already know that they intersect
-        void merge(const Interval_& rhs) {
+        void Merge(const Interval_& rhs) {
             if (rhs.left_ < left_)
                 left_ = rhs.left_;
             if (rhs.right_ > right_)
@@ -454,11 +454,9 @@ namespace Dal::Script {
         std::set<Interval_> intervals_;
 
     public:
-        Domain_() {}
-
-        Domain_(const Domain_& rhs) : intervals_(rhs.intervals_) {}
-
-        Domain_(Domain_&& rhs) : intervals_(std::move(rhs.intervals_)) {}
+        Domain_() = default;
+        Domain_(const Domain_& rhs) = default;
+        Domain_(Domain_&& rhs) noexcept : intervals_(std::move(rhs.intervals_)) {}
 
         Domain_& operator=(const Domain_& rhs) {
             if (this == &rhs)
@@ -467,7 +465,7 @@ namespace Dal::Script {
             return *this;
         }
 
-        Domain_& operator=(Domain_&& rhs) {
+        Domain_& operator=(Domain_&& rhs) noexcept {
             if (this == &rhs)
                 return *this;
             intervals_ = std::move(rhs.intervals_);
@@ -542,7 +540,7 @@ namespace Dal::Script {
                 // We don't use the generic merge: too slow
                 // merge( interval, *it, &interval);
                 // Quick merge
-                interval.merge(*it);
+                interval.Merge(*it);
 
                 // Remove the merged interval from set
                 intervals_.erase(it);
@@ -727,7 +725,8 @@ namespace Dal::Script {
 
             return res;
         }
-        Domain_ inverse() const {
+
+        [[nodiscard]] Domain_ Inverse() const {
             Domain_ res;
 
             for (auto& i : intervals_) {
@@ -736,6 +735,7 @@ namespace Dal::Script {
 
             return res;
         }
+
         Domain_ operator/(const Domain_& rhs) const {
             Domain_ res;
 
@@ -779,18 +779,19 @@ namespace Dal::Script {
 
             for (auto& i : intervals_) {
                 for (auto& j : rhs.intervals_) {
-                    res.AddInterval(i.imin(j));
+                    res.AddInterval(i.IMin(j));
                 }
             }
 
             return res;
         }
+
         [[nodiscard]] Domain_ DMax(const Domain_& rhs) const {
             Domain_ res;
 
             for (auto& i : intervals_) {
                 for (auto& j : rhs.intervals_) {
-                    res.AddInterval(i.imax(j));
+                    res.AddInterval(i.IMax(j));
                 }
             }
 
@@ -819,7 +820,7 @@ namespace Dal::Script {
         }
 
         // Apply function 2 params
-        template <class Func_> Domain_ ApplyFunc2(const Func_ func, const Domain_& rhs, const Interval_& funcDomain) {
+        template <class Func_> Domain_ ApplyFunc2(const Func_& func, const Domain_& rhs, const Interval_& funcDomain) {
             Domain_ res;
 
             auto vec1 = GetSingletons(), vec2 = rhs.GetSingletons();
@@ -843,14 +844,14 @@ namespace Dal::Script {
         // Inclusion
         [[nodiscard]] bool Includes(const double x) const {
             for (auto& interval : intervals_)
-                if (interval.includes(x))
+                if (interval.Includes(x))
                     return true;
             return false;
         }
 
         [[nodiscard]] bool Includes(const Interval_& rhs) const {
             for (auto& interval : intervals_)
-                if (interval.includes(rhs))
+                if (interval.Includes(rhs))
                     return true;
             return false;
         }
@@ -875,7 +876,7 @@ namespace Dal::Script {
 
         [[nodiscard]] bool ZeroIsCont() const {
             for (auto& interval : intervals_)
-                if (interval.IsContinuous() && interval.includes(0.0))
+                if (interval.IsContinuous() && interval.Includes(0.0))
                     return true;
             return false;
         }

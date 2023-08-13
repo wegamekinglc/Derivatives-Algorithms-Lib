@@ -72,7 +72,7 @@ namespace Dal::Script {
         void Visit(NodeSub_& node) {
             VisitBinary(node, [](double x, double y) { return x - y; });
         }
-        void Visit(NodeMult_& node) {
+        void Visit(NodeMulti_& node) {
             VisitBinary(node, [](double x, double y) { return x * y; });
         }
         void Visit(NodeDiv_& node) {
@@ -98,10 +98,10 @@ namespace Dal::Script {
             }
         }
 
-        void Visit(NodeUplus_& node) {
+        void Visit(NodeUPlus_& node) {
             VisitUnary(node, [](double x) { return x; });
         }
-        void Visit(NodeUminus_& node) {
+        void Visit(NodeUMinus_& node) {
             VisitUnary(node, [](double x) { return -x; });
         }
 
