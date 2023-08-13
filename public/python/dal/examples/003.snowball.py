@@ -24,8 +24,9 @@ events = [f"{ki:.6f}", f"{ko:.6f}", f"{spot:.6f}", f"{coupon:.6f}", "alive = 1 i
 n_paths = 8192
 use_bb = False
 rsg = "sobol"
+freq = "1M"
 
-event_dates.append("START: 2023-06-01 END: 2025-02-01 FREQ: 1M")
+event_dates.append(f"START: 2023-06-01 END: 2025-02-01 FREQ: {freq}")
 events.append(
     f"""
     if spot() < KI:0.001 then is_ki = 1 end
@@ -51,7 +52,7 @@ print(f"NPV date  : {event_dates[4]}")
 print(f"Maturity  : {event_dates[-1]}")
 print(f"knock in  : {ki:.2f}")
 print(f"knock out : {ko:.2f}")
-print(f"# of obs  : {len(event_dates) - 4}")
+print(f"# of obs  : {(len(event_dates) - 4) * 12 if freq == '1M' else (len(event_dates) - 4) * 51}")
 print(f"# of paths: {n_paths}\n")
 
 
