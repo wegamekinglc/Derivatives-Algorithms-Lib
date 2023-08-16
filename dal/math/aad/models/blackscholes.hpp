@@ -135,7 +135,7 @@ namespace Dal::AAD {
             T_ logSpot = Dal::log(spot);
             const size_t n = timeLine_.size() - 1;
             for (size_t i = 0; i < n; ++i) {
-                logSpot = logSpot + drifts_[i] + stds_[i] * gaussVec[i];
+                logSpot += drifts_[i] + stds_[i] * gaussVec[i];
                 FillScenario(idx, Dal::exp(logSpot), (*path)[idx], (*defLine_)[idx]);
                 ++idx;
             }
