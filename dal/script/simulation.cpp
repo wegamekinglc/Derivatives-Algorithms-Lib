@@ -93,6 +93,7 @@ namespace Dal::Script {
         size_t firstPath = 0;
         size_t pathsLeft = n_paths;
         size_t loop_i = 0;
+        auto payoff_idx = product.PayOffIdx();
 
         while (pathsLeft > 0) {
             auto pathsInTask = std::min(pathsLeft, BATCH_SIZE);
@@ -107,21 +108,19 @@ namespace Dal::Script {
                 random->SkipTo(firstPath);
                 if (compiled) {
                     EvalState_<double>& eval_state = eval_state_s[threadNum];
-                    auto pay_num = eval_state.VarVals().size() - 1;
                     for (size_t i = 0; i < pathsInTask; ++i) {
                         random->FillNormal(&gaussVec);
                         mdl->GeneratePath(gaussVec, &path);
                         product.EvaluateCompiled(path, eval_state);
-                        sim_result += eval_state.VarVals()[pay_num];
+                        sim_result += eval_state.VarVals()[payoff_idx];
                     }
                 } else {
                     Evaluator_<double>& eval = eval_s[threadNum];
-                    auto pay_num = eval.VarVals().size() - 1;
                     for (size_t i = 0; i < pathsInTask; ++i) {
                         random->FillNormal(&gaussVec);
                         mdl->GeneratePath(gaussVec, &path);
                         product.Evaluate(path, eval);
-                        sim_result += eval.VarVals()[pay_num];
+                        sim_result += eval.VarVals()[payoff_idx];
                     }
                 }
                 return true;
@@ -205,6 +204,7 @@ namespace Dal::Script {
         size_t firstPath = 0;
         size_t pathsLeft = n_paths;
         size_t loop_i = 0;
+        auto payoff_idx = product.PayOffIdx();
 
         while (pathsLeft > 0) {
             auto pathsInTask = std::min(pathsLeft, batch_size);
@@ -236,12 +236,11 @@ namespace Dal::Script {
                         model_init[n_threads] = true;
                     }
 
-                    auto pay_num = eval_state.VarVals().size() - 1;
                     for (size_t i = 0; i < pathsInTask; i++) {
                         random->FillNormal(&gVec);
                         model->GeneratePath(gVec, &path);
                         product.EvaluateCompiled(path, eval_state);
-                        AAD::Number_ res = eval_state.VarVals()[pay_num];
+                        AAD::Number_ res = eval_state.VarVals()[payoff_idx];
                         res.setGradient(1.0);
                         tape->evaluate(tape->getPosition(), pos);
                         sum_val += res.value();
@@ -257,12 +256,11 @@ namespace Dal::Script {
                         model_init[n_threads] = true;
                     }
 
-                    auto pay_num = eval.VarVals().size() - 1;
                     for (size_t i = 0; i < pathsInTask; i++) {
                         random->FillNormal(&gVec);
                         model->GeneratePath(gVec, &path);
                         product.Evaluate(path, eval);
-                        AAD::Number_ res = eval.VarVals()[pay_num];
+                        AAD::Number_ res = eval.VarVals()[payoff_idx];
                         res.setGradient(1.0);
                         tape->evaluate(tape->getPosition(), pos);
                         sum_val += res.value();
@@ -277,12 +275,11 @@ namespace Dal::Script {
                         model_init[n_threads] = true;
                     }
 
-                    auto pay_num = eval.VarVals().size() - 1;
                     for (size_t i = 0; i < pathsInTask; i++) {
                         random->FillNormal(&gVec);
                         model->GeneratePath(gVec, &path);
                         product.Evaluate(path, eval);
-                        AAD::Number_ res = eval.VarVals()[pay_num];
+                        AAD::Number_ res = eval.VarVals()[payoff_idx];
                         res.setGradient(1.0);
                         tape->evaluate(tape->getPosition(), pos);
                         sum_val += res.value();

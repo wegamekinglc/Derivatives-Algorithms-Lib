@@ -34,10 +34,10 @@ namespace Dal::Script {
         using ConstVisitor_<EVAL_<T_>>::VisitNode;
 
         // Constructor, nVar = number of variables, from Product after parsing and variable indexation
-        EvaluatorBase_(size_t nVar, const Vector_<T_>& const_variables) : variables_(nVar), const_variables_(const_variables) {}
+        EvaluatorBase_(size_t nVar, const Vector_<T_>& const_variables) : variables_(nVar), const_variables_(const_variables), curEvt_(-1) {}
 
         // Copy/Move
-        EvaluatorBase_(const EvaluatorBase_& rhs) : variables_(rhs.variables_), const_variables_(rhs.const_variables_) {}
+        EvaluatorBase_(const EvaluatorBase_& rhs): variables_(rhs.variables_), const_variables_(rhs.const_variables_), curEvt_(rhs.curEvt_) {}
         EvaluatorBase_& operator=(const EvaluatorBase_& rhs) {
             if (this == &rhs)
                 return *this;
@@ -46,7 +46,7 @@ namespace Dal::Script {
             return *this;
         }
 
-        EvaluatorBase_(EvaluatorBase_&& rhs) noexcept : variables_(std::move(rhs.variables_)), const_variables_(std::move(rhs.const_variables_)) {}
+        EvaluatorBase_(EvaluatorBase_&& rhs) noexcept : variables_(std::move(rhs.variables_)), const_variables_(std::move(rhs.const_variables_)), curEvt_(rhs.curEvt_) {}
         EvaluatorBase_& operator=(EvaluatorBase_&& rhs) noexcept {
             variables_ = std::move(rhs.variables_);
             const_variables_ = std::move(rhs.const_variables_);

@@ -44,7 +44,7 @@ int main() {
     eventDates.push_back(Cell_(maturity));
     events.push_back("call pays MAX(spot() - STRIKE, 0.0)");
 
-    ScriptProduct_ product(eventDates, events);
+    ScriptProduct_ product(eventDates, events, "call");
 
     std::unique_ptr<Model_<Real_>> model = std::make_unique<BlackScholes_<Real_>>(spot, vol, rate, div);
     std::cout << "\nParsing " << std::setprecision(8) << "\tElapsed: " << timer.Elapsed<milliseconds>() << " ms" << std::endl;

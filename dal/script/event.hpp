@@ -18,6 +18,7 @@
 #include <dal/time/dateutils.hpp>
 #include <dal/time/dateincrement.hpp>
 #include <dal/time/holidays.hpp>
+#include <utility>
 
 /*IF--------------------------------------------------------------------------
 storable ScriptProductData
@@ -33,6 +34,8 @@ namespace Dal::Script {
     using Dal::AAD::Scenario_;
 
     class ScriptProduct_ {
+        String_ payoff_;
+        size_t payoff_idx_;
         Vector_<Date_> eventDates_;
         Vector_<Event_> events_;
         Vector_<String_> variables_;
@@ -48,7 +51,8 @@ namespace Dal::Script {
         Vector_<Vector_<const void*>> dataStreams_;
 
     public:
-        ScriptProduct_(const Vector_<Cell_>& dates, const Vector_<String_>& events) {
+        ScriptProduct_(const Vector_<Cell_>& dates, const Vector_<String_>& events, String_ payoff = "")
+        : payoff_(std::move(payoff)), payoff_idx_(-1) {
             REQUIRE2(dates.size() == events.size(), "dates size is not equal to events size", ScriptError_);
             auto date_events = Dal::Zip(dates, events);
             ParseEvents(date_events);
@@ -68,11 +72,13 @@ namespace Dal::Script {
 
         template <class T_> FuzzyEvaluator_<T_> BuildFuzzyEvaluator(int maxNestedIfs, double defEps) const {
             return FuzzyEvaluator_<T_>(variables_.size(),
-                                       Apply([](double x) {return T_(x);}, const_variables_values_), maxNestedIfs, defEps);
+                                       Apply([](double x) {return T_(x);}, const_variables_values_),
+                                       maxNestedIfs,
+                                       defEps);
         }
 
         template <class T_> EvalState_<T_> BuildEvalState() const {
-            return EvalState_<T_>(static_cast<int>(variables_.size()),
+            return EvalState_<T_>(variables_.size(),
                                   Apply([](double x) {return T_(x);}, const_variables_values_));
         }
 
@@ -107,13 +113,17 @@ namespace Dal::Script {
         }
 
         template <class T_> void EvaluateCompiled(const Scenario_<T_>& scenario, EvalState_<T_>& state) const {
-            //	Initialize state
+            // Initialize state
             state.Init();
 
-            //	Loop over events
+            // Loop over events
             for (size_t i = 0; i < events_.size(); ++i)
-                //	Evaluate the compiled events
-                EvalCompiled(nodeStreams_[i], constStreams_[i], dataStreams_[i], scenario[i], state);
+                // Evaluate the compiled events
+                EvalCompiled(nodeStreams_[i],
+                             constStreams_[i],
+                             dataStreams_[i],
+                             scenario[i],
+                             state);
         }
 
         void IndexVariables();
@@ -125,6 +135,8 @@ namespace Dal::Script {
         size_t PreProcess(bool fuzzy, bool skip_domain);
         void Debug(std::ostream& ost = std::cout) const;
         void Compile();
+
+        auto PayOffIdx() const { return payoff_idx_; }
     };
 
     class ScriptProductData_ : public Storable_ {

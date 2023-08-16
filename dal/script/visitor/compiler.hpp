@@ -77,7 +77,8 @@ namespace Dal::Script {
         Vector_<T_> const_variables_;
 
         //  Constructor
-        EvalState_(int nVar, const Vector_<T_>& const_variables = Vector_<T_>()) : variables_(nVar), const_variables_(const_variables) {}
+        explicit EvalState_(size_t nVar, const Vector_<T_>& const_variables = Vector_<T_>())
+            : variables_(nVar), const_variables_(const_variables) {}
 
         //  Initializer
         void Init() {
@@ -88,6 +89,9 @@ namespace Dal::Script {
 
         const Vector_<T_>& VarVals() const { return variables_; }
         Vector_<T_>& ConstVarVals() {
+            return const_variables_;
+        }
+        const Vector_<T_>& ConstVarVals() const {
             return const_variables_;
         }
     };
@@ -302,12 +306,12 @@ namespace Dal::Script {
             constStream_.emplace_back(node.constVal_);
         }
 
-        void Visit(const NodeTrue_& node) { nodeStream_.emplace_back(True); }
+        void Visit(const NodeTrue_&) { nodeStream_.emplace_back(True); }
 
-        void Visit(const NodeFalse_& node) { nodeStream_.emplace_back(False); }
+        void Visit(const NodeFalse_&) { nodeStream_.emplace_back(False); }
 
         // Scenario related
-        void Visit(const NodeSpot_& node) { nodeStream_.emplace_back(Spot); }
+        void Visit(const NodeSpot_&) { nodeStream_.emplace_back(Spot); }
 
         // Instructions
         void Visit(const NodeIf_& node) {

@@ -66,7 +66,7 @@ int main() {
     events.push_back("if spot() < KI:0.001 then is_ki = 1 end\n"
                      "if spot() > KO:0.001 then call pays alive * COUPON * " + dcf + " alive = 0  end\n"
                      "call pays alive * is_ki * (spot() - STRIKE) + alive * (1.000000 - is_ki) * COUPON * " + dcf);
-    ScriptProduct_ product(eventDates, events);
+    ScriptProduct_ product(eventDates, events, "call");
     product.Debug();
 
     Vector_<int> widths = {14, 14, 14, 14, 14, 14, 14, 14, 14};

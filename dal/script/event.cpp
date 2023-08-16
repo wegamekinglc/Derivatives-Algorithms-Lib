@@ -128,6 +128,14 @@ namespace Dal::Script {
         variables_ = indexer.VarNames();
         const_variables_ = indexer.ConstVarNames();
         const_variables_values_ = indexer.ConstVarValues();
+
+        for (auto i = 0; i < variables_.size(); ++i)
+            if (variables_[i] == payoff_) {
+                payoff_idx_ = i;
+                break;
+            }
+        if (payoff_idx_ == -1)
+            payoff_idx_ = variables_.size() - 1;
     }
 
     size_t ScriptProduct_::IFProcess() {
