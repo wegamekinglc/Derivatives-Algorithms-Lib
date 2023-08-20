@@ -12,6 +12,8 @@ namespace Dal::Script {
     class PastEvaluator_: public Evaluator_<double> {
     public:
         using Base = Evaluator_<double>;
+        explicit PastEvaluator_(size_t nVar, const Vector_<double>& const_variables = Vector_<double>())
+            : Evaluator_<double>(nVar, const_variables) {}
 
         using Evaluator_<double>::Visit;
 
