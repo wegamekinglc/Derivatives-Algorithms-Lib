@@ -136,7 +136,7 @@ namespace Dal::Script {
         void Debug(std::ostream& ost = std::cout) const;
         void Compile();
 
-        auto PayOffIdx() const { return payoff_idx_; }
+        [[nodiscard]] auto PayOffIdx() const { return payoff_idx_; }
     };
 
     class ScriptProductData_ : public Storable_ {
