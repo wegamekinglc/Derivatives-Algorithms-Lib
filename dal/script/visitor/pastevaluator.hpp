@@ -18,6 +18,8 @@ namespace Dal::Script {
 
         using Base::Visit;
         using Base::VisitNode;
+        using Base::variables_;
+        using Base::dStack_;
 
         FORCE_INLINE void Visit(const NodePays_& node) {
             //	Visit the RHS expression
