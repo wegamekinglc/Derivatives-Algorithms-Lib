@@ -27,7 +27,7 @@ TEST(VisitorTest, TestPastEvaluator) {
     assignExpr->Accept(visitor1);
     paysExpr->Accept(visitor1);
 
-    PastEvaluator_<double> visitor2(visitor1.VarNames().size());
+    PastEvaluator_<double> visitor2(Vector_<>(visitor1.VarNames().size(), 0.0));
     assignExpr->Accept(visitor2);
     paysExpr->Accept(visitor2);
     ASSERT_DOUBLE_EQ(visitor2.VarVals()[0], 1.4142135623730951);

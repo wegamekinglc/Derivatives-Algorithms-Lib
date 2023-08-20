@@ -77,8 +77,8 @@ namespace Dal::Script {
         Vector_<T_> const_variables_;
 
         //  Constructor
-        explicit EvalState_(size_t nVar, const Vector_<T_>& const_variables = Vector_<T_>())
-            : variables_(nVar), const_variables_(const_variables) {}
+        explicit EvalState_(const Vector_<T_>& variables, const Vector_<T_>& const_variables = Vector_<T_>())
+            : variables_(variables), const_variables_(const_variables) {}
 
         //  Initializer
         void Init() {

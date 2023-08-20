@@ -10,10 +10,10 @@
 namespace Dal::Script {
 
     void ScriptProduct_::ParseEvents(const Vector_<std::pair<Cell_, String_>> &events) {
-        Date_ evaluationDate = Global::Dates_::EvaluationDate();
         std::map<String_, String_> macros;
         std::map<String_, double> const_variables;
         std::map<Date_, String_> processed_events;
+        std::map<Date_, String_> past_processed_events;
         /*
          * we only keep the events after evaluation date
          * TODO: need to keep the historical events and visits them with a dedicated past evaluator
@@ -77,20 +77,18 @@ namespace Dal::Script {
 
                     for (auto k = 1; k < schedule.size(); ++k) {
                         auto d = schedule[k];
-                        if (d >= evaluationDate) {
-                            // Replace placeholder of `PeriodBegin` and `PeriodEnd`
-                            auto final_statement = std::regex_replace(replaced,
-                                                                      std::regex("PeriodBegin", std::regex_constants::icase),
-                                                                      Date::ToString(schedule[k-1]));
-                            final_statement = std::regex_replace(final_statement,
-                                                                 std::regex("PeriodEnd", std::regex_constants::icase),
-                                                                 Date::ToString(d));
+                        // Replace placeholder of `PeriodBegin` and `PeriodEnd`
+                        auto final_statement = std::regex_replace(replaced,
+                                                                  std::regex("PeriodBegin", std::regex_constants::icase),
+                                                                  Date::ToString(schedule[k-1]));
+                        final_statement = std::regex_replace(final_statement,
+                                                             std::regex("PeriodEnd", std::regex_constants::icase),
+                                                             Date::ToString(d));
 
-                            if (processed_events.find(d) != processed_events.end())
-                                processed_events[d] += "\n" + final_statement;
-                            else
-                                processed_events[d] = final_statement;
-                        }
+                        if (processed_events.find(d) != processed_events.end())
+                            processed_events[d] += "\n" + final_statement;
+                        else
+                            processed_events[d] = final_statement;
                     }
                 } else {
                     REQUIRE2(macros.find(desc) == macros.end(), "macro name has already registered", ScriptError_);
@@ -102,7 +100,7 @@ namespace Dal::Script {
                     else
                         macros[desc] = event.second;
                 }
-            } else if (Cell::IsDate(cell) && Cell::ToDate(cell) >= evaluationDate) {
+            } else if (Cell::IsDate(cell)) {
                 String_ replaced = event.second;
                 for (const auto &macro: macros)
                     replaced = std::regex_replace(replaced, std::regex(macro.first, std::regex_constants::icase),
@@ -139,7 +137,7 @@ namespace Dal::Script {
     }
 
     Vector_<> ScriptProduct_::PastEvaluate() {
-        PastEvaluator_<double> past_evaluator(variables_.size(), const_variables_values_);
+        PastEvaluator_<double> past_evaluator(Vector_<double>(variables_.size(), 0.0), const_variables_values_);
         Visit(past_evaluator);
         return past_evaluator.Variables();
     }

@@ -20,7 +20,7 @@ TEST(VisitorTest, TestEvaluator) {
     auto assignExpr = MakeBinary<NodeAssign_>(var, plusExpr);
 
     VarIndexer_ visitor1;
-    Evaluator_<double> visitor2(1);
+    Evaluator_<double> visitor2(Vector_<>(1, 0.0));
     assignExpr->Accept(visitor1);
     assignExpr->Accept(visitor2);
     ASSERT_DOUBLE_EQ(visitor2.VarVals()[0], 50);
@@ -35,7 +35,7 @@ TEST(VisitorTest, TestEvaluatorWithSqrt) {
     auto var = MakeBaseNode<NodeVar_>("x");
     auto assignExpr = MakeBinary<NodeAssign_>(var, expExpr);
 
-    Evaluator_<double> visitor2(1);
+    Evaluator_<double> visitor2(Vector_<>(1, 0.0));
     VarIndexer_ visitor1;
     assignExpr->Accept(visitor1);
     assignExpr->Accept(visitor2);
@@ -51,7 +51,7 @@ TEST(VisitorTest, TestEvaluatorWithLog) {
     auto var = MakeBaseNode<NodeVar_>("x");
     auto assignExpr = MakeBinary<NodeAssign_>(var, expExpr);
 
-    Evaluator_<double> visitor2(1);
+    Evaluator_<double> visitor2(Vector_<>(1, 0.0));
     VarIndexer_ visitor1;
     assignExpr->Accept(visitor1);
     assignExpr->Accept(visitor2);
@@ -67,7 +67,7 @@ TEST(VisitorTest, TestEvaluatorWithExp) {
     auto var = MakeBaseNode<NodeVar_>("x");
     auto assignExpr = MakeBinary<NodeAssign_>(var, expExpr);
 
-    Evaluator_<double> visitor2(1);
+    Evaluator_<double> visitor2(Vector_<>(1, 0.0));
     VarIndexer_ visitor1;
     assignExpr->Accept(visitor1);
     assignExpr->Accept(visitor2);

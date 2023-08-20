@@ -25,7 +25,7 @@ TEST(VisitorTest, TestCompile) {
     product.PreProcess(false, true);
     product.Compile();
 
-    EvalState_<double> eval_state(product.VarNames().size());
+    EvalState_<double> eval_state(Vector_<>(product.VarNames().size(), 0.0));
     Scenario_<double> scenario(1);
     product.EvaluateCompiled(scenario, eval_state);
 
@@ -46,7 +46,7 @@ TEST(VisitorTest, TestCompileWithVariable) {
     product.PreProcess(false, true);
     product.Compile();
 
-    EvalState_<double> eval_state(product.VarNames().size());
+    EvalState_<double> eval_state(Vector_<>(product.VarNames().size(), 0.0));
     Scenario_<double> scenario(1);
     scenario[0].spot_ = 4.0;
     product.EvaluateCompiled(scenario, eval_state);
@@ -71,7 +71,7 @@ TEST(VisitorTest, TestCompileWithSeveralEvents) {
     product.PreProcess(false, true);
     product.Compile();
 
-    EvalState_<double> eval_state(product.VarNames().size());
+    EvalState_<double> eval_state(Vector_<>(product.VarNames().size(), 0.0));
     Scenario_<double> scenario(2);
     product.EvaluateCompiled(scenario, eval_state);
 
