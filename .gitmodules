@@ -7,6 +7,3 @@
 [submodule "externals/vcpkg"]
 	path = externals/vcpkg
 	url = git@github.com:microsoft/vcpkg.git
-[submodule "externals/Adept-2"]
-	path = externals/Adept-2
-	url = git@github.com:rjhogan/Adept-2.git

@@ -5,8 +5,6 @@
 #include <dal/math/aad/aad.hpp>
 #include <gtest/gtest.h>
 
-#ifndef USE_ADEPT
-
 using namespace Dal::AAD;
 
 TEST(AADCheckpointTest, TestWithCheckpoint) {
@@ -69,5 +67,3 @@ TEST(AADCheckpointTest, TestWithCheckpointWithForLoop) {
         ASSERT_NEAR(s2.getGradient(), n, 1e-10);
     }
 }
-
-#endif

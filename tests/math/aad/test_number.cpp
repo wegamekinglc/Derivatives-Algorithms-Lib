@@ -6,8 +6,6 @@
 #include <cmath>
 #include <gtest/gtest.h>
 
-#ifndef USE_ADEPT
-
 using namespace Dal::AAD;
 
 TEST(AADNumberTest, TestNumberAdd) {
@@ -503,5 +501,3 @@ TEST(AADNumberTest, TestNumberFabs) {
     ASSERT_NEAR(s1.getGradient(), -1.0, 1e-10);
     tape.reset();
 }
-
-#endif

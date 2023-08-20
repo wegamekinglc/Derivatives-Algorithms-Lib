@@ -8,10 +8,6 @@
   #define USE_AADET
 #endif
 
-#ifndef USE_ADEPT
-// #define USE_ADEPT
-#endif
-
 #ifndef USE_CODI
 // #define USE_CODI
 #endif
