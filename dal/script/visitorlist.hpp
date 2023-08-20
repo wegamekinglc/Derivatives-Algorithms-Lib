@@ -13,7 +13,7 @@ namespace Dal::Script {
     class VarIndexer_;
     class ConstProcessor_;
     template <class T_> class Evaluator_;
-    class PastEvaluator_;
+    template <class T_> class PastEvaluator_;
     class Compiler_;
     class ConstCondProcessor_;
     class IFProcessor_;
@@ -27,7 +27,7 @@ namespace Dal::Script {
 
 //  Const visitors
 #define CONST_VISITORS                                                                                                 \
-    Debugger_, Evaluator_<double>, Evaluator_<AAD::Number_>, PastEvaluator_, Compiler_, FuzzyEvaluator_<double>,                       \
+    Debugger_, Evaluator_<double>, Evaluator_<AAD::Number_>, PastEvaluator_<double>, Compiler_, FuzzyEvaluator_<double>,                       \
         FuzzyEvaluator_<AAD::Number_>
 
 //  All visitors

@@ -38,6 +38,7 @@ namespace Dal::Script {
         size_t payoff_idx_;
         Vector_<Date_> eventDates_;
         Vector_<Event_> events_;
+        Vector_<> variable_values_;
         Vector_<String_> variables_;
         Vector_<String_> const_variables_;
         Vector_<double> const_variables_values_;
@@ -127,6 +128,7 @@ namespace Dal::Script {
         }
 
         void IndexVariables();
+        Vector_<> PastEvaluate();
         size_t IFProcess();
         void DomainProcess(bool fuzzy);
         void ConstProcess();

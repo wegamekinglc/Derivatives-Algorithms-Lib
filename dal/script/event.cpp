@@ -138,6 +138,12 @@ namespace Dal::Script {
             payoff_idx_ = variables_.size() - 1;
     }
 
+    Vector_<> ScriptProduct_::PastEvaluate() {
+        PastEvaluator_<double> past_evaluator(variables_.size(), const_variables_values_);
+        Visit(past_evaluator);
+        return past_evaluator.Variables();
+    }
+
     size_t ScriptProduct_::IFProcess() {
         IFProcessor_ ifProc;
         Visit(ifProc);
@@ -166,6 +172,8 @@ namespace Dal::Script {
     //	All preprocessing
     size_t ScriptProduct_::PreProcess(bool fuzzy, bool skip_domain) {
         IndexVariables();
+        variable_values_ = PastEvaluate();
+
         size_t maxNestedIfs = 0;
         if (fuzzy || !skip_domain) {
             maxNestedIfs = IFProcess();
