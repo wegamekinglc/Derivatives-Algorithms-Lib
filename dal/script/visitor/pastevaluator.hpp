@@ -30,7 +30,7 @@ namespace Dal::Script {
 
         FORCE_INLINE void Visit(const NodeSpot_&) {
             // TODO: just push 0 as now
-            dStack_.Push(0.0);
+            dStack_.Push(30.0);
         }
 
         [[nodiscard]] FORCE_INLINE const Vector_<>& Variables() const {

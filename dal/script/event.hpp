@@ -36,6 +36,9 @@ namespace Dal::Script {
     class ScriptProduct_ {
         String_ payoff_;
         size_t payoff_idx_;
+
+        Vector_<Date_> pastEventDates_;
+        Vector_<Event_> pastEvents_;
         Vector_<Date_> eventDates_;
         Vector_<Event_> events_;
         Vector_<> variable_values_;
@@ -59,6 +62,8 @@ namespace Dal::Script {
             ParseEvents(date_events);
         }
 
+        [[nodiscard]] const Vector_<Date_>& PastEventDates() const { return pastEventDates_; }
+        [[nodiscard]] const Vector_<Event_>& PastEvents() const { return pastEvents_; }
         [[nodiscard]] const Vector_<Date_>& EventDates() const { return eventDates_; }
         [[nodiscard]] const Vector_<Event_>& Events() const { return events_; }
         [[nodiscard]] const Vector_<String_>& VarNames() const { return variables_; }

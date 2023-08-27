@@ -41,7 +41,7 @@ TEST(VisitorTest, TestBFlyWithLbAndUb) {
 }
 
 TEST(VisitorTest, TestFuzzyContinuous) {
-    auto global = XGLOBAL::SetAccountingDateInScope(Date_(2023, 3, 31));
+    auto global = XGLOBAL::SetEvaluationDateInScope(Date_(2023, 3, 31));
     Vector_<String_> events = {R"(
         IF spot() > 100:0.01 THEN
             x = 1

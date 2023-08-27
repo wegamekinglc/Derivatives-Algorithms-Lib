@@ -14,10 +14,7 @@ namespace Dal::Script {
         std::map<String_, double> const_variables;
         std::map<Date_, String_> processed_events;
         std::map<Date_, String_> past_processed_events;
-        /*
-         * we only keep the events after evaluation date
-         * TODO: need to keep the historical events and visits them with a dedicated past evaluator
-         * */
+
         for (const auto & event : events) {
             Cell_ cell = event.first;
             if (!Cell::IsDate(cell)) {
@@ -113,10 +110,16 @@ namespace Dal::Script {
             }
         }
 
+        Parser_ parser(const_variables);
+        const auto eval_data = Global::Dates_::EvaluationDate();
         for (const auto &processed_event: processed_events) {
-            Parser_ parser(const_variables);
-            eventDates_.push_back(processed_event.first);
-            events_.push_back(parser.Parse(processed_event.second));
+            if (processed_event.first >= eval_data) {
+                eventDates_.push_back(processed_event.first);
+                events_.push_back(parser.Parse(processed_event.second));
+            } else {
+                pastEventDates_.push_back(processed_event.first);
+                pastEvents_.push_back(parser.Parse(processed_event.second));
+            }
         }
     }
 
