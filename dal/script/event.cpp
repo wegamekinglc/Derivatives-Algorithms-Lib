@@ -141,7 +141,7 @@ namespace Dal::Script {
 
     Vector_<> ScriptProduct_::PastEvaluate() {
         PastEvaluator_<double> past_evaluator(Vector_<double>(variables_.size(), 0.0), const_variables_values_);
-        Visit(past_evaluator);
+        Visit(past_evaluator, true, false);
         return past_evaluator.Variables();
     }
 

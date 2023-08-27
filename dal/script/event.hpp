@@ -67,6 +67,7 @@ namespace Dal::Script {
         [[nodiscard]] const Vector_<Date_>& EventDates() const { return eventDates_; }
         [[nodiscard]] const Vector_<Event_>& Events() const { return events_; }
         [[nodiscard]] const Vector_<String_>& VarNames() const { return variables_; }
+        [[nodiscard]] const Vector_<>& VarValues() const { return variable_values_; }
         [[nodiscard]] const Vector_<String_>& ConstVarNames() const { return const_variables_; }
         [[nodiscard]] const Vector_<>& TimeLine() const { return timeLine_; }
         [[nodiscard]] const Vector_<Dal::AAD::SampleDef_>& DefLine() const { return defLine_; }
@@ -94,21 +95,32 @@ namespace Dal::Script {
 
         void ParseEvents(const Vector_<std::pair<Cell_, String_>>& events);
 
-        template <class V_> void Visit(Visitor_<V_>& v) {
-            for (auto& evt : events_) {
-                for (auto& stat : evt)
-                    stat->Accept(static_cast<V_&>(v));
-            }
+        template <class V_> void Visit(Visitor_<V_>& v, bool past = true, bool future = true) {
+            if (past)
+                for (auto& evt : pastEvents_)
+                    for (auto& stat : evt)
+                        stat->Accept(static_cast<V_&>(v));
+
+            if (future)
+                for (auto& evt : events_)
+                    for (auto& stat : evt)
+                        stat->Accept(static_cast<V_&>(v));
         }
 
-        template <class V_> void Visit(ConstVisitor_<V_>& v) const {
-            for (const auto& evt : events_) {
-                for (const auto& stat : evt)
-                    stat->Accept(static_cast<V_&>(v));
-            }
+        template <class V_> void Visit(ConstVisitor_<V_>& v, bool past = true, bool future = true) const {
+            if (past)
+                for (const auto& evt : pastEvents_)
+                    for (const auto& stat : evt)
+                        stat->Accept(static_cast<V_&>(v));
+
+            if (future)
+                for (const auto& evt : events_)
+                    for (const auto& stat : evt)
+                        stat->Accept(static_cast<V_&>(v));
         }
 
         template <class T_, class E_> void Evaluate(const Scenario_<T_>& scenario, E_& eval) const {
+            // evaluation will only do on future events
             eval.SetScenario(&scenario);
             eval.Init();
             for (size_t i = 0; i < events_.size(); ++i) {

@@ -95,5 +95,17 @@ TEST(ScriptTest, TestEventWithSchedulePlaceHolder) {
 }
 
 TEST(ScriptTest, TestEventWithPastDate) {
+    auto global = XGLOBAL::SetEvaluationDateInScope(Date_(2023, 8, 28));
 
+    Vector_<Cell_> dates;
+    Vector_<String_> events;
+
+    dates.push_back((Cell_(Date_(2022, 12, 1))));
+    events.push_back("x = spot()");
+
+    Script::ScriptProduct_ product(dates, events);
+    product.PreProcess(false, false);
+
+    ASSERT_EQ(product.VarValues().size(), 1);
+    ASSERT_NEAR(product.VarValues()[0], 30.0, 1e-6);
 }
