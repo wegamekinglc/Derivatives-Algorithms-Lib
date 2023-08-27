@@ -93,3 +93,7 @@ TEST(ScriptTest, TestEventWithSchedulePlaceHolder) {
         ASSERT_NEAR(dynamic_cast<Script::NodeConst_*>(e[0]->arguments_[1].get())->constVal_, expected, 1e-4);
     }
 }
+
+TEST(ScriptTest, TestEventWithPastDate) {
+
+}

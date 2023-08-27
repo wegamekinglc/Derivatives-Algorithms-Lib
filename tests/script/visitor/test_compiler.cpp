@@ -11,7 +11,7 @@ using namespace Dal;
 using namespace Dal::Script;
 
 TEST(VisitorTest, TestCompile) {
-    Global::Dates_().SetEvaluationDate(Date_(2023, 1, 1));
+    auto global = XGLOBAL::SetEvaluationDateInScope(Date_(2023, 1, 1));
     Vector_<String_> events = {R"(
         x = 4
         y = 1
@@ -34,7 +34,7 @@ TEST(VisitorTest, TestCompile) {
 }
 
 TEST(VisitorTest, TestCompileWithVariable) {
-    Global::Dates_().SetEvaluationDate(Date_(2023, 1, 1));
+    auto global = XGLOBAL::SetEvaluationDateInScope(Date_(2023, 1, 1));
     Vector_<String_> events = {R"(
         IF spot() >= 2:0.1 THEN
             y = 3 + spot()
@@ -55,7 +55,7 @@ TEST(VisitorTest, TestCompileWithVariable) {
 }
 
 TEST(VisitorTest, TestCompileWithSeveralEvents) {
-    Global::Dates_().SetEvaluationDate(Date_(2023, 1, 1));
+    auto global = XGLOBAL::SetEvaluationDateInScope(Date_(2023, 1, 1));
     Vector_<String_> events = {R"(
         x = 4
         y = 1
