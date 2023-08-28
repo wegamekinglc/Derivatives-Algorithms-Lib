@@ -73,19 +73,19 @@ namespace Dal::Script {
         [[nodiscard]] const Vector_<Dal::AAD::SampleDef_>& DefLine() const { return defLine_; }
 
         template <class T_> Evaluator_<T_> BuildEvaluator() const {
-            return Evaluator_<T_>(Apply([](double x) {return T_(x);}, variable_values_),
+            return Evaluator_<T_>(variable_values_,
                                   Apply([](double x) {return T_(x);}, const_variables_values_));
         }
 
         template <class T_> FuzzyEvaluator_<T_> BuildFuzzyEvaluator(int maxNestedIfs, double defEps) const {
-            return FuzzyEvaluator_<T_>(Apply([](double x) {return T_(x);}, variable_values_),
+            return FuzzyEvaluator_<T_>(variable_values_,
                                        Apply([](double x) {return T_(x);}, const_variables_values_),
                                        maxNestedIfs,
                                        defEps);
         }
 
         template <class T_> EvalState_<T_> BuildEvalState() const {
-            return EvalState_<T_>(Apply([](double x) {return T_(x);}, variable_values_),
+            return EvalState_<T_>(variable_values_,
                                   Apply([](double x) {return T_(x);}, const_variables_values_));
         }
 

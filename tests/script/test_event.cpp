@@ -5,8 +5,12 @@
 #include <gtest/gtest.h>
 #include <dal/script/event.hpp>
 #include <dal/time/daybasis.hpp>
+#include <dal/math/aad/models/blackscholes.hpp>
+#include <dal/script/simulation.hpp>
 
 using namespace Dal;
+using namespace Dal::AAD;
+using namespace Dal::Script;
 
 TEST(ScriptTest, TestEventWithMacro) {
     Vector_<Cell_> dates;
@@ -108,4 +112,56 @@ TEST(ScriptTest, TestEventWithPastDate) {
 
     ASSERT_EQ(product.VarValues().size(), 1);
     ASSERT_NEAR(product.VarValues()[0], 30.0, 1e-6);
+}
+
+TEST(ScriptTest, TestScriptProductWithPastDate) {
+    // we set up a touched barrier product
+    Vector_<Cell_> dates;
+    Vector_<String_> events;
+
+    const Date_ date1 = Date_(2022, 9, 25);
+    dates.push_back(Cell_(date1));
+    events.push_back(R"(
+        IF spot() >= 10 THEN
+            alive = 2
+        ELSE
+            alive = 0
+        END
+    )");
+
+    const Date_ date2 = Date_(2023, 9, 25);
+    String_ event = R"(
+        IF alive >= 1:0.001 THEN
+            call pays 0
+        ELSE
+            call pays 1
+        END
+    )";
+    dates.push_back(Cell_(date2));
+    events.push_back(event);
+
+    const double spot = 0.001;
+    const double vol = 0.20;
+    const double rate = 0.0;
+    const double div = 0.021;
+    const String_ rsg = "sobol";
+    const size_t num_paths = 100;
+
+    {
+        auto global = XGLOBAL::SetEvaluationDateInScope(Date_(2023, 8, 28));
+        Script::ScriptProduct_ product(dates, events, "call");
+        std::unique_ptr<Model_<>> model = std::make_unique<BlackScholes_<>>(spot, vol, rate, div);
+        int max_nested = product.PreProcess(false, false);
+        SimResults_<> results = MCSimulation(product, *model, num_paths, rsg);
+        ASSERT_NEAR(results.aggregated_, 0.0, 1e-8);
+    }
+
+    {
+        auto global = XGLOBAL::SetEvaluationDateInScope(Date_(2021, 8, 28));
+        Script::ScriptProduct_ product(dates, events, "call");
+        std::unique_ptr<Model_<>> model = std::make_unique<BlackScholes_<>>(spot, vol, rate, div);
+        int max_nested = product.PreProcess(false, false);
+        SimResults_<> results = MCSimulation(product, *model, num_paths, rsg);
+        ASSERT_NEAR(results.aggregated_, 100.0, 1);
+    }
 }

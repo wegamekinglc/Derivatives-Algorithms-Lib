@@ -74,16 +74,21 @@ namespace Dal::Script {
     template <class T_> struct EvalState_ {
         // State
         Vector_<T_> variables_;
+        Vector_<> variables_init_;
         Vector_<T_> const_variables_;
 
         //  Constructor
-        explicit EvalState_(const Vector_<T_>& variables, const Vector_<T_>& const_variables = Vector_<T_>())
-            : variables_(variables), const_variables_(const_variables) {}
+        explicit EvalState_(const Vector_<>& variables, const Vector_<T_>& const_variables = Vector_<T_>())
+            : variables_init_(variables), const_variables_(const_variables) {
+            variables_.Resize(variables_init_.size());
+            for (auto i = 0; i < variables_.size(); ++i)
+                variables_[i] = T_(variables_init_[i]);
+        }
 
         //  Initializer
         void Init() {
-            for (auto& var: variables_)
-                var = T_(0.0);
+            for (auto i = 0; i < variables_.size(); ++i)
+                variables_[i] = T_(variables_init_[i]);
         }
 
 
