@@ -12,7 +12,7 @@ using namespace Dal;
 using namespace Dal::AAD;
 using namespace Dal::Script;
 
-TEST(ModelsTest, TestBlackScholes) {
+TEST(ScriptTest, TestBlackScholes) {
     auto global = XGLOBAL::SetEvaluationDateInScope(Date_(2022, 6, 22));
     Date_ exerciseDate(2024, 6, 21);
     const double strike = 11.0;
@@ -38,7 +38,7 @@ TEST(ModelsTest, TestBlackScholes) {
     ASSERT_NEAR(results.aggregated_ / num_paths, expected, 1e-5);
 }
 
-TEST(BlackScholesTest, TestBlackScholesAAD) {
+TEST(ScriptTest, TestBlackScholesAAD) {
     auto global = XGLOBAL::SetEvaluationDateInScope(Date_(2022, 6, 22));
     Date_ exerciseDate(2024, 6, 21);
     const double strike = 11.0;

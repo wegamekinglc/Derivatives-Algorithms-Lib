@@ -10,7 +10,7 @@
 using namespace Dal;
 using namespace Dal::Script;
 
-TEST(VisitorTest, TestCompile) {
+TEST(ScriptTest, TestCompile) {
     auto global = XGLOBAL::SetEvaluationDateInScope(Date_(2023, 1, 1));
     Vector_<String_> events = {R"(
         x = 4
@@ -33,7 +33,7 @@ TEST(VisitorTest, TestCompile) {
     ASSERT_DOUBLE_EQ(eval_state.variables_[1], 7);
 }
 
-TEST(VisitorTest, TestCompileWithVariable) {
+TEST(ScriptTest, TestCompileWithVariable) {
     auto global = XGLOBAL::SetEvaluationDateInScope(Date_(2023, 1, 1));
     Vector_<String_> events = {R"(
         IF spot() >= 2:0.1 THEN
@@ -54,7 +54,7 @@ TEST(VisitorTest, TestCompileWithVariable) {
     ASSERT_DOUBLE_EQ(eval_state.variables_[0], 7);
 }
 
-TEST(VisitorTest, TestCompileWithSeveralEvents) {
+TEST(ScriptTest, TestCompileWithSeveralEvents) {
     auto global = XGLOBAL::SetEvaluationDateInScope(Date_(2023, 1, 1));
     Vector_<String_> events = {R"(
         x = 4

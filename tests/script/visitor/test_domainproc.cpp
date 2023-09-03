@@ -9,7 +9,7 @@
 using namespace Dal;
 using namespace Dal::Script;
 
-TEST(VisitorTtest, TestDomainConst) {
+TEST(ScriptTest, TestDomainConst) {
     Parser_ parser;
 
     String_ event = R"(
@@ -31,7 +31,7 @@ TEST(VisitorTtest, TestDomainConst) {
     ASSERT_EQ(domains[0].IsConstant(), true);
 }
 
-TEST(VisitorTtest, TestDomainContinus) {
+TEST(ScriptTest, TestDomainContinus) {
     Parser_ parser;
     String_ event = R"(
         x = SQRT(spot())

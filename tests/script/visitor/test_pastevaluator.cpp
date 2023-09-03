@@ -11,7 +11,7 @@ using namespace Dal;
 using namespace Dal::Script;
 
 
-TEST(VisitorTest, TestPastEvaluator) {
+TEST(ScriptTest, TestPastEvaluator) {
     auto const1 = MakeBaseNode<NodeConst_>(2.0);
     auto expExpr = MakeBaseNode<NodeSqrt_>();
     Vector_<Expression_> args;

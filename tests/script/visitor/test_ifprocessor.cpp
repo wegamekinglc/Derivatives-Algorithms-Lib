@@ -9,7 +9,7 @@
 using namespace Dal;
 using namespace Dal::Script;
 
-TEST(VisitorTest, TestIFProcessor) {
+TEST(ScriptTest, TestIFProcessor) {
     Parser_ parser;
     String_ event = R"(
         IF x >= 2 THEN
@@ -30,7 +30,7 @@ TEST(VisitorTest, TestIFProcessor) {
     ASSERT_EQ(dynamic_cast<NodeIf_*>(res[0].get())->affectedVars_, Vector_<size_t>({1}));
 }
 
-TEST(VisitorTest, TestIFProcessorNested) {
+TEST(ScriptTest, TestIFProcessorNested) {
     Parser_ parser;
     String_ event = R"(
         IF x >= 2 THEN

@@ -67,3 +67,7 @@ TEST(AADTest, TestWithCheckpointWithForLoop) {
         ASSERT_NEAR(s2.getGradient(), n, 1e-10);
     }
 }
+
+TEST(AADTest, TestWithCheckpointWithMultiThreading) {
+    
+}

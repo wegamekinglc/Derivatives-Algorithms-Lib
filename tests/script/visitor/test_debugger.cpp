@@ -9,7 +9,7 @@
 using namespace Dal;
 using namespace Dal::Script;
 
-TEST(VisitorTest, TestDebuggerVisit) {
+TEST(ScriptTest, TestDebuggerVisit) {
     Expression_ var1 = MakeBaseNode<NodeVar_>("x");
     Expression_ const1 = MakeBaseNode<NodeConst_>(20);
 
@@ -21,7 +21,7 @@ TEST(VisitorTest, TestDebuggerVisit) {
     ASSERT_EQ(visitor.String(), String_("CONST[20.000000]\n"));
 }
 
-TEST(VisitorTest, TestDebuggerVisitWithEmptyEvent) {
+TEST(ScriptTest, TestDebuggerVisitWithEmptyEvent) {
     Vector_<Cell_> dates;
     Vector_<String_> events;
     ScriptProduct_ product(dates, events);
