@@ -35,16 +35,16 @@ namespace Dal::Script {
 
     class ScriptProduct_ {
         String_ payoff_;
-        size_t payoff_idx_;
+        size_t payoffIdx_;
 
         Vector_<Date_> pastEventDates_;
         Vector_<Event_> pastEvents_;
         Vector_<Date_> eventDates_;
         Vector_<Event_> events_;
-        Vector_<> variable_values_;
+        Vector_<> variableValues_;
         Vector_<String_> variables_;
-        Vector_<String_> const_variables_;
-        Vector_<double> const_variables_values_;
+        Vector_<String_> consVariables_;
+        Vector_<double> consVariablesValues_;
 
         Vector_<double> timeLine_;
         Vector_<Dal::AAD::SampleDef_> defLine_;
@@ -56,7 +56,7 @@ namespace Dal::Script {
 
     public:
         ScriptProduct_(const Vector_<Cell_>& dates, const Vector_<String_>& events, String_ payoff = "")
-        : payoff_(std::move(payoff)), payoff_idx_(-1) {
+        : payoff_(std::move(payoff)), payoffIdx_(-1) {
             REQUIRE2(dates.size() == events.size(), "dates size is not equal to events size", ScriptError_);
             auto date_events = Dal::Zip(dates, events);
             ParseEvents(date_events);
@@ -67,26 +67,26 @@ namespace Dal::Script {
         [[nodiscard]] const Vector_<Date_>& EventDates() const { return eventDates_; }
         [[nodiscard]] const Vector_<Event_>& Events() const { return events_; }
         [[nodiscard]] const Vector_<String_>& VarNames() const { return variables_; }
-        [[nodiscard]] const Vector_<>& VarValues() const { return variable_values_; }
-        [[nodiscard]] const Vector_<String_>& ConstVarNames() const { return const_variables_; }
+        [[nodiscard]] const Vector_<>& VarValues() const { return variableValues_; }
+        [[nodiscard]] const Vector_<String_>& ConstVarNames() const { return consVariables_; }
         [[nodiscard]] const Vector_<>& TimeLine() const { return timeLine_; }
         [[nodiscard]] const Vector_<Dal::AAD::SampleDef_>& DefLine() const { return defLine_; }
 
         template <class T_> Evaluator_<T_> BuildEvaluator() const {
-            return Evaluator_<T_>(variable_values_,
-                                  Apply([](double x) {return T_(x);}, const_variables_values_));
+            return Evaluator_<T_>(variableValues_,
+                                  Apply([](double x) {return T_(x);}, consVariablesValues_));
         }
 
         template <class T_> FuzzyEvaluator_<T_> BuildFuzzyEvaluator(int maxNestedIfs, double defEps) const {
-            return FuzzyEvaluator_<T_>(variable_values_,
-                                       Apply([](double x) {return T_(x);}, const_variables_values_),
+            return FuzzyEvaluator_<T_>(variableValues_,
+                                       Apply([](double x) {return T_(x);}, consVariablesValues_),
                                        maxNestedIfs,
                                        defEps);
         }
 
         template <class T_> EvalState_<T_> BuildEvalState() const {
-            return EvalState_<T_>(variable_values_,
-                                  Apply([](double x) {return T_(x);}, const_variables_values_));
+            return EvalState_<T_>(variableValues_,
+                                  Apply([](double x) {return T_(x);}, consVariablesValues_));
         }
 
         template <class T_> std::unique_ptr<Scenario_<T_>> BuildScenario() const {
@@ -155,7 +155,7 @@ namespace Dal::Script {
         void Debug(std::ostream& ost = std::cout) const;
         void Compile();
 
-        [[nodiscard]] auto PayOffIdx() const { return payoff_idx_; }
+        [[nodiscard]] auto PayOffIdx() const { return payoffIdx_; }
     };
 
     class ScriptProductData_ : public Storable_ {

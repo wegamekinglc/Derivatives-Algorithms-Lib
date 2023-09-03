@@ -11,9 +11,9 @@ namespace Dal::Script {
 
     void ScriptProduct_::ParseEvents(const Vector_<std::pair<Cell_, String_>> &events) {
         std::map<String_, String_> macros;
-        std::map<String_, double> const_variables;
-        std::map<Date_, String_> processed_events;
-        std::map<Date_, String_> past_processed_events;
+        std::map<String_, double> constVariables;
+        std::map<Date_, String_> processedEvents;
+        std::map<Date_, String_> pastProcessedEvents;
 
         for (const auto & event : events) {
             Cell_ cell = event.first;
@@ -25,12 +25,12 @@ namespace Dal::Script {
                     Vector_<String_> tokens = Tokenize(desc);
 
                     int i = 0;
-                    Date_ start_date;
-                    Date_ end_date;
+                    Date_ startDate;
+                    Date_ endDate;
                     Handle_<Date::Increment_> tenor;
                     Holidays_ holidays("");
-                    DateGeneration_ gen_rule("Forward");
-                    BizDayConvention_ biz_rule("Unadjusted");
+                    DateGeneration_ genRule("Forward");
+                    BizDayConvention_ bizRule("Unadjusted");
 
                     for (; i < tokens.size() - 2; ++i) {
                         REQUIRE2(tokens[i + 1] == ":", "schedule parameter name not followed by `:`", ScriptError_);
@@ -39,13 +39,13 @@ namespace Dal::Script {
                             String_ dt_str = std::accumulate(tokens.begin() + i + 2, tokens.begin() + i + 7,
                                                              String_(""),
                                                              [](const String_ &x, const String_ &y) { return x + y; });
-                            start_date = Date::FromString(dt_str);
+                            startDate = Date::FromString(dt_str);
                             i += 6;
                         } else if (tokens[i] == "END") {
                             String_ dt_str = std::accumulate(tokens.begin() + i + 2, tokens.begin() + i + 7,
                                                              String_(""),
                                                              [](const String_ &x, const String_ &y) { return x + y; });
-                            end_date = Date::FromString(dt_str);
+                            endDate = Date::FromString(dt_str);
                             i += 6;
                         } else if (tokens[i] == "FREQ") {
                             tenor = Date::ParseIncrement(tokens[i + 2]);
@@ -54,18 +54,16 @@ namespace Dal::Script {
                             holidays = Holidays_(tokens[i + 2]);
                             i += 2;
                         } else if (tokens[i] == "BizRule") {
-                            biz_rule = BizDayConvention_(tokens[i + 2]);
+                            bizRule = BizDayConvention_(tokens[i + 2]);
                             i += 2;
                         } else
                             THROW2("unknown token", ScriptError_);
                     }
 
-                    Vector_<Date_> schedule = Dal::MakeSchedule(start_date,
-                                                                Cell_(end_date),
+                    Vector_<Date_> schedule = Dal::MakeSchedule(startDate,
+                                                                Cell_(endDate),
                                                                 holidays,
-                                                                tenor,
-                                                                gen_rule,
-                                                                biz_rule);
+                                                                tenor, genRule, bizRule);
                     String_ replaced = event.second;
                     for (const auto &macro: macros)
                         replaced = std::regex_replace(replaced,
@@ -82,18 +80,18 @@ namespace Dal::Script {
                                                              std::regex("PeriodEnd", std::regex_constants::icase),
                                                              Date::ToString(d));
 
-                        if (processed_events.find(d) != processed_events.end())
-                            processed_events[d] += "\n" + final_statement;
+                        if (processedEvents.find(d) != processedEvents.end())
+                            processedEvents[d] += "\n" + final_statement;
                         else
-                            processed_events[d] = final_statement;
+                            processedEvents[d] = final_statement;
                     }
                 } else {
                     REQUIRE2(macros.find(desc) == macros.end(), "macro name has already registered", ScriptError_);
-                    REQUIRE2(const_variables.find(desc) == const_variables.end(), "const macro name has already registered", ScriptError_);
-                    REQUIRE2(processed_events.empty(), "macros should always at the front", ScriptError_);
+                    REQUIRE2(constVariables.find(desc) == constVariables.end(), "const macro name has already registered", ScriptError_);
+                    REQUIRE2(processedEvents.empty(), "macros should always at the front", ScriptError_);
 
                     if (String::IsNumber(event.second))
-                        const_variables[desc] = String::ToDouble(event.second);
+                        constVariables[desc] = String::ToDouble(event.second);
                     else
                         macros[desc] = event.second;
                 }
@@ -103,16 +101,16 @@ namespace Dal::Script {
                     replaced = std::regex_replace(replaced, std::regex(macro.first, std::regex_constants::icase),
                                                   macro.second);
                 auto d = Cell::ToDate(cell);
-                if (processed_events.find(d) != processed_events.end())
-                    processed_events[d] += "\n" + replaced;
+                if (processedEvents.find(d) != processedEvents.end())
+                    processedEvents[d] += "\n" + replaced;
                 else
-                    processed_events[d] = replaced;
+                    processedEvents[d] = replaced;
             }
         }
 
-        Parser_ parser(const_variables);
+        Parser_ parser(constVariables);
         const auto eval_data = Global::Dates_::EvaluationDate();
-        for (const auto &processed_event: processed_events) {
+        for (const auto &processed_event: processedEvents) {
             if (processed_event.first >= eval_data) {
                 eventDates_.push_back(processed_event.first);
                 events_.push_back(parser.Parse(processed_event.second));
@@ -127,22 +125,22 @@ namespace Dal::Script {
         VarIndexer_ indexer;
         Visit(indexer);
         variables_ = indexer.VarNames();
-        const_variables_ = indexer.ConstVarNames();
-        const_variables_values_ = indexer.ConstVarValues();
+        consVariables_ = indexer.ConstVarNames();
+        consVariablesValues_ = indexer.ConstVarValues();
 
         for (auto i = 0; i < variables_.size(); ++i)
             if (variables_[i] == payoff_) {
-                payoff_idx_ = i;
+                payoffIdx_ = i;
                 break;
             }
-        if (payoff_idx_ == -1)
-            payoff_idx_ = variables_.size() - 1;
+        if (payoffIdx_ == -1)
+            payoffIdx_ = variables_.size() - 1;
     }
 
     Vector_<> ScriptProduct_::PastEvaluate() {
-        PastEvaluator_<double> past_evaluator(Vector_<double>(variables_.size(), 0.0), const_variables_values_);
-        Visit(past_evaluator, true, false);
-        return past_evaluator.Variables();
+        PastEvaluator_<double> pastEvaluator(Vector_<double>(variables_.size(), 0.0), consVariablesValues_);
+        Visit(pastEvaluator, true, false);
+        return pastEvaluator.Variables();
     }
 
     size_t ScriptProduct_::IFProcess() {
@@ -173,7 +171,7 @@ namespace Dal::Script {
     //	All preprocessing
     size_t ScriptProduct_::PreProcess(bool fuzzy, bool skip_domain) {
         IndexVariables();
-        variable_values_ = PastEvaluate();
+        variableValues_ = PastEvaluate();
 
         size_t maxNestedIfs = 0;
         if (fuzzy || !skip_domain) {

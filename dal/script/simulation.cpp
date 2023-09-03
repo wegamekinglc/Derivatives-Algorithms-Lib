@@ -63,14 +63,14 @@ namespace Dal::Script {
         mdl->Init(product.TimeLine(), product.DefLine());
 
         ThreadPool_* pool = ThreadPool_::GetInstance();
-        const size_t n_threads = pool->NumThreads();
+        const size_t nThreads = pool->NumThreads();
 
-        Vector_<std::unique_ptr<Random_>> rng_s(n_threads);
-        for (auto& random : rng_s)
+        Vector_<std::unique_ptr<Random_>> rngs(nThreads);
+        for (auto& random : rngs)
             random = CreateRNG(rsg, mdl->SimDim(), use_bb);
 
-        Vector_<Vector_<>> gaussVectors(n_threads);
-        Vector_<Scenario_<>> paths(n_threads);
+        Vector_<Vector_<>> gaussVectors(nThreads);
+        Vector_<Scenario_<>> paths(nThreads);
 
         for (auto& vec : gaussVectors)
             vec.Resize(mdl->SimDim());
@@ -80,15 +80,15 @@ namespace Dal::Script {
             InitializePath(path);
         }
 
-        Vector_<Evaluator_<double>> eval_s(n_threads, product.BuildEvaluator<double>());
-        Vector_<EvalState_<double>> eval_state_s(n_threads, product.BuildEvalState<double>());
+        Vector_<Evaluator_<double>> evals(nThreads, product.BuildEvaluator<double>());
+        Vector_<EvalState_<double>> evalStates(nThreads, product.BuildEvalState<double>());
 
         SimResults_<double> results;
 
         Vector_<TaskHandle_> futures;
         futures.reserve(n_paths / BATCH_SIZE + 1);
-        Vector_<> sim_results;
-        sim_results.reserve(n_paths / BATCH_SIZE + 1);
+        Vector_<> simResults;
+        simResults.reserve(n_paths / BATCH_SIZE + 1);
 
         int firstPath = 0;
         int pathsLeft = n_paths;
@@ -97,30 +97,30 @@ namespace Dal::Script {
 
         while (pathsLeft > 0) {
             auto pathsInTask = std::min(pathsLeft, BATCH_SIZE);
-            sim_results.emplace_back(0.0);
-            auto& sim_result = sim_results[loop_i];
+            simResults.emplace_back(0.0);
+            auto& simResult = simResults[loop_i];
             loop_i += 1;
             futures.push_back(pool->SpawnTask([&, firstPath, pathsInTask]() {
                 const size_t threadNum = ThreadPool_::ThreadNum();
                 Vector_<>& gaussVec = gaussVectors[threadNum];
                 Scenario_<>& path = paths[threadNum];
-                auto& random = rng_s[threadNum];
+                auto& random = rngs[threadNum];
                 random->SkipTo(firstPath);
                 if (compiled) {
-                    EvalState_<double>& eval_state = eval_state_s[threadNum];
+                    EvalState_<double>& eval_state = evalStates[threadNum];
                     for (size_t i = 0; i < pathsInTask; ++i) {
                         random->FillNormal(&gaussVec);
                         mdl->GeneratePath(gaussVec, &path);
                         product.EvaluateCompiled(path, eval_state);
-                        sim_result += eval_state.VarVals()[payoff_idx];
+                        simResult += eval_state.VarVals()[payoff_idx];
                     }
                 } else {
-                    Evaluator_<double>& eval = eval_s[threadNum];
+                    Evaluator_<double>& eval = evals[threadNum];
                     for (size_t i = 0; i < pathsInTask; ++i) {
                         random->FillNormal(&gaussVec);
                         mdl->GeneratePath(gaussVec, &path);
                         product.Evaluate(path, eval);
-                        sim_result += eval.VarVals()[payoff_idx];
+                        simResult += eval.VarVals()[payoff_idx];
                     }
                 }
                 return true;
@@ -133,7 +133,7 @@ namespace Dal::Script {
             pool->ActiveWait(future);
 
         // aggregate all the results
-        results.aggregated_ = Accumulate(sim_results);
+        results.aggregated_ = Accumulate(simResults);
         return results;
     }
 
@@ -150,28 +150,28 @@ namespace Dal::Script {
         mdl->Allocate(product.TimeLine(), product.DefLine());
         std::unique_ptr<Random_> rng = CreateRNG(rsg, mdl->SimDim(), use_bb);
 
-        const auto n_params = mdl->Parameters().size();
-        const auto n_const_vars = product.ConstVarNames().size();
+        const auto nParams = mdl->Parameters().size();
+        const auto nConstVars = product.ConstVarNames().size();
         SimResults_<AAD::Number_> results(Dal::Vector::Join(mdl->ParameterLabels(), product.ConstVarNames()));
 
         ThreadPool_* pool = ThreadPool_::GetInstance();
-        const size_t n_thread = pool->NumThreads();
+        const size_t nThreads = pool->NumThreads();
 
-        Vector_<std::unique_ptr<AAD::Model_<AAD::Number_>>> models(n_thread);
+        Vector_<std::unique_ptr<AAD::Model_<AAD::Number_>>> models(nThreads);
         for (auto& m : models) {
             m = mdl->Clone();
             m->Allocate(product.TimeLine(), product.DefLine());
         }
 
-        Vector_<std::unique_ptr<Random_>> rng_s(n_thread);
-        for (auto& random : rng_s)
+        Vector_<std::unique_ptr<Random_>> rngs(nThreads);
+        for (auto& random : rngs)
             random = CreateRNG(rsg, mdl->SimDim(), use_bb);
 
-        Vector_<Vector_<>> gaussVectors(n_thread);
-        Vector_<Scenario_<AAD::Number_>> paths(n_thread);
-        Vector_<Evaluator_<AAD::Number_>> eval_s;
-        Vector_<FuzzyEvaluator_<AAD::Number_>> fuzzy_eval_s;
-        Vector_<EvalState_<AAD::Number_>> eval_state_s;
+        Vector_<Vector_<>> gaussVectors(nThreads);
+        Vector_<Scenario_<AAD::Number_>> paths(nThreads);
+        Vector_<Evaluator_<AAD::Number_>> evals;
+        Vector_<FuzzyEvaluator_<AAD::Number_>> fuzzyEvals;
+        Vector_<EvalState_<AAD::Number_>> evalStates;
 
         for (auto& vec : gaussVectors)
             vec.Resize(mdl->SimDim());
@@ -181,65 +181,65 @@ namespace Dal::Script {
             InitializePath(path);
         }
         if (compiled)
-            eval_state_s = Vector_<EvalState_<AAD::Number_>>(n_thread, product.BuildEvalState<AAD::Number_>());
+            evalStates = Vector_<EvalState_<AAD::Number_>>(nThreads, product.BuildEvalState<AAD::Number_>());
         else if (max_nested_ifs > 0)
-            fuzzy_eval_s = Vector_<FuzzyEvaluator_<AAD::Number_>>(n_thread, product.BuildFuzzyEvaluator<AAD::Number_>(max_nested_ifs, eps));
+            fuzzyEvals = Vector_<FuzzyEvaluator_<AAD::Number_>>(nThreads, product.BuildFuzzyEvaluator<AAD::Number_>(max_nested_ifs, eps));
         else
-            eval_s = Vector_<Evaluator_<AAD::Number_>>(n_thread, product.BuildEvaluator<AAD::Number_>());
+            evals = Vector_<Evaluator_<AAD::Number_>>(nThreads, product.BuildEvaluator<AAD::Number_>());
 
 #ifndef USE_AADET
-        const int batch_size = std::max(BATCH_SIZE, n_paths / n_thread + 1);
+        const int batchSize = std::max(BATCH_SIZE, n_paths / nThreads + 1);
 #else
-        const int batch_size = BATCH_SIZE;
+        const int batchSize = BATCH_SIZE;
 #endif
         Vector_<TaskHandle_> futures;
-        futures.reserve(n_paths / batch_size + 1);
-        Vector_<> sim_results;
-        sim_results.reserve(n_paths / batch_size + 1);
+        futures.reserve(n_paths / batchSize + 1);
+        Vector_<> simResults;
+        simResults.reserve(n_paths / batchSize + 1);
 
-        Vector_<bool> model_init(n_thread, false);
-        Vector_<AAD::Position_> start_positions(n_thread);
-        Vector_<AAD::Tape_*> tapes(n_thread, nullptr);
+        Vector_<bool> modelInit(nThreads, false);
+        Vector_<AAD::Position_> startPositions(nThreads);
+        Vector_<AAD::Tape_*> tapes(nThreads, nullptr);
 
         int firstPath = 0;
         int pathsLeft = n_paths;
         size_t loop_i = 0;
-        auto payoff_idx = product.PayOffIdx();
+        auto payoffIdx = product.PayOffIdx();
 
         while (pathsLeft > 0) {
-            auto pathsInTask = std::min(pathsLeft, batch_size);
-            sim_results.emplace_back(0.0);
-            auto& sim_result = sim_results[loop_i];
+            auto pathsInTask = std::min(pathsLeft, batchSize);
+            simResults.emplace_back(0.0);
+            auto& simResult = simResults[loop_i];
             loop_i += 1;
             futures.push_back(pool->SpawnTask([&, firstPath, pathsInTask]() {
-                const size_t n_threads = ThreadPool_::ThreadNum();
-                Scenario_<AAD::Number_>& path = paths[n_threads];
+                const size_t threadNum = ThreadPool_::ThreadNum();
+                Scenario_<AAD::Number_>& path = paths[threadNum];
 
-                auto& random = rng_s[n_threads];
-                auto& gVec = gaussVectors[n_threads];
-                auto& model = models[n_threads];
+                auto& random = rngs[threadNum];
+                auto& gVec = gaussVectors[threadNum];
+                auto& model = models[threadNum];
                 random->SkipTo(firstPath);
 
-                if (!tapes[n_threads])
-                    tapes[n_threads] = &AAD::Number_::getTape();
-                AAD::Tape_* tape = tapes[n_threads];
+                if (!tapes[threadNum])
+                    tapes[threadNum] = &AAD::Number_::getTape();
+                AAD::Tape_* tape = tapes[threadNum];
 
                 double sum_val = 0.0;
                 if (compiled) {
-                    EvalState_<AAD::Number_>& eval_state = eval_state_s[n_threads];
+                    EvalState_<AAD::Number_>& evalState = evalStates[threadNum];
 
                     //  Initialize once on each thread
-                    if (!model_init[n_threads]) {
-                        start_positions[n_threads] = InitModel4ParallelAAD(*tape, product, *model, path, eval_state);
-                        model_init[n_threads] = true;
+                    if (!modelInit[threadNum]) {
+                        startPositions[threadNum] = InitModel4ParallelAAD(*tape, product, *model, path, evalState);
+                        modelInit[threadNum] = true;
                     }
-                    auto& pos = start_positions[n_threads];
+                    auto& pos = startPositions[threadNum];
 
                     for (size_t i = 0; i < pathsInTask; i++) {
                         random->FillNormal(&gVec);
                         model->GeneratePath(gVec, &path);
-                        product.EvaluateCompiled(path, eval_state);
-                        AAD::Number_ res = eval_state.VarVals()[payoff_idx];
+                        product.EvaluateCompiled(path, evalState);
+                        AAD::Number_ res = evalState.VarVals()[payoffIdx];
                         res.setGradient(1.0);
                         tape->evaluate(tape->getPosition(), pos);
                         sum_val += res.value();
@@ -247,61 +247,61 @@ namespace Dal::Script {
                     }
                 }
                 else if (max_nested_ifs > 0) {
-                    FuzzyEvaluator_<AAD::Number_>& eval = fuzzy_eval_s[n_threads];
+                    FuzzyEvaluator_<AAD::Number_>& eval = fuzzyEvals[threadNum];
 
                     //  Initialize once on each thread
-                    if (!model_init[n_threads]) {
-                        start_positions[n_threads] = InitModel4ParallelAAD(*tape, product, *model, path, eval);
-                        model_init[n_threads] = true;
+                    if (!modelInit[threadNum]) {
+                        startPositions[threadNum] = InitModel4ParallelAAD(*tape, product, *model, path, eval);
+                        modelInit[threadNum] = true;
                     }
-                    auto& pos = start_positions[n_threads];
+                    auto& pos = startPositions[threadNum];
 
                     for (size_t i = 0; i < pathsInTask; i++) {
                         random->FillNormal(&gVec);
                         model->GeneratePath(gVec, &path);
                         product.Evaluate(path, eval);
-                        AAD::Number_ res = eval.VarVals()[payoff_idx];
+                        AAD::Number_ res = eval.VarVals()[payoffIdx];
                         res.setGradient(1.0);
                         tape->evaluate(tape->getPosition(), pos);
                         sum_val += res.value();
                         tape->resetTo(pos, false);
                     }
                 } else {
-                    Evaluator_<AAD::Number_>& eval = eval_s[n_threads];
+                    Evaluator_<AAD::Number_>& eval = evals[threadNum];
 
                     //  Initialize once on each thread
-                    if (!model_init[n_threads]) {
-                        start_positions[n_threads] = InitModel4ParallelAAD(*tape, product, *model, path, eval);
-                        model_init[n_threads] = true;
+                    if (!modelInit[threadNum]) {
+                        startPositions[threadNum] = InitModel4ParallelAAD(*tape, product, *model, path, eval);
+                        modelInit[threadNum] = true;
                     }
-                    auto& pos = start_positions[n_threads];
+                    auto& pos = startPositions[threadNum];
 
                     for (size_t i = 0; i < pathsInTask; i++) {
                         random->FillNormal(&gVec);
                         model->GeneratePath(gVec, &path);
                         product.Evaluate(path, eval);
-                        AAD::Number_ res = eval.VarVals()[payoff_idx];
+                        AAD::Number_ res = eval.VarVals()[payoffIdx];
                         res.setGradient(1.0);
                         tape->evaluate(tape->getPosition(), pos);
                         sum_val += res.value();
                         tape->resetTo(pos, false);
                     }
                 }
-                sim_result = sum_val;
+                simResult = sum_val;
 #ifndef USE_AADET
                 tape->evaluate(pos, tape->getZeroPosition());
-                for (size_t j = 0; j < n_params; ++j)
+                for (size_t j = 0; j < nParams; ++j)
                     results.risks_[j] += model->Parameters()[j]->getGradient() / static_cast<double>(n_paths);
 
                 if (compiled) {
-                    for (size_t j = 0; j < n_const_vars; ++j)
-                        results.risks_[j + n_params] +=  eval_state_s[n_threads].ConstVarVals()[j].getGradient() / static_cast<double>(n_paths);
+                    for (size_t j = 0; j < nConstVars; ++j)
+                        results.risks_[j + nParams] +=  evalStates[threadNum].ConstVarVals()[j].getGradient() / static_cast<double>(n_paths);
                 }  else if (max_nested_ifs > 0) {
-                    for (size_t j = 0; j < n_const_vars; ++j)
-                        results.risks_[j + n_params] +=  fuzzy_eval_s[n_threads].ConstVarVals()[j].getGradient() / static_cast<double>(n_paths);
+                    for (size_t j = 0; j < nConstVars; ++j)
+                        results.risks_[j + nParams] +=  fuzzyEvals[threadNum].ConstVarVals()[j].getGradient() / static_cast<double>(n_paths);
                 } else {
-                    for (size_t j = 0; j < n_const_vars; ++j)
-                        results.risks_[j + n_params] +=  eval_s[n_threads].ConstVarVals()[j].getGradient() / static_cast<double>(n_paths);
+                    for (size_t j = 0; j < nConstVars; ++j)
+                        results.risks_[j + nParams] +=  evals[threadNum].ConstVarVals()[j].getGradient() / static_cast<double>(n_paths);
                 }
                 tape->reset();
 #endif
@@ -315,37 +315,37 @@ namespace Dal::Script {
             pool->ActiveWait(future);
 
         // aggregate all the results
-        for (const auto& s: sim_results)
+        for (const auto& s: simResults)
             results.aggregated_ += s;
 
 #ifdef USE_AADET
-        for (size_t i = 0; i < n_thread; ++i)
-            if (model_init[i])
+        for (size_t i = 0; i < nThreads; ++i)
+            if (modelInit[i])
                 tapes[i]->evaluate();
 
-        for (size_t j = 0; j < n_params; ++j)
+        for (size_t j = 0; j < nParams; ++j)
             for (size_t i = 0; i < models.size(); ++i)
-                if (model_init[i])
+                if (modelInit[i])
                     results.risks_[j] += models[i]->Parameters()[j]->getGradient() / static_cast<double>(n_paths);
 
         if (compiled) {
-            for (size_t j = 0; j < n_const_vars; ++j)
-                for (size_t i = 0; i < eval_state_s.size(); ++i)
-                    if (model_init[i])
-                        results.risks_[j + n_params] +=  eval_state_s[i].ConstVarVals()[j].getGradient() / static_cast<double>(n_paths);
+            for (size_t j = 0; j < nConstVars; ++j)
+                for (size_t i = 0; i < evalStates.size(); ++i)
+                    if (modelInit[i])
+                        results.risks_[j + nParams] +=  evalStates[i].ConstVarVals()[j].getGradient() / static_cast<double>(n_paths);
         }  else if (max_nested_ifs > 0) {
-            for (size_t j = 0; j < n_const_vars; ++j)
-                for (size_t i = 0; i < fuzzy_eval_s.size(); ++i)
-                    if (model_init[i])
-                        results.risks_[j + n_params] +=  fuzzy_eval_s[i].ConstVarVals()[j].getGradient() / static_cast<double>(n_paths);
+            for (size_t j = 0; j < nConstVars; ++j)
+                for (size_t i = 0; i < fuzzyEvals.size(); ++i)
+                    if (modelInit[i])
+                        results.risks_[j + nParams] +=  fuzzyEvals[i].ConstVarVals()[j].getGradient() / static_cast<double>(n_paths);
         } else {
-            for (size_t j = 0; j < n_const_vars; ++j)
-                for (size_t i = 0; i < eval_s.size(); ++i)
-                    if (model_init[i])
-                        results.risks_[j + n_params] +=  eval_s[i].ConstVarVals()[j].getGradient() / static_cast<double>(n_paths);
+            for (size_t j = 0; j < nConstVars; ++j)
+                for (size_t i = 0; i < evals.size(); ++i)
+                    if (modelInit[i])
+                        results.risks_[j + nParams] +=  evals[i].ConstVarVals()[j].getGradient() / static_cast<double>(n_paths);
         }
-        for (size_t i = 0; i < n_thread; ++i)
-            if (model_init[i])
+        for (size_t i = 0; i < nThreads; ++i)
+            if (modelInit[i])
                 tapes[i]->Clear();
 #endif
         return results;
