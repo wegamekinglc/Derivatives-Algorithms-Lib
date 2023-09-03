@@ -12,7 +12,8 @@
 
 namespace {
     const std::set<Dal::String_> RESERVED_KEY_WORDS = {
-            "IF", "END", "THEN", "DCF", "PAYS"
+            "IF", "END", "THEN", "ELSE", "DCF", "PAYS", "AND", "OR", "SPOT", "MAX", "MIN",
+            "LOG", "SQRT", "EXP"
     };
 }
 
