@@ -7,7 +7,7 @@
 
 using namespace Dal::AAD;
 
-TEST(ModelsTest, TestDupireCalib) {
+TEST(AADTest, TestDupireCalib) {
     const auto spot = 100;
 
     MertonIVS_ ivs(spot, 0.15, 0.05, -0.15, 0.1);

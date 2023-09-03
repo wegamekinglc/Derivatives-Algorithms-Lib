@@ -8,31 +8,31 @@
 
 using namespace Dal::AAD;
 
-TEST(BlockListTest, TestBlockListInit) {
+TEST(AADTest, TestBlockListInit) {
     BlockList_<double, 10> blocks;
     ASSERT_EQ(blocks.Size(), 0);
 }
 
-TEST(BlockListTest, TestBlockListEmplaceBack) {
+TEST(AADTest, TestBlockListEmplaceBack) {
     BlockList_<double, 10> blocks;
     blocks.EmplaceBack();
     ASSERT_EQ(blocks.Size(), 1);
 }
 
-TEST(BlockListTest, TestBlockListEmplaceBackMulti) {
+TEST(AADTest, TestBlockListEmplaceBackMulti) {
     BlockList_<double, 10> blocks;
     blocks.EmplaceBackMulti(5);
     ASSERT_EQ(blocks.Size(), 5);
 }
 
-TEST(BlockListTest, TestBlockListRewind) {
+TEST(AADTest, TestBlockListRewind) {
     BlockList_<double, 10> blocks;
     blocks.EmplaceBackMulti(5);
     blocks.Rewind();
     ASSERT_EQ(blocks.Size(), 0);
 }
 
-TEST(BlockListTest, TestBlockListRewindToMark) {
+TEST(AADTest, TestBlockListRewindToMark) {
     BlockList_<double, 10> blocks;
     blocks.EmplaceBackMulti(5);
     blocks.SetMark();

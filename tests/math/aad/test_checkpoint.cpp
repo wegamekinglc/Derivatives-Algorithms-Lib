@@ -7,7 +7,7 @@
 
 using namespace Dal::AAD;
 
-TEST(AADCheckpointTest, TestWithCheckpoint) {
+TEST(AADTest, TestWithCheckpoint) {
     auto& tape = Number_::getTape();
     tape.setActive();
 
@@ -30,7 +30,7 @@ TEST(AADCheckpointTest, TestWithCheckpoint) {
     ASSERT_NEAR(s1.getGradient(), 2.0, 1e-10);
 }
 
-TEST(AADCheckpointTest, TestWithCheckpointWithForLoop) {
+TEST(AADTest, TestWithCheckpointWithForLoop) {
     auto& tape = Number_::getTape();
     for (int m = 0; m < 3; ++m) {
         tape.reset();

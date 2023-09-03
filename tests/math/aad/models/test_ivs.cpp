@@ -10,7 +10,7 @@ using namespace Dal;
 using namespace Dal::AAD;
 
 
-TEST(ModelsTest, TestMertonIVS) {
+TEST(AADTest, TestMertonIVS) {
     const auto T = 2.0;
     const auto strike = 110;
     const auto spot = 100;

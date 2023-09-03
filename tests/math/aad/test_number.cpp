@@ -8,7 +8,7 @@
 
 using namespace Dal::AAD;
 
-TEST(AADNumberTest, TestNumberAdd) {
+TEST(AADTest, TestNumberAdd) {
 
     auto& tape = Number_::getTape();
     tape.setActive();
@@ -42,7 +42,7 @@ TEST(AADNumberTest, TestNumberAdd) {
     tape.reset();
 }
 
-TEST(AADNumberTest, TestNumberSub) {
+TEST(AADTest, TestNumberSub) {
 
     auto& tape = Number_::getTape();
     tape.setActive();
@@ -76,7 +76,7 @@ TEST(AADNumberTest, TestNumberSub) {
     tape.reset();
 }
 
-TEST(AADNumberTest, TestNumberMultiply) {
+TEST(AADTest, TestNumberMultiply) {
 
     auto& tape = Number_::getTape();
     tape.setActive();
@@ -110,7 +110,7 @@ TEST(AADNumberTest, TestNumberMultiply) {
     tape.reset();
 }
 
-TEST(AADNumberTest, TestNumberDivide) {
+TEST(AADTest, TestNumberDivide) {
 
     auto& tape = Number_::getTape();
     tape.setActive();
@@ -144,7 +144,7 @@ TEST(AADNumberTest, TestNumberDivide) {
     tape.reset();
 }
 
-TEST(AADNumberTest, TestNumberPow) {
+TEST(AADTest, TestNumberPow) {
     auto& tape = Number_::getTape();
     tape.setActive();
 
@@ -177,7 +177,7 @@ TEST(AADNumberTest, TestNumberPow) {
     tape.reset();
 }
 
-TEST(AADNumberTest, TestNumberMax) {
+TEST(AADTest, TestNumberMax) {
     auto& tape = Number_::getTape();
     tape.setActive();
 
@@ -237,7 +237,7 @@ TEST(AADNumberTest, TestNumberMax) {
     tape.reset();
 }
 
-TEST(AADNumberTest, TestNumberMin) {
+TEST(AADTest, TestNumberMin) {
     auto& tape = Number_::getTape();
     tape.setActive();
 
@@ -299,7 +299,7 @@ TEST(AADNumberTest, TestNumberMin) {
 }
 
 
-TEST(AADNumberTest, TestNumberEqualAdd) {
+TEST(AADTest, TestNumberEqualAdd) {
 
     auto& tape = Number_::getTape();
     tape.setActive();
@@ -329,7 +329,7 @@ TEST(AADNumberTest, TestNumberEqualAdd) {
 }
 
 
-TEST(AADNumberTest, TestNumberEqualSub) {
+TEST(AADTest, TestNumberEqualSub) {
 
     auto& tape = Number_::getTape();
     tape.setActive();
@@ -359,7 +359,7 @@ TEST(AADNumberTest, TestNumberEqualSub) {
 }
 
 
-TEST(AADNumberTest, TestNumberEqualMultiply) {
+TEST(AADTest, TestNumberEqualMultiply) {
 
     auto& tape = Number_::getTape();
     tape.setActive();
@@ -389,7 +389,7 @@ TEST(AADNumberTest, TestNumberEqualMultiply) {
 }
 
 
-TEST(AADNumberTest, TestNumberEqualDivide) {
+TEST(AADTest, TestNumberEqualDivide) {
 
     auto& tape = Number_::getTape();
     tape.setActive();
@@ -419,7 +419,7 @@ TEST(AADNumberTest, TestNumberEqualDivide) {
 }
 
 
-TEST(AADNumberTest, TestNumberNegative) {
+TEST(AADTest, TestNumberNegative) {
     auto& tape = Number_::getTape();
     tape.setActive();
     Number_ s1(2.0);
@@ -433,7 +433,7 @@ TEST(AADNumberTest, TestNumberNegative) {
 }
 
 
-TEST(AADNumberTest, TestNumberPositive) {
+TEST(AADTest, TestNumberPositive) {
     auto& tape = Number_::getTape();
     tape.setActive();
     Number_ s1(2.0);
@@ -447,7 +447,7 @@ TEST(AADNumberTest, TestNumberPositive) {
 }
 
 
-TEST(AADNumberTest, TestNumberExp) {
+TEST(AADTest, TestNumberExp) {
     auto& tape = Number_::getTape();
     tape.setActive();
     Number_ s1(2.0);
@@ -461,7 +461,7 @@ TEST(AADNumberTest, TestNumberExp) {
 }
 
 
-TEST(AADNumberTest, TestNumberLog) {
+TEST(AADTest, TestNumberLog) {
     auto& tape = Number_::getTape();
     tape.setActive();
     Number_ s1(2.0);
@@ -475,7 +475,7 @@ TEST(AADNumberTest, TestNumberLog) {
 }
 
 
-TEST(AADNumberTest, TestNumberSqrt) {
+TEST(AADTest, TestNumberSqrt) {
     auto& tape = Number_::getTape();
     tape.setActive();
     Number_ s1(2.0);
@@ -489,7 +489,7 @@ TEST(AADNumberTest, TestNumberSqrt) {
 }
 
 
-TEST(AADNumberTest, TestNumberFabs) {
+TEST(AADTest, TestNumberFabs) {
     auto& tape = Number_::getTape();
     tape.setActive();
     Number_ s1(-2.0);
