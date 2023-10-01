@@ -6,7 +6,6 @@
 
 #include <dal/indice/index.hpp>
 #include <dal/currency/currency.hpp>
-#include <dal/platform/strict.hpp>
 
 namespace Dal::Index {
     class Fx_ : public Index_ {

@@ -5,3 +5,7 @@
 #include <dal/platform/strict.hpp>
 #include <dal/curve/yccomponent.hpp>
 
+namespace Dal {
+    
+}
+

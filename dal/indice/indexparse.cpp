@@ -2,12 +2,14 @@
 // Created by wegam on 2022/1/20.
 //
 
-#include <dal/indice/indexcomposite.hpp>
-#include <dal/indice/indexparse.hpp>
-#include <dal/string/strings.hpp>
-#include <dal/utilities/exceptions.hpp>
 #include <map>
 #include <mutex>
+#include <dal/platform/platform.hpp>
+#include <dal/platform/strict.hpp>
+#include <dal/indice/indexparse.hpp>
+#include <dal/indice/indexcomposite.hpp>
+#include <dal/string/strings.hpp>
+#include <dal/utilities/exceptions.hpp>
 
 namespace Dal {
     namespace {

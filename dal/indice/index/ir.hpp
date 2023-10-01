@@ -4,13 +4,13 @@
 
 #pragma once
 
+#include <utility>
 #include <dal/indice/index.hpp>
 #include <dal/math/cell.hpp>
 #include <dal/protocol/collateraltype.hpp>
 #include <dal/protocol/couponrate.hpp>
 #include <dal/currency/currency.hpp>
 #include <dal/utilities/functionals.hpp>
-#include <utility>
 
 namespace Dal::Index {
     class IRForward_ : public Index_ {

@@ -2,9 +2,8 @@
 // Created by wegam on 2022/1/20.
 //
 
-
+#include <dal/platform/strict.hpp>
 #include <dal/indice/index.hpp>
-#include <dal/platform/platform.hpp>
 
 namespace Dal {
 

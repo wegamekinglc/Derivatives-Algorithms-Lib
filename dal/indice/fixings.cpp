@@ -2,8 +2,8 @@
 // Created by wegam on 2022/1/20.
 //
 
+#include <dal/platform/strict.hpp>
 #include <dal/indice/fixings.hpp>
-#include <dal/platform/platform.hpp>
 #include <dal/utilities/exceptions.hpp>
 #include <dal/utilities/algorithms.hpp>
 #include <dal/utilities/maps.hpp>

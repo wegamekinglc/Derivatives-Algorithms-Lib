@@ -2,6 +2,7 @@
 // Created by wegam on 2023/1/24.
 //
 
+#include <dal/platform/platform.hpp>
 #include <dal/platform/strict.hpp>
 #include <dal/indice/parser/init.hpp>
 #include <dal/string/strings.hpp>
