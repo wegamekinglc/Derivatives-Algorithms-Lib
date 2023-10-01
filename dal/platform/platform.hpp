@@ -13,6 +13,8 @@
 #include <memory>
 #include <utility>
 #include <cmath>
+#include <set>
+#include <map>
 
 #ifdef MIN
 #undef MIN

@@ -5,6 +5,7 @@
 #pragma once
 
 #include <regex>
+#include <utility>
 #include <dal/math/aad/sample.hpp>
 #include <dal/math/vectors.hpp>
 #include <dal/script/node.hpp>
@@ -18,7 +19,6 @@
 #include <dal/time/dateutils.hpp>
 #include <dal/time/dateincrement.hpp>
 #include <dal/time/holidays.hpp>
-#include <utility>
 
 /*IF--------------------------------------------------------------------------
 storable ScriptProductData

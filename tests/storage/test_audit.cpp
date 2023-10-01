@@ -3,6 +3,7 @@
 //
 
 #include <gtest/gtest.h>
+#include <dal/platform/platform.hpp>
 #include <dal/utilities/environment.hpp>
 #include <dal/storage/audit.hpp>
 #include <dal/math/interp/interp.hpp>

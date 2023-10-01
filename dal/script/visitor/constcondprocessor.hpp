@@ -4,9 +4,9 @@
 
 #pragma once
 
+#include <memory>
 #include <dal/script/node.hpp>
 #include <dal/script/visitor.hpp>
-#include <memory>
 
 namespace Dal::Script {
 

@@ -4,6 +4,7 @@
 
 
 #include <gtest/gtest.h>
+#include <dal/platform/platform.hpp>
 #include <dal/utilities/exceptions.hpp>
 #include <dal/time/date.hpp>
 #include <dal/time/datetime.hpp>

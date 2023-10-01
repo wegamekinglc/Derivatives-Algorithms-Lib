@@ -3,6 +3,7 @@
 //
 
 #include <gtest/gtest.h>
+#include <dal/platform/platform.hpp>
 #include <dal/indice/index/ir.hpp>
 
 using namespace Dal;

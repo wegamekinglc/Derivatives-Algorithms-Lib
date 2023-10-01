@@ -3,8 +3,8 @@
 //
 
 #include <dal/platform/strict.hpp>
-#include <dal/script/node.hpp>
 #include <dal/script/parser.hpp>
+#include <dal/script/node.hpp>
 #include <dal/script/visitor/all.hpp>
 #include <dal/time/daybasis.hpp>
 #include <dal/time/dateutils.hpp>

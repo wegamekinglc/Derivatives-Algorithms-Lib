@@ -2,6 +2,7 @@
 // Created by wegam on 2022/2/2.
 //
 
+#include <dal/platform/platform.hpp>
 #include <dal/platform/strict.hpp>
 #include <dal/protocol/conventions.hpp>
 #include <dal/time/datetime.hpp>

@@ -3,6 +3,7 @@
 //
 
 #include <gtest/gtest.h>
+#include <dal/platform/platform.hpp>
 #include <dal/storage/box.hpp>
 #include <dal/storage/json.hpp>
 #include <dal/time/datetime.hpp>

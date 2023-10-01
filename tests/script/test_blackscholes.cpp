@@ -2,11 +2,12 @@
 // Created by wegam on 2021/12/25.
 //
 
+#include <gtest/gtest.h>
+#include <dal/platform/platform.hpp>
 #include <dal/math/aad/models/blackscholes.hpp>
 #include <dal/storage/globals.hpp>
 #include <dal/script/event.hpp>
 #include <dal/script/simulation.hpp>
-#include <gtest/gtest.h>
 
 using namespace Dal;
 using namespace Dal::AAD;

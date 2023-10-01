@@ -3,6 +3,7 @@
 //
 
 #include <gtest/gtest.h>
+#include <dal/platform/platform.hpp>
 #include <dal/script/parser.hpp>
 #include <dal/script/visitor/all.hpp>
 

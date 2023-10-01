@@ -2,8 +2,9 @@
 // Created by wegam on 2020/10/2.
 //
 
-#include <dal/utilities/environment.hpp>
 #include <gtest/gtest.h>
+#include <dal/platform/platform.hpp>
+#include <dal/utilities/environment.hpp>\
 
 using Dal::Vector_;
 using Dal::Handle_;

@@ -2,11 +2,12 @@
 // Created by wegamekinglc on 2020/11/24.
 //
 
+#include <gtest/gtest.h>
+#include <dal/platform/platform.hpp>
 #include <dal/math/interp/interp.hpp>
 #include <dal/math/vectors.hpp>
 #include <dal/storage/splat.hpp>
 #include <dal/utilities/file.hpp>
-#include <gtest/gtest.h>
 
 using namespace Dal;
 

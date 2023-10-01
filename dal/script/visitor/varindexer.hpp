@@ -4,10 +4,10 @@
 
 #pragma once
 
+#include <map>
 #include <dal/math/vectors.hpp>
 #include <dal/script/node.hpp>
 #include <dal/script/visitor.hpp>
-#include <map>
 
 namespace Dal::Script {
 

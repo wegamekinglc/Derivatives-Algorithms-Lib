@@ -1,11 +1,9 @@
 #pragma once
 
 #include <dal/math/vectors.hpp>
-#include <dal/platform/platform.hpp>
 #include <dal/string/strings.hpp>
 #include <dal/time/date.hpp>
 #include <dal/utilities/exceptions.hpp>
-#include <set>
 
 /*IF---------------------------------------------------------
 enumeration DayBasis

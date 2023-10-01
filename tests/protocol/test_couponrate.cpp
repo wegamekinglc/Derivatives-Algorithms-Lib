@@ -3,6 +3,7 @@
 //
 
 #include <gtest/gtest.h>
+#include <dal/platform/platform.hpp>
 #include <dal/time/periodlength.hpp>
 #include <dal/protocol/couponrate.hpp>
 #include <dal/protocol/clearer.hpp>

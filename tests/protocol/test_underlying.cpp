@@ -3,6 +3,7 @@
 //
 
 #include <gtest/gtest.h>
+#include <dal/platform/platform.hpp>
 #include <dal/time/date.hpp>
 #include <dal/indice/parser/equity.hpp>
 #include <dal/protocol/underlying.hpp>

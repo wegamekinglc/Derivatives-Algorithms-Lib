@@ -3,6 +3,7 @@
 //
 
 #include <iostream>
+#include <dal/platform/platform.hpp>
 #include <dal/time/date.hpp>
 
 using namespace Dal;

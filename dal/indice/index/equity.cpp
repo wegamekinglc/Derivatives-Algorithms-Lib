@@ -2,6 +2,7 @@
 // Created by wegam on 2022/1/21.
 //
 
+#include <dal/platform/platform.hpp>
 #include <dal/platform/strict.hpp>
 #include <dal/indice/index/equity.hpp>
 #include <dal/time/dateincrement.hpp>

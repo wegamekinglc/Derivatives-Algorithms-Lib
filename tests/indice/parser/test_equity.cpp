@@ -3,6 +3,7 @@
 //
 
 #include <gtest/gtest.h>
+#include <dal/platform/platform.hpp>
 #include <dal/string/strings.hpp>
 #include <dal/indice/index.hpp>
 #include <dal/indice/parser/equity.hpp>

@@ -2,11 +2,12 @@
 // Created by wegam on 2020/11/18.
 //
 
-#include <dal/platform/platform.hpp>
-#include <gtest/gtest.h>
-#include <dal/utilities/functionals.hpp>
 #include <vector>
 #include <type_traits>
+#include <gtest/gtest.h>
+#include <dal/platform/platform.hpp>
+#include <dal/utilities/functionals.hpp>
+
 
 using namespace Dal;
 

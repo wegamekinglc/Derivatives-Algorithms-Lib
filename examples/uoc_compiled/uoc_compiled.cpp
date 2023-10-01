@@ -3,6 +3,8 @@
 //
 
 #include <iostream>
+#include <iomanip>
+#include <dal/platform/platform.hpp>
 #include <dal/time/schedules.hpp>
 #include <dal/time/dateincrement.hpp>
 #include <dal/script/event.hpp>
@@ -11,7 +13,6 @@
 #include <dal/storage/globals.hpp>
 #include <dal/utilities/timer.hpp>
 #include <dal/script/simulation.hpp>
-#include <iomanip>
 
 using namespace std;
 using namespace Dal;

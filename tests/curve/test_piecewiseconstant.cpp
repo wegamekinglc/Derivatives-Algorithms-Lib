@@ -2,6 +2,7 @@
 // Created by wegam on 2023/3/26.
 //
 
+#include <dal/platform/platform.hpp>
 #include <gtest/gtest.h>
 #include <dal/curve/piecewiseconstant.hpp>
 

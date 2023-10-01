@@ -2,6 +2,7 @@
 // Created by wegam on 2022/1/23.
 //
 
+#include <dal/platform/platform.hpp>
 #include <dal/platform/strict.hpp>
 #include <dal/indice/parser/equity.hpp>
 #include <dal/indice/index/equity.hpp>

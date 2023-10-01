@@ -3,6 +3,7 @@
 //
 
 #include <gtest/gtest.h>
+#include <dal/platform/platform.hpp>
 #include <dal/script/node.hpp>
 #include <dal/script/visitor/all.hpp>
 #include <dal/script/visitor/pastevaluator.hpp>

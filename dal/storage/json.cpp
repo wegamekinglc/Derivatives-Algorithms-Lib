@@ -11,6 +11,7 @@
 #include <rapidjson/filereadstream.h>
 #include <rapidjson/filewritestream.h>
 
+#include <dal/platform/platform.hpp>
 #include <dal/platform/strict.hpp>
 #include <dal/storage/json.hpp>
 #include <dal/utilities/numerics.hpp>

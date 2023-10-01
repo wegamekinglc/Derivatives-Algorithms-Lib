@@ -3,6 +3,7 @@
 //
 
 #include <gtest/gtest.h>
+#include <dal/platform/platform.hpp>
 #include <dal/math/cell.hpp>
 #include <dal/time/schedules.hpp>
 #include <dal/time/holidays.hpp>

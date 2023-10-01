@@ -2,6 +2,7 @@
 // Created by wegamekinglc on 2020/5/1.
 //
 
+#include <dal/platform/platform.hpp>
 #include <dal/platform/strict.hpp>
 #include <dal/storage/archive.hpp>
 

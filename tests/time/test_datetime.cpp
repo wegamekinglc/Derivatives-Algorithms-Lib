@@ -3,7 +3,7 @@
 //
 
 #include <gtest/gtest.h>
-#include <dal/platform/strict.hpp>
+#include <dal/platform/platform.hpp>
 #include <dal/time/datetime.hpp>
 #include <dal/utilities/exceptions.hpp>
 

@@ -4,12 +4,12 @@
 
 #pragma once
 
+#include <iterator>
+#include <set>
 #include <dal/math/stacks.hpp>
 #include <dal/platform/platform.hpp>
 #include <dal/script/node.hpp>
 #include <dal/script/visitor.hpp>
-#include <iterator>
-#include <set>
 
 namespace Dal::Script {
     class IFProcessor_ : public Visitor_<IFProcessor_> {

@@ -3,6 +3,7 @@
 //
 
 #include <gtest/gtest.h>
+#include <dal/platform/platform.hpp>
 #include <dal/storage/json.hpp>
 #include <dal/math/interp/interp.hpp>
 #include <dal/math/vectors.hpp>

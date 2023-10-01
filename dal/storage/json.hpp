@@ -3,7 +3,6 @@
 //
 
 #pragma once
-#include <dal/platform/platform.hpp>
 
 namespace Dal {
     class String_;

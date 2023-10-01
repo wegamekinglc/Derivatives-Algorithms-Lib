@@ -3,6 +3,7 @@
 //
 
 #include <gtest/gtest.h>
+#include <dal/platform/platform.hpp>
 #include <dal/utilities/file.hpp>
 #include <dal/math/vectors.hpp>
 

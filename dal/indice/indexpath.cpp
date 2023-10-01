@@ -2,6 +2,7 @@
 // Created by wegam on 2023/6/4.
 //
 
+#include <dal/platform/platform.hpp>
 #include <dal/platform/strict.hpp>
 #include <dal/indice/indexpath.hpp>
 #include <dal/utilities/exceptions.hpp>

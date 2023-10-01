@@ -17,13 +17,12 @@ As long as this comment is preserved at the Top of the file
 #pragma once
 
 #include <iostream>
-
 #include <algorithm>
+#include <functional>
 #include <dal/math/aad/sample.hpp>
 #include <dal/math/stacks.hpp>
 #include <dal/script/node.hpp>
 #include <dal/script/visitor.hpp>
-#include <functional>
 
 /*IF--------------------------------------------------------------------------
 enumeration NodeType

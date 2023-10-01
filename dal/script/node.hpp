@@ -4,10 +4,11 @@
 
 #pragma once
 
-#include <dal/script/nodebase.hpp>
-#include <dal/string/strings.hpp>
 #include <memory>
 #include <variant>
+#include <dal/script/nodebase.hpp>
+#include <dal/string/strings.hpp>
+
 
 namespace Dal::Script {
     //  Hierarchy

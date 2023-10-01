@@ -1,5 +1,5 @@
 #include <gtest/gtest.h>
-#include <dal/platform/strict.hpp>
+#include <dal/platform/platform.hpp>
 #include <dal/time/daybasis.hpp>
 
 using Dal::Date_;
