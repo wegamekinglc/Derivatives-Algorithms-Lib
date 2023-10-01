@@ -5,7 +5,6 @@
 #pragma once
 
 #include <map>
-#include <dal/platform/platform.hpp>
 #include <dal/time/date.hpp>
 #include <dal/time/datetime.hpp>
 #include <dal/currency/currency.hpp>

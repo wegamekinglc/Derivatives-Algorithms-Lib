@@ -4,7 +4,6 @@
 
 #pragma once
 #include <optional>
-#include <dal/platform//platform.hpp>
 #include <dal/utilities/noncopyable.hpp>
 #include <dal/time/date.hpp>
 #include <dal/time/datetime.hpp>

@@ -4,7 +4,6 @@
 
 #pragma once
 
-#include <dal/platform/platform.hpp>
 #include <dal/currency/currency.hpp>
 #include <dal/time/datetime.hpp>
 #include <dal/utilities/noncopyable.hpp>
