@@ -5,7 +5,6 @@
 #pragma once
 
 #include <cmath>
-#include <dal/platform/platform.hpp>
 
 namespace Dal {
     class RootFinder_ {

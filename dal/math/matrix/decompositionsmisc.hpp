@@ -4,8 +4,6 @@
 
 #pragma once
 
-#include <dal/platform/platform.hpp>
-
 namespace Dal {
     class SquareMatrixDecomposition_;
     class SymmetricMatrixDecomposition_;

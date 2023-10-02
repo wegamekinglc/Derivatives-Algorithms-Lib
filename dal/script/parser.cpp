@@ -2,6 +2,7 @@
 // Created by wegam on 2022/4/4.
 //
 
+#include <dal/platform/platform.hpp>
 #include <dal/platform/strict.hpp>
 #include <dal/script/parser.hpp>
 #include <dal/script/node.hpp>
@@ -9,14 +10,12 @@
 #include <dal/time/daybasis.hpp>
 #include <dal/time/dateutils.hpp>
 
-
 namespace {
     const std::set<Dal::String_> RESERVED_KEY_WORDS = {
             "IF", "END", "THEN", "ELSE", "DCF", "PAYS", "AND", "OR", "SPOT", "MAX", "MIN",
             "LOG", "SQRT", "EXP"
     };
 }
-
 
 namespace Dal::Script {
     Expression_ Parser_::ParseExpr(TokIt_& cur, const TokIt_& end) {

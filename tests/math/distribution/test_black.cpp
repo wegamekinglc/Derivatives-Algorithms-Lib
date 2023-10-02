@@ -2,9 +2,11 @@
 // Created by wegam on 2022/5/7.
 //
 
+#include <gtest/gtest.h>
+#include <dal/platform/platform.hpp>
 #include <dal/math/operators.hpp>
 #include <dal/math/distribution/black.hpp>
-#include <gtest/gtest.h>
+
 
 using namespace Dal;
 

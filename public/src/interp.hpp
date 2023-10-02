@@ -4,7 +4,6 @@
 
 #pragma once
 
-#include <dal/platform/platform.hpp>
 #include <dal/math/vectors.hpp>
 #include <dal/string/strings.hpp>
 

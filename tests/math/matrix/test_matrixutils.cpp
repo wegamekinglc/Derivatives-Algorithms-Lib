@@ -2,9 +2,10 @@
 // Created by wegam on 2022/4/10.
 //
 
+#include <gtest/gtest.h>
+#include <dal/platform/platform.hpp>
 #include <dal/math/operators.hpp>
 #include <dal/math/matrix/matrixutils.hpp>
-#include <gtest/gtest.h>
 
 using matrix_t = Dal::Matrix_<>;
 

@@ -3,7 +3,8 @@
 //
 
 #include <gtest/gtest.h>
-#include "dal/math/pde/meshers/uniform1dmesher.hpp"
+#include <dal/platform/platform.hpp>
+#include <dal/math/pde/meshers/uniform1dmesher.hpp>
 
 using namespace Dal;
 

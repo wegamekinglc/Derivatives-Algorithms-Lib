@@ -5,7 +5,6 @@
 #pragma once
 
 #include <algorithm>
-#include <dal/platform/platform.hpp>
 
 namespace Dal::AAD {
     template <class CONT_, class T_, class IT_ = T_*>

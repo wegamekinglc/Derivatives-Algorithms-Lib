@@ -8,7 +8,6 @@
 #include <dal/math/interp/interp2d.hpp>
 #include <dal/math/matrix/matrixs.hpp>
 #include <dal/math/vectors.hpp>
-#include <dal/platform/platform.hpp>
 
 namespace Dal::AAD {
     template <class T_>

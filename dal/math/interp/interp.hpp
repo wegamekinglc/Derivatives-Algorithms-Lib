@@ -5,7 +5,6 @@
 #pragma once
 
 
-#include <map>
 #include <dal/storage/archive.hpp>
 #include <dal/math/operators.hpp>
 

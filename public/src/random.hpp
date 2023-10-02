@@ -4,7 +4,6 @@
 
 #pragma once
 
-#include <dal/platform/platform.hpp>
 #include <dal/string/strings.hpp>
 #include <public/src/random.hpp>
 #include <dal/math/random/pseudorandom.hpp>

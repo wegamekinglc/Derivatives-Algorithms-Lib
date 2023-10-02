@@ -1,19 +1,16 @@
 //
-// Created by wegam on 2023/3/1.
-//
-
-
-//
 // Created by wegam on 2020/12/21.
 //
 
 #include <iostream>
+
+#include <iomanip>
+#include <dal/platform/platform.hpp>
 #include <dal/script/event.hpp>
 #include <dal/math/aad/models/blackscholes.hpp>
 #include <dal/storage/globals.hpp>
 #include <dal/utilities/timer.hpp>
 #include <dal/script/simulation.hpp>
-#include <iomanip>
 
 using namespace std;
 using namespace Dal;

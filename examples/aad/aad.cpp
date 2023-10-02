@@ -2,6 +2,7 @@
 // Created by wegam on 2020/12/21.
 //
 
+#include <dal/platform/platform.hpp>
 #include <dal/math/operators.hpp>
 #include <dal/math/aad/aad.hpp>
 #include <dal/math/vectors.hpp>

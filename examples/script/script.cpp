@@ -3,6 +3,7 @@
 //
 
 #include <iostream>
+#include <dal/platform/platform.hpp>
 #include <dal/script/event.hpp>
 #include <dal/storage/globals.hpp>
 

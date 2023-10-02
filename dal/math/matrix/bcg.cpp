@@ -2,6 +2,7 @@
 // Created by wegamekinglc on 22-12-17.
 //
 
+#include <dal/platform/platform.hpp>
 #include <dal/platform/strict.hpp>
 #include <dal/math/matrix/bcg.hpp>
 #include <dal/math/matrix/sparse.hpp>

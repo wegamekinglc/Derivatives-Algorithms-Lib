@@ -7,7 +7,6 @@
 #include <dal/storage/archive.hpp>
 #include <dal/math/random/base.hpp>
 #include <dal/math/vectors.hpp>
-#include <dal/platform/platform.hpp>
 #include <dal/string/strings.hpp>
 #include <dal/utilities/exceptions.hpp>
 

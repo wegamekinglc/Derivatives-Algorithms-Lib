@@ -2,6 +2,7 @@
 // Created by wegam on 2022/12/10.
 //
 
+#include <dal/platform/platform.hpp>
 #include <dal/platform/strict.hpp>
 #include <dal/math/optimization/underdetermined.hpp>
 #include <dal/math/matrix/bcg.hpp>

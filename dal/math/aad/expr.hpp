@@ -4,8 +4,6 @@
 
 #pragma once
 
-#include <cmath>
-#include <dal/platform/platform.hpp>
 #include <dal/math/aad/tape.hpp>
 #include <dal/math/specialfunctions.hpp>
 

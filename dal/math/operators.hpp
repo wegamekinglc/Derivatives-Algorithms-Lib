@@ -4,9 +4,8 @@
 
 #pragma once
 
-#include <dal/platform/platform.hpp>
-#include <dal/math/aad/aad.hpp>
 #include <cmath>
+#include <dal/math/aad/aad.hpp>
 
 namespace Dal {
     using std::sqrt;

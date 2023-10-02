@@ -2,6 +2,8 @@
 // Created by wegam on 2022/5/9.
 //
 
+#include <dal/platform/platform.hpp>
+#include <dal/platform/strict.hpp>
 #include <public/src/interp.hpp>
 #include <dal/math/interp/interp.hpp>
 

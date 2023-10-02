@@ -2,6 +2,7 @@
 // Created by wegam on 2022/12/17.
 //
 
+#include <dal/platform/platform.hpp>
 #include <dal/platform/strict.hpp>
 #include <dal/math/matrix/decompositionsmisc.hpp>
 #include <dal/utilities/algorithms.hpp>

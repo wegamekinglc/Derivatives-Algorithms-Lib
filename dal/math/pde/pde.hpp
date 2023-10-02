@@ -3,10 +3,8 @@
 //
 
 #pragma once
-#include <bitset>
-#include <dal/platform/platform.hpp>
+
 #include <dal/time/datetime.hpp>
-#include <map>
 
 namespace Dal {
 

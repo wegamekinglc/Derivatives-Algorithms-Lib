@@ -4,7 +4,6 @@
 
 #pragma once
 
-#include <dal/platform/platform.hpp>
 #include <dal/storage/storable.hpp>
 #include <dal/math/aad/aad.hpp>
 #include <dal/math/aad/sample.hpp>

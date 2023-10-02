@@ -3,6 +3,7 @@
 //
 
 #pragma once
+
 #include <dal/math/interp/interp.hpp>
 
 namespace Dal {

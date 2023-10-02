@@ -5,7 +5,6 @@
 #pragma once
 
 #include <dal/math/vectors.hpp>
-#include <dal/platform/platform.hpp>
 
 namespace Dal {
     class FDM1DMesher_ {

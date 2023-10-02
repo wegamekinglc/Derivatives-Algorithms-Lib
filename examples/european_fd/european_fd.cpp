@@ -3,6 +3,7 @@
 //
 
 #include <iomanip>
+#include <dal/platform/platform.hpp>
 #include <dal/math/operators.hpp>
 #include <dal/math/pde/fd1d.hpp>
 #include <dal/math/distribution/black.hpp>

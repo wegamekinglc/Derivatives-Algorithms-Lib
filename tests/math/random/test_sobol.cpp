@@ -2,12 +2,12 @@
 // Created by wegam on 2020/12/26.
 //
 
+#include <gtest/gtest.h>
+#include <dal/platform/platform.hpp>
 #include <dal/math/operators.hpp>
 #include <dal/math/random/quasirandom.hpp>
 #include <dal/math/random/sobol.hpp>
 #include <dal/math/vectors.hpp>
-#include <gtest/gtest.h>
-#include <memory>
 
 using namespace Dal;
 

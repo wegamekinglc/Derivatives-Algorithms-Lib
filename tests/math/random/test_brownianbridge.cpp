@@ -2,10 +2,11 @@
 // Created by wegam on 2022/10/30.
 //
 
+#include <gtest/gtest.h>
+#include <dal/platform/platform.hpp>
 #include <dal/math/operators.hpp>
 #include <dal/math/random/brownianbridge.hpp>
 #include <dal/math/random/sobol.hpp>
-#include <gtest/gtest.h>
 
 using namespace Dal;
 

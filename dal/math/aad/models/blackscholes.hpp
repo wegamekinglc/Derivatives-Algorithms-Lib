@@ -3,6 +3,7 @@
 //
 
 #pragma once
+
 #include <dal/math/operators.hpp>
 #include <dal/math/aad/models/base.hpp>
 #include <dal/storage/archive.hpp>

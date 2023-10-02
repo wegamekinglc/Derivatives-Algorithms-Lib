@@ -2,6 +2,7 @@
 // Created by wegamekinglc on 22-10-27.
 //
 
+#include <dal/platform/platform.hpp>
 #include <dal/math/operators.hpp>
 #include <dal/concurrency/threadpool.hpp>
 #include <dal/math/specialfunctions.hpp>

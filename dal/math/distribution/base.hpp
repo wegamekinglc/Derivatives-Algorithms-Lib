@@ -4,7 +4,6 @@
 
 #pragma once
 
-#include <map>
 #include <dal/math/vectors.hpp>
 
 

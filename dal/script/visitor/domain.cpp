@@ -2,11 +2,9 @@
 // Created by wegam on 2022/7/31.
 //
 
-#include <dal/math/operators.hpp>
-#include <algorithm>
+#include <dal/platform/platform.hpp>
 #include <dal/script/visitor/domain.hpp>
-#include <sstream>
-#include <stdexcept>
+#include <dal/math/operators.hpp>
 
 namespace Dal::Script {
 

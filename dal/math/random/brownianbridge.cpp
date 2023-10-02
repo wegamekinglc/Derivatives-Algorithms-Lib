@@ -2,6 +2,7 @@
 // Created by wegam on 2022/10/29.
 //
 
+#include <dal/platform/platform.hpp>
 #include <dal/platform/strict.hpp>
 #include <dal/math/random/brownianbridge.hpp>
 #include <dal/math/operators.hpp>

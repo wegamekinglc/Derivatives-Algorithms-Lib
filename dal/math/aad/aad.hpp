@@ -12,8 +12,6 @@
 
 #pragma once
 
-#include <dal/platform/platform.hpp>
-
 #ifdef USE_CODI
 #include <codi.hpp>
 

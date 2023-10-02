@@ -4,8 +4,6 @@
 
 #pragma once
 
-#include <dal/platform/platform.hpp>
-
 namespace Dal::Matrix {
     Vector_<> Vols(const Matrix_<>& cov, Matrix_<>* corr = nullptr);
     void Multiply(const Matrix_<>& left, const Matrix_<>& right, Matrix_<>* result);

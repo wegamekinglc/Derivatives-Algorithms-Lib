@@ -2,11 +2,11 @@
 // Created by wegamekinglc on 2020/12/19.
 //
 
+#include <gtest/gtest.h>
+#include <dal/platform/platform.hpp>
 #include <dal/math/operators.hpp>
 #include <dal/math/random/pseudorandom.hpp>
 #include <dal/math/vectors.hpp>
-#include <dal/platform/platform.hpp>
-#include <gtest/gtest.h>
 
 using namespace Dal;
 

@@ -15,6 +15,8 @@
 #include <cmath>
 #include <set>
 #include <map>
+#include <cmath>
+#include <bitset>
 
 #ifdef MIN
 #undef MIN

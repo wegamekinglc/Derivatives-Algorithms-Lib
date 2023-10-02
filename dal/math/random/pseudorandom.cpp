@@ -2,9 +2,9 @@
 // Created by wegam on 2020/12/19.
 //
 
+#include <dal/platform/platform.hpp>
 #include <dal/platform/strict.hpp>
 #include <dal/math/random/pseudorandom.hpp>
-#include <cmath>
 #include <dal/math/specialfunctions.hpp>
 #include <dal/math/vectors.hpp>
 #include <dal/platform/host.hpp>

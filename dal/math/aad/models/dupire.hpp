@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <iomanip>
 #include <dal/math/operators.hpp>
 #include <dal/math/aad/models/base.hpp>
 #include <dal/math/aad/models/ivs.hpp>
@@ -13,8 +14,6 @@
 #include <dal/math/matrix/matrixutils.hpp>
 #include <dal/math/vectors.hpp>
 #include <dal/storage/archive.hpp>
-#include <iomanip>
-#include <sstream>
 
 #define HALF_DAY 0.00136986301369863
 

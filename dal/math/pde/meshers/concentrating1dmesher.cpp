@@ -2,6 +2,7 @@
 // Created by wegam on 2023/3/18.
 //
 
+#include <dal/platform/platform.hpp>
 #include <dal/platform/strict.hpp>
 #include <dal/math/pde/meshers/concentrating1dmesher.hpp>
 #include <dal/math/interp/interp.hpp>

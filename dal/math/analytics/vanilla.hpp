@@ -6,7 +6,6 @@
 
 #include <dal/math/operators.hpp>
 #include <dal/math/distribution/black.hpp>
-#include <dal/platform/platform.hpp>
 
 namespace Dal::AAD {
 

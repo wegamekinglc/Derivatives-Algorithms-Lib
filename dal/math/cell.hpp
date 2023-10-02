@@ -5,7 +5,6 @@
 #pragma once
 
 #include <variant>
-#include <dal/platform/platform.hpp>
 #include <dal/string/strings.hpp>
 #include <dal/time/datetime.hpp>
 #include <dal/utilities/exceptions.hpp>

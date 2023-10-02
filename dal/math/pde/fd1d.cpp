@@ -2,9 +2,11 @@
 // Created by wegam on 2023/2/25.
 //
 
+
+#include <dal/platform/platform.hpp>
+#include <dal/math/pde/fd1d.hpp>
 #include <dal/math/matrix/matrixarithmetic.hpp>
 #include <dal/math/matrix/matrixutils.hpp>
-#include <dal/math/pde/fd1d.hpp>
 #include <dal/math/pde/finitedifference.hpp>
 
 namespace Dal::PDE {

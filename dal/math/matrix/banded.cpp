@@ -2,6 +2,7 @@
 // Created by wegam on 2021/2/22.
 //
 
+#include <dal/platform/platform.hpp>
 #include <dal/platform/strict.hpp>
 #include <dal/math/matrix/banded.hpp>
 #include <dal/math/matrix/squarematrix.hpp>

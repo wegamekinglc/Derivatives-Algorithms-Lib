@@ -2,6 +2,7 @@
 // Created by wegam on 2022/11/6.
 //
 
+#include <dal/platform/platform.hpp>
 #include <dal/platform/strict.hpp>
 #include <dal/script/simulation.hpp>
 #include <dal/concurrency/threadpool.hpp>

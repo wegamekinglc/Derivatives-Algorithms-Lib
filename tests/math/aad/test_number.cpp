@@ -2,9 +2,9 @@
 // Created by wegam on 2021/1/18.
 //
 
-#include <dal/math/aad/aad.hpp>
-#include <cmath>
 #include <gtest/gtest.h>
+#include <dal/platform/platform.hpp>
+#include <dal/math/aad/aad.hpp>
 
 using namespace Dal::AAD;
 

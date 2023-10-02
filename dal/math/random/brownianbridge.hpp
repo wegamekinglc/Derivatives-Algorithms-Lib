@@ -5,7 +5,6 @@
 #pragma once
 
 #include <dal/math/random/base.hpp>
-#include <dal/platform/platform.hpp>
 #include <dal/math/vectors.hpp>
 
 namespace Dal {

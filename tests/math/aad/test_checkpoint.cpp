@@ -2,10 +2,11 @@
 // Created by wegam on 2023/2/18.
 //
 
+#include <gtest/gtest.h>
+#include <dal/platform/platform.hpp>
 #include <dal/math/aad/aad.hpp>
 #include <dal/math/vectors.hpp>
 #include <dal/concurrency/threadpool.hpp>
-#include <gtest/gtest.h>
 
 using namespace Dal;
 using namespace Dal::AAD;

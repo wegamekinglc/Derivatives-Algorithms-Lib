@@ -5,7 +5,6 @@
 #pragma once
 
 #include <dal/math/matrix/sparse.hpp>
-#include <dal/platform/platform.hpp>
 #include <dal/math/matrix/matrixs.hpp>
 
 namespace Dal {

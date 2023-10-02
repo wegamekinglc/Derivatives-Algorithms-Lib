@@ -6,7 +6,6 @@
 
 #include <iterator>
 #include <dal/math/vectors.hpp>
-#include <dal/platform/platform.hpp>
 #include <dal/utilities/numerics.hpp>
 
 namespace Dal {

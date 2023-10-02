@@ -3,6 +3,7 @@
 //
 
 #include <functional>
+#include <dal/platform/platform.hpp>
 #include <dal/platform/strict.hpp>
 #include <dal/math/ndarray.hpp>
 

@@ -3,6 +3,7 @@
 //
 
 #include <gtest/gtest.h>
+#include <dal/platform/platform.hpp>
 #include <dal/math/rootfind.hpp>
 #include <dal/utilities/exceptions.hpp>
 

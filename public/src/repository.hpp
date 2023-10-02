@@ -4,10 +4,8 @@
 
 #pragma once
 
-#include <dal/platform/platform.hpp>
 #include <dal/storage/storable.hpp>
 #include <dal/utilities/exceptions.hpp>
-
 
 namespace Dal {
 

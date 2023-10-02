@@ -2,9 +2,10 @@
 // Created by wegam on 2022/9/11.
 //
 
+#include <gtest/gtest.h>
+#include <dal/platform/platform.hpp>
 #include <dal/math/aad/aad.hpp>
 #include "dal/math/analytics/vanilla.hpp"
-#include <gtest/gtest.h>
 
 using namespace Dal::AAD;
 

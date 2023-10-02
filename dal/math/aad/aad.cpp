@@ -10,8 +10,9 @@
  * As long as this comment is preserved at the top of the file
  */
 
-#include <dal/math/aad/aad.hpp>
+#include <dal/platform/platform.hpp>
 #include <dal/platform/strict.hpp>
+#include <dal/math/aad/aad.hpp>
 
 #ifdef USE_AADET
 namespace Dal::AAD {
