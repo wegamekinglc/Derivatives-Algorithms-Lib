@@ -189,7 +189,7 @@ namespace Dal::Script {
             evals = Vector_<Evaluator_<AAD::Number_>>(nThreads, product.BuildEvaluator<AAD::Number_>());
 
 #ifndef USE_AADET
-        const int batchSize = std::max(BATCH_SIZE, n_paths / nThreads + 1);
+        const int batchSize = std::max(BATCH_SIZE, static_cast<int>(n_paths / nThreads + 1));
 #else
         const int batchSize = BATCH_SIZE;
 #endif
@@ -290,6 +290,7 @@ namespace Dal::Script {
                 }
                 simResult = sum_val;
 #ifndef USE_AADET
+                auto& pos = startPositions[threadNum];
                 tape->evaluate(pos, tape->getZeroPosition());
                 for (size_t j = 0; j < nParams; ++j)
                     results.risks_[j] += model->Parameters()[j]->getGradient() / static_cast<double>(n_paths);

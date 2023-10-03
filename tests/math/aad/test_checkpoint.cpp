@@ -119,24 +119,30 @@ TEST(AADTest, TestWithCheckpointWithMultiThreading) {
     bool is_call = true;
 
     ThreadPool_* pool = ThreadPool_::GetInstance();
-    const size_t n_thread = pool->NumThreads();
+    const size_t n_threads = pool->NumThreads();
 
-    const int batch_size = 8;
+    #ifndef USE_AADET
+        const int batch_size = std::max(8, static_cast<int>(n_rounds / n_threads + 1));
+    #else
+        const int batch_size = 8;
+    #endif
     Vector_<TaskHandle_> futures;
     futures.reserve(n_rounds / batch_size + 1);
     Vector_<> sim_results;
     sim_results.reserve(n_rounds / batch_size + 1);
 
-    Vector_<AAD::Position_> start_positions(n_thread);
-    Vector_<bool> model_init(n_thread, false);
-    Vector_<AAD::Tape_*> tapes(n_thread, nullptr);
-    Vector_<std::unique_ptr<TestModel_>> models(n_thread);
+    Vector_<AAD::Position_> start_positions(n_threads);
+    Vector_<bool> model_init(n_threads, false);
+    Vector_<AAD::Tape_*> tapes(n_threads, nullptr);
+    Vector_<std::unique_ptr<TestModel_>> models(n_threads);
     for (auto& m : models)
         m = std::make_unique<TestModel_>(fwd, vol, numeraire, strike, expiry);
 
     int first_round = 0;
     int rounds_left = n_rounds;
     int loop_i = 0;
+
+    Vector_<> greeks(5, 0.0);
 
     while (rounds_left > 0) {
         auto rounds_in_tasks = std::min(rounds_left, batch_size);
@@ -171,6 +177,14 @@ TEST(AADTest, TestWithCheckpointWithMultiThreading) {
                 tape->resetTo(pos, false);
             }
             sim_result = sum_val;
+#ifndef USE_AADET
+            greeks[0] += model->fwd_.getGradient() / static_cast<double>(n_rounds);
+            greeks[1] += model->vol_.getGradient() / static_cast<double>(n_rounds);
+            greeks[2] += model->numeraire_.getGradient() / static_cast<double>(n_rounds);
+            greeks[3] += model->strike_.getGradient() / static_cast<double>(n_rounds);
+            greeks[4] += model->expiry_.getGradient() / static_cast<double>(n_rounds);
+#endif
+
             return true;
         }));
         rounds_left -= rounds_in_tasks;
@@ -186,33 +200,37 @@ TEST(AADTest, TestWithCheckpointWithMultiThreading) {
 
     ASSERT_NEAR(aggregated / n_rounds, 0.0714668, 1e-6);
 
-    double d_value = 0.0;
+#ifdef USE_AADET
     for (size_t i = 0; i < models.size(); ++i)
         if (model_init[i])
-            d_value += models[i]->fwd_.getGradient() / static_cast<double>(n_rounds);
-    ASSERT_NEAR(d_value, 0.362002, 1e-6);
+            greeks[0] += models[i]->fwd_.getGradient() / static_cast<double>(n_rounds);
+    
 
-    d_value = 0.0;
     for (size_t i = 0; i < models.size(); ++i)
         if (model_init[i])
-            d_value += models[i]->vol_.getGradient() / static_cast<double>(n_rounds);
-    ASSERT_NEAR(d_value, 0.649225, 1e-6);
+            greeks[1] += models[i]->vol_.getGradient() / static_cast<double>(n_rounds);
+    
 
-    d_value = 0.0;
-    for (size_t i = 0; i < models.size(); ++i)
-        if (model_init[i])
-            d_value += models[i]->numeraire_.getGradient() / static_cast<double>(n_rounds);
-    ASSERT_NEAR(d_value, 0.0714668, 1e-6);
 
-    d_value = 0.0;
     for (size_t i = 0; i < models.size(); ++i)
         if (model_init[i])
-            d_value += models[i]->strike_.getGradient() / static_cast<double>(n_rounds);
-    ASSERT_NEAR(d_value, -0.242113, 1e-6);
+            greeks[2] += models[i]->numeraire_.getGradient() / static_cast<double>(n_rounds);
+    
 
-    d_value = 0.0;
     for (size_t i = 0; i < models.size(); ++i)
         if (model_init[i])
-            d_value += models[i]->expiry_.getGradient() / static_cast<double>(n_rounds);
-    ASSERT_NEAR(d_value, 0.0216408, 1e-6);
+            greeks[3] += models[i]->strike_.getGradient() / static_cast<double>(n_rounds);
+    
+
+    for (size_t i = 0; i < models.size(); ++i)
+        if (model_init[i])
+            greeks[4] += models[i]->expiry_.getGradient() / static_cast<double>(n_rounds);
+#endif
+
+    ASSERT_NEAR(greeks[0], 0.362002, 1e-6);
+    ASSERT_NEAR(greeks[1], 0.649225, 1e-6);
+    ASSERT_NEAR(greeks[2], 0.0714668, 1e-6);
+    ASSERT_NEAR(greeks[3], -0.242113, 1e-6);
+    ASSERT_NEAR(greeks[4], 0.0216408, 1e-6);
+    
 }

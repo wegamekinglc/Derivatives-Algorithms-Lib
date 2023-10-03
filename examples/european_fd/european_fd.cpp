@@ -30,7 +30,7 @@ int main() {
     double spot = 100.0;
     double theta = 0.5;
 
-    Vector_<int> widths = {25, 14, 14, 14, 14, 14};
+    Vector_<int> widths = {20, 14, 14, 14, 14, 14};
     double discounts = std::exp(-rate * t);
     double fwd = std::exp((rate - div) * t) * spot;
     double vol_std = std::sqrt(t) * vol;

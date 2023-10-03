@@ -10,7 +10,7 @@ export CMAKE_EXPORT_COMPILE_COMMANDS=on
 export BUILD_SHARED_LIBS=off
 export CMAKE_TOOLCHAIN_FILE=$PWD/externals/vcpkg/scripts/buildsystems/vcpkg.cmake
 
-echo NUM_CORES: NUM_CORES
+echo NUM_CORES: $NUM_CORES
 echo BUILD_TYPE: $BUILD_TYPE
 echo DAL_DIR: "$DAL_DIR"
 echo SKIP_TESTS: $SKIP_TESTS
