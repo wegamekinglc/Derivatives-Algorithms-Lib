@@ -68,7 +68,7 @@ int main() {
     std::cout << std::setw(widths[5]) << std::right << "Diff (bps)"
               << std::setw(widths[6]) << std::right << "Elapsed (ms)"
               << std::endl;
-    for (int i = 12; i <= 25; ++i) {
+    for (int i = 12; i <= 29; ++i) {
         timer.Reset();
         int num_paths = std::pow(2, i);
         SimResults_<Real_> results = MCSimulation(product, *model, num_paths, rsg, false, max_nested);
@@ -76,8 +76,8 @@ int main() {
         auto calculated = results.aggregated_ / static_cast<double>(num_paths);
         std::cout << std::setw(widths[0]) << std::right << int(std::pow(2, i))
                   << std::fixed
-                  << std::setw(widths[1]) << std::right << spot
                   << std::setprecision(6)
+                  << std::setw(widths[1]) << std::right << spot
                   << std::setw(widths[2]) << std::right << calculated
                   << std::setw(widths[3]) << std::right << benchmark;
         for (const auto& s: results.names_)
