@@ -73,30 +73,30 @@ namespace Dal::Script {
     template <class T_> struct EvalState_ {
         // State
         Vector_<T_> variables_;
-        Vector_<> variables_init_;
-        Vector_<T_> const_variables_;
+        Vector_<> variablesInit_;
+        Vector_<T_> constVariables_;
 
         //  Constructor
         explicit EvalState_(const Vector_<>& variables, const Vector_<T_>& const_variables = Vector_<T_>())
-            : variables_init_(variables), const_variables_(const_variables) {
-            variables_.Resize(variables_init_.size());
+            : variablesInit_(variables), constVariables_(const_variables) {
+            variables_.Resize(variablesInit_.size());
             for (auto i = 0; i < variables_.size(); ++i)
-                variables_[i] = T_(variables_init_[i]);
+                variables_[i] = T_(variablesInit_[i]);
         }
 
         //  Initializer
         void Init() {
             for (auto i = 0; i < variables_.size(); ++i)
-                variables_[i] = T_(variables_init_[i]);
+                variables_[i] = T_(variablesInit_[i]);
         }
 
 
         const Vector_<T_>& VarVals() const { return variables_; }
         Vector_<T_>& ConstVarVals() {
-            return const_variables_;
+            return constVariables_;
         }
         const Vector_<T_>& ConstVarVals() const {
-            return const_variables_;
+            return constVariables_;
         }
     };
 
@@ -340,7 +340,7 @@ namespace Dal::Script {
             nodeStream_[thisSpace + 1] = int(nodeStream_.size());
 
             //  Visit if-false statements
-            const size_t n = node.arguments_.size();
+            const auto n = node.arguments_.size();
             if (node.firstElse_ != -1) {
                 for (size_t i = node.firstElse_; i < n; ++i) {
                     node.arguments_[i]->Accept(*this);

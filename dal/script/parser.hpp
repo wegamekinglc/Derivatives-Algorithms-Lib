@@ -40,12 +40,12 @@ namespace Dal::Script {
         Expression_ ParseParentheses(TokIt_& cur, const TokIt_& end) {
             Expression_ tree;
 
-            // Do we have an opening '('?
+            // Do we have an opening "("?
             if( *cur == "(") {
                 // Find match
                 auto closeIt = FindMatch<'(',')'>(cur, end);
 
-                // Parse the parenthesed condition/expression, including nested parentheses,
+                // Parse the parentheses condition/expression, including nested parentheses,
                 // by recursively calling the parent parseCond/parseExpr
                 tree = (this->*FuncOnMatch_)(++cur, closeIt);
 

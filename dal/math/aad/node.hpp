@@ -18,42 +18,42 @@
 namespace Dal::AAD {
     class TapNode_ {
         const size_t n_;
-        static size_t num_adj_;
+        static size_t numAdj_;
 
         double adjoint_ = 0;
-        double* p_derivatives_ = nullptr;
-        double* p_adjoints_ = nullptr;
-        double** p_adj_ptrs_ = nullptr;
+        double* pDerivatives_ = nullptr;
+        double* pAdjoints_ = nullptr;
+        double** pAdjPtrs_ = nullptr;
 
         friend class Tape_;
         friend class Number_;
-        friend auto SetNumResultsForAAD(bool, const size_t&);
+        friend auto SetNumResultsForAAD(bool, size_t);
         friend struct NumResultsResetterForAAD_;
 
     public:
-        TapNode_(const size_t& n = 0) : n_(n) {}
+        explicit TapNode_(size_t n = 0) : n_(n) {}
 
         double& Adjoint() { return adjoint_; }
 
-        double& Adjoint(const size_t& n) { return p_adjoints_[n]; }
+        double& Adjoint(size_t n) { return pAdjoints_[n]; }
 
         void PropagateOne() {
-            if (!n_ || !adjoint_)
+            if (!n_ || fabs(adjoint_) <= Dal::EPSILON)
                 return;
 
             for (size_t i = 0; i < n_; ++i)
-                *(p_adj_ptrs_[i]) += adjoint_ * p_derivatives_[i];
+                *(pAdjPtrs_[i]) += adjoint_ * pDerivatives_[i];
         }
 
         void PropagateAll() {
-            if (!n_ || std::all_of(p_adjoints_, p_adjoints_ + num_adj_, [](const double& x) { return !x; }))
+            if (!n_ || std::all_of(pAdjoints_, pAdjoints_ + numAdj_, [](double x) { return fabs(x) <= Dal::EPSILON; }))
                 return;
 
             for (size_t i = 0; i < n_; ++i) {
-                double* adj_ptr = p_adj_ptrs_[i];
-                double ders = p_derivatives_[i];
-                for (size_t j = 0; j < num_adj_; ++j)
-                    adj_ptr[j] += ders * p_adjoints_[j];
+                double* adjPtr = pAdjPtrs_[i];
+                double ders = pDerivatives_[i];
+                for (size_t j = 0; j < numAdj_; ++j)
+                    adjPtr[j] += ders * pAdjoints_[j];
             }
         }
 

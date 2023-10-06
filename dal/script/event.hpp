@@ -58,8 +58,8 @@ namespace Dal::Script {
         ScriptProduct_(const Vector_<Cell_>& dates, const Vector_<String_>& events, String_ payoff = "")
         : payoff_(std::move(payoff)), payoffIdx_(-1) {
             REQUIRE2(dates.size() == events.size(), "dates size is not equal to events size", ScriptError_);
-            auto date_events = Dal::Zip(dates, events);
-            ParseEvents(date_events);
+            auto dateEvents = Dal::Zip(dates, events);
+            ParseEvents(dateEvents);
         }
 
         [[nodiscard]] const Vector_<Date_>& PastEventDates() const { return pastEventDates_; }
@@ -77,11 +77,11 @@ namespace Dal::Script {
                                   Apply([](double x) {return T_(x);}, consVariablesValues_));
         }
 
-        template <class T_> FuzzyEvaluator_<T_> BuildFuzzyEvaluator(int maxNestedIfs, double defEps) const {
+        template <class T_> FuzzyEvaluator_<T_> BuildFuzzyEvaluator(int max_nested_ifs, double def_eps) const {
             return FuzzyEvaluator_<T_>(variableValues_,
                                        Apply([](double x) {return T_(x);}, consVariablesValues_),
-                                       maxNestedIfs,
-                                       defEps);
+                                       max_nested_ifs,
+                                       def_eps);
         }
 
         template <class T_> EvalState_<T_> BuildEvalState() const {

@@ -12,7 +12,7 @@ namespace Dal::AAD {
 
     void Tape_::ResetAdjoints() {
         if (multi_)
-            adjoints_multi_.Memset(0);
+            adjointsMulti_.Memset(0);
         else {
             for (auto it = nodes_.Begin(); it != nodes_.End(); ++it)
                 it->adjoint_ = 0.;
@@ -20,9 +20,9 @@ namespace Dal::AAD {
     }
 
     void Tape_::Clear() {
-        adjoints_multi_.Clear();
+        adjointsMulti_.Clear();
         ders_.Clear();
-        arg_ptrs_.Clear();
+        argPtrs_.Clear();
         nodes_.Clear();
     }
 
@@ -33,38 +33,39 @@ namespace Dal::AAD {
 
     void Tape_::reset() {
         if (multi_)
-            adjoints_multi_.Rewind();
+            adjointsMulti_.Rewind();
         ders_.Rewind();
-        arg_ptrs_.Rewind();
+        argPtrs_.Rewind();
         nodes_.Rewind();
     }
 
     Tape_::Position_ Tape_::getPosition() {
         Position_ position;
         if (multi_)
-            position.adjoints_multi_pos_ = adjoints_multi_.GetPosition();
-        position.ders_pos_ = ders_.GetPosition();
-        position.arg_ptrs_pos_ = arg_ptrs_.GetPosition();
-        position.nodes_pos_ = nodes_.GetPosition();
+            position.adjointsMultiPos_ = adjointsMulti_.GetPosition();
+        position.dersPos_ = ders_.GetPosition();
+        position.argPtrsPos_ = argPtrs_.GetPosition();
+        position.nodesPos_ = nodes_.GetPosition();
         return position;
     }
 
     Tape_::Position_ Tape_::getZeroPosition() {
         Position_ position;
         if (multi_)
-            position.adjoints_multi_pos_ = adjoints_multi_.GetZeroPosition();
-        position.ders_pos_ = ders_.GetZeroPosition();
-        position.arg_ptrs_pos_ = arg_ptrs_.GetZeroPosition();
-        position.nodes_pos_ = nodes_.GetZeroPosition();
+            position.adjointsMultiPos_ = adjointsMulti_.GetZeroPosition();
+        position.dersPos_ = ders_.GetZeroPosition();
+        position.argPtrsPos_ = argPtrs_.GetZeroPosition();
+        position.nodesPos_ = nodes_.GetZeroPosition();
         return position;
     }
 
-    void Tape_::resetTo(const Position_& pos, bool resetAdjoints) {
+    void Tape_::resetTo(const Position_& pos, bool reset_adjoints) {
+        // TODO: reset_adjoints is not used at all
         if (multi_)
-            adjoints_multi_.RewindTo(pos.adjoints_multi_pos_);
-        ders_.RewindTo(pos.ders_pos_);
-        arg_ptrs_.RewindTo(pos.arg_ptrs_pos_);
-        nodes_.RewindTo(pos.nodes_pos_);
+            adjointsMulti_.RewindTo(pos.adjointsMultiPos_);
+        ders_.RewindTo(pos.dersPos_);
+        argPtrs_.RewindTo(pos.argPtrsPos_);
+        nodes_.RewindTo(pos.nodesPos_);
     }
 
     void Tape_::evaluate(const Position_& from, const Position_& to) {

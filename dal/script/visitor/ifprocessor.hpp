@@ -29,7 +29,7 @@ namespace Dal::Script {
         IFProcessor_() : nestedIfLvl_(0), maxNestedIfs_(0) {}
 
         // Access to the max nested ifs after the processor is run
-        [[nodiscard]] const size_t MaxNestedIFs() const { return maxNestedIfs_; }
+        [[nodiscard]] const size_t& MaxNestedIFs() const { return maxNestedIfs_; }
 
         // Visitors
         void Visit(NodeIf_& node) {

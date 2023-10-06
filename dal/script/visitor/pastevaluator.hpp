@@ -24,8 +24,6 @@ namespace Dal::Script {
         FORCE_INLINE void Visit(const NodePays_& node) {
             //	Visit the RHS expression
             VisitNode(*node.arguments_[1]);
-
-            // no need to save to the left as it is passed
         }
 
         FORCE_INLINE void Visit(const NodeSpot_&) {

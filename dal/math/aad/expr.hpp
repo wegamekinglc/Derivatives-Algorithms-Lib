@@ -476,8 +476,8 @@ namespace Dal::AAD {
 
         template <size_t N_, size_t n_>
         FORCE_INLINE void PushAdjoint(TapNode_& exprNode, double adjoint) const {
-            exprNode.p_adj_ptrs_[n_] = Tape_::multi_ ? node_->p_adjoints_ : &node_->adjoint_;
-            exprNode.p_derivatives_[n_] = adjoint;
+            exprNode.pAdjPtrs_[n_] = Tape_::multi_ ? node_->pAdjoints_ : &node_->adjoint_;
+            exprNode.pDerivatives_[n_] = adjoint;
         }
 
         Number_() = default;
@@ -526,8 +526,8 @@ namespace Dal::AAD {
         }
 
         static void evaluate(const Tape_::Position_& from, const Tape_::Position_& to) {
-            auto it = from.nodes_pos_;
-            auto to_it = to.nodes_pos_;
+            auto it = from.nodesPos_;
+            auto to_it = to.nodesPos_;
             while (it != to_it) {
                 --it;
                 it->PropagateOne();

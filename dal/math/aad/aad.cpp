@@ -16,7 +16,7 @@
 
 #ifdef USE_AADET
 namespace Dal::AAD {
-    size_t TapNode_::num_adj_ = 1;
+    size_t TapNode_::numAdj_ = 1;
     bool Tape_::multi_ = false;
 
     thread_local Tape_ Number_::tape_{};

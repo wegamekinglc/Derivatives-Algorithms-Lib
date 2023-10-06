@@ -24,13 +24,12 @@ namespace Dal::AAD {
 
     class Tape_ {
         static bool multi_;
-        BlockList_<double, ADJ_SIZE> adjoints_multi_;
+        BlockList_<double, ADJ_SIZE> adjointsMulti_;
         BlockList_<double, DATA_SIZE> ders_;
-        BlockList_<double*, DATA_SIZE> arg_ptrs_;
+        BlockList_<double*, DATA_SIZE> argPtrs_;
         BlockList_<TapNode_, BLOCK_SIZE> nodes_;
 
-        char pad_[64];
-        friend auto SetNumResultsForAAD(bool, const size_t&);
+        friend auto SetNumResultsForAAD(bool, size_t);
         friend struct NumResultsResetterForAAD_;
         friend class Number_;
 
@@ -38,13 +37,13 @@ namespace Dal::AAD {
         template <size_t N_> TapNode_* RecordNode() {
             TapNode_* node = nodes_.EmplaceBack(N_);
             if (multi_) {
-                node->p_adjoints_ = adjoints_multi_.EmplaceBackMulti(TapNode_::num_adj_);
-                std::fill(node->p_adjoints_, node->p_adjoints_ + TapNode_::num_adj_, 0.0);
+                node->pAdjoints_ = adjointsMulti_.EmplaceBackMulti(TapNode_::numAdj_);
+                std::fill(node->pAdjoints_, node->pAdjoints_ + TapNode_::numAdj_, 0.0);
             }
 
             if constexpr (static_cast<bool>(N_)) {
-                node->p_derivatives_ = ders_.EmplaceBackMulti<N_>();
-                node->p_adj_ptrs_ = arg_ptrs_.EmplaceBackMulti<N_>();
+                node->pDerivatives_ = ders_.EmplaceBackMulti<N_>();
+                node->pAdjPtrs_ = argPtrs_.EmplaceBackMulti<N_>();
             }
             return node;
         }
@@ -60,20 +59,21 @@ namespace Dal::AAD {
         using Iterator_ = typename BlockList_<TapNode_, BLOCK_SIZE>::Iterator_;
 
         struct Position_ {
-            BlockList_<double, ADJ_SIZE>::Iterator_ adjoints_multi_pos_;
-            BlockList_<double, DATA_SIZE>::Iterator_ ders_pos_;
-            BlockList_<double*, DATA_SIZE>::Iterator_ arg_ptrs_pos_;
-            BlockList_<TapNode_, BLOCK_SIZE>::Iterator_ nodes_pos_;
+            BlockList_<double, ADJ_SIZE>::Iterator_ adjointsMultiPos_;
+            BlockList_<double, DATA_SIZE>::Iterator_ dersPos_;
+            BlockList_<double*, DATA_SIZE>::Iterator_ argPtrsPos_;
+            BlockList_<TapNode_, BLOCK_SIZE>::Iterator_ nodesPos_;
         };
 
         Iterator_ Begin() { return nodes_.Begin(); }
         Iterator_ End() { return nodes_.End(); }
         Iterator_ Find(TapNode_* node) { return nodes_.Find(node); }
 
+        // api just for compatible with Codi
         Position_ getPosition();
         Position_ getZeroPosition();
-        void resetTo(const Position_&, bool resetAdjoints = true);
-        void evaluate(const Position_&, const Position_&);
+        void resetTo(const Position_&, bool reset_adjoints = true);
+        static void evaluate(const Position_&, const Position_&);
         void evaluate();
     };
 } // namespace Dal::AAD

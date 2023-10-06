@@ -111,13 +111,13 @@ namespace Dal::Script {
 
         Parser_ parser(constVariables);
         const auto eval_data = Global::Dates_::EvaluationDate();
-        for (const auto &processed_event: processedEvents) {
-            if (processed_event.first >= eval_data) {
-                eventDates_.push_back(processed_event.first);
-                events_.push_back(parser.Parse(processed_event.second));
+        for (const auto &processedEvent: processedEvents) {
+            if (processedEvent.first >= eval_data) {
+                eventDates_.push_back(processedEvent.first);
+                events_.push_back(parser.Parse(processedEvent.second));
             } else {
-                pastEventDates_.push_back(processed_event.first);
-                pastEvents_.push_back(parser.Parse(processed_event.second));
+                pastEventDates_.push_back(processedEvent.first);
+                pastEvents_.push_back(parser.Parse(processedEvent.second));
             }
         }
     }

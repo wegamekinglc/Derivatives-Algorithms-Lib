@@ -34,13 +34,13 @@ namespace Dal::AAD {
     struct NumResultsResetterForAAD_ {
         ~NumResultsResetterForAAD_() {
             Tape_::multi_ = false;
-            TapNode_::num_adj_ = 1;
+            TapNode_::numAdj_ = 1;
         }
     };
 
-    inline auto SetNumResultsForAAD(bool multi = false, const size_t& num_results = 1) {
+    inline auto SetNumResultsForAAD(bool multi = false, size_t num_results = 1) {
         Tape_::multi_ = multi;
-        TapNode_::num_adj_ = num_results;
+        TapNode_::numAdj_ = num_results;
         return std::make_unique<NumResultsResetterForAAD_>();
     }
 

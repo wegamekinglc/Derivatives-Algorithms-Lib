@@ -243,7 +243,7 @@ namespace Dal::Script {
         }
 
         // For visiting superior and supEqual
-        template <bool Strict_, class NSup_> inline void visitSupT(NSup_& node) {
+        template <bool Strict_, class NSup_> inline void VisitSupT(NSup_& node) {
             VisitArguments(node);
 
             Domain_& dom = domStack_.Top();
@@ -307,9 +307,9 @@ namespace Dal::Script {
             domStack_.Pop();
         }
 
-        void Visit(NodeSup_& node) { visitSupT<true>(node); }
+        void Visit(NodeSup_& node) { VisitSupT<true>(node); }
 
-        void Visit(NodeSupEqual_& node) { visitSupT<false>(node); }
+        void Visit(NodeSupEqual_& node) { VisitSupT<false>(node); }
 
         void Visit(NodeAnd_& node) {
             VisitArguments(node);

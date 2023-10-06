@@ -51,7 +51,8 @@ namespace Dal::Script {
 
         // Constructor, nVar = number of variables, from Product after parsing and variable indexation
         // All variables start as constants with value 0
-        explicit ConstProcessor_(const size_t nVar) : varConst_(nVar, true), varConstVal_(nVar, 0.0), isInConditional_(false) {}
+        explicit ConstProcessor_(const size_t n_var)
+            : varConst_(n_var, true), varConstVal_(n_var, 0.0), isInConditional_(false) {}
 
         // Visitors
         // Expressions

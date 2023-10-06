@@ -17,8 +17,8 @@ namespace Dal::Script {
     protected:
         // State
         Vector_<T_> variables_;
-        Vector_<> variables_init_;
-        Vector_<T_> const_variables_;
+        Vector_<> variablesInit_;
+        Vector_<T_> constVariables_;
 
         // Stacks
         StaticStack_<T_> dStack_;
@@ -35,43 +35,46 @@ namespace Dal::Script {
         using ConstVisitor_<EVAL_<T_>>::VisitNode;
 
         // Constructor, nVar = number of variables, from Product after parsing and variable indexation
-        EvaluatorBase_(const Vector_<>& variables, const Vector_<T_>& const_variables) : variables_init_(variables), const_variables_(const_variables), curEvt_(-1) {
-            variables_.Resize(variables_init_.size());
+        EvaluatorBase_(const Vector_<>& variables, const Vector_<T_>& const_variables)
+            : variablesInit_(variables), constVariables_(const_variables), curEvt_(-1) {
+            variables_.Resize(variablesInit_.size());
             for (auto i = 0; i < variables_.size(); ++i)
-                variables_[i] = T_(variables_init_[i]);
+                variables_[i] = T_(variablesInit_[i]);
         }
 
         // Copy/Move
-        EvaluatorBase_(const EvaluatorBase_& rhs): variables_(rhs.variables_), variables_init_(rhs.variables_init_), const_variables_(rhs.const_variables_), curEvt_(rhs.curEvt_) {}
+        EvaluatorBase_(const EvaluatorBase_& rhs)
+            : variables_(rhs.variables_), variablesInit_(rhs.variablesInit_), constVariables_(rhs.constVariables_), curEvt_(rhs.curEvt_) {}
         EvaluatorBase_& operator=(const EvaluatorBase_& rhs) {
             if (this == &rhs)
                 return *this;
             variables_ = rhs.variables_;
-            variables_init_ = rhs.variables_init_;
-            const_variables_ = rhs.const_variables_;
+            variablesInit_ = rhs.variablesInit_;
+            constVariables_ = rhs.constVariables_;
             return *this;
         }
 
-        EvaluatorBase_(EvaluatorBase_&& rhs) noexcept : variables_(std::move(rhs.variables_)), const_variables_(std::move(rhs.const_variables_)), curEvt_(rhs.curEvt_) {}
+        EvaluatorBase_(EvaluatorBase_&& rhs) noexcept
+            : variables_(std::move(rhs.variables_)), constVariables_(std::move(rhs.constVariables_)), curEvt_(rhs.curEvt_) {}
         EvaluatorBase_& operator=(EvaluatorBase_&& rhs) noexcept {
             variables_ = std::move(rhs.variables_);
-            variables_init_ = std::move(rhs.variables_init_);
-            const_variables_ = std::move(rhs.const_variables_);
+            variablesInit_ = std::move(rhs.variablesInit_);
+            constVariables_ = std::move(rhs.constVariables_);
             return *this;
         }
 
         Vector_<T_>& ConstVarVals() {
-            return const_variables_;
+            return constVariables_;
         }
         
         const Vector_<T_>& ConstVarVals() const {
-            return const_variables_;
+            return constVariables_;
         }
 
         // (Re-)initialize before evaluation in each scenario
         void Init() {
             for (auto i = 0; i < variables_.size(); ++i)
-                variables_[i] = T_(variables_init_[i]);
+                variables_[i] = T_(variablesInit_[i]);
             //	Stacks should be empty, if this is not the case the empty them
             //	without affecting capacity for added performance
             dStack_.Reset();
@@ -250,7 +253,7 @@ namespace Dal::Script {
 
         FORCE_INLINE void Visit(const NodeConstVar_& node) {
             //	Push value onto the stack
-            dStack_.Push(const_variables_[node.index_]);
+            dStack_.Push(constVariables_[node.index_]);
         }
 
 
