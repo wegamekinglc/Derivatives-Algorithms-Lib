@@ -16,6 +16,7 @@
 #include <set>
 #include <dal/platform/platform.hpp>
 #include <dal/math/vectors.hpp>
+#include <dal/utilities/exceptions.hpp>
 
 
 namespace Dal::Script {
@@ -149,10 +150,7 @@ namespace Dal::Script {
 
         // Interval_
         Interval_(const Bound_& left, const Bound_& right) : left_(left), right_(right) {
-            // #ifdef _DEBUG
-            if (left == Bound_(Bound_::plusInfinity_) || right == Bound_(Bound_::minusInfinity_) || left > right)
-                throw std::runtime_error("Inconsistent bounds");
-            // #endif
+            REQUIRE(left != Bound_(Bound_::plusInfinity_) && right != Bound_(Bound_::minusInfinity_) && left <= right, "Inconsistent bounds");
         }
 
         // Accessors
@@ -264,16 +262,14 @@ namespace Dal::Script {
 
         // Inverse (1/x)
         [[nodiscard]] Interval_ Inverse() const {
+            // Cannot inverse a IsZero IsSingleton
+            REQUIRE(!IsZero(), "Division by {0}");
+
             double v;
 
-            // Cannot inverse a IsZero IsSingleton
-            if (IsZero())
-                throw std::runtime_error("Division by {0}");
-
             // Singleton
-            else if (IsSingleton(&v))
+            if (IsSingleton(&v))
                 return Interval_(1.0 / v);
-
             // Continuous
             else if (IsPosOrNeg(true)) // Strict, no 0
             {
@@ -344,7 +340,7 @@ namespace Dal::Script {
                 try {
                     val = func(val);
                 } catch (const std::domain_error& dErr) {
-                    throw std::runtime_error("Domain_ error on function applied to IsSingleton");
+                    THROW("Domain_ error on function applied to IsSingleton");
                 }
             }
 
@@ -364,7 +360,7 @@ namespace Dal::Script {
                 try {
                     val = func(val, val2);
                 } catch (const std::domain_error& dErr) {
-                    throw std::runtime_error("Domain_ error on function applied to IsSingleton");
+                    THROW("Domain_ error on function applied to IsSingleton");
                 }
             }
 
@@ -807,7 +803,7 @@ namespace Dal::Script {
                 try {
                     res.AddSingleton(func(v));
                 } catch (const std::domain_error&) {
-                    throw std::runtime_error("Domain_ error on function applied to IsSingleton");
+                    THROW("Domain_ error on function applied to IsSingleton");
                 }
             }
 
