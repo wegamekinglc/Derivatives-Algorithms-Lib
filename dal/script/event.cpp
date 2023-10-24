@@ -10,6 +10,67 @@
 
 namespace Dal::Script {
 
+    namespace {
+        Vector_<std::tuple<Date_, Date_, Date_>> ParseSchedule(const String_& schedule_desc) {
+            Vector_<String_> tokens = Tokenize(schedule_desc);
+
+            int i = 0;
+            Date_ startDate;
+            Date_ endDate;
+            Handle_<Date::Increment_> tenor;
+            Holidays_ holidays("");
+            DateGeneration_ genRule("Forward");
+            BizDayConvention_ bizRule("Unadjusted");
+            bool fixAtEnd = true;
+
+            for (; i < tokens.size() - 2; ++i) {
+                REQUIRE2(tokens[i + 1] == ":", "schedule parameter name not followed by `:`", ScriptError_);
+
+                if (tokens[i] == "START") {
+                    String_ dt_str = std::accumulate(tokens.begin() + i + 2, tokens.begin() + i + 7,
+                                                     String_(""),
+                                                     [](const String_ &x, const String_ &y) { return x + y; });
+                    startDate = Date::FromString(dt_str);
+                    i += 6;
+                } else if (tokens[i] == "END") {
+                    String_ dt_str = std::accumulate(tokens.begin() + i + 2, tokens.begin() + i + 7,
+                                                     String_(""),
+                                                     [](const String_ &x, const String_ &y) { return x + y; });
+                    endDate = Date::FromString(dt_str);
+                    i += 6;
+                } else if (tokens[i] == "FREQ") {
+                    tenor = Date::ParseIncrement(tokens[i + 2]);
+                    i += 2;
+                } else if (tokens[i] == "CALENDAR") {
+                    holidays = Holidays_(tokens[i + 2]);
+                    i += 2;
+                } else if (tokens[i] == "BizRule") {
+                    bizRule = BizDayConvention_(tokens[i + 2]);
+                    i += 2;
+                } else if (tokens[i] == "FIXING") {
+                    fixAtEnd = !(tokens[i + 2] == "BEGIN");
+                }else
+                    THROW2("unknown token", ScriptError_);
+            }
+
+            Vector_<Date_> schedule = Dal::MakeSchedule(startDate,
+                                                        Cell_(endDate),
+                                                        holidays,
+                                                        tenor,
+                                                        genRule,
+                                                        bizRule);
+
+            Vector_<std::tuple<Date_, Date_, Date_>> rtn;
+            for(auto k = 1; k < schedule.size(); ++k) {
+                if (fixAtEnd)
+                    rtn.emplace_back(std::make_tuple(schedule[k - 1], schedule[k], schedule[k]));
+                else
+                    rtn.emplace_back(std::make_tuple(schedule[k - 1], schedule[k], schedule[k - 1]));
+            }
+            return rtn;
+        }
+    }
+
     void ScriptProduct_::ParseEvents(const Vector_<std::pair<Cell_, String_>> &events) {
         std::map<String_, String_> macros;
         std::map<String_, double> constVariables;
@@ -23,68 +84,29 @@ namespace Dal::Script {
                 auto desc = Cell::ToString(cell);
                 if (desc.find(":") < desc.size()) {
                     // find a schedule
-                    Vector_<String_> tokens = Tokenize(desc);
-
-                    int i = 0;
-                    Date_ startDate;
-                    Date_ endDate;
-                    Handle_<Date::Increment_> tenor;
-                    Holidays_ holidays("");
-                    DateGeneration_ genRule("Forward");
-                    BizDayConvention_ bizRule("Unadjusted");
-
-                    for (; i < tokens.size() - 2; ++i) {
-                        REQUIRE2(tokens[i + 1] == ":", "schedule parameter name not followed by `:`", ScriptError_);
-
-                        if (tokens[i] == "START") {
-                            String_ dt_str = std::accumulate(tokens.begin() + i + 2, tokens.begin() + i + 7,
-                                                             String_(""),
-                                                             [](const String_ &x, const String_ &y) { return x + y; });
-                            startDate = Date::FromString(dt_str);
-                            i += 6;
-                        } else if (tokens[i] == "END") {
-                            String_ dt_str = std::accumulate(tokens.begin() + i + 2, tokens.begin() + i + 7,
-                                                             String_(""),
-                                                             [](const String_ &x, const String_ &y) { return x + y; });
-                            endDate = Date::FromString(dt_str);
-                            i += 6;
-                        } else if (tokens[i] == "FREQ") {
-                            tenor = Date::ParseIncrement(tokens[i + 2]);
-                            i += 2;
-                        } else if (tokens[i] == "CALENDAR") {
-                            holidays = Holidays_(tokens[i + 2]);
-                            i += 2;
-                        } else if (tokens[i] == "BizRule") {
-                            bizRule = BizDayConvention_(tokens[i + 2]);
-                            i += 2;
-                        } else
-                            THROW2("unknown token", ScriptError_);
-                    }
-
-                    Vector_<Date_> schedule = Dal::MakeSchedule(startDate,
-                                                                Cell_(endDate),
-                                                                holidays,
-                                                                tenor, genRule, bizRule);
+                    auto schedule = ParseSchedule(desc);
                     String_ replaced = event.second;
                     for (const auto &macro: macros)
                         replaced = std::regex_replace(replaced,
                                                       std::regex(macro.first,std::regex_constants::icase),
                                                       macro.second);
 
-                    for (auto k = 1; k < schedule.size(); ++k) {
-                        auto d = schedule[k];
+                    for (const auto& s: schedule) {
+                        auto startDate = std::get<0>(s);
+                        auto endDate = std::get<1>(s);
+                        auto fixDate = std::get<2>(s);
                         // Replace placeholder of `PeriodBegin` and `PeriodEnd`
                         auto final_statement = std::regex_replace(replaced,
                                                                   std::regex("PeriodBegin", std::regex_constants::icase),
-                                                                  Date::ToString(schedule[k-1]));
+                                                                  Date::ToString(startDate));
                         final_statement = std::regex_replace(final_statement,
                                                              std::regex("PeriodEnd", std::regex_constants::icase),
-                                                             Date::ToString(d));
+                                                             Date::ToString(endDate));
 
-                        if (processedEvents.find(d) != processedEvents.end())
-                            processedEvents[d] += "\n" + final_statement;
+                        if (processedEvents.find(fixDate) != processedEvents.end())
+                            processedEvents[fixDate] += "\n" + final_statement;
                         else
-                            processedEvents[d] = final_statement;
+                            processedEvents[fixDate] = final_statement;
                     }
                 } else {
                     REQUIRE2(macros.find(desc) == macros.end(), "macro name has already registered", ScriptError_);
