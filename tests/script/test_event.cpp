@@ -66,6 +66,24 @@ TEST(ScriptTest, TestEventWithSchedule) {
     ASSERT_EQ(product.EventDates().size(), 12);
 }
 
+TEST(ScriptTest, TestEventWithFixingSchedule) {
+    auto global = XGLOBAL::SetEvaluationDateInScope(Date_(2022, 5, 1));
+    Vector_<Cell_> dates;
+    Vector_<String_> events;
+
+    dates.push_back(Cell_("START: 2022-05-07 END: 2023-05-07 FREQ: 1m CALENDAR: CN.SSE FIXING: BEGIN"));
+    events.push_back("STRIKE = 110.0");
+    Script::ScriptProduct_ product(dates, events);
+    ASSERT_EQ(product.EventDates()[0], Date_(2022, 5, 7));
+
+    dates.clear();
+    events.clear();
+    dates.push_back(Cell_("START: 2022-05-07 END: 2023-05-07 FREQ: 1m CALENDAR: CN.SSE FIXING: END"));
+    events.push_back("STRIKE = 110.0");
+    Script::ScriptProduct_ product2(dates, events);
+    ASSERT_EQ(product2.EventDates()[0], Date_(2022, 6, 7));
+}
+
 TEST(ScriptTest, TestEventWithSchedulePlaceHolder) {
     auto global = XGLOBAL::SetEvaluationDateInScope(Date_(2022, 5, 1));
     Vector_<Cell_> dates;

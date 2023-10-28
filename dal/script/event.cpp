@@ -48,8 +48,13 @@ namespace Dal::Script {
                     bizRule = BizDayConvention_(tokens[i + 2]);
                     i += 2;
                 } else if (tokens[i] == "FIXING") {
-                    fixAtEnd = !(tokens[i + 2] == "BEGIN");
-                }else
+                    if (tokens[i + 2] == "BEGIN")
+                        fixAtEnd = false;
+                    else if (tokens[i + 2] == "END")
+                        fixAtEnd = true;
+                    else
+                        THROW("unknown token for fixing");
+                } else
                     THROW2("unknown token", ScriptError_);
             }
 
