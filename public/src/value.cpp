@@ -42,7 +42,7 @@ namespace Dal {
         REQUIRE(MODEL_STORE.find(model_type) != MODEL_STORE.end(), "only support black scholes and Dupire model now");
         std::unique_ptr<Model_<double>> model;
         std::unique_ptr<Model_<AAD::Number_>> aad_model;
-        auto& prd = product->Product();
+        auto prd = product->Product();
         std::map<String_, double> res;
         if (enable_aad) {
             if (model_type == "BSModelData_") {

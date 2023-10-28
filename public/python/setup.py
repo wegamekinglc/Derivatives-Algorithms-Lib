@@ -43,7 +43,7 @@ class my_wrap(Command):
             print('Warning: You have SWIG {} installed, but at least SWIG 4.0.1'
                   ' is recommended. \nSome features may not work.'
                   .format(swig_version))
-        os.system('swig -python -py3 -c++ ' +
+        os.system('swig -python -c++ ' +
                   '-outdir dal -o dal/dal_wrap.cpp ' +
                   '../swig/dal.i')
         print("finished wrap for dal/dal_wrap.cpp")
@@ -195,7 +195,7 @@ classifiers = [
 ]
 
 setup(name="dal-python",
-      version="0.3.10",
+      version="0.3.11",
       description="Python bindings for the DAL library",
       author="cheng li",
       author_email="wegamekinglc@hotmail.copm",

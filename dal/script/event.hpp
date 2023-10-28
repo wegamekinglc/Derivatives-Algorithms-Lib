@@ -161,13 +161,11 @@ namespace Dal::Script {
     class ScriptProductData_ : public Storable_ {
         Vector_<Cell_> eventDates_;
         Vector_<String_> eventDesc_;
-        mutable ScriptProduct_ product_;
 
     public:
         ScriptProductData_(const String_& name, const Vector_<Cell_>& dates, const Vector_<String_>& events)
-            : Storable_("ScriptProduct", name), eventDates_(dates), eventDesc_(events),
-              product_(eventDates_, eventDesc_) {}
+            : Storable_("ScriptProduct", name), eventDates_(dates), eventDesc_(events) {}
         void Write(Archive::Store_& dst) const override;
-        ScriptProduct_& Product() const { return product_; }
+        ScriptProduct_ Product() const { return {eventDates_, eventDesc_}; }
     };
 } // namespace Dal::Script
