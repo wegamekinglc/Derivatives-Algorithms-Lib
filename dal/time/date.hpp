@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <cstdint>
 #include <dal/string/strings.hpp>
 
 namespace Dal {
