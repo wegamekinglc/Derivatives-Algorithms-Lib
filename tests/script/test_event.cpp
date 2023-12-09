@@ -16,6 +16,7 @@ using namespace Dal::Script;
 TEST(ScriptTest, TestEventWithMacro) {
     Vector_<Cell_> dates;
     Vector_<String_> events;
+    auto global = XGLOBAL::SetEvaluationDateInScope(Date_(2023, 1, 1));
 
     dates.push_back(Cell_("STRIKE"));
     events.push_back("110.0");
@@ -31,6 +32,7 @@ TEST(ScriptTest, TestEventWithMacro) {
 TEST(ScriptTest, TestEventWithMacroNotFirst) {
     Vector_<Cell_> dates;
     Vector_<String_> events;
+    auto global = XGLOBAL::SetEvaluationDateInScope(Date_(2023, 1, 1));
 
     dates.push_back((Cell_(Date_(2023, 12, 1))));
     events.push_back("call PAYS MAX(spot() - STRIKE, 0.0)");
@@ -44,6 +46,7 @@ TEST(ScriptTest, TestEventWithMacroNotFirst) {
 TEST(ScriptTest, TestEventWithMacroDuplicated) {
     Vector_<Cell_> dates;
     Vector_<String_> events;
+    auto global = XGLOBAL::SetEvaluationDateInScope(Date_(2023, 1, 1));
 
     dates.push_back(Cell_("STRIKE"));
     events.push_back("110.0");
