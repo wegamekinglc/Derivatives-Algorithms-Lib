@@ -113,6 +113,7 @@ if %errorlevel% neq 0 exit /b 1
 
 @echo on
 
+EXIT /B 0
+
 :set_variable
 set %~1=%~2
-EXIT /B 0
