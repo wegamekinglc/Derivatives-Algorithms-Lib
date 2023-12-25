@@ -97,12 +97,7 @@ namespace Dal {
             ++sp_;
             if (sp_ >= size_) {
                 E_* newData = new E_[size_ << 1];
-
-#ifdef _MSC_VER
-                std::move(data_, data_ + size_, stdext::make_unchecked_array_iterator(newData));
-#else
                 std::move(data_, data_ + size_, newData);
-#endif
 
                 delete[] data_;
                 data_ = newData;
