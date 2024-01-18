@@ -30,7 +30,11 @@ namespace Dal {
 
     public:
         const DateTime_ eventTime_;
-        UpdateToken_(Vector_<>::const_iterator begin, indices_t::const_iterator index_begin, int val_mast, int date_mask, const DateTime_& event_time);
+        UpdateToken_(Vector_<>::const_iterator begin,
+                     indices_t::const_iterator index_begin,
+                     const DateTime_& event_time = DateTime_(),
+                     int val_mask = 0b11111111111111111111111111111111,
+                     int date_mask = 0b11111111111111111111111111111110);
 
         [[nodiscard]] FORCE_INLINE const double& operator[](const Valuation::address_t& loc) const {
             return *(begin_ + (loc & valMask_));

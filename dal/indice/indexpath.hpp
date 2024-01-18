@@ -16,7 +16,7 @@ namespace Dal {
         [[nodiscard]] virtual double FixInRangeProb(const DateTime_& fixing_time,
                                                     const pair<double, double>& range,
                                                     double ramp_width) const = 0;
-        [[nodiscard]]virtual double AllInRangeProb(const DateTime_& from,
+        [[nodiscard]] virtual double AllInRangeProb(const DateTime_& from,
                                                    const DateTime_& to,
                                                    const pair<double, double>& range,
                                                    double monitoring_interval,
