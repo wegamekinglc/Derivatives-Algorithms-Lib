@@ -28,9 +28,26 @@ namespace Dal {
 
     DateTime_::DateTime_(long long msec) {
         const auto whole = msec / 86400000;
-        frac_ = (msec - 86400000 * whole) / 86400000.;
+        frac_ = static_cast<double>(msec - 86400000 * whole) / 86400000.;
         REQUIRE(frac_ < 1., "DateTime fraction exceeds maximum seconds in one day");
         date_ = Date::Minimum().AddDays(static_cast<int>(whole));
+    }
+
+    DateTime_& DateTime_::operator+=(double frac) {
+        REQUIRE(frac > 0.0, "frac must be positive");
+        frac_ += frac;
+        const auto dt = static_cast<int>(std::floor(frac_));
+        if (dt > 0) {
+            date_ = date_.AddDays(dt);
+            frac_ -= dt;
+        }
+        return *this;
+    }
+
+    DateTime_ DateTime_::operator+(double frac) {
+        DateTime_ new_dt(date_, frac_);
+        new_dt += frac;
+        return new_dt;
     }
 
     double operator-(const DateTime_& lhs, const DateTime_& rhs) {

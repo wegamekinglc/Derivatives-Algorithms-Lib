@@ -117,3 +117,17 @@ TEST(DateTimeTest, TestDateTimeNumericValueOf) {
     DateTime_ src(Date_(2018, 1, 1), 12, 15, 15);
     ASSERT_NEAR(NumericValueOf(src), 43101.51059, 1e-4);
 }
+
+TEST(DateTimeTest, TestDateTimeOperatorPlus) {
+    DateTime_ src(Date_(2018, 1, 1), 12, 15, 15);
+    auto new_dt = src + 1.0;
+    ASSERT_NEAR(NumericValueOf(new_dt), 43102.51059, 1e-4);
+    ASSERT_EQ(new_dt.Date(), Date_(2018, 1, 2));
+}
+
+TEST(DateTimeTest, TestDateTimeInplaceOperatorPlus) {
+    DateTime_ src(Date_(2018, 1, 1), 12, 15, 15);
+    src += 1.0;
+    ASSERT_NEAR(NumericValueOf(src), 43102.51059, 1e-4);
+    ASSERT_EQ(src.Date(), Date_(2018, 1, 2));
+}

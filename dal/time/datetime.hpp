@@ -24,6 +24,9 @@ namespace Dal {
         double Frac() const { return frac_; }
         bool operator==(const DateTime_& rhs) const { return date_ == rhs.date_ && frac_ == rhs.frac_; }
         bool IsValid() const { return date_.IsValid() && frac_ < 1.; }
+
+        DateTime_& operator+=(double frac);
+        DateTime_ operator+(double frac);
     };
 
     double operator-(const DateTime_& lhs, const DateTime_& rhs);
