@@ -142,7 +142,7 @@ namespace Dal::AAD {
         }
     };
 
-    struct BSModelData_: public ModelData_ {
+    struct BSModelData_: ModelData_ {
         double spot_;
         double vol_;
         double rate_;

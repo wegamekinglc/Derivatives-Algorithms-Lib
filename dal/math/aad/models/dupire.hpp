@@ -244,7 +244,7 @@ namespace Dal::AAD {
         return results;
     }
 
-    struct DupireModelData_: public ModelData_ {
+    struct DupireModelData_: ModelData_ {
         double spot_;
         double rate_;
         double repo_;
