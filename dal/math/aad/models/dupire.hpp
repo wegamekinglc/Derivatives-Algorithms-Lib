@@ -262,5 +262,8 @@ namespace Dal::AAD {
                 : ModelData_("DupireModelData_", name), spot_(spot), rate_(rate), repo_(repo), spots_(spots), times_(times), vols_(vols) {}
 
         void Write(Archive::Store_& dst) const override;
+
+    private:
+        DupireModelData_* MutantModel(const String_* new_name, const Slide_* slide) const override;
     };
 } // namespace Dal::AAD

@@ -19,7 +19,7 @@ namespace Dal::AAD {
         }
 
     public:
-        [[nodiscard]] virtual const size_t NumAssets() const { return 1; }
+        [[nodiscard]] virtual size_t NumAssets() const { return 1; }
 
         [[nodiscard]] virtual const Vector_<String_>& AssetNames() const { return DefaultAssetNames(); }
 
@@ -39,10 +39,23 @@ namespace Dal::AAD {
         [[nodiscard]] virtual const Vector_<String_>& ParameterLabels() const = 0;
 
         [[nodiscard]] size_t NumParams() const { return const_cast<Model_*>(this)->Parameters().size(); }
-
     };
+
+    class Slide_;
 
     struct ModelData_: public Storable_ {
         ModelData_(const String_& type, const String_& name): Storable_(type.c_str(), name) {}
+        [[nodiscard]] ModelData_* MutantModel(const String_& new_name, const Vector_<Handle_<Slide_> >& slides) const {
+            std::unique_ptr<ModelData_> retval(MutantModel(&new_name, nullptr));
+            for (const auto& s : slides) {
+		std::unique_ptr<ModelData_> temp(retval->MutantModel(nullptr, s.get()));
+		std::swap(retval, temp);
+            }
+	    return retval.release();
+        }
+
+    private:
+        virtual ModelData_* MutantModel(const String_* new_name, const Slide_* slide) const = 0;
     };
+
 } // namespace Dal

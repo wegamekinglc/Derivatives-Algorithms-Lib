@@ -40,7 +40,6 @@ namespace Dal::AAD {
         Vector_<T_*> parameters_;
         Vector_<String_> parameterLabels_;
 
-    private:
         void SetParamPointers() {
             parameters_[0] = &spot_;
             parameters_[1] = &vol_;
@@ -157,6 +156,9 @@ namespace Dal::AAD {
                      : ModelData_("BSModelData_", name), spot_(spot), vol_(vol), rate_(rate), div_(div) {}
 
         void Write(Archive::Store_& dst) const override;
+
+    private:
+        BSModelData_* MutantModel(const String_* new_name, const Slide_* slide) const override;
     };
 
 } // namespace Dal
