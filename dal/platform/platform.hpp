@@ -17,6 +17,9 @@
 #include <map>
 #include <cmath>
 #include <bitset>
+#include <iostream>
+#include <iomanip>
+#include <sstream>
 
 #ifdef MIN
 #undef MIN

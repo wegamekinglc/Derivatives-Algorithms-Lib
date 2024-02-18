@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include <iomanip>
+#include <dal/platform/platform.hpp>
 #include <dal/math/operators.hpp>
 #include <dal/math/aad/models/base.hpp>
 #include <dal/math/aad/models/ivs.hpp>
