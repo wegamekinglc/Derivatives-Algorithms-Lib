@@ -5,7 +5,7 @@
 #include <gtest/gtest.h>
 #include <dal/platform/platform.hpp>
 #include <dal/math/distribution/black.hpp>
-#include <dal/math/aad/models/ivs.hpp>
+#include <dal/model/ivs.hpp>
 
 using namespace Dal;
 using namespace Dal::AAD;

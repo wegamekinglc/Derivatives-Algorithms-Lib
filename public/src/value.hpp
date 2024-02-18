@@ -4,8 +4,8 @@
 
 #pragma once
 
-#include <dal/math/aad/models/blackscholes.hpp>
-#include <dal/math/aad/models/dupire.hpp>
+#include <dal/model/blackscholes.hpp>
+#include <dal/model/dupire.hpp>
 #include <dal/script/simulation.hpp>
 
 namespace Dal {

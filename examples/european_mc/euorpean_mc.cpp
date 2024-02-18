@@ -5,7 +5,7 @@
 #include <iostream>
 #include <dal/time/dateincrement.hpp>
 #include <dal/script/event.hpp>
-#include <dal/math/aad/models/blackscholes.hpp>
+#include <dal/model/blackscholes.hpp>
 #include <dal/storage/globals.hpp>
 #include <dal/utilities/timer.hpp>
 #include <dal/script/simulation.hpp>

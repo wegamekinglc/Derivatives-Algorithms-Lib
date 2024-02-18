@@ -4,7 +4,7 @@
 
 #include <dal/platform/platform.hpp>
 #include <dal/platform/strict.hpp>
-#include <dal/math/aad/models/dupire.hpp>
+#include <dal/model/dupire.hpp>
 
 namespace Dal::AAD {
 #include <dal/auto/MG_DupireModelData_v1_Read.inc>

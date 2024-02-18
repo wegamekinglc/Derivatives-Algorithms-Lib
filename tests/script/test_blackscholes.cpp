@@ -4,7 +4,7 @@
 
 #include <gtest/gtest.h>
 #include <dal/platform/platform.hpp>
-#include <dal/math/aad/models/blackscholes.hpp>
+#include <dal/model/blackscholes.hpp>
 #include <dal/storage/globals.hpp>
 #include <dal/script/event.hpp>
 #include <dal/script/simulation.hpp>

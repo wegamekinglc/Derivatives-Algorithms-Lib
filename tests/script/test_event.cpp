@@ -6,7 +6,7 @@
 #include <dal/platform/platform.hpp>
 #include <dal/script/event.hpp>
 #include <dal/time/daybasis.hpp>
-#include <dal/math/aad/models/blackscholes.hpp>
+#include <dal/model/blackscholes.hpp>
 #include <dal/script/simulation.hpp>
 
 using namespace Dal;

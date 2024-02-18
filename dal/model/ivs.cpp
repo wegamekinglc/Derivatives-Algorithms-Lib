@@ -4,7 +4,7 @@
 
 #include <dal/platform/platform.hpp>
 #include <dal/platform/strict.hpp>
-#include <dal/math/aad/models/ivs.hpp>
+#include <dal/model/ivs.hpp>
 
 namespace Dal::AAD {
     double MertonIVS_::ImpliedVol(double strike, double mat) const {

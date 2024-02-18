@@ -4,7 +4,7 @@
 
 #include <dal/platform/platform.hpp>
 #include <dal/platform/strict.hpp>
-#include <dal/math/aad/models/blackscholes.hpp>
+#include <dal/model/blackscholes.hpp>
 
 namespace Dal::AAD {
 #include <dal/auto/MG_BSModelData_v1_Read.inc>

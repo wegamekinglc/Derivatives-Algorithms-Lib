@@ -6,9 +6,9 @@
 
 #include <dal/platform/platform.hpp>
 #include <dal/math/operators.hpp>
-#include <dal/math/aad/models/base.hpp>
-#include <dal/math/aad/models/ivs.hpp>
-#include <dal/math/aad/models/utilities.hpp>
+#include <dal/model/base.hpp>
+#include <dal/model/ivs.hpp>
+#include <dal/model/utilities.hpp>
 #include <dal/math/interp/interp.hpp>
 #include <dal/math/matrix/matrixs.hpp>
 #include <dal/math/matrix/matrixutils.hpp>

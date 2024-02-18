@@ -5,7 +5,7 @@
 #pragma once
 
 #include <dal/script/event.hpp>
-#include <dal/math/aad/models/base.hpp>
+#include <dal/model/base.hpp>
 #include <dal/math/random/brownianbridge.hpp>
 #include <dal/math/random/sobol.hpp>
 #include <dal/math/random/pseudorandom.hpp>
