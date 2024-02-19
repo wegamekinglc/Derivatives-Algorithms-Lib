@@ -5,10 +5,9 @@
 #include <dal/platform/config.hpp>
 
 #ifdef USE_EXCEL_REPORT
-//#include <dal/platform/strict.hpp>
-#include <dal/report/exceldriverlite.hpp>
+#include <dal/excel/exceldriverlite.hpp>
 #include <dal/math/matrix/matrixutils.hpp>
-#include <dal/report/excelimport.hpp>
+#include <dal/excel/excelimport.hpp>
 #include <stdexcept>
 
 

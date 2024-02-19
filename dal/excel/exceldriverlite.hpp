@@ -19,7 +19,7 @@
 #include <dal/math/matrix/matrixs.hpp>
 #include <dal/math/vectors.hpp>
 #include <dal/platform/platform.hpp>
-#include <dal/report/excelimport.hpp>
+#include <dal/excel/excelimport.hpp>
 #include <dal/string/strings.hpp>
 
 // Excel driver class definition. Contains functionality to add charts

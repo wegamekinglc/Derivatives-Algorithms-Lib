@@ -6,7 +6,7 @@
 
 #ifdef USE_EXCEL_REPORT
 
-#include <dal/report/exceldriverlite.hpp>
+#include <dal/excel/exceldriverlite.hpp>
 #include <dal/math/vectors.hpp>
 #include <dal/math/operators.hpp>
 #include <dal/string/strings.hpp>

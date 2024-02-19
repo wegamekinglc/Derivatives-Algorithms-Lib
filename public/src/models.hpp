@@ -8,7 +8,7 @@
 #include <dal/model/dupire.hpp>
 
 namespace Dal {
-    using Dal::AAD::ModelData_;
+    using AAD::ModelData_;
 
     FORCE_INLINE Handle_<ModelData_> NewBSModelData(const String_& name,
                                                     double spot,
