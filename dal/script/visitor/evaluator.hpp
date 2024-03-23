@@ -40,26 +40,35 @@ namespace Dal::Script {
             variables_.Resize(variablesInit_.size());
             for (auto i = 0; i < variables_.size(); ++i)
                 variables_[i] = T_(variablesInit_[i]);
+            bStack_ = StaticStack_<bool>();
+            scenario_ = nullptr;
         }
 
         // Copy/Move
         EvaluatorBase_(const EvaluatorBase_& rhs)
-            : variables_(rhs.variables_), variablesInit_(rhs.variablesInit_), constVariables_(rhs.constVariables_), curEvt_(rhs.curEvt_) {}
+            : variables_(rhs.variables_), variablesInit_(rhs.variablesInit_), constVariables_(rhs.constVariables_), curEvt_(rhs.curEvt_), bStack_(rhs.bStack_), scenario_(rhs.scenario_) {}
         EvaluatorBase_& operator=(const EvaluatorBase_& rhs) {
             if (this == &rhs)
                 return *this;
             variables_ = rhs.variables_;
             variablesInit_ = rhs.variablesInit_;
             constVariables_ = rhs.constVariables_;
+            bStack_ = rhs.bStack_;
+            scenario_ = rhs.scenario_;
             return *this;
         }
 
         EvaluatorBase_(EvaluatorBase_&& rhs) noexcept
-            : variables_(std::move(rhs.variables_)), constVariables_(std::move(rhs.constVariables_)), curEvt_(rhs.curEvt_) {}
+            : variables_(std::move(rhs.variables_)), constVariables_(std::move(rhs.constVariables_)), curEvt_(rhs.curEvt_) {
+            bStack_ = rhs.bStack_;
+            scenario_ = rhs.scenario_;
+        }
         EvaluatorBase_& operator=(EvaluatorBase_&& rhs) noexcept {
             variables_ = std::move(rhs.variables_);
             variablesInit_ = std::move(rhs.variablesInit_);
             constVariables_ = std::move(rhs.constVariables_);
+            bStack_ = std::move(rhs.bStack_);
+            scenario_ = rhs.scenario_;
             return *this;
         }
 

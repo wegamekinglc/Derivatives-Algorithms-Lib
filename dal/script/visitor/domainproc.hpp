@@ -13,12 +13,6 @@
 #include <dal/script/visitor.hpp>
 #include <dal/script/visitor/domain.hpp>
 
-// #define DUMP
-
-#ifdef DUMP
-#include <fstream>
-#endif
-
 /*IF--------------------------------------------------------------------------
 enumeration DomainCondProp
     flag for domain condition property
@@ -70,7 +64,7 @@ namespace Dal::Script {
 
         // Domains start with the IsSingleton 0
         DomainProcessor_(const size_t n_vars, bool fuzzy)
-            : fuzzy_(fuzzy), varDomains_(n_vars, Domain_(0.0)), isLhsVar_(false), lhsVarIdx_(-1) {}
+            : fuzzy_(fuzzy), varDomains_(n_vars, Domain_(0.0)), isLhsVar_(false), lhsVarIdx_(-1), condStack_() {}
 
         [[nodiscard]] const Vector_<Domain_>& VarDomains() const {
             return varDomains_;
@@ -205,21 +199,6 @@ namespace Dal::Script {
                 }
             }
 
-            // Dump domain info to file, comment when not using
-#ifdef DUMP
-            static int iii = 0;
-            ++iii;
-            {
-                ofstream ofs(string("c:\\temp\\equal") + to_string(iii) + ".txt");
-                ofs << "Equality " << iii << endl;
-                ofs << "Domain_ = " << dom << endl;
-                ofs << "Node isDiscrete_ = " << node.isDiscrete_ << endl;
-                if (node.isDiscrete_)
-                    ofs << "Node lB, rB = " << node.lb_ << "," << node.rb_ << endl;
-            }
-#endif
-            // End of dump
-
             domStack_.Pop();
         }
 
@@ -246,7 +225,7 @@ namespace Dal::Script {
         template <bool Strict_, class NSup_> inline void VisitSupT(NSup_& node) {
             VisitArguments(node);
 
-            Domain_& dom = domStack_.Top();
+            const Domain_& dom = domStack_.Top();
 
             // Always true / false?
             if (!dom.CanBePositive(Strict_)) {
@@ -289,21 +268,6 @@ namespace Dal::Script {
                 }
             }
 
-            // Dump domain info to file, comment when not using
-#ifdef DUMP
-            static int iii = 0;
-            ++iii;
-            {
-                ofstream ofs(string("c:\\temp\\sup") + (strict ? "" : "equal") + to_string(iii) + ".txt");
-                ofs << "Inequality " << iii << endl;
-                ofs << "Domain_ = " << dom << endl;
-                ofs << "Node isDiscrete_ = " << node.isDiscrete_ << endl;
-                if (node.isDiscrete_)
-                    ofs << "Node lB, rB = " << node.lb_ << "," << node.rb_ << endl;
-            }
-#endif
-            // End of dump
-
             domStack_.Pop();
         }
 
@@ -313,9 +277,9 @@ namespace Dal::Script {
 
         void Visit(NodeAnd_& node) {
             VisitArguments(node);
-            DomainCondProp_ cp1 = condStack_.Top();
+            const DomainCondProp_ cp1 = condStack_.Top();
             condStack_.Pop();
-            DomainCondProp_ cp2 = condStack_.Top();
+            const DomainCondProp_ cp2 = condStack_.Top();
             condStack_.Pop();
 
             if (cp1 == Value_::AlwaysTrue && cp2 == Value_::AlwaysTrue) {
@@ -333,9 +297,9 @@ namespace Dal::Script {
         }
         void Visit(NodeOr_& node) {
             VisitArguments(node);
-            DomainCondProp_ cp1 = condStack_.Top();
+            const DomainCondProp_ cp1 = condStack_.Top();
             condStack_.Pop();
-            DomainCondProp_ cp2 = condStack_.Top();
+            const DomainCondProp_ cp2 = condStack_.Top();
             condStack_.Pop();
 
             if (cp1 == Value_::AlwaysTrue || cp2 == Value_::AlwaysTrue) {
@@ -355,13 +319,13 @@ namespace Dal::Script {
         // Instructions
         void Visit(NodeIf_& node) {
             // Last "if true" statement index
-            size_t lastTrueStat = node.firstElse_ == -1 ? node.arguments_.size() - 1 : node.firstElse_ - 1;
+            const size_t lastTrueStat = node.firstElse_ == -1 ? node.arguments_.size() - 1 : node.firstElse_ - 1;
 
             // Visit condition
             node.arguments_[0]->Accept(*this);
 
             // Always true/false?
-            DomainCondProp_ cp = condStack_.Top();
+            const DomainCondProp_ cp = condStack_.Top();
             condStack_.Pop();
 
             if (cp == Value_::AlwaysTrue) {
@@ -452,15 +416,11 @@ namespace Dal::Script {
         // Variables and constants
         void Visit(NodeVar_& node) {
             // LHS?
-            if (isLhsVar_) // Write
-            {
-                // Record address in myLhsVarAdr
+            if (isLhsVar_)
                 lhsVarIdx_ = node.index_;
-            } else // Read
-            {
+            else
                 // Push domain onto the stack
                 domStack_.Push(varDomains_[node.index_]);
-            }
         }
 
         void Visit(NodeConst_& node) { domStack_.Push(node.constVal_); }

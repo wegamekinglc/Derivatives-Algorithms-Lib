@@ -58,7 +58,7 @@ namespace Dal::Script {
         }
 
     public:
-        using ConstVisitor_<Debugger_>::Visit;
+        using ConstVisitor_::Visit;
 
         // Access the Top of the stack, contains the functional form after the tree is traversed
         [[nodiscard]] const String_& String() const { return stack_.Top(); }
@@ -93,7 +93,7 @@ namespace Dal::Script {
         }
 
         void Visit(const NodeNot_& node) {
-            String_ s = "NOT";
+            const String_ s = "NOT";
             Debug(node, s);
         }
 
@@ -120,12 +120,12 @@ namespace Dal::Script {
         }
 
         void Visit(const NodeAnd_& node) {
-            String_ s = "AND";
+            const String_ s = "AND";
             Debug(node, s);
         }
 
         void Visit(const NodeOr_& node) {
-            String_ s = "OR";
+            const String_ s = "OR";
             Debug(node, s);
         }
 

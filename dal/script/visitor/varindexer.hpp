@@ -22,8 +22,8 @@ namespace Dal::Script {
         // Access vector of variable names v[index]=name after Visit to all events
         [[nodiscard]] Vector_<String_> VarNames() const {
             Vector_<String_> v(varMap_.size());
-            for(const auto& val: varMap_)
-                v[val.second] = val.first;
+            for(const auto& [k, val]: varMap_)
+                v[val] = k;
 
             // C++11: move not copy
             return v;
@@ -31,8 +31,8 @@ namespace Dal::Script {
 
         [[nodiscard]] Vector_<String_> ConstVarNames() const {
             Vector_<String_> v(constVarMap_.size());
-            for(const auto& val: constVarMap_)
-                v[std::get<0>(val.second)] = val.first;
+            for(const auto& [k, val]: constVarMap_)
+                v[std::get<0>(val)] = k;
 
             // C++11: move not copy
             return v;
@@ -40,8 +40,8 @@ namespace Dal::Script {
 
         [[nodiscard]] Vector_<double> ConstVarValues() const {
             Vector_<double> v(constVarMap_.size());
-            for(const auto& val: constVarMap_)
-                v[std::get<0>(val.second)] = std::get<1>(val.second);
+            for(const auto& [_, val]: constVarMap_)
+                v[std::get<0>(val)] = std::get<1>(val);
 
             // C++11: move not copy
             return v;

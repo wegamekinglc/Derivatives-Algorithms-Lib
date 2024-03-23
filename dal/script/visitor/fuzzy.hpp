@@ -18,20 +18,18 @@ namespace Dal::Script {
 
         if (x < -halfEps)
             return T_(0.0);
-        else if (x > halfEps)
+        if (x > halfEps)
             return T_(1.0);
-        else
-            return (x + halfEps) / eps;
+        return (x + halfEps) / eps;
     }
 
     template <class T_>
     FORCE_INLINE T_ CSpr(const T_& x, double lb, double rb) {
         if (x < lb)
             return T_(0.0);
-        else if (x > rb)
+        if (x > rb)
             return T_(1.0);
-        else
-            return (x - lb) / (rb - lb);
+        return (x - lb) / (rb - lb);
     }
 
     template <class T_>
@@ -40,18 +38,16 @@ namespace Dal::Script {
 
         if (x < -halfEps || x > halfEps)
             return T_(0.0);
-        else
-            return (halfEps - fabs(x)) / halfEps;
+        return (halfEps - fabs(x)) / halfEps;
     }
 
     template <class T_>
     FORCE_INLINE T_ BFly(const T_& x, double lb, double rb) {
         if (x < lb || x > rb)
             return T_(0.0);
-        else if (x < 0.0)
+        if (x < 0.0)
             return 1.0 - x / lb;
-        else
-            return 1.0 - x / rb;
+        return 1.0 - x / rb;
     }
 
     // The fuzzy evaluator

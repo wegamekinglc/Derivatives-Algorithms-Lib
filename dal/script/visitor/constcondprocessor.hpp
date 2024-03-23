@@ -30,10 +30,11 @@ namespace Dal::Script {
         }
 
     public:
-        // Overload catch-all-nodes visitor to Visit arguments_ plus set current_
+        ConstCondProcessor_() = default;
+
+        // Overload catch-all-nodes visitor to Visit argcurrent_uments_ plus set current_
         template <class N_>
-        std::enable_if_t<std::is_same<N_, std::remove_const_t<N_>>::value &&
-                    !HasConstVisit_<ConstCondProcessor_>::ForNodeType<N_>()>
+        std::enable_if_t<std::is_same<N_, std::remove_const_t<N_>>::value && !HasConstVisit_<ConstCondProcessor_>::ForNodeType<N_>()>
         Visit(N_& node) {
             VisitArgsSetCurrent(node);
         }

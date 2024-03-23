@@ -129,8 +129,6 @@ namespace Dal {
     };
 
     template <class T = double, size_t SIZE = 128> class StaticStack_ {
-
-    private:
         T data_[SIZE];
         int sp_ = -1;
 
