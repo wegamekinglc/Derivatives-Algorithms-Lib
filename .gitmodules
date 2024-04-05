@@ -7,3 +7,6 @@
 [submodule "externals/vcpkg"]
 	path = externals/vcpkg
 	url = git@github.com:microsoft/vcpkg.git
+[submodule "externals/xad"]
+	path = externals/xad
+	url = git@github.com:auto-differentiation/xad.git

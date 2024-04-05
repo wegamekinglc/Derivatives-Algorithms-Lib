@@ -9,7 +9,6 @@
 #include <dal/utilities/timer.hpp>
 #include <iomanip>
 #include <iostream>
-#include <codi.hpp>
 
 using namespace std;
 using namespace Dal;
@@ -54,39 +53,39 @@ int main() {
     Number_ strike_aad(strike);
     Number_ expiry_aad(expiry);
 
-    Tape_& tape = Number_::getTape();
-    tape.reset();
-    tape.setActive();
+    Tape_& tape = AAD::GetTape();
+    AAD::Reset(&tape);
+    AAD::SetActive(&tape);
 
     tape.registerInput(fwd_aad);
     tape.registerInput(vol_aad);
     tape.registerInput(numeraire_aad);
     tape.registerInput(strike_aad);
     tape.registerInput(expiry_aad);
+    AAD::NewRecording(&tape);
 
     timer.Reset();
 
     Number_ numeraire_aad_2 = numeraire_aad * 2.0;
-    auto begin = tape.getPosition();
+    auto begin = AAD::GetPosition(tape);
     Number_ price_aad = BlackTest(fwd_aad, vol_aad, numeraire_aad_2, strike_aad, expiry_aad, is_call);
-    price_aad.setGradient(1.0);
-    tape.evaluate(tape.getPosition(), begin);
-    tape.resetTo(begin);
+    AAD::SetGradient(price_aad, 1.0);
+    AAD::Evaluate(&tape);
+    AAD::ResetToPos(&tape, begin);
 
     price_aad = BlackTest(fwd_aad, vol_aad, numeraire_aad_2, strike_aad, expiry_aad, is_call);
-    price_aad.setGradient(1.0);
-    tape.evaluate(tape.getPosition(), begin);
-    tape.resetTo(begin);
+    AAD::SetGradient(price_aad, 1.0);
+    AAD::Evaluate(&tape);
+    AAD::ResetToPos(&tape, begin);
 
-    tape.evaluate();
+    AAD::Evaluate(&tape);
 
     std::cout << " DAL  AAD Mode: " << std::setprecision(8) << price_aad.value() << " with " << timer.Elapsed<milliseconds>() << " ms" << std::endl;
-    std::cout << "      dP/dFwd : " << std::setprecision(8) << fwd_aad.getGradient() << std::endl;
-    std::cout << "      dP/dVol : " << std::setprecision(8) << vol_aad.getGradient() << std::endl;
-    std::cout << "      dP/dNum : " << std::setprecision(8) << numeraire_aad.getGradient() << std::endl;
-    std::cout << "      dP/dK   : " << std::setprecision(8) << strike_aad.getGradient() << std::endl;
-    std::cout << "      dP/dT   : " << std::setprecision(8) << expiry_aad.getGradient() << std::endl;
-    tape.reset();
+    std::cout << "      dP/dFwd : " << std::setprecision(8) << AAD::GetGradient(fwd_aad) << std::endl;
+    std::cout << "      dP/dVol : " << std::setprecision(8) << AAD::GetGradient(vol_aad) << std::endl;
+    std::cout << "      dP/dNum : " << std::setprecision(8) << AAD::GetGradient(numeraire_aad) << std::endl;
+    std::cout << "      dP/dK   : " << std::setprecision(8) << AAD::GetGradient(strike_aad) << std::endl;
+    std::cout << "      dP/dT   : " << std::setprecision(8) << AAD::GetGradient(expiry_aad) << std::endl;
 
     return 0;
 }

@@ -5,11 +5,16 @@
 #pragma once
 
 #ifndef USE_AADET
-  #define USE_AADET
+// #define USE_AADET
 #endif
 
 #ifndef USE_CODI
 // #define USE_CODI
+#endif
+
+#ifndef USE_XAD
+// #define XAD_USE_STRONG_INLINE
+// #define USE_XAD
 #endif
 
 #ifndef DAL_USE_REQUIRE

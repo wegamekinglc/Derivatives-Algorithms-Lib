@@ -23,7 +23,46 @@ namespace Dal::AAD {
 #endif
     using Tape_ = typename Number_::Tape;
     using Position_ = typename Tape_::Position;
+
+    FORCE_INLINE auto& GetTape() {
+        return Number_::getTape();
+    }
+
+    FORCE_INLINE void SetGradient(Number_& res, double gradient) {
+        res.setGradient(gradient);
+    }
+
+    FORCE_INLINE double GetGradient(const Number_& res) {
+        return res.getGradient();
+    }
+
+    FORCE_INLINE void Evaluate(Tape_* tape) {
+        tape->evaluate(tape->getPosition(), tape->getZeroPosition());
+    }
+
+    FORCE_INLINE void Evaluate(Tape_* tape, const Position_& pos) {
+        tape->evaluate(tape->getPosition(), pos);
+    }
+
+    FORCE_INLINE void ResetToPos(Tape_* tape, const Position_& pos) {
+        tape->resetTo(pos, false);
+    }
+
+    FORCE_INLINE void Reset(Tape_* tape) {
+        tape->reset();
+    }
+
+    FORCE_INLINE void SetActive(Tape_* tape) {
+        tape->setActive();
+    }
+
+    FORCE_INLINE void NewRecording(Tape_* tape) {}
+
+    FORCE_INLINE Position_ GetPosition(Tape_& tape) {
+        return tape.getPosition();
+    }
 }
+
 #endif
 
 #ifdef USE_AADET
@@ -38,17 +77,105 @@ namespace Dal::AAD {
         }
     };
 
-    inline auto SetNumResultsForAAD(bool multi = false, size_t num_results = 1) {
+    FORCE_INLINE auto SetNumResultsForAAD(bool multi = false, size_t num_results = 1) {
         Tape_::multi_ = multi;
         TapNode_::numAdj_ = num_results;
         return std::make_unique<NumResultsResetterForAAD_>();
     }
 
-    template <class IT_> inline void PutOnTape(IT_ begin, IT_ end) {
+    template <class IT_> FORCE_INLINE void PutOnTape(IT_ begin, IT_ end) {
         std::for_each(begin, end, [](Number_& n) { n.PutOnTape(); });
     }
 
     using Position_ = typename Tape_::Position_;
 
+    FORCE_INLINE auto& GetTape() {
+        return Number_::getTape();
+    }
+
+    FORCE_INLINE void SetGradient(Number_& res, double gradient) {
+        res.setGradient(gradient);
+    }
+
+    FORCE_INLINE double GetGradient(const Number_& res) {
+        return res.getGradient();
+    }
+
+    FORCE_INLINE void Evaluate(Tape_* tape) {
+        Tape_::evaluate(tape->getPosition(), tape->getZeroPosition());
+    }
+
+    FORCE_INLINE void Evaluate(Tape_* tape, const Position_& pos) {
+        Tape_::evaluate(tape->getPosition(), pos);
+    }
+
+    FORCE_INLINE void ResetToPos(Tape_* tape, const Position_& pos) {
+        tape->resetTo(pos, false);
+    }
+
+    FORCE_INLINE void Reset(Tape_* tape) {
+        tape->reset();
+    }
+
+    FORCE_INLINE void SetActive(Tape_* tape) {
+        tape->setActive();
+    }
+
+    FORCE_INLINE void NewRecording(Tape_* tape) {}
+
+    FORCE_INLINE Position_ GetPosition(Tape_& tape) {
+        return tape.getPosition();
+    }
+
 } // namespace Dal
+#endif
+
+#ifdef USE_XAD
+#include <XAD/XAD.hpp>
+
+namespace Dal::AAD {
+    using mode = xad::adj<double>;
+    using Number_ = mode::active_type;
+    using Tape_ = mode::tape_type;
+    using Position_ = Tape_::position_type;
+
+    FORCE_INLINE auto& GetTape() {
+        static thread_local Tape_ tape;
+        return tape;
+    }
+
+    FORCE_INLINE void SetGradient(Number_& res, double gradient) {
+        res.setDerivative(gradient);
+    }
+
+    FORCE_INLINE double GetGradient(const Number_& res) {
+        return res.getDerivative();
+    }
+
+    FORCE_INLINE void Evaluate(Tape_* tape) {
+        tape->computeAdjoints();
+    }
+
+    FORCE_INLINE void Evaluate(Tape_* tape, const Position_& pos) {
+        tape->computeAdjointsTo(pos);
+    }
+
+    FORCE_INLINE void ResetToPos(Tape_* tape, const Position_& pos) {
+        tape->resetTo(pos);
+    }
+
+    FORCE_INLINE void Reset(Tape_* tape) {
+        tape->clearAll();
+    }
+
+    FORCE_INLINE void SetActive(Tape_* tape) {}
+    FORCE_INLINE void NewRecording(Tape_* tape) {
+        tape->newRecording();
+    }
+
+    FORCE_INLINE Position_ GetPosition(const Tape_& tape) {
+        return tape.getPosition();
+    }
+
+}
 #endif

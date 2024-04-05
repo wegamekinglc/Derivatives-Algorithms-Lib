@@ -3,6 +3,10 @@ add_executable(snowball ${SNOWBALL_FILES})
 
 target_link_libraries(snowball dal_library)
 
+if(DEFINED USE_XAD)
+    target_link_libraries(snowball xad)
+endif()
+
 if(MSVC)
 else()
     target_link_libraries(snowball pthread)

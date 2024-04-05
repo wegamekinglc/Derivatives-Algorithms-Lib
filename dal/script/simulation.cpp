@@ -21,17 +21,19 @@ namespace Dal::Script {
                                              AAD::Model_<AAD::Number_>& clonedMdl,
                                              Scenario_<AAD::Number_>& path,
                                              E_& evaluator) {
-            tape.reset();
-            tape.setActive();
+            AAD::Reset(&tape);
+            AAD::SetActive(&tape);
             for (Number_* param : clonedMdl.Parameters())
                 tape.registerInput(*param);
 
             for (Number_& param : evaluator.ConstVarVals())
                 tape.registerInput(param);
 
+            AAD::NewRecording(&tape);
+
             clonedMdl.Init(prd.TimeLine(), prd.DefLine());
             InitializePath(path);
-            return tape.getPosition();
+            return AAD::GetPosition(tape);
         }
 
         std::unique_ptr<Random_> CreateRNG(const String_& method, size_t n_dim, bool use_bb) {
@@ -153,7 +155,6 @@ namespace Dal::Script {
 
         const auto nParams = mdl->Parameters().size();
         const auto nConstVars = product.ConstVarNames().size();
-        SimResults_<AAD::Number_> results(Dal::Vector::Join(mdl->ParameterLabels(), product.ConstVarNames()));
 
         ThreadPool_* pool = ThreadPool_::GetInstance();
         const size_t nThreads = pool->NumThreads();
@@ -195,8 +196,15 @@ namespace Dal::Script {
 #endif
         Vector_<TaskHandle_> futures;
         futures.reserve(n_paths / batchSize + 1);
-        Vector_<> simResults;
-        simResults.reserve(n_paths / batchSize + 1);
+        Vector_<> simEvals;
+        simEvals.reserve(n_paths / batchSize + 1);
+
+#ifndef USE_AADET
+        SimResults_<AAD::Number_> sub_res(Dal::Vector::Join(mdl->ParameterLabels(), product.ConstVarNames()));
+        Vector_<SimResults_<AAD::Number_>> simResults(nThreads, sub_res);
+#else
+        SimResults_<AAD::Number_> results(Dal::Vector::Join(mdl->ParameterLabels(), product.ConstVarNames()));
+#endif
 
         Vector_<bool> modelInit(nThreads, false);
         Vector_<AAD::Position_> startPositions(nThreads);
@@ -209,8 +217,8 @@ namespace Dal::Script {
 
         while (pathsLeft > 0) {
             auto pathsInTask = std::min(pathsLeft, batchSize);
-            simResults.emplace_back(0.0);
-            auto& simResult = simResults[loopIndex];
+            simEvals.emplace_back(0.0);
+            auto& simEval = simEvals[loopIndex];
             loopIndex += 1;
             futures.push_back(pool->SpawnTask([&, firstPath, pathsInTask]() {
                 const size_t threadNum = ThreadPool_::ThreadNum();
@@ -219,10 +227,13 @@ namespace Dal::Script {
                 auto& random = rngVector[threadNum];
                 auto& gVec = gaussVectors[threadNum];
                 auto& model = modelVector[threadNum];
+#ifndef USE_AADET
+                auto& results = simResults[threadNum];
+#endif
                 random->SkipTo(firstPath);
 
                 if (!tapes[threadNum])
-                    tapes[threadNum] = &AAD::Number_::getTape();
+                    tapes[threadNum] = &AAD::GetTape();
                 AAD::Tape_* tape = tapes[threadNum];
 
                 double sumValue = 0.0;
@@ -240,11 +251,11 @@ namespace Dal::Script {
                         random->FillNormal(&gVec);
                         model->GeneratePath(gVec, &path);
                         product.EvaluateCompiled(path, evalState);
-                        AAD::Number_ res = evalState.VarVals()[payoffIndex];
-                        res.setGradient(1.0);
-                        tape->evaluate(tape->getPosition(), pos);
+                        Number_ res = evalState.VarVals()[payoffIndex];
+                        AAD::SetGradient(res, 1.0);
+                        AAD::Evaluate(tape, pos);
                         sumValue += res.value();
-                        tape->resetTo(pos, false);
+                        AAD::ResetToPos(tape, pos);
                     }
                 }
                 else if (max_nested_ifs > 0) {
@@ -261,11 +272,11 @@ namespace Dal::Script {
                         random->FillNormal(&gVec);
                         model->GeneratePath(gVec, &path);
                         product.Evaluate(path, eval);
-                        AAD::Number_ res = eval.VarVals()[payoffIndex];
-                        res.setGradient(1.0);
-                        tape->evaluate(tape->getPosition(), pos);
+                        Number_ res = eval.VarVals()[payoffIndex];
+                        AAD::SetGradient(res, 1.0);
+                        AAD::Evaluate(tape, pos);
                         sumValue += res.value();
-                        tape->resetTo(pos, false);
+                        AAD::ResetToPos(tape, pos);
                     }
                 } else {
                     Evaluator_<AAD::Number_>& eval = evalVector[threadNum];
@@ -281,31 +292,31 @@ namespace Dal::Script {
                         random->FillNormal(&gVec);
                         model->GeneratePath(gVec, &path);
                         product.Evaluate(path, eval);
-                        AAD::Number_ res = eval.VarVals()[payoffIndex];
-                        res.setGradient(1.0);
-                        tape->evaluate(tape->getPosition(), pos);
+                        Number_ res = eval.VarVals()[payoffIndex];
+                        AAD::SetGradient(res, 1.0);
+                        AAD::Evaluate(tape, pos);
                         sumValue += res.value();
-                        tape->resetTo(pos, false);
+                        AAD::ResetToPos(tape, pos);
                     }
                 }
-                simResult = sumValue;
+                simEval = sumValue;
 #ifndef USE_AADET
-                auto& pos = startPositions[threadNum];
-                tape->evaluate(pos, tape->getZeroPosition());
+                AAD::Evaluate(tape);
+                results.aggregated_ += simEval;
                 for (size_t j = 0; j < nParams; ++j)
-                    results.risks_[j] += model->Parameters()[j]->getGradient() / static_cast<double>(n_paths);
+                    results.risks_[j] += AAD::GetGradient(*model->Parameters()[j]) / static_cast<double>(n_paths);
 
                 if (compiled) {
                     for (size_t j = 0; j < nConstVars; ++j)
-                        results.risks_[j + nParams] +=  evalStateVector[threadNum].ConstVarVals()[j].getGradient() / static_cast<double>(n_paths);
+                        results.risks_[j + nParams] +=  AAD::GetGradient(evalStateVector[threadNum].ConstVarVals()[j]) / static_cast<double>(n_paths);
                 }  else if (max_nested_ifs > 0) {
                     for (size_t j = 0; j < nConstVars; ++j)
-                        results.risks_[j + nParams] +=  fuzzyEvalVector[threadNum].ConstVarVals()[j].getGradient() / static_cast<double>(n_paths);
+                        results.risks_[j + nParams] +=  AAD::GetGradient(fuzzyEvalVector[threadNum].ConstVarVals()[j]) / static_cast<double>(n_paths);
                 } else {
                     for (size_t j = 0; j < nConstVars; ++j)
-                        results.risks_[j + nParams] +=  evalVector[threadNum].ConstVarVals()[j].getGradient() / static_cast<double>(n_paths);
+                        results.risks_[j + nParams] +=  AAD::GetGradient(evalVector[threadNum].ConstVarVals()[j]) / static_cast<double>(n_paths);
                 }
-                tape->reset();
+                AAD::Reset(tape);
 #endif
                 return true;
             }));
@@ -316,11 +327,11 @@ namespace Dal::Script {
         for (auto& future : futures)
             pool->ActiveWait(future);
 
+#ifdef USE_AADET
         // aggregate all the results
-        for (const auto& s: simResults)
+        for (const auto& s: simEvals)
             results.aggregated_ += s;
 
-#ifdef USE_AADET
         for (size_t i = 0; i < nThreads; ++i)
             if (modelInit[i])
                 tapes[i]->evaluate();
@@ -349,6 +360,17 @@ namespace Dal::Script {
         for (size_t i = 0; i < nThreads; ++i)
             if (modelInit[i])
                 tapes[i]->Clear();
+#else
+        SimResults_<AAD::Number_> results(Dal::Vector::Join(mdl->ParameterLabels(), product.ConstVarNames()));
+        // aggregate all the results
+        for (auto k = 0; k < simResults.size(); ++k) {
+            if (modelInit[k]) {
+                const auto& s = simResults[k];
+                results.aggregated_ += s.aggregated_;
+                for (auto i = 0; i < results.risks_.size(); ++i)
+                    results.risks_[i] += s.risks_[i];
+            }
+        }
 #endif
         return results;
     }

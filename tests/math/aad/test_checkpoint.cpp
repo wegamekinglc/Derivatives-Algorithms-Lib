@@ -37,45 +37,51 @@ struct TestModel_ {
 
 
 auto ModelInit(Tape_& tape, TestModel_& model) {
-    tape.reset();
-    tape.setActive();
+    Reset(&tape);
+    SetActive(&tape);
+
     tape.registerInput(model.fwd_);
     tape.registerInput(model.vol_);
     tape.registerInput(model.numeraire_);
     tape.registerInput(model.strike_);
     tape.registerInput(model.expiry_);
+
+    NewRecording(&tape);
     return tape.getPosition();
 }
 
 
 TEST(AADTest, TestWithCheckpoint) {
-    auto& tape = Number_::getTape();
-    tape.setActive();
+    auto& tape = GetTape();
+    Reset(&tape);
+    SetActive(&tape);
 
     Number_ s1(1.0);
     Number_ s2(2.0);
 
     tape.registerInput(s1);
     tape.registerInput(s2);
+    NewRecording(&tape);
 
     Number_ s3 = s1 + s2;
     Position_ begin = tape.getPosition();
     Number_ value = s3 * 2.0;
-    value.setGradient(1.0);
-    tape.evaluate(tape.getPosition(), begin);
+    SetGradient(value, 1.0);
+    Evaluate(&tape, begin);
 
     ASSERT_NEAR(value.value(), 6.0, 1e-10);
-    ASSERT_NEAR(s3.getGradient(), 2.0, 1e-10);
+    ASSERT_NEAR(GetGradient(s3), 2.0, 1e-10);
 
-    tape.evaluate(begin, tape.getZeroPosition());
-    ASSERT_NEAR(s1.getGradient(), 2.0, 1e-10);
+    ResetToPos(&tape, begin);
+    Evaluate(&tape);
+    ASSERT_NEAR(GetGradient(s1), 2.0, 1e-10);
 }
 
 TEST(AADTest, TestWithCheckpointWithForLoop) {
-    auto& tape = Number_::getTape();
+    auto& tape  = GetTape();
     for (int m = 0; m < 3; ++m) {
-        tape.reset();
-        tape.setActive();
+        Reset(&tape);
+        SetActive(&tape);
 
         int n = 10000;
         Number_ s1(1.0);
@@ -83,6 +89,8 @@ TEST(AADTest, TestWithCheckpointWithForLoop) {
 
         tape.registerInput(s1);
         tape.registerInput(s2);
+
+        NewRecording(&tape);
 
         Number_ s3 = s1 + s2;
         Position_ begin = tape.getPosition();
@@ -92,25 +100,25 @@ TEST(AADTest, TestWithCheckpointWithForLoop) {
                 value = s3 * 1.01;
             else
                 value = s3 * 0.99;
-            value.setGradient(1.0);
-            tape.evaluate(tape.getPosition(), begin);
+            SetGradient(value, 1.0);
+            Evaluate(&tape, begin);
             if (i % 2 == 0) {
                 ASSERT_NEAR(value.value(), 3 * 1.01, 1e-10);
-                ASSERT_NEAR(s3.getGradient(), (i + 1) / 2 * 2 + (i + 1) % 2 * 1.01, 1e-10);
+                ASSERT_NEAR(GetGradient(s3), (i + 1) / 2 * 2 + (i + 1) % 2 * 1.01, 1e-10);
             } else {
                 ASSERT_NEAR(value.value(), 3 * 0.99, 1e-10);
-                ASSERT_NEAR(s3.getGradient(), (i + 1) / 2 * 2 + (i + 1) % 2 * 0.99, 1e-10);
+                ASSERT_NEAR(GetGradient(s3), (i + 1) / 2 * 2 + (i + 1) % 2 * 0.99, 1e-10);
             }
             tape.resetTo(begin);
         }
-        tape.evaluate(tape.getPosition(), tape.getZeroPosition());
-        ASSERT_NEAR(s1.getGradient(), n, 1e-10);
-        ASSERT_NEAR(s2.getGradient(), n, 1e-10);
+        Evaluate(&tape);
+        ASSERT_NEAR(GetGradient(s1), n, 1e-10);
+        ASSERT_NEAR(GetGradient(s2), n, 1e-10);
     }
 }
 
 TEST(AADTest, TestWithCheckpointWithMultiThreading) {
-    int n_rounds = 1000;
+    int n_rounds = 100000;
     double fwd = 1.00;
     double vol = 0.20;
     double numeraire = 1.0;
@@ -131,9 +139,9 @@ TEST(AADTest, TestWithCheckpointWithMultiThreading) {
     Vector_<> sim_results;
     sim_results.reserve(n_rounds / batch_size + 1);
 
-    Vector_<AAD::Position_> start_positions(n_threads);
+    Vector_<Position_> start_positions(n_threads);
     Vector_<bool> model_init(n_threads, false);
-    Vector_<AAD::Tape_*> tapes(n_threads, nullptr);
+    Vector_<Tape_*> tapes(n_threads, nullptr);
     Vector_<std::unique_ptr<TestModel_>> models(n_threads);
     for (auto& m : models)
         m = std::make_unique<TestModel_>(fwd, vol, numeraire, strike, expiry);
@@ -153,7 +161,7 @@ TEST(AADTest, TestWithCheckpointWithMultiThreading) {
         futures.push_back(pool->SpawnTask([&, first_round, rounds_in_tasks]() {
             const size_t n_thread = ThreadPool_::ThreadNum();
             if (!tapes[n_thread])
-                tapes[n_thread] = &AAD::Number_::getTape();
+                tapes[n_thread] = &GetTape();
             Tape_* tape = tapes[n_thread];
             auto& model = models[n_thread];
 
@@ -171,20 +179,20 @@ TEST(AADTest, TestWithCheckpointWithMultiThreading) {
                                         model->strike_,
                                         model->expiry_,
                                         is_call);
-                res.setGradient(1.0);
-                tape->evaluate(tape->getPosition(), pos);
+                SetGradient(res, 1.0);
+                Evaluate(tape, pos);
                 sum_val += res.value();
-                tape->resetTo(pos, false);
+                ResetToPos(tape, pos);
             }
             sim_result = sum_val;
 #ifndef USE_AADET
-            greeks[0] += model->fwd_.getGradient() / static_cast<double>(n_rounds);
-            greeks[1] += model->vol_.getGradient() / static_cast<double>(n_rounds);
-            greeks[2] += model->numeraire_.getGradient() / static_cast<double>(n_rounds);
-            greeks[3] += model->strike_.getGradient() / static_cast<double>(n_rounds);
-            greeks[4] += model->expiry_.getGradient() / static_cast<double>(n_rounds);
+            greeks[0] += GetGradient(model->fwd_) / static_cast<double>(n_rounds);
+            greeks[1] += GetGradient(model->vol_) / static_cast<double>(n_rounds);
+            greeks[2] += GetGradient(model->numeraire_) / static_cast<double>(n_rounds);
+            greeks[3] += GetGradient(model->strike_) / static_cast<double>(n_rounds);
+            greeks[4] += GetGradient(model->expiry_) / static_cast<double>(n_rounds);
+            NewRecording(tape);
 #endif
-
             return true;
         }));
         rounds_left -= rounds_in_tasks;
@@ -203,28 +211,23 @@ TEST(AADTest, TestWithCheckpointWithMultiThreading) {
 #ifdef USE_AADET
     for (size_t i = 0; i < models.size(); ++i)
         if (model_init[i])
-            greeks[0] += models[i]->fwd_.getGradient() / static_cast<double>(n_rounds);
-    
+            greeks[0] += GetGradient(models[i]->fwd_) / static_cast<double>(n_rounds);
 
     for (size_t i = 0; i < models.size(); ++i)
         if (model_init[i])
-            greeks[1] += models[i]->vol_.getGradient() / static_cast<double>(n_rounds);
-    
-
+            greeks[1] += GetGradient(models[i]->vol_) / static_cast<double>(n_rounds);
 
     for (size_t i = 0; i < models.size(); ++i)
         if (model_init[i])
-            greeks[2] += models[i]->numeraire_.getGradient() / static_cast<double>(n_rounds);
-    
+            greeks[2] += GetGradient(models[i]->numeraire_) / static_cast<double>(n_rounds);
 
     for (size_t i = 0; i < models.size(); ++i)
         if (model_init[i])
-            greeks[3] += models[i]->strike_.getGradient() / static_cast<double>(n_rounds);
-    
+            greeks[3] += GetGradient(models[i]->strike_) / static_cast<double>(n_rounds);
 
     for (size_t i = 0; i < models.size(); ++i)
         if (model_init[i])
-            greeks[4] += models[i]->expiry_.getGradient() / static_cast<double>(n_rounds);
+            greeks[4] += GetGradient(models[i]->expiry_) / static_cast<double>(n_rounds);
 #endif
 
     ASSERT_NEAR(greeks[0], 0.362002, 1e-6);

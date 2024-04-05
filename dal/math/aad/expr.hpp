@@ -482,7 +482,7 @@ namespace Dal::AAD {
 
         Number_() = default;
 
-        explicit Number_(double val) : value_(val) { node_ = CreateMultiNode<0>(); }
+        Number_(double val) : value_(val) { node_ = CreateMultiNode<0>(); }
 
         FORCE_INLINE Number_& operator=(double val) {
             value_ = val;

@@ -24,7 +24,7 @@ namespace Dal::Script {
 
     template <>
     struct SimResults_<AAD::Number_> {
-        explicit SimResults_(const Vector_<String_>& names) : aggregated_(0.0), risks_(names.size()), names_(names) {
+        explicit SimResults_(const Vector_<String_>& names) : aggregated_(0.0), risks_(names.size(), 0.0), names_(names) {
             for(auto i = 0; i < names.size(); ++i)
                 results_[names[i]] = &risks_[i];
         }

@@ -3,6 +3,10 @@ add_executable(aad ${AAD_FILES})
 
 target_link_libraries(aad dal_library)
 
+if(DEFINED USE_XAD)
+    target_link_libraries(aad xad)
+endif()
+
 if(MSVC)
 else()
     target_link_libraries(aad pthread)

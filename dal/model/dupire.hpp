@@ -143,7 +143,7 @@ namespace Dal::AAD {
             T_ logSpot = Dal::log(spot_);
             size_t idx = 0;
             if (commonSteps_[idx]) {
-                FillScenario(idx,Dal::exp(logSpot), (*path)[idx], (*defLine_)[idx]);
+                FillScenario(idx, Dal::exp(logSpot), (*path)[idx], (*defLine_)[idx]);
                 ++idx;
             }
 

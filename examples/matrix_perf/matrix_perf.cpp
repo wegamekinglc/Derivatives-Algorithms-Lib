@@ -11,7 +11,7 @@
 class Matrix_ {
     int rows_ = 0;
     int cols_ = 0;
-    Dal::Vector_<double> vector_;
+    std::vector<double> vector_;
 
 public:
     using value_type = double;
@@ -30,8 +30,8 @@ public:
     [[nodiscard]] int Rows() const { return rows_; }
     [[nodiscard]] int Cols() const { return cols_; }
 
-    double* operator[](int row) { return &vector_[row * cols_]; }
-    const double* operator[](int row) const { return &vector_[row * cols_]; }
+    FORCE_INLINE double* operator[](int row) { return &vector_[row * cols_]; }
+    FORCE_INLINE const double* operator[](int row) const { return &vector_[row * cols_]; }
     [[nodiscard]] double Sum() const {
         return Dal::Accumulate(vector_, [](double x, double y) { return x + y;});
     }
@@ -141,7 +141,7 @@ void MultiV5(const Matrix_& a, const Matrix_& b, Matrix_& c) {
 }
 
 int main() {
-    const int n = 2500;
+    const int n = 1000;
     std::unique_ptr<Dal::Random_> random(Dal::NewSobol(n, 1000));
     Matrix_ a(n, n, random);
     Matrix_ b(n, n, random);

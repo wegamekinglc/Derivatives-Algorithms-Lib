@@ -25,24 +25,26 @@ TEST(AnalyticsTest, TestBlackScholesAAD) {
     Number_ forward(110.0);
     Number_ strike(120.0);
 
-    auto& tape = Number_::getTape();
-    tape.setActive();
+    auto& tape = GetTape();
+    SetActive(&tape);
+    Reset(&tape);
 
-    tape.reset();
     tape.registerInput(vol);
     tape.registerInput(T);
     tape.registerInput(strike);
     tape.registerInput(forward);
+
+    NewRecording(&tape);
     
     auto call_price = BlackScholes(forward, strike, vol, T);
     ASSERT_NEAR(call_price.value(), 8.53592506466286, 1e-10);
 
-    call_price.setGradient(1.0);
-    tape.evaluate(tape.getPosition(), tape.getZeroPosition());
-    ASSERT_NEAR(forward.getGradient(), 0.433995720171781, 1e-8);
-    ASSERT_NEAR(vol.getGradient(), 61.2095050098522, 1e-8);
-    ASSERT_NEAR(T.getGradient(), 3.06047525, 1e-8);
-    tape.reset();
+    SetGradient(call_price, 1.0);
+    Evaluate(&tape);
+    ASSERT_NEAR(GetGradient(forward), 0.433995720171781, 1e-8);
+    ASSERT_NEAR(GetGradient(vol), 61.2095050098522, 1e-8);
+    ASSERT_NEAR(GetGradient(T), 3.06047525, 1e-8);
+    Reset(&tape);
 }
 
 TEST(AnalyticsTest, TestBachelier) {
@@ -61,22 +63,24 @@ TEST(AnalyticsTest, TestBachelierAAD) {
     Number_ forward(110.0);
     Number_ strike(120.0);
 
-    auto& tape = Number_::getTape();
-    tape.setActive();
+    auto& tape = GetTape();
+    SetActive(&tape);
+    Reset(&tape);
 
-    tape.reset();
     tape.registerInput(vol);
     tape.registerInput(T);
     tape.registerInput(strike);
     tape.registerInput(forward);
 
+    NewRecording(&tape);
+
     auto call_price = Bachelier(forward, strike, vol, T);
     ASSERT_NEAR(call_price.value(), 8.047832538, 1e-6);
 
-    call_price.setGradient(1.0);
-    tape.evaluate(tape.getPosition(), tape.getZeroPosition());
-    ASSERT_NEAR(forward.getGradient(), 0.37394902960009541, 1e-8);
-    ASSERT_NEAR(vol.getGradient(), 0.53578740155317184, 1e-8);
-    ASSERT_NEAR(T.getGradient(), 2.9468307085424446, 1e-8);
-    tape.reset();
+    SetGradient(call_price, 1.0);
+    Evaluate(&tape);
+    ASSERT_NEAR(GetGradient(forward), 0.37394902960009541, 1e-8);
+    ASSERT_NEAR(GetGradient(vol), 0.53578740155317184, 1e-8);
+    ASSERT_NEAR(GetGradient(T), 2.9468307085424446, 1e-8);
+    Reset(&tape);
 }
