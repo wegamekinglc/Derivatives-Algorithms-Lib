@@ -169,7 +169,7 @@ TEST(AADTest, TestWithCheckpointWithMultiThreading) {
         futures.push_back(pool->SpawnTask([&, first_round, rounds_in_tasks]() {
             const size_t n_thread = ThreadPool_::ThreadNum();
 #ifndef USE_XAD
-            tapes[n_thread]= GetTape();
+            tapes[n_thread]= &GetTape();
             Tape_* tape = tapes[n_thread];
 #else
             auto this_tap = GetTape();

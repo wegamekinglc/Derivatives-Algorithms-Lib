@@ -327,7 +327,6 @@ namespace Dal::Script {
                 tapes[i]->Clear();
         return results;
     }
-}
 #endif
 
 #ifdef USE_XAD
