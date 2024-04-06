@@ -5,7 +5,11 @@
 #pragma once
 
 #ifndef USE_AADET
-// #define USE_AADET
+#ifndef USE_CODI
+#ifndef USE_XAD
+#define USE_AADET
+#endif
+#endif
 #endif
 
 #ifndef USE_CODI

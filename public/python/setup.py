@@ -100,6 +100,7 @@ class my_build_ext(build_ext):
                     DAL_INSTALL_DIR = os.environ['DAL_DIR']
                 else:
                     DAL_INSTALL_DIR = "../../"
+                print(f"using dal install dir: {DAL_INSTALL_DIR}")
                 self.include_dirs += [os.path.join(DAL_INSTALL_DIR, 'include'),
                                       os.path.join(DAL_INSTALL_DIR, 'externals/CodiPack/include')]
                 self.library_dirs += [os.path.join(DAL_INSTALL_DIR, 'lib')]
@@ -140,6 +141,7 @@ class my_build_ext(build_ext):
                 DAL_INSTALL_DIR = os.environ['DAL_DIR']
             else:
                 DAL_INSTALL_DIR = "../../"
+            print(f"using dal install dir: {DAL_INSTALL_DIR}")
             ql_compile_args = [f"-I{DAL_INSTALL_DIR}/include", f"-I{DAL_INSTALL_DIR}/externals/CodiPack/include"]
             ql_link_args = [f"-L{DAL_INSTALL_DIR}/lib", "-ldal_public"]
 
