@@ -117,6 +117,10 @@ namespace Dal::AAD {
         tape->reset();
     }
 
+    FORCE_INLINE void Clear(Tape_* tape) {
+        return tape->Clear();
+    }
+
     FORCE_INLINE void SetActive(Tape_* tape) {
         tape->setActive();
     }
@@ -139,9 +143,8 @@ namespace Dal::AAD {
     using Tape_ = mode::tape_type;
     using Position_ = Tape_::position_type;
 
-    FORCE_INLINE auto& GetTape() {
-        static thread_local Tape_ tape;
-        return tape;
+    FORCE_INLINE auto GetTape() {
+        return Tape_();
     }
 
     FORCE_INLINE void SetGradient(Number_& res, double gradient) {
@@ -165,6 +168,10 @@ namespace Dal::AAD {
     }
 
     FORCE_INLINE void Reset(Tape_* tape) {
+        tape->clearAll();
+    }
+
+    FORCE_INLINE void Clear(Tape_* tape) {
         tape->clearAll();
     }
 

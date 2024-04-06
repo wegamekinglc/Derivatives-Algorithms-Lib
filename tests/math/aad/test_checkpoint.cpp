@@ -52,7 +52,11 @@ auto ModelInit(Tape_& tape, TestModel_& model) {
 
 
 TEST(AADTest, TestWithCheckpoint) {
+#ifndef USE_XAD
     auto& tape = GetTape();
+#else
+    auto tape = GetTape();
+#endif
     Reset(&tape);
     SetActive(&tape);
 
@@ -78,7 +82,11 @@ TEST(AADTest, TestWithCheckpoint) {
 }
 
 TEST(AADTest, TestWithCheckpointWithForLoop) {
-    auto& tape  = GetTape();
+#ifndef USE_XAD
+    auto& tape = GetTape();
+#else
+    auto tape = GetTape();
+#endif
     for (int m = 0; m < 3; ++m) {
         Reset(&tape);
         SetActive(&tape);
@@ -160,9 +168,13 @@ TEST(AADTest, TestWithCheckpointWithMultiThreading) {
 
         futures.push_back(pool->SpawnTask([&, first_round, rounds_in_tasks]() {
             const size_t n_thread = ThreadPool_::ThreadNum();
-            if (!tapes[n_thread])
-                tapes[n_thread] = &GetTape();
+#ifndef USE_XAD
+            tapes[n_thread]= GetTape();
             Tape_* tape = tapes[n_thread];
+#else
+            auto this_tap = GetTape();
+            Tape_* tape = &this_tap;
+#endif
             auto& model = models[n_thread];
 
             if (!model_init[n_thread]) {
@@ -191,7 +203,7 @@ TEST(AADTest, TestWithCheckpointWithMultiThreading) {
             greeks[2] += GetGradient(model->numeraire_) / static_cast<double>(n_rounds);
             greeks[3] += GetGradient(model->strike_) / static_cast<double>(n_rounds);
             greeks[4] += GetGradient(model->expiry_) / static_cast<double>(n_rounds);
-            NewRecording(tape);
+            Reset(tape);
 #endif
             return true;
         }));
@@ -235,5 +247,4 @@ TEST(AADTest, TestWithCheckpointWithMultiThreading) {
     ASSERT_NEAR(greeks[2], 0.0714668, 1e-6);
     ASSERT_NEAR(greeks[3], -0.242113, 1e-6);
     ASSERT_NEAR(greeks[4], 0.0216408, 1e-6);
-    
 }
