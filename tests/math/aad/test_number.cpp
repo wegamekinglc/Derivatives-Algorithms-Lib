@@ -9,8 +9,11 @@
 using namespace Dal::AAD;
 
 TEST(AADTest, TestNumberAdd) {
-
+#ifndef USE_XAD
     auto& tape = GetTape();
+#else
+    auto tape = GetTape();
+#endif
     SetActive(&tape);
     Reset(&tape);
 
@@ -62,7 +65,11 @@ TEST(AADTest, TestNumberAdd) {
 
 TEST(AADTest, TestNumberSub) {
 
+#ifndef USE_XAD
     auto& tape = GetTape();
+#else
+    auto tape = GetTape();
+#endif
     SetActive(&tape);
     Reset(&tape);
 
@@ -108,7 +115,11 @@ TEST(AADTest, TestNumberSub) {
 
 TEST(AADTest, TestNumberMultiply) {
 
+#ifndef USE_XAD
     auto& tape = GetTape();
+#else
+    auto tape = GetTape();
+#endif
     SetActive(&tape);
     Reset(&tape);
 
@@ -155,7 +166,11 @@ TEST(AADTest, TestNumberMultiply) {
 
 TEST(AADTest, TestNumberDivide) {
 
+#ifndef USE_XAD
     auto& tape = GetTape();
+#else
+    auto tape = GetTape();
+#endif
     SetActive(&tape);
     Reset(&tape);
 
@@ -201,7 +216,11 @@ TEST(AADTest, TestNumberDivide) {
 }
 
 TEST(AADTest, TestNumberPow) {
+#ifndef USE_XAD
     auto& tape = GetTape();
+#else
+    auto tape = GetTape();
+#endif
     SetActive(&tape);
     Reset(&tape);
 
@@ -248,7 +267,11 @@ TEST(AADTest, TestNumberPow) {
 }
 
 TEST(AADTest, TestNumberMax) {
+#ifndef USE_XAD
     auto& tape = GetTape();
+#else
+    auto tape = GetTape();
+#endif
     SetActive(&tape);
     Reset(&tape);
 
@@ -334,7 +357,11 @@ TEST(AADTest, TestNumberMax) {
 }
 
 TEST(AADTest, TestNumberMin) {
+#ifndef USE_XAD
     auto& tape = GetTape();
+#else
+    auto tape = GetTape();
+#endif
     SetActive(&tape);
     Reset(&tape);
 
@@ -421,8 +448,11 @@ TEST(AADTest, TestNumberMin) {
 
 
 TEST(AADTest, TestNumberEqualAdd) {
-
+#ifndef USE_XAD
     auto& tape = GetTape();
+#else
+    auto tape = GetTape();
+#endif
     SetActive(&tape);
     Reset(&tape);
 
@@ -460,8 +490,11 @@ TEST(AADTest, TestNumberEqualAdd) {
 
 
 TEST(AADTest, TestNumberEqualSub) {
-
+#ifndef USE_XAD
     auto& tape = GetTape();
+#else
+    auto tape = GetTape();
+#endif
     SetActive(&tape);
     Reset(&tape);
 
@@ -499,8 +532,11 @@ TEST(AADTest, TestNumberEqualSub) {
 
 
 TEST(AADTest, TestNumberEqualMultiply) {
-
+#ifndef USE_XAD
     auto& tape = GetTape();
+#else
+    auto tape = GetTape();
+#endif
     SetActive(&tape);
     Reset(&tape);
 
@@ -538,8 +574,11 @@ TEST(AADTest, TestNumberEqualMultiply) {
 
 
 TEST(AADTest, TestNumberEqualDivide) {
-
+#ifndef USE_XAD
     auto& tape = GetTape();
+#else
+    auto tape = GetTape();
+#endif
     SetActive(&tape);
     Reset(&tape);
 
@@ -577,7 +616,11 @@ TEST(AADTest, TestNumberEqualDivide) {
 
 
 TEST(AADTest, TestNumberNegative) {
+#ifndef USE_XAD
     auto& tape = GetTape();
+#else
+    auto tape = GetTape();
+#endif
     SetActive(&tape);
     Reset(&tape);
 
@@ -595,7 +638,11 @@ TEST(AADTest, TestNumberNegative) {
 
 
 TEST(AADTest, TestNumberPositive) {
+#ifndef USE_XAD
     auto& tape = GetTape();
+#else
+    auto tape = GetTape();
+#endif
     SetActive(&tape);
     Reset(&tape);
 
@@ -613,7 +660,11 @@ TEST(AADTest, TestNumberPositive) {
 
 
 TEST(AADTest, TestNumberExp) {
+#ifndef USE_XAD
     auto& tape = GetTape();
+#else
+    auto tape = GetTape();
+#endif
     SetActive(&tape);
     Reset(&tape);
 
@@ -631,7 +682,11 @@ TEST(AADTest, TestNumberExp) {
 
 
 TEST(AADTest, TestNumberLog) {
+#ifndef USE_XAD
     auto& tape = GetTape();
+#else
+    auto tape = GetTape();
+#endif
     SetActive(&tape);
     Reset(&tape);
 
@@ -649,7 +704,11 @@ TEST(AADTest, TestNumberLog) {
 
 
 TEST(AADTest, TestNumberSqrt) {
+#ifndef USE_XAD
     auto& tape = GetTape();
+#else
+    auto tape = GetTape();
+#endif
     SetActive(&tape);
     Reset(&tape);
 
@@ -667,7 +726,11 @@ TEST(AADTest, TestNumberSqrt) {
 
 
 TEST(AADTest, TestNumberFabs) {
+#ifndef USE_XAD
     auto& tape = GetTape();
+#else
+    auto tape = GetTape();
+#endif
     SetActive(&tape);
     Reset(&tape);
 

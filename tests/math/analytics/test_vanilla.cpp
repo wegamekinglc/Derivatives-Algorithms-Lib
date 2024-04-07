@@ -25,7 +25,12 @@ TEST(AnalyticsTest, TestBlackScholesAAD) {
     Number_ forward(110.0);
     Number_ strike(120.0);
 
+#ifndef USE_XAD
     auto& tape = GetTape();
+#else
+    auto tape = GetTape();
+#endif
+
     SetActive(&tape);
     Reset(&tape);
 
@@ -63,7 +68,12 @@ TEST(AnalyticsTest, TestBachelierAAD) {
     Number_ forward(110.0);
     Number_ strike(120.0);
 
+#ifndef USE_XAD
     auto& tape = GetTape();
+#else
+    auto tape = GetTape();
+#endif
+
     SetActive(&tape);
     Reset(&tape);
 

@@ -20,6 +20,19 @@ namespace Dal {
         std::lock_guard<std::mutex> l(mutex_);
         if (!init_) {
             std::cout << "starting DAL with: " << std::thread::hardware_concurrency() << " threads." << std::endl;
+
+            #ifdef USE_AADET
+            std::cout << "use AAD framework: " << "AADET" << std::endl;
+            #endif
+            
+            #ifdef USE_XAD
+            std::cout << "use AAD framework: " << "XAD" << std::endl;
+            #endif
+
+            #ifdef USE_CODI
+            std::cout << "use AAD framework: " << "CODI" << std::endl;
+            #endif
+
             std::cout << "starting initialization global data ..." << std::endl;
             Calendars_::Init();
             CcyFacts_::Init();

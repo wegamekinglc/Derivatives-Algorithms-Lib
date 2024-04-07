@@ -143,7 +143,7 @@ class my_build_ext(build_ext):
                 DAL_INSTALL_DIR = "../../"
             print(f"using dal install dir: {DAL_INSTALL_DIR}")
             ql_compile_args = [f"-I{DAL_INSTALL_DIR}/include", f"-I{DAL_INSTALL_DIR}/externals/CodiPack/include"]
-            ql_link_args = [f"-L{DAL_INSTALL_DIR}/lib", "-ldal_public"]
+            ql_link_args = [f"-L{DAL_INSTALL_DIR}/lib", "-ldal_public", "-lxad"]
 
             self.define += [(arg[2:], None) for arg in ql_compile_args
                             if arg.startswith('-D')]

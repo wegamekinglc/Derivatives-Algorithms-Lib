@@ -53,7 +53,12 @@ int main() {
     Number_ strike_aad(strike);
     Number_ expiry_aad(expiry);
 
-    Tape_& tape = AAD::GetTape();
+#ifndef USE_XAD
+    auto& tape = AAD::GetTape();
+#else
+    auto tape = AAD::GetTape();
+#endif
+
     AAD::Reset(&tape);
     AAD::SetActive(&tape);
 

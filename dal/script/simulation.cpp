@@ -378,7 +378,7 @@ namespace Dal::Script {
         else
             evalVector = Vector_<Evaluator_<AAD::Number_>>(nThreads, product.BuildEvaluator<AAD::Number_>());
 
-        const int batchSize = std::max(BATCH_SIZE, static_cast<int>(n_paths / nThreads + 1));\
+        const int batchSize = std::max(BATCH_SIZE, static_cast<int>(n_paths / nThreads + 1));
         Vector_<TaskHandle_> futures;
         futures.reserve(n_paths / batchSize + 1);
         Vector_<> simEvals;
