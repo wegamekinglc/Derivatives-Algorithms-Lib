@@ -137,11 +137,7 @@ TEST(AADTest, TestWithCheckpointWithMultiThreading) {
     ThreadPool_* pool = ThreadPool_::GetInstance();
     const size_t n_threads = pool->NumThreads();
 
-    #ifndef USE_AADET
-        const int batch_size = std::max(8, static_cast<int>(n_rounds / n_threads + 1));
-    #else
-        const int batch_size = 8;
-    #endif
+    const int batch_size = std::max(8192, static_cast<int>(n_rounds / n_threads + 8192));
     Vector_<TaskHandle_> futures;
     futures.reserve(n_rounds / batch_size + 1);
     Vector_<> sim_results;
