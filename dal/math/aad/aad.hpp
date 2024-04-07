@@ -52,6 +52,9 @@ namespace Dal::AAD {
         tape->reset();
     }
 
+    FORCE_INLINE void Clear(Tape_* tape) {}
+
+
     FORCE_INLINE void SetActive(Tape_* tape) {
         tape->setActive();
     }
