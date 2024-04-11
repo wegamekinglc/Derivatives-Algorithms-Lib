@@ -165,7 +165,7 @@ namespace Dal::Script {
             payoffIdx_ = variables_.size() - 1;
     }
 
-    Vector_<> ScriptProduct_::PastEvaluate() {
+    Vector_<> ScriptProduct_::PastEvaluate() const {
         PastEvaluator_<double> pastEvaluator(Vector_<double>(variables_.size(), 0.0), consVariablesValues_);
         Visit(pastEvaluator, true, false);
         return pastEvaluator.Variables();

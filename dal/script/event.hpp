@@ -31,7 +31,7 @@ events is string[]
 -IF-------------------------------------------------------------------------*/
 
 namespace Dal::Script {
-    using Dal::AAD::Scenario_;
+    using AAD::Scenario_;
 
     class ScriptProduct_ {
         String_ payoff_;
@@ -44,21 +44,21 @@ namespace Dal::Script {
         Vector_<> variableValues_;
         Vector_<String_> variables_;
         Vector_<String_> consVariables_;
-        Vector_<double> consVariablesValues_;
+        Vector_<> consVariablesValues_;
 
-        Vector_<double> timeLine_;
-        Vector_<Dal::AAD::SampleDef_> defLine_;
+        Vector_<> timeLine_;
+        Vector_<AAD::SampleDef_> defLine_;
 
         //  Compiled form
         Vector_<Vector_<int>> nodeStreams_;
-        Vector_<Vector_<double>> constStreams_;
+        Vector_<Vector_<>> constStreams_;
         Vector_<Vector_<const void*>> dataStreams_;
 
     public:
         ScriptProduct_(const Vector_<Cell_>& dates, const Vector_<String_>& events, String_ payoff = "")
         : payoff_(std::move(payoff)), payoffIdx_(-1) {
             REQUIRE2(dates.size() == events.size(), "dates size is not equal to events size", ScriptError_);
-            auto dateEvents = Dal::Zip(dates, events);
+            auto dateEvents = Zip(dates, events);
             ParseEvents(dateEvents);
         }
 
@@ -70,7 +70,7 @@ namespace Dal::Script {
         [[nodiscard]] const Vector_<>& VarValues() const { return variableValues_; }
         [[nodiscard]] const Vector_<String_>& ConstVarNames() const { return consVariables_; }
         [[nodiscard]] const Vector_<>& TimeLine() const { return timeLine_; }
-        [[nodiscard]] const Vector_<Dal::AAD::SampleDef_>& DefLine() const { return defLine_; }
+        [[nodiscard]] const Vector_<AAD::SampleDef_>& DefLine() const { return defLine_; }
 
         template <class T_> Evaluator_<T_> BuildEvaluator() const {
             return Evaluator_<T_>(variableValues_,
@@ -145,7 +145,7 @@ namespace Dal::Script {
         }
 
         void IndexVariables();
-        Vector_<> PastEvaluate();
+        [[nodiscard]] Vector_<> PastEvaluate() const;
         size_t IFProcess();
         void DomainProcess(bool fuzzy);
         void ConstProcess();
@@ -166,6 +166,6 @@ namespace Dal::Script {
         ScriptProductData_(const String_& name, const Vector_<Cell_>& dates, const Vector_<String_>& events)
             : Storable_("ScriptProduct", name), eventDates_(dates), eventDesc_(events) {}
         void Write(Archive::Store_& dst) const override;
-        ScriptProduct_ Product() const { return {eventDates_, eventDesc_}; }
+        [[nodiscard]] ScriptProduct_ Product() const { return {eventDates_, eventDesc_, ""}; }
     };
 } // namespace Dal::Script
