@@ -10,6 +10,8 @@
 #include <utility>
 #include <dal/platform/host.hpp>
 
+#define BAREWORD(word) static const String_ word(#word);
+
 namespace Dal {
 
     const unsigned char CI_ORDER[128] = {

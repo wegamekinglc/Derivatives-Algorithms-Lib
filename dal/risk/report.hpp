@@ -47,7 +47,7 @@ namespace Dal {
         [[nodiscard]] Vector_<String_> Axes() const { return Keys(axes_); }
         [[nodiscard]] int Size(const String_& axis) const;
 
-        typedef Report::Address_ Address_;
+        using Address_ = Report::Address_;
         [[nodiscard]] Address_ MakeAddress() const;
         double& operator[](const Address_& loc);
         const double& operator[](const Address_& loc) const;

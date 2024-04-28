@@ -129,13 +129,13 @@ namespace Dal {
     Report::Address_ Report_::MakeAddress() const { return Report::Address_(axes_); }
 
     void Report_::AddHeaderRow(const String_& axes, int offset, const Vector_<Cell_>& values) {
-        Report::Header_& header = headers_[FindAxis(axes_, axes)];
-        const auto nLabels = header.labels_.size();
-        NOTICE(static_cast<int>(nLabels));
-        REQUIRE(values.size() == nLabels, "Wrong number (= " + ToString(static_cast<int>(values.size())) + " of labels");
-        if (offset >= header.values_.Rows())
-            header.values_.Resize(offset + 1, header.labels_.size());
-        auto row = header.values_.Row(offset);
+        auto& [labels_, values_] = headers_[FindAxis(axes_, axes)];
+        const auto n_labels = labels_.size();
+        NOTICE(static_cast<int>(n_labels));
+        REQUIRE(values.size() == n_labels, "Wrong number (= " + ToString(static_cast<int>(values.size())) + " of labels");
+        if (offset >= values_.Rows())
+            values_.Resize(offset + 1, static_cast<int>(labels_.size()));
+        auto row = values_.Row(offset);
         Copy(values, &row);
     }
 
