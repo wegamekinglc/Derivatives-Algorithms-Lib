@@ -162,13 +162,22 @@ TEST(ChinaCalendarTest, TestHolidays) {
             Date_(2023, 6, 22), Date_(2023, 6, 23), Date_(2023, 6, 24),
             Date_(2023, 9, 29), Date_(2023, 9, 30),
             Date_(2023, 10, 1), Date_(2023, 10, 2), Date_(2023, 10, 3), Date_(2023, 10, 4), Date_(2023, 10, 5),
-            Date_(2023, 10, 6)
+            Date_(2023, 10, 6),
+// China Shanghai Securities Exchange holiday list in the year 2024
+            Date_(2024, 1, 1),
+            Date_(2024, 2, 10), Date_(2024, 2, 11), Date_(2024, 2, 12), Date_(2024, 2, 13), Date_(2024, 2, 14), Date_(2024, 2, 15), Date_(2024, 2, 16), Date_(2024, 2, 17), Date_(2024, 2, 18),
+            Date_(2024, 4, 4), Date_(2024, 4, 5), Date_(2024, 4, 6), Date_(2024, 4, 7),
+            Date_(2024, 5, 1), Date_(2024, 5, 2), Date_(2024, 5, 3), Date_(2024, 5, 4), Date_(2024, 5, 5),
+            Date_(2024, 6, 8), Date_(2024, 6, 9), Date_(2024, 6, 10),
+            Date_(2024, 9, 14), Date_(2024, 9, 15), Date_(2024, 9, 16), Date_(2024, 9, 17),
+            Date_(2024, 10, 1), Date_(2024, 10, 2), Date_(2024, 10, 3), Date_(2024, 10, 4), Date_(2024, 10, 5), Date_(2024, 10, 6), Date_(2024, 10, 7)
     };
 
     Holidays_ hol("CN.SSE");
 
-    for (auto Date_: expected_holidays)
-        ASSERT_TRUE(hol.IsHoliday(Date_) || Date::IsWeekEnd(Date_));
+    for (auto date: expected_holidays) {
+        ASSERT_TRUE(hol.IsHoliday(date) || Date::IsWeekEnd(date));
+    }
 }
 
 TEST(ChinaCalendarTest, TestIBWorkingWeekEnds) {
@@ -241,7 +250,16 @@ TEST(ChinaCalendarTest, TestIBWorkingWeekEnds) {
             Date_(2023, 5, 6),
             Date_(2023, 6, 25),
             Date_(2023, 10, 7),
-            Date_(2023, 10, 8)
+            Date_(2023, 10, 8),
+// China Inter Bank working weekend list in the year 2024
+            Date_(2024, 2, 4),
+            Date_(2024, 2, 18),
+            Date_(2024, 4, 7),
+            Date_(2024, 4, 28),
+            Date_(2024, 5, 11),
+            Date_(2024, 9, 14),
+            Date_(2024, 9, 29),
+            Date_(2024, 10, 12)
     };
 
     Holidays_ hol("CN.IB");
