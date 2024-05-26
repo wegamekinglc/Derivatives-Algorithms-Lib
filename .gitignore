@@ -18,3 +18,5 @@ public/lib/*
 *.xlsx
 notebooks
 share
+public/python/dal/dal.py
+public/python/dal/dal_wrap.py
