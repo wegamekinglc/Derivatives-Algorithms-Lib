@@ -118,7 +118,7 @@ namespace Dal {
     }
 
     double DistributionBachelier_::VolVega(double strike, const OptionType_& type) const {
-        Vector_<> greeks = Distribution::BachelierGreeks(f_, vol_, strike, type);
+        const Vector_<> greeks = Distribution::BachelierGreeks(f_, vol_, strike, type);
         return vol_ * greeks[1];
     }
 

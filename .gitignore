@@ -17,3 +17,4 @@ __pycache__
 public/lib/*
 *.xlsx
 notebooks
+share
