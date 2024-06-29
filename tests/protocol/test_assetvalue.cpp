@@ -20,6 +20,19 @@ TEST(ProtocolTest, TestUpdateTokenValue) {
 }
 
 TEST(ProtocolTest, TestUpdateTokenIndexPath) {
+    Vector_<> value_pool;;
+    Vector_<Handle_<IndexPath_>> index_path_pool;
 
+    std::map<DateTime_, double> fixings;
+    DateTime_ dt(Date_(2024, 1, 18), 0.5);
+    fixings[dt] = 1.0;
+
+    Handle_<IndexPath_> index_path(new IndexPathHistorical_(fixings));
+    index_path_pool.emplace_back(index_path);
+    const DateTime_ date(Date_(2024, 1, 18), 0.5);
+    UpdateToken_ token(value_pool.begin(), index_path_pool.begin(), date);
+
+    ASSERT_NEAR(token.Index(Valuation::IndexAddress_(0)).FixInRangeProb(dt, std::make_pair<double, double>(0.0, 2.0), 0.0), 1.0, 1e-4);
+    ASSERT_NEAR(token.Index(Valuation::IndexAddress_(0)).FixInRangeProb(dt, std::make_pair<double, double>(3.0, 4.0), 0.0), 0.0, 1e-4);
 }
 

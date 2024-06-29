@@ -41,5 +41,7 @@ namespace Dal {
                                             const std::pair<double, double>& range,
                                             double monitoring_interval,
                                             double ramp_sigma) const override;
+
+        explicit IndexPathHistorical_(const std::map<DateTime_, double>& fixings = std::map<DateTime_, double>()): fixings_((fixings)) {}
     };
 }

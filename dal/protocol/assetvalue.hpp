@@ -41,7 +41,7 @@ namespace Dal {
         }
 
         [[nodiscard]] FORCE_INLINE const IndexPath_& Index(const Valuation::IndexAddress_& loc) const {
-            return **(indexBegin_ + (loc.val_ & valMask_));
+            return **(indexBegin_ + loc.val_);
         }
     };
 }
