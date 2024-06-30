@@ -205,7 +205,7 @@ setup(name="dal-python",
       classifiers=classifiers,
       include_package_data=True,
       packages=find_packages(),
-      package_data={'dal': ['*.so*'], "examples": ["*.py"]},
+      package_data={'dal': ['*.so*']},
       py_modules=['dal.__init__', 'dal.dal'],
       ext_modules=[Extension("dal._dal",
                              ["dal/dal_wrap.cpp"])
