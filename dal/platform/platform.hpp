@@ -32,6 +32,8 @@
 using std::make_pair;
 using std::pair;
 
+using Int = int64_t;
+
 template <class T_> using scoped_ptr = const std::unique_ptr<T_>;
 
 namespace Dal {
