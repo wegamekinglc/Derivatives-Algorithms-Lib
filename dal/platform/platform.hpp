@@ -59,13 +59,13 @@ namespace Dal {
     constexpr double M_SQRT_2_PI = 2.5066282746310002;
     constexpr double ONE_MINUS_EPS = 0.999999999999;
 
-    template <class T_> bool IsZero(const T_& x) { return x < Dal::EPSILON && -x < Dal::EPSILON; }
+    template <class T_> constexpr bool IsZero(const T_& x) { return x < Dal::EPSILON && -x < Dal::EPSILON; }
 
-    template <class T_> bool IsPositive(const T_& x) { return x >= Dal::EPSILON; }
+    template <class T_> constexpr bool IsPositive(const T_& x) { return x >= Dal::EPSILON; }
 
-    template <class T_> bool IsNegative(const T_& x) { return x <= -Dal::EPSILON; }
+    template <class T_> constexpr bool IsNegative(const T_& x) { return x <= -Dal::EPSILON; }
 
-    template <class T_> bool IsClose(const T_& x, const T_& y) {
+    template <class T_> constexpr bool IsClose(const T_& x, const T_& y) {
         T_ diff = std::fabs(x-y);
         constexpr double tolerance = 42 * Dal::EPSILON;
 
@@ -74,8 +74,8 @@ namespace Dal {
         return diff <= tolerance * std::fabs(x) && diff <= tolerance * std::fabs(y);
     }
 
-    FORCE_INLINE double Square(double x) { return x * x; }
-    FORCE_INLINE double Cube(double x) { return x * x * x; }
+    FORCE_INLINE constexpr double Square(double x) { return x * x; }
+    FORCE_INLINE constexpr double Cube(double x) { return x * x * x; }
 
     struct Empty_ {};
 
