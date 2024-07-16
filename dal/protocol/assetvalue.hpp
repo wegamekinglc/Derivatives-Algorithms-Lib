@@ -26,18 +26,15 @@ namespace Dal {
         using indices_t = Vector_<Handle_<IndexPath_>>;
         Vector_<>::const_iterator begin_;
         indices_t::const_iterator indexBegin_;
-        const int valMask_, dateMask_;
 
     public:
         const DateTime_ eventTime_;
         UpdateToken_(Vector_<>::const_iterator begin,
                      indices_t::const_iterator index_begin,
-                     const DateTime_& event_time = DateTime_(),
-                     int val_mask = 0b11111111111111111111111111111111,
-                     int date_mask = 0b11111111111111111111111111111110);
+                     const DateTime_& event_time = DateTime_());
 
         [[nodiscard]] FORCE_INLINE const double& operator[](const Valuation::address_t& loc) const {
-            return *(begin_ + (loc & valMask_));
+            return *(begin_ + loc);
         }
 
         [[nodiscard]] FORCE_INLINE const IndexPath_& Index(const Valuation::IndexAddress_& loc) const {
