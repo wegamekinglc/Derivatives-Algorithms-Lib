@@ -90,21 +90,19 @@ namespace Dal {
         const E_& operator()(size_t i) const { return (*this)[i];}
 
         // emplace_back is a special case; because it is not part of std::vector<bool>, we have to explicitly forward
-        template <class... _Valty> void emplace_back(_Valty&&... _Val) { base_t::emplace_back(_Val...); }
+        template <class... ValType> void emplace_back(ValType&&... Val) { base_t::emplace_back(Val...); }
     };
 
-    namespace {
-        template <class C1_, class C2_> bool EqualElements(const C1_& lhs, const C2_& rhs) {
-            for (auto pl = lhs.begin(), pr = rhs.begin(); pl != lhs.end(); ++pl, ++pr)
-                if (*pl != *pr)
-                    return false;
-            return true;
-        }
+    template <class C1_, class C2_> bool EqualElements(const C1_& lhs, const C2_& rhs) {
+        for (auto pl = lhs.begin(), pr = rhs.begin(); pl != lhs.end(); ++pl, ++pr)
+            if (*pl != *pr)
+                return false;
+        return true;
+    }
 
-        template <class E_> bool Equal(const Vector_<E_>& lhs, const Vector_<E_>& rhs) {
-            return lhs.size() == rhs.size() && EqualElements(lhs, rhs);
-        }
-    } // namespace
+    template <class E_> bool Equal(const Vector_<E_>& lhs, const Vector_<E_>& rhs) {
+        return lhs.size() == rhs.size() && EqualElements(lhs, rhs);
+    }
 
     namespace Vector {
 
