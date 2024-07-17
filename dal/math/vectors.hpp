@@ -7,12 +7,13 @@
 #include <algorithm>
 #include <functional>
 #include <vector>
+#include <dal/platform/host.hpp>
 
 namespace Dal {
     /*
      * PRIVATE INHERITANCE from STL class vector
      * DON'T add any member variable to this class
-     * DON"T override any methods from vector
+     * DON'T override any methods from vector
      */
     template <class E_> class Vector_ : private std::vector<E_> {
         using base_t = std::vector<E_>;
