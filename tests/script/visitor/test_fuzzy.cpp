@@ -7,6 +7,7 @@
 #include <dal/script/visitor/all.hpp>
 #include <dal/script/event.hpp>
 #include <dal/script/parser.hpp>
+#include <dal/storage/globals.hpp>
 
 using namespace Dal;
 using namespace Dal::Script;
@@ -42,7 +43,7 @@ TEST(ScriptTest, TestBFlyWithLbAndUb) {
 }
 
 TEST(ScriptTest, TestFuzzyContinuous) {
-    auto global = XGLOBAL::SetEvaluationDateInScope(Date_(2023, 3, 31));
+    Global::Dates_::SetEvaluationDate(Date_(2023, 3, 31));
     Vector_<String_> events = {R"(
         IF spot() > 100:0.01 THEN
             x = 1

@@ -8,6 +8,10 @@
 #include <dal/time/daybasis.hpp>
 #include <dal/model/blackscholes.hpp>
 #include <dal/script/simulation.hpp>
+#include <dal/time/holidays.hpp>
+#include <dal/time/schedules.hpp>
+#include <dal/time/dateincrement.hpp>
+#include <dal/storage/globals.hpp>
 
 using namespace Dal;
 using namespace Dal::AAD;
@@ -16,7 +20,7 @@ using namespace Dal::Script;
 TEST(ScriptTest, TestEventWithMacro) {
     Vector_<Cell_> dates;
     Vector_<String_> events;
-    auto global = XGLOBAL::SetEvaluationDateInScope(Date_(2023, 1, 1));
+    Global::Dates_::SetEvaluationDate(Date_(2023, 1, 1));
 
     dates.push_back(Cell_("STRIKE"));
     events.push_back("110.0");
@@ -24,7 +28,7 @@ TEST(ScriptTest, TestEventWithMacro) {
     dates.push_back((Cell_(Date_(2023, 12, 1))));
     events.push_back("call PAYS MAX(spot() - STRIKE, 0.0)");
 
-    Script::ScriptProduct_ product(dates, events);
+    ScriptProduct_ product(dates, events);
 
     ASSERT_EQ(product.EventDates().size(), 1);
 }
@@ -32,7 +36,7 @@ TEST(ScriptTest, TestEventWithMacro) {
 TEST(ScriptTest, TestEventWithMacroNotFirst) {
     Vector_<Cell_> dates;
     Vector_<String_> events;
-    auto global = XGLOBAL::SetEvaluationDateInScope(Date_(2023, 1, 1));
+    Global::Dates_::SetEvaluationDate(Date_(2023, 1, 1));
 
     dates.push_back((Cell_(Date_(2023, 12, 1))));
     events.push_back("call PAYS MAX(spot() - STRIKE, 0.0)");
@@ -46,7 +50,7 @@ TEST(ScriptTest, TestEventWithMacroNotFirst) {
 TEST(ScriptTest, TestEventWithMacroDuplicated) {
     Vector_<Cell_> dates;
     Vector_<String_> events;
-    auto global = XGLOBAL::SetEvaluationDateInScope(Date_(2023, 1, 1));
+    Global::Dates_::SetEvaluationDate(Date_(2023, 1, 1));
 
     dates.push_back(Cell_("STRIKE"));
     events.push_back("110.0");
@@ -58,43 +62,43 @@ TEST(ScriptTest, TestEventWithMacroDuplicated) {
 }
 
 TEST(ScriptTest, TestEventWithSchedule) {
-    auto global = XGLOBAL::SetEvaluationDateInScope(Date_(2022, 5, 1));
+    Global::Dates_::SetEvaluationDate(Date_(2022, 5, 1));
     Vector_<Cell_> dates;
     Vector_<String_> events;
 
     dates.push_back(Cell_("START: 2022-05-07 END: 2023-05-07 FREQ: 1m CALENDAR: CN.SSE"));
     events.push_back("STRIKE = 110.0");
-    Script::ScriptProduct_ product(dates, events);
+    ScriptProduct_ product(dates, events);
 
     ASSERT_EQ(product.EventDates().size(), 12);
 }
 
 TEST(ScriptTest, TestEventWithFixingSchedule) {
-    auto global = XGLOBAL::SetEvaluationDateInScope(Date_(2022, 5, 1));
+    Global::Dates_::SetEvaluationDate(Date_(2022, 5, 1));
     Vector_<Cell_> dates;
     Vector_<String_> events;
 
     dates.push_back(Cell_("START: 2022-05-07 END: 2023-05-07 FREQ: 1m CALENDAR: CN.SSE FIXING: BEGIN"));
     events.push_back("STRIKE = 110.0");
-    Script::ScriptProduct_ product(dates, events);
+    ScriptProduct_ product(dates, events);
     ASSERT_EQ(product.EventDates()[0], Date_(2022, 5, 7));
 
     dates.clear();
     events.clear();
     dates.push_back(Cell_("START: 2022-05-07 END: 2023-05-07 FREQ: 1m CALENDAR: CN.SSE FIXING: END"));
     events.push_back("STRIKE = 110.0");
-    Script::ScriptProduct_ product2(dates, events);
+    ScriptProduct_ product2(dates, events);
     ASSERT_EQ(product2.EventDates()[0], Date_(2022, 6, 7));
 }
 
 TEST(ScriptTest, TestEventWithSchedulePlaceHolder) {
-    auto global = XGLOBAL::SetEvaluationDateInScope(Date_(2022, 5, 1));
+    Global::Dates_::SetEvaluationDate(Date_(2022, 5, 1));
     Vector_<Cell_> dates;
     Vector_<String_> events;
 
     dates.push_back(Cell_("START: 2022-05-07 END: 2023-05-07 FREQ: 1m CALENDAR: CN.SSE"));
     events.push_back("acc = DCF(ACT365F, 2022-05-07, PeriodEnd)");
-    Script::ScriptProduct_ product(dates, events);
+    ScriptProduct_ product(dates, events);
 
     ASSERT_EQ(product.EventDates().size(), 12);
 
@@ -121,7 +125,7 @@ TEST(ScriptTest, TestEventWithSchedulePlaceHolder) {
 }
 
 TEST(ScriptTest, TestEventWithPastDate) {
-    auto global = XGLOBAL::SetEvaluationDateInScope(Date_(2023, 8, 28));
+    Global::Dates_::SetEvaluationDate(Date_(2023, 8, 28));
 
     Vector_<Cell_> dates;
     Vector_<String_> events;
@@ -170,7 +174,7 @@ TEST(ScriptTest, TestScriptProductWithPastDate) {
     const size_t num_paths = 100;
 
     {
-        auto global = XGLOBAL::SetEvaluationDateInScope(Date_(2023, 8, 28));
+        Global::Dates_::SetEvaluationDate(Date_(2023, 8, 28));
         Script::ScriptProduct_ product(dates, events, "call");
         std::unique_ptr<Model_<>> model = std::make_unique<BlackScholes_<>>(spot, vol, rate, div);
         int max_nested = product.PreProcess(false, false);
@@ -179,7 +183,7 @@ TEST(ScriptTest, TestScriptProductWithPastDate) {
     }
 
     {
-        auto global = XGLOBAL::SetEvaluationDateInScope(Date_(2021, 8, 28));
+        Global::Dates_::SetEvaluationDate(Date_(2021, 8, 28));
         Script::ScriptProduct_ product(dates, events, "call");
         std::unique_ptr<Model_<>> model = std::make_unique<BlackScholes_<>>(spot, vol, rate, div);
         int max_nested = product.PreProcess(false, false);

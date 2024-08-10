@@ -12,15 +12,16 @@
 namespace Dal::Script {
 
     class Parser_ {
-        using TokIt_ = typename Vector_<String_>::const_iterator;
-        std::map<String_, double> const_variables_;
+        using TokIt_ = Vector_<String_>::const_iterator;
+        std::map<String_, double> constVariables_;
 
         // Helpers
 
         // Find matching closing char, for example matching ) for a (, skipping through nested pairs
         // does not change the cur iterator, assumed to be on the opening,
         // and returns an iterator on the closing match
-        template <char OpChar, char ClChar> TokIt_ FindMatch(TokIt_ cur, const TokIt_& end) {
+        template <char OpChar, char ClChar>
+        static TokIt_ FindMatch(TokIt_ cur, const TokIt_& end) {
             unsigned opens = 1;
             ++cur;
             while (cur != end && opens > 0) {
@@ -49,7 +50,7 @@ namespace Dal::Script {
                 // by recursively calling the parent parseCond/parseExpr
                 tree = (this->*FuncOnMatch_)(++cur, closeIt);
 
-                // Advance cur after matching )
+                // Advance cur after matching ")"
                 cur = ++closeIt;
             }
             else {
@@ -92,7 +93,7 @@ namespace Dal::Script {
         Expression_ BuildSupEqual(Expression_& lhs, Expression_& rhs, double eps);
 
     public:
-        explicit Parser_(const std::map<String_, double>& const_variables = std::map<String_, double>()): const_variables_(const_variables) {}
+        explicit Parser_(const std::map<String_, double>& const_variables = std::map<String_, double>()): constVariables_(const_variables) {}
         Statement_ ParseStatement(TokIt_& cur, const TokIt_& end);
         Event_ Parse(const String_& event);
     };

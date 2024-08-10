@@ -134,10 +134,10 @@ namespace Dal::Script {
                  String_("Variable name ") + *cur + " is conflicted with an existing key word", ScriptError_);
         String_ name(*cur);
         Expression_ top;
-        if (const_variables_.find(name) == const_variables_.end())
+        if (constVariables_.find(name) == constVariables_.end())
             top = MakeNode<NodeVar_>(String_(*cur));
         else
-            top = MakeNode<NodeConstVar_>(String_(*cur), const_variables_[name]);
+            top = MakeNode<NodeConstVar_>(String_(*cur), constVariables_[name]);
         ++cur;
         return std::move(top);
     }

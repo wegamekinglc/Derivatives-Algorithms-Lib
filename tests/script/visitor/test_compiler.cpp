@@ -7,12 +7,13 @@
 #include <dal/script/visitor/all.hpp>
 #include <dal/script/event.hpp>
 #include <dal/script/parser.hpp>
+#include <dal/storage/globals.hpp>
 
 using namespace Dal;
 using namespace Dal::Script;
 
 TEST(ScriptTest, TestCompile) {
-    auto global = XGLOBAL::SetEvaluationDateInScope(Date_(2023, 1, 1));
+    Global::Dates_::SetEvaluationDate(Date_(2023, 1, 1));
     Vector_<String_> events = {R"(
         x = 4
         y = 1
@@ -35,7 +36,7 @@ TEST(ScriptTest, TestCompile) {
 }
 
 TEST(ScriptTest, TestCompileWithVariable) {
-    auto global = XGLOBAL::SetEvaluationDateInScope(Date_(2023, 1, 1));
+    Global::Dates_::SetEvaluationDate(Date_(2023, 1, 1));
     Vector_<String_> events = {R"(
         IF spot() >= 2:0.1 THEN
             y = 3 + spot()
@@ -56,7 +57,7 @@ TEST(ScriptTest, TestCompileWithVariable) {
 }
 
 TEST(ScriptTest, TestCompileWithSeveralEvents) {
-    auto global = XGLOBAL::SetEvaluationDateInScope(Date_(2023, 1, 1));
+    Global::Dates_::SetEvaluationDate(Date_(2023, 1, 1));
     Vector_<String_> events = {R"(
         x = 4
         y = 1
