@@ -55,7 +55,6 @@ int main() {
     eventDates.push_back(Cell_(maturity));
     events.push_back(String_("if spot() >= BARRIER:0.1 then alive = 0 end\n call pays alive * MAX(spot() - STRIKE, 0.0)"));
 
-    ScriptProduct_ product(eventDates, events);
     const int num_obs = freq == "1W" ? 3 * 51 : 3 * 12;
 
     auto times = Vector::XRange(0.0, 5.0, 61);
@@ -83,6 +82,7 @@ int main() {
                                                                                   10.0);
         timer.Reset();
 
+        ScriptProduct_ product(eventDates, events);
         int max_nested_ifs = product.PreProcess(false, false);
         const int num_path = std::pow(2, 20);
         SimResults_<double> results = MCSimulation(product, *model, num_path, String_("sobol"), false);
@@ -112,6 +112,7 @@ int main() {
                                                                                 10.0);
         timer.Reset();
 
+        ScriptProduct_ product(eventDates, events);
         int max_nested_ifs = product.PreProcess(true, true);
         const int num_path = std::pow(2, 20);
         SimResults_<Real_> results = MCSimulation(product, *model, num_path, String_("sobol"), false, max_nested_ifs);
