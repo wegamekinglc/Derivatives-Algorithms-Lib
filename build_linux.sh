@@ -44,19 +44,6 @@ if [ $? -ne 0 ]; then
   exit 1
 fi
 
-(
-cd externals/xad || exit
-mkdir -p build
-cd build
-cmake -DCMAKE_INSTALL_PREFIX="$DAL_DIR"/externals/xad -DXAD_STATIC_MSVC_RUNTIME=ON -DXAD_SIMD_OPTION=AVX2 ..
-cmake --build .
-cmake --install .
-)
-
-if [ $? -ne 0 ]; then
-  exit 1
-fi
-
 export MACHINIST_TEMPLATE_DIR=$PWD/externals/machinist/template/
 ./externals/machinist/bin/Machinist -c config/dal.ifc -l config/dal.mgl -d ./dal
 ./externals/machinist/bin/Machinist -c config/dal.ifc -l config/dal.mgl -d ./public
@@ -69,7 +56,7 @@ rm -rf build
 mkdir -p build
 (
 cd build || exit
-cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DCMAKE_INSTALL_PREFIX="$DAL_DIR" -DUSE_COVERAGE=$USE_COVERAGE -DSKIP_TESTS=$SKIP_TESTS -DCMAKE_EXPORT_COMPILE_COMMANDS=$CMAKE_EXPORT_COMPILE_COMMANDS -DBUILD_SHARED_LIBS=$BUILD_SHARED_LIBS -DCMAKE_TOOLCHAIN_FILE=$CMAKE_TOOLCHAIN_FILE -DUSE_XAD=true -DXAD_STATIC_MSVC_RUNTIME=ON -DXAD_SIMD_OPTION=AVX2 ..
+cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DCMAKE_INSTALL_PREFIX="$DAL_DIR" -DUSE_COVERAGE=$USE_COVERAGE -DSKIP_TESTS=$SKIP_TESTS -DCMAKE_EXPORT_COMPILE_COMMANDS=$CMAKE_EXPORT_COMPILE_COMMANDS -DBUILD_SHARED_LIBS=$BUILD_SHARED_LIBS -DCMAKE_TOOLCHAIN_FILE=$CMAKE_TOOLCHAIN_FILE ..
 make -j"${NUM_CORES}"
 make install
 )
