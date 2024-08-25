@@ -95,8 +95,7 @@ class my_build_ext(build_ext):
                 else:
                     DAL_INSTALL_DIR = "../../"
                 print(f"using dal install dir: {DAL_INSTALL_DIR}")
-                self.include_dirs += [os.path.join(DAL_INSTALL_DIR, 'include'),
-                                      os.path.join(DAL_INSTALL_DIR, 'externals/CodiPack/include')]
+                self.include_dirs += [os.path.join(DAL_INSTALL_DIR, 'include')]
                 self.library_dirs += [os.path.join(DAL_INSTALL_DIR, 'lib')]
 
             except KeyError:
@@ -136,8 +135,8 @@ class my_build_ext(build_ext):
             else:
                 DAL_INSTALL_DIR = "../../"
             print(f"using dal install dir: {DAL_INSTALL_DIR}")
-            ql_compile_args = [f"-I{DAL_INSTALL_DIR}/include", f"-I{DAL_INSTALL_DIR}/externals/CodiPack/include"]
-            ql_link_args = [f"-L{DAL_INSTALL_DIR}/lib", "-ldal_public", "-lxad"]
+            ql_compile_args = [f"-I{DAL_INSTALL_DIR}/include"]
+            ql_link_args = [f"-L{DAL_INSTALL_DIR}/lib", "-ldal_public"]
 
             self.define += [(arg[2:], None) for arg in ql_compile_args
                             if arg.startswith('-D')]
@@ -191,7 +190,7 @@ classifiers = [
 ]
 
 setup(name="dal-python",
-      version="2024.7.1",
+      version="2024.8.25",
       description="Python bindings for the DAL library",
       author="cheng li",
       author_email="wegamekinglc@hotmail.copm",

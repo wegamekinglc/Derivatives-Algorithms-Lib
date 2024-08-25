@@ -66,8 +66,7 @@ namespace Dal {
             res["PV"] = results.aggregated_ / static_cast<double>(n_paths);
             for(const auto& n: results.names_)
                 res["d_" + n] = results[n];
-        }
-        else {
+        } else {
             if (model_type == "BSModelData_") {
                 auto model_imp = dynamic_cast<const BSModelData_*>(modelData.get());
                 model = std::make_unique<BlackScholes_<>>(model_imp->spot_,

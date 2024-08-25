@@ -10,7 +10,6 @@
 #if defined(_MSC_VER)
 #pragma comment(lib, "dal.lib")
 #pragma comment(lib, "dal_public.lib")
-#pragma comment(lib, "xad64_vc143_mt.lib")
 #endif
 
 #include <dal/platform/platform.hpp>

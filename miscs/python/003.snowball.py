@@ -21,7 +21,7 @@ start = event_dates[4]
 EvaluationDate_Set(start)
 events = [f"{ki:.6f}", f"{ko:.6f}", f"{spot:.6f}", f"{coupon:.6f}", "alive = 1 is_ki = 0"]
 
-n_paths = 8192
+n_paths = 2 ** 20
 use_bb = False
 rsg = "sobol"
 freq = "1M"
