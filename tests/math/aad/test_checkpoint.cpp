@@ -127,16 +127,14 @@ TEST(AADTest, TestWithCheckpointWithMultiThreading) {
     sim_results.reserve(n_rounds / batch_size + 1);
 
     Vector_<bool> model_init(n_threads + 1, false);
-    Vector_<AAD::Tape_> tapes(n_threads);
+    Vector_<AAD::Tape_> tapes(n_threads + 1);
+    Tape_* mainThreadPtr = Number_::tape_;
+
     Vector_<std::unique_ptr<TestModel_>> models(n_threads + 1);
     for (auto& m : models)
         m = std::make_unique<TestModel_>(fwd, vol, numeraire, strike, expiry);
 
     batch_size = std::max(batch_size, static_cast<int>(n_rounds / (n_threads + 1) + 1));
-
-    Number_::tape_->Clear();
-    ModelInit(*models[0]);
-    model_init[0] = true;
 
     int first_round = 0;
     int rounds_left = n_rounds;
@@ -152,8 +150,7 @@ TEST(AADTest, TestWithCheckpointWithMultiThreading) {
 
         futures.push_back(pool->SpawnTask([&, rounds_in_tasks]() {
             const size_t n_thread = ThreadPool_::ThreadNum();
-            if (n_thread > 0)
-                Number_::tape_ = &tapes[n_thread - 1];
+            Number_::tape_ = &tapes[n_thread];
 
             auto& model = models[n_thread];
 
@@ -184,11 +181,8 @@ TEST(AADTest, TestWithCheckpointWithMultiThreading) {
     for (auto& future : futures)
         pool->ActiveWait(future);
 
-    Number_::PropagateMarkToStart();
-    //  And on the worker thread's tapes
-    Tape_* mainThreadPtr = Number_::tape_;
-    for (size_t i = 0; i < n_threads; ++i) {
-        if (model_init[i + 1]) {
+    for (size_t i = 0; i < tapes.size(); ++i) {
+        if (model_init[i]) {
             Number_::tape_ = &tapes[i];
             Number_::PropagateMarkToStart();
         }

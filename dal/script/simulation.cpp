@@ -196,20 +196,13 @@ namespace Dal::Script {
 
         Vector_<bool> modelInit(nThreads + 1, false);
 
-        if (compiled)
-            InitModel4ParallelAAD(product, *models[0], paths[0], evalStateVector[0]);
-        else if (max_nested_ifs > 0)
-            InitModel4ParallelAAD(product, *models[0], paths[0], fuzzyEvalVector[0]);
-        else
-            InitModel4ParallelAAD(product, *models[0], paths[0], evalVector[0]);
-        modelInit[0] = true;
-
         int firstPath = 0;
         int pathsLeft = static_cast<int>(n_paths);
         size_t loopIndex = 0;
         auto payoffIndex = product.PayOffIdx();
 
-        Vector_<AAD::Tape_> tapes(nThreads);
+        Vector_<AAD::Tape_> tapes(nThreads + 1);
+        AAD::Tape_* mainThreadPtr = Number_::tape_;
 
         while (pathsLeft > 0) {
             auto pathsInTask = std::min(pathsLeft, batch_size);
@@ -226,8 +219,7 @@ namespace Dal::Script {
                 auto& results = simResults[threadNum];
                 random->SkipTo(firstPath);
 
-                if (threadNum > 0)
-                    Number_::tape_ = &tapes[threadNum - 1];
+                Number_::tape_ = &tapes[threadNum];
 
                 double sumValue = 0.0;
                 if (compiled) {
@@ -297,11 +289,8 @@ namespace Dal::Script {
         for (auto& future : futures)
             pool->ActiveWait(future);
 
-        Number_::PropagateMarkToStart();
-        //  And on the worker thread's tapes
-        AAD::Tape_* mainThreadPtr = Number_::tape_;
-        for (size_t i = 0; i < nThreads; ++i) {
-            if (modelInit[i + 1]) {
+        for (size_t i = 0; i < tapes.size(); ++i) {
+            if (modelInit[i]) {
                 Number_::tape_ = &tapes[i];
                 Number_::PropagateMarkToStart();
             }
