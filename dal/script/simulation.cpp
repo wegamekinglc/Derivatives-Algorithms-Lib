@@ -186,9 +186,10 @@ namespace Dal::Script {
             evalVector = Vector_<Evaluator_<AAD::Number_>>(nThreads + 1, product.BuildEvaluator<AAD::Number_>());
 
         Vector_<TaskHandle_> futures;
-        futures.reserve(n_paths / BATCH_SIZE + 1);
+        const int batch_size = std::max(BATCH_SIZE, static_cast<int>(n_paths / (nThreads + 1) + 1));
+        futures.reserve(n_paths / batch_size + 1);
         Vector_<> simEvals;
-        simEvals.reserve(n_paths / BATCH_SIZE + 1);
+        simEvals.reserve(n_paths / batch_size + 1);
 
         SimResults_<AAD::Number_> sub_res(Dal::Vector::Join(mdl->ParameterLabels(), product.ConstVarNames()));
         Vector_<SimResults_<AAD::Number_>> simResults(nThreads + 1, sub_res);
@@ -211,7 +212,7 @@ namespace Dal::Script {
         Vector_<AAD::Tape_> tapes(nThreads);
 
         while (pathsLeft > 0) {
-            auto pathsInTask = std::min(pathsLeft, BATCH_SIZE);
+            auto pathsInTask = std::min(pathsLeft, batch_size);
             simEvals.emplace_back(0.0);
             auto& simEval = simEvals[loopIndex];
             loopIndex += 1;
