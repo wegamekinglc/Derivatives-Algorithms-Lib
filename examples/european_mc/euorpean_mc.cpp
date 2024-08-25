@@ -68,7 +68,7 @@ int main() {
               << std::setw(widths[6]) << std::right << "Elapsed (ms)"
               << std::endl;
 
-    for (int i = 12; i <= 31; ++i) {
+    for (int i = 12; i <= 30; ++i) {
         timer.Reset();
         int num_paths = std::pow(2, i);
         SimResults_<Real_> results = MCSimulation(product, *model, num_paths, rsg, false, max_nested);
