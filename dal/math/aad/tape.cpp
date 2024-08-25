@@ -4,7 +4,6 @@
 
 #include <dal/platform/platform.hpp>
 
-#ifdef USE_AADET
 #include <dal/math/aad/expr.hpp>
 #include <dal/math/aad/tape.hpp>
 
@@ -83,6 +82,14 @@ namespace Dal::AAD {
         nodes_.SetMark();
     }
 
+    void Tape_::Rewind()  {
+        if (multi_)
+            adjointsMulti_.Rewind();
+        ders_.Rewind();
+        argPtrs_.Rewind();
+        nodes_.Rewind();
+    }
+
     void Tape_::RewindToMark() {
         if (multi_)
             adjointsMulti_.RewindToMark();
@@ -91,6 +98,9 @@ namespace Dal::AAD {
         nodes_.RewindToMark();
     }
 
+    Tape_::Iterator_ Tape_::MarkIt() {
+        return nodes_.Mark();
+    }
+
 
 } // namespace Dal::AAD
-#endif

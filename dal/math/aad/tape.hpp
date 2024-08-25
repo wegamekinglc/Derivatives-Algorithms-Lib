@@ -78,17 +78,7 @@ namespace Dal::AAD {
         void evaluate();
         void Mark();
         void RewindToMark();
-        void Rewind() {
-
-        if (multi_)
-            adjointsMulti_.Rewind();
-        ders_.Rewind();
-        argPtrs_.Rewind();
-        nodes_.Rewind();
-        }
-
-        auto MarkIt() {
-            return nodes_.Mark();
-        }
+        void Rewind();
+        Iterator_ MarkIt();
     };
 } // namespace Dal::AAD
