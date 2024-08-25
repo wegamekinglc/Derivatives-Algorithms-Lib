@@ -3,10 +3,6 @@ add_executable(uoc ${UOC_FILES})
 
 target_link_libraries(uoc dal_library)
 
-if(DEFINED USE_XAD)
-    target_link_libraries(uoc xad)
-endif()
-
 if(MSVC)
 else()
     target_link_libraries(uoc pthread)

@@ -18,9 +18,9 @@
 
 namespace Dal::AAD {
     class Number_;
-    constexpr size_t BLOCK_SIZE = 16384 * 8;
-    constexpr size_t ADJ_SIZE = 32768 * 8;
-    constexpr size_t DATA_SIZE = 65536 * 8;
+    constexpr size_t BLOCK_SIZE = 16384;
+    constexpr size_t ADJ_SIZE = 32768;
+    constexpr size_t DATA_SIZE = 65536;
 
     class Tape_ {
         static bool multi_;
@@ -28,6 +28,7 @@ namespace Dal::AAD {
         BlockList_<double, DATA_SIZE> ders_;
         BlockList_<double*, DATA_SIZE> argPtrs_;
         BlockList_<TapNode_, BLOCK_SIZE> nodes_;
+        char pad_[64];
 
         friend auto SetNumResultsForAAD(bool, size_t);
         friend struct NumResultsResetterForAAD_;
@@ -75,5 +76,19 @@ namespace Dal::AAD {
         void resetTo(const Position_&, bool reset_adjoints = true);
         static void evaluate(const Position_&, const Position_&);
         void evaluate();
+        void Mark();
+        void RewindToMark();
+        void Rewind() {
+
+        if (multi_)
+            adjointsMulti_.Rewind();
+        ders_.Rewind();
+        argPtrs_.Rewind();
+        nodes_.Rewind();
+        }
+
+        auto MarkIt() {
+            return nodes_.Mark();
+        }
     };
 } // namespace Dal::AAD

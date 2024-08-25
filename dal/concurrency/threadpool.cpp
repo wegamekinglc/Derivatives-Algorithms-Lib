@@ -23,15 +23,15 @@ namespace Dal {
 
     void ThreadPool_::Start(size_t nThread, bool restart) {
         if (nThread == 0 || nThread >= std::thread::hardware_concurrency())
-            nThread = std::thread::hardware_concurrency();
+            nThread = std::thread::hardware_concurrency() - 1;
 
         if (active_ && restart) {
             Stop();
         }
 
         if (!active_) {
-            threads_.reserve(nThread - 1);
-            for (size_t i = 0; i < nThread - 1; ++i)
+            threads_.reserve(nThread);
+            for (size_t i = 0; i < nThread; ++i)
                 threads_.emplace_back(&ThreadPool_::ThreadFunc, this, i + 1);
             active_ = true;
         }
@@ -58,8 +58,8 @@ namespace Dal {
             if (queue_.TryPop(t)) {
                 t();
                 b = true;
-            }
-            f.wait();
+            } else
+                f.wait();
         }
         return b;
     }

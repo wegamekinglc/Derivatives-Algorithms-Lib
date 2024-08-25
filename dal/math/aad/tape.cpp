@@ -26,7 +26,6 @@ namespace Dal::AAD {
         nodes_.Clear();
     }
 
-    void Tape_::setActive() {}
     void Tape_::registerInput(Number_& input) {
         input.PutOnTape();
     }
@@ -75,6 +74,23 @@ namespace Dal::AAD {
     void Tape_::evaluate() {
         Number_::evaluate(getPosition(), getZeroPosition());
     }
+
+    void Tape_::Mark() {
+        if (multi_)
+            adjointsMulti_.SetMark();
+        ders_.SetMark();
+        argPtrs_.SetMark();
+        nodes_.SetMark();
+    }
+
+    void Tape_::RewindToMark() {
+        if (multi_)
+            adjointsMulti_.RewindToMark();
+        ders_.RewindToMark();
+        argPtrs_.RewindToMark();
+        nodes_.RewindToMark();
+    }
+
 
 } // namespace Dal::AAD
 #endif

@@ -3,10 +3,6 @@ add_executable(script ${SCRIPT_FILES})
 
 target_link_libraries(script dal_library)
 
-if(DEFINED USE_XAD)
-    target_link_libraries(script xad)
-endif()
-
 if(MSVC)
 else()
     target_link_libraries(script pthread)

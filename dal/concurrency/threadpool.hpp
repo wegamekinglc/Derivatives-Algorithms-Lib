@@ -38,7 +38,7 @@ namespace Dal {
         static ThreadPool_* GetInstance() { return &instance_; }
 
         size_t NumThreads() const {
-            return threads_.size() + 1; // added 1 more for main thread
+            return threads_.size();
         }
 
         static size_t ThreadNum() { return tlsNum_; }

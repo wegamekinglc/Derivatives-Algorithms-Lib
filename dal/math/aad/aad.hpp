@@ -92,10 +92,6 @@ namespace Dal::AAD {
 
     using Position_ = typename Tape_::Position_;
 
-    FORCE_INLINE auto& GetTape() {
-        return Number_::getTape();
-    }
-
     FORCE_INLINE void SetGradient(Number_& res, double gradient) {
         res.setGradient(gradient);
     }
@@ -127,8 +123,6 @@ namespace Dal::AAD {
     FORCE_INLINE void SetActive(Tape_* tape) {
         tape->setActive();
     }
-
-    FORCE_INLINE void NewRecording(Tape_* tape) {}
 
     FORCE_INLINE Position_ GetPosition(Tape_& tape) {
         return tape.getPosition();

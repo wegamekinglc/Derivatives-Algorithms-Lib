@@ -53,37 +53,23 @@ int main() {
     Number_ strike_aad(strike);
     Number_ expiry_aad(expiry);
 
-#ifndef USE_XAD
-    auto& tape = AAD::GetTape();
-#else
-    auto tape = AAD::GetTape();
-#endif
+    Number_::tape_->Clear();
 
-    AAD::Reset(&tape);
-    AAD::SetActive(&tape);
-
-    tape.registerInput(fwd_aad);
-    tape.registerInput(vol_aad);
-    tape.registerInput(numeraire_aad);
-    tape.registerInput(strike_aad);
-    tape.registerInput(expiry_aad);
-    AAD::NewRecording(&tape);
+    Number_::tape_->registerInput(fwd_aad);
+    Number_::tape_->registerInput(vol_aad);
+    Number_::tape_->registerInput(numeraire_aad);
+    Number_::tape_->registerInput(strike_aad);
+    Number_::tape_->registerInput(expiry_aad);
 
     timer.Reset();
-
     Number_ numeraire_aad_2 = numeraire_aad * 2.0;
-    auto begin = AAD::GetPosition(tape);
+    Number_::tape_->Mark();
     Number_ price_aad = BlackTest(fwd_aad, vol_aad, numeraire_aad_2, strike_aad, expiry_aad, is_call);
-    AAD::SetGradient(price_aad, 1.0);
-    AAD::Evaluate(&tape);
-    AAD::ResetToPos(&tape, begin);
+    price_aad.PropagateToMark();
 
     price_aad = BlackTest(fwd_aad, vol_aad, numeraire_aad_2, strike_aad, expiry_aad, is_call);
     AAD::SetGradient(price_aad, 1.0);
-    AAD::Evaluate(&tape);
-    AAD::ResetToPos(&tape, begin);
-
-    AAD::Evaluate(&tape);
+    price_aad.PropagateToMark();
 
     std::cout << " DAL  AAD Mode: " << std::setprecision(8) << price_aad.value() << " with " << timer.Elapsed<milliseconds>() << " ms" << std::endl;
     std::cout << "      dP/dFwd : " << std::setprecision(8) << AAD::GetGradient(fwd_aad) << std::endl;

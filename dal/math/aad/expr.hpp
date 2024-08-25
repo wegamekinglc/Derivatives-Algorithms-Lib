@@ -459,7 +459,7 @@ namespace Dal::AAD {
         TapNode_* node_;
 
         template <size_t N_>
-        FORCE_INLINE TapNode_* CreateMultiNode() { return tape_.RecordNode<N_>(); }
+        FORCE_INLINE TapNode_* CreateMultiNode() { return tape_->RecordNode<N_>(); }
 
         template <class E_> void FromExpr(const Expression_<E_>& e) {
             auto* node = this->CreateMultiNode<E_::numNumbers_>();
@@ -468,9 +468,7 @@ namespace Dal::AAD {
         }
 
     public:
-        static thread_local Tape_ tape_;
-
-        FORCE_INLINE static Tape_& getTape() { return tape_;}
+        static thread_local Tape_* tape_;
 
         enum { numNumbers_ = 1 };
 
@@ -512,9 +510,15 @@ namespace Dal::AAD {
             node_->Adjoint() = adjoint;
         }
 
-        FORCE_INLINE void ResetAdjoints() { tape_.ResetAdjoints(); }
+        FORCE_INLINE void ResetAdjoints() { tape_->ResetAdjoints(); }
 
-        // propagation
+        [[nodiscard]] double Adjoint() const {
+            return node_->Adjoint();
+        }
+
+        [[nodiscard]] double& Adjoint() {
+            return node_->Adjoint();
+        }
 
         static void PropagateAdjoints(Tape_::Iterator_ propagateFrom, Tape_::Iterator_ propagateTo) {
             auto it = propagateFrom;
@@ -523,6 +527,28 @@ namespace Dal::AAD {
                 --it;
             }
             it->PropagateOne();
+        }
+
+        void PropagateAdjoints(Tape_::Iterator_ propagateTo) {
+            Adjoint() = 1.0;
+            auto it = tape_->Find(node_);
+            while (it != propagateTo) {
+                it->PropagateOne();
+                --it;
+            }
+            it->PropagateOne();
+        }
+
+        void PropagateToStart() {
+            PropagateAdjoints(tape_->Begin());
+        }
+
+        void PropagateToMark() {
+            PropagateAdjoints(tape_->MarkIt());
+        }
+
+        static void PropagateMarkToStart() {
+            PropagateAdjoints(std::prev(tape_->MarkIt()), tape_->Begin());
         }
 
         static void evaluate(const Tape_::Position_& from, const Tape_::Position_& to) {

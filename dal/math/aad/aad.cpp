@@ -14,11 +14,10 @@
 #include <dal/platform/strict.hpp>
 #include <dal/math/aad/aad.hpp>
 
-#ifdef USE_AADET
 namespace Dal::AAD {
     size_t TapNode_::numAdj_ = 1;
     bool Tape_::multi_ = false;
 
-    thread_local Tape_ Number_::tape_{};
-} // namespace Dal
-#endif
+    Tape_ globalTape;
+    thread_local Tape_* Number_::tape_ = &globalTape;
+}

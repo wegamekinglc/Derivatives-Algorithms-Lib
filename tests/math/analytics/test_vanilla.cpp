@@ -20,36 +20,25 @@ TEST(AnalyticsTest, TestBlackScholes) {
 }
 
 TEST(AnalyticsTest, TestBlackScholesAAD) {
+    Number_::tape_->Clear();
+
     Number_ vol(0.2);
     Number_ T(2.0);
     Number_ forward(110.0);
     Number_ strike(120.0);
 
-#ifndef USE_XAD
-    auto& tape = GetTape();
-#else
-    auto tape = GetTape();
-#endif
+    Number_::tape_->registerInput(vol);
+    Number_::tape_->registerInput(T);
+    Number_::tape_->registerInput(strike);
+    Number_::tape_->registerInput(forward);
+    Number_::tape_->Mark();
 
-    SetActive(&tape);
-    Reset(&tape);
-
-    tape.registerInput(vol);
-    tape.registerInput(T);
-    tape.registerInput(strike);
-    tape.registerInput(forward);
-
-    NewRecording(&tape);
-    
     auto call_price = BlackScholes(forward, strike, vol, T);
     ASSERT_NEAR(call_price.value(), 8.53592506466286, 1e-10);
-
-    SetGradient(call_price, 1.0);
-    Evaluate(&tape);
+    call_price.PropagateToMark();
     ASSERT_NEAR(GetGradient(forward), 0.433995720171781, 1e-8);
     ASSERT_NEAR(GetGradient(vol), 61.2095050098522, 1e-8);
     ASSERT_NEAR(GetGradient(T), 3.06047525, 1e-8);
-    Reset(&tape);
 }
 
 TEST(AnalyticsTest, TestBachelier) {
@@ -63,34 +52,24 @@ TEST(AnalyticsTest, TestBachelier) {
 }
 
 TEST(AnalyticsTest, TestBachelierAAD) {
+    Number_::tape_->Clear();
+
     Number_ vol(22.0);
     Number_ T(2.0);
     Number_ forward(110.0);
     Number_ strike(120.0);
 
-#ifndef USE_XAD
-    auto& tape = GetTape();
-#else
-    auto tape = GetTape();
-#endif
-
-    SetActive(&tape);
-    Reset(&tape);
-
-    tape.registerInput(vol);
-    tape.registerInput(T);
-    tape.registerInput(strike);
-    tape.registerInput(forward);
-
-    NewRecording(&tape);
+    Number_::tape_->registerInput(vol);
+    Number_::tape_->registerInput(T);
+    Number_::tape_->registerInput(strike);
+    Number_::tape_->registerInput(forward);
+    Number_::tape_->Mark();
 
     auto call_price = Bachelier(forward, strike, vol, T);
-    ASSERT_NEAR(call_price.value(), 8.047832538, 1e-6);
+    call_price.PropagateToMark();
 
-    SetGradient(call_price, 1.0);
-    Evaluate(&tape);
+    ASSERT_NEAR(call_price.value(), 8.047832538, 1e-6);
     ASSERT_NEAR(GetGradient(forward), 0.37394902960009541, 1e-8);
     ASSERT_NEAR(GetGradient(vol), 0.53578740155317184, 1e-8);
     ASSERT_NEAR(GetGradient(T), 2.9468307085424446, 1e-8);
-    Reset(&tape);
 }

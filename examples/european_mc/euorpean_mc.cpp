@@ -44,13 +44,6 @@ int main() {
     eventDates.push_back(Cell_(maturity));
     events.push_back("call pays MAX(spot() - STRIKE, 0.0)");
 
-    ScriptProduct_ product(eventDates, events, "call");
-
-    std::unique_ptr<Model_<Real_>> model = std::make_unique<BlackScholes_<Real_>>(spot, vol, rate, div);
-    std::cout << "\nParsing " << std::setprecision(8) << "\tElapsed: " << timer.Elapsed<milliseconds>() << " ms" << std::endl;
-    
-    int max_nested = product.PreProcess(false, false);
-
     Vector_<int> widths = {20, 14, 14, 14, 14, 14, 14};
     double discounts = std::exp(-rate * t);
     double fwd = std::exp((rate - div) * t) * spot;
@@ -61,13 +54,20 @@ int main() {
               << std::setw(widths[1]) << std::right << "spot"
               << std::setw(widths[2]) << std::right << "price"
               << std::setw(widths[3]) << std::right << "benchmark";
+
+    std::unique_ptr<Model_<Real_>> model = std::make_unique<BlackScholes_<Real_>>(spot, vol, rate, div);
     for (const auto& s: model->ParameterLabels())
         std::cout << std::setw(widths[4]) << std::right << s;
+
+    ScriptProduct_ product(eventDates, events, "call");
+    int max_nested = product.PreProcess(false, false);
+
     for (const auto& s: product.ConstVarNames())
         std::cout << std::setw(widths[4]) << std::right << s;
     std::cout << std::setw(widths[5]) << std::right << "Diff (bps)"
               << std::setw(widths[6]) << std::right << "Elapsed (ms)"
               << std::endl;
+
     for (int i = 12; i <= 29; ++i) {
         timer.Reset();
         int num_paths = std::pow(2, i);
