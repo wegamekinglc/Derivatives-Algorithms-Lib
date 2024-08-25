@@ -148,7 +148,7 @@ TEST(AADTest, TestWithCheckpointWithMultiThreading) {
         auto& sim_result = sim_results[loop_i];
         loop_i += 1;
 
-        futures.push_back(pool->SpawnTask([&, first_round, rounds_in_tasks]() {
+        futures.push_back(pool->SpawnTask([&, rounds_in_tasks]() {
             const size_t n_thread = ThreadPool_::ThreadNum();
             if (n_thread > 0)
                 Number_::tape_ = &tapes[n_thread - 1];
@@ -161,7 +161,7 @@ TEST(AADTest, TestWithCheckpointWithMultiThreading) {
             }
 
             double sum_val = 0.0;
-            for (size_t i = 0; i < rounds_in_tasks; i++) {
+            for (size_t i = 0; i < rounds_in_tasks; ++i) {
                 Number_::tape_->RewindToMark();
                 Number_ res = BlackTest(model->fwd_,
                                         model->vol_,
@@ -184,7 +184,7 @@ TEST(AADTest, TestWithCheckpointWithMultiThreading) {
 
     Number_::PropagateMarkToStart();
     //  And on the worker thread's tapes
-    AAD::Tape_* mainThreadPtr = Number_::tape_;
+    Tape_* mainThreadPtr = Number_::tape_;
     for (size_t i = 0; i < n_threads; ++i) {
         if (model_init[i + 1]) {
             Number_::tape_ = &tapes[i];
@@ -206,12 +206,14 @@ TEST(AADTest, TestWithCheckpointWithMultiThreading) {
         }
     }
 
+    Number_::tape_ = mainThreadPtr;
+    Number_::tape_->Clear();
+
     ASSERT_NEAR(aggregated / n_rounds, 0.0714668, 1e-6);
     ASSERT_NEAR(greeks[0], 0.362002, 1e-6);
     ASSERT_NEAR(greeks[1], 0.649225, 1e-6);
     ASSERT_NEAR(greeks[2], 0.0714668, 1e-6);
     ASSERT_NEAR(greeks[3], -0.242113, 1e-6);
     ASSERT_NEAR(greeks[4], 0.0216408, 1e-6);
-    Number_::tape_ = mainThreadPtr;
-    Number_::tape_->Clear();
+
 }
