@@ -110,7 +110,7 @@ TEST(AADTest, TestWithCheckpointWithForLoop) {
 
 TEST(AADTest, TestWithCheckpointWithMultiThreading) {
     int n_rounds = 100000;
-    int batch_size = 8196;
+    int batch_size = 2048;
     double fwd = 1.00;
     double vol = 0.20;
     double numeraire = 1.0;
@@ -133,8 +133,6 @@ TEST(AADTest, TestWithCheckpointWithMultiThreading) {
     Vector_<std::unique_ptr<TestModel_>> models(n_threads + 1);
     for (auto& m : models)
         m = std::make_unique<TestModel_>(fwd, vol, numeraire, strike, expiry);
-
-    batch_size = std::max(batch_size, static_cast<int>(n_rounds / (n_threads + 1) + 1));
 
     int first_round = 0;
     int rounds_left = n_rounds;

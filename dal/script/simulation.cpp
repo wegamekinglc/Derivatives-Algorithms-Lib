@@ -13,7 +13,7 @@
 namespace Dal::Script {
 
     namespace {
-        constexpr const int BATCH_SIZE = 8192;
+        constexpr int BATCH_SIZE = 2048;
 
         template<class E_>
         void InitModel4ParallelAAD(const ScriptProduct_& prd,
@@ -186,10 +186,9 @@ namespace Dal::Script {
             evalVector = Vector_<Evaluator_<AAD::Number_>>(nThreads + 1, product.BuildEvaluator<AAD::Number_>());
 
         Vector_<TaskHandle_> futures;
-        const int batch_size = std::max(BATCH_SIZE, static_cast<int>(n_paths / (nThreads + 1) + 1));
-        futures.reserve(n_paths / batch_size + 1);
+        futures.reserve(n_paths / BATCH_SIZE + 1);
         Vector_<> simEvals;
-        simEvals.reserve(n_paths / batch_size + 1);
+        simEvals.reserve(n_paths / BATCH_SIZE + 1);
 
         SimResults_<AAD::Number_> sub_res(Dal::Vector::Join(mdl->ParameterLabels(), product.ConstVarNames()));
         Vector_<SimResults_<AAD::Number_>> simResults(nThreads + 1, sub_res);
@@ -205,7 +204,7 @@ namespace Dal::Script {
         AAD::Tape_* mainThreadPtr = Number_::tape_;
 
         while (pathsLeft > 0) {
-            auto pathsInTask = std::min(pathsLeft, batch_size);
+            auto pathsInTask = std::min(pathsLeft, BATCH_SIZE);
             simEvals.emplace_back(0.0);
             auto& simEval = simEvals[loopIndex];
             loopIndex += 1;
