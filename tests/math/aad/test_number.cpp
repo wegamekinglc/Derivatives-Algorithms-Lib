@@ -11,11 +11,11 @@ using namespace Dal::AAD;
 TEST(AADTest, TestNumberAdd) {
 
     {
-        Number_::tape_->Clear();
+        Number_::Tape()->Clear();
         Number_ s1(1.0);
         Number_ s2(2.0);
-        Number_::tape_->registerInput(s1);
-        Number_::tape_->registerInput(s2);
+        Number_::Tape()->registerInput(s1);
+        Number_::Tape()->registerInput(s2);
 
         Number_ value = s1 + s2;
         value.PropagateToStart();
@@ -26,9 +26,9 @@ TEST(AADTest, TestNumberAdd) {
     }
 
     {
-        Number_::tape_->Clear();
+        Number_::Tape()->Clear();
         Number_ s1 = 1.0;
-        Number_::tape_->registerInput(s1);
+        Number_::Tape()->registerInput(s1);
 
         Number_ value = s1 + 2.0;
         value.PropagateToStart();
@@ -38,9 +38,9 @@ TEST(AADTest, TestNumberAdd) {
     }
 
     {
-        Number_::tape_->Clear();
+        Number_::Tape()->Clear();
         Number_ s2 = 2.0;
-        Number_::tape_->registerInput(s2);
+        Number_::Tape()->registerInput(s2);
 
         Number_ value = 1.0 + s2;
         value.PropagateToStart();
@@ -53,11 +53,11 @@ TEST(AADTest, TestNumberAdd) {
 TEST(AADTest, TestNumberSub) {
 
     {
-        Number_::tape_->Clear();
+        Number_::Tape()->Clear();
         Number_ s1(1.0);
         Number_ s2(2.0);
-        Number_::tape_->registerInput(s1);
-        Number_::tape_->registerInput(s2);
+        Number_::Tape()->registerInput(s1);
+        Number_::Tape()->registerInput(s2);
 
         Number_ value = s1 - s2;
         value.PropagateToStart();
@@ -68,9 +68,9 @@ TEST(AADTest, TestNumberSub) {
     }
 
     {
-        Number_::tape_->Clear();
+        Number_::Tape()->Clear();
         Number_ s1(1.0);
-        Number_::tape_->registerInput(s1);
+        Number_::Tape()->registerInput(s1);
 
         Number_ value = s1 - 2.0;
         value.PropagateToStart();
@@ -78,9 +78,9 @@ TEST(AADTest, TestNumberSub) {
     }
 
     {
-        Number_::tape_->Clear();
+        Number_::Tape()->Clear();
         Number_ s2(2.0);
-        Number_::tape_->registerInput(s2);
+        Number_::Tape()->registerInput(s2);
         
         Number_ value = 1.0 - s2;
         value.PropagateToStart();
@@ -91,11 +91,11 @@ TEST(AADTest, TestNumberSub) {
 TEST(AADTest, TestNumberMultiply) {
 
     {
-        Number_::tape_->Clear();
+        Number_::Tape()->Clear();
         Number_ s1(3.0);
         Number_ s2(2.0);
-        Number_::tape_->registerInput(s1);
-        Number_::tape_->registerInput(s2);
+        Number_::Tape()->registerInput(s1);
+        Number_::Tape()->registerInput(s2);
 
         Number_ value = s1 * s2;
         value.PropagateToStart();
@@ -105,9 +105,9 @@ TEST(AADTest, TestNumberMultiply) {
     }
 
     {
-        Number_::tape_->Clear();
+        Number_::Tape()->Clear();
         Number_ s1 = 3.0;
-        Number_::tape_->registerInput(s1);
+        Number_::Tape()->registerInput(s1);
 
         Number_ value = s1 * 2.0;
         value.PropagateToStart();
@@ -115,9 +115,9 @@ TEST(AADTest, TestNumberMultiply) {
     }
 
     {
-        Number_::tape_->Clear();
+        Number_::Tape()->Clear();
         Number_ s2 = 2.0;
-        Number_::tape_->registerInput(s2);
+        Number_::Tape()->registerInput(s2);
 
         Number_ value = 3.0 * s2;
         value.PropagateToStart();
@@ -127,11 +127,11 @@ TEST(AADTest, TestNumberMultiply) {
 
 TEST(AADTest, TestNumberDivide) {
     {
-        Number_::tape_->Clear();
+        Number_::Tape()->Clear();
         Number_ s1(3.0);
         Number_ s2(2.0);
-        Number_::tape_->registerInput(s1);
-        Number_::tape_->registerInput(s2);
+        Number_::Tape()->registerInput(s1);
+        Number_::Tape()->registerInput(s2);
 
         Number_ value = s1 / s2;
         ASSERT_NEAR(value.value(), 1.5, 1e-10);
@@ -141,9 +141,9 @@ TEST(AADTest, TestNumberDivide) {
     }
 
     {
-        Number_::tape_->Clear();
+        Number_::Tape()->Clear();
         Number_ s1 = 3.0;
-        Number_::tape_->registerInput(s1);
+        Number_::Tape()->registerInput(s1);
 
         Number_ value = s1 / 2.0;
         value.PropagateToStart();
@@ -151,9 +151,9 @@ TEST(AADTest, TestNumberDivide) {
     }
 
     {
-        Number_::tape_->Clear();
+        Number_::Tape()->Clear();
         Number_ s2 = 2.0;
-        Number_::tape_->registerInput(s2);
+        Number_::Tape()->registerInput(s2);
 
         Number_ value = 3.0 / s2;
         value.PropagateToStart();
@@ -164,11 +164,11 @@ TEST(AADTest, TestNumberDivide) {
 TEST(AADTest, TestNumberPow) {
 
     {
-        Number_::tape_->Clear();
+        Number_::Tape()->Clear();
         Number_ s1(3.0);
         Number_ s2(2.0);
-        Number_::tape_->registerInput(s1);
-        Number_::tape_->registerInput(s2);
+        Number_::Tape()->registerInput(s1);
+        Number_::Tape()->registerInput(s2);
 
         Number_ value = pow(s1, s2);
         ASSERT_NEAR(value.value(), std::pow(s1.value(), s2.value()), 1e-10);
@@ -179,10 +179,10 @@ TEST(AADTest, TestNumberPow) {
     }
 
     {
-        Number_::tape_->Clear();
+        Number_::Tape()->Clear();
         Number_ s1 = 3.0;
         Number_ s2(2.0);
-        Number_::tape_->registerInput(s1);
+        Number_::Tape()->registerInput(s1);
 
         Number_ value = pow(s1, 2.0);
         value.PropagateToStart();
@@ -190,9 +190,9 @@ TEST(AADTest, TestNumberPow) {
     }
 
     {
-        Number_::tape_->Clear();
+        Number_::Tape()->Clear();
         Number_ s2 = 2.0;
-        Number_::tape_->registerInput(s2);
+        Number_::Tape()->registerInput(s2);
 
         Number_ value = pow(3.0, s2);
         value.PropagateToStart();
@@ -203,11 +203,11 @@ TEST(AADTest, TestNumberPow) {
 TEST(AADTest, TestNumberMax) {
 
     {
-        Number_::tape_->Clear();
+        Number_::Tape()->Clear();
         Number_ s1(3.0);
         Number_ s2(2.0);
-        Number_::tape_->registerInput(s1);
-        Number_::tape_->registerInput(s2);
+        Number_::Tape()->registerInput(s1);
+        Number_::Tape()->registerInput(s2);
 
         Number_ value = max(s1, s2);
         ASSERT_NEAR(value.value(), 3.0, 1e-10);
@@ -217,9 +217,9 @@ TEST(AADTest, TestNumberMax) {
     }
 
     {
-        Number_::tape_->Clear();
+        Number_::Tape()->Clear();
         Number_ s1 = 3.0;
-        Number_::tape_->registerInput(s1);
+        Number_::Tape()->registerInput(s1);
 
         Number_ value = max(s1, 2.0);
         value.PropagateToStart();
@@ -227,9 +227,9 @@ TEST(AADTest, TestNumberMax) {
     }
 
     {
-        Number_::tape_->Clear();
+        Number_::Tape()->Clear();
         Number_ s2 = 2.0;
-        Number_::tape_->registerInput(s2);
+        Number_::Tape()->registerInput(s2);
 
         Number_ value = max(3.0, s2);
         value.PropagateToStart();
@@ -237,11 +237,11 @@ TEST(AADTest, TestNumberMax) {
     }
 
     {
-        Number_::tape_->Clear();
+        Number_::Tape()->Clear();
         Number_ s1 = 2.0;
         Number_ s2 = 3.0;
-        Number_::tape_->registerInput(s1);
-        Number_::tape_->registerInput(s2);
+        Number_::Tape()->registerInput(s1);
+        Number_::Tape()->registerInput(s2);
 
         Number_ value = max(s1, s2);
         ASSERT_NEAR(value.value(), 3.0, 1e-10);
@@ -251,9 +251,9 @@ TEST(AADTest, TestNumberMax) {
     }
 
     {
-        Number_::tape_->Clear();
+        Number_::Tape()->Clear();
         Number_ s1 = 2.0;
-        Number_::tape_->registerInput(s1);
+        Number_::Tape()->registerInput(s1);
 
         Number_ value = max(s1, 3.0);
         value.PropagateToStart();
@@ -261,9 +261,9 @@ TEST(AADTest, TestNumberMax) {
     }
 
     {
-        Number_::tape_->Clear();
+        Number_::Tape()->Clear();
         Number_ s2 = 3.0;
-        Number_::tape_->registerInput(s2);
+        Number_::Tape()->registerInput(s2);
 
         Number_ value = max(2.0, s2);
         value.PropagateToStart();
@@ -273,11 +273,11 @@ TEST(AADTest, TestNumberMax) {
 
 TEST(AADTest, TestNumberMin) {
     {
-        Number_::tape_->Clear();
+        Number_::Tape()->Clear();
         Number_ s1(3.0);
         Number_ s2(2.0);
-        Number_::tape_->registerInput(s1);
-        Number_::tape_->registerInput(s2);
+        Number_::Tape()->registerInput(s1);
+        Number_::Tape()->registerInput(s2);
 
         Number_ value = min(s1, s2);
         ASSERT_NEAR(value.value(), 2.0, 1e-10);
@@ -287,9 +287,9 @@ TEST(AADTest, TestNumberMin) {
     }
 
     {
-        Number_::tape_->Clear();
+        Number_::Tape()->Clear();
         Number_ s1 = 3.0;
-        Number_::tape_->registerInput(s1);
+        Number_::Tape()->registerInput(s1);
 
         Number_ value = min(s1, 2.0);
         value.PropagateToStart();
@@ -297,9 +297,9 @@ TEST(AADTest, TestNumberMin) {
     }
 
     {
-        Number_::tape_->Clear();
+        Number_::Tape()->Clear();
         Number_ s2 = 2.0;
-        Number_::tape_->registerInput(s2);
+        Number_::Tape()->registerInput(s2);
 
         Number_ value = min(3.0, s2);
         value.PropagateToStart();
@@ -307,11 +307,11 @@ TEST(AADTest, TestNumberMin) {
     }
 
     {
-        Number_::tape_->Clear();
+        Number_::Tape()->Clear();
         Number_ s1 = 2.0;
         Number_ s2 = 3.0;
-        Number_::tape_->registerInput(s1);
-        Number_::tape_->registerInput(s2);
+        Number_::Tape()->registerInput(s1);
+        Number_::Tape()->registerInput(s2);
 
         Number_ value = min(s1, s2);
         ASSERT_NEAR(value.value(), 2.0, 1e-10);
@@ -321,9 +321,9 @@ TEST(AADTest, TestNumberMin) {
     }
 
     {
-        Number_::tape_->Clear();
+        Number_::Tape()->Clear();
         Number_ s1 = 2.0;
-        Number_::tape_->registerInput(s1);
+        Number_::Tape()->registerInput(s1);
 
         Number_ value = min(s1, 3.0);
         value.PropagateToStart();
@@ -331,9 +331,9 @@ TEST(AADTest, TestNumberMin) {
     }
 
     {
-        Number_::tape_->Clear();
+        Number_::Tape()->Clear();
         Number_ s2 = 3.0;
-        Number_::tape_->registerInput(s2);
+        Number_::Tape()->registerInput(s2);
 
         Number_ value = min(2.0, s2);
         value.PropagateToStart();
@@ -345,11 +345,11 @@ TEST(AADTest, TestNumberMin) {
 TEST(AADTest, TestNumberEqualAdd) {
 
     {
-        Number_::tape_->Clear();
+        Number_::Tape()->Clear();
         Number_ s1(1.0);
         Number_ s2(2.0);
-        Number_::tape_->registerInput(s1);
-        Number_::tape_->registerInput(s2);
+        Number_::Tape()->registerInput(s1);
+        Number_::Tape()->registerInput(s2);
         
         Number_ s3 = s1;
         s3 += s2;
@@ -360,9 +360,9 @@ TEST(AADTest, TestNumberEqualAdd) {
     }
 
     {
-        Number_::tape_->Clear();
+        Number_::Tape()->Clear();
         Number_ s1 = Number_(1.0);
-        Number_::tape_->registerInput(s1);
+        Number_::Tape()->registerInput(s1);
         
         Number_ s3 = s1;
         s3 += 2.0;
@@ -375,11 +375,11 @@ TEST(AADTest, TestNumberEqualAdd) {
 
 TEST(AADTest, TestNumberEqualSub) {
     {
-        Number_::tape_->Clear();
+        Number_::Tape()->Clear();
         Number_ s1(1.0);
         Number_ s2(2.0);
-        Number_::tape_->registerInput(s1);
-        Number_::tape_->registerInput(s2);
+        Number_::Tape()->registerInput(s1);
+        Number_::Tape()->registerInput(s2);
         
         Number_ s3 = s1;
         s3 -= s2;
@@ -390,9 +390,9 @@ TEST(AADTest, TestNumberEqualSub) {
     }
 
     {
-        Number_::tape_->Clear();
+        Number_::Tape()->Clear();
         Number_ s1 = Number_(1.0);
-        Number_::tape_->registerInput(s1);
+        Number_::Tape()->registerInput(s1);
         
         Number_ s3 = s1;
         s3 -= 2.0;
@@ -406,11 +406,11 @@ TEST(AADTest, TestNumberEqualSub) {
 TEST(AADTest, TestNumberEqualMultiply) {
 
     {
-        Number_::tape_->Clear();
+        Number_::Tape()->Clear();
         Number_ s1(2.0);
         Number_ s2(3.0);
-        Number_::tape_->registerInput(s1);
-        Number_::tape_->registerInput(s2);
+        Number_::Tape()->registerInput(s1);
+        Number_::Tape()->registerInput(s2);
         
         Number_ s3 = s1;
         s3 *= s2;
@@ -421,9 +421,9 @@ TEST(AADTest, TestNumberEqualMultiply) {
     }
 
     {
-        Number_::tape_->Clear();
+        Number_::Tape()->Clear();
         Number_ s1 = 2.0;
-        Number_::tape_->registerInput(s1);
+        Number_::Tape()->registerInput(s1);
 
         Number_ s3 = s1;
         s3 *= 3.0;
@@ -437,11 +437,11 @@ TEST(AADTest, TestNumberEqualMultiply) {
 TEST(AADTest, TestNumberEqualDivide) {
 
     {
-        Number_::tape_->Clear();
+        Number_::Tape()->Clear();
         Number_ s1(2.0);
         Number_ s2(3.0);
-        Number_::tape_->registerInput(s1);
-        Number_::tape_->registerInput(s2);
+        Number_::Tape()->registerInput(s1);
+        Number_::Tape()->registerInput(s2);
 
         Number_ s3 = s1;
         s3 /= s2;
@@ -452,9 +452,9 @@ TEST(AADTest, TestNumberEqualDivide) {
     }
 
     {
-        Number_::tape_->Clear();
+        Number_::Tape()->Clear();
         Number_ s1 = 2.0;
-        Number_::tape_->registerInput(s1);
+        Number_::Tape()->registerInput(s1);
         
         Number_ s3 = s1;
         s3 /= 3.0;
@@ -466,9 +466,9 @@ TEST(AADTest, TestNumberEqualDivide) {
 
 
 TEST(AADTest, TestNumberNegative) {
-    Number_::tape_->Clear();
+    Number_::Tape()->Clear();
     Number_ s1(2.0);
-    Number_::tape_->registerInput(s1);
+    Number_::Tape()->registerInput(s1);
     
     Number_ value = -s1;
     ASSERT_NEAR(value.value(), -2.0, 1e-10);
@@ -478,9 +478,9 @@ TEST(AADTest, TestNumberNegative) {
 
 
 TEST(AADTest, TestNumberPositive) {
-    Number_::tape_->Clear();
+    Number_::Tape()->Clear();
     Number_ s1(2.0);
-    Number_::tape_->registerInput(s1);
+    Number_::Tape()->registerInput(s1);
 
     Number_ value = +s1;
     ASSERT_NEAR(value.value(), 2.0, 1e-10);
@@ -490,9 +490,9 @@ TEST(AADTest, TestNumberPositive) {
 
 
 TEST(AADTest, TestNumberExp) {
-    Number_::tape_->Clear();
+    Number_::Tape()->Clear();
     Number_ s1(2.0);
-    Number_::tape_->registerInput(s1);
+    Number_::Tape()->registerInput(s1);
 
     Number_ value = exp(s1);
     ASSERT_NEAR(value.value(), std::exp(2.0), 1e-10);
@@ -502,9 +502,9 @@ TEST(AADTest, TestNumberExp) {
 
 
 TEST(AADTest, TestNumberLog) {
-    Number_::tape_->Clear();
+    Number_::Tape()->Clear();
     Number_ s1(2.0);
-    Number_::tape_->registerInput(s1);
+    Number_::Tape()->registerInput(s1);
 
     Number_ value = log(s1);
     ASSERT_NEAR(value.value(), std::log(2.0), 1e-10);
@@ -514,9 +514,9 @@ TEST(AADTest, TestNumberLog) {
 
 
 TEST(AADTest, TestNumberSqrt) {
-    Number_::tape_->Clear();
+    Number_::Tape()->Clear();
     Number_ s1(2.0);
-    Number_::tape_->registerInput(s1);
+    Number_::Tape()->registerInput(s1);
 
     Number_ value = sqrt(s1);
     ASSERT_NEAR(value.value(), std::sqrt(2.0), 1e-10);
@@ -526,9 +526,9 @@ TEST(AADTest, TestNumberSqrt) {
 
 
 TEST(AADTest, TestNumberFabs) {
-    Number_::tape_->Clear();
+    Number_::Tape()->Clear();
     Number_ s1(-2.0);
-    Number_::tape_->registerInput(s1);
+    Number_::Tape()->registerInput(s1);
 
     Number_ value = fabs(s1);
     ASSERT_NEAR(value.value(), 2.0, 1e-10);

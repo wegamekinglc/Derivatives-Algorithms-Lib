@@ -20,18 +20,18 @@ TEST(AnalyticsTest, TestBlackScholes) {
 }
 
 TEST(AnalyticsTest, TestBlackScholesAAD) {
-    Number_::tape_->Clear();
+    Number_::Tape()->Clear();
 
     Number_ vol(0.2);
     Number_ T(2.0);
     Number_ forward(110.0);
     Number_ strike(120.0);
 
-    Number_::tape_->registerInput(vol);
-    Number_::tape_->registerInput(T);
-    Number_::tape_->registerInput(strike);
-    Number_::tape_->registerInput(forward);
-    Number_::tape_->Mark();
+    Number_::Tape()->registerInput(vol);
+    Number_::Tape()->registerInput(T);
+    Number_::Tape()->registerInput(strike);
+    Number_::Tape()->registerInput(forward);
+    Number_::Tape()->Mark();
 
     auto call_price = BlackScholes(forward, strike, vol, T);
     ASSERT_NEAR(call_price.value(), 8.53592506466286, 1e-10);
@@ -52,18 +52,18 @@ TEST(AnalyticsTest, TestBachelier) {
 }
 
 TEST(AnalyticsTest, TestBachelierAAD) {
-    Number_::tape_->Clear();
+    Number_::Tape()->Clear();
 
     Number_ vol(22.0);
     Number_ T(2.0);
     Number_ forward(110.0);
     Number_ strike(120.0);
 
-    Number_::tape_->registerInput(vol);
-    Number_::tape_->registerInput(T);
-    Number_::tape_->registerInput(strike);
-    Number_::tape_->registerInput(forward);
-    Number_::tape_->Mark();
+    Number_::Tape()->registerInput(vol);
+    Number_::Tape()->registerInput(T);
+    Number_::Tape()->registerInput(strike);
+    Number_::Tape()->registerInput(forward);
+    Number_::Tape()->Mark();
 
     auto call_price = Bachelier(forward, strike, vol, T);
     call_price.PropagateToMark();

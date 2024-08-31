@@ -53,17 +53,17 @@ int main() {
     Number_ strike_aad(strike);
     Number_ expiry_aad(expiry);
 
-    Number_::tape_->Clear();
+    Number_::Tape()->Clear();
 
-    Number_::tape_->registerInput(fwd_aad);
-    Number_::tape_->registerInput(vol_aad);
-    Number_::tape_->registerInput(numeraire_aad);
-    Number_::tape_->registerInput(strike_aad);
-    Number_::tape_->registerInput(expiry_aad);
+    Number_::Tape()->registerInput(fwd_aad);
+    Number_::Tape()->registerInput(vol_aad);
+    Number_::Tape()->registerInput(numeraire_aad);
+    Number_::Tape()->registerInput(strike_aad);
+    Number_::Tape()->registerInput(expiry_aad);
 
     timer.Reset();
     Number_ numeraire_aad_2 = numeraire_aad * 2.0;
-    Number_::tape_->Mark();
+    Number_::Tape()->Mark();
     Number_ price_aad = BlackTest(fwd_aad, vol_aad, numeraire_aad_2, strike_aad, expiry_aad, is_call);
     price_aad.PropagateToMark();
 

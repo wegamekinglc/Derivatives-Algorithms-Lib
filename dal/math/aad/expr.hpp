@@ -4,6 +4,8 @@
 
 #pragma once
 
+#include <mutex>
+#include <dal/platform/platform.hpp>
 #include <dal/math/aad/tape.hpp>
 #include <dal/math/specialfunctions.hpp>
 
@@ -467,8 +469,18 @@ namespace Dal::AAD {
             node_ = node;
         }
 
-    public:
+        static thread_local std::mutex mutex_;
         static thread_local Tape_* tape_;
+
+    public:
+        static void SetTape(Tape_& tape) {
+            std::lock_guard<std::mutex> lock(mutex_);
+            tape_ = &tape;
+        }
+
+        FORCE_INLINE static Tape_* Tape() {
+            return tape_;
+        }
 
         enum { numNumbers_ = 1 };
 

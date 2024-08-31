@@ -10,14 +10,10 @@
  * As long as this comment is preserved at the top of the file
  */
 
-#include <dal/platform/platform.hpp>
 #include <dal/platform/strict.hpp>
 #include <dal/math/aad/aad.hpp>
 
 namespace Dal::AAD {
     size_t TapNode_::numAdj_ = 1;
     bool Tape_::multi_ = false;
-
-    Tape_ globalTape;
-    thread_local Tape_* Number_::tape_ = &globalTape;
 }

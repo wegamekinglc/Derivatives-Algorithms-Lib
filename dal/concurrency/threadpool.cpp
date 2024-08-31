@@ -15,8 +15,8 @@ namespace Dal {
         tlsNum_ = num;
         Task_ t;
         while (!interrupt_) {
-            bool flag = queue_.Pop(t);
-            if (flag && !interrupt_)
+            queue_.Pop(t);
+            if (!interrupt_)
                 t();
         }
     }

@@ -20,17 +20,16 @@ namespace Dal::Script {
                                    AAD::Model_<AAD::Number_>& clonedMdl,
                                    Scenario_<AAD::Number_>& path,
                                    E_& evaluator) {
-            AAD::Tape_& tape = *Number_::tape_;
-            tape.Rewind();
+            Number_::Tape()->Rewind();
             for (Number_* param : clonedMdl.Parameters())
-                tape.registerInput(*param);
+                Number_::Tape()->registerInput(*param);
 
             for (Number_& param : evaluator.ConstVarVals())
-                tape.registerInput(param);
+                Number_::Tape()->registerInput(param);
 
             clonedMdl.Init(prd.TimeLine(), prd.DefLine());
             InitializePath(path);
-            tape.Mark();
+            Number_::Tape()->Mark();
         }
 
         std::unique_ptr<Random_> CreateRNG(const String_& method, size_t n_dim, bool use_bb) {
@@ -199,9 +198,8 @@ namespace Dal::Script {
         int pathsLeft = static_cast<int>(n_paths);
         size_t loopIndex = 0;
         auto payoffIndex = product.PayOffIdx();
-
         Vector_<AAD::Tape_> tapes(nThreads + 1);
-        AAD::Tape_* mainThreadPtr = Number_::tape_;
+        AAD::Tape_* mainThreadPtr = Number_::Tape();
 
         while (pathsLeft > 0) {
             auto pathsInTask = std::min(pathsLeft, BATCH_SIZE);
@@ -218,7 +216,7 @@ namespace Dal::Script {
                 auto& results = simResults[threadNum];
                 random->SkipTo(firstPath);
 
-                Number_::tape_ = &tapes[threadNum];
+                Number_::SetTape(tapes[threadNum]);
 
                 double sumValue = 0.0;
                 if (compiled) {
@@ -231,7 +229,7 @@ namespace Dal::Script {
                     }
 
                     for (size_t i = 0; i < pathsInTask; i++) {
-                        Number_::tape_->RewindToMark();
+                        Number_::Tape()->RewindToMark();
                         random->FillNormal(&gVec);
                         model->GeneratePath(gVec, &path);
                         product.EvaluateCompiled(path, evalState);
@@ -250,7 +248,7 @@ namespace Dal::Script {
                     }
 
                     for (size_t i = 0; i < pathsInTask; i++) {
-                        Number_::tape_->RewindToMark();
+                        Number_::Tape()->RewindToMark();
                         random->FillNormal(&gVec);
                         model->GeneratePath(gVec, &path);
                         product.Evaluate(path, eval);
@@ -268,7 +266,7 @@ namespace Dal::Script {
                     }
 
                     for (size_t i = 0; i < pathsInTask; i++) {
-                        Number_::tape_->RewindToMark();
+                        Number_::Tape()->RewindToMark();
                         random->FillNormal(&gVec);
                         model->GeneratePath(gVec, &path);
                         product.Evaluate(path, eval);
@@ -290,7 +288,7 @@ namespace Dal::Script {
 
         for (size_t i = 0; i < tapes.size(); ++i) {
             if (modelInit[i]) {
-                Number_::tape_ = &tapes[i];
+                Number_::SetTape(tapes[i]);
                 Number_::PropagateMarkToStart();
             }
         }
@@ -321,8 +319,9 @@ namespace Dal::Script {
             }
         }
 
-        Number_::tape_ = mainThreadPtr;
-        Number_::tape_->Clear();
+        Number_::SetTape(*mainThreadPtr);
+        Number_::Tape()->Clear();
+
         return results;
     }
 }

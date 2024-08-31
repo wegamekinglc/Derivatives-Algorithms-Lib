@@ -37,42 +37,41 @@ struct TestModel_ {
 
 
 auto ModelInit(TestModel_& model) {
-    AAD::Tape_& tape = *Number_::tape_;
-    tape.Rewind();
-    tape.registerInput(model.fwd_);
-    tape.registerInput(model.vol_);
-    tape.registerInput(model.numeraire_);
-    tape.registerInput(model.strike_);
-    tape.registerInput(model.expiry_);
-    tape.Mark();
+    Number_::Tape()->Rewind();
+    Number_::Tape()->registerInput(model.fwd_);
+    Number_::Tape()->registerInput(model.vol_);
+    Number_::Tape()->registerInput(model.numeraire_);
+    Number_::Tape()->registerInput(model.strike_);
+    Number_::Tape()->registerInput(model.expiry_);
+    Number_::Tape()->Mark();
 }
 
 
 TEST(AADTest, TestWithCheckpoint) {
-    Number_::tape_->Clear();
+    Number_::Tape()->Clear();
 
     Number_ s1(1.0);
     Number_ s2(2.0);
 
-    Number_::tape_->registerInput(s1);
-    Number_::tape_->registerInput(s2);
+    Number_::Tape()->registerInput(s1);
+    Number_::Tape()->registerInput(s2);
 
     Number_ s3 = s1 + s2;
-    Position_ begin = Number_::tape_->getPosition();
+    Position_ begin = Number_::Tape()->getPosition();
     Number_ value = s3 * 2.0;
     SetGradient(value, 1.0);
-    Evaluate(Number_::tape_, begin);
+    Evaluate(Number_::Tape(), begin);
 
     ASSERT_NEAR(value.value(), 6.0, 1e-10);
     ASSERT_NEAR(GetGradient(s3), 2.0, 1e-10);
 
-    ResetToPos(Number_::tape_, begin);
-    Evaluate(Number_::tape_);
+    ResetToPos(Number_::Tape(), begin);
+    Evaluate(Number_::Tape());
     ASSERT_NEAR(GetGradient(s1), 2.0, 1e-10);
 }
 
 TEST(AADTest, TestWithCheckpointWithForLoop) {
-    Number_::tape_->Clear();
+    Number_::Tape()->Clear();
 
     for (int m = 0; m < 3; ++m) {
 
@@ -80,11 +79,11 @@ TEST(AADTest, TestWithCheckpointWithForLoop) {
         Number_ s1(1.0);
         Number_ s2(2.0);
 
-        Number_::tape_->registerInput(s1);
-        Number_::tape_->registerInput(s2);
+        Number_::Tape()->registerInput(s1);
+        Number_::Tape()->registerInput(s2);
 
         Number_ s3 = s1 + s2;
-        Position_ begin = Number_::tape_->getPosition();
+        Position_ begin = Number_::Tape()->getPosition();
         for (int i = 0; i < n; ++i) {
             Number_ value;
             if (i % 2 == 0)
@@ -92,7 +91,7 @@ TEST(AADTest, TestWithCheckpointWithForLoop) {
             else
                 value = s3 * 0.99;
             SetGradient(value, 1.0);
-            Evaluate(Number_::tape_, begin);
+            Evaluate(Number_::Tape(), begin);
             if (i % 2 == 0) {
                 ASSERT_NEAR(value.value(), 3 * 1.01, 1e-10);
                 ASSERT_NEAR(GetGradient(s3), (i + 1) / 2 * 2 + (i + 1) % 2 * 1.01, 1e-10);
@@ -100,9 +99,9 @@ TEST(AADTest, TestWithCheckpointWithForLoop) {
                 ASSERT_NEAR(value.value(), 3 * 0.99, 1e-10);
                 ASSERT_NEAR(GetGradient(s3), (i + 1) / 2 * 2 + (i + 1) % 2 * 0.99, 1e-10);
             }
-            Number_::tape_->resetTo(begin);
+            Number_::Tape()->resetTo(begin);
         }
-        Evaluate(Number_::tape_);
+        Evaluate(Number_::Tape());
         ASSERT_NEAR(GetGradient(s1), n, 1e-10);
         ASSERT_NEAR(GetGradient(s2), n, 1e-10);
     }
@@ -128,7 +127,7 @@ TEST(AADTest, TestWithCheckpointWithMultiThreading) {
 
     Vector_<bool> model_init(n_threads + 1, false);
     Vector_<AAD::Tape_> tapes(n_threads + 1);
-    Tape_* mainThreadPtr = Number_::tape_;
+    Tape_* mainThreadPtr = Number_::Tape();
 
     Vector_<std::unique_ptr<TestModel_>> models(n_threads + 1);
     for (auto& m : models)
@@ -148,7 +147,7 @@ TEST(AADTest, TestWithCheckpointWithMultiThreading) {
 
         futures.push_back(pool->SpawnTask([&, rounds_in_tasks]() {
             const size_t n_thread = ThreadPool_::ThreadNum();
-            Number_::tape_ = &tapes[n_thread];
+            Number_::SetTape(tapes[n_thread]);
 
             auto& model = models[n_thread];
 
@@ -159,7 +158,7 @@ TEST(AADTest, TestWithCheckpointWithMultiThreading) {
 
             double sum_val = 0.0;
             for (size_t i = 0; i < rounds_in_tasks; ++i) {
-                Number_::tape_->RewindToMark();
+                Number_::Tape()->RewindToMark();
                 Number_ res = BlackTest(model->fwd_,
                                         model->vol_,
                                         model->numeraire_,
@@ -181,7 +180,7 @@ TEST(AADTest, TestWithCheckpointWithMultiThreading) {
 
     for (size_t i = 0; i < tapes.size(); ++i) {
         if (model_init[i]) {
-            Number_::tape_ = &tapes[i];
+            Number_::SetTape(tapes[i]);
             Number_::PropagateMarkToStart();
         }
     }
@@ -200,8 +199,8 @@ TEST(AADTest, TestWithCheckpointWithMultiThreading) {
         }
     }
 
-    Number_::tape_ = mainThreadPtr;
-    Number_::tape_->Clear();
+    Number_::SetTape(*mainThreadPtr);
+    Number_::Tape()->Clear();
 
     ASSERT_NEAR(aggregated / n_rounds, 0.0714668, 1e-6);
     ASSERT_NEAR(greeks[0], 0.362002, 1e-6);

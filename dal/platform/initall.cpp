@@ -9,12 +9,13 @@
 #include <dal/time/calendars/init.hpp>
 #include <dal/currency/init.hpp>
 #include <dal/indice/parser/init.hpp>
+#include <dal/math/aad/aad.hpp>
 
 
 namespace Dal {
 
     bool RegisterAll_::init_ = false;
-    std::mutex RegisterAll_::mutex_;
+    std::mutex RegisterAll_::mutex_{};
 
     RegisterAll_::RegisterAll_() {
         std::lock_guard<std::mutex> l(mutex_);
@@ -26,6 +27,11 @@ namespace Dal {
             Calendars_::Init();
             CcyFacts_::Init();
             IndexParsers_::Init();
+
+            std::cout << "stating initialization global tape ..." << std::endl;
+            static AAD::Tape_ tape;
+            AAD::Number_::SetTape(tape);
+
             init_ = true;
             std::cout << "finished initialization global data." << std::endl;
         }
