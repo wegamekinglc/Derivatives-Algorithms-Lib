@@ -14,7 +14,7 @@ namespace Dal {
 
         // null value for floating-point types
         template <> struct FloatingPointNull<true> {
-            constexpr static float nullValue() {
+            constexpr static float nullvalue() {
                 // a specific values that should fit into any Real
                 return (std::numeric_limits<float>::max)();
             }
@@ -22,7 +22,7 @@ namespace Dal {
 
         // null value for integer types
         template <> struct FloatingPointNull<false> {
-            constexpr static int nullValue() {
+            constexpr static int nullvalue() {
                 // a specific values that should fit into any Integer
                 return (std::numeric_limits<int>::max)();
             }
@@ -37,6 +37,6 @@ namespace Dal {
     template <typename T> class Null_ {
     public:
         Null_() = default;
-        operator T() const { return T(detail::FloatingPointNull<std::is_floating_point<T>::value>::nullValue()); }
+        operator T() const { return T(detail::FloatingPointNull<std::is_floating_point<T>::value>::nullvalue()); }
     };
 } // namespace Dal

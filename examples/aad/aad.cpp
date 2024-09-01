@@ -55,11 +55,11 @@ int main() {
 
     Number_::Tape()->Clear();
 
-    Number_::Tape()->registerInput(fwd_aad);
-    Number_::Tape()->registerInput(vol_aad);
-    Number_::Tape()->registerInput(numeraire_aad);
-    Number_::Tape()->registerInput(strike_aad);
-    Number_::Tape()->registerInput(expiry_aad);
+    fwd_aad.PutOnTape();
+    vol_aad.PutOnTape();
+    numeraire_aad.PutOnTape();
+    strike_aad.PutOnTape();
+    expiry_aad.PutOnTape();
 
     timer.Reset();
     Number_ numeraire_aad_2 = numeraire_aad * 2.0;
@@ -68,15 +68,14 @@ int main() {
     price_aad.PropagateToMark();
 
     price_aad = BlackTest(fwd_aad, vol_aad, numeraire_aad_2, strike_aad, expiry_aad, is_call);
-    AAD::SetGradient(price_aad, 1.0);
     price_aad.PropagateToMark();
 
     std::cout << " DAL  AAD Mode: " << std::setprecision(8) << price_aad.value() << " with " << timer.Elapsed<milliseconds>() << " ms" << std::endl;
-    std::cout << "      dP/dFwd : " << std::setprecision(8) << AAD::GetGradient(fwd_aad) << std::endl;
-    std::cout << "      dP/dVol : " << std::setprecision(8) << AAD::GetGradient(vol_aad) << std::endl;
-    std::cout << "      dP/dNum : " << std::setprecision(8) << AAD::GetGradient(numeraire_aad) << std::endl;
-    std::cout << "      dP/dK   : " << std::setprecision(8) << AAD::GetGradient(strike_aad) << std::endl;
-    std::cout << "      dP/dT   : " << std::setprecision(8) << AAD::GetGradient(expiry_aad) << std::endl;
+    std::cout << "      dP/dFwd : " << std::setprecision(8) << fwd_aad.Adjoint() << std::endl;
+    std::cout << "      dP/dVol : " << std::setprecision(8) << vol_aad.Adjoint() << std::endl;
+    std::cout << "      dP/dNum : " << std::setprecision(8) << numeraire_aad.Adjoint() << std::endl;
+    std::cout << "      dP/dK   : " << std::setprecision(8) << strike_aad.Adjoint() << std::endl;
+    std::cout << "      dP/dT   : " << std::setprecision(8) << expiry_aad.Adjoint() << std::endl;
 
     return 0;
 }

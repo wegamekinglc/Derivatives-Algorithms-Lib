@@ -157,7 +157,7 @@ namespace Dal::AAD {
         template <size_t N_, size_t n_>
         FORCE_INLINE void PushAdjoint(TapNode_& exprNode, double adjoint) const {
             if constexpr (ARG_::numNumbers_ > 0)
-                arg_.template PushAdjoint<N_, n_>(exprNode, adjoint * OP_::Derivative(arg_.value(), value(), d_arg_));
+                arg_.template PushAdjoint<N_, n_>(exprNode, adjoint * OP_::Derivative(arg_.value(), value_, d_arg_));
         }
     };
 
@@ -514,21 +514,14 @@ namespace Dal::AAD {
 
         FORCE_INLINE void PutOnTape() { node_ = CreateMultiNode<0>(); }
 
-        double& value() { return value_; }
         [[nodiscard]] FORCE_INLINE double value() const { return value_; }
-        [[nodiscard]] FORCE_INLINE double getGradient() const { return node_->Adjoint(); }
-
-        FORCE_INLINE void setGradient(double adjoint) {
-            node_->Adjoint() = adjoint;
-        }
-
         FORCE_INLINE void ResetAdjoints() { tape_->ResetAdjoints(); }
 
-        [[nodiscard]] double Adjoint() const {
+        [[nodiscard]] FORCE_INLINE double Adjoint() const {
             return node_->Adjoint();
         }
 
-        [[nodiscard]] double& Adjoint() {
+        [[nodiscard]] FORCE_INLINE double& Adjoint() {
             return node_->Adjoint();
         }
 
@@ -561,15 +554,6 @@ namespace Dal::AAD {
 
         static void PropagateMarkToStart() {
             PropagateAdjoints(std::prev(tape_->MarkIt()), tape_->Begin());
-        }
-
-        static void evaluate(const Tape_::Position_& from, const Tape_::Position_& to) {
-            auto it = from.nodesPos_;
-            auto to_it = to.nodesPos_;
-            while (it != to_it) {
-                --it;
-                it->PropagateOne();
-            }
         }
 
         static void PropagateAdjointsMulti(Tape_::Iterator_ propagate_from, Tape_::Iterator_ propagate_to) {

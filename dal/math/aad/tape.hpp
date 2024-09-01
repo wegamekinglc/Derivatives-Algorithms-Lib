@@ -52,30 +52,11 @@ namespace Dal::AAD {
         void ResetAdjoints();
         void Clear();
 
-        void setActive();
-        void registerInput(Number_& input);
-
-        void reset();
-
         using Iterator_ = typename BlockList_<TapNode_, BLOCK_SIZE>::Iterator_;
-
-        struct Position_ {
-            BlockList_<double, ADJ_SIZE>::Iterator_ adjointsMultiPos_;
-            BlockList_<double, DATA_SIZE>::Iterator_ dersPos_;
-            BlockList_<double*, DATA_SIZE>::Iterator_ argPtrsPos_;
-            BlockList_<TapNode_, BLOCK_SIZE>::Iterator_ nodesPos_;
-        };
-
         Iterator_ Begin() { return nodes_.Begin(); }
         Iterator_ End() { return nodes_.End(); }
         Iterator_ Find(TapNode_* node) { return nodes_.Find(node); }
 
-        // api just for compatible with Codi
-        Position_ getPosition();
-        Position_ getZeroPosition();
-        void resetTo(const Position_&, bool reset_adjoints = true);
-        static void evaluate(const Position_&, const Position_&);
-        void evaluate();
         void Mark();
         void RewindToMark();
         void Rewind();

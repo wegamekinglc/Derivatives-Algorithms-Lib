@@ -32,18 +32,16 @@ f is number[]
 namespace Dal {
 
     template <class T_ = double>
-    inline T_ InterpLinearImplX(const Vector_<>& x, const Vector_<T_>& y, const T_& x0) {
+    FORCE_INLINE T_ InterpLinearImplX(const Vector_<>& x, const Vector_<T_>& y, const T_& x0) {
         auto pge = LowerBound(x, value(x0));
         if (pge == x.end())
             return y.back();
-        else if (pge == x.begin() || IsZero(x0 - *pge))
+        if (pge == x.begin() || IsZero(x0 - *pge))
             return y[pge - x.begin()];
-        else {
-            auto plt = Previous(pge);
-            const auto gFrac = value((x0 - *plt) / (*pge - *plt));
-            auto flt = y.begin() + (plt - x.begin());
-            return *flt + gFrac * (*Next(flt) - *flt);
-        }
+        auto plt = Previous(pge);
+        const auto gFrac = value((x0 - *plt) / (*pge - *plt));
+        auto flt = y.begin() + (plt - x.begin());
+        return *flt + gFrac * (*Next(flt) - *flt);
     }
 
     class BASE_EXPORT Interp1Linear_ : public Interp1_ {

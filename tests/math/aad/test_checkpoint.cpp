@@ -38,11 +38,11 @@ struct TestModel_ {
 
 auto ModelInit(TestModel_& model) {
     Number_::Tape()->Rewind();
-    Number_::Tape()->registerInput(model.fwd_);
-    Number_::Tape()->registerInput(model.vol_);
-    Number_::Tape()->registerInput(model.numeraire_);
-    Number_::Tape()->registerInput(model.strike_);
-    Number_::Tape()->registerInput(model.expiry_);
+    model.fwd_.PutOnTape();
+    model.vol_.PutOnTape();
+    model.numeraire_.PutOnTape();
+    model.strike_.PutOnTape();
+    model.expiry_.PutOnTape();
     Number_::Tape()->Mark();
 }
 
@@ -53,21 +53,18 @@ TEST(AADTest, TestWithCheckpoint) {
     Number_ s1(1.0);
     Number_ s2(2.0);
 
-    Number_::Tape()->registerInput(s1);
-    Number_::Tape()->registerInput(s2);
+    s1.PutOnTape();
+    s2.PutOnTape();
 
     Number_ s3 = s1 + s2;
-    Position_ begin = Number_::Tape()->getPosition();
+    Number_::Tape()->Mark();
     Number_ value = s3 * 2.0;
-    SetGradient(value, 1.0);
-    Evaluate(Number_::Tape(), begin);
+    value.PropagateToMark();
 
     ASSERT_NEAR(value.value(), 6.0, 1e-10);
-    ASSERT_NEAR(GetGradient(s3), 2.0, 1e-10);
-
-    ResetToPos(Number_::Tape(), begin);
-    Evaluate(Number_::Tape());
-    ASSERT_NEAR(GetGradient(s1), 2.0, 1e-10);
+    ASSERT_NEAR(s3.Adjoint(), 2.0, 1e-10);
+    Number_::PropagateMarkToStart();
+    ASSERT_NEAR(s1.Adjoint(), 2.0, 1e-10);
 }
 
 TEST(AADTest, TestWithCheckpointWithForLoop) {
@@ -79,31 +76,30 @@ TEST(AADTest, TestWithCheckpointWithForLoop) {
         Number_ s1(1.0);
         Number_ s2(2.0);
 
-        Number_::Tape()->registerInput(s1);
-        Number_::Tape()->registerInput(s2);
+        s1.PutOnTape();
+        s2.PutOnTape();
 
         Number_ s3 = s1 + s2;
-        Position_ begin = Number_::Tape()->getPosition();
+        Number_::Tape()->Mark();
         for (int i = 0; i < n; ++i) {
+            Number_::Tape()->RewindToMark();
             Number_ value;
             if (i % 2 == 0)
                 value = s3 * 1.01;
             else
                 value = s3 * 0.99;
-            SetGradient(value, 1.0);
-            Evaluate(Number_::Tape(), begin);
+            value.PropagateToMark();
             if (i % 2 == 0) {
                 ASSERT_NEAR(value.value(), 3 * 1.01, 1e-10);
-                ASSERT_NEAR(GetGradient(s3), (i + 1) / 2 * 2 + (i + 1) % 2 * 1.01, 1e-10);
+                ASSERT_NEAR(s3.Adjoint(), (i + 1) / 2 * 2 + (i + 1) % 2 * 1.01, 1e-10);
             } else {
                 ASSERT_NEAR(value.value(), 3 * 0.99, 1e-10);
-                ASSERT_NEAR(GetGradient(s3), (i + 1) / 2 * 2 + (i + 1) % 2 * 0.99, 1e-10);
+                ASSERT_NEAR(s3.Adjoint(), (i + 1) / 2 * 2 + (i + 1) % 2 * 0.99, 1e-10);
             }
-            Number_::Tape()->resetTo(begin);
         }
-        Evaluate(Number_::Tape());
-        ASSERT_NEAR(GetGradient(s1), n, 1e-10);
-        ASSERT_NEAR(GetGradient(s2), n, 1e-10);
+        Number_::PropagateMarkToStart();
+        ASSERT_NEAR(s1.Adjoint(), n, 1e-10);
+        ASSERT_NEAR(s2.Adjoint(), n, 1e-10);
     }
 }
 
@@ -191,11 +187,11 @@ TEST(AADTest, TestWithCheckpointWithMultiThreading) {
 
     for (auto k = 0; k < model_init.size(); ++k) {
         if (model_init[k]) {
-            greeks[0] += GetGradient(models[k]->fwd_) / static_cast<double>(n_rounds);
-            greeks[1] += GetGradient(models[k]->vol_) / static_cast<double>(n_rounds);
-            greeks[2] += GetGradient(models[k]->numeraire_) / static_cast<double>(n_rounds);
-            greeks[3] += GetGradient(models[k]->strike_) / static_cast<double>(n_rounds);
-            greeks[4] += GetGradient(models[k]->expiry_) / static_cast<double>(n_rounds);
+            greeks[0] += models[k]->fwd_.Adjoint() / static_cast<double>(n_rounds);
+            greeks[1] += models[k]->vol_.Adjoint() / static_cast<double>(n_rounds);
+            greeks[2] += models[k]->numeraire_.Adjoint() / static_cast<double>(n_rounds);
+            greeks[3] += models[k]->strike_.Adjoint() / static_cast<double>(n_rounds);
+            greeks[4] += models[k]->expiry_.Adjoint() / static_cast<double>(n_rounds);
         }
     }
 

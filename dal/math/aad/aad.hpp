@@ -32,42 +32,8 @@ namespace Dal::AAD {
         std::for_each(begin, end, [](Number_& n) { n.PutOnTape(); });
     }
 
-    using Position_ = typename Tape_::Position_;
-
-    FORCE_INLINE void SetGradient(Number_& res, double gradient) {
-        res.setGradient(gradient);
-    }
-
-    FORCE_INLINE double GetGradient(const Number_& res) {
-        return res.getGradient();
-    }
-
-    FORCE_INLINE void Evaluate(Tape_* tape) {
-        Tape_::evaluate(tape->getPosition(), tape->getZeroPosition());
-    }
-
-    FORCE_INLINE void Evaluate(Tape_* tape, const Position_& pos) {
-        Tape_::evaluate(tape->getPosition(), pos);
-    }
-
-    FORCE_INLINE void ResetToPos(Tape_* tape, const Position_& pos) {
-        tape->resetTo(pos, false);
-    }
-
-    FORCE_INLINE void Reset(Tape_* tape) {
-        tape->reset();
-    }
-
     FORCE_INLINE void Clear(Tape_* tape) {
         return tape->Clear();
-    }
-
-    FORCE_INLINE void SetActive(Tape_* tape) {
-        tape->setActive();
-    }
-
-    FORCE_INLINE Position_ GetPosition(Tape_& tape) {
-        return tape.getPosition();
     }
 
 } // namespace Dal

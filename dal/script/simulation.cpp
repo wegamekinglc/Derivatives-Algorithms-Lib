@@ -13,7 +13,7 @@
 namespace Dal::Script {
 
     namespace {
-        constexpr int BATCH_SIZE = 2048;
+        constexpr int BATCH_SIZE = 1024;
 
         template<class E_>
         void InitModel4ParallelAAD(const ScriptProduct_& prd,
@@ -22,10 +22,10 @@ namespace Dal::Script {
                                    E_& evaluator) {
             Number_::Tape()->Rewind();
             for (Number_* param : clonedMdl.Parameters())
-                Number_::Tape()->registerInput(*param);
+                param->PutOnTape();
 
             for (Number_& param : evaluator.ConstVarVals())
-                Number_::Tape()->registerInput(param);
+                param.PutOnTape();
 
             clonedMdl.Init(prd.TimeLine(), prd.DefLine());
             InitializePath(path);
@@ -304,17 +304,17 @@ namespace Dal::Script {
                     results.risks_[i] += s.risks_[i];
 
                 for (size_t j = 0; j < nParams; ++j)
-                    results.risks_[j] += AAD::GetGradient(*this_model->Parameters()[j]) / static_cast<double>(n_paths);
+                    results.risks_[j] += this_model->Parameters()[j]->Adjoint() / static_cast<double>(n_paths);
 
                 if (compiled) {
                     for (size_t j = 0; j < nConstVars; ++j)
-                        results.risks_[j + nParams] +=  AAD::GetGradient(evalStateVector[k].ConstVarVals()[j]) / static_cast<double>(n_paths);
+                        results.risks_[j + nParams] +=  evalStateVector[k].ConstVarVals()[j].Adjoint() / static_cast<double>(n_paths);
                 }  else if (max_nested_ifs > 0) {
                     for (size_t j = 0; j < nConstVars; ++j)
-                        results.risks_[j + nParams] +=  AAD::GetGradient(fuzzyEvalVector[k].ConstVarVals()[j]) / static_cast<double>(n_paths);
+                        results.risks_[j + nParams] +=  fuzzyEvalVector[k].ConstVarVals()[j].Adjoint() / static_cast<double>(n_paths);
                 } else {
                     for (size_t j = 0; j < nConstVars; ++j)
-                        results.risks_[j + nParams] +=  AAD::GetGradient(evalVector[k].ConstVarVals()[j]) / static_cast<double>(n_paths);
+                        results.risks_[j + nParams] += evalVector[k].ConstVarVals()[j].Adjoint() / static_cast<double>(n_paths);
                 }
             }
         }
