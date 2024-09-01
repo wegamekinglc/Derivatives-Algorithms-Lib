@@ -16,7 +16,8 @@ namespace Dal {
         Task_ t;
         while (!interrupt_) {
             queue_.Pop(t);
-            t();
+            if (!interrupt_)
+                t();
         }
     }
 
