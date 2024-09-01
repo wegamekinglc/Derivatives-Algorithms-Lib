@@ -142,7 +142,6 @@ TEST(AADTest, TestWithCheckpointWithMultiThreading) {
         loop_i += 1;
 
         futures.push_back(pool->SpawnTask([&, rounds_in_tasks]() {
-            std::cout << '\0'; // TODO: a trick to make sure thread data is ready
             const size_t n_thread = ThreadPool_::ThreadNum();
             Number_::SetTape(tapes[n_thread]);
 
