@@ -320,8 +320,6 @@ namespace Dal::Script {
         }
 
         Number_::SetTape(*mainThreadPtr);
-        Number_::Tape()->Clear();
-
         return results;
     }
 }

@@ -17,7 +17,6 @@ namespace Dal {
     using std::erfc;
     using std::log;
     using AAD::Number_;
-    FORCE_INLINE constexpr double value(double d) { return d; }
 
     using AAD::operator*;
     using AAD::operator+;
@@ -39,6 +38,5 @@ namespace Dal {
     using AAD::NPDF;
     using AAD::erfc;
     using AAD::sqrt;
-    FORCE_INLINE double value(const Number_& d) { return d.value(); }
 
 } // namespace Dal
