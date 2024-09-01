@@ -13,7 +13,7 @@
 namespace Dal::Script {
 
     namespace {
-        constexpr int BATCH_SIZE = 1024;
+        constexpr int BATCH_SIZE = 8192;
 
         template<class E_>
         void InitModel4ParallelAAD(const ScriptProduct_& prd,
@@ -207,6 +207,7 @@ namespace Dal::Script {
             auto& simEval = simEvals[loopIndex];
             loopIndex += 1;
             futures.push_back(pool->SpawnTask([&, firstPath, pathsInTask]() {
+                std::cout << '\0';  // TODO: a trick to make sure thread data is ready
                 const size_t threadNum = ThreadPool_::ThreadNum();
                 Scenario_<AAD::Number_>& path = paths[threadNum];
 

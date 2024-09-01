@@ -26,7 +26,6 @@ if [ -f "./vcpkg" ]; then
 else
   bash bootstrap-vcpkg.sh
 fi
-
 ./vcpkg install gtest
 ./vcpkg install rapidjson
 )

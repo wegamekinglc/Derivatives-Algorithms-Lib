@@ -23,13 +23,12 @@ struct SimpleModel_ {
 
 
 TEST(AADTest, TestAADMutiThread) {
-    constexpr int batch_size = 1;
-    constexpr int n_rounds = 64;
+    constexpr int batch_size = 2048;
+    constexpr int n_rounds = 100000;
     constexpr double s1 = 2.0;
     constexpr double s2 = 3.0;
 
     ThreadPool_* pool = ThreadPool_::GetInstance();
-    pool->Stop();
     const size_t n_threads = pool->NumThreads();
 
     Vector_<Tape_> tapes(n_threads + 1);
@@ -53,6 +52,7 @@ TEST(AADTest, TestAADMutiThread) {
         auto& sim_result = sim_results.back();
 
         futures.push_back(pool->SpawnTask([&, rounds_in_tasks]() {
+            std::cout << '\0';  // TODO: a trick to make sure thread data is ready
             const size_t n_thread = ThreadPool_::ThreadNum();
             Number_::SetTape(tapes[n_thread]);
             auto& model = models[n_thread];

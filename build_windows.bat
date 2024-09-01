@@ -26,6 +26,7 @@ if exist "./vcpkg.exe" (
 ) else (
     .\bootstrap-vcpkg.bat
 )
+
 .\vcpkg install gtest:x64-windows-static
 .\vcpkg install rapidjson:x64-windows-static
 
