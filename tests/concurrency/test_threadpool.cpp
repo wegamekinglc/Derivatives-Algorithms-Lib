@@ -11,7 +11,7 @@ using namespace Dal;
 
 TEST(ConcurrencyTest, TestThreadPoolStart) {
     ThreadPool_* thread_pool = ThreadPool_::GetInstance();
-    ASSERT_EQ(thread_pool->NumThreads(), std::thread::hardware_concurrency() - 1);
+    ASSERT_EQ(thread_pool->NumThreads(), 0);
 
     int n_thread = 16;
     thread_pool->Start(n_thread, true);
