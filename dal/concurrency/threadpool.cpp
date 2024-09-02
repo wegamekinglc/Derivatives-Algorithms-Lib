@@ -51,16 +51,7 @@ namespace Dal {
     }
 
     bool ThreadPool_::ActiveWait(const TaskHandle_& f) {
-        Task_ t;
-        bool b = false;
-
-        while (f.wait_for(std::chrono::seconds(0)) != std::future_status::ready) {
-            if (queue_.TryPop(t)) {
-                t();
-                b = true;
-            } else
-                f.wait();
-        }
-        return b;
+        f.wait();
+        return true;
     }
 } // namespace Dal
