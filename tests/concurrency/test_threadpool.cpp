@@ -16,5 +16,5 @@ TEST(ConcurrencyTest, TestThreadPoolStart) {
     int n_thread = 16;
     thread_pool->Start(n_thread, true);
     ASSERT_EQ(thread_pool->NumThreads(), std::min(static_cast<int>(std::thread::hardware_concurrency() - 1), n_thread));
-    thread_pool->Start(std::thread::hardware_concurrency() - 1, true);
+    thread_pool->Start(1, true);
 }
