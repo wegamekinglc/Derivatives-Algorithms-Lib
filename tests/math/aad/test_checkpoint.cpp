@@ -116,41 +116,28 @@ TEST(AADTest, TestWithCheckpointWithMultiThreading) {
     ThreadPool_* pool = ThreadPool_::GetInstance();
     const size_t n_threads = pool->NumThreads();
 
+    batch_size = std::max(batch_size, static_cast<int>(n_rounds / (n_threads + 1)) + 1);
     Vector_<TaskHandle_> futures;
     futures.reserve(n_rounds / batch_size + 1);
-    Vector_<> sim_results;
-    sim_results.reserve(n_rounds / batch_size + 1);
 
-    Vector_<bool> model_init(n_threads + 1, false);
     Vector_<AAD::Tape_> tapes(n_threads + 1);
     Tape_* mainThreadPtr = Number_::Tape();
 
-    Vector_<std::unique_ptr<TestModel_>> models(n_threads + 1);
-    for (auto& m : models)
-        m = std::make_unique<TestModel_>(fwd, vol, numeraire, strike, expiry);
-
     int first_round = 0;
     int rounds_left = n_rounds;
-    int loop_i = 0;
 
-    Vector_<> greeks(5, 0.0);
+    Vector_<> greeks(6, 0.0);
+    Vector_<Vector_<>> final_results(n_threads + 1, greeks);
 
     while (rounds_left > 0) {
         auto rounds_in_tasks = std::min(rounds_left, batch_size);
-        sim_results.emplace_back(0.0);
-        auto& sim_result = sim_results[loop_i];
-        loop_i += 1;
 
         futures.push_back(pool->SpawnTask([&, rounds_in_tasks]() {
             const size_t n_thread = ThreadPool_::ThreadNum();
             Number_::SetTape(tapes[n_thread]);
-
-            auto& model = models[n_thread];
-
-            if (!model_init[n_thread]) {
-                ModelInit(*model);
-                model_init[n_thread] = true;
-            }
+            std::unique_ptr<TestModel_> model = std::make_unique<TestModel_>(fwd, vol, numeraire, strike, expiry);
+            ModelInit(*model);
+            auto& results = final_results[n_thread];
 
             double sum_val = 0.0;
             for (size_t i = 0; i < rounds_in_tasks; ++i) {
@@ -164,45 +151,34 @@ TEST(AADTest, TestWithCheckpointWithMultiThreading) {
                 res.PropagateToMark();
                 sum_val += res.value();
             }
-            sim_result = sum_val;
+
+            Number_::PropagateMarkToStart();
+            results[0] += sum_val;
+            results[1] += model->fwd_.Adjoint() / static_cast<double>(n_rounds);
+            results[2] += model->vol_.Adjoint() / static_cast<double>(n_rounds);
+            results[3] += model->numeraire_.Adjoint() / static_cast<double>(n_rounds);
+            results[4] += model->strike_.Adjoint() / static_cast<double>(n_rounds);
+            results[5] += model->expiry_.Adjoint() / static_cast<double>(n_rounds);
             return true;
         }));
         rounds_left -= rounds_in_tasks;
         first_round += rounds_in_tasks;
     }
 
-    for (auto& future : futures)
+    for (auto& future: futures)
         pool->ActiveWait(future);
 
-    for (size_t i = 0; i < tapes.size(); ++i) {
-        if (model_init[i]) {
-            Number_::SetTape(tapes[i]);
-            Number_::PropagateMarkToStart();
-        }
-    }
-
-    double aggregated = 0.0;
-    for (const auto& s: sim_results)
-        aggregated += s;
-
-    for (auto k = 0; k < model_init.size(); ++k) {
-        if (model_init[k]) {
-            greeks[0] += models[k]->fwd_.Adjoint() / static_cast<double>(n_rounds);
-            greeks[1] += models[k]->vol_.Adjoint() / static_cast<double>(n_rounds);
-            greeks[2] += models[k]->numeraire_.Adjoint() / static_cast<double>(n_rounds);
-            greeks[3] += models[k]->strike_.Adjoint() / static_cast<double>(n_rounds);
-            greeks[4] += models[k]->expiry_.Adjoint() / static_cast<double>(n_rounds);
-        }
-    }
+    for (const auto& res: final_results)
+        for (size_t i = 0; i < greeks.size(); ++i)
+            greeks[i] += res[i];
 
     Number_::SetTape(*mainThreadPtr);
-    Number_::Tape()->Clear();
 
-    ASSERT_NEAR(aggregated / n_rounds, 0.0714668, 1e-6);
-    ASSERT_NEAR(greeks[0], 0.362002, 1e-6);
-    ASSERT_NEAR(greeks[1], 0.649225, 1e-6);
-    ASSERT_NEAR(greeks[2], 0.0714668, 1e-6);
-    ASSERT_NEAR(greeks[3], -0.242113, 1e-6);
-    ASSERT_NEAR(greeks[4], 0.0216408, 1e-6);
+    ASSERT_NEAR(greeks[0] / static_cast<double>(n_rounds), 0.0714668, 1e-6);
+    ASSERT_NEAR(greeks[1], 0.362002, 1e-6);
+    ASSERT_NEAR(greeks[2], 0.649225, 1e-6);
+    ASSERT_NEAR(greeks[3], 0.0714668, 1e-6);
+    ASSERT_NEAR(greeks[4], -0.242113, 1e-6);
+    ASSERT_NEAR(greeks[5], 0.0216408, 1e-6);
 
 }
