@@ -153,8 +153,7 @@ namespace Dal::Script {
         const size_t nThreads = pool->NumThreads();
 
         Vector_<TaskHandle_> futures;
-        const int batch_size = std::max(BATCH_SIZE, static_cast<int>(n_paths / (nThreads + 1)) + 1);
-        futures.reserve(n_paths / batch_size + 1);
+        const int batchSize = std::max(BATCH_SIZE, static_cast<int>(n_paths / (nThreads + 1)) + 1);
 
         int firstPath = 0;
         int pathsLeft = static_cast<int>(n_paths);
@@ -162,14 +161,15 @@ namespace Dal::Script {
         Vector_<AAD::Tape_> tapes(nThreads + 1);
         AAD::Tape_* mainThreadPtr = Number_::Tape();
 
-        SimResults_<AAD::Number_> res(Dal::Vector::Join(mdl.ParameterLabels(), product.ConstVarNames()));
-        Vector_<SimResults_<AAD::Number_>> sim_results(nThreads + 1, res);
+        SimResults_<AAD::Number_> values(Dal::Vector::Join(mdl.ParameterLabels(), product.ConstVarNames()));
+        Vector_<SimResults_<AAD::Number_>> simResults(nThreads + 1, values);
 
         while (pathsLeft > 0) {
-            auto pathsInTask = std::min(pathsLeft, batch_size);
+            auto pathsInTask = std::min(pathsLeft, batchSize);
             futures.push_back(pool->SpawnTask([&, firstPath, pathsInTask]() {
                 const size_t threadNum = ThreadPool_::ThreadNum();
                 Number_::SetTape(tapes[threadNum]);
+                Number_::Tape()->Rewind();
                 std::unique_ptr<AAD::Model_<AAD::Number_>> model = mdl.Clone();
                 model->Allocate(product.TimeLine(), product.DefLine());
 
@@ -182,7 +182,7 @@ namespace Dal::Script {
                 random->SkipTo(firstPath);
 
                 double sumValue = 0.0;
-                auto& results = sim_results(threadNum);
+                auto& results = simResults(threadNum);
                 if (compiled) {
                     EvalState_<AAD::Number_> evalState = product.BuildEvalState<AAD::Number_>();
                     InitModel4ParallelAAD(product, *model, path, evalState);
@@ -256,12 +256,12 @@ namespace Dal::Script {
             pool->ActiveWait(future);
 
         Number_::SetTape(*mainThreadPtr);
-        SimResults_<AAD::Number_> final_results(Dal::Vector::Join(mdl.ParameterLabels(), product.ConstVarNames()));
-        for (auto& res: sim_results) {
-            final_results.aggregated_ += res.aggregated_;
-            for (size_t j = 0; j < final_results.risks_.size(); ++j)
-                final_results.risks_[j] += res.risks_[j];
+        SimResults_<AAD::Number_> rtn(Dal::Vector::Join(mdl.ParameterLabels(), product.ConstVarNames()));
+        for (auto& res: simResults) {
+            rtn.aggregated_ += res.aggregated_;
+            for (size_t j = 0; j < rtn.risks_.size(); ++j)
+                rtn.risks_[j] += res.risks_[j];
         }
-        return final_results;
+        return rtn;
     }
 }
