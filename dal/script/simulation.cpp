@@ -204,7 +204,7 @@ namespace Dal::Script {
                     for (size_t j = 0; j < nConstVars; ++j)
                         results.risks_[j + nParams] +=  evalState.ConstVarVals()[j].Adjoint() / static_cast<double>(n_paths);
                 }
-                else if (max_nested_ifs > 0) {
+                else {
                     FuzzyEvaluator_<AAD::Number_> eval = product.BuildFuzzyEvaluator<AAD::Number_>(max_nested_ifs, eps);
                     InitModel4ParallelAAD(product, *model, path, eval);
 
@@ -225,25 +225,6 @@ namespace Dal::Script {
                     for (size_t j = 0; j < nConstVars; ++j)
                         results.risks_[j + nParams] +=  eval.ConstVarVals()[j].Adjoint() / static_cast<double>(n_paths);
 
-                } else {
-                    Evaluator_<AAD::Number_> eval = product.BuildEvaluator<AAD::Number_>();
-                    InitModel4ParallelAAD(product, *model, path, eval);
-                    for (size_t i = 0; i < pathsInTask; i++) {
-                        Number_::Tape()->RewindToMark();
-                        random->FillNormal(&gVec);
-                        model->GeneratePath(gVec, &path);
-                        product.Evaluate(path, eval);
-                        Number_ res = eval.VarVals()[payoffIndex];
-                        res.PropagateToMark();
-                        sumValue += res.value();
-                    }
-
-                    Number_::PropagateMarkToStart();
-                    for (size_t j = 0; j < nParams; ++j)
-                        results.risks_[j] += model->Parameters()[j]->Adjoint() / static_cast<double>(n_paths);
-
-                    for (size_t j = 0; j < nConstVars; ++j)
-                        results.risks_[j + nParams] +=  eval.ConstVarVals()[j].Adjoint() / static_cast<double>(n_paths);
                 }
                 results.aggregated_ += sumValue;
                 return true;
