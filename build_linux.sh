@@ -54,7 +54,7 @@ fi
 (
 cd externals/adept || exit
 autoreconf -i
-./configure CXXFLAGS="-O3" --prefix=$PWD
+./configure CXXFLAGS="-O3" --prefix=$PWD/build
 make -j"${NUM_CORES}"
 make install
 )
