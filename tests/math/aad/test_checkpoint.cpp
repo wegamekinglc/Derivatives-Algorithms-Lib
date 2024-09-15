@@ -116,18 +116,18 @@ TEST(AADTest, TestWithCheckpointWithMultiThreading) {
     ThreadPool_* pool = ThreadPool_::GetInstance();
     const size_t n_threads = pool->NumThreads();
 
-    batch_size = std::max(batch_size, static_cast<int>(n_rounds / (n_threads + 1)) + 1);
+    batch_size = std::max(batch_size, static_cast<int>(n_rounds / n_threads) + 1);
     Vector_<TaskHandle_> futures;
     futures.reserve(n_rounds / batch_size + 1);
 
-    Vector_<AAD::Tape_> tapes(n_threads + 1);
+    Vector_<AAD::Tape_> tapes(n_threads);
     Tape_* mainThreadPtr = Number_::Tape();
 
     int first_round = 0;
     int rounds_left = n_rounds;
 
     Vector_<> greeks(6, 0.0);
-    Vector_<Vector_<>> final_results(n_threads + 1, greeks);
+    Vector_<Vector_<>> final_results(n_threads, greeks);
 
     while (rounds_left > 0) {
         auto rounds_in_tasks = std::min(rounds_left, batch_size);

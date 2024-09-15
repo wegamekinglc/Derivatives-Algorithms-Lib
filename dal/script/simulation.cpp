@@ -64,12 +64,12 @@ namespace Dal::Script {
         ThreadPool_* pool = ThreadPool_::GetInstance();
         const size_t nThreads = pool->NumThreads();
 
-        Vector_<std::unique_ptr<Random_>> rngVector(nThreads + 1);
+        Vector_<std::unique_ptr<Random_>> rngVector(nThreads);
         for (auto& random : rngVector)
             random = CreateRNG(rsg, mdl->SimDim(), use_bb);
 
-        Vector_<Vector_<>> gaussVectors(nThreads + 1);
-        Vector_<Scenario_<>> paths(nThreads + 1);
+        Vector_<Vector_<>> gaussVectors(nThreads);
+        Vector_<Scenario_<>> paths(nThreads);
 
         for (auto& vec : gaussVectors)
             vec.Resize(mdl->SimDim());
@@ -79,13 +79,13 @@ namespace Dal::Script {
             InitializePath(path);
         }
 
-        Vector_<Evaluator_<double>> evalVector(nThreads + 1, product.BuildEvaluator<double>());
-        Vector_<EvalState_<double>> evalStateVector(nThreads + 1, product.BuildEvalState<double>());
+        Vector_<Evaluator_<double>> evalVector(nThreads, product.BuildEvaluator<double>());
+        Vector_<EvalState_<double>> evalStateVector(nThreads, product.BuildEvalState<double>());
 
         SimResults_<double> results;
 
         Vector_<TaskHandle_> futures;
-        const int batch_size = std::max(BATCH_SIZE, static_cast<int>(n_paths / (nThreads + 1)) + 1);
+        const int batch_size = std::max(BATCH_SIZE, static_cast<int>(n_paths / nThreads) + 1);
         futures.reserve(n_paths / batch_size + 1);
         Vector_<> simResults;
         simResults.reserve(n_paths / batch_size + 1);
@@ -153,16 +153,16 @@ namespace Dal::Script {
         const size_t nThreads = pool->NumThreads();
 
         Vector_<TaskHandle_> futures;
-        const int batchSize = std::max(BATCH_SIZE, static_cast<int>(n_paths / (nThreads + 1)) + 1);
+        const int batchSize = std::max(BATCH_SIZE, static_cast<int>(n_paths / nThreads) + 1);
 
         int firstPath = 0;
         int pathsLeft = static_cast<int>(n_paths);
         auto payoffIndex = product.PayOffIdx();
-        Vector_<AAD::Tape_> tapes(nThreads + 1);
+        Vector_<AAD::Tape_> tapes(nThreads);
         AAD::Tape_* mainThreadPtr = Number_::Tape();
 
         SimResults_<AAD::Number_> values(Dal::Vector::Join(mdl.ParameterLabels(), product.ConstVarNames()));
-        Vector_<SimResults_<AAD::Number_>> simResults(nThreads + 1, values);
+        Vector_<SimResults_<AAD::Number_>> simResults(nThreads, values);
 
         while (pathsLeft > 0) {
             auto pathsInTask = std::min(pathsLeft, batchSize);

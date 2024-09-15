@@ -18,9 +18,11 @@ namespace Dal {
     bool RegisterAll_::init_ = false;
     std::mutex RegisterAll_::mutex_{};
 
-    RegisterAll_::RegisterAll_() {
+    RegisterAll_::RegisterAll_(int n_threads) {
         std::lock_guard<std::mutex> l(mutex_);
         if (!init_) {
+            if (n_threads > 0)
+                ThreadPool_::GetInstance()->Start(n_threads, true);
             std::cout << "starting DAL with: " << ThreadPool_::GetInstance()->NumThreads() << " threads." << std::endl;
             std::cout << "use AAD framework: " << "AADET" << std::endl;
 

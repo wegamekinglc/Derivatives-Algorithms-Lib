@@ -15,23 +15,21 @@ namespace Dal {
         tlsNum_ = num;
         Task_ t;
         while (!interrupt_) {
-            queue_.Pop(t);
-            if (!interrupt_)
+            if (queue_.Pop(t))
                 t();
         }
     }
 
-    void ThreadPool_::Start(size_t nThread, bool restart) {
-        if (nThread < 0 || nThread >= std::thread::hardware_concurrency())
-            nThread = std::thread::hardware_concurrency() - 1;
+    void ThreadPool_::Start(size_t n_threads, bool restart) {
+        if (n_threads <= 0 || n_threads > std::thread::hardware_concurrency())
+            n_threads = std::thread::hardware_concurrency();
 
-        if (active_ && restart) {
+        if (active_ && restart)
             Stop();
-        }
 
         if (!active_) {
-            threads_.reserve(nThread);
-            for (size_t i = 0; i < nThread; ++i)
+            threads_.reserve(n_threads - 1);
+            for (size_t i = 0; i < n_threads - 1; ++i)
                 threads_.emplace_back(&ThreadPool_::ThreadFunc, this, i + 1);
             active_ = true;
         }

@@ -8,13 +8,13 @@
 namespace Dal {
     class RegisterAll_ {
     public:
-        static RegisterAll_& Init() {
-            static RegisterAll_ reg;
+        static RegisterAll_& Init(const int n_threads = 0) {
+            static RegisterAll_ reg{n_threads};
             return reg;
         };
 
     protected:
-        RegisterAll_();
+        explicit RegisterAll_(int n_threads);
         static bool init_;
         static std::mutex mutex_;
     };
