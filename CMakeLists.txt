@@ -98,6 +98,10 @@ include_directories("${RapidJSON_INCLUDE_DIR}")
 message("-- RapidJSON INCLUDE DIR: ${RapidJSON_INCLUDE_DIR}")
 include_directories(${CMAKE_SOURCE_DIR})
 
+message("-- ADEPT INCLUDE DIR: ${PROJECT_SOURCE_DIR}/externals/adept/include")
+include_directories("${PROJECT_SOURCE_DIR}/externals/adept/include")
+link_directories("${PROJECT_SOURCE_DIR}/externals/adept/lib")
+
 message("-- USE AAD framework: AADET")
 
 add_subdirectory(dal)

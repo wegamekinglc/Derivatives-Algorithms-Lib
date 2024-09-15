@@ -2,6 +2,7 @@
 // Created by wegam on 2020/12/21.
 //
 
+#include <adept.h>
 #include <dal/platform/platform.hpp>
 #include <dal/math/operators.hpp>
 #include <dal/math/aad/aad.hpp>
@@ -32,7 +33,7 @@ T_ BlackTest(const T_& fwd, const T_& vol, const T_& numeraire, const T_& strike
 int main() {
     Dal::RegisterAll_::Init();
 
-    int n_rounds = 1000;
+    int n_rounds = 10000000;
     double fwd = 1.00;
     double vol = 0.20;
     double numeraire = 1.0;
@@ -41,41 +42,108 @@ int main() {
     bool is_call = true;
     Timer_ timer;
 
-    timer.Reset();
-    double price;
-    for (int i = 0; i < n_rounds; ++i)
-        price = BlackTest(fwd, vol, numeraire, strike, expiry, is_call);
-    std::cout << "Normal Mode: " << std::setprecision(8) << price << " with " << timer.Elapsed<milliseconds>() << " ms" << std::endl;
+    Vector_<int> widths = {14, 14, 14, 14, 14, 14, 14, 14};
 
-    Number_ fwd_aad(fwd);
-    Number_ vol_aad(vol);
-    Number_ numeraire_aad(numeraire);
-    Number_ strike_aad(strike);
-    Number_ expiry_aad(expiry);
+    std::cout << std::setw(widths[0]) << std::left << "Method"
+              << std::setw(widths[1]) << std::right << "PV"
+              << std::setw(widths[2]) << std::right << "dP/dFwd"
+              << std::setw(widths[3]) << std::right << "dP/dVol"
+              << std::setw(widths[4]) << std::right << "dP/dNum"
+              << std::setw(widths[5]) << std::right << "dP/dK"
+              << std::setw(widths[6]) << std::right << "dP/dT"
+              << std::setw(widths[7]) << std::right << "Elapsed (ms)"
+              << std::endl;
 
-    Number_::Tape()->Clear();
+    {
+        timer.Reset();
+        double total_price = 0.0;
+        for (int i = 0; i < n_rounds; ++i)
+            total_price += BlackTest(fwd, vol, numeraire, strike, expiry, is_call);
+        const auto duration = static_cast<int>(timer.Elapsed<milliseconds>());
 
-    fwd_aad.PutOnTape();
-    vol_aad.PutOnTape();
-    numeraire_aad.PutOnTape();
-    strike_aad.PutOnTape();
-    expiry_aad.PutOnTape();
+        std::cout << std::setw(widths[0]) << std::left << "Non-AAD"
+                  << std::fixed
+                  << std::setprecision(6)
+                  << std::setw(widths[1]) << std::right << total_price / n_rounds
+                  << std::setw(widths[2]) << std::right << "#NA"
+                  << std::setw(widths[3]) << std::right << "#NA"
+                  << std::setw(widths[4]) << std::right << "#NA"
+                  << std::setw(widths[5]) << std::right << "#NA"
+                  << std::setw(widths[6]) << std::right << "#NA"
+                  << std::setw(widths[7]) << std::right << duration
+                  << std::endl;
+    }
 
-    timer.Reset();
-    Number_ numeraire_aad_2 = numeraire_aad * 2.0;
-    Number_::Tape()->Mark();
-    Number_ price_aad = BlackTest(fwd_aad, vol_aad, numeraire_aad_2, strike_aad, expiry_aad, is_call);
-    price_aad.PropagateToMark();
+    {
+        // aadet
+        Number_::Tape()->Clear();
 
-    price_aad = BlackTest(fwd_aad, vol_aad, numeraire_aad_2, strike_aad, expiry_aad, is_call);
-    price_aad.PropagateToMark();
+        timer.Reset();
+        Number_ fwd_aad(fwd);
+        Number_ vol_aad(vol);
+        Number_ numeraire_aad(numeraire);
+        Number_ strike_aad(strike);
+        Number_ expiry_aad(expiry);
 
-    std::cout << " DAL  AAD Mode: " << std::setprecision(8) << price_aad.value() << " with " << timer.Elapsed<milliseconds>() << " ms" << std::endl;
-    std::cout << "      dP/dFwd : " << std::setprecision(8) << fwd_aad.Adjoint() << std::endl;
-    std::cout << "      dP/dVol : " << std::setprecision(8) << vol_aad.Adjoint() << std::endl;
-    std::cout << "      dP/dNum : " << std::setprecision(8) << numeraire_aad.Adjoint() << std::endl;
-    std::cout << "      dP/dK   : " << std::setprecision(8) << strike_aad.Adjoint() << std::endl;
-    std::cout << "      dP/dT   : " << std::setprecision(8) << expiry_aad.Adjoint() << std::endl;
+        fwd_aad.PutOnTape();
+        vol_aad.PutOnTape();
+        numeraire_aad.PutOnTape();
+        strike_aad.PutOnTape();
+        expiry_aad.PutOnTape();
+
+        Number_  price_aad{0.0};
+        for (int i = 0; i < n_rounds; ++i) {
+            Number_::Tape()->Rewind();
+            price_aad = BlackTest(fwd_aad, vol_aad, numeraire_aad, strike_aad, expiry_aad, is_call);
+            price_aad.PropagateToStart();
+        }
+
+        const auto duration = static_cast<int>(timer.Elapsed<milliseconds>());
+        std::cout << std::setw(widths[0]) << std::left << "AADET"
+                  << std::fixed
+                  << std::setprecision(6)
+                  << std::setw(widths[1]) << std::right << price_aad.value()
+                  << std::setw(widths[2]) << std::right << fwd_aad.Adjoint() / n_rounds
+                  << std::setw(widths[3]) << std::right << vol_aad.Adjoint() / n_rounds
+                  << std::setw(widths[4]) << std::right << numeraire_aad.Adjoint() / n_rounds
+                  << std::setw(widths[5]) << std::right << strike_aad.Adjoint() / n_rounds
+                  << std::setw(widths[6]) << std::right << expiry_aad.Adjoint() / n_rounds
+                  << std::setw(widths[7]) << std::right << duration
+                  << std::endl;
+    }
+
+    {
+        adept::Stack stack;
+        using adept::adouble;
+
+        adouble fwd_aad(fwd);
+        adouble vol_aad(vol);
+        adouble numeraire_aad(numeraire);
+        adouble strike_aad(strike);
+        adouble expiry_aad(expiry);
+
+        timer.Reset();
+        adouble price_aad{0.0};
+        for (int i = 0; i < n_rounds; ++i) {
+            stack.new_recording();
+            price_aad = BlackTest(fwd_aad, vol_aad, numeraire_aad, strike_aad, expiry_aad, is_call);
+            price_aad.set_gradient(1.0);
+            stack.compute_adjoint();
+        }
+
+        const auto duration = static_cast<int>(timer.Elapsed<milliseconds>());
+        std::cout << std::setw(widths[0]) << std::left << "ADEPT"
+                  << std::fixed
+                  << std::setprecision(6)
+                  << std::setw(widths[1]) << std::right << price_aad.value()
+                  << std::setw(widths[2]) << std::right << fwd_aad.get_gradient()
+                  << std::setw(widths[3]) << std::right << vol_aad.get_gradient()
+                  << std::setw(widths[4]) << std::right << numeraire_aad.get_gradient()
+                  << std::setw(widths[5]) << std::right << strike_aad.get_gradient()
+                  << std::setw(widths[6]) << std::right << expiry_aad.get_gradient()
+                  << std::setw(widths[7]) << std::right << duration
+                  << std::endl;
+    }
 
     return 0;
 }

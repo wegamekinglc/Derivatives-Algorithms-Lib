@@ -6,6 +6,7 @@ target_link_libraries(aad dal_library)
 if(MSVC)
 else()
     target_link_libraries(aad pthread)
+    target_link_libraries(aad adept)
 endif()
 
 install(TARGETS aad

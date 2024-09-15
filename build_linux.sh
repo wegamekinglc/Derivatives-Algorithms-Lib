@@ -51,6 +51,14 @@ if [ $? -ne 0 ]; then
   exit 1
 fi
 
+(
+cd externals/adept || exit
+autoreconf -i
+./configure CXXFLAGS="-O3" --prefix=$PWD
+make -j"${NUM_CORES}"
+make install
+)
+
 rm -rf build
 mkdir -p build
 (

@@ -10,3 +10,6 @@
 [submodule "externals/xad"]
 	path = externals/xad
 	url = git@github.com:auto-differentiation/xad.git
+[submodule "externals/adept"]
+	path = externals/adept
+	url = git@github.com:rjhogan/Adept-2.git
