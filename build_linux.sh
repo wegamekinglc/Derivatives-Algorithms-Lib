@@ -54,8 +54,9 @@ fi
 (
 cd externals/adept || exit
 autoreconf -i
-./configure CXXFLAGS="-O3" --prefix=$PWD/build
+./configure --disable-openmp --prefix=$PWD/build
 make -j"${NUM_CORES}"
+make check
 make install
 )
 
