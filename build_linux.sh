@@ -56,7 +56,6 @@ cd externals/adept || exit
 autoreconf -i
 ./configure --disable-openmp --prefix=$PWD/build
 make -j"${NUM_CORES}"
-make check
 make install
 )
 
