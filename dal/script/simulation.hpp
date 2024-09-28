@@ -56,7 +56,7 @@ namespace Dal::Script {
 
     template <class T_>
     SimResults_ MCSimulation(const ScriptProduct_& product,
-                             const Handle_<AAD::ModelData_>& model_data,
+                             const Handle_<ModelData_>& model_data,
                              size_t n_paths,
                              const String_& rsg = "sobol",
                              bool use_bb = false,
@@ -68,7 +68,7 @@ namespace Dal::Script {
 
     template <>
     inline SimResults_ MCSimulation<double>(const ScriptProduct_& product,
-                             const Handle_<AAD::ModelData_>& model_data,
+                             const Handle_<ModelData_>& model_data,
                              size_t n_paths,
                              const String_& rsg,
                              bool use_bb,
@@ -158,7 +158,7 @@ namespace Dal::Script {
 
     template <>
     inline SimResults_ MCSimulation<AAD::Number_>(const ScriptProduct_& product,
-                             const Handle_<AAD::ModelData_>& model_data,
+                             const Handle_<ModelData_>& model_data,
                              size_t n_paths,
                              const String_& rsg,
                              bool use_bb,

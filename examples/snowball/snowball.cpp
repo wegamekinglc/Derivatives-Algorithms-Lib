@@ -81,7 +81,7 @@ int main() {
               << std::endl;
 
     {
-        Handle_<AAD::ModelData_> model_data(new AAD::BSModelData_("bsmodel", spot, vol, rate, div));
+        Handle_<ModelData_> model_data(new BSModelData_("bsmodel", spot, vol, rate, div));
 
         timer.Reset();
         int max_nested_ifs = product.PreProcess(false, false);
@@ -104,7 +104,7 @@ int main() {
     }
 
     {
-        Handle_<AAD::ModelData_> model_data(new AAD::BSModelData_("bsmodel", spot, vol, rate, div));
+        Handle_<ModelData_> model_data(new BSModelData_("bsmodel", spot, vol, rate, div));
 
         timer.Reset();
         int max_nested_ifs = product.PreProcess(true, true);

@@ -30,7 +30,7 @@ TEST(ScriptTest, TestBlackScholes) {
     events.push_back("call pays MAX(spot() - STRIKE, 0.0)");
 
     ScriptProduct_ product(eventDates, events);
-    Handle_<AAD::ModelData_> model_data(new AAD::BSModelData_("bsmodel", spot, vol, rate, div));
+    Handle_<ModelData_> model_data(new BSModelData_("bsmodel", spot, vol, rate, div));
 
     product.PreProcess(false, false);
     SimResults_ results = MCSimulation<double>(product, model_data, num_paths, rsg, false, false);
@@ -56,7 +56,7 @@ TEST(ScriptTest, TestBlackScholesAAD) {
     events.push_back("call pays MAX(spot() - STRIKE, 0.0)");
 
     ScriptProduct_ product(eventDates, events);
-    Handle_<AAD::ModelData_> model_data(new AAD::BSModelData_("bsmodel", spot, vol, rate, div));
+    Handle_<ModelData_> model_data(new BSModelData_("bsmodel", spot, vol, rate, div));
 
     int max_nested = product.PreProcess(false, false);
     SimResults_ results = MCSimulation<Number_>(product, model_data, num_paths, rsg, false, false, max_nested);

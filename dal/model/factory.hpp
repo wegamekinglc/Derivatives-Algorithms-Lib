@@ -22,15 +22,15 @@ namespace Dal {
     }
 
     template <class T_>
-    std::unique_ptr<AAD::Model_<T_>> CreateModel(const Handle_<AAD::ModelData_>& model_data) {
-        auto modelBSImp = dynamic_cast<const AAD::BSModelData_*>(model_data.get());
+    std::unique_ptr<AAD::Model_<T_>> CreateModel(const Handle_<ModelData_>& model_data) {
+        auto modelBSImp = dynamic_cast<const BSModelData_*>(model_data.get());
         if (modelBSImp)
             return std::make_unique<AAD::BlackScholes_<T_>>(T_(modelBSImp->spot_),
                                                      T_(modelBSImp->vol_),
                                                      T_(modelBSImp->rate_),
                                                      T_(modelBSImp->div_));
 
-        auto modelDupireImp = dynamic_cast<const AAD::DupireModelData_*>(model_data.get());
+        auto modelDupireImp = dynamic_cast<const DupireModelData_*>(model_data.get());
         if (modelDupireImp)
             return std::make_unique<AAD::Dupire_<T_>>(T_(modelDupireImp->spot_),
                                              T_(modelDupireImp->rate_),

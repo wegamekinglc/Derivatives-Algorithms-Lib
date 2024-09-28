@@ -73,7 +73,7 @@ int main() {
               << std::setw(widths[9]) << std::right << "Elapsed (ms)"
               << std::endl;
     {
-        Handle_<AAD::ModelData_> model_data(new AAD::DupireModelData_("dupiremodel",
+        Handle_<ModelData_> model_data(new DupireModelData_("dupiremodel",
                                                                       spot,
                                                                       rate,
                                                                       div,
@@ -104,7 +104,7 @@ int main() {
     }
 
     {
-        Handle_<AAD::ModelData_> model_data(new AAD::DupireModelData_("dupiremodel",
+        Handle_<ModelData_> model_data(new DupireModelData_("dupiremodel",
                                                                       spot,
                                                                       rate,
                                                                       div,

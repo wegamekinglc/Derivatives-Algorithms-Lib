@@ -10,7 +10,6 @@ namespace Dal {
 
     using AAD::Model_;
     using Script::ScriptProductData_;
-    using AAD::ModelData_;
 
     std::map<String_, double> ValueByMonteCarlo(const Handle_<ScriptProductData_>& product,
                                                 const Handle_<ModelData_>& modelData,

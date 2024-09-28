@@ -6,7 +6,7 @@
 #include <dal/platform/strict.hpp>
 #include <dal/model/blackscholes.hpp>
 
-namespace Dal::AAD {
+namespace Dal {
 #include <dal/auto/MG_BSModelData_v1_Read.inc>
 #include <dal/auto/MG_BSModelData_v1_Write.inc>
 

@@ -6,7 +6,7 @@
 #include <dal/platform/strict.hpp>
 #include <dal/model/dupire.hpp>
 
-namespace Dal::AAD {
+namespace Dal {
 #include <dal/auto/MG_DupireModelData_v1_Read.inc>
 #include <dal/auto/MG_DupireModelData_v1_Write.inc>
 

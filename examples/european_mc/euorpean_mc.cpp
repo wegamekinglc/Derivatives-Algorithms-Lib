@@ -55,7 +55,7 @@ int main() {
               << std::setw(widths[2]) << std::right << "price"
               << std::setw(widths[3]) << std::right << "benchmark";
 
-    Handle_<AAD::ModelData_> model_data(new AAD::BSModelData_("bsmodel", spot, vol, rate, div));
+    Handle_<ModelData_> model_data(new BSModelData_("bsmodel", spot, vol, rate, div));
     for (const auto& s: model_data->parameterLabels_)
         std::cout << std::setw(widths[4]) << std::right << s;
 
