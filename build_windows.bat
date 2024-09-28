@@ -80,6 +80,32 @@ if "%ADDRESS_MODEL%"=="Win64" (
   )
 )
 
+cd externals/adept
+
+if exist build (
+  rem build folder already exists.
+) else (
+  mkdir build
+)
+
+echo Starting build adept
+cd build
+if "%ADDRESS_MODEL%"=="Win64" (
+cmake -G "%MSVC_VERSION% %ADDRESS_MODEL%" -DCMAKE_BUILD_TYPE=%BUILD_TYPE% -DCMAKE_INSTALL_PREFIX=%DAL_DIR%\externals\adept\build -DMSVC_RUNTIME=%MSVC_RUNTIME% ..
+) else (
+cmake -G "%MSVC_VERSION%" -DCMAKE_BUILD_TYPE=%BUILD_TYPE% -DCMAKE_INSTALL_PREFIX=%DAL_DIR%\externals\adept\build -DMSVC_RUNTIME=%MSVC_RUNTIME% ..
+)
+if %errorlevel% neq 0 exit /b 1
+
+msbuild dal.sln /m /p:Configuration=%BUILD_TYPE% /p:Platform=%PLATFORM%
+msbuild INSTALL.vcxproj /m:%NUMBER_OF_PROCESSORS% /p:Configuration=%BUILD_TYPE% /p:Platform=%PLATFORM%
+
+if %errorlevel% neq 0 exit /b 1
+
+echo End build adept
+
+cd ../../..
+
 if exist build (
   rem build folder already exists.
 ) else (

@@ -41,11 +41,6 @@ set(DAL_INSTALL_INCLUDEDIR "include" CACHE STRING "Installation directory for he
 set(DAL_INSTALL_EXAMPLESDIR "lib/dal/examples" CACHE STRING "Installation directory for examples")
 set(DAL_INSTALL_CMAKEDIR "lib/cmake/${PACKAGE_NAME}" CACHE STRING "Installation directory for CMake scripts")
 
-if (NOT "${CMAKE_BUILD_TYPE}" STREQUAL "Debug")
-    add_definitions(-DCODI_ForcedInlines)
-    message("-- using forced inline for Codi")
-endif()
-
 # Project shared libs ON for UNIX
 if (NOT DEFINED BUILD_SHARED_LIBS)
     set(BUILD_SHARED_LIBS ${UNIX})
