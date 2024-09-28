@@ -73,19 +73,19 @@ int main() {
               << std::setw(widths[9]) << std::right << "Elapsed (ms)"
               << std::endl;
     {
-        std::unique_ptr<Model_<double>> model = std::make_unique<Dupire_<double>>(spot,
-                                                                                  rate,
-                                                                                  div,
-                                                                                  spots,
-                                                                                  times,
-                                                                                  Matrix_<double>(spots.size(),times.size(),vol),
-                                                                                  10.0);
+        Handle_<AAD::ModelData_> model_data(new AAD::DupireModelData_("dupiremodel",
+                                                                      spot,
+                                                                      rate,
+                                                                      div,
+                                                                      spots,
+                                                                      times,
+                                                                      Matrix_<double>(spots.size(),times.size(), vol)));
         timer.Reset();
 
         ScriptProduct_ product(eventDates, events);
         int max_nested_ifs = product.PreProcess(false, false);
         const int num_path = std::pow(2, 20);
-        SimResults_<double> results = MCSimulation(product, *model, num_path, String_("sobol"), false);
+        SimResults_ results = MCSimulation<double>(product, model_data, num_path, String_("sobol"), false, false);
 
         auto calculated = results.aggregated_ / static_cast<double>(num_path);
 
@@ -103,19 +103,19 @@ int main() {
     }
 
     {
-        std::unique_ptr<Model_<Real_>> model = std::make_unique<Dupire_<Real_>>(Real_(spot),
-                                                                                Real_(rate),
-                                                                                Real_(div),
-                                                                                spots,
-                                                                                times,
-                                                                                Matrix_<Real_>(spots.size(),times.size(),Real_(vol)),
-                                                                                10.0);
+        Handle_<AAD::ModelData_> model_data(new AAD::DupireModelData_("dupiremodel",
+                                                                      spot,
+                                                                      rate,
+                                                                      div,
+                                                                      spots,
+                                                                      times,
+                                                                      Matrix_<double>(spots.size(),times.size(), vol)));
         timer.Reset();
 
         ScriptProduct_ product(eventDates, events);
         int max_nested_ifs = product.PreProcess(true, true);
         const int num_path = std::pow(2, 20);
-        SimResults_<Real_> results = MCSimulation(product, *model, num_path, String_("sobol"), false, max_nested_ifs);
+        SimResults_ results = MCSimulation<Number_>(product, model_data, num_path, String_("sobol"), false, false, max_nested_ifs);
 
         auto calculated = results.aggregated_ / static_cast<double>(num_path);
         const int vol_length = 31 * 61;

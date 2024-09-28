@@ -81,12 +81,11 @@ int main() {
               << std::endl;
 
     {
-        std::unique_ptr<Model_<double>> model = std::make_unique<BlackScholes_<double>>(spot, vol, rate, div);
+        Handle_<AAD::ModelData_> model_data(new AAD::BSModelData_("bsmodel", spot, vol, rate, div));
 
         timer.Reset();
         int max_nested_ifs = product.PreProcess(false, false);
-        SimResults_<double> results =
-            MCSimulation(product, *model, num_path, String_("sobol"), false);
+        SimResults_ results = MCSimulation<double>(product, model_data, num_path, String_("sobol"), false);
 
         auto calculated = results.aggregated_ / static_cast<double>(num_path);
 
@@ -105,12 +104,11 @@ int main() {
     }
 
     {
-        std::unique_ptr<Model_<Number_>> model = std::make_unique<BlackScholes_<Number_>>(spot, vol, rate, div);
+        Handle_<AAD::ModelData_> model_data(new AAD::BSModelData_("bsmodel", spot, vol, rate, div));
 
         timer.Reset();
         int max_nested_ifs = product.PreProcess(true, true);
-        SimResults_<Number_> results =
-            MCSimulation(product, *model, num_path, String_("sobol"), false, max_nested_ifs);
+        SimResults_ results = MCSimulation<Number_>(product, model_data, num_path, String_("sobol"), false, false, max_nested_ifs);
 
         auto calculated = results.aggregated_ / static_cast<double>(num_path);
 

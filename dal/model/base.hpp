@@ -44,6 +44,8 @@ namespace Dal::AAD {
     class Slide_;
 
     struct ModelData_: public Storable_ {
+        Vector_<String_> parameterLabels_;
+
         ModelData_(const String_& type, const String_& name): Storable_(type.c_str(), name) {}
         [[nodiscard]] ModelData_* MutantModel(const String_& new_name, const Vector_<Handle_<Slide_> >& slides) const {
             std::unique_ptr<ModelData_> retval(MutantModel(&new_name, nullptr));

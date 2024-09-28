@@ -176,18 +176,18 @@ TEST(ScriptTest, TestScriptProductWithPastDate) {
     {
         Global::Dates_::SetEvaluationDate(Date_(2023, 8, 28));
         Script::ScriptProduct_ product(dates, events, "call");
-        std::unique_ptr<Model_<>> model = std::make_unique<BlackScholes_<>>(spot, vol, rate, div);
+        Handle_<AAD::ModelData_> model_data(new AAD::BSModelData_("bsmodel", spot, vol, rate, div));
         int max_nested = product.PreProcess(false, false);
-        SimResults_<> results = MCSimulation(product, *model, num_paths, rsg);
+        SimResults_ results = MCSimulation<double>(product, model_data, num_paths, rsg);
         ASSERT_NEAR(results.aggregated_, 0.0, 1e-8);
     }
 
     {
         Global::Dates_::SetEvaluationDate(Date_(2021, 8, 28));
         Script::ScriptProduct_ product(dates, events, "call");
-        std::unique_ptr<Model_<>> model = std::make_unique<BlackScholes_<>>(spot, vol, rate, div);
+        Handle_<AAD::ModelData_> model_data(new AAD::BSModelData_("bsmodel", spot, vol, rate, div));
         int max_nested = product.PreProcess(false, false);
-        SimResults_<> results = MCSimulation(product, *model, num_paths, rsg);
+        SimResults_ results = MCSimulation<double>(product, model_data, num_paths, rsg);
         ASSERT_NEAR(results.aggregated_, 100.0, 1);
     }
 }

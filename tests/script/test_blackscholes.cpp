@@ -30,10 +30,10 @@ TEST(ScriptTest, TestBlackScholes) {
     events.push_back("call pays MAX(spot() - STRIKE, 0.0)");
 
     ScriptProduct_ product(eventDates, events);
-    std::unique_ptr<Model_<>> model = std::make_unique<BlackScholes_<>>(spot, vol, rate, div);
+    Handle_<AAD::ModelData_> model_data(new AAD::BSModelData_("bsmodel", spot, vol, rate, div));
 
     product.PreProcess(false, false);
-    SimResults_<> results = MCSimulation(product, *model, num_paths, rsg, false, false);
+    SimResults_ results = MCSimulation<double>(product, model_data, num_paths, rsg, false, false);
 
     auto expected = 0.806119;
     ASSERT_NEAR(results.aggregated_ / num_paths, expected, 1e-2);
@@ -56,10 +56,10 @@ TEST(ScriptTest, TestBlackScholesAAD) {
     events.push_back("call pays MAX(spot() - STRIKE, 0.0)");
 
     ScriptProduct_ product(eventDates, events);
-    std::unique_ptr<Model_<Number_>> model = std::make_unique<BlackScholes_<Number_>>(spot, vol, rate, div);
+    Handle_<AAD::ModelData_> model_data(new AAD::BSModelData_("bsmodel", spot, vol, rate, div));
 
     int max_nested = product.PreProcess(false, false);
-    SimResults_<Number_> results = MCSimulation(product, *model, num_paths, rsg, false, max_nested);
+    SimResults_ results = MCSimulation<Number_>(product, model_data, num_paths, rsg, false, false, max_nested);
 
     ASSERT_NEAR(results.risks_[0], 0.43986485, 1e-6);
     ASSERT_NEAR(results.risks_[1], 5.38087423, 1e-4);

@@ -153,7 +153,13 @@ namespace Dal::AAD {
                      double vol,
                      double rate = 0.0,
                      double div = 0.0)
-                     : ModelData_("BSModelData_", name), spot_(spot), vol_(vol), rate_(rate), div_(div) {}
+                     : ModelData_("BSModelData_", name), spot_(spot), vol_(vol), rate_(rate), div_(div) {
+            parameterLabels_.Resize(4);
+            parameterLabels_[0] = "spot";
+            parameterLabels_[1] = "vol";
+            parameterLabels_[2] = "rate";
+            parameterLabels_[3] = "div";
+        }
 
         void Write(Archive::Store_& dst) const override;
 

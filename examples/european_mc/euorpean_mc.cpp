@@ -55,8 +55,8 @@ int main() {
               << std::setw(widths[2]) << std::right << "price"
               << std::setw(widths[3]) << std::right << "benchmark";
 
-    std::unique_ptr<Model_<Real_>> model = std::make_unique<BlackScholes_<Real_>>(spot, vol, rate, div);
-    for (const auto& s: model->ParameterLabels())
+    Handle_<AAD::ModelData_> model_data(new AAD::BSModelData_("bsmodel", spot, vol, rate, div));
+    for (const auto& s: model_data->parameterLabels_)
         std::cout << std::setw(widths[4]) << std::right << s;
 
     ScriptProduct_ product(eventDates, events, "call");
@@ -71,7 +71,7 @@ int main() {
     for (int i = 12; i <= 30; ++i) {
         timer.Reset();
         int num_paths = std::pow(2, i);
-        SimResults_<Real_> results = MCSimulation(product, *model, num_paths, rsg, false, max_nested);
+        SimResults_ results = MCSimulation<Real_>(product, model_data, num_paths, rsg, false, false, max_nested);
 
         auto calculated = results.aggregated_ / static_cast<double>(num_paths);
         std::cout << std::setw(widths[0]) << std::right << int(std::pow(2, i))
