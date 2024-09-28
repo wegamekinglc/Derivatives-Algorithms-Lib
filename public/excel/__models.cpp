@@ -52,7 +52,7 @@ model is handle ModelData
 
 
 namespace Dal {
-    using Dal::AAD::ModelData_;
+    using Dal::ModelData_;
     namespace {
         void BSModelData_New(const String_& name,
                              double spot,
