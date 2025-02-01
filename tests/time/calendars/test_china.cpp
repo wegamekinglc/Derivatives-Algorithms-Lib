@@ -135,7 +135,7 @@ TEST(ChinaCalendarTest, TestHolidays) {
         Date_(2023, 10, 1), Date_(2023, 10, 2), Date_(2023, 10, 3), Date_(2023, 10, 4), Date_(2023, 10, 5),
         Date_(2023, 10, 6),
         // China Shanghai Securities Exchange holiday list in the year 2024
-        Date_(2024, 1, 1), Date_(2024, 2, 10), Date_(2024, 2, 11), Date_(2024, 2, 12), Date_(2024, 2, 13),
+        Date_(2024, 1, 1), Date_(2024, 2, 9), Date_(2024, 2, 10), Date_(2024, 2, 11), Date_(2024, 2, 12), Date_(2024, 2, 13),
         Date_(2024, 2, 14), Date_(2024, 2, 15), Date_(2024, 2, 16), Date_(2024, 2, 17), Date_(2024, 2, 18),
         Date_(2024, 4, 4), Date_(2024, 4, 5), Date_(2024, 4, 6), Date_(2024, 4, 7), Date_(2024, 5, 1),
         Date_(2024, 5, 2), Date_(2024, 5, 3), Date_(2024, 5, 4), Date_(2024, 5, 5), Date_(2024, 6, 8),
