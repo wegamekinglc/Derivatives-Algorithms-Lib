@@ -9,7 +9,7 @@ jobs:
           submodules: recursive
       - name: Setup
         run: |
-          sudo apt install -y gcc-11 libgtest-dev libc++-dev make cmake libpython3-dev autotools-dev autoconf libtool
+          sudo apt install -y gcc-11 g++-11 libgtest-dev libc++-dev make cmake libpython3-dev autotools-dev autoconf libtool
       - name: Prepare
         env:
           CXXFLAGS: -O2
