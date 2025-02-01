@@ -2,9 +2,9 @@
 // Created by wegam on 2020/11/28.
 //
 
-#include <gtest/gtest.h>
 #include <dal/platform/platform.hpp>
 #include <dal/time/holidays.hpp>
+#include <gtest/gtest.h>
 
 using namespace Dal;
 
@@ -73,197 +73,180 @@ TEST(ChinaCalendarTest, TestCountBusDays) {
 }
 
 TEST(ChinaCalendarTest, TestHolidays) {
-    Vector_<Date_> expected_holidays{
-// China Shanghai Securities Exchange holiday list in the year 2014
-            Date_(2014, 1, 1), Date_(2014, 1, 31),
-            Date_(2014, 2, 3), Date_(2014, 2, 4), Date_(2014, 2, 5), Date_(2014, 2, 6),
-            Date_(2014, 4, 7),
-            Date_(2014, 5, 1), Date_(2014, 5, 2),
-            Date_(2014, 6, 2),
-            Date_(2014, 9, 8),
-            Date_(2014, 10, 1), Date_(2014, 10, 2), Date_(2014, 10, 3), Date_(2014, 10, 6), Date_(2014, 10, 7),
-// China Shanghai Securities Exchange holiday list in the year 2015
-            Date_(2015, 1, 1), Date_(2015, 1, 2),
-            Date_(2015, 2, 18), Date_(2015, 2, 19), Date_(2015, 2, 20), Date_(2015, 2, 23), Date_(2015, 2, 24),
-            Date_(2015, 4, 6),
-            Date_(2015, 5, 1),
-            Date_(2015, 6, 22),
-            Date_(2015, 9, 3), Date_(2015, 9, 4),
-            Date_(2015, 10, 1), Date_(2015, 10, 2), Date_(2015, 10, 5), Date_(2015, 10, 6), Date_(2015, 10, 7),
-// China Shanghai Securities Exchange holiday list in the year 2016
-            Date_(2016, 1, 1),
-            Date_(2016, 2, 8), Date_(2016, 2, 9), Date_(2016, 2, 10), Date_(2016, 2, 11), Date_(2016, 2, 12),
-            Date_(2016, 4, 4),
-            Date_(2016, 5, 2),
-            Date_(2016, 6, 9), Date_(2016, 6, 10),
-            Date_(2016, 9, 15), Date_(2016, 9, 16),
-            Date_(2016, 10, 3), Date_(2016, 10, 4), Date_(2016, 10, 5), Date_(2016, 10, 6), Date_(2016, 10, 7),
-// China Shanghai Securities Exchange holiday list in the year 2017
-            Date_(2017, 1, 1), Date_(2017, 1, 2),
-            Date_(2017, 1, 27), Date_(2017, 1, 28), Date_(2017, 1, 29), Date_(2017, 1, 30), Date_(2017, 1, 31),
-            Date_(2017, 2, 1), Date_(2017, 2, 2),
-            Date_(2017, 4, 2), Date_(2017, 4, 3), Date_(2017, 4, 4),
-            Date_(2017, 5, 1),
-            Date_(2017, 5, 28), Date_(2017, 5, 29), Date_(2017, 5, 30),
-            Date_(2017, 10, 1), Date_(2017, 10, 2), Date_(2017, 10, 3), Date_(2017, 10, 4), Date_(2017, 10, 5),
-            Date_(2017, 10, 6), Date_(2017, 10, 7), Date_(2017, 10, 8),
-// China Shanghai Securities Exchange holiday list in the year 2018
-            Date_(2018, 1, 1),
-            Date_(2018, 2, 15), Date_(2018, 2, 16), Date_(2018, 2, 17), Date_(2018, 2, 18), Date_(2018, 2, 19),
-            Date_(2018, 2, 20), Date_(2018, 2, 21),
-            Date_(2018, 4, 5), Date_(2018, 4, 6), Date_(2018, 4, 7),
-            Date_(2018, 4, 29), Date_(2018, 4, 30), Date_(2018, 5, 1),
-            Date_(2018, 6, 16), Date_(2018, 6, 17), Date_(2018, 6, 18),
-            Date_(2018, 9, 22), Date_(2018, 9, 23), Date_(2018, 9, 24),
-            Date_(2018, 10, 1), Date_(2018, 10, 2), Date_(2018, 10, 3), Date_(2018, 10, 4), Date_(2018, 10, 5),
-            Date_(2018, 10, 6), Date_(2018, 10, 7),
-// China Shanghai Securities Exchange holiday list in the year 2019
-            Date_(2019, 1, 1),
-            Date_(2019, 2, 4), Date_(2019, 2, 5), Date_(2019, 2, 6), Date_(2019, 2, 7), Date_(2019, 2, 8),
-            Date_(2019, 4, 5),
-            Date_(2019, 5, 1), Date_(2019, 5, 2), Date_(2019, 5, 3),
-            Date_(2019, 6, 7),
-            Date_(2019, 9, 13),
-            Date_(2019, 10, 1), Date_(2019, 10, 2), Date_(2019, 10, 3), Date_(2019, 10, 4), Date_(2019, 10, 5),
-            Date_(2019, 10, 6), Date_(2019, 10, 7),
-// China Shanghai Securities Exchange holiday list in the year 2020
-            Date_(2020, 1, 1),
-            Date_(2020, 1, 24), Date_(2020, 1, 25), Date_(2020, 1, 26), Date_(2020, 1, 27), Date_(2020, 1, 28),
-            Date_(2020, 1, 29), Date_(2020, 1, 30), Date_(2020, 1, 31),
-            Date_(2020, 4, 4), Date_(2020, 4, 5), Date_(2020, 4, 6),
-            Date_(2020, 5, 1), Date_(2020, 5, 2), Date_(2020, 5, 3), Date_(2020, 5, 4), Date_(2020, 5, 5),
-            Date_(2020, 6, 25), Date_(2020, 6, 26), Date_(2020, 6, 27),
-            Date_(2020, 10, 1), Date_(2020, 10, 2), Date_(2020, 10, 3), Date_(2020, 10, 4), Date_(2020, 10, 5),
-            Date_(2020, 10, 6), Date_(2020, 10, 7), Date_(2020, 10, 8),
-// China Shanghai Securities Exchange holiday list in the year 2021
-            Date_(2021, 1, 1), Date_(2021, 1, 2), Date_(2021, 1, 3),
-            Date_(2021, 2, 11), Date_(2021, 2, 12), Date_(2021, 2, 13), Date_(2021, 2, 14), Date_(2021, 2, 15),
-            Date_(2021, 2, 16), Date_(2021, 2, 17),
-            Date_(2021, 4, 3), Date_(2021, 4, 4), Date_(2021, 4, 5),
-            Date_(2021, 5, 1), Date_(2021, 5, 2), Date_(2021, 5, 3), Date_(2021, 5, 4), Date_(2021, 5, 5),
-            Date_(2021, 6, 12), Date_(2021, 6, 13), Date_(2021, 6, 14),
-            Date_(2021, 9, 19), Date_(2021, 9, 20), Date_(2021, 9, 21),
-            Date_(2021, 10, 1), Date_(2021, 10, 2), Date_(2021, 10, 3), Date_(2021, 10, 4), Date_(2021, 10, 5),
-            Date_(2021, 10, 6), Date_(2021, 10, 7),
-// China Shanghai Securities Exchange holiday list in the year 2022
-            Date_(2022, 1, 3), Date_(2022, 1, 31),
-            Date_(2022, 2, 1), Date_(2022, 2, 2), Date_(2022, 2, 3), Date_(2022, 2, 4),
-            Date_(2022, 4, 4), Date_(2022, 4, 5),
-            Date_(2022, 5, 2), Date_(2022, 5, 3), Date_(2022, 5, 4),
-            Date_(2022, 6, 3),
-            Date_(2022, 9, 12),
-            Date_(2022, 10, 3), Date_(2022, 10, 4), Date_(2022, 10, 5), Date_(2022, 10, 6), Date_(2022, 10, 7),
-// China Shanghai Securities Exchange holiday list in the year 2023
-            Date_(2023, 1, 1), Date_(2023, 1, 2),
-            Date_(2023, 1, 21), Date_(2023, 1, 22), Date_(2023, 1, 23), Date_(2023, 1, 24), Date_(2023, 1, 25),
-            Date_(2023, 1, 26), Date_(2023, 1, 27),
-            Date_(2023, 4, 5), Date_(2023, 4, 29), Date_(2023, 4, 30),
-            Date_(2023, 5, 1), Date_(2023, 5, 2), Date_(2023, 5, 3),
-            Date_(2023, 6, 22), Date_(2023, 6, 23), Date_(2023, 6, 24),
-            Date_(2023, 9, 29), Date_(2023, 9, 30),
-            Date_(2023, 10, 1), Date_(2023, 10, 2), Date_(2023, 10, 3), Date_(2023, 10, 4), Date_(2023, 10, 5),
-            Date_(2023, 10, 6),
-// China Shanghai Securities Exchange holiday list in the year 2024
-            Date_(2024, 1, 1),
-            Date_(2024, 2, 10), Date_(2024, 2, 11), Date_(2024, 2, 12), Date_(2024, 2, 13), Date_(2024, 2, 14), Date_(2024, 2, 15), Date_(2024, 2, 16), Date_(2024, 2, 17), Date_(2024, 2, 18),
-            Date_(2024, 4, 4), Date_(2024, 4, 5), Date_(2024, 4, 6), Date_(2024, 4, 7),
-            Date_(2024, 5, 1), Date_(2024, 5, 2), Date_(2024, 5, 3), Date_(2024, 5, 4), Date_(2024, 5, 5),
-            Date_(2024, 6, 8), Date_(2024, 6, 9), Date_(2024, 6, 10),
-            Date_(2024, 9, 14), Date_(2024, 9, 15), Date_(2024, 9, 16), Date_(2024, 9, 17),
-            Date_(2024, 10, 1), Date_(2024, 10, 2), Date_(2024, 10, 3), Date_(2024, 10, 4), Date_(2024, 10, 5), Date_(2024, 10, 6), Date_(2024, 10, 7)
+    const Vector_<Date_> expected_holidays{
+        // China Shanghai Securities Exchange holiday list in the year 2014
+        Date_(2014, 1, 1), Date_(2014, 1, 31), Date_(2014, 2, 3), Date_(2014, 2, 4), Date_(2014, 2, 5),
+        Date_(2014, 2, 6), Date_(2014, 4, 7), Date_(2014, 5, 1), Date_(2014, 5, 2), Date_(2014, 6, 2),
+        Date_(2014, 9, 8), Date_(2014, 10, 1), Date_(2014, 10, 2), Date_(2014, 10, 3), Date_(2014, 10, 6),
+        Date_(2014, 10, 7),
+        // China Shanghai Securities Exchange holiday list in the year 2015
+        Date_(2015, 1, 1), Date_(2015, 1, 2), Date_(2015, 2, 18), Date_(2015, 2, 19), Date_(2015, 2, 20),
+        Date_(2015, 2, 23), Date_(2015, 2, 24), Date_(2015, 4, 6), Date_(2015, 5, 1), Date_(2015, 6, 22),
+        Date_(2015, 9, 3), Date_(2015, 9, 4), Date_(2015, 10, 1), Date_(2015, 10, 2), Date_(2015, 10, 5),
+        Date_(2015, 10, 6), Date_(2015, 10, 7),
+        // China Shanghai Securities Exchange holiday list in the year 2016
+        Date_(2016, 1, 1), Date_(2016, 2, 8), Date_(2016, 2, 9), Date_(2016, 2, 10), Date_(2016, 2, 11),
+        Date_(2016, 2, 12), Date_(2016, 4, 4), Date_(2016, 5, 2), Date_(2016, 6, 9), Date_(2016, 6, 10),
+        Date_(2016, 9, 15), Date_(2016, 9, 16), Date_(2016, 10, 3), Date_(2016, 10, 4), Date_(2016, 10, 5),
+        Date_(2016, 10, 6), Date_(2016, 10, 7),
+        // China Shanghai Securities Exchange holiday list in the year 2017
+        Date_(2017, 1, 1), Date_(2017, 1, 2), Date_(2017, 1, 27), Date_(2017, 1, 28), Date_(2017, 1, 29),
+        Date_(2017, 1, 30), Date_(2017, 1, 31), Date_(2017, 2, 1), Date_(2017, 2, 2), Date_(2017, 4, 2),
+        Date_(2017, 4, 3), Date_(2017, 4, 4), Date_(2017, 5, 1), Date_(2017, 5, 28), Date_(2017, 5, 29),
+        Date_(2017, 5, 30), Date_(2017, 10, 1), Date_(2017, 10, 2), Date_(2017, 10, 3), Date_(2017, 10, 4),
+        Date_(2017, 10, 5), Date_(2017, 10, 6), Date_(2017, 10, 7), Date_(2017, 10, 8),
+        // China Shanghai Securities Exchange holiday list in the year 2018
+        Date_(2018, 1, 1), Date_(2018, 2, 15), Date_(2018, 2, 16), Date_(2018, 2, 17), Date_(2018, 2, 18),
+        Date_(2018, 2, 19), Date_(2018, 2, 20), Date_(2018, 2, 21), Date_(2018, 4, 5), Date_(2018, 4, 6),
+        Date_(2018, 4, 7), Date_(2018, 4, 29), Date_(2018, 4, 30), Date_(2018, 5, 1), Date_(2018, 6, 16),
+        Date_(2018, 6, 17), Date_(2018, 6, 18), Date_(2018, 9, 22), Date_(2018, 9, 23), Date_(2018, 9, 24),
+        Date_(2018, 10, 1), Date_(2018, 10, 2), Date_(2018, 10, 3), Date_(2018, 10, 4), Date_(2018, 10, 5),
+        Date_(2018, 10, 6), Date_(2018, 10, 7),
+        // China Shanghai Securities Exchange holiday list in the year 2019
+        Date_(2019, 1, 1), Date_(2019, 2, 4), Date_(2019, 2, 5), Date_(2019, 2, 6), Date_(2019, 2, 7),
+        Date_(2019, 2, 8), Date_(2019, 4, 5), Date_(2019, 5, 1), Date_(2019, 5, 2), Date_(2019, 5, 3),
+        Date_(2019, 6, 7), Date_(2019, 9, 13), Date_(2019, 10, 1), Date_(2019, 10, 2), Date_(2019, 10, 3),
+        Date_(2019, 10, 4), Date_(2019, 10, 5), Date_(2019, 10, 6), Date_(2019, 10, 7),
+        // China Shanghai Securities Exchange holiday list in the year 2020
+        Date_(2020, 1, 1), Date_(2020, 1, 24), Date_(2020, 1, 25), Date_(2020, 1, 26), Date_(2020, 1, 27),
+        Date_(2020, 1, 28), Date_(2020, 1, 29), Date_(2020, 1, 30), Date_(2020, 1, 31), Date_(2020, 4, 4),
+        Date_(2020, 4, 5), Date_(2020, 4, 6), Date_(2020, 5, 1), Date_(2020, 5, 2), Date_(2020, 5, 3),
+        Date_(2020, 5, 4), Date_(2020, 5, 5), Date_(2020, 6, 25), Date_(2020, 6, 26), Date_(2020, 6, 27),
+        Date_(2020, 10, 1), Date_(2020, 10, 2), Date_(2020, 10, 3), Date_(2020, 10, 4), Date_(2020, 10, 5),
+        Date_(2020, 10, 6), Date_(2020, 10, 7), Date_(2020, 10, 8),
+        // China Shanghai Securities Exchange holiday list in the year 2021
+        Date_(2021, 1, 1), Date_(2021, 1, 2), Date_(2021, 1, 3), Date_(2021, 2, 11), Date_(2021, 2, 12),
+        Date_(2021, 2, 13), Date_(2021, 2, 14), Date_(2021, 2, 15), Date_(2021, 2, 16), Date_(2021, 2, 17),
+        Date_(2021, 4, 3), Date_(2021, 4, 4), Date_(2021, 4, 5), Date_(2021, 5, 1), Date_(2021, 5, 2),
+        Date_(2021, 5, 3), Date_(2021, 5, 4), Date_(2021, 5, 5), Date_(2021, 6, 12), Date_(2021, 6, 13),
+        Date_(2021, 6, 14), Date_(2021, 9, 19), Date_(2021, 9, 20), Date_(2021, 9, 21), Date_(2021, 10, 1),
+        Date_(2021, 10, 2), Date_(2021, 10, 3), Date_(2021, 10, 4), Date_(2021, 10, 5), Date_(2021, 10, 6),
+        Date_(2021, 10, 7),
+        // China Shanghai Securities Exchange holiday list in the year 2022
+        Date_(2022, 1, 3), Date_(2022, 1, 31), Date_(2022, 2, 1), Date_(2022, 2, 2), Date_(2022, 2, 3),
+        Date_(2022, 2, 4), Date_(2022, 4, 4), Date_(2022, 4, 5), Date_(2022, 5, 2), Date_(2022, 5, 3),
+        Date_(2022, 5, 4), Date_(2022, 6, 3), Date_(2022, 9, 12), Date_(2022, 10, 3), Date_(2022, 10, 4),
+        Date_(2022, 10, 5), Date_(2022, 10, 6), Date_(2022, 10, 7),
+        // China Shanghai Securities Exchange holiday list in the year 2023
+        Date_(2023, 1, 1), Date_(2023, 1, 2), Date_(2023, 1, 21), Date_(2023, 1, 22), Date_(2023, 1, 23),
+        Date_(2023, 1, 24), Date_(2023, 1, 25), Date_(2023, 1, 26), Date_(2023, 1, 27), Date_(2023, 4, 5),
+        Date_(2023, 4, 29), Date_(2023, 4, 30), Date_(2023, 5, 1), Date_(2023, 5, 2), Date_(2023, 5, 3),
+        Date_(2023, 6, 22), Date_(2023, 6, 23), Date_(2023, 6, 24), Date_(2023, 9, 29), Date_(2023, 9, 30),
+        Date_(2023, 10, 1), Date_(2023, 10, 2), Date_(2023, 10, 3), Date_(2023, 10, 4), Date_(2023, 10, 5),
+        Date_(2023, 10, 6),
+        // China Shanghai Securities Exchange holiday list in the year 2024
+        Date_(2024, 1, 1), Date_(2024, 2, 10), Date_(2024, 2, 11), Date_(2024, 2, 12), Date_(2024, 2, 13),
+        Date_(2024, 2, 14), Date_(2024, 2, 15), Date_(2024, 2, 16), Date_(2024, 2, 17), Date_(2024, 2, 18),
+        Date_(2024, 4, 4), Date_(2024, 4, 5), Date_(2024, 4, 6), Date_(2024, 4, 7), Date_(2024, 5, 1),
+        Date_(2024, 5, 2), Date_(2024, 5, 3), Date_(2024, 5, 4), Date_(2024, 5, 5), Date_(2024, 6, 8),
+        Date_(2024, 6, 9), Date_(2024, 6, 10), Date_(2024, 9, 14), Date_(2024, 9, 15), Date_(2024, 9, 16),
+        Date_(2024, 9, 17), Date_(2024, 10, 1), Date_(2024, 10, 2), Date_(2024, 10, 3), Date_(2024, 10, 4),
+        Date_(2024, 10, 5), Date_(2024, 10, 6), Date_(2024, 10, 7),
+        // China Shanghai Securities Exchange holiday list in the year 2025
+        Date_(2025, 1, 1), Date_(2025, 1, 28), Date_(2025, 1, 29), Date_(2025, 1, 30), Date_(2025, 1, 31),
+        Date_(2025, 2, 1), Date_(2025, 2, 2), Date_(2025, 2, 3), Date_(2025, 2, 4), Date_(2025, 4, 4),
+        Date_(2025, 4, 5), Date_(2025, 4, 6), Date_(2025, 5, 1), Date_(2025, 5, 2), Date_(2025, 5, 3),
+        Date_(2025, 5, 4), Date_(2025, 5, 5), Date_(2025, 5, 31), Date_(2025, 6, 1), Date_(2025, 6, 2),
+        Date_(2025, 10, 1), Date_(2025, 10, 2), Date_(2025, 10, 3), Date_(2025, 10, 4), Date_(2025, 10, 5),
+        Date_(2025, 10, 6), Date_(2025, 10, 7), Date_(2025, 10, 8)
     };
 
-    Holidays_ hol("CN.SSE");
+    const Holidays_ hol("CN.SSE");
 
-    for (auto date: expected_holidays) {
+    for (auto date : expected_holidays)
         ASSERT_TRUE(hol.IsHoliday(date) || Date::IsWeekEnd(date));
-    }
 }
 
 TEST(ChinaCalendarTest, TestIBWorkingWeekEnds) {
-    Vector_<Date_> expected_ib_working_ends{
-            Date_(2014, 1, 26),
-            Date_(2014, 2, 8),
-            Date_(2014, 5, 4),
-            Date_(2014, 9, 28),
-            Date_(2014, 10, 11),
-// China Inter Bank working weekend list in the year 2015
-            Date_(2015, 1, 4),
-            Date_(2015, 2, 15),
-            Date_(2015, 2, 28),
-            Date_(2015, 9, 6),
-            Date_(2015, 10, 10),
-// China Inter Bank working weekend list in the year 2016
-            Date_(2016, 2, 6),
-            Date_(2016, 2, 14),
-            Date_(2016, 6, 12),
-            Date_(2016, 9, 18),
-            Date_(2016, 10, 8),
-            Date_(2016, 10, 9),
-// China Inter Bank working weekend list in the year 2017
-            Date_(2017, 1, 22),
-            Date_(2017, 2, 4),
-            Date_(2017, 4, 1),
-            Date_(2017, 5, 27),
-            Date_(2017, 9, 30),
-// China Inter Bank working weekend list in the year 2018
-            Date_(2018, 2, 11),
-            Date_(2018, 2, 24),
-            Date_(2018, 4, 8),
-            Date_(2018, 4, 28),
-            Date_(2018, 9, 29),
-            Date_(2018, 9, 30),
-// China Inter Bank working weekend list in the year 2019
-            Date_(2019, 2, 2),
-            Date_(2019, 2, 3),
-            Date_(2019, 4, 28),
-            Date_(2019, 5, 5),
-            Date_(2019, 9, 29),
-            Date_(2019, 10, 12),
-// China Inter Bank working weekend list in the year 2020
-            Date_(2020, 1, 19),
-            Date_(2020, 4, 26),
-            Date_(2020, 5, 9),
-            Date_(2020, 6, 28),
-            Date_(2020, 9, 27),
-            Date_(2020, 10, 10),
-// China Inter Bank working weekend list in the year 2021
-            Date_(2021, 2, 7),
-            Date_(2021, 2, 20),
-            Date_(2021, 4, 25),
-            Date_(2021, 5, 8),
-            Date_(2021, 9, 18),
-            Date_(2021, 9, 26),
-            Date_(2021, 10, 9),
-// China Inter Bank working weekend list in the year 2022
-            Date_(2022, 1, 29),
-            Date_(2022, 1, 30),
-            Date_(2022, 4, 2),
-            Date_(2022, 4, 24),
-            Date_(2022, 5, 7),
-            Date_(2022, 10, 8),
-            Date_(2022, 10, 9),
-// China Inter Bank working weekend list in the year 2023
-            Date_(2023, 1, 28),
-            Date_(2023, 1, 29),
-            Date_(2023, 4, 23),
-            Date_(2023, 5, 6),
-            Date_(2023, 6, 25),
-            Date_(2023, 10, 7),
-            Date_(2023, 10, 8),
-// China Inter Bank working weekend list in the year 2024
-            Date_(2024, 2, 4),
-            Date_(2024, 2, 18),
-            Date_(2024, 4, 7),
-            Date_(2024, 4, 28),
-            Date_(2024, 5, 11),
-            Date_(2024, 9, 14),
-            Date_(2024, 9, 29),
-            Date_(2024, 10, 12)
+    const Vector_<Date_> expected_ib_working_ends{
+        Date_(2014, 1, 26),
+        Date_(2014, 2, 8),
+        Date_(2014, 5, 4),
+        Date_(2014, 9, 28),
+        Date_(2014, 10, 11),
+        // China Inter Bank working weekend list in the year 2015
+        Date_(2015, 1, 4),
+        Date_(2015, 2, 15),
+        Date_(2015, 2, 28),
+        Date_(2015, 9, 6),
+        Date_(2015, 10, 10),
+        // China Inter Bank working weekend list in the year 2016
+        Date_(2016, 2, 6),
+        Date_(2016, 2, 14),
+        Date_(2016, 6, 12),
+        Date_(2016, 9, 18),
+        Date_(2016, 10, 8),
+        Date_(2016, 10, 9),
+        // China Inter Bank working weekend list in the year 2017
+        Date_(2017, 1, 22),
+        Date_(2017, 2, 4),
+        Date_(2017, 4, 1),
+        Date_(2017, 5, 27),
+        Date_(2017, 9, 30),
+        // China Inter Bank working weekend list in the year 2018
+        Date_(2018, 2, 11),
+        Date_(2018, 2, 24),
+        Date_(2018, 4, 8),
+        Date_(2018, 4, 28),
+        Date_(2018, 9, 29),
+        Date_(2018, 9, 30),
+        // China Inter Bank working weekend list in the year 2019
+        Date_(2019, 2, 2),
+        Date_(2019, 2, 3),
+        Date_(2019, 4, 28),
+        Date_(2019, 5, 5),
+        Date_(2019, 9, 29),
+        Date_(2019, 10, 12),
+        // China Inter Bank working weekend list in the year 2020
+        Date_(2020, 1, 19),
+        Date_(2020, 4, 26),
+        Date_(2020, 5, 9),
+        Date_(2020, 6, 28),
+        Date_(2020, 9, 27),
+        Date_(2020, 10, 10),
+        // China Inter Bank working weekend list in the year 2021
+        Date_(2021, 2, 7),
+        Date_(2021, 2, 20),
+        Date_(2021, 4, 25),
+        Date_(2021, 5, 8),
+        Date_(2021, 9, 18),
+        Date_(2021, 9, 26),
+        Date_(2021, 10, 9),
+        // China Inter Bank working weekend list in the year 2022
+        Date_(2022, 1, 29),
+        Date_(2022, 1, 30),
+        Date_(2022, 4, 2),
+        Date_(2022, 4, 24),
+        Date_(2022, 5, 7),
+        Date_(2022, 10, 8),
+        Date_(2022, 10, 9),
+        // China Inter Bank working weekend list in the year 2023
+        Date_(2023, 1, 28),
+        Date_(2023, 1, 29),
+        Date_(2023, 4, 23),
+        Date_(2023, 5, 6),
+        Date_(2023, 6, 25),
+        Date_(2023, 10, 7),
+        Date_(2023, 10, 8),
+        // China Inter Bank working weekend list in the year 2024
+        Date_(2024, 2, 4),
+        Date_(2024, 2, 18),
+        Date_(2024, 4, 7),
+        Date_(2024, 4, 28),
+        Date_(2024, 5, 11),
+        Date_(2024, 9, 14),
+        Date_(2024, 9, 29),
+        Date_(2024, 10, 12),
+        // China Inter Bank working weekend list in the year 2025
+        Date_(2025, 1, 26),
+        Date_(2025, 2, 8),
+        Date_(2025, 4, 27),
+        Date_(2025, 9, 28),
+        Date_(2025, 10, 11),
     };
 
-    Holidays_ hol("CN.IB");
+    const Holidays_ hol("CN.IB");
 
-    for (auto date: expected_ib_working_ends)
+    for (auto date : expected_ib_working_ends)
         ASSERT_TRUE(hol.IsWorkWeekends(date));
 }
