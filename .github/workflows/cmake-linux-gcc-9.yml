@@ -9,7 +9,7 @@ jobs:
           submodules: recursive
       - name: Setup
         run: |
-          sudo apt install -y g++-9 libgtest-dev libc++-dev make cmake libpython3-dev autotools-dev autoconf libtool
+          sudo apt install -y g++-9 libgtest-dev libc++-dev make cmake libpython3-dev autotools-dev autoconf libtool lcov
       - name: Prepare
         env:
           CXXFLAGS: -O2
@@ -17,9 +17,6 @@ jobs:
           CXX: g++-9
         run: |
           sudo ln -sf /usr/bin/gcov-9 /usr/bin/gcov
-          sudo ln -sf /usr/bin/gcov-9 /usr/bin/gcov
-          wget http://mirrors.edge.kernel.org/ubuntu//pool/universe/l/lcov/lcov_1.16-1_all.deb
-          sudo dpkg -i lcov_1.16-1_all.deb || sudo apt-get install -f -y
           export CWD=$PWD
           mkdir gtest
           cp -r /usr/src/gtest/* gtest/
