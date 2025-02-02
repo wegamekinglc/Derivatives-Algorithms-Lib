@@ -6,7 +6,7 @@
 
 namespace Dal::China {
     namespace SSE {
-        static const Vector_<Date_> holidays = {
+        static const Vector_<Date_> HOLIDAYS = {
                 Date_(2005, 1, 3), Date_(2005, 2, 7), Date_(2005, 2, 8), Date_(2005, 2, 9), Date_(2005, 2, 10),
                 Date_(2005, 2, 11), Date_(2005, 2, 14), Date_(2005, 2, 15), Date_(2005, 5, 2), Date_(2005, 5, 3),
                 Date_(2005, 5, 4), Date_(2005, 5, 5), Date_(2005, 5, 6), Date_(2005, 10, 3), Date_(2005, 10, 4),
@@ -92,7 +92,7 @@ namespace Dal::China {
     }
 
     namespace IB {
-        static const Vector_<Date_> workWeekends = {
+        static const Vector_<Date_> WORK_WEEKENDS = {
                 Date_(2005, 2, 5), Date_(2005, 2, 6), Date_(2005, 4, 30), Date_(2005, 5, 8), Date_(2005, 10, 8),
                 Date_(2005, 10, 9), Date_(2005, 12, 31), Date_(2006, 1, 28), Date_(2006, 4, 29), Date_(2006, 4, 30),
                 Date_(2006, 9, 30), Date_(2006, 12, 30), Date_(2006, 12, 31), Date_(2007, 2, 17),

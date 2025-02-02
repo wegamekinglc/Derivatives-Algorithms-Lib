@@ -249,4 +249,6 @@ TEST(ChinaCalendarTest, TestIBWorkingWeekEnds) {
 
     for (auto date : expected_ib_working_ends)
         ASSERT_TRUE(hol.IsWorkWeekends(date));
+
+    ASSERT_FALSE(hol.IsHoliday(Date_(2024, 2, 9)));
 }
