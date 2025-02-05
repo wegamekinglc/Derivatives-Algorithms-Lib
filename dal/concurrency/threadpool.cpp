@@ -3,6 +3,7 @@
 //
 
 #include <functional>
+#include <algorithm>
 #include <dal/platform/strict.hpp>
 #include <dal/concurrency/threadpool.hpp>
 
