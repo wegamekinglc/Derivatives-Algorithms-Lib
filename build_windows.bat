@@ -7,6 +7,7 @@ call :set_variable MSVC_RUNTIME static %MSVC_RUNTIME%
 call :set_variable MSVC_VERSION "Visual Studio 17 2022" %MSVC_VERSION%
 call :set_variable SKIP_TESTS false %SKIP_TESTS%
 call :set_variable CMAKE_TOOLCHAIN_FILE "%CD%/externals/vcpkg/scripts/buildsystems/vcpkg.cmake" %CMAKE_TOOLCHAIN_FILE%
+call :set_variable VCPKG_TARGET_TRIPLET "x64-windows-static" %VCPKG_TARGET_TRIPLET
 
 echo BUILD_TYPE:  %BUILD_TYPE%
 echo DAL_DIR: %DAL_DIR%
@@ -14,7 +15,7 @@ echo ADDRESS_MODEL: %ADDRESS_MODEL%
 echo MSVC_RUNTIME: %MSVC_RUNTIME%
 echo MSVC_VERSION: %MSVC_VERSION%
 echo SKIP_TESTS: %SKIP_TESTS%
-echo CMAKE_TOOLCHAIN_FILE: %CMAKE_TOOLCHAIN_FILE%
+echo VCPKG_TARGET_TRIPLET: %VCPKG_TARGET_TRIPLET%
 
 git submodule init
 git submodule update
@@ -27,8 +28,8 @@ if exist "./vcpkg.exe" (
     .\bootstrap-vcpkg.bat
 )
 
-.\vcpkg install gtest:x64-windows-static
-.\vcpkg install rapidjson:x64-windows-static
+.\vcpkg install gtest:%VCPKG_TARGET_TRIPLET%
+.\vcpkg install rapidjson:%VCPKG_TARGET_TRIPLET%
 
 if %errorlevel% neq 0 exit /b 1
 cd ../..
@@ -114,9 +115,9 @@ if exist build (
 
 cd build
 if "%ADDRESS_MODEL%"=="Win64" (
-cmake -G "%MSVC_VERSION% %ADDRESS_MODEL%" -DCMAKE_BUILD_TYPE=%BUILD_TYPE% -DCMAKE_INSTALL_PREFIX=%DAL_DIR% -DMSVC_RUNTIME=%MSVC_RUNTIME% -DSKIP_TESTS=%SKIP_TESTS% -DCMAKE_TOOLCHAIN_FILE=%CMAKE_TOOLCHAIN_FILE% -DVCPKG_TARGET_TRIPLET=x64-windows-static ..
+cmake -G "%MSVC_VERSION% %ADDRESS_MODEL%" --preset %BUILD_TYPE%-windows -DCMAKE_BUILD_TYPE=%BUILD_TYPE%  -DMSVC_RUNTIME=%MSVC_RUNTIME% -DSKIP_TESTS=%SKIP_TESTS% -DVCPKG_TARGET_TRIPLET=%VCPKG_TARGET_TRIPLET% ..
 ) else (
-cmake -G "%MSVC_VERSION%" -DCMAKE_BUILD_TYPE=%BUILD_TYPE% -DCMAKE_INSTALL_PREFIX=%DAL_DIR% -DMSVC_RUNTIME=%MSVC_RUNTIME% -DSKIP_TESTS=%SKIP_TESTS% -DCMAKE_TOOLCHAIN_FILE=%CMAKE_TOOLCHAIN_FILE% -DVCPKG_TARGET_TRIPLET=x64-windows-static ..
+cmake -G "%MSVC_VERSION%" --preset %BUILD_TYPE%-windows -DCMAKE_BUILD_TYPE=%BUILD_TYPE% -DMSVC_RUNTIME=%MSVC_RUNTIME% -DSKIP_TESTS=%SKIP_TESTS% -DVCPKG_TARGET_TRIPLET=%VCPKG_TARGET_TRIPLET% ..
 )
 
 if %errorlevel% neq 0 exit /b 1
