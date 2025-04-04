@@ -2,8 +2,6 @@
 // Created by wegam on 2023/2/18.
 //
 
-#include <dal/platform/platform.hpp>
-
 #include <dal/math/aad/expr.hpp>
 #include <dal/math/aad/tape.hpp>
 

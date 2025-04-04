@@ -11,6 +11,7 @@
  */
 
 #pragma once
+#include <memory>
 #include <dal/math/aad/expr.hpp>
 
 namespace Dal::AAD {

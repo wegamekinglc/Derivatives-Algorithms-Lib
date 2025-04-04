@@ -12,8 +12,10 @@
 
 #pragma once
 
+#include <cmath>
 #include <algorithm>
 #include <iostream>
+#include <dal/platform/consts.hpp>
 
 namespace Dal::AAD {
     class TapNode_ {
@@ -38,7 +40,7 @@ namespace Dal::AAD {
         double& Adjoint(size_t n) { return pAdjoints_[n]; }
 
         void PropagateOne() {
-            if (!n_ || fabs(adjoint_) <= Dal::EPSILON)
+            if (!n_ || std::abs(adjoint_) <= Dal::EPSILON)
                 return;
 
             for (size_t i = 0; i < n_; ++i)

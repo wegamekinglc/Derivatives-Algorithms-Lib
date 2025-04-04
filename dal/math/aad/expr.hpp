@@ -5,7 +5,7 @@
 #pragma once
 
 #include <mutex>
-#include <dal/platform/platform.hpp>
+#include <dal/platform/host.hpp>
 #include <dal/math/aad/tape.hpp>
 #include <dal/math/specialfunctions.hpp>
 

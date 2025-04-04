@@ -18,7 +18,7 @@ namespace Dal::AAD {
             double end_;
             String_ curve_;
 
-            RateDef_(double s, double e, String_ c) : start_(s), end_(e), curve_(std::move(c)) {}
+            RateDef_(const double s, const double e, String_ c) : start_(s), end_(e), curve_(std::move(c)) {}
         };
 
         bool numeraire_ = true;
