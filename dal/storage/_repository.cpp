@@ -38,18 +38,18 @@ namespace Dal {
         }
     } // namespace
 
-    String_ ObjectAccess_::AddBase(const Handle_<Storable_>& s, const RepositoryErase_& erase) {
-        const String_ ticker = BaseTag(*s);
+    String_ ObjectAccess_::AddBase(const Handle_<Storable_>& object, const RepositoryErase_& erase) {
+        const String_ ticker = BaseTag(*object);
         switch (erase.Switch()) {
         case RepositoryErase_::Value_::NAME_NONEMPTY:
-            if (s->name_.empty())
+            if (object->name_.empty())
                 break;
             // else fall through
         case RepositoryErase_::Value_::NAME:
             EraseByStart(ticker); // squash anything with this name
             break;
         case RepositoryErase_::Value_::TYPE:
-            EraseByStart(TypeTag(*s)); // squash anything with this type
+            EraseByStart(TypeTag(*object)); // squash anything with this type
             break;
         case RepositoryErase_::Value_::_NOT_SET:
         case RepositoryErase_::Value_::NONE:
@@ -58,8 +58,8 @@ namespace Dal {
         }
         // call to LOCK_OBJECTS must be after EraseByStart, because that will also acquire the lock
         LOCK_OBJECTS;
-        const String_ retval = ticker + Uniquifier(*s);
-        TheObjects().insert(make_pair(retval, s));
+        const String_ retval = ticker + Uniquifier(*object);
+        TheObjects().insert(make_pair(retval, object));
         return retval;
     }
 

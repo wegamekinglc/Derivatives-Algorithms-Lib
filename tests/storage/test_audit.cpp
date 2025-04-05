@@ -10,7 +10,7 @@
 
 using namespace Dal;
 
-TEST(AuditTest, TestAudit) {
+TEST(StorageTest, TestAudit) {
     AuditorImp_ auditor;
     ENV_SEED(auditor);
     auditor.mode_ = AuditorImp_::READING;

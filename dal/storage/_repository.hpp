@@ -31,7 +31,7 @@ namespace Dal {
 
 #include <dal/auto/MG_RepositoryErase_enum.hpp>
 
-    class ObjectAccess_ : public Environment::Entry_ {
+    class ObjectAccess_ : public Environment::Entry_  {
         [[nodiscard]] static String_ AddBase(const Handle_<Storable_>& object, const RepositoryErase_& erase);
 
     public:

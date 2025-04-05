@@ -10,7 +10,7 @@
 
 using namespace Dal;
 
-TEST(BagTest, TestBag) {
+TEST(StorageTest, TestBag) {
     Vector_<> x = {1., 2., 3., 4., 5.};
     Vector_<> f = {2.5, 3.5, 1.7, 2.8, 3.6};
 

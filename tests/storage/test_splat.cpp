@@ -11,7 +11,7 @@
 
 using namespace Dal;
 
-TEST(SplatTest, TestSplatAndUnSplat) {
+TEST(StorageTest, TestSplatAndUnSplat) {
     Vector_<> x = {1., 2., 3., 4., 5.};
     Vector_<> f = {2.5, 3.5, 1.7, 2.8, 3.6};
 
@@ -24,7 +24,7 @@ TEST(SplatTest, TestSplatAndUnSplat) {
     ASSERT_EQ(f, val->f());
 }
 
-TEST(SplatTest, TestSplatFileAndUnSplatFile) {
+TEST(StorageTest, TestSplatFileAndUnSplatFile) {
     Vector_<> x = {1., 2., 3., 4., 5.};
     Vector_<> f = {2.5, 3.5, 1.7, 2.8, 3.6};
 

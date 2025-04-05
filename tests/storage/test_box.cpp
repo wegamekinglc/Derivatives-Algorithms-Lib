@@ -10,7 +10,7 @@
 
 using namespace Dal;
 
-TEST(BoxTest, TestBox) {
+TEST(StorageTest, TestBox) {
     Matrix_<Cell_> mat(2, 3);
     mat(0, 0) = 1.0;
     mat(0, 1) = String_("hello");

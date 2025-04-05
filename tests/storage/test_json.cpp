@@ -11,7 +11,7 @@
 
 using namespace Dal;
 
-TEST(JsonTest, TestJSONStore) {
+TEST(StorageTest, TestJSONStore) {
     Vector_<> x = {1.0, 2.0, 3.0, 4.0, 5.0};
     Vector_<> f = {2.5, 3.5, 1.7, 2.8, 3.6};
 
@@ -24,7 +24,7 @@ TEST(JsonTest, TestJSONStore) {
     ASSERT_EQ(f, val->f());
 }
 
-TEST(JsonTest, TestJSONStoreFile) {
+TEST(StorageTest, TestJSONStoreFile) {
     Vector_<> x = {1.0, 2.0, 3.0, 4.0, 5.0};
     Vector_<> f = {2.5, 3.5, 1.7, 2.8, 3.6};
 

@@ -11,21 +11,21 @@
 
 using namespace Dal;
 
-TEST(GlobalsTest, TestSetAccountingDate) {
+TEST(StorageTest, TestSetAccountingDate) {
     Date_ dt(2022, 6, 11);
     auto global = XGLOBAL::SetAccountingDateInScope(dt);
     Date_ gdt = Global::Dates_::AccountingDate();
     ASSERT_EQ(gdt, dt);
 }
 
-TEST(GlobalsTest, TestSetEvaluationDate) {
+TEST(StorageTest, TestSetEvaluationDate) {
     Date_ dt(2022, 6, 10);
     auto global = XGLOBAL::SetEvaluationDateInScope(dt);
     Date_ gdt = Global::Dates_::EvaluationDate();
     ASSERT_EQ(gdt, dt);
 }
 
-TEST(GlobalsTest, TestSetAccountingDateInScope) {
+TEST(StorageTest, TestSetAccountingDateInScope) {
     Date_ dt(2022, 6, 9);
     auto global = XGLOBAL::SetAccountingDateInScope(Date::Today());
     {
@@ -37,7 +37,7 @@ TEST(GlobalsTest, TestSetAccountingDateInScope) {
     ASSERT_EQ(gdt, Date::Today());
 }
 
-TEST(GlobalsTest, TestSetEvaluationDateInScope) {
+TEST(StorageTest, TestSetEvaluationDateInScope) {
     Date_ dt(2022, 6, 8);
     auto global = XGLOBAL::SetEvaluationDateInScope(Date::Today());
     {
