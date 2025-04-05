@@ -27,7 +27,7 @@ namespace Dal {
                                                 bool enable_aad,
                                                 double smooth) {
         const auto modelType = model_data->Type();
-        REQUIRE(MODEL_STORE.find(modelType) != MODEL_STORE.end(), "only support black scholes and Dupire model now");
+        REQUIRE(MODEL_STORE.find(modelType) != MODEL_STORE.end(), "only support Black-Scholes and Dupire model now");
         auto prd = product->Product();
         std::map<String_, double> res;
         if (enable_aad) {

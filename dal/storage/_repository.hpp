@@ -48,7 +48,7 @@ namespace Dal {
         // erase one handle
         [[nodiscard]] static bool Erase(const Storable_& object);
 
-        template <class T_> String_ Add(const Handle_<T_>& object, const RepositoryErase_& erase) const {
+        template <class T_> static String_ Add(const Handle_<T_>& object, const RepositoryErase_& erase) {
             return AddBase(handle_cast<Storable_>(object), erase);
         }
     };

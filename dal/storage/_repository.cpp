@@ -58,9 +58,9 @@ namespace Dal {
         }
         // call to LOCK_OBJECTS must be after EraseByStart, because that will also acquire the lock
         LOCK_OBJECTS;
-        const String_ retval = ticker + Uniquifier(*object);
-        TheObjects().insert(make_pair(retval, object));
-        return retval;
+        const String_ ret_val = ticker + Uniquifier(*object);
+        TheObjects().insert(make_pair(ret_val, object));
+        return ret_val;
     }
 
     int ObjectAccess_::Erase(const String_& pattern) {
