@@ -39,8 +39,6 @@ namespace Dal {
 
         // count handles
         [[nodiscard]] static int Size();
-        // find a handle based on an input string which may be incomplete
-        [[nodiscard]] static Handle_<Storable_> LowerBound(const String_& partial_name);
         // return all matching handles
         [[nodiscard]] static Vector_<Handle_<Storable_>> Find(const String_& pattern);
         // erase all matching handles, return number erased

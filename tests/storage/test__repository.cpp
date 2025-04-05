@@ -18,12 +18,7 @@ TEST(StorageTest, TestObjectAccess) {
     auto matched_objects = ObjectAccess_::Find("interp");
     ASSERT_EQ(matched_objects.size(), 1);
 
-    auto matched_object = ObjectAccess_::LowerBound("interp");
-    ASSERT_EQ(matched_object->Name(), src->Name());
-
     (void)ObjectAccess_::Erase("interp");
     matched_objects = ObjectAccess_::Find("interp");
     ASSERT_EQ(matched_objects.size(), 0);
-
-    EXPECT_THROW(matched_object = ObjectAccess_::LowerBound("interp"), Exception_);
 }

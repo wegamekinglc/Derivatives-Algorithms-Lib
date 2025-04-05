@@ -104,14 +104,6 @@ namespace Dal {
         return retval;
     }
 
-    Handle_<Storable_> ObjectAccess_::LowerBound(const String_& partial_name) {
-        LOCK_OBJECTS;
-        auto all = TheObjects();
-        const auto p = all.lower_bound(partial_name);
-        REQUIRE(p != all.end(), "can't find lower bound for " + partial_name);
-        return p->second;
-    }
-
     void Repository_Erase(const Vector_<Handle_<Storable_>>& objects, int* num_erased) {
         LOCK_OBJECTS;
         *num_erased = 0;
@@ -127,7 +119,7 @@ namespace Dal {
         struct RepoStore_ : Global::Store_ {
             void Set(const String_& name, const Matrix_<Cell_>& value) override {
                 const Handle_<Box_> storable(new Box_(GLOBAL_TAG + name, value));
-                ObjectAccess_().Add(storable, RepositoryErase_("NAME"));
+                ObjectAccess_::Add(storable, RepositoryErase_("NAME"));
             }
             const Matrix_<Cell_>& Get(const String_& name) override {
                 static const Matrix_<Cell_> EMPTY;
