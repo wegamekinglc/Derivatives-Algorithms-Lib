@@ -5,8 +5,8 @@
 [![GCC-12 build status](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/actions/workflows/cmake-linux-gcc-12.yml/badge.svg?branch=master)]()
 [![CLANG-14 build status](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/actions/workflows/cmake-linux-clang-14.yml/badge.svg?branch=master)]()
 
-[![Codacy Badge](https://app.codacy.com/project/badge/Grade/b4bc1058db994f24aa931b119a885eea)]()
-[![Coverage Status](https://coveralls.io/repos/wegamekinglc/Derivatives-Algorithms-Lib/badge.svg?branch=master)](https://coveralls.io/github/lballabio/QuantLib?branch=master)
+[![Codacy Badge](https://app.codacy.com/project/badge/Grade/9c84afd2bb534c6c87584e5d6e4cc420)]()
+[![Coverage Status](https://coveralls.io/repos/wegamekinglc/Derivatives-Algorithms-Lib/badge.svg?branch=master)]()
 
 ## Introduction
 
