@@ -1,21 +1,12 @@
 # DAL - *D*erivatives *A*lgorithms *L*ib
+[![GCC-9 build status](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/actions/workflows/cmake-linux-gcc-9.yml/badge.svg?branch=master)]()
+[![GCC-10 build status](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/actions/workflows/cmake-linux-gcc-10.yml/badge.svg?branch=master)]()
+[![GCC-11 build status](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/actions/workflows/cmake-linux-gcc-11.yml/badge.svg?branch=master)]()
+[![GCC-12 build status](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/actions/workflows/cmake-linux-gcc-12.yml/badge.svg?branch=master)]()
+[![CLANG-14 build status](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/actions/workflows/cmake-linux-clang-14.yml/badge.svg?branch=master)]()
 
-<table>
-<tr>
-  <td>Build Status</td>
-  <td>
-    <a href="https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/actions">
-    <img src="https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/workflows/CMake%20Linux%20build%20gcc-12/badge.svg?branch=master" alt="Build and test"/>
-  </a>
-    </a>
-  </td>
-</tr>
-<tr>
-  <td>Coverage</td>
-  <td><img src="https://coveralls.io/repos/wegamekinglc/Derivatives-Algorithms-Lib/badge.svg?branch=master" alt="coverage" /></td>
-</tr>
-</table>
-
+[![Codacy Badge](https://app.codacy.com/project/badge/Grade/b4bc1058db994f24aa931b119a885eea)]()
+[![Coverage Status](https://coveralls.io/repos/wegamekinglc/Derivatives-Algorithms-Lib/badge.svg?branch=master)](https://coveralls.io/github/lballabio/QuantLib?branch=master)
 
 ## Introduction
 
