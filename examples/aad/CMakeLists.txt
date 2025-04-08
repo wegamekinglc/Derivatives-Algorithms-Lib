@@ -7,7 +7,6 @@ if(MSVC)
 else()
     target_link_libraries(aad pthread)
 endif()
-target_link_libraries(aad adept)
 
 install(TARGETS aad
         RUNTIME DESTINATION bin

@@ -4,16 +4,12 @@ NUM_CORES=$(grep -c processor /proc/cpuinfo)
 export DAL_DIR=$PWD
 export LD_LIBRARY_PATH=$PWD/lib:$LD_LIBRARY_PATH
 export BUILD_TYPE=Release
-export SKIP_TESTS=false
-export USE_COVERAGE=false  # make it `false` when you need a full performance lib
 export CMAKE_EXPORT_COMPILE_COMMANDS=on
 export BUILD_SHARED_LIBS=off
 
 echo NUM_CORES: $NUM_CORES
 echo BUILD_TYPE: $BUILD_TYPE
 echo DAL_DIR: "$DAL_DIR"
-echo SKIP_TESTS: $SKIP_TESTS
-echo USE_COVERAGE: $USE_COVERAGE
 echo BUILD_SHARED_LIBS: $BUILD_SHARED_LIBS
 echo CMAKE_EXPORT_COMPILE_COMMANDS: $CMAKE_EXPORT_COMPILE_COMMANDS
 
@@ -50,18 +46,15 @@ if [ $? -ne 0 ]; then
 fi
 
 (
-cd externals/adept || exit
-autoreconf -i
-./configure --disable-openmp --prefix=$PWD/build
-make -j"${NUM_CORES}"
-make install
+cd externals/adept/include || exit
+bash -e ./create_adept_source_header
 )
 
 rm -rf build
 mkdir -p build
 (
 cd build || exit
-cmake --preset ${BUILD_TYPE}-linux -DCMAKE_BUILD_TYPE=$BUILD_TYPE  -DUSE_COVERAGE=$USE_COVERAGE -DSKIP_TESTS=$SKIP_TESTS -DCMAKE_EXPORT_COMPILE_COMMANDS=$CMAKE_EXPORT_COMPILE_COMMANDS -DBUILD_SHARED_LIBS=$BUILD_SHARED_LIBS ..
+cmake --preset ${BUILD_TYPE}-linux -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DCMAKE_EXPORT_COMPILE_COMMANDS=$CMAKE_EXPORT_COMPILE_COMMANDS -DBUILD_SHARED_LIBS=$BUILD_SHARED_LIBS ..
 make -j"${NUM_CORES}"
 make install
 )

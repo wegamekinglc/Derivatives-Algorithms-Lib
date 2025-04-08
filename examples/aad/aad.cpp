@@ -2,7 +2,7 @@
 // Created by wegam on 2020/12/21.
 //
 
-#include <adept.h>
+#include <adept_source.h>
 #include <dal/platform/platform.hpp>
 #include <dal/math/operators.hpp>
 #include <dal/math/aad/aad.hpp>

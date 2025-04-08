@@ -95,8 +95,7 @@ message("-- RapidJSON INCLUDE DIR: ${RapidJSON_INCLUDE_DIR}")
 include_directories(${CMAKE_SOURCE_DIR})
 
 message("-- ADEPT INCLUDE DIR: ${PROJECT_SOURCE_DIR}/externals/adept/include")
-include_directories("${PROJECT_SOURCE_DIR}/externals/adept/build/include")
-link_directories("${PROJECT_SOURCE_DIR}/externals/adept/build/lib")
+include_directories("${PROJECT_SOURCE_DIR}/externals/adept//include")
 
 message("-- USE AAD framework: AADET")
 
