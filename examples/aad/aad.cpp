@@ -34,11 +34,11 @@ int main() {
     Dal::RegisterAll_::Init();
 
     int n_rounds = 10000000;
-    double fwd = 1.00;
-    double vol = 0.20;
-    double numeraire = 1.0;
-    double strike = 1.20;
     double expiry = 3.0;
+    double fwd = 100.00 * std::exp(0.02 * expiry);
+    double vol = 0.15;
+    double numeraire = std::exp(-0.05 * expiry);;
+    double strike = 120;
     bool is_call = true;
     Timer_ timer;
 
