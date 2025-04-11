@@ -38,8 +38,7 @@
       "inherits": "base",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
-        "VCPKG_TARGET_TRIPLET": "x64-linux",
-        "USE_COVERAGE": "false"
+        "VCPKG_TARGET_TRIPLET": "x64-linux"
       }
     },
     {
@@ -47,8 +46,7 @@
       "inherits": "base",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
-        "VCPKG_TARGET_TRIPLET": "x64-linux",
-        "USE_COVERAGE": "false"
+        "VCPKG_TARGET_TRIPLET": "x64-linux"
       }
     }
   ]
