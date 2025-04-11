@@ -46,7 +46,10 @@ if [ $? -ne 0 ]; then
 fi
 
 (
-cd externals/adept/include || exit
+cd externals/adept/ || exit
+autoreconf -i
+./configure --disable-openmp
+cd include
 bash -e ./create_adept_source_header
 )
 
