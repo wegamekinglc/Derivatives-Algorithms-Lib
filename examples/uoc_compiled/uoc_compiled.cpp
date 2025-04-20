@@ -53,14 +53,14 @@ int main() {
     eventDates.push_back(Cell_("START: " + Date::ToString(start) + " END: " + Date::ToString(maturity) + " FREQ: " + freq));
     events.push_back("if spot() >= BARRIER:0.1 then alive = 0 end");
     eventDates.push_back(Cell_(maturity));
-    events.push_back(String_("if spot() >= BARRIER:0.1 then alive = 0 end\n call pays alive * MAX(spot() - STRIKE, 0.0)"));
+    events.push_back(String_("call pays alive * MAX(spot() - STRIKE, 0.0)"));
 
     const int num_obs = freq == "1W" ? 3 * 51 : 3 * 12;
 
     auto times = Vector::XRange(0.0, 5.0, 61);
     auto spots = Vector::XRange(50.0, 200.0, 31);
 
-    Vector_<int> widths = {14, 14, 14, 14, 14, 14, 14, 14, 14, 14};
+    Vector_<int> widths = {14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14};
     std::cout << std::setw(widths[0]) << std::left << "Method"
               << std::setw(widths[1]) << std::right << "# of paths"
               << std::setw(widths[2]) << std::right << "# of obs"
@@ -69,8 +69,9 @@ int main() {
               << std::setw(widths[5]) << std::right << "dP/dR"
               << std::setw(widths[6]) << std::right << "dP/dDiv"
               << std::setw(widths[7]) << std::right << "vega"
-              << std::setw(widths[8]) << std::right << "dP/dK"
-              << std::setw(widths[9]) << std::right << "Elapsed (ms)"
+              << std::setw(widths[8]) << std::right << "dP/dB"
+              << std::setw(widths[9]) << std::right << "dP/dK"
+              << std::setw(widths[10]) << std::right << "Elapsed (ms)"
               << std::endl;
     {
         Handle_<ModelData_> model_data(new DupireModelData_("dupiremodel",
@@ -100,7 +101,8 @@ int main() {
                   << std::setw(widths[6]) << std::right << "#NA"
                   << std::setw(widths[7]) << std::right << "#NA"
                   << std::setw(widths[8]) << std::right << "#NA"
-                  << std::setw(widths[9]) << std::right << int(timer.Elapsed<milliseconds>()) << std::endl;
+                  << std::setw(widths[9]) << std::right << "#NA"
+                  << std::setw(widths[10]) << std::right << int(timer.Elapsed<milliseconds>()) << std::endl;
     }
 
     {
@@ -135,7 +137,8 @@ int main() {
                   << std::setw(widths[6]) << std::right << results.risks_[2]
                   << std::setw(widths[7]) << std::right << vega
                   << std::setw(widths[8]) << std::right << results.risks_[3 + vol_length]
-                  << std::setw(widths[9]) << std::right << int(timer.Elapsed<milliseconds>()) << std::endl;
+                  << std::setw(widths[9]) << std::right << results.risks_[3 + vol_length + 1]
+                  << std::setw(widths[10]) << std::right << int(timer.Elapsed<milliseconds>()) << std::endl;
     }
     return 0;
 }
