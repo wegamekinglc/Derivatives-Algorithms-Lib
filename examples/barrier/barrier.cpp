@@ -38,8 +38,7 @@ int main() {
     const double div = 0.0;
     const double strike = 120.0;
     const double barrier = 150.0;
-    const String_ freq = "1W";
-    const String_ fuzzy = "0.1";
+    const String_ fuzzy = "0.05";
     const int num_path = std::pow(2, 20);
 
     timer.Reset();
@@ -50,15 +49,11 @@ int main() {
     events.push_back(ToString(strike));
     eventDates.push_back(Cell_("BARRIER"));
     events.push_back(ToString(barrier));
-    eventDates.push_back(Cell_(start));
-    events.push_back("alive = 1");
-    eventDates.push_back(Cell_("START: " + Date::ToString(start) + " END: " + Date::ToString(maturity) + " FREQ: " + freq));
-    events.push_back("if spot() >= BARRIER:" + fuzzy + " then alive = 0 end");
     eventDates.push_back(Cell_(maturity));
-    events.push_back(String_("call pays alive * MAX(spot() - STRIKE, 0.0)"));
+    events.push_back(String_("IF spot() >= BARRIER:" + fuzzy + " THEN call pays MAX(spot() - STRIKE, 0.0) ELSE call pays 0 END"));
 
 
-    const int num_obs = freq == "1W" ? 3 * 51 : 3 * 12;
+    const int num_obs = 1;
 
     auto times = Vector::XRange(0.0, 5.0, 61);
     auto spots = Vector::XRange(50.0, 200.0, 31);
