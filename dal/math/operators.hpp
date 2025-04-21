@@ -10,7 +10,7 @@
 namespace Dal {
     using std::sqrt;
     using std::exp;
-    using std::fabs;
+    using std::abs;
     using std::max;
     using std::min;
     using std::pow;
@@ -29,7 +29,7 @@ namespace Dal {
     using AAD::operator>=;
     using AAD::operator==;
     using AAD::exp;
-    using AAD::fabs;
+    using AAD::abs;
     using AAD::log;
     using AAD::max;
     using AAD::min;

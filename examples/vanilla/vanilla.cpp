@@ -33,6 +33,7 @@ int main() {
     const double strike = 120.0;
     const String_ rsg = "sobol";
     const Date_ maturity(2025, 9, 24);
+    const int num_path = std::pow(2, 20);
 
     timer.Reset();
 
@@ -58,7 +59,6 @@ int main() {
         Handle_<ModelData_> model_data(new BSModelData_("bsmodel", spot, vol, rate, div));
         ScriptProduct_ product(eventDates, events, "call");
         int max_nested_ifs = product.PreProcess(false, false);
-        const int num_path = std::pow(2, 24);
         SimResults_ results = MCSimulation<double>(product, model_data, num_path, String_("sobol"), false, false);
 
         auto calculated = results.aggregated_ / static_cast<double>(num_path);
@@ -81,7 +81,6 @@ int main() {
         Handle_<ModelData_> model_data(new BSModelData_("bsmodel", spot, vol, rate, div));
 
         timer.Reset();
-        const int num_path = std::pow(2, 24);
         ScriptProduct_ product(eventDates, events, "call");
         int max_nested_ifs = product.PreProcess(false, false);
         SimResults_ results = MCSimulation<double>(product, model_data, num_path, String_("sobol"), false);
@@ -167,7 +166,6 @@ int main() {
         Handle_<ModelData_> model_data(new BSModelData_("bsmodel", spot, vol, rate, div));
         ScriptProduct_ product(eventDates, events, "call");
         int max_nested_ifs = product.PreProcess(true, true);
-        const int num_path = std::pow(2, 24);
         SimResults_ results = MCSimulation<Number_>(product, model_data, num_path, String_("sobol"), false, false, max_nested_ifs);
 
         auto calculated = results.aggregated_ / static_cast<double>(num_path);

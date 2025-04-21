@@ -525,12 +525,12 @@ TEST(AADTest, TestNumberSqrt) {
 }
 
 
-TEST(AADTest, TestNumberFabs) {
+TEST(AADTest, TestNumberAbs) {
     Number_::Tape()->Clear();
     Number_ s1(-2.0);
     s1.PutOnTape();
 
-    Number_ value = fabs(s1);
+    Number_ value = abs(s1);
     ASSERT_NEAR(value.value(), 2.0, 1e-10);
     value.PropagateToStart();
     ASSERT_NEAR(s1.Adjoint(), -1.0, 1e-10);

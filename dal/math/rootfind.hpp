@@ -21,7 +21,7 @@ namespace Dal {
 
         bool operator()(RootFinder_& t, double e) const {
             t.PutY(e);
-            return std::fabs(e) < f_tol_ || t.BracketWidth() < x_tol_;
+            return std::abs(e) < f_tol_ || t.BracketWidth() < x_tol_;
         }
     };
 
@@ -41,7 +41,7 @@ namespace Dal {
 
         double NextX() override;
         void PutY(double y) override;
-        [[nodiscard]] double BracketWidth() const override { return std::fabs(a_.first - b_.first); }
+        [[nodiscard]] double BracketWidth() const override { return std::abs(a_.first - b_.first); }
     };
 
     class Brent_ : public RootFinder_ {

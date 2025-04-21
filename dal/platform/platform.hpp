@@ -60,12 +60,12 @@ namespace Dal {
     template <class T_> constexpr bool IsNegative(const T_& x) { return x <= -Dal::EPSILON; }
 
     template <class T_> constexpr bool IsClose(const T_& x, const T_& y) {
-        T_ diff = std::fabs(x-y);
+        T_ diff = std::abs(x-y);
         constexpr double tolerance = 42 * Dal::EPSILON;
 
         if (x == 0.0 || y == 0.0)
             return diff < (tolerance * tolerance);
-        return diff <= tolerance * std::fabs(x) && diff <= tolerance * std::fabs(y);
+        return diff <= tolerance * std::abs(x) && diff <= tolerance * std::abs(y);
     }
 
     FORCE_INLINE constexpr double Square(double x) { return x * x; }

@@ -72,14 +72,14 @@ namespace Dal::Script {
         [[nodiscard]] bool IsInfinite() const { return isPlusInf_ || isMinusInf_; }
         [[nodiscard]] bool IsPositive(bool strict = false) const { return isPlusInf_ || real_ > (strict ? Dal::EPSILON : -Dal::EPSILON); }
         [[nodiscard]] bool IsNegative(bool strict = false) const { return isMinusInf_ || real_ < (strict ? -Dal::EPSILON : Dal::EPSILON); }
-        [[nodiscard]]  bool IsZero() const { return !IsInfinite() && fabs(real_) < Dal::EPSILON; }
+        [[nodiscard]]  bool IsZero() const { return !IsInfinite() && std::abs(real_) < Dal::EPSILON; }
         [[nodiscard]] bool IsPlusInf() const { return isPlusInf_; }
         [[nodiscard]] bool IsMinusInf() const { return isMinusInf_; }
         [[nodiscard]] double Val() const { return real_; }
 
         // Comparison
         bool operator==(const Bound_& rhs) const {
-            return isPlusInf_ && rhs.isPlusInf_ || isMinusInf_ && rhs.isMinusInf_ || fabs(real_ - rhs.real_) < Dal::EPSILON;
+            return isPlusInf_ && rhs.isPlusInf_ || isMinusInf_ && rhs.isMinusInf_ || std::abs(real_ - rhs.real_) < Dal::EPSILON;
         }
 
         bool operator!=(const Bound_& rhs) const { return !operator==(rhs); }
@@ -741,7 +741,7 @@ namespace Dal::Script {
 
         // Shortcuts for shifting all intervals
         Domain_ operator+=(double x) {
-            if (fabs(x) < Dal::EPSILON)
+            if (std::abs(x) < Dal::EPSILON)
                 return *this;
 
             std::set<Interval_> newIntervals;
@@ -753,7 +753,7 @@ namespace Dal::Script {
         }
 
         Domain_ operator-=(double x) {
-            if (fabs(x) < Dal::EPSILON)
+            if (std::abs(x) < Dal::EPSILON)
                 return *this;
 
             std::set<Interval_> newIntervals;

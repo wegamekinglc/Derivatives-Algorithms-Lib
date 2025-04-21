@@ -29,7 +29,7 @@ namespace Dal {
         case Value_::PUT:
             return max(0.0, strike - spot);
         case Value_::STRADDLE:
-            return fabs(spot - strike);
+            return abs(spot - strike);
         default:
             THROW("invalid option type");
         }

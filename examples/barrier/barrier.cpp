@@ -38,7 +38,7 @@ int main() {
     const double div = 0.0;
     const double strike = 120.0;
     const double barrier = 150.0;
-    const String_ fuzzy = "0.05";
+    const String_ fuzzy = "0.1";
     const int num_path = std::pow(2, 20);
 
     timer.Reset();

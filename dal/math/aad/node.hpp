@@ -48,7 +48,7 @@ namespace Dal::AAD {
         }
 
         void PropagateAll() {
-            if (!n_ || std::all_of(pAdjoints_, pAdjoints_ + numAdj_, [](double x) { return fabs(x) <= Dal::EPSILON; }))
+            if (!n_ || std::all_of(pAdjoints_, pAdjoints_ + numAdj_, [](double x) { return std::abs(x) <= Dal::EPSILON; }))
                 return;
 
             for (size_t i = 0; i < n_; ++i) {

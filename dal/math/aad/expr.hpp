@@ -179,8 +179,8 @@ namespace Dal::AAD {
         FORCE_INLINE static double Derivative(double r, double v, double d) { return 0.5 / v; }
     };
 
-    struct OPFabs_ {
-        FORCE_INLINE static double Eval(double r, double d) { return std::fabs(r); }
+    struct OPAbs_ {
+        FORCE_INLINE static double Eval(double r, double d) { return std::abs(r); }
 
         FORCE_INLINE static double Derivative(double r, double v, double d) { return r > 0.0 ? 1.0 : -1.0; }
     };
@@ -283,8 +283,8 @@ namespace Dal::AAD {
     }
 
     template <class ARG_>
-    FORCE_INLINE UnaryExpression_<ARG_, OPFabs_> fabs(const Expression_<ARG_>& arg) {
-        return UnaryExpression_<ARG_, OPFabs_>(arg);
+    FORCE_INLINE UnaryExpression_<ARG_, OPAbs_> abs(const Expression_<ARG_>& arg) {
+        return UnaryExpression_<ARG_, OPAbs_>(arg);
     }
 
     template <class ARG_>

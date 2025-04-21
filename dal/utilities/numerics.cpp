@@ -10,12 +10,12 @@
 
 namespace Dal {
     int AsInt(double src) {
-        REQUIRE(std::fabs(src) < 2147483647., "Number is too large to be an integer");
+        REQUIRE(std::abs(src) < 2147483647., "Number is too large to be an integer");
         return static_cast<int>(src + (src > 0 ? 1e-9 : -1e-9));
     }
 
     int NearestInt(double src) {
-        REQUIRE(std::fabs(src) < 2147483647, "Number is too large to be an integer");
+        REQUIRE(std::abs(src) < 2147483647, "Number is too large to be an integer");
         return static_cast<int>(src + (src > 0 ? 0.5 : -0.5));
     }
 

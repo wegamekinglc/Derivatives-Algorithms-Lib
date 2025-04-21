@@ -38,7 +38,7 @@ namespace Dal::Script {
 
         if (x < -halfEps || x > halfEps)
             return T_(0.0);
-        return (halfEps - fabs(x)) / halfEps;
+        return (halfEps - abs(x)) / halfEps;
     }
 
     template <class T_>

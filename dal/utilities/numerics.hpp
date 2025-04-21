@@ -33,7 +33,7 @@ namespace Dal {
     namespace Vector {
         template <class T_> Vector_<T_> L1Normalized(const Vector_<T_>& base) {
             using val_type = typename Vector_<T_>::value_type;
-            auto func = [](val_type x, val_type y) { return x + fabs(y); };
+            auto func = [](val_type x, val_type y) { return x + abs(y); };
             auto l1 = Accumulate(base, func);
             auto func2 = [&l1](val_type x) { return x / (l1 + 1e-14); };
             return Apply(func2, base);

@@ -19,7 +19,7 @@ namespace Dal {
         a_ = low;
         b_ = high;
         REQUIRE(a_.second * b_.second <= 0.0, "Interval is not bracketed");
-        if (std::fabs(a_.second) < std::fabs(b_.second))
+        if (std::abs(a_.second) < std::abs(b_.second))
             std::swap(a_, b_);
         c_ = a_;
         bisect_ = true;
@@ -34,9 +34,9 @@ namespace Dal {
         } else { // secant interpolation
             s = (a_.first * b_.second - b_.first * a_.second) / (b_.second - a_.second);
         }
-        double cDist = fabs(
+        double cDist = std::abs(
             c_.first - (bisect_ ? b_.first : d_)); // d_ won't be used before it is set, because bisect_ is set at start
-        bisect_ = (s - b_.first) * (s - 0.75 * a_.first - 0.25 * b_.first) >= 0.0 || fabs(s - b_.first) > 0.5 * cDist ||
+        bisect_ = (s - b_.first) * (s - 0.75 * a_.first - 0.25 * b_.first) >= 0.0 || std::abs(s - b_.first) > 0.5 * cDist ||
                   cDist < tol_;
         if (bisect_)
             s = 0.5 * (a_.first + b_.first);
@@ -54,7 +54,7 @@ namespace Dal {
         else
             b_ = std::make_pair(s, f_s);
 
-        if (std::fabs(a_.second) < std::fabs(b_.second))
+        if (std::abs(a_.second) < std::abs(b_.second))
             std::swap(a_, b_);
     }
 
@@ -62,7 +62,7 @@ namespace Dal {
 
     Brent_::Brent_(double guess, double tol, double step_size)
         : phase_(Phase_::INITIALIZE), increasing_(true),
-          stepSize_(step_size > 0.0 ? step_size : 0.1 * std::max(0.01, std::fabs(guess))), trialX_(guess),
+          stepSize_(step_size > 0.0 ? step_size : 0.1 * std::max(0.01, std::abs(guess))), trialX_(guess),
           knownPoint_(Dal::INF, Dal::INF), engine_(tol) {}
 
     double Brent_::NextX() { return phase_ == Phase_::BRACKETED ? engine_.NextX() : trialX_; }
@@ -83,7 +83,7 @@ namespace Dal {
                 engine_.Initialize(knownPoint_, std::make_pair(trialX_, y));
                 phase_ = Phase_::BRACKETED;
             } else {
-                if (std::fabs(y) > std::fabs(knownPoint_.second))
+                if (std::abs(y) > std::abs(knownPoint_.second))
                     increasing_ = !increasing_;
                 else
                     knownPoint_ = std::make_pair(trialX_, y);
