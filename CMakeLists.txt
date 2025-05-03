@@ -48,9 +48,9 @@ endif()
 
 # Require C++11 or higher
 if (NOT DEFINED CMAKE_CXX_STANDARD)
-    set(CMAKE_CXX_STANDARD 17)
-elseif(CMAKE_CXX_STANDARD LESS 17)
-    message(FATAL_ERROR "Please specify CMAKE_CXX_STANDARD of 17 or higher")
+    set(CMAKE_CXX_STANDARD 20)
+elseif(CMAKE_CXX_STANDARD LESS 20)
+    message(FATAL_ERROR "Please specify CMAKE_CXX_STANDARD of 20 or higher")
 endif()
 if (NOT DEFINED CMAKE_CXX_STANDARD_REQUIRED)
     set(CMAKE_CXX_STANDARD_REQUIRED ON)

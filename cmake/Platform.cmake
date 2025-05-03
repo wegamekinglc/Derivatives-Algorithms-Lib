@@ -17,8 +17,7 @@ if (MSVC)
     endif()
 
     message("-- MSVC_RUNTIME: ${USE_MSVC_DYNAMIC_RUNTIME}")
-    set(CMAKE_MSVC_RUNTIME_LIBRARY
-            "MultiThreaded$<$<CONFIG:Debug>:Debug>$<$<BOOL:${USE_MSVC_DYNAMIC_RUNTIME}>:DLL>")
+    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>$<$<BOOL:${USE_MSVC_DYNAMIC_RUNTIME}>:DLL>")
 
     add_compile_definitions(NOMINMAX)
 
