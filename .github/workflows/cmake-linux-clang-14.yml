@@ -13,8 +13,8 @@ jobs:
       - name: Prepare
         env:
           CXXFLAGS: -O2
-          CC: clang-16
-          CXX: clang++-16
+          CC: clang-18
+          CXX: clang++-18
         run: |
           export CWD=$PWD
           mkdir gtest
@@ -27,7 +27,7 @@ jobs:
       - name: Compile
         env:
           CXXFLAGS: -O2
-          CC: clang-16
-          CXX: clang++-16
+          CC: clang-18
+          CXX: clang++-18
         run: |
           bash -e ./build_linux.sh
