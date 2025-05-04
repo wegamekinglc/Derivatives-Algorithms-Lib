@@ -4,11 +4,10 @@
 
 #pragma once
 
+#include <dal/time/date.hpp>
 #include <dal/math/vectors.hpp>
 
 namespace Dal {
-    class Date_;
-
 
     struct PiecewiseLinear_ {
         Vector_<Date_> knotDates_;
