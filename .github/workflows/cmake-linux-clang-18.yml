@@ -1,4 +1,4 @@
-name: CMake Linux build clang-16
+name: CMake Linux build clang-18
 on: [push, pull_request]
 jobs:
   build:
