@@ -20,10 +20,10 @@ namespace Dal {
         explicit DateTime_(const Date_& date, double frac = 0.0);
         explicit DateTime_(long long msec);
         DateTime_(const Date_& date, int hour, int minute = 0, int second = 0);
-        Date_ Date() const { return date_; }
-        double Frac() const { return frac_; }
+        [[nodiscard]] Date_ Date() const { return date_; }
+        [[nodiscard]] double Frac() const { return frac_; }
         bool operator==(const DateTime_& rhs) const { return date_ == rhs.date_ && frac_ == rhs.frac_; }
-        bool IsValid() const { return date_.IsValid() && frac_ < 1.; }
+        [[nodiscard]] bool IsValid() const { return date_.IsValid() && frac_ < 1.; }
 
         DateTime_& operator+=(double frac);
         DateTime_ operator+(double frac);

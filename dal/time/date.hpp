@@ -44,10 +44,8 @@ namespace Dal {
         friend Date_ Date::FromExcel(int);
 
         friend int Date::ToExcel(const Date_&);
-
         friend bool operator==(const Date_& lhs, const Date_& rhs);
-
-        friend bool operator<(const Date_& lhs, const Date_& rhs);
+        friend std::strong_ordering operator<=>(const Date_& lhs, const Date_& rhs);
 
     public:
         Date_() : serial_(0) {}
@@ -78,16 +76,7 @@ namespace Dal {
     };
 
     inline bool operator==(const Date_& lhs, const Date_& rhs) { return lhs.serial_ == rhs.serial_; }
-
-    inline bool operator!=(const Date_& lhs, const Date_& rhs) { return !(lhs == rhs); }
-
-    inline bool operator<(const Date_& lhs, const Date_& rhs) { return lhs.serial_ < rhs.serial_; }
-
-    inline bool operator>(const Date_& lhs, const Date_& rhs) { return rhs < lhs; }
-
-    inline bool operator<=(const Date_& lhs, const Date_& rhs) { return !(rhs < lhs); }
-
-    inline bool operator>=(const Date_& lhs, const Date_& rhs) { return !(lhs < rhs); }
+    inline std::strong_ordering operator<=>(const Date_&lhs, const Date_& rhs) { return lhs.serial_ <=> rhs.serial_; }
 
     int operator-(const Date_& lhs, const Date_& rhs);
 
