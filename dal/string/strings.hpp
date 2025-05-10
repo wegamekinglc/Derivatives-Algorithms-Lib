@@ -58,7 +58,7 @@ namespace Dal {
         String_() = default;
         String_(const char* src) : base_t(src) {}
         String_(const base_t& src) : base_t(src) {}
-        String_(size_t size, char val) : base_t(size, val) {}
+        String_(const size_t size, const char val) : base_t(size, val) {}
         template <class I_> String_(I_ begin, I_ end) : base_t(begin, end) {}
         explicit String_(const std::string& src) : base_t(*reinterpret_cast<const String_*>(&src)) {}
         void Swap(String_* other) { swap(*other); }
@@ -114,7 +114,7 @@ namespace Dal {
                     return more;
                 if (more.empty() && skipEmpty_)
                     return so_far;
-                return so_far + sep_ + more;
+                return String_(so_far + sep_ + more);
             }
         };
 
