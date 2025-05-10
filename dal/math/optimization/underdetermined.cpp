@@ -15,7 +15,6 @@
 #include <dal/utilities/numerics.hpp>
 
 namespace Dal {
-#include <dal/auto/MG_UnderdeterminedControls_object.hpp>
 
     namespace Underdetermined {
         void Function_::Gradient(const Vector_<>& x, const Vector_<>& f, Matrix_<>* j) const {

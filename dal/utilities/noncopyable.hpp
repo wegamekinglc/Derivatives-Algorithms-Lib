@@ -8,7 +8,7 @@ namespace Dal {
     class noncopyable {
     protected:
         noncopyable() = default;
-        ~noncopyable() = default;
+        virtual ~noncopyable() = default;
 
     public:
         noncopyable(const noncopyable&) = delete;
