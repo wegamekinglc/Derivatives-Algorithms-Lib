@@ -10,12 +10,11 @@
 namespace Dal {
     struct FixingsAccess_ : Environment_::Entry_ {
         std::map<String_, Handle_<Fixings_>> fixings_;
-        Handle_<Fixings_> Fetch(const String_& name) const {
+        [[nodiscard]] Handle_<Fixings_> Fetch(const String_& name) const {
             auto iter = fixings_.find(name);
             if (iter != fixings_.end())
                 return iter->second;
-            else
-                return Handle_<Fixings_>();
+            return Handle_<Fixings_>();
         }
     };
 
@@ -33,11 +32,10 @@ namespace Dal {
     struct IndexKey_ {
         const Handle_<Index_> val_;
         const String_ name_;
-        IndexKey_(const Handle_<Index_>& val) : val_(val), name_(val_.IsEmpty() ? String_() : val->Name()) {}
+        explicit IndexKey_(const Handle_<Index_>& val) : val_(val), name_(val_.IsEmpty() ? String_() : val->Name()) {}
         const Index_* operator->() const { return val_.get(); }
     };
 
-    inline bool operator<(const IndexKey_& lhs, const IndexKey_& rhs) { return lhs.name_ < rhs.name_; }
-
-    inline bool operator==(const IndexKey_& lhs, const IndexKey_& rhs) { return lhs.name_ == rhs.name_; }
+    FORCE_INLINE bool operator<(const IndexKey_& lhs, const IndexKey_& rhs) { return lhs.name_ < rhs.name_; }
+    FORCE_INLINE bool operator==(const IndexKey_& lhs, const IndexKey_& rhs) { return lhs.name_ == rhs.name_; }
 } // namespace Dal

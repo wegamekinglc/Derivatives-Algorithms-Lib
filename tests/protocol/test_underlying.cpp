@@ -22,7 +22,7 @@ TEST(ProtocolTest, TestUnderlying) {
     String_ name = "EQ[IBM]";
     Handle_<Index_> index(Index::EquityParser(name));
     DateTime_ fix_date(pay_date, 0.5);
-    underlying.Include(index, fix_date);
+    underlying.Include(IndexKey_(index), fix_date);
     ASSERT_EQ(underlying.indices_.size(), 1);
 
     underlying.Include("EQ[IBM]", pay_date);

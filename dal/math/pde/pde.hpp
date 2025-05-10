@@ -18,7 +18,7 @@ namespace Dal::PDE {
     CoordinateMap_* NewSinhMap(double x_width, double dxdy_range);
     inline CoordinateMap_* NewIdentityMap() { return NewSinhMap(1.0, 1.0); }
 
-    
+
     struct CoordinateVector_ {
         double yLow_;
         double yHigh_;
