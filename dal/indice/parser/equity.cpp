@@ -17,13 +17,16 @@ namespace Dal::Index {
         auto tenor_start = name.find_first_of("@>", eq_stop + 1);
         if (tenor_start == String_::npos)
             return new Equity_(eq_name, nullptr, nullptr);
-        else if (name[tenor_start] == '@') {
+
+        if (name[tenor_start] == '@') {
             auto delivery_date = Date::FromString(name.substr(tenor_start + 1, name.length() - tenor_start - 1));
             return new Equity_(eq_name, &delivery_date, nullptr);
-        } else if (name[tenor_start] == '>') {
+        }
+
+        if (name[tenor_start] == '>') {
             String_ delay_increment = name.substr(tenor_start + 1, name.length() - tenor_start - 1);
             return new Equity_(eq_name, nullptr, &delay_increment);
-        } else
-            THROW("index pattern is not good");
+        }
+        THROW("index pattern is not good");
     }
 } // namespace Dal::Index
