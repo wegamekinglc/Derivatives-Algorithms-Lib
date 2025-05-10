@@ -1,9 +1,9 @@
 # DAL - *D*erivatives *A*lgorithms *L*ib
-[![GCC-9 build status](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/actions/workflows/cmake-linux-gcc-9.yml/badge.svg?branch=master)]()
 [![GCC-10 build status](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/actions/workflows/cmake-linux-gcc-10.yml/badge.svg?branch=master)]()
 [![GCC-11 build status](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/actions/workflows/cmake-linux-gcc-11.yml/badge.svg?branch=master)]()
 [![GCC-12 build status](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/actions/workflows/cmake-linux-gcc-12.yml/badge.svg?branch=master)]()
-[![CLANG-14 build status](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/actions/workflows/cmake-linux-clang-14.yml/badge.svg?branch=master)]()
+[![GCC-14 build status](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/actions/workflows/cmake-linux-gcc-14.yml/badge.svg?branch=master)]()
+[![CLANG-18 build status](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/actions/workflows/cmake-linux-clang-18.yml/badge.svg?branch=master)]()
 
 [![Codacy Badge](https://app.codacy.com/project/badge/Grade/9c84afd2bb534c6c87584e5d6e4cc420)]()
 [![Coverage Status](https://coveralls.io/repos/wegamekinglc/Derivatives-Algorithms-Lib/badge.svg?branch=master)]()
