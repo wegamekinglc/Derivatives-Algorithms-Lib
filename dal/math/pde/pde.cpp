@@ -10,7 +10,7 @@
 namespace Dal::PDE {
     namespace {
         struct IdentityMap_ : CoordinateMap_ {
-            double operator()(double y, double* xp = nullptr, double* xpp = nullptr) const override {
+            double operator()(double y, double* xp, double* xpp) const override {
                 ASSIGN(xp, 1.0);
                 ASSIGN(xpp, 0.0);
                 return y;
@@ -22,12 +22,12 @@ namespace Dal::PDE {
             // x = \lambda sinh(y / \lambda)
             double lambda_;
             explicit SinhMap_(double lambda) : lambda_(lambda) {}
-            double operator()(double y, double* xp = nullptr, double* xpp = nullptr) const override {
+            double operator()(double y, double* xp, double* xpp) const override {
                 ASSIGN(xp, std::cosh(y / lambda_));
                 ASSIGN(xpp, std::sinh(y / lambda_) / lambda_);
                 return lambda_ * std::sinh(y / lambda_);
             }
-            [[nodiscard]] double Y(double x) const override { return lambda_ * asinh(x / lambda_); }
+            [[nodiscard]] double Y(double x) const override { return lambda_ * std::asinh(x / lambda_); }
         };
     } // namespace
 

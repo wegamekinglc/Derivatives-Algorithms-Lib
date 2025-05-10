@@ -26,6 +26,7 @@ namespace Dal::Sparse {
         virtual const double& operator()(int i_row, int j_col) const = 0;
         virtual void Set(int i_row, int j_col, double val) = 0;
         virtual void Add(int i_row, int j_col, double val) { Set(i_row, j_col, val + operator()(i_row, j_col)); }
+        virtual ~Square_() = default;
     };
 
 } // namespace Dal::Sparse
