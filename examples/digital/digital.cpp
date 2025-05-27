@@ -37,8 +37,7 @@ int main() {
     const double rate = 0.0;
     const double div = 0.0;
     const double strike = 120.0;
-    const double barrier = 150.0;
-    const String_ fuzzy = "0.5";
+    const String_ fuzzy = "1";
     const int num_path = static_cast<int>(std::pow(2, 21));
 
     timer.Reset();
@@ -47,14 +46,12 @@ int main() {
     Vector_<String_> events;
     eventDates.push_back(Cell_("STRIKE"));
     events.push_back(ToString(strike));
-    eventDates.push_back(Cell_("BARRIER"));
-    events.push_back(ToString(barrier));
     eventDates.push_back(Cell_(maturity));
-    events.push_back(String_("IF spot() >= BARRIER:" + fuzzy + " THEN call pays MAX(spot() - STRIKE, 0.0) ELSE call pays 0 END"));
+    events.push_back(String_("IF spot() >= STRIKE:" + fuzzy + " THEN call pays 100.0 ELSE call pays 0 END"));
 
     constexpr int num_obs = 1;
 
-    Vector_<int> widths = {14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14};
+    Vector_<int> widths = {14, 14, 14, 14, 14, 14, 14, 14, 14, 14};
     std::cout << std::setw(widths[0]) << std::left << "Method"
               << std::setw(widths[1]) << std::right << "# of paths"
               << std::setw(widths[2]) << std::right << "# of obs"
@@ -63,9 +60,8 @@ int main() {
               << std::setw(widths[5]) << std::right << "dP/dR"
               << std::setw(widths[6]) << std::right << "dP/dDiv"
               << std::setw(widths[7]) << std::right << "vega"
-              << std::setw(widths[8]) << std::right << "dP/dB"
-              << std::setw(widths[9]) << std::right << "dP/dK"
-              << std::setw(widths[10]) << std::right << "Elapsed (ms)"
+              << std::setw(widths[8]) << std::right << "dP/dK"
+              << std::setw(widths[9]) << std::right << "Elapsed (ms)"
               << std::endl;
     {
         Handle_<ModelData_> model_data(new BSModelData_("bsmodel", spot, vol, rate, div));
@@ -87,8 +83,7 @@ int main() {
                   << std::setw(widths[6]) << std::right << "#NA"
                   << std::setw(widths[7]) << std::right << "#NA"
                   << std::setw(widths[8]) << std::right << "#NA"
-                  << std::setw(widths[9]) << std::right << "#NA"
-                  << std::setw(widths[10]) << std::right << int(timer.Elapsed<milliseconds>()) << std::endl;
+                  << std::setw(widths[9]) << std::right << int(timer.Elapsed<milliseconds>()) << std::endl;
     }
 
     {
@@ -163,21 +158,6 @@ int main() {
         calculated_up = results_up.aggregated_ / static_cast<double>(num_path);
         auto d_strike = (calculated_up - calculated_down) / (2 * strike * eps);
 
-        events_down = events;
-        events_down[1] = ToString(barrier * (1.0 - eps));
-        product_down = ScriptProduct_(eventDates, events_down);
-        product_down.PreProcess(false, false);
-        results_down = MCSimulation<double>(product_down, model_data, num_path, String_("sobol"), false);
-        calculated_down = results_down.aggregated_ / static_cast<double>(num_path);
-
-        events_up = events;
-        events_up[1] = ToString(barrier * (1.0 + eps));
-        product_up = ScriptProduct_(eventDates, events_up);
-        product_up.PreProcess(false, false);
-        results_up = MCSimulation<double>(product_up, model_data, num_path, String_("sobol"), false);
-        calculated_up = results_up.aggregated_ / static_cast<double>(num_path);
-        auto d_barrier = (calculated_up - calculated_down) / (2 * barrier * eps);
-
         std::cout << std::setw(widths[0]) << std::left << "FDM"
                   << std::setw(widths[1]) << std::right << num_path
                   << std::setw(widths[2]) << std::right << num_obs
@@ -187,9 +167,8 @@ int main() {
                   << std::setw(widths[5]) << std::right << d_rate
                   << std::setw(widths[6]) << std::right << d_div
                   << std::setw(widths[7]) << std::right << d_vol
-                  << std::setw(widths[8]) << std::right << d_barrier
-                  << std::setw(widths[9]) << std::right << d_strike
-                  << std::setw(widths[10]) << std::right << int(timer.Elapsed<milliseconds>()) << std::endl;
+                  << std::setw(widths[8]) << std::right << d_strike
+                  << std::setw(widths[9]) << std::right << int(timer.Elapsed<milliseconds>()) << std::endl;
     }
 
     {
@@ -212,8 +191,7 @@ int main() {
                   << std::setw(widths[6]) << std::right << results.risks_[3]
                   << std::setw(widths[7]) << std::right << results.risks_[1]
                   << std::setw(widths[8]) << std::right << results.risks_[4]
-                  << std::setw(widths[9]) << std::right << results.risks_[5]
-                  << std::setw(widths[10]) << std::right << int(timer.Elapsed<milliseconds>()) << std::endl;
+                  << std::setw(widths[9]) << std::right << int(timer.Elapsed<milliseconds>()) << std::endl;
     }
     return 0;
 }
