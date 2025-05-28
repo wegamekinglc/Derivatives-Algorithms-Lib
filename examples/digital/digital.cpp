@@ -21,11 +21,23 @@ using Dal::AAD::Model_;
 using Dal::AAD::Dupire_;
 
 
+template <class T_>
+T_ DigitalTest(const T_& spot, const T_& vol, const T_& rate, const T_& div, const T_& strike, const T_& expiry) {
+    static const double M_SQRT_2 = 1.4142135623730951;
+    T_ y(0.0);
+    T_ sqrt_var = vol * sqrt(expiry);
+    T_ d_minus = (log(spot / strike) + (rate - div) * expiry)/ sqrt_var - 0.5 * sqrt_var;
+    y = exp(-rate * expiry) * 0.5 * erfc(-d_minus / M_SQRT_2);
+    return y;
+}
+
+
 int main() {
     Dal::RegisterAll_::Init();
 
     const Date_ start = Date_(2022, 9, 25);
     const Date_ maturity = Date_(2025, 9, 25);
+    auto days = (maturity - start);
 
     Global::Dates_::SetEvaluationDate(start);
     Timer_ timer;
@@ -37,8 +49,8 @@ int main() {
     const double rate = 0.0;
     const double div = 0.0;
     const double strike = 120.0;
-    const String_ fuzzy = "1";
-    const int num_path = static_cast<int>(std::pow(2, 21));
+    const String_ fuzzy = "0.2";
+    const int num_path = static_cast<int>(std::pow(2, 20));
 
     timer.Reset();
 
@@ -47,7 +59,7 @@ int main() {
     eventDates.push_back(Cell_("STRIKE"));
     events.push_back(ToString(strike));
     eventDates.push_back(Cell_(maturity));
-    events.push_back(String_("IF spot() >= STRIKE:" + fuzzy + " THEN call pays 100.0 ELSE call pays 0 END"));
+    events.push_back(String_("IF spot() >= STRIKE:" + fuzzy + " THEN call pays 1.0 ELSE call pays 0 END"));
 
     constexpr int num_obs = 1;
 
@@ -63,6 +75,39 @@ int main() {
               << std::setw(widths[8]) << std::right << "dP/dK"
               << std::setw(widths[9]) << std::right << "Elapsed (ms)"
               << std::endl;
+    {
+        Number_::Tape()->Clear();
+        timer.Reset();
+        Number_ spot_aad(spot);
+        Number_ vol_aad(vol);
+        Number_ rate_aad(rate);
+        Number_ div_aad(div);
+        Number_ strike_aad(strike);
+        Number_ expiry_aad((maturity - start) / 365.0);
+
+        spot_aad.PutOnTape();
+        vol_aad.PutOnTape();
+        rate_aad.PutOnTape();
+        div_aad.PutOnTape();
+        strike_aad.PutOnTape();
+        expiry_aad.PutOnTape();
+
+        auto price_aad = DigitalTest<Number_>(spot_aad, vol_aad, rate_aad, div_aad, strike_aad, expiry_aad);
+        price_aad.PropagateToStart();
+
+        std::cout << std::setw(widths[0]) << std::left << "Analytic"
+                  << std::setw(widths[1]) << std::right << ""
+                  << std::setw(widths[2]) << std::right << num_obs
+                  << std::fixed << std::setprecision(6)
+                  << std::setw(widths[3]) << std::right << price_aad.value()
+                  << std::setw(widths[4]) << std::right << spot_aad.Adjoint()
+                  << std::setw(widths[5]) << std::right << rate_aad.Adjoint()
+                  << std::setw(widths[6]) << std::right << div_aad.Adjoint()
+                  << std::setw(widths[7]) << std::right << vol_aad.Adjoint()
+                  << std::setw(widths[8]) << std::right << strike_aad.Adjoint()
+                  << std::setw(widths[9]) << std::right << int(timer.Elapsed<milliseconds>()) << std::endl;
+    }
+
     {
         Handle_<ModelData_> model_data(new BSModelData_("bsmodel", spot, vol, rate, div));
         timer.Reset();
