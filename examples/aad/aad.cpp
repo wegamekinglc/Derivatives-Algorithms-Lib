@@ -33,7 +33,7 @@ T_ BlackTest(const T_& fwd, const T_& vol, const T_& numeraire, const T_& strike
 int main() {
     Dal::RegisterAll_::Init();
 
-    int n_rounds = 10000000;
+    int n_rounds = 1000;
     double expiry = 3.0;
     double fwd = 100.00 * std::exp(0.02 * expiry);
     double vol = 0.15;

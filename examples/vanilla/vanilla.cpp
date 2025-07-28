@@ -20,6 +20,20 @@ using Dal::AAD::Model_;
 using Dal::AAD::BlackScholes_;
 
 
+template <class T_>
+T_ BlackTest(const T_& spot, const T_& vol, const T_& rate, const T_& div, const T_& strike, const T_& expiry, bool is_call) {
+    static const double M_SQRT_2 = 1.4142135623730951;
+    const double omega = is_call ? 1.0 : -1.0;
+    T_ y(0.0);
+    T_ numeraire = exp(-rate * expiry);
+    T_ sqrt_var = vol * sqrt(expiry);
+    T_ d_minus = (log(spot / strike) + (rate - div - 0.5 * vol * vol) * expiry) / sqrt_var;
+    T_ d_plus = d_minus + sqrt_var;
+    y = numeraire * omega * (0.5 * spot * exp((rate - div) * expiry) * erfc(-d_plus / M_SQRT_2) - strike * 0.5 * erfc(-d_minus / M_SQRT_2));
+    return y;
+}
+
+
 int main() {
     RegisterAll_::Init();
 
@@ -33,7 +47,8 @@ int main() {
     const double strike = 120.0;
     const String_ rsg = "sobol";
     const Date_ maturity(2025, 9, 24);
-    const int num_path = std::pow(2, 20);
+    const int num_path = std::pow(2, 16);
+    const double expiry = 3.0;
 
     timer.Reset();
 
@@ -47,13 +62,51 @@ int main() {
               << std::setw(widths[1]) << std::right << "# of paths"
               << std::setw(widths[2]) << std::right << "# of obs"
               << std::setw(widths[3]) << std::right << "PV"
-              << std::setw(widths[4]) << std::right << "delta"
+              << std::setw(widths[4]) << std::right << "dP/dS"
               << std::setw(widths[5]) << std::right << "dP/dR"
               << std::setw(widths[6]) << std::right << "dP/dDiv"
-              << std::setw(widths[7]) << std::right << "vega"
+              << std::setw(widths[7]) << std::right << "dP/dV"
               << std::setw(widths[8]) << std::right << "dP/dK"
               << std::setw(widths[9]) << std::right << "Elapsed (ms)"
               << std::endl;
+
+    {
+        // aadet
+        Number_::Tape()->Clear();
+
+        timer.Reset();
+        Number_ spot_aad(spot);
+        Number_ vol_aad(vol);
+        Number_ rate_aad(rate);
+        Number_ div_aad(div);
+        Number_ strike_aad(strike);
+        Number_ expiry_aad(expiry);
+
+        spot_aad.PutOnTape();
+        vol_aad.PutOnTape();
+        rate_aad.PutOnTape();
+        div_aad.PutOnTape();
+        strike_aad.PutOnTape();
+        expiry_aad.PutOnTape();
+
+        Number_::Tape()->Rewind();
+        Number_ price_aad = BlackTest(spot_aad, vol_aad, rate_aad, div_aad, strike_aad, expiry_aad, true);
+        price_aad.PropagateToStart();
+
+        std::cout << std::setw(widths[0]) << std::left << "Analytical"
+                  << std::setw(widths[1]) << std::right << "-"
+                  << std::setw(widths[2]) << std::right << 1
+                  << std::fixed
+                  << std::setprecision(6)
+                  << std::setw(widths[3]) << std::right << price_aad.value()
+                  << std::setw(widths[4]) << std::right << spot_aad.Adjoint() 
+                  << std::setw(widths[5]) << std::right << vol_aad.Adjoint()
+                  << std::setw(widths[6]) << std::right << rate_aad.Adjoint()
+                  << std::setw(widths[7]) << std::right << div_aad.Adjoint()
+                  << std::setw(widths[8]) << std::right << strike_aad.Adjoint()
+                  << std::setw(widths[9]) << std::right << int(timer.Elapsed<milliseconds>()) << std::endl;
+    }
+
     {
         timer.Reset();
         Handle_<ModelData_> model_data(new BSModelData_("bsmodel", spot, vol, rate, div));
