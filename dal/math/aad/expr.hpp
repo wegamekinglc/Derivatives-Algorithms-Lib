@@ -28,7 +28,7 @@ namespace Dal::AAD {
 
         [[nodiscard]] FORCE_INLINE double value() const { return value_; }
 
-        enum { numNumbers_ = LHS_::numNumbers_ + RHS_::numNumbers_ };
+        enum { numNumbers_ = static_cast<int>(LHS_::numNumbers_) + static_cast<int>(RHS_::numNumbers_) };
 
         template <size_t N_, size_t n_> void PushAdjoint(TapNode_& exprNode, double adjoint) const {
             if constexpr (LHS_::numNumbers_ > 0)
