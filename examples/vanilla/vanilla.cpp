@@ -47,7 +47,7 @@ int main() {
     const double strike = 120.0;
     const String_ rsg = "sobol";
     const Date_ maturity(2025, 9, 24);
-    const int num_path = std::pow(2, 16);
+    const int num_path = std::pow(2, 20);
     const double expiry = 3.0;
 
     timer.Reset();
