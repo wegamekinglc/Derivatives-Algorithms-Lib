@@ -190,7 +190,7 @@ classifiers = [
 ]
 
 setup(name="dal-python",
-      version="2024.8.25",
+      version="2024.12.7",
       description="Python bindings for the DAL library",
       author="cheng li",
       author_email="wegamekinglc@hotmail.copm",
