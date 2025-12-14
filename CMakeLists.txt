@@ -94,8 +94,11 @@ include_directories("${RapidJSON_INCLUDE_DIR}")
 message("-- RapidJSON INCLUDE DIR: ${RapidJSON_INCLUDE_DIR}")
 include_directories(${CMAKE_SOURCE_DIR})
 
-message("-- ADEPT INCLUDE DIR: ${PROJECT_SOURCE_DIR}/externals/adept/include")
-include_directories("${PROJECT_SOURCE_DIR}/externals/adept//include")
+message("-- ADEPT INCLUDE DIR: ${PROJECT_SOURCE_DIR}/externals/adept/build/include")
+include_directories("${PROJECT_SOURCE_DIR}/externals/adept/build/include")
+
+set(CMAKE_PREFIX_PATH "${PROJECT_SOURCE_DIR}/externals/xad/build/" ${CMAKE_PREFIX_PATH})
+find_package(XAD REQUIRED)
 
 message("-- USE AAD framework: AADET")
 

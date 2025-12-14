@@ -3,6 +3,7 @@
 //
 
 #include <adept_source.h>
+#include <XAD/XAD.hpp>
 #include <dal/platform/platform.hpp>
 #include <dal/math/operators.hpp>
 #include <dal/math/aad/aad.hpp>
@@ -33,7 +34,7 @@ T_ BlackTest(const T_& fwd, const T_& vol, const T_& numeraire, const T_& strike
 int main() {
     Dal::RegisterAll_::Init();
 
-    int n_rounds = 1000;
+    int n_rounds = 1000000;
     double expiry = 3.0;
     double fwd = 100.00 * std::exp(0.02 * expiry);
     double vol = 0.15;
@@ -55,6 +56,7 @@ int main() {
               << std::endl;
 
     {
+        // no aad
         timer.Reset();
         double total_price = 0.0;
         for (int i = 0; i < n_rounds; ++i)
@@ -113,6 +115,7 @@ int main() {
     }
 
     {
+        // adept
         adept::Stack stack;
         using adept::adouble;
 
@@ -141,6 +144,55 @@ int main() {
                   << std::setw(widths[4]) << std::right << numeraire_aad.get_gradient()
                   << std::setw(widths[5]) << std::right << strike_aad.get_gradient()
                   << std::setw(widths[6]) << std::right << expiry_aad.get_gradient()
+                  << std::setw(widths[7]) << std::right << duration
+                  << std::endl;
+    }
+
+    {
+        // xad
+        using mode = xad::adj<double>;
+        using ADouble = mode::active_type;
+        using Tape = mode::tape_type;
+
+        Tape tape;
+
+        timer.Reset();
+
+        ADouble fwd_aad(fwd);
+        ADouble vol_aad(vol);
+        ADouble numeraire_aad(numeraire);
+        ADouble strike_aad(strike);
+        ADouble expiry_aad(expiry);
+
+        tape.registerInput(fwd_aad);
+        tape.registerInput(vol_aad);
+        tape.registerInput(numeraire_aad);
+        tape.registerInput(strike_aad);
+        tape.registerInput(expiry_aad);
+
+        ADouble price_aad(0.0);
+        tape.registerOutput(price_aad);
+
+        tape.newRecording();
+        auto current_pos = tape.getPosition();
+
+        for (int i = 0; i < n_rounds; ++i) {
+            tape.resetTo(current_pos);
+            price_aad = BlackTest(fwd_aad, vol_aad, numeraire_aad, strike_aad, expiry_aad, is_call);
+            xad::derivative(price_aad) = 1.0;
+            tape.computeAdjoints();
+        }
+
+        const auto duration = static_cast<int>(timer.Elapsed<milliseconds>());
+        std::cout << std::setw(widths[0]) << std::left << "XAD"
+                  << std::fixed
+                  << std::setprecision(6)
+                  << std::setw(widths[1]) << std::right << price_aad.value()
+                  << std::setw(widths[2]) << std::right << xad::derivative(fwd_aad) / n_rounds
+                  << std::setw(widths[3]) << std::right << xad::derivative(vol_aad) / n_rounds
+                  << std::setw(widths[4]) << std::right << xad::derivative(numeraire_aad) / n_rounds
+                  << std::setw(widths[5]) << std::right << xad::derivative(strike_aad) / n_rounds
+                  << std::setw(widths[6]) << std::right << xad::derivative(expiry_aad) / n_rounds
                   << std::setw(widths[7]) << std::right << duration
                   << std::endl;
     }

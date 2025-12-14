@@ -71,6 +71,12 @@ if "%ADDRESS_MODEL%"=="Win64" (
   )
 )
 
+if "%MSVC_RUNTIME%"=="static" (
+    set XAD_STATIC_MSVC_RUNTIME=ON
+) else (
+    set XAD_STATIC_MSVC_RUNTIME=OFF
+)
+
 if "%ADDRESS_MODEL%"=="Win64" (
   if "%MSVC_VERSION%"=="Visual Studio 16 2019" (
     set ADDRESS_MODEL=
@@ -98,12 +104,38 @@ cmake -G "%MSVC_VERSION%" -DCMAKE_BUILD_TYPE=%BUILD_TYPE% -DCMAKE_INSTALL_PREFIX
 )
 if %errorlevel% neq 0 exit /b 1
 
-msbuild dal.sln /m /p:Configuration=%BUILD_TYPE% /p:Platform=%PLATFORM%
+msbuild adept.sln /m /p:Configuration=%BUILD_TYPE% /p:Platform=%PLATFORM%
 msbuild INSTALL.vcxproj /m:%NUMBER_OF_PROCESSORS% /p:Configuration=%BUILD_TYPE% /p:Platform=%PLATFORM%
 
 if %errorlevel% neq 0 exit /b 1
 
 echo End build adept
+
+cd ../../..
+
+cd externals/xad
+
+if exist build (
+  rem build folder already exists.
+) else (
+  mkdir build
+)
+
+echo Starting build xad
+cd build
+if "%ADDRESS_MODEL%"=="Win64" (
+cmake -G "%MSVC_VERSION% %ADDRESS_MODEL%" -DCMAKE_BUILD_TYPE=%BUILD_TYPE% -DCMAKE_INSTALL_PREFIX=%DAL_DIR%\externals\xad\build -DXAD_STATIC_MSVC_RUNTIME=%XAD_STATIC_MSVC_RUNTIME% ..
+) else (
+cmake -G "%MSVC_VERSION%" -DCMAKE_BUILD_TYPE=%BUILD_TYPE% -DCMAKE_INSTALL_PREFIX=%DAL_DIR%\externals\xad\build -DXAD_STATIC_MSVC_RUNTIME=%XAD_STATIC_MSVC_RUNTIME% ..
+)
+if %errorlevel% neq 0 exit /b 1
+
+msbuild xad.sln /m /p:Configuration=%BUILD_TYPE% /p:Platform=%PLATFORM%
+msbuild INSTALL.vcxproj /m:%NUMBER_OF_PROCESSORS% /p:Configuration=%BUILD_TYPE% /p:Platform=%PLATFORM%
+
+if %errorlevel% neq 0 exit /b 1
+
+echo End build xad
 
 cd ../../..
 
@@ -115,7 +147,7 @@ if exist build (
 
 cd build
 if "%ADDRESS_MODEL%"=="Win64" (
-cmake -G "%MSVC_VERSION% %ADDRESS_MODEL%" --preset %BUILD_TYPE%-windows -DCMAKE_BUILD_TYPE=%BUILD_TYPE%  -DMSVC_RUNTIME=%MSVC_RUNTIME% -DSKIP_TESTS=%SKIP_TESTS% -DVCPKG_TARGET_TRIPLET=%VCPKG_TARGET_TRIPLET% ..
+cmake -G "%MSVC_VERSION% %ADDRESS_MODEL%" --preset %BUILD_TYPE%-windows -DCMAKE_BUILD_TYPE=%BUILD_TYPE% -DMSVC_RUNTIME=%MSVC_RUNTIME% -DSKIP_TESTS=%SKIP_TESTS% -DVCPKG_TARGET_TRIPLET=%VCPKG_TARGET_TRIPLET% ..
 ) else (
 cmake -G "%MSVC_VERSION%" --preset %BUILD_TYPE%-windows -DCMAKE_BUILD_TYPE=%BUILD_TYPE% -DMSVC_RUNTIME=%MSVC_RUNTIME% -DSKIP_TESTS=%SKIP_TESTS% -DVCPKG_TARGET_TRIPLET=%VCPKG_TARGET_TRIPLET% ..
 )

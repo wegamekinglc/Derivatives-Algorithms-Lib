@@ -8,6 +8,8 @@ else()
     target_link_libraries(aad pthread)
 endif()
 
+target_link_libraries(aad XAD::xad)
+
 install(TARGETS aad
         RUNTIME DESTINATION bin
         PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE
