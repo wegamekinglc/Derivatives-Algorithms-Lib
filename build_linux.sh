@@ -57,6 +57,15 @@ cd include
 bash -e ./create_adept_source_header
 )
 
+(
+cd externals/xad/ || exit
+mkdir -p build
+cd build
+cmake -DCMAKE_BUILD_TYPE=${BUILD_TYPE} -DBUILD_SHARED_LIBS=$BUILD_SHARED_LIBS -DCMAKE_INSTALL_PREFIX=${DAL_DIR}/externals/xad/build ..
+make -j"${NUM_CORES}"
+make install
+)
+
 rm -rf build
 mkdir -p build
 (
