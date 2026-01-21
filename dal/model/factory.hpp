@@ -10,17 +10,6 @@
 
 namespace Dal {
 
-    namespace {
-        template <class T_>
-        auto ToMatrix(const Matrix_<>& src) {
-            Matrix_<T_> rtn(src.Rows(), src.Cols());
-            for (int i = 0; i < rtn.Rows(); ++i)
-                for (int j = 0; j < rtn.Cols(); ++j)
-                    rtn(i, j) = T_(src(i, j));
-            return rtn;
-        }
-    }
-
     template <class T_>
     std::unique_ptr<AAD::Model_<T_>> CreateModel(const Handle_<ModelData_>& model_data) {
         auto modelBSImp = dynamic_cast<const BSModelData_*>(model_data.get());
@@ -31,13 +20,20 @@ namespace Dal {
                                                      T_(modelBSImp->div_));
 
         auto modelDupireImp = dynamic_cast<const DupireModelData_*>(model_data.get());
-        if (modelDupireImp)
+        if (modelDupireImp) {
+            const auto& src = modelDupireImp->vols_;
+            Matrix_<T_> dst(src.Rows(), src.Cols());
+            for (int i = 0; i < dst.Rows(); ++i)
+                for (int j = 0; j < dst.Cols(); ++j)
+                    dst(i, j) = T_(src(i, j));
+
             return std::make_unique<AAD::Dupire_<T_>>(T_(modelDupireImp->spot_),
                                              T_(modelDupireImp->rate_),
                                              T_(modelDupireImp->repo_),
                                                modelDupireImp->spots_,
                                                modelDupireImp->times_,
-                                               ToMatrix<T_>(modelDupireImp->vols_));
+                                               dst);
+        }
         THROW("can't find matched model type");
     }
 }

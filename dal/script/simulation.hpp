@@ -75,7 +75,7 @@ namespace Dal::Script {
                              bool compiled,
                              int max_nested_ifs,
                              double eps) {
-        std::unique_ptr<AAD::Model_<double>> mdl = CreateModel<double>(model_data);
+        auto mdl = CreateModel<double>(model_data);
 
         mdl->Allocate(product.TimeLine(), product.DefLine());
         mdl->Init(product.TimeLine(), product.DefLine());
@@ -98,8 +98,8 @@ namespace Dal::Script {
             InitializePath(path);
         }
 
-        Vector_<Evaluator_<double>> evalVector(nThreads, product.BuildEvaluator<double>());
-        Vector_<EvalState_<double>> evalStateVector(nThreads, product.BuildEvalState<double>());
+        Vector_ evalVector(nThreads, product.BuildEvaluator<double>());
+        Vector_ evalStateVector(nThreads, product.BuildEvalState<double>());
 
         SimResults_ results(Vector::Join(mdl->ParameterLabels(), product.ConstVarNames()));
 
