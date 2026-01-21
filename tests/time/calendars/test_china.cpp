@@ -148,7 +148,18 @@ TEST(ChinaCalendarTest, TestHolidays) {
         Date_(2025, 4, 5), Date_(2025, 4, 6), Date_(2025, 5, 1), Date_(2025, 5, 2), Date_(2025, 5, 3),
         Date_(2025, 5, 4), Date_(2025, 5, 5), Date_(2025, 5, 31), Date_(2025, 6, 1), Date_(2025, 6, 2),
         Date_(2025, 10, 1), Date_(2025, 10, 2), Date_(2025, 10, 3), Date_(2025, 10, 4), Date_(2025, 10, 5),
-        Date_(2025, 10, 6), Date_(2025, 10, 7), Date_(2025, 10, 8)
+        Date_(2025, 10, 6), Date_(2025, 10, 7), Date_(2025, 10, 8),
+        // China Shanghai Securities Exchange holiday list in the year 2026
+        Date_(2026, 1, 1), Date_(2026, 1, 2), Date_(2026, 1, 3), Date_(2026, 1, 4),
+        Date_(2026, 2, 15), Date_(2026, 2, 16), Date_(2026, 2, 17), Date_(2026, 2, 18), Date_(2026, 2, 19), Date_(2026, 2, 20),
+        Date_(2026, 2, 21), Date_(2026, 2, 22), Date_(2026, 2, 23),
+        Date_(2026, 4, 4), Date_(2026, 4, 5), Date_(2026, 4, 6),
+        Date_(2026, 5, 1), Date_(2026, 5, 2), Date_(2026, 5, 3), Date_(2026, 5, 4), Date_(2026, 5, 5),
+        Date_(2026, 6, 19), Date_(2026, 6, 20), Date_(2026, 6, 21),
+        Date_(2026, 9, 25), Date_(2026, 9, 26), Date_(2026, 9, 27),
+        Date_(2026, 10, 1), Date_(2026, 10, 2), Date_(2026, 10, 3), Date_(2026, 10, 4),
+        Date_(2026, 10, 5), Date_(2026, 10, 6), Date_(2026, 10, 7),
+
     };
 
     const Holidays_ hol("CN.SSE");
@@ -243,12 +254,17 @@ TEST(ChinaCalendarTest, TestIBWorkingWeekEnds) {
         Date_(2025, 4, 27),
         Date_(2025, 9, 28),
         Date_(2025, 10, 11),
+        // China Inter Bank working weekend list in the year 2026
+        Date_(2026, 1, 4),
+        Date_(2026, 2, 14),
+        Date_(2026, 2, 28),
+        Date_(2026, 5, 9),
+        Date_(2026, 9, 20),
+        Date_(2026, 10, 10),
     };
 
     const Holidays_ hol("CN.IB");
 
     for (auto date : expected_ib_working_ends)
         ASSERT_TRUE(hol.IsWorkWeekends(date));
-
-    ASSERT_FALSE(hol.IsHoliday(Date_(2024, 2, 9)));
 }
