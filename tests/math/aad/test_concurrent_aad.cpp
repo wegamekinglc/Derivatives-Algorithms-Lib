@@ -31,9 +31,6 @@ TEST(AADTest, TestAADMutiThread) {
     ThreadPool_* pool = ThreadPool_::GetInstance();
     const size_t n_threads = pool->NumThreads();
 
-    Vector_<Tape_> tapes(n_threads + 1);
-    Tape_* mainThreadPtr = Number_::Tape();
-
     Vector_<TaskHandle_> futures;
     futures.reserve(n_rounds / batch_size + 1);
 
@@ -47,28 +44,30 @@ TEST(AADTest, TestAADMutiThread) {
         const auto rounds_in_tasks = std::min(rounds_left, batch_size);
         futures.push_back(pool->SpawnTask([&, rounds_in_tasks]() {
             const size_t n_thread = ThreadPool_::ThreadNum();
-            Number_::SetTape(tapes[n_thread]);
+            Dal::AAD::Clear(*Dal::AAD::Tape());
 
             SimpleModel_ model(s1, s2);
-            Number_::Tape()->Rewind();
+            Dal::AAD::Rewind(*Dal::AAD::Tape());
 
-            model.s1_.PutOnTape();
-            model.s2_.PutOnTape();
-            Number_::Tape()->Mark();
+            Dal::AAD::PutOnTape(model.s1_);
+            Dal::AAD::PutOnTape(model.s2_);
+            Dal::AAD::NewRecording(*Dal::AAD::Tape());
+            Dal::AAD::Mark(*Dal::AAD::Tape());
 
             auto& result = final_results[n_thread];
 
             double sum_val = 0.0;
             for (size_t i = 0; i < rounds_in_tasks; ++i) {
-                Number_::Tape()->RewindToMark();
+                Dal::AAD::RewindToMark(*Dal::AAD::Tape());
                 Number_ res = model.s1_ * model.s2_;
-                res.PropagateToMark();
-                sum_val += res.value();
+                Dal::AAD::Adjoint(res) = 1.0;
+                Dal::AAD::PropagateToMark(*Dal::AAD::Tape());
+                sum_val += Dal::AAD::Value(res);
             }
             result[0] += sum_val;
-            Number_::PropagateMarkToStart();
-            result[1] += model.s1_.Adjoint() / static_cast<double>(n_rounds);
-            result[2] += model.s2_.Adjoint() / static_cast<double>(n_rounds);
+            Dal::AAD::PropagateMarkToStart(*Dal::AAD::Tape());
+            result[1] += Dal::AAD::Adjoint(model.s1_) / static_cast<double>(n_rounds);
+            result[2] += Dal::AAD::Adjoint(model.s2_) / static_cast<double>(n_rounds);
             return true;
         }));
         rounds_left -= rounds_in_tasks;
@@ -82,7 +81,6 @@ TEST(AADTest, TestAADMutiThread) {
         for (size_t i = 0; i < greeks.size(); ++i)
         greeks[i] += res[i];
 
-    Number_::SetTape(*mainThreadPtr);
     ASSERT_NEAR(greeks[0] / n_rounds, 6.0, 1e-8);
     ASSERT_NEAR(greeks[1], 3.0, 1e-8);
     ASSERT_NEAR(greeks[2], 2.0, 1e-8);

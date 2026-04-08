@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cmd:*)",
+      "Bash(powershell:*)",
+      "Bash(rm:*)",
+      "mcp__ide__getDiagnostics"
+    ]
+  }
+}

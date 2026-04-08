@@ -13,7 +13,9 @@
 #include <dal/platform/strict.hpp>
 #include <dal/math/aad/aad.hpp>
 
+#ifndef DAL_USE_XAD_AAD
 namespace Dal::AAD {
     size_t TapNode_::numAdj_ = 1;
     bool Tape_::multi_ = false;
 }
+#endif

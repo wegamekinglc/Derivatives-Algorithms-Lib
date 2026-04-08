@@ -11,6 +11,14 @@ else()
     add_library(dal_public ${PUBLIC_FILES})
 endif()
 
+if(DAL_USE_XAD_AAD)
+    if (BUILD_SHARED_LIBS)
+        target_link_libraries(dal_library XAD::xad)
+    else()
+        target_link_libraries(dal_public XAD::xad)
+    endif()
+endif ()
+
 install(DIRECTORY . DESTINATION include/public/src
         FILES_MATCHING PATTERN "*.hpp" PATTERN "*.h")
 

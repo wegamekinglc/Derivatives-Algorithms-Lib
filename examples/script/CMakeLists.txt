@@ -3,6 +3,10 @@ add_executable(script ${SCRIPT_FILES})
 
 target_link_libraries(script dal_library)
 
+if(DAL_USE_XAD_AAD)
+    target_link_libraries(script XAD::xad)
+endif ()
+
 if(MSVC)
 else()
     target_link_libraries(script pthread)

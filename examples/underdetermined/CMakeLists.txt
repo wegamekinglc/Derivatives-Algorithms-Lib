@@ -3,6 +3,10 @@ add_executable(underdetermined ${UNDERDETERMINED_FILES})
 
 target_link_libraries(underdetermined dal_library)
 
+if(DAL_USE_XAD_AAD)
+    target_link_libraries(underdetermined XAD::xad)
+endif ()
+
 if(MSVC)
 else()
     target_link_libraries(underdetermined pthread)

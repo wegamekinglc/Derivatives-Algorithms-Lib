@@ -3,6 +3,10 @@ add_executable(concurrency ${CONCURRENCY_FILES})
 
 target_link_libraries(concurrency dal_library)
 
+if(DAL_USE_XAD_AAD)
+    target_link_libraries(concurrency XAD::xad)
+endif ()
+
 if(MSVC)
 else()
     target_link_libraries(concurrency pthread)

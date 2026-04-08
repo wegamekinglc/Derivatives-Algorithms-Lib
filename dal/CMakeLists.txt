@@ -2,11 +2,15 @@ if (MSVC)
     add_definitions(-DIS_BASE)
 endif()
 
-file(GLOB_RECURSE DAL_FILES "*.h" "*.hpp" "*.cpp")
+file(GLOB_RECURSE DAL_FILES "*.h" "*.hpp" "*.cpp" ".inc")
 list(FILTER DAL_FILES EXCLUDE REGEX "${PROJECT_SOURCE_DIR}/dal/auto/.*")
 list(FILTER DAL_FILES EXCLUDE REGEX "${PROJECT_SOURCE_DIR}/dal/storage/_repository.*")
 
 add_library(dal_library ${DAL_FILES})
+
+if (DAL_USE_XAD_AAD)
+    target_link_libraries(dal_library XAD::xad)
+endif()
 
 set_target_properties(dal_library PROPERTIES
         EXPORT_NAME ${PACKAGE_NAME}

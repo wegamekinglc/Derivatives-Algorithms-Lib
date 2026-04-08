@@ -37,38 +37,41 @@ struct TestModel_ {
 
 
 auto ModelInit(TestModel_& model) {
-    Number_::Tape()->Rewind();
-    model.fwd_.PutOnTape();
-    model.vol_.PutOnTape();
-    model.numeraire_.PutOnTape();
-    model.strike_.PutOnTape();
-    model.expiry_.PutOnTape();
-    Number_::Tape()->Mark();
+    Rewind(*Tape());
+    PutOnTape(model.fwd_);
+    PutOnTape(model.vol_);
+    PutOnTape(model.numeraire_);
+    PutOnTape(model.strike_);
+    PutOnTape(model.expiry_);
+    NewRecording(*Tape());
+    Mark(*Tape());
 }
 
 
 TEST(AADTest, TestWithCheckpoint) {
-    Number_::Tape()->Clear();
+    Clear(*Tape());
 
     Number_ s1(1.0);
     Number_ s2(2.0);
 
-    s1.PutOnTape();
-    s2.PutOnTape();
+    PutOnTape(s1);
+    PutOnTape(s2);
+    NewRecording(*Tape());
 
     Number_ s3 = s1 + s2;
-    Number_::Tape()->Mark();
+    Mark(*Tape());
     Number_ value = s3 * 2.0;
-    value.PropagateToMark();
+    Adjoint(value) = 1.0;
+    PropagateToMark(*Tape());
 
-    ASSERT_NEAR(value.value(), 6.0, 1e-10);
-    ASSERT_NEAR(s3.Adjoint(), 2.0, 1e-10);
-    Number_::PropagateMarkToStart();
-    ASSERT_NEAR(s1.Adjoint(), 2.0, 1e-10);
+    ASSERT_NEAR(Value(value), 6.0, 1e-10);
+    ASSERT_NEAR(Adjoint(s3), 2.0, 1e-10);
+    PropagateMarkToStart(*Tape());
+    ASSERT_NEAR(Adjoint(s1), 2.0, 1e-10);
 }
 
 TEST(AADTest, TestWithCheckpointWithForLoop) {
-    Number_::Tape()->Clear();
+    Clear(*Tape());
 
     for (int m = 0; m < 3; ++m) {
 
@@ -76,30 +79,32 @@ TEST(AADTest, TestWithCheckpointWithForLoop) {
         Number_ s1(1.0);
         Number_ s2(2.0);
 
-        s1.PutOnTape();
-        s2.PutOnTape();
+        PutOnTape(s1);
+        PutOnTape(s2);
+        NewRecording(*Tape());
 
         Number_ s3 = s1 + s2;
-        Number_::Tape()->Mark();
+        Mark(*Tape());
         for (int i = 0; i < n; ++i) {
-            Number_::Tape()->RewindToMark();
+            RewindToMark(*Tape());
             Number_ value;
             if (i % 2 == 0)
                 value = s3 * 1.01;
             else
                 value = s3 * 0.99;
-            value.PropagateToMark();
+            Adjoint(value) = 1.0;
+            PropagateToMark(*Tape());
             if (i % 2 == 0) {
-                ASSERT_NEAR(value.value(), 3 * 1.01, 1e-10);
-                ASSERT_NEAR(s3.Adjoint(), (i + 1) / 2 * 2 + (i + 1) % 2 * 1.01, 1e-10);
+                ASSERT_NEAR(Value(value), 3 * 1.01, 1e-10);
+                ASSERT_NEAR(Adjoint(s3), (i + 1) / 2 * 2 + (i + 1) % 2 * 1.01, 1e-10);
             } else {
-                ASSERT_NEAR(value.value(), 3 * 0.99, 1e-10);
-                ASSERT_NEAR(s3.Adjoint(), (i + 1) / 2 * 2 + (i + 1) % 2 * 0.99, 1e-10);
+                ASSERT_NEAR(Value(value), 3 * 0.99, 1e-10);
+                ASSERT_NEAR(Adjoint(s3), (i + 1) / 2 * 2 + (i + 1) % 2 * 0.99, 1e-10);
             }
         }
-        Number_::PropagateMarkToStart();
-        ASSERT_NEAR(s1.Adjoint(), n, 1e-10);
-        ASSERT_NEAR(s2.Adjoint(), n, 1e-10);
+        PropagateMarkToStart(*Tape());
+        ASSERT_NEAR(Adjoint(s1), n, 1e-10);
+        ASSERT_NEAR(Adjoint(s2), n, 1e-10);
     }
 }
 
@@ -120,9 +125,6 @@ TEST(AADTest, TestWithCheckpointWithMultiThreading) {
     Vector_<TaskHandle_> futures;
     futures.reserve(n_rounds / batch_size + 1);
 
-    Vector_<AAD::Tape_> tapes(n_threads);
-    Tape_* mainThreadPtr = Number_::Tape();
-
     int first_round = 0;
     int rounds_left = n_rounds;
 
@@ -134,31 +136,31 @@ TEST(AADTest, TestWithCheckpointWithMultiThreading) {
 
         futures.push_back(pool->SpawnTask([&, rounds_in_tasks]() {
             const size_t n_thread = ThreadPool_::ThreadNum();
-            Number_::SetTape(tapes[n_thread]);
             std::unique_ptr<TestModel_> model = std::make_unique<TestModel_>(fwd, vol, numeraire, strike, expiry);
             ModelInit(*model);
             auto& results = final_results[n_thread];
 
             double sum_val = 0.0;
             for (size_t i = 0; i < rounds_in_tasks; ++i) {
-                Number_::Tape()->RewindToMark();
+                RewindToMark(*Tape());
                 Number_ res = BlackTest(model->fwd_,
                                         model->vol_,
                                         model->numeraire_,
                                         model->strike_,
                                         model->expiry_,
                                         is_call);
-                res.PropagateToMark();
-                sum_val += res.value();
+                Adjoint(res) = 1.0;
+                PropagateToMark(*Tape());
+                sum_val += Value(res);
             }
 
-            Number_::PropagateMarkToStart();
+            PropagateMarkToStart(*Tape());
             results[0] += sum_val;
-            results[1] += model->fwd_.Adjoint() / static_cast<double>(n_rounds);
-            results[2] += model->vol_.Adjoint() / static_cast<double>(n_rounds);
-            results[3] += model->numeraire_.Adjoint() / static_cast<double>(n_rounds);
-            results[4] += model->strike_.Adjoint() / static_cast<double>(n_rounds);
-            results[5] += model->expiry_.Adjoint() / static_cast<double>(n_rounds);
+            results[1] += Adjoint(model->fwd_) / static_cast<double>(n_rounds);
+            results[2] += Adjoint(model->vol_) / static_cast<double>(n_rounds);
+            results[3] += Adjoint(model->numeraire_) / static_cast<double>(n_rounds);
+            results[4] += Adjoint(model->strike_) / static_cast<double>(n_rounds);
+            results[5] += Adjoint(model->expiry_) / static_cast<double>(n_rounds);
             return true;
         }));
         rounds_left -= rounds_in_tasks;
@@ -171,8 +173,6 @@ TEST(AADTest, TestWithCheckpointWithMultiThreading) {
     for (const auto& res: final_results)
         for (size_t i = 0; i < greeks.size(); ++i)
             greeks[i] += res[i];
-
-    Number_::SetTape(*mainThreadPtr);
 
     ASSERT_NEAR(greeks[0] / static_cast<double>(n_rounds), 0.0714668, 1e-6);
     ASSERT_NEAR(greeks[1], 0.362002, 1e-6);

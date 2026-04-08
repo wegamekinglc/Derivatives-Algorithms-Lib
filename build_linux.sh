@@ -4,33 +4,19 @@ NUM_CORES=$(grep -c processor /proc/cpuinfo)
 export DAL_DIR=$PWD
 export LD_LIBRARY_PATH=$PWD/lib:$LD_LIBRARY_PATH
 export BUILD_TYPE=Release
-export USE_COVERAGE=false  # make it `false` when you need a full performance lib
 export SKIP_TESTS=false
+export USE_COVERAGE=false  # make it `false` when you need a full performance lib
 export CMAKE_EXPORT_COMPILE_COMMANDS=on
-export BUILD_SHARED_LIBS=off
 
 echo NUM_CORES: $NUM_CORES
 echo BUILD_TYPE: $BUILD_TYPE
 echo SKIP_TESTS: $SKIP_TESTS
 echo USE_COVERAGE: $USE_COVERAGE
 echo DAL_DIR: "$DAL_DIR"
-echo BUILD_SHARED_LIBS: $BUILD_SHARED_LIBS
 echo CMAKE_EXPORT_COMPILE_COMMANDS: $CMAKE_EXPORT_COMPILE_COMMANDS
 
-(
-cd externals/vcpkg
-if [ -f "./vcpkg" ]; then
-  echo "vcpkg executable already exists"
-else
-  bash bootstrap-vcpkg.sh
-fi
-./vcpkg install gtest
-./vcpkg install rapidjson
-)
-
-if [ $? -ne 0 ]; then
-  exit 1
-fi
+rm -rf ./bin
+rm -rf ./lib
 
 (
 cd externals/machinist || exit
@@ -50,27 +36,25 @@ if [ $? -ne 0 ]; then
 fi
 
 (
-cd externals/adept/ || exit
-autoreconf -i
-./configure --disable-openmp
-cd include
-bash -e ./create_adept_source_header
-)
-
-(
-cd externals/xad/ || exit
+cd externals/xad || exit
+rm -rf build
 mkdir -p build
-cd build
-cmake -DCMAKE_BUILD_TYPE=${BUILD_TYPE} -DBUILD_SHARED_LIBS=$BUILD_SHARED_LIBS -DCMAKE_INSTALL_PREFIX=${DAL_DIR}/externals/xad/build -DCMAKE_EXPORT_COMPILE_COMMANDS=$CMAKE_EXPORT_COMPILE_COMMANDS ..
+
+cd build || exit
+cmake --preset ${BUILD_TYPE}-linux ..
 make -j"${NUM_CORES}"
 make install
 )
+
+if [ $? -ne 0 ]; then
+  exit 1
+fi
 
 rm -rf build
 mkdir -p build
 (
 cd build || exit
-cmake --preset ${BUILD_TYPE}-linux -DUSE_COVERAGE=$USE_COVERAGE -DSKIP_TESTS=$SKIP_TESTS -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DCMAKE_EXPORT_COMPILE_COMMANDS=$CMAKE_EXPORT_COMPILE_COMMANDS -DBUILD_SHARED_LIBS=$BUILD_SHARED_LIBS ..
+cmake --preset ${BUILD_TYPE}-linux -DUSE_COVERAGE=$USE_COVERAGE -DCMAKE_EXPORT_COMPILE_COMMANDS=$CMAKE_EXPORT_COMPILE_COMMANDS ..
 make -j"${NUM_CORES}"
 make install
 )

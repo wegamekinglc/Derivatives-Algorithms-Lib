@@ -1,11 +1,12 @@
 # DAL - *D*erivatives *A*lgorithms *L*ib
-[![GCC-13 build status](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/actions/workflows/cmake-linux-gcc-13.yml/badge.svg?branch=master)]()
-[![GCC-14 build status](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/actions/workflows/cmake-linux-gcc-14.yml/badge.svg?branch=master)]()
-[![CLANG-18 build status](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/actions/workflows/cmake-linux-clang-18.yml/badge.svg?branch=master)]()
-[![CLANG-19 build status](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/actions/workflows/cmake-linux-clang-19.yml/badge.svg?branch=master)]()
 
-[![Codacy Badge](https://app.codacy.com/project/badge/Grade/9c84afd2bb534c6c87584e5d6e4cc420)]()
-[![Coverage Status](https://coveralls.io/repos/wegamekinglc/Derivatives-Algorithms-Lib/badge.svg?branch=master)]()
+[![GCC-13 build status](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/actions/workflows/cmake-linux-gcc-13.yml/badge.svg?branch=master)](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/actions/workflows/cmake-linux-gcc-13.yml)
+[![GCC-14 build status](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/actions/workflows/cmake-linux-gcc-14.yml/badge.svg?branch=master)](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/actions/workflows/cmake-linux-gcc-14.yml)
+[![CLANG-18 build status](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/actions/workflows/cmake-linux-clang-18.yml/badge.svg?branch=master)](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/actions/workflows/cmake-linux-clang-18.yml)
+[![CLANG-19 build status](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/actions/workflows/cmake-linux-clang-19.yml/badge.svg?branch=master)](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/actions/workflows/cmake-linux-clang-19.yml)
+
+[![Codacy Badge](https://app.codacy.com/project/badge/Grade/9c84afd2bb534c6c87584e5d6e4cc420)](https://app.codacy.com/app/wegamekinglc/Derivatives-Algorithms-Lib)
+[![Coverage Status](https://coveralls.io/repos/wegamekinglc/Derivatives-Algorithms-Lib/badge.svg?branch=master)](https://coveralls.io/github/wegamekinglc/Derivatives-Algorithms-Lib?branch=master)
 
 ## Introduction
 
@@ -30,15 +31,15 @@ This is a project inspired by following books & codes repositories:
 just download source codes from *github* and don't forget to get the submodule
 
 ```bash
-$ git clone git@github.com:wegamekinglc/Derivatives-Algorithms-Lib.git
-$ cd Derivatives-Algorithms-Lib
-$ git submodule init
-$ git submodule update
+git clone git@github.com:wegamekinglc/Derivatives-Algorithms-Lib.git
+cd Derivatives-Algorithms-Lib
+git submodule init
+git submodule update
 ```
 
 ### Windows
 
-### Prerequisite
+#### Prerequisite
 
 * git
 * cmake
@@ -46,11 +47,10 @@ $ git submodule update
 * swig (only for python)
 * Visual studio 2022 community edition
 
-
-#### build
+#### Build
 
 ```bash
-$ ./build_windows.bat
+./build_windows.bat
 ```
 
 after built, you will get:
@@ -60,7 +60,7 @@ after built, you will get:
 
 ### Linux
 
-#### Prerequisite
+#### Prerequisites (Linux)
 
 * git
 * cmake
@@ -69,10 +69,10 @@ after built, you will get:
 * zip
 * g++
 
-#### build
+#### Build (Linux)
 
 ```bash
-$ bash build_linux.sh
+bash build_linux.sh
 ```
 
 after built, you will get:
@@ -85,9 +85,9 @@ after built, you will get:
 both for windows and linux user:
 
 ```bash
-$ cd public/python
-$ python setup.py wrap
-$ python setup.py install
+cd public/python
+python setup.py wrap
+python setup.py install
 ```
 
 ## Examples
@@ -105,13 +105,13 @@ We will give a public interface to show the functionality of this project.
 
 we have following data table
 
-| **x** 	  | **y** 	  |
-|------|------|
-| 1 	  | 10 	 |
-| 3 	  | 8 	  |
-| 5 	  | 6 	  |
-| 7 	  | 4 	  |
-| 9 	  | 2 	  |
+| **x** | **y** |
+|-------|-------|
+| 1     | 10    |
+| 3     | 8     |
+| 5     | 6     |
+| 7     | 4     |
+| 9     | 2     |
 
 and we will use follow excel function to create a linear interpolator:
 
@@ -120,6 +120,7 @@ and we will use follow excel function to create a linear interpolator:
 ```
 
 later we can use the interpolator:
+
 ```excel
 =INTERP1.GET("~Interp1~my.interp~2F18E558", 6.5)  # will return 4.5
 ```
@@ -130,9 +131,9 @@ We will price an european option with our script ability and a basic BS model
 
 The product will be described in excel like :
 
-| **Date** 	  | **Event** 	 |
+| **Date**    | **Event**   |
 |-------------|-------------|
-| 2022/9/25 	 | call pays MAX(spot() - 120, 0.0) |
+| 2022/9/25   | call pays MAX(spot() - 120, 0.0) |
 
 and we can create a product in excel with the above table:
 
@@ -142,24 +143,25 @@ and we can create a product in excel with the above table:
 
 then we set a model to price this:
 
-| **Field** 	 | **Value** |
-|-------------|-----------|
-| spot 	   | 100 	     |
-| vol	       |  0.15 	   |
-| rate	       | 0.0       |
-| dividend   | 0.0 	     |
+| **Field** | **Value** |
+|-----------|-----------|
+| spot      | 100       |
+| vol       | 0.15      |
+| rate      | 0.0       |
+| dividend  | 0.0       |
 
 ```excel
 =BSMODELDATA.NEW("model", D2, D3, D4, D5)
 ```
 
 finally we price this product with the model:
+
 ```excel
 =MONTECARLO.VALUE(A5, C7, 2^20, "sobol", FALSE)
 ```
 
-| value |4.0389  |
-|-------|-----|
+| value | 4.0389 |
+|-------|--------|
 
 #### other excel based exotic products example
 
@@ -203,6 +205,7 @@ vega = 0.0
 for k, v in res.items():
     print(f"{k:<8}: {v:>10.4f}")
 ```
+
 The output should look like:
 
 ```python

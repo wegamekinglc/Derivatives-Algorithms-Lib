@@ -16,14 +16,13 @@ namespace Dal {
 
     template <class E_>
     class ArrayN_ {
-    private:
         Vector_<int> sizes_;
         Vector_<int> strides_;
         Vector_<E_> vals_;
 
     public:
-        explicit ArrayN_(const Vector_<int>& sizes, const E_& fill = 0)
-            :sizes_(sizes), strides_(ArrayN::Strides(sizes)), vals_(strides_[0] * sizes[0], fill) {}
+        explicit ArrayN_(const Vector_<int>& sizes, const E_& fill = E_(0.0))
+            : sizes_(sizes), strides_(ArrayN::Strides(sizes)), vals_(strides_[0] * sizes[0], fill) {}
 
         const E_& operator[](const Vector_<int>& where) const { return vals_[InnerProduct(where, strides_)]; }
         E_& operator[](const Vector_<int>& where) { return vals_[InnerProduct(where, strides_)]; }

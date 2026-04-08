@@ -6,6 +6,10 @@ add_executable(matrix_perf ${MATRIX_PERF_FILES})
 
 target_link_libraries(matrix_perf dal_library OpenMP::OpenMP_CXX)
 
+if(DAL_USE_XAD_AAD)
+    target_link_libraries(matrix_perf XAD::xad)
+endif ()
+
 if(MSVC)
 else()
     target_link_libraries(matrix_perf pthread)

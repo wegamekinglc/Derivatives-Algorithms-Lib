@@ -3,6 +3,10 @@ add_executable(european_fd ${EUROPEAN_FD_FILES})
 
 target_link_libraries(european_fd dal_library)
 
+if(DAL_USE_XAD_AAD)
+    target_link_libraries(european_fd XAD::xad)
+endif ()
+
 if(MSVC)
 else()
     target_link_libraries(european_fd pthread)

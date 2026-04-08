@@ -17,6 +17,7 @@
 #include <iostream>
 #include <dal/platform/consts.hpp>
 
+#ifndef DAL_USE_XAD_AAD
 namespace Dal::AAD {
     class TapNode_ {
         const size_t n_;
@@ -61,3 +62,5 @@ namespace Dal::AAD {
 
     };
 } // namespace Dal
+#else
+#endif

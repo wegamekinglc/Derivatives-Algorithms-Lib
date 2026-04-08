@@ -3,14 +3,12 @@
 //
 
 #include <fstream>
+#include <memory>
 #include <sstream>
 #include <regex>
 #include <rapidjson/document.h>
 #include <rapidjson/writer.h>
-#include <rapidjson/prettywriter.h>
 #include <rapidjson/filereadstream.h>
-#include <rapidjson/filewritestream.h>
-
 #include <dal/platform/platform.hpp>
 #include <dal/platform/strict.hpp>
 #include <dal/storage/json.hpp>
@@ -31,7 +29,7 @@ namespace Dal {
         using allocator_t = rapidjson::GenericDocument<rapidjson::UTF8<>>::AllocatorType ;
         using rapidjson::Value;
         rapidjson::GenericStringRef<char> LendToJSON(const String_& s) {
-            return rapidjson::GenericStringRef<char>(s.c_str(), static_cast<int>(s.size()));
+            return {s.c_str(), static_cast<rapidjson::SizeType>(s.size())};
         }
         // WRITE interface
         // given up on rapidjson, think it is simple enough to just stream out
@@ -53,7 +51,7 @@ namespace Dal {
                 : dst_(dst), sharedTags_(tags), ownName_(std::move(own_name)), empty_(true) {}
 
             // looks like tag has to be the toplevel attribute of an object node
-            const char* Prep() { return empty_ ? "{\n" : ",\n"; }
+            const char* Prep() const { return empty_ ? "{\n" : ",\n"; }
             void StoreRefTag(const String_& tag) {
                 assert(empty_); // this should always be the first thing written
                 dst_ << Prep() << "\"" << TAG_LABEL << "\": \"" << tag << "\"";
@@ -82,45 +80,46 @@ namespace Dal {
                 if (!retval) {
                     // assume we are going to write the child immediately
                     dst_ << Prep() << "\"" << name << "\": ";
-                    retval.reset(new XDocStore_(dst_, sharedTags_, this, name));
+                    retval = std::make_shared<XDocStore_>(dst_, sharedTags_, this, name);
                 }
                 return *retval;
             }
 
             // store atoms
-            XDocStore_& operator=(double val) override {
+            XDocStore_& operator=(const double val) override {
                 dst_ << String::FromDouble(val);
                 return *this;
             }
 
-            XDocStore_& operator=(int val) {
+            XDocStore_& operator=(const int val) {
                 dst_ << String::FromDouble(val);
                 return *this;
             }
-            XDocStore_& operator=(bool val) {
+            XDocStore_& operator=(const bool val) {
                 dst_ << String::FromBool(val);
                 return *this;
             }
             XDocStore_& operator=(const String_& val) override { dst_ << "\"" << val << "\""; return *this; }
-            XDocStore_& operator=(const Date_& val) override { return operator=(Date::ToString(val)); }
-            XDocStore_& operator=(const DateTime_& val) override { return operator=(DateTime::ToString(val)); }
+            XDocStore_& operator=(const Date_& val) override { operator=(Date::ToString(val)); return *this; }
+            XDocStore_& operator=(const DateTime_& val) override { operator=(DateTime::ToString(val)); return *this; }
             XDocStore_& operator=(const Cell_& c) {
                 if (Cell::IsBool(c))
-                    return operator=(Cell::ToBool(c));
+                    operator=(Cell::ToBool(c));
                 else if (Cell::IsDate(c))
-                    return operator=(Cell::ToDate(c));
+                    operator=(Cell::ToDate(c));
                 else if (Cell::IsDateTime(c))
-                    return operator=(Cell::ToDateTime(c));
+                    operator=(Cell::ToDateTime(c));
                 else if (Cell::IsString(c))
-                    return operator=(Cell::ToString(c));
+                    operator=(Cell::ToString(c));
                 else if (Cell::IsDouble(c))
-                    return operator=(Cell::ToDouble(c));
+                    operator=(Cell::ToDouble(c));
                 else if (Cell::IsInt(c))
-                    return operator=(Cell::ToInt(c));
+                    operator=(Cell::ToInt(c));
                 else if (Cell::IsEmpty(c))
-                    return operator=(String_());
+                    operator=(String_());
                 else
                     THROW("Internal error -- unhandled cell type");
+                return *this;
             }
 
             template <class E_> void SetArray(const Vector_<E_>& val) {
@@ -157,16 +156,16 @@ namespace Dal {
             XDocStore_& operator=(const Matrix_<>& val) override { SetMatrix(val); return *this; }
             XDocStore_& operator=(const Matrix_<String_>& val) override { SetMatrix(val); return *this; }
             XDocStore_& operator=(const Matrix_<Cell_>& val) override { SetMatrix(val); return *this; }
-            XDocStore_& operator=(const Dictionary_& val) override { return operator=(Dictionary::ToString(val)); }
+            XDocStore_& operator=(const Dictionary_& val) override { operator=(Dictionary::ToString(val)); return *this; }
         };
 
         // READ interface
         template <class E_>
         auto AsVector(element_t& doc, const E_& extract) -> typename vector_of<decltype(extract(doc))>::type {
             REQUIRE(doc.IsArray(), "Can't get a vector value");
-            const int n = doc.Size();
+            const auto n = doc.Size();
             typename vector_of<decltype(extract(doc))>::type ret_val(n);
-            for (int ii = 0; ii < n; ++ii)
+            for (auto ii = 0; ii < n; ++ii)
                 ret_val[ii] = extract(doc[ii]);
             return ret_val;
         }
@@ -195,7 +194,7 @@ namespace Dal {
         }
         String_ EString(const element_t& doc) {
             REQUIRE(doc.IsString(), "Can't get a string value");
-            return String_(doc.GetString());
+            return {doc.GetString()};
         }
         Date_ EDate(const element_t& doc) { // worrying about efficiency, so storing dates as Excel-compatible integers
             if (doc.IsInt())
@@ -216,8 +215,8 @@ namespace Dal {
             THROW("Can't get a datetime value");
         }
         Cell_ ECell(const element_t& doc) {
-            static const std::regex DATE_PATTERN("\\d{4}-\\d{2}-\\d{2}");
-            static const std::regex DATE_TIME_PATTERN("\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}");
+            static const std::regex DATE_PATTERN(R"(\d{4}-\d{2}-\d{2})");
+            static const std::regex DATE_TIME_PATTERN(R"(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})");
             if (doc.IsDouble())
                 return Cell_(doc.GetDouble());
             if (doc.IsBool())
@@ -232,7 +231,7 @@ namespace Dal {
                     return Cell_(String_(src));
             }
             if (doc.IsNull())
-                return Cell_();
+                return {};
             THROW("Invalid cell type");
         }
 
@@ -240,7 +239,7 @@ namespace Dal {
         struct XDocView_ : Archive::View_ {
             element_t& doc_; // may be shared
             mutable std::map<String_, Handle_<XDocView_>> children_;
-            XDocView_(element_t& doc) : doc_(doc) {}
+            explicit XDocView_(element_t& doc) : doc_(doc) {}
 
             // shared-object part of Archive::View_ interface
             // we will do this by having a Tag() which is empty except for shared objects (same as Splat)
@@ -248,12 +247,12 @@ namespace Dal {
                 if (doc_.IsString() && doc_.GetStringLength() > 1 && doc_.GetString()[0] == prefix) {
                     return String_(doc_.GetString()).substr(1);
                 }
-                return String_();
+                return {};
             }
             String_ Tag() const {
                 if (doc_.HasMember(TAG_LABEL))
                     return EString(doc_[TAG_LABEL]);
-                return String_();
+                return {};
             }
             Handle_<Storable_>& Known(Archive::Built_& built) const override // returns a reference within 'built'
             {
@@ -293,7 +292,7 @@ namespace Dal {
             String_ Type() const override {
                 if (doc_.HasMember(TYPE_LABEL))
                     return EString(doc_[TYPE_LABEL]);
-                return String_();
+                return {};
             }
             element_t& XChild(const String_& name) const { return doc_[name.c_str()]; }
             bool HasChild(const String_& name) const override { return doc_.HasMember(name.c_str()); }
@@ -312,7 +311,7 @@ namespace Dal {
         NOTE("Extracting object from JSON string");
         rapidjson::Document doc;
         doc.Parse<rapidjson::kParseDefaultFlags>(src.c_str());
-        XDocView_ task(doc);
+        const XDocView_ task(doc);
         Archive::Built_ built;
         return Archive::Extract(task, built);
     }
@@ -325,7 +324,7 @@ namespace Dal {
         rapidjson::Document doc;
         doc.ParseStream<rapidjson::kParseDefaultFlags>(is);
         fclose(fp);
-        XDocView_ task(doc);
+        const XDocView_ task(doc);
         Archive::Built_ built;
         return Archive::Extract(task, built);
     }

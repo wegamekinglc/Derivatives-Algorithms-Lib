@@ -2,7 +2,6 @@
 // Created by wegam on 2020/12/21.
 //
 
-#include <adept_source.h>
 #include <XAD/XAD.hpp>
 #include <dal/platform/platform.hpp>
 #include <dal/math/operators.hpp>
@@ -43,7 +42,7 @@ int main() {
     bool is_call = true;
     Timer_ timer;
 
-    Vector_<int> widths = {14, 14, 14, 14, 14, 14, 14, 14};
+    Vector_<int> widths = {25, 14, 14, 14, 14, 14, 14, 14};
 
     std::cout << std::setw(widths[0]) << std::left << "Method"
               << std::setw(widths[1]) << std::right << "PV"
@@ -77,8 +76,8 @@ int main() {
     }
 
     {
-        // aadet
-        Number_::Tape()->Clear();
+        // builtin framework
+        AAD::Clear(*AAD::Tape());
 
         timer.Reset();
         Number_ fwd_aad(fwd);
@@ -87,63 +86,35 @@ int main() {
         Number_ strike_aad(strike);
         Number_ expiry_aad(expiry);
 
-        fwd_aad.PutOnTape();
-        vol_aad.PutOnTape();
-        numeraire_aad.PutOnTape();
-        strike_aad.PutOnTape();
-        expiry_aad.PutOnTape();
+        PutOnTape(fwd_aad);
+        PutOnTape(vol_aad);
+        PutOnTape(numeraire_aad);
+        PutOnTape(strike_aad);
+        PutOnTape(expiry_aad);
+        AAD::NewRecording(*AAD::Tape());
 
         Number_  price_aad{0.0};
         for (int i = 0; i < n_rounds; ++i) {
-            Number_::Tape()->Rewind();
+            AAD::Rewind(*AAD::Tape());
             price_aad = BlackTest(fwd_aad, vol_aad, numeraire_aad, strike_aad, expiry_aad, is_call);
-            price_aad.PropagateToStart();
+            Adjoint(price_aad) = 1.0;
+            AAD::PropagateToStart(*AAD::Tape());
         }
 
         const auto duration = static_cast<int>(timer.Elapsed<milliseconds>());
-        std::cout << std::setw(widths[0]) << std::left << "AADET"
+#ifndef DAL_USE_XAD_AAD
+        std::cout << std::setw(widths[0]) << std::left << "Builtin (AADET)"
+#else
+        std::cout << std::setw(widths[0]) << std::left << "Builtin (XAD)"
+#endif
                   << std::fixed
                   << std::setprecision(6)
-                  << std::setw(widths[1]) << std::right << price_aad.value()
-                  << std::setw(widths[2]) << std::right << fwd_aad.Adjoint() / n_rounds
-                  << std::setw(widths[3]) << std::right << vol_aad.Adjoint() / n_rounds
-                  << std::setw(widths[4]) << std::right << numeraire_aad.Adjoint() / n_rounds
-                  << std::setw(widths[5]) << std::right << strike_aad.Adjoint() / n_rounds
-                  << std::setw(widths[6]) << std::right << expiry_aad.Adjoint() / n_rounds
-                  << std::setw(widths[7]) << std::right << duration
-                  << std::endl;
-    }
-
-    {
-        // adept
-        adept::Stack stack;
-        using adept::adouble;
-
-        adouble fwd_aad(fwd);
-        adouble vol_aad(vol);
-        adouble numeraire_aad(numeraire);
-        adouble strike_aad(strike);
-        adouble expiry_aad(expiry);
-
-        timer.Reset();
-        adouble price_aad{0.0};
-        for (int i = 0; i < n_rounds; ++i) {
-            stack.new_recording();
-            price_aad = BlackTest(fwd_aad, vol_aad, numeraire_aad, strike_aad, expiry_aad, is_call);
-            price_aad.set_gradient(1.0);
-            stack.compute_adjoint();
-        }
-
-        const auto duration = static_cast<int>(timer.Elapsed<milliseconds>());
-        std::cout << std::setw(widths[0]) << std::left << "ADEPT"
-                  << std::fixed
-                  << std::setprecision(6)
-                  << std::setw(widths[1]) << std::right << price_aad.value()
-                  << std::setw(widths[2]) << std::right << fwd_aad.get_gradient()
-                  << std::setw(widths[3]) << std::right << vol_aad.get_gradient()
-                  << std::setw(widths[4]) << std::right << numeraire_aad.get_gradient()
-                  << std::setw(widths[5]) << std::right << strike_aad.get_gradient()
-                  << std::setw(widths[6]) << std::right << expiry_aad.get_gradient()
+                  << std::setw(widths[1]) << std::right << Value(price_aad)
+                  << std::setw(widths[2]) << std::right << Adjoint(fwd_aad) / n_rounds
+                  << std::setw(widths[3]) << std::right << Adjoint(vol_aad) / n_rounds
+                  << std::setw(widths[4]) << std::right << Adjoint(numeraire_aad) / n_rounds
+                  << std::setw(widths[5]) << std::right << Adjoint(strike_aad) / n_rounds
+                  << std::setw(widths[6]) << std::right << Adjoint(expiry_aad) / n_rounds
                   << std::setw(widths[7]) << std::right << duration
                   << std::endl;
     }
@@ -154,7 +125,11 @@ int main() {
         using ADouble = mode::active_type;
         using Tape = mode::tape_type;
 
+#ifndef DAL_USE_XAD_AAD
         Tape tape;
+#else
+        auto& tape = AAD::Tape()->tape_;
+#endif
 
         timer.Reset();
 
@@ -187,7 +162,7 @@ int main() {
         std::cout << std::setw(widths[0]) << std::left << "XAD"
                   << std::fixed
                   << std::setprecision(6)
-                  << std::setw(widths[1]) << std::right << price_aad.value()
+                  << std::setw(widths[1]) << std::right << xad::value(price_aad)
                   << std::setw(widths[2]) << std::right << xad::derivative(fwd_aad) / n_rounds
                   << std::setw(widths[3]) << std::right << xad::derivative(vol_aad) / n_rounds
                   << std::setw(widths[4]) << std::right << xad::derivative(numeraire_aad) / n_rounds
@@ -196,6 +171,52 @@ int main() {
                   << std::setw(widths[7]) << std::right << duration
                   << std::endl;
     }
+
+    // {
+    //     // xad with jit
+    //     using mode = xad::adj<double>;
+    //     using ADouble = mode::active_type;
+
+    //     // Create JIT compiler and register inputs
+    //     xad::JITCompiler<double, 1> jit;
+
+    //     timer.Reset();
+
+    //     ADouble fwd_aad(fwd);
+    //     ADouble vol_aad(vol);
+    //     ADouble numeraire_aad(numeraire);
+    //     ADouble strike_aad(strike);
+    //     ADouble expiry_aad(expiry);
+
+    //     jit.registerInput(fwd_aad);
+    //     jit.registerInput(vol_aad);
+    //     jit.registerInput(numeraire_aad);
+    //     jit.registerInput(strike_aad);
+    //     jit.registerInput(expiry_aad);
+
+    //     ADouble price_aad = BlackTest(fwd_aad, vol_aad, numeraire_aad, strike_aad, expiry_aad, is_call);
+    //     jit.registerOutput(price_aad);
+    //     jit.compile();
+
+    //     for (int i = 0; i < n_rounds; ++i) {
+    //         jit.clearDerivatives();
+    //         xad::derivative(price_aad) = 1.0;
+    //         jit.computeAdjoints();
+    //     }
+
+    //     const auto duration = static_cast<int>(timer.Elapsed<milliseconds>());
+    //     std::cout << std::setw(widths[0]) << std::left << "XAD w/ jit"
+    //               << std::fixed
+    //               << std::setprecision(6)
+    //               << std::setw(widths[1]) << std::right << xad::value(price_aad)
+    //               << std::setw(widths[2]) << std::right << xad::derivative(fwd_aad)
+    //               << std::setw(widths[3]) << std::right << xad::derivative(vol_aad)
+    //               << std::setw(widths[4]) << std::right << xad::derivative(numeraire_aad)
+    //               << std::setw(widths[5]) << std::right << xad::derivative(strike_aad)
+    //               << std::setw(widths[6]) << std::right << xad::derivative(expiry_aad)
+    //               << std::setw(widths[7]) << std::right << duration
+    //               << std::endl;
+    // }
 
     return 0;
 }

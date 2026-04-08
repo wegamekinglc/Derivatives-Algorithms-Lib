@@ -2,13 +2,12 @@ file(GLOB_RECURSE AAD_FILES "*.hpp" "*.cpp")
 add_executable(aad ${AAD_FILES})
 
 target_link_libraries(aad dal_library)
+target_link_libraries(aad XAD::xad)
 
 if(MSVC)
 else()
     target_link_libraries(aad pthread)
 endif()
-
-target_link_libraries(aad XAD::xad)
 
 install(TARGETS aad
         RUNTIME DESTINATION bin

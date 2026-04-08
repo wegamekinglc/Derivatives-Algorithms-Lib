@@ -5,51 +5,128 @@
 #include <dal/math/aad/expr.hpp>
 #include <dal/math/aad/tape.hpp>
 
+#ifndef DAL_USE_XAD_AAD
 namespace Dal::AAD {
 
-    void Tape_::ResetAdjoints() {
-        if (multi_)
-            adjointsMulti_.Memset(0);
-        else {
-            for (auto it = nodes_.Begin(); it != nodes_.End(); ++it)
-                it->adjoint_ = 0.;
+    namespace {
+        auto Begin(Tape_& tape) -> Tape_::Iterator_ {
+            return tape.nodes_.Begin();
+        }
+
+        auto End(Tape_& tape) -> Tape_::Iterator_ {
+            return tape.nodes_.End();
+        }
+
+        auto MarkIt(Tape_& tape) -> Tape_::Iterator_ {
+            return tape.nodes_.Mark();
+        }
+
+        void PropagateAdjoints(Tape_::Iterator_ propagateFrom, Tape_::Iterator_ propagateTo) {
+            auto it = propagateFrom;
+            while (it != propagateTo) {
+                it->PropagateOne();
+                --it;
+            }
+            it->PropagateOne();
         }
     }
 
-    void Tape_::Clear() {
-        adjointsMulti_.Clear();
-        ders_.Clear();
-        argPtrs_.Clear();
-        nodes_.Clear();
+    void PropagateMarkToStart(Tape_& tape) {
+        PropagateAdjoints(std::prev(MarkIt(tape)), Begin(tape));
     }
 
-    void Tape_::Mark() {
-        if (multi_)
-            adjointsMulti_.SetMark();
-        ders_.SetMark();
-        argPtrs_.SetMark();
-        nodes_.SetMark();
+    void PropagateToStart(Tape_& tape) {
+        PropagateAdjoints(std::prev(End(tape)), Begin(tape));
     }
 
-    void Tape_::Rewind()  {
-        if (multi_)
-            adjointsMulti_.Rewind();
-        ders_.Rewind();
-        argPtrs_.Rewind();
-        nodes_.Rewind();
+    void PropagateToMark(Tape_& tape) {
+        PropagateAdjoints(std::prev(End(tape)), MarkIt(tape));
     }
 
-    void Tape_::RewindToMark() {
-        if (multi_)
-            adjointsMulti_.RewindToMark();
-        ders_.RewindToMark();
-        argPtrs_.RewindToMark();
-        nodes_.RewindToMark();
+    void Clear(Tape_& tape) {
+        tape.adjointsMulti_.Clear();
+        tape.ders_.Clear();
+        tape.argPtrs_.Clear();
+        tape.nodes_.Clear();
     }
 
-    Tape_::Iterator_ Tape_::MarkIt() {
-        return nodes_.Mark();
+    void Mark(Tape_& tape) {
+        if (Tape_::multi_)
+            tape.adjointsMulti_.SetMark();
+        tape.ders_.SetMark();
+        tape.argPtrs_.SetMark();
+        tape.nodes_.SetMark();
     }
 
+    void Rewind(Tape_& tape)  {
+        if (Tape_::multi_)
+            tape.adjointsMulti_.Rewind();
+        tape.ders_.Rewind();
+        tape.argPtrs_.Rewind();
+        tape.nodes_.Rewind();
+    }
 
+    void RewindToMark(Tape_& tape) {
+        if (Tape_::multi_)
+            tape.adjointsMulti_.RewindToMark();
+        tape.ders_.RewindToMark();
+        tape.argPtrs_.RewindToMark();
+        tape.nodes_.RewindToMark();
+    }
+
+    void NewRecording(Tape_&) {}
+    void Activate(Tape_&) {}
+    void Deactivate(Tape_&) {}
 } // namespace Dal::AAD
+#else
+
+namespace Dal::AAD {
+
+    void Clear(Tape_& tape) {
+        tape.tape_.clearAll();
+        tape.start_ = tape.tape_.getPosition();
+        tape.mark_ = tape.start_;
+    }
+
+    void Mark(Tape_& tape) {
+        tape.mark_ = tape.tape_.getPosition();
+    }
+
+    void Rewind(Tape_& tape) {
+        tape.tape_.resetTo(tape.start_);
+    }
+
+    void RewindToMark(Tape_& tape) {
+        tape.tape_.resetTo(tape.mark_);
+    }
+
+    void PropagateMarkToStart(Tape_& tape) {
+        RewindToMark(tape);
+        tape.tape_.computeAdjointsTo(tape.start_);
+    }
+
+    void PropagateToStart(Tape_& tape) {
+        tape.tape_.computeAdjointsTo(tape.start_);
+    }
+
+    void PropagateToMark(Tape_& tape) {
+        tape.tape_.computeAdjointsTo(tape.mark_);
+    }
+
+    void NewRecording(Tape_& tape) {
+        tape.tape_.newRecording();
+        tape.start_ = tape.tape_.getPosition();
+        tape.mark_ = tape.start_;
+    }
+
+    void Activate(Tape_& tape) {
+        if (!tape.tape_.isActive())
+            tape.tape_.activate();
+    }
+
+    void Deactivate(Tape_& tape) {
+        tape.tape_.deactivate();
+    }
+} // namespace Dal::AAD
+#endif
+

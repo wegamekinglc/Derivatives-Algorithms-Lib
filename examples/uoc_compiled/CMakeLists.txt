@@ -3,6 +3,10 @@ add_executable(uoc_compiled ${UOC_COMPILED_FILES})
 
 target_link_libraries(uoc_compiled dal_library)
 
+if(DAL_USE_XAD_AAD)
+    target_link_libraries(uoc_compiled XAD::xad)
+endif ()
+
 if(MSVC)
 else()
     target_link_libraries(uoc_compiled pthread)

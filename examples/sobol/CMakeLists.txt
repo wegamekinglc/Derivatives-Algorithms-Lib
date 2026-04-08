@@ -3,6 +3,10 @@ add_executable(sobol ${SOBOL_FILES})
 
 target_link_libraries(sobol dal_library)
 
+if(DAL_USE_XAD_AAD)
+    target_link_libraries(sobol XAD::xad)
+endif ()
+
 if(MSVC)
 else()
     target_link_libraries(sobol pthread)

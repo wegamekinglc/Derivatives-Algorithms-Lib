@@ -10,7 +10,6 @@
       "name": "base",
       "hidden": true,
       "cacheVariables": {
-        "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/externals/vcpkg/scripts/buildsystems/vcpkg.cmake",
         "CMAKE_MODULE_PATH": "${sourceDir}/cmake",
         "CMAKE_INSTALL_PREFIX": "${sourceDir}"
       }
@@ -21,9 +20,14 @@
       "generator": "Ninja",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
-        "VCPKG_TARGET_TRIPLET": "x64-windows-static",
         "SKIP_TESTS": "false",
-        "MSVC_RUNTIME": "static"
+        "MSVC_RUNTIME": "static",
+        "XAD_ENABLE_TESTS": "off",
+        "XAD_STATIC_MSVC_RUNTIME": "on",
+        "XAD_USE_STRONG_INLINE": "on",
+        "XAD_ENABLE_JIT": "off",
+        "XAD_TAPE_REUSE_SLOTS": "off",
+        "DAL_USE_XAD_AAD": "on"
       }
     },
     {
@@ -32,9 +36,14 @@
       "generator": "Ninja",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
-        "VCPKG_TARGET_TRIPLET": "x64-windows-static",
         "SKIP_TESTS": "false",
-        "MSVC_RUNTIME": "static"
+        "MSVC_RUNTIME": "static",
+        "XAD_ENABLE_TESTS": "off",
+        "XAD_STATIC_MSVC_RUNTIME": "on",
+        "XAD_USE_STRONG_INLINE": "on",
+        "XAD_ENABLE_JIT": "off",
+        "XAD_TAPE_REUSE_SLOTS": "off",
+        "DAL_USE_XAD_AAD": "on"
       }
     },
     {
@@ -42,7 +51,13 @@
       "inherits": "base",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
-        "VCPKG_TARGET_TRIPLET": "x64-linux"
+        "BUILD_SHARED_LIBS": "off",
+        "SKIP_TESTS": "false",
+        "XAD_ENABLE_TESTS": "off",
+        "XAD_USE_STRONG_INLINE": "on",
+        "XAD_ENABLE_JIT": "off",
+        "XAD_TAPE_REUSE_SLOTS": "off",
+        "DAL_USE_XAD_AAD": "on"
       }
     },
     {
@@ -50,7 +65,13 @@
       "inherits": "base",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
-        "VCPKG_TARGET_TRIPLET": "x64-linux"
+        "BUILD_SHARED_LIBS": "off",
+        "SKIP_TESTS": "false",
+        "XAD_ENABLE_TESTS": "off",
+        "XAD_USE_STRONG_INLINE": "on",
+        "XAD_ENABLE_JIT": "off",
+        "XAD_TAPE_REUSE_SLOTS": "off",
+        "DAL_USE_XAD_AAD": "on"
       }
     }
   ]

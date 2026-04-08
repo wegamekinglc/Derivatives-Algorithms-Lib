@@ -1,40 +1,16 @@
 @echo off
+call "C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\Tools\VsDevCmd.bat" -startdir=none -arch=x64 -host_arch=x64
 
-call :set_variable BUILD_TYPE Release %BUILD_TYPE%
 call :set_variable DAL_DIR "%CD%" %DAL_DIR%
-call :set_variable ADDRESS_MODEL Win64 %ADDRESS_MODEL%
-call :set_variable MSVC_RUNTIME static %MSVC_RUNTIME%
+call :set_variable BUILD_TYPE "Release" %BUILD_TYPE%
+call :set_variable SKIP_TESTS "false" %SKIP_TESTS%
 call :set_variable MSVC_VERSION "Visual Studio 17 2022" %MSVC_VERSION%
-call :set_variable SKIP_TESTS false %SKIP_TESTS%
-call :set_variable CMAKE_TOOLCHAIN_FILE "%CD%/externals/vcpkg/scripts/buildsystems/vcpkg.cmake" %CMAKE_TOOLCHAIN_FILE%
-call :set_variable VCPKG_TARGET_TRIPLET "x64-windows-static" %VCPKG_TARGET_TRIPLET
 
-echo BUILD_TYPE:  %BUILD_TYPE%
+echo BUILD_TYPE: %BUILD_TYPE%
 echo DAL_DIR: %DAL_DIR%
-echo ADDRESS_MODEL: %ADDRESS_MODEL%
-echo MSVC_RUNTIME: %MSVC_RUNTIME%
-echo MSVC_VERSION: %MSVC_VERSION%
-echo SKIP_TESTS: %SKIP_TESTS%
-echo VCPKG_TARGET_TRIPLET: %VCPKG_TARGET_TRIPLET%
 
-git submodule init
-git submodule update
-
-cd externals/vcpkg
-echo Starting vcpkg install gtest
-if exist "./vcpkg.exe" (
-    rem "vcpkg executable already exists"
-) else (
-    .\bootstrap-vcpkg.bat
-)
-
-.\vcpkg install gtest:%VCPKG_TARGET_TRIPLET%
-.\vcpkg install rapidjson:%VCPKG_TARGET_TRIPLET%
-
-if %errorlevel% neq 0 exit /b 1
-cd ../..
-
-echo End vcpkg install gtest
+rmdir /q /s bin
+rmdir /q /s lib
 
 cd externals/machinist
 
@@ -50,68 +26,12 @@ echo End build machinist2
 
 set MACHINIST_TEMPLATE_DIR=%CD%\template\
 echo MACHINIST_TEMPLATE_DIR=%MACHINIST_TEMPLATE_DIR%
-bin\Machinist.exe -c ../../config/dal.ifc -l ../../config/dal.mgl -d ../../dal
-bin\Machinist.exe -c ../../config/dal.ifc -l ../../config/dal.mgl -d ../../public
+bin\Machinist.exe -c %DAL_DIR%/config/dal.ifc -l %DAL_DIR%/config/dal.mgl -d %DAL_DIR%/dal
+bin\Machinist.exe -c %DAL_DIR%/config/dal.ifc -l %DAL_DIR%/config/dal.mgl -d %DAL_DIR%/public
 
 if %errorlevel% neq 0 exit /b 1
 
 cd ../..
-
-if "%ADDRESS_MODEL%"=="Win64" (
-  set PLATFORM=x64
-) else (
-  if "%MSVC_VERSION%"=="Visual Studio 16 2019" (
-    set PLATFORM=x64
-  ) else (
-    if "%MSVC_VERSION%"=="Visual Studio 17 2022" (
-        set PLATFORM=x64
-    ) else (
-        set PLATFORM=Win32
-    )
-  )
-)
-
-if "%MSVC_RUNTIME%"=="static" (
-    set XAD_STATIC_MSVC_RUNTIME=ON
-) else (
-    set XAD_STATIC_MSVC_RUNTIME=OFF
-)
-
-if "%ADDRESS_MODEL%"=="Win64" (
-  if "%MSVC_VERSION%"=="Visual Studio 16 2019" (
-    set ADDRESS_MODEL=
-  ) else (
-    if "%MSVC_VERSION%"=="Visual Studio 17 2022" (
-        set ADDRESS_MODEL=
-    )
-  )
-)
-
-cd externals/adept
-
-if exist build (
-  rem build folder already exists.
-) else (
-  mkdir build
-)
-
-echo Starting build adept
-cd build
-if "%ADDRESS_MODEL%"=="Win64" (
-cmake -G "%MSVC_VERSION% %ADDRESS_MODEL%" -DCMAKE_BUILD_TYPE=%BUILD_TYPE% -DCMAKE_INSTALL_PREFIX=%DAL_DIR%\externals\adept\build -DMSVC_RUNTIME=%MSVC_RUNTIME% ..
-) else (
-cmake -G "%MSVC_VERSION%" -DCMAKE_BUILD_TYPE=%BUILD_TYPE% -DCMAKE_INSTALL_PREFIX=%DAL_DIR%\externals\adept\build -DMSVC_RUNTIME=%MSVC_RUNTIME% ..
-)
-if %errorlevel% neq 0 exit /b 1
-
-msbuild adept.sln /m /p:Configuration=%BUILD_TYPE% /p:Platform=%PLATFORM%
-msbuild INSTALL.vcxproj /m:%NUMBER_OF_PROCESSORS% /p:Configuration=%BUILD_TYPE% /p:Platform=%PLATFORM%
-
-if %errorlevel% neq 0 exit /b 1
-
-echo End build adept
-
-cd ../../..
 
 cd externals/xad
 
@@ -122,16 +42,14 @@ if exist build (
 )
 
 echo Starting build xad
+
 cd build
-if "%ADDRESS_MODEL%"=="Win64" (
-cmake -G "%MSVC_VERSION% %ADDRESS_MODEL%" -DCMAKE_BUILD_TYPE=%BUILD_TYPE% -DCMAKE_INSTALL_PREFIX=%DAL_DIR%\externals\xad\build -DXAD_STATIC_MSVC_RUNTIME=%XAD_STATIC_MSVC_RUNTIME% ..
-) else (
-cmake -G "%MSVC_VERSION%" -DCMAKE_BUILD_TYPE=%BUILD_TYPE% -DCMAKE_INSTALL_PREFIX=%DAL_DIR%\externals\xad\build -DXAD_STATIC_MSVC_RUNTIME=%XAD_STATIC_MSVC_RUNTIME% ..
-)
+cmake -G "%MSVC_VERSION%" --preset %BUILD_TYPE%-windows ..
+
 if %errorlevel% neq 0 exit /b 1
 
-msbuild xad.sln /m /p:Configuration=%BUILD_TYPE% /p:Platform=%PLATFORM%
-msbuild INSTALL.vcxproj /m:%NUMBER_OF_PROCESSORS% /p:Configuration=%BUILD_TYPE% /p:Platform=%PLATFORM%
+msbuild xad.sln /m /p:Configuration=%BUILD_TYPE% /p:Platform=x64
+msbuild INSTALL.vcxproj /m:%NUMBER_OF_PROCESSORS% /p:Configuration=%BUILD_TYPE% /p:Platform=x64
 
 if %errorlevel% neq 0 exit /b 1
 
@@ -146,23 +64,19 @@ if exist build (
 )
 
 cd build
-if "%ADDRESS_MODEL%"=="Win64" (
-cmake -G "%MSVC_VERSION% %ADDRESS_MODEL%" --preset %BUILD_TYPE%-windows -DCMAKE_BUILD_TYPE=%BUILD_TYPE% -DMSVC_RUNTIME=%MSVC_RUNTIME% -DSKIP_TESTS=%SKIP_TESTS% -DVCPKG_TARGET_TRIPLET=%VCPKG_TARGET_TRIPLET% ..
-) else (
-cmake -G "%MSVC_VERSION%" --preset %BUILD_TYPE%-windows -DCMAKE_BUILD_TYPE=%BUILD_TYPE% -DMSVC_RUNTIME=%MSVC_RUNTIME% -DSKIP_TESTS=%SKIP_TESTS% -DVCPKG_TARGET_TRIPLET=%VCPKG_TARGET_TRIPLET% ..
-)
+cmake -G "%MSVC_VERSION%" --preset %BUILD_TYPE%-windows ..
 
 if %errorlevel% neq 0 exit /b 1
 
-msbuild dal.sln /m /p:Configuration=%BUILD_TYPE% /p:Platform=%PLATFORM%
-msbuild INSTALL.vcxproj /m:%NUMBER_OF_PROCESSORS% /p:Configuration=%BUILD_TYPE% /p:Platform=%PLATFORM%
+msbuild dal.sln /m /p:Configuration=%BUILD_TYPE% /p:Platform=x64
+msbuild INSTALL.vcxproj /m:%NUMBER_OF_PROCESSORS% /p:Configuration=%BUILD_TYPE% /p:Platform=x64
 
 if %errorlevel% neq 0 exit /b 1
 
 cd ..
 
 
-if "%SKIP_TESTS%"=="false" (
+if "%SKIP_TESTS%" == "false" (
     echo "starting run unit tests suite"
     bin\test_suite.exe
 )

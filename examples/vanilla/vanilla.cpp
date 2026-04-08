@@ -72,7 +72,7 @@ int main() {
 
     {
         // aadet
-        Number_::Tape()->Clear();
+        AAD::Clear(*AAD::Tape());
 
         timer.Reset();
         Number_ spot_aad(spot);
@@ -82,28 +82,30 @@ int main() {
         Number_ strike_aad(strike);
         Number_ expiry_aad(expiry);
 
-        spot_aad.PutOnTape();
-        vol_aad.PutOnTape();
-        rate_aad.PutOnTape();
-        div_aad.PutOnTape();
-        strike_aad.PutOnTape();
-        expiry_aad.PutOnTape();
+        PutOnTape(spot_aad);
+        PutOnTape(vol_aad);
+        PutOnTape(rate_aad);
+        PutOnTape(div_aad);
+        PutOnTape(strike_aad);
+        PutOnTape(expiry_aad);
+        AAD::NewRecording(*AAD::Tape());
 
-        Number_::Tape()->Rewind();
+        AAD::Rewind(*AAD::Tape());
         Number_ price_aad = BlackTest(spot_aad, vol_aad, rate_aad, div_aad, strike_aad, expiry_aad, true);
-        price_aad.PropagateToStart();
+        Adjoint(price_aad) = 1.0;
+        AAD::PropagateToStart(*AAD::Tape());
 
         std::cout << std::setw(widths[0]) << std::left << "Analytical"
                   << std::setw(widths[1]) << std::right << "-"
                   << std::setw(widths[2]) << std::right << 1
                   << std::fixed
                   << std::setprecision(6)
-                  << std::setw(widths[3]) << std::right << price_aad.value()
-                  << std::setw(widths[4]) << std::right << spot_aad.Adjoint() 
-                  << std::setw(widths[5]) << std::right << vol_aad.Adjoint()
-                  << std::setw(widths[6]) << std::right << rate_aad.Adjoint()
-                  << std::setw(widths[7]) << std::right << div_aad.Adjoint()
-                  << std::setw(widths[8]) << std::right << strike_aad.Adjoint()
+                  << std::setw(widths[3]) << std::right << Value(price_aad)
+                  << std::setw(widths[4]) << std::right << Adjoint(spot_aad)
+                  << std::setw(widths[5]) << std::right << Adjoint(vol_aad)
+                  << std::setw(widths[6]) << std::right << Adjoint(rate_aad)
+                  << std::setw(widths[7]) << std::right << Adjoint(div_aad)
+                  << std::setw(widths[8]) << std::right << Adjoint(strike_aad)
                   << std::setw(widths[9]) << std::right << int(timer.Elapsed<milliseconds>()) << std::endl;
     }
 

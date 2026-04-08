@@ -76,7 +76,7 @@ int main() {
               << std::setw(widths[9]) << std::right << "Elapsed (ms)"
               << std::endl;
     {
-        Number_::Tape()->Clear();
+        AAD::Clear(*AAD::Tape());
         timer.Reset();
         Number_ spot_aad(spot);
         Number_ vol_aad(vol);
@@ -85,26 +85,28 @@ int main() {
         Number_ strike_aad(strike);
         Number_ expiry_aad((maturity - start) / 365.0);
 
-        spot_aad.PutOnTape();
-        vol_aad.PutOnTape();
-        rate_aad.PutOnTape();
-        div_aad.PutOnTape();
-        strike_aad.PutOnTape();
-        expiry_aad.PutOnTape();
+        PutOnTape(spot_aad);
+        PutOnTape(vol_aad);
+        PutOnTape(rate_aad);
+        PutOnTape(div_aad);
+        PutOnTape(strike_aad);
+        PutOnTape(expiry_aad);
+        AAD::NewRecording(*AAD::Tape());
 
         auto price_aad = DigitalTest<Number_>(spot_aad, vol_aad, rate_aad, div_aad, strike_aad, expiry_aad);
-        price_aad.PropagateToStart();
+        Adjoint(price_aad) = 1.0;
+        AAD::PropagateToStart(*AAD::Tape());
 
         std::cout << std::setw(widths[0]) << std::left << "Analytic"
                   << std::setw(widths[1]) << std::right << ""
                   << std::setw(widths[2]) << std::right << num_obs
                   << std::fixed << std::setprecision(6)
-                  << std::setw(widths[3]) << std::right << price_aad.value()
-                  << std::setw(widths[4]) << std::right << spot_aad.Adjoint()
-                  << std::setw(widths[5]) << std::right << rate_aad.Adjoint()
-                  << std::setw(widths[6]) << std::right << div_aad.Adjoint()
-                  << std::setw(widths[7]) << std::right << vol_aad.Adjoint()
-                  << std::setw(widths[8]) << std::right << strike_aad.Adjoint()
+                  << std::setw(widths[3]) << std::right << Value(price_aad)
+                  << std::setw(widths[4]) << std::right << Adjoint(spot_aad)
+                  << std::setw(widths[5]) << std::right << Adjoint(rate_aad)
+                  << std::setw(widths[6]) << std::right << Adjoint(div_aad)
+                  << std::setw(widths[7]) << std::right << Adjoint(vol_aad)
+                  << std::setw(widths[8]) << std::right << Adjoint(strike_aad)
                   << std::setw(widths[9]) << std::right << int(timer.Elapsed<milliseconds>()) << std::endl;
     }
 

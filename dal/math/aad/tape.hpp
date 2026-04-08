@@ -12,6 +12,8 @@
 
 #pragma once
 
+#ifndef DAL_USE_XAD_AAD
+
 #include <dal/math/aad/blocklist.hpp>
 #include <dal/math/aad/node.hpp>
 
@@ -23,6 +25,11 @@ namespace Dal::AAD {
     constexpr size_t DATA_SIZE = 65536;
 
     class Tape_ {
+    public:
+        explicit Tape_(bool = true) : pad_{} {}
+
+        using Iterator_ = BlockList_<TapNode_, BLOCK_SIZE>::Iterator_;
+
         static bool multi_;
         BlockList_<double, ADJ_SIZE> adjointsMulti_;
         BlockList_<double, DATA_SIZE> ders_;
@@ -33,13 +40,19 @@ namespace Dal::AAD {
         friend auto SetNumResultsForAAD(bool, size_t);
         friend struct NumResultsResetterForAAD_;
         friend class Number_;
+        friend void Clear(Tape_& tape);
+        friend void Mark(Tape_& tape);
+        friend void RewindToMark(Tape_& tape);
+        friend void Rewind(Tape_& tape);
+        friend void PropagateMarkToStart(Tape_& tape);
+        friend void PropagateToStart(Tape_& tape);
+        friend void PropagateToMark(Tape_& tape);
 
-    public:
         template <size_t N_> TapNode_* RecordNode() {
             TapNode_* node = nodes_.EmplaceBack(N_);
             if (multi_) {
                 node->pAdjoints_ = adjointsMulti_.EmplaceBackMulti(TapNode_::numAdj_);
-                std::fill(node->pAdjoints_, node->pAdjoints_ + TapNode_::numAdj_, 0.0);
+                std::fill_n(node->pAdjoints_, TapNode_::numAdj_, 0.0);
             }
 
             if constexpr (static_cast<bool>(N_)) {
@@ -49,17 +62,44 @@ namespace Dal::AAD {
             return node;
         }
 
-        void ResetAdjoints();
-        void Clear();
-
-        using Iterator_ = typename BlockList_<TapNode_, BLOCK_SIZE>::Iterator_;
-        Iterator_ Begin() { return nodes_.Begin(); }
-        Iterator_ End() { return nodes_.End(); }
-        Iterator_ Find(TapNode_* node) { return nodes_.Find(node); }
-
-        void Mark();
-        void RewindToMark();
-        void Rewind();
-        Iterator_ MarkIt();
     };
+
+    void Clear(Tape_& tape);
+    void Mark(Tape_& tape);
+    void RewindToMark(Tape_& tape);
+    void Rewind(Tape_& tape);
+    void PropagateMarkToStart(Tape_& tape);
+    void PropagateToStart(Tape_& tape);
+    void PropagateToMark(Tape_& tape);
+    void NewRecording(Tape_& tape);
+    void Activate(Tape_& tape);
+    void Deactivate(Tape_& tape);
 } // namespace Dal::AAD
+#else
+#include <XAD/XAD.hpp>
+
+namespace Dal::AAD {
+
+    class Tape_ {
+    public:
+        using tape_type = xad::adj<double>::tape_type;
+        tape_type tape_;
+        tape_type::position_type start_;
+        tape_type::position_type mark_;
+
+        explicit Tape_(bool activate = true) : tape_(activate), start_(tape_.getPosition()), mark_(start_) { }
+    };
+
+    void Clear(Tape_& tape);
+    void Mark(Tape_& tape);
+    void RewindToMark(Tape_& tape);
+    void Rewind(Tape_& tape);
+    void PropagateMarkToStart(Tape_& tape);
+    void PropagateToStart(Tape_& tape);
+    void PropagateToMark(Tape_& tape);
+    void NewRecording(Tape_& tape);
+    void Activate(Tape_& tape);
+    void Deactivate(Tape_& tape);
+} // namespace Dal::AAD
+
+#endif

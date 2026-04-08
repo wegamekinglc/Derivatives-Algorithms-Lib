@@ -14,6 +14,8 @@
 #include <memory>
 #include <dal/math/aad/expr.hpp>
 
+#ifndef DAL_USE_XAD_AAD
+
 namespace Dal::AAD {
 
     struct NumResultsResetterForAAD_ {
@@ -30,11 +32,13 @@ namespace Dal::AAD {
     }
 
     template <class IT_> FORCE_INLINE void PutOnTape(IT_ begin, IT_ end) {
-        std::for_each(begin, end, [](Number_& n) { n.PutOnTape(); });
+        std::for_each(begin, end, [](Number_& n) { PutOnTape(n); });
     }
 
     FORCE_INLINE void Clear(Tape_* tape) {
-        return tape->Clear();
+        return Clear(*tape);
     }
 
 } // namespace Dal
+#else
+#endif

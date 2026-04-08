@@ -22,7 +22,11 @@ namespace Dal {
     using AAD::operator+;
     using AAD::operator/;
     using AAD::operator-;
-    using AAD::operator<=>;
+    using AAD::operator!=;
+    using AAD::operator<;
+    using AAD::operator<=;
+    using AAD::operator>;
+    using AAD::operator>=;
     using AAD::operator==;
     using AAD::exp;
     using AAD::abs;
@@ -34,5 +38,9 @@ namespace Dal {
     using AAD::NPDF;
     using AAD::erfc;
     using AAD::sqrt;
+
+    using AAD::Value;
+    using AAD::Adjoint;
+    using AAD::PutOnTape;
 
 } // namespace Dal
