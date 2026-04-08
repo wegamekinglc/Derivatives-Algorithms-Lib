@@ -11,7 +11,16 @@
       "hidden": true,
       "cacheVariables": {
         "CMAKE_MODULE_PATH": "${sourceDir}/cmake",
-        "CMAKE_INSTALL_PREFIX": "${sourceDir}"
+        "CMAKE_INSTALL_PREFIX": "${sourceDir}",
+        "DAL_USE_XAD_AAD": "on",
+        "XAD_ENABLE_TESTS": "off",
+        "XAD_USE_STRONG_INLINE": "on",
+        "XAD_NO_THREADLOCAL": "off",
+        "XAD_SIMD_OPTION": "AVX2",
+        "XAD_ALLOW_INT_CONVERSION": "off",
+        "XAD_TAPE_REUSE_SLOTS": "off",
+        "XAD_ENABLE_JIT": "off",
+        "XAD_ENABLE_CODEGEN": "off"
       }
     },
     {
@@ -22,11 +31,7 @@
         "CMAKE_BUILD_TYPE": "Release",
         "SKIP_TESTS": "false",
         "MSVC_RUNTIME": "static",
-        "DAL_USE_XAD_AAD": "on",
-        "XAD_ENABLE_TESTS": "off",
-        "XAD_STATIC_MSVC_RUNTIME": "on",
-        "XAD_USE_STRONG_INLINE": "on",
-        "XAD_ENABLE_CODEGEN": "off"
+        "XAD_STATIC_MSVC_RUNTIME": "on"
       }
     },
     {
@@ -37,11 +42,7 @@
         "CMAKE_BUILD_TYPE": "Debug",
         "SKIP_TESTS": "false",
         "MSVC_RUNTIME": "static",
-        "DAL_USE_XAD_AAD": "on",
-        "XAD_ENABLE_TESTS": "off",
-        "XAD_STATIC_MSVC_RUNTIME": "on",
-        "XAD_USE_STRONG_INLINE": "on",
-        "XAD_ENABLE_CODEGEN": "off"
+        "XAD_STATIC_MSVC_RUNTIME": "on"
       }
     },
     {
@@ -50,11 +51,7 @@
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
         "BUILD_SHARED_LIBS": "off",
-        "SKIP_TESTS": "false",
-        "DAL_USE_XAD_AAD": "on",
-        "XAD_ENABLE_TESTS": "off",
-        "XAD_USE_STRONG_INLINE": "on",
-        "XAD_ENABLE_CODEGEN": "off"
+        "SKIP_TESTS": "false"
       }
     },
     {
@@ -63,11 +60,7 @@
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
         "BUILD_SHARED_LIBS": "off",
-        "SKIP_TESTS": "false",
-        "DAL_USE_XAD_AAD": "on",
-        "XAD_ENABLE_TESTS": "off",
-        "XAD_USE_STRONG_INLINE": "on",
-        "XAD_ENABLE_CODEGEN": "off"
+        "SKIP_TESTS": "false"
       }
     }
   ]
