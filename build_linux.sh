@@ -17,6 +17,7 @@ echo CMAKE_EXPORT_COMPILE_COMMANDS: $CMAKE_EXPORT_COMPILE_COMMANDS
 
 rm -rf ./bin
 rm -rf ./lib
+rm -rf ./build
 
 (
 cd externals/machinist || exit
@@ -30,21 +31,6 @@ fi
 export MACHINIST_TEMPLATE_DIR=$PWD/externals/machinist/template/
 ./externals/machinist/bin/Machinist -c config/dal.ifc -l config/dal.mgl -d ./dal
 ./externals/machinist/bin/Machinist -c config/dal.ifc -l config/dal.mgl -d ./public
-
-if [ $? -ne 0 ]; then
-  exit 1
-fi
-
-(
-cd externals/xad || exit
-rm -rf build
-mkdir -p build
-
-cd build || exit
-cmake --preset ${BUILD_TYPE}-linux ..
-make -j"${NUM_CORES}"
-make install
-)
 
 if [ $? -ne 0 ]; then
   exit 1
