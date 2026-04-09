@@ -5,7 +5,7 @@
 #pragma once
 
 #include <dal/storage/archive.hpp>
-#include <dal/math/interp/interp.hpp>
+#include <dal/math/interp/interplinear.hpp>
 
 /*IF--------------------------------------------------------------------------
 storable Interp2Linear

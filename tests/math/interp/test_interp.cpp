@@ -2,7 +2,7 @@
 // Created by wegam on 2020/11/10.
 //
 
-#include <dal/math/interp/interp.hpp>
+#include <dal/math/interp/interplinear.hpp>
 #include <dal/platform/platform.hpp>
 #include <gtest/gtest.h>
 

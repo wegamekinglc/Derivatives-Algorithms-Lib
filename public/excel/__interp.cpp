@@ -6,7 +6,7 @@
 
 #include <public/excel/__platform.hpp>
 #include <public/src/interp.hpp>
-#include <dal/math/interp/interp.hpp>
+#include <dal/math/interp/interplinear.hpp>
 #include <dal/math/interp/interp2d.hpp>
 #include <dal/math/interp/interpcubic.hpp>
 #include <dal/math/smooth.hpp>

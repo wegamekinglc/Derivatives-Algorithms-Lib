@@ -6,7 +6,7 @@
 #include <dal/platform/platform.hpp>
 #include <dal/storage/bag.hpp>
 #include <dal/storage/splat.hpp>
-#include <dal/math/interp/interp.hpp>
+#include <dal/math/interp/interplinear.hpp>
 
 using namespace Dal;
 
