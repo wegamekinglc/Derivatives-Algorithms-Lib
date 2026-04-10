@@ -18,13 +18,12 @@ TEST(StorageTest, TestAudit) {
     Vector_<> x = {1., 2., 3., 4., 5.};
     Vector_<> f = {2.5, 3.5, 1.7, 2.8, 3.6};
 
-    Handle_<Interp1Linear_> src(new Interp1Linear_("interp", x, f));
+    Handle_<Interp1_> src(Interp::NewLinear("interp", x, f));
 
     Environment::Audit(_env, String_("sample_data"), src);
 
     auditor.mode_ = AuditorImp_::SHOWING;
-    Handle_<Interp1Linear_> bak;
+    Handle_<Interp1_> bak;
     Environment::Recall(_env, String_("sample_data"), &bak);
-    ASSERT_EQ(x, bak->x());
-    ASSERT_EQ(f, bak->f());
+    ASSERT_DOUBLE_EQ((*src)(2.5), (*bak)(2.5));
 }
