@@ -9,7 +9,7 @@
 #include <dal/model/base.hpp>
 #include <dal/model/ivs.hpp>
 #include <dal/model/utilities.hpp>
-#include <dal/math/interp/interplinear.hpp>
+#include <dal/math/interp/interp.hpp>
 #include <dal/math/matrix/matrixs.hpp>
 #include <dal/math/matrix/matrixutils.hpp>
 #include <dal/math/vectors.hpp>
