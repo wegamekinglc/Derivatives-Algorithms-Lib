@@ -2,10 +2,12 @@
 // Created by wegam on 2020/12/17.
 //
 
-#include <cmath>
+#include <gtest/gtest.h>
 #include <dal/math/interp/interpcubic.hpp>
 #include <dal/math/vectors.hpp>
-#include <gtest/gtest.h>
+#include <dal/storage/json.hpp>
+#include <dal/storage/splat.hpp>
+#include <cmath>
 
 using namespace Dal;
 
@@ -43,4 +45,38 @@ TEST(InterpTest, TestNewCubic) {
         ErrorFunction_ func(interp);
         ASSERT_DOUBLE_EQ(func(x[0]), 0.0);
     }
+}
+
+TEST(InterpTest, TestCubicSplatSerialization) {
+    Vector_<> x = Vector::XRange(-1.7, 1.9, 9);
+    Vector_<> y = Gaussian(x);
+
+    Interp::Boundary_ lhs(2, 0.);
+    Interp::Boundary_ rhs(2, 0.);
+    Handle_<Interp1_> src(Interp::NewCubic("interp", x, y, lhs, rhs));
+
+    auto dst = Splat(*src);
+    Handle_<Storable_> rtn = UnSplat(dst, true);
+    Handle_<Interp1_> val(std::dynamic_pointer_cast<const Interp1_>(rtn));
+
+    ASSERT_TRUE(val.get() != nullptr);
+    double test_x = 0.5;
+    ASSERT_NEAR((*val)(test_x), (*src)(test_x), 1e-10);
+}
+
+TEST(InterpTest, TestCubicJsonSerialization) {
+    Vector_<> x = Vector::XRange(-1.7, 1.9, 9);
+    Vector_<> y = Gaussian(x);
+
+    Interp::Boundary_ lhs(2, 0.);
+    Interp::Boundary_ rhs(2, 0.);
+    Handle_<Interp1_> src(Interp::NewCubic("interp", x, y, lhs, rhs));
+
+    auto json = JSON::WriteString(*src);
+    Handle_<Storable_> rtn = JSON::ReadString(json, true);
+    Handle_<Interp1_> val(std::dynamic_pointer_cast<const Interp1_>(rtn));
+
+    ASSERT_TRUE(val.get() != nullptr);
+    double test_x = 0.5;
+    ASSERT_NEAR((*val)(test_x), (*src)(test_x), 1e-10);
 }
