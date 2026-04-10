@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <map>
 #include <dal/math/interp/interp.hpp>
 
 /*IF--------------------------------------------------------------------------
