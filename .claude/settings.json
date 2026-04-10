@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git push:*)"
+    ],
+    "additionalDirectories": [
+      "d:\\dev\\github\\Derivatives-Algorithms-Lib"
+    ]
+  }
+}

@@ -2,9 +2,9 @@
 // Created by wegam on 2026/4/10.
 //
 
-#include <cmath>
-#include <dal/math/interp/interploglinear.hpp>
 #include <gtest/gtest.h>
+#include <dal/math/interp/interploglinear.hpp>
+#include <cmath>
 
 using namespace Dal;
 

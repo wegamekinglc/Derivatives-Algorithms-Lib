@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include <dal/math/interp/interplinear.hpp>
+#include <dal/math/interp/interp.hpp>
 
 namespace Dal {
     namespace Interp {
