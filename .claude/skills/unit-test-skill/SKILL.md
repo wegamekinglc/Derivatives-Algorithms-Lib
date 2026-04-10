@@ -15,7 +15,7 @@ user-invocable: true
 - In the windows terminal, run the following command to execute all unit tests for the codebase:
 
 ```bash
-$ powershell -Command "Set-Location 'D:\dev\github\dal.cpp'; Start-Process -FilePath '.\build_windows.bat' -Wait -NoNewWindow -RedirectStandardOutput 'test_output.txt'" 2>&1
+$ ./build_windows.bat > 'test_output.txt' 2>&1
 ```
 
 - Get the output of the unit tests from the `test_output.txt` file generated in the root directory of the codebase. The output should look like:
