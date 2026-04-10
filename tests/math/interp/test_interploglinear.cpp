@@ -28,22 +28,22 @@ TEST(InterpTest, TestNewLogLinearRejectsNonPositiveF) {
     Vector_<> x = {0.0, 1.0, 2.0, 3.0};
 
     Vector_<> zero_f = {1.0, 0.0, 4.0, 8.0};
-    EXPECT_THROW(Interp::NewLogLinear("test", x, zero_f), Dal::Exception_);
+    ASSERT_THROW(Interp::NewLogLinear("test", x, zero_f), Dal::Exception_);
 
     Vector_<> negative_f = {1.0, -2.0, 4.0, 8.0};
-    EXPECT_THROW(Interp::NewLogLinear("test", x, negative_f), Dal::Exception_);
+    ASSERT_THROW(Interp::NewLogLinear("test", x, negative_f), Dal::Exception_);
 }
 
 TEST(InterpTest, TestNewLogLinearRejectsNonMonotonicX) {
     Vector_<> non_monotonic_x = {0.0, 2.0, 1.0, 3.0};
     Vector_<> f = {1.0, 2.0, 4.0, 8.0};
 
-    EXPECT_THROW(Interp::NewLogLinear("test", non_monotonic_x, f), Dal::Exception_);
+    ASSERT_THROW(Interp::NewLogLinear("test", non_monotonic_x, f), Dal::Exception_);
 }
 
 TEST(InterpTest, TestNewLogLinearRejectsMismatchedSizes) {
     Vector_<> x = {0.0, 1.0, 2.0, 3.0};
     Vector_<> f = {1.0, 2.0, 4.0};
 
-    EXPECT_THROW(Interp::NewLogLinear("test", x, f), Dal::Exception_);
+    ASSERT_THROW(Interp::NewLogLinear("test", x, f), Dal::Exception_);
 }
