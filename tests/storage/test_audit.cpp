@@ -6,7 +6,7 @@
 #include <dal/platform/platform.hpp>
 #include <dal/utilities/environment.hpp>
 #include <dal/storage/audit.hpp>
-#include <dal/math/interp/interp.hpp>
+#include <dal/math/interp/interplinear.hpp>
 
 using namespace Dal;
 

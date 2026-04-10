@@ -11,7 +11,6 @@ echo DAL_DIR: %DAL_DIR%
 
 rmdir /q /s bin
 rmdir /q /s lib
-rmdir /q /s build
 
 cd externals/machinist
 

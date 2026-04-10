@@ -4,7 +4,7 @@
 
 #include <gtest/gtest.h>
 #include <dal/platform/platform.hpp>
-#include <dal/math/interp/interp.hpp>
+#include <dal/math/interp/interplinear.hpp>
 #include <dal/math/vectors.hpp>
 #include <dal/storage/splat.hpp>
 #include <dal/utilities/file.hpp>

@@ -58,7 +58,14 @@ $ bash ./build_linux.sh > test_output.txt 2>&1
 [  PASSED  ] 409 tests.
 ```
 
-
 ## Requirements
 
-- Make sure all the unit tests for the codebase are passed.
+- Make sure all the unit tests for the codebase are passed. If all tests are passed, the output should look like this:
+
+```bash
+[----------] Global test environment tear-down
+[==========] xxx tests from yy test suites ran. (xxxx ms total)
+[  PASSED  ] xxx tests.
+```
+
+here `xxx` is the total number of tests and `yy` is the total number of test suites. If there are any failed tests, the output will indicate which tests failed and how many tests passed/failed.

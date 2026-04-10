@@ -66,3 +66,8 @@ This is a C++17 quantitative finance library with AAD (Automatic Adjoint Differe
 **Tests (`tests/`)** — one subdirectory per module, all compiled into a single `test_suite` binary using Google Test.
 
 **Examples (`examples/`)** — standalone programs demonstrating AAD, Monte Carlo, finite difference, and scripting usage.
+
+## Rules to follow
+
+- **coding style**: @.claude/rules/code-style.md
+- **unit test style**: @.claude/rules/unit-test-style.md

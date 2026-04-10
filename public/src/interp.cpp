@@ -5,7 +5,7 @@
 #include <dal/platform/platform.hpp>
 #include <dal/platform/strict.hpp>
 #include <public/src/interp.hpp>
-#include <dal/math/interp/interp.hpp>
+#include <dal/math/interp/interplinear.hpp>
 
 namespace Dal {
     Handle_<Interp1_> Interp1NewLinear(const String_& name,

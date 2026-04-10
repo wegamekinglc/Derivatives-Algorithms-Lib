@@ -4,9 +4,8 @@
 
 #include <gtest/gtest.h>
 #include <dal/platform/platform.hpp>
-#include <dal/math/interp/interp.hpp>
-#include <dal/platform/platform.hpp>
-#include <dal/utilities/dictionary.hpp>\
+#include <dal/math/interp/interplinear.hpp>
+#include <dal/utilities/dictionary.hpp>
 
 using namespace Dal;
 

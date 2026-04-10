@@ -4,7 +4,7 @@
 
 #include <gtest/gtest.h>
 #include <dal/storage/_repository.hpp>
-#include <dal/math/interp/interp.hpp>
+#include <dal/math/interp/interplinear.hpp>
 
 using namespace Dal;
 
