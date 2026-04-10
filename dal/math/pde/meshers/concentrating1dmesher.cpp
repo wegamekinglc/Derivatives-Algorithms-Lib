@@ -37,8 +37,7 @@ namespace Dal {
             u.push_back(1.0);
             z.push_back(1.0);
 
-            Interp::NewLinear("intep", u, z);
-            transform = std::shared_ptr<Interp1_>(Interp::NewLinear("intep", u, z));
+            transform = std::shared_ptr<Interp1_>(Interp::NewLinear("interp", u, z));
         }
 
         for (int i = 1; i < size - 1; ++i) {

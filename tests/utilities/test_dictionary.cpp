@@ -45,9 +45,9 @@ TEST(DictionaryTest, TestDictionaryFindHandle) {
     Vector_<> f = {2.5, 3.5, 1.7, 2.8, 3.6};
     auto name = "interp";
 
-    handles.insert(std::make_pair(name, Handle_<Storable_>(new Interp1Linear_(name, x, f))));
-    auto val = Dictionary::FindHandle<Interp1Linear_>(handles, name);
-    ASSERT_THROW(Dictionary::FindHandle<Interp1Linear_>(handles, "not_found"), Exception_);
+    handles.insert(std::make_pair(name, Handle_<Storable_>(Interp::NewLinear(name, x, f))));
+    auto val = Dictionary::FindHandle<Interp1_>(handles, name);
+    ASSERT_THROW(Dictionary::FindHandle<Interp1_>(handles, "not_found"), Exception_);
 }
 
 TEST(DictionaryTest, TestDictionaryToString) {

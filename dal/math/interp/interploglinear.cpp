@@ -32,7 +32,7 @@ namespace Dal {
             REQUIRE(x_.size() == f_.size(), "x and f size should be same");
             REQUIRE(x_.size() >= 2, "need at least 2 points");
             REQUIRE(IsMonotonic(x_), "x should be strictly increasing");
-            for (int i = 0; i < f_.size(); ++i) {
+            for (int i = 0; i < static_cast<int>(f_.size()); ++i) {
                 REQUIRE(f_[i] > 0.0, "f values must be positive for log-linear interpolation");
                 logf_[i] = log(f_[i]);
             }
@@ -41,12 +41,11 @@ namespace Dal {
         double LogLinear1_::operator()(double x) const { return exp(InterpLinearImplX(x_, logf_, x)); }
     } // namespace
 
-    Interp1_* Interp::NewLogLinear(const String_& name, const Vector_<>& x, const Vector_<>& f) {
-        return new LogLinear1_(name, x, f);
-    }
-
 #include <dal/auto/MG_LogLinear1_Read.inc>
 #include <dal/auto/MG_LogLinear1_Write.inc>
 
     void LogLinear1_::Write(Archive::Store_& dst) const { LogLinear1::XWrite(dst, name_, x_, f_); }
+    Interp1_* Interp::NewLogLinear(const String_& name, const Vector_<>& x, const Vector_<>& f) {
+        return new LogLinear1_(name, x, f);
+    }
 } // namespace Dal

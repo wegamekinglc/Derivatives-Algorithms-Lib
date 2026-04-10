@@ -15,8 +15,8 @@ TEST(StorageTest, TestBag) {
     Vector_<> f = {2.5, 3.5, 1.7, 2.8, 3.6};
 
     std::multimap<String_, Handle_<Storable_>> map;
-    map.insert(std::make_pair(String_("interp1"), Handle_<Interp1Linear_>(new Interp1Linear_("interp", x, f))));
-    map.insert(std::make_pair(String_("interp2"), Handle_<Interp1Linear_>(new Interp1Linear_("interp", x, f))));
+    map.insert(std::make_pair(String_("interp1"), Handle_<Interp1_>(Interp::NewLinear("interp", x, f))));
+    map.insert(std::make_pair(String_("interp2"), Handle_<Interp1_>(Interp::NewLinear("interp", x, f))));
 
     Bag_ bag("bag", map);
     auto dst = Splat(bag);
@@ -26,13 +26,15 @@ TEST(StorageTest, TestBag) {
 
     auto iter = val->contents_.find("interp1");
     ASSERT_TRUE(iter != val->contents_.end());
-    ASSERT_EQ(x, std::dynamic_pointer_cast<const Interp1Linear_>(iter->second)->x());
-    ASSERT_EQ(f, std::dynamic_pointer_cast<const Interp1Linear_>(iter->second)->f());
+    auto interp1 = std::dynamic_pointer_cast<const Interp1_>(iter->second);
+    ASSERT_TRUE(interp1 != nullptr);
+    ASSERT_DOUBLE_EQ((*interp1)(2.5), 2.6);
 
     iter = val->contents_.find("interp2");
     ASSERT_TRUE(iter != val->contents_.end());
-    ASSERT_EQ(x, std::dynamic_pointer_cast<const Interp1Linear_>(iter->second)->x());
-    ASSERT_EQ(f, std::dynamic_pointer_cast<const Interp1Linear_>(iter->second)->f());
+    auto interp2 = std::dynamic_pointer_cast<const Interp1_>(iter->second);
+    ASSERT_TRUE(interp2 != nullptr);
+    ASSERT_DOUBLE_EQ((*interp2)(2.5), 2.6);
 
 }
 

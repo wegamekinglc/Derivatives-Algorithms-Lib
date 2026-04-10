@@ -11,7 +11,7 @@ using namespace Dal;
 TEST(StorageTest, TestObjectAccess) {
     Vector_<> x = {1., 2., 3., 4., 5.};
     Vector_<> f = {2.5, 3.5, 1.7, 2.8, 3.6};
-    Handle_<Interp1Linear_> src(new Interp1Linear_("interp", x, f));
+    Handle_<Interp1_> src(Interp::NewLinear("interp", x, f));
 
     ObjectAccess_::Add(src, RepositoryErase_::Value_::NAME);
 
