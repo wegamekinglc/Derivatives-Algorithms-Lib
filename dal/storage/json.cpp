@@ -2,6 +2,7 @@
 // Created by wegam on 2023/1/21.
 //
 
+#include <cstdio>
 #include <fstream>
 #include <memory>
 #include <sstream>
@@ -87,12 +88,14 @@ namespace Dal {
 
             // store atoms
             XDocStore_& operator=(const double val) override {
-                dst_ << String::FromDouble(val);
+                char buf[32];
+                std::snprintf(buf, sizeof(buf), "%.15g", val);
+                dst_ << buf;
                 return *this;
             }
 
             XDocStore_& operator=(const int val) {
-                dst_ << String::FromDouble(val);
+                dst_ << val;
                 return *this;
             }
             XDocStore_& operator=(const bool val) {
@@ -217,7 +220,7 @@ namespace Dal {
         Cell_ ECell(const element_t& doc) {
             static const std::regex DATE_PATTERN(R"(\d{4}-\d{2}-\d{2})");
             static const std::regex DATE_TIME_PATTERN(R"(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})");
-            if (doc.IsDouble())
+            if (doc.IsDouble() || doc.IsInt())
                 return Cell_(doc.GetDouble());
             if (doc.IsBool())
                 return Cell_(doc.GetBool());
