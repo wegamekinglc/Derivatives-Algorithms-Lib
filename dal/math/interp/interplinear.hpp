@@ -5,6 +5,7 @@
 #pragma once
 
 #include <dal/math/interp/interp.hpp>
+#include <dal/utilities/algorithms.hpp>
 
 /*IF--------------------------------------------------------------------------
 storable Interp1Linear

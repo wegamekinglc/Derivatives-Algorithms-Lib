@@ -67,7 +67,7 @@ This is a C++17 quantitative finance library with AAD (Automatic Adjoint Differe
 
 **Examples (`examples/`)** — standalone programs demonstrating AAD, Monte Carlo, finite difference, and scripting usage.
 
-## Rules Need to be followed
+## Rules to follow
 
 - **coding style**: @.claude/rules/code-style.md
 - **unit test style**: @.claude/rules/unit-test-style.md

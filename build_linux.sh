@@ -17,7 +17,6 @@ echo CMAKE_EXPORT_COMPILE_COMMANDS: $CMAKE_EXPORT_COMPILE_COMMANDS
 
 rm -rf ./bin
 rm -rf ./lib
-rm -rf ./build
 
 (
 cd externals/machinist || exit

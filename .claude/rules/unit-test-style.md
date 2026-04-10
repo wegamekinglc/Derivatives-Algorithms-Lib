@@ -9,7 +9,7 @@
 
 - One test file per module: `tests/<module>/test_<name>.cpp`
 - File header: `// Created by <author> on <date>.`
-- Include order: dal headers → `<gtest/gtest.h>`
+- Include order: `<gtest/gtest.h>` → dal headers
 - `using` declarations at file scope for frequently used types (e.g., `using Dal::Vector_;`)
 - Helper classes/functions defined before tests, at file scope
 
