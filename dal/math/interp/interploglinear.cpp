@@ -31,7 +31,7 @@ namespace Dal {
             : Interp1_(name), x_(x), f_(f), logf_(f.size()) {
             REQUIRE(x_.size() == f_.size(), "x and f size should be same");
             REQUIRE(x_.size() >= 2, "need at least 2 points");
-            REQUIRE(IsMonotonic(x_), "x should be monotonic");
+            REQUIRE(IsMonotonic(x_), "x should be strictly increasing");
             for (int i = 0; i < f_.size(); ++i) {
                 REQUIRE(f_[i] > 0.0, "f values must be positive for log-linear interpolation");
                 logf_[i] = log(f_[i]);
