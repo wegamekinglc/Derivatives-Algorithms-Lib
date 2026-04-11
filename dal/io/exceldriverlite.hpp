@@ -1,4 +1,6 @@
+//
 // Created by wegam on 2023/1/23.
+//
 
 #pragma once
 
@@ -109,6 +111,6 @@ namespace Dal {
         void PrintStringInExcel(const String_& s, int row, int col);
         void PrintStringInExcel(const Vector_<String_>& s, int row, int col);
     };
-}
+} // namespace Dal
 
 #endif
