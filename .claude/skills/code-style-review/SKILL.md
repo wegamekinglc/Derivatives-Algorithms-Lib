@@ -40,7 +40,7 @@ Review all changed files in the working tree against the project's coding conven
 
 ### Header Files
 - Must use `#pragma once` (not include guards)
-- Must have file header: `// Created by <author> on <date>.`
+- Must have two-line file header: `//\n// Created by <author> on <date>.\n//`
 - Include order: `<gtest/gtest.h>` first (test files) -> standard library -> dal headers
 
 ### Test Files
@@ -59,3 +59,6 @@ Review all changed files in the working tree against the project's coding conven
 - `explicit` on single-argument constructors
 - Error handling via `REQUIRE`/`ASSERT`/`THROW` macros, not raw exceptions
 - Comments: sparse, focus on "why" not "what", no docstrings
+- All files must end with a newline
+- Use `nullptr` instead of `NULL`
+- Namespace closing braces must have a comment: `} // namespace Dal`

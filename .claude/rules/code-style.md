@@ -12,7 +12,10 @@
 - Namespace indent: all
 - Standard: C++17
 
-## Naming Conventions
+## General
+
+- All files must end with a newline
+- Use `nullptr` instead of `NULL`
 
 | Element              | Convention                    | Examples                                          |
 |----------------------|-------------------------------|---------------------------------------------------|
@@ -29,7 +32,7 @@
 ## Header Files
 
 - Always `#pragma once` (no include guards)
-- File header comment: `// Created by <author> on <date>.`
+- File header comment uses two-line format: `//\n// Created by <author> on <date>.\n//`
 - Include order: standard library -> dal headers -> local headers
 - Platform header: most `.cpp` files include `<dal/platform/platform.hpp>`
 
@@ -39,6 +42,7 @@
 - Nested for modules: `Dal::AAD`, `Dal::Script`, `Dal::Date`, `Dal::String`
 - Anonymous `namespace { }` for file-local helpers
 - Public API flattens everything into `Dal::` via `using` aliases
+- Always add closing comment on namespace braces: `} // namespace Dal`
 
 ## Type Idioms
 
