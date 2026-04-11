@@ -5,12 +5,10 @@
 #include <dal/platform/config.hpp>
 
 #ifdef USE_EXCEL_REPORT
-#include <comdef.h>
-#include <stdexcept>
 #include <dal/io/exceldriverlite.hpp>
-#include <dal/io/excelimport.hpp>
 #include <dal/math/matrix/matrixutils.hpp>
-#include <dal/utilities/exceptions.hpp>
+#include <dal/io/excelimport.hpp>
+
 
 namespace Dal {
 
@@ -77,7 +75,7 @@ namespace Dal {
         bool initialized_;
     public:
         ComInitializer_() : initialized_(false) {
-            HRESULT hr = CoInitializeEx(NULL, COINIT_MULTITHREADED);
+            HRESULT hr = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
             if (SUCCEEDED(hr)) {
                 initialized_ = true;
             } else if (hr != S_FALSE) {
@@ -349,6 +347,6 @@ namespace Dal {
             ++row;
         }
     }
-}
+} // namespace Dal
 
 #endif
