@@ -40,7 +40,7 @@ Review all changed files in the working tree against the project's coding conven
 
 ### Header Files
 - Must use `#pragma once` (not include guards)
-- Must have two-line file header: `//\n// Created by <author> on <date>.\n//`
+- Must have three-line file header: `//\n// Created by <author> on <date>.\n//`
 - Include order: `<gtest/gtest.h>` first (test files) -> standard library -> dal headers
 
 ### Test Files

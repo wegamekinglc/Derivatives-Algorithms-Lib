@@ -32,7 +32,7 @@
 ## Header Files
 
 - Always `#pragma once` (no include guards)
-- File header comment uses two-line format: `//\n// Created by <author> on <date>.\n//`
+- File header comment uses three-line format: `//\n// Created by <author> on <date>.\n//`
 - Include order: standard library -> dal headers -> local headers
 - Platform header: most `.cpp` files include `<dal/platform/platform.hpp>`
 
