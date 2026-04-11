@@ -108,6 +108,36 @@ add_subdirectory(${CMAKE_SOURCE_DIR}/externals/machinist)
 include_directories(${CMAKE_SOURCE_DIR}/externals/rapidjson/include)
 include_directories(${CMAKE_SOURCE_DIR}/externals/xad/include)
 
+# Auto-detect Microsoft Office for Excel COM integration
+set(DAL_HAS_EXCEL OFF)
+if(WIN32)
+    set(_OFFICE_SEARCH_PATHS
+        "C:/Program Files/Microsoft Office/root/VFS/ProgramFilesCommonX86/Microsoft Shared/OFFICE16"
+        "C:/Program Files (x86)/Common Files/microsoft shared/OFFICE16"
+        "C:/Program Files/Common Files/Microsoft Shared/OFFICE16"
+    )
+    set(_VBA_SEARCH_PATHS
+        "C:/Program Files/Microsoft Office/root/VFS/ProgramFilesCommonX86/Microsoft Shared/VBA/VBA6"
+        "C:/Program Files (x86)/Common Files/microsoft shared/VBA/VBA6"
+        "C:/Program Files/Common Files/Microsoft Shared/VBA/VBA6"
+    )
+    set(_EXCEL_SEARCH_PATHS
+        "C:/Program Files/Microsoft Office/root/Office16"
+        "C:/Program Files (x86)/Microsoft Office/Office16"
+        "C:/Program Files/Microsoft Office/Office16"
+    )
+    find_file(OFFICE_MSO_DLL NAMES "MSO.DLL" PATHS ${_OFFICE_SEARCH_PATHS} NO_DEFAULT_PATH)
+    find_file(OFFICE_VBE_OLB NAMES "VBE6EXT.OLB" PATHS ${_VBA_SEARCH_PATHS} NO_DEFAULT_PATH)
+    find_file(OFFICE_EXCEL_EXE NAMES "EXCEL.EXE" PATHS ${_EXCEL_SEARCH_PATHS} NO_DEFAULT_PATH)
+
+    if(OFFICE_MSO_DLL AND OFFICE_VBE_OLB AND OFFICE_EXCEL_EXE)
+        set(DAL_HAS_EXCEL ON)
+        message(STATUS "Office found - Excel COM integration enabled")
+    else()
+        message(STATUS "Office not found - Excel COM integration disabled")
+    endif()
+endif()
+
 add_subdirectory(dal)
 add_subdirectory(public)
 add_subdirectory(examples)

@@ -1,5 +1,5 @@
 add_subdirectory(src)
-if(MSVC)
+if(DAL_HAS_EXCEL)
     add_subdirectory(excel)
 endif()
 

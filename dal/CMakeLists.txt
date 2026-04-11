@@ -8,6 +8,15 @@ list(FILTER DAL_FILES EXCLUDE REGEX "${PROJECT_SOURCE_DIR}/dal/storage/_reposito
 
 add_library(dal_library ${DAL_FILES})
 
+if(DAL_HAS_EXCEL)
+    target_compile_definitions(dal_library PRIVATE
+        USE_EXCEL_REPORT
+        OFFICE_MSO_PATH="${OFFICE_MSO_DLL}"
+        OFFICE_VBE_PATH="${OFFICE_VBE_OLB}"
+        OFFICE_EXCEL_PATH="${OFFICE_EXCEL_EXE}"
+    )
+endif()
+
 if (DAL_USE_XAD_AAD)
     target_link_libraries(dal_library XAD::xad)
 endif()

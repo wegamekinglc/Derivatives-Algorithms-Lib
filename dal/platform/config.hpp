@@ -11,7 +11,3 @@
 #ifndef DAL_USE_NOTE
 #define DAL_USE_NOTE
 #endif
-
-#ifdef WIN32
-#define USE_EXCEL_REPORT
-#endif

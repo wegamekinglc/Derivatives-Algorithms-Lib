@@ -57,7 +57,15 @@ git push -u origin <branch-name>
 
 If the branch already tracks a remote, a plain `git push` is sufficient.
 
-### 5. Create the pull request
+### 5. Create or update the pull request
+
+First check if a PR already exists for this branch:
+
+```bash
+gh pr view --json number,title,body 2>/dev/null
+```
+
+#### If no PR exists — create one
 
 Use `gh pr create` with the project's PR template. Analyze all commits on the branch (not just the latest) to write the summary.
 
@@ -74,6 +82,29 @@ EOF
 ```
 
 The base branch is always `master`.
+
+#### If a PR already exists — update its description
+
+Read the existing PR body, then amend it to incorporate the new commit(s). The goal is a single coherent description covering all work on the branch, not an append-only changelog.
+
+1. Read all commits on the branch (`git log --oneline master..HEAD`) and the existing PR body.
+2. Rewrite the Summary section to cover all changes holistically. Don't just append bullet points — reorganize if needed so the description reads well as a whole.
+3. Update the Test plan if the new changes affect different test suites.
+4. Apply with:
+   ```bash
+   gh pr edit --body "$(cat <<'EOF'
+   ## Summary
+   - <updated bullet points covering ALL changes on the branch>
+
+   ## Test plan
+   - [ ] Updated test plan items
+   EOF
+   )"
+   ```
+5. Optionally update the title if it no longer reflects the full scope:
+   ```bash
+   gh pr edit --title "<new title under 70 chars>"
+   ```
 
 ### 6. Report back
 
