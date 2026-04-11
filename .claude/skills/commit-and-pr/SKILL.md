@@ -28,10 +28,23 @@ If there are no changes (staged or unstaged), tell the user and stop.
 - If already on a feature/fix branch, use it.
 - If on `master`, create a new branch. Ask the user for a name, or suggest one based on the changes (e.g., `feature/add-interp-serialization-tests`).
 
-### 3. Stage and commit
+### 3. Handle submodules
+
+Check for submodule changes:
+
+```bash
+git diff externals/
+```
+
+There are two kinds of submodule changes — handle them differently:
+
+- **Pointer update** (the diff shows a new `Subproject commit` hash without `-dirty`): This means the submodule was intentionally updated to a newer commit. Stage it with `git add externals/<name>` and include it in the commit that motivated the update.
+- **Dirty submodule** (the diff shows the same hash with `-dirty`, or `git status` shows `modified content` / `untracked content`): This means files inside the submodule were modified locally but the submodule pointer itself hasn't changed. Do NOT stage these — they are local build artifacts or accidental edits. Skip them.
+
+### 4. Stage and commit
 
 - Review the diff carefully to understand what changed and why.
-- Skip files that should not be committed: binaries (`*.xll`), dirty submodules (`externals/`), generated cmake files, secrets (`.env`, credentials).
+- Skip files that should not be committed: binaries (`*.xll`), dirty submodules (see step 3), generated cmake files, secrets (`.env`, credentials).
 - Group related changes into logical commits — one commit per logical unit of work. If all changes are related, a single commit is fine.
 - Write commit messages following project conventions:
   - Imperative summary under 72 characters
@@ -49,7 +62,7 @@ If there are no changes (staged or unstaged), tell the user and stop.
   )"
   ```
 
-### 4. Push to remote
+### 5. Push to remote
 
 ```bash
 git push -u origin <branch-name>
@@ -57,7 +70,7 @@ git push -u origin <branch-name>
 
 If the branch already tracks a remote, a plain `git push` is sufficient.
 
-### 5. Create or update the pull request
+### 6. Create or update the pull request
 
 First check if a PR already exists for this branch:
 
@@ -106,6 +119,6 @@ Read the existing PR body, then amend it to incorporate the new commit(s). The g
    gh pr edit --title "<new title under 70 chars>"
    ```
 
-### 6. Report back
+### 7. Report back
 
 Print the PR URL so the user can review it.
