@@ -57,11 +57,12 @@ This is a C++17 quantitative finance library with AAD (Automatic Adjoint Differe
 
 **Code generation** — `config/dal.ifc` is processed by the Machinist tool to generate files in `dal/auto/` and `public/auto/`. Run `build_linux.sh` to regenerate.
 
-**External dependencies** (`external/`):
+**External dependencies** (`externals/`, git submodules):
 - `xad/` — XAD AAD framework for automatic differentiation
-- `googletest-1.17.0/` — test framework
+- `googletest/` — Google Test framework
 - `rapidjson/` — JSON parsing
 - `machinist/` — code generation tool
+- `CodiPack/` — CoDiPack AD framework
 
 **Tests (`tests/`)** — one subdirectory per module, all compiled into a single `test_suite` binary using Google Test.
 

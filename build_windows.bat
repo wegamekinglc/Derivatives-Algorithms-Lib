@@ -21,7 +21,7 @@ if exist build (
 )
 
 echo Starting build machinist2
-call build_windows.bat
+call ./build_windows.bat
 echo End build machinist2
 
 set MACHINIST_TEMPLATE_DIR=%CD%\template\
