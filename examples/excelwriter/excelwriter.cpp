@@ -22,7 +22,7 @@ namespace Vector = Dal::Vector;
 int main() {
     RegisterAll_::Init();
 
-    // DON'T FORGET TO MODIFY EXCELIMPORTS.CPP for correct version of Excel.
+    // Ensure the Excel integration is configured for the correct Excel version.
     int N = 40;
 
     // Create abscissa x array
@@ -36,7 +36,7 @@ int main() {
     auto fun4 = [](double x) { return exp(x); };
     auto fun5 = [](double x) { return x; };
 
-    // Exx.Higher order functions in C++11 g = f op h, e.g. g = f - h
+    // Ex. Higher-order functions in C++11: g = f op h, e.g. g = f - h
     auto vec1 = Apply(fun, x);
     auto vec2 = Apply(fun2, x);
     auto vec3 = Apply(fun3, x);

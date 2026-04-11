@@ -14,7 +14,7 @@
 
 // Excel driver class definition. Contains functionality to add charts
 // and matrices. Hides all COM details. COM exceptions are re-thrown
-// as STL strings.
+// as Dal::Exception_.
 namespace Dal {
     class ExcelDriver_ {
     private:
@@ -45,8 +45,13 @@ namespace Dal {
         explicit ExcelDriver_(int currentColumn = 1);
         ~ExcelDriver_();
 
-        // Access to single, shared instance of ExcelDriver (Singleton pattern).
-        static ExcelDriver_& Instance();
+        // Access to a per-thread instance of ExcelDriver.
+        // Excel COM automation objects are thread-affine, so the driver must
+        // not be shared across threads.
+        static ExcelDriver_& Instance() {
+            thread_local ExcelDriver_ instance;
+            return instance;
+        }
 
         // Create chart with a number of functions. The arguments are:
         //  x:			std::vector<double> with input values

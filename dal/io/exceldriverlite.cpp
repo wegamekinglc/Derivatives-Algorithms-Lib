@@ -5,11 +5,12 @@
 #include <dal/platform/config.hpp>
 
 #ifdef USE_EXCEL_REPORT
+#include <comdef.h>
 #include <stdexcept>
 #include <dal/io/exceldriverlite.hpp>
 #include <dal/io/excelimport.hpp>
 #include <dal/math/matrix/matrixutils.hpp>
-
+#include <dal/utilities/exceptions.hpp>
 
 namespace Dal {
 
@@ -23,13 +24,12 @@ namespace Dal {
 
         // First cell contains the label.
         Excel::RangePtr item = pRange->Item[sheetRow][sheetColumn];
-        //	item->Value = label.c_str();
         item->Value2 = label.c_str();
 
         sheetColumn++;
 
         // Next cells contain the values.
-        for (std::size_t i = 0; i < values.size(); i++) {
+        for (std::size_t i = 0; i < values.size(); ++i) {
             Excel::RangePtr item = pRange->Item[sheetRow][sheetColumn];
             item->Value2 = values[i];
 
@@ -49,15 +49,13 @@ namespace Dal {
 
         // First cell contains the label.
         Excel::RangePtr item = pRange->Item[sheetRow][sheetColumn];
-        // item->Value = label.c_str();
         item->Value2 = label.c_str();
 
         sheetRow++;
 
         // Next cells contain the values.
-        for (std::size_t i = 0; i < values.size(); i++) {
+        for (std::size_t i = 0; i < values.size(); ++i) {
             Excel::RangePtr item = pRange->Item[sheetRow][sheetColumn];
-            // item->Value = values[i];
             item->Value2 = values[i];
             sheetRow++;
         }
@@ -73,13 +71,38 @@ namespace Dal {
         THROW(String_(description));
     }
 
+    // RAII helper for COM initialization/uninitialization
+    class ComInitializer_ {
+    private:
+        bool initialized_;
+    public:
+        ComInitializer_() : initialized_(false) {
+            HRESULT hr = CoInitializeEx(NULL, COINIT_MULTITHREADED);
+            if (SUCCEEDED(hr)) {
+                initialized_ = true;
+            } else if (hr != S_FALSE) {
+                // S_FALSE means COM is already initialized on this thread, which is OK
+                THROW(String_("CoInitializeEx failed"));
+            }
+        }
+
+        ~ComInitializer_() {
+            if (initialized_) {
+                CoUninitialize();
+            }
+        }
+
+        ComInitializer_(const ComInitializer_&) = delete;
+        ComInitializer_& operator=(const ComInitializer_&) = delete;
+    };
+
     // Constructor. Starts Excel in invisible mode.
 
     ExcelDriver_::ExcelDriver_(int currentColumn) : curDataColumn_(currentColumn) {
-        try {
-            // Initialize COM Runtime Libraries.
-            CoInitialize(NULL);
+        // Initialize COM Runtime Libraries with RAII guard
+        ComInitializer_ comInit;
 
+        try {
             // Start excel application.
             xl_.CreateInstance(L"Excel.Application");
             xl_->Workbooks->Add((long)Excel::xlWorksheet);
@@ -96,16 +119,23 @@ namespace Dal {
     // Destructor.
 
     ExcelDriver_::~ExcelDriver_() {
-        // Undo initialization of COM Runtime Libraries.
-        CoUninitialize();
+        try {
+            if (xl_) {
+                Excel::_WorkbookPtr pWorkbook = xl_->ActiveWorkbook;
+                if (pWorkbook) {
+                    pWorkbook->Close(VARIANT_FALSE);
+                }
+                xl_->Quit();
+                xl_ = nullptr;
+            }
+        } catch (_com_error&) {
+            // Destructors must not throw; continue with COM uninitialization.
+        } catch (...) {
+            // Destructors must not throw; continue with COM uninitialization.
+        }
+        // COM is automatically uninitialized when ComInitializer_ is destroyed during static destruction
     }
 
-    // Access to single, shared instance of ExcelDriver (singleton).
-
-    ExcelDriver_& ExcelDriver_::Instance() {
-        static ExcelDriver_ singleton;
-        return singleton;
-    }
 
     // Create chart with a number of functions. The arguments are:
     //  x:			vector with input values
@@ -121,6 +151,16 @@ namespace Dal {
                                    const String_& xTitle,
                                    const String_& yTitle) {
         try {
+            // Validate input sizes
+            if (labels.size() != vectorList.size()) {
+                THROW(String_("CreateChart error: labels.size() must equal vectorList.size()"));
+            }
+            for (size_t i = 0; i < vectorList.size(); ++i) {
+                if (vectorList[i].size() != x.size()) {
+                    THROW(String_("CreateChart error: each series must have the same length as x"));
+                }
+            }
+
             // Activate sheet with numbers.
             Excel::_WorkbookPtr pWorkbook = xl_->ActiveWorkbook;
             Excel::_WorksheetPtr pSheet = pWorkbook->Worksheets->GetItem("Chart Data");
@@ -212,6 +252,14 @@ namespace Dal {
                                  const Vector_<String_>& columnLabels,
                                  int row,
                                  int col) {
+        // Validate input sizes
+        if (rowLabels.size() != matrix.Rows()) {
+            THROW(String_("AddMatrix error: rowLabels.size() must equal matrix.Rows()"));
+        }
+        if (columnLabels.size() != matrix.Cols()) {
+            THROW(String_("AddMatrix error: columnLabels.size() must equal matrix.Cols()"));
+        }
+
         // Add sheet.
         Excel::_WorkbookPtr pWorkbook = xl_->ActiveWorkbook;
         Excel::_WorksheetPtr pSheet = pWorkbook->Worksheets->Add();
