@@ -11,6 +11,15 @@ else()
     add_library(dal_public ${PUBLIC_FILES})
 endif()
 
+if(DAL_HAS_EXCEL)
+    target_compile_definitions(dal_public PRIVATE
+        USE_EXCEL_REPORT
+        OFFICE_MSO_PATH="${OFFICE_MSO_DLL}"
+        OFFICE_VBE_PATH="${OFFICE_VBE_OLB}"
+        OFFICE_EXCEL_PATH="${OFFICE_EXCEL_EXE}"
+    )
+endif()
+
 if(DAL_USE_XAD_AAD)
     if (BUILD_SHARED_LIBS)
         target_link_libraries(dal_library XAD::xad)

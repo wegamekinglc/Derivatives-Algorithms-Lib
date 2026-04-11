@@ -11,3 +11,7 @@ add_subdirectory(underdetermined)
 add_subdirectory(uoc)
 add_subdirectory(uoc_compiled)
 add_subdirectory(vanilla)
+
+if(DAL_HAS_EXCEL)
+    add_subdirectory(excelwriter)
+endif()
