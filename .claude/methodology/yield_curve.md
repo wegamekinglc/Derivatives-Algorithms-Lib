@@ -10,6 +10,8 @@ Documentation of the yield curve framework in `dal/curve/`.
 | `yccomponent.hpp/cpp` | `YCComponent_` — base for all curve components with dependency tracking and cloning |
 | `discount.hpp/cpp` | `DiscountCurve_` — abstract discount factor interface |
 | `ycimp.hpp/cpp` | `DiscountPWLF_` — concrete discount curve built on piecewise-linear forward rates |
+| `fittable.hpp` | `FittableCurve_` — interface for calibration (`NX()`, `ApplyDX()`) |
+| `yccalibration.hpp/cpp` | Market instruments (`DepositInstrument_`, `SwapInstrument_`) and `CalibrateYieldCurve()` |
 | `piecewiseconstant.hpp/cpp` | `PiecewiseConstant_` — step-function representation with precomputed integrals |
 | `piecewiselinear.hpp/cpp` | `PiecewiseLinear_` — continuous piecewise-linear function with precomputed integrals |
 

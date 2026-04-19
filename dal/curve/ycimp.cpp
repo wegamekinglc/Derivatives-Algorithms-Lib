@@ -5,12 +5,12 @@
 #include <dal/platform/platform.hpp>
 #include <dal/platform/strict.hpp>
 #include <dal/curve/ycimp.hpp>
+#include <dal/curve/fittable.hpp>
 #include <dal/curve/yccomponent.hpp>
 #include <dal/curve/discount.hpp>
 #include <dal/curve/piecewiselinear.hpp>
 #include <dal/time/date.hpp>
 #include <dal/time/daybasis.hpp>
-#include <dal/platform/platform.hpp>
 #include <dal/math/vectors.hpp>
 #include <dal/storage/archive.hpp>
 
@@ -28,12 +28,6 @@ base is ?handle DiscountCurve
 -IF-------------------------------------------------------------------------*/
 
 namespace Dal {
-
-    class FittableCurve_ {
-    public:
-        [[nodiscard]] virtual int NX() const = 0;
-        virtual void ApplyDX(Vector_<>::const_iterator dx, double leverage) = 0;
-    };
 
     namespace {
         double LiborForecastFromDiscounts(const DiscountCurve_ &dc,
