@@ -68,6 +68,12 @@ This is a C++17 quantitative finance library with AAD (Automatic Adjoint Differe
 
 **Examples (`examples/`)** — standalone programs demonstrating AAD, Monte Carlo, finite difference, and scripting usage.
 
+## Methodology
+
+Detailed documentation of the quantitative methods implemented in this library:
+
+- **Yield Curve Construction** — @.claude/methodology/yield_curve.md
+
 ## Rules to follow
 
 - **coding style**: @.claude/rules/code-style.md
