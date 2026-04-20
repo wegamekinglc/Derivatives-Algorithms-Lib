@@ -16,90 +16,20 @@
 #include <dal/utilities/dictionary.hpp>
 
 namespace Dal {
+    // CalibratedYieldCurve_
 
-    YCInstrument_::~YCInstrument_() = default;
-    YCInstrument_::Rate_::~Rate_() = default;
+    CalibratedYieldCurve_::CalibratedYieldCurve_(const DiscountCurve_& dc)
+        : YieldCurve_(dc.name_, dc.ccy_.String()), dc_(dc) {}
 
-    // CalibrationYieldCurve_
+    const DiscountCurve_& CalibratedYieldCurve_::Discount(const CollateralType_&) const { return dc_; }
 
-    CalibrationYieldCurve_::CalibrationYieldCurve_(const DiscountCurve_& dc)
-        : YieldCurve_(String_("CalibYC"), String_("USD")), dc_(dc) {}
-
-    const DiscountCurve_& CalibrationYieldCurve_::Discount(const CollateralType_&) const { return dc_; }
-    double CalibrationYieldCurve_::FwdLibor(const PeriodLength_&, const Date_&) const { return 0.0; }
-    void CalibrationYieldCurve_::Write(Archive::Store_&) const {}
-
-    namespace {
-        class DepositRate_ : public YCInstrument_::Rate_ {
-            Date_ today_;
-            Date_ maturity_;
-            DayBasis_ basis_;
-        public:
-            DepositRate_(const Date_& today, const Date_& maturity, const DayBasis_& basis)
-                : today_(today), maturity_(maturity), basis_(basis) {}
-
-            double operator()(const YieldCurve_& yc) const override {
-                const auto& dc = yc.Discount(CollateralType_::Value_::OIS);
-                double df = dc(today_, maturity_);
-                return (1.0 / df - 1.0) / basis_(today_, maturity_, nullptr);
-            }
-        };
-
-        class SwapRate_ : public YCInstrument_::Rate_ {
-            Date_ today_;
-            Date_ maturity_;
-            int freqMonths_;
-            DayBasis_ basis_;
-        public:
-            SwapRate_(const Date_& today, const Date_& maturity, int freqMonths, const DayBasis_& basis)
-                : today_(today), maturity_(maturity), freqMonths_(freqMonths), basis_(basis) {}
-
-            double operator()(const YieldCurve_& yc) const override {
-                const auto& dc = yc.Discount(CollateralType_::Value_::OIS);
-                double annuity = 0.0;
-                Date_ d = today_;
-                while (d < maturity_) {
-                    Date_ next = Date::AddMonths(d, freqMonths_);
-                    if (next > maturity_)
-                        next = maturity_;
-                    annuity += basis_(d, next, nullptr) * dc(today_, next);
-                    d = next;
-                }
-                return (1.0 - dc(today_, maturity_)) / annuity;
-            }
-        };
-    } // namespace
-
-    // Deposit_
-
-    Deposit_::Deposit_(const Date_& today, const Date_& maturity, double marketRate, const DayBasis_& basis)
-        : today_(today), maturity_(maturity), marketRate_(marketRate), basis_(basis) {}
-
-    Deposit_::~Deposit_() = default;
-
-    String_ Deposit_::Name() const { return String_("Deposit"); }
-
-    pair<Date_, Date_> Deposit_::TimeSpan() const { return {today_, maturity_}; }
-
-    Handle_<YCInstrument_::Rate_> Deposit_::Precompute(const Handle_<YCInstrument_>&,
-                                                                    const Handle_<YieldCurve_>&) const {
-        return Handle_<Rate_>(new DepositRate_(today_, maturity_, basis_));
+    double CalibratedYieldCurve_::FwdLibor(const PeriodLength_&, const Date_&) const {
+        REQUIRE(false, "CalibratedYieldCurve_ does not support FwdLibor");
+        return 0.0;
     }
 
-    // Swap_
-
-    Swap_::Swap_(const Date_& today, const Date_& maturity, double marketRate, int freqMonths, const DayBasis_& basis)
-        : today_(today), maturity_(maturity), marketRate_(marketRate), freqMonths_(freqMonths), basis_(basis) {}
-
-    Swap_::~Swap_() = default;
-
-    String_ Swap_::Name() const { return String_("Swap"); }
-
-    pair<Date_, Date_> Swap_::TimeSpan() const { return {today_, maturity_}; }
-
-    Handle_<YCInstrument_::Rate_> Swap_::Precompute(const Handle_<YCInstrument_>&,
-                                                                 const Handle_<YieldCurve_>&) const {
-        return Handle_<Rate_>(new SwapRate_(today_, maturity_, freqMonths_, basis_));
+    void CalibratedYieldCurve_::Write(Archive::Store_&) const {
+        REQUIRE(false, "CalibratedYieldCurve_ is not serializable");
     }
 
     // Free functions
@@ -140,6 +70,7 @@ namespace Dal {
 
         class YieldCurveCalibrationFunc_ : public Underdetermined::Function_ {
             Date_ today_;
+            Ccy_ ccy_;
             Vector_<Handle_<YCInstrument_>> instruments_;
             Vector_<Handle_<YCInstrument_::Rate_>> rates_;
             Vector_<double> marketRates_;
@@ -147,9 +78,10 @@ namespace Dal {
 
         public:
             YieldCurveCalibrationFunc_(const Date_& today,
+                                       const String_& ccy,
                                        const Vector_<Handle_<YCInstrument_>>& instruments,
                                        const Vector_<Date_>& knotDates)
-                : today_(today), instruments_(instruments), knotDates_(knotDates) {
+                : today_(today), ccy_(ccy), instruments_(instruments), knotDates_(knotDates) {
                 Handle_<YieldCurve_> dummyYC;
                 for (const auto& inst : instruments_) {
                     rates_.push_back(inst->Precompute(inst, dummyYC));
@@ -166,8 +98,8 @@ namespace Dal {
                 }
 
                 PiecewiseLinear_ pwl(knotDates_, fLeft, fRight);
-                std::unique_ptr<DiscountCurve_> dc(NewDiscountPWLF(String_("calib"), pwl));
-                CalibrationYieldCurve_ yc(*dc);
+                std::unique_ptr<DiscountCurve_> dc(NewDiscountPWLF(String_("calib"), ccy_.String(), pwl));
+                CalibratedYieldCurve_ yc(*dc);
 
                 const int nInst = static_cast<int>(instruments_.size());
                 Vector_<> result(nInst);
@@ -180,6 +112,7 @@ namespace Dal {
     } // namespace
 
     DiscountCurve_* CalibrateYieldCurve(const Date_& today,
+                                        const String_& ccy,
                                          const Vector_<Handle_<YCInstrument_>>& instruments,
                                          const Vector_<Date_>& knotDates,
                                          double smoothingWeight,
@@ -202,7 +135,7 @@ namespace Dal {
         ctrlDict.Insert(String_("MAXRESTARTS"), Cell_(static_cast<double>(maxRestarts)));
         UnderdeterminedControls_ controls(ctrlDict);
 
-        YieldCurveCalibrationFunc_ func(today, instruments, knotDates);
+        YieldCurveCalibrationFunc_ func(today, ccy, instruments, knotDates);
         Vector_<> result = Underdetermined::Find(func, guess, tol, *wDecomp, controls, effJacobianInverse);
 
         const int nKnots = static_cast<int>(knotDates.size());
@@ -213,7 +146,7 @@ namespace Dal {
         }
 
         PiecewiseLinear_ pwl(knotDates, fLeft, fRight);
-        return NewDiscountPWLF(String_("calibrated"), pwl);
+        return NewDiscountPWLF(String_("calibrated"), ccy, pwl);
     }
 
 } // namespace Dal

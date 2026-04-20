@@ -14,6 +14,7 @@ using namespace Dal;
 TEST(YieldCurveCalibrationTest, TestFlatCurveCalibration) {
     const Date_ today(2024, 1, 15);
     const DayBasis_ basis("ACT_365F");
+    const String_ ccy = "USD";
     const double flatRate = 0.05;
 
     Vector_<Handle_<YCInstrument_>> instruments;
@@ -29,8 +30,8 @@ TEST(YieldCurveCalibrationTest, TestFlatCurveCalibration) {
         Date::AddMonths(today, 24),
     };
 
-    std::unique_ptr<DiscountCurve_> dc(CalibrateYieldCurve(today, instruments, knotDates));
-    CalibrationYieldCurve_ yc(*dc);
+    std::unique_ptr<DiscountCurve_> dc(CalibrateYieldCurve(today, ccy, instruments, knotDates));
+    CalibratedYieldCurve_ yc(*dc);
 
     for (const auto& inst : instruments) {
         Handle_<YCInstrument_::Rate_> rate = inst->Precompute(inst, Handle_<YieldCurve_>());
@@ -41,6 +42,7 @@ TEST(YieldCurveCalibrationTest, TestFlatCurveCalibration) {
 
 TEST(YieldCurveCalibrationTest, TestUpwardSlopingCurve) {
     const Date_ today(2024, 1, 15);
+    const String_ ccy = "USD";
     const DayBasis_ basis("ACT_365F");
 
     Vector_<Handle_<YCInstrument_>> instruments;
@@ -64,8 +66,8 @@ TEST(YieldCurveCalibrationTest, TestUpwardSlopingCurve) {
         Date::AddMonths(today, 60),
     };
 
-    std::unique_ptr<DiscountCurve_> dc(CalibrateYieldCurve(today, instruments, knotDates));
-    CalibrationYieldCurve_ yc(*dc);
+    std::unique_ptr<DiscountCurve_> dc(CalibrateYieldCurve(today, ccy, instruments, knotDates));
+    CalibratedYieldCurve_ yc(*dc);
 
     for (const auto& inst : instruments) {
         Handle_<YCInstrument_::Rate_> rate = inst->Precompute(inst, Handle_<YieldCurve_>());
@@ -76,6 +78,7 @@ TEST(YieldCurveCalibrationTest, TestUpwardSlopingCurve) {
 
 TEST(YieldCurveCalibrationTest, TestRoundTrip) {
     const Date_ today(2024, 1, 15);
+    const String_ ccy = "USD";
     const DayBasis_ basis("ACT_365F");
 
     Vector_<Date_> knotDates = {
@@ -89,7 +92,7 @@ TEST(YieldCurveCalibrationTest, TestRoundTrip) {
     Vector_<> origRight = {0.046, 0.049, 0.051, 0.053};
 
     PiecewiseLinear_ origPwl(knotDates, origLeft, origRight);
-    std::unique_ptr<DiscountCurve_> origDc(NewDiscountPWLF(String_("original"), origPwl));
+    std::unique_ptr<DiscountCurve_> origDc(NewDiscountPWLF(String_("original"), ccy, origPwl));
 
     Vector_<Handle_<YCInstrument_>> instruments;
     instruments.push_back(Handle_<YCInstrument_>(
@@ -101,8 +104,8 @@ TEST(YieldCurveCalibrationTest, TestRoundTrip) {
     instruments.push_back(Handle_<YCInstrument_>(
         new Swap_(today, knotDates[3], SwapRate(*origDc, today, knotDates[3], 6, basis), 6, basis)));
 
-    std::unique_ptr<DiscountCurve_> calibDc(CalibrateYieldCurve(today, instruments, knotDates));
-    CalibrationYieldCurve_ yc(*calibDc);
+    std::unique_ptr<DiscountCurve_> calibDc(CalibrateYieldCurve(today, ccy, instruments, knotDates));
+    CalibratedYieldCurve_ yc(*calibDc);
 
     for (const auto& inst : instruments) {
         Handle_<YCInstrument_::Rate_> rate = inst->Precompute(inst, Handle_<YieldCurve_>());

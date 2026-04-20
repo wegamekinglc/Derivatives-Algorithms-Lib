@@ -12,6 +12,7 @@ using namespace Dal;
 
 int main() {
     const Date_ today(2024, 1, 15);
+    const String_& ccy = "USD";
     const DayBasis_ basis("ACT_365F");
 
     Vector_<Handle_<YCInstrument_>> instruments;
@@ -46,14 +47,14 @@ int main() {
     std::cout << "Degrees of freedom: " << nParams - nInstruments << "\n\n";
 
     std::cout << "Calibrating...\n";
-    std::unique_ptr<DiscountCurve_> dc(CalibrateYieldCurve(today, instruments, knotDates));
+    std::unique_ptr<DiscountCurve_> dc(CalibrateYieldCurve(today, ccy, instruments, knotDates));
     std::cout << "Calibration complete.\n\n";
 
     std::cout << "Repricing Check:\n";
     std::cout << std::fixed << std::setprecision(6);
     std::cout << std::setw(12) << "Instrument" << std::setw(10) << "Market" << std::setw(12) << "Model" << std::setw(12) << "Error(bp)\n";
 
-    CalibrationYieldCurve_ calibYC(*dc);
+    CalibratedYieldCurve_ calibYC(*dc);
     for (int i = 0; i < nInstruments; ++i) {
         Handle_<YCInstrument_::Rate_> rate = instruments[i]->Precompute(instruments[i], Handle_<YieldCurve_>());
         double modelRate = (*rate)(calibYC);

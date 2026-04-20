@@ -10,6 +10,7 @@ namespace Dal {
     struct PiecewiseLinear_;
 
     DiscountCurve_* NewDiscountPWLF(const String_ &name,
+                                    const String_ &ccy,
                                     const PiecewiseLinear_& fwds,
                                     const Handle_ <DiscountCurve_>& base = Handle_<DiscountCurve_>());
-}
+} // namespace Dal

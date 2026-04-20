@@ -21,6 +21,7 @@ version 1
 manual
 &members
 name is ?string
+ccy is ?string
 knotDates is date[]
 leftVals is number[]
 rightVals is number[]
@@ -55,9 +56,9 @@ namespace Dal {
     class DiscountPWLF_ : public CurveWithBase_<DiscountCurve_>, public FittableCurve_ {
         PiecewiseLinear_ fwds_;
     public:
-        DiscountPWLF_(const String_ &name, const PiecewiseLinear_ &fwds,
+        DiscountPWLF_(const String_ &name, const String_& ccy, const PiecewiseLinear_ &fwds,
                       const Handle_ <DiscountCurve_> &base = Handle_<DiscountCurve_>())
-                      : CurveWithBase_<DiscountCurve_>(name, base), fwds_(fwds) {}
+                      : CurveWithBase_<DiscountCurve_>(name, ccy, base), fwds_(fwds) {}
 
         double operator()(const Date_ &from, const Date_ &to) const override {
             const double integral = fwds_.IntegralTo(to) - fwds_.IntegralTo(from);
@@ -73,22 +74,23 @@ namespace Dal {
         }
 
         void Write(Archive::Store_ &dst) const override {
-            DiscountPWLF_v1::XWrite(dst, name_, fwds_.knotDates_, fwds_.fLeft_, fwds_.fRight_, base_);
+            DiscountPWLF_v1::XWrite(dst, name_, ccy_.String(), fwds_.knotDates_, fwds_.fLeft_, fwds_.fRight_, base_);
         }
 
         [[nodiscard]] DiscountPWLF_ *Clone(const String_ &new_name, const substitutions_t &base_changes) const override {
-            return new DiscountPWLF_(new_name, fwds_, NewBase(base_changes));
+            return new DiscountPWLF_(new_name, ccy_.String(), fwds_, NewBase(base_changes));
         }
     };
 
     DiscountCurve_* NewDiscountPWLF(const String_ &name,
+                                    const String_ &ccy,
                                     const PiecewiseLinear_& fwds,
                                     const Handle_ <DiscountCurve_>& base) {
-        return new DiscountPWLF_(name, fwds, base);
+        return new DiscountPWLF_(name, ccy, fwds, base);
     }
     #include <dal/auto/MG_DiscountPWLF_v1_Read.inc>
 
     Storable_ *DiscountPWLF_v1::Reader_::Build() const {
-        return new DiscountPWLF_(name_, PiecewiseLinear_(knotDates_, leftVals_, rightVals_), base_);
+        return new DiscountPWLF_(name_, ccy_, PiecewiseLinear_(knotDates_, leftVals_, rightVals_), base_);
     }
-}
+} // namespace Dal
