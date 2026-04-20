@@ -2,6 +2,7 @@
 namespace DiscountPWLF_v1 {
     struct Reader_ : Archive::Reader_ {
         String_ name_;
+        String_ ccy_;
         Vector_<Date_> knotDates_;
         Vector_<double> leftVals_;
         Vector_<double> rightVals_;
@@ -11,6 +12,7 @@ namespace DiscountPWLF_v1 {
             NOTE("Reading DiscountPWLF_v1 from store");
             assert(src.Type() == "DiscountPWLF_v1");
             GetOptional(src, "name", &name_, std::mem_fn(&Archive::View_::AsString));
+            GetOptional(src, "ccy", &ccy_, std::mem_fn(&Archive::View_::AsString));
             Get(src, "knotDates", &knotDates_, std::mem_fn(&Archive::View_::AsDateVector));
             Get(src, "leftVals", &leftVals_, std::mem_fn(&Archive::View_::AsDoubleVector));
             Get(src, "rightVals", &rightVals_, std::mem_fn(&Archive::View_::AsDoubleVector));

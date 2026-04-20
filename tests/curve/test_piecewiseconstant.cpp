@@ -2,14 +2,14 @@
 // Created by wegam on 2023/3/26.
 //
 
-#include <dal/platform/platform.hpp>
 #include <gtest/gtest.h>
+#include <dal/platform/platform.hpp>
 #include <dal/curve/piecewiseconstant.hpp>
 
 using namespace Dal;
 
 
-TEST(CurveTest, TestPiecewiseConstant) {
+TEST(PiecewiseConstantTest, TestPiecewiseConstant) {
     Vector_<Date_> knots = {Date_(2021, 3, 26), Date_(2022, 3, 26), Date_(2023, 3, 26)};
     Vector_<> right = {1.0, 2.0, 3.0};
 
@@ -19,7 +19,7 @@ TEST(CurveTest, TestPiecewiseConstant) {
     ASSERT_NEAR(pwc.IntegralTo(d), 549.0, 1e-8);
 }
 
-TEST(CurveTest, TestIntegral) {
+TEST(PiecewiseConstantTest, TestIntegral) {
     Vector_<Date_> knots = {Date_(2021, 3, 26), Date_(2022, 3, 26), Date_(2023, 3, 26)};
     Vector_<> right = {1.0, 2.0, 3.0};
 

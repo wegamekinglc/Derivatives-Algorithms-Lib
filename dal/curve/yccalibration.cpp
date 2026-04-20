@@ -2,36 +2,37 @@
 // Created by wegam on 2026/4/19.
 //
 
+#include <memory>
 #include <dal/platform/platform.hpp>
 #include <dal/platform/strict.hpp>
 #include <dal/curve/yccalibration.hpp>
+#include <dal/curve/yc.hpp>
 #include <dal/curve/piecewiselinear.hpp>
 #include <dal/curve/ycimp.hpp>
 #include <dal/curve/fittable.hpp>
 #include <dal/math/optimization/underdetermined.hpp>
 #include <dal/math/matrix/banded.hpp>
+#include <dal/protocol/collateraltype.hpp>
 #include <dal/utilities/dictionary.hpp>
-#include <memory>
 
 namespace Dal {
+    // CalibratedYieldCurve_
 
-    double DepositRate(const DiscountCurve_& dc, const Date_& today, const Date_& maturity, const DayBasis_& basis) {
-        const double df = dc(today, maturity);
-        return (1.0 / df - 1.0) / basis(today, maturity, nullptr);
+    CalibratedYieldCurve_::CalibratedYieldCurve_(const DiscountCurve_& dc)
+        : YieldCurve_(dc.name_, dc.ccy_.String()), dc_(dc) {}
+
+    const DiscountCurve_& CalibratedYieldCurve_::Discount(const CollateralType_&) const { return dc_; }
+
+    double CalibratedYieldCurve_::FwdLibor(const PeriodLength_&, const Date_&) const {
+        REQUIRE(false, "CalibratedYieldCurve_ does not support FwdLibor");
+        return 0.0;
     }
 
-    double SwapRate(const DiscountCurve_& dc, const Date_& today, const Date_& maturity, int freqMonths, const DayBasis_& basis) {
-        double annuity = 0.0;
-        Date_ d = today;
-        while (d < maturity) {
-            Date_ next = Date::AddMonths(d, freqMonths);
-            if (next > maturity)
-                next = maturity;
-            annuity += basis(d, next, nullptr) * dc(today, next);
-            d = next;
-        }
-        return (1.0 - dc(today, maturity)) / annuity;
+    void CalibratedYieldCurve_::Write(Archive::Store_&) const {
+        REQUIRE(false, "CalibratedYieldCurve_ is not serializable");
     }
+
+    // Calibration
 
     namespace {
         Sparse::TriDiagonal_* BuildSmoothingWeights(int nParams, double tau) {
@@ -49,18 +50,24 @@ namespace Dal {
 
         class YieldCurveCalibrationFunc_ : public Underdetermined::Function_ {
             Date_ today_;
-            Vector_<DepositInstrument_> deposits_;
-            Vector_<SwapInstrument_> swaps_;
+            Ccy_ ccy_;
+            Vector_<Handle_<YCInstrument_>> instruments_;
+            Vector_<Handle_<YCInstrument_::Rate_>> rates_;
+            Vector_<double> marketRates_;
             Vector_<Date_> knotDates_;
-            DayBasis_ basis_;
 
         public:
             YieldCurveCalibrationFunc_(const Date_& today,
-                                       const Vector_<DepositInstrument_>& deposits,
-                                       const Vector_<SwapInstrument_>& swaps,
-                                       const Vector_<Date_>& knotDates,
-                                       const DayBasis_& basis)
-                : today_(today), deposits_(deposits), swaps_(swaps), knotDates_(knotDates), basis_(basis) {}
+                                       const String_& ccy,
+                                       const Vector_<Handle_<YCInstrument_>>& instruments,
+                                       const Vector_<Date_>& knotDates)
+                : today_(today), ccy_(ccy), instruments_(instruments), knotDates_(knotDates) {
+                Handle_<YieldCurve_> dummyYC;
+                for (const auto& inst : instruments_) {
+                    rates_.push_back(inst->Precompute(inst, dummyYC));
+                    marketRates_.push_back(inst->MarketRate());
+                }
+            }
 
             [[nodiscard]] Vector_<> F(const Vector_<>& x) const override {
                 const int nKnots = static_cast<int>(knotDates_.size());
@@ -71,17 +78,13 @@ namespace Dal {
                 }
 
                 PiecewiseLinear_ pwl(knotDates_, fLeft, fRight);
-                std::unique_ptr<DiscountCurve_> dc(NewDiscountPWLF(String_("calib"), pwl));
+                std::unique_ptr<DiscountCurve_> dc(NewDiscountPWLF(String_("calib"), ccy_.String(), pwl));
+                CalibratedYieldCurve_ yc(*dc);
 
-                const int nDeposits = static_cast<int>(deposits_.size());
-                const int nSwaps = static_cast<int>(swaps_.size());
-                Vector_<> result(nDeposits + nSwaps);
-
-                for (int i = 0; i < nDeposits; ++i)
-                    result[i] = DepositRate(*dc, today_, deposits_[i].maturity_, basis_) - deposits_[i].marketRate_;
-
-                for (int i = 0; i < nSwaps; ++i)
-                    result[nDeposits + i] = SwapRate(*dc, today_, swaps_[i].maturity_, swaps_[i].freqMonths_, basis_) - swaps_[i].marketRate_;
+                const int nInst = static_cast<int>(instruments_.size());
+                Vector_<> result(nInst);
+                for (int i = 0; i < nInst; ++i)
+                    result[i] = (*rates_[i])(yc) - marketRates_[i];
 
                 return result;
             }
@@ -89,17 +92,16 @@ namespace Dal {
     } // namespace
 
     DiscountCurve_* CalibrateYieldCurve(const Date_& today,
-                                         const Vector_<DepositInstrument_>& deposits,
-                                         const Vector_<SwapInstrument_>& swaps,
+                                        const String_& ccy,
+                                         const Vector_<Handle_<YCInstrument_>>& instruments,
                                          const Vector_<Date_>& knotDates,
-                                         const DayBasis_& basis,
                                          double smoothingWeight,
                                          double tolerance,
                                          int maxEvaluations,
                                          int maxRestarts,
                                          Matrix_<>* effJacobianInverse) {
         const int nParams = 2 * static_cast<int>(knotDates.size());
-        const int nInstruments = static_cast<int>(deposits.size() + swaps.size());
+        const int nInstruments = static_cast<int>(instruments.size());
 
         Vector_<> guess(nParams, 0.05);
 
@@ -113,7 +115,7 @@ namespace Dal {
         ctrlDict.Insert(String_("MAXRESTARTS"), Cell_(static_cast<double>(maxRestarts)));
         UnderdeterminedControls_ controls(ctrlDict);
 
-        YieldCurveCalibrationFunc_ func(today, deposits, swaps, knotDates, basis);
+        YieldCurveCalibrationFunc_ func(today, ccy, instruments, knotDates);
         Vector_<> result = Underdetermined::Find(func, guess, tol, *wDecomp, controls, effJacobianInverse);
 
         const int nKnots = static_cast<int>(knotDates.size());
@@ -124,7 +126,7 @@ namespace Dal {
         }
 
         PiecewiseLinear_ pwl(knotDates, fLeft, fRight);
-        return NewDiscountPWLF(String_("calibrated"), pwl);
+        return NewDiscountPWLF(String_("calibrated"), ccy, pwl);
     }
 
 } // namespace Dal

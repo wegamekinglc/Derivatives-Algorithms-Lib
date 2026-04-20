@@ -5,6 +5,8 @@
 #pragma once
 
 #include <dal/curve/discount.hpp>
+#include <dal/curve/yc.hpp>
+#include <dal/curve/ycinstrument.hpp>
 #include <dal/math/vectors.hpp>
 #include <dal/math/matrix/matrixs.hpp>
 #include <dal/time/date.hpp>
@@ -12,25 +14,19 @@
 
 namespace Dal {
 
-    struct DepositInstrument_ {
-        Date_ maturity_;
-        double marketRate_;
+    class CalibratedYieldCurve_ : public YieldCurve_ {
+        const DiscountCurve_& dc_;
+    public:
+        explicit CalibratedYieldCurve_(const DiscountCurve_& dc);
+        [[nodiscard]] const DiscountCurve_& Discount(const CollateralType_& collateral) const override;
+        [[nodiscard]] double FwdLibor(const PeriodLength_& tenor, const Date_& fixing_date) const override;
+        void Write(Archive::Store_& dst) const override;
     };
-
-    struct SwapInstrument_ {
-        Date_ maturity_;
-        double marketRate_;
-        int freqMonths_;
-    };
-
-    double DepositRate(const DiscountCurve_& dc, const Date_& today, const Date_& maturity, const DayBasis_& basis);
-    double SwapRate(const DiscountCurve_& dc, const Date_& today, const Date_& maturity, int freqMonths, const DayBasis_& basis);
 
     DiscountCurve_* CalibrateYieldCurve(const Date_& today,
-                                         const Vector_<DepositInstrument_>& deposits,
-                                         const Vector_<SwapInstrument_>& swaps,
+                                        const String_& ccy,
+                                         const Vector_<Handle_<YCInstrument_>>& instruments,
                                          const Vector_<Date_>& knotDates,
-                                         const DayBasis_& basis,
                                          double smoothingWeight = 1.0,
                                          double tolerance = 1.0e-8,
                                          int maxEvaluations = 200,

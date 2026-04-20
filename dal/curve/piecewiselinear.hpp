@@ -26,4 +26,4 @@ namespace Dal {
         [[nodiscard]] double IntegralTo(const Date_ &date) const;
         [[nodiscard]] double ValueAt(const Date_ &date, bool from_right = true) const;
     };
-}
+} // namespace Dal

@@ -26,7 +26,7 @@ namespace Dal {
     protected:
         Handle_<B_> base_;
 
-        CurveWithBase_(const String_ &name, const Handle_<B_> &base) : T_(name), base_(base) {}
+        CurveWithBase_(const String_ &name, const String_& ccy, const Handle_<B_> &base) : T_(name, ccy), base_(base) {}
 
         Handle_<B_> NewBase(const YCComponent_::substitutions_t &base_changes) const {
             auto pb = base_changes.find(base_.get());
@@ -47,4 +47,4 @@ namespace Dal {
             }
         }
     };
-}
+} // namespace Dal

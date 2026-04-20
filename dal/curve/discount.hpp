@@ -5,6 +5,7 @@
 #pragma once
 
 #include <dal/curve/yccomponent.hpp>
+#include <dal/currency/currency.hpp>
 
 namespace Dal {
     class Date_;
@@ -12,7 +13,9 @@ namespace Dal {
 
     class DiscountCurve_: public YCComponent_ {
     public:
-        explicit DiscountCurve_(const String_& name);
+        const Ccy_ ccy_;
+        explicit DiscountCurve_(const String_& name, const String_ &ccy);
         virtual double operator()(const Date_& from, const Date_& to) const = 0;
     };
-}
+} // namespace Dal
+
