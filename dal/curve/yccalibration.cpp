@@ -32,26 +32,6 @@ namespace Dal {
         REQUIRE(false, "CalibratedYieldCurve_ is not serializable");
     }
 
-    // Free functions
-
-    double DepositRate(const DiscountCurve_& dc, const Date_& today, const Date_& maturity, const DayBasis_& basis) {
-        const double df = dc(today, maturity);
-        return (1.0 / df - 1.0) / basis(today, maturity, nullptr);
-    }
-
-    double SwapRate(const DiscountCurve_& dc, const Date_& today, const Date_& maturity, int freqMonths, const DayBasis_& basis) {
-        double annuity = 0.0;
-        Date_ d = today;
-        while (d < maturity) {
-            Date_ next = Date::AddMonths(d, freqMonths);
-            if (next > maturity)
-                next = maturity;
-            annuity += basis(d, next, nullptr) * dc(today, next);
-            d = next;
-        }
-        return (1.0 - dc(today, maturity)) / annuity;
-    }
-
     // Calibration
 
     namespace {

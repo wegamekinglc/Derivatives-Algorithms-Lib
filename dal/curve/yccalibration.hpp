@@ -23,9 +23,6 @@ namespace Dal {
         void Write(Archive::Store_& dst) const override;
     };
 
-    double DepositRate(const DiscountCurve_& dc, const Date_& today, const Date_& maturity, const DayBasis_& basis);
-    double SwapRate(const DiscountCurve_& dc, const Date_& today, const Date_& maturity, int freqMonths, const DayBasis_& basis);
-
     DiscountCurve_* CalibrateYieldCurve(const Date_& today,
                                         const String_& ccy,
                                          const Vector_<Handle_<YCInstrument_>>& instruments,

@@ -96,13 +96,13 @@ TEST(YieldCurveCalibrationTest, TestRoundTrip) {
 
     Vector_<Handle_<YCInstrument_>> instruments;
     instruments.push_back(Handle_<YCInstrument_>(
-        new Deposit_(today, knotDates[0], DepositRate(*origDc, today, knotDates[0], basis), basis)));
+        new Deposit_(today, knotDates[0], 0.045, basis)));
     instruments.push_back(Handle_<YCInstrument_>(
-        new Deposit_(today, knotDates[1], DepositRate(*origDc, today, knotDates[1], basis), basis)));
+        new Deposit_(today, knotDates[1], 0.048, basis)));
     instruments.push_back(Handle_<YCInstrument_>(
-        new Swap_(today, knotDates[2], SwapRate(*origDc, today, knotDates[2], 6, basis), 6, basis)));
+        new Swap_(today, knotDates[2], 0.050, 6, basis)));
     instruments.push_back(Handle_<YCInstrument_>(
-        new Swap_(today, knotDates[3], SwapRate(*origDc, today, knotDates[3], 6, basis), 6, basis)));
+        new Swap_(today, knotDates[3], 0.052, 6, basis)));
 
     std::unique_ptr<DiscountCurve_> calibDc(CalibrateYieldCurve(today, ccy, instruments, knotDates));
     CalibratedYieldCurve_ yc(*calibDc);
