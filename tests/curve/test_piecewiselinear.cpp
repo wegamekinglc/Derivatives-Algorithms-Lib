@@ -8,7 +8,7 @@
 
 using namespace Dal;
 
-TEST(CurveTest, TestPiecewiseLinearValueAt) {
+TEST(PiecewiseLinearTest, TestValueAt) {
     const Vector_<Date_> knots = {Date_(2021, 3, 26), Date_(2022, 3, 26), Date_(2023, 3, 26)};
     const Vector_<> f_left = {10.0, 20.0, 40.0};
     const Vector_<> f_right = {15.0, 25.0, 45.0};
@@ -28,7 +28,7 @@ TEST(CurveTest, TestPiecewiseLinearValueAt) {
     ASSERT_NEAR(pwl.ValueAt(d_mid), expected_mid, 1e-10);
 }
 
-TEST(CurveTest, TestPiecewiseLinearIntegralTo) {
+TEST(PiecewiseLinearTest, TestIntegralTo) {
     const Vector_<Date_> knots = {Date_(2021, 3, 26), Date_(2022, 3, 26), Date_(2023, 3, 26)};
     const Vector_<> f_left = {10.0, 20.0, 40.0};
     const Vector_<> f_right = {15.0, 25.0, 45.0};
@@ -58,7 +58,7 @@ TEST(CurveTest, TestPiecewiseLinearIntegralTo) {
     ASSERT_NEAR(pwl.IntegralTo(after_last), expected_after, 1e-10);
 }
 
-TEST(CurveTest, TestPiecewiseLinearUpdateRefreshesCachedIntegrals) {
+TEST(PiecewiseLinearTest, TestUpdateRefreshesCachedIntegrals) {
     const Vector_<Date_> knots = {Date_(2021, 3, 26), Date_(2022, 3, 26), Date_(2023, 3, 26)};
     const Vector_<> f_left = {10.0, 20.0, 40.0};
     const Vector_<> f_right = {15.0, 25.0, 45.0};
@@ -79,4 +79,3 @@ TEST(CurveTest, TestPiecewiseLinearUpdateRefreshesCachedIntegrals) {
     ASSERT_NEAR(pwl.sofar_[2], new_knot2_expected, 1e-10);
     ASSERT_NEAR(pwl.IntegralTo(knots[2]), new_knot2_expected, 1e-10);
 }
-

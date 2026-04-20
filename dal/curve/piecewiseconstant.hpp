@@ -46,4 +46,4 @@ namespace Dal {
             return new PiecewiseConstant_(Vector::V1(from), Vector::V1(val));
         }
     }
-}
+} // namespace Dal

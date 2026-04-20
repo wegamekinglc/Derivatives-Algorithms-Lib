@@ -8,4 +8,4 @@
 
 namespace Dal {
     DiscountCurve_::DiscountCurve_(const String_ &name): YCComponent_("DiscountCurve", name) {}
-}
+} // namespace Dal

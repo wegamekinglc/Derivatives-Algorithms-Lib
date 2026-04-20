@@ -16,3 +16,4 @@ namespace Dal {
         virtual double operator()(const Date_& from, const Date_& to) const = 0;
     };
 }
+
