@@ -3,11 +3,11 @@
 //
 
 #include <gtest/gtest.h>
+#include <memory>
 #include <dal/platform/platform.hpp>
 #include <dal/curve/yccalibration.hpp>
 #include <dal/curve/piecewiselinear.hpp>
 #include <dal/curve/ycimp.hpp>
-#include <memory>
 
 using namespace Dal;
 
@@ -16,15 +16,11 @@ TEST(YieldCurveCalibrationTest, TestFlatCurveCalibration) {
     const DayBasis_ basis("ACT_365F");
     const double flatRate = 0.05;
 
-    Vector_<DepositInstrument_> deposits = {
-        {Date::AddMonths(today, 3), flatRate},
-        {Date::AddMonths(today, 6), flatRate},
-    };
-
-    Vector_<SwapInstrument_> swaps = {
-        {Date::AddMonths(today, 12), flatRate, 6},
-        {Date::AddMonths(today, 24), flatRate, 6},
-    };
+    Vector_<Handle_<YCInstrument_>> instruments;
+    instruments.push_back(Handle_<YCInstrument_>(new Deposit_(today, Date::AddMonths(today, 3), flatRate, basis)));
+    instruments.push_back(Handle_<YCInstrument_>(new Deposit_(today, Date::AddMonths(today, 6), flatRate, basis)));
+    instruments.push_back(Handle_<YCInstrument_>(new Swap_(today, Date::AddMonths(today, 12), flatRate, 6, basis)));
+    instruments.push_back(Handle_<YCInstrument_>(new Swap_(today, Date::AddMonths(today, 24), flatRate, 6, basis)));
 
     Vector_<Date_> knotDates = {
         Date::AddMonths(today, 3),
@@ -33,16 +29,13 @@ TEST(YieldCurveCalibrationTest, TestFlatCurveCalibration) {
         Date::AddMonths(today, 24),
     };
 
-    std::unique_ptr<DiscountCurve_> dc(CalibrateYieldCurve(today, deposits, swaps, knotDates, basis));
+    std::unique_ptr<DiscountCurve_> dc(CalibrateYieldCurve(today, instruments, knotDates));
+    CalibrationYieldCurve_ yc(*dc);
 
-    for (const auto& dep : deposits) {
-        double modelRate = DepositRate(*dc, today, dep.maturity_, basis);
-        ASSERT_NEAR(modelRate, dep.marketRate_, 1e-6);
-    }
-
-    for (const auto& swap : swaps) {
-        double modelRate = SwapRate(*dc, today, swap.maturity_, swap.freqMonths_, basis);
-        ASSERT_NEAR(modelRate, swap.marketRate_, 1e-6);
+    for (const auto& inst : instruments) {
+        Handle_<YCInstrument_::Rate_> rate = inst->Precompute(inst, Handle_<YieldCurve_>());
+        double modelRate = (*rate)(yc);
+        ASSERT_NEAR(modelRate, inst->MarketRate(), 1e-6);
     }
 }
 
@@ -50,18 +43,14 @@ TEST(YieldCurveCalibrationTest, TestUpwardSlopingCurve) {
     const Date_ today(2024, 1, 15);
     const DayBasis_ basis("ACT_365F");
 
-    Vector_<DepositInstrument_> deposits = {
-        {Date::AddMonths(today, 1), 0.0450},
-        {Date::AddMonths(today, 3), 0.0460},
-        {Date::AddMonths(today, 6), 0.0475},
-    };
-
-    Vector_<SwapInstrument_> swaps = {
-        {Date::AddMonths(today, 12), 0.0490, 6},
-        {Date::AddMonths(today, 24), 0.0500, 6},
-        {Date::AddMonths(today, 36), 0.0505, 6},
-        {Date::AddMonths(today, 60), 0.0510, 6},
-    };
+    Vector_<Handle_<YCInstrument_>> instruments;
+    instruments.push_back(Handle_<YCInstrument_>(new Deposit_(today, Date::AddMonths(today, 1), 0.0450, basis)));
+    instruments.push_back(Handle_<YCInstrument_>(new Deposit_(today, Date::AddMonths(today, 3), 0.0460, basis)));
+    instruments.push_back(Handle_<YCInstrument_>(new Deposit_(today, Date::AddMonths(today, 6), 0.0475, basis)));
+    instruments.push_back(Handle_<YCInstrument_>(new Swap_(today, Date::AddMonths(today, 12), 0.0490, 6, basis)));
+    instruments.push_back(Handle_<YCInstrument_>(new Swap_(today, Date::AddMonths(today, 24), 0.0500, 6, basis)));
+    instruments.push_back(Handle_<YCInstrument_>(new Swap_(today, Date::AddMonths(today, 36), 0.0505, 6, basis)));
+    instruments.push_back(Handle_<YCInstrument_>(new Swap_(today, Date::AddMonths(today, 60), 0.0510, 6, basis)));
 
     Vector_<Date_> knotDates = {
         Date::AddMonths(today, 1),
@@ -75,16 +64,13 @@ TEST(YieldCurveCalibrationTest, TestUpwardSlopingCurve) {
         Date::AddMonths(today, 60),
     };
 
-    std::unique_ptr<DiscountCurve_> dc(CalibrateYieldCurve(today, deposits, swaps, knotDates, basis));
+    std::unique_ptr<DiscountCurve_> dc(CalibrateYieldCurve(today, instruments, knotDates));
+    CalibrationYieldCurve_ yc(*dc);
 
-    for (const auto& dep : deposits) {
-        double modelRate = DepositRate(*dc, today, dep.maturity_, basis);
-        ASSERT_NEAR(modelRate, dep.marketRate_, 1e-6);
-    }
-
-    for (const auto& swap : swaps) {
-        double modelRate = SwapRate(*dc, today, swap.maturity_, swap.freqMonths_, basis);
-        ASSERT_NEAR(modelRate, swap.marketRate_, 1e-6);
+    for (const auto& inst : instruments) {
+        Handle_<YCInstrument_::Rate_> rate = inst->Precompute(inst, Handle_<YieldCurve_>());
+        double modelRate = (*rate)(yc);
+        ASSERT_NEAR(modelRate, inst->MarketRate(), 1e-6);
     }
 }
 
@@ -105,25 +91,22 @@ TEST(YieldCurveCalibrationTest, TestRoundTrip) {
     PiecewiseLinear_ origPwl(knotDates, origLeft, origRight);
     std::unique_ptr<DiscountCurve_> origDc(NewDiscountPWLF(String_("original"), origPwl));
 
-    Vector_<DepositInstrument_> deposits = {
-        {knotDates[0], DepositRate(*origDc, today, knotDates[0], basis)},
-        {knotDates[1], DepositRate(*origDc, today, knotDates[1], basis)},
-    };
+    Vector_<Handle_<YCInstrument_>> instruments;
+    instruments.push_back(Handle_<YCInstrument_>(
+        new Deposit_(today, knotDates[0], DepositRate(*origDc, today, knotDates[0], basis), basis)));
+    instruments.push_back(Handle_<YCInstrument_>(
+        new Deposit_(today, knotDates[1], DepositRate(*origDc, today, knotDates[1], basis), basis)));
+    instruments.push_back(Handle_<YCInstrument_>(
+        new Swap_(today, knotDates[2], SwapRate(*origDc, today, knotDates[2], 6, basis), 6, basis)));
+    instruments.push_back(Handle_<YCInstrument_>(
+        new Swap_(today, knotDates[3], SwapRate(*origDc, today, knotDates[3], 6, basis), 6, basis)));
 
-    Vector_<SwapInstrument_> swaps = {
-        {knotDates[2], SwapRate(*origDc, today, knotDates[2], 6, basis), 6},
-        {knotDates[3], SwapRate(*origDc, today, knotDates[3], 6, basis), 6},
-    };
+    std::unique_ptr<DiscountCurve_> calibDc(CalibrateYieldCurve(today, instruments, knotDates));
+    CalibrationYieldCurve_ yc(*calibDc);
 
-    std::unique_ptr<DiscountCurve_> calibDc(CalibrateYieldCurve(today, deposits, swaps, knotDates, basis));
-
-    for (const auto& dep : deposits) {
-        double modelRate = DepositRate(*calibDc, today, dep.maturity_, basis);
-        ASSERT_NEAR(modelRate, dep.marketRate_, 1e-6);
-    }
-
-    for (const auto& swap : swaps) {
-        double modelRate = SwapRate(*calibDc, today, swap.maturity_, swap.freqMonths_, basis);
-        ASSERT_NEAR(modelRate, swap.marketRate_, 1e-6);
+    for (const auto& inst : instruments) {
+        Handle_<YCInstrument_::Rate_> rate = inst->Precompute(inst, Handle_<YieldCurve_>());
+        double modelRate = (*rate)(yc);
+        ASSERT_NEAR(modelRate, inst->MarketRate(), 1e-6);
     }
 }

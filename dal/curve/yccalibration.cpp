@@ -2,18 +2,107 @@
 // Created by wegam on 2026/4/19.
 //
 
+#include <memory>
 #include <dal/platform/platform.hpp>
 #include <dal/platform/strict.hpp>
 #include <dal/curve/yccalibration.hpp>
+#include <dal/curve/yc.hpp>
 #include <dal/curve/piecewiselinear.hpp>
 #include <dal/curve/ycimp.hpp>
 #include <dal/curve/fittable.hpp>
 #include <dal/math/optimization/underdetermined.hpp>
 #include <dal/math/matrix/banded.hpp>
+#include <dal/protocol/collateraltype.hpp>
 #include <dal/utilities/dictionary.hpp>
-#include <memory>
 
 namespace Dal {
+
+    YCInstrument_::~YCInstrument_() = default;
+    YCInstrument_::Rate_::~Rate_() = default;
+
+    // CalibrationYieldCurve_
+
+    CalibrationYieldCurve_::CalibrationYieldCurve_(const DiscountCurve_& dc)
+        : YieldCurve_(String_("CalibYC"), String_("USD")), dc_(dc) {}
+
+    const DiscountCurve_& CalibrationYieldCurve_::Discount(const CollateralType_&) const { return dc_; }
+    double CalibrationYieldCurve_::FwdLibor(const PeriodLength_&, const Date_&) const { return 0.0; }
+    void CalibrationYieldCurve_::Write(Archive::Store_&) const {}
+
+    namespace {
+        class DepositRate_ : public YCInstrument_::Rate_ {
+            Date_ today_;
+            Date_ maturity_;
+            DayBasis_ basis_;
+        public:
+            DepositRate_(const Date_& today, const Date_& maturity, const DayBasis_& basis)
+                : today_(today), maturity_(maturity), basis_(basis) {}
+
+            double operator()(const YieldCurve_& yc) const override {
+                const auto& dc = yc.Discount(CollateralType_::Value_::OIS);
+                double df = dc(today_, maturity_);
+                return (1.0 / df - 1.0) / basis_(today_, maturity_, nullptr);
+            }
+        };
+
+        class SwapRate_ : public YCInstrument_::Rate_ {
+            Date_ today_;
+            Date_ maturity_;
+            int freqMonths_;
+            DayBasis_ basis_;
+        public:
+            SwapRate_(const Date_& today, const Date_& maturity, int freqMonths, const DayBasis_& basis)
+                : today_(today), maturity_(maturity), freqMonths_(freqMonths), basis_(basis) {}
+
+            double operator()(const YieldCurve_& yc) const override {
+                const auto& dc = yc.Discount(CollateralType_::Value_::OIS);
+                double annuity = 0.0;
+                Date_ d = today_;
+                while (d < maturity_) {
+                    Date_ next = Date::AddMonths(d, freqMonths_);
+                    if (next > maturity_)
+                        next = maturity_;
+                    annuity += basis_(d, next, nullptr) * dc(today_, next);
+                    d = next;
+                }
+                return (1.0 - dc(today_, maturity_)) / annuity;
+            }
+        };
+    } // namespace
+
+    // Deposit_
+
+    Deposit_::Deposit_(const Date_& today, const Date_& maturity, double marketRate, const DayBasis_& basis)
+        : today_(today), maturity_(maturity), marketRate_(marketRate), basis_(basis) {}
+
+    Deposit_::~Deposit_() = default;
+
+    String_ Deposit_::Name() const { return String_("Deposit"); }
+
+    pair<Date_, Date_> Deposit_::TimeSpan() const { return {today_, maturity_}; }
+
+    Handle_<YCInstrument_::Rate_> Deposit_::Precompute(const Handle_<YCInstrument_>&,
+                                                                    const Handle_<YieldCurve_>&) const {
+        return Handle_<Rate_>(new DepositRate_(today_, maturity_, basis_));
+    }
+
+    // Swap_
+
+    Swap_::Swap_(const Date_& today, const Date_& maturity, double marketRate, int freqMonths, const DayBasis_& basis)
+        : today_(today), maturity_(maturity), marketRate_(marketRate), freqMonths_(freqMonths), basis_(basis) {}
+
+    Swap_::~Swap_() = default;
+
+    String_ Swap_::Name() const { return String_("Swap"); }
+
+    pair<Date_, Date_> Swap_::TimeSpan() const { return {today_, maturity_}; }
+
+    Handle_<YCInstrument_::Rate_> Swap_::Precompute(const Handle_<YCInstrument_>&,
+                                                                 const Handle_<YieldCurve_>&) const {
+        return Handle_<Rate_>(new SwapRate_(today_, maturity_, freqMonths_, basis_));
+    }
+
+    // Free functions
 
     double DepositRate(const DiscountCurve_& dc, const Date_& today, const Date_& maturity, const DayBasis_& basis) {
         const double df = dc(today, maturity);
@@ -33,6 +122,8 @@ namespace Dal {
         return (1.0 - dc(today, maturity)) / annuity;
     }
 
+    // Calibration
+
     namespace {
         Sparse::TriDiagonal_* BuildSmoothingWeights(int nParams, double tau) {
             auto* w = new Sparse::TriDiagonal_(nParams);
@@ -49,18 +140,22 @@ namespace Dal {
 
         class YieldCurveCalibrationFunc_ : public Underdetermined::Function_ {
             Date_ today_;
-            Vector_<DepositInstrument_> deposits_;
-            Vector_<SwapInstrument_> swaps_;
+            Vector_<Handle_<YCInstrument_>> instruments_;
+            Vector_<Handle_<YCInstrument_::Rate_>> rates_;
+            Vector_<double> marketRates_;
             Vector_<Date_> knotDates_;
-            DayBasis_ basis_;
 
         public:
             YieldCurveCalibrationFunc_(const Date_& today,
-                                       const Vector_<DepositInstrument_>& deposits,
-                                       const Vector_<SwapInstrument_>& swaps,
-                                       const Vector_<Date_>& knotDates,
-                                       const DayBasis_& basis)
-                : today_(today), deposits_(deposits), swaps_(swaps), knotDates_(knotDates), basis_(basis) {}
+                                       const Vector_<Handle_<YCInstrument_>>& instruments,
+                                       const Vector_<Date_>& knotDates)
+                : today_(today), instruments_(instruments), knotDates_(knotDates) {
+                Handle_<YieldCurve_> dummyYC;
+                for (const auto& inst : instruments_) {
+                    rates_.push_back(inst->Precompute(inst, dummyYC));
+                    marketRates_.push_back(inst->MarketRate());
+                }
+            }
 
             [[nodiscard]] Vector_<> F(const Vector_<>& x) const override {
                 const int nKnots = static_cast<int>(knotDates_.size());
@@ -72,16 +167,12 @@ namespace Dal {
 
                 PiecewiseLinear_ pwl(knotDates_, fLeft, fRight);
                 std::unique_ptr<DiscountCurve_> dc(NewDiscountPWLF(String_("calib"), pwl));
+                CalibrationYieldCurve_ yc(*dc);
 
-                const int nDeposits = static_cast<int>(deposits_.size());
-                const int nSwaps = static_cast<int>(swaps_.size());
-                Vector_<> result(nDeposits + nSwaps);
-
-                for (int i = 0; i < nDeposits; ++i)
-                    result[i] = DepositRate(*dc, today_, deposits_[i].maturity_, basis_) - deposits_[i].marketRate_;
-
-                for (int i = 0; i < nSwaps; ++i)
-                    result[nDeposits + i] = SwapRate(*dc, today_, swaps_[i].maturity_, swaps_[i].freqMonths_, basis_) - swaps_[i].marketRate_;
+                const int nInst = static_cast<int>(instruments_.size());
+                Vector_<> result(nInst);
+                for (int i = 0; i < nInst; ++i)
+                    result[i] = (*rates_[i])(yc) - marketRates_[i];
 
                 return result;
             }
@@ -89,17 +180,15 @@ namespace Dal {
     } // namespace
 
     DiscountCurve_* CalibrateYieldCurve(const Date_& today,
-                                         const Vector_<DepositInstrument_>& deposits,
-                                         const Vector_<SwapInstrument_>& swaps,
+                                         const Vector_<Handle_<YCInstrument_>>& instruments,
                                          const Vector_<Date_>& knotDates,
-                                         const DayBasis_& basis,
                                          double smoothingWeight,
                                          double tolerance,
                                          int maxEvaluations,
                                          int maxRestarts,
                                          Matrix_<>* effJacobianInverse) {
         const int nParams = 2 * static_cast<int>(knotDates.size());
-        const int nInstruments = static_cast<int>(deposits.size() + swaps.size());
+        const int nInstruments = static_cast<int>(instruments.size());
 
         Vector_<> guess(nParams, 0.05);
 
@@ -113,7 +202,7 @@ namespace Dal {
         ctrlDict.Insert(String_("MAXRESTARTS"), Cell_(static_cast<double>(maxRestarts)));
         UnderdeterminedControls_ controls(ctrlDict);
 
-        YieldCurveCalibrationFunc_ func(today, deposits, swaps, knotDates, basis);
+        YieldCurveCalibrationFunc_ func(today, instruments, knotDates);
         Vector_<> result = Underdetermined::Find(func, guess, tol, *wDecomp, controls, effJacobianInverse);
 
         const int nKnots = static_cast<int>(knotDates.size());
