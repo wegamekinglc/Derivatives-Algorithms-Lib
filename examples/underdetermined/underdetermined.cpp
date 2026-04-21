@@ -17,8 +17,8 @@ int main() {
 
     Vector_<Handle_<YCInstrument_>> instruments;
     instruments.push_back(Handle_<YCInstrument_>(new Deposit_(today, Date::AddMonths(today, 1), 0.0450, basis)));
-    instruments.push_back(Handle_<YCInstrument_>(new Deposit_(today, Date::AddMonths(today, 3), 0.0460, basis)));
-    instruments.push_back(Handle_<YCInstrument_>(new Deposit_(today, Date::AddMonths(today, 6), 0.0475, basis)));
+    instruments.push_back(Handle_<YCInstrument_>(new STIR_(today, Date::AddMonths(today, 3), Date::AddMonths(today, 6), 0.0470, basis)));
+    instruments.push_back(Handle_<YCInstrument_>(new STIR_(today, Date::AddMonths(today, 6), Date::AddMonths(today, 9), 0.0480, basis)));
     instruments.push_back(Handle_<YCInstrument_>(new Swap_(today, Date::AddMonths(today, 12), 0.0490, 6, basis)));
     instruments.push_back(Handle_<YCInstrument_>(new Swap_(today, Date::AddMonths(today, 24), 0.0500, 6, basis)));
     instruments.push_back(Handle_<YCInstrument_>(new Swap_(today, Date::AddMonths(today, 36), 0.0505, 6, basis)));
@@ -28,6 +28,7 @@ int main() {
         Date::AddMonths(today, 1),
         Date::AddMonths(today, 3),
         Date::AddMonths(today, 6),
+        Date::AddMonths(today, 9),
         Date::AddMonths(today, 12),
         Date::AddMonths(today, 18),
         Date::AddMonths(today, 24),

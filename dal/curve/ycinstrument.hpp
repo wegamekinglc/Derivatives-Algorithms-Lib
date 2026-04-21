@@ -59,4 +59,24 @@ namespace Dal {
         [[nodiscard]] Handle_<Rate_> Precompute(const Handle_<YCInstrument_>& self,
                                                 const Handle_<YieldCurve_>& funding_yc) const override;
     };
+
+    class STIR_ : public YCInstrument_ {
+        Date_ today_;
+        Date_ start_;
+        Date_ maturity_;
+        double marketRate_;
+        DayBasis_ basis_;
+    public:
+        STIR_(const Date_& today,
+              const Date_& start,
+              const Date_& maturity,
+              double marketRate,
+              const DayBasis_& basis);
+        ~STIR_() override;
+        [[nodiscard]] String_ Name() const override;
+        [[nodiscard]] pair<Date_, Date_> TimeSpan() const override;
+        [[nodiscard]] double MarketRate() const override { return marketRate_; }
+        [[nodiscard]] Handle_<Rate_> Precompute(const Handle_<YCInstrument_>& self,
+                                                const Handle_<YieldCurve_>& funding_yc) const override;
+    };
 } // namespace Dal
