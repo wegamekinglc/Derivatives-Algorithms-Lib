@@ -93,13 +93,13 @@ namespace Dal {
 
     DiscountCurve_* CalibrateYieldCurve(const Date_& today,
                                         const String_& ccy,
-                                         const Vector_<Handle_<YCInstrument_>>& instruments,
-                                         const Vector_<Date_>& knotDates,
-                                         double smoothingWeight,
-                                         double tolerance,
-                                         int maxEvaluations,
-                                         int maxRestarts,
-                                         Matrix_<>* effJacobianInverse) {
+                                        const Vector_<Handle_<YCInstrument_>>& instruments,
+                                        const Vector_<Date_>& knotDates,
+                                        double smoothingWeight,
+                                        double tolerance,
+                                        int maxEvaluations,
+                                        int maxRestarts,
+                                        Matrix_<>* effJacobianInverse) {
         const int nParams = 2 * static_cast<int>(knotDates.size());
         const int nInstruments = static_cast<int>(instruments.size());
 

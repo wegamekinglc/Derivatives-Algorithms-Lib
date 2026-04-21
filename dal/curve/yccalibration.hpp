@@ -25,12 +25,12 @@ namespace Dal {
 
     DiscountCurve_* CalibrateYieldCurve(const Date_& today,
                                         const String_& ccy,
-                                         const Vector_<Handle_<YCInstrument_>>& instruments,
-                                         const Vector_<Date_>& knotDates,
-                                         double smoothingWeight = 1.0,
-                                         double tolerance = 1.0e-8,
-                                         int maxEvaluations = 200,
-                                         int maxRestarts = 20,
-                                         Matrix_<>* effJacobianInverse = nullptr);
+                                        const Vector_<Handle_<YCInstrument_>>& instruments,
+                                        const Vector_<Date_>& knotDates,
+                                        double smoothingWeight = 1.0,
+                                        double tolerance = 1.0e-8,
+                                        int maxEvaluations = 200,
+                                        int maxRestarts = 20,
+                                        Matrix_<>* effJacobianInverse = nullptr);
 
 } // namespace Dal
