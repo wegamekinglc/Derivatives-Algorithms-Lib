@@ -265,6 +265,8 @@ namespace Dal {
         XScaledFunc_ func(func_tol, func_in, controls);
         Vector_<> xOld(guess);
         Vector_<> fOld = func.F(xOld);
+        if (sqrt(InnerProduct(fOld, fOld)) <= fit_tol)
+            return xOld;
         std::unique_ptr<Jacobian_> j;
         Vector_<> xNew(xOld.size());
         SquareMatrix_<> q;
@@ -280,6 +282,8 @@ namespace Dal {
             // const double sNorm = InnerProduct(s, s); POSTPONED -- stop early when step is very small
             Transform(xOld, s, std::plus<>(), &xNew);
             Vector_<> fNew = func.F(xNew);
+            if (sqrt(InnerProduct(fNew, fNew)) <= fit_tol)
+                return xNew;
             if (ticker > controls.maxRestarts_) // we are not about to restart
                 j->SecantUpdate(s, Apply(std::minus<>(), fNew, fOld));
             xOld = xNew;
