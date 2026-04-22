@@ -174,8 +174,7 @@
   - imperative summary under 72 chars
   - blank line
   - body explaining why
-  - if AI-assisted, append:
-    - `Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>`
+  - if AI-assisted, append a co-author trailer in the format expected by the team's workflow
 - Keep one logical change per commit when possible.
 - PR body format from `.claude/rules/git-commit-pr.md`:
   - `## Summary`
