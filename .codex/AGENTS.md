@@ -12,6 +12,7 @@ Use the root `CLAUDE.md` and `AGENTS.md` as the high-level repo overview. If any
 - Use `rules/unit-test-style.md` when adding or changing Google Test coverage.
 - Use `rules/git-commit-pr.md` before committing, pushing, or creating a pull request.
 - Use `methodology/yield_curve.md` for curve construction, discount curve, calibration, or underdetermined optimization work.
+- Use `methodology/underdetermined_search.md` when working on the solver itself, weight construction, Jacobian handling, or convergence behavior.
 
 ## Local Workflow Skills
 
