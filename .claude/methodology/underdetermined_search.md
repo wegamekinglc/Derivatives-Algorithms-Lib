@@ -1,6 +1,6 @@
 # Underdetermined Search Method
 
-Documentation of the underdetermined optimization solver in `dal/math/optimization/underdetermined.*`.
+Documentation of the underdetermined optimization solver in `dal/math/optimization/underdetermined.hpp` and `dal/math/optimization/underdetermined.cpp`.
 
 ## Purpose
 
@@ -14,14 +14,16 @@ This is the solver used by yield-curve calibration, but it is written as a gener
 
 ## File Map
 
-| File | Purpose |
-|------|---------|
-| `underdetermined.hpp/cpp` | Core solver API and implementation for `Find()` and `Approximate()` |
-| `underdeterminedutils.hpp` | Utility helpers for building smoothness weights such as `WeightsPWC()` |
-| `yccalibration.hpp/cpp` | Example of wiring the solver into a real financial calibration problem |
-| `examples/underdetermined/underdetermined.cpp` | End-to-end demonstration using curve calibration |
-| `tests/math/optimization/test_underdetermined.cpp` | Direct solver coverage |
-| `tests/curve/test_yccalibration.cpp` | Integration coverage through yield-curve calibration |
+| File                                               | Purpose                                                                |
+|----------------------------------------------------|------------------------------------------------------------------------|
+| `dal/math/optimization/underdetermined.hpp`        | Core solver API declarations for `Find()` and `Approximate()`          |
+| `dal/math/optimization/underdetermined.cpp`        | Core solver implementation and Jacobian handling                       |
+| `dal/math/optimization/underdeterminedutils.hpp`   | Utility helpers for building smoothness weights such as `WeightsPWC()` |
+| `dal/curve/yccalibration.hpp`                      | Yield-curve calibration declarations using the underdetermined solver  |
+| `dal/curve/yccalibration.cpp`                      | Yield-curve calibration implementation using the solver                |
+| `examples/underdetermined/underdetermined.cpp`     | End-to-end demonstration using curve calibration                       |
+| `tests/math/optimization/test_underdetermined.cpp` | Direct solver coverage                                                 |
+| `tests/curve/test_yccalibration.cpp`               | Integration coverage through yield-curve calibration                   |
 
 ## Core API
 
@@ -282,7 +284,7 @@ Typical interpretation:
 
 ## Smoothness Helpers
 
-`underdeterminedutils.hpp` exposes helpers for building smoothness penalties. The main public helper is:
+`dal/math/optimization/underdeterminedutils.hpp` exposes helpers for building smoothness penalties. The main public helper is:
 
 ```cpp
 Sparse::TriDiagonal_* WeightsPWC(const Vector_<DateTime_>& knots, double tau_s);
@@ -294,7 +296,7 @@ This is useful when the unknowns represent values along time buckets or knot poi
 
 ## Curve Calibration Integration
 
-The solver is used directly in `yccalibration.cpp`.
+The solver is used directly in `dal/curve/yccalibration.cpp`.
 
 ### Current Calibration Setup
 
@@ -305,7 +307,7 @@ The solver is used directly in `yccalibration.cpp`.
 - weights: a tridiagonal smoothing matrix built inline by `BuildSmoothingWeights()`
 - solve path: `Underdetermined::Find(...)`
 
-The calibration function builds a `PiecewiseLinear_` from the parameter vector, wraps it in a `DiscountPWLF_`, then reprices all instruments through `CalibratedYieldCurve_`.
+The calibration function in `dal/curve/yccalibration.cpp` builds a `PiecewiseLinear_` from the parameter vector, wraps it in `DiscountPWLF_` from `dal/curve/ycimp.cpp`, then reprices all instruments through `CalibratedYieldCurve_` declared in `dal/curve/yccalibration.hpp`.
 
 ### High-Level Pipeline
 
@@ -321,7 +323,7 @@ YC instruments
 
 ### Relation to `FittableCurve_`
 
-The generic curve-fitting abstraction exists as:
+The generic curve-fitting abstraction in `dal/curve/fittable.hpp` exists as:
 
 ```cpp
 class FittableCurve_ {
@@ -330,7 +332,7 @@ class FittableCurve_ {
 };
 ```
 
-`DiscountPWLF_` implements that interface, but the current `CalibrateYieldCurve()` path does not drive calibration through `FittableCurve_` directly. Instead it rebuilds a temporary `PiecewiseLinear_` from the candidate parameter vector inside the residual function.
+`DiscountPWLF_` in `dal/curve/ycimp.cpp` implements that interface, but the current `CalibrateYieldCurve()` path in `dal/curve/yccalibration.cpp` does not drive calibration through `FittableCurve_` directly. Instead it rebuilds a temporary `PiecewiseLinear_` from the candidate parameter vector inside the residual function.
 
 ## Example and Tests
 
