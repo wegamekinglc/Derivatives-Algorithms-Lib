@@ -1,12 +1,12 @@
 ---
 name: commit-and-pr
-description: Commit all current changes, push to remote, and create a pull request. Use this skill whenever the user says "ship it", "commit and PR", "push and create PR", "send this up for review", "wrap this up", or any variation of committing + pushing + opening a PR in one go.
+description: Commit current repository changes, push to a remote branch, and create or update a pull request. Use when the user says "ship it", "commit and PR", "push and create PR", "send this up for review", "wrap this up", or any variation of committing, pushing, and opening or updating a PR in one workflow.
 user-invocable: true
 ---
 
 # Commit, Push, and Create PR
 
-This skill packages up the current session's work into commits, pushes to a remote branch, and opens a pull request — all in one shot. It follows the project's git conventions defined in `.claude/rules/git-commit-pr.md`.
+This skill packages up the current session's work into commits, pushes to a remote branch, and opens or updates a pull request. It follows the project's git conventions defined in `.claude/rules/git-commit-pr.md`.
 
 ## Steps
 
@@ -49,8 +49,8 @@ There are two kinds of submodule changes — handle them differently:
 - Write commit messages following project conventions:
   - Imperative summary under 72 characters
   - Body explaining the "why", not just the "what"
-  - Append `Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>`
-- Use a HEREDOC for the commit message to preserve formatting:
+  - If the user wants an AI co-author trailer, use their preferred trailer; otherwise append `Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>`
+- Use a multi-line commit message to preserve formatting:
   ```bash
   git commit -m "$(cat <<'EOF'
   Summary line here

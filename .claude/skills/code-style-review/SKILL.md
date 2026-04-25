@@ -1,6 +1,6 @@
 ---
 name: code-style-review
-description: Review changed code for compliance with this project's C++ coding style. Use this skill whenever the user asks to review code style, check style compliance, lint code, or verify naming conventions. Also trigger when the user says "review my changes", "check the style", "does this follow our conventions", or similar.
+description: Review changed C++ code for compliance with this project's coding and unit test style. Use when the user asks to review code style, check style compliance, lint code, verify naming conventions, review changed files for project conventions, or says "review my changes", "check the style", "does this follow our conventions", or similar.
 user-invocable: true
 ---
 
@@ -41,7 +41,7 @@ Review all changed files in the working tree against the project's coding conven
 ### Header Files
 - Must use `#pragma once` (not include guards)
 - Must have three-line file header: `//\n// Created by <author> on <date>.\n//`
-- Include order: `<gtest/gtest.h>` first (test files) -> standard library -> dal headers
+- Include order: `<gtest/gtest.h>` first (test files) -> standard/system headers -> DAL/project headers
 
 ### Test Files
 - Always `TEST(Suite, Name)` -- never `TEST_F`

@@ -2,6 +2,10 @@
 
 This directory contains Codex-facing copies of the reusable project guidance that also exists under `.claude`.
 
+Keep the mirrored guidance semantically aligned across both trees. The only intentional differences should be tool-specific metadata or defaults, such as assistant-specific co-author trailers and Claude-only local permission settings.
+
+Use the root `CLAUDE.md` and `AGENTS.md` as the high-level repo overview. If any guidance conflicts with the live codebase, trust the current build scripts, `CMakeLists.txt`, `CMakePresets.json`, and source tree.
+
 ## How To Use These Files
 
 - Use `rules/code-style.md` when editing or reviewing C++ source, public headers, examples, and tests.

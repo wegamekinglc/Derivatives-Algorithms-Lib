@@ -10,7 +10,7 @@
 
 - First line: imperative summary under 72 characters (e.g., "Add log-linear interpolation", "Fix include paths")
 - Blank line, then body explaining **why** the change was made, not just what changed
-- If AI-assisted and the user wants a co-author trailer, use their preferred trailer; otherwise append `Co-Authored-By: Codex <noreply@openai.com>`
+- If the user wants an AI co-author trailer, use their preferred trailer; otherwise append `Co-Authored-By: Codex <noreply@openai.com>`
 - One logical change per commit -- don't mix unrelated fixes
 
 **Good examples:**

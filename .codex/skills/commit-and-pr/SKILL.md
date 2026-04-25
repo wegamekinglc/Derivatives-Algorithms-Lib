@@ -1,6 +1,7 @@
 ---
 name: commit-and-pr
 description: Commit current repository changes, push to a remote branch, and create or update a pull request. Use when the user says "ship it", "commit and PR", "push and create PR", "send this up for review", "wrap this up", or any variation of committing, pushing, and opening or updating a PR in one workflow.
+user-invocable: true
 ---
 
 # Commit, Push, and Create PR

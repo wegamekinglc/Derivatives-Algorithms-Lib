@@ -11,7 +11,7 @@ Documentation of the yield curve framework in `dal/curve/`.
 | `discount.hpp/cpp` | `DiscountCurve_` — abstract discount factor interface |
 | `ycimp.hpp/cpp` | `DiscountPWLF_` — concrete discount curve built on piecewise-linear forward rates |
 | `fittable.hpp` | `FittableCurve_` — interface for calibration (`NX()`, `ApplyDX()`) |
-| `yccalibration.hpp/cpp` | Market instruments (`DepositInstrument_`, `SwapInstrument_`) and `CalibrateYieldCurve()` |
+| `yccalibration.hpp/cpp` | `YCInstrument_`-based calibration, `CalibratedYieldCurve_`, and `CalibrateYieldCurve()` |
 | `piecewiseconstant.hpp/cpp` | `PiecewiseConstant_` — step-function representation with precomputed integrals |
 | `piecewiselinear.hpp/cpp` | `PiecewiseLinear_` — continuous piecewise-linear function with precomputed integrals |
 
@@ -22,7 +22,10 @@ Storable_
 └── YCComponent_                        (dependency tracking, Poll/Clone)
     ├── DiscountCurve_                  (abstract: operator()(from, to) → df)
     │   └── DiscountPWLF_              (piecewise-linear forwards → discount factors)
-    └── YieldCurve_                    (currency, discount access, LIBOR forecast)
+
+Storable_
+└── YieldCurve_                        (currency, discount access, LIBOR forecast interface)
+    └── CalibratedYieldCurve_          (lightweight wrapper around a calibrated discount curve)
 
 CurveWithBase_<T_, B_>                  (template mixin: optional base curve + substitution)
 └── DiscountPWLF_                      (also inherits FittableCurve_ for calibration)
@@ -32,10 +35,12 @@ CurveWithBase_<T_, B_>                  (template mixin: optional base curve + s
 
 ### YieldCurve_
 
-Top-level entry point. Holds a currency and provides:
+Top-level entry point. Holds a currency and provides the interface for:
 
 - `Discount(CollateralType_)` → returns the `DiscountCurve_` for a given collateral type
 - `FwdLibor(PeriodLength_, Date_)` → forward LIBOR rate for a given tenor and fixing date
+
+Note: the current `CalibratedYieldCurve_` implementation wraps a discount curve for calibration/pricing, but deliberately leaves `FwdLibor()` unsupported.
 
 ### DiscountCurve_
 
@@ -117,6 +122,7 @@ The only concrete discount curve implementation. Builds discount factors from pi
 ```cpp
 DiscountCurve_* NewDiscountPWLF(
     const String_& name,
+    const String_& ccy,
     const PiecewiseLinear_& fwds,                       // forward rate curve
     const Handle_<DiscountCurve_>& base = {}            // optional base curve
 );
@@ -124,6 +130,7 @@ DiscountCurve_* NewDiscountPWLF(
 
 **Inputs:**
 - A `PiecewiseLinear_` of instantaneous forward rates (knot dates + left/right values)
+- A currency code stored on the resulting discount curve
 - An optional base discount curve (for multi-curve / spread construction)
 
 ### Discount Factor Calculation
@@ -176,15 +183,15 @@ Typical setup: an OIS discount curve as the base, with tenor-specific spread cur
 
 `DiscountPWLF_` implements `FittableCurve_`:
 
-- `ApplyDX(Vector_<> dx)` — perturb forward rate parameters by `dx`
-- `Update()` — recompute cached integrals (`sofar_`) after parameter changes
+- `NX()` — returns `2 * knotDates_.size()` because each knot has left/right forward values
+- `ApplyDX(Vector_<>::const_iterator dx, double leverage)` — perturb forward rate parameters and refresh the cached `PiecewiseLinear_` integrals
 
 This enables iterative solvers (Newton, Levenberg-Marquardt) to bootstrap forward rates from market instrument prices.
 
 ## Curve Building Pipeline (High-Level)
 
 ```
-Market instruments (deposits, swaps, bonds, ...)
+`YCInstrument_` implementations (`Deposit_`, `Swap_`, `STIR_`, ...)
         │
         ▼
 Underdetermined::Find()                         ← scaled quasi-Newton solver
@@ -199,7 +206,7 @@ PiecewiseLinear_ of instantaneous forward rates
 DiscountPWLF_ (discount factors via integration)
         │  DF = exp(-∫f(t)dt / 365) × base_DF
         ▼
-YieldCurve_ (wraps discount + LIBOR forecast)
+CalibratedYieldCurve_ (wraps the calibrated discount curve; `FwdLibor()` is currently unsupported)
 ```
 
 ## Underdetermined Search for Curve Calibration
@@ -307,7 +314,7 @@ J_new = J_old + ((df - J_old · dx) / ||dx||²) · dxᵀ
 
 ### Regularization: Smoothness Penalty
 
-The weight matrix `W` controls what "preferred" solutions look like. For piecewise-constant curves, `WeightsPWC()` (in `underdeterminedutils.hpp`) builds a **tridiagonal matrix** that penalizes jumps between adjacent knots:
+The weight matrix `W` controls what "preferred" solutions look like. Utility code such as `WeightsPWC()` (in `underdeterminedutils.hpp`) builds a **tridiagonal matrix** that penalizes jumps between adjacent knots for piecewise-constant parameterizations:
 
 ```cpp
 Sparse::TriDiagonal_* WeightsPWC(const Vector_<DateTime_>& knots, double tau_s);
@@ -325,7 +332,7 @@ where `jWeight = ||func_tol||² / fit_tol²`. This balances fitting accuracy aga
 
 ### Integration with Curve Building
 
-The solver connects to `DiscountPWLF_` through the `FittableCurve_` interface:
+The solver connects to `DiscountPWLF_` through the `FittableCurve_` interface. In the current `CalibrateYieldCurve()` implementation, `yccalibration.cpp` builds a simple tridiagonal smoothing matrix directly and solves for the `2K` left/right forward parameters.
 
 ```cpp
 class FittableCurve_ {
@@ -365,5 +372,5 @@ The `eff_j_inv` output from `Find()` gives the effective Jacobian inverse, which
 
 `DiscountPWLF_` serializes via auto-generated code (`dal/auto/MG_DiscountPWLF_v1_*.inc`):
 
-- Stored fields: name, knot dates, left values, right values, base curve handle
+- Stored fields: name, currency, knot dates, left values, right values, base curve handle
 - Round-trips through the `Archive_` framework for persistence and transport

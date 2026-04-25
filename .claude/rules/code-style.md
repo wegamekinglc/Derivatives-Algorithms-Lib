@@ -1,6 +1,6 @@
-# Code Style Guide for dal.cpp
+# Code Style Guide for DAL C++
 
-## Formatting (enforced by `.clang-format`)
+## Formatting (primarily enforced by `.clang-format`)
 
 - Base style: LLVM
 - Indent: 4 spaces (no tabs)
@@ -10,7 +10,8 @@
 - Short `if`/loops: not on single line
 - Short functions: allowed on single line
 - Namespace indent: all
-- Standard: C++17
+- Project language target: C++17
+- Note: `.clang-format` still uses `Standard: Cpp11` for formatting behavior; do not treat that as the language target
 
 ## General
 
@@ -33,7 +34,7 @@
 
 - Always `#pragma once` (no include guards)
 - File header comment uses three-line format: `//\n// Created by <author> on <date>.\n//`
-- Include order: standard library -> dal headers -> local headers
+- Include order: standard/system headers -> DAL/project headers -> local headers
 - Platform header: most `.cpp` files include `<dal/platform/platform.hpp>`
 
 ## Namespace Patterns
