@@ -77,6 +77,7 @@ This is a C++17 quantitative finance library with AAD (Automatic Adjoint Differe
 Detailed documentation of the quantitative methods implemented in this library:
 
 - **Yield Curve Construction** — @.claude/methodology/yield_curve.md
+- **Underdetermined Search** — @.claude/methodology/underdetermined_search.md
 
 ## Rules to follow
 

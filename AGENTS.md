@@ -100,6 +100,7 @@
 ## Yield Curve Methodology
 
 - See `.claude/methodology/yield_curve.md`.
+- See `.claude/methodology/underdetermined_search.md` for the solver itself.
 - Core curve types:
   - `YieldCurve_`
   - `DiscountCurve_`

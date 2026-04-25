@@ -25,7 +25,9 @@ Review all changed files in the working tree against the project's coding conven
 
 3. Read each changed `.hpp`, `.cpp` file and check for violations against the rules below.
 
-4. Report findings grouped by file, with line numbers and specific violations. If no violations are found, say so.
+4. If the code changes affect documented behavior, workflows, architecture notes, or methodology, also check whether the related markdown files under `.claude/` and `.codex/` were updated consistently.
+
+5. Report findings grouped by file, with line numbers and specific violations. If no violations are found, say so.
 
 ## What to Check
 
@@ -62,3 +64,8 @@ Review all changed files in the working tree against the project's coding conven
 - All files must end with a newline
 - Use `nullptr` instead of `NULL`
 - Namespace closing braces must have a comment: `} // namespace Dal`
+
+### Documentation Sync
+- If code changes alter documented behavior, APIs, build/test workflow, architecture notes, or methodology, check that the corresponding markdown guidance under `.claude/` and `.codex/` is updated to stay consistent.
+- Call out missing doc updates as review findings, and note both the code file and the stale markdown file when possible.
+

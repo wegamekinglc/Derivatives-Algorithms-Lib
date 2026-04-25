@@ -213,6 +213,8 @@ CalibratedYieldCurve_ (wraps the calibrated discount curve; `FwdLibor()` is curr
 
 The solver that actually bootstraps forward rates from market instruments lives in `dal/math/optimization/underdetermined.hpp/cpp`, with utility helpers in `underdeterminedutils.hpp`.
 
+For a solver-focused description of the optimization method itself, see `underdetermined_search.md`.
+
 ### Problem Statement
 
 Yield curve calibration is typically **underdetermined**: there are more forward-rate parameters (unknowns) than market instruments (equations). For a `PiecewiseLinear_` with `K` knots, there are `2K` parameters (left + right values at each knot), but often fewer than `2K` instruments.
