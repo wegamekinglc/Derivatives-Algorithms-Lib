@@ -21,6 +21,7 @@
 - `config/`: Machinist codegen configs
 - `externals/`: vendored dependencies and submodules
 - `.claude/`: project methodology, rules, and workflow guidance
+- `.codex/`: Codex-facing mirrors of the reusable `.claude` guidance
 
 ## Architecture Summary
 
@@ -41,13 +42,16 @@
 
 - The project builds `dal_library` from `dal/`.
 - `public/src` builds `dal_public` as the external-facing API wrapper layer.
+- `public/excel` builds `dal_excel` only when `DAL_HAS_EXCEL` is enabled by Office auto-detection on Windows.
+- `public/python` and `public/swig` are present in the tree, but are not wired into the top-level CMake build.
 - Code generation is part of normal builds:
   - Machinist consumes `config/dal.ifc` and `config/dal.mgl`
   - generated outputs land in `dal/auto/` and `public/auto/`
 - Generated `dal/auto/*` is excluded from the core library glob filters.
+- Generated `dal/auto/*` is also excluded when `public/src` statically folds core DAL sources into `dal_public`.
 - `dal/storage/_repository.*` is excluded from core build globs.
 - Excel COM integration is auto-enabled on Windows only if Office binaries are detected.
-- The repo supports AAD with XAD and also contains older/internal AAD machinery; current presets default to XAD enabled.
+- The repo supports AAD with XAD and also contains older/internal AAD machinery; `DAL_USE_XAD_AAD` defaults to `off` in `CMakeLists.txt` and the shipped presets.
 
 ## Build And Test
 
@@ -91,7 +95,7 @@
   - random generators
   - repository operations
   - values/global state
-- Note: `CLAUDE.md` says Excel/Python are planned, but the codebase clearly contains working implementation scaffolding for both. Trust the repository code over that stale sentence.
+- Current build wiring: top-level CMake always builds `public/src`, conditionally builds `public/excel`, and leaves `public/python` / `public/swig` as repo-managed binding scaffolding outside the default CMake build.
 
 ## Yield Curve Methodology
 
@@ -102,7 +106,7 @@
   - `DiscountPWLF_`
   - `PiecewiseConstant_`
   - `PiecewiseLinear_`
-  - calibration instruments in `yccalibration.*`
+  - `YCInstrument_` plus `Deposit_`, `Swap_`, and `STIR_` calibration instruments
 - Discount curves are built from piecewise-linear instantaneous forwards integrated into discount factors.
 - Calibration is framed as an underdetermined optimization problem using `dal/math/optimization/underdetermined.*`.
 - Curve framework supports dependency tracking, base-curve layering, cloning, and substitution for bump-and-reprice style risk.
@@ -131,8 +135,8 @@
     - `// Created by <author> on <date>.`
     - `//`
 - Include order:
-  - standard library
-  - DAL headers
+  - standard/system headers
+  - DAL/project headers
   - local headers
 - Most `.cpp` files include `<dal/platform/platform.hpp>`.
 - Prefer `using` over `typedef`.
@@ -199,9 +203,9 @@
   - failure path when `UnderdeterminedControls_` exhausts allowed evaluations/restarts
 - The repo is large because `externals/` vendors substantial third-party code. Focus review/search work on project-owned paths first.
 
-## Working Guidance For Future Codex Sessions
+## Working Guidance For Future Sessions
 
-- Read `CLAUDE.md` first, then `.claude/rules/*`, then `.claude/methodology/*` relevant to the task.
+- Read `CLAUDE.md` and this `AGENTS.md` first, then the relevant rules/methodology under `.claude/` or `.codex/`.
 - Treat build scripts and current source tree as more authoritative than stale prose in docs when they conflict.
 - When changing public APIs, check both:
   - core implementation in `dal/`

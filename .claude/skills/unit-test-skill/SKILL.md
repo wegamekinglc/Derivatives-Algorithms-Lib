@@ -1,6 +1,6 @@
 ---
 name: unit-test-skill
-description: do unit tests for the whole codebase
+description: Run and inspect this repository's build and Google Test workflow. Use when the user asks to run all tests, verify the whole codebase, execute the Linux or Windows build/test scripts, inspect `test_output.txt`, or confirm whether the test suite passes.
 user-invocable: true
 ---
 
@@ -8,17 +8,17 @@ user-invocable: true
 
 ## Instructions
 
-- Before starts make sure you have delete any old files named `test_output.txt`. in the root directory of the codebase to avoid confusion with the new output.
+- Before starting, delete any existing `test_output.txt` in the repository root so it cannot be confused with fresh output.
 
 ### Windows
 
-- In the windows terminal, run the following command to execute all unit tests for the codebase:
+- In a Windows terminal, run the following command to execute the full build-and-test workflow:
 
 ```bash
 $ ./build_windows.bat > 'test_output.txt' 2>&1
 ```
 
-- Get the output of the unit tests from the `test_output.txt` file generated in the root directory of the codebase. The output should look like:
+- Review the output captured in the root-level `test_output.txt`. A representative passing tail looks like:
 
 ```bash
 ...
@@ -36,13 +36,13 @@ $ ./build_windows.bat > 'test_output.txt' 2>&1
 
 ### Linux
 
-- In the Linux bash shell terminal, run the following command to execute all unit tests for the codebase:
+- In a Linux bash shell, run the following command to execute the full build-and-test workflow:
 
 ```bash
 $ bash ./build_linux.sh > test_output.txt 2>&1
 ```
 
-- Get the output of the unit tests from the `test_output.txt` file generated in the root directory of the codebase. Output should be like this:
+- Review the output captured in the root-level `test_output.txt`. A representative passing tail looks like:
 
 ```bash
 ...
@@ -60,7 +60,7 @@ $ bash ./build_linux.sh > test_output.txt 2>&1
 
 ## Requirements
 
-- Make sure all the unit tests for the codebase are passed. If all tests are passed, the output should look like this:
+- Make sure the full test suite passes. A passing summary looks like this:
 
 ```bash
 [----------] Global test environment tear-down
@@ -68,4 +68,4 @@ $ bash ./build_linux.sh > test_output.txt 2>&1
 [  PASSED  ] xxx tests.
 ```
 
-here `xxx` is the total number of tests and `yy` is the total number of test suites. If there are any failed tests, the output will indicate which tests failed and how many tests passed/failed.
+Here `xxx` is the total number of tests and `yy` is the total number of test suites. If any tests fail, the output will identify the failing cases and report the passed/failed counts.
