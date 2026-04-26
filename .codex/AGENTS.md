@@ -2,9 +2,11 @@
 
 This directory contains Codex-facing copies of the reusable project guidance that also exists under `.claude`.
 
-Keep the mirrored guidance semantically aligned across both trees. The only intentional differences should be tool-specific metadata or defaults, such as assistant-specific co-author trailers and Claude-only local permission settings.
+Keep the mirrored guidance semantically aligned across both trees. The only intentional differences should be tool-specific metadata or defaults, such
+as assistant-specific co-author trailers and Claude-only local permission settings.
 
-Use the root `CLAUDE.md` and `AGENTS.md` as the high-level repo overview. If any guidance conflicts with the live codebase, trust the current build scripts, `CMakeLists.txt`, `CMakePresets.json`, and source tree.
+Use the root `CLAUDE.md` and `AGENTS.md` as the high-level repo overview. If any guidance conflicts with the live codebase, trust the current build
+scripts, `CMakeLists.txt`, `CMakePresets.json`, and source tree.
 
 ## How To Use These Files
 
@@ -14,11 +16,18 @@ Use the root `CLAUDE.md` and `AGENTS.md` as the high-level repo overview. If any
 - Use `methodology/aad.md` for automatic differentiation, expression templates, tape management, or adjoint propagation work.
 - Use `methodology/yield_curve.md` for curve construction, discount curve, calibration, or underdetermined optimization work.
 - Use `methodology/underdetermined_search.md` when working on the solver itself, weight construction, Jacobian handling, or convergence behavior.
+- Use `agents/dev-workflow.md` when implementing a feature, developing a new module, or executing a requirement specification end-to-end.
 
 ## Local Workflow Skills
 
-The folders under `skills/` use Codex-compatible `SKILL.md` frontmatter. If a user request matches one of these workflows, read the matching file and follow it.
+The folders under `skills/` use Codex-compatible `SKILL.md` frontmatter. If a user request matches one of these workflows, read the matching file
+and follow it.
 
-- `skills/commit-and-pr/SKILL.md`: use for "ship it", "commit and PR", "push and create PR", "send this up for review", "wrap this up", or similar commit + push + PR requests.
-- `skills/code-style-review/SKILL.md`: use for style review, lint-like checks, naming convention checks, or "review my changes" when the likely intent is coding style.
+- `skills/commit-and-pr/SKILL.md`: use for "ship it", "commit and PR", "push and create PR", "send this up for review", "wrap this up", or
+  similar commit + push + PR requests.
+- `skills/code-style-review/SKILL.md`: use for style review, lint-like checks, naming convention checks, or "review my changes" when the likely
+  intent is coding style.
+- `skills/dev-workflow/SKILL.md`: use for feature implementation, new modules, or requirement specifications that need design, implementation,
+  tests, and verification.
+- `skills/unit-test-write/SKILL.md`: use for writing Google Test coverage for new or existing C++ code.
 - `skills/unit-test-skill/SKILL.md`: use for running the repository build/test workflow or verifying the whole test suite.
