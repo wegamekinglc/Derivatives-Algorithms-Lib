@@ -4,16 +4,16 @@ Documentation of the yield curve framework in `dal/curve/`.
 
 ## File Map
 
-| File | Purpose |
-|------|---------|
-| `yc.hpp/cpp` | `YieldCurve_` — top-level curve abstraction (currency, discount access, LIBOR forecast) |
-| `yccomponent.hpp/cpp` | `YCComponent_` — base for all curve components with dependency tracking and cloning |
-| `discount.hpp/cpp` | `DiscountCurve_` — abstract discount factor interface |
-| `ycimp.hpp/cpp` | `DiscountPWLF_` — concrete discount curve built on piecewise-linear forward rates |
-| `fittable.hpp` | `FittableCurve_` — interface for calibration (`NX()`, `ApplyDX()`) |
-| `yccalibration.hpp/cpp` | `YCInstrument_`-based calibration, `CalibratedYieldCurve_`, and `CalibrateYieldCurve()` |
-| `piecewiseconstant.hpp/cpp` | `PiecewiseConstant_` — step-function representation with precomputed integrals |
-| `piecewiselinear.hpp/cpp` | `PiecewiseLinear_` — continuous piecewise-linear function with precomputed integrals |
+| File                                                                 | Purpose                                                                                 |
+|----------------------------------------------------------------------|-----------------------------------------------------------------------------------------|
+| `dal/curve/yc.hpp`, `dal/curve/yc.cpp`                               | `YieldCurve_` — top-level curve abstraction (currency, discount access, LIBOR forecast) |
+| `dal/curve/yccomponent.hpp`, `dal/curve/yccomponent.cpp`             | `YCComponent_` — base for all curve components with dependency tracking and cloning     |
+| `dal/curve/discount.hpp`, `dal/curve/discount.cpp`                   | `DiscountCurve_` — abstract discount factor interface                                   |
+| `dal/curve/ycimp.hpp`, `dal/curve/ycimp.cpp`                         | `DiscountPWLF_` — concrete discount curve built on piecewise-linear forward rates       |
+| `dal/curve/fittable.hpp`                                             | `FittableCurve_` — interface for calibration (`NX()`, `ApplyDX()`)                      |
+| `dal/curve/yccalibration.hpp`, `dal/curve/yccalibration.cpp`         | `YCInstrument_`-based calibration, `CalibratedYieldCurve_`, and `CalibrateYieldCurve()` |
+| `dal/curve/piecewiseconstant.hpp`, `dal/curve/piecewiseconstant.cpp` | `PiecewiseConstant_` — step-function representation with precomputed integrals          |
+| `dal/curve/piecewiselinear.hpp`, `dal/curve/piecewiselinear.cpp`     | `PiecewiseLinear_` — continuous piecewise-linear function with precomputed integrals    |
 
 ## Class Hierarchy
 
@@ -259,14 +259,14 @@ Vector_<> Underdetermined::Approximate(
 
 **Control parameters** (`UnderdeterminedControls_`):
 
-| Parameter | Default | Meaning |
-|-----------|---------|---------|
-| `maxEvaluations_` | — | Total function calls allowed |
-| `maxRestarts_` | — | Total fresh Jacobian computations |
-| `maxBacktrackTries_` | 5 | Linesearch iterations per step |
-| `restartTolerance_` | 0.4 | Restart Jacobian when `kMin` exceeds this |
-| `backtrackTolerance_` | 0.1 | Accept step when `kMin` is below this |
-| `maxBacktrack_` | 0.8 | Maximum step reduction fraction |
+| Parameter             | Default | Meaning                                   |
+|-----------------------|---------|-------------------------------------------|
+| `maxEvaluations_`     | —       | Total function calls allowed              |
+| `maxRestarts_`        | —       | Total fresh Jacobian computations         |
+| `maxBacktrackTries_`  | 5       | Linesearch iterations per step            |
+| `restartTolerance_`   | 0.4     | Restart Jacobian when `kMin` exceeds this |
+| `backtrackTolerance_` | 0.1     | Accept step when `kMin` is below this     |
+| `maxBacktrack_`       | 0.8     | Maximum step reduction fraction           |
 
 ### Algorithm: Scaled Quasi-Newton with Backtracking
 

@@ -83,14 +83,14 @@ This allows the solver to work with more than a plain dense matrix when the call
 
 `Controls_` is an alias of the generated `UnderdeterminedControls_` settings object.
 
-| Parameter | Default | Meaning |
-|-----------|---------|---------|
-| `maxEvaluations_` | required | Total residual evaluations allowed |
-| `maxRestarts_` | required | Total fresh Jacobian builds allowed |
-| `maxBacktrackTries_` | `5` | Backtracking iterations per step in `Find()` |
-| `restartTolerance_` | `0.4` | Restart with a fresh Jacobian if the fitted `kMin` exceeds this |
-| `backtrackTolerance_` | `0.1` | Accept a step if `kMin` is below this |
-| `maxBacktrack_` | `0.8` | Maximum fraction by which a step can be reduced |
+| Parameter             | Default  | Meaning                                                         |
+|-----------------------|----------|-----------------------------------------------------------------|
+| `maxEvaluations_`     | required | Total residual evaluations allowed                              |
+| `maxRestarts_`        | required | Total fresh Jacobian builds allowed                             |
+| `maxBacktrackTries_`  | `5`      | Backtracking iterations per step in `Find()`                    |
+| `restartTolerance_`   | `0.4`    | Restart with a fresh Jacobian if the fitted `kMin` exceeds this |
+| `backtrackTolerance_` | `0.1`    | Accept a step if `kMin` is below this                           |
+| `maxBacktrack_`       | `0.8`    | Maximum fraction by which a step can be reduced                 |
 
 The generated settings enforce:
 
@@ -379,4 +379,3 @@ These points reflect the code as it exists today:
 - `yield_curve.md` for the surrounding curve-construction framework
 - `tests/math/optimization/test_underdetermined.cpp` for concrete solver behavior
 - `examples/underdetermined/underdetermined.cpp` for a runnable integration example
-
