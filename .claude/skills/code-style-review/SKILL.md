@@ -60,6 +60,7 @@ Review all changed files in the working tree against the project's coding conven
 - `using` over `typedef`
 - `explicit` on single-argument constructors
 - Error handling via `REQUIRE`/`ASSERT`/`THROW` macros, not raw exceptions
+- Use `REQUIRE`, not `ASSERT`, for runtime state, precondition, or invariant checks that must also run in release builds
 - Comments: sparse, focus on "why" not "what", no docstrings
 - All files must end with a newline
 - Use `nullptr` instead of `NULL`
@@ -68,4 +69,3 @@ Review all changed files in the working tree against the project's coding conven
 ### Documentation Sync
 - If code changes alter documented behavior, APIs, build/test workflow, architecture notes, or methodology, check that the corresponding markdown guidance under `.claude/` and `.codex/` is updated to stay consistent.
 - Call out missing doc updates as review findings, and note both the code file and the stale markdown file when possible.
-

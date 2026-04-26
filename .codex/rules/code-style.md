@@ -67,6 +67,7 @@
 
 - Custom `Exception_` (from `std::runtime_error`) capturing file/line/function
 - Macro-based: `THROW(msg)`, `ASSERT(cond, msg)` (debug-only), `REQUIRE(cond, msg)` (configurable)
+- Use `REQUIRE`, not `ASSERT`, for runtime state, precondition, or invariant checks that must also run in release builds
 - Stack context via `NOTICE(x)` / `NOTE(msg)` macros
 - Safe pointer ops: `ASSIGN(p, v)`, `DEREFERENCE(p, v)`
 
