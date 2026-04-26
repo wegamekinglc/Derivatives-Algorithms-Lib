@@ -5,6 +5,7 @@
 #pragma once
 
 #include <iterator>
+#include <utility>
 #include <dal/math/vectors.hpp>
 #include <dal/utilities/numerics.hpp>
 
@@ -20,9 +21,14 @@ namespace Dal {
         Vector_<int> strides_;
         Vector_<E_> vals_;
 
+        static Vector_<int> CheckedSizes(Vector_<int> sizes) {
+            REQUIRE(!sizes.empty(), "ArrayN_ requires at least one dimension");
+            return sizes;
+        }
+
     public:
-        explicit ArrayN_(const Vector_<int>& sizes, const E_& fill = E_(0.0))
-            : sizes_(sizes), strides_(ArrayN::Strides(sizes)), vals_(strides_[0] * sizes[0], fill) {}
+        explicit ArrayN_(Vector_<int> sizes, const E_& fill = E_(0.0))
+            : sizes_(CheckedSizes(std::move(sizes))), strides_(ArrayN::Strides(sizes_)), vals_(strides_[0] * sizes_[0], fill) {}
 
         const E_& operator[](const Vector_<int>& where) const { return vals_[InnerProduct(where, strides_)]; }
         E_& operator[](const Vector_<int>& where) { return vals_[InnerProduct(where, strides_)]; }

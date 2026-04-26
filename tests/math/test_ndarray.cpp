@@ -13,6 +13,10 @@ TEST(NDArrayTest, TestEmptyArrayN) {
     ASSERT_TRUE(array_n.IsEmpty());
 }
 
+TEST(NDArrayTest, TestArrayNRequiresDimension) {
+    ASSERT_THROW(ArrayN_<>(Vector_<int>()), Dal::Exception_);
+}
+
 TEST(NDArrayTest, TestArrayNSwapWithVector) {
     ArrayN_<> array_1(Vector_<int>({0}));
     Vector_<> vec1{1.0, 2.0, 3.0};
