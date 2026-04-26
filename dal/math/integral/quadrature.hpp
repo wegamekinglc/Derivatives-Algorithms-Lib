@@ -51,16 +51,16 @@ namespace Dal {
 
     public:
         double GetX() override {
-            ASSERT(!IsComplete(), "quadrature is complete");
+            REQUIRE(!IsComplete(), "quadrature is complete");
             return x_[i_];
         }
         void PutY(const T_& y) override {
-            ASSERT(!IsComplete(), "quadrature is complete");
+            REQUIRE(!IsComplete(), "quadrature is complete");
             Quadrature::Increment(&sum_, y, w_[i_++]);
         }
         [[nodiscard]] bool IsComplete() const override { return i_ == x_.size(); }
         T_ Result() const override {
-            ASSERT(IsComplete(), "quadrature is incomplete");
+            REQUIRE(IsComplete(), "quadrature is incomplete");
             return sum_;
         }
         void Restart() override {
