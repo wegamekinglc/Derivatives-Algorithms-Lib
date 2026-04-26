@@ -16,6 +16,54 @@ namespace Dal {
     namespace {
         constexpr int MAX_NEWTON_ITERATIONS = 20;
         constexpr double ROOT_TOLERANCE = 1.0e-14;
+
+        struct HermiteRoot_ {
+            double root_;
+            double derivative_;
+        };
+
+        double InitialHermiteRoot(int i, int n, double previousRoot, const Vector_<>& x) {
+            if (i == 0)
+                return sqrt(2.0 * n + 1.0) - 1.85575 * pow(2.0 * n + 1.0, -1.0 / 6.0);
+            if (i == 1)
+                return previousRoot - 1.14 * pow(static_cast<double>(n), 0.426) / previousRoot;
+            if (i == 2)
+                return 1.86 * previousRoot - 0.86 * x[n - 1] / M_SQRT_2;
+            if (i == 3)
+                return 1.91 * previousRoot - 0.91 * x[n - 2] / M_SQRT_2;
+            return 2.0 * previousRoot - x[n - i + 1] / M_SQRT_2;
+        }
+
+        HermiteRoot_ FindHermiteRoot(int n, double initialRoot, double invPiQuarter, double rootTwoN) {
+            double root = initialRoot;
+            double derivative = 0.0;
+            for (int its = 0; its < MAX_NEWTON_ITERATIONS; ++its) {
+                double p1 = invPiQuarter;
+                double p2 = 0.0;
+                for (int j = 1; j <= n; ++j) {
+                    const double p3 = p2;
+                    p2 = p1;
+                    p1 = root * sqrt(2.0 / j) * p2 - sqrt(static_cast<double>(j - 1) / j) * p3;
+                }
+                derivative = rootTwoN * p2;
+                const double previousRoot = root;
+                root -= p1 / derivative;
+                if (std::abs(root - previousRoot) <= ROOT_TOLERANCE)
+                    return {root, derivative};
+            }
+            THROW("Too many iterations in Gauss-Hermite root search");
+        }
+
+        void SetNormalHermitePair(int i, int n, double root, double derivative, double invRootPi, Vector_<>* x, Vector_<>* w) {
+            const int left = i;
+            const int right = n - 1 - i;
+            const double xValue = M_SQRT_2 * root;
+            const double wValue = 2.0 * invRootPi / (derivative * derivative);
+            (*x)[left] = -xValue;
+            (*x)[right] = xValue;
+            (*w)[left] = wValue;
+            (*w)[right] = wValue;
+        }
     } // namespace
 
     void Quadrature::NCDFGaussHermiteWeights(Vector_<>* x, Vector_<>* w) {
@@ -32,45 +80,10 @@ namespace Dal {
         double z = 0.0;
         for (int i = 0; i < m; ++i) {
             // Compute positive Hermite roots, then map symmetric pairs to standard-normal coordinates.
-            if (i == 0) {
-                z = sqrt(2.0 * n + 1.0) - 1.85575 * pow(2.0 * n + 1.0, -1.0 / 6.0);
-            } else if (i == 1) {
-                z -= 1.14 * pow(static_cast<double>(n), 0.426) / z;
-            } else if (i == 2) {
-                z = 1.86 * z - 0.86 * (*x)[n - 1] / M_SQRT_2;
-            } else if (i == 3) {
-                z = 1.91 * z - 0.91 * (*x)[n - 2] / M_SQRT_2;
-            } else {
-                z = 2.0 * z - (*x)[n - i + 1] / M_SQRT_2;
-            }
-
-            double p2 = 0.0;
-            double pp = 0.0;
-            for (int its = 0; its < MAX_NEWTON_ITERATIONS; ++its) {
-                double p1 = invPiQuarter;
-                p2 = 0.0;
-                for (int j = 1; j <= n; ++j) {
-                    const double p3 = p2;
-                    p2 = p1;
-                    p1 = z * sqrt(2.0 / j) * p2 - sqrt(static_cast<double>(j - 1) / j) * p3;
-                }
-                pp = rootTwoN * p2;
-                const double z0 = z;
-                z -= p1 / pp;
-                if (std::abs(z - z0) <= ROOT_TOLERANCE)
-                    break;
-                if (its == MAX_NEWTON_ITERATIONS - 1)
-                    THROW("Too many iterations in Gauss-Hermite root search");
-            }
-
-            const int left = i;
-            const int right = n - 1 - i;
-            const double xValue = M_SQRT_2 * z;
-            const double wValue = 2.0 * invRootPi / (pp * pp);
-            (*x)[left] = -xValue;
-            (*x)[right] = xValue;
-            (*w)[left] = wValue;
-            (*w)[right] = wValue;
+            z = InitialHermiteRoot(i, n, z, *x);
+            const HermiteRoot_ root = FindHermiteRoot(n, z, invPiQuarter, rootTwoN);
+            z = root.root_;
+            SetNormalHermitePair(i, n, root.root_, root.derivative_, invRootPi, x, w);
         }
     }
 
