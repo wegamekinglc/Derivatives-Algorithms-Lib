@@ -18,23 +18,24 @@
 - All files must end with a newline
 - Use `nullptr` instead of `NULL`
 
-| Element           | Convention                 | Examples                                                       |
-|-------------------|----------------------------|----------------------------------------------------------------|
-| Classes/Structs   | PascalCase + trailing `_`  | `Date_`, `Vector_<>`, `ThreadPool_`, `Model_<T_>`              |
-| Template params   | Single letter + `_`        | `T_`, `E_`, `LHS_`, `RHS_`, `OP_`                              |
-| Functions/Methods | PascalCase                 | `FromExcel()`, `AddDays()`, `GeneratePath()`                   |
-| Member variables  | camelCase + trailing `_`   | `serialNumber_`, `spot_`, `vol_`, `name_`                      |
-| Local variables   | camelCase                  | `numPaths`, `batchSize`, `nThreads`                            |
-| Constants/Macros  | UPPER_SNAKE_CASE           | `BATCH_SIZE`, `EPSILON`, `FORCE_INLINE`                        |
-| Files             | lowercase, no separators   | `dal/concurrency/threadpool.cpp`, `dal/model/blackscholes.hpp` |
-| Test files        | `test_` prefix, snake_case | `tests/math/test_vectors.cpp`, `tests/time/test_date.cpp`      |
-| Namespaces        | PascalCase or lowercase    | `Dal`, `Dal::AAD`, `namespace exception`                       |
+| Element           | Convention                 | Examples                                          |
+|-------------------|----------------------------|---------------------------------------------------|
+| Classes/Structs   | PascalCase + trailing `_`  | `Date_`, `Vector_<>`, `ThreadPool_`, `Model_<T_>` |
+| Template params   | Single letter + `_`        | `T_`, `E_`, `LHS_`, `RHS_`, `OP_`                 |
+| Functions/Methods | PascalCase                 | `FromExcel()`, `AddDays()`, `GeneratePath()`      |
+| Member variables  | camelCase + trailing `_`   | `serialNumber_`, `spot_`, `vol_`, `name_`         |
+| Local variables   | camelCase                  | `numPaths`, `batchSize`, `nThreads`               |
+| Constants/Macros  | UPPER_SNAKE_CASE           | `BATCH_SIZE`, `EPSILON`, `FORCE_INLINE`           |
+| Files             | lowercase, no separators   | `threadpool.cpp`, `blackscholes.hpp`              |
+| Test files        | `test_` prefix, snake_case | `test_vectors.cpp`, `test_date.cpp`               |
+| Namespaces        | PascalCase or lowercase    | `Dal`, `Dal::AAD`, `namespace exception`          |
 
 ## Markdown Tables
 
 - Align pipe-table columns by padding cells with spaces.
 - Keep separator rows compact: use `|---|---|`, not `| --- | --- |`.
-- When table cells reference C++ files, use project-relative paths such as `dal/curve/yc.hpp`, not short names like `yc.hpp` or shorthand like `yc.hpp/cpp`.
+- When table cells reference specific C++ files, use project-relative paths such as `dal/curve/yc.hpp`, not short names like `yc.hpp` or shorthand like `yc.hpp/cpp`.
+- For convention-only filename examples, use filenames without project-relative paths, such as `threadpool.cpp` or `test_date.cpp`.
 - Keep mirrored tables under `.claude` and `.codex` consistent.
 
 ## Header Files
