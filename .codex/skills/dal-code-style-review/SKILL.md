@@ -1,18 +1,18 @@
 ---
-name: code-style-review
+name: dal-code-style-review
 description: Review changed C++ code for compliance with this project's coding and unit test style. Use when the user asks to review code style, check style compliance, lint code, verify naming conventions, review changed files for project conventions, or says "review my changes", "check the style", "does this follow our conventions", or similar.
 user-invocable: true
 ---
 
 # Code Style Review
 
-Review all changed files in the working tree against the project's coding conventions defined in `.claude/rules/code-style.md` and `.claude/rules/unit-test-style.md`.
+Review all changed files in the working tree against the project's coding conventions defined in `.codex/rules/code-style.md` and `.codex/rules/unit-test-style.md`.
 
 ## Steps
 
 1. Read the style guides:
-   - `.claude/rules/code-style.md`
-   - `.claude/rules/unit-test-style.md`
+   - `.codex/rules/code-style.md`
+   - `.codex/rules/unit-test-style.md`
 
 2. Identify changed files by running:
    ```bash

@@ -1,5 +1,5 @@
 ---
-name: unit-test-skill
+name: dal-unit-test-skill
 description: Run and inspect this repository's build and Google Test workflow. Use when the user asks to run all tests, verify the whole codebase, execute the Linux or Windows build/test scripts, inspect `test_output.txt`, or confirm whether the test suite passes.
 user-invocable: true
 ---

@@ -1,5 +1,5 @@
 ---
-name: unit-test-write
+name: dal-unit-test-write
 description: |
   Write Google Test unit tests for the DAL C++ quantitative finance library. Use when the user asks to write tests, add test coverage, create unit
   tests, or mentions testing for new or existing C++ code. Also trigger when implementing features that need test coverage, refactoring code

@@ -1,5 +1,5 @@
 ---
-name: commit-and-pr
+name: dal-commit-and-pr
 description: Commit current repository changes, push to a remote branch, and create or update a pull request. Use when the user says "ship it", "commit and PR", "push and create PR", "send this up for review", "wrap this up", or any variation of committing, pushing, and opening or updating a PR in one workflow.
 user-invocable: true
 ---
@@ -49,7 +49,7 @@ There are two kinds of submodule changes — handle them differently:
 - Write commit messages following project conventions:
   - Imperative summary under 72 characters
   - Body explaining the "why", not just the "what"
-  - If the user wants an AI co-author trailer, use their preferred trailer; otherwise append `Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>`
+  - If the user wants an AI co-author trailer, use their preferred trailer; otherwise append `Co-Authored-By: Claude Opus 4.7 <noreply@anthropic.com>`
 - Use a multi-line commit message to preserve formatting:
   ```bash
   git commit -m "$(cat <<'EOF'
@@ -57,7 +57,7 @@ There are two kinds of submodule changes — handle them differently:
 
   Body explaining why.
 
-  Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+  Co-Authored-By: Claude Opus 4.7 <noreply@anthropic.com>
   EOF
   )"
   ```
@@ -77,6 +77,14 @@ First check if a PR already exists for this branch:
 ```bash
 gh pr view --json number,title,body 2>/dev/null
 ```
+
+#### PR title conventions
+
+- Keep it under 70 characters.
+- Use imperative mood (e.g., "feat: add log-linear interpolation" not "feat: adds log-linear interpolation").
+- Start with a category prefix — this is mandatory. Choose from: `feat:`, `fix:`, `docs:`, `chore:`, `refactor:`, `test:`, `style:`, `perf:`, `ci:`.
+- Describe the change at a high level, not implementation details.
+- If the PR is still in progress, prefix with `WIP:` (before the category prefix) or open it as a draft.
 
 #### If no PR exists — create one
 
