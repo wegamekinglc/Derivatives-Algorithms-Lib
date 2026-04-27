@@ -14,7 +14,7 @@ TEST(NDArrayTest, TestEmptyArrayN) {
 }
 
 TEST(NDArrayTest, TestArrayNRequiresDimension) {
-    ASSERT_THROW(ArrayN_<>(Vector_<int>()), Dal::Exception_);
+    ASSERT_THROW(ArrayN_<>(Vector_<int>{}), Dal::Exception_);
 }
 
 TEST(NDArrayTest, TestArrayNSwapWithVector) {
