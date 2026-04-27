@@ -16,18 +16,18 @@ scripts, `CMakeLists.txt`, `CMakePresets.json`, and source tree.
 - Use `methodology/aad.md` for automatic differentiation, expression templates, tape management, or adjoint propagation work.
 - Use `methodology/yield_curve.md` for curve construction, discount curve, calibration, or underdetermined optimization work.
 - Use `methodology/underdetermined_search.md` when working on the solver itself, weight construction, Jacobian handling, or convergence behavior.
-- Use `agents/dev-workflow.md` when implementing a feature, developing a new module, or executing a requirement specification end-to-end.
+- Use `agents/dal-dev-workflow.md` when implementing a feature, developing a new module, or executing a requirement specification end-to-end.
 
 ## Local Workflow Skills
 
 The folders under `skills/` use Codex-compatible `SKILL.md` frontmatter. If a user request matches one of these workflows, read the matching file
 and follow it.
 
-- `skills/commit-and-pr/SKILL.md`: use for "ship it", "commit and PR", "push and create PR", "send this up for review", "wrap this up", or
+- `skills/dal-commit-and-pr/SKILL.md`: use for "ship it", "commit and PR", "push and create PR", "send this up for review", "wrap this up", or
   similar commit + push + PR requests.
-- `skills/code-style-review/SKILL.md`: use for style review, lint-like checks, naming convention checks, or "review my changes" when the likely
+- `skills/dal-code-style-review/SKILL.md`: use for style review, lint-like checks, naming convention checks, or "review my changes" when the likely
   intent is coding style.
-- `skills/dev-workflow/SKILL.md`: use for feature implementation, new modules, or requirement specifications that need design, implementation,
+- `skills/dal-dev-workflow/SKILL.md`: use for feature implementation, new modules, or requirement specifications that need design, implementation,
   tests, and verification.
-- `skills/unit-test-write/SKILL.md`: use for writing Google Test coverage for new or existing C++ code.
-- `skills/unit-test-skill/SKILL.md`: use for running the repository build/test workflow or verifying the whole test suite.
+- `skills/dal-unit-test-write/SKILL.md`: use for writing Google Test coverage for new or existing C++ code.
+- `skills/dal-unit-test-skill/SKILL.md`: use for running the repository build/test workflow or verifying the whole test suite.

@@ -1,5 +1,5 @@
 ---
-name: dev-workflow
+name: dal-dev-workflow
 description: |
   Use this agent when the user wants to implement a feature, develop a new module, or execute a requirement specification in the DAL C++
   quantitative finance library. This agent handles the full development cycle: understanding requirements, technical design, implementation,
@@ -10,17 +10,17 @@ description: |
   <example>
   Context: User has a feature requirement to implement
   user: "I need to add log-linear interpolation to the interpolation module"
-  assistant: "Let me use the dev-workflow agent to handle this end-to-end."
+  assistant: "Let me use the dal-dev-workflow agent to handle this end-to-end."
   <commentary>
-  Feature implementation request in the DAL library. The dev-workflow agent handles everything from design through tested code.
+  Feature implementation request in the DAL library. The dal-dev-workflow agent handles everything from design through tested code.
   </commentary>
-  assistant: "I'll use the dev-workflow agent to implement this feature with full design, implementation, and tests."
+  assistant: "I'll use the dal-dev-workflow agent to implement this feature with full design, implementation, and tests."
   </example>
 
   <example>
   Context: User provides a written specification
   user: "Here's the spec for the normal quadrature module we need to build. Can you implement it?"
-  assistant: "I'll use the dev-workflow agent to work through this specification systematically."
+  assistant: "I'll use the dal-dev-workflow agent to work through this specification systematically."
   <commentary>
   Written specification triggers the full development workflow. Agent will create design doc, implement, test, and iterate.
   </commentary>
@@ -29,11 +29,11 @@ description: |
   <example>
   Context: User asks for a new class or module
   user: "Add a ConcentrationRisk_ class to the risk module with methods for computing concentration metrics"
-  assistant: "Let me use the dev-workflow agent to implement this properly."
+  assistant: "Let me use the dal-dev-workflow agent to implement this properly."
   <commentary>
   New class implementation benefits from systematic design -> implement -> test workflow.
   </commentary>
-  assistant: "I'll use the dev-workflow agent to design, implement, and test the ConcentrationRisk_ class."
+  assistant: "I'll use the dal-dev-workflow agent to design, implement, and test the ConcentrationRisk_ class."
   </example>
 model: inherit
 color: green

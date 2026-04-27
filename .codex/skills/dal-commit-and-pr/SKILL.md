@@ -1,12 +1,12 @@
 ---
-name: commit-and-pr
+name: dal-commit-and-pr
 description: Commit current repository changes, push to a remote branch, and create or update a pull request. Use when the user says "ship it", "commit and PR", "push and create PR", "send this up for review", "wrap this up", or any variation of committing, pushing, and opening or updating a PR in one workflow.
 user-invocable: true
 ---
 
 # Commit, Push, and Create PR
 
-This skill packages up the current session's work into commits, pushes to a remote branch, and opens or updates a pull request. It follows the project's git conventions defined in `.claude/rules/git-commit-pr.md`.
+This skill packages up the current session's work into commits, pushes to a remote branch, and opens or updates a pull request. It follows the project's git conventions defined in `.codex/rules/git-commit-pr.md`.
 
 ## Steps
 
@@ -49,7 +49,7 @@ There are two kinds of submodule changes — handle them differently:
 - Write commit messages following project conventions:
   - Imperative summary under 72 characters
   - Body explaining the "why", not just the "what"
-  - If the user wants an AI co-author trailer, use their preferred trailer; otherwise append `Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>`
+  - If the user wants an AI co-author trailer, use their preferred trailer; otherwise append `Co-Authored-By: Codex <noreply@openai.com>`
 - Use a multi-line commit message to preserve formatting:
   ```bash
   git commit -m "$(cat <<'EOF'
@@ -57,7 +57,7 @@ There are two kinds of submodule changes — handle them differently:
 
   Body explaining why.
 
-  Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+  Co-Authored-By: Codex <noreply@openai.com>
   EOF
   )"
   ```
