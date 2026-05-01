@@ -12,7 +12,7 @@
 
 #pragma once
 
-#ifndef DAL_USE_XAD_AAD
+#if !defined(DAL_USE_XAD_AAD) && !defined(DAL_USE_CODIPACK_AAD)
 
 #include <dal/math/aad/blocklist.hpp>
 #include <dal/math/aad/node.hpp>
@@ -75,7 +75,7 @@ namespace Dal::AAD {
     void Activate(Tape_& tape);
     void Deactivate(Tape_& tape);
 } // namespace Dal::AAD
-#else
+#elif defined(DAL_USE_XAD_AAD)
 #include <XAD/XAD.hpp>
 
 namespace Dal::AAD {
@@ -88,6 +88,38 @@ namespace Dal::AAD {
         tape_type::position_type mark_;
 
         explicit Tape_(bool activate = true) : tape_(activate), start_(tape_.getPosition()), mark_(start_) { }
+    };
+
+    void Clear(Tape_& tape);
+    void Mark(Tape_& tape);
+    void RewindToMark(Tape_& tape);
+    void Rewind(Tape_& tape);
+    void PropagateMarkToStart(Tape_& tape);
+    void PropagateToStart(Tape_& tape);
+    void PropagateToMark(Tape_& tape);
+    void NewRecording(Tape_& tape);
+    void Activate(Tape_& tape);
+    void Deactivate(Tape_& tape);
+} // namespace Dal::AAD
+#elif defined(DAL_USE_CODIPACK_AAD)
+#include <codi.hpp>
+
+namespace Dal::AAD {
+
+    class Tape_ {
+    public:
+        using active_type = codi::RealReverse;
+        using tape_type = typename active_type::Tape;
+        using position_type = typename tape_type::Position;
+
+        tape_type& tape_;
+        position_type start_;
+        position_type mark_;
+
+        explicit Tape_(bool activate = true) : tape_(active_type::getTape()), start_(tape_.getPosition()), mark_(start_) {
+            if (activate)
+                tape_.setActive();
+        }
     };
 
     void Clear(Tape_& tape);

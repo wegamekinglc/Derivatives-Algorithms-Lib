@@ -26,6 +26,12 @@ if(DAL_USE_XAD_AAD)
     else()
         target_link_libraries(dal_public XAD::xad)
     endif()
+elseif(DAL_USE_CODIPACK_AAD)
+    if (BUILD_SHARED_LIBS)
+        target_link_libraries(dal_library CoDiPack)
+    else()
+        target_link_libraries(dal_public CoDiPack)
+    endif()
 endif ()
 
 install(DIRECTORY . DESTINATION include/public/src

@@ -5,6 +5,8 @@ target_link_libraries(sobol dal_library)
 
 if(DAL_USE_XAD_AAD)
     target_link_libraries(sobol XAD::xad)
+elseif(DAL_USE_CODIPACK_AAD)
+    target_link_libraries(sobol CoDiPack)
 endif ()
 
 if(MSVC)

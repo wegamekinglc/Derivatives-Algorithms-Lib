@@ -5,6 +5,8 @@ target_link_libraries(digital dal_library)
 
 if(DAL_USE_XAD_AAD)
     target_link_libraries(digital XAD::xad)
+elseif(DAL_USE_CODIPACK_AAD)
+    target_link_libraries(digital CoDiPack)
 endif ()
 
 if(MSVC)

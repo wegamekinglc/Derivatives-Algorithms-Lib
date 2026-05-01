@@ -14,7 +14,7 @@
 #include <memory>
 #include <dal/math/aad/expr.hpp>
 
-#ifndef DAL_USE_XAD_AAD
+#if !defined(DAL_USE_XAD_AAD) && !defined(DAL_USE_CODIPACK_AAD)
 
 namespace Dal::AAD {
 
@@ -39,6 +39,20 @@ namespace Dal::AAD {
         return Clear(*tape);
     }
 
-} // namespace Dal
+} // namespace Dal::AAD
 #else
+
+#include <algorithm>
+
+namespace Dal::AAD {
+
+    template <class IT_> FORCE_INLINE void PutOnTape(IT_ begin, IT_ end) {
+        std::for_each(begin, end, [](Number_& n) { PutOnTape(n); });
+    }
+
+    FORCE_INLINE void Clear(Tape_* tape) {
+        return Clear(*tape);
+    }
+
+} // namespace Dal::AAD
 #endif

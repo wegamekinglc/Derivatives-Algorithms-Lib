@@ -11,6 +11,8 @@ target_compile_definitions(excelwriter PRIVATE
 
 if(DAL_USE_XAD_AAD)
     target_link_libraries(excelwriter XAD::xad)
+elseif(DAL_USE_CODIPACK_AAD)
+    target_link_libraries(excelwriter CoDiPack)
 endif ()
 
 
