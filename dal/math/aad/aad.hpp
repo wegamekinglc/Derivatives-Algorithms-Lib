@@ -42,6 +42,8 @@ namespace Dal::AAD {
 } // namespace Dal::AAD
 #else
 
+#include <algorithm>
+
 namespace Dal::AAD {
 
     template <class IT_> FORCE_INLINE void PutOnTape(IT_ begin, IT_ end) {
