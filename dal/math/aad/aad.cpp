@@ -13,7 +13,7 @@
 #include <dal/platform/strict.hpp>
 #include <dal/math/aad/aad.hpp>
 
-#if !defined(DAL_USE_XAD_AAD) && !defined(DAL_USE_CODIPACK_AAD)
+#if !defined(DAL_USE_XAD_AAD) && !defined(DAL_USE_CODIPACK_AAD) && !defined(DAL_USE_ADEPT_AAD)
 namespace Dal::AAD {
     size_t TapNode_::numAdj_ = 1;
     bool Tape_::multi_ = false;

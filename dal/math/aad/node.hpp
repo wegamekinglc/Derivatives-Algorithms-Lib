@@ -17,7 +17,7 @@
 #include <iostream>
 #include <dal/platform/consts.hpp>
 
-#if !defined(DAL_USE_XAD_AAD) && !defined(DAL_USE_CODIPACK_AAD)
+#if !defined(DAL_USE_XAD_AAD) && !defined(DAL_USE_CODIPACK_AAD) && !defined(DAL_USE_ADEPT_AAD)
 namespace Dal::AAD {
     class TapNode_ {
         const size_t n_;

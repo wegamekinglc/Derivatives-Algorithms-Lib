@@ -13,3 +13,6 @@
 [submodule "externals/googletest"]
 	path = externals/googletest
 	url = git@github.com:google/googletest.git
+[submodule "externals/adept"]
+	path = externals/adept
+	url = git@github.com:wegamekinglc/Adept-2.git

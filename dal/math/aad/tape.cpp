@@ -5,7 +5,7 @@
 #include <dal/math/aad/expr.hpp>
 #include <dal/math/aad/tape.hpp>
 
-#if !defined(DAL_USE_XAD_AAD) && !defined(DAL_USE_CODIPACK_AAD)
+#if !defined(DAL_USE_XAD_AAD) && !defined(DAL_USE_CODIPACK_AAD) && !defined(DAL_USE_ADEPT_AAD)
 namespace Dal::AAD {
 
     namespace {
@@ -77,6 +77,55 @@ namespace Dal::AAD {
     void NewRecording(Tape_&) {}
     void Activate(Tape_&) {}
     void Deactivate(Tape_&) {}
+} // namespace Dal::AAD
+#elif defined(DAL_USE_ADEPT_AAD)
+
+namespace Dal::AAD {
+
+    void Clear(Tape_& tape) {
+        tape.tape_.new_recording();
+        tape.start_ = tape.tape_.Position();
+        tape.mark_ = tape.start_;
+    }
+
+    void Mark(Tape_& tape) {
+        tape.mark_ = tape.tape_.Position();
+    }
+
+    void Rewind(Tape_& tape) {
+        tape.tape_.ResetTo(tape.start_);
+    }
+
+    void RewindToMark(Tape_& tape) {
+        tape.tape_.ResetTo(tape.mark_);
+    }
+
+    void PropagateMarkToStart(Tape_& tape) {
+        tape.tape_.ReverseRange(tape.mark_, tape.start_);
+    }
+
+    void PropagateToStart(Tape_& tape) {
+        tape.tape_.ReverseRange(tape.tape_.Position(), tape.start_);
+    }
+
+    void PropagateToMark(Tape_& tape) {
+        tape.tape_.ReverseRange(tape.tape_.Position(), tape.mark_);
+    }
+
+    void NewRecording(Tape_& tape) {
+        tape.tape_.new_recording();
+        tape.start_ = tape.tape_.Position();
+        tape.mark_ = tape.start_;
+    }
+
+    void Activate(Tape_& tape) {
+        if (!tape.tape_.is_active())
+            tape.tape_.activate();
+    }
+
+    void Deactivate(Tape_& tape) {
+        tape.tape_.deactivate();
+    }
 } // namespace Dal::AAD
 #elif defined(DAL_USE_XAD_AAD)
 
@@ -176,4 +225,3 @@ namespace Dal::AAD {
     }
 } // namespace Dal::AAD
 #endif
-

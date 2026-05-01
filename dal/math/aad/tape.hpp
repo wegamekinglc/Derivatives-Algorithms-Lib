@@ -12,7 +12,7 @@
 
 #pragma once
 
-#if !defined(DAL_USE_XAD_AAD) && !defined(DAL_USE_CODIPACK_AAD)
+#if !defined(DAL_USE_XAD_AAD) && !defined(DAL_USE_CODIPACK_AAD) && !defined(DAL_USE_ADEPT_AAD)
 
 #include <dal/math/aad/blocklist.hpp>
 #include <dal/math/aad/node.hpp>
@@ -62,6 +62,67 @@ namespace Dal::AAD {
             return node;
         }
 
+    };
+
+    void Clear(Tape_& tape);
+    void Mark(Tape_& tape);
+    void RewindToMark(Tape_& tape);
+    void Rewind(Tape_& tape);
+    void PropagateMarkToStart(Tape_& tape);
+    void PropagateToStart(Tape_& tape);
+    void PropagateToMark(Tape_& tape);
+    void NewRecording(Tape_& tape);
+    void Activate(Tape_& tape);
+    void Deactivate(Tape_& tape);
+} // namespace Dal::AAD
+#elif defined(DAL_USE_ADEPT_AAD)
+#include <adept.h>
+#include <dal/utilities/exceptions.hpp>
+
+namespace Dal::AAD {
+
+    struct Position_ {
+        adept::uIndex statements_;
+        adept::uIndex operations_;
+    };
+
+    class Stack_ : public adept::Stack {
+    public:
+        explicit Stack_(bool activate = true) : adept::Stack(activate) {}
+
+        [[nodiscard]] Position_ Position() const {
+            return {n_statements_, n_operations_};
+        }
+
+        void ResetTo(Position_ position) {
+            n_statements_ = position.statements_;
+            n_operations_ = position.operations_;
+        }
+
+        void ReverseRange(Position_ from, Position_ to) {
+            if (!gradients_are_initialized())
+                THROW("Adept gradients are not initialized");
+
+            for (adept::uIndex ist = from.statements_; ist > to.statements_; --ist) {
+                const adept::uIndex statementIndex = ist - 1;
+                const auto& statement = statement_[statementIndex];
+                adept::Real adjoint = gradient_[statement.index];
+                gradient_[statement.index] = 0.0;
+                if (adjoint != 0.0) {
+                    for (adept::uIndex i = statement_[statementIndex - 1].end_plus_one; i < statement.end_plus_one; ++i)
+                        gradient_[index_[i]] += multiplier_[i] * adjoint;
+                }
+            }
+        }
+    };
+
+    class Tape_ {
+    public:
+        Stack_ tape_;
+        Position_ start_;
+        Position_ mark_;
+
+        explicit Tape_(bool activate = true) : tape_(activate), start_(tape_.Position()), mark_(start_) {}
     };
 
     void Clear(Tape_& tape);

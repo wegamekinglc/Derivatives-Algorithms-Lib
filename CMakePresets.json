@@ -12,8 +12,9 @@
       "cacheVariables": {
         "CMAKE_MODULE_PATH": "${sourceDir}/cmake",
         "CMAKE_INSTALL_PREFIX": "${sourceDir}",
-        "DAL_USE_XAD_AAD": "on",
+        "DAL_USE_XAD_AAD": "off",
         "DAL_USE_CODIPACK_AAD": "off",
+        "DAL_USE_ADEPT_AAD": "on",
         "XAD_ENABLE_TESTS": "off",
         "XAD_USE_STRONG_INLINE": "on",
         "XAD_NO_THREADLOCAL": "off",

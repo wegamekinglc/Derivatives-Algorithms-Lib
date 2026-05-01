@@ -93,7 +93,10 @@ include_directories(${CMAKE_SOURCE_DIR})
 
 option(DAL_USE_XAD_AAD "use xad as aad framework" OFF)
 option(DAL_USE_CODIPACK_AAD "use CoDiPack as aad framework" OFF)
-if (DAL_USE_XAD_AAD AND DAL_USE_CODIPACK_AAD)
+option(DAL_USE_ADEPT_AAD "use Adept as aad framework" OFF)
+if ((DAL_USE_XAD_AAD AND DAL_USE_CODIPACK_AAD) OR
+    (DAL_USE_XAD_AAD AND DAL_USE_ADEPT_AAD) OR
+    (DAL_USE_CODIPACK_AAD AND DAL_USE_ADEPT_AAD))
     message(FATAL_ERROR "Only one external AAD backend can be enabled")
 endif()
 
@@ -104,6 +107,11 @@ elseif(DAL_USE_CODIPACK_AAD)
     message("-- USE AAD framework: CoDiPack")
     add_definitions(-DDAL_USE_CODIPACK_AAD)
     add_definitions(-DCODI_ForcedInlines)
+elseif(DAL_USE_ADEPT_AAD)
+    message("-- USE AAD framework: Adept")
+    add_definitions(-DDAL_USE_ADEPT_AAD)
+#    add_definitions(-DADEPT_STACK_THREAD_UNSAFE)
+    add_definitions(-DADEPT_FAST_EXPONENTIAL)
 else()
     message("-- USE AAD framework: AADET")
 endif ()
@@ -113,11 +121,13 @@ add_subdirectory(${CMAKE_SOURCE_DIR}/externals/googletest)
 add_subdirectory(${CMAKE_SOURCE_DIR}/externals/rapidjson)
 add_subdirectory(${CMAKE_SOURCE_DIR}/externals/xad)
 add_subdirectory(${CMAKE_SOURCE_DIR}/externals/CodiPack)
+add_subdirectory(${CMAKE_SOURCE_DIR}/externals/adept)
 add_subdirectory(${CMAKE_SOURCE_DIR}/externals/machinist)
 
 include_directories(${CMAKE_SOURCE_DIR}/externals/rapidjson/include)
 include_directories(${CMAKE_SOURCE_DIR}/externals/xad/include)
 include_directories(${CMAKE_SOURCE_DIR}/externals/CodiPack/include)
+include_directories(${CMAKE_SOURCE_DIR}/externals/adept/include)
 
 # Auto-detect Microsoft Office for Excel COM integration
 set(DAL_HAS_EXCEL OFF)
@@ -157,4 +167,3 @@ message("-- SKIP_TESTS: ${SKIP_TESTS}")
 if ("${SKIP_TESTS}" STREQUAL "false")
     add_subdirectory(tests)
 endif()
-

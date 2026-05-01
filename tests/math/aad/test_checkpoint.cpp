@@ -12,14 +12,14 @@ using namespace Dal;
 using namespace Dal::AAD;
 
 template <class T_>
-T_ BlackTest(const T_& fwd, const T_& vol, const T_& numeraire, const T_& strike, const T_& expiry, bool is_call) {
+T_ BlackTest(const T_& fwd, const T_& vol, const T_& numeraire, const T_& strike, const T_& expiry, bool isCall) {
     static const double M_SQRT_2 = 1.4142135623730951;
-    const double omega = is_call ? 1.0 : -1.0;
+    const double omega = isCall ? 1.0 : -1.0;
     T_ y(0.0);
-    T_ sqrt_var = vol * sqrt(expiry);
-    T_ d_minus = log(fwd / strike) / sqrt_var - 0.5 * sqrt_var;
-    T_ d_plus = d_minus + sqrt_var;
-    y = numeraire * omega * (0.5 * fwd * erfc(-d_plus / M_SQRT_2) - strike * 0.5 * erfc(-d_minus / M_SQRT_2));
+    T_ sqrtVar = vol * sqrt(expiry);
+    T_ dMinus = log(fwd / strike) / sqrtVar - 0.5 * sqrtVar;
+    T_ dPlus = dMinus + sqrtVar;
+    y = numeraire * omega * (0.5 * fwd * erfc(-dPlus / M_SQRT_2) - strike * 0.5 * erfc(-dMinus / M_SQRT_2));
     return y;
 }
 
@@ -109,72 +109,71 @@ TEST(AADTest, TestWithCheckpointWithForLoop) {
 }
 
 TEST(AADTest, TestWithCheckpointWithMultiThreading) {
-    int n_rounds = 100000;
-    int batch_size = 2048;
+    int nRounds = 100000;
+    int batchSize = 2048;
     double fwd = 1.00;
     double vol = 0.20;
     double numeraire = 1.0;
     double strike = 1.20;
     double expiry = 3.0;
-    bool is_call = true;
+    bool isCall = true;
 
     ThreadPool_* pool = ThreadPool_::GetInstance();
-    const size_t n_threads = pool->NumThreads();
+    const size_t nThreads = pool->NumThreads();
 
-    batch_size = std::max(batch_size, static_cast<int>(n_rounds / n_threads) + 1);
+    batchSize = std::max(batchSize, static_cast<int>(nRounds / nThreads) + 1);
     Vector_<TaskHandle_> futures;
-    futures.reserve(n_rounds / batch_size + 1);
+    futures.reserve(nRounds / batchSize + 1);
 
-    int first_round = 0;
-    int rounds_left = n_rounds;
+    int roundsLeft = nRounds;
 
     Vector_<> greeks(6, 0.0);
-    Vector_<Vector_<>> final_results(n_threads, greeks);
+    Vector_<Vector_<>> finalResults(nThreads, greeks);
 
-    while (rounds_left > 0) {
-        auto rounds_in_tasks = std::min(rounds_left, batch_size);
+    while (roundsLeft > 0) {
+        auto roundsInTasks = std::min(roundsLeft, batchSize);
 
-        futures.push_back(pool->SpawnTask([&, rounds_in_tasks]() {
-            const size_t n_thread = ThreadPool_::ThreadNum();
+        futures.push_back(pool->SpawnTask([&, roundsInTasks]() {
+            const size_t nThread = ThreadPool_::ThreadNum();
+            Clear(*Tape());
             std::unique_ptr<TestModel_> model = std::make_unique<TestModel_>(fwd, vol, numeraire, strike, expiry);
             ModelInit(*model);
-            auto& results = final_results[n_thread];
+            auto& results = finalResults[nThread];
 
-            double sum_val = 0.0;
-            for (size_t i = 0; i < rounds_in_tasks; ++i) {
+            double sumVal = 0.0;
+            for (size_t i = 0; i < roundsInTasks; ++i) {
                 RewindToMark(*Tape());
                 Number_ res = BlackTest(model->fwd_,
                                         model->vol_,
                                         model->numeraire_,
                                         model->strike_,
                                         model->expiry_,
-                                        is_call);
+                                        isCall);
                 Adjoint(res) = 1.0;
                 PropagateToMark(*Tape());
-                sum_val += Value(res);
+                sumVal += Value(res);
             }
 
             PropagateMarkToStart(*Tape());
-            results[0] += sum_val;
-            results[1] += Adjoint(model->fwd_) / static_cast<double>(n_rounds);
-            results[2] += Adjoint(model->vol_) / static_cast<double>(n_rounds);
-            results[3] += Adjoint(model->numeraire_) / static_cast<double>(n_rounds);
-            results[4] += Adjoint(model->strike_) / static_cast<double>(n_rounds);
-            results[5] += Adjoint(model->expiry_) / static_cast<double>(n_rounds);
+            results[0] += sumVal;
+            results[1] += Adjoint(model->fwd_) / static_cast<double>(nRounds);
+            results[2] += Adjoint(model->vol_) / static_cast<double>(nRounds);
+            results[3] += Adjoint(model->numeraire_) / static_cast<double>(nRounds);
+            results[4] += Adjoint(model->strike_) / static_cast<double>(nRounds);
+            results[5] += Adjoint(model->expiry_) / static_cast<double>(nRounds);
             return true;
         }));
-        rounds_left -= rounds_in_tasks;
-        first_round += rounds_in_tasks;
+        roundsLeft -= roundsInTasks;
     }
 
     for (auto& future: futures)
         pool->ActiveWait(future);
 
-    for (const auto& res: final_results)
+    for (const auto& res: finalResults)
         for (size_t i = 0; i < greeks.size(); ++i)
             greeks[i] += res[i];
 
-    ASSERT_NEAR(greeks[0] / static_cast<double>(n_rounds), 0.0714668, 1e-6);
+    ASSERT_NEAR(greeks[0] / static_cast<double>(nRounds), 0.0714668, 1e-6);
     ASSERT_NEAR(greeks[1], 0.362002, 1e-6);
     ASSERT_NEAR(greeks[2], 0.649225, 1e-6);
     ASSERT_NEAR(greeks[3], 0.0714668, 1e-6);
