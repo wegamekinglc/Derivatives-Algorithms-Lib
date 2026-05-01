@@ -5,6 +5,8 @@ target_link_libraries(vanilla dal_library)
 
 if(DAL_USE_XAD_AAD)
     target_link_libraries(vanilla XAD::xad)
+elseif(DAL_USE_CODIPACK_AAD)
+    target_link_libraries(vanilla CoDiPack)
 endif ()
 
 

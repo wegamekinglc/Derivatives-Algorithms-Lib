@@ -24,10 +24,12 @@ namespace Dal {
             if (n_threads > 0)
                 ThreadPool_::GetInstance()->Start(n_threads, true);
             std::cout << "starting DAL with: " << ThreadPool_::GetInstance()->NumThreads() << " threads." << std::endl;
-#ifndef DAL_USE_XAD_AAD
-            std::cout << "use AAD framework: " << "AADET" << std::endl;
-#else
+#if defined(DAL_USE_XAD_AAD)
             std::cout << "use AAD framework: " << "XAD" << std::endl;
+#elif defined(DAL_USE_CODIPACK_AAD)
+            std::cout << "use AAD framework: " << "CoDiPack" << std::endl;
+#else
+            std::cout << "use AAD framework: " << "AADET" << std::endl;
 #endif
 
             std::cout << "starting initialization global data ..." << std::endl;
@@ -40,4 +42,4 @@ namespace Dal {
         }
     }
 
-}
+} // namespace Dal

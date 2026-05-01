@@ -8,6 +8,8 @@ target_link_libraries(matrix_perf dal_library OpenMP::OpenMP_CXX)
 
 if(DAL_USE_XAD_AAD)
     target_link_libraries(matrix_perf XAD::xad)
+elseif(DAL_USE_CODIPACK_AAD)
+    target_link_libraries(matrix_perf CoDiPack)
 endif ()
 
 if(MSVC)

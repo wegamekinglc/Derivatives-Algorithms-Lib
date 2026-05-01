@@ -33,11 +33,11 @@ T_ BlackTest(const T_& fwd, const T_& vol, const T_& numeraire, const T_& strike
 int main() {
     Dal::RegisterAll_::Init();
 
-    int n_rounds = 1000000;
+    int n_rounds = 10000000;
     double expiry = 3.0;
     double fwd = 100.00 * std::exp(0.02 * expiry);
     double vol = 0.15;
-    double numeraire = std::exp(-0.05 * expiry);;
+    double numeraire = std::exp(-0.05 * expiry);
     double strike = 120;
     bool is_call = true;
     Timer_ timer;
@@ -93,7 +93,7 @@ int main() {
         PutOnTape(expiry_aad);
         AAD::NewRecording(*AAD::Tape());
 
-        Number_  price_aad{0.0};
+        Number_ price_aad{0.0};
         for (int i = 0; i < n_rounds; ++i) {
             AAD::Rewind(*AAD::Tape());
             price_aad = BlackTest(fwd_aad, vol_aad, numeraire_aad, strike_aad, expiry_aad, is_call);
@@ -102,10 +102,12 @@ int main() {
         }
 
         const auto duration = static_cast<int>(timer.Elapsed<milliseconds>());
-#ifndef DAL_USE_XAD_AAD
-        std::cout << std::setw(widths[0]) << std::left << "Builtin (AADET)"
-#else
+#ifdef DAL_USE_XAD_AAD
         std::cout << std::setw(widths[0]) << std::left << "Builtin (XAD)"
+#elif defined(DAL_USE_CODIPACK_AAD)
+        std::cout << std::setw(widths[0]) << std::left << "Builtin (CODIPACK)"
+#else
+        std::cout << std::setw(widths[0]) << std::left << "Builtin (AADET)"
 #endif
                   << std::fixed
                   << std::setprecision(6)

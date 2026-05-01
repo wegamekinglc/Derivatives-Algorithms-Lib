@@ -5,6 +5,8 @@ target_link_libraries(uoc_compiled dal_library)
 
 if(DAL_USE_XAD_AAD)
     target_link_libraries(uoc_compiled XAD::xad)
+elseif(DAL_USE_CODIPACK_AAD)
+    target_link_libraries(uoc_compiled CoDiPack)
 endif ()
 
 if(MSVC)

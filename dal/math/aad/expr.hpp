@@ -8,7 +8,7 @@
 #include <dal/platform/host.hpp>
 #include <dal/math/specialfunctions.hpp>
 
-#ifndef DAL_USE_XAD_AAD
+#if !defined(DAL_USE_XAD_AAD) && !defined(DAL_USE_CODIPACK_AAD)
 #include <dal/math/aad/tape.hpp>
 
 namespace Dal::AAD {
@@ -397,7 +397,7 @@ namespace Dal::AAD {
     template <class E_>
     FORCE_INLINE bool operator==(double lhs, const Expression_<E_>& rhs) { return lhs == Value(rhs); }
 
-        template <class E_, class F_>
+    template <class E_, class F_>
     FORCE_INLINE bool operator!=(const Expression_<E_>& lhs, const Expression_<F_>& rhs) {
         return Value(lhs) != Value(rhs);
     }
@@ -480,7 +480,7 @@ namespace Dal::AAD {
         }
 
     public:
-          enum { numNumbers_ = 1 };
+        enum { numNumbers_ = 1 };
 
         template <size_t N_, size_t n_>
         FORCE_INLINE void PushAdjoint(TapNode_& exprNode, double adjoint) const {
@@ -578,7 +578,7 @@ namespace Dal::AAD {
 
     FORCE_INLINE void PutOnTape(Number_& n) { n.node_ = n.CreateMultiNode<0>(); }
 } // namespace Dal::AAD
-#else
+#elif defined(DAL_USE_XAD_AAD)
 #include <dal/math/aad/tape.hpp>
 
 namespace Dal::AAD {
@@ -629,6 +629,67 @@ namespace Dal::AAD {
         Tape()->tape_.registerInput(n);
     }
 
+
+    template <class T_>
+    FORCE_INLINE auto NPDF(const T_& z) {
+        return 0.3989422804014327 * exp(-0.5 * z * z);
+    }
+
+    template <class T_>
+    FORCE_INLINE auto NCDF(const T_& z) {
+        return 0.5 * erfc(-z / 1.4142135623730951);
+    }
+} // namespace Dal::AAD
+#elif defined(DAL_USE_CODIPACK_AAD)
+#include <dal/math/aad/tape.hpp>
+
+namespace Dal::AAD {
+    using Number_ = Tape_::active_type;
+
+    FORCE_INLINE Tape_* Tape() {
+        thread_local Tape_ tape;
+        return &tape;
+    }
+
+    using codi::operator*;
+    using codi::operator+;
+    using codi::operator-;
+    using codi::operator/;
+    using codi::operator==;
+    using codi::operator!=;
+    using codi::operator<;
+    using codi::operator<=;
+    using codi::operator>;
+    using codi::operator>=;
+
+    using codi::abs;
+    using codi::erfc;
+    using codi::exp;
+    using codi::log;
+    using codi::max;
+    using codi::min;
+    using codi::pow;
+    using codi::sqrt;
+
+    FORCE_INLINE double Value(const Number_& num) {
+        return num.getValue();
+    }
+
+    FORCE_INLINE double Value(double num) {
+        return num;
+    }
+
+    FORCE_INLINE double Adjoint(const Number_& num) {
+        return num.getGradient();
+    }
+
+    FORCE_INLINE Number_::Gradient& Adjoint(Number_& num) {
+        return num.gradient();
+    }
+
+    FORCE_INLINE void PutOnTape(Number_& n) {
+        Tape()->tape_.registerInput(n);
+    }
 
     template <class T_>
     FORCE_INLINE auto NPDF(const T_& z) {
