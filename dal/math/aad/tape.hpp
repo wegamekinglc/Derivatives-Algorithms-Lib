@@ -108,7 +108,7 @@ namespace Dal::AAD {
 
     class Tape_ {
     public:
-        using active_type = codi::RealReverse;
+        using active_type = codi::RealReverseUnchecked;
         using tape_type = typename active_type::Tape;
         using position_type = typename tape_type::Position;
 
