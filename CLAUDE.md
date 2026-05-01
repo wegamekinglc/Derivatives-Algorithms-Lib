@@ -41,7 +41,7 @@ Formatting is enforced via `.clang-format` (LLVM-based):
 
 ## Architecture
 
-This is a C++17 quantitative finance library with AAD (Automatic Adjoint Differentiation) support. The repo contains the legacy internal AAD path and optional XAD, CoDiPack, and Adept backends. Top-level CMake defaults external AAD backends to `off`; the shipped presets currently select Adept with `DAL_USE_ADEPT_AAD=on`.
+This is a C++17 quantitative finance library with AAD (Automatic Adjoint Differentiation) support.
 
 **Core library (`dal/`)** — built as the `dal_library` target and installed under `lib/` as `dal`:
 - `math/` — numerical algorithms: interpolation, optimization, PDE solvers, random number generation, matrix ops, root finding
