@@ -14,7 +14,7 @@
 #include <memory>
 #include <dal/math/aad/expr.hpp>
 
-#if !defined(DAL_USE_XAD_AAD) && !defined(DAL_USE_CODIPACK_AAD)
+#if !defined(DAL_USE_XAD_AAD) && !defined(DAL_USE_CODIPACK_AAD) && !defined(DAL_USE_ADEPT_AAD)
 
 namespace Dal::AAD {
 

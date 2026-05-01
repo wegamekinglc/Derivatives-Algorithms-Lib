@@ -51,7 +51,8 @@
 - Generated `dal/auto/*` is also excluded when `public/src` statically folds core DAL sources into `dal_public`.
 - `dal/storage/_repository.*` is excluded from core build globs.
 - Excel COM integration is auto-enabled on Windows only if Office binaries are detected.
-- The repo supports AAD with XAD and also contains older/internal AAD machinery; `DAL_USE_XAD_AAD` defaults to `off` in `CMakeLists.txt` and the shipped presets.
+- The repo supports AAD with XAD, CoDiPack, and Adept and also contains older/internal AAD machinery.
+- Top-level CMake defaults external AAD backends to `off`; the shipped presets currently select Adept with `DAL_USE_ADEPT_AAD=on`.
 
 ## Build And Test
 

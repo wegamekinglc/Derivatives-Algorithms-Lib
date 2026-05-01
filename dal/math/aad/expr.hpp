@@ -4,11 +4,13 @@
 
 #pragma once
 
+#include <cmath>
 #include <mutex>
+#include <type_traits>
 #include <dal/platform/host.hpp>
 #include <dal/math/specialfunctions.hpp>
 
-#if !defined(DAL_USE_XAD_AAD) && !defined(DAL_USE_CODIPACK_AAD)
+#if !defined(DAL_USE_XAD_AAD) && !defined(DAL_USE_CODIPACK_AAD) && !defined(DAL_USE_ADEPT_AAD)
 #include <dal/math/aad/tape.hpp>
 
 namespace Dal::AAD {
@@ -577,6 +579,93 @@ namespace Dal::AAD {
     FORCE_INLINE double& Adjoint(const Number_& num) { return num.node_->Adjoint(); }
 
     FORCE_INLINE void PutOnTape(Number_& n) { n.node_ = n.CreateMultiNode<0>(); }
+} // namespace Dal::AAD
+#elif defined(DAL_USE_ADEPT_AAD)
+#include <dal/math/aad/tape.hpp>
+
+namespace Dal::AAD {
+    using Number_ = adept::adouble;
+
+    FORCE_INLINE Tape_* Tape() {
+        thread_local Tape_ tape;
+        return &tape;
+    }
+
+    using adept::operator*;
+    using adept::operator+;
+    using adept::operator-;
+    using adept::operator/;
+    using adept::operator==;
+    using adept::operator!=;
+    using adept::operator<;
+    using adept::operator<=;
+    using adept::operator>;
+    using adept::operator>=;
+
+    using adept::abs;
+    using adept::erfc;
+    using adept::exp;
+    using adept::log;
+    using adept::max;
+    using adept::min;
+    using adept::pow;
+    using adept::sqrt;
+
+    FORCE_INLINE double Value(const Number_& num) {
+        return adept::value(num);
+    }
+
+    FORCE_INLINE double Value(double num) {
+        return num;
+    }
+
+    class Adjoint_ {
+        Number_& num_;
+
+    public:
+        explicit Adjoint_(Number_& num) : num_(num) {}
+
+        FORCE_INLINE Adjoint_& operator=(double adjoint) {
+            num_.set_gradient(adjoint);
+            return *this;
+        }
+
+        FORCE_INLINE operator double() const {
+            return num_.get_gradient();
+        }
+    };
+
+    FORCE_INLINE double Adjoint(const Number_& num) {
+        return num.get_gradient();
+    }
+
+    FORCE_INLINE Adjoint_ Adjoint(Number_& num) {
+        return Adjoint_(num);
+    }
+
+    FORCE_INLINE void PutOnTape(Number_&) {}
+
+    template <class T_, std::enable_if_t<std::is_arithmetic_v<T_>, int> = 0>
+    FORCE_INLINE double NPDF(T_ z) {
+        return 0.3989422804014327 * std::exp(-0.5 * z * z);
+    }
+
+    template <class T_, std::enable_if_t<std::is_arithmetic_v<T_>, int> = 0>
+    FORCE_INLINE double NCDF(T_ z) {
+        return 0.5 * std::erfc(-z / 1.4142135623730951);
+    }
+
+    template <class T_, std::enable_if_t<!std::is_arithmetic_v<T_>, int> = 0>
+    FORCE_INLINE Number_ NPDF(const T_& z) {
+        Number_ arg = z;
+        return 0.3989422804014327 * exp(-0.5 * arg * arg);
+    }
+
+    template <class T_, std::enable_if_t<!std::is_arithmetic_v<T_>, int> = 0>
+    FORCE_INLINE Number_ NCDF(const T_& z) {
+        Number_ arg = -z / 1.4142135623730951;
+        return 0.5 * erfc(arg);
+    }
 } // namespace Dal::AAD
 #elif defined(DAL_USE_XAD_AAD)
 #include <dal/math/aad/tape.hpp>

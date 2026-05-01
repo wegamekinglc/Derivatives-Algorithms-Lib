@@ -106,6 +106,8 @@ int main() {
         std::cout << std::setw(widths[0]) << std::left << "Builtin (XAD)"
 #elif defined(DAL_USE_CODIPACK_AAD)
         std::cout << std::setw(widths[0]) << std::left << "Builtin (CoDiPack)"
+#elif defined(DAL_USE_ADEPT_AAD)
+        std::cout << std::setw(widths[0]) << std::left << "Builtin (Adept)"
 #else
         std::cout << std::setw(widths[0]) << std::left << "Builtin (AADET)"
 #endif

@@ -32,6 +32,12 @@ elseif(DAL_USE_CODIPACK_AAD)
     else()
         target_link_libraries(dal_public CoDiPack)
     endif()
+elseif(DAL_USE_ADEPT_AAD)
+    if (BUILD_SHARED_LIBS)
+        target_link_libraries(dal_library adept)
+    else()
+        target_link_libraries(dal_public adept)
+    endif()
 endif ()
 
 install(DIRECTORY . DESTINATION include/public/src

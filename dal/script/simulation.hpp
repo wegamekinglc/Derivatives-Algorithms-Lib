@@ -107,10 +107,10 @@ namespace Dal::Script {
         SimResults_ results(Vector::Join(mdl->ParameterLabels(), product.ConstVarNames()));
 
         Vector_<TaskHandle_> futures;
-        const int batch_size = std::min(BATCH_SIZE, static_cast<int>(n_paths / nThreads) + 1);
-        futures.reserve(n_paths / batch_size + 1);
+        const int batchSize = std::max(BATCH_SIZE, static_cast<int>(n_paths / nThreads) + 1);
+        futures.reserve(n_paths / batchSize + 1);
         Vector_<> simResults;
-        simResults.reserve(n_paths / batch_size + 1);
+        simResults.reserve(n_paths / batchSize + 1);
 
         int firstPath = 0;
         int pathsLeft = static_cast<int>(n_paths);
@@ -118,7 +118,7 @@ namespace Dal::Script {
         auto payoffIndex = product.PayOffIdx();
 
         while (pathsLeft > 0) {
-            auto pathsInTask = std::min(pathsLeft, batch_size);
+            auto pathsInTask = std::min(pathsLeft, batchSize);
             simResults.emplace_back(0.0);
             auto& simResult = simResults[loopIndex];
             loopIndex += 1;
@@ -168,6 +168,7 @@ namespace Dal::Script {
                              bool compiled,
                              int max_nested_ifs,
                              double eps) {
+        AAD::Activate(*AAD::Tape());
         std::unique_ptr<AAD::Model_<AAD::Number_>> mdl = CreateModel<AAD::Number_>(model_data);
         const auto nParams = mdl->Parameters().size();
         const auto nConstVars = product.ConstVarNames().size();

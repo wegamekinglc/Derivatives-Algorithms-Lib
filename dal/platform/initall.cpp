@@ -28,6 +28,8 @@ namespace Dal {
             std::cout << "use AAD framework: " << "XAD" << std::endl;
 #elif defined(DAL_USE_CODIPACK_AAD)
             std::cout << "use AAD framework: " << "CoDiPack" << std::endl;
+#elif defined(DAL_USE_ADEPT_AAD)
+            std::cout << "use AAD framework: " << "Adept" << std::endl;
 #else
             std::cout << "use AAD framework: " << "AADET" << std::endl;
 #endif
