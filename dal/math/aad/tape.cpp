@@ -83,48 +83,48 @@ namespace Dal::AAD {
 namespace Dal::AAD {
 
     void Clear(Tape_& tape) {
-        tape.tape_.new_recording();
-        tape.start_ = tape.tape_.Position();
+        tape.new_recording();
+        tape.start_ = tape.Position();
         tape.mark_ = tape.start_;
     }
 
     void Mark(Tape_& tape) {
-        tape.mark_ = tape.tape_.Position();
+        tape.mark_ = tape.Position();
     }
 
     void Rewind(Tape_& tape) {
-        tape.tape_.ResetTo(tape.start_);
+        tape.reset_to(tape.start_.statements_, tape.start_.operations_);
     }
 
     void RewindToMark(Tape_& tape) {
-        tape.tape_.ResetTo(tape.mark_);
+        tape.reset_to(tape.mark_.statements_, tape.mark_.operations_);
     }
 
     void PropagateMarkToStart(Tape_& tape) {
-        tape.tape_.ReverseRange(tape.mark_, tape.start_);
+        tape.compute_adjoint(tape.mark_.statements_, tape.start_.statements_);
     }
 
     void PropagateToStart(Tape_& tape) {
-        tape.tape_.ReverseRange(tape.tape_.Position(), tape.start_);
+        tape.compute_adjoint(tape.Position().statements_, tape.start_.statements_);
     }
 
     void PropagateToMark(Tape_& tape) {
-        tape.tape_.ReverseRange(tape.tape_.Position(), tape.mark_);
+        tape.compute_adjoint(tape.Position().statements_, tape.mark_.statements_);
     }
 
     void NewRecording(Tape_& tape) {
-        tape.tape_.new_recording();
-        tape.start_ = tape.tape_.Position();
+        tape.new_recording();
+        tape.start_ = tape.Position();
         tape.mark_ = tape.start_;
     }
 
     void Activate(Tape_& tape) {
-        if (!tape.tape_.is_active())
-            tape.tape_.activate();
+        if (!tape.is_active())
+            tape.activate();
     }
 
     void Deactivate(Tape_& tape) {
-        tape.tape_.deactivate();
+        tape.deactivate();
     }
 } // namespace Dal::AAD
 #elif defined(DAL_USE_XAD_AAD)
