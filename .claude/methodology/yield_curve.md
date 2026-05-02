@@ -19,16 +19,16 @@ Documentation of the yield curve framework in `dal/curve/`.
 
 ```
 Storable_
-└── YCComponent_                        (dependency tracking, Poll/Clone)
-    ├── DiscountCurve_                  (abstract: operator()(from, to) → df)
-    │   └── DiscountPWLF_              (piecewise-linear forwards → discount factors)
+└── YCComponent_                                   (dependency tracking, Poll/Clone)
+    ├── DiscountCurve_                             (abstract: operator()(from, to) → df)
+    │   └── DiscountPWLF_                          (piecewise-linear forwards → discount factors)
 
 Storable_
-└── YieldCurve_                        (currency, discount access, LIBOR forecast interface)
-    └── CurveBlock_          (lightweight wrapper around a calibrated discount curve)
+└── YieldCurve_                                    (currency, discount access, LIBOR forecast interface)
+    └── CurveBlock_                                (lightweight wrapper around a calibrated discount curve)
 
-CurveWithBase_<T_, B_>                  (template mixin: optional base curve + substitution)
-└── DiscountPWLF_                      (also inherits FittableCurve_ for calibration)
+CurveWithBase_<T_, B_>                             (template mixin: optional base curve + substitution)
+└── DiscountPWLF_                                  (also inherits FittableCurve_ for calibration)
 ```
 
 ## Core Abstractions

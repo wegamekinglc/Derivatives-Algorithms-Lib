@@ -70,6 +70,7 @@ Review all changed C++ files and changed markdown guidance under `.claude/` and 
 - Review changed `.md` files under `.claude/` and `.codex/` as part of every code style review.
 - If a changed guidance file has a mirrored counterpart in the other tree, verify the counterpart is updated consistently. Path references may differ intentionally between `.claude` and `.codex`.
 - Check markdown tables against `.codex/rules/code-style.md`: aligned pipe columns, compact separator rows, and project-relative C++ file paths in table cells.
+- Check that code block diagrams (class hierarchies, pipelines) have trailing comments aligned to a consistent column.
 - Check that guidance changes remain internally consistent with current source, build/test commands, APIs, architecture notes, and methodology.
 
 ### Documentation Sync
