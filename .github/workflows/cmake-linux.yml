@@ -1,0 +1,91 @@
+name: CMake Linux CI
+on: [push, pull_request]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        compiler: [clang-18, clang-19, gcc-13, gcc-14]
+        aad-backend: [aadet, xad, codipack, adept]
+        include:
+          - compiler: clang-18
+            cc: clang-18
+            cxx: clang++-18
+            packages: clang-18 libomp-18-dev libstdc++-14-dev
+            coverage: false
+          - compiler: clang-19
+            cc: clang-19
+            cxx: clang++-19
+            packages: clang-19 libomp-19-dev libstdc++-14-dev
+            coverage: false
+          - compiler: gcc-13
+            cc: gcc-13
+            cxx: g++-13
+            packages: gcc-13 g++-13
+            coverage: true
+            gcov: gcov-13
+          - compiler: gcc-14
+            cc: gcc-14
+            cxx: g++-14
+            packages: gcc-14 g++-14
+            coverage: true
+            gcov: gcov-14
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Setup
+        run: |
+          sudo apt install -y ${{ matrix.packages }} \
+            libc++-dev make cmake libpython3-dev \
+            autotools-dev autoconf libtool
+
+      - name: Setup coverage
+        if: matrix.coverage
+        run: |
+          sudo ln -sf /usr/bin/${{ matrix.gcov }} /usr/bin/gcov
+          wget http://ftp.de.debian.org/debian/pool/main/l/lcov/lcov_1.16-1_all.deb
+          sudo dpkg -i lcov_1.16-1_all.deb || sudo apt-get install -f -y
+
+      - name: Configure AAD backend
+        run: |
+          case "${{ matrix.aad-backend }}" in
+            aadet)
+              FLAGS="-DDAL_USE_XAD_AAD=off -DDAL_USE_CODIPACK_AAD=off -DDAL_USE_ADEPT_AAD=off" ;;
+            xad)
+              FLAGS="-DDAL_USE_XAD_AAD=on -DDAL_USE_CODIPACK_AAD=off -DDAL_USE_ADEPT_AAD=off" ;;
+            codipack)
+              FLAGS="-DDAL_USE_XAD_AAD=off -DDAL_USE_CODIPACK_AAD=on -DDAL_USE_ADEPT_AAD=off" ;;
+            adept)
+              FLAGS="-DDAL_USE_XAD_AAD=off -DDAL_USE_CODIPACK_AAD=off -DDAL_USE_ADEPT_AAD=on" ;;
+          esac
+          echo "ADDITIONAL_CMAKE_FLAGS=$FLAGS" >> $GITHUB_ENV
+
+      - name: Compile and test
+        env:
+          CXXFLAGS: -O2
+          CC: ${{ matrix.cc }}
+          CXX: ${{ matrix.cxx }}
+        run: |
+          if ${{ matrix.coverage }}; then
+            sed -i 's/USE_COVERAGE=false/USE_COVERAGE=true/g' build_linux.sh
+          fi
+          bash -e ./build_linux.sh
+
+      - name: Coverage
+        if: matrix.coverage
+        run: |
+          mkdir ./coverage
+          lcov --directory ./build/ --capture --output-file --rc lcov_branch_coverage=1 ./coverage/lcov.info
+          lcov --remove ./coverage/lcov.info '/usr/*' '*/tests/*' '*/externals/*' '*MG_*' --output-file ./coverage/lcov.info
+          lcov --list ./coverage/lcov.info
+
+      - name: Coveralls
+        if: matrix.coverage
+        uses: coverallsapp/github-action@master
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
