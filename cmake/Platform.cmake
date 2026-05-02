@@ -26,6 +26,7 @@ if (MSVC)
 
     # /wd26812
     # Suppress warnings: "Prefer enum class over enum" (Enum.3)
+
     if (CMAKE_BUILD_TYPE STREQUAL "Debug")
         SET(MSVC_COMPILER_OPTION /wd4267 /wd26812 /std:c++17)
     else()

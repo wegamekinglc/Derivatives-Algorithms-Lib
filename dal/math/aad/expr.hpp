@@ -645,26 +645,12 @@ namespace Dal::AAD {
 
     FORCE_INLINE void PutOnTape(Number_&) {}
 
-    template <class T_, std::enable_if_t<std::is_arithmetic_v<T_>, int> = 0>
-    FORCE_INLINE double NPDF(T_ z) {
-        return 0.3989422804014327 * std::exp(-0.5 * z * z);
+    FORCE_INLINE Number_ NPDF(const Number_& z) {
+        return 0.3989422804014327 * exp(-0.5 * z * z);
     }
 
-    template <class T_, std::enable_if_t<std::is_arithmetic_v<T_>, int> = 0>
-    FORCE_INLINE double NCDF(T_ z) {
-        return 0.5 * std::erfc(-z / 1.4142135623730951);
-    }
-
-    template <class T_, std::enable_if_t<!std::is_arithmetic_v<T_>, int> = 0>
-    FORCE_INLINE Number_ NPDF(const T_& z) {
-        Number_ arg = z;
-        return 0.3989422804014327 * exp(-0.5 * arg * arg);
-    }
-
-    template <class T_, std::enable_if_t<!std::is_arithmetic_v<T_>, int> = 0>
-    FORCE_INLINE Number_ NCDF(const T_& z) {
-        Number_ arg = -z / 1.4142135623730951;
-        return 0.5 * erfc(arg);
+    FORCE_INLINE Number_ NCDF(const Number_& z) {
+        return 0.5 * erfc(-z / 1.4142135623730951);
     }
 } // namespace Dal::AAD
 #elif defined(DAL_USE_XAD_AAD)
