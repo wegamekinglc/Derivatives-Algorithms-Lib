@@ -11,7 +11,7 @@ Documentation of the yield curve framework in `dal/curve/`.
 | `dal/curve/discount.hpp`, `dal/curve/discount.cpp`                   | `DiscountCurve_` — abstract discount factor interface                                   |
 | `dal/curve/ycimp.hpp`, `dal/curve/ycimp.cpp`                         | `DiscountPWLF_` — concrete discount curve built on piecewise-linear forward rates       |
 | `dal/curve/fittable.hpp`                                             | `FittableCurve_` — interface for calibration (`NX()`, `ApplyDX()`)                      |
-| `dal/curve/yccalibration.hpp`, `dal/curve/yccalibration.cpp`         | `YCInstrument_`-based calibration, `CalibratedYieldCurve_`, and `CalibrateYieldCurve()` |
+| `dal/curve/curveblock.hpp`, `dal/curve/curveblock.cpp`               | `YCInstrument_`-based calibration, `CurveBlock_`, and `CalibrateYieldCurve()`           |
 | `dal/curve/piecewiseconstant.hpp`, `dal/curve/piecewiseconstant.cpp` | `PiecewiseConstant_` — step-function representation with precomputed integrals          |
 | `dal/curve/piecewiselinear.hpp`, `dal/curve/piecewiselinear.cpp`     | `PiecewiseLinear_` — continuous piecewise-linear function with precomputed integrals    |
 
@@ -19,16 +19,16 @@ Documentation of the yield curve framework in `dal/curve/`.
 
 ```
 Storable_
-└── YCComponent_                        (dependency tracking, Poll/Clone)
-    ├── DiscountCurve_                  (abstract: operator()(from, to) → df)
-    │   └── DiscountPWLF_              (piecewise-linear forwards → discount factors)
+└── YCComponent_                                   (dependency tracking, Poll/Clone)
+    ├── DiscountCurve_                             (abstract: operator()(from, to) → df)
+    │   └── DiscountPWLF_                          (piecewise-linear forwards → discount factors)
 
 Storable_
-└── YieldCurve_                        (currency, discount access, LIBOR forecast interface)
-    └── CalibratedYieldCurve_          (lightweight wrapper around a calibrated discount curve)
+└── YieldCurve_                                    (currency, discount access, LIBOR forecast interface)
+    └── CurveBlock_                                (lightweight wrapper around a calibrated discount curve)
 
-CurveWithBase_<T_, B_>                  (template mixin: optional base curve + substitution)
-└── DiscountPWLF_                      (also inherits FittableCurve_ for calibration)
+CurveWithBase_<T_, B_>                             (template mixin: optional base curve + substitution)
+└── DiscountPWLF_                                  (also inherits FittableCurve_ for calibration)
 ```
 
 ## Core Abstractions
@@ -40,7 +40,7 @@ Top-level entry point. Holds a currency and provides the interface for:
 - `Discount(CollateralType_)` → returns the `DiscountCurve_` for a given collateral type
 - `FwdLibor(PeriodLength_, Date_)` → forward LIBOR rate for a given tenor and fixing date
 
-Note: the current `CalibratedYieldCurve_` implementation wraps a discount curve for calibration/pricing, but deliberately leaves `FwdLibor()` unsupported.
+Note: the current `CurveBlock_` implementation wraps a discount curve for calibration/pricing, but deliberately leaves `FwdLibor()` unsupported.
 
 ### DiscountCurve_
 
@@ -206,7 +206,7 @@ PiecewiseLinear_ of instantaneous forward rates
 DiscountPWLF_ (discount factors via integration)
         │  DF = exp(-∫f(t)dt / 365) × base_DF
         ▼
-CalibratedYieldCurve_ (wraps the calibrated discount curve; `FwdLibor()` is currently unsupported)
+CurveBlock_ (wraps the calibrated discount curve; `FwdLibor()` is currently unsupported)
 ```
 
 ## Underdetermined Search for Curve Calibration
@@ -334,7 +334,7 @@ where `jWeight = ||func_tol||² / fit_tol²`. This balances fitting accuracy aga
 
 ### Integration with Curve Building
 
-The solver connects to `DiscountPWLF_` through the `FittableCurve_` interface. In the current `CalibrateYieldCurve()` implementation, `yccalibration.cpp` builds a simple tridiagonal smoothing matrix directly and solves for the `2K` left/right forward parameters.
+The solver connects to `DiscountPWLF_` through the `FittableCurve_` interface. In the current `CalibrateYieldCurve()` implementation, `curveblock.cpp` builds a simple tridiagonal smoothing matrix directly and solves for the `2K` left/right forward parameters.
 
 ```cpp
 class FittableCurve_ {

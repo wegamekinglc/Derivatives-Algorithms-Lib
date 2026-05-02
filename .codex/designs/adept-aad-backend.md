@@ -4,19 +4,19 @@
 Add Adept as a third external AAD backend behind the existing `Dal::AAD` free-function API. The rest of DAL should continue to use `AAD::Number_`, `Tape()`, `PutOnTape`, `Adjoint`, `Value`, and propagation helpers without backend-specific code.
 
 ## Affected Files
-| File                         | Action | Purpose                                      |
-|------------------------------|--------|----------------------------------------------|
-| `CMakeLists.txt`             | Modify | Add `DAL_USE_ADEPT_AAD` selection             |
-| `dal/CMakeLists.txt`         | Modify | Link `dal_library` to `adept` when selected   |
-| `public/src/CMakeLists.txt`  | Modify | Link public/static fold build to `adept`      |
-| `tests/CMakeLists.txt`       | Modify | Link `test_suite` to `adept`                  |
-| `examples/*/CMakeLists.txt`  | Modify | Link examples to `adept`                      |
-| `dal/math/aad/tape.hpp`      | Modify | Add Adept tape wrapper                        |
-| `dal/math/aad/tape.cpp`      | Modify | Add Adept clear/mark/rewind/propagation       |
-| `dal/math/aad/expr.hpp`      | Modify | Add Adept `Number_` alias and math API        |
-| `dal/math/aad/aad.hpp`       | Modify | Treat Adept as external backend               |
-| `dal/platform/initall.cpp`   | Modify | Report Adept backend                          |
-| `examples/aad/aad.cpp`       | Modify | Report Adept in example output                |
+| File                        | Action | Purpose                                     |
+|-----------------------------|--------|---------------------------------------------|
+| `CMakeLists.txt`            | Modify | Add `DAL_USE_ADEPT_AAD` selection           |
+| `dal/CMakeLists.txt`        | Modify | Link `dal_library` to `adept` when selected |
+| `public/src/CMakeLists.txt` | Modify | Link public/static fold build to `adept`    |
+| `tests/CMakeLists.txt`      | Modify | Link `test_suite` to `adept`                |
+| `examples/*/CMakeLists.txt` | Modify | Link examples to `adept`                    |
+| `dal/math/aad/tape.hpp`     | Modify | Add Adept tape wrapper                      |
+| `dal/math/aad/tape.cpp`     | Modify | Add Adept clear/mark/rewind/propagation     |
+| `dal/math/aad/expr.hpp`     | Modify | Add Adept `Number_` alias and math API      |
+| `dal/math/aad/aad.hpp`      | Modify | Treat Adept as external backend             |
+| `dal/platform/initall.cpp`  | Modify | Report Adept backend                        |
+| `examples/aad/aad.cpp`      | Modify | Report Adept in example output              |
 
 ## Design Decisions
 - **Decision:** Use `using Number_ = adept::adouble` directly.

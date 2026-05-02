@@ -4,16 +4,16 @@ Documentation of the AAD framework in `dal/math/aad/`.
 
 ## File Map
 
-| File                         | Purpose                                                                                      |
-|------------------------------|----------------------------------------------------------------------------------------------|
-| `dal/math/aad/expr.hpp`      | Expression template hierarchy, operator overloads, and backend-specific `Number_`            |
-| `dal/math/aad/tape.hpp`      | `Tape_` declaration for native `BlockList_`, XAD, CoDiPack, or Adept backends                |
-| `dal/math/aad/tape.cpp`      | Propagation, mark, rewind, and clear for native, XAD, CoDiPack, and Adept paths              |
-| `dal/math/aad/node.hpp`      | `TapNode_` — per-operation node storing local derivatives and adjoint pointers                |
-| `dal/math/aad/blocklist.hpp` | `BlockList_<T_, BLOCK_SIZE>` — segmented arena allocator backing the native tape             |
-| `dal/math/aad/aad.hpp`       | Multi-result support (`SetNumResultsForAAD`), `PutOnTape`, `Clear`                           |
-| `dal/math/aad/aad.cpp`       | Static initializers for `TapNode_::numAdj_` and `Tape_::multi_` in the native backend         |
-| `dal/math/aad/sample.hpp`    | `Sample_<T_>` and `Scenario_<T_>` — container for AAD-aware market scenarios                 |
+| File                         | Purpose                                                                               |
+|------------------------------|---------------------------------------------------------------------------------------|
+| `dal/math/aad/expr.hpp`      | Expression template hierarchy, operator overloads, and backend-specific `Number_`     |
+| `dal/math/aad/tape.hpp`      | `Tape_` declaration for native `BlockList_`, XAD, CoDiPack, or Adept backends         |
+| `dal/math/aad/tape.cpp`      | Propagation, mark, rewind, and clear for native, XAD, CoDiPack, and Adept paths       |
+| `dal/math/aad/node.hpp`      | `TapNode_` — per-operation node storing local derivatives and adjoint pointers        |
+| `dal/math/aad/blocklist.hpp` | `BlockList_<T_, BLOCK_SIZE>` — segmented arena allocator backing the native tape      |
+| `dal/math/aad/aad.hpp`       | Multi-result support (`SetNumResultsForAAD`), `PutOnTape`, `Clear`                    |
+| `dal/math/aad/aad.cpp`       | Static initializers for `TapNode_::numAdj_` and `Tape_::multi_` in the native backend |
+| `dal/math/aad/sample.hpp`    | `Sample_<T_>` and `Scenario_<T_>` — container for AAD-aware market scenarios          |
 
 ## Design Overview
 
@@ -234,16 +234,16 @@ double dx2 = Adjoint(x2);  // ∂y/∂x₂
 
 The `DAL_USE_*_AAD` preprocessor branches in `expr.hpp` and `tape.hpp` provide interchangeable AAD backends behind identical free-function APIs:
 
-| Operation                     | Native Path                                            | XAD Path                                   | CoDiPack Path                    | Adept Path                       |
-|-------------------------------|--------------------------------------------------------|--------------------------------------------|----------------------------------|----------------------------------|
-| `Number_`                     | Custom expression-template type                        | `xad::adj<double>::active_type`            | `codi::RealReverseUnchecked`     | `adept::adouble`                 |
-| `Value(n)`                    | Returns `n.value_`                                     | `xad::value(n)`                            | `n.getValue()`                   | `adept::value(n)`                |
-| `Adjoint(n)`                  | Returns `n.node_->Adjoint()`                           | `xad::derivative(n)`                       | `n.getGradient()`                | `n.get_gradient()`               |
-| `PutOnTape(n)`                | Creates zero-arg node                                  | `tape_.registerInput(n)`                   | `tape_.registerInput(n)`         | No-op after active construction  |
-| `Tape()`                      | Returns `thread_local Tape_` with `BlockList_` storage | Returns `thread_local Tape_` with XAD tape | Returns CoDiPack's active tape   | Returns Adept thread-local tape  |
-| `PropagateToStart(t)`         | Walks native tape backward                             | `tape_.computeAdjointsTo(start_)`          | `tape_.evaluate(position,start_)` | Reverses selected Adept range    |
-| `Mark(t)` / `RewindToMark(t)` | Saves/restores `BlockList_` cursor positions           | Saves/restores tape positions              | Saves/restores tape positions    | Saves/restores Adept positions   |
-| Operator overloads            | Return `BinaryExpression_`/`UnaryExpression_`          | Imported via `using xad::operator*` etc.   | Imported via `using codi::*`     | Imported via `using adept::*`    |
+| Operation                     | Native Path                                            | XAD Path                                   | CoDiPack Path                     | Adept Path                      |
+|-------------------------------|--------------------------------------------------------|--------------------------------------------|-----------------------------------|---------------------------------|
+| `Number_`                     | Custom expression-template type                        | `xad::adj<double>::active_type`            | `codi::RealReverseUnchecked`      | `adept::adouble`                |
+| `Value(n)`                    | Returns `n.value_`                                     | `xad::value(n)`                            | `n.getValue()`                    | `adept::value(n)`               |
+| `Adjoint(n)`                  | Returns `n.node_->Adjoint()`                           | `xad::derivative(n)`                       | `n.getGradient()`                 | `n.get_gradient()`              |
+| `PutOnTape(n)`                | Creates zero-arg node                                  | `tape_.registerInput(n)`                   | `tape_.registerInput(n)`          | No-op after active construction |
+| `Tape()`                      | Returns `thread_local Tape_` with `BlockList_` storage | Returns `thread_local Tape_` with XAD tape | Returns CoDiPack's active tape    | Returns Adept thread-local tape |
+| `PropagateToStart(t)`         | Walks native tape backward                             | `tape_.computeAdjointsTo(start_)`          | `tape_.evaluate(position,start_)` | Reverses selected Adept range   |
+| `Mark(t)` / `RewindToMark(t)` | Saves/restores `BlockList_` cursor positions           | Saves/restores tape positions              | Saves/restores tape positions     | Saves/restores Adept positions  |
+| Operator overloads            | Return `BinaryExpression_`/`UnaryExpression_`          | Imported via `using xad::operator*` etc.   | Imported via `using codi::*`      | Imported via `using adept::*`   |
 
 The native path records operations eagerly during the forward pass — each expression assignment creates a tape node. External paths delegate operation recording to the selected backend, while DAL preserves the same free-function API and checkpoint-style propagation calls.
 

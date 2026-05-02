@@ -14,10 +14,10 @@
 
 namespace Dal {
 
-    class CalibratedYieldCurve_ : public YieldCurve_ {
+    class CurveBlock_ : public YieldCurve_ {
         const DiscountCurve_& dc_;
     public:
-        explicit CalibratedYieldCurve_(const DiscountCurve_& dc);
+        explicit CurveBlock_(const DiscountCurve_& dc);
         [[nodiscard]] const DiscountCurve_& Discount(const CollateralType_& collateral) const override;
         [[nodiscard]] double FwdLibor(const PeriodLength_& tenor, const Date_& fixing_date) const override;
         void Write(Archive::Store_& dst) const override;
