@@ -9,6 +9,7 @@
 using Dal::AAD::Number_;
 using Dal::AAD::Tape_;
 using Dal::AAD::Adjoint;
+using Dal::AAD::PutOnTape;
 
 TEST(AADTapeTest, TestPropagateToMark) {
     auto* tape = Dal::AAD::Tape();
@@ -16,6 +17,8 @@ TEST(AADTapeTest, TestPropagateToMark) {
 
     Number_ x0 = 1.0;
     Number_ x1 = 2.0;
+    PutOnTape(x0);
+    PutOnTape(x1);
     Mark(*tape);
 
     Number_ y = x0 * x1;
@@ -33,6 +36,7 @@ TEST(AADTapeTest, TestMultipleMarkCycles) {
     Clear(*tape);
 
     Number_ x0 = 1.0;
+    PutOnTape(x0);
     Mark(*tape);
 
     {
@@ -60,6 +64,7 @@ TEST(AADTapeTest, TestRepeatedClearAndRecord) {
     for (int i = 0; i < 3; ++i) {
         Clear(*tape);
         Number_ x = 1.0;
+        PutOnTape(x);
         Mark(*tape);
         Number_ y = x * 2.0;
         Adjoint(y) = 1.0;
