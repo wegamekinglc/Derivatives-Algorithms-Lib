@@ -19,11 +19,11 @@ This is the solver used by yield-curve calibration, but it is written as a gener
 | `dal/math/optimization/underdetermined.hpp`        | Core solver API declarations for `Find()` and `Approximate()`          |
 | `dal/math/optimization/underdetermined.cpp`        | Core solver implementation and Jacobian handling                       |
 | `dal/math/optimization/underdeterminedutils.hpp`   | Utility helpers for building smoothness weights such as `WeightsPWC()` |
-| `dal/curve/yccalibration.hpp`                      | Yield-curve calibration declarations using the underdetermined solver  |
-| `dal/curve/yccalibration.cpp`                      | Yield-curve calibration implementation using the solver                |
+| `dal/curve/curveblock.hpp`                      | Yield-curve calibration declarations using the underdetermined solver  |
+| `dal/curve/curveblock.cpp`                      | Yield-curve calibration implementation using the solver                |
 | `examples/underdetermined/underdetermined.cpp`     | End-to-end demonstration using curve calibration                       |
 | `tests/math/optimization/test_underdetermined.cpp` | Direct solver coverage                                                 |
-| `tests/curve/test_yccalibration.cpp`               | Integration coverage through yield-curve calibration                   |
+| `tests/curve/test_curveblock.cpp`               | Integration coverage through yield-curve calibration                   |
 
 ## Core API
 
@@ -296,7 +296,7 @@ This is useful when the unknowns represent values along time buckets or knot poi
 
 ## Curve Calibration Integration
 
-The solver is used directly in `dal/curve/yccalibration.cpp`.
+The solver is used directly in `dal/curve/curveblock.cpp`.
 
 ### Current Calibration Setup
 
@@ -307,7 +307,7 @@ The solver is used directly in `dal/curve/yccalibration.cpp`.
 - weights: a tridiagonal smoothing matrix built inline by `BuildSmoothingWeights()`
 - solve path: `Underdetermined::Find(...)`
 
-The calibration function in `dal/curve/yccalibration.cpp` builds a `PiecewiseLinear_` from the parameter vector, wraps it in `DiscountPWLF_` from `dal/curve/ycimp.cpp`, then reprices all instruments through `CalibratedYieldCurve_` declared in `dal/curve/yccalibration.hpp`.
+The calibration function in `dal/curve/curveblock.cpp` builds a `PiecewiseLinear_` from the parameter vector, wraps it in `DiscountPWLF_` from `dal/curve/ycimp.cpp`, then reprices all instruments through `CurveBlock_` declared in `dal/curve/curveblock.hpp`.
 
 ### High-Level Pipeline
 
@@ -332,7 +332,7 @@ class FittableCurve_ {
 };
 ```
 
-`DiscountPWLF_` in `dal/curve/ycimp.cpp` implements that interface, but the current `CalibrateYieldCurve()` path in `dal/curve/yccalibration.cpp` does not drive calibration through `FittableCurve_` directly. Instead it rebuilds a temporary `PiecewiseLinear_` from the candidate parameter vector inside the residual function.
+`DiscountPWLF_` in `dal/curve/ycimp.cpp` implements that interface, but the current `CalibrateYieldCurve()` path in `dal/curve/curveblock.cpp` does not drive calibration through `FittableCurve_` directly. Instead it rebuilds a temporary `PiecewiseLinear_` from the candidate parameter vector inside the residual function.
 
 ## Example and Tests
 
@@ -356,7 +356,7 @@ class FittableCurve_ {
 
 ### Integration Tests
 
-`tests/curve/test_yccalibration.cpp` checks successful repricing for:
+`tests/curve/test_curveblock.cpp` checks successful repricing for:
 
 - a flat curve
 - an upward-sloping curve
@@ -370,7 +370,7 @@ These points reflect the code as it exists today:
 1. `Find()` accepts `Matrix_<>* eff_j_inv`, but the current implementation does **not** populate it.
 2. `Approximate()` returns the last iterate if it runs out of evaluation budget without meeting `fit_tol`; it does not throw on non-convergence by default.
 3. `CalibrateYieldCurve()` currently builds its smoothing matrix inline instead of reusing `WeightsPWC()`.
-4. `CalibratedYieldCurve_` supports discounting for repricing, but `FwdLibor()` currently throws.
+4. `CurveBlock_` supports discounting for repricing, but `FwdLibor()` currently throws.
 5. The exact solver throws if it cannot find a descent direction and does not have a fresh-approximation path available:
    `REQUIRE(tookStep || approxJ, "Could not find a descent direction in underdetermined search")`.
 

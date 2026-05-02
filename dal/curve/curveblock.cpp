@@ -5,7 +5,7 @@
 #include <memory>
 #include <dal/platform/platform.hpp>
 #include <dal/platform/strict.hpp>
-#include <dal/curve/yccalibration.hpp>
+#include <dal/curve/curveblock.hpp>
 #include <dal/curve/yc.hpp>
 #include <dal/curve/piecewiselinear.hpp>
 #include <dal/curve/ycimp.hpp>
@@ -16,20 +16,20 @@
 #include <dal/utilities/dictionary.hpp>
 
 namespace Dal {
-    // CalibratedYieldCurve_
+    // CurveBlock_
 
-    CalibratedYieldCurve_::CalibratedYieldCurve_(const DiscountCurve_& dc)
+    CurveBlock_::CurveBlock_(const DiscountCurve_& dc)
         : YieldCurve_(dc.name_, dc.ccy_.String()), dc_(dc) {}
 
-    const DiscountCurve_& CalibratedYieldCurve_::Discount(const CollateralType_&) const { return dc_; }
+    const DiscountCurve_& CurveBlock_::Discount(const CollateralType_&) const { return dc_; }
 
-    double CalibratedYieldCurve_::FwdLibor(const PeriodLength_&, const Date_&) const {
-        REQUIRE(false, "CalibratedYieldCurve_ does not support FwdLibor");
+    double CurveBlock_::FwdLibor(const PeriodLength_&, const Date_&) const {
+        REQUIRE(false, "CurveBlock_ does not support FwdLibor");
         return 0.0;
     }
 
-    void CalibratedYieldCurve_::Write(Archive::Store_&) const {
-        REQUIRE(false, "CalibratedYieldCurve_ is not serializable");
+    void CurveBlock_::Write(Archive::Store_&) const {
+        REQUIRE(false, "CurveBlock_ is not serializable");
     }
 
     // Calibration
@@ -79,7 +79,7 @@ namespace Dal {
 
                 PiecewiseLinear_ pwl(knotDates_, fLeft, fRight);
                 std::unique_ptr<DiscountCurve_> dc(NewDiscountPWLF(String_("calib"), ccy_.String(), pwl));
-                CalibratedYieldCurve_ yc(*dc);
+                CurveBlock_ yc(*dc);
 
                 const int nInst = static_cast<int>(instruments_.size());
                 Vector_<> result(nInst);

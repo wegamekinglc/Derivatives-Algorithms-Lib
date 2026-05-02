@@ -6,7 +6,7 @@
 #include <iostream>
 #include <memory>
 #include <dal/platform/platform.hpp>
-#include <dal/curve/yccalibration.hpp>
+#include <dal/curve/curveblock.hpp>
 
 using namespace Dal;
 
@@ -55,7 +55,7 @@ int main() {
     std::cout << std::fixed << std::setprecision(6);
     std::cout << std::setw(12) << "Instrument" << std::setw(10) << "Market" << std::setw(12) << "Model" << std::setw(12) << "Error(bp)\n";
 
-    CalibratedYieldCurve_ calibYC(*dc);
+    CurveBlock_ calibYC(*dc);
     for (int i = 0; i < nInstruments; ++i) {
         Handle_<YCInstrument_::Rate_> rate = instruments[i]->Precompute(instruments[i], Handle_<YieldCurve_>());
         double modelRate = (*rate)(calibYC);

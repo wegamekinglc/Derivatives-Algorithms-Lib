@@ -6,7 +6,7 @@
 #include <cmath>
 #include <memory>
 #include <dal/platform/platform.hpp>
-#include <dal/curve/yccalibration.hpp>
+#include <dal/curve/curveblock.hpp>
 #include <dal/curve/piecewiselinear.hpp>
 #include <dal/curve/ycimp.hpp>
 
@@ -22,7 +22,7 @@ namespace {
     }
 } // namespace
 
-TEST(YieldCurveCalibrationTest, TestFlatCurveCalibration) {
+TEST(CurveBlockTest, TestFlatCurveCalibration) {
     const Date_ today(2024, 1, 15);
     const DayBasis_ basis("ACT_365F");
     const String_ ccy = "USD";
@@ -44,7 +44,7 @@ TEST(YieldCurveCalibrationTest, TestFlatCurveCalibration) {
     AssertQuotesFarFromInitialGuess(instruments);
 
     std::unique_ptr<DiscountCurve_> dc(CalibrateYieldCurve(today, ccy, instruments, knotDates));
-    CalibratedYieldCurve_ yc(*dc);
+    CurveBlock_ yc(*dc);
 
     for (const auto& inst : instruments) {
         Handle_<YCInstrument_::Rate_> rate = inst->Precompute(inst, Handle_<YieldCurve_>());
@@ -53,7 +53,7 @@ TEST(YieldCurveCalibrationTest, TestFlatCurveCalibration) {
     }
 }
 
-TEST(YieldCurveCalibrationTest, TestUpwardSlopingCurve) {
+TEST(CurveBlockTest, TestUpwardSlopingCurve) {
     const Date_ today(2024, 1, 15);
     const String_ ccy = "USD";
     const DayBasis_ basis("ACT_365F");
@@ -82,7 +82,7 @@ TEST(YieldCurveCalibrationTest, TestUpwardSlopingCurve) {
     AssertQuotesFarFromInitialGuess(instruments);
 
     std::unique_ptr<DiscountCurve_> dc(CalibrateYieldCurve(today, ccy, instruments, knotDates));
-    CalibratedYieldCurve_ yc(*dc);
+    CurveBlock_ yc(*dc);
 
     for (const auto& inst : instruments) {
         Handle_<YCInstrument_::Rate_> rate = inst->Precompute(inst, Handle_<YieldCurve_>());
@@ -91,7 +91,7 @@ TEST(YieldCurveCalibrationTest, TestUpwardSlopingCurve) {
     }
 }
 
-TEST(YieldCurveCalibrationTest, TestRoundTrip) {
+TEST(CurveBlockTest, TestRoundTrip) {
     const Date_ today(2024, 1, 15);
     const String_ ccy = "USD";
     const DayBasis_ basis("ACT_365F");
@@ -122,7 +122,7 @@ TEST(YieldCurveCalibrationTest, TestRoundTrip) {
     AssertQuotesFarFromInitialGuess(instruments);
 
     std::unique_ptr<DiscountCurve_> calibDc(CalibrateYieldCurve(today, ccy, instruments, knotDates));
-    CalibratedYieldCurve_ yc(*calibDc);
+    CurveBlock_ yc(*calibDc);
 
     for (const auto& inst : instruments) {
         Handle_<YCInstrument_::Rate_> rate = inst->Precompute(inst, Handle_<YieldCurve_>());
@@ -131,7 +131,7 @@ TEST(YieldCurveCalibrationTest, TestRoundTrip) {
     }
 }
 
-TEST(YieldCurveCalibrationTest, TestCalibrationWithSTIR) {
+TEST(CurveBlockTest, TestCalibrationWithSTIR) {
     const Date_ today(2024, 1, 15);
     const String_ ccy = "USD";
     const DayBasis_ basis("ACT_365F");
@@ -155,7 +155,7 @@ TEST(YieldCurveCalibrationTest, TestCalibrationWithSTIR) {
     AssertQuotesFarFromInitialGuess(instruments);
 
     std::unique_ptr<DiscountCurve_> dc(CalibrateYieldCurve(today, ccy, instruments, knotDates));
-    CalibratedYieldCurve_ yc(*dc);
+    CurveBlock_ yc(*dc);
 
     for (const auto& inst : instruments) {
         Handle_<YCInstrument_::Rate_> rate = inst->Precompute(inst, Handle_<YieldCurve_>());
