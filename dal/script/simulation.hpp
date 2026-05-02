@@ -107,7 +107,7 @@ namespace Dal::Script {
         SimResults_ results(Vector::Join(mdl->ParameterLabels(), product.ConstVarNames()));
 
         Vector_<TaskHandle_> futures;
-        const int batchSize = std::max(BATCH_SIZE, static_cast<int>(n_paths / nThreads) + 1);
+        const int batchSize = std::min(BATCH_SIZE, static_cast<int>(n_paths / nThreads) + 1);
         futures.reserve(n_paths / batchSize + 1);
         Vector_<> simResults;
         simResults.reserve(n_paths / batchSize + 1);

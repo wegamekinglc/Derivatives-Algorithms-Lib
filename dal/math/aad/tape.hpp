@@ -86,24 +86,29 @@ namespace Dal::AAD {
         adept::uIndex operations_;
     };
 
-    class Stack_ : public adept::Stack {
+    class Tape_ : public adept::Stack {
     public:
-        explicit Stack_(bool activate = true) : adept::Stack(activate) {}
+        using adept::Stack::compute_adjoint;
+
+        Position_ start_;
+        Position_ mark_;
+
+        explicit Tape_(bool activate = true) : adept::Stack(activate), start_(Position()), mark_(start_) {}
 
         [[nodiscard]] Position_ Position() const {
-            return {n_statements_, n_operations_};
+            return {n_statements(), n_operations()};
         }
 
-        void ResetTo(Position_ position) {
-            n_statements_ = position.statements_;
-            n_operations_ = position.operations_;
+        void reset_to(adept::uIndex nStatements, adept::uIndex nOperations) {
+            n_statements_ = nStatements;
+            n_operations_ = nOperations;
         }
 
-        void ReverseRange(Position_ from, Position_ to) {
+        void compute_adjoint(adept::uIndex fromStatement, adept::uIndex toStatement) {
             if (!gradients_are_initialized())
                 THROW("Adept gradients are not initialized");
 
-            for (adept::uIndex ist = from.statements_; ist > to.statements_; --ist) {
+            for (adept::uIndex ist = fromStatement; ist > toStatement && ist > 1; --ist) {
                 const adept::uIndex statementIndex = ist - 1;
                 const auto& statement = statement_[statementIndex];
                 adept::Real adjoint = gradient_[statement.index];
@@ -114,15 +119,6 @@ namespace Dal::AAD {
                 }
             }
         }
-    };
-
-    class Tape_ {
-    public:
-        Stack_ tape_;
-        Position_ start_;
-        Position_ mark_;
-
-        explicit Tape_(bool activate = true) : tape_(activate), start_(tape_.Position()), mark_(start_) {}
     };
 
     void Clear(Tape_& tape);
