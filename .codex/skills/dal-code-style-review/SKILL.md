@@ -1,12 +1,12 @@
 ---
 name: dal-code-style-review
-description: Review changed C++ code for compliance with this project's coding and unit test style. Use when the user asks to review code style, check style compliance, lint code, verify naming conventions, review changed files for project conventions, or says "review my changes", "check the style", "does this follow our conventions", or similar.
+description: Review changed C++ code and DAL markdown guidance for compliance with this project's coding, unit test, and documentation style. Use when the user asks to review code style, check style compliance, lint code, verify naming conventions, review changed files for project conventions, check .claude/.codex markdown guidance, or says "review my changes", "check the style", "does this follow our conventions", or similar.
 user-invocable: true
 ---
 
 # Code Style Review
 
-Review all changed files in the working tree against the project's coding conventions defined in `.codex/rules/code-style.md` and `.codex/rules/unit-test-style.md`.
+Review all changed C++ files and changed markdown guidance under `.claude/` and `.codex/` in the working tree against the project's conventions defined in `.codex/rules/code-style.md` and `.codex/rules/unit-test-style.md`.
 
 ## Steps
 
@@ -23,7 +23,7 @@ Review all changed files in the working tree against the project's coding conven
    git diff --name-only HEAD~1
    ```
 
-3. Read each changed `.hpp`, `.cpp` file and check for violations against the rules below.
+3. Read each changed `.hpp`, `.cpp` file and each changed `.md` file under `.claude/` or `.codex/`, then check for violations against the rules below.
 
 4. If the code changes affect documented behavior, workflows, architecture notes, or methodology, also check whether the related markdown files under `.claude/` and `.codex/` were updated consistently.
 
@@ -65,6 +65,12 @@ Review all changed files in the working tree against the project's coding conven
 - All files must end with a newline
 - Use `nullptr` instead of `NULL`
 - Namespace closing braces must have a comment: `} // namespace Dal`
+
+### Markdown Guidance Files
+- Review changed `.md` files under `.claude/` and `.codex/` as part of every code style review.
+- If a changed guidance file has a mirrored counterpart in the other tree, verify the counterpart is updated consistently. Path references may differ intentionally between `.claude` and `.codex`.
+- Check markdown tables against `.codex/rules/code-style.md`: aligned pipe columns, compact separator rows, and project-relative C++ file paths in table cells.
+- Check that guidance changes remain internally consistent with current source, build/test commands, APIs, architecture notes, and methodology.
 
 ### Documentation Sync
 - If code changes alter documented behavior, APIs, build/test workflow, architecture notes, or methodology, check that the corresponding markdown guidance under `.claude/` and `.codex/` is updated to stay consistent.

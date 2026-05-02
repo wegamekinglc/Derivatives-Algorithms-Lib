@@ -11,7 +11,7 @@ Documentation of the yield curve framework in `dal/curve/`.
 | `dal/curve/discount.hpp`, `dal/curve/discount.cpp`                   | `DiscountCurve_` — abstract discount factor interface                                   |
 | `dal/curve/ycimp.hpp`, `dal/curve/ycimp.cpp`                         | `DiscountPWLF_` — concrete discount curve built on piecewise-linear forward rates       |
 | `dal/curve/fittable.hpp`                                             | `FittableCurve_` — interface for calibration (`NX()`, `ApplyDX()`)                      |
-| `dal/curve/curveblock.hpp`, `dal/curve/curveblock.cpp`         | `YCInstrument_`-based calibration, `CurveBlock_`, and `CalibrateYieldCurve()` |
+| `dal/curve/curveblock.hpp`, `dal/curve/curveblock.cpp`               | `YCInstrument_`-based calibration, `CurveBlock_`, and `CalibrateYieldCurve()`           |
 | `dal/curve/piecewiseconstant.hpp`, `dal/curve/piecewiseconstant.cpp` | `PiecewiseConstant_` — step-function representation with precomputed integrals          |
 | `dal/curve/piecewiselinear.hpp`, `dal/curve/piecewiselinear.cpp`     | `PiecewiseLinear_` — continuous piecewise-linear function with precomputed integrals    |
 

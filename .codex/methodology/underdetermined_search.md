@@ -19,11 +19,11 @@ This is the solver used by yield-curve calibration, but it is written as a gener
 | `dal/math/optimization/underdetermined.hpp`        | Core solver API declarations for `Find()` and `Approximate()`          |
 | `dal/math/optimization/underdetermined.cpp`        | Core solver implementation and Jacobian handling                       |
 | `dal/math/optimization/underdeterminedutils.hpp`   | Utility helpers for building smoothness weights such as `WeightsPWC()` |
-| `dal/curve/curveblock.hpp`                      | Yield-curve calibration declarations using the underdetermined solver  |
-| `dal/curve/curveblock.cpp`                      | Yield-curve calibration implementation using the solver                |
+| `dal/curve/curveblock.hpp`                         | Yield-curve calibration declarations using the underdetermined solver  |
+| `dal/curve/curveblock.cpp`                         | Yield-curve calibration implementation using the solver                |
 | `examples/underdetermined/underdetermined.cpp`     | End-to-end demonstration using curve calibration                       |
 | `tests/math/optimization/test_underdetermined.cpp` | Direct solver coverage                                                 |
-| `tests/curve/test_curveblock.cpp`               | Integration coverage through yield-curve calibration                   |
+| `tests/curve/test_curveblock.cpp`                  | Integration coverage through yield-curve calibration                   |
 
 ## Core API
 
