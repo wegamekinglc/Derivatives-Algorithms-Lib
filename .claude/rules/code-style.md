@@ -36,7 +36,7 @@
 - Keep separator rows compact: each column's dash count equals the column width (content length + 2). Do not add spaces around dashes between pipes.
 - When table cells reference specific C++ files, use project-relative paths such as `dal/curve/yc.hpp`, not short names like `yc.hpp` or shorthand like `yc.hpp/cpp`.
 - For convention-only filename examples, use filenames without project-relative paths, such as `threadpool.cpp` or `test_date.cpp`.
-- Keep mirrored tables under `.claude` and `.codex` consistent.
+- Keep related markdown tables consistent across `.claude` guidance files.
 
 ## Header Files
 

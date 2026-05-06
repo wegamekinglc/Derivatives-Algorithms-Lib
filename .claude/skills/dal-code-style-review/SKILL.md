@@ -1,12 +1,12 @@
 ---
 name: dal-code-style-review
-description: Review changed C++ code and DAL markdown guidance for compliance with this project's coding, unit test, and documentation style. Use when the user asks to review code style, check style compliance, lint code, verify naming conventions, review changed files for project conventions, check .claude/.codex markdown guidance, or says "review my changes", "check the style", "does this follow our conventions", or similar.
+description: Review changed C++ code and DAL markdown guidance for compliance with this project's coding, unit test, and documentation style. Use when the user asks to review code style, check style compliance, lint code, verify naming conventions, review changed files for project conventions, check .claude markdown guidance, or says "review my changes", "check the style", "does this follow our conventions", or similar.
 user-invocable: true
 ---
 
 # Code Style Review
 
-Review all changed C++ files and changed markdown guidance under `.claude/` and `.codex/` in the working tree against the project's conventions defined in `.claude/rules/code-style.md` and `.claude/rules/unit-test-style.md`.
+Review all changed C++ files and changed markdown guidance under `.claude/` in the working tree against the project's conventions defined in `.claude/rules/code-style.md` and `.claude/rules/unit-test-style.md`.
 
 ## Steps
 
@@ -23,9 +23,9 @@ Review all changed C++ files and changed markdown guidance under `.claude/` and 
    git diff --name-only HEAD~1
    ```
 
-3. Read each changed `.hpp`, `.cpp` file and each changed `.md` file under `.claude/` or `.codex/`, then check for violations against the rules below.
+3. Read each changed `.hpp`, `.cpp` file and each changed `.md` file under `.claude/`, then check for violations against the rules below.
 
-4. If the code changes affect documented behavior, workflows, architecture notes, or methodology, also check whether the related markdown files under `.claude/` and `.codex/` were updated consistently.
+4. If the code changes affect documented behavior, workflows, architecture notes, or methodology, also check whether the related markdown files under `.claude/` were updated consistently.
 
 5. Report findings grouped by file, with line numbers and specific violations. If no violations are found, say so.
 
@@ -67,12 +67,11 @@ Review all changed C++ files and changed markdown guidance under `.claude/` and 
 - Namespace closing braces must have a comment: `} // namespace Dal`
 
 ### Markdown Guidance Files
-- Review changed `.md` files under `.claude/` and `.codex/` as part of every code style review.
-- If a changed guidance file has a mirrored counterpart in the other tree, verify the counterpart is updated consistently. Path references may differ intentionally between `.claude` and `.codex`.
+- Review changed `.md` files under `.claude/` as part of every code style review.
 - Check markdown tables against `.claude/rules/code-style.md`: aligned pipe columns, compact separator rows, and project-relative C++ file paths in table cells.
 - Check that code block diagrams (class hierarchies, pipelines) have trailing comments aligned to a consistent column.
 - Check that guidance changes remain internally consistent with current source, build/test commands, APIs, architecture notes, and methodology.
 
 ### Documentation Sync
-- If code changes alter documented behavior, APIs, build/test workflow, architecture notes, or methodology, check that the corresponding markdown guidance under `.claude/` and `.codex/` is updated to stay consistent.
+- If code changes alter documented behavior, APIs, build/test workflow, architecture notes, or methodology, check that the corresponding markdown guidance under `.claude/` is updated to stay consistent.
 - Call out missing doc updates as review findings, and note both the code file and the stale markdown file when possible.
