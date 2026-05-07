@@ -12,7 +12,7 @@ using namespace Dal;
 
 TEST(ProtocolTest, TestFixedRate) {
     FixedRate_ fr(0.05);
-    ASSERT_NEAR(fr.rate_, 0.05, 0.001);
+    ASSERT_NEAR(fr.rate_, 0.05, 1e-10);
 }
 
 TEST(ProtocolTest, TestLiborRate) {
