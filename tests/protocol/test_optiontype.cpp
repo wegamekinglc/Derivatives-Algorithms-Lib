@@ -4,6 +4,7 @@
 
 #include <gtest/gtest.h>
 #include <dal/platform/platform.hpp>
+#include <dal/math/operators.hpp>
 #include <dal/protocol/optiontype.hpp>
 
 using namespace Dal;
