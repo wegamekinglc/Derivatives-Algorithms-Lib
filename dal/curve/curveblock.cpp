@@ -14,17 +14,18 @@ namespace Dal {
         Handle_<DiscountCurve_> MakeBorrowedHandle(const DiscountCurve_& curve) {
             return Handle_<DiscountCurve_>(std::shared_ptr<const DiscountCurve_>(&curve, [](const DiscountCurve_*) {}));
         }
+
+        const DiscountCurve_& CheckedCurve(const Handle_<DiscountCurve_>& curve) {
+            REQUIRE(curve, "CurveBlock_ requires a non-empty discount curve handle");
+            return *curve;
+        }
     } // namespace
 
     CurveBlock_::CurveBlock_(const DiscountCurve_& dc)
         : CurveBlock_(MakeBorrowedHandle(dc)) {}
 
     CurveBlock_::CurveBlock_(const Handle_<DiscountCurve_>& dc, const DayBasis_& liborBasis)
-        : CurveBlock_([&dc]() -> const DiscountCurve_& {
-                          REQUIRE(dc, "CurveBlock_ requires a non-empty discount curve handle");
-                          return *dc;
-                      }(),
-                      liborBasis) {}
+        : CurveBlock_(CheckedCurve(dc), liborBasis) {}
 
     CurveBlock_::CurveBlock_(const DiscountCurve_& dc, const DayBasis_& liborBasis)
         : CurveBlock_(dc.name_,

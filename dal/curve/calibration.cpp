@@ -236,7 +236,7 @@ namespace Dal {
         Date_ latestEnd = spec.today_;
         for (const auto& inst : spec.instruments_) {
             const auto span = inst->TimeSpan();
-            REQUIRE(span.second > span.first || span.first == spec.today_, "Curve instrument maturity must follow its start date");
+            REQUIRE(span.second > span.first, "Curve instrument maturity must follow its start date");
             REQUIRE(span.second > spec.today_, "Curve instrument maturity must be after today");
             REQUIRE(std::isfinite(inst->MarketRate()), "Curve instrument market rate must be finite");
             latestEnd = std::max(latestEnd, span.second);
