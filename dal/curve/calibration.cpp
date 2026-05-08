@@ -79,7 +79,7 @@ namespace Dal {
             case CurveParameterization_::PIECEWISE_LINEAR_FWD: {
                 Vector_<> fLeft(knotDates.size());
                 Vector_<> fRight(knotDates.size());
-                for (int i = 0; i < knotDates.size(); ++i) {
+                for (int i = 0; i < static_cast<int>(knotDates.size()); ++i) {
                     fLeft[i] = x[2 * i];
                     fRight[i] = x[2 * i + 1];
                 }
@@ -125,7 +125,7 @@ namespace Dal {
                 CurveBlock_ yc(*dc);
 
                 Vector_<> result(instruments_.size());
-                for (int i = 0; i < instruments_.size(); ++i)
+                for (int i = 0; i < static_cast<int>(instruments_.size()); ++i)
                     result[i] = (*rates_[i])(yc) - marketRates_[i];
                 return result;
             }
@@ -134,7 +134,7 @@ namespace Dal {
         Vector_<> ModelRates(const Vector_<Handle_<YCInstrument_>>& instruments, const YieldCurve_& curve) {
             Vector_<> modelRates(instruments.size());
             Handle_<YieldCurve_> dummyYC;
-            for (int i = 0; i < instruments.size(); ++i) {
+            for (int i = 0; i < static_cast<int>(instruments.size()); ++i) {
                 auto rate = instruments[i]->Precompute(instruments[i], dummyYC);
                 modelRates[i] = (*rate)(curve);
             }
@@ -152,7 +152,7 @@ namespace Dal {
             retval.marketRates_.reserve(instruments.size());
             retval.residuals_.reserve(instruments.size());
             double sqResidual = 0.0;
-            for (int i = 0; i < instruments.size(); ++i) {
+            for (int i = 0; i < static_cast<int>(instruments.size()); ++i) {
                 retval.instrumentNames_.push_back(instruments[i]->Name());
                 retval.marketRates_.push_back(instruments[i]->MarketRate());
                 const double residual = retval.modelRates_[i] - retval.marketRates_[i];

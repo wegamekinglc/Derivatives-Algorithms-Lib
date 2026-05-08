@@ -34,7 +34,9 @@ namespace Dal {
                     val += leverage * *dx++;
             }
 
-            void Write(Archive::Store_&) const override { REQUIRE(false, "DiscountPWC_ is not serializable"); }
+            void Write(Archive::Store_&) const override {
+                REQUIRE(false, "DiscountPWC_ serialization is not implemented");
+            }
 
             [[nodiscard]] DiscountPWC_* Clone(const String_& new_name,
                                               const YCComponent_::substitutions_t& base_changes) const override {
