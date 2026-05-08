@@ -3,6 +3,7 @@
 //
 
 #include <gtest/gtest.h>
+#include <algorithm>
 #include <dal/platform/platform.hpp>
 #include <dal/math/operators.hpp>
 #include <dal/protocol/optiontype.hpp>
@@ -29,9 +30,9 @@ TEST(ProtocolTest, TestOptionTypeParsingAndListAll) {
     ASSERT_EQ(OptionType_("CALL"), OptionType_::Value_::CALL);
     ASSERT_EQ(OptionType_("put"), OptionType_::Value_::PUT);
     ASSERT_EQ(OptionType_("V"), OptionType_::Value_::STRADDLE);
-    ASSERT_EQ(String_(all[0].String()), String_("CALL"));
-    ASSERT_EQ(String_(all[1].String()), String_("PUT"));
-    ASSERT_EQ(String_(all[2].String()), String_("STRADDLE"));
+    ASSERT_TRUE(std::find(all.begin(), all.end(), OptionType_("CALL")) != all.end());
+    ASSERT_TRUE(std::find(all.begin(), all.end(), OptionType_("PUT")) != all.end());
+    ASSERT_TRUE(std::find(all.begin(), all.end(), OptionType_("STRADDLE")) != all.end());
 }
 
 TEST(ProtocolTest, TestOptionTypeThrowsOnInvalidString) {

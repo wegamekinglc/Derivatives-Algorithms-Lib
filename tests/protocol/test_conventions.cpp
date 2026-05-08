@@ -15,6 +15,7 @@ TEST(ProtocolTest, TestLiborStartFromFixUsesCurrencySpecificFixDays) {
     Date_ fixDate(2024, 3, 13);
 
     ASSERT_EQ(Libor::StartFromFix(Ccy_("CNY"), fixDate), Date_(2024, 3, 14));
+    ASSERT_EQ(Libor::StartFromFix(Ccy_("CNY"), Date_(2024, 3, 15)), Date_(2024, 3, 18));
 }
 
 TEST(ProtocolTest, TestLiborFixFromStartReturnsTenAmFixingTime) {

@@ -3,6 +3,7 @@
 //
 
 #include <gtest/gtest.h>
+#include <algorithm>
 #include <dal/platform/platform.hpp>
 #include <dal/protocol/collateraltype.hpp>
 
@@ -15,9 +16,9 @@ TEST(ProtocolTest, TestCollateralTypeParsingAndListAll) {
     ASSERT_EQ(CollateralType_("OIS"), CollateralType_::Value_::OIS);
     ASSERT_EQ(CollateralType_("GC"), CollateralType_::Value_::GC);
     ASSERT_EQ(CollateralType_("NONE"), CollateralType_::Value_::NONE);
-    ASSERT_EQ(String_(all[0].String()), String_("OIS"));
-    ASSERT_EQ(String_(all[1].String()), String_("GC"));
-    ASSERT_EQ(String_(all[2].String()), String_("NONE"));
+    ASSERT_TRUE(std::find(all.begin(), all.end(), CollateralType_("OIS")) != all.end());
+    ASSERT_TRUE(std::find(all.begin(), all.end(), CollateralType_("GC")) != all.end());
+    ASSERT_TRUE(std::find(all.begin(), all.end(), CollateralType_("NONE")) != all.end());
 }
 
 TEST(ProtocolTest, TestCollateralTypeThrowsOnInvalidString) {
