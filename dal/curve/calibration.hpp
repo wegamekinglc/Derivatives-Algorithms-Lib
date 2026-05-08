@@ -21,8 +21,8 @@ namespace Dal {
     enum class CurveParameterization_ {
         PIECEWISE_LINEAR_FWD,
         PIECEWISE_CONSTANT_FWD,
-        ZERO_RATE,
-        LOG_DISCOUNT
+        ZERO_RATE, // reserved for a future calibration parameterization
+        LOG_DISCOUNT // reserved for a future calibration parameterization
     };
 
     enum class CurveKnotPolicy_ {

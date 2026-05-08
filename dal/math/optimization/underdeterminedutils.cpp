@@ -13,11 +13,15 @@ namespace Dal::Underdetermined {
         REQUIRE(tau_smoothing > 0.0, "Smoothing weight must be positive");
         REQUIRE(weights->Size() >= offset + static_cast<int>(knots.size()), "Weights matrix is too small for the requested coupling");
 
-        for (int i = 0; i < static_cast<int>(knots.size()); ++i)
-            weights->Add(offset + i, offset + i, tau_smoothing);
+        for (int i = 0; i < static_cast<int>(knots.size()); ++i) {
+            double diag = tau_smoothing;
+            if (i > 0)
+                diag += tau_smoothing;
+            if (i + 1 < static_cast<int>(knots.size()))
+                diag += tau_smoothing;
+            weights->Add(offset + i, offset + i, diag);
+        }
         for (int i = 0; i + 1 < static_cast<int>(knots.size()); ++i) {
-            weights->Add(offset + i, offset + i, tau_smoothing);
-            weights->Add(offset + i + 1, offset + i + 1, tau_smoothing);
             weights->Add(offset + i, offset + i + 1, -tau_smoothing);
             weights->Add(offset + i + 1, offset + i, -tau_smoothing);
         }

@@ -18,6 +18,9 @@
 namespace Dal {
 
     namespace {
+        constexpr const char* KEY_MAX_EVALUATIONS = "MAXEVALUATIONS";
+        constexpr const char* KEY_MAX_RESTARTS = "MAXRESTARTS";
+
         Vector_<Handle_<YCInstrument_>> OrderInstruments(const Vector_<Handle_<YCInstrument_>>& instruments) {
             auto ordered = instruments;
             std::sort(ordered.begin(),
@@ -89,7 +92,7 @@ namespace Dal {
                 return std::unique_ptr<DiscountCurve_>(NewDiscountPWC(name, ccy, PiecewiseConstant_(knotDates, x)));
             case CurveParameterization_::ZERO_RATE:
             case CurveParameterization_::LOG_DISCOUNT:
-                REQUIRE(false, "Requested curve parameterization is not implemented");
+                REQUIRE(false, "Requested curve parameterization is reserved for future implementation");
                 return nullptr;
             default:
                 REQUIRE(false, "Unknown curve parameterization");
@@ -246,8 +249,8 @@ namespace Dal {
         std::unique_ptr<Sparse::TriDiagonal_> weights(BuildCurveCalibrationWeights(knotDates, paramsPerKnot, spec.smoothingWeight_));
 
         Dictionary_ ctrlDict;
-        ctrlDict.Insert("MAXEVALUATIONS", Cell_(static_cast<double>(spec.maxEvaluations_)));
-        ctrlDict.Insert("MAXRESTARTS", Cell_(static_cast<double>(spec.maxRestarts_)));
+        ctrlDict.Insert(KEY_MAX_EVALUATIONS, Cell_(static_cast<double>(spec.maxEvaluations_)));
+        ctrlDict.Insert(KEY_MAX_RESTARTS, Cell_(static_cast<double>(spec.maxRestarts_)));
         UnderdeterminedControls_ controls(ctrlDict);
 
         YieldCurveCalibrationFunc_ func(spec.ccy_, spec.parameterization_, instruments, knotDates);
