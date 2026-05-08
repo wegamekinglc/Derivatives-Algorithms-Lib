@@ -37,7 +37,7 @@ namespace Dal {
             }
 
             void Write(Archive::Store_&) const override {
-                REQUIRE(false, "DiscountPWC_ serialization is not implemented");
+                REQUIRE(false, "DiscountPWC_ serialization is deferred until an archive schema is added");
             }
 
             [[nodiscard]] DiscountPWC_* Clone(const String_& new_name,

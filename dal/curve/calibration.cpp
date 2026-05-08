@@ -20,8 +20,9 @@ namespace Dal {
     namespace {
         constexpr const char* KEY_MAX_EVALUATIONS = "MAXEVALUATIONS";
         constexpr const char* KEY_MAX_RESTARTS = "MAXRESTARTS";
+        constexpr int MAX_RELEVANT_DATES_PER_INSTRUMENT = 2;
 
-        const char* ParameterizationName(CurveParameterization_ parameterization) {
+        constexpr const char* ParameterizationName(CurveParameterization_ parameterization) {
             switch (parameterization) {
             case CurveParameterization_::PIECEWISE_LINEAR_FWD:
                 return "piecewise linear forward";
@@ -61,7 +62,7 @@ namespace Dal {
 
         Vector_<Date_> InstrumentDates(const Date_& today, const Vector_<Handle_<YCInstrument_>>& instruments) {
             Vector_<Date_> retval;
-            retval.reserve(instruments.size() * 2);
+            retval.reserve(instruments.size() * MAX_RELEVANT_DATES_PER_INSTRUMENT);
             for (const auto& inst : instruments) {
                 const auto span = inst->TimeSpan();
                 if (span.first > today)
