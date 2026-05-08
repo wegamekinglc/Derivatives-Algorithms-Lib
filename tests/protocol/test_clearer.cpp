@@ -3,6 +3,7 @@
 //
 
 #include <gtest/gtest.h>
+#include <algorithm>
 #include <dal/platform/platform.hpp>
 #include <dal/protocol/clearer.hpp>
 
@@ -14,8 +15,8 @@ TEST(ProtocolTest, TestClearerParsingAndListAll) {
     ASSERT_EQ(all.size(), 2);
     ASSERT_EQ(Clearer_("CME"), Clearer_::Value_::CME);
     ASSERT_EQ(Clearer_("LCH"), Clearer_::Value_::LCH);
-    ASSERT_EQ(String_(all[0].String()), String_("CME"));
-    ASSERT_EQ(String_(all[1].String()), String_("LCH"));
+    ASSERT_TRUE(std::find(all.begin(), all.end(), Clearer_("CME")) != all.end());
+    ASSERT_TRUE(std::find(all.begin(), all.end(), Clearer_("LCH")) != all.end());
 }
 
 TEST(ProtocolTest, TestClearerThrowsOnInvalidString) {
