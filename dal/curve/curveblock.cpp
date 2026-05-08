@@ -11,13 +11,13 @@
 namespace Dal {
 
     namespace {
-        Handle_<DiscountCurve_> MakeNonOwningHandle(const DiscountCurve_& curve) {
+        Handle_<DiscountCurve_> MakeBorrowedHandle(const DiscountCurve_& curve) {
             return Handle_<DiscountCurve_>(std::shared_ptr<const DiscountCurve_>(&curve, [](const DiscountCurve_*) {}));
         }
     } // namespace
 
     CurveBlock_::CurveBlock_(const DiscountCurve_& dc)
-        : CurveBlock_(MakeNonOwningHandle(dc)) {}
+        : CurveBlock_(MakeBorrowedHandle(dc)) {}
 
     CurveBlock_::CurveBlock_(const Handle_<DiscountCurve_>& dc, const DayBasis_& liborBasis)
         : CurveBlock_([&dc]() -> const DiscountCurve_& {
@@ -29,7 +29,7 @@ namespace Dal {
     CurveBlock_::CurveBlock_(const DiscountCurve_& dc, const DayBasis_& liborBasis)
         : CurveBlock_(dc.name_,
                       dc.ccy_.String(),
-                      {{CollateralType_(CollateralType_::Value_::OIS), MakeNonOwningHandle(dc)}},
+                      {{CollateralType_(CollateralType_::Value_::OIS), MakeBorrowedHandle(dc)}},
                       {},
                       liborBasis) {}
 
