@@ -2,94 +2,78 @@
 // Created by wegam on 2026/4/19.
 //
 
-#include <memory>
 #include <dal/platform/platform.hpp>
 #include <dal/platform/strict.hpp>
 #include <dal/curve/curveblock.hpp>
-#include <dal/curve/yc.hpp>
-#include <dal/curve/piecewiselinear.hpp>
-#include <dal/curve/ycimp.hpp>
-#include <dal/curve/fittable.hpp>
-#include <dal/math/optimization/underdetermined.hpp>
-#include <dal/math/matrix/banded.hpp>
-#include <dal/protocol/collateraltype.hpp>
-#include <dal/utilities/dictionary.hpp>
+#include <dal/curve/calibration.hpp>
+#include <dal/time/periodlength.hpp>
 
 namespace Dal {
-    // CurveBlock_
+
+    namespace {
+        Handle_<DiscountCurve_> AliasHandle(const DiscountCurve_& curve) {
+            return Handle_<DiscountCurve_>(std::shared_ptr<const DiscountCurve_>(&curve, [](const DiscountCurve_*) {}));
+        }
+    } // namespace
 
     CurveBlock_::CurveBlock_(const DiscountCurve_& dc)
-        : YieldCurve_(dc.name_, dc.ccy_.String()), dc_(dc) {}
+        : CurveBlock_(AliasHandle(dc)) {}
 
-    const DiscountCurve_& CurveBlock_::Discount(const CollateralType_&) const { return dc_; }
+    CurveBlock_::CurveBlock_(const Handle_<DiscountCurve_>& dc, const DayBasis_& liborBasis)
+        : CurveBlock_([&dc]() -> const DiscountCurve_& {
+                          REQUIRE(dc, "CurveBlock_ requires a non-empty discount curve handle");
+                          return *dc;
+                      }(),
+                      liborBasis) {}
 
-    double CurveBlock_::FwdLibor(const PeriodLength_&, const Date_&) const {
-        REQUIRE(false, "CurveBlock_ does not support FwdLibor");
-        return 0.0;
+    CurveBlock_::CurveBlock_(const DiscountCurve_& dc, const DayBasis_& liborBasis)
+        : CurveBlock_(dc.name_,
+                      dc.ccy_.String(),
+                      {{CollateralType_(CollateralType_::Value_::OIS), AliasHandle(dc)}},
+                      {},
+                      liborBasis) {}
+
+    CurveBlock_::CurveBlock_(const String_& name,
+                             const String_& ccy,
+                             const std::map<CollateralType_, Handle_<DiscountCurve_>>& discountCurves,
+                             const std::map<PeriodLength_, Handle_<DiscountCurve_>>& forwardCurves,
+                             const DayBasis_& liborBasis)
+        : YieldCurve_(name, ccy), discountCurves_(discountCurves), forwardCurves_(forwardCurves), liborBasis_(liborBasis) {
+        REQUIRE(!discountCurves_.empty(), "CurveBlock_ requires at least one discount curve");
+        for (const auto& [_, curve] : discountCurves_) {
+            REQUIRE(curve, "CurveBlock_ discount curve handles must not be empty");
+            REQUIRE(curve->ccy_ == ccy_, "CurveBlock_ discount curves must share the block currency");
+        }
+        for (const auto& [_, curve] : forwardCurves_) {
+            REQUIRE(curve, "CurveBlock_ forward curve handles must not be empty");
+            REQUIRE(curve->ccy_ == ccy_, "CurveBlock_ forward curves must share the block currency");
+        }
+    }
+
+    const DiscountCurve_& CurveBlock_::Discount(const CollateralType_& collateral) const {
+        const auto found = discountCurves_.find(collateral);
+        if (found != discountCurves_.end())
+            return *found->second;
+        const auto ois = discountCurves_.find(CollateralType_(CollateralType_::Value_::OIS));
+        REQUIRE(ois != discountCurves_.end(), "CurveBlock_ cannot route collateral without an OIS discount curve");
+        return *ois->second;
+    }
+
+    double CurveBlock_::FwdLibor(const PeriodLength_& tenor, const Date_& fixing_date) const {
+        const auto found = forwardCurves_.find(tenor);
+        const DiscountCurve_& forecast = found == forwardCurves_.end()
+                                             ? Discount(CollateralType_(CollateralType_::Value_::OIS))
+                                             : *found->second;
+        const Date_ maturity = Date::NominalMaturity(fixing_date, tenor, ccy_);
+        REQUIRE(maturity > fixing_date, "FwdLibor requires fixing date before maturity");
+        const double df = forecast(fixing_date, maturity);
+        REQUIRE(df > 0.0, "FwdLibor requires positive forecast discount factor");
+        return (1.0 / df - 1.0) / liborBasis_(fixing_date, maturity, nullptr);
     }
 
     void CurveBlock_::Write(Archive::Store_&) const {
         REQUIRE(false, "CurveBlock_ is not serializable");
     }
-
-    // Calibration
-
-    namespace {
-        Sparse::TriDiagonal_* BuildSmoothingWeights(int nParams, double tau) {
-            auto* w = new Sparse::TriDiagonal_(nParams);
-            for (int i = 0; i < nParams; ++i)
-                w->Set(i, i, tau);
-            for (int i = 0; i < nParams - 1; ++i) {
-                w->Add(i, i, tau);
-                w->Add(i + 1, i + 1, tau);
-                w->Set(i, i + 1, -tau);
-                w->Set(i + 1, i, -tau);
-            }
-            return w;
-        }
-
-        class YieldCurveCalibrationFunc_ : public Underdetermined::Function_ {
-            Date_ today_;
-            Ccy_ ccy_;
-            Vector_<Handle_<YCInstrument_>> instruments_;
-            Vector_<Handle_<YCInstrument_::Rate_>> rates_;
-            Vector_<double> marketRates_;
-            Vector_<Date_> knotDates_;
-
-        public:
-            YieldCurveCalibrationFunc_(const Date_& today,
-                                       const String_& ccy,
-                                       const Vector_<Handle_<YCInstrument_>>& instruments,
-                                       const Vector_<Date_>& knotDates)
-                : today_(today), ccy_(ccy), instruments_(instruments), knotDates_(knotDates) {
-                Handle_<YieldCurve_> dummyYC;
-                for (const auto& inst : instruments_) {
-                    rates_.push_back(inst->Precompute(inst, dummyYC));
-                    marketRates_.push_back(inst->MarketRate());
-                }
-            }
-
-            [[nodiscard]] Vector_<> F(const Vector_<>& x) const override {
-                const int nKnots = static_cast<int>(knotDates_.size());
-                Vector_<> fLeft(nKnots), fRight(nKnots);
-                for (int i = 0; i < nKnots; ++i) {
-                    fLeft[i] = x[2 * i];
-                    fRight[i] = x[2 * i + 1];
-                }
-
-                PiecewiseLinear_ pwl(knotDates_, fLeft, fRight);
-                std::unique_ptr<DiscountCurve_> dc(NewDiscountPWLF(String_("calib"), ccy_.String(), pwl));
-                CurveBlock_ yc(*dc);
-
-                const int nInst = static_cast<int>(instruments_.size());
-                Vector_<> result(nInst);
-                for (int i = 0; i < nInst; ++i)
-                    result[i] = (*rates_[i])(yc) - marketRates_[i];
-
-                return result;
-            }
-        };
-    } // namespace
 
     DiscountCurve_* CalibrateYieldCurve(const Date_& today,
                                         const String_& ccy,
@@ -100,33 +84,20 @@ namespace Dal {
                                         int maxEvaluations,
                                         int maxRestarts,
                                         Matrix_<>* effJacobianInverse) {
-        const int nParams = 2 * static_cast<int>(knotDates.size());
-        const int nInstruments = static_cast<int>(instruments.size());
+        CurveCalibrationSpec_ spec;
+        spec.today_ = today;
+        spec.ccy_ = ccy;
+        spec.instruments_ = instruments;
+        spec.knotDates_ = knotDates;
+        spec.smoothingWeight_ = smoothingWeight;
+        spec.tolerance_ = tolerance;
+        spec.maxEvaluations_ = maxEvaluations;
+        spec.maxRestarts_ = maxRestarts;
 
-        Vector_<> guess(nParams, 0.05);
-
-        std::unique_ptr<Sparse::TriDiagonal_> weights(BuildSmoothingWeights(nParams, smoothingWeight));
-        std::unique_ptr<Sparse::SymmetricDecomposition_> wDecomp(weights->DecomposeSymmetric());
-
-        Vector_<> tol(nInstruments, tolerance);
-
-        Dictionary_ ctrlDict;
-        ctrlDict.Insert(String_("MAXEVALUATIONS"), Cell_(static_cast<double>(maxEvaluations)));
-        ctrlDict.Insert(String_("MAXRESTARTS"), Cell_(static_cast<double>(maxRestarts)));
-        UnderdeterminedControls_ controls(ctrlDict);
-
-        YieldCurveCalibrationFunc_ func(today, ccy, instruments, knotDates);
-        Vector_<> result = Underdetermined::Find(func, guess, tol, *wDecomp, controls, effJacobianInverse);
-
-        const int nKnots = static_cast<int>(knotDates.size());
-        Vector_<> fLeft(nKnots), fRight(nKnots);
-        for (int i = 0; i < nKnots; ++i) {
-            fLeft[i] = result[2 * i];
-            fRight[i] = result[2 * i + 1];
-        }
-
-        PiecewiseLinear_ pwl(knotDates, fLeft, fRight);
-        return NewDiscountPWLF(String_("calibrated"), ccy, pwl);
+        auto result = CalibrateYieldCurve(spec);
+        if (effJacobianInverse)
+            *effJacobianInverse = result.diagnostics_.effJacobianInverse_;
+        return result.curve_.release();
     }
 
 } // namespace Dal
