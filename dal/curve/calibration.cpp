@@ -21,6 +21,21 @@ namespace Dal {
         constexpr const char* KEY_MAX_EVALUATIONS = "MAXEVALUATIONS";
         constexpr const char* KEY_MAX_RESTARTS = "MAXRESTARTS";
 
+        const char* ParameterizationName(CurveParameterization_ parameterization) {
+            switch (parameterization) {
+            case CurveParameterization_::PIECEWISE_LINEAR_FWD:
+                return "piecewise linear forward";
+            case CurveParameterization_::PIECEWISE_CONSTANT_FWD:
+                return "piecewise constant forward";
+            case CurveParameterization_::ZERO_RATE:
+                return "zero rate";
+            case CurveParameterization_::LOG_DISCOUNT:
+                return "log discount";
+            default:
+                return "unknown";
+            }
+        }
+
         Vector_<Handle_<YCInstrument_>> OrderInstruments(const Vector_<Handle_<YCInstrument_>>& instruments) {
             auto ordered = instruments;
             std::sort(ordered.begin(),
@@ -92,7 +107,9 @@ namespace Dal {
                 return std::unique_ptr<DiscountCurve_>(NewDiscountPWC(name, ccy, PiecewiseConstant_(knotDates, x)));
             case CurveParameterization_::ZERO_RATE:
             case CurveParameterization_::LOG_DISCOUNT:
-                REQUIRE(false, "Requested curve parameterization is reserved for future implementation");
+                REQUIRE(false,
+                        String_("Requested curve parameterization is reserved for future implementation: ")
+                            + ParameterizationName(parameterization));
                 return nullptr;
             default:
                 REQUIRE(false, "Unknown curve parameterization");

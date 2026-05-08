@@ -8,6 +8,8 @@
 namespace Dal {
 
     namespace {
+        constexpr double DAYS_PER_YEAR = 365.0;
+
         class DiscountPWC_ : public CurveWithBase_<DiscountCurve_>, public FittableCurve_ {
             Vector_<Date_> knotDates_;
             Vector_<> fRight_;
@@ -24,7 +26,7 @@ namespace Dal {
             double operator()(const Date_& from, const Date_& to) const override {
                 const PiecewiseConstant_ fwds = Fwds();
                 const double integral = fwds.IntegralTo(to) - fwds.IntegralTo(from);
-                return exp(-integral / 365.0) * (base_ ? (*base_)(from, to) : 1.0);
+                return exp(-integral / DAYS_PER_YEAR) * (base_ ? (*base_)(from, to) : 1.0);
             }
 
             [[nodiscard]] int NX() const override { return static_cast<int>(knotDates_.size()); }
