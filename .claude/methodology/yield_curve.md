@@ -31,7 +31,8 @@ Storable_
     └── CurveBlock_                                (lightweight wrapper around a calibrated discount curve)
 
 CurveWithBase_<T_, B_>                             (template mixin: optional base curve + substitution)
-└── DiscountPWLF_                                  (also inherits FittableCurve_ for calibration)
+├── DiscountPWLF_                                  (also inherits FittableCurve_ for calibration)
+└── DiscountPWC_                                   (also inherits FittableCurve_ for calibration)
 ```
 
 ## Core Abstractions

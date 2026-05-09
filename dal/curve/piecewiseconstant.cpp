@@ -44,7 +44,7 @@ namespace Dal {
     double PiecewiseConstant_::IntegralTo(const Date_ &dt) const {
         const auto iGE = LowerBound(knotDates_, dt) - knotDates_.begin();
         if (iGE <= 0)
-            return 0.0;
+            return -fRight_.front() * (knotDates_.front() - dt);
         if (iGE < knotDates_.size() && knotDates_[iGE] == dt)
             return sofar_[iGE];
         const auto iLT = iGE - 1;
@@ -63,6 +63,6 @@ namespace Dal {
             return pwc.fRight_[iGE];
         }
         ASSIGN(is_knot, false);
-        return pGE == pwc.knotDates_.begin() ? 0.0 : pwc.fRight_[iGE - 1];
+        return pGE == pwc.knotDates_.begin() ? pwc.fRight_.front() : pwc.fRight_[iGE - 1];
     }
 }

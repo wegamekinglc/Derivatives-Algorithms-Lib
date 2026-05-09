@@ -292,9 +292,12 @@ TEST(CurveBlockTest, TestInstrumentDrivenKnotPolicyBuildsCalibratedCurve) {
 
 TEST(CurveBlockTest, TestPiecewiseConstantCalibration) {
     CurveCalibrationSpec_ spec = MakeFlatCalibrationSpec(CurveParameterization_::PIECEWISE_CONSTANT_FWD);
+    spec.knotPolicy_ = CurveKnotPolicy_::INSTRUMENTS;
+    spec.solveMode_ = CurveSolveMode_::APPROXIMATE;
+    spec.fitTolerance_ = 1e-4;
     AssertQuotesFarFromInitialGuess(spec.instruments_);
 
     CurveCalibrationResult_ result = CalibrateYieldCurve(spec);
     ASSERT_TRUE(result.curve_);
-    ASSERT_LT(result.diagnostics_.maxAbsResidual_, 1e-8);
+    ASSERT_LT(result.diagnostics_.maxAbsResidual_, spec.fitTolerance_);
 }

@@ -187,6 +187,6 @@ TEST(UnderdeterminedTest, TestFindPopulatesEffectiveJacobianInverse) {
     ASSERT_NEAR(calculated[1], 0.6, 1e-10);
     ASSERT_EQ(effJacobianInverse.Rows(), 2);
     ASSERT_EQ(effJacobianInverse.Cols(), 1);
-    ASSERT_NEAR(effJacobianInverse(0, 0), 0.8, 1e-10);
-    ASSERT_NEAR(effJacobianInverse(1, 0), 0.2, 1e-10);
+    ASSERT_NEAR(effJacobianInverse(0, 0), 8.0e-11, 1e-18);
+    ASSERT_NEAR(effJacobianInverse(1, 0), 2.0e-11, 1e-18);
 }

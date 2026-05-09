@@ -17,6 +17,7 @@
 namespace Dal {
 
     class CurveBlock_ : public YieldCurve_ {
+        const DiscountCurve_* dc_;
         std::map<CollateralType_, Handle_<DiscountCurve_>> discountCurves_;
         std::map<PeriodLength_, Handle_<DiscountCurve_>> forwardCurves_;
         DayBasis_ liborBasis_;

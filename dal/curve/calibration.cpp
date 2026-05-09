@@ -1,3 +1,7 @@
+//
+// Created by wegam on 2026/5/9.
+//
+
 #include <algorithm>
 #include <cmath>
 #include <memory>
@@ -245,9 +249,9 @@ namespace Dal {
         static_cast<void>(ParamsPerKnot(spec.parameterization_));
     }
 
-    void ValidateNoArbitrage(const DiscountCurve_& curve, const Date_& today, const Vector_<Date_>& checkDates) {
+    void ValidatePositiveDiscountFactors(const DiscountCurve_& curve, const Date_& today, const Vector_<Date_>& checkDates) {
         for (const auto& checkDate : checkDates) {
-            REQUIRE(checkDate > today, "No-arbitrage checks require future dates");
+            REQUIRE(checkDate > today, "Discount factor checks require future dates");
             const double df = curve(today, checkDate);
             REQUIRE(std::isfinite(df), "Discount factor must be finite");
             REQUIRE(df > 0.0, "Discount factor must stay positive");
@@ -283,7 +287,7 @@ namespace Dal {
 
         CurveCalibrationResult_ retval;
         retval.curve_ = BuildDiscountCurve("calibrated", spec.ccy_, spec.parameterization_, knotDates, result);
-        ValidateNoArbitrage(*retval.curve_, spec.today_, knotDates);
+        ValidatePositiveDiscountFactors(*retval.curve_, spec.today_, knotDates);
         CurveBlock_ curveView(*retval.curve_);
         retval.diagnostics_ = BuildDiagnostics(instruments,
                                                curveView,

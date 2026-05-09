@@ -11,10 +11,6 @@
 namespace Dal {
 
     namespace {
-        Handle_<DiscountCurve_> MakeBorrowedHandle(const DiscountCurve_& curve) {
-            return Handle_<DiscountCurve_>(std::shared_ptr<const DiscountCurve_>(&curve, [](const DiscountCurve_*) {}));
-        }
-
         const DiscountCurve_& CheckedCurve(const Handle_<DiscountCurve_>& curve) {
             REQUIRE(curve, "CurveBlock_ requires a non-empty discount curve handle");
             return *curve;
@@ -22,24 +18,24 @@ namespace Dal {
     } // namespace
 
     CurveBlock_::CurveBlock_(const DiscountCurve_& dc)
-        : CurveBlock_(MakeBorrowedHandle(dc)) {}
+        : YieldCurve_(dc.name_, dc.ccy_.String()), dc_(&dc), liborBasis_("ACT_365F") {}
 
     CurveBlock_::CurveBlock_(const Handle_<DiscountCurve_>& dc, const DayBasis_& liborBasis)
-        : CurveBlock_(CheckedCurve(dc), liborBasis) {}
-
-    CurveBlock_::CurveBlock_(const DiscountCurve_& dc, const DayBasis_& liborBasis)
-        : CurveBlock_(dc.name_,
-                      dc.ccy_.String(),
-                      {{CollateralType_(CollateralType_::Value_::OIS), MakeBorrowedHandle(dc)}},
+        : CurveBlock_(CheckedCurve(dc).name_,
+                      CheckedCurve(dc).ccy_.String(),
+                      {{CollateralType_(CollateralType_::Value_::OIS), dc}},
                       {},
                       liborBasis) {}
+
+    CurveBlock_::CurveBlock_(const DiscountCurve_& dc, const DayBasis_& liborBasis)
+        : YieldCurve_(dc.name_, dc.ccy_.String()), dc_(&dc), liborBasis_(liborBasis) {}
 
     CurveBlock_::CurveBlock_(const String_& name,
                              const String_& ccy,
                              const std::map<CollateralType_, Handle_<DiscountCurve_>>& discountCurves,
                              const std::map<PeriodLength_, Handle_<DiscountCurve_>>& forwardCurves,
                              const DayBasis_& liborBasis)
-        : YieldCurve_(name, ccy), discountCurves_(discountCurves), forwardCurves_(forwardCurves), liborBasis_(liborBasis) {
+        : YieldCurve_(name, ccy), dc_(nullptr), discountCurves_(discountCurves), forwardCurves_(forwardCurves), liborBasis_(liborBasis) {
         REQUIRE(!discountCurves_.empty(), "CurveBlock_ requires at least one discount curve");
         for (const auto& [_, curve] : discountCurves_) {
             REQUIRE(curve, "CurveBlock_ discount curve handles must not be empty");
@@ -52,6 +48,8 @@ namespace Dal {
     }
 
     const DiscountCurve_& CurveBlock_::Discount(const CollateralType_& collateral) const {
+        if (dc_)
+            return *dc_;
         const auto found = discountCurves_.find(collateral);
         if (found != discountCurves_.end())
             return *found->second;

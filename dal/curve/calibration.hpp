@@ -1,3 +1,7 @@
+//
+// Created by wegam on 2026/5/9.
+//
+
 #pragma once
 
 #include <memory>
@@ -71,7 +75,7 @@ namespace Dal {
                                               const Vector_<Date_>& inputKnots,
                                               CurveKnotPolicy_ policy);
     void ValidateCurveCalibrationSpec(const CurveCalibrationSpec_& spec);
-    void ValidateNoArbitrage(const DiscountCurve_& curve, const Date_& today, const Vector_<Date_>& checkDates);
+    void ValidatePositiveDiscountFactors(const DiscountCurve_& curve, const Date_& today, const Vector_<Date_>& checkDates);
     CurveCalibrationResult_ CalibrateYieldCurve(const CurveCalibrationSpec_& spec);
 
 } // namespace Dal
