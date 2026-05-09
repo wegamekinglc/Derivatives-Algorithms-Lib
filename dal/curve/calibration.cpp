@@ -20,21 +20,24 @@
 #include <dal/utilities/dictionary.hpp>
 
 namespace Dal {
+#include <dal/auto/MG_CurveSolveMode_enum.inc>
+#include <dal/auto/MG_CurveParameterization_enum.inc>
+#include <dal/auto/MG_CurveKnotPolicy_enum.inc>
 
     namespace {
         constexpr const char* KEY_MAX_EVALUATIONS = "MAXEVALUATIONS";
         constexpr const char* KEY_MAX_RESTARTS = "MAXRESTARTS";
         constexpr int MAX_RELEVANT_DATES_PER_INSTRUMENT = 2;
 
-        constexpr const char* ParameterizationName(CurveParameterization_ parameterization) {
-            switch (parameterization) {
-            case CurveParameterization_::PIECEWISE_LINEAR_FWD:
+        const char* ParameterizationName(CurveParameterization_ parameterization) {
+            switch (parameterization.Switch()) {
+            case CurveParameterization_::Value_::PIECEWISE_LINEAR_FWD:
                 return "piecewise linear forward";
-            case CurveParameterization_::PIECEWISE_CONSTANT_FWD:
+            case CurveParameterization_::Value_::PIECEWISE_CONSTANT_FWD:
                 return "piecewise constant forward";
-            case CurveParameterization_::ZERO_RATE:
+            case CurveParameterization_::Value_::ZERO_RATE:
                 return "zero rate";
-            case CurveParameterization_::LOG_DISCOUNT:
+            case CurveParameterization_::Value_::LOG_DISCOUNT:
                 return "log discount";
             default:
                 return "unknown";
@@ -78,13 +81,13 @@ namespace Dal {
         }
 
         int ParamsPerKnot(CurveParameterization_ parameterization) {
-            switch (parameterization) {
-            case CurveParameterization_::PIECEWISE_LINEAR_FWD:
+            switch (parameterization.Switch()) {
+            case CurveParameterization_::Value_::PIECEWISE_LINEAR_FWD:
                 return 2;
-            case CurveParameterization_::PIECEWISE_CONSTANT_FWD:
+            case CurveParameterization_::Value_::PIECEWISE_CONSTANT_FWD:
                 return 1;
-            case CurveParameterization_::ZERO_RATE:
-            case CurveParameterization_::LOG_DISCOUNT:
+            case CurveParameterization_::Value_::ZERO_RATE:
+            case CurveParameterization_::Value_::LOG_DISCOUNT:
                 REQUIRE(false, "Requested curve parameterization is not implemented");
                 return 0;
             default:
@@ -98,8 +101,8 @@ namespace Dal {
                                                            CurveParameterization_ parameterization,
                                                            const Vector_<Date_>& knotDates,
                                                            const Vector_<>& x) {
-            switch (parameterization) {
-            case CurveParameterization_::PIECEWISE_LINEAR_FWD: {
+            switch (parameterization.Switch()) {
+            case CurveParameterization_::Value_::PIECEWISE_LINEAR_FWD: {
                 Vector_<> fLeft(knotDates.size());
                 Vector_<> fRight(knotDates.size());
                 for (int i = 0; i < static_cast<int>(knotDates.size()); ++i) {
@@ -108,10 +111,10 @@ namespace Dal {
                 }
                 return std::unique_ptr<DiscountCurve_>(NewDiscountPWLF(name, ccy, PiecewiseLinear_(knotDates, fLeft, fRight)));
             }
-            case CurveParameterization_::PIECEWISE_CONSTANT_FWD:
+            case CurveParameterization_::Value_::PIECEWISE_CONSTANT_FWD:
                 return std::unique_ptr<DiscountCurve_>(NewDiscountPWC(name, ccy, PiecewiseConstant_(knotDates, x)));
-            case CurveParameterization_::ZERO_RATE:
-            case CurveParameterization_::LOG_DISCOUNT:
+            case CurveParameterization_::Value_::ZERO_RATE:
+            case CurveParameterization_::Value_::LOG_DISCOUNT:
                 REQUIRE(false,
                         String_("Requested curve parameterization is reserved for future implementation: ")
                             + ParameterizationName(parameterization));
@@ -211,12 +214,12 @@ namespace Dal {
                                               const Vector_<Date_>& inputKnots,
                                               CurveKnotPolicy_ policy) {
         const Vector_<Date_> instrumentKnots = InstrumentDates(today, instruments);
-        switch (policy) {
-        case CurveKnotPolicy_::INPUT:
+        switch (policy.Switch()) {
+        case CurveKnotPolicy_::Value_::INPUT:
             return UniqueSortedDates(inputKnots);
-        case CurveKnotPolicy_::INSTRUMENTS:
+        case CurveKnotPolicy_::Value_::INSTRUMENTS:
             return instrumentKnots;
-        case CurveKnotPolicy_::AUGMENTED:
+        case CurveKnotPolicy_::Value_::AUGMENTED:
             return UniqueSortedDates(Vector::Join(UniqueSortedDates(inputKnots), instrumentKnots));
         default:
             REQUIRE(false, "Unknown curve knot policy");
@@ -278,7 +281,7 @@ namespace Dal {
         YieldCurveCalibrationFunc_ func(spec.ccy_, spec.parameterization_, instruments, knotDates);
         Vector_<> result;
         Matrix_<> effJacobianInverse;
-        if (spec.solveMode_ == CurveSolveMode_::EXACT) {
+        if (spec.solveMode_ == CurveSolveMode_::Value_::EXACT) {
             std::unique_ptr<Sparse::SymmetricDecomposition_> wDecomp(weights->DecomposeSymmetric());
             result = Underdetermined::Find(func, guess, tol, *wDecomp, controls, &effJacobianInverse);
         } else {
@@ -291,8 +294,8 @@ namespace Dal {
         CurveBlock_ curveView(*retval.curve_);
         retval.diagnostics_ = BuildDiagnostics(instruments,
                                                curveView,
-                                               spec.solveMode_ == CurveSolveMode_::APPROXIMATE,
-                                               spec.solveMode_ == CurveSolveMode_::EXACT ? &effJacobianInverse : nullptr);
+                                               spec.solveMode_ == CurveSolveMode_::Value_::APPROXIMATE,
+                                               spec.solveMode_ == CurveSolveMode_::Value_::EXACT ? &effJacobianInverse : nullptr);
         return retval;
     }
 

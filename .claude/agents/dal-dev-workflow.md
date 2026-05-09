@@ -138,6 +138,16 @@ mkdir -p build && cd build
 cmake --preset=Release-linux .. && make -j$(nproc) && make install
 cd ..
 ```
+
+**If you added or changed a Machinist enum markup block,** regenerate auto files first before building:
+```bash
+export MACHINIST_TEMPLATE_DIR=$PWD/externals/machinist/template/
+./externals/machinist/bin/Machinist -c config/dal.ifc -l config/dal.mgl -d ./dal
+```
+This produces `dal/auto/MG_<EnumName>_enum.hpp` (class definition) and `.inc` (implementation).
+Include the `.hpp` inside `namespace Dal { }` in your header, and the `.inc` inside `namespace Dal { }` in your `.cpp`.
+Commit the generated files together with your markup source.
+
 Fix all compilation errors before moving on. Do not proceed to testing until the build is clean.
 
 ### Phase 4: Write Unit Tests
@@ -207,6 +217,7 @@ Offer to create a commit and PR when the user is ready.
 | Member variables  | camelCase + trailing `_`                                            |
 | Local variables   | camelCase                                                           |
 | Template params   | Single letter + `_`                                                 |
+| Enums             | Machinist markup only, no hand-written `enum class`                 |
 | `Handle_<T_>`     | `std::shared_ptr<const T_>`                                         |
 | `Vector_<E_>`     | DAL vector type (private inherit from `std::vector`)                |
 | Smart pointer     | `std::unique_ptr<T_>` for ownership, `Handle_<T_>` for shared       |
@@ -222,4 +233,5 @@ Offer to create a commit and PR when the user is ready.
 - Don't add comments describing what code does
 - Don't change existing test suite names or formatting
 - Don't proceed past the design checkpoint without user approval
-- Don't leave the build broken at the end of a phase
+- Don't hand-write `enum class` — all enums must use Machinist markup (see `.claude/rules/code-style.md#enums`)
+- Don't forget to run Machinist and commit the generated `dal/auto/MG_*` files after adding or changing enum markup

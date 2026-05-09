@@ -51,7 +51,7 @@ namespace {
         return (1.0 / df - 1.0) / basis(fixingDate, maturity, nullptr);
     }
 
-    CurveCalibrationSpec_ MakeFlatCalibrationSpec(CurveParameterization_ parameterization = CurveParameterization_::PIECEWISE_LINEAR_FWD) {
+    CurveCalibrationSpec_ MakeFlatCalibrationSpec(CurveParameterization_ parameterization = CurveParameterization_::Value_::PIECEWISE_LINEAR_FWD) {
         CurveCalibrationSpec_ spec;
         spec.today_ = Date_(2024, 1, 15);
         spec.ccy_ = "USD";
@@ -269,7 +269,7 @@ TEST(CurveBlockTest, TestExactCalibrationDiagnosticsExposeEffectiveJacobianInver
 
 TEST(CurveBlockTest, TestApproximateCalibrationUsesRequestedSolveMode) {
     CurveCalibrationSpec_ spec = MakeFlatCalibrationSpec();
-    spec.solveMode_ = CurveSolveMode_::APPROXIMATE;
+    spec.solveMode_ = CurveSolveMode_::Value_::APPROXIMATE;
     spec.fitTolerance_ = 1e-4;
     AssertQuotesFarFromInitialGuess(spec.instruments_);
 
@@ -282,7 +282,7 @@ TEST(CurveBlockTest, TestApproximateCalibrationUsesRequestedSolveMode) {
 TEST(CurveBlockTest, TestInstrumentDrivenKnotPolicyBuildsCalibratedCurve) {
     CurveCalibrationSpec_ spec = MakeFlatCalibrationSpec();
     spec.knotDates_.clear();
-    spec.knotPolicy_ = CurveKnotPolicy_::INSTRUMENTS;
+    spec.knotPolicy_ = CurveKnotPolicy_::Value_::INSTRUMENTS;
     AssertQuotesFarFromInitialGuess(spec.instruments_);
 
     CurveCalibrationResult_ result = CalibrateYieldCurve(spec);
@@ -291,9 +291,9 @@ TEST(CurveBlockTest, TestInstrumentDrivenKnotPolicyBuildsCalibratedCurve) {
 }
 
 TEST(CurveBlockTest, TestPiecewiseConstantCalibration) {
-    CurveCalibrationSpec_ spec = MakeFlatCalibrationSpec(CurveParameterization_::PIECEWISE_CONSTANT_FWD);
-    spec.knotPolicy_ = CurveKnotPolicy_::INSTRUMENTS;
-    spec.solveMode_ = CurveSolveMode_::APPROXIMATE;
+    CurveCalibrationSpec_ spec = MakeFlatCalibrationSpec(CurveParameterization_::Value_::PIECEWISE_CONSTANT_FWD);
+    spec.knotPolicy_ = CurveKnotPolicy_::Value_::INSTRUMENTS;
+    spec.solveMode_ = CurveSolveMode_::Value_::APPROXIMATE;
     spec.fitTolerance_ = 1e-4;
     AssertQuotesFarFromInitialGuess(spec.instruments_);
 

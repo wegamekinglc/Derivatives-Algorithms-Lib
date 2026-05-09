@@ -4,6 +4,37 @@
 
 #pragma once
 
+#include <dal/math/vectors.hpp>
+#include <dal/string/strings.hpp>
+#include <dal/utilities/exceptions.hpp>
+
+/*IF--------------------------------------------------------------------------
+enumeration CurveSolveMode
+    Calibration solve mode selection
+switchable
+alternative EXACT
+alternative APPROXIMATE
+-IF-------------------------------------------------------------------------*/
+
+/*IF--------------------------------------------------------------------------
+enumeration CurveParameterization
+    Forward curve parameterization
+switchable
+alternative PIECEWISE_LINEAR_FWD
+alternative PIECEWISE_CONSTANT_FWD
+alternative ZERO_RATE
+alternative LOG_DISCOUNT
+-IF-------------------------------------------------------------------------*/
+
+/*IF--------------------------------------------------------------------------
+enumeration CurveKnotPolicy
+    Knot date selection policy
+switchable
+alternative INPUT
+alternative INSTRUMENTS
+alternative AUGMENTED
+-IF-------------------------------------------------------------------------*/
+
 #include <memory>
 #include <map>
 #include <dal/platform/platform.hpp>
@@ -16,24 +47,9 @@
 #include <dal/curve/ycinstrument.hpp>
 
 namespace Dal {
-
-    enum class CurveSolveMode_ {
-        EXACT,
-        APPROXIMATE
-    };
-
-    enum class CurveParameterization_ {
-        PIECEWISE_LINEAR_FWD,
-        PIECEWISE_CONSTANT_FWD,
-        ZERO_RATE, // reserved for a future calibration parameterization
-        LOG_DISCOUNT // reserved for a future calibration parameterization
-    };
-
-    enum class CurveKnotPolicy_ {
-        INPUT,
-        INSTRUMENTS,
-        AUGMENTED
-    };
+#include <dal/auto/MG_CurveSolveMode_enum.hpp>
+#include <dal/auto/MG_CurveParameterization_enum.hpp>
+#include <dal/auto/MG_CurveKnotPolicy_enum.hpp>
 
     struct CurveCalibrationSpec_ {
         Date_ today_;
@@ -46,9 +62,9 @@ namespace Dal {
         int maxEvaluations_ = 200;
         int maxRestarts_ = 20;
         double initialGuess_ = 0.05;
-        CurveSolveMode_ solveMode_ = CurveSolveMode_::EXACT;
-        CurveParameterization_ parameterization_ = CurveParameterization_::PIECEWISE_LINEAR_FWD;
-        CurveKnotPolicy_ knotPolicy_ = CurveKnotPolicy_::INPUT;
+        CurveSolveMode_ solveMode_ = CurveSolveMode_::Value_::EXACT;
+        CurveParameterization_ parameterization_ = CurveParameterization_::Value_::PIECEWISE_LINEAR_FWD;
+        CurveKnotPolicy_ knotPolicy_ = CurveKnotPolicy_::Value_::INPUT;
     };
 
     struct CurveCalibrationDiagnostics_ {
