@@ -1,85 +1,61 @@
-# DAL - *D*erivatives *A*lgorithms *L*ib
+# DAL -- Derivatives Algorithms Library
 
-[![CMake Linux CI build status](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/actions/workflows/cmake-linux.yml/badge.svg?branch=master)](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/actions/workflows/cmake-linux.yml)
-
-[![Codacy Badge](https://app.codacy.com/project/badge/Grade/9c84afd2bb534c6c87584e5d6e4cc420)](https://app.codacy.com/app/wegamekinglc/Derivatives-Algorithms-Lib)
+[![CMake Linux CI](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/actions/workflows/cmake-linux.yml/badge.svg?branch=master)](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/actions/workflows/cmake-linux.yml)
+[![Codacy Grade](https://app.codacy.com/project/badge/Grade/9c84afd2bb534c6c87584e5d6e4cc420)](https://app.codacy.com/app/wegamekinglc/Derivatives-Algorithms-Lib)
 [![Coverage Status](https://coveralls.io/repos/wegamekinglc/Derivatives-Algorithms-Lib/badge.svg?branch=master)](https://coveralls.io/github/wegamekinglc/Derivatives-Algorithms-Lib?branch=master)
 
-## Introduction
+## Overview
 
-This is a project inspired by following books & codes repositories:
+DAL is a C++17 quantitative finance library with built-in support for Automatic Adjoint Differentiation (AAD). It covers yield curve construction and calibration, Monte Carlo simulation, finite difference PDE solvers, a domain-specific scripting engine for exotic payoffs, and parallel model evaluation.
 
-* [*Derivatives Algorithms:  Volume 1: Bones* by Tom Hyer](https://github.com/TomHyer/DA_Bones_Mirror)
-  
-* [*Modern Computational Finance: AAD and Parallel Simulations* by Antoine Savine](https://github.com/asavine/CompFinance)
+The project draws from the work of Tom Hyer (*Derivatives Algorithms: Bones*), Antoine Savine (*Modern Computational Finance: AAD and Parallel Simulations* and *Scripting for Derivatives and xVA*), and Brian Huge and Jesper Andreasen (*Finite Difference Methods for Financial PDEs*). Some implementation patterns trace back to those sources.
 
-* [*Modern Computational Finance: Scripting for Derivatives and xVA* by Antoine Savine](https://github.com/asavine/Scripting)
-
-* [*Finite Difference Methods for Financial Partial Differential Equations* by Brian Huge & Jesper Andreasen](https://github.com/brnohu/CompFin)
-
-* [*WBS_FD* by Brian Huge](https://github.com/brnohu/WBS_FD)
-
-> Some codes are directly copied from above resources.
-
-## Install
-
-### Downloads
-
-just download source codes from *github* and don't forget to get the submodule
+## Getting the Code
 
 ```bash
 git clone git@github.com:wegamekinglc/Derivatives-Algorithms-Lib.git
 cd Derivatives-Algorithms-Lib
-git submodule init
-git submodule update
+git submodule update --init --recursive
 ```
 
-### Windows
-
-#### Prerequisite
-
-* git
-* cmake
-* anaconda python distribution (only for python binding)
-* swig (only for python)
-* Visual studio 2022 community edition
-
-#### Build
-
-```bash
-./build_windows.bat
-```
-
-after built, you will get:
-
-* ./lib: the static library and xll excel extension.
-* ./bin: all the runnable examples
+## Building
 
 ### Linux
 
-#### Prerequisites (Linux)
-
-* git
-* cmake
-* anaconda python distribution (only for python binding)
-* swig (only for python)
-* zip
-* g++
-
-#### Build (Linux)
+**Prerequisites:** git, cmake (3.16+), g++ (supporting C++17), zip
 
 ```bash
 bash build_linux.sh
 ```
 
-after built, you will get:
+The script runs code generation (Machinist), a Release build, installs artifacts under the repo root, and executes the test suite.
 
-* ./lib: the static library.
-* ./bin: all the runnable examples.
+Build artifacts:
+- `lib/` -- static library
+- `bin/` -- test suite and example binaries
 
-### python binding
+For a manual build:
 
-both for windows and linux user:
+```bash
+mkdir -p build && cd build
+cmake --preset=Release-linux .. && make -j$(nproc) && make install
+```
+
+### Windows
+
+**Prerequisites:** git, cmake, Visual Studio 2022 Community Edition
+
+```bash
+.\build_windows.bat
+```
+
+Build artifacts:
+- `lib/` -- static library and XLL Excel extension
+- `bin/` -- example binaries
+
+## Python Bindings
+
+Python bindings require an Anaconda Python distribution and SWIG. After a successful C++ build:
 
 ```bash
 cd public/python
@@ -87,91 +63,117 @@ python setup.py wrap
 python setup.py install
 ```
 
-## Examples
+The `dal` package exposes the full public API to Python, including AAD-aware Monte Carlo pricing.
 
-* [C++ examples](examples)
-* [Excel/python bindings](miscs)
+## Running Tests
 
-## Interface
+```bash
+# All tests
+bin/test_suite
 
-### Excel
+# A single suite
+bin/test_suite --gtest_filter=CurveTest.*
 
-> **NOTE**: This part is only in infancy and should evolve quickly.
-
-We will give a public interface to show the functionality of this project.
-
-we have following data table
-
-| **x** | **y** |
-|-------|-------|
-| 1     | 10    |
-| 3     | 8     |
-| 5     | 6     |
-| 7     | 4     |
-| 9     | 2     |
-
-and we will use follow excel function to create a linear interpolator:
-
-```excel
-=INTERP1.NEW.LINEAR(E1,A2:A6,B2:B6)  # return a object string id, e.g. ~Interp1~my.interp~2F18E558
+# A single test
+bin/test_suite --gtest_filter=CurveTest.TestDiscountPWLFConstruction
 ```
 
-later we can use the interpolator:
+## Architecture
 
-```excel
-=INTERP1.GET("~Interp1~my.interp~2F18E558", 6.5)  # will return 4.5
+| Directory    | Purpose                                                                                            |
+|--------------|----------------------------------------------------------------------------------------------------|
+| `dal/`       | Core library: math, curve construction, models, scripting engine, AAD, concurrency                 |
+| `public/`    | Public API wrapping the core library (Excel XLL, Python bindings)                                  |
+| `tests/`     | Google Test suites, one subdirectory per module                                                    |
+| `examples/`  | Standalone programs demonstrating AAD, Monte Carlo, PDE solvers, scripting, Sobol, and calibration |
+| `config/`    | Machinist code-generation interface files                                                          |
+| `externals/` | Git submodules: XAD, Adept, CoDiPack, Google Test, RapidJSON, Machinist                            |
+| `miscs/`     | Excel workbooks and Python scripts showcasing exotic product pricing                               |
+
+### Core Modules
+
+| Module             | Description                                                                                                                  |
+|--------------------|------------------------------------------------------------------------------------------------------------------------------|
+| `dal/math/`        | Interpolation, optimization (underdetermined search), PDE solvers, random number generation, matrix operations, root finding |
+| `dal/math/aad/`    | Automatic Adjoint Differentiation with native expression-template, XAD, Adept, and CoDiPack backends                         |
+| `dal/curve/`       | Yield curve construction, piecewise forward-rate discount curves, multi-curve framework, calibration                         |
+| `dal/script/`      | Expression scripting engine (parser, AST, simulation/evaluation) for exotic payoff definitions                               |
+| `dal/model/`       | Financial models (Black-Scholes, etc.)                                                                                       |
+| `dal/concurrency/` | Thread pool and concurrent queue for parallel Monte Carlo                                                                    |
+| `dal/storage/`     | Data persistence and archiving                                                                                               |
+| `dal/indice/`      | Reference rate index management                                                                                              |
+
+## Excel Interface
+
+The Excel XLL add-in exposes DAL functionality through worksheet functions.
+
+### Linear Interpolation
+
+Given a data table:
+
+| x | y  |
+|---|----|
+| 1 | 10 |
+| 3 | 8  |
+| 5 | 6  |
+| 7 | 4  |
+| 9 | 2  |
+
+Create an interpolator:
+
+```
+=INTERP1.NEW.LINEAR(E1, A2:A6, B2:B6)
 ```
 
-#### Scripted Exotic Option Pricing
+This returns a string handle (e.g. `~Interp1~my.interp~2F18E558`) that can be used later:
 
-We will price an european option with our script ability and a basic BS model
+```
+=INTERP1.GET("~Interp1~my.interp~2F18E558", 6.5)   ' returns 4.5
+```
 
-The product will be described in excel like :
+### Scripted Exotic Option Pricing
 
-| **Date**    | **Event**   |
-|-------------|-------------|
-| 2022/9/25   | call pays MAX(spot() - 120, 0.0) |
+Define a product with a schedule of events:
 
-and we can create a product in excel with the above table:
+| Date      | Event                            |
+|-----------|----------------------------------|
+| 2022/9/25 | call pays MAX(spot() - 120, 0.0) |
 
-```excel
+Create the product:
+
+```
 =PRODUCT.NEW("my_product", A2, B2)
 ```
 
-then we set a model to price this:
+Define the model parameters:
 
-| **Field** | **Value** |
-|-----------|-----------|
-| spot      | 100       |
-| vol       | 0.15      |
-| rate      | 0.0       |
-| dividend  | 0.0       |
+| Field    | Value |
+|----------|-------|
+| spot     | 100   |
+| vol      | 0.15  |
+| rate     | 0.0   |
+| dividend | 0.0   |
 
-```excel
+```
 =BSMODELDATA.NEW("model", D2, D3, D4, D5)
 ```
 
-finally we price this product with the model:
+Price it with Monte Carlo:
 
-```excel
+```
 =MONTECARLO.VALUE(A5, C7, 2^20, "sobol", FALSE)
 ```
 
-| value | 4.0389 |
-|-------|--------|
+| Result | 4.0389 |
+|--------|--------|
 
-#### other excel based exotic products example
+Additional examples:
+- [Up-and-out call](miscs/excel/004.up%20and%20out%20call.xlsx)
+- [Snowball](miscs/excel/005.snowball.xlsx)
 
-* [up and out call](miscs/excel/004.up%20and%20out%20call.xlsx)
-* [snowball](miscs/excel/005.snowball.xlsx)
+## Python Interface
 
-#### Some screenshot
-
-![img.png](resource/screenshot.png)
-
-### Python
-
-The above simple european option pricing example can also be replicated in python:
+The same European option example in Python:
 
 ```python
 from dal import *
@@ -187,9 +189,7 @@ strike = 120.0
 maturity = Date_(2025, 9, 15)
 
 n_paths = 2 ** 20
-use_bb = False
 rsg = "sobol"
-model_name = "bs"
 
 event_dates = [maturity]
 events = [f"call pays MAX(spot() - {strike}, 0.0)"]
@@ -198,14 +198,14 @@ product = Product_New(event_dates, events)
 model = BSModelData_New(spot, vol, rate, div)
 
 res = MonteCarlo_Value(product, model, n_paths, rsg, False, True)
-vega = 0.0
+
 for k, v in res.items():
     print(f"{k:<8}: {v:>10.4f}")
 ```
 
-The output should look like:
+Output:
 
-```python
+```
 d_div   :   -85.2290
 d_rate  :    73.1011
 d_spot  :     0.2838
@@ -213,7 +213,35 @@ d_vol   :    58.7140
 value   :     4.0389
 ```
 
-#### other python based exotic products example
+Additional Python examples:
+- [Up-and-out call](miscs/python/002.uoc.py)
+- [Snowball](miscs/python/003.snowball.py)
 
-* [up and out call](miscs/python/002.uoc.py)
-* [snowball](miscs/python/003.snowball.py)
+## C++ Examples
+
+Runnable examples are in the [`examples/`](examples/) directory:
+
+| Example            | Description                                               |
+|--------------------|-----------------------------------------------------------|
+| `aad/`             | AAD in isolation (recording, propagation, multi-output)   |
+| `european_mc/`     | European option pricing with Monte Carlo and AAD Greeks   |
+| `european_fd/`     | European option pricing with finite difference PDE solver |
+| `script/`          | Payoff scripting engine usage                             |
+| `snowball/`        | Snowball autocallable pricing                             |
+| `uoc/`             | Up-and-out call pricing                                   |
+| `sobol/`           | Sobol sequence generation                                 |
+| `underdetermined/` | Yield curve calibration with underdetermined search       |
+| `concurrency/`     | Parallel Monte Carlo with thread pool                     |
+| `vanilla/`         | Vanilla option pricing with multiple models               |
+
+## License
+
+This project is licensed under the MIT License -- see the [LICENSE](LICENSE) file for details.
+
+## References
+
+- Tom Hyer, *Derivatives Algorithms: Volume 1: Bones* ([repository](https://github.com/TomHyer/DA_Bones_Mirror))
+- Antoine Savine, *Modern Computational Finance: AAD and Parallel Simulations* ([repository](https://github.com/asavine/CompFinance))
+- Antoine Savine, *Modern Computational Finance: Scripting for Derivatives and xVA* ([repository](https://github.com/asavine/Scripting))
+- Brian Huge and Jesper Andreasen, *Finite Difference Methods for Financial PDEs* ([repository](https://github.com/brnohu/CompFin))
+- Brian Huge, *WBS_FD* ([repository](https://github.com/brnohu/WBS_FD))
