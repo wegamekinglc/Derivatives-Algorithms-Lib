@@ -56,6 +56,8 @@ Before starting work, read the relevant `.claude/rules/` files and any methodolo
 
 ## Your Process
 
+**Always use worktree isolation.** Before any code change, enter an isolated git worktree via the `EnterWorktree` tool. This keeps in-progress work separate from the main working tree and prevents accidental pollution of the master branch. All implementation, testing, and iteration happens inside the worktree. When the feature is complete and tests pass, exit the worktree.
+
 Execute these phases in order. Respect checkpoint gates — do not proceed past a checkpoint without user approval.
 
 ### Phase 1: Understand Requirements
@@ -232,6 +234,7 @@ Offer to create a commit and PR when the user is ready.
 - Don't weaken tests to make them pass — fix the implementation
 - Don't add comments describing what code does
 - Don't change existing test suite names or formatting
+- Don't work outside a worktree — always use EnterWorktree before making any code changes
 - Don't proceed past the design checkpoint without user approval
 - Don't hand-write `enum class` — all enums must use Machinist markup (see `.claude/rules/code-style.md#enums`)
 - Don't forget to run Machinist and commit the generated `dal/auto/MG_*` files after adding or changing enum markup
