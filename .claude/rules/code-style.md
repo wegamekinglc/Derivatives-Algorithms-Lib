@@ -63,6 +63,62 @@
 - `explicit` constructors on all single-argument constructors
 - `[[nodiscard]]` + `const` on all pure getters
 
+## Enums
+
+- All enumeration types must use **Machinist markup** — never hand-write `enum class` definitions.
+- The Machinist code-generation tool reads `/*IF----------...` blocks and produces auto-generated `.hpp` (class definition) and `.inc` (implementation) files under `dal/auto/`.
+- Generated enum types are classes with a nested `enum class Value_ : char`, a `String()` method, construction from `String_`, comparison operators, and a `ListAll()` vector.
+- Use `switchable` in the markup when the enum needs `.Switch()` and `operator==` against `Value_`.
+
+### Enum markup format
+
+Place the markup block before the `namespace Dal {` line in the header file:
+
+```
+/*IF--------------------------------------------------------------------------
+enumeration EnumName
+    One-line description
+switchable                              ← include if comparison/dispatch needed
+alternative VALUE_NAME optional_alias
+-IF-------------------------------------------------------------------------*/
+```
+
+Include the generated header inside `namespace Dal { ... }` alongside your declarations:
+
+```cpp
+namespace Dal {
+#include <dal/auto/MG_EnumName_enum.hpp>
+
+    // your code that uses EnumName_
+} // namespace Dal
+```
+
+Include the generated `.inc` implementation inside `namespace Dal { ... }` in the corresponding `.cpp` file:
+
+```cpp
+namespace Dal {
+#include <dal/auto/MG_EnumName_enum.inc>
+    // your implementation code
+} // namespace Dal
+```
+
+### Using generated enums
+
+- Refer to enum values with `EnumName_::Value_::VALUE_NAME` (e.g. `CurveSolveMode_::Value_::EXACT`).
+- In switch statements, call `.Switch()` on the object: `switch (obj.Switch()) { case EnumName_::Value_::X: ... }`.
+- Comparison with values uses `operator==` directly when `switchable`: `if (obj == EnumName_::Value_::X)`.
+
+### Building after adding or changing enum markup
+
+Run Machinist from the repo root to regenerate auto files before compiling:
+
+```bash
+export MACHINIST_TEMPLATE_DIR=$PWD/externals/machinist/template/
+./externals/machinist/bin/Machinist -c config/dal.ifc -l config/dal.mgl -d ./dal
+```
+
+Then build normally. The auto-generated files (`dal/auto/MG_*_enum.hpp`, `dal/auto/MG_*_enum.inc`) must be committed to the repository alongside the markup source.
+
 ## Error Handling
 
 - Custom `Exception_` (from `std::runtime_error`) capturing file/line/function

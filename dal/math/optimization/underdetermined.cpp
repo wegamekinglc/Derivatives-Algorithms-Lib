@@ -126,6 +126,28 @@ namespace Dal {
             w.Solve(ws, s);
         }
 
+        void StoreEffectiveJacobianInverse(const Underdetermined::Jacobian_& j,
+                                           const Sparse::SymmetricDecomposition_& w,
+                                           Matrix_<>* eff_j_inv) {
+            if (!eff_j_inv)
+                return;
+            SquareMatrix_<> q;
+            j.QForm(w, &q);
+            Vector_<Vector_<>> q_inv_rhs(j.Rows(), Vector_<>(j.Rows(), 0.0));
+            for (int i = 0; i < j.Rows(); ++i)
+                q_inv_rhs[i][i] = 1.0;
+            CholeskySolve(&q, &q_inv_rhs);
+
+            eff_j_inv->Resize(j.Columns(), j.Rows());
+            for (int i_col = 0; i_col < j.Rows(); ++i_col) {
+                Vector_<> ws = j.MultiplyRight(q_inv_rhs[i_col]);
+                Vector_<> eff_col;
+                w.Solve(ws, &eff_col);
+                for (int i_row = 0; i_row < j.Columns(); ++i_row)
+                    (*eff_j_inv)(i_row, i_col) = eff_col[i_row];
+            }
+        }
+
         class XPenaltyWeight_ : public Sparse::Square_ {
             const Sparse::Square_& W_; // must be symmetric
             const Underdetermined::Jacobian_& J_;
@@ -226,8 +248,10 @@ namespace Dal {
             for (int iBacktrack = 0; iBacktrack < controls.maxBacktrackTries_; ++iBacktrack) {
                 Transform(xOld, s, std::plus<>(), &xNew);
                 Vector_<> fNew = func.F(xNew);
-                if (*MaxElement(fNew) < 1.0 && *MinElement(fNew) > -1.0)
+                if (*MaxElement(fNew) < 1.0 && *MinElement(fNew) > -1.0) {
+                    StoreEffectiveJacobianInverse(*j, w, eff_j_inv);
                     return xNew;
+                }
 
                 const double oldOld = InnerProduct(fOld, fOld);
                 const double oldNew = InnerProduct(fOld, fNew);

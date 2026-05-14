@@ -170,3 +170,23 @@ TEST(UnderdeterminedTest, TestFindThrowsWhenControlsAreExhausted) {
 
     ASSERT_THROW(Underdetermined::Find(func, guess, tol, *decomp, MakeControls(1, 1)), Exception_);
 }
+
+TEST(UnderdeterminedTest, TestFindPopulatesEffectiveJacobianInverse) {
+    LinearSumFunc_ func(3.0);
+    Vector_<> guess = {0.0, 0.0};
+    Vector_<> tol = {1.0e-10};
+
+    TriDiagonal_ weights(2);
+    SetDiagonalWeights(&weights, 1.0, 4.0);
+    std::unique_ptr<SymmetricDecomposition_> decomp(weights.DecomposeSymmetric());
+
+    Matrix_<> effJacobianInverse;
+    Vector_<> calculated = Underdetermined::Find(func, guess, tol, *decomp, MakeControls(), &effJacobianInverse);
+
+    ASSERT_NEAR(calculated[0], 2.4, 1e-10);
+    ASSERT_NEAR(calculated[1], 0.6, 1e-10);
+    ASSERT_EQ(effJacobianInverse.Rows(), 2);
+    ASSERT_EQ(effJacobianInverse.Cols(), 1);
+    ASSERT_NEAR(effJacobianInverse(0, 0), 8.0e-11, 1e-18);
+    ASSERT_NEAR(effJacobianInverse(1, 0), 2.0e-11, 1e-18);
+}

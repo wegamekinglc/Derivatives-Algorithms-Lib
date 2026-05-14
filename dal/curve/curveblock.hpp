@@ -4,7 +4,9 @@
 
 #pragma once
 
+#include <map>
 #include <dal/curve/discount.hpp>
+#include <dal/curve/calibration.hpp>
 #include <dal/curve/yc.hpp>
 #include <dal/curve/ycinstrument.hpp>
 #include <dal/math/vectors.hpp>
@@ -15,9 +17,19 @@
 namespace Dal {
 
     class CurveBlock_ : public YieldCurve_ {
-        const DiscountCurve_& dc_;
+        const DiscountCurve_* dc_;
+        std::map<CollateralType_, Handle_<DiscountCurve_>> discountCurves_;
+        std::map<PeriodLength_, Handle_<DiscountCurve_>> forwardCurves_;
+        DayBasis_ liborBasis_;
     public:
         explicit CurveBlock_(const DiscountCurve_& dc);
+        CurveBlock_(const DiscountCurve_& dc, const DayBasis_& liborBasis);
+        explicit CurveBlock_(const Handle_<DiscountCurve_>& dc, const DayBasis_& liborBasis = DayBasis_("ACT_365F"));
+        CurveBlock_(const String_& name,
+                    const String_& ccy,
+                    const std::map<CollateralType_, Handle_<DiscountCurve_>>& discountCurves,
+                    const std::map<PeriodLength_, Handle_<DiscountCurve_>>& forwardCurves = {},
+                    const DayBasis_& liborBasis = DayBasis_("ACT_365F"));
         [[nodiscard]] const DiscountCurve_& Discount(const CollateralType_& collateral) const override;
         [[nodiscard]] double FwdLibor(const PeriodLength_& tenor, const Date_& fixing_date) const override;
         void Write(Archive::Store_& dst) const override;
