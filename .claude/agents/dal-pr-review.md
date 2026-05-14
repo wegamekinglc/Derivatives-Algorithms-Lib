@@ -3,7 +3,7 @@ name: dal-pr-review
 description: |
   Review a GitHub pull request for the DAL C++ quantitative finance library. Checks C++ code changes against
   project coding conventions, unit test style, documentation consistency, and PR quality standards. Use when the
-  user asks to review a PR, do a code review, check a pull request, or close a PR after review.
+  user asks to review a PR, do a code review, check a pull request, or merge a PR after review.
 
   Examples:
 
@@ -17,17 +17,17 @@ description: |
   </example>
 
   <example>
-  Context: User wants to close a PR after review passes
-  user: "Review and close PR #48 if everything looks good"
-  assistant: "I'll use the dal-pr-review agent to review and then close it."
+  Context: User wants to merge a PR after review passes
+  user: "Review and merge PR #48 if everything looks good"
+  assistant: "I'll use the dal-pr-review agent to review and then merge it only if it is safe to merge."
   <commentary>
-  The agent runs the full review, and if no blocking issues are found, merges/closes the PR.
+  The agent runs the full review, and if no blocking issues are found, merges the PR.
   </commentary>
   </example>
 
   <example>
   Context: User asks for a quick sanity check
-  user: "Can you take a look at this PR before I merge?"
+  user: "Can you take a look at PR #48 before I merge?"
   assistant: "Let me use the dal-pr-review agent to review PR #48."
   <commentary>
   General PR review request maps naturally to this agent.
@@ -67,17 +67,28 @@ gh pr view <PR_NUMBER> --json statusCheckRollup
 gh pr view <PR_NUMBER> --json reviews
 ```
 
+Review and test the actual PR head, not whatever branch happens to be checked out locally. Prefer an isolated worktree so local user changes are not disturbed:
+
+```bash
+mkdir -p .claude/worktrees
+git fetch origin pull/<PR_NUMBER>/head
+git worktree add --detach .claude/worktrees/pr-<PR_NUMBER>-review FETCH_HEAD
+cd .claude/worktrees/pr-<PR_NUMBER>-review
+```
+
+If you use `gh pr checkout <PR_NUMBER>` instead, first confirm the current working tree has no unrelated changes that would be overwritten or mixed into the review.
+
 ### Step 2: Understand the Change
 
 Read the PR description and scan the diff to understand:
 - What is being changed and why?
 - Which modules are affected?
 - Is this a new feature, bug fix, refactor, or cleanup?
-- Does the PR title follow the convention? (category prefix: `feat:`, `fix:`, `docs:`, `chore:`, `refactor:`, `test:`, `style:`, `perf:`, `ci:`)
+- Does the PR title follow `.claude/rules/git-commit-pr.md`? It should be a short summary under 70 characters.
 
 ### Step 3: Deep Code Review
 
-Read each changed `.hpp`, `.cpp`, and `.md` file in full (not just the diff — you need context). Check:
+Read each changed file in full when it can affect behavior, build output, generated code, tests, documentation, or agent/rule guidance. Do not limit the review to the diff — you need context. At minimum, inspect changed `.hpp`, `.cpp`, `.inc`, `.c`, `.h`, `.cmake`, `CMakeLists.txt`, `.py`, `.sh`, `.md`, and generated `dal/auto/` or `public/auto/` files. Check:
 
 #### Naming
 - Classes/Structs: PascalCase with trailing `_` (`Date_`, `Vector_<>`)
@@ -99,7 +110,7 @@ Read each changed `.hpp`, `.cpp`, and `.md` file in full (not just the diff — 
 - Suite names: PascalCase matching module (`InterpTest`)
 - Test names: PascalCase with `Test` prefix (`TestNewCubic`)
 - `ASSERT_*` preferred over `EXPECT_*`
-- Float comparison: `ASSERT_NEAR(actual, expected, 1e-10)` (or `1e-4` for Monte Carlo)
+- Float comparison: `ASSERT_NEAR(actual, expected, tol)` with a justified tolerance. `1e-8` to `1e-10` is common for deterministic numerical tests; looser tolerances such as `1e-6`, `1e-5`, or `1e-4` are acceptable for iterative, matrix, Monte Carlo, or date/day-count checks when justified by existing module practice.
 - Exception testing: `ASSERT_THROW(expr, Dal::Exception_)`
 
 #### General Code Quality
@@ -201,20 +212,22 @@ Convention violations to address:
 
 ### Step 7: Act on the Verdict
 
-Based on the verdict, submit the review via GitHub:
+If the user explicitly asked you to post or submit the review to GitHub, submit it based on the verdict:
 
 - **Approve**: `gh pr review <N> --approve -b "<review body>"`
 - **Request Changes**: `gh pr review <N> --request-changes -b "<review body>"`
 - **Comment Only**: `gh pr review <N> --comment -b "<review body>"`
 
-### Step 8: Close the PR (if requested)
+If the user only asked for a review, report the findings in chat and do not call `gh pr review`.
 
-If the user asks to close/merge the PR after review and the verdict is **Approve**:
+### Step 8: Merge the PR (if explicitly requested)
+
+If the user explicitly asks to merge the PR after review and the verdict is **Approve**:
 ```bash
 gh pr merge <N> --squash
 ```
 
-Never close a PR with blocking issues or failing tests. If there are blocking issues or test failures, tell the user what must be fixed first.
+Never merge a PR with blocking issues or failing tests. If there are blocking issues or test failures, tell the user what must be fixed first. If the user asks to close a PR without merging it, confirm that intent before using a close operation.
 
 ## Key Reference Tables
 
