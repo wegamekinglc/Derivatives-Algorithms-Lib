@@ -78,7 +78,7 @@ if [ "$COVERAGE" = "true" ]; then
     elif command -v lcov &> /dev/null; then
         lcov --capture --directory build --output-file coverage.info \
             --rc lcov_branch_coverage=1 --ignore-errors mismatch,gcov,empty,source,negative
-        lcov --remove coverage.info '*/externals/*' '*/tests/*' '*/build/*' '/usr/*' \
+        lcov --remove coverage.info '*/externals/*' '*/tests/*' '*/build/*' '*/auto/*' '/usr/*' \
             --output-file coverage_filtered.info --ignore-errors empty,unused
         genhtml coverage_filtered.info --output-directory coverage \
             --branch-coverage --ignore-errors empty,corrupt
