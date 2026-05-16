@@ -8,6 +8,7 @@ bin/*
 lib/*
 include/*
 coverage.info
+coverage/
 *.csv
 dist
 build
