@@ -18,6 +18,11 @@ jobs:
             cxx: clang-cl
 
     steps:
+      - name: Configure Git for Windows
+        run: |
+          git config --global core.protectNTFS false
+          git config --global core.longpaths true
+
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
           submodules: recursive
