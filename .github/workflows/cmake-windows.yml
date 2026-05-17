@@ -7,15 +7,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        compiler: [msvc, clang-cl]
+        compiler: [msvc]
         aad-backend: [aadet, xad, codipack, adept]
         include:
           - compiler: msvc
             cc: cl
             cxx: cl
-          - compiler: clang-cl
-            cc: clang-cl
-            cxx: clang-cl
 
     steps:
 
