@@ -10,7 +10,6 @@
 #include <dal/curve/ycimp.hpp>
 #include <dal/curve/ycinstrument.hpp>
 #include <dal/curve/piecewiselinear.hpp>
-#include <dal/protocol/collateraltype.hpp>
 
 using namespace Dal;
 
