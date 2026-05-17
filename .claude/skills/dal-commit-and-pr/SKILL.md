@@ -49,15 +49,13 @@ There are two kinds of submodule changes — handle them differently:
 - Write commit messages following project conventions:
   - Imperative summary under 72 characters
   - Body explaining the "why", not just the "what"
-  - If the user wants an AI co-author trailer, use their preferred trailer; otherwise append `Co-Authored-By: Claude Opus 4.7 <noreply@anthropic.com>`
+  - Do not append any co-author trailer
 - Use a multi-line commit message to preserve formatting:
   ```bash
   git commit -m "$(cat <<'EOF'
   Summary line here
 
   Body explaining why.
-
-  Co-Authored-By: Claude Opus 4.7 <noreply@anthropic.com>
   EOF
   )"
   ```
