@@ -1,14 +1,13 @@
 
 package types;
 
-public class SpecialDay
+public class CurveKnotPolicy
 {
     public enum Value
     {
-		IMM,
-		IMM1,
-		CDS,
-		EOM,
+		INPUT,
+		INSTRUMENTS,
+		AUGMENTED,
         N_VALUES
     }
 }

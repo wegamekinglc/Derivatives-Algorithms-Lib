@@ -1,15 +1,12 @@
 
 package types;
 
-public class DateStepSize
+public class CurveSolveMode
 {
     public enum Value
     {
-		Y,
-		M,
-		W,
-		BD,
-		CD,
+		EXACT,
+		APPROXIMATE,
         N_VALUES
     }
 }

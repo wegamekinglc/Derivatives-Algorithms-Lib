@@ -1,0 +1,110 @@
+name: CMake Windows CI
+on: [push, pull_request]
+
+jobs:
+  build:
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        compiler: [msvc]
+        aad-backend: [aadet, xad, adept]
+        include:
+          - compiler: msvc
+            cc: cl
+            cxx: cl
+
+    steps:
+
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          submodules: recursive
+
+      - name: Setup MSVC environment
+        shell: pwsh
+        run: |
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $vsPath = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          if (-not $vsPath) {
+            throw "Visual Studio with C++ build tools was not found"
+          }
+
+          $vsDevCmd = Join-Path $vsPath "Common7\Tools\VsDevCmd.bat"
+          if (-not (Test-Path $vsDevCmd)) {
+            throw "VsDevCmd.bat was not found at $vsDevCmd"
+          }
+
+          $varsToExport = @(
+            "Path",
+            "PATH",
+            "INCLUDE",
+            "LIB",
+            "LIBPATH",
+            "UniversalCRTSdkDir",
+            "UCRTVersion",
+            "VCINSTALLDIR",
+            "VCToolsInstallDir",
+            "VSINSTALLDIR",
+            "WindowsSdkDir",
+            "WindowsSDKVersion"
+          )
+
+          cmd /c "`"$vsDevCmd`" -host_arch=x64 -arch=x64 && set" | ForEach-Object {
+            if ($_ -match "^(.*?)=(.*)$") {
+              $name = $matches[1]
+              if ($varsToExport -contains $name) {
+                "$name=$($matches[2])" >> $env:GITHUB_ENV
+              }
+            }
+          }
+
+      - name: Configure AAD backend
+        shell: bash
+        run: |
+          case "${{ matrix.aad-backend }}" in
+            aadet)
+              FLAGS="-DDAL_USE_XAD_AAD=off -DDAL_USE_CODIPACK_AAD=off -DDAL_USE_ADEPT_AAD=off" ;;
+            xad)
+              FLAGS="-DDAL_USE_XAD_AAD=on -DDAL_USE_CODIPACK_AAD=off -DDAL_USE_ADEPT_AAD=off" ;;
+            codipack)
+              FLAGS="-DDAL_USE_XAD_AAD=off -DDAL_USE_CODIPACK_AAD=on -DDAL_USE_ADEPT_AAD=off" ;;
+            adept)
+              FLAGS="-DDAL_USE_XAD_AAD=off -DDAL_USE_CODIPACK_AAD=off -DDAL_USE_ADEPT_AAD=on" ;;
+          esac
+          echo "ADDITIONAL_CMAKE_FLAGS=$FLAGS" >> $GITHUB_ENV
+
+      - name: Build Machinist
+        shell: bash
+        run: |
+          cd externals/machinist
+          rm -rf build
+          mkdir -p build
+          cd build
+          cmake --preset Release-windows ..
+          cmake --build .
+          cmake --install .
+
+      - name: Run code generation
+        shell: bash
+        run: |
+          export MACHINIST_TEMPLATE_DIR="$(pwd -W)/externals/machinist/template/"
+          ./externals/machinist/bin/Machinist.exe -c config/dal.ifc -l config/dal.mgl -d ./dal
+          ./externals/machinist/bin/Machinist.exe -c config/dal.ifc -l config/dal.mgl -d ./public
+
+      - name: Compile
+        shell: bash
+        env:
+          CC: ${{ matrix.cc }}
+          CXX: ${{ matrix.cxx }}
+        run: |
+          rm -rf build
+          mkdir -p build
+          cd build
+          cmake --preset Release-windows ${ADDITIONAL_CMAKE_FLAGS} ..
+          cmake --build .
+          cmake --install .
+
+      - name: Test
+        shell: bash
+        run: |
+          ./bin/test_suite.exe

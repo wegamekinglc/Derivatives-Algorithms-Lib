@@ -81,6 +81,9 @@ if (NOT DEFINED USE_COVERAGE)
     set(USE_COVERAGE false)
 endif()
 
+option(DAL_BUILD_EXAMPLES "Build example programs" ON)
+option(DAL_BUILD_PUBLIC "Build public API" ON)
+
 include(Platform)
 
 message("-- CMAKE_BUILD_TYPE: ${CMAKE_BUILD_TYPE}")
@@ -162,8 +165,14 @@ if(WIN32)
 endif()
 
 add_subdirectory(dal)
-add_subdirectory(public)
-add_subdirectory(examples)
+
+if (DAL_BUILD_PUBLIC)
+    add_subdirectory(public)
+endif()
+
+if (DAL_BUILD_EXAMPLES)
+    add_subdirectory(examples)
+endif()
 
 message("-- SKIP_TESTS: ${SKIP_TESTS}")
 if ("${SKIP_TESTS}" STREQUAL "false")
