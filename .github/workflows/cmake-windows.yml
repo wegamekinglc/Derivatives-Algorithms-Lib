@@ -8,7 +8,7 @@ jobs:
       fail-fast: false
       matrix:
         compiler: [msvc]
-        aad-backend: [aadet, xad, codipack, adept]
+        aad-backend: [aadet, xad, adept]
         include:
           - compiler: msvc
             cc: cl
