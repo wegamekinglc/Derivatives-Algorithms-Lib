@@ -31,7 +31,11 @@ namespace Dal {
         }
 
         int MonthsBetween(const Date_& start, const Date_& maturity) {
-            const int months = 12 * (Date::Year(maturity) - Date::Year(start)) + Date::Month(maturity) - Date::Month(start);
+            int months = 12 * (Date::Year(maturity) - Date::Year(start)) + Date::Month(maturity) - Date::Month(start);
+            const bool startIsEom = start == Date::EndOfMonth(start);
+            const bool maturityIsEom = maturity == Date::EndOfMonth(maturity);
+            if (Date::Day(maturity) < Date::Day(start) && !(startIsEom && maturityIsEom))
+                --months;
             return std::max(months, 1);
         }
 
@@ -114,11 +118,12 @@ namespace Dal {
 
             double operator()(const YieldCurve_& yc) const override {
                 SchedulePeriod_ period;
+                const bool isLastPeriod = true;
                 period.unadjustedStart_ = start_;
                 period.unadjustedEnd_ = maturity_;
                 period.accrualStart_ = Holidays::Adjust(convention_.accrualHolidays_, start_, convention_.businessDayConvention_);
                 period.accrualEnd_ = Holidays::Adjust(convention_.accrualHolidays_, maturity_, convention_.businessDayConvention_);
-                period.dayCountContext_.reset(new DayBasis::Context_(true, start_, maturity_, MonthsBetween(start_, maturity_)));
+                period.dayCountContext_.reset(new DayBasis::Context_(isLastPeriod, start_, maturity_, MonthsBetween(start_, maturity_)));
                 const DiscountCurve_& forecast = ResolveForecastCurve(yc, fallback_, convention_);
                 return ForwardRate(forecast,
                                    period.accrualStart_,
@@ -148,11 +153,12 @@ namespace Dal {
 
             double operator()(const YieldCurve_& yc) const override {
                 SchedulePeriod_ period;
+                const bool isLastPeriod = true;
                 period.unadjustedStart_ = start_;
                 period.unadjustedEnd_ = maturity_;
                 period.accrualStart_ = Holidays::Adjust(convention_.accrualHolidays_, start_, convention_.businessDayConvention_);
                 period.accrualEnd_ = Holidays::Adjust(convention_.accrualHolidays_, maturity_, convention_.businessDayConvention_);
-                period.dayCountContext_.reset(new DayBasis::Context_(true,
+                period.dayCountContext_.reset(new DayBasis::Context_(isLastPeriod,
                                                                      start_,
                                                                      maturity_,
                                                                      convention_.useProjectionCurve_

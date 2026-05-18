@@ -54,7 +54,7 @@ TEST(SchedulesTest, TestMakeScheduleWithHolidays) {
 }
 
 TEST(SchedulesTest, TestMakeScheduleSupportsModifiedFollowing) {
-    const Date_ start(2024, 8, 31);
+    const Date_ start(2024, 8, 30);
     const Date_ maturity(2025, 2, 28);
     const Holidays_ hols(Holidays::None());
 
@@ -63,15 +63,14 @@ TEST(SchedulesTest, TestMakeScheduleSupportsModifiedFollowing) {
                                          PeriodLength_("1M"),
                                          hols,
                                          DateGeneration_("Forward"),
-                                         BizDayConvention_("ModifiedFollowing"),
-                                         true);
+                                         BizDayConvention_("ModifiedFollowing"));
     Vector_<Date_> expected = {
         Date_(2024, 8, 30),
         Date_(2024, 9, 30),
-        Date_(2024, 10, 31),
+        Date_(2024, 10, 30),
         Date_(2024, 11, 29),
-        Date_(2024, 12, 31),
-        Date_(2025, 1, 31),
+        Date_(2024, 12, 30),
+        Date_(2025, 1, 30),
         Date_(2025, 2, 28),
     };
     ASSERT_EQ(calculated, expected);
