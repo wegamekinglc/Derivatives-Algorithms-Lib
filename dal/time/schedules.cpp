@@ -59,6 +59,15 @@ namespace Dal {
             const bool moveForward = lag > 0 ? forward : !forward;
             return moveForward ? Date::NBusDays(steps, hols)->FwdFrom(date) : Date::NBusDays(steps, hols)->BackFrom(date);
         }
+
+        int CouponMonths(const Date_& start, const Date_& maturity) {
+            int months = 12 * (Date::Year(maturity) - Date::Year(start)) + Date::Month(maturity) - Date::Month(start);
+            const bool startIsEom = start == Date::EndOfMonth(start);
+            const bool maturityIsEom = maturity == Date::EndOfMonth(maturity);
+            if (Date::Day(maturity) < Date::Day(start) && !(startIsEom && maturityIsEom))
+                --months;
+            return std::max(months, 1);
+        }
     } // namespace
 
     Schedule_ DateGenerate(const Date_& start,
@@ -147,7 +156,7 @@ namespace Dal {
             period.paymentDate_ = Holidays::Adjust(paymentHolidays,
                                                    ApplyLag(period.accrualEnd_, paymentLag, paymentHolidays, true),
                                                    paymentConvention);
-            period.isStub_ = Date::AddMonths(period.unadjustedStart_, tenor.Months(), preserveEom) != period.unadjustedEnd_;
+            period.isStub_ = CouponMonths(period.unadjustedStart_, period.unadjustedEnd_) != tenor.Months();
             period.dayCountContext_.reset(
                 new DayBasis::Context_(i == static_cast<int>(unadjusted.size()) - 1, period.unadjustedStart_, period.unadjustedEnd_, tenor.Months()));
             retVal.push_back(period);

@@ -23,7 +23,6 @@ namespace Dal {
             Ccy::Conventions::LiborFixDays().XWrite().SetDefault(2);
             Ccy::Conventions::LiborFixDays().XWrite()(Ccy_("CNY"), 1);
             Ccy::Conventions::LiborFixHolidays().XWrite()(Ccy_("CNY"), Holidays_("CN.IB"));
-            Ccy::Conventions::LiborDayBasis().XWrite().SetDefault(DayBasis_("ACT_360"));
             Ccy::Conventions::SwapFixedPeriod().XWrite().SetDefault(PeriodLength_("6M"));
             Ccy::Conventions::SwapFloatIndex().XWrite().SetDefault(FindRate(PeriodLength_("3M"), Clearer_("CME")));
             Ccy::Conventions::SwapFixedDayBasis().XWrite().SetDefault(DayBasis_("30_360"));
@@ -42,6 +41,7 @@ namespace Dal {
             liborConvention.dayBasis_ = DayBasis_("ACT_360");
             liborConvention.businessDayConvention_ = BizDayConvention_("Following");
             liborConvention.collateral_ = CollateralType_(CollateralType_::Value_::OIS);
+            Ccy::Conventions::LiborDayBasis().XWrite().SetDefault(liborConvention.dayBasis_);
             Ccy::Conventions::LiborIndex().XWrite().SetDefault(liborConvention);
 
             RateIndexConvention_ cnyLiborConvention(liborConvention);

@@ -379,8 +379,11 @@ namespace Dal {
             for (const auto& [tenor, curve] : retval.forwardCurves_)
                 if (!stageSpec.forwardCurves_.count(tenor))
                     stageSpec.forwardCurves_[tenor] = curve;
-            if (!stageSpec.calibrateDiscountCurve_ && stageSpec.baseCurve_.IsEmpty())
+            if (!stageSpec.calibrateDiscountCurve_ && stageSpec.baseCurve_.IsEmpty()) {
+                REQUIRE(stageSpec.discountCurves_.count(stageSpec.targetCollateral_),
+                        "Forward-curve calibration requires a preloaded discount curve for the requested collateral");
                 stageSpec.baseCurve_ = stageSpec.discountCurves_.at(stageSpec.targetCollateral_);
+            }
 
             CurveCalibrationResult_ stageResult = CalibrateYieldCurve(stageSpec);
             Handle_<DiscountCurve_> calibrated(stageResult.curve_.release());
