@@ -52,6 +52,42 @@ namespace {
         }
         return (1.0 - dc(today, maturity)) / annuity;
     }
+
+    double ExpectedBasisSpread(const DiscountCurve_& discount,
+                               const DiscountCurve_& spreadForecast,
+                               const DiscountCurve_& referenceForecast,
+                               const Date_& today,
+                               const Date_& maturity,
+                               int spreadFreqMonths,
+                               int referenceFreqMonths,
+                               const DayBasis_& spreadBasis,
+                               const DayBasis_& referenceBasis) {
+        double spreadLegPv = 0.0;
+        double spreadAnnuity = 0.0;
+        Date_ start = today;
+        while (start < maturity) {
+            Date_ end = Date::AddMonths(start, spreadFreqMonths);
+            if (end > maturity)
+                end = maturity;
+            const double tau = spreadBasis(start, end, nullptr);
+            const double df = discount(today, end);
+            spreadLegPv += ExpectedSimpleRate(spreadForecast, start, end, spreadBasis) * tau * df;
+            spreadAnnuity += tau * df;
+            start = end;
+        }
+
+        double referenceLegPv = 0.0;
+        start = today;
+        while (start < maturity) {
+            Date_ end = Date::AddMonths(start, referenceFreqMonths);
+            if (end > maturity)
+                end = maturity;
+            referenceLegPv += ExpectedSimpleRate(referenceForecast, start, end, referenceBasis)
+                              * referenceBasis(start, end, nullptr) * discount(today, end);
+            start = end;
+        }
+        return (referenceLegPv - spreadLegPv) / spreadAnnuity;
+    }
 } // namespace
 
 TEST(YCInstrumentTest, TestDepositPrecomputeMatchesDiscountCurve) {
@@ -103,5 +139,84 @@ TEST(YCInstrumentTest, TestSTIRPrecomputeMatchesForwardRate) {
 
     const Handle_<YCInstrument_::Rate_> rate = stir->Precompute(stir, Handle_<YieldCurve_>());
     const double expected = ExpectedSimpleRate(*dc, start, maturity, basis);
+    ASSERT_NEAR((*rate)(curve), expected, 1e-12);
+}
+
+TEST(YCInstrumentTest, TestFraUsesTenorSpecificForwardCurve) {
+    const Date_ today(2024, 1, 15);
+    const Date_ start = Date::AddMonths(today, 3);
+    const Date_ maturity = Date::AddMonths(today, 6);
+    const DayBasis_ basis("ACT_360");
+    const Handle_<DiscountCurve_> ois = MakeFlatDiscountCurve("ois", "USD", today, 0.01);
+    const Handle_<DiscountCurve_> libor3m = MakeFlatDiscountCurve("libor3m", "USD", today, 0.03);
+    const CurveBlock_ curve("bundle",
+                            "USD",
+                            {{CollateralType_(CollateralType_::Value_::OIS), ois}},
+                            {{PeriodLength_("3M"), libor3m}},
+                            basis);
+
+    RateIndexConvention_ convention;
+    convention.useProjectionCurve_ = true;
+    convention.forecastTenor_ = PeriodLength_("3M");
+    convention.dayBasis_ = basis;
+    convention.collateral_ = CollateralType_(CollateralType_::Value_::OIS);
+    const Handle_<YCInstrument_> fra(new FRA_(today, start, maturity, 0.0, convention));
+
+    const Handle_<YCInstrument_::Rate_> rate = fra->Precompute(fra, Handle_<YieldCurve_>());
+    const double expected = ExpectedSimpleRate(*libor3m, start, maturity, basis);
+    ASSERT_NEAR((*rate)(curve), expected, 1e-12);
+}
+
+TEST(YCInstrumentTest, TestFutureAppliesConvexityAdjustment) {
+    const Date_ today(2024, 1, 15);
+    const Date_ start = Date::AddMonths(today, 3);
+    const Date_ maturity = Date::AddMonths(today, 6);
+    const DayBasis_ basis("ACT_360");
+    const Handle_<DiscountCurve_> dc = MakeFlatDiscountCurve("ois", "USD", today, 0.03);
+    const CurveBlock_ curve(dc, basis);
+
+    RateIndexConvention_ convention;
+    convention.dayBasis_ = basis;
+    const Handle_<YCInstrument_> future(new Future_(today, start, maturity, 0.0, convention, 0.0015));
+
+    const Handle_<YCInstrument_::Rate_> rate = future->Precompute(future, Handle_<YieldCurve_>());
+    const double expected = ExpectedSimpleRate(*dc, start, maturity, basis) - 0.0015;
+    ASSERT_NEAR((*rate)(curve), expected, 1e-12);
+}
+
+TEST(YCInstrumentTest, TestBasisSwapUsesSeparateForwardCurves) {
+    const Date_ today(2024, 1, 15);
+    const Date_ maturity = Date::AddMonths(today, 24);
+    const DayBasis_ basis("ACT_360");
+    const Handle_<DiscountCurve_> ois = MakeFlatDiscountCurve("ois", "USD", today, 0.01);
+    const Handle_<DiscountCurve_> libor3m = MakeFlatDiscountCurve("libor3m", "USD", today, 0.03);
+    const Handle_<DiscountCurve_> libor6m = MakeFlatDiscountCurve("libor6m", "USD", today, 0.035);
+    const CurveBlock_ curve("bundle",
+                            "USD",
+                            {{CollateralType_(CollateralType_::Value_::OIS), ois}},
+                            {{PeriodLength_("3M"), libor3m}, {PeriodLength_("6M"), libor6m}},
+                            basis);
+
+    RateIndexConvention_ spreadConvention;
+    spreadConvention.useProjectionCurve_ = true;
+    spreadConvention.forecastTenor_ = PeriodLength_("3M");
+    spreadConvention.dayBasis_ = basis;
+    spreadConvention.collateral_ = CollateralType_(CollateralType_::Value_::OIS);
+
+    RateIndexConvention_ referenceConvention(spreadConvention);
+    referenceConvention.forecastTenor_ = PeriodLength_("6M");
+
+    RateLegConvention_ spreadLeg;
+    spreadLeg.paymentFrequency_ = PeriodLength_("3M");
+    spreadLeg.dayBasis_ = basis;
+    RateLegConvention_ referenceLeg;
+    referenceLeg.paymentFrequency_ = PeriodLength_("6M");
+    referenceLeg.dayBasis_ = basis;
+
+    const Handle_<YCInstrument_> basisSwap(
+        new BasisSwap_(today, today, maturity, 0.0, spreadConvention, spreadLeg, referenceConvention, referenceLeg));
+
+    const Handle_<YCInstrument_::Rate_> rate = basisSwap->Precompute(basisSwap, Handle_<YieldCurve_>());
+    const double expected = ExpectedBasisSpread(*ois, *libor3m, *libor6m, today, maturity, 3, 6, basis, basis);
     ASSERT_NEAR((*rate)(curve), expected, 1e-12);
 }

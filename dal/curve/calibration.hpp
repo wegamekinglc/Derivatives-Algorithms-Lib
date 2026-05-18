@@ -54,8 +54,16 @@ namespace Dal {
     struct CurveCalibrationSpec_ {
         Date_ today_;
         String_ ccy_;
+        String_ curveName_ = "calibrated";
         Vector_<Handle_<YCInstrument_>> instruments_;
         Vector_<Date_> knotDates_;
+        std::map<CollateralType_, Handle_<DiscountCurve_>> discountCurves_;
+        std::map<PeriodLength_, Handle_<DiscountCurve_>> forwardCurves_;
+        Handle_<DiscountCurve_> baseCurve_;
+        CollateralType_ targetCollateral_ = CollateralType_(CollateralType_::Value_::OIS);
+        PeriodLength_ targetTenor_;
+        bool calibrateDiscountCurve_ = true;
+        DayBasis_ liborBasis_ = DayBasis_("ACT_365F");
         double smoothingWeight_ = 1.0;
         double tolerance_ = 1.0e-8;
         double fitTolerance_ = 1.0e-6;
@@ -68,6 +76,7 @@ namespace Dal {
     };
 
     struct CurveCalibrationDiagnostics_ {
+        String_ curveName_;
         Vector_<String_> instrumentNames_;
         Vector_<> marketRates_;
         Vector_<> modelRates_;
@@ -83,6 +92,19 @@ namespace Dal {
         CurveCalibrationDiagnostics_ diagnostics_;
     };
 
+    struct MultiCurveCalibrationSpec_ {
+        String_ name_ = "bundle";
+        String_ ccy_;
+        Vector_<CurveCalibrationSpec_> stages_;
+        DayBasis_ liborBasis_ = DayBasis_("ACT_365F");
+    };
+
+    struct MultiCurveCalibrationResult_ {
+        std::map<CollateralType_, Handle_<DiscountCurve_>> discountCurves_;
+        std::map<PeriodLength_, Handle_<DiscountCurve_>> forwardCurves_;
+        Vector_<CurveCalibrationDiagnostics_> diagnostics_;
+    };
+
     Sparse::TriDiagonal_* BuildCurveCalibrationWeights(const Vector_<Date_>& knotDates,
                                                        int paramsPerKnot,
                                                        double smoothingWeight);
@@ -93,5 +115,6 @@ namespace Dal {
     void ValidateCurveCalibrationSpec(const CurveCalibrationSpec_& spec);
     void ValidatePositiveDiscountFactors(const DiscountCurve_& curve, const Date_& today, const Vector_<Date_>& checkDates);
     CurveCalibrationResult_ CalibrateYieldCurve(const CurveCalibrationSpec_& spec);
+    MultiCurveCalibrationResult_ CalibrateMultiCurve(const MultiCurveCalibrationSpec_& spec);
 
 } // namespace Dal

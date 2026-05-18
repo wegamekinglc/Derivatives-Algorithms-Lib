@@ -30,7 +30,11 @@ namespace Dal {
                     const std::map<CollateralType_, Handle_<DiscountCurve_>>& discountCurves,
                     const std::map<PeriodLength_, Handle_<DiscountCurve_>>& forwardCurves = {},
                     const DayBasis_& liborBasis = DayBasis_("ACT_365F"));
+        [[nodiscard]] bool HasDiscount(const CollateralType_& collateral) const override;
+        [[nodiscard]] bool HasForward(const PeriodLength_& tenor) const override;
         [[nodiscard]] const DiscountCurve_& Discount(const CollateralType_& collateral) const override;
+        [[nodiscard]] const DiscountCurve_& Forward(const PeriodLength_& tenor,
+                                                    const CollateralType_& collateral) const override;
         [[nodiscard]] double FwdLibor(const PeriodLength_& tenor, const Date_& fixing_date) const override;
         void Write(Archive::Store_& dst) const override;
     };

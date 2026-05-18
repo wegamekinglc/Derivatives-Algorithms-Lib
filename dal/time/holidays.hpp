@@ -7,6 +7,7 @@
 #include <dal/time/holidaydata.hpp>
 
 namespace Dal {
+    class BizDayConvention_;
     class String_;
     class Date_;
 
@@ -26,8 +27,10 @@ namespace Dal {
 
     namespace Holidays {
         const Holidays_& None();
+        bool IsBusinessDay(const Holidays_& hols, const Date_& from);
         Date_ NextBus(const Holidays_& hols, const Date_& from);
         Date_ PrevBus(const Holidays_& hols, const Date_& from);
+        Date_ Adjust(const Holidays_& hols, const Date_& from, const BizDayConvention_& convention);
     } // namespace Holidays
 
     class CountBusDays_ {

@@ -53,7 +53,12 @@ const Fact_<type>& Conventions::func() { RETURN_STATIC(const OneFactImp_<type>);
         SINGLETON_FACT_ACCESSOR(Holidays_, LiborFixHolidays);
         SINGLETON_FACT_ACCESSOR(int, LiborFixDays);
         SINGLETON_FACT_ACCESSOR(DayBasis_, LiborDayBasis);
+        SINGLETON_FACT_ACCESSOR(PeriodLength_, SwapFixedPeriod);
+        SINGLETON_FACT_ACCESSOR(TradedRate_, SwapFloatIndex);
         SINGLETON_FACT_ACCESSOR(DayBasis_, SwapFixedDayBasis);
+        SINGLETON_FACT_ACCESSOR(RateIndexConvention_, OisIndex);
+        SINGLETON_FACT_ACCESSOR(RateIndexConvention_, LiborIndex);
+        SINGLETON_FACT_ACCESSOR(RateLegConvention_, SwapFixedLeg);
+        SINGLETON_FACT_ACCESSOR(RateLegConvention_, SwapFloatLeg);
     }
 }
-

@@ -100,7 +100,8 @@ namespace Dal {
                                                            const String_& ccy,
                                                            CurveParameterization_ parameterization,
                                                            const Vector_<Date_>& knotDates,
-                                                           const Vector_<>& x) {
+                                                           const Vector_<>& x,
+                                                           const Handle_<DiscountCurve_>& baseCurve) {
             switch (parameterization.Switch()) {
             case CurveParameterization_::Value_::PIECEWISE_LINEAR_FWD: {
                 Vector_<> fLeft(knotDates.size());
@@ -109,10 +110,10 @@ namespace Dal {
                     fLeft[i] = x[2 * i];
                     fRight[i] = x[2 * i + 1];
                 }
-                return std::unique_ptr<DiscountCurve_>(NewDiscountPWLF(name, ccy, PiecewiseLinear_(knotDates, fLeft, fRight)));
+                return std::unique_ptr<DiscountCurve_>(NewDiscountPWLF(name, ccy, PiecewiseLinear_(knotDates, fLeft, fRight), baseCurve));
             }
             case CurveParameterization_::Value_::PIECEWISE_CONSTANT_FWD:
-                return std::unique_ptr<DiscountCurve_>(NewDiscountPWC(name, ccy, PiecewiseConstant_(knotDates, x)));
+                return std::unique_ptr<DiscountCurve_>(NewDiscountPWC(name, ccy, PiecewiseConstant_(knotDates, x), baseCurve));
             case CurveParameterization_::Value_::ZERO_RATE:
             case CurveParameterization_::Value_::LOG_DISCOUNT:
                 REQUIRE(false,
@@ -127,30 +128,65 @@ namespace Dal {
 
         class YieldCurveCalibrationFunc_ : public Underdetermined::Function_ {
             String_ ccy_;
+            String_ curveName_;
             CurveParameterization_ parameterization_;
             Vector_<Handle_<YCInstrument_>> instruments_;
             Vector_<Handle_<YCInstrument_::Rate_>> rates_;
             Vector_<> marketRates_;
             Vector_<Date_> knotDates_;
+            std::map<CollateralType_, Handle_<DiscountCurve_>> discountCurves_;
+            std::map<PeriodLength_, Handle_<DiscountCurve_>> forwardCurves_;
+            Handle_<DiscountCurve_> baseCurve_;
+            CollateralType_ targetCollateral_;
+            PeriodLength_ targetTenor_;
+            bool calibrateDiscountCurve_;
+            DayBasis_ liborBasis_;
 
         public:
             YieldCurveCalibrationFunc_(const String_& ccy,
+                                       const String_& curveName,
                                        CurveParameterization_ parameterization,
                                        const Vector_<Handle_<YCInstrument_>>& instruments,
-                                       const Vector_<Date_>& knotDates)
-                : ccy_(ccy), parameterization_(parameterization), instruments_(instruments), knotDates_(knotDates) {
-                Handle_<YieldCurve_> dummyYC;
+                                       const Vector_<Date_>& knotDates,
+                                       const std::map<CollateralType_, Handle_<DiscountCurve_>>& discountCurves,
+                                       const std::map<PeriodLength_, Handle_<DiscountCurve_>>& forwardCurves,
+                                       const Handle_<DiscountCurve_>& baseCurve,
+                                       const CollateralType_& targetCollateral,
+                                       const PeriodLength_& targetTenor,
+                                       bool calibrateDiscountCurve,
+                                       const DayBasis_& liborBasis)
+                : ccy_(ccy),
+                  curveName_(curveName),
+                  parameterization_(parameterization),
+                  instruments_(instruments),
+                  knotDates_(knotDates),
+                  discountCurves_(discountCurves),
+                  forwardCurves_(forwardCurves),
+                  baseCurve_(baseCurve),
+                  targetCollateral_(targetCollateral),
+                  targetTenor_(targetTenor),
+                  calibrateDiscountCurve_(calibrateDiscountCurve),
+                  liborBasis_(liborBasis) {
+                Handle_<YieldCurve_> fundingYC;
+                if (!discountCurves_.empty())
+                    fundingYC.reset(new CurveBlock_(curveName_, ccy_, discountCurves_, forwardCurves_, liborBasis_));
                 rates_.reserve(instruments_.size());
                 marketRates_.reserve(instruments_.size());
                 for (const auto& inst : instruments_) {
-                    rates_.push_back(inst->Precompute(inst, dummyYC));
+                    rates_.push_back(inst->Precompute(inst, fundingYC));
                     marketRates_.push_back(inst->MarketRate());
                 }
             }
 
             [[nodiscard]] Vector_<> F(const Vector_<>& x) const override {
-                auto dc = BuildDiscountCurve("calib", ccy_, parameterization_, knotDates_, x);
-                CurveBlock_ yc(*dc);
+                Handle_<DiscountCurve_> dc(BuildDiscountCurve(curveName_, ccy_, parameterization_, knotDates_, x, baseCurve_).release());
+                auto discountCurves = discountCurves_;
+                auto forwardCurves = forwardCurves_;
+                if (calibrateDiscountCurve_)
+                    discountCurves[targetCollateral_] = dc;
+                else
+                    forwardCurves[targetTenor_] = dc;
+                CurveBlock_ yc(curveName_, ccy_, discountCurves, forwardCurves, liborBasis_);
 
                 Vector_<> result(instruments_.size());
                 for (int i = 0; i < static_cast<int>(instruments_.size()); ++i)
@@ -159,23 +195,25 @@ namespace Dal {
             }
         };
 
-        Vector_<> ModelRates(const Vector_<Handle_<YCInstrument_>>& instruments, const YieldCurve_& curve) {
+        Vector_<> ModelRates(const Vector_<Handle_<YCInstrument_>>& instruments, const YieldCurve_& curve, const Handle_<YieldCurve_>& fundingCurve) {
             Vector_<> modelRates(instruments.size());
-            Handle_<YieldCurve_> dummyYC;
             for (int i = 0; i < static_cast<int>(instruments.size()); ++i) {
-                auto rate = instruments[i]->Precompute(instruments[i], dummyYC);
+                auto rate = instruments[i]->Precompute(instruments[i], fundingCurve);
                 modelRates[i] = (*rate)(curve);
             }
             return modelRates;
         }
 
-        CurveCalibrationDiagnostics_ BuildDiagnostics(const Vector_<Handle_<YCInstrument_>>& instruments,
+        CurveCalibrationDiagnostics_ BuildDiagnostics(const String_& curveName,
+                                                      const Vector_<Handle_<YCInstrument_>>& instruments,
                                                       const YieldCurve_& curve,
+                                                      const Handle_<YieldCurve_>& fundingCurve,
                                                       bool usedApproximateFit,
                                                       const Matrix_<>* effJacobianInverse) {
             CurveCalibrationDiagnostics_ retval;
+            retval.curveName_ = curveName;
             retval.usedApproximateFit_ = usedApproximateFit;
-            retval.modelRates_ = ModelRates(instruments, curve);
+            retval.modelRates_ = ModelRates(instruments, curve, fundingCurve);
             retval.instrumentNames_.reserve(instruments.size());
             retval.marketRates_.reserve(instruments.size());
             retval.residuals_.reserve(instruments.size());
@@ -235,6 +273,8 @@ namespace Dal {
         REQUIRE(spec.maxEvaluations_ > 0, "Curve calibration max evaluations must be positive");
         REQUIRE(spec.maxRestarts_ > 0, "Curve calibration max restarts must be positive");
         REQUIRE(std::isfinite(spec.initialGuess_), "Curve calibration initial guess must be finite");
+        if (!spec.calibrateDiscountCurve_)
+            REQUIRE(spec.targetTenor_ != PeriodLength_(), "Forward-curve calibration requires a target tenor");
 
         const Vector_<Date_> knotDates = BuildCurveCalibrationKnots(spec.today_, spec.instruments_, spec.knotDates_, spec.knotPolicy_);
         REQUIRE(!knotDates.empty(), "Curve calibration requires at least one knot date");
@@ -278,7 +318,18 @@ namespace Dal {
         ctrlDict.Insert(KEY_MAX_RESTARTS, Cell_(static_cast<double>(spec.maxRestarts_)));
         UnderdeterminedControls_ controls(ctrlDict);
 
-        YieldCurveCalibrationFunc_ func(spec.ccy_, spec.parameterization_, instruments, knotDates);
+        YieldCurveCalibrationFunc_ func(spec.ccy_,
+                                        spec.curveName_,
+                                        spec.parameterization_,
+                                        instruments,
+                                        knotDates,
+                                        spec.discountCurves_,
+                                        spec.forwardCurves_,
+                                        spec.baseCurve_,
+                                        spec.targetCollateral_,
+                                        spec.targetTenor_,
+                                        spec.calibrateDiscountCurve_,
+                                        spec.liborBasis_);
         Vector_<> result;
         Matrix_<> effJacobianInverse;
         if (spec.solveMode_ == CurveSolveMode_::Value_::EXACT) {
@@ -289,13 +340,55 @@ namespace Dal {
         }
 
         CurveCalibrationResult_ retval;
-        retval.curve_ = BuildDiscountCurve("calibrated", spec.ccy_, spec.parameterization_, knotDates, result);
+        retval.curve_ = BuildDiscountCurve(spec.curveName_, spec.ccy_, spec.parameterization_, knotDates, result, spec.baseCurve_);
         ValidatePositiveDiscountFactors(*retval.curve_, spec.today_, knotDates);
-        CurveBlock_ curveView(*retval.curve_);
-        retval.diagnostics_ = BuildDiagnostics(instruments,
+        Handle_<DiscountCurve_> diagnosticsCurve(
+            BuildDiscountCurve(spec.curveName_, spec.ccy_, spec.parameterization_, knotDates, result, spec.baseCurve_).release());
+        auto discountCurves = spec.discountCurves_;
+        auto forwardCurves = spec.forwardCurves_;
+        if (spec.calibrateDiscountCurve_)
+            discountCurves[spec.targetCollateral_] = diagnosticsCurve;
+        else
+            forwardCurves[spec.targetTenor_] = diagnosticsCurve;
+        CurveBlock_ curveView(spec.curveName_, spec.ccy_, discountCurves, forwardCurves, spec.liborBasis_);
+        Handle_<YieldCurve_> fundingCurve;
+        if (!spec.discountCurves_.empty())
+            fundingCurve.reset(new CurveBlock_(spec.curveName_, spec.ccy_, spec.discountCurves_, spec.forwardCurves_, spec.liborBasis_));
+        retval.diagnostics_ = BuildDiagnostics(spec.curveName_,
+                                               instruments,
                                                curveView,
+                                               fundingCurve,
                                                spec.solveMode_ == CurveSolveMode_::Value_::APPROXIMATE,
                                                spec.solveMode_ == CurveSolveMode_::Value_::EXACT ? &effJacobianInverse : nullptr);
+        return retval;
+    }
+
+    MultiCurveCalibrationResult_ CalibrateMultiCurve(const MultiCurveCalibrationSpec_& spec) {
+        REQUIRE(!spec.stages_.empty(), "Multi-curve calibration requires at least one stage");
+        MultiCurveCalibrationResult_ retval;
+        for (auto stageSpec : spec.stages_) {
+            if (stageSpec.ccy_.empty())
+                stageSpec.ccy_ = spec.ccy_;
+            if (stageSpec.curveName_.empty())
+                stageSpec.curveName_ = spec.name_;
+            stageSpec.liborBasis_ = spec.liborBasis_;
+            for (const auto& [collateral, curve] : retval.discountCurves_)
+                if (!stageSpec.discountCurves_.count(collateral))
+                    stageSpec.discountCurves_[collateral] = curve;
+            for (const auto& [tenor, curve] : retval.forwardCurves_)
+                if (!stageSpec.forwardCurves_.count(tenor))
+                    stageSpec.forwardCurves_[tenor] = curve;
+            if (!stageSpec.calibrateDiscountCurve_ && stageSpec.baseCurve_.IsEmpty())
+                stageSpec.baseCurve_ = stageSpec.discountCurves_.at(stageSpec.targetCollateral_);
+
+            CurveCalibrationResult_ stageResult = CalibrateYieldCurve(stageSpec);
+            Handle_<DiscountCurve_> calibrated(stageResult.curve_.release());
+            if (stageSpec.calibrateDiscountCurve_)
+                retval.discountCurves_[stageSpec.targetCollateral_] = calibrated;
+            else
+                retval.forwardCurves_[stageSpec.targetTenor_] = calibrated;
+            retval.diagnostics_.push_back(stageResult.diagnostics_);
+        }
         return retval;
     }
 

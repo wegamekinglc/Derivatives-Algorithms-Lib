@@ -47,6 +47,19 @@ namespace Dal {
         }
     }
 
+    bool CurveBlock_::HasDiscount(const CollateralType_& collateral) const {
+        if (dc_)
+            return true;
+        return discountCurves_.find(collateral) != discountCurves_.end()
+               || discountCurves_.find(CollateralType_(CollateralType_::Value_::OIS)) != discountCurves_.end();
+    }
+
+    bool CurveBlock_::HasForward(const PeriodLength_& tenor) const {
+        if (dc_)
+            return true;
+        return forwardCurves_.find(tenor) != forwardCurves_.end();
+    }
+
     const DiscountCurve_& CurveBlock_::Discount(const CollateralType_& collateral) const {
         if (dc_)
             return *dc_;
@@ -58,11 +71,17 @@ namespace Dal {
         return *ois->second;
     }
 
-    double CurveBlock_::FwdLibor(const PeriodLength_& tenor, const Date_& fixing_date) const {
+    const DiscountCurve_& CurveBlock_::Forward(const PeriodLength_& tenor, const CollateralType_& collateral) const {
+        if (dc_)
+            return *dc_;
         const auto found = forwardCurves_.find(tenor);
-        const DiscountCurve_& forecast = found == forwardCurves_.end()
-                                             ? Discount(CollateralType_(CollateralType_::Value_::OIS))
-                                             : *found->second;
+        if (found != forwardCurves_.end())
+            return *found->second;
+        return Discount(collateral);
+    }
+
+    double CurveBlock_::FwdLibor(const PeriodLength_& tenor, const Date_& fixing_date) const {
+        const DiscountCurve_& forecast = Forward(tenor, CollateralType_(CollateralType_::Value_::OIS));
         const Date_ maturity = Date::NominalMaturity(fixing_date, tenor, ccy_);
         REQUIRE(maturity > fixing_date, "FwdLibor requires fixing date before maturity");
         const double df = forecast(fixing_date, maturity);

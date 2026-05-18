@@ -53,3 +53,55 @@ TEST(SchedulesTest, TestMakeScheduleWithHolidays) {
     ASSERT_EQ(calculated, expected);
 }
 
+TEST(SchedulesTest, TestMakeScheduleSupportsModifiedFollowing) {
+    const Date_ start(2024, 8, 31);
+    const Date_ maturity(2025, 2, 28);
+    const Holidays_ hols(Holidays::None());
+
+    const auto calculated = MakeSchedule(start,
+                                         maturity,
+                                         PeriodLength_("1M"),
+                                         hols,
+                                         DateGeneration_("Forward"),
+                                         BizDayConvention_("ModifiedFollowing"),
+                                         true);
+    Vector_<Date_> expected = {
+        Date_(2024, 8, 30),
+        Date_(2024, 9, 30),
+        Date_(2024, 10, 31),
+        Date_(2024, 11, 29),
+        Date_(2024, 12, 31),
+        Date_(2025, 1, 31),
+        Date_(2025, 2, 28),
+    };
+    ASSERT_EQ(calculated, expected);
+}
+
+TEST(SchedulesTest, TestMakeSchedulePeriodsBuildsFixingPaymentAndDayCountContext) {
+    const Date_ start(2024, 1, 31);
+    const Date_ maturity(2024, 7, 31);
+    const Holidays_ hols(Holidays::None());
+    const auto periods = MakeSchedulePeriods(start,
+                                             maturity,
+                                             PeriodLength_("3M"),
+                                             hols,
+                                             DayBasis_("ACT_365L"),
+                                             2,
+                                             hols,
+                                             2,
+                                             hols,
+                                             DateGeneration_("Forward"),
+                                             BizDayConvention_("ModifiedFollowing"),
+                                             BizDayConvention_("ModifiedFollowing"),
+                                             true);
+    ASSERT_EQ(periods.size(), 2);
+    ASSERT_EQ(periods.front().accrualStart_, Date_(2024, 1, 31));
+    ASSERT_EQ(periods.front().accrualEnd_, Date_(2024, 4, 30));
+    ASSERT_EQ(periods.front().fixingDate_, Date_(2024, 1, 29));
+    ASSERT_EQ(periods.front().paymentDate_, Date_(2024, 5, 2));
+    ASSERT_FALSE(periods.front().isStub_);
+    ASSERT_TRUE(periods.front().dayCountContext_);
+    ASSERT_EQ(periods.front().dayCountContext_->nominalStart_, Date_(2024, 1, 31));
+    ASSERT_EQ(periods.front().dayCountContext_->nominalEnd_, Date_(2024, 4, 30));
+    ASSERT_EQ(periods.front().dayCountContext_->couponMonths_, 3);
+}

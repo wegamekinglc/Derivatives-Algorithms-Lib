@@ -6,6 +6,7 @@
 #include <dal/platform/platform.hpp>
 #include <dal/platform/strict.hpp>
 #include <dal/time/holidays.hpp>
+#include <dal/time/schedules.hpp>
 #include <dal/string/strings.hpp>
 #include <dal/time/holidaydata.hpp>
 #include <dal/utilities/algorithms.hpp>
@@ -104,18 +105,36 @@ namespace Dal {
         return ret_val;
     }
 
+    bool Holidays::IsBusinessDay(const Holidays_& hols, const Date_& from) {
+        return hols.IsWorkWeekends(from) || (!Date::IsWeekEnd(from) && !hols.IsHoliday(from));
+    }
+
     Date_ Holidays::NextBus(const Holidays_& hols, const Date_& from) {
         for (Date_ ret_val = from;; ++ret_val) {
-            if (hols.IsWorkWeekends(ret_val) || (!Date::IsWeekEnd(ret_val) && !hols.IsHoliday(ret_val)))
+            if (IsBusinessDay(hols, ret_val))
                 return ret_val;
         }
     }
 
     Date_ Holidays::PrevBus(const Holidays_& hols, const Date_& from) {
         for (Date_ ret_val = from;; --ret_val) {
-            if (hols.IsWorkWeekends(ret_val) || (!Date::IsWeekEnd(ret_val) && !hols.IsHoliday(ret_val)))
+            if (IsBusinessDay(hols, ret_val))
                 return ret_val;
         }
+    }
+
+    Date_ Holidays::Adjust(const Holidays_& hols, const Date_& from, const BizDayConvention_& convention) {
+        if (convention == BizDayConvention_("Unadjusted"))
+            return from;
+        if (convention == BizDayConvention_("Following"))
+            return NextBus(hols, from);
+        if (convention == BizDayConvention_("ModifiedFollowing")) {
+            const Date_ next = NextBus(hols, from);
+            if (Date::Month(next) == Date::Month(from))
+                return next;
+            return PrevBus(hols, from);
+        }
+        THROW("business date rule is not recognized");
     }
 
     const Holidays_& Holidays::None() {

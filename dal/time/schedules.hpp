@@ -5,6 +5,9 @@
 #pragma once
 #include <dal/math/vectors.hpp>
 #include <dal/string/strings.hpp>
+#include <dal/time/daybasis.hpp>
+#include <dal/time/holidays.hpp>
+#include <dal/time/periodlength.hpp>
 #include <dal/utilities/exceptions.hpp>
 
 /*IF---------------------------------------------------------
@@ -41,10 +44,19 @@ namespace Dal {
         class Increment_;
     }
 
-    class Holidays_;
     struct Cell_;
     class Date_;
     using Schedule_ = Vector_<Date_>;
+    struct SchedulePeriod_ {
+        Date_ unadjustedStart_;
+        Date_ unadjustedEnd_;
+        Date_ accrualStart_;
+        Date_ accrualEnd_;
+        Date_ fixingDate_;
+        Date_ paymentDate_;
+        bool isStub_ = false;
+        Handle_<DayBasis::Context_> dayCountContext_;
+    };
 
     Schedule_ DateGenerate(const Date_& start,
                            const Date_& maturity,
@@ -57,4 +69,24 @@ namespace Dal {
                            const Handle_<Date::Increment_>& tenor,
                            DateGeneration_ method = DateGeneration_("Forward"),
                            BizDayConvention_ convention = BizDayConvention_("Following"));
+    Schedule_ MakeSchedule(const Date_& start,
+                           const Date_& maturity,
+                           const PeriodLength_& tenor,
+                           const Holidays_& hols,
+                           DateGeneration_ method = DateGeneration_("Forward"),
+                           BizDayConvention_ convention = BizDayConvention_("Following"),
+                           bool preserveEom = false);
+    Vector_<SchedulePeriod_> MakeSchedulePeriods(const Date_& start,
+                                                 const Date_& maturity,
+                                                 const PeriodLength_& tenor,
+                                                 const Holidays_& accrualHolidays,
+                                                 const DayBasis_& accrualBasis,
+                                                 int fixingLag = 0,
+                                                 const Holidays_& fixingHolidays = Holidays_(""),
+                                                 int paymentLag = 0,
+                                                 const Holidays_& paymentHolidays = Holidays_(""),
+                                                 DateGeneration_ method = DateGeneration_("Forward"),
+                                                 BizDayConvention_ accrualConvention = BizDayConvention_("Following"),
+                                                 BizDayConvention_ paymentConvention = BizDayConvention_("Following"),
+                                                 bool preserveEom = false);
 }

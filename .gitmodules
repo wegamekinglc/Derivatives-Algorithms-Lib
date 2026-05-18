@@ -1,18 +1,18 @@
 [submodule "externals/CodiPack"]
 	path = externals/CodiPack
-	url = git@github.com:wegamekinglc/CoDiPack.git
+	url = https://github.com/wegamekinglc/CoDiPack.git
 [submodule "externals/machinist"]
 	path = externals/machinist
-	url = git@github.com:wegamekinglc/machinist2.git
+	url = https://github.com/wegamekinglc/machinist2.git
 [submodule "externals/xad"]
 	path = externals/xad
-	url = git@github.com:wegamekinglc/XAD.git
+	url = https://github.com/wegamekinglc/XAD.git
 [submodule "externals/rapidjson"]
 	path = externals/rapidjson
-	url = git@github.com:wegamekinglc/rapidjson.git
+	url = https://github.com/wegamekinglc/rapidjson.git
 [submodule "externals/googletest"]
 	path = externals/googletest
-	url = git@github.com:google/googletest.git
+	url = https://github.com/google/googletest.git
 [submodule "externals/adept"]
 	path = externals/adept
-	url = git@github.com:wegamekinglc/Adept-2.git
+	url = https://github.com/wegamekinglc/Adept-2.git
