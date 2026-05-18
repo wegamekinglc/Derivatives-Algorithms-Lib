@@ -366,7 +366,8 @@ namespace Dal {
     MultiCurveCalibrationResult_ CalibrateMultiCurve(const MultiCurveCalibrationSpec_& spec) {
         REQUIRE(!spec.stages_.empty(), "Multi-curve calibration requires at least one stage");
         MultiCurveCalibrationResult_ retval;
-        for (auto stageSpec : spec.stages_) {
+        for (const auto& inputStageSpec : spec.stages_) {
+            auto stageSpec = inputStageSpec;
             if (stageSpec.ccy_.empty())
                 stageSpec.ccy_ = spec.ccy_;
             if (stageSpec.curveName_.empty())

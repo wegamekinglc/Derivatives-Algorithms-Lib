@@ -14,8 +14,25 @@
 namespace Dal {
 
     namespace {
-        const YieldCurve_& ActiveCurve(const YieldCurve_& yc, const Handle_<YieldCurve_>& fallback) {
-            return fallback ? *fallback : yc;
+        PeriodLength_ PeriodFromMonths(int months) {
+            switch (months) {
+            case 12:
+                return PeriodLength_("12M");
+            case 6:
+                return PeriodLength_("6M");
+            case 3:
+                return PeriodLength_("3M");
+            case 1:
+                return PeriodLength_("1M");
+            default:
+                REQUIRE(false, "Unsupported calibration instrument frequency");
+                return PeriodLength_();
+            }
+        }
+
+        int MonthsBetween(const Date_& start, const Date_& maturity) {
+            const int months = 12 * (Date::Year(maturity) - Date::Year(start)) + Date::Month(maturity) - Date::Month(start);
+            return std::max(months, 1);
         }
 
         const DiscountCurve_& ResolveDiscountCurve(const YieldCurve_& yc,
@@ -101,7 +118,7 @@ namespace Dal {
                 period.unadjustedEnd_ = maturity_;
                 period.accrualStart_ = Holidays::Adjust(convention_.accrualHolidays_, start_, convention_.businessDayConvention_);
                 period.accrualEnd_ = Holidays::Adjust(convention_.accrualHolidays_, maturity_, convention_.businessDayConvention_);
-                period.dayCountContext_.reset(new DayBasis::Context_(true, start_, maturity_, 12));
+                period.dayCountContext_.reset(new DayBasis::Context_(true, start_, maturity_, MonthsBetween(start_, maturity_)));
                 const DiscountCurve_& forecast = ResolveForecastCurve(yc, fallback_, convention_);
                 return ForwardRate(forecast,
                                    period.accrualStart_,
@@ -135,7 +152,12 @@ namespace Dal {
                 period.unadjustedEnd_ = maturity_;
                 period.accrualStart_ = Holidays::Adjust(convention_.accrualHolidays_, start_, convention_.businessDayConvention_);
                 period.accrualEnd_ = Holidays::Adjust(convention_.accrualHolidays_, maturity_, convention_.businessDayConvention_);
-                period.dayCountContext_.reset(new DayBasis::Context_(true, start_, maturity_, 3));
+                period.dayCountContext_.reset(new DayBasis::Context_(true,
+                                                                     start_,
+                                                                     maturity_,
+                                                                     convention_.useProjectionCurve_
+                                                                         ? convention_.forecastTenor_.Months()
+                                                                         : MonthsBetween(start_, maturity_)));
                 const DiscountCurve_& forecast = ResolveForecastCurve(yc, fallback_, convention_);
                 return ForwardRate(forecast,
                                    period.accrualStart_,
@@ -308,9 +330,9 @@ namespace Dal {
                 today,
                 maturity,
                 marketRate,
-                RateLegConvention_{0, PeriodLength_(freqMonths == 12 ? "12M" : freqMonths == 6 ? "6M" : freqMonths == 3 ? "3M" : "1M"), basis},
-                RateIndexConvention_{0, 0, false, PeriodLength_(freqMonths == 12 ? "12M" : freqMonths == 6 ? "6M" : freqMonths == 3 ? "3M" : "1M"), basis},
-                RateLegConvention_{0, PeriodLength_(freqMonths == 12 ? "12M" : freqMonths == 6 ? "6M" : freqMonths == 3 ? "3M" : "1M"), basis}) {}
+                RateLegConvention_{0, PeriodFromMonths(freqMonths), basis},
+                RateIndexConvention_{0, 0, false, PeriodFromMonths(freqMonths), basis},
+                RateLegConvention_{0, PeriodFromMonths(freqMonths), basis}) {}
 
     Swap_::Swap_(const Date_& tradeDate,
                  const Date_& start,

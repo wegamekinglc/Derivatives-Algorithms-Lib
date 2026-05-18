@@ -53,9 +53,11 @@ namespace Dal {
         }
 
         Date_ ApplyLag(const Date_& date, int lag, const Holidays_& hols, bool forward) {
-            if (lag <= 0)
+            if (lag == 0)
                 return date;
-            return forward ? Date::NBusDays(lag, hols)->FwdFrom(date) : Date::NBusDays(lag, hols)->BackFrom(date);
+            const int steps = std::abs(lag);
+            const bool moveForward = lag > 0 ? forward : !forward;
+            return moveForward ? Date::NBusDays(steps, hols)->FwdFrom(date) : Date::NBusDays(steps, hols)->BackFrom(date);
         }
     } // namespace
 

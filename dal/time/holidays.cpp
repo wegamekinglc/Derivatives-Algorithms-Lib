@@ -6,12 +6,13 @@
 #include <dal/platform/platform.hpp>
 #include <dal/platform/strict.hpp>
 #include <dal/time/holidays.hpp>
-#include <dal/time/schedules.hpp>
 #include <dal/string/strings.hpp>
 #include <dal/time/holidaydata.hpp>
 #include <dal/utilities/algorithms.hpp>
 
 namespace Dal {
+#include <dal/auto/MG_BizDayConvention_enum.hpp>
+
     namespace {
         std::mutex TheHolidayComboMutex;
 #define LOCK_COMBOS std::lock_guard<std::mutex> l(TheHolidayComboMutex);
