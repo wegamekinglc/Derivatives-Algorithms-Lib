@@ -109,6 +109,7 @@ TEST(CurrencyFactTest, TestLiborDayBasisSetDefault) {
 TEST(CurrencyFactTest, TestDefaultRateConventionsAreInitialized) {
     ASSERT_EQ(Ccy::Conventions::SwapPayHolidays()(Ccy_("USD")).String(), "");
     ASSERT_EQ(Holidays::NextBus(Ccy::Conventions::SwapPayHolidays()(Ccy_("USD")), Date_(2024, 3, 16)), Date_(2024, 3, 18));
+    ASSERT_EQ(Holidays::NextBus(Ccy::Conventions::SwapPayHolidays()(Ccy_("USD")), Date_(2024, 3, 18)), Date_(2024, 3, 18));
     ASSERT_TRUE(Ccy::Conventions::OisIndex()(Ccy_("USD")).collateral_ == CollateralType_::Value_::OIS);
     ASSERT_TRUE(Ccy::Conventions::LiborIndex()(Ccy_("USD")).useProjectionCurve_);
     ASSERT_EQ(Ccy::Conventions::LiborIndex()(Ccy_("USD")).forecastTenor_, PeriodLength_("3M"));
