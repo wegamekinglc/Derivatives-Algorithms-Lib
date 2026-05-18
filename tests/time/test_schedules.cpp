@@ -74,6 +74,7 @@ TEST(SchedulesTest, TestMakeScheduleSupportsModifiedFollowing) {
         Date_(2025, 2, 28),
     };
     ASSERT_EQ(calculated, expected);
+    ASSERT_EQ(calculated[3], Date_(2024, 11, 29));
 }
 
 TEST(SchedulesTest, TestMakeSchedulePeriodsBuildsFixingPaymentAndDayCountContext) {
@@ -84,7 +85,6 @@ TEST(SchedulesTest, TestMakeSchedulePeriodsBuildsFixingPaymentAndDayCountContext
                                              maturity,
                                              PeriodLength_("3M"),
                                              hols,
-                                             DayBasis_("ACT_365L"),
                                              2,
                                              hols,
                                              2,

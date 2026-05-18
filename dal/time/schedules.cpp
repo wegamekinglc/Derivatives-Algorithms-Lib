@@ -124,7 +124,6 @@ namespace Dal {
                                                  const Date_& maturity,
                                                  const PeriodLength_& tenor,
                                                  const Holidays_& accrualHolidays,
-                                                 const DayBasis_& accrualBasis,
                                                  int fixingLag,
                                                  const Holidays_& fixingHolidays,
                                                  int paymentLag,
@@ -133,7 +132,6 @@ namespace Dal {
                                                  BizDayConvention_ accrualConvention,
                                                  BizDayConvention_ paymentConvention,
                                                  bool preserveEom) {
-        static_cast<void>(accrualBasis);
         const Vector_<Date_> unadjusted = DateGenerateByPeriod(start, maturity, tenor, method, preserveEom);
         REQUIRE(unadjusted.size() >= 2, "Schedule periods require at least one accrual interval");
 

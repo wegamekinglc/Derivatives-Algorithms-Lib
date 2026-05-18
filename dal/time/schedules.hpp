@@ -80,7 +80,6 @@ namespace Dal {
                                                  const Date_& maturity,
                                                  const PeriodLength_& tenor,
                                                  const Holidays_& accrualHolidays,
-                                                 const DayBasis_& accrualBasis,
                                                  int fixingLag = 0,
                                                  const Holidays_& fixingHolidays = Holidays_(""),
                                                  int paymentLag = 0,
