@@ -42,7 +42,11 @@ namespace {
 
         if (auto deposit = dynamic_cast<const Deposit_*>(prototype.get())) {
             const auto span = deposit->TimeSpan();
-            return Handle_<YCInstrument_>(new Deposit_(span.first, span.first, span.second, (*rate)(marketCurve), Ccy::Conventions::OisIndex()(Ccy_("USD"))));
+            return Handle_<YCInstrument_>(new Deposit_(span.first,
+                                                       span.first,
+                                                       span.second,
+                                                       (*rate)(marketCurve),
+                                                       Ccy::Conventions::OisIndex()(Ccy_("USD"))));
         }
         if (auto fra = dynamic_cast<const FRA_*>(prototype.get())) {
             const auto span = fra->TimeSpan();
