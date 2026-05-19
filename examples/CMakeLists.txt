@@ -1,6 +1,7 @@
 add_subdirectory(aad)
 add_subdirectory(digital)
 add_subdirectory(concurrency)
+add_subdirectory(curve_calibration)
 add_subdirectory(european_mc)
 add_subdirectory(european_fd)
 add_subdirectory(matrix_perf)
