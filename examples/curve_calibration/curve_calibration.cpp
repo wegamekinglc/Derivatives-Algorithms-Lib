@@ -37,40 +37,44 @@ namespace {
         return Handle_<DiscountCurve_>(NewDiscountPWLF(name, ccy, PiecewiseLinear_(knotDates, values, values), base));
     }
 
-    Handle_<YCInstrument_> QuotedInstrument(const Handle_<YCInstrument_>& prototype, const YieldCurve_& marketCurve) {
+    Handle_<YCInstrument_> QuotedInstrument(const Handle_<YCInstrument_>& prototype,
+                                           const YieldCurve_& marketCurve,
+                                           const Date_& tradeDate,
+                                           const Ccy_& ccy) {
         const auto rate = prototype->Precompute(prototype, Handle_<YieldCurve_>());
 
         if (auto deposit = dynamic_cast<const Deposit_*>(prototype.get())) {
             const auto span = deposit->TimeSpan();
-            return Handle_<YCInstrument_>(new Deposit_(span.first,
+            return Handle_<YCInstrument_>(new Deposit_(tradeDate,
                                                        span.first,
                                                        span.second,
                                                        (*rate)(marketCurve),
-                                                       Ccy::Conventions::OisIndex()(Ccy_("USD"))));
+                                                       Ccy::Conventions::OisIndex()(ccy)));
         }
         if (auto fra = dynamic_cast<const FRA_*>(prototype.get())) {
             const auto span = fra->TimeSpan();
             return Handle_<YCInstrument_>(
-                new FRA_(span.first, span.first, span.second, (*rate)(marketCurve), Ccy::Conventions::LiborIndex()(Ccy_("USD"))));
+                new FRA_(tradeDate, span.first, span.second, (*rate)(marketCurve), Ccy::Conventions::LiborIndex()(ccy)));
         }
         if (auto swap = dynamic_cast<const OISSwap_*>(prototype.get())) {
             const auto span = swap->TimeSpan();
-            auto fixedLeg = Ccy::Conventions::SwapFixedLeg()(Ccy_("USD"));
-            auto overnightIndex = Ccy::Conventions::OisIndex()(Ccy_("USD"));
+            auto fixedLeg = Ccy::Conventions::SwapFixedLeg()(ccy);
+            auto overnightIndex = Ccy::Conventions::OisIndex()(ccy);
             auto floatLeg = fixedLeg;
             floatLeg.paymentFrequency_ = PeriodLength_("12M");
             floatLeg.dayBasis_ = overnightIndex.dayBasis_;
-            return Handle_<YCInstrument_>(new OISSwap_(span.first, span.first, span.second, (*rate)(marketCurve), fixedLeg, overnightIndex, floatLeg));
+            return Handle_<YCInstrument_>(
+                new OISSwap_(tradeDate, span.first, span.second, (*rate)(marketCurve), fixedLeg, overnightIndex, floatLeg));
         }
         if (auto swap = dynamic_cast<const Swap_*>(prototype.get())) {
             const auto span = swap->TimeSpan();
-            return Handle_<YCInstrument_>(new Swap_(span.first,
+            return Handle_<YCInstrument_>(new Swap_(tradeDate,
                                                     span.first,
                                                     span.second,
                                                     (*rate)(marketCurve),
-                                                    Ccy::Conventions::SwapFixedLeg()(Ccy_("USD")),
-                                                    Ccy::Conventions::LiborIndex()(Ccy_("USD")),
-                                                    Ccy::Conventions::SwapFloatLeg()(Ccy_("USD"))));
+                                                    Ccy::Conventions::SwapFixedLeg()(ccy),
+                                                    Ccy::Conventions::LiborIndex()(ccy),
+                                                    Ccy::Conventions::SwapFloatLeg()(ccy)));
         }
         REQUIRE(false, "Unsupported example instrument type");
         return Handle_<YCInstrument_>();
@@ -172,8 +176,8 @@ namespace {
             Date::AddMonths(today, 24),
         };
         oisStage.instruments_ = {
-            QuotedInstrument(oisDeposit, marketCurve),
-            QuotedInstrument(oisSwap, marketCurve),
+            QuotedInstrument(oisDeposit, marketCurve, today, ccy),
+            QuotedInstrument(oisSwap, marketCurve, today, ccy),
         };
 
         CurveCalibrationSpec_ liborStage;
@@ -185,8 +189,8 @@ namespace {
         liborStage.targetTenor_ = libor3m.forecastTenor_;
         liborStage.knotDates_ = oisStage.knotDates_;
         liborStage.instruments_ = {
-            QuotedInstrument(fra3m, marketCurve),
-            QuotedInstrument(irs3m, marketCurve),
+            QuotedInstrument(fra3m, marketCurve, today, ccy),
+            QuotedInstrument(irs3m, marketCurve, today, ccy),
         };
 
         MultiCurveCalibrationSpec_ multiCurveSpec;
