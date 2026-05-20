@@ -9,25 +9,15 @@
 #include <dal/curve/yc.hpp>
 #include <dal/curve/ycinstrument.hpp>
 #include <dal/protocol/accrualperiod.hpp>
+#include <dal/string/strings.hpp>
 #include <dal/time/schedules.hpp>
 
 namespace Dal {
 
     namespace {
         PeriodLength_ PeriodFromMonths(int months) {
-            switch (months) {
-            case 12:
-                return PeriodLength_("12M");
-            case 6:
-                return PeriodLength_("6M");
-            case 3:
-                return PeriodLength_("3M");
-            case 1:
-                return PeriodLength_("1M");
-            default:
-                REQUIRE(false, "Unsupported calibration instrument frequency");
-                return PeriodLength_();
-            }
+            REQUIRE(months == 1 || months == 3 || months == 6 || months == 12, "Unsupported calibration instrument frequency");
+            return PeriodLength_(String::FromInt(months) + "M");
         }
 
         int CouponMonthsForContext(const Date_& start, const Date_& maturity) {

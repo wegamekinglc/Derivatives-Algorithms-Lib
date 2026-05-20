@@ -26,6 +26,10 @@ namespace Dal {
             return String::Accumulate(Apply(ToName, parts), " ");
         }
 
+        std::map<String_, Handle_<HolidayCenterData_>>& TheCombinations() {
+            RETURN_STATIC(std::map<String_, Handle_<HolidayCenterData_>>);
+        }
+
         bool IsHoliday(const Vector_<Date_>& holidays, Vector_<Date_>::const_iterator* nextHoliday, const Date_& date) {
             if (*nextHoliday != holidays.end() && **nextHoliday == date) {
                 ++(*nextHoliday);
@@ -40,6 +44,26 @@ namespace Dal {
                 return true;
             }
             return false;
+        }
+
+        int CountRemainderBusDays(const Vector_<Date_>& holidays,
+                                  const Vector_<Date_>& workWeekends,
+                                  Vector_<Date_>::const_iterator nextHoliday,
+                                  Vector_<Date_>::const_iterator nextWorkWeekend,
+                                  const Date_& stop,
+                                  const Date_& end) {
+            int retval = 0;
+            for (Date_ d = stop; d < end; ++d) {
+                if (!Date::IsWeekEnd(d)) {
+                    if (IsHoliday(holidays, &nextHoliday, d))
+                        continue;
+                    ++retval;
+                }
+
+                if (IsWorkWeekend(workWeekends, &nextWorkWeekend, d))
+                    ++retval;
+            }
+            return retval;
         }
 
     } // namespace
@@ -101,19 +125,7 @@ namespace Dal {
         const Vector_<Date_>& wws = hols_.parts_[0]->workWeekends_;
         const auto holsToStop = static_cast<int>(p1Stop - LowerBound(hols, begin));
         const auto wwsToAdd = static_cast<int>(p2Stop - LowerBound(wws, begin));
-        int ret_val = 5 * weeks - holsToStop + wwsToAdd;
-
-        for (Date_ d = stop; d < end; ++d) {
-            if (!Date::IsWeekEnd(d)) {
-                if (IsHoliday(hols, &p1Stop, d))
-                    continue;
-                ++ret_val;
-            }
-
-            if (IsWorkWeekend(wws, &p2Stop, d))
-                ++ret_val;
-        }
-        return ret_val;
+        return 5 * weeks - holsToStop + wwsToAdd + CountRemainderBusDays(hols, wws, p1Stop, p2Stop, stop, end);
     }
 
     bool Holidays::IsBusinessDay(const Holidays_& hols, const Date_& from) {
