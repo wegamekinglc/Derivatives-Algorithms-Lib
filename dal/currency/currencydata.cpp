@@ -43,7 +43,7 @@ namespace Dal {
             }
             [[nodiscard]] writer_t& XWrite() const override { return *writer_; }
         };
-    }	// leave local
+    } // leave local
 
     namespace Ccy {
 #define SINGLETON_FACT_ACCESSOR(type, func) \
