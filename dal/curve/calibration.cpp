@@ -27,6 +27,7 @@ namespace Dal {
     namespace {
         constexpr const char* KEY_MAX_EVALUATIONS = "MAXEVALUATIONS";
         constexpr const char* KEY_MAX_RESTARTS = "MAXRESTARTS";
+        constexpr int MAX_RELEVANT_DATES_PER_INSTRUMENT = 2;
         void LoadDiscountCurves(const MultiCurveCalibrationResult_& source, CurveCalibrationSpec_* stageSpec) {
             for (const auto& [collateral, curve] : source.discountCurves_)
                 if (!stageSpec->discountCurves_.count(collateral))
