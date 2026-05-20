@@ -25,6 +25,8 @@ namespace Dal {
 #include <dal/auto/MG_CurveKnotPolicy_enum.inc>
 
     namespace {
+        constexpr int MAX_RELEVANT_DATES_PER_INSTRUMENT = 2;
+
         constexpr const char* KEY_MAX_EVALUATIONS = "MAXEVALUATIONS";
         constexpr const char* KEY_MAX_RESTARTS = "MAXRESTARTS";
         void LoadDiscountCurves(const MultiCurveCalibrationResult_& source, CurveCalibrationSpec_* stageSpec) {
