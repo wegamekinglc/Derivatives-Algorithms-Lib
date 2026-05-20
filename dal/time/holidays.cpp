@@ -26,9 +26,22 @@ namespace Dal {
             return String::Accumulate(Apply(ToName, parts), " ");
         }
 
-        std::map<String_, Handle_<HolidayCenterData_>>& TheCombinations() {
-            RETURN_STATIC(std::map<String_, Handle_<HolidayCenterData_>>);
+        bool IsHoliday(const Vector_<Date_>& holidays, Vector_<Date_>::const_iterator* nextHoliday, const Date_& date) {
+            if (*nextHoliday != holidays.end() && **nextHoliday == date) {
+                ++(*nextHoliday);
+                return true;
+            }
+            return false;
         }
+
+        bool IsWorkWeekend(const Vector_<Date_>& workWeekends, Vector_<Date_>::const_iterator* nextWorkWeekend, const Date_& date) {
+            if (*nextWorkWeekend != workWeekends.end() && **nextWorkWeekend == date) {
+                ++(*nextWorkWeekend);
+                return true;
+            }
+            return false;
+        }
+
     } // namespace
 
     Holidays_::Holidays_(const String_& src) {
@@ -92,16 +105,13 @@ namespace Dal {
 
         for (Date_ d = stop; d < end; ++d) {
             if (!Date::IsWeekEnd(d)) {
-                if (p1Stop != hols_.parts_[0]->holidays_.end() && *p1Stop == d)
-                    ++p1Stop;
-                else
-                    ++ret_val;
+                if (IsHoliday(hols, &p1Stop, d))
+                    continue;
+                ++ret_val;
             }
 
-            if (p2Stop != hols_.parts_[0]->workWeekends_.end() && *p2Stop == d) {
+            if (IsWorkWeekend(wws, &p2Stop, d))
                 ++ret_val;
-                ++p2Stop;
-            }
         }
         return ret_val;
     }

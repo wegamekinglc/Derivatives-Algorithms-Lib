@@ -27,7 +27,45 @@ namespace Dal {
     namespace {
         constexpr const char* KEY_MAX_EVALUATIONS = "MAXEVALUATIONS";
         constexpr const char* KEY_MAX_RESTARTS = "MAXRESTARTS";
-        constexpr int MAX_RELEVANT_DATES_PER_INSTRUMENT = 2;
+        void LoadDiscountCurves(const MultiCurveCalibrationResult_& source, CurveCalibrationSpec_* stageSpec) {
+            for (const auto& [collateral, curve] : source.discountCurves_)
+                if (!stageSpec->discountCurves_.count(collateral))
+                    stageSpec->discountCurves_[collateral] = curve;
+        }
+
+        void LoadForwardCurves(const MultiCurveCalibrationResult_& source, CurveCalibrationSpec_* stageSpec) {
+            for (const auto& [tenor, curve] : source.forwardCurves_)
+                if (!stageSpec->forwardCurves_.count(tenor))
+                    stageSpec->forwardCurves_[tenor] = curve;
+        }
+
+        void ApplyStageDefaults(const MultiCurveCalibrationSpec_& spec,
+                                const MultiCurveCalibrationResult_& currentResult,
+                                CurveCalibrationSpec_* stageSpec) {
+            if (stageSpec->ccy_.empty())
+                stageSpec->ccy_ = spec.ccy_;
+            if (stageSpec->curveName_.empty())
+                stageSpec->curveName_ = spec.name_;
+            stageSpec->liborBasis_ = spec.liborBasis_;
+            LoadDiscountCurves(currentResult, stageSpec);
+            LoadForwardCurves(currentResult, stageSpec);
+            if (!stageSpec->calibrateDiscountCurve_ && stageSpec->baseCurve_.IsEmpty()) {
+                REQUIRE(stageSpec->discountCurves_.count(stageSpec->targetCollateral_),
+                        "Forward-curve calibration requires a preloaded discount curve for the requested collateral");
+                stageSpec->baseCurve_ = stageSpec->discountCurves_.at(stageSpec->targetCollateral_);
+            }
+        }
+
+        void StoreStageResult(const CurveCalibrationSpec_& stageSpec,
+                              CurveCalibrationResult_* stageResult,
+                              MultiCurveCalibrationResult_* multiResult) {
+            Handle_<DiscountCurve_> calibrated(stageResult->curve_.release());
+            if (stageSpec.calibrateDiscountCurve_)
+                multiResult->discountCurves_[stageSpec.targetCollateral_] = calibrated;
+            else
+                multiResult->forwardCurves_[stageSpec.targetTenor_] = calibrated;
+            multiResult->diagnostics_.push_back(stageResult->diagnostics_);
+        }
 
         const char* ParameterizationName(CurveParameterization_ parameterization) {
             switch (parameterization.Switch()) {
@@ -368,30 +406,10 @@ namespace Dal {
         MultiCurveCalibrationResult_ retval;
         for (const auto& inputStageSpec : spec.stages_) {
             auto stageSpec = inputStageSpec;
-            if (stageSpec.ccy_.empty())
-                stageSpec.ccy_ = spec.ccy_;
-            if (stageSpec.curveName_.empty())
-                stageSpec.curveName_ = spec.name_;
-            stageSpec.liborBasis_ = spec.liborBasis_;
-            for (const auto& [collateral, curve] : retval.discountCurves_)
-                if (!stageSpec.discountCurves_.count(collateral))
-                    stageSpec.discountCurves_[collateral] = curve;
-            for (const auto& [tenor, curve] : retval.forwardCurves_)
-                if (!stageSpec.forwardCurves_.count(tenor))
-                    stageSpec.forwardCurves_[tenor] = curve;
-            if (!stageSpec.calibrateDiscountCurve_ && stageSpec.baseCurve_.IsEmpty()) {
-                REQUIRE(stageSpec.discountCurves_.count(stageSpec.targetCollateral_),
-                        "Forward-curve calibration requires a preloaded discount curve for the requested collateral");
-                stageSpec.baseCurve_ = stageSpec.discountCurves_.at(stageSpec.targetCollateral_);
-            }
+            ApplyStageDefaults(spec, retval, &stageSpec);
 
             CurveCalibrationResult_ stageResult = CalibrateYieldCurve(stageSpec);
-            Handle_<DiscountCurve_> calibrated(stageResult.curve_.release());
-            if (stageSpec.calibrateDiscountCurve_)
-                retval.discountCurves_[stageSpec.targetCollateral_] = calibrated;
-            else
-                retval.forwardCurves_[stageSpec.targetTenor_] = calibrated;
-            retval.diagnostics_.push_back(stageResult.diagnostics_);
+            StoreStageResult(stageSpec, &stageResult, &retval);
         }
         return retval;
     }
