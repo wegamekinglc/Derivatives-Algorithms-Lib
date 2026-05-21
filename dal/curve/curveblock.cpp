@@ -57,7 +57,9 @@ namespace Dal {
     bool CurveBlock_::HasForward(const PeriodLength_& tenor) const {
         if (dc_)
             return true;
-        return forwardCurves_.find(tenor) != forwardCurves_.end();
+        if (forwardCurves_.find(tenor) != forwardCurves_.end())
+            return true;
+        return !discountCurves_.empty();
     }
 
     const DiscountCurve_& CurveBlock_::Discount(const CollateralType_& collateral) const {

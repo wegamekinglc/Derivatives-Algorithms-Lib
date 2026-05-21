@@ -163,9 +163,10 @@ namespace Dal {
             period.paymentDate_ = Holidays::Adjust(paymentHolidays,
                                                    ApplyLag(period.accrualEnd_, paymentLag, paymentHolidays, true),
                                                    paymentConvention);
-            period.isStub_ = CouponMonths(period.unadjustedStart_, period.unadjustedEnd_) != tenor.Months();
+            const int couponMonths = CouponMonths(period.unadjustedStart_, period.unadjustedEnd_);
+            period.isStub_ = couponMonths != tenor.Months();
             period.dayCountContext_.reset(
-                new DayBasis::Context_(i == static_cast<int>(unadjusted.size()) - 1, period.unadjustedStart_, period.unadjustedEnd_, tenor.Months()));
+                new DayBasis::Context_(i == static_cast<int>(unadjusted.size()) - 1, period.unadjustedStart_, period.unadjustedEnd_, couponMonths));
             retVal.push_back(period);
         }
         return retVal;
