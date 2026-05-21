@@ -17,6 +17,34 @@ namespace Dal {
 #include <dal/auto/MG_BizDayConvention_enum.inc>
 
     namespace {
+        Schedule_ GenerateForward(const Date_& start, const Date_& maturity, int tenorMonths, bool preserveEom) {
+            Vector_<Date_> retVal;
+            retVal.push_back(start);
+            for (;;) {
+                const Date_ next = Date::AddMonths(retVal.back(), tenorMonths, preserveEom);
+                if (next > maturity)
+                    break;
+                retVal.push_back(next);
+            }
+            if (retVal.back() != maturity)
+                retVal.push_back(maturity);
+            return retVal;
+        }
+
+        Schedule_ GenerateBackward(const Date_& start, const Date_& maturity, int tenorMonths, bool preserveEom) {
+            Vector_<Date_> retVal;
+            retVal.push_back(maturity);
+            for (;;) {
+                const Date_ prev = Date::AddMonths(retVal.back(), -tenorMonths, preserveEom);
+                if (prev < start)
+                    break;
+                retVal.push_back(prev);
+            }
+            if (retVal.back() != start)
+                retVal.push_back(start);
+            return Reverse(retVal);
+        }
+
         Schedule_ DateGenerateByPeriod(const Date_& start,
                                        const Date_& maturity,
                                        const PeriodLength_& tenor,
@@ -24,32 +52,11 @@ namespace Dal {
                                        bool preserveEom) {
             const int tenorMonths = tenor.Months();
             REQUIRE(tenorMonths > 0, "Schedule tenor must be positive");
-            Vector_<Date_> retVal;
-            if (method == DateGeneration_("Forward")) {
-                retVal.push_back(start);
-                for (;;) {
-                    const Date_ next = Date::AddMonths(retVal.back(), tenorMonths, preserveEom);
-                    if (next > maturity)
-                        break;
-                    retVal.push_back(next);
-                }
-                if (retVal.back() != maturity)
-                    retVal.push_back(maturity);
-            } else if (method == DateGeneration_("Backward")) {
-                retVal.push_back(maturity);
-                for (;;) {
-                    const Date_ prev = Date::AddMonths(retVal.back(), -tenorMonths, preserveEom);
-                    if (prev < start)
-                        break;
-                    retVal.push_back(prev);
-                }
-                if (retVal.back() != start)
-                    retVal.push_back(start);
-                retVal = Reverse(retVal);
-            } else {
-                THROW("date generation rule is not recognized");
-            }
-            return retVal;
+            if (method == DateGeneration_("Forward"))
+                return GenerateForward(start, maturity, tenorMonths, preserveEom);
+            if (method == DateGeneration_("Backward"))
+                return GenerateBackward(start, maturity, tenorMonths, preserveEom);
+            THROW("date generation rule is not recognized");
         }
 
         Date_ ApplyLag(const Date_& date, int lag, const Holidays_& hols, bool forward) {
