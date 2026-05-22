@@ -113,6 +113,99 @@ namespace {
         std::cout << '\n';
     }
 
+    void PrintScheduleContextExample() {
+        const Date_ start(2024, 1, 31);
+        const Date_ maturity(2024, 7, 31);
+        const Holidays_ hols(Holidays::None());
+        const auto periods = MakeSchedulePeriods(start,
+                                                 maturity,
+                                                 PeriodLength_("3M"),
+                                                 hols,
+                                                 2,
+                                                 hols,
+                                                 2,
+                                                 hols,
+                                                 DateGeneration_("Forward"),
+                                                 BizDayConvention_("ModifiedFollowing"),
+                                                 BizDayConvention_("ModifiedFollowing"),
+                                                 true);
+
+        std::cout << "Schedule context example with fixing/payment lags\n";
+        std::cout << "-----------------------------------------------\n";
+        std::cout << std::left << std::setw(14) << "FixingDate"
+                  << std::setw(14) << "AccrualEnd"
+                  << std::setw(14) << "PaymentDate"
+                  << std::setw(10) << "Months"
+                  << std::setw(10) << "Stub" << '\n';
+        for (const auto& period : periods) {
+            std::cout << std::setw(14) << Date::ToString(period.fixingDate_)
+                      << std::setw(14) << Date::ToString(period.accrualEnd_)
+                      << std::setw(14) << Date::ToString(period.paymentDate_)
+                      << std::setw(10)
+                      << (period.dayCountContext_ ? period.dayCountContext_->couponMonths_ : 0)
+                      << std::setw(10) << (period.isStub_ ? "yes" : "no") << '\n';
+        }
+        std::cout << '\n';
+    }
+
+    void PrintForwardInstrumentExample(const Date_& today, const Ccy_& ccy) {
+        const String_ ccyName = ccy.String();
+        const DayBasis_ basis("ACT_360");
+        const Handle_<DiscountCurve_> ois = MakeFlatDiscountCurve("ois", ccyName, today, 0.01);
+        const Handle_<DiscountCurve_> libor3m = MakeFlatDiscountCurve("libor3m", ccyName, today, 0.03, ois);
+        const Handle_<DiscountCurve_> libor6m = MakeFlatDiscountCurve("libor6m", ccyName, today, 0.035, ois);
+        const CurveBlock_ curve("bundle",
+                                ccyName,
+                                {{CollateralType_(CollateralType_::Value_::OIS), ois}},
+                                {{PeriodLength_("3M"), libor3m}, {PeriodLength_("6M"), libor6m}},
+                                basis);
+
+        auto libor3mIndex = Ccy::Conventions::LiborIndex()(ccy);
+        libor3mIndex.accrualHolidays_ = Holidays::None();
+        libor3mIndex.fixingHolidays_ = Holidays::None();
+        libor3mIndex.dayBasis_ = basis;
+        libor3mIndex.useProjectionCurve_ = true;
+        libor3mIndex.forecastTenor_ = PeriodLength_("3M");
+        libor3mIndex.collateral_ = CollateralType_(CollateralType_::Value_::OIS);
+
+        auto libor6mIndex = libor3mIndex;
+        libor6mIndex.forecastTenor_ = PeriodLength_("6M");
+
+        RateLegConvention_ spreadLeg;
+        spreadLeg.paymentFrequency_ = PeriodLength_("3M");
+        spreadLeg.dayBasis_ = basis;
+        spreadLeg.accrualHolidays_ = Holidays::None();
+        spreadLeg.paymentHolidays_ = Holidays::None();
+
+        RateLegConvention_ referenceLeg = spreadLeg;
+        referenceLeg.paymentFrequency_ = PeriodLength_("6M");
+
+        const Handle_<YCInstrument_> future(new Future_(today,
+                                                        Date::AddMonths(today, 3),
+                                                        Date::AddMonths(today, 6),
+                                                        0.0,
+                                                        libor3mIndex,
+                                                        0.0015));
+        const Handle_<YCInstrument_> basisSwap(new BasisSwap_(today,
+                                                              today,
+                                                              Date::AddMonths(today, 24),
+                                                              0.0,
+                                                              libor3mIndex,
+                                                              spreadLeg,
+                                                              libor6mIndex,
+                                                              referenceLeg));
+
+        const auto futureRate = future->Precompute(future, Handle_<YieldCurve_>());
+        const auto basisSwapRate = basisSwap->Precompute(basisSwap, Handle_<YieldCurve_>());
+
+        std::cout << "Forward instrument routing example\n";
+        std::cout << "---------------------------------\n";
+        std::cout << "3M future rate with 15bp convexity adjustment: "
+                  << (*futureRate)(curve) * 100.0 << "%\n";
+        std::cout << "3M vs 6M basis swap spread from separate forward curves: "
+                  << (*basisSwapRate)(curve) * 10000.0 << " bp\n\n";
+    }
+
     void PrintStageDiagnostics(const CurveCalibrationDiagnostics_& diagnostics) {
         std::cout << diagnostics.curveName_ << " residuals\n";
         std::cout << std::left << std::setw(14) << "Instrument"
@@ -219,6 +312,8 @@ int main() {
     const Ccy_ ccy("USD");
 
     PrintScheduleExample(today, ccy);
+    PrintScheduleContextExample();
+    PrintForwardInstrumentExample(today, ccy);
     PrintMultiCurveExample(today, ccy);
 
     return 0;
