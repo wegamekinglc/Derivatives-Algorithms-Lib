@@ -1,3 +1,5 @@
+include(GoogleTest)
+
 file(GLOB_RECURSE TEST_FILES "*.hpp" "*.cpp")
 
 add_executable(test_suite ${TEST_FILES})
@@ -16,3 +18,5 @@ install(TARGETS test_suite
         RUNTIME DESTINATION bin
         PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE
         )
+
+gtest_discover_tests(test_suite)
