@@ -19,3 +19,13 @@ exclude_paths:
   - 'build/**'
   - 'bin/**'
   - 'lib/**'
+  # Internal project documentation and agent/skill definitions.
+  # The Codacy Agentlinter is designed to enforce style rules for AI-agent
+  # prompts (no undefined acronyms, no absolute rules without escape hatches,
+  # etc.), which doesn't apply to project documentation aimed at human
+  # developers — domain acronyms like AAD, PDE, AST, SWIG are defined by
+  # context and don't need glossary entries here.
+  - 'CLAUDE.md'
+  - '.claude/**'
+  - 'doc/**'
+
