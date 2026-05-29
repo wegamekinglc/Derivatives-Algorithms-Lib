@@ -1,6 +1,6 @@
 # Underdetermined Search Method
 
-Documentation of the underdetermined optimization solver in `dal/math/optimization/underdetermined.hpp` and `dal/math/optimization/underdetermined.cpp`.
+Documentation of the underdetermined optimization solver in `dal-cpp/dal/math/optimization/underdetermined.hpp` and `dal-cpp/dal/math/optimization/underdetermined.cpp`.
 
 ## Purpose
 
@@ -14,16 +14,16 @@ This is the solver used by yield-curve calibration, but it is written as a gener
 
 ## File Map
 
-| File                                               | Purpose                                                                |
-|----------------------------------------------------|------------------------------------------------------------------------|
-| `dal/math/optimization/underdetermined.hpp`        | Core solver API declarations for `Find()` and `Approximate()`          |
-| `dal/math/optimization/underdetermined.cpp`        | Core solver implementation and Jacobian handling                       |
-| `dal/math/optimization/underdeterminedutils.hpp`   | Utility helpers for building smoothness weights such as `WeightsPWC()` |
-| `dal/curve/curveblock.hpp`                         | Yield-curve calibration declarations using the underdetermined solver  |
-| `dal/curve/curveblock.cpp`                         | Yield-curve calibration implementation using the solver                |
-| `examples/underdetermined/underdetermined.cpp`     | End-to-end demonstration using curve calibration                       |
-| `tests/math/optimization/test_underdetermined.cpp` | Direct solver coverage                                                 |
-| `tests/curve/test_curveblock.cpp`                  | Integration coverage through yield-curve calibration                   |
+| File                                                       | Purpose                                                                |
+|------------------------------------------------------------|------------------------------------------------------------------------|
+| `dal-cpp/dal/math/optimization/underdetermined.hpp`        | Core solver API declarations for `Find()` and `Approximate()`          |
+| `dal-cpp/dal/math/optimization/underdetermined.cpp`        | Core solver implementation and Jacobian handling                       |
+| `dal-cpp/dal/math/optimization/underdeterminedutils.hpp`   | Utility helpers for building smoothness weights such as `WeightsPWC()` |
+| `dal-cpp/dal/curve/curveblock.hpp`                         | Yield-curve calibration declarations using the underdetermined solver  |
+| `dal-cpp/dal/curve/curveblock.cpp`                         | Yield-curve calibration implementation using the solver                |
+| `dal-cpp/examples/underdetermined/underdetermined.cpp`     | End-to-end demonstration using curve calibration                       |
+| `dal-cpp/tests/math/optimization/test_underdetermined.cpp` | Direct solver coverage                                                 |
+| `dal-cpp/tests/curve/test_curveblock.cpp`                  | Integration coverage through yield-curve calibration                   |
 
 ## Core API
 
@@ -278,13 +278,13 @@ Typical interpretation:
 - low weight on a component → that component is easier to move
 - off-diagonal couplings → encourage neighboring parameters to move together or penalize roughness
 
-`tests/math/optimization/test_underdetermined.cpp` shows this directly:
+`dal-cpp/tests/math/optimization/test_underdetermined.cpp` shows this directly:
 
 - in `TestFindRespectsWeights`, a one-equation two-unknown system with diagonal weights `(1, 4)` produces the lower-cost solution `x = (2.4, 0.6)` for `x0 + x1 = 3`
 
 ## Smoothness Helpers
 
-`dal/math/optimization/underdeterminedutils.hpp` exposes helpers for building smoothness penalties. The main public helper is:
+`dal-cpp/dal/math/optimization/underdeterminedutils.hpp` exposes helpers for building smoothness penalties. The main public helper is:
 
 ```cpp
 Sparse::TriDiagonal_* WeightsPWC(const Vector_<DateTime_>& knots, double tau_s);
@@ -296,7 +296,7 @@ This is useful when the unknowns represent values along time buckets or knot poi
 
 ## Curve Calibration Integration
 
-The solver is used directly in `dal/curve/curveblock.cpp`.
+The solver is used directly in `dal-cpp/dal/curve/curveblock.cpp`.
 
 ### Current Calibration Setup
 
@@ -307,7 +307,7 @@ The solver is used directly in `dal/curve/curveblock.cpp`.
 - weights: a tridiagonal smoothing matrix built inline by `BuildSmoothingWeights()`
 - solve path: `Underdetermined::Find(...)`
 
-The calibration function in `dal/curve/curveblock.cpp` builds a `PiecewiseLinear_` from the parameter vector, wraps it in `DiscountPWLF_` from `dal/curve/ycimp.cpp`, then reprices all instruments through `CurveBlock_` declared in `dal/curve/curveblock.hpp`.
+The calibration function in `dal-cpp/dal/curve/curveblock.cpp` builds a `PiecewiseLinear_` from the parameter vector, wraps it in `DiscountPWLF_` from `dal-cpp/dal/curve/ycimp.cpp`, then reprices all instruments through `CurveBlock_` declared in `dal-cpp/dal/curve/curveblock.hpp`.
 
 ### High-Level Pipeline
 
@@ -323,7 +323,7 @@ YC instruments
 
 ### Relation to `FittableCurve_`
 
-The generic curve-fitting abstraction in `dal/curve/fittable.hpp` exists as:
+The generic curve-fitting abstraction in `dal-cpp/dal/curve/fittable.hpp` exists as:
 
 ```cpp
 class FittableCurve_ {
@@ -332,13 +332,13 @@ class FittableCurve_ {
 };
 ```
 
-`DiscountPWLF_` in `dal/curve/ycimp.cpp` implements that interface, but the current `CalibrateYieldCurve()` path in `dal/curve/curveblock.cpp` does not drive calibration through `FittableCurve_` directly. Instead it rebuilds a temporary `PiecewiseLinear_` from the candidate parameter vector inside the residual function.
+`DiscountPWLF_` in `dal-cpp/dal/curve/ycimp.cpp` implements that interface, but the current `CalibrateYieldCurve()` path in `dal-cpp/dal/curve/curveblock.cpp` does not drive calibration through `FittableCurve_` directly. Instead it rebuilds a temporary `PiecewiseLinear_` from the candidate parameter vector inside the residual function.
 
 ## Example and Tests
 
 ### Example Program
 
-`examples/underdetermined/underdetermined.cpp` demonstrates:
+`dal-cpp/examples/underdetermined/underdetermined.cpp` demonstrates:
 
 - a yield curve with more parameters than calibration instruments
 - reporting degrees of freedom as `2 * knots - instruments`
@@ -347,7 +347,7 @@ class FittableCurve_ {
 
 ### Direct Solver Tests
 
-`tests/math/optimization/test_underdetermined.cpp` covers:
+`dal-cpp/tests/math/optimization/test_underdetermined.cpp` covers:
 
 - weighted exact solve on a linear one-constraint system
 - approximate solve behavior and the fit-vs-distance balance
@@ -356,7 +356,7 @@ class FittableCurve_ {
 
 ### Integration Tests
 
-`tests/curve/test_curveblock.cpp` checks successful repricing for:
+`dal-cpp/tests/curve/test_curveblock.cpp` checks successful repricing for:
 
 - a flat curve
 - an upward-sloping curve
@@ -377,5 +377,5 @@ These points reflect the code as it exists today:
 ## See Also
 
 - `yield_curve.md` for the surrounding curve-construction framework
-- `tests/math/optimization/test_underdetermined.cpp` for concrete solver behavior
-- `examples/underdetermined/underdetermined.cpp` for a runnable integration example
+- `dal-cpp/tests/math/optimization/test_underdetermined.cpp` for concrete solver behavior
+- `dal-cpp/examples/underdetermined/underdetermined.cpp` for a runnable integration example

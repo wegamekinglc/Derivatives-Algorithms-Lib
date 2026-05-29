@@ -47,7 +47,7 @@ You write designs. You do not write production code, run builds, or merge PRs.
 
 ## Project Context
 
-- `dal/` - core library: `math/`, `curve/`, `model/`, `script/`, `risk/`, `storage/`, `concurrency/`, `indice/`
+- `dal-cpp/dal/` - core library: `math/`, `curve/`, `model/`, `script/`, `risk/`, `storage/`, `concurrency/`, `indice/`
 - `public/` - public API: `src/`, `excel/`, `python/`, `swig/`
 - `.claude/methodology/aad.md` - AAD framework
 - `.claude/methodology/yield_curve.md` - curve construction
@@ -65,7 +65,7 @@ than introduce parallel idioms.
 ### Step 1: Read the Inputs
 
 - The spec at `.claude/specs/<slug>.md` if one exists, in full
-- Any header in `dal/` named in the spec
+- Any header in `dal-cpp/dal/` named in the spec
 - Closest existing analogues (similar interpolators, models, curves, instruments)
 - Tests for the analogous module - they reveal the expected API shape
 
@@ -131,7 +131,7 @@ Is anything recorded on the tape? Skip if AAD is not involved.>
 - <known unknown - flag for the developer to resolve, or escalate back to user>
 
 ## Test Plan
-- Suite: <SuiteName> in `tests/<module>/test_<name>.cpp`
+- Suite: <SuiteName> in `dal-cpp/tests/<module>/test_<name>.cpp`
 - Cases: <bullet list of tests covering happy path, edge cases, error paths>
 - Existing tests at risk of regression: <list>
 

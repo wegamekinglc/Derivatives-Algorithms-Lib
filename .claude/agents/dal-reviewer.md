@@ -89,7 +89,7 @@ Read the PR description and scan the diff to understand:
 
 ### Step 3: Deep Code Review
 
-Read each changed file in full when it can affect behavior, build output, generated code, tests, documentation, or agent/rule guidance. Do not limit the review to the diff — you need context. At minimum, inspect changed `.hpp`, `.cpp`, `.inc`, `.c`, `.h`, `.cmake`, `CMakeLists.txt`, `.py`, `.sh`, `.md`, and generated `dal/auto/` or `public/auto/` files. Check:
+Read each changed file in full when it can affect behavior, build output, generated code, tests, documentation, or agent/rule guidance. Do not limit the review to the diff — you need context. At minimum, inspect changed `.hpp`, `.cpp`, `.inc`, `.c`, `.h`, `.cmake`, `CMakeLists.txt`, `.py`, `.sh`, `.md`, and generated `dal-cpp/dal/auto/` or `dal-excel/auto/` files. Check:
 
 #### Naming
 - Classes/Structs: PascalCase with trailing `_` (`Date_`, `Vector_<>`)
@@ -129,7 +129,7 @@ Read each changed file in full when it can affect behavior, build output, genera
 
 #### Enums
 - Must use Machinist markup, never hand-written `enum class`
-- Generated `dal/auto/MG_*_enum.hpp` and `.inc` files must be committed
+- Generated `dal-cpp/dal/auto/MG_*_enum.hpp` and `.inc` files must be committed
 - Include `.hpp` inside `namespace Dal { }` in headers
 - Include `.inc` inside `namespace Dal { }` in `.cpp` files
 
@@ -150,8 +150,8 @@ Check the exit code and `test_output.txt` for failures. If the build itself fail
 Then run targeted tests for the changed modules and the full suite:
 
 ```bash
-bin/test_suite --gtest_filter=<ChangedSuite1>.*:<ChangedSuite2>.*
-bin/test_suite
+bin/dal_cpp_tests --gtest_filter=<ChangedSuite1>.*:<ChangedSuite2>.*
+bin/dal_cpp_tests
 ```
 
 Capture:

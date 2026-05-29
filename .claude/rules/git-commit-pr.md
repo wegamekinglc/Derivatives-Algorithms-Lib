@@ -45,7 +45,7 @@ and reorder includes in test files to follow project convention (gtest first).
 
 ## Test plan
 - [x] Run specific test filters to verify new/changed functionality
-- [x] Full `bin/test_suite` to confirm no regressions
+- [x] Full `bin/dal_cpp_tests` (and other CTest targets) to confirm no regressions
 ```
 
 - All tests must pass before merging

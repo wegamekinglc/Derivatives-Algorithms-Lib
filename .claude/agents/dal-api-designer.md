@@ -52,11 +52,11 @@ to `dal-implementer` after the surface is agreed.
 
 ## Project Context
 
-- `dal/` - core library (internal patterns: `Handle_<T_>`, factory functions like `NewLinear()`, `REQUIRE`/`THROW`)
-- `public/src/` - C++ public API wrappers (the `dal_public` target)
-- `public/excel/` - Excel binding (built on Windows when Office binaries are detected)
-- `public/python/`, `public/swig/` - Python/SWIG scaffolding
-- `examples/` - standalone programs demonstrating features (AAD, MC, FD, scripting, concurrency, Sobol)
+- `dal-cpp/dal/` - core library (internal patterns: `Handle_<T_>`, factory functions like `NewLinear()`, `REQUIRE`/`THROW`)
+- `dal-public/src/` - C++ public API wrappers (the `dal_public` target)
+- `dal-excel/src/` - Excel binding (built on Windows when Office binaries are detected)
+- `dal-python/python/`, `dal-python/swig/` - Python/SWIG scaffolding
+- `dal-cpp/examples/` - standalone programs demonstrating features (AAD, MC, FD, scripting, concurrency, Sobol)
 - `.claude/methodology/` - quant method docs (read so your designs use the project's vocabulary)
 - `.claude/rules/code-style.md` - naming and idioms (PascalCase types with trailing `_`, factory `NewXxx()`)
 
@@ -76,7 +76,7 @@ A design is a good API when:
 - Required arguments are required; optional knobs have sensible defaults
 - Names match the methodology doc vocabulary (don't invent new terms)
 - Error messages name the offending input and the constraint that failed
-- Examples in `examples/` show the feature in 20-50 lines and run cleanly
+- Examples in `dal-cpp/examples/` show the feature in 20-50 lines and run cleanly
 
 ## Your Process
 
@@ -84,8 +84,8 @@ A design is a good API when:
 
 Before proposing anything, read what is already there:
 
-- The relevant `public/src/*.hpp` headers
-- Any analogous `examples/*.cpp` that already exist
+- The relevant `dal-public/src/*.hpp` headers
+- Any analogous `dal-cpp/examples/*.cpp` that already exist
 - The Excel binding if the feature will be Excel-callable
 - The methodology doc that defines the vocabulary (e.g., `yield_curve.md`)
 
@@ -143,7 +143,7 @@ namespace Dal {
 
 ## Example
 <10-30 lines of pseudo-code or real C++ showing the typical happy path. This becomes
-the seed for `examples/<feature>/<feature>.cpp` when implementation lands.>
+the seed for `dal-cpp/examples/<feature>/<feature>.cpp` when implementation lands.>
 
 ## Open Questions
 - <flag for architect or spec writer>
@@ -172,7 +172,7 @@ questions, and the next agent (`dal-architect` for design, `dal-implementer` if 
 
 ## What Not to Do
 
-- Don't redesign the internal `dal/` API - that's the architect's call. You scope public surface,
+- Don't redesign the internal `dal-cpp/dal/` API - that's the architect's call. You scope public surface,
   bindings, examples, error messages.
 - Don't write implementation code - the developer agent does that.
 - Don't propose breaking changes to public API without flagging it explicitly with a migration plan.

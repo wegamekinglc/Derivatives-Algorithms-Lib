@@ -2,12 +2,19 @@
 
 ## Framework
 
-- Google Test (gtest), compiled into a single `test_suite` binary
-- Custom `test_main.cpp` calls `Dal::RegisterAll_::Init()` before `RUN_ALL_TESTS()`
+- Google Test (gtest), with one binary per sub-project:
+  - `dal_cpp_tests` — core library tests, built from `dal-cpp/tests/`
+  - `dal_public_tests` — public-API tests, built from `dal-public/tests/`
+  - `dal_excel_tests` — Excel binding tests, built from `dal-excel/tests/` (Windows-only)
+- Tests are registered with CTest via `gtest_discover_tests` and run with `ctest --output-on-failure` from the build directory.
+- The core test runner uses `Dal::RegisterAll_::Init()` before `RUN_ALL_TESTS()`.
 
 ## File Layout
 
-- One test file per module: `tests/<module>/test_<name>.cpp`
+- One test file per module under the owning sub-project's `tests/` directory:
+  - core: `dal-cpp/tests/<module>/test_<name>.cpp`
+  - public: `dal-public/tests/test_<name>.cpp`
+  - excel: `dal-excel/tests/test_<name>.cpp`
 - File header: `//`, `// Created by <author> on <date>.`, `//`
 - Include order: `<gtest/gtest.h>` -> standard/system headers -> DAL/project headers -> local headers (if any)
 - `using` declarations at file scope for frequently used types (e.g., `using Dal::Vector_;`)

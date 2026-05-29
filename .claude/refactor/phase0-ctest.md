@@ -1,5 +1,8 @@
 # Phase 0: CTest Registration
 
+> **Historical document.** Captures the pre-refactor (pre-PR #71) repository layout and build behaviour. Paths like `dal/`, `public/`, `tests/`, `examples/`, `externals/`, `config/`, `cmake/` no longer exist at the repo root — they now live under their owning sub-project (`dal-cpp/`, `dal-public/`, `dal-python/`, `dal-excel/`). See `CLAUDE.md` for the current layout.
+
+
 ## Status: COMPLETED
 
 CTest was not previously registered. Two files were modified:

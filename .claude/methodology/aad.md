@@ -1,19 +1,19 @@
 # Automatic Adjoint Differentiation (AAD)
 
-Documentation of the AAD framework in `dal/math/aad/`.
+Documentation of the AAD framework in `dal-cpp/dal/math/aad/`.
 
 ## File Map
 
-| File                         | Purpose                                                                               |
-|------------------------------|---------------------------------------------------------------------------------------|
-| `dal/math/aad/expr.hpp`      | Expression template hierarchy, operator overloads, and backend-specific `Number_`     |
-| `dal/math/aad/tape.hpp`      | `Tape_` declaration for native `BlockList_`, XAD, CoDiPack, or Adept backends         |
-| `dal/math/aad/tape.cpp`      | Propagation, mark, rewind, and clear for native, XAD, CoDiPack, and Adept paths       |
-| `dal/math/aad/node.hpp`      | `TapNode_` — per-operation node storing local derivatives and adjoint pointers        |
-| `dal/math/aad/blocklist.hpp` | `BlockList_<T_, BLOCK_SIZE>` — segmented arena allocator backing the native tape      |
-| `dal/math/aad/aad.hpp`       | Multi-result support (`SetNumResultsForAAD`), `PutOnTape`, `Clear`                    |
-| `dal/math/aad/aad.cpp`       | Static initializers for `TapNode_::numAdj_` and `Tape_::multi_` in the native backend |
-| `dal/math/aad/sample.hpp`    | `Sample_<T_>` and `Scenario_<T_>` — container for AAD-aware market scenarios          |
+| File                                 | Purpose                                                                               |
+|--------------------------------------|---------------------------------------------------------------------------------------|
+| `dal-cpp/dal/math/aad/expr.hpp`      | Expression template hierarchy, operator overloads, and backend-specific `Number_`     |
+| `dal-cpp/dal/math/aad/tape.hpp`      | `Tape_` declaration for native `BlockList_`, XAD, CoDiPack, or Adept backends         |
+| `dal-cpp/dal/math/aad/tape.cpp`      | Propagation, mark, rewind, and clear for native, XAD, CoDiPack, and Adept paths       |
+| `dal-cpp/dal/math/aad/node.hpp`      | `TapNode_` — per-operation node storing local derivatives and adjoint pointers        |
+| `dal-cpp/dal/math/aad/blocklist.hpp` | `BlockList_<T_, BLOCK_SIZE>` — segmented arena allocator backing the native tape      |
+| `dal-cpp/dal/math/aad/aad.hpp`       | Multi-result support (`SetNumResultsForAAD`), `PutOnTape`, `Clear`                    |
+| `dal-cpp/dal/math/aad/aad.cpp`       | Static initializers for `TapNode_::numAdj_` and `Tape_::multi_` in the native backend |
+| `dal-cpp/dal/math/aad/sample.hpp`    | `Sample_<T_>` and `Scenario_<T_>` — container for AAD-aware market scenarios          |
 
 ## Design Overview
 
@@ -42,7 +42,7 @@ Expression_<E_>                       ← CRTP base, implicit double conversion
 
 ### Number_
 
-In the native backend, `Number_` (`dal/math/aad/expr.hpp:469`) is the active type — a `double` with a link to a tape node. It has `numNumbers_ = 1`, a compile-time constant indicating it contributes one leaf to any expression tree.
+In the native backend, `Number_` (`dal-cpp/dal/math/aad/expr.hpp:469`) is the active type — a `double` with a link to a tape node. It has `numNumbers_ = 1`, a compile-time constant indicating it contributes one leaf to any expression tree.
 
 **Construction from an expression** — `Number_ n = a * b + c / d;` does two things:
 1. Evaluates the expression tree to a `double` via `Value(e)`
@@ -101,7 +101,7 @@ When a scalar is one side, a `UnaryExpression_` is returned instead (e.g., `a * 
 
 ## The Tape
 
-The tape (`dal/math/aad/tape.hpp`) is a `thread_local` singleton accessed via `AAD::Tape()`:
+The tape (`dal-cpp/dal/math/aad/tape.hpp`) is a `thread_local` singleton accessed via `AAD::Tape()`:
 
 ### Legacy Path Tape
 
@@ -115,7 +115,7 @@ class Tape_ {
 };
 ```
 
-**BlockList_ Allocator** (`dal/math/aad/blocklist.hpp`):
+**BlockList_ Allocator** (`dal-cpp/dal/math/aad/blocklist.hpp`):
 
 A `BlockList_<T_, BLOCK_SIZE>` is a `std::list<std::array<T_, BLOCK_SIZE>>` with cursor-based allocation. Key behaviors:
 
@@ -256,7 +256,7 @@ cmake --preset=Release-linux -DDAL_USE_XAD_AAD=on ..
 cmake --preset=Release-linux -DDAL_USE_ADEPT_AAD=on -DDAL_USE_XAD_AAD=off -DDAL_USE_CODIPACK_AAD=off ..
 ```
 
-The external headers are expected under `externals/xad/`, `externals/CodiPack/`, and `externals/adept/`. All paths are covered by the same test infrastructure.
+The external headers are expected under `dal-cpp/externals/xad/`, `dal-cpp/externals/CodiPack/`, and `dal-cpp/externals/adept/`. All paths are covered by the same test infrastructure.
 
 ## Parallel AAD in Monte Carlo
 
@@ -280,5 +280,5 @@ The script engine's `Evaluator_<T_>` and `MCSimulation<T_>` are templated on the
 
 - `yield_curve.md` for the curve construction framework that uses AAD for risk
 - `underdetermined_search.md` for the solver used in curve calibration
-- `tests/math/aad/` for direct AAD tests
-- `examples/aad/` for standalone AAD examples
+- `dal-cpp/tests/math/aad/` for direct AAD tests
+- `dal-cpp/examples/aad/` for standalone AAD examples

@@ -1,5 +1,8 @@
 # Phase 0: Dependency Inventory
 
+> **Historical document.** Captures the pre-refactor (pre-PR #71) repository layout and build behaviour. Paths like `dal/`, `public/`, `tests/`, `examples/`, `externals/`, `config/`, `cmake/` no longer exist at the repo root — they now live under their owning sub-project (`dal-cpp/`, `dal-public/`, `dal-python/`, `dal-excel/`). See `CLAUDE.md` for the current layout.
+
+
 ## Summary
 
 All three public-layer directories (`public/src/`, `public/excel/`, `public/swig/`) have significant direct dependencies on `dal/...` internal headers. This is the key challenge for Phase 3-5 extraction: public-layer code must be refactored to go through the stable `dal_public` API instead of reaching into `dal/` internals.

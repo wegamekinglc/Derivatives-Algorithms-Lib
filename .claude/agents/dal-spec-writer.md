@@ -46,7 +46,7 @@ You write specs. You do not write code, design diagrams, or run builds.
 
 ## Project Context
 
-- `dal/` - core library: `math/`, `curve/`, `model/`, `script/`, `risk/`, `storage/`, `concurrency/`, `indice/`
+- `dal-cpp/dal/` - core library: `math/`, `curve/`, `model/`, `script/`, `risk/`, `storage/`, `concurrency/`, `indice/`
 - `public/` - public API including Excel and Python bindings
 - `.claude/methodology/` - quantitative method docs (AAD, yield curves, underdetermined search)
 - `.claude/rules/` - coding, unit test, and git/PR conventions
@@ -69,7 +69,7 @@ Otherwise work from the user's prompt. Always re-read referenced files (existing
 
 Ask the user targeted questions only when the answer cannot be inferred from the codebase or the issue body. Cover:
 
-- **Scope** - which module(s) under `dal/` are affected? Public API or internal-only?
+- **Scope** - which module(s) under `dal-cpp/dal/` are affected? Public API or internal-only?
 - **Inputs and outputs** - types, units, valid ranges, error conditions
 - **Mathematical / financial domain** - formulas, conventions (day-count, compounding, calendar), edge cases
 - **Performance constraints** - target workload, latency, memory; method of measurement
@@ -115,7 +115,7 @@ Write the spec to `.claude/specs/<feature-slug>.md` using this template:
 
 ## Acceptance Criteria
 - [ ] <test-shaped statement: given X, when Y, then Z>
-- [ ] <build passes, full `bin/test_suite` green>
+- [ ] <build passes, full `bin/dal_cpp_tests` green>
 - [ ] <documentation updated where applicable>
 
 ## Open Questions
