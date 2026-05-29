@@ -12,7 +12,7 @@ user-invocable: true
 Write Google Test unit tests that follow this project's conventions. Start by reading `.claude/rules/unit-test-style.md` and
 `.claude/rules/code-style.md` for the authoritative rules; this skill distills them into a workflow.
 
-Tests are compiled into a single `test_suite` binary. The `tests/CMakeLists.txt` uses `file(GLOB_RECURSE)` — new `.cpp` files are picked up
+Tests are compiled into a single `dal_cpp_tests` binary. The `dal-cpp/CMakeLists.txt` uses `file(GLOB_RECURSE)` — new `.cpp` files are picked up
 automatically, no manual build-file edits needed.
 
 ## Workflow
@@ -27,8 +27,8 @@ Read the header file for the module under test. Identify:
 
 ### 2. Find or create the test file
 
-Check whether `tests/<module>/test_<name>.cpp` already exists. Reuse the module subdirectory pattern from existing tests (e.g.
-`tests/math/interp/`, `tests/time/`).
+Check whether `dal-cpp/tests/<module>/test_<name>.cpp` already exists. Reuse the module subdirectory pattern from existing tests (e.g.
+`dal-cpp/tests/math/interp/`, `dal-cpp/tests/time/`).
 
 **If adding to an existing file:** reuse its suite name — never introduce a second suite in the same file. Match the file's existing namespace style
 (`using namespace Dal;` vs specific imports).
@@ -51,7 +51,7 @@ TEST(<Suite>, <TestName>) {
 ```
 
 - `<dal/platform/platform.hpp>` is the standard platform header (used in 96% of test files). Only use `<dal/platform/strict.hpp>` in
-  `tests/platform/`.
+  `dal-cpp/tests/platform/`.
 - The file must end with a newline after the final `}`.
 
 ### 3. Write the tests
@@ -111,14 +111,14 @@ For helper classes, define them at file scope before the tests. Use anonymous `n
 
 ```bash
 mkdir -p build && cd build
-cmake --preset=Release-linux .. && make -j$(nproc) test_suite && make install
+cmake --preset=Release-linux .. && make -j$(nproc) dal_cpp_tests && make install
 cd ..
 ```
 
 Then run the new tests:
 
 ```bash
-bin/test_suite --gtest_filter=<SuiteName>.<TestName>
+bin/dal_cpp_tests --gtest_filter=<SuiteName>.<TestName>
 ```
 
 If the build fails, the most common causes are:
@@ -174,7 +174,7 @@ TEST(SomeTest, TestSerialization) {
 }
 ```
 
-Check existing serialization tests in `tests/storage/` for the exact API.
+Check existing serialization tests in `dal-cpp/tests/storage/` for the exact API.
 
 ### Exception / error-handling tests
 

@@ -51,7 +51,7 @@ argument. But you do not soften critiques to be polite. If a design is wrong, yo
 
 ## Project Context
 
-- `dal/` - core library (math, curve, model, script, risk)
+- `dal-cpp/dal/` - core library (math, curve, model, script, risk)
 - `public/` - public API and bindings
 - `.claude/specs/` - requirement specs from `dal-spec-writer`
 - `.claude/designs/` - technical designs from `dal-architect`

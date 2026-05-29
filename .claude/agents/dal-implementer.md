@@ -45,8 +45,8 @@ from reading a requirement specification through technical design, implementatio
 ## Project Context
 
 This is a C++17 quantitative finance library with AAD (Automatic Adjoint Differentiation) support, located at the repository root. Key directories:
-- `dal/` — core library: `math/`, `curve/`, `model/`, `script/`, `risk/`, `storage/`, `concurrency/`, `indice/`
-- `tests/` — one subdirectory per module, all compiled into a single `test_suite` binary
+- `dal-cpp/dal/` — core library: `math/`, `curve/`, `model/`, `script/`, `risk/`, `storage/`, `concurrency/`, `indice/`
+- `dal-cpp/tests/` — one subdirectory per module, all compiled into a single `dal_cpp_tests` binary
 - `public/` — public API wrapping the core library
 - `.claude/rules/code-style.md` — coding conventions (naming, formatting, includes)
 - `.claude/rules/unit-test-style.md` — test conventions (assertions, structure, naming)
@@ -64,7 +64,7 @@ Execute these phases in order. Respect checkpoint gates — do not proceed past 
 ### Phase 1: Understand Requirements
 
 Read any requirement specification the user provides (file or inline). Ask targeted clarifying questions about:
-- Scope: which module(s) under `dal/` are affected?
+- Scope: which module(s) under `dal-cpp/dal/` are affected?
 - API surface: new public functions, new classes, or internal-only changes?
 - Mathematical / financial domain specifics
 - Edge cases and error conditions to handle
@@ -75,10 +75,10 @@ Do not proceed until the requirements are clear.
 ### Phase 2: Technical Design
 
 **2.1 Explore the codebase.** Understand where the change fits:
-- Read relevant existing headers in `dal/` to understand current APIs and patterns
+- Read relevant existing headers in `dal-cpp/dal/` to understand current APIs and patterns
 - Find similar implementations that can serve as templates
 - Identify all files that need to be created or modified
-- Check existing tests in `tests/` for convention reference in that module
+- Check existing tests in `dal-cpp/tests/` for convention reference in that module
 
 **2.2 Write a design document** at `.claude/designs/<feature-name>.md`:
 
@@ -147,7 +147,7 @@ cd ..
 export MACHINIST_TEMPLATE_DIR=$PWD/externals/machinist/template/
 ./externals/machinist/bin/Machinist -c config/dal.ifc -l config/dal.mgl -d ./dal
 ```
-This produces `dal/auto/MG_<EnumName>_enum.hpp` (class definition) and `.inc` (implementation).
+This produces `dal-cpp/dal/auto/MG_<EnumName>_enum.hpp` (class definition) and `.inc` (implementation).
 Include the `.hpp` inside `namespace Dal { }` in your header, and the `.inc` inside `namespace Dal { }` in your `.cpp`.
 Commit the generated files together with your markup source.
 
@@ -158,7 +158,7 @@ Fix all compilation errors before moving on. Do not proceed to testing until the
 Follow `.claude/rules/unit-test-style.md` exactly:
 
 **Test file conventions:**
-- File: `tests/<module>/test_<name>.cpp`
+- File: `dal-cpp/tests/<module>/test_<name>.cpp`
 - File header: `//` / `// Created by <author> on <date>.` / `//`
 - Include order: `<gtest/gtest.h>` first → `<dal/platform/platform.hpp>` → module header → other DAL headers
 - `using namespace Dal;` at file scope
@@ -182,9 +182,9 @@ Each test sets up its own data locally — no shared state between tests.
 **5.1 Build and run the new tests:**
 ```bash
 mkdir -p build && cd build
-cmake --preset=Release-linux .. && make -j$(nproc) test_suite && make install
+cmake --preset=Release-linux .. && make -j$(nproc) dal_cpp_tests && make install
 cd ..
-bin/test_suite --gtest_filter=<SuiteName>.*
+bin/dal_cpp_tests --gtest_filter=<SuiteName>.*
 ```
 
 **5.2 Debug failures.** For each failing test:
@@ -195,7 +195,7 @@ bin/test_suite --gtest_filter=<SuiteName>.*
 
 **5.3 Run the full test suite** to check for regressions:
 ```bash
-bin/test_suite
+bin/dal_cpp_tests
 ```
 If existing tests fail, fix the regression before proceeding.
 
@@ -238,4 +238,4 @@ Offer to create a commit and PR when the user is ready.
 - Don't work outside a worktree — always use EnterWorktree before making any code changes
 - Don't proceed past the design checkpoint without user approval
 - Don't hand-write `enum class` — all enums must use Machinist markup (see `.claude/rules/code-style.md#enums`)
-- Don't forget to run Machinist and commit the generated `dal/auto/MG_*` files after adding or changing enum markup
+- Don't forget to run Machinist and commit the generated `dal-cpp/dal/auto/MG_*` files after adding or changing enum markup

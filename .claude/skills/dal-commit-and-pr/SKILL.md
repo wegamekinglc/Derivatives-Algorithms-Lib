@@ -94,8 +94,8 @@ gh pr create --title "<short title under 70 chars>" --body "$(cat <<'EOF'
 - <bullet points covering all key changes>
 
 ## Test plan
-- [ ] Run `bin/test_suite --gtest_filter=<RelevantSuite>.*` to verify changes
-- [ ] Full `bin/test_suite` to confirm no regressions
+- [ ] Run `bin/dal_cpp_tests --gtest_filter=<RelevantSuite>.*` to verify changes
+- [ ] Full `bin/dal_cpp_tests` to confirm no regressions
 EOF
 )"
 ```

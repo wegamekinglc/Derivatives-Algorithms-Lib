@@ -14,7 +14,7 @@ implement → review pipeline. The orchestrator routes work between them.
 | API designer | `dal-api-designer` | pink   | spec, design, public headers     | `.claude/api-notes/<slug>.md`      |
 | Critic       | `dal-critic`       | red    | spec, design, api-note           | `.claude/critiques/<slug>.md`      |
 | Implementer  | `dal-implementer`  | green  | spec, design, api-note, critique | source code, tests, in worktree    |
-| Tester       | `dal-tester`       | cyan   | source under-test, conventions   | additional `tests/<module>/*` code |
+| Tester       | `dal-tester`       | cyan   | source under-test, conventions   | additional `dal-cpp/tests/<module>/*` code |
 | Reviewer     | `dal-reviewer`     | amber  | PR diff, all upstream artifacts  | review report, optional merge      |
 
 ## Workflow

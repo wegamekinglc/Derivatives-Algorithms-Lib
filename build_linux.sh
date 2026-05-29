@@ -13,13 +13,11 @@ NUM_CORES=$(grep -c processor /proc/cpuinfo)
 export DAL_DIR=$PWD
 export LD_LIBRARY_PATH=$PWD/lib:$LD_LIBRARY_PATH
 export BUILD_TYPE=Release
-export SKIP_TESTS=false
-export USE_COVERAGE=$COVERAGE  # make it `false` when you need a full performance lib
+export USE_COVERAGE=$COVERAGE
 export CMAKE_EXPORT_COMPILE_COMMANDS=on
 
 echo NUM_CORES: $NUM_CORES
 echo BUILD_TYPE: $BUILD_TYPE
-echo SKIP_TESTS: $SKIP_TESTS
 echo USE_COVERAGE: $USE_COVERAGE
 echo DAL_DIR: "$DAL_DIR"
 echo CMAKE_EXPORT_COMPILE_COMMANDS: $CMAKE_EXPORT_COMPILE_COMMANDS
@@ -28,8 +26,9 @@ rm -rf ./bin
 rm -rf ./lib
 rm -rf ./coverage
 
+# Build Machinist (code generator) — lives under dal-cpp/externals
 (
-cd externals/machinist || exit
+cd dal-cpp/externals/machinist || exit
 bash -e ./build_linux.sh
 )
 
@@ -37,9 +36,10 @@ if [ $? -ne 0 ]; then
   exit 1
 fi
 
-export MACHINIST_TEMPLATE_DIR=$PWD/externals/machinist/template/
-./externals/machinist/bin/Machinist -c config/dal.ifc -l config/dal.mgl -d ./dal
-./externals/machinist/bin/Machinist -c config/dal.ifc -l config/dal.mgl -d ./public
+# Run Machinist code generation
+export MACHINIST_TEMPLATE_DIR=$PWD/dal-cpp/externals/machinist/template/
+./dal-cpp/externals/machinist/bin/Machinist -c dal-cpp/config/dal.ifc -l dal-cpp/config/dal.mgl -d ./dal-cpp/dal
+./dal-cpp/externals/machinist/bin/Machinist -c dal-cpp/config/dal.ifc -l dal-cpp/config/dal.mgl -d ./dal-excel
 
 if [ $? -ne 0 ]; then
   exit 1
@@ -49,7 +49,12 @@ rm -rf build
 mkdir -p build
 (
 cd build || exit
-cmake --preset ${BUILD_TYPE}-linux -DUSE_COVERAGE=$USE_COVERAGE -DCMAKE_EXPORT_COMPILE_COMMANDS=$CMAKE_EXPORT_COMPILE_COMMANDS ${ADDITIONAL_CMAKE_FLAGS} ..
+cmake --preset ${BUILD_TYPE}-linux \
+    -DUSE_COVERAGE=$USE_COVERAGE \
+    -DCMAKE_EXPORT_COMPILE_COMMANDS=$CMAKE_EXPORT_COMPILE_COMMANDS \
+    -DDAL_BUILD_PUBLIC=ON \
+    -DDAL_CPP_BUILD_EXAMPLES=ON \
+    ${ADDITIONAL_CMAKE_FLAGS} ..
 make -j"${NUM_CORES}"
 make install
 )
@@ -58,8 +63,14 @@ if [ $? -ne 0 ]; then
   exit 1
 fi
 
-if [ "$SKIP_TESTS" = "false" ]; then
-  bin/test_suite
+# Run all tests via CTest
+(
+cd build || exit
+ctest --output-on-failure
+)
+
+if [ $? -ne 0 ]; then
+  exit 1
 fi
 
 if [ "$COVERAGE" = "true" ]; then
@@ -69,7 +80,7 @@ if [ "$COVERAGE" = "true" ]; then
         llvm-profdata merge -sparse default.profraw -o default.profdata
         llvm-cov report \
             --ignore-filename-regex="(externals|tests|build|/usr/)" \
-            bin/test_suite \
+            bin/dal_cpp_tests \
             -instr-profile=default.profdata
     elif command -v gcovr &> /dev/null; then
         gcovr -r . --object-directory=build \

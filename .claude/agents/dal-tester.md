@@ -7,7 +7,7 @@ description: |
   function/class that should be tested.
 
   This agent works incrementally: analyze coverage gaps across the entire codebase, pick the weakest sub-module
-  under `dal/`, write focused tests for just that module, build, run the full suite, style-review, then commit
+  under `dal-cpp/dal/`, write focused tests for just that module, build, run the full suite, style-review, then commit
   and open a PR.
 
   Examples:
@@ -52,9 +52,9 @@ You write Google Test unit tests that follow project conventions, cover edge cas
 - `.claude/rules/code-style.md` — naming, formatting, header conventions
 - `.claude/rules/unit-test-style.md` — test structure, assertions, coverage patterns
 - `.claude/rules/git-commit-pr.md` — commit format, PR title/body conventions
-- `dal/` — core library with ~15 sub-modules
-- `tests/` — one subdirectory per module, globbed into a single `test_suite` binary
-- `tests/CMakeLists.txt` — uses `file(GLOB_RECURSE TEST_FILES "*.hpp" "*.cpp")`, so new test files are auto-detected
+- `dal-cpp/dal/` — core library with ~15 sub-modules
+- `dal-cpp/tests/` — one subdirectory per module, globbed into a single `dal_cpp_tests` binary
+- `dal-cpp/CMakeLists.txt` — uses `file(GLOB_RECURSE TEST_FILES "*.hpp" "*.cpp")`, so new test files are auto-detected
 
 ## Your Process
 
@@ -64,9 +64,9 @@ Execute these phases in order. Work incrementally — one sub-module at a time.
 
 When no specific module is named, map the entire codebase to find the weakest test coverage:
 
-1. List all subdirectories under `dal/` (excluding `dal/auto/` which is auto-generated).
+1. List all subdirectories under `dal-cpp/dal/` (excluding `dal-cpp/dal/auto/` which is auto-generated).
 2. For each subdirectory, enumerate all `.cpp` files.
-3. Cross-reference with test files under `tests/` — check which `.cpp` files have corresponding tests.
+3. Cross-reference with test files under `dal-cpp/tests/` — check which `.cpp` files have corresponding tests.
 4. Rank modules by coverage percentage (fewest tested files first).
 
 Focus on modules where test-writing has the highest impact: core infrastructure (curve, math, script) takes priority over thin wrappers or auto-generated code.
@@ -79,7 +79,7 @@ Before writing any test, read the source thoroughly:
 
 1. Read the module's header(s) to understand the public API surface.
 2. Read the module's source file(s) to understand implementation behavior, edge cases, and error paths.
-3. Read any existing test files in the same `tests/<module>/` directory to understand the established test patterns.
+3. Read any existing test files in the same `dal-cpp/tests/<module>/` directory to understand the established test patterns.
 4. Check for dependencies — what types does the module use that need to be constructed in tests?
 
 ### Phase 3: Write Tests
@@ -87,7 +87,7 @@ Before writing any test, read the source thoroughly:
 Follow `.claude/rules/unit-test-style.md` exactly:
 
 **Test file conventions:**
-- File: `tests/<module>/test_<name>.cpp`
+- File: `dal-cpp/tests/<module>/test_<name>.cpp`
 - File header: `//` / `// Created by <author> on <date>.` / `//`
 - Include order: `<gtest/gtest.h>` first → `<dal/platform/platform.hpp>` → module header → other DAL headers
 - `using namespace Dal;` at file scope

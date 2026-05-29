@@ -34,7 +34,7 @@
 
 - Align pipe-table columns by padding cells with spaces. Each column is exactly wide enough for its longest cell content plus one leading and one trailing space — no extra padding.
 - Keep separator rows compact: each column's dash count equals the column width (content length + 2). Do not add spaces around dashes between pipes.
-- When table cells reference specific C++ files, use project-relative paths such as `dal/curve/yc.hpp`, not short names like `yc.hpp` or shorthand like `yc.hpp/cpp`.
+- When table cells reference specific C++ files, use project-relative paths such as `dal-cpp/dal/curve/yc.hpp`, not short names like `yc.hpp` or shorthand like `yc.hpp/cpp`.
 - For convention-only filename examples, use filenames without project-relative paths, such as `threadpool.cpp` or `test_date.cpp`.
 - Keep related markdown tables consistent across `.claude` guidance files.
 
@@ -66,7 +66,7 @@
 ## Enums
 
 - All enumeration types must use **Machinist markup** — never hand-write `enum class` definitions.
-- The Machinist code-generation tool reads `/*IF----------...` blocks and produces auto-generated `.hpp` (class definition) and `.inc` (implementation) files under `dal/auto/`.
+- The Machinist code-generation tool reads `/*IF----------...` blocks and produces auto-generated `.hpp` (class definition) and `.inc` (implementation) files under `dal-cpp/dal/auto/` (and `dal-excel/auto/` for Excel public-function stubs).
 - Generated enum types are classes with a nested `enum class Value_ : char`, a `String()` method, construction from `String_`, comparison operators, and a `ListAll()` vector.
 - Use `switchable` in the markup when the enum needs `.Switch()` and `operator==` against `Value_`.
 
@@ -113,11 +113,12 @@ namespace Dal {
 Run Machinist from the repo root to regenerate auto files before compiling:
 
 ```bash
-export MACHINIST_TEMPLATE_DIR=$PWD/externals/machinist/template/
-./externals/machinist/bin/Machinist -c config/dal.ifc -l config/dal.mgl -d ./dal
+export MACHINIST_TEMPLATE_DIR=$PWD/dal-cpp/externals/machinist/template/
+./dal-cpp/externals/machinist/bin/Machinist -c dal-cpp/config/dal.ifc -l dal-cpp/config/dal.mgl -d ./dal-cpp/dal
+./dal-cpp/externals/machinist/bin/Machinist -c dal-cpp/config/dal.ifc -l dal-cpp/config/dal.mgl -d ./dal-excel
 ```
 
-Then build normally. The auto-generated files (`dal/auto/MG_*_enum.hpp`, `dal/auto/MG_*_enum.inc`) must be committed to the repository alongside the markup source.
+Then build normally. The auto-generated files (`dal-cpp/dal/auto/MG_*_enum.hpp`, `dal-cpp/dal/auto/MG_*_enum.inc`, plus `dal-excel/auto/MG_*_public.inc` for Excel stubs) must be committed to the repository alongside the markup source.
 
 ## Error Handling
 
