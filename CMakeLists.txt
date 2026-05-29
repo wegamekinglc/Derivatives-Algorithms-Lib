@@ -164,6 +164,38 @@ if(WIN32)
     endif()
 endif()
 
+# ---------------------------------------------------------------------------
+# Refactored workspace (feature flag, default OFF)
+# When ON, the four sub-projects (dal-cpp, dal-public, dal-python, dal-excel)
+# are added as additional CMake subdirectories alongside the legacy build.
+# ---------------------------------------------------------------------------
+option(DAL_ENABLE_REFACTORED_WORKSPACE "Enable refactored workspace targets" OFF)
+
+if(DAL_ENABLE_REFACTORED_WORKSPACE)
+    option(DAL_BUILD_CPP "Build dal-cpp" ON)
+    option(DAL_BUILD_PUBLIC "Build dal-public" ON)
+    option(DAL_BUILD_PYTHON "Build dal-python" OFF)
+    option(DAL_BUILD_EXCEL "Build dal-excel" OFF)
+
+    if(DAL_BUILD_CPP)
+        add_subdirectory(dal-cpp)
+    endif()
+
+    if(DAL_BUILD_PUBLIC)
+        add_subdirectory(dal-public)
+    endif()
+
+    if(DAL_BUILD_PYTHON)
+        add_subdirectory(dal-python)
+    endif()
+
+    if(DAL_BUILD_EXCEL)
+        add_subdirectory(dal-excel)
+    endif()
+endif()
+
+enable_testing()
+
 add_subdirectory(dal)
 
 if (DAL_BUILD_PUBLIC)
