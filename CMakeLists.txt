@@ -25,6 +25,23 @@ project(dal LANGUAGES CXX
     DESCRIPTION "DAL Multi-Project Workspace"
     VERSION 1.0.0)
 
+# MSVC runtime library — must be set at workspace level so every
+# sub-project's targets agree on /MT vs /MD. Without this, dal_cpp
+# (built under dal-cpp/, which includes Platform.cmake) and
+# dal_public_tests (built under dal-public/, which does not) end up
+# with mismatched runtime flags and the linker rejects them.
+if(MSVC)
+    if(NOT DEFINED MSVC_RUNTIME)
+        set(MSVC_RUNTIME "dynamic" CACHE STRING "MSVC runtime to link" FORCE)
+    endif()
+    if("${MSVC_RUNTIME}" STREQUAL "static")
+        set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+    else()
+        set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
+    endif()
+    message(STATUS "MSVC_RUNTIME: ${MSVC_RUNTIME} (CMAKE_MSVC_RUNTIME_LIBRARY=${CMAKE_MSVC_RUNTIME_LIBRARY})")
+endif()
+
 # Workspace-wide options
 option(DAL_BUILD_PUBLIC "Build dal-public" ON)
 option(DAL_BUILD_PYTHON "Build dal-python" OFF)
