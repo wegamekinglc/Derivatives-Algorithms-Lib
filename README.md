@@ -8,6 +8,16 @@
 
 DAL is a C++17 quantitative finance library with built-in support for Automatic Adjoint Differentiation (AAD). It covers yield curve construction and calibration, Monte Carlo simulation, finite difference PDE solvers, a domain-specific scripting engine for exotic payoffs, and parallel model evaluation.
 
+The repository is organized as a multi-project CMake workspace with four independent sub-projects:
+
+```
+dal-cpp     — core quant library (DAL::cpp)
+  ↑
+dal-public  — stable public C++ API (DAL::public)
+  ↑        ↑
+dal-python  dal-excel
+```
+
 The project draws from the work of Tom Hyer (*Derivatives Algorithms: Bones*), Antoine Savine (*Modern Computational Finance: AAD and Parallel Simulations* and *Scripting for Derivatives and xVA*), and Brian Huge and Jesper Andreasen (*Finite Difference Methods for Financial PDEs*). Some implementation patterns trace back to those sources.
 
 ## Getting the Code
@@ -22,17 +32,17 @@ git submodule update --init --recursive
 
 ### Linux
 
-**Prerequisites:** git, cmake (3.16+), g++ (supporting C++17), zip
+**Prerequisites:** git, cmake (3.21+), g++ (supporting C++17), zip
 
 ```bash
 bash build_linux.sh
 ```
 
-The script runs code generation (Machinist), a Release build, installs artifacts under the repo root, and executes the test suite.
+The script builds Machinist, runs code generation against `dal-cpp/config/dal.ifc` (writing into `dal-cpp/dal/auto/` and `dal-excel/auto/`), configures the workspace, builds all enabled sub-projects, installs artifacts under the repo root, and runs the test suite via CTest.
 
 Build artifacts:
-- `lib/` -- static library
-- `bin/` -- test suite and example binaries
+- `lib/` -- static libraries (`libdal_cpp.a`, `libdal_public.a`)
+- `bin/` -- test binaries (`dal_cpp_tests`, `dal_public_tests`) and example programs
 
 For a manual build:
 
@@ -40,6 +50,15 @@ For a manual build:
 mkdir -p build && cd build
 cmake --preset=Release-linux .. && make -j$(nproc) && make install
 ```
+
+The top-level `CMakeLists.txt` is a thin workspace that selects sub-projects via options:
+
+- `DAL_BUILD_PUBLIC` (default `ON`) -- build `dal-public`
+- `DAL_BUILD_PYTHON` (default `OFF`) -- build `dal-python` (SWIG + Python package)
+- `DAL_BUILD_EXCEL` (default `OFF`) -- build `dal-excel` (Windows-only)
+- `DAL_CPP_BUILD_TESTS` (default `ON`) -- build the `dal-cpp` test suite
+- `DAL_CPP_BUILD_EXAMPLES` (default `ON`) -- build the `dal-cpp` example programs
+- `DAL_USE_ADEPT_AAD` / `DAL_USE_XAD_AAD` / `DAL_USE_CODIPACK_AAD` -- pick the AAD backend (default Adept)
 
 ### Windows
 
@@ -50,15 +69,15 @@ cmake --preset=Release-linux .. && make -j$(nproc) && make install
 ```
 
 Build artifacts:
-- `lib/` -- static library and XLL Excel extension
-- `bin/` -- example binaries
+- `lib/` -- static libraries and the Excel `.xll` add-in
+- `bin/` -- test binaries and example programs
 
 ## Python Bindings
 
 Python bindings require an Anaconda Python distribution and SWIG. After a successful C++ build:
 
 ```bash
-cd public/python
+cd dal-python/python
 python setup.py wrap
 python setup.py install
 ```
@@ -67,45 +86,63 @@ The `dal` package exposes the full public API to Python, including AAD-aware Mon
 
 ## Running Tests
 
+Tests are registered with CTest. Each sub-project produces its own GoogleTest binary:
+
+- `dal_cpp_tests` -- core library tests (built from `dal-cpp/tests/`)
+- `dal_public_tests` -- public-API tests (built from `dal-public/tests/`)
+
 ```bash
-# All tests
-bin/test_suite
+# All registered tests
+(cd build && ctest --output-on-failure)
+
+# Run a binary directly
+bin/dal_cpp_tests
 
 # A single suite
-bin/test_suite --gtest_filter=CurveTest.*
+bin/dal_cpp_tests --gtest_filter=CurveTest.*
 
 # A single test
-bin/test_suite --gtest_filter=CurveTest.TestDiscountPWLFConstruction
+bin/dal_cpp_tests --gtest_filter=CurveTest.TestDiscountPWLFConstruction
 ```
 
 ## Architecture
 
-| Directory    | Purpose                                                                                            |
-|--------------|----------------------------------------------------------------------------------------------------|
-| `dal/`       | Core library: math, curve construction, models, scripting engine, AAD, concurrency                 |
-| `public/`    | Public API wrapping the core library (Excel XLL, Python bindings)                                  |
-| `tests/`     | Google Test suites, one subdirectory per module                                                    |
-| `examples/`  | Standalone programs demonstrating AAD, Monte Carlo, PDE solvers, scripting, Sobol, and calibration |
-| `config/`    | Machinist code-generation interface files                                                          |
-| `externals/` | Git submodules: XAD, Adept, CoDiPack, Google Test, RapidJSON, Machinist                            |
-| `miscs/`     | Excel workbooks and Python scripts showcasing exotic product pricing                               |
+| Sub-project   | Target         | Purpose                                                                |
+|---------------|----------------|------------------------------------------------------------------------|
+| `dal-cpp/`    | `DAL::cpp`     | Core C++ quant library; foundation for all downstream projects         |
+| `dal-public/` | `DAL::public`  | Stable C++ public API wrapping `DAL::cpp` for downstream consumers     |
+| `dal-python/` | `DAL::python`  | SWIG-generated Python bindings, depends only on `DAL::public`          |
+| `dal-excel/`  | `DAL::excel`   | Excel `.xll` add-in (Windows-only), depends only on `DAL::public`      |
 
-### Core Modules
+Within `dal-cpp/`:
 
-| Module             | Description                                                                                                                  |
-|--------------------|------------------------------------------------------------------------------------------------------------------------------|
-| `dal/math/`        | Interpolation, optimization (underdetermined search), PDE solvers, random number generation, matrix operations, root finding |
-| `dal/math/aad/`    | Automatic Adjoint Differentiation with native expression-template, XAD, Adept, and CoDiPack backends                         |
-| `dal/curve/`       | Yield curve construction, piecewise forward-rate discount curves, multi-curve framework, calibration                         |
-| `dal/script/`      | Expression scripting engine (parser, AST, simulation/evaluation) for exotic payoff definitions                               |
-| `dal/model/`       | Financial models (Black-Scholes, etc.)                                                                                       |
-| `dal/concurrency/` | Thread pool and concurrent queue for parallel Monte Carlo                                                                    |
-| `dal/storage/`     | Data persistence and archiving                                                                                               |
-| `dal/indice/`      | Reference rate index management                                                                                              |
+| Directory                | Purpose                                                                                            |
+|--------------------------|----------------------------------------------------------------------------------------------------|
+| `dal-cpp/dal/`           | Core library: math, curve construction, models, scripting engine, AAD, concurrency                 |
+| `dal-cpp/dal/auto/`      | Machinist-generated enum and serialization code (regenerated by `build_linux.sh`)                  |
+| `dal-cpp/tests/`         | Google Test suites, one subdirectory per module, compiled into `dal_cpp_tests`                     |
+| `dal-cpp/examples/`      | Standalone programs demonstrating AAD, Monte Carlo, PDE solvers, scripting, Sobol, and calibration |
+| `dal-cpp/config/`        | Machinist code-generation interface files (`dal.ifc`, `dal.mgl`)                                   |
+| `dal-cpp/externals/`     | Git submodules: XAD, Adept, CoDiPack, Google Test, RapidJSON, Machinist                            |
+| `dal-cpp/cmake/`         | `Platform.cmake` and other CMake helpers                                                           |
+| `miscs/`                 | Excel workbooks and Python scripts showcasing exotic product pricing                               |
+
+### Core Modules (under `dal-cpp/dal/`)
+
+| Module                     | Description                                                                                                                  |
+|----------------------------|------------------------------------------------------------------------------------------------------------------------------|
+| `dal-cpp/dal/math/`        | Interpolation, optimization (underdetermined search), PDE solvers, random number generation, matrix operations, root finding |
+| `dal-cpp/dal/math/aad/`    | Automatic Adjoint Differentiation with native expression-template, XAD, Adept, and CoDiPack backends                         |
+| `dal-cpp/dal/curve/`       | Yield curve construction, piecewise forward-rate discount curves, multi-curve framework, calibration                         |
+| `dal-cpp/dal/script/`      | Expression scripting engine (parser, AST, simulation/evaluation) for exotic payoff definitions                               |
+| `dal-cpp/dal/model/`       | Financial models (Black-Scholes, etc.)                                                                                       |
+| `dal-cpp/dal/concurrency/` | Thread pool and concurrent queue for parallel Monte Carlo                                                                    |
+| `dal-cpp/dal/storage/`     | Data persistence and archiving                                                                                               |
+| `dal-cpp/dal/indice/`      | Reference rate index management                                                                                              |
 
 ## Excel Interface
 
-The Excel XLL add-in exposes DAL functionality through worksheet functions.
+The Excel `.xll` add-in (built from `dal-excel/`) exposes DAL functionality through worksheet functions.
 
 ### Linear Interpolation
 
@@ -219,7 +256,7 @@ Additional Python examples:
 
 ## C++ Examples
 
-Runnable examples are in the [`examples/`](examples/) directory:
+Runnable examples are in [`dal-cpp/examples/`](dal-cpp/examples/):
 
 | Example            | Description                                               |
 |--------------------|-----------------------------------------------------------|
