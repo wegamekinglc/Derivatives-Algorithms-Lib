@@ -42,6 +42,23 @@ if(MSVC)
     message(STATUS "MSVC_RUNTIME: ${MSVC_RUNTIME} (CMAKE_MSVC_RUNTIME_LIBRARY=${CMAKE_MSVC_RUNTIME_LIBRARY})")
 endif()
 
+# Coverage flags must be applied to ALL sub-projects so dal-public tests
+# (which link against libdal_cpp.a) get the gcov runtime symbols. Setting
+# them only inside dal-cpp leaves dal-public with undefined __gcov_init refs.
+if(NOT DEFINED USE_COVERAGE)
+    set(USE_COVERAGE FALSE)
+endif()
+if(USE_COVERAGE AND NOT MSVC)
+    if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
+        add_compile_options(-fprofile-instr-generate -fcoverage-mapping)
+        add_link_options(-fprofile-instr-generate -fcoverage-mapping)
+    else()
+        add_compile_options(--coverage)
+        add_link_options(--coverage)
+    endif()
+    message(STATUS "Coverage instrumentation enabled (USE_COVERAGE=${USE_COVERAGE})")
+endif()
+
 # Workspace-wide options
 option(DAL_BUILD_PUBLIC "Build dal-public" ON)
 option(DAL_BUILD_PYTHON "Build dal-python" OFF)
