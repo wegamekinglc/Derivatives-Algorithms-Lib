@@ -4,14 +4,47 @@
 # It depends ONLY on dal-public (DAL::public), never directly on dal-cpp.
 #
 # Target: dal_python (alias DAL::python)
+#
+# Two build modes:
+#   Standalone:  cmake -S dal-python -B build -DCMAKE_PREFIX_PATH=<dal-public-install>
+#   Monorepo:    add_subdirectory(dal-python) from parent CMakeLists.txt
 
 cmake_minimum_required(VERSION 3.21.0)
 
-project(dal-python
-    DESCRIPTION "DAL Python Bindings"
-    VERSION 1.0.0)
+# ---------------------------------------------------------------------------
+# Detect build mode
+# ---------------------------------------------------------------------------
+if(NOT DAL_PYTHON_AS_SUBDIRECTORY)
+    set(DAL_PYTHON_IS_TOPLEVEL TRUE)
+    message(STATUS "dal-python: standalone top-level mode")
+else()
+    set(DAL_PYTHON_IS_TOPLEVEL FALSE)
+    message(STATUS "dal-python: subdirectory mode (added via add_subdirectory)")
+endif()
 
-message(STATUS "-- Building dal-python (refactored workspace)")
+# ---------------------------------------------------------------------------
+# Project-level setup (standalone only)
+# ---------------------------------------------------------------------------
+if(DAL_PYTHON_IS_TOPLEVEL)
+    if(NOT CMAKE_BUILD_TYPE OR CMAKE_BUILD_TYPE STREQUAL "")
+        set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Build type" FORCE)
+    endif()
+
+    project(dal-python
+        DESCRIPTION "DAL Python Bindings"
+        VERSION 1.0.0)
+
+    message(STATUS "-- Build Mode: ${CMAKE_BUILD_TYPE}")
+
+    set(CMAKE_CXX_STANDARD 17)
+    set(CMAKE_CXX_STANDARD_REQUIRED ON)
+    set(CMAKE_CXX_EXTENSIONS FALSE)
+    set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
+    if(NOT DEFINED CMAKE_POSITION_INDEPENDENT_CODE)
+        set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+    endif()
+endif()
 
 # ---------------------------------------------------------------------------
 # User-configurable options
@@ -20,25 +53,114 @@ option(DAL_PYTHON_BUILD_TESTS "Build dal-python tests" ON)
 option(DAL_PYTHON_BUILD_WHEEL "Build Python wheel" OFF)
 
 # ---------------------------------------------------------------------------
-# Dependency: dal-public (DAL::public)
-# During Phase 1 scaffolding, may not be available -- be non-fatal.
+# Dependencies: SWIG, Python3, and dal-public
 # ---------------------------------------------------------------------------
+find_package(SWIG REQUIRED)
+message(STATUS "-- SWIG version: ${SWIG_VERSION}")
+
+find_package(Python3 REQUIRED COMPONENTS Interpreter Development.Module)
+message(STATUS "-- Python3: ${Python3_EXECUTABLE} (version ${Python3_VERSION})")
+
+# Find the DAL public library
 if(TARGET DAL::public)
-    message(STATUS "  dal-python: using sibling DAL::public target")
+    message(STATUS "-- core: linking against sibling DAL::public")
+    set(DAL_PUBLIC_TARGET DAL::public)
+elseif(TARGET dal_public)
+    message(STATUS "-- core: linking against sibling dal_public")
+    set(DAL_PUBLIC_TARGET dal_public)
+elseif(TARGET dal_library)
+    message(STATUS "-- core: linking against sibling dal_library (old build)")
+    set(DAL_PUBLIC_TARGET dal_library)
 else()
-    find_package(dal-public QUIET)
-    if(dal-public_FOUND)
-        message(STATUS "  dal-python: using installed dal-public package")
+    if(DAL_PYTHON_IS_TOPLEVEL)
+        find_package(dal-public QUIET)
+        if(TARGET DAL::public)
+            set(DAL_PUBLIC_TARGET DAL::public)
+        else()
+            message(WARNING "dal-python: DAL::public not found. Python module may not link correctly.")
+            set(DAL_PUBLIC_TARGET "")
+        endif()
     else()
-        message(STATUS "  dal-python: DAL::public not available yet (placeholder scaffold)")
+        message(FATAL_ERROR "dal-python requires dal-public (DAL::public) or dal_library target")
     endif()
 endif()
 
 # ---------------------------------------------------------------------------
-# TODO(Phase 4): Move public/swig/ and public/python/ here.
-# SWIG interface should only #include <dal_public/...> headers.
-# Tests use pytest.
-# Currently this is a placeholder scaffold.
+# Include paths
+# In monorepo mode, the parent already sets include_directories to the repo
+# root, so <dal/...> and <public/...> includes work via symlinks.
+# In standalone mode, we need to set them up.
+# ---------------------------------------------------------------------------
+if(DAL_PYTHON_IS_TOPLEVEL)
+    include_directories(${PROJECT_SOURCE_DIR}/..)
+endif()
+
+# ---------------------------------------------------------------------------
+# Python module: _dal (built via SWIG)
+#
+# The main SWIG interface is public/swig/dal.i (via the swig symlink).
+# It includes other .i files and references <dal/...> and <public/src/...>
+# headers. These resolve via the repo-root include path.
+#
+# TODO(Phase 4 step 2): Create dal_public.i that only includes dal_public headers.
 # ---------------------------------------------------------------------------
 
-message(STATUS "  dal-python placeholder scaffold -- Phase 4 will add Python bindings")
+# UseSWIG module must be included after finding SWIG
+include(UseSWIG)
+
+# SWIG settings
+set(CMAKE_SWIG_FLAGS "")
+set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/swig/dal.i PROPERTIES
+    CPLUSPLUS ON
+    SWIG_FLAGS "-outdir;${CMAKE_CURRENT_BINARY_DIR}/dal")
+
+# Create SWIG Python module
+swig_add_library(dal_python
+    TYPE MODULE
+    LANGUAGE python
+    OUTPUT_DIR ${CMAKE_CURRENT_BINARY_DIR}/dal
+    OUTFILE_DIR ${CMAKE_CURRENT_BINARY_DIR}
+    SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/swig/dal.i)
+
+add_library(DAL::python ALIAS dal_python)
+
+# Link against the public library
+if(DAL_PUBLIC_TARGET)
+    target_link_libraries(dal_python PRIVATE ${DAL_PUBLIC_TARGET})
+endif()
+
+# Set Python module properties
+target_include_directories(dal_python PRIVATE ${Python3_INCLUDE_DIRS})
+target_link_libraries(dal_python PRIVATE Python3::Module)
+
+set_target_properties(dal_python PROPERTIES
+    LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/dal
+    PREFIX ""
+    OUTPUT_NAME _dal
+    SUFFIX ".${Python3_SOABI}${CMAKE_SHARED_MODULE_SUFFIX}")
+
+# ---------------------------------------------------------------------------
+# Install rules
+# ---------------------------------------------------------------------------
+install(TARGETS dal_python
+        LIBRARY DESTINATION dal
+        RUNTIME DESTINATION dal)
+
+install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/python/dal/
+        DESTINATION dal
+        FILES_MATCHING PATTERN "*.py"
+        PATTERN "__pycache__" EXCLUDE
+        PATTERN "*.egg-info" EXCLUDE
+        PATTERN "build" EXCLUDE
+        PATTERN "dal_wrap.cpp" EXCLUDE)
+
+# ---------------------------------------------------------------------------
+# Python tests (pytest)
+# ---------------------------------------------------------------------------
+if(DAL_PYTHON_BUILD_TESTS)
+    enable_testing()
+
+    add_test(NAME dal_python_pytest
+             COMMAND ${Python3_EXECUTABLE} -m pytest ${CMAKE_CURRENT_SOURCE_DIR}/tests -v
+             WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+endif()
