@@ -1,212 +1,39 @@
 cmake_minimum_required(VERSION 3.21.0)
 
-# For MSVC RUNTIME LIBRARY, need CMP0091=NEW and cmake 3.15+
+# For MSVC RUNTIME LIBRARY, need CMP0091=NEW
 cmake_policy(SET CMP0091 NEW)
 
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-# Version info
-set(DAL_VERSION_MAJOR 1)
-set(DAL_VERSION_MINOR 0)
-set(DAL_VERSION_PATCH 0)
-set(DAL_VERSION ${DAL_VERSION_MAJOR}.${DAL_VERSION_MINOR}.${DAL_VERSION_PATCH})
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON CACHE INTERNAL "")
 
-# Project Info
-set(PACKAGE_NAME          "dal")
-set(PACKAGE_VERSION       "${DAL_VERSION}-dev")
-set(PACKAGE_VERSION_HEX   "0x01000000")
-set(PACKAGE_STRING        "${PACKAGE_NAME} ${PACKAGE_VERSION}")
-set(PACKAGE_TARNAME       "${PACKAGE_NAME}-${PACKAGE_VERSION}")
-set(PACKAGE_BUGREPORT     "https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/issues/")
-
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON CACHE INTERNAL "") # works
-
-# Default build type for single-config generators (set this before project() command)
-# For multi-config generators, such as Visual Studio, use: cmake --build . --config=<CONFIG>
-if (NOT CMAKE_BUILD_TYPE OR CMAKE_BUILD_TYPE STREQUAL "")
+# Default build type
+if(NOT CMAKE_BUILD_TYPE OR CMAKE_BUILD_TYPE STREQUAL "")
     set(CMAKE_BUILD_TYPE "Release" CACHE
             STRING "Build type for single-config generators" FORCE)
 endif()
-message("-- Build Mode: ${CMAKE_BUILD_TYPE}")
-message("-- MSVC_RUNTIME: ${MSVC_RUNTIME}")
+message(STATUS "Build Mode: ${CMAKE_BUILD_TYPE}")
 
-project(${PACKAGE_NAME} LANGUAGES CXX DESCRIPTION "The DAL C++ Library")
+project(dal LANGUAGES CXX
+    DESCRIPTION "DAL Multi-Project Workspace"
+    VERSION 1.0.0)
 
-# Path for package-local cmake modules
-set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake" ${CMAKE_MODULE_PATH})
-
-# Installation directories
-set(DAL_INSTALL_BINDIR "bin" CACHE STRING "Installation directory for executables")
-set(DAL_INSTALL_LIBDIR "lib" CACHE STRING "Installation directory for libraries")
-set(DAL_INSTALL_INCLUDEDIR "include" CACHE STRING "Installation directory for headers")
-set(DAL_INSTALL_EXAMPLESDIR "lib/dal/examples" CACHE STRING "Installation directory for examples")
-set(DAL_INSTALL_CMAKEDIR "lib/cmake/${PACKAGE_NAME}" CACHE STRING "Installation directory for CMake scripts")
-
-# Project shared libs ON for UNIX
-if (NOT DEFINED BUILD_SHARED_LIBS)
-    set(BUILD_SHARED_LIBS ${UNIX})
-endif()
-
-# Require C++11 or higher
-if (NOT DEFINED CMAKE_CXX_STANDARD)
-    set(CMAKE_CXX_STANDARD 17)
-elseif(CMAKE_CXX_STANDARD LESS 17)
-    message(FATAL_ERROR "Please specify CMAKE_CXX_STANDARD of 17 or higher")
-endif()
-if (NOT DEFINED CMAKE_CXX_STANDARD_REQUIRED)
-    set(CMAKE_CXX_STANDARD_REQUIRED ON)
-endif()
-# Avoid use of compiler language extensions, i.e. -std=c++11 not -std=gnu++11
-if (NOT DEFINED CMAKE_CXX_EXTENSIONS)
-    set(CMAKE_CXX_EXTENSIONS FALSE)
-endif()
-
-# If available, use PIC for shared libs and PIE for executables
-if (NOT DEFINED CMAKE_POSITION_INDEPENDENT_CODE)
-    set(CMAKE_POSITION_INDEPENDENT_CODE ON)
-endif()
-if (CMAKE_POSITION_INDEPENDENT_CODE)
-    # cmake policy CMP0083: add PIE support if possible (need cmake 3.14)
-    include(CheckPIESupported)
-    check_pie_supported()
-endif()
-
-set(DAL_VERSION ${PACKAGE_VERSION})
-set(DAL_HEX_VERSION ${PACKAGE_VERSION_HEX})
-
-if (NOT DEFINED SKIP_TESTS)
-    set(SKIP_TESTS true)
-endif()
-
-if (NOT DEFINED USE_COVERAGE)
-    set(USE_COVERAGE false)
-endif()
-
-option(DAL_BUILD_EXAMPLES "Build example programs" ON)
-option(DAL_BUILD_PUBLIC "Build public API" ON)
-
-include(Platform)
-
-message("-- CMAKE_BUILD_TYPE: ${CMAKE_BUILD_TYPE}")
-message("-- CMAKE_CXX_FLAGS: ${CMAKE_CXX_FLAGS}")
-message("-- CMAKE_CXX_STANDARD: ${CMAKE_CXX_STANDARD}")
-message("-- BUILD_SHARED_LIBS: ${BUILD_SHARED_LIBS}")
-message("-- USE_COVERAGE: ${USE_COVERAGE}")
-
-include_directories(${CMAKE_SOURCE_DIR})
-
-option(DAL_USE_XAD_AAD "use xad as aad framework" OFF)
-option(DAL_USE_CODIPACK_AAD "use CoDiPack as aad framework" OFF)
-option(DAL_USE_ADEPT_AAD "use Adept as aad framework" OFF)
-if ((DAL_USE_XAD_AAD AND DAL_USE_CODIPACK_AAD) OR
-    (DAL_USE_XAD_AAD AND DAL_USE_ADEPT_AAD) OR
-    (DAL_USE_CODIPACK_AAD AND DAL_USE_ADEPT_AAD))
-    message(FATAL_ERROR "Only one external AAD backend can be enabled")
-endif()
-
-if (DAL_USE_XAD_AAD)
-    message("-- USE AAD framework: XAD")
-    add_compile_definitions(DAL_USE_XAD_AAD)
-elseif(DAL_USE_CODIPACK_AAD)
-    message("-- USE AAD framework: CoDiPack")
-    add_compile_definitions(DAL_USE_CODIPACK_AAD)
-    add_compile_definitions(CODI_ForcedInlines)
-elseif(DAL_USE_ADEPT_AAD)
-    message("-- USE AAD framework: Adept")
-    add_compile_definitions(DAL_USE_ADEPT_AAD)
-    add_compile_definitions(ADEPT_FAST_EXPONENTIAL)
-    add_compile_definitions(ADEPT_NO_DIMENSION_CHECKING)
-    add_compile_definitions(ADEPT_NO_ALIAS_CHECKING)
-    add_compile_definitions(ADEPT_INITIAL_STACK_LENGTH=10485760)
-else()
-    message("-- USE AAD framework: AADET")
-endif ()
-
-
-add_subdirectory(${CMAKE_SOURCE_DIR}/externals/googletest)
-add_subdirectory(${CMAKE_SOURCE_DIR}/externals/rapidjson)
-add_subdirectory(${CMAKE_SOURCE_DIR}/externals/xad)
-add_subdirectory(${CMAKE_SOURCE_DIR}/externals/CodiPack)
-add_subdirectory(${CMAKE_SOURCE_DIR}/externals/adept)
-add_subdirectory(${CMAKE_SOURCE_DIR}/externals/machinist)
-
-include_directories(${CMAKE_SOURCE_DIR}/externals/rapidjson/include)
-include_directories(${CMAKE_SOURCE_DIR}/externals/xad/include)
-include_directories(${CMAKE_SOURCE_DIR}/externals/CodiPack/include)
-include_directories(${CMAKE_SOURCE_DIR}/externals/adept/include)
-
-# Auto-detect Microsoft Office for Excel COM integration
-set(DAL_HAS_EXCEL OFF)
-if(WIN32)
-    set(_OFFICE_SEARCH_PATHS
-        "C:/Program Files/Microsoft Office/root/VFS/ProgramFilesCommonX86/Microsoft Shared/OFFICE16"
-        "C:/Program Files (x86)/Common Files/microsoft shared/OFFICE16"
-        "C:/Program Files/Common Files/Microsoft Shared/OFFICE16"
-    )
-    set(_VBA_SEARCH_PATHS
-        "C:/Program Files/Microsoft Office/root/VFS/ProgramFilesCommonX86/Microsoft Shared/VBA/VBA6"
-        "C:/Program Files (x86)/Common Files/microsoft shared/VBA/VBA6"
-        "C:/Program Files/Common Files/Microsoft Shared/VBA/VBA6"
-    )
-    set(_EXCEL_SEARCH_PATHS
-        "C:/Program Files/Microsoft Office/root/Office16"
-        "C:/Program Files (x86)/Microsoft Office/Office16"
-        "C:/Program Files/Microsoft Office/Office16"
-    )
-    find_file(OFFICE_MSO_DLL NAMES "MSO.DLL" PATHS ${_OFFICE_SEARCH_PATHS} NO_DEFAULT_PATH)
-    find_file(OFFICE_VBE_OLB NAMES "VBE6EXT.OLB" PATHS ${_VBA_SEARCH_PATHS} NO_DEFAULT_PATH)
-    find_file(OFFICE_EXCEL_EXE NAMES "EXCEL.EXE" PATHS ${_EXCEL_SEARCH_PATHS} NO_DEFAULT_PATH)
-
-    if(OFFICE_MSO_DLL AND OFFICE_VBE_OLB AND OFFICE_EXCEL_EXE)
-        set(DAL_HAS_EXCEL ON)
-        message(STATUS "Office found - Excel COM integration enabled")
-    else()
-        message(STATUS "Office not found - Excel COM integration disabled")
-    endif()
-endif()
-
-# ---------------------------------------------------------------------------
-# Refactored workspace (feature flag, default OFF)
-# When ON, the four sub-projects (dal-cpp, dal-public, dal-python, dal-excel)
-# are added as additional CMake subdirectories alongside the legacy build.
-# ---------------------------------------------------------------------------
-option(DAL_ENABLE_REFACTORED_WORKSPACE "Enable refactored workspace targets" OFF)
-
-if(DAL_ENABLE_REFACTORED_WORKSPACE)
-    option(DAL_BUILD_CPP "Build dal-cpp" ON)
-    option(DAL_BUILD_PUBLIC "Build dal-public" ON)
-    option(DAL_BUILD_PYTHON "Build dal-python" OFF)
-    option(DAL_BUILD_EXCEL "Build dal-excel" OFF)
-
-    if(DAL_BUILD_CPP)
-        add_subdirectory(dal-cpp)
-    endif()
-
-    if(DAL_BUILD_PUBLIC)
-        add_subdirectory(dal-public)
-    endif()
-
-    if(DAL_BUILD_PYTHON)
-        add_subdirectory(dal-python)
-    endif()
-
-    if(DAL_BUILD_EXCEL)
-        add_subdirectory(dal-excel)
-    endif()
-endif()
+# Workspace-wide options
+option(DAL_BUILD_PUBLIC "Build dal-public" ON)
+option(DAL_BUILD_PYTHON "Build dal-python" OFF)
+option(DAL_BUILD_EXCEL "Build dal-excel" OFF)
 
 enable_testing()
 
-add_subdirectory(dal)
+# Sub-projects
+add_subdirectory(dal-cpp)
 
-if (DAL_BUILD_PUBLIC)
-    add_subdirectory(public)
+if(DAL_BUILD_PUBLIC)
+    add_subdirectory(dal-public)
 endif()
 
-if (DAL_BUILD_EXAMPLES)
-    add_subdirectory(examples)
+if(DAL_BUILD_PYTHON)
+    add_subdirectory(dal-python)
 endif()
 
-message("-- SKIP_TESTS: ${SKIP_TESTS}")
-if ("${SKIP_TESTS}" STREQUAL "false")
-    add_subdirectory(tests)
+if(DAL_BUILD_EXCEL)
+    add_subdirectory(dal-excel)
 endif()

@@ -4,7 +4,7 @@
 
 #include <gtest/gtest.h>
 
-#include <public/src/global.hpp>
+#include <dal-public/src/global.hpp>
 
 using Dal::Date_;
 
