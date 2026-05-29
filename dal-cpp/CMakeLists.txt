@@ -102,6 +102,9 @@ list(FILTER DAL_CPP_SOURCES EXCLUDE REGEX "${PROJECT_SOURCE_DIR}/dal/storage/_re
 add_library(dal_cpp ${DAL_CPP_SOURCES})
 add_library(DAL::cpp ALIAS dal_cpp)
 
+# Propagate C++17 to consumers (dal-public, examples, tests).
+target_compile_features(dal_cpp PUBLIC cxx_std_17)
+
 # Make <dal/...> available to consumers (dal-public, etc.)
 target_include_directories(dal_cpp PUBLIC ${PROJECT_SOURCE_DIR})
 

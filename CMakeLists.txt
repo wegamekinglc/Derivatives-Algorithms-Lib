@@ -12,6 +12,15 @@ if(NOT CMAKE_BUILD_TYPE OR CMAKE_BUILD_TYPE STREQUAL "")
 endif()
 message(STATUS "Build Mode: ${CMAKE_BUILD_TYPE}")
 
+# C++17 must be set BEFORE project() so MSVC picks /std:c++17 for every
+# sub-project and external. Without this, MSVC defaults to C++14 and
+# rejects std::optional, nested namespaces, etc.
+if(NOT DEFINED CMAKE_CXX_STANDARD)
+    set(CMAKE_CXX_STANDARD 17)
+endif()
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS FALSE)
+
 project(dal LANGUAGES CXX
     DESCRIPTION "DAL Multi-Project Workspace"
     VERSION 1.0.0)
