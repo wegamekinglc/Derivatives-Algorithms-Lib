@@ -7,7 +7,7 @@ description: |
   unstated constraints, and quietly-bad tradeoffs while they're still cheap to fix.
 
   Do NOT use this agent on already-implemented code (that's `dal-reviewer`'s job). The critic
-  advocate operates on plans, not patches.
+  agent operates on plans, not patches.
 
   Examples:
 

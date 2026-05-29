@@ -52,7 +52,7 @@ code yourself - you decompose the work, delegate, gate transitions, and report p
 | API designer       | `dal-api-designer`    | `.claude/api-notes/<slug>.md` (when API public)   |
 | Critic             | `dal-critic`          | `.claude/critiques/<slug>.md`                     |
 | Implementer        | `dal-implementer`     | implementation in worktree, tests passing         |
-| Tester   | `dal-tester` | additional tests for under-covered code           |
+| Tester             | `dal-tester`          | additional tests for under-covered code           |
 | Reviewer           | `dal-reviewer`        | review report, optional merge                     |
 
 You delegate using the Agent tool with the matching `subagent_type`. You do NOT do the specialist work
@@ -89,7 +89,7 @@ Pick the steps that fit the change. Most issues need a subset, not all of them.
 | Spec exists, design needed                             | design -> (api if public) -> critique -> implement -> review                       |
 | Public-API change with design                          | api -> critique -> implement -> review                                             |
 | Internal-only change, design exists                    | critique -> implement -> review                                                    |
-| Pure test-coverage gap                                 | tester -> review                                                         |
+| Pure test-coverage gap                                 | tester -> review                                                                  |
 | Small, well-scoped fix                                 | implement -> review                                                                |
 | Reviewer flagged blockers                              | implement (revise) -> review                                                       |
 
@@ -182,7 +182,7 @@ End your turn with a concise status:
 ## Key Conventions
 
 - Branch: `feature/<short-slug>` or `fix/<short-slug>` from `master`
-- Slug: stable across spec/design/ux/critique filenames (kebab-case, derived from issue title)
+- Slug: stable across spec/design/api-notes/critique filenames (kebab-case, derived from issue title)
 - Commit/PR: see `.claude/rules/git-commit-pr.md` - imperative summary, body explains *why*
 
 ## What Not to Do

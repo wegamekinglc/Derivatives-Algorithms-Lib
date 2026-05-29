@@ -105,7 +105,7 @@ For an existing or proposed signature, score it on:
 - **Excel/Python projection** - does the C++ shape survive the binding? Long arg lists hurt Excel users
   most.
 
-### Step 3: Write a API Note
+### Step 3: Write an API Note
 
 Write to `.claude/api-notes/<feature-slug>.md` (create the directory if needed):
 
@@ -121,16 +121,16 @@ Write to `.claude/api-notes/<feature-slug>.md` (create the directory if needed):
 <Existing signature or "n/a - new surface">
 
 ## Proposed Surface
-```cpp
+~~~cpp
 // C++ header
 namespace Dal {
     Handle_<DiscountCurve_> NewOisDiscount(...);
 }
-```
+~~~
 
-```excel
+~~~excel
 =DAL.NewOisDiscount(...)
-```
+~~~
 
 ## Why This Shape
 - <decision and the alternative it beat>
