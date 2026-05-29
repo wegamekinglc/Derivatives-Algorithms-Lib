@@ -70,6 +70,22 @@ namespace {
         spec.parameterization_ = parameterization;
         return spec;
     }
+
+    RateIndexConvention_ MakeForwardConvention(const PeriodLength_& tenor, const DayBasis_& basis) {
+        RateIndexConvention_ convention;
+        convention.useProjectionCurve_ = true;
+        convention.forecastTenor_ = tenor;
+        convention.dayBasis_ = basis;
+        convention.collateral_ = CollateralType_(CollateralType_::Value_::OIS);
+        return convention;
+    }
+
+    RateLegConvention_ MakeLegConvention(const PeriodLength_& freq, const DayBasis_& basis) {
+        RateLegConvention_ convention;
+        convention.paymentFrequency_ = freq;
+        convention.dayBasis_ = basis;
+        return convention;
+    }
 } // namespace
 
 TEST(CurveBlockTest, TestFlatCurveCalibration) {
@@ -300,4 +316,120 @@ TEST(CurveBlockTest, TestPiecewiseConstantCalibration) {
     CurveCalibrationResult_ result = CalibrateYieldCurve(spec);
     ASSERT_TRUE(result.curve_);
     ASSERT_LT(result.diagnostics_.maxAbsResidual_, spec.fitTolerance_);
+}
+
+TEST(CurveBlockTest, TestSequentialMultiCurveCalibration) {
+    const Date_ today(2024, 1, 15);
+    const DayBasis_ basis("ACT_360");
+    const Handle_<DiscountCurve_> ois = MakeFlatDiscountPWLF("ois", "USD", today, 0.01);
+
+    const Vector_<Date_> forwardKnots = {
+        Date::AddMonths(today, 3),
+        Date::AddMonths(today, 6),
+        Date::AddMonths(today, 12),
+        Date::AddMonths(today, 24),
+    };
+    const Vector_<> spreadVals(forwardKnots.size(), 0.02);
+    const Handle_<DiscountCurve_> libor3m(
+        NewDiscountPWLF("libor3m", "USD", PiecewiseLinear_(forwardKnots, spreadVals, spreadVals), ois));
+    const CurveBlock_ marketCurve("market",
+                                  "USD",
+                                  {{CollateralType_(CollateralType_::Value_::OIS), ois}},
+                                  {{PeriodLength_("3M"), libor3m}},
+                                  basis);
+
+    const RateLegConvention_ fixedLeg = MakeLegConvention(PeriodLength_("6M"), basis);
+    const RateLegConvention_ floatLeg = MakeLegConvention(PeriodLength_("3M"), basis);
+    const RateIndexConvention_ ibor3m = MakeForwardConvention(PeriodLength_("3M"), basis);
+    RateIndexConvention_ oisIndex;
+    oisIndex.dayBasis_ = basis;
+    oisIndex.collateral_ = CollateralType_(CollateralType_::Value_::OIS);
+
+    const Handle_<YCInstrument_> oisDeposit(new Deposit_(today, Date::AddMonths(today, 3), 0.0, basis));
+    const Handle_<YCInstrument_> oisSwap(new OISSwap_(today,
+                                                      today,
+                                                      Date::AddMonths(today, 24),
+                                                      0.0,
+                                                      fixedLeg,
+                                                      oisIndex,
+                                                      floatLeg));
+    const Handle_<YCInstrument_> fra(new FRA_(today,
+                                              Date::AddMonths(today, 3),
+                                              Date::AddMonths(today, 6),
+                                              0.0,
+                                              ibor3m));
+    const Handle_<YCInstrument_> irs(new Swap_(today,
+                                               today,
+                                               Date::AddMonths(today, 24),
+                                               0.0,
+                                               fixedLeg,
+                                               ibor3m,
+                                               floatLeg));
+
+    const auto oisDepositRate = oisDeposit->Precompute(oisDeposit, Handle_<YieldCurve_>());
+    const auto oisSwapRate = oisSwap->Precompute(oisSwap, Handle_<YieldCurve_>());
+    const auto fraRate = fra->Precompute(fra, Handle_<YieldCurve_>());
+    const auto irsRate = irs->Precompute(irs, Handle_<YieldCurve_>());
+
+    CurveCalibrationSpec_ oisStage;
+    oisStage.today_ = today;
+    oisStage.ccy_ = "USD";
+    oisStage.curveName_ = "ois";
+    oisStage.targetCollateral_ = CollateralType_(CollateralType_::Value_::OIS);
+    oisStage.instruments_ = {
+        Handle_<YCInstrument_>(new Deposit_(today, Date::AddMonths(today, 3), (*oisDepositRate)(marketCurve), basis)),
+        Handle_<YCInstrument_>(new OISSwap_(today,
+                                            today,
+                                            Date::AddMonths(today, 24),
+                                            (*oisSwapRate)(marketCurve),
+                                            fixedLeg,
+                                            oisIndex,
+                                            floatLeg)),
+    };
+    oisStage.knotDates_ = {
+        Date::AddMonths(today, 3),
+        Date::AddMonths(today, 6),
+        Date::AddMonths(today, 12),
+        Date::AddMonths(today, 24),
+    };
+
+    CurveCalibrationSpec_ forwardStage;
+    forwardStage.today_ = today;
+    forwardStage.ccy_ = "USD";
+    forwardStage.curveName_ = "libor3m";
+    forwardStage.calibrateDiscountCurve_ = false;
+    forwardStage.targetTenor_ = PeriodLength_("3M");
+    forwardStage.targetCollateral_ = CollateralType_(CollateralType_::Value_::OIS);
+    forwardStage.instruments_ = {
+        Handle_<YCInstrument_>(new FRA_(today,
+                                        Date::AddMonths(today, 3),
+                                        Date::AddMonths(today, 6),
+                                        (*fraRate)(marketCurve),
+                                        ibor3m)),
+        Handle_<YCInstrument_>(new Swap_(today,
+                                         today,
+                                         Date::AddMonths(today, 24),
+                                         (*irsRate)(marketCurve),
+                                         fixedLeg,
+                                         ibor3m,
+                                         floatLeg)),
+    };
+    forwardStage.knotDates_ = oisStage.knotDates_;
+
+    MultiCurveCalibrationSpec_ spec;
+    spec.name_ = "bundle";
+    spec.ccy_ = "USD";
+    spec.liborBasis_ = basis;
+    spec.stages_ = {oisStage, forwardStage};
+
+    MultiCurveCalibrationResult_ result = CalibrateMultiCurve(spec);
+    ASSERT_EQ(result.discountCurves_.size(), 1);
+    ASSERT_EQ(result.forwardCurves_.size(), 1);
+    ASSERT_EQ(result.diagnostics_.size(), 2);
+
+    CurveBlock_ calibrated("bundle", "USD", result.discountCurves_, result.forwardCurves_, basis);
+    ASSERT_NEAR((*oisDepositRate)(calibrated), (*oisDepositRate)(marketCurve), 1e-8);
+    ASSERT_NEAR((*oisSwapRate)(calibrated), (*oisSwapRate)(marketCurve), 1e-8);
+    ASSERT_NEAR((*fraRate)(calibrated), (*fraRate)(marketCurve), 1e-8);
+    ASSERT_NEAR((*irsRate)(calibrated), (*irsRate)(marketCurve), 1e-8);
 }

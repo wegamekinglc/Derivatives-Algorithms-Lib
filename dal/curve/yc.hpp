@@ -16,7 +16,11 @@ namespace Dal {
     public:
         const Ccy_ ccy_;
         YieldCurve_(const String_ &name, const String_ &ccy);
+        [[nodiscard]] virtual bool HasDiscount(const CollateralType_& collateral) const = 0;
+        [[nodiscard]] virtual bool HasForward(const PeriodLength_& tenor) const = 0;
         [[nodiscard]] virtual const DiscountCurve_ &Discount(const CollateralType_ &collateral) const = 0;
+        [[nodiscard]] virtual const DiscountCurve_& Forward(const PeriodLength_& tenor,
+                                                            const CollateralType_& collateral) const = 0;
         [[nodiscard]] virtual double FwdLibor(const PeriodLength_ &tenor, const Date_ &fixing_date) const = 0;
     };
 }

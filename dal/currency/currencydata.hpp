@@ -6,8 +6,9 @@
 #pragma once
 
 #include <dal/currency/currency.hpp>
-#include <dal/utilities/facts.hpp>
+#include <dal/protocol/rateconvention.hpp>
 #include <dal/time/daybasis.hpp>
+#include <dal/utilities/facts.hpp>
 
 namespace Dal {
     class Holidays_;
@@ -25,6 +26,10 @@ namespace Dal {
             const Fact_<PeriodLength_>& SwapFixedPeriod();
             const Fact_<TradedRate_>& SwapFloatIndex();
             const Fact_<DayBasis_>& SwapFixedDayBasis();
+            const Fact_<RateIndexConvention_>& OisIndex();
+            const Fact_<RateIndexConvention_>& LiborIndex();
+            const Fact_<RateLegConvention_>& SwapFixedLeg();
+            const Fact_<RateLegConvention_>& SwapFloatLeg();
         }
     }
 }

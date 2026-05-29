@@ -6,8 +6,10 @@
 #include <dal/platform/platform.hpp>
 #include <dal/currency/currency.hpp>
 #include <dal/currency/currencydata.hpp>
-#include <dal/time/holidays.hpp>
+#include <dal/protocol/collateraltype.hpp>
 #include <dal/time/daybasis.hpp>
+#include <dal/time/holidays.hpp>
+#include <dal/time/periodlength.hpp>
 
 using namespace Dal;
 
@@ -104,6 +106,13 @@ TEST(CurrencyFactTest, TestLiborDayBasisSetDefault) {
     ASSERT_TRUE(Ccy::Conventions::LiborDayBasis()(Ccy_("USD")) == DayBasis_("ACT_365F"));
 }
 
-TEST(CurrencyFactTest, TestMissingDefaultThrows) {
-    ASSERT_THROW(Ccy::Conventions::SwapPayHolidays()(Ccy_("USD")), Dal::Exception_);
+TEST(CurrencyFactTest, TestDefaultRateConventionsAreInitialized) {
+    ASSERT_EQ(Ccy::Conventions::SwapPayHolidays()(Ccy_("USD")).String(), "");
+    ASSERT_EQ(Holidays::NextBus(Ccy::Conventions::SwapPayHolidays()(Ccy_("USD")), Date_(2024, 3, 16)), Date_(2024, 3, 18));
+    ASSERT_EQ(Holidays::NextBus(Ccy::Conventions::SwapPayHolidays()(Ccy_("USD")), Date_(2024, 3, 18)), Date_(2024, 3, 18));
+    ASSERT_TRUE(Ccy::Conventions::OisIndex()(Ccy_("USD")).collateral_ == CollateralType_::Value_::OIS);
+    ASSERT_TRUE(Ccy::Conventions::LiborIndex()(Ccy_("USD")).useProjectionCurve_);
+    ASSERT_EQ(Ccy::Conventions::LiborIndex()(Ccy_("USD")).forecastTenor_, PeriodLength_("3M"));
+    ASSERT_EQ(Ccy::Conventions::SwapFixedLeg()(Ccy_("USD")).paymentFrequency_, PeriodLength_("6M"));
+    ASSERT_EQ(Ccy::Conventions::SwapFloatLeg()(Ccy_("USD")).paymentFrequency_, PeriodLength_("3M"));
 }

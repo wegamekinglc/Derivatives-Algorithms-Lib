@@ -11,6 +11,8 @@
 #include <dal/utilities/algorithms.hpp>
 
 namespace Dal {
+#include <dal/auto/MG_BizDayConvention_enum.hpp>
+
     namespace {
         std::mutex TheHolidayComboMutex;
 #define LOCK_COMBOS std::lock_guard<std::mutex> l(TheHolidayComboMutex);
@@ -27,6 +29,43 @@ namespace Dal {
         std::map<String_, Handle_<HolidayCenterData_>>& TheCombinations() {
             RETURN_STATIC(std::map<String_, Handle_<HolidayCenterData_>>);
         }
+
+        bool IsHoliday(const Vector_<Date_>& holidays, Vector_<Date_>::const_iterator* nextHoliday, const Date_& date) {
+            if (*nextHoliday != holidays.end() && **nextHoliday == date) {
+                ++(*nextHoliday);
+                return true;
+            }
+            return false;
+        }
+
+        bool IsWorkWeekend(const Vector_<Date_>& workWeekends, Vector_<Date_>::const_iterator* nextWorkWeekend, const Date_& date) {
+            if (*nextWorkWeekend != workWeekends.end() && **nextWorkWeekend == date) {
+                ++(*nextWorkWeekend);
+                return true;
+            }
+            return false;
+        }
+
+        int CountRemainderBusDays(const Vector_<Date_>& holidays,
+                                  const Vector_<Date_>& workWeekends,
+                                  Vector_<Date_>::const_iterator nextHoliday,
+                                  Vector_<Date_>::const_iterator nextWorkWeekend,
+                                  const Date_& stop,
+                                  const Date_& end) {
+            int retval = 0;
+            for (Date_ d = stop; d < end; ++d) {
+                if (!Date::IsWeekEnd(d)) {
+                    if (IsHoliday(holidays, &nextHoliday, d))
+                        continue;
+                    ++retval;
+                }
+
+                if (IsWorkWeekend(workWeekends, &nextWorkWeekend, d))
+                    ++retval;
+            }
+            return retval;
+        }
+
     } // namespace
 
     Holidays_::Holidays_(const String_& src) {
@@ -86,36 +125,39 @@ namespace Dal {
         const Vector_<Date_>& wws = hols_.parts_[0]->workWeekends_;
         const auto holsToStop = static_cast<int>(p1Stop - LowerBound(hols, begin));
         const auto wwsToAdd = static_cast<int>(p2Stop - LowerBound(wws, begin));
-        int ret_val = 5 * weeks - holsToStop + wwsToAdd;
+        return 5 * weeks - holsToStop + wwsToAdd + CountRemainderBusDays(hols, wws, p1Stop, p2Stop, stop, end);
+    }
 
-        for (Date_ d = stop; d < end; ++d) {
-            if (!Date::IsWeekEnd(d)) {
-                if (p1Stop != hols_.parts_[0]->holidays_.end() && *p1Stop == d)
-                    ++p1Stop;
-                else
-                    ++ret_val;
-            }
-
-            if (p2Stop != hols_.parts_[0]->workWeekends_.end() && *p2Stop == d) {
-                ++ret_val;
-                ++p2Stop;
-            }
-        }
-        return ret_val;
+    bool Holidays::IsBusinessDay(const Holidays_& hols, const Date_& from) {
+        return hols.IsWorkWeekends(from) || (!Date::IsWeekEnd(from) && !hols.IsHoliday(from));
     }
 
     Date_ Holidays::NextBus(const Holidays_& hols, const Date_& from) {
         for (Date_ ret_val = from;; ++ret_val) {
-            if (hols.IsWorkWeekends(ret_val) || (!Date::IsWeekEnd(ret_val) && !hols.IsHoliday(ret_val)))
+            if (IsBusinessDay(hols, ret_val))
                 return ret_val;
         }
     }
 
     Date_ Holidays::PrevBus(const Holidays_& hols, const Date_& from) {
         for (Date_ ret_val = from;; --ret_val) {
-            if (hols.IsWorkWeekends(ret_val) || (!Date::IsWeekEnd(ret_val) && !hols.IsHoliday(ret_val)))
+            if (IsBusinessDay(hols, ret_val))
                 return ret_val;
         }
+    }
+
+    Date_ Holidays::Adjust(const Holidays_& hols, const Date_& from, const BizDayConvention_& convention) {
+        if (convention == BizDayConvention_("Unadjusted"))
+            return from;
+        if (convention == BizDayConvention_("Following"))
+            return NextBus(hols, from);
+        if (convention == BizDayConvention_("ModifiedFollowing")) {
+            const Date_ next = NextBus(hols, from);
+            if (Date::Month(next) == Date::Month(from))
+                return next;
+            return PrevBus(hols, from);
+        }
+        THROW("business date rule is not recognized");
     }
 
     const Holidays_& Holidays::None() {
