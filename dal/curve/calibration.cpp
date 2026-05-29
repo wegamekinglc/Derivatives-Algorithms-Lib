@@ -383,7 +383,7 @@ namespace Dal {
         retval.curve_ = BuildDiscountCurve(spec.curveName_, spec.ccy_, spec.parameterization_, knotDates, result, spec.baseCurve_);
         ValidatePositiveDiscountFactors(*retval.curve_, spec.today_, knotDates);
         Handle_<DiscountCurve_> diagnosticsCurve(
-            BuildDiscountCurve(spec.curveName_, spec.ccy_, spec.parameterization_, knotDates, result, spec.baseCurve_).release());
+            std::shared_ptr<const DiscountCurve_>(std::shared_ptr<void>(), retval.curve_.get()));
         auto discountCurves = spec.discountCurves_;
         auto forwardCurves = spec.forwardCurves_;
         if (spec.calibrateDiscountCurve_)

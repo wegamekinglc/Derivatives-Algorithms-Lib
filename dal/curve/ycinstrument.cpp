@@ -20,15 +20,6 @@ namespace Dal {
             return PeriodLength_(String::FromInt(months) + "M");
         }
 
-        int CouponMonthsForContext(const Date_& start, const Date_& maturity) {
-            int months = 12 * (Date::Year(maturity) - Date::Year(start)) + Date::Month(maturity) - Date::Month(start);
-            const bool startIsEom = start == Date::EndOfMonth(start);
-            const bool maturityIsEom = maturity == Date::EndOfMonth(maturity);
-            if (Date::Day(maturity) < Date::Day(start) && !(startIsEom && maturityIsEom))
-                --months;
-            return std::max(months, 1);
-        }
-
         Handle_<DayBasis::Context_> SinglePeriodContext(const Date_& start, const Date_& maturity, int couponMonths) {
             const bool singleCouponPeriodIsLast = true;
             return Handle_<DayBasis::Context_>(new DayBasis::Context_(singleCouponPeriodIsLast, start, maturity, couponMonths));
@@ -116,7 +107,7 @@ namespace Dal {
                 period.unadjustedEnd_ = maturity_;
                 period.accrualStart_ = Holidays::Adjust(convention_.accrualHolidays_, start_, convention_.businessDayConvention_);
                 period.accrualEnd_ = Holidays::Adjust(convention_.accrualHolidays_, maturity_, convention_.businessDayConvention_);
-                period.dayCountContext_ = SinglePeriodContext(start_, maturity_, CouponMonthsForContext(start_, maturity_));
+                period.dayCountContext_ = SinglePeriodContext(start_, maturity_, CouponMonths(start_, maturity_));
                 const DiscountCurve_& forecast = ResolveForecastCurve(yc, fallback_, convention_);
                 return ForwardRate(forecast,
                                    period.accrualStart_,
@@ -154,7 +145,7 @@ namespace Dal {
                                                               maturity_,
                                                               convention_.useProjectionCurve_
                                                                   ? convention_.forecastTenor_.Months()
-                                                                  : CouponMonthsForContext(start_, maturity_));
+                                                                  : CouponMonths(start_, maturity_));
                 const DiscountCurve_& forecast = ResolveForecastCurve(yc, fallback_, convention_);
                 return ForwardRate(forecast,
                                    period.accrualStart_,

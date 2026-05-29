@@ -58,6 +58,8 @@ namespace Dal {
         Handle_<DayBasis::Context_> dayCountContext_;
     };
 
+    int CouponMonths(const Date_& start, const Date_& maturity);
+
     Schedule_ DateGenerate(const Date_& start,
                            const Date_& maturity,
                            const Handle_<Date::Increment_>& tenor,

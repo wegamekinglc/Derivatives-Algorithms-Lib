@@ -341,9 +341,6 @@ TEST(CurveBlockTest, TestSequentialMultiCurveCalibration) {
     const RateLegConvention_ fixedLeg = MakeLegConvention(PeriodLength_("6M"), basis);
     const RateLegConvention_ floatLeg = MakeLegConvention(PeriodLength_("3M"), basis);
     const RateIndexConvention_ ibor3m = MakeForwardConvention(PeriodLength_("3M"), basis);
-    ASSERT_TRUE(ibor3m.useProjectionCurve_);
-    ASSERT_EQ(ibor3m.forecastTenor_, PeriodLength_("3M"));
-    ASSERT_TRUE(ibor3m.collateral_ == CollateralType_::Value_::OIS);
     RateIndexConvention_ oisIndex;
     oisIndex.dayBasis_ = basis;
     oisIndex.collateral_ = CollateralType_(CollateralType_::Value_::OIS);

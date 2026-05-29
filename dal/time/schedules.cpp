@@ -66,16 +66,16 @@ namespace Dal {
             const bool moveForward = lag > 0 ? forward : !forward;
             return moveForward ? Date::NBusDays(steps, hols)->FwdFrom(date) : Date::NBusDays(steps, hols)->BackFrom(date);
         }
-
-        int CouponMonths(const Date_& start, const Date_& maturity) {
-            int months = 12 * (Date::Year(maturity) - Date::Year(start)) + Date::Month(maturity) - Date::Month(start);
-            const bool startIsEom = start == Date::EndOfMonth(start);
-            const bool maturityIsEom = maturity == Date::EndOfMonth(maturity);
-            if (Date::Day(maturity) < Date::Day(start) && !(startIsEom && maturityIsEom))
-                --months;
-            return std::max(months, 1);
-        }
     } // namespace
+
+    int CouponMonths(const Date_& start, const Date_& maturity) {
+        int months = 12 * (Date::Year(maturity) - Date::Year(start)) + Date::Month(maturity) - Date::Month(start);
+        const bool startIsEom = start == Date::EndOfMonth(start);
+        const bool maturityIsEom = maturity == Date::EndOfMonth(maturity);
+        if (Date::Day(maturity) < Date::Day(start) && !(startIsEom && maturityIsEom))
+            --months;
+        return std::max(months, 1);
+    }
 
     Schedule_ DateGenerate(const Date_& start,
                            const Date_& maturity,
