@@ -121,11 +121,11 @@ namespace Dal {
     }
 
 #ifdef _WIN32
-#include <dal-public/auto/MG_PseudoRSG_New_public.inc>
-#include <dal-public/auto/MG_PseudoRSG_Get_Uniform_public.inc>
-#include <dal-public/auto/MG_PseudoRSG_Get_Normal_public.inc>
-#include <dal-public/auto/MG_SobolRSG_New_public.inc>
-#include <dal-public/auto/MG_SobolRSG_Get_Uniform_public.inc>
-#include <dal-public/auto/MG_SobolRSG_Get_Normal_public.inc>
+#include <dal-excel/auto/MG_PseudoRSG_New_public.inc>
+#include <dal-excel/auto/MG_PseudoRSG_Get_Uniform_public.inc>
+#include <dal-excel/auto/MG_PseudoRSG_Get_Normal_public.inc>
+#include <dal-excel/auto/MG_SobolRSG_New_public.inc>
+#include <dal-excel/auto/MG_SobolRSG_Get_Uniform_public.inc>
+#include <dal-excel/auto/MG_SobolRSG_Get_Normal_public.inc>
 #endif
 }

@@ -1546,8 +1546,8 @@ func_with_args is string
         }
     } // namespace
 
-#include "dal-public/auto/MG_Format_public.inc"
-#include "dal-public/auto/MG_PasteWithArgs_public.inc"
+#include "dal-excel/auto/MG_Format_public.inc"
+#include "dal-excel/auto/MG_PasteWithArgs_public.inc"
 }
 
 #endif

@@ -75,7 +75,7 @@ namespace Dal {
         }
     }
 #ifdef _WIN32
-#include <dal-public/auto/MG_BSModelData_New_public.inc>
-#include <dal-public/auto/MG_DupireModelData_New_public.inc>
+#include <dal-excel/auto/MG_BSModelData_New_public.inc>
+#include <dal-excel/auto/MG_DupireModelData_New_public.inc>
 #endif
 }

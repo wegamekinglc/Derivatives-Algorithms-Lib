@@ -82,14 +82,17 @@ endif()
 # Library target: dal_excel (alias DAL::excel)
 #
 # Mirrors the original public/excel/CMakeLists.txt exactly:
-# - SHARED library built from all public/excel/*.hpp and *.cpp
+# Mirrors the original public/excel/CMakeLists.txt:
+# - SHARED library built from all dal-excel/src/*.hpp and *.cpp
+# - Auto-generated *.inc files under dal-excel/auto/ (from Machinist)
 # - Links against dal_public/DAL::public
 # - .xll suffix (Excel add-in DLL)
 # - Office COM compile definitions
 # ---------------------------------------------------------------------------
 file(GLOB_RECURSE EXCEL_FILES
     "${CMAKE_CURRENT_SOURCE_DIR}/src/*.hpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp")
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/auto/*.inc")
 
 add_library(dal_excel SHARED ${EXCEL_FILES})
 add_library(DAL::excel ALIAS dal_excel)

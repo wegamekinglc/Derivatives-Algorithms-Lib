@@ -39,7 +39,7 @@ namespace Dal {
         }
     }
 #ifdef _WIN32
-#include <dal-public/auto/MG_EvaluationDate_Set_public.inc>
-#include <dal-public/auto/MG_EvaluationDate_Get_public.inc>
+#include <dal-excel/auto/MG_EvaluationDate_Set_public.inc>
+#include <dal-excel/auto/MG_EvaluationDate_Get_public.inc>
 #endif
 }

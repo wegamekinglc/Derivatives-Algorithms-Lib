@@ -61,7 +61,7 @@ namespace Dal {
         }
     }
 #ifdef _WIN32
-#include <dal-public/auto/MG_Product_New_public.inc>
-#include <dal-public/auto/MG_Product_Debug_public.inc>
+#include <dal-excel/auto/MG_Product_New_public.inc>
+#include <dal-excel/auto/MG_Product_Debug_public.inc>
 #endif
 }

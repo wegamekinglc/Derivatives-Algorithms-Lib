@@ -39,7 +39,7 @@ fi
 # Run Machinist code generation
 export MACHINIST_TEMPLATE_DIR=$PWD/dal-cpp/externals/machinist/template/
 ./dal-cpp/externals/machinist/bin/Machinist -c dal-cpp/config/dal.ifc -l dal-cpp/config/dal.mgl -d ./dal-cpp/dal
-./dal-cpp/externals/machinist/bin/Machinist -c dal-cpp/config/dal.ifc -l dal-cpp/config/dal.mgl -d ./dal-public
+./dal-cpp/externals/machinist/bin/Machinist -c dal-cpp/config/dal.ifc -l dal-cpp/config/dal.mgl -d ./dal-excel
 
 if [ $? -ne 0 ]; then
   exit 1

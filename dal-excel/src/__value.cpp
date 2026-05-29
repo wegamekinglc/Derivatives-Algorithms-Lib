@@ -55,6 +55,6 @@ namespace Dal {
     }
 
 #ifdef _WIN32
-#include <dal-public/auto/MG_MonteCarlo_Value_public.inc>
+#include <dal-excel/auto/MG_MonteCarlo_Value_public.inc>
 #endif
 }

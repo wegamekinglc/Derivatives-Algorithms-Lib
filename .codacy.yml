@@ -12,7 +12,7 @@ exclude_paths:
   - 'dal-python/python/**/*.egg-info/**'
   # Machinist-generated C++ headers and .inc files
   - 'dal-cpp/dal/auto/**'
-  - 'dal-public/auto/**'
+  - 'dal-excel/auto/**'
   # Third-party submodules
   - 'dal-cpp/externals/**'
   # Build artifacts

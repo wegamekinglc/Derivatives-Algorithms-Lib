@@ -29,14 +29,13 @@ get_filename_component(DAL_WORKSPACE_ROOT "${PROJECT_SOURCE_DIR}/.." ABSOLUTE)
 file(GLOB_RECURSE PUBLIC_SRC_FILES
     "${PROJECT_SOURCE_DIR}/src/*.hpp"
     "${PROJECT_SOURCE_DIR}/src/*.cpp"
-    "${PROJECT_SOURCE_DIR}/src/*.h"
-    "${PROJECT_SOURCE_DIR}/auto/*.inc")
+    "${PROJECT_SOURCE_DIR}/src/*.h")
 
 add_library(dal_public ${PUBLIC_SRC_FILES})
 add_library(DAL::public ALIAS dal_public)
 
 # Both dal-public consumers and itself need workspace root in include path
-# so <dal-public/src/...> and <dal-public/auto/...> resolve.
+# so <dal-public/src/...> and <dal-cpp/...> resolve.
 target_include_directories(dal_public PUBLIC ${DAL_WORKSPACE_ROOT})
 
 if(MSVC)

@@ -26,7 +26,7 @@ echo End build machinist2
 set MACHINIST_TEMPLATE_DIR=%CD%\template\
 echo MACHINIST_TEMPLATE_DIR=%MACHINIST_TEMPLATE_DIR%
 bin\Machinist.exe -c %DAL_DIR%/dal-cpp/config/dal.ifc -l %DAL_DIR%/dal-cpp/config/dal.mgl -d %DAL_DIR%/dal-cpp/dal
-bin\Machinist.exe -c %DAL_DIR%/dal-cpp/config/dal.ifc -l %DAL_DIR%/dal-cpp/config/dal.mgl -d %DAL_DIR%/dal-public
+bin\Machinist.exe -c %DAL_DIR%/dal-cpp/config/dal.ifc -l %DAL_DIR%/dal-cpp/config/dal.mgl -d %DAL_DIR%/dal-excel
 
 if %errorlevel% neq 0 exit /b 1
 

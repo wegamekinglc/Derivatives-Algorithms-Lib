@@ -89,7 +89,7 @@ jobs:
         run: |
           export MACHINIST_TEMPLATE_DIR="$(pwd -W)/dal-cpp/externals/machinist/template/"
           ./dal-cpp/externals/machinist/bin/Machinist.exe -c dal-cpp/config/dal.ifc -l dal-cpp/config/dal.mgl -d ./dal-cpp/dal
-          ./dal-cpp/externals/machinist/bin/Machinist.exe -c dal-cpp/config/dal.ifc -l dal-cpp/config/dal.mgl -d ./dal-public
+          ./dal-cpp/externals/machinist/bin/Machinist.exe -c dal-cpp/config/dal.ifc -l dal-cpp/config/dal.mgl -d ./dal-excel
 
       - name: Compile
         shell: bash

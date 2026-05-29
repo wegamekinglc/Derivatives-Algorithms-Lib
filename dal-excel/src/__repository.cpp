@@ -57,8 +57,8 @@ namespace Dal {
     } // namespace
 
 #ifdef _WIN32
-#include "dal-public/auto/MG_Repository_Erase_public.inc"
-#include "dal-public/auto/MG_Repository_Find_public.inc"
-#include "dal-public/auto/MG_Repository_Size_public.inc"
+#include "dal-excel/auto/MG_Repository_Erase_public.inc"
+#include "dal-excel/auto/MG_Repository_Find_public.inc"
+#include "dal-excel/auto/MG_Repository_Size_public.inc"
 #endif
 } // namespace Dal
