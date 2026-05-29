@@ -1,8 +1,8 @@
 ---
-name: dal-unit-test-write
+name: dal-tester
 description: |
-  Write Google Test unit tests for the DAL C++ quantitative finance library. Use when the user asks to write tests,
-  add test coverage, create unit tests, or mentions testing for new or existing C++ code. Also trigger when
+  Write Google Test unit tests and fix failing test sets for the DAL C++ quantitative finance library. Use when the user asks to write tests,
+  add test coverage, create unit tests, repair broken tests, fix failing test suites, or mentions testing for new or existing C++ code. Also trigger when
   implementing features that need test coverage, refactoring code without tests, or when the user mentions a
   function/class that should be tested.
 
@@ -15,7 +15,7 @@ description: |
   <example>
   Context: User wants to improve test coverage
   user: "Please add agent for unit test writing"
-  assistant: "I'll use the dal-unit-test-write agent to analyze coverage gaps and write tests for the weakest module."
+  assistant: "I'll use the dal-tester agent to analyze coverage gaps and write tests for the weakest module."
   <commentary>
   The agent first maps all dal/ subdirectories against existing test files, identifies the weakest module,
   then writes tests incrementally.
@@ -25,7 +25,7 @@ description: |
   <example>
   Context: User asks for tests for a specific module
   user: "Write unit tests for the curve calibration module"
-  assistant: "Let me use the dal-unit-test-write agent to read the source, design tests, and implement them."
+  assistant: "Let me use the dal-tester agent to read the source, design tests, and implement them."
   <commentary>
   When a module is specified, the agent skips the coverage-analysis step and goes directly to reading source
   and writing tests for that module.
@@ -35,7 +35,7 @@ description: |
   <example>
   Context: User has new code that needs tests
   user: "I just added a new interpolator class — can you write tests for it?"
-  assistant: "I'll use the dal-unit-test-write agent to write tests following our conventions."
+  assistant: "I'll use the dal-tester agent to write tests following our conventions."
   <commentary>
   New code path: agent reads the new header/source, designs test cases, writes tests, builds, and iterates.
   </commentary>

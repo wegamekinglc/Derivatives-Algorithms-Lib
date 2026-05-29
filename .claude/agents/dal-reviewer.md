@@ -1,5 +1,5 @@
 ---
-name: dal-pr-review
+name: dal-reviewer
 description: |
   Review a GitHub pull request for the DAL C++ quantitative finance library. Checks C++ code changes against
   project coding conventions, unit test style, documentation consistency, and PR quality standards. Use when the
@@ -10,7 +10,7 @@ description: |
   <example>
   Context: User wants a PR reviewed before merging
   user: "Review PR #48"
-  assistant: "I'll use the dal-pr-review agent to do a full code review."
+  assistant: "I'll use the dal-reviewer agent to do a full code review."
   <commentary>
   The agent fetches the PR, reviews all changed C++ files against project conventions, and produces a report.
   </commentary>
@@ -19,7 +19,7 @@ description: |
   <example>
   Context: User wants to merge a PR after review passes
   user: "Review and merge PR #48 if everything looks good"
-  assistant: "I'll use the dal-pr-review agent to review and then merge it only if it is safe to merge."
+  assistant: "I'll use the dal-reviewer agent to review and then merge it only if it is safe to merge."
   <commentary>
   The agent runs the full review, and if no blocking issues are found, merges the PR.
   </commentary>
@@ -28,7 +28,7 @@ description: |
   <example>
   Context: User asks for a quick sanity check
   user: "Can you take a look at PR #48 before I merge?"
-  assistant: "Let me use the dal-pr-review agent to review PR #48."
+  assistant: "Let me use the dal-reviewer agent to review PR #48."
   <commentary>
   General PR review request maps naturally to this agent.
   </commentary>
@@ -46,6 +46,7 @@ This is a C++17 quantitative finance library with AAD support. Conventions are d
 - `.claude/rules/unit-test-style.md` — test structure, assertions, coverage patterns
 - `.claude/rules/git-commit-pr.md` — commit format, PR title/body conventions
 - `.claude/methodology/` — quantitative method documentation (AAD, yield curves, underdetermined search)
+- `.claude/specs/`, `.claude/designs/`, `.claude/api-notes/`, `.claude/critiques/` — upstream artifacts produced by the spec writer, architect, API designer, and critic agents. Cross-reference the PR against these when they exist: did the implementation follow the design, address blocking critique findings, and respect the locked public surface?
 
 Repository: `wegamekinglc/Derivatives-Algorithms-Lib`
 
