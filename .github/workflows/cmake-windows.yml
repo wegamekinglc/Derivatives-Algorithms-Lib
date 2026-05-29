@@ -76,7 +76,7 @@ jobs:
       - name: Build Machinist
         shell: bash
         run: |
-          cd externals/machinist
+          cd dal-cpp/externals/machinist
           rm -rf build
           mkdir -p build
           cd build
@@ -87,9 +87,9 @@ jobs:
       - name: Run code generation
         shell: bash
         run: |
-          export MACHINIST_TEMPLATE_DIR="$(pwd -W)/externals/machinist/template/"
-          ./externals/machinist/bin/Machinist.exe -c config/dal.ifc -l config/dal.mgl -d ./dal
-          ./externals/machinist/bin/Machinist.exe -c config/dal.ifc -l config/dal.mgl -d ./public
+          export MACHINIST_TEMPLATE_DIR="$(pwd -W)/dal-cpp/externals/machinist/template/"
+          ./dal-cpp/externals/machinist/bin/Machinist.exe -c dal-cpp/config/dal.ifc -l dal-cpp/config/dal.mgl -d ./dal-cpp/dal
+          ./dal-cpp/externals/machinist/bin/Machinist.exe -c dal-cpp/config/dal.ifc -l dal-cpp/config/dal.mgl -d ./dal-public
 
       - name: Compile
         shell: bash
@@ -100,11 +100,12 @@ jobs:
           rm -rf build
           mkdir -p build
           cd build
-          cmake --preset Release-windows ${ADDITIONAL_CMAKE_FLAGS} ..
+          cmake --preset Release-windows -DDAL_BUILD_PUBLIC=ON -DDAL_CPP_BUILD_EXAMPLES=ON ${ADDITIONAL_CMAKE_FLAGS} ..
           cmake --build .
           cmake --install .
 
       - name: Test
         shell: bash
         run: |
-          ./bin/test_suite.exe
+          cd build
+          ctest --output-on-failure -C Release
