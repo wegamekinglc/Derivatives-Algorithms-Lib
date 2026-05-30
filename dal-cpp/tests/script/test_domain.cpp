@@ -169,7 +169,7 @@ TEST(ScriptTest, TestIntervalSignChecks) {
 }
 
 TEST(ScriptTest, TestIntervalInfinite) {
-    Interval_ i(Bound_(Bound_::minusInfinity_), Bound_(Bound_::plusInfinity_));
+    Interval_ i{Bound_(Bound_::minusInfinity_), Bound_(Bound_::plusInfinity_)};
     ASSERT_TRUE(i.IsInfinite());
     ASSERT_TRUE(i.Includes(0.0));
     ASSERT_TRUE(i.Includes(1e20));
