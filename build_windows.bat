@@ -40,7 +40,7 @@ if exist build (
 )
 
 cd build
-cmake -G "%MSVC_VERSION%" --preset %BUILD_TYPE%-windows -DDAL_BUILD_PUBLIC=ON -DDAL_CPP_BUILD_EXAMPLES=ON ..
+cmake -G "%MSVC_VERSION%" --preset %BUILD_TYPE%-windows -DDAL_BUILD_PUBLIC=ON -DDAL_CPP_BUILD_EXAMPLES=ON -DDAL_CPP_BUILD_BENCHMARKS=ON ..
 
 if %errorlevel% neq 0 exit /b 1
 

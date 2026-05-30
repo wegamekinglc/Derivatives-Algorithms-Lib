@@ -14,6 +14,7 @@ project(dal-cpp LANGUAGES CXX
 # ---------------------------------------------------------------------------
 option(DAL_CPP_BUILD_TESTS "Build dal-cpp tests" ON)
 option(DAL_CPP_BUILD_EXAMPLES "Build dal-cpp examples" ON)
+option(DAL_CPP_BUILD_BENCHMARKS "Build dal-cpp benchmarks" ON)
 
 option(DAL_USE_XAD_AAD "Use XAD AAD backend" OFF)
 option(DAL_USE_CODIPACK_AAD "Use CoDiPack AAD backend" OFF)
@@ -164,13 +165,19 @@ if(DAL_CPP_BUILD_TESTS)
 endif()
 
 # ---------------------------------------------------------------------------
-# Examples
+# Examples and benchmarks
 # ---------------------------------------------------------------------------
-if(DAL_CPP_BUILD_EXAMPLES)
-    # Examples reference dal_library — provide compatibility alias
+if(DAL_CPP_BUILD_EXAMPLES OR DAL_CPP_BUILD_BENCHMARKS)
+    # Examples and benchmarks reference dal_library — provide compatibility alias
     if(NOT TARGET dal_library)
         add_library(dal_library ALIAS dal_cpp)
     endif()
+endif()
 
+if(DAL_CPP_BUILD_EXAMPLES)
     add_subdirectory(${PROJECT_SOURCE_DIR}/examples)
+endif()
+
+if(DAL_CPP_BUILD_BENCHMARKS)
+    add_subdirectory(${PROJECT_SOURCE_DIR}/benchmarks)
 endif()

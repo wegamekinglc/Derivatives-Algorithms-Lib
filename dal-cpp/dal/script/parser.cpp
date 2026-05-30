@@ -355,14 +355,6 @@ namespace Dal::Script {
         THROW2("statement without an instruction", ScriptError_);
     }
 
-    Vector_<String_> Tokenize(const String_& str) {
-        static const std::regex r(R"([\w.]+|[/-]|,|;|:|[\(\)\+\*\^]|!=|>=|<=|[<>=])");
-        Vector_<String_> v;
-        for (std::regex_iterator<String_::const_iterator> it(str.begin(), str.end(), r), end; it != end; ++it)
-            v.push_back(String_((*it)[0]));
-        return v;
-    }
-
     Event_ Parser_::Parse(const String_& event) {
         Event_ e;
         auto tokens = Tokenize(event);

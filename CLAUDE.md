@@ -25,6 +25,7 @@ The top-level `CMakeLists.txt` is a thin workspace that selects sub-projects via
 - `DAL_BUILD_EXCEL` (default `OFF`) — build `dal-excel` (Windows-only)
 - `DAL_CPP_BUILD_TESTS` (default `ON`) — build the `dal-cpp` test suite
 - `DAL_CPP_BUILD_EXAMPLES` (default `ON`) — build the `dal-cpp` example programs
+- `DAL_CPP_BUILD_BENCHMARKS` (default `ON`) — build the `dal-cpp` benchmark programs
 - `DAL_USE_ADEPT_AAD` / `DAL_USE_XAD_AAD` / `DAL_USE_CODIPACK_AAD` — pick the AAD backend (default Adept)
 
 CMake installs to the repo root (`CMAKE_INSTALL_PREFIX=${sourceDir}`), placing binaries in `bin/`, libraries in `lib/`, and headers in `include/`.
@@ -85,6 +86,7 @@ The dependency graph is `dal-cpp ← dal-public ← {dal-python, dal-excel}`. Ea
 - `dal-cpp/dal/auto/` — auto-generated code (Machinist output, glob-included into the library)
 - `dal-cpp/tests/` — Google Test files compiled into the `dal_cpp_tests` binary
 - `dal-cpp/examples/` — standalone example programs (AAD, Monte Carlo, finite difference, scripting, concurrency, Sobol, underdetermined optimization)
+- `dal-cpp/benchmarks/` — standalone performance benchmark programs (matrix, script engine)
 - `dal-cpp/externals/` — git submodules for AAD frameworks, gtest, rapidjson, machinist
 - `dal-cpp/config/` — Machinist input (`dal.ifc`, `dal.mgl`)
 - `dal-cpp/cmake/` — `Platform.cmake` and helpers

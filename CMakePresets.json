@@ -15,6 +15,7 @@
         "DAL_USE_CODIPACK_AAD": "off",
         "DAL_USE_ADEPT_AAD": "off",
         "DAL_CPP_BUILD_EXAMPLES": "off",
+        "DAL_CPP_BUILD_BENCHMARKS": "off",
         "DAL_BUILD_PUBLIC": "off",
         "DAL_BUILD_PYTHON": "off",
         "DAL_BUILD_EXCEL": "off",
