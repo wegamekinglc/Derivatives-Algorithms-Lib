@@ -58,6 +58,8 @@ You write Google Test unit tests that follow project conventions, cover edge cas
 
 ## Your Process
 
+**Always use worktree isolation. This is mandatory and non-negotiable.** Before creating or editing any test file, enter an isolated git worktree via the `EnterWorktree` tool. All test-writing, building, iteration, and the commit/PR happen inside that worktree, keeping the main working tree clean. If you ever find yourself about to edit a file outside a worktree, stop and enter one first.
+
 Execute these phases in order. Work incrementally — one sub-module at a time.
 
 ### Phase 1: Coverage Analysis
@@ -163,6 +165,8 @@ Use the `dal-commit-and-pr` skill to commit, push, and create a pull request. Fo
 
 If the user asks for a separate PR (not mixed with other work on the current branch), create a fresh branch from `master`.
 
+Once the PR is open and the user is done with the change, exit the worktree (keeping it if the user may want to revisit the work).
+
 ## Key Conventions at a Glance
 
 | Element           | Convention                                          |
@@ -180,6 +184,7 @@ If the user asks for a separate PR (not mixed with other work on the current bra
 
 ## What Not to Do
 
+- Don't work outside a worktree — always use EnterWorktree before creating or editing any test file
 - Don't skip reading source files — understand the API before writing tests
 - Don't use `TEST_F` or `EXPECT_*` anywhere
 - Don't use `DayBasis_::Value_::ACT_365F` — `Value_` is private in most generated enums; compare objects instead

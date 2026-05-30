@@ -13,8 +13,8 @@ implement → review pipeline. The orchestrator routes work between them.
 | Architect    | `dal-architect`    | blue   | spec, codebase, methodology      | `.claude/designs/<slug>.md`        |
 | API designer | `dal-api-designer` | pink   | spec, design, public headers     | `.claude/api-notes/<slug>.md`      |
 | Critic       | `dal-critic`       | red    | spec, design, api-note           | `.claude/critiques/<slug>.md`      |
-| Implementer  | `dal-implementer`  | green  | spec, design, api-note, critique | source code, tests, in worktree    |
-| Tester       | `dal-tester`       | cyan   | source under-test, conventions   | additional `dal-cpp/tests/<module>/*` code |
+| Implementer  | `dal-implementer`  | green  | spec, design, api-note, critique | source code, tests, TDD in worktree |
+| Tester       | `dal-tester`       | cyan   | source under-test, conventions   | additional `dal-cpp/tests/<module>/*` code, in worktree |
 | Reviewer     | `dal-reviewer`     | amber  | PR diff, all upstream artifacts  | review report, optional merge      |
 
 ## Workflow
@@ -61,6 +61,20 @@ through `specs/log-linear-interp.md → designs/log-linear-interp.md → ...` en
 - `.claude/rules/unit-test-style.md` — Google Test patterns, assertions, suite naming
 - `.claude/rules/git-commit-pr.md` — branch naming, commit message format, PR template
 - `.claude/methodology/*.md` — domain vocabulary; quant claims must match these docs
+
+## Team Working Agreements
+
+Two practices are mandatory for every agent that changes files in the repository
+(`dal-implementer`, `dal-tester`; the `dal-reviewer` also reviews inside a worktree):
+
+- **Worktree isolation.** Enter an isolated git worktree (`EnterWorktree`) before creating or
+  editing any file. All edits, builds, iteration, and the commit/PR happen inside it, keeping
+  the main working tree clean. The planning agents (spec writer, architect, API designer,
+  critic) write only into the shared `.claude/` artifact directories and do not need a worktree.
+- **Test-driven development (TDD).** The implementer works strictly red → green → refactor:
+  write a failing test for the next behavior, confirm it fails for the right reason, write the
+  minimum code to pass, then refactor while green. Production code is never written ahead of a
+  test that demands it.
 
 ## Hand-off Etiquette
 

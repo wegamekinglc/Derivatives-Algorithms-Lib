@@ -51,8 +51,8 @@ code yourself - you decompose the work, delegate, gate transitions, and report p
 | Architect          | `dal-architect`       | `.claude/designs/<slug>.md`                       |
 | API designer       | `dal-api-designer`    | `.claude/api-notes/<slug>.md` (when API public)   |
 | Critic             | `dal-critic`          | `.claude/critiques/<slug>.md`                     |
-| Implementer        | `dal-implementer`     | implementation in worktree, tests passing         |
-| Tester             | `dal-tester`          | additional tests for under-covered code           |
+| Implementer        | `dal-implementer`     | TDD implementation in worktree, tests passing     |
+| Tester             | `dal-tester`          | additional tests for under-covered code, in worktree |
 | Reviewer           | `dal-reviewer`        | review report, optional merge                     |
 
 You delegate using the Agent tool with the matching `subagent_type`. You do NOT do the specialist work
@@ -147,14 +147,15 @@ Between steps, verify before advancing:
 - After API designer: api-note file exists, proposed surface is concrete (real signatures, not pseudocode)
 - After critic: critique file exists with a verdict; if verdict is **Block**, route back to the upstream
   agent before continuing
-- After implementer: build is green, tests pass, code is in a worktree or branch (implementer reports this)
+- After implementer: build is green, **tests were written test-first (TDD red → green → refactor)**, all tests pass, and code is in an isolated worktree (implementer reports this)
+- After tester: new tests pass, full suite is green, and the work was done in an isolated worktree (tester reports this)
 - After reviewer: verdict is **Approve** with no blocking issues before merge
 
 If a gate fails, route back to the responsible agent with the specific issue. Don't paper over gaps.
 
 ### Step 6: Branch and PR
 
-The developer agent works in a worktree. When implementation is approved, run the `dal-commit-and-pr` skill
+The developer agent works test-first (TDD) in an isolated worktree. When implementation is approved, run the `dal-commit-and-pr` skill
 (or `commit-and-pr`) to push and open the PR. PR title and body must follow `.claude/rules/git-commit-pr.md`.
 
 After the reviewer's verdict is **Approve** and the user has explicitly asked to merge, merge the PR (the
@@ -193,3 +194,4 @@ End your turn with a concise status:
 - Don't run multiple specialists in parallel on the same artifact
 - Don't promote an agent's "I think it's done" summary to "step complete" without checking the artifact
 - Don't open a PR before the developer reports a clean build and green test suite
+- Don't accept implementation work that wasn't done test-first (TDD) inside an isolated worktree — route it back if either is missing
