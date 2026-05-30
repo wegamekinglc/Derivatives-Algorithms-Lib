@@ -113,21 +113,30 @@ TEST(ScriptPreprocessorTest, TestSchedulePlaceholderReplacement) {
 }
 
 namespace {
-    // A custom preprocessor that recognises a new directive marker (`#`) as a
-    // const variable definition regardless of its value, demonstrating the
-    // intended extension points.
-    class DoubleConstPreprocessor_ : public Preprocessor_ {
+    // A preprocessor that refuses to classify any definition value as a const
+    // variable, so even a numeric value is registered as a textual macro. The
+    // base class records "0.05" as a const variable, so this override
+    // demonstrably changes the classification Process() performs.
+    class NoConstPreprocessor_ : public Preprocessor_ {
     protected:
-        bool IsConstVariable(const String_&) const override { return true; }
+        bool IsConstVariable(const String_&) const override { return false; }
     };
 } // namespace
 
 TEST(ScriptPreprocessorTest, TestExtensibilityViaOverride) {
-    Vector_<Cell_> dates = {Cell_("RATE")};
-    Vector_<String_> events = {"0.05"};
+    // "0.05" is numeric, so the base class would record RATE as a const variable
+    // and leave the later event symbolic. The override forces RATE to be treated
+    // as a macro instead: constVariables_ stays empty and RATE expands into the
+    // dated event. Both assertions fail if the override is removed, so the test
+    // genuinely verifies the extension point.
+    Vector_<Cell_> dates = {Cell_("RATE"), Cell_(Date_(2023, 12, 1))};
+    Vector_<String_> events = {"0.05", "x = RATE"};
 
-    DoubleConstPreprocessor_ preprocessor;
+    NoConstPreprocessor_ preprocessor;
     auto result = preprocessor.Process(MakeTable(dates, events));
 
-    ASSERT_NEAR(result.constVariables_["RATE"], 0.05, 1e-10);
+    ASSERT_TRUE(result.constVariables_.empty());
+    const auto& statement = result.events_.at(Date_(2023, 12, 1));
+    ASSERT_NE(statement.find("0.05"), String_::npos);
+    ASSERT_EQ(statement.find("RATE"), String_::npos);
 }

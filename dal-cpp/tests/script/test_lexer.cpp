@@ -21,7 +21,7 @@ TEST(ScriptLexerTest, TestTokenizeOperatorsAndParens) {
     auto tokens = Tokenize("MAX(spot()-K,0.0)");
     Vector_<String_> expected = {"MAX", "(", "spot", "(", ")", "-", "K", ",", "0.0", ")"};
     ASSERT_EQ(tokens.size(), expected.size());
-    for (auto i = 0; i < expected.size(); ++i)
+    for (size_t i = 0; i < expected.size(); ++i)
         ASSERT_EQ(tokens[i], expected[i]);
 }
 
@@ -29,7 +29,7 @@ TEST(ScriptLexerTest, TestTokenizeComparators) {
     auto tokens = Tokenize("a >= b != c <= d");
     Vector_<String_> expected = {"a", ">=", "b", "!=", "c", "<=", "d"};
     ASSERT_EQ(tokens.size(), expected.size());
-    for (auto i = 0; i < expected.size(); ++i)
+    for (size_t i = 0; i < expected.size(); ++i)
         ASSERT_EQ(tokens[i], expected[i]);
 }
 
@@ -37,6 +37,6 @@ TEST(ScriptLexerTest, TestTokenizeScheduleColon) {
     auto tokens = Tokenize("START: 2022-05-07");
     Vector_<String_> expected = {"START", ":", "2022", "-", "05", "-", "07"};
     ASSERT_EQ(tokens.size(), expected.size());
-    for (auto i = 0; i < expected.size(); ++i)
+    for (size_t i = 0; i < expected.size(); ++i)
         ASSERT_EQ(tokens[i], expected[i]);
 }
