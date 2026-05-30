@@ -8,72 +8,18 @@
 #include <dal/script/visitor/debugger.hpp>
 #include <dal/storage/globals.hpp>
 #include <dal/script/parser.hpp>
-#include <dal/script/event/schedule.hpp>
+#include <dal/script/preprocessor.hpp>
 
 namespace Dal::Script {
     void ScriptProduct_::ParseEvents(const Vector_<std::pair<Cell_, String_>> &events) {
-        std::map<String_, String_> macros;
-        std::map<String_, double> constVariables;
-        std::map<Date_, String_> processedEvents;
-        std::map<Date_, String_> pastProcessedEvents;
+        // 1. Definition front-end: resolve macros, const variables and schedules.
+        Preprocessor_ preprocessor;
+        auto preprocessed = preprocessor.Process(events);
 
-        for (const auto & event : events) {
-            Cell_ cell = event.first;
-            if (!Cell::IsDate(cell)) {
-                // distinguish macro and schedules
-                auto desc = Cell::ToString(cell);
-                if (desc.find(":") < desc.size()) {
-                    // find a schedule
-                    auto schedule = ParseSchedule(Tokenize(desc));
-                    String_ replaced = event.second;
-                    for (const auto &macro: macros)
-                        replaced = std::regex_replace(replaced,
-                                                      std::regex(macro.first,std::regex_constants::icase),
-                                                      macro.second);
-
-                    for (const auto& s: schedule) {
-                        auto startDate = std::get<0>(s);
-                        auto endDate = std::get<1>(s);
-                        auto fixDate = std::get<2>(s);
-                        // Replace placeholder of `PeriodBegin` and `PeriodEnd`
-                        auto final_statement = std::regex_replace(replaced,
-                                                                  std::regex("PeriodBegin", std::regex_constants::icase),
-                                                                  Date::ToString(startDate));
-                        final_statement = std::regex_replace(final_statement,
-                                                             std::regex("PeriodEnd", std::regex_constants::icase),
-                                                             Date::ToString(endDate));
-
-                        if (processedEvents.find(fixDate) != processedEvents.end())
-                            processedEvents[fixDate] += "\n" + final_statement;
-                        else
-                            processedEvents[fixDate] = final_statement;
-                    }
-                } else {
-                    REQUIRE2(macros.find(desc) == macros.end(), "macro name has already registered", ScriptError_);
-                    REQUIRE2(constVariables.find(desc) == constVariables.end(), "const macro name has already registered", ScriptError_);
-                    REQUIRE2(processedEvents.empty(), "macros should always at the front", ScriptError_);
-
-                    if (String::IsNumber(event.second))
-                        constVariables[desc] = String::ToDouble(event.second);
-                    else
-                        macros[desc] = event.second;
-                }
-            } else if (Cell::IsDate(cell)) {
-                String_ replaced = event.second;
-                for (const auto &macro: macros)
-                    replaced = std::regex_replace(replaced, std::regex(macro.first, std::regex_constants::icase),
-                                                  macro.second);
-                auto d = Cell::ToDate(cell);
-                if (processedEvents.find(d) != processedEvents.end())
-                    processedEvents[d] += "\n" + replaced;
-                else
-                    processedEvents[d] = replaced;
-            }
-        }
-
-        Parser_ parser(constVariables);
+        // 2. Payoff back-end: parse the resolved event descriptions into AST.
+        Parser_ parser(preprocessed.constVariables_);
         const auto eval_data = Global::Dates_::EvaluationDate();
-        for (const auto &processedEvent: processedEvents) {
+        for (const auto &processedEvent: preprocessed.events_) {
             if (processedEvent.first >= eval_data) {
                 eventDates_.push_back(processedEvent.first);
                 events_.push_back(parser.Parse(processedEvent.second));

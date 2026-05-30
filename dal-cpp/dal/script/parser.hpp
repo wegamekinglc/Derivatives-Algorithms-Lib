@@ -7,6 +7,7 @@
 #include <regex>
 #include <map>
 #include <dal/script/node.hpp>
+#include <dal/script/lexer.hpp>
 #include <dal/utilities/exceptions.hpp>
 
 namespace Dal::Script {
@@ -97,6 +98,4 @@ namespace Dal::Script {
         Statement_ ParseStatement(TokIt_& cur, const TokIt_& end);
         Event_ Parse(const String_& event);
     };
-
-    Vector_<String_> Tokenize(const String_& str);
 }
