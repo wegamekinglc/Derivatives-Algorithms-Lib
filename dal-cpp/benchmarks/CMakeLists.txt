@@ -1,0 +1,2 @@
+add_subdirectory(matrix_perf)
+add_subdirectory(script_perf)
