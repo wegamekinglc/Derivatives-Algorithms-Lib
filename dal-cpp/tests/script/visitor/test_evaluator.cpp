@@ -3,13 +3,35 @@
 //
 
 #include <gtest/gtest.h>
+#include <map>
 #include <dal/platform/platform.hpp>
 #include <dal/script/node.hpp>
+#include <dal/script/parser.hpp>
 #include <dal/script/visitor/all.hpp>
 #include <dal/script/visitor/evaluator.hpp>
 
 using namespace Dal;
 using namespace Dal::Script;
+
+namespace {
+    std::map<String_, double> ParseIndexEval(const String_& src) {
+        Parser_ parser;
+        auto event = parser.Parse(src);
+        VarIndexer_ indexer;
+        for (auto& stat : event)
+            stat->Accept(indexer);
+        Evaluator_<double> eval(Vector_<>(indexer.VarNames().size(), 0.0));
+        for (auto& stat : event)
+            stat->Accept(eval);
+        std::map<String_, double> out;
+        auto names = indexer.VarNames();
+        auto vals = eval.VarVals();
+        for (auto i = 0; i < names.size(); ++i)
+            out[names[i]] = vals[i];
+        return out;
+    }
+} // namespace
+
 
 TEST(ScriptTest, TestEvaluator) {
     Expression_ const1 = MakeBaseNode<NodeConst_>(20.0);
@@ -73,4 +95,175 @@ TEST(ScriptTest, TestEvaluatorWithExp) {
     assignExpr->Accept(visitor1);
     assignExpr->Accept(visitor2);
     ASSERT_DOUBLE_EQ(visitor2.VarVals()[0], 7.3890560989306504);
+}
+
+TEST(ScriptTest, TestEvaluatorAdd) {
+    auto vars = ParseIndexEval("x = 2 + 3");
+    ASSERT_NEAR(vars["x"], 5.0, 1e-10);
+}
+
+TEST(ScriptTest, TestEvaluatorSub) {
+    auto vars = ParseIndexEval("x = 10 - 4");
+    ASSERT_NEAR(vars["x"], 6.0, 1e-10);
+}
+
+TEST(ScriptTest, TestEvaluatorMul) {
+    auto vars = ParseIndexEval("x = 6 * 7");
+    ASSERT_NEAR(vars["x"], 42.0, 1e-10);
+}
+
+TEST(ScriptTest, TestEvaluatorDiv) {
+    auto vars = ParseIndexEval("x = 20 / 8");
+    ASSERT_NEAR(vars["x"], 2.5, 1e-10);
+}
+
+TEST(ScriptTest, TestEvaluatorPrecedence) {
+    auto vars = ParseIndexEval("x = 2 + 3 * 4");
+    ASSERT_NEAR(vars["x"], 14.0, 1e-10);
+}
+
+TEST(ScriptTest, TestEvaluatorParentheses) {
+    auto vars = ParseIndexEval("x = (2 + 3) * 4");
+    ASSERT_NEAR(vars["x"], 20.0, 1e-10);
+}
+
+TEST(ScriptTest, TestEvaluatorPow) {
+    auto vars = ParseIndexEval("x = 2 ^ 10");
+    ASSERT_NEAR(vars["x"], 1024.0, 1e-10);
+}
+
+
+TEST(ScriptTest, TestEvaluatorMin) {
+    auto vars = ParseIndexEval("x = MIN(3, 7)");
+    ASSERT_NEAR(vars["x"], 3.0, 1e-10);
+}
+
+TEST(ScriptTest, TestEvaluatorMax) {
+    auto vars = ParseIndexEval("x = MAX(3, 7)");
+    ASSERT_NEAR(vars["x"], 7.0, 1e-10);
+}
+
+TEST(ScriptTest, TestEvaluatorMaxThreeArgs) {
+    auto vars = ParseIndexEval("x = MAX(3, 7, 5)");
+    ASSERT_NEAR(vars["x"], 7.0, 1e-10);
+}
+
+TEST(ScriptTest, TestEvaluatorUnaryMinus) {
+    auto vars = ParseIndexEval("x = -5");
+    ASSERT_NEAR(vars["x"], -5.0, 1e-10);
+}
+
+TEST(ScriptTest, TestEvaluatorAssignReassign) {
+    auto vars = ParseIndexEval(R"(
+        x = 2
+        x = x + 10
+    )");
+    ASSERT_NEAR(vars["x"], 12.0, 1e-10);
+}
+
+TEST(ScriptTest, TestEvaluatorVariableReference) {
+    auto vars = ParseIndexEval(R"(
+        x = 4
+        y = x * 3
+    )");
+    ASSERT_NEAR(vars["x"], 4.0, 1e-10);
+    ASSERT_NEAR(vars["y"], 12.0, 1e-10);
+}
+
+
+TEST(ScriptTest, TestEvaluatorIfTrueBranch) {
+    auto vars = ParseIndexEval(R"(
+        x = 5
+        y = 0
+        IF x >= 2 THEN
+            y = 1
+        ELSE
+            y = 2
+        END
+    )");
+    ASSERT_NEAR(vars["y"], 1.0, 1e-10);
+}
+
+TEST(ScriptTest, TestEvaluatorIfFalseBranch) {
+    auto vars = ParseIndexEval(R"(
+        x = 1
+        y = 0
+        IF x >= 2 THEN
+            y = 1
+        ELSE
+            y = 2
+        END
+    )");
+    ASSERT_NEAR(vars["y"], 2.0, 1e-10);
+}
+
+TEST(ScriptTest, TestEvaluatorIfNoElseSkips) {
+    auto vars = ParseIndexEval(R"(
+        x = 1
+        y = 9
+        IF x >= 2 THEN
+            y = 1
+        END
+    )");
+    ASSERT_NEAR(vars["y"], 9.0, 1e-10);
+}
+
+TEST(ScriptTest, TestEvaluatorConditionAnd) {
+    auto vars = ParseIndexEval(R"(
+        x = 3
+        y = 0
+        IF x > 2 AND x < 5 THEN
+            y = 1
+        END
+    )");
+    ASSERT_NEAR(vars["y"], 1.0, 1e-10);
+}
+
+
+TEST(ScriptTest, TestEvaluatorConditionOr) {
+    auto vars = ParseIndexEval(R"(
+        x = 10
+        y = 0
+        IF x < 2 OR x > 5 THEN
+            y = 1
+        END
+    )");
+    ASSERT_NEAR(vars["y"], 1.0, 1e-10);
+}
+
+TEST(ScriptTest, TestEvaluatorConditionNotEqual) {
+    auto vars = ParseIndexEval(R"(
+        x = 3
+        y = 0
+        IF x != 2 THEN
+            y = 1
+        END
+    )");
+    ASSERT_NEAR(vars["y"], 1.0, 1e-10);
+}
+
+TEST(ScriptTest, TestEvaluatorConditionEqualFalse) {
+    auto vars = ParseIndexEval(R"(
+        x = 3
+        y = 0
+        IF x = 2 THEN
+            y = 1
+        ELSE
+            y = 2
+        END
+    )");
+    ASSERT_NEAR(vars["y"], 2.0, 1e-10);
+}
+
+TEST(ScriptTest, TestEvaluatorConditionLess) {
+    auto vars = ParseIndexEval(R"(
+        x = 1
+        y = 0
+        IF x < 2 THEN
+            y = 1
+        ELSE
+            y = 2
+        END
+    )");
+    ASSERT_NEAR(vars["y"], 1.0, 1e-10);
 }
