@@ -11,6 +11,27 @@
 using namespace Dal;
 using namespace Dal::Script;
 
+namespace {
+    // Validate the operand order of the NodeSub_ inside a comparison node.
+    // The parser encodes both `<` and `>` as NodeSup_ (and both `<=`/`>=` as
+    // NodeSupEqual_), distinguishing them only by swapping the subtraction
+    // operands: `x > 2` becomes `x - 2`, while `x < 2` becomes `2 - x`. With
+    // constFirst=true the subtraction is `c - v`; otherwise it is `v - c`.
+    void AssertCmpSubOrder(const Node_* cmp, bool constFirst, double c, const String_& v) {
+        ASSERT_NE(cmp, nullptr);
+        auto sub = dynamic_cast<const NodeSub_*>(cmp->arguments_[0].get());
+        ASSERT_NE(sub, nullptr);
+        const Node_* lhs = sub->arguments_[0].get();
+        const Node_* rhs = sub->arguments_[1].get();
+        auto cn = dynamic_cast<const NodeConst_*>(constFirst ? lhs : rhs);
+        auto vn = dynamic_cast<const NodeVar_*>(constFirst ? rhs : lhs);
+        ASSERT_NE(cn, nullptr);
+        ASSERT_NE(vn, nullptr);
+        ASSERT_DOUBLE_EQ(cn->constVal_, c);
+        ASSERT_EQ(vn->name_, v);
+    }
+} // namespace
+
 TEST(ScriptTest, TestParseAssign) {
     Parser_ parser;
     String_ event = "x = 2";
@@ -252,7 +273,9 @@ TEST(ScriptTest, TestParseCondLess) {
     String_ event = "IF x < 2 THEN y = 1 END";
     auto res = parser.Parse(event);
     auto ifNode = dynamic_cast<NodeIf_*>(res[0].get());
-    ASSERT_NE(dynamic_cast<NodeSup_*>(ifNode->arguments_[0].get()), nullptr);
+    auto sup = dynamic_cast<NodeSup_*>(ifNode->arguments_[0].get());
+    ASSERT_NE(sup, nullptr);
+    AssertCmpSubOrder(sup, true, 2.0, "x"); // x < 2  ->  2 - x > 0
 }
 
 TEST(ScriptTest, TestParseCondLessEqual) {
@@ -260,7 +283,9 @@ TEST(ScriptTest, TestParseCondLessEqual) {
     String_ event = "IF x <= 2 THEN y = 1 END";
     auto res = parser.Parse(event);
     auto ifNode = dynamic_cast<NodeIf_*>(res[0].get());
-    ASSERT_NE(dynamic_cast<NodeSupEqual_*>(ifNode->arguments_[0].get()), nullptr);
+    auto supEq = dynamic_cast<NodeSupEqual_*>(ifNode->arguments_[0].get());
+    ASSERT_NE(supEq, nullptr);
+    AssertCmpSubOrder(supEq, true, 2.0, "x"); // x <= 2  ->  2 - x >= 0
 }
 
 TEST(ScriptTest, TestParseCondEqual) {
@@ -289,8 +314,12 @@ TEST(ScriptTest, TestParseCondAnd) {
     auto ifNode = dynamic_cast<NodeIf_*>(res[0].get());
     auto andNode = dynamic_cast<NodeAnd_*>(ifNode->arguments_[0].get());
     ASSERT_NE(andNode, nullptr);
-    ASSERT_NE(dynamic_cast<NodeSup_*>(andNode->arguments_[0].get()), nullptr);
-    ASSERT_NE(dynamic_cast<NodeSup_*>(andNode->arguments_[1].get()), nullptr);
+    auto greater = dynamic_cast<NodeSup_*>(andNode->arguments_[0].get());
+    auto less = dynamic_cast<NodeSup_*>(andNode->arguments_[1].get());
+    ASSERT_NE(greater, nullptr);
+    ASSERT_NE(less, nullptr);
+    AssertCmpSubOrder(greater, false, 2.0, "x"); // x > 2  ->  x - 2 > 0
+    AssertCmpSubOrder(less, true, 5.0, "x");      // x < 5  ->  5 - x > 0
 }
 
 TEST(ScriptTest, TestParseCondOr) {

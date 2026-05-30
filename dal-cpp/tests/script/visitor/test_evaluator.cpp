@@ -26,7 +26,7 @@ namespace {
         std::map<String_, double> out;
         auto names = indexer.VarNames();
         auto vals = eval.VarVals();
-        for (auto i = 0; i < names.size(); ++i)
+        for (size_t i = 0; i < names.size(); ++i)
             out[names[i]] = vals[i];
         return out;
     }
