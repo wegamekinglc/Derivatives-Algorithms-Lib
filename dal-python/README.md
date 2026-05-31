@@ -66,6 +66,58 @@ This script:
 3. Builds the Python extension in development mode
 4. Runs the full test suite (112 tests)
 
+## Building Distribution Packages
+
+For production deployment, you can build pre-compiled binary wheels or source distributions.
+
+### Building a Binary Wheel
+
+Binary wheels contain the compiled C++ extension and can be installed without requiring compilation:
+
+```bash
+./build_wheel.sh              # Build wheel for current platform
+./build_wheel.sh --manylinux  # Build manylinux-compatible wheel (Linux only)
+./build_wheel.sh --clean      # Clean build artifacts before building
+```
+
+The wheel will be created in `dist/` directory:
+- `dal_python-2025.12.7-cp313-cp313-linux_x86_64.whl` (2.7 MB)
+
+Install the wheel:
+```bash
+pip install dist/dal_python-2025.12.7-cp313-cp313-linux_x86_64.whl
+# or
+uv pip install dist/dal_python-2025.12.7-cp313-cp313-linux_x86_64.whl
+```
+
+**Note:** Binary wheels are platform-specific. A wheel built on Linux x86_64 will only work on similar systems.
+
+### Building a Source Distribution
+
+Source distributions allow users to build from source on any platform:
+
+```bash
+./build_sdist.sh         # Build source distribution
+./build_sdist.sh --clean # Clean build artifacts before building
+```
+
+The source distribution will be created in `dist/` directory:
+- `dal_python-2025.12.7.tar.gz` (20 KB)
+
+Install from source (requires C++ build tools):
+```bash
+pip install dist/dal_python-2025.12.7.tar.gz
+# or
+uv pip install dist/dal_python-2025.12.7.tar.gz
+```
+
+**Requirements for building from source:**
+- C++17 compiler (GCC 13+, Clang 18+, or MSVC 2022)
+- CMake 3.21+
+- SWIG 4.x
+- Python 3.10+ development headers
+- DAL C++ library (libdal_public.a and libdal_cpp.a)
+
 ## Usage
 
 ### Basic Pricing Example
