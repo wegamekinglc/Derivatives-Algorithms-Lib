@@ -28,9 +28,10 @@ def test_product_new_auto_wraps_string_dates():
 def test_product_new_auto_wraps_date_objects():
     """Product_New auto-wraps Date_ objects as Cell_ when passed directly."""
     maturity = dal.Date_(2025, 9, 24)
-    # Passing Date_ directly (not wrapped in Cell_)
+    # Passing maturity (Date_) directly — not wrapped in Cell_ — exercises
+    # the auto-conversion path. STRIKE is passed as a plain string too.
     product = dal.Product_New(
-        [dal.Cell_("STRIKE"), dal.Cell_(maturity)],
+        ["STRIKE", maturity],
         ["100.0", "call pays MAX(spot() - STRIKE, 0.0)"],
     )
     assert product is not None

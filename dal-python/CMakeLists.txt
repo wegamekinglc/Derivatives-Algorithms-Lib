@@ -77,8 +77,11 @@ else()
         find_package(dal-public QUIET)
         if(TARGET DAL::public)
             set(DAL_PUBLIC_TARGET DAL::public)
-        elseif(DAL_DIR AND EXISTS "${DAL_DIR}/lib/libdal_public.a")
-            # Standalone build: create imported targets from pre-built static libs
+        elseif(DAL_DIR
+               AND EXISTS "${DAL_DIR}/lib/libdal_public.a"
+               AND EXISTS "${DAL_DIR}/lib/libdal_cpp.a")
+            # Standalone build: create imported targets from pre-built static libs.
+            # Both archives are required — libdal_public.a depends on libdal_cpp.a.
             message(STATUS "-- core: using pre-built DAL libraries from ${DAL_DIR}")
 
             add_library(dal_cpp_static STATIC IMPORTED)
