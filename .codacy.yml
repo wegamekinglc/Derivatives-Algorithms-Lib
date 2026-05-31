@@ -2,8 +2,11 @@
 # Codacy configuration
 # https://docs.codacy.com/repositories-configure/codacy-configuration-file/
 
-# Exclude generated artifacts and documentation-only paths from analysis.
+# Exclude generated artifacts and paths where Codacy reports false positives.
 exclude_paths:
+  # Python test files — Codacy's "assert will be removed with -O" warning
+  # is a false positive for pytest test suites (tests are never run with -O)
+  - 'dal-python/tests/**'
   # Python build artifacts (SWIG outputs are now generated at build time)
   - 'dal-python/.venv/**'
   - 'dal-python/.pytest_cache/**'
