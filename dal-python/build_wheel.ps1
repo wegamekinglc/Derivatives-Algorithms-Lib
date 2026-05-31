@@ -27,22 +27,21 @@ if (-not $DalDir) {
 }
 
 if ($Help) {
-    Write-Host "Usage: .\build_wheel.ps1 [OPTIONS]"
-    Write-Host ""
-    Write-Host "Build Python wheel package for dal-python"
-    Write-Host ""
-    Write-Host "Options:"
-    Write-Host "  -Clean         Clean build artifacts before building"
-    Write-Host "  -Help          Show this help message"
+    Write-Output "Usage: .\build_wheel.ps1 [OPTIONS]"
+    Write-Output ""
+    Write-Output "Build Python wheel package for dal-python"
+    Write-Output ""
+    Write-Output "Options:"
+    Write-Output "  -Clean         Clean build artifacts before building"
+    Write-Output "  -Help          Show this help message"
     exit 0
 }
 
 # Check prerequisites
-Write-Host "Checking prerequisites..." -ForegroundColor Yellow
-
+Write-Output "Checking prerequisites..."
 if (-not (Get-Command uv -ErrorAction SilentlyContinue)) {
-    Write-Host "Error: uv is not installed" -ForegroundColor Red
-    Write-Host "Install uv: pip install uv    or    curl -LsSf https://astral.sh/uv/install.sh | sh"
+    Write-Output "Error: uv is not installed"
+    Write-Output "Install uv: pip install uv    or    curl -LsSf https://astral.sh/uv/install.sh | sh"
     exit 1
 }
 
@@ -50,47 +49,47 @@ $LibPublic = Join-Path $DalDir "lib\dal_public.lib"
 $LibCpp = Join-Path $DalDir "lib\dal_cpp.lib"
 
 if (-not ((Test-Path $LibPublic) -and (Test-Path $LibCpp))) {
-    Write-Host "Error: DAL libraries not found in $DalDir\lib\" -ForegroundColor Red
-    Write-Host "Build the C++ library first using the top-level CMakeLists.txt:" -ForegroundColor Red
-    Write-Host ""
-    Write-Host "  cd $DalDir"
-    Write-Host "  mkdir build && cd build"
-    Write-Host "  cmake .. -DDAL_BUILD_PUBLIC=ON -DDAL_BUILD_PYTHON=ON"
-    Write-Host "  cmake --build . --config Release"
-    Write-Host "  cmake --install . --config Release"
-    Write-Host ""
+    Write-Output "Error: DAL libraries not found in $DalDir\lib\"
+    Write-Output "Build the C++ library first using the top-level CMakeLists.txt:"
+    Write-Output ""
+    Write-Output "  cd $DalDir"
+    Write-Output "  mkdir build && cd build"
+    Write-Output "  cmake .. -DDAL_BUILD_PUBLIC=ON -DDAL_BUILD_PYTHON=ON"
+    Write-Output "  cmake --build . --config Release"
+    Write-Output "  cmake --install . --config Release"
+    Write-Output ""
     exit 1
 }
 
-Write-Host "  Prerequisites satisfied" -ForegroundColor Green
+Write-Output "  Prerequisites satisfied"
 
 # Clean if requested
 if ($Clean) {
-    Write-Host "Cleaning build artifacts..." -ForegroundColor Yellow
+    Write-Output "Cleaning build artifacts..."
     if (Test-Path (Join-Path $ScriptDir "build")) { Remove-Item -Recurse -Force (Join-Path $ScriptDir "build") }
     if (Test-Path (Join-Path $ScriptDir "dist")) { Remove-Item -Recurse -Force (Join-Path $ScriptDir "dist") }
     Get-ChildItem -Path $ScriptDir -Directory -Filter "*.egg-info" | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
     Get-ChildItem -Path $ScriptDir -Directory -Filter "__pycache__" -Recurse | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
-    Write-Host "  Clean complete" -ForegroundColor Green
+    Write-Output "  Clean complete"
 }
 
 # Create build environment
-Write-Host "Creating build environment..." -ForegroundColor Yellow
+Write-Output "Creating build environment..."
 $VenvDir = Join-Path $ScriptDir ".venv"
 if (-not (Test-Path $VenvDir)) {
     uv venv $VenvDir --python ">=3.10"
 }
 $VenvActivate = Join-Path $VenvDir "Scripts\Activate.ps1"
 . $VenvActivate
-Write-Host "  Build environment ready" -ForegroundColor Green
+Write-Output "  Build environment ready"
 
 # Install build dependencies
-Write-Host "Installing build dependencies..." -ForegroundColor Yellow
+Write-Output "Installing build dependencies..."
 uv pip install -q scikit-build-core cmake ninja swig build
-Write-Host "  Build dependencies installed" -ForegroundColor Green
+Write-Output "  Build dependencies installed"
 
 # Build wheel
-Write-Host "Building wheel..." -ForegroundColor Yellow
+Write-Output "Building wheel..."
 $env:DAL_DIR = $DalDir
 
 uv build --wheel --no-build-isolation --config-settings=cmake.define.DAL_DIR="$DalDir"
@@ -99,23 +98,23 @@ uv build --wheel --no-build-isolation --config-settings=cmake.define.DAL_DIR="$D
 $DistDir = Join-Path $ScriptDir "dist"
 $WheelFile = Get-ChildItem -Path $DistDir -Filter "*.whl" -ErrorAction SilentlyContinue | Select-Object -First 1
 if (-not $WheelFile) {
-    Write-Host "Error: No wheel file found in dist\" -ForegroundColor Red
+    Write-Output "Error: No wheel file found in dist\"
     exit 1
 }
 
-Write-Host "  Wheel built: $($WheelFile.Name)" -ForegroundColor Green
+Write-Output "  Wheel built: $($WheelFile.Name)"
 
 # Display wheel info
-Write-Host ""
-Write-Host "Build complete!" -ForegroundColor Green
-Write-Host "Wheel location: $($WheelFile.FullName)"
-Write-Host "Wheel size: $([math]::Round($WheelFile.Length / 1MB, 2)) MB"
-Write-Host ""
+Write-Output ""
+Write-Output "Build complete!"
+Write-Output "Wheel location: $($WheelFile.FullName)"
+Write-Output "Wheel size: $([math]::Round($WheelFile.Length / 1MB, 2)) MB"
+Write-Output ""
 
 # Show installation instructions
-Write-Host "To install the wheel:"
-Write-Host "  pip install $($WheelFile.FullName)"
-Write-Host ""
-Write-Host "Or with uv:"
-Write-Host "  uv pip install $($WheelFile.FullName)"
-Write-Host ""
+Write-Output "To install the wheel:"
+Write-Output "  pip install $($WheelFile.FullName)"
+Write-Output ""
+Write-Output "Or with uv:"
+Write-Output "  uv pip install $($WheelFile.FullName)"
+Write-Output ""
