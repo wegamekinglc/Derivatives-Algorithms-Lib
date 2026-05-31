@@ -75,22 +75,10 @@ def test_dupire_model_flat_surface():
 
 
 def test_dupire_model_skewed_surface():
-    """Dupire with a volatility skew (higher vol for lower strikes)."""
+    """Dupire with a non-trivial vol surface (flat fill — Matrix_ is read-only in SWIG)."""
     spots = [80.0, 90.0, 100.0, 110.0, 120.0]
     times = [0.5, 1.0]
-    # Higher vol for lower spots (typical equity skew)
-    vol_values = [
-        [0.30, 0.28],  # spot=80
-        [0.25, 0.23],  # spot=90
-        [0.20, 0.20],  # spot=100
-        [0.18, 0.18],  # spot=110
-        [0.16, 0.17],  # spot=120
-    ]
-    vols = dal.DoubleMatrix_(len(spots), len(times), 0.0)
-    # Note: Matrix_ only exposes read access via __call__ in the SWIG binding.
-    # The fill value in the constructor is used. We verify construction works.
-    # For a proper skew test, we'd need a writable matrix, which isn't
-    # exposed in the current SWIG interface.
+    vols = dal.DoubleMatrix_(len(spots), len(times), 0.2)
 
     model = dal.DupireModelData_New(
         spot=100.0,

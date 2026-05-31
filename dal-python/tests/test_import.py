@@ -1,22 +1,21 @@
 """Test basic DAL Python module import and type availability."""
 
+import dal
+
 
 def test_import_dal():
     """Verify the dal module can be imported."""
-    import dal
     assert dal is not None
 
 
 def test_module_has_expected_attributes():
     """Verify dal module exposes expected API surfaces."""
-    import dal
     attrs = dir(dal)
     assert len(attrs) > 0, "dal module should have attributes"
 
 
 def test_core_types_available():
     """Verify all core SWIG-wrapped types are importable."""
-    import dal
     for type_name in [
         "Date_", "String_", "Cell_",
         "DoubleVector", "StrVector", "CellVector", "DateVector",
@@ -27,7 +26,6 @@ def test_core_types_available():
 
 def test_factory_functions_available():
     """Verify all factory functions are importable."""
-    import dal
     for fn_name in [
         "BSModelData_New",
         "DupireModelData_New",
@@ -49,7 +47,6 @@ def test_factory_functions_available():
 
 def test_date_functions_available():
     """Verify Date accessor functions are available at module level."""
-    import dal
     for fn_name in ["Year", "Month", "Day"]:
         assert hasattr(dal, fn_name), f"Missing function: {fn_name}"
         assert callable(getattr(dal, fn_name)), f"Not callable: {fn_name}"

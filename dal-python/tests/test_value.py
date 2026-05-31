@@ -39,20 +39,16 @@ def _make_european_put(strike, maturity):
 
 def test_mc_value_returns_dict():
     """MonteCarlo_Value returns a Dictionary-like object with at least a PV key."""
-    dal.EvaluationDate_Set(dal.Date_(2022, 9, 25))
     model = dal.BSModelData_New(spot=100.0, vol=0.2, rate=0.05, div=0.02)
     product = _make_european_call(100.0, dal.Date_(2023, 9, 25))
 
     result = dal.MonteCarlo_Value(product, model, 2**14)
-    # Result is a SWIG Dictionary proxy (std::map<std::string, double>)
-    # that supports key-based access and 'in' operator
     assert "PV" in result
     assert result["PV"] > 0
 
 
 def test_mc_value_european_call_sobol():
     """MC price of a European call is close to the BS analytical price."""
-    dal.EvaluationDate_Set(dal.Date_(2022, 9, 25))
     spot, vol, rate, div = 100.0, 0.2, 0.05, 0.02
     strike = 100.0
     maturity_years = 1.0
@@ -71,7 +67,6 @@ def test_mc_value_european_call_sobol():
 
 def test_mc_value_european_call_mrg32():
     """MC price with MRG32 pseudo-random generator is close to BS price."""
-    dal.EvaluationDate_Set(dal.Date_(2022, 9, 25))
     spot, vol, rate, div = 100.0, 0.2, 0.05, 0.02
     strike = 100.0
     maturity_years = 1.0
@@ -79,7 +74,6 @@ def test_mc_value_european_call_mrg32():
     model = dal.BSModelData_New(spot=spot, vol=vol, rate=rate, div=div)
     product = _make_european_call(strike, dal.Date_(2023, 9, 25))
 
-    # Valid RSG method names for ValueByMonteCarlo: "sobol", "mrg32", "irn"
     result = dal.MonteCarlo_Value(product, model, 2**16, "mrg32")
     mc_price = result["PV"]
     bs_price = _bs_call_price(spot, strike, vol, rate, div, maturity_years)
@@ -91,7 +85,6 @@ def test_mc_value_european_call_mrg32():
 
 def test_mc_value_european_put():
     """MC price of a European put is close to the BS analytical put price."""
-    dal.EvaluationDate_Set(dal.Date_(2022, 9, 25))
     spot, vol, rate, div = 100.0, 0.2, 0.05, 0.02
     strike = 100.0
     maturity_years = 1.0
@@ -115,7 +108,6 @@ def test_mc_value_european_put():
 
 def test_mc_value_otm_call():
     """Deep OTM call has a small but positive price."""
-    dal.EvaluationDate_Set(dal.Date_(2022, 9, 25))
     spot, vol, rate, div = 100.0, 0.2, 0.05, 0.02
     strike = 150.0  # 50% OTM
 
@@ -134,7 +126,6 @@ def test_mc_value_otm_call():
 
 def test_mc_value_itm_call():
     """Deep ITM call price is close to intrinsic + time value."""
-    dal.EvaluationDate_Set(dal.Date_(2022, 9, 25))
     spot, vol, rate, div = 100.0, 0.2, 0.05, 0.02
     strike = 50.0  # 50% ITM
 
@@ -153,7 +144,6 @@ def test_mc_value_itm_call():
 
 def test_mc_value_more_paths_more_accurate():
     """More MC paths generally gives a price closer to the analytical value."""
-    dal.EvaluationDate_Set(dal.Date_(2022, 9, 25))
     spot, vol, rate, div = 100.0, 0.2, 0.05, 0.02
     strike = 100.0
 
@@ -167,8 +157,6 @@ def test_mc_value_more_paths_more_accurate():
     err_few = abs(result_few["PV"] - bs_price)
     err_many = abs(result_many["PV"] - bs_price)
 
-    # The many-path result should generally be more accurate
-    # (relaxed check: just verify both are within a reasonable band)
     assert err_many < 1.0, f"Many-path error {err_many:.4f} too large"
 
 
@@ -177,20 +165,17 @@ def test_mc_value_more_paths_more_accurate():
 
 def test_mc_value_aad_returns_greeks():
     """With enable_aad=True, result dict includes gradient keys."""
-    dal.EvaluationDate_Set(dal.Date_(2022, 9, 25))
     model = dal.BSModelData_New(spot=100.0, vol=0.2, rate=0.05, div=0.02)
     product = _make_european_call(100.0, dal.Date_(2023, 9, 25))
 
     result = dal.MonteCarlo_Value(product, model, 2**14, "sobol", False, True)
     assert "PV" in result
-    # AAD should add gradient keys for model parameters
     greek_keys = [k for k in result if k.startswith("d_")]
     assert len(greek_keys) > 0, f"Expected AAD gradient keys, got: {list(result.keys())}"
 
 
 def test_mc_value_aad_pv_close_to_no_aad():
     """PV from AAD path is close to PV from non-AAD path."""
-    dal.EvaluationDate_Set(dal.Date_(2022, 9, 25))
     model = dal.BSModelData_New(spot=100.0, vol=0.2, rate=0.05, div=0.02)
     product = _make_european_call(100.0, dal.Date_(2023, 9, 25))
 
@@ -205,23 +190,19 @@ def test_mc_value_aad_pv_close_to_no_aad():
 
 def test_mc_value_aad_delta_reasonable():
     """AAD delta (d_spot) is in a reasonable range for an ATM call."""
-    dal.EvaluationDate_Set(dal.Date_(2022, 9, 25))
     model = dal.BSModelData_New(spot=100.0, vol=0.2, rate=0.05, div=0.02)
     product = _make_european_call(100.0, dal.Date_(2023, 9, 25))
 
     result = dal.MonteCarlo_Value(product, model, 2**14, "sobol", False, True)
 
-    # Find the delta key (could be d_spot or similar)
     delta_keys = [k for k in result if "spot" in k.lower()]
     if delta_keys:
         delta = result[delta_keys[0]]
-        # ATM call delta should be around 0.5-0.7
         assert 0.0 < delta < 1.0, f"Delta {delta:.4f} out of expected range [0, 1]"
 
 
 def test_mc_value_aad_vega_positive():
     """AAD vega (d_vol) is positive for a vanilla call."""
-    dal.EvaluationDate_Set(dal.Date_(2022, 9, 25))
     model = dal.BSModelData_New(spot=100.0, vol=0.2, rate=0.05, div=0.02)
     product = _make_european_call(100.0, dal.Date_(2023, 9, 25))
 
@@ -238,11 +219,9 @@ def test_mc_value_aad_vega_positive():
 
 def test_mc_value_default_method():
     """MonteCarlo_Value uses sobol by default when method is omitted."""
-    dal.EvaluationDate_Set(dal.Date_(2022, 9, 25))
     model = dal.BSModelData_New(spot=100.0, vol=0.2, rate=0.05, div=0.02)
     product = _make_european_call(100.0, dal.Date_(2023, 9, 25))
 
-    # Call without specifying method — should use default "sobol"
     result = dal.MonteCarlo_Value(product, model, 2**14)
     assert "PV" in result
     assert result["PV"] > 0
@@ -250,7 +229,6 @@ def test_mc_value_default_method():
 
 def test_mc_value_use_bb_flag():
     """MonteCarlo_Value accepts use_bb=True without error."""
-    dal.EvaluationDate_Set(dal.Date_(2022, 9, 25))
     model = dal.BSModelData_New(spot=100.0, vol=0.2, rate=0.05, div=0.02)
     product = _make_european_call(100.0, dal.Date_(2023, 9, 25))
 

@@ -68,51 +68,75 @@ if(TARGET DAL::public)
 elseif(TARGET dal_public)
     message(STATUS "-- core: linking against sibling dal_public")
     set(DAL_PUBLIC_TARGET dal_public)
-elseif(TARGET dal_library)
-    message(STATUS "-- core: linking against sibling dal_library (old build)")
-    set(DAL_PUBLIC_TARGET dal_library)
 else()
     if(DAL_PYTHON_IS_TOPLEVEL)
         # Try find_package first
         find_package(dal-public QUIET)
         if(TARGET DAL::public)
             set(DAL_PUBLIC_TARGET DAL::public)
-        elseif(DAL_DIR
-               AND EXISTS "${DAL_DIR}/lib/libdal_public.a"
-               AND EXISTS "${DAL_DIR}/lib/libdal_cpp.a")
-            # Standalone build: create imported targets from pre-built static libs.
-            # Both archives are required — libdal_public.a depends on libdal_cpp.a.
-            message(STATUS "-- core: using pre-built DAL libraries from ${DAL_DIR}")
+        elseif(DAL_DIR)
+            # Determine library prefix/suffix for the platform
+            if(WIN32)
+                set(DAL_LIB_PREFIX "")
+                set(DAL_LIB_SUFFIX ".lib")
+            else()
+                set(DAL_LIB_PREFIX "lib")
+                set(DAL_LIB_SUFFIX ".a")
+            endif()
 
-            add_library(dal_cpp_static STATIC IMPORTED)
-            set_target_properties(dal_cpp_static PROPERTIES
-                IMPORTED_LOCATION "${DAL_DIR}/lib/libdal_cpp.a")
+            set(DAL_PUBLIC_LIB "${DAL_DIR}/lib/${DAL_LIB_PREFIX}dal_public${DAL_LIB_SUFFIX}")
+            set(DAL_CPP_LIB    "${DAL_DIR}/lib/${DAL_LIB_PREFIX}dal_cpp${DAL_LIB_SUFFIX}")
 
-            add_library(dal_public_static STATIC IMPORTED)
-            set_target_properties(dal_public_static PROPERTIES
-                IMPORTED_LOCATION "${DAL_DIR}/lib/libdal_public.a"
-                INTERFACE_LINK_LIBRARIES "dal_cpp_static;pthread")
+            # Thread library for platform
+            if(NOT WIN32)
+                set(DAL_THREAD_LIB ";pthread")
+            else()
+                set(DAL_THREAD_LIB "")
+            endif()
 
-            include_directories("${DAL_DIR}/include")
+            if(EXISTS "${DAL_PUBLIC_LIB}" AND EXISTS "${DAL_CPP_LIB}")
+                message(STATUS "-- core: using pre-built DAL libraries from ${DAL_DIR}")
 
-            set(DAL_PUBLIC_TARGET dal_public_static)
+                add_library(dal_cpp_static STATIC IMPORTED)
+                set_target_properties(dal_cpp_static PROPERTIES
+                    IMPORTED_LOCATION "${DAL_CPP_LIB}")
+
+                add_library(dal_public_static STATIC IMPORTED)
+                set_target_properties(dal_public_static PROPERTIES
+                    IMPORTED_LOCATION "${DAL_PUBLIC_LIB}"
+                    INTERFACE_LINK_LIBRARIES "dal_cpp_static${DAL_THREAD_LIB}")
+
+                include_directories("${DAL_DIR}/include")
+
+                set(DAL_PUBLIC_TARGET dal_public_static)
+            else()
+                message(WARNING "dal-python: DAL libraries not found in ${DAL_DIR}/lib/")
+                message(WARNING "  Expected: ${DAL_PUBLIC_LIB} + ${DAL_CPP_LIB}")
+                set(DAL_PUBLIC_TARGET "")
+            endif()
         else()
             message(WARNING "dal-python: DAL::public not found and DAL_DIR not set or invalid. Python module may not link correctly.")
             set(DAL_PUBLIC_TARGET "")
         endif()
     else()
-        message(FATAL_ERROR "dal-python requires dal-public (DAL::public) or dal_library target")
+        message(FATAL_ERROR "dal-python requires dal-public (DAL::public or dal_public) target")
     endif()
 endif()
 
 # ---------------------------------------------------------------------------
 # Include paths
 # In monorepo mode, the parent already sets include_directories to the repo
-# root, so <dal/...> and <public/...> includes work via symlinks.
+# root, so <dal/...> and <dal-public/...> includes work.
 # In standalone mode, we need to set them up.
 # ---------------------------------------------------------------------------
-if(DAL_PYTHON_IS_TOPLEVEL AND NOT DAL_DIR)
-    include_directories(${PROJECT_SOURCE_DIR}/..)
+if(DAL_PYTHON_IS_TOPLEVEL)
+    if(DAL_DIR)
+        # Repo root so <dal/...> and <dal-public/src/...> includes resolve.
+        include_directories("${DAL_DIR}")
+        include_directories("${DAL_DIR}/include")
+    else()
+        include_directories(${PROJECT_SOURCE_DIR}/..)
+    endif()
 endif()
 
 # ---------------------------------------------------------------------------
@@ -151,11 +175,28 @@ endif()
 target_include_directories(dal_python PRIVATE ${Python3_INCLUDE_DIRS})
 target_link_libraries(dal_python PRIVATE Python3::Module)
 
+# AAD backend include paths for the SWIG wrapper compilation.
+# In monorepo mode, adept headers are at <repo>/include; in standalone
+# mode DAL_DIR points to the install root with include/ beneath it.
+if(DAL_USE_ADEPT_AAD OR DAL_USE_XAD_AAD)
+    if(DAL_DIR)
+        target_include_directories(dal_python PRIVATE "${DAL_DIR}/include")
+    else()
+        target_include_directories(dal_python PRIVATE "${CMAKE_INSTALL_PREFIX}/include")
+    endif()
+endif()
+
+if(WIN32)
+    set(DAL_PYTHON_MODULE_SUFFIX ".${Python3_SOABI}.pyd")
+else()
+    set(DAL_PYTHON_MODULE_SUFFIX ".${Python3_SOABI}${CMAKE_SHARED_MODULE_SUFFIX}")
+endif()
+
 set_target_properties(dal_python PROPERTIES
     LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/dal
     PREFIX ""
     OUTPUT_NAME _dal
-    SUFFIX ".${Python3_SOABI}${CMAKE_SHARED_MODULE_SUFFIX}")
+    SUFFIX "${DAL_PYTHON_MODULE_SUFFIX}")
 
 # ---------------------------------------------------------------------------
 # Install rules

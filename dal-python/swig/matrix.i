@@ -12,7 +12,7 @@
 
     %extend Matrix_ {
           E_ __call__(int i, int j){ return (*$self)(i, j);}
-    }
+    };
 
     %template(DoubleMatrix_) Matrix_<double>;
 
