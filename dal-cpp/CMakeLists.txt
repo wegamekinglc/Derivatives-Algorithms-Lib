@@ -56,18 +56,10 @@ endif()
 
 if(DAL_USE_XAD_AAD)
     message(STATUS "USE AAD framework: XAD")
-    add_compile_definitions(DAL_USE_XAD_AAD)
 elseif(DAL_USE_CODIPACK_AAD)
     message(STATUS "USE AAD framework: CoDiPack")
-    add_compile_definitions(DAL_USE_CODIPACK_AAD)
-    add_compile_definitions(CODI_ForcedInlines)
 elseif(DAL_USE_ADEPT_AAD)
     message(STATUS "USE AAD framework: Adept")
-    add_compile_definitions(DAL_USE_ADEPT_AAD)
-    add_compile_definitions(ADEPT_FAST_EXPONENTIAL)
-    add_compile_definitions(ADEPT_NO_DIMENSION_CHECKING)
-    add_compile_definitions(ADEPT_NO_ALIAS_CHECKING)
-    add_compile_definitions(ADEPT_INITIAL_STACK_LENGTH=10485760)
 else()
     message(STATUS "USE AAD framework: AADET (native)")
 endif()
@@ -115,10 +107,21 @@ endif()
 
 if(DAL_USE_XAD_AAD)
     target_link_libraries(dal_cpp PUBLIC XAD::xad)
+    target_compile_definitions(dal_cpp PUBLIC DAL_USE_XAD_AAD)
+    target_include_directories(dal_cpp PUBLIC ${PROJECT_SOURCE_DIR}/externals/xad/include)
 elseif(DAL_USE_CODIPACK_AAD)
     target_link_libraries(dal_cpp PUBLIC CoDiPack)
+    target_compile_definitions(dal_cpp PUBLIC DAL_USE_CODIPACK_AAD CODI_ForcedInlines)
+    target_include_directories(dal_cpp PUBLIC ${PROJECT_SOURCE_DIR}/externals/CodiPack/include)
 elseif(DAL_USE_ADEPT_AAD)
     target_link_libraries(dal_cpp PUBLIC adept)
+    target_compile_definitions(dal_cpp PUBLIC
+        DAL_USE_ADEPT_AAD
+        ADEPT_FAST_EXPONENTIAL
+        ADEPT_NO_DIMENSION_CHECKING
+        ADEPT_NO_ALIAS_CHECKING
+        ADEPT_INITIAL_STACK_LENGTH=10485760)
+    target_include_directories(dal_cpp PUBLIC ${PROJECT_SOURCE_DIR}/externals/adept/include)
 endif()
 
 set_target_properties(dal_cpp PROPERTIES
@@ -146,14 +149,6 @@ if(DAL_CPP_BUILD_TESTS)
 
     add_executable(dal_cpp_tests ${TEST_FILES})
     target_link_libraries(dal_cpp_tests PRIVATE dal_cpp gtest gtest_main gmock gmock_main)
-
-    if(DAL_USE_XAD_AAD)
-        target_link_libraries(dal_cpp_tests PRIVATE XAD::xad)
-    elseif(DAL_USE_CODIPACK_AAD)
-        target_link_libraries(dal_cpp_tests PRIVATE CoDiPack)
-    elseif(DAL_USE_ADEPT_AAD)
-        target_link_libraries(dal_cpp_tests PRIVATE adept)
-    endif()
 
     gtest_discover_tests(dal_cpp_tests)
 

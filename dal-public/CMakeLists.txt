@@ -42,12 +42,6 @@ if(MSVC)
     target_compile_definitions(dal_public PRIVATE IS_BASE)
 endif()
 
-# AAD backend include paths — inherited from dal_cpp's public interface but
-# added here explicitly so dal-public's own compilation sees them.
-if(DAL_USE_ADEPT_AAD OR DAL_USE_XAD_AAD)
-    target_include_directories(dal_public PRIVATE "${CMAKE_INSTALL_PREFIX}/include")
-endif()
-
 target_link_libraries(dal_public PUBLIC DAL::cpp)
 
 set_target_properties(dal_public PROPERTIES

@@ -70,21 +70,6 @@ option(DAL_BUILD_PUBLIC "Build dal-public" ON)
 option(DAL_BUILD_PYTHON "Build dal-python" OFF)
 option(DAL_BUILD_EXCEL "Build dal-excel" OFF)
 
-# Propagate AAD backend definitions workspace-wide so all sub-projects
-# (dal-cpp, dal-public, dal-python, dal-excel) use the same AAD backend.
-if(DAL_USE_XAD_AAD)
-    add_compile_definitions(DAL_USE_XAD_AAD)
-elseif(DAL_USE_CODIPACK_AAD)
-    add_compile_definitions(DAL_USE_CODIPACK_AAD)
-    add_compile_definitions(CODI_ForcedInlines)
-elseif(DAL_USE_ADEPT_AAD)
-    add_compile_definitions(DAL_USE_ADEPT_AAD)
-    add_compile_definitions(ADEPT_FAST_EXPONENTIAL)
-    add_compile_definitions(ADEPT_NO_DIMENSION_CHECKING)
-    add_compile_definitions(ADEPT_NO_ALIAS_CHECKING)
-    add_compile_definitions(ADEPT_INITIAL_STACK_LENGTH=10485760)
-endif()
-
 enable_testing()
 
 # Sub-projects
