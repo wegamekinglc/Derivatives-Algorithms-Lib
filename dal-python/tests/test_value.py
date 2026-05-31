@@ -196,9 +196,10 @@ def test_mc_value_aad_delta_reasonable():
     result = dal.MonteCarlo_Value(product, model, 2**14, "sobol", False, True)
 
     delta_keys = [k for k in result if "spot" in k.lower()]
-    if delta_keys:
-        delta = result[delta_keys[0]]
-        assert 0.0 < delta < 1.0, f"Delta {delta:.4f} out of expected range [0, 1]"
+    assert delta_keys, f"Expected spot delta key, got: {list(result.keys())}"
+
+    delta = result[delta_keys[0]]
+    assert 0.0 < delta < 1.0, f"Delta {delta:.4f} out of expected range [0, 1]"
 
 
 def test_mc_value_aad_vega_positive():
@@ -209,9 +210,10 @@ def test_mc_value_aad_vega_positive():
     result = dal.MonteCarlo_Value(product, model, 2**14, "sobol", False, True)
 
     vega_keys = [k for k in result if "vol" in k.lower()]
-    if vega_keys:
-        vega = result[vega_keys[0]]
-        assert vega > 0, f"Vega {vega:.4f} should be positive for a call"
+    assert vega_keys, f"Expected volatility vega key, got: {list(result.keys())}"
+
+    vega = result[vega_keys[0]]
+    assert vega > 0, f"Vega {vega:.4f} should be positive for a call"
 
 
 # ---- Default Arguments -------------------------------------------------------
