@@ -59,6 +59,12 @@ if(USE_COVERAGE AND NOT MSVC)
     message(STATUS "Coverage instrumentation enabled (USE_COVERAGE=${USE_COVERAGE})")
 endif()
 
+# Build all static libraries with -fPIC so they can be linked into the
+# Python extension shared object (_dal.so) and any other shared library
+# consumer. Without this, thread_local relocations (R_X86_64_TPOFF32)
+# cause link failures when building shared objects.
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+
 # Workspace-wide options
 option(DAL_BUILD_PUBLIC "Build dal-public" ON)
 option(DAL_BUILD_PYTHON "Build dal-python" OFF)

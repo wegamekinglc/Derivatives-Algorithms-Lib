@@ -6,7 +6,7 @@
 # Target: dal_python (alias DAL::python)
 #
 # Two build modes:
-#   Standalone:  cmake -S dal-python -B build -DCMAKE_PREFIX_PATH=<dal-public-install>
+#   Standalone:  cmake -S dal-python -B build -DDAL_DIR=<dal-install-root>
 #   Monorepo:    add_subdirectory(dal-python) from parent CMakeLists.txt
 
 cmake_minimum_required(VERSION 3.21.0)
@@ -73,11 +73,28 @@ elseif(TARGET dal_library)
     set(DAL_PUBLIC_TARGET dal_library)
 else()
     if(DAL_PYTHON_IS_TOPLEVEL)
+        # Try find_package first
         find_package(dal-public QUIET)
         if(TARGET DAL::public)
             set(DAL_PUBLIC_TARGET DAL::public)
+        elseif(DAL_DIR AND EXISTS "${DAL_DIR}/lib/libdal_public.a")
+            # Standalone build: create imported targets from pre-built static libs
+            message(STATUS "-- core: using pre-built DAL libraries from ${DAL_DIR}")
+
+            add_library(dal_cpp_static STATIC IMPORTED)
+            set_target_properties(dal_cpp_static PROPERTIES
+                IMPORTED_LOCATION "${DAL_DIR}/lib/libdal_cpp.a")
+
+            add_library(dal_public_static STATIC IMPORTED)
+            set_target_properties(dal_public_static PROPERTIES
+                IMPORTED_LOCATION "${DAL_DIR}/lib/libdal_public.a"
+                INTERFACE_LINK_LIBRARIES "dal_cpp_static;pthread")
+
+            include_directories("${DAL_DIR}/include")
+
+            set(DAL_PUBLIC_TARGET dal_public_static)
         else()
-            message(WARNING "dal-python: DAL::public not found. Python module may not link correctly.")
+            message(WARNING "dal-python: DAL::public not found and DAL_DIR not set or invalid. Python module may not link correctly.")
             set(DAL_PUBLIC_TARGET "")
         endif()
     else()
@@ -91,18 +108,16 @@ endif()
 # root, so <dal/...> and <public/...> includes work via symlinks.
 # In standalone mode, we need to set them up.
 # ---------------------------------------------------------------------------
-if(DAL_PYTHON_IS_TOPLEVEL)
+if(DAL_PYTHON_IS_TOPLEVEL AND NOT DAL_DIR)
     include_directories(${PROJECT_SOURCE_DIR}/..)
 endif()
 
 # ---------------------------------------------------------------------------
 # Python module: _dal (built via SWIG)
 #
-# The main SWIG interface is public/swig/dal.i (via the swig symlink).
-# It includes other .i files and references <dal/...> and <public/src/...>
-# headers. These resolve via the repo-root include path.
-#
-# TODO(Phase 4 step 2): Create dal_public.i that only includes dal_public headers.
+# The main SWIG interface is swig/dal.i.
+# It includes other .i files and references <dal/...> and <dal-public/src/...>
+# headers. These resolve via the repo-root include path (or DAL_DIR/include).
 # ---------------------------------------------------------------------------
 
 # UseSWIG module must be included after finding SWIG
@@ -146,13 +161,16 @@ install(TARGETS dal_python
         LIBRARY DESTINATION dal
         RUNTIME DESTINATION dal)
 
-install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/python/dal/
+# Install SWIG-generated dal.py from the build directory
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/dal/dal.py
+        DESTINATION dal)
+
+# Install hand-written Python sources from src/dal/
+install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/src/dal/
         DESTINATION dal
         FILES_MATCHING PATTERN "*.py"
         PATTERN "__pycache__" EXCLUDE
-        PATTERN "*.egg-info" EXCLUDE
-        PATTERN "build" EXCLUDE
-        PATTERN "dal_wrap.cpp" EXCLUDE)
+        PATTERN "*.egg-info" EXCLUDE)
 
 # ---------------------------------------------------------------------------
 # Python tests (pytest)

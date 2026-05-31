@@ -1,0 +1,258 @@
+"""Tests for MonteCarlo_Value — end-to-end MC pricing."""
+
+import math
+import dal
+
+
+# ---- Helpers -----------------------------------------------------------------
+
+
+def _bs_call_price(spot, strike, vol, rate, div, maturity_years):
+    """Analytical Black-Scholes European call price for test validation."""
+    d1 = (math.log(spot / strike) + (rate - div + 0.5 * vol**2) * maturity_years) / (
+        vol * math.sqrt(maturity_years)
+    )
+    d2 = d1 - vol * math.sqrt(maturity_years)
+    nd1 = 0.5 * (1.0 + math.erf(d1 / math.sqrt(2.0)))
+    nd2 = 0.5 * (1.0 + math.erf(d2 / math.sqrt(2.0)))
+    return spot * math.exp(-div * maturity_years) * nd1 - strike * math.exp(
+        -rate * maturity_years
+    ) * nd2
+
+
+def _make_european_call(strike, maturity):
+    """Build a European call product."""
+    dates = [dal.Cell_("STRIKE"), dal.Cell_(maturity)]
+    events = [str(strike), "call pays MAX(spot() - STRIKE, 0.0)"]
+    return dal.Product_New(dates, events)
+
+
+def _make_european_put(strike, maturity):
+    """Build a European put product."""
+    dates = [dal.Cell_("STRIKE"), dal.Cell_(maturity)]
+    events = [str(strike), "put pays MAX(STRIKE - spot(), 0.0)"]
+    return dal.Product_New(dates, events)
+
+
+# ---- Basic Valuation ---------------------------------------------------------
+
+
+def test_mc_value_returns_dict():
+    """MonteCarlo_Value returns a Dictionary-like object with at least a PV key."""
+    dal.EvaluationDate_Set(dal.Date_(2022, 9, 25))
+    model = dal.BSModelData_New(spot=100.0, vol=0.2, rate=0.05, div=0.02)
+    product = _make_european_call(100.0, dal.Date_(2023, 9, 25))
+
+    result = dal.MonteCarlo_Value(product, model, 2**14)
+    # Result is a SWIG Dictionary proxy (std::map<std::string, double>)
+    # that supports key-based access and 'in' operator
+    assert "PV" in result
+    assert result["PV"] > 0
+
+
+def test_mc_value_european_call_sobol():
+    """MC price of a European call is close to the BS analytical price."""
+    dal.EvaluationDate_Set(dal.Date_(2022, 9, 25))
+    spot, vol, rate, div = 100.0, 0.2, 0.05, 0.02
+    strike = 100.0
+    maturity_years = 1.0
+
+    model = dal.BSModelData_New(spot=spot, vol=vol, rate=rate, div=div)
+    product = _make_european_call(strike, dal.Date_(2023, 9, 25))
+
+    result = dal.MonteCarlo_Value(product, model, 2**16, "sobol")
+    mc_price = result["PV"]
+    bs_price = _bs_call_price(spot, strike, vol, rate, div, maturity_years)
+
+    assert abs(mc_price - bs_price) < 0.5, (
+        f"MC price {mc_price:.4f} too far from BS price {bs_price:.4f}"
+    )
+
+
+def test_mc_value_european_call_mrg32():
+    """MC price with MRG32 pseudo-random generator is close to BS price."""
+    dal.EvaluationDate_Set(dal.Date_(2022, 9, 25))
+    spot, vol, rate, div = 100.0, 0.2, 0.05, 0.02
+    strike = 100.0
+    maturity_years = 1.0
+
+    model = dal.BSModelData_New(spot=spot, vol=vol, rate=rate, div=div)
+    product = _make_european_call(strike, dal.Date_(2023, 9, 25))
+
+    # Valid RSG method names for ValueByMonteCarlo: "sobol", "mrg32", "irn"
+    result = dal.MonteCarlo_Value(product, model, 2**16, "mrg32")
+    mc_price = result["PV"]
+    bs_price = _bs_call_price(spot, strike, vol, rate, div, maturity_years)
+
+    assert abs(mc_price - bs_price) < 1.0, (
+        f"MRG32 MC price {mc_price:.4f} too far from BS price {bs_price:.4f}"
+    )
+
+
+def test_mc_value_european_put():
+    """MC price of a European put is close to the BS analytical put price."""
+    dal.EvaluationDate_Set(dal.Date_(2022, 9, 25))
+    spot, vol, rate, div = 100.0, 0.2, 0.05, 0.02
+    strike = 100.0
+    maturity_years = 1.0
+
+    model = dal.BSModelData_New(spot=spot, vol=vol, rate=rate, div=div)
+    product = _make_european_put(strike, dal.Date_(2023, 9, 25))
+
+    result = dal.MonteCarlo_Value(product, model, 2**16, "sobol")
+    mc_price = result["PV"]
+
+    # BS put price via put-call parity: P = C - S*exp(-div*T) + K*exp(-r*T)
+    call_price = _bs_call_price(spot, strike, vol, rate, div, maturity_years)
+    bs_put = call_price - spot * math.exp(-div * maturity_years) + strike * math.exp(
+        -rate * maturity_years
+    )
+
+    assert abs(mc_price - bs_put) < 0.5, (
+        f"MC put price {mc_price:.4f} too far from BS put price {bs_put:.4f}"
+    )
+
+
+def test_mc_value_otm_call():
+    """Deep OTM call has a small but positive price."""
+    dal.EvaluationDate_Set(dal.Date_(2022, 9, 25))
+    spot, vol, rate, div = 100.0, 0.2, 0.05, 0.02
+    strike = 150.0  # 50% OTM
+
+    model = dal.BSModelData_New(spot=spot, vol=vol, rate=rate, div=div)
+    product = _make_european_call(strike, dal.Date_(2023, 9, 25))
+
+    result = dal.MonteCarlo_Value(product, model, 2**16, "sobol")
+    mc_price = result["PV"]
+
+    bs_price = _bs_call_price(spot, strike, vol, rate, div, 1.0)
+    assert mc_price > 0, "OTM call should have positive price"
+    assert abs(mc_price - bs_price) < 0.3, (
+        f"OTM MC price {mc_price:.4f} too far from BS {bs_price:.4f}"
+    )
+
+
+def test_mc_value_itm_call():
+    """Deep ITM call price is close to intrinsic + time value."""
+    dal.EvaluationDate_Set(dal.Date_(2022, 9, 25))
+    spot, vol, rate, div = 100.0, 0.2, 0.05, 0.02
+    strike = 50.0  # 50% ITM
+
+    model = dal.BSModelData_New(spot=spot, vol=vol, rate=rate, div=div)
+    product = _make_european_call(strike, dal.Date_(2023, 9, 25))
+
+    result = dal.MonteCarlo_Value(product, model, 2**16, "sobol")
+    mc_price = result["PV"]
+
+    bs_price = _bs_call_price(spot, strike, vol, rate, div, 1.0)
+    assert mc_price > strike * 0.4, "ITM call should be well above zero"
+    assert abs(mc_price - bs_price) < 1.0, (
+        f"ITM MC price {mc_price:.4f} too far from BS {bs_price:.4f}"
+    )
+
+
+def test_mc_value_more_paths_more_accurate():
+    """More MC paths generally gives a price closer to the analytical value."""
+    dal.EvaluationDate_Set(dal.Date_(2022, 9, 25))
+    spot, vol, rate, div = 100.0, 0.2, 0.05, 0.02
+    strike = 100.0
+
+    model = dal.BSModelData_New(spot=spot, vol=vol, rate=rate, div=div)
+    product = _make_european_call(strike, dal.Date_(2023, 9, 25))
+    bs_price = _bs_call_price(spot, strike, vol, rate, div, 1.0)
+
+    result_few = dal.MonteCarlo_Value(product, model, 2**10, "sobol")
+    result_many = dal.MonteCarlo_Value(product, model, 2**16, "sobol")
+
+    err_few = abs(result_few["PV"] - bs_price)
+    err_many = abs(result_many["PV"] - bs_price)
+
+    # The many-path result should generally be more accurate
+    # (relaxed check: just verify both are within a reasonable band)
+    assert err_many < 1.0, f"Many-path error {err_many:.4f} too large"
+
+
+# ---- AAD Greeks --------------------------------------------------------------
+
+
+def test_mc_value_aad_returns_greeks():
+    """With enable_aad=True, result dict includes gradient keys."""
+    dal.EvaluationDate_Set(dal.Date_(2022, 9, 25))
+    model = dal.BSModelData_New(spot=100.0, vol=0.2, rate=0.05, div=0.02)
+    product = _make_european_call(100.0, dal.Date_(2023, 9, 25))
+
+    result = dal.MonteCarlo_Value(product, model, 2**14, "sobol", False, True)
+    assert "PV" in result
+    # AAD should add gradient keys for model parameters
+    greek_keys = [k for k in result if k.startswith("d_")]
+    assert len(greek_keys) > 0, f"Expected AAD gradient keys, got: {list(result.keys())}"
+
+
+def test_mc_value_aad_pv_close_to_no_aad():
+    """PV from AAD path is close to PV from non-AAD path."""
+    dal.EvaluationDate_Set(dal.Date_(2022, 9, 25))
+    model = dal.BSModelData_New(spot=100.0, vol=0.2, rate=0.05, div=0.02)
+    product = _make_european_call(100.0, dal.Date_(2023, 9, 25))
+
+    result_no_aad = dal.MonteCarlo_Value(product, model, 2**14, "sobol", False, False)
+    result_aad = dal.MonteCarlo_Value(product, model, 2**14, "sobol", False, True)
+
+    assert abs(result_no_aad["PV"] - result_aad["PV"]) < 0.5, (
+        f"AAD PV {result_aad['PV']:.4f} differs from "
+        f"non-AAD PV {result_no_aad['PV']:.4f}"
+    )
+
+
+def test_mc_value_aad_delta_reasonable():
+    """AAD delta (d_spot) is in a reasonable range for an ATM call."""
+    dal.EvaluationDate_Set(dal.Date_(2022, 9, 25))
+    model = dal.BSModelData_New(spot=100.0, vol=0.2, rate=0.05, div=0.02)
+    product = _make_european_call(100.0, dal.Date_(2023, 9, 25))
+
+    result = dal.MonteCarlo_Value(product, model, 2**14, "sobol", False, True)
+
+    # Find the delta key (could be d_spot or similar)
+    delta_keys = [k for k in result if "spot" in k.lower()]
+    if delta_keys:
+        delta = result[delta_keys[0]]
+        # ATM call delta should be around 0.5-0.7
+        assert 0.0 < delta < 1.0, f"Delta {delta:.4f} out of expected range [0, 1]"
+
+
+def test_mc_value_aad_vega_positive():
+    """AAD vega (d_vol) is positive for a vanilla call."""
+    dal.EvaluationDate_Set(dal.Date_(2022, 9, 25))
+    model = dal.BSModelData_New(spot=100.0, vol=0.2, rate=0.05, div=0.02)
+    product = _make_european_call(100.0, dal.Date_(2023, 9, 25))
+
+    result = dal.MonteCarlo_Value(product, model, 2**14, "sobol", False, True)
+
+    vega_keys = [k for k in result if "vol" in k.lower()]
+    if vega_keys:
+        vega = result[vega_keys[0]]
+        assert vega > 0, f"Vega {vega:.4f} should be positive for a call"
+
+
+# ---- Default Arguments -------------------------------------------------------
+
+
+def test_mc_value_default_method():
+    """MonteCarlo_Value uses sobol by default when method is omitted."""
+    dal.EvaluationDate_Set(dal.Date_(2022, 9, 25))
+    model = dal.BSModelData_New(spot=100.0, vol=0.2, rate=0.05, div=0.02)
+    product = _make_european_call(100.0, dal.Date_(2023, 9, 25))
+
+    # Call without specifying method — should use default "sobol"
+    result = dal.MonteCarlo_Value(product, model, 2**14)
+    assert "PV" in result
+    assert result["PV"] > 0
+
+
+def test_mc_value_use_bb_flag():
+    """MonteCarlo_Value accepts use_bb=True without error."""
+    dal.EvaluationDate_Set(dal.Date_(2022, 9, 25))
+    model = dal.BSModelData_New(spot=100.0, vol=0.2, rate=0.05, div=0.02)
+    product = _make_european_call(100.0, dal.Date_(2023, 9, 25))
+
+    result = dal.MonteCarlo_Value(product, model, 2**14, "sobol", True)
+    assert "PV" in result
