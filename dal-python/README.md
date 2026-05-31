@@ -14,7 +14,7 @@ Python bindings for the Derivatives Algorithms Library (DAL) — a high-performa
 
 - **Python 3.10+** with development headers
 - **uv** — fast Python package manager ([install guide](https://docs.astral.sh/uv/getting-started/installation/))
-- **SWIG 4.x** — for regenerating Python bindings (optional, pre-generated wrapper included)
+- **SWIG 4.x** — required to generate Python bindings during build
 - **CMake 3.21+** and a C++17 compiler (GCC 13+, Clang 18+, or MSVC 2022)
 - **DAL C++ library** — must be built first (see [Building the C++ Library](#building-the-c-library))
 
@@ -106,9 +106,11 @@ The source distribution will be created in `dist/` directory:
 
 Install from source (requires C++ build tools):
 ```bash
-pip install dist/dal_python-2025.12.7.tar.gz
+pip install dist/dal_python-2025.12.7.tar.gz \
+  --config-settings=cmake.define.DAL_DIR=/path/to/Derivatives-Algorithms-Lib
 # or
-uv pip install dist/dal_python-2025.12.7.tar.gz
+uv pip install dist/dal_python-2025.12.7.tar.gz \
+  --config-settings=cmake.define.DAL_DIR=/path/to/Derivatives-Algorithms-Lib
 ```
 
 **Requirements for building from source:**
