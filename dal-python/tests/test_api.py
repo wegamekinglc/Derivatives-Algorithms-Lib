@@ -6,12 +6,12 @@ from dal import api
 
 def test_api_module_importable():
     """dal.api module is importable."""
-    assert api is not None
+    assert api is not None  # nosec B101 - pytest assertions are intentional
 
 
 def test_product_new_function_exists():
     """Product_New is available from the top-level dal package."""
-    assert callable(dal.Product_New)
+    assert callable(dal.Product_New)  # nosec B101 - pytest assertions are intentional
 
 
 def test_product_new_auto_wraps_string_dates():
@@ -22,7 +22,7 @@ def test_product_new_auto_wraps_string_dates():
         ["STRIKE", dal.Cell_(maturity)],
         ["100.0", "call pays MAX(spot() - STRIKE, 0.0)"],
     )
-    assert product is not None
+    assert product is not None  # nosec B101 - pytest assertions are intentional
 
 
 def test_product_new_auto_wraps_date_objects():
@@ -34,7 +34,7 @@ def test_product_new_auto_wraps_date_objects():
         ["STRIKE", maturity],
         ["100.0", "call pays MAX(spot() - STRIKE, 0.0)"],
     )
-    assert product is not None
+    assert product is not None  # nosec B101 - pytest assertions are intentional
 
 
 def test_product_new_all_cell_dates():
@@ -44,7 +44,7 @@ def test_product_new_all_cell_dates():
         [dal.Cell_("STRIKE"), dal.Cell_(maturity)],
         ["100.0", "call pays MAX(spot() - STRIKE, 0.0)"],
     )
-    assert product is not None
+    assert product is not None  # nosec B101 - pytest assertions are intentional
 
 
 def test_product_new_preserves_cell_passthrough():
@@ -57,7 +57,7 @@ def test_product_new_preserves_cell_passthrough():
         [cell_strike, cell_maturity],
         ["100.0", "call pays MAX(spot() - STRIKE, 0.0)"],
     )
-    assert product is not None
+    assert product is not None  # nosec B101 - pytest assertions are intentional
 
 
 def test_product_new_multiple_macros():
@@ -77,11 +77,11 @@ def test_product_new_multiple_macros():
             "call pays MAX(spot() - STRIKE, 0.0)",
         ],
     )
-    assert product is not None
+    assert product is not None  # nosec B101 - pytest assertions are intentional
 
 
 def test_version_attribute():
     """dal package exposes a __version__ attribute."""
-    assert hasattr(dal, "__version__")
-    assert isinstance(dal.__version__, str)
-    assert len(dal.__version__) > 0
+    assert hasattr(dal, "__version__")  # nosec B101 - pytest assertions are intentional
+    assert isinstance(dal.__version__, str)  # nosec B101 - pytest assertions are intentional
+    assert len(dal.__version__) > 0  # nosec B101 - pytest assertions are intentional

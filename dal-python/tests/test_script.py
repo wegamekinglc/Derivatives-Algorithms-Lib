@@ -9,7 +9,7 @@ def test_product_new_european_call():
     dates = [dal.Cell_("STRIKE"), dal.Cell_(maturity)]
     events = ["100.0", "call pays MAX(spot() - STRIKE, 0.0)"]
     product = dal.Product_New(dates, events)
-    assert product is not None
+    assert product is not None  # nosec B101 - pytest assertions are intentional
 
 
 def test_product_new_european_put():
@@ -18,7 +18,7 @@ def test_product_new_european_put():
     dates = [dal.Cell_("STRIKE"), dal.Cell_(maturity)]
     events = ["100.0", "put pays MAX(STRIKE - spot(), 0.0)"]
     product = dal.Product_New(dates, events)
-    assert product is not None
+    assert product is not None  # nosec B101 - pytest assertions are intentional
 
 
 def test_product_new_digital():
@@ -27,7 +27,7 @@ def test_product_new_digital():
     dates = [dal.Cell_("STRIKE"), dal.Cell_(maturity)]
     events = ["100.0", "call pays IF(spot() > STRIKE, 1.0, 0.0)"]
     product = dal.Product_New(dates, events)
-    assert product is not None
+    assert product is not None  # nosec B101 - pytest assertions are intentional
 
 
 def test_product_new_with_named_params():
@@ -44,7 +44,7 @@ def test_product_new_with_named_params():
         "call pays MAX(spot() - STRIKE, 0.0)",
     ]
     product = dal.Product_New(dates, events)
-    assert product is not None
+    assert product is not None  # nosec B101 - pytest assertions are intentional
 
 
 def test_product_new_with_state_variable():
@@ -62,7 +62,7 @@ def test_product_new_with_state_variable():
         "call pays alive * MAX(spot() - STRIKE, 0.0)",
     ]
     product = dal.Product_New(dates, events)
-    assert product is not None
+    assert product is not None  # nosec B101 - pytest assertions are intentional
 
 
 def test_product_new_string_dates_auto_convert():
@@ -72,7 +72,7 @@ def test_product_new_string_dates_auto_convert():
     dates = ["STRIKE", dal.Cell_(maturity)]
     events = ["100.0", "call pays MAX(spot() - STRIKE, 0.0)"]
     product = dal.Product_New(dates, events)
-    assert product is not None
+    assert product is not None  # nosec B101 - pytest assertions are intentional
 
 
 def test_product_debug():
@@ -83,8 +83,8 @@ def test_product_debug():
     product = dal.Product_New(dates, events)
 
     debug_str = dal.Product_Debug(product)
-    assert isinstance(debug_str, str)
-    assert len(debug_str) > 0
+    assert isinstance(debug_str, str)  # nosec B101 - pytest assertions are intentional
+    assert len(debug_str) > 0  # nosec B101 - pytest assertions are intentional
 
 
 def test_product_debug_contains_payoff_info():
@@ -96,7 +96,7 @@ def test_product_debug_contains_payoff_info():
 
     debug_str = dal.Product_Debug(product)
     # Debug output should contain some structural information
-    assert len(debug_str) > 10
+    assert len(debug_str) > 10  # nosec B101 - pytest assertions are intentional
 
 
 def test_product_new_barrier_knockout():
@@ -124,6 +124,6 @@ def test_product_new_barrier_knockout():
         "uoc pays alive * MAX(spot() - STRIKE, 0.0)",
     ]
     product = dal.Product_New(dates, events)
-    assert product is not None
+    assert product is not None  # nosec B101 - pytest assertions are intentional
     debug_str = dal.Product_Debug(product)
-    assert len(debug_str) > 0
+    assert len(debug_str) > 0  # nosec B101 - pytest assertions are intentional

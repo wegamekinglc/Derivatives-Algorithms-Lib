@@ -8,7 +8,7 @@ def test_evaluation_date_set_and_get():
     d = dal.Date_(2023, 6, 15)
     dal.EvaluationDate_Set(d)
     result = dal.EvaluationDate_Get()
-    assert result == d
+    assert result == d  # nosec B101 - pytest assertions are intentional
 
 
 def test_evaluation_date_overwrite():
@@ -17,10 +17,10 @@ def test_evaluation_date_overwrite():
     d2 = dal.Date_(2025, 12, 31)
 
     dal.EvaluationDate_Set(d1)
-    assert dal.EvaluationDate_Get() == d1
+    assert dal.EvaluationDate_Get() == d1  # nosec B101 - pytest assertions are intentional
 
     dal.EvaluationDate_Set(d2)
-    assert dal.EvaluationDate_Get() == d2
+    assert dal.EvaluationDate_Get() == d2  # nosec B101 - pytest assertions are intentional
 
 
 def test_evaluation_date_set_same_twice():
@@ -28,7 +28,7 @@ def test_evaluation_date_set_same_twice():
     d = dal.Date_(2024, 3, 15)
     dal.EvaluationDate_Set(d)
     dal.EvaluationDate_Set(d)
-    assert dal.EvaluationDate_Get() == d
+    assert dal.EvaluationDate_Get() == d  # nosec B101 - pytest assertions are intentional
 
 
 def test_evaluation_date_persists_across_calls():
@@ -40,9 +40,9 @@ def test_evaluation_date_persists_across_calls():
     r2 = dal.EvaluationDate_Get()
     r3 = dal.EvaluationDate_Get()
 
-    assert r1 == d
-    assert r2 == d
-    assert r3 == d
+    assert r1 == d  # nosec B101 - pytest assertions are intentional
+    assert r2 == d  # nosec B101 - pytest assertions are intentional
+    assert r3 == d  # nosec B101 - pytest assertions are intentional
 
 
 def test_evaluation_date_various_dates():
@@ -55,4 +55,4 @@ def test_evaluation_date_various_dates():
     ]
     for d in dates:
         dal.EvaluationDate_Set(d)
-        assert dal.EvaluationDate_Get() == d
+        assert dal.EvaluationDate_Get() == d  # nosec B101 - pytest assertions are intentional

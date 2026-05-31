@@ -9,32 +9,32 @@ import dal
 def test_bs_model_new():
     """BSModelData_New creates a valid model handle."""
     model = dal.BSModelData_New(spot=100.0, vol=0.2, rate=0.05, div=0.02)
-    assert model is not None
+    assert model is not None  # nosec B101 - pytest assertions are intentional
 
 
 def test_bs_model_zero_vol():
     """BS model with zero vol is accepted (degenerate case)."""
     model = dal.BSModelData_New(spot=100.0, vol=0.0, rate=0.05, div=0.0)
-    assert model is not None
+    assert model is not None  # nosec B101 - pytest assertions are intentional
 
 
 def test_bs_model_zero_rate_and_div():
     """BS model with zero rate and dividend works."""
     model = dal.BSModelData_New(spot=100.0, vol=0.3, rate=0.0, div=0.0)
-    assert model is not None
+    assert model is not None  # nosec B101 - pytest assertions are intentional
 
 
 def test_bs_model_high_vol():
     """BS model with high vol is accepted."""
     model = dal.BSModelData_New(spot=100.0, vol=2.0, rate=0.05, div=0.02)
-    assert model is not None
+    assert model is not None  # nosec B101 - pytest assertions are intentional
 
 
 def test_bs_model_various_spots():
     """BS model works for a range of spot values."""
     for spot in [1.0, 10.0, 100.0, 1000.0, 50000.0]:
         model = dal.BSModelData_New(spot=spot, vol=0.2, rate=0.05, div=0.01)
-        assert model is not None
+        assert model is not None  # nosec B101 - pytest assertions are intentional
 
 
 # ---- DupireModelData ---------------------------------------------------------
@@ -54,7 +54,7 @@ def test_dupire_model_new():
         times=times,
         vols=vols,
     )
-    assert model is not None
+    assert model is not None  # nosec B101 - pytest assertions are intentional
 
 
 def test_dupire_model_flat_surface():
@@ -71,7 +71,7 @@ def test_dupire_model_flat_surface():
         times=times,
         vols=vols,
     )
-    assert model is not None
+    assert model is not None  # nosec B101 - pytest assertions are intentional
 
 
 def test_dupire_model_skewed_surface():
@@ -88,7 +88,7 @@ def test_dupire_model_skewed_surface():
         times=times,
         vols=vols,
     )
-    assert model is not None
+    assert model is not None  # nosec B101 - pytest assertions are intentional
 
 
 def test_dupire_model_single_spot_single_time():
@@ -105,4 +105,4 @@ def test_dupire_model_single_spot_single_time():
         times=times,
         vols=vols,
     )
-    assert model is not None
+    assert model is not None  # nosec B101 - pytest assertions are intentional

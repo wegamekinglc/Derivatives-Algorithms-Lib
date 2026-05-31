@@ -6,7 +6,7 @@ import dal
 def test_doublevector_empty():
     """DoubleVector starts empty and grows via append."""
     v = dal.DoubleVector()
-    assert len(v) == 0
+    assert len(v) == 0  # nosec B101 - pytest assertions are intentional
 
 
 def test_doublevector_append_and_access():
@@ -16,9 +16,9 @@ def test_doublevector_append_and_access():
     for val in values:
         v.append(val)
 
-    assert len(v) == len(values)
+    assert len(v) == len(values)  # nosec B101 - pytest assertions are intentional
     for i, expected in enumerate(values):
-        assert v[i] == expected
+        assert v[i] == expected  # nosec B101 - pytest assertions are intentional
 
 
 def test_doublevector_setitem():
@@ -28,8 +28,8 @@ def test_doublevector_setitem():
     v.append(0.0)
     v[0] = 42.0
     v[1] = -7.5
-    assert v[0] == 42.0
-    assert v[1] == -7.5
+    assert v[0] == 42.0  # nosec B101 - pytest assertions are intentional
+    assert v[1] == -7.5  # nosec B101 - pytest assertions are intentional
 
 
 def test_doublevector_large():
@@ -38,15 +38,15 @@ def test_doublevector_large():
     n = 10000
     for i in range(n):
         v.append(float(i))
-    assert len(v) == n
-    assert v[0] == 0.0
-    assert v[n - 1] == float(n - 1)
+    assert len(v) == n  # nosec B101 - pytest assertions are intentional
+    assert v[0] == 0.0  # nosec B101 - pytest assertions are intentional
+    assert v[n - 1] == float(n - 1)  # nosec B101 - pytest assertions are intentional
 
 
 def test_strvector_empty():
     """StrVector starts empty."""
     v = dal.StrVector()
-    assert len(v) == 0
+    assert len(v) == 0  # nosec B101 - pytest assertions are intentional
 
 
 def test_strvector_append_and_access():
@@ -56,9 +56,9 @@ def test_strvector_append_and_access():
     for item in items:
         v.append(item)
 
-    assert len(v) == len(items)
+    assert len(v) == len(items)  # nosec B101 - pytest assertions are intentional
     for i, expected in enumerate(items):
-        assert v[i] == expected
+        assert v[i] == expected  # nosec B101 - pytest assertions are intentional
 
 
 def test_datevector_append_and_access():
@@ -72,10 +72,10 @@ def test_datevector_append_and_access():
     for d in dates:
         dv.append(d)
 
-    assert len(dv) == 3
-    assert dal.Year(dv[0]) == 2022
-    assert dal.Month(dv[1]) == 6
-    assert dal.Day(dv[2]) == 31
+    assert len(dv) == 3  # nosec B101 - pytest assertions are intentional
+    assert dal.Year(dv[0]) == 2022  # nosec B101 - pytest assertions are intentional
+    assert dal.Month(dv[1]) == 6  # nosec B101 - pytest assertions are intentional
+    assert dal.Day(dv[2]) == 31  # nosec B101 - pytest assertions are intentional
 
 
 def test_cellvector_append_and_access():
@@ -85,4 +85,4 @@ def test_cellvector_append_and_access():
     cv.append(dal.Cell_("STRIKE"))
     cv.append(dal.Cell_(dal.Date_(2025, 1, 1)))
 
-    assert len(cv) == 3
+    assert len(cv) == 3  # nosec B101 - pytest assertions are intentional

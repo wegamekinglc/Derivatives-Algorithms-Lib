@@ -43,8 +43,8 @@ def test_mc_value_returns_dict():
     product = _make_european_call(100.0, dal.Date_(2023, 9, 25))
 
     result = dal.MonteCarlo_Value(product, model, 2**14)
-    assert "PV" in result
-    assert result["PV"] > 0
+    assert "PV" in result  # nosec B101 - pytest assertions are intentional
+    assert result["PV"] > 0  # nosec B101 - pytest assertions are intentional
 
 
 def test_mc_value_european_call_sobol():
@@ -60,7 +60,7 @@ def test_mc_value_european_call_sobol():
     mc_price = result["PV"]
     bs_price = _bs_call_price(spot, strike, vol, rate, div, maturity_years)
 
-    assert abs(mc_price - bs_price) < 0.5, (
+    assert abs(mc_price - bs_price) < 0.5, (  # nosec B101 - pytest assertions are intentional
         f"MC price {mc_price:.4f} too far from BS price {bs_price:.4f}"
     )
 
@@ -78,7 +78,7 @@ def test_mc_value_european_call_mrg32():
     mc_price = result["PV"]
     bs_price = _bs_call_price(spot, strike, vol, rate, div, maturity_years)
 
-    assert abs(mc_price - bs_price) < 1.0, (
+    assert abs(mc_price - bs_price) < 1.0, (  # nosec B101 - pytest assertions are intentional
         f"MRG32 MC price {mc_price:.4f} too far from BS price {bs_price:.4f}"
     )
 
@@ -101,7 +101,7 @@ def test_mc_value_european_put():
         -rate * maturity_years
     )
 
-    assert abs(mc_price - bs_put) < 0.5, (
+    assert abs(mc_price - bs_put) < 0.5, (  # nosec B101 - pytest assertions are intentional
         f"MC put price {mc_price:.4f} too far from BS put price {bs_put:.4f}"
     )
 
@@ -118,8 +118,8 @@ def test_mc_value_otm_call():
     mc_price = result["PV"]
 
     bs_price = _bs_call_price(spot, strike, vol, rate, div, 1.0)
-    assert mc_price > 0, "OTM call should have positive price"
-    assert abs(mc_price - bs_price) < 0.3, (
+    assert mc_price > 0, "OTM call should have positive price"  # nosec B101 - pytest assertions are intentional
+    assert abs(mc_price - bs_price) < 0.3, (  # nosec B101 - pytest assertions are intentional
         f"OTM MC price {mc_price:.4f} too far from BS {bs_price:.4f}"
     )
 
@@ -136,8 +136,8 @@ def test_mc_value_itm_call():
     mc_price = result["PV"]
 
     bs_price = _bs_call_price(spot, strike, vol, rate, div, 1.0)
-    assert mc_price > strike * 0.4, "ITM call should be well above zero"
-    assert abs(mc_price - bs_price) < 1.0, (
+    assert mc_price > strike * 0.4, "ITM call should be well above zero"  # nosec B101 - pytest assertions are intentional
+    assert abs(mc_price - bs_price) < 1.0, (  # nosec B101 - pytest assertions are intentional
         f"ITM MC price {mc_price:.4f} too far from BS {bs_price:.4f}"
     )
 
@@ -157,7 +157,7 @@ def test_mc_value_more_paths_more_accurate():
     err_few = abs(result_few["PV"] - bs_price)
     err_many = abs(result_many["PV"] - bs_price)
 
-    assert err_many < 1.0, f"Many-path error {err_many:.4f} too large"
+    assert err_many < 1.0, f"Many-path error {err_many:.4f} too large"  # nosec B101 - pytest assertions are intentional
 
 
 # ---- AAD Greeks --------------------------------------------------------------
@@ -169,9 +169,9 @@ def test_mc_value_aad_returns_greeks():
     product = _make_european_call(100.0, dal.Date_(2023, 9, 25))
 
     result = dal.MonteCarlo_Value(product, model, 2**14, "sobol", False, True)
-    assert "PV" in result
+    assert "PV" in result  # nosec B101 - pytest assertions are intentional
     greek_keys = [k for k in result if k.startswith("d_")]
-    assert len(greek_keys) > 0, f"Expected AAD gradient keys, got: {list(result.keys())}"
+    assert len(greek_keys) > 0, f"Expected AAD gradient keys, got: {list(result.keys())}"  # nosec B101 - pytest assertions are intentional
 
 
 def test_mc_value_aad_pv_close_to_no_aad():
@@ -182,7 +182,7 @@ def test_mc_value_aad_pv_close_to_no_aad():
     result_no_aad = dal.MonteCarlo_Value(product, model, 2**14, "sobol", False, False)
     result_aad = dal.MonteCarlo_Value(product, model, 2**14, "sobol", False, True)
 
-    assert abs(result_no_aad["PV"] - result_aad["PV"]) < 0.5, (
+    assert abs(result_no_aad["PV"] - result_aad["PV"]) < 0.5, (  # nosec B101 - pytest assertions are intentional
         f"AAD PV {result_aad['PV']:.4f} differs from "
         f"non-AAD PV {result_no_aad['PV']:.4f}"
     )
@@ -196,10 +196,10 @@ def test_mc_value_aad_delta_reasonable():
     result = dal.MonteCarlo_Value(product, model, 2**14, "sobol", False, True)
 
     delta_keys = [k for k in result if "spot" in k.lower()]
-    assert delta_keys, f"Expected spot delta key, got: {list(result.keys())}"
+    assert delta_keys, f"Expected spot delta key, got: {list(result.keys())}"  # nosec B101 - pytest assertions are intentional
 
     delta = result[delta_keys[0]]
-    assert 0.0 < delta < 1.0, f"Delta {delta:.4f} out of expected range [0, 1]"
+    assert 0.0 < delta < 1.0, f"Delta {delta:.4f} out of expected range [0, 1]"  # nosec B101 - pytest assertions are intentional
 
 
 def test_mc_value_aad_vega_positive():
@@ -210,10 +210,10 @@ def test_mc_value_aad_vega_positive():
     result = dal.MonteCarlo_Value(product, model, 2**14, "sobol", False, True)
 
     vega_keys = [k for k in result if "vol" in k.lower()]
-    assert vega_keys, f"Expected volatility vega key, got: {list(result.keys())}"
+    assert vega_keys, f"Expected volatility vega key, got: {list(result.keys())}"  # nosec B101 - pytest assertions are intentional
 
     vega = result[vega_keys[0]]
-    assert vega > 0, f"Vega {vega:.4f} should be positive for a call"
+    assert vega > 0, f"Vega {vega:.4f} should be positive for a call"  # nosec B101 - pytest assertions are intentional
 
 
 # ---- Default Arguments -------------------------------------------------------
@@ -225,8 +225,8 @@ def test_mc_value_default_method():
     product = _make_european_call(100.0, dal.Date_(2023, 9, 25))
 
     result = dal.MonteCarlo_Value(product, model, 2**14)
-    assert "PV" in result
-    assert result["PV"] > 0
+    assert "PV" in result  # nosec B101 - pytest assertions are intentional
+    assert result["PV"] > 0  # nosec B101 - pytest assertions are intentional
 
 
 def test_mc_value_use_bb_flag():
@@ -235,4 +235,4 @@ def test_mc_value_use_bb_flag():
     product = _make_european_call(100.0, dal.Date_(2023, 9, 25))
 
     result = dal.MonteCarlo_Value(product, model, 2**14, "sobol", True)
-    assert "PV" in result
+    assert "PV" in result  # nosec B101 - pytest assertions are intentional
