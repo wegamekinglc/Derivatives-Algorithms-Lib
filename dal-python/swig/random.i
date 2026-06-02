@@ -10,7 +10,7 @@
 
     %inline %{
         Handle_<PseudoRSG_> PseudoRSG_New(int seed, int ndim = 1) {
-            return NewPseudoRSG(String_("PseudoRSG_"), seed, ndim);
+            return NewPseudoRSG(String_("MRG32k32a"), seed, ndim);
         }
 
         Matrix_<> PseudoRSG_Get_Uniform(const Handle_<PseudoRSG_>& rsg, int num_path) {

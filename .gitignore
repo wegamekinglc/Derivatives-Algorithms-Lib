@@ -25,3 +25,4 @@ test_output.txt
 .claude/settings.json
 .claude/settings.local.json
 build-*
+build2/
