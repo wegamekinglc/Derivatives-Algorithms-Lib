@@ -12,46 +12,164 @@ The project draws from the work of Tom Hyer (*Derivatives Algorithms: Bones*), A
 
 ## Getting the Code
 
+The build depends on several Git submodules (XAD, Adept, CoDiPack, Google Test, RapidJSON, and the Machinist code generator). Clone the repository and initialize the submodules before building:
+
 ```bash
-git clone git@github.com:wegamekinglc/Derivatives-Algorithms-Lib.git
+git clone https://github.com/wegamekinglc/Derivatives-Algorithms-Lib.git
 cd Derivatives-Algorithms-Lib
 git submodule update --init --recursive
 ```
 
+> **Note:** If you already cloned without `--recursive`, run `git submodule update --init --recursive` from the repository root. A missing submodule is the most common cause of configuration failures.
+
 ## Building
+
+DAL builds with CMake (3.21+) on both Linux and Windows. The repository ships with `CMakePresets.json` and two convenience scripts (`build_linux.sh`, `build_windows.bat`) that wrap the full workflow: building the Machinist code generator, running code generation, configuring CMake, compiling, installing, and running the tests.
+
+The build always happens in two stages:
+
+1. **Code generation** -- the Machinist tool (in `externals/machinist`) reads the interface files in `config/` (`dal.ifc`, `dal.mgl`) and generates source into `dal/` and `public/`. This must run before the CMake build.
+2. **CMake build** -- compiles the core library, the public API, the examples, and the test suite, then installs artifacts under the repository root (`lib/`, `bin/`).
+
+Installed artifacts:
+- `lib/` -- the static `dal` library (plus the XLL Excel add-in on Windows when Office is detected)
+- `bin/` -- the `test_suite` binary and the example programs
 
 ### Linux
 
-**Prerequisites:** git, cmake (3.16+), g++ (supporting C++17), zip
+**Prerequisites**
+
+- `git`
+- `cmake` 3.21 or newer
+- A C++17 compiler -- GCC 13+ or Clang 18+ (the CI matrix covers `gcc-13`, `gcc-14`, `clang-18`, `clang-19`)
+- `make`
+- Build essentials used by the Adept submodule: `autotools-dev`, `autoconf`, `libtool`
+- OpenMP runtime (e.g. `libomp-dev` for Clang)
+- Optional, for coverage reports: `lcov`, `gcovr`, or `llvm-cov`
+
+On Debian/Ubuntu, for example:
+
+```bash
+sudo apt update
+sudo apt install -y git cmake make g++ autotools-dev autoconf libtool libomp-dev
+```
+
+**One-step build (recommended)**
 
 ```bash
 bash build_linux.sh
 ```
 
-The script runs code generation (Machinist), a Release build, installs artifacts under the repo root, and executes the test suite.
-
-Build artifacts:
-- `lib/` -- static library
-- `bin/` -- test suite and example binaries
-
-For a manual build:
+This script cleans previous `bin/`/`lib/` output, builds Machinist, runs code generation, configures with the `Release-linux` preset, compiles with all available cores, installs, and runs `bin/test_suite`. Add `--coverage` to additionally produce a coverage report:
 
 ```bash
-mkdir -p build && cd build
-cmake --preset=Release-linux .. && make -j$(nproc) && make install
+bash build_linux.sh --coverage
 ```
+
+**Manual build**
+
+If you prefer to run the steps yourself (for example to use a different compiler or build type), first build Machinist and run code generation, then configure and build with CMake:
+
+```bash
+# 1. Build the Machinist code generator
+(cd externals/machinist && bash -e ./build_linux.sh)
+
+# 2. Generate sources
+export MACHINIST_TEMPLATE_DIR="$PWD/externals/machinist/template/"
+./externals/machinist/bin/Machinist -c config/dal.ifc -l config/dal.mgl -d ./dal
+./externals/machinist/bin/Machinist -c config/dal.ifc -l config/dal.mgl -d ./public
+
+# 3. Configure, build, and install
+mkdir -p build && cd build
+cmake --preset=Release-linux ..
+make -j"$(nproc)"
+make install
+```
+
+Use the `Debug-linux` preset instead of `Release-linux` for a debug build.
 
 ### Windows
 
-**Prerequisites:** git, cmake, Visual Studio 2022 Community Edition
+**Prerequisites**
 
-```bash
+- `git`
+- `cmake` 3.21 or newer
+- Visual Studio 2022 (the Community Edition is sufficient) with the **Desktop development with C++** workload, which provides the MSVC toolset and the `VsDevCmd.bat` developer environment
+- Microsoft Office (optional) -- when detected, the Excel XLL COM add-in is built automatically
+
+**One-step build (recommended)**
+
+From a regular Command Prompt at the repository root:
+
+```bat
 .\build_windows.bat
 ```
 
-Build artifacts:
-- `lib/` -- static library and XLL Excel extension
-- `bin/` -- example binaries
+The script invokes `VsDevCmd.bat` to set up the x64 MSVC environment, builds Machinist, runs code generation, configures with the `Release-windows` preset (Visual Studio generator), builds and installs with MSBuild, and runs `bin\test_suite.exe`.
+
+> The script expects Visual Studio at `C:\Program Files\Microsoft Visual Studio\2022\Community`. If you have a different edition or install location, edit the `VsDevCmd.bat` path at the top of `build_windows.bat`, or run the manual steps below from a **Developer Command Prompt for VS 2022**.
+
+**Manual build**
+
+The presets for Windows use the **Ninja** generator. From a *Developer Command Prompt for VS 2022* (so `cl` and the SDK are on the path):
+
+```bat
+:: 1. Build the Machinist code generator
+cd externals\machinist
+call .\build_windows.bat
+cd ..\..
+
+:: 2. Generate sources
+set MACHINIST_TEMPLATE_DIR=%CD%\externals\machinist\template\
+externals\machinist\bin\Machinist.exe -c config/dal.ifc -l config/dal.mgl -d dal
+externals\machinist\bin\Machinist.exe -c config/dal.ifc -l config/dal.mgl -d public
+
+:: 3. Configure, build, and install
+mkdir build & cd build
+cmake --preset Release-windows ..
+cmake --build .
+cmake --install .
+```
+
+Use the `Debug-windows` preset for a debug build.
+
+### Selecting an AAD backend
+
+DAL ships with a native expression-template AAD engine (called **AADET**) that is used by default. You can optionally compile against one of three external AAD backends instead by passing exactly one of the following flags at configure time (enabling more than one is an error):
+
+| Flag                       | Backend  |
+|----------------------------|----------|
+| *(none -- default)*        | AADET    |
+| `-DDAL_USE_XAD_AAD=on`      | XAD      |
+| `-DDAL_USE_CODIPACK_AAD=on` | CoDiPack |
+| `-DDAL_USE_ADEPT_AAD=on`    | Adept    |
+
+When using the convenience scripts, pass extra CMake flags through the `ADDITIONAL_CMAKE_FLAGS` environment variable, for example:
+
+```bash
+ADDITIONAL_CMAKE_FLAGS="-DDAL_USE_XAD_AAD=on" bash build_linux.sh
+```
+
+### Useful CMake options
+
+These options can be appended to any `cmake` configure command (or set via `ADDITIONAL_CMAKE_FLAGS`):
+
+| Option                    | Default        | Description                                            |
+|---------------------------|----------------|--------------------------------------------------------|
+| `CMAKE_BUILD_TYPE`        | `Release`      | Build type for single-config generators                |
+| `SKIP_TESTS`              | `false` (presets) | Set to `true` to skip building the test suite       |
+| `DAL_BUILD_EXAMPLES`      | `off` (presets) | Build the programs under `examples/`                  |
+| `DAL_BUILD_PUBLIC`        | `off` (presets) | Build the public API (Excel XLL / Python bindings)    |
+| `USE_COVERAGE`            | `false`        | Instrument the build for coverage reporting            |
+
+> The CMake presets disable examples, the public API, and all external AAD backends by default. Override them explicitly when you need them, e.g. `cmake --preset=Release-linux -DDAL_BUILD_EXAMPLES=on ..`.
+
+### Troubleshooting
+
+- **CMake cannot find a submodule / missing `externals/...` directory:** run `git submodule update --init --recursive`.
+- **`Machinist` not found or generated sources missing:** the code-generation stage did not run; build Machinist and run the two `Machinist` commands shown in the manual build steps before configuring CMake.
+- **Windows: `cl` is not recognized:** run the build from a *Developer Command Prompt for VS 2022* (or via `build_windows.bat`, which sets up the environment for you).
+- **Only one external AAD backend may be enabled:** you passed more than one `DAL_USE_*_AAD` flag; enable at most one.
 
 ## Python Bindings
 
