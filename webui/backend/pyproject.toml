@@ -20,6 +20,14 @@ dev = [
     "httpx>=0.27",
 ]
 
+# uv-native development dependency group. `uv sync` installs these by default;
+# the optional-dependencies block above is kept for plain `pip install .[dev]`.
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "httpx>=0.27",
+]
+
 [tool.setuptools]
 packages = ["app"]
 

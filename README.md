@@ -173,15 +173,20 @@ These options can be appended to any `cmake` configure command (or set via `ADDI
 
 ## Python Bindings
 
-Python bindings require an Anaconda Python distribution and SWIG. After a successful C++ build:
+Python dependencies and the build environment are managed with [uv](https://docs.astral.sh/uv/). The bindings also require a successful C++ build of DAL (so that `lib/` and `include/` are populated). From `public/python`:
 
 ```bash
 cd public/python
-python setup.py wrap
-python setup.py install
+uv venv                          # create an isolated environment
+uv pip install setuptools wheel swig   # build toolchain (incl. SWIG 4.0.1+)
+export DAL_DIR=../..             # DAL install root (lib/, include/)
+uv run python setup.py wrap      # generate the SWIG wrappers
+uv run python setup.py install   # build and install the dal package
 ```
 
-The `dal` package exposes the full public API to Python, including AAD-aware Monte Carlo pricing.
+The build dependencies are declared in `public/python/pyproject.toml`. The `dal`
+package then exposes the full public API to Python, including AAD-aware Monte
+Carlo pricing.
 
 ## Running Tests
 

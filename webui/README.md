@@ -71,14 +71,21 @@ strict). The `/api/health` endpoint reports which backend is active.
 
 ### Backend (Python >= 3.13)
 
+Dependencies are managed with [uv](https://docs.astral.sh/uv/). From `webui/backend`:
+
 ```bash
 cd webui/backend
-python -m venv .venv && source .venv/bin/activate
-pip install -e .            # or: pip install -r requirements.txt
-uvicorn app.main:app --reload --port 8000
+uv sync                     # create .venv and install runtime + dev deps from uv.lock
+uv run uvicorn app.main:app --reload --port 8000
 ```
 
-API docs are then available at <http://127.0.0.1:8000/docs>.
+`uv` provisions a matching Python interpreter automatically (downloading one if
+needed) and resolves dependencies from the committed `uv.lock`. API docs are then
+available at <http://127.0.0.1:8000/docs>.
+
+> To run against the compiled native `dal` package instead of the dev stub,
+> install it into the uv environment (`uv pip install /path/to/dal`) and start
+> the server with `DAL_REQUIRE_NATIVE=1`.
 
 ### Frontend
 
@@ -92,8 +99,7 @@ npm run dev                 # http://localhost:5173 (proxies /api to :8000)
 
 ```bash
 cd webui/backend
-pip install -e ".[dev]"
-pytest                      # runs against the in-process DAL stub
+uv run pytest               # runs against the in-process DAL stub
 ```
 
 ```bash
