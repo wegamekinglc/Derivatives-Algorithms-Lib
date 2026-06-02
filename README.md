@@ -15,7 +15,7 @@ The project draws from the work of Tom Hyer (*Derivatives Algorithms: Bones*), A
 The build depends on several Git submodules (XAD, Adept, CoDiPack, Google Test, RapidJSON, and the Machinist code generator). Clone the repository and initialize the submodules before building:
 
 ```bash
-git clone https://github.com/wegamekinglc/Derivatives-Algorithms-Lib.git
+git clone git@github.com:wegamekinglc/Derivatives-Algorithms-Lib.git
 cd Derivatives-Algorithms-Lib
 git submodule update --init --recursive
 ```
