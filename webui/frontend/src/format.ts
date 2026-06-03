@@ -30,3 +30,7 @@ export function css(className: string): { className: string } {
 export function inlineStyle(style: Record<string, string | number>): { style: Record<string, string | number> } {
   return { style };
 }
+
+export function labelFor(htmlFor: string): { htmlFor: string } {
+  return { htmlFor };
+}

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { api, type ModelDefinition } from "../api/client";
-import { css, fmtNum } from "../format";
+import { css, fmtNum, labelFor } from "../format";
 
 export default function Models() {
   const [models, setModels] = useState<ModelDefinition[]>([]);
@@ -52,7 +52,7 @@ export default function Models() {
       <div {...css("panel")}>
         <h2>New Black-Scholes model</h2>
         <div {...css("field")}>
-          <label htmlFor="model-name">Name</label>
+          <label {...labelFor("model-name")}>Name</label>
           <input
             id="model-name"
             value={name}
@@ -63,7 +63,7 @@ export default function Models() {
         </div>
         <div {...css("row")}>
           <div>
-            <label htmlFor="model-spot">Spot</label>
+            <label {...labelFor("model-spot")}>Spot</label>
             <input
               id="model-spot"
               type="number"
@@ -74,7 +74,7 @@ export default function Models() {
             />
           </div>
           <div>
-            <label htmlFor="model-vol">Vol</label>
+            <label {...labelFor("model-vol")}>Vol</label>
             <input
               id="model-vol"
               type="number"
@@ -86,7 +86,7 @@ export default function Models() {
             />
           </div>
           <div>
-            <label htmlFor="model-rate">Rate</label>
+            <label {...labelFor("model-rate")}>Rate</label>
             <input
               id="model-rate"
               type="number"
@@ -98,7 +98,7 @@ export default function Models() {
             />
           </div>
           <div>
-            <label htmlFor="model-dividend">Dividend</label>
+            <label {...labelFor("model-dividend")}>Dividend</label>
             <input
               id="model-dividend"
               type="number"

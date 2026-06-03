@@ -109,23 +109,24 @@ export interface ProductTemplate {
 
 const BASE = "/api";
 
-function apiUrl(path: string): URL {
+function apiPath(path: string): string {
   if (!path.startsWith("/") || path.startsWith("//") || path.includes("://")) {
     throw new Error(`Invalid API path: ${path}`);
   }
 
-  const url = new URL(`${BASE}${path}`, window.location.origin);
-  if (url.origin !== window.location.origin || !url.pathname.startsWith(`${BASE}/`)) {
-    throw new Error(`Invalid API URL: ${url.toString()}`);
+  const endpoint = `${BASE}${path}`;
+  if (!endpoint.startsWith(`${BASE}/`)) {
+    throw new Error(`Invalid API path: ${path}`);
   }
-  return url;
+  return endpoint;
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const resp = await fetch(apiUrl(path), {
+  const requestInfo = new Request(apiPath(path), {
     headers: { "Content-Type": "application/json" },
     ...init,
   });
+  const resp = await fetch(requestInfo);
   if (!resp.ok) {
     let detail = resp.statusText;
     try {

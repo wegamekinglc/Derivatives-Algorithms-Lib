@@ -1,16 +1,16 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { api, type EventRow, type ProductDefinition, type ProductTemplate } from "../api/client";
-import { css, inlineStyle } from "../format";
+import { css, inlineStyle, labelFor } from "../format";
 
 const EMPTY_ROW: EventRow = { date_kind: "label", label: "", event: "" };
 
-type EditorRow = EventRow & { row_id: string };
+type EditorRow = EventRow & { row_id: number };
 
 export default function ProductBuilder() {
   const rowSeq = useRef(0);
   const makeRow = (row: EventRow = EMPTY_ROW): EditorRow => ({
     ...row,
-    row_id: `row-${rowSeq.current++}`,
+    row_id: rowSeq.current++,
   });
 
   const [templates, setTemplates] = useState<ProductTemplate[]>([]);
@@ -22,17 +22,22 @@ export default function ProductBuilder() {
   const [error, setError] = useState<string | null>(null);
 
   function apiRows(): EventRow[] {
-    return rows.map(({ row_id: _rowId, ...row }) => row);
+    return rows.map((r) => ({
+      date_kind: r.date_kind,
+      date: r.date,
+      label: r.label,
+      event: r.event,
+    }));
   }
 
-  function refresh() {
+  const refresh = useCallback(() => {
     void api.listProducts().then(setProducts);
-  }
+  }, []);
 
   useEffect(() => {
     void api.listTemplates().then(setTemplates);
     refresh();
-  }, []);
+  }, [refresh]);
 
   function loadTemplate(key: string) {
     const tpl = templates.find((t) => t.key === key);
@@ -45,7 +50,7 @@ export default function ProductBuilder() {
     setDebug("");
   }
 
-  function updateRow(rowId: string, patch: Partial<EventRow>) {
+  function updateRow(rowId: number, patch: Partial<EventRow>) {
     setRows((rs) => rs.map((r) => (r.row_id === rowId ? { ...r, ...patch } : r)));
   }
 
@@ -53,7 +58,7 @@ export default function ProductBuilder() {
     setRows((rs) => [...rs, makeRow()]);
   }
 
-  function removeRow(rowId: string) {
+  function removeRow(rowId: number) {
     setRows((rs) => rs.filter((r) => r.row_id !== rowId));
   }
 
@@ -113,7 +118,7 @@ export default function ProductBuilder() {
         <div {...css("panel")}>
           <h2>Definition</h2>
           <div {...css("field")}>
-            <label htmlFor="product-name">Name</label>
+            <label {...labelFor("product-name")}>Name</label>
             <input
               id="product-name"
               value={name}
@@ -123,7 +128,7 @@ export default function ProductBuilder() {
             />
           </div>
           <div {...css("field")}>
-            <label htmlFor="product-description">Description</label>
+            <label {...labelFor("product-description")}>Description</label>
             <input
               id="product-description"
               value={description}

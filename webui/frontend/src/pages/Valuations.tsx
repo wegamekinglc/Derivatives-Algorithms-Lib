@@ -60,7 +60,7 @@ export default function Valuations() {
                   </td>
                 </tr>
                 {open === r.id && (
-                  <tr key={r.id + "-detail"}>
+                  <tr key={`${r.id}-detail`}>
                     <td colSpan={7}>
                       <div {...css("panel")} {...inlineStyle({ margin: 0 })}>
                         <h2>Greeks</h2>
