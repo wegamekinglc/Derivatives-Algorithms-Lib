@@ -1,5 +1,8 @@
 # Adept AAD Backend — Technical Design
 
+> **Historical document.** Written before the multi-project refactor. Path references in the file table (e.g. `dal/CMakeLists.txt`, `public/src/CMakeLists.txt`, `tests/CMakeLists.txt`) reflect the old layout; the equivalents now live under `dal-cpp/`, `dal-public/`, and `dal-cpp/tests/`. The Adept backend itself works unchanged.
+
+
 ## Summary
 Add Adept as a third external AAD backend behind the existing `Dal::AAD` free-function API. The rest of DAL should continue to use `AAD::Number_`, `Tape()`, `PutOnTape`, `Adjoint`, `Value`, and propagation helpers without backend-specific code.
 

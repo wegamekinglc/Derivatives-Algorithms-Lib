@@ -1,0 +1,32 @@
+---
+# Codacy configuration
+# https://docs.codacy.com/repositories-configure/codacy-configuration-file/
+
+# Exclude generated artifacts and paths where Codacy reports false positives.
+exclude_paths:
+  # Python test files — Codacy's "assert will be removed with -O" warning
+  # is a false positive for pytest test suites (tests are never run with -O)
+  - 'dal-python/tests/**'
+  # Python build artifacts (SWIG outputs are now generated at build time)
+  - 'dal-python/.venv/**'
+  - 'dal-python/.pytest_cache/**'
+  - 'dal-python/build/**'
+  - 'dal-python/**/*.egg-info/**'
+  # Machinist-generated C++ headers and .inc files
+  - 'dal-cpp/dal/auto/**'
+  - 'dal-excel/auto/**'
+  # Third-party submodules
+  - 'dal-cpp/externals/**'
+  # Build artifacts
+  - 'build/**'
+  - 'bin/**'
+  - 'lib/**'
+  # Internal project documentation and agent/skill definitions.
+  # The Codacy Agentlinter is designed to enforce style rules for AI-agent
+  # prompts (no undefined acronyms, no absolute rules without escape hatches,
+  # etc.), which doesn't apply to project documentation aimed at human
+  # developers — domain acronyms like AAD, PDE, AST, SWIG are defined by
+  # context and don't need glossary entries here.
+  - 'CLAUDE.md'
+  - '.claude/**'
+  - 'doc/**'

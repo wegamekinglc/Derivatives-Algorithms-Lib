@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { api, Portfolio, Trade, ValuationResult } from "../api/client";
+import { api, type Portfolio, type Trade, type ValuationResult } from "../api/client";
 import { fmtMoney } from "../format";
 
 export default function Dashboard() {
@@ -8,14 +8,16 @@ export default function Dashboard() {
   const [valuations, setValuations] = useState<ValuationResult[]>([]);
 
   useEffect(() => {
-    api.listPortfolios().then(setPortfolios);
-    api.listTrades().then(setTrades);
-    api.listValuations().then(setValuations);
+    void api.listPortfolios().then(setPortfolios);
+    void api.listTrades().then(setTrades);
+    void api.listValuations().then(setValuations);
   }, []);
 
   const lastByTarget = new Map<string, ValuationResult>();
   for (const v of valuations) {
-    if (!lastByTarget.has(v.target_id)) lastByTarget.set(v.target_id, v);
+    if (!lastByTarget.has(v.target_id)) {
+      lastByTarget.set(v.target_id, v);
+    }
   }
   const totalPv = portfolios.reduce(
     (acc, pf) => acc + (lastByTarget.get(pf.id)?.total_pv ?? 0),

@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useState } from "react";
-import { api, ValuationResult } from "../api/client";
+import { api, type ValuationResult } from "../api/client";
 import { fmtMoney, fmtNum } from "../format";
 
 export default function Valuations() {
@@ -7,7 +7,7 @@ export default function Valuations() {
   const [open, setOpen] = useState<string | null>(null);
 
   useEffect(() => {
-    api.listValuations().then(setRuns);
+    void api.listValuations().then(setRuns);
   }, []);
 
   return (
@@ -49,8 +49,11 @@ export default function Valuations() {
                   <td className="num">{fmtMoney(r.total_pv)}</td>
                   <td>
                     <button
+                      type="button"
                       className="ghost"
-                      onClick={() => setOpen(open === r.id ? null : r.id)}
+                      onClick={() => {
+                        setOpen(open === r.id ? null : r.id);
+                      }}
                     >
                       {open === r.id ? "Hide" : "Details"}
                     </button>

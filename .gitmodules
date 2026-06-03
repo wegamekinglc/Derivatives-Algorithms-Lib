@@ -1,18 +1,18 @@
-[submodule "externals/CodiPack"]
-	path = externals/CodiPack
+[submodule "dal-cpp/externals/CodiPack"]
+	path = dal-cpp/externals/CodiPack
 	url = git@github.com:wegamekinglc/CoDiPack.git
-[submodule "externals/machinist"]
-	path = externals/machinist
+[submodule "dal-cpp/externals/machinist"]
+	path = dal-cpp/externals/machinist
 	url = git@github.com:wegamekinglc/machinist2.git
-[submodule "externals/xad"]
-	path = externals/xad
+[submodule "dal-cpp/externals/xad"]
+	path = dal-cpp/externals/xad
 	url = git@github.com:wegamekinglc/XAD.git
-[submodule "externals/rapidjson"]
-	path = externals/rapidjson
+[submodule "dal-cpp/externals/rapidjson"]
+	path = dal-cpp/externals/rapidjson
 	url = git@github.com:wegamekinglc/rapidjson.git
-[submodule "externals/googletest"]
-	path = externals/googletest
+[submodule "dal-cpp/externals/googletest"]
+	path = dal-cpp/externals/googletest
 	url = git@github.com:google/googletest.git
-[submodule "externals/adept"]
-	path = externals/adept
+[submodule "dal-cpp/externals/adept"]
+	path = dal-cpp/externals/adept
 	url = git@github.com:wegamekinglc/Adept-2.git

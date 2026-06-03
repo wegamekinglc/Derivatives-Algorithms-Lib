@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ValuationConfig, ValuationResult } from "../api/client";
+import { type ValuationConfig, type ValuationResult } from "../api/client";
 import { fmtMoney, fmtNum } from "../format";
 
 interface Props {
@@ -23,7 +23,7 @@ export default function ValuationPanel({ onRun, title = "Run valuation" }: Props
     setBusy(true);
     setError(null);
     try {
-      const config: ValuationConfig = {
+      const request: ValuationConfig = {
         num_paths: 2 ** pathsPow,
         method,
         use_brownian_bridge: bb,
@@ -31,8 +31,8 @@ export default function ValuationPanel({ onRun, title = "Run valuation" }: Props
         smooth: 0.01,
         evaluation_date: evalDate || null,
       };
-      setResult(await onRun(config));
-    } catch (e) {
+      setResult(await onRun(request));
+    } catch (e: unknown) {
       setError(String(e));
     } finally {
       setBusy(false);
@@ -45,8 +45,14 @@ export default function ValuationPanel({ onRun, title = "Run valuation" }: Props
       {error && <div className="error">{error}</div>}
       <div className="row" style={{ marginBottom: 12 }}>
         <div>
-          <label># paths (2^n)</label>
-          <select value={pathsPow} onChange={(e) => setPathsPow(Number(e.target.value))}>
+          <label htmlFor="valuation-paths"># paths (2^n)</label>
+          <select
+            id="valuation-paths"
+            value={pathsPow}
+            onChange={(e) => {
+              setPathsPow(Number(e.target.value));
+            }}
+          >
             {PATH_CHOICES.map((p) => (
               <option key={p} value={p}>
                 2^{p} = {(2 ** p).toLocaleString()}
@@ -55,27 +61,60 @@ export default function ValuationPanel({ onRun, title = "Run valuation" }: Props
           </select>
         </div>
         <div>
-          <label>RNG method</label>
-          <select value={method} onChange={(e) => setMethod(e.target.value as "sobol" | "pseudo")}>
+          <label htmlFor="valuation-method">RNG method</label>
+          <select
+            id="valuation-method"
+            value={method}
+            onChange={(e) => {
+              setMethod(e.target.value as "sobol" | "pseudo");
+            }}
+          >
             <option value="sobol">sobol</option>
             <option value="pseudo">pseudo</option>
           </select>
         </div>
         <div>
-          <label>Evaluation date</label>
-          <input type="date" value={evalDate} onChange={(e) => setEvalDate(e.target.value)} />
+          <label htmlFor="valuation-date">Evaluation date</label>
+          <input
+            id="valuation-date"
+            type="date"
+            value={evalDate}
+            onChange={(e) => {
+              setEvalDate(e.target.value);
+            }}
+          />
         </div>
       </div>
       <div className="row" style={{ marginBottom: 12 }}>
         <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <input type="checkbox" style={{ width: "auto" }} checked={aad} onChange={(e) => setAad(e.target.checked)} />
+          <input
+            type="checkbox"
+            style={{ width: "auto" }}
+            checked={aad}
+            onChange={(e) => {
+              setAad(e.target.checked);
+            }}
+          />
           Enable AAD (Greeks)
         </label>
         <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <input type="checkbox" style={{ width: "auto" }} checked={bb} onChange={(e) => setBb(e.target.checked)} />
+          <input
+            type="checkbox"
+            style={{ width: "auto" }}
+            checked={bb}
+            onChange={(e) => {
+              setBb(e.target.checked);
+            }}
+          />
           Brownian bridge
         </label>
-        <button onClick={run} disabled={busy}>
+        <button
+          type="button"
+          onClick={() => {
+            void run();
+          }}
+          disabled={busy}
+        >
           {busy ? "Pricing…" : "Run valuation"}
         </button>
       </div>

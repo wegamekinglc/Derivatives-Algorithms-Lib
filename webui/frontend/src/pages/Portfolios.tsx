@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { api, Portfolio, Trade } from "../api/client";
+import { api, type Portfolio, type Trade } from "../api/client";
 import { fmtMoney } from "../format";
 import ValuationPanel from "../components/ValuationPanel";
 
@@ -13,9 +13,10 @@ export default function Portfolios() {
   const [addTradeId, setAddTradeId] = useState("");
 
   function refresh() {
-    api.listPortfolios().then(setPortfolios);
-    api.listTrades().then(setAllTrades);
+    void api.listPortfolios().then(setPortfolios);
+    void api.listTrades().then(setAllTrades);
   }
+
   useEffect(refresh, []);
 
   async function selectPortfolio(pf: Portfolio) {
@@ -28,13 +29,15 @@ export default function Portfolios() {
     try {
       await api.createPortfolio({ name });
       refresh();
-    } catch (e) {
+    } catch (e: unknown) {
       setError(String(e));
     }
   }
 
   async function addTrade() {
-    if (!selected || !addTradeId) return;
+    if (!selected || !addTradeId) {
+      return;
+    }
     const pf = await api.addTradeToPortfolio(selected.id, addTradeId);
     setSelected(pf);
     setMembers(await api.portfolioTrades(pf.id));
@@ -42,7 +45,9 @@ export default function Portfolios() {
   }
 
   async function removeTrade(tid: string) {
-    if (!selected) return;
+    if (!selected) {
+      return;
+    }
     const pf = await api.removeTradeFromPortfolio(selected.id, tid);
     setSelected(pf);
     setMembers(await api.portfolioTrades(pf.id));
@@ -64,8 +69,19 @@ export default function Portfolios() {
         <div className="panel">
           <h2>Books</h2>
           <div className="row" style={{ marginBottom: 12 }}>
-            <input value={name} onChange={(e) => setName(e.target.value)} />
-            <button onClick={create} style={{ flex: "0 0 auto" }}>
+            <input
+              value={name}
+              onChange={(e) => {
+                setName(e.target.value);
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => {
+                void create();
+              }}
+              style={{ flex: "0 0 auto" }}
+            >
               Create
             </button>
           </div>
@@ -83,7 +99,13 @@ export default function Portfolios() {
                   <td>{pf.name}</td>
                   <td className="num">{pf.trade_ids.length}</td>
                   <td>
-                    <button className="ghost" onClick={() => selectPortfolio(pf)}>
+                    <button
+                      type="button"
+                      className="ghost"
+                      onClick={() => {
+                        void selectPortfolio(pf);
+                      }}
+                    >
                       Open
                     </button>
                   </td>
@@ -98,7 +120,12 @@ export default function Portfolios() {
           {selected && (
             <>
               <div className="row" style={{ marginBottom: 12 }}>
-                <select value={addTradeId} onChange={(e) => setAddTradeId(e.target.value)}>
+                <select
+                  value={addTradeId}
+                  onChange={(e) => {
+                    setAddTradeId(e.target.value);
+                  }}
+                >
                   <option value="">— pick a trade —</option>
                   {allTrades
                     .filter((t) => !selected.trade_ids.includes(t.id))
@@ -108,7 +135,14 @@ export default function Portfolios() {
                       </option>
                     ))}
                 </select>
-                <button onClick={addTrade} style={{ flex: "0 0 auto" }} disabled={!addTradeId}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    void addTrade();
+                  }}
+                  style={{ flex: "0 0 auto" }}
+                  disabled={!addTradeId}
+                >
                   Add trade
                 </button>
               </div>
@@ -128,7 +162,13 @@ export default function Portfolios() {
                       <td>{t.book}</td>
                       <td className="num">{fmtMoney(t.notional)}</td>
                       <td>
-                        <button className="danger" onClick={() => removeTrade(t.id)}>
+                        <button
+                          type="button"
+                          className="danger"
+                          onClick={() => {
+                            void removeTrade(t.id);
+                          }}
+                        >
                           Remove
                         </button>
                       </td>

@@ -10,13 +10,15 @@
       "name": "base",
       "hidden": true,
       "cacheVariables": {
-        "CMAKE_MODULE_PATH": "${sourceDir}/cmake",
         "CMAKE_INSTALL_PREFIX": "${sourceDir}",
         "DAL_USE_XAD_AAD": "off",
         "DAL_USE_CODIPACK_AAD": "off",
         "DAL_USE_ADEPT_AAD": "off",
-        "DAL_BUILD_EXAMPLES": "off",
+        "DAL_CPP_BUILD_EXAMPLES": "off",
+        "DAL_CPP_BUILD_BENCHMARKS": "off",
         "DAL_BUILD_PUBLIC": "off",
+        "DAL_BUILD_PYTHON": "off",
+        "DAL_BUILD_EXCEL": "off",
         "XAD_ENABLE_TESTS": "off",
         "XAD_USE_STRONG_INLINE": "on",
         "XAD_NO_THREADLOCAL": "off",
@@ -33,7 +35,6 @@
       "generator": "Ninja",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
-        "SKIP_TESTS": "false",
         "MSVC_RUNTIME": "static",
         "XAD_STATIC_MSVC_RUNTIME": "on"
       }
@@ -44,7 +45,6 @@
       "generator": "Ninja",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
-        "SKIP_TESTS": "false",
         "MSVC_RUNTIME": "static",
         "XAD_STATIC_MSVC_RUNTIME": "on"
       }
@@ -54,8 +54,7 @@
       "inherits": "base",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
-        "BUILD_SHARED_LIBS": "off",
-        "SKIP_TESTS": "false"
+        "BUILD_SHARED_LIBS": "off"
       }
     },
     {
@@ -63,8 +62,7 @@
       "inherits": "base",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
-        "BUILD_SHARED_LIBS": "off",
-        "SKIP_TESTS": "false"
+        "BUILD_SHARED_LIBS": "off"
       }
     }
   ]

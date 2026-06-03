@@ -139,7 +139,7 @@ export const api = {
   createProduct: (body: Omit<ProductDefinition, "id">) =>
     request<ProductDefinition>("/products", { method: "POST", body: JSON.stringify(body) }),
   deleteProduct: (id: string) =>
-    request<void>(`/products/${id}`, { method: "DELETE" }),
+    request<undefined>(`/products/${id}`, { method: "DELETE" }),
   debugProduct: (rows: EventRow[]) =>
     request<{ debug: string }>("/products/debug", {
       method: "POST",
@@ -150,13 +150,13 @@ export const api = {
   listModels: () => request<ModelDefinition[]>("/models"),
   createModel: (body: Omit<ModelDefinition, "id">) =>
     request<ModelDefinition>("/models", { method: "POST", body: JSON.stringify(body) }),
-  deleteModel: (id: string) => request<void>(`/models/${id}`, { method: "DELETE" }),
+  deleteModel: (id: string) => request<undefined>(`/models/${id}`, { method: "DELETE" }),
 
   // trades
   listTrades: () => request<Trade[]>("/trades"),
   createTrade: (body: Omit<Trade, "id" | "tags"> & { tags?: string[] }) =>
     request<Trade>("/trades", { method: "POST", body: JSON.stringify(body) }),
-  deleteTrade: (id: string) => request<void>(`/trades/${id}`, { method: "DELETE" }),
+  deleteTrade: (id: string) => request<undefined>(`/trades/${id}`, { method: "DELETE" }),
   valueTrade: (id: string, config: ValuationConfig) =>
     request<ValuationResult>(`/trades/${id}/value`, {
       method: "POST",
@@ -168,7 +168,7 @@ export const api = {
   createPortfolio: (body: { name: string; description?: string }) =>
     request<Portfolio>("/portfolios", { method: "POST", body: JSON.stringify(body) }),
   deletePortfolio: (id: string) =>
-    request<void>(`/portfolios/${id}`, { method: "DELETE" }),
+    request<undefined>(`/portfolios/${id}`, { method: "DELETE" }),
   portfolioTrades: (id: string) => request<Trade[]>(`/portfolios/${id}/trades`),
   addTradeToPortfolio: (pid: string, tid: string) =>
     request<Portfolio>(`/portfolios/${pid}/trades/${tid}`, { method: "POST" }),

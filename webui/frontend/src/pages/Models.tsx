@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { api, ModelDefinition } from "../api/client";
+import { api, type ModelDefinition } from "../api/client";
 import { fmtNum } from "../format";
 
 export default function Models() {
@@ -12,8 +12,11 @@ export default function Models() {
   const [div, setDiv] = useState(0.0);
 
   function refresh() {
-    api.listModels().then(setModels).catch((e) => setError(String(e)));
+    void api.listModels().then(setModels).catch((e: unknown) => {
+      setError(String(e));
+    });
   }
+
   useEffect(refresh, []);
 
   async function create() {
@@ -25,7 +28,7 @@ export default function Models() {
         bs: { spot, vol, rate, div },
       });
       refresh();
-    } catch (e) {
+    } catch (e: unknown) {
       setError(String(e));
     }
   }
@@ -49,27 +52,71 @@ export default function Models() {
       <div className="panel">
         <h2>New Black-Scholes model</h2>
         <div className="field">
-          <label>Name</label>
-          <input value={name} onChange={(e) => setName(e.target.value)} />
+          <label htmlFor="model-name">Name</label>
+          <input
+            id="model-name"
+            value={name}
+            onChange={(e) => {
+              setName(e.target.value);
+            }}
+          />
         </div>
         <div className="row">
           <div>
-            <label>Spot</label>
-            <input type="number" value={spot} onChange={(e) => setSpot(Number(e.target.value))} />
+            <label htmlFor="model-spot">Spot</label>
+            <input
+              id="model-spot"
+              type="number"
+              value={spot}
+              onChange={(e) => {
+                setSpot(Number(e.target.value));
+              }}
+            />
           </div>
           <div>
-            <label>Vol</label>
-            <input type="number" step="0.01" value={vol} onChange={(e) => setVol(Number(e.target.value))} />
+            <label htmlFor="model-vol">Vol</label>
+            <input
+              id="model-vol"
+              type="number"
+              step="0.01"
+              value={vol}
+              onChange={(e) => {
+                setVol(Number(e.target.value));
+              }}
+            />
           </div>
           <div>
-            <label>Rate</label>
-            <input type="number" step="0.01" value={rate} onChange={(e) => setRate(Number(e.target.value))} />
+            <label htmlFor="model-rate">Rate</label>
+            <input
+              id="model-rate"
+              type="number"
+              step="0.01"
+              value={rate}
+              onChange={(e) => {
+                setRate(Number(e.target.value));
+              }}
+            />
           </div>
           <div>
-            <label>Dividend</label>
-            <input type="number" step="0.01" value={div} onChange={(e) => setDiv(Number(e.target.value))} />
+            <label htmlFor="model-dividend">Dividend</label>
+            <input
+              id="model-dividend"
+              type="number"
+              step="0.01"
+              value={div}
+              onChange={(e) => {
+                setDiv(Number(e.target.value));
+              }}
+            />
           </div>
-          <button onClick={create}>Create model</button>
+          <button
+            type="button"
+            onClick={() => {
+              void create();
+            }}
+          >
+            Create model
+          </button>
         </div>
       </div>
 
@@ -95,7 +142,13 @@ export default function Models() {
               <td className="num">{m.bs ? fmtNum(m.bs.rate, 4) : "-"}</td>
               <td className="num">{m.bs ? fmtNum(m.bs.div, 4) : "-"}</td>
               <td>
-                <button className="danger" onClick={() => remove(m.id)}>
+                <button
+                  type="button"
+                  className="danger"
+                  onClick={() => {
+                    void remove(m.id);
+                  }}
+                >
                   Delete
                 </button>
               </td>

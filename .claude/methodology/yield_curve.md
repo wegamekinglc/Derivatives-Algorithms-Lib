@@ -1,21 +1,21 @@
 # Yield Curve Construction Methods
 
-Documentation of the yield curve framework in `dal/curve/`.
+Documentation of the yield curve framework in `dal-cpp/dal/curve/`.
 
 ## File Map
 
-| File                                                                 | Purpose                                                                                      |
-|----------------------------------------------------------------------|----------------------------------------------------------------------------------------------|
-| `dal/curve/yc.hpp`, `dal/curve/yc.cpp`                               | `YieldCurve_` — top-level curve abstraction (currency, discount access, LIBOR forecast)      |
-| `dal/curve/yccomponent.hpp`, `dal/curve/yccomponent.cpp`             | `YCComponent_` — base for all curve components with dependency tracking and cloning          |
-| `dal/curve/discount.hpp`, `dal/curve/discount.cpp`                   | `DiscountCurve_` — abstract discount factor interface                                        |
-| `dal/curve/ycimp.hpp`, `dal/curve/ycimp.cpp`                         | `DiscountPWLF_` — concrete discount curve built on piecewise-linear forward rates            |
-| `dal/curve/ycconst.hpp`, `dal/curve/ycconst.cpp`                     | `DiscountPWC_` — concrete discount curve built on piecewise-constant forward rates           |
-| `dal/curve/fittable.hpp`                                             | `FittableCurve_` — interface for calibration (`NX()`, `ApplyDX()`)                           |
-| `dal/curve/calibration.hpp`, `dal/curve/calibration.cpp`             | Calibration spec/result types, knot policy handling, reusable weights, and solve orchestration |
-| `dal/curve/curveblock.hpp`, `dal/curve/curveblock.cpp`               | `CurveBlock_` — discount routing, tenor forecast routing, and legacy calibration wrapper      |
-| `dal/curve/piecewiseconstant.hpp`, `dal/curve/piecewiseconstant.cpp` | `PiecewiseConstant_` — step-function representation with precomputed integrals               |
-| `dal/curve/piecewiselinear.hpp`, `dal/curve/piecewiselinear.cpp`     | `PiecewiseLinear_` — continuous piecewise-linear function with precomputed integrals         |
+| File                                                                                 | Purpose                                                                                      |
+|--------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------|
+| `dal-cpp/dal/curve/yc.hpp`, `dal-cpp/dal/curve/yc.cpp`                               | `YieldCurve_` — top-level curve abstraction (currency, discount access, LIBOR forecast)      |
+| `dal-cpp/dal/curve/yccomponent.hpp`, `dal-cpp/dal/curve/yccomponent.cpp`             | `YCComponent_` — base for all curve components with dependency tracking and cloning          |
+| `dal-cpp/dal/curve/discount.hpp`, `dal-cpp/dal/curve/discount.cpp`                   | `DiscountCurve_` — abstract discount factor interface                                        |
+| `dal-cpp/dal/curve/ycimp.hpp`, `dal-cpp/dal/curve/ycimp.cpp`                         | `DiscountPWLF_` — concrete discount curve built on piecewise-linear forward rates            |
+| `dal-cpp/dal/curve/ycconst.hpp`, `dal-cpp/dal/curve/ycconst.cpp`                     | `DiscountPWC_` — concrete discount curve built on piecewise-constant forward rates           |
+| `dal-cpp/dal/curve/fittable.hpp`                                                     | `FittableCurve_` — interface for calibration (`NX()`, `ApplyDX()`)                           |
+| `dal-cpp/dal/curve/calibration.hpp`, `dal-cpp/dal/curve/calibration.cpp`             | Calibration spec/result types, knot policy handling, reusable weights, and solve orchestration |
+| `dal-cpp/dal/curve/curveblock.hpp`, `dal-cpp/dal/curve/curveblock.cpp`               | `CurveBlock_` — discount routing, tenor forecast routing, and legacy calibration wrapper      |
+| `dal-cpp/dal/curve/piecewiseconstant.hpp`, `dal-cpp/dal/curve/piecewiseconstant.cpp` | `PiecewiseConstant_` — step-function representation with precomputed integrals               |
+| `dal-cpp/dal/curve/piecewiselinear.hpp`, `dal-cpp/dal/curve/piecewiselinear.cpp`     | `PiecewiseLinear_` — continuous piecewise-linear function with precomputed integrals         |
 
 ## Class Hierarchy
 
@@ -211,7 +211,7 @@ This enables iterative solvers (Newton, Levenberg-Marquardt) to bootstrap forwar
 
 ### Calibration Spec and Result Types
 
-`dal/curve/calibration.hpp` introduces reusable orchestration types:
+`dal-cpp/dal/curve/calibration.hpp` introduces reusable orchestration types:
 
 - `CurveCalibrationSpec_` — input bundle for today, currency, instruments, knots, parameterization, solve mode, and tolerances
 - `CurveCalibrationDiagnostics_` — repricing residuals, RMS / max-absolute fit error, and optional effective Jacobian inverse
@@ -247,7 +247,7 @@ CurveBlock_ (routes discounting + tenor forecasts for repricing)
 
 ## Underdetermined Search for Curve Calibration
 
-The solver that actually bootstraps forward rates from market instruments lives in `dal/math/optimization/underdetermined.hpp/cpp`, with utility helpers in `underdeterminedutils.hpp`.
+The solver that actually bootstraps forward rates from market instruments lives in `dal-cpp/dal/math/optimization/underdetermined.hpp/cpp`, with utility helpers in `underdeterminedutils.hpp`.
 
 For a solver-focused description of the optimization method itself, see `underdetermined_search.md`.
 
@@ -370,7 +370,7 @@ where `jWeight = ||func_tol||² / fit_tol²`. This balances fitting accuracy aga
 
 ### Integration with Curve Building
 
-The solver now connects to reusable calibration orchestration in `dal/curve/calibration.cpp`. That layer:
+The solver now connects to reusable calibration orchestration in `dal-cpp/dal/curve/calibration.cpp`. That layer:
 
 1. validates instruments, knots, and tolerances
 2. orders instruments deterministically by time span
@@ -416,7 +416,7 @@ The `eff_j_inv` output from `Find()` is now populated and returned through `Curv
 
 ## Serialization
 
-`DiscountPWLF_` serializes via auto-generated code (`dal/auto/MG_DiscountPWLF_v1_*.inc`):
+`DiscountPWLF_` serializes via auto-generated code (`dal-cpp/dal/auto/MG_DiscountPWLF_v1_*.inc`):
 
 - Stored fields: name, currency, knot dates, left values, right values, base curve handle
 - Round-trips through the `Archive_` framework for persistence and transport

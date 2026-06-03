@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { api, EventRow, ProductDefinition, ProductTemplate } from "../api/client";
+import { api, type EventRow, type ProductDefinition, type ProductTemplate } from "../api/client";
 
 const EMPTY_ROW: EventRow = { date_kind: "label", label: "", event: "" };
 
@@ -13,16 +13,19 @@ export default function ProductBuilder() {
   const [error, setError] = useState<string | null>(null);
 
   function refresh() {
-    api.listProducts().then(setProducts);
+    void api.listProducts().then(setProducts);
   }
+
   useEffect(() => {
-    api.listTemplates().then(setTemplates);
+    void api.listTemplates().then(setTemplates);
     refresh();
   }, []);
 
   function loadTemplate(key: string) {
     const tpl = templates.find((t) => t.key === key);
-    if (!tpl) return;
+    if (!tpl) {
+      return;
+    }
     setName(tpl.name);
     setDescription(tpl.description);
     setRows(tpl.rows.map((r) => ({ ...r })));
@@ -46,7 +49,7 @@ export default function ProductBuilder() {
     try {
       const res = await api.debugProduct(rows);
       setDebug(res.debug);
-    } catch (e) {
+    } catch (e: unknown) {
       setError(String(e));
     }
   }
@@ -56,9 +59,14 @@ export default function ProductBuilder() {
     try {
       await api.createProduct({ name, description, template: null, rows });
       refresh();
-    } catch (e) {
+    } catch (e: unknown) {
       setError(String(e));
     }
+  }
+
+  async function removeProduct(id: string) {
+    await api.deleteProduct(id);
+    refresh();
   }
 
   return (
@@ -75,7 +83,14 @@ export default function ProductBuilder() {
       <div className="toolbar">
         <span className="muted">Start from template:</span>
         {templates.map((t) => (
-          <button key={t.key} className="ghost" onClick={() => loadTemplate(t.key)}>
+          <button
+            type="button"
+            key={t.key}
+            className="ghost"
+            onClick={() => {
+              loadTemplate(t.key);
+            }}
+          >
             {t.name}
           </button>
         ))}
@@ -85,12 +100,24 @@ export default function ProductBuilder() {
         <div className="panel">
           <h2>Definition</h2>
           <div className="field">
-            <label>Name</label>
-            <input value={name} onChange={(e) => setName(e.target.value)} />
+            <label htmlFor="product-name">Name</label>
+            <input
+              id="product-name"
+              value={name}
+              onChange={(e) => {
+                setName(e.target.value);
+              }}
+            />
           </div>
           <div className="field">
-            <label>Description</label>
-            <input value={description} onChange={(e) => setDescription(e.target.value)} />
+            <label htmlFor="product-description">Description</label>
+            <input
+              id="product-description"
+              value={description}
+              onChange={(e) => {
+                setDescription(e.target.value);
+              }}
+            />
           </div>
 
           <label>Event schedule</label>
@@ -98,9 +125,9 @@ export default function ProductBuilder() {
             <div className="event-builder-row" key={i}>
               <select
                 value={r.date_kind}
-                onChange={(e) =>
-                  updateRow(i, { date_kind: e.target.value as "date" | "label" })
-                }
+                onChange={(e) => {
+                  updateRow(i, { date_kind: e.target.value as "date" | "label" });
+                }}
               >
                 <option value="date">date</option>
                 <option value="label">label</option>
@@ -109,33 +136,58 @@ export default function ProductBuilder() {
                 <input
                   type="date"
                   value={r.date ?? ""}
-                  onChange={(e) => updateRow(i, { date: e.target.value })}
+                  onChange={(e) => {
+                    updateRow(i, { date: e.target.value });
+                  }}
                 />
               ) : (
                 <input
                   placeholder="STRIKE or START:… END:… FREQ:1W"
                   value={r.label ?? ""}
-                  onChange={(e) => updateRow(i, { label: e.target.value })}
+                  onChange={(e) => {
+                    updateRow(i, { label: e.target.value });
+                  }}
                 />
               )}
               <textarea
                 placeholder="event script, e.g. call pays MAX(spot() - STRIKE, 0.0)"
                 value={r.event}
-                onChange={(e) => updateRow(i, { event: e.target.value })}
+                onChange={(e) => {
+                  updateRow(i, { event: e.target.value });
+                }}
               />
-              <button className="danger" onClick={() => removeRow(i)}>
+              <button
+                type="button"
+                className="danger"
+                onClick={() => {
+                  removeRow(i);
+                }}
+              >
                 ×
               </button>
             </div>
           ))}
           <div className="toolbar" style={{ marginTop: 12 }}>
-            <button className="ghost" onClick={addRow}>
+            <button type="button" className="ghost" onClick={addRow}>
               + Add row
             </button>
-            <button className="ghost" onClick={runDebug}>
+            <button
+              type="button"
+              className="ghost"
+              onClick={() => {
+                void runDebug();
+              }}
+            >
               Debug (DAL)
             </button>
-            <button onClick={save}>Save product</button>
+            <button
+              type="button"
+              onClick={() => {
+                void save();
+              }}
+            >
+              Save product
+            </button>
           </div>
         </div>
 
@@ -171,10 +223,10 @@ export default function ProductBuilder() {
                 <td className="num">{p.rows.length}</td>
                 <td>
                   <button
+                    type="button"
                     className="danger"
-                    onClick={async () => {
-                      await api.deleteProduct(p.id);
-                      refresh();
+                    onClick={() => {
+                      void removeProduct(p.id);
                     }}
                   >
                     Delete

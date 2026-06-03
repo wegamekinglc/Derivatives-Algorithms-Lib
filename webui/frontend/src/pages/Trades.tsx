@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import {
   api,
-  ModelDefinition,
-  ProductDefinition,
-  Trade,
+  type ModelDefinition,
+  type ProductDefinition,
+  type Trade,
 } from "../api/client";
 import { fmtMoney } from "../format";
 import ValuationPanel from "../components/ValuationPanel";
@@ -24,17 +24,22 @@ export default function Trades() {
   const [modelId, setModelId] = useState("");
 
   function refresh() {
-    api.listTrades().then(setTrades);
+    void api.listTrades().then(setTrades);
   }
+
   useEffect(() => {
     refresh();
-    api.listProducts().then((p) => {
+    void api.listProducts().then((p) => {
       setProducts(p);
-      if (p[0]) setProductId(p[0].id);
+      if (p[0]) {
+        setProductId(p[0].id);
+      }
     });
-    api.listModels().then((m) => {
+    void api.listModels().then((m) => {
       setModels(m);
-      if (m[0]) setModelId(m[0].id);
+      if (m[0]) {
+        setModelId(m[0].id);
+      }
     });
   }, []);
 
@@ -51,9 +56,14 @@ export default function Trades() {
         model_id: modelId,
       });
       refresh();
-    } catch (e) {
+    } catch (e: unknown) {
       setError(String(e));
     }
+  }
+
+  async function remove(id: string) {
+    await api.deleteTrade(id);
+    refresh();
   }
 
   const nameById = (list: { id: string; name: string }[], id: string) =>
@@ -74,22 +84,46 @@ export default function Trades() {
         <h2>New trade</h2>
         <div className="row" style={{ marginBottom: 12 }}>
           <div>
-            <label>Name</label>
-            <input value={name} onChange={(e) => setName(e.target.value)} />
+            <label htmlFor="trade-name">Name</label>
+            <input
+              id="trade-name"
+              value={name}
+              onChange={(e) => {
+                setName(e.target.value);
+              }}
+            />
           </div>
           <div>
-            <label>Book</label>
-            <input value={book} onChange={(e) => setBook(e.target.value)} />
+            <label htmlFor="trade-book">Book</label>
+            <input
+              id="trade-book"
+              value={book}
+              onChange={(e) => {
+                setBook(e.target.value);
+              }}
+            />
           </div>
           <div>
-            <label>Counterparty</label>
-            <input value={counterparty} onChange={(e) => setCounterparty(e.target.value)} />
+            <label htmlFor="trade-counterparty">Counterparty</label>
+            <input
+              id="trade-counterparty"
+              value={counterparty}
+              onChange={(e) => {
+                setCounterparty(e.target.value);
+              }}
+            />
           </div>
         </div>
         <div className="row">
           <div>
-            <label>Product</label>
-            <select value={productId} onChange={(e) => setProductId(e.target.value)}>
+            <label htmlFor="trade-product">Product</label>
+            <select
+              id="trade-product"
+              value={productId}
+              onChange={(e) => {
+                setProductId(e.target.value);
+              }}
+            >
               {products.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.name}
@@ -98,8 +132,14 @@ export default function Trades() {
             </select>
           </div>
           <div>
-            <label>Model</label>
-            <select value={modelId} onChange={(e) => setModelId(e.target.value)}>
+            <label htmlFor="trade-model">Model</label>
+            <select
+              id="trade-model"
+              value={modelId}
+              onChange={(e) => {
+                setModelId(e.target.value);
+              }}
+            >
               {models.map((m) => (
                 <option key={m.id} value={m.id}>
                   {m.name}
@@ -108,14 +148,34 @@ export default function Trades() {
             </select>
           </div>
           <div>
-            <label>Notional</label>
-            <input type="number" value={notional} onChange={(e) => setNotional(Number(e.target.value))} />
+            <label htmlFor="trade-notional">Notional</label>
+            <input
+              id="trade-notional"
+              type="number"
+              value={notional}
+              onChange={(e) => {
+                setNotional(Number(e.target.value));
+              }}
+            />
           </div>
           <div>
-            <label>Quantity</label>
-            <input type="number" value={quantity} onChange={(e) => setQuantity(Number(e.target.value))} />
+            <label htmlFor="trade-quantity">Quantity</label>
+            <input
+              id="trade-quantity"
+              type="number"
+              value={quantity}
+              onChange={(e) => {
+                setQuantity(Number(e.target.value));
+              }}
+            />
           </div>
-          <button onClick={create} disabled={!productId || !modelId}>
+          <button
+            type="button"
+            onClick={() => {
+              void create();
+            }}
+            disabled={!productId || !modelId}
+          >
             Create
           </button>
         </div>
@@ -141,14 +201,20 @@ export default function Trades() {
               <td>{nameById(models, t.model_id)}</td>
               <td className="num">{fmtMoney(t.notional)}</td>
               <td>
-                <button className="ghost" onClick={() => setSelected(t.id)}>
+                <button
+                  type="button"
+                  className="ghost"
+                  onClick={() => {
+                    setSelected(t.id);
+                  }}
+                >
                   Price
                 </button>{" "}
                 <button
+                  type="button"
                   className="danger"
-                  onClick={async () => {
-                    await api.deleteTrade(t.id);
-                    refresh();
+                  onClick={() => {
+                    void remove(t.id);
                   }}
                 >
                   Delete

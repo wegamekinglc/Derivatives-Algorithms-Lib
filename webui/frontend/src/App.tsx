@@ -1,6 +1,6 @@
-import { NavLink, Navigate, Route, Routes } from "react-router-dom";
 import { useEffect, useState } from "react";
-import { api, Health } from "./api/client";
+import { NavLink, Navigate, Route, Routes } from "react-router-dom";
+import { api, type Health } from "./api/client";
 import { classNames } from "./format";
 import Dashboard from "./pages/Dashboard";
 import Portfolios from "./pages/Portfolios";
@@ -22,7 +22,9 @@ export default function App() {
   const [health, setHealth] = useState<Health | null>(null);
 
   useEffect(() => {
-    api.health().then(setHealth).catch(() => setHealth(null));
+    void api.health().then(setHealth).catch(() => {
+      setHealth(null);
+    });
   }, []);
 
   return (
@@ -42,7 +44,7 @@ export default function App() {
           </NavLink>
         ))}
         <div className="backend-badge">
-          DAL backend:{" "}
+          DAL backend: {" "}
           {health ? (
             <span className={health.is_native ? "badge-native" : "badge-stub"}>
               {health.backend}
