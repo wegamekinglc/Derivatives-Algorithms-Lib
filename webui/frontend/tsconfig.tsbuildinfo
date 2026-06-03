@@ -1,1 +1,0 @@
-{"root":["./src/App.tsx","./src/format.ts","./src/main.tsx","./src/vite-env.d.ts","./src/api/client.ts","./src/components/ValuationPanel.tsx","./src/pages/Dashboard.tsx","./src/pages/Models.tsx","./src/pages/Portfolios.tsx","./src/pages/ProductBuilder.tsx","./src/pages/Trades.tsx","./src/pages/Valuations.tsx"],"version":"5.9.3"}

@@ -1,17 +1,29 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api, type EventRow, type ProductDefinition, type ProductTemplate } from "../api/client";
 import { css, inlineStyle } from "../format";
 
 const EMPTY_ROW: EventRow = { date_kind: "label", label: "", event: "" };
 
+type EditorRow = EventRow & { row_id: string };
+
 export default function ProductBuilder() {
+  const rowSeq = useRef(0);
+  const makeRow = (row: EventRow = EMPTY_ROW): EditorRow => ({
+    ...row,
+    row_id: `row-${rowSeq.current++}`,
+  });
+
   const [templates, setTemplates] = useState<ProductTemplate[]>([]);
   const [products, setProducts] = useState<ProductDefinition[]>([]);
   const [name, setName] = useState("My Product");
   const [description, setDescription] = useState("");
-  const [rows, setRows] = useState<EventRow[]>([{ ...EMPTY_ROW }]);
+  const [rows, setRows] = useState<EditorRow[]>([makeRow()]);
   const [debug, setDebug] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
+
+  function apiRows(): EventRow[] {
+    return rows.map(({ row_id: _rowId, ...row }) => row);
+  }
 
   function refresh() {
     void api.listProducts().then(setProducts);
@@ -29,26 +41,26 @@ export default function ProductBuilder() {
     }
     setName(tpl.name);
     setDescription(tpl.description);
-    setRows(tpl.rows.map((r) => ({ ...r })));
+    setRows(tpl.rows.map((r) => makeRow(r)));
     setDebug("");
   }
 
-  function updateRow(i: number, patch: Partial<EventRow>) {
-    setRows((rs) => rs.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
+  function updateRow(rowId: string, patch: Partial<EventRow>) {
+    setRows((rs) => rs.map((r) => (r.row_id === rowId ? { ...r, ...patch } : r)));
   }
 
   function addRow() {
-    setRows((rs) => [...rs, { ...EMPTY_ROW }]);
+    setRows((rs) => [...rs, makeRow()]);
   }
 
-  function removeRow(i: number) {
-    setRows((rs) => rs.filter((_, idx) => idx !== i));
+  function removeRow(rowId: string) {
+    setRows((rs) => rs.filter((r) => r.row_id !== rowId));
   }
 
   async function runDebug() {
     setError(null);
     try {
-      const res = await api.debugProduct(rows);
+      const res = await api.debugProduct(apiRows());
       setDebug(res.debug);
     } catch (e: unknown) {
       setError(String(e));
@@ -58,7 +70,7 @@ export default function ProductBuilder() {
   async function save() {
     setError(null);
     try {
-      await api.createProduct({ name, description, template: null, rows });
+      await api.createProduct({ name, description, template: null, rows: apiRows() });
       refresh();
     } catch (e: unknown) {
       setError(String(e));
@@ -122,12 +134,12 @@ export default function ProductBuilder() {
           </div>
 
           <label>Event schedule</label>
-          {rows.map((r, i) => (
-            <div {...css("event-builder-row")} key={i}>
+          {rows.map((r) => (
+            <div {...css("event-builder-row")} key={r.row_id}>
               <select
                 value={r.date_kind}
                 onChange={(e) => {
-                  updateRow(i, { date_kind: e.target.value as "date" | "label" });
+                  updateRow(r.row_id, { date_kind: e.target.value as "date" | "label" });
                 }}
               >
                 <option value="date">date</option>
@@ -138,7 +150,7 @@ export default function ProductBuilder() {
                   type="date"
                   value={r.date ?? ""}
                   onChange={(e) => {
-                    updateRow(i, { date: e.target.value });
+                    updateRow(r.row_id, { date: e.target.value });
                   }}
                 />
               ) : (
@@ -146,7 +158,7 @@ export default function ProductBuilder() {
                   placeholder="STRIKE or START:… END:… FREQ:1W"
                   value={r.label ?? ""}
                   onChange={(e) => {
-                    updateRow(i, { label: e.target.value });
+                    updateRow(r.row_id, { label: e.target.value });
                   }}
                 />
               )}
@@ -154,14 +166,14 @@ export default function ProductBuilder() {
                 placeholder="event script, e.g. call pays MAX(spot() - STRIKE, 0.0)"
                 value={r.event}
                 onChange={(e) => {
-                  updateRow(i, { event: e.target.value });
+                  updateRow(r.row_id, { event: e.target.value });
                 }}
               />
               <button
                 type="button"
                 {...css("danger")}
                 onClick={() => {
-                  removeRow(i);
+                  removeRow(r.row_id);
                 }}
               >
                 ×

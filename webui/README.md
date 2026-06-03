@@ -50,7 +50,7 @@ requirement.
 ### Native library vs. development stub
 
 The compiled `dal` package requires a full C++ build with SWIG bindings (see the
-repository root `README.md` and `public/python`). So that the web app can be
+repository root `README.md` and `dal-python/`). So that the web app can be
 developed and tested without that build, `dal_gateway.py` falls back to
 `dal_stub.py` -- a pure-python module that re-implements the **same** public API
 surface (closed-form Black-Scholes for European-style payoffs, finite-difference

@@ -148,20 +148,24 @@ class DalGateway:
         raise ValueError(f"Unsupported model kind: {kind!r}")
 
     def _build_matrix(self, spots: List[float], times: List[float], vols: Any):
-        """Build a ``dal.DoubleMatrix_`` (rows=spots, cols=times) from a 2D list.
+        """Build a ``dal.DoubleMatrix_`` (rows=spots, cols=times) from a flat 2D list.
 
-        Falls back to the raw value for the stub backend, which does not need a
-        real matrix object.
+        The native SWIG matrix binding exposes constructor fill and read access,
+        but not element mutation.  Native Dupire support is therefore limited to
+        flat volatility surfaces until the public binding grows a setter.
         """
         matrix_cls = getattr(self._dal, "DoubleMatrix_", None)
         if matrix_cls is None:
             return vols
+
         n_rows, n_cols = len(spots), len(times)
-        matrix = matrix_cls(n_rows, n_cols, 0.0)
-        for i in range(n_rows):
-            for j in range(n_cols):
-                matrix.set(i, j, float(vols[i][j])) if hasattr(matrix, "set") else None
-        return matrix
+        if len(vols) != n_rows or any(len(row) != n_cols for row in vols):
+            raise ValueError("Dupire vols must be a rectangular matrix matching spots x times")
+
+        flat_vol = float(vols[0][0])
+        if any(float(vols[i][j]) != flat_vol for i in range(n_rows) for j in range(n_cols)):
+            raise ValueError("Native DAL Python bindings currently support only flat Dupire volatility surfaces")
+        return matrix_cls(n_rows, n_cols, flat_vol)
 
     # -- valuation -------------------------------------------------------
 

@@ -8,4 +8,5 @@ venv/
 # Node / Vite
 node_modules/
 dist/
+tsconfig.tsbuildinfo
 *.local
