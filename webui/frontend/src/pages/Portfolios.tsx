@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { api, type Portfolio, type Trade } from "../api/client";
-import { fmtMoney } from "../format";
+import { css, fmtMoney, inlineStyle } from "../format";
 import ValuationPanel from "../components/ValuationPanel";
 
 export default function Portfolios() {
@@ -56,19 +56,19 @@ export default function Portfolios() {
 
   return (
     <div>
-      <div className="page-header">
+      <div {...css("page-header")}>
         <div>
           <h1>Portfolios</h1>
           <p>Group trades into books and price the whole book at once.</p>
         </div>
       </div>
 
-      {error && <div className="error">{error}</div>}
+      {error && <div {...css("error")}>{error}</div>}
 
-      <div className="grid-2">
-        <div className="panel">
+      <div {...css("grid-2")}>
+        <div {...css("panel")}>
           <h2>Books</h2>
-          <div className="row" style={{ marginBottom: 12 }}>
+          <div {...css("row")} {...inlineStyle({ marginBottom: 12 })}>
             <input
               value={name}
               onChange={(e) => {
@@ -80,7 +80,7 @@ export default function Portfolios() {
               onClick={() => {
                 void create();
               }}
-              style={{ flex: "0 0 auto" }}
+              {...inlineStyle({ flex: "0 0 auto" })}
             >
               Create
             </button>
@@ -89,7 +89,7 @@ export default function Portfolios() {
             <thead>
               <tr>
                 <th>Name</th>
-                <th className="num"># trades</th>
+                <th {...css("num")}># trades</th>
                 <th></th>
               </tr>
             </thead>
@@ -97,11 +97,11 @@ export default function Portfolios() {
               {portfolios.map((pf) => (
                 <tr key={pf.id}>
                   <td>{pf.name}</td>
-                  <td className="num">{pf.trade_ids.length}</td>
+                  <td {...css("num")}>{pf.trade_ids.length}</td>
                   <td>
                     <button
                       type="button"
-                      className="ghost"
+                      {...css("ghost")}
                       onClick={() => {
                         void selectPortfolio(pf);
                       }}
@@ -115,11 +115,11 @@ export default function Portfolios() {
           </table>
         </div>
 
-        <div className="panel">
+        <div {...css("panel")}>
           <h2>{selected ? selected.name : "Select a portfolio"}</h2>
           {selected && (
             <>
-              <div className="row" style={{ marginBottom: 12 }}>
+              <div {...css("row")} {...inlineStyle({ marginBottom: 12 })}>
                 <select
                   value={addTradeId}
                   onChange={(e) => {
@@ -140,7 +140,7 @@ export default function Portfolios() {
                   onClick={() => {
                     void addTrade();
                   }}
-                  style={{ flex: "0 0 auto" }}
+                  {...inlineStyle({ flex: "0 0 auto" })}
                   disabled={!addTradeId}
                 >
                   Add trade
@@ -151,7 +151,7 @@ export default function Portfolios() {
                   <tr>
                     <th>Trade</th>
                     <th>Book</th>
-                    <th className="num">Notional</th>
+                    <th {...css("num")}>Notional</th>
                     <th></th>
                   </tr>
                 </thead>
@@ -160,11 +160,11 @@ export default function Portfolios() {
                     <tr key={t.id}>
                       <td>{t.name}</td>
                       <td>{t.book}</td>
-                      <td className="num">{fmtMoney(t.notional)}</td>
+                      <td {...css("num")}>{fmtMoney(t.notional)}</td>
                       <td>
                         <button
                           type="button"
-                          className="danger"
+                          {...css("danger")}
                           onClick={() => {
                             void removeTrade(t.id);
                           }}

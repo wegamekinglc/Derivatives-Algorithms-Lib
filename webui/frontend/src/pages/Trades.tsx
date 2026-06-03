@@ -5,7 +5,7 @@ import {
   type ProductDefinition,
   type Trade,
 } from "../api/client";
-import { fmtMoney } from "../format";
+import { css, fmtMoney, inlineStyle } from "../format";
 import ValuationPanel from "../components/ValuationPanel";
 
 export default function Trades() {
@@ -71,18 +71,18 @@ export default function Trades() {
 
   return (
     <div>
-      <div className="page-header">
+      <div {...css("page-header")}>
         <div>
           <h1>Trades</h1>
           <p>Each trade links a scripted product to a model and a notional.</p>
         </div>
       </div>
 
-      {error && <div className="error">{error}</div>}
+      {error && <div {...css("error")}>{error}</div>}
 
-      <div className="panel">
+      <div {...css("panel")}>
         <h2>New trade</h2>
-        <div className="row" style={{ marginBottom: 12 }}>
+        <div {...css("row")} {...inlineStyle({ marginBottom: 12 })}>
           <div>
             <label htmlFor="trade-name">Name</label>
             <input
@@ -114,7 +114,7 @@ export default function Trades() {
             />
           </div>
         </div>
-        <div className="row">
+        <div {...css("row")}>
           <div>
             <label htmlFor="trade-product">Product</label>
             <select
@@ -188,7 +188,7 @@ export default function Trades() {
             <th>Book</th>
             <th>Product</th>
             <th>Model</th>
-            <th className="num">Notional</th>
+            <th {...css("num")}>Notional</th>
             <th></th>
           </tr>
         </thead>
@@ -199,11 +199,11 @@ export default function Trades() {
               <td>{t.book}</td>
               <td>{nameById(products, t.product_id)}</td>
               <td>{nameById(models, t.model_id)}</td>
-              <td className="num">{fmtMoney(t.notional)}</td>
+              <td {...css("num")}>{fmtMoney(t.notional)}</td>
               <td>
                 <button
                   type="button"
-                  className="ghost"
+                  {...css("ghost")}
                   onClick={() => {
                     setSelected(t.id);
                   }}
@@ -212,7 +212,7 @@ export default function Trades() {
                 </button>{" "}
                 <button
                   type="button"
-                  className="danger"
+                  {...css("danger")}
                   onClick={() => {
                     void remove(t.id);
                   }}
@@ -226,7 +226,7 @@ export default function Trades() {
       </table>
 
       {selected && (
-        <div style={{ marginTop: 18 }}>
+        <div {...inlineStyle({ marginTop: 18 })}>
           <ValuationPanel
             title={`Price trade: ${nameById(trades, selected)}`}
             onRun={(config) => api.valueTrade(selected, config)}

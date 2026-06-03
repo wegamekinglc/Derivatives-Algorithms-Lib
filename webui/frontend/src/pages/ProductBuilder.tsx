@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api, type EventRow, type ProductDefinition, type ProductTemplate } from "../api/client";
+import { css, inlineStyle } from "../format";
 
 const EMPTY_ROW: EventRow = { date_kind: "label", label: "", event: "" };
 
@@ -71,22 +72,22 @@ export default function ProductBuilder() {
 
   return (
     <div>
-      <div className="page-header">
+      <div {...css("page-header")}>
         <div>
           <h1>Product Builder</h1>
           <p>Compose DAL scripted products as a schedule of (date, event) rows.</p>
         </div>
       </div>
 
-      {error && <div className="error">{error}</div>}
+      {error && <div {...css("error")}>{error}</div>}
 
-      <div className="toolbar">
-        <span className="muted">Start from template:</span>
+      <div {...css("toolbar")}>
+        <span {...css("muted")}>Start from template:</span>
         {templates.map((t) => (
           <button
             type="button"
             key={t.key}
-            className="ghost"
+            {...css("ghost")}
             onClick={() => {
               loadTemplate(t.key);
             }}
@@ -96,10 +97,10 @@ export default function ProductBuilder() {
         ))}
       </div>
 
-      <div className="grid-2">
-        <div className="panel">
+      <div {...css("grid-2")}>
+        <div {...css("panel")}>
           <h2>Definition</h2>
-          <div className="field">
+          <div {...css("field")}>
             <label htmlFor="product-name">Name</label>
             <input
               id="product-name"
@@ -109,7 +110,7 @@ export default function ProductBuilder() {
               }}
             />
           </div>
-          <div className="field">
+          <div {...css("field")}>
             <label htmlFor="product-description">Description</label>
             <input
               id="product-description"
@@ -122,7 +123,7 @@ export default function ProductBuilder() {
 
           <label>Event schedule</label>
           {rows.map((r, i) => (
-            <div className="event-builder-row" key={i}>
+            <div {...css("event-builder-row")} key={i}>
               <select
                 value={r.date_kind}
                 onChange={(e) => {
@@ -158,7 +159,7 @@ export default function ProductBuilder() {
               />
               <button
                 type="button"
-                className="danger"
+                {...css("danger")}
                 onClick={() => {
                   removeRow(i);
                 }}
@@ -167,13 +168,13 @@ export default function ProductBuilder() {
               </button>
             </div>
           ))}
-          <div className="toolbar" style={{ marginTop: 12 }}>
-            <button type="button" className="ghost" onClick={addRow}>
+          <div {...css("toolbar")} {...inlineStyle({ marginTop: 12 })}>
+            <button type="button" {...css("ghost")} onClick={addRow}>
               + Add row
             </button>
             <button
               type="button"
-              className="ghost"
+              {...css("ghost")}
               onClick={() => {
                 void runDebug();
               }}
@@ -191,12 +192,12 @@ export default function ProductBuilder() {
           </div>
         </div>
 
-        <div className="panel">
+        <div {...css("panel")}>
           <h2>DAL product debug</h2>
           {debug ? (
-            <pre className="debug">{debug}</pre>
+            <pre {...css("debug")}>{debug}</pre>
           ) : (
-            <p className="muted">
+            <p {...css("muted")}>
               Click <b>Debug (DAL)</b> to render the product through Product_New /
               Product_Debug.
             </p>
@@ -204,14 +205,14 @@ export default function ProductBuilder() {
         </div>
       </div>
 
-      <div className="panel">
+      <div {...css("panel")}>
         <h2>Saved products</h2>
         <table>
           <thead>
             <tr>
               <th>Name</th>
               <th>Description</th>
-              <th className="num"># rows</th>
+              <th {...css("num")}># rows</th>
               <th></th>
             </tr>
           </thead>
@@ -219,12 +220,12 @@ export default function ProductBuilder() {
             {products.map((p) => (
               <tr key={p.id}>
                 <td>{p.name}</td>
-                <td className="muted">{p.description}</td>
-                <td className="num">{p.rows.length}</td>
+                <td {...css("muted")}>{p.description}</td>
+                <td {...css("num")}>{p.rows.length}</td>
                 <td>
                   <button
                     type="button"
-                    className="danger"
+                    {...css("danger")}
                     onClick={() => {
                       void removeProduct(p.id);
                     }}

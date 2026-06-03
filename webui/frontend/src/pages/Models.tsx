@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { api, type ModelDefinition } from "../api/client";
-import { fmtNum } from "../format";
+import { css, fmtNum } from "../format";
 
 export default function Models() {
   const [models, setModels] = useState<ModelDefinition[]>([]);
@@ -40,18 +40,18 @@ export default function Models() {
 
   return (
     <div>
-      <div className="page-header">
+      <div {...css("page-header")}>
         <div>
           <h1>Models</h1>
           <p>Black-Scholes model data passed to DAL via BSModelData_New.</p>
         </div>
       </div>
 
-      {error && <div className="error">{error}</div>}
+      {error && <div {...css("error")}>{error}</div>}
 
-      <div className="panel">
+      <div {...css("panel")}>
         <h2>New Black-Scholes model</h2>
-        <div className="field">
+        <div {...css("field")}>
           <label htmlFor="model-name">Name</label>
           <input
             id="model-name"
@@ -61,7 +61,7 @@ export default function Models() {
             }}
           />
         </div>
-        <div className="row">
+        <div {...css("row")}>
           <div>
             <label htmlFor="model-spot">Spot</label>
             <input
@@ -125,10 +125,10 @@ export default function Models() {
           <tr>
             <th>Name</th>
             <th>Kind</th>
-            <th className="num">Spot</th>
-            <th className="num">Vol</th>
-            <th className="num">Rate</th>
-            <th className="num">Div</th>
+            <th {...css("num")}>Spot</th>
+            <th {...css("num")}>Vol</th>
+            <th {...css("num")}>Rate</th>
+            <th {...css("num")}>Div</th>
             <th></th>
           </tr>
         </thead>
@@ -136,15 +136,15 @@ export default function Models() {
           {models.map((m) => (
             <tr key={m.id}>
               <td>{m.name}</td>
-              <td className="mono">{m.kind}</td>
-              <td className="num">{m.bs ? fmtNum(m.bs.spot, 2) : "-"}</td>
-              <td className="num">{m.bs ? fmtNum(m.bs.vol, 4) : "-"}</td>
-              <td className="num">{m.bs ? fmtNum(m.bs.rate, 4) : "-"}</td>
-              <td className="num">{m.bs ? fmtNum(m.bs.div, 4) : "-"}</td>
+              <td {...css("mono")}>{m.kind}</td>
+              <td {...css("num")}>{m.bs ? fmtNum(m.bs.spot, 2) : "-"}</td>
+              <td {...css("num")}>{m.bs ? fmtNum(m.bs.vol, 4) : "-"}</td>
+              <td {...css("num")}>{m.bs ? fmtNum(m.bs.rate, 4) : "-"}</td>
+              <td {...css("num")}>{m.bs ? fmtNum(m.bs.div, 4) : "-"}</td>
               <td>
                 <button
                   type="button"
-                  className="danger"
+                  {...css("danger")}
                   onClick={() => {
                     void remove(m.id);
                   }}

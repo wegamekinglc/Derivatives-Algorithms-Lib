@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { type ValuationConfig, type ValuationResult } from "../api/client";
-import { fmtMoney, fmtNum } from "../format";
+import type { ValuationConfig, ValuationResult } from "../api/client";
+import { css, fmtMoney, fmtNum, inlineStyle } from "../format";
 
 interface Props {
   onRun: (config: ValuationConfig) => Promise<ValuationResult>;
@@ -40,10 +40,10 @@ export default function ValuationPanel({ onRun, title = "Run valuation" }: Props
   }
 
   return (
-    <div className="panel">
+    <div {...css("panel")}>
       <h2>{title}</h2>
-      {error && <div className="error">{error}</div>}
-      <div className="row" style={{ marginBottom: 12 }}>
+      {error && <div {...css("error")}>{error}</div>}
+      <div {...css("row")} {...inlineStyle({ marginBottom: 12 })}>
         <div>
           <label htmlFor="valuation-paths"># paths (2^n)</label>
           <select
@@ -85,11 +85,11 @@ export default function ValuationPanel({ onRun, title = "Run valuation" }: Props
           />
         </div>
       </div>
-      <div className="row" style={{ marginBottom: 12 }}>
-        <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
+      <div {...css("row")} {...inlineStyle({ marginBottom: 12 })}>
+        <label {...inlineStyle({ display: "flex", gap: 8, alignItems: "center" })}>
           <input
             type="checkbox"
-            style={{ width: "auto" }}
+            {...inlineStyle({ width: "auto" })}
             checked={aad}
             onChange={(e) => {
               setAad(e.target.checked);
@@ -97,10 +97,10 @@ export default function ValuationPanel({ onRun, title = "Run valuation" }: Props
           />
           Enable AAD (Greeks)
         </label>
-        <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
+        <label {...inlineStyle({ display: "flex", gap: 8, alignItems: "center" })}>
           <input
             type="checkbox"
-            style={{ width: "auto" }}
+            {...inlineStyle({ width: "auto" })}
             checked={bb}
             onChange={(e) => {
               setBb(e.target.checked);
@@ -121,17 +121,17 @@ export default function ValuationPanel({ onRun, title = "Run valuation" }: Props
 
       {result && (
         <div>
-          <div className="cards" style={{ marginBottom: 12 }}>
-            <div className="card">
+          <div {...css("cards")} {...inlineStyle({ marginBottom: 12 })}>
+            <div {...css("card")}>
               <h3>Total PV</h3>
-              <div className={"metric " + (result.total_pv >= 0 ? "pos" : "neg")}>
+              <div {...css(`metric ${result.total_pv >= 0 ? "pos" : "neg"}`)}>
                 {fmtMoney(result.total_pv)}
               </div>
             </div>
             {Object.entries(result.total_greeks).map(([k, v]) => (
-              <div className="card" key={k}>
+              <div {...css("card")} key={k}>
                 <h3>{k}</h3>
-                <div className="metric">{fmtNum(v, 2)}</div>
+                <div {...css("metric")}>{fmtNum(v, 2)}</div>
               </div>
             ))}
           </div>
@@ -140,8 +140,8 @@ export default function ValuationPanel({ onRun, title = "Run valuation" }: Props
               <thead>
                 <tr>
                   <th>Trade</th>
-                  <th className="num">Unit PV</th>
-                  <th className="num">Scaled PV</th>
+                  <th {...css("num")}>Unit PV</th>
+                  <th {...css("num")}>Scaled PV</th>
                   <th>Greeks</th>
                 </tr>
               </thead>
@@ -149,14 +149,14 @@ export default function ValuationPanel({ onRun, title = "Run valuation" }: Props
                 {result.trades.map((t) => (
                   <tr key={t.trade_id}>
                     <td>{t.trade_name}</td>
-                    <td className="num">{fmtNum(t.pv)}</td>
-                    <td className="num">{fmtMoney(t.scaled_pv)}</td>
+                    <td {...css("num")}>{fmtNum(t.pv)}</td>
+                    <td {...css("num")}>{fmtMoney(t.scaled_pv)}</td>
                     <td>
                       {t.error ? (
-                        <span className="muted">err: {t.error}</span>
+                        <span {...css("muted")}>err: {t.error}</span>
                       ) : (
                         Object.entries(t.greeks).map(([k, v]) => (
-                          <span className="pill greek" key={k} style={{ marginRight: 4 }}>
+                          <span {...css("pill greek")} key={k} {...inlineStyle({ marginRight: 4 })}>
                             {k}: {fmtNum(v, 2)}
                           </span>
                         ))

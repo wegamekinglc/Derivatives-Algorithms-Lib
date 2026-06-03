@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { NavLink, Navigate, Route, Routes } from "react-router-dom";
 import { api, type Health } from "./api/client";
-import { classNames } from "./format";
+import { css, classNames } from "./format";
 import Dashboard from "./pages/Dashboard";
 import Portfolios from "./pages/Portfolios";
 import Trades from "./pages/Trades";
@@ -17,8 +17,6 @@ const NAV = [
   { to: "/models", label: "Models" },
   { to: "/valuations", label: "Valuation Runs" },
 ];
-
-const css = (className: string) => ({ className });
 
 export default function App() {
   const [health, setHealth] = useState<Health | null>(null);
