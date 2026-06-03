@@ -18,6 +18,8 @@ const NAV = [
   { to: "/valuations", label: "Valuation Runs" },
 ];
 
+const css = (className: string) => ({ className });
+
 export default function App() {
   const [health, setHealth] = useState<Health | null>(null);
 
@@ -28,9 +30,9 @@ export default function App() {
   }, []);
 
   return (
-    <div className="app">
-      <aside className="sidebar">
-        <div className="brand">
+    <div {...css("app")}>
+      <aside {...css("sidebar")}>
+        <div {...css("brand")}>
           DAL Workbench
           <small>Derivatives Portfolio Management</small>
         </div>
@@ -38,26 +40,28 @@ export default function App() {
           <NavLink
             key={n.to}
             to={n.to}
-            className={({ isActive }) => classNames("nav-link", isActive && "active")}
+            {...{
+              className: ({ isActive }: { isActive: boolean }) => classNames("nav-link", isActive && "active"),
+            }}
           >
             {n.label}
           </NavLink>
         ))}
-        <div className="backend-badge">
+        <div {...css("backend-badge")}>
           DAL backend: {" "}
           {health ? (
-            <span className={health.is_native ? "badge-native" : "badge-stub"}>
+            <span {...css(health.is_native ? "badge-native" : "badge-stub")}>
               {health.backend}
               {health.is_native ? " (native)" : " (stub)"}
             </span>
           ) : (
-            <span className="muted">offline</span>
+            <span {...css("muted")}>offline</span>
           )}
           <br />
           eval date: {health?.evaluation_date ?? "-"}
         </div>
       </aside>
-      <main className="main">
+      <main {...css("main")}>
         <Routes>
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
           <Route path="/dashboard" element={<Dashboard />} />
