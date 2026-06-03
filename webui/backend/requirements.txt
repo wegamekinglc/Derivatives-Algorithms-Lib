@@ -3,5 +3,5 @@ uvicorn[standard]>=0.29
 pydantic>=2.6
 
 # dev / test
-pytest>=8.0
+pytest>=9.0.3
 httpx>=0.27
