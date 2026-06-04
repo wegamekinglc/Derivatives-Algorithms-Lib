@@ -110,7 +110,12 @@ export interface ProductTemplate {
 const BASE = "/api";
 
 function apiPath(path: string): string {
+  // SSRF guard: reject absolute URLs, protocol-relative URLs, and path
+  // traversal segments so callers cannot escape the /api prefix.
   if (!path.startsWith("/") || path.startsWith("//") || path.includes("://")) {
+    throw new Error(`Invalid API path: ${path}`);
+  }
+  if (path.split("/").some((segment) => segment === ".." || segment === ".")) {
     throw new Error(`Invalid API path: ${path}`);
   }
 
