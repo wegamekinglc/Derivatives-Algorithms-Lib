@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import List
-
 from fastapi import APIRouter, Depends, HTTPException
 
 from app.dependencies import store_dependency
@@ -13,8 +11,8 @@ from app.services.store import NotFoundError, Store
 router = APIRouter(prefix="/api/models", tags=["models"])
 
 
-@router.get("", response_model=List[ModelDefinition])
-def list_models(store: Store = Depends(store_dependency)) -> List[ModelDefinition]:
+@router.get("", response_model=list[ModelDefinition])
+def list_models(store: Store = Depends(store_dependency)) -> list[ModelDefinition]:
     return store.list_models()
 
 

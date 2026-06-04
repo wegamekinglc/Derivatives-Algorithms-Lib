@@ -61,7 +61,7 @@ Greeks). Selection is controlled by environment variables:
 | `DAL_MODULE`         | `dal`   | Importable module providing the public API.                    |
 | `DAL_REQUIRE_NATIVE` | unset   | If truthy, never fall back to the stub -- fail if `dal` is absent. |
 | `WEBUI_SEED_DEMO`    | `1`     | Seed a demo portfolio/trade/model/product on startup.          |
-| `WEBUI_CORS_ORIGINS` | `localhost:5173` | Comma-separated allowed CORS origins.                 |
+| `WEBUI_CORS_ORIGINS` | `http://localhost:5173,http://127.0.0.1:5173` | Comma-separated allowed CORS origins (scheme required). |
 
 To use the real library, build the bindings, install the `dal` package into your
 environment, then run the backend normally (with `DAL_REQUIRE_NATIVE=1` to be

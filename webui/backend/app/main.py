@@ -24,14 +24,18 @@ def create_app() -> FastAPI:
         ),
     )
 
-    origins = os.environ.get(
+    raw_origins = os.environ.get(
         "WEBUI_CORS_ORIGINS",
         "http://localhost:5173,http://127.0.0.1:5173",
-    ).split(",")
+    )
+    origins = [o.strip() for o in raw_origins.split(",") if o.strip()]
+    # Never combine wildcard origins with credentials — browsers reject it
+    # and it is a CORS misconfiguration.
+    allow_credentials = "*" not in origins
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=[o.strip() for o in origins if o.strip()],
-        allow_credentials=True,
+        allow_origins=origins,
+        allow_credentials=allow_credentials,
         allow_methods=["*"],
         allow_headers=["*"],
     )

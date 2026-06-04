@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import List
-
 from fastapi import APIRouter, Depends, HTTPException
 
 from app.dependencies import gateway_dependency, store_dependency
@@ -21,8 +19,8 @@ from app.services.valuation import value_portfolio
 router = APIRouter(prefix="/api/portfolios", tags=["portfolios"])
 
 
-@router.get("", response_model=List[Portfolio])
-def list_portfolios(store: Store = Depends(store_dependency)) -> List[Portfolio]:
+@router.get("", response_model=list[Portfolio])
+def list_portfolios(store: Store = Depends(store_dependency)) -> list[Portfolio]:
     return store.list_portfolios()
 
 
@@ -53,11 +51,11 @@ def delete_portfolio(
     store.delete_portfolio(portfolio_id)
 
 
-@router.get("/{portfolio_id}/trades", response_model=List[Trade])
+@router.get("/{portfolio_id}/trades", response_model=list[Trade])
 def portfolio_trades(
     portfolio_id: str,
     store: Store = Depends(store_dependency),
-) -> List[Trade]:
+) -> list[Trade]:
     try:
         return store.portfolio_trades(portfolio_id)
     except NotFoundError as exc:

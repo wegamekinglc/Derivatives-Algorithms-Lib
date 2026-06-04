@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Dict
 
 from app.schemas import (
     Trade,
@@ -82,7 +81,7 @@ def value_portfolio(
     trades = store.portfolio_trades(portfolio_id)
     trade_valuations = [value_trade(store, gateway, t, config) for t in trades]
     total_pv = sum(tv.scaled_pv for tv in trade_valuations)
-    total_greeks: Dict[str, float] = {}
+    total_greeks: dict[str, float] = {}
     for tv in trade_valuations:
         for name, value in tv.greeks.items():
             total_greeks[name] = total_greeks.get(name, 0.0) + value

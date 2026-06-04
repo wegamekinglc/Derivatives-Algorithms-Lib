@@ -22,12 +22,12 @@ import importlib
 import os
 import threading
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
+from typing import Any
 
-_TRUTHY = {"1", "true", "yes", "on"}
+_TRUTHY = frozenset({"1", "true", "yes", "on"})
 
 
-def _is_truthy(value: Optional[str]) -> bool:
+def _is_truthy(value: str | None) -> bool:
     return value is not None and value.strip().lower() in _TRUTHY
 
 
@@ -35,22 +35,22 @@ def _is_truthy(value: Optional[str]) -> bool:
 class ValuationRequest:
     """Normalised inputs for a Monte Carlo valuation."""
 
-    event_dates: List[Any]
-    events: List[str]
+    event_dates: list[Any]
+    events: list[str]
     model_kind: str
-    model_params: Dict[str, Any]
+    model_params: dict[str, Any]
     num_paths: int = 1 << 16
     method: str = "sobol"
     use_brownian_bridge: bool = False
     enable_aad: bool = True
     smooth: float = 0.01
-    evaluation_date: Optional[tuple[int, int, int]] = None
+    evaluation_date: tuple[int, int, int] | None = None
 
 
 class DalGateway:
     """Thin, thread-safe adapter over the DAL public Python API."""
 
-    def __init__(self, module_name: Optional[str] = None) -> None:
+    def __init__(self, module_name: str | None = None) -> None:
         self._lock = threading.Lock()
         self._module_name = module_name or os.environ.get("DAL_MODULE", "dal")
         self._dal, self._is_native = self._load_module(self._module_name)
@@ -58,13 +58,13 @@ class DalGateway:
     # -- module loading ---------------------------------------------------
 
     @staticmethod
-    def _load_module(module_name: str):
+    def _load_module(module_name: str) -> tuple[Any, bool]:
         try:
             module = importlib.import_module(module_name)
             # The pure-python development fallback is never considered native.
             is_native = not module.__name__.endswith("dal_stub")
             return module, is_native
-        except Exception as native_error:  # noqa: BLE001 - report below
+        except ImportError as native_error:
             if _is_truthy(os.environ.get("DAL_REQUIRE_NATIVE")):
                 raise RuntimeError(
                     f"Could not import native DAL module '{module_name}': {native_error}. "
@@ -86,10 +86,10 @@ class DalGateway:
 
     # -- primitive constructors ------------------------------------------
 
-    def make_date(self, year: int, month: int, day: int):
+    def make_date(self, year: int, month: int, day: int) -> Any:
         return self._dal.Date_(year, month, day)
 
-    def _to_cell(self, value: Any):
+    def _to_cell(self, value: Any) -> Any:
         """Wrap a python value as a ``dal.Cell_`` unless it already is one."""
         cell_cls = self._dal.Cell_
         if isinstance(value, cell_cls):
@@ -104,7 +104,7 @@ class DalGateway:
 
     # -- product / model -------------------------------------------------
 
-    def _coerce_event_date(self, raw: Any):
+    def _coerce_event_date(self, raw: Any) -> Any:
         """Convert a JSON-friendly event-date token into a ``Cell_``.
 
         Accepted forms:
@@ -117,15 +117,15 @@ class DalGateway:
             return self._to_cell(self.make_date(y, m, d))
         return self._to_cell(str(raw))
 
-    def build_product(self, event_dates: List[Any], events: List[str]):
+    def build_product(self, event_dates: list[Any], events: list[str]) -> Any:
         cells = [self._coerce_event_date(d) for d in event_dates]
         return self._dal.Product_New(cells, [str(e) for e in events])
 
-    def debug_product(self, event_dates: List[Any], events: List[str]) -> str:
+    def debug_product(self, event_dates: list[Any], events: list[str]) -> str:
         product = self.build_product(event_dates, events)
         return self._dal.Product_Debug(product)
 
-    def build_model(self, kind: str, params: Dict[str, Any]):
+    def build_model(self, kind: str, params: dict[str, Any]) -> Any:
         if kind == "BSModelData_":
             return self._dal.BSModelData_New(
                 float(params["spot"]),
@@ -147,7 +147,7 @@ class DalGateway:
             )
         raise ValueError(f"Unsupported model kind: {kind!r}")
 
-    def _build_matrix(self, spots: List[float], times: List[float], vols: Any):
+    def _build_matrix(self, spots: list[float], times: list[float], vols: Any) -> Any:
         """Build a ``dal.DoubleMatrix_`` (rows=spots, cols=times) from a flat 2D list.
 
         The native SWIG matrix binding exposes constructor fill and read access,
@@ -164,12 +164,14 @@ class DalGateway:
 
         flat_vol = float(vols[0][0])
         if any(float(vols[i][j]) != flat_vol for i in range(n_rows) for j in range(n_cols)):
-            raise ValueError("Native DAL Python bindings currently support only flat Dupire volatility surfaces")
+            raise ValueError(
+                "Native DAL Python bindings currently support only flat Dupire volatility surfaces"
+            )
         return matrix_cls(n_rows, n_cols, flat_vol)
 
     # -- valuation -------------------------------------------------------
 
-    def value(self, request: ValuationRequest) -> Dict[str, float]:
+    def value(self, request: ValuationRequest) -> dict[str, float]:
         with self._lock:
             if request.evaluation_date is not None:
                 self.set_evaluation_date(*request.evaluation_date)
@@ -187,15 +189,16 @@ class DalGateway:
             return {str(k): float(v) for k, v in dict(raw).items()}
 
 
-_gateway: Optional[DalGateway] = None
+# Process-wide singleton stored in a mutable container so get_gateway()
+# does not need a `global` statement.
+_gateway_box: list[DalGateway | None] = [None]
 _gateway_lock = threading.Lock()
 
 
 def get_gateway() -> DalGateway:
     """Return a process-wide :class:`DalGateway` singleton."""
-    global _gateway
-    if _gateway is None:
+    if _gateway_box[0] is None:
         with _gateway_lock:
-            if _gateway is None:
-                _gateway = DalGateway()
-    return _gateway
+            if _gateway_box[0] is None:
+                _gateway_box[0] = DalGateway()
+    return _gateway_box[0]

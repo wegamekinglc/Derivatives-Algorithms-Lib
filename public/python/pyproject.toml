@@ -1,9 +1,0 @@
-# Build/tooling configuration for the DAL Python bindings.
-#
-# Project metadata and the C++ extension build live in setup.py (which defines
-# the custom `wrap`/`build_ext` commands that invoke SWIG and link against the
-# installed DAL library). This file declares the build backend and the build
-# dependencies so the bindings can be built and managed with uv.
-[build-system]
-requires = ["setuptools>=68", "wheel", "swig>=4.0.1"]
-build-backend = "setuptools.build_meta"

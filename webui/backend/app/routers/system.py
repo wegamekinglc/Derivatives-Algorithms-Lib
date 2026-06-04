@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import List
-
 from fastapi import APIRouter, Depends, HTTPException
 
 from app.dependencies import gateway_dependency, store_dependency
@@ -24,8 +22,8 @@ def health(gateway: DalGateway = Depends(gateway_dependency)) -> HealthResponse:
     )
 
 
-@router.get("/valuations", response_model=List[ValuationResult])
-def list_valuations(store: Store = Depends(store_dependency)) -> List[ValuationResult]:
+@router.get("/valuations", response_model=list[ValuationResult])
+def list_valuations(store: Store = Depends(store_dependency)) -> list[ValuationResult]:
     return store.list_valuations()
 
 

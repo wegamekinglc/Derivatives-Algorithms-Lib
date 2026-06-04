@@ -122,10 +122,13 @@ function apiPath(path: string): string {
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const requestInfo = new Request(apiPath(path), {
-    headers: { "Content-Type": "application/json" },
-    ...init,
-  });
+  const headers: Record<string, string> = { ...(init?.headers as Record<string, string> | undefined) };
+  // Only attach a JSON content-type when the request actually carries a
+  // body — GET / DELETE are "simple" requests and do not need it.
+  if (init?.body !== undefined && init?.body !== null) {
+    headers["Content-Type"] ??= "application/json";
+  }
+  const requestInfo = new Request(apiPath(path), { ...init, headers });
   const resp = await fetch(requestInfo);
   if (!resp.ok) {
     let detail = resp.statusText;

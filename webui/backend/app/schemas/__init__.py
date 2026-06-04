@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 from datetime import date as date_type
-from typing import Dict, List, Literal, Optional, Union
+from typing import Literal
 from uuid import uuid4
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 def _new_id() -> str:
@@ -27,17 +27,21 @@ class EventRow(BaseModel):
     """
 
     date_kind: Literal["date", "label"] = "date"
-    date: Optional[date_type] = None
-    label: Optional[str] = None
+    date: date_type | None = None
+    label: str | None = None
     event: str = Field(..., description="DAL event script for this row")
 
-    def to_event_date_token(self) -> Union[dict, str]:
+    @model_validator(mode="after")
+    def _check_row_consistency(self) -> "EventRow":
+        if self.date_kind == "date" and self.date is None:
+            raise ValueError("date_kind='date' requires a date value")
+        if self.date_kind == "label" and not self.label:
+            raise ValueError("date_kind='label' requires a non-empty label")
+        return self
+
+    def to_event_date_token(self) -> dict | str:
         if self.date_kind == "date":
-            if self.date is None:
-                raise ValueError("date_kind='date' requires a date value")
             return {"date": self.date.isoformat()}
-        if not self.label:
-            raise ValueError("date_kind='label' requires a label value")
         return self.label
 
 
@@ -45,8 +49,8 @@ class ProductDefinition(BaseModel):
     id: str = Field(default_factory=_new_id)
     name: str
     description: str = ""
-    template: Optional[str] = None
-    rows: List[EventRow]
+    template: str | None = None
+    rows: list[EventRow]
 
     def event_dates_and_events(self) -> tuple[list, list[str]]:
         dates = [r.to_event_date_token() for r in self.rows]
@@ -57,8 +61,8 @@ class ProductDefinition(BaseModel):
 class ProductCreate(BaseModel):
     name: str
     description: str = ""
-    template: Optional[str] = None
-    rows: List[EventRow]
+    template: str | None = None
+    rows: list[EventRow]
 
 
 # ---------------------------------------------------------------------------
@@ -77,17 +81,17 @@ class DupireModelParams(BaseModel):
     spot: float
     rate: float
     repo: float
-    spots: List[float]
-    times: List[float]
-    vols: List[List[float]]
+    spots: list[float]
+    times: list[float]
+    vols: list[list[float]]
 
 
 class ModelDefinition(BaseModel):
     id: str = Field(default_factory=_new_id)
     name: str
     kind: Literal["BSModelData_", "DupireModelData_"]
-    bs: Optional[BSModelParams] = None
-    dupire: Optional[DupireModelParams] = None
+    bs: BSModelParams | None = None
+    dupire: DupireModelParams | None = None
 
     def dal_kind_and_params(self) -> tuple[str, dict]:
         if self.kind == "BSModelData_":
@@ -102,8 +106,8 @@ class ModelDefinition(BaseModel):
 class ModelCreate(BaseModel):
     name: str
     kind: Literal["BSModelData_", "DupireModelData_"]
-    bs: Optional[BSModelParams] = None
-    dupire: Optional[DupireModelParams] = None
+    bs: BSModelParams | None = None
+    dupire: DupireModelParams | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -120,7 +124,7 @@ class Trade(BaseModel):
     quantity: float = 1.0
     product_id: str
     model_id: str
-    tags: List[str] = Field(default_factory=list)
+    tags: list[str] = Field(default_factory=list)
 
 
 class TradeCreate(BaseModel):
@@ -131,14 +135,14 @@ class TradeCreate(BaseModel):
     quantity: float = 1.0
     product_id: str
     model_id: str
-    tags: List[str] = Field(default_factory=list)
+    tags: list[str] = Field(default_factory=list)
 
 
 class Portfolio(BaseModel):
     id: str = Field(default_factory=_new_id)
     name: str
     description: str = ""
-    trade_ids: List[str] = Field(default_factory=list)
+    trade_ids: list[str] = Field(default_factory=list)
 
 
 class PortfolioCreate(BaseModel):
@@ -156,8 +160,8 @@ class ValuationConfig(BaseModel):
     method: Literal["sobol", "pseudo"] = "sobol"
     use_brownian_bridge: bool = False
     enable_aad: bool = True
-    smooth: float = 0.01
-    evaluation_date: Optional[date_type] = None
+    smooth: float = Field(default=0.01, ge=0.0)
+    evaluation_date: date_type | None = None
 
 
 class TradeValuation(BaseModel):
@@ -165,8 +169,8 @@ class TradeValuation(BaseModel):
     trade_name: str
     pv: float
     scaled_pv: float
-    greeks: Dict[str, float] = Field(default_factory=dict)
-    error: Optional[str] = None
+    greeks: dict[str, float] = Field(default_factory=dict)
+    error: str | None = None
 
 
 class ValuationResult(BaseModel):
@@ -177,13 +181,13 @@ class ValuationResult(BaseModel):
     is_native: bool
     config: ValuationConfig
     total_pv: float
-    total_greeks: Dict[str, float] = Field(default_factory=dict)
-    trades: List[TradeValuation] = Field(default_factory=list)
+    total_greeks: dict[str, float] = Field(default_factory=dict)
+    trades: list[TradeValuation] = Field(default_factory=list)
     created_at: str
 
 
 class ProductDebugRequest(BaseModel):
-    rows: List[EventRow]
+    rows: list[EventRow]
 
 
 class ProductDebugResponse(BaseModel):

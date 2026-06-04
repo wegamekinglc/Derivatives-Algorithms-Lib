@@ -8,7 +8,6 @@ touching the routers, which depend only on its public methods.
 from __future__ import annotations
 
 import threading
-from typing import Dict, List, Optional
 
 from app.schemas import (
     ModelDefinition,
@@ -26,11 +25,11 @@ class NotFoundError(KeyError):
 class Store:
     def __init__(self) -> None:
         self._lock = threading.RLock()
-        self._products: Dict[str, ProductDefinition] = {}
-        self._models: Dict[str, ModelDefinition] = {}
-        self._trades: Dict[str, Trade] = {}
-        self._portfolios: Dict[str, Portfolio] = {}
-        self._valuations: Dict[str, ValuationResult] = {}
+        self._products: dict[str, ProductDefinition] = {}
+        self._models: dict[str, ModelDefinition] = {}
+        self._trades: dict[str, Trade] = {}
+        self._portfolios: dict[str, Portfolio] = {}
+        self._valuations: dict[str, ValuationResult] = {}
 
     # -- products --------------------------------------------------------
 
@@ -39,7 +38,7 @@ class Store:
             self._products[product.id] = product
             return product
 
-    def list_products(self) -> List[ProductDefinition]:
+    def list_products(self) -> list[ProductDefinition]:
         with self._lock:
             return list(self._products.values())
 
@@ -61,7 +60,7 @@ class Store:
             self._models[model.id] = model
             return model
 
-    def list_models(self) -> List[ModelDefinition]:
+    def list_models(self) -> list[ModelDefinition]:
         with self._lock:
             return list(self._models.values())
 
@@ -86,7 +85,7 @@ class Store:
             self._trades[trade.id] = trade
             return trade
 
-    def list_trades(self) -> List[Trade]:
+    def list_trades(self) -> list[Trade]:
         with self._lock:
             return list(self._trades.values())
 
@@ -111,7 +110,7 @@ class Store:
             self._portfolios[portfolio.id] = portfolio
             return portfolio
 
-    def list_portfolios(self) -> List[Portfolio]:
+    def list_portfolios(self) -> list[Portfolio]:
         with self._lock:
             return list(self._portfolios.values())
 
@@ -126,7 +125,7 @@ class Store:
         with self._lock:
             self._portfolios.pop(portfolio_id, None)
 
-    def portfolio_trades(self, portfolio_id: str) -> List[Trade]:
+    def portfolio_trades(self, portfolio_id: str) -> list[Trade]:
         with self._lock:
             pf = self.get_portfolio(portfolio_id)
             return [self._trades[tid] for tid in pf.trade_ids if tid in self._trades]
@@ -153,7 +152,7 @@ class Store:
             self._valuations[result.id] = result
             return result
 
-    def list_valuations(self) -> List[ValuationResult]:
+    def list_valuations(self) -> list[ValuationResult]:
         with self._lock:
             return sorted(
                 self._valuations.values(), key=lambda r: r.created_at, reverse=True
@@ -167,14 +166,15 @@ class Store:
                 raise NotFoundError(f"valuation {valuation_id}") from exc
 
 
-_store: Optional[Store] = None
+# Process-wide singleton stored in a mutable container so get_store()
+# does not need a `global` statement.
+_store_box: list[Store | None] = [None]
 _store_lock = threading.Lock()
 
 
 def get_store() -> Store:
-    global _store
-    if _store is None:
+    if _store_box[0] is None:
         with _store_lock:
-            if _store is None:
-                _store = Store()
-    return _store
+            if _store_box[0] is None:
+                _store_box[0] = Store()
+    return _store_box[0]

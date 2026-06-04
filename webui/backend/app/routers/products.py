@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import List
-
 from fastapi import APIRouter, Depends, HTTPException
 
 from app.dependencies import gateway_dependency, store_dependency
@@ -25,8 +23,8 @@ def list_templates() -> list:
     return product_templates()
 
 
-@router.get("", response_model=List[ProductDefinition])
-def list_products(store: Store = Depends(store_dependency)) -> List[ProductDefinition]:
+@router.get("", response_model=list[ProductDefinition])
+def list_products(store: Store = Depends(store_dependency)) -> list[ProductDefinition]:
     return store.list_products()
 
 
@@ -65,6 +63,6 @@ def debug_product(
     events = [r.event for r in payload.rows]
     try:
         debug = gateway.debug_product(dates, events)
-    except Exception as exc:  # noqa: BLE001 - report parse errors to client
+    except (ValueError, RuntimeError) as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return ProductDebugResponse(debug=debug)

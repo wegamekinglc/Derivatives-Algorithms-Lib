@@ -20,7 +20,7 @@ from __future__ import annotations
 import datetime as _dt
 import math
 import re
-from typing import Any, Dict, List
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # Primitive value types (mirroring dal.Date_ / dal.Cell_)
@@ -55,19 +55,18 @@ class Cell_:  # noqa: N801 - match DAL public naming
 
 
 # ---------------------------------------------------------------------------
-# Global evaluation date
+# Global evaluation date (module-level mutable container, no `global` needed)
 # ---------------------------------------------------------------------------
 
-_EVALUATION_DATE = Date_(2022, 9, 15)
+_EVALUATION_DATE_BOX: list[Date_] = [Date_(2022, 9, 15)]
 
 
 def EvaluationDate_Set(d: Date_) -> None:  # noqa: N802 - match DAL naming
-    global _EVALUATION_DATE
-    _EVALUATION_DATE = d
+    _EVALUATION_DATE_BOX[0] = d
 
 
 def EvaluationDate_Get() -> Date_:  # noqa: N802 - match DAL naming
-    return _EVALUATION_DATE
+    return _EVALUATION_DATE_BOX[0]
 
 
 # ---------------------------------------------------------------------------
@@ -76,18 +75,18 @@ def EvaluationDate_Get() -> Date_:  # noqa: N802 - match DAL naming
 
 
 class _ProductHandle:
-    def __init__(self, dates: List[Any], events: List[str]) -> None:
+    def __init__(self, dates: list[Any], events: list[str]) -> None:
         self.dates = dates
         self.events = events
 
 
 class _ModelHandle:
-    def __init__(self, kind: str, params: Dict[str, Any]) -> None:
+    def __init__(self, kind: str, params: dict[str, Any]) -> None:
         self.kind = kind
         self.params = params
 
 
-def Product_New(dates: List[Any], events: List[str]) -> _ProductHandle:  # noqa: N802
+def Product_New(dates: list[Any], events: list[str]) -> _ProductHandle:  # noqa: N802
     return _ProductHandle(list(dates), list(events))
 
 
@@ -106,8 +105,8 @@ def DupireModelData_New(  # noqa: N802
     spot: float,
     rate: float,
     repo: float,
-    spots: List[float],
-    times: List[float],
+    spots: list[float],
+    times: list[float],
     vols: Any,
 ) -> _ModelHandle:
     # Use the mid vol of the surface as a flat approximation for the stub.
@@ -163,7 +162,9 @@ def _years_to_maturity(product: _ProductHandle) -> float:
     return max(days / 365.0, 1.0 / 365.0)
 
 
-def _bs_price(spot, strike, vol, rate, div, t, is_put):
+def _bs_price(
+    spot: float, strike: float, vol: float, rate: float, div: float, t: float, is_put: bool
+) -> float:
     if vol <= 0 or t <= 0:
         fwd_intrinsic = (strike - spot) if is_put else (spot - strike)
         return max(fwd_intrinsic, 0.0) * math.exp(-rate * t)
@@ -182,7 +183,7 @@ def MonteCarlo_Value(  # noqa: N802 - match DAL naming
     use_bb: bool = False,
     enable_aad: bool = False,
     smooth: float = 0.01,
-) -> Dict[str, float]:
+) -> dict[str, float]:
     p = model.params
     spot, vol, rate, div = p["spot"], p["vol"], p["rate"], p["div"]
     strike = _infer_strike(product)
@@ -190,7 +191,7 @@ def MonteCarlo_Value(  # noqa: N802 - match DAL naming
     t = _years_to_maturity(product)
 
     pv = _bs_price(spot, strike, vol, rate, div, t, is_put)
-    result: Dict[str, float] = {"PV": pv}
+    result: dict[str, float] = {"PV": pv}
 
     if enable_aad:
         eps = 1e-4

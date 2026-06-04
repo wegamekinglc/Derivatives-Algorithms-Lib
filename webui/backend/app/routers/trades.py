@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import List
-
 from fastapi import APIRouter, Depends, HTTPException
 
 from app.dependencies import gateway_dependency, store_dependency
@@ -20,8 +18,8 @@ from app.services.valuation import value_single_trade
 router = APIRouter(prefix="/api/trades", tags=["trades"])
 
 
-@router.get("", response_model=List[Trade])
-def list_trades(store: Store = Depends(store_dependency)) -> List[Trade]:
+@router.get("", response_model=list[Trade])
+def list_trades(store: Store = Depends(store_dependency)) -> list[Trade]:
     return store.list_trades()
 
 

@@ -3,22 +3,19 @@
 from __future__ import annotations
 
 from datetime import date
-from typing import Dict, List
 
 from app.schemas import (
     BSModelParams,
     EventRow,
-    ModelCreate,
     ModelDefinition,
     Portfolio,
-    ProductCreate,
     ProductDefinition,
     Trade,
 )
 from app.services.store import Store
 
 
-def product_templates() -> List[Dict]:
+def product_templates() -> list[dict]:
     """Return ready-to-use scripted-product templates for the UI builder."""
     return [
         {
@@ -75,8 +72,8 @@ def product_templates() -> List[Dict]:
     ]
 
 
-def _rows_from_template(tpl: Dict) -> List[EventRow]:
-    rows: List[EventRow] = []
+def _rows_from_template(tpl: dict) -> list[EventRow]:
+    rows: list[EventRow] = []
     for r in tpl["rows"]:
         rows.append(
             EventRow(
