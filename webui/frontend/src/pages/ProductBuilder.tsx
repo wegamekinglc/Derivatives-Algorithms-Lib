@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, type EventRow, type ProductDefinition, type ProductTemplate } from "../api/client";
-import { css, inlineStyle, labelFor } from "../format";
+import { css, inlineStyle } from "../format";
 
 const EMPTY_ROW: EventRow = { date_kind: "label", label: "", event: "" };
 
@@ -8,10 +8,10 @@ type EditorRow = EventRow & { row_id: number };
 
 export default function ProductBuilder() {
   const rowSeq = useRef(0);
-  const makeRow = (row: EventRow = EMPTY_ROW): EditorRow => ({
-    ...row,
-    row_id: rowSeq.current++,
-  });
+  const makeRow = (row: EventRow = EMPTY_ROW): EditorRow => {
+    const id = rowSeq.current++;
+    return { ...row, row_id: id };
+  };
 
   const [templates, setTemplates] = useState<ProductTemplate[]>([]);
   const [products, setProducts] = useState<ProductDefinition[]>([]);
@@ -118,7 +118,7 @@ export default function ProductBuilder() {
         <div {...css("panel")}>
           <h2>Definition</h2>
           <div {...css("field")}>
-            <label {...labelFor("product-name")}>Name</label>
+            <label htmlFor="product-name">Name</label>
             <input
               id="product-name"
               value={name}
@@ -128,7 +128,7 @@ export default function ProductBuilder() {
             />
           </div>
           <div {...css("field")}>
-            <label {...labelFor("product-description")}>Description</label>
+            <label htmlFor="product-description">Description</label>
             <input
               id="product-description"
               value={description}
@@ -138,7 +138,7 @@ export default function ProductBuilder() {
             />
           </div>
 
-          <label>Event schedule</label>
+          <h3>Event schedule</h3>
           {rows.map((r) => (
             <div {...css("event-builder-row")} key={r.row_id}>
               <select

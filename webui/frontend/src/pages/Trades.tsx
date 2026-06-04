@@ -5,7 +5,7 @@ import {
   type ProductDefinition,
   type Trade,
 } from "../api/client";
-import { css, fmtMoney, inlineStyle, labelFor } from "../format";
+import { css, fmtMoney, inlineStyle } from "../format";
 import ValuationPanel from "../components/ValuationPanel";
 
 export default function Trades() {
@@ -66,8 +66,15 @@ export default function Trades() {
     refresh();
   }
 
-  const nameById = (list: { id: string; name: string }[], id: string) =>
-    list.find((x) => x.id === id)?.name ?? id;
+  interface NamedItem {
+    id: string;
+    name: string;
+  }
+
+  const nameById = (list: NamedItem[], id: string) => {
+    const found = list.find((x) => x.id === id);
+    return found ? found.name : id;
+  };
 
   return (
     <div>
@@ -84,7 +91,7 @@ export default function Trades() {
         <h2>New trade</h2>
         <div {...css("row")} {...inlineStyle({ marginBottom: 12 })}>
           <div>
-            <label {...labelFor("trade-name")}>Name</label>
+            <label htmlFor="trade-name">Name</label>
             <input
               id="trade-name"
               value={name}
@@ -94,7 +101,7 @@ export default function Trades() {
             />
           </div>
           <div>
-            <label {...labelFor("trade-book")}>Book</label>
+            <label htmlFor="trade-book">Book</label>
             <input
               id="trade-book"
               value={book}
@@ -104,7 +111,7 @@ export default function Trades() {
             />
           </div>
           <div>
-            <label {...labelFor("trade-counterparty")}>Counterparty</label>
+            <label htmlFor="trade-counterparty">Counterparty</label>
             <input
               id="trade-counterparty"
               value={counterparty}
@@ -116,7 +123,7 @@ export default function Trades() {
         </div>
         <div {...css("row")}>
           <div>
-            <label {...labelFor("trade-product")}>Product</label>
+            <label htmlFor="trade-product">Product</label>
             <select
               id="trade-product"
               value={productId}
@@ -132,7 +139,7 @@ export default function Trades() {
             </select>
           </div>
           <div>
-            <label {...labelFor("trade-model")}>Model</label>
+            <label htmlFor="trade-model">Model</label>
             <select
               id="trade-model"
               value={modelId}
@@ -148,7 +155,7 @@ export default function Trades() {
             </select>
           </div>
           <div>
-            <label {...labelFor("trade-notional")}>Notional</label>
+            <label htmlFor="trade-notional">Notional</label>
             <input
               id="trade-notional"
               type="number"
@@ -159,7 +166,7 @@ export default function Trades() {
             />
           </div>
           <div>
-            <label {...labelFor("trade-quantity")}>Quantity</label>
+            <label htmlFor="trade-quantity">Quantity</label>
             <input
               id="trade-quantity"
               type="number"

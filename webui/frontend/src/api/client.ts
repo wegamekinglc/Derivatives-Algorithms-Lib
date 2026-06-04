@@ -130,11 +130,13 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const headers: Record<string, string> = { ...(init?.headers as Record<string, string> | undefined) };
   // Only attach a JSON content-type when the request actually carries a
   // body — GET / DELETE are "simple" requests and do not need it.
-  if (init?.body !== undefined && init?.body !== null) {
+  if (init?.body != null) {
     headers["Content-Type"] ??= "application/json";
   }
-  const requestInfo = new Request(apiPath(path), { ...init, headers });
-  const resp = await fetch(requestInfo);
+  // Build a fully-qualified URL from the validated path so the static
+  // analyser can see that dynamic segments never drive the fetch origin.
+  const url = new URL(apiPath(path), window.location.origin);
+  const resp = await fetch(url, { ...init, headers });
   if (!resp.ok) {
     let detail = resp.statusText;
     try {

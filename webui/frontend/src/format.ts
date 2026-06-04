@@ -31,6 +31,3 @@ export function inlineStyle(style: Record<string, string | number>): { style: Re
   return { style };
 }
 
-export function labelFor(htmlFor: string): { htmlFor: string } {
-  return { htmlFor };
-}

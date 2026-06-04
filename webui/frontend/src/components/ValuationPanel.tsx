@@ -1,9 +1,9 @@
 import { useState } from "react";
 import type { ValuationConfig, ValuationResult } from "../api/client";
-import { css, fmtMoney, fmtNum, inlineStyle, labelFor } from "../format";
+import { css, fmtMoney, fmtNum, inlineStyle } from "../format";
 
 interface Props {
-  onRun: (request: ValuationConfig) => Promise<ValuationResult>;
+  onRun: (config: ValuationConfig) => Promise<ValuationResult>;
   title?: string;
 }
 
@@ -45,7 +45,7 @@ export default function ValuationPanel({ onRun, title = "Run valuation" }: Props
       {error && <div {...css("error")}>{error}</div>}
       <div {...css("row")} {...inlineStyle({ marginBottom: 12 })}>
         <div>
-          <label {...labelFor("valuation-paths")}># paths (2^n)</label>
+          <label htmlFor="valuation-paths"># paths (2^n)</label>
           <select
             id="valuation-paths"
             value={pathsPow}
@@ -61,7 +61,7 @@ export default function ValuationPanel({ onRun, title = "Run valuation" }: Props
           </select>
         </div>
         <div>
-          <label {...labelFor("valuation-method")}>RNG method</label>
+          <label htmlFor="valuation-method">RNG method</label>
           <select
             id="valuation-method"
             value={method}
@@ -74,7 +74,7 @@ export default function ValuationPanel({ onRun, title = "Run valuation" }: Props
           </select>
         </div>
         <div>
-          <label {...labelFor("valuation-date")}>Evaluation date</label>
+          <label htmlFor="valuation-date">Evaluation date</label>
           <input
             id="valuation-date"
             type="date"
