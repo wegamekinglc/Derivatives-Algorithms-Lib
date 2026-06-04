@@ -69,6 +69,23 @@ strict). The `/api/health` endpoint reports which backend is active.
 
 ## Running
 
+### Quick Start (both services)
+
+```bash
+# Terminal 1 — Backend (start first so the frontend proxy can reach it)
+cd webui/backend
+uv sync
+uv run uvicorn app.main:app --reload --port 8000
+
+# Terminal 2 — Frontend
+cd webui/frontend
+npm install
+npm run dev
+```
+
+Then open **http://localhost:5173** in your browser. The Vite dev server proxies
+`/api` requests to the backend automatically.
+
 ### Backend (Python >= 3.13)
 
 Dependencies are managed with [uv](https://docs.astral.sh/uv/). From `webui/backend`:
@@ -94,6 +111,35 @@ cd webui/frontend
 npm install
 npm run dev                 # http://localhost:5173 (proxies /api to :8000)
 ```
+
+The Vite dev server proxies all `/api` requests to the backend URL configured in
+`vite.config.ts` (default: `http://127.0.0.1:8000`). If you change the backend
+port, update the `proxy.target` in that file and restart the frontend.
+
+### Stopping
+
+Press `Ctrl+C` in each terminal to stop the services.
+
+### Troubleshooting
+
+**Port 8000 already in use.** If the backend fails with `[Errno 98] Address
+already in use`, either free the port or run on a different one:
+
+```bash
+# Option A — find and kill whatever is using port 8000
+fuser -k 8000/tcp
+
+# Option B — use a different port (e.g. 8001)
+uv run uvicorn app.main:app --reload --port 8001
+```
+
+If you choose Option B, also update the proxy target in
+`webui/frontend/vite.config.ts` to match (`http://127.0.0.1:8001`) and restart
+the frontend.
+
+**Frontend can't reach the backend.** Make sure the backend starts *before* the
+frontend. If you see proxy errors in the browser console, check that the backend
+is running and the port in `vite.config.ts` matches.
 
 ### Tests
 
