@@ -1,0 +1,161 @@
+import { useEffect, useState } from "react";
+import { api, type ModelDefinition } from "../api/client";
+import { css, fmtNum } from "../format";
+
+export default function Models() {
+  const [models, setModels] = useState<ModelDefinition[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [name, setName] = useState("BS spot=100 vol=20%");
+  const [spot, setSpot] = useState(100);
+  const [vol, setVol] = useState(0.2);
+  const [rate, setRate] = useState(0.0);
+  const [div, setDiv] = useState(0.0);
+
+  function refresh() {
+    void api.listModels().then(setModels).catch((e: unknown) => {
+      setError(String(e));
+    });
+  }
+
+  useEffect(refresh, []);
+
+  async function create() {
+    setError(null);
+    try {
+      await api.createModel({
+        name,
+        kind: "BSModelData_",
+        bs: { spot, vol, rate, div },
+      });
+      refresh();
+    } catch (e: unknown) {
+      setError(String(e));
+    }
+  }
+
+  async function remove(id: string) {
+    await api.deleteModel(id);
+    refresh();
+  }
+
+  return (
+    <div>
+      <div {...css("page-header")}>
+        <div>
+          <h1>Models</h1>
+          <p>Black-Scholes model data passed to DAL via BSModelData_New.</p>
+        </div>
+      </div>
+
+      {error && <div {...css("error")}>{error}</div>}
+
+      <div {...css("panel")}>
+        <h2>New Black-Scholes model</h2>
+        <div {...css("field")}>
+          <label htmlFor="model-name">Name</label>
+          <input
+            id="model-name"
+            value={name}
+            onChange={(e) => {
+              setName(e.target.value);
+            }}
+          />
+        </div>
+        <div {...css("row")}>
+          <div>
+            <label htmlFor="model-spot">Spot</label>
+            <input
+              id="model-spot"
+              type="number"
+              value={spot}
+              onChange={(e) => {
+                setSpot(Number(e.target.value));
+              }}
+            />
+          </div>
+          <div>
+            <label htmlFor="model-vol">Vol</label>
+            <input
+              id="model-vol"
+              type="number"
+              step="0.01"
+              value={vol}
+              onChange={(e) => {
+                setVol(Number(e.target.value));
+              }}
+            />
+          </div>
+          <div>
+            <label htmlFor="model-rate">Rate</label>
+            <input
+              id="model-rate"
+              type="number"
+              step="0.01"
+              value={rate}
+              onChange={(e) => {
+                setRate(Number(e.target.value));
+              }}
+            />
+          </div>
+          <div>
+            <label htmlFor="model-dividend">Dividend</label>
+            <input
+              id="model-dividend"
+              type="number"
+              step="0.01"
+              value={div}
+              onChange={(e) => {
+                setDiv(Number(e.target.value));
+              }}
+            />
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              void create();
+            }}
+          >
+            Create model
+          </button>
+        </div>
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Kind</th>
+            <th {...css("num")}>Spot</th>
+            <th {...css("num")}>Vol</th>
+            <th {...css("num")}>Rate</th>
+            <th {...css("num")}>Div</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {models.map((m) => (
+            <tr key={m.id}>
+              <td>{m.name}</td>
+              <td {...css("mono")}>{m.kind}</td>
+              <td {...css("num")}>{m.bs ? fmtNum(m.bs.spot, 2) : "-"}</td>
+              <td {...css("num")}>{m.bs ? fmtNum(m.bs.vol, 4) : "-"}</td>
+              <td {...css("num")}>{m.bs ? fmtNum(m.bs.rate, 4) : "-"}</td>
+              <td {...css("num")}>{m.bs ? fmtNum(m.bs.div, 4) : "-"}</td>
+              <td>
+                <button
+                  type="button"
+                  {...css("danger")}
+                  onClick={() => {
+                    void remove(m.id);
+                  }}
+                >
+                  Delete
+                </button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}

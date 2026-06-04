@@ -7,6 +7,7 @@ exclude_paths:
   # Python test files — Codacy's "assert will be removed with -O" warning
   # is a false positive for pytest test suites (tests are never run with -O)
   - 'dal-python/tests/**'
+  - 'webui/backend/tests/**'
   # Python build artifacts (SWIG outputs are now generated at build time)
   - 'dal-python/.venv/**'
   - 'dal-python/.pytest_cache/**'
@@ -30,4 +31,3 @@ exclude_paths:
   - 'CLAUDE.md'
   - '.claude/**'
   - 'doc/**'
-

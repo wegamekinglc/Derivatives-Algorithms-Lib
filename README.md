@@ -8,7 +8,7 @@
 
 DAL is a C++17 quantitative finance library with built-in support for Automatic Adjoint Differentiation (AAD). It covers yield curve construction and calibration, Monte Carlo simulation, finite difference PDE solvers, a domain-specific scripting engine for exotic payoffs, and parallel model evaluation.
 
-The repository is organized as a multi-project CMake workspace with four independent sub-projects:
+The repository is organized as a multi-project workspace. The C++ projects are wired through the top-level CMake build, while the web UI is a separate application that consumes DAL through the Python public API:
 
 ```
 dal-cpp     — core quant library (DAL::cpp)
@@ -16,6 +16,8 @@ dal-cpp     — core quant library (DAL::cpp)
 dal-public  — stable public C++ API (DAL::public)
   ↑        ↑
 dal-python  dal-excel
+  ↑
+webui       — FastAPI + React portfolio management UI
 ```
 
 The project draws from the work of Tom Hyer (*Derivatives Algorithms: Bones*), Antoine Savine (*Modern Computational Finance: AAD and Parallel Simulations* and *Scripting for Derivatives and xVA*), and Brian Huge and Jesper Andreasen (*Finite Difference Methods for Financial PDEs*). Some implementation patterns trace back to those sources.
@@ -28,7 +30,20 @@ cd Derivatives-Algorithms-Lib
 git submodule update --init --recursive
 ```
 
+> **Note:** If you already cloned without `--recursive`, run `git submodule update --init --recursive` from the repository root. A missing submodule is the most common cause of configuration failures.
+
 ## Building
+
+DAL builds with CMake (3.21+) on both Linux and Windows. The repository ships with `CMakePresets.json` and two convenience scripts (`build_linux.sh`, `build_windows.bat`) that wrap the full workflow: building the Machinist code generator, running code generation, configuring CMake, compiling, installing, and running the tests.
+
+The build always happens in two stages:
+
+1. **Code generation** -- the Machinist tool (in `dal-cpp/externals/machinist`) reads the interface files in `dal-cpp/config/` (`dal.ifc`, `dal.mgl`) and generates source into `dal-cpp/dal/auto/` and `dal-excel/auto/`. This must run before the CMake build.
+2. **CMake build** -- compiles the enabled C++ sub-projects, examples, benchmarks, and test suites, then installs artifacts under the repository root (`lib/`, `bin/`, `include/`).
+
+Installed artifacts:
+- `lib/` -- static libraries such as `libdal_cpp.a` and `libdal_public.a` (plus Excel add-in artifacts on Windows when `dal-excel` is enabled)
+- `bin/` -- GoogleTest binaries (`dal_cpp_tests`, `dal_public_tests`) plus examples and benchmarks
 
 ### Linux
 
@@ -75,15 +90,26 @@ Build artifacts:
 
 ## Python Bindings
 
-Python bindings require an Anaconda Python distribution and SWIG. After a successful C++ build:
+Python dependencies and the build environment are managed with [uv](https://docs.astral.sh/uv/). The bindings live in `dal-python/` and require a successful C++ build of DAL (so that `lib/` and `include/` are populated). From `dal-python`:
 
 ```bash
-cd dal-python/python
-python setup.py wrap
-python setup.py install
+cd dal-python
+uv venv
+source .venv/bin/activate        # On Windows: .venv\Scripts\activate
+uv pip install -e ".[test]" --no-build-isolation \
+    --config-settings=cmake.define.DAL_DIR=/absolute/path/to/Derivatives-Algorithms-Lib
 ```
 
-The `dal` package exposes the full public API to Python, including AAD-aware Monte Carlo pricing.
+For a quick local verification, use the package test runner:
+
+```bash
+cd dal-python
+bash run_tests.sh
+```
+
+The build dependencies are declared in `dal-python/pyproject.toml`. The `dal`
+package exposes the public C++ API to Python, including scripted products,
+Monte Carlo pricing, and AAD-aware Greeks.
 
 ## Running Tests
 
@@ -108,12 +134,13 @@ bin/dal_cpp_tests --gtest_filter=CurveTest.TestDiscountPWLFConstruction
 
 ## Architecture
 
-| Sub-project   | Target         | Purpose                                                                |
-|---------------|----------------|------------------------------------------------------------------------|
-| `dal-cpp/`    | `DAL::cpp`     | Core C++ quant library; foundation for all downstream projects         |
-| `dal-public/` | `DAL::public`  | Stable C++ public API wrapping `DAL::cpp` for downstream consumers     |
-| `dal-python/` | `DAL::python`  | SWIG-generated Python bindings, depends only on `DAL::public`          |
-| `dal-excel/`  | `DAL::excel`   | Excel `.xll` add-in (Windows-only), depends only on `DAL::public`      |
+| Sub-project   | Target        | Purpose                                                               |
+|---------------|---------------|-----------------------------------------------------------------------|
+| `dal-cpp/`    | `DAL::cpp`    | Core C++ quant library; foundation for all downstream projects        |
+| `dal-public/` | `DAL::public` | Stable C++ public API wrapping `DAL::cpp` for downstream consumers    |
+| `dal-python/` | `DAL::python` | SWIG-generated Python bindings, depends only on `DAL::public`         |
+| `dal-excel/`  | `DAL::excel`  | Excel `.xll` add-in (Windows-only), depends only on `DAL::public`     |
+| `webui/`      | n/a           | FastAPI + React portfolio management UI, consumes DAL via `dal-python` |
 
 Within `dal-cpp/`:
 
@@ -127,6 +154,10 @@ Within `dal-cpp/`:
 | `dal-cpp/config/`        | Machinist code-generation interface files (`dal.ifc`, `dal.mgl`)                                   |
 | `dal-cpp/externals/`     | Git submodules: XAD, Adept, CoDiPack, Google Test, RapidJSON, Machinist                            |
 | `dal-cpp/cmake/`         | `Platform.cmake` and other CMake helpers                                                           |
+| `dal-public/src/`        | Public C++ API wrapper sources                                                                     |
+| `dal-python/`            | SWIG interface files, Python package, wheel/sdist helpers, and pytest suite                        |
+| `dal-excel/`             | Excel add-in sources, generated Excel stubs, and Excel-specific tests                              |
+| `webui/`                 | Portfolio management web app with FastAPI backend and React frontend                               |
 | `miscs/`                 | Excel workbooks and Python scripts showcasing exotic product pricing                               |
 
 ### Core Modules (under `dal-cpp/dal/`)
@@ -141,6 +172,33 @@ Within `dal-cpp/`:
 | `dal-cpp/dal/concurrency/` | Thread pool and concurrent queue for parallel Monte Carlo                                                                    |
 | `dal-cpp/dal/storage/`     | Data persistence and archiving                                                                                               |
 | `dal-cpp/dal/indice/`      | Reference rate index management                                                                                              |
+
+## Web UI
+
+A portfolio management web application lives in [`webui/`](webui/). It is not part of the CMake workspace; it runs as a FastAPI backend plus a React + TypeScript frontend. The backend talks to DAL through the Python public API (`dal`) via `webui/backend/app/services/dal_gateway.py`, with a pure-Python development stub available when the native bindings are not installed.
+
+```bash
+# Backend API (http://127.0.0.1:8000/docs)
+cd webui/backend
+uv sync
+uv run uvicorn app.main:app --reload --port 8000
+```
+
+```bash
+# Frontend SPA (http://localhost:5173)
+cd webui/frontend
+npm install
+npm run dev
+```
+
+Useful checks:
+
+```bash
+cd webui/backend && uv run pytest
+cd webui/frontend && npm run build
+```
+
+Set `DAL_REQUIRE_NATIVE=1` before starting the backend to require the compiled `dal` package instead of allowing the development stub.
 
 ## Excel Interface
 
@@ -260,18 +318,22 @@ Additional Python examples:
 
 Runnable examples are in [`dal-cpp/examples/`](dal-cpp/examples/):
 
-| Example            | Description                                               |
-|--------------------|-----------------------------------------------------------|
-| `aad/`             | AAD in isolation (recording, propagation, multi-output)   |
-| `european_mc/`     | European option pricing with Monte Carlo and AAD Greeks   |
-| `european_fd/`     | European option pricing with finite difference PDE solver |
-| `script/`          | Payoff scripting engine usage                             |
-| `snowball/`        | Snowball autocallable pricing                             |
-| `uoc/`             | Up-and-out call pricing                                   |
-| `sobol/`           | Sobol sequence generation                                 |
-| `underdetermined/` | Yield curve calibration with underdetermined search       |
-| `concurrency/`     | Parallel Monte Carlo with thread pool                     |
-| `vanilla/`         | Vanilla option pricing with multiple models               |
+| Example              | Description                                               |
+|----------------------|-----------------------------------------------------------|
+| `aad/`               | AAD in isolation (recording, propagation, multi-output)   |
+| `curve_calibration/` | Yield curve calibration workflow                          |
+| `digital/`           | Digital option pricing                                    |
+| `european_mc/`       | European option pricing with Monte Carlo and AAD Greeks   |
+| `european_fd/`       | European option pricing with finite difference PDE solver |
+| `excelwriter/`       | Excel workbook generation                                 |
+| `script/`            | Payoff scripting engine usage                             |
+| `snowball/`          | Snowball autocallable pricing                             |
+| `uoc/`               | Up-and-out call pricing                                   |
+| `uoc_compiled/`      | Compiled up-and-out call pricing                          |
+| `sobol/`             | Sobol sequence generation                                 |
+| `underdetermined/`   | Yield curve calibration with underdetermined search       |
+| `concurrency/`       | Parallel Monte Carlo with thread pool                     |
+| `vanilla/`           | Vanilla option pricing with multiple models               |
 
 ## C++ Benchmarks
 
