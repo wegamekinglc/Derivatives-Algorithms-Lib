@@ -36,15 +36,16 @@ export default function ProductBuilder() {
   }, []);
 
   useEffect(() => {
-    let pending = 2;
-    const done = () => {
-      pending -= 1;
-      if (pending === 0) {
-        setLoading(false);
+    void Promise.allSettled([
+      api.listTemplates().then((t) => { setTemplates(t); }),
+      refresh(),
+    ]).then((results) => {
+      const error = results.find((r) => r.status === 'rejected');
+      if (error && error.status === 'rejected') {
+        setError(String(error.reason));
       }
-    };
-    void api.listTemplates().then((t) => { setTemplates(t); }).catch((e: unknown) => { setError(String(e)); }).finally(() => { done(); });
-    void refresh().catch((e: unknown) => { setError(String(e)); }).finally(() => { done(); });
+      setLoading(false);
+    });
   }, [refresh]);
 
   function loadSavedProduct(product: ProductDefinition) {

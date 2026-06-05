@@ -29,26 +29,27 @@ export default function Trades() {
   }, []);
 
   useEffect(() => {
-    let pending = 3;
-    const done = () => {
-      pending -= 1;
-      if (pending === 0) {
-        setLoading(false);
+    void Promise.allSettled([
+      refresh(),
+      api.listProducts().then((p) => {
+        setProducts(p);
+        if (p[0]) {
+          setProductId(p[0].id);
+        }
+      }),
+      api.listModels().then((m) => {
+        setModels(m);
+        if (m[0]) {
+          setModelId(m[0].id);
+        }
+      }),
+    ]).then((results) => {
+      const error = results.find((r) => r.status === 'rejected');
+      if (error && error.status === 'rejected') {
+        setError(String(error.reason));
       }
-    };
-    refresh().catch((e: unknown) => { setError(String(e)); }).finally(() => { done(); });
-    void api.listProducts().then((p) => {
-      setProducts(p);
-      if (p[0]) {
-        setProductId(p[0].id);
-      }
-    }).catch((e: unknown) => { setError(String(e)); }).finally(() => { done(); });
-    void api.listModels().then((m) => {
-      setModels(m);
-      if (m[0]) {
-        setModelId(m[0].id);
-      }
-    }).catch((e: unknown) => { setError(String(e)); }).finally(() => { done(); });
+      setLoading(false);
+    });
   }, [refresh]);
 
   async function create() {

@@ -10,16 +10,17 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    let pending = 3;
-    const checkDone = () => {
-      pending -= 1;
-      if (pending === 0) {
-        setLoading(false);
+    void Promise.allSettled([
+      api.listPortfolios().then((p) => { setPortfolios(p); }),
+      api.listTrades().then((t) => { setTrades(t); }),
+      api.listValuations().then((v) => { setValuations(v); }),
+    ]).then((results) => {
+      const error = results.find((r) => r.status === 'rejected');
+      if (error && error.status === 'rejected') {
+        setError(String(error.reason));
       }
-    };
-    void api.listPortfolios().then((p) => { setPortfolios(p); }).catch((e: unknown) => { setError(String(e)); }).finally(() => { checkDone(); });
-    void api.listTrades().then((t) => { setTrades(t); }).catch((e: unknown) => { setError(String(e)); }).finally(() => { checkDone(); });
-    void api.listValuations().then((v) => { setValuations(v); }).catch((e: unknown) => { setError(String(e)); }).finally(() => { checkDone(); });
+      setLoading(false);
+    });
   }, []);
 
   const lastByTarget = new Map<string, ValuationResult>();
