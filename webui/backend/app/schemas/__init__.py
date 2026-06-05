@@ -210,6 +210,7 @@ class ValuationResult(BaseModel):
     trades: list[TradeValuation] = Field(default_factory=list)
     created_at: str
     status: Literal["running", "completed", "failed"] = "completed"
+    error_message: str | None = None
 
 
 class ProductDebugRequest(BaseModel):

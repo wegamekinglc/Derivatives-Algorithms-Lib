@@ -64,7 +64,7 @@ export default function Trades() {
         product_id: productId,
         model_id: modelId,
       });
-      refresh();
+      await refresh();
     } catch (e: unknown) {
       setError(String(e));
     }
@@ -80,7 +80,7 @@ export default function Trades() {
       if (selected === id) {
         setSelected(null);
       }
-      refresh();
+      await refresh();
     } catch (e: unknown) {
       setError(String(e));
     }

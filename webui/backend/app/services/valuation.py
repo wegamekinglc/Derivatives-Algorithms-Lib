@@ -10,6 +10,7 @@ updates the result in-place when done (status: running -> completed / failed).
 
 from __future__ import annotations
 
+import logging
 from datetime import datetime, timezone
 
 from app.schemas import (
@@ -20,6 +21,8 @@ from app.schemas import (
 )
 from app.services.dal_gateway import DalGateway, ValuationRequest
 from app.services.store import Store
+
+logger = logging.getLogger(__name__)
 
 
 def _utc_now() -> str:
@@ -178,9 +181,15 @@ def _run_portfolio_pricing(
             },
         )
     except Exception as exc:  # noqa: BLE001 - mark the valuation as failed
+        logger.exception("Portfolio valuation %s failed", valuation_id)
         store.update_valuation(
             valuation_id,
-            {"status": "failed", "total_greeks": {"error": 1.0}, "total_pv": 0.0},
+            {
+                "status": "failed",
+                "error_message": str(exc),
+                "total_pv": 0.0,
+                "total_greeks": {},
+            },
         )
 
 
@@ -205,9 +214,15 @@ def _run_trade_pricing(
             },
         )
     except Exception as exc:  # noqa: BLE001 - mark the valuation as failed
+        logger.exception("Trade valuation %s failed", valuation_id)
         store.update_valuation(
             valuation_id,
-            {"status": "failed", "total_greeks": {"error": 1.0}, "total_pv": 0.0},
+            {
+                "status": "failed",
+                "error_message": str(exc),
+                "total_pv": 0.0,
+                "total_greeks": {},
+            },
         )
 
 

@@ -53,7 +53,7 @@ def update_trade(
     payload: TradeUpdate,
     store: Store = Depends(store_dependency),
 ) -> Trade:
-    patch = payload.model_dump(exclude_unset=True)
+    patch = payload.model_dump(exclude_none=True)
     try:
         return store.update_trade(trade_id, patch)
     except NotFoundError as exc:

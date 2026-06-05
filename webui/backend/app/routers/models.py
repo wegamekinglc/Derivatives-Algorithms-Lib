@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from app.dependencies import store_dependency
 from app.schemas import ModelCreate, ModelDefinition, ModelUpdate
-from app.services.store import NotFoundError, Store
+from app.services.store import ConflictError, NotFoundError, Store
 
 router = APIRouter(prefix="/api/models", tags=["models"])
 
@@ -46,7 +46,7 @@ def update_model(
     payload: ModelUpdate,
     store: Store = Depends(store_dependency),
 ) -> ModelDefinition:
-    patch = payload.model_dump(exclude_unset=True)
+    patch = payload.model_dump(exclude_none=True)
     try:
         return store.update_model(model_id, patch)
     except NotFoundError as exc:
@@ -60,5 +60,5 @@ def update_model(
 def delete_model(model_id: str, store: Store = Depends(store_dependency)) -> None:
     try:
         store.delete_model(model_id)
-    except NotFoundError as exc:
+    except ConflictError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc

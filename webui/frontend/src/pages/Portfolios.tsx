@@ -53,22 +53,30 @@ export default function Portfolios() {
     if (!selected) {
       return;
     }
-    const pf = await api.removeTradeFromPortfolio(selected.id, tid);
-    setSelected(pf);
-    setMembers(await api.portfolioTrades(pf.id));
-    refresh();
+    try {
+      const pf = await api.removeTradeFromPortfolio(selected.id, tid);
+      setSelected(pf);
+      setMembers(await api.portfolioTrades(pf.id));
+      await refresh();
+    } catch (e: unknown) {
+      setError(String(e));
+    }
   }
 
   async function deletePortfolio(id: string) {
     if (!window.confirm("Delete this portfolio? This cannot be undone.")) {
       return;
     }
-    await api.deletePortfolio(id);
-    if (selected?.id === id) {
-      setSelected(null);
-      setMembers([]);
+    try {
+      await api.deletePortfolio(id);
+      if (selected?.id === id) {
+        setSelected(null);
+        setMembers([]);
+      }
+      await refresh();
+    } catch (e: unknown) {
+      setError(String(e));
     }
-    refresh();
   }
 
   return (

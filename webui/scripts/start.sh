@@ -142,6 +142,10 @@ for _ in $(seq 1 40); do
 done
 if ! curl -sf "http://127.0.0.1:${BACKEND_PORT}/api/health" >/dev/null 2>&1; then
   error "Backend did not become healthy within 20s. Check ${BACKEND_LOG_FILE}."
+  # Clean up the backend process to avoid leaving a zombie server
+  kill "${BACKEND_PID}" 2>/dev/null || true
+  wait "${BACKEND_PID}" 2>/dev/null || true
+  rm -f "${REPO_ROOT}/${BACKEND_PID_FILE}"
   exit 2
 fi
 
@@ -181,6 +185,12 @@ for _ in $(seq 1 60); do
 done
 if ! curl -sf "http://localhost:${FRONTEND_PORT}" >/dev/null 2>&1; then
   error "Frontend did not become ready within 30s. Check ${FRONTEND_LOG_FILE}."
+  # Clean up both backend and frontend to avoid leaving zombie servers
+  kill "${FRONTEND_PID}" 2>/dev/null || true
+  wait "${FRONTEND_PID}" 2>/dev/null || true
+  kill "${BACKEND_PID}" 2>/dev/null || true
+  wait "${BACKEND_PID}" 2>/dev/null || true
+  rm -f "${REPO_ROOT}/${FRONTEND_PID_FILE}" "${REPO_ROOT}/${BACKEND_PID_FILE}"
   exit 3
 fi
 

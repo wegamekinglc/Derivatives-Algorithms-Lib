@@ -22,6 +22,10 @@ class NotFoundError(KeyError):
     """Raised when an entity id cannot be resolved."""
 
 
+class ConflictError(Exception):
+    """Raised when an operation conflicts with existing state (e.g., references)."""
+
+
 class Store:
     def __init__(self) -> None:
         self._lock = threading.RLock()
@@ -56,7 +60,7 @@ class Store:
             # Guard against orphaning trades that still reference this product.
             for trade in self._trades.values():
                 if trade.product_id == product_id:
-                    raise NotFoundError(
+                    raise ConflictError(
                         f"Cannot delete product {product_id}: still referenced by trade {trade.id}"
                     )
             del self._products[product_id]
@@ -96,7 +100,7 @@ class Store:
             # Guard against orphaning trades that still reference this model.
             for trade in self._trades.values():
                 if trade.model_id == model_id:
-                    raise NotFoundError(
+                    raise ConflictError(
                         f"Cannot delete model {model_id}: still referenced by trade {trade.id}"
                     )
             del self._models[model_id]

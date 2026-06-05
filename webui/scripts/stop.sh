@@ -43,23 +43,6 @@ FORCE=0
 [ "${1:-}" = "--force" ] && FORCE=1
 
 # ---------------------------------------------------------------------------
-# Prerequisites
-# ---------------------------------------------------------------------------
-check_cmd() {
-  if ! command -v "$1" >/dev/null 2>&1; then
-    error "$1 is not installed. Please install it and retry."
-    return 1
-  fi
-}
-
-FAILED_PREREQS=0
-check_cmd grep      || FAILED_PREREQS=1
-check_cmd ss        || FAILED_PREREQS=1
-check_cmd lsof      || FAILED_PREREQS=1
-check_cmd xargs     || FAILED_PREREQS=1
-[ "${FAILED_PREREQS}" -eq 0 ] || exit 1
-
-# ---------------------------------------------------------------------------
 # Colours and helpers
 # ---------------------------------------------------------------------------
 RED=$'\033[0;31m'; GREEN=$'\033[0;32m'; YELLOW=$'\033[0;33m'; NC=$'\033[0m'
@@ -128,6 +111,23 @@ kill_by_port() {
     fi
   fi
 }
+
+# ---------------------------------------------------------------------------
+# Prerequisites
+# ---------------------------------------------------------------------------
+check_cmd() {
+  if ! command -v "$1" >/dev/null 2>&1; then
+    error "$1 is not installed. Please install it and retry."
+    return 1
+  fi
+}
+
+FAILED_PREREQS=0
+check_cmd grep      || FAILED_PREREQS=1
+check_cmd ss        || FAILED_PREREQS=1
+check_cmd lsof      || FAILED_PREREQS=1
+check_cmd xargs     || FAILED_PREREQS=1
+[ "${FAILED_PREREQS}" -eq 0 ] || exit 1
 
 # ---------------------------------------------------------------------------
 # 1. Check current state

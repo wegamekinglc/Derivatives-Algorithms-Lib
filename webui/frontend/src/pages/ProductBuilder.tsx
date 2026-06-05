@@ -93,7 +93,7 @@ export default function ProductBuilder() {
     setError(null);
     try {
       await api.createProduct({ name, description, template: null, rows: apiRows() });
-      refresh();
+      await refresh();
     } catch (e: unknown) {
       setError(String(e));
     }
@@ -106,7 +106,7 @@ export default function ProductBuilder() {
     }
     try {
       await api.deleteProduct(id);
-      refresh();
+      await refresh();
     } catch (e: unknown) {
       setError(String(e));
     }
