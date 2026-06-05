@@ -121,18 +121,20 @@ export default function Models() {
           />
         </div>
         <div {...css("field")}>
-          <label>Model kind</label>
-          <select
-            id="model-kind"
-            value={kind}
-            onChange={(e) => {
-              setKind(e.target.value as ModelKind);
-            }}
-            {...inlineStyle({ maxWidth: 320 })}
-          >
-            <option value="BSModelData_">Black-Scholes</option>
-            <option value="DupireModelData_">Dupire (local vol surface)</option>
-          </select>
+          <label>
+            Model kind
+            <select
+              id="model-kind"
+              value={kind}
+              onChange={(e) => {
+                setKind(e.target.value as ModelKind);
+              }}
+              {...inlineStyle({ maxWidth: 320 })}
+            >
+              <option value="BSModelData_">Black-Scholes</option>
+              <option value="DupireModelData_">Dupire (local vol surface)</option>
+            </select>
+          </label>
         </div>
 
         {kind === "BSModelData_" ? (
@@ -194,59 +196,71 @@ export default function Models() {
             </p>
             <div {...css("row")}>
               <div>
-                <label>Spot</label>
-                <input
-                  id="dupire-spot"
-                  type="number"
-                  value={dupireSpot}
-                  onChange={(e) => { setDupireSpot(Number(e.target.value)); }}
-                />
+                <label>
+                  Spot
+                  <input
+                    id="dupire-spot"
+                    type="number"
+                    value={dupireSpot}
+                    onChange={(e) => { setDupireSpot(Number(e.target.value)); }}
+                  />
+                </label>
               </div>
               <div>
-                <label>Rate</label>
-                <input
-                  id="dupire-rate"
-                  type="number"
-                  step="0.01"
-                  value={dupireRate}
-                  onChange={(e) => { setDupireRate(Number(e.target.value)); }}
-                />
+                <label>
+                  Rate
+                  <input
+                    id="dupire-rate"
+                    type="number"
+                    step="0.01"
+                    value={dupireRate}
+                    onChange={(e) => { setDupireRate(Number(e.target.value)); }}
+                  />
+                </label>
               </div>
               <div>
-                <label>Repo</label>
-                <input
-                  id="dupire-repo"
-                  type="number"
-                  step="0.01"
-                  value={dupireRepo}
-                  onChange={(e) => { setDupireRepo(Number(e.target.value)); }}
-                />
+                <label>
+                  Repo
+                  <input
+                    id="dupire-repo"
+                    type="number"
+                    step="0.01"
+                    value={dupireRepo}
+                    onChange={(e) => { setDupireRepo(Number(e.target.value)); }}
+                  />
+                </label>
               </div>
             </div>
             <div {...css("field")}>
-              <label>Spot strikes (comma-separated)</label>
-              <input
-                id="dupire-spots"
-                value={dupireSpotsText}
-                onChange={(e) => { setDupireSpotsText(e.target.value); }}
-              />
+              <label>
+                Spot strikes (comma-separated)
+                <input
+                  id="dupire-spots"
+                  value={dupireSpotsText}
+                  onChange={(e) => { setDupireSpotsText(e.target.value); }}
+                />
+              </label>
             </div>
             <div {...css("field")}>
-              <label>Times in years (comma-separated)</label>
-              <input
-                id="dupire-times"
-                value={dupireTimesText}
-                onChange={(e) => { setDupireTimesText(e.target.value); }}
-              />
+              <label>
+                Times in years (comma-separated)
+                <input
+                  id="dupire-times"
+                  value={dupireTimesText}
+                  onChange={(e) => { setDupireTimesText(e.target.value); }}
+                />
+              </label>
             </div>
             <div {...css("field")}>
-              <label>Vols matrix (one row per strike, whitespace-separated)</label>
-              <textarea
-                id="dupire-vols"
-                value={dupireVolsText}
-                onChange={(e) => { setDupireVolsText(e.target.value); }}
-                rows={4}
-              />
+              <label>
+                Vols matrix (one row per strike, whitespace-separated)
+                <textarea
+                  id="dupire-vols"
+                  value={dupireVolsText}
+                  onChange={(e) => { setDupireVolsText(e.target.value); }}
+                  rows={4}
+                />
+              </label>
             </div>
           </div>
         )}
