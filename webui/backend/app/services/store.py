@@ -51,7 +51,25 @@ class Store:
 
     def delete_product(self, product_id: str) -> None:
         with self._lock:
-            self._products.pop(product_id, None)
+            if product_id not in self._products:
+                return
+            # Guard against orphaning trades that still reference this product.
+            for trade in self._trades.values():
+                if trade.product_id == product_id:
+                    raise NotFoundError(
+                        f"Cannot delete product {product_id}: still referenced by trade {trade.id}"
+                    )
+            del self._products[product_id]
+
+    def update_product(self, product_id: str, patch: dict) -> ProductDefinition:
+        """Merge a partial update into an existing product definition."""
+        with self._lock:
+            product = self.get_product(product_id)
+            updated_data = product.model_dump()
+            updated_data.update(patch)
+            updated = ProductDefinition(**updated_data)
+            self._products[product_id] = updated
+            return updated
 
     # -- models ----------------------------------------------------------
 
@@ -73,7 +91,27 @@ class Store:
 
     def delete_model(self, model_id: str) -> None:
         with self._lock:
-            self._models.pop(model_id, None)
+            if model_id not in self._models:
+                return
+            # Guard against orphaning trades that still reference this model.
+            for trade in self._trades.values():
+                if trade.model_id == model_id:
+                    raise NotFoundError(
+                        f"Cannot delete model {model_id}: still referenced by trade {trade.id}"
+                    )
+            del self._models[model_id]
+
+    def update_model(self, model_id: str, patch: dict) -> ModelDefinition:
+        """Merge a partial update into an existing model definition."""
+        with self._lock:
+            model = self.get_model(model_id)
+            updated_data = model.model_dump()
+            updated_data.update(patch)
+            updated = ModelDefinition(**updated_data)
+            # Validate params match kind (same check as create_model)
+            updated.dal_kind_and_params()
+            self._models[model_id] = updated
+            return updated
 
     # -- trades ----------------------------------------------------------
 
@@ -98,10 +136,30 @@ class Store:
 
     def delete_trade(self, trade_id: str) -> None:
         with self._lock:
-            self._trades.pop(trade_id, None)
+            if trade_id not in self._trades:
+                return
+            del self._trades[trade_id]
+            # Cascade: remove from any portfolios that still reference it.
             for pf in self._portfolios.values():
                 if trade_id in pf.trade_ids:
                     pf.trade_ids.remove(trade_id)
+
+    def update_trade(self, trade_id: str, patch: dict) -> Trade:
+        """Merge a partial update into an existing trade.
+
+        If product_id or model_id are changed, validates they exist.
+        """
+        with self._lock:
+            trade = self.get_trade(trade_id)
+            if "product_id" in patch:
+                self.get_product(patch["product_id"])
+            if "model_id" in patch:
+                self.get_model(patch["model_id"])
+            updated_data = trade.model_dump()
+            updated_data.update(patch)
+            updated = Trade(**updated_data)
+            self._trades[trade_id] = updated
+            return updated
 
     # -- portfolios ------------------------------------------------------
 
@@ -164,6 +222,16 @@ class Store:
                 return self._valuations[valuation_id]
             except KeyError as exc:
                 raise NotFoundError(f"valuation {valuation_id}") from exc
+
+    def update_valuation(self, valuation_id: str, patch: dict) -> ValuationResult:
+        """Atomically update fields on a valuation (used by async pricing)."""
+        with self._lock:
+            valuation = self.get_valuation(valuation_id)
+            updated_data = valuation.model_dump()
+            updated_data.update(patch)
+            updated = ValuationResult(**updated_data)
+            self._valuations[valuation_id] = updated
+            return updated
 
 
 # Process-wide singleton stored in a mutable container so get_store()

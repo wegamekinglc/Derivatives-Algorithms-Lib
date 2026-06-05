@@ -11,6 +11,9 @@ Derivatives Algorithms Library (DAL).
 
 ```
 webui/
+├── scripts/
+│   ├── start.sh             start both services (backend + frontend)
+│   └── stop.sh              stop both services (with optional --force)
 ├── backend/                 FastAPI service
 │   ├── app/
 │   │   ├── main.py          app factory + router wiring
@@ -71,20 +74,33 @@ strict). The `/api/health` endpoint reports which backend is active.
 
 ### Quick Start (both services)
 
-```bash
-# Terminal 1 — Backend (start first so the frontend proxy can reach it)
-cd webui/backend
-uv sync
-uv run uvicorn app.main:app --reload --port 8000
+The easiest way to start and stop the web UI is with the scripts in `webui/scripts/`:
 
-# Terminal 2 — Frontend
-cd webui/frontend
-npm install
-npm run dev
+```bash
+# Start both services
+./webui/scripts/start.sh
+
+# Stop both services
+./webui/scripts/stop.sh          # SIGTERM
+./webui/scripts/stop.sh --force  # escalate to SIGKILL if needed
 ```
 
-Then open **http://localhost:5173** in your browser. The Vite dev server proxies
-`/api` requests to the backend automatically.
+`start.sh` checks prerequisites (Python ≥ 3.13, uv, node, npm), verifies ports
+`8001` (backend) and `5173` (frontend) are free, installs dependencies
+(`uv sync` in `webui/backend/`, `npm install` in `webui/frontend/`), launches
+both servers in the background, waits for the backend `/api/health` endpoint and
+the frontend to become ready, then smoke-tests the vite proxy (`/api` → backend).
+PIDs are saved to `webui/{backend,frontend}/.server.pid` and logs to
+`.server.log` next to each server.
+
+`stop.sh` kills by PID from those files, verifies each port is actually free,
+and falls back to port-based kill if an orphaned child is holding the socket
+(for example when the launcher spawns a wrapper process). With `--force` it
+escalates to SIGKILL after 5s.
+
+Once running, open **http://localhost:5173** in your browser. The Vite dev
+server proxies `/api` requests to the backend automatically (target port is
+`8001`, configured in `vite.config.ts`).
 
 ### Backend (Python >= 3.13)
 
@@ -93,12 +109,12 @@ Dependencies are managed with [uv](https://docs.astral.sh/uv/). From `webui/back
 ```bash
 cd webui/backend
 uv sync                     # create .venv and install runtime + dev deps from uv.lock
-uv run uvicorn app.main:app --reload --port 8000
+uv run uvicorn app.main:app --reload --host 127.0.0.1 --port 8001
 ```
 
 `uv` provisions a matching Python interpreter automatically (downloading one if
 needed) and resolves dependencies from the committed `uv.lock`. API docs are then
-available at <http://127.0.0.1:8000/docs>.
+available at <http://127.0.0.1:8001/docs>.
 
 > To run against the compiled native `dal` package instead of the dev stub,
 > install it into the uv environment (`uv pip install /path/to/dal`) and start
@@ -109,37 +125,83 @@ available at <http://127.0.0.1:8000/docs>.
 ```bash
 cd webui/frontend
 npm install
-npm run dev                 # http://localhost:5173 (proxies /api to :8000)
+./node_modules/.bin/vite    # http://localhost:5173 (proxies /api to :8001)
 ```
 
 The Vite dev server proxies all `/api` requests to the backend URL configured in
-`vite.config.ts` (default: `http://127.0.0.1:8000`). If you change the backend
+`vite.config.ts` (default: `http://127.0.0.1:8001`). If you change the backend
 port, update the `proxy.target` in that file and restart the frontend.
+
+> **Note:** Run vite directly rather than `npm run dev` when launching by hand.
+> `npm run` wraps the command in a parent process that does not forward SIGTERM,
+> which leaves an orphan holding the port on shutdown. The `start.sh` script
+> already does this for you.
 
 ### Stopping
 
-Press `Ctrl+C` in each terminal to stop the services.
+If you started the services with `start.sh`, stop them with:
+
+```bash
+./webui/scripts/stop.sh
+```
+
+If you started them manually, press `Ctrl+C` in each terminal, or use the stop
+script (it will fall back to port-based kill if no PID files exist).
 
 ### Troubleshooting
 
-**Port 8000 already in use.** If the backend fails with `[Errno 98] Address
+**Port 8001 already in use.** If the backend fails with `[Errno 98] Address
 already in use`, either free the port or run on a different one:
 
 ```bash
-# Option A — find and kill whatever is using port 8000
-fuser -k 8000/tcp
+# Option A — stop any running web UI
+./webui/scripts/stop.sh
 
-# Option B — use a different port (e.g. 8001)
-uv run uvicorn app.main:app --reload --port 8001
+# Option B — find and kill whatever is using port 8001
+fuser -k 8001/tcp
+
+# Option C — use a different port (e.g. 8002)
+uv run uvicorn app.main:app --reload --port 8002
 ```
 
-If you choose Option B, also update the proxy target in
-`webui/frontend/vite.config.ts` to match (`http://127.0.0.1:8001`) and restart
+If you choose Option C, also update the proxy target in
+`webui/frontend/vite.config.ts` to match (`http://127.0.0.1:8002`) and restart
 the frontend.
 
 **Frontend can't reach the backend.** Make sure the backend starts *before* the
 frontend. If you see proxy errors in the browser console, check that the backend
 is running and the port in `vite.config.ts` matches.
+
+## API
+
+The backend exposes a REST-ish API under `/api`. Full OpenAPI docs are served at
+`/docs` once the backend is running. Highlights beyond the standard CRUD:
+
+| Endpoint | Notes |
+|----------|-------|
+| `GET /api/health` | Reports which DAL backend is active (native vs. stub). |
+| `POST /api/products`, `PUT /api/products/{id}` | Create / partially update a scripted product. |
+| `POST /api/products/debug` | Render the DAL `Product_Debug` dump for arbitrary rows. |
+| `POST /api/models`, `PUT /api/models/{id}` | Black-Scholes or Dupire model data. |
+| `POST /api/trades`, `PUT /api/trades/{id}` | Link a product + model + notional. |
+| `POST /api/portfolios/{id}/trades/{tid}` | Add a trade to a portfolio. |
+| `POST /api/trades/{id}/value` | Start an **async** single-trade valuation (returns `status: "running"`). |
+| `POST /api/portfolios/{id}/value` | Start an **async** portfolio valuation (returns `status: "running"`). |
+| `GET /api/valuations/{id}` | Poll until `status` becomes `"completed"` or `"failed"`. |
+
+### Delete guards
+
+Deleting a product or model that is still referenced by any trade returns
+`409 Conflict` with a detail message naming the referencing trade. Delete the
+trade first (which cascades out of any portfolios) and then the product/model.
+
+### Async valuation
+
+Valuation endpoints now return a pending `ValuationResult` with
+`status: "running"` immediately. Pricing runs in a FastAPI background task, and
+the result is updated in-place once it completes. The frontend polls
+`GET /api/valuations/{id}` at 300ms intervals until the status becomes
+`"completed"` or `"failed"`.
 
 ### Tests
 
@@ -155,12 +217,18 @@ npm run build               # type-check + production build
 
 ## Screens
 
-* **Dashboard** -- portfolio counts, latest PV, recent valuation runs.
+* **Dashboard** -- portfolio counts, latest PV, recent valuation runs (with
+  per-run status indicator: running / completed / failed).
 * **Portfolios** -- group trades into books, add/remove trades, price the book.
-* **Trades** -- link a product + model + notional; price a single trade.
+  Delete buttons require confirmation; portfolios cascade-delete their trades
+  from the book.
+* **Trades** -- link a product + model + notional; price a single trade. Trades
+  are updated in place via `PUT /api/trades/{id}`.
 * **Product Builder** -- compose DAL scripted products as a schedule of
   (date/label, event) rows; load templates (European, up-and-out call, snowball);
-  render the DAL product debug dump.
-* **Models** -- create Black-Scholes model data.
-* **Valuation Runs** -- reproducible history of every Monte Carlo run with PV and
-  Greeks.
+  render the DAL product debug dump. Saved products can be **loaded** back into
+  the editor for iteration.
+* **Models** -- create Black-Scholes or Dupire model data (vol surface entered
+  as a whitespace-separated matrix).
+* **Valuation Runs** -- reproducible history of every Monte Carlo run with PV,
+  Greeks, and per-run status.

@@ -5,9 +5,10 @@ import { css, fmtMoney, fmtNum, inlineStyle } from "../format";
 export default function Valuations() {
   const [runs, setRuns] = useState<ValuationResult[]>([]);
   const [open, setOpen] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    void api.listValuations().then(setRuns);
+    void api.listValuations().then(setRuns).finally(() => setLoading(false));
   }, []);
 
   return (
@@ -19,7 +20,9 @@ export default function Valuations() {
         </div>
       </div>
 
-      {runs.length === 0 ? (
+      {loading ? (
+        <p {...css("muted")}>Loading valuations…</p>
+      ) : runs.length === 0 ? (
         <p {...css("muted")}>No valuation runs recorded yet.</p>
       ) : (
         <table>
@@ -27,6 +30,7 @@ export default function Valuations() {
             <tr>
               <th>When</th>
               <th>Target</th>
+              <th>Status</th>
               <th>Backend</th>
               <th {...css("num")}># paths</th>
               <th>AAD</th>
@@ -41,6 +45,17 @@ export default function Valuations() {
                   <td {...css("mono")}>{new Date(r.created_at).toLocaleString()}</td>
                   <td>{r.target_kind}</td>
                   <td>
+                    {r.status === "running" && (
+                      <span {...css("status-running")}>running…</span>
+                    )}
+                    {r.status === "completed" && (
+                      <span {...css("status-completed")}>completed</span>
+                    )}
+                    {r.status === "failed" && (
+                      <span {...css("status-failed")}>failed</span>
+                    )}
+                  </td>
+                  <td>
                     {r.backend}
                     {r.is_native ? "" : " (stub)"}
                   </td>
@@ -51,17 +66,22 @@ export default function Valuations() {
                     <button
                       type="button"
                       {...css("ghost")}
+                      disabled={r.status === "running"}
                       onClick={() => {
                         setOpen(open === r.id ? null : r.id);
                       }}
                     >
-                      {open === r.id ? "Hide" : "Details"}
+                      {r.status === "running"
+                        ? "—"
+                        : open === r.id
+                        ? "Hide"
+                        : "Details"}
                     </button>
                   </td>
                 </tr>
-                {open === r.id && (
+                {open === r.id && r.status === "completed" && (
                   <tr key={`${r.id}-detail`}>
-                    <td colSpan={7}>
+                    <td colSpan={8}>
                       <div {...css("panel")} {...inlineStyle({ margin: 0 })}>
                         <h2>Greeks</h2>
                         {Object.keys(r.total_greeks).length === 0 ? (

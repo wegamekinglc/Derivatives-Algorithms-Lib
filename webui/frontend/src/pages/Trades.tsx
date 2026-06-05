@@ -14,6 +14,7 @@ export default function Trades() {
   const [models, setModels] = useState<ModelDefinition[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
   const [name, setName] = useState("New Trade");
   const [book, setBook] = useState("EQ-EXOTICS");
@@ -24,23 +25,30 @@ export default function Trades() {
   const [modelId, setModelId] = useState("");
 
   const refresh = useCallback(() => {
-    void api.listTrades().then(setTrades);
+    return api.listTrades().then(setTrades);
   }, []);
 
   useEffect(() => {
-    refresh();
+    let pending = 3;
+    const done = () => {
+      pending -= 1;
+      if (pending === 0) {
+        setLoading(false);
+      }
+    };
+    refresh().finally(done);
     void api.listProducts().then((p) => {
       setProducts(p);
       if (p[0]) {
         setProductId(p[0].id);
       }
-    });
+    }).finally(done);
     void api.listModels().then((m) => {
       setModels(m);
       if (m[0]) {
         setModelId(m[0].id);
       }
-    });
+    }).finally(done);
   }, [refresh]);
 
   async function create() {
@@ -62,8 +70,19 @@ export default function Trades() {
   }
 
   async function remove(id: string) {
-    await api.deleteTrade(id);
-    refresh();
+    const trade = trades.find((t) => t.id === id);
+    if (!window.confirm(`Delete trade "${trade?.name ?? id}"? This cannot be undone.`)) {
+      return;
+    }
+    try {
+      await api.deleteTrade(id);
+      if (selected === id) {
+        setSelected(null);
+      }
+      refresh();
+    } catch (e: unknown) {
+      setError(String(e));
+    }
   }
 
   interface NamedItem {
@@ -87,6 +106,12 @@ export default function Trades() {
 
       {error && <div {...css("error")}>{error}</div>}
 
+      {loading ? (
+        <div {...css("panel")}>
+          <p {...css("muted")}>Loading trades…</p>
+        </div>
+      ) : (
+      <>
       <div {...css("panel")}>
         <h2>New trade</h2>
         <div {...css("row")} {...inlineStyle({ marginBottom: 12 })}>
@@ -239,6 +264,8 @@ export default function Trades() {
             onRun={(config) => api.valueTrade(selected, config)}
           />
         </div>
+      )}
+      </>
       )}
     </div>
   );

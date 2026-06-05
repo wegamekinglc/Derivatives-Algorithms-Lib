@@ -17,11 +17,13 @@ def client():
     from fastapi.testclient import TestClient
 
     # Reset singletons so each test starts from a clean store/gateway.
+    # The singletons are stored in list wrappers (_gateway_box, _store_box)
+    # to avoid `global` statements in the getter functions.
     import app.services.dal_gateway as gw
     import app.services.store as st
 
-    gw._gateway = None
-    st._store = None
+    gw._gateway_box[0] = None
+    st._store_box[0] = None
 
     from app.main import create_app
 

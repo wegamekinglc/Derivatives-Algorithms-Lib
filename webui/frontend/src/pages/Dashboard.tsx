@@ -6,11 +6,19 @@ export default function Dashboard() {
   const [portfolios, setPortfolios] = useState<Portfolio[]>([]);
   const [trades, setTrades] = useState<Trade[]>([]);
   const [valuations, setValuations] = useState<ValuationResult[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    void api.listPortfolios().then(setPortfolios);
-    void api.listTrades().then(setTrades);
-    void api.listValuations().then(setValuations);
+    let pending = 3;
+    const done = () => {
+      pending -= 1;
+      if (pending === 0) {
+        setLoading(false);
+      }
+    };
+    void api.listPortfolios().then(setPortfolios).finally(done);
+    void api.listTrades().then(setTrades).finally(done);
+    void api.listValuations().then(setValuations).finally(done);
   }, []);
 
   const lastByTarget = new Map<string, ValuationResult>();
@@ -56,7 +64,9 @@ export default function Dashboard() {
 
       <div {...css("panel")}>
         <h2>Recent valuation runs</h2>
-        {valuations.length === 0 ? (
+        {loading ? (
+          <p {...css("muted")}>Loading…</p>
+        ) : valuations.length === 0 ? (
           <p {...css("muted")}>No valuations yet. Price a portfolio or trade to begin.</p>
         ) : (
           <table>
@@ -73,7 +83,11 @@ export default function Dashboard() {
               {valuations.slice(0, 8).map((v) => (
                 <tr key={v.id}>
                   <td {...css("mono")}>{new Date(v.created_at).toLocaleString()}</td>
-                  <td>{v.target_kind}</td>
+                  <td>
+                    {v.target_kind}
+                    {v.status === "running" && <span {...css("muted")}> (running)</span>}
+                    {v.status === "failed" && <span {...css("error-inline")}> (failed)</span>}
+                  </td>
                   <td>
                     {v.backend}
                     {v.is_native ? "" : " (stub)"}

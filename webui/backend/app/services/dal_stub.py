@@ -109,12 +109,18 @@ def DupireModelData_New(  # noqa: N802
     times: list[float],
     vols: Any,
 ) -> _ModelHandle:
-    # Use the mid vol of the surface as a flat approximation for the stub.
+    # Use the average vol of the surface as a flat approximation for the stub.
+    # Handle both 2D list (normal case) and scalar (edge case) inputs.
     flat_vol = 0.2
-    try:
-        flat_vol = float(vols)  # in case a scalar slipped through
-    except (TypeError, ValueError):
-        pass
+    if isinstance(vols, list) and vols and isinstance(vols[0], list):
+        total = sum(sum(row) for row in vols)
+        count = sum(len(row) for row in vols)
+        flat_vol = total / count if count > 0 else 0.2
+    else:
+        try:
+            flat_vol = float(vols)
+        except (TypeError, ValueError):
+            pass
     return _ModelHandle(
         "DupireModelData_",
         {"spot": spot, "rate": rate, "div": repo, "vol": flat_vol},

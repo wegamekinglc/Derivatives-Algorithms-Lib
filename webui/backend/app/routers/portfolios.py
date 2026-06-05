@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 
 from app.dependencies import gateway_dependency, store_dependency
 from app.schemas import (
@@ -14,7 +14,10 @@ from app.schemas import (
 )
 from app.services.dal_gateway import DalGateway
 from app.services.store import NotFoundError, Store
-from app.services.valuation import value_portfolio
+from app.services.valuation import (
+    _run_portfolio_pricing,
+    value_portfolio_async,
+)
 
 router = APIRouter(prefix="/api/portfolios", tags=["portfolios"])
 
@@ -90,11 +93,23 @@ def remove_trade(
 def value_portfolio_endpoint(
     portfolio_id: str,
     config: ValuationConfig,
+    background_tasks: BackgroundTasks,
     store: Store = Depends(store_dependency),
     gateway: DalGateway = Depends(gateway_dependency),
 ) -> ValuationResult:
+    """Start a portfolio valuation asynchronously.
+
+    Returns a pending ``ValuationResult`` immediately with ``status="running"``.
+    Pricing runs in a background task; poll ``GET /api/valuations/{id}`` until
+    ``status`` becomes ``"completed"`` or ``"failed"``.
+    """
     try:
         store.get_portfolio(portfolio_id)
     except NotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
-    return value_portfolio(store, gateway, portfolio_id, config)
+
+    pending = value_portfolio_async(store, gateway, portfolio_id, config)
+    background_tasks.add_task(
+        _run_portfolio_pricing, store, gateway, pending.id, portfolio_id, config
+    )
+    return pending

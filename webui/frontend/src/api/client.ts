@@ -91,6 +91,7 @@ export interface ValuationResult {
   total_greeks: Record<string, number>;
   trades: TradeValuation[];
   created_at: string;
+  status: "running" | "completed" | "failed";
 }
 
 export interface Health {
@@ -161,6 +162,11 @@ export const api = {
   listProducts: () => request<ProductDefinition[]>("/products"),
   createProduct: (body: Omit<ProductDefinition, "id">) =>
     request<ProductDefinition>("/products", { method: "POST", body: JSON.stringify(body) }),
+  updateProduct: (id: string, patch: Partial<Omit<ProductDefinition, "id">>) =>
+    request<ProductDefinition>(`/products/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(patch),
+    }),
   deleteProduct: (id: string) =>
     request<undefined>(`/products/${id}`, { method: "DELETE" }),
   debugProduct: (rows: EventRow[]) =>
@@ -173,12 +179,19 @@ export const api = {
   listModels: () => request<ModelDefinition[]>("/models"),
   createModel: (body: Omit<ModelDefinition, "id">) =>
     request<ModelDefinition>("/models", { method: "POST", body: JSON.stringify(body) }),
+  updateModel: (id: string, patch: Partial<Omit<ModelDefinition, "id">>) =>
+    request<ModelDefinition>(`/models/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(patch),
+    }),
   deleteModel: (id: string) => request<undefined>(`/models/${id}`, { method: "DELETE" }),
 
   // trades
   listTrades: () => request<Trade[]>("/trades"),
   createTrade: (body: Omit<Trade, "id" | "tags"> & { tags?: string[] }) =>
     request<Trade>("/trades", { method: "POST", body: JSON.stringify(body) }),
+  updateTrade: (id: string, patch: Partial<Omit<Trade, "id">>) =>
+    request<Trade>(`/trades/${id}`, { method: "PUT", body: JSON.stringify(patch) }),
   deleteTrade: (id: string) => request<undefined>(`/trades/${id}`, { method: "DELETE" }),
   valueTrade: (id: string, config: ValuationConfig) =>
     request<ValuationResult>(`/trades/${id}/value`, {
@@ -205,4 +218,5 @@ export const api = {
 
   // valuations
   listValuations: () => request<ValuationResult[]>("/valuations"),
+  getValuation: (id: string) => request<ValuationResult>(`/valuations/${id}`),
 };

@@ -2,18 +2,22 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 
 from app.dependencies import gateway_dependency, store_dependency
 from app.schemas import (
     Trade,
     TradeCreate,
+    TradeUpdate,
     ValuationConfig,
     ValuationResult,
 )
 from app.services.dal_gateway import DalGateway
 from app.services.store import NotFoundError, Store
-from app.services.valuation import value_single_trade
+from app.services.valuation import (
+    _run_trade_pricing,
+    value_single_trade_async,
+)
 
 router = APIRouter(prefix="/api/trades", tags=["trades"])
 
@@ -43,6 +47,19 @@ def get_trade(trade_id: str, store: Store = Depends(store_dependency)) -> Trade:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
+@router.put("/{trade_id}", response_model=Trade)
+def update_trade(
+    trade_id: str,
+    payload: TradeUpdate,
+    store: Store = Depends(store_dependency),
+) -> Trade:
+    patch = payload.model_dump(exclude_unset=True)
+    try:
+        return store.update_trade(trade_id, patch)
+    except NotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
 @router.delete("/{trade_id}", status_code=204)
 def delete_trade(trade_id: str, store: Store = Depends(store_dependency)) -> None:
     store.delete_trade(trade_id)
@@ -52,10 +69,23 @@ def delete_trade(trade_id: str, store: Store = Depends(store_dependency)) -> Non
 def value_trade_endpoint(
     trade_id: str,
     config: ValuationConfig,
+    background_tasks: BackgroundTasks,
     store: Store = Depends(store_dependency),
     gateway: DalGateway = Depends(gateway_dependency),
 ) -> ValuationResult:
+    """Start a single-trade valuation asynchronously.
+
+    Returns a pending ``ValuationResult`` immediately with ``status="running"``.
+    Pricing runs in a background task; poll ``GET /api/valuations/{id}`` until
+    ``status`` becomes ``"completed"`` or ``"failed"``.
+    """
     try:
-        return value_single_trade(store, gateway, trade_id, config)
+        store.get_trade(trade_id)
     except NotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    pending = value_single_trade_async(store, gateway, trade_id, config)
+    background_tasks.add_task(
+        _run_trade_pricing, store, gateway, pending.id, trade_id, config
+    )
+    return pending
