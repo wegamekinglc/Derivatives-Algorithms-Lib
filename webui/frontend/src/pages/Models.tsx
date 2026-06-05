@@ -121,7 +121,7 @@ export default function Models() {
           />
         </div>
         <div {...css("field")}>
-          <label htmlFor="model-kind">Model kind</label>
+          <label>Model kind</label>
           <select
             id="model-kind"
             value={kind}
@@ -194,7 +194,7 @@ export default function Models() {
             </p>
             <div {...css("row")}>
               <div>
-                <label htmlFor="dupire-spot">Spot</label>
+                <label>Spot</label>
                 <input
                   id="dupire-spot"
                   type="number"
@@ -203,7 +203,7 @@ export default function Models() {
                 />
               </div>
               <div>
-                <label htmlFor="dupire-rate">Rate</label>
+                <label>Rate</label>
                 <input
                   id="dupire-rate"
                   type="number"
@@ -213,7 +213,7 @@ export default function Models() {
                 />
               </div>
               <div>
-                <label htmlFor="dupire-repo">Repo</label>
+                <label>Repo</label>
                 <input
                   id="dupire-repo"
                   type="number"
@@ -224,7 +224,7 @@ export default function Models() {
               </div>
             </div>
             <div {...css("field")}>
-              <label htmlFor="dupire-spots">Spot strikes (comma-separated)</label>
+              <label>Spot strikes (comma-separated)</label>
               <input
                 id="dupire-spots"
                 value={dupireSpotsText}
@@ -232,7 +232,7 @@ export default function Models() {
               />
             </div>
             <div {...css("field")}>
-              <label htmlFor="dupire-times">Times in years (comma-separated)</label>
+              <label>Times in years (comma-separated)</label>
               <input
                 id="dupire-times"
                 value={dupireTimesText}
@@ -240,7 +240,7 @@ export default function Models() {
               />
             </div>
             <div {...css("field")}>
-              <label htmlFor="dupire-vols">Vols matrix (one row per strike, whitespace-separated)</label>
+              <label>Vols matrix (one row per strike, whitespace-separated)</label>
               <textarea
                 id="dupire-vols"
                 value={dupireVolsText}

@@ -40,9 +40,9 @@ export default function ProductBuilder() {
       api.listTemplates().then((t) => { setTemplates(t); }),
       refresh(),
     ]).then((results) => {
-      const error = results.find((r) => r.status === 'rejected');
-      if (error && error.status === 'rejected') {
-        setError(String(error.reason));
+      const rejected = results.find((r): r is PromiseRejectedResult => r.status === 'rejected');
+      if (rejected) {
+        setError(String(rejected.reason));
       }
       setLoading(false);
     });
