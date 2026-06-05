@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { api, type Portfolio, type Trade } from "../api/client";
 import { css, fmtMoney, inlineStyle } from "../format";
 import ValuationPanel from "../components/ValuationPanel";
@@ -13,16 +13,16 @@ export default function Portfolios() {
   const [addTradeId, setAddTradeId] = useState("");
   const [loading, setLoading] = useState(true);
 
-  function refresh() {
+  const refresh = useCallback(() => {
     return Promise.all([
-      api.listPortfolios().then(setPortfolios),
-      api.listTrades().then(setAllTrades),
+      api.listPortfolios().then((p) => { setPortfolios(p); }),
+      api.listTrades().then((t) => { setAllTrades(t); }),
     ]);
-  }
+  }, []);
 
   useEffect(() => {
-    void refresh().catch((e: unknown) => setError(String(e))).finally(() => setLoading(false));
-  }, []);
+    void refresh().catch((e: unknown) => { setError(String(e)); }).finally(() => { setLoading(false); });
+  }, [refresh]);
 
   async function selectPortfolio(pf: Portfolio) {
     setSelected(pf);

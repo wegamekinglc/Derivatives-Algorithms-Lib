@@ -32,7 +32,7 @@ export default function ProductBuilder() {
   }
 
   const refresh = useCallback(() => {
-    return api.listProducts().then(setProducts);
+    return api.listProducts().then((p) => { setProducts(p); });
   }, []);
 
   useEffect(() => {
@@ -43,8 +43,8 @@ export default function ProductBuilder() {
         setLoading(false);
       }
     };
-    void api.listTemplates().then(setTemplates).catch((e: unknown) => setError(String(e))).finally(done);
-    void refresh().catch((e: unknown) => setError(String(e))).finally(done);
+    void api.listTemplates().then((t) => { setTemplates(t); }).catch((e: unknown) => { setError(String(e)); }).finally(done);
+    void refresh().catch((e: unknown) => { setError(String(e)); }).finally(done);
   }, [refresh]);
 
   function loadSavedProduct(product: ProductDefinition) {

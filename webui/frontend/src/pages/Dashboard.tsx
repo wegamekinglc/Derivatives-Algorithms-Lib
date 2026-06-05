@@ -17,9 +17,9 @@ export default function Dashboard() {
         setLoading(false);
       }
     };
-    void api.listPortfolios().then(setPortfolios).catch((e: unknown) => setError(String(e))).finally(done);
-    void api.listTrades().then(setTrades).catch((e: unknown) => setError(String(e))).finally(done);
-    void api.listValuations().then(setValuations).catch((e: unknown) => setError(String(e))).finally(done);
+    void api.listPortfolios().then((p) => { setPortfolios(p); }).catch((e: unknown) => { setError(String(e)); }).finally(done);
+    void api.listTrades().then((t) => { setTrades(t); }).catch((e: unknown) => { setError(String(e)); }).finally(done);
+    void api.listValuations().then((v) => { setValuations(v); }).catch((e: unknown) => { setError(String(e)); }).finally(done);
   }, []);
 
   const lastByTarget = new Map<string, ValuationResult>();

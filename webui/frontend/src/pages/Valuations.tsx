@@ -9,7 +9,7 @@ export default function Valuations() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    void api.listValuations().then(setRuns).catch((e: unknown) => setError(String(e))).finally(() => setLoading(false));
+    void api.listValuations().then((r) => { setRuns(r); }).catch((e: unknown) => { setError(String(e)); }).finally(() => { setLoading(false); });
   }, []);
 
   return (

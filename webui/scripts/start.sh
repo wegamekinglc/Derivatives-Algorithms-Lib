@@ -166,7 +166,7 @@ info "  frontend PID ${FRONTEND_PID}, log: ${FRONTEND_LOG_FILE}"
 
 # Wait for frontend to accept connections (up to 30s).
 info "Waiting for frontend to be ready..."
-for i in $(seq 1 60); do
+for _ in $(seq 1 60); do
   if curl -sf "http://localhost:${FRONTEND_PORT}" >/dev/null 2>&1; then
     info "  frontend is up"
     break

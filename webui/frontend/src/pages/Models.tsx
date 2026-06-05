@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { api, type ModelDefinition, type ModelKind } from "../api/client";
 import { css, fmtNum, inlineStyle } from "../format";
 
@@ -25,15 +25,15 @@ export default function Models() {
   const [dupireTimesText, setDupireTimesText] = useState("0.25, 0.5, 1.0");
   const [dupireVolsText, setDupireVolsText] = useState("0.22, 0.20, 0.19\n0.21, 0.20, 0.20\n0.19, 0.20, 0.22");
 
-  function refresh() {
-    return api.listModels().then(setModels).catch((e: unknown) => {
+  const refresh = useCallback(() => {
+    return api.listModels().then((m) => { setModels(m); }).catch((e: unknown) => {
       setError(String(e));
     });
-  }
+  }, []);
 
   useEffect(() => {
-    void refresh().finally(() => setLoading(false));
-  }, []);
+    void refresh().finally(() => { setLoading(false); });
+  }, [refresh]);
 
   function parseNumberList(text: string): number[] {
     return text
