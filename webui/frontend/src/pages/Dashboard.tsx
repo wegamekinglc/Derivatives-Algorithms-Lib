@@ -11,15 +11,15 @@ export default function Dashboard() {
 
   useEffect(() => {
     let pending = 3;
-    const done = () => {
+    const checkDone = () => {
       pending -= 1;
       if (pending === 0) {
         setLoading(false);
       }
     };
-    void api.listPortfolios().then((p) => { setPortfolios(p); }).catch((e: unknown) => { setError(String(e)); }).finally(done);
-    void api.listTrades().then((t) => { setTrades(t); }).catch((e: unknown) => { setError(String(e)); }).finally(done);
-    void api.listValuations().then((v) => { setValuations(v); }).catch((e: unknown) => { setError(String(e)); }).finally(done);
+    void api.listPortfolios().then((p) => { setPortfolios(p); }).catch((e: unknown) => { setError(String(e)); }).finally(() => { checkDone(); });
+    void api.listTrades().then((t) => { setTrades(t); }).catch((e: unknown) => { setError(String(e)); }).finally(() => { checkDone(); });
+    void api.listValuations().then((v) => { setValuations(v); }).catch((e: unknown) => { setError(String(e)); }).finally(() => { checkDone(); });
   }, []);
 
   const lastByTarget = new Map<string, ValuationResult>();

@@ -127,7 +127,7 @@ info "  backend PID ${BACKEND_PID}, log: ${BACKEND_LOG_FILE}"
 
 # Wait for backend to accept connections (up to 20s).
 info "Waiting for backend health check..."
-for i in $(seq 1 40); do
+for _ in $(seq 1 40); do
   if curl -sf "http://127.0.0.1:${BACKEND_PORT}/api/health" >/dev/null 2>&1; then
     info "  backend is up"
     break

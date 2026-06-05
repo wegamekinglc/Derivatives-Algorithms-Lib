@@ -43,8 +43,8 @@ export default function ProductBuilder() {
         setLoading(false);
       }
     };
-    void api.listTemplates().then((t) => { setTemplates(t); }).catch((e: unknown) => { setError(String(e)); }).finally(done);
-    void refresh().catch((e: unknown) => { setError(String(e)); }).finally(done);
+    void api.listTemplates().then((t) => { setTemplates(t); }).catch((e: unknown) => { setError(String(e)); }).finally(() => { done(); });
+    void refresh().catch((e: unknown) => { setError(String(e)); }).finally(() => { done(); });
   }, [refresh]);
 
   function loadSavedProduct(product: ProductDefinition) {

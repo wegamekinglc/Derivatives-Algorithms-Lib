@@ -199,7 +199,7 @@ export default function Models() {
                   id="dupire-spot"
                   type="number"
                   value={dupireSpot}
-                  onChange={(e) => setDupireSpot(Number(e.target.value))}
+                  onChange={(e) => { setDupireSpot(Number(e.target.value)); }}
                 />
               </div>
               <div>
@@ -209,7 +209,7 @@ export default function Models() {
                   type="number"
                   step="0.01"
                   value={dupireRate}
-                  onChange={(e) => setDupireRate(Number(e.target.value))}
+                  onChange={(e) => { setDupireRate(Number(e.target.value)); }}
                 />
               </div>
               <div>
@@ -219,7 +219,7 @@ export default function Models() {
                   type="number"
                   step="0.01"
                   value={dupireRepo}
-                  onChange={(e) => setDupireRepo(Number(e.target.value))}
+                  onChange={(e) => { setDupireRepo(Number(e.target.value)); }}
                 />
               </div>
             </div>
@@ -228,7 +228,7 @@ export default function Models() {
               <input
                 id="dupire-spots"
                 value={dupireSpotsText}
-                onChange={(e) => setDupireSpotsText(e.target.value)}
+                onChange={(e) => { setDupireSpotsText(e.target.value); }}
               />
             </div>
             <div {...css("field")}>
@@ -236,7 +236,7 @@ export default function Models() {
               <input
                 id="dupire-times"
                 value={dupireTimesText}
-                onChange={(e) => setDupireTimesText(e.target.value)}
+                onChange={(e) => { setDupireTimesText(e.target.value); }}
               />
             </div>
             <div {...css("field")}>
@@ -244,7 +244,7 @@ export default function Models() {
               <textarea
                 id="dupire-vols"
                 value={dupireVolsText}
-                onChange={(e) => setDupireVolsText(e.target.value)}
+                onChange={(e) => { setDupireVolsText(e.target.value); }}
                 rows={4}
               />
             </div>
