@@ -313,6 +313,24 @@ label {
   font-size: 13px;
 }
 
+.error-inline {
+  color: var(--red);
+  font-weight: 500;
+}
+
+.status-running {
+  color: var(--amber);
+  font-style: italic;
+}
+
+.status-completed {
+  color: var(--green);
+}
+
+.status-failed {
+  color: var(--red);
+}
+
 .muted {
   color: var(--text-dim);
 }

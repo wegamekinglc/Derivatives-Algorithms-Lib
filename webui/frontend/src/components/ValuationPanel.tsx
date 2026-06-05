@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { ValuationConfig, ValuationResult } from "../api/client";
+import { api, type ValuationConfig, type ValuationResult } from "../api/client";
 import { css, fmtMoney, fmtNum, inlineStyle } from "../format";
 
 interface Props {
@@ -8,6 +8,8 @@ interface Props {
 }
 
 const PATH_CHOICES = [10, 12, 14, 16, 18, 20];
+const POLL_INTERVAL_MS = 300;
+const MAX_POLL_ATTEMPTS = 200;
 
 export default function ValuationPanel({ onRun, title = "Run valuation" }: Props) {
   const [pathsPow, setPathsPow] = useState(16);
@@ -18,10 +20,12 @@ export default function ValuationPanel({ onRun, title = "Run valuation" }: Props
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<ValuationResult | null>(null);
+  const [statusLabel, setStatusLabel] = useState<string | null>(null);
 
   async function run() {
     setBusy(true);
     setError(null);
+    setStatusLabel("submitting…");
     try {
       const request: ValuationConfig = {
         num_paths: 2 ** pathsPow,
@@ -31,9 +35,27 @@ export default function ValuationPanel({ onRun, title = "Run valuation" }: Props
         smooth: 0.01,
         evaluation_date: evalDate || null,
       };
-      setResult(await onRun(request));
+      // Backend now returns a pending result with status="running".
+      const pending = await onRun(request);
+      setResult(pending);
+      setStatusLabel("pricing…");
+
+      // Poll the backend until the background pricing task completes.
+      let current = pending;
+      for (let i = 0; i < MAX_POLL_ATTEMPTS && current.status === "running"; i++) {
+        await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
+        current = await api.getValuation(pending.id);
+        setResult(current);
+      }
+      if (current.status === "running") {
+        setError("Valuation timed out — check the Valuations page for progress.");
+      } else if (current.status === "failed") {
+        setError("Valuation failed on the server. Check the backend logs.");
+      }
+      setStatusLabel(null);
     } catch (e: unknown) {
       setError(String(e));
+      setStatusLabel(null);
     } finally {
       setBusy(false);
     }
@@ -115,11 +137,11 @@ export default function ValuationPanel({ onRun, title = "Run valuation" }: Props
           }}
           disabled={busy}
         >
-          {busy ? "Pricing…" : "Run valuation"}
+          {busy ? (statusLabel ?? "Pricing…") : "Run valuation"}
         </button>
       </div>
 
-      {result && (
+      {result && result.status !== "running" && (
         <div>
           <div {...css("cards")} {...inlineStyle({ marginBottom: 12 })}>
             <div {...css("card")}>

@@ -65,6 +65,13 @@ class ProductCreate(BaseModel):
     rows: list[EventRow]
 
 
+class ProductUpdate(BaseModel):
+    name: str | None = None
+    description: str | None = None
+    template: str | None = None
+    rows: list[EventRow] | None = None
+
+
 # ---------------------------------------------------------------------------
 # Model definitions (map onto DAL model data)
 # ---------------------------------------------------------------------------
@@ -110,6 +117,13 @@ class ModelCreate(BaseModel):
     dupire: DupireModelParams | None = None
 
 
+class ModelUpdate(BaseModel):
+    name: str | None = None
+    kind: Literal["BSModelData_", "DupireModelData_"] | None = None
+    bs: BSModelParams | None = None
+    dupire: DupireModelParams | None = None
+
+
 # ---------------------------------------------------------------------------
 # Portfolio / trade hierarchy
 # ---------------------------------------------------------------------------
@@ -136,6 +150,17 @@ class TradeCreate(BaseModel):
     product_id: str
     model_id: str
     tags: list[str] = Field(default_factory=list)
+
+
+class TradeUpdate(BaseModel):
+    name: str | None = None
+    book: str | None = None
+    counterparty: str | None = None
+    notional: float | None = None
+    quantity: float | None = None
+    product_id: str | None = None
+    model_id: str | None = None
+    tags: list[str] | None = None
 
 
 class Portfolio(BaseModel):
@@ -184,6 +209,8 @@ class ValuationResult(BaseModel):
     total_greeks: dict[str, float] = Field(default_factory=dict)
     trades: list[TradeValuation] = Field(default_factory=list)
     created_at: str
+    status: Literal["running", "completed", "failed"] = "completed"
+    error_message: str | None = None
 
 
 class ProductDebugRequest(BaseModel):

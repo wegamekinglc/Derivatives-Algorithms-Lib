@@ -177,28 +177,58 @@ Within `dal-cpp/`:
 
 A portfolio management web application lives in [`webui/`](webui/). It is not part of the CMake workspace; it runs as a FastAPI backend plus a React + TypeScript frontend. The backend talks to DAL through the Python public API (`dal`) via `webui/backend/app/services/dal_gateway.py`, with a pure-Python development stub available when the native bindings are not installed.
 
-```bash
-# Backend API (http://127.0.0.1:8000/docs)
-cd webui/backend
-uv sync
-uv run uvicorn app.main:app --reload --port 8000
-```
+The easiest way to start and stop the UI is with the scripts in `webui/scripts/`:
 
 ```bash
-# Frontend SPA (http://localhost:5173)
-cd webui/frontend
-npm install
-npm run dev
+# Start both services
+./webui/scripts/start.sh
+
+# Stop both services
+./webui/scripts/stop.sh          # SIGTERM
+./webui/scripts/stop.sh --force  # escalate to SIGKILL if needed
 ```
 
-Useful checks:
+`start.sh` checks prerequisites (Python ≥ 3.13, uv, node, npm), verifies ports `8001` (backend) and `5173` (frontend) are free, installs dependencies (`uv sync` in `webui/backend/`, `npm install` in `webui/frontend/`), launches both servers in the background, waits for the backend `/api/health` endpoint and the frontend to become ready, then smoke-tests the vite proxy (`/api` → backend). PIDs are saved to `webui/{backend,frontend}/.server.pid` and logs to `.server.log` next to each server.
+
+`stop.sh` kills by PID from those files, verifies each port is actually free, and falls back to port-based kill if an orphaned child is holding the socket (for example when the launcher spawns a wrapper process). With `--force` it escalates to SIGKILL after 5s.
+
+Once running:
+
+- Frontend: `http://localhost:5173`
+- Backend API docs: `http://127.0.0.1:8001/docs`
+
+### Running tests
 
 ```bash
 cd webui/backend && uv run pytest
 cd webui/frontend && npm run build
 ```
 
-Set `DAL_REQUIRE_NATIVE=1` before starting the backend to require the compiled `dal` package instead of allowing the development stub.
+### Using the native DAL backend
+
+By default the backend falls back to a pure-Python development stub when the compiled `dal` package is not installed. To require the native bindings:
+
+1. Build `dal-python` per the instructions above.
+2. Install it into the backend's virtualenv: `(cd webui/backend && uv pip install ../../dal-python)`.
+3. Start the UI with `DAL_REQUIRE_NATIVE=1 ./webui/scripts/start.sh`.
+
+### Manual startup (without the scripts)
+
+If you need to start either service by hand:
+
+```bash
+# Backend (http://127.0.0.1:8001/docs)
+cd webui/backend
+uv sync
+uv run uvicorn app.main:app --reload --host 127.0.0.1 --port 8001
+
+# Frontend (http://localhost:5173)
+cd webui/frontend
+npm install
+./node_modules/.bin/vite
+```
+
+Note: run vite directly rather than `npm run dev` when launching by hand -- `npm run` wraps the command in a parent process that does not forward SIGTERM, which leaves an orphan holding the port on shutdown.
 
 ## Excel Interface
 

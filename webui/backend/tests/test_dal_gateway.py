@@ -54,3 +54,47 @@ def test_value_european_call_matches_black_scholes():
     assert 0.4 < res["d_spot"] < 0.6
     # vega is positive
     assert res["d_vol"] > 0.0
+
+
+def test_dupire_stub_uses_average_vol_surface():
+    """The stub should average the 2D vol surface, not hard-code 0.2."""
+    gw = make_gateway()
+    # A surface where the average vol is clearly 0.30 (not 0.2).
+    request = ValuationRequest(
+        event_dates=["STRIKE", {"date": "2023-09-15"}],
+        events=["100.0", "call pays MAX(spot() - STRIKE, 0.0)"],
+        model_kind="DupireModelData_",
+        model_params={
+            "spot": 100.0,
+            "rate": 0.0,
+            "repo": 0.0,
+            "spots": [90.0, 100.0, 110.0],
+            "times": [0.5, 1.0],
+            "vols": [[0.30, 0.30], [0.30, 0.30], [0.30, 0.30]],
+        },
+        num_paths=512,
+        enable_aad=False,
+        evaluation_date=(2022, 9, 15),
+    )
+    res_30 = gw.value(request)
+    # Now the same surface but with average vol 0.40 — should give a higher price.
+    request_40 = ValuationRequest(
+        event_dates=request.event_dates,
+        events=request.events,
+        model_kind="DupireModelData_",
+        model_params={
+            "spot": 100.0,
+            "rate": 0.0,
+            "repo": 0.0,
+            "spots": [90.0, 100.0, 110.0],
+            "times": [0.5, 1.0],
+            "vols": [[0.40, 0.40], [0.40, 0.40], [0.40, 0.40]],
+        },
+        num_paths=512,
+        enable_aad=False,
+        evaluation_date=(2022, 9, 15),
+    )
+    res_40 = gw.value(request_40)
+    # Both surfaces are non-zero and 0.40-vol > 0.30-vol in price.
+    assert res_30["PV"] > 0.0
+    assert res_40["PV"] > res_30["PV"]

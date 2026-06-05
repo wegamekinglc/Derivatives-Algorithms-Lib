@@ -1,7 +1,16 @@
-"""Valuation service: orchestrates trade / portfolio pricing via the gateway."""
+"""Valuation service: orchestrates trade / portfolio pricing via the gateway.
+
+Supports both synchronous and asynchronous pricing.  The synchronous path
+(``value_trade``, ``value_portfolio``, ``value_single_trade``) blocks until
+pricing completes and returns the result directly.  The asynchronous path
+(``value_portfolio_async``, ``value_single_trade_async``) creates a pending
+``ValuationResult`` in the store, runs pricing in a background task, and
+updates the result in-place when done (status: running -> completed / failed).
+"""
 
 from __future__ import annotations
 
+import logging
 from datetime import datetime, timezone
 
 from app.schemas import (
@@ -13,18 +22,24 @@ from app.schemas import (
 from app.services.dal_gateway import DalGateway, ValuationRequest
 from app.services.store import Store
 
+logger = logging.getLogger(__name__)
+
 
 def _utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def value_trade(
+def _price_trade(
     store: Store,
     gateway: DalGateway,
     trade: Trade,
     config: ValuationConfig,
 ) -> TradeValuation:
-    """Price a single trade and scale the PV/Greeks by notional * quantity."""
+    """Price a single trade and scale the PV/Greeks by notional * quantity.
+
+    Per-trade failures are caught and returned as ``TradeValuation(error=...)``
+    so that a single failing trade does not abort an entire portfolio valuation.
+    """
     product = store.get_product(trade.product_id)
     model = store.get_model(trade.model_id)
     event_dates, events = product.event_dates_and_events()
@@ -72,6 +87,27 @@ def value_trade(
     )
 
 
+# Backwards-compatible alias (the old public name).
+value_trade = _price_trade
+
+
+def _aggregate_trade_valuations(
+    trade_valuations: list[TradeValuation],
+) -> tuple[float, dict[str, float]]:
+    """Sum scaled PVs and merge per-trade Greeks into portfolio totals."""
+    total_pv = sum(tv.scaled_pv for tv in trade_valuations)
+    total_greeks: dict[str, float] = {}
+    for tv in trade_valuations:
+        for name, value in tv.greeks.items():
+            total_greeks[name] = total_greeks.get(name, 0.0) + value
+    return total_pv, total_greeks
+
+
+# ---------------------------------------------------------------------------
+# Synchronous pricing (legacy path — blocks until done)
+# ---------------------------------------------------------------------------
+
+
 def value_portfolio(
     store: Store,
     gateway: DalGateway,
@@ -79,12 +115,8 @@ def value_portfolio(
     config: ValuationConfig,
 ) -> ValuationResult:
     trades = store.portfolio_trades(portfolio_id)
-    trade_valuations = [value_trade(store, gateway, t, config) for t in trades]
-    total_pv = sum(tv.scaled_pv for tv in trade_valuations)
-    total_greeks: dict[str, float] = {}
-    for tv in trade_valuations:
-        for name, value in tv.greeks.items():
-            total_greeks[name] = total_greeks.get(name, 0.0) + value
+    trade_valuations = [_price_trade(store, gateway, t, config) for t in trades]
+    total_pv, total_greeks = _aggregate_trade_valuations(trade_valuations)
 
     result = ValuationResult(
         target_kind="portfolio",
@@ -107,7 +139,7 @@ def value_single_trade(
     config: ValuationConfig,
 ) -> ValuationResult:
     trade = store.get_trade(trade_id)
-    tv = value_trade(store, gateway, trade, config)
+    tv = _price_trade(store, gateway, trade, config)
     result = ValuationResult(
         target_kind="trade",
         target_id=trade_id,
@@ -120,3 +152,125 @@ def value_single_trade(
         created_at=_utc_now(),
     )
     return store.add_valuation(result)
+
+
+# ---------------------------------------------------------------------------
+# Asynchronous pricing (creates a pending result, runs in background task)
+# ---------------------------------------------------------------------------
+
+
+def _run_portfolio_pricing(
+    store: Store,
+    gateway: DalGateway,
+    valuation_id: str,
+    portfolio_id: str,
+    config: ValuationConfig,
+) -> None:
+    """Background task: price a portfolio and update the ValuationResult in-place."""
+    try:
+        trades = store.portfolio_trades(portfolio_id)
+        trade_valuations = [_price_trade(store, gateway, t, config) for t in trades]
+        total_pv, total_greeks = _aggregate_trade_valuations(trade_valuations)
+        store.update_valuation(
+            valuation_id,
+            {
+                "total_pv": total_pv,
+                "total_greeks": total_greeks,
+                "trades": trade_valuations,
+                "status": "completed",
+            },
+        )
+    except Exception as exc:  # noqa: BLE001 - mark the valuation as failed
+        logger.exception("Portfolio valuation %s failed", valuation_id)
+        store.update_valuation(
+            valuation_id,
+            {
+                "status": "failed",
+                "error_message": str(exc),
+                "total_pv": 0.0,
+                "total_greeks": {},
+            },
+        )
+
+
+def _run_trade_pricing(
+    store: Store,
+    gateway: DalGateway,
+    valuation_id: str,
+    trade_id: str,
+    config: ValuationConfig,
+) -> None:
+    """Background task: price a single trade and update the ValuationResult in-place."""
+    try:
+        trade = store.get_trade(trade_id)
+        tv = _price_trade(store, gateway, trade, config)
+        store.update_valuation(
+            valuation_id,
+            {
+                "total_pv": tv.scaled_pv,
+                "total_greeks": dict(tv.greeks),
+                "trades": [tv],
+                "status": "completed",
+            },
+        )
+    except Exception as exc:  # noqa: BLE001 - mark the valuation as failed
+        logger.exception("Trade valuation %s failed", valuation_id)
+        store.update_valuation(
+            valuation_id,
+            {
+                "status": "failed",
+                "error_message": str(exc),
+                "total_pv": 0.0,
+                "total_greeks": {},
+            },
+        )
+
+
+def value_portfolio_async(
+    store: Store,
+    gateway: DalGateway,
+    portfolio_id: str,
+    config: ValuationConfig,
+) -> ValuationResult:
+    """Create a pending ValuationResult and return immediately.
+
+    Pricing runs in a FastAPI BackgroundTasks task.  The caller polls
+    ``GET /api/valuations/{id}`` until ``status == "completed"`` or ``"failed"``.
+    """
+    pending = ValuationResult(
+        target_kind="portfolio",
+        target_id=portfolio_id,
+        backend=gateway.backend_name,
+        is_native=gateway.is_native,
+        config=config,
+        total_pv=0.0,
+        trades=[],
+        created_at=_utc_now(),
+        status="running",
+    )
+    return store.add_valuation(pending)
+
+
+def value_single_trade_async(
+    store: Store,
+    gateway: DalGateway,
+    trade_id: str,
+    config: ValuationConfig,
+) -> ValuationResult:
+    """Create a pending ValuationResult and return immediately.
+
+    Pricing runs in a FastAPI BackgroundTasks task.  The caller polls
+    ``GET /api/valuations/{id}`` until ``status == "completed"`` or ``"failed"``.
+    """
+    pending = ValuationResult(
+        target_kind="trade",
+        target_id=trade_id,
+        backend=gateway.backend_name,
+        is_native=gateway.is_native,
+        config=config,
+        total_pv=0.0,
+        trades=[],
+        created_at=_utc_now(),
+        status="running",
+    )
+    return store.add_valuation(pending)

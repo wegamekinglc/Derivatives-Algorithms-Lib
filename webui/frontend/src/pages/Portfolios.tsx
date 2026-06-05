@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { api, type Portfolio, type Trade } from "../api/client";
 import { css, fmtMoney, inlineStyle } from "../format";
 import ValuationPanel from "../components/ValuationPanel";
@@ -11,13 +11,18 @@ export default function Portfolios() {
   const [name, setName] = useState("New Portfolio");
   const [error, setError] = useState<string | null>(null);
   const [addTradeId, setAddTradeId] = useState("");
+  const [loading, setLoading] = useState(true);
 
-  function refresh() {
-    void api.listPortfolios().then(setPortfolios);
-    void api.listTrades().then(setAllTrades);
-  }
+  const refresh = useCallback(() => {
+    return Promise.all([
+      api.listPortfolios().then((p) => { setPortfolios(p); }),
+      api.listTrades().then((t) => { setAllTrades(t); }),
+    ]);
+  }, []);
 
-  useEffect(refresh, []);
+  useEffect(() => {
+    void refresh().catch((e: unknown) => { setError(String(e)); }).finally(() => { setLoading(false); });
+  }, [refresh]);
 
   async function selectPortfolio(pf: Portfolio) {
     setSelected(pf);
@@ -48,10 +53,30 @@ export default function Portfolios() {
     if (!selected) {
       return;
     }
-    const pf = await api.removeTradeFromPortfolio(selected.id, tid);
-    setSelected(pf);
-    setMembers(await api.portfolioTrades(pf.id));
-    refresh();
+    try {
+      const pf = await api.removeTradeFromPortfolio(selected.id, tid);
+      setSelected(pf);
+      setMembers(await api.portfolioTrades(pf.id));
+      await refresh();
+    } catch (e: unknown) {
+      setError(String(e));
+    }
+  }
+
+  async function deletePortfolio(id: string) {
+    if (!window.confirm("Delete this portfolio? This cannot be undone.")) {
+      return;
+    }
+    try {
+      await api.deletePortfolio(id);
+      if (selected?.id === id) {
+        setSelected(null);
+        setMembers([]);
+      }
+      await refresh();
+    } catch (e: unknown) {
+      setError(String(e));
+    }
   }
 
   return (
@@ -65,6 +90,11 @@ export default function Portfolios() {
 
       {error && <div {...css("error")}>{error}</div>}
 
+      {loading ? (
+        <div {...css("panel")}>
+          <p {...css("muted")}>Loading portfolios…</p>
+        </div>
+      ) : (
       <div {...css("grid-2")}>
         <div {...css("panel")}>
           <h2>Books</h2>
@@ -89,7 +119,9 @@ export default function Portfolios() {
             <thead>
               <tr>
                 <th>Name</th>
+                <th>Description</th>
                 <th {...css("num")}># trades</th>
+                <th></th>
                 <th></th>
               </tr>
             </thead>
@@ -97,6 +129,7 @@ export default function Portfolios() {
               {portfolios.map((pf) => (
                 <tr key={pf.id}>
                   <td>{pf.name}</td>
+                  <td {...css("muted")}>{pf.description}</td>
                   <td {...css("num")}>{pf.trade_ids.length}</td>
                   <td>
                     <button
@@ -107,6 +140,17 @@ export default function Portfolios() {
                       }}
                     >
                       Open
+                    </button>
+                  </td>
+                  <td>
+                    <button
+                      type="button"
+                      {...css("danger")}
+                      onClick={() => {
+                        void deletePortfolio(pf.id);
+                      }}
+                    >
+                      Delete
                     </button>
                   </td>
                 </tr>
@@ -166,7 +210,9 @@ export default function Portfolios() {
                           type="button"
                           {...css("danger")}
                           onClick={() => {
-                            void removeTrade(t.id);
+                            if (window.confirm(`Remove ${t.name} from this portfolio?`)) {
+                              void removeTrade(t.id);
+                            }
                           }}
                         >
                           Remove
@@ -180,6 +226,7 @@ export default function Portfolios() {
           )}
         </div>
       </div>
+      )}
 
       {selected && (
         <ValuationPanel

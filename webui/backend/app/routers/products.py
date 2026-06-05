@@ -10,9 +10,10 @@ from app.schemas import (
     ProductDebugRequest,
     ProductDebugResponse,
     ProductDefinition,
+    ProductUpdate,
 )
 from app.services.dal_gateway import DalGateway
-from app.services.store import NotFoundError, Store
+from app.services.store import ConflictError, NotFoundError, Store
 from app.services.templates import product_templates
 
 router = APIRouter(prefix="/api/products", tags=["products"])
@@ -48,9 +49,25 @@ def get_product(
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
+@router.put("/{product_id}", response_model=ProductDefinition)
+def update_product(
+    product_id: str,
+    payload: ProductUpdate,
+    store: Store = Depends(store_dependency),
+) -> ProductDefinition:
+    patch = payload.model_dump(exclude_none=True)
+    try:
+        return store.update_product(product_id, patch)
+    except NotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
 @router.delete("/{product_id}", status_code=204)
 def delete_product(product_id: str, store: Store = Depends(store_dependency)) -> None:
-    store.delete_product(product_id)
+    try:
+        store.delete_product(product_id)
+    except ConflictError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 
 @router.post("/debug", response_model=ProductDebugResponse)

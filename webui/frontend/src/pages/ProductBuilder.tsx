@@ -20,6 +20,7 @@ export default function ProductBuilder() {
   const [rows, setRows] = useState<EditorRow[]>([makeRow()]);
   const [debug, setDebug] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
   function apiRows(): EventRow[] {
     return rows.map((r) => ({
@@ -31,13 +32,29 @@ export default function ProductBuilder() {
   }
 
   const refresh = useCallback(() => {
-    void api.listProducts().then(setProducts);
+    return api.listProducts().then((p) => { setProducts(p); });
   }, []);
 
   useEffect(() => {
-    void api.listTemplates().then(setTemplates);
-    refresh();
+    void Promise.allSettled([
+      api.listTemplates().then((t) => { setTemplates(t); }),
+      refresh(),
+    ]).then((results) => {
+      const rejected = results.find((r): r is PromiseRejectedResult => r.status === 'rejected');
+      if (rejected) {
+        setError(String(rejected.reason));
+      }
+      setLoading(false);
+    });
   }, [refresh]);
+
+  function loadSavedProduct(product: ProductDefinition) {
+    setName(product.name);
+    setDescription(product.description);
+    setRows(product.rows.map((r) => makeRow(r)));
+    setDebug("");
+    setError(null);
+  }
 
   function loadTemplate(key: string) {
     const tpl = templates.find((t) => t.key === key);
@@ -76,15 +93,23 @@ export default function ProductBuilder() {
     setError(null);
     try {
       await api.createProduct({ name, description, template: null, rows: apiRows() });
-      refresh();
+      await refresh();
     } catch (e: unknown) {
       setError(String(e));
     }
   }
 
   async function removeProduct(id: string) {
-    await api.deleteProduct(id);
-    refresh();
+    const product = products.find((p) => p.id === id);
+    if (!window.confirm(`Delete product "${product?.name ?? id}"? This cannot be undone.`)) {
+      return;
+    }
+    try {
+      await api.deleteProduct(id);
+      await refresh();
+    } catch (e: unknown) {
+      setError(String(e));
+    }
   }
 
   return (
@@ -98,6 +123,12 @@ export default function ProductBuilder() {
 
       {error && <div {...css("error")}>{error}</div>}
 
+      {loading ? (
+        <div {...css("panel")}>
+          <p {...css("muted")}>Loading products…</p>
+        </div>
+      ) : (
+      <>
       <div {...css("toolbar")}>
         <span {...css("muted")}>Start from template:</span>
         {templates.map((t) => (
@@ -224,37 +255,55 @@ export default function ProductBuilder() {
 
       <div {...css("panel")}>
         <h2>Saved products</h2>
-        <table>
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Description</th>
-              <th {...css("num")}># rows</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {products.map((p) => (
-              <tr key={p.id}>
-                <td>{p.name}</td>
-                <td {...css("muted")}>{p.description}</td>
-                <td {...css("num")}>{p.rows.length}</td>
-                <td>
-                  <button
-                    type="button"
-                    {...css("danger")}
-                    onClick={() => {
-                      void removeProduct(p.id);
-                    }}
-                  >
-                    Delete
-                  </button>
-                </td>
+        {products.length === 0 ? (
+          <p {...css("muted")}>No saved products yet. Build one above and click Save.</p>
+        ) : (
+          <table>
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Description</th>
+                <th {...css("num")}># rows</th>
+                <th></th>
+                <th></th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {products.map((p) => (
+                <tr key={p.id}>
+                  <td>{p.name}</td>
+                  <td {...css("muted")}>{p.description}</td>
+                  <td {...css("num")}>{p.rows.length}</td>
+                  <td>
+                    <button
+                      type="button"
+                      {...css("ghost")}
+                      onClick={() => {
+                        loadSavedProduct(p);
+                      }}
+                    >
+                      Load
+                    </button>
+                  </td>
+                  <td>
+                    <button
+                      type="button"
+                      {...css("danger")}
+                      onClick={() => {
+                        void removeProduct(p.id);
+                      }}
+                    >
+                      Delete
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
+      </>
+      )}
     </div>
   );
 }
