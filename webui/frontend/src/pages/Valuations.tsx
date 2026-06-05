@@ -5,10 +5,11 @@ import { css, fmtMoney, fmtNum, inlineStyle } from "../format";
 export default function Valuations() {
   const [runs, setRuns] = useState<ValuationResult[]>([]);
   const [open, setOpen] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    void api.listValuations().then(setRuns).finally(() => setLoading(false));
+    void api.listValuations().then(setRuns).catch((e: unknown) => setError(String(e))).finally(() => setLoading(false));
   }, []);
 
   return (
@@ -19,6 +20,8 @@ export default function Valuations() {
           <p>Reproducible history of every Monte Carlo valuation.</p>
         </div>
       </div>
+
+      {error && <div {...css("error")}>{error}</div>}
 
       {loading ? (
         <p {...css("muted")}>Loading valuations…</p>

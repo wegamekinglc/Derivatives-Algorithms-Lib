@@ -42,7 +42,7 @@ if ! command -v grep >/dev/null 2>&1; then
   echo "error: grep is required but not found" >&2
   exit 1
 fi
-BACKEND_PORT="$(grep -oP 'target.*?:(\K\d+)' "${FRONTEND_DIR}/vite.config.ts" 2>/dev/null || true)"
+BACKEND_PORT="$(grep -E 'target.*http.*127\.0\.0\.1:[0-9]+' "${FRONTEND_DIR}/vite.config.ts" 2>/dev/null | grep -oE ':[0-9]+' | tr -d ':' || true)"
 BACKEND_PORT="${BACKEND_PORT:-8001}"
 
 # PID and log files
@@ -81,6 +81,9 @@ check_cmd python3   || FAILED_PREREQS=1
 check_cmd uv        || FAILED_PREREQS=1
 check_cmd node      || FAILED_PREREQS=1
 check_cmd npm       || FAILED_PREREQS=1
+check_cmd curl      || FAILED_PREREQS=1
+check_cmd ss        || FAILED_PREREQS=1
+check_cmd nohup     || FAILED_PREREQS=1
 [ "${FAILED_PREREQS}" -eq 0 ] || exit 1
 
 PYTHON_VERSION="$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')"

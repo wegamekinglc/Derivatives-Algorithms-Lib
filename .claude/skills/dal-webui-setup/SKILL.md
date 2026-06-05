@@ -10,10 +10,10 @@ Brings up or tears down the two-service web UI that sits on top of the DAL Pytho
 
 Two scripts handle the actual work:
 
-| Command | What it does |
-|---------|--------------|
-| `./webui/scripts/start.sh` | Checks prerequisites, starts backend (uvicorn on `:8001`) and frontend (vite on `:5173`), waits for both, runs a smoke test. |
-| `./webui/scripts/stop.sh [--force]` | Stops both services (by PID file, falling back to port-based kill). Use `--force` to escalate to SIGKILL. |
+| Command                               | What it does                                                                                                                             |
+|---------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------|
+| `./webui/scripts/start.sh`            | Checks prerequisites, starts backend (uvicorn on `:8001`) and frontend (vite on `:5173`), waits for both, runs a smoke test.             |
+| `./webui/scripts/stop.sh [--force]`   | Stops both services (by PID file, falling back to port-based kill). Use `--force` to escalate to SIGKILL.                                |
 
 ## When to use
 
@@ -78,7 +78,7 @@ cd webui/frontend && npm run build
 By default the backend uses `dal_stub.py` (pure-Python closed-form Black-Scholes). To use the compiled SWIG bindings:
 
 1. Build `dal-python` per the repo root `README.md`.
-2. Install into the uv env: `uv pip install ../dal-python` (from `webui/backend/`).
+2. Install into the uv env: `uv pip install ../../dal-python` (from `webui/backend/`).
 3. Set `DAL_REQUIRE_NATIVE=1` before starting the backend.
 
 The start script respects environment variables, so you can do:

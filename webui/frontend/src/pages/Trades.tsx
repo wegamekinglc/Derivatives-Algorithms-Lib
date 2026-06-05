@@ -36,19 +36,19 @@ export default function Trades() {
         setLoading(false);
       }
     };
-    refresh().finally(done);
+    refresh().catch((e: unknown) => setError(String(e))).finally(done);
     void api.listProducts().then((p) => {
       setProducts(p);
       if (p[0]) {
         setProductId(p[0].id);
       }
-    }).finally(done);
+    }).catch((e: unknown) => setError(String(e))).finally(done);
     void api.listModels().then((m) => {
       setModels(m);
       if (m[0]) {
         setModelId(m[0].id);
       }
-    }).finally(done);
+    }).catch((e: unknown) => setError(String(e))).finally(done);
   }, [refresh]);
 
   async function create() {

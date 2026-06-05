@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import time
+
 
 def test_health_reports_stub_backend(client):
     resp = client.get("/api/health")
@@ -56,6 +58,7 @@ def _wait_for_valuation(client, valuation_id: str, max_polls: int = 20) -> dict:
         body = resp.json()
         if body["status"] != "running":
             return body
+        time.sleep(0.1)
     raise AssertionError(f"Valuation {valuation_id} did not complete within {max_polls} polls")
 
 

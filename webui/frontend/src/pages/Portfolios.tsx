@@ -21,7 +21,7 @@ export default function Portfolios() {
   }
 
   useEffect(() => {
-    void refresh().finally(() => setLoading(false));
+    void refresh().catch((e: unknown) => setError(String(e))).finally(() => setLoading(false));
   }, []);
 
   async function selectPortfolio(pf: Portfolio) {

@@ -32,7 +32,7 @@ FRONTEND_DIR="webui/frontend"
 FRONTEND_PORT=5173
 
 # Read backend port from vite.config.ts proxy target.
-BACKEND_PORT="$(grep -oP 'target.*?:(\K\d+)' "${FRONTEND_DIR}/vite.config.ts" 2>/dev/null || true)"
+BACKEND_PORT="$(grep -E 'target.*http.*127\.0\.0\.1:[0-9]+' "${FRONTEND_DIR}/vite.config.ts" 2>/dev/null | grep -oE ':[0-9]+' | tr -d ':' || true)"
 BACKEND_PORT="${BACKEND_PORT:-8001}"
 
 # PID and log files
@@ -41,6 +41,23 @@ FRONTEND_PID_FILE="${FRONTEND_DIR}/.server.pid"
 
 FORCE=0
 [ "${1:-}" = "--force" ] && FORCE=1
+
+# ---------------------------------------------------------------------------
+# Prerequisites
+# ---------------------------------------------------------------------------
+check_cmd() {
+  if ! command -v "$1" >/dev/null 2>&1; then
+    error "$1 is not installed. Please install it and retry."
+    return 1
+  fi
+}
+
+FAILED_PREREQS=0
+check_cmd grep      || FAILED_PREREQS=1
+check_cmd ss        || FAILED_PREREQS=1
+check_cmd lsof      || FAILED_PREREQS=1
+check_cmd xargs     || FAILED_PREREQS=1
+[ "${FAILED_PREREQS}" -eq 0 ] || exit 1
 
 # ---------------------------------------------------------------------------
 # Colours and helpers

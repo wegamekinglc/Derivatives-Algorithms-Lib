@@ -11,7 +11,6 @@ updates the result in-place when done (status: running -> completed / failed).
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from uuid import uuid4
 
 from app.schemas import (
     Trade,

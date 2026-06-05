@@ -6,6 +6,7 @@ export default function Dashboard() {
   const [portfolios, setPortfolios] = useState<Portfolio[]>([]);
   const [trades, setTrades] = useState<Trade[]>([]);
   const [valuations, setValuations] = useState<ValuationResult[]>([]);
+  const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -16,9 +17,9 @@ export default function Dashboard() {
         setLoading(false);
       }
     };
-    void api.listPortfolios().then(setPortfolios).finally(done);
-    void api.listTrades().then(setTrades).finally(done);
-    void api.listValuations().then(setValuations).finally(done);
+    void api.listPortfolios().then(setPortfolios).catch((e: unknown) => setError(String(e))).finally(done);
+    void api.listTrades().then(setTrades).catch((e: unknown) => setError(String(e))).finally(done);
+    void api.listValuations().then(setValuations).catch((e: unknown) => setError(String(e))).finally(done);
   }, []);
 
   const lastByTarget = new Map<string, ValuationResult>();
@@ -40,6 +41,8 @@ export default function Dashboard() {
           <p>Portfolio overview and recent valuation activity.</p>
         </div>
       </div>
+
+      {error && <div {...css("error")}>{error}</div>}
 
       <div {...css("cards")} {...inlineStyle({ marginBottom: 24 })}>
         <div {...css("card")}>
