@@ -85,6 +85,12 @@ jobs:
           # choco installs to C:\ProgramData\chocolatey\bin which is on PATH
           swig -version
 
+      - name: Install Python test dependencies
+        shell: pwsh
+        run: |
+          # dal_python_pytest uses `python -m pytest`; numpy is imported by several tests.
+          python -m pip install --disable-pip-version-check pytest numpy
+
       - name: Build Machinist
         shell: bash
         run: |

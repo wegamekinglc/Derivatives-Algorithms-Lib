@@ -109,7 +109,8 @@ jobs:
         run: |
           sudo apt install -y gcc-14 g++-14 swig \
             libc++-dev make cmake libpython3-dev \
-            autotools-dev autoconf libtool
+            autotools-dev autoconf libtool \
+            python3-pytest python3-numpy
 
       - name: Compile and test
         env:
