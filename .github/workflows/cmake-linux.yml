@@ -93,3 +93,29 @@ jobs:
         uses: coverallsapp/github-action@5cbfd81b66ca5d10c19b062c04de0199c215fb6e
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
+
+  # Extended build: dal-cpp + dal-public + dal-python.
+  # Lives in a separate job so the main 16-job compiler×backend matrix
+  # stays lean — the Python bindings are backend-agnostic, so testing
+  # them against one representative configuration is sufficient.
+  build-extended:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
+        with:
+          submodules: recursive
+
+      - name: Setup
+        run: |
+          sudo apt install -y gcc-14 g++-14 swig \
+            libc++-dev make cmake libpython3-dev \
+            autotools-dev autoconf libtool
+
+      - name: Compile and test
+        env:
+          CXXFLAGS: -O2
+          CC: gcc-14
+          CXX: g++-14
+          ADDITIONAL_CMAKE_FLAGS: -DDAL_USE_XAD_AAD=off -DDAL_USE_CODIPACK_AAD=off -DDAL_USE_ADEPT_AAD=off -DDAL_BUILD_PYTHON=ON
+        run: |
+          bash -e ./build_linux.sh

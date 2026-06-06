@@ -71,7 +71,19 @@ jobs:
             adept)
               FLAGS="-DDAL_USE_XAD_AAD=off -DDAL_USE_CODIPACK_AAD=off -DDAL_USE_ADEPT_AAD=on" ;;
           esac
+          # dal-python (SWIG bindings) and dal-excel (Windows-only COM add-in)
+          # are built on every matrix combination — the matrix is small
+          # (3 jobs) and the bindings are backend-agnostic.
+          FLAGS="$FLAGS -DDAL_BUILD_PYTHON=ON -DDAL_BUILD_EXCEL=ON"
           echo "ADDITIONAL_CMAKE_FLAGS=$FLAGS" >> $GITHUB_ENV
+
+      - name: Install SWIG
+        shell: pwsh
+        run: |
+          # windows-latest runners ship with Python 3.x but not SWIG.
+          choco install swig --no-progress --yes
+          # choco installs to C:\ProgramData\chocolatey\bin which is on PATH
+          swig -version
 
       - name: Build Machinist
         shell: bash
