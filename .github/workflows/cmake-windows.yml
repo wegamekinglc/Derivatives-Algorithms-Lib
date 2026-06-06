@@ -85,11 +85,22 @@ jobs:
           # choco installs to C:\ProgramData\chocolatey\bin which is on PATH
           swig -version
 
-      - name: Install Python test dependencies
+      # Python env: uv-managed venv, matching the convention in
+      # dal-python/run_tests.sh. The venv must be on PATH *before* the
+      # Configure step so cmake's find_package(Python3) picks up the
+      # venv's interpreter — otherwise dal_python_pytest runs against
+      # the system python, which doesn't have pytest.
+      - uses: astral-sh/setup-uv@v3
+
+      - name: Set up Python venv
         shell: pwsh
         run: |
-          # dal_python_pytest uses `python -m pytest`; numpy is imported by several tests.
-          python -m pip install --disable-pip-version-check pytest numpy
+          uv venv .venv --python 3.12
+          # .venv\Scripts must precede the system Python on PATH so cmake
+          # finds the venv's interpreter at configure time.
+          $venvScripts = (Resolve-Path .\.venv\Scripts).Path
+          Add-Content -Path $env:GITHUB_PATH -Value $venvScripts
+          uv pip install pytest numpy
 
       - name: Build Machinist
         shell: bash

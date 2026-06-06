@@ -108,9 +108,21 @@ jobs:
       - name: Setup
         run: |
           sudo apt install -y gcc-14 g++-14 swig \
-            libc++-dev make cmake libpython3-dev \
-            autotools-dev autoconf libtool \
-            python3-pytest python3-numpy
+            libc++-dev make cmake \
+            autotools-dev autoconf libtool
+
+      # Python env: uv-managed venv, matching the convention in
+      # dal-python/run_tests.sh. The venv must be on PATH *before* the
+      # Configure step so cmake's find_package(Python3) picks up the
+      # venv's interpreter — otherwise dal_python_pytest runs against
+      # the system python, which doesn't have pytest.
+      - uses: astral-sh/setup-uv@v3
+
+      - name: Set up Python venv
+        run: |
+          uv venv .venv --python 3.12
+          echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
+          uv pip install pytest numpy
 
       - name: Compile and test
         env:
