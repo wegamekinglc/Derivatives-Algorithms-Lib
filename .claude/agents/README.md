@@ -38,7 +38,7 @@ subset of the pipeline (see `dal-orchestrator.md` for the routing table).
 | `.claude/specs/`       | spec writer    | testable requirement specifications                       |
 | `.claude/api-notes/`   | api designer   | public-API surface notes (signatures, examples, errors)   |
 | `.claude/critiques/`   | critic         | adversarial reviews of specs and api-notes                |
-| `docs/methodology/` | (existing)     | normative quant method docs (referenced by all agents)    |
+| `docs/methodology/`   | (existing)     | normative quant method docs (referenced by all agents)    |
 | `.claude/rules/`       | (existing)     | normative coding/test/git conventions                     |
 
 Filenames share a single kebab-case slug derived from the issue title, so an issue traces
