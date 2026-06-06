@@ -48,7 +48,7 @@ code yourself - you decompose the work, delegate, gate transitions, and report p
 | Role               | Agent                 | Produces                                          |
 |--------------------|-----------------------|---------------------------------------------------|
 | Spec writer        | `dal-spec-writer`     | `.claude/specs/<slug>.md`                         |
-| Architect          | `dal-architect`       | `.claude/designs/<slug>.md`                       |
+| Architect          | `dal-architect`       | `docs/designs/<slug>.md`                       |
 | API designer       | `dal-api-designer`    | `.claude/api-notes/<slug>.md` (when API public)   |
 | Critic             | `dal-critic`          | `.claude/critiques/<slug>.md`                     |
 | Implementer        | `dal-implementer`     | TDD implementation in worktree, tests passing     |
@@ -61,7 +61,7 @@ yourself.
 ## Project Context
 
 - Repo: `wegamekinglc/Derivatives-Algorithms-Lib` (this clone)
-- `.claude/specs/`, `.claude/designs/`, `.claude/api-notes/`, `.claude/critiques/` - artifact directories
+- `.claude/specs/`, `docs/designs/`, `.claude/api-notes/`, `.claude/critiques/` - artifact directories
   (create them on demand; they may not exist yet)
 - `.claude/rules/git-commit-pr.md` - branch naming, commit format, PR template
 - Issues live on GitHub; access them via `gh issue` commands
@@ -130,7 +130,7 @@ For each step, spawn the matching agent with a self-contained prompt. Each deleg
 Example delegation pattern:
 
 > Implement issue #57 ("Add log-linear interpolation"). Read the spec at `.claude/specs/log-linear-interp.md`,
-> the design at `.claude/designs/log-linear-interp.md`, and the critique at `.claude/critiques/log-linear-interp.md`.
+> the design at `docs/designs/log-linear-interp.md`, and the critique at `.claude/critiques/log-linear-interp.md`.
 > Address all blocking findings in the critique. Write tests, run the full suite, and stop before opening
 > the PR - I will route the review separately.
 

@@ -53,10 +53,10 @@ This is a C++17 quantitative finance library with AAD (Automatic Adjoint Differe
 - `public/` — public API wrapping the core library
 - `.claude/rules/code-style.md` — coding conventions (naming, formatting, includes)
 - `.claude/rules/unit-test-style.md` — test conventions (assertions, structure, naming)
-- `.claude/methodology/` — quantitative method documentation (AAD, yield curves, underdetermined search)
-- `.claude/specs/`, `.claude/designs/`, `.claude/api-notes/`, `.claude/critiques/` — upstream artifacts from the spec writer, architect, API designer, and critic agents (read these before designing or coding when they exist)
+- `docs/methodology/` — quantitative method documentation (AAD, yield curves, underdetermined search)
+- `.claude/specs/`, `docs/designs/`, `.claude/api-notes/`, `.claude/critiques/` — upstream artifacts from the spec writer, architect, API designer, and critic agents (read these before designing or coding when they exist)
 
-Before starting work, read the relevant `.claude/rules/` files, any methodology docs that apply, and any upstream `.claude/specs/`, `.claude/designs/`, `.claude/api-notes/`, or `.claude/critiques/` artifacts for the feature. The architect's design and the critic's critique are particularly load-bearing — address every blocking critique finding during implementation.
+Before starting work, read the relevant `.claude/rules/` files, any methodology docs that apply, and any upstream `.claude/specs/`, `docs/designs/`, `.claude/api-notes/`, or `.claude/critiques/` artifacts for the feature. The architect's design and the critic's critique are particularly load-bearing — address every blocking critique finding during implementation.
 
 ## Your Process
 
@@ -90,7 +90,7 @@ Do not proceed until the requirements are clear.
 - Identify all files that need to be created or modified
 - Check existing tests in `dal-cpp/tests/` for convention reference in that module
 
-**2.2 Write a design document** at `.claude/designs/<feature-name>.md`:
+**2.2 Write a design document** at `docs/designs/<feature-name>.md`:
 
 ```markdown
 # <Feature Name> — Technical Design

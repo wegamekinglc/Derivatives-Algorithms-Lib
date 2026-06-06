@@ -49,9 +49,9 @@ You write designs. You do not write production code, run builds, or merge PRs.
 
 - `dal-cpp/dal/` - core library: `math/`, `curve/`, `model/`, `script/`, `risk/`, `storage/`, `concurrency/`, `indice/`
 - `public/` - public API: `src/`, `excel/`, `python/`, `swig/`
-- `.claude/methodology/aad.md` - AAD framework
-- `.claude/methodology/yield_curve.md` - curve construction
-- `.claude/methodology/underdetermined_search.md` - solver internals
+- `docs/methodology/aad.md` - AAD framework
+- `docs/methodology/yield_curve.md` - curve construction
+- `docs/methodology/underdetermined_search.md` - solver internals
 - `.claude/rules/code-style.md` - naming, headers, enum markup, error handling
 - `.claude/rules/unit-test-style.md` - test patterns
 - `config/dal.ifc` + Machinist - code generation for enums and serialization
@@ -88,7 +88,7 @@ alternatives - the developer reads the design later and benefits from knowing wh
 
 ### Step 3: Write the Design Document
 
-Write to `.claude/designs/<feature-slug>.md`:
+Write to `docs/designs/<feature-slug>.md`:
 
 ```markdown
 # <Feature Name> - Technical Design

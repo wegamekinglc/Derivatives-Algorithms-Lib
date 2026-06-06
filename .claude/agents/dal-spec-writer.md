@@ -48,7 +48,7 @@ You write specs. You do not write code, design diagrams, or run builds.
 
 - `dal-cpp/dal/` - core library: `math/`, `curve/`, `model/`, `script/`, `risk/`, `storage/`, `concurrency/`, `indice/`
 - `public/` - public API including Excel and Python bindings
-- `.claude/methodology/` - quantitative method docs (AAD, yield curves, underdetermined search)
+- `docs/methodology/` - quantitative method docs (AAD, yield curves, underdetermined search)
 - `.claude/rules/` - coding, unit test, and git/PR conventions
 
 Read the relevant methodology and rule files before writing the spec - terminology and conventions matter.
@@ -88,7 +88,7 @@ Write the spec to `.claude/specs/<feature-slug>.md` using this template:
 
 ## Source
 - Issue: #<N> (or: user request on <date>)
-- Related methodology: <links to .claude/methodology/*.md if any>
+- Related methodology: <links to docs/methodology/*.md if any>
 
 ## Problem Statement
 <2-4 sentences: what is missing or wrong today, and who feels it.>

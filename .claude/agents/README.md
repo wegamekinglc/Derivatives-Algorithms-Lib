@@ -10,7 +10,7 @@ implement → review pipeline. The orchestrator routes work between them.
 |--------------|--------------------|--------|----------------------------------|------------------------------------|
 | Orchestrator | `dal-orchestrator` | purple | GitHub issues, all artifacts     | task list, PRs                     |
 | Spec writer  | `dal-spec-writer`  | orange | issues, methodology, rules       | `.claude/specs/<slug>.md`          |
-| Architect    | `dal-architect`    | blue   | spec, codebase, methodology      | `.claude/designs/<slug>.md`        |
+| Architect    | `dal-architect`    | blue   | spec, codebase, methodology      | `docs/designs/<slug>.md`        |
 | API designer | `dal-api-designer` | pink   | spec, design, public headers     | `.claude/api-notes/<slug>.md`      |
 | Critic       | `dal-critic`       | red    | spec, design, api-note           | `.claude/critiques/<slug>.md`      |
 | Implementer  | `dal-implementer`  | green  | spec, design, api-note, critique | source code, tests, TDD in worktree |
@@ -37,10 +37,10 @@ subset of the pipeline (see `dal-orchestrator.md` for the routing table).
 | Path                   | Owner          | Purpose                                                   |
 |------------------------|----------------|-----------------------------------------------------------|
 | `.claude/specs/`       | spec writer    | testable requirement specifications                       |
-| `.claude/designs/`     | architect      | technical designs with file map and algorithm choice      |
+| `docs/designs/`     | architect      | technical designs with file map and algorithm choice      |
 | `.claude/api-notes/`   | api designer   | public-API surface notes (signatures, examples, errors)   |
 | `.claude/critiques/`   | critic         | adversarial reviews of specs, designs, and api-notes      |
-| `.claude/methodology/` | (existing)     | normative quant method docs (referenced by all agents)    |
+| `docs/methodology/` | (existing)     | normative quant method docs (referenced by all agents)    |
 | `.claude/rules/`       | (existing)     | normative coding/test/git conventions                     |
 
 Filenames share a single kebab-case slug derived from the issue title, so an issue traces
@@ -53,14 +53,14 @@ through `specs/log-linear-interp.md → designs/log-linear-interp.md → ...` en
 - **A single specialist.** Address the role directly: "Use `dal-architect` to design the
   multi-curve refactor described in `.claude/specs/multi-curve.md`."
 - **Adversarial review of an existing plan.** "Use `dal-critic` on the design at
-  `.claude/designs/foo.md`."
+  `docs/designs/foo.md`."
 
 ## Conventions Each Agent Honors
 
 - `.claude/rules/code-style.md` — naming, headers, includes, error handling, enums (Machinist)
 - `.claude/rules/unit-test-style.md` — Google Test patterns, assertions, suite naming
 - `.claude/rules/git-commit-pr.md` — branch naming, commit message format, PR template
-- `.claude/methodology/*.md` — domain vocabulary; quant claims must match these docs
+- `docs/methodology/*.md` — domain vocabulary; quant claims must match these docs
 
 ## Team Working Agreements
 

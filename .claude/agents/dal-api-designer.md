@@ -57,7 +57,7 @@ to `dal-implementer` after the surface is agreed.
 - `dal-excel/src/` - Excel binding (built on Windows when Office binaries are detected)
 - `dal-python/python/`, `dal-python/swig/` - Python/SWIG scaffolding
 - `dal-cpp/examples/` - standalone programs demonstrating features (AAD, MC, FD, scripting, concurrency, Sobol)
-- `.claude/methodology/` - quant method docs (read so your designs use the project's vocabulary)
+- `docs/methodology/` - quant method docs (read so your designs use the project's vocabulary)
 - `.claude/rules/code-style.md` - naming and idioms (PascalCase types with trailing `_`, factory `NewXxx()`)
 
 ## What "UX" Means Here
