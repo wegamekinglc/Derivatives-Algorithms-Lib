@@ -240,7 +240,7 @@ TEST(ScriptTest, TestIntervalInverseContinuous) {
 
 TEST(ScriptTest, TestIntervalInverseZeroThrows) {
     Interval_ z(0.0);
-    ASSERT_THROW(z.Inverse(), Dal::Exception_);
+    ASSERT_THROW(static_cast<void>(z.Inverse()), Dal::Exception_);
 }
 
 TEST(ScriptTest, TestIntervalDivision) {
