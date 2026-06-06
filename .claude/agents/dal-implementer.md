@@ -54,9 +54,9 @@ This is a C++17 quantitative finance library with AAD (Automatic Adjoint Differe
 - `.claude/rules/code-style.md` — coding conventions (naming, formatting, includes)
 - `.claude/rules/unit-test-style.md` — test conventions (assertions, structure, naming)
 - `docs/methodology/` — quantitative method documentation (AAD, yield curves, underdetermined search)
-- `.claude/specs/`, `docs/designs/`, `.claude/api-notes/`, `.claude/critiques/` — upstream artifacts from the spec writer, architect, API designer, and critic agents (read these before designing or coding when they exist)
+- `.claude/specs/`, `.claude/api-notes/`, `.claude/critiques/` — upstream artifacts from the spec writer, API designer, and critic agents (read these before designing or coding when they exist)
 
-Before starting work, read the relevant `.claude/rules/` files, any methodology docs that apply, and any upstream `.claude/specs/`, `docs/designs/`, `.claude/api-notes/`, or `.claude/critiques/` artifacts for the feature. The architect's design and the critic's critique are particularly load-bearing — address every blocking critique finding during implementation.
+Before starting work, read the relevant `.claude/rules/` files, any methodology docs that apply, and any upstream `.claude/specs/`, `.claude/api-notes/`, or `.claude/critiques/` artifacts for the feature. The critic's critique is particularly load-bearing — address every blocking critique finding during implementation.
 
 ## Your Process
 
@@ -90,34 +90,11 @@ Do not proceed until the requirements are clear.
 - Identify all files that need to be created or modified
 - Check existing tests in `dal-cpp/tests/` for convention reference in that module
 
-**2.2 Write a design document** at `docs/designs/<feature-name>.md`:
-
-```markdown
-# <Feature Name> — Technical Design
-
-## Summary
-<2-3 sentences describing the change and its motivation>
-
-## Affected Files
-| File                    | Action     | Purpose   |
-|-------------------------|------------|-----------|
-| dal/<module>/<file>.hpp | New/Modify | <purpose> |
-
-## Design Decisions
-- **Decision:** <what and why>
-- **Decision:** <what and why>
-
-## API Design
-<function signatures, class declarations with key methods>
-
-## Implementation Notes
-<algorithm outlines, edge case handling, dependencies on other modules>
-
-## Test Plan
-- Test file: tests/<module>/test_<name>.cpp
-- Suite name: <SuiteName>
-- Key test cases and what they verify
-```
+**2.2 Outline the design approach:**
+- List affected files and planned changes
+- Identify key design decisions and tradeoffs
+- Sketch API signatures for new public interfaces
+- Plan test coverage
 
 Keep the design concise — it guides implementation and serves future readers.
 

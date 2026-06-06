@@ -152,7 +152,7 @@ the seed for `dal-cpp/examples/<feature>/<feature>.cpp` when implementation land
 ### Step 4: Hand Off
 
 Report a 2-4 sentence summary: where the API note lives, whether the surface is approved or has open
-questions, and the next agent (`dal-architect` for design, `dal-implementer` if surface is locked).
+questions, and the next agent (`dal-implementer` if surface is locked).
 
 ## Design Heuristics
 
