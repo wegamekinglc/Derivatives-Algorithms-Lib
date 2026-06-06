@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include <public/excel/_excel.hpp>
+#include "_excel.hpp"
 #include <dal/platform/platform.hpp>
 #include <dal/storage/_reader.hpp>
 #include <dal/storage/_repository.hpp>

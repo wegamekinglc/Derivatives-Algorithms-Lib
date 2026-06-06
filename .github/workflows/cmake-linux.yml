@@ -93,3 +93,43 @@ jobs:
         uses: coverallsapp/github-action@5cbfd81b66ca5d10c19b062c04de0199c215fb6e
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
+
+  # Extended build: dal-cpp + dal-public + dal-python.
+  # Lives in a separate job so the main 16-job compiler×backend matrix
+  # stays lean — the Python bindings are backend-agnostic, so testing
+  # them against one representative configuration is sufficient.
+  build-extended:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
+        with:
+          submodules: recursive
+
+      - name: Setup
+        run: |
+          sudo apt install -y gcc-14 g++-14 swig \
+            libc++-dev make cmake \
+            autotools-dev autoconf libtool
+
+      # Python env: uv-managed venv, matching the convention in
+      # dal-python/run_tests.sh. The venv must be on PATH *before* the
+      # Configure step so cmake's find_package(Python3) picks up the
+      # venv's interpreter — otherwise dal_python_pytest runs against
+      # the system python, which doesn't have pytest.
+      - uses: astral-sh/setup-uv@8d55fbecc275b1c35dbe060458839f8d30439ccf # @v3
+
+      - name: Set up Python venv
+        run: |
+          uv venv .venv --python 3.12
+          echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
+          uv pip install pytest numpy
+
+      - name: Compile and test
+        env:
+          CXXFLAGS: -O2
+          CC: gcc-14
+          CXX: g++-14
+          VERBOSE: 1
+          ADDITIONAL_CMAKE_FLAGS: -DDAL_USE_XAD_AAD=off -DDAL_USE_CODIPACK_AAD=off -DDAL_USE_ADEPT_AAD=off -DDAL_BUILD_PYTHON=ON
+        run: |
+          bash -e ./build_linux.sh

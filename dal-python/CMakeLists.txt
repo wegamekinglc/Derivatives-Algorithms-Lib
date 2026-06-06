@@ -221,9 +221,21 @@ install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/src/dal/
 
 # ---------------------------------------------------------------------------
 # Python tests (pytest)
+#
+# The in-build-tree `dal/` directory only contains SWIG's generated
+# `dal.py` and the compiled `_dal.*.pyd` / `_dal.*.so`. The hand-written
+# package files (`__init__.py`, `api.py`) live in `src/dal/` and are
+# normally copied only at install time. Copy them into the build tree at
+# configure time too, so CTest can `import dal` from the build directory
+# without a separate `pip install -e .` step.
 # ---------------------------------------------------------------------------
 if(DAL_PYTHON_BUILD_TESTS)
     enable_testing()
+
+    file(COPY
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/dal/__init__.py
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/dal/api.py
+        DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/dal)
 
     add_test(NAME dal_python_pytest
              COMMAND ${Python3_EXECUTABLE} -m pytest ${CMAKE_CURRENT_SOURCE_DIR}/tests -v

@@ -65,9 +65,15 @@ if [ $? -ne 0 ]; then
 fi
 
 # Run all tests via CTest
+# VERBOSE=1 shows full test output (useful for seeing Python/Excel test details)
+CTEST_FLAGS="--output-on-failure"
+if [ "${VERBOSE:-0}" = "1" ]; then
+    CTEST_FLAGS="$CTEST_FLAGS --verbose"
+fi
+
 (
 cd build || exit
-ctest --output-on-failure
+ctest $CTEST_FLAGS
 )
 
 if [ $? -ne 0 ]; then

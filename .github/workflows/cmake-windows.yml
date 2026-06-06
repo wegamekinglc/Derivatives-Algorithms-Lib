@@ -71,7 +71,42 @@ jobs:
             adept)
               FLAGS="-DDAL_USE_XAD_AAD=off -DDAL_USE_CODIPACK_AAD=off -DDAL_USE_ADEPT_AAD=on" ;;
           esac
+          # dal-python (SWIG bindings) and dal-excel (Windows-only COM add-in)
+          # are built on every matrix combination — the matrix is small
+          # (3 jobs) and the bindings are backend-agnostic.
+          FLAGS="$FLAGS -DDAL_BUILD_PYTHON=ON -DDAL_BUILD_EXCEL=ON"
           echo "ADDITIONAL_CMAKE_FLAGS=$FLAGS" >> $GITHUB_ENV
+
+      - name: Install SWIG
+        shell: pwsh
+        run: |
+          # windows-latest runners ship with Python 3.x but not SWIG.
+          choco install swig --no-progress --yes
+          # choco installs to C:\ProgramData\chocolatey\bin which is on PATH
+          swig -version
+
+      # Python env: uv-managed venv, matching the convention in
+      # dal-python/run_tests.sh. The venv must be on PATH *before* the
+      # Configure step so cmake's find_package(Python3) picks up the
+      # venv's interpreter — otherwise dal_python_pytest runs against
+      # the system python, which doesn't have pytest.
+      - uses: astral-sh/setup-uv@8d55fbecc275b1c35dbe060458839f8d30439ccf # @v3
+
+      - name: Set up Python venv
+        shell: pwsh
+        run: |
+          uv venv .venv --python 3.12
+          $venvScripts = (Resolve-Path .\.venv\Scripts).Path
+          $pythonExe = Join-Path $venvScripts "python.exe"
+          # Add venv Scripts to PATH so subprocesses (including cmake's
+          # FindPython3 on some platforms) pick up the venv's python.
+          Add-Content -Path $env:GITHUB_PATH -Value $venvScripts
+          # Also set Python3_EXECUTABLE explicitly because cmake's
+          # FindPython3 on Windows prefers the registry / highest-version
+          # interpreter over PATH order. Point it at the venv's python
+          # so dal_python_pytest can find pytest.
+          Add-Content -Path $env:GITHUB_ENV -Value "Python3_EXECUTABLE=$pythonExe"
+          uv pip install pytest numpy
 
       - name: Build Machinist
         shell: bash
@@ -100,7 +135,8 @@ jobs:
           rm -rf build
           mkdir -p build
           cd build
-          cmake --preset Release-windows -DDAL_BUILD_PUBLIC=ON -DDAL_CPP_BUILD_EXAMPLES=ON ${ADDITIONAL_CMAKE_FLAGS} ..
+          cmake --preset Release-windows -DDAL_BUILD_PUBLIC=ON -DDAL_CPP_BUILD_EXAMPLES=ON ${ADDITIONAL_CMAKE_FLAGS} \
+            ${Python3_EXECUTABLE:+-DPython3_EXECUTABLE="$Python3_EXECUTABLE"} ..
           cmake --build .
           cmake --install .
 
@@ -108,4 +144,4 @@ jobs:
         shell: bash
         run: |
           cd build
-          ctest --output-on-failure -C Release
+          ctest --output-on-failure --verbose -C Release
