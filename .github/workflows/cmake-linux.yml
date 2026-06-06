@@ -129,6 +129,7 @@ jobs:
           CXXFLAGS: -O2
           CC: gcc-14
           CXX: g++-14
+          VERBOSE: 1
           ADDITIONAL_CMAKE_FLAGS: -DDAL_USE_XAD_AAD=off -DDAL_USE_CODIPACK_AAD=off -DDAL_USE_ADEPT_AAD=off -DDAL_BUILD_PYTHON=ON
         run: |
           bash -e ./build_linux.sh

@@ -144,4 +144,4 @@ jobs:
         shell: bash
         run: |
           cd build
-          ctest --output-on-failure -C Release
+          ctest --output-on-failure --verbose -C Release
