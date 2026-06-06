@@ -5,7 +5,7 @@
 #pragma once
 
 #include <dal/platform/platform.hpp>
-#include <public/excel/__platform.hpp>
+#include "__platform.hpp"
 #include <dal-public/src/repository.hpp>
 
 /*IF--------------------------------------------------------------------------

@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include <public/excel/__platform.hpp>
+#include "__platform.hpp"
 #include <dal-public/src/value.hpp>
 #include <dal/math/matrix/matrixs.hpp>
 #include <dal/platform/strict.hpp>

@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include <public/excel/__platform.hpp>
+#include "__platform.hpp"
 #include <dal-public/src/script.hpp>
 #include <dal/script/event.hpp>
 
