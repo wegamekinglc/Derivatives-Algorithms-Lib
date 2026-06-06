@@ -77,7 +77,7 @@ TEST(ScriptPreprocessorTest, TestMacroNotAtFrontThrows) {
     Vector_<String_> events = {"call PAYS MAX(spot() - STRIKE, 0.0)", "110.0"};
 
     Preprocessor_ preprocessor;
-    ASSERT_THROW(preprocessor.Process(MakeTable(dates, events)), ScriptError_);
+    ASSERT_THROW(static_cast<void>(preprocessor.Process(MakeTable(dates, events))), ScriptError_);
 }
 
 TEST(ScriptPreprocessorTest, TestDuplicateDefinitionThrows) {
@@ -85,7 +85,7 @@ TEST(ScriptPreprocessorTest, TestDuplicateDefinitionThrows) {
     Vector_<String_> events = {"110.0", "120.0"};
 
     Preprocessor_ preprocessor;
-    ASSERT_THROW(preprocessor.Process(MakeTable(dates, events)), ScriptError_);
+    ASSERT_THROW(static_cast<void>(preprocessor.Process(MakeTable(dates, events))), ScriptError_);
 }
 
 TEST(ScriptPreprocessorTest, TestScheduleExpansion) {
