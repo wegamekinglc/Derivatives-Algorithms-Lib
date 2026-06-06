@@ -2,19 +2,19 @@
 # Start the DAL web UI (FastAPI backend + React/Vite frontend).
 #
 # Usage:
-#   ./webui/scripts/start.sh
+#   ./dal-web/scripts/start.sh
 #
 # What it does:
 #   1. Verifies prerequisites (python 3.13+, uv, node, npm).
-#   2. Reads the backend port from webui/frontend/vite.config.ts.
+#   2. Reads the backend port from dal-web/frontend/vite.config.ts.
 #   3. Checks that both ports (backend + 5173) are free.
 #   4. Starts the backend (uvicorn) in the background.
 #   5. Starts the frontend (vite) in the background.
 #   6. Waits for both to be ready, then runs a smoke test.
 #   7. Prints the URLs.
 #
-# Logs are written to webui/backend/.server.log and
-# webui/frontend/.server.log. PIDs are stored in .server.pid next to
+# Logs are written to dal-web/backend/.server.log and
+# dal-web/frontend/.server.log. PIDs are stored in .server.pid next to
 # the respective server directory, so stop.sh can kill them cleanly.
 #
 # Exit codes:
@@ -26,14 +26,14 @@
 set -euo pipefail
 
 # ---------------------------------------------------------------------------
-# Resolve repo root (this script lives in webui/scripts/)
+# Resolve repo root (this script lives in dal-web/scripts/)
 # ---------------------------------------------------------------------------
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 cd "${REPO_ROOT}"
 
-BACKEND_DIR="webui/backend"
-FRONTEND_DIR="webui/frontend"
+BACKEND_DIR="dal-web/backend"
+FRONTEND_DIR="dal-web/frontend"
 FRONTEND_PORT=5173
 
 # Read backend port from vite.config.ts proxy target.
@@ -101,11 +101,11 @@ info "  python ${PYTHON_VERSION}, uv $(uv --version | awk '{print $2}'), node $(
 info "Checking ports (backend=${BACKEND_PORT}, frontend=${FRONTEND_PORT})..."
 
 if port_busy "${BACKEND_PORT}"; then
-  error "Port ${BACKEND_PORT} is already in use. Run webui/scripts/stop.sh first, or pick a different port in ${FRONTEND_DIR}/vite.config.ts."
+  error "Port ${BACKEND_PORT} is already in use. Run dal-web/scripts/stop.sh first, or pick a different port in ${FRONTEND_DIR}/vite.config.ts."
   exit 1
 fi
 if port_busy "${FRONTEND_PORT}"; then
-  error "Port ${FRONTEND_PORT} is already in use. Run webui/scripts/stop.sh first."
+  error "Port ${FRONTEND_PORT} is already in use. Run dal-web/scripts/stop.sh first."
   exit 1
 fi
 
@@ -217,5 +217,5 @@ echo "  API docs:  http://127.0.0.1:${BACKEND_PORT}/docs"
 echo "  Backend:   PID ${BACKEND_PID}"
 echo "  Frontend:  PID ${FRONTEND_PID}"
 echo ""
-echo "To stop:     ./webui/scripts/stop.sh"
+echo "To stop:     ./dal-web/scripts/stop.sh"
 echo "Logs:        ${BACKEND_LOG_FILE}, ${FRONTEND_LOG_FILE}"

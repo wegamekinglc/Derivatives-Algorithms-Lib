@@ -25,7 +25,7 @@ dal-public  → Stable public C++ API (DAL::public)
   ↑        ↑
 dal-python  dal-excel
   ↑
-webui       → FastAPI + React portfolio management UI
+dal-web     → FastAPI + React portfolio management UI
 ```
 
 | Sub-project   | Purpose                                                  |
@@ -34,7 +34,7 @@ webui       → FastAPI + React portfolio management UI
 | `dal-public/` | Stable public API wrapping `DAL::cpp`                    |
 | `dal-python/` | SWIG Python bindings                                     |
 | `dal-excel/`  | Excel `.xll` add-in (Windows-only)                       |
-| `webui/`      | Portfolio management web app                             |
+| `dal-web/`      | Portfolio management web app                             |
 
 Core modules in `dal-cpp/dal/`:
 - **math/** — Interpolation, optimization, PDE solvers, random numbers, matrix ops
@@ -88,11 +88,11 @@ More examples: [Python](miscs/python/), [Excel](miscs/excel/), [C++](dal-cpp/exa
 
 ## Web UI
 
-Portfolio management web app in `webui/`:
+Portfolio management web app in `dal-web/`:
 
 ```bash
-./webui/scripts/start.sh     # Start backend + frontend
-./webui/scripts/stop.sh      # Stop services
+./dal-web/scripts/start.sh     # Start backend + frontend
+./dal-web/scripts/stop.sh      # Stop services
 ```
 
 - Frontend: http://localhost:5173
