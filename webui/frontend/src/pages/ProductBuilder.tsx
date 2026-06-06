@@ -258,48 +258,50 @@ export default function ProductBuilder() {
         {products.length === 0 ? (
           <p {...css("muted")}>No saved products yet. Build one above and click Save.</p>
         ) : (
-          <table>
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Description</th>
-                <th {...css("num")}># rows</th>
-                <th></th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {products.map((p) => (
-                <tr key={p.id}>
-                  <td>{p.name}</td>
-                  <td {...css("muted")}>{p.description}</td>
-                  <td {...css("num")}>{p.rows.length}</td>
-                  <td>
-                    <button
-                      type="button"
-                      {...css("ghost")}
-                      onClick={() => {
-                        loadSavedProduct(p);
-                      }}
-                    >
-                      Load
-                    </button>
-                  </td>
-                  <td>
-                    <button
-                      type="button"
-                      {...css("danger")}
-                      onClick={() => {
-                        void removeProduct(p.id);
-                      }}
-                    >
-                      Delete
-                    </button>
-                  </td>
+          <div {...css("table-container")}>
+            <table>
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Description</th>
+                  <th {...css("num")}># rows</th>
+                  <th></th>
+                  <th></th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {products.map((p) => (
+                  <tr key={p.id}>
+                    <td>{p.name}</td>
+                    <td {...css("muted")}>{p.description}</td>
+                    <td {...css("num")}>{p.rows.length}</td>
+                    <td>
+                      <button
+                        type="button"
+                        {...css("ghost")}
+                        onClick={() => {
+                          loadSavedProduct(p);
+                        }}
+                      >
+                        Load
+                      </button>
+                    </td>
+                    <td>
+                      <button
+                        type="button"
+                        {...css("danger")}
+                        onClick={() => {
+                          void removeProduct(p.id);
+                        }}
+                      >
+                        Delete
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
       </>

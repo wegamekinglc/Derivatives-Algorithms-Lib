@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { NavLink, Navigate, Route, Routes } from "react-router-dom";
 import { api, type Health } from "./api/client";
-import { css, classNames } from "./format";
+import { css } from "./format";
 import Dashboard from "./pages/Dashboard";
 import Portfolios from "./pages/Portfolios";
 import Trades from "./pages/Trades";
@@ -29,36 +29,43 @@ export default function App() {
 
   return (
     <div {...css("app")}>
-      <aside {...css("sidebar")}>
+      <header {...css("topbar")}>
         <div {...css("brand")}>
           DAL Workbench
-          <small>Derivatives Portfolio Management</small>
         </div>
-        {NAV.map((n) => (
-          <NavLink
-            key={n.to}
-            to={n.to}
-            {...{
-              className: ({ isActive }: { isActive: boolean }) => classNames("nav-link", isActive && "active"),
-            }}
-          >
-            {n.label}
-          </NavLink>
-        ))}
-        <div {...css("backend-badge")}>
-          DAL backend: {" "}
-          {health ? (
-            <span {...css(health.is_native ? "badge-native" : "badge-stub")}>
-              {health.backend}
-              {health.is_native ? " (native)" : " (stub)"}
-            </span>
-          ) : (
-            <span {...css("muted")}>offline</span>
+        <nav {...css("nav")}>
+          {NAV.map((n) => (
+            <NavLink
+              key={n.to}
+              to={n.to}
+              {...{
+                className: ({ isActive }: { isActive: boolean }) => css("nav-link", isActive && "active").className,
+              }}
+            >
+              {n.label}
+            </NavLink>
+          ))}
+        </nav>
+        <div {...css("status-bar")}>
+          <div {...css("status-indicator")}>
+            <span {...css("status-dot", health ? "online" : "offline")} />
+            <span>{health ? "online" : "offline"}</span>
+          </div>
+          {health && (
+            <>
+              <div {...css("backend-badge")}>
+                <span {...css(health.is_native ? "badge-native" : "badge-stub")}>
+                  {health.backend}
+                  {health.is_native ? " (native)" : " (stub)"}
+                </span>
+              </div>
+              <div {...css("mono")}>
+                eval: {health.evaluation_date}
+              </div>
+            </>
           )}
-          <br />
-          eval date: {health?.evaluation_date ?? "-"}
         </div>
-      </aside>
+      </header>
       <main {...css("main")}>
         <Routes>
           <Route path="/" element={<Navigate to="/dashboard" replace />} />

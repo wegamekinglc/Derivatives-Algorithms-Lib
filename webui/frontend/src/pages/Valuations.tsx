@@ -28,19 +28,20 @@ export default function Valuations() {
       ) : runs.length === 0 ? (
         <p {...css("muted")}>No valuation runs recorded yet.</p>
       ) : (
-        <table>
-          <thead>
-            <tr>
-              <th>When</th>
-              <th>Target</th>
-              <th>Status</th>
-              <th>Backend</th>
-              <th {...css("num")}># paths</th>
-              <th>AAD</th>
-              <th {...css("num")}>PV</th>
-              <th></th>
-            </tr>
-          </thead>
+        <div {...css("table-container")}>
+          <table>
+            <thead>
+              <tr>
+                <th>When</th>
+                <th>Target</th>
+                <th>Status</th>
+                <th>Backend</th>
+                <th {...css("num")}># paths</th>
+                <th>AAD</th>
+                <th {...css("num")}>PV</th>
+                <th></th>
+              </tr>
+            </thead>
           <tbody>
             {runs.map((r) => (
               <Fragment key={r.id}>
@@ -92,31 +93,33 @@ export default function Valuations() {
                         ) : (
                           <div>
                             {Object.entries(r.total_greeks).map(([k, v]) => (
-                              <span {...css("pill greek")} key={k} {...inlineStyle({ marginRight: 6 })}>
+                              <span {...css("pill", "greek")} key={k} {...inlineStyle({ marginRight: 6 })}>
                                 {k}: {fmtNum(v, 2)}
                               </span>
                             ))}
                           </div>
                         )}
                         <h2 {...inlineStyle({ marginTop: 16 })}>Trades</h2>
-                        <table>
-                          <thead>
-                            <tr>
-                              <th>Trade</th>
-                              <th {...css("num")}>Unit PV</th>
-                              <th {...css("num")}>Scaled PV</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {r.trades.map((t) => (
-                              <tr key={t.trade_id}>
-                                <td>{t.trade_name}</td>
-                                <td {...css("num")}>{fmtNum(t.pv)}</td>
-                                <td {...css("num")}>{fmtMoney(t.scaled_pv)}</td>
+                        <div {...css("table-container")}>
+                          <table>
+                            <thead>
+                              <tr>
+                                <th>Trade</th>
+                                <th {...css("num")}>Unit PV</th>
+                                <th {...css("num")}>Scaled PV</th>
                               </tr>
-                            ))}
-                          </tbody>
-                        </table>
+                            </thead>
+                            <tbody>
+                              {r.trades.map((t) => (
+                                <tr key={t.trade_id}>
+                                  <td>{t.trade_name}</td>
+                                  <td {...css("num")}>{fmtNum(t.pv)}</td>
+                                  <td {...css("num")}>{fmtMoney(t.scaled_pv)}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
                       </div>
                     </td>
                   </tr>
@@ -125,6 +128,7 @@ export default function Valuations() {
             ))}
           </tbody>
         </table>
+        </div>
       )}
     </div>
   );

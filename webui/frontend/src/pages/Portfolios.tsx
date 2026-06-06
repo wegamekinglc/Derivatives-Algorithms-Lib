@@ -115,48 +115,50 @@ export default function Portfolios() {
               Create
             </button>
           </div>
-          <table>
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Description</th>
-                <th {...css("num")}># trades</th>
-                <th></th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {portfolios.map((pf) => (
-                <tr key={pf.id}>
-                  <td>{pf.name}</td>
-                  <td {...css("muted")}>{pf.description}</td>
-                  <td {...css("num")}>{pf.trade_ids.length}</td>
-                  <td>
-                    <button
-                      type="button"
-                      {...css("ghost")}
-                      onClick={() => {
-                        void selectPortfolio(pf);
-                      }}
-                    >
-                      Open
-                    </button>
-                  </td>
-                  <td>
-                    <button
-                      type="button"
-                      {...css("danger")}
-                      onClick={() => {
-                        void deletePortfolio(pf.id);
-                      }}
-                    >
-                      Delete
-                    </button>
-                  </td>
+          <div {...css("table-container")}>
+            <table>
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Description</th>
+                  <th {...css("num")}># trades</th>
+                  <th></th>
+                  <th></th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {portfolios.map((pf) => (
+                  <tr key={pf.id}>
+                    <td>{pf.name}</td>
+                    <td {...css("muted")}>{pf.description}</td>
+                    <td {...css("num")}>{pf.trade_ids.length}</td>
+                    <td>
+                      <button
+                        type="button"
+                        {...css("ghost")}
+                        onClick={() => {
+                          void selectPortfolio(pf);
+                        }}
+                      >
+                        Open
+                      </button>
+                    </td>
+                    <td>
+                      <button
+                        type="button"
+                        {...css("danger")}
+                        onClick={() => {
+                          void deletePortfolio(pf.id);
+                        }}
+                      >
+                        Delete
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
 
         <div {...css("panel")}>
@@ -190,38 +192,40 @@ export default function Portfolios() {
                   Add trade
                 </button>
               </div>
-              <table>
-                <thead>
-                  <tr>
-                    <th>Trade</th>
-                    <th>Book</th>
-                    <th {...css("num")}>Notional</th>
-                    <th></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {members.map((t) => (
-                    <tr key={t.id}>
-                      <td>{t.name}</td>
-                      <td>{t.book}</td>
-                      <td {...css("num")}>{fmtMoney(t.notional)}</td>
-                      <td>
-                        <button
-                          type="button"
-                          {...css("danger")}
-                          onClick={() => {
-                            if (window.confirm(`Remove ${t.name} from this portfolio?`)) {
-                              void removeTrade(t.id);
-                            }
-                          }}
-                        >
-                          Remove
-                        </button>
-                      </td>
+              <div {...css("table-container")}>
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Trade</th>
+                      <th>Book</th>
+                      <th {...css("num")}>Notional</th>
+                      <th></th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {members.map((t) => (
+                      <tr key={t.id}>
+                        <td>{t.name}</td>
+                        <td>{t.book}</td>
+                        <td {...css("num")}>{fmtMoney(t.notional)}</td>
+                        <td>
+                          <button
+                            type="button"
+                            {...css("danger")}
+                            onClick={() => {
+                              if (window.confirm(`Remove ${t.name} from this portfolio?`)) {
+                                void removeTrade(t.id);
+                              }
+                            }}
+                          >
+                            Remove
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </>
           )}
         </div>

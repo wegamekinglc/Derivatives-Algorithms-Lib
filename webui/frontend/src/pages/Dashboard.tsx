@@ -73,7 +73,8 @@ export default function Dashboard() {
         ) : valuations.length === 0 ? (
           <p {...css("muted")}>No valuations yet. Price a portfolio or trade to begin.</p>
         ) : (
-          <table>
+          <div {...css("table-container")}>
+            <table>
             <thead>
               <tr>
                 <th>When</th>
@@ -102,6 +103,7 @@ export default function Dashboard() {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </div>
     </div>

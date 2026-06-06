@@ -1,4 +1,4 @@
-// Small formatting helpers.
+// Small formatting and styling helpers.
 
 export function fmtNum(value: number, digits = 4): string {
   if (!Number.isFinite(value)) {
@@ -23,11 +23,11 @@ export function classNames(...parts: (string | false | undefined)[]): string {
   return parts.filter(Boolean).join(" ");
 }
 
-export function css(className: string): { className: string } {
-  return { className };
+// Support both single class name and multiple class names
+export function css(...classNames: (string | false | undefined)[]): { className: string } {
+  return { className: classNames.filter(Boolean).join(" ") };
 }
 
 export function inlineStyle(style: Record<string, string | number>): { style: Record<string, string | number> } {
   return { style };
 }
-

@@ -214,49 +214,51 @@ export default function Trades() {
         </div>
       </div>
 
-      <table>
-        <thead>
-          <tr>
-            <th>Name</th>
-            <th>Book</th>
-            <th>Product</th>
-            <th>Model</th>
-            <th {...css("num")}>Notional</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          {trades.map((t) => (
-            <tr key={t.id}>
-              <td>{t.name}</td>
-              <td>{t.book}</td>
-              <td>{nameById(products, t.product_id)}</td>
-              <td>{nameById(models, t.model_id)}</td>
-              <td {...css("num")}>{fmtMoney(t.notional)}</td>
-              <td>
-                <button
-                  type="button"
-                  {...css("ghost")}
-                  onClick={() => {
-                    setSelected(t.id);
-                  }}
-                >
-                  Price
-                </button>{" "}
-                <button
-                  type="button"
-                  {...css("danger")}
-                  onClick={() => {
-                    void remove(t.id);
-                  }}
-                >
-                  Delete
-                </button>
-              </td>
+      <div {...css("table-container")}>
+        <table>
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Book</th>
+              <th>Product</th>
+              <th>Model</th>
+              <th {...css("num")}>Notional</th>
+              <th></th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {trades.map((t) => (
+              <tr key={t.id}>
+                <td>{t.name}</td>
+                <td>{t.book}</td>
+                <td>{nameById(products, t.product_id)}</td>
+                <td>{nameById(models, t.model_id)}</td>
+                <td {...css("num")}>{fmtMoney(t.notional)}</td>
+                <td>
+                  <button
+                    type="button"
+                    {...css("ghost")}
+                    onClick={() => {
+                      setSelected(t.id);
+                    }}
+                  >
+                    Price
+                  </button>{" "}
+                  <button
+                    type="button"
+                    {...css("danger")}
+                    onClick={() => {
+                      void remove(t.id);
+                    }}
+                  >
+                    Delete
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
 
       {selected && (
         <div {...inlineStyle({ marginTop: 18 })}>
