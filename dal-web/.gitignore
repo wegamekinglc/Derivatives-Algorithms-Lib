@@ -10,3 +10,7 @@ node_modules/
 dist/
 tsconfig.tsbuildinfo
 *.local
+
+# Server logs
+.server.log
+.server.pid

@@ -430,7 +430,7 @@ label {
 
 All styles are defined in:
 ```
-webui/frontend/src/styles.css
+dal-web/frontend/src/styles.css
 ```
 
 When modifying styles, update this file and follow the specifications above.
@@ -452,8 +452,8 @@ Before submitting Web UI code, check:
 
 ## References
 
-- **Design document**: `webui/DESIGN.md`
-- **Style file**: `webui/frontend/src/styles.css`
+- **Design document**: `dal-web/DESIGN.md`
+- **Style file**: `dal-web/frontend/src/styles.css`
 - **Inspiration sources**: Bloomberg Terminal, trading desk interfaces, control room displays
 
 ---

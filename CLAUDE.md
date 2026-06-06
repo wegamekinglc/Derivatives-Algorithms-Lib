@@ -121,9 +121,9 @@ The dependency graph is `dal-cpp ← dal-public ← {dal-python, dal-excel}`. Ea
 
 Detailed documentation of the quantitative methods implemented in this library:
 
-- **Automatic Adjoint Differentiation (AAD)** — @.claude/methodology/aad.md
-- **Yield Curve Construction** — @.claude/methodology/yield_curve.md
-- **Underdetermined Search** — @.claude/methodology/underdetermined_search.md
+- **Automatic Adjoint Differentiation (AAD)** — @docs/methodology/aad.md
+- **Yield Curve Construction** — @docs/methodology/yield_curve.md
+- **Underdetermined Search** — @docs/methodology/underdetermined_search.md
 
 ## Rules to follow
 

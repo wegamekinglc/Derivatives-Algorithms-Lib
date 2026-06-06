@@ -10,7 +10,7 @@ Derivatives Algorithms Library (DAL).
   module, `backend/app/services/dal_gateway.py`.
 
 ```
-webui/
+dal-web/
 ├── scripts/
 │   ├── start.sh             start both services (backend + frontend)
 │   └── stop.sh              stop both services (with optional --force)
@@ -74,23 +74,23 @@ strict). The `/api/health` endpoint reports which backend is active.
 
 ### Quick Start (both services)
 
-The easiest way to start and stop the web UI is with the scripts in `webui/scripts/`:
+The easiest way to start and stop the web UI is with the scripts in `dal-web/scripts/`:
 
 ```bash
 # Start both services
-./webui/scripts/start.sh
+./dal-web/scripts/start.sh
 
 # Stop both services
-./webui/scripts/stop.sh          # SIGTERM
-./webui/scripts/stop.sh --force  # escalate to SIGKILL if needed
+./dal-web/scripts/stop.sh          # SIGTERM
+./dal-web/scripts/stop.sh --force  # escalate to SIGKILL if needed
 ```
 
 `start.sh` checks prerequisites (Python ≥ 3.13, uv, node, npm), verifies ports
 `8001` (backend) and `5173` (frontend) are free, installs dependencies
-(`uv sync` in `webui/backend/`, `npm install` in `webui/frontend/`), launches
+(`uv sync` in `dal-web/backend/`, `npm install` in `dal-web/frontend/`), launches
 both servers in the background, waits for the backend `/api/health` endpoint and
 the frontend to become ready, then smoke-tests the vite proxy (`/api` → backend).
-PIDs are saved to `webui/{backend,frontend}/.server.pid` and logs to
+PIDs are saved to `dal-web/{backend,frontend}/.server.pid` and logs to
 `.server.log` next to each server.
 
 `stop.sh` kills by PID from those files, verifies each port is actually free,
@@ -104,10 +104,10 @@ server proxies `/api` requests to the backend automatically (target port is
 
 ### Backend (Python >= 3.13)
 
-Dependencies are managed with [uv](https://docs.astral.sh/uv/). From `webui/backend`:
+Dependencies are managed with [uv](https://docs.astral.sh/uv/). From `dal-web/backend`:
 
 ```bash
-cd webui/backend
+cd dal-web/backend
 uv sync                     # create .venv and install runtime + dev deps from uv.lock
 uv run uvicorn app.main:app --reload --host 127.0.0.1 --port 8001
 ```
@@ -123,7 +123,7 @@ available at <http://127.0.0.1:8001/docs>.
 ### Frontend
 
 ```bash
-cd webui/frontend
+cd dal-web/frontend
 npm install
 ./node_modules/.bin/vite    # http://localhost:5173 (proxies /api to :8001)
 ```
@@ -142,7 +142,7 @@ port, update the `proxy.target` in that file and restart the frontend.
 If you started the services with `start.sh`, stop them with:
 
 ```bash
-./webui/scripts/stop.sh
+./dal-web/scripts/stop.sh
 ```
 
 If you started them manually, press `Ctrl+C` in each terminal, or use the stop
@@ -155,7 +155,7 @@ already in use`, either free the port or run on a different one:
 
 ```bash
 # Option A — stop any running web UI
-./webui/scripts/stop.sh
+./dal-web/scripts/stop.sh
 
 # Option B — find and kill whatever is using port 8001
 fuser -k 8001/tcp
@@ -165,7 +165,7 @@ uv run uvicorn app.main:app --reload --port 8002
 ```
 
 If you choose Option C, also update the proxy target in
-`webui/frontend/vite.config.ts` to match (`http://127.0.0.1:8002`) and restart
+`dal-web/frontend/vite.config.ts` to match (`http://127.0.0.1:8002`) and restart
 the frontend.
 
 **Frontend can't reach the backend.** Make sure the backend starts *before* the
@@ -206,12 +206,12 @@ the result is updated in-place once it completes. The frontend polls
 ### Tests
 
 ```bash
-cd webui/backend
+cd dal-web/backend
 uv run pytest               # runs against the in-process DAL stub
 ```
 
 ```bash
-cd webui/frontend
+cd dal-web/frontend
 npm run build               # type-check + production build
 ```
 

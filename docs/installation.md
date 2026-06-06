@@ -283,7 +283,7 @@ The Web UI uses [uv](https://docs.astral.sh/uv/) for Python dependency managemen
 From the repository root:
 
 ```bash
-cd webui/backend
+cd dal-web/backend
 
 # Install Python dependencies
 uv sync
@@ -300,7 +300,7 @@ The easiest way to start both services is with the provided scripts:
 
 ```bash
 # From repository root
-./webui/scripts/start.sh
+./dal-web/scripts/start.sh
 ```
 
 This script:
@@ -319,13 +319,13 @@ This script:
 ### Stopping the Web UI
 
 ```bash
-./webui/scripts/stop.sh
+./dal-web/scripts/stop.sh
 ```
 
 Use `--force` if services don't stop gracefully:
 
 ```bash
-./webui/scripts/stop.sh --force
+./dal-web/scripts/stop.sh --force
 ```
 
 ### Using the Native DAL Backend
@@ -336,14 +336,14 @@ By default, the Web UI uses a pure-Python stub backend for development. To use t
 2. Install into the backend's environment:
 
 ```bash
-cd webui/backend
+cd dal-web/backend
 uv pip install ../../dal-python
 ```
 
 3. Start the UI with the native backend flag:
 
 ```bash
-DAL_REQUIRE_NATIVE=1 ./webui/scripts/start.sh
+DAL_REQUIRE_NATIVE=1 ./dal-web/scripts/start.sh
 ```
 
 ### Manual Startup (Without Scripts)
@@ -353,7 +353,7 @@ If you need to start services individually:
 **Backend:**
 
 ```bash
-cd webui/backend
+cd dal-web/backend
 uv sync
 uv run uvicorn app.main:app --reload --host 127.0.0.1 --port 8001
 ```
@@ -361,7 +361,7 @@ uv run uvicorn app.main:app --reload --host 127.0.0.1 --port 8001
 **Frontend:**
 
 ```bash
-cd webui/frontend
+cd dal-web/frontend
 npm install
 ./node_modules/.bin/vite
 ```
@@ -425,7 +425,7 @@ Open http://localhost:5173 in a browser — the dashboard should load.
 3. Run backend tests:
 
 ```bash
-cd webui/backend
+cd dal-web/backend
 uv run pytest
 ```
 
@@ -479,7 +479,7 @@ export MACHINIST_TEMPLATE_DIR=$PWD/dal-cpp/externals/machinist/template/
 
 ```bash
 # Stop any running instances
-./webui/scripts/stop.sh
+./dal-web/scripts/stop.sh
 
 # Or manually kill processes
 sudo fuser -k 8001/tcp
@@ -520,12 +520,12 @@ uv pip install -e . --no-build-isolation --force-reinstall
 **Error:** Backend crashes on startup
 
 **Solution:**
-1. Check logs: `cat webui/backend/.server.log`
-2. Verify Python dependencies: `cd webui/backend && uv sync`
+1. Check logs: `cat dal-web/backend/.server.log`
+2. Verify Python dependencies: `cd dal-web/backend && uv sync`
 3. Test backend manually:
 
 ```bash
-cd webui/backend
+cd dal-web/backend
 uv run uvicorn app.main:app --host 127.0.0.1 --port 8001
 ```
 

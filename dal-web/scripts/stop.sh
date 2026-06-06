@@ -2,10 +2,10 @@
 # Stop the DAL web UI (FastAPI backend + React/Vite frontend).
 #
 # Usage:
-#   ./webui/scripts/stop.sh [--force]
+#   ./dal-web/scripts/stop.sh [--force]
 #
 # What it does:
-#   1. Reads the backend port from webui/frontend/vite.config.ts.
+#   1. Reads the backend port from dal-web/frontend/vite.config.ts.
 #   2. Kills each service by PID (from the .server.pid files written by
 #      start.sh), falling back to killing by port if no PID file exists.
 #   3. Removes the PID files.
@@ -21,14 +21,14 @@
 set -euo pipefail
 
 # ---------------------------------------------------------------------------
-# Resolve repo root (this script lives in webui/scripts/)
+# Resolve repo root (this script lives in dal-web/scripts/)
 # ---------------------------------------------------------------------------
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 cd "${REPO_ROOT}"
 
-BACKEND_DIR="webui/backend"
-FRONTEND_DIR="webui/frontend"
+BACKEND_DIR="dal-web/backend"
+FRONTEND_DIR="dal-web/frontend"
 FRONTEND_PORT=5173
 
 # Read backend port from vite.config.ts proxy target.
@@ -208,7 +208,7 @@ if [ "${REMAINING}" -eq 0 ]; then
   printf "%s✓ DAL web UI stopped.%s  Ports ${BACKEND_PORT} and ${FRONTEND_PORT} are free.\n" "${GREEN}" "${NC}"
   exit 0
 else
-  error "Some services could not be stopped. Try: ./webui/scripts/stop.sh --force"
+  error "Some services could not be stopped. Try: ./dal-web/scripts/stop.sh --force"
   error "Or manually: sudo fuser -k ${BACKEND_PORT}/tcp; sudo fuser -k ${FRONTEND_PORT}/tcp"
   exit 1
 fi
