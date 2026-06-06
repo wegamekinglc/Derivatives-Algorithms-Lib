@@ -158,36 +158,38 @@ export default function ValuationPanel({ onRun, title = "Run valuation" }: Props
             ))}
           </div>
           {result.trades.length > 1 && (
-            <table>
-              <thead>
-                <tr>
-                  <th>Trade</th>
-                  <th {...css("num")}>Unit PV</th>
-                  <th {...css("num")}>Scaled PV</th>
-                  <th>Greeks</th>
-                </tr>
-              </thead>
-              <tbody>
-                {result.trades.map((t) => (
-                  <tr key={t.trade_id}>
-                    <td>{t.trade_name}</td>
-                    <td {...css("num")}>{fmtNum(t.pv)}</td>
-                    <td {...css("num")}>{fmtMoney(t.scaled_pv)}</td>
-                    <td>
-                      {t.error ? (
-                        <span {...css("muted")}>err: {t.error}</span>
-                      ) : (
-                        Object.entries(t.greeks).map(([k, v]) => (
-                          <span {...css("pill greek")} key={k} {...inlineStyle({ marginRight: 4 })}>
-                            {k}: {fmtNum(v, 2)}
-                          </span>
-                        ))
-                      )}
-                    </td>
+            <div {...css("table-container")}>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Trade</th>
+                    <th {...css("num")}>Unit PV</th>
+                    <th {...css("num")}>Scaled PV</th>
+                    <th>Greeks</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {result.trades.map((t) => (
+                    <tr key={t.trade_id}>
+                      <td>{t.trade_name}</td>
+                      <td {...css("num")}>{fmtNum(t.pv)}</td>
+                      <td {...css("num")}>{fmtMoney(t.scaled_pv)}</td>
+                      <td>
+                        {t.error ? (
+                          <span {...css("muted")}>err: {t.error}</span>
+                        ) : (
+                          Object.entries(t.greeks).map(([k, v]) => (
+                            <span {...css("pill", "greek")} key={k} {...inlineStyle({ marginRight: 4 })}>
+                              {k}: {fmtNum(v, 2)}
+                            </span>
+                          ))
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
       )}

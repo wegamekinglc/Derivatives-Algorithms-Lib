@@ -277,54 +277,56 @@ export default function Models() {
         </div>
       </div>
 
-      <table>
-        <thead>
-          <tr>
-            <th>Name</th>
-            <th>Kind</th>
-            <th {...css("num")}>Spot</th>
-            <th {...css("num")}>Vol</th>
-            <th {...css("num")}>Rate</th>
-            <th {...css("num")}>Div/Repo</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          {models.map((m) => (
-            <tr key={m.id}>
-              <td>{m.name}</td>
-              <td {...css("mono")}>{m.kind}</td>
-              <td {...css("num")}>
-                {m.bs ? fmtNum(m.bs.spot, 2) : m.dupire ? fmtNum(m.dupire.spot, 2) : "-"}
-              </td>
-              <td {...css("num")}>
-                {m.bs
-                  ? fmtNum(m.bs.vol, 4)
-                  : m.dupire
-                  ? "(surface)"
-                  : "-"}
-              </td>
-              <td {...css("num")}>
-                {m.bs ? fmtNum(m.bs.rate, 4) : m.dupire ? fmtNum(m.dupire.rate, 4) : "-"}
-              </td>
-              <td {...css("num")}>
-                {m.bs ? fmtNum(m.bs.div, 4) : m.dupire ? fmtNum(m.dupire.repo, 4) : "-"}
-              </td>
-              <td>
-                <button
-                  type="button"
-                  {...css("danger")}
-                  onClick={() => {
-                    void remove(m.id);
-                  }}
-                >
-                  Delete
-                </button>
-              </td>
+      <div {...css("table-container")}>
+        <table>
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Kind</th>
+              <th {...css("num")}>Spot</th>
+              <th {...css("num")}>Vol</th>
+              <th {...css("num")}>Rate</th>
+              <th {...css("num")}>Div/Repo</th>
+              <th></th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {models.map((m) => (
+              <tr key={m.id}>
+                <td>{m.name}</td>
+                <td {...css("mono")}>{m.kind}</td>
+                <td {...css("num")}>
+                  {m.bs ? fmtNum(m.bs.spot, 2) : m.dupire ? fmtNum(m.dupire.spot, 2) : "-"}
+                </td>
+                <td {...css("num")}>
+                  {m.bs
+                    ? fmtNum(m.bs.vol, 4)
+                    : m.dupire
+                    ? "(surface)"
+                    : "-"}
+                </td>
+                <td {...css("num")}>
+                  {m.bs ? fmtNum(m.bs.rate, 4) : m.dupire ? fmtNum(m.dupire.rate, 4) : "-"}
+                </td>
+                <td {...css("num")}>
+                  {m.bs ? fmtNum(m.bs.div, 4) : m.dupire ? fmtNum(m.dupire.repo, 4) : "-"}
+                </td>
+                <td>
+                  <button
+                    type="button"
+                    {...css("danger")}
+                    onClick={() => {
+                      void remove(m.id);
+                    }}
+                  >
+                    Delete
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
       </>
       )}
     </div>
