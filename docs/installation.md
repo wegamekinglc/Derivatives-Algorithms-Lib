@@ -111,7 +111,12 @@ For more control over the build process:
 mkdir -p build && cd build
 
 # Configure (Release mode)
-cmake --preset=Release-linux ..
+cmake --preset=Release-linux \
+  -DDAL_BUILD_PUBLIC=ON \
+  -DDAL_CPP_BUILD_EXAMPLES=ON \
+  -DDAL_CPP_BUILD_BENCHMARKS=ON \
+  -DDAL_USE_ADEPT_AAD=ON \
+  ..
 
 # Build
 make -j$(nproc)
