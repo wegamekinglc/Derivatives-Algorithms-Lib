@@ -30,6 +30,7 @@ namespace Dal {
             const Fact_<RateIndexConvention_>& LiborIndex();
             const Fact_<RateLegConvention_>& SwapFixedLeg();
             const Fact_<RateLegConvention_>& SwapFloatLeg();
+            const Fact_<CrossCurrencyConvention_>& Xcs();
         }
     }
 }

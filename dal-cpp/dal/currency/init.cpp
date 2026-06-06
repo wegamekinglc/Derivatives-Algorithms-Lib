@@ -64,6 +64,16 @@ namespace Dal {
             floatLegConvention.businessDayConvention_ = BizDayConvention_("ModifiedFollowing");
             floatLegConvention.paymentConvention_ = BizDayConvention_("ModifiedFollowing");
             Ccy::Conventions::SwapFloatLeg().XWrite().SetDefault(floatLegConvention);
+
+            CrossCurrencyConvention_ xcsConvention;
+            xcsConvention.initialNotionalExchange_ = true;
+            xcsConvention.finalNotionalExchange_ = true;
+            xcsConvention.spreadOnForeignLeg_ = true;
+            xcsConvention.domesticIndex_ = liborConvention;
+            xcsConvention.domesticLeg_ = floatLegConvention;
+            xcsConvention.foreignIndex_ = liborConvention;
+            xcsConvention.foreignLeg_ = floatLegConvention;
+            Ccy::Conventions::Xcs().XWrite().SetDefault(xcsConvention);
             init_ = true;
         }
     }

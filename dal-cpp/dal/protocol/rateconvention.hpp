@@ -34,4 +34,18 @@ namespace Dal {
         Holidays_ paymentHolidays_ = Holidays_("");
         bool endOfMonth_ = false;
     };
+
+    struct CrossCurrencyConvention_ {
+        bool resettableNotional_ = false;
+        bool markToMarketNotional_ = false;
+        bool initialNotionalExchange_ = false;
+        bool finalNotionalExchange_ = false;
+        int fxFixingLag_ = 0;
+        Holidays_ fxFixingHolidays_ = Holidays_("");
+        bool spreadOnForeignLeg_ = true;
+        RateIndexConvention_ domesticIndex_;
+        RateLegConvention_ domesticLeg_;
+        RateIndexConvention_ foreignIndex_;
+        RateLegConvention_ foreignLeg_;
+    };
 } // namespace Dal
