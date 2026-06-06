@@ -105,7 +105,6 @@ Portfolio management web app in `dal-web/`:
   - [AAD](docs/methodology/aad.md) — Expression templates, tape, propagation
   - [Yield Curves](docs/methodology/yield_curve.md) — Discount curves, calibration
   - [Underdetermined Search](docs/methodology/underdetermined_search.md) — Optimization
-- **[Designs](docs/designs/)** — Architectural decisions
 
 ## License
 

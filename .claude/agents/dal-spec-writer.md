@@ -128,7 +128,7 @@ measurable observation. "Code should be clean" is not testable; "all changed fil
 ### Step 4: Hand Off
 
 Report a 3-5 sentence summary of the spec and where it lives. Identify the next agent in the chain - usually
-`dal-architect` for design, or `dal-implementer` if the change is small enough to skip a separate design phase.
+`dal-api-designer` if there's a public API change, or `dal-implementer` to proceed directly to implementation.
 
 ## What Not to Do
 
