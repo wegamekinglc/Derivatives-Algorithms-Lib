@@ -151,5 +151,5 @@ TEST(XccyMarketTest, TestResettableConventionThrows) {
                                   MakeLeg(),
                                   convention);
 
-    ASSERT_THROW(swap.Precompute(), Dal::Exception_);
+    ASSERT_THROW(static_cast<void>(swap.Precompute()), Dal::Exception_);
 }
