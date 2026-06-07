@@ -382,5 +382,5 @@ BSD 3-Clause License. See the main DAL repository for details.
 ## See Also
 
 - [DAL C++ Library](../README.md) — Core library documentation
-- [CLAUDE.md](../CLAUDE.md) — Development guidelines and architecture
+- [CLAUDE.md](../CLAUDE.md) — AI-assisted development context (coding conventions, build commands, test workflow for Claude Code)
 - [SWIG Documentation](https://www.swig.org/Doc4.2/SWIGDocumentation.html) — SWIG interface syntax

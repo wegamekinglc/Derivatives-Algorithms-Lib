@@ -1,6 +1,6 @@
 ---
 name: dal-web-setup
-description: Start or stop the DAL derivatives portfolio web UI (FastAPI backend + React/Vite frontend). Use when the user says "start the web UI", "run the webui", "stop the web UI", "shut down the webui", "launch the dashboard", or anything about bringing the DAL web UI up or down.
+description: Start or stop the DAL derivatives portfolio web UI (FastAPI backend + React/Vite frontend). Use when the user says "start the web UI", "run the Web UI", "stop the web UI", "shut down the Web UI", "launch the dashboard", or anything about bringing the DAL web UI up or down.
 user-invocable: true
 ---
 

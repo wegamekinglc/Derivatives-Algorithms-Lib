@@ -376,6 +376,7 @@ These points reflect the code as it exists today:
 
 ## See Also
 
-- `yield_curve.md` for the surrounding curve-construction framework
+- [Yield curve construction](yield_curve.md) for the surrounding curve-construction framework
+- [AAD methodology](aad.md) — the underdetermined solver computes sensitivities using Automatic Adjoint Differentiation during curve calibration
 - `dal-cpp/tests/math/optimization/test_underdetermined.cpp` for concrete solver behavior
 - `dal-cpp/examples/underdetermined/underdetermined.cpp` for a runnable integration example
