@@ -129,12 +129,12 @@ Start the web UI with `./dal-web/scripts/start.sh` (requires Python 3.13+, uv, N
 
 Detailed documentation of the quantitative methods implemented in this library:
 
-- **Automatic Adjoint Differentiation (AAD)** — @docs/methodology/aad.md
-- **Yield Curve Construction** — @docs/methodology/yield_curve.md
-- **Underdetermined Search** — @docs/methodology/underdetermined_search.md
+- **Automatic Adjoint Differentiation (AAD)** — [AAD methodology](docs/methodology/aad.md)
+- **Yield Curve Construction** — [Yield curve construction](docs/methodology/yield_curve.md)
+- **Underdetermined Search** — [Underdetermined search](docs/methodology/underdetermined_search.md)
 
 ## Rules to follow
 
-- **coding style**: @.claude/rules/code-style.md
-- **unit test style**: @.claude/rules/unit-test-style.md
-- **web UI design**: @.claude/rules/dal-web-design.md
+- **coding style**: [Code style guide](.claude/rules/code-style.md)
+- **unit test style**: [Unit test style guide](.claude/rules/unit-test-style.md)
+- **web UI design**: [Web UI design standards](.claude/rules/dal-web-design.md)
