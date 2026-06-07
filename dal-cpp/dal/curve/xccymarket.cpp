@@ -393,17 +393,25 @@ namespace Dal {
         CrossCurrencyCalibrationResult_ retval;
         retval.market_ = spec.market_;
 
+        int evaluationsUsed = 0;
         auto residualAt = [&](double rate) {
+            ++evaluationsUsed;
             retval.market_.SetBasisCurve(spec.basisPair_, FlatBasisCurve(spec.basisPair_, spec.knotDates_, rate));
             const auto diagnostics = BuildDiagnostics(spec.instruments_, retval.market_);
             return diagnostics.residuals_.front();
         };
 
-        double lo = -0.20;
-        double hi = 0.20;
+        constexpr double INITIAL_BRACKET_LO = -0.20;
+        constexpr double INITIAL_BRACKET_HI = 0.20;
+        constexpr int MAX_BRACKET_EXPANSIONS = 50;
+
+        double lo = INITIAL_BRACKET_LO;
+        double hi = INITIAL_BRACKET_HI;
         double fLo = residualAt(lo);
         double fHi = residualAt(hi);
-        for (int i = 0; i < spec.maxEvaluations_ && fLo * fHi > 0.0; ++i) {
+        for (int i = 0; i < MAX_BRACKET_EXPANSIONS && evaluationsUsed < spec.maxEvaluations_ && fLo * fHi > 0.0; ++i) {
+            if (std::isnan(fLo) || std::isinf(fLo) || std::isnan(fHi) || std::isinf(fHi))
+                THROW("Cross-currency calibration encountered NaN/Inf during bracket expansion");
             lo *= 2.0;
             hi *= 2.0;
             fLo = residualAt(lo);
@@ -412,9 +420,11 @@ namespace Dal {
         REQUIRE(fLo * fHi <= 0.0, "Cross-currency calibration could not bracket the basis spread");
 
         double mid = 0.0;
-        for (int i = 0; i < spec.maxEvaluations_; ++i) {
+        for (int i = 0; i < spec.maxEvaluations_ - evaluationsUsed; ++i) {
             mid = 0.5 * (lo + hi);
             const double fMid = residualAt(mid);
+            if (std::isnan(fMid) || std::isinf(fMid))
+                THROW("Cross-currency calibration encountered NaN/Inf during bisection");
             if (std::fabs(fMid) <= spec.tolerance_)
                 break;
             if (fLo * fMid <= 0.0) {
