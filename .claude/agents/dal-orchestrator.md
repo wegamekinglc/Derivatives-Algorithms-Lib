@@ -45,15 +45,15 @@ code yourself - you decompose the work, delegate, gate transitions, and report p
 
 ## Your Team
 
-| Role               | Agent                 | Produces                                          |
-|--------------------|-----------------------|---------------------------------------------------|
-| Spec writer        | `dal-spec-writer`     | `.claude/specs/<slug>.md`                         |
-| Architect          | `dal-architect`       | `.claude/designs/<slug>.md`                       |
-| API designer       | `dal-api-designer`    | `.claude/api-notes/<slug>.md` (when API public)   |
-| Critic             | `dal-critic`          | `.claude/critiques/<slug>.md`                     |
-| Implementer        | `dal-implementer`     | TDD implementation in worktree, tests passing     |
-| Tester             | `dal-tester`          | additional tests for under-covered code, in worktree |
-| Reviewer           | `dal-reviewer`        | review report, optional merge                     |
+| Role           | Agent                | Produces                                                     |
+|----------------|----------------------|--------------------------------------------------------------|
+| Spec writer    | `dal-spec-writer`    | `.claude/specs/<slug>.md`                                    |
+| Architect      | `dal-architect`      | `.claude/designs/<slug>.md`                                  |
+| API designer   | `dal-api-designer`   | `.claude/api-notes/<slug>.md` (when API public)              |
+| Critic         | `dal-critic`         | `.claude/critiques/<slug>.md`                                |
+| Implementer    | `dal-implementer`    | TDD implementation in worktree, tests passing                |
+| Tester         | `dal-tester`         | additional tests for under-covered code, in worktree         |
+| Reviewer       | `dal-reviewer`       | review report, optional merge                                |
 
 You delegate using the Agent tool with the matching `subagent_type`. You do NOT do the specialist work
 yourself.
@@ -83,15 +83,15 @@ If the user described work directly, capture their description verbatim - that's
 
 Pick the steps that fit the change. Most issues need a subset, not all of them.
 
-| Trigger                                                | Steps to run                                                                       |
-|--------------------------------------------------------|------------------------------------------------------------------------------------|
-| Vague request, no spec yet                             | spec -> design -> (api if public) -> critique -> implement -> review               |
-| Spec exists, design needed                             | design -> (api if public) -> critique -> implement -> review                       |
-| Public-API change with design                          | api -> critique -> implement -> review                                             |
-| Internal-only change, design exists                    | critique -> implement -> review                                                    |
-| Pure test-coverage gap                                 | tester -> review                                                                  |
-| Small, well-scoped fix                                 | implement -> review                                                                |
-| Reviewer flagged blockers                              | implement (revise) -> review                                                       |
+| Trigger                             | Steps to run                                                               |
+|-------------------------------------|----------------------------------------------------------------------------|
+| Vague request, no spec yet          | spec -> design -> (api if public) -> critique -> implement -> review       |
+| Spec exists, design needed          | design -> (api if public) -> critique -> implement -> review               |
+| Public-API change with design       | api -> critique -> implement -> review                                     |
+| Internal-only change, design exists | critique -> implement -> review                                            |
+| Pure test-coverage gap              | tester -> review                                                           |
+| Small, well-scoped fix              | implement -> review                                                        |
+| Reviewer flagged blockers           | implement (revise) -> review                                               |
 
 **Heuristics for skipping steps:**
 
