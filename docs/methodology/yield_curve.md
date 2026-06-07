@@ -249,7 +249,7 @@ CurveBlock_ (routes discounting + tenor forecasts for repricing)
 
 The solver that actually bootstraps forward rates from market instruments lives in `dal-cpp/dal/math/optimization/underdetermined.hpp/cpp`, with utility helpers in `underdeterminedutils.hpp`.
 
-For a solver-focused description of the optimization method itself, see `underdetermined_search.md`.
+For a solver-focused description of the optimization method itself, see [Underdetermined search](underdetermined_search.md).
 
 ### Problem Statement
 

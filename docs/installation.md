@@ -54,7 +54,16 @@ This guide covers the complete installation process for DAL, including the C++ l
 Clone the repository with all submodules:
 
 ```bash
+# SSH (requires SSH key configured)
 git clone --recursive git@github.com:wegamekinglc/Derivatives-Algorithms-Lib.git
+cd Derivatives-Algorithms-Lib
+```
+
+Or use HTTPS if you don't have SSH keys set up:
+
+```bash
+# HTTPS (no SSH key required)
+git clone --recursive https://github.com/wegamekinglc/Derivatives-Algorithms-Lib.git
 cd Derivatives-Algorithms-Lib
 ```
 
