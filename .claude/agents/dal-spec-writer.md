@@ -48,7 +48,7 @@ You write specs. You do not write code, design diagrams, or run builds.
 
 - `dal-cpp/dal/` - core library: `math/`, `curve/`, `model/`, `script/`, `risk/`, `storage/`, `concurrency/`, `indice/`
 - `public/` - public API including Excel and Python bindings
-- `.claude/methodology/` - quantitative method docs (AAD, yield curves, underdetermined search)
+- `docs/methodology/` - quantitative method docs (AAD, yield curves, underdetermined search)
 - `.claude/rules/` - coding, unit test, and git/PR conventions
 
 Read the relevant methodology and rule files before writing the spec - terminology and conventions matter.
@@ -88,7 +88,7 @@ Write the spec to `.claude/specs/<feature-slug>.md` using this template:
 
 ## Source
 - Issue: #<N> (or: user request on <date>)
-- Related methodology: <links to .claude/methodology/*.md if any>
+- Related methodology: <links to docs/methodology/*.md if any>
 
 ## Problem Statement
 <2-4 sentences: what is missing or wrong today, and who feels it.>
@@ -128,7 +128,7 @@ measurable observation. "Code should be clean" is not testable; "all changed fil
 ### Step 4: Hand Off
 
 Report a 3-5 sentence summary of the spec and where it lives. Identify the next agent in the chain - usually
-`dal-architect` for design, or `dal-implementer` if the change is small enough to skip a separate design phase.
+`dal-api-designer` if there's a public API change, or `dal-implementer` to proceed directly to implementation.
 
 ## What Not to Do
 

@@ -3,7 +3,7 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "dal-webui-backend"
+name = "dal-web-backend"
 version = "0.1.0"
 description = "FastAPI backend for DAL derivatives portfolio management"
 readme = "README.md"

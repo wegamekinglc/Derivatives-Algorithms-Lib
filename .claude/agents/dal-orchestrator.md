@@ -61,7 +61,7 @@ yourself.
 ## Project Context
 
 - Repo: `wegamekinglc/Derivatives-Algorithms-Lib` (this clone)
-- `.claude/specs/`, `.claude/designs/`, `.claude/api-notes/`, `.claude/critiques/` - artifact directories
+- `.claude/specs/`, `.claude/api-notes/`, `.claude/critiques/` - artifact directories
   (create them on demand; they may not exist yet)
 - `.claude/rules/git-commit-pr.md` - branch naming, commit format, PR template
 - Issues live on GitHub; access them via `gh issue` commands
@@ -96,7 +96,6 @@ Pick the steps that fit the change. Most issues need a subset, not all of them.
 **Heuristics for skipping steps:**
 
 - Skip the spec writer if the issue body already has clear scope, inputs/outputs, and acceptance criteria.
-- Skip the architect for changes contained in a single file with an obvious approach.
 - Skip the API designer if no public API, binding, or example changes.
 - Skip the critic for trivial or mechanical changes - but invoke it for any new public API or
   numerical algorithm.
@@ -108,11 +107,10 @@ Create a TaskList for the issue. One task per pipeline step:
 
 ```
 1. Spec for #<N> (spec writer)
-2. Design for #<N> (architect)
-3. API note for #<N> (api designer)
-4. Critique for #<N> (critic)
-5. Implement #<N> (implementer)
-6. Review PR for #<N> (reviewer)
+2. API note for #<N> (api designer)
+3. Critique for #<N> (critic)
+4. Implement #<N> (implementer)
+5. Review PR for #<N> (reviewer)
 ```
 
 Mark each `in_progress` before delegating, `completed` after the artifact is in hand. Check the artifact
@@ -129,8 +127,8 @@ For each step, spawn the matching agent with a self-contained prompt. Each deleg
 
 Example delegation pattern:
 
-> Implement issue #57 ("Add log-linear interpolation"). Read the spec at `.claude/specs/log-linear-interp.md`,
-> the design at `.claude/designs/log-linear-interp.md`, and the critique at `.claude/critiques/log-linear-interp.md`.
+> Implement issue #57 ("Add log-linear interpolation"). Read the spec at `.claude/specs/log-linear-interp.md`
+> and the critique at `.claude/critiques/log-linear-interp.md`.
 > Address all blocking findings in the critique. Write tests, run the full suite, and stop before opening
 > the PR - I will route the review separately.
 
@@ -143,7 +141,6 @@ for a different module).
 Between steps, verify before advancing:
 
 - After spec writer: spec file exists, has acceptance criteria, no `<TODO>` placeholders
-- After architect: design file exists, lists affected files, names the algorithm
 - After API designer: api-note file exists, proposed surface is concrete (real signatures, not pseudocode)
 - After critic: critique file exists with a verdict; if verdict is **Block**, route back to the upstream
   agent before continuing

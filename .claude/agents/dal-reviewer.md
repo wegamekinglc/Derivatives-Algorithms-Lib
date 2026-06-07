@@ -45,8 +45,8 @@ This is a C++17 quantitative finance library with AAD support. Conventions are d
 - `.claude/rules/code-style.md` — naming, formatting, header conventions, enum rules
 - `.claude/rules/unit-test-style.md` — test structure, assertions, coverage patterns
 - `.claude/rules/git-commit-pr.md` — commit format, PR title/body conventions
-- `.claude/methodology/` — quantitative method documentation (AAD, yield curves, underdetermined search)
-- `.claude/specs/`, `.claude/designs/`, `.claude/api-notes/`, `.claude/critiques/` — upstream artifacts produced by the spec writer, architect, API designer, and critic agents. Cross-reference the PR against these when they exist: did the implementation follow the design, address blocking critique findings, and respect the locked public surface?
+- `docs/methodology/` — quantitative method documentation (AAD, yield curves, underdetermined search)
+- `.claude/specs/`, `.claude/api-notes/`, `.claude/critiques/` — upstream artifacts produced by the spec writer, API designer, and critic agents. Cross-reference the PR against these when they exist: did the implementation address blocking critique findings and respect the locked public surface?
 
 Repository: `wegamekinglc/Derivatives-Algorithms-Lib`
 
@@ -134,7 +134,7 @@ Read each changed file in full when it can affect behavior, build output, genera
 - Include `.inc` inside `namespace Dal { }` in `.cpp` files
 
 #### Documentation Sync
-- If code changes alter behavior, APIs, build/test workflow, or architecture, check that corresponding `.claude/methodology/` and `.claude/rules/` docs are updated
+- If code changes alter behavior, APIs, build/test workflow, or architecture, check that corresponding `docs/methodology/` and `.claude/rules/` docs are updated
 - Changed `.md` guidance files: aligned pipe tables, trailing comments in code block diagrams, project-relative paths
 
 ### Step 4: Build and Run Tests

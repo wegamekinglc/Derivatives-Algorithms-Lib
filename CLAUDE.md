@@ -69,7 +69,8 @@ Derivatives-Algorithms-Lib/
 ├── dal-cpp/                DAL::cpp — core library (always built)
 ├── dal-public/             DAL::public — public API, depends on DAL::cpp
 ├── dal-python/             DAL::python — SWIG + Python package, depends on DAL::public
-└── dal-excel/              DAL::excel — Excel add-in, depends on DAL::public (Windows-only)
+├── dal-excel/              DAL::excel — Excel add-in, depends on DAL::public (Windows-only)
+└── dal-web/                Portfolio management web app (FastAPI + React)
 ```
 
 The dependency graph is `dal-cpp ← dal-public ← {dal-python, dal-excel}`. Each sub-project owns its own `CMakeLists.txt` and stands alone as a buildable target.
@@ -105,6 +106,13 @@ The dependency graph is `dal-cpp ← dal-public ← {dal-python, dal-excel}`. Ea
 - `dal-excel/auto/` — Machinist output for Excel `xl_*` wrappers
 - `dal-excel/tests/` — Excel-specific tests
 
+**Web UI (`dal-web/`, not built by CMake)** — FastAPI backend + React frontend:
+- `dal-web/backend/` — Python FastAPI application, uses `dal-python` bindings or stub
+- `dal-web/frontend/` — React + TypeScript SPA, uses Vite
+- `dal-web/scripts/` — `start.sh` and `stop.sh` for running the UI
+
+Start the web UI with `./dal-web/scripts/start.sh` (requires Python 3.13+, uv, Node.js 20+, npm). Frontend at http://localhost:5173, backend API docs at http://127.0.0.1:8001/docs.
+
 **Code generation** — `dal-cpp/config/dal.ifc` is processed by the Machinist tool. `build_linux.sh` runs Machinist twice:
 - once with `-d ./dal-cpp/dal` to produce core enum and serialization files under `dal-cpp/dal/auto/`
 - once with `-d ./dal-excel` to produce Excel public-function stubs under `dal-excel/auto/`
@@ -121,11 +129,12 @@ The dependency graph is `dal-cpp ← dal-public ← {dal-python, dal-excel}`. Ea
 
 Detailed documentation of the quantitative methods implemented in this library:
 
-- **Automatic Adjoint Differentiation (AAD)** — @.claude/methodology/aad.md
-- **Yield Curve Construction** — @.claude/methodology/yield_curve.md
-- **Underdetermined Search** — @.claude/methodology/underdetermined_search.md
+- **Automatic Adjoint Differentiation (AAD)** — @docs/methodology/aad.md
+- **Yield Curve Construction** — @docs/methodology/yield_curve.md
+- **Underdetermined Search** — @docs/methodology/underdetermined_search.md
 
 ## Rules to follow
 
 - **coding style**: @.claude/rules/code-style.md
 - **unit test style**: @.claude/rules/unit-test-style.md
+- **web UI design**: @.claude/rules/dal-web-design.md
