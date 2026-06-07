@@ -278,7 +278,7 @@ The script engine's `Evaluator_<T_>` and `MCSimulation<T_>` are templated on the
 
 ## See Also
 
-- `yield_curve.md` for the curve construction framework that uses AAD for risk
+- `yield_curve.md` for the surrounding curve-construction framework that uses AAD for risk
 - `underdetermined_search.md` for the solver used in curve calibration
 - `dal-cpp/tests/math/aad/` for direct AAD tests
 - `dal-cpp/examples/aad/` for standalone AAD examples

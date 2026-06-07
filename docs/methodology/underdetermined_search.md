@@ -14,16 +14,16 @@ This is the solver used by yield-curve calibration, but it is written as a gener
 
 ## File Map
 
-| File                                                       | Purpose                                                                |
-|------------------------------------------------------------|------------------------------------------------------------------------|
-| `dal-cpp/dal/math/optimization/underdetermined.hpp`        | Core solver API declarations for `Find()` and `Approximate()`          |
-| `dal-cpp/dal/math/optimization/underdetermined.cpp`        | Core solver implementation and Jacobian handling                       |
-| `dal-cpp/dal/math/optimization/underdeterminedutils.hpp`   | Utility helpers for building smoothness weights such as `WeightsPWC()` |
-| `dal-cpp/dal/curve/curveblock.hpp`                         | Yield-curve calibration declarations using the underdetermined solver  |
-| `dal-cpp/dal/curve/curveblock.cpp`                         | Yield-curve calibration implementation using the solver                |
-| `dal-cpp/examples/underdetermined/underdetermined.cpp`     | End-to-end demonstration using curve calibration                       |
-| `dal-cpp/tests/math/optimization/test_underdetermined.cpp` | Direct solver coverage                                                 |
-| `dal-cpp/tests/curve/test_curveblock.cpp`                  | Integration coverage through yield-curve calibration                   |
+| File                                                         | Purpose                                                                  |
+|--------------------------------------------------------------|--------------------------------------------------------------------------|
+| `dal-cpp/dal/math/optimization/underdetermined.hpp`          | Core solver API declarations for `Find()`, `Approximate()`               |
+| `dal-cpp/dal/math/optimization/underdetermined.cpp`          | Core solver implementation, Jacobian handling                            |
+| `dal-cpp/dal/math/optimization/underdeterminedutils.hpp`     | Utility helpers for building smoothness weights (`WeightsPWC()`)         |
+| `dal-cpp/dal/curve/curveblock.hpp`                           | Yield-curve calibration declarations using underdetermined solver        |
+| `dal-cpp/dal/curve/curveblock.cpp`                           | Yield-curve calibration implementation using the solver                  |
+| `dal-cpp/examples/underdetermined/underdetermined.cpp`       | End-to-end demonstration using curve calibration                         |
+| `dal-cpp/tests/math/optimization/test_underdetermined.cpp`   | Direct solver coverage                                                   |
+| `dal-cpp/tests/curve/test_curveblock.cpp`                    | Integration coverage through yield-curve calibration                     |
 
 ## Core API
 
@@ -83,14 +83,14 @@ This allows the solver to work with more than a plain dense matrix when the call
 
 `Controls_` is an alias of the generated `UnderdeterminedControls_` settings object.
 
-| Parameter             | Default  | Meaning                                                         |
-|-----------------------|----------|-----------------------------------------------------------------|
-| `maxEvaluations_`     | required | Total residual evaluations allowed                              |
-| `maxRestarts_`        | required | Total fresh Jacobian builds allowed                             |
-| `maxBacktrackTries_`  | `5`      | Backtracking iterations per step in `Find()`                    |
-| `restartTolerance_`   | `0.4`    | Restart with a fresh Jacobian if the fitted `kMin` exceeds this |
-| `backtrackTolerance_` | `0.1`    | Accept a step if `kMin` is below this                           |
-| `maxBacktrack_`       | `0.8`    | Maximum fraction by which a step can be reduced                 |
+| Parameter               | Default  | Meaning                                                            |
+|-------------------------|----------|--------------------------------------------------------------------|
+| `maxEvaluations_`       | required | Total residual evaluations allowed                                 |
+| `maxRestarts_`          | required | Total fresh Jacobian builds allowed                                |
+| `maxBacktrackTries_`    | `5`      | Backtracking iterations per step in `Find()`                       |
+| `restartTolerance_`     | `0.4`    | Restart Jacobian when fitted `kMin` exceeds this                   |
+| `backtrackTolerance_`   | `0.1`    | Accept step when `kMin` is below this                              |
+| `maxBacktrack_`         | `0.8`    | Maximum fraction by which step can be reduced                      |
 
 The generated settings enforce:
 
