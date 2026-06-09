@@ -15,10 +15,6 @@
 
 namespace Dal {
     namespace {
-        double YearFraction(const Date_& from, const Date_& to) {
-            return DayBasis_("ACT_365F")(from, to, nullptr);
-        }
-
         struct XccyCouponPeriod_ {
             SchedulePeriod_ schedule_;
             AccrualPeriod_ accrual_;
@@ -388,6 +384,8 @@ namespace Dal {
 
     CrossCurrencyCalibrationResult_ CalibrateCrossCurrencyMarket(const CrossCurrencyCalibrationSpec_& spec) {
         REQUIRE(!spec.instruments_.empty(), "Cross-currency calibration requires at least one instrument");
+        REQUIRE(spec.instruments_.size() == 1,
+                "Cross-currency calibration solves a single flat basis spread and supports exactly one instrument");
         REQUIRE(!spec.knotDates_.empty(), "Cross-currency calibration requires at least one basis knot date");
 
         CrossCurrencyCalibrationResult_ retval;
@@ -418,9 +416,11 @@ namespace Dal {
             fHi = residualAt(hi);
         }
         REQUIRE(fLo * fHi <= 0.0, "Cross-currency calibration could not bracket the basis spread");
+        REQUIRE(evaluationsUsed < spec.maxEvaluations_,
+                "Cross-currency calibration exhausted its evaluation budget before bisection");
 
-        double mid = 0.0;
-        for (int i = 0; i < spec.maxEvaluations_ - evaluationsUsed; ++i) {
+        double mid = 0.5 * (lo + hi);
+        while (evaluationsUsed < spec.maxEvaluations_) {
             mid = 0.5 * (lo + hi);
             const double fMid = residualAt(mid);
             if (std::isnan(fMid) || std::isinf(fMid))

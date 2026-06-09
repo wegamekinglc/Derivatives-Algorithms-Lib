@@ -207,25 +207,11 @@ TEST(XccyMarketTest, TestCalibrationWithSingleKnotAndZeroMarketRate) {
     ASSERT_LT(result.diagnostics_.maxAbsResidual_, 1e-8);
 }
 
-// NOTE: The NaN/Inf guard branches in CalibrateCrossCurrencyMarket() (lines 413-414 and 425-426)
-// are defensive checks for unexpected numerical issues during bracket expansion and bisection.
-// These guards are difficult to trigger through normal test scenarios because:
-// 1. The exponential function in discount factor calculations handles large values gracefully
-// 2. The swap pricing formula has cancellations that prevent NaN/Inf propagation
-// 3. Other defensive REQUIRE checks catch issues before they reach these guards
-//
-// The guards would be triggered if:
-// - During bracket expansion, basis rates become so extreme that exp(-rate * time) overflows/underflows
-// - This causes discount factors to become 0 or Inf
-// - The swap pricing then produces NaN/Inf in the residual calculation
-//
-// In practice, such extreme conditions would indicate a fundamental problem with the
-// calibration setup or market data, and the guards serve as a safety net.
+// The NaN/Inf guards in CalibrateCrossCurrencyMarket() are defensive: with well-formed
+// market data the discount-factor and swap-pricing arithmetic stays finite, so they are
+// not exercised here. The budget and bracketing REQUIRE checks below are reachable and tested.
 
-TEST(XccyMarketTest, TestCalibrationStabilityWithExtremeBasisRates) {
-    // This test verifies that the calibration can handle extreme basis rates during
-    // bracket expansion without producing invalid results. While it may not trigger
-    // the NaN/Inf guards directly, it exercises the code path that includes those checks.
+TEST(XccyMarketTest, TestCalibrationConvergesForLargerSpread) {
     const Date_ today(2024, 1, 15);
 
     CrossCurrencyConvention_ convention;
@@ -244,28 +230,24 @@ TEST(XccyMarketTest, TestCalibrationStabilityWithExtremeBasisRates) {
     legConv.dayBasis_ = DayBasis_("ACT_365F");
 
     const CurrencyPair_ pair(Ccy_("USD"), Ccy_("EUR"));
-
-    auto market = MakeMarket(today);
+    const Date_ maturity = Date::AddMonths(today, 12);
 
     Vector_<Handle_<CrossCurrencySwap_>> instruments;
-
-    const Date_ maturity = Date::AddMonths(today, 12);
-    Handle_<CrossCurrencySwap_> swap(new CrossCurrencySwap_(today,
-                                                            today,
-                                                            maturity,
-                                                            0.0050,
-                                                            pair,
-                                                            110.0,
-                                                            100.0,
-                                                            indexConv,
-                                                            legConv,
-                                                            indexConv,
-                                                            legConv,
-                                                            convention));
-    instruments.push_back(swap);
+    instruments.push_back(Handle_<CrossCurrencySwap_>(new CrossCurrencySwap_(today,
+                                                                             today,
+                                                                             maturity,
+                                                                             0.0050,
+                                                                             pair,
+                                                                             110.0,
+                                                                             100.0,
+                                                                             indexConv,
+                                                                             legConv,
+                                                                             indexConv,
+                                                                             legConv,
+                                                                             convention)));
 
     CrossCurrencyCalibrationSpec_ spec;
-    spec.market_ = market;
+    spec.market_ = MakeMarket(today);
     spec.basisPair_ = pair;
     spec.instruments_ = instruments;
     spec.knotDates_ = {maturity};
@@ -275,3 +257,34 @@ TEST(XccyMarketTest, TestCalibrationStabilityWithExtremeBasisRates) {
     const auto result = CalibrateCrossCurrencyMarket(spec);
     ASSERT_LT(result.diagnostics_.maxAbsResidual_, spec.tolerance_);
 }
+
+TEST(XccyMarketTest, TestCalibrationThrowsWhenBudgetExhaustedBeforeBisection) {
+    const Date_ today(2024, 1, 15);
+    const CurrencyPair_ pair(Ccy_("USD"), Ccy_("EUR"));
+
+    CrossCurrencyCalibrationSpec_ spec;
+    spec.market_ = MakeMarket(today);
+    spec.basisPair_ = pair;
+    spec.instruments_ = {Handle_<CrossCurrencySwap_>(new CrossCurrencySwap_(MakeSwap(today, 0.0020)))};
+    spec.knotDates_ = {Date::AddMonths(today, 12)};
+    // The two initial bracket evaluations already consume the whole budget, so the
+    // solver must refuse to enter bisection rather than silently returning mid = 0.
+    spec.maxEvaluations_ = 2;
+
+    ASSERT_THROW(static_cast<void>(CalibrateCrossCurrencyMarket(spec)), Dal::Exception_);
+}
+
+TEST(XccyMarketTest, TestCalibrationRejectsMultipleInstruments) {
+    const Date_ today(2024, 1, 15);
+    const CurrencyPair_ pair(Ccy_("USD"), Ccy_("EUR"));
+
+    CrossCurrencyCalibrationSpec_ spec;
+    spec.market_ = MakeMarket(today);
+    spec.basisPair_ = pair;
+    spec.instruments_ = {Handle_<CrossCurrencySwap_>(new CrossCurrencySwap_(MakeSwap(today, 0.0020))),
+                         Handle_<CrossCurrencySwap_>(new CrossCurrencySwap_(MakeSwap(today, 0.0030)))};
+    spec.knotDates_ = {Date::AddMonths(today, 12)};
+
+    ASSERT_THROW(static_cast<void>(CalibrateCrossCurrencyMarket(spec)), Dal::Exception_);
+}
+
