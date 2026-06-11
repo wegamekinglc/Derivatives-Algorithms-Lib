@@ -75,6 +75,7 @@ namespace Dal {
         double ConvertedCouponPv(const Vector_<XccyCouponPeriod_>& periods,
                                  const CrossCurrencyMarket_& market,
                                  const CurrencyPair_& pair,
+                                 const DiscountCurve_& discount,
                                  const DiscountCurve_& forecast,
                                  const Date_& tradeDate,
                                  double notional,
@@ -83,8 +84,9 @@ namespace Dal {
             double retval = 0.0;
             for (const auto& period : periods) {
                 const double fixing = ForwardRate(forecast, period, indexConvention.dayBasis_) + spread;
-                const double domesticDf = market.DomesticDiscountCurve(pair, indexConvention.collateral_)(tradeDate, period.schedule_.paymentDate_);
-                retval += notional * fixing * period.accrual_.dcf_ * domesticDf * market.FxForward(pair, period.schedule_.paymentDate_);
+                const double discountFactor = discount(tradeDate, period.schedule_.paymentDate_)
+                                              / market.BasisDiscountFactor(pair, tradeDate, period.schedule_.paymentDate_);
+                retval += notional * fixing * period.accrual_.dcf_ * discountFactor * market.FxSpot(pair);
             }
             return retval;
         }
@@ -92,12 +94,14 @@ namespace Dal {
         double ConvertedAnnuity(const Vector_<XccyCouponPeriod_>& periods,
                                 const CrossCurrencyMarket_& market,
                                 const CurrencyPair_& pair,
+                                const DiscountCurve_& discount,
                                 const Date_& tradeDate,
-                                const CollateralType_& collateral) {
+                                double notional) {
             double retval = 0.0;
             for (const auto& period : periods) {
-                const double domesticDf = market.DomesticDiscountCurve(pair, collateral)(tradeDate, period.schedule_.paymentDate_);
-                retval += period.accrual_.dcf_ * domesticDf * market.FxForward(pair, period.schedule_.paymentDate_);
+                const double discountFactor = discount(tradeDate, period.schedule_.paymentDate_)
+                                              / market.BasisDiscountFactor(pair, tradeDate, period.schedule_.paymentDate_);
+                retval += notional * period.accrual_.dcf_ * discountFactor * market.FxSpot(pair);
             }
             return retval;
         }
@@ -106,8 +110,9 @@ namespace Dal {
                                const DiscountCurve_& discount,
                                const Date_& tradeDate) {
             double retval = 0.0;
-            for (const auto& period : periods)
+            for (const auto& period : periods) {
                 retval += period.accrual_.dcf_ * discount(tradeDate, period.schedule_.paymentDate_);
+            }
             return retval;
         }
 
@@ -153,6 +158,7 @@ namespace Dal {
                 const DiscountCurve_& foreignForecast = market.ForwardCurve(pair_.foreign_,
                                                                             foreignIndexConvention_.forecastTenor_,
                                                                             foreignIndexConvention_.collateral_);
+                const DiscountCurve_& foreignDiscount = market.ForeignDiscountCurve(pair_, foreignIndexConvention_.collateral_);
 
                 const double domesticBase = CouponPv(domesticPeriods_,
                                                      domesticDiscount,
@@ -165,17 +171,18 @@ namespace Dal {
                 const double foreignBase = ConvertedCouponPv(foreignPeriods_,
                                                             market,
                                                             pair_,
+                                                            foreignDiscount,
                                                             foreignForecast,
                                                             tradeDate_,
                                                             foreignNotional_,
                                                             foreignIndexConvention_,
                                                             0.0);
-                const double foreignSpreadAnnuity = foreignNotional_
-                                                    * ConvertedAnnuity(foreignPeriods_,
-                                                                       market,
-                                                                       pair_,
-                                                                       tradeDate_,
-                                                                       foreignIndexConvention_.collateral_);
+                const double foreignSpreadAnnuity = ConvertedAnnuity(foreignPeriods_,
+                                                                    market,
+                                                                    pair_,
+                                                                    foreignDiscount,
+                                                                    tradeDate_,
+                                                                    foreignNotional_);
 
                 double domesticPv = domesticBase;
                 double foreignPv = foreignBase;
@@ -185,7 +192,8 @@ namespace Dal {
                 }
                 if (convention_.finalNotionalExchange_) {
                     domesticPv += domesticNotional_ * domesticDiscount(tradeDate_, maturity_);
-                    foreignPv += foreignNotional_ * market.FxForward(pair_, maturity_) * domesticDiscount(tradeDate_, maturity_);
+                    foreignPv += foreignNotional_ * foreignDiscount(tradeDate_, maturity_)
+                                 / market.BasisDiscountFactor(pair_, tradeDate_, maturity_) * market.FxSpot(pair_);
                 }
 
                 if (convention_.spreadOnForeignLeg_) {
@@ -223,6 +231,30 @@ namespace Dal {
                 NewDiscountPWC(String_("xccy_basis_") + pair.domestic_.String() + "_" + pair.foreign_.String(),
                                pair.domestic_.String(),
                                PiecewiseConstant_(knotDates, vals)));
+        }
+
+        CrossCurrencyMarket_ MakeCalibrationMarket(const CrossCurrencyCalibrationSpec_& spec) {
+            REQUIRE(spec.domesticCurveBlock_, "Cross-currency calibration requires a domestic curve block");
+            REQUIRE(spec.foreignCurveBlock_, "Cross-currency calibration requires a foreign curve block");
+            REQUIRE(spec.fxSpot_ > 0.0, "Cross-currency calibration requires a positive FX spot");
+            CrossCurrencyMarket_ retval(spec.today_);
+            retval.SetCurveBlock(spec.basisPair_.domestic_, spec.domesticCurveBlock_);
+            retval.SetCurveBlock(spec.basisPair_.foreign_, spec.foreignCurveBlock_);
+            retval.SetFxSpot(spec.basisPair_, spec.fxSpot_);
+            return retval;
+        }
+
+        CrossCurrencyFxForwardCurve_ BuildFxForwardCurve(const CurrencyPair_& pair,
+                                                         const Vector_<Date_>& dates,
+                                                         const CrossCurrencyMarket_& market,
+                                                         const CollateralType_& collateral) {
+            CrossCurrencyFxForwardCurve_ retval;
+            retval.pair_ = pair;
+            retval.dates_ = dates;
+            for (const auto& date : dates) {
+                retval.forwards_.push_back(market.FxForward(pair, market.Today(), date, collateral));
+            }
+            return retval;
         }
     } // namespace
 
@@ -278,10 +310,6 @@ namespace Dal {
         fxSpots_[pair] = spot;
     }
 
-    void CrossCurrencyMarket_::SetFxForwardPoint(const CurrencyPair_& pair, const Date_& maturity, double forwardPoint) {
-        fxForwardPoints_[pair][maturity] = forwardPoint;
-    }
-
     void CrossCurrencyMarket_::SetBasisCurve(const CurrencyPair_& pair, const Handle_<DiscountCurve_>& basisCurve) {
         REQUIRE(basisCurve, "CrossCurrencyMarket_ requires non-empty basis-curve handles");
         basisCurves_[pair] = basisCurve;
@@ -296,33 +324,35 @@ namespace Dal {
         return 1.0 / reverse->second;
     }
 
-    double CrossCurrencyMarket_::FxForward(const CurrencyPair_& pair, const Date_& maturity) const {
-        const auto directPoints = fxForwardPoints_.find(pair);
-        if (directPoints != fxForwardPoints_.end()) {
-            const auto point = directPoints->second.find(maturity);
-            if (point != directPoints->second.end())
-                return FxSpot(pair) + point->second;
-        }
-        const auto reversePoints = fxForwardPoints_.find(pair.Reversed());
-        if (reversePoints != fxForwardPoints_.end()) {
-            const auto point = reversePoints->second.find(maturity);
-            if (point != reversePoints->second.end())
-                return 1.0 / (FxSpot(pair.Reversed()) + point->second);
-        }
-
-        const double domesticDf = DomesticDiscountCurve(pair, CollateralType_(CollateralType_::Value_::OIS))(today_, maturity);
-        const double foreignDf = ForeignDiscountCurve(pair, CollateralType_(CollateralType_::Value_::OIS))(today_, maturity);
-        REQUIRE(domesticDf > 0.0 && foreignDf > 0.0, "FX forward parity requires positive discount factors");
-        double retval = FxSpot(pair) * foreignDf / domesticDf;
+    double CrossCurrencyMarket_::BasisDiscountFactor(const CurrencyPair_& pair, const Date_& from, const Date_& to) const {
         const auto basis = basisCurves_.find(pair);
-        if (basis != basisCurves_.end())
-            retval /= (*basis->second)(today_, maturity);
-        else {
-            const auto reverseBasis = basisCurves_.find(pair.Reversed());
-            if (reverseBasis != basisCurves_.end())
-                retval *= (*reverseBasis->second)(today_, maturity);
+        if (basis != basisCurves_.end()) {
+            const double retval = (*basis->second)(from, to);
+            REQUIRE(retval > 0.0, "Cross-currency basis discount factors must be positive");
+            return retval;
         }
-        return retval;
+        const auto reverseBasis = basisCurves_.find(pair.Reversed());
+        if (reverseBasis != basisCurves_.end()) {
+            const double retval = (*reverseBasis->second)(from, to);
+            REQUIRE(retval > 0.0, "Cross-currency basis discount factors must be positive");
+            return 1.0 / retval;
+        }
+        return 1.0;
+    }
+
+    double CrossCurrencyMarket_::FxForward(const CurrencyPair_& pair, const Date_& maturity) const {
+        return FxForward(pair, today_, maturity, CollateralType_(CollateralType_::Value_::OIS));
+    }
+
+    double CrossCurrencyMarket_::FxForward(const CurrencyPair_& pair,
+                                           const Date_& from,
+                                           const Date_& maturity,
+                                           const CollateralType_& collateral) const {
+        const double domesticDf = DomesticDiscountCurve(pair, collateral)(from, maturity);
+        const double foreignDf = ForeignDiscountCurve(pair, collateral)(from, maturity);
+        const double basisDf = BasisDiscountFactor(pair, from, maturity);
+        REQUIRE(domesticDf > 0.0 && foreignDf > 0.0, "FX forward parity requires positive discount factors");
+        return FxSpot(pair) * foreignDf / (domesticDf * basisDf);
     }
 
     CrossCurrencySwap_::CrossCurrencySwap_(const Date_& tradeDate,
@@ -389,7 +419,7 @@ namespace Dal {
         REQUIRE(!spec.knotDates_.empty(), "Cross-currency calibration requires at least one basis knot date");
 
         CrossCurrencyCalibrationResult_ retval;
-        retval.market_ = spec.market_;
+        retval.market_ = MakeCalibrationMarket(spec);
 
         int evaluationsUsed = 0;
         auto residualAt = [&](double rate) {
@@ -420,13 +450,16 @@ namespace Dal {
                 "Cross-currency calibration exhausted its evaluation budget before bisection");
 
         double mid = 0.5 * (lo + hi);
+        bool converged = false;
         while (evaluationsUsed < spec.maxEvaluations_) {
             mid = 0.5 * (lo + hi);
             const double fMid = residualAt(mid);
             if (std::isnan(fMid) || std::isinf(fMid))
                 THROW("Cross-currency calibration encountered NaN/Inf during bisection");
-            if (std::fabs(fMid) <= spec.tolerance_)
+            if (std::fabs(fMid) <= spec.tolerance_) {
+                converged = true;
                 break;
+            }
             if (fLo * fMid <= 0.0) {
                 hi = mid;
                 fHi = fMid;
@@ -435,10 +468,12 @@ namespace Dal {
                 fLo = fMid;
             }
         }
+        REQUIRE(converged, "Cross-currency calibration did not converge within the evaluation budget");
 
         auto basisCurve = FlatBasisCurve(spec.basisPair_, spec.knotDates_, mid);
         retval.market_.SetBasisCurve(spec.basisPair_, basisCurve);
         retval.basisCurves_[spec.basisPair_] = basisCurve;
+        retval.fxForwardCurve_ = BuildFxForwardCurve(spec.basisPair_, spec.knotDates_, retval.market_, spec.fxForwardCollateral_);
         retval.diagnostics_ = BuildDiagnostics(spec.instruments_, retval.market_);
         return retval;
     }

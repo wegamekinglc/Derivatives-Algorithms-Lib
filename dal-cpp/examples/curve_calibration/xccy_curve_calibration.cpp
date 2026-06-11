@@ -56,8 +56,9 @@ namespace Dal {
             retval.SetCurveBlock(Ccy_("USD"), MakeXccyBlock("usd_ois", "USD", today, 0.02));
             retval.SetCurveBlock(Ccy_("EUR"), MakeXccyBlock("eur_ois", "EUR", today, 0.01));
             retval.SetFxSpot(pair, 1.10);
-            if (basisRate != 0.0)
+            if (basisRate != 0.0) {
                 retval.SetBasisCurve(pair, MakeFlatXccyCurve("usd_eur_basis", "USD", today, basisRate));
+            }
             return retval;
         }
 
@@ -87,8 +88,11 @@ namespace Dal {
         const double marketSpread = (*prototype.Precompute())(quoteMarket);
 
         CrossCurrencyCalibrationSpec_ spec;
-        spec.market_ = MakeXccyMarket(today, 0.0);
+        spec.today_ = today;
         spec.basisPair_ = CurrencyPair_(Ccy_("USD"), Ccy_("EUR"));
+        spec.domesticCurveBlock_ = MakeXccyBlock("usd_ois", "USD", today, 0.02);
+        spec.foreignCurveBlock_ = MakeXccyBlock("eur_ois", "EUR", today, 0.01);
+        spec.fxSpot_ = 1.10;
         spec.knotDates_ = {Date::AddMonths(today, 12)};
         spec.instruments_ = {Handle_<CrossCurrencySwap_>(new CrossCurrencySwap_(MakeXccySwap(today, marketSpread)))};
 

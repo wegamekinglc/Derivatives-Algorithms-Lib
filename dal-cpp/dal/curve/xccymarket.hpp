@@ -30,7 +30,6 @@ namespace Dal {
         Date_ today_;
         std::map<Ccy_, Handle_<CurveBlock_>> curveBlocks_;
         std::map<CurrencyPair_, double> fxSpots_;
-        std::map<CurrencyPair_, std::map<Date_, double>> fxForwardPoints_;
         std::map<CurrencyPair_, Handle_<DiscountCurve_>> basisCurves_;
 
     public:
@@ -46,10 +45,14 @@ namespace Dal {
                                                          const PeriodLength_& tenor,
                                                          const CollateralType_& collateral) const;
         void SetFxSpot(const CurrencyPair_& pair, double spot);
-        void SetFxForwardPoint(const CurrencyPair_& pair, const Date_& maturity, double forwardPoint);
         void SetBasisCurve(const CurrencyPair_& pair, const Handle_<DiscountCurve_>& basisCurve);
         [[nodiscard]] double FxSpot(const CurrencyPair_& pair) const;
+        [[nodiscard]] double BasisDiscountFactor(const CurrencyPair_& pair, const Date_& from, const Date_& to) const;
         [[nodiscard]] double FxForward(const CurrencyPair_& pair, const Date_& maturity) const;
+        [[nodiscard]] double FxForward(const CurrencyPair_& pair,
+                                       const Date_& from,
+                                       const Date_& maturity,
+                                       const CollateralType_& collateral) const;
     };
 
     class CrossCurrencySwap_ {
@@ -100,9 +103,19 @@ namespace Dal {
         double maxAbsResidual_ = 0.0;
     };
 
+    struct CrossCurrencyFxForwardCurve_ {
+        CurrencyPair_ pair_;
+        Vector_<Date_> dates_;
+        Vector_<> forwards_;
+    };
+
     struct CrossCurrencyCalibrationSpec_ {
-        CrossCurrencyMarket_ market_;
+        Date_ today_;
         CurrencyPair_ basisPair_;
+        Handle_<CurveBlock_> domesticCurveBlock_;
+        Handle_<CurveBlock_> foreignCurveBlock_;
+        double fxSpot_ = 0.0;
+        CollateralType_ fxForwardCollateral_ = CollateralType_(CollateralType_::Value_::OIS);
         Vector_<Handle_<CrossCurrencySwap_>> instruments_;
         Vector_<Date_> knotDates_;
         double tolerance_ = 1.0e-10;
@@ -112,6 +125,7 @@ namespace Dal {
     struct CrossCurrencyCalibrationResult_ {
         CrossCurrencyMarket_ market_;
         std::map<CurrencyPair_, Handle_<DiscountCurve_>> basisCurves_;
+        CrossCurrencyFxForwardCurve_ fxForwardCurve_;
         CrossCurrencyCalibrationDiagnostics_ diagnostics_;
     };
 
