@@ -449,7 +449,7 @@ namespace Dal {
         REQUIRE(evaluationsUsed < spec.maxEvaluations_,
                 "Cross-currency calibration exhausted its evaluation budget before bisection");
 
-        double mid = 0.5 * (lo + hi);
+        double mid = 0.0;
         bool converged = false;
         while (evaluationsUsed < spec.maxEvaluations_) {
             mid = 0.5 * (lo + hi);
