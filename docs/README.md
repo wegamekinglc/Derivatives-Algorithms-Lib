@@ -33,6 +33,12 @@ Deep dives into the quantitative methods and algorithms implemented in DAL:
   - Application to yield curve calibration
   - Regularization and smoothness penalties
 
+- **[xccy_calibration.md](methodology/xccy_calibration.md)** — Cross-Currency Calibration
+  - Cross-currency market and basis curve framework
+  - Cross-currency swap pricing and conventions
+  - Multi-instrument term structure calibration
+  - Integration with the underdetermined solver
+
 ## Documentation Conventions
 
 All documentation uses GitHub-flavored Markdown with:
