@@ -20,9 +20,6 @@
 
 using namespace Dal;
 
-namespace Dal {
-    void PrintXccyCurveCalibrationExample(const Date_& today);
-}
 
 namespace {
     Handle_<DiscountCurve_> MakeFlatDiscountCurve(const String_& name,
@@ -319,7 +316,6 @@ int main() {
     PrintScheduleContextExample();
     PrintForwardInstrumentExample(today, ccy);
     PrintMultiCurveExample(today, ccy);
-    PrintXccyCurveCalibrationExample(today);
 
     return 0;
 }

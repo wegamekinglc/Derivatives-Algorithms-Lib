@@ -10,6 +10,7 @@
 #include <dal/curve/xccymarket.hpp>
 #include <dal/curve/ycconst.hpp>
 #include <dal/protocol/accrualperiod.hpp>
+#include <dal/storage/globals.hpp>
 #include <dal/time/daybasis.hpp>
 #include <dal/time/schedules.hpp>
 
@@ -237,7 +238,7 @@ namespace Dal {
             REQUIRE(spec.domesticCurveBlock_, "Cross-currency calibration requires a domestic curve block");
             REQUIRE(spec.foreignCurveBlock_, "Cross-currency calibration requires a foreign curve block");
             REQUIRE(spec.fxSpot_ > 0.0, "Cross-currency calibration requires a positive FX spot");
-            CrossCurrencyMarket_ retval(spec.today_);
+            CrossCurrencyMarket_ retval;
             retval.SetCurveBlock(spec.basisPair_.domestic_, spec.domesticCurveBlock_);
             retval.SetCurveBlock(spec.basisPair_.foreign_, spec.foreignCurveBlock_);
             retval.SetFxSpot(spec.basisPair_, spec.fxSpot_);
@@ -276,7 +277,7 @@ namespace Dal {
         return domestic_ == rhs.domestic_ && foreign_ == rhs.foreign_;
     }
 
-    CrossCurrencyMarket_::CrossCurrencyMarket_(const Date_& today) : today_(today) {}
+    Date_ CrossCurrencyMarket_::Today() const { return Global::Dates_::EvaluationDate(); }
 
     void CrossCurrencyMarket_::SetCurveBlock(const Ccy_& ccy, const Handle_<CurveBlock_>& curveBlock) {
         REQUIRE(curveBlock, "CrossCurrencyMarket_ requires non-empty curve-block handles");
@@ -341,7 +342,7 @@ namespace Dal {
     }
 
     double CrossCurrencyMarket_::FxForward(const CurrencyPair_& pair, const Date_& maturity) const {
-        return FxForward(pair, today_, maturity, CollateralType_(CollateralType_::Value_::OIS));
+        return FxForward(pair, Today(), maturity, CollateralType_(CollateralType_::Value_::OIS));
     }
 
     double CrossCurrencyMarket_::FxForward(const CurrencyPair_& pair,

@@ -5,12 +5,16 @@
 #include <iomanip>
 #include <iostream>
 #include <dal/platform/platform.hpp>
+#include <dal/platform/initall.hpp>
 #include <dal/curve/curveblock.hpp>
 #include <dal/curve/piecewiselinear.hpp>
 #include <dal/curve/xccymarket.hpp>
 #include <dal/curve/ycimp.hpp>
 #include <dal/protocol/collateraltype.hpp>
+#include <dal/storage/globals.hpp>
 #include <dal/time/date.hpp>
+
+using namespace Dal;
 
 namespace Dal {
     namespace {
@@ -51,7 +55,7 @@ namespace Dal {
         }
 
         CrossCurrencyMarket_ MakeXccyMarket(const Date_& today, double basisRate) {
-            CrossCurrencyMarket_ retval(today);
+            CrossCurrencyMarket_ retval;
             const CurrencyPair_ pair(Ccy_("USD"), Ccy_("EUR"));
             retval.SetCurveBlock(Ccy_("USD"), MakeXccyBlock("usd_ois", "USD", today, 0.02));
             retval.SetCurveBlock(Ccy_("EUR"), MakeXccyBlock("eur_ois", "EUR", today, 0.01));
@@ -88,7 +92,6 @@ namespace Dal {
         const double marketSpread = (*prototype.Precompute())(quoteMarket);
 
         CrossCurrencyCalibrationSpec_ spec;
-        spec.today_ = today;
         spec.basisPair_ = CurrencyPair_(Ccy_("USD"), Ccy_("EUR"));
         spec.domesticCurveBlock_ = MakeXccyBlock("usd_ois", "USD", today, 0.02);
         spec.foreignCurveBlock_ = MakeXccyBlock("eur_ois", "EUR", today, 0.01);
@@ -112,3 +115,15 @@ namespace Dal {
         }
     }
 } // namespace Dal
+
+int main() {
+    RegisterAll_::Init();
+
+    const Date_ today(2024, 1, 15);
+    XGLOBAL::SetEvaluationDate(today);
+
+    PrintXccyCurveCalibrationExample(today);
+
+    return 0;
+}
+

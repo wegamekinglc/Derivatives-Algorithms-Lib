@@ -12,6 +12,7 @@
 #include <dal/curve/ycimp.hpp>
 #include <dal/curve/ycconst.hpp>
 #include <dal/protocol/collateraltype.hpp>
+#include <dal/storage/globals.hpp>
 
 using namespace Dal;
 
@@ -49,7 +50,7 @@ namespace {
     }
 
     CrossCurrencyMarket_ MakeMarket(const Date_& today, double basisRate = 0.0) {
-        CrossCurrencyMarket_ retval(today);
+        CrossCurrencyMarket_ retval;
         retval.SetCurveBlock(Ccy_("USD"), MakeBlock("usd", "USD", today, 0.02));
         retval.SetCurveBlock(Ccy_("EUR"), MakeBlock("eur", "EUR", today, 0.01));
         retval.SetFxSpot(CurrencyPair_(Ccy_("USD"), Ccy_("EUR")), 1.10);
@@ -61,7 +62,6 @@ namespace {
 
     CrossCurrencyCalibrationSpec_ MakeCalibrationSpec(const Date_& today, const CurrencyPair_& pair) {
         CrossCurrencyCalibrationSpec_ retval;
-        retval.today_ = today;
         retval.basisPair_ = pair;
         retval.domesticCurveBlock_ = MakeBlock("usd", "USD", today, 0.02);
         retval.foreignCurveBlock_ = MakeBlock("eur", "EUR", today, 0.01);
@@ -91,6 +91,7 @@ namespace {
 
 TEST(XccyMarketTest, TestFxForwardParityUsesDiscountCurves) {
     const Date_ today(2024, 1, 15);
+    const auto evalDate = XGLOBAL::SetEvaluationDateInScope(today);
     const Date_ maturity = Date::AddMonths(today, 12);
     const auto market = MakeMarket(today);
     const CurrencyPair_ pair(Ccy_("USD"), Ccy_("EUR"));
@@ -104,6 +105,7 @@ TEST(XccyMarketTest, TestFxForwardParityUsesDiscountCurves) {
 
 TEST(XccyMarketTest, TestCurveRoutingUsesDomesticAndForeignCurrencies) {
     const Date_ today(2024, 1, 15);
+    const auto evalDate = XGLOBAL::SetEvaluationDateInScope(today);
     const auto market = MakeMarket(today);
     const CurrencyPair_ pair(Ccy_("USD"), Ccy_("EUR"));
     const Date_ maturity = Date::AddMonths(today, 12);
@@ -117,6 +119,7 @@ TEST(XccyMarketTest, TestCurveRoutingUsesDomesticAndForeignCurrencies) {
 
 TEST(XccyMarketTest, TestCrossCurrencySwapParSpreadOnFlatCurves) {
     const Date_ today(2024, 1, 15);
+    const auto evalDate = XGLOBAL::SetEvaluationDateInScope(today);
     const auto market = MakeMarket(today);
     const auto swap = MakeSwap(today);
     const auto rate = swap.Precompute();
@@ -130,6 +133,7 @@ TEST(XccyMarketTest, TestCrossCurrencySwapParSpreadOnFlatCurves) {
 
 TEST(XccyMarketTest, TestCrossCurrencyCalibrationRepricesInputQuote) {
     const Date_ today(2024, 1, 15);
+    const auto evalDate = XGLOBAL::SetEvaluationDateInScope(today);
     const auto trueMarket = MakeMarket(today, 0.0020);
     const auto prototype = MakeSwap(today);
     const double marketQuote = (*prototype.Precompute())(trueMarket);
@@ -149,6 +153,7 @@ TEST(XccyMarketTest, TestCrossCurrencyCalibrationRepricesInputQuote) {
 
 TEST(XccyMarketTest, TestResettableConventionThrows) {
     const Date_ today(2024, 1, 15);
+    const auto evalDate = XGLOBAL::SetEvaluationDateInScope(today);
     CrossCurrencyConvention_ convention;
     convention.resettableNotional_ = true;
 
@@ -170,6 +175,7 @@ TEST(XccyMarketTest, TestResettableConventionThrows) {
 
 TEST(XccyMarketTest, TestCalibrationWithSingleKnotAndZeroMarketRate) {
     const Date_ today(2024, 1, 15);
+    const auto evalDate = XGLOBAL::SetEvaluationDateInScope(today);
 
     CrossCurrencyConvention_ convention;
     convention.initialNotionalExchange_ = true;
@@ -221,6 +227,7 @@ TEST(XccyMarketTest, TestCalibrationWithSingleKnotAndZeroMarketRate) {
 
 TEST(XccyMarketTest, TestCalibrationConvergesForLargerSpread) {
     const Date_ today(2024, 1, 15);
+    const auto evalDate = XGLOBAL::SetEvaluationDateInScope(today);
 
     CrossCurrencyConvention_ convention;
     convention.initialNotionalExchange_ = true;
@@ -266,6 +273,7 @@ TEST(XccyMarketTest, TestCalibrationConvergesForLargerSpread) {
 
 TEST(XccyMarketTest, TestCalibrationThrowsWhenBudgetExhaustedBeforeBisection) {
     const Date_ today(2024, 1, 15);
+    const auto evalDate = XGLOBAL::SetEvaluationDateInScope(today);
     const CurrencyPair_ pair(Ccy_("USD"), Ccy_("EUR"));
 
     CrossCurrencyCalibrationSpec_ spec = MakeCalibrationSpec(today, pair);
@@ -280,6 +288,7 @@ TEST(XccyMarketTest, TestCalibrationThrowsWhenBudgetExhaustedBeforeBisection) {
 
 TEST(XccyMarketTest, TestCalibrationRejectsMultipleInstruments) {
     const Date_ today(2024, 1, 15);
+    const auto evalDate = XGLOBAL::SetEvaluationDateInScope(today);
     const CurrencyPair_ pair(Ccy_("USD"), Ccy_("EUR"));
 
     CrossCurrencyCalibrationSpec_ spec = MakeCalibrationSpec(today, pair);

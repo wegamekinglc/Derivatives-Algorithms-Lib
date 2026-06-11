@@ -27,14 +27,13 @@ namespace Dal {
     };
 
     class CrossCurrencyMarket_ {
-        Date_ today_;
         std::map<Ccy_, Handle_<CurveBlock_>> curveBlocks_;
         std::map<CurrencyPair_, double> fxSpots_;
         std::map<CurrencyPair_, Handle_<DiscountCurve_>> basisCurves_;
 
     public:
-        explicit CrossCurrencyMarket_(const Date_& today = Date_());
-        [[nodiscard]] const Date_& Today() const { return today_; }
+        CrossCurrencyMarket_() = default;
+        [[nodiscard]] Date_ Today() const;
         void SetCurveBlock(const Ccy_& ccy, const Handle_<CurveBlock_>& curveBlock);
         [[nodiscard]] const CurveBlock_& CurveBlock(const Ccy_& ccy) const;
         [[nodiscard]] const DiscountCurve_& DomesticDiscountCurve(const CurrencyPair_& pair,
@@ -110,7 +109,6 @@ namespace Dal {
     };
 
     struct CrossCurrencyCalibrationSpec_ {
-        Date_ today_;
         CurrencyPair_ basisPair_;
         Handle_<CurveBlock_> domesticCurveBlock_;
         Handle_<CurveBlock_> foreignCurveBlock_;
