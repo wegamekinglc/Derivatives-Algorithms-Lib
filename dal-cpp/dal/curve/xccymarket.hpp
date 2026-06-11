@@ -7,13 +7,19 @@
 #include <map>
 #include <dal/platform/platform.hpp>
 #include <dal/currency/currency.hpp>
+#include <dal/curve/calibration.hpp>
 #include <dal/curve/curveblock.hpp>
+#include <dal/math/matrix/matrixs.hpp>
 #include <dal/math/vectors.hpp>
 #include <dal/protocol/rateconvention.hpp>
 #include <dal/time/date.hpp>
 
 namespace Dal {
     class DiscountCurve_;
+    class XccyCalibrationFunc_;
+    struct CrossCurrencyCalibrationSpec_;
+    struct CrossCurrencyCalibrationResult_;
+    void SetTestBasisCurve(class CrossCurrencyMarket_& market, const Handle_<DiscountCurve_>& curve);
 
     struct CurrencyPair_ {
         Ccy_ domestic_;
@@ -27,31 +33,38 @@ namespace Dal {
     };
 
     class CrossCurrencyMarket_ {
-        std::map<Ccy_, Handle_<CurveBlock_>> curveBlocks_;
-        std::map<CurrencyPair_, double> fxSpots_;
-        std::map<CurrencyPair_, Handle_<DiscountCurve_>> basisCurves_;
+        Ccy_ domesticCcy_;
+        Ccy_ foreignCcy_;
+        Handle_<CurveBlock_> domesticBlock_;
+        Handle_<CurveBlock_> foreignBlock_;
+        double fxSpot_ = 0.0;
+        Handle_<DiscountCurve_> basisCurve_;
+
+        void SetBasisCurve(const Handle_<DiscountCurve_>& basisCurve);
+
+        friend CrossCurrencyCalibrationResult_ CalibrateCrossCurrencyMarket(const CrossCurrencyCalibrationSpec_&);
+        friend class XccyCalibrationFunc_;
+        friend void SetTestBasisCurve(CrossCurrencyMarket_& market, const Handle_<DiscountCurve_>& curve);
 
     public:
-        CrossCurrencyMarket_() = default;
+        CrossCurrencyMarket_(const Handle_<CurveBlock_>& domesticBlock,
+                             const Handle_<CurveBlock_>& foreignBlock,
+                             double fxSpot);
         [[nodiscard]] Date_ Today() const;
-        void SetCurveBlock(const Ccy_& ccy, const Handle_<CurveBlock_>& curveBlock);
-        [[nodiscard]] const CurveBlock_& CurveBlock(const Ccy_& ccy) const;
-        [[nodiscard]] const DiscountCurve_& DomesticDiscountCurve(const CurrencyPair_& pair,
-                                                                  const CollateralType_& collateral) const;
-        [[nodiscard]] const DiscountCurve_& ForeignDiscountCurve(const CurrencyPair_& pair,
+        [[nodiscard]] const Ccy_& DomesticCcy() const { return domesticCcy_; }
+        [[nodiscard]] const Ccy_& ForeignCcy() const { return foreignCcy_; }
+        [[nodiscard]] const CurveBlock_& DomesticBlock() const { return *domesticBlock_; }
+        [[nodiscard]] const CurveBlock_& ForeignBlock() const { return *foreignBlock_; }
+        [[nodiscard]] const DiscountCurve_& DomesticDiscountCurve(const CollateralType_& collateral) const;
+        [[nodiscard]] const DiscountCurve_& ForeignDiscountCurve(const CollateralType_& collateral) const;
+        [[nodiscard]] const DiscountCurve_& DomesticForwardCurve(const PeriodLength_& tenor,
                                                                  const CollateralType_& collateral) const;
-        [[nodiscard]] const DiscountCurve_& ForwardCurve(const Ccy_& ccy,
-                                                         const PeriodLength_& tenor,
-                                                         const CollateralType_& collateral) const;
-        void SetFxSpot(const CurrencyPair_& pair, double spot);
-        void SetBasisCurve(const CurrencyPair_& pair, const Handle_<DiscountCurve_>& basisCurve);
-        [[nodiscard]] double FxSpot(const CurrencyPair_& pair) const;
-        [[nodiscard]] double BasisDiscountFactor(const CurrencyPair_& pair, const Date_& from, const Date_& to) const;
-        [[nodiscard]] double FxForward(const CurrencyPair_& pair, const Date_& maturity) const;
-        [[nodiscard]] double FxForward(const CurrencyPair_& pair,
-                                       const Date_& from,
-                                       const Date_& maturity,
-                                       const CollateralType_& collateral) const;
+        [[nodiscard]] const DiscountCurve_& ForeignForwardCurve(const PeriodLength_& tenor,
+                                                                const CollateralType_& collateral) const;
+        [[nodiscard]] double FxSpot() const { return fxSpot_; }
+        [[nodiscard]] double BasisDiscountFactor(const Date_& from, const Date_& to) const;
+        [[nodiscard]] double FxForward(const Date_& maturity) const;
+        [[nodiscard]] double FxForward(const Date_& from, const Date_& maturity, const CollateralType_& collateral) const;
     };
 
     class CrossCurrencySwap_ {
@@ -99,7 +112,10 @@ namespace Dal {
         Vector_<> marketRates_;
         Vector_<> modelRates_;
         Vector_<> residuals_;
+        Matrix_<> effJacobianInverse_;
         double maxAbsResidual_ = 0.0;
+        double rmsResidual_ = 0.0;
+        bool usedApproximateFit_ = false;
     };
 
     struct CrossCurrencyFxForwardCurve_ {
@@ -116,8 +132,13 @@ namespace Dal {
         CollateralType_ fxForwardCollateral_ = CollateralType_(CollateralType_::Value_::OIS);
         Vector_<Handle_<CrossCurrencySwap_>> instruments_;
         Vector_<Date_> knotDates_;
+        double smoothingWeight_ = 1.0;
         double tolerance_ = 1.0e-10;
-        int maxEvaluations_ = 100;
+        double fitTolerance_ = 1.0e-6;
+        double initialGuess_ = 0.0;
+        int maxEvaluations_ = 200;
+        int maxRestarts_ = 20;
+        CurveSolveMode_ solveMode_ = CurveSolveMode_::Value_::EXACT;
     };
 
     struct CrossCurrencyCalibrationResult_ {
@@ -125,6 +146,12 @@ namespace Dal {
         std::map<CurrencyPair_, Handle_<DiscountCurve_>> basisCurves_;
         CrossCurrencyFxForwardCurve_ fxForwardCurve_;
         CrossCurrencyCalibrationDiagnostics_ diagnostics_;
+
+        CrossCurrencyCalibrationResult_(const CrossCurrencyMarket_& market,
+                                        const std::map<CurrencyPair_, Handle_<DiscountCurve_>>& basisCurves,
+                                        const CrossCurrencyFxForwardCurve_& fxForwardCurve,
+                                        const CrossCurrencyCalibrationDiagnostics_& diagnostics)
+            : market_(market), basisCurves_(basisCurves), fxForwardCurve_(fxForwardCurve), diagnostics_(diagnostics) {}
     };
 
     CrossCurrencyCalibrationResult_ CalibrateCrossCurrencyMarket(const CrossCurrencyCalibrationSpec_& spec);
