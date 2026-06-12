@@ -174,6 +174,19 @@ TEST(XccyMarketTest, TestConstructorRejectsSameCurrencies) {
     ASSERT_THROW(static_cast<void>(CrossCurrencyMarket_(block1, block2, 1.10)), Dal::Exception_);
 }
 
+TEST(XccyMarketTest, TestSetBasisCurveRejectsForeignCurrency) {
+    const Date_ today(2024, 1, 15);
+    const auto evalDate = XGLOBAL::SetEvaluationDateInScope(today);
+    auto market = MakeMarket(today);
+
+    // The basis discount factor is applied to the domestic leg, so a basis
+    // curve in any other currency would silently misprice swaps and FX
+    // forwards and must be rejected.
+    ASSERT_THROW(market.SetBasisCurve(MakeFlatCurve("basis", "EUR", today, 0.002)), Dal::Exception_);
+    market.SetBasisCurve(MakeFlatCurve("basis", "USD", today, 0.002));
+    ASSERT_LT(market.BasisDiscountFactor(today, Date::AddMonths(today, 12)), 1.0);
+}
+
 TEST(XccyMarketTest, TestCrossCurrencySwapParSpreadIndependentOfQuotedRate) {
     const Date_ today(2024, 1, 15);
     const auto evalDate = XGLOBAL::SetEvaluationDateInScope(today);

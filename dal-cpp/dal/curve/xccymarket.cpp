@@ -391,6 +391,8 @@ namespace Dal {
 
     void CrossCurrencyMarket_::SetBasisCurve(const Handle_<DiscountCurve_>& basisCurve) {
         REQUIRE(basisCurve, "CrossCurrencyMarket_ requires a non-empty basis curve handle");
+        REQUIRE(basisCurve->ccy_ == domesticCcy_,
+                "Cross-currency basis curve currency must match the market's domestic currency");
         basisCurve_ = basisCurve;
     }
 
