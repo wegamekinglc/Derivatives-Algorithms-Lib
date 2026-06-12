@@ -325,9 +325,9 @@ namespace Dal {
     CurrencyPair_ CurrencyPair_::Reversed() const { return CurrencyPair_(foreign_, domestic_); }
 
     bool CurrencyPair_::operator<(const CurrencyPair_& rhs) const {
-        if (domestic_.String() != rhs.domestic_.String())
-            return domestic_.String() < rhs.domestic_.String();
-        return foreign_.String() < rhs.foreign_.String();
+        if (domestic_ < rhs.domestic_ || rhs.domestic_ < domestic_)
+            return domestic_ < rhs.domestic_;
+        return foreign_ < rhs.foreign_;
     }
 
     bool CurrencyPair_::operator==(const CurrencyPair_& rhs) const {

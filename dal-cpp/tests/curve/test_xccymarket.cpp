@@ -4,6 +4,7 @@
 
 #include <gtest/gtest.h>
 #include <cmath>
+#include <map>
 #include <dal/platform/platform.hpp>
 #include <dal/curve/curveblock.hpp>
 #include <dal/curve/piecewiselinear.hpp>
@@ -186,6 +187,30 @@ TEST(XccyMarketTest, TestCrossCurrencySwapParSpreadIndependentOfQuotedRate) {
     // not depend on the swap's quoted MarketRate.
     ASSERT_NEAR(parSpreadLargeQuote, parSpreadZeroQuote, 1e-10);
     ASSERT_NEAR(parSpreadNegativeQuote, parSpreadZeroQuote, 1e-10);
+}
+
+TEST(XccyMarketTest, TestCurrencyPairOrderingAndMapKey) {
+    const CurrencyPair_ usdEur(Ccy_("USD"), Ccy_("EUR"));
+    const CurrencyPair_ eurUsd(Ccy_("EUR"), Ccy_("USD"));
+    const CurrencyPair_ usdGbp(Ccy_("USD"), Ccy_("GBP"));
+
+    // Strict-weak ordering: exactly one of a<b, b<a holds for distinct pairs.
+    ASSERT_NE(usdEur < eurUsd, eurUsd < usdEur);
+    ASSERT_NE(usdEur < usdGbp, usdGbp < usdEur);
+
+    // Equal pairs are not ordered either way.
+    ASSERT_FALSE(usdEur < CurrencyPair_(Ccy_("USD"), Ccy_("EUR")));
+    ASSERT_FALSE(CurrencyPair_(Ccy_("USD"), Ccy_("EUR")) < usdEur);
+
+    // Usable as a std::map key with distinct entries.
+    std::map<CurrencyPair_, int> byPair;
+    byPair[usdEur] = 1;
+    byPair[eurUsd] = 2;
+    byPair[usdGbp] = 3;
+    ASSERT_EQ(byPair.size(), 3u);
+    ASSERT_EQ(byPair[usdEur], 1);
+    ASSERT_EQ(byPair[eurUsd], 2);
+    ASSERT_EQ(byPair[usdGbp], 3);
 }
 
 TEST(XccyMarketTest, TestSwapPricingRejectsMismatchedPair) {
