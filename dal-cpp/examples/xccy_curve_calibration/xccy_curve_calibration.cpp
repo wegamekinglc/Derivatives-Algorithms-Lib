@@ -55,13 +55,13 @@ namespace Dal {
         }
 
         CrossCurrencyMarket_ MakeXccyMarket(const Date_& today, double basisRate) {
-            CrossCurrencyMarket_ retval;
             const CurrencyPair_ pair(Ccy_("USD"), Ccy_("EUR"));
-            retval.SetCurveBlock(Ccy_("USD"), MakeXccyBlock("usd_ois", "USD", today, 0.02));
-            retval.SetCurveBlock(Ccy_("EUR"), MakeXccyBlock("eur_ois", "EUR", today, 0.01));
-            retval.SetFxSpot(pair, 1.10);
+            auto usdBlock = MakeXccyBlock("usd_ois", "USD", today, 0.02);
+            auto eurBlock = MakeXccyBlock("eur_ois", "EUR", today, 0.01);
+
+            CrossCurrencyMarket_ retval(usdBlock, eurBlock, 1.10);
             if (basisRate != 0.0) {
-                retval.SetBasisCurve(pair, MakeFlatXccyCurve("usd_eur_basis", "USD", today, basisRate));
+                SetTestBasisCurve(retval, MakeFlatXccyCurve("usd_eur_basis", "USD", today, basisRate));
             }
             return retval;
         }
