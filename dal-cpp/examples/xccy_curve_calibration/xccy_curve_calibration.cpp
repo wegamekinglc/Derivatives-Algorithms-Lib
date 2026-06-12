@@ -55,13 +55,12 @@ namespace Dal {
         }
 
         CrossCurrencyMarket_ MakeXccyMarket(const Date_& today, double basisRate) {
-            const CurrencyPair_ pair(Ccy_("USD"), Ccy_("EUR"));
             auto usdBlock = MakeXccyBlock("usd_ois", "USD", today, 0.02);
             auto eurBlock = MakeXccyBlock("eur_ois", "EUR", today, 0.01);
 
             CrossCurrencyMarket_ retval(usdBlock, eurBlock, 1.10);
             if (basisRate != 0.0) {
-                SetTestBasisCurve(retval, MakeFlatXccyCurve("usd_eur_basis", "USD", today, basisRate));
+                retval.SetBasisCurve(MakeFlatXccyCurve("usd_eur_basis", "USD", today, basisRate));
             }
             return retval;
         }
@@ -71,6 +70,10 @@ namespace Dal {
             convention.initialNotionalExchange_ = true;
             convention.finalNotionalExchange_ = true;
             convention.spreadOnForeignLeg_ = true;
+            convention.domesticIndex_ = MakeXccyIndex();
+            convention.domesticLeg_ = MakeXccyLeg();
+            convention.foreignIndex_ = MakeXccyIndex();
+            convention.foreignLeg_ = MakeXccyLeg();
             return CrossCurrencySwap_(today,
                                       today,
                                       Date::AddMonths(today, 12),
@@ -78,10 +81,6 @@ namespace Dal {
                                       CurrencyPair_(Ccy_("USD"), Ccy_("EUR")),
                                       110.0,
                                       100.0,
-                                      MakeXccyIndex(),
-                                      MakeXccyLeg(),
-                                      MakeXccyIndex(),
-                                      MakeXccyLeg(),
                                       convention);
         }
     } // namespace

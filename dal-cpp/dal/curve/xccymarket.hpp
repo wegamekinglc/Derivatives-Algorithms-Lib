@@ -16,10 +16,6 @@
 
 namespace Dal {
     class DiscountCurve_;
-    class XccyCalibrationFunc_;
-    struct CrossCurrencyCalibrationSpec_;
-    struct CrossCurrencyCalibrationResult_;
-    void SetTestBasisCurve(class CrossCurrencyMarket_& market, const Handle_<DiscountCurve_>& curve);
 
     struct CurrencyPair_ {
         Ccy_ domestic_;
@@ -40,16 +36,11 @@ namespace Dal {
         double fxSpot_ = 0.0;
         Handle_<DiscountCurve_> basisCurve_;
 
-        void SetBasisCurve(const Handle_<DiscountCurve_>& basisCurve);
-
-        friend CrossCurrencyCalibrationResult_ CalibrateCrossCurrencyMarket(const CrossCurrencyCalibrationSpec_&);
-        friend class XccyCalibrationFunc_;
-        friend void SetTestBasisCurve(CrossCurrencyMarket_& market, const Handle_<DiscountCurve_>& curve);
-
     public:
         CrossCurrencyMarket_(const Handle_<CurveBlock_>& domesticBlock,
                              const Handle_<CurveBlock_>& foreignBlock,
                              double fxSpot);
+        void SetBasisCurve(const Handle_<DiscountCurve_>& basisCurve);
         [[nodiscard]] Date_ Today() const;
         [[nodiscard]] const Ccy_& DomesticCcy() const { return domesticCcy_; }
         [[nodiscard]] const Ccy_& ForeignCcy() const { return foreignCcy_; }
@@ -82,10 +73,6 @@ namespace Dal {
         CurrencyPair_ pair_;
         double domesticNotional_;
         double foreignNotional_;
-        RateIndexConvention_ domesticIndexConvention_;
-        RateLegConvention_ domesticLegConvention_;
-        RateIndexConvention_ foreignIndexConvention_;
-        RateLegConvention_ foreignLegConvention_;
         CrossCurrencyConvention_ convention_;
 
     public:
@@ -96,10 +83,6 @@ namespace Dal {
                            const CurrencyPair_& pair,
                            double domesticNotional,
                            double foreignNotional,
-                           const RateIndexConvention_& domesticIndexConvention,
-                           const RateLegConvention_& domesticLegConvention,
-                           const RateIndexConvention_& foreignIndexConvention,
-                           const RateLegConvention_& foreignLegConvention,
                            const CrossCurrencyConvention_& convention = CrossCurrencyConvention_());
         [[nodiscard]] String_ Name() const;
         [[nodiscard]] pair<Date_, Date_> TimeSpan() const;

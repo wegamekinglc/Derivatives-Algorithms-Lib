@@ -40,8 +40,6 @@ namespace Dal {
         bool markToMarketNotional_ = false;
         bool initialNotionalExchange_ = false;
         bool finalNotionalExchange_ = false;
-        int fxFixingLag_ = 0;
-        Holidays_ fxFixingHolidays_ = Holidays_("");
         bool spreadOnForeignLeg_ = true;
         RateIndexConvention_ domesticIndex_;
         RateLegConvention_ domesticLeg_;

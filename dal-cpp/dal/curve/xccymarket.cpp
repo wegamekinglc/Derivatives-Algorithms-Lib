@@ -66,14 +66,14 @@ namespace Dal {
         double CouponPv(const Vector_<XccyCouponPeriod_>& periods,
                         const DiscountCurve_& discount,
                         const DiscountCurve_& forecast,
-                        const Date_& tradeDate,
+                        const Date_& valueDate,
                         double notional,
                         const RateIndexConvention_& indexConvention,
                         double spread) {
             double retval = 0.0;
             for (const auto& period : periods) {
                 const double fixing = ForwardRate(forecast, period, indexConvention.dayBasis_) + spread;
-                retval += notional * fixing * period.accrual_.dcf_ * discount(tradeDate, period.schedule_.paymentDate_);
+                retval += notional * fixing * period.accrual_.dcf_ * discount(valueDate, period.schedule_.paymentDate_);
             }
             return retval;
         }
@@ -82,15 +82,15 @@ namespace Dal {
                                  const CrossCurrencyMarket_& market,
                                  const DiscountCurve_& discount,
                                  const DiscountCurve_& forecast,
-                                 const Date_& tradeDate,
+                                 const Date_& valueDate,
                                  double notional,
                                  const RateIndexConvention_& indexConvention,
                                  double spread) {
             double retval = 0.0;
             for (const auto& period : periods) {
                 const double fixing = ForwardRate(forecast, period, indexConvention.dayBasis_) + spread;
-                const double discountFactor = discount(tradeDate, period.schedule_.paymentDate_)
-                                              / market.BasisDiscountFactor(tradeDate, period.schedule_.paymentDate_);
+                const double discountFactor = discount(valueDate, period.schedule_.paymentDate_)
+                                              / market.BasisDiscountFactor(valueDate, period.schedule_.paymentDate_);
                 retval += notional * fixing * period.accrual_.dcf_ * discountFactor * market.FxSpot();
             }
             return retval;
@@ -99,12 +99,12 @@ namespace Dal {
         double ConvertedAnnuity(const Vector_<XccyCouponPeriod_>& periods,
                                 const CrossCurrencyMarket_& market,
                                 const DiscountCurve_& discount,
-                                const Date_& tradeDate,
+                                const Date_& valueDate,
                                 double notional) {
             double retval = 0.0;
             for (const auto& period : periods) {
-                const double discountFactor = discount(tradeDate, period.schedule_.paymentDate_)
-                                              / market.BasisDiscountFactor(tradeDate, period.schedule_.paymentDate_);
+                const double discountFactor = discount(valueDate, period.schedule_.paymentDate_)
+                                              / market.BasisDiscountFactor(valueDate, period.schedule_.paymentDate_);
                 retval += notional * period.accrual_.dcf_ * discountFactor * market.FxSpot();
             }
             return retval;
@@ -112,16 +112,15 @@ namespace Dal {
 
         double DomesticAnnuity(const Vector_<XccyCouponPeriod_>& periods,
                                const DiscountCurve_& discount,
-                               const Date_& tradeDate) {
+                               const Date_& valueDate) {
             double retval = 0.0;
             for (const auto& period : periods) {
-                retval += period.accrual_.dcf_ * discount(tradeDate, period.schedule_.paymentDate_);
+                retval += period.accrual_.dcf_ * discount(valueDate, period.schedule_.paymentDate_);
             }
             return retval;
         }
 
         class CrossCurrencySwapRate_ : public CrossCurrencySwap_::Rate_ {
-            Date_ tradeDate_;
             Date_ maturity_;
             CurrencyPair_ pair_;
             double domesticNotional_;
@@ -133,8 +132,7 @@ namespace Dal {
             CrossCurrencyConvention_ convention_;
 
         public:
-            CrossCurrencySwapRate_(const Date_& tradeDate,
-                                   const Date_& maturity,
+            CrossCurrencySwapRate_(const Date_& maturity,
                                    const CurrencyPair_& pair,
                                    double domesticNotional,
                                    double foreignNotional,
@@ -143,8 +141,7 @@ namespace Dal {
                                    const RateIndexConvention_& domesticIndexConvention,
                                    const RateIndexConvention_& foreignIndexConvention,
                                    const CrossCurrencyConvention_& convention)
-                : tradeDate_(tradeDate),
-                  maturity_(maturity),
+                : maturity_(maturity),
                   pair_(pair),
                   domesticNotional_(domesticNotional),
                   foreignNotional_(foreignNotional),
@@ -155,6 +152,9 @@ namespace Dal {
                   convention_(convention) {}
 
             double operator()(const CrossCurrencyMarket_& market) const override {
+                REQUIRE(pair_.domestic_ == market.DomesticCcy() && pair_.foreign_ == market.ForeignCcy(),
+                        "Cross-currency swap currency pair does not match the pricing market orientation");
+                const Date_ valueDate = market.Today();
                 const DiscountCurve_& domesticDiscount = market.DomesticDiscountCurve(domesticIndexConvention_.collateral_);
                 const DiscountCurve_& domesticForecast = market.DomesticForwardCurve(domesticIndexConvention_.forecastTenor_,
                                                                                      domesticIndexConvention_.collateral_);
@@ -165,23 +165,23 @@ namespace Dal {
                 const double domesticBase = CouponPv(domesticPeriods_,
                                                      domesticDiscount,
                                                      domesticForecast,
-                                                     tradeDate_,
+                                                     valueDate,
                                                      domesticNotional_,
                                                      domesticIndexConvention_,
                                                      0.0);
-                const double domesticSpreadAnnuity = domesticNotional_ * DomesticAnnuity(domesticPeriods_, domesticDiscount, tradeDate_);
+                const double domesticSpreadAnnuity = domesticNotional_ * DomesticAnnuity(domesticPeriods_, domesticDiscount, valueDate);
                 const double foreignBase = ConvertedCouponPv(foreignPeriods_,
                                                              market,
                                                              foreignDiscount,
                                                              foreignForecast,
-                                                             tradeDate_,
+                                                             valueDate,
                                                              foreignNotional_,
                                                              foreignIndexConvention_,
                                                              0.0);
                 const double foreignSpreadAnnuity = ConvertedAnnuity(foreignPeriods_,
                                                                      market,
                                                                      foreignDiscount,
-                                                                     tradeDate_,
+                                                                     valueDate,
                                                                      foreignNotional_);
 
                 double domesticPv = domesticBase;
@@ -191,9 +191,9 @@ namespace Dal {
                     foreignPv -= foreignNotional_ * market.FxSpot();
                 }
                 if (convention_.finalNotionalExchange_) {
-                    domesticPv += domesticNotional_ * domesticDiscount(tradeDate_, maturity_);
-                    foreignPv += foreignNotional_ * foreignDiscount(tradeDate_, maturity_)
-                                 / market.BasisDiscountFactor(tradeDate_, maturity_) * market.FxSpot();
+                    domesticPv += domesticNotional_ * domesticDiscount(valueDate, maturity_);
+                    foreignPv += foreignNotional_ * foreignDiscount(valueDate, maturity_)
+                                 / market.BasisDiscountFactor(valueDate, maturity_) * market.FxSpot();
                 }
 
                 if (convention_.spreadOnForeignLeg_) {
@@ -245,6 +245,10 @@ namespace Dal {
             REQUIRE(spec.domesticCurveBlock_, "Cross-currency calibration requires a domestic curve block");
             REQUIRE(spec.foreignCurveBlock_, "Cross-currency calibration requires a foreign curve block");
             REQUIRE(spec.fxSpot_ > 0.0, "Cross-currency calibration requires a positive FX spot");
+            REQUIRE(spec.basisPair_.domestic_ == spec.domesticCurveBlock_->ccy_,
+                    "Cross-currency calibration basis pair domestic currency must match the domestic curve block");
+            REQUIRE(spec.basisPair_.foreign_ == spec.foreignCurveBlock_->ccy_,
+                    "Cross-currency calibration basis pair foreign currency must match the foreign curve block");
         }
 
         CrossCurrencyFxForwardCurve_ BuildFxForwardCurve(const CurrencyPair_& pair,
@@ -307,10 +311,6 @@ namespace Dal {
             return result;
         }
     };
-
-    void SetTestBasisCurve(CrossCurrencyMarket_& market, const Handle_<DiscountCurve_>& curve) {
-        market.SetBasisCurve(curve);
-    }
 
     CurrencyPair_::CurrencyPair_() : domestic_(Ccy_::Value_::USD), foreign_(Ccy_::Value_::EUR) {}
 
@@ -394,10 +394,6 @@ namespace Dal {
                                            const CurrencyPair_& pair,
                                            double domesticNotional,
                                            double foreignNotional,
-                                           const RateIndexConvention_& domesticIndexConvention,
-                                           const RateLegConvention_& domesticLegConvention,
-                                           const RateIndexConvention_& foreignIndexConvention,
-                                           const RateLegConvention_& foreignLegConvention,
                                            const CrossCurrencyConvention_& convention)
         : tradeDate_(tradeDate),
           start_(start),
@@ -406,10 +402,6 @@ namespace Dal {
           pair_(pair),
           domesticNotional_(domesticNotional),
           foreignNotional_(foreignNotional),
-          domesticIndexConvention_(domesticIndexConvention),
-          domesticLegConvention_(domesticLegConvention),
-          foreignIndexConvention_(foreignIndexConvention),
-          foreignLegConvention_(foreignLegConvention),
           convention_(convention) {
         REQUIRE(domesticNotional_ > 0.0 && foreignNotional_ > 0.0, "CrossCurrencySwap_ requires positive notionals");
         REQUIRE(maturity_ > start_, "CrossCurrencySwap_ requires maturity after start");
@@ -424,23 +416,22 @@ namespace Dal {
         REQUIRE(!convention_.markToMarketNotional_, "Mark-to-market cross-currency notionals are not implemented");
         const auto domesticPeriods = BuildLegPeriods(start_,
                                                      maturity_,
-                                                     domesticLegConvention_,
-                                                     domesticIndexConvention_.fixingLag_,
-                                                     domesticIndexConvention_.fixingHolidays_);
+                                                     convention_.domesticLeg_,
+                                                     convention_.domesticIndex_.fixingLag_,
+                                                     convention_.domesticIndex_.fixingHolidays_);
         const auto foreignPeriods = BuildLegPeriods(start_,
                                                     maturity_,
-                                                    foreignLegConvention_,
-                                                    foreignIndexConvention_.fixingLag_,
-                                                    foreignIndexConvention_.fixingHolidays_);
-        return Handle_<Rate_>(new CrossCurrencySwapRate_(tradeDate_,
-                                                         maturity_,
+                                                    convention_.foreignLeg_,
+                                                    convention_.foreignIndex_.fixingLag_,
+                                                    convention_.foreignIndex_.fixingHolidays_);
+        return Handle_<Rate_>(new CrossCurrencySwapRate_(maturity_,
                                                          pair_,
                                                          domesticNotional_,
                                                          foreignNotional_,
                                                          domesticPeriods,
                                                          foreignPeriods,
-                                                         domesticIndexConvention_,
-                                                         foreignIndexConvention_,
+                                                         convention_.domesticIndex_,
+                                                         convention_.foreignIndex_,
                                                          convention_));
     }
 
