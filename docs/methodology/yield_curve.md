@@ -11,29 +11,28 @@ A single-currency interest-rate curve is captured by the **discount factor**
 $P(t_0, T)$ — today's value of one unit of currency paid at $T$. Everything else
 is derived from it.
 
+The library parameterises the curve by the **instantaneous forward rate $f(t)$**.
+Time is measured in days, and the day-count integral is annualised by dividing by
+$365$, so the discount factor is
+
+$$
+P(t_0, T) = \exp\!\left( -\frac{1}{365}\int_{t_0}^{T} f(t)\,dt \right).
+$$
+
+All other objects follow from this single definition.
+
 - **Instantaneous forward rate** $f(t)$ is the continuously-compounded rate for an
-  infinitesimal period at $t$:
+  infinitesimal period at $t$; it is the quantity integrated above.
 
-  $$
-  P(t_0, T) = \exp\!\left( -\int_{t_0}^{T} f(t)\,dt \right).
-  $$
-
-- **Zero (spot) rate** $z(T)$ is the constant rate giving the same discount
-  factor: $P(t_0,T) = e^{-z(T)\,(T-t_0)}$, so $z(T) = \tfrac{1}{T-t_0}\int f\,dt$.
+- **Zero (spot) rate** $z(T)$ is the constant rate giving the same discount factor.
+  With $\tau = (T-t_0)/365$ the year fraction, $P(t_0,T) = e^{-z(T)\,\tau}$, so
+  $z(T) = \tfrac{1}{T-t_0}\int_{t_0}^{T} f\,dt$.
 
 - **Forward discount factor** between two future dates follows from the ratio:
 
   $$
-  P(t_1, t_2) = \frac{P(t_0, t_2)}{P(t_0, t_1)} = \exp\!\left( -\int_{t_1}^{t_2} f(t)\,dt \right).
+  P(t_1, t_2) = \frac{P(t_0, t_2)}{P(t_0, t_1)} = \exp\!\left( -\frac{1}{365}\int_{t_1}^{t_2} f(t)\,dt \right).
   $$
-
-The library parameterises the curve by the **instantaneous forward rate $f(t)$**
-and obtains discount factors by integration. Time is measured in days and
-annualised by dividing the day-count integral by $365$, so
-
-$$
-P(t_1, t_2) = \exp\!\left( -\frac{1}{365}\int_{t_1}^{t_2} f(t)\,dt \right).
-$$
 
 Choosing $f$ as the state variable makes the integral — and therefore every
 discount factor — a closed-form function of the curve parameters, which is what
@@ -44,8 +43,8 @@ makes both calibration and AAD sensitivities efficient.
 The forward curve $f(t)$ is described by a small number of parameters anchored at
 **knot dates** $t_1 < t_2 < \dots < t_K$. Two parameterisations are used; both
 precompute the cumulative integral $S(t) = \int_{t_0}^{t} f(u)\,du$ at each knot so
-that a discount factor is a single subtraction $S(t_2) - S(t_1)$ followed by an
-exponential.
+that a discount factor is a single subtraction and scaling, $P(t_1,t_2) =
+\exp\!\big(-(S(t_2) - S(t_1))/365\big)$.
 
 ### Piecewise-Constant Forwards
 
