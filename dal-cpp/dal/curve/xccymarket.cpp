@@ -191,8 +191,11 @@ namespace Dal {
                 double domesticPv = domesticBase;
                 double foreignPv = foreignBase;
                 if (convention_.initialNotionalExchange_) {
-                    domesticPv -= domesticNotional_;
-                    foreignPv -= foreignNotional_ * market.FxSpot();
+                    const Date_ domesticStart = domesticPeriods_.front().schedule_.accrualStart_;
+                    const Date_ foreignStart = foreignPeriods_.front().schedule_.accrualStart_;
+                    domesticPv -= domesticNotional_ * domesticDiscount(valueDate, domesticStart);
+                    foreignPv -= foreignNotional_ * foreignDiscount(valueDate, foreignStart)
+                                 / market.BasisDiscountFactor(valueDate, foreignStart) * market.FxSpot();
                 }
                 if (convention_.finalNotionalExchange_) {
                     domesticPv += domesticNotional_ * domesticDiscount(valueDate, maturity_);

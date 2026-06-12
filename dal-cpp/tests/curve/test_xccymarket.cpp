@@ -283,6 +283,33 @@ TEST(XccyMarketTest, TestParSpreadAnchoredToEvaluationDateNotTradeDate) {
     ASSERT_NEAR(spreadTradedToday, spreadTradedEarlier, 1e-10);
 }
 
+TEST(XccyMarketTest, TestForwardStartingParFloatersHaveZeroParSpread) {
+    const Date_ today(2024, 1, 15);
+    const auto evalDate = XGLOBAL::SetEvaluationDateInScope(today);
+    const auto market = MakeMarket(today);
+
+    // Single curve per currency (forecast == discount) and zero basis make each
+    // leg a par floating-rate note: floating coupons plus the final notional
+    // exchange minus the initial notional exchange must value to zero. This
+    // holds for a forward-starting swap only when the initial exchange is
+    // discounted to its start date the same way the final exchange is, so the
+    // model par spread must be zero even though the evaluation date precedes
+    // the accrual start.
+    const Date_ start = Date::AddMonths(today, 6);
+    const Date_ maturity = Date::AddMonths(today, 18);
+    const CrossCurrencySwap_ forwardStarting(today,
+                                             start,
+                                             maturity,
+                                             0.0,
+                                             CurrencyPair_(Ccy_("USD"), Ccy_("EUR")),
+                                             110.0,
+                                             100.0,
+                                             MakeConvention());
+
+    ASSERT_GT(start, today);
+    ASSERT_NEAR((*forwardStarting.Precompute())(market), 0.0, 1e-10);
+}
+
 TEST(XccyMarketTest, TestCrossCurrencyCalibrationRepricesInputQuote) {
     const Date_ today(2024, 1, 15);
     const auto evalDate = XGLOBAL::SetEvaluationDateInScope(today);
