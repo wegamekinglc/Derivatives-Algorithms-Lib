@@ -446,6 +446,11 @@ namespace Dal {
         REQUIRE(std::isfinite(spec.initialGuess_), "Cross-currency calibration initial guess must be finite");
         ValidateCalibrationSpec(spec);
 
+        const Date_ evalDate = Global::Dates_::EvaluationDate();
+        REQUIRE(spec.knotDates_.front() > evalDate, "Cross-currency calibration basis knot dates must be after the evaluation date");
+        for (int i = 1; i < static_cast<int>(spec.knotDates_.size()); ++i)
+            REQUIRE(spec.knotDates_[i] > spec.knotDates_[i - 1], "Cross-currency calibration basis knot dates must be strictly increasing");
+
         const int nKnots = static_cast<int>(spec.knotDates_.size());
         const int nInstruments = static_cast<int>(spec.instruments_.size());
 

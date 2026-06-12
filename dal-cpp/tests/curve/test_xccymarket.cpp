@@ -508,4 +508,22 @@ TEST(XccyMarketTest, TestCalibrationRejectsInvalidSpec) {
         spec.basisPair_ = CurrencyPair_(Ccy_("GBP"), Ccy_("EUR"));
         ASSERT_THROW(static_cast<void>(CalibrateCrossCurrencyMarket(spec)), Dal::Exception_);
     }
+    {
+        CrossCurrencyCalibrationSpec_ spec = MakeCalibrationSpec(today, pair);
+        spec.instruments_ = {Handle_<CrossCurrencySwap_>(new CrossCurrencySwap_(MakeSwap(today, 0.0020)))};
+        spec.knotDates_ = {today};
+        ASSERT_THROW(static_cast<void>(CalibrateCrossCurrencyMarket(spec)), Dal::Exception_);
+    }
+    {
+        CrossCurrencyCalibrationSpec_ spec = MakeCalibrationSpec(today, pair);
+        spec.instruments_ = {Handle_<CrossCurrencySwap_>(new CrossCurrencySwap_(MakeSwap(today, 0.0020)))};
+        spec.knotDates_ = {Date::AddMonths(today, 24), Date::AddMonths(today, 12)};
+        ASSERT_THROW(static_cast<void>(CalibrateCrossCurrencyMarket(spec)), Dal::Exception_);
+    }
+    {
+        CrossCurrencyCalibrationSpec_ spec = MakeCalibrationSpec(today, pair);
+        spec.instruments_ = {Handle_<CrossCurrencySwap_>(new CrossCurrencySwap_(MakeSwap(today, 0.0020)))};
+        spec.knotDates_ = {Date::AddMonths(today, 12), Date::AddMonths(today, 12)};
+        ASSERT_THROW(static_cast<void>(CalibrateCrossCurrencyMarket(spec)), Dal::Exception_);
+    }
 }
