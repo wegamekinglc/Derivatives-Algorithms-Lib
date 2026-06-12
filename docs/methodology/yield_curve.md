@@ -1,422 +1,202 @@
-# Yield Curve Construction Methods
+# Yield Curve Construction
 
-Documentation of the yield curve framework in `dal-cpp/dal/curve/`.
+This note describes the mathematics of the yield-curve framework: how discount
+factors are represented, how a curve is parameterised, and how it is calibrated
+to market instruments. The emphasis is on the financial mathematics and the
+construction algorithm, not on the code that implements them.
 
-## File Map
+## Mathematical Objects
 
-| File                                                                                 | Purpose                                                                                      |
-|--------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------|
-| `dal-cpp/dal/curve/yc.hpp`, `dal-cpp/dal/curve/yc.cpp`                               | `YieldCurve_` — top-level curve abstraction (currency, discount access, LIBOR forecast)      |
-| `dal-cpp/dal/curve/yccomponent.hpp`, `dal-cpp/dal/curve/yccomponent.cpp`             | `YCComponent_` — base for all curve components with dependency tracking and cloning          |
-| `dal-cpp/dal/curve/discount.hpp`, `dal-cpp/dal/curve/discount.cpp`                   | `DiscountCurve_` — abstract discount factor interface                                        |
-| `dal-cpp/dal/curve/ycimp.hpp`, `dal-cpp/dal/curve/ycimp.cpp`                         | `DiscountPWLF_` — concrete discount curve built on piecewise-linear forward rates            |
-| `dal-cpp/dal/curve/ycconst.hpp`, `dal-cpp/dal/curve/ycconst.cpp`                     | `DiscountPWC_` — concrete discount curve built on piecewise-constant forward rates           |
-| `dal-cpp/dal/curve/fittable.hpp`                                                     | `FittableCurve_` — interface for calibration (`NX()`, `ApplyDX()`)                           |
-| `dal-cpp/dal/curve/calibration.hpp`, `dal-cpp/dal/curve/calibration.cpp`             | Calibration spec/result types, knot policy handling, reusable weights, and solve orchestration |
-| `dal-cpp/dal/curve/curveblock.hpp`, `dal-cpp/dal/curve/curveblock.cpp`               | `CurveBlock_` — discount routing, tenor forecast routing, and legacy calibration wrapper      |
-| `dal-cpp/dal/curve/piecewiseconstant.hpp`, `dal-cpp/dal/curve/piecewiseconstant.cpp` | `PiecewiseConstant_` — step-function representation with precomputed integrals               |
-| `dal-cpp/dal/curve/piecewiselinear.hpp`, `dal-cpp/dal/curve/piecewiselinear.cpp`     | `PiecewiseLinear_` — continuous piecewise-linear function with precomputed integrals         |
+A single-currency interest-rate curve is captured by the **discount factor**
+$P(t_0, T)$ — today's value of one unit of currency paid at $T$. Everything else
+is derived from it.
 
-## Class Hierarchy
+- **Instantaneous forward rate** $f(t)$ is the continuously-compounded rate for an
+  infinitesimal period at $t$:
 
-```
-Storable_
-└── YCComponent_                                   (dependency tracking, Poll/Clone)
-    ├── DiscountCurve_                             (abstract: operator()(from, to) → df)
-    │   ├── DiscountPWLF_                          (piecewise-linear forwards → discount factors)
-    │   └── DiscountPWC_                           (piecewise-constant forwards → discount factors)
+  $$
+  P(t_0, T) = \exp\!\left( -\int_{t_0}^{T} f(t)\,dt \right).
+  $$
 
-Storable_
-└── YieldCurve_                                    (currency, discount access, LIBOR forecast interface)
-    └── CurveBlock_                                (lightweight wrapper around a calibrated discount curve)
+- **Zero (spot) rate** $z(T)$ is the constant rate giving the same discount
+  factor: $P(t_0,T) = e^{-z(T)\,(T-t_0)}$, so $z(T) = \tfrac{1}{T-t_0}\int f\,dt$.
 
-CurveWithBase_<T_, B_>                             (template mixin: optional base curve + substitution)
-├── DiscountPWLF_                                  (also inherits FittableCurve_ for calibration)
-└── DiscountPWC_                                   (also inherits FittableCurve_ for calibration)
-```
+- **Forward discount factor** between two future dates follows from the ratio:
 
-## Core Abstractions
+  $$
+  P(t_1, t_2) = \frac{P(t_0, t_2)}{P(t_0, t_1)} = \exp\!\left( -\int_{t_1}^{t_2} f(t)\,dt \right).
+  $$
 
-### YieldCurve_
+The library parameterises the curve by the **instantaneous forward rate $f(t)$**
+and obtains discount factors by integration. Time is measured in days and
+annualised by dividing the day-count integral by $365$, so
 
-Top-level entry point. Holds a currency and provides the interface for:
+$$
+P(t_1, t_2) = \exp\!\left( -\frac{1}{365}\int_{t_1}^{t_2} f(t)\,dt \right).
+$$
 
-- `Discount(CollateralType_)` → returns the `DiscountCurve_` for a given collateral type
-- `FwdLibor(PeriodLength_, Date_)` → forward LIBOR rate for a given tenor and fixing date
+Choosing $f$ as the state variable makes the integral — and therefore every
+discount factor — a closed-form function of the curve parameters, which is what
+makes both calibration and AAD sensitivities efficient.
 
-`CurveBlock_` now supports:
+## Forward-Rate Parameterisations
 
-- collateral-specific discount routing, with OIS fallback when a requested collateral curve is absent
-- tenor-specific forecast curves, with single-curve fallback to the OIS discount curve
-- configurable LIBOR day-count basis (default `ACT_365F`)
+The forward curve $f(t)$ is described by a small number of parameters anchored at
+**knot dates** $t_1 < t_2 < \dots < t_K$. Two parameterisations are used; both
+precompute the cumulative integral $S(t) = \int_{t_0}^{t} f(u)\,du$ at each knot so
+that a discount factor is a single subtraction $S(t_2) - S(t_1)$ followed by an
+exponential.
 
-### DiscountCurve_
+### Piecewise-Constant Forwards
 
-Pure interface — a single method:
+$f(t)$ is a step function: it holds the value $f_i$ on $[t_i, t_{i+1})$. This uses
+$K$ parameters (one per knot). The cumulative integral is exact and trivial:
 
-```cpp
-double operator()(const Date_& from, const Date_& to) const;
-```
+$$
+S(t_i) = S(t_{i-1}) + (t_i - t_{i-1})\,f_{i-1},
+$$
 
-Returns the discount factor from `from` to `to`.
+and for a date $t \in [t_{i-1}, t_i)$,
 
-### YCComponent_
+$$
+S(t) = S(t_{i-1}) + (t - t_{i-1})\,f_{i-1}.
+$$
 
-Base class for anything that participates in the curve dependency graph:
+Before the first knot the rate is held flat at $f_1$.
 
-- `Poll(Vector_<const YCComponent_*>*)` — collect all dependent components
-- `Clone(name, substitutions)` — deep-copy with base-curve substitution (for bump-and-reprice risk)
+### Piecewise-Linear Forwards
 
-## Piecewise Function Building Blocks
+$f(t)$ is continuous and linear between knots, with separate left- and
+right-limit values at each knot to allow controlled kinks. This uses $2K$
+parameters. Within $[t_i, t_{i+1}]$ the rate interpolates linearly,
 
-### PiecewiseConstant_
+$$
+f(t) = f_i^{R} + \frac{t - t_i}{t_{i+1}-t_i}\left(f_{i+1}^{L} - f_i^{R}\right),
+$$
 
-A step function defined by knot dates and right-continuous values.
+and the integral over a knot interval is the trapezoid area,
 
-**Members:**
-- `knotDates_` — sorted dates where the function jumps
-- `fRight_` — value effective on-or-after each knot
-- `sofar_` — precomputed cumulative integrals at each knot
+$$
+S(t_i) = S(t_{i-1}) + \tfrac{1}{2}\left(f_{i-1}^{R} + f_i^{L}\right)(t_i - t_{i-1}).
+$$
 
-**Integral formula:**
+Outside the knot range $f$ is held flat at the nearest endpoint value.
 
-```
-sofar_[i] = sofar_[i-1] + (knotDates_[i] - knotDates_[i-1]) * fRight_[i-1]
-```
+Piecewise-linear forwards give a smoother, more realistic curve (continuous
+forwards) at the price of twice as many parameters; piecewise-constant forwards
+are simpler and more robust. The calibration layer can use either.
 
-For an arbitrary date between knots `[i-1, i)`:
+## Deriving Market Rates from the Curve
 
-```
-IntegralTo(d) = sofar_[i-1] + (d - knotDates_[i-1]) * fRight_[i-1]
-```
+Once $f(t)$ — hence $P(\cdot,\cdot)$ — is known, observable rates follow from
+no-arbitrage relations.
 
-Before the first knot, extrapolates flat at `fRight_[0]`.
+**Forward LIBOR / IBOR.** A simply-compounded forward rate for the accrual period
+$[T, T+\tau]$ is
 
-### PiecewiseLinear_
+$$
+L(T, T+\tau) = \frac{1}{\tau}\left( \frac{1}{P(T, T+\tau)} - 1 \right),
+$$
 
-A continuous piecewise-linear function supporting left/right limits at knots (for discontinuities).
+where $\tau$ is the year fraction under the relevant day-count convention. This is
+the standard relation that a forward rate agreement has zero value at inception.
 
-**Members:**
-- `knotDates_` — sorted dates
-- `fLeft_` — left-limit value at each knot
-- `fRight_` — right-limit value at each knot
-- `sofar_` — precomputed cumulative integrals at each knot
+**Swap par rate.** The fixed rate that makes a vanilla swap worth zero is the
+ratio of the floating-leg PV to the fixed-leg annuity, both computed from the same
+discount factors.
 
-**Interpolation between knots `i` and `i+1`:**
-
-```
-elapsed     = d - knotDates_[i]
-span        = knotDates_[i+1] - knotDates_[i]
-elapsedFrac = elapsed / span
-fStart      = fRight_[i]
-fStop       = fLeft_[i+1]
-value       = fStart + elapsedFrac * (fStop - fStart)
-```
-
-**Integral between knots (trapezoid rule):**
-
-```
-sofar_[i] = sofar_[i-1] + 0.5 * (fRight_[i-1] + fLeft_[i]) * (knotDates_[i] - knotDates_[i-1])
-```
-
-Extrapolation: flat at `fLeft_[0]` before the first knot, flat at `fRight_.back()` after the last.
-
-## Discount Curve Construction
-
-### DiscountPWLF_
-
-Concrete discount curve implementation built from piecewise-linear instantaneous forward rates.
-
-### Construction
-
-```cpp
-DiscountCurve_* NewDiscountPWLF(
-    const String_& name,
-    const String_& ccy,
-    const PiecewiseLinear_& fwds,                       // forward rate curve
-    const Handle_<DiscountCurve_>& base = {}            // optional base curve
-);
-```
-
-**Inputs:**
-- A `PiecewiseLinear_` of instantaneous forward rates (knot dates + left/right values)
-- A currency code stored on the resulting discount curve
-- An optional base discount curve (for multi-curve / spread construction)
-
-### Discount Factor Calculation
-
-```cpp
-double operator()(const Date_& from, const Date_& to) const {
-    double integral = fwds_.IntegralTo(to) - fwds_.IntegralTo(from);
-    return exp(-integral / 365.0) * (base_ ? (*base_)(from, to) : 1.0);
-}
-```
-
-Mathematically:
-
-```
-DF(from, to) = exp( -1/365 * ∫[from,to] f(t) dt ) × base_DF(from, to)
-```
-
-Where `f(t)` is the piecewise-linear instantaneous forward rate and the 365 divisor converts from day-count to annualized rates.
-
-### LIBOR Forecast
-
-Forward LIBOR rates are derived from discount factors:
-
-```cpp
-double LiborForecastFromDiscounts(
-    const DiscountCurve_& dc,
-    const Date_& fix_date,
-    int tenor_months, int tenor_weeks,
-    const DayBasis_& daycount
-) {
-    auto end = fix_date.AddDays((365 * tenor_months) / 12 + 7 * tenor_weeks);
-    double df = dc(fix_date, end);
-    return (1.0 / df - 1.0) / daycount(fix_date, end, nullptr);
-}
-```
-
-Standard simple-rate formula: `L = (1/DF - 1) / τ`.
-
-### DiscountPWC_
-
-`DiscountPWC_` is a second concrete implementation using piecewise-constant instantaneous forward rates:
-
-- one parameter per knot (`fRight_`)
-- the same discount-factor construction `exp(-∫f(t)dt / 365)`
-- the same optional base-curve layering as `DiscountPWLF_`
-
-This gives the calibration layer a second parameterization without changing the top-level `DiscountCurve_` abstraction.
+These relations turn the curve into a pricing engine for the calibration
+instruments (deposits, futures/STIR, swaps).
 
 ## Multi-Curve Framework
 
-The library supports multi-curve construction through:
+Post-2008 markets discount and forecast on *different* curves. The framework
+supports this through **base-curve layering**: a curve's discount factor is the
+product of its own factor and that of an optional base curve,
 
-1. **Base curve layering** — `DiscountPWLF_` accepts an optional `Handle_<DiscountCurve_>` base. The final discount factor is the product of the spread curve's own DF and the base DF.
-2. **Dependency tracking** — `CurveWithBase_<T_>` mixin implements `Poll()` to traverse the base-curve chain, enabling consistent bumping across the full dependency graph.
-3. **Clone with substitution** — `Clone(name, substitutions)` deep-copies a curve while replacing base curves, used for bump-and-reprice risk scenarios.
+$$
+P(t_1,t_2) = P_{\text{spread}}(t_1,t_2)\,\cdot\,P_{\text{base}}(t_1,t_2).
+$$
 
-Typical setup: an OIS discount curve as the base, with tenor-specific spread curves layered on top.
+The typical construction uses an OIS curve as the base for discounting, with
+tenor-specific spread curves layered on top to forecast each IBOR tenor (1M, 3M,
+6M, ...). Discounting requests are routed to the appropriate collateral curve,
+falling back to OIS when a specific collateral curve is absent; forecasting is
+routed to the relevant tenor curve, falling back to the single discount curve in a
+single-curve setup.
 
-## Calibration Support
+Because the spread is multiplicative in discount factors (additive in the
+integrated forward rate), the dependency of derived curves on their base is exact
+and is tracked so that a bump to the base curve flows consistently through every
+curve that layers on it — the basis for bump-and-reprice risk.
 
-`DiscountPWLF_` and `DiscountPWC_` both implement `FittableCurve_`:
+## Calibration as a Root-Finding Problem
 
-- `DiscountPWLF_::NX()` — returns `2 * knotDates_.size()` because each knot has left/right forward values
-- `DiscountPWC_::NX()` — returns `knotDates_.size()` because each knot contributes one right-continuous forward value
-- `ApplyDX(Vector_<>::const_iterator dx, double leverage)` — perturb the active parameterization in place
+Calibration finds the forward-rate parameters $x$ (the $f_i$, or $f_i^L,f_i^R$)
+that reprice a set of market instruments. For each instrument $j$ define a
+**residual**
 
-This enables iterative solvers (Newton, Levenberg-Marquardt) to bootstrap forward rates from market instrument prices.
+$$
+r_j(x) = \text{model rate}_j(x) - \text{market rate}_j,
+$$
 
-### Calibration Spec and Result Types
+and seek $x$ with $r_j(x) = 0$ for all $j$. Each residual is a smooth function of
+$x$ through the discount-factor integrals, so the system can be solved by
+Newton-type iteration, and the Jacobian $\partial r_j/\partial x_i$ is available
+analytically via AAD.
 
-`dal-cpp/dal/curve/calibration.hpp` introduces reusable orchestration types:
+### Underdetermination and Smoothness
 
-- `CurveCalibrationSpec_` — input bundle for today, currency, instruments, knots, parameterization, solve mode, and tolerances
-- `CurveCalibrationDiagnostics_` — repricing residuals, RMS / max-absolute fit error, and optional effective Jacobian inverse
-- `CurveCalibrationResult_` — calibrated curve plus diagnostics
+A piecewise-linear curve carries $2K$ parameters but the market often quotes fewer
+than $2K$ instruments, so the system is **underdetermined**: infinitely many
+curves reprice the data. A unique, well-behaved solution is selected by preferring
+the *smoothest* curve — the one that minimises a weighted norm of parameter
+movements:
 
-Supported calibration choices today:
+$$
+\min_x \; \tfrac{1}{2}\,(x - x_0)^{\mathsf T} W\, (x - x_0)
+\quad \text{subject to} \quad r(x) = 0,
+$$
 
-- **solve modes**: exact (`Underdetermined::Find`) and approximate (`Underdetermined::Approximate`)
-- **parameterizations**: piecewise-linear forward and piecewise-constant forward
-- **knot policies**: caller-provided input knots, instrument-driven knots, or augmented union of both
+with $W$ a symmetric positive-definite weight matrix. Choosing $W$ to penalise
+differences between neighbouring knots (a tridiagonal smoothing operator)
+suppresses spurious oscillation between instrument maturities. The mechanics of
+this constrained minimisation — and the approximate-fit variant for inconsistent
+quotes — are covered in [Underdetermined search](underdetermined_search.md).
 
-## Curve Building Pipeline (High-Level)
+### Bootstrapping Order
 
-```
-`YCInstrument_` implementations (`Deposit_`, `Swap_`, `STIR_`, ...)
+Instruments are ordered by maturity so that the curve is built outwards in time:
+short-dated instruments pin the near end of the curve, longer-dated instruments
+extend it. Knots can be supplied by the caller, taken from the instrument
+maturities, or formed from the union of both. After the solve, repricing residuals
+(RMS and maximum absolute error) quantify the fit quality, and the effective
+(weighted) Jacobian inverse is retained so that risk sensitivities can be obtained
+without re-solving the system.
+
+## Construction Pipeline
+
+```text
+market instruments (deposits, STIR, swaps)
+        │  define residuals r_j(x) = model_j(x) − market_j
+        ▼
+underdetermined solver  (min ½‖x−x₀‖²_W  s.t. r(x)=0)
+        │  Jacobian via AAD; smoothness via weight matrix W
+        ▼
+forward-rate parameters x   (piecewise constant: K, piecewise linear: 2K)
+        │  cumulative integrals S(t) precomputed at knots
+        ▼
+discount factors  P(t₁,t₂) = exp(−∫f dt / 365) × P_base
         │
         ▼
-Underdetermined::Find() / Approximate()        ← scaled quasi-Newton solver
-        │  evaluates pricing residuals f(x)
-        │  computes Jacobian (sparse / dense / finite-diff)
-        │  solves QP: s = W⁻¹ J · solve(Jᵀ W⁻¹ J, -f)
-        │  calls FittableCurve_::ApplyDX() + Update()
-        ▼
-Selected parameterization
-        │  piecewise linear: 2K params
-        │  piecewise constant: K params
-        ▼
-DiscountPWLF_ / DiscountPWC_ (discount factors via integration)
-        │  DF = exp(-∫f(t)dt / 365) × base_DF
-        ▼
-CurveBlock_ (routes discounting + tenor forecasts for repricing)
+multi-curve routing: OIS discounting + tenor forecasting
 ```
 
-## Underdetermined Search for Curve Calibration
+## See Also
 
-The solver that actually bootstraps forward rates from market instruments lives in `dal-cpp/dal/math/optimization/underdetermined.hpp/cpp`, with utility helpers in `underdeterminedutils.hpp`.
-
-For a solver-focused description of the optimization method itself, see [Underdetermined search](underdetermined_search.md).
-
-### Problem Statement
-
-Yield curve calibration is typically **underdetermined**: there are more forward-rate parameters (unknowns) than market instruments (equations). For a `PiecewiseLinear_` with `K` knots, there are `2K` parameters (left + right values at each knot), but often fewer than `2K` instruments.
-
-The solver finds `x` that satisfies `f(x) ≈ 0` (pricing errors vanish) while preferring smooth, well-behaved solutions:
-
-```
-minimize: ||f(x) / tol||² + λ ||x - x₀||²_W
-```
-
-Where:
-- `f(x)` — vector of pricing residuals (market price − model price)
-- `tol` — per-instrument tolerance (scales each residual to dimensionless units)
-- `W` — symmetric positive-definite weight matrix encoding smoothness preference
-- `x₀` — initial guess / reference point
-
-### API
-
-Two entry points:
-
-```cpp
-// Exact solve: find x such that all scaled residuals < 1
-Vector_<> Underdetermined::Find(
-    const Function_& func,
-    const Vector_<>& guess,
-    const Vector_<>& tol,
-    const Sparse::SymmetricDecomposition_& w,
-    const Controls_& controls,
-    Matrix_<>* eff_j_inv = nullptr          // optional: effective Jacobian inverse
-);
-
-// Approximate solve: fit within a looser tolerance
-Vector_<> Underdetermined::Approximate(
-    const Function_& func,
-    const Vector_<>& guess,
-    const Vector_<>& func_tol,
-    double fit_tol,
-    const Sparse::Square_& w,
-    const Controls_& controls
-);
-```
-
-**Control parameters** (`UnderdeterminedControls_`):
-
-| Parameter             | Default | Meaning                                   |
-|-----------------------|---------|-------------------------------------------|
-| `maxEvaluations_`     | —       | Total function calls allowed              |
-| `maxRestarts_`        | —       | Total fresh Jacobian computations         |
-| `maxBacktrackTries_`  | 5       | Linesearch iterations per step            |
-| `restartTolerance_`   | 0.4     | Restart Jacobian when `kMin` exceeds this |
-| `backtrackTolerance_` | 0.1     | Accept step when `kMin` is below this     |
-| `maxBacktrack_`       | 0.8     | Maximum step reduction fraction           |
-
-### Algorithm: Scaled Quasi-Newton with Backtracking
-
-Each iteration:
-
-1. **Compute or update Jacobian** — fresh finite-difference Jacobian on first iteration and after restarts; Broyden secant update otherwise
-2. **QP step** — solve the quadratic subproblem for the search direction:
-   ```
-   Q = Jᵀ W⁻¹ J
-   s = W⁻¹ J · solve(Q, -f)
-   ```
-   This is the minimum-`W`-norm solution to the linearized system.
-3. **Backtracking linesearch** — evaluate `f(x + s)`, compute optimal step fraction `k` via quadratic interpolation:
-   ```
-   k_min = (newNew - 0.5 * oldNew) / (newNew - oldNew + oldOld)
-   ```
-   - `k_min < 0.1` → accept step
-   - `k_min > 0.4` → restart with fresh Jacobian
-   - otherwise → reduce step by `s *= (1 - k)` and retry
-4. **Convergence** — all scaled residuals in `[-1, 1]`:
-   ```cpp
-   if (*MaxElement(fNew) < 1.0 && *MinElement(fNew) > -1.0)
-       return xNew;
-   ```
-
-### Jacobian Computation
-
-Three modes, tried in order:
-
-1. **Sparse Jacobian** — if `Function_::Gradient()` returns a `Jacobian_*`, use it directly (most efficient for banded/sparse structures)
-2. **Dense Jacobian** — if `Function_::Gradient()` populates a `Matrix_<>*`
-3. **Finite difference** (default fallback) — bump each parameter by `dx = 1e-4`:
-   ```cpp
-   for (int ix = 0; ix < nx; ++ix) {
-       xBumped[ix] += dx;
-       FFast(xBumped, &fBumped);
-       j.Col(ix) = (fBumped - fBase) / dx;
-       xBumped[ix] = x[ix];
-   }
-   ```
-
-Between restarts, the Jacobian is maintained cheaply via **Broyden secant update**:
-
-```
-J_new = J_old + ((df - J_old · dx) / ||dx||²) · dxᵀ
-```
-
-### Regularization: Smoothness Penalty
-
-The weight matrix `W` controls what "preferred" solutions look like. Utility code such as `WeightsPWC()` (in `underdeterminedutils.hpp`) builds a **tridiagonal matrix** that penalizes jumps between adjacent knots for piecewise-constant parameterizations:
-
-```cpp
-Sparse::TriDiagonal_* WeightsPWC(const Vector_<DateTime_>& knots, double tau_s);
-```
-
-The effect: among all parameter vectors that reprice the instruments, the solver picks the smoothest one (smallest weighted norm of parameter changes).
-
-For the `Approximate` variant, an additional **Jacobian-based penalty** blends in:
-
-```
-W_eff = W + jWeight · Jᵀ J
-```
-
-where `jWeight = ||func_tol||² / fit_tol²`. This balances fitting accuracy against parameter stability.
-
-### Integration with Curve Building
-
-The solver now connects to reusable calibration orchestration in `dal-cpp/dal/curve/calibration.cpp`. That layer:
-
-1. validates instruments, knots, and tolerances
-2. orders instruments deterministically by time span
-3. expands knots according to the requested knot policy
-4. builds reusable smoothing weights through `Underdetermined::WeightsPWC()`
-5. selects exact vs approximate solve mode
-6. constructs `DiscountPWLF_` or `DiscountPWC_`
-7. returns diagnostics alongside the calibrated curve
-
-```cpp
-class FittableCurve_ {
-    virtual int NX() const = 0;
-    virtual void ApplyDX(Vector_<>::const_iterator dx, double leverage) = 0;
-};
-```
-
-`DiscountPWLF_` exposes `2K` parameters (left + right forward rate at each of `K` knots):
-
-```cpp
-int NX() const override { return 2 * fwds_.knotDates_.size(); }
-
-void ApplyDX(Vector_<>::const_iterator dx, double leverage) override {
-    auto pl = fwds_.fLeft_.begin(), pr = fwds_.fRight_.begin();
-    while (pl != fwds_.fLeft_.end()) {
-        *pl++ += leverage * *dx++;
-        *pr++ += leverage * *dx++;
-    }
-    fwds_.Update();   // recompute cached integrals
-}
-```
-
-**Calibration loop:**
-
-```
-1. Solver proposes dx (parameter perturbation)
-2. ApplyDX(dx) updates forward rates in PiecewiseLinear_
-3. Update() recomputes sofar_ (cached integrals)
-4. Reprice all instruments → compute residuals f(x)
-5. Solver checks convergence; if not, compute next dx
-```
-
-The `eff_j_inv` output from `Find()` is now populated and returned through `CurveCalibrationDiagnostics_`, so callers can reuse the effective Jacobian inverse for risk (bump-and-reprice sensitivities) without re-solving.
-
-## Serialization
-
-`DiscountPWLF_` serializes via auto-generated code (`dal-cpp/dal/auto/MG_DiscountPWLF_v1_*.inc`):
-
-- Stored fields: name, currency, knot dates, left values, right values, base curve handle
-- Round-trips through the `Archive_` framework for persistence and transport
+- [Underdetermined search](underdetermined_search.md) — the optimisation method
+  that performs the calibration solve.
+- [Cross-currency calibration](xccy_calibration.md) — extends this framework to a
+  cross-currency basis curve.
+- [AAD methodology](aad.md) — supplies the analytic Jacobian used in calibration
+  and the curve risk sensitivities.
