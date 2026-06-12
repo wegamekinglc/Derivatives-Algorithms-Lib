@@ -1,4 +1,4 @@
-# DAL -- Derivatives Algorithms Library
+# DAL - Derivatives Algorithms Library
 
 [![CMake Linux CI](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/actions/workflows/cmake-linux.yml/badge.svg?branch=master)](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/actions/workflows/cmake-linux.yml)
 [![Codacy Grade](https://app.codacy.com/project/badge/Grade/9c84afd2bb534c6c87584e5d6e4cc420)](https://app.codacy.com/app/wegamekinglc/Derivatives-Algorithms-Lib)
@@ -28,13 +28,15 @@ dal-python  dal-excel
 dal-web     → FastAPI + React portfolio management UI
 ```
 
+The dependency graph is `dal-cpp ← dal-public ← {dal-python, dal-excel}`. The `dal-web` backend imports the `dal` Python package but can also run against `dal_stub.py` for development without building the native bindings.
+
 | Sub-project   | Purpose                                                  |
 |---------------|----------------------------------------------------------|
 | `dal-cpp/`    | Core library: math, curves, models, scripting, AAD       |
 | `dal-public/` | Stable public API wrapping `DAL::cpp`                    |
 | `dal-python/` | SWIG Python bindings                                     |
 | `dal-excel/`  | Excel `.xll` add-in (Windows-only)                       |
-| `dal-web/`      | Portfolio management web app                             |
+| `dal-web/`    | Portfolio management web app (FastAPI + React), uses DAL through the Python public API |
 
 Core modules in `dal-cpp/dal/`:
 - **math/** — Interpolation, optimization, PDE solvers, random numbers, matrix ops

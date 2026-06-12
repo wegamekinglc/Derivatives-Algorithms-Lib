@@ -6,15 +6,16 @@ implement → review pipeline. The orchestrator routes work between them.
 
 ## Team Roster
 
-| Role         | Agent              | Color  | Reads                            | Writes                             |
-|--------------|--------------------|--------|----------------------------------|------------------------------------|
-| Orchestrator | `dal-orchestrator` | purple | GitHub issues, all artifacts     | task list, PRs                     |
-| Spec writer  | `dal-spec-writer`  | orange | issues, methodology, rules       | `.claude/specs/<slug>.md`          |
-| API designer | `dal-api-designer` | pink   | spec, public headers             | `.claude/api-notes/<slug>.md`      |
-| Critic       | `dal-critic`       | red    | spec, api-note                   | `.claude/critiques/<slug>.md`      |
-| Implementer  | `dal-implementer`  | green  | spec, api-note, critique         | source code, tests, TDD in worktree |
+| Role         | Agent              | Color  | Reads                            | Writes                                                  |
+|--------------|--------------------|--------|----------------------------------|---------------------------------------------------------|
+| Orchestrator | `dal-orchestrator` | purple | GitHub issues, all artifacts     | task list, PRs                                          |
+| Spec writer  | `dal-spec-writer`  | orange | issues, methodology, rules       | `.claude/specs/<slug>.md`                               |
+| Architect    | `dal-architect`    | blue   | spec, codebase, methodology      | `.claude/designs/<slug>.md`                             |
+| API designer | `dal-api-designer` | pink   | spec, design, public headers     | `.claude/api-notes/<slug>.md`                           |
+| Critic       | `dal-critic`       | red    | spec, design, api-note           | `.claude/critiques/<slug>.md`                           |
+| Implementer  | `dal-implementer`  | green  | spec, design, api-note, critique | source code, tests, TDD in worktree                     |
 | Tester       | `dal-tester`       | cyan   | source under-test, conventions   | additional `dal-cpp/tests/<module>/*` code, in worktree |
-| Reviewer     | `dal-reviewer`     | amber  | PR diff, all upstream artifacts  | review report, optional merge      |
+| Reviewer     | `dal-reviewer`     | amber  | PR diff, all upstream artifacts  | review report, optional merge                           |
 
 ## Workflow
 
@@ -38,7 +39,7 @@ subset of the pipeline (see `dal-orchestrator.md` for the routing table).
 | `.claude/specs/`       | spec writer    | testable requirement specifications                       |
 | `.claude/api-notes/`   | api designer   | public-API surface notes (signatures, examples, errors)   |
 | `.claude/critiques/`   | critic         | adversarial reviews of specs and api-notes                |
-| `docs/methodology/` | (existing)     | normative quant method docs (referenced by all agents)    |
+| `docs/methodology/`   | (existing)     | normative quant method docs (referenced by all agents)    |
 | `.claude/rules/`       | (existing)     | normative coding/test/git conventions                     |
 
 Filenames share a single kebab-case slug derived from the issue title, so an issue traces
