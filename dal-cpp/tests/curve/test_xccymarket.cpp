@@ -62,6 +62,7 @@ namespace {
 
     CrossCurrencyCalibrationSpec_ MakeCalibrationSpec(const Date_& today, const CurrencyPair_& pair) {
         CrossCurrencyCalibrationSpec_ retval;
+        retval.today_ = today;
         retval.basisPair_ = pair;
         retval.domesticCurveBlock_ = MakeBlock("usd", "USD", today, 0.02);
         retval.foreignCurveBlock_ = MakeBlock("eur", "EUR", today, 0.01);

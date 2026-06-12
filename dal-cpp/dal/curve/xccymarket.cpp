@@ -445,6 +445,8 @@ namespace Dal {
     }
 
     CrossCurrencyCalibrationResult_ CalibrateCrossCurrencyMarket(const CrossCurrencyCalibrationSpec_& spec) {
+        REQUIRE(spec.today_.IsValid(), "Cross-currency calibration requires a valid today date");
+        auto evalDateScope = XGLOBAL::SetEvaluationDateInScope(spec.today_);
         REQUIRE(!spec.instruments_.empty(), "Cross-currency calibration requires at least one instrument");
         REQUIRE(!spec.knotDates_.empty(), "Cross-currency calibration requires at least one basis knot date");
         REQUIRE(spec.smoothingWeight_ > 0.0, "Cross-currency calibration smoothing weight must be positive");
@@ -455,8 +457,7 @@ namespace Dal {
         REQUIRE(std::isfinite(spec.initialGuess_), "Cross-currency calibration initial guess must be finite");
         ValidateCalibrationSpec(spec);
 
-        const Date_ evalDate = Global::Dates_::EvaluationDate();
-        REQUIRE(spec.knotDates_.front() > evalDate, "Cross-currency calibration basis knot dates must be after the evaluation date");
+        REQUIRE(spec.knotDates_.front() > spec.today_, "Cross-currency calibration basis knot dates must be after the evaluation date");
         for (int i = 1; i < static_cast<int>(spec.knotDates_.size()); ++i)
             REQUIRE(spec.knotDates_[i] > spec.knotDates_[i - 1], "Cross-currency calibration basis knot dates must be strictly increasing");
 

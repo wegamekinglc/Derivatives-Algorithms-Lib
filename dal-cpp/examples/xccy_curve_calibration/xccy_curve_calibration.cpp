@@ -91,6 +91,7 @@ namespace Dal {
         const double marketSpread = (*prototype.Precompute())(quoteMarket);
 
         CrossCurrencyCalibrationSpec_ spec;
+        spec.today_ = today;
         spec.basisPair_ = CurrencyPair_(Ccy_("USD"), Ccy_("EUR"));
         spec.domesticCurveBlock_ = MakeXccyBlock("usd_ois", "USD", today, 0.02);
         spec.foreignCurveBlock_ = MakeXccyBlock("eur_ois", "EUR", today, 0.01);

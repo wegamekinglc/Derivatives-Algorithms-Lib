@@ -108,6 +108,7 @@ namespace Dal {
     };
 
     struct CrossCurrencyCalibrationSpec_ {
+        Date_ today_;
         CurrencyPair_ basisPair_;
         Handle_<CurveBlock_> domesticCurveBlock_;
         Handle_<CurveBlock_> foreignCurveBlock_;
