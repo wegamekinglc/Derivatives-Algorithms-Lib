@@ -207,6 +207,28 @@ TEST(XccyMarketTest, TestSwapPricingRejectsMismatchedPair) {
     ASSERT_THROW(static_cast<void>((*rate)(market)), Dal::Exception_);
 }
 
+TEST(XccyMarketTest, TestSwapPricingRejectsInProgressSwap) {
+    const Date_ tradeDate(2024, 1, 15);
+    const Date_ start = tradeDate;
+    const Date_ maturity = Date::AddMonths(start, 12);
+
+    // Evaluate after the swap has started accruing.
+    const Date_ evaluationDate = Date::AddMonths(start, 3);
+    const auto evalDate = XGLOBAL::SetEvaluationDateInScope(evaluationDate);
+    const auto market = MakeMarket(evaluationDate);
+
+    const CrossCurrencySwap_ swap(tradeDate,
+                                  start,
+                                  maturity,
+                                  0.0,
+                                  CurrencyPair_(Ccy_("USD"), Ccy_("EUR")),
+                                  110.0,
+                                  100.0,
+                                  MakeConvention());
+    const auto rate = swap.Precompute();
+    ASSERT_THROW(static_cast<void>((*rate)(market)), Dal::Exception_);
+}
+
 TEST(XccyMarketTest, TestParSpreadAnchoredToEvaluationDateNotTradeDate) {
     const Date_ today(2024, 1, 15);
     const auto evalDate = XGLOBAL::SetEvaluationDateInScope(today);

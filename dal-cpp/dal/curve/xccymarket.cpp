@@ -155,6 +155,10 @@ namespace Dal {
                 REQUIRE(pair_.domestic_ == market.DomesticCcy() && pair_.foreign_ == market.ForeignCcy(),
                         "Cross-currency swap currency pair does not match the pricing market orientation");
                 const Date_ valueDate = market.Today();
+                REQUIRE(!domesticPeriods_.empty() && !foreignPeriods_.empty(), "Cross-currency swap requires scheduled periods on both legs");
+                REQUIRE(valueDate <= domesticPeriods_.front().schedule_.accrualStart_ &&
+                            valueDate <= foreignPeriods_.front().schedule_.accrualStart_,
+                        "Cross-currency swap pricing of in-progress swaps (evaluation date after swap start) is not supported");
                 const DiscountCurve_& domesticDiscount = market.DomesticDiscountCurve(domesticIndexConvention_.collateral_);
                 const DiscountCurve_& domesticForecast = market.DomesticForwardCurve(domesticIndexConvention_.forecastTenor_,
                                                                                      domesticIndexConvention_.collateral_);
