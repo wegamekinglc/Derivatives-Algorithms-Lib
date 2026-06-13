@@ -20,6 +20,11 @@ const chromeLibDir = resolve(repoRoot, "chrome-libs", "extract", "usr", "lib", "
 function resolveChromeExecutable(): string {
   const override = process.env.PLAYWRIGHT_CHROME_PATH;
   if (override) {
+    if (!existsSync(override)) {
+      throw new Error(
+        `PLAYWRIGHT_CHROME_PATH points to a non-existent file: ${override}`
+      );
+    }
     return override;
   }
 
@@ -65,7 +70,7 @@ export default defineConfig({
       executablePath: resolveChromeExecutable(),
       env: {
         ...process.env,
-        LD_LIBRARY_PATH: chromeLibraryPath(),
+        ...(chromeLibraryPath() ? { LD_LIBRARY_PATH: chromeLibraryPath() } : {}),
       },
     },
   },
