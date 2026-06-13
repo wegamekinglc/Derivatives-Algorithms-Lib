@@ -1,4 +1,4 @@
-"""Tests for SWIG-wrapped std::vector types."""
+"""Tests for pybind11-wrapped std::vector types."""
 
 import dal
 

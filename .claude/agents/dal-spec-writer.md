@@ -109,9 +109,9 @@ Write the spec to `.claude/specs/<feature-slug>.md` using this template:
 - **Compatibility** - <what must not break>
 
 ## Inputs and Outputs
-| Name  | Type        | Units | Range / Constraints |
-|-------|-------------|-------|---------------------|
-| <in>  | <C++ type>  | <unit>| <constraint>        |
+| Name | Type       | Units  | Range / Constraints |
+|------|------------|--------|---------------------|
+| <in> | <C++ type> | <unit> | <constraint>        |
 
 ## Acceptance Criteria
 - [ ] <test-shaped statement: given X, when Y, then Z>

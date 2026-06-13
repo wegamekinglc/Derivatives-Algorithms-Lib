@@ -94,7 +94,7 @@ echo -e "${GREEN}✓ Build environment ready${NC}"
 
 # Install build dependencies
 echo -e "${YELLOW}Installing build dependencies...${NC}"
-uv pip install -q scikit-build-core cmake ninja swig build
+uv pip install -q scikit-build-core cmake ninja build
 if [ "$MANYLINUX" = true ]; then
     uv pip install -q auditwheel
 fi

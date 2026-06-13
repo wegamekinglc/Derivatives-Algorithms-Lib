@@ -8,7 +8,7 @@ exclude_paths:
   # is a false positive for pytest test suites (tests are never run with -O)
   - 'dal-python/tests/**'
   - 'dal-web/backend/tests/**'
-  # Python build artifacts (SWIG outputs are now generated at build time)
+  # Python build artifacts (pybind11 outputs are now generated at build time)
   - 'dal-python/.venv/**'
   - 'dal-python/.pytest_cache/**'
   - 'dal-python/build/**'
@@ -33,7 +33,7 @@ exclude_paths:
   # The Codacy Agentlinter is designed to enforce style rules for AI-agent
   # prompts (no undefined acronyms, no absolute rules without escape hatches,
   # etc.), which doesn't apply to project documentation aimed at human
-  # developers — domain acronyms like AAD, PDE, AST, SWIG are defined by
+  # developers — domain acronyms like AAD, PDE, AST are defined by
   # context and don't need glossary entries here.
   - 'CLAUDE.md'
   - '.claude/**'

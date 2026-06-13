@@ -39,7 +39,7 @@ This guide covers the complete installation process for DAL, including the C++ l
 
 - Python 3.10 or later
 - [uv](https://docs.astral.sh/uv/) package manager (recommended) or pip
-- SWIG 4.0+ (automatically installed by uv)
+- pybind11 (fetched automatically via CMake FetchContent)
 
 ### Web UI
 
@@ -91,17 +91,17 @@ This script:
 
 **Build Options:**
 
-To customize the build, set environment variables before running the script:
+To customize the build, pass CMake cache overrides through `ADDITIONAL_CMAKE_FLAGS`:
 
 ```bash
-# Enable Python bindings
-DAL_BUILD_PYTHON=ON bash build_linux.sh
+# Disable Python bindings
+ADDITIONAL_CMAKE_FLAGS="-DDAL_BUILD_PYTHON=OFF" bash build_linux.sh
 
-# Enable benchmarks
-DAL_CPP_BUILD_BENCHMARKS=ON bash build_linux.sh
+# Disable benchmarks
+ADDITIONAL_CMAKE_FLAGS="-DDAL_CPP_BUILD_BENCHMARKS=OFF" bash build_linux.sh
 
-# Use XAD backend instead of Adept
-DAL_USE_XAD_AAD=ON DAL_USE_ADEPT_AAD=OFF bash build_linux.sh
+# Use XAD backend instead of the native backend
+ADDITIONAL_CMAKE_FLAGS="-DDAL_USE_XAD_AAD=ON -DDAL_USE_ADEPT_AAD=OFF" bash build_linux.sh
 ```
 
 #### Manual Build
@@ -134,20 +134,20 @@ make install
 
 The table below shows source-level defaults from `CMakeLists.txt` files. Note that
 `CMakePresets.json` (`Release-linux`/`Debug-linux`) overrides several values (for
-example: all external AAD backends OFF, examples/benchmarks/public OFF) unless you
-re-enable them with `-D...` flags.
+example: all external AAD backends OFF, examples/benchmarks/public/Python ON, Excel
+OFF on Linux and ON on Windows) unless you override them with `-D...` flags.
 
-| Option | Default | Description |
-|--------|---------|-------------|
-| `DAL_BUILD_PUBLIC` | `ON` | Build `dal-public` (stable public API) |
-| `DAL_BUILD_PYTHON` | `OFF` | Build `dal-python` (SWIG + Python package) |
-| `DAL_BUILD_EXCEL` | `OFF` | Build `dal-excel` (Windows-only) |
-| `DAL_CPP_BUILD_TESTS` | `ON` | Build test suite |
-| `DAL_CPP_BUILD_EXAMPLES` | `ON` | Build example programs |
-| `DAL_CPP_BUILD_BENCHMARKS` | `ON` | Build performance benchmarks |
-| `DAL_USE_ADEPT_AAD` | `ON` | Use Adept AAD backend |
-| `DAL_USE_XAD_AAD` | `OFF` | Use XAD AAD backend |
-| `DAL_USE_CODIPACK_AAD` | `OFF` | Use CoDiPack AAD backend |
+| Option                     | Default | Description                                    |
+|----------------------------|---------|------------------------------------------------|
+| `DAL_BUILD_PUBLIC`         | `ON`    | Build `dal-public` (stable public API)         |
+| `DAL_BUILD_PYTHON`         | `OFF`   | Build `dal-python` (pybind11 + Python package) |
+| `DAL_BUILD_EXCEL`          | `OFF`   | Build `dal-excel` (Windows-only)               |
+| `DAL_CPP_BUILD_TESTS`      | `ON`    | Build test suite                               |
+| `DAL_CPP_BUILD_EXAMPLES`   | `ON`    | Build example programs                         |
+| `DAL_CPP_BUILD_BENCHMARKS` | `ON`    | Build performance benchmarks                   |
+| `DAL_USE_ADEPT_AAD`        | `ON`    | Use Adept AAD backend                          |
+| `DAL_USE_XAD_AAD`          | `OFF`   | Use XAD AAD backend                            |
+| `DAL_USE_CODIPACK_AAD`     | `OFF`   | Use CoDiPack AAD backend                       |
 
 Example with custom options:
 
@@ -261,10 +261,11 @@ source .venv/bin/activate        # Linux/macOS
 # or: .venv\Scripts\activate     # Windows
 
 # Install build dependencies
-pip install scikit-build-core swig pytest numpy
+pip install scikit-build-core pytest numpy
 
 # Install DAL in editable mode
-DAL_DIR=$(pwd)/.. pip install -e . --no-build-isolation
+pip install -e . --no-build-isolation \
+  --config-settings=cmake.define.DAL_DIR=$(pwd)/..
 ```
 
 ### What Gets Installed
@@ -389,10 +390,9 @@ Run the test suite:
 
 ```bash
 # From repository root (after build)
-cd build
-ctest --output-on-failure
+(cd build && ctest --output-on-failure)
 
-# Or run binaries directly
+# Or run installed binaries directly
 bin/dal_cpp_tests
 bin/dal_public_tests
 
@@ -479,6 +479,7 @@ bash build_linux.sh
 cd ../../..
 export MACHINIST_TEMPLATE_DIR=$PWD/dal-cpp/externals/machinist/template/
 ./dal-cpp/externals/machinist/bin/Machinist -c dal-cpp/config/dal.ifc -l dal-cpp/config/dal.mgl -d ./dal-cpp/dal
+./dal-cpp/externals/machinist/bin/Machinist -c dal-cpp/config/dal.ifc -l dal-cpp/config/dal.mgl -d ./dal-excel
 ```
 
 #### Python bindings import error
@@ -520,12 +521,12 @@ g++ --version    # Linux
 cl               # Windows (from Developer Command Prompt)
 ```
 
-#### Python bindings fail to compile SWIG wrappers
+#### Python bindings fail to compile
 
-**Error:** SWIG compilation errors
+**Error:** pybind11 compilation errors
 
 **Solution:**
-1. Ensure SWIG 4.0+ is installed: `swig -version`
+1. Ensure pybind11 is available: CMake FetchContent downloads it automatically, but if you're offline, install `pybind11` system-wide and set `pybind11_DIR` or `CMAKE_PREFIX_PATH` so CMake can find it.
 2. Clean and rebuild:
 
 ```bash

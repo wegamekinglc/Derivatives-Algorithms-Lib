@@ -1,7 +1,7 @@
 """In-process stub that mirrors the DAL Python *public* API.
 
 This module is **only** a development / CI fallback used when the compiled
-``dal`` SWIG extension is not importable (it requires a full C++ build).  It
+``dal._dal`` extension module is not importable (it requires a full C++ build).  It
 deliberately re-implements the exact same public entry points that the real
 ``dal`` package exposes -- ``Date_``, ``Cell_``, ``EvaluationDate_Set`` /
 ``EvaluationDate_Get``, ``Product_New``, ``BSModelData_New``,

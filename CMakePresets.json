@@ -11,13 +11,14 @@
       "hidden": true,
       "cacheVariables": {
         "CMAKE_INSTALL_PREFIX": "${sourceDir}",
+        "Python3_ROOT_DIR": "${sourceDir}/dal-python/.venv",
         "DAL_USE_XAD_AAD": "off",
         "DAL_USE_CODIPACK_AAD": "off",
         "DAL_USE_ADEPT_AAD": "off",
-        "DAL_CPP_BUILD_EXAMPLES": "off",
-        "DAL_CPP_BUILD_BENCHMARKS": "off",
-        "DAL_BUILD_PUBLIC": "off",
-        "DAL_BUILD_PYTHON": "off",
+        "DAL_CPP_BUILD_EXAMPLES": "on",
+        "DAL_CPP_BUILD_BENCHMARKS": "on",
+        "DAL_BUILD_PUBLIC": "on",
+        "DAL_BUILD_PYTHON": "on",
         "DAL_BUILD_EXCEL": "off",
         "XAD_ENABLE_TESTS": "off",
         "XAD_USE_STRONG_INLINE": "on",
@@ -36,7 +37,8 @@
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
         "MSVC_RUNTIME": "static",
-        "XAD_STATIC_MSVC_RUNTIME": "on"
+        "XAD_STATIC_MSVC_RUNTIME": "on",
+        "DAL_BUILD_EXCEL": "on"
       }
     },
     {
@@ -46,7 +48,8 @@
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
         "MSVC_RUNTIME": "static",
-        "XAD_STATIC_MSVC_RUNTIME": "on"
+        "XAD_STATIC_MSVC_RUNTIME": "on",
+        "DAL_BUILD_EXCEL": "on"
       }
     },
     {

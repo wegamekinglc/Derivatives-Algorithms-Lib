@@ -232,18 +232,18 @@ Never merge a PR with blocking issues or failing tests. If there are blocking is
 
 ## Key Reference Tables
 
-| Element           | Convention                                      |
-|-------------------|-------------------------------------------------|
-| Classes/Structs   | PascalCase + trailing `_`                       |
-| Functions/Methods | PascalCase                                      |
-| Member variables  | camelCase + trailing `_`                        |
-| Local variables   | camelCase                                       |
-| Template params   | Single letter + `_`                             |
-| Enums             | Machinist markup only                           |
-| `Handle_<T_>`     | `std::shared_ptr<const T_>`                     |
-| Smart pointer     | `std::unique_ptr<T_>` / `Handle_<T_>`           |
-| Error handling    | `REQUIRE(cond, msg)` / `THROW(msg)`             |
-| Tests             | `TEST(Suite, Name)`, `ASSERT_*` only            |
+| Element           | Convention                            |
+|-------------------|---------------------------------------|
+| Classes/Structs   | PascalCase + trailing `_`             |
+| Functions/Methods | PascalCase                            |
+| Member variables  | camelCase + trailing `_`              |
+| Local variables   | camelCase                             |
+| Template params   | Single letter + `_`                   |
+| Enums             | Machinist markup only                 |
+| `Handle_<T_>`     | `std::shared_ptr<const T_>`           |
+| Smart pointer     | `std::unique_ptr<T_>` / `Handle_<T_>` |
+| Error handling    | `REQUIRE(cond, msg)` / `THROW(msg)`   |
+| Tests             | `TEST(Suite, Name)`, `ASSERT_*` only  |
 
 ## What Not to Do
 

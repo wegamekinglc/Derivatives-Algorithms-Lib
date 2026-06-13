@@ -55,7 +55,7 @@ to `dal-implementer` after the surface is agreed.
 - `dal-cpp/dal/` - core library (internal patterns: `Handle_<T_>`, factory functions like `NewLinear()`, `REQUIRE`/`THROW`)
 - `dal-public/src/` - C++ public API wrappers (the `dal_public` target)
 - `dal-excel/src/` - Excel binding (built on Windows when Office binaries are detected)
-- `dal-python/python/`, `dal-python/swig/` - Python/SWIG scaffolding
+- `dal-python/src/bindings/` - pybind11 binding module
 - `dal-cpp/examples/` - standalone programs demonstrating features (AAD, MC, FD, scripting, concurrency, Sobol)
 - `docs/methodology/` - quant method docs (read so your designs use the project's vocabulary)
 - `.claude/rules/code-style.md` - naming and idioms (PascalCase types with trailing `_`, factory `NewXxx()`)
@@ -67,7 +67,7 @@ Three concrete audiences:
 1. **C++ quants** writing pricing or risk code against `public/` headers and the `dal::` namespace.
 2. **Excel sheet authors** typing function calls in a worksheet - they see argument names and error
    strings, not type signatures.
-3. **Python users** calling SWIG-generated bindings - they care about argument order, default values,
+3. **Python users** calling pybind11-generated bindings - they care about argument order, default values,
    and exception messages.
 
 A design is a good API when:
@@ -137,9 +137,9 @@ namespace Dal {
 - <decision and the alternative it beat>
 
 ## Error Cases
-| Input violation         | Message text                                |
-|-------------------------|---------------------------------------------|
-| empty knot vector       | "OIS curve requires at least one knot"      |
+| Input violation   | Message text                           |
+|-------------------|----------------------------------------|
+| empty knot vector | "OIS curve requires at least one knot" |
 
 ## Example
 <10-30 lines of pseudo-code or real C++ showing the typical happy path. This becomes

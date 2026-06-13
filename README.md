@@ -30,12 +30,12 @@ dal-web     → FastAPI + React portfolio management UI
 
 The dependency graph is `dal-cpp ← dal-public ← {dal-python, dal-excel}`. The `dal-web` backend imports the `dal` Python package but can also run against `dal_stub.py` for development without building the native bindings.
 
-| Sub-project   | Purpose                                                  |
-|---------------|----------------------------------------------------------|
-| `dal-cpp/`    | Core library: math, curves, models, scripting, AAD       |
-| `dal-public/` | Stable public API wrapping `DAL::cpp`                    |
-| `dal-python/` | SWIG Python bindings                                     |
-| `dal-excel/`  | Excel `.xll` add-in (Windows-only)                       |
+| Sub-project   | Purpose                                                                                |
+|---------------|----------------------------------------------------------------------------------------|
+| `dal-cpp/`    | Core library: math, curves, models, scripting, AAD                                     |
+| `dal-public/` | Stable public API wrapping `DAL::cpp`                                                  |
+| `dal-python/` | pybind11 Python bindings                                                               |
+| `dal-excel/`  | Excel `.xll` add-in (Windows-only)                                                     |
 | `dal-web/`    | Portfolio management web app (FastAPI + React), uses DAL through the Python public API |
 
 Core modules in `dal-cpp/dal/`:

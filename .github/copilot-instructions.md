@@ -11,7 +11,7 @@ bash ./build_linux.sh          # add --coverage for a coverage report
 
 # Manual build from the workspace root
 mkdir build && cd build
-cmake --preset=Release-linux -DDAL_BUILD_PUBLIC=ON .. && make -j32 && make install
+cmake --preset=Release-linux .. && make -j32 && make install
 ```
 
 CMake installs into the repo root: binaries in `bin/`, libs in `lib/`, headers in `include/`.
@@ -31,10 +31,11 @@ Formatting is enforced by `.clang-format` (LLVM base, 4-space indent, 150 column
 
 ### CMake presets and options
 
-`CMakePresets.json` base preset turns off all AAD backends, examples, benchmarks,
-and the public/python/excel sub-projects. Tests remain enabled by the source default
-(`DAL_CPP_BUILD_TESTS=ON`). With AAD backends off, the native ("aadet") backend is
-used. Presets: `Release-linux`, `Debug-linux`, `Release-windows`, `Debug-windows`.
+`CMakePresets.json` base preset turns off all AAD backends and the Excel sub-project
+(Windows-only). Examples, benchmarks, public, and Python are enabled by default.
+Tests are enabled by the source default (`DAL_CPP_BUILD_TESTS=ON`). With AAD backends
+off, the native ("aadet") backend is used. Presets: `Release-linux`, `Debug-linux`,
+`Release-windows`, `Debug-windows`.
 Override via cache vars when configuring manually:
 
 - `DAL_BUILD_PUBLIC`, `DAL_BUILD_PYTHON`, `DAL_BUILD_EXCEL` (Excel is Windows-only)
@@ -47,13 +48,13 @@ Override via cache vars when configuring manually:
 Dependency graph: `dal-cpp ← dal-public ← {dal-python, dal-excel}`; `dal-web` consumes
 the Python public API. Each sub-project owns its own `CMakeLists.txt` and stands alone.
 
-| Sub-project   | Target / purpose                                                  |
-|---------------|------------------------------------------------------------------|
-| `dal-cpp/`    | `DAL::cpp` — core: math, curves, models, scripting, AAD          |
-| `dal-public/` | `DAL::public` — stable public API wrapping `DAL::cpp`            |
-| `dal-python/` | SWIG Python bindings (`dal` package), depends on `DAL::public`   |
-| `dal-excel/`  | `.xll` add-in, Windows-only, depends on `DAL::public`           |
-| `dal-web/`    | FastAPI backend + React/Vite frontend portfolio app             |
+| Sub-project   | Target / purpose                                                   |
+|---------------|--------------------------------------------------------------------|
+| `dal-cpp/`    | `DAL::cpp` — core: math, curves, models, scripting, AAD            |
+| `dal-public/` | `DAL::public` — stable public API wrapping `DAL::cpp`              |
+| `dal-python/` | pybind11 Python bindings (`dal` package), depends on `DAL::public` |
+| `dal-excel/`  | `.xll` add-in, Windows-only, depends on `DAL::public`              |
+| `dal-web/`    | FastAPI backend + React/Vite frontend portfolio app                |
 
 Core modules under `dal-cpp/dal/`: `math/` (interpolation, optimization, PDE, RNG, matrix,
 `math/aad/`), `script/` (visitor-pattern expression engine: lexer → preprocessor → parser
@@ -112,7 +113,7 @@ Tests (Google Test, `.claude/rules/unit-test-style.md`):
 ## Tooling notes
 
 - Python dependencies are managed with **uv** (not pip/venv directly) for both the web backend
-  and the Python public-API/SWIG build.
+  and the Python public-API/pybind11 build.
 - DAL agent guidance (rules, skills, agents) lives under `.claude/`. Copilot guidance is in
   `.github/copilot-instructions.md` (this file). Keep markdown tables column-aligned with compact
   separator rows. Use SSH (`git@github.com:`) URLs, not HTTPS.
