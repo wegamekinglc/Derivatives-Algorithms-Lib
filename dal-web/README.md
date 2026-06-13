@@ -38,13 +38,13 @@ dal-web/
 The backend maps business entities onto DAL's scripted-product / model /
 Monte-Carlo public API:
 
-| UI concept       | DAL public API call                                  |
-|------------------|------------------------------------------------------|
-| Product builder  | `Product_New(dates, events)`, `Product_Debug`        |
-| Black-Scholes    | `BSModelData_New(spot, vol, rate, div)`              |
-| Dupire           | `DupireModelData_New(spot, rate, repo, ...)`         |
-| Evaluation date  | `EvaluationDate_Set` / `EvaluationDate_Get`          |
-| Valuation        | `MonteCarlo_Value(product, model, n_paths, ...)`     |
+| UI concept      | DAL public API call                              |
+|-----------------|--------------------------------------------------|
+| Product builder | `Product_New(dates, events)`, `Product_Debug`    |
+| Black-Scholes   | `BSModelData_New(spot, vol, rate, div)`          |
+| Dupire          | `DupireModelData_New(spot, rate, repo, ...)`     |
+| Evaluation date | `EvaluationDate_Set` / `EvaluationDate_Get`      |
+| Valuation       | `MonteCarlo_Value(product, model, n_paths, ...)` |
 
 No other module imports `dal` directly -- routers and services depend on
 `DalGateway`, satisfying the "calls to DAL only through the Python public API"
@@ -59,12 +59,12 @@ developed and tested without that build, `dal_gateway.py` falls back to
 surface (closed-form Black-Scholes for European-style payoffs, finite-difference
 Greeks). Selection is controlled by environment variables:
 
-| Variable             | Default | Meaning                                                        |
-|----------------------|---------|----------------------------------------------------------------|
-| `DAL_MODULE`         | `dal`   | Importable module providing the public API.                    |
-| `DAL_REQUIRE_NATIVE` | unset   | If truthy, never fall back to the stub -- fail if `dal` is absent. |
-| `WEBUI_SEED_DEMO`    | `1`     | Seed a demo portfolio/trade/model/product on startup.          |
-| `WEBUI_CORS_ORIGINS` | `http://localhost:5173,http://127.0.0.1:5173` | Comma-separated allowed CORS origins (scheme required). |
+| Variable             | Default                                       | Meaning                                                            |
+|----------------------|-----------------------------------------------|--------------------------------------------------------------------|
+| `DAL_MODULE`         | `dal`                                         | Importable module providing the public API.                        |
+| `DAL_REQUIRE_NATIVE` | unset                                         | If truthy, never fall back to the stub -- fail if `dal` is absent. |
+| `WEBUI_SEED_DEMO`    | `1`                                           | Seed a demo portfolio/trade/model/product on startup.              |
+| `WEBUI_CORS_ORIGINS` | `http://localhost:5173,http://127.0.0.1:5173` | Comma-separated allowed CORS origins (scheme required).            |
 
 To use the real library, build the bindings, install the `dal` package into your
 environment, then run the backend normally (with `DAL_REQUIRE_NATIVE=1` to be
@@ -177,17 +177,17 @@ is running and the port in `vite.config.ts` matches.
 The backend exposes a REST-ish API under `/api`. Full OpenAPI docs are served at
 `/docs` once the backend is running. Highlights beyond the standard CRUD:
 
-| Endpoint | Notes |
-|----------|-------|
-| `GET /api/health` | Reports which DAL backend is active (native vs. stub). |
-| `POST /api/products`, `PUT /api/products/{id}` | Create / partially update a scripted product. |
-| `POST /api/products/debug` | Render the DAL `Product_Debug` dump for arbitrary rows. |
-| `POST /api/models`, `PUT /api/models/{id}` | Black-Scholes or Dupire model data. |
-| `POST /api/trades`, `PUT /api/trades/{id}` | Link a product + model + notional. |
-| `POST /api/portfolios/{id}/trades/{tid}` | Add a trade to a portfolio. |
-| `POST /api/trades/{id}/value` | Start an **async** single-trade valuation (returns `status: "running"`). |
-| `POST /api/portfolios/{id}/value` | Start an **async** portfolio valuation (returns `status: "running"`). |
-| `GET /api/valuations/{id}` | Poll until `status` becomes `"completed"` or `"failed"`. |
+| Endpoint                                       | Notes                                                                    |
+|------------------------------------------------|--------------------------------------------------------------------------|
+| `GET /api/health`                              | Reports which DAL backend is active (native vs. stub).                   |
+| `POST /api/products`, `PUT /api/products/{id}` | Create / partially update a scripted product.                            |
+| `POST /api/products/debug`                     | Render the DAL `Product_Debug` dump for arbitrary rows.                  |
+| `POST /api/models`, `PUT /api/models/{id}`     | Black-Scholes or Dupire model data.                                      |
+| `POST /api/trades`, `PUT /api/trades/{id}`     | Link a product + model + notional.                                       |
+| `POST /api/portfolios/{id}/trades/{tid}`       | Add a trade to a portfolio.                                              |
+| `POST /api/trades/{id}/value`                  | Start an **async** single-trade valuation (returns `status: "running"`). |
+| `POST /api/portfolios/{id}/value`              | Start an **async** portfolio valuation (returns `status: "running"`).    |
+| `GET /api/valuations/{id}`                     | Poll until `status` becomes `"completed"` or `"failed"`.                 |
 
 ### Delete guards
 

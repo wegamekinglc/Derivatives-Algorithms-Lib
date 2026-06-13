@@ -150,8 +150,9 @@ Implement just enough production code to make the failing test pass — nothing 
 
 **If you added or changed a Machinist enum markup block,** regenerate auto files before building:
 ```bash
-export MACHINIST_TEMPLATE_DIR=$PWD/externals/machinist/template/
-./externals/machinist/bin/Machinist -c config/dal.ifc -l config/dal.mgl -d ./dal
+export MACHINIST_TEMPLATE_DIR=$PWD/dal-cpp/externals/machinist/template/
+./dal-cpp/externals/machinist/bin/Machinist -c dal-cpp/config/dal.ifc -l dal-cpp/config/dal.mgl -d ./dal-cpp/dal
+./dal-cpp/externals/machinist/bin/Machinist -c dal-cpp/config/dal.ifc -l dal-cpp/config/dal.mgl -d ./dal-excel
 ```
 This produces `dal-cpp/dal/auto/MG_<EnumName>_enum.hpp` (class definition) and `.inc` (implementation).
 Include the `.hpp` inside `namespace Dal { }` in your header, and the `.inc` inside `namespace Dal { }` in your `.cpp`.
@@ -195,20 +196,20 @@ Offer to create a commit and PR when the user is ready.
 
 ## Key Conventions at a Glance
 
-| Element           | Convention                                                          |
-|-------------------|---------------------------------------------------------------------|
-| Classes/Structs   | PascalCase + trailing `_`                                           |
-| Functions/Methods | PascalCase                                                          |
-| Member variables  | camelCase + trailing `_`                                            |
-| Local variables   | camelCase                                                           |
-| Template params   | Single letter + `_`                                                 |
-| Enums             | Machinist markup only, no hand-written `enum class`                 |
-| `Handle_<T_>`     | `std::shared_ptr<const T_>`                                         |
-| `Vector_<E_>`     | DAL vector type (private inherit from `std::vector`)                |
-| Smart pointer     | `std::unique_ptr<T_>` for ownership, `Handle_<T_>` for shared       |
-| Factory functions | `NewXxx()` returning `Handle_` or `unique_ptr`                      |
-| Error handling    | `REQUIRE(cond, msg)` for invariants, `THROW(msg)` for errors        |
-| Tests             | `TEST(Suite, Name)`, `ASSERT_*` only, `using namespace Dal;`        |
+| Element           | Convention                                                    |
+|-------------------|---------------------------------------------------------------|
+| Classes/Structs   | PascalCase + trailing `_`                                     |
+| Functions/Methods | PascalCase                                                    |
+| Member variables  | camelCase + trailing `_`                                      |
+| Local variables   | camelCase                                                     |
+| Template params   | Single letter + `_`                                           |
+| Enums             | Machinist markup only, no hand-written `enum class`           |
+| `Handle_<T_>`     | `std::shared_ptr<const T_>`                                   |
+| `Vector_<E_>`     | DAL vector type (private inherit from `std::vector`)          |
+| Smart pointer     | `std::unique_ptr<T_>` for ownership, `Handle_<T_>` for shared |
+| Factory functions | `NewXxx()` returning `Handle_` or `unique_ptr`                |
+| Error handling    | `REQUIRE(cond, msg)` for invariants, `THROW(msg)` for errors  |
+| Tests             | `TEST(Suite, Name)`, `ASSERT_*` only, `using namespace Dal;`  |
 
 ## What Not to Do
 

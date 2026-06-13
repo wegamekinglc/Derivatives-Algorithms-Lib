@@ -163,20 +163,20 @@ endif()
 # Python module: _dal (built via pybind11)
 #
 # The pybind11 bindings are split across domain-organized source files under
-# src/bindings/.  bindings_module.cpp is the PYBIND11_MODULE entry point that
-# calls init functions from the individual domain files.
+# src/bindings/.  module.cpp is the PYBIND11_MODULE entry point that calls
+# init functions from the individual domain files.
 # The compiled module is named _dal and output to <build>/dal/.
 # A thin dal.py shim re-exports everything from _dal.
 # ---------------------------------------------------------------------------
 
 pybind11_add_module(_dal
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/bindings/bindings_module.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/bindings/bindings_core.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/bindings/bindings_global.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/bindings/bindings_models.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/bindings/bindings_random.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/bindings/bindings_script.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/bindings/bindings_value.cpp)
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/bindings/module.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/bindings/core.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/bindings/global.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/bindings/models.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/bindings/random.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/bindings/script.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/bindings/value.cpp)
 
 add_library(DAL::python ALIAS _dal)
 

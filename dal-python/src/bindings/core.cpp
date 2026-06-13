@@ -1,5 +1,5 @@
 //
-// bindings_core.cpp — core DAL types (Date_, String_, Cell_, vectors, DoubleMatrix_)
+// core.cpp — core DAL types (Date_, String_, Cell_, vectors, DoubleMatrix_)
 //
 
 #include "bindings.h"

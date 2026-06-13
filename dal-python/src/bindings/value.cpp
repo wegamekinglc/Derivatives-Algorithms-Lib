@@ -1,5 +1,5 @@
 //
-// bindings_value.cpp — Monte Carlo valuation bindings (MonteCarlo_Value)
+// value.cpp — Monte Carlo valuation bindings (MonteCarlo_Value)
 //
 
 #include "bindings.h"

@@ -34,3 +34,6 @@ test_output.txt
 .claude/settings.local.json
 build-*
 build2/
+# Installed Python bindings (build artifact)
+dal/
+.claude/scheduled_tasks.lock

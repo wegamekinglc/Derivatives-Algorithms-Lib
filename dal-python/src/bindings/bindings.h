@@ -1,7 +1,7 @@
 //
 // bindings.h — shared header for DAL pybind11 bindings
 //
-// Declares init_bindings_<domain>() functions called from bindings_module.cpp.
+// Declares init_bindings_<domain>() functions called from module.cpp.
 //
 
 #pragma once

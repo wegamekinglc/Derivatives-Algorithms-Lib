@@ -1,5 +1,5 @@
 //
-// bindings_global.cpp — global state bindings (evaluation date, opaque types)
+// global.cpp — global state bindings (evaluation date, opaque types)
 //
 
 #include "bindings.h"

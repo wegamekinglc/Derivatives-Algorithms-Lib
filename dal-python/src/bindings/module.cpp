@@ -1,5 +1,5 @@
 //
-// bindings_module.cpp — PYBIND11_MODULE entry point
+// module.cpp — PYBIND11_MODULE entry point
 //
 // Initializes the DAL runtime and calls all domain init functions.
 //

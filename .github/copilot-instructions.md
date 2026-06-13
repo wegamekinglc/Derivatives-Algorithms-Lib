@@ -11,7 +11,7 @@ bash ./build_linux.sh          # add --coverage for a coverage report
 
 # Manual build from the workspace root
 mkdir build && cd build
-cmake --preset=Release-linux -DDAL_BUILD_PUBLIC=ON .. && make -j32 && make install
+cmake --preset=Release-linux .. && make -j32 && make install
 ```
 
 CMake installs into the repo root: binaries in `bin/`, libs in `lib/`, headers in `include/`.
@@ -48,13 +48,13 @@ Override via cache vars when configuring manually:
 Dependency graph: `dal-cpp ← dal-public ← {dal-python, dal-excel}`; `dal-web` consumes
 the Python public API. Each sub-project owns its own `CMakeLists.txt` and stands alone.
 
-| Sub-project   | Target / purpose                                                  |
-|---------------|------------------------------------------------------------------|
-| `dal-cpp/`    | `DAL::cpp` — core: math, curves, models, scripting, AAD          |
-| `dal-public/` | `DAL::public` — stable public API wrapping `DAL::cpp`            |
+| Sub-project   | Target / purpose                                                   |
+|---------------|--------------------------------------------------------------------|
+| `dal-cpp/`    | `DAL::cpp` — core: math, curves, models, scripting, AAD            |
+| `dal-public/` | `DAL::public` — stable public API wrapping `DAL::cpp`              |
 | `dal-python/` | pybind11 Python bindings (`dal` package), depends on `DAL::public` |
-| `dal-excel/`  | `.xll` add-in, Windows-only, depends on `DAL::public`           |
-| `dal-web/`    | FastAPI backend + React/Vite frontend portfolio app             |
+| `dal-excel/`  | `.xll` add-in, Windows-only, depends on `DAL::public`              |
+| `dal-web/`    | FastAPI backend + React/Vite frontend portfolio app                |
 
 Core modules under `dal-cpp/dal/`: `math/` (interpolation, optimization, PDE, RNG, matrix,
 `math/aad/`), `script/` (visitor-pattern expression engine: lexer → preprocessor → parser

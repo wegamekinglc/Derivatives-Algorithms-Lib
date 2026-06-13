@@ -137,9 +137,9 @@ namespace Dal {
 - <decision and the alternative it beat>
 
 ## Error Cases
-| Input violation         | Message text                                |
-|-------------------------|---------------------------------------------|
-| empty knot vector       | "OIS curve requires at least one knot"      |
+| Input violation   | Message text                           |
+|-------------------|----------------------------------------|
+| empty knot vector | "OIS curve requires at least one knot" |
 
 ## Example
 <10-30 lines of pseudo-code or real C++ showing the typical happy path. This becomes

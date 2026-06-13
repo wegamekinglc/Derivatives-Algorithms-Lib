@@ -1,5 +1,5 @@
 //
-// bindings_random.cpp — random sequence generator bindings (PseudoRSG, SobolRSG)
+// random.cpp — random sequence generator bindings (PseudoRSG, SobolRSG)
 //
 
 #include "bindings.h"
