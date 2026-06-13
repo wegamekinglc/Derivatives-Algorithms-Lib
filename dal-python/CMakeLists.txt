@@ -162,13 +162,21 @@ endif()
 # ---------------------------------------------------------------------------
 # Python module: _dal (built via pybind11)
 #
-# The pybind11 bindings are in src/bindings/dal_bindings.cpp.
+# The pybind11 bindings are split across domain-organized source files under
+# src/bindings/.  bindings_module.cpp is the PYBIND11_MODULE entry point that
+# calls init functions from the individual domain files.
 # The compiled module is named _dal and output to <build>/dal/.
 # A thin dal.py shim re-exports everything from _dal.
 # ---------------------------------------------------------------------------
 
 pybind11_add_module(_dal
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/bindings/dal_bindings.cpp)
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/bindings/bindings_module.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/bindings/bindings_core.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/bindings/bindings_global.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/bindings/bindings_models.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/bindings/bindings_random.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/bindings/bindings_script.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/bindings/bindings_value.cpp)
 
 add_library(DAL::python ALIAS _dal)
 
