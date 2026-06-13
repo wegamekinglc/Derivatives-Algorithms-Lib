@@ -107,7 +107,7 @@ jobs:
 
       - name: Setup
         run: |
-          sudo apt install -y gcc-14 g++-14 swig \
+          sudo apt install -y gcc-14 g++-14 \
             libc++-dev make cmake \
             autotools-dev autoconf libtool
 

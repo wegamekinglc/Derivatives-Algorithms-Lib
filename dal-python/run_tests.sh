@@ -10,7 +10,7 @@
 # Prerequisites:
 #   - uv (https://docs.astral.sh/uv/)
 #   - The C++ library must be built first (run ../build_linux.sh from repo root)
-#   - SWIG 4.x and Python 3.10+ development headers
+#   - pybind11 (fetched via CMake FetchContent) and Python 3.10+ development headers
 #
 
 set -e

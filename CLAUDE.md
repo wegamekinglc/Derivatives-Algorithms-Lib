@@ -21,7 +21,7 @@ cmake --preset=Debug-linux .. && make -j32 && make install
 The top-level `CMakeLists.txt` is a thin workspace that selects sub-projects via options:
 
 - `DAL_BUILD_PUBLIC` (default `ON`) — build `dal-public`
-- `DAL_BUILD_PYTHON` (default `OFF`) — build `dal-python` (SWIG + Python package)
+- `DAL_BUILD_PYTHON` (default `OFF`) — build `dal-python` (pybind11 + Python package)
 - `DAL_BUILD_EXCEL` (default `OFF`) — build `dal-excel` (Windows-only)
 - `DAL_CPP_BUILD_TESTS` (default `ON`) — build the `dal-cpp` test suite
 - `DAL_CPP_BUILD_EXAMPLES` (default `ON`) — build the `dal-cpp` example programs
@@ -68,7 +68,7 @@ Derivatives-Algorithms-Lib/
 ├── CMakeLists.txt          (thin workspace selecting sub-projects)
 ├── dal-cpp/                DAL::cpp — core library (always built)
 ├── dal-public/             DAL::public — public API, depends on DAL::cpp
-├── dal-python/             DAL::python — SWIG + Python package, depends on DAL::public
+├── dal-python/             DAL::python — pybind11 + Python package, depends on DAL::public
 ├── dal-excel/              DAL::excel — Excel add-in, depends on DAL::public (Windows-only)
 └── dal-web/                Portfolio management web app (FastAPI + React)
 ```
@@ -97,7 +97,7 @@ The dependency graph is `dal-cpp ← dal-public ← {dal-python, dal-excel}`. Ea
 - `dal-public/tests/` — public-API tests compiled into `dal_public_tests`
 
 **Python bindings (`dal-python/`, off by default)** — depends on `DAL::public`:
-- `dal-python/swig/` — SWIG interface files
+- `dal-python/src/bindings/` — pybind11 binding module
 - `dal-python/python/` — Python packaging (`setup.py`, `dal` package)
 - `dal-python/tests/` — pytest-based tests
 

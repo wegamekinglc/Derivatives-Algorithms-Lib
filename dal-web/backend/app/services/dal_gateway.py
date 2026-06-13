@@ -10,7 +10,7 @@ directly -- they all go through :class:`DalGateway`.
 Backend selection
 -----------------
 * ``DAL_MODULE`` (default ``"dal"``) -- the importable module that provides the
-  public API.  In a real deployment this is the compiled SWIG extension.
+  public API.  In a real deployment this is the compiled pybind11 extension.
 * If that import fails and ``DAL_REQUIRE_NATIVE`` is not set to a truthy value,
   the gateway falls back to :mod:`app.services.dal_stub`, which re-implements
   the same public API in pure Python for local development and CI.
@@ -68,7 +68,7 @@ class DalGateway:
             if _is_truthy(os.environ.get("DAL_REQUIRE_NATIVE")):
                 raise RuntimeError(
                     f"Could not import native DAL module '{module_name}': {native_error}. "
-                    "Build the C++ library and SWIG Python bindings, or unset "
+                    "Build the C++ library and pybind11 Python bindings, or unset "
                     "DAL_REQUIRE_NATIVE to use the development stub."
                 ) from native_error
             from app.services import dal_stub
@@ -150,7 +150,7 @@ class DalGateway:
     def _build_matrix(self, spots: list[float], times: list[float], vols: Any) -> Any:
         """Build a ``dal.DoubleMatrix_`` (rows=spots, cols=times) from a flat 2D list.
 
-        The native SWIG matrix binding exposes constructor fill and read access,
+        The native pybind11 matrix binding exposes constructor fill and read access,
         but not element mutation.  Native Dupire support is therefore limited to
         flat volatility surfaces until the public binding grows a setter.
         """

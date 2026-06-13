@@ -1,6 +1,6 @@
-from . import dal as _swig
+from . import dal as _bindings
 
 
 def Product_New(events_dates: list, events: list[str]):
-    wrapped = [d if isinstance(d, _swig.Cell_) else _swig.Cell_(d) for d in events_dates]
-    return _swig.Product_New(wrapped, events)
+    wrapped = [d if isinstance(d, _bindings.Cell_) else _bindings.Cell_(d) for d in events_dates]
+    return _bindings.Product_New(wrapped, events)

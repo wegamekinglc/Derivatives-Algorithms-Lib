@@ -15,7 +15,7 @@ def test_module_has_expected_attributes():
 
 
 def test_core_types_available():
-    """Verify all core SWIG-wrapped types are importable."""
+    """Verify all core pybind11-wrapped types are importable."""
     for type_name in [
         "Date_", "String_", "Cell_",
         "DoubleVector", "StrVector", "CellVector", "DateVector",
@@ -53,7 +53,7 @@ def test_date_functions_available():
 
 
 def test_dal_submodule_importable():
-    """The dal.dal SWIG-generated submodule is directly importable."""
+    """The dal.dal pybind11-generated submodule is directly importable."""
     import dal.dal
     assert dal.dal is not None  # nosec B101 - pytest assertions are intentional
 

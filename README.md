@@ -34,7 +34,7 @@ The dependency graph is `dal-cpp ← dal-public ← {dal-python, dal-excel}`. Th
 |---------------|----------------------------------------------------------|
 | `dal-cpp/`    | Core library: math, curves, models, scripting, AAD       |
 | `dal-public/` | Stable public API wrapping `DAL::cpp`                    |
-| `dal-python/` | SWIG Python bindings                                     |
+| `dal-python/` | pybind11 Python bindings                                 |
 | `dal-excel/`  | Excel `.xll` add-in (Windows-only)                       |
 | `dal-web/`    | Portfolio management web app (FastAPI + React), uses DAL through the Python public API |
 

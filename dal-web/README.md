@@ -52,7 +52,7 @@ requirement.
 
 ### Native library vs. development stub
 
-The compiled `dal` package requires a full C++ build with SWIG bindings (see the
+The compiled `dal` package requires a full C++ build with pybind11 bindings (see the
 repository root `README.md` and `dal-python/`). So that the web app can be
 developed and tested without that build, `dal_gateway.py` falls back to
 `dal_stub.py` -- a pure-python module that re-implements the **same** public API

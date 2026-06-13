@@ -51,7 +51,7 @@ the Python public API. Each sub-project owns its own `CMakeLists.txt` and stands
 |---------------|------------------------------------------------------------------|
 | `dal-cpp/`    | `DAL::cpp` — core: math, curves, models, scripting, AAD          |
 | `dal-public/` | `DAL::public` — stable public API wrapping `DAL::cpp`            |
-| `dal-python/` | SWIG Python bindings (`dal` package), depends on `DAL::public`   |
+| `dal-python/` | pybind11 Python bindings (`dal` package), depends on `DAL::public` |
 | `dal-excel/`  | `.xll` add-in, Windows-only, depends on `DAL::public`           |
 | `dal-web/`    | FastAPI backend + React/Vite frontend portfolio app             |
 
@@ -112,7 +112,7 @@ Tests (Google Test, `.claude/rules/unit-test-style.md`):
 ## Tooling notes
 
 - Python dependencies are managed with **uv** (not pip/venv directly) for both the web backend
-  and the Python public-API/SWIG build.
+  and the Python public-API/pybind11 build.
 - DAL agent guidance (rules, skills, agents) lives under `.claude/`. Copilot guidance is in
   `.github/copilot-instructions.md` (this file). Keep markdown tables column-aligned with compact
   separator rows. Use SSH (`git@github.com:`) URLs, not HTTPS.

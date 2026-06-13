@@ -80,7 +80,7 @@ If the user asks to run tests after starting the UI:
 
 ## Native vs. stub DAL backend
 
-By default the backend uses `dal_stub.py` (pure-Python closed-form Black-Scholes). To use the compiled SWIG bindings:
+By default the backend uses `dal_stub.py` (pure-Python closed-form Black-Scholes). To use the compiled pybind11 bindings:
 
 1. Build `dal-python` per the repo root `README.md`.
 2. Install into the uv env: `uv pip install ../../dal-python` (from `dal-web/backend/`).

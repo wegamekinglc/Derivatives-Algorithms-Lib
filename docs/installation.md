@@ -39,7 +39,7 @@ This guide covers the complete installation process for DAL, including the C++ l
 
 - Python 3.10 or later
 - [uv](https://docs.astral.sh/uv/) package manager (recommended) or pip
-- SWIG 4.0+ (automatically installed by uv)
+- pybind11 (fetched automatically via CMake FetchContent)
 
 ### Web UI
 
@@ -140,7 +140,7 @@ re-enable them with `-D...` flags.
 | Option | Default | Description |
 |--------|---------|-------------|
 | `DAL_BUILD_PUBLIC` | `ON` | Build `dal-public` (stable public API) |
-| `DAL_BUILD_PYTHON` | `OFF` | Build `dal-python` (SWIG + Python package) |
+| `DAL_BUILD_PYTHON` | `OFF` | Build `dal-python` (pybind11 + Python package) |
 | `DAL_BUILD_EXCEL` | `OFF` | Build `dal-excel` (Windows-only) |
 | `DAL_CPP_BUILD_TESTS` | `ON` | Build test suite |
 | `DAL_CPP_BUILD_EXAMPLES` | `ON` | Build example programs |
@@ -261,7 +261,7 @@ source .venv/bin/activate        # Linux/macOS
 # or: .venv\Scripts\activate     # Windows
 
 # Install build dependencies
-pip install scikit-build-core swig pytest numpy
+pip install scikit-build-core pytest numpy
 
 # Install DAL in editable mode
 DAL_DIR=$(pwd)/.. pip install -e . --no-build-isolation
@@ -520,12 +520,12 @@ g++ --version    # Linux
 cl               # Windows (from Developer Command Prompt)
 ```
 
-#### Python bindings fail to compile SWIG wrappers
+#### Python bindings fail to compile
 
-**Error:** SWIG compilation errors
+**Error:** pybind11 compilation errors
 
 **Solution:**
-1. Ensure SWIG 4.0+ is installed: `swig -version`
+1. Ensure pybind11 is available: CMake FetchContent downloads it automatically, but if you're offline, install `pybind11` system-wide and set `-DPYBIND11_USE_FETCHCONTENT=OFF`.
 2. Clean and rebuild:
 
 ```bash
