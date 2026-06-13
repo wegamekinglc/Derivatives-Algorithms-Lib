@@ -112,8 +112,9 @@ Tests (Google Test, `.claude/rules/unit-test-style.md`):
 
 - Python dependencies are managed with **uv** (not pip/venv directly) for both the web backend
   and the Python public-API/SWIG build.
-- Repo AI guidance lives under `.claude/` only (rules, skills, agents). Keep markdown tables
-  column-aligned with compact separator rows. Use SSH (`git@github.com:`) URLs, not HTTPS.
+- DAL agent guidance (rules, skills, agents) lives under `.claude/`. Copilot guidance is in
+  `.github/copilot-instructions.md` (this file). Keep markdown tables column-aligned with compact
+  separator rows. Use SSH (`git@github.com:`) URLs, not HTTPS.
 - Web UI: `./dal-web/scripts/start.sh` / `stop.sh`; frontend at http://localhost:5173,
   API docs at http://127.0.0.1:8001/docs.
 - Web UI e2e: run `./dal-web/scripts/setup-playwright.sh` once, then
