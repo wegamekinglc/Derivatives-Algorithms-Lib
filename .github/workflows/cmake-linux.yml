@@ -123,9 +123,10 @@ jobs:
 
       - name: Set up Python venv
         run: |
+          VIRTUAL_ENV="$PWD/dal-python/.venv"
           uv venv dal-python/.venv --python 3.12
           echo "$PWD/dal-python/.venv/bin" >> "$GITHUB_PATH"
-          export VIRTUAL_ENV="$PWD/dal-python/.venv"
+          echo "VIRTUAL_ENV=$VIRTUAL_ENV" >> "$GITHUB_ENV"
           uv pip install pytest numpy
 
       - name: Compile and test

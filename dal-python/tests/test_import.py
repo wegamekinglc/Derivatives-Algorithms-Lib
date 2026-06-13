@@ -53,7 +53,7 @@ def test_date_functions_available():
 
 
 def test_dal_submodule_importable():
-    """The dal.dal pybind11-generated submodule is directly importable."""
+    """The dal.dal build-generated shim submodule is directly importable."""
     import dal.dal
     assert dal.dal is not None  # nosec B101 - pytest assertions are intentional
 

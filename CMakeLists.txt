@@ -67,7 +67,7 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 # Workspace-wide options
 option(DAL_BUILD_PUBLIC "Build dal-public" ON)
-option(DAL_BUILD_PYTHON "Build dal-python" ON)
+option(DAL_BUILD_PYTHON "Build dal-python" OFF)
 option(DAL_BUILD_EXCEL "Build dal-excel" OFF)
 
 enable_testing()

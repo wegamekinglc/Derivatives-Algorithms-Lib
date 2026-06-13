@@ -3,7 +3,7 @@
 # This project generates Python bindings for the DAL public API using pybind11.
 # It depends ONLY on dal-public (DAL::public), never directly on dal-cpp.
 #
-# Target: dal_python (alias DAL::python)
+# Target: _dal (alias DAL::python)
 #
 # Two build modes:
 #   Standalone:  cmake -S dal-python -B build -DDAL_DIR=<dal-install-root>

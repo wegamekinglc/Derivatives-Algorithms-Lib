@@ -21,7 +21,7 @@ cmake --preset=Debug-linux .. && make -j32 && make install
 The top-level `CMakeLists.txt` is a thin workspace that selects sub-projects via options:
 
 - `DAL_BUILD_PUBLIC` (default `ON`) — build `dal-public`
-- `DAL_BUILD_PYTHON` (default `ON`) — build `dal-python` (pybind11 + Python package)
+- `DAL_BUILD_PYTHON` (default `OFF`) — build `dal-python` (pybind11 + Python package)
 - `DAL_BUILD_EXCEL` (default `OFF`) — build `dal-excel` (Windows-only)
 - `DAL_CPP_BUILD_TESTS` (default `ON`) — build the `dal-cpp` test suite
 - `DAL_CPP_BUILD_EXAMPLES` (default `ON`) — build the `dal-cpp` example programs
