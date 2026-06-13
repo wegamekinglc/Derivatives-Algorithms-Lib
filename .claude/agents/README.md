@@ -33,13 +33,13 @@ subset of the pipeline (see `dal-orchestrator.md` for the routing table).
 
 ## Artifact Layout
 
-| Path                 | Owner        | Purpose                                                 |
-|----------------------|--------------|---------------------------------------------------------|
-| `.claude/specs/`     | spec writer  | testable requirement specifications (created on demand)       |
-| `.claude/api-notes/` | api designer | public-API surface notes (created on demand)                  |
+| Path                 | Owner        | Purpose                                                        |
+|----------------------|--------------|----------------------------------------------------------------|
+| `.claude/specs/`     | spec writer  | testable requirement specifications (created on demand)        |
+| `.claude/api-notes/` | api designer | public-API surface notes (created on demand)                   |
 | `.claude/critiques/` | critic       | adversarial reviews of specs and api-notes (created on demand) |
-| `docs/methodology/`  | (existing)   | normative quant method docs (referenced by all agents)  |
-| `.claude/rules/`     | (existing)   | normative coding/test/git conventions                   |
+| `docs/methodology/`  | (existing)   | normative quant method docs (referenced by all agents)         |
+| `.claude/rules/`     | (existing)   | normative coding/test/git conventions                          |
 
 Filenames share a single kebab-case slug derived from the issue title, so an issue traces
 through `specs/log-linear-interp.md → api-notes/log-linear-interp.md → ...` end-to-end.
