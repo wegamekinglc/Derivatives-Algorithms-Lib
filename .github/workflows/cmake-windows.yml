@@ -89,8 +89,8 @@ jobs:
       - name: Set up Python venv
         shell: pwsh
         run: |
-          uv venv .venv --python 3.12
-          $venvScripts = (Resolve-Path .\.venv\Scripts).Path
+          uv venv dal-python/.venv --python 3.12
+          $venvScripts = (Resolve-Path .\dal-python\.venv\Scripts).Path
           $pythonExe = Join-Path $venvScripts "python.exe"
           # Add venv Scripts to PATH so subprocesses (including cmake's
           # FindPython3 on some platforms) pick up the venv's python.

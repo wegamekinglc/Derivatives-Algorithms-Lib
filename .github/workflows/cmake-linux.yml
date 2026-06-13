@@ -120,8 +120,8 @@ jobs:
 
       - name: Set up Python venv
         run: |
-          uv venv .venv --python 3.12
-          echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
+          uv venv dal-python/.venv --python 3.12
+          echo "$PWD/dal-python/.venv/bin" >> "$GITHUB_PATH"
           uv pip install pytest numpy
 
       - name: Compile and test
