@@ -420,8 +420,8 @@ namespace {
         Timer_ timer;
         timer.Reset();
         const auto result = CalibrateMultiCurve(multiCurveSpec);
-        const double totalMs = timer.Elapsed<milliseconds>();
-        const double perStageMs = totalMs / 2.0;
+        const auto totalMs = timer.Elapsed<milliseconds>();
+        const double perStageMs = static_cast<double>(totalMs) / 2.0;
         const CurveBlock_ calibratedCurve("usd_example", ccyName, result.discountCurves_, result.forwardCurves_, libor3m.dayBasis_);
 
         PrintStageDiagnostics(result.diagnostics_[0], oisNames,   perStageMs);

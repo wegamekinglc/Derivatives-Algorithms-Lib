@@ -130,7 +130,7 @@ namespace Dal {
         Timer_ timer;
         timer.Reset();
         const auto result = CalibrateCrossCurrencyMarket(spec);
-        const double elapsedMs = timer.Elapsed<milliseconds>();
+        const auto elapsedMs = timer.Elapsed<milliseconds>();
 
         std::cout << "\n"
                   << std::string(70, '=') << "\n"
