@@ -55,11 +55,13 @@ option(DAL_PYTHON_BUILD_WHEEL "Build Python wheel" OFF)
 # ---------------------------------------------------------------------------
 # Dependencies: pybind11, Python3, and dal-public
 # ---------------------------------------------------------------------------
-# Find pybind11: first try pip-installed package, then FetchContent fallback
-set(_pybind11_cmake_dir "/home/wegamekinglc/anaconda3/lib/python3.13/site-packages/pybind11/share/cmake/pybind11")
-if(EXISTS "${_pybind11_cmake_dir}")
-    list(APPEND CMAKE_PREFIX_PATH "${_pybind11_cmake_dir}/../..")
-endif()
+# Find Python3 FIRST so pybind11's internal FindPythonLibsNew reuses the
+# same interpreter and include paths (avoids picking up a system Python
+# without dev headers).
+find_package(Python3 REQUIRED COMPONENTS Interpreter Development.Module)
+message(STATUS "-- Python3: ${Python3_EXECUTABLE} (version ${Python3_VERSION})")
+
+# Find pybind11: try system-installed first, then FetchContent fallback
 find_package(pybind11 CONFIG QUIET)
 if(NOT pybind11_FOUND)
     message(STATUS "-- pybind11: not found via find_package, using FetchContent")
@@ -74,9 +76,6 @@ if(NOT pybind11_FOUND)
 else()
     message(STATUS "-- pybind11: found via find_package (${pybind11_VERSION})")
 endif()
-
-find_package(Python3 REQUIRED COMPONENTS Interpreter Development.Module)
-message(STATUS "-- Python3: ${Python3_EXECUTABLE} (version ${Python3_VERSION})")
 
 # Find the DAL public library
 if(TARGET DAL::public)
