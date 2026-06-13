@@ -11,6 +11,7 @@
       "hidden": true,
       "cacheVariables": {
         "CMAKE_INSTALL_PREFIX": "${sourceDir}",
+        "Python3_ROOT_DIR": "${sourceDir}/dal-python/.venv",
         "DAL_USE_XAD_AAD": "off",
         "DAL_USE_CODIPACK_AAD": "off",
         "DAL_USE_ADEPT_AAD": "off",
