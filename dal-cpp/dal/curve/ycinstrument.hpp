@@ -25,8 +25,7 @@ namespace Dal {
             virtual double operator()(const YieldCurve_& yc) const = 0;
         };
 
-        [[nodiscard]] virtual Handle_<Rate_> Precompute(const Handle_<YCInstrument_>& self,
-                                                        const Handle_<YieldCurve_>& funding_yc) const = 0;
+        [[nodiscard]] virtual Handle_<Rate_> Precompute(const Handle_<YieldCurve_>& funding_yc) const = 0;
     };
 
     class Deposit_ : public YCInstrument_ {
@@ -46,8 +45,7 @@ namespace Dal {
         [[nodiscard]] String_ Name() const override;
         [[nodiscard]] pair<Date_, Date_> TimeSpan() const override;
         [[nodiscard]] double MarketRate() const override { return marketRate_; }
-        [[nodiscard]] Handle_<Rate_> Precompute(const Handle_<YCInstrument_>& self,
-                                                const Handle_<YieldCurve_>& funding_yc) const override;
+        [[nodiscard]] Handle_<Rate_> Precompute(const Handle_<YieldCurve_>& funding_yc) const override;
     };
 
     class FRA_ : public YCInstrument_ {
@@ -66,8 +64,7 @@ namespace Dal {
         [[nodiscard]] String_ Name() const override;
         [[nodiscard]] pair<Date_, Date_> TimeSpan() const override;
         [[nodiscard]] double MarketRate() const override { return marketRate_; }
-        [[nodiscard]] Handle_<Rate_> Precompute(const Handle_<YCInstrument_>& self,
-                                                const Handle_<YieldCurve_>& funding_yc) const override;
+        [[nodiscard]] Handle_<Rate_> Precompute(const Handle_<YieldCurve_>& funding_yc) const override;
     };
 
     class Future_ : public YCInstrument_ {
@@ -88,8 +85,7 @@ namespace Dal {
         [[nodiscard]] String_ Name() const override;
         [[nodiscard]] pair<Date_, Date_> TimeSpan() const override;
         [[nodiscard]] double MarketRate() const override { return marketRate_; }
-        [[nodiscard]] Handle_<Rate_> Precompute(const Handle_<YCInstrument_>& self,
-                                                const Handle_<YieldCurve_>& funding_yc) const override;
+        [[nodiscard]] Handle_<Rate_> Precompute(const Handle_<YieldCurve_>& funding_yc) const override;
     };
 
     class Swap_ : public YCInstrument_ {
@@ -114,8 +110,7 @@ namespace Dal {
         [[nodiscard]] String_ Name() const override;
         [[nodiscard]] pair<Date_, Date_> TimeSpan() const override;
         [[nodiscard]] double MarketRate() const override { return marketRate_; }
-        [[nodiscard]] Handle_<Rate_> Precompute(const Handle_<YCInstrument_>& self,
-                                                const Handle_<YieldCurve_>& funding_yc) const override;
+        [[nodiscard]] Handle_<Rate_> Precompute(const Handle_<YieldCurve_>& funding_yc) const override;
     };
 
     class OISSwap_ : public Swap_ {
@@ -153,8 +148,7 @@ namespace Dal {
         [[nodiscard]] String_ Name() const override;
         [[nodiscard]] pair<Date_, Date_> TimeSpan() const override;
         [[nodiscard]] double MarketRate() const override { return marketRate_; }
-        [[nodiscard]] Handle_<Rate_> Precompute(const Handle_<YCInstrument_>& self,
-                                                const Handle_<YieldCurve_>& funding_yc) const override;
+        [[nodiscard]] Handle_<Rate_> Precompute(const Handle_<YieldCurve_>& funding_yc) const override;
     };
 
     class STIR_ : public FRA_ {

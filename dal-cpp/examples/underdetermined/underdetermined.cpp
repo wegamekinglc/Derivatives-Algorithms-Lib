@@ -57,7 +57,7 @@ int main() {
 
     CurveBlock_ calibYC(*dc);
     for (int i = 0; i < nInstruments; ++i) {
-        Handle_<YCInstrument_::Rate_> rate = instruments[i]->Precompute(instruments[i], Handle_<YieldCurve_>());
+        Handle_<YCInstrument_::Rate_> rate = instruments[i]->Precompute(Handle_<YieldCurve_>());
         double modelRate = (*rate)(calibYC);
         double mktRate = instruments[i]->MarketRate();
         std::cout << std::setw(12) << instruments[i]->Name()

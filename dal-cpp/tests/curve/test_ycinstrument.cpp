@@ -119,7 +119,7 @@ TEST(YCInstrumentTest, TestDepositPrecomputeMatchesDiscountCurve) {
     ASSERT_EQ(deposit->TimeSpan().first, today);
     ASSERT_EQ(deposit->TimeSpan().second, maturity);
 
-    const Handle_<YCInstrument_::Rate_> rate = deposit->Precompute(deposit, Handle_<YieldCurve_>());
+    const Handle_<YCInstrument_::Rate_> rate = deposit->Precompute(Handle_<YieldCurve_>());
     const double expected = ExpectedSimpleRate(*dc, today, maturity, basis);
     ASSERT_NEAR((*rate)(curve), expected, 1e-12);
 }
@@ -131,7 +131,7 @@ TEST(YCInstrumentTest, TestDepositUsesFallbackDiscountCurveWhenPrimaryMissingCon
     const Handle_<DiscountCurve_> dc = MakeFlatDiscountCurve("ois", "USD", today, 0.02);
     const Handle_<YieldCurve_> fallback(new CurveBlock_(dc, basis));
     const Handle_<YCInstrument_> deposit(new Deposit_(today, maturity, 0.021, basis));
-    const Handle_<YCInstrument_::Rate_> rate = deposit->Precompute(deposit, fallback);
+    const Handle_<YCInstrument_::Rate_> rate = deposit->Precompute(fallback);
     const MissingYieldCurve_ primary;
 
     const double expected = ExpectedSimpleRate(*dc, today, maturity, basis);
@@ -150,7 +150,7 @@ TEST(YCInstrumentTest, TestSwapPrecomputeMatchesParRate) {
     ASSERT_EQ(swap->TimeSpan().first, today);
     ASSERT_EQ(swap->TimeSpan().second, maturity);
 
-    const Handle_<YCInstrument_::Rate_> rate = swap->Precompute(swap, Handle_<YieldCurve_>());
+    const Handle_<YCInstrument_::Rate_> rate = swap->Precompute(Handle_<YieldCurve_>());
     const double expected = ExpectedSwapRate(*dc, today, maturity, 6, basis);
     ASSERT_NEAR((*rate)(curve), expected, 1e-12);
 }
@@ -175,7 +175,7 @@ TEST(YCInstrumentTest, TestOISSwapUsesFallbackDiscountCurveWhenPrimaryMissingCon
     floatLeg.dayBasis_ = basis;
 
     const Handle_<YCInstrument_> swap(new OISSwap_(today, today, maturity, 0.0, fixedLeg, overnightConvention, floatLeg));
-    const Handle_<YCInstrument_::Rate_> rate = swap->Precompute(swap, fallback);
+    const Handle_<YCInstrument_::Rate_> rate = swap->Precompute(fallback);
     const MissingYieldCurve_ primary;
 
     ASSERT_EQ(swap->Name(), "OISSwap");
@@ -197,7 +197,7 @@ TEST(YCInstrumentTest, TestSTIRPrecomputeMatchesForwardRate) {
     ASSERT_EQ(stir->TimeSpan().first, start);
     ASSERT_EQ(stir->TimeSpan().second, maturity);
 
-    const Handle_<YCInstrument_::Rate_> rate = stir->Precompute(stir, Handle_<YieldCurve_>());
+    const Handle_<YCInstrument_::Rate_> rate = stir->Precompute(Handle_<YieldCurve_>());
     const double expected = ExpectedSimpleRate(*dc, start, maturity, basis);
     ASSERT_NEAR((*rate)(curve), expected, 1e-12);
 }
@@ -222,7 +222,7 @@ TEST(YCInstrumentTest, TestFraUsesTenorSpecificForwardCurve) {
     convention.collateral_ = CollateralType_(CollateralType_::Value_::OIS);
     const Handle_<YCInstrument_> fra(new FRA_(today, start, maturity, 0.0, convention));
 
-    const Handle_<YCInstrument_::Rate_> rate = fra->Precompute(fra, Handle_<YieldCurve_>());
+    const Handle_<YCInstrument_::Rate_> rate = fra->Precompute(Handle_<YieldCurve_>());
     const double expected = ExpectedSimpleRate(*libor3m, start, maturity, basis);
     ASSERT_NEAR((*rate)(curve), expected, 1e-12);
 }
@@ -248,7 +248,7 @@ TEST(YCInstrumentTest, TestFraUsesFallbackProjectionCurveWhenPrimaryMissingConte
     convention.collateral_ = CollateralType_(CollateralType_::Value_::OIS);
 
     const Handle_<YCInstrument_> fra(new FRA_(today, start, maturity, 0.0, convention));
-    const Handle_<YCInstrument_::Rate_> rate = fra->Precompute(fra, fallback);
+    const Handle_<YCInstrument_::Rate_> rate = fra->Precompute(fallback);
     const MissingYieldCurve_ primary;
 
     const double expected = ExpectedSimpleRate(*libor3m, start, maturity, basis);
@@ -267,7 +267,7 @@ TEST(YCInstrumentTest, TestFutureAppliesConvexityAdjustment) {
     convention.dayBasis_ = basis;
     const Handle_<YCInstrument_> future(new Future_(today, start, maturity, 0.0, convention, 0.0015));
 
-    const Handle_<YCInstrument_::Rate_> rate = future->Precompute(future, Handle_<YieldCurve_>());
+    const Handle_<YCInstrument_::Rate_> rate = future->Precompute(Handle_<YieldCurve_>());
     const double expected = ExpectedSimpleRate(*dc, start, maturity, basis) - 0.0015;
     ASSERT_NEAR((*rate)(curve), expected, 1e-12);
 }
@@ -304,7 +304,7 @@ TEST(YCInstrumentTest, TestBasisSwapUsesSeparateForwardCurves) {
     const Handle_<YCInstrument_> basisSwap(
         new BasisSwap_(today, today, maturity, 0.0, spreadConvention, spreadLeg, referenceConvention, referenceLeg));
 
-    const Handle_<YCInstrument_::Rate_> rate = basisSwap->Precompute(basisSwap, Handle_<YieldCurve_>());
+    const Handle_<YCInstrument_::Rate_> rate = basisSwap->Precompute(Handle_<YieldCurve_>());
     const double expected = ExpectedBasisSpread(*ois, *libor3m, *libor6m, today, maturity, 3, 6, basis, basis);
     ASSERT_NEAR((*rate)(curve), expected, 1e-12);
 }
@@ -342,7 +342,7 @@ TEST(YCInstrumentTest, TestBasisSwapUsesFallbackCurvesWhenPrimaryMissingContext)
 
     const Handle_<YCInstrument_> basisSwap(
         new BasisSwap_(today, today, maturity, 0.0, spreadConvention, spreadLeg, referenceConvention, referenceLeg));
-    const Handle_<YCInstrument_::Rate_> rate = basisSwap->Precompute(basisSwap, fallback);
+    const Handle_<YCInstrument_::Rate_> rate = basisSwap->Precompute(fallback);
     const MissingYieldCurve_ primary;
 
     const double expected = ExpectedBasisSpread(*ois, *libor3m, *libor6m, today, maturity, 3, 6, basis, basis);

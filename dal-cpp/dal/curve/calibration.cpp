@@ -213,7 +213,7 @@ namespace Dal {
                 rates_.reserve(instruments_.size());
                 marketRates_.reserve(instruments_.size());
                 for (const auto& inst : instruments_) {
-                    rates_.push_back(inst->Precompute(inst, fundingYC));
+                    rates_.push_back(inst->Precompute(fundingYC));
                     marketRates_.push_back(inst->MarketRate());
                 }
             }
@@ -238,7 +238,7 @@ namespace Dal {
         Vector_<> ModelRates(const Vector_<Handle_<YCInstrument_>>& instruments, const YieldCurve_& curve, const Handle_<YieldCurve_>& fundingCurve) {
             Vector_<> modelRates(instruments.size());
             for (int i = 0; i < static_cast<int>(instruments.size()); ++i) {
-                auto rate = instruments[i]->Precompute(instruments[i], fundingCurve);
+                auto rate = instruments[i]->Precompute(fundingCurve);
                 modelRates[i] = (*rate)(curve);
             }
             return modelRates;

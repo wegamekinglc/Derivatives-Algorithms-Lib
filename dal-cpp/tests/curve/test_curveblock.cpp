@@ -113,7 +113,7 @@ TEST(CurveBlockTest, TestFlatCurveCalibration) {
     CurveBlock_ yc(*dc);
 
     for (const auto& inst : instruments) {
-        Handle_<YCInstrument_::Rate_> rate = inst->Precompute(inst, Handle_<YieldCurve_>());
+        Handle_<YCInstrument_::Rate_> rate = inst->Precompute(Handle_<YieldCurve_>());
         double modelRate = (*rate)(yc);
         ASSERT_NEAR(modelRate, inst->MarketRate(), 1e-8);
     }
@@ -151,7 +151,7 @@ TEST(CurveBlockTest, TestUpwardSlopingCurve) {
     CurveBlock_ yc(*dc);
 
     for (const auto& inst : instruments) {
-        Handle_<YCInstrument_::Rate_> rate = inst->Precompute(inst, Handle_<YieldCurve_>());
+        Handle_<YCInstrument_::Rate_> rate = inst->Precompute(Handle_<YieldCurve_>());
         double modelRate = (*rate)(yc);
         ASSERT_NEAR(modelRate, inst->MarketRate(), 1e-8);
     }
@@ -228,7 +228,7 @@ TEST(CurveBlockTest, TestRoundTrip) {
     CurveBlock_ yc(*calibDc);
 
     for (const auto& inst : instruments) {
-        Handle_<YCInstrument_::Rate_> rate = inst->Precompute(inst, Handle_<YieldCurve_>());
+        Handle_<YCInstrument_::Rate_> rate = inst->Precompute(Handle_<YieldCurve_>());
         double modelRate = (*rate)(yc);
         ASSERT_NEAR(modelRate, inst->MarketRate(), 1e-8);
     }
@@ -261,7 +261,7 @@ TEST(CurveBlockTest, TestCalibrationWithSTIR) {
     CurveBlock_ yc(*dc);
 
     for (const auto& inst : instruments) {
-        Handle_<YCInstrument_::Rate_> rate = inst->Precompute(inst, Handle_<YieldCurve_>());
+        Handle_<YCInstrument_::Rate_> rate = inst->Precompute(Handle_<YieldCurve_>());
         double modelRate = (*rate)(yc);
         ASSERT_NEAR(modelRate, inst->MarketRate(), 1e-8);
     }
@@ -366,10 +366,10 @@ TEST(CurveBlockTest, TestSequentialMultiCurveCalibration) {
                                                ibor3m,
                                                floatLeg));
 
-    const auto oisDepositRate = oisDeposit->Precompute(oisDeposit, Handle_<YieldCurve_>());
-    const auto oisSwapRate = oisSwap->Precompute(oisSwap, Handle_<YieldCurve_>());
-    const auto fraRate = fra->Precompute(fra, Handle_<YieldCurve_>());
-    const auto irsRate = irs->Precompute(irs, Handle_<YieldCurve_>());
+    const auto oisDepositRate = oisDeposit->Precompute(Handle_<YieldCurve_>());
+    const auto oisSwapRate = oisSwap->Precompute(Handle_<YieldCurve_>());
+    const auto fraRate = fra->Precompute(Handle_<YieldCurve_>());
+    const auto irsRate = irs->Precompute(Handle_<YieldCurve_>());
 
     CurveCalibrationSpec_ oisStage;
     oisStage.today_ = today;
