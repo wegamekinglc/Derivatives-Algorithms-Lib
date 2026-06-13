@@ -140,7 +140,7 @@ re-enable them with `-D...` flags.
 | Option | Default | Description |
 |--------|---------|-------------|
 | `DAL_BUILD_PUBLIC` | `ON` | Build `dal-public` (stable public API) |
-| `DAL_BUILD_PYTHON` | `OFF` | Build `dal-python` (pybind11 + Python package) |
+| `DAL_BUILD_PYTHON` | `ON` | Build `dal-python` (pybind11 + Python package) |
 | `DAL_BUILD_EXCEL` | `OFF` | Build `dal-excel` (Windows-only) |
 | `DAL_CPP_BUILD_TESTS` | `ON` | Build test suite |
 | `DAL_CPP_BUILD_EXAMPLES` | `ON` | Build example programs |
