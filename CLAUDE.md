@@ -132,6 +132,7 @@ Detailed documentation of the quantitative methods implemented in this library:
 - **Automatic Adjoint Differentiation (AAD)** — [AAD methodology](docs/methodology/aad.md)
 - **Yield Curve Construction** — [Yield curve construction](docs/methodology/yield_curve.md)
 - **Underdetermined Search** — [Underdetermined search](docs/methodology/underdetermined_search.md)
+- **Cross-Currency Calibration** — [Cross-currency calibration](docs/methodology/xccy_calibration.md)
 
 ## Rules to follow
 

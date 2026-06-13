@@ -1,284 +1,221 @@
 # Automatic Adjoint Differentiation (AAD)
 
-Documentation of the AAD framework in `dal-cpp/dal/math/aad/`.
+This note describes the mathematics behind the reverse-mode automatic
+differentiation used throughout the library to compute risk sensitivities
+(Greeks). It explains *why* the method works and *how* the algorithm proceeds,
+independent of any particular implementation.
 
-## File Map
+## The Problem
 
-| File                                 | Purpose                                                                               |
-|--------------------------------------|---------------------------------------------------------------------------------------|
-| `dal-cpp/dal/math/aad/expr.hpp`      | Expression template hierarchy, operator overloads, and backend-specific `Number_`     |
-| `dal-cpp/dal/math/aad/tape.hpp`      | `Tape_` declaration for native `BlockList_`, XAD, CoDiPack, or Adept backends         |
-| `dal-cpp/dal/math/aad/tape.cpp`      | Propagation, mark, rewind, and clear for native, XAD, CoDiPack, and Adept paths       |
-| `dal-cpp/dal/math/aad/node.hpp`      | `TapNode_` — per-operation node storing local derivatives and adjoint pointers        |
-| `dal-cpp/dal/math/aad/blocklist.hpp` | `BlockList_<T_, BLOCK_SIZE>` — segmented arena allocator backing the native tape      |
-| `dal-cpp/dal/math/aad/aad.hpp`       | Multi-result support (`SetNumResultsForAAD`), `PutOnTape`, `Clear`                    |
-| `dal-cpp/dal/math/aad/aad.cpp`       | Static initializers for `TapNode_::numAdj_` and `Tape_::multi_` in the native backend |
-| `dal-cpp/dal/math/aad/sample.hpp`    | `Sample_<T_>` and `Scenario_<T_>` — container for AAD-aware market scenarios          |
+A pricing routine evaluates a scalar function
 
-## Design Overview
+$$
+y = f(x_1, x_2, \dots, x_n)
+$$
 
-The library implements reverse-mode automatic differentiation (AAD) — the algorithm behind backpropagation in neural networks and adjoint Greeks in finance. Backend selection is controlled by `DAL_USE_XAD_AAD`, `DAL_USE_CODIPACK_AAD`, and `DAL_USE_ADEPT_AAD`; at most one external backend can be enabled.
+where the inputs $x_i$ are market data and model parameters (rates, vols, spots)
+and $y$ is a price or risk number. We want the full gradient
 
-1. **Native expression-template path** (default) — taken from Antoine Savine's book *Modern Computational Finance: AAD and Parallel Simulations* (Wiley, 2018). Uses C++ expression templates to record operations onto a thread-local tape, then propagates adjoints backward through the tape.
+$$
+\nabla f = \left( \frac{\partial y}{\partial x_1}, \dots, \frac{\partial y}{\partial x_n} \right),
+$$
 
-2. **XAD path** — delegates to the external XAD library. `Number_` becomes `xad::adj<double>::active_type`, and the tape wraps `xad::adj<double>::tape_type`.
+i.e. all first-order sensitivities of the output to every input.
+
+Three classical approaches:
+
+| Method              | Cost of full gradient             | Accuracy                        |
+|---------------------|-----------------------------------|---------------------------------|
+| Finite differences  | $(n+1)$ function evaluations      | Truncation + cancellation error |
+| Forward-mode AD     | $\propto n \times$ one evaluation | Machine precision               |
+| **Reverse-mode AD** | $\propto 1 \times$ one evaluation | Machine precision               |
+
+Reverse mode is the key result: it produces the **entire gradient at a cost that
+is a small constant multiple of a single function evaluation, independent of the
+number of inputs $n$**. For a derivatives book with thousands of risk factors
+this is the difference between a tractable and an intractable computation.
 
-3. **CoDiPack path** — delegates to CoDiPack reverse mode. `Number_` becomes `codi::RealReverseUnchecked`, and the tape wraps CoDiPack's tape.
+## The Computational Graph
 
-4. **Adept path** — delegates active arithmetic to Adept. `Number_` becomes `adept::adouble`, and DAL wraps Adept stack positions to preserve mark/rewind propagation semantics.
+Any closed-form evaluation of $f$ decomposes into a sequence of elementary
+operations (a *Wengert list*). Each intermediate result $v_k$ is produced by an
+elementary operation $\varphi_k$ acting on earlier values:
 
-All paths expose identical free-function APIs (`Value()`, `Adjoint()`, `PropagateToStart()`, `Clear()`, `Mark()`, etc.), so the rest of the library is source-compatible with the selected backend.
+$$
+v_k = \varphi_k\!\left(v_{i} : i \prec k\right),
+$$
 
-## Core Types
+where $i \prec k$ denotes "$v_i$ feeds $v_k$". The inputs $x_1,\dots,x_n$ are the
+leaves and the output $y = v_N$ is the root. This induces a directed acyclic
+graph (DAG): edges carry the **local partial derivatives** $\partial v_k /
+\partial v_i$.
 
-### Expression Template Hierarchy
+## The Chain Rule, Run Backwards
 
-```
-Expression_<E_>                       ← CRTP base, implicit double conversion
-├── Number_                           ← leaf: double value + tape node pointer
-├── BinaryExpression_<L, R, OP>       ← a + b, a * b, a - b, a / b, pow, max, min
-└── UnaryExpression_<ARG, OP>         ← exp(a), log(a), sqrt(a), abs(a), NPDF, NCDF, etc.
-```
+Define the **adjoint** of each node as the sensitivity of the final output to
+that node:
 
-### Number_
+$$
+\bar{v}_k \equiv \frac{\partial y}{\partial v_k}.
+$$
 
-In the native backend, `Number_` (`dal-cpp/dal/math/aad/expr.hpp:469`) is the active type — a `double` with a link to a tape node. It has `numNumbers_ = 1`, a compile-time constant indicating it contributes one leaf to any expression tree.
+The root seeds the recursion with $\bar{y} = \partial y/\partial y = 1$. The
+multivariate chain rule says the adjoint of a node is the sum, over all its
+direct consumers, of the consumer's adjoint times the local derivative along the
+connecting edge:
 
-**Construction from an expression** — `Number_ n = a * b + c / d;` does two things:
-1. Evaluates the expression tree to a `double` via `Value(e)`
-2. Calls `FromExpr(e)` which:
-   - Creates a tape node with `CreateMultiNode<N_>()` where `N_` is the compile-time-known number of leaf variables
-   - Calls `e.PushAdjoint<N_, 0>(*node, 1.0)` to walk the expression tree recursively
+$$
+\bar{v}_i = \sum_{k : i \prec k} \bar{v}_k \, \frac{\partial v_k}{\partial v_i}.
+$$
 
-**PushAdjoint** — each expression type recursively pushes its chain-rule contributions:
-- `BinaryExpression_`: pushes `adjoint * LeftDerivative` to the LHS, `adjoint * RightDerivative` to the RHS
-- `UnaryExpression_`: pushes `adjoint * Derivative` to the argument
-- `Number_` (leaf): records its adjoint pointer and derivative into the node's arrays
+Evaluating this relation in **reverse topological order** (from the root back to
+the leaves) computes every adjoint in a single sweep. When the sweep reaches the
+leaves, $\bar{x}_i = \partial y/\partial x_i$ — the gradient we wanted.
 
-After `FromExpr`, the tape node stores:
-- `pDerivatives_[i]` — the local partial derivative w.r.t. each argument
-- `pAdjPtrs_[i]` — a pointer to each argument's adjoint accumulator
+The asymmetry between forward and reverse mode is exactly this: forward mode
+propagates one input's perturbation through the whole graph (so $n$ inputs need
+$n$ sweeps), whereas reverse mode propagates one output's sensitivity back to all
+inputs (so one output needs one sweep).
 
-### Operator Policy Structs
+## The Two-Pass Algorithm
 
-Each operator is a stateless struct providing `Eval` and derivative functions:
+1. **Forward pass.** Evaluate the function normally. As each elementary
+   operation executes, record onto a *tape* (a linear log of the graph): the
+   operation's local partial derivatives with respect to its arguments, and a
+   reference to where each argument's adjoint is accumulated.
 
-| Policy Struct | Operation  | ∂L/∂lhs                     | ∂L/∂rhs                     |
-|---------------|------------|-----------------------------|-----------------------------|
-| `OPMult_`     | `l * r`    | `r`                         | `l`                         |
-| `OPAdd_`      | `l + r`    | `1`                         | `1`                         |
-| `OPSub_`      | `l - r`    | `1`                         | `-1`                        |
-| `OPDiv_`      | `l / r`    | `1/r`                       | `-l/r²`                     |
-| `OPPow_`      | `l^r`      | `r * v / l`                 | `log(l) * v`                |
-| `OPMax_`      | `max(l,r)` | `1` if `l>r`, `0` otherwise | `1` if `r>l`, `0` otherwise |
-| `OPMin_`      | `min(l,r)` | `1` if `l<r`, `0` otherwise | `1` if `r<l`, `0` otherwise |
+2. **Reverse pass.** Initialise all adjoints to zero except the output
+   ($\bar{y} = 1$). Walk the tape from the last operation to the first. At each
+   node, push its accumulated adjoint into its arguments using the recorded local
+   derivatives:
 
-Unary operators with a scalar operand use `OPMultD_`, `OPAddD_`, `OPSubDL_`/`OPSubDR_`, etc., which have a single `Derivative(r, v, d)` method.
+   $$
+   \bar{v}_i \mathrel{{+}{=}} \bar{v}_k \, \frac{\partial v_k}{\partial v_i}.
+   $$
 
-Math functions:
+   Because the tape is traversed in reverse and adjoints accumulate additively,
+   each edge of the DAG contributes exactly once and the chain-rule sum above is
+   formed correctly.
 
-| Policy Struct   | Function  | Derivative                     |
-|-----------------|-----------|--------------------------------|
-| `OPExp_`        | `exp(r)`  | `v` (itself)                   |
-| `OPLog_`        | `log(r)`  | `1/r`                          |
-| `OPSqrt_`       | `sqrt(r)` | `0.5/v`                        |
-| `OPAbs_`        | `\|r\|`   | `1` if `r>0`, `-1` if `r<0`    |
-| `OPNormalDens_` | `NPDF(r)` | `-r * v`                       |
-| `OPNormalCdf_`  | `NCDF(r)` | `NPDF(r)`                      |
-| `OPErfc_`       | `erfc(r)` | `-1.12837916709551 * exp(-r²)` |
+## Local Derivatives of Elementary Operations
 
-### Operator Overloading
-
-Overloaded operators return expression types rather than computing values. For example:
-
-```cpp
-template <class LHS_, class RHS_>
-BinaryExpression_<LHS_, RHS_, OPAdd_> operator+(const Expression_<LHS_>& lhs,
-                                                const Expression_<RHS_>& rhs);
-```
-
-When a scalar is one side, a `UnaryExpression_` is returned instead (e.g., `a * 3.0` → `UnaryExpression_<Number_, OPMultD_>(a, 3.0)`), which avoids storing the scalar as a full tape argument.
-
-## The Tape
-
-The tape (`dal-cpp/dal/math/aad/tape.hpp`) is a `thread_local` singleton accessed via `AAD::Tape()`:
-
-### Legacy Path Tape
-
-```cpp
-class Tape_ {
-    bool multi_;                                         // multi-output mode flag
-    BlockList_<double, ADJ_SIZE>     adjointsMulti_;     // 32K-entry adjoint blocks
-    BlockList_<double, DATA_SIZE>    ders_;              // 64K-entry derivative blocks
-    BlockList_<double*, DATA_SIZE>   argPtrs_;           // 64K-entry adjoint-pointer blocks
-    BlockList_<TapNode_, BLOCK_SIZE> nodes_;             // 16K-entry node blocks
-};
-```
-
-**BlockList_ Allocator** (`dal-cpp/dal/math/aad/blocklist.hpp`):
-
-A `BlockList_<T_, BLOCK_SIZE>` is a `std::list<std::array<T_, BLOCK_SIZE>>` with cursor-based allocation. Key behaviors:
-
-- **Allocation**: `EmplaceBack(args...)` placement-news elements into the current block. When the block fills up, a new block is allocated and linked.
-- **No per-element deallocation**: The tape is a linear log — you never free individual nodes. Memory grows monotonically.
-- **Mark/Rewind**: `SetMark()` saves the current position; `RewindToMark()` restores it. This resets the logical cursor without touching any memory — O(1).
-- **Clear**: drops all blocks and starts over.
-- **Propagation iteration**: `Begin()` → `End()` bidirectional iterators traverse the tape. Propagation walks `--it` from end to start.
-
-The block sizes are chosen for cache efficiency:
-- `BLOCK_SIZE = 16384` nodes per block (≈512KB at 32 bytes/node)
-- `ADJ_SIZE = 32768` adjoints per block
-- `DATA_SIZE = 65536` derivatives/pointers per block
-
-### External Backend Tapes
-
-```cpp
-class Tape_ {
-    using tape_type = xad::adj<double>::tape_type;
-    tape_type tape_;
-    tape_type::position_type start_;
-    tape_type::position_type mark_;
-};
-```
-
-XAD and CoDiPack use thin wrappers around the backend tape. Adept uses a derived `adept::Stack` helper so DAL can save statement/operation positions and reverse only a selected range. In each external backend, `start_` and `mark_` mirror the native path's mark/rewind semantics.
-
-### RecordNode
-
-`RecordNode<N_>()` (`tape.hpp:51`) allocates a new node and, when `N_ > 0`, allocates space for `N_` derivatives and `N_` adjoint pointers. The `N_` template parameter is a compile-time constant from the expression tree.
-
-## Propagation: Reverse-Mode Chain Rule
-
-After the forward pass records all operations onto the tape, reverse-mode propagation computes adjoints:
-
-### Single-Output Case
-
-`TapNode_::PropagateOne()` (`node.hpp:43`):
-
-```cpp
-void PropagateOne() {
-    if (!n_ || std::abs(adjoint_) <= EPSILON)
-        return;
-    for (size_t i = 0; i < n_; ++i)
-        *(pAdjPtrs_[i]) += adjoint_ * pDerivatives_[i];
-}
-```
-
-Each node multiplies its incoming adjoint by the local partial derivatives and accumulates into its arguments' adjoint storage. This propagates the chain rule backward through the computation graph.
-
-### Multi-Output Case
-
-`TapNode_::PropagateAll()` (`node.hpp:51`) handles vector-valued functions using the multi-adjoint arrays:
-
-```cpp
-void PropagateAll() {
-    if (!n_ || std::all_of(pAdjoints_, pAdjoints_ + numAdj_, [](double x) { ... }))
-        return;
-    for (size_t i = 0; i < n_; ++i) {
-        double* adjPtr = pAdjPtrs_[i];
-        double ders = pDerivatives_[i];
-        for (size_t j = 0; j < numAdj_; ++j)
-            adjPtr[j] += ders * pAdjoints_[j];
-    }
-}
-```
-
-Multi-output mode is activated via `SetNumResultsForAAD(multi, num_results)` (`aad.hpp:28`). When `multi_` is true, `RecordNode` allocates `numAdj_` adjoints per node instead of one.
-
-### Propagation Functions
-
-| Function                     | Propagates from | To            |
-|------------------------------|-----------------|---------------|
-| `PropagateToStart(tape)`     | End of tape     | Start         |
-| `PropagateToMark(tape)`      | End of tape     | Mark position |
-| `PropagateMarkToStart(tape)` | Mark position   | Start         |
-
-Implementation (`tape.cpp:24`):
-```cpp
-void PropagateAdjoints(Iterator_ from, Iterator_ to) {
-    auto it = from;
-    while (it != to) {
-        it->PropagateOne();
-        --it;
-    }
-    it->PropagateOne();  // last node at 'to'
-}
-```
-
-### Usage Pattern
-
-```cpp
-auto* tape = AAD::Tape();
-Clear(*tape);
-
-// Seed inputs
-AAD::Number_ x0 = 1.0, x1 = 2.0, x2 = 3.0;
-PutOnTape(x0); PutOnTape(x1); PutOnTape(x2);
-
-// Forward pass — records operations
-AAD::Number_ y = x0 * x1 + log(x2);
-
-// Seed output adjoint
-Adjoint(y) = 1.0;
-
-// Reverse pass
-PropagateToStart(*tape);
-
-// Read gradients
-double dx0 = Adjoint(x0);  // ∂y/∂x₀
-double dx1 = Adjoint(x1);  // ∂y/∂x₁
-double dx2 = Adjoint(x2);  // ∂y/∂x₂
-```
-
-## Backend Architecture
-
-The `DAL_USE_*_AAD` preprocessor branches in `expr.hpp` and `tape.hpp` provide interchangeable AAD backends behind identical free-function APIs:
-
-| Operation                     | Native Path                                            | XAD Path                                   | CoDiPack Path                     | Adept Path                      |
-|-------------------------------|--------------------------------------------------------|--------------------------------------------|-----------------------------------|---------------------------------|
-| `Number_`                     | Custom expression-template type                        | `xad::adj<double>::active_type`            | `codi::RealReverseUnchecked`      | `adept::adouble`                |
-| `Value(n)`                    | Returns `n.value_`                                     | `xad::value(n)`                            | `n.getValue()`                    | `adept::value(n)`               |
-| `Adjoint(n)`                  | Returns `n.node_->Adjoint()`                           | `xad::derivative(n)`                       | `n.getGradient()`                 | `n.get_gradient()`              |
-| `PutOnTape(n)`                | Creates zero-arg node                                  | `tape_.registerInput(n)`                   | `tape_.registerInput(n)`          | No-op after active construction |
-| `Tape()`                      | Returns `thread_local Tape_` with `BlockList_` storage | Returns `thread_local Tape_` with XAD tape | Returns CoDiPack's active tape    | Returns Adept thread-local tape |
-| `PropagateToStart(t)`         | Walks native tape backward                             | `tape_.computeAdjointsTo(start_)`          | `tape_.evaluate(position,start_)` | Reverses selected Adept range   |
-| `Mark(t)` / `RewindToMark(t)` | Saves/restores `BlockList_` cursor positions           | Saves/restores tape positions              | Saves/restores tape positions     | Saves/restores Adept positions  |
-| Operator overloads            | Return `BinaryExpression_`/`UnaryExpression_`          | Imported via `using xad::operator*` etc.   | Imported via `using codi::*`      | Imported via `using adept::*`   |
-
-The native path records operations eagerly during the forward pass — each expression assignment creates a tape node. External paths delegate operation recording to the selected backend, while DAL preserves the same free-function API and checkpoint-style propagation calls.
-
-### Build Configuration
-
-Top-level `CMakeLists.txt` defaults all external AAD backend options to `off`; the shipped presets currently select Adept by setting `DAL_USE_ADEPT_AAD=on`. To select a backend manually, enable exactly one external AAD option:
-
-```bash
-cmake --preset=Release-linux -DDAL_USE_XAD_AAD=on ..
-cmake --preset=Release-linux -DDAL_USE_ADEPT_AAD=on -DDAL_USE_XAD_AAD=off -DDAL_USE_CODIPACK_AAD=off ..
-```
-
-The external headers are expected under `dal-cpp/externals/xad/`, `dal-cpp/externals/CodiPack/`, and `dal-cpp/externals/adept/`. All paths are covered by the same test infrastructure.
-
-## Parallel AAD in Monte Carlo
-
-The library supports parallel AAD where each thread independently records and processes against its own thread-local tape:
-
-1. **One-time setup** — model parameters and const variables are placed on tape and marked
-2. **Per-path loop** — rewinds to mark, generates path with `AAD::Number_` active values, evaluates payoff, sets result adjoint to 1.0, propagates to mark (adjoints accumulate across paths)
-3. **Finalization** — propagates from mark to start, reads adjoints from model parameters, divides by path count
-
-This pathwise-adjoint pattern gives full portfolio Greeks in a single parallel MC run. The thread-local tape eliminates all synchronization overhead during both the forward pass and the per-path propagation.
-
-## Integration with Script Engine
-
-The script engine's `Evaluator_<T_>` and `MCSimulation<T_>` are templated on the value type. Instantiated with `AAD::Number_`:
-
-- Script expressions compile to operations on `AAD::Number_`, recording the computation graph automatically
-- `MCSimulation<AAD::Number_>` sets up the parallel AAD described above
-- Discontinuous payoffs (digital options) are smoothed via fuzzy evaluation in the domain processor
+The reverse pass needs only the local partial derivative of each elementary
+operation. These are fixed analytic facts. For binary operations with result
+$v$:
+
+| Operation   | $\partial v/\partial l$ | $\partial v/\partial r$ |
+|-------------|-------------------------|-------------------------|
+| $l + r$     | $1$                     | $1$                     |
+| $l - r$     | $1$                     | $-1$                    |
+| $l \cdot r$ | $r$                     | $l$                     |
+| $l / r$     | $1/r$                   | $-l/r^2$                |
+| $l^{\,r}$   | $r\,v/l$                | $v\,\ln l$              |
+| $\max(l,r)$ | $\mathbb{1}_{l>r}$      | $\mathbb{1}_{r>l}$      |
+| $\min(l,r)$ | $\mathbb{1}_{l<r}$      | $\mathbb{1}_{r<l}$      |
+
+For unary functions with result $v = g(r)$:
+
+| Function                | $g'(r)$                           |
+|-------------------------|-----------------------------------|
+| $\exp r$                | $v$                               |
+| $\ln r$                 | $1/r$                             |
+| $\sqrt{r}$              | $1/(2v)$                          |
+| $\lvert r\rvert$        | $\operatorname{sgn} r$            |
+| $\phi(r)$ (normal pdf)  | $-r\,\phi(r) = -r\,v$             |
+| $\Phi(r)$ (normal cdf)  | $\phi(r)$                         |
+| $\operatorname{erfc} r$ | $-\tfrac{2}{\sqrt{\pi}} e^{-r^2}$ |
+
+Storing $v$ where it appears (e.g. for $\exp$) lets the reverse pass reuse the
+forward result rather than recompute it.
+
+## Vector-Valued Outputs
+
+For a function with $m$ outputs $y_1,\dots,y_m$, the same machinery yields the
+full Jacobian. Each node carries an adjoint *vector* of length $m$ rather than a
+scalar, and the reverse-pass update becomes
+
+$$
+\bar{v}_i^{(j)} \mathrel{{+}{=}} \frac{\partial v_k}{\partial v_i} \, \bar{v}_k^{(j)}, \qquad j = 1,\dots,m.
+$$
+
+Seeding the $j$-th output adjoint to $1$ (others $0$) and propagating recovers the
+$j$-th row of the Jacobian; doing all $m$ together in one sweep recovers the whole
+Jacobian at the cost of one reverse pass with vector arithmetic.
+
+## Memory: Checkpointing via Mark / Rewind
+
+The tape grows with the number of operations, so long simulations would exhaust
+memory if every step were kept. The algorithm uses a **checkpoint** discipline:
+
+- A **mark** records a position on the tape.
+- **Rewind** discards everything recorded after the mark, reusing that memory,
+  without disturbing the adjoints already accumulated before the mark.
+
+This lets a repeated computation (e.g. one Monte Carlo path) record, propagate,
+and then rewind, so the tape size is bounded by the work of a *single* repetition
+rather than the whole simulation. Propagation can therefore be partitioned into
+ranges: from the end to the mark, and from the mark to the start.
+
+## Pathwise Adjoints in Monte Carlo
+
+A Monte Carlo price is an average over $P$ simulated paths,
+
+$$
+V = \frac{1}{P}\sum_{p=1}^{P} g\big(\omega_p; \theta\big),
+$$
+
+where $\theta$ are the model/market parameters and $g$ is the discounted payoff
+on path $\omega_p$. Differentiation commutes with the (finite) average:
+
+$$
+\frac{\partial V}{\partial \theta} = \frac{1}{P}\sum_{p=1}^{P} \frac{\partial g(\omega_p; \theta)}{\partial \theta}.
+$$
+
+This is the **pathwise adjoint** estimator. The algorithm is:
+
+1. Place the parameters $\theta$ on the tape once and mark.
+2. For each path: rewind to the mark, simulate the path and evaluate the payoff
+   (forward pass), seed the payoff adjoint to $1$, and run the reverse pass to the
+   mark. Parameter adjoints **accumulate** across paths automatically.
+3. After all paths: propagate from the mark to the start and divide the parameter
+   adjoints by $P$.
+
+The result is the full gradient of the Monte Carlo price — every Greek for every
+parameter — for the cost of roughly one extra simulation, regardless of how many
+parameters there are. Because each thread keeps its own tape and the per-path
+work is independent, the scheme parallelises with no synchronisation during the
+forward or reverse passes; thread results are summed at the end.
+
+## Smoothing Discontinuous Payoffs
+
+The pathwise estimator differentiates the payoff path by path, which requires the
+payoff to be (almost everywhere) differentiable in the parameters. Discontinuous
+payoffs — digitals, barriers — have a derivative that is zero almost everywhere
+and a Dirac mass at the discontinuity, so the naive pathwise derivative is biased
+(it misses the jump). The library addresses this with **fuzzy evaluation**:
+indicator functions $\mathbb{1}_{S > K}$ are replaced by a smooth approximation
+over a small spread $\varepsilon$,
+
+$$
+\mathbb{1}_{S>K} \;\approx\; \Psi\!\left(\frac{S-K}{\varepsilon}\right),
+$$
+
+with $\Psi$ a smooth sigmoid-like transition. This regularises the payoff so the
+adjoint captures the (smoothed) sensitivity through the discontinuity, trading a
+small bias for a finite, low-variance derivative.
+
+## Summary
+
+Reverse-mode AAD records the computational graph on a forward pass and applies
+the chain rule backwards on a reverse pass. Its defining property — the complete
+gradient at constant multiple of one function evaluation — makes full risk on
+large portfolios feasible. Combined with checkpointing for memory and pathwise
+adjoints for Monte Carlo, it is the engine for analytic-accuracy Greeks across the
+library.
 
 ## See Also
 
-- [Yield curve construction](yield_curve.md) — the curve construction framework uses AAD for computing risk sensitivities during calibration
-- [Underdetermined search](underdetermined_search.md) — the optimization solver used in curve calibration
-- `dal-cpp/tests/math/aad/` for direct AAD tests
-- `dal-cpp/examples/aad/` for standalone AAD examples
+- [Yield curve construction](yield_curve.md) — uses AAD-computed sensitivities
+  during calibration.
+- [Underdetermined search](underdetermined_search.md) — the calibration solver
+  that consumes these Jacobians.

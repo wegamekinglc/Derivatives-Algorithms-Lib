@@ -20,6 +20,7 @@
 
 using namespace Dal;
 
+
 namespace {
     Handle_<DiscountCurve_> MakeFlatDiscountCurve(const String_& name,
                                                   const String_& ccy,

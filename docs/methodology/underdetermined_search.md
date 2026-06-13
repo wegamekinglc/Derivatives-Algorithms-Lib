@@ -1,382 +1,193 @@
-# Underdetermined Search Method
+# Underdetermined Search
 
-Documentation of the underdetermined optimization solver in `dal-cpp/dal/math/optimization/underdetermined.hpp` and `dal-cpp/dal/math/optimization/underdetermined.cpp`.
+This note describes the optimisation method used to calibrate curves: a
+constrained least-change solver for nonlinear systems that have more unknowns than
+equations. The focus is the mathematics of the step and the iteration, not the
+solver's code.
 
-## Purpose
+## The Problem
 
-The underdetermined solver handles problems with:
+Given a residual map $r : \mathbb{R}^n \to \mathbb{R}^m$ (for example, model rate
+minus market rate for each instrument), we seek parameters $x$ that make the
+residuals vanish,
 
-- more parameters than residual equations
-- a need to satisfy pricing equations exactly or approximately
-- a preference for the "smallest" or smoothest parameter move under a chosen weight matrix
+$$
+r(x) = 0 .
+$$
 
-This is the solver used by yield-curve calibration, but it is written as a general optimization utility.
+The defining feature is that the system is **underdetermined**: $n > m$. There are
+more parameters than equations, so the solution set is (generically) an
+$(n-m)$-dimensional manifold rather than a point. To pick a single, well-behaved
+solution we impose a **least-change** preference under a metric defined by a
+symmetric positive-definite weight matrix $W$.
 
-## File Map
+Two solver modes serve different needs:
 
-| File                                                       | Purpose                                                                |
-|------------------------------------------------------------|------------------------------------------------------------------------|
-| `dal-cpp/dal/math/optimization/underdetermined.hpp`        | Core solver API declarations for `Find()` and `Approximate()`          |
-| `dal-cpp/dal/math/optimization/underdetermined.cpp`        | Core solver implementation and Jacobian handling                       |
-| `dal-cpp/dal/math/optimization/underdeterminedutils.hpp`   | Utility helpers for building smoothness weights such as `WeightsPWC()` |
-| `dal-cpp/dal/curve/curveblock.hpp`                         | Yield-curve calibration declarations using the underdetermined solver  |
-| `dal-cpp/dal/curve/curveblock.cpp`                         | Yield-curve calibration implementation using the solver                |
-| `dal-cpp/examples/underdetermined/underdetermined.cpp`     | End-to-end demonstration using curve calibration                       |
-| `dal-cpp/tests/math/optimization/test_underdetermined.cpp` | Direct solver coverage                                                 |
-| `dal-cpp/tests/curve/test_curveblock.cpp`                  | Integration coverage through yield-curve calibration                   |
-
-## Core API
-
-Two public entry points are exposed under `Dal::Underdetermined`:
-
-```cpp
-Vector_<> Find(
-    const Function_& func,
-    const Vector_<>& guess,
-    const Vector_<>& tol,
-    const Sparse::SymmetricDecomposition_& w,
-    const Controls_& controls,
-    Matrix_<>* eff_j_inv = nullptr
-);
-
-Vector_<> Approximate(
-    const Function_& func,
-    const Vector_<>& guess,
-    const Vector_<>& func_tol,
-    double fit_tol,
-    const Sparse::Square_& w,
-    const Controls_& controls
-);
-```
-
-### `Function_`
-
-Callers provide a residual function by deriving from `Function_`:
-
-```cpp
-class Function_ {
-    virtual Vector_<> F(const Vector_<>& x) const = 0;
-    virtual Jacobian_* Gradient(const Vector_<>& x, const Vector_<>& f) const;
-    virtual void Gradient(const Vector_<>& x, const Vector_<>& f, Matrix_<>* j) const;
-};
-```
-
-Key points:
-
-- `F(x)` returns the residual vector.
-- `Gradient(x, f)` may return a custom sparse or structured `Jacobian_`.
-- If no custom Jacobian is supplied, the dense `Gradient(..., Matrix_<>*)` path falls back to finite differences.
-- `FFast()` and `BumpSize()` are protected customization hooks used by the finite-difference path.
-
-### `Jacobian_`
-
-A custom Jacobian implementation must support:
-
-- row scaling via `DivideRows()`
-- products `J dx` and `Jᵀ t`
-- quadratic-form construction `Jᵀ W⁻¹ J`
-- secant updates through `SecantUpdate()`
-
-This allows the solver to work with more than a plain dense matrix when the caller has better structure information.
-
-## Controls
-
-`Controls_` is an alias of the generated `UnderdeterminedControls_` settings object.
-
-| Parameter             | Default  | Meaning                                                         |
-|-----------------------|----------|-----------------------------------------------------------------|
-| `maxEvaluations_`     | required | Total residual evaluations allowed                              |
-| `maxRestarts_`        | required | Total fresh Jacobian builds allowed                             |
-| `maxBacktrackTries_`  | `5`      | Backtracking iterations per step in `Find()`                    |
-| `restartTolerance_`   | `0.4`    | Restart with a fresh Jacobian if the fitted `kMin` exceeds this |
-| `backtrackTolerance_` | `0.1`    | Accept a step if `kMin` is below this                           |
-| `maxBacktrack_`       | `0.8`    | Maximum fraction by which a step can be reduced                 |
-
-The generated settings enforce:
-
-- `maxEvaluations_ > 0`
-- `maxRestarts_ > 0`
-- `restartTolerance_` in `[0, 1]`
-- `maxBacktrack_ > backtrackTolerance_` and `< 1`
+- **Exact fit** — drive every residual inside its tolerance band.
+- **Approximate fit** — when an exact fit is impossible or undesirable (noisy or
+  inconsistent quotes), minimise the residual norm while staying close to a
+  reference parameter set.
 
 ## Residual Scaling
 
-Both solver entry points internally scale residuals by user-provided tolerances.
+Residuals carry different units and magnitudes, so each is divided by a
+user-supplied tolerance $\tau_j$ before the solver sees it:
+
+$$
+\tilde r_j(x) = \frac{r_j(x)}{\tau_j}.
+$$
+
+The tolerances therefore *define the units of convergence*: a scaled residual of
+magnitude $\le 1$ means the instrument is fit to within its tolerance. The
+Jacobian rows are scaled the same way.
+
+## Exact Fit: Constrained Least-Change Step
 
-For `Find()`:
+Near the current iterate $x$ with residual $f = \tilde r(x)$ and Jacobian
+$J = \partial \tilde r/\partial x$ (an $m \times n$ matrix), linearise:
+$\tilde r(x+s) \approx f + Js$. We want a step $s$ that drives the linear model to
+zero while moving as little as possible in the $W$-metric:
+
+$$
+\min_s \; \tfrac{1}{2}\, s^{\mathsf T} W s
+\qquad \text{subject to} \qquad J s = -f .
+$$
+
+This is a quadratic program with linear equality constraints. Introducing
+Lagrange multipliers $\lambda \in \mathbb{R}^m$,
+
+$$
+\mathcal{L}(s,\lambda) = \tfrac{1}{2} s^{\mathsf T} W s + \lambda^{\mathsf T}(Js + f),
+$$
+
+the stationarity condition $W s + J^{\mathsf T}\lambda = 0$ gives
+$s = -W^{-1} J^{\mathsf T}\lambda$. Substituting into the constraint $Js=-f$:
+
+$$
+\big(J W^{-1} J^{\mathsf T}\big)\,\lambda = f
+\qquad\Longrightarrow\qquad
+\boxed{\,s = -\,W^{-1} J^{\mathsf T}\big(J W^{-1} J^{\mathsf T}\big)^{-1} f\,}.
+$$
+
+The matrix $J W^{-1} J^{\mathsf T}$ is the small $m \times m$ reduced system; it is
+symmetric positive-definite (for full-rank $J$) and is solved by Cholesky
+factorisation. The mapping $W^{-1} J^{\mathsf T}(JW^{-1}J^{\mathsf T})^{-1}$ is the
+**$W$-weighted pseudoinverse** of $J$ — among all steps satisfying the linearised
+equations it returns the one of minimum $W$-norm. The same weighted pseudoinverse,
+evaluated at the solution, is the **effective Jacobian inverse** that maps
+instrument bumps to parameter changes and is retained for risk.
+
+## Exact Fit: Iteration
 
-```text
-f_scaled[i] = f_raw[i] / tol[i]
-```
-
-For `Approximate()`:
-
-```text
-f_scaled[i] = f_raw[i] / func_tol[i]
-```
-
-This means the tolerances define the units in which the solver judges convergence.
-
-## Exact Solve: `Find()`
-
-`Find()` targets an exact fit in scaled-residual space.
-
-### Optimization View
-
-At each iteration it solves the minimum-weight-norm linearized step:
-
-```text
-minimize    1/2 sᵀ W s
-subject to  J s = -f
-```
-
-which leads to:
-
-```text
-Q = Jᵀ W⁻¹ J
-s = W⁻¹ Jᵀ solve(Q, -f)
-```
-
-In the implementation this is done by:
-
-1. building `Q` through `j.QForm(w, &q)`
-2. Cholesky solving the reduced system
-3. mapping back to parameter space with `Jᵀ`
-4. solving with the weight decomposition `W`
-
-### Iteration Flow
-
-`Find()` uses a scaled quasi-Newton loop:
-
-1. start from `guess`
-2. evaluate scaled residuals
-3. build or refresh the Jacobian
-4. compute the QP step
-5. try `xNew = xOld + s`
-6. if all scaled residuals are in `[-1, 1]`, stop
-7. otherwise use backtracking / restart logic
-8. after an accepted step, update the Jacobian with a secant update unless a restart was requested
-
-### Convergence Test
-
-The exact solve stops when every scaled residual is within one tolerance band:
-
-```cpp
-if (*MaxElement(fNew) < 1.0 && *MinElement(fNew) > -1.0)
-    return xNew;
-```
-
-So `Find()` is not checking a norm; it checks componentwise satisfaction of the scaled equations.
-
-### Backtracking and Restart Logic
-
-For a candidate step, the solver computes:
-
-```text
-oldOld = fOld · fOld
-oldNew = fOld · fNew
-newNew = fNew · fNew
-kMin   = (newNew - 0.5 * oldNew) / (newNew - oldNew + oldOld)
-```
-
-Interpretation in the current code:
-
-- `kMin < backtrackTolerance_` → accept the step
-- `kMin > restartTolerance_` → mark the Jacobian as stale and restart with a fresh one
-- otherwise shrink the step and retry
-
-The shrunken step uses:
-
-```text
-k = min(maxBacktrack_, min(kMin, 2 * (kMin - backtrackTolerance_)))
-s *= 1 - k
-```
-
-## Approximate Solve: `Approximate()`
-
-`Approximate()` is for problems where an exact scaled fit is not required or may be undesirable.
-
-### Optimization View
-
-The code solves a penalized quadratic step of the form:
-
-```text
-minimize  ||x + s - x0||²_W + jWeight ||f + J s||²
-```
-
-with:
-
-```text
-jWeight = ||func_tol||² / fit_tol²
-```
-
-This leads to an effective system:
-
-```text
-(W + jWeight Jᵀ J) s = W (x0 - x) - jWeight Jᵀ f
-```
-
-where:
-
-- `x0` is the original guess
-- `x` is the current iterate
-- `W` keeps the solution close to the reference point in weighted norm
-- `Jᵀ J` penalizes residual misfit
-
-### Convergence Test
-
-`Approximate()` stops when the Euclidean norm of the scaled residual vector is small enough:
-
-```cpp
-if (sqrt(InnerProduct(fNew, fNew)) <= fit_tol)
-    return xNew;
-```
-
-Unlike `Find()`, this is a norm-based test.
-
-### Linear Algebra Path
-
-The approximate solve wraps the caller's weight matrix in `XPenaltyWeight_`, which represents:
-
-```text
-W_eff = W + jWeight Jᵀ J
-```
-
-`W_eff` is decomposed through a conjugate-gradient-backed `SymmetricDecomposition_` implementation (`XDecompByCG_`).
-
-## Jacobian Paths
-
-The solver tries Jacobians in this order:
-
-1. **Custom Jacobian path** via `Function_::Gradient(x, f)` returning `Jacobian_*`
-2. **Dense matrix path** via `Function_::Gradient(x, f, Matrix_<>*)`
-3. **Finite-difference fallback** in the base implementation
-
-The finite-difference implementation uses:
-
-```cpp
-dx = BumpSize();   // default 1e-4
-xBumped[ix] += dx;
-F(xBumped) - F(xBase)
-```
-
-and then divides by `dx` column by column.
-
-Between restarts, the solver uses a Broyden-style secant update:
-
-```text
-J_new = J_old + ((df - J_old dx) / ||dx||²) dxᵀ
-```
-
-## Weight Matrix Semantics
-
-The weight matrix `W` expresses which solutions are preferred when many parameter vectors fit the same equations.
-
-Typical interpretation:
-
-- large weight on a component → moving that component is expensive
-- low weight on a component → that component is easier to move
-- off-diagonal couplings → encourage neighboring parameters to move together or penalize roughness
-
-`dal-cpp/tests/math/optimization/test_underdetermined.cpp` shows this directly:
-
-- in `TestFindRespectsWeights`, a one-equation two-unknown system with diagonal weights `(1, 4)` produces the lower-cost solution `x = (2.4, 0.6)` for `x0 + x1 = 3`
-
-## Smoothness Helpers
-
-`dal-cpp/dal/math/optimization/underdeterminedutils.hpp` exposes helpers for building smoothness penalties. The main public helper is:
-
-```cpp
-Sparse::TriDiagonal_* WeightsPWC(const Vector_<DateTime_>& knots, double tau_s);
-```
-
-It uses `SelfCouplePWC()` to add nearest-neighbor couplings so adjacent parameters are penalized when they separate too sharply.
-
-This is useful when the unknowns represent values along time buckets or knot points.
-
-## Curve Calibration Integration
-
-The solver is used directly in `dal-cpp/dal/curve/curveblock.cpp`.
-
-### Current Calibration Setup
-
-- unknowns: left/right instantaneous forward values at each knot
-- parameter count: `2 * knotDates.size()`
-- residuals: model rate minus market rate for each `YCInstrument_`
-- initial guess: every parameter starts at `0.05`
-- weights: a tridiagonal smoothing matrix built inline by `BuildSmoothingWeights()`
-- solve path: `Underdetermined::Find(...)`
-
-The calibration function in `dal-cpp/dal/curve/curveblock.cpp` builds a `PiecewiseLinear_` from the parameter vector, wraps it in `DiscountPWLF_` from `dal-cpp/dal/curve/ycimp.cpp`, then reprices all instruments through `CurveBlock_` declared in `dal-cpp/dal/curve/curveblock.hpp`.
-
-### High-Level Pipeline
-
-```text
-YC instruments
-  -> residual function F(x)
-  -> Underdetermined::Find()
-  -> fitted left/right forward values
-  -> PiecewiseLinear_
-  -> DiscountPWLF_
-  -> calibrated discount curve
-```
-
-### Relation to `FittableCurve_`
-
-The generic curve-fitting abstraction in `dal-cpp/dal/curve/fittable.hpp` exists as:
-
-```cpp
-class FittableCurve_ {
-    virtual int NX() const = 0;
-    virtual void ApplyDX(Vector_<>::const_iterator dx, double leverage) = 0;
-};
-```
-
-`DiscountPWLF_` in `dal-cpp/dal/curve/ycimp.cpp` implements that interface, but the current `CalibrateYieldCurve()` path in `dal-cpp/dal/curve/curveblock.cpp` does not drive calibration through `FittableCurve_` directly. Instead it rebuilds a temporary `PiecewiseLinear_` from the candidate parameter vector inside the residual function.
-
-## Example and Tests
-
-### Example Program
-
-`dal-cpp/examples/underdetermined/underdetermined.cpp` demonstrates:
-
-- a yield curve with more parameters than calibration instruments
-- reporting degrees of freedom as `2 * knots - instruments`
-- calibration through `CalibrateYieldCurve()`
-- repricing checks after the solve
-
-### Direct Solver Tests
-
-`dal-cpp/tests/math/optimization/test_underdetermined.cpp` covers:
-
-- weighted exact solve on a linear one-constraint system
-- approximate solve behavior and the fit-vs-distance balance
-- the custom `Jacobian_` path on a multi-residual system
-- failure behavior when evaluation/restart budgets are exhausted
-
-### Integration Tests
-
-`dal-cpp/tests/curve/test_curveblock.cpp` checks successful repricing for:
-
-- a flat curve
-- an upward-sloping curve
-- a round-trip style setup
-- calibration including `STIR_` instruments
-
-## Current Code Realities and Limitations
-
-These points reflect the code as it exists today:
-
-1. `Find()` accepts `Matrix_<>* eff_j_inv`, but the current implementation does **not** populate it.
-2. `Approximate()` returns the last iterate if it runs out of evaluation budget without meeting `fit_tol`; it does not throw on non-convergence by default.
-3. `CalibrateYieldCurve()` currently builds its smoothing matrix inline instead of reusing `WeightsPWC()`.
-4. `CurveBlock_` supports discounting for repricing, but `FwdLibor()` currently throws.
-5. The exact solver throws if it cannot find a descent direction and does not have a fresh-approximation path available:
-   `REQUIRE(tookStep || approxJ, "Could not find a descent direction in underdetermined search")`.
+The solver is a scaled quasi-Newton loop with a backtracking line search:
+
+1. Evaluate scaled residuals $f = \tilde r(x)$.
+2. Build or refresh the Jacobian $J$ (see below).
+3. Compute the least-change step $s$ from the boxed formula.
+4. Trial point $x_{\text{new}} = x + s$.
+5. **Convergence test (componentwise):** stop if every scaled residual lies in
+   $[-1, 1]$. This is a per-instrument satisfaction test, not a norm — each
+   instrument must be fit to its own tolerance.
+6. Otherwise apply line-search / restart logic and iterate.
+
+### Line Search and Restart
+
+For a trial step the solver compares the residual norms before and after, using
+the inner products $a = f^{\mathsf T} f$, $b = f^{\mathsf T} f_{\text{new}}$,
+$c = f_{\text{new}}^{\mathsf T} f_{\text{new}}$, and forms a one-dimensional
+quadratic model of $\|\tilde r\|^2$ along the step. Its minimiser is
+
+$$
+k_{\min} = \frac{c - \tfrac{1}{2} b}{c - b + a},
+$$
+
+interpreted as how far past (or short of) the full step the model bottoms out:
+
+- $k_{\min}$ small (below the *backtrack tolerance*) → the full step is good;
+  **accept** it.
+- $k_{\min}$ large (above the *restart tolerance*) → the linear model is poor;
+  discard the secant-updated Jacobian and **restart** from a freshly computed one.
+- in between → **shrink** the step by a factor $1-k$ (capped by a maximum
+  backtrack fraction) and retry.
+
+Restarts and total evaluations are budgeted; exhausting either is treated as a
+failure to converge.
+
+## Jacobian Construction and Maintenance
+
+The Jacobian is obtained by the most informative route available:
+
+1. **Analytic / structured.** If the residual function supplies its own Jacobian
+   (sparse or banded), it is used directly — most efficient when the
+   parameter-to-instrument coupling is local. In curve calibration this Jacobian
+   comes from AAD.
+2. **Dense.** If a dense gradient is supplied, it is used as an $m \times n$
+   matrix.
+3. **Finite differences.** As a fallback, bump each parameter by a small $\Delta x$
+   and form difference quotients column by column.
+
+Between restarts the Jacobian is refreshed cheaply by a **Broyden secant
+update**, which is the least-change correction (in Frobenius norm) consistent with
+the most recent step $\delta x$ and residual change $\delta f$:
+
+$$
+J \leftarrow J + \frac{(\delta f - J\,\delta x)\,\delta x^{\mathsf T}}{\delta x^{\mathsf T}\delta x}.
+$$
+
+This avoids recomputing a full Jacobian every iteration while keeping it
+consistent with observed behaviour.
+
+## Approximate Fit
+
+When an exact fit is not warranted, the step trades residual reduction against
+proximity to the reference point $x_0$:
+
+$$
+\min_s \; \big\| (x + s) - x_0 \big\|_W^2 \;+\; \gamma\,\big\| f + J s \big\|^2 ,
+\qquad \gamma = \frac{\|\tau\|^2}{\text{fitTol}^2}.
+$$
+
+The penalty weight $\gamma$ is set so that the relative importance of fitting
+versus staying near $x_0$ is governed by the ratio of the instrument tolerances to
+the desired fit tolerance. Setting the gradient to zero gives the normal
+equations
+
+$$
+\big(W + \gamma\,J^{\mathsf T} J\big)\, s = W(x_0 - x) - \gamma\,J^{\mathsf T} f .
+$$
+
+The effective operator $W_{\text{eff}} = W + \gamma\,J^{\mathsf T} J$ is symmetric
+positive-definite; the system is solved iteratively (conjugate gradient), which is
+efficient because $J^{\mathsf T} J$ need only be applied, not formed. The
+**convergence test is norm-based**: stop when $\|f\| \le \text{fitTol}$.
+
+## The Weight Matrix as a Smoothness Prior
+
+$W$ encodes which solutions are preferred when many fit the data:
+
+- a large weight on a component makes moving it expensive;
+- a small weight makes it cheap to move;
+- off-diagonal couplings tie neighbouring components together.
+
+For parameters indexed along a time axis (curve knots), a **tridiagonal** weight
+penalising differences between adjacent knots acts as a discrete smoothness
+(roughness) penalty. Among all parameter vectors that reprice the instruments, the
+solver then selects the smoothest — the least oscillatory curve consistent with the
+market.
+
+## Summary
+
+The method poses calibration as a constrained least-change problem. The exact mode
+takes minimum-$W$-norm Gauss–Newton steps,
+$s = -W^{-1}J^{\mathsf T}(JW^{-1}J^{\mathsf T})^{-1} f$, with line search,
+restarts, and Broyden updates, and converges on componentwise tolerance
+satisfaction. The approximate mode solves a regularised normal-equation system and
+converges on residual norm. In both, the weight matrix turns the surplus degrees of
+freedom into a smoothness prior.
 
 ## See Also
 
-- [Yield curve construction](yield_curve.md) for the surrounding curve-construction framework
-- [AAD methodology](aad.md) — the underdetermined solver computes sensitivities using Automatic Adjoint Differentiation during curve calibration
-- `dal-cpp/tests/math/optimization/test_underdetermined.cpp` for concrete solver behavior
-- `dal-cpp/examples/underdetermined/underdetermined.cpp` for a runnable integration example
+- [Yield curve construction](yield_curve.md) — the primary consumer of this solver.
+- [Cross-currency calibration](xccy_calibration.md) — applies the same solver to a
+  basis curve.
+- [AAD methodology](aad.md) — supplies the analytic Jacobian used by the solver.
