@@ -43,9 +43,14 @@ function resolveChromeExecutable(): string {
 
 // Prepend the extracted NSS libraries so Chrome can load libnspr4/libnss3.
 function chromeLibraryPath(): string {
-  return [chromeLibDir, process.env.LD_LIBRARY_PATH]
-    .filter((value): value is string => Boolean(value) && existsSync(value as string))
-    .join(":");
+  const parts: string[] = [];
+  if (existsSync(chromeLibDir)) {
+    parts.push(chromeLibDir);
+  }
+  if (process.env.LD_LIBRARY_PATH) {
+    parts.push(process.env.LD_LIBRARY_PATH);
+  }
+  return parts.join(":");
 }
 
 export default defineConfig({

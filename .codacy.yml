@@ -22,6 +22,12 @@ exclude_paths:
   - 'build/**'
   - 'bin/**'
   - 'lib/**'
+  # Playwright e2e tooling — the config intentionally resolves the locally
+  # provisioned Chrome binary and its NSS libraries via fs path discovery,
+  # which trips the "non-literal fs filename" security rule. The paths are
+  # derived from the repo layout, not from user input, so this is a false
+  # positive for test-only tooling.
+  - 'dal-web/frontend/playwright.config.ts'
   # Internal project documentation and agent/skill definitions.
   # The Codacy Agentlinter is designed to enforce style rules for AI-agent
   # prompts (no undefined acronyms, no absolute rules without escape hatches,
