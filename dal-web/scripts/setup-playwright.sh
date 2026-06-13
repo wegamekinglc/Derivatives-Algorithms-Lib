@@ -6,7 +6,17 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
 CHROME_ROOT="${REPO_ROOT}/chrome"
 LIB_ROOT="${REPO_ROOT}/chrome-libs/extract"
-LIB_DIR="${LIB_ROOT}/usr/lib/x86_64-linux-gnu"
+# Discover the multiarch library directory (e.g. x86_64-linux-gnu, aarch64-linux-gnu)
+# instead of hard-coding x86_64 so non-amd64 Debian/Ubuntu variants work.
+LIB_DIR=""
+if [ -d "${LIB_ROOT}/usr/lib" ]; then
+  for candidate in "${LIB_ROOT}"/usr/lib/*-linux-gnu; do
+    if [ -d "${candidate}" ]; then
+      LIB_DIR="${candidate}"
+      break
+    fi
+  done
+fi
 
 find_chrome_binary() {
   # Guard against a fresh checkout where CHROME_ROOT doesn't exist yet: with
@@ -36,7 +46,7 @@ if [ ! -x "${CHROME_BINARY}" ]; then
   exit 1
 fi
 
-if [ ! -f "${LIB_DIR}/libnspr4.so" ] || [ ! -f "${LIB_DIR}/libnss3.so" ]; then
+if [ -z "${LIB_DIR}" ] || [ ! -f "${LIB_DIR}/libnspr4.so" ] || [ ! -f "${LIB_DIR}/libnss3.so" ]; then
   echo "Installing browser runtime libraries..."
   for cmd in apt-get dpkg-deb; do
     if ! command -v "${cmd}" >/dev/null 2>&1; then

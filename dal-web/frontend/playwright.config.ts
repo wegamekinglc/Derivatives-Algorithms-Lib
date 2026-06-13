@@ -12,7 +12,23 @@ const repoRoot = resolve(frontendDir, "..", "..");
 // `dal-web/scripts/setup-playwright.sh` downloads Chrome into `<repo>/chrome`
 // and extracts its NSS runtime libraries into `<repo>/chrome-libs/extract`.
 const chromeDir = resolve(repoRoot, "chrome");
-const chromeLibDir = resolve(repoRoot, "chrome-libs", "extract", "usr", "lib", "x86_64-linux-gnu");
+const chromeLibBase = resolve(repoRoot, "chrome-libs", "extract", "usr", "lib");
+
+function findChromeLibDir(): string | null {
+  if (!existsSync(chromeLibBase)) return null;
+  const candidates = existsSync(chromeLibBase)
+    ? readdirSync(chromeLibBase, { withFileTypes: true })
+        .filter((entry) => entry.isDirectory() && entry.name.endsWith("-linux-gnu"))
+        .map((entry) => entry.name)
+    : [];
+  // Prefer the first discovered multiarch dir; x86_64-linux-gnu is the most
+  // common and a reasonable fallback.
+  return candidates.length > 0
+    ? resolve(chromeLibBase, candidates[0])
+    : null;
+}
+
+const chromeLibDir = findChromeLibDir();
 
 // Locate the Chrome binary downloaded by setup-playwright.sh. The download
 // creates a versioned directory such as `chrome/linux-149.0.7827.115/...`, so
@@ -62,7 +78,7 @@ function resolveChromeExecutable(): string {
 // Prepend the extracted NSS libraries so Chrome can load libnspr4/libnss3.
 function chromeLibraryPath(): string {
   const parts: string[] = [];
-  if (existsSync(chromeLibDir)) {
+  if (chromeLibDir && existsSync(chromeLibDir)) {
     parts.push(chromeLibDir);
   }
   if (process.env.LD_LIBRARY_PATH) {
