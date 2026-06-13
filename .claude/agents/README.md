@@ -37,7 +37,7 @@ subset of the pipeline (see `dal-orchestrator.md` for the routing table).
 |----------------------|--------------|---------------------------------------------------------|
 | `.claude/specs/`     | spec writer  | testable requirement specifications (created on demand)       |
 | `.claude/api-notes/` | api designer | public-API surface notes (created on demand)                  |
-| `.claude/critiques/` | critic       | adversarial reviews of specs and api-notes (created on demand)|
+| `.claude/critiques/` | critic       | adversarial reviews of specs and api-notes (created on demand) |
 | `docs/methodology/`  | (existing)   | normative quant method docs (referenced by all agents)  |
 | `.claude/rules/`     | (existing)   | normative coding/test/git conventions                   |
 

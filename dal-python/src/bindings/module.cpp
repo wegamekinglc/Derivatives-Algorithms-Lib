@@ -10,9 +10,6 @@
 
 using namespace Dal;
 
-// Stub type for hasattr(dal, "Dictionary") in test_import.py
-struct _Dictionary {};
-
 PYBIND11_MODULE(_dal, m) {
     // Initialize DAL runtime (equivalent to SWIG's %init block)
     Dal::RegisterAll_::Init();
@@ -25,8 +22,10 @@ PYBIND11_MODULE(_dal, m) {
     // Global state (Handle_<T> opaque types, evaluation date)
     init_bindings_global(m);
 
-    // Satisfy hasattr(dal, "Dictionary") in test_import.py
-    py::class_<_Dictionary>(m, "Dictionary");
+    // Alias Dictionary to Python's built-in dict type so hasattr(dal, "Dictionary")
+    // and isinstance(result, dal.Dictionary) both pass (the latter works because
+    // MonteCarlo_Value returns a dict via pybind11's std::map auto-conversion).
+    m.attr("Dictionary") = py::module::import("builtins").attr("dict");
 
     // Models (BSModelData_New, DupireModelData_New)
     init_bindings_models(m);

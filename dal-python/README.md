@@ -313,8 +313,8 @@ dal-python/
 │   ├── bindings/
 │   │   ├── module.cpp        # pybind11 module definition
 │   │   ├── bindings.h        # shared binding helpers
-│   │   ├── core.cpp          # core types (Date_, String_, Vector_, Matrix_, Handle_)
-│   │   ├── global.cpp         # global functions (BlackScholes, Interp1, Solutions)
+│   │   ├── core.cpp          # core types (Date_, String_, Cell_, vectors, DoubleMatrix_)
+│   │   ├── global.cpp         # Handle_<T> opaque types, EvaluationDate_Get/Set
 │   │   ├── models.cpp         # model types (BSModelData_, etc.)
 │   │   ├── random.cpp          # random number generators
 │   │   ├── script.cpp          # scripting engine bindings
