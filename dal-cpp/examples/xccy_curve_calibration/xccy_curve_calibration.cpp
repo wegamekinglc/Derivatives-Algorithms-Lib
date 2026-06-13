@@ -104,12 +104,14 @@ namespace Dal {
         std::cout << "\nCross-currency basis calibration example\n";
         std::cout << "----------------------------------------\n";
         std::cout << std::left << std::setw(14) << "Instrument"
-                  << std::setw(12) << "Market(bp)"
+                  << std::right << std::setw(12) << "Market(bp)"
                   << std::setw(12) << "Model(bp)"
                   << std::setw(12) << "Error(bp)" << '\n';
+        std::cout << std::string(50, '-') << '\n';
+        std::cout << std::fixed << std::setprecision(6);
         for (int i = 0; i < static_cast<int>(result.diagnostics_.instrumentNames_.size()); ++i) {
-            std::cout << std::setw(14) << result.diagnostics_.instrumentNames_[i]
-                      << std::setw(12) << result.diagnostics_.marketRates_[i] * 10000.0
+            std::cout << std::left << std::setw(14) << result.diagnostics_.instrumentNames_[i]
+                      << std::right << std::setw(12) << result.diagnostics_.marketRates_[i] * 10000.0
                       << std::setw(12) << result.diagnostics_.modelRates_[i] * 10000.0
                       << std::setw(12) << result.diagnostics_.residuals_[i] * 10000.0 << '\n';
         }

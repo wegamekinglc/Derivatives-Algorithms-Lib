@@ -104,12 +104,13 @@ namespace {
         std::cout << std::left << std::setw(14) << "AccrualStart"
                   << std::setw(14) << "AccrualEnd"
                   << std::setw(14) << "PaymentDate"
-                  << std::setw(10) << "Stub" << '\n';
+                  << std::right << std::setw(10) << "Stub" << '\n';
+        std::cout << std::string(52, '-') << '\n';
         for (const auto& period : periods) {
-            std::cout << std::setw(14) << Date::ToString(period.accrualStart_)
+            std::cout << std::left << std::setw(14) << Date::ToString(period.accrualStart_)
                       << std::setw(14) << Date::ToString(period.accrualEnd_)
                       << std::setw(14) << Date::ToString(period.paymentDate_)
-                      << std::setw(10) << (period.isStub_ ? "yes" : "no") << '\n';
+                      << std::right << std::setw(10) << (period.isStub_ ? "yes" : "no") << '\n';
         }
         std::cout << '\n';
     }
@@ -136,13 +137,14 @@ namespace {
         std::cout << std::left << std::setw(14) << "FixingDate"
                   << std::setw(14) << "AccrualEnd"
                   << std::setw(14) << "PaymentDate"
-                  << std::setw(10) << "Months"
+                  << std::right << std::setw(10) << "Months"
                   << std::setw(10) << "Stub" << '\n';
+        std::cout << std::string(62, '-') << '\n';
         for (const auto& period : periods) {
-            std::cout << std::setw(14) << Date::ToString(period.fixingDate_)
+            std::cout << std::left << std::setw(14) << Date::ToString(period.fixingDate_)
                       << std::setw(14) << Date::ToString(period.accrualEnd_)
                       << std::setw(14) << Date::ToString(period.paymentDate_)
-                      << std::setw(10)
+                      << std::right << std::setw(10)
                       << (period.dayCountContext_ ? period.dayCountContext_->couponMonths_ : 0)
                       << std::setw(10) << (period.isStub_ ? "yes" : "no") << '\n';
         }
@@ -201,6 +203,7 @@ namespace {
 
         std::cout << "Forward instrument routing example\n";
         std::cout << "---------------------------------\n";
+        std::cout << std::fixed << std::setprecision(6);
         std::cout << "3M future rate with 15bp convexity adjustment: "
                   << (*futureRate)(curve) * 100.0 << "%\n";
         std::cout << "3M vs 6M basis swap spread from separate forward curves: "
@@ -209,13 +212,16 @@ namespace {
 
     void PrintStageDiagnostics(const CurveCalibrationDiagnostics_& diagnostics) {
         std::cout << diagnostics.curveName_ << " residuals\n";
+        std::cout << "---------------------------------\n";
         std::cout << std::left << std::setw(14) << "Instrument"
-                  << std::setw(12) << "Market"
-                  << std::setw(12) << "Model"
+                  << std::right << std::setw(12) << "Market(%)"
+                  << std::setw(12) << "Model(%)"
                   << std::setw(12) << "Error(bp)" << '\n';
+        std::cout << std::string(50, '-') << '\n';
+        std::cout << std::fixed << std::setprecision(6);
         for (int i = 0; i < static_cast<int>(diagnostics.instrumentNames_.size()); ++i) {
-            std::cout << std::setw(14) << diagnostics.instrumentNames_[i]
-                      << std::setw(12) << diagnostics.marketRates_[i] * 100.0
+            std::cout << std::left << std::setw(14) << diagnostics.instrumentNames_[i]
+                      << std::right << std::setw(12) << diagnostics.marketRates_[i] * 100.0
                       << std::setw(12) << diagnostics.modelRates_[i] * 100.0
                       << std::setw(12) << diagnostics.residuals_[i] * 10000.0 << '\n';
         }
@@ -302,6 +308,7 @@ namespace {
             PrintStageDiagnostics(diagnostics);
 
         const auto fraRate = fra3m->Precompute(fra3m, Handle_<YieldCurve_>());
+        std::cout << std::fixed << std::setprecision(6);
         std::cout << "Forward 3M FRA repriced on calibrated bundle: " << (*fraRate)(calibratedCurve) * 100.0 << "%\n";
     }
 } // namespace
