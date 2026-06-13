@@ -9,7 +9,9 @@ LIB_ROOT="${REPO_ROOT}/chrome-libs/extract"
 LIB_DIR="${LIB_ROOT}/usr/lib/x86_64-linux-gnu"
 
 find_chrome_binary() {
-  find "${CHROME_ROOT}" -path '*/chrome-linux64/chrome' -type f 2>/dev/null | sort | tail -n 1
+  # Sort by version (-V) so chrome/linux-<version> dirs pick the newest, not
+  # the lexically-last, then take that newest path.
+  find "${CHROME_ROOT}" -path '*/chrome-linux64/chrome' -type f 2>/dev/null | sort -V | tail -n 1
 }
 
 CHROME_BINARY="$(find_chrome_binary)"
@@ -20,6 +22,11 @@ if [ ! -x "${CHROME_BINARY}" ]; then
   CHROME_BINARY="$(find_chrome_binary)"
 else
   echo "Chrome already installed: ${CHROME_BINARY}"
+fi
+
+if [ ! -x "${CHROME_BINARY}" ]; then
+  echo "error: Chrome installation did not produce an executable under ${CHROME_ROOT}" >&2
+  exit 1
 fi
 
 if [ ! -f "${LIB_DIR}/libnspr4.so" ] || [ ! -f "${LIB_DIR}/libnss3.so" ]; then
