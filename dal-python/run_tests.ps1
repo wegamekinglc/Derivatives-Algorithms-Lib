@@ -8,7 +8,7 @@
 # Prerequisites:
 #   - uv (https://docs.astral.sh/uv/)
 #   - The C++ library must be built first (run ..\build_win.ps1 or build from top-level CMake)
-#   - SWIG 4.x and Python 3.10+ development headers
+#   - pybind11 (fetched via CMake FetchContent) and Python 3.10+ development headers
 #   - Visual Studio 2022 with C++ workload
 
 param(

@@ -25,7 +25,7 @@ PYBIND11_MODULE(_dal, m) {
     // Alias Dictionary to Python's built-in dict type so hasattr(dal, "Dictionary")
     // and isinstance(result, dal.Dictionary) both pass (the latter works because
     // MonteCarlo_Value returns a dict via pybind11's std::map auto-conversion).
-    m.attr("Dictionary") = py::module::import("builtins").attr("dict");
+    m.attr("Dictionary") = py::module_::import("builtins").attr("dict");
 
     // Models (BSModelData_New, DupireModelData_New)
     init_bindings_models(m);

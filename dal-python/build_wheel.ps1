@@ -85,7 +85,7 @@ Write-Output "  Build environment ready"
 
 # Install build dependencies
 Write-Output "Installing build dependencies..."
-uv pip install -q scikit-build-core cmake ninja swig build
+uv pip install -q scikit-build-core cmake ninja build
 Write-Output "  Build dependencies installed"
 
 # Build wheel
