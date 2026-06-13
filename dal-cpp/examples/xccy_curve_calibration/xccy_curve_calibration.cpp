@@ -10,7 +10,7 @@
 #include <dal/platform/initall.hpp>
 #include <dal/curve/curveblock.hpp>
 #include <dal/curve/piecewiselinear.hpp>
-#include <dal/curve/xccymarket.hpp>
+#include <dal/curve/xccycalibration.hpp>
 #include <dal/curve/ycimp.hpp>
 #include <dal/protocol/collateraltype.hpp>
 #include <dal/storage/globals.hpp>
