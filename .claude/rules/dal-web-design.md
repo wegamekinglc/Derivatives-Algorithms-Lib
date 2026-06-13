@@ -452,8 +452,8 @@ Before submitting Web UI code, check:
 
 ## References
 
-- **Design document**: `dal-web/DESIGN.md`
 - **Style file**: `dal-web/frontend/src/styles.css`
+- **Web UI overview**: `dal-web/README.md`
 - **Inspiration sources**: Bloomberg Terminal, trading desk interfaces, control room displays
 
 ---

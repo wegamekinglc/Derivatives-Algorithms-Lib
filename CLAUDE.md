@@ -26,7 +26,7 @@ The top-level `CMakeLists.txt` is a thin workspace that selects sub-projects via
 - `DAL_CPP_BUILD_TESTS` (default `ON`) — build the `dal-cpp` test suite
 - `DAL_CPP_BUILD_EXAMPLES` (default `ON`) — build the `dal-cpp` example programs
 - `DAL_CPP_BUILD_BENCHMARKS` (default `ON`) — build the `dal-cpp` benchmark programs
-- `DAL_USE_ADEPT_AAD` / `DAL_USE_XAD_AAD` / `DAL_USE_CODIPACK_AAD` — pick the AAD backend (default Adept)
+- `DAL_USE_ADEPT_AAD` / `DAL_USE_XAD_AAD` / `DAL_USE_CODIPACK_AAD` — pick the AAD backend (source default: Adept; CMake presets override all three to OFF unless explicitly enabled)
 
 CMake installs to the repo root (`CMAKE_INSTALL_PREFIX=${sourceDir}`), placing binaries in `bin/`, libraries in `lib/`, and headers in `include/`.
 
@@ -109,9 +109,9 @@ The dependency graph is `dal-cpp ← dal-public ← {dal-python, dal-excel}`. Ea
 **Web UI (`dal-web/`, not built by CMake)** — FastAPI backend + React frontend:
 - `dal-web/backend/` — Python FastAPI application, uses `dal-python` bindings or stub
 - `dal-web/frontend/` — React + TypeScript SPA, uses Vite
-- `dal-web/scripts/` — `start.sh` and `stop.sh` for running the UI
+- `dal-web/scripts/` — `start.sh`, `stop.sh`, and `setup-playwright.sh`
 
-Start the web UI with `./dal-web/scripts/start.sh` (requires Python 3.13+, uv, Node.js 20+, npm). Frontend at http://localhost:5173, backend API docs at http://127.0.0.1:8001/docs.
+Start the web UI with `./dal-web/scripts/start.sh` (requires Python 3.13+, uv, Node.js 20+, npm). Frontend at http://localhost:5173, backend API docs at http://127.0.0.1:8001/docs. For frontend e2e, run `./dal-web/scripts/setup-playwright.sh` once, then `cd dal-web/frontend && npm run test:e2e`.
 
 **Code generation** — `dal-cpp/config/dal.ifc` is processed by the Machinist tool. `build_linux.sh` runs Machinist twice:
 - once with `-d ./dal-cpp/dal` to produce core enum and serialization files under `dal-cpp/dal/auto/`

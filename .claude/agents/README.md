@@ -6,16 +6,16 @@ implement → review pipeline. The orchestrator routes work between them.
 
 ## Team Roster
 
-| Role         | Agent              | Color  | Reads                            | Writes                                                  |
-|--------------|--------------------|--------|----------------------------------|---------------------------------------------------------|
-| Orchestrator | `dal-orchestrator` | purple | GitHub issues, all artifacts     | task list, PRs                                          |
-| Spec writer  | `dal-spec-writer`  | orange | issues, methodology, rules       | `.claude/specs/<slug>.md`                               |
-| Architect    | `dal-architect`    | blue   | spec, codebase, methodology      | `.claude/designs/<slug>.md`                             |
-| API designer | `dal-api-designer` | pink   | spec, design, public headers     | `.claude/api-notes/<slug>.md`                           |
-| Critic       | `dal-critic`       | red    | spec, design, api-note           | `.claude/critiques/<slug>.md`                           |
-| Implementer  | `dal-implementer`  | green  | spec, design, api-note, critique | source code, tests, TDD in worktree                     |
-| Tester       | `dal-tester`       | cyan   | source under-test, conventions   | additional `dal-cpp/tests/<module>/*` code, in worktree |
-| Reviewer     | `dal-reviewer`     | amber  | PR diff, all upstream artifacts  | review report, optional merge                           |
+| Role         | Agent              | Color  | Reads                            | Writes                                                                                     |
+|--------------|--------------------|--------|----------------------------------|--------------------------------------------------------------------------------------------|
+| Orchestrator | `dal-orchestrator` | purple | GitHub issues, all artifacts     | task list, PRs                                                                             |
+| Spec writer  | `dal-spec-writer`  | orange | issues, methodology, rules       | `.claude/specs/<slug>.md`                                                                  |
+| Architect    | `dal-architect`    | blue   | spec, codebase, methodology      | `.claude/designs/<slug>.md`                                                                |
+| API designer | `dal-api-designer` | pink   | spec, design, public headers     | `.claude/api-notes/<slug>.md`                                                              |
+| Critic       | `dal-critic`       | red    | spec, design, api-note           | `.claude/critiques/<slug>.md`                                                              |
+| Implementer  | `dal-implementer`  | green  | spec, design, api-note, critique | source code, tests, TDD in worktree                                                        |
+| Tester       | `dal-tester`       | cyan   | source under-test, conventions   | `dal-cpp/tests/<module>/*` and, for web scope, `dal-web/frontend/tests/e2e/*`, in worktree |
+| Reviewer     | `dal-reviewer`     | amber  | PR diff, all upstream artifacts  | review report, optional merge                                                              |
 
 ## Workflow
 
