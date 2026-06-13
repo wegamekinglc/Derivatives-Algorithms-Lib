@@ -209,6 +209,7 @@ set_target_properties(_dal PROPERTIES
     SUFFIX "${DAL_PYTHON_MODULE_SUFFIX}")
 
 # Generate a dal.py shim that re-exports from _dal (pybind11 binding module)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/dal)
 file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/dal/dal.py
     "# Auto-generated pybind11 shim -- re-exports all symbols from _dal\n"
     "from ._dal import *\n"

@@ -154,9 +154,9 @@ namespace Dal {
         std::cout << std::fixed << std::setprecision(6);
         std::cout << "  FX spot: " << spec.fxSpot_
                   << "  |  max residual: "
-                  << *std::max_element(result.diagnostics_.residuals_.begin(),
+                  << std::abs(*std::max_element(result.diagnostics_.residuals_.begin(),
                                        result.diagnostics_.residuals_.end(),
-                                       [](double a, double b) { return std::abs(a) < std::abs(b); })
+                                       [](double a, double b) { return std::abs(a) < std::abs(b); }))
                     * 10000.0 << " bp"
                   << "  |  elapsed: " << int(elapsedMs) << " ms"
                   << "\n\n";

@@ -18,16 +18,6 @@
 
 using namespace Dal;
 
-// Helper: convert Python iterable to std::vector<T>
-template <typename T>
-static std::vector<T> pyListToVector(const py::iterable& src) {
-    std::vector<T> result;
-    for (auto item : src) {
-        result.push_back(py::cast<T>(item));
-    }
-    return result;
-}
-
 // Opaque vector types for pybind11 STL bindings
 PYBIND11_MAKE_OPAQUE(std::vector<double>);
 PYBIND11_MAKE_OPAQUE(std::vector<std::string>);
