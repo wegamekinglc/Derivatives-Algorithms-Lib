@@ -31,10 +31,11 @@ Formatting is enforced by `.clang-format` (LLVM base, 4-space indent, 150 column
 
 ### CMake presets and options
 
-`CMakePresets.json` base preset turns off all AAD backends, examples, benchmarks,
-and the public/python/excel sub-projects. Tests remain enabled by the source default
-(`DAL_CPP_BUILD_TESTS=ON`). With AAD backends off, the native ("aadet") backend is
-used. Presets: `Release-linux`, `Debug-linux`, `Release-windows`, `Debug-windows`.
+`CMakePresets.json` base preset turns off all AAD backends and the Excel sub-project
+(Windows-only). Examples, benchmarks, public, and Python are enabled by default.
+Tests are enabled by the source default (`DAL_CPP_BUILD_TESTS=ON`). With AAD backends
+off, the native ("aadet") backend is used. Presets: `Release-linux`, `Debug-linux`,
+`Release-windows`, `Debug-windows`.
 Override via cache vars when configuring manually:
 
 - `DAL_BUILD_PUBLIC`, `DAL_BUILD_PYTHON`, `DAL_BUILD_EXCEL` (Excel is Windows-only)
