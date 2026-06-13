@@ -100,6 +100,7 @@ jobs:
           # interpreter over PATH order. Point it at the venv's python
           # so dal_python_pytest can find pytest.
           Add-Content -Path $env:GITHUB_ENV -Value "Python3_EXECUTABLE=$pythonExe"
+          $env:VIRTUAL_ENV = (Resolve-Path .\dal-python\.venv).Path
           uv pip install pytest numpy
 
       - name: Build Machinist

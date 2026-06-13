@@ -61,6 +61,9 @@ jobs:
             adept)
               FLAGS="-DDAL_USE_XAD_AAD=off -DDAL_USE_CODIPACK_AAD=off -DDAL_USE_ADEPT_AAD=on" ;;
           esac
+          # Python bindings are backend-agnostic — tested separately in
+          # the build-extended job so the 16-job matrix stays lean.
+          FLAGS="$FLAGS -DDAL_BUILD_PYTHON=OFF"
           echo "ADDITIONAL_CMAKE_FLAGS=$FLAGS" >> $GITHUB_ENV
 
       - name: Compile and test
@@ -122,6 +125,7 @@ jobs:
         run: |
           uv venv dal-python/.venv --python 3.12
           echo "$PWD/dal-python/.venv/bin" >> "$GITHUB_PATH"
+          export VIRTUAL_ENV="$PWD/dal-python/.venv"
           uv pip install pytest numpy
 
       - name: Compile and test
