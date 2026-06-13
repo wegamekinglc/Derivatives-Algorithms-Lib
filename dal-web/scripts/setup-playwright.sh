@@ -9,6 +9,9 @@ LIB_ROOT="${REPO_ROOT}/chrome-libs/extract"
 LIB_DIR="${LIB_ROOT}/usr/lib/x86_64-linux-gnu"
 
 find_chrome_binary() {
+  # Guard against a fresh checkout where CHROME_ROOT doesn't exist yet: with
+  # `set -euo pipefail`, a `find` on a missing directory would abort the script.
+  [ -d "${CHROME_ROOT}" ] || return 0
   # Sort by version (-V) so chrome/linux-<version> dirs pick the newest, not
   # the lexically-last, then take that newest path.
   find "${CHROME_ROOT}" -path '*/chrome-linux64/chrome' -type f 2>/dev/null | sort -V | tail -n 1
@@ -31,6 +34,13 @@ fi
 
 if [ ! -f "${LIB_DIR}/libnspr4.so" ] || [ ! -f "${LIB_DIR}/libnss3.so" ]; then
   echo "Installing browser runtime libraries..."
+  for cmd in apt-get dpkg-deb; do
+    if ! command -v "${cmd}" >/dev/null 2>&1; then
+      echo "error: '${cmd}' is required to install the NSS runtime libraries (libnspr4, libnss3)." >&2
+      echo "       Install those packages manually for your distribution and re-run." >&2
+      exit 1
+    fi
+  done
   TMP_DIR="$(mktemp -d)"
   trap 'rm -rf "${TMP_DIR}"' EXIT
   (cd "${TMP_DIR}" && apt-get download libnspr4 libnss3)

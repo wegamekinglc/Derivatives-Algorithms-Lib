@@ -184,20 +184,20 @@ Once the PR is open and the user is done with the change, exit the worktree (kee
 
 ## Key Conventions at a Glance
 
-| Element         | Convention                                                  |
-|-----------------|-------------------------------------------------------------|
-| Test macro      | `TEST(Suite, Name)` — never `TEST_F`                        |
-| Assertions      | `ASSERT_*` only — never `EXPECT_*`                          |
-| Float compare   | `ASSERT_NEAR(actual, expected, 1e-10)`                      |
-| Exception test  | `ASSERT_THROW(stmt, Dal::Exception_)`                       |
-| Suite names     | PascalCase (`CcyTest`, `InterpTest`)                        |
-| Test names      | PascalCase with `Test` prefix (`TestNewCubic`)              |
-| File names      | lowercase, `test_` prefix (`test_currency.cpp`)             |
-| Include order   | `<gtest/gtest.h>` → DAL headers                             |
-| Namespace       | `using namespace Dal;` at file scope                        |
-| State           | No mutable singletons shared with other test files          |
-| Web e2e files   | `dal-web/frontend/tests/e2e/*.spec.ts`                      |
-| Web e2e command | `./dal-web/scripts/setup-playwright.sh && npm run test:e2e` |
+| Element         | Convention                                                                           |
+|-----------------|--------------------------------------------------------------------------------------|
+| Test macro      | `TEST(Suite, Name)` — never `TEST_F`                                                 |
+| Assertions      | `ASSERT_*` only — never `EXPECT_*`                                                   |
+| Float compare   | `ASSERT_NEAR(actual, expected, 1e-10)`                                               |
+| Exception test  | `ASSERT_THROW(stmt, Dal::Exception_)`                                                |
+| Suite names     | PascalCase (`CcyTest`, `InterpTest`)                                                 |
+| Test names      | PascalCase with `Test` prefix (`TestNewCubic`)                                       |
+| File names      | lowercase, `test_` prefix (`test_currency.cpp`)                                      |
+| Include order   | `<gtest/gtest.h>` → DAL headers                                                      |
+| Namespace       | `using namespace Dal;` at file scope                                                 |
+| State           | No mutable singletons shared with other test files                                   |
+| Web e2e files   | `dal-web/frontend/tests/e2e/*.spec.ts`                                               |
+| Web e2e command | `./dal-web/scripts/setup-playwright.sh && (cd dal-web/frontend && npm run test:e2e)` |
 
 ## What Not to Do
 
