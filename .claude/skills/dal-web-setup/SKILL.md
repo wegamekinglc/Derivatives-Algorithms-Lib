@@ -68,14 +68,14 @@ If the user asks to run tests after starting the UI:
 
 ```bash
 # Backend tests (pytest, runs against the stub by default)
-cd dal-web/backend && uv run pytest
+(cd dal-web/backend && uv run pytest)
 
 # Frontend type-check + production build
-cd dal-web/frontend && npm run build
+(cd dal-web/frontend && npm run build)
 
 # Frontend e2e smoke tests (Playwright; starts/stops the web UI itself)
 ./dal-web/scripts/setup-playwright.sh   # one-time browser/runtime setup
-cd dal-web/frontend && npm run test:e2e
+(cd dal-web/frontend && npm run test:e2e)
 ```
 
 ## Native vs. stub DAL backend

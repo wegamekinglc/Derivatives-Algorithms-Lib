@@ -1,5 +1,5 @@
 import { defineConfig, devices } from "@playwright/test";
-import { existsSync, readdirSync } from "node:fs";
+import { accessSync, constants as fsConstants, existsSync, readdirSync, statSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -23,6 +23,19 @@ function resolveChromeExecutable(): string {
     if (!existsSync(override)) {
       throw new Error(
         `PLAYWRIGHT_CHROME_PATH points to a non-existent file: ${override}`
+      );
+    }
+    const overrideStat = statSync(override);
+    if (!overrideStat.isFile()) {
+      throw new Error(
+        `PLAYWRIGHT_CHROME_PATH is not a regular file: ${override}`
+      );
+    }
+    try {
+      accessSync(override, fsConstants.X_OK);
+    } catch {
+      throw new Error(
+        `PLAYWRIGHT_CHROME_PATH is not executable: ${override}`
       );
     }
     return override;

@@ -21,6 +21,10 @@ CHROME_BINARY="$(find_chrome_binary)"
 
 if [ ! -x "${CHROME_BINARY}" ]; then
   echo "Installing Chrome for Playwright..."
+  if ! command -v npx >/dev/null 2>&1; then
+    echo "error: npx is required to download Chrome. Install Node.js (>=20) first." >&2
+    exit 1
+  fi
   (cd "${REPO_ROOT}" && npx --yes @puppeteer/browsers install chrome@stable)
   CHROME_BINARY="$(find_chrome_binary)"
 else
