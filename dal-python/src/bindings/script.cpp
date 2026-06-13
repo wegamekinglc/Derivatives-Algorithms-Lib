@@ -23,7 +23,7 @@ void init_bindings_script(py::module_& m) {
         [](const py::iterable& dates, const py::iterable& events)
             -> std::shared_ptr<ScriptProductData_> {
 
-            // Convert Python iterables to Vector_<>, replicating SWIG's copy
+            // Convert Python iterables to Vector_<> for the script engine
             Vector_<Cell_> new_dates;
             for (auto item : dates)
                 new_dates.push_back(py::cast<Cell_>(item));

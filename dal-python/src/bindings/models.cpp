@@ -31,7 +31,7 @@ void init_bindings_models(py::module_& m) {
            const py::iterable& times,
            const Matrix_<>& vols) -> std::shared_ptr<ModelData_> {
 
-            // Convert Python iterables to Vector_<> (replicating SWIG's copy)
+            // Convert Python iterables to Vector_<> for the factory function
             Vector_<> new_spots;
             for (auto item : spots)
                 new_spots.push_back(py::cast<double>(item));

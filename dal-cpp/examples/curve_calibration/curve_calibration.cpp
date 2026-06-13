@@ -370,7 +370,7 @@ namespace {
             QuotedInstrument(oisSwap10y,marketCurve, today, ccy),
         };
 
-        // -- Libor 3M stage (14 instruments) --
+        // -- Libor 3M stage (20 instruments) --
         CurveCalibrationSpec_ liborStage;
         liborStage.today_ = today;
         liborStage.ccy_ = ccyName;
