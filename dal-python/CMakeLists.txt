@@ -1,6 +1,6 @@
-# dal-python: Python Bindings via SWIG
+# dal-python: Python Bindings via pybind11
 #
-# This project generates Python bindings for the DAL public API using SWIG.
+# This project generates Python bindings for the DAL public API using pybind11.
 # It depends ONLY on dal-public (DAL::public), never directly on dal-cpp.
 #
 # Target: dal_python (alias DAL::python)
@@ -53,10 +53,27 @@ option(DAL_PYTHON_BUILD_TESTS "Build dal-python tests" ON)
 option(DAL_PYTHON_BUILD_WHEEL "Build Python wheel" OFF)
 
 # ---------------------------------------------------------------------------
-# Dependencies: SWIG, Python3, and dal-public
+# Dependencies: pybind11, Python3, and dal-public
 # ---------------------------------------------------------------------------
-find_package(SWIG REQUIRED)
-message(STATUS "-- SWIG version: ${SWIG_VERSION}")
+# Find pybind11: first try pip-installed package, then FetchContent fallback
+set(_pybind11_cmake_dir "/home/wegamekinglc/anaconda3/lib/python3.13/site-packages/pybind11/share/cmake/pybind11")
+if(EXISTS "${_pybind11_cmake_dir}")
+    list(APPEND CMAKE_PREFIX_PATH "${_pybind11_cmake_dir}/../..")
+endif()
+find_package(pybind11 CONFIG QUIET)
+if(NOT pybind11_FOUND)
+    message(STATUS "-- pybind11: not found via find_package, using FetchContent")
+    include(FetchContent)
+    FetchContent_Declare(
+        pybind11
+        GIT_REPOSITORY https://github.com/pybind/pybind11.git
+        GIT_TAG v2.11.1
+    )
+    FetchContent_MakeAvailable(pybind11)
+    message(STATUS "-- pybind11: fetched v2.11.1")
+else()
+    message(STATUS "-- pybind11: found via find_package (${pybind11_VERSION})")
+endif()
 
 find_package(Python3 REQUIRED COMPONENTS Interpreter Development.Module)
 message(STATUS "-- Python3: ${Python3_EXECUTABLE} (version ${Python3_VERSION})")
@@ -129,7 +146,7 @@ endif()
 # ---------------------------------------------------------------------------
 # Include paths
 # In monorepo mode, the parent already sets include_directories to the repo
-# root, so <dal/...> and <dal-public/...> includes work.
+# root, so <dal/...> and <dal-public/src/...> includes work.
 # In standalone mode, we need to set them up.
 # ---------------------------------------------------------------------------
 if(DAL_PYTHON_IS_TOPLEVEL)
@@ -143,49 +160,32 @@ if(DAL_PYTHON_IS_TOPLEVEL)
 endif()
 
 # ---------------------------------------------------------------------------
-# Python module: _dal (built via SWIG)
+# Python module: _dal (built via pybind11)
 #
-# The main SWIG interface is swig/dal.i.
-# It includes other .i files and references <dal/...> and <dal-public/src/...>
-# headers. These resolve via the repo-root include path (or DAL_DIR/include).
+# The pybind11 bindings are in src/bindings/dal_bindings.cpp.
+# The compiled module is named _dal and output to <build>/dal/.
+# A thin dal.py shim re-exports everything from _dal.
 # ---------------------------------------------------------------------------
 
-# UseSWIG module must be included after finding SWIG
-include(UseSWIG)
+pybind11_add_module(_dal
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/bindings/dal_bindings.cpp)
 
-# SWIG settings
-set(CMAKE_SWIG_FLAGS "")
-set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/swig/dal.i PROPERTIES
-    CPLUSPLUS ON
-    SWIG_FLAGS "-outdir;${CMAKE_CURRENT_BINARY_DIR}/dal")
-
-# Create SWIG Python module
-swig_add_library(dal_python
-    TYPE MODULE
-    LANGUAGE python
-    OUTPUT_DIR ${CMAKE_CURRENT_BINARY_DIR}/dal
-    OUTFILE_DIR ${CMAKE_CURRENT_BINARY_DIR}
-    SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/swig/dal.i)
-
-add_library(DAL::python ALIAS dal_python)
+add_library(DAL::python ALIAS _dal)
 
 # Link against the public library
 if(DAL_PUBLIC_TARGET)
-    target_link_libraries(dal_python PRIVATE ${DAL_PUBLIC_TARGET})
+    target_link_libraries(_dal PRIVATE ${DAL_PUBLIC_TARGET})
 endif()
 
 # Set Python module properties
-target_include_directories(dal_python PRIVATE ${Python3_INCLUDE_DIRS})
-target_link_libraries(dal_python PRIVATE Python3::Module)
+target_include_directories(_dal PRIVATE ${Python3_INCLUDE_DIRS})
 
-# AAD backend include paths for the SWIG wrapper compilation.
-# In monorepo mode, adept headers are at <repo>/include; in standalone
-# mode DAL_DIR points to the install root with include/ beneath it.
+# AAD backend include paths for the pybind11 wrapper compilation.
 if(DAL_USE_ADEPT_AAD OR DAL_USE_XAD_AAD)
     if(DAL_DIR)
-        target_include_directories(dal_python PRIVATE "${DAL_DIR}/include")
+        target_include_directories(_dal PRIVATE "${DAL_DIR}/include")
     else()
-        target_include_directories(dal_python PRIVATE "${CMAKE_INSTALL_PREFIX}/include")
+        target_include_directories(_dal PRIVATE "${CMAKE_INSTALL_PREFIX}/include")
     endif()
 endif()
 
@@ -195,20 +195,26 @@ else()
     set(DAL_PYTHON_MODULE_SUFFIX ".${Python3_SOABI}${CMAKE_SHARED_MODULE_SUFFIX}")
 endif()
 
-set_target_properties(dal_python PROPERTIES
+set_target_properties(_dal PROPERTIES
     LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/dal
     PREFIX ""
     OUTPUT_NAME _dal
     SUFFIX "${DAL_PYTHON_MODULE_SUFFIX}")
 
+# Generate a dal.py shim that re-exports from _dal (replaces SWIG-generated dal.py)
+file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/dal/dal.py
+    "# Auto-generated pybind11 shim -- re-exports all symbols from _dal\n"
+    "from ._dal import *\n"
+)
+
 # ---------------------------------------------------------------------------
 # Install rules
 # ---------------------------------------------------------------------------
-install(TARGETS dal_python
+install(TARGETS _dal
         LIBRARY DESTINATION dal
         RUNTIME DESTINATION dal)
 
-# Install SWIG-generated dal.py from the build directory
+# Install the generated dal.py shim
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/dal/dal.py
         DESTINATION dal)
 
@@ -222,12 +228,11 @@ install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/src/dal/
 # ---------------------------------------------------------------------------
 # Python tests (pytest)
 #
-# The in-build-tree `dal/` directory only contains SWIG's generated
-# `dal.py` and the compiled `_dal.*.pyd` / `_dal.*.so`. The hand-written
-# package files (`__init__.py`, `api.py`) live in `src/dal/` and are
-# normally copied only at install time. Copy them into the build tree at
-# configure time too, so CTest can `import dal` from the build directory
-# without a separate `pip install -e .` step.
+# The in-build-tree `dal/` directory contains the compiled `_dal` module
+# and the generated `dal.py` shim. The hand-written package files
+# (`__init__.py`, `api.py`) live in `src/dal/` and are copied into the
+# build tree at configure time so CTest can `import dal` without
+# a separate `pip install -e .` step.
 # ---------------------------------------------------------------------------
 if(DAL_PYTHON_BUILD_TESTS)
     enable_testing()
