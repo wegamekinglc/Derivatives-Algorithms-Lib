@@ -266,8 +266,7 @@ namespace Dal {
 
     pair<Date_, Date_> Deposit_::TimeSpan() const { return {start_, maturity_}; }
 
-    Handle_<YCInstrument_::Rate_> Deposit_::Precompute(const Handle_<YCInstrument_>&,
-                                                        const Handle_<YieldCurve_>& funding_yc) const {
+    Handle_<YCInstrument_::Rate_> Deposit_::Precompute(const Handle_<YieldCurve_>& funding_yc) const {
         return Handle_<Rate_>(new DepositRate_(start_, maturity_, convention_, funding_yc));
     }
 
@@ -284,8 +283,7 @@ namespace Dal {
 
     pair<Date_, Date_> FRA_::TimeSpan() const { return {start_, maturity_}; }
 
-    Handle_<YCInstrument_::Rate_> FRA_::Precompute(const Handle_<YCInstrument_>&,
-                                                    const Handle_<YieldCurve_>& funding_yc) const {
+    Handle_<YCInstrument_::Rate_> FRA_::Precompute(const Handle_<YieldCurve_>& funding_yc) const {
         return Handle_<Rate_>(new ForwardRate_(start_, maturity_, 0.0, convention_, funding_yc));
     }
 
@@ -308,8 +306,7 @@ namespace Dal {
 
     pair<Date_, Date_> Future_::TimeSpan() const { return {start_, maturity_}; }
 
-    Handle_<YCInstrument_::Rate_> Future_::Precompute(const Handle_<YCInstrument_>&,
-                                                       const Handle_<YieldCurve_>& funding_yc) const {
+    Handle_<YCInstrument_::Rate_> Future_::Precompute(const Handle_<YieldCurve_>& funding_yc) const {
         return Handle_<Rate_>(new ForwardRate_(start_, maturity_, convexityAdjustment_, convention_, funding_yc));
     }
 
@@ -343,8 +340,7 @@ namespace Dal {
 
     pair<Date_, Date_> Swap_::TimeSpan() const { return {start_, maturity_}; }
 
-    Handle_<YCInstrument_::Rate_> Swap_::Precompute(const Handle_<YCInstrument_>&,
-                                                     const Handle_<YieldCurve_>& funding_yc) const {
+    Handle_<YCInstrument_::Rate_> Swap_::Precompute(const Handle_<YieldCurve_>& funding_yc) const {
         const auto fixedPeriods = BuildLegPeriods(start_,
                                                   maturity_,
                                                   fixedLegConvention_,
@@ -394,8 +390,7 @@ namespace Dal {
 
     pair<Date_, Date_> BasisSwap_::TimeSpan() const { return {start_, maturity_}; }
 
-    Handle_<YCInstrument_::Rate_> BasisSwap_::Precompute(const Handle_<YCInstrument_>&,
-                                                          const Handle_<YieldCurve_>& funding_yc) const {
+    Handle_<YCInstrument_::Rate_> BasisSwap_::Precompute(const Handle_<YieldCurve_>& funding_yc) const {
         const auto spreadPeriods = BuildLegPeriods(start_,
                                                    maturity_,
                                                    spreadLegConvention_,

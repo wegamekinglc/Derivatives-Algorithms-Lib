@@ -47,7 +47,7 @@ namespace {
                                            const YieldCurve_& marketCurve,
                                            const Date_& tradeDate,
                                            const Ccy_& ccy) {
-        const auto rate = prototype->Precompute(prototype, Handle_<YieldCurve_>());
+        const auto rate = prototype->Precompute(Handle_<YieldCurve_>());
 
         if (auto deposit = dynamic_cast<const Deposit_*>(prototype.get())) {
             const auto span = deposit->TimeSpan();
@@ -209,8 +209,8 @@ namespace {
                                                               libor6mIndex,
                                                               referenceLeg));
 
-        const auto futureRate = future->Precompute(future, Handle_<YieldCurve_>());
-        const auto basisSwapRate = basisSwap->Precompute(basisSwap, Handle_<YieldCurve_>());
+        const auto futureRate = future->Precompute(Handle_<YieldCurve_>());
+        const auto basisSwapRate = basisSwap->Precompute(Handle_<YieldCurve_>());
 
         std::cout << "\n"
                   << std::string(70, '=') << "\n"
@@ -429,7 +429,7 @@ namespace {
 
         std::cout << "  Total calibration elapsed: " << int(totalMs) << " ms\n\n";
 
-        const auto fraRate = fra3x6->Precompute(fra3x6, Handle_<YieldCurve_>());
+        const auto fraRate = fra3x6->Precompute(Handle_<YieldCurve_>());
         std::cout << std::fixed << std::setprecision(6);
         std::cout << "  Forward 3x6 FRA repriced on calibrated bundle: " << (*fraRate)(calibratedCurve) * 100.0 << "%\n";
     }
