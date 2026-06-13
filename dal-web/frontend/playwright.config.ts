@@ -70,7 +70,10 @@ export default defineConfig({
       executablePath: resolveChromeExecutable(),
       env: {
         ...process.env,
-        ...(chromeLibraryPath() ? { LD_LIBRARY_PATH: chromeLibraryPath() } : {}),
+        ...((): Record<string, string> => {
+          const libPath = chromeLibraryPath();
+          return libPath ? { LD_LIBRARY_PATH: libPath } : {};
+        })(),
       },
     },
   },
