@@ -78,7 +78,7 @@ d_vol   :    58.7140
 value   :     4.0389
 ```
 
-More examples: [Python](miscs/python/), [Excel](miscs/excel/), [C++](dal-cpp/examples/)
+More examples: [Python](dal-python/examples/), [Excel](dal-excel/examples/), [C++](dal-cpp/examples/)
 
 ### Excel
 
