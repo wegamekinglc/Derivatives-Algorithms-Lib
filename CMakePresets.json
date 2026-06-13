@@ -36,7 +36,8 @@
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
         "MSVC_RUNTIME": "static",
-        "XAD_STATIC_MSVC_RUNTIME": "on"
+        "XAD_STATIC_MSVC_RUNTIME": "on",
+        "DAL_BUILD_EXCEL": "on"
       }
     },
     {
@@ -46,7 +47,8 @@
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
         "MSVC_RUNTIME": "static",
-        "XAD_STATIC_MSVC_RUNTIME": "on"
+        "XAD_STATIC_MSVC_RUNTIME": "on",
+        "DAL_BUILD_EXCEL": "on"
       }
     },
     {
