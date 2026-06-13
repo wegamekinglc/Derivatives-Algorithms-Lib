@@ -15,6 +15,7 @@
 #include <dal/protocol/collateraltype.hpp>
 #include <dal/storage/globals.hpp>
 #include <dal/time/date.hpp>
+#include <dal/utilities/timer.hpp>
 
 using namespace Dal;
 
@@ -117,31 +118,39 @@ namespace Dal {
             Date::AddMonths(today, 120),
         };
         spec.instruments_ = {};
+        // Build descriptive instrument names
+        Vector_<String_> xccyNames;
+        xccyNames.reserve(maturities.size());
         for (int i = 0; i < static_cast<int>(maturities.size()); ++i) {
             spec.instruments_.push_back(
                 Handle_<CrossCurrencySwap_>(new CrossCurrencySwap_(MakeXccySwap(today, marketSpreads[i], maturities[i]))));
+            xccyNames.push_back(String_(std::string("XCCY Swap ") + std::to_string(maturities[i]) + "M"));
         }
 
+        Timer_ timer;
+        timer.Reset();
         const auto result = CalibrateCrossCurrencyMarket(spec);
+        const double elapsedMs = timer.Elapsed<milliseconds>();
 
         std::cout << "\n"
                   << std::string(70, '=') << "\n"
-                  << "  Cross-currency basis calibration example\n"
+                  << "  Cross-currency basis calibration example  ("
+                  << spec.instruments_.size() << " instruments)\n"
                   << std::string(70, '=') << "\n\n";
-        const Vector_<int> w = {22, 14, 14, 14};
+        const Vector_<int> w = {26, 14, 14, 14};
         std::cout << std::left  << std::setw(w[0]) << "Instrument"
                   << std::right << std::setw(w[1]) << "Market(bp)"
                   << std::setw(w[2]) << "Model(bp)"
                   << std::setw(w[3]) << "Error(bp)" << '\n';
-        std::cout << std::string(64, '-') << '\n';
+        std::cout << std::string(68, '-') << '\n';
         std::cout << std::fixed << std::setprecision(6);
         for (int i = 0; i < static_cast<int>(result.diagnostics_.instrumentNames_.size()); ++i) {
-            std::cout << std::left  << std::setw(w[0]) << result.diagnostics_.instrumentNames_[i]
+            std::cout << std::left  << std::setw(w[0]) << xccyNames[i].c_str()
                       << std::right << std::setw(w[1]) << result.diagnostics_.marketRates_[i] * 10000.0
                       << std::setw(w[2]) << result.diagnostics_.modelRates_[i] * 10000.0
                       << std::setw(w[3]) << result.diagnostics_.residuals_[i] * 10000.0 << '\n';
         }
-        std::cout << std::string(64, '-') << '\n';
+        std::cout << std::string(68, '-') << '\n';
         std::cout << std::fixed << std::setprecision(6);
         std::cout << "  FX spot: " << spec.fxSpot_
                   << "  |  max residual: "
@@ -149,6 +158,7 @@ namespace Dal {
                                        result.diagnostics_.residuals_.end(),
                                        [](double a, double b) { return std::abs(a) < std::abs(b); })
                     * 10000.0 << " bp"
+                  << "  |  elapsed: " << int(elapsedMs) << " ms"
                   << "\n\n";
     }
 } // namespace Dal
