@@ -118,7 +118,7 @@ info "Installing backend dependencies (uv sync)..."
 info "Starting backend on port ${BACKEND_PORT}..."
 (
   cd "${BACKEND_DIR}"
-  nohup uv run uvicorn app.main:app --reload --host 127.0.0.1 --port "${BACKEND_PORT}" \
+  nohup uv run python -m uvicorn app.main:app --reload --host 127.0.0.1 --port "${BACKEND_PORT}" \
     > "${REPO_ROOT}/${BACKEND_LOG_FILE}" 2>&1 &
   echo $!
 ) > "${REPO_ROOT}/${BACKEND_PID_FILE}"

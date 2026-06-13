@@ -10,10 +10,11 @@ Brings up or tears down the two-service web UI that sits on top of the DAL Pytho
 
 Two scripts handle the actual work:
 
-| Command                               | What it does                                                                                                                             |
-|---------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------|
-| `./dal-web/scripts/start.sh`            | Checks prerequisites, starts backend (uvicorn on `:8001`) and frontend (vite on `:5173`), waits for both, runs a smoke test.             |
-| `./dal-web/scripts/stop.sh [--force]`   | Stops both services (by PID file, falling back to port-based kill). Use `--force` to escalate to SIGKILL.                                |
+| Command                                 | What it does                                                                                                                 |
+|-----------------------------------------|------------------------------------------------------------------------------------------------------------------------------|
+| `./dal-web/scripts/start.sh`            | Checks prerequisites, starts backend (uvicorn on `:8001`) and frontend (vite on `:5173`), waits for both, runs a smoke test. |
+| `./dal-web/scripts/stop.sh [--force]`   | Stops both services (by PID file, falling back to port-based kill). Use `--force` to escalate to SIGKILL.                    |
+| `./dal-web/scripts/setup-playwright.sh` | One-time setup for the frontend e2e suite: downloads Chrome and its NSS runtime libraries used by Playwright.                |
 
 ## When to use
 
@@ -67,10 +68,14 @@ If the user asks to run tests after starting the UI:
 
 ```bash
 # Backend tests (pytest, runs against the stub by default)
-cd dal-web/backend && uv run pytest
+(cd dal-web/backend && uv run pytest)
 
 # Frontend type-check + production build
-cd dal-web/frontend && npm run build
+(cd dal-web/frontend && npm run build)
+
+# Frontend e2e smoke tests (Playwright; starts/stops the web UI itself)
+./dal-web/scripts/setup-playwright.sh   # one-time browser/runtime setup
+(cd dal-web/frontend && npm run test:e2e)
 ```
 
 ## Native vs. stub DAL backend

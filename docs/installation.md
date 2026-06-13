@@ -59,14 +59,6 @@ git clone --recursive git@github.com:wegamekinglc/Derivatives-Algorithms-Lib.git
 cd Derivatives-Algorithms-Lib
 ```
 
-Or use HTTPS if you don't have SSH keys set up:
-
-```bash
-# HTTPS (no SSH key required)
-git clone --recursive https://github.com/wegamekinglc/Derivatives-Algorithms-Lib.git
-cd Derivatives-Algorithms-Lib
-```
-
 **Important:** The `--recursive` flag is required to fetch all git submodules (XAD, Adept, CoDiPack, Google Test, RapidJSON, Machinist).
 
 If you already cloned without `--recursive`:
@@ -139,6 +131,11 @@ make install
 - `Debug-linux` — Debug build with full symbols
 
 **CMake Options:**
+
+The table below shows source-level defaults from `CMakeLists.txt` files. Note that
+`CMakePresets.json` (`Release-linux`/`Debug-linux`) overrides several values (for
+example: all external AAD backends OFF, examples/benchmarks/public OFF) unless you
+re-enable them with `-D...` flags.
 
 | Option | Default | Description |
 |--------|---------|-------------|
@@ -369,7 +366,7 @@ If you need to start services individually:
 ```bash
 cd dal-web/backend
 uv sync
-uv run uvicorn app.main:app --reload --host 127.0.0.1 --port 8001
+uv run python -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8001
 ```
 
 **Frontend:**
@@ -441,6 +438,14 @@ Open http://localhost:5173 in a browser — the dashboard should load.
 ```bash
 cd dal-web/backend
 uv run pytest
+```
+
+4. Run frontend e2e smoke tests:
+
+```bash
+./dal-web/scripts/setup-playwright.sh
+cd dal-web/frontend
+npm run test:e2e
 ```
 
 ---
@@ -540,7 +545,7 @@ uv pip install -e . --no-build-isolation --force-reinstall
 
 ```bash
 cd dal-web/backend
-uv run uvicorn app.main:app --host 127.0.0.1 --port 8001
+uv run python -m uvicorn app.main:app --host 127.0.0.1 --port 8001
 ```
 
 ### Getting Help

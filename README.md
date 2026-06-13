@@ -95,6 +95,8 @@ Portfolio management web app in `dal-web/`:
 ```bash
 ./dal-web/scripts/start.sh     # Start backend + frontend
 ./dal-web/scripts/stop.sh      # Stop services
+./dal-web/scripts/setup-playwright.sh
+cd dal-web/frontend && npm run test:e2e   # frontend e2e smoke tests
 ```
 
 - Frontend: http://localhost:5173

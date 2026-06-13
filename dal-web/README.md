@@ -109,7 +109,7 @@ Dependencies are managed with [uv](https://docs.astral.sh/uv/). From `dal-web/ba
 ```bash
 cd dal-web/backend
 uv sync                     # create .venv and install runtime + dev deps from uv.lock
-uv run uvicorn app.main:app --reload --host 127.0.0.1 --port 8001
+uv run python -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8001
 ```
 
 `uv` provisions a matching Python interpreter automatically (downloading one if
@@ -161,7 +161,7 @@ already in use`, either free the port or run on a different one:
 fuser -k 8001/tcp
 
 # Option C — use a different port (e.g. 8002)
-uv run uvicorn app.main:app --reload --port 8002
+uv run python -m uvicorn app.main:app --reload --port 8002
 ```
 
 If you choose Option C, also update the proxy target in
@@ -211,8 +211,10 @@ uv run pytest               # runs against the in-process DAL stub
 ```
 
 ```bash
+./dal-web/scripts/setup-playwright.sh
 cd dal-web/frontend
 npm run build               # type-check + production build
+npm run test:e2e            # Playwright smoke tests (starts/stops the web UI)
 ```
 
 ## Screens

@@ -63,7 +63,7 @@ wheels = [
 ]
 
 [[package]]
-name = "dal-webui-backend"
+name = "dal-web-backend"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
