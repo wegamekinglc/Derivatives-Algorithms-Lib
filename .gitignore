@@ -7,6 +7,8 @@ build/*
 bin/*
 lib/*
 include/*
+chrome/
+chrome-libs/
 coverage.info
 coverage/
 *.csv
@@ -15,6 +17,8 @@ build
 *.egg-info
 *.idb
 __pycache__
+dal-web/frontend/playwright-report/
+dal-web/frontend/test-results/
 public/lib/*
 *.xlsx
 notebooks
