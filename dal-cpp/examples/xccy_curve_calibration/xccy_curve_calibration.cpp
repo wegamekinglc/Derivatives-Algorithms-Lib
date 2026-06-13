@@ -2,6 +2,8 @@
 // Created by GitHub Copilot on 2026/6/6.
 //
 
+#include <algorithm>
+#include <cmath>
 #include <iomanip>
 #include <iostream>
 #include <dal/platform/platform.hpp>
@@ -101,20 +103,32 @@ namespace Dal {
 
         const auto result = CalibrateCrossCurrencyMarket(spec);
 
-        std::cout << "\nCross-currency basis calibration example\n";
-        std::cout << "----------------------------------------\n";
-        std::cout << std::left << std::setw(14) << "Instrument"
-                  << std::right << std::setw(12) << "Market(bp)"
-                  << std::setw(12) << "Model(bp)"
-                  << std::setw(12) << "Error(bp)" << '\n';
-        std::cout << std::string(50, '-') << '\n';
+        std::cout << "\n"
+                  << std::string(70, '=') << "\n"
+                  << "  Cross-currency basis calibration example\n"
+                  << std::string(70, '=') << "\n\n";
+        const Vector_<int> w = {22, 14, 14, 14};
+        std::cout << std::left  << std::setw(w[0]) << "Instrument"
+                  << std::right << std::setw(w[1]) << "Market(bp)"
+                  << std::setw(w[2]) << "Model(bp)"
+                  << std::setw(w[3]) << "Error(bp)" << '\n';
+        std::cout << std::string(64, '-') << '\n';
         std::cout << std::fixed << std::setprecision(6);
         for (int i = 0; i < static_cast<int>(result.diagnostics_.instrumentNames_.size()); ++i) {
-            std::cout << std::left << std::setw(14) << result.diagnostics_.instrumentNames_[i]
-                      << std::right << std::setw(12) << result.diagnostics_.marketRates_[i] * 10000.0
-                      << std::setw(12) << result.diagnostics_.modelRates_[i] * 10000.0
-                      << std::setw(12) << result.diagnostics_.residuals_[i] * 10000.0 << '\n';
+            std::cout << std::left  << std::setw(w[0]) << result.diagnostics_.instrumentNames_[i]
+                      << std::right << std::setw(w[1]) << result.diagnostics_.marketRates_[i] * 10000.0
+                      << std::setw(w[2]) << result.diagnostics_.modelRates_[i] * 10000.0
+                      << std::setw(w[3]) << result.diagnostics_.residuals_[i] * 10000.0 << '\n';
         }
+        std::cout << std::string(64, '-') << '\n';
+        std::cout << std::fixed << std::setprecision(6);
+        std::cout << "  FX spot: " << spec.fxSpot_
+                  << "  |  max residual: "
+                  << *std::max_element(result.diagnostics_.residuals_.begin(),
+                                       result.diagnostics_.residuals_.end(),
+                                       [](double a, double b) { return std::abs(a) < std::abs(b); })
+                    * 10000.0 << " bp"
+                  << "\n\n";
     }
 } // namespace Dal
 

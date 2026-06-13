@@ -99,18 +99,21 @@ namespace {
                                                  fixedLeg.paymentConvention_,
                                                  fixedLeg.endOfMonth_);
 
-        std::cout << "Convention-based schedule example\n";
-        std::cout << "---------------------------------\n";
-        std::cout << std::left << std::setw(14) << "AccrualStart"
-                  << std::setw(14) << "AccrualEnd"
-                  << std::setw(14) << "PaymentDate"
-                  << std::right << std::setw(10) << "Stub" << '\n';
+        std::cout << "\n"
+                  << std::string(70, '=') << "\n"
+                  << "  Convention-based schedule example\n"
+                  << std::string(70, '=') << "\n\n";
+        const Vector_<int> w = {14, 14, 14, 10};
+        std::cout << std::left  << std::setw(w[0]) << "AccrualStart"
+                  << std::setw(w[1]) << "AccrualEnd"
+                  << std::setw(w[2]) << "PaymentDate"
+                  << std::right << std::setw(w[3]) << "Stub" << '\n';
         std::cout << std::string(52, '-') << '\n';
         for (const auto& period : periods) {
-            std::cout << std::left << std::setw(14) << Date::ToString(period.accrualStart_)
-                      << std::setw(14) << Date::ToString(period.accrualEnd_)
-                      << std::setw(14) << Date::ToString(period.paymentDate_)
-                      << std::right << std::setw(10) << (period.isStub_ ? "yes" : "no") << '\n';
+            std::cout << std::left  << std::setw(w[0]) << Date::ToString(period.accrualStart_)
+                      << std::setw(w[1]) << Date::ToString(period.accrualEnd_)
+                      << std::setw(w[2]) << Date::ToString(period.paymentDate_)
+                      << std::right << std::setw(w[3]) << (period.isStub_ ? "yes" : "no") << '\n';
         }
         std::cout << '\n';
     }
@@ -132,21 +135,24 @@ namespace {
                                                  BizDayConvention_("ModifiedFollowing"),
                                                  true);
 
-        std::cout << "Schedule context example with fixing/payment lags\n";
-        std::cout << "-----------------------------------------------\n";
-        std::cout << std::left << std::setw(14) << "FixingDate"
-                  << std::setw(14) << "AccrualEnd"
-                  << std::setw(14) << "PaymentDate"
-                  << std::right << std::setw(10) << "Months"
-                  << std::setw(10) << "Stub" << '\n';
+        std::cout << "\n"
+                  << std::string(70, '=') << "\n"
+                  << "  Schedule context example with fixing/payment lags\n"
+                  << std::string(70, '=') << "\n\n";
+        const Vector_<int> w = {14, 14, 14, 10, 10};
+        std::cout << std::left  << std::setw(w[0]) << "FixingDate"
+                  << std::setw(w[1]) << "AccrualEnd"
+                  << std::setw(w[2]) << "PaymentDate"
+                  << std::right << std::setw(w[3]) << "Months"
+                  << std::setw(w[4]) << "Stub" << '\n';
         std::cout << std::string(62, '-') << '\n';
         for (const auto& period : periods) {
-            std::cout << std::left << std::setw(14) << Date::ToString(period.fixingDate_)
-                      << std::setw(14) << Date::ToString(period.accrualEnd_)
-                      << std::setw(14) << Date::ToString(period.paymentDate_)
-                      << std::right << std::setw(10)
+            std::cout << std::left  << std::setw(w[0]) << Date::ToString(period.fixingDate_)
+                      << std::setw(w[1]) << Date::ToString(period.accrualEnd_)
+                      << std::setw(w[2]) << Date::ToString(period.paymentDate_)
+                      << std::right << std::setw(w[3])
                       << (period.dayCountContext_ ? period.dayCountContext_->couponMonths_ : 0)
-                      << std::setw(10) << (period.isStub_ ? "yes" : "no") << '\n';
+                      << std::setw(w[4]) << (period.isStub_ ? "yes" : "no") << '\n';
         }
         std::cout << '\n';
     }
@@ -201,29 +207,32 @@ namespace {
         const auto futureRate = future->Precompute(future, Handle_<YieldCurve_>());
         const auto basisSwapRate = basisSwap->Precompute(basisSwap, Handle_<YieldCurve_>());
 
-        std::cout << "Forward instrument routing example\n";
-        std::cout << "---------------------------------\n";
+        std::cout << "\n"
+                  << std::string(70, '=') << "\n"
+                  << "  Forward instrument routing example\n"
+                  << std::string(70, '=') << "\n\n";
         std::cout << std::fixed << std::setprecision(6);
-        std::cout << "3M future rate with 15bp convexity adjustment: "
-                  << (*futureRate)(curve) * 100.0 << "%\n";
-        std::cout << "3M vs 6M basis swap spread from separate forward curves: "
-                  << (*basisSwapRate)(curve) * 10000.0 << " bp\n\n";
+        std::cout << "  3M future rate with 15bp convexity adjustment: "
+                  << std::setw(10) << std::right << (*futureRate)(curve) * 100.0 << "%\n";
+        std::cout << "  3M vs 6M basis swap spread (separate forward curves): "
+                  << std::setw(10) << std::right << (*basisSwapRate)(curve) * 10000.0 << " bp\n\n";
     }
 
     void PrintStageDiagnostics(const CurveCalibrationDiagnostics_& diagnostics) {
-        std::cout << diagnostics.curveName_ << " residuals\n";
-        std::cout << "---------------------------------\n";
-        std::cout << std::left << std::setw(14) << "Instrument"
-                  << std::right << std::setw(12) << "Market(%)"
-                  << std::setw(12) << "Model(%)"
-                  << std::setw(12) << "Error(bp)" << '\n';
-        std::cout << std::string(50, '-') << '\n';
+        std::cout << "\n  " << diagnostics.curveName_ << " calibration residuals\n";
+        std::cout << "  " << std::string(36, '-') << "\n\n";
+        const Vector_<int> w = {22, 12, 12, 12};
+        std::cout << std::left  << std::setw(w[0]) << "Instrument"
+                  << std::right << std::setw(w[1]) << "Market(%)"
+                  << std::setw(w[2]) << "Model(%)"
+                  << std::setw(w[3]) << "Error(bp)" << '\n';
+        std::cout << std::string(58, '-') << '\n';
         std::cout << std::fixed << std::setprecision(6);
         for (int i = 0; i < static_cast<int>(diagnostics.instrumentNames_.size()); ++i) {
-            std::cout << std::left << std::setw(14) << diagnostics.instrumentNames_[i]
-                      << std::right << std::setw(12) << diagnostics.marketRates_[i] * 100.0
-                      << std::setw(12) << diagnostics.modelRates_[i] * 100.0
-                      << std::setw(12) << diagnostics.residuals_[i] * 10000.0 << '\n';
+            std::cout << std::left  << std::setw(w[0]) << diagnostics.instrumentNames_[i]
+                      << std::right << std::setw(w[1]) << diagnostics.marketRates_[i] * 100.0
+                      << std::setw(w[2]) << diagnostics.modelRates_[i] * 100.0
+                      << std::setw(w[3]) << diagnostics.residuals_[i] * 10000.0 << '\n';
         }
         std::cout << '\n';
     }
@@ -302,8 +311,10 @@ namespace {
         const auto result = CalibrateMultiCurve(multiCurveSpec);
         const CurveBlock_ calibratedCurve("usd_example", ccyName, result.discountCurves_, result.forwardCurves_, libor3m.dayBasis_);
 
-        std::cout << "Sequential multi-curve calibration example\n";
-        std::cout << "-----------------------------------------\n";
+        std::cout << "\n"
+                  << std::string(70, '=') << "\n"
+                  << "  Sequential multi-curve calibration example\n"
+                  << std::string(70, '=') << "\n";
         for (const auto& diagnostics : result.diagnostics_)
             PrintStageDiagnostics(diagnostics);
 
