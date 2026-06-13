@@ -34,6 +34,7 @@ test_output.txt
 .claude/settings.local.json
 build-*
 build2/
+CMakeUserPresets.json
 # Installed Python bindings (build artifact)
 dal/
 .claude/scheduled_tasks.lock
