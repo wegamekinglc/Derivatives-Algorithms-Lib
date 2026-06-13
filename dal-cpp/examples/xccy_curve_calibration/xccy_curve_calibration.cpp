@@ -27,7 +27,11 @@ namespace Dal {
             const Vector_<Date_> knots = {
                 Date::AddMonths(today, 12),
                 Date::AddMonths(today, 24),
+                Date::AddMonths(today, 36),
                 Date::AddMonths(today, 60),
+                Date::AddMonths(today, 120),
+                Date::AddMonths(today, 240),
+                Date::AddMonths(today, 360),
             };
             const Vector_<> vals(knots.size(), rate);
             return Handle_<DiscountCurve_>(NewDiscountPWLF(name, ccy, PiecewiseLinear_(knots, vals, vals)));
@@ -67,7 +71,7 @@ namespace Dal {
             return retval;
         }
 
-        CrossCurrencySwap_ MakeXccySwap(const Date_& today, double marketRate) {
+        CrossCurrencySwap_ MakeXccySwap(const Date_& today, double marketRate, int maturityMonths) {
             CrossCurrencyConvention_ convention;
             convention.initialNotionalExchange_ = true;
             convention.finalNotionalExchange_ = true;
@@ -78,7 +82,7 @@ namespace Dal {
             convention.foreignLeg_ = MakeXccyLeg();
             return CrossCurrencySwap_(today,
                                       today,
-                                      Date::AddMonths(today, 12),
+                                      Date::AddMonths(today, maturityMonths),
                                       marketRate,
                                       CurrencyPair_(Ccy_("USD"), Ccy_("EUR")),
                                       110.0,
@@ -88,9 +92,16 @@ namespace Dal {
     } // namespace
 
     void PrintXccyCurveCalibrationExample(const Date_& today) {
+        // Build a quote market with a basis curve to derive market-implied spreads
         const CrossCurrencyMarket_ quoteMarket = MakeXccyMarket(today, 0.0020);
-        const auto prototype = MakeXccySwap(today, 0.0);
-        const double marketSpread = (*prototype.Precompute())(quoteMarket);
+        // Prototype swaps at various maturities to get market spreads
+        const Vector_<int> maturities = {6, 12, 18, 24, 30, 36, 42, 48, 54, 60, 72, 84, 96, 108, 120};
+        Vector_<> marketSpreads;
+        marketSpreads.reserve(maturities.size());
+        for (int m : maturities) {
+            const auto proto = MakeXccySwap(today, 0.0, m);
+            marketSpreads.push_back((*proto.Precompute())(quoteMarket));
+        }
 
         CrossCurrencyCalibrationSpec_ spec;
         spec.today_ = today;
@@ -98,8 +109,18 @@ namespace Dal {
         spec.domesticCurveBlock_ = MakeXccyBlock("usd_ois", "USD", today, 0.02);
         spec.foreignCurveBlock_ = MakeXccyBlock("eur_ois", "EUR", today, 0.01);
         spec.fxSpot_ = 1.10;
-        spec.knotDates_ = {Date::AddMonths(today, 12)};
-        spec.instruments_ = {Handle_<CrossCurrencySwap_>(new CrossCurrencySwap_(MakeXccySwap(today, marketSpread)))};
+        spec.knotDates_ = {
+            Date::AddMonths(today, 6),
+            Date::AddMonths(today, 12),
+            Date::AddMonths(today, 24),
+            Date::AddMonths(today, 60),
+            Date::AddMonths(today, 120),
+        };
+        spec.instruments_ = {};
+        for (int i = 0; i < static_cast<int>(maturities.size()); ++i) {
+            spec.instruments_.push_back(
+                Handle_<CrossCurrencySwap_>(new CrossCurrencySwap_(MakeXccySwap(today, marketSpreads[i], maturities[i]))));
+        }
 
         const auto result = CalibrateCrossCurrencyMarket(spec);
 

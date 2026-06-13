@@ -28,11 +28,15 @@ namespace {
                                                   double rate,
                                                   const Handle_<DiscountCurve_>& base = Handle_<DiscountCurve_>()) {
         const Vector_<Date_> knotDates = {
+            Date::AddMonths(today, 1),
             Date::AddMonths(today, 3),
             Date::AddMonths(today, 6),
             Date::AddMonths(today, 12),
             Date::AddMonths(today, 24),
+            Date::AddMonths(today, 36),
             Date::AddMonths(today, 60),
+            Date::AddMonths(today, 84),
+            Date::AddMonths(today, 120),
         };
         const Vector_<> values(knotDates.size(), rate);
         return Handle_<DiscountCurve_>(NewDiscountPWLF(name, ccy, PiecewiseLinear_(knotDates, values, values), base));
@@ -267,11 +271,28 @@ namespace {
                                       {{libor3m.forecastTenor_, forward3m}},
                                       libor3m.dayBasis_);
 
-        const Handle_<YCInstrument_> oisDeposit(new Deposit_(today, today, Date::AddMonths(today, 3), 0.0, overnightIndex));
-        const Handle_<YCInstrument_> oisSwap(new OISSwap_(today, today, Date::AddMonths(today, 24), 0.0, fixedLeg, overnightIndex, overnightLeg));
-        const Handle_<YCInstrument_> fra3m(new FRA_(today, Date::AddMonths(today, 3), Date::AddMonths(today, 6), 0.0, libor3m));
-        const Handle_<YCInstrument_> irs3m(
-            new Swap_(today, today, Date::AddMonths(today, 24), 0.0, fixedLeg, libor3m, floatLeg));
+        // OIS instruments — deposit-like (short end) + swaps (long end)
+        const Handle_<YCInstrument_> oisDep1w(new Deposit_(today, today, today.AddDays(7), 0.0, overnightIndex));
+        const Handle_<YCInstrument_> oisDep1m(new Deposit_(today, today, Date::AddMonths(today, 1), 0.0, overnightIndex));
+        const Handle_<YCInstrument_> oisDep3m(new Deposit_(today, today, Date::AddMonths(today, 3), 0.0, overnightIndex));
+        const Handle_<YCInstrument_> oisDep6m(new Deposit_(today, today, Date::AddMonths(today, 6), 0.0, overnightIndex));
+        const Handle_<YCInstrument_> oisSwap1y(new OISSwap_(today, today, Date::AddMonths(today, 12), 0.0, fixedLeg, overnightIndex, overnightLeg));
+        const Handle_<YCInstrument_> oisSwap2y(new OISSwap_(today, today, Date::AddMonths(today, 24), 0.0, fixedLeg, overnightIndex, overnightLeg));
+        const Handle_<YCInstrument_> oisSwap3y(new OISSwap_(today, today, Date::AddMonths(today, 36), 0.0, fixedLeg, overnightIndex, overnightLeg));
+        const Handle_<YCInstrument_> oisSwap5y(new OISSwap_(today, today, Date::AddMonths(today, 60), 0.0, fixedLeg, overnightIndex, overnightLeg));
+        const Handle_<YCInstrument_> oisSwap7y(new OISSwap_(today, today, Date::AddMonths(today, 84), 0.0, fixedLeg, overnightIndex, overnightLeg));
+        const Handle_<YCInstrument_> oisSwap10y(new OISSwap_(today, today, Date::AddMonths(today, 120), 0.0, fixedLeg, overnightIndex, overnightLeg));
+        // Libor instruments — FRAs (short end) + IRS (long end)
+        const Handle_<YCInstrument_> fra1x4(new FRA_(today, Date::AddMonths(today, 1), Date::AddMonths(today, 4), 0.0, libor3m));
+        const Handle_<YCInstrument_> fra3x6(new FRA_(today, Date::AddMonths(today, 3), Date::AddMonths(today, 6), 0.0, libor3m));
+        const Handle_<YCInstrument_> fra6x9(new FRA_(today, Date::AddMonths(today, 6), Date::AddMonths(today, 9), 0.0, libor3m));
+        const Handle_<YCInstrument_> fra9x12(new FRA_(today, Date::AddMonths(today, 9), Date::AddMonths(today, 12), 0.0, libor3m));
+        const Handle_<YCInstrument_> fra12x15(new FRA_(today, Date::AddMonths(today, 12), Date::AddMonths(today, 15), 0.0, libor3m));
+        const Handle_<YCInstrument_> irs2y(new Swap_(today, today, Date::AddMonths(today, 24), 0.0, fixedLeg, libor3m, floatLeg));
+        const Handle_<YCInstrument_> irs3y(new Swap_(today, today, Date::AddMonths(today, 36), 0.0, fixedLeg, libor3m, floatLeg));
+        const Handle_<YCInstrument_> irs5y(new Swap_(today, today, Date::AddMonths(today, 60), 0.0, fixedLeg, libor3m, floatLeg));
+        const Handle_<YCInstrument_> irs7y(new Swap_(today, today, Date::AddMonths(today, 84), 0.0, fixedLeg, libor3m, floatLeg));
+        const Handle_<YCInstrument_> irs10y(new Swap_(today, today, Date::AddMonths(today, 120), 0.0, fixedLeg, libor3m, floatLeg));
 
         CurveCalibrationSpec_ oisStage;
         oisStage.today_ = today;
@@ -279,14 +300,27 @@ namespace {
         oisStage.curveName_ = "ois";
         oisStage.targetCollateral_ = CollateralType_(CollateralType_::Value_::OIS);
         oisStage.knotDates_ = {
+            Date::AddMonths(today, 1),
             Date::AddMonths(today, 3),
             Date::AddMonths(today, 6),
             Date::AddMonths(today, 12),
             Date::AddMonths(today, 24),
+            Date::AddMonths(today, 36),
+            Date::AddMonths(today, 60),
+            Date::AddMonths(today, 84),
+            Date::AddMonths(today, 120),
         };
         oisStage.instruments_ = {
-            QuotedInstrument(oisDeposit, marketCurve, today, ccy),
-            QuotedInstrument(oisSwap, marketCurve, today, ccy),
+            QuotedInstrument(oisDep1w, marketCurve, today, ccy),
+            QuotedInstrument(oisDep1m, marketCurve, today, ccy),
+            QuotedInstrument(oisDep3m, marketCurve, today, ccy),
+            QuotedInstrument(oisDep6m, marketCurve, today, ccy),
+            QuotedInstrument(oisSwap1y, marketCurve, today, ccy),
+            QuotedInstrument(oisSwap2y, marketCurve, today, ccy),
+            QuotedInstrument(oisSwap3y, marketCurve, today, ccy),
+            QuotedInstrument(oisSwap5y, marketCurve, today, ccy),
+            QuotedInstrument(oisSwap7y, marketCurve, today, ccy),
+            QuotedInstrument(oisSwap10y, marketCurve, today, ccy),
         };
 
         CurveCalibrationSpec_ liborStage;
@@ -298,8 +332,16 @@ namespace {
         liborStage.targetTenor_ = libor3m.forecastTenor_;
         liborStage.knotDates_ = oisStage.knotDates_;
         liborStage.instruments_ = {
-            QuotedInstrument(fra3m, marketCurve, today, ccy),
-            QuotedInstrument(irs3m, marketCurve, today, ccy),
+            QuotedInstrument(fra1x4, marketCurve, today, ccy),
+            QuotedInstrument(fra3x6, marketCurve, today, ccy),
+            QuotedInstrument(fra6x9, marketCurve, today, ccy),
+            QuotedInstrument(fra9x12, marketCurve, today, ccy),
+            QuotedInstrument(fra12x15, marketCurve, today, ccy),
+            QuotedInstrument(irs2y, marketCurve, today, ccy),
+            QuotedInstrument(irs3y, marketCurve, today, ccy),
+            QuotedInstrument(irs5y, marketCurve, today, ccy),
+            QuotedInstrument(irs7y, marketCurve, today, ccy),
+            QuotedInstrument(irs10y, marketCurve, today, ccy),
         };
 
         MultiCurveCalibrationSpec_ multiCurveSpec;
@@ -318,9 +360,9 @@ namespace {
         for (const auto& diagnostics : result.diagnostics_)
             PrintStageDiagnostics(diagnostics);
 
-        const auto fraRate = fra3m->Precompute(fra3m, Handle_<YieldCurve_>());
+        const auto fraRate = fra3x6->Precompute(fra3x6, Handle_<YieldCurve_>());
         std::cout << std::fixed << std::setprecision(6);
-        std::cout << "Forward 3M FRA repriced on calibrated bundle: " << (*fraRate)(calibratedCurve) * 100.0 << "%\n";
+        std::cout << "Forward 3x6 FRA repriced on calibrated bundle: " << (*fraRate)(calibratedCurve) * 100.0 << "%\n";
     }
 } // namespace
 
