@@ -54,15 +54,14 @@ If the answer is the latter, **STOP**. You are violating your core constraint.
 
 ## Your Team
 
-| Agent                | Role                | When to invoke                                              |
-|----------------------|---------------------|-------------------------------------------------------------|
-| `dal-spec-writer`    | Spec writer         | Vague requirements, no spec exists                          |
-| `dal-architect`      | Architect           | Needs design doc, spec exists but design unclear            |
-| `dal-api-designer`   | API designer        | Public API changes, bindings, examples                      |
-| `dal-critic`         | Critic              | After design/api, before implementation (new APIs, numerics)|
-| `dal-implementer`    | Implementer         | Code changes, bug fixes, feature implementation             |
-| `dal-tester`         | Tester              | After implementation, to verify tests pass                  |
-| `dal-reviewer`       | Reviewer            | After implementation, before PR merge                       |
+| Agent              | Role         | When to invoke                                               |
+|--------------------|--------------|--------------------------------------------------------------|
+| `dal-spec-writer`  | Spec writer  | Vague requirements, no spec exists                           |
+| `dal-api-designer` | API designer | Public API changes, bindings, examples                       |
+| `dal-critic`       | Critic       | After design/api, before implementation (new APIs, numerics) |
+| `dal-implementer`  | Implementer  | Code changes, bug fixes, feature implementation              |
+| `dal-tester`       | Tester       | After implementation, to verify tests pass                   |
+| `dal-reviewer`     | Reviewer     | After implementation, before PR merge                        |
 
 ## Dispatch Workflow
 
@@ -80,7 +79,7 @@ If the user described work directly, capture their description.
 Decide which agents to invoke and in what order. Most work follows this pattern:
 
 **For new features (no spec):**
-dal-spec-writer → dal-architect → dal-critic → dal-implementer → dal-tester → dal-reviewer
+dal-spec-writer → dal-critic → dal-implementer → dal-tester → dal-reviewer
 
 **For bug fixes (clear scope):**
 dal-implementer → dal-tester → dal-reviewer
@@ -148,7 +147,7 @@ Analyzing issue #57: "Add log-linear interpolation"
 
 Plan:
 1. dal-spec-writer — write spec (no spec exists yet)
-2. dal-architect — design the implementation
+2. dal-implementer — design and implement the solution
 3. dal-critic — critique the design (new numerical algorithm)
 4. dal-implementer — implement with TDD
 5. dal-tester — verify test coverage
@@ -157,7 +156,7 @@ Plan:
 Spawning dal-spec-writer with issue #57 context...
 [Agent spawned]
 
-Spawning dal-architect after spec is ready...
+Spawning dal-implementer after spec is ready...
 [Agent spawned]
 
 ...
@@ -166,7 +165,7 @@ Report:
 - Delegated 6 tasks to specialist agents
 - Expected artifacts: .claude/specs/log-linear-interp.md, .claude/designs/log-linear-interp.md,
   .claude/critiques/log-linear-interp.md, implementation on branch feature/log-linear-interp
-- Agents are working sequentially; dal-architect waits for dal-spec-writer, etc.
+- Agents are working sequentially; dal-implementer waits for dal-spec-writer, etc.
 - No blockers. Will report again when implementation is ready for review.
 
 ## Remember

@@ -10,7 +10,6 @@ implement → review pipeline. The orchestrator routes work between them.
 |--------------|--------------------|--------|----------------------------------|--------------------------------------------------------------------------------------------|
 | Orchestrator | `dal-orchestrator` | purple | GitHub issues, all artifacts     | task list, PRs                                                                             |
 | Spec writer  | `dal-spec-writer`  | orange | issues, methodology, rules       | `.claude/specs/<slug>.md`                                                                  |
-| Architect    | `dal-architect`    | blue   | spec, codebase, methodology      | `.claude/designs/<slug>.md`                                                                |
 | API designer | `dal-api-designer` | pink   | spec, design, public headers     | `.claude/api-notes/<slug>.md`                                                              |
 | Critic       | `dal-critic`       | red    | spec, design, api-note           | `.claude/critiques/<slug>.md`                                                              |
 | Implementer  | `dal-implementer`  | green  | spec, design, api-note, critique | source code, tests, TDD in worktree                                                        |
@@ -34,13 +33,13 @@ subset of the pipeline (see `dal-orchestrator.md` for the routing table).
 
 ## Artifact Layout
 
-| Path                   | Owner          | Purpose                                                   |
-|------------------------|----------------|-----------------------------------------------------------|
-| `.claude/specs/`       | spec writer    | testable requirement specifications                       |
-| `.claude/api-notes/`   | api designer   | public-API surface notes (signatures, examples, errors)   |
-| `.claude/critiques/`   | critic         | adversarial reviews of specs and api-notes                |
-| `docs/methodology/`   | (existing)     | normative quant method docs (referenced by all agents)    |
-| `.claude/rules/`       | (existing)     | normative coding/test/git conventions                     |
+| Path                 | Owner        | Purpose                                                 |
+|----------------------|--------------|---------------------------------------------------------|
+| `.claude/specs/`     | spec writer  | testable requirement specifications (created on demand)       |
+| `.claude/api-notes/` | api designer | public-API surface notes (created on demand)                  |
+| `.claude/critiques/` | critic       | adversarial reviews of specs and api-notes (created on demand)|
+| `docs/methodology/`  | (existing)   | normative quant method docs (referenced by all agents)  |
+| `.claude/rules/`     | (existing)   | normative coding/test/git conventions                   |
 
 Filenames share a single kebab-case slug derived from the issue title, so an issue traces
 through `specs/log-linear-interp.md → api-notes/log-linear-interp.md → ...` end-to-end.
@@ -68,8 +67,8 @@ Two practices are mandatory for every agent that changes files in the repository
 
 - **Worktree isolation.** Enter an isolated git worktree (`EnterWorktree`) before creating or
   editing any file. All edits, builds, iteration, and the commit/PR happen inside it, keeping
-  the main working tree clean. The planning agents (spec writer, architect, API designer,
-  critic) write only into the shared `.claude/` artifact directories and do not need a worktree.
+  the main working tree clean. The planning agents (spec writer, API designer, critic)
+  write only into the shared `.claude/` artifact directories (created on demand) and do not need a worktree.
 - **Test-driven development (TDD).** The implementer works strictly red → green → refactor:
   write a failing test for the next behavior, confirm it fails for the right reason, write the
   minimum code to pass, then refactor while green. Production code is never written ahead of a
