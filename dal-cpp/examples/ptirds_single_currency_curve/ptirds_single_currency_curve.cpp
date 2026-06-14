@@ -189,7 +189,6 @@ int main() {
     const DayBasis_ basis("ACT_365F");
 
     std::cout << "PTIRDS single-currency discount curve -- three LOG_DISCOUNT schemes\n"
-              << "Reference: rateslib Table 6.2 (https://rateslib.com/py/en/2.7.x/z_ptirds_curve.html)\n"
               << "Value date: " << Date::ToString(today) << "    14 nodes, 13 IRS/FRA instruments\n";
 
     // -- Calibrate each scheme --
