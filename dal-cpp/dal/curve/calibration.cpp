@@ -13,10 +13,6 @@
 #include <dal/curve/piecewiselinear.hpp>
 #include <dal/curve/ycconst.hpp>
 #include <dal/curve/ycimp.hpp>
-#include <dal/curve/yclogdf.hpp>
-#include <dal/math/interp/interplinear.hpp>
-#include <dal/math/interp/interpcubic.hpp>
-#include <dal/math/interp/interpmixed.hpp>
 #include <dal/math/matrix/banded.hpp>
 #include <dal/math/optimization/underdetermined.hpp>
 #include <dal/math/optimization/underdeterminedutils.hpp>
@@ -27,13 +23,9 @@ namespace Dal {
 #include <dal/auto/MG_CurveSolveMode_enum.inc>
 #include <dal/auto/MG_CurveParameterization_enum.inc>
 #include <dal/auto/MG_CurveKnotPolicy_enum.inc>
-#include <dal/auto/MG_LogDfScheme_enum.inc>
 
     namespace {
         constexpr int MAX_RELEVANT_DATES_PER_INSTRUMENT = 2;
-        // Flat-rate seed for LOG_DISCOUNT calibration (R4: scalar 0.05 is wrong-sign on log(DF)).
-        // log(DF)(node_i) = -FLAT_SEED_RATE * yf_365F(anchor, node_i).
-        constexpr double FLAT_SEED_RATE = 0.02;
 
         constexpr const char* KEY_MAX_EVALUATIONS = "MAXEVALUATIONS";
         constexpr const char* KEY_MAX_RESTARTS = "MAXRESTARTS";
@@ -134,9 +126,8 @@ namespace Dal {
                 return 2;
             case CurveParameterization_::Value_::PIECEWISE_CONSTANT_FWD:
                 return 1;
-            case CurveParameterization_::Value_::LOG_DISCOUNT:
-                return 1;
             case CurveParameterization_::Value_::ZERO_RATE:
+            case CurveParameterization_::Value_::LOG_DISCOUNT:
                 REQUIRE(false, "Requested curve parameterization is not implemented");
                 return 0;
             default:
@@ -145,47 +136,11 @@ namespace Dal {
             }
         }
 
-        Handle_<Interp1_> BuildLogDfInterp(const String_& name,
-                                         LogDfScheme_ scheme,
-                                         const Vector_<Date_>& knotDates,
-                                         const Vector_<>& logDF,
-                                         const DayBasis_& dayCount) {
-            const Date_& anchor = knotDates.front();
-            Vector_<> yf(knotDates.size());
-            for (int i = 0; i < static_cast<int>(knotDates.size()); ++i)
-                yf[i] = dayCount(anchor, knotDates[i], nullptr);
-            switch (scheme.Switch()) {
-            case LogDfScheme_::Value_::LOG_LINEAR:
-                // linear on log(DF) is log-linear on DF
-                return Handle_<Interp1_>(Interp::NewLinear(name + "_loglin", yf, logDF));
-            case LogDfScheme_::Value_::LOG_CUBIC_NATURAL: {
-                // natural cubic on log(DF) (Boundary_(2, 0.0)). Per design §3.2 D3, this is the
-                // primary choice; not-a-knot was tested and is no closer to a single-column target
-                // because the schemes genuinely differ at the long end (S2 resolution: three columns).
-                const Interp::Boundary_ natural(2, 0.0);
-                return Handle_<Interp1_>(Interp::NewCubic(name + "_logcub", yf, logDF, natural, natural));
-            }
-            case LogDfScheme_::Value_::MIXED: {
-                // cutoff at the (nKnots-4)-th knot so the cubic tail has >= 3 knots beyond it.
-                // For the PTIRDS 14-node set this is 2024-03-15 (node 9), matching the plan's §2.4.
-                const int cutoffIndex = std::max(1, static_cast<int>(knotDates.size()) - 5);
-                MixedSchemeSpec_ spec;
-                spec.cutoffYf_ = yf[cutoffIndex];
-                return Handle_<Interp1_>(NewMixedLogDF(name + "_mixed", yf, logDF, spec));
-            }
-            default:
-                REQUIRE(false, "Unknown LOG_DISCOUNT scheme");
-                return Handle_<Interp1_>();
-            }
-        }
-
         std::unique_ptr<DiscountCurve_> BuildDiscountCurve(const String_& name,
                                                            const String_& ccy,
                                                            CurveParameterization_ parameterization,
-                                                           LogDfScheme_ logDfScheme,
                                                            const Vector_<Date_>& knotDates,
                                                            const Vector_<>& x,
-                                                           const DayBasis_& dayCount,
                                                            const Handle_<DiscountCurve_>& baseCurve) {
             switch (parameterization.Switch()) {
             case CurveParameterization_::Value_::PIECEWISE_LINEAR_FWD: {
@@ -199,17 +154,8 @@ namespace Dal {
             }
             case CurveParameterization_::Value_::PIECEWISE_CONSTANT_FWD:
                 return std::unique_ptr<DiscountCurve_>(NewDiscountPWC(name, ccy, PiecewiseConstant_(knotDates, x), baseCurve));
-            case CurveParameterization_::Value_::LOG_DISCOUNT: {
-                // x is the free-node parameter vector (anchor excluded); prepend log(DF)=0 for the anchor.
-                REQUIRE(static_cast<int>(x.size()) + 1 == static_cast<int>(knotDates.size()),
-                        "LOG_DISCOUNT parameter vector must have length (knotDates - 1)");
-                Vector_<> logDF(knotDates.size());
-                logDF[0] = 0.0;
-                std::copy(x.begin(), x.end(), logDF.begin() + 1);
-                Handle_<Interp1_> interp = BuildLogDfInterp(name, logDfScheme, knotDates, logDF, dayCount);
-                return std::unique_ptr<DiscountCurve_>(NewDiscountLogDF(name, ccy, knotDates, logDF, dayCount, interp, baseCurve));
-            }
             case CurveParameterization_::Value_::ZERO_RATE:
+            case CurveParameterization_::Value_::LOG_DISCOUNT:
                 REQUIRE(false,
                         String_("Requested curve parameterization is reserved for future implementation: ")
                             + ParameterizationName(parameterization));
@@ -235,7 +181,6 @@ namespace Dal {
             PeriodLength_ targetTenor_;
             bool calibrateDiscountCurve_;
             DayBasis_ liborBasis_;
-            LogDfScheme_ logDfScheme_;
 
         public:
             YieldCurveCalibrationFunc_(const String_& ccy,
@@ -249,8 +194,7 @@ namespace Dal {
                                        const CollateralType_& targetCollateral,
                                        const PeriodLength_& targetTenor,
                                        bool calibrateDiscountCurve,
-                                       const DayBasis_& liborBasis,
-                                       LogDfScheme_ logDfScheme)
+                                       const DayBasis_& liborBasis)
                 : ccy_(ccy),
                   curveName_(curveName),
                   parameterization_(parameterization),
@@ -262,8 +206,7 @@ namespace Dal {
                   targetCollateral_(targetCollateral),
                   targetTenor_(targetTenor),
                   calibrateDiscountCurve_(calibrateDiscountCurve),
-                  liborBasis_(liborBasis),
-                  logDfScheme_(logDfScheme) {
+                  liborBasis_(liborBasis) {
                 Handle_<YieldCurve_> fundingYC;
                 if (!discountCurves_.empty())
                     fundingYC.reset(new CurveBlock_(curveName_, ccy_, discountCurves_, forwardCurves_, liborBasis_));
@@ -276,9 +219,7 @@ namespace Dal {
             }
 
             [[nodiscard]] Vector_<> F(const Vector_<>& x) const override {
-                Handle_<DiscountCurve_> dc(
-                    BuildDiscountCurve(curveName_, ccy_, parameterization_, logDfScheme_, knotDates_, x, liborBasis_, baseCurve_)
-                        .release());
+                Handle_<DiscountCurve_> dc(BuildDiscountCurve(curveName_, ccy_, parameterization_, knotDates_, x, baseCurve_).release());
                 auto discountCurves = discountCurves_;
                 auto forwardCurves = forwardCurves_;
                 if (calibrateDiscountCurve_)
@@ -377,22 +318,7 @@ namespace Dal {
 
         const Vector_<Date_> knotDates = BuildCurveCalibrationKnots(spec.today_, spec.instruments_, spec.knotDates_, spec.knotPolicy_);
         REQUIRE(!knotDates.empty(), "Curve calibration requires at least one knot date");
-        const bool anchorIsToday = spec.parameterization_ == CurveParameterization_::Value_::LOG_DISCOUNT;
-        if (anchorIsToday) {
-            REQUIRE(knotDates.front() == spec.today_,
-                    "LOG_DISCOUNT calibration requires knot 0 to be exactly the anchor (== today)");
-        } else {
-            REQUIRE(knotDates.front() > spec.today_,
-                    "Curve calibration knot dates must be after today");
-        }
-        for (int i = 0; i < static_cast<int>(spec.initialGuessPerNode_.size()); ++i) {
-            REQUIRE(std::isfinite(spec.initialGuessPerNode_[i]),
-                    String_("Curve calibration per-node initial guess must be finite at index ") + String::FromInt(i));
-        }
-        if (anchorIsToday && !spec.initialGuessPerNode_.empty()) {
-            REQUIRE(static_cast<int>(spec.initialGuessPerNode_.size()) == static_cast<int>(knotDates.size()) - 1,
-                    "Curve calibration per-node initial guess length must match the number of free knots");
-        }
+        REQUIRE(knotDates.front() > spec.today_, "Curve calibration knot dates must be after today");
 
         Date_ latestEnd = spec.today_;
         for (const auto& inst : spec.instruments_) {
@@ -421,34 +347,11 @@ namespace Dal {
         const Vector_<Handle_<YCInstrument_>> instruments = OrderInstruments(spec.instruments_);
         const Vector_<Date_> knotDates = BuildCurveCalibrationKnots(spec.today_, instruments, spec.knotDates_, spec.knotPolicy_);
         const int paramsPerKnot = ParamsPerKnot(spec.parameterization_);
-        const int nKnots = static_cast<int>(knotDates.size());
-        const bool anchorIsToday = spec.parameterization_ == CurveParameterization_::Value_::LOG_DISCOUNT;
-        const int nFreeKnots = anchorIsToday ? nKnots - 1 : nKnots;
-        const int nParams = paramsPerKnot * nFreeKnots;
+        const int nParams = paramsPerKnot * static_cast<int>(knotDates.size());
 
-        Vector_<> guess(nParams);
-        if (anchorIsToday) {
-            if (spec.initialGuessPerNode_.empty()) {
-                // R4 default seed: flat-2% rate mapped through yf_365F from the anchor.
-                const Date_& anchor = knotDates.front();
-                for (int i = 1; i < nKnots; ++i)
-                    guess[i - 1] = -FLAT_SEED_RATE * spec.liborBasis_(anchor, knotDates[i], nullptr);
-            } else {
-                std::copy(spec.initialGuessPerNode_.begin(), spec.initialGuessPerNode_.end(), guess.begin());
-            }
-        } else {
-            std::fill(guess.begin(), guess.end(), spec.initialGuess_);
-        }
+        Vector_<> guess(nParams, spec.initialGuess_);
         Vector_<> tol(instruments.size(), spec.tolerance_);
-        Vector_<Date_> weightKnots;
-        if (anchorIsToday) {
-            // LOG_DISCOUNT: parameter vector excludes the anchor; weights metric must match its dimension.
-            for (int i = 1; i < static_cast<int>(knotDates.size()); ++i)
-                weightKnots.push_back(knotDates[i]);
-        } else {
-            weightKnots = knotDates;
-        }
-        std::unique_ptr<Sparse::TriDiagonal_> weights(BuildCurveCalibrationWeights(weightKnots, paramsPerKnot, spec.smoothingWeight_));
+        std::unique_ptr<Sparse::TriDiagonal_> weights(BuildCurveCalibrationWeights(knotDates, paramsPerKnot, spec.smoothingWeight_));
 
         Dictionary_ ctrlDict;
         ctrlDict.Insert(KEY_MAX_EVALUATIONS, Cell_(static_cast<double>(spec.maxEvaluations_)));
@@ -466,8 +369,7 @@ namespace Dal {
                                         spec.targetCollateral_,
                                         spec.targetTenor_,
                                         spec.calibrateDiscountCurve_,
-                                        spec.liborBasis_,
-                                        spec.logDfScheme_);
+                                        spec.liborBasis_);
         Vector_<> result;
         Matrix_<> effJacobianInverse;
         if (spec.solveMode_ == CurveSolveMode_::Value_::EXACT) {
@@ -478,24 +380,8 @@ namespace Dal {
         }
 
         CurveCalibrationResult_ retval;
-        retval.curve_ = BuildDiscountCurve(spec.curveName_,
-                                         spec.ccy_,
-                                         spec.parameterization_,
-                                         spec.logDfScheme_,
-                                         knotDates,
-                                         result,
-                                         spec.liborBasis_,
-                                         spec.baseCurve_);
-        // For LOG_DISCOUNT the anchor knot equals today_ and would fail the strict > today check;
-        // validate the free knots only.
-        if (spec.parameterization_ == CurveParameterization_::Value_::LOG_DISCOUNT) {
-            Vector_<Date_> freeKnots;
-            for (int i = 1; i < static_cast<int>(knotDates.size()); ++i)
-                freeKnots.push_back(knotDates[i]);
-            ValidatePositiveDiscountFactors(*retval.curve_, spec.today_, freeKnots);
-        } else {
-            ValidatePositiveDiscountFactors(*retval.curve_, spec.today_, knotDates);
-        }
+        retval.curve_ = BuildDiscountCurve(spec.curveName_, spec.ccy_, spec.parameterization_, knotDates, result, spec.baseCurve_);
+        ValidatePositiveDiscountFactors(*retval.curve_, spec.today_, knotDates);
         Handle_<DiscountCurve_> diagnosticsCurve(
             std::shared_ptr<const DiscountCurve_>(std::shared_ptr<void>(), retval.curve_.get()));
         auto discountCurves = spec.discountCurves_;
