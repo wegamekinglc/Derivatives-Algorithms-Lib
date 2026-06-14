@@ -190,24 +190,15 @@ namespace Dal {
 #include <dal/auto/MG_DiscountLogDF_v2_Read.inc>
 
     Storable_* DiscountLogDF_v1::Reader_::Build() const {
-        // Legacy v1 stored the Interp1_ handle directly and did NOT persist the LogDfScheme_. We
-        // reconstruct the scheme from the stored handle's Storable_::type_ so old files still read.
-        //
-        // v2 is the canonical format: it carries the scheme by name and rebuilds the interpolator
-        // from (nodeDates, logDF), so it does not need this inference. The mapping below is therefore
-        // a best-effort backward-compat shim and only covers schemes that v1 could actually emit:
-        //   - v1 LOG_LINEAR wrote Interp::NewLinear, which serialises as "Interp1Linear".
-        //   - v1 LOG_CUBIC_NATURAL wrote Interp::NewCubic, which serialises as "Cubic1".
-        //   - v1 MIXED used NewMixedLogDF, whose Write() always throws, so no v1 file can carry a
-        //     mixed interpolator; that scheme is therefore not reachable here and is not mapped.
-        // Any other type_ (or a null handle) falls back to LOG_LINEAR, matching v1's default build.
-        LogDfScheme_ scheme = LogDfScheme_::Value_::LOG_LINEAR;
-        if (interp_) {
-            const String_& t = interp_->type_;
-            if (t == "Cubic1")
-                scheme = LogDfScheme_::Value_::LOG_CUBIC_NATURAL;
-        }
-        return new DiscountLogDF_(name_, ccy_, nodeDates_, logDF_, DayBasis_(dayCount_), scheme, base_);
+        // Legacy v1 stored the built Interp1_ handle directly and did NOT persist the LogDfScheme_.
+        // The scheme cannot be recovered from the deserialised handle: every Interp1_ subtype reports
+        // the same Storable_::type_ ("Interp1", fixed by the Interp1_ base constructor -- it is not
+        // "Cubic1"/"Interp1Linear"), and the concrete interpolators live in anonymous namespaces so
+        // RTTI cannot tell them apart either. v1 therefore always reconstructs as LOG_LINEAR, the only
+        // scheme honestly rebuildable from (nodeDates, logDF) alone. This is exactly why v2 -- the
+        // canonical format -- carries the scheme by name; callers needing cubic/mixed must use v2.
+        return new DiscountLogDF_(
+            name_, ccy_, nodeDates_, logDF_, DayBasis_(dayCount_), LogDfScheme_::Value_::LOG_LINEAR, base_);
     }
 
     Storable_* DiscountLogDF_v2::Reader_::Build() const {
