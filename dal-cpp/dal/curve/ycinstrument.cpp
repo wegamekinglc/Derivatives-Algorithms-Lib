@@ -57,14 +57,6 @@ namespace Dal {
             return (1.0 / fwdDf - 1.0) / basis(start, maturity, context.get());
         }
 
-        // Year-fraction underpinning a simple forward rate over [start, maturity].
-        double ForwardYearFraction(const Date_& start,
-                                   const Date_& maturity,
-                                   const DayBasis_& basis,
-                                   const Handle_<DayBasis::Context_>& context) {
-            return basis(start, maturity, context.get());
-        }
-
         AccrualPeriod_ MakeAccrualPeriod(const SchedulePeriod_& period, const DayBasis_& basis) {
             return AccrualPeriod_(period.accrualStart_, period.accrualEnd_, 1.0, basis, period.dayCountContext_, period.isStub_);
         }
