@@ -13,6 +13,7 @@
 #include <dal/curve/piecewiselinear.hpp>
 #include <dal/curve/ycconst.hpp>
 #include <dal/curve/ycimp.hpp>
+#include <dal/curve/yclogdf.hpp>
 #include <dal/math/matrix/banded.hpp>
 #include <dal/math/optimization/underdetermined.hpp>
 #include <dal/math/optimization/underdeterminedutils.hpp>
@@ -23,9 +24,13 @@ namespace Dal {
 #include <dal/auto/MG_CurveSolveMode_enum.inc>
 #include <dal/auto/MG_CurveParameterization_enum.inc>
 #include <dal/auto/MG_CurveKnotPolicy_enum.inc>
+#include <dal/auto/MG_LogDfScheme_enum.inc>
 
     namespace {
         constexpr int MAX_RELEVANT_DATES_PER_INSTRUMENT = 2;
+        // Flat-rate seed for LOG_DISCOUNT calibration (R4: scalar 0.05 is wrong-sign on log(DF)).
+        // log(DF)(node_i) = -FLAT_SEED_RATE * yf_365F(anchor, node_i).
+        constexpr double FLAT_SEED_RATE = 0.02;
 
         constexpr const char* KEY_MAX_EVALUATIONS = "MAXEVALUATIONS";
         constexpr const char* KEY_MAX_RESTARTS = "MAXRESTARTS";
@@ -58,9 +63,8 @@ namespace Dal {
             }
         }
 
-        void StoreStageResult(const CurveCalibrationSpec_& stageSpec,
-                              CurveCalibrationResult_* stageResult,
-                              MultiCurveCalibrationResult_* multiResult) {
+        void
+        StoreStageResult(const CurveCalibrationSpec_& stageSpec, CurveCalibrationResult_* stageResult, MultiCurveCalibrationResult_* multiResult) {
             Handle_<DiscountCurve_> calibrated(stageResult->curve_.release());
             if (stageSpec.calibrateDiscountCurve_)
                 multiResult->discountCurves_[stageSpec.targetCollateral_] = calibrated;
@@ -86,17 +90,15 @@ namespace Dal {
 
         Vector_<Handle_<YCInstrument_>> OrderInstruments(const Vector_<Handle_<YCInstrument_>>& instruments) {
             auto ordered = instruments;
-            std::sort(ordered.begin(),
-                      ordered.end(),
-                      [](const Handle_<YCInstrument_>& lhs, const Handle_<YCInstrument_>& rhs) {
-                          const auto lhsSpan = lhs->TimeSpan();
-                          const auto rhsSpan = rhs->TimeSpan();
-                          if (lhsSpan.second != rhsSpan.second)
-                              return lhsSpan.second < rhsSpan.second;
-                          if (lhsSpan.first != rhsSpan.first)
-                              return lhsSpan.first < rhsSpan.first;
-                          return lhs->Name() < rhs->Name();
-                      });
+            std::sort(ordered.begin(), ordered.end(), [](const Handle_<YCInstrument_>& lhs, const Handle_<YCInstrument_>& rhs) {
+                const auto lhsSpan = lhs->TimeSpan();
+                const auto rhsSpan = rhs->TimeSpan();
+                if (lhsSpan.second != rhsSpan.second)
+                    return lhsSpan.second < rhsSpan.second;
+                if (lhsSpan.first != rhsSpan.first)
+                    return lhsSpan.first < rhsSpan.first;
+                return lhs->Name() < rhs->Name();
+            });
             return ordered;
         }
 
@@ -126,8 +128,9 @@ namespace Dal {
                 return 2;
             case CurveParameterization_::Value_::PIECEWISE_CONSTANT_FWD:
                 return 1;
-            case CurveParameterization_::Value_::ZERO_RATE:
             case CurveParameterization_::Value_::LOG_DISCOUNT:
+                return 1;
+            case CurveParameterization_::Value_::ZERO_RATE:
                 REQUIRE(false, "Requested curve parameterization is not implemented");
                 return 0;
             default:
@@ -139,8 +142,10 @@ namespace Dal {
         std::unique_ptr<DiscountCurve_> BuildDiscountCurve(const String_& name,
                                                            const String_& ccy,
                                                            CurveParameterization_ parameterization,
+                                                           LogDfScheme_ logDfScheme,
                                                            const Vector_<Date_>& knotDates,
                                                            const Vector_<>& x,
+                                                           const DayBasis_& dayCount,
                                                            const Handle_<DiscountCurve_>& baseCurve) {
             switch (parameterization.Switch()) {
             case CurveParameterization_::Value_::PIECEWISE_LINEAR_FWD: {
@@ -154,11 +159,18 @@ namespace Dal {
             }
             case CurveParameterization_::Value_::PIECEWISE_CONSTANT_FWD:
                 return std::unique_ptr<DiscountCurve_>(NewDiscountPWC(name, ccy, PiecewiseConstant_(knotDates, x), baseCurve));
+            case CurveParameterization_::Value_::LOG_DISCOUNT: {
+                // x is the free-node parameter vector (anchor excluded); prepend log(DF)=0 for the anchor.
+                REQUIRE(static_cast<int>(x.size()) + 1 == static_cast<int>(knotDates.size()),
+                        "LOG_DISCOUNT parameter vector must have length (knotDates - 1)");
+                Vector_<> logDF(knotDates.size());
+                logDF[0] = 0.0;
+                std::copy(x.begin(), x.end(), logDF.begin() + 1);
+                return std::unique_ptr<DiscountCurve_>(NewDiscountLogDF(name, ccy, knotDates, logDF, dayCount, logDfScheme, baseCurve));
+            }
             case CurveParameterization_::Value_::ZERO_RATE:
-            case CurveParameterization_::Value_::LOG_DISCOUNT:
                 REQUIRE(false,
-                        String_("Requested curve parameterization is reserved for future implementation: ")
-                            + ParameterizationName(parameterization));
+                        String_("Requested curve parameterization is reserved for future implementation: ") + ParameterizationName(parameterization));
                 return nullptr;
             default:
                 REQUIRE(false, "Unknown curve parameterization");
@@ -181,6 +193,7 @@ namespace Dal {
             PeriodLength_ targetTenor_;
             bool calibrateDiscountCurve_;
             DayBasis_ liborBasis_;
+            LogDfScheme_ logDfScheme_;
 
         public:
             YieldCurveCalibrationFunc_(const String_& ccy,
@@ -194,19 +207,11 @@ namespace Dal {
                                        const CollateralType_& targetCollateral,
                                        const PeriodLength_& targetTenor,
                                        bool calibrateDiscountCurve,
-                                       const DayBasis_& liborBasis)
-                : ccy_(ccy),
-                  curveName_(curveName),
-                  parameterization_(parameterization),
-                  instruments_(instruments),
-                  knotDates_(knotDates),
-                  discountCurves_(discountCurves),
-                  forwardCurves_(forwardCurves),
-                  baseCurve_(baseCurve),
-                  targetCollateral_(targetCollateral),
-                  targetTenor_(targetTenor),
-                  calibrateDiscountCurve_(calibrateDiscountCurve),
-                  liborBasis_(liborBasis) {
+                                       const DayBasis_& liborBasis,
+                                       LogDfScheme_ logDfScheme)
+                : ccy_(ccy), curveName_(curveName), parameterization_(parameterization), instruments_(instruments), knotDates_(knotDates),
+                  discountCurves_(discountCurves), forwardCurves_(forwardCurves), baseCurve_(baseCurve), targetCollateral_(targetCollateral),
+                  targetTenor_(targetTenor), calibrateDiscountCurve_(calibrateDiscountCurve), liborBasis_(liborBasis), logDfScheme_(logDfScheme) {
                 Handle_<YieldCurve_> fundingYC;
                 if (!discountCurves_.empty())
                     fundingYC.reset(new CurveBlock_(curveName_, ccy_, discountCurves_, forwardCurves_, liborBasis_));
@@ -219,7 +224,8 @@ namespace Dal {
             }
 
             [[nodiscard]] Vector_<> F(const Vector_<>& x) const override {
-                Handle_<DiscountCurve_> dc(BuildDiscountCurve(curveName_, ccy_, parameterization_, knotDates_, x, baseCurve_).release());
+                Handle_<DiscountCurve_> dc(
+                    BuildDiscountCurve(curveName_, ccy_, parameterization_, logDfScheme_, knotDates_, x, liborBasis_, baseCurve_).release());
                 auto discountCurves = discountCurves_;
                 auto forwardCurves = forwardCurves_;
                 if (calibrateDiscountCurve_)
@@ -273,9 +279,7 @@ namespace Dal {
         }
     } // namespace
 
-    Sparse::TriDiagonal_* BuildCurveCalibrationWeights(const Vector_<Date_>& knotDates,
-                                                       int paramsPerKnot,
-                                                       double smoothingWeight) {
+    Sparse::TriDiagonal_* BuildCurveCalibrationWeights(const Vector_<Date_>& knotDates, int paramsPerKnot, double smoothingWeight) {
         REQUIRE(!knotDates.empty(), "Curve calibration weights require knot dates");
         REQUIRE(paramsPerKnot > 0, "Curve calibration weights require positive params-per-knot");
         REQUIRE(smoothingWeight > 0.0, "Curve calibration smoothing weight must be positive");
@@ -318,7 +322,20 @@ namespace Dal {
 
         const Vector_<Date_> knotDates = BuildCurveCalibrationKnots(spec.today_, spec.instruments_, spec.knotDates_, spec.knotPolicy_);
         REQUIRE(!knotDates.empty(), "Curve calibration requires at least one knot date");
-        REQUIRE(knotDates.front() > spec.today_, "Curve calibration knot dates must be after today");
+        const bool anchorIsToday = spec.parameterization_ == CurveParameterization_::Value_::LOG_DISCOUNT;
+        if (anchorIsToday) {
+            REQUIRE(knotDates.front() == spec.today_, "LOG_DISCOUNT calibration requires knot 0 to be exactly the anchor (== today)");
+        } else {
+            REQUIRE(knotDates.front() > spec.today_, "Curve calibration knot dates must be after today");
+        }
+        for (int i = 0; i < static_cast<int>(spec.initialGuessPerNode_.size()); ++i) {
+            REQUIRE(std::isfinite(spec.initialGuessPerNode_[i]),
+                    String_("Curve calibration per-node initial guess must be finite at index ") + String::FromInt(i));
+        }
+        if (anchorIsToday && !spec.initialGuessPerNode_.empty()) {
+            REQUIRE(static_cast<int>(spec.initialGuessPerNode_.size()) == static_cast<int>(knotDates.size()) - 1,
+                    "Curve calibration per-node initial guess length must match the number of free knots");
+        }
 
         Date_ latestEnd = spec.today_;
         for (const auto& inst : spec.instruments_) {
@@ -347,29 +364,43 @@ namespace Dal {
         const Vector_<Handle_<YCInstrument_>> instruments = OrderInstruments(spec.instruments_);
         const Vector_<Date_> knotDates = BuildCurveCalibrationKnots(spec.today_, instruments, spec.knotDates_, spec.knotPolicy_);
         const int paramsPerKnot = ParamsPerKnot(spec.parameterization_);
-        const int nParams = paramsPerKnot * static_cast<int>(knotDates.size());
+        const int nKnots = static_cast<int>(knotDates.size());
+        const bool anchorIsToday = spec.parameterization_ == CurveParameterization_::Value_::LOG_DISCOUNT;
+        const int nFreeKnots = anchorIsToday ? nKnots - 1 : nKnots;
+        const int nParams = paramsPerKnot * nFreeKnots;
 
-        Vector_<> guess(nParams, spec.initialGuess_);
+        Vector_<> guess(nParams);
+        if (anchorIsToday) {
+            if (spec.initialGuessPerNode_.empty()) {
+                // R4 default seed: flat-2% rate mapped through yf_365F from the anchor.
+                const Date_& anchor = knotDates.front();
+                for (int i = 1; i < nKnots; ++i)
+                    guess[i - 1] = -FLAT_SEED_RATE * spec.liborBasis_(anchor, knotDates[i], nullptr);
+            } else {
+                std::copy(spec.initialGuessPerNode_.begin(), spec.initialGuessPerNode_.end(), guess.begin());
+            }
+        } else {
+            std::fill(guess.begin(), guess.end(), spec.initialGuess_);
+        }
         Vector_<> tol(instruments.size(), spec.tolerance_);
-        std::unique_ptr<Sparse::TriDiagonal_> weights(BuildCurveCalibrationWeights(knotDates, paramsPerKnot, spec.smoothingWeight_));
+        Vector_<Date_> weightKnots;
+        if (anchorIsToday) {
+            // LOG_DISCOUNT: parameter vector excludes the anchor; weights metric must match its dimension.
+            for (int i = 1; i < static_cast<int>(knotDates.size()); ++i)
+                weightKnots.push_back(knotDates[i]);
+        } else {
+            weightKnots = knotDates;
+        }
+        std::unique_ptr<Sparse::TriDiagonal_> weights(BuildCurveCalibrationWeights(weightKnots, paramsPerKnot, spec.smoothingWeight_));
 
         Dictionary_ ctrlDict;
         ctrlDict.Insert(KEY_MAX_EVALUATIONS, Cell_(static_cast<double>(spec.maxEvaluations_)));
         ctrlDict.Insert(KEY_MAX_RESTARTS, Cell_(static_cast<double>(spec.maxRestarts_)));
         UnderdeterminedControls_ controls(ctrlDict);
 
-        YieldCurveCalibrationFunc_ func(spec.ccy_,
-                                        spec.curveName_,
-                                        spec.parameterization_,
-                                        instruments,
-                                        knotDates,
-                                        spec.discountCurves_,
-                                        spec.forwardCurves_,
-                                        spec.baseCurve_,
-                                        spec.targetCollateral_,
-                                        spec.targetTenor_,
-                                        spec.calibrateDiscountCurve_,
-                                        spec.liborBasis_);
+        YieldCurveCalibrationFunc_ func(spec.ccy_, spec.curveName_, spec.parameterization_, instruments, knotDates, spec.discountCurves_,
+                                        spec.forwardCurves_, spec.baseCurve_, spec.targetCollateral_, spec.targetTenor_, spec.calibrateDiscountCurve_,
+                                        spec.liborBasis_, spec.logDfScheme_);
         Vector_<> result;
         Matrix_<> effJacobianInverse;
         if (spec.solveMode_ == CurveSolveMode_::Value_::EXACT) {
@@ -380,10 +411,19 @@ namespace Dal {
         }
 
         CurveCalibrationResult_ retval;
-        retval.curve_ = BuildDiscountCurve(spec.curveName_, spec.ccy_, spec.parameterization_, knotDates, result, spec.baseCurve_);
-        ValidatePositiveDiscountFactors(*retval.curve_, spec.today_, knotDates);
-        Handle_<DiscountCurve_> diagnosticsCurve(
-            std::shared_ptr<const DiscountCurve_>(std::shared_ptr<void>(), retval.curve_.get()));
+        retval.curve_ = BuildDiscountCurve(spec.curveName_, spec.ccy_, spec.parameterization_, spec.logDfScheme_, knotDates, result, spec.liborBasis_,
+                                           spec.baseCurve_);
+        // For LOG_DISCOUNT the anchor knot equals today_ and would fail the strict > today check;
+        // validate the free knots only.
+        if (spec.parameterization_ == CurveParameterization_::Value_::LOG_DISCOUNT) {
+            Vector_<Date_> freeKnots;
+            for (int i = 1; i < static_cast<int>(knotDates.size()); ++i)
+                freeKnots.push_back(knotDates[i]);
+            ValidatePositiveDiscountFactors(*retval.curve_, spec.today_, freeKnots);
+        } else {
+            ValidatePositiveDiscountFactors(*retval.curve_, spec.today_, knotDates);
+        }
+        Handle_<DiscountCurve_> diagnosticsCurve(std::shared_ptr<const DiscountCurve_>(std::shared_ptr<void>(), retval.curve_.get()));
         auto discountCurves = spec.discountCurves_;
         auto forwardCurves = spec.forwardCurves_;
         if (spec.calibrateDiscountCurve_)
@@ -394,12 +434,9 @@ namespace Dal {
         Handle_<YieldCurve_> fundingCurve;
         if (!spec.discountCurves_.empty())
             fundingCurve.reset(new CurveBlock_(spec.curveName_, spec.ccy_, spec.discountCurves_, spec.forwardCurves_, spec.liborBasis_));
-        retval.diagnostics_ = BuildDiagnostics(spec.curveName_,
-                                               instruments,
-                                               curveView,
-                                               fundingCurve,
-                                               spec.solveMode_ == CurveSolveMode_::Value_::APPROXIMATE,
-                                               spec.solveMode_ == CurveSolveMode_::Value_::EXACT ? &effJacobianInverse : nullptr);
+        retval.diagnostics_ =
+            BuildDiagnostics(spec.curveName_, instruments, curveView, fundingCurve, spec.solveMode_ == CurveSolveMode_::Value_::APPROXIMATE,
+                             spec.solveMode_ == CurveSolveMode_::Value_::EXACT ? &effJacobianInverse : nullptr);
         return retval;
     }
 

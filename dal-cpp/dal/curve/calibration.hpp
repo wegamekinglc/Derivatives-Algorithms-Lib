@@ -44,6 +44,7 @@ alternative AUGMENTED
 #include <dal/math/matrix/matrixs.hpp>
 #include <dal/math/matrix/banded.hpp>
 #include <dal/curve/discount.hpp>
+#include <dal/curve/logdfscheme.hpp>
 #include <dal/curve/ycinstrument.hpp>
 
 namespace Dal {
@@ -73,6 +74,8 @@ namespace Dal {
         CurveSolveMode_ solveMode_ = CurveSolveMode_::Value_::EXACT;
         CurveParameterization_ parameterization_ = CurveParameterization_::Value_::PIECEWISE_LINEAR_FWD;
         CurveKnotPolicy_ knotPolicy_ = CurveKnotPolicy_::Value_::INPUT;
+        Vector_<double> initialGuessPerNode_;
+        LogDfScheme_ logDfScheme_ = LogDfScheme_::Value_::LOG_LINEAR;
     };
 
     struct CurveCalibrationDiagnostics_ {
