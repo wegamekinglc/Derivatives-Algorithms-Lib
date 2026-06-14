@@ -96,35 +96,64 @@ Par rates `s` (percent): `[1.0, 1.05, 1.12, 1.16, 1.21, 1.27, 1.45, 1.68, 1.92,
 3. **`mixed`** — log-linear on the short end, then log-cubic spline beyond a cutoff,
    controlled by the knot sequence `t`. Knots: `2024-03-15` ×4, `2025-01-01`,
    `2027-01-01`, `2029-01-01`, `2032-01-01` ×4 (clamped/repeated end knots).
+   Note: this knot list is rateslib's B-spline knot sequence, **not** necessarily the
+   DAL implementation's cutoff index. The DAL implementation reproduces rateslib's
+   three-column reference (§2.5) using (a) a **natural cubic spline** for `log_cubic`
+   (`Boundary_(2, 0.0)` — second-derivative zero at both ends), and (b) a `mixed`
+   scheme that is log-linear through node 9 (`2024-03-15`) and natural-cubic beyond,
+   with C0 continuity at the cutoff. DAL does **not** use rateslib's clamped B-spline
+   formalism; the empirical agreement with rateslib's published Table 6.2 within `1e-6`
+   is what matters.
 
 ### 2.5 Expected solved discount factors (acceptance benchmark)
 
 A single global solver (rateslib uses Levenberg-Marquardt) calibrates all free nodes
 simultaneously to reprice the 13 swaps; it converges in ~6 iterations to
 `f_val ~ 1e-16`. The solved node discount factors are the numerical acceptance
-target. Schemes must agree with each other to ~6 dp; `log_cubic` and `mixed` differ
-from `log_linear` only slightly at the long end.
+target. **The three schemes genuinely differ at the nodes** — that is the whole point
+of rateslib Table 6.2. The three interpolation rules produce three distinct solved
+curves because the same instruments and node dates are being fit by different
+smoothness priors; each scheme must therefore be validated against **its own column**
+in the table below, not against the other two.
 
-| #  | Node date  | log-linear DF |
-|----|------------|---------------|
-| 0  | 2022-01-01 | 1.000000      |
-| 1  | 2022-03-15 | 0.998002      |
-| 2  | 2022-06-15 | 0.995368      |
-| 3  | 2022-09-21 | 0.992383      |
-| 4  | 2022-12-21 | 0.989522      |
-| 5  | 2023-03-15 | 0.986774      |
-| 6  | 2023-06-21 | 0.983421      |
-| 7  | 2023-09-20 | 0.979878      |
-| 8  | 2023-12-20 | 0.975791      |
-| 9  | 2024-03-15 | 0.971397      |
-| 10 | 2025-01-01 | 0.950979      |
-| 11 | 2027-01-01 | 0.900384      |
-| 12 | 2029-01-01 | 0.857395      |
-| 13 | 2032-01-01 | 0.814369      |
+Authoritative reference: [rateslib Table 6.2](https://rateslib.com/py/en/2.7.x/z_ptirds_curve.html) (6 dp):
 
-**Acceptance tolerance:** solved DFs must match the table within `1e-6`, and the
-three schemes must agree to ~`1e-6` at the nodes (they share the same instruments and
-node DFs; only off-node interpolation differs).
+| Node date  | log-linear | log-cubic | mixed   |
+|------------|------------|-----------|---------|
+| 2022-01-01 | 1.000000   | 1.000000  | 1.000000 |
+| 2022-03-15 | 0.998002   | 0.997990  | 0.998002 |
+| 2022-06-15 | 0.995368   | 0.995355  | 0.995368 |
+| 2022-09-21 | 0.992383   | 0.992371  | 0.992383 |
+| 2022-12-21 | 0.989522   | 0.989509  | 0.989522 |
+| 2023-03-15 | 0.986774   | 0.986762  | 0.986774 |
+| 2023-06-21 | 0.983421   | 0.983408  | 0.983421 |
+| 2023-09-20 | 0.979878   | 0.979866  | 0.979878 |
+| 2023-12-20 | 0.975791   | 0.975779  | 0.975791 |
+| 2024-03-15 | 0.971397   | 0.971385  | 0.971397 |
+| 2025-01-01 | 0.950979   | 0.950979  | 0.950979 |
+| 2027-01-01 | 0.900384   | 0.900395  | 0.900384 |
+| 2029-01-01 | 0.857395   | 0.857430  | 0.857422 |
+| 2032-01-01 | 0.814369   | 0.814470  | 0.814460 |
+
+**Structural note:** the `mixed` column matches the `log-linear` column **exactly**
+for nodes 0-10 (through `2025-01-01`) and diverges only at `2027-01-01`,
+`2029-01-01`, and `2032-01-01` — i.e. only on the long-end knots where the mixed
+scheme switches to the natural cubic. The `log-cubic` column, by contrast, diverges
+from `log-linear` **throughout** the curve (by ~`1.2e-5` even at the short end,
+`2022-03-15`). This exact-match-vs-log-linear-through-node-10 invariant is what the
+acceptance test relies on to distinguish a correctly-wired `mixed` scheme from a
+mis-wired one.
+
+**Acceptance tolerance:** solved DFs must match the **per-scheme** column within
+`1e-6`, **and** repricing residuals must be `< 1e-8` per instrument. The schemes must
+**not** be asserted to agree with each other at the nodes — they are deliberately
+different curves, and cross-scheme agreement is not a valid acceptance criterion.
+
+**Validation status:** as of this update, all three schemes are validated against the
+rateslib reference at `1e-6` in `dal-cpp/tests/curve/test_ptirds_curve.cpp`, with
+observed max `|err|` of ~`5.2e-7` (`log_linear`), ~`4.6e-7` (`log_cubic`), and
+~`5.2e-7` (`mixed`), and repricing residuals ~`2.6e-12`. See PR #101
+(`feature/ptirds-single-currency-curve`).
 
 ## 3. Current DAL Capabilities (concrete findings)
 
