@@ -218,8 +218,12 @@ namespace {
         const Vector_<Date_> dates = {Date_(2022, 1, 1), Date_(2023, 1, 1), Date_(2024, 1, 1),
                                       Date_(2025, 1, 1), Date_(2026, 1, 1)};
         const Vector_<> logDF = {0.0, -0.02, -0.04, -0.06, -0.08};
-        return std::unique_ptr<DiscountLogDF_>(dynamic_cast<DiscountLogDF_*>(
-            NewDiscountLogDF("rt", "USD", dates, logDF, DayBasis_("ACT_365F"), scheme)));
+        // Hold the factory result in an owning pointer first so a failed dynamic_cast cannot leak it.
+        std::unique_ptr<DiscountCurve_> base(NewDiscountLogDF("rt", "USD", dates, logDF, DayBasis_("ACT_365F"), scheme));
+        DiscountLogDF_* cast = dynamic_cast<DiscountLogDF_*>(base.get());
+        REQUIRE(cast != nullptr, "NewDiscountLogDF did not return a DiscountLogDF_");
+        (void)base.release();
+        return std::unique_ptr<DiscountLogDF_>(cast);
     }
 } // namespace
 
