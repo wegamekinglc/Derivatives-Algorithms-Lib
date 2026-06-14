@@ -140,14 +140,14 @@ namespace {
         }
     }
 
-    // One-year continuously-compounded forward rate at each node: f(t) = -d(log df)/dt.
-    // Using the curve's own DF ratio df(t)/df(t+1y) over an ACT/365F year fraction gives an
-    // annual forward at every node, so the three schemes can be compared across the whole term.
+    // One-year continuously-compounded forward rate at each node: f = -d(log DF)/dt.
+    // operator()(from, to) returns the forward DF DF(to)/DF(from) (< 1 for positive rates),
+    // so f = -log(DF(to)/DF(from)) / yf over an ACT/365F year, comparable across all schemes.
     double AnnualForward(const DiscountCurve_& curve, const Date_& from, const DayBasis_& basis) {
         const auto to = Date::AddMonths(from, 12);
         const double yf = basis(from, to, nullptr);
-        const double dfRatio = curve(from, to); // df(from)/df(to)
-        return std::log(dfRatio) / yf;
+        const double fwdDf = curve(from, to); // forward DF = DF(to)/DF(from)
+        return -std::log(fwdDf) / yf;
     }
 
     void PrintForwardTable(const Vector_<Date_>& dates,
