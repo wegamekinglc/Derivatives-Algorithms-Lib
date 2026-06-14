@@ -324,8 +324,13 @@ Legend: **yes** = usable as-is; **partial** = building block exists but needs wi
 - Assemble a `CurveCalibrationSpec_` with `parameterization_ = LOG_DISCOUNT`,
   `knotPolicy_ = INPUT`, the 14 node dates, the 13 instruments and par rates, and
   `solveMode_ = EXACT`. Solve via `CalibrateYieldCurve` for each of the three schemes.
-- Compare solved node DFs against the §2.5 table within `1e-6` and confirm the three
-  schemes agree at the nodes.
+- Compare solved node DFs against the **per-scheme** column of the §2.5 table within
+  `1e-6` (each scheme validated against its own rateslib Table 6.2 column, **not**
+  against the other two schemes), and confirm repricing residuals are `< 1e-8` per
+  instrument. The three schemes **deliberately differ** at the nodes (log-cubic diverges
+  from log-linear throughout by ~`1.2e-5`; mixed matches log-linear exactly through
+  `2025-01-01` and diverges only at `2027/2029/2032`), so cross-scheme agreement is not
+  a valid acceptance criterion.
 
 ### Phase 6 (optional) — AAD analytic Jacobian
 - Override `Function_::Gradient` in the curve calibration function with an
@@ -350,8 +355,13 @@ Legend: **yes** = usable as-is; **partial** = building block exists but needs wi
   plus a forward-rate comparison.
 - **Tests:** a Google Test suite (e.g. `dal-cpp/tests/curve/test_ptirds_curve.cpp`)
   asserting:
-  - solved node DFs match §2.5 within `1e-6` for `log_linear`;
-  - `log_cubic` and `mixed` agree with `log_linear` at the nodes within `1e-6`;
+  - solved node DFs match §2.5 within `1e-6` for `log_linear` (validated against the
+    `log-linear` column of rateslib Table 6.2);
+  - solved node DFs match §2.5 within `1e-6` for `log_cubic` and `mixed` (each
+    validated against its **own** rateslib Table 6.2 column — **not** against
+    `log_linear`); the three schemes deliberately differ at the nodes (log-cubic
+    diverges from log-linear throughout by ~`1.2e-5`; mixed matches log-linear exactly
+    through `2025-01-01` and diverges only at `2027/2029/2032`);
   - each calibrated curve reprices all 13 instruments within the solver tolerance
     (residual `< 1e-8`).
 - **Optional:** a Python example under `dal-python/examples/` mirroring the C++ one,
