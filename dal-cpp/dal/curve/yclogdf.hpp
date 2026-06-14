@@ -42,6 +42,8 @@ namespace Dal {
         // LOG_CUBIC_NATURAL extrapolation weights for yf > yf_.back() (secant extension of the
         // last segment): only the last two free nodes carry nonzero weight.
         [[nodiscard]] Vector_<std::pair<int, double>> CubicExtrapWeights(double yf) const;
+        // MIXED scheme per-segment dispatch: linear head up to mixedCutoffYf_, cubic tail beyond.
+        [[nodiscard]] Vector_<std::pair<int, double>> InterpBasisWeightsMixed(int k, double yf) const;
 
     public:
         DiscountLogDF_(const String_& name,

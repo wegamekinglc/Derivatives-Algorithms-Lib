@@ -140,53 +140,59 @@ namespace Dal {
             return x;
         }
 
+        // db[i]/d(f[j]) for the natural-cubic rhs at interior node i, source knot j, given the
+        // segment lengths h. The four Kronecker-delta terms of the second-difference collapse to
+        // this dispatch; extracted so the per-source loop stays linear in branches.
+        double NaturalCubicRhsEntry(int j, int i, const Vector_<>& h) {
+            double val = 0.0;
+            if (j == i + 1)
+                val += 1.0 / h[i + 1];
+            if (j == i) {
+                val -= 1.0 / h[i + 1];
+                val -= 1.0 / h[i];
+            }
+            if (j == i - 1)
+                val += 1.0 / h[i];
+            return 6.0 * val;
+        }
+
+        // Build the sub/diag/sup rows of the (n-2) x (n-2) interior natural-cubic system in the
+        // segment-length vector h (size n, with h[0] unused).
+        void NaturalCubicInteriorMatrix(const Vector_<>& h, int m, Vector_<>* sub, Vector_<>* diag, Vector_<>* sup) {
+            for (int r = 0; r < m; ++r) {
+                const int i = r + 1; // interior node index
+                (*diag)[r] = 2.0 * (h[i] + h[i + 1]);
+                if (r > 0)
+                    (*sub)[r - 1] = h[i];
+                if (r < m - 1)
+                    (*sup)[r] = h[i + 1];
+            }
+        }
+
         // Natural-cubic-spline second-derivative sensitivity matrix:
         //   fppCoef[k][j] = d(fpp[k]) / d(f[j])
         // where fpp[0] = fpp[n-1] = 0 (natural BC) and fpp[1..n-2] are obtained by solving
         //   h[i-1]*fpp[i-1] + 2*(h[i-1]+h[i])*fpp[i] + h[i]*fpp[i+1] = b[i]   for i = 1..n-2
         // with h[k] = x[k] - x[k-1] and b[i] = 6*((f[i+1]-f[i])/h[i+1] - (f[i]-f[i-1])/h[i]).
-        // We solve nRight column systems (one per nonzero source f[j]).
+        // We solve n column systems (one per nonzero source f[j]).
         Vector_<Vector_<>> BuildNaturalCubicFppCoef(const Vector_<>& x) {
             const int n = static_cast<int>(x.size());
             Vector_<Vector_<>> coef(n, Vector_<>(n, 0.0));
             if (n < 3)
                 return coef; // need >= 3 knots for an interior system
-            // Segment lengths h[k] = x[k] - x[k-1], k = 1..n-1.
             Vector_<> h(n);
             for (int i = 1; i < n; ++i)
                 h[i] = x[i] - x[i - 1];
-            // Interior system is (n-2) x (n-2), indexing rows/cols by interior node 1..n-2.
             const int m = n - 2;
             Vector_<> sub(m - 1);
             Vector_<> diag(m);
             Vector_<> sup(m - 1);
-            for (int r = 0; r < m; ++r) {
-                const int i = r + 1; // interior node index
-                diag[r] = 2.0 * (h[i] + h[i + 1]);
-                if (r > 0)
-                    sub[r - 1] = h[i];
-                if (r < m - 1)
-                    sup[r] = h[i + 1];
-            }
-            // For each source knot j, build the rhs b (size m) and solve.
+            NaturalCubicInteriorMatrix(h, m, &sub, &diag, &sup);
             for (int j = 0; j < n; ++j) {
                 Vector_<> rhs(m, 0.0);
-                for (int r = 0; r < m; ++r) {
-                    const int i = r + 1; // interior node
-                    // db[i]/d(f[j]) = 6 * ((delta(j,i+1)-delta(j,i))/h[i+1] - (delta(j,i)-delta(j,i-1))/h[i])
-                    double val = 0.0;
-                    if (j == i + 1)
-                        val += 1.0 / h[i + 1];
-                    if (j == i)
-                        val -= 1.0 / h[i + 1];
-                    if (j == i)
-                        val -= 1.0 / h[i];
-                    if (j == i - 1)
-                        val += 1.0 / h[i];
-                    rhs[r] = 6.0 * val;
-                }
+                for (int r = 0; r < m; ++r)
+                    rhs[r] = NaturalCubicRhsEntry(j, r + 1, h);
                 const Vector_<> sol = SolveTriDiagonal(sub, diag, sup, rhs);
-                // fpp[0] = fpp[n-1] = 0; fpp[i] = sol[i-1] for i = 1..n-2.
                 coef[0][j] = 0.0;
                 coef[n - 1][j] = 0.0;
                 for (int i = 1; i <= n - 2; ++i)
@@ -211,6 +217,33 @@ namespace Dal {
             if (k > n - 2)
                 k = n - 2;
             return k;
+        }
+
+        // Storage-node weights -> solver-column weights: drop anchor node 0 (pinned at logDF=0),
+        // remap storage node k to solver column k-1, and skip exact zeros. Used by every scheme
+        // path in InterpBasisWeights -- it depends only on the storage convention, not the scheme.
+        Vector_<std::pair<int, double>> RemapStorageToSolver(const Vector_<std::pair<int, double>>& storageWeights) {
+            Vector_<std::pair<int, double>> out;
+            out.reserve(storageWeights.size());
+            for (const auto& [storageNode, w] : storageWeights) {
+                if (storageNode <= 0)
+                    continue; // anchor (node 0) is pinned at logDF=0 -> structural zero contribution
+                if (w == 0.0)
+                    continue;
+                out.emplace_back(storageNode - 1, w);
+            }
+            return out;
+        }
+
+        // Linear-basis storage-node weights on segment [yf[k], yf[k+1]]: (1-g) at storage k, g at
+        // storage k+1, with g = (yfQuery - yf[k])/h. Shared by LOG_LINEAR and the MIXED head.
+        Vector_<std::pair<int, double>> LinearSegmentWeights(const Vector_<>& yf, int k, double yfQuery) {
+            const double h = yf[k + 1] - yf[k];
+            const double g = (yfQuery - yf[k]) / h;
+            Vector_<std::pair<int, double>> storageWeights;
+            storageWeights.emplace_back(k, 1.0 - g);
+            storageWeights.emplace_back(k + 1, g);
+            return storageWeights;
         }
     } // namespace
 
@@ -372,54 +405,29 @@ namespace Dal {
         // such a date.
         if (yf < 0.0 || yf_.size() < 2)
             return {};
-        // Helper: take the (storage node, weight) pairs and (a) drop anchor storage node 0,
-        // (b) remap storage node k to solver column k-1, (c) drop ~zero weights.
-        const auto remap = [](const Vector_<std::pair<int, double>>& storageWeights) {
-            Vector_<std::pair<int, double>> out;
-            out.reserve(storageWeights.size());
-            for (const auto& [storageNode, w] : storageWeights) {
-                if (storageNode <= 0)
-                    continue; // anchor (node 0) is pinned at logDF=0 -> structural zero contribution
-                if (w == 0.0)
-                    continue;
-                out.emplace_back(storageNode - 1, w);
-            }
-            return out;
-        };
         // Extrapolation past the last knot: all schemes use the same final-segment secant extension
         // in LogDfAt (see yclogdf.cpp docstring). Apply the same secant weights uniformly.
         if (yf > yf_.back())
-            return remap(CubicExtrapWeights(yf));
-        // Locate the segment [k, k+1] that contains yf.
+            return RemapStorageToSolver(CubicExtrapWeights(yf));
         const int k = LowerBoundSegment(yf_, yf);
-        const double h = yf_[k + 1] - yf_[k];
-        if (scheme_ == LogDfScheme_::Value_::LOG_LINEAR) {
-            // Linear basis: (1-g) at storage k, g at storage k+1, with g = (yf - yf_[k])/h.
-            const double g = (yf - yf_[k]) / h;
-            Vector_<std::pair<int, double>> storageWeights;
-            storageWeights.emplace_back(k, 1.0 - g);
-            storageWeights.emplace_back(k + 1, g);
-            return remap(storageWeights);
+        switch (scheme_.Switch()) {
+        case LogDfScheme_::Value_::LOG_LINEAR:
+            return RemapStorageToSolver(LinearSegmentWeights(yf_, k, yf));
+        case LogDfScheme_::Value_::LOG_CUBIC_NATURAL:
+            return RemapStorageToSolver(CubicBasisAt(k, yf));
+        case LogDfScheme_::Value_::MIXED:
+            return InterpBasisWeightsMixed(k, yf);
+        default:
+            THROW(String_("DiscountLogDF_::InterpBasisWeights: unknown scheme: ") + scheme_.String());
         }
-        if (scheme_ == LogDfScheme_::Value_::LOG_CUBIC_NATURAL) {
-            return remap(CubicBasisAt(k, yf));
-        }
-        if (scheme_ == LogDfScheme_::Value_::MIXED) {
-            // Dispatch by side of cutoff: linear head (<= cutoff), cubic tail (> cutoff).
-            if (yf <= mixedCutoffYf_) {
-                // Linear head: only storage nodes [0..cutoffIndex] carry weight. On segment [k,k+1]
-                // with k <= cutoffIndex-1: (1-g) at storage k, g at storage k+1.
-                const double g = (yf - yf_[k]) / h;
-                Vector_<std::pair<int, double>> storageWeights;
-                storageWeights.emplace_back(k, 1.0 - g);
-                storageWeights.emplace_back(k + 1, g);
-                return remap(storageWeights);
-            }
-            // Cubic tail: fppCoef_ is already in storage-indexed form (RebuildBasisAux maps the
-            // tail subarray back to global indices). CubicBasisAt consumes it directly.
-            return remap(CubicBasisAt(k, yf));
-        }
-        THROW(String_("DiscountLogDF_::InterpBasisWeights: unknown scheme: ") + scheme_.String());
+    }
+
+    Vector_<std::pair<int, double>> DiscountLogDF_::InterpBasisWeightsMixed(int k, double yf) const {
+        // Linear head (yf <= cutoff) shares the LOG_LINEAR basis; the cubic tail reads the
+        // storage-indexed fppCoef_ built by RebuildBasisAux.
+        const Vector_<std::pair<int, double>> storageWeights =
+            (yf <= mixedCutoffYf_) ? LinearSegmentWeights(yf_, k, yf) : CubicBasisAt(k, yf);
+        return RemapStorageToSolver(storageWeights);
     }
 
     DiscountCurve_* NewDiscountLogDF(const String_& name,
