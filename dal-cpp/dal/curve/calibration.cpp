@@ -280,18 +280,24 @@ namespace Dal {
             [[nodiscard]] Vector_<> F(const Vector_<>& x) const override {
                 Handle_<DiscountCurve_> dc(
                     BuildDiscountCurve(curveName_, ccy_, parameterization_, logDfScheme_, knotDates_, x, liborBasis_, baseCurve_).release());
+                CurveBlock_ yc = YieldCurveWith(dc);
+
+                Vector_<> result(instruments_.size());
+                for (int i = 0; i < static_cast<int>(instruments_.size()); ++i)
+                    result[i] = (*rates_[i])(yc) - marketRates_[i];
+                return result;
+            }
+
+            // Slot a calibrated discount curve into the discount or forward position (per
+            // calibrateDiscountCurve_) and return the yield-curve context the rates read from.
+            CurveBlock_ YieldCurveWith(const Handle_<DiscountCurve_>& dc) const {
                 auto discountCurves = discountCurves_;
                 auto forwardCurves = forwardCurves_;
                 if (calibrateDiscountCurve_)
                     discountCurves[targetCollateral_] = dc;
                 else
                     forwardCurves[targetTenor_] = dc;
-                CurveBlock_ yc(curveName_, ccy_, discountCurves, forwardCurves, liborBasis_);
-
-                Vector_<> result(instruments_.size());
-                for (int i = 0; i < static_cast<int>(instruments_.size()); ++i)
-                    result[i] = (*rates_[i])(yc) - marketRates_[i];
-                return result;
+                return CurveBlock_(curveName_, ccy_, discountCurves, forwardCurves, liborBasis_);
             }
 
             // Sparse Jacobian (LOG_DISCOUNT free-node log-DF unknowns). Returns nullptr unless
@@ -310,23 +316,13 @@ namespace Dal {
                     NOTICE(msg);
                     return nullptr;
                 }
-                // Build the calibrated curve at x -- the SAME path F() uses.
                 Handle_<DiscountCurve_> dc(
                     BuildDiscountCurve(curveName_, ccy_, parameterization_, logDfScheme_, knotDates_, x, liborBasis_, baseCurve_).release());
                 const auto* logDfCurve = dynamic_cast<const DiscountLogDF_*>(dc.get());
                 REQUIRE(logDfCurve != nullptr,
                         "LOG_DISCOUNT analytic Jacobian requires a DiscountLogDF_ curve, got something else");
 
-                // Build the yield-curve context the rates read from (target slotted into the
-                // discount or forward position depending on calibrateDiscountCurve_).
-                auto discountCurves = discountCurves_;
-                auto forwardCurves = forwardCurves_;
-                if (calibrateDiscountCurve_)
-                    discountCurves[targetCollateral_] = dc;
-                else
-                    forwardCurves[targetTenor_] = dc;
-                CurveBlock_ yc(curveName_, ccy_, discountCurves, forwardCurves, liborBasis_);
-
+                CurveBlock_ yc = YieldCurveWith(dc);
                 const YCInstrument_::Rate_::Target_ rateTarget =
                     calibrateDiscountCurve_ ? YCInstrument_::Rate_::Target_::DISCOUNT : YCInstrument_::Rate_::Target_::FORECAST;
 
@@ -344,19 +340,29 @@ namespace Dal {
                         FillRowByDFBump(i, *logDfCurve, yc, &j);
                         continue;
                     }
-                    for (const auto& [payDate, dRate_dD] : dRateDdf) {
-                        const double yfPay = liborBasis_(logDfCurve->NodeDates().front(), payDate, nullptr);
-                        const double dfPay = logDfCurve->operator()(logDfCurve->NodeDates().front(), payDate);
-                        for (const auto& [col, basisW] : logDfCurve->InterpBasisWeights(yfPay))
-                            j(i, col) += dRate_dD * dfPay * basisW;
-                    }
+                    FillRowAnalytic(i, dRateDdf, *logDfCurve, &j);
                 }
                 return new XCurveJacobian_(std::move(j));
             }
 
+            // Analytic per-row contribution: chain dRate/dDF(anchor, p) through DF(anchor, p) and
+            // the interpolation basis weights to obtain dRate/dx_j for each solver column j.
+            void FillRowAnalytic(int row,
+                                 const Vector_<pair<Date_, double>>& dRateDdf,
+                                 const DiscountLogDF_& curve,
+                                 Matrix_<>* j) const {
+                const Date_& anchor = curve.NodeDates().front();
+                for (const auto& [payDate, dRate_dD] : dRateDdf) {
+                    const double yfPay = liborBasis_(anchor, payDate, nullptr);
+                    const double dfPay = curve(anchor, payDate);
+                    for (const auto& [col, basisW] : curve.InterpBasisWeights(yfPay))
+                        (*j)(row, col) += dRate_dD * dfPay * basisW;
+                }
+            }
+
             // Per-instrument DF-bump fallback (silent, in double). For each distinct knot column,
-            // bump that column's logDF by BumpSize(), re-evaluate (*rates_[i])(yc_bumped), and
-            // finite-difference the rate w.r.t. the log-DF. Fills j.Row(i) with the column
+            // bump that column's logDF by BUMP, re-evaluate (*rates_[row])(yc_bumped), and
+            // finite-difference the rate w.r.t. the log-DF. Fills j.Row(row) with the column
             // sensitivities. Used only when DRateDDiscount returns empty.
             void FillRowByDFBump(int row,
                                  const DiscountLogDF_& baseCurve,
@@ -372,15 +378,7 @@ namespace Dal {
                     bumpedLog[col + 1] += BUMP; // col is a solver column; storage node = col + 1
                     std::unique_ptr<DiscountCurve_> bumped(NewDiscountLogDF(curveName_ + "_b", ccy_, knotDates, bumpedLog,
                                                                             baseCurve.DayCount(), baseCurve.Scheme(), Handle_<DiscountCurve_>()));
-                    Handle_<DiscountCurve_> bumpedHandle(bumped.release());
-                    auto discountCurves = discountCurves_;
-                    auto forwardCurves = forwardCurves_;
-                    if (calibrateDiscountCurve_)
-                        discountCurves[targetCollateral_] = bumpedHandle;
-                    else
-                        forwardCurves[targetTenor_] = bumpedHandle;
-                    CurveBlock_ bumpedYC(curveName_, ccy_, discountCurves, forwardCurves, liborBasis_);
-                    const double bumpedRate = (*rates_[row])(bumpedYC);
+                    const double bumpedRate = (*rates_[row])(YieldCurveWith(Handle_<DiscountCurve_>(bumped.release())));
                     (*j)(row, col) = (bumpedRate - baseRate) / BUMP;
                 }
             }
