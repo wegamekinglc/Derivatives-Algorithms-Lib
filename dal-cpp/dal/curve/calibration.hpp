@@ -35,6 +35,15 @@ alternative INSTRUMENTS
 alternative AUGMENTED
 -IF-------------------------------------------------------------------------*/
 
+/*IF--------------------------------------------------------------------------
+enumeration LogDfScheme
+    Selection of interpolation scheme for a LOG_DISCOUNT curve
+switchable
+alternative LOG_LINEAR
+alternative LOG_CUBIC_NATURAL
+alternative MIXED
+-IF-------------------------------------------------------------------------*/
+
 #include <memory>
 #include <map>
 #include <dal/platform/platform.hpp>
@@ -50,6 +59,7 @@ namespace Dal {
 #include <dal/auto/MG_CurveSolveMode_enum.hpp>
 #include <dal/auto/MG_CurveParameterization_enum.hpp>
 #include <dal/auto/MG_CurveKnotPolicy_enum.hpp>
+#include <dal/auto/MG_LogDfScheme_enum.hpp>
 
     struct CurveCalibrationSpec_ {
         Date_ today_;
@@ -73,6 +83,8 @@ namespace Dal {
         CurveSolveMode_ solveMode_ = CurveSolveMode_::Value_::EXACT;
         CurveParameterization_ parameterization_ = CurveParameterization_::Value_::PIECEWISE_LINEAR_FWD;
         CurveKnotPolicy_ knotPolicy_ = CurveKnotPolicy_::Value_::INPUT;
+        Vector_<double> initialGuessPerNode_;
+        LogDfScheme_ logDfScheme_ = LogDfScheme_::Value_::LOG_LINEAR;
     };
 
     struct CurveCalibrationDiagnostics_ {
