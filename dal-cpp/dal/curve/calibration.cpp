@@ -32,6 +32,20 @@ namespace Dal {
 #include <dal/auto/MG_CurveJacobianMode_enum.inc>
 #include <dal/auto/MG_LogDfScheme_enum.inc>
 
+    // Phase A (AAD_TAPE Jacobian) is native-Number_ only. The native Number_ lives inside the
+    // same guard (see dal-cpp/dal/math/aad/expr.hpp:13) -- it does not exist as a usable type
+    // when an external AAD backend is selected. Templatizing the curve/rate stack on T_ would
+    // compile under XAD/CoDiPack/Adept (the constructor exists), but silently produce zero
+    // adjoints because the implicit-independent mechanism is native-only. So the entire Phase A
+    // branch is #ifdef'd out under external backends; AAD_TAPE then falls through to CP1 with
+    // a NOTICE. This is the SAME macro that gates the native Number_ itself -- single source of
+    // truth for "native backend is active."
+#if !defined(DAL_USE_XAD_AAD) && !defined(DAL_USE_CODIPACK_AAD) && !defined(DAL_USE_ADEPT_AAD)
+#    define DAL_CURVE_PHASE_A_NATIVE_AAD 1
+#else
+#    define DAL_CURVE_PHASE_A_NATIVE_AAD 0
+#endif
+
     // CP1 stores the LOG_DISCOUNT calibration Jacobian dense and assembles sparse. The method
     // bodies mirror XJDense_ (dal-cpp/dal/math/optimization/underdetermined.cpp) -- the storage
     // is dense regardless of how the matrix is filled, so the sparse-vs-banded optimization is
@@ -300,16 +314,34 @@ namespace Dal {
                 return CurveBlock_(curveName_, ccy_, discountCurves, forwardCurves, liborBasis_);
             }
 
-            // Sparse Jacobian (LOG_DISCOUNT free-node log-DF unknowns). Returns nullptr unless
-            // jacobianMode_ == ANALYTIC_LOG_DISCOUNT AND parameterization_ == LOG_DISCOUNT, in which
-            // case the column count is NX() = nNodes - 1 (anchor pinned). The CP1 path uses no AAD
-            // tape: the entire chain is double, the override runs once per solver restart, never
-            // per iteration (no RAII tape guard needed -- a future CP2-style AAD port must not
-            // assume a tape region is scoped here). The residual is modelRate - marketRate, so
-            // dResidual_i/dx_j = dModelRate_i/dx_j (marketRate is constant, contributes nothing).
+            // Sparse Jacobian (LOG_DISCOUNT free-node log-DF unknowns). Dispatch is a strict
+            // priority chain (see .claude/designs/aad-analytic-jacobian-selector-api.md §4.1):
+            //   BUMPED                -> return nullptr (solver dense-bumps).
+            //   AAD_TAPE              -> Phase A tape path if EligibleForPhaseA() and the native
+            //                            backend gate is open; otherwise NOTICE + fall through.
+            //   AAD_TAPE / ANALYTIC_* -> CP1 chain-rule path if parameterization_ == LOG_DISCOUNT;
+            //                            otherwise NOTICE + return nullptr (solver dense-bumps).
+            // The first eligible path wins. Phase A and CP1 are never both active for the same
+            // calibration; the analytic modes degrade gracefully (notice + fall back) rather than
+            // throwing -- the eligibility rules are subtle, and a NOTICE + correct result beats an
+            // exception. The residual is modelRate - marketRate, so dResidual_i/dx_j =
+            // dModelRate_i/dx_j (marketRate is constant, contributes nothing).
             [[nodiscard]] Underdetermined::Jacobian_* Gradient(const Vector_<>& x, const Vector_<>& f) const override {
-                if (jacobianMode_ != CurveJacobianMode_::Value_::ANALYTIC_LOG_DISCOUNT)
+                if (jacobianMode_ == CurveJacobianMode_::Value_::BUMPED)
                     return nullptr;
+#if DAL_CURVE_PHASE_A_NATIVE_AAD
+                if (jacobianMode_ == CurveJacobianMode_::Value_::AAD_TAPE) {
+                    if (EligibleForPhaseA())
+                        return PhaseAJacobian_NativeAAD(x, f);
+                    // Ineligible: NOTICE was emitted by EligibleForPhaseA (names the offending
+                    // condition); fall through to the CP1 chain-rule path below.
+                }
+#else
+                if (jacobianMode_ == CurveJacobianMode_::Value_::AAD_TAPE) {
+                    NOTICE("AAD_TAPE Jacobian requires the native Number_ backend; external backend compiled in, "
+                           "falling back to ANALYTIC_LOG_DISCOUNT");
+                }
+#endif
                 if (parameterization_ != CurveParameterization_::Value_::LOG_DISCOUNT) {
                     const String_ msg = String_("Analytic LOG_DISCOUNT Jacobian requested but parameterization is ")
                                         + parameterization_.String() + "; falling back to bumped";
@@ -382,7 +414,30 @@ namespace Dal {
                     (*j)(row, col) = (bumpedRate - baseRate) / BUMP;
                 }
             }
+
+#if DAL_CURVE_PHASE_A_NATIVE_AAD
+            // Phase A eligibility predicate (per .claude/designs/aad-analytic-jacobian-selector-api.md
+            // §4.2). Returns true iff every Phase A constraint is satisfied. The predicate is a
+            // pure query over ctor-stored state and NEVER throws -- ineligibility routes through
+            // the strict priority chain (NOTICE + fall back) instead of failing. Step 0 stub:
+            // always false, so AAD_TAPE falls through to CP1 with no NOTICE yet (the NOTICEs land
+            // in Step 5 alongside the real eligibility logic).
+            [[nodiscard]] bool EligibleForPhaseA() const { return false; }
+
+            // Phase A AAD-tape Jacobian. Step 0 stub: returns nullptr so the override falls through
+            // to the CP1 chain-rule path. Replaced in Step 5 with the real single-result reverse
+            // sweep using the templated DiscountLogDFT_<Number_> / RateT_<Number_> machinery.
+            [[nodiscard]] Underdetermined::Jacobian_* PhaseAJacobian_NativeAAD(const Vector_<>& x, const Vector_<>& f) const;
+#endif
         };
+
+#if DAL_CURVE_PHASE_A_NATIVE_AAD
+        // Step 0 stub definition: returns nullptr so AAD_TAPE falls through to the CP1 path. The
+        // real tape-based body lands in Step 5.
+        Underdetermined::Jacobian_* YieldCurveCalibrationFunc_::PhaseAJacobian_NativeAAD(const Vector_<>&, const Vector_<>&) const {
+            return nullptr;
+        }
+#endif
 
         Vector_<> ModelRates(const Vector_<Handle_<YCInstrument_>>& instruments, const YieldCurve_& curve, const Handle_<YieldCurve_>& fundingCurve) {
             Vector_<> modelRates(instruments.size());

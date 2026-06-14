@@ -10,6 +10,7 @@ Vector_<CurveJacobianMode_> CurveJacobianModeListAll() {
    if (TheCurveJacobianModeList().empty()) {
         TheCurveJacobianModeList().emplace_back(CurveJacobianMode_::Value_::BUMPED);
         TheCurveJacobianModeList().emplace_back(CurveJacobianMode_::Value_::ANALYTIC_LOG_DISCOUNT);
+        TheCurveJacobianModeList().emplace_back(CurveJacobianMode_::Value_::AAD_TAPE);
    }
    return TheCurveJacobianModeList();
 }
@@ -25,6 +26,8 @@ const char* CurveJacobianMode_::String() const {
         return "BUMPED";
     case Value_::ANALYTIC_LOG_DISCOUNT:
         return "ANALYTIC_LOG_DISCOUNT";
+    case Value_::AAD_TAPE:
+        return "AAD_TAPE";
         
     }}
 
@@ -44,6 +47,9 @@ struct ReadStringCurveJacobianMode_
 
 	else if (String::Equivalent(src, "ANALYTICLOGDISCOUNT"))
         *val = CurveJacobianMode_::Value_::ANALYTIC_LOG_DISCOUNT;
+
+	else if (String::Equivalent(src, "AADTAPE"))
+        *val = CurveJacobianMode_::Value_::AAD_TAPE;
         else
             ret_val = false;
         return ret_val;

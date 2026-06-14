@@ -8,6 +8,7 @@ public:
      _NOT_SET=-1,
      BUMPED,
      ANALYTIC_LOG_DISCOUNT,
+     AAD_TAPE,
      _N_VALUES
     } val_;
       

@@ -41,6 +41,7 @@ enumeration CurveJacobianMode
 switchable
 alternative BUMPED
 alternative ANALYTIC_LOG_DISCOUNT
+alternative AAD_TAPE
 -IF-------------------------------------------------------------------------*/
 
 #include <memory>
@@ -85,9 +86,19 @@ namespace Dal {
         CurveKnotPolicy_ knotPolicy_ = CurveKnotPolicy_::Value_::INPUT;
         Vector_<double> initialGuessPerNode_;
         LogDfScheme_ logDfScheme_ = LogDfScheme_::Value_::LOG_LINEAR;
-        // Default BUMPED keeps the pre-CP1 finite-difference behaviour byte-for-byte.
-        // ANALYTIC_LOG_DISCOUNT engages the analytic chain-rule Jacobian for LOG_DISCOUNT
-        // calibrations only; other parameterizations fall back to bumped with a NOTICE.
+        // Jacobian construction for the calibration solver.
+        //   BUMPED                -- finite-difference bumping of each free node. Default;
+        //                            byte-for-byte identical to the pre-CP1 path.
+        //   ANALYTIC_LOG_DISCOUNT -- CP1 analytic chain-rule Jacobian (double). Eligible only
+        //                            for CurveParameterization_::LOG_DISCOUNT; other
+        //                            parameterizations fall back to BUMPED with a NOTICE.
+        //   AAD_TAPE              -- Phase A reverse-mode AAD Jacobian via the native Number_
+        //                            tape. Native backend only; external backends (XAD,
+        //                            CoDiPack, Adept) fall back to ANALYTIC_LOG_DISCOUNT
+        //                            (which itself may fall back to BUMPED). Eligible only for
+        //                            LOG_DISCOUNT + DISCOUNT-target + forecast==discount +
+        //                            vanilla swap/deposit/FRA; other calibrations fall back to
+        //                            ANALYTIC_LOG_DISCOUNT with a NOTICE.
         CurveJacobianMode_ jacobianMode_ = CurveJacobianMode_::Value_::BUMPED;
     };
 
