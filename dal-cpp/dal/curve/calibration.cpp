@@ -14,9 +14,6 @@
 #include <dal/curve/ycconst.hpp>
 #include <dal/curve/ycimp.hpp>
 #include <dal/curve/yclogdf.hpp>
-#include <dal/math/interp/interplinear.hpp>
-#include <dal/math/interp/interpcubic.hpp>
-#include <dal/math/interp/interpmixed.hpp>
 #include <dal/math/matrix/banded.hpp>
 #include <dal/math/optimization/underdetermined.hpp>
 #include <dal/math/optimization/underdeterminedutils.hpp>
@@ -145,40 +142,6 @@ namespace Dal {
             }
         }
 
-        Handle_<Interp1_> BuildLogDfInterp(const String_& name,
-                                         LogDfScheme_ scheme,
-                                         const Vector_<Date_>& knotDates,
-                                         const Vector_<>& logDF,
-                                         const DayBasis_& dayCount) {
-            const Date_& anchor = knotDates.front();
-            Vector_<> yf(knotDates.size());
-            for (int i = 0; i < static_cast<int>(knotDates.size()); ++i)
-                yf[i] = dayCount(anchor, knotDates[i], nullptr);
-            switch (scheme.Switch()) {
-            case LogDfScheme_::Value_::LOG_LINEAR:
-                // linear on log(DF) is log-linear on DF
-                return Handle_<Interp1_>(Interp::NewLinear(name + "_loglin", yf, logDF));
-            case LogDfScheme_::Value_::LOG_CUBIC_NATURAL: {
-                // natural cubic on log(DF) (Boundary_(2, 0.0)). Per design §3.2 D3, this is the
-                // primary choice; not-a-knot was tested and is no closer to a single-column target
-                // because the schemes genuinely differ at the long end (S2 resolution: three columns).
-                const Interp::Boundary_ natural(2, 0.0);
-                return Handle_<Interp1_>(Interp::NewCubic(name + "_logcub", yf, logDF, natural, natural));
-            }
-            case LogDfScheme_::Value_::MIXED: {
-                // cutoff at the (nKnots-4)-th knot so the cubic tail has >= 3 knots beyond it.
-                // For the PTIRDS 14-node set this is 2024-03-15 (node 9), matching the plan's §2.4.
-                const int cutoffIndex = std::max(1, static_cast<int>(knotDates.size()) - 5);
-                MixedSchemeSpec_ spec;
-                spec.cutoffYf_ = yf[cutoffIndex];
-                return Handle_<Interp1_>(NewMixedLogDF(name + "_mixed", yf, logDF, spec));
-            }
-            default:
-                REQUIRE(false, "Unknown LOG_DISCOUNT scheme");
-                return Handle_<Interp1_>();
-            }
-        }
-
         std::unique_ptr<DiscountCurve_> BuildDiscountCurve(const String_& name,
                                                            const String_& ccy,
                                                            CurveParameterization_ parameterization,
@@ -206,8 +169,7 @@ namespace Dal {
                 Vector_<> logDF(knotDates.size());
                 logDF[0] = 0.0;
                 std::copy(x.begin(), x.end(), logDF.begin() + 1);
-                Handle_<Interp1_> interp = BuildLogDfInterp(name, logDfScheme, knotDates, logDF, dayCount);
-                return std::unique_ptr<DiscountCurve_>(NewDiscountLogDF(name, ccy, knotDates, logDF, dayCount, interp, baseCurve));
+                return std::unique_ptr<DiscountCurve_>(NewDiscountLogDF(name, ccy, knotDates, logDF, dayCount, logDfScheme, baseCurve));
             }
             case CurveParameterization_::Value_::ZERO_RATE:
                 REQUIRE(false,

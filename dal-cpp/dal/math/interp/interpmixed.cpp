@@ -68,8 +68,12 @@ namespace Dal {
                 return x >= yf_.front() && x <= yf_.back();
             }
 
+            // MixedLogDF_ is never serialised on its own: its parent DiscountLogDF_ writes the
+            // scheme by name plus the (nodeDates, logDF) knots and rebuilds the interpolator on
+            // read (see DiscountLogDF_v2). A direct Write would need its own storable; we refuse
+            // here with a clear message rather than a TODO so callers know the supported path.
             void Write(Archive::Store_& dst) const override {
-                REQUIRE(false, "MixedLogDF_ serialization is TODO until an archive schema is added");
+                THROW("MixedLogDF_ is not directly serialisable; serialise the owning DiscountLogDF_ instead");
             }
         };
     } // namespace

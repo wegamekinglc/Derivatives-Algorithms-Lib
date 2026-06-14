@@ -12,6 +12,7 @@
 #include <dal/math/interp/interplinear.hpp>
 #include <dal/protocol/collateraltype.hpp>
 #include <dal/protocol/rateconvention.hpp>
+#include <dal/storage/json.hpp>
 #include <dal/time/date.hpp>
 #include <dal/time/daybasis.hpp>
 #include <dal/time/holidays.hpp>
@@ -161,4 +162,194 @@ TEST(PTIRDSCurveTest, TestMixedMatchesRateslib) {
     auto spec = BuildBaseSpec(today, LogDfScheme_::Value_::MIXED);
     const auto r = CalibrateYieldCurve(spec);
     AssertNodesAndResiduals(r, EXPECTED_MIXED);
+}
+
+TEST(PTIRDSCurveTest, TestApplyDXPinsAnchorAndRebuildsInterp) {
+    // Direct construction with a known log-linear curve: 5 nodes, anchor pinned at logDF=0.
+    const Date_ anchor(2022, 1, 1);
+    const Vector_<Date_> dates = {anchor, Date_(2023, 1, 1), Date_(2024, 1, 1), Date_(2025, 1, 1), Date_(2026, 1, 1)};
+    const DayBasis_ basis("ACT_365F");
+    const Vector_<> logDF = {0.0, -0.02, -0.04, -0.06, -0.08};
+    std::unique_ptr<DiscountCurve_> dc(NewDiscountLogDF("applydx", "USD", dates, logDF, basis, LogDfScheme_::Value_::LOG_LINEAR));
+    auto* c = dynamic_cast<DiscountLogDF_*>(dc.get());
+    ASSERT_NE(c, nullptr);
+
+    // NX == nNodes - 1 (anchor excluded from the free-node vector).
+    ASSERT_EQ(c->NX(), 4);
+
+    // Reference DFs at nodes and an interior date.
+    const double dfNode3Before = (*c)(anchor, dates[3]);
+    const double dfMidBefore = (*c)(anchor, Date_(2024, 7, 1));
+    ASSERT_NEAR(dfNode3Before, std::exp(-0.06), 1e-12);
+
+    // Bump the free nodes by a known delta; anchor must stay pinned at DF=1.
+    const Vector_<> dx = {0.001, 0.002, 0.003, 0.004};
+    c->ApplyDX(dx.begin(), 1.0);
+
+    // anchor logDF untouched -> DF(from=anchor,to=anchor) == 1.0 trivially; check node 0 logDF.
+    const auto bumpedLogDF = c->NodeLogDF();
+    ASSERT_NEAR(bumpedLogDF[0], 0.0, 1e-15);
+    for (int i = 1; i < 5; ++i)
+        ASSERT_NEAR(bumpedLogDF[i], logDF[i] + dx[i - 1], 1e-15);
+
+    // operator() must reflect the rebuilt interp: DF at node 3 shifts by exp(dx[2]).
+    const double dfNode3After = (*c)(anchor, dates[3]);
+    ASSERT_NEAR(dfNode3After, std::exp(-0.06 + 0.003), 1e-12);
+
+    // Interior date also shifts (log-linear: shift equals the linear interpolation of dx).
+    const double dfMidAfter = (*c)(anchor, Date_(2024, 7, 1));
+    const double ratio = dfMidAfter / dfMidBefore;
+    ASSERT_GT(ratio, 1.0);   // bump is positive -> DF rises
+
+    // Inverse delta restores the original DFs (proves the rebuild is consistent).
+    c->ApplyDX(dx.begin(), -1.0);
+    const double dfNode3Restored = (*c)(anchor, dates[3]);
+    ASSERT_NEAR(dfNode3Restored, dfNode3Before, 1e-12);
+    const double dfMidRestored = (*c)(anchor, Date_(2024, 7, 1));
+    ASSERT_NEAR(dfMidRestored, dfMidBefore, 1e-12);
+}
+
+namespace {
+    // Small 5-node log-linear curve reused by serialization, extrapolation, and validation tests.
+    // Anchor pinned at logDF=0; subsequent nodes descend at -0.02 per year.
+    constexpr double PTOL = 1e-10;
+
+    std::unique_ptr<DiscountLogDF_> MakeFiveNodeCurve(LogDfScheme_ scheme) {
+        const Vector_<Date_> dates = {Date_(2022, 1, 1), Date_(2023, 1, 1), Date_(2024, 1, 1),
+                                      Date_(2025, 1, 1), Date_(2026, 1, 1)};
+        const Vector_<> logDF = {0.0, -0.02, -0.04, -0.06, -0.08};
+        return std::unique_ptr<DiscountLogDF_>(dynamic_cast<DiscountLogDF_*>(
+            NewDiscountLogDF("rt", "USD", dates, logDF, DayBasis_("ACT_365F"), scheme)));
+    }
+} // namespace
+
+TEST(PTIRDSCurveTest, TestSerializationRoundTripLogLinear) {
+    auto original = MakeFiveNodeCurve(LogDfScheme_::Value_::LOG_LINEAR);
+    ASSERT_NE(original, nullptr);
+    const String_ blob = JSON::WriteString(*original);
+    const auto restored = handle_cast<DiscountLogDF_>(JSON::ReadString(blob, false));
+    ASSERT_NE(restored, nullptr);
+    ASSERT_EQ(restored->Scheme(), LogDfScheme_::Value_::LOG_LINEAR);
+    const auto oLog = original->NodeLogDF();
+    const auto rLog = restored->NodeLogDF();
+    ASSERT_EQ(oLog.size(), rLog.size());
+    for (int i = 0; i < static_cast<int>(oLog.size()); ++i)
+        ASSERT_NEAR(rLog[i], oLog[i], PTOL);
+    // off-node DF must match too
+    const Date_ anchor(2022, 1, 1);
+    ASSERT_NEAR((*restored)(anchor, Date_(2024, 7, 1)), (*original)(anchor, Date_(2024, 7, 1)), PTOL);
+}
+
+TEST(PTIRDSCurveTest, TestSerializationRoundTripLogCubic) {
+    // Cubic needs >= 3 knots; the 5-node set suffices.
+    auto original = MakeFiveNodeCurve(LogDfScheme_::Value_::LOG_CUBIC_NATURAL);
+    ASSERT_NE(original, nullptr);
+    const String_ blob = JSON::WriteString(*original);
+    const auto restored = handle_cast<DiscountLogDF_>(JSON::ReadString(blob, false));
+    ASSERT_NE(restored, nullptr);
+    ASSERT_EQ(restored->Scheme(), LogDfScheme_::Value_::LOG_CUBIC_NATURAL);
+    const auto oLog = original->NodeLogDF();
+    const auto rLog = restored->NodeLogDF();
+    for (int i = 0; i < static_cast<int>(oLog.size()); ++i)
+        ASSERT_NEAR(rLog[i], oLog[i], PTOL);
+    const Date_ anchor(2022, 1, 1);
+    ASSERT_NEAR((*restored)(anchor, Date_(2024, 7, 1)), (*original)(anchor, Date_(2024, 7, 1)), PTOL);
+}
+
+TEST(PTIRDSCurveTest, TestSerializationRoundTripMixed) {
+    // MIXED previously threw a TODO on Write; now the parent curve writes scheme + nodes and the
+    // interpolator is rebuilt on Read, so the round-trip must succeed for the mixed scheme too.
+    auto original = MakeFiveNodeCurve(LogDfScheme_::Value_::MIXED);
+    ASSERT_NE(original, nullptr);
+    const String_ blob = JSON::WriteString(*original);
+    ASSERT_FALSE(blob.empty());
+    const auto restored = handle_cast<DiscountLogDF_>(JSON::ReadString(blob, false));
+    ASSERT_NE(restored, nullptr);
+    ASSERT_EQ(restored->Scheme(), LogDfScheme_::Value_::MIXED);
+    const auto oLog = original->NodeLogDF();
+    const auto rLog = restored->NodeLogDF();
+    for (int i = 0; i < static_cast<int>(oLog.size()); ++i)
+        ASSERT_NEAR(rLog[i], oLog[i], PTOL);
+    const Date_ anchor(2022, 1, 1);
+    ASSERT_NEAR((*restored)(anchor, Date_(2024, 7, 1)), (*original)(anchor, Date_(2024, 7, 1)), PTOL);
+}
+
+TEST(PTIRDSCurveTest, TestExtrapolationFlatForwardPastLastNode) {
+    // Flat-forward extrapolation: past the last node the final segment's log-DF slope is extended,
+    // so the instantaneous forward rate equals the last segment's forward.
+    auto c = MakeFiveNodeCurve(LogDfScheme_::Value_::LOG_LINEAR);
+    ASSERT_NE(c, nullptr);
+    const DayBasis_ basis("ACT_365F");
+    const Date_ anchor(2022, 1, 1);
+    const auto& dates = c->NodeDates();
+    const Date_ penulNode = dates[dates.size() - 2];
+    const Date_ lastNode = dates[dates.size() - 1];
+    const Date_ beyond1(2027, 1, 1);   // one year past the last node
+    const Date_ beyond2(2031, 1, 1);   // five years past the last node
+
+    // The "expected" flat forward is the last segment's own forward rate, derived from the curve's
+    // node DFs and the last segment's year-fraction (the segment crosses 2024-02-29 so it is not
+    // exactly 1.0 under ACT/365F).
+    const double dfPenul = (*c)(anchor, penulNode);
+    const double dfLast = (*c)(anchor, lastNode);
+    const double yfLastSeg = basis(penulNode, lastNode, nullptr);
+    const double expectedForward = -std::log(dfLast / dfPenul) / yfLastSeg;
+    ASSERT_GT(expectedForward, 0.0);
+
+    // Forward over [lastNode, beyond1] equals the last segment's forward.
+    const double dfBeyond1 = (*c)(anchor, beyond1);
+    const double fwdLastToBeyond = -std::log(dfBeyond1 / dfLast) / basis(lastNode, beyond1, nullptr);
+    ASSERT_NEAR(fwdLastToBeyond, expectedForward, PTOL);
+
+    // The same forward holds further out -- flat forward by construction.
+    const double dfBeyond2 = (*c)(anchor, beyond2);
+    const double fwdBeyond1ToBeyond2 = -std::log(dfBeyond2 / dfBeyond1) / basis(beyond1, beyond2, nullptr);
+    ASSERT_NEAR(fwdBeyond1ToBeyond2, expectedForward, PTOL);
+
+    // Forward between two dates that both lie past the last node is also flat at expectedForward.
+    const double dfB1 = (*c)(anchor, beyond1);
+    const double dfB2 = (*c)(anchor, beyond2);
+    const double fwdB1B2 = -std::log(dfB2 / dfB1) / basis(beyond1, beyond2, nullptr);
+    ASSERT_NEAR(fwdB1B2, expectedForward, PTOL);
+    ASSERT_GT(dfB1, 0.0);
+    ASSERT_GT(dfB2, 0.0);
+}
+
+TEST(PTIRDSCurveTest, TestInputValidationThrows) {
+    const DayBasis_ basis("ACT_365F");
+    const Vector_<Date_> goodDates = {Date_(2022, 1, 1), Date_(2023, 1, 1), Date_(2024, 1, 1)};
+    const Vector_<> goodLog = {0.0, -0.02, -0.04};
+
+    {   // mismatched lengths: 3 dates, 2 logDFs
+        const Vector_<> shortLog = {0.0, -0.02};
+        ASSERT_THROW(NewDiscountLogDF("x", "USD", goodDates, shortLog, basis, LogDfScheme_::Value_::LOG_LINEAR),
+                     Dal::Exception_);
+    }
+    {   // unsorted dates
+        const Vector_<Date_> unsorted = {Date_(2022, 1, 1), Date_(2024, 1, 1), Date_(2023, 1, 1)};
+        ASSERT_THROW(NewDiscountLogDF("x", "USD", unsorted, goodLog, basis, LogDfScheme_::Value_::LOG_LINEAR),
+                     Dal::Exception_);
+    }
+    {   // non-unique dates
+        const Vector_<Date_> dup = {Date_(2022, 1, 1), Date_(2022, 1, 1), Date_(2023, 1, 1)};
+        ASSERT_THROW(NewDiscountLogDF("x", "USD", dup, goodLog, basis, LogDfScheme_::Value_::LOG_LINEAR),
+                     Dal::Exception_);
+    }
+    {   // empty inputs
+        const Vector_<Date_> emptyDates;
+        const Vector_<> emptyLog;
+        ASSERT_THROW(NewDiscountLogDF("x", "USD", emptyDates, emptyLog, basis, LogDfScheme_::Value_::LOG_LINEAR),
+                     Dal::Exception_);
+    }
+    {   // single-node curve (need at least 2)
+        const Vector_<Date_> oneDate = {Date_(2022, 1, 1)};
+        const Vector_<> oneLog = {0.0};
+        ASSERT_THROW(NewDiscountLogDF("x", "USD", oneDate, oneLog, basis, LogDfScheme_::Value_::LOG_LINEAR),
+                     Dal::Exception_);
+    }
+    {   // anchor not pinned at logDF=0
+        const Vector_<> badAnchor = {0.01, -0.02, -0.04};
+        ASSERT_THROW(NewDiscountLogDF("x", "USD", goodDates, badAnchor, basis, LogDfScheme_::Value_::LOG_LINEAR),
+                     Dal::Exception_);
+    }
 }

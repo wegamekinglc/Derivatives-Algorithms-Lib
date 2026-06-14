@@ -35,15 +35,6 @@ alternative INSTRUMENTS
 alternative AUGMENTED
 -IF-------------------------------------------------------------------------*/
 
-/*IF--------------------------------------------------------------------------
-enumeration LogDfScheme
-    Selection of interpolation scheme for a LOG_DISCOUNT curve
-switchable
-alternative LOG_LINEAR
-alternative LOG_CUBIC_NATURAL
-alternative MIXED
--IF-------------------------------------------------------------------------*/
-
 #include <memory>
 #include <map>
 #include <dal/platform/platform.hpp>
@@ -53,13 +44,13 @@ alternative MIXED
 #include <dal/math/matrix/matrixs.hpp>
 #include <dal/math/matrix/banded.hpp>
 #include <dal/curve/discount.hpp>
+#include <dal/curve/logdfscheme.hpp>
 #include <dal/curve/ycinstrument.hpp>
 
 namespace Dal {
 #include <dal/auto/MG_CurveSolveMode_enum.hpp>
 #include <dal/auto/MG_CurveParameterization_enum.hpp>
 #include <dal/auto/MG_CurveKnotPolicy_enum.hpp>
-#include <dal/auto/MG_LogDfScheme_enum.hpp>
 
     struct CurveCalibrationSpec_ {
         Date_ today_;

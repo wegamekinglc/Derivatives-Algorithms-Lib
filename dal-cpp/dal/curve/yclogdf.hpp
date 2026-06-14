@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <dal/curve/logdfscheme.hpp>
 #include <dal/curve/discount.hpp>
 #include <dal/curve/fittable.hpp>
 #include <dal/curve/yccomponent.hpp>
@@ -19,7 +20,11 @@ namespace Dal {
         DayBasis_ dayCount_;
         Vector_<> yf_;
         Vector_<> logDF_;
+        LogDfScheme_ scheme_;
         Handle_<Interp1_> interp_;
+
+        void RebuildInterp();
+        [[nodiscard]] double LogDfAt(double yf) const;
 
     public:
         DiscountLogDF_(const String_& name,
@@ -27,7 +32,7 @@ namespace Dal {
                        const Vector_<Date_>& nodeDates,
                        const Vector_<>& logDF,
                        const DayBasis_& dayCount,
-                       const Handle_<Interp1_>& interp,
+                       LogDfScheme_ scheme,
                        const Handle_<DiscountCurve_>& base = Handle_<DiscountCurve_>());
 
         double operator()(const Date_& from, const Date_& to) const override;
@@ -39,6 +44,7 @@ namespace Dal {
 
         [[nodiscard]] const Vector_<Date_>& NodeDates() const { return nodeDates_; }
         [[nodiscard]] const Vector_<>& NodeLogDF() const { return logDF_; }
+        [[nodiscard]] LogDfScheme_ Scheme() const { return scheme_; }
         [[nodiscard]] Vector_<> NodeDF() const;
     };
 
@@ -47,6 +53,6 @@ namespace Dal {
                                      const Vector_<Date_>& nodeDates,
                                      const Vector_<>& logDF,
                                      const DayBasis_& dayCount,
-                                     const Handle_<Interp1_>& interp,
+                                     LogDfScheme_ scheme,
                                      const Handle_<DiscountCurve_>& base = Handle_<DiscountCurve_>());
 } // namespace Dal
