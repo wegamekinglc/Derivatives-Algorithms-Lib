@@ -111,11 +111,21 @@ namespace Dal {
         return std::exp(logDfTo - logDfFrom) * (base_ ? (*base_)(from, to) : 1.0);
     }
 
-    // Evaluate log(DF) at year-fraction yf, applying flat-forward extrapolation past the last node.
-    // For yf beyond yf_.back() each Interp1_ subtype clamps to its last knot value (flat DF, i.e.
-    // zero forward), which is not the desired curve behaviour. We instead extend the final segment's
-    // log-DF slope -- i.e. hold the last instantaneous forward constant -- which is the natural
-    // continuation for log-linear/log-cubic/mixed schemes and matches the reference behaviour.
+    // Evaluate log(DF) at year-fraction yf, extrapolating past the last node by extending the final
+    // segment's log-DF secant slope. For yf beyond yf_.back() each Interp1_ subtype clamps to its last
+    // knot value (flat DF, i.e. zero forward), which is not the desired curve behaviour.
+    //
+    // Note the distinction by scheme:
+    //   - log-linear: each segment of log(DF) is linear, so the secant slope over [yf[n-2], yf[n-1]]
+    //     IS the (constant) instantaneous forward of that segment. Extrapolation therefore holds the
+    //     last segment's forward flat -- true flat-forward continuation.
+    //   - log-cubic / mixed: the last segment of log(DF) is a cubic, so the secant slope is the
+    //     AVERAGE forward over the segment, not the instantaneous forward at yf[n-1] (which would be
+    //     the cubic's derivative there). Extending the secant is a deliberate, simple approximation
+    //     that keeps the curve C0 with the in-range cubic and avoids recomputing a derivative per
+    //     query; it does NOT reproduce the cubic's instantaneous forward. v2 readers carry the scheme
+    //     explicitly, so callers needing the true cubic-tail forward should switch schemes.
+    //
     // The left edge (yf < yf_.front() == 0) only occurs for `from` dates before the anchor, which the
     // calibration forbids; we leave the interpolator's native (flat) behaviour there.
     double DiscountLogDF_::LogDfAt(double yf) const {
