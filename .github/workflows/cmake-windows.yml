@@ -77,7 +77,9 @@ jobs:
           FLAGS="$FLAGS -DDAL_BUILD_PYTHON=ON -DDAL_BUILD_EXCEL=ON"
           echo "ADDITIONAL_CMAKE_FLAGS=$FLAGS" >> $GITHUB_ENV
 
-      # pybind11 is fetched via CMake FetchContent — no system package needed.
+      # pybind11 is built from the dal-cpp/externals/pybind11 git submodule
+      # (pinned to v2.11.1). actions/checkout already initialized it via
+      # submodules: recursive — no system package or FetchContent needed.
 
       # Python env: uv-managed venv, matching the convention in
       # dal-python/run_tests.sh. The venv must be on PATH *before* the

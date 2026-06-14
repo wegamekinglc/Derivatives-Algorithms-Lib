@@ -61,20 +61,34 @@ option(DAL_PYTHON_BUILD_WHEEL "Build Python wheel" OFF)
 find_package(Python3 REQUIRED COMPONENTS Interpreter Development.Module)
 message(STATUS "-- Python3: ${Python3_EXECUTABLE} (version ${Python3_VERSION})")
 
-# Find pybind11: try system-installed first, then FetchContent fallback
+# Find pybind11: prefer a system install if one is present, otherwise build
+# the pinned v2.11.1 vendored as a git submodule under
+# dal-cpp/externals/pybind11 (sibling of this project).
 find_package(pybind11 CONFIG QUIET)
 if(NOT pybind11_FOUND)
-    message(STATUS "-- pybind11: not found via find_package, using FetchContent")
-    include(FetchContent)
-    FetchContent_Declare(
-        pybind11
-        GIT_REPOSITORY https://github.com/pybind/pybind11.git
-        GIT_TAG v2.11.1
-    )
-    FetchContent_MakeAvailable(pybind11)
-    message(STATUS "-- pybind11: fetched v2.11.1")
+    # Resolve the submodule path. In monorepo mode (dal-python pulled in via
+    # add_subdirectory from the top-level workspace), the submodule lives at
+    # ${CMAKE_SOURCE_DIR}/dal-cpp/externals/pybind11. In standalone mode the
+    # cache variable DAL_PYBIND11_DIR lets the caller override the location
+    # and defaults to the relative sibling path.
+    if(DAL_PYTHON_IS_TOPLEVEL)
+        set(_DAL_PYBIND11_DEFAULT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../dal-cpp/externals/pybind11")
+    else()
+        set(_DAL_PYBIND11_DEFAULT_DIR "${CMAKE_SOURCE_DIR}/dal-cpp/externals/pybind11")
+    endif()
+    set(DAL_PYBIND11_DIR "${_DAL_PYBIND11_DEFAULT_DIR}" CACHE PATH
+        "Path to the vendored pybind11 source tree (dal-cpp/externals/pybind11)")
+    if(NOT EXISTS "${DAL_PYBIND11_DIR}/CMakeLists.txt")
+        message(FATAL_ERROR
+            "dal-python: pybind11 not found via find_package and the vendored "
+            "submodule is missing at '${DAL_PYBIND11_DIR}'. Run "
+            "'git submodule update --init dal-cpp/externals/pybind11' or "
+            "install pybind11 system-wide, then reconfigure.")
+    endif()
+    message(STATUS "-- pybind11: not found via find_package, using submodule at ${DAL_PYBIND11_DIR} (v2.11.1)")
+    add_subdirectory("${DAL_PYBIND11_DIR}" "${CMAKE_BINARY_DIR}/_pybind11_submodule")
 else()
-    message(STATUS "-- pybind11: found via find_package (${pybind11_VERSION})")
+    message(STATUS "-- pybind11: using system pybind11 (${pybind11_VERSION})")
 endif()
 
 # Find the DAL public library

@@ -10,7 +10,7 @@
 # Prerequisites:
 #   - uv (https://docs.astral.sh/uv/)
 #   - The C++ library must be built first (run ../build_linux.sh from repo root)
-#   - pybind11 (fetched via CMake FetchContent) and Python 3.10+ development headers
+#   - pybind11 (vendored as a git submodule at dal-cpp/externals/pybind11, v2.11.1) and Python 3.10+ development headers
 #
 
 set -e

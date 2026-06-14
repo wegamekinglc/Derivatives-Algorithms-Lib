@@ -16,3 +16,6 @@
 [submodule "dal-cpp/externals/adept"]
 	path = dal-cpp/externals/adept
 	url = git@github.com:wegamekinglc/Adept-2.git
+[submodule "dal-cpp/externals/pybind11"]
+	path = dal-cpp/externals/pybind11
+	url = git@github.com:pybind/pybind11.git
