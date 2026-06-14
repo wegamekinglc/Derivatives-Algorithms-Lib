@@ -10,7 +10,8 @@
 namespace Dal {
     class CollateralType_;
     class PeriodLength_;
-    class DiscountCurve_;
+    template <class T_> class DiscountCurveT_;
+    using DiscountCurve_ = DiscountCurveT_<double>;
 
     class YieldCurve_ : public Storable_ {
     public:

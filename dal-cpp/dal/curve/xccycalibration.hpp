@@ -13,7 +13,8 @@
 #include <dal/math/vectors.hpp>
 
 namespace Dal {
-    class DiscountCurve_;
+    template <class T_> class DiscountCurveT_;
+    using DiscountCurve_ = DiscountCurveT_<double>;
 
     class CrossCurrencyMarket_ {
         Ccy_ domesticCcy_;

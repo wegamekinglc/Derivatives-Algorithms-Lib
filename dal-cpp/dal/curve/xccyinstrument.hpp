@@ -11,7 +11,8 @@
 
 namespace Dal {
     class CrossCurrencyMarket_;
-    class DiscountCurve_;
+    template <class T_> class DiscountCurveT_;
+    using DiscountCurve_ = DiscountCurveT_<double>;
 
     struct CurrencyPair_ {
         Ccy_ domestic_;
