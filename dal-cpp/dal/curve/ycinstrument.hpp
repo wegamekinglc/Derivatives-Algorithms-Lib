@@ -11,6 +11,10 @@
 #include <dal/protocol/rateconvention.hpp>
 #include <dal/time/date.hpp>
 
+#if !defined(DAL_USE_XAD_AAD) && !defined(DAL_USE_CODIPACK_AAD) && !defined(DAL_USE_ADEPT_AAD)
+#    include <dal/curve/ycctx.hpp>
+#endif
+
 namespace Dal {
     class YieldCurve_;
     class String_;
@@ -47,6 +51,24 @@ namespace Dal {
         };
 
         [[nodiscard]] virtual Handle_<Rate_> Precompute(const Handle_<YieldCurve_>& funding_yc) const = 0;
+
+#if !defined(DAL_USE_XAD_AAD) && !defined(DAL_USE_CODIPACK_AAD) && !defined(DAL_USE_ADEPT_AAD)
+        // Phase A templated rate interface. The Number_-typed sibling of Rate_; lives only under
+        // the native backend (the gate matches the native Number_ definition in expr.hpp). The
+        // AAD-tape Gradient override constructs RateT_<Number_> instances from the same instrument
+        // specs the double path uses and reads T_-typed rates off the templated yield context.
+        template <class T_> struct RateT_ : noncopyable {
+            virtual ~RateT_() = default;
+            virtual T_ operator()(const YCCtxT_<T_>& ctx) const = 0;
+        };
+
+        // Templated factory mirroring Precompute: returns a RateT_<T_> bound to the supplied
+        // yield context. The funding-yc handle is unused on the Phase A path (every rate reads
+        // only the calibrated target curve), but kept for symmetry with Precompute. Default
+        // returns empty -- the instrument has no Phase A templated rate (BasisSwap_ in the first
+        // cut), so EligibleForPhaseA rejects the whole calibration and CP1 takes over.
+        template <class T_> [[nodiscard]] Handle_<RateT_<T_>> PrecomputeT() const { return Handle_<RateT_<T_>>(); }
+#endif
     };
 
     class Deposit_ : public YCInstrument_ {
@@ -67,6 +89,9 @@ namespace Dal {
         [[nodiscard]] pair<Date_, Date_> TimeSpan() const override;
         [[nodiscard]] double MarketRate() const override { return marketRate_; }
         [[nodiscard]] Handle_<Rate_> Precompute(const Handle_<YieldCurve_>& funding_yc) const override;
+#if !defined(DAL_USE_XAD_AAD) && !defined(DAL_USE_CODIPACK_AAD) && !defined(DAL_USE_ADEPT_AAD)
+        template <class T_> [[nodiscard]] Handle_<RateT_<T_>> PrecomputeT() const;
+#endif
     };
 
     class FRA_ : public YCInstrument_ {
@@ -86,6 +111,9 @@ namespace Dal {
         [[nodiscard]] pair<Date_, Date_> TimeSpan() const override;
         [[nodiscard]] double MarketRate() const override { return marketRate_; }
         [[nodiscard]] Handle_<Rate_> Precompute(const Handle_<YieldCurve_>& funding_yc) const override;
+#if !defined(DAL_USE_XAD_AAD) && !defined(DAL_USE_CODIPACK_AAD) && !defined(DAL_USE_ADEPT_AAD)
+        template <class T_> [[nodiscard]] Handle_<RateT_<T_>> PrecomputeT() const;
+#endif
     };
 
     class Future_ : public YCInstrument_ {
@@ -107,6 +135,9 @@ namespace Dal {
         [[nodiscard]] pair<Date_, Date_> TimeSpan() const override;
         [[nodiscard]] double MarketRate() const override { return marketRate_; }
         [[nodiscard]] Handle_<Rate_> Precompute(const Handle_<YieldCurve_>& funding_yc) const override;
+#if !defined(DAL_USE_XAD_AAD) && !defined(DAL_USE_CODIPACK_AAD) && !defined(DAL_USE_ADEPT_AAD)
+        template <class T_> [[nodiscard]] Handle_<RateT_<T_>> PrecomputeT() const;
+#endif
     };
 
     class Swap_ : public YCInstrument_ {
@@ -132,6 +163,9 @@ namespace Dal {
         [[nodiscard]] pair<Date_, Date_> TimeSpan() const override;
         [[nodiscard]] double MarketRate() const override { return marketRate_; }
         [[nodiscard]] Handle_<Rate_> Precompute(const Handle_<YieldCurve_>& funding_yc) const override;
+#if !defined(DAL_USE_XAD_AAD) && !defined(DAL_USE_CODIPACK_AAD) && !defined(DAL_USE_ADEPT_AAD)
+        template <class T_> [[nodiscard]] Handle_<RateT_<T_>> PrecomputeT() const;
+#endif
     };
 
     class OISSwap_ : public Swap_ {
