@@ -409,7 +409,10 @@ namespace Dal {
         // in LogDfAt (see yclogdf.cpp docstring). Apply the same secant weights uniformly.
         if (yf > yf_.back())
             return RemapStorageToSolver(CubicExtrapWeights(yf));
-        const int k = LowerBoundSegment(yf_, yf);
+        return InterpBasisWeightsByScheme(LowerBoundSegment(yf_, yf), yf);
+    }
+
+    Vector_<std::pair<int, double>> DiscountLogDF_::InterpBasisWeightsByScheme(int k, double yf) const {
         switch (scheme_.Switch()) {
         case LogDfScheme_::Value_::LOG_LINEAR:
             return RemapStorageToSolver(LinearSegmentWeights(yf_, k, yf));

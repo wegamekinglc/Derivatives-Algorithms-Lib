@@ -44,6 +44,8 @@ namespace Dal {
         [[nodiscard]] Vector_<std::pair<int, double>> CubicExtrapWeights(double yf) const;
         // MIXED scheme per-segment dispatch: linear head up to mixedCutoffYf_, cubic tail beyond.
         [[nodiscard]] Vector_<std::pair<int, double>> InterpBasisWeightsMixed(int k, double yf) const;
+        // Scheme-dispatched in-range basis weights on segment [yf_[k], yf_[k+1]].
+        [[nodiscard]] Vector_<std::pair<int, double>> InterpBasisWeightsByScheme(int k, double yf) const;
 
     public:
         DiscountLogDF_(const String_& name,

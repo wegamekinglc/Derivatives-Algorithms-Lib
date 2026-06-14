@@ -177,6 +177,17 @@ namespace Dal {
             }
         }
 
+        // Union of the key sets of two derivative maps. Used by QuotientDerivs to walk every date
+        // that either leg touched without duplicating the two-loop union at every call site.
+        std::set<Date_> UnionDerivKeys(const std::map<Date_, double>& lhs, const std::map<Date_, double>& rhs) {
+            std::set<Date_> out;
+            for (const auto& [d, _] : lhs)
+                out.insert(d);
+            for (const auto& [d, _] : rhs)
+                out.insert(d);
+            return out;
+        }
+
         // Quotient rule on rate = numer / denom. For each date that appears in either derivative
         // map, the weight is (dNumer * denom - numer * dDenom) / denom^2; drop exact zeros so the
         // returned vector stays sparse. The caller supplies the numerator-scaled derivative map
@@ -186,11 +197,7 @@ namespace Dal {
                                                     double denom,
                                                     const std::map<Date_, double>& dNumerDanchor,
                                                     const std::map<Date_, double>& dDenomDanchor) {
-            std::set<Date_> allDates;
-            for (const auto& [d, _] : dNumerDanchor)
-                allDates.insert(d);
-            for (const auto& [d, _] : dDenomDanchor)
-                allDates.insert(d);
+            const std::set<Date_> allDates = UnionDerivKeys(dNumerDanchor, dDenomDanchor);
             Vector_<pair<Date_, double>> retval;
             retval.reserve(allDates.size());
             const double denomSq = denom * denom;
@@ -436,6 +443,25 @@ namespace Dal {
             RateIndexConvention_ spreadIndexConvention_;
             RateIndexConvention_ referenceIndexConvention_;
             Handle_<YieldCurve_> fallback_;
+
+            // The analytic derivative engages only for DISCOUNT-target calibrations where neither
+            // leg uses a separate projection curve. Encapsulated so DRateDDiscount is a flat
+            // sequence of guards + accumulations.
+            [[nodiscard]] bool AnalyticEnabled(Target_ target) const {
+                return target == Target_::DISCOUNT && !spreadIndexConvention_.useProjectionCurve_
+                       && !referenceIndexConvention_.useProjectionCurve_;
+            }
+
+            // Resolve the calibrated discount curve, or return nullptr when either forecast curve
+            // does not resolve to it or the trade date is not the curve's anchor.
+            [[nodiscard]] const DiscountCurve_* EligibleDiscount(const YieldCurve_& yc) const {
+                const DiscountCurve_& discount = ResolveDiscountCurve(yc, fallback_, spreadIndexConvention_.collateral_);
+                const DiscountCurve_& spreadForecast = ResolveForecastCurve(yc, fallback_, spreadIndexConvention_);
+                const DiscountCurve_& referenceForecast = ResolveForecastCurve(yc, fallback_, referenceIndexConvention_);
+                if (&spreadForecast != &discount || &referenceForecast != &discount)
+                    return nullptr;
+                return TradeDateIsAnchor(discount, tradeDate_) ? &discount : nullptr;
+            }
         public:
             BasisSwapRate_(const Date_& tradeDate,
                            const Vector_<CouponPeriod_>& spreadPeriods,
@@ -488,29 +514,25 @@ namespace Dal {
             // (spreadBasePv) and denominator (spreadAnnuity).
             [[nodiscard]] Vector_<pair<Date_, double>>
             DRateDDiscount(const YieldCurve_& yc, Target_ target) const override {
-                if (target != Target_::DISCOUNT || spreadIndexConvention_.useProjectionCurve_ || referenceIndexConvention_.useProjectionCurve_)
+                if (!AnalyticEnabled(target))
                     return {};
-                const DiscountCurve_& discount = ResolveDiscountCurve(yc, fallback_, spreadIndexConvention_.collateral_);
-                const DiscountCurve_& spreadForecast = ResolveForecastCurve(yc, fallback_, spreadIndexConvention_);
-                const DiscountCurve_& referenceForecast = ResolveForecastCurve(yc, fallback_, referenceIndexConvention_);
-                if (&spreadForecast != &discount || &referenceForecast != &discount)
-                    return {};
-                if (!TradeDateIsAnchor(discount, tradeDate_))
+                const DiscountCurve_* discount = EligibleDiscount(yc);
+                if (discount == nullptr)
                     return {};
 
                 std::map<Date_, double> dSpreadBaseDanchor, dSpreadAnnuityDanchor, dReferenceDanchor;
                 double spreadBasePv = 0.0, spreadAnnuity = 0.0, referencePv = 0.0;
                 // Spread leg: contributes to spreadBasePv (numerator) AND spreadAnnuity (denominator).
-                AccumulateFloatLeg(discount,
+                AccumulateFloatLeg(*discount,
                                    tradeDate_,
                                    spreadPeriods_,
                                    spreadIndexConvention_.dayBasis_,
                                    &spreadBasePv,
                                    &dSpreadBaseDanchor);
-                AccumulateFixedAnnuity(discount, tradeDate_, spreadPeriods_, &spreadAnnuity, &dSpreadAnnuityDanchor);
+                AccumulateFixedAnnuity(*discount, tradeDate_, spreadPeriods_, &spreadAnnuity, &dSpreadAnnuityDanchor);
                 REQUIRE(spreadAnnuity > 0.0, "Basis swap pricing requires positive spread-leg annuity");
                 // Reference leg: contributes only to referencePv (numerator). No annuity contribution.
-                AccumulateFloatLeg(discount,
+                AccumulateFloatLeg(*discount,
                                    tradeDate_,
                                    referencePeriods_,
                                    referenceIndexConvention_.dayBasis_,
