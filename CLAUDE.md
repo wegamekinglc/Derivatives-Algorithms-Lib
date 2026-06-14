@@ -124,6 +124,7 @@ Start the web UI with `./dal-web/scripts/start.sh` (requires Python 3.13+, uv, N
 - `rapidjson/` — JSON parsing
 - `machinist/` — code generation tool
 - `CodiPack/` — CoDiPack AD framework
+- `pybind11/` — Python bindings (v2.11.1, used by dal-python)
 
 ## Methodology
 

@@ -14,7 +14,7 @@ Python bindings for the Derivatives Algorithms Library (DAL) — a high-performa
 
 - **Python 3.10+** with development headers
 - **uv** — fast Python package manager ([install guide](https://docs.astral.sh/uv/getting-started/installation/))
-- **pybind11** — fetched automatically via CMake FetchContent during build
+- **pybind11** — vendored as a git submodule at `dal-cpp/externals/pybind11` (v2.11.1); run `git submodule update --init --recursive` on fresh clones
 - **CMake 3.21+** and a C++17 compiler (GCC 13+, Clang 18+, or MSVC 2022)
 - **DAL C++ library** — must be built first (see [Building the C++ Library](#building-the-c-library))
 
@@ -116,7 +116,7 @@ uv pip install dist/dal_python-2025.12.7.tar.gz \
 **Requirements for building from source:**
 - C++17 compiler (GCC 13+, Clang 18+, or MSVC 2022)
 - CMake 3.21+
-- pybind11 (fetched via CMake FetchContent)
+- pybind11 (vendored as a git submodule at dal-cpp/externals/pybind11, v2.11.1)
 - Python 3.10+ development headers
 - DAL C++ library (libdal_public.a and libdal_cpp.a)
 
