@@ -188,7 +188,7 @@ int main() {
     const Date_ today(2022, 1, 1);
     const DayBasis_ basis("ACT_365F");
 
-    std::cout << "PTIRDS single-currency discount curve -- three LOG_DISCOUNT schemes\n"
+    std::cout << "interpolate_curve -- discount-curve interpolation (three LOG_DISCOUNT schemes)\n"
               << "Value date: " << Date::ToString(today) << "    14 nodes, 13 IRS/FRA instruments\n";
 
     // -- Calibrate each scheme --
