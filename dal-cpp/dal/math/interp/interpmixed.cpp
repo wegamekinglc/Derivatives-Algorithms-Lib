@@ -38,12 +38,13 @@ namespace Dal {
                 REQUIRE(yf_.size() == logDF_.size(), "Mixed log-DF interpolator: yf and logDF must have equal length");
                 REQUIRE(yf_.size() >= 4, "Mixed log-DF interpolator: need at least 4 abscissae (cutoff + 3 cubic points)");
                 REQUIRE(IsMonotonic(yf_), "Mixed log-DF interpolator: yf must be strictly increasing");
-                // locate the cutoff as one of the knots (largest knot at or below cutoffYf_)
+                // The cutoff must land exactly on a knot so both sub-interpolators reproduce its value
+                // (C0 continuity at the join). Locate the knot whose abscissa equals cutoffYf_.
                 for (int i = 0; i < static_cast<int>(yf_.size()); ++i) {
-                    if (yf_[i] <= cutoffYf_)
+                    if (yf_[i] == cutoffYf_)
                         cutoffIndex_ = i;
                 }
-                REQUIRE(cutoffIndex_ >= 1, "Mixed log-DF interpolator: cutoff must lie at or beyond the second knot");
+                REQUIRE(cutoffIndex_ >= 1, "Mixed log-DF interpolator: cutoffYf must equal a knot at or beyond the second abscissa");
                 REQUIRE(static_cast<int>(yf_.size()) - cutoffIndex_ >= 3,
                         "Mixed log-DF interpolator: cubic tail must span at least 3 knots");
 
