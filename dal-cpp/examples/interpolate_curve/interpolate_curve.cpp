@@ -2,6 +2,7 @@
 // Created by dal-implementer on 2026/6/14.
 //
 
+#include <chrono>
 #include <iomanip>
 #include <iostream>
 #include <memory>
@@ -173,12 +174,13 @@ namespace {
         }
     }
 
-    void PrintResiduals(const CurveCalibrationDiagnostics_& d, LogDfScheme_::Value_ scheme) {
+    void PrintResiduals(const CurveCalibrationDiagnostics_& d, LogDfScheme_::Value_ scheme, double elapsedMs) {
         std::cout << std::left << std::setw(12) << SchemeName(scheme) << std::right
                   << "  maxAbsResidual = " << std::scientific << std::setprecision(3)
                   << d.maxAbsResidual_ << std::fixed << ",  rmsResidual = " << std::scientific
                   << std::setprecision(3) << d.rmsResidual_ << std::fixed
-                  << (d.usedApproximateFit_ ? "  [approx fit]" : "  [exact solve]") << '\n';
+                  << (d.usedApproximateFit_ ? "  [approx fit]" : "  [exact solve]")
+                  << ",  time = " << std::fixed << std::setprecision(3) << elapsedMs << " ms\n";
     }
 } // namespace
 
@@ -195,9 +197,17 @@ int main() {
     auto linSpec = BuildSpec(today, LogDfScheme_::Value_::LOG_LINEAR);
     auto cubSpec = BuildSpec(today, LogDfScheme_::Value_::LOG_CUBIC_NATURAL);
     auto mixSpec = BuildSpec(today, LogDfScheme_::Value_::MIXED);
-    const auto rLin = CalibrateYieldCurve(linSpec);
-    const auto rCub = CalibrateYieldCurve(cubSpec);
-    const auto rMix = CalibrateYieldCurve(mixSpec);
+    const auto calibrate = [](const CurveCalibrationSpec_& spec, double& elapsedMs) {
+        const auto t0 = std::chrono::steady_clock::now();
+        auto result = CalibrateYieldCurve(spec);
+        const auto t1 = std::chrono::steady_clock::now();
+        elapsedMs = std::chrono::duration<double, std::milli>(t1 - t0).count();
+        return result;
+    };
+    double msLin = 0.0, msCub = 0.0, msMix = 0.0;
+    const auto rLin = calibrate(linSpec, msLin);
+    const auto rCub = calibrate(cubSpec, msCub);
+    const auto rMix = calibrate(mixSpec, msMix);
 
     // -- Read back node DFs --
     const auto* cLin = dynamic_cast<const DiscountLogDF_*>(rLin.curve_.get());
@@ -212,10 +222,10 @@ int main() {
     PrintForwardTable(dates, *cLin, *cCub, *cMix, basis);
 
     // -- Repricing residuals --
-    PrintHeader("Repricing residuals across the three schemes");
-    PrintResiduals(rLin.diagnostics_, LogDfScheme_::Value_::LOG_LINEAR);
-    PrintResiduals(rCub.diagnostics_, LogDfScheme_::Value_::LOG_CUBIC_NATURAL);
-    PrintResiduals(rMix.diagnostics_, LogDfScheme_::Value_::MIXED);
+    PrintHeader("Repricing residuals and calibration time (per scheme)");
+    PrintResiduals(rLin.diagnostics_, LogDfScheme_::Value_::LOG_LINEAR, msLin);
+    PrintResiduals(rCub.diagnostics_, LogDfScheme_::Value_::LOG_CUBIC_NATURAL, msCub);
+    PrintResiduals(rMix.diagnostics_, LogDfScheme_::Value_::MIXED, msMix);
     std::cout << '\n';
 
     return 0;
