@@ -5,6 +5,46 @@
 > (§3.5 and Phase 6), where it appears as a follow-on phase. This document promotes it
 > to a standalone, self-contained plan.
 
+## Resolution / Approach adopted (CP1, implemented 2026-06)
+
+The original plan below proposed Phases A (templatize the pricing path on `Number_`),
+B (override `Gradient`), and C (opt-in selector). After critic and api-designer review,
+**Phase A was dropped entirely** and Phases B/C were reworked into **Counter-Proposal
+CP1**: an analytic chain-rule Jacobian computed in plain `double`, with NO templatization
+of the pricing path and NO use of the AAD `Number_` tape.
+
+Why: the pricing path is hard-bound to `double` through three abstract interfaces
+(`DiscountCurve_::operator()`, `YCInstrument_::Rate_::operator()`, and the concrete rate
+classes in `ycinstrument.cpp`). Templatizing the entire stack to admit `Number_` would be
+multi-week work (the critic's finding B1), would couple the calibration to a specific AAD
+backend (finding S1), and would be disproportionate to the goal of faster, more-exact
+LOG_DISCOUNT calibration.
+
+Instead, CP1 factors the Jacobian as:
+
+```
+J[i,j] = dResidual_i / dx_j
+       = sum_{t in cashflows(i)}  (dRate_i / dDF(t))  *  DF(t)  *  b_j(t)
+```
+
+where `x` is the free-node log-DF vector (`NX() = nNodes - 1`, anchor pinned), `b_j(t)`
+is the interpolation basis weight at solver column `j` for year-fraction `t` (returned by
+`DiscountLogDF_::InterpBasisWeights`), and `dRate_i/dDF(t)` is computed analytically from
+the existing `double`-typed rate classes (returned by `YCInstrument_::Rate_::DRateDDiscount`).
+The four concrete rate classes override `DRateDDiscount` analytically via the quotient rule;
+the default empty return triggers a per-instrument DF-bump fallback (in `double`, narrow).
+
+Scope: CP1 ships the analytic Jacobian for `CurveParameterization_::LOG_DISCOUNT` only.
+Other parameterizations silently fall back to the bumped path with a `NOTICE`. A new
+`CurveJacobianMode_` Machinist enum (`BUMPED` default, `ANALYTIC_LOG_DISCOUNT` opt-in)
+selects the path; default `BUMPED` is byte-for-byte unchanged from pre-CP1 behaviour.
+
+The implementation lives in `dal-cpp/dal/curve/{yclogdf,ycinstrument,calibration}.{hpp,cpp}`
+and is verified by three test categories under `dal-cpp/tests/curve/test_analytic_jacobian.cpp`
+plus per-component tests under `test_interpbasis.cpp` and `test_drate_ddiscount.cpp`.
+
+The original Phase A/B/C plan is preserved below for context.
+
 ## 1. Motivation
 
 DAL ships a full reverse-mode Automatic Adjoint Differentiation (AAD) type `Number_`

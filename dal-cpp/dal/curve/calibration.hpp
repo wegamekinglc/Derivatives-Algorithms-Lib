@@ -35,6 +35,14 @@ alternative INSTRUMENTS
 alternative AUGMENTED
 -IF-------------------------------------------------------------------------*/
 
+/*IF--------------------------------------------------------------------------
+enumeration CurveJacobianMode
+    Jacobian construction mode for curve calibration
+switchable
+alternative BUMPED
+alternative ANALYTIC_LOG_DISCOUNT
+-IF-------------------------------------------------------------------------*/
+
 #include <memory>
 #include <map>
 #include <dal/platform/platform.hpp>
@@ -51,6 +59,7 @@ namespace Dal {
 #include <dal/auto/MG_CurveSolveMode_enum.hpp>
 #include <dal/auto/MG_CurveParameterization_enum.hpp>
 #include <dal/auto/MG_CurveKnotPolicy_enum.hpp>
+#include <dal/auto/MG_CurveJacobianMode_enum.hpp>
 
     struct CurveCalibrationSpec_ {
         Date_ today_;
@@ -76,6 +85,10 @@ namespace Dal {
         CurveKnotPolicy_ knotPolicy_ = CurveKnotPolicy_::Value_::INPUT;
         Vector_<double> initialGuessPerNode_;
         LogDfScheme_ logDfScheme_ = LogDfScheme_::Value_::LOG_LINEAR;
+        // Default BUMPED keeps the pre-CP1 finite-difference behaviour byte-for-byte.
+        // ANALYTIC_LOG_DISCOUNT engages the analytic chain-rule Jacobian for LOG_DISCOUNT
+        // calibrations only; other parameterizations fall back to bumped with a NOTICE.
+        CurveJacobianMode_ jacobianMode_ = CurveJacobianMode_::Value_::BUMPED;
     };
 
     struct CurveCalibrationDiagnostics_ {
@@ -119,5 +132,14 @@ namespace Dal {
     void ValidatePositiveDiscountFactors(const DiscountCurve_& curve, const Date_& today, const Vector_<Date_>& checkDates);
     CurveCalibrationResult_ CalibrateYieldCurve(const CurveCalibrationSpec_& spec);
     MultiCurveCalibrationResult_ CalibrateMultiCurve(const MultiCurveCalibrationSpec_& spec);
+
+    namespace TestOnly {
+        // Builds the LOG_DISCOUNT calibration Jacobian at the supplied parameter vector x for the
+        // supplied spec, using the analytic chain-rule path. Returns an empty matrix when the spec
+        // does not engage the analytic path (jacobianMode_ != ANALYTIC_LOG_DISCOUNT or
+        // parameterization_ != LOG_DISCOUNT). Exposed for unit-test inspection; not part of the
+        // stable public API.
+        Matrix_<> AnalyticJacobianAt(const CurveCalibrationSpec_& spec, const Vector_<>& x);
+    }
 
 } // namespace Dal

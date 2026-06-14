@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <cmath>
 #include <memory>
+#include <utility>
 #include <dal/platform/platform.hpp>
 #include <dal/platform/strict.hpp>
 #include <dal/curve/calibration.hpp>
@@ -15,16 +16,66 @@
 #include <dal/curve/ycimp.hpp>
 #include <dal/curve/yclogdf.hpp>
 #include <dal/math/matrix/banded.hpp>
+#include <dal/math/matrix/matrixarithmetic.hpp>
+#include <dal/math/matrix/squarematrix.hpp>
 #include <dal/math/optimization/underdetermined.hpp>
 #include <dal/math/optimization/underdeterminedutils.hpp>
 #include <dal/time/datetime.hpp>
 #include <dal/utilities/dictionary.hpp>
+#include <dal/utilities/functionals.hpp>
+#include <dal/utilities/numerics.hpp>
 
 namespace Dal {
 #include <dal/auto/MG_CurveSolveMode_enum.inc>
 #include <dal/auto/MG_CurveParameterization_enum.inc>
 #include <dal/auto/MG_CurveKnotPolicy_enum.inc>
+#include <dal/auto/MG_CurveJacobianMode_enum.inc>
 #include <dal/auto/MG_LogDfScheme_enum.inc>
+
+    // CP1 stores the LOG_DISCOUNT calibration Jacobian dense and assembles sparse. The method
+    // bodies mirror XJDense_ (dal-cpp/dal/math/optimization/underdetermined.cpp) -- the storage
+    // is dense regardless of how the matrix is filled, so the sparse-vs-banded optimization is
+    // a follow-up once the assembly is validated against central differences. Declared in Dal::
+    // (not anonymous) so the TestOnly helper can dynamic_cast to extract entries for unit tests.
+    struct XCurveJacobian_ : Underdetermined::Jacobian_ {
+        Matrix_<> j_;
+        explicit XCurveJacobian_(Matrix_<>&& j) : j_(std::move(j)) {}
+
+        [[nodiscard]] int Rows() const override { return j_.Rows(); }
+        [[nodiscard]] int Columns() const override { return j_.Cols(); }
+
+        void DivideRows(const Vector_<>& tol) override {
+            for (int ii = 0; ii < j_.Rows(); ++ii) {
+                auto row = j_.Row(ii);
+                Transform(&row, [&tol, &ii](double x) { return 1.0 / tol[ii] * x; });
+            }
+        }
+
+        [[nodiscard]] Vector_<> MultiplyRight(const Vector_<>& t) const override {
+            Vector_<> ret_val;
+            Matrix::Multiply(t, j_, &ret_val);
+            return ret_val;
+        }
+        [[nodiscard]] Vector_<> MultiplyLeft(const Vector_<>& dx) const override {
+            Vector_<> ret_val;
+            Matrix::Multiply(j_, dx, &ret_val);
+            return ret_val;
+        }
+
+        void QForm(const Sparse::SymmetricDecomposition_& w, SquareMatrix_<>* form) const override {
+            w.QForm(j_, form);
+        }
+
+        void SecantUpdate(const Vector_<>& dx, const Vector_<>& df) override {
+            const auto nf = df.size();
+            const double x2 = InnerProduct(dx, dx);
+            for (int ii = 0; ii < nf; ++ii) {
+                auto row = j_.Row(ii);
+                const double excess = df[ii] - InnerProduct(dx, row);
+                Transform(&row, dx, LinearIncrement(excess / x2));
+            }
+        }
+    };
 
     namespace {
         constexpr int MAX_RELEVANT_DATES_PER_INSTRUMENT = 2;
@@ -194,6 +245,7 @@ namespace Dal {
             bool calibrateDiscountCurve_;
             DayBasis_ liborBasis_;
             LogDfScheme_ logDfScheme_;
+            CurveJacobianMode_ jacobianMode_;
 
         public:
             YieldCurveCalibrationFunc_(const String_& ccy,
@@ -208,10 +260,12 @@ namespace Dal {
                                        const PeriodLength_& targetTenor,
                                        bool calibrateDiscountCurve,
                                        const DayBasis_& liborBasis,
-                                       LogDfScheme_ logDfScheme)
+                                       LogDfScheme_ logDfScheme,
+                                       CurveJacobianMode_ jacobianMode)
                 : ccy_(ccy), curveName_(curveName), parameterization_(parameterization), instruments_(instruments), knotDates_(knotDates),
                   discountCurves_(discountCurves), forwardCurves_(forwardCurves), baseCurve_(baseCurve), targetCollateral_(targetCollateral),
-                  targetTenor_(targetTenor), calibrateDiscountCurve_(calibrateDiscountCurve), liborBasis_(liborBasis), logDfScheme_(logDfScheme) {
+                  targetTenor_(targetTenor), calibrateDiscountCurve_(calibrateDiscountCurve), liborBasis_(liborBasis), logDfScheme_(logDfScheme),
+                  jacobianMode_(jacobianMode) {
                 Handle_<YieldCurve_> fundingYC;
                 if (!discountCurves_.empty())
                     fundingYC.reset(new CurveBlock_(curveName_, ccy_, discountCurves_, forwardCurves_, liborBasis_));
@@ -238,6 +292,97 @@ namespace Dal {
                 for (int i = 0; i < static_cast<int>(instruments_.size()); ++i)
                     result[i] = (*rates_[i])(yc) - marketRates_[i];
                 return result;
+            }
+
+            // Sparse Jacobian (LOG_DISCOUNT free-node log-DF unknowns). Returns nullptr unless
+            // jacobianMode_ == ANALYTIC_LOG_DISCOUNT AND parameterization_ == LOG_DISCOUNT, in which
+            // case the column count is NX() = nNodes - 1 (anchor pinned). The CP1 path uses no AAD
+            // tape: the entire chain is double, the override runs once per solver restart, never
+            // per iteration (no RAII tape guard needed -- a future CP2-style AAD port must not
+            // assume a tape region is scoped here). The residual is modelRate - marketRate, so
+            // dResidual_i/dx_j = dModelRate_i/dx_j (marketRate is constant, contributes nothing).
+            [[nodiscard]] Underdetermined::Jacobian_* Gradient(const Vector_<>& x, const Vector_<>& f) const override {
+                if (jacobianMode_ != CurveJacobianMode_::Value_::ANALYTIC_LOG_DISCOUNT)
+                    return nullptr;
+                if (parameterization_ != CurveParameterization_::Value_::LOG_DISCOUNT) {
+                    const String_ msg = String_("Analytic LOG_DISCOUNT Jacobian requested but parameterization is ")
+                                        + parameterization_.String() + "; falling back to bumped";
+                    NOTICE(msg);
+                    return nullptr;
+                }
+                // Build the calibrated curve at x -- the SAME path F() uses.
+                Handle_<DiscountCurve_> dc(
+                    BuildDiscountCurve(curveName_, ccy_, parameterization_, logDfScheme_, knotDates_, x, liborBasis_, baseCurve_).release());
+                const auto* logDfCurve = dynamic_cast<const DiscountLogDF_*>(dc.get());
+                REQUIRE(logDfCurve != nullptr,
+                        "LOG_DISCOUNT analytic Jacobian requires a DiscountLogDF_ curve, got something else");
+
+                // Build the yield-curve context the rates read from (target slotted into the
+                // discount or forward position depending on calibrateDiscountCurve_).
+                auto discountCurves = discountCurves_;
+                auto forwardCurves = forwardCurves_;
+                if (calibrateDiscountCurve_)
+                    discountCurves[targetCollateral_] = dc;
+                else
+                    forwardCurves[targetTenor_] = dc;
+                CurveBlock_ yc(curveName_, ccy_, discountCurves, forwardCurves, liborBasis_);
+
+                const YCInstrument_::Rate_::Target_ rateTarget =
+                    calibrateDiscountCurve_ ? YCInstrument_::Rate_::Target_::DISCOUNT : YCInstrument_::Rate_::Target_::FORECAST;
+
+                const int nRows = static_cast<int>(instruments_.size());
+                const int nCols = logDfCurve->NX();
+                Matrix_<> j(nRows, nCols, 0.0); // structural zeros stay exactly zero
+
+                for (int i = 0; i < nRows; ++i) {
+                    const auto dRateDdf = rates_[i]->DRateDDiscount(yc, rateTarget);
+                    if (dRateDdf.empty()) {
+                        const String_ fallbackMsg = String_("instrument '") + instruments_[i]->Name() + "' row "
+                                                    + String::FromInt(i)
+                                                    + " filled by DF-bump fallback (no analytic DRateDDiscount)";
+                        NOTICE(fallbackMsg);
+                        FillRowByDFBump(i, *logDfCurve, yc, &j);
+                        continue;
+                    }
+                    for (const auto& [payDate, dRate_dD] : dRateDdf) {
+                        const double yfPay = liborBasis_(logDfCurve->NodeDates().front(), payDate, nullptr);
+                        const double dfPay = logDfCurve->operator()(logDfCurve->NodeDates().front(), payDate);
+                        for (const auto& [col, basisW] : logDfCurve->InterpBasisWeights(yfPay))
+                            j(i, col) += dRate_dD * dfPay * basisW;
+                    }
+                }
+                return new XCurveJacobian_(std::move(j));
+            }
+
+            // Per-instrument DF-bump fallback (silent, in double). For each distinct knot column,
+            // bump that column's logDF by BumpSize(), re-evaluate (*rates_[i])(yc_bumped), and
+            // finite-difference the rate w.r.t. the log-DF. Fills j.Row(i) with the column
+            // sensitivities. Used only when DRateDDiscount returns empty.
+            void FillRowByDFBump(int row,
+                                 const DiscountLogDF_& baseCurve,
+                                 const YieldCurve_& yc,
+                                 Matrix_<>* j) const {
+                constexpr double BUMP = 1.0e-7; // one-sided step for the per-instrument fallback
+                const int nCols = baseCurve.NX();
+                const Vector_<> baseLogDF = baseCurve.NodeLogDF();
+                const Vector_<Date_> knotDates = baseCurve.NodeDates();
+                const double baseRate = (*rates_[row])(yc);
+                for (int col = 0; col < nCols; ++col) {
+                    Vector_<> bumpedLog = baseLogDF;
+                    bumpedLog[col + 1] += BUMP; // col is a solver column; storage node = col + 1
+                    std::unique_ptr<DiscountCurve_> bumped(NewDiscountLogDF(curveName_ + "_b", ccy_, knotDates, bumpedLog,
+                                                                            baseCurve.DayCount(), baseCurve.Scheme(), Handle_<DiscountCurve_>()));
+                    Handle_<DiscountCurve_> bumpedHandle(bumped.release());
+                    auto discountCurves = discountCurves_;
+                    auto forwardCurves = forwardCurves_;
+                    if (calibrateDiscountCurve_)
+                        discountCurves[targetCollateral_] = bumpedHandle;
+                    else
+                        forwardCurves[targetTenor_] = bumpedHandle;
+                    CurveBlock_ bumpedYC(curveName_, ccy_, discountCurves, forwardCurves, liborBasis_);
+                    const double bumpedRate = (*rates_[row])(bumpedYC);
+                    (*j)(row, col) = (bumpedRate - baseRate) / BUMP;
+                }
             }
         };
 
@@ -400,7 +545,7 @@ namespace Dal {
 
         YieldCurveCalibrationFunc_ func(spec.ccy_, spec.curveName_, spec.parameterization_, instruments, knotDates, spec.discountCurves_,
                                         spec.forwardCurves_, spec.baseCurve_, spec.targetCollateral_, spec.targetTenor_, spec.calibrateDiscountCurve_,
-                                        spec.liborBasis_, spec.logDfScheme_);
+                                        spec.liborBasis_, spec.logDfScheme_, spec.jacobianMode_);
         Vector_<> result;
         Matrix_<> effJacobianInverse;
         if (spec.solveMode_ == CurveSolveMode_::Value_::EXACT) {
@@ -452,5 +597,32 @@ namespace Dal {
         }
         return retval;
     }
+
+    namespace TestOnly {
+        Matrix_<> AnalyticJacobianAt(const CurveCalibrationSpec_& spec, const Vector_<>& x) {
+            const Vector_<Handle_<YCInstrument_>> instruments = OrderInstruments(spec.instruments_);
+            const Vector_<Date_> knotDates = BuildCurveCalibrationKnots(spec.today_, instruments, spec.knotDates_, spec.knotPolicy_);
+            YieldCurveCalibrationFunc_ func(spec.ccy_, spec.curveName_, spec.parameterization_, instruments, knotDates,
+                                            spec.discountCurves_, spec.forwardCurves_, spec.baseCurve_, spec.targetCollateral_,
+                                            spec.targetTenor_, spec.calibrateDiscountCurve_, spec.liborBasis_, spec.logDfScheme_,
+                                            spec.jacobianMode_);
+            const Vector_<> f = func.F(x);
+            std::unique_ptr<Underdetermined::Jacobian_> j(func.Gradient(x, f));
+            Matrix_<> retval;
+            if (j == nullptr)
+                return retval; // empty signals analytic path not engaged
+            const auto* dense = dynamic_cast<const XCurveJacobian_*>(j.get());
+            REQUIRE(dense != nullptr, "TestOnly::AnalyticJacobianAt: expected an XCurveJacobian_");
+            // Note: the solver applies DivideRows(tol_) to the returned Jacobian before use, which
+            // mutates the matrix in place. The raw Gradient output is UNSCALED here -- the caller
+            // applies the same row-scaling the solver would, or compares against unscaled FD.
+            const Matrix_<>& src = dense->j_;
+            retval = Matrix_<>(src.Rows(), src.Cols(), 0.0);
+            for (int r = 0; r < src.Rows(); ++r)
+                for (int c = 0; c < src.Cols(); ++c)
+                    retval(r, c) = src(r, c);
+            return retval;
+        }
+    } // namespace TestOnly
 
 } // namespace Dal

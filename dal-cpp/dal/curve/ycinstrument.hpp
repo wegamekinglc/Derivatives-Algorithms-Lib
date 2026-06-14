@@ -4,8 +4,10 @@
 
 #pragma once
 
+#include <utility>
 #include <dal/platform/platform.hpp>
 #include <dal/platform/strict.hpp>
+#include <dal/math/vectors.hpp>
 #include <dal/protocol/rateconvention.hpp>
 #include <dal/time/date.hpp>
 
@@ -23,6 +25,25 @@ namespace Dal {
         struct Rate_ : noncopyable {
             virtual ~Rate_() = default;
             virtual double operator()(const YieldCurve_& yc) const = 0;
+
+            // For each discount factor DF(anchor, paymentDate) the rate reads from the calibrated
+            // curve, the derivative of the model rate w.r.t. that DF, evaluated on the supplied
+            // yield curve. Returns (paymentDate, dRate/dDF(anchor, paymentDate)) pairs. Multiple
+            // entries for the same date may be returned (e.g. an annuity coupon and a float fixing
+            // on the same payment date); the Jacobian assembler SUMS by date during accumulation.
+            //
+            // `target` selects which curve slot is the calibrated target. CP1 supports only the
+            // DISCOUNT-slot target -- discount-curve calibrations. Concrete overrides compute the
+            // derivative w.r.t. that target curve's DFs; DFs from other curves in the YieldCurve_
+            // are treated as constant. When the rate's forecast curve resolves to the discount
+            // curve (useProjectionCurve_ == false, the PTIRDS / vanilla-swap convention), the
+            // fixing-date DFs appear naturally because ResolveForecastCurve falls back to the
+            // discount curve.
+            //
+            // Default returns empty -- the rate opts out of the analytic Jacobian and the
+            // calibration silently falls back to per-instrument DF-bumping for that row.
+            enum class Target_ { DISCOUNT, FORECAST };
+            [[nodiscard]] virtual Vector_<pair<Date_, double>> DRateDDiscount(const YieldCurve_& yc, Target_ target) const { return {}; }
         };
 
         [[nodiscard]] virtual Handle_<Rate_> Precompute(const Handle_<YieldCurve_>& funding_yc) const = 0;
