@@ -22,7 +22,7 @@ namespace Dal {
     // back node dates / DFs via dynamic_cast. Construction is factory-only via NewDiscountLogDF
     // (double) -- the Number_ factory lives in calibration.cpp and is unreachable from public code.
     template <class T_>
-    class DiscountLogDFT_ : public CurveWithBase_<DiscountCurveT_<T_>>, public FittableCurve_ {
+    class DiscountLogDFT_ : public CurveWithBase_<DiscountCurveT_<T_>, DiscountCurve_>, public FittableCurve_ {
         Vector_<Date_> nodeDates_;
         DayBasis_ dayCount_;
         Vector_<> yf_;
@@ -70,7 +70,7 @@ namespace Dal {
                         const Vector_<T_>& logDF,
                         const DayBasis_& dayCount,
                         LogDfScheme_ scheme,
-                        const Handle_<DiscountCurveT_<T_>>& base = Handle_<DiscountCurveT_<T_>>());
+                        const Handle_<DiscountCurve_>& base = Handle_<DiscountCurve_>());
 
         T_ operator()(const Date_& from, const Date_& to) const override;
         [[nodiscard]] int NX() const override;

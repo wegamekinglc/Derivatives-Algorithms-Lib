@@ -804,6 +804,15 @@ namespace Dal {
                                                   floatIndexConvention_.fixingHolidays_);
         return Handle_<RateT_<T_>>(new SwapRateT_<T_>(tradeDate_, fixedPeriods, floatPeriods, floatIndexConvention_));
     }
+
+    // Explicit instantiation of PrecomputeT<Dal::AAD::Number_> on each Phase A instrument so the
+    // linker finds the symbol when calibration.cpp calls it. double is implicitly instantiated at
+    // every use site (rare) but we also force it here for symmetry. Gated on the native backend
+    // because Dal::AAD::Number_ does not exist under external backends.
+    template Handle_<YCInstrument_::RateT_<Dal::AAD::Number_>> Deposit_::PrecomputeT<Dal::AAD::Number_>() const;
+    template Handle_<YCInstrument_::RateT_<Dal::AAD::Number_>> FRA_::PrecomputeT<Dal::AAD::Number_>() const;
+    template Handle_<YCInstrument_::RateT_<Dal::AAD::Number_>> Future_::PrecomputeT<Dal::AAD::Number_>() const;
+    template Handle_<YCInstrument_::RateT_<Dal::AAD::Number_>> Swap_::PrecomputeT<Dal::AAD::Number_>() const;
 #endif
 
     OISSwap_::OISSwap_(const Date_& tradeDate,

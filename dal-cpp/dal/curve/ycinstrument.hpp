@@ -91,6 +91,7 @@ namespace Dal {
         [[nodiscard]] Handle_<Rate_> Precompute(const Handle_<YieldCurve_>& funding_yc) const override;
 #if !defined(DAL_USE_XAD_AAD) && !defined(DAL_USE_CODIPACK_AAD) && !defined(DAL_USE_ADEPT_AAD)
         template <class T_> [[nodiscard]] Handle_<RateT_<T_>> PrecomputeT() const;
+        [[nodiscard]] const RateIndexConvention_& FloatConvention() const { return convention_; }
 #endif
     };
 
@@ -113,6 +114,7 @@ namespace Dal {
         [[nodiscard]] Handle_<Rate_> Precompute(const Handle_<YieldCurve_>& funding_yc) const override;
 #if !defined(DAL_USE_XAD_AAD) && !defined(DAL_USE_CODIPACK_AAD) && !defined(DAL_USE_ADEPT_AAD)
         template <class T_> [[nodiscard]] Handle_<RateT_<T_>> PrecomputeT() const;
+        [[nodiscard]] const RateIndexConvention_& FloatConvention() const { return convention_; }
 #endif
     };
 
@@ -137,6 +139,7 @@ namespace Dal {
         [[nodiscard]] Handle_<Rate_> Precompute(const Handle_<YieldCurve_>& funding_yc) const override;
 #if !defined(DAL_USE_XAD_AAD) && !defined(DAL_USE_CODIPACK_AAD) && !defined(DAL_USE_ADEPT_AAD)
         template <class T_> [[nodiscard]] Handle_<RateT_<T_>> PrecomputeT() const;
+        [[nodiscard]] const RateIndexConvention_& FloatConvention() const { return convention_; }
 #endif
     };
 
@@ -165,6 +168,7 @@ namespace Dal {
         [[nodiscard]] Handle_<Rate_> Precompute(const Handle_<YieldCurve_>& funding_yc) const override;
 #if !defined(DAL_USE_XAD_AAD) && !defined(DAL_USE_CODIPACK_AAD) && !defined(DAL_USE_ADEPT_AAD)
         template <class T_> [[nodiscard]] Handle_<RateT_<T_>> PrecomputeT() const;
+        [[nodiscard]] const RateIndexConvention_& FloatConvention() const { return floatIndexConvention_; }
 #endif
     };
 

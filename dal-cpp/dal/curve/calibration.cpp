@@ -13,8 +13,10 @@
 #include <dal/curve/piecewiseconstant.hpp>
 #include <dal/curve/piecewiselinear.hpp>
 #include <dal/curve/ycconst.hpp>
+#include <dal/curve/ycctx.hpp>
 #include <dal/curve/ycimp.hpp>
 #include <dal/curve/yclogdf.hpp>
+#include <dal/math/aad/aad.hpp>
 #include <dal/math/matrix/banded.hpp>
 #include <dal/math/matrix/matrixarithmetic.hpp>
 #include <dal/math/matrix/squarematrix.hpp>
@@ -243,6 +245,56 @@ namespace Dal {
             }
         }
 
+#if DAL_CURVE_PHASE_A_NATIVE_AAD
+        // Phase A templated curve builder. Handles ONLY LOG_DISCOUNT -- the only parameterization
+        // the AAD path supports. The other parameterizations REQUIRE(false) in the Number_
+        // instantiation; this is unreachable because EligibleForPhaseA rejects non-LOG_DISCOUNT
+        // before constructing any templated object.
+        template <class T_>
+        std::unique_ptr<DiscountCurveT_<T_>> BuildDiscountCurveT(const String_& name,
+                                                                 const String_& ccy,
+                                                                 CurveParameterization_ parameterization,
+                                                                 LogDfScheme_ logDfScheme,
+                                                                 const Vector_<Date_>& knotDates,
+                                                                 const Vector_<T_>& logDF,
+                                                                 const DayBasis_& dayCount,
+                                                                 const Handle_<DiscountCurve_>& baseCurve) {
+            // baseCurve is a Handle_<DiscountCurve_> (double) -- the templated curve treats it as
+            // a constant multiplier. The Number_-typed DiscountLogDFT_ ctor accepts this via the
+            // CurveWithBase_<DiscountCurveT_<T_>> base, but the base's operator() reads double DFs
+            // (constant from the tape's perspective).
+            REQUIRE(parameterization == CurveParameterization_::Value_::LOG_DISCOUNT,
+                    "Phase A BuildDiscountCurveT: only LOG_DISCOUNT parameterization is supported");
+            return std::unique_ptr<DiscountCurveT_<T_>>(
+                new DiscountLogDFT_<T_>(name, ccy, knotDates, logDF, dayCount, logDfScheme, baseCurve));
+        }
+
+        // RAII tape scope: Clear on entry, Clear on exit (even on throw). Phase A owns exactly one
+        // AAD cycle per solver restart -- the recording, sweep, and harvest all live inside this
+        // scope. The tape must be clean before the next Gradient call (or the next F call which,
+        // while it does not touch the tape, would inherit any state if a future change ever reads
+        // the tape from F). Phase A is single-threaded today; thread-local Tape_ isolates
+        // per-worker state if calibration ever becomes parallel, but the residual loop itself must
+        // stay serial until a parallel-residual design exists.
+        struct TapeGuard_ {
+            Dal::AAD::Tape_* t_;
+            explicit TapeGuard_(Dal::AAD::Tape_* t) : t_(t) { Dal::AAD::Clear(*t_); }
+            ~TapeGuard_() {
+                try { Dal::AAD::Clear(*t_); } catch (...) { /* swallow; we are unwinding */ }
+            }
+            TapeGuard_(const TapeGuard_&) = delete;
+            TapeGuard_& operator=(const TapeGuard_&) = delete;
+        };
+
+        // Zero every node's adjoint on the tape, leaving the recorded graph intact. Used between
+        // single-result reverse sweeps so each row's seed propagates from a clean slate. The tape
+        // does not expose a one-shot "zero adjoints" helper, so we walk the nodes blocklist.
+        void ZeroAllAdjoints(Dal::AAD::Tape_& tape) {
+            for (auto it = tape.nodes_.Begin(); it != tape.nodes_.End(); ++it)
+                it->Adjoint() = 0.0;
+        }
+#endif
+
         class YieldCurveCalibrationFunc_ : public Underdetermined::Function_ {
             String_ ccy_;
             String_ curveName_;
@@ -419,23 +471,145 @@ namespace Dal {
             // Phase A eligibility predicate (per .claude/designs/aad-analytic-jacobian-selector-api.md
             // §4.2). Returns true iff every Phase A constraint is satisfied. The predicate is a
             // pure query over ctor-stored state and NEVER throws -- ineligibility routes through
-            // the strict priority chain (NOTICE + fall back) instead of failing. Step 0 stub:
-            // always false, so AAD_TAPE falls through to CP1 with no NOTICE yet (the NOTICEs land
-            // in Step 5 alongside the real eligibility logic).
-            [[nodiscard]] bool EligibleForPhaseA() const { return false; }
+            // the strict priority chain (NOTICE + fall back to CP1, which itself may fall back to
+            // bumped) instead of failing. Each fall-through path emits a NOTICE that names the
+            // offending condition so the user can see why AAD_TAPE did not engage.
+            [[nodiscard]] bool EligibleForPhaseA() const {
+                if (parameterization_ != CurveParameterization_::Value_::LOG_DISCOUNT) {
+                    const String_ msg = String_("AAD_TAPE Jacobian requires CurveParameterization_::LOG_DISCOUNT, got ")
+                                        + parameterization_.String() + "; falling back to ANALYTIC_LOG_DISCOUNT";
+                    NOTICE(msg);
+                    return false;
+                }
+                if (!calibrateDiscountCurve_) {
+                    NOTICE("AAD_TAPE Jacobian requires DISCOUNT-target calibration "
+                           "(calibrateDiscountCurve_ == true); falling back to ANALYTIC_LOG_DISCOUNT");
+                    return false;
+                }
+                // Every instrument must (a) be a type Phase A has a templated rate for, and
+                // (b) not use a projection curve (forecast == discount). The tradeDate == anchor
+                // check is folded in: a Swap_ with tradeDate != knotDates_.front() is structurally
+                // fine for Phase A (the templated SwapRateT_ reads DF(tradeDate_, p) directly), but
+                // matches the CP1 convention by requiring the same anchor alignment so the AAD and
+                // CP1 paths share an invariance.
+                for (int i = 0; i < static_cast<int>(instruments_.size()); ++i) {
+                    const auto* inst = instruments_[i].get();
+                    const String_ name = inst->Name();
+                    const auto* deposit = dynamic_cast<const Deposit_*>(inst);
+                    const auto* fra = dynamic_cast<const FRA_*>(inst);
+                    const auto* future = deposit ? nullptr : dynamic_cast<const Future_*>(inst);
+                    const auto* swap = (deposit || fra || future) ? nullptr : dynamic_cast<const Swap_*>(inst);
+                    if (!deposit && !fra && !future && !swap) {
+                        const String_ msg = String_("AAD_TAPE Jacobian has no templated rate for instrument '")
+                                            + name + "'; falling back to ANALYTIC_LOG_DISCOUNT";
+                        NOTICE(msg);
+                        return false;
+                    }
+                    const RateIndexConvention_* floatConv = deposit       ? &deposit->FloatConvention()
+                                                              : fra      ? &fra->FloatConvention()
+                                                              : future   ? &future->FloatConvention()
+                                                              : swap     ? &swap->FloatConvention()
+                                                                         : nullptr;
+                    if (floatConv && floatConv->useProjectionCurve_) {
+                        const String_ msg = String_("AAD_TAPE Jacobian requires forecast==discount for every "
+                                                    "instrument; instrument '")
+                                            + name + "' uses a projection curve, falling back to ANALYTIC_LOG_DISCOUNT";
+                        NOTICE(msg);
+                        return false;
+                    }
+                    // tradeDate == anchor (knotDates_.front()). Deposit/FRA/Future/Swap all store
+                    // tradeDate_ privately; expose a TradeDate() accessor would change the public
+                    // surface. Instead, check via the TimeSpan() first date: Phase A requires the
+                    // instrument to start at the anchor (knotDates_.front()).
+                    const auto span = inst->TimeSpan();
+                    if (span.first != knotDates_.front()) {
+                        const String_ msg = String_("AAD_TAPE Jacobian requires every instrument to start at the "
+                                                    "curve anchor; instrument '")
+                                            + name + "' does not, falling back to ANALYTIC_LOG_DISCOUNT";
+                        NOTICE(msg);
+                        return false;
+                    }
+                }
+                return true;
+            }
 
-            // Phase A AAD-tape Jacobian. Step 0 stub: returns nullptr so the override falls through
-            // to the CP1 chain-rule path. Replaced in Step 5 with the real single-result reverse
-            // sweep using the templated DiscountLogDFT_<Number_> / RateT_<Number_> machinery.
+            // Phase A AAD-tape Jacobian. Single-result reverse sweep: one forward recording per
+            // Gradient call, nRows reverse sweeps (one per residual), harvest adjoints column by
+            // column. Returns XCurveJacobian_ (same dense Jacobian subclass as CP1 -- storage is
+            // dense, assembly is sparse-by-row because AAD produces exact structural zeros).
             [[nodiscard]] Underdetermined::Jacobian_* PhaseAJacobian_NativeAAD(const Vector_<>& x, const Vector_<>& f) const;
+
+            // Downcast instrument i to its concrete type and dispatch to PrecomputeT<T_>. Returns
+            // an empty handle if the instrument type is not supported (Phase A scope is Deposit,
+            // FRA, Future, vanilla Swap); EligibleForPhaseA rejects such calibrations before this
+            // is ever called, so the empty-handle branch is unreachable in practice.
+            template <class T_> [[nodiscard]] Handle_<YCInstrument_::RateT_<T_>> PhaseARateAt(int i) const {
+                const auto* inst = instruments_[i].get();
+                if (const auto* d = dynamic_cast<const Deposit_*>(inst))
+                    return d->PrecomputeT<T_>();
+                if (const auto* f = dynamic_cast<const FRA_*>(inst))
+                    return f->PrecomputeT<T_>();
+                if (const auto* fu = dynamic_cast<const Future_*>(inst))
+                    return fu->PrecomputeT<T_>();
+                if (const auto* s = dynamic_cast<const Swap_*>(inst))
+                    return s->PrecomputeT<T_>();
+                return Handle_<YCInstrument_::RateT_<T_>>();
+            }
 #endif
         };
 
 #if DAL_CURVE_PHASE_A_NATIVE_AAD
-        // Step 0 stub definition: returns nullptr so AAD_TAPE falls through to the CP1 path. The
-        // real tape-based body lands in Step 5.
-        Underdetermined::Jacobian_* YieldCurveCalibrationFunc_::PhaseAJacobian_NativeAAD(const Vector_<>&, const Vector_<>&) const {
-            return nullptr;
+        // Phase A body. The structure mirrors .claude/designs/aad-analytic-jacobian-phase-a-plan.md
+        // §3.2: TapeGuard on entry/exit, build Number_-typed curve, build Number_-typed rates via
+        // PrecomputeT<Number_>, compute residuals, single-result reverse loop. The column map is
+        // solver col j = storage node j+1, so Adjoint(logDF[j+1]) reads the sensitivity to x[j].
+        Underdetermined::Jacobian_* YieldCurveCalibrationFunc_::PhaseAJacobian_NativeAAD(const Vector_<>& x, const Vector_<>& f) const {
+            auto* tape = Dal::AAD::Tape();
+            TapeGuard_ guard(tape);
+            static_cast<void>(f); // the residual values themselves are unused; we recompute on the tape
+
+            // Independents: free-node log(DF) values. Anchor (node 0) is pinned at 0 and is NOT an
+            // independent -- the solver's x vector has NX() = nNodes-1 entries, matching.
+            const int nNodes = static_cast<int>(knotDates_.size());
+            REQUIRE(static_cast<int>(x.size()) == nNodes - 1,
+                    "Phase A: x vector length must equal nNodes - 1 (anchor excluded)");
+            Vector_<Dal::AAD::Number_> logDF(nNodes);
+            logDF[0] = 0.0; // pinned; records a constant node (harmless -- adjoint never read)
+            for (int i = 0; i < static_cast<int>(x.size()); ++i)
+                logDF[i + 1] = x[i]; // native backend: Number_(double) registers an independent
+
+            // Build the Number_-typed calibrated curve directly with the tape-registered logDF.
+            std::unique_ptr<DiscountCurveT_<Dal::AAD::Number_>> dc(
+                BuildDiscountCurveT<Dal::AAD::Number_>(curveName_, ccy_, parameterization_, logDfScheme_,
+                                                       knotDates_, logDF, liborBasis_, baseCurve_));
+            YCCtxT_<Dal::AAD::Number_> ctx(*dc);
+
+            // Compute Number_-typed residuals: modelRate - marketRate, for every instrument.
+            const int nRows = static_cast<int>(instruments_.size());
+            Vector_<Dal::AAD::Number_> residuals(nRows);
+            for (int i = 0; i < nRows; ++i) {
+                Handle_<YCInstrument_::RateT_<Dal::AAD::Number_>> rateT = PhaseARateAt<Dal::AAD::Number_>(i);
+                residuals[i] = (*rateT)(ctx) - static_cast<double>(marketRates_[i]);
+            }
+
+            // Dense Jacobian (m x NX()). Assembly is sparse by row; structural zeros stay exactly
+            // zero because AAD produces exact structural zeros (one of the wins over bump).
+            const int nCols = nNodes - 1;
+            Matrix_<> j(nRows, nCols, 0.0);
+
+            // Single-result reverse sweep. TODO: replace with SetNumResultsForAAD(true, nRows) for
+            // a single PropagateToStart walk producing all nRows adjoint vectors simultaneously --
+            // the multi-result path is a ~nRows-x speedup. The single-result path is simpler and
+            // mirrors test_tape.cpp; defer the multi-result optimization until the single-result
+            // path is validated.
+            for (int i = 0; i < nRows; ++i) {
+                ZeroAllAdjoints(*tape);
+                Dal::AAD::Adjoint(residuals[i]) = 1.0;
+                Dal::AAD::PropagateToStart(*tape);
+                for (int col = 0; col < nCols; ++col)
+                    j(i, col) = Dal::AAD::Adjoint(logDF[col + 1]);
+            }
+            return new XCurveJacobian_(std::move(j));
         }
 #endif
 

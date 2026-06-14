@@ -224,8 +224,8 @@ namespace Dal {
                                           const Vector_<T_>& logDF,
                                           const DayBasis_& dayCount,
                                           LogDfScheme_ scheme,
-                                          const Handle_<DiscountCurveT_<T_>>& base)
-        : CurveWithBase_<DiscountCurveT_<T_>>(name, ccy, base),
+                                          const Handle_<DiscountCurve_>& base)
+        : CurveWithBase_<DiscountCurveT_<T_>, DiscountCurve_>(name, ccy, base),
           nodeDates_(nodeDates),
           dayCount_(dayCount),
           yf_(nodeDates.size()),
@@ -347,15 +347,27 @@ namespace Dal {
 
     template <class T_>
     Vector_<std::pair<int, double>> DiscountLogDFT_<T_>::StorageBasisWeightsAt(double yf) const {
-        // Same shape as InterpBasisWeights but returns STORAGE-node weights (no anchor drop, no
-        // solver-column remap). The Number_-typed LogDfAt accumulates these against logDF_ to
-        // produce a tape-registered logDF(yf). The weights are functions of knot positions only,
-        // so they are identical for any T_.
+        // Returns STORAGE-node weights (no anchor drop, no solver-column remap). The Number_-typed
+        // LogDfAt accumulates these against logDF_ to produce a tape-registered logDF(yf). The
+        // weights are functions of knot positions only, so they are identical for any T_.
+        // IMPORTANT: this is the RAW scheme dispatch -- it must NOT go through RemapStorageToSolver
+        // (which would convert storage node k to solver column k-1). InterpBasisWeightsByScheme
+        // applies the remap, so we cannot reuse it here; we duplicate the scheme dispatch.
         if (yf < 0.0 || yf_.size() < 2)
             return {};
         if (yf > yf_.back())
             return CubicExtrapWeights(yf);
-        return InterpBasisWeightsByScheme(LowerBoundSegment(yf_, yf), yf);
+        const int k = LowerBoundSegment(yf_, yf);
+        switch (scheme_.Switch()) {
+        case LogDfScheme_::Value_::LOG_LINEAR:
+            return LinearSegmentWeights(yf_, k, yf);
+        case LogDfScheme_::Value_::LOG_CUBIC_NATURAL:
+            return CubicBasisAt(k, yf);
+        case LogDfScheme_::Value_::MIXED:
+            return (yf <= mixedCutoffYf_) ? LinearSegmentWeights(yf_, k, yf) : CubicBasisAt(k, yf);
+        default:
+            THROW(String_("DiscountLogDFT_::StorageBasisWeightsAt: unknown scheme: ") + scheme_.String());
+        }
     }
 
     template <class T_>
@@ -514,12 +526,15 @@ namespace Dal {
         return RemapStorageToSolver(storageWeights);
     }
 
-    // Explicit instantiation: the only T_ ever linked is double. DiscountLogDFT_<Number_> is
-    // instantiated on demand inside calibration.cpp under the Phase A native-AAD gate; that
-    // instantiation pulls in the AAD-aware branches via if constexpr. Without this explicit
-    // instantiation the double code would still be emitted in every TU that uses the alias, so
-    // we keep it to preserve the historical single-definition link model.
+    // Explicit instantiations. DiscountLogDFT_<double> is the hot path (F loop, bumped fallback,
+    // serialisation). DiscountLogDFT_<Dal::AAD::Number_> is instantiated only under the native
+    // backend; it pulls in the AAD-aware branches via if constexpr and is linked into the Phase A
+    // Gradient override in calibration.cpp. Under external backends Number_ does not exist, so the
+    // Number_ instantiation is gated out and Phase A compiles away.
     template class DiscountLogDFT_<double>;
+#if !defined(DAL_USE_XAD_AAD) && !defined(DAL_USE_CODIPACK_AAD) && !defined(DAL_USE_ADEPT_AAD)
+    template class DiscountLogDFT_<Dal::AAD::Number_>;
+#endif
 
     DiscountCurve_* NewDiscountLogDF(const String_& name,
                                      const String_& ccy,
