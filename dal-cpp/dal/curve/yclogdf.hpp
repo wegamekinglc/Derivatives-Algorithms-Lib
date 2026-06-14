@@ -38,7 +38,7 @@ namespace Dal {
                                             const YCComponent_::substitutions_t& base_changes) const override;
 
         [[nodiscard]] const Vector_<Date_>& NodeDates() const { return nodeDates_; }
-        [[nodiscard]] Vector_<> NodeLogDF() const { return logDF_; }
+        [[nodiscard]] const Vector_<>& NodeLogDF() const { return logDF_; }
         [[nodiscard]] Vector_<> NodeDF() const;
     };
 
