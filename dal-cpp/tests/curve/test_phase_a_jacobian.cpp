@@ -106,6 +106,35 @@ namespace {
         }
         return f;
     }
+
+    // Column-by-column central-difference agreement check. Asserts that every entry of the
+    // analytic Jacobian J (from AnalyticJacobianAt) matches a two-sided central difference of
+    // F(x) at step h, with a tolerance that scales with the magnitude of the FD value. Used by
+    // the per-scheme and per-instrument-type sweep tests so the comparison logic is identical.
+    void AssertMatchesCentralDifference(const CurveCalibrationSpec_& spec, const Vector_<>& x, double h, double relTol) {
+        const Matrix_<> J = TestOnly::AnalyticJacobianAt(spec, x);
+        const int nRows = static_cast<int>(spec.instruments_.size());
+        const int nCols = static_cast<int>(x.size());
+        ASSERT_EQ(J.Rows(), nRows);
+        ASSERT_EQ(J.Cols(), nCols);
+        for (int c = 0; c < nCols; ++c) {
+            Vector_<> xUp = x;
+            Vector_<> xDn = x;
+            xUp[c] += h;
+            xDn[c] -= h;
+            const Vector_<> fUp = EvalResiduals(spec, xUp);
+            const Vector_<> fDn = EvalResiduals(spec, xDn);
+            for (int r = 0; r < nRows; ++r) {
+                const double fd = (fUp[r] - fDn[r]) / (2.0 * h);
+                const double an = J(r, c);
+                if (std::abs(fd) < relTol) {
+                    ASSERT_NEAR(an, 0.0, relTol) << "row=" << r << " col=" << c << " FD=" << fd;
+                } else {
+                    ASSERT_NEAR(an, fd, relTol * std::max(1.0, std::abs(fd))) << "row=" << r << " col=" << c;
+                }
+            }
+        }
+    }
 } // namespace
 
 // ============================================================================
@@ -257,4 +286,127 @@ TEST(PhaseAAADJacobianTest, TestTapeIsolationAcrossCalls) {
     for (int r = 0; r < J1.Rows(); ++r)
         for (int c = 0; c < J1.Cols(); ++c)
             ASSERT_NEAR(J1(r, c), J2(r, c), 1e-12) << "row=" << r << " col=" << c;
+}
+
+// ============================================================================
+// Category 6: All three LogDfScheme_ values must match central differences
+// ============================================================================
+// Phase A eligibility is scheme-agnostic -- the templated DiscountLogDF_<T_> dispatches on
+// scheme inside the tape. The existing TestMatchesCentralDifferenceLogLinear covers LOG_LINEAR;
+// these two tests cover LOG_CUBIC_NATURAL and MIXED, exercising the natural-cubic and
+// mixed-cutoff spline branches of the AAD path.
+
+TEST(PhaseAAADJacobianTest, TestMatchesCentralDifferenceLogCubicNatural) {
+    auto spec = MakePhaseASpec(CurveJacobianMode_::Value_::AAD_TAPE, LogDfScheme_::Value_::LOG_CUBIC_NATURAL);
+    const Vector_<> x = {-0.005, -0.012, -0.025, -0.04, -0.06};
+    AssertMatchesCentralDifference(spec, x, 1.0e-6, 1.0e-9);
+}
+
+TEST(PhaseAAADJacobianTest, TestMatchesCentralDifferenceMixed) {
+    auto spec = MakePhaseASpec(CurveJacobianMode_::Value_::AAD_TAPE, LogDfScheme_::Value_::MIXED);
+    const Vector_<> x = {-0.005, -0.012, -0.025, -0.04, -0.06};
+    AssertMatchesCentralDifference(spec, x, 1.0e-6, 1.0e-9);
+}
+
+// ============================================================================
+// Category 7: Single-instrument tape canary (Deposit)
+// ============================================================================
+// A single Deposit isolates the tape from multi-row sparsity. The Jacobian is 1 x N: one reverse
+// sweep over one residual. If the tape mis-computes dResidual/d(logDF_node), this test catches
+// it directly -- there is no confounding with structural-zero assembly across rows. We assert
+// the single row matches a central difference for every node column, and that the columns the
+// deposit does NOT touch (beyond its maturity) are EXACTLY zero (AAD structural zero, not noise).
+
+TEST(PhaseAAADJacobianTest, TestSingleDepositTapeMatchesCentralDifference) {
+    CurveCalibrationSpec_ spec;
+    spec.today_ = Date_(2022, 1, 1);
+    spec.ccy_ = "USD";
+    spec.curveName_ = "phase_a_deposit_canary";
+    spec.parameterization_ = CurveParameterization_::Value_::LOG_DISCOUNT;
+    spec.knotPolicy_ = CurveKnotPolicy_::Value_::INPUT;
+    spec.solveMode_ = CurveSolveMode_::Value_::EXACT;
+    spec.liborBasis_ = DayBasis_("ACT_365F");
+    spec.tolerance_ = 1.0e-10;
+    spec.fitTolerance_ = 1.0e-8;
+    spec.smoothingWeight_ = 1.0;
+    spec.jacobianMode_ = CurveJacobianMode_::Value_::AAD_TAPE;
+    spec.logDfScheme_ = LogDfScheme_::Value_::LOG_LINEAR;
+
+    spec.knotDates_ = {
+        Date_(2022, 1, 1), Date_(2022, 4, 1), Date_(2022, 7, 1), Date_(2023, 1, 1),
+        Date_(2024, 1, 1), Date_(2025, 1, 1),
+    };
+
+    // One 3M deposit starting at the anchor. Its cashflow lands at 2022-04-01 (knot column 0).
+    RateIndexConvention_ idx = AnnualIndexPA();
+    spec.instruments_ = {Handle_<YCInstrument_>(
+        new Deposit_(spec.today_, spec.today_, Date_(2022, 4, 1), 0.011, idx))};
+
+    const Vector_<> x = {-0.005, -0.012, -0.025, -0.04, -0.06};
+    AssertMatchesCentralDifference(spec, x, 1.0e-6, 1.0e-9);
+
+    // The deposit's only cashflow is at 2022-04-01 -- solver column 0 under LOG_LINEAR. Columns
+    // 1..4 must be EXACTLY zero (AAD structural zero, no FD noise).
+    const Matrix_<> J = TestOnly::AnalyticJacobianAt(spec, x);
+    ASSERT_EQ(J.Rows(), 1);
+    ASSERT_EQ(J.Cols(), 5);
+    ASSERT_NE(J(0, 0), 0.0) << "deposit sensitivity at its own maturity column must be nonzero";
+    for (int c = 1; c < 5; ++c)
+        ASSERT_EQ(J(0, c), 0.0) << "deposit row col " << c << " = " << J(0, c) << " (expected exactly zero)";
+}
+
+// ============================================================================
+// Category 8: Mixed instrument types in one calibration (Deposit + FRA + Swap)
+// ============================================================================
+// Phase A is eligible for vanilla Swap, Deposit, FRA, and Future. A calibration mixing all
+// three primary cash instrument types exercises the per-instrument dispatch in PhaseAJacobian_
+// (DepositRateT_ + ForwardRateT_ + SwapRateT_) in a single recording. The AAD Jacobian must
+// still match central differences row by row, and structural zeros must appear for instruments
+// whose cashflows end before later nodes.
+
+TEST(PhaseAAADJacobianTest, TestMixedInstrumentCalibrationMatchesCentralDifference) {
+    CurveCalibrationSpec_ spec;
+    spec.today_ = Date_(2022, 1, 1);
+    spec.ccy_ = "USD";
+    spec.curveName_ = "phase_a_mixed";
+    spec.parameterization_ = CurveParameterization_::Value_::LOG_DISCOUNT;
+    spec.knotPolicy_ = CurveKnotPolicy_::Value_::INPUT;
+    spec.solveMode_ = CurveSolveMode_::Value_::EXACT;
+    spec.liborBasis_ = DayBasis_("ACT_365F");
+    spec.tolerance_ = 1.0e-10;
+    spec.fitTolerance_ = 1.0e-8;
+    spec.smoothingWeight_ = 1.0;
+    spec.jacobianMode_ = CurveJacobianMode_::Value_::AAD_TAPE;
+    spec.logDfScheme_ = LogDfScheme_::Value_::LOG_LINEAR;
+
+    spec.knotDates_ = {
+        Date_(2022, 1, 1), Date_(2022, 4, 1), Date_(2022, 7, 1), Date_(2023, 1, 1),
+        Date_(2024, 1, 1), Date_(2025, 1, 1),
+    };
+
+    // All three instruments start at the anchor (eligibility requires span.first == anchor).
+    const RateIndexConvention_ idx = AnnualIndexPA();
+    const auto fixedLeg = AnnualLegPA();
+    const auto floatLeg = AnnualLegPA();
+    spec.instruments_ = {
+        // Deposit 3M -> cashflow at 2022-04-01 (column 0).
+        Handle_<YCInstrument_>(new Deposit_(spec.today_, spec.today_, Date_(2022, 4, 1), 0.011, idx)),
+        // FRA 3x6 -> cashflows at 2022-04-01 and 2022-07-01 (columns 0..1).
+        Handle_<YCInstrument_>(new FRA_(spec.today_, Date_(2022, 4, 1), Date_(2022, 7, 1), 0.012, idx)),
+        // Swap 3Y -> cashflows through 2025-01-01 (columns 0..4).
+        Handle_<YCInstrument_>(new Swap_(spec.today_, spec.today_, Date_(2025, 1, 1), 0.018, fixedLeg, idx, floatLeg)),
+    };
+
+    const Vector_<> x = {-0.005, -0.012, -0.025, -0.04, -0.06};
+    AssertMatchesCentralDifference(spec, x, 1.0e-6, 1.0e-9);
+
+    // Structural zeros: the deposit (row 0) ends at 2022-04-01, so columns 1..4 must be exactly
+    // zero. The FRA (row 1) ends at 2022-07-01, so columns 2..4 must be exactly zero.
+    const Matrix_<> J = TestOnly::AnalyticJacobianAt(spec, x);
+    ASSERT_EQ(J.Rows(), 3);
+    ASSERT_EQ(J.Cols(), 5);
+    for (int c = 1; c < 5; ++c)
+        ASSERT_EQ(J(0, c), 0.0) << "deposit row col " << c << " = " << J(0, c);
+    for (int c = 2; c < 5; ++c)
+        ASSERT_EQ(J(1, c), 0.0) << "fra row col " << c << " = " << J(1, c);
 }
