@@ -35,15 +35,6 @@ alternative INSTRUMENTS
 alternative AUGMENTED
 -IF-------------------------------------------------------------------------*/
 
-/*IF--------------------------------------------------------------------------
-enumeration CurveJacobianMode
-    Jacobian construction mode for curve calibration
-switchable
-alternative BUMPED
-alternative ANALYTIC_LOG_DISCOUNT
-alternative AAD_TAPE
--IF-------------------------------------------------------------------------*/
-
 #include <memory>
 #include <map>
 #include <dal/platform/platform.hpp>
@@ -60,7 +51,6 @@ namespace Dal {
 #include <dal/auto/MG_CurveSolveMode_enum.hpp>
 #include <dal/auto/MG_CurveParameterization_enum.hpp>
 #include <dal/auto/MG_CurveKnotPolicy_enum.hpp>
-#include <dal/auto/MG_CurveJacobianMode_enum.hpp>
 
     struct CurveCalibrationSpec_ {
         Date_ today_;
@@ -86,20 +76,6 @@ namespace Dal {
         CurveKnotPolicy_ knotPolicy_ = CurveKnotPolicy_::Value_::INPUT;
         Vector_<double> initialGuessPerNode_;
         LogDfScheme_ logDfScheme_ = LogDfScheme_::Value_::LOG_LINEAR;
-        // Jacobian construction for the calibration solver.
-        //   BUMPED                -- finite-difference bumping of each free node. Default;
-        //                            byte-for-byte identical to the pre-CP1 path.
-        //   ANALYTIC_LOG_DISCOUNT -- CP1 analytic chain-rule Jacobian (double). Eligible only
-        //                            for CurveParameterization_::LOG_DISCOUNT; other
-        //                            parameterizations fall back to BUMPED with a NOTICE.
-        //   AAD_TAPE              -- Phase A reverse-mode AAD Jacobian via the native Number_
-        //                            tape. Native backend only; external backends (XAD,
-        //                            CoDiPack, Adept) fall back to ANALYTIC_LOG_DISCOUNT
-        //                            (which itself may fall back to BUMPED). Eligible only for
-        //                            LOG_DISCOUNT + DISCOUNT-target + forecast==discount +
-        //                            vanilla swap/deposit/FRA; other calibrations fall back to
-        //                            ANALYTIC_LOG_DISCOUNT with a NOTICE.
-        CurveJacobianMode_ jacobianMode_ = CurveJacobianMode_::Value_::BUMPED;
     };
 
     struct CurveCalibrationDiagnostics_ {
@@ -146,10 +122,10 @@ namespace Dal {
 
     namespace TestOnly {
         // Builds the LOG_DISCOUNT calibration Jacobian at the supplied parameter vector x for the
-        // supplied spec, using the analytic chain-rule path. Returns an empty matrix when the spec
-        // does not engage the analytic path (jacobianMode_ != ANALYTIC_LOG_DISCOUNT or
-        // parameterization_ != LOG_DISCOUNT). Exposed for unit-test inspection; not part of the
-        // stable public API.
+        // supplied spec, using the AAD-tape analytic path. Returns an empty matrix when the spec
+        // does not engage the analytic path (parameterization_ != LOG_DISCOUNT, or the calibration
+        // is otherwise ineligible for the AAD-tape Jacobian). Exposed for unit-test inspection; not
+        // part of the stable public API.
         Matrix_<> AnalyticJacobianAt(const CurveCalibrationSpec_& spec, const Vector_<>& x);
     }
 

@@ -31,24 +31,9 @@ namespace Dal {
 #include <dal/auto/MG_CurveSolveMode_enum.inc>
 #include <dal/auto/MG_CurveParameterization_enum.inc>
 #include <dal/auto/MG_CurveKnotPolicy_enum.inc>
-#include <dal/auto/MG_CurveJacobianMode_enum.inc>
 #include <dal/auto/MG_LogDfScheme_enum.inc>
 
-    // Phase A (AAD_TAPE Jacobian) is native-Number_ only. The native Number_ lives inside the
-    // same guard (see dal-cpp/dal/math/aad/expr.hpp:13) -- it does not exist as a usable type
-    // when an external AAD backend is selected. Templatizing the curve/rate stack on T_ would
-    // compile under XAD/CoDiPack/Adept (the constructor exists), but silently produce zero
-    // adjoints because the implicit-independent mechanism is native-only. So the entire Phase A
-    // branch is #ifdef'd out under external backends; AAD_TAPE then falls through to CP1 with
-    // a NOTICE. This is the SAME macro that gates the native Number_ itself -- single source of
-    // truth for "native backend is active."
-#if !defined(DAL_USE_XAD_AAD) && !defined(DAL_USE_CODIPACK_AAD) && !defined(DAL_USE_ADEPT_AAD)
-#    define DAL_CURVE_PHASE_A_NATIVE_AAD 1
-#else
-#    define DAL_CURVE_PHASE_A_NATIVE_AAD 0
-#endif
-
-    // CP1 stores the LOG_DISCOUNT calibration Jacobian dense and assembles sparse. The method
+    // Stores the LOG_DISCOUNT calibration Jacobian dense and assembles sparse. The method
     // bodies mirror XJDense_ (dal-cpp/dal/math/optimization/underdetermined.cpp) -- the storage
     // is dense regardless of how the matrix is filled, so the sparse-vs-banded optimization is
     // a follow-up once the assembly is validated against central differences. Declared in Dal::
@@ -245,7 +230,6 @@ namespace Dal {
             }
         }
 
-#if DAL_CURVE_PHASE_A_NATIVE_AAD
         // Phase A templated curve builder. Handles ONLY LOG_DISCOUNT -- the only parameterization
         // the AAD path supports. The other parameterizations REQUIRE(false) in the Number_
         // instantiation; this is unreachable because EligibleForPhaseA rejects non-LOG_DISCOUNT
@@ -293,7 +277,6 @@ namespace Dal {
             for (auto it = tape.nodes_.Begin(); it != tape.nodes_.End(); ++it)
                 it->Adjoint() = 0.0;
         }
-#endif
 
         class YieldCurveCalibrationFunc_ : public Underdetermined::Function_ {
             String_ ccy_;
@@ -311,7 +294,6 @@ namespace Dal {
             bool calibrateDiscountCurve_;
             DayBasis_ liborBasis_;
             LogDfScheme_ logDfScheme_;
-            CurveJacobianMode_ jacobianMode_;
 
         public:
             YieldCurveCalibrationFunc_(const String_& ccy,
@@ -326,12 +308,10 @@ namespace Dal {
                                        const PeriodLength_& targetTenor,
                                        bool calibrateDiscountCurve,
                                        const DayBasis_& liborBasis,
-                                       LogDfScheme_ logDfScheme,
-                                       CurveJacobianMode_ jacobianMode)
+                                       LogDfScheme_ logDfScheme)
                 : ccy_(ccy), curveName_(curveName), parameterization_(parameterization), instruments_(instruments), knotDates_(knotDates),
                   discountCurves_(discountCurves), forwardCurves_(forwardCurves), baseCurve_(baseCurve), targetCollateral_(targetCollateral),
-                  targetTenor_(targetTenor), calibrateDiscountCurve_(calibrateDiscountCurve), liborBasis_(liborBasis), logDfScheme_(logDfScheme),
-                  jacobianMode_(jacobianMode) {
+                  targetTenor_(targetTenor), calibrateDiscountCurve_(calibrateDiscountCurve), liborBasis_(liborBasis), logDfScheme_(logDfScheme) {
                 Handle_<YieldCurve_> fundingYC;
                 if (!discountCurves_.empty())
                     fundingYC.reset(new CurveBlock_(curveName_, ccy_, discountCurves_, forwardCurves_, liborBasis_));
@@ -366,132 +346,41 @@ namespace Dal {
                 return CurveBlock_(curveName_, ccy_, discountCurves, forwardCurves, liborBasis_);
             }
 
-            // Sparse Jacobian (LOG_DISCOUNT free-node log-DF unknowns). Dispatch is a strict
-            // priority chain (see .claude/designs/aad-analytic-jacobian-selector-api.md §4.1):
-            //   BUMPED                -> return nullptr (solver dense-bumps).
-            //   AAD_TAPE              -> Phase A tape path if EligibleForPhaseA() and the native
-            //                            backend gate is open; otherwise NOTICE + fall through.
-            //   AAD_TAPE / ANALYTIC_* -> CP1 chain-rule path if parameterization_ == LOG_DISCOUNT;
-            //                            otherwise NOTICE + return nullptr (solver dense-bumps).
-            // The first eligible path wins. Phase A and CP1 are never both active for the same
-            // calibration; the analytic modes degrade gracefully (notice + fall back) rather than
-            // throwing -- the eligibility rules are subtle, and a NOTICE + correct result beats an
-            // exception. The residual is modelRate - marketRate, so dResidual_i/dx_j =
-            // dModelRate_i/dx_j (marketRate is constant, contributes nothing).
+            // Sparse Jacobian (LOG_DISCOUNT free-node log-DF unknowns). Returns the Phase A
+            // reverse-mode AAD Jacobian (native Number_ tape) when EligibleForPhaseA(); otherwise
+            // returns nullptr so the solver dense-bumps. The residual is modelRate - marketRate, so
+            // dResidual_i/dx_j = dModelRate_i/dx_j (marketRate is constant, contributes nothing).
             [[nodiscard]] Underdetermined::Jacobian_* Gradient(const Vector_<>& x, const Vector_<>& f) const override {
-                if (jacobianMode_ == CurveJacobianMode_::Value_::BUMPED)
-                    return nullptr;
-#if DAL_CURVE_PHASE_A_NATIVE_AAD
-                if (jacobianMode_ == CurveJacobianMode_::Value_::AAD_TAPE) {
-                    if (EligibleForPhaseA())
-                        return PhaseAJacobian_NativeAAD(x, f);
-                    // Ineligible: NOTICE was emitted by EligibleForPhaseA (names the offending
-                    // condition); fall through to the CP1 chain-rule path below.
-                }
-#else
-                if (jacobianMode_ == CurveJacobianMode_::Value_::AAD_TAPE) {
-                    NOTICE("AAD_TAPE Jacobian requires the native Number_ backend; external backend compiled in, "
-                           "falling back to ANALYTIC_LOG_DISCOUNT");
-                }
-#endif
-                if (parameterization_ != CurveParameterization_::Value_::LOG_DISCOUNT) {
-                    const String_ msg = String_("Analytic LOG_DISCOUNT Jacobian requested but parameterization is ")
-                                        + parameterization_.String() + "; falling back to bumped";
-                    NOTICE(msg);
-                    return nullptr;
-                }
-                Handle_<DiscountCurve_> dc(
-                    BuildDiscountCurve(curveName_, ccy_, parameterization_, logDfScheme_, knotDates_, x, liborBasis_, baseCurve_).release());
-                const auto* logDfCurve = dynamic_cast<const DiscountLogDF_*>(dc.get());
-                REQUIRE(logDfCurve != nullptr,
-                        "LOG_DISCOUNT analytic Jacobian requires a DiscountLogDF_ curve, got something else");
-
-                CurveBlock_ yc = YieldCurveWith(dc);
-                const YCInstrument_::Rate_::Target_ rateTarget =
-                    calibrateDiscountCurve_ ? YCInstrument_::Rate_::Target_::DISCOUNT : YCInstrument_::Rate_::Target_::FORECAST;
-
-                const int nRows = static_cast<int>(instruments_.size());
-                const int nCols = logDfCurve->NX();
-                Matrix_<> j(nRows, nCols, 0.0); // structural zeros stay exactly zero
-
-                for (int i = 0; i < nRows; ++i) {
-                    const auto dRateDdf = rates_[i]->DRateDDiscount(yc, rateTarget);
-                    if (dRateDdf.empty()) {
-                        const String_ fallbackMsg = String_("instrument '") + instruments_[i]->Name() + "' row "
-                                                    + String::FromInt(i)
-                                                    + " filled by DF-bump fallback (no analytic DRateDDiscount)";
-                        NOTICE(fallbackMsg);
-                        FillRowByDFBump(i, *logDfCurve, yc, &j);
-                        continue;
-                    }
-                    FillRowAnalytic(i, dRateDdf, *logDfCurve, &j);
-                }
-                return new XCurveJacobian_(std::move(j));
+                if (EligibleForPhaseA())
+                    return PhaseAJacobian_NativeAAD(x, f);
+                // Ineligible: NOTICE was emitted by EligibleForPhaseA (names the offending
+                // condition); return nullptr so the solver dense-bumps.
+                return nullptr;
             }
 
-            // Analytic per-row contribution: chain dRate/dDF(anchor, p) through DF(anchor, p) and
-            // the interpolation basis weights to obtain dRate/dx_j for each solver column j.
-            void FillRowAnalytic(int row,
-                                 const Vector_<pair<Date_, double>>& dRateDdf,
-                                 const DiscountLogDF_& curve,
-                                 Matrix_<>* j) const {
-                const Date_& anchor = curve.NodeDates().front();
-                for (const auto& [payDate, dRate_dD] : dRateDdf) {
-                    const double yfPay = liborBasis_(anchor, payDate, nullptr);
-                    const double dfPay = curve(anchor, payDate);
-                    for (const auto& [col, basisW] : curve.InterpBasisWeights(yfPay))
-                        (*j)(row, col) += dRate_dD * dfPay * basisW;
-                }
-            }
-
-            // Per-instrument DF-bump fallback (silent, in double). For each distinct knot column,
-            // bump that column's logDF by BUMP, re-evaluate (*rates_[row])(yc_bumped), and
-            // finite-difference the rate w.r.t. the log-DF. Fills j.Row(row) with the column
-            // sensitivities. Used only when DRateDDiscount returns empty.
-            void FillRowByDFBump(int row,
-                                 const DiscountLogDF_& baseCurve,
-                                 const YieldCurve_& yc,
-                                 Matrix_<>* j) const {
-                constexpr double BUMP = 1.0e-7; // one-sided step for the per-instrument fallback
-                const int nCols = baseCurve.NX();
-                const Vector_<> baseLogDF = baseCurve.NodeLogDF();
-                const Vector_<Date_> knotDates = baseCurve.NodeDates();
-                const double baseRate = (*rates_[row])(yc);
-                for (int col = 0; col < nCols; ++col) {
-                    Vector_<> bumpedLog = baseLogDF;
-                    bumpedLog[col + 1] += BUMP; // col is a solver column; storage node = col + 1
-                    std::unique_ptr<DiscountCurve_> bumped(NewDiscountLogDF(curveName_ + "_b", ccy_, knotDates, bumpedLog,
-                                                                            baseCurve.DayCount(), baseCurve.Scheme(), Handle_<DiscountCurve_>()));
-                    const double bumpedRate = (*rates_[row])(YieldCurveWith(Handle_<DiscountCurve_>(bumped.release())));
-                    (*j)(row, col) = (bumpedRate - baseRate) / BUMP;
-                }
-            }
-
-#if DAL_CURVE_PHASE_A_NATIVE_AAD
             // Phase A eligibility predicate (per .claude/designs/aad-analytic-jacobian-selector-api.md
             // §4.2). Returns true iff every Phase A constraint is satisfied. The predicate is a
             // pure query over ctor-stored state and NEVER throws -- ineligibility routes through
-            // the strict priority chain (NOTICE + fall back to CP1, which itself may fall back to
-            // bumped) instead of failing. Each fall-through path emits a NOTICE that names the
-            // offending condition so the user can see why AAD_TAPE did not engage.
+            // a NOTICE + return nullptr (solver dense-bumps) instead of failing. Each fall-through
+            // path emits a NOTICE that names the offending condition so the user can see why the
+            // AAD Jacobian did not engage.
             [[nodiscard]] bool EligibleForPhaseA() const {
                 if (parameterization_ != CurveParameterization_::Value_::LOG_DISCOUNT) {
-                    const String_ msg = String_("AAD_TAPE Jacobian requires CurveParameterization_::LOG_DISCOUNT, got ")
-                                        + parameterization_.String() + "; falling back to ANALYTIC_LOG_DISCOUNT";
+                    const String_ msg = String_("AAD Jacobian requires CurveParameterization_::LOG_DISCOUNT, got ")
+                                        + parameterization_.String() + "; falling back to bumped";
                     NOTICE(msg);
                     return false;
                 }
                 if (!calibrateDiscountCurve_) {
-                    NOTICE("AAD_TAPE Jacobian requires DISCOUNT-target calibration "
-                           "(calibrateDiscountCurve_ == true); falling back to ANALYTIC_LOG_DISCOUNT");
+                    NOTICE("AAD Jacobian requires DISCOUNT-target calibration "
+                           "(calibrateDiscountCurve_ == true); falling back to bumped");
                     return false;
                 }
                 // Every instrument must (a) be a type Phase A has a templated rate for, and
                 // (b) not use a projection curve (forecast == discount). The tradeDate == anchor
                 // check is folded in: a Swap_ with tradeDate != knotDates_.front() is structurally
                 // fine for Phase A (the templated SwapRateT_ reads DF(tradeDate_, p) directly), but
-                // matches the CP1 convention by requiring the same anchor alignment so the AAD and
-                // CP1 paths share an invariance.
+                // requires anchor alignment so every instrument starts at knotDates_.front().
                 for (int i = 0; i < static_cast<int>(instruments_.size()); ++i) {
                     const auto* inst = instruments_[i].get();
                     const String_ name = inst->Name();
@@ -500,8 +389,8 @@ namespace Dal {
                     const auto* future = deposit ? nullptr : dynamic_cast<const Future_*>(inst);
                     const auto* swap = (deposit || fra || future) ? nullptr : dynamic_cast<const Swap_*>(inst);
                     if (!deposit && !fra && !future && !swap) {
-                        const String_ msg = String_("AAD_TAPE Jacobian has no templated rate for instrument '")
-                                            + name + "'; falling back to ANALYTIC_LOG_DISCOUNT";
+                        const String_ msg = String_("AAD Jacobian has no templated rate for instrument '")
+                                            + name + "'; falling back to bumped";
                         NOTICE(msg);
                         return false;
                     }
@@ -511,9 +400,9 @@ namespace Dal {
                                                               : swap     ? &swap->FloatConvention()
                                                                          : nullptr;
                     if (floatConv && floatConv->useProjectionCurve_) {
-                        const String_ msg = String_("AAD_TAPE Jacobian requires forecast==discount for every "
+                        const String_ msg = String_("AAD Jacobian requires forecast==discount for every "
                                                     "instrument; instrument '")
-                                            + name + "' uses a projection curve, falling back to ANALYTIC_LOG_DISCOUNT";
+                                            + name + "' uses a projection curve, falling back to bumped";
                         NOTICE(msg);
                         return false;
                     }
@@ -523,9 +412,9 @@ namespace Dal {
                     // instrument to start at the anchor (knotDates_.front()).
                     const auto span = inst->TimeSpan();
                     if (span.first != knotDates_.front()) {
-                        const String_ msg = String_("AAD_TAPE Jacobian requires every instrument to start at the "
+                        const String_ msg = String_("AAD Jacobian requires every instrument to start at the "
                                                     "curve anchor; instrument '")
-                                            + name + "' does not, falling back to ANALYTIC_LOG_DISCOUNT";
+                                            + name + "' does not, falling back to bumped";
                         NOTICE(msg);
                         return false;
                     }
@@ -555,10 +444,8 @@ namespace Dal {
                     return s->PrecomputeT<T_>();
                 return Handle_<YCInstrument_::RateT_<T_>>();
             }
-#endif
         };
 
-#if DAL_CURVE_PHASE_A_NATIVE_AAD
         // Phase A body. The structure mirrors .claude/designs/aad-analytic-jacobian-phase-a-plan.md
         // §3.2: TapeGuard on entry/exit, build Number_-typed curve, build Number_-typed rates via
         // PrecomputeT<Number_>, compute residuals, single-result reverse loop. The column map is
@@ -611,7 +498,6 @@ namespace Dal {
             }
             return new XCurveJacobian_(std::move(j));
         }
-#endif
 
         Vector_<> ModelRates(const Vector_<Handle_<YCInstrument_>>& instruments, const YieldCurve_& curve, const Handle_<YieldCurve_>& fundingCurve) {
             Vector_<> modelRates(instruments.size());
@@ -772,7 +658,7 @@ namespace Dal {
 
         YieldCurveCalibrationFunc_ func(spec.ccy_, spec.curveName_, spec.parameterization_, instruments, knotDates, spec.discountCurves_,
                                         spec.forwardCurves_, spec.baseCurve_, spec.targetCollateral_, spec.targetTenor_, spec.calibrateDiscountCurve_,
-                                        spec.liborBasis_, spec.logDfScheme_, spec.jacobianMode_);
+                                        spec.liborBasis_, spec.logDfScheme_);
         Vector_<> result;
         Matrix_<> effJacobianInverse;
         if (spec.solveMode_ == CurveSolveMode_::Value_::EXACT) {
@@ -831,8 +717,7 @@ namespace Dal {
             const Vector_<Date_> knotDates = BuildCurveCalibrationKnots(spec.today_, instruments, spec.knotDates_, spec.knotPolicy_);
             YieldCurveCalibrationFunc_ func(spec.ccy_, spec.curveName_, spec.parameterization_, instruments, knotDates,
                                             spec.discountCurves_, spec.forwardCurves_, spec.baseCurve_, spec.targetCollateral_,
-                                            spec.targetTenor_, spec.calibrateDiscountCurve_, spec.liborBasis_, spec.logDfScheme_,
-                                            spec.jacobianMode_);
+                                            spec.targetTenor_, spec.calibrateDiscountCurve_, spec.liborBasis_, spec.logDfScheme_);
             const Vector_<> f = func.F(x);
             std::unique_ptr<Underdetermined::Jacobian_> j(func.Gradient(x, f));
             Matrix_<> retval;

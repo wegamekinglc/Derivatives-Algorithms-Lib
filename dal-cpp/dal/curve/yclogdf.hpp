@@ -35,7 +35,7 @@ namespace Dal {
         // and is identical for any T_.
         Vector_<Vector_<>> fppCoef_;
         // For MIXED: index of the cutoff knot inside yf_ (set even when scheme is non-mixed, so
-        // InterpBasisWeights can dispatch without recomputing it). -1 when not applicable.
+        // StorageBasisWeightsAt can dispatch without recomputing it). -1 when not applicable.
         int mixedCutoffIndex_ = -1;
         double mixedCutoffYf_ = 0.0;
 
@@ -53,14 +53,9 @@ namespace Dal {
         // LOG_CUBIC_NATURAL extrapolation weights for yf > yf_.back() (secant extension of the
         // last segment): only the last two free nodes carry nonzero weight.
         [[nodiscard]] Vector_<std::pair<int, double>> CubicExtrapWeights(double yf) const;
-        // MIXED scheme per-segment dispatch: linear head up to mixedCutoffYf_, cubic tail beyond.
-        [[nodiscard]] Vector_<std::pair<int, double>> InterpBasisWeightsMixed(int k, double yf) const;
-        // Scheme-dispatched in-range basis weights on segment [yf_[k], yf_[k+1]].
-        [[nodiscard]] Vector_<std::pair<int, double>> InterpBasisWeightsByScheme(int k, double yf) const;
         // Knot-position-only (no logDF dependence) basis weights at query year-fraction yf, as
-        // (storage node index, weight) pairs. Used by both the Number_-typed LogDfAt forward path
-        // and the CP1 chain-rule Jacobian -- both need knot-position-only weights so the same code
-        // serves the analytic and AAD paths.
+        // (storage node index, weight) pairs. Used by the Number_-typed LogDfAt forward path to
+        // accumulate the basis weights against logDF_ on the tape.
         [[nodiscard]] Vector_<std::pair<int, double>> StorageBasisWeightsAt(double yf) const;
 
     public:
@@ -84,23 +79,6 @@ namespace Dal {
         [[nodiscard]] const DayBasis_& DayCount() const { return dayCount_; }
         [[nodiscard]] LogDfScheme_ Scheme() const { return scheme_; }
         [[nodiscard]] Vector_<> NodeDF() const;
-
-        // Interpolation basis weights at query year-fraction yf, indexed by FREE node (solver
-        // column) index. Returns the (column, weight) pairs whose support covers yf. Empty for
-        // yf < 0 (before the anchor; calibration forbids this) or when the curve cannot produce
-        // a meaningful Jacobian column (e.g. the curve has degenerate knots).
-        //
-        // For each returned pair (jFree, w):
-        //   dlogDF(yf) / dlogDF_(free node jFree) = w
-        //   dDF(anchor, dateAt(yf)) / dx[jFree]   = DF(anchor, dateAt(yf)) * w
-        //
-        // Storage node 0 (anchor, pinned at logDF = 0) is structurally zero and NEVER appears
-        // in the returned vector -- any (1-g) weight that would land on node 0 is dropped because
-        // the anchor logDF is a constant and its derivative contribution is zero.
-        //
-        // Defined only on the double alias (the CP1 chain-rule caller). The Number_ path uses the
-        // tape directly and does not call this method.
-        [[nodiscard]] Vector_<std::pair<int, double>> InterpBasisWeights(double yf) const;
     };
 
     using DiscountLogDF_ = DiscountLogDFT_<double>;

@@ -48,7 +48,7 @@ namespace {
 
     // 5-instrument vanilla-swap ladder on LOG_DISCOUNT. Anchor == today_, every swap starts at the
     // anchor, no projection curves, vanilla Swap_ only -- the Phase A eligible shape.
-    CurveCalibrationSpec_ MakePhaseASpec(CurveJacobianMode_ jacobianMode, LogDfScheme_ scheme = LogDfScheme_::Value_::LOG_LINEAR) {
+    CurveCalibrationSpec_ MakePhaseASpec(LogDfScheme_ scheme = LogDfScheme_::Value_::LOG_LINEAR) {
         CurveCalibrationSpec_ spec;
         spec.today_ = Date_(2022, 1, 1);
         spec.ccy_ = "USD";
@@ -60,7 +60,6 @@ namespace {
         spec.tolerance_ = 1.0e-10;
         spec.fitTolerance_ = 1.0e-8;
         spec.smoothingWeight_ = 1.0;
-        spec.jacobianMode_ = jacobianMode;
         spec.logDfScheme_ = scheme;
 
         spec.knotDates_ = {
@@ -145,7 +144,7 @@ namespace {
 // 1e-6 within 1e-9.
 
 TEST(PhaseAAADJacobianTest, TestMatchesCentralDifferenceLogLinear) {
-    auto spec = MakePhaseASpec(CurveJacobianMode_::Value_::AAD_TAPE, LogDfScheme_::Value_::LOG_LINEAR);
+    auto spec = MakePhaseASpec(LogDfScheme_::Value_::LOG_LINEAR);
     const Vector_<> x = {-0.005, -0.012, -0.025, -0.04, -0.06};
     ASSERT_EQ(static_cast<int>(x.size()), 5);
     const Matrix_<> J = TestOnly::AnalyticJacobianAt(spec, x);
@@ -180,7 +179,7 @@ TEST(PhaseAAADJacobianTest, TestMatchesCentralDifferenceLogLinear) {
 // cashflow support.
 
 TEST(PhaseAAADJacobianTest, TestStructuralZerosAreExactlyZero) {
-    auto spec = MakePhaseASpec(CurveJacobianMode_::Value_::AAD_TAPE);
+    auto spec = MakePhaseASpec();
     const Vector_<> x = {-0.005, -0.012, -0.025, -0.04, -0.06};
     const Matrix_<> J = TestOnly::AnalyticJacobianAt(spec, x);
     ASSERT_EQ(J.Rows(), 5);
@@ -193,80 +192,59 @@ TEST(PhaseAAADJacobianTest, TestStructuralZerosAreExactlyZero) {
 }
 
 // ============================================================================
-// Category 3: Solve equivalence -- AAD_TAPE and BUMPED agree node-by-node
+// Category 3: Solve convergence -- the AAD-tape Jacobian drives the solver to a fit
 // ============================================================================
-// The calibrated node log(DF) vectors must agree within 1e-8. We do NOT assert
-// iteration count (linesearch varies), only that the residual converges.
+// We do NOT assert iteration count (linesearch varies), only that the residual converges.
 
-TEST(PhaseAAADJacobianTest, TestSolveMatchesBumpedLogLinear) {
-    auto specBumped = MakePhaseASpec(CurveJacobianMode_::Value_::BUMPED);
-    auto specAAD = MakePhaseASpec(CurveJacobianMode_::Value_::AAD_TAPE);
+TEST(PhaseAAADJacobianTest, TestSolveConvergesLogLinear) {
+    auto specAAD = MakePhaseASpec();
 
-    const auto rBumped = CalibrateYieldCurve(specBumped);
     const auto rAAD = CalibrateYieldCurve(specAAD);
 
-    ASSERT_LT(rBumped.diagnostics_.maxAbsResidual_, 1.0e-7);
     ASSERT_LT(rAAD.diagnostics_.maxAbsResidual_, 1.0e-7);
 
-    const auto* cBumped = dynamic_cast<const DiscountLogDF_*>(rBumped.curve_.get());
     const auto* cAAD = dynamic_cast<const DiscountLogDF_*>(rAAD.curve_.get());
-    ASSERT_NE(cBumped, nullptr);
     ASSERT_NE(cAAD, nullptr);
-
-    const auto logBumped = cBumped->NodeLogDF();
-    const auto logAAD = cAAD->NodeLogDF();
-    ASSERT_EQ(logBumped.size(), logAAD.size());
-    for (int i = 0; i < static_cast<int>(logBumped.size()); ++i)
-        ASSERT_NEAR(logAAD[i], logBumped[i], 1.0e-8) << "node " << i;
+    ASSERT_EQ(static_cast<int>(cAAD->NodeLogDF().size()), 6);
 }
 
 // ============================================================================
-// Category 4: Ineligibility -- AAD_TAPE silently falls back to CP1 with NOTICE
+// Category 4: Ineligibility -- the AAD Jacobian falls back to bumping with a NOTICE
 // ============================================================================
-// Phase A is ineligible for non-LOG_DISCOUNT parameterizations. The override
-// returns nullptr (the path falls through to bumped), and a NOTICE fires. We
-// cannot easily assert the NOTICE text from a unit test, but we CAN assert the
-// fallback behavior: TestOnly::AnalyticJacobianAt returns an EMPTY matrix for
-// AAD_TAPE on a non-LOG_DISCOUNT spec (the dispatch falls through to bumped).
+// Phase A is ineligible for non-LOG_DISCOUNT parameterizations. EligibleForPhaseA
+// returns false, Gradient returns nullptr (the solver dense-bumps), and a NOTICE
+// fires. We cannot easily assert the NOTICE text from a unit test, but we CAN assert
+// the fallback behavior: TestOnly::AnalyticJacobianAt returns an EMPTY matrix on a
+// non-LOG_DISCOUNT spec (Gradient returned nullptr).
 
 TEST(PhaseAAADJacobianTest, TestIneligibleParameterizationFallsBack) {
-    auto spec = MakePhaseASpec(CurveJacobianMode_::Value_::AAD_TAPE);
+    auto spec = MakePhaseASpec();
     spec.parameterization_ = CurveParameterization_::Value_::PIECEWISE_LINEAR_FWD;
     // Knot 0 must be > today for non-LOG_DISCOUNT.
     spec.knotDates_[0] = Date_(2022, 4, 1);
     // PLF needs x of size 2 * nKnots = 12
     const Vector_<> x(12, -0.005);
     const Matrix_<> J = TestOnly::AnalyticJacobianAt(spec, x);
-    ASSERT_EQ(J.Rows(), 0); // empty -> AAD_TAPE fell through to bumped
+    ASSERT_EQ(J.Rows(), 0); // empty -> ineligible, solver dense-bumps
     ASSERT_EQ(J.Cols(), 0);
 }
 
-// A FORECAST-target calibration (calibrateDiscountCurve_ == false) is ineligible for Phase A.
-// AAD_TAPE must fall through to the CP1 chain-rule path with a NOTICE; the result must match
-// what ANALYTIC_LOG_DISCOUNT would produce on the same spec (both engage CP1). We assert the
-// two Jacobians agree entry-by-entry, which is the observable contract of the fall-through.
-TEST(PhaseAAADJacobianTest, TestIneligibleForecastTargetFallsBackToCP1) {
-    auto makeSpec = [](CurveJacobianMode_ mode) {
-        auto spec = MakePhaseASpec(mode);
-        spec.calibrateDiscountCurve_ = false;
-        spec.targetTenor_ = PeriodLength_("3M");
-        Vector_<> baseLogDF(spec.knotDates_.size(), 0.0);
-        for (int i = 1; i < static_cast<int>(spec.knotDates_.size()); ++i)
-            baseLogDF[i] = -0.02 * (i * 0.25);
-        spec.discountCurves_[spec.targetCollateral_] = Handle_<DiscountCurve_>(
-            NewDiscountLogDF("base", spec.ccy_, spec.knotDates_, baseLogDF, spec.liborBasis_, spec.logDfScheme_));
-        return spec;
-    };
+// A FORECAST-target calibration (calibrateDiscountCurve_ == false) is ineligible for the AAD
+// Jacobian. EligibleForPhaseA returns false, Gradient returns nullptr, and
+// TestOnly::AnalyticJacobianAt returns an EMPTY matrix (the solver dense-bumps instead).
+TEST(PhaseAAADJacobianTest, TestIneligibleForecastTargetFallsBack) {
+    auto spec = MakePhaseASpec();
+    spec.calibrateDiscountCurve_ = false;
+    spec.targetTenor_ = PeriodLength_("3M");
+    Vector_<> baseLogDF(spec.knotDates_.size(), 0.0);
+    for (int i = 1; i < static_cast<int>(spec.knotDates_.size()); ++i)
+        baseLogDF[i] = -0.02 * (i * 0.25);
+    spec.discountCurves_[spec.targetCollateral_] = Handle_<DiscountCurve_>(
+        NewDiscountLogDF("base", spec.ccy_, spec.knotDates_, baseLogDF, spec.liborBasis_, spec.logDfScheme_));
     const Vector_<> x = {-0.005, -0.012, -0.025, -0.04, -0.06};
-    const Matrix_<> J_aad = TestOnly::AnalyticJacobianAt(makeSpec(CurveJacobianMode_::Value_::AAD_TAPE), x);
-    const Matrix_<> J_cp1 = TestOnly::AnalyticJacobianAt(makeSpec(CurveJacobianMode_::Value_::ANALYTIC_LOG_DISCOUNT), x);
-    // Both must be non-empty (CP1 engaged) and identical (AAD_TAPE fell through to CP1).
-    ASSERT_EQ(J_aad.Rows(), J_cp1.Rows());
-    ASSERT_EQ(J_aad.Cols(), J_cp1.Cols());
-    ASSERT_GT(J_aad.Rows(), 0);
-    for (int r = 0; r < J_aad.Rows(); ++r)
-        for (int c = 0; c < J_aad.Cols(); ++c)
-            ASSERT_NEAR(J_aad(r, c), J_cp1(r, c), 1e-12);
+    const Matrix_<> J = TestOnly::AnalyticJacobianAt(spec, x);
+    ASSERT_EQ(J.Rows(), 0); // empty -> ineligible, solver dense-bumps
+    ASSERT_EQ(J.Cols(), 0);
 }
 
 // ============================================================================
@@ -277,7 +255,7 @@ TEST(PhaseAAADJacobianTest, TestIneligibleForecastTargetFallsBackToCP1) {
 // call reproduces the first exactly.
 
 TEST(PhaseAAADJacobianTest, TestTapeIsolationAcrossCalls) {
-    auto spec = MakePhaseASpec(CurveJacobianMode_::Value_::AAD_TAPE);
+    auto spec = MakePhaseASpec();
     const Vector_<> x = {-0.005, -0.012, -0.025, -0.04, -0.06};
     const Matrix_<> J1 = TestOnly::AnalyticJacobianAt(spec, x);
     const Matrix_<> J2 = TestOnly::AnalyticJacobianAt(spec, x);
@@ -297,13 +275,13 @@ TEST(PhaseAAADJacobianTest, TestTapeIsolationAcrossCalls) {
 // mixed-cutoff spline branches of the AAD path.
 
 TEST(PhaseAAADJacobianTest, TestMatchesCentralDifferenceLogCubicNatural) {
-    auto spec = MakePhaseASpec(CurveJacobianMode_::Value_::AAD_TAPE, LogDfScheme_::Value_::LOG_CUBIC_NATURAL);
+    auto spec = MakePhaseASpec(LogDfScheme_::Value_::LOG_CUBIC_NATURAL);
     const Vector_<> x = {-0.005, -0.012, -0.025, -0.04, -0.06};
     AssertMatchesCentralDifference(spec, x, 1.0e-6, 1.0e-9);
 }
 
 TEST(PhaseAAADJacobianTest, TestMatchesCentralDifferenceMixed) {
-    auto spec = MakePhaseASpec(CurveJacobianMode_::Value_::AAD_TAPE, LogDfScheme_::Value_::MIXED);
+    auto spec = MakePhaseASpec(LogDfScheme_::Value_::MIXED);
     const Vector_<> x = {-0.005, -0.012, -0.025, -0.04, -0.06};
     AssertMatchesCentralDifference(spec, x, 1.0e-6, 1.0e-9);
 }
@@ -329,7 +307,6 @@ TEST(PhaseAAADJacobianTest, TestSingleDepositTapeMatchesCentralDifference) {
     spec.tolerance_ = 1.0e-10;
     spec.fitTolerance_ = 1.0e-8;
     spec.smoothingWeight_ = 1.0;
-    spec.jacobianMode_ = CurveJacobianMode_::Value_::AAD_TAPE;
     spec.logDfScheme_ = LogDfScheme_::Value_::LOG_LINEAR;
 
     spec.knotDates_ = {
@@ -376,7 +353,6 @@ TEST(PhaseAAADJacobianTest, TestMixedInstrumentCalibrationMatchesCentralDifferen
     spec.tolerance_ = 1.0e-10;
     spec.fitTolerance_ = 1.0e-8;
     spec.smoothingWeight_ = 1.0;
-    spec.jacobianMode_ = CurveJacobianMode_::Value_::AAD_TAPE;
     spec.logDfScheme_ = LogDfScheme_::Value_::LOG_LINEAR;
 
     spec.knotDates_ = {
@@ -391,8 +367,8 @@ TEST(PhaseAAADJacobianTest, TestMixedInstrumentCalibrationMatchesCentralDifferen
     spec.instruments_ = {
         // Deposit 3M -> cashflow at 2022-04-01 (column 0).
         Handle_<YCInstrument_>(new Deposit_(spec.today_, spec.today_, Date_(2022, 4, 1), 0.011, idx)),
-        // FRA 3x6 -> cashflows at 2022-04-01 and 2022-07-01 (columns 0..1).
-        Handle_<YCInstrument_>(new FRA_(spec.today_, Date_(2022, 4, 1), Date_(2022, 7, 1), 0.012, idx)),
+        // FRA at anchor -> 6M fixing, cashflow at 2022-07-01 (column 1).
+        Handle_<YCInstrument_>(new FRA_(spec.today_, spec.today_, Date_(2022, 7, 1), 0.012, idx)),
         // Swap 3Y -> cashflows through 2025-01-01 (columns 0..4).
         Handle_<YCInstrument_>(new Swap_(spec.today_, spec.today_, Date_(2025, 1, 1), 0.018, fixedLeg, idx, floatLeg)),
     };

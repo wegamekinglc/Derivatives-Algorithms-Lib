@@ -2,8 +2,6 @@
 // Created by wegam on 2026/4/19.
 //
 
-#include <map>
-#include <set>
 #include <dal/platform/platform.hpp>
 #include <dal/platform/strict.hpp>
 #include <dal/curve/curveblock.hpp>
@@ -92,150 +90,6 @@ namespace Dal {
             return retval;
         }
 
-        // Helper: detect whether the trade-date of a swap/basis-swap equals the discount curve's
-        // anchor. We treat this as "the anchor is reachable as tradeDate_"; for tradeDate != anchor
-        // the override returns empty and the bumped fallback engages.
-        //
-        // We need the discount curve's anchor date. DiscountLogDF_ exposes NodeDates(); we use
-        // dynamic_cast. If the target is not a DiscountLogDF_, we return false (conservative --
-        // forces the fallback).
-        bool TradeDateIsAnchor(const DiscountCurve_& dc, const Date_& tradeDate) {
-            const auto* logDf = dynamic_cast<const DiscountLogDF_*>(&dc);
-            if (logDf == nullptr)
-                return false;
-            return logDf->NodeDates().front() == tradeDate;
-        }
-
-        // Get the discount curve's anchor date, or empty if the curve is not a DiscountLogDF_.
-        // The anchor is the curve's node-0 date -- the pinned logDF=0 reference.
-        Handle_<Date_> CurveAnchor(const DiscountCurve_& dc) {
-            const auto* logDf = dynamic_cast<const DiscountLogDF_*>(&dc);
-            if (logDf == nullptr)
-                return Handle_<Date_>();
-            return Handle_<Date_>(new Date_(logDf->NodeDates().front()));
-        }
-
-        // Per-fixing primal value and anchor-DF derivatives for the Ibor-style fixing
-        //   fixing = (D_s/D_m - 1)/yf,   with D_s = DF(anchor, s), D_m = DF(anchor, m).
-        // Quotient rule collapses to dFixing/dD_s = 1/(yf*D_m), dFixing/dD_m = -D_s/(yf*D_m^2).
-        // yf <= 0 (degenerate stub) yields zero derivatives and a primal of 0; the caller must
-        // decide whether to use the returned fixing -- for the legs we touch this matches the
-        // operator() ForwardRate shape exactly (ForwardRate divides by yf, so yf=0 is undefined
-        // upstream and never reached here for a calibrated curve).
-        struct FixingDecomp_ {
-            double fixing_;
-            double dFixing_dDs_;
-            double dFixing_dDm_;
-        };
-
-        FixingDecomp_ DecomposeFixing(double Ds, double Dm, double yf) {
-            if (yf <= 0.0)
-                return {0.0, 0.0, 0.0};
-            return {(Ds / Dm - 1.0) / yf, 1.0 / (yf * Dm), -Ds / (yf * Dm * Dm)};
-        }
-
-        // Accumulate a float leg into pv and per-anchor-date derivative map. tradeDate == anchor
-        // (caller has already enforced), so DF(anchor, p) = D_p and its anchor-DF derivative is 1
-        // on date p; the fixing contributes anchor-DF derivatives on s and m. Each period adds
-        // fixing * dcf * DF(anchor, p) to pv, and the matching three contributions to dPvDanchor.
-        void AccumulateFloatLeg(const DiscountCurve_& discount,
-                                const Date_& tradeDate,
-                                const Vector_<CouponPeriod_>& periods,
-                                const DayBasis_& dayBasis,
-                                double* pv,
-                                std::map<Date_, double>* dPvDanchor) {
-            for (const auto& period : periods) {
-                const double dcf = period.accrual_.dcf_;
-                const Date_& s = period.schedule_.accrualStart_;
-                const Date_& m = period.schedule_.accrualEnd_;
-                const Date_& p = period.schedule_.paymentDate_;
-                const double yf = dayBasis(s, m, period.schedule_.dayCountContext_.get());
-                const double Dm = discount(tradeDate, m);
-                const double Ds = discount(tradeDate, s);
-                const FixingDecomp_ f = DecomposeFixing(Ds, Dm, yf);
-                const double dfTradeP = discount(tradeDate, p);
-                *pv += f.fixing_ * dcf * dfTradeP;
-                (*dPvDanchor)[s] += f.dFixing_dDs_ * dcf * dfTradeP;
-                (*dPvDanchor)[m] += f.dFixing_dDm_ * dcf * dfTradeP;
-                (*dPvDanchor)[p] += f.fixing_ * dcf; // dDF(anchor, p)/dD_p = 1 when trade=anchor
-            }
-        }
-
-        // Accumulate a fixed-leg annuity: sum dcf * DF(anchor, p) into annuity and the matching
-        // per-date dAnnuity/dD_p = dcf contributions into dAnnuityDanchor. tradeDate == anchor
-        // is assumed (caller-enforced).
-        void AccumulateFixedAnnuity(const DiscountCurve_& discount,
-                                    const Date_& tradeDate,
-                                    const Vector_<CouponPeriod_>& periods,
-                                    double* annuity,
-                                    std::map<Date_, double>* dAnnuityDanchor) {
-            for (const auto& period : periods) {
-                const double dcf = period.accrual_.dcf_;
-                const Date_& p = period.schedule_.paymentDate_;
-                *annuity += dcf * discount(tradeDate, p);
-                (*dAnnuityDanchor)[p] += dcf;
-            }
-        }
-
-        // Union of the key sets of two derivative maps. Used by QuotientDerivs to walk every date
-        // that either leg touched without duplicating the two-loop union at every call site.
-        std::set<Date_> UnionDerivKeys(const std::map<Date_, double>& lhs, const std::map<Date_, double>& rhs) {
-            std::set<Date_> out;
-            for (const auto& [d, _] : lhs)
-                out.insert(d);
-            for (const auto& [d, _] : rhs)
-                out.insert(d);
-            return out;
-        }
-
-        // Quotient rule on rate = numer / denom. For each date that appears in either derivative
-        // map, the weight is (dNumer * denom - numer * dDenom) / denom^2; drop exact zeros so the
-        // returned vector stays sparse. The caller supplies the numerator-scaled derivative map
-        // (e.g. for a swap, dNumer = dFloatPv; for a basis swap, dNumer = dReferencePv - dSpreadBasePv
-        // precomputed into a single map).
-        Vector_<pair<Date_, double>> QuotientDerivs(double numer,
-                                                    double denom,
-                                                    const std::map<Date_, double>& dNumerDanchor,
-                                                    const std::map<Date_, double>& dDenomDanchor) {
-            const std::set<Date_> allDates = UnionDerivKeys(dNumerDanchor, dDenomDanchor);
-            Vector_<pair<Date_, double>> retval;
-            retval.reserve(allDates.size());
-            const double denomSq = denom * denom;
-            for (const auto& d : allDates) {
-                const double dN = dNumerDanchor.count(d) ? dNumerDanchor.at(d) : 0.0;
-                const double dD = dDenomDanchor.count(d) ? dDenomDanchor.at(d) : 0.0;
-                const double w = (dN * denom - numer * dD) / denomSq;
-                if (w != 0.0)
-                    retval.emplace_back(d, w);
-            }
-            return retval;
-        }
-
-        // Subtract one anchor-date derivative map from another, returning the per-date difference.
-        // Used to fold a basis swap's (reference - spreadBase) numerator derivative into a single
-        // map before the quotient rule.
-        std::map<Date_, double> SubtractDerivMaps(const std::map<Date_, double>& lhs, const std::map<Date_, double>& rhs) {
-            std::map<Date_, double> out = lhs;
-            for (const auto& [d, v] : rhs)
-                out[d] -= v;
-            return out;
-        }
-
-        // Common guard for single-fixing instruments (Deposit, FRA, Future): the analytic
-        // derivative engages only when the target slot is DISCOUNT and the forecast curve
-        // resolves to the discount curve. Returns the resolved discount curve reference, or
-        // nullptr if the guard fails (caller should return empty in that case).
-        const DiscountCurve_* ResolveDiscountIfEligible(const YieldCurve_& yc,
-                                                        const Handle_<YieldCurve_>& fallback,
-                                                        YCInstrument_::Rate_::Target_ target,
-                                                        const RateIndexConvention_& convention) {
-            if (target != YCInstrument_::Rate_::Target_::DISCOUNT || convention.useProjectionCurve_)
-                return nullptr;
-            const DiscountCurve_& fc = ResolveForecastCurve(yc, fallback, convention);
-            const DiscountCurve_& discount = ResolveDiscountCurve(yc, fallback, convention.collateral_);
-            return (&fc == &discount) ? &discount : nullptr;
-        }
-
         class DepositRate_ : public YCInstrument_::Rate_ {
             Date_ start_;
             Date_ maturity_;
@@ -261,37 +115,6 @@ namespace Dal {
                                    period.accrualEnd_,
                                    convention_.dayBasis_,
                                    period.dayCountContext_);
-            }
-
-            // rate r = (1/DF(s,m) - 1)/yf, where DF(s,m) = D_m/D_s and D_t = DF(target, anchor, t).
-            // Treating yf as constant: dr/dD_s = 1/(yf*D_m), dr/dD_m = -D_s/(yf*D_m^2).
-            // Convexity adjustment is a constant (zero for deposits) and contributes no derivative.
-            //
-            // Only the calibrated TARGET curve's DFs appear; other curves in the YieldCurve_ are
-            // treated as constant. The override supports only DISCOUNT-target calibrations where
-            // the forecast curve resolves to the discount curve (useProjectionCurve_ == false).
-            [[nodiscard]] Vector_<pair<Date_, double>>
-            DRateDDiscount(const YieldCurve_& yc, Target_ target) const override {
-                const DiscountCurve_* discount = ResolveDiscountIfEligible(yc, fallback_, target, convention_);
-                if (discount == nullptr)
-                    return {};
-                Handle_<Date_> anchor = CurveAnchor(*discount);
-                if (anchor.IsEmpty())
-                    return {};
-                const Date_ accrualStart = Holidays::Adjust(convention_.accrualHolidays_, start_, convention_.businessDayConvention_);
-                const Date_ accrualEnd = Holidays::Adjust(convention_.accrualHolidays_, maturity_, convention_.businessDayConvention_);
-                const auto ctx = SinglePeriodContext(start_, maturity_, CouponMonths(start_, maturity_));
-                const double yf = convention_.dayBasis_(accrualStart, accrualEnd, ctx.get());
-                if (yf <= 0.0)
-                    return {};
-                const double Ds = (*discount)(*anchor, accrualStart);
-                const double Dm = (*discount)(*anchor, accrualEnd);
-                const FixingDecomp_ f = DecomposeFixing(Ds, Dm, yf);
-                Vector_<pair<Date_, double>> retval;
-                retval.reserve(2);
-                retval.emplace_back(accrualStart, f.dFixing_dDs_);
-                retval.emplace_back(accrualEnd, f.dFixing_dDm_);
-                return retval;
             }
         };
 
@@ -330,33 +153,6 @@ namespace Dal {
                                    period.accrualEnd_,
                                    convention_.dayBasis_,
                                    period.dayCountContext_) - convexityAdjustment_;
-            }
-
-            // Same shape as DepositRate_ -- the convexity adjustment is constant.
-            [[nodiscard]] Vector_<pair<Date_, double>>
-            DRateDDiscount(const YieldCurve_& yc, Target_ target) const override {
-                const DiscountCurve_* discount = ResolveDiscountIfEligible(yc, fallback_, target, convention_);
-                if (discount == nullptr)
-                    return {};
-                Handle_<Date_> anchor = CurveAnchor(*discount);
-                if (anchor.IsEmpty())
-                    return {};
-                const Date_ accrualStart = Holidays::Adjust(convention_.accrualHolidays_, start_, convention_.businessDayConvention_);
-                const Date_ accrualEnd = Holidays::Adjust(convention_.accrualHolidays_, maturity_, convention_.businessDayConvention_);
-                const auto ctx = SinglePeriodContext(start_,
-                                                     maturity_,
-                                                     convention_.useProjectionCurve_ ? convention_.forecastTenor_.Months() : CouponMonths(start_, maturity_));
-                const double yf = convention_.dayBasis_(accrualStart, accrualEnd, ctx.get());
-                if (yf <= 0.0)
-                    return {};
-                const double Ds = (*discount)(*anchor, accrualStart);
-                const double Dm = (*discount)(*anchor, accrualEnd);
-                const FixingDecomp_ f = DecomposeFixing(Ds, Dm, yf);
-                Vector_<pair<Date_, double>> retval;
-                retval.reserve(2);
-                retval.emplace_back(accrualStart, f.dFixing_dDs_);
-                retval.emplace_back(accrualEnd, f.dFixing_dDm_);
-                return retval;
             }
         };
 
@@ -398,42 +194,6 @@ namespace Dal {
                 }
                 return floatPv / annuity;
             }
-
-            // Quotient rule: rate = floatPv / annuity.
-            // dRate/dDF(target, t) = (dFloatPv/dDF(t) * annuity - floatPv * dAnnuity/dDF(t)) / annuity^2.
-            // The fixed leg contributes annuity only; each payment p has dAnnuity/dDF(target, anchor, p) =
-            // dcf * dDF(target, trade, p)/dDF(target, anchor, p) = dcf / DF(target, anchor, trade).
-            // When tradeDate == anchor, DF(target, anchor, trade) = 1 and the contribution simplifies.
-            // The float leg's fixings carry fixing_k = (D_s_k/D_m_k - 1)/yf_k which differentiates to
-            // two anchor-DF terms per fixing (accrualStart, accrualEnd), plus the payment-date DF.
-            //
-            // Only the calibrated TARGET curve's DFs appear; other curves are constant.
-            [[nodiscard]] Vector_<pair<Date_, double>>
-            DRateDDiscount(const YieldCurve_& yc, Target_ target) const override {
-                if (target != Target_::DISCOUNT || floatIndexConvention_.useProjectionCurve_)
-                    return {};
-                const DiscountCurve_& discount = ResolveDiscountCurve(yc, fallback_, floatIndexConvention_.collateral_);
-                const DiscountCurve_& forecast = ResolveForecastCurve(yc, fallback_, floatIndexConvention_);
-                if (&forecast != &discount)
-                    return {};
-                if (!TradeDateIsAnchor(discount, tradeDate_))
-                    return {}; // CP1 supports only tradeDate == anchor
-
-                std::map<Date_, double> dAnnuityDanchor;
-                double annuity = 0.0;
-                AccumulateFixedAnnuity(discount, tradeDate_, fixedPeriods_, &annuity, &dAnnuityDanchor);
-                REQUIRE(annuity > 0.0, "Swap pricing requires positive fixed-leg annuity");
-
-                std::map<Date_, double> dFloatDanchor;
-                double floatPv = 0.0;
-                AccumulateFloatLeg(discount,
-                                   tradeDate_,
-                                   floatPeriods_,
-                                   floatIndexConvention_.dayBasis_,
-                                   &floatPv,
-                                   &dFloatDanchor);
-                return QuotientDerivs(floatPv, annuity, dFloatDanchor, dAnnuityDanchor);
-            }
         };
 
         class BasisSwapRate_ : public YCInstrument_::Rate_ {
@@ -443,25 +203,6 @@ namespace Dal {
             RateIndexConvention_ spreadIndexConvention_;
             RateIndexConvention_ referenceIndexConvention_;
             Handle_<YieldCurve_> fallback_;
-
-            // The analytic derivative engages only for DISCOUNT-target calibrations where neither
-            // leg uses a separate projection curve. Encapsulated so DRateDDiscount is a flat
-            // sequence of guards + accumulations.
-            [[nodiscard]] bool AnalyticEnabled(Target_ target) const {
-                return target == Target_::DISCOUNT && !spreadIndexConvention_.useProjectionCurve_
-                       && !referenceIndexConvention_.useProjectionCurve_;
-            }
-
-            // Resolve the calibrated discount curve, or return nullptr when either forecast curve
-            // does not resolve to it or the trade date is not the curve's anchor.
-            [[nodiscard]] const DiscountCurve_* EligibleDiscount(const YieldCurve_& yc) const {
-                const DiscountCurve_& discount = ResolveDiscountCurve(yc, fallback_, spreadIndexConvention_.collateral_);
-                const DiscountCurve_& spreadForecast = ResolveForecastCurve(yc, fallback_, spreadIndexConvention_);
-                const DiscountCurve_& referenceForecast = ResolveForecastCurve(yc, fallback_, referenceIndexConvention_);
-                if (&spreadForecast != &discount || &referenceForecast != &discount)
-                    return nullptr;
-                return TradeDateIsAnchor(discount, tradeDate_) ? &discount : nullptr;
-            }
         public:
             BasisSwapRate_(const Date_& tradeDate,
                            const Vector_<CouponPeriod_>& spreadPeriods,
@@ -507,45 +248,8 @@ namespace Dal {
 
                 return (referencePv - spreadBasePv) / spreadAnnuity;
             }
-
-            // Quotient rule on rate = (referencePv - spreadBasePv) / spreadAnnuity.
-            // Same shape as SwapRate_ but with three leg accumulations. The reference leg contributes
-            // only to the numerator (referencePv); the spread leg contributes to both numerator
-            // (spreadBasePv) and denominator (spreadAnnuity).
-            [[nodiscard]] Vector_<pair<Date_, double>>
-            DRateDDiscount(const YieldCurve_& yc, Target_ target) const override {
-                if (!AnalyticEnabled(target))
-                    return {};
-                const DiscountCurve_* discount = EligibleDiscount(yc);
-                if (discount == nullptr)
-                    return {};
-
-                std::map<Date_, double> dSpreadBaseDanchor, dSpreadAnnuityDanchor, dReferenceDanchor;
-                double spreadBasePv = 0.0, spreadAnnuity = 0.0, referencePv = 0.0;
-                // Spread leg: contributes to spreadBasePv (numerator) AND spreadAnnuity (denominator).
-                AccumulateFloatLeg(*discount,
-                                   tradeDate_,
-                                   spreadPeriods_,
-                                   spreadIndexConvention_.dayBasis_,
-                                   &spreadBasePv,
-                                   &dSpreadBaseDanchor);
-                AccumulateFixedAnnuity(*discount, tradeDate_, spreadPeriods_, &spreadAnnuity, &dSpreadAnnuityDanchor);
-                REQUIRE(spreadAnnuity > 0.0, "Basis swap pricing requires positive spread-leg annuity");
-                // Reference leg: contributes only to referencePv (numerator). No annuity contribution.
-                AccumulateFloatLeg(*discount,
-                                   tradeDate_,
-                                   referencePeriods_,
-                                   referenceIndexConvention_.dayBasis_,
-                                   &referencePv,
-                                   &dReferenceDanchor);
-                // numerator = referencePv - spreadBasePv; denominator = spreadAnnuity.
-                const double numer = referencePv - spreadBasePv;
-                const std::map<Date_, double> dNumerDanchor = SubtractDerivMaps(dReferenceDanchor, dSpreadBaseDanchor);
-                return QuotientDerivs(numer, spreadAnnuity, dNumerDanchor, dSpreadAnnuityDanchor);
-            }
         };
 
-#if !defined(DAL_USE_XAD_AAD) && !defined(DAL_USE_CODIPACK_AAD) && !defined(DAL_USE_ADEPT_AAD)
         // ============================================================================
         // Phase A templated rate classes (native AAD only). These mirror the double rate
         // classes above; the arithmetic bodies are identical with T_ in place of double for the
@@ -660,7 +364,6 @@ namespace Dal {
                 return floatPv / annuity;
             }
         };
-#endif
     } // namespace
 
     Deposit_::Deposit_(const Date_& today, const Date_& maturity, double marketRate, const DayBasis_& basis)
@@ -683,13 +386,11 @@ namespace Dal {
         return Handle_<Rate_>(new DepositRate_(start_, maturity_, convention_, funding_yc));
     }
 
-#if !defined(DAL_USE_XAD_AAD) && !defined(DAL_USE_CODIPACK_AAD) && !defined(DAL_USE_ADEPT_AAD)
     // Phase A templated factory: returns a DepositRateT_<T_> bound to the instrument's schedule.
     // The funding-yc handle is unused -- Phase A rates read only the calibrated target curve.
     template <class T_> Handle_<YCInstrument_::RateT_<T_>> Deposit_::PrecomputeT() const {
         return Handle_<RateT_<T_>>(new DepositRateT_<T_>(start_, maturity_, convention_));
     }
-#endif
 
     FRA_::FRA_(const Date_& tradeDate,
                const Date_& start,
@@ -708,11 +409,9 @@ namespace Dal {
         return Handle_<Rate_>(new ForwardRate_(start_, maturity_, 0.0, convention_, funding_yc));
     }
 
-#if !defined(DAL_USE_XAD_AAD) && !defined(DAL_USE_CODIPACK_AAD) && !defined(DAL_USE_ADEPT_AAD)
     template <class T_> Handle_<YCInstrument_::RateT_<T_>> FRA_::PrecomputeT() const {
         return Handle_<RateT_<T_>>(new ForwardRateT_<T_>(start_, maturity_, 0.0, convention_));
     }
-#endif
 
     Future_::Future_(const Date_& tradeDate,
                      const Date_& start,
@@ -737,11 +436,9 @@ namespace Dal {
         return Handle_<Rate_>(new ForwardRate_(start_, maturity_, convexityAdjustment_, convention_, funding_yc));
     }
 
-#if !defined(DAL_USE_XAD_AAD) && !defined(DAL_USE_CODIPACK_AAD) && !defined(DAL_USE_ADEPT_AAD)
     template <class T_> Handle_<YCInstrument_::RateT_<T_>> Future_::PrecomputeT() const {
         return Handle_<RateT_<T_>>(new ForwardRateT_<T_>(start_, maturity_, convexityAdjustment_, convention_));
     }
-#endif
 
     Swap_::Swap_(const Date_& today, const Date_& maturity, double marketRate, int freqMonths, const DayBasis_& basis)
         : Swap_(today,
@@ -787,7 +484,6 @@ namespace Dal {
         return Handle_<Rate_>(new SwapRate_(tradeDate_, fixedPeriods, floatPeriods, floatIndexConvention_, funding_yc));
     }
 
-#if !defined(DAL_USE_XAD_AAD) && !defined(DAL_USE_CODIPACK_AAD) && !defined(DAL_USE_ADEPT_AAD)
     // Phase A templated factory: shares the schedule-building logic with the double Precompute.
     // The only T_-parameterised part is the final SwapRateT_<T_> construction; the schedule is
     // scalar-free and reused verbatim. The funding-yc handle is unused on the Phase A path.
@@ -813,7 +509,6 @@ namespace Dal {
     template Handle_<YCInstrument_::RateT_<Dal::AAD::Number_>> FRA_::PrecomputeT<Dal::AAD::Number_>() const;
     template Handle_<YCInstrument_::RateT_<Dal::AAD::Number_>> Future_::PrecomputeT<Dal::AAD::Number_>() const;
     template Handle_<YCInstrument_::RateT_<Dal::AAD::Number_>> Swap_::PrecomputeT<Dal::AAD::Number_>() const;
-#endif
 
     OISSwap_::OISSwap_(const Date_& tradeDate,
                        const Date_& start,
