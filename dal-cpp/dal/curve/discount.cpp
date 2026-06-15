@@ -7,8 +7,8 @@
 #include <dal/curve/discount.hpp>
 
 namespace Dal {
-    // DiscountCurveT_<T_> ctor is defined inline in the header (Phase A templatization). The
-    // double alias DiscountCurve_ = DiscountCurveT_<double> inherits it, so there is no
+    // Tape::DiscountCurve_<T_> ctor is defined inline in the header (Phase A templatization). The
+    // double alias DiscountCurve_ = Tape::DiscountCurve_<double> inherits it, so there is no
     // out-of-line ctor to define here. The translation unit stays so existing link expectations
     // (the symbol was historically part of the lib) do not regress.
 } // namespace Dal

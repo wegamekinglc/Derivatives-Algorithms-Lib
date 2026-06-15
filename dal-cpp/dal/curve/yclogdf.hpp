@@ -13,7 +13,7 @@
 #include <dal/time/daybasis.hpp>
 
 namespace Dal {
-    // Phase A templatization: DiscountLogDF_ is an alias of DiscountLogDFT_<double>. The double
+    // Phase A templatization: DiscountLogDF_ is an alias of Tape::DiscountLogDF_<double>. The double
     // specialization stays byte-for-byte identical to the pre-Phase-A DiscountLogDF_ (same member
     // layout, same LogDfAt using interp_ directly, same operator() with std::exp). The Number_
     // specialization is constructed only by the AAD-tape Gradient override in calibration.cpp, and
@@ -21,8 +21,9 @@ namespace Dal {
     // the dependence on logDF_ that way). Declared in the header so calibration and tests can read
     // back node dates / DFs via dynamic_cast. Construction is factory-only via NewDiscountLogDF
     // (double) -- the Number_ factory lives in calibration.cpp and is unreachable from public code.
+    namespace Tape {
     template <class T_>
-    class DiscountLogDFT_ : public CurveWithBase_<DiscountCurveT_<T_>, DiscountCurve_>, public FittableCurve_ {
+    class DiscountLogDF_ : public CurveWithBase_<DiscountCurve_<T_>, DiscountCurve_<double>>, public FittableCurve_ {
         Vector_<Date_> nodeDates_;
         DayBasis_ dayCount_;
         Vector_<> yf_;
@@ -59,20 +60,20 @@ namespace Dal {
         [[nodiscard]] Vector_<std::pair<int, double>> StorageBasisWeightsAt(double yf) const;
 
     public:
-        DiscountLogDFT_(const String_& name,
-                        const String_& ccy,
-                        const Vector_<Date_>& nodeDates,
-                        const Vector_<T_>& logDF,
-                        const DayBasis_& dayCount,
-                        LogDfScheme_ scheme,
-                        const Handle_<DiscountCurve_>& base = Handle_<DiscountCurve_>());
+        DiscountLogDF_(const String_& name,
+                       const String_& ccy,
+                       const Vector_<Date_>& nodeDates,
+                       const Vector_<T_>& logDF,
+                       const DayBasis_& dayCount,
+                       LogDfScheme_ scheme,
+                       const Handle_<Dal::DiscountCurve_>& base = Handle_<Dal::DiscountCurve_>());
 
         T_ operator()(const Date_& from, const Date_& to) const override;
         [[nodiscard]] int NX() const override;
         void ApplyDX(Vector_<>::const_iterator dx, double leverage) override;
         void Write(Archive::Store_& dst) const override;
-        [[nodiscard]] DiscountLogDFT_<T_>* Clone(const String_& new_name,
-                                                 const YCComponent_::substitutions_t& base_changes) const override;
+        [[nodiscard]] DiscountLogDF_<T_>* Clone(const String_& new_name,
+                                                const YCComponent_::substitutions_t& base_changes) const override;
 
         [[nodiscard]] const Vector_<Date_>& NodeDates() const { return nodeDates_; }
         [[nodiscard]] Vector_<> NodeLogDF() const;
@@ -80,8 +81,9 @@ namespace Dal {
         [[nodiscard]] LogDfScheme_ Scheme() const { return scheme_; }
         [[nodiscard]] Vector_<> NodeDF() const;
     };
+    } // namespace Tape
 
-    using DiscountLogDF_ = DiscountLogDFT_<double>;
+    using DiscountLogDF_ = Tape::DiscountLogDF_<double>;
 
     DiscountCurve_* NewDiscountLogDF(const String_& name,
                                      const String_& ccy,

@@ -17,6 +17,17 @@ namespace Dal {
     class YieldCurve_;
     class String_;
 
+    namespace Tape {
+        // Phase A templated rate interface. The Number_-typed sibling of YCInstrument_::Rate_; lives
+        // only under the native backend (the gate matches the native Number_ definition in expr.hpp).
+        // The AAD-tape Gradient override constructs Rate_<Number_> instances from the same instrument
+        // specs the double path uses and reads number-typed rates off the templated yield context.
+        template <class T_> struct Rate_ : noncopyable {
+            virtual ~Rate_() = default;
+            virtual T_ operator()(const YCCtx_<T_>& ctx) const = 0;
+        };
+    } // namespace Tape
+
     class YCInstrument_ : noncopyable {
     public:
         virtual ~YCInstrument_() = default;
@@ -31,21 +42,12 @@ namespace Dal {
 
         [[nodiscard]] virtual Handle_<Rate_> Precompute(const Handle_<YieldCurve_>& funding_yc) const = 0;
 
-        // Phase A templated rate interface. The Number_-typed sibling of Rate_; lives only under
-        // the native backend (the gate matches the native Number_ definition in expr.hpp). The
-        // AAD-tape Gradient override constructs RateT_<Number_> instances from the same instrument
-        // specs the double path uses and reads T_-typed rates off the templated yield context.
-        template <class T_> struct RateT_ : noncopyable {
-            virtual ~RateT_() = default;
-            virtual T_ operator()(const YCCtxT_<T_>& ctx) const = 0;
-        };
-
-        // Templated factory mirroring Precompute: returns a RateT_<T_> bound to the supplied
+        // Templated factory mirroring Precompute: returns a Tape::Rate_<T_> bound to the supplied
         // yield context. The funding-yc handle is unused on the Phase A path (every rate reads
         // only the calibrated target curve), but kept for symmetry with Precompute. Default
         // returns empty -- the instrument has no Phase A templated rate (BasisSwap_ in the first
         // cut), so EligibleForPhaseA rejects the whole calibration and the solver bumps.
-        template <class T_> [[nodiscard]] Handle_<RateT_<T_>> PrecomputeT() const { return Handle_<RateT_<T_>>(); }
+        template <class T_> [[nodiscard]] Handle_<Tape::Rate_<T_>> PrecomputeT() const { return Handle_<Tape::Rate_<T_>>(); }
     };
 
     class Deposit_ : public YCInstrument_ {
@@ -66,7 +68,7 @@ namespace Dal {
         [[nodiscard]] pair<Date_, Date_> TimeSpan() const override;
         [[nodiscard]] double MarketRate() const override { return marketRate_; }
         [[nodiscard]] Handle_<Rate_> Precompute(const Handle_<YieldCurve_>& funding_yc) const override;
-        template <class T_> [[nodiscard]] Handle_<RateT_<T_>> PrecomputeT() const;
+        template <class T_> [[nodiscard]] Handle_<Tape::Rate_<T_>> PrecomputeT() const;
         [[nodiscard]] const RateIndexConvention_& FloatConvention() const { return convention_; }
     };
 
@@ -87,7 +89,7 @@ namespace Dal {
         [[nodiscard]] pair<Date_, Date_> TimeSpan() const override;
         [[nodiscard]] double MarketRate() const override { return marketRate_; }
         [[nodiscard]] Handle_<Rate_> Precompute(const Handle_<YieldCurve_>& funding_yc) const override;
-        template <class T_> [[nodiscard]] Handle_<RateT_<T_>> PrecomputeT() const;
+        template <class T_> [[nodiscard]] Handle_<Tape::Rate_<T_>> PrecomputeT() const;
         [[nodiscard]] const RateIndexConvention_& FloatConvention() const { return convention_; }
     };
 
@@ -110,7 +112,7 @@ namespace Dal {
         [[nodiscard]] pair<Date_, Date_> TimeSpan() const override;
         [[nodiscard]] double MarketRate() const override { return marketRate_; }
         [[nodiscard]] Handle_<Rate_> Precompute(const Handle_<YieldCurve_>& funding_yc) const override;
-        template <class T_> [[nodiscard]] Handle_<RateT_<T_>> PrecomputeT() const;
+        template <class T_> [[nodiscard]] Handle_<Tape::Rate_<T_>> PrecomputeT() const;
         [[nodiscard]] const RateIndexConvention_& FloatConvention() const { return convention_; }
     };
 
@@ -137,7 +139,7 @@ namespace Dal {
         [[nodiscard]] pair<Date_, Date_> TimeSpan() const override;
         [[nodiscard]] double MarketRate() const override { return marketRate_; }
         [[nodiscard]] Handle_<Rate_> Precompute(const Handle_<YieldCurve_>& funding_yc) const override;
-        template <class T_> [[nodiscard]] Handle_<RateT_<T_>> PrecomputeT() const;
+        template <class T_> [[nodiscard]] Handle_<Tape::Rate_<T_>> PrecomputeT() const;
         [[nodiscard]] const RateIndexConvention_& FloatConvention() const { return floatIndexConvention_; }
     };
 

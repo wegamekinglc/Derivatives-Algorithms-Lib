@@ -196,20 +196,22 @@ namespace Dal {
         }
     } // namespace
 
+    namespace Tape {
+
     // The ctor body is parameterised on T_ but the runtime validation (REQUIRE on logDF[0] == 0,
     // IsMonotonic) only makes sense for double -- for Number_ the value extraction would record
     // spurious tape nodes. The geometric invariants (nodeDates, dayCount, yf, scheme, interp,
     // fppCoef) are T_-independent and built unconditionally. The Number_ factory in calibration.cpp
     // pins logDF[0] = 0 itself before construction, so the runtime check is redundant there.
     template <class T_>
-    DiscountLogDFT_<T_>::DiscountLogDFT_(const String_& name,
+    DiscountLogDF_<T_>::DiscountLogDF_(const String_& name,
                                           const String_& ccy,
                                           const Vector_<Date_>& nodeDates,
                                           const Vector_<T_>& logDF,
                                           const DayBasis_& dayCount,
                                           LogDfScheme_ scheme,
-                                          const Handle_<DiscountCurve_>& base)
-        : CurveWithBase_<DiscountCurveT_<T_>, DiscountCurve_>(name, ccy, base),
+                                          const Handle_<Dal::DiscountCurve_>& base)
+        : CurveWithBase_<DiscountCurve_<T_>, DiscountCurve_<double>>(name, ccy, base),
           nodeDates_(nodeDates),
           dayCount_(dayCount),
           yf_(nodeDates.size()),
@@ -235,7 +237,7 @@ namespace Dal {
     }
 
     template <class T_>
-    void DiscountLogDFT_<T_>::RebuildInterp() {
+    void DiscountLogDF_<T_>::RebuildInterp() {
         // interp_ is always double-valued and depends only on yf_ and the (double-extracted) logDF
         // values -- it is the knot-position-driven interpolator the double path reads through.
         // For Number_ we cannot build a double interp_ from Number_ values; we extract via Value()
@@ -249,7 +251,7 @@ namespace Dal {
     }
 
     template <class T_>
-    void DiscountLogDFT_<T_>::RebuildBasisAux() {
+    void DiscountLogDF_<T_>::RebuildBasisAux() {
         fppCoef_.clear();
         mixedCutoffIndex_ = -1;
         mixedCutoffYf_ = 0.0;
@@ -279,7 +281,7 @@ namespace Dal {
     }
 
     template <class T_>
-    Vector_<std::pair<int, double>> DiscountLogDFT_<T_>::CubicBasisAt(int k, double yf) const {
+    Vector_<std::pair<int, double>> DiscountLogDF_<T_>::CubicBasisAt(int k, double yf) const {
         // On segment [yf_[k], yf_[k+1]] with h = yf_[k+1] - yf_[k]:
         //   S(yf) = a*f[k] + b*f[k+1] - a*b*(h^2/6) * ((1+a)*fpp[k] + (1+b)*fpp[k+1])
         // where a = 1-b, b = (yf - yf_[k])/h. The basis weight at storage node j is
@@ -307,7 +309,7 @@ namespace Dal {
     }
 
     template <class T_>
-    Vector_<std::pair<int, double>> DiscountLogDFT_<T_>::CubicExtrapWeights(double yf) const {
+    Vector_<std::pair<int, double>> DiscountLogDF_<T_>::CubicExtrapWeights(double yf) const {
         // LogDfAt extrapolates past yf_.back() by the last segment's log-DF secant slope:
         //   logDF(yf) = logDF[n-1] + slopeLast * (yf - yf_[n-1])
         // where slopeLast = (logDF[n-1] - logDF[n-2]) / (yf_[n-1] - yf_[n-2]).
@@ -330,7 +332,7 @@ namespace Dal {
     }
 
     template <class T_>
-    Vector_<std::pair<int, double>> DiscountLogDFT_<T_>::StorageBasisWeightsAt(double yf) const {
+    Vector_<std::pair<int, double>> DiscountLogDF_<T_>::StorageBasisWeightsAt(double yf) const {
         // Returns STORAGE-node weights (no anchor drop, no solver-column remap). The Number_-typed
         // LogDfAt accumulates these against logDF_ to produce a tape-registered logDF(yf). The
         // weights are functions of knot positions only, so they are identical for any T_.
@@ -347,12 +349,12 @@ namespace Dal {
         case LogDfScheme_::Value_::MIXED:
             return (yf <= mixedCutoffYf_) ? LinearSegmentWeights(yf_, k, yf) : CubicBasisAt(k, yf);
         default:
-            THROW(String_("DiscountLogDFT_::StorageBasisWeightsAt: unknown scheme: ") + scheme_.String());
+            THROW(String_("DiscountLogDF_::StorageBasisWeightsAt: unknown scheme: ") + scheme_.String());
         }
     }
 
     template <class T_>
-    T_ DiscountLogDFT_<T_>::operator()(const Date_& from, const Date_& to) const {
+    T_ DiscountLogDF_<T_>::operator()(const Date_& from, const Date_& to) const {
         const double yfFrom = dayCount_(nodeDates_.front(), from, nullptr);
         const double yfTo = dayCount_(nodeDates_.front(), to, nullptr);
         if constexpr (std::is_same_v<T_, double>) {
@@ -381,7 +383,7 @@ namespace Dal {
     // secant weights apply. This is the same machinery as the CP1 chain-rule path (§5.1 of the
     // Phase A design), re-used as the forward evaluation here.
     template <class T_>
-    T_ DiscountLogDFT_<T_>::LogDfAt(double yf) const {
+    T_ DiscountLogDF_<T_>::LogDfAt(double yf) const {
         if constexpr (std::is_same_v<T_, double>) {
             if (yf <= yf_.back())
                 return (*interp_)(yf);
@@ -412,7 +414,7 @@ namespace Dal {
     // vector. For a square 13-instrument / 13-free-node LOG_DISCOUNT solve this is what makes
     // the parameter dimension match the instrument count.
     template <class T_>
-    int DiscountLogDFT_<T_>::NX() const { return static_cast<int>(logDF_.size()) - 1; }
+    int DiscountLogDF_<T_>::NX() const { return static_cast<int>(logDF_.size()) - 1; }
 
     // Bump only the FREE nodes logDF_[1..] by dx[i] * leverage; keep logDF_[0] pinned at 0 and
     // rebuild interp_ so operator() reflects the bumped curve. A stale interp_ after a bump would
@@ -421,14 +423,14 @@ namespace Dal {
     // curve directly with the tape-registered logDF vector), so the body below is only ever
     // exercised for T_=double; for T_=Number_ it would compile but is unreachable.
     template <class T_>
-    void DiscountLogDFT_<T_>::ApplyDX(Vector_<>::const_iterator dx, double leverage) {
+    void DiscountLogDF_<T_>::ApplyDX(Vector_<>::const_iterator dx, double leverage) {
         for (int i = 1; i < static_cast<int>(logDF_.size()); ++i)
             logDF_[i] += leverage * *dx++;
         RebuildInterp();
     }
 
     template <class T_>
-    void DiscountLogDFT_<T_>::Write(Archive::Store_& dst) const {
+    void DiscountLogDF_<T_>::Write(Archive::Store_& dst) const {
         // Serialisation is double-only; the Number_ path never persists. Extract via static_cast.
         Vector_<> logDFDouble(logDF_.size());
         for (int i = 0; i < static_cast<int>(logDF_.size()); ++i)
@@ -444,13 +446,13 @@ namespace Dal {
     }
 
     template <class T_>
-    DiscountLogDFT_<T_>* DiscountLogDFT_<T_>::Clone(const String_& new_name,
+    DiscountLogDF_<T_>* DiscountLogDF_<T_>::Clone(const String_& new_name,
                                                     const YCComponent_::substitutions_t& base_changes) const {
-        return new DiscountLogDFT_<T_>(new_name, this->ccy_.String(), nodeDates_, logDF_, dayCount_, scheme_, this->NewBase(base_changes));
+        return new DiscountLogDF_<T_>(new_name, this->ccy_.String(), nodeDates_, logDF_, dayCount_, scheme_, this->NewBase(base_changes));
     }
 
     template <class T_>
-    Vector_<> DiscountLogDFT_<T_>::NodeDF() const {
+    Vector_<> DiscountLogDF_<T_>::NodeDF() const {
         Vector_<> retval(logDF_.size());
         for (int i = 0; i < static_cast<int>(logDF_.size()); ++i)
             retval[i] = std::exp(static_cast<double>(logDF_[i]));
@@ -458,11 +460,11 @@ namespace Dal {
     }
 
     template <class T_>
-    Vector_<> DiscountLogDFT_<T_>::NodeLogDF() const {
+    Vector_<> DiscountLogDF_<T_>::NodeLogDF() const {
         // Returns the double view of logDF_ -- for T_=double this is logDF_ itself (byte-identical
         // to pre-Phase-A); for T_=Number_ it is the primal values. The Number_ path is never
         // introspected this way at runtime (the AAD override works off the tape, not the curve),
-        // but the method exists so dynamic_cast<DiscountLogDFT_<Number_>*> does not yield a type
+        // but the method exists so dynamic_cast<DiscountLogDF_<Number_>*> does not yield a type
         // missing the public surface a caller might assume.
         Vector_<> retval(logDF_.size());
         for (int i = 0; i < static_cast<int>(logDF_.size()); ++i)
@@ -470,13 +472,15 @@ namespace Dal {
         return retval;
     }
 
-    // Explicit instantiations. DiscountLogDFT_<double> is the hot path (F loop, bumped fallback,
-    // serialisation). DiscountLogDFT_<Dal::AAD::Number_> is instantiated only under the native
+    // Explicit instantiations. DiscountLogDF_<double> is the hot path (F loop, bumped fallback,
+    // serialisation). DiscountLogDF_<Dal::AAD::Number_> is instantiated only under the native
     // backend; it pulls in the AAD-aware branches via if constexpr and is linked into the Phase A
     // Gradient override in calibration.cpp. Under external backends Number_ does not exist, so the
     // Number_ instantiation is gated out and Phase A compiles away.
-    template class DiscountLogDFT_<double>;
-    template class DiscountLogDFT_<Dal::AAD::Number_>;
+    template class DiscountLogDF_<double>;
+    template class DiscountLogDF_<Dal::AAD::Number_>;
+
+    } // namespace Tape
 
     DiscountCurve_* NewDiscountLogDF(const String_& name,
                                      const String_& ccy,
@@ -485,7 +489,7 @@ namespace Dal {
                                      const DayBasis_& dayCount,
                                      LogDfScheme_ scheme,
                                      const Handle_<DiscountCurve_>& base) {
-        return new DiscountLogDFT_<double>(name, ccy, nodeDates, logDF, dayCount, scheme, base);
+        return new Tape::DiscountLogDF_<double>(name, ccy, nodeDates, logDF, dayCount, scheme, base);
     }
 
 #include <dal/auto/MG_DiscountLogDF_v1_Read.inc>
@@ -499,12 +503,12 @@ namespace Dal {
         // RTTI cannot tell them apart either. v1 therefore always reconstructs as LOG_LINEAR, the only
         // scheme honestly rebuildable from (nodeDates, logDF) alone. This is exactly why v2 -- the
         // canonical format -- carries the scheme by name; callers needing cubic/mixed must use v2.
-        return new DiscountLogDFT_<double>(
+        return new Tape::DiscountLogDF_<double>(
             name_, ccy_, nodeDates_, logDF_, DayBasis_(dayCount_), LogDfScheme_::Value_::LOG_LINEAR, base_);
     }
 
     Storable_* DiscountLogDF_v2::Reader_::Build() const {
         // v2 stores the scheme by name and rebuilds the interpolator from (nodeDates, logDF).
-        return new DiscountLogDFT_<double>(name_, ccy_, nodeDates_, logDF_, DayBasis_(dayCount_), LogDfScheme_(scheme_), base_);
+        return new Tape::DiscountLogDF_<double>(name_, ccy_, nodeDates_, logDF_, DayBasis_(dayCount_), LogDfScheme_(scheme_), base_);
     }
 } // namespace Dal

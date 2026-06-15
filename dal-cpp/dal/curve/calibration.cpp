@@ -235,7 +235,7 @@ namespace Dal {
         // instantiation; this is unreachable because EligibleForPhaseA rejects non-LOG_DISCOUNT
         // before constructing any templated object.
         template <class T_>
-        std::unique_ptr<DiscountCurveT_<T_>> BuildDiscountCurveT(const String_& name,
+        std::unique_ptr<Tape::DiscountCurve_<T_>> BuildDiscountCurveT(const String_& name,
                                                                  const String_& ccy,
                                                                  CurveParameterization_ parameterization,
                                                                  LogDfScheme_ logDfScheme,
@@ -244,13 +244,13 @@ namespace Dal {
                                                                  const DayBasis_& dayCount,
                                                                  const Handle_<DiscountCurve_>& baseCurve) {
             // baseCurve is a Handle_<DiscountCurve_> (double) -- the templated curve treats it as
-            // a constant multiplier. The Number_-typed DiscountLogDFT_ ctor accepts this via the
-            // CurveWithBase_<DiscountCurveT_<T_>> base, but the base's operator() reads double DFs
+            // a constant multiplier. The Number_-typed Tape::DiscountLogDF_ ctor accepts this via the
+            // CurveWithBase_<Tape::DiscountCurve_<T_>> base, but the base's operator() reads double DFs
             // (constant from the tape's perspective).
             REQUIRE(parameterization == CurveParameterization_::Value_::LOG_DISCOUNT,
                     "Phase A BuildDiscountCurveT: only LOG_DISCOUNT parameterization is supported");
-            return std::unique_ptr<DiscountCurveT_<T_>>(
-                new DiscountLogDFT_<T_>(name, ccy, knotDates, logDF, dayCount, logDfScheme, baseCurve));
+            return std::unique_ptr<Tape::DiscountCurve_<T_>>(
+                new Tape::DiscountLogDF_<T_>(name, ccy, knotDates, logDF, dayCount, logDfScheme, baseCurve));
         }
 
         // RAII tape scope: Clear on entry, Clear on exit (even on throw). Phase A owns exactly one
@@ -379,7 +379,7 @@ namespace Dal {
                 // Every instrument must (a) be a type Phase A has a templated rate for, and
                 // (b) not use a projection curve (forecast == discount). The tradeDate == anchor
                 // check is folded in: a Swap_ with tradeDate != knotDates_.front() is structurally
-                // fine for Phase A (the templated SwapRateT_ reads DF(tradeDate_, p) directly), but
+                // fine for Phase A (the templated Tape::SwapRate_ reads DF(tradeDate_, p) directly), but
                 // requires anchor alignment so every instrument starts at knotDates_.front().
                 for (int i = 0; i < static_cast<int>(instruments_.size()); ++i) {
                     const auto* inst = instruments_[i].get();
@@ -432,7 +432,7 @@ namespace Dal {
             // an empty handle if the instrument type is not supported (Phase A scope is Deposit,
             // FRA, Future, vanilla Swap); EligibleForPhaseA rejects such calibrations before this
             // is ever called, so the empty-handle branch is unreachable in practice.
-            template <class T_> [[nodiscard]] Handle_<YCInstrument_::RateT_<T_>> PhaseARateAt(int i) const {
+            template <class T_> [[nodiscard]] Handle_<Tape::Rate_<T_>> PhaseARateAt(int i) const {
                 const auto* inst = instruments_[i].get();
                 if (const auto* d = dynamic_cast<const Deposit_*>(inst))
                     return d->PrecomputeT<T_>();
@@ -442,7 +442,7 @@ namespace Dal {
                     return fu->PrecomputeT<T_>();
                 if (const auto* s = dynamic_cast<const Swap_*>(inst))
                     return s->PrecomputeT<T_>();
-                return Handle_<YCInstrument_::RateT_<T_>>();
+                return Handle_<Tape::Rate_<T_>>();
             }
         };
 
@@ -466,16 +466,16 @@ namespace Dal {
                 logDF[i + 1] = x[i]; // native backend: Number_(double) registers an independent
 
             // Build the Number_-typed calibrated curve directly with the tape-registered logDF.
-            std::unique_ptr<DiscountCurveT_<Dal::AAD::Number_>> dc(
+            std::unique_ptr<Tape::DiscountCurve_<Dal::AAD::Number_>> dc(
                 BuildDiscountCurveT<Dal::AAD::Number_>(curveName_, ccy_, parameterization_, logDfScheme_,
                                                        knotDates_, logDF, liborBasis_, baseCurve_));
-            YCCtxT_<Dal::AAD::Number_> ctx(*dc);
+            Tape::YCCtx_<Dal::AAD::Number_> ctx(*dc);
 
             // Compute Number_-typed residuals: modelRate - marketRate, for every instrument.
             const int nRows = static_cast<int>(instruments_.size());
             Vector_<Dal::AAD::Number_> residuals(nRows);
             for (int i = 0; i < nRows; ++i) {
-                Handle_<YCInstrument_::RateT_<Dal::AAD::Number_>> rateT = PhaseARateAt<Dal::AAD::Number_>(i);
+                Handle_<Tape::Rate_<Dal::AAD::Number_>> rateT = PhaseARateAt<Dal::AAD::Number_>(i);
                 residuals[i] = (*rateT)(ctx) - static_cast<double>(marketRates_[i]);
             }
 

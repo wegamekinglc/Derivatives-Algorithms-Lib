@@ -337,7 +337,7 @@ TEST(PhaseAAADJacobianTest, TestSingleDepositTapeMatchesCentralDifference) {
 // ============================================================================
 // Phase A is eligible for vanilla Swap, Deposit, FRA, and Future. A calibration mixing all
 // three primary cash instrument types exercises the per-instrument dispatch in PhaseAJacobian_
-// (DepositRateT_ + ForwardRateT_ + SwapRateT_) in a single recording. The AAD Jacobian must
+// (Tape::DepositRate_ + Tape::ForwardRate_ + Tape::SwapRate_) in a single recording. The AAD Jacobian must
 // still match central differences row by row, and structural zeros must appear for instruments
 // whose cashflows end before later nodes.
 

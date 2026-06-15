@@ -10,8 +10,8 @@
 namespace Dal {
     class CollateralType_;
     class PeriodLength_;
-    template <class T_> class DiscountCurveT_;
-    using DiscountCurve_ = DiscountCurveT_<double>;
+    namespace Tape { template <class T_> class DiscountCurve_; }
+    using DiscountCurve_ = Tape::DiscountCurve_<double>;
 
     class YieldCurve_ : public Storable_ {
     public:
