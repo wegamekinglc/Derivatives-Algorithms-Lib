@@ -270,13 +270,18 @@ namespace Dal {
             TapeGuard_& operator=(const TapeGuard_&) = delete;
         };
 
+#if !defined(DAL_USE_XAD_AAD) && !defined(DAL_USE_CODIPACK_AAD) && !defined(DAL_USE_ADEPT_AAD)
         // Zero every node's adjoint on the tape, leaving the recorded graph intact. Used between
         // single-result reverse sweeps so each row's seed propagates from a clean slate. The tape
-        // does not expose a one-shot "zero adjoints" helper, so we walk the nodes blocklist.
+        // does not expose a one-shot "zero adjoints" helper, so we walk the nodes blocklist. This
+        // reaches into the native Dal::AAD::Tape_::nodes_ block list, which only the native backend
+        // exposes -- third-party AAD backends (XAD/CoDiPack/Adept) take the bumped Jacobian path
+        // instead, so the whole Phase A reverse-sweep machinery is native-only.
         void ZeroAllAdjoints(Dal::AAD::Tape_& tape) {
             for (auto it = tape.nodes_.Begin(); it != tape.nodes_.End(); ++it)
                 it->Adjoint() = 0.0;
         }
+#endif
 
         class YieldCurveCalibrationFunc_ : public Underdetermined::Function_ {
             String_ ccy_;
@@ -351,11 +356,20 @@ namespace Dal {
             // returns nullptr so the solver dense-bumps. The residual is modelRate - marketRate, so
             // dResidual_i/dx_j = dModelRate_i/dx_j (marketRate is constant, contributes nothing).
             [[nodiscard]] Underdetermined::Jacobian_* Gradient(const Vector_<>& x, const Vector_<>& f) const override {
+#if !defined(DAL_USE_XAD_AAD) && !defined(DAL_USE_CODIPACK_AAD) && !defined(DAL_USE_ADEPT_AAD)
                 if (EligibleForPhaseA())
                     return PhaseAJacobian_NativeAAD(x, f);
                 // Ineligible: NOTICE was emitted by EligibleForPhaseA (names the offending
                 // condition); return nullptr so the solver dense-bumps.
                 return nullptr;
+#else
+                // The Phase A analytic Jacobian is native-AAD-only (it walks Dal::AAD::Tape_::nodes_
+                // for single-result reverse sweeps, which third-party backends do not expose). Under
+                // XAD/CoDiPack/Adept return nullptr so the solver dense-bumps -- identical numerics.
+                static_cast<void>(x);
+                static_cast<void>(f);
+                return nullptr;
+#endif
             }
 
             // Phase A eligibility predicate (per .claude/designs/aad-analytic-jacobian-selector-api.md
@@ -450,6 +464,9 @@ namespace Dal {
         // §3.2: TapeGuard on entry/exit, build Number_-typed curve, build Number_-typed rates via
         // PrecomputeT<Number_>, compute residuals, single-result reverse loop. The column map is
         // solver col j = storage node j+1, so Adjoint(logDF[j+1]) reads the sensitivity to x[j].
+        // Native-AAD-only: the reverse sweep walks Dal::AAD::Tape_::nodes_ (via ZeroAllAdjoints),
+        // which third-party backends do not expose; under those, Gradient() never calls this.
+#if !defined(DAL_USE_XAD_AAD) && !defined(DAL_USE_CODIPACK_AAD) && !defined(DAL_USE_ADEPT_AAD)
         Underdetermined::Jacobian_* YieldCurveCalibrationFunc_::PhaseAJacobian_NativeAAD(const Vector_<>& x, const Vector_<>& f) const {
             auto* tape = Dal::AAD::Tape();
             TapeGuard_ guard(tape);
@@ -498,6 +515,7 @@ namespace Dal {
             }
             return new XCurveJacobian_(std::move(j));
         }
+#endif // native AAD backend (Phase A Jacobian)
 
         Vector_<> ModelRates(const Vector_<Handle_<YCInstrument_>>& instruments, const YieldCurve_& curve, const Handle_<YieldCurve_>& fundingCurve) {
             Vector_<> modelRates(instruments.size());
