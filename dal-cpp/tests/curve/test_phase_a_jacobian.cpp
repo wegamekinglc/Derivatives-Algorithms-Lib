@@ -267,7 +267,53 @@ TEST(PhaseAAADJacobianTest, TestIneligibleForecastTargetFallsBack) {
 }
 
 // ============================================================================
-// Category 5: Tape isolation -- two consecutive Gradient calls do not leak state
+// Category 5: tradeDate != start must be rejected (regression for the gate bug)
+// ============================================================================
+// Phase A's templated rates read DF(tradeDate_, p) (see ycinstrument.cpp), so eligibility
+// must be checked against the real trade date, not the effective/spot start that
+// TimeSpan().first returns. A spot-started instrument has tradeDate strictly before start
+// (the typical spotLag-business-days gap). Before the TradeDate() accessor, the gate checked
+// TimeSpan().first (== start_) instead, so a swap with start == anchor but tradeDate != anchor
+// was wrongly admitted and its residual row was silently mispriced on the tape. After the fix
+// the gate rejects it, Gradient returns nullptr, and TestOnly::AnalyticJacobianAt returns an
+// EMPTY matrix (the solver dense-bumps). We construct one such swap alongside an eligible one
+// to confirm the whole calibration falls back when ANY instrument is ineligible.
+
+TEST(PhaseAAADJacobianTest, TestTradeDateNotStartRejected) {
+    auto spec = MakePhaseASpec();
+    const auto fixedLeg = AnnualLegPA();
+    const auto floatIdx = AnnualIndexPA();
+    const auto floatLeg = AnnualLegPA();
+    // Spot-started swap: tradeDate is two days before the anchor start. start_ stays at the
+    // anchor so TimeSpan().first == anchor -- the exact shape the old (buggy) gate admitted.
+    spec.instruments_ = {
+        // Eligible swap: tradeDate == start == anchor.
+        Handle_<YCInstrument_>(new Swap_(spec.today_, spec.today_, Date_(2022, 4, 1), 0.010, fixedLeg, floatIdx, floatLeg)),
+        // Ineligible swap: tradeDate (2021-12-30) != start (2022-01-01 == anchor).
+        Handle_<YCInstrument_>(
+            new Swap_(Date_(2021, 12, 30), Date_(2022, 1, 1), Date_(2023, 1, 1), 0.012, fixedLeg, floatIdx, floatLeg)),
+    };
+    const Vector_<> x = {-0.005, -0.012, -0.025, -0.04, -0.06};
+    const Matrix_<> J = TestOnly::AnalyticJacobianAt(spec, x);
+    ASSERT_EQ(J.Rows(), 0); // empty -> ineligible, solver dense-bumps
+    ASSERT_EQ(J.Cols(), 0);
+}
+
+// Sanity check the symmetric case: when tradeDate == start == anchor the same shape is still
+// admitted (one swap, non-empty Jacobian), guarding against an over-broad rejection.
+TEST(PhaseAAADJacobianTest, TestTradeDateEqualsStartStillAdmitted) {
+    auto spec = MakePhaseASpec();
+    spec.instruments_ = {
+        Handle_<YCInstrument_>(new Swap_(spec.today_, spec.today_, Date_(2023, 1, 1), 0.012, AnnualLegPA(), AnnualIndexPA(), AnnualLegPA())),
+    };
+    const Vector_<> x = {-0.005, -0.012, -0.025, -0.04, -0.06};
+    const Matrix_<> J = TestOnly::AnalyticJacobianAt(spec, x);
+    ASSERT_EQ(J.Rows(), 1); // admitted -> non-empty analytic Jacobian
+    ASSERT_EQ(J.Cols(), 5);
+}
+
+// ============================================================================
+// Category 6: Tape isolation -- two consecutive Gradient calls do not leak state
 // ============================================================================
 // If the TapeGuard_ leaks adjoints, the second call's Jacobian would inherit
 // the first call's residuals and produce wrong numbers. We assert the second
