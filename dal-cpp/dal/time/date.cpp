@@ -29,8 +29,10 @@ namespace Dal {
         int ExcelDateFromYMD(int yy, int mm, int dd) {
             // based on Vogelpoel's port of now-lost pseudocode
             // ignore Excel bug around 29 Feb 1900 -- dates before then will be wrong
+            // NOTE: the century term must divide (yy+4900+...) by 100 BEFORE multiplying by 3,
+            //       otherwise (yy+4900) % 100 >= 34 yields a serial one day too small.
             return (1461 * (yy + (mm - 14) / 12)) / 4 + (367 * (mm - 2 - 12 * ((mm - 14) / 12))) / 12 -
-                   (3 * ((yy + 4900 + (mm - 14) / 12)) / 100) / 4 + dd - 693894;
+                   (3 * ((yy + 4900 + (mm - 14) / 12) / 100)) / 4 + dd - 693894;
         }
 
         uint16_t SerialFromYMD(int yy, int mm, int dd) {
