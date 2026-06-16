@@ -7,6 +7,7 @@
 #include <dal/utilities/algorithms.hpp>
 #include <dal/time/calendars/init.hpp>
 #include <dal/time/calendars/china.hpp>
+#include <dal/time/calendars/target.hpp>
 #include <dal/time/holidaydata.hpp>
 
 namespace Dal {
@@ -23,6 +24,7 @@ namespace Dal {
             Vector_<Date_> ib_holidays(tmp.size());
             Copy(tmp, &ib_holidays);
             Holidays::AddCenter("CN.IB", ib_holidays, China::IB::WORK_WEEKENDS);
+            Holidays::AddCenter("TARGET", Target::Holidays(2000, 2100));
             init_ = true;
         }
     }

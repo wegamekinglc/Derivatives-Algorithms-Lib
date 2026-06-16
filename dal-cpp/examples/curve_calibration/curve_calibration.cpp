@@ -402,6 +402,15 @@ namespace {
             QuotedInstrument(irs10y,  marketCurve, today, ccy),
         };
 
+        // Each stage quotes 20 instruments onto a 9-pillar knot grid -- an overdetermined
+        // system (more quotes than free parameters). The default EXACT solver demands a curve
+        // that reprices every instrument to ~1e-8, which an overdetermined system cannot
+        // satisfy and will not converge on; use the least-squares APPROXIMATE solver instead.
+        oisStage.solveMode_ = CurveSolveMode_::Value_::APPROXIMATE;
+        oisStage.fitTolerance_ = 1e-8;
+        liborStage.solveMode_ = CurveSolveMode_::Value_::APPROXIMATE;
+        liborStage.fitTolerance_ = 1e-8;
+
         MultiCurveCalibrationSpec_ multiCurveSpec;
         multiCurveSpec.name_ = "usd_example";
         multiCurveSpec.ccy_ = ccyName;
