@@ -271,6 +271,103 @@ namespace {
         std::cout << "\n  dZero (bp):  RMS = " << std::sqrt(sqDz / n) << "   max abs = " << maxAbsDz
                   << "      dDF:  max abs = " << maxAbsDdf << "\n\n";
     }
+
+    struct InstrumentCounts_ {
+        int nCash = 0;
+        int nFutures = 0;
+        int nSwaps = 0;
+    };
+
+    void AppendCashDeposit(Vector_<InstrumentEntry_>* entries,
+                           InstrumentCounts_* counts,
+                           const Date_& today,
+                           const Date_& spot,
+                           const RateIndexConvention_& euribor3m) {
+        entries->push_back({Handle_<YCInstrument_>(new Deposit_(today,
+                                                                 spot,
+                                                                 Date::AddMonths(spot, CASH_MONTHS),
+                                                                 CASH_3M_RATE / 100.0,
+                                                                 euribor3m)),
+                            "CASH 3M"});
+        ++counts->nCash;
+    }
+
+    void AppendFutures(Vector_<InstrumentEntry_>* entries,
+                       InstrumentCounts_* counts,
+                       const Date_& today,
+                       const RateIndexConvention_& euribor3m) {
+        for (const auto& f : FUTURES) {
+            const auto pc = ParseContract(f.contract);
+            if (pc.year > FUTURES_LAST_YEAR || (pc.year == FUTURES_LAST_YEAR && pc.month > FUTURES_LAST_MONTH))
+                continue;
+            const Date_ settle = ThirdWednesday(pc.year, pc.month); // IMM date (3rd Wed), always a TARGET business day
+            // Underlying 3M period is IMM-to-IMM: from this 3rd Wednesday to the 3rd Wednesday three months later
+            // (not settle + 3M, which keeps the day-of-month and lands on the wrong date).
+            const Date_ monthAfter = Date::AddMonths(settle, pc.tenorMonths);
+            const Date_ accrualEnd = ThirdWednesday(Date::Year(monthAfter), Date::Month(monthAfter));
+            // The CSV Rate column is already convexity-adjusted (Rate = 100 - Price + Cvx_Adj),
+            // so we calibrate to it directly with zero convexity in the instrument.
+            // (Equivalent: marketRate = (100 - Price)/100, convexityAdjustment = Cvx_Adj/100.)
+            entries->push_back(
+                {Handle_<YCInstrument_>(new Future_(today, settle, accrualEnd, f.rate / 100.0, euribor3m, 0.0)),
+                 String_("FUT ") + String_(f.contract)});
+            ++counts->nFutures;
+        }
+    }
+
+    void AppendSwaps(Vector_<InstrumentEntry_>* entries,
+                     InstrumentCounts_* counts,
+                     const Date_& today,
+                     const Date_& spot,
+                     const RateLegConvention_& fixedLeg,
+                     const RateIndexConvention_& euribor3m,
+                     const RateLegConvention_& floatLeg) {
+        for (const auto& s : SWAPS) {
+            if (s.months < SWAPS_MIN_MONTHS)
+                continue;
+            const double mid = (s.bid + s.ask) / 2.0 / 100.0;
+            // Maturity is passed UNADJUSTED on purpose: the schedule generator rolls every coupon
+            // (including the last) to ModifiedFollowing on TARGET, so the final cash flow already lands
+            // on MF(spot+tenor) -- the benchmark pillar. Pre-rolling maturity itself would insert an
+            // extra unadjusted grid point and create a zero-length final stub (NaN) for swaps whose
+            // spot+tenor is a weekend (e.g. 3Y -> 2029-05-05 Sat).
+            entries->push_back({Handle_<YCInstrument_>(new Swap_(today,
+                                                                 spot,
+                                                                 Date::AddMonths(spot, s.months),
+                                                                 mid,
+                                                                 fixedLeg,
+                                                                 euribor3m,
+                                                                 floatLeg)),
+                                String_("SWAP ") + String::FromInt(s.months / 12) + "Y"});
+            ++counts->nSwaps;
+        }
+    }
+
+    void BuildCalibrationSpec(const Date_& today,
+                              const Vector_<InstrumentEntry_>& ordered,
+                              CurveCalibrationSpec_* spec,
+                              Vector_<String_>* displayNames) {
+        spec->today_ = today;
+        spec->ccy_ = "EUR";
+        spec->curveName_ = "euribor3m";
+        spec->targetCollateral_ = CollateralType_(CollateralType_::Value_::OIS); // single-curve key only
+        spec->calibrateDiscountCurve_ = true;
+        spec->parameterization_ = CurveParameterization_::Value_::PIECEWISE_LINEAR_FWD;
+        spec->knotPolicy_ = CurveKnotPolicy_::Value_::INPUT;
+        spec->liborBasis_ = DayBasis_("ACT_365F");
+        spec->instruments_.reserve(ordered.size());
+        displayNames->reserve(ordered.size());
+        for (const auto& e : ordered) {
+            spec->instruments_.push_back(e.inst);
+            displayNames->push_back(e.name);
+        }
+        // Knots at instrument maturities (one per instrument).
+        spec->knotDates_.reserve(ordered.size());
+        for (const auto& e : ordered)
+            spec->knotDates_.push_back(e.inst->TimeSpan().second);
+        std::sort(spec->knotDates_.begin(), spec->knotDates_.end());
+        spec->knotDates_.erase(std::unique(spec->knotDates_.begin(), spec->knotDates_.end()), spec->knotDates_.end());
+    }
 } // namespace
 
 int main() {
@@ -301,90 +398,25 @@ int main() {
     floatLeg.accrualHolidays_ = target;
     floatLeg.paymentHolidays_ = target;
 
-    // ---- Build instruments -------------------------------------------------
     Vector_<InstrumentEntry_> entries;
-    int nCash = 0, nFutures = 0, nSwaps = 0;
-
-    // 3M cash deposit. (Maturity passed unadjusted; the convention rolls it internally.)
-    entries.push_back({Handle_<YCInstrument_>(new Deposit_(today,
-                                                           spot,
-                                                           Date::AddMonths(spot, CASH_MONTHS),
-                                                           CASH_3M_RATE / 100.0,
-                                                           euribor3m)),
-                       "CASH 3M"});
-    ++nCash;
-
-    // Serial futures up to and including MAR 28+3.
-    for (const auto& f : FUTURES) {
-        const auto pc = ParseContract(f.contract);
-        if (pc.year > FUTURES_LAST_YEAR || (pc.year == FUTURES_LAST_YEAR && pc.month > FUTURES_LAST_MONTH))
-            continue;
-        const Date_ settle = ThirdWednesday(pc.year, pc.month); // IMM date (3rd Wed), always a TARGET business day
-        // Underlying 3M period is IMM-to-IMM: from this 3rd Wednesday to the 3rd Wednesday three months later
-        // (not settle + 3M, which keeps the day-of-month and lands on the wrong date).
-        const Date_ monthAfter = Date::AddMonths(settle, pc.tenorMonths);
-        const Date_ accrualEnd = ThirdWednesday(Date::Year(monthAfter), Date::Month(monthAfter));
-        // The CSV Rate column is already convexity-adjusted (Rate = 100 - Price + Cvx_Adj),
-        // so we calibrate to it directly with zero convexity in the instrument.
-        // (Equivalent: marketRate = (100 - Price)/100, convexityAdjustment = Cvx_Adj/100.)
-        entries.push_back({Handle_<YCInstrument_>(new Future_(today, settle, accrualEnd, f.rate / 100.0, euribor3m, 0.0)),
-                           String_("FUT ") + String_(f.contract)});
-        ++nFutures;
-    }
-
-    // Vanilla swaps from 3Y onward (1Y/2Y overlap the futures region and are dropped).
-    for (const auto& s : SWAPS) {
-        if (s.months < SWAPS_MIN_MONTHS)
-            continue;
-        const double mid = (s.bid + s.ask) / 2.0 / 100.0;
-        // Maturity is passed UNADJUSTED on purpose: the schedule generator rolls every coupon
-        // (including the last) to ModifiedFollowing on TARGET, so the final cash flow already lands
-        // on MF(spot+tenor) -- the benchmark pillar. Pre-rolling maturity itself would insert an
-        // extra unadjusted grid point and create a zero-length final stub (NaN) for swaps whose
-        // spot+tenor is a weekend (e.g. 3Y -> 2029-05-05 Sat).
-        entries.push_back({Handle_<YCInstrument_>(new Swap_(today,
-                                                            spot,
-                                                            Date::AddMonths(spot, s.months),
-                                                            mid,
-                                                            fixedLeg,
-                                                            euribor3m,
-                                                            floatLeg)),
-                           String_("SWAP ") + String::FromInt(s.months / 12) + "Y"});
-        ++nSwaps;
-    }
+    InstrumentCounts_ counts;
+    AppendCashDeposit(&entries, &counts, today, spot, euribor3m);
+    AppendFutures(&entries, &counts, today, euribor3m);
+    AppendSwaps(&entries, &counts, today, spot, fixedLeg, euribor3m, floatLeg);
 
     const auto ordered = OrderEntries(entries);
 
-    // ---- Assemble the calibration spec -------------------------------------
     CurveCalibrationSpec_ spec;
-    spec.today_ = today;
-    spec.ccy_ = "EUR";
-    spec.curveName_ = "euribor3m";
-    spec.targetCollateral_ = CollateralType_(CollateralType_::Value_::OIS); // single-curve key only
-    spec.calibrateDiscountCurve_ = true;
-    spec.parameterization_ = CurveParameterization_::Value_::PIECEWISE_LINEAR_FWD;
-    spec.knotPolicy_ = CurveKnotPolicy_::Value_::INPUT;
-    spec.liborBasis_ = DayBasis_("ACT_365F");
-    spec.instruments_.reserve(ordered.size());
     Vector_<String_> displayNames;
-    displayNames.reserve(ordered.size());
-    for (const auto& e : ordered) {
-        spec.instruments_.push_back(e.inst);
-        displayNames.push_back(e.name);
-    }
-    // Knots at instrument maturities (one per instrument).
-    spec.knotDates_.reserve(ordered.size());
-    for (const auto& e : ordered)
-        spec.knotDates_.push_back(e.inst->TimeSpan().second);
-    std::sort(spec.knotDates_.begin(), spec.knotDates_.end());
-    spec.knotDates_.erase(std::unique(spec.knotDates_.begin(), spec.knotDates_.end()), spec.knotDates_.end());
+    BuildCalibrationSpec(today, ordered, &spec, &displayNames);
 
     std::cout << "\n" << std::string(70, '=') << "\n"
               << "  Euribor 3M single-curve bootstrap  (as-of " << Date::ToString(today) << ")\n"
               << std::string(70, '=') << "\n"
               << "  spot: " << Date::ToString(spot) << "    futures last contract: MAR 28+3\n"
-              << "  instruments: " << nCash << " cash + " << nFutures << " futures + " << nSwaps << " swaps = "
-              << (nCash + nFutures + nSwaps) << "    knots: " << spec.knotDates_.size() << "\n\n";
+              << "  instruments: " << counts.nCash << " cash + " << counts.nFutures << " futures + " << counts.nSwaps
+              << " swaps = " << (counts.nCash + counts.nFutures + counts.nSwaps) << "    knots: " << spec.knotDates_.size()
+              << "\n\n";
     PrintInstruments(ordered);
 
     Timer_ timer;
