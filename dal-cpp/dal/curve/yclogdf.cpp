@@ -380,8 +380,8 @@ namespace Dal {
     //
     // For T_=Number_: the path accumulates StorageBasisWeightsAt(yf) against logDF_, so the tape
     // records the dependence of logDF(yf) on each free-node logDF_ value. Out-of-range the same
-    // secant weights apply. This is the same machinery as the CP1 chain-rule path (§5.1 of the
-    // Phase A design), re-used as the forward evaluation here.
+    // secant weights apply. The forward evaluation here re-uses the same basis-weight machinery
+    // the double path computes, now differentiated through the tape.
     template <class T_>
     T_ DiscountLogDF_<T_>::LogDfAt(double yf) const {
         if constexpr (std::is_same_v<T_, double>) {

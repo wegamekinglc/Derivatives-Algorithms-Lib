@@ -5,45 +5,66 @@
 > (§3.5 and Phase 6), where it appears as a follow-on phase. This document promotes it
 > to a standalone, self-contained plan.
 
-## Resolution / Approach adopted (CP1, implemented 2026-06)
+## Resolution adopted (Phase A — native-AAD templatization, implemented 2026-06)
 
-The original plan below proposed Phases A (templatize the pricing path on `Number_`),
-B (override `Gradient`), and C (opt-in selector). After critic and api-designer review,
-**Phase A was dropped entirely** and Phases B/C were reworked into **Counter-Proposal
-CP1**: an analytic chain-rule Jacobian computed in plain `double`, with NO templatization
-of the pricing path and NO use of the AAD `Number_` tape.
+After critic and api-designer review, two designs were on the table:
 
-Why: the pricing path is hard-bound to `double` through three abstract interfaces
-(`DiscountCurve_::operator()`, `YCInstrument_::Rate_::operator()`, and the concrete rate
-classes in `ycinstrument.cpp`). Templatizing the entire stack to admit `Number_` would be
-multi-week work (the critic's finding B1), would couple the calibration to a specific AAD
-backend (finding S1), and would be disproportionate to the goal of faster, more-exact
-LOG_DISCOUNT calibration.
+- **Phase A** — templatize the curve rebuild + repricing on `Dal::AAD::Number_` so the
+  native AAD tape produces exact adjoints, and override `Function_::Gradient` to harvest
+  them. Originally scoped as the heaviest of three phases.
+- **Counter-Proposal CP1** — an analytic chain-rule Jacobian computed in plain `double`
+  (`InterpBasisWeights`, `DRateDDiscount`, a `CurveJacobianMode_` enum), with NO
+  templatization and NO `Number_` tape. Proposed as a lighter fallback if Phase A turned
+  out infeasible.
 
-Instead, CP1 factors the Jacobian as:
+**Phase A was adopted.** The templatization turned out to be tractable: the pricing path
+was generalized on the scalar type via a parallel `Dal::Tape` namespace
+(`Tape::DiscountCurve_<T_>`, `Tape::Rate_<T_>`, and `PrecomputeT<T_>()` factories on
+`Deposit_`/`FRA_`/`Future_`/`Swap_`), so a single `Number_`-typed recording yields the
+exact residual sensitivities in one reverse sweep per row — no bump noise, exact curve
+risk. CP1 was **explored then dropped** (commit `2b2de93`): with Phase A delivering exact
+adjoints straight from the tape, the plain-`double` chain-rule machinery
+(`InterpBasisWeights`, `DRateDDiscount`, and the `CurveJacobianMode_` opt-in enum) was
+redundant and was removed. No CP1 symbols remain under `dal-cpp/dal/curve/` (verified
+by grep).
 
+**Scope and gating.** The Phase A Jacobian ships for
+`CurveParameterization_::LOG_DISCOUNT` only; other parameterizations, FORECAST-target
+calibrations, projection-curve instruments, instruments without a templated rate
+(`BasisSwap_`), and — critically — any instrument whose **trade date** differs from the
+curve anchor, make `EligibleForPhaseA` return false, `Gradient` returns `nullptr`, and the
+solver dense-bumps. A `NOTICE` is emitted per fall-through. The whole path is compiled
+only under the native AAD backend, gated by:
+
+```cpp
+#if !defined(DAL_USE_XAD_AAD) && !defined(DAL_USE_CODIPACK_AAD) && !defined(DAL_USE_ADEPT_AAD)
 ```
-J[i,j] = dResidual_i / dx_j
-       = sum_{t in cashflows(i)}  (dRate_i / dDF(t))  *  DF(t)  *  b_j(t)
-```
 
-where `x` is the free-node log-DF vector (`NX() = nNodes - 1`, anchor pinned), `b_j(t)`
-is the interpolation basis weight at solver column `j` for year-fraction `t` (returned by
-`DiscountLogDF_::InterpBasisWeights`), and `dRate_i/dDF(t)` is computed analytically from
-the existing `double`-typed rate classes (returned by `YCInstrument_::Rate_::DRateDDiscount`).
-The four concrete rate classes override `DRateDDiscount` analytically via the quotient rule;
-the default empty return triggers a per-instrument DF-bump fallback (in `double`, narrow).
+(`dal-cpp/dal/curve/calibration.cpp`). The native backend is the default;
+`CMakePresets.json` disables XAD/CodiPack/Adept, so the Phase A path compiles in the
+standard build. Under a third-party backend the override is absent and `Gradient` falls
+back to the base class's bumped path.
 
-Scope: CP1 ships the analytic Jacobian for `CurveParameterization_::LOG_DISCOUNT` only.
-Other parameterizations silently fall back to the bumped path with a `NOTICE`. A new
-`CurveJacobianMode_` Machinist enum (`BUMPED` default, `ANALYTIC_LOG_DISCOUNT` opt-in)
-selects the path; default `BUMPED` is byte-for-byte unchanged from pre-CP1 behaviour.
+**Eligibility checks the trade date, not the start.** Phase A's templated rates read
+`DF(tradeDate_, p)` (see `dal-cpp/dal/curve/ycinstrument.cpp`), so the gate compares
+`inst->TradeDate()` against `knotDates_.front()`. A spot-started instrument has
+`tradeDate` strictly before its effective/spot `start_` (the typical `spotLag` gap); the
+original gate mistakenly checked `TimeSpan().first` (== `start_`), which admitted
+spot-started instruments and silently mispriced their residual rows on the tape. The
+`YCInstrument_::TradeDate()` pure-virtual accessor (overridden on every concrete
+instrument) fixes this.
 
-The implementation lives in `dal-cpp/dal/curve/{yclogdf,ycinstrument,calibration}.{hpp,cpp}`
-and is verified by three test categories under `dal-cpp/tests/curve/test_analytic_jacobian.cpp`
-plus per-component tests under `test_interpbasis.cpp` and `test_drate_ddiscount.cpp`.
+**Implementation.** `dal-cpp/dal/curve/{yclogdf,ycinstrument,calibration}.{hpp,cpp}`;
+the `TestOnly::AnalyticJacobianAt` helper in `calibration.cpp` exposes the dense
+`XCurveJacobian_` for unit tests. Verified by
+`dal-cpp/tests/curve/test_phase_a_jacobian.cpp` (suite `PhaseAAADJacobianTest`, 12 tests):
+central-difference agreement across all three `LogDfScheme_` values, exact structural
+zeros, solve convergence, per-instrument-type canaries (Deposit/FRA/Future/Swap), tape
+isolation across calls, and the eligibility regressions (non-LOG_DISCOUNT,
+FORECAST-target, `tradeDate != start`).
 
-The original Phase A/B/C plan is preserved below for context.
+The original Phase A/B/C plan is preserved below as the adopted design.
+
 
 ## 1. Motivation
 
@@ -95,16 +116,23 @@ exactly in one reverse sweep — fewer iterations, no bump noise, exact curve ri
   (`dal-cpp/dal/math/aad/`): `Clear(*Tape())` → set independents → `NewRecording` →
   compute residuals → `PropagateToStart` → read adjoints.
 
-### Phase B — Override `Gradient`
-- Add a `Gradient` override on `YieldCurveCalibrationFunc_` that records the residual
-  vector as functions of the node `log(DF)` independents on the tape, runs the reverse
-  sweep, and writes the resulting `∂residual_i / ∂node_j` into the Jacobian the solver
-  expects (`underdetermined.hpp:60`, `underdetermined.cpp:22-35`).
-- Exploit sparsity: only populate entries for the nodes an instrument actually touches.
+### Phase B — Override `Gradient` (shipped)
+- `YieldCurveCalibrationFunc_::Gradient` overrides the base bumped path
+  (`dal-cpp/dal/math/optimization/underdetermined.cpp`). It records the residual vector
+  as functions of the node `log(DF)` independents on the tape, runs one reverse sweep
+  per row (`PhaseAJacobian_NativeAAD`), and writes the resulting
+  `∂residual_i / ∂node_j` into a dense `XCurveJacobian_` (storage dense, assembly
+  sparse-by-row because AAD produces exact structural zeros).
+- Sparsity is automatic: AAD yields exact zeros at nodes an instrument does not touch.
 
-### Phase C — Wire selection
-- Provide a calibration option to choose **bumped** (default, unchanged) vs **AAD**
-  Jacobian so the analytic path is opt-in and the existing behavior is preserved.
+### Phase C — Selection (shipped as compile-time + eligibility gating, not a runtime enum)
+- The analytic path is gated at compile time by the native-backend macro
+  (`#if !defined(DAL_USE_XAD_AAD) && !defined(DAL_USE_CODIPACK_AAD) && !defined(DAL_USE_ADEPT_AAD)`)
+  and at runtime by `EligibleForPhaseA` (LOG_DISCOUNT only, discount-target, no projection
+  curve, supported instrument type, and `TradeDate() == knotDates_.front()`). Anything
+  ineligible returns `nullptr` from `Gradient`, and the solver dense-bumps unchanged.
+- The originally-proposed runtime `CurveJacobianMode_` opt-in enum was part of CP1 and
+  was dropped with it (commit `2b2de93`); there is no runtime selector.
 
 ## 5. Tests
 
