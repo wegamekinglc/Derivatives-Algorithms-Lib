@@ -278,11 +278,11 @@ namespace {
         int nSwaps = 0;
     };
 
-    void AppendCashDeposit(Vector_<InstrumentEntry_>* entries,
-                           InstrumentCounts_* counts,
-                           const Date_& today,
-                           const Date_& spot,
-                           const RateIndexConvention_& euribor3m) {
+    void AppendCash(Vector_<InstrumentEntry_>* entries,
+                    InstrumentCounts_* counts,
+                    const Date_& today,
+                    const Date_& spot,
+                    const RateIndexConvention_& euribor3m) {
         entries->push_back({Handle_<YCInstrument_>(new Deposit_(today,
                                                                  spot,
                                                                  Date::AddMonths(spot, CASH_MONTHS),
@@ -357,14 +357,12 @@ namespace {
         spec->liborBasis_ = DayBasis_("ACT_365F");
         spec->instruments_.reserve(ordered.size());
         displayNames->reserve(ordered.size());
+        spec->knotDates_.reserve(ordered.size());
         for (const auto& e : ordered) {
             spec->instruments_.push_back(e.inst);
             displayNames->push_back(e.name);
-        }
-        // Knots at instrument maturities (one per instrument).
-        spec->knotDates_.reserve(ordered.size());
-        for (const auto& e : ordered)
             spec->knotDates_.push_back(e.inst->TimeSpan().second);
+        }
         std::sort(spec->knotDates_.begin(), spec->knotDates_.end());
         spec->knotDates_.erase(std::unique(spec->knotDates_.begin(), spec->knotDates_.end()), spec->knotDates_.end());
     }
@@ -400,7 +398,7 @@ int main() {
 
     Vector_<InstrumentEntry_> entries;
     InstrumentCounts_ counts;
-    AppendCashDeposit(&entries, &counts, today, spot, euribor3m);
+    AppendCash(&entries, &counts, today, spot, euribor3m);
     AppendFutures(&entries, &counts, today, euribor3m);
     AppendSwaps(&entries, &counts, today, spot, fixedLeg, euribor3m, floatLeg);
 
