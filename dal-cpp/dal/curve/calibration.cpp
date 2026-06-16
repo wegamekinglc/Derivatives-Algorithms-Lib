@@ -435,12 +435,13 @@ namespace Dal {
                     NOTICE(msg);
                     return false;
                 }
-                // tradeDate == anchor (knotDates_.front()). Deposit/FRA/Future/Swap all store
-                // tradeDate_ privately; exposing a TradeDate() accessor would change the public
-                // surface. Instead, check via the TimeSpan() first date: Phase A requires the
-                // instrument to start at the anchor (knotDates_.front()).
-                if (inst->TimeSpan().first != knotDates_.front()) {
-                    const String_ msg = String_("AAD Jacobian requires every instrument to start at the "
+                // tradeDate == anchor (knotDates_.front()). Phase A's templated rates read
+                // DF(tradeDate_, p) (see ycinstrument.cpp), so the gate must check the real trade
+                // date via TradeDate(), not the effective/spot start that TimeSpan().first returns
+                // -- a spot-started instrument has tradeDate strictly before start, and admitting
+                // it would silently misprice its residual row on the tape.
+                if (inst->TradeDate() != knotDates_.front()) {
+                    const String_ msg = String_("AAD Jacobian requires every instrument to trade at the "
                                                 "curve anchor; instrument '")
                                         + name + "' does not, falling back to bumped";
                     NOTICE(msg);
@@ -451,8 +452,8 @@ namespace Dal {
 
             // Phase A AAD-tape Jacobian. Single-result reverse sweep: one forward recording per
             // Gradient call, nRows reverse sweeps (one per residual), harvest adjoints column by
-            // column. Returns XCurveJacobian_ (same dense Jacobian subclass as CP1 -- storage is
-            // dense, assembly is sparse-by-row because AAD produces exact structural zeros).
+            // column. Returns XCurveJacobian_ (a dense Jacobian subclass: storage is dense,
+            // assembly is sparse-by-row because AAD produces exact structural zeros).
             [[nodiscard]] Underdetermined::Jacobian_* PhaseAJacobian_NativeAAD(const Vector_<>& x, const Vector_<>& f) const;
 
             // Downcast instrument i to its concrete type and dispatch to PrecomputeT<T_>. Returns

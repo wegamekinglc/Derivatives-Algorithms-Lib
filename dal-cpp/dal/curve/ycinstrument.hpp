@@ -34,6 +34,11 @@ namespace Dal {
         [[nodiscard]] virtual String_ Name() const = 0;
         [[nodiscard]] virtual double MarketRate() const = 0;
         [[nodiscard]] virtual pair<Date_, Date_> TimeSpan() const = 0;
+        // The real trade date. Distinct from TimeSpan().first (the effective/spot start): a
+        // spot-started instrument has tradeDate == spotLag business days before start_. Phase A's
+        // templated rates read DF(tradeDate_, p), so eligibility must be checked against this
+        // accessor, not the start proxy that silently misprices spot-started residual rows.
+        [[nodiscard]] virtual Date_ TradeDate() const = 0;
 
         struct Rate_ : noncopyable {
             virtual ~Rate_() = default;
@@ -66,6 +71,7 @@ namespace Dal {
         ~Deposit_() override;
         [[nodiscard]] String_ Name() const override;
         [[nodiscard]] pair<Date_, Date_> TimeSpan() const override;
+        [[nodiscard]] Date_ TradeDate() const override { return tradeDate_; }
         [[nodiscard]] double MarketRate() const override { return marketRate_; }
         [[nodiscard]] Handle_<Rate_> Precompute(const Handle_<YieldCurve_>& funding_yc) const override;
         template <class T_> [[nodiscard]] Handle_<Tape::Rate_<T_>> PrecomputeT() const;
@@ -87,6 +93,7 @@ namespace Dal {
         ~FRA_() override;
         [[nodiscard]] String_ Name() const override;
         [[nodiscard]] pair<Date_, Date_> TimeSpan() const override;
+        [[nodiscard]] Date_ TradeDate() const override { return tradeDate_; }
         [[nodiscard]] double MarketRate() const override { return marketRate_; }
         [[nodiscard]] Handle_<Rate_> Precompute(const Handle_<YieldCurve_>& funding_yc) const override;
         template <class T_> [[nodiscard]] Handle_<Tape::Rate_<T_>> PrecomputeT() const;
@@ -110,6 +117,7 @@ namespace Dal {
         ~Future_() override;
         [[nodiscard]] String_ Name() const override;
         [[nodiscard]] pair<Date_, Date_> TimeSpan() const override;
+        [[nodiscard]] Date_ TradeDate() const override { return tradeDate_; }
         [[nodiscard]] double MarketRate() const override { return marketRate_; }
         [[nodiscard]] Handle_<Rate_> Precompute(const Handle_<YieldCurve_>& funding_yc) const override;
         template <class T_> [[nodiscard]] Handle_<Tape::Rate_<T_>> PrecomputeT() const;
@@ -137,6 +145,7 @@ namespace Dal {
         ~Swap_() override;
         [[nodiscard]] String_ Name() const override;
         [[nodiscard]] pair<Date_, Date_> TimeSpan() const override;
+        [[nodiscard]] Date_ TradeDate() const override { return tradeDate_; }
         [[nodiscard]] double MarketRate() const override { return marketRate_; }
         [[nodiscard]] Handle_<Rate_> Precompute(const Handle_<YieldCurve_>& funding_yc) const override;
         template <class T_> [[nodiscard]] Handle_<Tape::Rate_<T_>> PrecomputeT() const;
@@ -177,6 +186,7 @@ namespace Dal {
         ~BasisSwap_() override;
         [[nodiscard]] String_ Name() const override;
         [[nodiscard]] pair<Date_, Date_> TimeSpan() const override;
+        [[nodiscard]] Date_ TradeDate() const override { return tradeDate_; }
         [[nodiscard]] double MarketRate() const override { return marketRate_; }
         [[nodiscard]] Handle_<Rate_> Precompute(const Handle_<YieldCurve_>& funding_yc) const override;
     };
