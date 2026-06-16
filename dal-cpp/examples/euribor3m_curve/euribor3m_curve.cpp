@@ -277,7 +277,7 @@ int main() {
     RegisterAll_::Init();
 
     const Date_ today(2026, 4, 30);
-    const Holidays_ target("TAR");
+    const Holidays_ target("TARGET");
     const Date_ spot = AddBusinessDays(target, today, 2); // Euribor T+2 on TARGET calendar
 
     // ---- EUR conventions (single-curve: forecast routes to the discount curve) ----
