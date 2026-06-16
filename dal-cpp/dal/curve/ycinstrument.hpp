@@ -43,11 +43,11 @@ namespace Dal {
         [[nodiscard]] virtual Handle_<Rate_> Precompute(const Handle_<YieldCurve_>& funding_yc) const = 0;
 
         // Templated factory mirroring Precompute: returns a Tape::Rate_<T_> bound to the supplied
-        // yield context. The funding-yc handle is unused on the Phase A path (every rate reads
-        // only the calibrated target curve), but kept for symmetry with Precompute. Default
-        // returns empty -- the instrument has no Phase A templated rate (BasisSwap_ in the first
-        // cut), so EligibleForPhaseA rejects the whole calibration and the solver bumps.
-        template <class T_> [[nodiscard]] Handle_<Tape::Rate_<T_>> PrecomputeT() const { return Handle_<Tape::Rate_<T_>>(); }
+        // yield context. Declared only on the concrete instruments that have a Phase A templated
+        // rate (Deposit_/FRA_/Future_/Swap_, plus their derived OISSwap_/STIR_); PhaseARateAt
+        // dispatches via dynamic_cast to those types, so there is no base-class entry point.
+        // Instruments without a templated rate (e.g. BasisSwap_) make EligibleForPhaseA reject the
+        // whole calibration and the solver dense-bumps instead.
     };
 
     class Deposit_ : public YCInstrument_ {

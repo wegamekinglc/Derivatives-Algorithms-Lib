@@ -395,43 +395,56 @@ namespace Dal {
                 // check is folded in: a Swap_ with tradeDate != knotDates_.front() is structurally
                 // fine for Phase A (the templated Tape::SwapRate_ reads DF(tradeDate_, p) directly), but
                 // requires anchor alignment so every instrument starts at knotDates_.front().
-                for (int i = 0; i < static_cast<int>(instruments_.size()); ++i) {
-                    const auto* inst = instruments_[i].get();
-                    const String_ name = inst->Name();
-                    const auto* deposit = dynamic_cast<const Deposit_*>(inst);
-                    const auto* fra = dynamic_cast<const FRA_*>(inst);
-                    const auto* future = deposit ? nullptr : dynamic_cast<const Future_*>(inst);
-                    const auto* swap = (deposit || fra || future) ? nullptr : dynamic_cast<const Swap_*>(inst);
-                    if (!deposit && !fra && !future && !swap) {
-                        const String_ msg = String_("AAD Jacobian has no templated rate for instrument '")
-                                            + name + "'; falling back to bumped";
-                        NOTICE(msg);
+                for (int i = 0; i < static_cast<int>(instruments_.size()); ++i)
+                    if (!InstrumentEligibleForPhaseA(instruments_[i].get()))
                         return false;
-                    }
-                    const RateIndexConvention_* floatConv = deposit       ? &deposit->FloatConvention()
-                                                              : fra      ? &fra->FloatConvention()
-                                                              : future   ? &future->FloatConvention()
-                                                              : swap     ? &swap->FloatConvention()
-                                                                         : nullptr;
-                    if (floatConv && floatConv->useProjectionCurve_) {
-                        const String_ msg = String_("AAD Jacobian requires forecast==discount for every "
-                                                    "instrument; instrument '")
-                                            + name + "' uses a projection curve, falling back to bumped";
-                        NOTICE(msg);
-                        return false;
-                    }
-                    // tradeDate == anchor (knotDates_.front()). Deposit/FRA/Future/Swap all store
-                    // tradeDate_ privately; expose a TradeDate() accessor would change the public
-                    // surface. Instead, check via the TimeSpan() first date: Phase A requires the
-                    // instrument to start at the anchor (knotDates_.front()).
-                    const auto span = inst->TimeSpan();
-                    if (span.first != knotDates_.front()) {
-                        const String_ msg = String_("AAD Jacobian requires every instrument to start at the "
-                                                    "curve anchor; instrument '")
-                                            + name + "' does not, falling back to bumped";
-                        NOTICE(msg);
-                        return false;
-                    }
+                return true;
+            }
+
+            // Float-index convention of a Phase-A-supported instrument (Deposit/FRA/Future/vanilla
+            // Swap, in that priority order), or nullptr if the instrument type has no Phase A
+            // templated rate. Mirrors the dispatch in PhaseARateAt so eligibility and pricing agree.
+            [[nodiscard]] static const RateIndexConvention_* PhaseAFloatConvention(const YCInstrument_* inst) {
+                if (const auto* deposit = dynamic_cast<const Deposit_*>(inst))
+                    return &deposit->FloatConvention();
+                if (const auto* fra = dynamic_cast<const FRA_*>(inst))
+                    return &fra->FloatConvention();
+                if (const auto* future = dynamic_cast<const Future_*>(inst))
+                    return &future->FloatConvention();
+                if (const auto* swap = dynamic_cast<const Swap_*>(inst))
+                    return &swap->FloatConvention();
+                return nullptr;
+            }
+
+            // Per-instrument Phase A eligibility. Returns true iff the instrument has a templated
+            // rate, uses no projection curve (forecast == discount), and starts at the curve anchor.
+            // Emits a NOTICE naming the offending condition on each fall-through.
+            [[nodiscard]] bool InstrumentEligibleForPhaseA(const YCInstrument_* inst) const {
+                const String_ name = inst->Name();
+                const RateIndexConvention_* floatConv = PhaseAFloatConvention(inst);
+                if (!floatConv) {
+                    const String_ msg = String_("AAD Jacobian has no templated rate for instrument '")
+                                        + name + "'; falling back to bumped";
+                    NOTICE(msg);
+                    return false;
+                }
+                if (floatConv->useProjectionCurve_) {
+                    const String_ msg = String_("AAD Jacobian requires forecast==discount for every "
+                                                "instrument; instrument '")
+                                        + name + "' uses a projection curve, falling back to bumped";
+                    NOTICE(msg);
+                    return false;
+                }
+                // tradeDate == anchor (knotDates_.front()). Deposit/FRA/Future/Swap all store
+                // tradeDate_ privately; exposing a TradeDate() accessor would change the public
+                // surface. Instead, check via the TimeSpan() first date: Phase A requires the
+                // instrument to start at the anchor (knotDates_.front()).
+                if (inst->TimeSpan().first != knotDates_.front()) {
+                    const String_ msg = String_("AAD Jacobian requires every instrument to start at the "
+                                                "curve anchor; instrument '")
+                                        + name + "' does not, falling back to bumped";
+                    NOTICE(msg);
+                    return false;
                 }
                 return true;
             }
