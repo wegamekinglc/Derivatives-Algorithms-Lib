@@ -39,16 +39,16 @@ namespace {
     // ---- Embedded market data (as-of 2026-04-30) ---------------------------
 
     struct FutureRow_ {
-        const char* contract; // e.g. "MAY 26+3"  (month  2-digit year + 3M tenor)
-        double price;
-        double convexityAdj; // percent points (matches the CSV Cvx_Adj column)
-        double rate;         // convexity-adjusted forward rate, percent
+        const char* contract_; // e.g. "MAY 26+3"  (month  2-digit year + 3M tenor)
+        double price_;
+        double convexityAdj_; // percent points (matches the CSV Cvx_Adj column)
+        double rate_;         // convexity-adjusted forward rate, percent
     };
 
     struct SwapRow_ {
-        int months;
-        double bid; // percent
-        double ask; // percent
+        int months_;
+        double bid_; // percent
+        double ask_; // percent
     };
 
     // EUR_cash_rates.csv: only the 3M deposit is used.
@@ -108,9 +108,9 @@ namespace {
     // Reference (benchmark) curve pillars from EUR_3M_EURIBOR_curve_20260430.csv.
     // Zero Rate is continuously-compounded ACT/365; Discount is P(today, date), today = 2026-04-30.
     struct BenchmarkRow_ {
-        int mm, dd, yyyy;
-        double zeroPct;
-        double discount;
+        int mm_, dd_, yyyy_;
+        double zeroPct_;
+        double discount_;
     };
     const Vector_<BenchmarkRow_> BENCHMARK = {
         {8, 5, 2026, 2.22330, 0.994109},   {8, 19, 2026, 2.26545, 0.993134},  {9, 16, 2026, 2.35253, 0.991081},
@@ -135,9 +135,9 @@ namespace {
     }
 
     struct ParsedContract_ {
-        int year;
-        int month;
-        int tenorMonths;
+        int year_;
+        int month_;
+        int tenorMonths_;
     };
 
     ParsedContract_ ParseContract(const char* label) {
@@ -172,20 +172,20 @@ namespace {
 
     // Mirrors calibration.cpp OrderInstruments so display names line up with diagnostics.
     struct InstrumentEntry_ {
-        Handle_<YCInstrument_> inst;
-        String_ name;
+        Handle_<YCInstrument_> inst_;
+        String_ name_;
     };
 
     Vector_<InstrumentEntry_> OrderEntries(const Vector_<InstrumentEntry_>& entries) {
         auto ordered = entries;
         std::sort(ordered.begin(), ordered.end(), [](const InstrumentEntry_& lhs, const InstrumentEntry_& rhs) {
-            const auto ls = lhs.inst->TimeSpan();
-            const auto rs = rhs.inst->TimeSpan();
+            const auto ls = lhs.inst_->TimeSpan();
+            const auto rs = rhs.inst_->TimeSpan();
             if (ls.second != rs.second)
                 return ls.second < rs.second;
             if (ls.first != rs.first)
                 return ls.first < rs.first;
-            return lhs.name < rhs.name;
+            return lhs.name_ < rhs.name_;
         });
         return ordered;
     }
@@ -197,10 +197,10 @@ namespace {
         std::cout << std::string(58, '-') << '\n';
         std::cout << std::fixed << std::setprecision(6);
         for (const auto& e : entries) {
-            const auto span = e.inst->TimeSpan();
-            std::cout << std::left << std::setw(w[0]) << e.name << std::right << std::setw(w[1])
+            const auto span = e.inst_->TimeSpan();
+            std::cout << std::left << std::setw(w[0]) << e.name_ << std::right << std::setw(w[1])
                       << Date::ToString(span.first) << std::setw(w[2]) << Date::ToString(span.second)
-                      << std::setw(w[3]) << e.inst->MarketRate() * 100.0 << '\n';
+                      << std::setw(w[3]) << e.inst_->MarketRate() * 100.0 << '\n';
         }
         std::cout << '\n';
     }
@@ -253,19 +253,19 @@ namespace {
         double maxAbsDz = 0.0, sqDz = 0.0, maxAbsDdf = 0.0;
         int n = 0;
         for (const auto& b : bench) {
-            const Date_ d(b.yyyy, b.mm, b.dd);
+            const Date_ d(b.yyyy_, b.mm_, b.dd_);
             const double myDf = curve(today, d);
             const double yf = static_cast<double>(d - today) / 365.0;
             const double myZero = yf > 0.0 ? -std::log(myDf) / yf * 100.0 : 0.0;
-            const double dz = (myZero - b.zeroPct) * 100.0; // bp
-            const double ddf = myDf - b.discount;
+            const double dz = (myZero - b.zeroPct_) * 100.0; // bp
+            const double ddf = myDf - b.discount_;
             maxAbsDz = std::max(maxAbsDz, std::fabs(dz));
             sqDz += dz * dz;
             maxAbsDdf = std::max(maxAbsDdf, std::fabs(ddf));
             ++n;
             std::cout << std::left << std::setw(w[0]) << Date::ToString(d) << std::right << std::setw(w[1])
-                      << b.zeroPct << std::setw(w[2]) << myZero << std::setw(w[3]) << dz << std::setw(w[4])
-                      << b.discount << std::setw(w[5]) << myDf << std::setw(w[6]) << ddf << '\n';
+                      << b.zeroPct_ << std::setw(w[2]) << myZero << std::setw(w[3]) << dz << std::setw(w[4])
+                      << b.discount_ << std::setw(w[5]) << myDf << std::setw(w[6]) << ddf << '\n';
         }
         std::cout << std::string(77, '-') << '\n';
         std::cout << "\n  dZero (bp):  RMS = " << std::sqrt(sqDz / n) << "   max abs = " << maxAbsDz
@@ -273,9 +273,9 @@ namespace {
     }
 
     struct InstrumentCounts_ {
-        int nCash = 0;
-        int nFutures = 0;
-        int nSwaps = 0;
+        int nCash_ = 0;
+        int nFutures_ = 0;
+        int nSwaps_ = 0;
     };
 
     void AppendCash(Vector_<InstrumentEntry_>* entries,
@@ -289,7 +289,7 @@ namespace {
                                                                  CASH_3M_RATE / 100.0,
                                                                  euribor3m)),
                             "CASH 3M"});
-        ++counts->nCash;
+        ++counts->nCash_;
     }
 
     void AppendFutures(Vector_<InstrumentEntry_>* entries,
@@ -297,21 +297,21 @@ namespace {
                        const Date_& today,
                        const RateIndexConvention_& euribor3m) {
         for (const auto& f : FUTURES) {
-            const auto pc = ParseContract(f.contract);
-            if (pc.year > FUTURES_LAST_YEAR || (pc.year == FUTURES_LAST_YEAR && pc.month > FUTURES_LAST_MONTH))
+            const auto pc = ParseContract(f.contract_);
+            if (pc.year_ > FUTURES_LAST_YEAR || (pc.year_ == FUTURES_LAST_YEAR && pc.month_ > FUTURES_LAST_MONTH))
                 continue;
-            const Date_ settle = ThirdWednesday(pc.year, pc.month); // IMM date (3rd Wed), always a TARGET business day
+            const Date_ settle = ThirdWednesday(pc.year_, pc.month_); // IMM date (3rd Wed), always a TARGET business day
             // Underlying 3M period is IMM-to-IMM: from this 3rd Wednesday to the 3rd Wednesday three months later
             // (not settle + 3M, which keeps the day-of-month and lands on the wrong date).
-            const Date_ monthAfter = Date::AddMonths(settle, pc.tenorMonths);
+            const Date_ monthAfter = Date::AddMonths(settle, pc.tenorMonths_);
             const Date_ accrualEnd = ThirdWednesday(Date::Year(monthAfter), Date::Month(monthAfter));
             // The CSV Rate column is already convexity-adjusted (Rate = 100 - Price + Cvx_Adj),
             // so we calibrate to it directly with zero convexity in the instrument.
             // (Equivalent: marketRate = (100 - Price)/100, convexityAdjustment = Cvx_Adj/100.)
             entries->push_back(
-                {Handle_<YCInstrument_>(new Future_(today, settle, accrualEnd, f.rate / 100.0, euribor3m, 0.0)),
-                 String_("FUT ") + String_(f.contract)});
-            ++counts->nFutures;
+                {Handle_<YCInstrument_>(new Future_(today, settle, accrualEnd, f.rate_ / 100.0, euribor3m, 0.0)),
+                 String_("FUT ") + String_(f.contract_)});
+            ++counts->nFutures_;
         }
     }
 
@@ -323,9 +323,9 @@ namespace {
                      const RateIndexConvention_& euribor3m,
                      const RateLegConvention_& floatLeg) {
         for (const auto& s : SWAPS) {
-            if (s.months < SWAPS_MIN_MONTHS)
+            if (s.months_ < SWAPS_MIN_MONTHS)
                 continue;
-            const double mid = (s.bid + s.ask) / 2.0 / 100.0;
+            const double mid = (s.bid_ + s.ask_) / 2.0 / 100.0;
             // Maturity is passed UNADJUSTED on purpose: the schedule generator rolls every coupon
             // (including the last) to ModifiedFollowing on TARGET, so the final cash flow already lands
             // on MF(spot+tenor) -- the benchmark pillar. Pre-rolling maturity itself would insert an
@@ -333,13 +333,13 @@ namespace {
             // spot+tenor is a weekend (e.g. 3Y -> 2029-05-05 Sat).
             entries->push_back({Handle_<YCInstrument_>(new Swap_(today,
                                                                  spot,
-                                                                 Date::AddMonths(spot, s.months),
+                                                                 Date::AddMonths(spot, s.months_),
                                                                  mid,
                                                                  fixedLeg,
                                                                  euribor3m,
                                                                  floatLeg)),
-                                String_("SWAP ") + String::FromInt(s.months / 12) + "Y"});
-            ++counts->nSwaps;
+                                String_("SWAP ") + String::FromInt(s.months_ / 12) + "Y"});
+            ++counts->nSwaps_;
         }
     }
 
@@ -359,9 +359,9 @@ namespace {
         displayNames->reserve(ordered.size());
         spec->knotDates_.reserve(ordered.size());
         for (const auto& e : ordered) {
-            spec->instruments_.push_back(e.inst);
-            displayNames->push_back(e.name);
-            spec->knotDates_.push_back(e.inst->TimeSpan().second);
+            spec->instruments_.push_back(e.inst_);
+            displayNames->push_back(e.name_);
+            spec->knotDates_.push_back(e.inst_->TimeSpan().second);
         }
         std::sort(spec->knotDates_.begin(), spec->knotDates_.end());
         spec->knotDates_.erase(std::unique(spec->knotDates_.begin(), spec->knotDates_.end()), spec->knotDates_.end());
@@ -412,8 +412,8 @@ int main() {
               << "  Euribor 3M single-curve bootstrap  (as-of " << Date::ToString(today) << ")\n"
               << std::string(70, '=') << "\n"
               << "  spot: " << Date::ToString(spot) << "    futures last contract: MAR 28+3\n"
-              << "  instruments: " << counts.nCash << " cash + " << counts.nFutures << " futures + " << counts.nSwaps
-              << " swaps = " << (counts.nCash + counts.nFutures + counts.nSwaps) << "    knots: " << spec.knotDates_.size()
+              << "  instruments: " << counts.nCash_ << " cash + " << counts.nFutures_ << " futures + " << counts.nSwaps_
+              << " swaps = " << (counts.nCash_ + counts.nFutures_ + counts.nSwaps_) << "    knots: " << spec.knotDates_.size()
               << "\n\n";
     PrintInstruments(ordered);
 

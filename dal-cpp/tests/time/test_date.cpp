@@ -188,3 +188,14 @@ TEST(DateTest, TestAddMonthsWithEOM) {
     auto dst = AddMonths(src, 1, true);
     ASSERT_EQ(dst, Date_(2017, 3, 31));
 }
+
+TEST(DateTest, TestExcelRoundTripFarFuture) {
+    // Regression test for ExcelDateFromYMD: years where (yy+4900) % 100 >= 34
+    // (e.g. 2034-2099, 2134-2199, ...) previously produced a serial one day too small.
+    // Verify that a representative far-future date round-trips correctly.
+    const Date_ src(2076, 5, 5);
+    const int serial = ToExcel(src);
+    const Date_ roundTripped = FromExcel(serial);
+    ASSERT_EQ(roundTripped, src);
+    ASSERT_EQ(ToString(src), "2076-05-05");
+}
