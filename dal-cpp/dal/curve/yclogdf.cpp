@@ -475,10 +475,13 @@ namespace Dal {
     // Explicit instantiations. DiscountLogDF_<double> is the hot path (F loop, bumped fallback,
     // serialisation). DiscountLogDF_<Dal::AAD::Number_> is instantiated only under the native
     // backend; it pulls in the AAD-aware branches via if constexpr and is linked into the Phase A
-    // Gradient override in calibration.cpp. Under external backends Number_ does not exist, so the
-    // Number_ instantiation is gated out and Phase A compiles away.
+    // Gradient override in calibration.cpp. The external AAD backends' active types do not provide
+    // the native-tape conversions (static_cast<double>) the Number_ body relies on, so the Number_
+    // instantiation is gated out and Phase A compiles away.
     template class DiscountLogDF_<double>;
+#if !defined(DAL_USE_XAD_AAD) && !defined(DAL_USE_CODIPACK_AAD) && !defined(DAL_USE_ADEPT_AAD)
     template class DiscountLogDF_<Dal::AAD::Number_>;
+#endif // native AAD backend (Phase A log-DF curve)
 
     } // namespace Tape
 

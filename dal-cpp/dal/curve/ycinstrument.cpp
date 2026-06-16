@@ -507,11 +507,15 @@ namespace Dal {
     // Explicit instantiation of PrecomputeT<Dal::AAD::Number_> on each Phase A instrument so the
     // linker finds the symbol when calibration.cpp calls it. double is implicitly instantiated at
     // every use site (rare) but we also force it here for symmetry. Gated on the native backend
-    // because Dal::AAD::Number_ does not exist under external backends.
+    // because the Number_ templated rate bodies use native-tape conversions (static_cast<double>)
+    // the external AAD backends' active types do not provide; under those backends Phase A compiles
+    // away and the solver dense-bumps instead.
+#if !defined(DAL_USE_XAD_AAD) && !defined(DAL_USE_CODIPACK_AAD) && !defined(DAL_USE_ADEPT_AAD)
     template Handle_<Tape::Rate_<Dal::AAD::Number_>> Deposit_::PrecomputeT<Dal::AAD::Number_>() const;
     template Handle_<Tape::Rate_<Dal::AAD::Number_>> FRA_::PrecomputeT<Dal::AAD::Number_>() const;
     template Handle_<Tape::Rate_<Dal::AAD::Number_>> Future_::PrecomputeT<Dal::AAD::Number_>() const;
     template Handle_<Tape::Rate_<Dal::AAD::Number_>> Swap_::PrecomputeT<Dal::AAD::Number_>() const;
+#endif // native AAD backend (Phase A rates)
 
     OISSwap_::OISSwap_(const Date_& tradeDate,
                        const Date_& start,

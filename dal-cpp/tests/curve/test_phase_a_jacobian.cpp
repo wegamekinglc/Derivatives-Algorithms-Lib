@@ -20,6 +20,23 @@
 
 using namespace Dal;
 
+// The Phase A analytic Jacobian is native-AAD-only: it walks Dal::AAD::Tape_::nodes_ for the
+// single-result reverse sweeps, an internal the third-party AAD backends (XAD/CoDiPack/Adept) do
+// not expose. Under those backends TestOnly::AnalyticJacobianAt returns an empty matrix and the
+// solver dense-bumps, so the tests that assert the exact AAD Jacobian are skipped there.
+#if !defined(DAL_USE_XAD_AAD) && !defined(DAL_USE_CODIPACK_AAD) && !defined(DAL_USE_ADEPT_AAD)
+#define DAL_PHASE_A_NATIVE_AAD 1
+#else
+#define DAL_PHASE_A_NATIVE_AAD 0
+#endif
+
+#define SKIP_IF_NOT_NATIVE_AAD()                                                                                                                     \
+    do {                                                                                                                                            \
+        if (!DAL_PHASE_A_NATIVE_AAD)                                                                                                                 \
+            GTEST_SKIP() << "Phase A analytic Jacobian is native-AAD-only; external backends dense-bump.";                                          \
+    } while (false)
+
+
 namespace {
     RateLegConvention_ AnnualLegPA() {
         RateLegConvention_ leg;
@@ -144,6 +161,7 @@ namespace {
 // 1e-6 within 1e-9.
 
 TEST(PhaseAAADJacobianTest, TestMatchesCentralDifferenceLogLinear) {
+    SKIP_IF_NOT_NATIVE_AAD();
     auto spec = MakePhaseASpec(LogDfScheme_::Value_::LOG_LINEAR);
     const Vector_<> x = {-0.005, -0.012, -0.025, -0.04, -0.06};
     ASSERT_EQ(static_cast<int>(x.size()), 5);
@@ -179,6 +197,7 @@ TEST(PhaseAAADJacobianTest, TestMatchesCentralDifferenceLogLinear) {
 // cashflow support.
 
 TEST(PhaseAAADJacobianTest, TestStructuralZerosAreExactlyZero) {
+    SKIP_IF_NOT_NATIVE_AAD();
     auto spec = MakePhaseASpec();
     const Vector_<> x = {-0.005, -0.012, -0.025, -0.04, -0.06};
     const Matrix_<> J = TestOnly::AnalyticJacobianAt(spec, x);
@@ -275,12 +294,14 @@ TEST(PhaseAAADJacobianTest, TestTapeIsolationAcrossCalls) {
 // mixed-cutoff spline branches of the AAD path.
 
 TEST(PhaseAAADJacobianTest, TestMatchesCentralDifferenceLogCubicNatural) {
+    SKIP_IF_NOT_NATIVE_AAD();
     auto spec = MakePhaseASpec(LogDfScheme_::Value_::LOG_CUBIC_NATURAL);
     const Vector_<> x = {-0.005, -0.012, -0.025, -0.04, -0.06};
     AssertMatchesCentralDifference(spec, x, 1.0e-6, 1.0e-9);
 }
 
 TEST(PhaseAAADJacobianTest, TestMatchesCentralDifferenceMixed) {
+    SKIP_IF_NOT_NATIVE_AAD();
     auto spec = MakePhaseASpec(LogDfScheme_::Value_::MIXED);
     const Vector_<> x = {-0.005, -0.012, -0.025, -0.04, -0.06};
     AssertMatchesCentralDifference(spec, x, 1.0e-6, 1.0e-9);
@@ -296,6 +317,7 @@ TEST(PhaseAAADJacobianTest, TestMatchesCentralDifferenceMixed) {
 // deposit does NOT touch (beyond its maturity) are EXACTLY zero (AAD structural zero, not noise).
 
 TEST(PhaseAAADJacobianTest, TestSingleDepositTapeMatchesCentralDifference) {
+    SKIP_IF_NOT_NATIVE_AAD();
     CurveCalibrationSpec_ spec;
     spec.today_ = Date_(2022, 1, 1);
     spec.ccy_ = "USD";
@@ -342,6 +364,7 @@ TEST(PhaseAAADJacobianTest, TestSingleDepositTapeMatchesCentralDifference) {
 // whose cashflows end before later nodes.
 
 TEST(PhaseAAADJacobianTest, TestMixedInstrumentCalibrationMatchesCentralDifference) {
+    SKIP_IF_NOT_NATIVE_AAD();
     CurveCalibrationSpec_ spec;
     spec.today_ = Date_(2022, 1, 1);
     spec.ccy_ = "USD";
