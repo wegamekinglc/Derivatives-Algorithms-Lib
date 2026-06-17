@@ -30,12 +30,11 @@ using namespace Dal;
 #define DAL_PHASE_A_NATIVE_AAD 0
 #endif
 
-#define SKIP_IF_NOT_NATIVE_AAD()                                                                                                                     \
-    do {                                                                                                                                            \
-        if (!DAL_PHASE_A_NATIVE_AAD)                                                                                                                 \
-            GTEST_SKIP() << "Phase A analytic Jacobian is native-AAD-only; external backends dense-bump.";                                          \
+#define SKIP_IF_NOT_NATIVE_AAD() \
+    do { \
+        if (!DAL_PHASE_A_NATIVE_AAD) \
+            GTEST_SKIP() << "Phase A analytic Jacobian is native-AAD-only; external backends dense-bump."; \
     } while (false)
-
 
 namespace {
     RateLegConvention_ AnnualLegPA() {
@@ -300,8 +299,12 @@ TEST(PhaseAAADJacobianTest, TestTradeDateNotStartRejected) {
 }
 
 // Sanity check the symmetric case: when tradeDate == start == anchor the same shape is still
-// admitted (one swap, non-empty Jacobian), guarding against an over-broad rejection.
+// admitted (one swap, non-empty Jacobian), guarding against an over-broad rejection. The
+// non-empty analytic Jacobian only exists on native AAD; on external backends the analytic path
+// is gated out and AnalyticJacobianAt returns an empty matrix regardless of eligibility, so this
+// assertion is skipped there (the eligibility predicate itself is covered by the native run).
 TEST(PhaseAAADJacobianTest, TestTradeDateEqualsStartStillAdmitted) {
+    SKIP_IF_NOT_NATIVE_AAD();
     auto spec = MakePhaseASpec();
     spec.instruments_ = {
         Handle_<YCInstrument_>(new Swap_(spec.today_, spec.today_, Date_(2023, 1, 1), 0.012, AnnualLegPA(), AnnualIndexPA(), AnnualLegPA())),
@@ -332,7 +335,7 @@ TEST(PhaseAAADJacobianTest, TestTapeIsolationAcrossCalls) {
 }
 
 // ============================================================================
-// Category 6: All three LogDfScheme_ values must match central differences
+// Category 7: All three LogDfScheme_ values must match central differences
 // ============================================================================
 // Phase A eligibility is scheme-agnostic -- the templated DiscountLogDF_<T_> dispatches on
 // scheme inside the tape. The existing TestMatchesCentralDifferenceLogLinear covers LOG_LINEAR;
@@ -354,7 +357,7 @@ TEST(PhaseAAADJacobianTest, TestMatchesCentralDifferenceMixed) {
 }
 
 // ============================================================================
-// Category 7: Single-instrument tape canary (Deposit)
+// Category 8: Single-instrument tape canary (Deposit)
 // ============================================================================
 // A single Deposit isolates the tape from multi-row sparsity. The Jacobian is 1 x N: one reverse
 // sweep over one residual. If the tape mis-computes dResidual/d(logDF_node), this test catches
@@ -401,7 +404,7 @@ TEST(PhaseAAADJacobianTest, TestSingleDepositTapeMatchesCentralDifference) {
 }
 
 // ============================================================================
-// Category 8: Mixed instrument types in one calibration (Deposit + FRA + Swap)
+// Category 9: Mixed instrument types in one calibration (Deposit + FRA + Swap)
 // ============================================================================
 // Phase A is eligible for vanilla Swap, Deposit, FRA, and Future. A calibration mixing all
 // three primary cash instrument types exercises the per-instrument dispatch in PhaseAJacobian_
