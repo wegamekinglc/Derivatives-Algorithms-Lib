@@ -51,7 +51,7 @@ namespace Dal {
         // yield context. Declared only on the concrete instruments that have a Phase A templated
         // rate (Deposit_/FRA_/Future_/Swap_, plus their derived OISSwap_/STIR_); PhaseARateAt
         // dispatches via dynamic_cast to those types, so there is no base-class entry point.
-        // Instruments without a templated rate (e.g. BasisSwap_) make EligibleForPhaseA reject the
+        // Instruments without a templated rate (e.g. BasisSwap_) make EligibleForAnalyticJacobian reject the
         // whole calibration and the solver dense-bumps instead.
     };
 
