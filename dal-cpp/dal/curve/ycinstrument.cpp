@@ -8,6 +8,7 @@
 #include <dal/curve/discount.hpp>
 #include <dal/curve/yc.hpp>
 #include <dal/curve/ycinstrument.hpp>
+#include <dal/curve/yclogdf.hpp>
 #include <dal/protocol/accrualperiod.hpp>
 #include <dal/string/strings.hpp>
 #include <dal/time/schedules.hpp>
@@ -248,7 +249,123 @@ namespace Dal {
                 return (referencePv - spreadBasePv) / spreadAnnuity;
             }
         };
+
     } // namespace
+
+    namespace Tape {
+        // Phase A templated rate classes (native AAD only). These mirror the double rate
+        // classes above; the arithmetic bodies are identical with T_ in place of double for the
+        // DF reads and the rate/annuity/fixing accumulations. dcf, yf, fixing dates and convexity
+        // adjustments stay double -- they are schedule-driven constants. The tape records the
+        // dependence of the residual on each free-node logDF value through the templated curve's
+        // operator() (which reads logDF_<T_> through the basis-weight machinery).
+
+        template <class T_>
+        T_ ForwardRate(const DiscountCurve_<T_>& forecast,
+                        const Date_& start,
+                        const Date_& maturity,
+                        const DayBasis_& basis,
+                        const Handle_<DayBasis::Context_>& context) {
+            const T_ fwdDf = forecast(start, maturity);
+            return (1.0 / fwdDf - 1.0) / basis(start, maturity, context.get());
+        }
+
+        template <class T_>
+        class DepositRate_ : public Rate_<T_> {
+            Date_ start_;
+            Date_ maturity_;
+            RateIndexConvention_ convention_;
+        public:
+            DepositRate_(const Date_& start, const Date_& maturity, const RateIndexConvention_& convention)
+                : start_(start), maturity_(maturity), convention_(convention) {}
+
+            T_ operator()(const YCCtx_<T_>& ctx) const override {
+                SchedulePeriod_ period;
+                period.unadjustedStart_ = start_;
+                period.unadjustedEnd_ = maturity_;
+                period.accrualStart_ = Holidays::Adjust(convention_.accrualHolidays_, start_, convention_.businessDayConvention_);
+                period.accrualEnd_ = Holidays::Adjust(convention_.accrualHolidays_, maturity_, convention_.businessDayConvention_);
+                period.dayCountContext_ = SinglePeriodContext(start_, maturity_, CouponMonths(start_, maturity_));
+                return ForwardRate(ctx.curve_,
+                                    period.accrualStart_,
+                                    period.accrualEnd_,
+                                    convention_.dayBasis_,
+                                    period.dayCountContext_);
+            }
+        };
+
+        template <class T_>
+        class ForwardRate_ : public Rate_<T_> {
+            Date_ start_;
+            Date_ maturity_;
+            double convexityAdjustment_;
+            RateIndexConvention_ convention_;
+        public:
+            ForwardRate_(const Date_& start,
+                          const Date_& maturity,
+                          double convexityAdjustment,
+                          const RateIndexConvention_& convention)
+                : start_(start), maturity_(maturity), convexityAdjustment_(convexityAdjustment), convention_(convention) {}
+
+            T_ operator()(const YCCtx_<T_>& ctx) const override {
+                SchedulePeriod_ period;
+                period.unadjustedStart_ = start_;
+                period.unadjustedEnd_ = maturity_;
+                period.accrualStart_ = Holidays::Adjust(convention_.accrualHolidays_, start_, convention_.businessDayConvention_);
+                period.accrualEnd_ = Holidays::Adjust(convention_.accrualHolidays_, maturity_, convention_.businessDayConvention_);
+                period.dayCountContext_ = SinglePeriodContext(start_,
+                                                              maturity_,
+                                                              convention_.useProjectionCurve_
+                                                                  ? convention_.forecastTenor_.Months()
+                                                                  : CouponMonths(start_, maturity_));
+                return ForwardRate(ctx.curve_,
+                                    period.accrualStart_,
+                                    period.accrualEnd_,
+                                    convention_.dayBasis_,
+                                    period.dayCountContext_)
+                       - static_cast<double>(convexityAdjustment_);
+            }
+        };
+
+        template <class T_>
+        class SwapRate_ : public Rate_<T_> {
+            Date_ tradeDate_;
+            Vector_<CouponPeriod_> fixedPeriods_;
+            Vector_<CouponPeriod_> floatPeriods_;
+            RateIndexConvention_ floatIndexConvention_;
+        public:
+            SwapRate_(const Date_& tradeDate,
+                       const Vector_<CouponPeriod_>& fixedPeriods,
+                       const Vector_<CouponPeriod_>& floatPeriods,
+                       const RateIndexConvention_& floatIndexConvention)
+                : tradeDate_(tradeDate),
+                  fixedPeriods_(fixedPeriods),
+                  floatPeriods_(floatPeriods),
+                  floatIndexConvention_(floatIndexConvention) {}
+
+            T_ operator()(const YCCtx_<T_>& ctx) const override {
+                // Phase A eligibility guarantees forecast == discount == ctx.curve_ (the calibrated
+                // target curve), so we read every DF from ctx.curve_. tradeDate_ == anchor is also
+                // guaranteed by EligibleForPhaseA, so DF(anchor, p) = ctx.curve_(tradeDate_, p).
+                const DiscountCurve_<T_>& discount = ctx.curve_;
+                T_ annuity(static_cast<double>(0.0));
+                for (const auto& period : fixedPeriods_)
+                    annuity += static_cast<double>(period.accrual_.dcf_) * discount(tradeDate_, period.schedule_.paymentDate_);
+                REQUIRE(static_cast<double>(annuity) > 0.0, "Swap pricing requires positive fixed-leg annuity");
+
+                T_ floatPv(static_cast<double>(0.0));
+                for (const auto& period : floatPeriods_) {
+                    const T_ fixing = ForwardRate(discount,
+                                                   period.schedule_.accrualStart_,
+                                                   period.schedule_.accrualEnd_,
+                                                   floatIndexConvention_.dayBasis_,
+                                                   period.schedule_.dayCountContext_);
+                    floatPv += fixing * static_cast<double>(period.accrual_.dcf_) * discount(tradeDate_, period.schedule_.paymentDate_);
+                }
+                return floatPv / annuity;
+            }
+        };
+    } // namespace Tape
 
     Deposit_::Deposit_(const Date_& today, const Date_& maturity, double marketRate, const DayBasis_& basis)
         : Deposit_(today, today, maturity, marketRate, RateIndexConvention_{0, 0, false, PeriodLength_("3M"), basis}) {}
@@ -270,6 +387,12 @@ namespace Dal {
         return Handle_<Rate_>(new DepositRate_(start_, maturity_, convention_, funding_yc));
     }
 
+    // Phase A templated factory: returns a Tape::DepositRate_<T_> bound to the instrument's schedule.
+    // The funding-yc handle is unused -- Phase A rates read only the calibrated target curve.
+    template <class T_> Handle_<Tape::Rate_<T_>> Deposit_::PrecomputeT() const {
+        return Handle_<Tape::Rate_<T_>>(new Tape::DepositRate_<T_>(start_, maturity_, convention_));
+    }
+
     FRA_::FRA_(const Date_& tradeDate,
                const Date_& start,
                const Date_& maturity,
@@ -285,6 +408,10 @@ namespace Dal {
 
     Handle_<YCInstrument_::Rate_> FRA_::Precompute(const Handle_<YieldCurve_>& funding_yc) const {
         return Handle_<Rate_>(new ForwardRate_(start_, maturity_, 0.0, convention_, funding_yc));
+    }
+
+    template <class T_> Handle_<Tape::Rate_<T_>> FRA_::PrecomputeT() const {
+        return Handle_<Tape::Rate_<T_>>(new Tape::ForwardRate_<T_>(start_, maturity_, 0.0, convention_));
     }
 
     Future_::Future_(const Date_& tradeDate,
@@ -308,6 +435,10 @@ namespace Dal {
 
     Handle_<YCInstrument_::Rate_> Future_::Precompute(const Handle_<YieldCurve_>& funding_yc) const {
         return Handle_<Rate_>(new ForwardRate_(start_, maturity_, convexityAdjustment_, convention_, funding_yc));
+    }
+
+    template <class T_> Handle_<Tape::Rate_<T_>> Future_::PrecomputeT() const {
+        return Handle_<Tape::Rate_<T_>>(new Tape::ForwardRate_<T_>(start_, maturity_, convexityAdjustment_, convention_));
     }
 
     Swap_::Swap_(const Date_& today, const Date_& maturity, double marketRate, int freqMonths, const DayBasis_& basis)
@@ -353,6 +484,36 @@ namespace Dal {
                                                   floatIndexConvention_.fixingHolidays_);
         return Handle_<Rate_>(new SwapRate_(tradeDate_, fixedPeriods, floatPeriods, floatIndexConvention_, funding_yc));
     }
+
+    // Phase A templated factory: shares the schedule-building logic with the double Precompute.
+    // The only T_-parameterised part is the final Tape::SwapRate_<T_> construction; the schedule is
+    // scalar-free and reused verbatim. The funding-yc handle is unused on the Phase A path.
+    template <class T_> Handle_<Tape::Rate_<T_>> Swap_::PrecomputeT() const {
+        const auto fixedPeriods = BuildLegPeriods(start_,
+                                                  maturity_,
+                                                  fixedLegConvention_,
+                                                  0,
+                                                  Holidays::None());
+        const auto floatPeriods = BuildLegPeriods(start_,
+                                                  maturity_,
+                                                  floatLegConvention_,
+                                                  floatIndexConvention_.fixingLag_,
+                                                  floatIndexConvention_.fixingHolidays_);
+        return Handle_<Tape::Rate_<T_>>(new Tape::SwapRate_<T_>(tradeDate_, fixedPeriods, floatPeriods, floatIndexConvention_));
+    }
+
+    // Explicit instantiation of PrecomputeT<Dal::AAD::Number_> on each Phase A instrument so the
+    // linker finds the symbol when calibration.cpp calls it. double is implicitly instantiated at
+    // every use site (rare) but we also force it here for symmetry. Gated on the native backend
+    // because the Number_ templated rate bodies use native-tape conversions (static_cast<double>)
+    // the external AAD backends' active types do not provide; under those backends Phase A compiles
+    // away and the solver dense-bumps instead.
+#if !defined(DAL_USE_XAD_AAD) && !defined(DAL_USE_CODIPACK_AAD) && !defined(DAL_USE_ADEPT_AAD)
+    template Handle_<Tape::Rate_<Dal::AAD::Number_>> Deposit_::PrecomputeT<Dal::AAD::Number_>() const;
+    template Handle_<Tape::Rate_<Dal::AAD::Number_>> FRA_::PrecomputeT<Dal::AAD::Number_>() const;
+    template Handle_<Tape::Rate_<Dal::AAD::Number_>> Future_::PrecomputeT<Dal::AAD::Number_>() const;
+    template Handle_<Tape::Rate_<Dal::AAD::Number_>> Swap_::PrecomputeT<Dal::AAD::Number_>() const;
+#endif // native AAD backend (Phase A rates)
 
     OISSwap_::OISSwap_(const Date_& tradeDate,
                        const Date_& start,

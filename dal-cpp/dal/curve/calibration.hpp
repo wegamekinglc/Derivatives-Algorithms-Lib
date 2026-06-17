@@ -120,4 +120,13 @@ namespace Dal {
     CurveCalibrationResult_ CalibrateYieldCurve(const CurveCalibrationSpec_& spec);
     MultiCurveCalibrationResult_ CalibrateMultiCurve(const MultiCurveCalibrationSpec_& spec);
 
+    namespace TestOnly {
+        // Builds the LOG_DISCOUNT calibration Jacobian at the supplied parameter vector x for the
+        // supplied spec, using the AAD-tape analytic path. Returns an empty matrix when the spec
+        // does not engage the analytic path (parameterization_ != LOG_DISCOUNT, or the calibration
+        // is otherwise ineligible for the AAD-tape Jacobian). Exposed for unit-test inspection; not
+        // part of the stable public API.
+        Matrix_<> AnalyticJacobianAt(const CurveCalibrationSpec_& spec, const Vector_<>& x);
+    }
+
 } // namespace Dal
