@@ -80,8 +80,9 @@ analytic Jacobian and beat a bumped/auto-diff reference solve.
 - **The solve is global over all knots simultaneously**, not a sequential bootstrap:
   `YieldCurveCalibrationFunc_::F` rebuilds the whole curve and returns
   `modelRate - marketRate` for every instrument at once
-  (`dal-cpp/dal/curve/calibration.cpp:221-235`), handed to `Underdetermined::Find`
-  (`dal-cpp/dal/curve/calibration.cpp:375-377`).
+  (`YieldCurveCalibrationFunc_::F` in `dal-cpp/dal/curve/calibration.cpp`), handed to
+  `Underdetermined::Find` (the `Underdetermined::Find` call in `CalibrateYieldCurve`,
+  `dal-cpp/dal/curve/calibration.cpp`).
 - **The solver** is the underdetermined least-change search
   (`dal-cpp/dal/math/optimization/underdetermined.hpp:74-86`,
   `docs/methodology/underdetermined_search.md`), supporting an EXACT mode and an
@@ -111,8 +112,8 @@ exactly in one reverse sweep — fewer iterations, no bump noise, exact curve ri
 
 ### Phase A — Templatize the curve rebuild + repricing on the scalar type
 - Generalize the calibration residual path (`YieldCurveCalibrationFunc_::F` and the curve
-  rebuild it drives, `calibration.cpp:221-235`) so the node values and discount factors
-  can be either `double` or `Number_`. Follow the existing AAD conventions
+  rebuild it drives, in `dal-cpp/dal/curve/calibration.cpp`) so the node values and
+  discount factors can be either `double` or `Number_`. Follow the existing AAD conventions
   (`dal-cpp/dal/math/aad/`): `Clear(*Tape())` → set independents → `NewRecording` →
   compute residuals → `PropagateToStart` → read adjoints.
 

@@ -53,14 +53,14 @@ namespace Dal {
         }
 
         [[nodiscard]] Vector_<> MultiplyRight(const Vector_<>& t) const override {
-            Vector_<> ret_val;
-            Matrix::Multiply(t, j_, &ret_val);
-            return ret_val;
+            Vector_<> retval;
+            Matrix::Multiply(t, j_, &retval);
+            return retval;
         }
         [[nodiscard]] Vector_<> MultiplyLeft(const Vector_<>& dx) const override {
-            Vector_<> ret_val;
-            Matrix::Multiply(j_, dx, &ret_val);
-            return ret_val;
+            Vector_<> retval;
+            Matrix::Multiply(j_, dx, &retval);
+            return retval;
         }
 
         void QForm(const Sparse::SymmetricDecomposition_& w, SquareMatrix_<>* form) const override {
@@ -264,7 +264,11 @@ namespace Dal {
             Dal::AAD::Tape_* t_;
             explicit TapeGuard_(Dal::AAD::Tape_* t) : t_(t) { Dal::AAD::Clear(*t_); }
             ~TapeGuard_() {
-                try { Dal::AAD::Clear(*t_); } catch (...) { /* swallow; we are unwinding */ }
+                try {
+                    Dal::AAD::Clear(*t_);
+                } catch (...) {
+                    // swallow; we are unwinding
+                }
             }
             TapeGuard_(const TapeGuard_&) = delete;
             TapeGuard_& operator=(const TapeGuard_&) = delete;

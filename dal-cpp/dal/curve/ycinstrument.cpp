@@ -253,14 +253,12 @@ namespace Dal {
     } // namespace
 
     namespace Tape {
-        // ============================================================================
         // Phase A templated rate classes (native AAD only). These mirror the double rate
         // classes above; the arithmetic bodies are identical with T_ in place of double for the
         // DF reads and the rate/annuity/fixing accumulations. dcf, yf, fixing dates and convexity
         // adjustments stay double -- they are schedule-driven constants. The tape records the
         // dependence of the residual on each free-node logDF value through the templated curve's
         // operator() (which reads logDF_<T_> through the basis-weight machinery).
-        // ============================================================================
 
         template <class T_>
         T_ ForwardRate(const DiscountCurve_<T_>& forecast,
