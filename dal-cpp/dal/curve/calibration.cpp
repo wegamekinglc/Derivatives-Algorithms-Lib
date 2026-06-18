@@ -253,11 +253,14 @@ namespace Dal {
                 new Tape::DiscountLogDF_<T_>(name, ccy, knotDates, logDF, dayCount, logDfScheme, baseCurve));
         }
 
-        // RAII tape scope: Clear on entry, Clear on exit (even on throw). Phase A owns exactly one
-        // AAD cycle per solver restart -- the recording, sweep, and harvest all live inside this
-        // scope. The tape must be clean before the next Gradient call (or the next F call which,
-        // while it does not touch the tape, would inherit any state if a future change ever reads
-        // the tape from F). Phase A is single-threaded today; thread-local Tape_ isolates
+        // RAII tape scope: Clear on entry, Clear on exit (even on throw). AnalyticJacobian owns
+        // exactly one AAD cycle per solver restart -- the recording, sweep, and harvest all live
+        // inside this scope. NewRecording is opened by AnalyticJacobian AFTER RegisterIndependent,
+        // not here: XAD requires inputs registered before the recording window opens (its canonical
+        // idiom), and opening the recording before registration silently drops the inputs and yields
+        // an all-zero Jacobian. The tape must be clean before the next Gradient call (or the next
+        // F call which, while it does not touch the tape, would inherit any state if a future change
+        // ever reads the tape from F). Single-threaded today; thread-local Tape_ isolates
         // per-worker state if calibration ever becomes parallel, but the residual loop itself must
         // stay serial until a parallel-residual design exists.
         struct TapeGuard_ {
@@ -273,19 +276,6 @@ namespace Dal {
             TapeGuard_(const TapeGuard_&) = delete;
             TapeGuard_& operator=(const TapeGuard_&) = delete;
         };
-
-#if !defined(DAL_USE_XAD_AAD) && !defined(DAL_USE_CODIPACK_AAD) && !defined(DAL_USE_ADEPT_AAD)
-        // Zero every node's adjoint on the tape, leaving the recorded graph intact. Used between
-        // single-result reverse sweeps so each row's seed propagates from a clean slate. The tape
-        // does not expose a one-shot "zero adjoints" helper, so we walk the nodes blocklist. This
-        // reaches into the native Dal::AAD::Tape_::nodes_ block list, which only the native backend
-        // exposes -- third-party AAD backends (XAD/CoDiPack/Adept) take the bumped Jacobian path
-        // instead, so the whole Phase A reverse-sweep machinery is native-only.
-        void ZeroAllAdjoints(Dal::AAD::Tape_& tape) {
-            for (auto it = tape.nodes_.Begin(); it != tape.nodes_.End(); ++it)
-                it->Adjoint() = 0.0;
-        }
-#endif
 
         class YieldCurveCalibrationFunc_ : public Underdetermined::Function_ {
             String_ ccy_;
@@ -355,25 +345,20 @@ namespace Dal {
                 return CurveBlock_(curveName_, ccy_, discountCurves, forwardCurves, liborBasis_);
             }
 
-            // Sparse Jacobian (LOG_DISCOUNT free-node log-DF unknowns). Returns the Phase A
-            // reverse-mode AAD Jacobian (native Number_ tape) when EligibleForAnalyticJacobian(); otherwise
-            // returns nullptr so the solver dense-bumps. The residual is modelRate - marketRate, so
-            // dResidual_i/dx_j = dModelRate_i/dx_j (marketRate is constant, contributes nothing).
+            // Sparse Jacobian (LOG_DISCOUNT free-node log-DF unknowns). Returns the reverse-mode AAD
+            // Jacobian (single-result sweep on the active Number_ tape) when EligibleForAnalyticJacobian();
+            // otherwise returns nullptr so the solver dense-bumps. The residual is modelRate -
+            // marketRate, so dResidual_i/dx_j = dModelRate_i/dx_j (marketRate is constant, contributes
+            // nothing). Backend-neutral: the same path runs under native, XAD, CoDiPack, and Adept via
+            // the Dal::AAD facade (RegisterIndependent, ZeroAdjoints, Adjoint, PropagateToStart).
             [[nodiscard]] Underdetermined::Jacobian_* Gradient(const Vector_<>& x, const Vector_<>& f) const override {
-#if !defined(DAL_USE_XAD_AAD) && !defined(DAL_USE_CODIPACK_AAD) && !defined(DAL_USE_ADEPT_AAD)
                 if (EligibleForAnalyticJacobian())
                     return AnalyticJacobian(x, f);
                 // Ineligible: NOTICE was emitted by EligibleForAnalyticJacobian (names the offending
                 // condition); return nullptr so the solver dense-bumps.
-                return nullptr;
-#else
-                // The Phase A analytic Jacobian is native-AAD-only (it walks Dal::AAD::Tape_::nodes_
-                // for single-result reverse sweeps, which third-party backends do not expose). Under
-                // XAD/CoDiPack/Adept return nullptr so the solver dense-bumps -- identical numerics.
                 static_cast<void>(x);
                 static_cast<void>(f);
                 return nullptr;
-#endif
             }
 
             // Phase A eligibility predicate (per .claude/designs/aad-analytic-jacobian-selector-api.md
@@ -478,27 +463,35 @@ namespace Dal {
             }
         };
 
-        // Phase A body. The structure mirrors .claude/designs/aad-analytic-jacobian-phase-a-plan.md
-        // §3.2: TapeGuard on entry/exit, build Number_-typed curve, build Number_-typed rates via
-        // PrecomputeT<Number_>, compute residuals, single-result reverse loop. The column map is
-        // solver col j = storage node j+1, so Adjoint(logDF[j+1]) reads the sensitivity to x[j].
-        // Native-AAD-only: the reverse sweep walks Dal::AAD::Tape_::nodes_ (via ZeroAllAdjoints),
-        // which third-party backends do not expose; under those, Gradient() never calls this.
-#if !defined(DAL_USE_XAD_AAD) && !defined(DAL_USE_CODIPACK_AAD) && !defined(DAL_USE_ADEPT_AAD)
+        // AnalyticJacobian body. TapeGuard on entry/exit (Clear + NewRecording), build Number_-typed
+        // curve, build Number_-typed rates via PrecomputeT<Number_>, compute residuals, single-result
+        // reverse loop. The column map is solver col j = storage node j+1, so Adjoint(logDF[j+1])
+        // reads the sensitivity to x[j]. Backend-neutral: RegisterIndependent, ZeroAdjoints, Adjoint,
+        // and PropagateToStart are all Dal::AAD facade primitives, so the same loop runs unchanged
+        // under native, XAD, CoDiPack, and Adept.
         Underdetermined::Jacobian_* YieldCurveCalibrationFunc_::AnalyticJacobian(const Vector_<>& x, const Vector_<>& f) const {
             auto* tape = Dal::AAD::Tape();
             TapeGuard_ guard(tape);
             static_cast<void>(f); // the residual values themselves are unused; we recompute on the tape
 
             // Independents: free-node log(DF) values. Anchor (node 0) is pinned at 0 and is NOT an
-            // independent -- the solver's x vector has NX() = nNodes-1 entries, matching.
+            // independent -- the solver's x vector has NX() = nNodes-1 entries, matching. RegisterIndependent
+            // registers each node with the active tape on every backend; the anchor stays a plain
+            // assignment because routing it through RegisterIndependent would add a phantom input column.
             const int nNodes = static_cast<int>(knotDates_.size());
             REQUIRE(static_cast<int>(x.size()) == nNodes - 1,
-                    "Phase A: x vector length must equal nNodes - 1 (anchor excluded)");
+                    "AnalyticJacobian: x vector length must equal nNodes - 1 (anchor excluded)");
             Vector_<Dal::AAD::Number_> logDF(nNodes);
-            logDF[0] = 0.0; // pinned; records a constant node (harmless -- adjoint never read)
+            logDF[0] = 0.0; // pinned anchor; deliberately NOT registered (adjoint never read)
             for (int i = 0; i < static_cast<int>(x.size()); ++i)
-                logDF[i + 1] = x[i]; // native backend: Number_(double) registers an independent
+                Dal::AAD::RegisterIndependent(logDF[i + 1], x[i]);
+
+            // Open the recording AFTER registering the independents and BEFORE the forward pass.
+            // XAD's canonical contract requires inputs registered before newRecording; opening the
+            // recording earlier silently drops them and yields an all-zero Jacobian (the B2 class).
+            // On native NewRecording is a no-op, so this is invisible there; on CoDiPack/Adept it
+            // anchors the sweep bounds to this point, which is exactly what PropagateToStart sweeps.
+            Dal::AAD::NewRecording(*tape);
 
             // Build the Number_-typed calibrated curve directly with the tape-registered logDF.
             std::unique_ptr<Tape::DiscountCurve_<Dal::AAD::Number_>> dc(
@@ -519,13 +512,13 @@ namespace Dal {
             const int nCols = nNodes - 1;
             Matrix_<> j(nRows, nCols, 0.0);
 
-            // Single-result reverse sweep. TODO: replace with SetNumResultsForAAD(true, nRows) for
-            // a single PropagateToStart walk producing all nRows adjoint vectors simultaneously --
-            // the multi-result path is a ~nRows-x speedup. The single-result path is simpler and
-            // mirrors test_tape.cpp; defer the multi-result optimization until the single-result
-            // path is validated.
+            // Single-result reverse sweep. One PropagateToStart per residual row; ZeroAdjoints clears
+            // the propagated adjoints between rows so each seed lands on a clean slate. The multi-result
+            // path (SetNumResultsForAAD(true, nRows), one sweep for all rows) is a ~nRows-x speedup and
+            // remains a profiling-driven follow-up; the single-result path is simpler and runs identically
+            // on every backend.
             for (int i = 0; i < nRows; ++i) {
-                ZeroAllAdjoints(*tape);
+                Dal::AAD::ZeroAdjoints(*tape);
                 Dal::AAD::Adjoint(residuals[i]) = 1.0;
                 Dal::AAD::PropagateToStart(*tape);
                 for (int col = 0; col < nCols; ++col)
@@ -533,7 +526,6 @@ namespace Dal {
             }
             return new XCurveJacobian_(std::move(j));
         }
-#endif // native AAD backend (Phase A Jacobian)
 
         Vector_<> ModelRates(const Vector_<Handle_<YCInstrument_>>& instruments, const YieldCurve_& curve, const Handle_<YieldCurve_>& fundingCurve) {
             Vector_<> modelRates(instruments.size());

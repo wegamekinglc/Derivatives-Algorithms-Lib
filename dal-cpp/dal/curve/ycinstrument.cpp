@@ -351,7 +351,9 @@ namespace Dal {
                 T_ annuity(static_cast<double>(0.0));
                 for (const auto& period : fixedPeriods_)
                     annuity += static_cast<double>(period.accrual_.dcf_) * discount(tradeDate_, period.schedule_.paymentDate_);
-                REQUIRE(static_cast<double>(annuity) > 0.0, "Swap pricing requires positive fixed-leg annuity");
+                // Dal::AAD::Value extracts the primal on every backend; static_cast<double> would
+                // only work on native and CoDiPack (XAD/Adept have no conversion operator).
+                REQUIRE(Dal::AAD::Value(annuity) > 0.0, "Swap pricing requires positive fixed-leg annuity");
 
                 T_ floatPv(static_cast<double>(0.0));
                 for (const auto& period : floatPeriods_) {
@@ -502,18 +504,17 @@ namespace Dal {
         return Handle_<Tape::Rate_<T_>>(new Tape::SwapRate_<T_>(tradeDate_, fixedPeriods, floatPeriods, floatIndexConvention_));
     }
 
-    // Explicit instantiation of PrecomputeT<Dal::AAD::Number_> on each Phase A instrument so the
-    // linker finds the symbol when calibration.cpp calls it. double is implicitly instantiated at
-    // every use site (rare) but we also force it here for symmetry. Gated on the native backend
-    // because the Number_ templated rate bodies use native-tape conversions (static_cast<double>)
-    // the external AAD backends' active types do not provide; under those backends Phase A compiles
-    // away and the solver dense-bumps instead.
-#if !defined(DAL_USE_XAD_AAD) && !defined(DAL_USE_CODIPACK_AAD) && !defined(DAL_USE_ADEPT_AAD)
+    // Explicit instantiation of PrecomputeT<Dal::AAD::Number_> on each instrument so the linker
+    // finds the symbol when calibration.cpp's AnalyticJacobian calls it. The Number_-typed rate
+    // bodies forward arithmetic and value extraction to the Dal::AAD facade, so they compile and
+    // run under every AAD backend. These were previously gated to the native backend because the
+    // analytic Jacobian reached into the native-only Dal::AAD::Tape_::nodes_ member; that reach is
+    // gone (zeroing now goes through the backend-neutral Dal::AAD::ZeroAdjoints), so the gate is
+    // gone too and the instantiation is needed under every backend.
     template Handle_<Tape::Rate_<Dal::AAD::Number_>> Deposit_::PrecomputeT<Dal::AAD::Number_>() const;
     template Handle_<Tape::Rate_<Dal::AAD::Number_>> FRA_::PrecomputeT<Dal::AAD::Number_>() const;
     template Handle_<Tape::Rate_<Dal::AAD::Number_>> Future_::PrecomputeT<Dal::AAD::Number_>() const;
     template Handle_<Tape::Rate_<Dal::AAD::Number_>> Swap_::PrecomputeT<Dal::AAD::Number_>() const;
-#endif // native AAD backend (Phase A rates)
 
     OISSwap_::OISSwap_(const Date_& tradeDate,
                        const Date_& start,
