@@ -346,7 +346,7 @@ namespace Dal {
             T_ operator()(const YCCtx_<T_>& ctx) const override {
                 // Phase A eligibility guarantees forecast == discount == ctx.curve_ (the calibrated
                 // target curve), so we read every DF from ctx.curve_. tradeDate_ == anchor is also
-                // guaranteed by EligibleForPhaseA, so DF(anchor, p) = ctx.curve_(tradeDate_, p).
+                // guaranteed by EligibleForAnalyticJacobian, so DF(anchor, p) = ctx.curve_(tradeDate_, p).
                 const DiscountCurve_<T_>& discount = ctx.curve_;
                 T_ annuity(static_cast<double>(0.0));
                 for (const auto& period : fixedPeriods_)

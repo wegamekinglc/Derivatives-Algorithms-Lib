@@ -25,14 +25,14 @@ using namespace Dal;
 // not expose. Under those backends TestOnly::AnalyticJacobianAt returns an empty matrix and the
 // solver dense-bumps, so the tests that assert the exact AAD Jacobian are skipped there.
 #if !defined(DAL_USE_XAD_AAD) && !defined(DAL_USE_CODIPACK_AAD) && !defined(DAL_USE_ADEPT_AAD)
-#define DAL_PHASE_A_NATIVE_AAD 1
+#define DAL_HAS_CURVE_ANALYTIC_JACOBIAN 1
 #else
-#define DAL_PHASE_A_NATIVE_AAD 0
+#define DAL_HAS_CURVE_ANALYTIC_JACOBIAN 0
 #endif
 
-#define SKIP_IF_NOT_NATIVE_AAD() \
+#define SKIP_IF_NO_ANALYTIC_JACOBIAN() \
     do { \
-        if (!DAL_PHASE_A_NATIVE_AAD) \
+        if (!DAL_HAS_CURVE_ANALYTIC_JACOBIAN) \
             GTEST_SKIP() << "Phase A analytic Jacobian is native-AAD-only; external backends dense-bump."; \
     } while (false)
 
@@ -159,8 +159,8 @@ namespace {
 // Each non-zero entry must match a two-sided central difference of F(x) at step
 // 1e-6 within 1e-9.
 
-TEST(PhaseAAADJacobianTest, TestMatchesCentralDifferenceLogLinear) {
-    SKIP_IF_NOT_NATIVE_AAD();
+TEST(AnalyticJacobianTest, TestMatchesCentralDifferenceLogLinear) {
+    SKIP_IF_NO_ANALYTIC_JACOBIAN();
     auto spec = MakePhaseASpec(LogDfScheme_::Value_::LOG_LINEAR);
     const Vector_<> x = {-0.005, -0.012, -0.025, -0.04, -0.06};
     ASSERT_EQ(static_cast<int>(x.size()), 5);
@@ -195,8 +195,8 @@ TEST(PhaseAAADJacobianTest, TestMatchesCentralDifferenceLogLinear) {
 // must have at least one exactly-zero entry for a column beyond the instrument's
 // cashflow support.
 
-TEST(PhaseAAADJacobianTest, TestStructuralZerosAreExactlyZero) {
-    SKIP_IF_NOT_NATIVE_AAD();
+TEST(AnalyticJacobianTest, TestStructuralZerosAreExactlyZero) {
+    SKIP_IF_NO_ANALYTIC_JACOBIAN();
     auto spec = MakePhaseASpec();
     const Vector_<> x = {-0.005, -0.012, -0.025, -0.04, -0.06};
     const Matrix_<> J = TestOnly::AnalyticJacobianAt(spec, x);
@@ -214,7 +214,7 @@ TEST(PhaseAAADJacobianTest, TestStructuralZerosAreExactlyZero) {
 // ============================================================================
 // We do NOT assert iteration count (linesearch varies), only that the residual converges.
 
-TEST(PhaseAAADJacobianTest, TestSolveConvergesLogLinear) {
+TEST(AnalyticJacobianTest, TestSolveConvergesLogLinear) {
     auto specAAD = MakePhaseASpec();
 
     const auto rAAD = CalibrateYieldCurve(specAAD);
@@ -229,13 +229,13 @@ TEST(PhaseAAADJacobianTest, TestSolveConvergesLogLinear) {
 // ============================================================================
 // Category 4: Ineligibility -- the AAD Jacobian falls back to bumping with a NOTICE
 // ============================================================================
-// Phase A is ineligible for non-LOG_DISCOUNT parameterizations. EligibleForPhaseA
+// Phase A is ineligible for non-LOG_DISCOUNT parameterizations. EligibleForAnalyticJacobian
 // returns false, Gradient returns nullptr (the solver dense-bumps), and a NOTICE
 // fires. We cannot easily assert the NOTICE text from a unit test, but we CAN assert
 // the fallback behavior: TestOnly::AnalyticJacobianAt returns an EMPTY matrix on a
 // non-LOG_DISCOUNT spec (Gradient returned nullptr).
 
-TEST(PhaseAAADJacobianTest, TestIneligibleParameterizationFallsBack) {
+TEST(AnalyticJacobianTest, TestIneligibleParameterizationFallsBack) {
     auto spec = MakePhaseASpec();
     spec.parameterization_ = CurveParameterization_::Value_::PIECEWISE_LINEAR_FWD;
     // Knot 0 must be > today for non-LOG_DISCOUNT.
@@ -248,9 +248,9 @@ TEST(PhaseAAADJacobianTest, TestIneligibleParameterizationFallsBack) {
 }
 
 // A FORECAST-target calibration (calibrateDiscountCurve_ == false) is ineligible for the AAD
-// Jacobian. EligibleForPhaseA returns false, Gradient returns nullptr, and
+// Jacobian. EligibleForAnalyticJacobian returns false, Gradient returns nullptr, and
 // TestOnly::AnalyticJacobianAt returns an EMPTY matrix (the solver dense-bumps instead).
-TEST(PhaseAAADJacobianTest, TestIneligibleForecastTargetFallsBack) {
+TEST(AnalyticJacobianTest, TestIneligibleForecastTargetFallsBack) {
     auto spec = MakePhaseASpec();
     spec.calibrateDiscountCurve_ = false;
     spec.targetTenor_ = PeriodLength_("3M");
@@ -278,7 +278,7 @@ TEST(PhaseAAADJacobianTest, TestIneligibleForecastTargetFallsBack) {
 // EMPTY matrix (the solver dense-bumps). We construct one such swap alongside an eligible one
 // to confirm the whole calibration falls back when ANY instrument is ineligible.
 
-TEST(PhaseAAADJacobianTest, TestTradeDateNotStartRejected) {
+TEST(AnalyticJacobianTest, TestTradeDateNotStartRejected) {
     auto spec = MakePhaseASpec();
     const auto fixedLeg = AnnualLegPA();
     const auto floatIdx = AnnualIndexPA();
@@ -303,8 +303,8 @@ TEST(PhaseAAADJacobianTest, TestTradeDateNotStartRejected) {
 // non-empty analytic Jacobian only exists on native AAD; on external backends the analytic path
 // is gated out and AnalyticJacobianAt returns an empty matrix regardless of eligibility, so this
 // assertion is skipped there (the eligibility predicate itself is covered by the native run).
-TEST(PhaseAAADJacobianTest, TestTradeDateEqualsStartStillAdmitted) {
-    SKIP_IF_NOT_NATIVE_AAD();
+TEST(AnalyticJacobianTest, TestTradeDateEqualsStartStillAdmitted) {
+    SKIP_IF_NO_ANALYTIC_JACOBIAN();
     auto spec = MakePhaseASpec();
     spec.instruments_ = {
         Handle_<YCInstrument_>(new Swap_(spec.today_, spec.today_, Date_(2023, 1, 1), 0.012, AnnualLegPA(), AnnualIndexPA(), AnnualLegPA())),
@@ -322,7 +322,7 @@ TEST(PhaseAAADJacobianTest, TestTradeDateEqualsStartStillAdmitted) {
 // the first call's residuals and produce wrong numbers. We assert the second
 // call reproduces the first exactly.
 
-TEST(PhaseAAADJacobianTest, TestTapeIsolationAcrossCalls) {
+TEST(AnalyticJacobianTest, TestTapeIsolationAcrossCalls) {
     auto spec = MakePhaseASpec();
     const Vector_<> x = {-0.005, -0.012, -0.025, -0.04, -0.06};
     const Matrix_<> J1 = TestOnly::AnalyticJacobianAt(spec, x);
@@ -342,15 +342,15 @@ TEST(PhaseAAADJacobianTest, TestTapeIsolationAcrossCalls) {
 // these two tests cover LOG_CUBIC_NATURAL and MIXED, exercising the natural-cubic and
 // mixed-cutoff spline branches of the AAD path.
 
-TEST(PhaseAAADJacobianTest, TestMatchesCentralDifferenceLogCubicNatural) {
-    SKIP_IF_NOT_NATIVE_AAD();
+TEST(AnalyticJacobianTest, TestMatchesCentralDifferenceLogCubicNatural) {
+    SKIP_IF_NO_ANALYTIC_JACOBIAN();
     auto spec = MakePhaseASpec(LogDfScheme_::Value_::LOG_CUBIC_NATURAL);
     const Vector_<> x = {-0.005, -0.012, -0.025, -0.04, -0.06};
     AssertMatchesCentralDifference(spec, x, 1.0e-6, 1.0e-9);
 }
 
-TEST(PhaseAAADJacobianTest, TestMatchesCentralDifferenceMixed) {
-    SKIP_IF_NOT_NATIVE_AAD();
+TEST(AnalyticJacobianTest, TestMatchesCentralDifferenceMixed) {
+    SKIP_IF_NO_ANALYTIC_JACOBIAN();
     auto spec = MakePhaseASpec(LogDfScheme_::Value_::MIXED);
     const Vector_<> x = {-0.005, -0.012, -0.025, -0.04, -0.06};
     AssertMatchesCentralDifference(spec, x, 1.0e-6, 1.0e-9);
@@ -365,8 +365,8 @@ TEST(PhaseAAADJacobianTest, TestMatchesCentralDifferenceMixed) {
 // the single row matches a central difference for every node column, and that the columns the
 // deposit does NOT touch (beyond its maturity) are EXACTLY zero (AAD structural zero, not noise).
 
-TEST(PhaseAAADJacobianTest, TestSingleDepositTapeMatchesCentralDifference) {
-    SKIP_IF_NOT_NATIVE_AAD();
+TEST(AnalyticJacobianTest, TestSingleDepositTapeMatchesCentralDifference) {
+    SKIP_IF_NO_ANALYTIC_JACOBIAN();
     CurveCalibrationSpec_ spec;
     spec.today_ = Date_(2022, 1, 1);
     spec.ccy_ = "USD";
@@ -412,8 +412,8 @@ TEST(PhaseAAADJacobianTest, TestSingleDepositTapeMatchesCentralDifference) {
 // still match central differences row by row, and structural zeros must appear for instruments
 // whose cashflows end before later nodes.
 
-TEST(PhaseAAADJacobianTest, TestMixedInstrumentCalibrationMatchesCentralDifference) {
-    SKIP_IF_NOT_NATIVE_AAD();
+TEST(AnalyticJacobianTest, TestMixedInstrumentCalibrationMatchesCentralDifference) {
+    SKIP_IF_NO_ANALYTIC_JACOBIAN();
     CurveCalibrationSpec_ spec;
     spec.today_ = Date_(2022, 1, 1);
     spec.ccy_ = "USD";

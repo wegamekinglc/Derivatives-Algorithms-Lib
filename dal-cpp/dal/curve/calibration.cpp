@@ -232,7 +232,7 @@ namespace Dal {
 
         // Phase A templated curve builder. Handles ONLY LOG_DISCOUNT -- the only parameterization
         // the AAD path supports. The other parameterizations REQUIRE(false) in the Number_
-        // instantiation; this is unreachable because EligibleForPhaseA rejects non-LOG_DISCOUNT
+        // instantiation; this is unreachable because EligibleForAnalyticJacobian rejects non-LOG_DISCOUNT
         // before constructing any templated object.
         template <class T_>
         std::unique_ptr<Tape::DiscountCurve_<T_>> BuildDiscountCurveT(const String_& name,
@@ -356,14 +356,14 @@ namespace Dal {
             }
 
             // Sparse Jacobian (LOG_DISCOUNT free-node log-DF unknowns). Returns the Phase A
-            // reverse-mode AAD Jacobian (native Number_ tape) when EligibleForPhaseA(); otherwise
+            // reverse-mode AAD Jacobian (native Number_ tape) when EligibleForAnalyticJacobian(); otherwise
             // returns nullptr so the solver dense-bumps. The residual is modelRate - marketRate, so
             // dResidual_i/dx_j = dModelRate_i/dx_j (marketRate is constant, contributes nothing).
             [[nodiscard]] Underdetermined::Jacobian_* Gradient(const Vector_<>& x, const Vector_<>& f) const override {
 #if !defined(DAL_USE_XAD_AAD) && !defined(DAL_USE_CODIPACK_AAD) && !defined(DAL_USE_ADEPT_AAD)
-                if (EligibleForPhaseA())
-                    return PhaseAJacobian_NativeAAD(x, f);
-                // Ineligible: NOTICE was emitted by EligibleForPhaseA (names the offending
+                if (EligibleForAnalyticJacobian())
+                    return AnalyticJacobian(x, f);
+                // Ineligible: NOTICE was emitted by EligibleForAnalyticJacobian (names the offending
                 // condition); return nullptr so the solver dense-bumps.
                 return nullptr;
 #else
@@ -382,7 +382,7 @@ namespace Dal {
             // a NOTICE + return nullptr (solver dense-bumps) instead of failing. Each fall-through
             // path emits a NOTICE that names the offending condition so the user can see why the
             // AAD Jacobian did not engage.
-            [[nodiscard]] bool EligibleForPhaseA() const {
+            [[nodiscard]] bool EligibleForAnalyticJacobian() const {
                 if (parameterization_ != CurveParameterization_::Value_::LOG_DISCOUNT) {
                     const String_ msg = String_("AAD Jacobian requires CurveParameterization_::LOG_DISCOUNT, got ")
                                         + parameterization_.String() + "; falling back to bumped";
@@ -400,7 +400,7 @@ namespace Dal {
                 // fine for Phase A (the templated Tape::SwapRate_ reads DF(tradeDate_, p) directly), but
                 // requires anchor alignment so every instrument starts at knotDates_.front().
                 for (int i = 0; i < static_cast<int>(instruments_.size()); ++i)
-                    if (!InstrumentEligibleForPhaseA(instruments_[i].get()))
+                    if (!InstrumentEligibleForAnalyticJacobian(instruments_[i].get()))
                         return false;
                 return true;
             }
@@ -423,7 +423,7 @@ namespace Dal {
             // Per-instrument Phase A eligibility. Returns true iff the instrument has a templated
             // rate, uses no projection curve (forecast == discount), and starts at the curve anchor.
             // Emits a NOTICE naming the offending condition on each fall-through.
-            [[nodiscard]] bool InstrumentEligibleForPhaseA(const YCInstrument_* inst) const {
+            [[nodiscard]] bool InstrumentEligibleForAnalyticJacobian(const YCInstrument_* inst) const {
                 const String_ name = inst->Name();
                 const RateIndexConvention_* floatConv = PhaseAFloatConvention(inst);
                 if (!floatConv) {
@@ -458,11 +458,11 @@ namespace Dal {
             // Gradient call, nRows reverse sweeps (one per residual), harvest adjoints column by
             // column. Returns XCurveJacobian_ (a dense Jacobian subclass: storage is dense,
             // assembly is sparse-by-row because AAD produces exact structural zeros).
-            [[nodiscard]] Underdetermined::Jacobian_* PhaseAJacobian_NativeAAD(const Vector_<>& x, const Vector_<>& f) const;
+            [[nodiscard]] Underdetermined::Jacobian_* AnalyticJacobian(const Vector_<>& x, const Vector_<>& f) const;
 
             // Downcast instrument i to its concrete type and dispatch to PrecomputeT<T_>. Returns
             // an empty handle if the instrument type is not supported (Phase A scope is Deposit,
-            // FRA, Future, vanilla Swap); EligibleForPhaseA rejects such calibrations before this
+            // FRA, Future, vanilla Swap); EligibleForAnalyticJacobian rejects such calibrations before this
             // is ever called, so the empty-handle branch is unreachable in practice.
             template <class T_> [[nodiscard]] Handle_<Tape::Rate_<T_>> PhaseARateAt(int i) const {
                 const auto* inst = instruments_[i].get();
@@ -485,7 +485,7 @@ namespace Dal {
         // Native-AAD-only: the reverse sweep walks Dal::AAD::Tape_::nodes_ (via ZeroAllAdjoints),
         // which third-party backends do not expose; under those, Gradient() never calls this.
 #if !defined(DAL_USE_XAD_AAD) && !defined(DAL_USE_CODIPACK_AAD) && !defined(DAL_USE_ADEPT_AAD)
-        Underdetermined::Jacobian_* YieldCurveCalibrationFunc_::PhaseAJacobian_NativeAAD(const Vector_<>& x, const Vector_<>& f) const {
+        Underdetermined::Jacobian_* YieldCurveCalibrationFunc_::AnalyticJacobian(const Vector_<>& x, const Vector_<>& f) const {
             auto* tape = Dal::AAD::Tape();
             TapeGuard_ guard(tape);
             static_cast<void>(f); // the residual values themselves are unused; we recompute on the tape
