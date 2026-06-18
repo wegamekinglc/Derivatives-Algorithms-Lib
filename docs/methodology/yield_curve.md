@@ -191,6 +191,213 @@ discount factors  P(t₁,t₂) = exp(−∫f dt / 365) × P_base
 multi-curve routing: OIS discounting + tenor forecasting
 ```
 
+## Examples
+
+The snippets below are condensed from the standalone example programs under
+`dal-cpp/examples/` and adapt their real call sequences. They show the public
+calibration surface declared in `dal-cpp/dal/curve/calibration.hpp`,
+`dal-cpp/dal/curve/curveblock.hpp`, and `dal-cpp/dal/curve/ycinstrument.hpp`.
+Class and enum names, factory functions, and include paths match the current
+source; see the citations in each example.
+
+### Single-curve bootstrap from deposits, futures, and swaps
+
+This mirrors `dal-cpp/examples/euribor3m_curve/euribor3m_curve.cpp`: a classic
+single-curve Euribor 3M bootstrap that discounts and forecasts off one curve
+(no OIS data). The instrument set is deposit + STIR futures + vanilla swaps,
+assembled into a `CurveCalibrationSpec_` and solved by `CalibrateYieldCurve`.
+
+```cpp
+#include <dal/curve/calibration.hpp>
+#include <dal/curve/ycinstrument.hpp>
+#include <dal/protocol/collateraltype.hpp>
+#include <dal/protocol/rateconvention.hpp>
+#include <dal/time/date.hpp>
+#include <dal/time/daybasis.hpp>
+#include <dal/time/holidays.hpp>
+#include <dal/time/periodlength.hpp>
+
+using namespace Dal;
+
+// Trade date and spot, on the TARGET calendar (Euribor T+2).
+const Date_ today(2026, 4, 30);
+const Holidays_ target("TARGET");
+
+// Single-curve conventions: forecast routes to the discount curve.
+RateIndexConvention_ euribor3m = Ccy::Conventions::LiborIndex()(Ccy_("EUR"));
+euribor3m.useProjectionCurve_ = false;            // single curve: 3M forecast == discount
+euribor3m.forecastTenor_       = PeriodLength_("3M");
+euribor3m.dayBasis_            = DayBasis_("ACT_360");
+euribor3m.fixingHolidays_      = target;
+euribor3m.accrualHolidays_     = target;
+
+RateLegConvention_ fixedLeg = Ccy::Conventions::SwapFixedLeg()(Ccy_("EUR"));
+fixedLeg.paymentFrequency_ = PeriodLength_("12M");
+fixedLeg.dayBasis_         = DayBasis_("30_360");
+fixedLeg.accrualHolidays_  = target;
+fixedLeg.paymentHolidays_  = target;
+
+RateLegConvention_ floatLeg = Ccy::Conventions::SwapFloatLeg()(Ccy_("EUR"));
+floatLeg.paymentFrequency_ = PeriodLength_("3M");
+floatLeg.dayBasis_         = DayBasis_("ACT_360");
+
+// Instruments: a 3M cash deposit, a serial 3M future, and a vanilla IRS.
+const Handle_<YCInstrument_> deposit(new Deposit_(today,
+                                                  spot,
+                                                  Date::AddMonths(spot, 3),
+                                                  0.021990,            // 3M cash rate
+                                                  euribor3m));
+const Handle_<YCInstrument_> future(new Future_(today,
+                                                Date_(2026, 6, 17),  // IMM settle (3rd Wed)
+                                                Date_(2026, 9, 16),  // underlying 3M end
+                                                0.0224992,           // convexity-adjusted rate
+                                                euribor3m,
+                                                0.0));
+const Handle_<YCInstrument_> swap(new Swap_(today,
+                                            spot,
+                                            Date::AddMonths(spot, 60), // 5Y
+                                            0.0279255,                  // mid swap rate
+                                            fixedLeg,
+                                            euribor3m,
+                                            floatLeg));
+
+// Assemble the spec: one pillar per instrument maturity, piecewise-linear forwards,
+// EXACT solve. (For an overdetermined system — more quotes than free knots — switch
+// solveMode_ to CurveSolveMode_::Value_::APPROXIMATE; see the multi-curve example.)
+CurveCalibrationSpec_ spec;
+spec.today_                 = today;
+spec.ccy_                   = "EUR";
+spec.curveName_             = "euribor3m";
+spec.targetCollateral_      = CollateralType_(CollateralType_::Value_::OIS);
+spec.calibrateDiscountCurve_ = true;
+spec.parameterization_      = CurveParameterization_::Value_::PIECEWISE_LINEAR_FWD;
+spec.knotPolicy_            = CurveKnotPolicy_::Value_::INPUT;
+spec.liborBasis_            = DayBasis_("ACT_365F");
+spec.instruments_           = {deposit, future, swap};
+spec.knotDates_             = {deposit->TimeSpan().second,
+                               future->TimeSpan().second,
+                               swap->TimeSpan().second};
+
+const CurveCalibrationResult_ result = CalibrateYieldCurve(spec);
+
+// Read discount factors and continuously-compounded zero rates off the calibrated curve.
+for (const int months : {6, 12, 24, 60, 120}) {
+    const Date_ d   = Date::AddMonths(today, months);
+    const double df = (*result.curve_)(today, d);
+    const double yf = static_cast<double>(d - today) / 365.0;
+    const double z  = -std::log(df) / yf;       // continuously-compounded zero
+    // ...
+}
+```
+
+The `CurveCalibrationDiagnostics_` returned in `result.diagnostics_` carries
+per-instrument market/model rates and residuals, plus `rmsResidual_` and
+`maxAbsResidual_`; the `effJacobianInverse_` matrix maps quote bumps to
+forward-rate parameters without re-solving.
+
+API citations:
+
+- `CurveCalibrationSpec_` fields and `CalibrateYieldCurve` overload — `dal-cpp/dal/curve/calibration.hpp:70-95,142`.
+- `Deposit_`, `Future_`, `Swap_` constructors — `dal-cpp/dal/curve/ycinstrument.hpp:65-153`.
+- `DiscountCurve_::operator()(Date_, Date_)` returns the discount factor — `dal-cpp/dal/curve/discount.hpp:28`.
+
+### Sequential multi-curve calibration (OIS discounting + tenor forecasting)
+
+This mirrors `dal-cpp/examples/curve_calibration/curve_calibration.cpp`. Two
+stages share a knot grid: stage 1 calibrates the OIS discount curve from OIS
+deposits and OIS swaps; stage 2 calibrates the 3M forecasting curve from FRAs
+and IRS, holding the discount curve fixed. Each stage quotes 20 instruments
+onto 9 knots, an overdetermined system, so both stages use the least-squares
+`APPROXIMATE` solver.
+
+```cpp
+#include <dal/curve/calibration.hpp>
+#include <dal/curve/curveblock.hpp>
+#include <dal/curve/piecewiselinear.hpp>
+#include <dal/curve/ycimp.hpp>
+#include <dal/protocol/collateraltype.hpp>
+
+// Stage 1 — OIS discount curve.
+CurveCalibrationSpec_ oisStage;
+oisStage.today_                = today;
+oisStage.ccy_                  = "USD";
+oisStage.curveName_            = "ois";
+oisStage.targetCollateral_     = CollateralType_(CollateralType_::Value_::OIS);
+oisStage.solveMode_            = CurveSolveMode_::Value_::APPROXIMATE;
+oisStage.fitTolerance_         = 1e-8;
+oisStage.knotDates_            = {Date::AddMonths(today, 1),  Date::AddMonths(today, 3),
+                                  Date::AddMonths(today, 6),  Date::AddMonths(today, 12),
+                                  Date::AddMonths(today, 24), Date::AddMonths(today, 36),
+                                  Date::AddMonths(today, 60), Date::AddMonths(today, 84),
+                                  Date::AddMonths(today, 120)};
+oisStage.instruments_          = /* OIS deposits + OISSwap_ handles */;
+
+// Stage 2 — 3M forecasting curve, discount curve held fixed.
+CurveCalibrationSpec_ liborStage;
+liborStage.today_                 = today;
+liborStage.ccy_                   = "USD";
+liborStage.curveName_             = "libor3m";
+liborStage.calibrateDiscountCurve_ = false;          // forecast-only stage
+liborStage.targetCollateral_      = CollateralType_(CollateralType_::Value_::OIS);
+liborStage.targetTenor_           = libor3m.forecastTenor_;  // PeriodLength_("3M")
+liborStage.knotDates_             = oisStage.knotDates_;
+liborStage.solveMode_             = CurveSolveMode_::Value_::APPROXIMATE;
+liborStage.fitTolerance_          = 1e-8;
+liborStage.instruments_           = /* FRA_ + Swap_ handles */;
+
+MultiCurveCalibrationSpec_ multi;
+multi.name_       = "usd_example";
+multi.ccy_        = "USD";
+multi.liborBasis_ = libor3m.dayBasis_;
+multi.stages_     = {oisStage, liborStage};
+
+const MultiCurveCalibrationResult_ result = CalibrateMultiCurve(multi);
+
+// Reprice a 3x6 FRA off the calibrated multi-curve block.
+const CurveBlock_ bundle("usd_example",
+                         "USD",
+                         result.discountCurves_,
+                         result.forwardCurves_,
+                         libor3m.dayBasis_);
+const auto fraRate = fra3x6->Precompute(Handle_<YieldCurve_>());
+const double modelFra = (*fraRate)(bundle);
+```
+
+API citations:
+
+- `OISSwap_` and `FRA_` constructors — `dal-cpp/dal/curve/ycinstrument.hpp:81-101,155-166`.
+- `MultiCurveCalibrationSpec_` and `CalibrateMultiCurve` — `dal-cpp/dal/curve/calibration.hpp:120-144`.
+- `CurveBlock_` multi-curve constructor — `dal-cpp/dal/curve/curveblock.hpp:28-32`.
+
+### Flat starting curve for synthetic examples
+
+When no market quotes are available (e.g. building a market to derive implied
+quotes), a flat forward curve is built directly with `NewDiscountPWLF`. This is
+the helper used in both `curve_calibration.cpp` and
+`xccy_curve_calibration.cpp`:
+
+```cpp
+#include <dal/curve/piecewiselinear.hpp>
+#include <dal/curve/ycimp.hpp>
+
+const Vector_<Date_> knots = {Date::AddMonths(today, 1),  Date::AddMonths(today, 3),
+                              Date::AddMonths(today, 6),  Date::AddMonths(today, 12),
+                              Date::AddMonths(today, 24), Date::AddMonths(today, 36),
+                              Date::AddMonths(today, 60), Date::AddMonths(today, 84),
+                              Date::AddMonths(today, 120)};
+const Vector_<> values(knots.size(), 0.02);   // flat 2% forward rate
+
+// Layer an optional base curve by passing it as the last argument (multi-curve
+// spread construction — see the multi-curve framework above).
+Handle_<DiscountCurve_> flat(
+    NewDiscountPWLF("flat", "USD", PiecewiseLinear_(knots, values, values)));
+```
+
+API citations:
+
+- `PiecewiseLinear_(knots, fLeft, fRight)` — `dal-cpp/dal/curve/piecewiselinear.hpp:23`.
+- `NewDiscountPWLF(name, ccy, fwds, base)` — `dal-cpp/dal/curve/ycimp.hpp:12-15`.
+
 ## See Also
 
 - [Underdetermined search](underdetermined_search.md) — the optimisation method

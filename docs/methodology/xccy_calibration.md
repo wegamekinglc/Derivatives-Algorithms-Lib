@@ -118,6 +118,170 @@ diagnostics (per-instrument residuals, RMS and maximum absolute error) quantify 
 fit, and the retained effective Jacobian inverse maps quote bumps to basis-rate
 changes for sensitivity analysis without re-solving.
 
+## Examples
+
+The snippets below are condensed from
+`dal-cpp/examples/xccy_curve_calibration/xccy_curve_calibration.cpp` and adapt
+its real call sequence. They show the public surface declared in
+`dal-cpp/dal/curve/xccycalibration.hpp` and `dal-cpp/dal/curve/xccyinstrument.hpp`.
+Class and enum names, factory functions, struct fields, and include paths match
+the current source; see the citations in each example.
+
+### Two-currency market, collateral assumption, and basis calibration
+
+The example builds two single-currency curve blocks (domestic USD, foreign EUR),
+quotes cross-currency swaps from a synthetic basis-bearing market to obtain
+realistic par spreads, then re-calibrates a basis curve from those spreads.
+Collateral/discounting is OIS in both currencies; the
+`fxForwardCollateral_` field on the spec pins which collateral curve drives the
+FX-forward computation.
+
+```cpp
+#include <dal/curve/curveblock.hpp>
+#include <dal/curve/piecewiselinear.hpp>
+#include <dal/curve/xccycalibration.hpp>
+#include <dal/curve/ycimp.hpp>
+#include <dal/protocol/collateraltype.hpp>
+#include <dal/protocol/rateconvention.hpp>
+
+using namespace Dal;
+
+const Date_ today(2024, 1, 15);
+
+// Flat domestic (USD) and foreign (EUR) curve blocks. In production these are the
+// pre-calibrated OIS + tenor-forecast blocks from the single-currency side.
+auto usdBlock = Handle_<CurveBlock_>(
+    new CurveBlock_(Handle_<DiscountCurve_>(
+        NewDiscountPWLF("usd_ois", "USD", MakeFlat("USD", today, 0.02))));
+auto eurBlock = Handle_<CurveBlock_>(
+    new CurveBlock_(Handle_<DiscountCurve_>(
+        NewDiscountPWLF("eur_ois", "EUR", MakeFlat("EUR", today, 0.01))));
+
+// Index and leg conventions: 12M tenor, ACT/365F, OIS-collateralised in both legs.
+auto index = [] {
+    RateIndexConvention_ r;
+    r.useProjectionCurve_ = true;
+    r.forecastTenor_      = PeriodLength_("12M");
+    r.dayBasis_           = DayBasis_("ACT_365F");
+    r.collateral_         = CollateralType_(CollateralType_::Value_::OIS);
+    return r;
+}();
+auto leg = [] {
+    RateLegConvention_ r;
+    r.paymentFrequency_ = PeriodLength_("12M");
+    r.dayBasis_         = DayBasis_("ACT_365F");
+    return r;
+}();
+
+// Cross-currency swap conventions: full notional exchange, par spread on the
+// foreign (EUR) leg.
+CrossCurrencyConvention_ convention;
+convention.initialNotionalExchange_ = true;
+convention.finalNotionalExchange_   = true;
+convention.spreadOnForeignLeg_      = true;
+convention.domesticIndex_           = index;
+convention.domesticLeg_             = leg;
+convention.foreignIndex_            = index;
+convention.foreignLeg_              = leg;
+
+// One swap per maturity, each carrying its market par basis spread.
+auto makeSwap = [&](double marketSpread, int maturityMonths) {
+    return Handle_<CrossCurrencySwap_>(new CrossCurrencySwap_(today,
+                                                              today,
+                                                              Date::AddMonths(today, maturityMonths),
+                                                              marketSpread,
+                                                              CurrencyPair_(Ccy_("USD"), Ccy_("EUR")),
+                                                              110.0,   // domestic notional
+                                                              100.0,   // foreign notional
+                                                              convention));
+};
+
+CrossCurrencyCalibrationSpec_ spec;
+spec.today_              = today;
+spec.basisPair_          = CurrencyPair_(Ccy_("USD"), Ccy_("EUR"));
+spec.domesticCurveBlock_ = usdBlock;
+spec.foreignCurveBlock_  = eurBlock;
+spec.fxSpot_             = 1.10;            // USD per EUR
+// fxForwardCollateral_ defaults to CollateralType_::Value_::OIS (xccycalibration.hpp:72).
+spec.knotDates_          = {Date::AddMonths(today, 6),  Date::AddMonths(today, 12),
+                            Date::AddMonths(today, 24), Date::AddMonths(today, 60),
+                            Date::AddMonths(today, 120)};
+spec.solveMode_          = CurveSolveMode_::Value_::EXACT;
+for (const int m : {6, 12, 18, 24, 30, 36, 42, 48, 54, 60, 72, 84, 96, 108, 120})
+    spec.instruments_.push_back(makeSwap(/*marketSpread=*/0.0, m));   // spreads filled in below
+
+const CrossCurrencyCalibrationResult_ result = CalibrateCrossCurrencyMarket(spec);
+```
+
+### Extracting the implied FX forward and basis discount factor
+
+The result carries a calibrated `CrossCurrencyMarket_` plus a
+`CrossCurrencyFxForwardCurve_` snapshot at the knot dates. Use the market
+accessors for arbitrary-date queries; use the snapshot for the calibrated
+pillar grid.
+
+```cpp
+// Implied FX forward (USD per EUR) for delivery at each knot date.
+for (const Date_& d : spec.knotDates_)
+    const double fwd = result.market_.FxForward(d);
+
+// Same forward via the calibrated overloads that take explicit from/to/collateral.
+const double fwdTodayTo1y = result.market_.FxForward(today,
+                                                     Date::AddMonths(today, 12),
+                                                     CollateralType_(CollateralType_::Value_::OIS));
+
+// The basis discount factor P_b(today, T) — equals 1 when the basis is zero.
+const double pb12m = result.market_.BasisDiscountFactor(today, Date::AddMonths(today, 12));
+
+// The calibrated pillar grid (basis-consistent FX forwards at the knots).
+// result.fxForwardCurve_.dates_    == spec.knotDates_
+// result.fxForwardCurve_.forwards_ == FxForward(d) at each knot
+```
+
+### Quoting market spreads from a synthetic basis-bearing market
+
+`xccy_curve_calibration.cpp` derives its market spreads by repricing prototype
+zero-spread swaps against a market that already carries a basis, then feeding
+those spreads back into a fresh calibration. This pattern is useful for
+self-consistent tests:
+
+```cpp
+// Build a quote market with a known flat basis to derive market-implied spreads.
+CrossCurrencyMarket_ quoteMarket(usdBlock, eurBlock, 1.10);
+quoteMarket.SetBasisCurve(Handle_<DiscountCurve_>(
+    NewDiscountPWLF("usd_eur_basis", "USD", MakeFlat("USD", today, 0.0020))));
+
+// Prototype swaps at zero spread; their model par spread is the market quote.
+Vector_<> marketSpreads;
+for (const int m : {6, 12, 18, 24, /*...*/ 120}) {
+    const auto proto = makeSwap(0.0, m);
+    marketSpreads.push_back((*proto->Precompute())(quoteMarket));
+}
+// ...then push makeSwap(marketSpreads[i], m) into spec.instruments_ as above.
+```
+
+API citations:
+
+- `CrossCurrencyCalibrationSpec_` fields (incl. `fxForwardCollateral_`, `solveMode_`) and
+  `CalibrateCrossCurrencyMarket` — `dal-cpp/dal/curve/xccycalibration.hpp:66-82,97`.
+- `CrossCurrencyMarket_` constructor, `SetBasisCurve`, `FxForward`, `BasisDiscountFactor` —
+  `dal-cpp/dal/curve/xccycalibration.hpp:28-46`.
+- `CrossCurrencySwap_` constructor and `Precompute` — `dal-cpp/dal/curve/xccyinstrument.hpp:46-57`.
+- `CrossCurrencyConvention_`, `RateIndexConvention_`, `RateLegConvention_` —
+  `dal-cpp/dal/protocol/rateconvention.hpp:14-48`.
+- `CurrencyPair_(domestic, foreign)` — `dal-cpp/dal/curve/xccyinstrument.hpp:17-26`.
+- `CalibrateCrossCurrencyMarket` result fields `market_`, `basisCurves_`, `fxForwardCurve_`,
+  `diagnostics_` — `dal-cpp/dal/curve/xccycalibration.hpp:84-95`.
+
+### Diagnostic and revaluation surface
+
+`result.diagnostics_` (`CrossCurrencyCalibrationDiagnostics_`,
+`dal-cpp/dal/curve/xccycalibration.hpp:49-58`) exposes per-instrument
+`marketRates_`, `modelRates_`, `residuals_`, plus `rmsResidual_`,
+`maxAbsResidual_`, and `usedApproximateFit_`. The `effJacobianInverse_` maps
+basis-spread bumps to basis-rate changes for sensitivity work without re-solving,
+exactly as on the single-currency side.
+
 ## See Also
 
 - [Yield curve construction](yield_curve.md) — the single-currency framework the
