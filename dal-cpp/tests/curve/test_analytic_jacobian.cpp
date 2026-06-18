@@ -20,21 +20,11 @@
 
 using namespace Dal;
 
-// The Phase A analytic Jacobian is native-AAD-only: it walks Dal::AAD::Tape_::nodes_ for the
-// single-result reverse sweeps, an internal the third-party AAD backends (XAD/CoDiPack/Adept) do
-// not expose. Under those backends TestOnly::AnalyticJacobianAt returns an empty matrix and the
-// solver dense-bumps, so the tests that assert the exact AAD Jacobian are skipped there.
-#if !defined(DAL_USE_XAD_AAD) && !defined(DAL_USE_CODIPACK_AAD) && !defined(DAL_USE_ADEPT_AAD)
-#define DAL_HAS_CURVE_ANALYTIC_JACOBIAN 1
-#else
-#define DAL_HAS_CURVE_ANALYTIC_JACOBIAN 0
-#endif
-
-#define SKIP_IF_NO_ANALYTIC_JACOBIAN() \
-    do { \
-        if (!DAL_HAS_CURVE_ANALYTIC_JACOBIAN) \
-            GTEST_SKIP() << "Phase A analytic Jacobian is native-AAD-only; external backends dense-bump."; \
-    } while (false)
+// The analytic Jacobian is backend-neutral: it runs the single-result reverse-sweep loop under
+// every AAD backend (native, XAD, CoDiPack, Adept) via the Dal::AAD facade (RegisterIndependent,
+// ZeroAdjoints, Adjoint, PropagateToStart). Every test below runs on every backend; there is no
+// skip machinery. The eligibility/fallback tests still assert an empty matrix (nullptr Gradient)
+// for ineligible calibrations -- that is the fallback behavior, not a backend skip.
 
 namespace {
     RateLegConvention_ AnnualLegPA() {
@@ -160,7 +150,6 @@ namespace {
 // 1e-6 within 1e-9.
 
 TEST(AnalyticJacobianTest, TestMatchesCentralDifferenceLogLinear) {
-    SKIP_IF_NO_ANALYTIC_JACOBIAN();
     auto spec = MakePhaseASpec(LogDfScheme_::Value_::LOG_LINEAR);
     const Vector_<> x = {-0.005, -0.012, -0.025, -0.04, -0.06};
     ASSERT_EQ(static_cast<int>(x.size()), 5);
@@ -196,7 +185,6 @@ TEST(AnalyticJacobianTest, TestMatchesCentralDifferenceLogLinear) {
 // cashflow support.
 
 TEST(AnalyticJacobianTest, TestStructuralZerosAreExactlyZero) {
-    SKIP_IF_NO_ANALYTIC_JACOBIAN();
     auto spec = MakePhaseASpec();
     const Vector_<> x = {-0.005, -0.012, -0.025, -0.04, -0.06};
     const Matrix_<> J = TestOnly::AnalyticJacobianAt(spec, x);
@@ -299,12 +287,9 @@ TEST(AnalyticJacobianTest, TestTradeDateNotStartRejected) {
 }
 
 // Sanity check the symmetric case: when tradeDate == start == anchor the same shape is still
-// admitted (one swap, non-empty Jacobian), guarding against an over-broad rejection. The
-// non-empty analytic Jacobian only exists on native AAD; on external backends the analytic path
-// is gated out and AnalyticJacobianAt returns an empty matrix regardless of eligibility, so this
-// assertion is skipped there (the eligibility predicate itself is covered by the native run).
+// admitted (one swap, non-empty Jacobian), guarding against an over-broad rejection. Runs on every
+// backend now that the analytic path is backend-neutral.
 TEST(AnalyticJacobianTest, TestTradeDateEqualsStartStillAdmitted) {
-    SKIP_IF_NO_ANALYTIC_JACOBIAN();
     auto spec = MakePhaseASpec();
     spec.instruments_ = {
         Handle_<YCInstrument_>(new Swap_(spec.today_, spec.today_, Date_(2023, 1, 1), 0.012, AnnualLegPA(), AnnualIndexPA(), AnnualLegPA())),
@@ -343,14 +328,12 @@ TEST(AnalyticJacobianTest, TestTapeIsolationAcrossCalls) {
 // mixed-cutoff spline branches of the AAD path.
 
 TEST(AnalyticJacobianTest, TestMatchesCentralDifferenceLogCubicNatural) {
-    SKIP_IF_NO_ANALYTIC_JACOBIAN();
     auto spec = MakePhaseASpec(LogDfScheme_::Value_::LOG_CUBIC_NATURAL);
     const Vector_<> x = {-0.005, -0.012, -0.025, -0.04, -0.06};
     AssertMatchesCentralDifference(spec, x, 1.0e-6, 1.0e-9);
 }
 
 TEST(AnalyticJacobianTest, TestMatchesCentralDifferenceMixed) {
-    SKIP_IF_NO_ANALYTIC_JACOBIAN();
     auto spec = MakePhaseASpec(LogDfScheme_::Value_::MIXED);
     const Vector_<> x = {-0.005, -0.012, -0.025, -0.04, -0.06};
     AssertMatchesCentralDifference(spec, x, 1.0e-6, 1.0e-9);
@@ -366,7 +349,6 @@ TEST(AnalyticJacobianTest, TestMatchesCentralDifferenceMixed) {
 // deposit does NOT touch (beyond its maturity) are EXACTLY zero (AAD structural zero, not noise).
 
 TEST(AnalyticJacobianTest, TestSingleDepositTapeMatchesCentralDifference) {
-    SKIP_IF_NO_ANALYTIC_JACOBIAN();
     CurveCalibrationSpec_ spec;
     spec.today_ = Date_(2022, 1, 1);
     spec.ccy_ = "USD";
@@ -413,7 +395,6 @@ TEST(AnalyticJacobianTest, TestSingleDepositTapeMatchesCentralDifference) {
 // whose cashflows end before later nodes.
 
 TEST(AnalyticJacobianTest, TestMixedInstrumentCalibrationMatchesCentralDifference) {
-    SKIP_IF_NO_ANALYTIC_JACOBIAN();
     CurveCalibrationSpec_ spec;
     spec.today_ = Date_(2022, 1, 1);
     spec.ccy_ = "USD";
@@ -457,4 +438,106 @@ TEST(AnalyticJacobianTest, TestMixedInstrumentCalibrationMatchesCentralDifferenc
         ASSERT_EQ(J(0, c), 0.0) << "deposit row col " << c << " = " << J(0, c);
     for (int c = 2; c < 5; ++c)
         ASSERT_EQ(J(1, c), 0.0) << "fra row col " << c << " = " << J(1, c);
+}
+
+// ============================================================================
+// Category 10: B2 sentinel -- every row has a non-trivial Jacobian
+// ============================================================================
+// The signature failure mode for a missed registerInput / broken recording window (the B2 class)
+// is an ALL-ZERO Jacobian row: the tape never learned the input is an independent, so the reverse
+// sweep propagates nothing and the harvested row is zero. This invariant trips that failure on the
+// AAD result alone, before any FD comparison: for every row i, at least one column j must satisfy
+// |jac(i, j)| > 1e-6. Runs on every backend; the FD oracle above is the deeper check.
+
+TEST(AnalyticJacobianTest, TestEveryRowHasNonTrivialJacobian) {
+    auto spec = MakePhaseASpec();
+    const Vector_<> x = {-0.005, -0.012, -0.025, -0.04, -0.06};
+    const Matrix_<> J = TestOnly::AnalyticJacobianAt(spec, x);
+    ASSERT_EQ(J.Rows(), 5);
+    ASSERT_EQ(J.Cols(), 5);
+    for (int r = 0; r < 5; ++r) {
+        double maxAbs = 0.0;
+        for (int c = 0; c < 5; ++c)
+            maxAbs = std::max(maxAbs, std::abs(J(r, c)));
+        ASSERT_GT(maxAbs, 1.0e-6) << "row " << r << " is all-zero (B2 sentinel: missed registerInput?)";
+    }
+}
+
+// ============================================================================
+// Category 11: B1 sentinel -- later rows stay clean of earlier rows' residue
+// ============================================================================
+// On Adept the compute_adjoint override zeroes only each consumed statement's LHS and accumulates
+// into operands whose gradients are never cleared between single-result sweeps. If ZeroAdjoints
+// were a no-op (the B1 bug), row 1's seed would leave operand residue that row 2's sweep inherits,
+// and row 2's harvested Jacobian would be wrong -- specifically its structural zeros would no
+// longer be exactly zero, and its non-zero entries would disagree with a finite difference. This
+// test runs the full 5-row ladder (each row's cashflow support is a strict prefix of the columns)
+// and asserts BOTH that every entry matches a central difference AND that the structural zeros in
+// LATER rows stay exactly zero despite EARLIER rows having populated those same columns. A
+// ZeroAdjoints leak makes the later-row zeros non-zero.
+
+TEST(AnalyticJacobianTest, TestLaterRowsCleanOfEarlierResidue) {
+    auto spec = MakePhaseASpec();
+    const Vector_<> x = {-0.005, -0.012, -0.025, -0.04, -0.06};
+    const Matrix_<> J = TestOnly::AnalyticJacobianAt(spec, x);
+    ASSERT_EQ(J.Rows(), 5);
+    ASSERT_EQ(J.Cols(), 5);
+
+    // Row 0 is the 3M swap (cashflow at column 0 only): J(0, 1..4) must be EXACTLY zero. Row 1 is
+    // the 6M swap (cashflow at columns 0..1): J(1, 2..4) must be exactly zero. These zeros are the
+    // B1 falsifier: row 1 sweeps AFTER row 0, and if row 0's residue leaked, row 1's structural
+    // zeros would be non-zero. The columns that ARE non-zero must also agree with a central
+    // difference (the residue would shift them off FD too).
+    for (int c = 1; c < 5; ++c)
+        ASSERT_EQ(J(0, c), 0.0) << "row 0 col " << c << " = " << J(0, c) << " (B1 sentinel: residue from no prior row, must be structural zero)";
+    for (int c = 2; c < 5; ++c)
+        ASSERT_EQ(J(1, c), 0.0) << "row 1 col " << c << " = " << J(1, c) << " (B1 sentinel: row-0 residue leaked into row-1 structural zero?)";
+
+    // Every non-structural entry must match a central difference. A residue leak would push a
+    // later row off its FD value.
+    const double h = 1.0e-6;
+    for (int c = 0; c < 5; ++c) {
+        Vector_<> xUp = x;
+        Vector_<> xDn = x;
+        xUp[c] += h;
+        xDn[c] -= h;
+        const Vector_<> fUp = EvalResiduals(spec, xUp);
+        const Vector_<> fDn = EvalResiduals(spec, xDn);
+        for (int r = 0; r < 5; ++r) {
+            const double fd = (fUp[r] - fDn[r]) / (2.0 * h);
+            const double an = J(r, c);
+            if (std::abs(fd) < 1e-9) {
+                ASSERT_NEAR(an, 0.0, 1e-9) << "row=" << r << " col=" << c;
+            } else {
+                ASSERT_NEAR(an, fd, 1e-9 * std::max(1.0, std::abs(fd))) << "row=" << r << " col=" << c;
+            }
+        }
+    }
+}
+
+// ============================================================================
+// Category 12: Structural asymmetry guard (defense against a future Jacobian-layout transpose)
+// ============================================================================
+// A multi-result fast path (e.g. Adept stack.jacobian(), deferred) could transpose the Jacobian
+// layout if its dep/indep offset bookkeeping is wrong. The LOG_DISCOUNT swap ladder is provably
+// non-symmetric: swap i (maturing at knot i+1) has cashflow support over columns 0..i, so
+// J(i, j>i) == 0 structurally while J(j, i) for j>i can be non-zero. This test names an explicit
+// asymmetric pair -- J(2,0) non-zero, J(0,2) exactly zero -- so a transposed layout is falsifiable
+// even without re-running the full FD oracle.
+
+TEST(AnalyticJacobianTest, TestNonSymmetricLayoutAsymmetricPair) {
+    auto spec = MakePhaseASpec();
+    const Vector_<> x = {-0.005, -0.012, -0.025, -0.04, -0.06};
+    AssertMatchesCentralDifference(spec, x, 1.0e-6, 1.0e-9);
+    const Matrix_<> J = TestOnly::AnalyticJacobianAt(spec, x);
+    ASSERT_EQ(J.Rows(), 5);
+    ASSERT_EQ(J.Cols(), 5);
+    // Annual-coupon swaps only touch the 2023/2024/2025 nodes (columns 2, 3, 4); the 2022-04 and
+    // 2022-07 nodes (columns 0, 1) are touched only by the shorter swaps. Row 4 is the 5Y swap
+    // (matures 2025-01-01): it HAS exposure to column 2 (the 2023 node its first coupon lands on).
+    ASSERT_NE(J(4, 2), 0.0) << "5Y swap must have exposure to the 2023 node (col 2)";
+    // Row 2 is the 1Y swap (matures 2023-01-01): its only coupon is at column 2, so it has NO
+    // exposure to column 4 (the 2025 node). A transposed layout would swap these and the FD oracle
+    // above would fail first; this assertion names the asymmetry directly.
+    ASSERT_EQ(J(2, 4), 0.0) << "1Y swap must have no exposure to the 2025 node (col 4)";
 }
