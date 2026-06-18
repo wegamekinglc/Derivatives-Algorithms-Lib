@@ -33,6 +33,17 @@ here as the baseline rather than dated releases:
   Jacobian mode for yield-curve calibration. See
   `docs/experimental/aad-analytic-jacobian-curve-calibration.md`.
 
+## 2026-06
+
+- `curve`: Added a yield-curve Jacobian example demonstrating AAD-vs-bump agreement and the
+  inverse-Jacobian IR-risk transform; documented the corrected units of
+  `CurveCalibrationDiagnostics_::effJacobianInverse_` as
+  `d(params)·tolerance_ / d(decimal-rate perturbation)` (the underdetermined solver scales
+  residuals by `1/tolerance_` before forming the pseudoinverse, so consumers must divide by
+  `tolerance_` when transforming a sensitivity vector: `r = gᵀ · effJacobianInverse_ / tolerance_`).
+  See `docs/methodology/yield_curve_jacobian.md` and the example at
+  `dal-cpp/examples/yield_curve_jacobian/`. Non-breaking (new example + diagnostics-only test).
+
 <!-- Add new qualifying changes below as dated sections, e.g. -->
 <!-- ## 2026-06 -->
 <!-- - `curve`: Added log-linear interpolation to the interpolation module (non-breaking). -->

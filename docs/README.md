@@ -54,6 +54,11 @@ Deep dives into the quantitative methods and algorithms implemented in DAL:
   - `LogDfScheme_` interpolation schemes (`LOG_LINEAR`, `LOG_CUBIC_NATURAL`, `MIXED`)
   - Why `LOG_DISCOUNT` is the parameterization that supports the analytic Jacobian
 
+- **[yield_curve_jacobian.md](methodology/yield_curve_jacobian.md)** — Yield-Curve Jacobian and Inverse-Jacobian Risk
+  - Forward residual Jacobian via AAD reverse sweep vs finite-difference bump
+  - Inverse-Jacobian IR-risk transform `r = gᵀ · effJacobianInverse_ / tolerance_`
+  - Why `effJacobianInverse_` carries an extra `tolerance_` factor (solver residual scaling)
+
 ### Experimental (`experimental/`)
 
 Notes on capabilities that are working but not yet promoted to normative methodology. These
