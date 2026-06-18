@@ -134,6 +134,8 @@ Detailed documentation of the quantitative methods implemented in this library:
 - **Yield Curve Construction** — [Yield curve construction](docs/methodology/yield_curve.md)
 - **Underdetermined Search** — [Underdetermined search](docs/methodology/underdetermined_search.md)
 - **Cross-Currency Calibration** — [Cross-currency calibration](docs/methodology/xccy_calibration.md)
+- **Interpolation** — [Interpolation](docs/methodology/interpolation.md)
+- **Log-Discount Curve** — [Log-discount curve](docs/methodology/log_discount_curve.md)
 
 Notable fundamental changes are recorded in [CHANGELOG.md](CHANGELOG.md).
 
