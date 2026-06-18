@@ -245,7 +245,7 @@ namespace Dal {
         // path does NOT consult interp_ (it accumulates basis weights against logDF_ directly).
         Vector_<> logDFDouble(yf_.size());
         for (int i = 0; i < static_cast<int>(logDF_.size()); ++i)
-            logDFDouble[i] = static_cast<double>(logDF_[i]);
+            logDFDouble[i] = Dal::AAD::Value(logDF_[i]);
         interp_ = BuildLogDfInterpFromYf(this->Name(), scheme_, yf_, logDFDouble);
         RebuildBasisAux();
     }
@@ -431,10 +431,12 @@ namespace Dal {
 
     template <class T_>
     void DiscountLogDF_<T_>::Write(Archive::Store_& dst) const {
-        // Serialisation is double-only; the Number_ path never persists. Extract via static_cast.
+        // Serialisation is double-only; the Number_ path never persists. Extract the primal value
+        // via the backend-neutral Dal::AAD::Value facade (static_cast<double> works on native and
+        // CoDiPack but not on XAD/Adept, which have no conversion operator).
         Vector_<> logDFDouble(logDF_.size());
         for (int i = 0; i < static_cast<int>(logDF_.size()); ++i)
-            logDFDouble[i] = static_cast<double>(logDF_[i]);
+            logDFDouble[i] = Dal::AAD::Value(logDF_[i]);
         DiscountLogDF_v2::XWrite(dst,
                                  this->Name(),
                                  this->ccy_.String(),
@@ -455,7 +457,7 @@ namespace Dal {
     Vector_<> DiscountLogDF_<T_>::NodeDF() const {
         Vector_<> retval(logDF_.size());
         for (int i = 0; i < static_cast<int>(logDF_.size()); ++i)
-            retval[i] = std::exp(static_cast<double>(logDF_[i]));
+            retval[i] = std::exp(Dal::AAD::Value(logDF_[i]));
         return retval;
     }
 
@@ -468,20 +470,20 @@ namespace Dal {
         // missing the public surface a caller might assume.
         Vector_<> retval(logDF_.size());
         for (int i = 0; i < static_cast<int>(logDF_.size()); ++i)
-            retval[i] = static_cast<double>(logDF_[i]);
+            retval[i] = Dal::AAD::Value(logDF_[i]);
         return retval;
     }
 
     // Explicit instantiations. DiscountLogDF_<double> is the hot path (F loop, bumped fallback,
-    // serialisation). DiscountLogDF_<Dal::AAD::Number_> is instantiated only under the native
-    // backend; it pulls in the AAD-aware branches via if constexpr and is linked into the Phase A
-    // Gradient override in calibration.cpp. The external AAD backends' active types do not provide
-    // the native-tape conversions (static_cast<double>) the Number_ body relies on, so the Number_
-    // instantiation is gated out and Phase A compiles away.
+    // serialisation). DiscountLogDF_<Dal::AAD::Number_> is linked into the AnalyticJacobian override
+    // in calibration.cpp; the Number_-typed body forwards to the Dal::AAD facade (exp/log/value via
+    // ADL), so it compiles and runs under every AAD backend. These instantiations were previously
+    // gated to the native backend because the analytic Jacobian zeroed adjoints by walking the
+    // native-only Dal::AAD::Tape_::nodes_ member; zeroing now goes through the backend-neutral
+    // Dal::AAD::ZeroAdjoints facade primitive, so the gate is gone and the instantiation is needed
+    // under every backend.
     template class DiscountLogDF_<double>;
-#if !defined(DAL_USE_XAD_AAD) && !defined(DAL_USE_CODIPACK_AAD) && !defined(DAL_USE_ADEPT_AAD)
     template class DiscountLogDF_<Dal::AAD::Number_>;
-#endif // native AAD backend (Phase A log-DF curve)
 
     } // namespace Tape
 
