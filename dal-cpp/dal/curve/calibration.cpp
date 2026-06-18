@@ -463,12 +463,13 @@ namespace Dal {
             }
         };
 
-        // AnalyticJacobian body. TapeGuard on entry/exit (Clear + NewRecording), build Number_-typed
+        // AnalyticJacobian body. TapeGuard on entry/exit (Clear only), build Number_-typed
         // curve, build Number_-typed rates via PrecomputeT<Number_>, compute residuals, single-result
-        // reverse loop. The column map is solver col j = storage node j+1, so Adjoint(logDF[j+1])
-        // reads the sensitivity to x[j]. Backend-neutral: RegisterIndependent, ZeroAdjoints, Adjoint,
-        // and PropagateToStart are all Dal::AAD facade primitives, so the same loop runs unchanged
-        // under native, XAD, CoDiPack, and Adept.
+        // reverse loop. NewRecording is opened explicitly after RegisterIndependent (XAD requires
+        // inputs registered before newRecording). The column map is solver col j = storage node j+1,
+        // so Adjoint(logDF[j+1]) reads the sensitivity to x[j]. Backend-neutral: RegisterIndependent,
+        // ZeroAdjoints, Adjoint, and PropagateToStart are all Dal::AAD facade primitives, so the same
+        // loop runs unchanged under native, XAD, CoDiPack, and Adept.
         Underdetermined::Jacobian_* YieldCurveCalibrationFunc_::AnalyticJacobian(const Vector_<>& x, const Vector_<>& f) const {
             auto* tape = Dal::AAD::Tape();
             TapeGuard_ guard(tape);

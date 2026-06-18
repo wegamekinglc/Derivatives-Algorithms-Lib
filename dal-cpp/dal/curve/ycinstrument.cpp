@@ -9,6 +9,7 @@
 #include <dal/curve/yc.hpp>
 #include <dal/curve/ycinstrument.hpp>
 #include <dal/curve/yclogdf.hpp>
+#include <dal/math/aad/aad.hpp>
 #include <dal/protocol/accrualperiod.hpp>
 #include <dal/string/strings.hpp>
 #include <dal/time/schedules.hpp>
