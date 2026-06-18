@@ -18,16 +18,12 @@
 
 using namespace Dal;
 
-// Flag-behavior tests for the runtime CurveJacobianMode_ switch (PR3 of the analytic-Jacobian
-// redesign). The flag is a best-effort hint: BUMPED (default) is the byte-for-byte pre-analytic
-// path; ANALYTIC engages the AAD dense Jacobian iff EligibleForAnalyticJacobian(), otherwise falls
-// back to bumped with a NOTICE (never throws). These tests pin the migration gate (default options
-// == bumped baseline), the analytic-engage path (ANALYTIC + eligible), the fallback path
-// (ANALYTIC + ineligible -> bumped), the explicit-BUMPED short-circuit, and the NOTICE-once
-// contract (cached eligibility: the predicate runs at most once per CalibrateYieldCurve call).
+// Flag-behavior tests for the runtime CurveJacobianMode_ switch: BUMPED (default) is the
+// byte-for-byte pre-analytic path; ANALYTIC engages the AAD Jacobian iff eligible, else falls
+// back to bumped with a NOTICE (never throws).
 
 namespace {
-    RateLegConvention_ AnnualLegPA() {
+    RateLegConvention_ AnnualLeg() {
         RateLegConvention_ leg;
         leg.paymentLag_ = 0;
         leg.paymentFrequency_ = PeriodLength_("12M");
@@ -39,7 +35,7 @@ namespace {
         return leg;
     }
 
-    RateIndexConvention_ AnnualIndexPA() {
+    RateIndexConvention_ AnnualIndex() {
         RateIndexConvention_ idx;
         idx.forecastTenor_ = PeriodLength_("12M");
         idx.dayBasis_ = DayBasis_("ACT_365F");
@@ -73,9 +69,9 @@ namespace {
             Date_(2024, 1, 1), Date_(2025, 1, 1),
         };
 
-        const auto fixedLeg = AnnualLegPA();
-        const auto floatIdx = AnnualIndexPA();
-        const auto floatLeg = AnnualLegPA();
+        const auto fixedLeg = AnnualLeg();
+        const auto floatIdx = AnnualIndex();
+        const auto floatLeg = AnnualLeg();
         const auto mkSwap = [&](const Date_& start, const Date_& end, double parPct) {
             return Handle_<YCInstrument_>(new Swap_(spec.today_, start, end, parPct / 100.0, fixedLeg, floatIdx, floatLeg));
         };
@@ -107,15 +103,8 @@ namespace {
     }
 } // namespace
 
-// ============================================================================
-// Migration gate (acceptance bar): default-constructed options reproduce the
-// pre-feature bumped path byte-for-byte.
-// ============================================================================
-// The single-arg CalibrateYieldCurve(spec) overload delegates to the two-arg form with a
-// default-constructed CurveCalibrationOptions_ (jacobianMode_ == BUMPED). The default-constructed
-// options, an explicit BUMPED options, and the single-arg call must all produce identical curves
-// (the bumped path is deterministic). This is the migration guarantee: a caller who does nothing
-// gets the pre-analytic behavior unchanged.
+// Migration gate: default-constructed options, explicit BUMPED, and the single-arg overload
+// must all produce identical curves -- a caller who does nothing gets the pre-analytic path.
 
 TEST(CurveJacobianModeFlagTest, TestMigrationGateDefaultMatchesBumped) {
     const auto spec = MakeEligibleSpec();
@@ -140,16 +129,9 @@ TEST(CurveJacobianModeFlagTest, TestMigrationGateDefaultMatchesBumped) {
     ASSERT_LT(rSingle.diagnostics_.maxAbsResidual_, 1.0e-7);
 }
 
-// ============================================================================
-// ANALYTIC + eligible: the AAD dense Jacobian engages and drives the solver to
-// the same solution as the bumped path.
-// ============================================================================
-// For an eligible calibration both the bumped and analytic Jacobians are exact, so the solver
-// converges to the same node log-DFs. This test asserts ANALYTIC engages (the run completes and
-// converges) AND that the resulting curve matches the BUMPED result node-by-node within solver
-// tolerance. The "analytic actually engaged" signal is asserted separately via the
-// TestOnly::AnalyticJacobianAt hook in test_analytic_jacobian.cpp (non-empty matrix); here we
-// assert the end-to-end flag behavior on CalibrateYieldCurve.
+// ANALYTIC + eligible: both Jacobians are exact, so the analytic run must converge to the same
+// node log-DFs as BUMPED. ("Analytic actually engaged" is asserted via TestOnly::AnalyticJacobianAt
+// in test_analytic_jacobian.cpp; here we assert the end-to-end flag behavior.)
 
 TEST(CurveJacobianModeFlagTest, TestAnalyticEligibleMatchesBumped) {
     const auto spec = MakeEligibleSpec();
@@ -175,15 +157,8 @@ TEST(CurveJacobianModeFlagTest, TestAnalyticEligibleMatchesBumped) {
         ASSERT_NEAR(logBumped[i], logAnalytic[i], 1.0e-9) << "node " << i;
 }
 
-// ============================================================================
-// ANALYTIC + ineligible: falls back to bumped (never throws), produces a valid
-// curve identical to the explicit BUMPED result.
-// ============================================================================
-// ANALYTIC is a best-effort hint. When the calibration is ineligible (here: non-LOG_DISCOUNT),
-// EligibleForAnalyticJacobian returns false with a NOTICE, Gradient returns nullptr, and the solver
-// dense-bumps. The result must equal the explicit BUMPED result on the same spec (identical
-// numerics), and ANALYTIC must never throw. We assert the curve type, convergence, and node-by-node
-// equality with the bumped baseline.
+// ANALYTIC + ineligible: ANALYTIC never throws; on an ineligible spec Gradient returns nullptr
+// (solver dense-bumps), so the result equals explicit BUMPED. (PLF spec -> compare DFs, not log-DFs.)
 
 TEST(CurveJacobianModeFlagTest, TestAnalyticIneligibleFallsBackToBumped) {
     const auto spec = MakeIneligibleSpec();
@@ -210,13 +185,8 @@ TEST(CurveJacobianModeFlagTest, TestAnalyticIneligibleFallsBackToBumped) {
     }
 }
 
-// ============================================================================
-// BUMPED explicitly: analytic never engages (byte-identical to default).
-// ============================================================================
-// Explicit BUMPED on an eligible calibration short-circuits Gradient to nullptr before any
-// eligibility check or tape work, so the result equals the default-constructed-options result
-// (which is also BUMPED). Combined with the migration gate this closes the loop: default, explicit
-// BUMPED, and the single-arg overload are three spellings of the same bumped path.
+// Explicit BUMPED on an eligible spec short-circuits Gradient to nullptr, so it equals default
+// options (also BUMPED) -- default, explicit BUMPED, and the single-arg overload are one path.
 
 TEST(CurveJacobianModeFlagTest, TestExplicitBumpedMatchesDefaultOnEligibleSpec) {
     const auto spec = MakeEligibleSpec();
@@ -235,20 +205,10 @@ TEST(CurveJacobianModeFlagTest, TestExplicitBumpedMatchesDefaultOnEligibleSpec) 
         ASSERT_DOUBLE_EQ(logDefault[i], logBumped[i]) << "node " << i;
 }
 
-// ============================================================================
-// NOTICE-once contract: the eligibility verdict is cached, so ANALYTIC on an
-// ineligible calibration completes without re-evaluating eligibility per iteration.
-// ============================================================================
-// EligibleForAnalyticJacobian() walks every instrument and emits NOTICEs on fall-through; Gradient
-// is called per solver iteration (up to maxEvaluations_ * maxRestarts_). The verdict is cached on
-// the YieldCurveCalibrationFunc_ (EvaluateEligibilityOnce), so the predicate runs at most once per
-// CalibrateYieldCurve call. The NOTICE stack itself is a scoped push/pop with no public counter, so
-// this contract is verified structurally: an ineligible ANALYTIC calibration with the full solver
-// budget (maxEvaluations_ * maxRestarts_ iterations available) completes and converges to the
-// bumped solution. A per-iteration re-evaluation would re-walk all instruments each call; the cache
-// bounds the predicate to one call. We assert the calibration completes and the result matches
-// bumped, which holds regardless of caching -- the cache is a performance invariant, not a
-// correctness one, and is verified by reading EvaluateEligibilityOnce in the source.
+// NOTICE-once: eligibility is cached (EvaluateEligibilityOnce), so the predicate runs at most once
+// per CalibrateYieldCurve call even though Gradient fires per iteration. The NOTICE stack has no
+// counter, so this is verified structurally -- the run completes and matches bumped; the cache
+// itself is a performance invariant, verified by reading the source.
 
 TEST(CurveJacobianModeFlagTest, TestIneligibleAnalyticCachesEligibilityVerdict) {
     auto spec = MakeIneligibleSpec();

@@ -27,7 +27,7 @@ using namespace Dal;
 // for ineligible calibrations -- that is the fallback behavior, not a backend skip.
 
 namespace {
-    RateLegConvention_ AnnualLegPA() {
+    RateLegConvention_ AnnualLeg() {
         RateLegConvention_ leg;
         leg.paymentLag_ = 0;
         leg.paymentFrequency_ = PeriodLength_("12M");
@@ -39,7 +39,7 @@ namespace {
         return leg;
     }
 
-    RateIndexConvention_ AnnualIndexPA() {
+    RateIndexConvention_ AnnualIndex() {
         RateIndexConvention_ idx;
         idx.forecastTenor_ = PeriodLength_("12M");
         idx.dayBasis_ = DayBasis_("ACT_365F");
@@ -73,9 +73,9 @@ namespace {
             Date_(2024, 1, 1), Date_(2025, 1, 1),
         };
 
-        const auto fixedLeg = AnnualLegPA();
-        const auto floatIdx = AnnualIndexPA();
-        const auto floatLeg = AnnualLegPA();
+        const auto fixedLeg = AnnualLeg();
+        const auto floatIdx = AnnualIndex();
+        const auto floatLeg = AnnualLeg();
         const auto mkSwap = [&](const Date_& start, const Date_& end, double parPct) {
             return Handle_<YCInstrument_>(new Swap_(spec.today_, start, end, parPct / 100.0, fixedLeg, floatIdx, floatLeg));
         };
@@ -268,9 +268,9 @@ TEST(AnalyticJacobianTest, TestIneligibleForecastTargetFallsBack) {
 
 TEST(AnalyticJacobianTest, TestTradeDateNotStartRejected) {
     auto spec = MakePhaseASpec();
-    const auto fixedLeg = AnnualLegPA();
-    const auto floatIdx = AnnualIndexPA();
-    const auto floatLeg = AnnualLegPA();
+    const auto fixedLeg = AnnualLeg();
+    const auto floatIdx = AnnualIndex();
+    const auto floatLeg = AnnualLeg();
     // Spot-started swap: tradeDate is two days before the anchor start. start_ stays at the
     // anchor so TimeSpan().first == anchor -- the exact shape the old (buggy) gate admitted.
     spec.instruments_ = {
@@ -292,7 +292,7 @@ TEST(AnalyticJacobianTest, TestTradeDateNotStartRejected) {
 TEST(AnalyticJacobianTest, TestTradeDateEqualsStartStillAdmitted) {
     auto spec = MakePhaseASpec();
     spec.instruments_ = {
-        Handle_<YCInstrument_>(new Swap_(spec.today_, spec.today_, Date_(2023, 1, 1), 0.012, AnnualLegPA(), AnnualIndexPA(), AnnualLegPA())),
+        Handle_<YCInstrument_>(new Swap_(spec.today_, spec.today_, Date_(2023, 1, 1), 0.012, AnnualLeg(), AnnualIndex(), AnnualLeg())),
     };
     const Vector_<> x = {-0.005, -0.012, -0.025, -0.04, -0.06};
     const Matrix_<> J = TestOnly::AnalyticJacobianAt(spec, x);
@@ -368,7 +368,7 @@ TEST(AnalyticJacobianTest, TestSingleDepositTapeMatchesCentralDifference) {
     };
 
     // One 3M deposit starting at the anchor. Its cashflow lands at 2022-04-01 (knot column 0).
-    RateIndexConvention_ idx = AnnualIndexPA();
+    RateIndexConvention_ idx = AnnualIndex();
     spec.instruments_ = {Handle_<YCInstrument_>(
         new Deposit_(spec.today_, spec.today_, Date_(2022, 4, 1), 0.011, idx))};
 
@@ -414,9 +414,9 @@ TEST(AnalyticJacobianTest, TestMixedInstrumentCalibrationMatchesCentralDifferenc
     };
 
     // All three instruments start at the anchor (eligibility requires span.first == anchor).
-    const RateIndexConvention_ idx = AnnualIndexPA();
-    const auto fixedLeg = AnnualLegPA();
-    const auto floatLeg = AnnualLegPA();
+    const RateIndexConvention_ idx = AnnualIndex();
+    const auto fixedLeg = AnnualLeg();
+    const auto floatLeg = AnnualLeg();
     spec.instruments_ = {
         // Deposit 3M -> cashflow at 2022-04-01 (column 0).
         Handle_<YCInstrument_>(new Deposit_(spec.today_, spec.today_, Date_(2022, 4, 1), 0.011, idx)),

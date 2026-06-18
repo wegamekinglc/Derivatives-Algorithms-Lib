@@ -93,17 +93,10 @@ namespace Dal {
         LogDfScheme_ logDfScheme_ = LogDfScheme_::Value_::LOG_LINEAR;
     };
 
-    // Solver-side options for curve calibration. These are NOT serialized with the spec: the spec
-    // describes WHAT to calibrate (instruments, knots, curves, tolerances); the options describe
-    // HOW to solve (Jacobian construction, and future solver toggles). A default-constructed
-    // CurveCalibrationOptions_ reproduces the pre-analytic bumped path byte-for-byte.
+    // Solver-side options, NOT serialized with the spec: the spec describes WHAT to calibrate,
+    // these describe HOW to solve. Default-constructed options reproduce the pre-analytic bumped
+    // path byte-for-byte.
     struct CurveCalibrationOptions_ {
-        // Jacobian construction for the calibration solver.
-        //   BUMPED   -- finite-difference bumping of each free node. Default; byte-for-byte
-        //               identical to the pre-analytic path. Always available.
-        //   ANALYTIC -- AAD-derived dense Jacobian. Engages only when EligibleForAnalyticJacobian()
-        //               is true; otherwise falls back to BUMPED with a NOTICE (at most once per
-        //               CalibrateYieldCurve call; never throws).
         CurveJacobianMode_ jacobianMode_ = CurveJacobianMode_::Value_::BUMPED;
     };
 
