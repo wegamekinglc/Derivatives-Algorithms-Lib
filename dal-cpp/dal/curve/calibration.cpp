@@ -365,9 +365,11 @@ namespace Dal {
             // native, XAD, CoDiPack, and Adept via the Dal::AAD facade (RegisterIndependent,
             // ZeroAdjoints, Adjoint, PropagateToStart).
             [[nodiscard]] Underdetermined::Jacobian_* Gradient(const Vector_<>& x, const Vector_<>& f) const override {
-                // BUMPED short-circuit: the user asked for finite-difference bumping, so do no tape
-                // work, no eligibility check, no NOTICE. This is the byte-for-byte pre-analytic path.
-                if (jacobianMode_ == CurveJacobianMode_::Value_::BUMPED) {
+                // Engage the analytic Jacobian IFF the mode is explicitly ANALYTIC. Both BUMPED and
+                // _NOT_SET (default-constructed / uninitialized) route to nullptr so the solver
+                // dense-bumps -- this matches the contract "analytic iff mode == ANALYTIC && eligible"
+                // and keeps a stray _NOT_SET off the analytic path.
+                if (jacobianMode_ != CurveJacobianMode_::Value_::ANALYTIC) {
                     static_cast<void>(x);
                     static_cast<void>(f);
                     return nullptr;
@@ -680,6 +682,93 @@ namespace Dal {
         }
     }
 
+    namespace {
+        // Build the initial-guess vector for the solver. Split out of CalibrateYieldCurve to keep
+        // its cyclomatic complexity under the Codacy limit. Behavior is byte-for-byte identical to
+        // the inlined version that previously lived in CalibrateYieldCurve.
+        Vector_<> BuildCalibrationGuess(const CurveCalibrationSpec_& spec, const Vector_<Date_>& knotDates, bool anchorIsToday, int nParams) {
+            const int nKnots = static_cast<int>(knotDates.size());
+            Vector_<> guess(nParams);
+            if (anchorIsToday) {
+                if (spec.initialGuessPerNode_.empty()) {
+                    // R4 default seed: flat-2% rate mapped through yf_365F from the anchor.
+                    const Date_& anchor = knotDates.front();
+                    for (int i = 1; i < nKnots; ++i)
+                        guess[i - 1] = -FLAT_SEED_RATE * spec.liborBasis_(anchor, knotDates[i], nullptr);
+                } else {
+                    std::copy(spec.initialGuessPerNode_.begin(), spec.initialGuessPerNode_.end(), guess.begin());
+                }
+            } else {
+                std::fill(guess.begin(), guess.end(), spec.initialGuess_);
+            }
+            return guess;
+        }
+
+        // Run the EXACT or APPROXIMATE solver and return {result, effJacobianInverse}. Split out so
+        // the solveMode branch does not count against CalibrateYieldCurve's cyclomatic complexity.
+        struct SolverOutput_ {
+            Vector_<> result_;
+            Matrix_<> effJacobianInverse_;
+        };
+        SolverOutput_ RunCalibrationSolver(const CurveCalibrationSpec_& spec,
+                                           const Underdetermined::Function_& func,
+                                           const Vector_<>& guess,
+                                           const Vector_<>& tol,
+                                           const Sparse::TriDiagonal_& weights) {
+            Dictionary_ ctrlDict;
+            ctrlDict.Insert(KEY_MAX_EVALUATIONS, Cell_(static_cast<double>(spec.maxEvaluations_)));
+            ctrlDict.Insert(KEY_MAX_RESTARTS, Cell_(static_cast<double>(spec.maxRestarts_)));
+            UnderdeterminedControls_ controls(ctrlDict);
+
+            SolverOutput_ out;
+            if (spec.solveMode_ == CurveSolveMode_::Value_::EXACT) {
+                std::unique_ptr<Sparse::SymmetricDecomposition_> wDecomp(weights.DecomposeSymmetric());
+                out.result_ = Underdetermined::Find(func, guess, tol, *wDecomp, controls, &out.effJacobianInverse_);
+            } else {
+                out.result_ = Underdetermined::Approximate(func, guess, tol, spec.fitTolerance_, weights, controls);
+            }
+            return out;
+        }
+
+        // Assemble the CurveCalibrationResult_ from the solver output. Split out so the
+        // parameterization / diagnostics branches do not count against CalibrateYieldCurve's
+        // cyclomatic complexity. Behavior is byte-for-byte identical to the inlined version.
+        CurveCalibrationResult_ AssembleCalibrationResult(const CurveCalibrationSpec_& spec,
+                                                          const Vector_<Handle_<YCInstrument_>>& instruments,
+                                                          const Vector_<Date_>& knotDates,
+                                                          const Vector_<>& result,
+                                                          const Matrix_<>& effJacobianInverse) {
+            CurveCalibrationResult_ retval;
+            retval.curve_ = BuildDiscountCurve(spec.curveName_, spec.ccy_, spec.parameterization_, spec.logDfScheme_, knotDates, result, spec.liborBasis_,
+                                               spec.baseCurve_);
+            // For LOG_DISCOUNT the anchor knot equals today_ and would fail the strict > today check;
+            // validate the free knots only.
+            if (spec.parameterization_ == CurveParameterization_::Value_::LOG_DISCOUNT) {
+                Vector_<Date_> freeKnots;
+                for (int i = 1; i < static_cast<int>(knotDates.size()); ++i)
+                    freeKnots.push_back(knotDates[i]);
+                ValidatePositiveDiscountFactors(*retval.curve_, spec.today_, freeKnots);
+            } else {
+                ValidatePositiveDiscountFactors(*retval.curve_, spec.today_, knotDates);
+            }
+            Handle_<DiscountCurve_> diagnosticsCurve(std::shared_ptr<const DiscountCurve_>(std::shared_ptr<void>(), retval.curve_.get()));
+            auto discountCurves = spec.discountCurves_;
+            auto forwardCurves = spec.forwardCurves_;
+            if (spec.calibrateDiscountCurve_)
+                discountCurves[spec.targetCollateral_] = diagnosticsCurve;
+            else
+                forwardCurves[spec.targetTenor_] = diagnosticsCurve;
+            CurveBlock_ curveView(spec.curveName_, spec.ccy_, discountCurves, forwardCurves, spec.liborBasis_);
+            Handle_<YieldCurve_> fundingCurve;
+            if (!spec.discountCurves_.empty())
+                fundingCurve.reset(new CurveBlock_(spec.curveName_, spec.ccy_, spec.discountCurves_, spec.forwardCurves_, spec.liborBasis_));
+            retval.diagnostics_ =
+                BuildDiagnostics(spec.curveName_, instruments, curveView, fundingCurve, spec.solveMode_ == CurveSolveMode_::Value_::APPROXIMATE,
+                                 spec.solveMode_ == CurveSolveMode_::Value_::EXACT ? &effJacobianInverse : nullptr);
+            return retval;
+        }
+    } // namespace
+
     CurveCalibrationResult_ CalibrateYieldCurve(const CurveCalibrationSpec_& spec) {
         // Default-constructed options -> jacobianMode_ == BUMPED -> byte-for-byte pre-analytic path.
         return CalibrateYieldCurve(spec, CurveCalibrationOptions_());
@@ -696,20 +785,8 @@ namespace Dal {
         const int nFreeKnots = anchorIsToday ? nKnots - 1 : nKnots;
         const int nParams = paramsPerKnot * nFreeKnots;
 
-        Vector_<> guess(nParams);
-        if (anchorIsToday) {
-            if (spec.initialGuessPerNode_.empty()) {
-                // R4 default seed: flat-2% rate mapped through yf_365F from the anchor.
-                const Date_& anchor = knotDates.front();
-                for (int i = 1; i < nKnots; ++i)
-                    guess[i - 1] = -FLAT_SEED_RATE * spec.liborBasis_(anchor, knotDates[i], nullptr);
-            } else {
-                std::copy(spec.initialGuessPerNode_.begin(), spec.initialGuessPerNode_.end(), guess.begin());
-            }
-        } else {
-            std::fill(guess.begin(), guess.end(), spec.initialGuess_);
-        }
-        Vector_<> tol(instruments.size(), spec.tolerance_);
+        const Vector_<> guess = BuildCalibrationGuess(spec, knotDates, anchorIsToday, nParams);
+        const Vector_<> tol(instruments.size(), spec.tolerance_);
         Vector_<Date_> weightKnots;
         if (anchorIsToday) {
             // LOG_DISCOUNT: parameter vector excludes the anchor; weights metric must match its dimension.
@@ -720,51 +797,12 @@ namespace Dal {
         }
         std::unique_ptr<Sparse::TriDiagonal_> weights(BuildCurveCalibrationWeights(weightKnots, paramsPerKnot, spec.smoothingWeight_));
 
-        Dictionary_ ctrlDict;
-        ctrlDict.Insert(KEY_MAX_EVALUATIONS, Cell_(static_cast<double>(spec.maxEvaluations_)));
-        ctrlDict.Insert(KEY_MAX_RESTARTS, Cell_(static_cast<double>(spec.maxRestarts_)));
-        UnderdeterminedControls_ controls(ctrlDict);
-
         YieldCurveCalibrationFunc_ func(spec.ccy_, spec.curveName_, spec.parameterization_, instruments, knotDates, spec.discountCurves_,
                                         spec.forwardCurves_, spec.baseCurve_, spec.targetCollateral_, spec.targetTenor_, spec.calibrateDiscountCurve_,
                                         spec.liborBasis_, spec.logDfScheme_, options.jacobianMode_);
-        Vector_<> result;
-        Matrix_<> effJacobianInverse;
-        if (spec.solveMode_ == CurveSolveMode_::Value_::EXACT) {
-            std::unique_ptr<Sparse::SymmetricDecomposition_> wDecomp(weights->DecomposeSymmetric());
-            result = Underdetermined::Find(func, guess, tol, *wDecomp, controls, &effJacobianInverse);
-        } else {
-            result = Underdetermined::Approximate(func, guess, tol, spec.fitTolerance_, *weights, controls);
-        }
 
-        CurveCalibrationResult_ retval;
-        retval.curve_ = BuildDiscountCurve(spec.curveName_, spec.ccy_, spec.parameterization_, spec.logDfScheme_, knotDates, result, spec.liborBasis_,
-                                           spec.baseCurve_);
-        // For LOG_DISCOUNT the anchor knot equals today_ and would fail the strict > today check;
-        // validate the free knots only.
-        if (spec.parameterization_ == CurveParameterization_::Value_::LOG_DISCOUNT) {
-            Vector_<Date_> freeKnots;
-            for (int i = 1; i < static_cast<int>(knotDates.size()); ++i)
-                freeKnots.push_back(knotDates[i]);
-            ValidatePositiveDiscountFactors(*retval.curve_, spec.today_, freeKnots);
-        } else {
-            ValidatePositiveDiscountFactors(*retval.curve_, spec.today_, knotDates);
-        }
-        Handle_<DiscountCurve_> diagnosticsCurve(std::shared_ptr<const DiscountCurve_>(std::shared_ptr<void>(), retval.curve_.get()));
-        auto discountCurves = spec.discountCurves_;
-        auto forwardCurves = spec.forwardCurves_;
-        if (spec.calibrateDiscountCurve_)
-            discountCurves[spec.targetCollateral_] = diagnosticsCurve;
-        else
-            forwardCurves[spec.targetTenor_] = diagnosticsCurve;
-        CurveBlock_ curveView(spec.curveName_, spec.ccy_, discountCurves, forwardCurves, spec.liborBasis_);
-        Handle_<YieldCurve_> fundingCurve;
-        if (!spec.discountCurves_.empty())
-            fundingCurve.reset(new CurveBlock_(spec.curveName_, spec.ccy_, spec.discountCurves_, spec.forwardCurves_, spec.liborBasis_));
-        retval.diagnostics_ =
-            BuildDiagnostics(spec.curveName_, instruments, curveView, fundingCurve, spec.solveMode_ == CurveSolveMode_::Value_::APPROXIMATE,
-                             spec.solveMode_ == CurveSolveMode_::Value_::EXACT ? &effJacobianInverse : nullptr);
-        return retval;
+        const SolverOutput_ solved = RunCalibrationSolver(spec, func, guess, tol, *weights);
+        return AssembleCalibrationResult(spec, instruments, knotDates, solved.result_, solved.effJacobianInverse_);
     }
 
     MultiCurveCalibrationResult_ CalibrateMultiCurve(const MultiCurveCalibrationSpec_& spec) {

@@ -22,6 +22,13 @@ TEST(CurveJacobianModeTest, TestHasBumpedAndAnalyticValues) {
     ASSERT_NE(bumped, analytic);
 }
 
+// The Machinist-generated enum carries a _NOT_SET sentinel that the default ctor assigns. Gradient
+// defends against this sentinel (it engages analytic ONLY on explicit ANALYTIC, so a default-
+// constructed / uninitialized mode routes to bumped like BUMPED). This pins the sentinel value.
+TEST(CurveJacobianModeTest, TestDefaultConstructedIsNotSet) {
+    ASSERT_EQ(CurveJacobianMode_().Switch(), CurveJacobianMode_::Value_::_NOT_SET);
+}
+
 TEST(CurveJacobianModeTest, TestStringRoundTrip) {
     ASSERT_STREQ(CurveJacobianMode_(CurveJacobianMode_::Value_::BUMPED).String(), "BUMPED");
     ASSERT_STREQ(CurveJacobianMode_(CurveJacobianMode_::Value_::ANALYTIC).String(), "ANALYTIC");
