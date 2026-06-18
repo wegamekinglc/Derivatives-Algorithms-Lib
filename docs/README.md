@@ -43,13 +43,26 @@ Deep dives into the quantitative methods and algorithms implemented in DAL:
   - Multi-instrument term structure calibration
   - Integration with the underdetermined solver
 
+- **[interpolation.md](methodology/interpolation.md)** — Interpolation
+  - Linear, log-linear, cubic-spline, and mixed one-dimensional interpolators
+  - Cubic boundary conditions (`Boundary_` order/value)
+  - Bilinear (2D) interpolation on a rectilinear grid
+  - Selection guidance and where each scheme is used
+
+- **[log_discount_curve.md](methodology/log_discount_curve.md)** — Log-Discount Curve
+  - Node log-discount-factor representation and anchor convention
+  - `LogDfScheme_` interpolation schemes (`LOG_LINEAR`, `LOG_CUBIC_NATURAL`, `MIXED`)
+  - Why `LOG_DISCOUNT` is the parameterization that supports the analytic Jacobian
+
 ### Experimental (`experimental/`)
 
 Notes on capabilities that are working but not yet promoted to normative methodology. These
 may change shape before becoming methodology docs:
 
 - **[aad-analytic-jacobian-curve-calibration.md](experimental/aad-analytic-jacobian-curve-calibration.md)**
-  — Analytic Jacobian mode for yield-curve calibration (the `CurveJacobianMode` flag).
+  — AAD-derived analytic Jacobian for yield-curve calibration, gated by the runtime
+  `CurveJacobianMode_` flag (`BUMPED` default / `ANALYTIC` opt-in) on
+  `CurveCalibrationOptions_`. Backend-neutral across all four AAD backends.
 - **[replicate-ptirds-single-currency-curve.md](experimental/replicate-ptirds-single-currency-curve.md)**
   — Replication study for single-currency-curve PTI ratchet/digital swaps.
 
