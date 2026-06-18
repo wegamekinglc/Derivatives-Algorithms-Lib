@@ -2,7 +2,7 @@
 
 A coordinated team of specialist agents for the DAL (Derivatives Algorithms Library) C++
 quantitative finance project. Each agent owns one phase of the spec → design → critique →
-implement → review pipeline. The orchestrator routes work between them.
+implement → review → document pipeline. The orchestrator routes work between them.
 
 ## Team Roster
 
@@ -15,6 +15,8 @@ implement → review pipeline. The orchestrator routes work between them.
 | Implementer  | `dal-implementer`  | green  | spec, design, api-note, critique | source code, tests, TDD in worktree                                                        |
 | Tester       | `dal-tester`       | cyan   | source under-test, conventions   | `dal-cpp/tests/<module>/*` and, for web scope, `dal-web/frontend/tests/e2e/*`, in worktree |
 | Reviewer     | `dal-reviewer`     | amber  | PR diff, all upstream artifacts  | review report, optional merge                                                              |
+| Doc writer   | `dal-doc-writer`   | teal   | current source, CLAUDE.md, docs  | `docs/` and `CHANGELOG.md`                                                                 |
+
 
 ## Workflow
 
@@ -25,6 +27,9 @@ issue ──► spec-writer ──► api-designer ──► critic
                   reviewer ◄──── implementer (+ tester) ◄──────┘
                        │
                        ▼
+                  doc-writer (reconcile docs/ + CHANGELOG.md)
+                       │
+                       ▼
                     merged PR
 ```
 
@@ -33,13 +38,14 @@ subset of the pipeline (see `dal-orchestrator.md` for the routing table).
 
 ## Artifact Layout
 
-| Path                 | Owner        | Purpose                                                        |
-|----------------------|--------------|----------------------------------------------------------------|
-| `.claude/specs/`     | spec writer  | testable requirement specifications (created on demand)        |
-| `.claude/api-notes/` | api designer | public-API surface notes (created on demand)                   |
-| `.claude/critiques/` | critic       | adversarial reviews of specs and api-notes (created on demand) |
-| `docs/methodology/`  | (existing)   | normative quant method docs (referenced by all agents)         |
-| `.claude/rules/`     | (existing)   | normative coding/test/git conventions                          |
+| Path                 | Owner       | Purpose                                                        |
+|----------------------|-------------|----------------------------------------------------------------|
+| `.claude/specs/`     | spec writer | testable requirement specifications (created on demand)        |
+| `.claude/api-notes/` | api designer| public-API surface notes (created on demand)                   |
+| `.claude/critiques/` | critic      | adversarial reviews of specs and api-notes (created on demand) |
+| `docs/`              | doc writer  | normative quant method docs and index (referenced by all agents) |
+| `CHANGELOG.md`       | doc writer  | dated log of fundamental changes (single-version history)      |
+| `.claude/rules/`     | (existing)  | normative coding/test/git conventions                          |
 
 Filenames share a single kebab-case slug derived from the issue title, so an issue traces
 through `specs/log-linear-interp.md → api-notes/log-linear-interp.md → ...` end-to-end.
@@ -63,7 +69,7 @@ through `specs/log-linear-interp.md → api-notes/log-linear-interp.md → ...` 
 ## Team Working Agreements
 
 Two practices are mandatory for every agent that changes files in the repository
-(`dal-implementer`, `dal-tester`; the `dal-reviewer` also reviews inside a worktree):
+(`dal-implementer`, `dal-tester`, `dal-doc-writer`; the `dal-reviewer` also reviews inside a worktree):
 
 - **Worktree isolation.** Enter an isolated git worktree (`EnterWorktree`) before creating or
   editing any file. All edits, builds, iteration, and the commit/PR happen inside it, keeping
@@ -72,7 +78,8 @@ Two practices are mandatory for every agent that changes files in the repository
 - **Test-driven development (TDD).** The implementer works strictly red → green → refactor:
   write a failing test for the next behavior, confirm it fails for the right reason, write the
   minimum code to pass, then refactor while green. Production code is never written ahead of a
-  test that demands it.
+  test that demands it. The doc writer is exempt from TDD (there is no code to test), but still
+  works in a worktree.
 
 ## Hand-off Etiquette
 
