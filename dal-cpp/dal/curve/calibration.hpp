@@ -35,6 +35,20 @@ alternative INSTRUMENTS
 alternative AUGMENTED
 -IF-------------------------------------------------------------------------*/
 
+/*IF--------------------------------------------------------------------------
+enumeration CurveJacobianMode
+    Jacobian construction mode for curve calibration
+switchable
+alternative BUMPED
+    Finite-difference bumping of each free node. Default; byte-for-byte
+    identical to the pre-analytic path. Always available.
+alternative ANALYTIC
+    AAD-derived dense Jacobian. Engages only when EligibleForAnalyticJacobian()
+    is true (LOG_DISCOUNT + DISCOUNT-target + forecast==discount + vanilla
+    swap/deposit/FRA/Future + tradeDate == anchor); otherwise falls back to
+    BUMPED with a NOTICE. ANALYTIC never throws -- it is a best-effort hint.
+-IF-------------------------------------------------------------------------*/
+
 #include <memory>
 #include <map>
 #include <dal/platform/platform.hpp>
@@ -51,6 +65,7 @@ namespace Dal {
 #include <dal/auto/MG_CurveSolveMode_enum.hpp>
 #include <dal/auto/MG_CurveParameterization_enum.hpp>
 #include <dal/auto/MG_CurveKnotPolicy_enum.hpp>
+#include <dal/auto/MG_CurveJacobianMode_enum.hpp>
 
     struct CurveCalibrationSpec_ {
         Date_ today_;
@@ -76,6 +91,13 @@ namespace Dal {
         CurveKnotPolicy_ knotPolicy_ = CurveKnotPolicy_::Value_::INPUT;
         Vector_<double> initialGuessPerNode_;
         LogDfScheme_ logDfScheme_ = LogDfScheme_::Value_::LOG_LINEAR;
+    };
+
+    // Solver-side options, NOT serialized with the spec: the spec describes WHAT to calibrate,
+    // these describe HOW to solve. Default-constructed options reproduce the pre-analytic bumped
+    // path byte-for-byte.
+    struct CurveCalibrationOptions_ {
+        CurveJacobianMode_ jacobianMode_ = CurveJacobianMode_::Value_::BUMPED;
     };
 
     struct CurveCalibrationDiagnostics_ {
@@ -118,6 +140,7 @@ namespace Dal {
     void ValidateCurveCalibrationSpec(const CurveCalibrationSpec_& spec);
     void ValidatePositiveDiscountFactors(const DiscountCurve_& curve, const Date_& today, const Vector_<Date_>& checkDates);
     CurveCalibrationResult_ CalibrateYieldCurve(const CurveCalibrationSpec_& spec);
+    CurveCalibrationResult_ CalibrateYieldCurve(const CurveCalibrationSpec_& spec, const CurveCalibrationOptions_& options);
     MultiCurveCalibrationResult_ CalibrateMultiCurve(const MultiCurveCalibrationSpec_& spec);
 
     namespace TestOnly {
