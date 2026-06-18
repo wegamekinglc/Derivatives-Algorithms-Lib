@@ -2,6 +2,10 @@
 
 This directory contains technical documentation for the Derivatives Algorithms Library (DAL).
 
+The library is documented as a single current version: the docs here always describe the latest
+state. Historical context — breaking changes, new methodologies, and significant capability
+additions — is recorded in the repo-root [CHANGELOG.md](../CHANGELOG.md).
+
 ## Documentation Structure
 
 ### Installation
@@ -38,6 +42,16 @@ Deep dives into the quantitative methods and algorithms implemented in DAL:
   - Cross-currency swap pricing and conventions
   - Multi-instrument term structure calibration
   - Integration with the underdetermined solver
+
+### Experimental (`experimental/`)
+
+Notes on capabilities that are working but not yet promoted to normative methodology. These
+may change shape before becoming methodology docs:
+
+- **[aad-analytic-jacobian-curve-calibration.md](experimental/aad-analytic-jacobian-curve-calibration.md)**
+  — Analytic Jacobian mode for yield-curve calibration (the `CurveJacobianMode` flag).
+- **[replicate-ptirds-single-currency-curve.md](experimental/replicate-ptirds-single-currency-curve.md)**
+  — Replication study for single-currency-curve PTI ratchet/digital swaps.
 
 ## Documentation Conventions
 

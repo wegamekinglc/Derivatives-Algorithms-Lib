@@ -135,8 +135,19 @@ Detailed documentation of the quantitative methods implemented in this library:
 - **Underdetermined Search** — [Underdetermined search](docs/methodology/underdetermined_search.md)
 - **Cross-Currency Calibration** — [Cross-currency calibration](docs/methodology/xccy_calibration.md)
 
+Notable fundamental changes are recorded in [CHANGELOG.md](CHANGELOG.md).
+
 ## Rules to follow
 
 - **coding style**: [Code style guide](.claude/rules/code-style.md)
 - **unit test style**: [Unit test style guide](.claude/rules/unit-test-style.md)
 - **web UI design**: [Web UI design standards](.claude/rules/dal-web-design.md)
+
+## Specialist agents
+
+Specialist agents for the spec -> design -> critique -> implement -> review -> document
+pipeline are defined in [.claude/agents/](.claude/agents/README.md). In particular,
+`dal-doc-writer` owns the freshness of everything under `docs/` and curates
+[CHANGELOG.md](CHANGELOG.md); invoke it when docs need reconciling against current code or a
+change may warrant a changelog entry.
+
