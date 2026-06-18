@@ -31,6 +31,7 @@ namespace Dal {
 #include <dal/auto/MG_CurveSolveMode_enum.inc>
 #include <dal/auto/MG_CurveParameterization_enum.inc>
 #include <dal/auto/MG_CurveKnotPolicy_enum.inc>
+#include <dal/auto/MG_CurveJacobianMode_enum.inc>
 #include <dal/auto/MG_LogDfScheme_enum.inc>
 
     // Stores the LOG_DISCOUNT calibration Jacobian dense and assembles sparse. The method
@@ -278,6 +279,13 @@ namespace Dal {
         };
 
         class YieldCurveCalibrationFunc_ : public Underdetermined::Function_ {
+            // Cached eligibility verdict for the AAD analytic Jacobian. EligibleForAnalyticJacobian()
+            // is expensive (walks every instrument) and emits NOTICEs on fall-through, and Gradient is
+            // called per solver iteration (up to maxEvaluations_ * maxRestarts_). Evaluating the
+            // predicate once and caching the verdict bounds every NOTICE to at most one per
+            // CalibrateYieldCurve call (H1 NOTICE-frequency contract).
+            enum class Eligibility_ { Unknown, Eligible, Ineligible };
+
             String_ ccy_;
             String_ curveName_;
             CurveParameterization_ parameterization_;
@@ -293,6 +301,8 @@ namespace Dal {
             bool calibrateDiscountCurve_;
             DayBasis_ liborBasis_;
             LogDfScheme_ logDfScheme_;
+            CurveJacobianMode_ jacobianMode_;
+            mutable Eligibility_ cachedEligibility_ = Eligibility_::Unknown;
 
         public:
             YieldCurveCalibrationFunc_(const String_& ccy,
@@ -307,10 +317,12 @@ namespace Dal {
                                        const PeriodLength_& targetTenor,
                                        bool calibrateDiscountCurve,
                                        const DayBasis_& liborBasis,
-                                       LogDfScheme_ logDfScheme)
+                                       LogDfScheme_ logDfScheme,
+                                       CurveJacobianMode_ jacobianMode)
                 : ccy_(ccy), curveName_(curveName), parameterization_(parameterization), instruments_(instruments), knotDates_(knotDates),
                   discountCurves_(discountCurves), forwardCurves_(forwardCurves), baseCurve_(baseCurve), targetCollateral_(targetCollateral),
-                  targetTenor_(targetTenor), calibrateDiscountCurve_(calibrateDiscountCurve), liborBasis_(liborBasis), logDfScheme_(logDfScheme) {
+                  targetTenor_(targetTenor), calibrateDiscountCurve_(calibrateDiscountCurve), liborBasis_(liborBasis), logDfScheme_(logDfScheme),
+                  jacobianMode_(jacobianMode) {
                 Handle_<YieldCurve_> fundingYC;
                 if (!discountCurves_.empty())
                     fundingYC.reset(new CurveBlock_(curveName_, ccy_, discountCurves_, forwardCurves_, liborBasis_));
@@ -346,19 +358,42 @@ namespace Dal {
             }
 
             // Sparse Jacobian (LOG_DISCOUNT free-node log-DF unknowns). Returns the reverse-mode AAD
-            // Jacobian (single-result sweep on the active Number_ tape) when EligibleForAnalyticJacobian();
-            // otherwise returns nullptr so the solver dense-bumps. The residual is modelRate -
-            // marketRate, so dResidual_i/dx_j = dModelRate_i/dx_j (marketRate is constant, contributes
-            // nothing). Backend-neutral: the same path runs under native, XAD, CoDiPack, and Adept via
-            // the Dal::AAD facade (RegisterIndependent, ZeroAdjoints, Adjoint, PropagateToStart).
+            // Jacobian (single-result sweep on the active Number_ tape) when the mode is ANALYTIC and
+            // EligibleForAnalyticJacobian() holds; otherwise returns nullptr so the solver dense-bumps.
+            // The residual is modelRate - marketRate, so dResidual_i/dx_j = dModelRate_i/dx_j
+            // (marketRate is constant, contributes nothing). Backend-neutral: the same path runs under
+            // native, XAD, CoDiPack, and Adept via the Dal::AAD facade (RegisterIndependent,
+            // ZeroAdjoints, Adjoint, PropagateToStart).
             [[nodiscard]] Underdetermined::Jacobian_* Gradient(const Vector_<>& x, const Vector_<>& f) const override {
-                if (EligibleForAnalyticJacobian())
+                // BUMPED short-circuit: the user asked for finite-difference bumping, so do no tape
+                // work, no eligibility check, no NOTICE. This is the byte-for-byte pre-analytic path.
+                if (jacobianMode_ == CurveJacobianMode_::Value_::BUMPED) {
+                    static_cast<void>(x);
+                    static_cast<void>(f);
+                    return nullptr;
+                }
+                // ANALYTIC: engage the AAD Jacobian iff the cached eligibility verdict is Eligible.
+                // The verdict is evaluated once (EvaluateEligibilityOnce) and cached, so the NOTICEs
+                // inside EligibleForAnalyticJacobian fire at most once per CalibrateYieldCurve call.
+                EvaluateEligibilityOnce();
+                if (cachedEligibility_ == Eligibility_::Eligible)
                     return AnalyticJacobian(x, f);
-                // Ineligible: NOTICE was emitted by EligibleForAnalyticJacobian (names the offending
-                // condition); return nullptr so the solver dense-bumps.
+                // Ineligible: NOTICE was emitted once inside EvaluateEligibilityOnce; return nullptr so
+                // the solver dense-bumps. ANALYTIC never throws -- it is a best-effort hint.
                 static_cast<void>(x);
                 static_cast<void>(f);
                 return nullptr;
+            }
+
+            // Evaluate EligibleForAnalyticJacobian() exactly once per func lifetime and cache the
+            // verdict. Gradient is called per solver iteration; without this guard the predicate (and
+            // its NOTICEs) would re-fire thousands of times per CalibrateYieldCurve call. The NOTICEs
+            // naming the offending condition live inside EligibleForAnalyticJacobian and fire on the
+            // single uncached evaluation.
+            void EvaluateEligibilityOnce() const {
+                if (cachedEligibility_ != Eligibility_::Unknown)
+                    return;
+                cachedEligibility_ = EligibleForAnalyticJacobian() ? Eligibility_::Eligible : Eligibility_::Ineligible;
             }
 
             // Phase A eligibility predicate (per .claude/designs/aad-analytic-jacobian-selector-api.md
@@ -646,6 +681,11 @@ namespace Dal {
     }
 
     CurveCalibrationResult_ CalibrateYieldCurve(const CurveCalibrationSpec_& spec) {
+        // Default-constructed options -> jacobianMode_ == BUMPED -> byte-for-byte pre-analytic path.
+        return CalibrateYieldCurve(spec, CurveCalibrationOptions_());
+    }
+
+    CurveCalibrationResult_ CalibrateYieldCurve(const CurveCalibrationSpec_& spec, const CurveCalibrationOptions_& options) {
         ValidateCurveCalibrationSpec(spec);
 
         const Vector_<Handle_<YCInstrument_>> instruments = OrderInstruments(spec.instruments_);
@@ -687,7 +727,7 @@ namespace Dal {
 
         YieldCurveCalibrationFunc_ func(spec.ccy_, spec.curveName_, spec.parameterization_, instruments, knotDates, spec.discountCurves_,
                                         spec.forwardCurves_, spec.baseCurve_, spec.targetCollateral_, spec.targetTenor_, spec.calibrateDiscountCurve_,
-                                        spec.liborBasis_, spec.logDfScheme_);
+                                        spec.liborBasis_, spec.logDfScheme_, options.jacobianMode_);
         Vector_<> result;
         Matrix_<> effJacobianInverse;
         if (spec.solveMode_ == CurveSolveMode_::Value_::EXACT) {
@@ -746,7 +786,8 @@ namespace Dal {
             const Vector_<Date_> knotDates = BuildCurveCalibrationKnots(spec.today_, instruments, spec.knotDates_, spec.knotPolicy_);
             YieldCurveCalibrationFunc_ func(spec.ccy_, spec.curveName_, spec.parameterization_, instruments, knotDates,
                                             spec.discountCurves_, spec.forwardCurves_, spec.baseCurve_, spec.targetCollateral_,
-                                            spec.targetTenor_, spec.calibrateDiscountCurve_, spec.liborBasis_, spec.logDfScheme_);
+                                            spec.targetTenor_, spec.calibrateDiscountCurve_, spec.liborBasis_, spec.logDfScheme_,
+                                            CurveJacobianMode_::Value_::ANALYTIC);
             const Vector_<> f = func.F(x);
             std::unique_ptr<Underdetermined::Jacobian_> j(func.Gradient(x, f));
             Matrix_<> retval;
