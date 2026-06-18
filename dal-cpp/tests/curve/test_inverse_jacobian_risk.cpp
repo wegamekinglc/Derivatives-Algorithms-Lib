@@ -2,6 +2,8 @@
 // Created by dal-tester on 2026/6/19.
 //
 
+#include <gtest/gtest.h>
+
 #include <dal/curve/calibration.hpp>
 #include <dal/curve/curveblock.hpp>
 #include <dal/curve/discount.hpp>
@@ -16,7 +18,6 @@
 #include <dal/time/holidays.hpp>
 #include <dal/time/periodlength.hpp>
 #include <dal/utilities/exceptions.hpp>
-#include <gtest/gtest.h>
 
 using namespace Dal;
 
