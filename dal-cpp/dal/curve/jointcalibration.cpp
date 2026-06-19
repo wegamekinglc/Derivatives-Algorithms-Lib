@@ -51,17 +51,25 @@ namespace Dal {
             }
         }
 
-        // Build ONE declaration's curve from its slice of the joint parameter vector. Forward
-        // declarations are stored as raw PWL/PWC curves with NO base handle (the spec's "no base
-        // concept"): their IBOR residual rows read yc.Forward(tenor, collateral) off the assembled
-        // CurveBlock_ (which routes discounting to the discount declaration's curve), so the forecast
-        // fixings are forced onto the forward curve while discounting flows through the OIS slice.
-        // The stored forward curve therefore carries no OIS sensitivity (B-new-2 caveat): a bump-
-        // and-reprice consumer must re-price through the assembled CurveBlock_ rather than the
-        // standalone forward handle. This matches the approved API (no baseCurve_ field) and the
-        // Non-Goals (no AAD risk work in the first cut).
-        Handle_<DiscountCurve_>
-        BuildDeclarationCurve(const JointCurveDeclaration_& decl, const String_& ccy, const DayBasis_& dayCount, const Vector_<>& xSlice) {
+        // Build ONE declaration's curve from its slice of the joint parameter vector. A forward
+        // declaration may opt into base layering via decl.baseLayeredOverDiscount_: when set, the
+        // caller supplies the discount curve at decl.targetCollateral_ (built earlier in the SAME
+        // solve iteration) as `base`, and the forward curve is stored as NewDiscountPWLF(..., base)
+        // so the smoother acts on the spread forward f_abs - f_ois -- matching the staged path's
+        // ApplyStageDefaults base layering. When base is empty (the default, including every
+        // discount declaration and every baseless forward declaration), the curve is a raw PWL/PWC
+        // with no base handle; the IBOR residual rows still read yc.Forward off the assembled
+        // CurveBlock_ and route discounting to the discount declaration's slice.
+        //
+        // Base-layered forward curves carry OIS sensitivity through their base handle (B-new-2 fixed
+        // for the opt-in path): a bump-and-reprice consumer who reads the standalone forward handle
+        // sees the OIS delta flow through. The baseless representation remains available for callers
+        // who prefer a self-contained forward curve and re-price through the assembled CurveBlock_.
+        Handle_<DiscountCurve_> BuildDeclarationCurve(const JointCurveDeclaration_& decl,
+                                                      const String_& ccy,
+                                                      const DayBasis_& dayCount,
+                                                      const Vector_<>& xSlice,
+                                                      const Handle_<DiscountCurve_>& base = Handle_<DiscountCurve_>()) {
             switch (decl.parameterization_.Switch()) {
             case CurveParameterization_::Value_::PIECEWISE_LINEAR_FWD: {
                 const int nKnots = static_cast<int>(decl.knotDates_.size());
@@ -72,11 +80,12 @@ namespace Dal {
                     fLeft[i] = xSlice[2 * i];
                     fRight[i] = xSlice[2 * i + 1];
                 }
-                return Handle_<DiscountCurve_>(NewDiscountPWLF(decl.curveName_, ccy, PiecewiseLinear_(decl.knotDates_, fLeft, fRight)));
+                return Handle_<DiscountCurve_>(NewDiscountPWLF(decl.curveName_, ccy, PiecewiseLinear_(decl.knotDates_, fLeft, fRight), base));
             }
             case CurveParameterization_::Value_::PIECEWISE_CONSTANT_FWD: {
                 REQUIRE(static_cast<int>(xSlice.size()) == static_cast<int>(decl.knotDates_.size()),
                         "Joint PWC parameter slice length must equal nKnots");
+                REQUIRE(base.IsEmpty(), "Joint multi-curve calibration: base layering is not supported on PIECEWISE_CONSTANT_FWD declarations");
                 return Handle_<DiscountCurve_>(NewDiscountPWC(decl.curveName_, ccy, PiecewiseConstant_(decl.knotDates_, xSlice)));
             }
             default:
@@ -161,11 +170,15 @@ namespace Dal {
             std::set<CollateralType_> producedCollaterals;
             std::set<PeriodLength_> producedTenors;
             bool hasDiscount = false;
-            for (const auto& decl : spec.curves_) {
+            for (int di = 0; di < static_cast<int>(spec.curves_.size()); ++di) {
+                const JointCurveDeclaration_& decl = spec.curves_[di];
                 if (decl.calibrateDiscountCurve_) {
                     hasDiscount = true;
                     REQUIRE(producedCollaterals.insert(decl.targetCollateral_).second,
                             String_("Joint multi-curve calibration has duplicate discount collateral ") + decl.targetCollateral_.String());
+                    REQUIRE(!decl.baseLayeredOverDiscount_,
+                            String_("Joint curve declaration ") + String::FromInt(di) + " sets baseLayeredOverDiscount_ on a discount-curve "
+                                      "declaration - base layering applies only to forward declarations");
                 } else {
                     REQUIRE(producedTenors.insert(decl.targetTenor_).second,
                             String_("Joint multi-curve calibration has duplicate forward tenor ") + decl.targetTenor_.String());
@@ -194,6 +207,14 @@ namespace Dal {
                 if (!decl.calibrateDiscountCurve_) {
                     REQUIRE(decl.targetTenor_ != PeriodLength_(),
                             String_("Forward-curve declaration ") + String::FromInt(i) + " requires a target tenor");
+                    // Base layering is supported on PWL forward declarations only. The base resolves
+                    // from the discount curve at decl.targetCollateral_; B-new-3 below already
+                    // guarantees that collateral is produced by a discount declaration in this spec.
+                    if (decl.baseLayeredOverDiscount_) {
+                        REQUIRE(decl.parameterization_ == CurveParameterization_::Value_::PIECEWISE_LINEAR_FWD,
+                                String_("Joint curve declaration ") + String::FromInt(i) + " requests base layering on a non-PWL forward "
+                                          "declaration - use PIECEWISE_LINEAR_FWD with baseLayeredOverDiscount_");
+                    }
                     // B-new-3: forward declaration's discount collateral must be produced by some discount declaration.
                     REQUIRE(
                         producedCollaterals.count(decl.targetCollateral_) > 0,
@@ -291,16 +312,31 @@ namespace Dal {
                 ++evaluationCount_;
                 std::map<CollateralType_, Handle_<DiscountCurve_>> discountCurves;
                 std::map<PeriodLength_, Handle_<DiscountCurve_>> forwardCurves;
+                // Two-pass build so a base-layered forward declaration resolves its base from a
+                // discount curve built in the SAME solve iteration, regardless of declaration order.
+                // Pass 1: discount declarations (they never carry a base).
                 for (const auto& slot : *slots_) {
                     const JointCurveDeclaration_& decl = spec_->curves_[slot.curveIndex];
+                    if (!decl.calibrateDiscountCurve_)
+                        continue;
                     Vector_<> xSlice(slot.nParams);
                     for (int j = 0; j < slot.nParams; ++j)
                         xSlice[j] = x[slot.paramOffset + j];
-                    const Handle_<DiscountCurve_> curve = BuildDeclarationCurve(decl, ccy_, dayCount_, xSlice);
+                    discountCurves[decl.targetCollateral_] = BuildDeclarationCurve(decl, ccy_, dayCount_, xSlice);
+                }
+                // Pass 2: forward declarations; base resolves from the now-populated discountCurves
+                // when the declaration opts into base layering, else empty.
+                for (const auto& slot : *slots_) {
+                    const JointCurveDeclaration_& decl = spec_->curves_[slot.curveIndex];
                     if (decl.calibrateDiscountCurve_)
-                        discountCurves[decl.targetCollateral_] = curve;
-                    else
-                        forwardCurves[decl.targetTenor_] = curve;
+                        continue;
+                    Vector_<> xSlice(slot.nParams);
+                    for (int j = 0; j < slot.nParams; ++j)
+                        xSlice[j] = x[slot.paramOffset + j];
+                    Handle_<DiscountCurve_> base;
+                    if (decl.baseLayeredOverDiscount_)
+                        base = discountCurves.at(decl.targetCollateral_);
+                    forwardCurves[decl.targetTenor_] = BuildDeclarationCurve(decl, ccy_, dayCount_, xSlice, base);
                 }
                 CurveBlock_ yc("joint", ccy_, discountCurves, forwardCurves, dayCount_);
 
@@ -421,19 +457,31 @@ namespace Dal {
             }
 
         JointMultiCurveCalibrationResult_ result;
-        // Assemble the solved curves into the result maps and a CurveBlock_ for diagnostics.
+        // Assemble the solved curves into the result maps and a CurveBlock_ for diagnostics. Two-pass
+        // for the same reason as F: a base-layered forward curve must resolve its base from a solved
+        // discount curve, independent of declaration order.
         std::map<CollateralType_, Handle_<DiscountCurve_>> discountCurves;
         std::map<PeriodLength_, Handle_<DiscountCurve_>> forwardCurves;
         for (const auto& slot : slots) {
             const JointCurveDeclaration_& decl = spec.curves_[slot.curveIndex];
+            if (!decl.calibrateDiscountCurve_)
+                continue;
             Vector_<> xSlice(slot.nParams);
             for (int j = 0; j < slot.nParams; ++j)
                 xSlice[j] = solved[slot.paramOffset + j];
-            const Handle_<DiscountCurve_> curve = BuildDeclarationCurve(decl, spec.ccy_, spec.liborBasis_, xSlice);
+            discountCurves[decl.targetCollateral_] = BuildDeclarationCurve(decl, spec.ccy_, spec.liborBasis_, xSlice);
+        }
+        for (const auto& slot : slots) {
+            const JointCurveDeclaration_& decl = spec.curves_[slot.curveIndex];
             if (decl.calibrateDiscountCurve_)
-                discountCurves[decl.targetCollateral_] = curve;
-            else
-                forwardCurves[decl.targetTenor_] = curve;
+                continue;
+            Vector_<> xSlice(slot.nParams);
+            for (int j = 0; j < slot.nParams; ++j)
+                xSlice[j] = solved[slot.paramOffset + j];
+            Handle_<DiscountCurve_> base;
+            if (decl.baseLayeredOverDiscount_)
+                base = discountCurves.at(decl.targetCollateral_);
+            forwardCurves[decl.targetTenor_] = BuildDeclarationCurve(decl, spec.ccy_, spec.liborBasis_, xSlice, base);
         }
         const CurveBlock_ solvedBlock("joint", spec.ccy_, discountCurves, forwardCurves, spec.liborBasis_);
 

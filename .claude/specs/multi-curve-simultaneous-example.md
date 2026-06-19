@@ -1,5 +1,39 @@
 # Joint Multi-Curve Calibration + Example - Specification
 
+## Amendment (2026-06-20): optional base layering for the joint forward curves
+
+The capability gained an opt-in `JointCurveDeclaration_::baseLayeredOverDiscount_` flag (forward
+declarations only). When `true`, the joint forward curve is built as
+`NewDiscountPWLF(..., base = the discount curve at targetCollateral_ built in the SAME solve)`, so the
+joint smoother acts on the OIS *spread* forward `f_abs - f_ois` - matching the staged path's
+`ApplyStageDefaults` base layering. The stored joint forward curve is then structurally identical to
+the staged forward curve (`DiscountPWLF_` with `base = OIS`), which **fixes B-new-2 for the opt-in
+path**: a bump to the OIS slice now propagates into the joint forward DFs through the `base_` handle
+(previously the baseless joint forward had zero OIS sensitivity as a standalone object). The baseless
+representation remains the default and is still supported.
+
+The example (`BuildJointSpec`) sets `baseLayeredOverDiscount_ = true` on its 3M declaration. Under
+EXACT, the **re-measured** joint-vs-staged DF drift is:
+
+| Bar   | Before (baseless)        | After (base-layered)     | Reference |
+|-------|--------------------------|--------------------------|-----------|
+| BAR-A | PASS (~0 residual)       | PASS (~5e-9 rate)        | `1e-7` (gate, unchanged) |
+| BAR-B | `3.68e-8` (OIS drift)    | `6.42e-7` (OIS drift)    | `1e-6` (informational)   |
+| BAR-C | `3.33e-4` (3M drift)     | `2.39e-5` (3M drift)     | `5e-5` (informational)   |
+
+The headline result: **BAR-C drops from `3.33e-4` to `2.39e-5` (~14x tighter)**, and the 2Y-7Y core
+agrees to ~`1e-7` (the OIS-agreement level). The remaining drift is NOT round-off: the joint solve
+co-optimizes the OIS and 3M-spread knots simultaneously, so its OIS slice lands a few e-7 off staged's
+standalone OIS solve, and that OIS difference propagates through the 3M `base_` handle (BAR-B widened
+from `3.7e-8` to `6.4e-7` for the same reason). Base layering eliminates the *representation* mismatch
+(raw-PWL-absolute vs `DiscountPWLF_`-spread) but cannot eliminate the *optimization-structure*
+difference (joint co-optimization vs staged sequential). Both are legitimate, informational drift.
+
+The passages below that assert the baseless representation as the design (the "no base concept"
+wording, the BAR-C `3.33e-4` table, the B-new-2 structural caveat, the "raw PWL absolute forward"
+framing) describe the **default baseless path**, which remains valid. Where the example is concerned,
+read them as superseded by this amendment for the base-layered representation the example now uses.
+
 ## Source
 
 - User request (2026-06-19, overridden 2026-06-20): add an example of building multi-curves with
@@ -448,14 +482,16 @@ matrix - both real bugs - so the measurement stays predictive even though it is 
 Across the same six pillars, reading DFs off the 3M forward curve, the measured joint-vs-staged 3M
 DF drift under EXACT is:
 
-| Metric                      | APPROXIMATE (prior default) | EXACT (current default) |
-|-----------------------------|-----------------------------|-------------------------|
-| max \|diff\|                | $1.1539 \times 10^{-3}$     | $3.3321 \times 10^{-4}$ |
-| RMS \|diff\|                | -                           | $1.3630 \times 10^{-4}$ |
+| Metric                      | APPROXIMATE (prior default) | EXACT, baseless default | EXACT, base-layered (example) |
+|-----------------------------|-----------------------------|-------------------------|--------------------------------|
+| max \|diff\|                | $1.1539 \times 10^{-3}$     | $3.3321 \times 10^{-4}$ | $2.39 \times 10^{-5}$          |
+| RMS \|diff\|                | -                           | $1.3630 \times 10^{-4}$ | $9.77 \times 10^{-6}$          |
 
-The informational reference constant is `BAR_C_REFERENCE = 5e-4` (a round-up of the measured
-$3.33 \times 10^{-4}$, $1.5\times$ margin). BAR-C is NOT a pass/fail gate; it is a printed
-measurement.
+The example uses the **base-layered** representation (`baseLayeredOverDiscount_ = true`), so the
+informational reference constant is `BAR_C_REFERENCE = 5e-5` (a round-up of the measured
+$2.39 \times 10^{-5}$, ~$2\times$ margin). BAR-C is NOT a pass/fail gate; it is a printed
+measurement. (The baseless table column is retained for reference; the prior `5e-4` reference applied
+to that representation.)
 
 **Justification (BAR-C is representation drift, NOT fit quality - and cannot be driven to zero by
 switching solve mode):** this is the bar that distinguishes (a) from (b). Under (b), the 3M curves
@@ -497,8 +533,15 @@ bug-detection power).
 
 ### Structural caveat: the joint 3M curve is NOT the staged 3M curve (B-new-2)
 
-The joint and staged 3M curves AGREE numerically (BAR-C, ~$3.3 \times 10^{-4}$ max at the six
-pillars under EXACT), but they are **structurally different curve objects** - they are NOT
+**Update (2026-06-20): B-new-2 is FIXED for the opt-in base-layered path.** When
+`baseLayeredOverDiscount_ = true` (the example's setting), the stored joint 3M curve IS a
+`DiscountPWLF_` with `base_ = OIS`, structurally identical to the staged 3M curve, and an OIS bump
+propagates through the `base_` handle. The joint and staged 3M curves ARE then interchangeable as
+risk objects. The caveat below applies to the **baseless default** (`baseLayeredOverDiscount_ = false`),
+which remains supported.
+
+The joint and staged 3M curves AGREE numerically (BAR-C), but in the baseless default they are
+**structurally different curve objects** - they are NOT
 interchangeable for anything beyond `curve(today, T)` reads. The first risk consumer who does
 bump-and-reprice through the standalone joint 3M `DiscountCurve_` will walk into a silent
 zero-sensitivity result, and the spec must flag this so it is not discovered in production.

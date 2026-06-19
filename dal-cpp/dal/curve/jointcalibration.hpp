@@ -20,8 +20,8 @@ namespace Dal {
 
     // A declaration of ONE curve's role in a joint simultaneous multi-curve calibration. This is a
     // thinned CurveCalibrationSpec_: only the fields the joint solver consumes. The staged-only
-    // fields (discountCurves_, forwardCurves_, baseCurve_) are deliberately absent; the joint path
-    // has no staging and no base layering.
+    // fields (discountCurves_, forwardCurves_) are deliberately absent; the joint path has no
+    // staging.
     //
     // Discount-vs-forward routing for an IBOR stage is expressed by calibrateDiscountCurve_ == false
     // plus a non-default targetTenor_. The discount curve that discounts the IBOR instruments is
@@ -29,6 +29,13 @@ namespace Dal {
     // calibrateDiscountCurve_ == true and whose targetCollateral_ matches the collateral the IBOR
     // leg is discounted at (OIS in the canonical example). The capability wires that routing
     // internally by assembling a CurveBlock_ from every declaration's curves.
+    //
+    // baseLayeredOverDiscount_ (forward declarations only): when true, build this curve as
+    // NewDiscountPWLF(..., base = the discount curve at targetCollateral_ built in the SAME solve).
+    // The smoother then acts on the spread forward f_abs - f_ois instead of the absolute forward,
+    // matching the staged path's ApplyStageDefaults base layering (calibration.cpp:113-118). Opt-in
+    // so the capability still supports the baseless representation. Requires a discount declaration
+    // with matching targetCollateral_ to be present in the same spec.
     struct JointCurveDeclaration_ {
         String_ curveName_ = "joint";
         Vector_<Handle_<YCInstrument_>> instruments_;
@@ -36,6 +43,7 @@ namespace Dal {
         CollateralType_ targetCollateral_ = CollateralType_(CollateralType_::Value_::OIS);
         PeriodLength_ targetTenor_;          // required iff calibrateDiscountCurve_ == false
         bool calibrateDiscountCurve_ = true; // true: discount slot; false: forward slot
+        bool baseLayeredOverDiscount_ = false; // forward decls only; base = discount curve at targetCollateral_
         CurveParameterization_ parameterization_ = CurveParameterization_::Value_::PIECEWISE_LINEAR_FWD;
         LogDfScheme_ logDfScheme_ = LogDfScheme_::Value_::LOG_LINEAR;
         double smoothingWeight_ = 1.0;        // per-curve; the joint smoother is block-diagonal
