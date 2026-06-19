@@ -808,10 +808,12 @@ namespace Dal {
         // final iterate -- a Broyden-perturbed working matrix, solver-weighted and tolerance-scaled
         // -- which is the wrong object to expose as "the Jacobian". Instead re-evaluate the clean
         // analytic J at the solved x (where an independent bump oracle also evaluates, so the two
-        // agree to ~machine precision). func.Gradient returns the analytic XCurveJacobian_ iff
-        // ANALYTIC && eligible, else nullptr; combined with the EXACT guard this leaves jacobian_
-        // empty for APPROXIMATE solves, BUMPED mode, and ineligible ANALYTIC specs, mirroring the
-        // effJacobianInverse_ population condition.
+        // agree to ~machine precision). jacobian_ is populated ONLY when all three hold:
+        // jacobianMode_ == ANALYTIC, solveMode_ == EXACT, AND the instrument is analytically
+        // eligible (func.Gradient returns a non-null XCurveJacobian_). It is left empty otherwise.
+        // This is narrower than effJacobianInverse_, which the solver always populates on EXACT
+        // regardless of jacobianMode_ (and never on APPROXIMATE), so the two fields do not share a
+        // single population rule.
         if (options.jacobianMode_ == CurveJacobianMode_::Value_::ANALYTIC && spec.solveMode_ == CurveSolveMode_::Value_::EXACT) {
             const Vector_<> fAtSolution = func.F(solved.result_);
             std::unique_ptr<Underdetermined::Jacobian_> j(func.Gradient(solved.result_, fAtSolution));

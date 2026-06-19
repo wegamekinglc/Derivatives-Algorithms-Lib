@@ -27,14 +27,14 @@
 
 using namespace Dal;
 
-// Always-on precondition macro. The library's REQUIRE is conditionally compiled (only active when
-// DAL_USE_REQUIRE is defined), so it cannot carry self-checks that must fire in every build. This
-// local guard uses THROW (always active) so the example's self-checks run under every AAD backend
-// and every CMake configuration.
+// Always-on precondition macro. The library's REQUIRE (dal-cpp/dal/utilities/exceptions.hpp) routes
+// to THROW, so it would also fire in every build -- but it is a generic precondition helper that
+// does not name a self-check. Defining THROW_REQUIRE here gives the example an explicit, self-naming
+// guard that runs under every AAD backend and every CMake configuration.
 #define THROW_REQUIRE(cond, msg)                                                                                                                     \
-    do {                                                                                                                                             \
-        if (!(cond))                                                                                                                                 \
-            THROW(msg);                                                                                                                              \
+    do {                                                                                                                                            \
+        if (!(cond))                                                                                                                                \
+            THROW(msg);                                                                                                                             \
     } while (false)
 
 // This example demonstrates two teaching arcs on a single-curve Phase A calibration:
@@ -152,11 +152,11 @@ namespace {
             full[i] = x[i - 1];
         std::unique_ptr<DiscountCurve_> dc(NewDiscountLogDF(spec.curveName_, spec.ccy_, spec.knotDates_, full, spec.liborBasis_, spec.logDfScheme_));
         std::map<CollateralType_, Handle_<DiscountCurve_>> discounts;
-        discounts[spec.targetCollateral_] = Handle_<DiscountCurve_>(std::shared_ptr<const DiscountCurve_>(std::shared_ptr<void>(), dc.release()));
+        discounts[spec.targetCollateral_] = Handle_<DiscountCurve_>(std::shared_ptr<const DiscountCurve_>(dc.release()));
         std::map<PeriodLength_, Handle_<DiscountCurve_>> forwards;
-        // The aliasing shared_ptr (empty destructor, raw pointer = dc) takes ownership: dc.release()
-        // hands the bare pointer over without a double-free. Mirrors the test idiom in
-        // test_analytic_jacobian.cpp:103. The CurveBlock_ holds the Handle_ alive through the return.
+        // Take ownership of the curve: the owning shared_ptr deletes it when the returned CurveBlock_
+        // dies. The previous aliasing-ctor form (empty owner shared_ptr) did not own the pointer, so
+        // dc.release() orphans it and the curve leaks every call (per-node-per-bump).
         return CurveBlock_(spec.curveName_, spec.ccy_, discounts, forwards, spec.liborBasis_);
     }
 

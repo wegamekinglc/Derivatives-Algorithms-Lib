@@ -4,6 +4,11 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
+#include <cmath>
+#include <map>
+#include <memory>
+
 #include <dal/curve/calibration.hpp>
 #include <dal/curve/curveblock.hpp>
 #include <dal/curve/discount.hpp>
@@ -209,8 +214,6 @@ TEST(InverseJacobianRiskTest, TestBucketedRiskTransformAppliesToleranceCorrectio
         const auto rateUp = spec.instruments_[portfolioIdx]->Precompute(empty);
         const auto rateDn = spec.instruments_[portfolioIdx]->Precompute(empty);
         g[k] = ((*rateUp)(ycUp) - (*rateDn)(ycDn)) / (2.0 * h);
-        dcUp.release();
-        dcDn.release();
     }
 
     Vector_<> rRaw;

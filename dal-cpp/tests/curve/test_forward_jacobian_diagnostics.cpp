@@ -3,7 +3,10 @@
 //
 
 #include <gtest/gtest.h>
+#include <algorithm>
 #include <cmath>
+#include <map>
+#include <memory>
 #include <dal/platform/platform.hpp>
 #include <dal/curve/calibration.hpp>
 #include <dal/curve/curveblock.hpp>
