@@ -120,9 +120,10 @@ namespace Dal {
         // effJacobianInverse_. Populated (non-empty) iff jacobianMode_ == ANALYTIC
         // && solveMode_ == EXACT && the calibration is eligible for the AAD-tape Jacobian;
         // default-constructed (empty, 0 x 0) otherwise (APPROXIMATE solve, BUMPED mode, or an
-        // ANALYTIC spec that fell back to bumped). Computed by the same AAD path as
-        // TestOnly::AnalyticJacobianAt but carried on the public diagnostics struct so consumers
-        // (e.g. the yield_curve_jacobian example) read it without a TestOnly dependency.
+        // ANALYTIC spec that fell back to bumped). Computed by the same AAD path, carried on the
+        // public diagnostics struct so consumers (e.g. the yield_curve_jacobian example) read it
+        // directly. There is no standalone "analytic J at a point" accessor: the forward J is
+        // obtainable ONLY as a byproduct of calibration via this field.
         Matrix_<> jacobian_;
         double maxAbsResidual_ = 0.0;
         double rmsResidual_ = 0.0;
@@ -159,14 +160,5 @@ namespace Dal {
     CurveCalibrationResult_ CalibrateYieldCurve(const CurveCalibrationSpec_& spec);
     CurveCalibrationResult_ CalibrateYieldCurve(const CurveCalibrationSpec_& spec, const CurveCalibrationOptions_& options);
     MultiCurveCalibrationResult_ CalibrateMultiCurve(const MultiCurveCalibrationSpec_& spec);
-
-    namespace TestOnly {
-        // Builds the LOG_DISCOUNT calibration Jacobian at the supplied parameter vector x for the
-        // supplied spec, using the AAD-tape analytic path. Returns an empty matrix when the spec
-        // does not engage the analytic path (parameterization_ != LOG_DISCOUNT, or the calibration
-        // is otherwise ineligible for the AAD-tape Jacobian). Exposed for unit-test inspection; not
-        // part of the stable public API.
-        Matrix_<> AnalyticJacobianAt(const CurveCalibrationSpec_& spec, const Vector_<>& x);
-    }
 
 } // namespace Dal

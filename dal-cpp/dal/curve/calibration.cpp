@@ -38,7 +38,8 @@ namespace Dal {
     // bodies mirror XJDense_ (dal-cpp/dal/math/optimization/underdetermined.cpp) -- the storage
     // is dense regardless of how the matrix is filled, so the sparse-vs-banded optimization is
     // a follow-up once the assembly is validated against central differences. Declared in Dal::
-    // (not anonymous) so the TestOnly helper can dynamic_cast to extract entries for unit tests.
+    // (not anonymous) so the calibration flow can construct it and the solver's virtual
+    // Jacobian_ interface (MultiplyLeft) can read its contents without an inline accessor.
     struct XCurveJacobian_ : Underdetermined::Jacobian_ {
         Matrix_<> j_;
         explicit XCurveJacobian_(Matrix_<>&& j) : j_(std::move(j)) {}
@@ -841,32 +842,5 @@ namespace Dal {
         }
         return retval;
     }
-
-    namespace TestOnly {
-        Matrix_<> AnalyticJacobianAt(const CurveCalibrationSpec_& spec, const Vector_<>& x) {
-            const Vector_<Handle_<YCInstrument_>> instruments = OrderInstruments(spec.instruments_);
-            const Vector_<Date_> knotDates = BuildCurveCalibrationKnots(spec.today_, instruments, spec.knotDates_, spec.knotPolicy_);
-            YieldCurveCalibrationFunc_ func(spec.ccy_, spec.curveName_, spec.parameterization_, instruments, knotDates,
-                                            spec.discountCurves_, spec.forwardCurves_, spec.baseCurve_, spec.targetCollateral_,
-                                            spec.targetTenor_, spec.calibrateDiscountCurve_, spec.liborBasis_, spec.logDfScheme_,
-                                            CurveJacobianMode_::Value_::ANALYTIC);
-            const Vector_<> f = func.F(x);
-            std::unique_ptr<Underdetermined::Jacobian_> j(func.Gradient(x, f));
-            Matrix_<> retval;
-            if (j == nullptr)
-                return retval; // empty signals analytic path not engaged
-            const auto* dense = dynamic_cast<const XCurveJacobian_*>(j.get());
-            REQUIRE(dense != nullptr, "TestOnly::AnalyticJacobianAt: expected an XCurveJacobian_");
-            // Note: the solver applies DivideRows(tol_) to the returned Jacobian before use, which
-            // mutates the matrix in place. The raw Gradient output is UNSCALED here -- the caller
-            // applies the same row-scaling the solver would, or compares against unscaled FD.
-            const Matrix_<>& src = dense->j_;
-            retval = Matrix_<>(src.Rows(), src.Cols(), 0.0);
-            for (int r = 0; r < src.Rows(); ++r)
-                for (int c = 0; c < src.Cols(); ++c)
-                    retval(r, c) = src(r, c);
-            return retval;
-        }
-    } // namespace TestOnly
 
 } // namespace Dal
