@@ -190,3 +190,61 @@ TEST(UnderdeterminedTest, TestFindPopulatesEffectiveJacobianInverse) {
     ASSERT_NEAR(effJacobianInverse(0, 0), 8.0e-11, 1e-18);
     ASSERT_NEAR(effJacobianInverse(1, 0), 2.0e-11, 1e-18);
 }
+
+// The trailing fwd_jacobian_at_solution out-param captures the UNSCALED analytic forward Jacobian at
+// the solution via a single raw func.Gradient(xNew, fNew) call on the convergence branch -- NOT the
+// XScaledFunc_::J path, so DivideRows(tol) is never applied. When a nullptr is passed the output is
+// untouched (stays empty), and a Gradient that returns nullptr leaves the output empty rather than
+// falling back to the dense finite-difference matrix.
+
+TEST(UnderdeterminedTest, TestFindPopulatesForwardJacobianAtSolution) {
+    MultiResidualFunc_ func;
+    Vector_<> guess = {0.0, 0.0, 0.0};
+    Vector_<> tol = {1.0e-10, 1.0e-10};
+
+    TriDiagonal_ weights(3);
+    weights.Set(0, 0, 1.0);
+    weights.Set(1, 1, 1.0);
+    weights.Set(2, 2, 1.0);
+    std::unique_ptr<SymmetricDecomposition_> decomp(weights.DecomposeSymmetric());
+
+    Matrix_<> fwdJacobian;
+    Vector_<> calculated = Underdetermined::Find(func, guess, tol, *decomp, MakeControls(), nullptr, &fwdJacobian);
+
+    // Solution unchanged.
+    ASSERT_NEAR(calculated[0], 2.0 / 3.0, 1e-10);
+    ASSERT_NEAR(calculated[1], 5.0 / 3.0, 1e-10);
+    ASSERT_NEAR(calculated[2], 7.0 / 3.0, 1e-10);
+
+    // Shape: nResiduals x nX, and the constant analytic J is captured unscaled (rows 1.0 in cols 0,2
+    // and 1,1 in cols 1,2 -- MultiResidualFunc_'s DenseJacobian_).
+    ASSERT_EQ(fwdJacobian.Rows(), 2);
+    ASSERT_EQ(fwdJacobian.Cols(), 3);
+    ASSERT_NEAR(fwdJacobian(0, 0), 1.0, 1e-12);
+    ASSERT_NEAR(fwdJacobian(0, 1), 0.0, 1e-12);
+    ASSERT_NEAR(fwdJacobian(0, 2), 1.0, 1e-12);
+    ASSERT_NEAR(fwdJacobian(1, 0), 0.0, 1e-12);
+    ASSERT_NEAR(fwdJacobian(1, 1), 1.0, 1e-12);
+    ASSERT_NEAR(fwdJacobian(1, 2), 1.0, 1e-12);
+}
+
+// Passing nullptr for the forward-Jacobian output (or omitting it) must leave the matrix untouched,
+// even when the function supplies an analytic Gradient. Mirrors the contract that the hook only fires
+// when the caller asks for the output.
+
+TEST(UnderdeterminedTest, TestFindLeavesForwardJacobianEmptyWhenNullptr) {
+    MultiResidualFunc_ func;
+    Vector_<> guess = {0.0, 0.0, 0.0};
+    Vector_<> tol = {1.0e-10, 1.0e-10};
+
+    TriDiagonal_ weights(3);
+    weights.Set(0, 0, 1.0);
+    weights.Set(1, 1, 1.0);
+    weights.Set(2, 2, 1.0);
+    std::unique_ptr<SymmetricDecomposition_> decomp(weights.DecomposeSymmetric());
+
+    Matrix_<> fwdJacobian; // default-constructed -> empty
+    Vector_<> calculated = Underdetermined::Find(func, guess, tol, *decomp, MakeControls(), nullptr, nullptr);
+    ASSERT_TRUE(fwdJacobian.Empty());
+    ASSERT_NEAR(calculated[0], 2.0 / 3.0, 1e-10);
+}

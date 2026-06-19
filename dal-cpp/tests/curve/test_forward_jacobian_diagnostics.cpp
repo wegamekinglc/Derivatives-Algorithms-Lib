@@ -24,12 +24,12 @@ using namespace Dal;
 
 // Tests for the public forward-Jacobian diagnostics field CurveCalibrationDiagnostics_::jacobian_.
 // The field is the unscaled analytic forward Jacobian d(modelRate_i) / d(logDF_free_k) evaluated at
-// the calibrated solution by a fresh AAD reverse sweep in CalibrateYieldCurve (a re-evaluation at
-// the solved x, deliberately NOT the solver's Broyden-perturbed iterate matrix, which is what
-// effJacobianInverse_ is formed from). It is therefore distinct from effJacobianInverse_ -- a
-// solver-weighted, tolerance-scaled pseudoinverse at the iterate -- and the two are NOT inverses in
-// their exposed form. Populated iff solveMode_ == EXACT && jacobianMode_ == ANALYTIC && eligible;
-// default-constructed (empty, 0 x 0) otherwise.
+// the calibrated solution by a single in-solver func.Gradient(xNew, fNew) call on convergence (one
+// analytic-J evaluation at the solved x, deliberately NOT the solver's Broyden-perturbed iterate
+// matrix, which is what effJacobianInverse_ is formed from). It is therefore distinct from
+// effJacobianInverse_ -- a solver-weighted, tolerance-scaled pseudoinverse at the iterate -- and the
+// two are NOT inverses in their exposed form. Populated iff solveMode_ == EXACT &&
+// jacobianMode_ == ANALYTIC && eligible; default-constructed (empty, 0 x 0) otherwise.
 
 namespace {
     RateLegConvention_ AnnualLeg() {

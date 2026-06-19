@@ -398,6 +398,15 @@ namespace Dal {
                 cachedEligibility_ = EligibleForAnalyticJacobian() ? Eligibility_::Eligible : Eligibility_::Ineligible;
             }
 
+            // Force-evaluate and return the cached analytic-Jacobian eligibility verdict. Public so
+            // CalibrateYieldCurve can decide whether to request the at-solution forward Jacobian from
+            // the solver (only the ANALYTIC && EXACT && eligible path produces a well-defined forward J;
+            // every other path must pass nullptr so the solver leaves the output empty).
+            [[nodiscard]] bool Eligible() const {
+                EvaluateEligibilityOnce();
+                return cachedEligibility_ == Eligibility_::Eligible;
+            }
+
             // Phase A eligibility predicate (per .claude/designs/aad-analytic-jacobian-selector-api.md
             // §4.2). Returns true iff every Phase A constraint is satisfied. The predicate is a
             // pure query over ctor-stored state and NEVER throws -- ineligibility routes through
@@ -714,7 +723,8 @@ namespace Dal {
                                            const Underdetermined::Function_& func,
                                            const Vector_<>& guess,
                                            const Vector_<>& tol,
-                                           const Sparse::TriDiagonal_& weights) {
+                                           const Sparse::TriDiagonal_& weights,
+                                           Matrix_<>* fwdJacobian) {
             Dictionary_ ctrlDict;
             ctrlDict.Insert(KEY_MAX_EVALUATIONS, Cell_(static_cast<double>(spec.maxEvaluations_)));
             ctrlDict.Insert(KEY_MAX_RESTARTS, Cell_(static_cast<double>(spec.maxRestarts_)));
@@ -723,7 +733,10 @@ namespace Dal {
             SolverOutput_ out;
             if (spec.solveMode_ == CurveSolveMode_::Value_::EXACT) {
                 std::unique_ptr<Sparse::SymmetricDecomposition_> wDecomp(weights.DecomposeSymmetric());
-                out.result_ = Underdetermined::Find(func, guess, tol, *wDecomp, controls, &out.effJacobianInverse_);
+                // The at-solution forward Jacobian is requested only on the ANALYTIC && eligible path
+                // (caller passes nullptr otherwise). The solver's convergence-branch hook then calls
+                // func.Gradient ONCE at the solved x to capture the UNSCALED forward J.
+                out.result_ = Underdetermined::Find(func, guess, tol, *wDecomp, controls, &out.effJacobianInverse_, fwdJacobian);
             } else {
                 out.result_ = Underdetermined::Approximate(func, guess, tol, spec.fitTolerance_, weights, controls);
             }
@@ -801,29 +814,18 @@ namespace Dal {
                                         spec.forwardCurves_, spec.baseCurve_, spec.targetCollateral_, spec.targetTenor_, spec.calibrateDiscountCurve_,
                                         spec.liborBasis_, spec.logDfScheme_, options.jacobianMode_);
 
-        const SolverOutput_ solved = RunCalibrationSolver(spec, func, guess, tol, *weights);
+        // The at-solution forward Jacobian is requested from the solver only when all three hold:
+        // jacobianMode_ == ANALYTIC, solveMode_ == EXACT, AND the calibration is eligible for the
+        // AAD-tape Jacobian. Otherwise nullptr is passed so the solver leaves the output empty,
+        // preserving the contract (jacobian_ empty for BUMPED / APPROXIMATE / ineligible ANALYTIC).
+        // The solver's convergence-branch hook then captures the UNSCALED forward J with a single
+        // raw func.Gradient(xNew, fNew) call -- evaluated at the solution, not the iterate.
+        const bool wantFwdJacobian = options.jacobianMode_ == CurveJacobianMode_::Value_::ANALYTIC && spec.solveMode_ == CurveSolveMode_::Value_::EXACT
+                                     && func.Eligible();
+        Matrix_<> fwdJacobian;
+        const SolverOutput_ solved = RunCalibrationSolver(spec, func, guess, tol, *weights, wantFwdJacobian ? &fwdJacobian : nullptr);
         CurveCalibrationResult_ retval = AssembleCalibrationResult(spec, instruments, knotDates, solved.result_, solved.effJacobianInverse_);
-
-        // Forward Jacobian at the solution. effJacobianInverse_ is formed inside the solver at its
-        // final iterate -- a Broyden-perturbed working matrix, solver-weighted and tolerance-scaled
-        // -- which is the wrong object to expose as "the Jacobian". Instead re-evaluate the clean
-        // analytic J at the solved x (where an independent bump oracle also evaluates, so the two
-        // agree to ~machine precision). jacobian_ is populated ONLY when all three hold:
-        // jacobianMode_ == ANALYTIC, solveMode_ == EXACT, AND the instrument is analytically
-        // eligible (func.Gradient returns a non-null XCurveJacobian_). It is left empty otherwise.
-        // This is narrower than effJacobianInverse_, which the solver always populates on EXACT
-        // regardless of jacobianMode_ (and never on APPROXIMATE), so the two fields do not share a
-        // single population rule.
-        if (options.jacobianMode_ == CurveJacobianMode_::Value_::ANALYTIC && spec.solveMode_ == CurveSolveMode_::Value_::EXACT) {
-            const Vector_<> fAtSolution = func.F(solved.result_);
-            std::unique_ptr<Underdetermined::Jacobian_> j(func.Gradient(solved.result_, fAtSolution));
-            if (j) {
-                const auto* dense = dynamic_cast<const XCurveJacobian_*>(j.get());
-                if (dense) {
-                    retval.diagnostics_.jacobian_ = dense->j_;
-                }
-            }
-        }
+        retval.diagnostics_.jacobian_ = std::move(fwdJacobian);
         return retval;
     }
 

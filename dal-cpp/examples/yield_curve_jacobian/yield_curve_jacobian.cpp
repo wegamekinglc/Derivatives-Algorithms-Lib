@@ -52,28 +52,50 @@ using namespace Dal;
 // AAD is always compiled in this library (dal-cpp/dal/math/aad/aad.hpp:17 defines the native AAET
 // backend on the "no DAL_USE_*_AAD flag set" branch) and the analytic Jacobian it produces runs
 // identically under native AAET, Adept, XAD, and CoDiPack. Arc (a) does not record its own tape:
-// it reads the forward Jacobian the calibration already computed -- CalibrateYieldCurve populates
-// CurveCalibrationDiagnostics_::jacobian_ via a fresh AAD reverse sweep at the solved x (the same
-// YieldCurveCalibrationFunc_::AnalyticJacobian machinery in dal-cpp/dal/curve/calibration.cpp:510-565)
-// -- so the AAD recording contract and backend-portability rules live in exactly one place. The bump
-// oracle below remains an independent finite-difference check; the AAD-vs-bump comparison is what
-// makes arc (a) a real cross-check rather than a tautology.
+// it reads the forward Jacobian the calibration already computed -- CalibrateYieldCurve requests
+// CurveCalibrationDiagnostics_::jacobian_ from the solver, whose convergence-branch hook calls
+// YieldCurveCalibrationFunc_::Gradient(xNew, fNew) ONCE at the solved x (the same AnalyticJacobian
+// machinery in dal-cpp/dal/curve/calibration.cpp) -- so the AAD recording contract and backend-
+// portability rules live in exactly one place. The bump oracle below remains an independent finite-
+// difference check; the AAD-vs-bump comparison is what makes arc (a) a real cross-check rather than
+// a tautology.
 
 namespace {
     // Self-check bars (see .claude/specs/yield-curve-jacobian-example.md "AAD-vs-Bump Tolerance
     // Choice"). The 1e-9 AAD-vs-bump bar holds because the Phase A LOG_DISCOUNT residual Jacobian
-    // is O(1) and well-conditioned at the chosen 1%-3% par rates; central-difference round-off at
-    // h=1e-6 is ~eps/h ~= 2e-10 relative, leaving ~5x margin, and it is size-invariant (verified to
-    // hold at the 16-instrument ladder below). The FR6 re-solve is a genuine nonlinear operation:
-    // bumping a long-end quote propagates through every intervening LOG_DISCOUNT knot, accumulating
-    // second-order terms the linear prediction cannot capture, so the worst observed rel grows with
-    // ladder length (~7e-7 at 5 instruments, ~1.3e-4 at 16 instruments). The 1e-3 bar gives ~7x
-    // headroom at the 16-instrument size; it would need to be tightened back toward 1e-6 if the
-    // ladder were shortened.
+    // is O(1) and well-conditioned at the chosen 1.0%-2.5% par rates; central-difference round-off
+    // at h=1e-6 is ~eps/h ~= 2e-10 relative, leaving ~5x margin, and it is size-invariant. The FR6
+    // re-solve is a genuine nonlinear operation: bumping a long-end quote propagates through every
+    // intervening LOG_DISCOUNT knot, accumulating second-order terms the linear prediction cannot
+    // capture, so the worst observed rel grows with ladder length (~7e-7 at 5 instruments, ~1.8e-5
+    // at 10 instruments, ~1.3e-4 at 16 instruments). The 1e-4 bar at the 10-instrument size gives
+    // ~5x headroom over the observed worst rel; tighten it back toward 1e-6 if the ladder is
+    // shortened. (docs-sync follow-up: the FR6 bar scales with ladder length -- re-measure and
+    // record the trend alongside the spec's bar methodology when it is finalized.)
     constexpr double BUMP_STEP = 1.0e-6;
     constexpr double AAD_TOL = 1.0e-9;
-    constexpr double RE_SOLVE_TOL = 1.0e-3;
+    constexpr double RE_SOLVE_TOL = 1.0e-4;
     constexpr double ONE_BP = 1.0e-4;
+
+    // YYYY-MM-DD label for a Date_ (Date::ToString already formats this way; thin wrapper makes the
+    // intent explicit at every call site and gives a single place to change the row-label format).
+    std::string IsoDate(const Date_& dt) { return std::string(Date::ToString(dt).c_str()); }
+
+    // Maturity date (swap end) of each calibration instrument, used to label Jacobian rows and the
+    // residual / risk tables by instrument rather than by integer index.
+    Vector_<Date_> InstrumentMaturities(const CurveCalibrationSpec_& spec) {
+        Vector_<Date_> maturities;
+        maturities.reserve(spec.instruments_.size());
+        for (const auto& inst : spec.instruments_)
+            maturities.push_back(inst->TimeSpan().second);
+        return maturities;
+    }
+
+    // Free-node knot dates (the anchor at index 0 is pinned and excluded), used to label Jacobian
+    // columns.
+    Vector_<Date_> FreeKnotDates(const CurveCalibrationSpec_& spec) {
+        return Vector_<Date_>(spec.knotDates_.begin() + 1, spec.knotDates_.end());
+    }
 
     RateLegConvention_ AnnualLeg() {
         RateLegConvention_ leg;
@@ -100,13 +122,13 @@ namespace {
         return idx;
     }
 
-    // The 16-instrument vanilla-swap Phase A calibration. Stays eligible for the analytic (AAD-tape)
+    // The 10-instrument vanilla-swap Phase A calibration. Stays eligible for the analytic (AAD-tape)
     // Jacobian by mirroring the shape validated in dal-cpp/tests/curve/test_analytic_jacobian.cpp
     // (LOG_DISCOUNT, EXACT, anchor == today_, no projection curve, vanilla Swap_ only) -- only the
-    // ladder length changes. The system is square: 16 instruments on 17 annual knots (16 free params
+    // ladder length changes. The system is square: 10 instruments on 11 annual knots (10 free params
     // + the today_ anchor), so EXACT converges to the fitTolerance_ and requesting
     // CurveJacobianMode_::ANALYTIC engages the tape rather than silently falling back to bumping.
-    // Par rates rise smoothly from ~1.0% to ~3.0% across 1Y..16Y so the LOG_DISCOUNT system is well-
+    // Par rates rise smoothly from ~1.0% to ~2.5% across 1Y..10Y so the LOG_DISCOUNT system is well-
     // conditioned and the 1e-9 AAD-vs-bump bar still holds.
     CurveCalibrationSpec_ BuildCalibrationSpec() {
         CurveCalibrationSpec_ spec;
@@ -124,9 +146,9 @@ namespace {
         spec.smoothingWeight_ = 1.0;
         spec.logDfScheme_ = LogDfScheme_::Value_::LOG_LINEAR;
 
-        // Anchor (today_) at 2022-01-01, then one annual knot per swap maturity 1Y..16Y.
-        // 16 maturities -> 17 knots -> 16 free params (square with the 16 instruments below).
-        constexpr int nInstruments = 16;
+        // Anchor (today_) at 2022-01-01, then one annual knot per swap maturity 1Y..10Y.
+        // 10 maturities -> 11 knots -> 10 free params (square with the 10 instruments below).
+        constexpr int nInstruments = 10;
         spec.knotDates_.reserve(nInstruments + 1);
         spec.knotDates_.push_back(spec.today_);
         for (int y = 1; y <= nInstruments; ++y)
@@ -138,27 +160,27 @@ namespace {
         const auto mkSwap = [&](const Date_& end, double parPct) {
             return Handle_<YCInstrument_>(new Swap_(spec.today_, spec.today_, end, parPct / 100.0, fixedLeg, floatIdx, floatLeg));
         };
-        // Annual swaps maturing at 1Y..16Y with a smoothly rising par-rate term structure
-        // (1.00% -> 3.00%): a gentle linear ramp keeps the 16x16 LOG_DISCOUNT system well-
-        // conditioned so the 1e-9 AAD-vs-bump bar holds. The 1e-9 bar is unchanged from the 5-
-        // instrument ladder; the FR6 nonlinear re-solve bar is loosened to 1e-3 at this size (see
-        // RE_SOLVE_TOL) because the linear-vs-nonlinear gap grows intrinsically with the number of
-        // knots -- bumping a long-end quote propagates through every intervening LOG_DISCOUNT knot,
-        // accumulating second-order terms that the linear prediction cannot capture.
+        // Annual swaps maturing at 1Y..10Y with a smoothly rising par-rate term structure
+        // (1.00% -> 2.50%): a gentle linear ramp keeps the 10x10 LOG_DISCOUNT system well-
+        // conditioned so the 1e-9 AAD-vs-bump bar holds. The FR6 nonlinear re-solve bar is loosened
+        // to 1e-3 at this size (see RE_SOLVE_TOL) because the linear-vs-nonlinear gap grows
+        // intrinsically with the number of knots -- bumping a long-end quote propagates through
+        // every intervening LOG_DISCOUNT knot, accumulating second-order terms that the linear
+        // prediction cannot capture.
         spec.instruments_.reserve(nInstruments);
         for (int y = 1; y <= nInstruments; ++y) {
             const double frac = static_cast<double>(y - 1) / static_cast<double>(nInstruments - 1);
-            const double parPct = 1.00 + 2.00 * frac;
+            const double parPct = 1.00 + 1.50 * frac;
             spec.instruments_.push_back(mkSwap(Date_(2022 + y, 1, 1), parPct));
         }
         return spec;
     }
 
-    // Index of the off-anchor swap used as the "portfolio" for the FR5 risk transform. Swap 7 (8Y)
-    // pays annual coupons landing on the year-1..year-8 knots (free columns 0..7); it has no cash
-    // flows past year 8, so the year-9..year-16 knots (free columns 8..15) carry structural zeros
+    // Index of the off-anchor swap used as the "portfolio" for the FR5 risk transform. Swap 4 (5Y)
+    // pays annual coupons landing on the year-1..year-5 knots (free columns 0..4); it has no cash
+    // flows past year 5, so the year-6..year-10 knots (free columns 5..9) carry structural zeros
     // in g, which the risk transform handles correctly.
-    constexpr int PORTFOLIO_INDEX = 7;
+    constexpr int PORTFOLIO_INDEX = 4;
 
     // ---- Curve (re)construction from a free-parameter vector ----
 
@@ -318,38 +340,45 @@ namespace {
         std::cout << "\n" << bar << "\n  " << title << "\n" << bar << "\n";
     }
 
-    void PrintResiduals(const CurveCalibrationDiagnostics_& diag) {
+    void PrintResiduals(const CurveCalibrationDiagnostics_& diag, const Vector_<Date_>& maturities) {
         std::cout << std::fixed << std::setprecision(6);
-        std::cout << std::left << std::setw(26) << "Instrument" << std::right << std::setw(14) << "Market(%)" << std::setw(14) << "Model(%)"
-                  << std::setw(12) << "Error(bp)" << "\n";
-        std::cout << std::string(62, '-') << "\n";
+        std::cout << std::left << std::setw(14) << "Maturity" << std::right << std::setw(14) << "Market(%)" << std::setw(14) << "Model(%)"
+                  << std::setw(14) << "Error(bp)" << "\n";
+        std::cout << std::string(56, '-') << "\n";
         for (int i = 0; i < static_cast<int>(diag.instrumentNames_.size()); ++i) {
-            std::cout << std::left << std::setw(26) << diag.instrumentNames_[i].c_str() << std::right << std::setw(14) << diag.marketRates_[i] * 100.0
-                      << std::setw(14) << diag.modelRates_[i] * 100.0 << std::setw(12) << diag.residuals_[i] * 10000.0 << "\n";
+            std::cout << std::left << std::setw(14) << IsoDate(maturities[i]) << std::right << std::setw(14) << diag.marketRates_[i] * 100.0
+                      << std::setw(14) << diag.modelRates_[i] * 100.0 << std::setw(14) << diag.residuals_[i] * 10000.0 << "\n";
         }
     }
 
-    void PrintVector(const String_& label, const Vector_<>& v) {
+    // Label each free-node row by its knot date (the solved log-DF params are indexed by free knot).
+    void PrintFreeParamVector(const String_& label, const Vector_<>& v, const Vector_<Date_>& freeKnots) {
         std::cout << std::fixed << std::setprecision(12);
         if (!label.empty())
             std::cout << label << "\n";
+        std::cout << std::left << std::setw(14) << "Knot" << std::right << std::setw(22) << "logDF_free" << "\n";
+        std::cout << std::string(36, '-') << "\n";
         for (int i = 0; i < static_cast<int>(v.size()); ++i)
-            std::cout << "  [" << i << "] " << std::setw(20) << v[i] << "\n";
+            std::cout << std::left << std::setw(14) << IsoDate(freeKnots[i]) << std::right << std::setw(22) << v[i] << "\n";
     }
 
-    void PrintMatrix(const String_& label, const Matrix_<>& m, const String_& orientation) {
-        std::cout << std::fixed << std::setprecision(12);
+    void PrintMatrix(const String_& label,
+                     const Matrix_<>& m,
+                     const String_& orientation,
+                     const Vector_<Date_>& rowDates,
+                     const Vector_<Date_>& colDates) {
+        std::cout << std::fixed << std::setprecision(6);
         if (!label.empty())
             std::cout << label << "\n";
         std::cout << "  " << orientation << "  (rows=" << m.Rows() << ", cols=" << m.Cols() << ")\n";
-        std::cout << "          ";
+        std::cout << std::left << std::setw(14) << "row \\ col";
         for (int j = 0; j < m.Cols(); ++j)
-            std::cout << std::setw(18) << ("[" + std::to_string(j) + "]");
-        std::cout << "\n";
+            std::cout << std::right << std::setw(13) << IsoDate(colDates[j]);
+        std::cout << "\n" << std::string(14 + 13 * m.Cols(), '-') << "\n";
         for (int i = 0; i < m.Rows(); ++i) {
-            std::cout << "  [" << i << "]  ";
+            std::cout << std::left << std::setw(14) << IsoDate(rowDates[i]);
             for (int j = 0; j < m.Cols(); ++j)
-                std::cout << std::setw(18) << m(i, j);
+                std::cout << std::right << std::setw(13) << m(i, j);
             std::cout << "\n";
         }
     }
@@ -406,13 +435,16 @@ namespace {
         return {maxAbs, maxRel};
     }
 
-    // (g) Print the bucketed quote-risk vector r alongside its par-rate DV01 (r[i]*1e-4).
-    void PrintQuoteRisk(const Vector_<>& r) {
-        std::cout << std::fixed << std::setprecision(12);
-        std::cout << "  " << std::left << std::setw(22) << "raw r[i]" << std::right << std::setw(22) << "par-rate DV01 (r[i]*1e-4)"
+    // (g) Print the bucketed quote-risk vector r alongside its par-rate DV01 (r[i]*1e-4). Each row is
+    // labelled by the maturity date of the instrument whose quote was bumped.
+    void PrintQuoteRisk(const Vector_<>& r, const Vector_<Date_>& maturities) {
+        std::cout << std::fixed << std::setprecision(10);
+        std::cout << std::left << std::setw(14) << "Maturity" << std::right << std::setw(20) << "raw r[i]" << std::setw(22) << "par-rate DV01"
                   << "\n";
+        std::cout << std::string(56, '-') << "\n";
         for (int i = 0; i < static_cast<int>(r.size()); ++i)
-            std::cout << "  " << std::left << std::setw(22) << r[i] << std::right << std::setw(22) << r[i] * ONE_BP << "\n";
+            std::cout << std::left << std::setw(14) << IsoDate(maturities[i]) << std::right << std::setw(20) << r[i] << std::setw(22) << r[i] * ONE_BP
+                      << "\n";
     }
 
     // (h) FR6 inverse-Jacobian nonlinear re-solve sanity. For each calibration instrument, bump its
@@ -424,10 +456,12 @@ namespace {
         const CurveCalibrationOptions_& options,
         const Matrix_<>& effJacobianInverse,
         const Vector_<>& baselineFree,
+        const Vector_<Date_>& maturities,
         int nInst,
         int nFree) {
-        std::cout << std::fixed << std::setprecision(12);
-        std::cout << "  " << std::left << std::setw(8) << "inst" << std::right << std::setw(22) << "max rel delta" << "\n";
+        std::cout << std::fixed << std::setprecision(8);
+        std::cout << std::left << std::setw(14) << "Bumped" << std::right << std::setw(20) << "max rel delta" << "\n";
+        std::cout << std::string(34, '-') << "\n";
         bool fr6Passed = true;
         for (int i = 0; i < nInst; ++i) {
             const Vector_<> trueDelta = RebumpedParamDelta(spec, options, i, ONE_BP, baselineFree);
@@ -447,7 +481,7 @@ namespace {
                           " > " + std::to_string(RE_SOLVE_TOL) + " (pred=" + std::to_string(p) + ", true=" + std::to_string(t) + ")");
                 }
             }
-            std::cout << "  " << std::left << std::setw(8) << i << std::right << std::setw(22) << maxRel << "\n";
+            std::cout << std::left << std::setw(14) << IsoDate(maturities[i]) << std::right << std::setw(20) << maxRel << "\n";
         }
         if (fr6Passed)
             std::cout << "  Verdict : PASS  (all rel <= " << RE_SOLVE_TOL << ")\n";
@@ -458,12 +492,13 @@ namespace {
     // re-calibrations for BUMPED vs one AAD reverse sweep for ANALYTIC). Each CalibrateYieldCurve
     // call resets its own tape internally, so repeated calls are independent and safe to time.
     //
-    // Honesty note: the ANALYTIC time includes the post-solve jacobian_ re-evaluation -- the extra
-    // AAD sweep that CalibrateYieldCurve runs at the solved x to populate the diagnostics forward-
-    // Jacobian field -- which BUMPED does not perform. So a fair read of the ratio is "ANALYTIC
-    // solve-with-Jacobian vs BUMPED solve-without-Jacobian", not a pure like-for-like solve cost.
-    // BUMPED would need its own separate finite-difference Jacobian pass to match the ANALYTIC
-    // output, which it does not do here.
+    // Honesty note: the ANALYTIC time includes the at-solution forward-Jacobian evaluation -- a
+    // single extra func.Gradient call the solver makes on its convergence branch to populate the
+    // diagnostics jacobian_ field -- which BUMPED does not perform. So ANALYTIC may trail BUMPED by
+    // that one convergence-J evaluation; the fair read of the ratio is "ANALYTIC solve-with-Jacobian
+    // vs BUMPED solve-without-Jacobian", not a pure like-for-like solve cost. BUMPED would need its
+    // own separate finite-difference Jacobian pass to match the ANALYTIC output, which it does not
+    // do here.
     void RunCalibrationTimingComparison(const CurveCalibrationSpec_& spec) {
         constexpr int nRuns = 5;
         CurveCalibrationOptions_ optsBumped;
@@ -489,16 +524,18 @@ namespace {
         const double ratio = msBumped / msAnalytic;
 
         std::cout << std::fixed << std::setprecision(4);
-        std::cout << "  BUMPED  mean over " << nRuns << " runs : " << std::setw(12) << msBumped << "  ms\n";
-        std::cout << "  ANALYTIC mean over " << nRuns << " runs : " << std::setw(12) << msAnalytic << "  ms\n";
-        std::cout << "  ratio BUMPED/ANALYTIC        : " << std::setw(12) << ratio << "\n";
-        std::cout << "  NOTE: ANALYTIC time includes the post-solve jacobian_ re-evaluation\n";
-        std::cout << "        (extra AAD sweep populating the forward-Jacobian diagnostics),\n";
-        std::cout << "        which BUMPED does not perform -- see comment in this section.\n";
+        std::cout << std::left << std::setw(28) << "Mode" << std::right << std::setw(16) << "mean (ms)" << "\n";
+        std::cout << std::string(44, '-') << "\n";
+        std::cout << std::left << std::setw(28) << ("BUMPED (mean over " + std::to_string(nRuns) + ")") << std::right << std::setw(16) << msBumped << "\n";
+        std::cout << std::left << std::setw(28) << ("ANALYTIC (mean over " + std::to_string(nRuns) + ")") << std::right << std::setw(16) << msAnalytic << "\n";
+        std::cout << std::left << std::setw(28) << "ratio BUMPED/ANALYTIC" << std::right << std::setw(16) << ratio << "\n";
+        std::cout << "\n  NOTE: the ANALYTIC time includes the single at-solution forward-Jacobian\n"
+                  << "        evaluation the solver makes on convergence to populate the diagnostics\n"
+                  << "        jacobian_ field, which BUMPED does not perform.\n";
         if (ratio > 1.0)
             std::cout << "  -> ANALYTIC is " << ratio << "x faster than BUMPED\n";
         else
-            std::cout << "  -> ANALYTIC is " << (1.0 / ratio) << "x slower than BUMPED (post-solve sweep dominates at this size)\n";
+            std::cout << "  -> ANALYTIC is " << (1.0 / ratio) << "x slower than BUMPED (convergence-J eval dominates at this size)\n";
     }
 } // namespace
 
@@ -511,6 +548,14 @@ int main() {
     const int nInst = static_cast<int>(spec.instruments_.size());
     const int nFree = static_cast<int>(spec.knotDates_.size()) - 1;
     THROW_REQUIRE(nInst == nFree, "Phase A calibration must be square: nInstruments == nKnotDates - 1");
+
+    // Row/column date labels for every date-indexed table below. Maturity dates label instrument
+    // rows (residuals, Jacobian rows, risk vector, FR6); free-knot dates label Jacobian columns and
+    // the solved-params vector.
+    const Vector_<Date_> maturities = InstrumentMaturities(spec);
+    const Vector_<Date_> freeKnots = FreeKnotDates(spec);
+    THROW_REQUIRE(static_cast<int>(maturities.size()) == nInst && static_cast<int>(freeKnots.size()) == nFree,
+                  "date-label vector length mismatch");
 
     std::cout << "\nCalibration: " << nInst << " instruments on " << spec.knotDates_.size() << " LOG_DISCOUNT knots (" << nFree
               << " free params + anchor)\n";
@@ -529,20 +574,21 @@ int main() {
     const Vector_<> x = SolvedFreeParams(*result.curve_);
 
     PrintSection("(a) Calibration residuals");
-    PrintResiduals(result.diagnostics_);
+    PrintResiduals(result.diagnostics_, maturities);
     std::cout << "\nSolved free-node log-DF params x (anchor pinned at 0):\n";
-    PrintVector("", x);
+    PrintFreeParamVector("", x, freeKnots);
 
     // ---- (b) Bump Jacobian (oracle) ----
     const Matrix_<> jBump = BumpJacobian(spec, x, BUMP_STEP);
     PrintSection("(b) Bump Jacobian  J_bump = d(modelRate_i) / d(logDF_free_k)");
-    PrintMatrix("", jBump, "rows = instruments, cols = free params; central diff h = 1e-6");
+    PrintMatrix("", jBump, "rows = instruments, cols = free params; central diff h = 1e-6", maturities, freeKnots);
 
     // ---- (c) AAD Jacobian (analytic reverse sweep, read from the calibration diagnostics) ----
-    // jacobian_ is populated by CalibrateYieldCurve on the EXACT + ANALYTIC + eligible path via a
-    // fresh AAD reverse sweep at the solved x -- the same point the bump oracle evaluates -- so the
-    // AAD-vs-bump comparison below cross-checks the library's analytic Jacobian against an
-    // independent finite-difference oracle rather than a re-evaluation of the same code.
+    // jacobian_ is populated by the solver's convergence-branch hook on the EXACT + ANALYTIC +
+    // eligible path via a single func.Gradient(xNew, fNew) call at the solved x -- the same point
+    // the bump oracle evaluates -- so the AAD-vs-bump comparison below cross-checks the library's
+    // analytic Jacobian against an independent finite-difference oracle rather than a re-evaluation
+    // of the same code.
     const Matrix_<>& jAad = result.diagnostics_.jacobian_;
     THROW_REQUIRE(!jAad.Empty(), "diagnostics_.jacobian_ is empty -- ANALYTIC path did not engage (ineligible spec?)");
     // B2 sentinel: every row must have at least one non-trivial entry. An all-zero row means the
@@ -550,7 +596,7 @@ int main() {
     // wrong-recording-order failure). Catch it before the FD comparison.
     AssertNoAllZeroRows(jAad);
     PrintSection("(c) AAD Jacobian  J_aad = d(modelRate_i) / d(logDF_free_k)");
-    PrintMatrix("", jAad, "rows = instruments, cols = free params; reverse sweep, 1 per row");
+    PrintMatrix("", jAad, "rows = instruments, cols = free params; reverse sweep, 1 per row", maturities, freeKnots);
 
     // ---- (d) AAD-vs-bump agreement (verbatim two-branch form, tol = 1e-9) ----
     PrintSection("(d) AAD-vs-bump agreement  (verbatim two-branch form, tol = 1e-9)");
@@ -565,21 +611,22 @@ int main() {
     THROW_REQUIRE(effJacobianInverse.Rows() == nFree && effJacobianInverse.Cols() == nInst,
                   "effJacobianInverse_ shape must be nFreeParams x nInstruments (populated only by EXACT solve)");
     PrintSection("(e) effJacobianInverse_  d(params) * tolerance_ / d(decimal-rate perturbation)");
-    PrintMatrix("", effJacobianInverse, "rows = free params, cols = instruments; solver-scaled pseudoinverse (residuals scaled by 1/tolerance_)");
+    PrintMatrix("", effJacobianInverse, "rows = free params, cols = instruments; solver-scaled pseudoinverse", freeKnots, maturities);
 
     // ---- (f) Portfolio parameter sensitivity g ----
     const Vector_<> g = PortfolioParamSensitivity(spec, x, BUMP_STEP);
     PrintSection("(f) Portfolio parameter-sensitivity  g = d(modelParRate_portfolio) / d(logDF_free_k)");
-    std::cout << "  portfolio = swap " << PORTFOLIO_INDEX << " (off-anchor); length = nFree = " << g.size() << "\n";
+    std::cout << "  portfolio = swap " << PORTFOLIO_INDEX << " (maturity " << IsoDate(maturities[PORTFOLIO_INDEX]) << "); length = nFree = " << g.size()
+              << "\n";
     std::cout << "  units: par-rate per unit log-DF bump (annuity-scaled PV not exposed by YCInstrument_)\n";
-    PrintVector("", g);
+    PrintFreeParamVector("", g, freeKnots);
 
     // ---- (g) Bucketed IR risk r = g^T * effJacobianInverse_ ----
     const Vector_<> r = TransformToQuoteRisk(g, effJacobianInverse, spec.tolerance_);
     PrintSection("(g) Bucketed IR risk  r = g^T * effJacobianInverse_");
     std::cout << "  length = nInstruments = " << r.size() << "\n";
     std::cout << "  units: par-rate per absolute decimal quote bump\n";
-    PrintQuoteRisk(r);
+    PrintQuoteRisk(r, maturities);
 
     // ---- (h) FR6 inverse-Jacobian nonlinear re-solve sanity ----
     PrintSection("(h) FR6 inverse-Jacobian nonlinear re-solve sanity");
@@ -592,7 +639,7 @@ int main() {
     // quote bump delta_m on instrument i is therefore effJacobianInverse_(k,i) * delta_m / tolerance_.
     // This was verified empirically against the nonlinear re-solve (it does NOT match a bare
     // effJacobianInverse_ * delta_m, which is off by the tolerance factor).
-    RunFR6ReSolve(spec, options, effJacobianInverse, x, nInst, nFree);
+    RunFR6ReSolve(spec, options, effJacobianInverse, x, maturities, nInst, nFree);
 
     // ---- (i) Calibration elapsed time -- BUMPED vs ANALYTIC ----
     PrintSection("(i) Calibration elapsed time  (BUMPED vs ANALYTIC, mean over N runs)");

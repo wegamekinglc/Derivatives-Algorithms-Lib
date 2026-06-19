@@ -148,6 +148,22 @@ namespace Dal {
             }
         }
 
+        // Capture the UNSCALED dense forward Jacobian at the solution. Called only on the convergence
+        // branch with the RAW func (func_in), so DivideRows(tol) is never applied -- the output is the
+        // plain dF_i/dx_j matrix. Works for any Jacobian_ subclass by probing each unit column via
+        // MultiplyLeft (which returns J * e_k = column k, length Rows). The caller guards the
+        // nullptr-Gradient case before calling, so jac is always a valid Jacobian here.
+        void StoreForwardJacobianAtSolution(const Underdetermined::Jacobian_& jac, Matrix_<>* out) {
+            out->Resize(jac.Rows(), jac.Columns());
+            for (int k = 0; k < jac.Columns(); ++k) {
+                Vector_<> ek(jac.Columns(), 0.0);
+                ek[k] = 1.0;
+                const Vector_<> col = jac.MultiplyLeft(ek);
+                for (int i = 0; i < jac.Rows(); ++i)
+                    (*out)(i, k) = col[i];
+            }
+        }
+
         class XPenaltyWeight_ : public Sparse::Square_ {
             const Sparse::Square_& W_; // must be symmetric
             const Underdetermined::Jacobian_& J_;
@@ -226,7 +242,8 @@ namespace Dal {
                                     const Vector_<>& tol,
                                     const Sparse::SymmetricDecomposition_& w,
                                     const Controls_& controls,
-                                    Matrix_<>* eff_j_inv) {
+                                    Matrix_<>* eff_j_inv,
+                                    Matrix_<>* fwd_jacobian_at_solution) {
         // set up the wrapper through which we will call the function
         XScaledFunc_ func(tol, func_in, controls);
         Vector_<> xOld(guess);
@@ -250,6 +267,15 @@ namespace Dal {
                 Vector_<> fNew = func.F(xNew);
                 if (*MaxElement(fNew) < 1.0 && *MinElement(fNew) > -1.0) {
                     StoreEffectiveJacobianInverse(*j, w, eff_j_inv);
+                    // Unscaled forward Jacobian at the solution, produced by ONE raw func_in.Gradient
+                    // call (NOT XScaledFunc_::J), so DivideRows(tol) is never applied. fNew is the scaled
+                    // residual but the analytic Gradient ignores f, so this is safe for the analytic
+                    // path. A nullptr Gradient return leaves the output empty -- no dense-FD fallback.
+                    if (fwd_jacobian_at_solution) {
+                        std::unique_ptr<Jacobian_> jSol(func_in.Gradient(xNew, fNew));
+                        if (jSol)
+                            StoreForwardJacobianAtSolution(*jSol, fwd_jacobian_at_solution);
+                    }
                     return xNew;
                 }
 

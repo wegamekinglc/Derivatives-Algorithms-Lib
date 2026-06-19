@@ -108,15 +108,16 @@ namespace Dal {
         Vector_<> residuals_;
         Matrix_<> effJacobianInverse_;
         // Unscaled analytic forward Jacobian d(modelRate_i) / d(logDF_free_k), shape
-        // nInstruments x (nKnots - 1), evaluated at the calibrated solution (the solved
-        // free-node logDF vector) by a fresh AAD reverse sweep in CalibrateYieldCurve.
-        // This is the plain Jacobian before the solver's DivideRows(tol_) row-scaling; an
-        // independent finite-difference bump of the solved nodes reproduces it. CONTRAST with
-        // effJacobianInverse_: that matrix is a solver-weighted, tolerance-scaled pseudoinverse
-        // formed at the solver's final iterate, used to map parameter sensitivities to
-        // quote-bucket risk (r = g^T * effJacobianInverse_ / tolerance_). jacobian_ is neither
-        // weighted nor scaled, is evaluated at the solution rather than the iterate, and is NOT
-        // the inverse of effJacobianInverse_. Populated (non-empty) iff jacobianMode_ == ANALYTIC
+        // nInstruments x (nKnots - 1), produced by a single in-solver evaluation on convergence
+        // -- the solver's convergence-branch hook calls func.Gradient(xNew, fNew) ONCE at the
+        // solved x to capture the UNSCALED forward J (no DivideRows(tol_)). This is the plain
+        // Jacobian before the solver's tolerance row-scaling; an independent finite-difference
+        // bump of the solved nodes reproduces it. CONTRAST with effJacobianInverse_: that matrix
+        // is a solver-weighted, tolerance-scaled pseudoinverse formed at the solver's final
+        // iterate, used to map parameter sensitivities to quote-bucket risk
+        // (r = g^T * effJacobianInverse_ / tolerance_). jacobian_ is neither weighted nor scaled,
+        // is evaluated at the solution rather than the iterate, and is NOT the inverse of
+        // effJacobianInverse_. Populated (non-empty) iff jacobianMode_ == ANALYTIC
         // && solveMode_ == EXACT && the calibration is eligible for the AAD-tape Jacobian;
         // default-constructed (empty, 0 x 0) otherwise (APPROXIMATE solve, BUMPED mode, or an
         // ANALYTIC spec that fell back to bumped). Computed by the same AAD path as
