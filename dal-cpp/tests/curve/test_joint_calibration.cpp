@@ -542,6 +542,121 @@ TEST(JointCalibrationTest, TestJointForwardCurveHasNoBaseHandle) {
     ASSERT_NEAR((*joint3m)(today, pillar), (*staged3m)(today, pillar), 5.0e-3);
 }
 
+// ---- Base layering (opt-in baseLayeredOverDiscount_): B-new-2 fix + staged agreement ----
+
+JointMultiCurveCalibrationSpec_ BuildBaseLayeredJointSpec(const Date_& today, const Ccy_& ccy, const PrototypeSet_& proto) {
+    JointMultiCurveCalibrationSpec_ spec = BuildCanonicalJointSpec(today, ccy, proto);
+    // Match the example's EXACT mode for a fair joint-vs-staged comparison (the canonical helper
+    // defaults to APPROXIMATE; EXACT resolves the cross-curve coupling tightly).
+    spec.solveMode_ = CurveSolveMode_::Value_::EXACT;
+    // Flip the 3M declaration to base-layer-over-OIS (the example's Option 1 representation).
+    JointCurveDeclaration_& liborDecl = spec.curves_[1];
+    REQUIRE(liborDecl.curveName_ == "joint_3m", "Test setup: second declaration must be the 3M forward curve");
+    liborDecl.baseLayeredOverDiscount_ = true;
+    return spec;
+}
+
+TEST(JointCalibrationTest, TestBaseLayeredForwardCurveCarriesBaseHandle) {
+    // B-new-2 (fixed for the opt-in path): with baseLayeredOverDiscount_ = true, the stored joint 3M
+    // curve is a DiscountPWLF_ with base = joint OIS, so it polls >= 2 components (itself + the OIS
+    // base chain). An OIS bump propagates through the base handle -- the standalone forward handle
+    // now carries OIS sensitivity, unlike the baseless default (TestJointForwardCurveHasNoBaseHandle).
+    RegisterAll_::Init();
+    const Date_ today(2024, 1, 15);
+    const Ccy_ ccy("USD");
+    const PrototypeSet_ proto = BuildPrototypes(today, ccy);
+    const JointMultiCurveCalibrationSpec_ spec = BuildBaseLayeredJointSpec(today, ccy, proto);
+    const JointMultiCurveCalibrationResult_ result = CalibrateJointMultiCurve(spec);
+
+    ASSERT_TRUE(result.converged_);
+    const Handle_<DiscountCurve_>& joint3m = result.forwardCurves_.at(proto.forecastTenor);
+    Vector_<const YCComponent_*> components;
+    joint3m->Poll(&components);
+    ASSERT_GE(components.size(), 2u) << "Base-layered joint 3M should poll >= 2 components (itself + OIS base), got " << components.size();
+}
+
+TEST(JointCalibrationTest, TestBaseLayeredJointForwardAgreesWithStaged) {
+    // With base layering, both the joint and staged 3M curves smooth the OIS spread (the staged path
+    // base-layers via ApplyStageDefaults, the joint path via baseLayeredOverDiscount_). The stored
+    // curves are structurally identical (DiscountPWLF_ with base = OIS), so their DF outputs agree
+    // far tighter than the baseless joint 3M (whose short-end drift was ~1e-3 under APPROXIMATE).
+    // The joint co-optimization still lands a different OIS slice than staged's standalone OIS, so
+    // agreement is bounded by that OIS drift rather than round-off; 1e-3 retains wide margin over
+    // the percent-level drift a mis-routing (B-new-1) would produce while confirming the base wiring.
+    RegisterAll_::Init();
+    const Date_ today(2024, 1, 15);
+    const Ccy_ ccy("USD");
+    const PrototypeSet_ proto = BuildPrototypes(today, ccy);
+    const JointMultiCurveCalibrationSpec_ jointSpec = BuildBaseLayeredJointSpec(today, ccy, proto);
+    const JointMultiCurveCalibrationResult_ jointResult = CalibrateJointMultiCurve(jointSpec);
+
+    CurveCalibrationSpec_ oisStage;
+    oisStage.today_ = today;
+    oisStage.ccy_ = ccy.String();
+    oisStage.curveName_ = "staged_ois";
+    oisStage.instruments_ = proto.ois;
+    oisStage.knotDates_ = SharedKnots(today);
+    oisStage.targetCollateral_ = CollateralType_(CollateralType_::Value_::OIS);
+    oisStage.solveMode_ = CurveSolveMode_::Value_::EXACT;
+    oisStage.fitTolerance_ = 1.0e-8;
+    oisStage.liborBasis_ = proto.liborBasis;
+    CurveCalibrationSpec_ liborStage;
+    liborStage.today_ = today;
+    liborStage.ccy_ = ccy.String();
+    liborStage.curveName_ = "staged_3m";
+    liborStage.instruments_ = proto.libor;
+    liborStage.knotDates_ = SharedKnots(today);
+    liborStage.targetCollateral_ = CollateralType_(CollateralType_::Value_::OIS);
+    liborStage.targetTenor_ = proto.forecastTenor;
+    liborStage.calibrateDiscountCurve_ = false;
+    liborStage.solveMode_ = CurveSolveMode_::Value_::EXACT;
+    liborStage.fitTolerance_ = 1.0e-8;
+    liborStage.liborBasis_ = proto.liborBasis;
+    MultiCurveCalibrationSpec_ multi;
+    multi.ccy_ = ccy.String();
+    multi.liborBasis_ = proto.liborBasis;
+    multi.stages_ = Vector_<CurveCalibrationSpec_>{oisStage, liborStage};
+    const MultiCurveCalibrationResult_ stagedResult = CalibrateMultiCurve(multi);
+
+    const Handle_<DiscountCurve_>& joint3m = jointResult.forwardCurves_.at(proto.forecastTenor);
+    const Handle_<DiscountCurve_>& staged3m = stagedResult.forwardCurves_.at(proto.forecastTenor);
+    const Vector_<Date_> pillars = {
+        Date::AddMonths(today, 12), Date::AddMonths(today, 24), Date::AddMonths(today, 36),
+        Date::AddMonths(today, 60), Date::AddMonths(today, 84), Date::AddMonths(today, 120),
+    };
+    double maxDiff = 0.0;
+    for (const auto& pillar : pillars)
+        maxDiff = std::max(maxDiff, std::fabs((*joint3m)(today, pillar) - (*staged3m)(today, pillar)));
+    // EXACT measured max drift ~2.4e-5 (boundary-dominated; core 2Y-7Y at ~1e-7). The joint solve
+    // co-optimizes OIS and 3M-spread, so its OIS slice lands a few e-7 off staged's standalone OIS
+    // and that propagates through the base handle. 1e-3 retains wide margin over the percent-level
+    // drift a mis-routing (B-new-1) would produce, while confirming the base wiring is correct.
+    ASSERT_LE(maxDiff, 1.0e-3) << "Base-layered joint-vs-staged 3M DF diff " << maxDiff << " exceeds 1e-3";
+}
+
+TEST(JointCalibrationTest, TestValidatorRejectsBaseLayeringOnDiscountDeclaration) {
+    RegisterAll_::Init();
+    const Date_ today(2024, 1, 15);
+    const Ccy_ ccy("USD");
+    const PrototypeSet_ proto = BuildPrototypes(today, ccy);
+    JointMultiCurveCalibrationSpec_ spec = BuildCanonicalJointSpec(today, ccy, proto);
+    // Erroneously set base layering on the OIS discount declaration.
+    spec.curves_[0].baseLayeredOverDiscount_ = true;
+    ASSERT_THROW(static_cast<void>(CalibrateJointMultiCurve(spec)), Dal::Exception_);
+}
+
+TEST(JointCalibrationTest, TestValidatorRejectsBaseLayeringOnPWC) {
+    RegisterAll_::Init();
+    const Date_ today(2024, 1, 15);
+    const Ccy_ ccy("USD");
+    const PrototypeSet_ proto = BuildPrototypes(today, ccy);
+    JointMultiCurveCalibrationSpec_ spec = BuildCanonicalJointSpec(today, ccy, proto);
+    JointCurveDeclaration_& liborDecl = spec.curves_[1];
+    liborDecl.baseLayeredOverDiscount_ = true;
+    liborDecl.parameterization_ = CurveParameterization_::Value_::PIECEWISE_CONSTANT_FWD;
+    ASSERT_THROW(static_cast<void>(CalibrateJointMultiCurve(spec)), Dal::Exception_);
+}
+
 // ---- Diagnostics correctness ----
 
 TEST(JointCalibrationTest, TestDiagnosticsFieldsArePopulated) {
