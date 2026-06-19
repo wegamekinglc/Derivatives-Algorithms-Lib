@@ -332,6 +332,105 @@ namespace {
             std::cout << "\n";
         }
     }
+
+    // ---- main() section runners (extracted to keep main's cyclomatic complexity under the
+    //      Codacy limit of 8). Each helper is a verbatim relocation of its inline block in main:
+    //      no logic changes, so the example's stdout is byte-for-byte identical. ----
+
+    // (c) B2 sentinel: every AAD Jacobian row must have at least one non-trivial entry. An all-zero
+    // row means the tape never learned an input is an independent (the canonical missed-
+    // RegisterIndependent / wrong-recording-order failure). Catch it before the FD comparison.
+    void AssertNoAllZeroRows(const Matrix_<>& jAad) {
+        for (int i = 0; i < jAad.Rows(); ++i) {
+            double maxAbs = 0.0;
+            for (int k = 0; k < jAad.Cols(); ++k)
+                maxAbs = std::max(maxAbs, std::abs(jAad(i, k)));
+            if (maxAbs <= 1.0e-6)
+                THROW(std::string("AAD Jacobian row ") + std::to_string(i) + " is all-zero (B2 sentinel: missed RegisterIndependent?)");
+        }
+    }
+
+    // (d) AAD-vs-bump agreement loop (verbatim two-branch form, tol = 1e-9). Returns {maxAbs,
+    // maxRel} for main to print. The two-branch structure (|fd|<tol vs else) and the THROW-on-
+    // fail per cell are preserved exactly.
+    struct AgreementResult_ {
+        double maxAbs;
+        double maxRel;
+    };
+
+    AgreementResult_ RunAgreementCheck(const Matrix_<>& jBump, const Matrix_<>& jAad) {
+        double maxAbs = 0.0;
+        double maxRel = 0.0;
+        THROW_REQUIRE(jBump.Rows() == jAad.Rows() && jBump.Cols() == jAad.Cols(), "Jacobian shape mismatch");
+        for (int i = 0; i < jBump.Rows(); ++i) {
+            for (int k = 0; k < jBump.Cols(); ++k) {
+                const double fd = jBump(i, k);
+                const double an = jAad(i, k);
+                const double absErr = std::abs(an - fd);
+                maxAbs = std::max(maxAbs, absErr);
+                if (std::abs(fd) < AAD_TOL) {
+                    maxRel = std::max(maxRel, absErr);
+                    if (absErr > AAD_TOL)
+                        THROW(std::string("AAD-vs-bump FAIL at (i=") + std::to_string(i) + ",k=" + std::to_string(k) +
+                              "): |an|=" + std::to_string(absErr) + " > " + std::to_string(AAD_TOL) + " (|fd|<1e-9 branch)");
+                } else {
+                    const double rel = absErr / std::max(1.0, std::abs(fd));
+                    maxRel = std::max(maxRel, rel);
+                    if (rel > AAD_TOL)
+                        THROW(std::string("AAD-vs-bump FAIL at (i=") + std::to_string(i) + ",k=" + std::to_string(k) + "): rel=" + std::to_string(rel) +
+                              " > " + std::to_string(AAD_TOL) + " (an=" + std::to_string(an) + ", fd=" + std::to_string(fd) + ")");
+                }
+            }
+        }
+        return {maxAbs, maxRel};
+    }
+
+    // (g) Print the bucketed quote-risk vector r alongside its par-rate DV01 (r[i]*1e-4).
+    void PrintQuoteRisk(const Vector_<>& r) {
+        std::cout << std::fixed << std::setprecision(12);
+        std::cout << "  " << std::left << std::setw(22) << "raw r[i]" << std::right << std::setw(22) << "par-rate DV01 (r[i]*1e-4)"
+                  << "\n";
+        for (int i = 0; i < static_cast<int>(r.size()); ++i)
+            std::cout << "  " << std::left << std::setw(22) << r[i] << std::right << std::setw(22) << r[i] * ONE_BP << "\n";
+    }
+
+    // (h) FR6 inverse-Jacobian nonlinear re-solve sanity. For each calibration instrument, bump its
+    // market quote by +1e-4, re-run CalibrateYieldCurve (ANALYTIC), and compare the true nonlinear
+    // free-param delta against the linear prediction effJacobianInverse_(k,i) * 1e-4 / tolerance_.
+    // The solver-scaled-pseudoinverse / tolerance_ units note from main applies here verbatim.
+    void RunFR6ReSolve(
+        const CurveCalibrationSpec_& spec,
+        const CurveCalibrationOptions_& options,
+        const Matrix_<>& effJacobianInverse,
+        const Vector_<>& baselineFree,
+        int nInst,
+        int nFree) {
+        std::cout << std::fixed << std::setprecision(12);
+        std::cout << "  " << std::left << std::setw(8) << "inst" << std::right << std::setw(22) << "max rel delta" << "\n";
+        bool fr6Passed = true;
+        for (int i = 0; i < nInst; ++i) {
+            const Vector_<> trueDelta = RebumpedParamDelta(spec, options, i, ONE_BP, baselineFree);
+            Vector_<> pred(nFree, 0.0);
+            for (int k = 0; k < nFree; ++k)
+                pred[k] = effJacobianInverse(k, i) * ONE_BP / spec.tolerance_;
+            double maxRel = 0.0;
+            for (int k = 0; k < nFree; ++k) {
+                const double t = trueDelta[k];
+                const double p = pred[k];
+                const double err = std::abs(p - t);
+                const double rel = err / std::max(1.0, std::abs(t));
+                maxRel = std::max(maxRel, rel);
+                if (rel > RE_SOLVE_TOL) {
+                    fr6Passed = false;
+                    THROW(std::string("FR6 re-solve FAIL at inst=") + std::to_string(i) + " k=" + std::to_string(k) + ": rel=" + std::to_string(rel) +
+                          " > " + std::to_string(RE_SOLVE_TOL) + " (pred=" + std::to_string(p) + ", true=" + std::to_string(t) + ")");
+                }
+            }
+            std::cout << "  " << std::left << std::setw(8) << i << std::right << std::setw(22) << maxRel << "\n";
+        }
+        if (fr6Passed)
+            std::cout << "  Verdict : PASS  (all rel <= 1e-6)\n";
+    }
 } // namespace
 
 int main() {
@@ -380,44 +479,16 @@ int main() {
     // B2 sentinel: every row must have at least one non-trivial entry. An all-zero row means the
     // tape never learned an input is an independent (the canonical missed-RegisterIndependent /
     // wrong-recording-order failure). Catch it before the FD comparison.
-    for (int i = 0; i < jAad.Rows(); ++i) {
-        double maxAbs = 0.0;
-        for (int k = 0; k < jAad.Cols(); ++k)
-            maxAbs = std::max(maxAbs, std::abs(jAad(i, k)));
-        if (maxAbs <= 1.0e-6)
-            THROW(std::string("AAD Jacobian row ") + std::to_string(i) + " is all-zero (B2 sentinel: missed RegisterIndependent?)");
-    }
+    AssertNoAllZeroRows(jAad);
     PrintSection("(c) AAD Jacobian  J_aad = d(modelRate_i) / d(logDF_free_k)");
     PrintMatrix("", jAad, "rows = instruments, cols = free params; reverse sweep, 1 per row");
 
     // ---- (d) AAD-vs-bump agreement (verbatim two-branch form, tol = 1e-9) ----
     PrintSection("(d) AAD-vs-bump agreement  (verbatim two-branch form, tol = 1e-9)");
-    double maxAbs = 0.0;
-    double maxRel = 0.0;
-    THROW_REQUIRE(jBump.Rows() == jAad.Rows() && jBump.Cols() == jAad.Cols(), "Jacobian shape mismatch");
-    for (int i = 0; i < jBump.Rows(); ++i) {
-        for (int k = 0; k < jBump.Cols(); ++k) {
-            const double fd = jBump(i, k);
-            const double an = jAad(i, k);
-            const double absErr = std::abs(an - fd);
-            maxAbs = std::max(maxAbs, absErr);
-            if (std::abs(fd) < AAD_TOL) {
-                maxRel = std::max(maxRel, absErr);
-                if (absErr > AAD_TOL)
-                    THROW(std::string("AAD-vs-bump FAIL at (i=") + std::to_string(i) + ",k=" + std::to_string(k) +
-                          "): |an|=" + std::to_string(absErr) + " > " + std::to_string(AAD_TOL) + " (|fd|<1e-9 branch)");
-            } else {
-                const double rel = absErr / std::max(1.0, std::abs(fd));
-                maxRel = std::max(maxRel, rel);
-                if (rel > AAD_TOL)
-                    THROW(std::string("AAD-vs-bump FAIL at (i=") + std::to_string(i) + ",k=" + std::to_string(k) + "): rel=" + std::to_string(rel) +
-                          " > " + std::to_string(AAD_TOL) + " (an=" + std::to_string(an) + ", fd=" + std::to_string(fd) + ")");
-            }
-        }
-    }
+    const AgreementResult_ agree = RunAgreementCheck(jBump, jAad);
     std::cout << std::fixed << std::setprecision(12);
-    std::cout << "  max abs discrepancy : " << maxAbs << "\n";
-    std::cout << "  max rel discrepancy : " << maxRel << "\n";
+    std::cout << "  max abs discrepancy : " << agree.maxAbs << "\n";
+    std::cout << "  max rel discrepancy : " << agree.maxRel << "\n";
     std::cout << "  Verdict              : PASS  (rel <= 1e-9)\n";
 
     // ---- (e) effJacobianInverse_ from the EXACT solve ----
@@ -439,18 +510,12 @@ int main() {
     PrintSection("(g) Bucketed IR risk  r = g^T * effJacobianInverse_");
     std::cout << "  length = nInstruments = " << r.size() << "\n";
     std::cout << "  units: par-rate per absolute decimal quote bump\n";
-    std::cout << std::fixed << std::setprecision(12);
-    std::cout << "  " << std::left << std::setw(22) << "raw r[i]" << std::right << std::setw(22) << "par-rate DV01 (r[i]*1e-4)"
-              << "\n";
-    for (int i = 0; i < static_cast<int>(r.size()); ++i)
-        std::cout << "  " << std::left << std::setw(22) << r[i] << std::right << std::setw(22) << r[i] * ONE_BP << "\n";
+    PrintQuoteRisk(r);
 
     // ---- (h) FR6 inverse-Jacobian nonlinear re-solve sanity ----
     PrintSection("(h) FR6 inverse-Jacobian nonlinear re-solve sanity");
     std::cout << "  bump each marketRate by +1e-4, re-run CalibrateYieldCurve (ANALYTIC),\n";
     std::cout << "  compare true delta vs linear prediction effJacobianInverse_(k,i) * 1e-4 / tolerance_ (tol = 1e-6 rel)\n";
-    std::cout << std::fixed << std::setprecision(12);
-    std::cout << "  " << std::left << std::setw(8) << "inst" << std::right << std::setw(22) << "max rel delta" << "\n";
     // The solver scales each residual row by 1/tolerance_ before forming the pseudoinverse
     // (underdetermined.cpp XScaledFunc_::F divides residuals by tol; J() calls DivideRows(tol)).
     // So effJacobianInverse_(k,i) carries units d(params)/d(scaled residual), i.e.
@@ -458,29 +523,7 @@ int main() {
     // quote bump delta_m on instrument i is therefore effJacobianInverse_(k,i) * delta_m / tolerance_.
     // This was verified empirically against the nonlinear re-solve (it does NOT match a bare
     // effJacobianInverse_ * delta_m, which is off by the tolerance factor).
-    bool fr6Passed = true;
-    for (int i = 0; i < nInst; ++i) {
-        const Vector_<> trueDelta = RebumpedParamDelta(spec, options, i, ONE_BP, x);
-        Vector_<> pred(nFree, 0.0);
-        for (int k = 0; k < nFree; ++k)
-            pred[k] = effJacobianInverse(k, i) * ONE_BP / spec.tolerance_;
-        double maxRel = 0.0;
-        for (int k = 0; k < nFree; ++k) {
-            const double t = trueDelta[k];
-            const double p = pred[k];
-            const double err = std::abs(p - t);
-            const double rel = err / std::max(1.0, std::abs(t));
-            maxRel = std::max(maxRel, rel);
-            if (rel > RE_SOLVE_TOL) {
-                fr6Passed = false;
-                THROW(std::string("FR6 re-solve FAIL at inst=") + std::to_string(i) + " k=" + std::to_string(k) + ": rel=" + std::to_string(rel) +
-                      " > " + std::to_string(RE_SOLVE_TOL) + " (pred=" + std::to_string(p) + ", true=" + std::to_string(t) + ")");
-            }
-        }
-        std::cout << "  " << std::left << std::setw(8) << i << std::right << std::setw(22) << maxRel << "\n";
-    }
-    if (fr6Passed)
-        std::cout << "  Verdict : PASS  (all rel <= 1e-6)\n";
+    RunFR6ReSolve(spec, options, effJacobianInverse, x, nInst, nFree);
 
     PrintBanner("All self-checks passed.");
     return 0;
