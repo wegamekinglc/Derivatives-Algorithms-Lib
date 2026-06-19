@@ -75,8 +75,9 @@ touch. The multi-result fast path (one sweep for all rows) is a profiling-driven
 follow-up; the single-result loop is what ships today.
 
 **Files.** `dal-cpp/dal/curve/{yclogdf,ycinstrument,ycctx,calibration}.{hpp,cpp}`. The
-`TestOnly::AnalyticJacobianAt(spec, x)` helper in `calibration.cpp` exposes the dense
-Jacobian for unit-test inspection (not part of the stable public API).
+dense forward Jacobian is exposed ONLY as a byproduct of calibration on the public
+`CurveCalibrationDiagnostics_::jacobian_` field (populated by `CalibrateYieldCurve` when
+`ANALYTIC && EXACT && eligible`); there is no standalone "analytic J at a point" accessor.
 
 **Tests.** `dal-cpp/tests/curve/test_analytic_jacobian.cpp` (suite `AnalyticJacobianTest`)
 runs on every backend: central-difference agreement across all three `LogDfScheme_`

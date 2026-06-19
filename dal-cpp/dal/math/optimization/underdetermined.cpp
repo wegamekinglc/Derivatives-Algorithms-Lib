@@ -2,6 +2,8 @@
 // Created by wegam on 2022/12/10.
 //
 
+#include <functional>
+
 #include <dal/platform/platform.hpp>
 #include <dal/platform/strict.hpp>
 #include <dal/math/optimization/underdetermined.hpp>
@@ -148,6 +150,22 @@ namespace Dal {
             }
         }
 
+        // Capture the UNSCALED dense forward Jacobian at the solution. Called only on the convergence
+        // branch with the RAW func (func_in), so DivideRows(tol) is never applied -- the output is the
+        // plain dF_i/dx_j matrix. Works for any Jacobian_ subclass by probing each unit column via
+        // MultiplyLeft (which returns J * e_k = column k, length Rows). The caller guards the
+        // nullptr-Gradient case before calling, so jac is always a valid Jacobian here.
+        void StoreForwardJacobianAtSolution(const Underdetermined::Jacobian_& jac, Matrix_<>* out) {
+            out->Resize(jac.Rows(), jac.Columns());
+            for (int k = 0; k < jac.Columns(); ++k) {
+                Vector_<> ek(jac.Columns(), 0.0);
+                ek[k] = 1.0;
+                const Vector_<> col = jac.MultiplyLeft(ek);
+                for (int i = 0; i < jac.Rows(); ++i)
+                    (*out)(i, k) = col[i];
+            }
+        }
+
         class XPenaltyWeight_ : public Sparse::Square_ {
             const Sparse::Square_& W_; // must be symmetric
             const Underdetermined::Jacobian_& J_;
@@ -226,7 +244,8 @@ namespace Dal {
                                     const Vector_<>& tol,
                                     const Sparse::SymmetricDecomposition_& w,
                                     const Controls_& controls,
-                                    Matrix_<>* eff_j_inv) {
+                                    Matrix_<>* eff_j_inv,
+                                    Matrix_<>* fwd_jacobian_at_solution) {
         // set up the wrapper through which we will call the function
         XScaledFunc_ func(tol, func_in, controls);
         Vector_<> xOld(guess);
@@ -250,6 +269,23 @@ namespace Dal {
                 Vector_<> fNew = func.F(xNew);
                 if (*MaxElement(fNew) < 1.0 && *MinElement(fNew) > -1.0) {
                     StoreEffectiveJacobianInverse(*j, w, eff_j_inv);
+                    // Unscaled forward Jacobian at the solution, produced by ONE raw func_in.Gradient
+                    // call (NOT XScaledFunc_::J), so DivideRows(tol) is never applied. fNew is the
+                    // SCALED residual (XScaledFunc_::F divides by tol), so reconstruct the UNSCALED
+                    // residual as fNew * tol element-wise and pass that -- no redundant func_in.F
+                    // evaluation, which matters because func_in.F bypasses the solver's nEvals_ budget
+                    // in XScaledFunc_. (F/tol)*tol == F to machine precision, and it is correct for any
+                    // Function_ whose Gradient consumes f, harmless for the analytic path (which
+                    // ignores f). A nullptr Gradient return clears the output so a caller-reused matrix
+                    // cannot leak stale contents; there is no dense-FD fallback on this branch.
+                    if (fwd_jacobian_at_solution) {
+                        fwd_jacobian_at_solution->Clear();
+                        Vector_<> fUnscaled = fNew;
+                        Transform(&fUnscaled, tol, std::multiplies<>());
+                        std::unique_ptr<Jacobian_> jSol(func_in.Gradient(xNew, fUnscaled));
+                        if (jSol)
+                            StoreForwardJacobianAtSolution(*jSol, fwd_jacobian_at_solution);
+                    }
                     return xNew;
                 }
 

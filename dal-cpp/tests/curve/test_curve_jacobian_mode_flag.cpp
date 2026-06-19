@@ -130,8 +130,9 @@ TEST(CurveJacobianModeFlagTest, TestMigrationGateDefaultMatchesBumped) {
 }
 
 // ANALYTIC + eligible: both Jacobians are exact, so the analytic run must converge to the same
-// node log-DFs as BUMPED. ("Analytic actually engaged" is asserted via TestOnly::AnalyticJacobianAt
-// in test_analytic_jacobian.cpp; here we assert the end-to-end flag behavior.)
+// node log-DFs as BUMPED. "Analytic actually engaged" is asserted directly here via the byproduct:
+// rAnalytic.diagnostics_.jacobian_ is non-empty (the forward J is produced only when ANALYTIC &&
+// EXACT && eligible), while rBumped.diagnostics_.jacobian_ is empty.
 
 TEST(CurveJacobianModeFlagTest, TestAnalyticEligibleMatchesBumped) {
     const auto spec = MakeEligibleSpec();
@@ -147,6 +148,11 @@ TEST(CurveJacobianModeFlagTest, TestAnalyticEligibleMatchesBumped) {
     // Both paths must converge.
     ASSERT_LT(rBumped.diagnostics_.maxAbsResidual_, 1.0e-7);
     ASSERT_LT(rAnalytic.diagnostics_.maxAbsResidual_, 1.0e-7);
+
+    // The analytic path engaged: the byproduct forward Jacobian is populated for ANALYTIC + EXACT
+    // + eligible, and empty for BUMPED.
+    ASSERT_FALSE(rAnalytic.diagnostics_.jacobian_.Empty());
+    ASSERT_TRUE(rBumped.diagnostics_.jacobian_.Empty());
 
     // The analytic Jacobian is exact, so the solver lands on the same node log-DFs as the bumped
     // path (both solve the same nonlinear system to the same tolerance).
