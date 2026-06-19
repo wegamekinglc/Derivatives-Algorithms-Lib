@@ -28,11 +28,23 @@ $$
 **AAD reverse sweep.** Recording the free node values as independents on the AAD
 tape, building a `Number_`-typed curve, and running one reverse sweep per
 instrument output harvests a full row of $J$ at the cost of one forward pass plus
-$n$ sweeps — the canonical AAD cost asymmetry. The example records the tape from
-first principles (it does not call `TestOnly::AnalyticJacobianAt`) so the
-mechanics are visible; the same tape sits behind the library's
-`CurveJacobianMode_::ANALYTIC` flag (see
-[Analytic Jacobian for curve calibration](../experimental/aad-analytic-jacobian-curve-calibration.md)).
+$n$ sweeps — the canonical AAD cost asymmetry. This is the sweep behind the
+library's `CurveJacobianMode_::ANALYTIC` flag (see
+[Analytic Jacobian for curve calibration](../experimental/aad-analytic-jacobian-curve-calibration.md)),
+and `CalibrateYieldCurve` exposes its result on the public diagnostics struct:
+`CurveCalibrationDiagnostics_::jacobian_` (shape `nInstruments × nFreeParams`) is a
+fresh analytic reverse sweep evaluated at the solved $x^\star$. It is the plain
+Jacobian before the solver's `DivideRows(tol_)` row-scaling, and it is populated
+iff `jacobianMode_ = ANALYTIC && solveMode_ = EXACT` and the calibration is
+eligible for the AAD-tape Jacobian (default-constructed empty otherwise). The
+example reads $J$ straight from `result.diagnostics_.jacobian_`, so the AAD
+recording contract and backend-portability rules live in the library rather than
+in example code.
+
+`jacobian_` is a different object from `effJacobianInverse_` below: it is unscaled
+and evaluated at the solution, whereas `effJacobianInverse_` is a solver-weighted,
+tolerance-scaled pseudoinverse formed at the solver's final iterate. They are not
+inverses in their exposed form.
 
 **Bump oracle.** A two-sided central difference — perturb $x_k$ by $\pm h$,
 rebuild the curve via `NewDiscountLogDF(...)`, reprice every instrument — gives

@@ -802,7 +802,27 @@ namespace Dal {
                                         spec.liborBasis_, spec.logDfScheme_, options.jacobianMode_);
 
         const SolverOutput_ solved = RunCalibrationSolver(spec, func, guess, tol, *weights);
-        return AssembleCalibrationResult(spec, instruments, knotDates, solved.result_, solved.effJacobianInverse_);
+        CurveCalibrationResult_ retval = AssembleCalibrationResult(spec, instruments, knotDates, solved.result_, solved.effJacobianInverse_);
+
+        // Forward Jacobian at the solution. effJacobianInverse_ is formed inside the solver at its
+        // final iterate -- a Broyden-perturbed working matrix, solver-weighted and tolerance-scaled
+        // -- which is the wrong object to expose as "the Jacobian". Instead re-evaluate the clean
+        // analytic J at the solved x (where an independent bump oracle also evaluates, so the two
+        // agree to ~machine precision). func.Gradient returns the analytic XCurveJacobian_ iff
+        // ANALYTIC && eligible, else nullptr; combined with the EXACT guard this leaves jacobian_
+        // empty for APPROXIMATE solves, BUMPED mode, and ineligible ANALYTIC specs, mirroring the
+        // effJacobianInverse_ population condition.
+        if (options.jacobianMode_ == CurveJacobianMode_::Value_::ANALYTIC && spec.solveMode_ == CurveSolveMode_::Value_::EXACT) {
+            const Vector_<> fAtSolution = func.F(solved.result_);
+            std::unique_ptr<Underdetermined::Jacobian_> j(func.Gradient(solved.result_, fAtSolution));
+            if (j) {
+                const auto* dense = dynamic_cast<const XCurveJacobian_*>(j.get());
+                if (dense) {
+                    retval.diagnostics_.jacobian_ = dense->j_;
+                }
+            }
+        }
+        return retval;
     }
 
     MultiCurveCalibrationResult_ CalibrateMultiCurve(const MultiCurveCalibrationSpec_& spec) {

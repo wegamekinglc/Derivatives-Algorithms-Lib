@@ -52,6 +52,9 @@ namespace Dal {
         Vector_<> modelRates_;
         Vector_<> residuals_;
         Matrix_<> effJacobianInverse_;
+        // Forward-Jacobian mirror of CurveCalibrationDiagnostics_::jacobian_. Left empty on the
+        // cross-currency path; populated only by single-curve CalibrateYieldCurve for now.
+        Matrix_<> jacobian_;
         double maxAbsResidual_ = 0.0;
         double rmsResidual_ = 0.0;
         bool usedApproximateFit_ = false;

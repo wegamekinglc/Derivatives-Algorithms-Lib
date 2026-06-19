@@ -51,9 +51,10 @@ using namespace Dal;
 // AAD is always compiled in this library (dal-cpp/dal/math/aad/aad.hpp:17 defines the native AAET
 // backend on the "no DAL_USE_*_AAD flag set" branch) and the analytic Jacobian it produces runs
 // identically under native AAET, Adept, XAD, and CoDiPack. Arc (a) does not record its own tape:
-// it delegates to the library's own analytic Jacobian (Dal::TestOnly::AnalyticJacobianAt, which
-// wraps YieldCurveCalibrationFunc_::AnalyticJacobian in dal-cpp/dal/curve/calibration.cpp:510-565)
-// so the AAD recording contract and backend-portability rules live in exactly one place. The bump
+// it reads the forward Jacobian the calibration already computed -- CalibrateYieldCurve populates
+// CurveCalibrationDiagnostics_::jacobian_ via a fresh AAD reverse sweep at the solved x (the same
+// YieldCurveCalibrationFunc_::AnalyticJacobian machinery in dal-cpp/dal/curve/calibration.cpp:510-565)
+// -- so the AAD recording contract and backend-portability rules live in exactly one place. The bump
 // oracle below remains an independent finite-difference check; the AAD-vs-bump comparison is what
 // makes arc (a) a real cross-check rather than a tautology.
 
@@ -196,22 +197,6 @@ namespace {
                 j(i, k) = (modelUp - modelDn) / (2.0 * h);
             }
         }
-        return j;
-    }
-
-    // AAD reverse-sweep Jacobian J_aad(i,k) = d(modelRate_i) / d(logDF_free_k). Delegate to the
-    // library's own analytic Jacobian rather than re-recording the tape here: the residual Jacobian
-    // d(modelRate - marketRate)/d(logDF) equals d(modelRate)/d(logDF) since marketRate is constant,
-    // which is the unscaled quantity TestOnly::AnalyticJacobianAt returns. The underlying sweep is
-    // YieldCurveCalibrationFunc_::AnalyticJacobian in dal-cpp/dal/curve/calibration.cpp:510-565; the
-    // AAD recording contract and backend-portability rules it encodes are documented in
-    // docs/methodology/aad.md. Reusing it keeps the example's trickiest AAD code in one place.
-    Matrix_<> AadJacobian(const CurveCalibrationSpec_& spec, const Vector_<>& x) {
-        Matrix_<> j = Dal::TestOnly::AnalyticJacobianAt(spec, x);
-        // AnalyticJacobianAt returns an empty matrix when the spec is ineligible for the AAD-tape
-        // path (e.g. parameterization_ != LOG_DISCOUNT). The Phase A LOG_DISCOUNT spec built here is
-        // always eligible, so an empty result means the analytic path silently did not engage.
-        THROW_REQUIRE(!j.Empty(), "analytic Jacobian is empty -- spec is ineligible for the AAD-tape path");
         return j;
     }
 
@@ -370,9 +355,9 @@ int main() {
     const auto result = CalibrateYieldCurve(spec, options);
 
     // Eligibility backstop: if the spec silently fell back to BUMPED (ANALYTIC never throws, it
-    // only emits a NOTICE and falls back), the AAD path is a no-op and the whole teaching payload
-    // is hollow. Detect via the analytic-tape Jacobian matching the residual oracle at the solved
-    // point: compute J_aad from first principles and confirm it is non-trivial.
+    // only emits a NOTICE and falls back), the AAD path is a no-op and diagnostics_.jacobian_ is
+    // empty. The non-empty check on jacobian_ in arc (c) catches that before the FD comparison
+    // renders the teaching payload hollow.
     const Vector_<> x = SolvedFreeParams(*result.curve_);
 
     PrintSection("(a) Calibration residuals");
@@ -385,8 +370,13 @@ int main() {
     PrintSection("(b) Bump Jacobian  J_bump = d(modelRate_i) / d(logDF_free_k)");
     PrintMatrix("", jBump, "rows = instruments, cols = free params; central diff h = 1e-6");
 
-    // ---- (c) AAD Jacobian (reverse sweep, from first principles) ----
-    const Matrix_<> jAad = AadJacobian(spec, x);
+    // ---- (c) AAD Jacobian (analytic reverse sweep, read from the calibration diagnostics) ----
+    // jacobian_ is populated by CalibrateYieldCurve on the EXACT + ANALYTIC + eligible path via a
+    // fresh AAD reverse sweep at the solved x -- the same point the bump oracle evaluates -- so the
+    // AAD-vs-bump comparison below cross-checks the library's analytic Jacobian against an
+    // independent finite-difference oracle rather than a re-evaluation of the same code.
+    const Matrix_<>& jAad = result.diagnostics_.jacobian_;
+    THROW_REQUIRE(!jAad.Empty(), "diagnostics_.jacobian_ is empty -- ANALYTIC path did not engage (ineligible spec?)");
     // B2 sentinel: every row must have at least one non-trivial entry. An all-zero row means the
     // tape never learned an input is an independent (the canonical missed-RegisterIndependent /
     // wrong-recording-order failure). Catch it before the FD comparison.

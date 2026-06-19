@@ -107,6 +107,22 @@ namespace Dal {
         Vector_<> modelRates_;
         Vector_<> residuals_;
         Matrix_<> effJacobianInverse_;
+        // Unscaled analytic forward Jacobian d(modelRate_i) / d(logDF_free_k), shape
+        // nInstruments x (nKnots - 1), evaluated at the calibrated solution (the solved
+        // free-node logDF vector) by a fresh AAD reverse sweep in CalibrateYieldCurve.
+        // This is the plain Jacobian before the solver's DivideRows(tol_) row-scaling; an
+        // independent finite-difference bump of the solved nodes reproduces it. CONTRAST with
+        // effJacobianInverse_: that matrix is a solver-weighted, tolerance-scaled pseudoinverse
+        // formed at the solver's final iterate, used to map parameter sensitivities to
+        // quote-bucket risk (r = g^T * effJacobianInverse_ / tolerance_). jacobian_ is neither
+        // weighted nor scaled, is evaluated at the solution rather than the iterate, and is NOT
+        // the inverse of effJacobianInverse_. Populated (non-empty) iff jacobianMode_ == ANALYTIC
+        // && solveMode_ == EXACT && the calibration is eligible for the AAD-tape Jacobian;
+        // default-constructed (empty, 0 x 0) otherwise (APPROXIMATE solve, BUMPED mode, or an
+        // ANALYTIC spec that fell back to bumped). Computed by the same AAD path as
+        // TestOnly::AnalyticJacobianAt but carried on the public diagnostics struct so consumers
+        // (e.g. the yield_curve_jacobian example) read it without a TestOnly dependency.
+        Matrix_<> jacobian_;
         double maxAbsResidual_ = 0.0;
         double rmsResidual_ = 0.0;
         bool usedApproximateFit_ = false;
