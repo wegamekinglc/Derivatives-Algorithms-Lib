@@ -268,11 +268,16 @@ namespace Dal {
                 if (*MaxElement(fNew) < 1.0 && *MinElement(fNew) > -1.0) {
                     StoreEffectiveJacobianInverse(*j, w, eff_j_inv);
                     // Unscaled forward Jacobian at the solution, produced by ONE raw func_in.Gradient
-                    // call (NOT XScaledFunc_::J), so DivideRows(tol) is never applied. fNew is the scaled
-                    // residual but the analytic Gradient ignores f, so this is safe for the analytic
-                    // path. A nullptr Gradient return leaves the output empty -- no dense-FD fallback.
+                    // call (NOT XScaledFunc_::J), so DivideRows(tol) is never applied. fNew is the
+                    // SCALED residual (XScaledFunc_::F divides by tol), so pass the UNSCALED
+                    // func_in.F(xNew) instead -- correct for any Function_ whose Gradient consumes f,
+                    // and harmless for the analytic path (which ignores f). A nullptr Gradient return
+                    // clears the output so a caller-reused matrix cannot leak stale contents; there is
+                    // no dense-FD fallback on this branch.
                     if (fwd_jacobian_at_solution) {
-                        std::unique_ptr<Jacobian_> jSol(func_in.Gradient(xNew, fNew));
+                        fwd_jacobian_at_solution->Clear();
+                        const Vector_<> fUnscaled = func_in.F(xNew);
+                        std::unique_ptr<Jacobian_> jSol(func_in.Gradient(xNew, fUnscaled));
                         if (jSol)
                             StoreForwardJacobianAtSolution(*jSol, fwd_jacobian_at_solution);
                     }

@@ -162,8 +162,8 @@ namespace {
         };
         // Annual swaps maturing at 1Y..10Y with a smoothly rising par-rate term structure
         // (1.00% -> 2.50%): a gentle linear ramp keeps the 10x10 LOG_DISCOUNT system well-
-        // conditioned so the 1e-9 AAD-vs-bump bar holds. The FR6 nonlinear re-solve bar is loosened
-        // to 1e-3 at this size (see RE_SOLVE_TOL) because the linear-vs-nonlinear gap grows
+        // conditioned so the 1e-9 AAD-vs-bump bar holds. The FR6 nonlinear re-solve bar is set to
+        // 1e-4 at this size (see RE_SOLVE_TOL) because the linear-vs-nonlinear gap grows
         // intrinsically with the number of knots -- bumping a long-end quote propagates through
         // every intervening LOG_DISCOUNT knot, accumulating second-order terms that the linear
         // prediction cannot capture.
