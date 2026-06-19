@@ -171,7 +171,9 @@ extend it. Knots can be supplied by the caller, taken from the instrument
 maturities, or formed from the union of both. After the solve, repricing residuals
 (RMS and maximum absolute error) quantify the fit quality, and the effective
 (weighted) Jacobian inverse is retained so that risk sensitivities can be obtained
-without re-solving the system.
+without re-solving the system. That inverse carries a `tolerance_` factor from the
+solver's residual scaling — see [Yield-Curve Jacobian and Inverse-Jacobian
+Risk](yield_curve_jacobian.md) before consuming it.
 
 ## Construction Pipeline
 
@@ -293,7 +295,11 @@ for (const int months : {6, 12, 24, 60, 120}) {
 The `CurveCalibrationDiagnostics_` returned in `result.diagnostics_` carries
 per-instrument market/model rates and residuals, plus `rmsResidual_` and
 `maxAbsResidual_`; the `effJacobianInverse_` matrix maps quote bumps to
-forward-rate parameters without re-solving.
+forward-rate parameters without re-solving. Note that its units include an extra
+`tolerance_` factor (the solver scales residuals by `1/tolerance_` before forming
+the pseudoinverse), so a sensitivity transform must read
+`r = gᵀ · effJacobianInverse_ / tolerance_` — see [Yield-Curve Jacobian and
+Inverse-Jacobian Risk](yield_curve_jacobian.md).
 
 API citations:
 
