@@ -264,8 +264,8 @@ TEST(ForwardJacobianDiagnosticsTest, TestEmptyWhenAnalyticIneligibleFallback) {
 }
 
 // Multi-curve stage check: CalibrateMultiCurve routes every stage through CalibrateYieldCurve with
-// default (BUMPED) options, so every stage's jacobian_ is empty while effJacobianInverse_ is
-// populated where the stage solved EXACT.
+// default (ANALYTIC) options, so every eligible stage's jacobian_ is populated while
+// effJacobianInverse_ is also populated where the stage solved EXACT.
 
 TEST(ForwardJacobianDiagnosticsTest, TestMultiCurveStagesMatchMode) {
     auto mkStage = [](const String_& name) {
@@ -286,8 +286,8 @@ TEST(ForwardJacobianDiagnosticsTest, TestMultiCurveStagesMatchMode) {
 
     for (int i = 0; i < static_cast<int>(result.diagnostics_.size()); ++i) {
         const auto& d = result.diagnostics_[i];
-        // Default options = BUMPED: jacobian_ empty by the explicit EXACT && ANALYTIC guard.
-        ASSERT_TRUE(d.jacobian_.Empty()) << "stage " << i << " jacobian_ should be empty under default BUMPED options";
+        // Default options = ANALYTIC: eligible stages populate jacobian_ (EXACT && ANALYTIC && eligible).
+        ASSERT_FALSE(d.jacobian_.Empty()) << "stage " << i << " jacobian_ should be populated under default ANALYTIC options";
         // EXACT solve (default) still populates effJacobianInverse_.
         ASSERT_FALSE(d.effJacobianInverse_.Empty()) << "stage " << i << " effJacobianInverse_ should be populated by EXACT solve";
     }

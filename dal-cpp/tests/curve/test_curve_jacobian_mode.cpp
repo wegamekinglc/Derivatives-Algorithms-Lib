@@ -10,9 +10,9 @@ using namespace Dal;
 
 // CurveJacobianMode_ is the runtime on/off flag for the curve-calibration AAD analytic Jacobian
 // (PR3 of the analytic-Jacobian redesign). It is a Machinist-generated, switchable enum with
-// exactly two values: BUMPED (the byte-for-byte pre-analytic baseline, the default) and ANALYTIC
-// (the AAD-derived dense Jacobian, best-effort hint that never throws). These tests pin the
-// enum shape, the default-constructed value, and the round-trip string mapping.
+// exactly two values: BUMPED (the byte-for-byte pre-analytic baseline) and ANALYTIC (the AAD-derived
+// dense Jacobian, best-effort hint that never throws, the default). These tests pin the enum shape,
+// the default-constructed value, and the round-trip string mapping.
 
 TEST(CurveJacobianModeTest, TestHasBumpedAndAnalyticValues) {
     const CurveJacobianMode_ bumped = CurveJacobianMode_::Value_::BUMPED;
@@ -36,10 +36,10 @@ TEST(CurveJacobianModeTest, TestStringRoundTrip) {
     ASSERT_EQ(CurveJacobianMode_(String_("ANALYTIC")).Switch(), CurveJacobianMode_::Value_::ANALYTIC);
 }
 
-TEST(CurveJacobianModeTest, TestOptionsDefaultIsBumped) {
+TEST(CurveJacobianModeTest, TestOptionsDefaultIsAnalytic) {
     // CurveCalibrationOptions_ is a peer of CurveCalibrationSpec_ (NOT serialized with the spec).
-    // A default-constructed CurveCalibrationOptions_ has jacobianMode_ == BUMPED, reproducing the
-    // pre-analytic bumped path byte-for-byte. This is the migration gate's foundation.
+    // A default-constructed CurveCalibrationOptions_ has jacobianMode_ == ANALYTIC -- eligible
+    // calibrations engage the AAD Jacobian by default, ineligible ones fall back to bumped.
     const CurveCalibrationOptions_ options;
-    ASSERT_EQ(options.jacobianMode_.Switch(), CurveJacobianMode_::Value_::BUMPED);
+    ASSERT_EQ(options.jacobianMode_.Switch(), CurveJacobianMode_::Value_::ANALYTIC);
 }
