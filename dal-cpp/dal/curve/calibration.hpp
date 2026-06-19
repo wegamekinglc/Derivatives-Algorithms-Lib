@@ -40,13 +40,14 @@ enumeration CurveJacobianMode
     Jacobian construction mode for curve calibration
 switchable
 alternative BUMPED
-    Finite-difference bumping of each free node. Default; byte-for-byte
-    identical to the pre-analytic path. Always available.
+    Finite-difference bumping of each free node. Byte-for-byte identical to
+    the pre-analytic path. Always available.
 alternative ANALYTIC
-    AAD-derived dense Jacobian. Engages only when EligibleForAnalyticJacobian()
-    is true (LOG_DISCOUNT + DISCOUNT-target + forecast==discount + vanilla
-    swap/deposit/FRA/Future + tradeDate == anchor); otherwise falls back to
-    BUMPED with a NOTICE. ANALYTIC never throws -- it is a best-effort hint.
+    AAD-derived dense Jacobian. Default. Engages only when
+    EligibleForAnalyticJacobian() is true (LOG_DISCOUNT + DISCOUNT-target +
+    forecast==discount + vanilla swap/deposit/FRA/Future + tradeDate ==
+    anchor); otherwise falls back to BUMPED with a NOTICE. ANALYTIC never
+    throws -- it is a best-effort hint.
 -IF-------------------------------------------------------------------------*/
 
 #include <memory>
@@ -94,10 +95,11 @@ namespace Dal {
     };
 
     // Solver-side options, NOT serialized with the spec: the spec describes WHAT to calibrate,
-    // these describe HOW to solve. Default-constructed options reproduce the pre-analytic bumped
-    // path byte-for-byte.
+    // these describe HOW to solve. The default is ANALYTIC: eligible calibrations engage the AAD
+    // Jacobian, ineligible ones fall back to bumped with a NOTICE (ANALYTIC never throws), so the
+    // default is byte-for-byte identical to the bumped path only for ineligible specs.
     struct CurveCalibrationOptions_ {
-        CurveJacobianMode_ jacobianMode_ = CurveJacobianMode_::Value_::BUMPED;
+        CurveJacobianMode_ jacobianMode_ = CurveJacobianMode_::Value_::ANALYTIC;
     };
 
     struct CurveCalibrationDiagnostics_ {
