@@ -20,7 +20,14 @@
 #include <dal/protocol/collateraltype.hpp>
 #include <dal/storage/globals.hpp>
 #include <dal/time/date.hpp>
+// daybasis.hpp + periodlength.hpp are load-bearing under the AAD backend builds (Adept/CoDiPack/XAD):
+// schedules.hpp and MG_DayBasis_enum.hpp use Handle_ and assert without including them, and the AAD
+// backend changes the transitive include graph so the platform.hpp definitions are not in scope on
+// the transitive path. Including daybasis.hpp explicitly after platform.hpp makes the build
+// backend-neutral. Do not auto-strip as "unused".
+#include <dal/time/daybasis.hpp>
 #include <dal/time/holidays.hpp>
+#include <dal/time/periodlength.hpp>
 #include <dal/time/schedules.hpp>
 #include <dal/utilities/exceptions.hpp>
 #include <dal/utilities/timer.hpp>
