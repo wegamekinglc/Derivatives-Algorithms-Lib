@@ -366,7 +366,12 @@ namespace {
                      const Matrix_<>& m,
                      const String_& orientation,
                      const Vector_<Date_>& rowDates,
-                     const Vector_<Date_>& colDates) {
+                     const Vector_<Date_>& colDates,
+                     double scale = 1.0) {
+        // `scale` multiplies every printed entry. The default 1.0 prints the raw matrix; pass
+        // 1/tolerance_ for effJacobianInverse_ so the displayed matrix is in natural units (the
+        // solver pre-scales that matrix by tolerance_, making the raw entries ~1e-10 and invisible
+        // at fixed-6 precision).
         std::cout << std::fixed << std::setprecision(6);
         if (!label.empty())
             std::cout << label << "\n";
@@ -378,7 +383,7 @@ namespace {
         for (int i = 0; i < m.Rows(); ++i) {
             std::cout << std::left << std::setw(14) << IsoDate(rowDates[i]);
             for (int j = 0; j < m.Cols(); ++j)
-                std::cout << std::right << std::setw(13) << m(i, j);
+                std::cout << std::right << std::setw(13) << (m(i, j) * scale);
             std::cout << "\n";
         }
     }
@@ -607,11 +612,19 @@ int main() {
     std::cout << "  Verdict              : PASS  (rel <= 1e-9)\n";
 
     // ---- (e) effJacobianInverse_ from the EXACT solve ----
+    // The solver returns the inverse Jacobian pre-scaled by tolerance_ (each residual row is
+    // divided by tolerance_ before the pseudoinverse is formed), so the raw effJacobianInverse_(k,i)
+    // has units d(params) * tolerance_ / d(decimal-rate perturbation) and is ~1e-10 here -- invisible
+    // at fixed-6 precision. Dividing by tolerance_ for DISPLAY recovers the natural inverse Jacobian
+    // d(logDF_free_k) / d(decimal quote_i), the same honest unit sections (g)/(h) consume. The raw
+    // matrix is left untouched for those downstream sections.
     const Matrix_<>& effJacobianInverse = result.diagnostics_.effJacobianInverse_;
     THROW_REQUIRE(effJacobianInverse.Rows() == nFree && effJacobianInverse.Cols() == nInst,
                   "effJacobianInverse_ shape must be nFreeParams x nInstruments (populated only by EXACT solve)");
-    PrintSection("(e) effJacobianInverse_  d(params) * tolerance_ / d(decimal-rate perturbation)");
-    PrintMatrix("", effJacobianInverse, "rows = free params, cols = instruments; solver-scaled pseudoinverse", freeKnots, maturities);
+    PrintSection("(e) Inverse Jacobian  d(logDF_free_k) / d(decimal quote_i)  [= effJacobianInverse_ / tolerance_]");
+    std::cout << "  units: d(logDF_free param) per absolute decimal quote bump\n";
+    PrintMatrix("", effJacobianInverse, "rows = free params, cols = instruments; = effJacobianInverse_ / tolerance_", freeKnots, maturities,
+                1.0 / spec.tolerance_);
 
     // ---- (f) Portfolio parameter sensitivity g ----
     const Vector_<> g = PortfolioParamSensitivity(spec, x, BUMP_STEP);
