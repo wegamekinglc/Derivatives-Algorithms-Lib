@@ -144,8 +144,9 @@ namespace {
     // free-node log-DFs) to a two-sided central difference of EvalResiduals at the solution. Every
     // entry must match within relTol (scaled by the FD magnitude). Asserts the byproduct J is
     // populated with the expected nInstruments x (nKnots - 1) shape first.
-    void AssertJacobianMatchesCentralDifferenceAtSolution(const CurveCalibrationSpec_& spec, double h, double relTol) {
-        const CurveCalibrationResult_ result = CalibrateAnalytic(spec);
+    void AssertJacobianMatchesCentralDifferenceAtSolution(const CurveCalibrationSpec_& spec, double h, double relTol,
+                                                          CurveCalibrationResult_* outResult = nullptr) {
+        CurveCalibrationResult_ result = CalibrateAnalytic(spec);
         ASSERT_LT(result.diagnostics_.maxAbsResidual_, 1.0e-7);
 
         const Matrix_<>& J = result.diagnostics_.jacobian_;
@@ -174,6 +175,8 @@ namespace {
                 }
             }
         }
+        if (outResult)
+            *outResult = std::move(result);
     }
 } // namespace
 
@@ -347,7 +350,7 @@ TEST(AnalyticJacobianTest, TestIneligibleForecastTargetFallsBack) {
 
     const MultiCurveCalibrationResult_ result = CalibrateMultiCurve(multi);
     ASSERT_EQ(result.diagnostics_.size(), 2u);
-    ASSERT_FALSE(result.forwardCurves_.empty());
+    ASSERT_EQ(result.forwardCurves_.count(PeriodLength_("3M")), 1u);
     // The forecast-target forward stage is ineligible for the AAD Jacobian -> empty byproduct J.
     ASSERT_TRUE(result.diagnostics_[1].jacobian_.Empty());
 }
@@ -480,12 +483,12 @@ TEST(AnalyticJacobianTest, TestSingleDepositTapeMatchesCentralDifference) {
     spec.instruments_ = {Handle_<YCInstrument_>(
         new Deposit_(spec.today_, spec.today_, Date_(2022, 4, 1), 0.011, idx))};
 
-    AssertJacobianMatchesCentralDifferenceAtSolution(spec, 1.0e-6, 1.0e-9);
+    CurveCalibrationResult_ result;
+    AssertJacobianMatchesCentralDifferenceAtSolution(spec, 1.0e-6, 1.0e-9, &result);
 
     // The deposit's only cashflow is at 2022-04-01 -- solver column 0 under LOG_LINEAR. Columns
-    // 1..4 must be EXACTLY zero (AAD structural zero, no FD noise). Re-calibrate to read the
-    // byproduct J (AssertJacobianMatchesCentralDifferenceAtSolution already proved FD agreement).
-    const CurveCalibrationResult_ result = CalibrateAnalytic(spec);
+    // 1..4 must be EXACTLY zero (AAD structural zero, no FD noise). The helper above already proved
+    // FD agreement and hands back its byproduct J for these structural-zero checks.
     const Matrix_<>& J = result.diagnostics_.jacobian_;
     ASSERT_EQ(J.Rows(), 1);
     ASSERT_EQ(J.Cols(), 5);
@@ -535,11 +538,11 @@ TEST(AnalyticJacobianTest, TestMixedInstrumentCalibrationMatchesCentralDifferenc
         Handle_<YCInstrument_>(new Swap_(spec.today_, spec.today_, Date_(2025, 1, 1), 0.018, fixedLeg, idx, floatLeg)),
     };
 
-    AssertJacobianMatchesCentralDifferenceAtSolution(spec, 1.0e-6, 1.0e-9);
+    CurveCalibrationResult_ result;
+    AssertJacobianMatchesCentralDifferenceAtSolution(spec, 1.0e-6, 1.0e-9, &result);
 
     // Structural zeros: the deposit (row 0) ends at 2022-04-01, so columns 1..4 must be exactly
     // zero. The FRA (row 1) ends at 2022-07-01, so columns 2..4 must be exactly zero.
-    const CurveCalibrationResult_ result = CalibrateAnalytic(spec);
     const Matrix_<>& J = result.diagnostics_.jacobian_;
     ASSERT_EQ(J.Rows(), 3);
     ASSERT_EQ(J.Cols(), 5);
@@ -640,8 +643,8 @@ TEST(AnalyticJacobianTest, TestLaterRowsCleanOfEarlierResidue) {
 
 TEST(AnalyticJacobianTest, TestNonSymmetricLayoutAsymmetricPair) {
     auto spec = MakePhaseASpec();
-    AssertJacobianMatchesCentralDifferenceAtSolution(spec, 1.0e-6, 1.0e-9);
-    const CurveCalibrationResult_ result = CalibrateAnalytic(spec);
+    CurveCalibrationResult_ result;
+    AssertJacobianMatchesCentralDifferenceAtSolution(spec, 1.0e-6, 1.0e-9, &result);
     const Matrix_<>& J = result.diagnostics_.jacobian_;
     ASSERT_EQ(J.Rows(), 5);
     ASSERT_EQ(J.Cols(), 5);
