@@ -2,6 +2,8 @@
 // Created by wegam on 2022/12/10.
 //
 
+#include <functional>
+
 #include <dal/platform/platform.hpp>
 #include <dal/platform/strict.hpp>
 #include <dal/math/optimization/underdetermined.hpp>
@@ -269,14 +271,17 @@ namespace Dal {
                     StoreEffectiveJacobianInverse(*j, w, eff_j_inv);
                     // Unscaled forward Jacobian at the solution, produced by ONE raw func_in.Gradient
                     // call (NOT XScaledFunc_::J), so DivideRows(tol) is never applied. fNew is the
-                    // SCALED residual (XScaledFunc_::F divides by tol), so pass the UNSCALED
-                    // func_in.F(xNew) instead -- correct for any Function_ whose Gradient consumes f,
-                    // and harmless for the analytic path (which ignores f). A nullptr Gradient return
-                    // clears the output so a caller-reused matrix cannot leak stale contents; there is
-                    // no dense-FD fallback on this branch.
+                    // SCALED residual (XScaledFunc_::F divides by tol), so reconstruct the UNSCALED
+                    // residual as fNew * tol element-wise and pass that -- no redundant func_in.F
+                    // evaluation, which matters because func_in.F bypasses the solver's nEvals_ budget
+                    // in XScaledFunc_. (F/tol)*tol == F to machine precision, and it is correct for any
+                    // Function_ whose Gradient consumes f, harmless for the analytic path (which
+                    // ignores f). A nullptr Gradient return clears the output so a caller-reused matrix
+                    // cannot leak stale contents; there is no dense-FD fallback on this branch.
                     if (fwd_jacobian_at_solution) {
                         fwd_jacobian_at_solution->Clear();
-                        const Vector_<> fUnscaled = func_in.F(xNew);
+                        Vector_<> fUnscaled = fNew;
+                        Transform(&fUnscaled, tol, std::multiplies<>());
                         std::unique_ptr<Jacobian_> jSol(func_in.Gradient(xNew, fUnscaled));
                         if (jSol)
                             StoreForwardJacobianAtSolution(*jSol, fwd_jacobian_at_solution);

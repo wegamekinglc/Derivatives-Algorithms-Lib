@@ -2,9 +2,9 @@
 // Created by wegam on 2026/4/23.
 //
 
-#include <memory>
 #include <gtest/gtest.h>
 #include <cmath>
+#include <memory>
 #include <dal/platform/platform.hpp>
 #include <dal/math/matrix/banded.hpp>
 #include <dal/math/matrix/matrixs.hpp>
