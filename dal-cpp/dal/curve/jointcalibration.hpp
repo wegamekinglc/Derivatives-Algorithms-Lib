@@ -56,7 +56,7 @@ namespace Dal {
         double initialGuess_ = 0.05;   // default per-node initial guess
         int maxEvaluations_ = 200;
         int maxRestarts_ = 20;
-        CurveSolveMode_ solveMode_ = CurveSolveMode_::Value_::APPROXIMATE;
+        CurveSolveMode_ solveMode_ = CurveSolveMode_::Value_::EXACT;
     };
 
     // Per-curve + coarse-joint diagnostics. The joint Jacobian / effJacobianInverse are deferred

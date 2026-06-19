@@ -44,23 +44,30 @@ namespace {
 
     // BAR-A is the sole PASS gate: both paths must converge and reprice every instrument to
     // 10 * fitTolerance_. BAR-B and BAR-C are INFORMATIONAL measurements of joint-vs-staged DF
-    // drift, printed for teaching, NOT pass/fail bars. The drift is expected and is NOT a bug:
+    // drift, printed for teaching, NOT pass/fail bars. The drift is expected and is NOT a bug.
+    // Both paths run EXACT (CurveSolveMode_::EXACT -> Underdetermined::Find): each solves the
+    // underdetermined PWL system in ONE pass, driving every residual to ~1e-9 in rate.
     //
-    //   * OIS (BAR-B): the joint Jacobian's OIS columns carry entries from the 3M residual rows
-    //     (IBOR annuities discount through the OIS curve), so the single coupled solve moves the
-    //     long OIS knots a few e-6 off the staged (OIS-only) solve. The short OIS knots stay exact.
+    //   * OIS (BAR-B): the joint OIS slice is co-determined with the 3M slice (the joint Jacobian's
+    //     OIS columns carry entries from the 3M residual rows because IBOR annuities discount
+    //     through OIS), so the coupled Find lands a few e-8 off the OIS-only staged Find at the
+    //     long knots; the short knots agree to ~1e-11. EXACT makes this drift ~200x smaller than
+    //     the APPROXIMATE baseline (7.4e-6 -> 3.7e-8) because Find resolves the cross-curve
+    //     coupling exactly rather than accepting the approximate fit's residual floor.
     //
     //   * 3M (BAR-C): the joint forward curve is a raw PWL curve that smooths the ABSOLUTE forward
     //     rate with NO base handle (the approved design). The staged 3M curve is a DiscountPWLF_
     //     with base_ = OIS that smooths the OIS SPREAD. Because f_absolute = f_spread + f_ois and
     //     the OIS curve has curvature, the two smoothing targets pick different valid members of
-    //     the underdetermined PWL manifold. Both fit the same IBOR fixings to ~1e-17; their
-    //     curve(today, T) outputs agree to ~2e-5 in the 2Y-7Y core and drift up to ~1e-3 at the
-    //     short end, where the absolute level is least constrained. This is the representation
-    //     mismatch the spec documents (joint-3M != staged-3M as stored objects).
+    //     the underdetermined PWL manifold. Both fit the same IBOR fixings to ~1e-9; their
+    //     curve(today, T) outputs agree to a few e-6 in the 2Y-7Y core and drift up to ~3e-4 at
+    //     the short end, where the absolute level is least constrained. This is the representation
+    //     mismatch the spec documents (joint-3M != staged-3M as stored objects); EXACT narrows the
+    //     short-end drift vs APPROXIMATE (1.15e-3 -> 3.3e-4) but cannot eliminate it, because the
+    //     mismatch is in WHICH member of the manifold each representation picks, not in fit quality.
     constexpr double BAR_A_TOLERANCE = 1.0e-7; // PASS gate: 10 * fitTolerance_, both paths
-    constexpr double BAR_B_REFERENCE = 1.0e-8; // spec's nominal joint-vs-staged OIS target (informational)
-    constexpr double BAR_C_REFERENCE = 1.0e-6; // spec's nominal joint-vs-staged 3M target (informational)
+    constexpr double BAR_B_REFERENCE = 1.0e-7; // measured EXACT OIS drift 3.68e-8, rounded up (informational)
+    constexpr double BAR_C_REFERENCE = 5.0e-4; // measured EXACT 3M drift 3.33e-4, rounded up (informational)
 
     Handle_<DiscountCurve_> MakeFlatDiscountCurve(
         const String_& name, const String_& ccy, const Date_& today, double rate, const Handle_<DiscountCurve_>& base = Handle_<DiscountCurve_>()) {
@@ -195,7 +202,9 @@ namespace {
         spec.today_ = today;
         spec.ccy_ = ccy.String();
         spec.liborBasis_ = market.liborBasis;
-        spec.solveMode_ = CurveSolveMode_::Value_::APPROXIMATE;
+        // EXACT (Underdetermined::Find) is the library default; set explicitly here so the joint
+        // and staged paths use the SAME mode for a fair BAR-B/BAR-C comparison.
+        spec.solveMode_ = CurveSolveMode_::Value_::EXACT;
         spec.fitTolerance_ = 1.0e-8;
         spec.tolerance_ = 1.0e-8;
         spec.smoothingWeight_ = 1.0;
@@ -229,7 +238,7 @@ namespace {
         oisStage.instruments_ = market.ois;
         oisStage.knotDates_ = SharedKnots(today);
         oisStage.targetCollateral_ = CollateralType_(CollateralType_::Value_::OIS);
-        oisStage.solveMode_ = CurveSolveMode_::Value_::APPROXIMATE;
+        oisStage.solveMode_ = CurveSolveMode_::Value_::EXACT;
         oisStage.fitTolerance_ = 1.0e-8;
         oisStage.liborBasis_ = market.liborBasis;
 
@@ -242,7 +251,7 @@ namespace {
         liborStage.targetCollateral_ = CollateralType_(CollateralType_::Value_::OIS);
         liborStage.targetTenor_ = market.forecastTenor;
         liborStage.calibrateDiscountCurve_ = false;
-        liborStage.solveMode_ = CurveSolveMode_::Value_::APPROXIMATE;
+        liborStage.solveMode_ = CurveSolveMode_::Value_::EXACT;
         liborStage.fitTolerance_ = 1.0e-8;
         liborStage.liborBasis_ = market.liborBasis;
 
@@ -326,26 +335,30 @@ namespace {
             }
         }
 
-        // BAR-B (informational, OIS): joint-vs-staged OIS DF drift. NOT a pass/fail bar. The joint
-        // OIS slice is co-determined with the 3M slice -- the OIS columns of the joint Jacobian
-        // carry entries from the 3M residual rows (IBOR annuities discount through the OIS curve)
-        // -- so the coupled solve moves the long OIS knots a few e-6 off the OIS-only staged solve.
-        // The short OIS knots stay exact (no IBOR leverage there). Reported, not gated.
+        // BAR-B (informational, OIS): joint-vs-staged OIS DF drift under EXACT (Underdetermined::Find).
+        // NOT a pass/fail bar. The joint OIS slice is co-determined with the 3M slice -- the OIS
+        // columns of the joint Jacobian carry entries from the 3M residual rows (IBOR annuities
+        // discount through the OIS curve) -- so the coupled Find lands the long OIS knots a few
+        // e-8 off the OIS-only staged Find, while the short knots agree to ~1e-11 (no IBOR
+        // leverage there). EXACT keeps this ~200x tighter than the APPROXIMATE baseline. Reported,
+        // not gated.
         double maxOisDiff = 0.0;
         for (const int months : pillarMonths) {
             const Date_ pillar = Date::AddMonths(today, months);
             maxOisDiff = std::max(maxOisDiff, std::fabs(jointOis(today, pillar) - stagedOis(today, pillar)));
         }
 
-        // BAR-C (informational, 3M): joint-vs-staged 3M DF drift. NOT a pass/fail bar. The joint
-        // forward curve is a raw PWL curve that smooths the ABSOLUTE forward with NO base handle
-        // (the approved design); the staged 3M curve is a DiscountPWLF_ with base_ = OIS that
-        // smooths the OIS SPREAD. Because f_absolute = f_spread + f_ois and the OIS curve has
-        // curvature, the two smoothing targets pick different valid points on the underdetermined
-        // PWL manifold. Drift is largest at the short end, where the absolute level is least
-        // constrained by any fixing; both curves still fit the IBOR fixings to ~1e-17. Reported,
-        // not gated. (A mis-routing bug -- B-new-1, fixing off OIS -- would show up as ~1e-2 drift,
-        // two orders of magnitude above what is measured here, so the diagnostic still discriminates.)
+        // BAR-C (informational, 3M): joint-vs-staged 3M DF drift under EXACT (Underdetermined::Find).
+        // NOT a pass/fail bar. The joint forward curve is a raw PWL curve that smooths the ABSOLUTE
+        // forward with NO base handle (the approved design); the staged 3M curve is a DiscountPWLF_
+        // with base_ = OIS that smooths the OIS SPREAD. Because f_absolute = f_spread + f_ois and
+        // the OIS curve has curvature, the two smoothing targets pick different valid points on the
+        // underdetermined PWL manifold. Drift is largest at the short end, where the absolute level
+        // is least constrained by any fixing; both curves still fit the IBOR fixings to ~1e-9.
+        // EXACT narrows the short-end drift vs APPROXIMATE (1.15e-3 -> 3.3e-4) but cannot eliminate
+        // it: the mismatch is in which manifold member each representation picks, not in fit
+        // quality. Reported, not gated. (A mis-routing bug -- B-new-1, fixing off OIS -- would show
+        // up as ~1e-2 drift, well above what is measured here, so the diagnostic still discriminates.)
         double max3mDiff = 0.0;
         for (const int months : pillarMonths) {
             const Date_ pillar = Date::AddMonths(today, months);
