@@ -12,10 +12,8 @@
 #include <dal/platform/initall.hpp>
 #include <dal/curve/calibration.hpp>
 #include <dal/curve/curveblock.hpp>
-#include <dal/curve/ycctx.hpp>
 #include <dal/curve/yclogdf.hpp>
 #include <dal/curve/ycinstrument.hpp>
-#include <dal/math/aad/aad.hpp>
 #include <dal/math/matrix/matrixarithmetic.hpp>
 #include <dal/math/matrix/matrixs.hpp>
 #include <dal/math/vectors.hpp>
@@ -51,16 +49,15 @@ using namespace Dal;
 //       instrument.
 //
 // AAD is always compiled in this library (dal-cpp/dal/math/aad/aad.hpp:17 defines the native AAET
-// backend on the "no DAL_USE_*_AAD flag set" branch). The AAD block below is therefore unguarded --
-// it runs identically under native AAET, Adept, XAD, and CoDiPack, exactly as
-// dal-cpp/examples/vanilla/vanilla.cpp and dal-cpp/digital/digital.cpp do. The example includes
-// only <dal/math/aad/aad.hpp> and uses only the Dal::AAD facade.
+// backend on the "no DAL_USE_*_AAD flag set" branch) and the analytic Jacobian it produces runs
+// identically under native AAET, Adept, XAD, and CoDiPack. Arc (a) does not record its own tape:
+// it delegates to the library's own analytic Jacobian (Dal::TestOnly::AnalyticJacobianAt, which
+// wraps YieldCurveCalibrationFunc_::AnalyticJacobian in dal-cpp/dal/curve/calibration.cpp:510-565)
+// so the AAD recording contract and backend-portability rules live in exactly one place. The bump
+// oracle below remains an independent finite-difference check; the AAD-vs-bump comparison is what
+// makes arc (a) a real cross-check rather than a tautology.
 
 namespace {
-    using AAD::Adjoint;
-    using AAD::Number_;
-    using AAD::Value;
-
     // Self-check bars (see .claude/specs/yield-curve-jacobian-example.md "AAD-vs-Bump Tolerance
     // Choice"). The 1e-9 AAD-vs-bump bar holds because the Phase A LOG_DISCOUNT residual Jacobian
     // is O(1) and well-conditioned at the chosen 1%-3% par rates; central-difference round-off at
@@ -202,71 +199,19 @@ namespace {
         return j;
     }
 
-    // AAD reverse-sweep Jacobian J_aad(i,k) = d(modelRate_i) / d(logDF_free_k). Mirrors
-    // YieldCurveCalibrationFunc_::AnalyticJacobian in dal-cpp/dal/curve/calibration.cpp:510-565
-    // line-for-line in shape. The forward pass builds a Number_-typed DiscountLogDF_ curve
-    // (Tape::DiscountLogDF_<Number_>, publicly constructible and explicitly instantiated in
-    // yclogdf.cpp), a Tape::YCCtx_<Number_>, and Number_-typed rates via inst->PrecomputeT<Number_>();
-    // then one reverse sweep per row harvests d(modelRate_i)/d(logDF_k+1) from the node adjoints.
+    // AAD reverse-sweep Jacobian J_aad(i,k) = d(modelRate_i) / d(logDF_free_k). Delegate to the
+    // library's own analytic Jacobian rather than re-recording the tape here: the residual Jacobian
+    // d(modelRate - marketRate)/d(logDF) equals d(modelRate)/d(logDF) since marketRate is constant,
+    // which is the unscaled quantity TestOnly::AnalyticJacobianAt returns. The underlying sweep is
+    // YieldCurveCalibrationFunc_::AnalyticJacobian in dal-cpp/dal/curve/calibration.cpp:510-565; the
+    // AAD recording contract and backend-portability rules it encodes are documented in
+    // docs/methodology/aad.md. Reusing it keeps the example's trickiest AAD code in one place.
     Matrix_<> AadJacobian(const CurveCalibrationSpec_& spec, const Vector_<>& x) {
-        auto* tape = Dal::AAD::Tape();
-        Dal::AAD::Clear(*tape);
-
-        const int nNodes = static_cast<int>(spec.knotDates_.size());
-        const int nFree = static_cast<int>(x.size());
-        THROW_REQUIRE(nFree == nNodes - 1, "free-param vector length must equal nNodes - 1");
-
-        // Independents: free-node log(DF) values. Anchor (node 0) pinned at 0 and deliberately NOT
-        // registered -- registering it would add a phantom input column. RegisterIndependent
-        // anchors each free node on every backend before the recording window opens.
-        Vector_<Number_> logDF(nNodes);
-        logDF[0] = 0.0;
-        for (int k = 0; k < nFree; ++k)
-            Dal::AAD::RegisterIndependent(logDF[k + 1], x[k]);
-
-        // Open the recording AFTER registering inputs and BEFORE the forward pass. XAD's canonical
-        // contract drops inputs registered after newRecording; opening here is invisible on native
-        // (NewRecording is a no-op) and correct on CoDiPack/Adept (anchors the sweep bounds).
-        Dal::AAD::NewRecording(*tape);
-
-        std::unique_ptr<Tape::DiscountLogDF_<Number_>> dc(
-            new Tape::DiscountLogDF_<Number_>(spec.curveName_, spec.ccy_, spec.knotDates_, logDF, spec.liborBasis_, spec.logDfScheme_));
-        Tape::YCCtx_<Number_> ctx(*dc);
-
-        // Forward pass: Number_-typed model rates. PrecomputeT<Number_> lives only on the concrete
-        // Phase A instrument types (Deposit_/FRA_/Future_/Swap_), so downcast per instrument --
-        // mirroring PhaseARateAt in calibration.cpp:489-500. Use Dal::AAD::Value / Dal::AAD::Adjoint
-        // to read primals/adjoints; never static_cast<double>(Number_) (FR8: only native and
-        // CoDiPack have operator double(); XAD/Adept do not).
-        const int nInst = static_cast<int>(spec.instruments_.size());
-        Vector_<Number_> modelRates(nInst);
-        for (int i = 0; i < nInst; ++i) {
-            const auto* inst = spec.instruments_[i].get();
-            Handle_<Tape::Rate_<Number_>> rateT;
-            if (const auto* d = dynamic_cast<const Deposit_*>(inst))
-                rateT = d->PrecomputeT<Number_>();
-            else if (const auto* fr = dynamic_cast<const FRA_*>(inst))
-                rateT = fr->PrecomputeT<Number_>();
-            else if (const auto* fu = dynamic_cast<const Future_*>(inst))
-                rateT = fu->PrecomputeT<Number_>();
-            else if (const auto* s = dynamic_cast<const Swap_*>(inst))
-                rateT = s->PrecomputeT<Number_>();
-            else
-                THROW_REQUIRE(false, std::string("instrument ") + std::to_string(i) + " has no Phase A templated rate");
-            modelRates[i] = (*rateT)(ctx);
-        }
-
-        // Single-result reverse sweep, one row at a time. ZeroAdjoints clears propagated adjoints
-        // between rows so each seed lands on a clean slate (Adept's compute_adjoint does not clear
-        // operands between sweeps -- without ZeroAdjoints row 2 inherits row 1's residue).
-        Matrix_<> j(nInst, nFree, 0.0);
-        for (int i = 0; i < nInst; ++i) {
-            Dal::AAD::ZeroAdjoints(*tape);
-            Dal::AAD::Adjoint(modelRates[i]) = 1.0;
-            Dal::AAD::PropagateToStart(*tape);
-            for (int k = 0; k < nFree; ++k)
-                j(i, k) = Dal::AAD::Adjoint(logDF[k + 1]);
-        }
+        Matrix_<> j = Dal::TestOnly::AnalyticJacobianAt(spec, x);
+        // AnalyticJacobianAt returns an empty matrix when the spec is ineligible for the AAD-tape
+        // path (e.g. parameterization_ != LOG_DISCOUNT). The Phase A LOG_DISCOUNT spec built here is
+        // always eligible, so an empty result means the analytic path silently did not engage.
+        THROW_REQUIRE(!j.Empty(), "analytic Jacobian is empty -- spec is ineligible for the AAD-tape path");
         return j;
     }
 
