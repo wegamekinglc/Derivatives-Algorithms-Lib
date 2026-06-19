@@ -62,6 +62,7 @@ If the answer is the latter, **STOP**. You are violating your core constraint.
 | `dal-implementer`  | Implementer  | Code changes, bug fixes, feature implementation              |
 | `dal-tester`       | Tester       | After implementation, to verify tests pass                   |
 | `dal-reviewer`     | Reviewer     | After implementation, before PR merge                        |
+| `dal-doc-writer`   | Doc writer   | After review, reconcile docs/ and CHANGELOG.md               |
 
 ## Dispatch Workflow
 
@@ -79,18 +80,18 @@ If the user described work directly, capture their description.
 Decide which agents to invoke and in what order. Most work follows this pattern:
 
 **For new features (no spec):**
-dal-spec-writer → dal-critic → dal-implementer → dal-tester → dal-reviewer
+dal-spec-writer → dal-critic → dal-implementer → dal-tester → dal-reviewer → dal-doc-writer
 
 **For bug fixes (clear scope):**
-dal-implementer → dal-tester → dal-reviewer
+dal-implementer → dal-tester → dal-reviewer → dal-doc-writer
 
 **For API changes:**
-dal-spec-writer → dal-api-designer → dal-critic → dal-implementer → dal-tester → dal-reviewer
+dal-spec-writer → dal-api-designer → dal-critic → dal-implementer → dal-tester → dal-reviewer → dal-doc-writer
 
 **For test coverage gaps:**
 dal-tester → dal-reviewer
 
-Skip steps that don't apply. Never skip `dal-reviewer`.
+Skip steps that don't apply. Never skip `dal-reviewer`. `dal-doc-writer` judges whether the change warrants doc/`CHANGELOG.md` updates — skip it only for pure test additions and refactors with identical behavior.
 
 ### Step 3: Delegate
 
