@@ -215,9 +215,11 @@ namespace Dal {
                         REQUIRE(decl.parameterization_ == CurveParameterization_::Value_::PIECEWISE_LINEAR_FWD,
                                 String_("Declaration ") + String::FromInt(i) + " base-layering requires PWL_FWD");
                     REQUIRE(producedCollaterals.count(decl.targetCollateral_) > 0,
-                            String_("Declaration ") + String::FromInt(i) + " target collateral not produced by any discount declaration");
+                            String_("Declaration ") + String::FromInt(i) + " target collateral " + decl.targetCollateral_.String() +
+                                " is not produced by any discount-curve declaration in this spec");
                     const String_ offender = ForwardDeclarationOffendingInstrument(decl);
-                    REQUIRE(offender.empty(), String_("Declaration ") + String::FromInt(i) + " forward instrument " + offender + " does not project");
+                    REQUIRE(offender.empty(), String_("Declaration ") + String::FromInt(i) + " forward instrument " + offender +
+                                                      " has useProjectionCurve_ = false and leaves the forward curve unconstrained");
                 }
 
                 const int nParams = ParamsPerKnot(decl.parameterization_) * static_cast<int>(decl.knotDates_.size());
