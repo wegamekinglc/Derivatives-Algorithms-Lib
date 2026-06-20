@@ -656,6 +656,67 @@ namespace Dal {
             THROW(String_("Joint multi-curve calibration failed to converge: maxAbsResidual = ") + String::FromDouble(maxAbs) +
                   ", rmsResidual = " + String::FromDouble(rms) + " after " + String::FromInt(func.EvaluationCount()) + " evaluations");
         }
+
+        // ---- Helpers extracted from CalibrateJointMultiCurve for cyclomatic complexity (Codacy) ----
+
+        Vector_<> BuildInitialGuess(const JointMultiCurveCalibrationSpec_& spec,
+                                    const std::vector<CurveSlot_>& slots, int totalParams) {
+            Vector_<> g(totalParams);
+            int off = 0;
+            for (const auto& s : slots) {
+                const Vector_<> sl = BuildGuessSlice(spec, spec.curves_[s.curveIndex], s.nParams);
+                for (int j = 0; j < s.nParams; ++j) g[off + j] = sl[j];
+                off += s.nParams;
+            }
+            return g;
+        }
+
+        std::pair<std::map<CollateralType_, Handle_<DiscountCurve_>>, std::map<PeriodLength_, Handle_<DiscountCurve_>>>
+        BuildSolvedCurves(const JointMultiCurveCalibrationSpec_& spec,
+                          const std::vector<CurveSlot_>& slots, const Vector_<>& solved) {
+            auto sx = [&](const CurveSlot_& s) { Vector_<> xs(s.nParams); for(int j=0;j<s.nParams;++j) xs[j]=solved[s.paramOffset+j]; return xs; };
+            std::map<CollateralType_, Handle_<DiscountCurve_>> dc;
+            std::map<PeriodLength_, Handle_<DiscountCurve_>> fc;
+            for (const auto& s : slots) {
+                const auto& d = spec.curves_[s.curveIndex];
+                if (!d.calibrateDiscountCurve_) continue;
+                dc[d.targetCollateral_] = BuildDeclarationCurve(d, spec.ccy_, spec.liborBasis_, sx(s));
+            }
+            for (const auto& s : slots) {
+                const auto& d = spec.curves_[s.curveIndex];
+                if (d.calibrateDiscountCurve_) continue;
+                Handle_<DiscountCurve_> b;
+                if (d.baseLayeredOverDiscount_) b = dc.at(d.targetCollateral_);
+                fc[d.targetTenor_] = BuildDeclarationCurve(d, spec.ccy_, spec.liborBasis_, sx(s), b);
+            }
+            return {std::move(dc), std::move(fc)};
+        }
+
+        JointMultiCurveCalibrationResult_
+        AssembleResult(const JointMultiCurveCalibrationSpec_& spec,
+                       const std::vector<CurveSlot_>& slots,
+                       const CurveBlock_& solvedBlock,
+                       std::map<CollateralType_, Handle_<DiscountCurve_>>& discountCurves,
+                       std::map<PeriodLength_, Handle_<DiscountCurve_>>& forwardCurves,
+                       int totalResiduals, int evalCount, Matrix_<>&& fwdJac) {
+            JointMultiCurveCalibrationResult_ result;
+            const bool usedApprox = spec.solveMode_ == CurveSolveMode_::Value_::APPROXIMATE;
+            double jointMaxAbs = 0.0, jointSq = 0.0;
+            for (const auto& s : slots) {
+                const JointCurveCalibrationDiagnostics_ diag =
+                    BuildCurveDiagnostics(spec.curves_[s.curveIndex], s, solvedBlock, usedApprox);
+                jointMaxAbs = std::max(jointMaxAbs, diag.maxAbsResidual_);
+                for (const double r : diag.residuals_) jointSq += r * r;
+                result.diagnostics_.push_back(diag);
+            }
+            result.discountCurves_ = std::move(discountCurves);
+            result.forwardCurves_ = std::move(forwardCurves);
+            result.jointMaxAbsResidual_ = jointMaxAbs;
+            result.jointRmsResidual_ = totalResiduals ? std::sqrt(jointSq / totalResiduals) : 0.0;
+            result.solverEvaluations_ = evalCount;
+            result.jacobianAtSolution_ = std::move(fwdJac);
+            return result;
+        }
     } // namespace
 
     JointMultiCurveCalibrationResult_ CalibrateJointMultiCurve(const JointMultiCurveCalibrationSpec_& spec) {
@@ -669,13 +730,7 @@ namespace Dal {
         int totalParams = 0, totalResiduals = 0;
         for (const auto& slot : slots) { totalParams += slot.nParams; totalResiduals += slot.nInstruments; }
 
-        Vector_<> guess(totalParams);
-        int offset = 0;
-        for (const auto& slot : slots) {
-            const Vector_<> slice = BuildGuessSlice(spec, spec.curves_[slot.curveIndex], slot.nParams);
-            for (int j = 0; j < slot.nParams; ++j) guess[offset + j] = slice[j];
-            offset += slot.nParams;
-        }
+        const Vector_<> guess = BuildInitialGuess(spec, slots, totalParams);
 
         const Vector_<> tol(totalResiduals, spec.tolerance_);
         std::unique_ptr<Sparse::TriDiagonal_> weights = BuildJointSmoothing(slots);
@@ -686,45 +741,13 @@ namespace Dal {
         const Vector_<> finalResiduals = func.F(solved);
         const double barA = 10.0 * spec.fitTolerance_;
         bool converged = true;
-        for (const double r : finalResiduals)
-            if (std::fabs(r) > barA) { converged = false; break; }
+        for (const double r : finalResiduals) { if (std::fabs(r) > barA) { converged = false; break; } }
 
-        // Two-pass solved-curve build: discount first, then forward (base may reference discount).
-        // Extracted from CalibrateJointMultiCurve for cyclomatic complexity (Codacy).
-        auto sliceX = [&](const CurveSlot_& s) { Vector_<> xs(s.nParams); for(int j=0;j<s.nParams;++j) xs[j]=solved[s.paramOffset+j]; return xs; };
-        std::map<CollateralType_, Handle_<DiscountCurve_>> discountCurves;
-        std::map<PeriodLength_, Handle_<DiscountCurve_>> forwardCurves;
-        for (const auto& slot : slots) {
-            const JointCurveDeclaration_& decl = spec.curves_[slot.curveIndex];
-            if (!decl.calibrateDiscountCurve_)
-                continue;
-            discountCurves[decl.targetCollateral_] = BuildDeclarationCurve(decl, spec.ccy_, spec.liborBasis_, sliceX(slot));
-        }
-        for (const auto& slot : slots) {
-            const JointCurveDeclaration_& decl = spec.curves_[slot.curveIndex];
-            if (decl.calibrateDiscountCurve_) continue;
-            Handle_<DiscountCurve_> base;
-            if (decl.baseLayeredOverDiscount_) base = discountCurves.at(decl.targetCollateral_);
-            forwardCurves[decl.targetTenor_] = BuildDeclarationCurve(decl, spec.ccy_, spec.liborBasis_, sliceX(slot), base);
-        }
+        auto [discountCurves, forwardCurves] = BuildSolvedCurves(spec, slots, solved);
         const CurveBlock_ solvedBlock("joint", spec.ccy_, discountCurves, forwardCurves, spec.liborBasis_);
 
-        const bool usedApprox = spec.solveMode_ == CurveSolveMode_::Value_::APPROXIMATE;
-        double jointMaxAbs = 0.0, jointSq = 0.0;
-        JointMultiCurveCalibrationResult_ result;
-        for (const auto& slot : slots) {
-            const JointCurveCalibrationDiagnostics_ diag =
-                BuildCurveDiagnostics(spec.curves_[slot.curveIndex], slot, solvedBlock, usedApprox);
-            jointMaxAbs = std::max(jointMaxAbs, diag.maxAbsResidual_);
-            for (const double r : diag.residuals_) jointSq += r * r;
-            result.diagnostics_.push_back(diag);
-        }
-        result.discountCurves_ = std::move(discountCurves);
-        result.forwardCurves_ = std::move(forwardCurves);
-        result.jointMaxAbsResidual_ = jointMaxAbs;
-        result.jointRmsResidual_ = totalResiduals ? std::sqrt(jointSq / totalResiduals) : 0.0;
-        result.solverEvaluations_ = func.EvaluationCount();
-        result.jacobianAtSolution_ = std::move(fwdJacAtSolution);
+        JointMultiCurveCalibrationResult_ result = AssembleResult(spec, slots, solvedBlock, discountCurves, forwardCurves,
+                                                                   totalResiduals, func.EvaluationCount(), std::move(fwdJacAtSolution));
         if (!converged) ThrowNonConvergence(func, finalResiduals);
         result.converged_ = true;
         return result;
