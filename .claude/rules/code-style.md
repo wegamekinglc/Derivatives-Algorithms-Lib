@@ -162,3 +162,15 @@ Then build normally. The auto-generated files (`dal-cpp/dal/auto/MG_*_enum.hpp`,
 - Single-line `//` for inline notes
 - No docstrings or doxygen-style comments
 - File headers are the only mandatory comments
+
+## Documentation
+
+- Docs under `docs/` describe the **current state only** — no historical narrative, design
+  alternatives, implementation-phase plans, or "how this design was reached" sections.
+  Historical context belongs in `CHANGELOG.md` and only there.
+- **No source line numbers in docs.** Line citations (`calibration.hpp:70-95,142`) go stale
+  as soon as the file is edited. Reference the struct, function, or file name instead
+  (e.g., "the `CurveCalibrationSpec_` struct in `dal-cpp/dal/curve/calibration.hpp`").
+- Fundamental changes (breaking API, new methodology, significant capability, removal of a
+  public surface) must be recorded in `CHANGELOG.md`. Routine refactors, test work,
+  formatting, and build changes are deliberately omitted from the changelog.

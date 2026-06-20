@@ -110,7 +110,7 @@ namespace {
 
     // Probe function: same residual as MultiResidualFunc_, but records every x passed to Gradient so a
     // test can tell whether the solver's convergence-branch hook fired. Used to verify the solver does
-    // NOT call the at-solution Gradient when the caller passes nullptr for fwd_jacobian_at_solution.
+    // NOT call the at-solution Gradient when the caller passes nullptr for fwdJacobianAtSolution.
     class CountingResidualFunc_ : public Underdetermined::Function_ {
         mutable Vector_<Vector_<>> gradientXs_;
 
@@ -261,7 +261,7 @@ TEST(UnderdeterminedTest, TestFindPopulatesEffectiveJacobianInverse) {
     ASSERT_NEAR(effJacobianInverse(1, 0), 2.0e-11, 1e-18);
 }
 
-// The trailing fwd_jacobian_at_solution out-param captures the UNSCALED analytic forward Jacobian at
+// The trailing fwdJacobianAtSolution out-param captures the UNSCALED analytic forward Jacobian at
 // the solution via a single raw func.Gradient(xNew, fUnscaled) call on the convergence branch -- NOT
 // the XScaledFunc_::J path, so DivideRows(tol) is never applied. When the caller passes nullptr the
 // hook is skipped entirely (Gradient is not called at the solution); a Gradient that returns nullptr
@@ -329,7 +329,7 @@ TEST(UnderdeterminedTest, TestFindPassesUnscaledResidualToAtSolutionGradient) {
     ASSERT_NEAR(fAtSolution[1], expected[1], 1e-12);
 }
 
-// When the caller passes nullptr for fwd_jacobian_at_solution, the solver must NOT call the
+// When the caller passes nullptr for fwdJacobianAtSolution, the solver must NOT call the
 // at-solution Gradient at all -- the convergence-branch hook is skipped entirely. This probes that
 // contract directly: a CountingResidualFunc_ records every x passed to Gradient, and the solution x
 // may appear in that record only when the out-param is supplied (then exactly once, as the

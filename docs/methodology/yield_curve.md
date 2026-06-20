@@ -303,9 +303,9 @@ Inverse-Jacobian Risk](yield_curve_jacobian.md).
 
 API citations:
 
-- `CurveCalibrationSpec_` fields and `CalibrateYieldCurve` overload — `dal-cpp/dal/curve/calibration.hpp:70-95,142`.
-- `Deposit_`, `Future_`, `Swap_` constructors — `dal-cpp/dal/curve/ycinstrument.hpp:65-153`.
-- `DiscountCurve_::operator()(Date_, Date_)` returns the discount factor — `dal-cpp/dal/curve/discount.hpp:28`.
+- `CurveCalibrationSpec_` fields and `CalibrateYieldCurve` overloads — `dal-cpp/dal/curve/calibration.hpp`.
+- `Deposit_`, `Future_`, `Swap_` constructors — `dal-cpp/dal/curve/ycinstrument.hpp`.
+- `DiscountCurve_::operator()(Date_, Date_)` returns the discount factor — `dal-cpp/dal/curve/discount.hpp`.
 
 ### Sequential multi-curve calibration (OIS discounting + tenor forecasting)
 
@@ -371,9 +371,9 @@ const double modelFra = (*fraRate)(bundle);
 
 API citations:
 
-- `OISSwap_` and `FRA_` constructors — `dal-cpp/dal/curve/ycinstrument.hpp:81-101,155-166`.
-- `MultiCurveCalibrationSpec_` and `CalibrateMultiCurve` — `dal-cpp/dal/curve/calibration.hpp:120-144`.
-- `CurveBlock_` multi-curve constructor — `dal-cpp/dal/curve/curveblock.hpp:28-32`.
+- `OISSwap_` and `FRA_` constructors — `dal-cpp/dal/curve/ycinstrument.hpp`.
+- `MultiCurveCalibrationSpec_` and `CalibrateMultiCurve` — `dal-cpp/dal/curve/calibration.hpp`.
+- `CurveBlock_` multi-curve constructor — `dal-cpp/dal/curve/curveblock.hpp`.
 
 ### Flat starting curve for synthetic examples
 
@@ -401,8 +401,8 @@ Handle_<DiscountCurve_> flat(
 
 API citations:
 
-- `PiecewiseLinear_(knots, fLeft, fRight)` — `dal-cpp/dal/curve/piecewiselinear.hpp:23`.
-- `NewDiscountPWLF(name, ccy, fwds, base)` — `dal-cpp/dal/curve/ycimp.hpp:12-15`.
+- `PiecewiseLinear_(knots, fLeft, fRight)` — `dal-cpp/dal/curve/piecewiselinear.hpp`.
+- `NewDiscountPWLF(name, ccy, fwds, base)` — `dal-cpp/dal/curve/ycimp.hpp`.
 
 ## See Also
 

@@ -202,7 +202,7 @@ spec.basisPair_          = CurrencyPair_(Ccy_("USD"), Ccy_("EUR"));
 spec.domesticCurveBlock_ = usdBlock;
 spec.foreignCurveBlock_  = eurBlock;
 spec.fxSpot_             = 1.10;            // USD per EUR
-// fxForwardCollateral_ defaults to CollateralType_::Value_::OIS (xccycalibration.hpp:72).
+// fxForwardCollateral_ defaults to CollateralType_::Value_::OIS (see `CrossCurrencyCalibrationSpec_` in `dal-cpp/dal/curve/xccycalibration.hpp`).
 spec.knotDates_          = {Date::AddMonths(today, 6),  Date::AddMonths(today, 12),
                             Date::AddMonths(today, 24), Date::AddMonths(today, 60),
                             Date::AddMonths(today, 120)};
@@ -263,20 +263,20 @@ for (const int m : {6, 12, 18, 24, /*...*/ 120}) {
 API citations:
 
 - `CrossCurrencyCalibrationSpec_` fields (incl. `fxForwardCollateral_`, `solveMode_`) and
-  `CalibrateCrossCurrencyMarket` — `dal-cpp/dal/curve/xccycalibration.hpp:66-82,97`.
+  `CalibrateCrossCurrencyMarket` — `dal-cpp/dal/curve/xccycalibration.hpp`.
 - `CrossCurrencyMarket_` constructor, `SetBasisCurve`, `FxForward`, `BasisDiscountFactor` —
-  `dal-cpp/dal/curve/xccycalibration.hpp:28-46`.
-- `CrossCurrencySwap_` constructor and `Precompute` — `dal-cpp/dal/curve/xccyinstrument.hpp:46-57`.
+  `dal-cpp/dal/curve/xccycalibration.hpp`.
+- `CrossCurrencySwap_` constructor and `Precompute` — `dal-cpp/dal/curve/xccyinstrument.hpp`.
 - `CrossCurrencyConvention_`, `RateIndexConvention_`, `RateLegConvention_` —
-  `dal-cpp/dal/protocol/rateconvention.hpp:14-48`.
-- `CurrencyPair_(domestic, foreign)` — `dal-cpp/dal/curve/xccyinstrument.hpp:17-26`.
+  `dal-cpp/dal/protocol/rateconvention.hpp`.
+- `CurrencyPair_(domestic, foreign)` — `dal-cpp/dal/curve/xccyinstrument.hpp`.
 - `CalibrateCrossCurrencyMarket` result fields `market_`, `basisCurves_`, `fxForwardCurve_`,
-  `diagnostics_` — `dal-cpp/dal/curve/xccycalibration.hpp:84-95`.
+  `diagnostics_` — `dal-cpp/dal/curve/xccycalibration.hpp`.
 
 ### Diagnostic and revaluation surface
 
 `result.diagnostics_` (`CrossCurrencyCalibrationDiagnostics_`,
-`dal-cpp/dal/curve/xccycalibration.hpp:49-58`) exposes per-instrument
+`dal-cpp/dal/curve/xccycalibration.hpp`) exposes per-instrument
 `marketRates_`, `modelRates_`, `residuals_`, plus `rmsResidual_`,
 `maxAbsResidual_`, and `usedApproximateFit_`. The `effJacobianInverse_` maps
 basis-spread bumps to basis-rate changes for sensitivity work without re-solving,
