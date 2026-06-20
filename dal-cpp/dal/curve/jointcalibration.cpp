@@ -689,6 +689,8 @@ namespace Dal {
         for (const double r : finalResiduals)
             if (std::fabs(r) > barA) { converged = false; break; }
 
+        // Two-pass solved-curve build: discount first, then forward (base may reference discount).
+        // Extracted from CalibrateJointMultiCurve for cyclomatic complexity (Codacy).
         auto sliceX = [&](const CurveSlot_& s) { Vector_<> xs(s.nParams); for(int j=0;j<s.nParams;++j) xs[j]=solved[s.paramOffset+j]; return xs; };
         std::map<CollateralType_, Handle_<DiscountCurve_>> discountCurves;
         std::map<PeriodLength_, Handle_<DiscountCurve_>> forwardCurves;
@@ -700,21 +702,19 @@ namespace Dal {
         }
         for (const auto& slot : slots) {
             const JointCurveDeclaration_& decl = spec.curves_[slot.curveIndex];
-            if (decl.calibrateDiscountCurve_)
-                continue;
+            if (decl.calibrateDiscountCurve_) continue;
             Handle_<DiscountCurve_> base;
-            if (decl.baseLayeredOverDiscount_)
-                base = discountCurves.at(decl.targetCollateral_);
+            if (decl.baseLayeredOverDiscount_) base = discountCurves.at(decl.targetCollateral_);
             forwardCurves[decl.targetTenor_] = BuildDeclarationCurve(decl, spec.ccy_, spec.liborBasis_, sliceX(slot), base);
         }
         const CurveBlock_ solvedBlock("joint", spec.ccy_, discountCurves, forwardCurves, spec.liborBasis_);
 
-        const bool usedApproximateFit = spec.solveMode_ == CurveSolveMode_::Value_::APPROXIMATE;
+        const bool usedApprox = spec.solveMode_ == CurveSolveMode_::Value_::APPROXIMATE;
         double jointMaxAbs = 0.0, jointSq = 0.0;
         JointMultiCurveCalibrationResult_ result;
         for (const auto& slot : slots) {
-            const JointCurveDeclaration_& decl = spec.curves_[slot.curveIndex];
-            const JointCurveCalibrationDiagnostics_ diag = BuildCurveDiagnostics(decl, slot, solvedBlock, usedApproximateFit);
+            const JointCurveCalibrationDiagnostics_ diag =
+                BuildCurveDiagnostics(spec.curves_[slot.curveIndex], slot, solvedBlock, usedApprox);
             jointMaxAbs = std::max(jointMaxAbs, diag.maxAbsResidual_);
             for (const double r : diag.residuals_) jointSq += r * r;
             result.diagnostics_.push_back(diag);
@@ -725,7 +725,6 @@ namespace Dal {
         result.jointRmsResidual_ = totalResiduals ? std::sqrt(jointSq / totalResiduals) : 0.0;
         result.solverEvaluations_ = func.EvaluationCount();
         result.jacobianAtSolution_ = std::move(fwdJacAtSolution);
-
         if (!converged) ThrowNonConvergence(func, finalResiduals);
         result.converged_ = true;
         return result;
