@@ -51,6 +51,24 @@ here as the baseline rather than dated releases:
   instead of the `TestOnly::AnalyticJacobianAt` helper, and a new test
   (`dal-cpp/tests/curve/test_forward_jacobian_diagnostics.cpp`) gates population and AAD-vs-bump
   agreement. Non-breaking (additive public field).
+- `curve`: Added a joint multi-curve AAD analytic Jacobian for `CalibrateJointMultiCurve`
+  (`dal-cpp/dal/curve/jointcalibration.cpp`). The `JointResidualFunction_::Gradient` override
+  produces a backend-neutral dense Jacobian via a single-result reverse sweep over the joint
+  stacked parameter vector, using three new tape primitives: `Tape::DiscountPWLF_<T_,B_>`
+  (PWL-forward curve with templated base handle, `dal-cpp/dal/curve/ycpwlf.hpp`),
+  `Tape::JointCurveBlock_<T_>` (multi-curve routing context, `dal-cpp/dal/curve/jointycctx.hpp`),
+  and `Tape::JointRate_<T_>` (projection-capable rate base, `dal-cpp/dal/curve/jointrate.hpp`).
+  Eligible for specs whose declarations are all `PIECEWISE_LINEAR_FWD` with vanilla instruments
+  (`Deposit_`, `FRA_`, `Future_`, `Swap_` -- `OISSwap_` included) and `liborBasis_ == ACT_365F`;
+  base-layered forward curves propagate OIS adjoints through a templated `Number_`-typed base
+  handle. The `JointMultiCurveCalibrationOptions_` struct carries a `jacobianMode_` field defaulting
+  to `ANALYTIC` (matching single-curve), and `JointMultiCurveCalibrationResult_` now carries
+  `jacobianAtSolution_` (populated under `ANALYTIC && EXACT && eligible`). The shared
+  `XCurveJacobian_` (`dal-cpp/dal/curve/curvejacobian.hpp`) serves both the single-curve and joint
+  paths. All four AAD backends (native, Adept, XAD, CoDiPack) verified with 750/750 tests passing,
+  including 4 new oracle tests at `dal-cpp/tests/curve/test_joint_analytic_jacobian.cpp`.
+  See `docs/methodology/yield_curve.md` and `docs/methodology/aad.md`. Non-breaking (additive
+  public surface; existing single-arg callers exercise the AAD path by default on eligible specs).
 
 <!-- Add new qualifying changes below as dated sections, e.g. -->
 <!-- ## 2026-06 -->

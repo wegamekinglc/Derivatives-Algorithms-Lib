@@ -193,6 +193,105 @@ discount factors  P(t₁,t₂) = exp(−∫f dt / 365) × P_base
 multi-curve routing: OIS discounting + tenor forecasting
 ```
 
+## Joint Simultaneous Calibration and AAD Analytic Jacobian
+
+`CalibrateJointMultiCurve` (`dal-cpp/dal/curve/jointcalibration.hpp`) solves
+all discount and forward curves simultaneously from one **stacked parameter
+vector** $x$. Each curve is declared by a `JointCurveDeclaration_` and the
+joint spec carries a single `solveMode_`, `tolerance_`, and `smoothingWeight_`.
+The smoother is **block-diagonal**: each declaration's own $2K$ parameters are
+penalised independently, so a knot perturbation on the OIS curve does not
+directly enter the 3M-curve's smoothing norm.
+
+### AAD Analytic Jacobian
+
+The joint calibration residual function overrides
+`Underdetermined::Function_::Gradient` (`dal-cpp/dal/curve/jointcalibration.cpp`)
+with a backend-neutral reverse-sweep Jacobian. On an eligible spec the solver
+receives an exact analytic Jacobian $J_{ij} = \partial r_i / \partial x_j$
+rather than running $P+1$ dense-bump evaluations.
+
+**Recording contract.** The contract that works identically on all four AAD
+backends (native, XAD, CoDiPack, Adept) is:
+
+$$
+\text{Clear} \rightarrow \text{RegisterIndependent}(x_k) \;\forall k \;
+\rightarrow \text{NewRecording} \rightarrow \text{forward pass} \rightarrow
+\text{per-row } \{\text{ZeroAdjoints},\; \bar{r}_i = 1,\;
+\text{PropagateToStart},\; \text{harvest}\}.
+$$
+
+Under piecewise-linear forwards each declaration contributes
+$2 \cdot n_{\text{knots}}$ independents -- every knot (including knot 0) is free;
+there is no anchor exclusion (unlike the single-curve LOG_DISCOUNT path).
+
+**Tape-layer primitives.** Three new templated types extend the `Dal::Tape`
+namespace for curve calibration:
+
+| Type                                  | Role                                                                      | Header                                             |
+|---------------------------------------|---------------------------------------------------------------------------|----------------------------------------------------|
+| `Tape::DiscountPWLF_<T_, B_>`         | PWL-forward curve on `T_` with optional templated base handle             | `dal-cpp/dal/curve/ycpwlf.hpp`                     |
+| `Tape::JointCurveBlock_<T_>`          | Multi-curve routing context: `Discount(collateral)` and `Forward(tenor,collateral)` reads in the `T_` domain | `dal-cpp/dal/curve/jointycctx.hpp` |
+| `Tape::JointRate_<T_>`                | Projection-capable rate base: `operator()(const JointCurveBlock_<T_>&)`   | `dal-cpp/dal/curve/jointrate.hpp`                  |
+
+The double specialisation of `Tape::DiscountPWLF_` is byte-for-byte identical
+to the existing anonymous-namespace `DiscountPWLF_` at
+`dal-cpp/dal/curve/ycimp.cpp`. The `Number_` specialisation is constructed only
+by the AAD `Gradient` override, with a two-pass build: discount declarations
+first as baseless `Tape::DiscountPWLF_<Number_>`, then forward declarations as
+base-layered `Tape::DiscountPWLF_<Number_, DiscountCurve_<Number_>>` with the
+discount declaration's curve as a `Number_`-typed base handle -- so the reverse
+sweep propagates OIS adjoints through the forward curve's base multiplication
+into the OIS discount-curve free nodes.
+
+**OIS-discount vs IBOR-projection routing.** The OIS-discount slice (where
+$\text{forecast} = \text{discount}$) rides the inherited
+`Swap_::PrecomputeT<T_>` -- both the AAD path and the double path share the
+identical simple-rate arithmetic, so the Jacobian is correct. The IBOR
+projection slice (where $\text{forecast}(3M) \neq \text{discount}(OIS)$) is
+priced through the new `Tape::JointRate_<T_>` hierarchy:
+`DepositRateProj_<T_>`, `ForwardRateProj_<T_>` (covering FRA and Future), and
+`SwapRateProj_<T_>`, each reading both a discount and a forecast curve via the
+`JointCurveBlock_<T_>` routing context.
+
+**Eligibility.** The AAD path engages only when every joint declaration
+satisfies:
+
+- `parameterization_ == PIECEWISE_LINEAR_FWD`,
+- every instrument is a `Deposit_`, `FRA_`, `Future_`, or `Swap_` (including
+  `OISSwap_`, which inherits `Swap_` and rides `Swap_::PrecomputeT<T_>`),
+- `liborBasis_ == ACT_365F` (agrees with the `DAYS_PER_YEAR = 365.0`
+  denominator the templated curve assumes),
+- `TradeDate() == knotDates_.front()` for every instrument,
+- base-layered forward declarations resolve their base collateral against a
+  PIECEWISE_LINEAR_FWD discount declaration in the same spec.
+
+Each failing condition emits a one-time `NOTICE` naming the declaration index
+and the condition; the solver then dense-bumps unchanged. The verdict is
+evaluated once per `CalibrateJointMultiCurve` call and cached, so every
+`NOTICE` fires at most once.
+
+**Options and result.** `JointMultiCurveCalibrationOptions_` carries the
+`CurveJacobianMode_ jacobianMode_` field, defaulting to `ANALYTIC` (matching
+the single-curve default). The single-arg `CalibrateJointMultiCurve(spec)`
+delegates to the two-arg overload with a default-constructed options, so
+existing callers exercise the AAD path on eligible specs.
+
+The `JointMultiCurveCalibrationResult_` struct provides
+`jacobianAtSolution_` -- the unscaled analytic forward Jacobian
+$d(\text{residual}_i) / d(\text{param}_j)$ at the solved point, shape
+`(totalResiduals) x (totalFreeParams)`. Populated only when
+`jacobianMode_ == ANALYTIC` AND the spec is eligible AND
+`solveMode_ == EXACT`; empty otherwise. The Jacobian is stored in a shared
+`XCurveJacobian_` (`dal-cpp/dal/curve/curvejacobian.hpp`) -- the same dense
+subclass used by the single-curve AAD path.
+
+**Backend coverage.** The analytic path compiles and produces a correct
+Jacobian under all four AAD backends (native, Adept, XAD, CoDiPack), verified
+by element-wise agreement against a central finite-difference bump of the
+joint residual function. The oracle tests live at
+`dal-cpp/tests/curve/test_joint_analytic_jacobian.cpp`.
+
 ## Examples
 
 The snippets below are condensed from the standalone example programs under
