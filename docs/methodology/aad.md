@@ -204,6 +204,95 @@ with $\Psi$ a smooth sigmoid-like transition. This regularises the payoff so the
 adjoint captures the (smoothed) sensitivity through the discontinuity, trading a
 small bias for a finite, low-variance derivative.
 
+## Tape-Layer Primitives for Curve Calibration
+
+Beyond the scalar arithmetic operators and special functions that record
+derivatives for pricing, the library provides **templated curve types** under
+`namespace Dal::Tape` that extend the tape into yield-curve construction itself.
+Each records the dependence of discount factors on the curve's free parameters
+so that the reverse sweep produces a Jacobian of calibration residuals with
+respect to forward-rate nodes -- the input the underdetermined solver consumes.
+
+### Piecewise-Linear Forward Curve — `Tape::DiscountPWLF_<T_, B_>`
+
+```text
+dal-cpp/dal/curve/ycpwlf.hpp
+```
+
+This is the primary curve type for the joint multi-curve AAD path. It
+interpolates forward rates piecewise-linearly on the scalar type `T_` and
+integrates to log-discount factors, so every discount-factor read records the
+dependence on the $2 \cdot n_{\text{knots}}$ forward-rate parameters
+(`fLeftT_`, `fRightT_`). The base type `B_` is a second template parameter:
+`B_ = DiscountCurve_<double>` for baseless curves (base treated as a constant);
+`B_ = DiscountCurve_<T_>` for base-layered curves, where the base's own
+parameters also carry adjoints and the reverse sweep propagates OIS
+sensitivities through the base multiplication into the discount-curve free
+nodes.
+
+The forward-to-log-DF integration reproduces the four-branch
+`PiecewiseLinear_::IntegralTo` logic (below first knot, beyond last knot,
+on-knot shortcut, in-range partial trapezoid) with `double` knot abscissae and
+`T_` forward values. The running integral is stored in the `Vector_<T_>`
+`sofarT_` member, recomputed by `UpdateT()` whenever the forward parameters
+change.
+
+### Joint Multi-Curve Routing — `Tape::JointCurveBlock_<T_>`
+
+```text
+dal-cpp/dal/curve/jointycctx.hpp
+```
+
+The multi-curve analogue of the single-curve `Tape::YCCtx_<T_>`. It holds one
+`const DiscountCurve_<T_>*` per collateral and one per forward tenor, and
+provides `Discount(collateral)` and `Forward(tenor, collateral)` reads that
+mirror `CurveBlock_`'s routing (including the OIS fallback and the
+forward-to-discount fallback). The pointer maps are non-owning references to
+curves built in the same `Gradient` call. Unlike `YCCtx_<T_>`, which is bound to
+a single curve, `JointCurveBlock_<T_>` enables the multi-curve reads (discount
+at one curve, forecast at another) that IBOR-projection instruments require.
+
+### Projection-Capable Rate Base — `Tape::JointRate_<T_>`
+
+```text
+dal-cpp/dal/curve/jointrate.hpp
+```
+
+A sibling of Phase A's `Tape::Rate_<T_>` (which is bound to `YCCtx_<T_>` and
+reads a single curve). `JointRate_<T_>` declares a pure virtual
+`T_ operator()(const JointCurveBlock_<T_>& block)` so each subclass can read
+both a discount curve AND a forecast curve in the `T_` domain. The three
+projection-capable subclasses are:
+
+- `DepositRateProj_<T_>` -- single-period forecast read,
+- `ForwardRateProj_<T_>` -- covers FRA and Future (convexity adjustment stays
+  `double`),
+- `SwapRateProj_<T_>` -- swap par rate with float-leg forecast reads and
+  fixed-leg discount reads.
+
+This hierarchy prices the IBOR projection slice of a joint calibration, where
+$\text{forecast} \neq \text{discount}$. The OIS-discount slice (where
+$\text{forecast} = \text{discount}$) does not need these and rides the
+inherited `Swap_::PrecomputeT<T_>`.
+
+### Recording Contract for the Joint Path
+
+The recording contract that produces a correct Jacobian on all four backends is
+the same as the single-curve path:
+
+$$\text{Clear}(\textit{tape}) \rightarrow
+\text{RegisterIndependent}(x_k)\;\forall k \rightarrow
+\text{NewRecording}(\textit{tape}) \rightarrow
+\text{forward pass (build curves, price residuals)} \rightarrow
+\text{per row } \{\text{ZeroAdjoints},\; \bar{r}_i = 1,\;
+\text{PropagateToStart},\; \text{harvest } \bar{x}_j\}.$$
+
+Under PWL_FWD every knot is free (no anchor exclusion), so the independent
+registration covers all $2 \cdot n_{\text{knots}}$ forward-rate parameters
+per declaration. The harvested adjoints form a dense
+`XCurveJacobian_` (`dal-cpp/dal/curve/curvejacobian.hpp`) with exact structural
+zeros where an instrument has no parametric dependence on a given knot.
+
 ## Summary
 
 Reverse-mode AAD records the computational graph on a forward pass and applies

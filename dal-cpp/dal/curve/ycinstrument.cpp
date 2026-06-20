@@ -6,6 +6,7 @@
 #include <dal/platform/strict.hpp>
 #include <dal/curve/curveblock.hpp>
 #include <dal/curve/discount.hpp>
+#include <dal/curve/jointrate.hpp>
 #include <dal/curve/yc.hpp>
 #include <dal/curve/ycinstrument.hpp>
 #include <dal/curve/yclogdf.hpp>
@@ -368,6 +369,126 @@ namespace Dal {
                 return floatPv / annuity;
             }
         };
+
+        // ---- Phase B projection-capable rates (CP3, critique B4) ----
+        //
+        // Sibling classes of the Phase A Tape::Rate_<T_> hierarchy above, inheriting JointRate_<T_>
+        // instead. The pure virtual takes a JointCurveBlock_<T_> routing context (Gap 1) and performs
+        // BOTH a discount read at the leg's collateral AND a forecast read at (forecastTenor_,
+        // collateral_) in the T_ domain (Gap 3). Used ONLY for the IBOR(3M) projection slice where
+        // forecast != discount; the OIS-discount slice (forecast == discount) rides the inherited
+        // Swap_::PrecomputeT<T_> above (no projection needed). Phase A's Tape::Rate_<T_>, YCCtx_<T_>,
+        // and the four rate subclasses above are UNTOUCHED (NG2).
+
+        // Resolve a T_-typed forecast curve: the forecast tenor's registered forward curve when
+        // useProjectionCurve_, else the discount curve at the convention's collateral. Mirrors
+        // ResolveForecastCurve (ycinstrument.cpp:41-51) and CurveBlock_::Forward's fallback
+        // (curveblock.cpp:76-83).
+        template <class T_>
+        inline const DiscountCurve_<T_>& ResolveForecastT(const JointCurveBlock_<T_>& block, const RateIndexConvention_& conv) {
+            return conv.useProjectionCurve_ ? block.Forward(conv.forecastTenor_, conv.collateral_)
+                                            : block.Discount(conv.collateral_);
+        }
+
+        template <class T_>
+        class DepositRateProj_ : public JointRate_<T_> {
+            Date_ start_;
+            Date_ maturity_;
+            RateIndexConvention_ convention_;
+        public:
+            DepositRateProj_(const Date_& start, const Date_& maturity, const RateIndexConvention_& convention)
+                : start_(start), maturity_(maturity), convention_(convention) {}
+
+            T_ operator()(const JointCurveBlock_<T_>& block) const override {
+                const DiscountCurve_<T_>& forecast = ResolveForecastT<T_>(block, convention_);
+                SchedulePeriod_ period;
+                period.unadjustedStart_ = start_;
+                period.unadjustedEnd_ = maturity_;
+                period.accrualStart_ = Holidays::Adjust(convention_.accrualHolidays_, start_, convention_.businessDayConvention_);
+                period.accrualEnd_ = Holidays::Adjust(convention_.accrualHolidays_, maturity_, convention_.businessDayConvention_);
+                period.dayCountContext_ = SinglePeriodContext(start_, maturity_, CouponMonths(start_, maturity_));
+                return ForwardRate(forecast,
+                                   period.accrualStart_,
+                                   period.accrualEnd_,
+                                   convention_.dayBasis_,
+                                   period.dayCountContext_);
+            }
+        };
+
+        template <class T_>
+        class ForwardRateProj_ : public JointRate_<T_> {
+            Date_ start_;
+            Date_ maturity_;
+            double convexityAdjustment_;
+            RateIndexConvention_ convention_;
+        public:
+            ForwardRateProj_(const Date_& start,
+                              const Date_& maturity,
+                              double convexityAdjustment,
+                              const RateIndexConvention_& convention)
+                : start_(start), maturity_(maturity), convexityAdjustment_(convexityAdjustment), convention_(convention) {}
+
+            T_ operator()(const JointCurveBlock_<T_>& block) const override {
+                const DiscountCurve_<T_>& forecast = ResolveForecastT<T_>(block, convention_);
+                SchedulePeriod_ period;
+                period.unadjustedStart_ = start_;
+                period.unadjustedEnd_ = maturity_;
+                period.accrualStart_ = Holidays::Adjust(convention_.accrualHolidays_, start_, convention_.businessDayConvention_);
+                period.accrualEnd_ = Holidays::Adjust(convention_.accrualHolidays_, maturity_, convention_.businessDayConvention_);
+                period.dayCountContext_ = SinglePeriodContext(start_,
+                                                              maturity_,
+                                                              convention_.useProjectionCurve_
+                                                                  ? convention_.forecastTenor_.Months()
+                                                                  : CouponMonths(start_, maturity_));
+                return ForwardRate(forecast,
+                                   period.accrualStart_,
+                                   period.accrualEnd_,
+                                   convention_.dayBasis_,
+                                   period.dayCountContext_)
+                       - static_cast<double>(convexityAdjustment_);
+            }
+        };
+
+        template <class T_>
+        class SwapRateProj_ : public JointRate_<T_> {
+            Date_ tradeDate_;
+            Vector_<CouponPeriod_> fixedPeriods_;
+            Vector_<CouponPeriod_> floatPeriods_;
+            RateIndexConvention_ floatIndexConvention_;
+        public:
+            SwapRateProj_(const Date_& tradeDate,
+                           const Vector_<CouponPeriod_>& fixedPeriods,
+                           const Vector_<CouponPeriod_>& floatPeriods,
+                           const RateIndexConvention_& floatIndexConvention)
+                : tradeDate_(tradeDate),
+                  fixedPeriods_(fixedPeriods),
+                  floatPeriods_(floatPeriods),
+                  floatIndexConvention_(floatIndexConvention) {}
+
+            T_ operator()(const JointCurveBlock_<T_>& block) const override {
+                // The joint analogue of Tape::SwapRate_<T_>::operator() above, but the forecast and
+                // discount curves are DISTINCT (Gap 3): forecast resolves via ResolveForecastT (the
+                // forward curve at (forecastTenor_, collateral_) when useProjectionCurve_, else the
+                // discount curve), and discount reads via block.Discount(collateral_). Every DF and
+                // fixing read records on the tape through the T_-typed block.
+                const DiscountCurve_<T_>& discount = block.Discount(floatIndexConvention_.collateral_);
+                const DiscountCurve_<T_>& forecast = ResolveForecastT<T_>(block, floatIndexConvention_);
+                T_ annuity(static_cast<double>(0.0));
+                for (const auto& period : fixedPeriods_)
+                    annuity += static_cast<double>(period.accrual_.dcf_) * discount(tradeDate_, period.schedule_.paymentDate_);
+                REQUIRE(Dal::AAD::Value(annuity) > 0.0, "Swap pricing requires positive fixed-leg annuity");
+                T_ floatPv(static_cast<double>(0.0));
+                for (const auto& period : floatPeriods_) {
+                    const T_ fixing = ForwardRate(forecast,
+                                                   period.schedule_.accrualStart_,
+                                                   period.schedule_.accrualEnd_,
+                                                   floatIndexConvention_.dayBasis_,
+                                                   period.schedule_.dayCountContext_);
+                    floatPv += fixing * static_cast<double>(period.accrual_.dcf_) * discount(tradeDate_, period.schedule_.paymentDate_);
+                }
+                return floatPv / annuity;
+            }
+        };
     } // namespace Tape
 
     Deposit_::Deposit_(const Date_& today, const Date_& maturity, double marketRate, const DayBasis_& basis)
@@ -396,6 +517,13 @@ namespace Dal {
         return Handle_<Tape::Rate_<T_>>(new Tape::DepositRate_<T_>(start_, maturity_, convention_));
     }
 
+    // Phase B projection factory: returns a Tape::DepositRateProj_<T_> that reads BOTH a forecast
+    // curve (at the convention's forecastTenor_/collateral_) AND a discount curve (at collateral_)
+    // off a JointCurveBlock_<T_>. Used only on the IBOR projection slice where forecast != discount.
+    template <class T_> Handle_<Tape::JointRate_<T_>> Deposit_::PrecomputeProjectionT() const {
+        return Handle_<Tape::JointRate_<T_>>(new Tape::DepositRateProj_<T_>(start_, maturity_, convention_));
+    }
+
     FRA_::FRA_(const Date_& tradeDate,
                const Date_& start,
                const Date_& maturity,
@@ -415,6 +543,10 @@ namespace Dal {
 
     template <class T_> Handle_<Tape::Rate_<T_>> FRA_::PrecomputeT() const {
         return Handle_<Tape::Rate_<T_>>(new Tape::ForwardRate_<T_>(start_, maturity_, 0.0, convention_));
+    }
+
+    template <class T_> Handle_<Tape::JointRate_<T_>> FRA_::PrecomputeProjectionT() const {
+        return Handle_<Tape::JointRate_<T_>>(new Tape::ForwardRateProj_<T_>(start_, maturity_, 0.0, convention_));
     }
 
     Future_::Future_(const Date_& tradeDate,
@@ -442,6 +574,10 @@ namespace Dal {
 
     template <class T_> Handle_<Tape::Rate_<T_>> Future_::PrecomputeT() const {
         return Handle_<Tape::Rate_<T_>>(new Tape::ForwardRate_<T_>(start_, maturity_, convexityAdjustment_, convention_));
+    }
+
+    template <class T_> Handle_<Tape::JointRate_<T_>> Future_::PrecomputeProjectionT() const {
+        return Handle_<Tape::JointRate_<T_>>(new Tape::ForwardRateProj_<T_>(start_, maturity_, convexityAdjustment_, convention_));
     }
 
     Swap_::Swap_(const Date_& today, const Date_& maturity, double marketRate, int freqMonths, const DayBasis_& basis)
@@ -505,6 +641,25 @@ namespace Dal {
         return Handle_<Tape::Rate_<T_>>(new Tape::SwapRate_<T_>(tradeDate_, fixedPeriods, floatPeriods, floatIndexConvention_));
     }
 
+    // Phase B projection factory for vanilla Swap_ (and OISSwap_ which inherits it). The schedule
+    // is identical to PrecomputeT; only the returned rate class differs -- SwapRateProj_<T_> reads
+    // forecast and discount off separate slots of a JointCurveBlock_<T_>. OIS-discount-slice
+    // instruments (forecast == discount) ride the inherited PrecomputeT instead, so this factory
+    // is invoked only on the IBOR projection slice where forecast != discount.
+    template <class T_> Handle_<Tape::JointRate_<T_>> Swap_::PrecomputeProjectionT() const {
+        const auto fixedPeriods = BuildLegPeriods(start_,
+                                                  maturity_,
+                                                  fixedLegConvention_,
+                                                  0,
+                                                  Holidays::None());
+        const auto floatPeriods = BuildLegPeriods(start_,
+                                                  maturity_,
+                                                  floatLegConvention_,
+                                                  floatIndexConvention_.fixingLag_,
+                                                  floatIndexConvention_.fixingHolidays_);
+        return Handle_<Tape::JointRate_<T_>>(new Tape::SwapRateProj_<T_>(tradeDate_, fixedPeriods, floatPeriods, floatIndexConvention_));
+    }
+
     // Explicit instantiation of PrecomputeT<Dal::AAD::Number_> on each instrument so the linker
     // finds the symbol when calibration.cpp's AnalyticJacobian calls it. The Number_-typed rate
     // bodies forward arithmetic and value extraction to the Dal::AAD facade, so they compile and
@@ -516,6 +671,34 @@ namespace Dal {
     template Handle_<Tape::Rate_<Dal::AAD::Number_>> FRA_::PrecomputeT<Dal::AAD::Number_>() const;
     template Handle_<Tape::Rate_<Dal::AAD::Number_>> Future_::PrecomputeT<Dal::AAD::Number_>() const;
     template Handle_<Tape::Rate_<Dal::AAD::Number_>> Swap_::PrecomputeT<Dal::AAD::Number_>() const;
+
+    // Phase B projection-rate explicit instantiations. Same backend-neutral contract as PrecomputeT
+    // above: the Number_-typed rate bodies forward arithmetic and value extraction to the Dal::AAD
+    // facade, so they compile and run under every AAD backend.
+    template Handle_<Tape::JointRate_<Dal::AAD::Number_>> Deposit_::PrecomputeProjectionT<Dal::AAD::Number_>() const;
+    template Handle_<Tape::JointRate_<Dal::AAD::Number_>> FRA_::PrecomputeProjectionT<Dal::AAD::Number_>() const;
+    template Handle_<Tape::JointRate_<Dal::AAD::Number_>> Future_::PrecomputeProjectionT<Dal::AAD::Number_>() const;
+    template Handle_<Tape::JointRate_<Dal::AAD::Number_>> Swap_::PrecomputeProjectionT<Dal::AAD::Number_>() const;
+
+    namespace Tape {
+        // Dispatch the projection-rate factory by dynamic_cast (mirrors PhaseARateAt<T_> in
+        // calibration.cpp:499-510). Returns an empty handle if the instrument type has no projection
+        // subclass; the joint eligibility predicate rejects such types upstream.
+        template <class T_>
+        Handle_<JointRate_<T_>> ProjectionRateAt(const YCInstrument_& inst) {
+            if (const auto* d = dynamic_cast<const Deposit_*>(&inst))
+                return d->PrecomputeProjectionT<T_>();
+            if (const auto* f = dynamic_cast<const FRA_*>(&inst))
+                return f->PrecomputeProjectionT<T_>();
+            if (const auto* fu = dynamic_cast<const Future_*>(&inst))
+                return fu->PrecomputeProjectionT<T_>();
+            if (const auto* s = dynamic_cast<const Swap_*>(&inst))
+                return s->PrecomputeProjectionT<T_>();
+            return Handle_<JointRate_<T_>>();
+        }
+
+        template Handle_<JointRate_<Dal::AAD::Number_>> ProjectionRateAt<Dal::AAD::Number_>(const YCInstrument_&);
+    } // namespace Tape
 
     OISSwap_::OISSwap_(const Date_& tradeDate,
                        const Date_& start,

@@ -26,6 +26,12 @@ namespace Dal {
             virtual ~Rate_() = default;
             virtual T_ operator()(const YCCtx_<T_>& ctx) const = 0;
         };
+
+        // Phase B projection-capable rate interface (CP3). Forward-declared here so the instrument
+        // classes below can declare PrecomputeProjectionT<T_> member templates returning
+        // Handle_<JointRate_<T_>>. Defined in jointrate.hpp (which includes this header).
+        template <class T_> struct JointRate_;
+        template <class T_> struct JointCurveBlock_;
     } // namespace Tape
 
     class YCInstrument_ : noncopyable {
@@ -75,6 +81,7 @@ namespace Dal {
         [[nodiscard]] double MarketRate() const override { return marketRate_; }
         [[nodiscard]] Handle_<Rate_> Precompute(const Handle_<YieldCurve_>& funding_yc) const override;
         template <class T_> [[nodiscard]] Handle_<Tape::Rate_<T_>> PrecomputeT() const;
+        template <class T_> [[nodiscard]] Handle_<Tape::JointRate_<T_>> PrecomputeProjectionT() const;
         [[nodiscard]] const RateIndexConvention_& FloatConvention() const { return convention_; }
     };
 
@@ -97,6 +104,7 @@ namespace Dal {
         [[nodiscard]] double MarketRate() const override { return marketRate_; }
         [[nodiscard]] Handle_<Rate_> Precompute(const Handle_<YieldCurve_>& funding_yc) const override;
         template <class T_> [[nodiscard]] Handle_<Tape::Rate_<T_>> PrecomputeT() const;
+        template <class T_> [[nodiscard]] Handle_<Tape::JointRate_<T_>> PrecomputeProjectionT() const;
         [[nodiscard]] const RateIndexConvention_& FloatConvention() const { return convention_; }
     };
 
@@ -121,6 +129,7 @@ namespace Dal {
         [[nodiscard]] double MarketRate() const override { return marketRate_; }
         [[nodiscard]] Handle_<Rate_> Precompute(const Handle_<YieldCurve_>& funding_yc) const override;
         template <class T_> [[nodiscard]] Handle_<Tape::Rate_<T_>> PrecomputeT() const;
+        template <class T_> [[nodiscard]] Handle_<Tape::JointRate_<T_>> PrecomputeProjectionT() const;
         [[nodiscard]] const RateIndexConvention_& FloatConvention() const { return convention_; }
     };
 
@@ -149,6 +158,7 @@ namespace Dal {
         [[nodiscard]] double MarketRate() const override { return marketRate_; }
         [[nodiscard]] Handle_<Rate_> Precompute(const Handle_<YieldCurve_>& funding_yc) const override;
         template <class T_> [[nodiscard]] Handle_<Tape::Rate_<T_>> PrecomputeT() const;
+        template <class T_> [[nodiscard]] Handle_<Tape::JointRate_<T_>> PrecomputeProjectionT() const;
         [[nodiscard]] const RateIndexConvention_& FloatConvention() const { return floatIndexConvention_; }
     };
 

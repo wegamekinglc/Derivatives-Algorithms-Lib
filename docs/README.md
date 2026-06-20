@@ -25,11 +25,13 @@ Deep dives into the quantitative methods and algorithms implemented in DAL:
   - Expression templates, tape management, reverse-mode propagation
   - Backend architecture (native, XAD, CoDiPack, Adept)
   - Parallel AAD for Monte Carlo simulations
+  - Tape-layer curve calibration primitives (`DiscountPWLF_`, `JointCurveBlock_`, `JointRate_`)
 
 - **[yield_curve.md](methodology/yield_curve.md)** — Yield Curve Construction
   - Discount curve framework (`DiscountPWLF_`, `DiscountPWC_`)
   - Piecewise-linear and piecewise-constant forward rates
-  - Multi-curve construction and calibration
+  - Multi-curve construction and calibration (sequential and joint simultaneous)
+  - Joint multi-curve AAD analytic Jacobian (reverse-sweep, backend-neutral)
   - Integration with the underdetermined solver
 
 - **[underdetermined_search.md](methodology/underdetermined_search.md)** — Underdetermined Optimization
