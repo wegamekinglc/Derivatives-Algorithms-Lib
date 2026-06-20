@@ -62,23 +62,19 @@ namespace Dal {
 
         template <class T_, class B_>
         T_ DiscountPWLF_<T_, B_>::IntegralTo(double t) const {
-            // Reproduces all FOUR branches of double PiecewiseLinear_::IntegralTo
-            // (piecewiselinear.cpp:23-37) with double abscissa weights and T_ forward values.
-            // knotAbscissae_ is monotonic non-decreasing; LowerBound gives iGE = first knot with
-            // abscissa >= t.
             const int n = static_cast<int>(knotAbscissae_.size());
-            // Branch dispatch mirrors LowerBound(knotDates_, date) on the double abscissae.
-            int iGE = static_cast<int>(std::lower_bound(knotAbscissae_.begin(), knotAbscissae_.end(), t) - knotAbscissae_.begin());
+            const int iGE = static_cast<int>(std::lower_bound(knotAbscissae_.begin(), knotAbscissae_.end(), t) - knotAbscissae_.begin());
             if (iGE <= 0)
-                // Branch 1: below the first knot -- back-extrapolate at fLeftT_.front().
                 return -fLeftT_.front() * static_cast<double>(knotAbscissae_.front() - t);
             if (iGE >= n)
-                // Branch 2: at or beyond the last knot -- flat-forward extrapolation at fRightT_.back().
                 return sofarT_.back() + fRightT_.back() * static_cast<double>(t - knotAbscissae_.back());
             if (knotAbscissae_[iGE] == t)
-                // Branch 3: exactly on a knot -- return the precomputed running integral.
                 return sofarT_[iGE];
-            // Branch 4: interior partial trapezoid.
+            return IntegralToInterior(t, iGE);
+        }
+
+        template <class T_, class B_>
+        T_ DiscountPWLF_<T_, B_>::IntegralToInterior(double t, int iGE) const {
             const int iLT = iGE - 1;
             const double elapsed = t - knotAbscissae_[iLT];
             const double segWidth = knotAbscissae_[iGE] - knotAbscissae_[iLT];
@@ -90,25 +86,13 @@ namespace Dal {
 
         template <class T_, class B_>
         T_ DiscountPWLF_<T_, B_>::operator()(const Date_& from, const Date_& to) const {
-            // Mirrors ycimp.cpp:63-66:
-            //   exp(-(fwds_.IntegralTo(to) - fwds_.IntegralTo(from)) / 365.0)
-            //     * (base_ ? (*base_)(from, to) : 1.0)
-            // with Dal::AAD::exp on the T_ path and std::exp on the double path (if constexpr),
-            // and the DAYS_PER_YEAR constant replacing the bare 365.0 literal.
             const double fromT = static_cast<double>(from - knotDates_.front());
             const double toT = static_cast<double>(to - knotDates_.front());
-            const T_ integralTo = IntegralTo(toT);
-            const T_ integralFrom = IntegralTo(fromT);
-            const T_ logDf = -(integralTo - integralFrom) / static_cast<double>(DAYS_PER_YEAR_PWLF);
+            const T_ logDf = -(IntegralTo(toT) - IntegralTo(fromT)) / static_cast<double>(DAYS_PER_YEAR_PWLF);
             if constexpr (std::is_same_v<T_, double>) {
                 const double baseFactor = this->base_ ? (*this->base_)(from, to) : 1.0;
                 return std::exp(logDf) * baseFactor;
             } else {
-                // The base may be a double curve (B_ = DiscountCurve_<double>, treated as constant
-                // from the tape's perspective) OR a T_-typed curve (B_ = DiscountCurve_<T_>, whose
-                // adjoints propagate through the base multiplication -- Gap 4). Dispatch on B_ so
-                // the base read produces the right type; the exp is T_-typed via Dal::AAD::exp so
-                // the dependence on fLeftT_/fRightT_ records on the tape.
                 if (this->base_) {
                     const auto baseVal = (*this->base_)(from, to);
                     return Dal::AAD::exp(logDf) * baseVal;

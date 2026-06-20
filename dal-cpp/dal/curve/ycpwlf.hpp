@@ -51,6 +51,7 @@ namespace Dal {
 
             void UpdateT();
             [[nodiscard]] T_ IntegralTo(double t) const;
+            [[nodiscard]] T_ IntegralToInterior(double t, int iGE) const;
 
         public:
             DiscountPWLF_(const String_& name,
