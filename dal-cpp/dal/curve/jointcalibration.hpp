@@ -91,6 +91,12 @@ namespace Dal {
         // CalibrateYieldCurve). Retained for a future non-throwing overload.
         bool converged_ = false;
         int solverEvaluations_ = 0; // informational
+        // Unscaled analytic forward Jacobian d(residual_i) / d(param_j) at the solved x, shape
+        // (totalResiduals) x (totalFreeParams), captured by a single in-solver Gradient evaluation on
+        // convergence (the solver's fwd_jacobian_at_solution hook). Populated ONLY when
+        // options.jacobianMode_ == ANALYTIC AND the spec is eligible AND solveMode_ == EXACT; empty
+        // otherwise. The oracle test (AC1) reads this and compares against a central-FD bump of F.
+        Matrix_<> jacobianAtSolution_;
     };
 
     // Solver-side options for joint multi-curve calibration. NOT serialized with the spec: the
