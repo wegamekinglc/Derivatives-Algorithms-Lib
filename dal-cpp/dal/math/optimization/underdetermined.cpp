@@ -57,14 +57,14 @@ namespace Dal {
             }
 
             [[nodiscard]] Vector_<> MultiplyRight(const Vector_<>& t) const override {
-                Vector_<> ret_val;
-                Matrix::Multiply(t, j_, &ret_val);
-                return ret_val;
+                Vector_<> retVal;
+                Matrix::Multiply(t, j_, &retVal);
+                return retVal;
             }
             [[nodiscard]] Vector_<> MultiplyLeft(const Vector_<>& dx) const override {
-                Vector_<> ret_val;
-                Matrix::Multiply(j_, dx, &ret_val);
-                return ret_val;
+                Vector_<> retVal;
+                Matrix::Multiply(j_, dx, &retVal);
+                return retVal;
             }
 
             void QForm(const Sparse::SymmetricDecomposition_& w, SquareMatrix_<>* form) const override {
@@ -96,9 +96,9 @@ namespace Dal {
 
             Vector_<> F(const Vector_<>& x) {
                 REQUIRE(nEvals_-- > 0, "Exhausted function evaluations in underdetermined search");
-                Vector_<> ret_val = func_.F(x);
-                Transform(&ret_val, tol_, std::divides<>());
-                return ret_val;
+                Vector_<> retVal = func_.F(x);
+                Transform(&retVal, tol_, std::divides<>());
+                return retVal;
             }
 
             Underdetermined::Jacobian_* J(const Vector_<>& x, const Vector_<>& f) {
@@ -109,9 +109,9 @@ namespace Dal {
                 }
                 // have to set up dense J
                 func_.Gradient(x, f, &jDense_);
-                std::unique_ptr<XJDense_> ret_val(new XJDense_(jDense_));
-                ret_val->DivideRows(tol_);
-                return ret_val.release();
+                std::unique_ptr<XJDense_> retVal(new XJDense_(jDense_));
+                retVal->DivideRows(tol_);
+                return retVal.release();
             }
         };
 
@@ -130,23 +130,23 @@ namespace Dal {
 
         void StoreEffectiveJacobianInverse(const Underdetermined::Jacobian_& j,
                                            const Sparse::SymmetricDecomposition_& w,
-                                           Matrix_<>* eff_j_inv) {
-            if (!eff_j_inv)
+                                           Matrix_<>* effJInv) {
+            if (!effJInv)
                 return;
             SquareMatrix_<> q;
             j.QForm(w, &q);
-            Vector_<Vector_<>> q_inv_rhs(j.Rows(), Vector_<>(j.Rows(), 0.0));
+            Vector_<Vector_<>> qInvRhs(j.Rows(), Vector_<>(j.Rows(), 0.0));
             for (int i = 0; i < j.Rows(); ++i)
-                q_inv_rhs[i][i] = 1.0;
-            CholeskySolve(&q, &q_inv_rhs);
+                qInvRhs[i][i] = 1.0;
+            CholeskySolve(&q, &qInvRhs);
 
-            eff_j_inv->Resize(j.Columns(), j.Rows());
+            effJInv->Resize(j.Columns(), j.Rows());
             for (int i_col = 0; i_col < j.Rows(); ++i_col) {
-                Vector_<> ws = j.MultiplyRight(q_inv_rhs[i_col]);
+                Vector_<> ws = j.MultiplyRight(qInvRhs[i_col]);
                 Vector_<> eff_col;
                 w.Solve(ws, &eff_col);
                 for (int i_row = 0; i_row < j.Columns(); ++i_row)
-                    (*eff_j_inv)(i_row, i_col) = eff_col[i_row];
+                    (*effJInv)(i_row, i_col) = eff_col[i_row];
             }
         }
 
@@ -230,12 +230,12 @@ namespace Dal {
                                double j_weight,
                                const Sparse::Square_& w) {
             XPenaltyWeight_ WJJ(w, j, j_weight);
-            scoped_ptr<Sparse::SymmetricDecomposition_> de_comp(WJJ.DecomposeSymmetric());
-            Vector_<> rhs, ret_val;
+            scoped_ptr<Sparse::SymmetricDecomposition_> decomp(WJJ.DecomposeSymmetric());
+            Vector_<> rhs, retVal;
             w.MultiplyLeft(Apply(std::minus<>(), x0, x), &rhs);
             Transform(&rhs, j.MultiplyRight(f), LinearIncrement(-j_weight));
-            de_comp->Solve(rhs, &ret_val);
-            return ret_val;
+            decomp->Solve(rhs, &retVal);
+            return retVal;
         }
     } // namespace
 
@@ -244,8 +244,8 @@ namespace Dal {
                                     const Vector_<>& tol,
                                     const Sparse::SymmetricDecomposition_& w,
                                     const Controls_& controls,
-                                    Matrix_<>* eff_j_inv,
-                                    Matrix_<>* fwd_jacobian_at_solution) {
+                                    Matrix_<>* effJInv,
+                                    Matrix_<>* fwdJacobianAtSolution) {
         // set up the wrapper through which we will call the function
         XScaledFunc_ func(tol, func_in, controls);
         Vector_<> xOld(guess);
@@ -268,7 +268,7 @@ namespace Dal {
                 Transform(xOld, s, std::plus<>(), &xNew);
                 Vector_<> fNew = func.F(xNew);
                 if (*MaxElement(fNew) < 1.0 && *MinElement(fNew) > -1.0) {
-                    StoreEffectiveJacobianInverse(*j, w, eff_j_inv);
+                    StoreEffectiveJacobianInverse(*j, w, effJInv);
                     // Unscaled forward Jacobian at the solution, produced by ONE raw func_in.Gradient
                     // call (NOT XScaledFunc_::J), so DivideRows(tol) is never applied. fNew is the
                     // SCALED residual (XScaledFunc_::F divides by tol), so reconstruct the UNSCALED
@@ -278,13 +278,13 @@ namespace Dal {
                     // Function_ whose Gradient consumes f, harmless for the analytic path (which
                     // ignores f). A nullptr Gradient return clears the output so a caller-reused matrix
                     // cannot leak stale contents; there is no dense-FD fallback on this branch.
-                    if (fwd_jacobian_at_solution) {
-                        fwd_jacobian_at_solution->Clear();
+                    if (fwdJacobianAtSolution) {
+                        fwdJacobianAtSolution->Clear();
                         Vector_<> fUnscaled = fNew;
                         Transform(&fUnscaled, tol, std::multiplies<>());
                         std::unique_ptr<Jacobian_> jSol(func_in.Gradient(xNew, fUnscaled));
                         if (jSol)
-                            StoreForwardJacobianAtSolution(*jSol, fwd_jacobian_at_solution);
+                            StoreForwardJacobianAtSolution(*jSol, fwdJacobianAtSolution);
                     }
                     return xNew;
                 }
@@ -315,22 +315,22 @@ namespace Dal {
         }
     }
 
-    Vector_<> Underdetermined::Approximate(const Function_& func_in,
+    Vector_<> Underdetermined::Approximate(const Function_& funcIn,
                                            const Vector_<>& guess,
-                                           const Vector_<>& func_tol, // accuracy of function evaluation
-                                           double fit_tol,            // accuracy of appproximate fit
+                                           const Vector_<>& funcTol, // accuracy of function evaluation
+                                           double fitTol,            // accuracy of approximate fit
                                            const Sparse::Square_& w,
                                            const Controls_& controls) {
         // set up the wrapper through which we will call the function
-        XScaledFunc_ func(func_tol, func_in, controls);
+        XScaledFunc_ func(funcTol, funcIn, controls);
         Vector_<> xOld(guess);
         Vector_<> fOld = func.F(xOld);
-        if (sqrt(InnerProduct(fOld, fOld)) <= fit_tol)
+        if (sqrt(InnerProduct(fOld, fOld)) <= fitTol)
             return xOld;
         std::unique_ptr<Jacobian_> j;
         Vector_<> xNew(xOld.size());
         SquareMatrix_<> q;
-        const double jWeight = InnerProduct(func_tol, func_tol) / Square(fit_tol);
+        const double jWeight = InnerProduct(funcTol, funcTol) / Square(fitTol);
 
         for (int ie = 3, ticker = 0; ie < controls.maxEvaluations_; ++ie, ticker -= controls.maxRestarts_) {
             if (ticker <= 0) {
@@ -342,7 +342,7 @@ namespace Dal {
             // const double sNorm = InnerProduct(s, s); POSTPONED -- stop early when step is very small
             Transform(xOld, s, std::plus<>(), &xNew);
             Vector_<> fNew = func.F(xNew);
-            if (sqrt(InnerProduct(fNew, fNew)) <= fit_tol)
+            if (sqrt(InnerProduct(fNew, fNew)) <= fitTol)
                 return xNew;
             if (ticker > controls.maxRestarts_) // we are not about to restart
                 j->SecantUpdate(s, Apply(std::minus<>(), fNew, fOld));

@@ -76,16 +76,16 @@ namespace Dal {
                        const Vector_<>& tol,
                        const Sparse::SymmetricDecomposition_& w,
                        const Controls_& controls,
-                       Matrix_<>* eff_j_inv = nullptr,
-                       Matrix_<>* fwd_jacobian_at_solution = nullptr);
+                       Matrix_<>* effJInv = nullptr,
+                       Matrix_<>* fwdJacobianAtSolution = nullptr);
 
-        Vector_<> Approximate(const Function_& func_in,
+        Vector_<> Approximate(const Function_& funcIn,
                               const Vector_<>& guess,
-                              const Vector_<>& func_tol,
-                              double fit_tol,
+                              const Vector_<>& funcTol,
+                              double fitTol,
                               const Sparse::Square_& w,
                               const Controls_& controls);
 
-    }
+    } // namespace Underdetermined
 
-}
+} // namespace Dal

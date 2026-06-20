@@ -144,6 +144,11 @@ Docs always describe the **current/latest** version of the library only.
   lives in `CHANGELOG.md` and only there.
 - If a capability is removed, delete its doc (or fold its content into the successor's doc) and add a single
   CHANGELOG bullet. Do not leave a tombstone page describing a surface that no longer exists.
+- **No historical narrative.** Do not include "how this design was reached", design alternatives, implementation
+  plans (Phase A/B/C), baseline gap analysis, or suggested follow-up agent sequences. Docs describe what
+  exists, not the journey to get there.
+- **No source line numbers.** Do not cite specific line numbers (e.g., `calibration.hpp:70-95,142`). They
+  go stale as soon as the file is edited. Reference the struct, function, or file name instead.
 
 ## CHANGELOG.md: What Qualifies
 
@@ -189,6 +194,8 @@ When in doubt, ask the user. A cluttered changelog is worse than a sparse one.
 
 - Don't fork docs by version or maintain per-release copies — single current version only.
 - Don't embed per-version "Changed in vN" annotations inside docs — that history lives in `CHANGELOG.md`.
+- Don't include historical narrative — no "how this design was reached", Phase A/B/C plans, or design alternatives.
+- Don't cite source line numbers — use struct, function, or file names instead.
 - Don't clutter `CHANGELOG.md` with refactors, test work, formatting, or CI changes.
 - Don't redesign or rewrite example code — that is `dal-api-designer`'s surface; reuse it verbatim.
 - Don't run the C++ build, the test suite, or Machinist — there is nothing to compile or test for a docs change.

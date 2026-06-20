@@ -405,12 +405,12 @@ namespace {
         }
     }
 
-    // (d) AAD-vs-bump agreement loop (verbatim two-branch form, tol = 1e-9). Returns {maxAbs,
-    // maxRel} for main to print. The two-branch structure (|fd|<tol vs else) and the THROW-on-
+    // (d) AAD-vs-bump agreement loop (verbatim two-branch form, tol = 1e-9). Returns {maxAbs_,
+    // maxRel_} for main to print. The two-branch structure (|fd|<tol vs else) and the THROW-on-
     // fail per cell are preserved exactly.
     struct AgreementResult_ {
-        double maxAbs;
-        double maxRel;
+        double maxAbs_;
+        double maxRel_;
     };
 
     AgreementResult_ RunAgreementCheck(const Matrix_<>& jBump, const Matrix_<>& jAad) {
@@ -607,8 +607,8 @@ int main() {
     PrintSection("(d) AAD-vs-bump agreement  (verbatim two-branch form, tol = 1e-9)");
     const AgreementResult_ agree = RunAgreementCheck(jBump, jAad);
     std::cout << std::fixed << std::setprecision(12);
-    std::cout << "  max abs discrepancy : " << agree.maxAbs << "\n";
-    std::cout << "  max rel discrepancy : " << agree.maxRel << "\n";
+    std::cout << "  max abs discrepancy : " << agree.maxAbs_ << "\n";
+    std::cout << "  max rel discrepancy : " << agree.maxRel_ << "\n";
     std::cout << "  Verdict              : PASS  (rel <= 1e-9)\n";
 
     // ---- (e) effJacobianInverse_ from the EXACT solve ----
