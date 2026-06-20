@@ -6,15 +6,18 @@
 
 #include "bindings.h"
 
-#include <dal/platform/initall.hpp>
+#include <dal-public/src/global.hpp>
 
 using namespace Dal;
 
 PYBIND11_MODULE(_dal, m) {
-    // Initialize DAL runtime (equivalent to SWIG's %init block)
-    Dal::RegisterAll_::Init();
+    // Initialize DAL runtime (calendars, currency conventions, index parsers)
+    Dal::InitGlobalData();
 
     m.doc() = "DAL quantitative finance library -- Python bindings (pybind11)";
+
+    // Calendar types (Holidays_, BizDayConvention_, CountBusDays_)
+    init_bindings_calendar(m);
 
     // Core types (Date_, String_, Cell_, vectors, DoubleMatrix_)
     init_bindings_core(m);
@@ -26,6 +29,9 @@ PYBIND11_MODULE(_dal, m) {
     // and isinstance(result, dal.Dictionary) both pass (the latter works because
     // MonteCarlo_Value returns a dict via pybind11's std::map auto-conversion).
     m.attr("Dictionary") = py::module_::import("builtins").attr("dict");
+
+    // Curve calibration (instruments, curves, calibration)
+    init_bindings_curve(m);
 
     // Models (BSModelData_New, DupireModelData_New)
     init_bindings_models(m);
