@@ -11,11 +11,11 @@ namespace Dal::PDE {
     class CoordinateMap_ : noncopyable {
     public:
         virtual ~CoordinateMap_() = default ;
-        virtual double operator()(double y, double* dx_dy, double* d2x_dy2) const = 0;
+        virtual double operator()(double y, double* dxDy, double* d2xDy2) const = 0;
         [[nodiscard]] virtual double Y(double x) const = 0;
     };
 
-    CoordinateMap_* NewSinhMap(double x_width, double dxdy_range);
+    CoordinateMap_* NewSinhMap(double xWidth, double dxdyRange);
     inline CoordinateMap_* NewIdentityMap() { return NewSinhMap(1.0, 1.0); }
 
 

@@ -29,11 +29,11 @@ namespace Dal {
         return std::max(lh.first, std::min(lh.second, pfix->second));
     }
 
-    double IndexPathHistorical_::FixInRangeProb(const DateTime_& fixing_time,
+    double IndexPathHistorical_::FixInRangeProb(const DateTime_& fixingTime,
                                                 const std::pair<double, double>& range,
                                                 double ramp_width) const {
-        auto pfix = fixings_.find(fixing_time);
-        REQUIRE(pfix != fixings_.end(), "No fixing exists for " + DateTime::ToString(fixing_time));
+        auto pfix = fixings_.find(fixingTime);
+        REQUIRE(pfix != fixings_.end(), "No fixing exists for " + DateTime::ToString(fixingTime));
         double fixed = pfix->second;
         double lower = range.first;
         double upper = range.second;

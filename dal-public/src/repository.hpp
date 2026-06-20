@@ -12,4 +12,4 @@ namespace Dal {
     int EraseRepository(const Vector_<Handle_<Storable_>>& objects);
     Vector_<Handle_<Storable_>> FindRepository(const String_& pattern);
     int SizeRepository();
-}
+} // namespace Dal

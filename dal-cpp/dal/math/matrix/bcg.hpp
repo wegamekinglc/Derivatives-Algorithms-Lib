@@ -16,9 +16,9 @@ namespace Dal {
         class Square_;
 
         void CGSolve(const Sparse::Square_& A,
-                     const Vector_<>& b, double tol_rel, double tol_abs, int max_iterations, Vector_<>* x);
+                     const Vector_<>& b, double tolRel, double tolAbs, int maxIterations, Vector_<>* x);
 
         void BCGSolve(const Sparse::Square_& A,
-                      const Vector_<>& b, double tol_rel, double tol_abs, int max_iterations, Vector_<>* x);
+                      const Vector_<>& b, double tolRel, double tolAbs, int maxIterations, Vector_<>* x);
     }
 }

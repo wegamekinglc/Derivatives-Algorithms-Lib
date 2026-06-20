@@ -34,7 +34,7 @@ namespace Dal {
         template <class U_> U_ operator()(const U_& pvs, const U_& nw) { return pvs + newFrac_ * (nw - pvs); }
     };
 
-    template <class T_> inline AverageIn_<T_> AverageIn(const T_& new_frac) { return AverageIn_(new_frac); }
+    template <class T_> inline AverageIn_<T_> AverageIn(const T_& newFrac) { return AverageIn_(newFrac); }
 
     template <class T_> const T_& Dereference(const T_* p, const T_& v) { return p ? *p : v; }
 

@@ -41,7 +41,7 @@ namespace Dal {
 
     public:
         [[nodiscard]] virtual int Rank() const { return Size(); }
-        virtual Vector_<>::const_iterator MakeCorrelated(Vector_<>::const_iterator iid_begin, Vector_<>* correlated) const = 0;
+        virtual Vector_<>::const_iterator MakeCorrelated(Vector_<>::const_iterator iidBegin, Vector_<>* correlated) const = 0;
 
         void Multiply(const Vector_<>& x, Vector_<>* b) const;
         void Solve(const Vector_<>& b, Vector_<>* x) const;

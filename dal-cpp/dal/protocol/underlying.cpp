@@ -26,27 +26,27 @@ namespace Dal {
         return *this;
     }
 
-    Underlying_& Underlying_::Include(const Ccy_ &ccy, const Date_ &pay_date) {
+    Underlying_& Underlying_::Include(const Ccy_ &ccy, const Date_ &payDate) {
         if (!payCcys_.count(ccy))
-            payCcys_[ccy] = pay_date;
+            payCcys_[ccy] = payDate;
         else
-            payCcys_[ccy] = std::max(payCcys_[ccy], pay_date);
+            payCcys_[ccy] = std::max(payCcys_[ccy], payDate);
         return *this;
     }
 
-    Underlying_& Underlying_::Include(const IndexKey_ &index, const DateTime_ &fix_date) {
+    Underlying_& Underlying_::Include(const IndexKey_ &index, const DateTime_ &fixDate) {
         if (!indices_.count(index))
-            indices_[index] = fix_date;
+            indices_[index] = fixDate;
         else
-            indices_[index] = std::max(indices_[index], fix_date);
+            indices_[index] = std::max(indices_[index], fixDate);
         return *this;
     }
 
-    Underlying_& Underlying_::Include(const String_ &ref_name, const Date_ &pay_date) {
-        if (!credits_.count(ref_name))
-            credits_[ref_name] = pay_date;
+    Underlying_& Underlying_::Include(const String_ &refName, const Date_ &payDate) {
+        if (!credits_.count(refName))
+            credits_[refName] = payDate;
         else
-            credits_[ref_name] = std::max(credits_[ref_name], pay_date);
+            credits_[refName] = std::max(credits_[refName], payDate);
         return *this;
     }
 }

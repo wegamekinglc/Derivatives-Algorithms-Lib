@@ -44,14 +44,14 @@ namespace Dal {
             }
 
             Vector_<>::const_iterator
-            MakeCorrelated(Vector_<>::const_iterator iid_begin, Vector_<> *devs) const override {
+            MakeCorrelated(Vector_<>::const_iterator iidBegin, Vector_<> *devs) const override {
                 const int n = Size();
                 devs->Resize(n);
-                for (int ii = 0; ii < n; ++ii, ++iid_begin) {
+                for (int ii = 0; ii < n; ++ii, ++iidBegin) {
                     REQUIRE(!IsNegative(vals_[ii]), "Negative variance, can't MakeCorrelated");
-                    (*devs)[ii] = sqrt(max(vals_[ii], 0.0)) * *iid_begin;
+                    (*devs)[ii] = sqrt(max(vals_[ii], 0.0)) * *iidBegin;
                 }
-                return iid_begin;
+                return iidBegin;
             }
         };
 

@@ -55,7 +55,7 @@ int main() {
     eventDates.push_back(Cell_(maturity));
     events.push_back(String_("call pays alive * MAX(spot() - STRIKE, 0.0)"));
 
-    const int num_obs = freq == "1W" ? 3 * 51 : 3 * 12;
+    const int numObs = freq == "1W" ? 3 * 51 : 3 * 12;
 
     auto times = Vector::XRange(0.0, 5.0, 61);
     auto spots = Vector::XRange(50.0, 200.0, 31);
@@ -74,7 +74,7 @@ int main() {
               << std::setw(widths[10]) << std::right << "Elapsed (ms)"
               << std::endl;
     {
-        Handle_<ModelData_> model_data(new DupireModelData_("dupiremodel",
+        Handle_<ModelData_> modelData(new DupireModelData_("dupiremodel",
                                                                       spot,
                                                                       rate,
                                                                       div,
@@ -84,16 +84,16 @@ int main() {
         timer.Reset();
 
         ScriptProduct_ product(eventDates, events);
-        int max_nested_ifs = product.PreProcess(false, false);
+        int maxNestedIfs = product.PreProcess(false, false);
         product.Compile();
-        const int num_path = std::pow(2, 20);
-        SimResults_ results = MCSimulation<double>(product, model_data, num_path, String_("sobol"), false, true);
+        const int numPath = std::pow(2, 20);
+        SimResults_ results = MCSimulation<double>(product, modelData, numPath, String_("sobol"), false, true);
 
-        auto calculated = results.aggregated_ / static_cast<double>(num_path);
+        auto calculated = results.aggregated_ / static_cast<double>(numPath);
 
         std::cout << std::setw(widths[0]) << std::left << "Non-AAD"
-                  << std::setw(widths[1]) << std::right << num_path
-                  << std::setw(widths[2]) << std::right << num_obs
+                  << std::setw(widths[1]) << std::right << numPath
+                  << std::setw(widths[2]) << std::right << numObs
                   << std::fixed << std::setprecision(6)
                   << std::setw(widths[3]) << std::right << calculated
                   << std::setw(widths[4]) << std::right << "#NA"
@@ -106,7 +106,7 @@ int main() {
     }
 
     {
-        Handle_<ModelData_> model_data(new DupireModelData_("dupiremodel",
+        Handle_<ModelData_> modelData(new DupireModelData_("dupiremodel",
                                                                       spot,
                                                                       rate,
                                                                       div,
@@ -116,28 +116,28 @@ int main() {
         timer.Reset();
 
         ScriptProduct_ product(eventDates, events);
-        int max_nested_ifs = product.PreProcess(true, true);
+        int maxNestedIfs = product.PreProcess(true, true);
         product.Compile();
-        const int num_path = std::pow(2, 20);
-        SimResults_ results = MCSimulation<Number_>(product, model_data, num_path, String_("sobol"), false, true, max_nested_ifs, 0.01);
+        const int numPath = std::pow(2, 20);
+        SimResults_ results = MCSimulation<Number_>(product, modelData, numPath, String_("sobol"), false, true, maxNestedIfs, 0.01);
 
-        auto calculated = results.aggregated_ / static_cast<double>(num_path);
-        const int vol_length = 31 * 61;
+        auto calculated = results.aggregated_ / static_cast<double>(numPath);
+        const int volLength = 31 * 61;
         double vega = 0.0;
-        for (auto i = 3; i < 3 + vol_length; ++i)
+        for (auto i = 3; i < 3 + volLength; ++i)
             vega += results.risks_[i];
 
         std::cout << std::setw(widths[0]) << std::left << "AAD"
-                  << std::setw(widths[1]) << std::right << num_path
-                  << std::setw(widths[2]) << std::right << num_obs
+                  << std::setw(widths[1]) << std::right << numPath
+                  << std::setw(widths[2]) << std::right << numObs
                   << std::fixed << std::setprecision(6)
                   << std::setw(widths[3]) << std::right << calculated
                   << std::setw(widths[4]) << std::right << results.risks_[0]
                   << std::setw(widths[5]) << std::right << results.risks_[1]
                   << std::setw(widths[6]) << std::right << results.risks_[2]
                   << std::setw(widths[7]) << std::right << vega
-                  << std::setw(widths[8]) << std::right << results.risks_[3 + vol_length]
-                  << std::setw(widths[9]) << std::right << results.risks_[3 + vol_length + 1]
+                  << std::setw(widths[8]) << std::right << results.risks_[3 + volLength]
+                  << std::setw(widths[9]) << std::right << results.risks_[3 + volLength + 1]
                   << std::setw(widths[10]) << std::right << int(timer.Elapsed<milliseconds>()) << std::endl;
     }
     return 0;

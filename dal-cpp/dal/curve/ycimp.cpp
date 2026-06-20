@@ -32,13 +32,13 @@ namespace Dal {
 
     namespace {
         double LiborForecastFromDiscounts(const DiscountCurve_ &dc,
-                                          const Date_ &fix_date,
+                                          const Date_ &fixDate,
                                           int tenor_months,
                                           int tenor_weeks,
                                           const DayBasis_ &daycount) {
-            auto end = fix_date.AddDays((365 * tenor_months) / 12 + 7 * tenor_weeks);
-            const double df = dc(fix_date, end);
-            return (1.0 / df - 1.0) / daycount(fix_date, end, nullptr);
+            auto end = fixDate.AddDays((365 * tenor_months) / 12 + 7 * tenor_weeks);
+            const double df = dc(fixDate, end);
+            return (1.0 / df - 1.0) / daycount(fixDate, end, nullptr);
         }
     }
 
@@ -77,8 +77,8 @@ namespace Dal {
             DiscountPWLF_v1::XWrite(dst, name_, ccy_.String(), fwds_.knotDates_, fwds_.fLeft_, fwds_.fRight_, base_);
         }
 
-        [[nodiscard]] DiscountPWLF_ *Clone(const String_ &new_name, const substitutions_t &base_changes) const override {
-            return new DiscountPWLF_(new_name, ccy_.String(), fwds_, NewBase(base_changes));
+        [[nodiscard]] DiscountPWLF_ *Clone(const String_ &newName, const substitutions_t &baseChanges) const override {
+            return new DiscountPWLF_(newName, ccy_.String(), fwds_, NewBase(baseChanges));
         }
     };
 

@@ -89,7 +89,7 @@ namespace Dal {
     class Cube_ : public ArrayN_<E_> {
     public:
         Cube_() :ArrayN_<E_>(Vector_<int>({ 0, 0, 0 }), E_()) {}
-        Cube_(int size_i, int size_j, int size_k): ArrayN_<E_>(Vector_<int>({ size_i, size_j, size_k })) {}
+        Cube_(int sizeI, int sizeJ, int sizeK): ArrayN_<E_>(Vector_<int>({ sizeI, sizeJ, sizeK })) {}
 
         // support lookups without constructing a temporary vector
         const double& operator()(int ii, int jj, int kk) const {
@@ -115,8 +115,8 @@ namespace Dal {
         [[nodiscard]] inline int SizeJ() const { return ArrayN_<E_>::Sizes()[1]; }
         [[nodiscard]] inline int SizeK() const { return ArrayN_<E_>::Sizes()[2]; }
 
-        void Resize(int size_i, int size_j, int size_k) {
-            ArrayN_<E_>::Resize(Vector_<int>({ size_i, size_j, size_k }));
+        void Resize(int sizeI, int sizeJ, int sizeK) {
+            ArrayN_<E_>::Resize(Vector_<int>({ sizeI, sizeJ, sizeK }));
         }
 
     };

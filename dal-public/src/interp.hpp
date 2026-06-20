@@ -10,4 +10,4 @@
 namespace Dal {
     class Interp1_;
     Handle_<Interp1_> Interp1NewLinear(const String_& name, const Vector_<>& x, const Vector_<>& y);
-}
+} // namespace Dal

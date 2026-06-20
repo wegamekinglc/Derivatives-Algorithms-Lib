@@ -99,18 +99,18 @@ namespace Dal {
                 REQUIRE(b.size() == Size(), "Size should be compatible with b and the matrix");
                 TriSolve(b, diag_, above_, above_, betaInv_, x);
             }
-            Vector_<>::const_iterator MakeCorrelated(Vector_<>::const_iterator iid_begin,
+            Vector_<>::const_iterator MakeCorrelated(Vector_<>::const_iterator iidBegin,
                                                      Vector_<>* correlated) const override {
                 THROW("Tri-diagonal correlation matrices are not supported");
             }
         };
 
-        template <class V_> auto TridiagAt(V_& diag, V_& above, V_& below, int i_row, int j_col) -> decltype(&diag[0]) {
-            if (std::abs(i_row - j_col) > 1)
+        template <class V_> auto TridiagAt(V_& diag, V_& above, V_& below, int iRow, int jCol) -> decltype(&diag[0]) {
+            if (std::abs(iRow - jCol) > 1)
                 return nullptr;
-            if (i_row == j_col)
-                return &diag[i_row];
-            return i_row > j_col ? &below[j_col] : &above[i_row];
+            if (iRow == jCol)
+                return &diag[iRow];
+            return iRow > jCol ? &below[jCol] : &above[iRow];
         }
 
         /*
@@ -122,13 +122,13 @@ namespace Dal {
             const Matrix_<>& view_;
             int nBelow_;
 
-            BandElements_(int size, int n_above, int n_below)
-                : store_(size, 1 + n_below + n_above), view_(store_), nBelow_(n_below) {
+            BandElements_(int size, int nAbove, int nBelow)
+                : store_(size, 1 + nBelow + nAbove), view_(store_), nBelow_(nBelow) {
                 store_.Fill(0.0);
             }
 
             // also can borrow an existing matrix in which case store_ will be empty
-            BandElements_(const Matrix_<>& val, int n_below) : view_(val), nBelow_(n_below) {}
+            BandElements_(const Matrix_<>& val, int nBelow) : view_(val), nBelow_(nBelow) {}
 
             const double& operator()(int row, int col) const {
                 const int myCol = (col - row) + nBelow_;
@@ -164,7 +164,7 @@ namespace Dal {
 
         // this works even if x == &b
         void BandedLSolve(const BandElements_& val, const Vector_<>& b, Vector_<>* x) {
-            REQUIRE(val.view_.Cols() == val.nBelow_ + 1, "n_below and cols are not matched");
+            REQUIRE(val.view_.Cols() == val.nBelow_ + 1, "nBelow and cols are not matched");
             const int n = static_cast<int>(b.size());
             REQUIRE(val.view_.Rows() == n, "Size should be compatible with b and the matrix");
             x->Resize(n);
@@ -179,7 +179,7 @@ namespace Dal {
 
         // this works even if x == &b
         void BandedLTransposeSolve(const BandElements_& val, const Vector_<>& b, Vector_<>* x) {
-            REQUIRE(val.view_.Cols() == val.nBelow_ + 1, "n_below and cols are not matched");
+            REQUIRE(val.view_.Cols() == val.nBelow_ + 1, "nBelow and cols are not matched");
             const int n = static_cast<int>(b.size());
             REQUIRE(val.view_.Rows() == n, "Size should be compatible with b and the matrix");
             x->Resize(n);
@@ -199,7 +199,7 @@ namespace Dal {
         public:
             explicit BandedCholesky_(const BandElements_& llt) : val_(llt.view_.Rows(), llt.nBelow_, 0) {
                 static const double SMALL = 1.0e-11;
-                REQUIRE(llt.view_.Cols() == 2 * llt.nBelow_ + 1, "Cols should be 2 * n_below + 1");
+                REQUIRE(llt.view_.Cols() == 2 * llt.nBelow_ + 1, "Cols should be 2 * nBelow + 1");
                 const int n = llt.view_.Rows();
                 for (int ii = 0; ii < n; ++ii) {
                     const int iMin = max(0, ii - llt.nBelow_);
@@ -235,18 +235,18 @@ namespace Dal {
                 BandedLTransposeSolve(val_, *x, x);
             }
 
-            Vector_<>::const_iterator MakeCorrelated(Vector_<>::const_iterator iid_begin,
+            Vector_<>::const_iterator MakeCorrelated(Vector_<>::const_iterator iidBegin,
                                                      Vector_<>* correlated) const override {
                 const int n = Size();
                 correlated->Resize(n);
                 correlated->Fill(0.0);
-                for (int ii = 0; ii < n; ++ii, ++iid_begin) {
+                for (int ii = 0; ii < n; ++ii, ++iidBegin) {
                     for (int jj = min(n - 1, ii + val_.nBelow_); jj >= ii; --jj)
-                        (*correlated)[jj] += val_(jj, ii) * (*iid_begin);
+                        (*correlated)[jj] += val_(jj, ii) * (*iidBegin);
                 }
 
                 // TODO: why return the end?
-                return iid_begin;
+                return iidBegin;
             }
 
             void QForm(const Matrix_<>& j_mat, SquareMatrix_<>* form) const override {
@@ -272,7 +272,7 @@ namespace Dal {
             BandElements_ val_;
 
         public:
-            Banded_(int size, int n_above, int n_below) : val_(size, n_above, n_below) {}
+            Banded_(int size, int nAbove, int nBelow) : val_(size, nAbove, nBelow) {}
 
             [[nodiscard]] int Size() const override { return val_.view_.Rows(); }
             void MultiplyLeft(const Vector_<>& x, Vector_<>* b) const override { BandedMultiply<false>(val_, x, b); }
@@ -302,12 +302,12 @@ namespace Dal {
 
     namespace Sparse {
 
-        double* TriDiagonal_::At(int i_row, int j_col) {
-            return TridiagAt(diag_, above_, below_, i_row, j_col);
+        double* TriDiagonal_::At(int iRow, int jCol) {
+            return TridiagAt(diag_, above_, below_, iRow, jCol);
         }
 
-        const double& TriDiagonal_::operator()(int i_row, int j_col) const {
-            const double* temp = TridiagAt(diag_, above_, below_, i_row, j_col);
+        const double& TriDiagonal_::operator()(int iRow, int jCol) const {
+            const double* temp = TridiagAt(diag_, above_, below_, iRow, jCol);
             if (temp)
                 return *temp;
             else
@@ -325,11 +325,11 @@ namespace Dal {
             return new TriDecomp_(diag_, above_, below_);
         }
 
-        Square_* NewBandDiagonal(int size, int n_above, int n_below) {
+        Square_* NewBandDiagonal(int size, int nAbove, int nBelow) {
             REQUIRE(size > 0, "size should be larger than 0");
-            if (n_above <= 1 && n_below <= 1)
+            if (nAbove <= 1 && nBelow <= 1)
                 return new TriDiagonal_(size);
-            return new Banded_(size, n_above, n_below);
+            return new Banded_(size, nAbove, nBelow);
         }
     } // namespace Sparse
 
@@ -344,7 +344,7 @@ namespace Dal {
         }
     } // namespace
 
-    LowerBandAccumulator_::LowerBandAccumulator_(int size, int n_below) : val_(size, n_below + 1) { val_.Fill(0.0); }
+    LowerBandAccumulator_::LowerBandAccumulator_(int size, int nBelow) : val_(size, nBelow + 1) { val_.Fill(0.0); }
 
     void LowerBandAccumulator_::Add(const Vector_<>& v_in, int offset) {
         REQUIRE(v_in.size() <= val_.Cols(), "Too many nonzero elements in v");

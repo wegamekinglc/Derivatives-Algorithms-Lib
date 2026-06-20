@@ -58,9 +58,9 @@ namespace Dal {
                 REQUIRE(false, "DiscountPWC_ serialization is TODO until an archive schema is added");
             }
 
-            [[nodiscard]] DiscountPWC_* Clone(const String_& new_name,
-                                              const YCComponent_::substitutions_t& base_changes) const override {
-                return new DiscountPWC_(new_name, this->ccy_.String(), Fwds(), NewBase(base_changes));
+            [[nodiscard]] DiscountPWC_* Clone(const String_& newName,
+                                              const YCComponent_::substitutions_t& baseChanges) const override {
+                return new DiscountPWC_(newName, this->ccy_.String(), Fwds(), NewBase(baseChanges));
             }
         };
     } // namespace

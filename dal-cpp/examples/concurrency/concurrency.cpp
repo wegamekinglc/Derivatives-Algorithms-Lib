@@ -32,14 +32,14 @@ int main() {
     std::cout << "Elapsed (single threaded): " << timer.Elapsed<milliseconds>() << " ms" << std::endl;
 
     ThreadPool_* pool = ThreadPool_::GetInstance();
-    const int n_packs = 100;
-    const int sub_n = n / n_packs;
+    const int nPacks = 100;
+    const int subN = n / nPacks;
 
     timer.Reset();
     std::vector<TaskHandle_> futures;
-    for (int k = 0; k < n_packs; ++k) {
-        const int n1 = k * sub_n;
-        const int n2 = (k + 1) * sub_n;
+    for (int k = 0; k < nPacks; ++k) {
+        const int n1 = k * subN;
+        const int n2 = (k + 1) * subN;
         futures.push_back(pool->SpawnTask([n1, n2]() {
             LongRunningTask(n1, n2);
             return true;

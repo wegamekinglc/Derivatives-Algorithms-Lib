@@ -8,15 +8,15 @@
 
 namespace Dal {
 
-    double Index::PastFixing(_ENV, const String_& index_name, const DateTime_& fixing_time, bool quiet) {
+    double Index::PastFixing(_ENV, const String_& indexName, const DateTime_& fixingTime, bool quiet) {
         static const std::map<DateTime_, double> EMPTY;
         auto hist = Environment::Find<FixingsAccess_>(_env);
         REQUIRE(hist || quiet, "no fixing access");
-        auto fixings = hist->Fetch(index_name);
+        auto fixings = hist->Fetch(indexName);
         REQUIRE(fixings || quiet, "no fixings exist");
 
         auto vals = fixings ? fixings->vals_ : EMPTY;
-        auto pf = vals.find(fixing_time);
+        auto pf = vals.find(fixingTime);
         if (pf == vals.end()) {
             REQUIRE(quiet, "No fixing for this time");
             return -INF;
@@ -24,7 +24,7 @@ namespace Dal {
         return pf->second;
     }
 
-    double Index_::Fixing(_ENV, const DateTime_& fixing_time) const {
-        return Index::PastFixing(_env, Name(), fixing_time);
+    double Index_::Fixing(_ENV, const DateTime_& fixingTime) const {
+        return Index::PastFixing(_env, Name(), fixingTime);
     }
 } // namespace Dal

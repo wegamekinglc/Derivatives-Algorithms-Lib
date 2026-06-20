@@ -13,11 +13,11 @@ namespace Dal {
 
     std::map<String_, double> ValueByMonteCarlo(const Handle_<ScriptProductData_>& product,
                                                 const Handle_<ModelData_>& modelData,
-                                                int num_path,
+                                                int numPath,
                                                 const String_& rsg = "sobol",
-                                                bool use_bb = false,
-                                                bool enable_aad = false,
+                                                bool useBb = false,
+                                                bool enableAad = false,
                                                 double smooth = 0.01);
 
 
-}
+} // namespace Dal

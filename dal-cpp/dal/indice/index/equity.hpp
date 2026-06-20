@@ -14,7 +14,7 @@ namespace Dal::Index {
     public:
         [[nodiscard]] String_ Name() const override;
         const String_ eqName_;
-        [[nodiscard]] Date_ Delivery(const DateTime_& fixing_time) const;
+        [[nodiscard]] Date_ Delivery(const DateTime_& fixingTime) const;
         explicit Equity_(const String_& eq_name, const Date_* delivery_date = nullptr, const String_* delay_increment = nullptr);
     };
 } // namespace Dal::Index

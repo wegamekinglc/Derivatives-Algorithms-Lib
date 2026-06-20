@@ -19,16 +19,16 @@ namespace Dal {
             [[nodiscard]] int Size() const override { return diag_.size(); }
             [[nodiscard]] bool IsSymmetric() const override { return above_ == below_; }
 
-            double* At(int i_row, int j_col);
-            const double& operator()(int i_row, int j_col) const override;
-            void Set(int i_row, int j_col, double val) override {
-                double* dst = At(i_row, j_col);
+            double* At(int iRow, int jCol);
+            const double& operator()(int iRow, int jCol) const override;
+            void Set(int iRow, int jCol, double val) override {
+                double* dst = At(iRow, jCol);
                 REQUIRE(dst, "out of band write to tri-diagonal");
                 *dst = val;
             }
 
-            void Add(int i_row, int j_col, double inc) override {
-                double* dst = At(i_row, j_col);
+            void Add(int iRow, int jCol, double inc) override {
+                double* dst = At(iRow, jCol);
                 REQUIRE(dst, "out of band write to tri-diagonal");
                 *dst += inc;
             }
@@ -43,14 +43,14 @@ namespace Dal {
             [[nodiscard]] SquareMatrixDecomposition_* Decompose() const override ;
         };
 
-        Square_* NewBandDiagonal(int size, int n_above, int n_below);
+        Square_* NewBandDiagonal(int size, int nAbove, int nBelow);
     } // namespace Sparse
 
     class LowerBandAccumulator_ {
         Matrix_<> val_;
 
     public:
-        LowerBandAccumulator_(int size, int n_below);
+        LowerBandAccumulator_(int size, int nBelow);
         void Add(const Vector_<>& v, int offset);
 
         void SolveLeft(const Vector_<>& b, Vector_<>* x) const;

@@ -19,7 +19,7 @@ precise is boolean
 -IF-------------------------------------------------------------------------*/
 
 namespace Dal {
-    SequenceSet_* NewSobol(int size, size_t i_path, bool precise = false);
+    SequenceSet_* NewSobol(int size, size_t iPath, bool precise = false);
 
     class BASE_EXPORT SobolRSG_: public Storable_ {
         std::unique_ptr<SequenceSet_> rsg_;
@@ -27,8 +27,8 @@ namespace Dal {
         double ndim_;
         bool precise_;
     public:
-        SobolRSG_(const String_& name, double i_path, double n_dim = 1, bool precise = false)
-            : Storable_("SobolRSG", name), i_path_(i_path), ndim_(n_dim), precise_(precise) {
+        SobolRSG_(const String_& name, double iPath, double nDim = 1, bool precise = false)
+            : Storable_("SobolRSG", name), i_path_(iPath), ndim_(nDim), precise_(precise) {
             rsg_.reset(NewSobol(static_cast<int>(ndim_), static_cast<size_t>(i_path_), precise));
         }
         void Write(Archive::Store_& dst) const override;

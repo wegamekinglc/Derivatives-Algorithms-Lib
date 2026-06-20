@@ -35,7 +35,7 @@ int main() {
     const String_ freq = "1M";
     const Date_ maturity(2025, 3, 1);
     const Date_ start = Global::Dates_::EvaluationDate();
-    const int num_path = std::pow(2, 20);
+    const int numPath = std::pow(2, 20);
 
     timer.Reset();
 
@@ -65,7 +65,7 @@ int main() {
                      "if spot() > KO:0.001 then call pays alive * COUPON * " + dcf + " alive = 0  end\n"
                      "call pays alive * is_ki * (spot() - STRIKE) + alive * (1.000000 - is_ki) * COUPON * " + dcf);
     ScriptProduct_ product(eventDates, events, "call");
-    const int num_obs = freq == "1W" ? 3 * 51 : 3 * 12;
+    const int numObs = freq == "1W" ? 3 * 51 : 3 * 12;
 
     Vector_<int> widths = {14, 14, 14, 14, 14, 14, 14, 14, 14};
 
@@ -81,17 +81,17 @@ int main() {
               << std::endl;
 
     {
-        Handle_<ModelData_> model_data(new BSModelData_("bsmodel", spot, vol, rate, div));
+        Handle_<ModelData_> modelData(new BSModelData_("bsmodel", spot, vol, rate, div));
 
         timer.Reset();
-        int max_nested_ifs = product.PreProcess(false, false);
-        SimResults_ results = MCSimulation<double>(product, model_data, num_path, String_("sobol"), false);
+        int maxNestedIfs = product.PreProcess(false, false);
+        SimResults_ results = MCSimulation<double>(product, modelData, numPath, String_("sobol"), false);
 
-        auto calculated = results.aggregated_ / static_cast<double>(num_path);
+        auto calculated = results.aggregated_ / static_cast<double>(numPath);
 
         std::cout << std::setw(widths[0]) << std::left << "Non-AAD"
-                  << std::setw(widths[1]) << std::right << num_path
-                  << std::setw(widths[2]) << std::right << num_obs
+                  << std::setw(widths[1]) << std::right << numPath
+                  << std::setw(widths[2]) << std::right << numObs
                   << std::fixed
                   << std::setprecision(6)
                   << std::setw(widths[3]) << std::right << calculated
@@ -105,84 +105,84 @@ int main() {
 
     {
         timer.Reset();
-        Handle_<ModelData_> model_data(new BSModelData_("bsmodel", spot, vol, rate, div));
+        Handle_<ModelData_> modelData(new BSModelData_("bsmodel", spot, vol, rate, div));
 
         timer.Reset();
-        int max_nested_ifs = product.PreProcess(false, false);
-        SimResults_ results = MCSimulation<double>(product, model_data, num_path, String_("sobol"), false);
-        auto calculated = results.aggregated_ / static_cast<double>(num_path);
+        int maxNestedIfs = product.PreProcess(false, false);
+        SimResults_ results = MCSimulation<double>(product, modelData, numPath, String_("sobol"), false);
+        auto calculated = results.aggregated_ / static_cast<double>(numPath);
 
         double eps = 0.001;
-        Handle_<ModelData_> model_data_down(new BSModelData_("bsmodel", spot * (1 - eps), vol, rate, div));
+        Handle_<ModelData_> modelDataDown(new BSModelData_("bsmodel", spot * (1 - eps), vol, rate, div));
         product.PreProcess(false, false);
-        SimResults_ results_down = MCSimulation<double>(product, model_data_down, num_path, String_("sobol"), false);
-        auto calculated_down = results_down.aggregated_ / static_cast<double>(num_path);
+        SimResults_ results_down = MCSimulation<double>(product, modelDataDown, numPath, String_("sobol"), false);
+        auto calculatedDown = results_down.aggregated_ / static_cast<double>(numPath);
 
-        Handle_<ModelData_> model_data_up(new BSModelData_("bsmodel", spot * (1 + eps), vol, rate, div));
+        Handle_<ModelData_> modelDataUp(new BSModelData_("bsmodel", spot * (1 + eps), vol, rate, div));
         product.PreProcess(false, false);
-        SimResults_ results_up = MCSimulation<double>(product, model_data_up, num_path, String_("sobol"), false);
-        auto calculated_up = results_up.aggregated_ / static_cast<double>(num_path);
-        auto d_spot = (calculated_up - calculated_down) / (2 * spot * eps);
+        SimResults_ results_up = MCSimulation<double>(product, modelDataUp, numPath, String_("sobol"), false);
+        auto calculatedUp = results_up.aggregated_ / static_cast<double>(numPath);
+        auto dSpot = (calculatedUp - calculatedDown) / (2 * spot * eps);
 
-        model_data_down.reset(new BSModelData_("bsmodel", spot , vol * (1 - eps), rate, div));
+        modelDataDown.reset(new BSModelData_("bsmodel", spot , vol * (1 - eps), rate, div));
         product.PreProcess(false, false);
-        results_down = MCSimulation<double>(product, model_data_down, num_path, String_("sobol"), false);
-        calculated_down = results_down.aggregated_ / static_cast<double>(num_path);
+        results_down = MCSimulation<double>(product, modelDataDown, numPath, String_("sobol"), false);
+        calculatedDown = results_down.aggregated_ / static_cast<double>(numPath);
 
-        model_data_up.reset(new BSModelData_("bsmodel", spot , vol * (1 + eps), rate, div));
+        modelDataUp.reset(new BSModelData_("bsmodel", spot , vol * (1 + eps), rate, div));
         product.PreProcess(false, false);
-        results_up = MCSimulation<double>(product, model_data_up, num_path, String_("sobol"), false);
-        calculated_up = results_up.aggregated_ / static_cast<double>(num_path);
-        auto d_vol = (calculated_up - calculated_down) / (2 * vol * eps);
+        results_up = MCSimulation<double>(product, modelDataUp, numPath, String_("sobol"), false);
+        calculatedUp = results_up.aggregated_ / static_cast<double>(numPath);
+        auto dVol = (calculatedUp - calculatedDown) / (2 * vol * eps);
 
-        model_data_down.reset(new BSModelData_("bsmodel", spot , vol, rate - eps, div));
+        modelDataDown.reset(new BSModelData_("bsmodel", spot , vol, rate - eps, div));
         product.PreProcess(false, false);
-        results_down = MCSimulation<double>(product, model_data_down, num_path, String_("sobol"), false);
-        calculated_down = results_down.aggregated_ / static_cast<double>(num_path);
+        results_down = MCSimulation<double>(product, modelDataDown, numPath, String_("sobol"), false);
+        calculatedDown = results_down.aggregated_ / static_cast<double>(numPath);
 
-        model_data_up.reset(new BSModelData_("bsmodel", spot , vol, rate + eps, div));
+        modelDataUp.reset(new BSModelData_("bsmodel", spot , vol, rate + eps, div));
         product.PreProcess(false, false);
-        results_up = MCSimulation<double>(product, model_data_up, num_path, String_("sobol"), false);
-        calculated_up = results_up.aggregated_ / static_cast<double>(num_path);
-        auto d_rate = (calculated_up - calculated_down) / (2 * eps);
+        results_up = MCSimulation<double>(product, modelDataUp, numPath, String_("sobol"), false);
+        calculatedUp = results_up.aggregated_ / static_cast<double>(numPath);
+        auto dRate = (calculatedUp - calculatedDown) / (2 * eps);
 
-        model_data_down.reset(new BSModelData_("bsmodel", spot , vol, rate, div - eps));
+        modelDataDown.reset(new BSModelData_("bsmodel", spot , vol, rate, div - eps));
         product.PreProcess(false, false);
-        results_down = MCSimulation<double>(product, model_data_down, num_path, String_("sobol"), false);
-        calculated_down = results_down.aggregated_ / static_cast<double>(num_path);
+        results_down = MCSimulation<double>(product, modelDataDown, numPath, String_("sobol"), false);
+        calculatedDown = results_down.aggregated_ / static_cast<double>(numPath);
 
-        model_data_up.reset(new BSModelData_("bsmodel", spot , vol, rate, div + eps));
+        modelDataUp.reset(new BSModelData_("bsmodel", spot , vol, rate, div + eps));
         product.PreProcess(false, false);
-        results_up = MCSimulation<double>(product, model_data_up, num_path, String_("sobol"), false);
-        calculated_up = results_up.aggregated_ / static_cast<double>(num_path);
-        auto d_div = (calculated_up - calculated_down) / (2 * eps);
+        results_up = MCSimulation<double>(product, modelDataUp, numPath, String_("sobol"), false);
+        calculatedUp = results_up.aggregated_ / static_cast<double>(numPath);
+        auto dDiv = (calculatedUp - calculatedDown) / (2 * eps);
 
         std::cout << std::setw(widths[0]) << std::left << "FDM"
-                  << std::setw(widths[1]) << std::right << num_path
-                  << std::setw(widths[2]) << std::right << num_obs
+                  << std::setw(widths[1]) << std::right << numPath
+                  << std::setw(widths[2]) << std::right << numObs
                   << std::fixed
                   << std::setprecision(6)
                   << std::setw(widths[3]) << std::right << calculated
-                  << std::setw(widths[4]) << std::right << d_spot
-                  << std::setw(widths[5]) << std::right << d_vol
-                  << std::setw(widths[6]) << std::right << d_rate
-                  << std::setw(widths[7]) << std::right << d_div
+                  << std::setw(widths[4]) << std::right << dSpot
+                  << std::setw(widths[5]) << std::right << dVol
+                  << std::setw(widths[6]) << std::right << dRate
+                  << std::setw(widths[7]) << std::right << dDiv
                   << std::setw(widths[8]) << std::right << int(timer.Elapsed<milliseconds>())
                   << std::endl;
     }
 
     {
-        Handle_<ModelData_> model_data(new BSModelData_("bsmodel", spot, vol, rate, div));
+        Handle_<ModelData_> modelData(new BSModelData_("bsmodel", spot, vol, rate, div));
 
         timer.Reset();
-        int max_nested_ifs = product.PreProcess(true, true);
-        SimResults_ results = MCSimulation<Number_>(product, model_data, num_path, String_("sobol"), false, false, max_nested_ifs);
+        int maxNestedIfs = product.PreProcess(true, true);
+        SimResults_ results = MCSimulation<Number_>(product, modelData, numPath, String_("sobol"), false, false, maxNestedIfs);
 
-        auto calculated = results.aggregated_ / static_cast<double>(num_path);
+        auto calculated = results.aggregated_ / static_cast<double>(numPath);
 
         std::cout << std::setw(widths[0]) << std::left << "AAD"
-                  << std::setw(widths[1]) << std::right << num_path
-                  << std::setw(widths[2]) << std::right << num_obs
+                  << std::setw(widths[1]) << std::right << numPath
+                  << std::setw(widths[2]) << std::right << numObs
                   << std::fixed
                   << std::setprecision(6)
                   << std::setw(widths[3]) << std::right << calculated

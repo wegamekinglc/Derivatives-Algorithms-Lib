@@ -10,8 +10,8 @@ namespace Dal {
     template <class T_> class Vector_;
 
     namespace File {
-        void Read(const String_& file_name, Vector_<String_>* dst);
-        void Write(const String_& file_name, const Vector_<String_>& src);
-        void Remove(const String_& file_name);
+        void Read(const String_& fileName, Vector_<String_>* dst);
+        void Write(const String_& fileName, const Vector_<String_>& src);
+        void Remove(const String_& fileName);
     } // namespace File
 } // namespace Dal

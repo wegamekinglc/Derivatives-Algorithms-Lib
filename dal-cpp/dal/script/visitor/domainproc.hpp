@@ -63,8 +63,8 @@ namespace Dal::Script {
         using Visitor_<DomainProcessor_>::Visit;
 
         // Domains start with the IsSingleton 0
-        DomainProcessor_(const size_t n_vars, bool fuzzy)
-            : fuzzy_(fuzzy), varDomains_(n_vars, Domain_(0.0)), isLhsVar_(false), lhsVarIdx_(-1), condStack_() {}
+        DomainProcessor_(const size_t nVars, bool fuzzy)
+            : fuzzy_(fuzzy), varDomains_(nVars, Domain_(0.0)), isLhsVar_(false), lhsVarIdx_(-1), condStack_() {}
 
         [[nodiscard]] const Vector_<Domain_>& VarDomains() const {
             return varDomains_;

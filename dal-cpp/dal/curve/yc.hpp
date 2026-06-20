@@ -22,6 +22,6 @@ namespace Dal {
         [[nodiscard]] virtual const DiscountCurve_ &Discount(const CollateralType_ &collateral) const = 0;
         [[nodiscard]] virtual const DiscountCurve_& Forward(const PeriodLength_& tenor,
                                                             const CollateralType_& collateral) const = 0;
-        [[nodiscard]] virtual double FwdLibor(const PeriodLength_ &tenor, const Date_ &fixing_date) const = 0;
+        [[nodiscard]] virtual double FwdLibor(const PeriodLength_ &tenor, const Date_ &fixingDate) const = 0;
     };
 }

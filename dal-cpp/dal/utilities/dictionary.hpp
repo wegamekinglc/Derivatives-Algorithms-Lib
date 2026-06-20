@@ -28,9 +28,9 @@ namespace Dal {
         const Cell_& BlankCell(); // returned when At can't find key
 
         template <class F_, class R_>
-        auto Extract(const Dictionary_& src, const String_& key, F_ translate, const R_& default_val)
+        auto Extract(const Dictionary_& src, const String_& key, F_ translate, const R_& defaultVal)
             -> decltype(translate(Cell_())) {
-            return src.Has(key) ? translate(src.At(key)) : default_val;
+            return src.Has(key) ? translate(src.At(key)) : defaultVal;
         }
 
         template <class F_>

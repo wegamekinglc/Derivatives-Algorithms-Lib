@@ -31,9 +31,9 @@ namespace Dal::PDE {
         };
     } // namespace
 
-    CoordinateMap_* NewSinhMap(double x_width, double dxdy_range) {
-        REQUIRE(IsPositive(x_width) && dxdy_range >= 1.0, "x_width should be positive and dxdy_range should be greater than 1");
-        double sinhMaxY = std::sqrt(Square(dxdy_range) - 1.0);
-        return IsZero(Square(sinhMaxY)) ? (CoordinateMap_*)new IdentityMap_ : new SinhMap_(x_width / sinhMaxY);
+    CoordinateMap_* NewSinhMap(double xWidth, double dxdyRange) {
+        REQUIRE(IsPositive(xWidth) && dxdyRange >= 1.0, "xWidth should be positive and dxdyRange should be greater than 1");
+        double sinhMaxY = std::sqrt(Square(dxdyRange) - 1.0);
+        return IsZero(Square(sinhMaxY)) ? (CoordinateMap_*)new IdentityMap_ : new SinhMap_(xWidth / sinhMaxY);
     }
 } // namespace Dal::PDE

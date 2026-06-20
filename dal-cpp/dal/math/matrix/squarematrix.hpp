@@ -16,8 +16,8 @@ namespace Dal {
         void Resize(int size) { val_.Resize(size, size); }
 
         operator const Matrix_<E_>&() const { return val_; };
-        double& operator()(int i_row, int j_col) { return val_(i_row, j_col); }
-        const double& operator()(int i_row, int j_col) const { return val_(i_row, j_col); }
+        double& operator()(int iRow, int jCol) { return val_(iRow, jCol); }
+        const double& operator()(int iRow, int jCol) const { return val_(iRow, jCol); }
 
         [[nodiscard]] int Rows() const { return val_.Rows(); }
         typename Matrix_<E_>::Row_ Row(int ii) { return val_.Row(ii); }

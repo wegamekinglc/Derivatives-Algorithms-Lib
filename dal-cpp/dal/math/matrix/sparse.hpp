@@ -23,9 +23,9 @@ namespace Dal::Sparse {
         [[nodiscard]] virtual bool IsSymmetric() const = 0;
         [[nodiscard]] virtual SquareMatrixDecomposition_* Decompose() const = 0;
         [[nodiscard]] SymmetricDecomposition_* DecomposeSymmetric() const;
-        virtual const double& operator()(int i_row, int j_col) const = 0;
-        virtual void Set(int i_row, int j_col, double val) = 0;
-        virtual void Add(int i_row, int j_col, double val) { Set(i_row, j_col, val + operator()(i_row, j_col)); }
+        virtual const double& operator()(int iRow, int j_col) const = 0;
+        virtual void Set(int iRow, int j_col, double val) = 0;
+        virtual void Add(int iRow, int j_col, double val) { Set(iRow, j_col, val + operator()(iRow, j_col)); }
         virtual ~Square_() = default;
     };
 

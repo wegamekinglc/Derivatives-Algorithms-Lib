@@ -15,4 +15,4 @@ namespace Dal {
     Date_ GetEvaluationDate() {
         return Global::Dates_::EvaluationDate();
     }
-}
+} // namespace Dal

@@ -21,9 +21,9 @@ namespace Dal {
 
             WriterView_(Table_* dst) : dst_(dst), rowOffset_(0), colOffset_(0), r2r_(1), r2c_(0), c2r_(0), c2c_(1) {}
 
-            void Write(int i_row, int i_col, const Cell_& val) const {
-                const int dstRow = rowOffset_ + r2r_ * i_row + c2r_ * i_col;
-                const int dstCol = colOffset_ + r2c_ * i_row + c2c_ * i_col;
+            void Write(int iRow, int iCol, const Cell_& val) const {
+                const int dstRow = rowOffset_ + r2r_ * iRow + c2r_ * iCol;
+                const int dstCol = colOffset_ + r2c_ * iRow + c2c_ * iCol;
                 (*dst_)(dstRow, dstCol) = val;
             }
 

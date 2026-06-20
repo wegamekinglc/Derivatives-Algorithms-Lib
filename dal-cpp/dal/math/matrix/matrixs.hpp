@@ -98,8 +98,8 @@ namespace Dal {
             }
         };
 
-        ConstRow_ Row(int i_row) const { return ConstRow_(hooks_[i_row], cols_); }
-        ConstRow_ operator[](int i_row) const { return Row(i_row); }
+        ConstRow_ Row(int iRow) const { return ConstRow_(hooks_[iRow], cols_); }
+        ConstRow_ operator[](int iRow) const { return Row(iRow); }
 
         struct Row_ : ConstRow_ {
             using iterator = I_;
@@ -116,8 +116,8 @@ namespace Dal {
             const E_& operator[](int col) const { return *(ConstRow_::begin_ + col); }
         };
 
-        Row_ Row(int i_row) { return Row_(hooks_[i_row], cols_); }
-        Row_ operator[](int i_row) { return Row(i_row); }
+        Row_ Row(int iRow) { return Row_(hooks_[iRow], cols_); }
+        Row_ operator[](int iRow) { return Row(iRow); }
 
         // Iteration through columns is less efficient
         class ConstCol_ {
@@ -189,7 +189,7 @@ namespace Dal {
             [[nodiscard]] size_t size() const { return size_; }
             const E_& operator[](int row) const { return *(begin_.val_ + row * begin_.stride_); }
         };
-        ConstCol_ Col(int i_col) const { return ConstCol_(hooks_[0] + i_col, hooks_.size(), cols_); }
+        ConstCol_ Col(int iCol) const { return ConstCol_(hooks_[0] + iCol, hooks_.size(), cols_); }
 
         class Col_ : public ConstCol_ {
             using iterator = typename ConstCol_::iterator;
@@ -206,7 +206,7 @@ namespace Dal {
 
             using ConstCol_::size;
         };
-        Col_ Col(int i_col) { return Col_(hooks_[0] + i_col, hooks_.size(), cols_); }
+        Col_ Col(int iCol) { return Col_(hooks_[0] + iCol, hooks_.size(), cols_); }
 
         // POSTPONED -- sub-matrix
         void Swap(Matrix_<E_>* other) {

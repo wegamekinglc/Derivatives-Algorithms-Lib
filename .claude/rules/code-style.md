@@ -25,6 +25,7 @@
 | Functions/Methods | PascalCase                 | `FromExcel()`, `AddDays()`, `GeneratePath()`      |
 | Member variables  | camelCase + trailing `_`   | `serialNumber_`, `spot_`, `vol_`, `name_`         |
 | Local variables   | camelCase                  | `numPaths`, `batchSize`, `nThreads`               |
+| Function params   | camelCase                  | `fwdJacobianAtSolution`, `fitTol`, `nInst`        |
 | Constants/Macros  | UPPER_SNAKE_CASE           | `BATCH_SIZE`, `EPSILON`, `FORCE_INLINE`           |
 | Files             | lowercase, no separators   | `threadpool.cpp`, `blackscholes.hpp`              |
 | Test files        | `test_` prefix, snake_case | `test_vectors.cpp`, `test_date.cpp`               |

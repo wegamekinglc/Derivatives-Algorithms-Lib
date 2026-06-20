@@ -35,7 +35,7 @@ namespace Dal {
 
         Date_ EndOfMonth(const Date_& dt);
 
-        Date_ AddMonths(const Date_& dt, int n_months, bool preserve_eom = false);
+        Date_ AddMonths(const Date_& dt, int nMonths, bool preserveEom = false);
     } // namespace Date
 
     class Date_ {

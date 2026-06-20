@@ -95,12 +95,12 @@ namespace Dal {
 
             [[nodiscard]] int Size() const override { return lower_->Rows(); }
 
-            Vector_<>::const_iterator MakeCorrelated(Vector_<>::const_iterator iid_begin, Vector_<>* correlated) const override {
+            Vector_<>::const_iterator MakeCorrelated(Vector_<>::const_iterator iidBegin, Vector_<>* correlated) const override {
                 const int n = Size();
                 correlated->Resize(n);
                 for (int ii = 0; ii < n; ++ii) {
-                    (*correlated)[ii] = std::inner_product(iid_begin, iid_begin + ii, lower_->Row(ii).begin(), 0.0);
-                    (*correlated)[ii] += *(iid_begin + ii) / (*lower_)(ii, ii);
+                    (*correlated)[ii] = std::inner_product(iidBegin, iidBegin + ii, lower_->Row(ii).begin(), 0.0);
+                    (*correlated)[ii] += *(iidBegin + ii) / (*lower_)(ii, ii);
                 }
                 return correlated->begin();
             }

@@ -21238,7 +21238,7 @@ const uint_least32_t* const DIRECTIONS[21201] = {
             bool precise_;
             Vector_<uint_least32_t> state_;
 
-            explicit SobolSet_(size_t i_path, bool precise = false) : iPath_(i_path), precise_(precise) { REQUIRE(i_path >= 0, "i_path must be no less than 0"); }
+            explicit SobolSet_(size_t iPath, bool precise = false) : iPath_(iPath), precise_(precise) { REQUIRE(iPath >= 0, "iPath must be no less than 0"); }
 
         public:
 
@@ -21251,15 +21251,15 @@ const uint_least32_t* const DIRECTIONS[21201] = {
                 seq->state_ = state_;
                 return seq.release();
             }
-            void SkipTo(size_t n_paths) override {
-                iPath_ = n_paths;
+            void SkipTo(size_t nPaths) override {
+                iPath_ = nPaths;
                 Fill(&state_, 0);
                 for (size_t jj = 0, ip = iPath_; ip; ++jj, ip >>= 1) {
                     if ((ip ^ (ip >> 1)) & 1)
                         Transform(state_, directions_.Row(jj), XOR, &state_);
                 }
             }
-            SobolSet_* TakeAway(int sub_size) override;
+            SobolSet_* TakeAway(int subSize) override;
         };
 
         void SobolSet_::FillUniform(Vector_<>* dst) {
@@ -21279,16 +21279,16 @@ const uint_least32_t* const DIRECTIONS[21201] = {
             Transform(dst, func);
         }
 
-        SobolSet_* SobolSet_::TakeAway(int sub_size) {
-            REQUIRE(sub_size > 0 && sub_size <= NDim(), "Invalid sequence sub_size");
+        SobolSet_* SobolSet_::TakeAway(int subSize) {
+            REQUIRE(subSize > 0 && subSize <= NDim(), "Invalid sequence subSize");
             std::unique_ptr<SobolSet_> ret_val(new SobolSet_(iPath_));
-            if (sub_size == NDim()) {
+            if (subSize == NDim()) {
                 directions_.Swap(&ret_val->directions_);
                 state_.Swap(&ret_val->state_);
             } else {
-                const int size = NDim() - sub_size;
+                const int size = NDim() - subSize;
                 Matrix_<uint_least32_t> dir(N_BITS, size);
-                ret_val->directions_.Resize(N_BITS, sub_size);
+                ret_val->directions_.Resize(N_BITS, subSize);
                 for (int ii = 0; ii < N_BITS; ++ii) {
                     copy(directions_.Row(ii).begin(), directions_.Row(ii).begin() + size, dir.Row(ii).begin());
                     copy(directions_.Row(ii).begin() + size, directions_.Row(ii).end(),
@@ -21302,12 +21302,12 @@ const uint_least32_t* const DIRECTIONS[21201] = {
         }
     } // namespace
 
-    SequenceSet_* NewSobol(int size, size_t i_path, bool precise) {
-        std::unique_ptr<SobolSet_> seq(new SobolSet_(i_path, precise));
+    SequenceSet_* NewSobol(int size, size_t iPath, bool precise) {
+        std::unique_ptr<SobolSet_> seq(new SobolSet_(iPath, precise));
         seq->state_.Resize(size);
         seq->directions_ = Directions(size);
         Fill(&seq->state_, 0);
-        for (size_t jj = 0, ip = i_path; ip; ++jj, ip >>= 1) {
+        for (size_t jj = 0, ip = iPath; ip; ++jj, ip >>= 1) {
             if ((ip ^ (ip >> 1)) & 1)
                 Transform(seq->state_, seq->directions_.Row(jj), XOR, &seq->state_);
         }

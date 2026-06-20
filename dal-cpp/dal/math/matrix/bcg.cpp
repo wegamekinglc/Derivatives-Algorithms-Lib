@@ -45,15 +45,15 @@ namespace Dal {
 
     void Sparse::CGSolve(const Sparse::Square_& A,
                          const Vector_<>& b,
-                         double tol_rel,
-                         double tol_abs,
-                         int max_iterations,
+                         double tolRel,
+                         double tolAbs,
+                         int maxIterations,
                          Vector_<>* x) {
         const int n = A.Size();
         REQUIRE(b.size() == n && x->size() == n, "matrix size is not compatible");
-        REQUIRE((IsPositive(tol_rel) || IsPositive(tol_abs)) && max_iterations > 0, "parameters is not valid");
+        REQUIRE((IsPositive(tolRel) || IsPositive(tolAbs)) && maxIterations > 0, "parameters is not valid");
 
-        double tNorm = tol_rel * sqrt(InnerProduct(b, b)) + tol_abs;
+        double tNorm = tolRel * sqrt(InnerProduct(b, b)) + tolAbs;
         XPrecondition_ precondition(A);
         Vector_<> r(n);
         Vector_<> z(n);
@@ -61,7 +61,7 @@ namespace Dal {
         A.MultiplyLeft(*x, &r);
         Transform(b, r, std::minus<>(), &r); // r = b - Ax
         double betaPrev;
-        for (int ii = 0; ii < max_iterations; ++ii) {
+        for (int ii = 0; ii < maxIterations; ++ii) {
             precondition.Left(r, &z);
             const double beta = InnerProduct(z, r);
             p *= ii > 0 ? beta / betaPrev : 0.0;
@@ -79,14 +79,14 @@ namespace Dal {
 
     void Sparse::BCGSolve(const Sparse::Square_ &A,
                           const Vector_<> &b,
-                          double tol_rel,
-                          double tol_abs,
-                          int max_iterations, Vector_<> *x) {
+                          double tolRel,
+                          double tolAbs,
+                          int maxIterations, Vector_<> *x) {
         const int n = A.Size();
         REQUIRE(b.size() == n && x->size() == n, "matrix size is not compatible");
-        REQUIRE((IsPositive(tol_rel) || IsPositive(tol_abs)) && max_iterations > 0, "parameters is not valid");
+        REQUIRE((IsPositive(tolRel) || IsPositive(tolAbs)) && maxIterations > 0, "parameters is not valid");
 
-        double tNorm = tol_rel * sqrt(InnerProduct(b, b)) + tol_abs;
+        double tNorm = tolRel * sqrt(InnerProduct(b, b)) + tolAbs;
         XPrecondition_ precondition(A);
         Vector_<> r(n);
         Vector_<> rr(n);
@@ -100,7 +100,7 @@ namespace Dal {
         rr = r;
 
         double betaPrev;
-        for (int ii = 0; ii < max_iterations; ++ii) {
+        for (int ii = 0; ii < maxIterations; ++ii) {
             precondition.Left(r, &z);
             precondition.Right(rr, &zz);
             const double beta = InnerProduct(zz, r);

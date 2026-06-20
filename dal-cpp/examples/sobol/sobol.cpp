@@ -25,30 +25,30 @@ int main() {
               << std::setw(widths[3]) << std::right << "Normal"
               << std::endl;
 
-    Vector_<int> p_num_paths = {10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30};
-    const int num_dims  = 5;
-    for (auto i: p_num_paths) {
+    Vector_<int> pNumPaths = {10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30};
+    const int numDims  = 5;
+    for (auto i: pNumPaths) {
         Vector_<> dst;
-        unique_ptr<SequenceSet_> rsg(NewSobol(num_dims, 1000));
-        const auto num_paths = static_cast<size_t>(std::pow(2, i));
+        unique_ptr<SequenceSet_> rsg(NewSobol(numDims, 1000));
+        const auto numPaths = static_cast<size_t>(std::pow(2, i));
 
         timer.Reset();
-        for (auto j = 0; j < num_paths; ++j)
+        for (auto j = 0; j < numPaths; ++j)
             rsg->FillUniform(&dst);
-        auto uniform_duration = int(timer.Elapsed<milliseconds>());
+        auto uniformDuration = int(timer.Elapsed<milliseconds>());
 
         timer.Reset();
-        for (auto j = 0; j < num_paths; ++j)
+        for (auto j = 0; j < numPaths; ++j)
             rsg->FillNormal(&dst);
-        auto normal_duration = int(timer.Elapsed<milliseconds>());
+        auto normalDuration = int(timer.Elapsed<milliseconds>());
 
 
         std::cout << std::fixed
                   << std::setprecision(6)
-                  << std::setw(widths[0]) << std::right << num_paths
-                  << std::setw(widths[1]) << std::right << num_dims
-                  << std::setw(widths[2]) << std::right << uniform_duration
-                  << std::setw(widths[3]) << std::right << normal_duration
+                  << std::setw(widths[0]) << std::right << numPaths
+                  << std::setw(widths[1]) << std::right << numDims
+                  << std::setw(widths[2]) << std::right << uniformDuration
+                  << std::setw(widths[3]) << std::right << normalDuration
                   << std::endl;
 
     }

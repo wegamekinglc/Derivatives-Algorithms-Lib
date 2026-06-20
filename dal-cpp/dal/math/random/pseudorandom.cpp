@@ -64,8 +64,8 @@ namespace Dal {
                 return MUL * (2 * ret_val + 1); // avoid 0.0 and 1.0
             }
 
-            explicit ShuffledIRN_(int seed, size_t n_dim = 1, bool precise = false)
-                : PseudoRandom_(n_dim, precise), seed_(seed), irn_(M_), shuffle_(S_), irl_(0) {
+            explicit ShuffledIRN_(int seed, size_t nDim = 1, bool precise = false)
+                : PseudoRandom_(nDim, precise), seed_(seed), irn_(M_), shuffle_(S_), irl_(0) {
                 const unsigned MASK = 0x1F2E3D4C;
                 const unsigned MUL = 17;
                 // initialize IRN_
@@ -77,13 +77,13 @@ namespace Dal {
                     shuffle_[ii] = IRN();
             }
 
-            [[nodiscard]] PseudoRandom_* Branch(int i_child) const override {
+            [[nodiscard]] PseudoRandom_* Branch(int iChild) const override {
                 return new ShuffledIRN_<M_, L_, S_>(irn_[0] ^ irn_[1]);
             }
 
             [[nodiscard]] PseudoRandom_* Clone() const override { return new ShuffledIRN_(seed_, cache_.size()); }
 
-            void SkipTo(size_t n_paths) override {}
+            void SkipTo(size_t nPaths) override {}
         };
 
         constexpr const double m1_ = 4294967087;
@@ -98,8 +98,8 @@ namespace Dal {
             const double a_, b_;
             double xn_, xn1_, xn2_, yn_, yn1_, yn2_;
 
-            explicit MRG32k32a_(const unsigned& a = 12345, const unsigned& b = 12346, size_t n_dim = 1, bool precise = false)
-                : PseudoRandom_(n_dim, precise), a_(a), b_(b) {
+            explicit MRG32k32a_(const unsigned& a = 12345, const unsigned& b = 12346, size_t nDim = 1, bool precise = false)
+                : PseudoRandom_(nDim, precise), a_(a), b_(b) {
                 Reset();
             }
 
@@ -134,20 +134,20 @@ namespace Dal {
                 return u;
             }
 
-            [[nodiscard]] PseudoRandom_* Branch(int i_child) const override { return new MRG32k32a_(); }
+            [[nodiscard]] PseudoRandom_* Branch(int iChild) const override { return new MRG32k32a_(); }
 
             [[nodiscard]] PseudoRandom_* Clone() const override {
                 return new MRG32k32a_(static_cast<unsigned>(a_), static_cast<unsigned>(b_), cache_.size());
             }
 
-            void SkipTo(size_t n_paths) override {
-                size_t n_points = n_paths * NDim();
+            void SkipTo(size_t nPaths) override {
+                size_t nPoints = nPaths * NDim();
                 Reset();
 
-                if (n_points & 1)
-                    n_points = (n_points - 1) / 2;
+                if (nPoints & 1)
+                    nPoints = (nPoints - 1) / 2;
                 else
-                    n_points /= 2;
+                    nPoints /= 2;
 
                 static constexpr size_t m1l = static_cast<size_t>(m1_);
                 static constexpr size_t m2l = static_cast<size_t>(m2_);
@@ -159,15 +159,15 @@ namespace Dal {
                 size_t bi[3][3] = {
                     {static_cast<size_t>(a21_), 0, static_cast<size_t>(m2_ - a23_)}, {1, 0, 0}, {0, 1, 0}};
 
-                while (n_points > 0) {
-                    if (n_points & 1) {
+                while (nPoints > 0) {
+                    if (nPoints & 1) {
                         MPrd(ab, ai, m1l, ab);
                         MPrd(bb, bi, m2l, bb);
                     }
 
                     MPrd(ai, ai, m1l, ai);
                     MPrd(bi, bi, m2l, bi);
-                    n_points >>= 1;
+                    nPoints >>= 1;
                 }
 
                 size_t x0[3] = {static_cast<size_t>(xn_), static_cast<size_t>(xn1_), static_cast<size_t>(xn2_)};
@@ -236,12 +236,12 @@ namespace Dal {
 
 #include <dal/auto/MG_RNGType_enum.inc>
 
-    PseudoRandom_* New(const RNGType_& type, int seed, size_t n_dim, bool precise) {
+    PseudoRandom_* New(const RNGType_& type, int seed, size_t nDim, bool precise) {
         PseudoRandom_* ret;
         if (type == RNGType_("IRN"))
-            ret = new ShuffledIRN_<55, 31, 128>(seed, n_dim, precise);
+            ret = new ShuffledIRN_<55, 31, 128>(seed, nDim, precise);
         else if (type == RNGType_("MRG32"))
-            ret = new MRG32k32a_(seed, seed + 1, n_dim, precise);
+            ret = new MRG32k32a_(seed, seed + 1, nDim, precise);
         else
             THROW("RNG type is not recognized");
         return ret;

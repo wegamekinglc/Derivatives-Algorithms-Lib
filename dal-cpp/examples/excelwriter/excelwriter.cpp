@@ -23,12 +23,12 @@ int main() {
     RegisterAll_::Init();
 
     // Ensure the Excel integration is configured for the correct Excel version.
-    int N = 40;
+    int n = 40;
 
     // Create abscissa x array
-    double A = 0.0;
-    double B = 3.0; // Interval_
-    auto x = Vector::XRange(A, B, N);
+    double a = 0.0;
+    double b = 3.0; // Interval_
+    auto x = Vector::XRange(a, b, n);
 
     auto fun = [](double x) { return log(x + 0.01); };
     auto fun2 = [](double x) { return x * x; };

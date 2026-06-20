@@ -19,6 +19,6 @@ namespace Dal {
 
         AccrualPeriod_() = default;
         AccrualPeriod_(const Date_& start, const Date_& end, double notional, const DayBasis_& day_count);
-        AccrualPeriod_(const Date_& start, const Date_& end, double notional, const DayBasis_& day_count, const Handle_<DayBasis::Context_>& context, bool is_stub);
+        AccrualPeriod_(const Date_& start, const Date_& end, double notional, const DayBasis_& day_count, const Handle_<DayBasis::Context_>& context, bool isStub);
     };
 }

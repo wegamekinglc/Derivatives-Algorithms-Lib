@@ -28,8 +28,8 @@ namespace Dal {
         }
     }
 
-    LiborRate_::LiborRate_(const DateTime_& fix_date, const Ccy_& ccy, const TradedRate_& rate)
-        : fixDate_(fix_date), ccy_(ccy), rate_(rate) {}
+    LiborRate_::LiborRate_(const DateTime_& fixDate, const Ccy_& ccy, const TradedRate_& rate)
+        : fixDate_(fixDate), ccy_(ccy), rate_(rate) {}
 
     Clearer_ TradedRate_::Clearer() const {
         switch (Switch()) {
