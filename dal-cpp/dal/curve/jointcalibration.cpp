@@ -300,11 +300,14 @@ namespace Dal {
             const std::vector<CurveSlot_>* slots_;
             String_ ccy_;
             DayBasis_ dayCount_;
+            CurveJacobianMode_ jacobianMode_;
             mutable int evaluationCount_ = 0;
 
         public:
-            JointResidualFunction_(const JointMultiCurveCalibrationSpec_& spec, const std::vector<CurveSlot_>& slots)
-                : spec_(&spec), slots_(&slots), ccy_(spec.ccy_), dayCount_(spec.liborBasis_) {}
+            JointResidualFunction_(const JointMultiCurveCalibrationSpec_& spec,
+                                   const std::vector<CurveSlot_>& slots,
+                                   CurveJacobianMode_ jacobianMode)
+                : spec_(&spec), slots_(&slots), ccy_(spec.ccy_), dayCount_(spec.liborBasis_), jacobianMode_(jacobianMode) {}
 
             [[nodiscard]] int EvaluationCount() const { return evaluationCount_; }
 
@@ -419,6 +422,11 @@ namespace Dal {
     } // namespace
 
     JointMultiCurveCalibrationResult_ CalibrateJointMultiCurve(const JointMultiCurveCalibrationSpec_& spec) {
+        return CalibrateJointMultiCurve(spec, JointMultiCurveCalibrationOptions_());
+    }
+
+    JointMultiCurveCalibrationResult_
+    CalibrateJointMultiCurve(const JointMultiCurveCalibrationSpec_& spec, const JointMultiCurveCalibrationOptions_& options) {
         const std::vector<CurveSlot_> slots = ValidateAndBuildSlots(spec);
 
         int totalParams = 0;
@@ -441,7 +449,7 @@ namespace Dal {
         const Vector_<> tol(totalResiduals, spec.tolerance_);
         std::unique_ptr<Sparse::TriDiagonal_> weights = BuildJointSmoothing(slots);
 
-        JointResidualFunction_ func(spec, slots);
+        JointResidualFunction_ func(spec, slots, options.jacobianMode_);
         const Vector_<> solved = RunJointSolver(spec, func, guess, tol, *weights);
 
         // Convergence check: the solver returns the best-found x, but APPROXIMATE can leave a

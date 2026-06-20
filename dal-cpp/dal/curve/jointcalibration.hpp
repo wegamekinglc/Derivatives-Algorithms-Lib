@@ -93,9 +93,47 @@ namespace Dal {
         int solverEvaluations_ = 0; // informational
     };
 
+    // Solver-side options for joint multi-curve calibration. NOT serialized with the spec: the
+    // spec describes WHAT to calibrate (declarations, knots, instruments); the options describe HOW
+    // to solve (Jacobian construction). A default-constructed JointMultiCurveCalibrationOptions_
+    // engages the AAD path on eligible specs (matching the single-curve CurveCalibrationOptions_
+    // default); on an ineligible spec it emits a one-time NOTICE and falls back to the
+    // byte-for-byte bumped path.
+    struct JointMultiCurveCalibrationOptions_ {
+        // Jacobian construction for the joint calibration solver.
+        //   BUMPED   -- finite-difference bumping of every free parameter. Always available;
+        //               byte-for-byte identical to the pre-Phase-B path.
+        //   ANALYTIC -- AAD-derived dense Jacobian over the joint stacked parameter vector
+        //               (default). Engages only when EligibleForAnalyticJacobian() is true (every
+        //               declaration PIECEWISE_LINEAR_FWD + base collateral resolves +
+        //               liborBasis_ == ACT_365F + vanilla Deposit/FRA/Future/Swap only -- OISSwap_
+        //               rides the inherited Swap_::PrecomputeT<T_> since its overnight index has
+        //               useProjectionCurve_ == false, so forecast == discount == OIS and both AAD
+        //               and bumped paths share the identical simple-rate arithmetic; see
+        //               .claude/designs/joint-aad-gradient.md Gap 5 + tradeDate == knot 0);
+        //               otherwise falls back to BUMPED with a NOTICE (at most once per
+        //               CalibrateJointMultiCurve call; never throws). The joint residual prices
+        //               IBOR projection instruments through a NEW Tape::JointRate_<T_> base (CP3)
+        //               reading a Tape::JointCurveBlock_<T_> routing context.
+        //
+        // DEFAULT IS ANALYTIC, matching single-curve CurveCalibrationOptions_
+        // (dal-cpp/dal/curve/calibration.hpp). Every existing joint caller exercises the new
+        // Tape::DiscountPWLF_<T_> + Tape::JointCurveBlock_<T_> machinery on eligible specs after
+        // the upgrade; the mitigation is the AAD-vs-bumped oracle test (spec AC1) and the
+        // four-backend build matrix (spec AC6).
+        CurveJacobianMode_ jacobianMode_ = CurveJacobianMode_::Value_::ANALYTIC;
+    };
+
     // Validate inputs and run ONE Underdetermined::Find / Approximate over the concatenated
     // free-parameter vector of every declaration. Throws Dal::Exception_ on validation failure or
     // solver non-convergence (message names the failing solve and residual norm).
     [[nodiscard]] JointMultiCurveCalibrationResult_ CalibrateJointMultiCurve(const JointMultiCurveCalibrationSpec_& spec);
+
+    // Two-arg overload: the options surface carries the per-call Jacobian mode (BUMPED vs
+    // ANALYTIC). The single-arg overload above delegates to this with a default-constructed
+    // options (-> ANALYTIC), so existing callers exercise the AAD path by default on eligible
+    // specs.
+    [[nodiscard]] JointMultiCurveCalibrationResult_ CalibrateJointMultiCurve(const JointMultiCurveCalibrationSpec_& spec,
+                                                                             const JointMultiCurveCalibrationOptions_& options);
 
 } // namespace Dal
