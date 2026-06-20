@@ -2,9 +2,9 @@
 // Created by wegam on 2021/2/24.
 //
 
+#include <gtest/gtest.h>
 #include <dal/math/matrix/banded.hpp>
 #include <dal/math/matrix/sparse.hpp>
-#include <gtest/gtest.h>
 
 using namespace Dal;
 

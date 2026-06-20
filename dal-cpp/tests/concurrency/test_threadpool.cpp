@@ -2,8 +2,8 @@
 // Created by wegam on 2023/1/24.
 //
 
-#include <thread>
 #include <gtest/gtest.h>
+#include <thread>
 #include <dal/concurrency/threadpool.hpp>
 
 using namespace Dal;

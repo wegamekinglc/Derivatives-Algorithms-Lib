@@ -2,9 +2,9 @@
 // Created by wegam on 2022/5/11.
 //
 
+#include <gtest/gtest.h>
 #include <dal/math/interp/interp2d.hpp>
 #include <dal/platform/platform.hpp>
-#include <gtest/gtest.h>
 
 using Dal::Interp2Linear_;
 using Dal::Matrix_;

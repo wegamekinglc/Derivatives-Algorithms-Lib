@@ -1,12 +1,12 @@
 //
-// Created by Cheng Li on 17-12-19.
+// Created by Cheng Li on 2017/12/19.
 //
 
 #include <dal/platform/host.hpp>
 #include <gtest/gtest.h>
 
 
-TEST(HostTest, LocalTimeTest) {
+TEST(HostTest, TestLocalTime) {
     int year;
     int month;
     int day;
