@@ -518,6 +518,19 @@ namespace Dal {
             // Projection instruments (useProjectionCurve_ == true) are priced through
             // Tape::ProjectionRateAt<T_> reading the block's discount+forward handles; discount-slice
             // instruments are priced through the single-curve YCCtx_<T_> path.
+            // Compute the Number_-typed rate for one instrument.  Extracted from
+            // ComputeTemplatedResiduals to reduce cyclomatic complexity (Codacy).
+            [[nodiscard]] Handle_<Tape::Rate_<Dal::AAD::Number_>>
+            DiscountRateT(const YCInstrument_& inst) const {
+                if (const auto* dep = dynamic_cast<const Deposit_*>(&inst))
+                    return dep->PrecomputeT<Dal::AAD::Number_>();
+                if (const auto* f = dynamic_cast<const FRA_*>(&inst))
+                    return f->PrecomputeT<Dal::AAD::Number_>();
+                if (const auto* fu = dynamic_cast<const Future_*>(&inst))
+                    return fu->PrecomputeT<Dal::AAD::Number_>();
+                return static_cast<const Swap_*>(&inst)->PrecomputeT<Dal::AAD::Number_>();
+            }
+
             [[nodiscard]] Vector_<Dal::AAD::Number_>
             ComputeTemplatedResiduals(const Tape::JointCurveBlock_<Dal::AAD::Number_>& block) const {
                 int totalResiduals = 0;
@@ -530,22 +543,12 @@ namespace Dal {
                     for (int i = 0; i < slot.nInstruments; ++i) {
                         const auto& inst = *slot.instruments[i];
                         const RateIndexConvention_& conv = *FloatConventionOf(inst);
-                        if (conv.useProjectionCurve_) {
-                            auto rateT = Tape::ProjectionRateAt<Dal::AAD::Number_>(inst);
-                            residuals[offset + i] = (*rateT)(block) - static_cast<double>(slot.marketRates[i]);
-                        } else {
-                            Handle_<Tape::Rate_<Dal::AAD::Number_>> rateT;
-                            if (const auto* dep = dynamic_cast<const Deposit_*>(&inst))
-                                rateT = dep->PrecomputeT<Dal::AAD::Number_>();
-                            else if (const auto* f = dynamic_cast<const FRA_*>(&inst))
-                                rateT = f->PrecomputeT<Dal::AAD::Number_>();
-                            else if (const auto* fu = dynamic_cast<const Future_*>(&inst))
-                                rateT = fu->PrecomputeT<Dal::AAD::Number_>();
-                            else
-                                rateT = static_cast<const Swap_*>(&inst)->PrecomputeT<Dal::AAD::Number_>();
-                            const Tape::YCCtx_<Dal::AAD::Number_> ctx(block.Discount(conv.collateral_));
-                            residuals[offset + i] = (*rateT)(ctx) - static_cast<double>(slot.marketRates[i]);
-                        }
+                        if (conv.useProjectionCurve_)
+                            residuals[offset + i] = (*Tape::ProjectionRateAt<Dal::AAD::Number_>(inst))(block)
+                                                    - static_cast<double>(slot.marketRates[i]);
+                        else
+                            residuals[offset + i] = (*DiscountRateT(inst))(Tape::YCCtx_<Dal::AAD::Number_>(block.Discount(conv.collateral_)))
+                                                    - static_cast<double>(slot.marketRates[i]);
                     }
                     offset += slot.nInstruments;
                 }
