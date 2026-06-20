@@ -138,6 +138,10 @@ namespace {
         auto libor3m = Ccy::Conventions::LiborIndex()(ccy);
         libor3m.accrualHolidays_ = Holidays::None();
         libor3m.fixingHolidays_ = Holidays::None();
+        // AAD eligibility requires ACT_365F (the templated PWL-forward curve uses DAYS_PER_YEAR = 365).
+        // The synthetic market is self-consistent regardless of the day-count convention, so we
+        // conform to ACT_365F to let the analytic Gradient engage.
+        libor3m.dayBasis_ = DayBasis_("ACT_365F");
 
         auto floatLeg = Ccy::Conventions::SwapFloatLeg()(ccy);
         floatLeg.accrualHolidays_ = Holidays::None();
@@ -205,8 +209,8 @@ namespace {
         // EXACT (Underdetermined::Find) is the library default; set explicitly here so the joint
         // and staged paths use the SAME mode for a fair BAR-B/BAR-C comparison.
         spec.solveMode_ = CurveSolveMode_::Value_::EXACT;
-        spec.fitTolerance_ = 1.0e-8;
-        spec.tolerance_ = 1.0e-8;
+        spec.fitTolerance_ = 1.0e-10;
+        spec.tolerance_ = 1.0e-10;
         spec.smoothingWeight_ = 1.0;
 
         const Vector_<Date_> knots = SharedKnots(today);
@@ -244,7 +248,8 @@ namespace {
         oisStage.knotDates_ = SharedKnots(today);
         oisStage.targetCollateral_ = CollateralType_(CollateralType_::Value_::OIS);
         oisStage.solveMode_ = CurveSolveMode_::Value_::EXACT;
-        oisStage.fitTolerance_ = 1.0e-8;
+        oisStage.fitTolerance_ = 1.0e-10;
+        oisStage.tolerance_ = 1.0e-10;
         oisStage.liborBasis_ = market.liborBasis;
 
         CurveCalibrationSpec_ liborStage;
@@ -257,7 +262,8 @@ namespace {
         liborStage.targetTenor_ = market.forecastTenor;
         liborStage.calibrateDiscountCurve_ = false;
         liborStage.solveMode_ = CurveSolveMode_::Value_::EXACT;
-        liborStage.fitTolerance_ = 1.0e-8;
+        liborStage.fitTolerance_ = 1.0e-10;
+        liborStage.tolerance_ = 1.0e-10;
         liborStage.liborBasis_ = market.liborBasis;
 
         MultiCurveCalibrationSpec_ multi;
@@ -417,7 +423,13 @@ int main() {
     PrintDfComparisonTable("3M forward curve", today, joint3m, staged3m);
 
     std::cout << "  Timing: joint solve " << int(jointMs) << " ms, staged solve " << int(stagedMs) << " ms\n";
-    std::cout << "  Joint solver evaluations: " << jointResult.solverEvaluations_ << "\n\n";
+    std::cout << "  Joint solver evaluations: " << jointResult.solverEvaluations_ << "\n";
+    if (!jointResult.jacobianAtSolution_.Empty())
+        std::cout << "  AAD Jacobian: engaged (forward J size " << jointResult.jacobianAtSolution_.Rows() << "x"
+                  << jointResult.jacobianAtSolution_.Cols() << ")\n";
+    else
+        std::cout << "  AAD Jacobian: not engaged (bumped fallback)\n";
+    std::cout << "\n";
 
     std::cout << std::string(70, '-') << "\n";
     std::cout << "  Self-check\n";

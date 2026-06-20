@@ -659,7 +659,8 @@ namespace Dal {
                                  const JointResidualFunction_& func,
                                  const Vector_<>& guess,
                                  const Vector_<>& tol,
-                                 const Sparse::TriDiagonal_& weights) {
+                                 const Sparse::TriDiagonal_& weights,
+                                 Matrix_<>* optFwdJacAtSolution = nullptr) {
             Dictionary_ ctrlDict;
             ctrlDict.Insert(KEY_MAX_EVALUATIONS, Cell_(static_cast<double>(spec.maxEvaluations_)));
             ctrlDict.Insert(KEY_MAX_RESTARTS, Cell_(static_cast<double>(spec.maxRestarts_)));
@@ -667,7 +668,7 @@ namespace Dal {
 
             if (spec.solveMode_ == CurveSolveMode_::Value_::EXACT) {
                 std::unique_ptr<Sparse::SymmetricDecomposition_> wDecomp(weights.DecomposeSymmetric());
-                return Underdetermined::Find(func, guess, tol, *wDecomp, controls);
+                return Underdetermined::Find(func, guess, tol, *wDecomp, controls, optFwdJacAtSolution);
             }
             return Underdetermined::Approximate(func, guess, tol, spec.fitTolerance_, weights, controls);
         }
@@ -744,7 +745,8 @@ namespace Dal {
         std::unique_ptr<Sparse::TriDiagonal_> weights = BuildJointSmoothing(slots);
 
         JointResidualFunction_ func(spec, slots, options.jacobianMode_);
-        const Vector_<> solved = RunJointSolver(spec, func, guess, tol, *weights);
+        Matrix_<> fwdJacAtSolution;
+        const Vector_<> solved = RunJointSolver(spec, func, guess, tol, *weights, &fwdJacAtSolution);
 
         // Convergence check: the solver returns the best-found x, but APPROXIMATE can leave a
         // smoothing-vs-fit residual floor; re-evaluate and confirm every residual is within the
@@ -803,6 +805,7 @@ namespace Dal {
         result.jointMaxAbsResidual_ = jointMaxAbs;
         result.jointRmsResidual_ = totalResiduals == 0 ? 0.0 : std::sqrt(jointSq / totalResiduals);
         result.solverEvaluations_ = func.EvaluationCount();
+        result.jacobianAtSolution_ = std::move(fwdJacAtSolution);
 
         if (!converged)
             ThrowNonConvergence(func, finalResiduals);
