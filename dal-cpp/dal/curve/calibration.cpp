@@ -10,6 +10,7 @@
 #include <dal/platform/strict.hpp>
 #include <dal/curve/calibration.hpp>
 #include <dal/curve/curveblock.hpp>
+#include <dal/curve/curvejacobian.hpp>
 #include <dal/curve/piecewiseconstant.hpp>
 #include <dal/curve/piecewiselinear.hpp>
 #include <dal/curve/ycconst.hpp>
@@ -33,52 +34,6 @@ namespace Dal {
 #include <dal/auto/MG_CurveKnotPolicy_enum.inc>
 #include <dal/auto/MG_CurveJacobianMode_enum.inc>
 #include <dal/auto/MG_LogDfScheme_enum.inc>
-
-    // Stores the LOG_DISCOUNT calibration Jacobian dense and assembles sparse. The method
-    // bodies mirror XJDense_ (dal-cpp/dal/math/optimization/underdetermined.cpp) -- the storage
-    // is dense regardless of how the matrix is filled, so the sparse-vs-banded optimization is
-    // a follow-up once the assembly is validated against central differences. Declared in Dal::
-    // (not anonymous) so the calibration flow can construct it and the solver's virtual
-    // Jacobian_ interface (MultiplyLeft) can read its contents without an inline accessor.
-    struct XCurveJacobian_ : Underdetermined::Jacobian_ {
-        Matrix_<> j_;
-        explicit XCurveJacobian_(Matrix_<>&& j) : j_(std::move(j)) {}
-
-        [[nodiscard]] int Rows() const override { return j_.Rows(); }
-        [[nodiscard]] int Columns() const override { return j_.Cols(); }
-
-        void DivideRows(const Vector_<>& tol) override {
-            for (int ii = 0; ii < j_.Rows(); ++ii) {
-                auto row = j_.Row(ii);
-                Transform(&row, [&tol, &ii](double x) { return 1.0 / tol[ii] * x; });
-            }
-        }
-
-        [[nodiscard]] Vector_<> MultiplyRight(const Vector_<>& t) const override {
-            Vector_<> retval;
-            Matrix::Multiply(t, j_, &retval);
-            return retval;
-        }
-        [[nodiscard]] Vector_<> MultiplyLeft(const Vector_<>& dx) const override {
-            Vector_<> retval;
-            Matrix::Multiply(j_, dx, &retval);
-            return retval;
-        }
-
-        void QForm(const Sparse::SymmetricDecomposition_& w, SquareMatrix_<>* form) const override {
-            w.QForm(j_, form);
-        }
-
-        void SecantUpdate(const Vector_<>& dx, const Vector_<>& df) override {
-            const auto nf = df.size();
-            const double x2 = InnerProduct(dx, dx);
-            for (int ii = 0; ii < nf; ++ii) {
-                auto row = j_.Row(ii);
-                const double excess = df[ii] - InnerProduct(dx, row);
-                Transform(&row, dx, LinearIncrement(excess / x2));
-            }
-        }
-    };
 
     namespace {
         constexpr int MAX_RELEVANT_DATES_PER_INSTRUMENT = 2;
