@@ -59,7 +59,7 @@ namespace Dal::Script {
 
     template <class T_>
     SimResults_ MCSimulation(const ScriptProduct_& product,
-                             const Handle_<ModelData_>& model_data,
+                             const Handle_<ModelData_>& modelData,
                              size_t nPaths,
                              const String_& rsg = "sobol",
                              bool useBb = false,
@@ -71,14 +71,14 @@ namespace Dal::Script {
 
     template <>
     inline SimResults_ MCSimulation<double>(const ScriptProduct_& product,
-                             const Handle_<ModelData_>& model_data,
+                             const Handle_<ModelData_>& modelData,
                              size_t nPaths,
                              const String_& rsg,
                              bool useBb,
                              bool compiled,
                              int maxNestedIfs,
                              double eps) {
-        auto mdl = CreateModel<double>(model_data);
+        auto mdl = CreateModel<double>(modelData);
 
         mdl->Allocate(product.TimeLine(), product.DefLine());
         mdl->Init(product.TimeLine(), product.DefLine());
@@ -161,7 +161,7 @@ namespace Dal::Script {
 
     template <>
     inline SimResults_ MCSimulation<AAD::Number_>(const ScriptProduct_& product,
-                             const Handle_<ModelData_>& model_data,
+                             const Handle_<ModelData_>& modelData,
                              size_t nPaths,
                              const String_& rsg,
                              bool useBb,
@@ -169,7 +169,7 @@ namespace Dal::Script {
                              int maxNestedIfs,
                              double eps) {
         AAD::Activate(*AAD::Tape());
-        std::unique_ptr<AAD::Model_<AAD::Number_>> mdl = CreateModel<AAD::Number_>(model_data);
+        std::unique_ptr<AAD::Model_<AAD::Number_>> mdl = CreateModel<AAD::Number_>(modelData);
         const auto nParams = mdl->Parameters().size();
         const auto nConstVars = product.ConstVarNames().size();
 
