@@ -1,9 +1,19 @@
 # Joint Multi-Curve AAD Analytic Jacobian (Phase B) - Design
 
-> Status: **REVISED (second pass) — 2026-06-20.** This pass resolves the
-> CONDITIONAL-GO re-critique blockers B4 (projection-rate dispatch) and B5 (OIS
-> geometric compounding) and folds in the S6-S10 completeness items. Two decisions
-> are LOCKED this pass:
+> Status: **REVISED (third pass) — 2026-06-20.** This pass DROPS the second-pass
+> CP4 / critique-B5 decision (reject `OISSwap_`, switch the example to vanilla
+> `Swap_`, defer `Tape::OisSwapRate_<T_>`). The lead re-verified
+> `dal-cpp/dal/curve/ycinstrument.cpp`: the library has NO geometric overnight
+> compounding — the AAD path (`Tape::SwapRate_<T_>::operator()`,
+> `ycinstrument.cpp:347-368`) and the double path (`ForwardRate`,
+> `ycinstrument.cpp:53-59`) price OIS with the IDENTICAL simple-rate arithmetic
+> `(1/DF - 1) / basis`, accumulated per period as `fixing * dcf * DF`. AAD and
+> bumped evaluate the SAME function on OIS rows, so the AAD-vs-bumped oracle (AC1)
+> PASSES for OIS. The OIS overnight index has `useProjectionCurve_ == false`
+> (`ycinstrument.cpp:44`) -> `forecast == discount == OIS`, so the inherited
+> `Swap_::PrecomputeT<T_>` is BOTH routing-compatible AND gradient-correct for OIS.
+> **OIS is restored to full ANALYTIC; the example's OIS swaps stay `OISSwap_`.**
+> One decision remains LOCKED from the second pass:
 >
 > - **CP3 (B4):** introduce a NEW `Tape::JointRate_<T_>` base whose
 >   `operator()` takes `const JointCurveBlock_<T_>&`, plus a joint-local
@@ -13,16 +23,9 @@
 >   and four rate subclasses are UNTOUCHED (NG2). Source-verified: the `Tape::Rate_<T_>`
 >   virtual cannot be broadened without breaking Phase A, and the inherited
 >   `Tape::SwapRate_<T_>` reads only `ctx.curve_` so it is numerically wrong for the
->   joint forecast≠discount path.
-> - **CP4 (B5):** `OISSwap_` is REJECTED for the joint ANALYTIC path (falls back to
->   bumped with a one-time NOTICE). The inherited `Tape::SwapRate_<T_>` prices each
->   float period as a single `ForwardRate(start, end)` read with arithmetic
->   accumulation — NOT geometric overnight compounding — so the JACOBIAN is wrong by
->   the arithmetic-vs-geometric convexity gap. Source-verified: `OISSwap_` is a pure
->   delegating ctor to `Swap_` with no compounding logic, and no OIS-compounding
->   formula exists anywhere in the curve module. The example's OIS slice switches to
->   vanilla `Swap_`. A properly-compounded `Tape::OisSwapRate_<T_>` is a Phase B+1
->   deliverable (NG10).
+>   joint forecast≠discount path (the IBOR(3M) projection slice). The OIS-discount
+>   slice (`forecast == discount`) rides that same inherited `Swap_::PrecomputeT<T_>`
+>   and is correct.
 >
 > Option B (PWL_FWD via `Tape::DiscountPWLF_<T_>` with a templated base handle) and
 > the default `jacobianMode_` = `ANALYTIC` remain LOCKED from the first pass.
@@ -81,28 +84,32 @@
 
 ## 0. The Decision in One Sentence
 
-Ship Phase B as **Option B (PWL_FWD, LOCKED by the user)** with two second-pass
-refinements (CP3 + CP4): author a NEW templated `Tape::DiscountPWLF_<T_>` that
+Ship Phase B as **Option B (PWL_FWD, LOCKED by the user)** with the second-pass
+CP3 refinement: author a NEW templated `Tape::DiscountPWLF_<T_>` that
 interpolates forwards on `T_` and integrates forwards to log-DF with a TEMPLATED
 BASE HANDLE, add a new `Tape::JointCurveBlock_<T_>` (one `Number_`-typed curve per
 collateral and per tenor with `Discount(...)` and `Forward(...)` reads in the
 `Number_` domain), author a NEW `Tape::JointRate_<T_>` base (CP3) with three
 projection-capable subclasses that read both slots via `operator()(const JointCurveBlock_<T_>&)`,
 generalize `BuildDeclarationCurve` into a joint templated builder, and reuse the
-`Dal::AAD` facade verbatim (no new primitives). `OISSwap_` is REJECTED for ANALYTIC
-(CP4) until a properly-compounded `Tape::OisSwapRate_<T_>` ships in Phase B+1. The
-joint module's native parameterization (`PIECEWISE_LINEAR_FWD`) and the joint
-validator are UNCHANGED; the joint example's OIS slice switches from `OISSwap_` to
-vanilla `Swap_`. Default `jacobianMode_` = `ANALYTIC`, matching single-curve.
+`Dal::AAD` facade verbatim (no new primitives). The full vanilla instrument set
+`{Deposit, FRA, Future, Swap}` — INCLUDING `OISSwap_` — runs ANALYTIC: the OIS-discount
+slice (`forecast == discount`) rides the inherited `Swap_::PrecomputeT<T_>`, and the
+IBOR(3M) projection slice (`forecast != discount`) rides the new `Tape::JointRate_<T_>`
+(CP3). The joint module's native parameterization (`PIECEWISE_LINEAR_FWD`) and the
+joint validator are UNCHANGED; the joint example stays exactly as-is (OIS deposits +
+OIS swaps + FRAs + vanilla swaps, all ANALYTIC). Default `jacobianMode_` = `ANALYTIC`,
+matching single-curve. (The second-pass CP4 `OISSwap_` rejection is RETIRED — see
+§2.4; it rested on a geometric-compounding concern that does not exist in this
+codebase.)
 
 The five gaps the spec surfaces (multi-curve routing; parameterization fork;
 projection-curve fixings via a NEW `JointRate_<T_>` base; base-handle propagation;
-OIS overnight compounding) are resolved by exactly four additions plus one scope
-reduction: `Tape::DiscountPWLF_<T_>` (the templated PWL-forward curve, new),
+OIS overnight compounding — the last now a NON-ISSUE, §2.4) are resolved by exactly
+four additions: `Tape::DiscountPWLF_<T_>` (the templated PWL-forward curve, new),
 `Tape::JointCurveBlock_<T_>`, the `Tape::JointRate_<T_>` hierarchy +
-`ProjectionRateAt<T_>` dispatch reading a `JointCurveBlock_<T_>`, the templated
-base-layered curve build, and the CP4 `OISSwap_` rejection. None require a new
-facade primitive.
+`ProjectionRateAt<T_>` dispatch reading a `JointCurveBlock_<T_>`, and the templated
+base-layered curve build. None require a new facade primitive.
 
 ## 1. Parameterization Scope Decision (spec Gap 2) — RESOLVED: Option B (LOCKED)
 
@@ -307,55 +314,53 @@ ownership needed, and `Handle_` would force a `shared_ptr` round-trip per
 curve. The maps are small (1 discount + 1-3 forward declarations) and built
 once per `Gradient` call.
 
-### 2.4 Instrument-type coverage (spec FR3 (e), Gap 3 + Gap 5, CP3 + CP4)
+### 2.4 Instrument-type coverage (spec FR3 (e), Gap 3; CP4 RETIRED — OIS eligible, see spec Gap 5)
 
 The joint AAD path supports exactly the four Phase A instrument types:
-`Deposit_`, `FRA_`, `Future_`, `Swap_`. Each maps to a projection-capable
-templated rate on the NEW `Tape::JointRate_<T_>` base (CP3, §4) as follows:
+`Deposit_`, `FRA_`, `Future_`, `Swap_` — INCLUDING `OISSwap_` (which inherits
+`Swap_`). The IBOR(3M) projection slice (`forecast != discount`) maps to a
+projection-capable templated rate on the NEW `Tape::JointRate_<T_>` base (CP3, §4);
+the OIS-discount slice (`forecast == discount`) rides the inherited
+`Swap_::PrecomputeT<T_>`. Coverage:
 
-| Instrument       | Double-path rate (`ycinstrument.cpp`)            | Phase B templated rate (new, §4)                       | Forecast read                                                | Discount read                       |
-|------------------|--------------------------------------------------|--------------------------------------------------------|--------------------------------------------------------------|-------------------------------------|
-| `Deposit_`       | `DepositRate_` (`:73`)                           | `Tape::DepositRateProj_<T_>`                           | `Forward(tenor, collateral)` when `useProjectionCurve_`, else `Discount(collateral)` | `Discount(collateral)`              |
-| `FRA_`           | `ForwardRate_` (`:111`)                          | `Tape::ForwardRateProj_<T_>`                           | `Forward(tenor, collateral)`                                 | `Discount(collateral)`              |
-| `Future_`        | `ForwardRate_` (`:111`, convexity-adjusted)      | `Tape::ForwardRateProj_<T_>` (convexity stays `double`) | `Forward(tenor, collateral)`                                 | `Discount(collateral)`              |
-| `Swap_`          | `SwapRate_` (`:148`)                             | `Tape::SwapRateProj_<T_>`                              | `Forward(tenor, collateral)` per float period                | `Discount(collateral)` per payment |
-| `OISSwap_`       | rides `Swap_::Precompute` (inherits `Swap_`)     | **REJECTED (CP4)** — ineligible for ANALYTIC            | n/a — falls back to bumped with NOTICE                        | n/a                                 |
+| Instrument       | Double-path rate (`ycinstrument.cpp`)        | Phase B templated rate                                                   | Forecast read                                                | Discount read                       |
+|------------------|----------------------------------------------|--------------------------------------------------------------------------|--------------------------------------------------------------|-------------------------------------|
+| `Deposit_`       | `DepositRate_` (`:73`)                       | `Tape::DepositRateProj_<T_>` (CP3, §4)                                   | `Forward(tenor, collateral)` when `useProjectionCurve_`, else `Discount(collateral)` | `Discount(collateral)`              |
+| `FRA_`           | `ForwardRate_` (`:111`)                      | `Tape::ForwardRateProj_<T_>` (CP3, §4)                                   | `Forward(tenor, collateral)`                                 | `Discount(collateral)`              |
+| `Future_`        | `ForwardRate_` (`:111`, convexity-adjusted)  | `Tape::ForwardRateProj_<T_>` (convexity stays `double`, CP3, §4)         | `Forward(tenor, collateral)`                                 | `Discount(collateral)`              |
+| `Swap_`          | `SwapRate_` (`:148`)                         | `Tape::SwapRateProj_<T_>` (CP3, §4) on the IBOR slice                    | `Forward(tenor, collateral)` per float period                | `Discount(collateral)` per payment |
+| `OISSwap_`       | rides `Swap_::Precompute` (inherits `Swap_`) | rides inherited `Swap_::PrecomputeT<T_>` (OIS-discount slice, `forecast == discount`) | `Discount(collateral)` (overnight index has `useProjectionCurve_ == false`) | `Discount(collateral)` per payment |
 
-**`OISSwap_` is OUT of SCOPE for the joint ANALYTIC path (CP4, Gap 5, critique B5).**
-Source-verified this pass: `Tape::SwapRate_<T_>::operator()`
-(`dal-cpp/dal/curve/ycinstrument.cpp:347-369`) prices each float period as a SINGLE
-`ForwardRate(discount, accrualStart, accrualEnd, dayBasis, context)` read and
-arithmetically accumulates `fixing * dcf * df` across periods. The templated
-`ForwardRate<T_>` (`ycinstrument.cpp:264-272`) is
-`(1.0 / fwdDf - 1.0) / basis(...)` — a single-period simple rate, NOT a
-geometrically-compounded overnight rate. `OISSwap_` is a pure delegating
-constructor to `Swap_` (`ycinstrument.cpp:520-527`), adds no members, and does NOT
-override `Precompute` / `PrecomputeT`; it carries no overnight-compounding logic of
-its own. A grep for `compound` / `overnight` / `ois` across `dal-cpp/dal/` finds NO
-OIS-compounding formula, NO daily-compounding loop, NO closed-form OIS accumulator
-anywhere in the curve module. So the residual at the OIS solution converges (the
-arithmetic-mean-of-period-rates approximates the geometric-compounded OIS rate for a
-flat curve), but the JACOBIAN is wrong by the arithmetic-vs-geometric convexity gap.
-**Resolution: reject `OISSwap_` via `dynamic_cast<const OISSwap_*>` in the joint
-eligibility predicate (FR3 (e))**; the whole joint solve falls back to bumped with a
-one-time NOTICE. A properly-compounded `Tape::OisSwapRate_<T_>` is a Phase B+1
-deliverable (NG10, §17).
+**`OISSwap_` is ELIGIBLE for the joint ANALYTIC path.** It rides the inherited
+`Swap_::PrecomputeT<T_>` (which returns a `Tape::SwapRate_<T_>` reading `ctx.curve_`)
+on the OIS-discount slice: its overnight index has `useProjectionCurve_ == false`
+(`dal-cpp/dal/curve/ycinstrument.cpp:44`), so it fixes off the discount curve
+(`forecast == discount == OIS`). Both the AAD path
+(`Tape::SwapRate_<T_>::operator()`, `ycinstrument.cpp:347-368`) and the double path
+(`ForwardRate`, `ycinstrument.cpp:53-59`) price each OIS float period with the
+IDENTICAL simple-rate arithmetic `(1/DF - 1) / basis`, accumulated as
+`fixing * dcf * DF`. AAD and bumped therefore evaluate the SAME function on OIS rows,
+so the AAD-vs-bumped oracle (spec AC1) PASSES for OIS — there is no
+arithmetic-vs-geometric Jacobian gap. A grep for `compound` / `geometric` /
+`overnight` across `dal-cpp/dal/curve/` finds NO daily-compounding loop and NO
+closed-form OIS accumulator (only the `overnightConvention` parameter name at
+`ycinstrument.cpp:525`); the "geometric compounding" the second pass (CP4, critique
+B5) worried about is a library-wide modeling simplification that affects AAD and
+bumped identically and is orthogonal to this feature. See spec Gap 5 for the full
+verification and the CP4 retirement.
 
-**Example program impact (CP4):** the example's OIS slice is currently built with
-`OISSwap_` (`dal-cpp/examples/joint_multi_curve_calibration/joint_multi_curve_calibration.cpp:163-168`).
-Under CP4 that slice triggers the ineligibility NOTICE and the whole joint solve
-falls back to bumped. The example edit required is to switch the OIS slice from
-`OISSwap_` to vanilla `Swap_` (same schedule, same day basis, a vanilla
-`RateIndexConvention_` for the float leg) — a minor edit confined to the OIS slice
-construction. This SUPERSEDES the first-pass §3.2 claim "the example needs NO
-parameterization edit"; under CP4 the parameterization stays `PIECEWISE_LINEAR_FWD`
-but the OIS slice's instrument type changes.
+**Example program impact: NONE.** The example's OIS slice stays `OISSwap_`
+(`dal-cpp/examples/joint_multi_curve_calibration/joint_multi_curve_calibration.cpp:163-168`)
+and exercises the AAD path natively via the inherited `Swap_::PrecomputeT<T_>`. No
+instrument-type edit. (Restores the first-pass §3.2 claim "the example needs NO
+parameterization edit"; the second-pass CP4 OIS-slice switch is retired.)
 
 **Explicitly OUT of scope (spec FR3 (e), NG4):** `BasisSwap_` (no Phase A templated
 rate; double-path `BasisSwapRate_` resolves TWO forecast curves at
-`ycinstrument.cpp:240-251`), `STIR_`, and `OISSwap_` (CP4 above). The eligibility
-predicate (§7 FR3 (e)) rejects any declaration containing an out-of-scope type with a
-one-time NOTICE → bumped for the whole joint solve.
+`ycinstrument.cpp:240-251`) and `STIR_`. `OISSwap_` is NOT in this list — it is
+eligible (above). The eligibility predicate (§7 FR3 (e)) rejects any declaration
+containing `BasisSwap_` or `STIR_` with a one-time NOTICE → bumped for the whole
+joint solve.
 
 ## 3. No LOG_DISCOUNT Anchor Reconciliation Needed Under Option B
 
@@ -385,18 +390,17 @@ spec's open questions under Option B.
 
 ### 3.2 What this means for the example program
 
-Under Option B + CP4, the example program needs ONE in-scope edit: switch the OIS
-slice from `OISSwap_` to vanilla `Swap_` (same schedule, same day basis, a vanilla
-`RateIndexConvention_` for the float leg). The parameterization stays
-`PIECEWISE_LINEAR_FWD` (inherited from the `JointCurveDeclaration_` default at
+Under Option B the example program needs NO edit: its OIS slice stays `OISSwap_`,
+which rides the inherited `Swap_::PrecomputeT<T_>` on the ANALYTIC path (overnight
+index `useProjectionCurve_ == false` -> `forecast == discount`). The parameterization
+stays `PIECEWISE_LINEAR_FWD` (inherited from the `JointCurveDeclaration_` default at
 `jointcalibration.hpp:47`), and the knot ladder still starts strictly after `today_`
-(satisfying the validator). Without this edit, the OIS slice triggers the CP4
-NOTICE and the whole joint solve falls back to bumped, so the example would not
-exercise the AAD path. With the edit, the example exercises the joint AAD path
-natively under the LOCKED `ANALYTIC` default. The IBOR slice (already vanilla
-`Swap_` / `FRA_`) is unchanged. (SUPERSEDES the first-pass §3.2 claim "the example
-needs NO parameterization edit"; under CP4 the parameterization is unchanged but
-the OIS slice's instrument type changes.)
+(satisfying the validator). The full instrument set — OIS deposits, OIS swaps
+(`OISSwap_`), FRAs, and vanilla swaps — exercises the joint AAD path natively under
+the LOCKED `ANALYTIC` default; the OIS-discount slice rides `Swap_::PrecomputeT<T_>`
+and the IBOR(3M) projection slice rides the new `Tape::JointRate_<T_>` (CP3, §4).
+(Restores the first-pass §3.2 claim "the example needs NO parameterization edit";
+the second-pass CP4 OIS-slice switch is retired — see §2.4 / spec Gap 5.)
 
 ## 4. Projection-Capable Templated Rates (spec Gap 3, OQ-5, critique B4) — RESOLVE via CP3
 
@@ -553,15 +557,18 @@ std::unique_ptr<Tape::JointRate_<T_>> ProjectionRateAt(int d, int i) const {
         return std::make_unique<Tape::DepositRateProj_<T_>>(/* deposit schedule */);
     if (dynamic_cast<const FRA_*>(&inst) || dynamic_cast<const Future_*>(&inst))
         return std::make_unique<Tape::ForwardRateProj_<T_>>(/* fra/future schedule */);
-    if (dynamic_cast<const Swap_*>(&inst))   // vanilla Swap_ ONLY -- OISSwap_ rejected upstream by FR3 (e)
+    if (dynamic_cast<const Swap_*>(&inst))   // Swap_ (and OISSwap_ : public Swap_) -- reached here ONLY on projection slices (forecast != discount); the OIS-discount slice rides Swap_::PrecomputeT<T_> instead (see §2.4)
         return std::make_unique<Tape::SwapRateProj_<T_>>(/* swap schedule */);
     THROW("JointResidualFunction_::ProjectionRateAt: unsupported instrument type after eligibility");
 }
 ```
 
-The `dynamic_cast<const Swap_*>` branch matches vanilla `Swap_` only;
-`OISSwap_` is rejected upstream by the eligibility predicate (FR3 (e), CP4) so
-it never reaches this dispatch. The dispatch is the joint analogue of Phase A's
+This dispatch prices the IBOR(3M) PROJECTION slice — forward-declaration instruments
+where `forecast != discount`. The OIS-discount slice (including `OISSwap_`) does NOT
+reach this dispatch: those instruments have `useProjectionCurve_ == false`
+(`forecast == discount`) and ride the inherited `Swap_::PrecomputeT<T_>` bound to the
+discount curve (§2.4). `OISSwap_` is ELIGIBLE (not rejected) — it simply takes the
+inherited single-curve path. The dispatch is the joint analogue of Phase A's
 `PhaseARateAt<T_>` at `calibration.cpp:499-510`, but it returns a
 `JointRate_<T_>` (not a `Rate_<T_>`), takes a `JointCurveBlock_<T_>` (not a
 `YCCtx_<T_>`), and reads each instrument's schedule directly (not via
@@ -979,12 +986,14 @@ Underdetermined::Jacobian_* JointResidualFunction_::AnalyticJacobian(
     block.forwardCurves = forwardT;
 
     // 5. Compute Number_-typed stacked residuals via the projection-capable rates
-    //    on the NEW Tape::JointRate_<T_> base (CP3, critique B4). The dispatch
-    //    ProjectionRateAt<T_>(d, i) builds the subclass directly from the
-    //    instrument's schedule -- it does NOT route through Swap_::PrecomputeT<T_>()
-    //    (which is bound to the Phase A Tape::Rate_<T_> virtual and reads only
-    //    ctx.curve_, so it would be numerically wrong for forecast != discount).
-    //    OISSwap_ is rejected upstream by the eligibility predicate (FR3 (e), CP4).
+    //    on the NEW Tape::JointRate_<T_> base (CP3, critique B4) for the IBOR(3M)
+    //    projection slice. The dispatch ProjectionRateAt<T_>(d, i) builds the subclass
+    //    directly from the instrument's schedule -- it does NOT route through
+    //    Swap_::PrecomputeT<T_>() (which is bound to the Phase A Tape::Rate_<T_>
+    //    virtual and reads only ctx.curve_, so it would be numerically wrong for
+    //    forecast != discount). The OIS-discount slice (forecast == discount,
+    //    including OISSwap_) does NOT enter this dispatch -- it rides the inherited
+    //    Swap_::PrecomputeT<T_> (§2.4).
     int totalResiduals = 0;
     for (const auto& slot : *slots_) totalResiduals += slot.nInstruments;
     Vector_<Dal::AAD::Number_> residuals(totalResiduals);
@@ -1075,7 +1084,7 @@ Ineligible}` member on `JointResidualFunction_`, evaluated lazily on first
 most once per `CalibrateJointMultiCurve` call (Phase A H1 contract,
 `.claude/designs/aad-analytic-jacobian-naming-and-flag.md:506-527`).
 
-### 7.2 The joint eligibility clauses (FR3 (a)-(j), resolved per Option B + CP3 + CP4)
+### 7.2 The joint eligibility clauses (FR3 (a)-(j), resolved per Option B + CP3; CP4 retired)
 
 | Clause | Phase A analogue | Joint resolution under Option B |
 |--------|------------------|---------------------------------|
@@ -1083,7 +1092,7 @@ most once per `CalibrateJointMultiCurve` call (Phase A H1 contract,
 | (b) native build OR external verified | compile-time gate (DROPPED in Phase A ship per Decision 6 of `redesign.md`) | NO compile-time gate (matching shipped Phase A). The four-backend test mandate (AC6) is the verification. |
 | (c) every declaration's parameterization is AAD-eligible | `parameterization_ == LOG_DISCOUNT` (`:418`) | Every declaration's `parameterization_ == PIECEWISE_LINEAR_FWD` (Option B). Non-PWL_FWD declaration → NOTICE naming the declaration index and the offending parameterization → Ineligible. (LOG_DISCOUNT remains AAD-eligible on the single-curve path; it is out of scope for the JOINT AAD path under Option B's first cut — spec NG9.) |
 | (d) solveMode consistency | (Phase A captures fwd J only under EXACT at `:824`) | ANALYTIC engages for both EXACT and APPROXIMATE (the Jacobian is well-defined in both); the at-solution forward-Jacobian capture (§9) is EXACT-only, matching Phase A. |
-| (e) instrument type in `{Deposit, FRA, Future, Swap}` AND none is `OISSwap_` | `:434-437` walks every instrument | Every instrument in every declaration is one of the four vanilla types. **`OISSwap_` is REJECTED via `dynamic_cast<const OISSwap_*>` (CP4, critique B5, spec Gap 5):** although it structurally inherits `Swap_`, the inherited `Tape::SwapRate_<T_>` prices each float period as a single `ForwardRate(start, end)` read with arithmetic accumulation (NOT geometric overnight compounding), so the JACOBIAN is wrong by the arithmetic-vs-geometric convexity gap. `BasisSwap_`, `STIR_`, `OISSwap_` → NOTICE naming the declaration index, instrument name, and type → Ineligible. A declaration containing ANY rejected type makes the WHOLE joint solve fall back to bumped (the path is all-or-nothing). |
+| (e) instrument type in `{Deposit, FRA, Future, Swap}` (INCLUDES `OISSwap_`) | `:434-437` walks every instrument | Every instrument in every declaration is one of the four vanilla types. `OISSwap_` IS eligible: it inherits `Swap_` and its overnight index has `useProjectionCurve_ == false` (`ycinstrument.cpp:44`) so `forecast == discount == OIS`, and the inherited `Tape::SwapRate_<T_>::operator()` (`ycinstrument.cpp:347-368`) uses the identical simple-rate `ForwardRate` arithmetic as the double path (`ycinstrument.cpp:53-59`) — AAD and bumped evaluate the same function, so the Jacobian is correct (AC1 passes for OIS). It rides `Swap_::PrecomputeT<T_>` (no `dynamic_cast<const OISSwap_*>` rejection — CP4 retired, spec Gap 5). `BasisSwap_`, `STIR_` → NOTICE naming the declaration index, instrument name, and type → Ineligible. A declaration containing ANY rejected type makes the WHOLE joint solve fall back to bumped (the path is all-or-nothing). |
 | (f) forward-declaration instruments project | (Phase A rejects projection at `:467-473`) | Every forward-declaration instrument has `useProjectionCurve_ == true` — structurally guaranteed by `ValidateAndBuildSlots` (`jointcalibration.cpp:225-231`), but the eligibility predicate names it in the NOTICE for clarity. |
 | (g) discount/baseless-forward instruments don't project | (Phase A: `:467-473`) | Every discount-declaration instrument AND every baseless-forward-declaration instrument has `useProjectionCurve_ == false`. A discount-declaration instrument that projects would route off a not-yet-built forward curve. |
 | (h) base-layered forward's base collateral is an eligible discount declaration | (no Phase A analogue — Phase A has no base layering) | Every base-layered forward declaration's `targetCollateral_` is produced by a discount declaration in the same spec whose parameterization is also PWL_FWD (so the base is a `T_`-typed curve, not a double constant). **DEFENSIVE / UNREACHABLE (critique S10):** `ValidateAndBuildSlots` at `jointcalibration.cpp:219-223` `THROW`s on a missing base collateral BEFORE the eligibility predicate runs, and clause (c) already requires every declaration is PWL_FWD. So the (h) NOTICE never fires; it is retained for symmetry with the FR3 list and marked "defensive, unreachable." |
@@ -1097,8 +1106,7 @@ Every fall-through emits a NOTICE naming the declaration index (and instrument
 name where applicable) and the failing condition. Examples:
 
 - `"Joint AAD Jacobian requires CurveParameterization_::PIECEWISE_LINEAR_FWD on every declaration; declaration N has X; falling back to bumped"`
-- `"Joint AAD Jacobian has no templated rate for instrument 'name' (type) in declaration N; falling back to bumped"` (covers `BasisSwap_`, `STIR_`)
-- `"Joint AAD Jacobian rejects OISSwap_ for the analytic path (the inherited Swap_ rate prices overnight legs as arithmetic single-period fixings, not geometric compounding; a compounded OisSwapRate is a Phase B+1 deliverable); instrument 'name' in declaration N; falling back to bumped"` (CP4)
+- `"Joint AAD Jacobian has no templated rate for instrument 'name' (type) in declaration N; falling back to bumped"` (covers `BasisSwap_`, `STIR_`; `OISSwap_` is NOT in this list — it is eligible, see §2.4)
 - `"Joint AAD Jacobian requires every instrument to trade at its declaration's knot 0; instrument 'name' in declaration N does not, falling back to bumped"`
 - `"Joint AAD Jacobian requires liborBasis_ == ACT_365F (the DAYS_PER_YEAR denominator the templated PWL-forward curve assumes); declaration N has X; falling back to bumped"` (S7)
 - `"Joint AAD Jacobian requires base-layered forward declaration N's base collateral to be an eligible discount declaration; falling back to bumped"` (**defensive, unreachable** — the validator throws first on missing collateral; clause (c) fires first on non-PWL discount. Retained for symmetry; never observed in practice — critique S10.)
@@ -1376,14 +1384,14 @@ cross-curve coupling tests:
 
 | Test                              | Spec AC | What it asserts                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 |-----------------------------------|---------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `TestMatchesCentralDifferences`   | AC1     | AAD Jacobian element-wise `ASSERT_NEAR(aad, fd, 1e-6)` relative against a central FD bump (1e-6) of the joint `F`. The joint system uses vanilla `Swap_` (NOT `OISSwap_`) for the OIS-discount slice per CP4. The FD oracle is backend-independent; an all-zero AAD row against a non-zero FD row fails loud. Run under each of `build/`, `build-adept/`, `build-xad/`, `build-codi/`.                                                                                                                                                                                     |
+| `TestMatchesCentralDifferences`   | AC1     | AAD Jacobian element-wise `ASSERT_NEAR(aad, fd, 1e-6)` relative against a central FD bump (1e-6) of the joint `F`. The joint system uses `OISSwap_` for the OIS-discount slice (it rides `Swap_::PrecomputeT<T_>`; `forecast == discount`). The FD oracle is backend-independent; an all-zero AAD row against a non-zero FD row fails loud. Run under each of `build/`, `build-adept/`, `build-xad/`, `build-codi/`.                                                                                                                                                                                     |
 | `TestPerRowNonTrivialInvariant`   | AC2     | For every residual row i, at least one column j has `|jac(i,j)| > 1e-6`. Catches the B2 silent-zero class.                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | `TestCrossRowCleanliness`         | AC3     | Two-row problem with OIS rows and IBOR rows on disjoint parameter sub-vectors; assert row i's Jacobian is identical whether row i-1 was swept first (run twice with row order swapped, assert element-wise equal to 1e-12). Catches the B1 Adept residue class.                                                                                                                                                                                                                                                                                                           |
 | `TestCrossCurveCouplingCaptured`  | AC4     | An OIS knot perturbation produces non-zero sensitivity in at least one IBOR row (via discounting), AND an IBOR forward knot perturbation produces non-zero sensitivity in at least one IBOR row (via forecast). Both non-zero in AAD and match FD. Proves the NEW `Tape::JointRate_<T_>` base + `JointCurveBlock_<T_>` routing (CP3) wires Gap 1 + Gap 3 correctly.                                                                                                                                                                                                     |
 | `TestBaseHandlePropagation`       | AC5     | With a base-layered forward declaration, an OIS knot perturbation produces non-zero sensitivity in the forward declaration's own residual rows THROUGH the base handle (beyond the IBOR discounting channel). Non-zero in AAD and matches FD. This is the load-bearing Option-B test: the templated base handle in `Tape::DiscountPWLF_<T_, DiscountCurve_<T_>>` must propagate adjoints into the OIS discount curve on every backend.                                                                                                                                   |
 | `TestPwlForwardIntegrationOnTape` | AC1 (extended) | A single-declaration PWL_FWD discount curve (no forward, no base layering — the simplest case) has its AAD Jacobian match FD element-wise. Isolates the `Tape::DiscountPWLF_<T_>` forward-integration-on-`T_` correctness from the multi-curve routing. Run under each backend.                                                                                                                                                                                                                                                                                          |
 | `TestTemplatedPwlByteForByte`     | AC11    | On a single-declaration PWL_FWD discount curve with a discontinuity at EVERY knot (exercising the `fLeftT_[ii] + fRightT_[ii-1]` segment indexing), the `double` specialization `Tape::DiscountPWLF_<double>::operator()(from, to)` matches the existing anonymous-namespace double `DiscountPWLF_` (`ycimp.cpp:63-66`) element-wise to `1e-15` across query intervals that hit all four `IntegralTo` branches. Isolates the templated PWL arithmetic from the AAD layer — the cheapest falsifier for the off-by-one class (critique S8).                          |
-| `TestEligibilityNoticesOnce`      | AC7     | An ANALYTIC joint spec with each ineligibility clause violated (non-PWL_FWD declaration; out-of-scope instrument including `OISSwap_` per CP4, `BasisSwap_`, `STIR_`; projection violation on a discount declaration; missing base-collateral declaration (defensive / unreachable per S10); tradeDate != knot 0; non-ACT/365F `liborBasis_` per S7) emits the expected NOTICE exactly once across a full `CalibrateJointMultiCurve` run, then falls back to bumped and converges. Verified structurally (the NOTICE stack has no counter; the cache guarantees once-per-call). |
+| `TestEligibilityNoticesOnce`      | AC7     | An ANALYTIC joint spec with each ineligibility clause violated (non-PWL_FWD declaration; out-of-scope instrument `BasisSwap_` / `STIR_` (`OISSwap_` is eligible — §2.4); projection violation on a discount declaration; missing base-collateral declaration (defensive / unreachable per S10); tradeDate != knot 0; non-ACT/365F `liborBasis_` per S7) emits the expected NOTICE exactly once across a full `CalibrateJointMultiCurve` run, then falls back to bumped and converges. Verified structurally (the NOTICE stack has no counter; the cache guarantees once-per-call). |
 | `TestBumpedFallbackIsByteForByte` | AC8     | A joint options constructed with `jacobianMode_ = BUMPED` produces a result identical (calibrated node values within solver tolerance, `solverEvaluations_` in the same ballpark) to the current single-arg call on the same spec.                                                                                                                                                                                                                                                                                                                                        |
 
 All nine run under each of the four backends (AC6). The first seven are the
@@ -1425,21 +1433,32 @@ downstream risk consumer (the joint analogue of the
   Phase B (the storage path is unchanged, zero regression risk); factor in a
   follow-up.
 
-**RESOLVED this pass (second-pass re-critique, B4 + B5):**
+**RESOLVED this pass (third pass drops CP4/B5; CP3 stands from the second pass):**
 
 - **CP3 (B4, projection-rate dispatch) — LOCKED.** Introduce a NEW
   `Tape::JointRate_<T_>` base whose `operator()` takes a
   `const JointCurveBlock_<T_>&`, plus a `ProjectionRateAt<T_>(d, i)` dispatch
   that builds projection-capable subclasses directly from instrument schedules
-  (NOT through `Swap_::PrecomputeT<T_>()`). Phase A's `Tape::Rate_<T_>` virtual
+  (NOT through `Swap_::PrecomputeT<T_>()`), for the IBOR(3M) projection slice
+  where `forecast != discount`. Phase A's `Tape::Rate_<T_>` virtual
   (bound to `YCCtx_<T_>`), `YCCtx_<T_>`, and the four Phase A rate subclasses
   are UNTOUCHED (NG2). See §4.
-- **CP4 (B5, OIS overnight compounding) — LOCKED (SCOPE REDUCTION).**
-  `OISSwap_` is REJECTED for the joint ANALYTIC path; the eligibility predicate
-  (FR3 (e)) rejects it via `dynamic_cast<const OISSwap_*>` and the whole joint
-  solve falls back to bumped with a one-time NOTICE. A properly-compounded
-  `Tape::OisSwapRate_<T_>` is a Phase B+1 deliverable (§17). The example's OIS
-  slice switches to vanilla `Swap_`. See §2.4, §3.2, §7.2 (e).
+- **CP4 (B5, OIS overnight compounding) — RETIRED this pass (2026-06-20).** The
+  second pass LOCKED CP4 (reject `OISSwap_`, switch the example to vanilla
+  `Swap_`, defer `Tape::OisSwapRate_<T_>`) on the grounds that the inherited
+  `Tape::SwapRate_<T_>` uses arithmetic single-period fixings while a "correct"
+  OIS leg would compound overnight geometrically. The lead re-verified
+  `dal-cpp/dal/curve/ycinstrument.cpp` this pass and found the library has NO
+  geometric overnight compounding: the AAD path
+  (`Tape::SwapRate_<T_>::operator()`, `ycinstrument.cpp:347-368`) and the double
+  path (`ForwardRate`, `ycinstrument.cpp:53-59`) price OIS with the IDENTICAL
+  simple-rate arithmetic `(1/DF - 1) / basis`, and the OIS overnight index has
+  `useProjectionCurve_ == false` (`ycinstrument.cpp:44`) so
+  `forecast == discount == OIS`. AAD and bumped evaluate the same function on
+  OIS rows (AC1 passes); the arithmetic-vs-geometric gap B5 worried about does
+  not exist. `OISSwap_` is ELIGIBLE for ANALYTIC (rides `Swap_::PrecomputeT<T_>`),
+  the example's OIS slice stays `OISSwap_`, and `Tape::OisSwapRate_<T_>` is not
+  needed. See §2.4, §3.2, §7.2 (e), spec Gap 5.
 
 The S6-S10 completeness items are folded in: S6 (shared_ptr `curveStorage`,
 §5.5/§6.2 step 3); S7 (`DAYS_PER_YEAR` constant + FR3 (j), §5.1/§7.2 (j));
@@ -1447,11 +1466,11 @@ The S6-S10 completeness items are folded in: S6 (shared_ptr `curveStorage`,
  S9 (flat `Vector_<T_>` members + unreachable `ApplyDX`, §5.2); S10 (FR3 (h)
  defensive/unreachable, §7.2 (h)).
 
-(Note: the earlier draft's OQ re: `OISSwap_` coverage and OQ re: the joint
-default are RESOLVED — `OISSwap_` is REJECTED under CP4 (supersedes the
-first-pass "rides Swap_" close), and the default is LOCKED to ANALYTIC (§9.2).
-The earlier OQ-3 re: the LOG_DISCOUNT anchor reconciliation is MOOT under
-Option B (§3).)
+(Note: the earlier draft's OQ re: `OISSwap_` coverage is RESOLVED — `OISSwap_`
+is ELIGIBLE (rides `Swap_::PrecomputeT<T_>`; CP4 retired, restoring the
+first-pass "rides Swap_" close), and the OQ re: the joint default is LOCKED to
+ANALYTIC (§9.2). The earlier OQ-3 re: the LOG_DISCOUNT anchor reconciliation is
+MOOT under Option B (§3).)
 
 Plus the spec's own OQ-2 (Jacobian subclass reuse — this design §8 recommends
 factoring into a shared header), OQ-3 (compile-time gate — this design says
@@ -1465,12 +1484,13 @@ The earlier Option-A critique raised blockers B1 (`OISSwap_` out of scope),
 B2 (`BuildJointSmoothing` free-knot iteration), and B3 (anchor audit).
 Under Option B:
 
-- **B1 is SUPERSEDED by CP4.** `OISSwap_ : public Swap_` is structurally
-  true, but the inherited `Tape::SwapRate_<T_>` prices overnight legs as
-  arithmetic single-period fixings (NOT geometric compounding), so the
-  Jacobian is wrong. `OISSwap_` is REJECTED for the joint ANALYTIC path
-  (CP4, spec Gap 5); a properly-compounded `Tape::OisSwapRate_<T_>` is
-  Phase B+1 (§17). The first-pass "OISSwap_ rides Swap_" close is withdrawn.
+- **B1 is DISSOLVED.** `OISSwap_ : public Swap_` is structurally true, and the
+  inherited `Tape::SwapRate_<T_>` is correct for the OIS-discount slice because
+  the OIS overnight index forecasts off the discount curve
+  (`useProjectionCurve_ == false`, `forecast == discount == OIS`) and both the
+  AAD and double paths share the identical simple-rate arithmetic (AC1 passes
+  for OIS). `OISSwap_` rides `Swap_::PrecomputeT<T_>` and is ELIGIBLE for
+  ANALYTIC. (The second-pass CP4 rejection is RETIRED — §2.4, spec Gap 5.)
 - **B2 is CLOSED.** PWL_FWD has 2 params/knot with NO anchor exclusion;
   `BuildJointSmoothing` already expands every knot by `paramsPerKnot == 2`.
   No free-knot rework (spec OQ-7).
@@ -1550,57 +1570,48 @@ This design enables every spec AC:
 - **API note path (absolute):**
   `/home/wegamekinglc/dev/github/my-claude/workspace/Derivatives-Algorithms-Lib/.claude/api-notes/joint-aad-gradient.md`
 - **Blocking dependencies:** NONE — Option B is LOCKED; the re-critique's B4
-  and B5 blockers are RESOLVED this pass (CP3 new `Tape::JointRate_<T_>` base;
-  CP4 `OISSwap_` rejected for ANALYTIC, deferred to Phase B+1); B2/B3 are
-  RE-DERIVED and CLOSED under PWL_FWD; S6-S10 are folded in. The design is
-  ready for critique and implementation.
-- **Scope-change flag for the user (CP4).** Phase B's ANALYTIC path covers
-  vanilla `{Deposit, FRA, Future, Swap}` only. `OISSwap_` is REJECTED (falls
-  back to bumped with a NOTICE) because the inherited `Tape::SwapRate_<T_>`
-  prices overnight legs as arithmetic single-period fixings, not geometric
-  compounding — verified against source (`ycinstrument.cpp:347-369`,
-  `:520-527`). The example's OIS slice must switch from `OISSwap_` to vanilla
-  `Swap_`. A properly-compounded `Tape::OisSwapRate_<T_>` is a Phase B+1
-  deliverable (§17). **If this scope reduction is not acceptable, the user
-  must object before implementation proceeds.**
+  blocker is RESOLVED (CP3 new `Tape::JointRate_<T_>` base for the IBOR
+  projection slice); B5 is RETIRED (CP4 dropped — `OISSwap_` eligible, rides
+  `Swap_::PrecomputeT<T_>`); B2/B3 are RE-DERIVED and CLOSED under PWL_FWD;
+  S6-S10 are folded in. The design is ready for critique and implementation.
+- **No scope-change flag this pass.** Phase B's ANALYTIC path covers the full
+  vanilla instrument set `{Deposit, FRA, Future, Swap}` INCLUDING `OISSwap_`.
+  The second-pass CP4 scope reduction (reject `OISSwap_`, switch the example to
+  vanilla `Swap_`, defer `Tape::OisSwapRate_<T_>`) is RETIRED — it rested on a
+  geometric-compounding concern that the lead verified does not exist in
+  `ycinstrument.cpp` (AAD and double paths share identical simple-rate
+  arithmetic; `ycinstrument.cpp:347-368` vs `:53-59`). The example's OIS slice
+  stays `OISSwap_` and runs ANALYTIC. No user objection is required.
 - **Next agent:** `dal-api-designer` to lock the `Tape::JointRate_<T_>` base +
   `ProjectionRateAt` signatures (OQ-5, CP3) and the options surface (OQ-4).
   Then `dal-critic` for an adversarial pass that STRESSES the Option-B risk
   surface (§14: four-branch `IntegralTo` on `T_`, templated base handle across
   four backends, 2-params/knot column map, the new `JointRate_<T_>` dispatch),
   the `Tape::DiscountPWLF_<T_>` class design (§5), the `XCurveJacobian_`
-  shared-header refactor (§8), and the CP4 eligibility rejection (§7.2 (e)).
-  Then `dal-implementer` once the critic signs off.
+  shared-header refactor (§8), and the OIS-rides-`Swap_::PrecomputeT<T_>`
+  eligibility (§7.2 (e), §2.4). Then `dal-implementer` once the critic signs
+  off.
 - **Suggested branch:** `feature/joint-aad-gradient` off
   `feature/multi-curve-joint-calibration`. Per project memory: do NOT merge;
   the user merges.
 
-## 17. Phase B+1 — `Tape::OisSwapRate_<T_>` (deferred under CP4)
+## 17. Phase B+1 — `Tape::OisSwapRate_<T_>` (NOT NEEDED; CP4 retired)
 
-Under CP4 the joint ANALYTIC path rejects `OISSwap_`. A follow-up phase
-("Phase B+1") authors a properly-compounded OIS overnight-index swap templated
-rate so `OISSwap_` becomes eligible. The work items:
+The second-pass design deferred a properly-compounded `Tape::OisSwapRate_<T_>`
+to Phase B+1 under CP4. **That deferral is RETIRED**: the lead verified
+`ycinstrument.cpp` has no geometric overnight compounding, so `OISSwap_` rides
+the inherited `Swap_::PrecomputeT<T_>` (simple-rate arithmetic,
+`forecast == discount`) and is eligible for ANALYTIC today. No compounded OIS
+rate is required.
 
-- **Author `Tape::OisSwapRate_<T_>` (inheriting `Tape::JointRate_<T_>`)** that
-  prices the overnight float leg via geometric compounding of daily fixings
-  (or an equivalent closed-form OIS accumulator). The compounding formula is
-  the load-bearing new arithmetic: the daily fixings are read off the forecast
-  curve (the OIS discount curve at the leg's collateral, since OIS fixes and
-  discounts off the same curve), and the compounded coupon is discounted off
-  the discount curve. No such formula exists anywhere in the curve module today
-  (verified by grep — see §2.4).
-- **Relax FR3 (e)** to admit `OISSwap_` (remove the
-  `dynamic_cast<const OISSwap_*>` rejection) once the new rate ships and its
-  AAD-vs-FD oracle passes on all four backends. The CP4 NOTICE is retired.
-- **Revert the example edit** (switch the OIS slice back to `OISSwap_`), so the
-  example demonstrates the genuine OIS product.
-- **Carry-over from this pass:** the source-verified finding that
-  `Tape::SwapRate_<T_>::operator()` (`ycinstrument.cpp:347-369`) prices each
-  float period as a single `ForwardRate(start, end)` read with arithmetic
-  accumulation — so any "compounded" variant MUST be a new class, not a tweak
-  to `SwapRate_<T_>`. The `Tape::JointRate_<T_>` base and `JointCurveBlock_<T_>`
-  routing context (CP3, Phase B) are reused verbatim.
+If a future requirement adds genuine daily overnight compounding to the curve
+module (a daily-compounding loop or a closed-form OIS accumulator — none exists
+today, verified by grep, §2.4), a templated compounded rate would be authored
+then. It would inherit `Tape::JointRate_<T_>` (or `Tape::SwapRate_<T_>` if the
+OIS leg still forecasts off a single curve), price the overnight leg via
+geometric compounding of daily fixings read off the discount curve, and discount
+the compounded coupon off the same curve. The `Tape::JointRate_<T_>` base and
+`JointCurveBlock_<T_>` routing context (CP3, Phase B) would be reused verbatim.
 
-Phase B+1 is NOT in scope for this spec; it is tracked here so the deferral is
-visible and the acceptance criteria for the eventual OIS compounding work are
-not lost.
+This section is retained as a placeholder so the design of a future compounded
+OIS rate is not re-derived from scratch; it is NOT in scope for Phase B.
