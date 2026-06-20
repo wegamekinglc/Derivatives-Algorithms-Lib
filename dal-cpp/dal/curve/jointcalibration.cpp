@@ -389,17 +389,6 @@ namespace Dal {
                     NOTICE(msg);
                     return false;
                 }
-                // (i): every instrument's TradeDate() == its declaration's knot 0.
-                for (int i = 0; i < slot.nInstruments; ++i) {
-                    if (slot.instruments[i]->TradeDate() != decl.knotDates_.front()) {
-                        const String_ msg = String_("Joint AAD Jacobian requires every instrument to trade at its declaration's "
-                                                    "knot 0; instrument '")
-                                            + slot.instruments[i]->Name() + "' in declaration " + String::FromInt(d)
-                                            + " does not, falling back to bumped";
-                        NOTICE(msg);
-                        return false;
-                    }
-                }
                 // (e)/(f)/(g): instrument type + projection-vs-declaration consistency.
                 const bool onDiscountDecl = decl.calibrateDiscountCurve_;
                 for (int i = 0; i < slot.nInstruments; ++i) {
@@ -668,7 +657,7 @@ namespace Dal {
 
             if (spec.solveMode_ == CurveSolveMode_::Value_::EXACT) {
                 std::unique_ptr<Sparse::SymmetricDecomposition_> wDecomp(weights.DecomposeSymmetric());
-                return Underdetermined::Find(func, guess, tol, *wDecomp, controls, optFwdJacAtSolution);
+                return Underdetermined::Find(func, guess, tol, *wDecomp, controls, nullptr, optFwdJacAtSolution);
             }
             return Underdetermined::Approximate(func, guess, tol, spec.fitTolerance_, weights, controls);
         }

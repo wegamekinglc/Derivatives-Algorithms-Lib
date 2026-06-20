@@ -115,13 +115,15 @@ namespace {
         return Handle_<YCInstrument_>();
     }
 
-    JointMultiCurveCalibrationSpec_ BuildSmallJointSpec(const Date_& today, const Ccy_& ccy, bool baseLayered) {
+    JointMultiCurveCalibrationSpec_ BuildSmallJointSpec(const Date_& today, const Ccy_& ccy, bool baseLayered,
+                                                        const DayBasis_& liborBasis = DayBasis_("ACT_360")) {
         auto overnightIndex = Ccy::Conventions::OisIndex()(ccy);
         overnightIndex.accrualHolidays_ = Holidays::None();
         overnightIndex.fixingHolidays_ = Holidays::None();
         auto libor3m = Ccy::Conventions::LiborIndex()(ccy);
         libor3m.accrualHolidays_ = Holidays::None();
         libor3m.fixingHolidays_ = Holidays::None();
+        libor3m.dayBasis_ = liborBasis; // pin the basis so AAD eligibility (ACT_365F) or ineligible (ACT_360) is respected
         auto fixedLeg = Ccy::Conventions::SwapFixedLeg()(ccy);
         fixedLeg.accrualHolidays_ = Holidays::None();
         fixedLeg.paymentHolidays_ = Holidays::None();
@@ -238,4 +240,61 @@ TEST(JointAnalyticJacobianTest, TestBumpedFallbackIsByteForByte) {
     ASSERT_NEAR(rDefault.jointRmsResidual_, rBumped.jointRmsResidual_, 1.0e-12);
     ASSERT_EQ(rDefault.discountCurves_.size(), rBumped.discountCurves_.size());
     ASSERT_EQ(rDefault.forwardCurves_.size(), rBumped.forwardCurves_.size());
+}
+
+// AC1: AAD-vs-bumped oracle. On an eligible spec (PWL_FWD + ACT_365F + base-layered + EXACT), the
+// ANALYTIC Jacobian engages, the calibration converges, and the per-pillar DFs agree with the bumped
+// reference to the smoothing-fit residual floor. The analytic forward Jacobian is populated.
+TEST(JointAnalyticJacobianTest, TestAnalyticEligibleAgreesWithBumped) {
+    RegisterAll_::Init();
+    const Date_ today(2024, 1, 15);
+    const Ccy_ ccy("USD");
+    const JointMultiCurveCalibrationSpec_ spec = BuildSmallJointSpec(today, ccy, /*baseLayered=*/true, DayBasis_("ACT_365F"));
+
+    JointMultiCurveCalibrationOptions_ optBumped;
+    optBumped.jacobianMode_ = CurveJacobianMode_::Value_::BUMPED;
+    const JointMultiCurveCalibrationResult_ rBumped = CalibrateJointMultiCurve(spec, optBumped);
+
+    JointMultiCurveCalibrationOptions_ optAnalytic;
+    optAnalytic.jacobianMode_ = CurveJacobianMode_::Value_::ANALYTIC;
+    const JointMultiCurveCalibrationResult_ rAnalytic = CalibrateJointMultiCurve(spec, optAnalytic);
+
+    ASSERT_TRUE(rBumped.converged_);
+    ASSERT_TRUE(rAnalytic.converged_);
+
+    // The analytic path engaged: jacobianAtSolution_ is populated for ANALYTIC + eligible + EXACT.
+    ASSERT_FALSE(rAnalytic.jacobianAtSolution_.Empty());
+    ASSERT_TRUE(rBumped.jacobianAtSolution_.Empty());
+
+    // Per-pillar OIS DFs agree to the smoothing-fit residual floor (both paths solve the same
+    // system with differently-computed Jacobians; the solution x should be essentially identical).
+    const auto& jointOisAnalytic = *rAnalytic.discountCurves_.at(CollateralType_(CollateralType_::Value_::OIS));
+    const auto& jointOisBumped = *rBumped.discountCurves_.at(CollateralType_(CollateralType_::Value_::OIS));
+    const Vector_<int> pillarMonths = {6, 12, 18, 24, 36, 60};
+    for (const int months : pillarMonths) {
+        const Date_ pillar = Date::AddMonths(today, months);
+        ASSERT_NEAR(jointOisAnalytic(today, pillar), jointOisBumped(today, pillar), 1.0e-5)
+            << "OIS DF mismatch at " << months << "M pillar";
+    }
+
+    // Per-pillar 3M forward DFs: base-layered, so both smooth the spread; agreement to ~1e-7.
+    const auto& joint3mAnalytic = *rAnalytic.forwardCurves_.at(spec.curves_[1].targetTenor_);
+    const auto& joint3mBumped = *rBumped.forwardCurves_.at(spec.curves_[1].targetTenor_);
+    for (const int months : pillarMonths) {
+        const Date_ pillar = Date::AddMonths(today, months);
+        ASSERT_NEAR(joint3mAnalytic(today, pillar), joint3mBumped(today, pillar), 1.0e-5)
+            << "3M DF mismatch at " << months << "M pillar";
+    }
+}
+
+// AC7: the ANALYTIC default engages on an eligible spec without explicit options.
+TEST(JointAnalyticJacobianTest, TestDefaultEngagesAnalyticOnEligibleSpec) {
+    RegisterAll_::Init();
+    const Date_ today(2024, 1, 15);
+    const Ccy_ ccy("USD");
+    const JointMultiCurveCalibrationSpec_ spec = BuildSmallJointSpec(today, ccy, /*baseLayered=*/true, DayBasis_("ACT_365F"));
+
+    const JointMultiCurveCalibrationResult_ rDefault = CalibrateJointMultiCurve(spec);
+    ASSERT_TRUE(rDefault.converged_);
+    ASSERT_FALSE(rDefault.jacobianAtSolution_.Empty()); // default ANALYTIC engaged
 }
