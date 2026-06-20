@@ -102,7 +102,7 @@ namespace Dal {
                     (*correlated)[ii] = std::inner_product(iidBegin, iidBegin + ii, lower_->Row(ii).begin(), 0.0);
                     (*correlated)[ii] += *(iidBegin + ii) / (*lower_)(ii, ii);
                 }
-                return correlated->begin();
+                return iidBegin + n;
             }
         };
     }

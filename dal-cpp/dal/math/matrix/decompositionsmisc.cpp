@@ -44,7 +44,7 @@ namespace Dal {
             }
 
             Vector_<>::const_iterator
-            MakeCorrelated(Vector_<>::const_iterator iidBegin, Vector_<> *devs) const override {
+            MakeCorrelated(Vector_<>::const_iterator iidBegin, Vector_<>* devs) const override {
                 const int n = Size();
                 devs->Resize(n);
                 for (int ii = 0; ii < n; ++ii, ++iidBegin) {

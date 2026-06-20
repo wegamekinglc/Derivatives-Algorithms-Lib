@@ -49,4 +49,4 @@ namespace Dal {
             credits_[refName] = std::max(credits_[refName], payDate);
         return *this;
     }
-}
+} // namespace Dal

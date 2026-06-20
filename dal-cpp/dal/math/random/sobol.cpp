@@ -21238,7 +21238,7 @@ const uint_least32_t* const DIRECTIONS[21201] = {
             bool precise_;
             Vector_<uint_least32_t> state_;
 
-            explicit SobolSet_(size_t iPath, bool precise = false) : iPath_(iPath), precise_(precise) { REQUIRE(iPath >= 0, "iPath must be no less than 0"); }
+            explicit SobolSet_(size_t iPath, bool precise = false) : iPath_(iPath), precise_(precise) {}
 
         public:
 

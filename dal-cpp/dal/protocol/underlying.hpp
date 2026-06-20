@@ -27,4 +27,4 @@ namespace Dal {
         Underlying_& Include(const IndexKey_& index, const DateTime_& fixDate);
         Underlying_& Include(const String_& refName, const Date_& payDate);
     };
-}
+} // namespace Dal
