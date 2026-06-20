@@ -165,32 +165,36 @@ namespace Dal {
         // with a message naming the offending input. Runs BEFORE the residual function, the
         // CurveBlock_, and the solver are constructed so mis-routings surface as clear entry errors
         // rather than late confusing throws deep inside the first residual evaluation.
-        std::vector<CurveSlot_> ValidateAndBuildSlots(const JointMultiCurveCalibrationSpec_& spec) {
+        // Validate spec-level fields, detect duplicate collaterals/tenors and forward-only invariants.
+        // Returns (producedCollaterals, producedTenors).  Extracted from ValidateAndBuildSlots
+        // for cyclomatic complexity (Codacy).
+        std::pair<std::set<CollateralType_>, std::set<PeriodLength_>>
+        DedupCollateralsAndTenors(const JointMultiCurveCalibrationSpec_& spec) {
             REQUIRE(!spec.curves_.empty(), "Joint multi-curve calibration requires at least one curve declaration");
-            REQUIRE(spec.tolerance_ > 0.0, "Joint multi-curve calibration tolerance must be positive");
-            REQUIRE(spec.fitTolerance_ > 0.0, "Joint multi-curve calibration fit tolerance must be positive");
-            REQUIRE(spec.maxEvaluations_ > 0, "Joint multi-curve calibration max evaluations must be positive");
-            REQUIRE(spec.maxRestarts_ > 0, "Joint multi-curve calibration max restarts must be positive");
-
-            // Produced discount collaterals (for B-new-3) and duplicate-key checks.
-            std::set<CollateralType_> producedCollaterals;
-            std::set<PeriodLength_> producedTenors;
+            REQUIRE(spec.tolerance_ > 0.0 && spec.fitTolerance_ > 0.0, "Joint multi-curve calibration tolerances must be positive");
+            REQUIRE(spec.maxEvaluations_ > 0 && spec.maxRestarts_ > 0, "Joint multi-curve calibration iteration caps must be positive");
+            std::set<CollateralType_> collaterals;
+            std::set<PeriodLength_> tenors;
             bool hasDiscount = false;
             for (int di = 0; di < static_cast<int>(spec.curves_.size()); ++di) {
                 const JointCurveDeclaration_& decl = spec.curves_[di];
                 if (decl.calibrateDiscountCurve_) {
                     hasDiscount = true;
-                    REQUIRE(producedCollaterals.insert(decl.targetCollateral_).second,
-                            String_("Joint multi-curve calibration has duplicate discount collateral ") + decl.targetCollateral_.String());
+                    REQUIRE(collaterals.insert(decl.targetCollateral_).second,
+                            String_("Duplicate discount collateral ") + decl.targetCollateral_.String());
                     REQUIRE(!decl.baseLayeredOverDiscount_,
-                            String_("Joint curve declaration ") + String::FromInt(di) + " sets baseLayeredOverDiscount_ on a discount-curve "
-                                      "declaration - base layering applies only to forward declarations");
+                            String_("Declaration ") + String::FromInt(di) + " base-layered on a discount declaration");
                 } else {
-                    REQUIRE(producedTenors.insert(decl.targetTenor_).second,
-                            String_("Joint multi-curve calibration has duplicate forward tenor ") + decl.targetTenor_.String());
+                    REQUIRE(tenors.insert(decl.targetTenor_).second,
+                            String_("Duplicate forward tenor ") + decl.targetTenor_.String());
                 }
             }
             REQUIRE(hasDiscount, "Joint multi-curve calibration requires at least one discount-curve declaration");
+            return {std::move(collaterals), std::move(tenors)};
+        }
+
+        std::vector<CurveSlot_> ValidateAndBuildSlots(const JointMultiCurveCalibrationSpec_& spec) {
+            const auto [producedCollaterals, producedTenors] = DedupCollateralsAndTenors(spec);
 
             std::vector<CurveSlot_> slots;
             slots.reserve(spec.curves_.size());
@@ -198,50 +202,26 @@ namespace Dal {
             int residualOffset = 0;
             for (int i = 0; i < static_cast<int>(spec.curves_.size()); ++i) {
                 const JointCurveDeclaration_& decl = spec.curves_[i];
-                REQUIRE(!decl.instruments_.empty(), String_("Joint curve declaration ") + String::FromInt(i) + " requires at least one instrument");
-                REQUIRE(!decl.knotDates_.empty(), String_("Joint curve declaration ") + String::FromInt(i) + " requires at least one knot date");
-                for (int k = 1; k < static_cast<int>(decl.knotDates_.size()); ++k) {
-                    REQUIRE(decl.knotDates_[k] > decl.knotDates_[k - 1], String_("Joint curve declaration ") + String::FromInt(i) +
-                                                                             " knot dates must be strictly increasing - knot " + String::FromInt(k) +
-                                                                             " = " + Date::ToString(decl.knotDates_[k]) + " not greater than knot " +
-                                                                             String::FromInt(k - 1) + " = " + Date::ToString(decl.knotDates_[k - 1]));
-                }
-                REQUIRE(decl.knotDates_.front() > spec.today_,
-                        String_("Joint curve declaration ") + String::FromInt(i) + " knot dates must be after today");
-                REQUIRE(decl.smoothingWeight_ > 0.0, String_("Joint curve declaration ") + String::FromInt(i) + " smoothing weight must be positive");
+                REQUIRE(!decl.instruments_.empty(), String_("Declaration ") + String::FromInt(i) + " requires at least one instrument");
+                REQUIRE(!decl.knotDates_.empty(), String_("Declaration ") + String::FromInt(i) + " requires at least one knot date");
+                for (int k = 1; k < static_cast<int>(decl.knotDates_.size()); ++k)
+                    REQUIRE(decl.knotDates_[k] > decl.knotDates_[k - 1], String_("Declaration ") + String::FromInt(i) + " knot dates must be strictly increasing");
+                REQUIRE(decl.knotDates_.front() > spec.today_, String_("Declaration ") + String::FromInt(i) + " knot dates must be after today");
+                REQUIRE(decl.smoothingWeight_ > 0.0, String_("Declaration ") + String::FromInt(i) + " smoothing weight must be positive");
 
                 if (!decl.calibrateDiscountCurve_) {
-                    REQUIRE(decl.targetTenor_ != PeriodLength_(),
-                            String_("Forward-curve declaration ") + String::FromInt(i) + " requires a target tenor");
-                    // Base layering is supported on PWL forward declarations only. The base resolves
-                    // from the discount curve at decl.targetCollateral_; B-new-3 below already
-                    // guarantees that collateral is produced by a discount declaration in this spec.
-                    if (decl.baseLayeredOverDiscount_) {
+                    REQUIRE(decl.targetTenor_ != PeriodLength_(), String_("Forward declaration ") + String::FromInt(i) + " requires a target tenor");
+                    if (decl.baseLayeredOverDiscount_)
                         REQUIRE(decl.parameterization_ == CurveParameterization_::Value_::PIECEWISE_LINEAR_FWD,
-                                String_("Joint curve declaration ") + String::FromInt(i) + " requests base layering on a non-PWL forward "
-                                          "declaration - use PIECEWISE_LINEAR_FWD with baseLayeredOverDiscount_");
-                    }
-                    // B-new-3: forward declaration's discount collateral must be produced by some discount declaration.
-                    REQUIRE(
-                        producedCollaterals.count(decl.targetCollateral_) > 0,
-                        String_("Joint curve declaration ") + String::FromInt(i) + " target collateral " + decl.targetCollateral_.String() +
-                            " is not produced by any discount-curve declaration in this spec - add a discount declaration with targetCollateral_ = " +
-                            decl.targetCollateral_.String());
-                    // B-new-1: every forward instrument must project its fixing through the forward curve.
+                                String_("Declaration ") + String::FromInt(i) + " base-layering requires PWL_FWD");
+                    REQUIRE(producedCollaterals.count(decl.targetCollateral_) > 0,
+                            String_("Declaration ") + String::FromInt(i) + " target collateral not produced by any discount declaration");
                     const String_ offender = ForwardDeclarationOffendingInstrument(decl);
-                    REQUIRE(offender.empty(), String_("Joint curve declaration ") + String::FromInt(i) +
-                                                  " is a forward-curve declaration but instrument " + offender +
-                                                  " has useProjectionCurve_ = false (RateIndexConvention_) - its fixing routes to yc.Discount(" +
-                                                  decl.targetCollateral_.String() +
-                                                  ") and leaves the forward curve unconstrained by data; construct IBOR instruments via "
-                                                  "Ccy::Conventions::LiborIndex()(ccy) so useProjectionCurve_ defaults to true");
+                    REQUIRE(offender.empty(), String_("Declaration ") + String::FromInt(i) + " forward instrument " + offender + " does not project");
                 }
 
-                const int paramsPerKnot = ParamsPerKnot(decl.parameterization_);
-                const int nKnots = static_cast<int>(decl.knotDates_.size());
-                const int nParams = paramsPerKnot * nKnots;
+                const int nParams = ParamsPerKnot(decl.parameterization_) * static_cast<int>(decl.knotDates_.size());
                 const auto ordered = OrderInstruments(decl.instruments_);
-
                 CurveSlot_ slot;
                 slot.curveIndex = i;
                 slot.paramOffset = paramOffset;
@@ -250,7 +230,7 @@ namespace Dal {
                 slot.nInstruments = static_cast<int>(ordered.size());
                 slot.instruments = ordered;
                 slot.knotDates = decl.knotDates_;
-                slot.paramsPerKnot = paramsPerKnot;
+                slot.paramsPerKnot = ParamsPerKnot(decl.parameterization_);
                 slot.smoothingWeight = decl.smoothingWeight_;
                 slot.rates.reserve(ordered.size());
                 slot.marketRates.reserve(ordered.size());
