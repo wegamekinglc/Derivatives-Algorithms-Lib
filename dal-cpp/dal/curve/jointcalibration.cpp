@@ -414,38 +414,33 @@ namespace Dal {
 
             [[nodiscard]] int EvaluationCount() const { return evaluationCount_; }
 
-            [[nodiscard]] Vector_<> F(const Vector_<>& x) const override {
-                ++evaluationCount_;
+            // Two-pass double curve build from the parameter vector x. Extracted from F for
+            // cyclomatic complexity (Codacy).
+            CurveBlock_ BuildCurvesFromX(const Vector_<>& x) const {
                 std::map<CollateralType_, Handle_<DiscountCurve_>> discountCurves;
                 std::map<PeriodLength_, Handle_<DiscountCurve_>> forwardCurves;
-                // Two-pass build so a base-layered forward declaration resolves its base from a
-                // discount curve built in the SAME solve iteration, regardless of declaration order.
-                // Pass 1: discount declarations (they never carry a base).
+                auto sliceX = [&](const CurveSlot_& s) { Vector_<> xs(s.nParams); for(int j=0;j<s.nParams;++j) xs[j]=x[s.paramOffset+j]; return xs; };
                 for (const auto& slot : *slots_) {
                     const JointCurveDeclaration_& decl = spec_->curves_[slot.curveIndex];
                     if (!decl.calibrateDiscountCurve_)
                         continue;
-                    Vector_<> xSlice(slot.nParams);
-                    for (int j = 0; j < slot.nParams; ++j)
-                        xSlice[j] = x[slot.paramOffset + j];
-                    discountCurves[decl.targetCollateral_] = BuildDeclarationCurve(decl, ccy_, dayCount_, xSlice);
+                    discountCurves[decl.targetCollateral_] = BuildDeclarationCurve(decl, ccy_, dayCount_, sliceX(slot));
                 }
-                // Pass 2: forward declarations; base resolves from the now-populated discountCurves
-                // when the declaration opts into base layering, else empty.
                 for (const auto& slot : *slots_) {
                     const JointCurveDeclaration_& decl = spec_->curves_[slot.curveIndex];
                     if (decl.calibrateDiscountCurve_)
                         continue;
-                    Vector_<> xSlice(slot.nParams);
-                    for (int j = 0; j < slot.nParams; ++j)
-                        xSlice[j] = x[slot.paramOffset + j];
                     Handle_<DiscountCurve_> base;
                     if (decl.baseLayeredOverDiscount_)
                         base = discountCurves.at(decl.targetCollateral_);
-                    forwardCurves[decl.targetTenor_] = BuildDeclarationCurve(decl, ccy_, dayCount_, xSlice, base);
+                    forwardCurves[decl.targetTenor_] = BuildDeclarationCurve(decl, ccy_, dayCount_, sliceX(slot), base);
                 }
-                CurveBlock_ yc("joint", ccy_, discountCurves, forwardCurves, dayCount_);
+                return CurveBlock_("joint", ccy_, discountCurves, forwardCurves, dayCount_);
+            }
 
+            [[nodiscard]] Vector_<> F(const Vector_<>& x) const override {
+                ++evaluationCount_;
+                const CurveBlock_ yc = BuildCurvesFromX(x);
                 int totalResiduals = 0;
                 for (const auto& slot : *slots_)
                     totalResiduals += slot.nInstruments;
@@ -671,53 +666,37 @@ namespace Dal {
     CalibrateJointMultiCurve(const JointMultiCurveCalibrationSpec_& spec, const JointMultiCurveCalibrationOptions_& options) {
         const std::vector<CurveSlot_> slots = ValidateAndBuildSlots(spec);
 
-        int totalParams = 0;
-        int totalResiduals = 0;
-        for (const auto& slot : slots) {
-            totalParams += slot.nParams;
-            totalResiduals += slot.nInstruments;
-        }
+        int totalParams = 0, totalResiduals = 0;
+        for (const auto& slot : slots) { totalParams += slot.nParams; totalResiduals += slot.nInstruments; }
 
         Vector_<> guess(totalParams);
         int offset = 0;
         for (const auto& slot : slots) {
             const Vector_<> slice = BuildGuessSlice(spec, spec.curves_[slot.curveIndex], slot.nParams);
-            for (int j = 0; j < slot.nParams; ++j)
-                guess[offset + j] = slice[j];
+            for (int j = 0; j < slot.nParams; ++j) guess[offset + j] = slice[j];
             offset += slot.nParams;
         }
 
         const Vector_<> tol(totalResiduals, spec.tolerance_);
         std::unique_ptr<Sparse::TriDiagonal_> weights = BuildJointSmoothing(slots);
-
         JointResidualFunction_ func(spec, slots, options.jacobianMode_);
         Matrix_<> fwdJacAtSolution;
         const Vector_<> solved = RunJointSolver(spec, func, guess, tol, *weights, &fwdJacAtSolution);
 
-        // Convergence check: the solver returns the best-found x, but APPROXIMATE can leave a
-        // smoothing-vs-fit residual floor; re-evaluate and confirm every residual is within the
-        // loose 10x fitTolerance_ bar (BAR-A's precondition). If not, throw naming the norm.
         const Vector_<> finalResiduals = func.F(solved);
         const double barA = 10.0 * spec.fitTolerance_;
         bool converged = true;
         for (const double r : finalResiduals)
-            if (std::fabs(r) > barA) {
-                converged = false;
-                break;
-            }
+            if (std::fabs(r) > barA) { converged = false; break; }
 
-        JointMultiCurveCalibrationResult_ result;
-        // Assemble the solved curves into the result maps and a CurveBlock_ for diagnostics. Two-pass
-        // for the same reason as F: a base-layered forward curve must resolve its base from a solved
-        // discount curve, independent of declaration order.
+        auto sliceX = [&](const CurveSlot_& s) { Vector_<> xs(s.nParams); for(int j=0;j<s.nParams;++j) xs[j]=solved[s.paramOffset+j]; return xs; };
         std::map<CollateralType_, Handle_<DiscountCurve_>> discountCurves;
         std::map<PeriodLength_, Handle_<DiscountCurve_>> forwardCurves;
-        auto slice = [&](const CurveSlot_& slot) { Vector_<> xs(slot.nParams); for (int j=0; j<slot.nParams; ++j) xs[j]=solved[slot.paramOffset+j]; return xs; };
         for (const auto& slot : slots) {
             const JointCurveDeclaration_& decl = spec.curves_[slot.curveIndex];
             if (!decl.calibrateDiscountCurve_)
                 continue;
-            discountCurves[decl.targetCollateral_] = BuildDeclarationCurve(decl, spec.ccy_, spec.liborBasis_, slice(slot));
+            discountCurves[decl.targetCollateral_] = BuildDeclarationCurve(decl, spec.ccy_, spec.liborBasis_, sliceX(slot));
         }
         for (const auto& slot : slots) {
             const JointCurveDeclaration_& decl = spec.curves_[slot.curveIndex];
@@ -726,30 +705,28 @@ namespace Dal {
             Handle_<DiscountCurve_> base;
             if (decl.baseLayeredOverDiscount_)
                 base = discountCurves.at(decl.targetCollateral_);
-            forwardCurves[decl.targetTenor_] = BuildDeclarationCurve(decl, spec.ccy_, spec.liborBasis_, slice(slot), base);
+            forwardCurves[decl.targetTenor_] = BuildDeclarationCurve(decl, spec.ccy_, spec.liborBasis_, sliceX(slot), base);
         }
         const CurveBlock_ solvedBlock("joint", spec.ccy_, discountCurves, forwardCurves, spec.liborBasis_);
 
         const bool usedApproximateFit = spec.solveMode_ == CurveSolveMode_::Value_::APPROXIMATE;
-        double jointMaxAbs = 0.0;
-        double jointSq = 0.0;
+        double jointMaxAbs = 0.0, jointSq = 0.0;
+        JointMultiCurveCalibrationResult_ result;
         for (const auto& slot : slots) {
             const JointCurveDeclaration_& decl = spec.curves_[slot.curveIndex];
             const JointCurveCalibrationDiagnostics_ diag = BuildCurveDiagnostics(decl, slot, solvedBlock, usedApproximateFit);
             jointMaxAbs = std::max(jointMaxAbs, diag.maxAbsResidual_);
-            for (const double r : diag.residuals_)
-                jointSq += r * r;
+            for (const double r : diag.residuals_) jointSq += r * r;
             result.diagnostics_.push_back(diag);
         }
         result.discountCurves_ = std::move(discountCurves);
         result.forwardCurves_ = std::move(forwardCurves);
         result.jointMaxAbsResidual_ = jointMaxAbs;
-        result.jointRmsResidual_ = totalResiduals == 0 ? 0.0 : std::sqrt(jointSq / totalResiduals);
+        result.jointRmsResidual_ = totalResiduals ? std::sqrt(jointSq / totalResiduals) : 0.0;
         result.solverEvaluations_ = func.EvaluationCount();
         result.jacobianAtSolution_ = std::move(fwdJacAtSolution);
 
-        if (!converged)
-            ThrowNonConvergence(func, finalResiduals);
+        if (!converged) ThrowNonConvergence(func, finalResiduals);
         result.converged_ = true;
         return result;
     }
