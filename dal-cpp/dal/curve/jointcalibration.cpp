@@ -694,13 +694,12 @@ namespace Dal {
         }
 
         Vector_<> guess(totalParams);
-        int guessOffset = 0;
+        int offset = 0;
         for (const auto& slot : slots) {
-            const JointCurveDeclaration_& decl = spec.curves_[slot.curveIndex];
-            const Vector_<> slice = BuildGuessSlice(spec, decl, slot.nParams);
+            const Vector_<> slice = BuildGuessSlice(spec, spec.curves_[slot.curveIndex], slot.nParams);
             for (int j = 0; j < slot.nParams; ++j)
-                guess[guessOffset + j] = slice[j];
-            guessOffset += slot.nParams;
+                guess[offset + j] = slice[j];
+            offset += slot.nParams;
         }
 
         const Vector_<> tol(totalResiduals, spec.tolerance_);
@@ -728,26 +727,21 @@ namespace Dal {
         // discount curve, independent of declaration order.
         std::map<CollateralType_, Handle_<DiscountCurve_>> discountCurves;
         std::map<PeriodLength_, Handle_<DiscountCurve_>> forwardCurves;
+        auto slice = [&](const CurveSlot_& slot) { Vector_<> xs(slot.nParams); for (int j=0; j<slot.nParams; ++j) xs[j]=solved[slot.paramOffset+j]; return xs; };
         for (const auto& slot : slots) {
             const JointCurveDeclaration_& decl = spec.curves_[slot.curveIndex];
             if (!decl.calibrateDiscountCurve_)
                 continue;
-            Vector_<> xSlice(slot.nParams);
-            for (int j = 0; j < slot.nParams; ++j)
-                xSlice[j] = solved[slot.paramOffset + j];
-            discountCurves[decl.targetCollateral_] = BuildDeclarationCurve(decl, spec.ccy_, spec.liborBasis_, xSlice);
+            discountCurves[decl.targetCollateral_] = BuildDeclarationCurve(decl, spec.ccy_, spec.liborBasis_, slice(slot));
         }
         for (const auto& slot : slots) {
             const JointCurveDeclaration_& decl = spec.curves_[slot.curveIndex];
             if (decl.calibrateDiscountCurve_)
                 continue;
-            Vector_<> xSlice(slot.nParams);
-            for (int j = 0; j < slot.nParams; ++j)
-                xSlice[j] = solved[slot.paramOffset + j];
             Handle_<DiscountCurve_> base;
             if (decl.baseLayeredOverDiscount_)
                 base = discountCurves.at(decl.targetCollateral_);
-            forwardCurves[decl.targetTenor_] = BuildDeclarationCurve(decl, spec.ccy_, spec.liborBasis_, xSlice, base);
+            forwardCurves[decl.targetTenor_] = BuildDeclarationCurve(decl, spec.ccy_, spec.liborBasis_, slice(slot), base);
         }
         const CurveBlock_ solvedBlock("joint", spec.ccy_, discountCurves, forwardCurves, spec.liborBasis_);
 
