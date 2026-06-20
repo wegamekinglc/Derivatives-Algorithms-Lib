@@ -262,7 +262,6 @@ satisfies:
   `OISSwap_`, which inherits `Swap_` and rides `Swap_::PrecomputeT<T_>`),
 - `liborBasis_ == ACT_365F` (agrees with the `DAYS_PER_YEAR = 365.0`
   denominator the templated curve assumes),
-- `TradeDate() == knotDates_.front()` for every instrument,
 - base-layered forward declarations resolve their base collateral against a
   PIECEWISE_LINEAR_FWD discount declaration in the same spec.
 

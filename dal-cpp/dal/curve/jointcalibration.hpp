@@ -60,7 +60,7 @@ namespace Dal {
         DayBasis_ liborBasis_ = DayBasis_("ACT_365F");
         double tolerance_ = 1.0e-8;    // per-residual tol passed to the solver
         double fitTolerance_ = 1.0e-6; // APPROXIMATE fit tol
-        double smoothingWeight_ = 1.0; // default per-curve smoothing weight
+        double smoothingWeight_ = 1.0; // unused; per-declaration smoothingWeight_ is the active field
         double initialGuess_ = 0.05;   // default per-node initial guess
         int maxEvaluations_ = 200;
         int maxRestarts_ = 20;
@@ -116,7 +116,7 @@ namespace Dal {
         //               rides the inherited Swap_::PrecomputeT<T_> since its overnight index has
         //               useProjectionCurve_ == false, so forecast == discount == OIS and both AAD
         //               and bumped paths share the identical simple-rate arithmetic; see
-        //               .claude/designs/joint-aad-gradient.md Gap 5 + tradeDate == knot 0);
+        //               .claude/designs/joint-aad-gradient.md Gap 5);
         //               otherwise falls back to BUMPED with a NOTICE (at most once per
         //               CalibrateJointMultiCurve call; never throws). The joint residual prices
         //               IBOR projection instruments through a NEW Tape::JointRate_<T_> base (CP3)

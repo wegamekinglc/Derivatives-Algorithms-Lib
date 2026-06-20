@@ -15,11 +15,11 @@ representation remains the default and is still supported.
 The example (`BuildJointSpec`) sets `baseLayeredOverDiscount_ = true` on its 3M declaration. Under
 EXACT, the **re-measured** joint-vs-staged DF drift is:
 
-| Bar   | Before (baseless)        | After (base-layered)     | Reference |
-|-------|--------------------------|--------------------------|-----------|
-| BAR-A | PASS (~0 residual)       | PASS (~5e-9 rate)        | `1e-7` (gate, unchanged) |
-| BAR-B | `3.68e-8` (OIS drift)    | `6.42e-7` (OIS drift)    | `1e-6` (informational)   |
-| BAR-C | `3.33e-4` (3M drift)     | `2.39e-5` (3M drift)     | `5e-5` (informational)   |
+| Bar   | Before                   | After                  | Reference                    |
+|-------|--------------------------|------------------------|------------------------------|
+| BAR-A | PASS (~0 residual)       | PASS (~5e-9 rate)      | `1e-7` (gate, unchanged)     |
+| BAR-B | `3.68e-8` (OIS drift)    | `6.42e-7` (OIS drift)  | `1e-6` (informational)       |
+| BAR-C | `3.33e-4` (3M drift)     | `2.39e-5` (3M drift)   | `5e-5` (informational)       |
 
 The headline result: **BAR-C drops from `3.33e-4` to `2.39e-5` (~14x tighter)**, and the 2Y-7Y core
 agrees to ~`1e-7` (the OIS-agreement level). The remaining drift is NOT round-off: the joint solve

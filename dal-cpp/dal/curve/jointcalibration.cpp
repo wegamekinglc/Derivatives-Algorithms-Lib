@@ -330,17 +330,23 @@ namespace Dal {
             return std::make_shared<Tape::DiscountPWLF_<T_, B_>>(decl.curveName_, ccy, knotDates, fLeftT, fRightT, base);
         }
 
+        // True if the instrument type is among the supported set for the AAD path.
+        [[nodiscard]] bool IsSupportedInstrumentType(const YCInstrument_& inst) {
+            return dynamic_cast<const OISSwap_*>(&inst) || dynamic_cast<const Swap_*>(&inst) || dynamic_cast<const Deposit_*>(&inst)
+                   || dynamic_cast<const FRA_*>(&inst) || dynamic_cast<const Future_*>(&inst);
+        }
+
         // Per-instrument joint eligibility (FR3 (e)/(g)). Returns true if the instrument can be
         // priced on the AAD tape; on fall-through emits a NOTICE naming the instrument and the
-        // failing condition. NEVER throws (FR6). The tradeDate == knot 0 check (FR3 (i)) is done at
-        // the declaration level in JointSpecEligibleForAnalyticJacobian (the instrument does not
-        // carry its declaration's knot dates).
+        // failing condition. NEVER throws (FR6).
         bool InstrumentEligibleForAnalyticJacobian(const YCInstrument_& inst, bool onDiscountDeclaration) {
             const RateIndexConvention_* convPtr = FloatConventionOf(inst);
-            REQUIRE(convPtr, "InstrumentEligibleForAnalyticJacobian: internal error -- type check should have caught this");
+            if (!convPtr) {
+                NOTICE("Joint AAD Jacobian: unsupported instrument type (no float convention); falling back to bumped");
+                return false;
+            }
             const RateIndexConvention_& conv = *convPtr;
-            if (dynamic_cast<const OISSwap_*>(&inst) || dynamic_cast<const Swap_*>(&inst) || dynamic_cast<const Deposit_*>(&inst)
-                || dynamic_cast<const FRA_*>(&inst) || dynamic_cast<const Future_*>(&inst)) {
+            if (IsSupportedInstrumentType(inst)) {
                 // Type is fine. Check projection-vs-declaration consistency (FR3 (g)): a
                 // discount-declaration instrument must NOT project (useProjectionCurve_ == false),
                 // so its fixing routes to the discount curve and the AAD path binds a single curve.
@@ -525,6 +531,44 @@ namespace Dal {
                 }
                 return forwardStorage;
             }
+
+            // Compute every instrument's templated residual given the assembled JointCurveBlock_.
+            // Projection instruments (useProjectionCurve_ == true) are priced through
+            // Tape::ProjectionRateAt<T_> reading the block's discount+forward handles; discount-slice
+            // instruments are priced through the single-curve YCCtx_<T_> path.
+            [[nodiscard]] Vector_<Dal::AAD::Number_>
+            ComputeTemplatedResiduals(const Tape::JointCurveBlock_<Dal::AAD::Number_>& block) const {
+                int totalResiduals = 0;
+                for (const auto& slot : *slots_)
+                    totalResiduals += slot.nInstruments;
+                Vector_<Dal::AAD::Number_> residuals(totalResiduals);
+                int offset = 0;
+                for (int d = 0; d < static_cast<int>(slots_->size()); ++d) {
+                    const CurveSlot_& slot = (*slots_)[d];
+                    for (int i = 0; i < slot.nInstruments; ++i) {
+                        const auto& inst = *slot.instruments[i];
+                        const RateIndexConvention_& conv = *FloatConventionOf(inst);
+                        if (conv.useProjectionCurve_) {
+                            auto rateT = Tape::ProjectionRateAt<Dal::AAD::Number_>(inst);
+                            residuals[offset + i] = (*rateT)(block) - static_cast<double>(slot.marketRates[i]);
+                        } else {
+                            Handle_<Tape::Rate_<Dal::AAD::Number_>> rateT;
+                            if (const auto* dep = dynamic_cast<const Deposit_*>(&inst))
+                                rateT = dep->PrecomputeT<Dal::AAD::Number_>();
+                            else if (const auto* f = dynamic_cast<const FRA_*>(&inst))
+                                rateT = f->PrecomputeT<Dal::AAD::Number_>();
+                            else if (const auto* fu = dynamic_cast<const Future_*>(&inst))
+                                rateT = fu->PrecomputeT<Dal::AAD::Number_>();
+                            else
+                                rateT = static_cast<const Swap_*>(&inst)->PrecomputeT<Dal::AAD::Number_>();
+                            const Tape::YCCtx_<Dal::AAD::Number_> ctx(block.Discount(conv.collateral_));
+                            residuals[offset + i] = (*rateT)(ctx) - static_cast<double>(slot.marketRates[i]);
+                        }
+                    }
+                    offset += slot.nInstruments;
+                }
+                return residuals;
+            }
         };
 
         // The AAD reverse-sweep Jacobian (FR2, FR5). Recording contract (the ONE order that works on
@@ -549,35 +593,8 @@ namespace Dal {
             for (const auto& [tenor, curve] : forwardStorage)
                 block.forwardCurves[tenor] = curve.get();
 
-            int totalResiduals = 0;
-            for (const auto& slot : *slots_)
-                totalResiduals += slot.nInstruments;
-            Vector_<Dal::AAD::Number_> residuals(totalResiduals);
-            int offset = 0;
-            for (int d = 0; d < static_cast<int>(slots_->size()); ++d) {
-                const CurveSlot_& slot = (*slots_)[d];
-                for (int i = 0; i < slot.nInstruments; ++i) {
-                    const auto& inst = *slot.instruments[i];
-                    const RateIndexConvention_& conv = *FloatConventionOf(inst);
-                    if (conv.useProjectionCurve_) {
-                        auto rateT = Tape::ProjectionRateAt<Dal::AAD::Number_>(inst);
-                        residuals[offset + i] = (*rateT)(block) - static_cast<double>(slot.marketRates[i]);
-                    } else {
-                        Handle_<Tape::Rate_<Dal::AAD::Number_>> rateT;
-                        if (const auto* dep = dynamic_cast<const Deposit_*>(&inst))
-                            rateT = dep->PrecomputeT<Dal::AAD::Number_>();
-                        else if (const auto* f = dynamic_cast<const FRA_*>(&inst))
-                            rateT = f->PrecomputeT<Dal::AAD::Number_>();
-                        else if (const auto* fu = dynamic_cast<const Future_*>(&inst))
-                            rateT = fu->PrecomputeT<Dal::AAD::Number_>();
-                        else
-                            rateT = static_cast<const Swap_*>(&inst)->PrecomputeT<Dal::AAD::Number_>();
-                        const Tape::YCCtx_<Dal::AAD::Number_> ctx(block.Discount(conv.collateral_));
-                        residuals[offset + i] = (*rateT)(ctx) - static_cast<double>(slot.marketRates[i]);
-                    }
-                }
-                offset += slot.nInstruments;
-            }
+            const Vector_<Dal::AAD::Number_> residuals = ComputeTemplatedResiduals(block);
+            const int totalResiduals = static_cast<int>(residuals.size());
 
             // Reverse sweep: per-residual {ZeroAdjoints, Adjoint=1.0, PropagateToStart, harvest}.
             const int nCols = static_cast<int>(x.size());
