@@ -437,7 +437,7 @@ namespace {
                 }
             }
         }
-        return {maxAbs_, maxRel_};
+        return {maxAbs, maxRel};
     }
 
     // (g) Print the bucketed quote-risk vector r alongside its par-rate DV01 (r[i]*1e-4). Each row is
