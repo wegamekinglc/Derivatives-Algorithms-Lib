@@ -593,7 +593,7 @@ namespace Dal {
             for (const auto& [tenor, curve] : forwardStorage)
                 block.forwardCurves[tenor] = curve.get();
 
-            const Vector_<Dal::AAD::Number_> residuals = ComputeTemplatedResiduals(block);
+            Vector_<Dal::AAD::Number_> residuals = ComputeTemplatedResiduals(block);
             const int totalResiduals = static_cast<int>(residuals.size());
 
             // Reverse sweep: per-residual {ZeroAdjoints, Adjoint=1.0, PropagateToStart, harvest}.
