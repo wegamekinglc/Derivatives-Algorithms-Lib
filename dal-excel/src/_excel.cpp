@@ -14,6 +14,7 @@
 #include <dal/storage/_repository.hpp>
 #include <dal/utilities/exceptions.hpp>
 #include <dal/utilities/numerics.hpp>
+#include <dal-public/src/global.hpp>
 
 ///***************************************************************************
 // File:	FRAMEWRK.C
@@ -1395,6 +1396,7 @@ namespace Dal {
     // Initialization routine
     extern "C" __declspec(dllexport) int xlAutoOpen(void) {
         // dal initialization
+        Dal::InitGlobalData();
         Dal::RegisterAll_::Init();
 
         // Get XLL file name
