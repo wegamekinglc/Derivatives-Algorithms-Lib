@@ -2,9 +2,9 @@
 // Created by wegam on 2022/4/18.
 //
 
+#include <gtest/gtest.h>
 
 #include <dal/math/aad/blocklist.hpp>
-#include <gtest/gtest.h>
 
 using namespace Dal::AAD;
 

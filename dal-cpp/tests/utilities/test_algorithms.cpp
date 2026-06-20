@@ -2,16 +2,16 @@
 // Created by Cheng Li on 2017/12/29.
 //
 
+#include <gtest/gtest.h>
 
 #include <functional>
-#include <gtest/gtest.h>
 #include <dal/platform/platform.hpp>
 #include <dal/math/vectors.hpp>
 #include <dal/utilities/algorithms.hpp>
 
 using vector_t = Dal::Vector_<>;
 
-TEST(AlgorithmsTest, TestTransformWithUniaryOPerator) {
+TEST(AlgorithmsTest, TestTransformWithUnaryOperator) {
     vector_t s = {1, 2, 3};
     vector_t d(3);
 
@@ -61,7 +61,7 @@ TEST(AlgorithmsTest, TestFill) {
     }
 }
 
-TEST(AlgorithmsTest, TestApplyWithUniaryOPerator) {
+TEST(AlgorithmsTest, TestApplyWithUnaryOperator) {
     vector_t s1 = {1, 2, 3};
     auto s2 = Dal::Apply(std::negate<>(), s1);
     for (int i = 0; i != s2.size(); ++i) {
@@ -69,7 +69,7 @@ TEST(AlgorithmsTest, TestApplyWithUniaryOPerator) {
     }
 }
 
-TEST(AlgorithmsTest, TestApplyWithBinaryOPerator) {
+TEST(AlgorithmsTest, TestApplyWithBinaryOperator) {
     vector_t s1 = {1, 2, 3};
     vector_t s2 = {3, 2, 1};
     auto s3 = Dal::Apply(std::plus<>(), s1, s2);

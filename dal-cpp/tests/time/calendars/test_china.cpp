@@ -2,9 +2,9 @@
 // Created by wegam on 2020/11/28.
 //
 
+#include <gtest/gtest.h>
 #include <dal/platform/platform.hpp>
 #include <dal/time/holidays.hpp>
-#include <gtest/gtest.h>
 
 using namespace Dal;
 

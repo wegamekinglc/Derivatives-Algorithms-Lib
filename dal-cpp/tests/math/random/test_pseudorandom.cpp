@@ -139,7 +139,7 @@ TEST(PseudoRandomTest, TestNewPseudoRandomMRG32SkipTo) {
         ASSERT_DOUBLE_EQ(data[k], data2[k]);
 }
 
-TEST(RandomTest, NewPseudoRandomIRNPerformance) {
+TEST(RandomTest, TestNewPseudoRandomIRNPerformance) {
     int dim = 100;
     int seed = 1024;
     std::unique_ptr<Random_> gen(New(RNGType_("IRN"), seed, dim));
@@ -153,7 +153,7 @@ TEST(RandomTest, NewPseudoRandomIRNPerformance) {
     }
 }
 
-TEST(RandomTest, NewPseudoRandomMRG32Performance) {
+TEST(RandomTest, TestNewPseudoRandomMRG32Performance) {
     int dim = 100;
     int seed = 1024;
     std::unique_ptr<Random_> gen(New(RNGType_("MRG32"), seed, dim));

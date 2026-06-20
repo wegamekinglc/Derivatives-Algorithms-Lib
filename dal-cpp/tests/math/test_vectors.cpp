@@ -2,24 +2,24 @@
 // Created by Cheng Li on 2017/12/21.
 //
 
+#include <gtest/gtest.h>
 #include <dal/platform/platform.hpp>
 #include <dal/math/vectors.hpp>
-#include <gtest/gtest.h>
 
 using vector_t = Dal::Vector_<>;
 
-TEST(VectorTest, DefaultConstructionTest) {
+TEST(VectorTest, TestDefaultConstruction) {
     vector_t s;
     ASSERT_TRUE(s.empty());
 }
 
-TEST(VectorTest, SizedConstructionTest) {
+TEST(VectorTest, TestSizedConstruction) {
     const int n = 10;
     vector_t s(n);
     ASSERT_EQ(s.size(), n);
 }
 
-TEST(VectorTest, SizedFilledConstructionTest) {
+TEST(VectorTest, TestSizedFilledConstruction) {
     const int n = 10;
     const double val = 1.;
     vector_t s(n, val);
@@ -30,7 +30,7 @@ TEST(VectorTest, SizedFilledConstructionTest) {
     }
 }
 
-TEST(VectorTest, ContainerConstructionTest) {
+TEST(VectorTest, TestContainerConstruction) {
     const int n = 10;
     const double val = 1.;
 
@@ -43,7 +43,7 @@ TEST(VectorTest, ContainerConstructionTest) {
     }
 }
 
-TEST(VectorTest, InitializedListConstructionTest) {
+TEST(VectorTest, TestInitializedListConstruction) {
     vector_t s = {1., 2., 3., 4., 5.};
 
     ASSERT_EQ(s.size(), 5);
@@ -52,7 +52,7 @@ TEST(VectorTest, InitializedListConstructionTest) {
     }
 }
 
-TEST(VectorTest, VectorSwapTest) {
+TEST(VectorTest, TestVectorSwap) {
     vector_t s1 = {1., 2., 3., 4., 5.};
     vector_t s2;
     s1.Swap(&s2);
@@ -64,7 +64,7 @@ TEST(VectorTest, VectorSwapTest) {
     }
 }
 
-TEST(VectorTest, VectorFillTest) {
+TEST(VectorTest, TestVectorFill) {
     const int n = 10;
     const double val = 1.;
     vector_t s(n);
@@ -76,7 +76,7 @@ TEST(VectorTest, VectorFillTest) {
     }
 }
 
-TEST(VectorTest, VectorResizeTest) {
+TEST(VectorTest, TestVectorResize) {
     const int n1 = 5;
     const int n2 = 10;
 
@@ -87,7 +87,7 @@ TEST(VectorTest, VectorResizeTest) {
     ASSERT_EQ(s.size(), n2);
 }
 
-TEST(VectorTest, VectorSelfMultiplyTest) {
+TEST(VectorTest, TestVectorSelfMultiply) {
     vector_t s = {1., 2., 3., 4., 5.};
     s *= 3;
 
@@ -97,7 +97,7 @@ TEST(VectorTest, VectorSelfMultiplyTest) {
     }
 }
 
-TEST(VectorTest, VectorSelfPlusTest) {
+TEST(VectorTest, TestVectorSelfPlus) {
     vector_t s = {1., 2., 3., 4., 5.};
     s += 3;
 
@@ -107,7 +107,7 @@ TEST(VectorTest, VectorSelfPlusTest) {
     }
 }
 
-TEST(VectorTest, VectorSelfMinusTest) {
+TEST(VectorTest, TestVectorSelfMinus) {
     vector_t s = {1., 2., 3., 4., 5.};
     s -= 3;
 
@@ -117,7 +117,7 @@ TEST(VectorTest, VectorSelfMinusTest) {
     }
 }
 
-TEST(VectorTest, VectorSelfPlusVectorTest) {
+TEST(VectorTest, TestVectorSelfPlusVector) {
     vector_t s1 = {1., 2., 3., 4., 5.};
     vector_t s2 = {5., 4., 3., 2., 1.};
     s1 += s2;
@@ -128,7 +128,7 @@ TEST(VectorTest, VectorSelfPlusVectorTest) {
     }
 }
 
-TEST(VectorTest, VectorSelfMinusVectorTest) {
+TEST(VectorTest, TestVectorSelfMinusVector) {
     vector_t s1 = {1., 2., 3., 4., 5.};
     vector_t s2 = {5., 4., 3., 2., 1.};
     s1 -= s2;
@@ -139,7 +139,7 @@ TEST(VectorTest, VectorSelfMinusVectorTest) {
     }
 }
 
-TEST(VectorTest, VectorAssignTest) {
+TEST(VectorTest, TestVectorAssign) {
     vector_t s;
     double data[] = {1., 2., 3., 4., 5.};
 
@@ -150,7 +150,7 @@ TEST(VectorTest, VectorAssignTest) {
     }
 }
 
-TEST(VectorTest, VectorAppendByIteratorTest) {
+TEST(VectorTest, TestVectorAppendByIterator) {
     vector_t s;
     double data[] = {1., 2., 3., 4., 5.};
 
@@ -161,7 +161,7 @@ TEST(VectorTest, VectorAppendByIteratorTest) {
     }
 }
 
-TEST(VectorTest, VectorAppendByContainerTest) {
+TEST(VectorTest, TestVectorAppendByContainer) {
     vector_t s;
     vector_t data = {1., 2., 3., 4., 5.};
 
@@ -172,7 +172,7 @@ TEST(VectorTest, VectorAppendByContainerTest) {
     }
 }
 
-TEST(VectorTest, VectorEqualTest) {
+TEST(VectorTest, TestVectorEqual) {
     vector_t s1;
     vector_t s2 = {1., 2., 3., 4., 5.};
     vector_t s3 = {1., 2., 3., 4., 5.};
@@ -181,7 +181,7 @@ TEST(VectorTest, VectorEqualTest) {
     ASSERT_TRUE(s2 == s3);
 }
 
-TEST(VectorTest, VectorNotEqualTest) {
+TEST(VectorTest, TestVectorNotEqual) {
     vector_t s1;
     vector_t s2 = {1., 2., 3., 4., 5.};
     vector_t s3 = {1., 2., 3., 4., 5.};
@@ -190,7 +190,7 @@ TEST(VectorTest, VectorNotEqualTest) {
     ASSERT_FALSE(s2 != s3);
 }
 
-TEST(VectorTest, VectorJoinContiner) {
+TEST(VectorTest, TestVectorJoinContainer) {
     vector_t s1 = {1., 2., 3.};
     vector_t s2 = {4., 5., 6.};
 
@@ -200,7 +200,7 @@ TEST(VectorTest, VectorJoinContiner) {
     }
 }
 
-TEST(VectorTest, VectorUpTo) {
+TEST(VectorTest, TestVectorUpTo) {
     int n = 6;
     auto s = Dal::Vector::UpTo(n);
 
@@ -209,7 +209,7 @@ TEST(VectorTest, VectorUpTo) {
     }
 }
 
-TEST(VectorTest, VectorMultiply) {
+TEST(VectorTest, TestVectorMultiply) {
     vector_t s1 = {1., 2., 3.};
     auto s2 = 2.0 * s1;
     auto s3 = s1 * 2.0;

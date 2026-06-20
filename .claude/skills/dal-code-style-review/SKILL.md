@@ -23,6 +23,13 @@ Review all changed C++ files and changed markdown guidance under `.claude/` in t
    git diff --name-only HEAD~1
    ```
 
+   **Whole-codebase scan:** When the user's `args` include "whole code base" or "entire codebase", do not rely on `git diff`. Instead scan all `.hpp` and `.cpp` files under the following directories (excluding `auto/` and `externals/` subdirectories):
+   - `dal-cpp/dal/`
+   - `dal-public/src/`
+   - `dal-cpp/examples/`
+   - `dal-cpp/benchmarks/`
+   - `dal-cpp/tests/`
+
 3. Read each changed `.hpp`, `.cpp` file and each changed `.md` file under `.claude/`, then check for violations against the rules below.
 
 4. If the code changes affect documented behavior, workflows, architecture notes, or methodology, also check whether the related markdown files under `.claude/` were updated consistently.

@@ -2,9 +2,9 @@
 // Created by wegam on 2020/11/18.
 //
 
+#include <gtest/gtest.h>
 #include <vector>
 #include <type_traits>
-#include <gtest/gtest.h>
 #include <dal/platform/platform.hpp>
 #include <dal/utilities/functionals.hpp>
 
@@ -78,13 +78,13 @@ TEST(FunctionalsTest, TestIdentity) {
     ASSERT_DOUBLE_EQ(s(2.), 2.0);
 }
 
-TEST(FunctionlsTest, TestXLookupIn) {
+TEST(FunctionalsTest, TestXLookupIn) {
     std::vector<int> s = {1, 2, 3, 4, 5};
     auto lookup = XLookupIn(s);
     ASSERT_DOUBLE_EQ(lookup(3), 4);
 }
 
-TEST(FunctionlsTest, TestLookupIn) {
+TEST(FunctionalsTest, TestLookupIn) {
     std::vector<int> s = {1, 2, 3, 4, 5};
     auto lookup = LookupIn(s);
     ASSERT_DOUBLE_EQ(lookup(3), 4);
