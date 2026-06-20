@@ -404,12 +404,12 @@ int main() {
     timer.Reset();
     const JointMultiCurveCalibrationSpec_ jointSpec = BuildJointSpec(today, ccy, market);
     const JointMultiCurveCalibrationResult_ jointResult = CalibrateJointMultiCurve(jointSpec);
-    const double jointMs = timer.Elapsed<milliseconds>();
+    const double jointMs = static_cast<double>(timer.Elapsed<milliseconds>());
 
     timer.Reset();
     const MultiCurveCalibrationSpec_ stagedSpec = BuildStagedSpec(today, ccy, market);
     const MultiCurveCalibrationResult_ stagedResult = CalibrateMultiCurve(stagedSpec);
-    const double stagedMs = timer.Elapsed<milliseconds>();
+    const double stagedMs = static_cast<double>(timer.Elapsed<milliseconds>());
 
     PrintResidualSummary("joint", jointResult.diagnostics_);
     PrintResidualSummary("staged", stagedResult.diagnostics_);

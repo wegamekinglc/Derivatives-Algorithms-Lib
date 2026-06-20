@@ -369,27 +369,18 @@ namespace Dal {
         bool JointSpecEligibleForAnalyticJacobian(const JointMultiCurveCalibrationSpec_* spec,
                                                    const std::vector<CurveSlot_>* slots) {
             REQUIRE(spec && slots, "JointSpecEligibleForAnalyticJacobian: null spec/slots");
+            // (j): liborBasis_ == ACT_365F (spec-level, checked once).
+            if (spec->liborBasis_.String() != String_("ACT_365F")) {
+                NOTICE("Joint AAD Jacobian requires liborBasis_ == ACT_365F; falling back to bumped");
+                return false;
+            }
             for (int d = 0; d < static_cast<int>(slots->size()); ++d) {
                 const CurveSlot_& slot = (*slots)[d];
                 const JointCurveDeclaration_& decl = spec->curves_[slot.curveIndex];
                 if (decl.parameterization_ != CurveParameterization_::Value_::PIECEWISE_LINEAR_FWD) {
-                    const String_ msg = String_("Joint AAD Jacobian requires CurveParameterization_::PIECEWISE_LINEAR_FWD on "
-                                                "every declaration; declaration ")
-                                        + String::FromInt(d) + " has " + decl.parameterization_.String()
-                                        + "; falling back to bumped";
-                    NOTICE(msg);
+                    NOTICE("Joint AAD Jacobian requires PIECEWISE_LINEAR_FWD on every declaration; falling back to bumped");
                     return false;
                 }
-                // (j): liborBasis_ == ACT_365F (the DAYS_PER_YEAR denominator the templated PWL
-                // forward curve assumes).
-                if (spec->liborBasis_.String() != String_("ACT_365F")) {
-                    const String_ msg = String_("Joint AAD Jacobian requires liborBasis_ == ACT_365F (the DAYS_PER_YEAR "
-                                                "denominator the templated PWL-forward curve assumes); spec has ")
-                                        + spec->liborBasis_.String() + "; falling back to bumped";
-                    NOTICE(msg);
-                    return false;
-                }
-                // (e)/(f)/(g): instrument type + projection-vs-declaration consistency.
                 const bool onDiscountDecl = decl.calibrateDiscountCurve_;
                 for (int i = 0; i < slot.nInstruments; ++i) {
                     if (!InstrumentEligibleForAnalyticJacobian(*slot.instruments[i], onDiscountDecl))
@@ -491,6 +482,49 @@ namespace Dal {
                     return AnalyticJacobian(x, f);
                 return nullptr;
             }
+
+            // Extracted helpers for AnalyticJacobian — reduce cyclomatic complexity (Codacy AC).
+
+            [[nodiscard]] std::vector<std::pair<Vector_<Dal::AAD::Number_>, Vector_<Dal::AAD::Number_>>>
+            RegisterTapeParameters(const Vector_<>& x) const {
+                std::vector<std::pair<Vector_<Dal::AAD::Number_>, Vector_<Dal::AAD::Number_>>> fwdParams(slots_->size());
+                for (int d = 0; d < static_cast<int>(slots_->size()); ++d) {
+                    const CurveSlot_& slot = (*slots_)[d];
+                    const int nKnots = static_cast<int>(slot.knotDates.size());
+                    auto& [fLeftT, fRightT] = fwdParams[d];
+                    fLeftT.Resize(nKnots);
+                    fRightT.Resize(nKnots);
+                    for (int k = 0; k < nKnots; ++k) {
+                        Dal::AAD::RegisterIndependent(fLeftT[k], x[slot.paramOffset + 2 * k]);
+                        Dal::AAD::RegisterIndependent(fRightT[k], x[slot.paramOffset + 2 * k + 1]);
+                    }
+                }
+                return fwdParams;
+            }
+
+            [[nodiscard]] std::map<PeriodLength_, std::shared_ptr<Tape::DiscountCurve_<Dal::AAD::Number_>>>
+            BuildTemplatedCurves(const std::vector<std::pair<Vector_<Dal::AAD::Number_>, Vector_<Dal::AAD::Number_>>>& fwdParams,
+                                std::map<CollateralType_, std::shared_ptr<Tape::DiscountCurve_<Dal::AAD::Number_>>>& discountStorage) const {
+                std::map<PeriodLength_, std::shared_ptr<Tape::DiscountCurve_<Dal::AAD::Number_>>> forwardStorage;
+                for (int d = 0; d < static_cast<int>(slots_->size()); ++d) {
+                    const CurveSlot_& slot = (*slots_)[d];
+                    const JointCurveDeclaration_& decl = spec_->curves_[slot.curveIndex];
+                    const auto& [fLeftT, fRightT] = fwdParams[d];
+                    if (decl.calibrateDiscountCurve_) {
+                        discountStorage[decl.targetCollateral_] =
+                            BuildDeclarationCurveT<Dal::AAD::Number_>(decl, ccy_, slot.knotDates, fLeftT, fRightT);
+                    } else if (decl.baseLayeredOverDiscount_) {
+                        Handle_<Tape::DiscountCurve_<Dal::AAD::Number_>> base(discountStorage.at(decl.targetCollateral_));
+                        forwardStorage[decl.targetTenor_] =
+                            BuildDeclarationCurveT<Dal::AAD::Number_, Tape::DiscountCurve_<Dal::AAD::Number_>>(
+                                decl, ccy_, slot.knotDates, fLeftT, fRightT, base);
+                    } else {
+                        forwardStorage[decl.targetTenor_] =
+                            BuildDeclarationCurveT<Dal::AAD::Number_>(decl, ccy_, slot.knotDates, fLeftT, fRightT);
+                    }
+                }
+                return forwardStorage;
+            }
         };
 
         // The AAD reverse-sweep Jacobian (FR2, FR5). Recording contract (the ONE order that works on
@@ -503,88 +537,18 @@ namespace Dal {
             auto* tape = Dal::AAD::Tape();
             TapeGuard_ guard(tape);
 
-            // 1. Register EVERY declaration's 2 * nKnots free parameters as independents.
-            //    PWL_FWD has NO anchor exclusion -- every knot (including knot 0) is free. The
-            //    column map is per-declaration: solver column (slot.paramOffset + 2k) maps to
-            //    declaration d's fLeftT[k] and (slot.paramOffset + 2k+1) to fRightT[k].
-            std::vector<std::pair<Vector_<Dal::AAD::Number_>, Vector_<Dal::AAD::Number_>>> fwdParamsPerDecl(slots_->size());
-            for (int d = 0; d < static_cast<int>(slots_->size()); ++d) {
-                const CurveSlot_& slot = (*slots_)[d];
-                const int nKnots = static_cast<int>(slot.knotDates.size());
-                auto& paramsPair = fwdParamsPerDecl[d];
-                auto& fLeftT = paramsPair.first;
-                auto& fRightT = paramsPair.second;
-                fLeftT.Resize(nKnots);
-                fRightT.Resize(nKnots);
-                for (int k = 0; k < nKnots; ++k) {
-                    Dal::AAD::RegisterIndependent(fLeftT[k], x[slot.paramOffset + 2 * k]);
-                    Dal::AAD::RegisterIndependent(fRightT[k], x[slot.paramOffset + 2 * k + 1]);
-                }
-            }
-
-            // 2. Open the recording AFTER registering the independents and BEFORE the forward pass.
+            const auto fwdParams = RegisterTapeParameters(x);
             Dal::AAD::NewRecording(*tape);
 
-            // 3. Two-pass templated curve build. Pass 1: discount declarations as
-            //    Tape::DiscountPWLF_<Number_> (baseless), stored as shared_ptr so base-layered
-            //    forward declarations in pass 2 can share ownership of their base (Gap 4, critique S6).
             std::map<CollateralType_, std::shared_ptr<Tape::DiscountCurve_<Dal::AAD::Number_>>> discountStorage;
-            std::map<PeriodLength_, std::shared_ptr<Tape::DiscountCurve_<Dal::AAD::Number_>>> forwardStorage;
-            std::vector<std::shared_ptr<Tape::DiscountCurve_<Dal::AAD::Number_>>> curveStorage;
-            curveStorage.reserve(slots_->size());
-            for (int d = 0; d < static_cast<int>(slots_->size()); ++d) {
-                const CurveSlot_& slot = (*slots_)[d];
-                const JointCurveDeclaration_& decl = spec_->curves_[slot.curveIndex];
-                if (!decl.calibrateDiscountCurve_)
-                    continue;
-                const auto& [fLeftT, fRightT] = fwdParamsPerDecl[d];
-                auto dc = BuildDeclarationCurveT<Dal::AAD::Number_>(decl, ccy_, slot.knotDates, fLeftT, fRightT);
-                // Implicit shared_ptr<DiscountPWLF_<Number_>> -> shared_ptr<DiscountCurve_<Number_>>
-                // upcast (DiscountPWLF_<T_> inherits DiscountCurve_<T_> via CurveWithBase_<...>).
-                discountStorage[decl.targetCollateral_] = std::move(dc);
-                curveStorage.push_back(discountStorage.at(decl.targetCollateral_));
-            }
-            for (int d = 0; d < static_cast<int>(slots_->size()); ++d) {
-                const CurveSlot_& slot = (*slots_)[d];
-                const JointCurveDeclaration_& decl = spec_->curves_[slot.curveIndex];
-                if (decl.calibrateDiscountCurve_)
-                    continue;
-                const auto& [fLeftT, fRightT] = fwdParamsPerDecl[d];
-                if (decl.baseLayeredOverDiscount_) {
-                    // Gap 4: Number_-typed base sharing ownership of the discount curve (critique S6).
-                    // The base is a Tape::DiscountPWLF_<Number_, DiscountCurve_<Number_>> whose
-                    // adjoints propagate through the reverse sweep into the OIS discount-curve free
-                    // nodes (the load-bearing Option-B generalization -- Phase A's DiscountLogDF_<T_>
-                    // uses a double base treated as constant).
-                    Handle_<Tape::DiscountCurve_<Dal::AAD::Number_>> base(discountStorage.at(decl.targetCollateral_));
-                    auto fc = BuildDeclarationCurveT<Dal::AAD::Number_, Tape::DiscountCurve_<Dal::AAD::Number_> >(
-                        decl, ccy_, slot.knotDates, fLeftT, fRightT, base);
-                    forwardStorage[decl.targetTenor_] = std::move(fc);
-                } else {
-                    auto fc = BuildDeclarationCurveT<Dal::AAD::Number_>(decl, ccy_, slot.knotDates, fLeftT, fRightT);
-                    forwardStorage[decl.targetTenor_] = std::move(fc);
-                }
-                curveStorage.push_back(forwardStorage.at(decl.targetTenor_));
-            }
+            const auto forwardStorage = BuildTemplatedCurves(fwdParams, discountStorage);
 
-            // 4. Assemble BOTH routing contexts:
-            //    (a) JointCurveBlock_<Number_> for the IBOR projection slice (forecast != discount).
-            //    (b) per-collateral YCCtx_<Number_> map for the OIS-discount slice (forecast ==
-            //        discount == that collateral's discount curve) -- the OIS slice rides the
-            //        inherited Swap_::PrecomputeT<Number_> machinery bound to a single curve.
             Tape::JointCurveBlock_<Dal::AAD::Number_> block;
             for (const auto& [collateral, curve] : discountStorage)
                 block.discountCurves[collateral] = curve.get();
             for (const auto& [tenor, curve] : forwardStorage)
                 block.forwardCurves[tenor] = curve.get();
 
-            // 5. Compute Number_-typed stacked residuals. For each instrument:
-            //    - OIS-discount slice (useProjectionCurve_ == false, including OISSwap_): route
-            //      through the inherited PrecomputeT<Number_> + YCCtx_<Number_> bound to the discount
-            //      curve at the instrument's collateral. forecast == discount == that curve.
-            //    - IBOR projection slice (useProjectionCurve_ == true): route through
-            //      PrecomputeProjectionT<Number_> + JointCurveBlock_<Number_>. forecast resolves to
-            //      the forward declaration's curve at (forecastTenor_, collateral_).
             int totalResiduals = 0;
             for (const auto& slot : *slots_)
                 totalResiduals += slot.nInstruments;
@@ -594,36 +558,28 @@ namespace Dal {
                 const CurveSlot_& slot = (*slots_)[d];
                 for (int i = 0; i < slot.nInstruments; ++i) {
                     const auto& inst = *slot.instruments[i];
-                    const RateIndexConvention_* convPtr = FloatConventionOf(inst);
-                    REQUIRE(convPtr, "JointResidualFunction_::AnalyticJacobian: internal error -- eligibility should have rejected this instrument type");
-                    const RateIndexConvention_& conv = *convPtr;
+                    const RateIndexConvention_& conv = *FloatConventionOf(inst);
                     if (conv.useProjectionCurve_) {
-                        // IBOR projection slice: JointRate_<Number_> + JointCurveBlock_<Number_>.
                         auto rateT = Tape::ProjectionRateAt<Dal::AAD::Number_>(inst);
                         residuals[offset + i] = (*rateT)(block) - static_cast<double>(slot.marketRates[i]);
                     } else {
-                        // OIS-discount slice: inherited Rate_<Number_> + YCCtx_<Number_> bound to the
-                        // discount curve at the instrument's collateral. The overnight index has
-                        // useProjectionCurve_ == false so forecast == discount == that curve.
                         Handle_<Tape::Rate_<Dal::AAD::Number_>> rateT;
-                        const auto* instPtr = slot.instruments[i].get();
-                        if (dynamic_cast<const Deposit_*>(instPtr))
-                            rateT = static_cast<const Deposit_*>(instPtr)->PrecomputeT<Dal::AAD::Number_>();
-                        else if (dynamic_cast<const FRA_*>(instPtr))
-                            rateT = static_cast<const FRA_*>(instPtr)->PrecomputeT<Dal::AAD::Number_>();
-                        else if (dynamic_cast<const Future_*>(instPtr))
-                            rateT = static_cast<const Future_*>(instPtr)->PrecomputeT<Dal::AAD::Number_>();
-                        else if (dynamic_cast<const Swap_*>(instPtr))
-                            rateT = static_cast<const Swap_*>(instPtr)->PrecomputeT<Dal::AAD::Number_>();
-                        const Tape::DiscountCurve_<Dal::AAD::Number_>& discountCurve = block.Discount(conv.collateral_);
-                        const Tape::YCCtx_<Dal::AAD::Number_> ctx(discountCurve);
+                        if (const auto* dep = dynamic_cast<const Deposit_*>(&inst))
+                            rateT = dep->PrecomputeT<Dal::AAD::Number_>();
+                        else if (const auto* f = dynamic_cast<const FRA_*>(&inst))
+                            rateT = f->PrecomputeT<Dal::AAD::Number_>();
+                        else if (const auto* fu = dynamic_cast<const Future_*>(&inst))
+                            rateT = fu->PrecomputeT<Dal::AAD::Number_>();
+                        else
+                            rateT = static_cast<const Swap_*>(&inst)->PrecomputeT<Dal::AAD::Number_>();
+                        const Tape::YCCtx_<Dal::AAD::Number_> ctx(block.Discount(conv.collateral_));
                         residuals[offset + i] = (*rateT)(ctx) - static_cast<double>(slot.marketRates[i]);
                     }
                 }
                 offset += slot.nInstruments;
             }
 
-            // 6. Dense Jacobian (totalResiduals x totalFreeParams), single-result reverse sweep.
+            // Reverse sweep: per-residual {ZeroAdjoints, Adjoint=1.0, PropagateToStart, harvest}.
             const int nCols = static_cast<int>(x.size());
             Matrix_<> j(totalResiduals, nCols, 0.0);
             for (int i = 0; i < totalResiduals; ++i) {
@@ -633,7 +589,7 @@ namespace Dal {
                 for (int d = 0; d < static_cast<int>(slots_->size()); ++d) {
                     const CurveSlot_& slot = (*slots_)[d];
                     const int nKnots = static_cast<int>(slot.knotDates.size());
-                    const auto& [fLeftT, fRightT] = fwdParamsPerDecl[d];
+                    const auto& [fLeftT, fRightT] = fwdParams[d];
                     for (int k = 0; k < nKnots; ++k) {
                         j(i, slot.paramOffset + 2 * k) = Dal::AAD::Value(Dal::AAD::Adjoint(fLeftT[k]));
                         j(i, slot.paramOffset + 2 * k + 1) = Dal::AAD::Value(Dal::AAD::Adjoint(fRightT[k]));
