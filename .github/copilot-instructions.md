@@ -121,3 +121,14 @@ Tests (Google Test, `.claude/rules/unit-test-style.md`):
   API docs at http://127.0.0.1:8001/docs.
 - Web UI e2e: run `./dal-web/scripts/setup-playwright.sh` once, then
   `cd dal-web/frontend && npm run test:e2e`.
+
+## Project docs and guidance
+
+- Quant-method write-ups live under `docs/methodology/` (AAD, yield-curve construction,
+  interpolation, log-discount curve, underdetermined search, xccy calibration, yield-curve
+  Jacobian). Reconcile them against current headers when changing the relevant code.
+- Record notable fundamental changes in `CHANGELOG.md`.
+- Full rule sets live in `.claude/rules/`: `code-style.md`, `unit-test-style.md`,
+  `dal-web-design.md` (web UI standards), and `git-commit-pr.md` (commit/PR workflow).
+- Specialist agents for the spec → design → critique → implement → review → document
+  pipeline are defined under `.claude/agents/` (see its `README.md`).
