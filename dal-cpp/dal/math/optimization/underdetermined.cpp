@@ -130,8 +130,8 @@ namespace Dal {
 
         void StoreEffectiveJacobianInverse(const Underdetermined::Jacobian_& j,
                                            const Sparse::SymmetricDecomposition_& w,
-                                           Matrix_<>* eff_j_inv) {
-            if (!eff_j_inv)
+                                           Matrix_<>* effJInv) {
+            if (!effJInv)
                 return;
             SquareMatrix_<> q;
             j.QForm(w, &q);
@@ -140,13 +140,13 @@ namespace Dal {
                 qInvRhs[i][i] = 1.0;
             CholeskySolve(&q, &qInvRhs);
 
-            eff_j_inv->Resize(j.Columns(), j.Rows());
+            effJInv->Resize(j.Columns(), j.Rows());
             for (int i_col = 0; i_col < j.Rows(); ++i_col) {
                 Vector_<> ws = j.MultiplyRight(qInvRhs[i_col]);
                 Vector_<> eff_col;
                 w.Solve(ws, &eff_col);
                 for (int i_row = 0; i_row < j.Columns(); ++i_row)
-                    (*eff_j_inv)(i_row, i_col) = eff_col[i_row];
+                    (*effJInv)(i_row, i_col) = eff_col[i_row];
             }
         }
 
@@ -244,7 +244,7 @@ namespace Dal {
                                     const Vector_<>& tol,
                                     const Sparse::SymmetricDecomposition_& w,
                                     const Controls_& controls,
-                                    Matrix_<>* eff_j_inv,
+                                    Matrix_<>* effJInv,
                                     Matrix_<>* fwdJacobianAtSolution) {
         // set up the wrapper through which we will call the function
         XScaledFunc_ func(tol, func_in, controls);
@@ -268,7 +268,7 @@ namespace Dal {
                 Transform(xOld, s, std::plus<>(), &xNew);
                 Vector_<> fNew = func.F(xNew);
                 if (*MaxElement(fNew) < 1.0 && *MinElement(fNew) > -1.0) {
-                    StoreEffectiveJacobianInverse(*j, w, eff_j_inv);
+                    StoreEffectiveJacobianInverse(*j, w, effJInv);
                     // Unscaled forward Jacobian at the solution, produced by ONE raw func_in.Gradient
                     // call (NOT XScaledFunc_::J), so DivideRows(tol) is never applied. fNew is the
                     // SCALED residual (XScaledFunc_::F divides by tol), so reconstruct the UNSCALED
@@ -315,14 +315,14 @@ namespace Dal {
         }
     }
 
-    Vector_<> Underdetermined::Approximate(const Function_& func_in,
+    Vector_<> Underdetermined::Approximate(const Function_& funcIn,
                                            const Vector_<>& guess,
-                                           const Vector_<>& func_tol, // accuracy of function evaluation
-                                           double fitTol,            // accuracy of appproximate fit
+                                           const Vector_<>& funcTol, // accuracy of function evaluation
+                                           double fitTol,            // accuracy of approximate fit
                                            const Sparse::Square_& w,
                                            const Controls_& controls) {
         // set up the wrapper through which we will call the function
-        XScaledFunc_ func(func_tol, func_in, controls);
+        XScaledFunc_ func(funcTol, funcIn, controls);
         Vector_<> xOld(guess);
         Vector_<> fOld = func.F(xOld);
         if (sqrt(InnerProduct(fOld, fOld)) <= fitTol)
@@ -330,7 +330,7 @@ namespace Dal {
         std::unique_ptr<Jacobian_> j;
         Vector_<> xNew(xOld.size());
         SquareMatrix_<> q;
-        const double jWeight = InnerProduct(func_tol, func_tol) / Square(fitTol);
+        const double jWeight = InnerProduct(funcTol, funcTol) / Square(fitTol);
 
         for (int ie = 3, ticker = 0; ie < controls.maxEvaluations_; ++ie, ticker -= controls.maxRestarts_) {
             if (ticker <= 0) {
