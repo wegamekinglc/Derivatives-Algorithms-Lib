@@ -16,12 +16,12 @@ namespace Dal {
     };
 
     struct Converged_ {
-        double x_tol_, f_tol_;
-        Converged_(double x_tol, double f_tol) : x_tol_(x_tol), f_tol_(f_tol) {}
+        double xTol_, fTol_;
+        Converged_(double xTol, double fTol) : xTol_(xTol), fTol_(fTol) {}
 
         bool operator()(RootFinder_& t, double e) const {
             t.PutY(e);
-            return std::abs(e) < f_tol_ || t.BracketWidth() < x_tol_;
+            return std::abs(e) < fTol_ || t.BracketWidth() < xTol_;
         }
     };
 

@@ -2,8 +2,8 @@
 // Created by wegam on 2020/11/16.
 //
 
-#include <cmath>
 #include <gtest/gtest.h>
+#include <cmath>
 #include <dal/platform/platform.hpp>
 #include <dal/utilities/numerics.hpp>
 #include <dal/utilities/exceptions.hpp>

@@ -73,11 +73,11 @@ namespace Dal::Script {
                                   Apply([](double x) {return T_(x);}, consVariablesValues_));
         }
 
-        template <class T_> FuzzyEvaluator_<T_> BuildFuzzyEvaluator(int max_nested_ifs, double def_eps) const {
+        template <class T_> FuzzyEvaluator_<T_> BuildFuzzyEvaluator(int maxNestedIfs, double defEps) const {
             return FuzzyEvaluator_<T_>(variableValues_,
                                        Apply([](double x) {return T_(x);}, consVariablesValues_),
-                                       max_nested_ifs,
-                                       def_eps);
+                                       maxNestedIfs,
+                                       defEps);
         }
 
         template <class T_> EvalState_<T_> BuildEvalState() const {

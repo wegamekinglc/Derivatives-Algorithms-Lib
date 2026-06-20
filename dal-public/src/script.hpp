@@ -23,7 +23,7 @@ namespace Dal {
         REQUIRE2(rtn.size() != 0, "emtpy script product description", ScriptError_);
         return rtn;
     }
-}
+} // namespace Dal
 
 
 

@@ -141,17 +141,17 @@ namespace Dal {
             CholeskySolve(&q, &qInvRhs);
 
             effJInv->Resize(j.Columns(), j.Rows());
-            for (int i_col = 0; i_col < j.Rows(); ++i_col) {
-                Vector_<> ws = j.MultiplyRight(qInvRhs[i_col]);
-                Vector_<> eff_col;
-                w.Solve(ws, &eff_col);
-                for (int i_row = 0; i_row < j.Columns(); ++i_row)
-                    (*effJInv)(i_row, i_col) = eff_col[i_row];
+            for (int iCol = 0; iCol < j.Rows(); ++iCol) {
+                Vector_<> ws = j.MultiplyRight(qInvRhs[iCol]);
+                Vector_<> effCol;
+                w.Solve(ws, &effCol);
+                for (int iRow = 0; iRow < j.Columns(); ++iRow)
+                    (*effJInv)(iRow, iCol) = effCol[iRow];
             }
         }
 
         // Capture the UNSCALED dense forward Jacobian at the solution. Called only on the convergence
-        // branch with the RAW func (func_in), so DivideRows(tol) is never applied -- the output is the
+        // branch with the RAW func (funcIn), so DivideRows(tol) is never applied -- the output is the
         // plain dF_i/dx_j matrix. Works for any Jacobian_ subclass by probing each unit column via
         // MultiplyLeft (which returns J * e_k = column k, length Rows). The caller guards the
         // nullptr-Gradient case before calling, so jac is always a valid Jacobian here.
@@ -186,11 +186,11 @@ namespace Dal {
 
             [[nodiscard]] Sparse::SymmetricDecomposition_* Decompose() const override;
 
-            const double& operator()(int i_row, int i_col) const override {
+            const double& operator()(int iRow, int iCol) const override {
                 THROW("Penalty weight element access is not supported");
             }
 
-            void Set(int i_row, int i_col, double val) override {
+            void Set(int iRow, int iCol, double val) override {
                 THROW("Penalty weight element setting is not possible");
             }
 
@@ -239,7 +239,7 @@ namespace Dal {
         }
     } // namespace
 
-    Vector_<> Underdetermined::Find(const Function_& func_in,
+    Vector_<> Underdetermined::Find(const Function_& funcIn,
                                     const Vector_<>& guess,
                                     const Vector_<>& tol,
                                     const Sparse::SymmetricDecomposition_& w,
@@ -247,7 +247,7 @@ namespace Dal {
                                     Matrix_<>* effJInv,
                                     Matrix_<>* fwdJacobianAtSolution) {
         // set up the wrapper through which we will call the function
-        XScaledFunc_ func(tol, func_in, controls);
+        XScaledFunc_ func(tol, funcIn, controls);
         Vector_<> xOld(guess);
         Vector_<> fOld = func.F(xOld);
         std::unique_ptr<Jacobian_> j;
@@ -269,11 +269,11 @@ namespace Dal {
                 Vector_<> fNew = func.F(xNew);
                 if (*MaxElement(fNew) < 1.0 && *MinElement(fNew) > -1.0) {
                     StoreEffectiveJacobianInverse(*j, w, effJInv);
-                    // Unscaled forward Jacobian at the solution, produced by ONE raw func_in.Gradient
+                    // Unscaled forward Jacobian at the solution, produced by ONE raw funcIn.Gradient
                     // call (NOT XScaledFunc_::J), so DivideRows(tol) is never applied. fNew is the
                     // SCALED residual (XScaledFunc_::F divides by tol), so reconstruct the UNSCALED
-                    // residual as fNew * tol element-wise and pass that -- no redundant func_in.F
-                    // evaluation, which matters because func_in.F bypasses the solver's nEvals_ budget
+                    // residual as fNew * tol element-wise and pass that -- no redundant funcIn.F
+                    // evaluation, which matters because funcIn.F bypasses the solver's nEvals_ budget
                     // in XScaledFunc_. (F/tol)*tol == F to machine precision, and it is correct for any
                     // Function_ whose Gradient consumes f, harmless for the analytic path (which
                     // ignores f). A nullptr Gradient return clears the output so a caller-reused matrix
@@ -282,7 +282,7 @@ namespace Dal {
                         fwdJacobianAtSolution->Clear();
                         Vector_<> fUnscaled = fNew;
                         Transform(&fUnscaled, tol, std::multiplies<>());
-                        std::unique_ptr<Jacobian_> jSol(func_in.Gradient(xNew, fUnscaled));
+                        std::unique_ptr<Jacobian_> jSol(funcIn.Gradient(xNew, fUnscaled));
                         if (jSol)
                             StoreForwardJacobianAtSolution(*jSol, fwdJacobianAtSolution);
                     }

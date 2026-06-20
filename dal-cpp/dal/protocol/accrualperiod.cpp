@@ -15,6 +15,6 @@ namespace Dal {
                                    double notional,
                                    const DayBasis_ &day_count,
                                    const Handle_<DayBasis::Context_> &context,
-                                   bool is_stub)
-    : startDate_(start), endDate_(end), notional_(notional), couponBasis_(day_count), dcf_(day_count(start, end, context.get())), context_(context), isStub_(is_stub) {}
+                                   bool isStub)
+    : startDate_(start), endDate_(end), notional_(notional), couponBasis_(day_count), dcf_(day_count(start, end, context.get())), context_(context), isStub_(isStub) {}
 }

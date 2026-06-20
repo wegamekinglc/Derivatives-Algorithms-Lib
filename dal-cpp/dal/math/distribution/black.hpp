@@ -59,7 +59,7 @@ namespace Dal {
         double vol_;
 
     public:
-        DistributionBlack_(double fwd, double deann_vol): f_(fwd), vol_(deann_vol) {}
+        DistributionBlack_(double fwd, double deannVol): f_(fwd), vol_(deannVol) {}
 
         [[nodiscard]] double Forward() const override { return f_; }
         [[nodiscard]] double OptionPrice(double strike, const OptionType_& type) const override {
@@ -85,7 +85,7 @@ namespace Dal {
         double vol_;
 
     public:
-        DistributionBachelier_(double fwd, double deann_vol): f_(fwd), vol_(deann_vol) {}
+        DistributionBachelier_(double fwd, double deannVol): f_(fwd), vol_(deannVol) {}
         [[nodiscard]] double Forward() const override { return f_; }
         [[nodiscard]] double OptionPrice(double strike, const OptionType_& type) const override {
             return Distribution::BachelierOpt(f_, vol_, strike, type);

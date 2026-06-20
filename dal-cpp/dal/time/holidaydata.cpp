@@ -75,9 +75,9 @@ namespace Dal {
         return p->second;
     }
 
-    Handle_<HolidayCenterData_> Holidays::OfCenter(int center_index) {
-        REQUIRE(center_index >= 0 && center_index < TheHolidayData().holidays_.size(), "Invalid holiday center index");
-        return TheHolidayData().holidays_[center_index];
+    Handle_<HolidayCenterData_> Holidays::OfCenter(int centerIndex) {
+        REQUIRE(centerIndex >= 0 && centerIndex < TheHolidayData().holidays_.size(), "Invalid holiday center index");
+        return TheHolidayData().holidays_[centerIndex];
     }
 
     Handle_<HolidayCenterData_> Holidays::OfCenter(const String_& center) { return OfCenter(CenterIndex(center)); }

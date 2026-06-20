@@ -19,14 +19,14 @@ namespace Dal {
     };
 
     namespace Index {
-        double PastFixing(_ENV, const String_& index_name, const DateTime_& fixing_time, bool quiet = false);
+        double PastFixing(_ENV, const String_& indexName, const DateTime_& fixingTime, bool quiet = false);
     }
 
     class Index_ : noncopyable {
     public:
         virtual ~Index_() = default;
         [[nodiscard]] virtual String_ Name() const = 0;
-        virtual double Fixing(_ENV, const DateTime_& fixing_time) const;
+        virtual double Fixing(_ENV, const DateTime_& fixingTime) const;
     };
 
     struct IndexKey_ {

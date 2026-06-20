@@ -82,13 +82,13 @@ namespace Dal {
         return Discount(collateral);
     }
 
-    double CurveBlock_::FwdLibor(const PeriodLength_& tenor, const Date_& fixing_date) const {
+    double CurveBlock_::FwdLibor(const PeriodLength_& tenor, const Date_& fixingDate) const {
         const DiscountCurve_& forecast = Forward(tenor, CollateralType_(CollateralType_::Value_::OIS));
-        const Date_ maturity = Date::NominalMaturity(fixing_date, tenor, ccy_);
-        REQUIRE(maturity > fixing_date, "FwdLibor requires fixing date before maturity");
-        const double df = forecast(fixing_date, maturity);
+        const Date_ maturity = Date::NominalMaturity(fixingDate, tenor, ccy_);
+        REQUIRE(maturity > fixingDate, "FwdLibor requires fixing date before maturity");
+        const double df = forecast(fixingDate, maturity);
         REQUIRE(df > 0.0, "FwdLibor requires positive forecast discount factor");
-        return (1.0 / df - 1.0) / liborBasis_(fixing_date, maturity, nullptr);
+        return (1.0 / df - 1.0) / liborBasis_(fixingDate, maturity, nullptr);
     }
 
     void CurveBlock_::Write(Archive::Store_&) const {

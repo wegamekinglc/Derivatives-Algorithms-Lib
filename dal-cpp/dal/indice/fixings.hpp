@@ -42,8 +42,8 @@ namespace Dal {
     public:
         using vals_t = std::map<DateTime_, double>;
         const vals_t vals_;
-        Fixings_(const String_& index_name, const vals_t& vals = vals_t())
-            : Storable_("Fixings", index_name), vals_(vals) {}
+        Fixings_(const String_& indexName, const vals_t& vals = vals_t())
+            : Storable_("Fixings", indexName), vals_(vals) {}
         void Write(Archive::Store_& dst) const override;
     };
 } // namespace Dal

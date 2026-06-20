@@ -13,4 +13,4 @@ namespace Dal {
                                        const Vector_<>& y) {
         return Handle_<Interp1_>(Interp::NewLinear(name, x, y));
     }
-}
+} // namespace Dal

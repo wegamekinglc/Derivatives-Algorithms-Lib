@@ -30,8 +30,8 @@ namespace Dal {
         void FillUniform(Vector_<>* deviates) override;
         void FillNormal(Vector_<>* deviates) override;
 
-        void SkipTo(size_t n_points) override {
-            rsg_->SkipTo(n_points);
+        void SkipTo(size_t nPoints) override {
+            rsg_->SkipTo(nPoints);
         }
 
         [[nodiscard]] Random_* Clone() const override {

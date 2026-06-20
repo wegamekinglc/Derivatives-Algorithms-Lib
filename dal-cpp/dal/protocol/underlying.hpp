@@ -23,8 +23,8 @@ namespace Dal {
         std::map<String_, Date_> credits_;
 
         Underlying_& operator+=(const Underlying_& more);
-        Underlying_& Include(const Ccy_& ccy, const Date_& pay_date);
-        Underlying_& Include(const IndexKey_& index, const DateTime_& fix_date);
-        Underlying_& Include(const String_& ref_name, const Date_& pay_date);
+        Underlying_& Include(const Ccy_& ccy, const Date_& payDate);
+        Underlying_& Include(const IndexKey_& index, const DateTime_& fixDate);
+        Underlying_& Include(const String_& refName, const Date_& payDate);
     };
-}
+} // namespace Dal

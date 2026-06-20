@@ -13,8 +13,8 @@ namespace Dal {
     public:
         virtual ~IndexPath_() = default;
 
-        [[nodiscard]] virtual double Expectation(const DateTime_& fixing_time, const std::pair<double, double>& collar) const = 0;
-        [[nodiscard]] virtual double FixInRangeProb(const DateTime_& fixing_time,
+        [[nodiscard]] virtual double Expectation(const DateTime_& fixingTime, const std::pair<double, double>& collar) const = 0;
+        [[nodiscard]] virtual double FixInRangeProb(const DateTime_& fixingTime,
                                                     const std::pair<double, double>& range,
                                                     double ramp_width) const = 0;
         [[nodiscard]] virtual double AllInRangeProb(const DateTime_& from,

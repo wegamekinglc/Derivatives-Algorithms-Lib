@@ -35,8 +35,8 @@ namespace Dal::Script {
         using ConstVisitor_<EVAL_<T_>>::VisitNode;
 
         // Constructor, nVar = number of variables, from Product after parsing and variable indexation
-        EvaluatorBase_(const Vector_<>& variables, const Vector_<T_>& const_variables)
-            : variablesInit_(variables), constVariables_(const_variables), curEvt_(-1) {
+        EvaluatorBase_(const Vector_<>& variables, const Vector_<T_>& constVariables)
+            : variablesInit_(variables), constVariables_(constVariables), curEvt_(-1) {
             variables_.Resize(variablesInit_.size());
             for (auto i = 0; i < variables_.size(); ++i)
                 variables_[i] = T_(variablesInit_[i]);
@@ -282,7 +282,7 @@ namespace Dal::Script {
         using Base = EvaluatorBase_<T_, Evaluator_>;
 
         explicit Evaluator_(const Vector_<>& variables,
-                            const Vector_<T_>& const_variables = Vector_<T_>()) : Base(variables, const_variables) {}
+                            const Vector_<T_>& constVariables = Vector_<T_>()) : Base(variables, constVariables) {}
         Evaluator_(const Evaluator_& rhs) : Base(rhs) {}
         Evaluator_(Evaluator_&& rhs) noexcept: Base(std::move(rhs)) {}
         Evaluator_& operator=(const Evaluator_& rhs) {

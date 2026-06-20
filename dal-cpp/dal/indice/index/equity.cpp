@@ -27,11 +27,11 @@ namespace Dal::Index {
             delivery_ = Cell_();
     }
 
-    Date_ Equity_::Delivery(const DateTime_& fixing_time) const {
+    Date_ Equity_::Delivery(const DateTime_& fixingTime) const {
         Date_ ret_val;
         if (Cell::IsString(delivery_)) {
             auto di = Date::ParseIncrement(Cell::ToString(delivery_));
-            ret_val = (fixing_time.Date() + (*di));
+            ret_val = (fixingTime.Date() + (*di));
         } else if (Cell::IsDate(delivery_))
             ret_val = Cell::ToDate(delivery_);
         else

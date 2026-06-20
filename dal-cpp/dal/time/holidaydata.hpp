@@ -31,7 +31,7 @@ namespace Dal {
                        const Vector_<Date_>& holidays,
                        const Vector_<Date_>& workWeekends = Vector_<Date_>());
         int CenterIndex(const String_& center);
-        Handle_<HolidayCenterData_> OfCenter(int center_index);
+        Handle_<HolidayCenterData_> OfCenter(int centerIndex);
         Handle_<HolidayCenterData_> OfCenter(const String_& center);
     } // namespace Holidays
 } // namespace Dal

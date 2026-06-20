@@ -47,8 +47,8 @@ namespace Dal {
     }
 
     namespace Index {
-        Date_ IRForward_::StartDate(const DateTime_& fixing_time) const {
-            Date_ temp = DateFromCell(start_, fixing_time.Date());
+        Date_ IRForward_::StartDate(const DateTime_& fixingTime) const {
+            Date_ temp = DateFromCell(start_, fixingTime.Date());
             if (Cell::IsDate(start_))
                 return temp;
             return Libor::StartFromFix(ccy_, temp);
@@ -67,12 +67,12 @@ namespace Dal {
             return "IR[DF]:" + String_(ccy_.String()) + StartPostfix(start_) + "," + MatPostfix(maturity_);
         }
 
-        Date_ Index::DF_::StartDate(const DateTime_& fixing_time) const {
-            return DateFromCell(start_, fixing_time.Date());
+        Date_ Index::DF_::StartDate(const DateTime_& fixingTime) const {
+            return DateFromCell(start_, fixingTime.Date());
         }
 
-        Date_ Index::DF_::Maturity(const DateTime_& fixing_time) const {
-            return DateFromCell(maturity_, fixing_time.Date());
+        Date_ Index::DF_::Maturity(const DateTime_& fixingTime) const {
+            return DateFromCell(maturity_, fixingTime.Date());
         }
 
     }

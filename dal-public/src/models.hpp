@@ -25,4 +25,5 @@ namespace Dal {
                                                         const Matrix_<>& vols) {
         return Handle_<ModelData_>(new DupireModelData_(name, spot, rate, repo, spots, times, vols));
     }
-}
+} // namespace Dal
+

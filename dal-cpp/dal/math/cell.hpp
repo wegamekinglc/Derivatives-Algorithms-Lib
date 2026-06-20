@@ -80,8 +80,8 @@ namespace Dal {
         template<class T_> T_ ToEnum(const Cell_& src) {
             return T_(ToString(src));
         }
-        template<class T_> T_ ToEnum(const Cell_& src, const T_& empty_val) {
-            return IsEmpty(src) ? empty_val : ToEnum<T_>(src);
+        template<class T_> T_ ToEnum(const Cell_& src, const T_& emptyVal) {
+            return IsEmpty(src) ? emptyVal : ToEnum<T_>(src);
         }
         template<class T_> Cell_ FromEnum(const T_& src) {
             return Cell_(String_(src.String()));
@@ -89,15 +89,15 @@ namespace Dal {
 
         inline bool IsDouble(const Cell_& src) { return static_cast<bool>(std::get_if<double>(&src.val_)); }
         double ToDouble(const Cell_& src);
-        inline double ToDouble(const Cell_& src, double empty_val) {
-            return IsEmpty(src) ? empty_val : ToDouble(src);
+        inline double ToDouble(const Cell_& src, double emptyVal) {
+            return IsEmpty(src) ? emptyVal : ToDouble(src);
         }
         inline Cell_ FromDouble(double src) { return Cell_(src); }
 
         bool IsInt(const Cell_& src);
         int ToInt(const Cell_& src);
-        inline int ToInt(const Cell_& src, int empty_val) {
-            return IsEmpty(src) ? empty_val : ToInt(src);
+        inline int ToInt(const Cell_& src, int emptyVal) {
+            return IsEmpty(src) ? emptyVal : ToInt(src);
         }
         inline Cell_ FromInt(int src) { return Cell_(double(src)); }
 

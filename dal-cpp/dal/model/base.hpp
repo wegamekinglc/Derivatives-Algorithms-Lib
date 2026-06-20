@@ -48,8 +48,8 @@ namespace Dal {
         Vector_<String_> parameterLabels_;
 
         ModelData_(const String_& type, const String_& name): Storable_(type.c_str(), name) {}
-        [[nodiscard]] ModelData_* MutantModel(const String_& new_name, const Vector_<Handle_<Slide_> >& slides) const {
-            std::unique_ptr<ModelData_> retval(MutantModel(&new_name, nullptr));
+        [[nodiscard]] ModelData_* MutantModel(const String_& newName, const Vector_<Handle_<Slide_> >& slides) const {
+            std::unique_ptr<ModelData_> retval(MutantModel(&newName, nullptr));
             for (const auto& s : slides) {
 		std::unique_ptr<ModelData_> temp(retval->MutantModel(nullptr, s.get()));
 		std::swap(retval, temp);
@@ -58,7 +58,7 @@ namespace Dal {
         }
 
     private:
-        virtual ModelData_* MutantModel(const String_* new_name, const Slide_* slide) const = 0;
+        virtual ModelData_* MutantModel(const String_* newName, const Slide_* slide) const = 0;
     };
 
 } // namespace Dal

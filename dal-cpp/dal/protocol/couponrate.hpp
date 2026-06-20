@@ -47,7 +47,7 @@ namespace Dal {
         DateTime_ fixDate_;
         Ccy_ ccy_;
         TradedRate_ rate_;
-        LiborRate_(const DateTime_& fix_date, const Ccy_& ccy, const TradedRate_& rate);
+        LiborRate_(const DateTime_& fixDate, const Ccy_& ccy, const TradedRate_& rate);
     };
 
     struct SummedRate_ : CouponRate_ {

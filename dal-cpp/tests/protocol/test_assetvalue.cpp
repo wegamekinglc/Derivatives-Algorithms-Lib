@@ -2,10 +2,10 @@
 // Created by wegam on 2024/1/18.
 //
 
+#include <gtest/gtest.h>
 #include <dal/protocol/assetvalue.hpp>
 
 #include <dal/platform/platform.hpp>
-#include <gtest/gtest.h>
 
 using namespace Dal;
 

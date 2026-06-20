@@ -384,9 +384,9 @@ namespace Dal {
             return ret_val;
         }
 
-        Matrix_<Cell_> FileTable(const String_& file_name) {
+        Matrix_<Cell_> FileTable(const String_& fileName) {
             Vector_<String_> lines;
-            File::Read(file_name, &lines);
+            File::Read(fileName, &lines);
             Vector_<Vector_<Cell_>> data = Apply(AsFunctor(SplitLine), lines);
             int cols = 0;
             for (const auto& d : data)
@@ -407,11 +407,11 @@ namespace Dal {
         return ret_val;
     }
 
-    void SplatFile(const String_& file_name, const Storable_& src) {
+    void SplatFile(const String_& fileName, const Storable_& src) {
         Matrix_<Cell_> mat = Splat(src);
         NOTE("Save object to local file");
         Vector_<String_> ret = Cell::ToStringLines(mat);
-        File::Write(file_name, ret);
+        File::Write(fileName, ret);
     }
 
     Handle_<Storable_> UnSplat(const Matrix_<Cell_>& src, bool quiet) {
@@ -421,7 +421,7 @@ namespace Dal {
         return Archive::Extract(task, built);
     }
 
-    Handle_<Storable_> UnSplatFile(const String_& file_name, bool quiet) {
-        return UnSplat(FileTable(file_name), quiet);
+    Handle_<Storable_> UnSplatFile(const String_& fileName, bool quiet) {
+        return UnSplat(FileTable(fileName), quiet);
     }
 } // namespace Dal

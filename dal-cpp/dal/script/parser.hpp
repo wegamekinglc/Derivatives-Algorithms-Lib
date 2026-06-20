@@ -94,7 +94,7 @@ namespace Dal::Script {
         Expression_ BuildSupEqual(Expression_& lhs, Expression_& rhs, double eps);
 
     public:
-        explicit Parser_(const std::map<String_, double>& const_variables = std::map<String_, double>()): constVariables_(const_variables) {}
+        explicit Parser_(const std::map<String_, double>& constVariables = std::map<String_, double>()): constVariables_(constVariables) {}
         Statement_ ParseStatement(TokIt_& cur, const TokIt_& end);
         Event_ Parse(const String_& event);
     };

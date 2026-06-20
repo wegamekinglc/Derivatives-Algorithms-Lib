@@ -55,30 +55,30 @@ namespace Dal::Script {
         AAD::Mark(*AAD::Tape());
     }
 
-    std::unique_ptr<Random_> CreateRNG(const String_& method, size_t n_dim, bool use_bb);
+    std::unique_ptr<Random_> CreateRNG(const String_& method, size_t nDim, bool useBb);
 
     template <class T_>
     SimResults_ MCSimulation(const ScriptProduct_& product,
-                             const Handle_<ModelData_>& model_data,
-                             size_t n_paths,
+                             const Handle_<ModelData_>& modelData,
+                             size_t nPaths,
                              const String_& rsg = "sobol",
-                             bool use_bb = false,
+                             bool useBb = false,
                              bool compiled = false,
-                             int max_nested_ifs = -1,
+                             int maxNestedIfs = -1,
                              double eps = 0.01) {
         THROW("not implemented");
     }
 
     template <>
     inline SimResults_ MCSimulation<double>(const ScriptProduct_& product,
-                             const Handle_<ModelData_>& model_data,
-                             size_t n_paths,
+                             const Handle_<ModelData_>& modelData,
+                             size_t nPaths,
                              const String_& rsg,
-                             bool use_bb,
+                             bool useBb,
                              bool compiled,
-                             int max_nested_ifs,
+                             int maxNestedIfs,
                              double eps) {
-        auto mdl = CreateModel<double>(model_data);
+        auto mdl = CreateModel<double>(modelData);
 
         mdl->Allocate(product.TimeLine(), product.DefLine());
         mdl->Init(product.TimeLine(), product.DefLine());
@@ -88,7 +88,7 @@ namespace Dal::Script {
 
         Vector_<std::unique_ptr<Random_>> rngVector(nThreads);
         for (auto& random : rngVector)
-            random = CreateRNG(rsg, mdl->SimDim(), use_bb);
+            random = CreateRNG(rsg, mdl->SimDim(), useBb);
 
         Vector_<Vector_<>> gaussVectors(nThreads);
         Vector_<Scenario_<>> paths(nThreads);
@@ -107,13 +107,13 @@ namespace Dal::Script {
         SimResults_ results(Vector::Join(mdl->ParameterLabels(), product.ConstVarNames()));
 
         Vector_<TaskHandle_> futures;
-        const int batchSize = std::min(BATCH_SIZE, static_cast<int>(n_paths / nThreads) + 1);
-        futures.reserve(n_paths / batchSize + 1);
+        const int batchSize = std::min(BATCH_SIZE, static_cast<int>(nPaths / nThreads) + 1);
+        futures.reserve(nPaths / batchSize + 1);
         Vector_<> simResults;
-        simResults.reserve(n_paths / batchSize + 1);
+        simResults.reserve(nPaths / batchSize + 1);
 
         int firstPath = 0;
-        int pathsLeft = static_cast<int>(n_paths);
+        int pathsLeft = static_cast<int>(nPaths);
         size_t loopIndex = 0;
         auto payoffIndex = product.PayOffIdx();
 
@@ -161,15 +161,15 @@ namespace Dal::Script {
 
     template <>
     inline SimResults_ MCSimulation<AAD::Number_>(const ScriptProduct_& product,
-                             const Handle_<ModelData_>& model_data,
-                             size_t n_paths,
+                             const Handle_<ModelData_>& modelData,
+                             size_t nPaths,
                              const String_& rsg,
-                             bool use_bb,
+                             bool useBb,
                              bool compiled,
-                             int max_nested_ifs,
+                             int maxNestedIfs,
                              double eps) {
         AAD::Activate(*AAD::Tape());
-        std::unique_ptr<AAD::Model_<AAD::Number_>> mdl = CreateModel<AAD::Number_>(model_data);
+        std::unique_ptr<AAD::Model_<AAD::Number_>> mdl = CreateModel<AAD::Number_>(modelData);
         const auto nParams = mdl->Parameters().size();
         const auto nConstVars = product.ConstVarNames().size();
 
@@ -177,10 +177,10 @@ namespace Dal::Script {
         const size_t nThreads = pool->NumThreads();
 
         Vector_<TaskHandle_> futures;
-        const int batchSize = std::min(BATCH_SIZE, static_cast<int>(n_paths / nThreads) + 1);
+        const int batchSize = std::min(BATCH_SIZE, static_cast<int>(nPaths / nThreads) + 1);
 
         int firstPath = 0;
-        int pathsLeft = static_cast<int>(n_paths);
+        int pathsLeft = static_cast<int>(nPaths);
         auto payoffIndex = product.PayOffIdx();
 
         SimResults_ values(Vector::Join(mdl->ParameterLabels(), product.ConstVarNames()));
@@ -195,7 +195,7 @@ namespace Dal::Script {
                 std::unique_ptr<AAD::Model_<AAD::Number_>> model = mdl->Clone();
                 model->Allocate(product.TimeLine(), product.DefLine());
 
-                std::unique_ptr<Random_> random = CreateRNG(rsg, model->SimDim(), use_bb);
+                std::unique_ptr<Random_> random = CreateRNG(rsg, model->SimDim(), useBb);
                 Vector_<> gVec(model->SimDim());
 
                 Scenario_<AAD::Number_> path;
@@ -222,13 +222,13 @@ namespace Dal::Script {
 
                     AAD::PropagateMarkToStart(*AAD::Tape());
                     for (size_t j = 0; j < nParams; ++j)
-                        results.risks_[j] += Adjoint(*model->Parameters()[j]) / static_cast<double>(n_paths);
+                        results.risks_[j] += Adjoint(*model->Parameters()[j]) / static_cast<double>(nPaths);
 
                     for (size_t j = 0; j < nConstVars; ++j)
-                        results.risks_[j + nParams] +=  Adjoint(evalState.ConstVarVals()[j]) / static_cast<double>(n_paths);
+                        results.risks_[j + nParams] +=  Adjoint(evalState.ConstVarVals()[j]) / static_cast<double>(nPaths);
                 }
                 else {
-                    FuzzyEvaluator_<AAD::Number_> eval = product.BuildFuzzyEvaluator<AAD::Number_>(max_nested_ifs, eps);
+                    FuzzyEvaluator_<AAD::Number_> eval = product.BuildFuzzyEvaluator<AAD::Number_>(maxNestedIfs, eps);
                     InitModel4ParallelAAD(product, *model, path, eval);
 
                     for (size_t i = 0; i < pathsInTask; i++) {
@@ -244,10 +244,10 @@ namespace Dal::Script {
 
                     AAD::PropagateMarkToStart(*AAD::Tape());
                     for (size_t j = 0; j < nParams; ++j)
-                        results.risks_[j] += Adjoint(*model->Parameters()[j]) / static_cast<double>(n_paths);
+                        results.risks_[j] += Adjoint(*model->Parameters()[j]) / static_cast<double>(nPaths);
 
                     for (size_t j = 0; j < nConstVars; ++j)
-                        results.risks_[j + nParams] +=  Adjoint(eval.ConstVarVals()[j]) / static_cast<double>(n_paths);
+                        results.risks_[j + nParams] +=  Adjoint(eval.ConstVarVals()[j]) / static_cast<double>(nPaths);
 
                 }
                 results.aggregated_ += sumValue;

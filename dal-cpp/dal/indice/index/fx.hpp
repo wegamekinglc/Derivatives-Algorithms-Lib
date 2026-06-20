@@ -15,6 +15,6 @@ namespace Dal::Index {
     public:
         Fx_(const Ccy_ dom, const Ccy_ fgn): dom_(dom), fgn_(fgn) {}
         [[nodiscard]] String_ Name() const override { return XName(false);}
-        double Fixing(_ENV, const DateTime_& fixing_time) const override;
+        double Fixing(_ENV, const DateTime_& fixingTime) const override;
     };
 } // namespace Dal::Index

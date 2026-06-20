@@ -2,6 +2,8 @@
 // Created by wegam on 2020/11/28.
 //
 
+#pragma once
+
 #include <dal/time/holidaydata.hpp>
 
 namespace Dal::China {

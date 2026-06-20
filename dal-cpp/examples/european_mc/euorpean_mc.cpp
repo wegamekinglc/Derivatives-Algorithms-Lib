@@ -47,20 +47,20 @@ int main() {
     Vector_<int> widths = {20, 14, 14, 14, 14, 14, 14};
     double discounts = std::exp(-rate * t);
     double fwd = std::exp((rate - div) * t) * spot;
-    double vol_std = std::sqrt(t) * vol;
-    const auto benchmark = discounts * Distribution::BlackOpt(fwd, vol_std, strike, OptionType_::Value_::CALL);
+    double volStd = std::sqrt(t) * vol;
+    const auto benchmark = discounts * Distribution::BlackOpt(fwd, volStd, strike, OptionType_::Value_::CALL);
 
     std::cout << std::setw(widths[0]) << std::right << "# of pathes"
               << std::setw(widths[1]) << std::right << "spot"
               << std::setw(widths[2]) << std::right << "price"
               << std::setw(widths[3]) << std::right << "benchmark";
 
-    Handle_<ModelData_> model_data(new BSModelData_("bsmodel", spot, vol, rate, div));
-    for (const auto& s: model_data->parameterLabels_)
+    Handle_<ModelData_> modelData(new BSModelData_("bsmodel", spot, vol, rate, div));
+    for (const auto& s: modelData->parameterLabels_)
         std::cout << std::setw(widths[4]) << std::right << s;
 
     ScriptProduct_ product(eventDates, events, "call");
-    int max_nested = product.PreProcess(false, false);
+    int maxNested = product.PreProcess(false, false);
 
     for (const auto& s: product.ConstVarNames())
         std::cout << std::setw(widths[4]) << std::right << s;
@@ -70,10 +70,10 @@ int main() {
 
     for (int i = 12; i <= 30; ++i) {
         timer.Reset();
-        int num_paths = std::pow(2, i);
-        SimResults_ results = MCSimulation<Real_>(product, model_data, num_paths, rsg, false, false, max_nested);
+        int numPaths = std::pow(2, i);
+        SimResults_ results = MCSimulation<Real_>(product, modelData, numPaths, rsg, false, false, maxNested);
 
-        auto calculated = results.aggregated_ / static_cast<double>(num_paths);
+        auto calculated = results.aggregated_ / static_cast<double>(numPaths);
         std::cout << std::setw(widths[0]) << std::right << int(std::pow(2, i))
                   << std::fixed
                   << std::setprecision(6)

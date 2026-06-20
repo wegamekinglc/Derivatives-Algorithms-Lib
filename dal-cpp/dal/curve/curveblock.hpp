@@ -35,7 +35,7 @@ namespace Dal {
         [[nodiscard]] const DiscountCurve_& Discount(const CollateralType_& collateral) const override;
         [[nodiscard]] const DiscountCurve_& Forward(const PeriodLength_& tenor,
                                                     const CollateralType_& collateral) const override;
-        [[nodiscard]] double FwdLibor(const PeriodLength_& tenor, const Date_& fixing_date) const override;
+        [[nodiscard]] double FwdLibor(const PeriodLength_& tenor, const Date_& fixingDate) const override;
         void Write(Archive::Store_& dst) const override;
     };
 

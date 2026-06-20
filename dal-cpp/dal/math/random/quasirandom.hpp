@@ -15,6 +15,6 @@ namespace Dal {
         void FillUniform(Vector_<>* dst) override = 0 ;
         void FillNormal(Vector_<>* dst) override = 0;
         [[nodiscard]] SequenceSet_* Clone() const override = 0;
-        virtual SequenceSet_* TakeAway(int sub_size) = 0;
+        virtual SequenceSet_* TakeAway(int subSize) = 0;
     };
 } // namespace Dal

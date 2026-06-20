@@ -448,9 +448,9 @@ namespace Dal {
     }
 
     template <class T_>
-    DiscountLogDF_<T_>* DiscountLogDF_<T_>::Clone(const String_& new_name,
-                                                    const YCComponent_::substitutions_t& base_changes) const {
-        return new DiscountLogDF_<T_>(new_name, this->ccy_.String(), nodeDates_, logDF_, dayCount_, scheme_, this->NewBase(base_changes));
+    DiscountLogDF_<T_>* DiscountLogDF_<T_>::Clone(const String_& newName,
+                                                    const YCComponent_::substitutions_t& baseChanges) const {
+        return new DiscountLogDF_<T_>(newName, this->ccy_.String(), nodeDates_, logDF_, dayCount_, scheme_, this->NewBase(baseChanges));
     }
 
     template <class T_>

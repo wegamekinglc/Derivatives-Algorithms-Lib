@@ -14,8 +14,8 @@ namespace Dal {
         DupireModelData_v1::XWrite(dst, name_, spot_, rate_, repo_, spots_, times_, vols_);
     }
 
-    DupireModelData_* DupireModelData_::MutantModel(const String_* new_name, const Slide_* slide) const {
-        std::unique_ptr<DupireModelData_> temp(new DupireModelData_(*new_name, spot_, rate_, repo_, spots_, times_, vols_));
+    DupireModelData_* DupireModelData_::MutantModel(const String_* newName, const Slide_* slide) const {
+        std::unique_ptr<DupireModelData_> temp(new DupireModelData_(*newName, spot_, rate_, repo_, spots_, times_, vols_));
         if (slide) {
             // TODO: finish the implementation
         }

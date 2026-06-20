@@ -98,20 +98,20 @@ namespace Dal {
         return mm == 12 ? Date_(yy + 1, 1, 1).AddDays(-1) : Date_(yy, mm + 1, 1).AddDays(-1);
     }
 
-    Date_ Date::AddMonths(const Date_& dt, int n_months, bool preserve_eom) {
+    Date_ Date::AddMonths(const Date_& dt, int nMonths, bool preserveEom) {
         int yy = Year(dt);
         int mm = Month(dt);
         auto dd = Day(dt);
-        const auto to_eom = preserve_eom && dd == DaysInMonth(yy, mm);
-        const auto ny = n_months / 12;
+        const auto toEom = preserveEom && dd == DaysInMonth(yy, mm);
+        const auto ny = nMonths / 12;
         yy += ny;
-        mm += n_months - 12 * ny;
+        mm += nMonths - 12 * ny;
         if (mm > 12)
             mm -= 12, ++yy;
         if (mm < 1)
             mm += 12, --yy;
         const auto d_max = DaysInMonth(yy, mm);
-        if (to_eom || dd > d_max)
+        if (toEom || dd > d_max)
             dd = d_max;
         return Date_(yy, mm, dd);
     }

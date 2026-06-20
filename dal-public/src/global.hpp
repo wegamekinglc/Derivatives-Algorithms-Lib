@@ -10,4 +10,4 @@ namespace Dal {
 
     void SetEvaluationDate(const Date_& d);
     Date_ GetEvaluationDate();
-}
+} // namespace Dal

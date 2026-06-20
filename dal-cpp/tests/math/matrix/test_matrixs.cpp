@@ -2,9 +2,9 @@
 // Created by Cheng Li on 2018/1/13.
 //
 
+#include <gtest/gtest.h>
 #include <dal/math/matrix/matrixs.hpp>
 #include <dal/platform/platform.hpp>
-#include <gtest/gtest.h>
 
 using matrix_t = Dal::Matrix_<>;
 

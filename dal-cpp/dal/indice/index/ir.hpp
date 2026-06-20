@@ -19,7 +19,7 @@ namespace Dal::Index {
         const Cell_ start_;
 
         explicit IRForward_(const Ccy_& ccy, const Cell_& start = Cell_()) : ccy_(ccy), start_(start) {}
-        [[nodiscard]] Date_ StartDate(const DateTime_& fixing_time) const;
+        [[nodiscard]] Date_ StartDate(const DateTime_& fixingTime) const;
     };
 
     class Libor_ : public IRForward_ {

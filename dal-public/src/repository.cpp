@@ -37,4 +37,4 @@ namespace Dal {
         REQUIRE(repo, "no repo found");
         return repo->Size();
     }
-}
+} // namespace Dal

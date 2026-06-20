@@ -10,14 +10,14 @@ namespace Dal {
 
     // template implementation of composite object with same base type as its elements
 
-    template <class T_> struct ElementHolder_ { typedef std::shared_ptr<T_> type; };
+    template <class T_> struct ElementHolder_ { using type = std::shared_ptr<T_>; };
 
-    template <class T_> struct ElementHolder_<const T_> { typedef Handle_<T_> type; };
+    template <class T_> struct ElementHolder_<const T_> { using type = Handle_<T_>; };
 
     template <class T_, class H_ = typename ElementHolder_<T_>::type>
     class Composite_ : public std::remove_const<T_>::type {
     public:
-        typedef H_ element_t;
+        using element_t = H_;
 
     protected:
         Vector_<element_t> contents_;
