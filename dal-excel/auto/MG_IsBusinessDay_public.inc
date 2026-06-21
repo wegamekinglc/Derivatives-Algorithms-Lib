@@ -1,14 +1,14 @@
 
 
 extern "C" __declspec(dllexport) OPER_* xl_IsBusinessDay
-    (const OPER_* xl_center, const OPER_* xl_date)
+    (const OPER_* xl_center, const OPER_* xl_date)	
 {
     Excel::InitializeSessionIfNeeded();
 ENV_SEED_TYPE(ObjectAccess_);
     const char* argName = 0;
     try
-    {
-        Logging::Write("IsBusinessDay");
+    {	
+        Logging::Write("IsBusinessDay");        
         argName = "center (input #1)";
         const String_ center = Excel::ToString(xl_center);
         argName = "date (input #2)";
@@ -34,10 +34,10 @@ struct XlRegister_IsBusinessDay_
 {
     XlRegister_IsBusinessDay_()
     {
-        Vector_<String_> argHelp;
+        Vector_<String_> argHelp;        
         argHelp.push_back("Holiday center name (e.g. \"BEY\" for Beijing, empty string for no holidays)");
         argHelp.push_back("The date to check");
-        Excel::Register("Base", "xl_IsBusinessDay", "DA.IS.BUSINESS.DAY", "Check whether a date is a business day for a given holiday center", "QQQ!", "center,date", argHelp, false);
+        Excel::Register("Base", "xl_IsBusinessDay", "DA.ISBUSINESSDAY", "Check whether a date is a business day for a given holiday center", "QQQ", "center,date", argHelp, false);
     }
 };
 static XlRegister_IsBusinessDay_ The_IsBusinessDay_XlRegisterer;

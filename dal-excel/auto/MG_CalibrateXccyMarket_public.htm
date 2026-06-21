@@ -1,0 +1,46 @@
+
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+<title>CalibrateXccyMarket</title>
+<link href="tablecloth/tablecloth.css" rel="stylesheet" type="text/css" media="screen" />
+<link href="hbk.css" rel="stylesheet" type="text/css" media="screen" />
+<script type="text/javascript" src="tablecloth/tablecloth.js"></script>
+</head>
+<body>
+<h1>CalibrateXccyMarket (in Excel: DA.CALIBRATEXCCYMARKET)</h1>
+Calibrate a cross-currency basis market from instruments and settings
+
+<h2>Inputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th>Optional?</th><th></th></tr>
+
+<tr><td>today</td><td>date</td><td></td><td>The valuation/trade date</td></tr>
+<tr><td>domesticCcy</td><td>string</td><td></td><td>Domestic currency code (e.g. "USD")</td></tr>
+<tr><td>foreignCcy</td><td>string</td><td></td><td>Foreign currency code (e.g. "EUR")</td></tr>
+<tr><td>domesticBlock</td><td>handle of type StorableCurveBlock</td><td></td><td>The pre-calibrated domestic curve block</td></tr>
+<tr><td>foreignBlock</td><td>handle of type StorableCurveBlock</td><td></td><td>The pre-calibrated foreign curve block</td></tr>
+<tr><td>instruments</td><td>vector of handles</td><td></td><td>Array of cross-currency swap instrument handles (created with DA.CROSS.CURRENCY.SWAP.NEW)</td></tr>
+<tr><td>knotDates</td><td>vector of dates</td><td></td><td>Knot dates for the basis curve</td></tr>
+<tr><td>settings</td><td>matrix of cells</td><td>yes</td><td>Optional settings as a two-column range. Supported keys: fxSpot (number), fxForwardCollateral (string), smoothingWeight (number), tolerance (number), fitTolerance (number), initialGuess (number), maxEvaluations (integer), maxRestarts (integer), solveMode (string: EXACT|APPROXIMATE)</td></tr>
+<tr><td>format</td><td>string</td><td>yes</td><td>(Excel only) Desired screen layout of outputs; see <a href="MG_Format_public.htm">QR.FORMAT</a>.</td></tr>
+</table>
+
+
+
+
+
+<h2>Outputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th></th></tr>
+
+<tr><td>basisCurve</td><td>handle of type StorableDiscountCurve</td><td>The calibrated basis discount curve</td></tr>
+<tr><td>maxAbsResidual</td><td>number</td><td>Maximum absolute residual</td></tr>
+<tr><td>rmsResidual</td><td>number</td><td>Root-mean-square residual</td></tr>
+</table>
+
+
+
+
+
+

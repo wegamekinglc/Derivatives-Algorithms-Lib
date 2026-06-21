@@ -1,14 +1,14 @@
 
 
 extern "C" __declspec(dllexport) OPER_* xl_CollateralTypeOIS
-    ()
+    ()	
 {
     Excel::InitializeSessionIfNeeded();
 ENV_SEED_TYPE(ObjectAccess_);
     const char* argName = 0;
     try
-    {
-        Logging::Write("CollateralTypeOIS");
+    {	
+        Logging::Write("CollateralTypeOIS");        
         argName = 0;
 		Handle_<StorableCollateralType_> collateral;
         CollateralTypeOIS(&collateral);
@@ -30,8 +30,8 @@ struct XlRegister_CollateralTypeOIS_
 {
     XlRegister_CollateralTypeOIS_()
     {
-        Vector_<String_> argHelp;
-        Excel::Register("Base", "xl_CollateralTypeOIS", "DA.COLLATERAL.OIS", "Create an OIS collateral type handle", "Q!", "", argHelp, false);
+        Vector_<String_> argHelp;        
+        Excel::Register("Base", "xl_CollateralTypeOIS", "DA.COLLATERALTYPEOIS", "Create an OIS collateral type handle", "Q", "", argHelp, false);
     }
 };
 static XlRegister_CollateralTypeOIS_ The_CollateralTypeOIS_XlRegisterer;

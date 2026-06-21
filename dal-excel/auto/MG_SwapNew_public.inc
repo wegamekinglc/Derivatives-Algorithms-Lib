@@ -1,14 +1,14 @@
 
 
 extern "C" __declspec(dllexport) OPER_* xl_SwapNew
-    (const OPER_* xl_tradeDate, const OPER_* xl_start, const OPER_* xl_maturity, const OPER_* xl_marketRate, const OPER_* xl_fixedLeg, const OPER_* xl_floatIndex, const OPER_* xl_floatLeg)
+    (const OPER_* xl_tradeDate, const OPER_* xl_start, const OPER_* xl_maturity, const OPER_* xl_marketRate, const OPER_* xl_fixedLeg, const OPER_* xl_floatIndex, const OPER_* xl_floatLeg)	
 {
     Excel::InitializeSessionIfNeeded();
 ENV_SEED_TYPE(ObjectAccess_);
     const char* argName = 0;
     try
-    {
-        Logging::Write("SwapNew");
+    {	
+        Logging::Write("SwapNew");        
         argName = "tradeDate (input #1)";
         const Date_ tradeDate = Excel::ToDate(xl_tradeDate);
         argName = "start (input #2)";
@@ -44,7 +44,7 @@ struct XlRegister_SwapNew_
 {
     XlRegister_SwapNew_()
     {
-        Vector_<String_> argHelp;
+        Vector_<String_> argHelp;        
         argHelp.push_back("The trade/settlement date");
         argHelp.push_back("The start date of the swap");
         argHelp.push_back("The maturity date of the swap");
@@ -52,7 +52,7 @@ struct XlRegister_SwapNew_
         argHelp.push_back("The fixed leg convention");
         argHelp.push_back("The floating index convention");
         argHelp.push_back("The floating leg convention");
-        Excel::Register("Base", "xl_SwapNew", "DA.SWAP.NEW", "Create a swap instrument for curve calibration", "QQQQQQQQ!", "tradeDate,start,maturity,marketRate,fixedLeg,floatIndex,floatLeg", argHelp, false);
+        Excel::Register("Base", "xl_SwapNew", "DA.SWAPNEW", "Create a swap instrument for curve calibration", "QQQQQQQQ", "tradeDate,start,maturity,marketRate,fixedLeg,floatIndex,floatLeg", argHelp, false);
     }
 };
 static XlRegister_SwapNew_ The_SwapNew_XlRegisterer;

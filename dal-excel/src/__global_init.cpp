@@ -10,7 +10,7 @@
 /*IF--------------------------------------------------------------------------
 public InitGlobalData
     Initialize the DAL global environment (thread pool, repository, etc.)
-&optional
+&inputs
 nThreads is integer
     number of threads (0 = auto-detect, default)
 &outputs
@@ -20,8 +20,8 @@ ok is boolean
 
 namespace Dal {
     namespace {
-        void InitGlobalDataImpl(int nThreads, bool* ok) {
-            InitGlobalData(nThreads);
+        void InitGlobalData(int nThreads, bool* ok) {
+            Dal::InitGlobalData(nThreads);
             *ok = true;
         }
     }

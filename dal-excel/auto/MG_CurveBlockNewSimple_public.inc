@@ -1,18 +1,18 @@
 
 
 extern "C" __declspec(dllexport) OPER_* xl_CurveBlockNewSimple
-    (const OPER_* xl_dc, const OPER_* xl_liborBasis)
+    (const OPER_* xl_dc, const OPER_* xl_liborBasis)	
 {
     Excel::InitializeSessionIfNeeded();
 ENV_SEED_TYPE(ObjectAccess_);
     const char* argName = 0;
     try
-    {
-        Logging::Write("CurveBlockNewSimple");
+    {	
+        Logging::Write("CurveBlockNewSimple");        
         argName = "dc (input #1)";
         const Handle_<StorableDiscountCurve_> dc = Excel::ToHandle<StorableDiscountCurve_>(_env, xl_dc);
         argName = "liborBasis (input #2)";
-        const String_ liborBasis = Excel::ToString(xl_liborBasis, true).empty() ? String_("ACT_365F") : Excel::ToString(xl_liborBasis);
+        const String_ liborBasis = Excel::ToString(xl_liborBasis, true);
         argName = 0;
 		Handle_<StorableCurveBlock_> block;
         CurveBlockNewSimple(dc, liborBasis, &block);
@@ -34,10 +34,10 @@ struct XlRegister_CurveBlockNewSimple_
 {
     XlRegister_CurveBlockNewSimple_()
     {
-        Vector_<String_> argHelp;
+        Vector_<String_> argHelp;        
         argHelp.push_back("The discount curve");
         argHelp.push_back("Libor day basis name (default \"ACT_365F\")");
-        Excel::Register("Base", "xl_CurveBlockNewSimple", "DA.CURVE.BLOCK.NEW", "Build a CurveBlock from a single discount curve", "QQQ!", "dc,liborBasis", argHelp, false);
+        Excel::Register("Base", "xl_CurveBlockNewSimple", "DA.CURVEBLOCKNEWSIMPLE", "Build a CurveBlock from a single discount curve", "QQQ", "dc,[liborBasis]", argHelp, false);
     }
 };
 static XlRegister_CurveBlockNewSimple_ The_CurveBlockNewSimple_XlRegisterer;

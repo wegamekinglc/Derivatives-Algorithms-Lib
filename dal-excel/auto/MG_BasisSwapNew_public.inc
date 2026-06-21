@@ -1,14 +1,14 @@
 
 
 extern "C" __declspec(dllexport) OPER_* xl_BasisSwapNew
-    (const OPER_* xl_tradeDate, const OPER_* xl_start, const OPER_* xl_maturity, const OPER_* xl_marketRate, const OPER_* xl_spreadIndex, const OPER_* xl_spreadLeg, const OPER_* xl_refIndex, const OPER_* xl_refLeg)
+    (const OPER_* xl_tradeDate, const OPER_* xl_start, const OPER_* xl_maturity, const OPER_* xl_marketRate, const OPER_* xl_spreadIndex, const OPER_* xl_spreadLeg, const OPER_* xl_refIndex, const OPER_* xl_refLeg)	
 {
     Excel::InitializeSessionIfNeeded();
 ENV_SEED_TYPE(ObjectAccess_);
     const char* argName = 0;
     try
-    {
-        Logging::Write("BasisSwapNew");
+    {	
+        Logging::Write("BasisSwapNew");        
         argName = "tradeDate (input #1)";
         const Date_ tradeDate = Excel::ToDate(xl_tradeDate);
         argName = "start (input #2)";
@@ -46,7 +46,7 @@ struct XlRegister_BasisSwapNew_
 {
     XlRegister_BasisSwapNew_()
     {
-        Vector_<String_> argHelp;
+        Vector_<String_> argHelp;        
         argHelp.push_back("The trade/settlement date");
         argHelp.push_back("The start date of the swap");
         argHelp.push_back("The maturity date of the swap");
@@ -55,7 +55,7 @@ struct XlRegister_BasisSwapNew_
         argHelp.push_back("The spread leg convention");
         argHelp.push_back("The reference index convention");
         argHelp.push_back("The reference leg convention");
-        Excel::Register("Base", "xl_BasisSwapNew", "DA.BASIS.SWAP.NEW", "Create a basis swap instrument for curve calibration", "QQQQQQQQQ!", "tradeDate,start,maturity,marketRate,spreadIndex,spreadLeg,refIndex,refLeg", argHelp, false);
+        Excel::Register("Base", "xl_BasisSwapNew", "DA.BASISSWAPNEW", "Create a basis swap instrument for curve calibration", "QQQQQQQQQ", "tradeDate,start,maturity,marketRate,spreadIndex,spreadLeg,refIndex,refLeg", argHelp, false);
     }
 };
 static XlRegister_BasisSwapNew_ The_BasisSwapNew_XlRegisterer;
