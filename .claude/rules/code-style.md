@@ -150,6 +150,9 @@ Reference: `dal-excel/src/__random.cpp` — `PseudoRSG_New`, `SobolRSG_New`, `Ps
 - **Result / getter functions** (operating on an existing handle): follow the pattern `<Type>_Get_<Result>`, where `Type` is the handle's class name and `Result` describes what is retrieved.
   - `PseudoRSG_Get_Uniform`, `PseudoRSG_Get_Normal`, `SobolRSG_Get_Uniform`
   - Use this pattern only when the function extracts or computes a result from an existing handle input; standalone utility functions (e.g., `PrevBus`, `NextBus`) and action functions (e.g., `CalibrateSingleCurve`) do not need this prefix.
+- **Status / check functions**: start with `Is_` followed by the condition being tested in PascalCase.
+  - `Is_BusinessDay` — returns a boolean indicating whether a date is a business day.
+  - Use this prefix for any public function whose primary purpose is to answer a yes/no question about its inputs.
 
 ## Key Macros
 
