@@ -19,7 +19,7 @@ namespace Dal {
     }
 
     FORCE_INLINE CollateralType_ CollateralType_Libor(const PeriodLength_& tenor) {
-        CollateralType_ ct;
+        (void)tenor;
         // Libor collateral by tenor is represented via the projection curve
         // mechanism; the collateral type itself remains GC.
         return CollateralType_(CollateralType_::Value_::GC);

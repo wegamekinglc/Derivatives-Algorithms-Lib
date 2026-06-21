@@ -377,8 +377,8 @@ void init_bindings_curve(py::module_& m) {
             for (auto& v : d.residuals_) result.append(v);
             return result;
         })
-        .def_property_readonly("jacobian_", [](const CurveCalibrationDiagnostics_& d) -> const Matrix_<>& { return d.jacobian_; })
-        .def_property_readonly("effJacobianInverse_", [](const CurveCalibrationDiagnostics_& d) -> const Matrix_<>& { return d.effJacobianInverse_; })
+        .def_property_readonly("jacobian_", py::cpp_function([](const CurveCalibrationDiagnostics_& d) -> const Matrix_<>& { return d.jacobian_; }, py::return_value_policy::reference_internal))
+        .def_property_readonly("effJacobianInverse_", py::cpp_function([](const CurveCalibrationDiagnostics_& d) -> const Matrix_<>& { return d.effJacobianInverse_; }, py::return_value_policy::reference_internal))
         .def_property_readonly("maxAbsResidual_", [](const CurveCalibrationDiagnostics_& d) { return d.maxAbsResidual_; })
         .def_property_readonly("rmsResidual_", [](const CurveCalibrationDiagnostics_& d) { return d.rmsResidual_; });
 
@@ -390,9 +390,9 @@ void init_bindings_curve(py::module_& m) {
         .def_property_readonly("curve_", [](const CalibrationResult_& r) -> std::shared_ptr<DiscountCurve_> {
             return std::const_pointer_cast<DiscountCurve_>(r.curve_);
         })
-        .def_property_readonly("diagnostics_", [](const CalibrationResult_& r) -> const CurveCalibrationDiagnostics_& {
+        .def_property_readonly("diagnostics_", py::cpp_function([](const CalibrationResult_& r) -> const CurveCalibrationDiagnostics_& {
             return r.diagnostics_;
-        });
+        }, py::return_value_policy::reference_internal));
 
     // =======================================================================
     // MultiCurveCalibrationResult_ (read-only)
@@ -554,12 +554,12 @@ void init_bindings_curve(py::module_& m) {
             const auto& mkt = r.market_;
             return std::make_shared<CrossCurrencyMarket_>(mkt);
         })
-        .def_property_readonly("fxForwardCurve_", [](const CrossCurrencyCalibrationResult_& r) -> const CrossCurrencyFxForwardCurve_& {
+        .def_property_readonly("fxForwardCurve_", py::cpp_function([](const CrossCurrencyCalibrationResult_& r) -> const CrossCurrencyFxForwardCurve_& {
             return r.fxForwardCurve_;
-        })
-        .def_property_readonly("diagnostics_", [](const CrossCurrencyCalibrationResult_& r) -> const CrossCurrencyCalibrationDiagnostics_& {
+        }, py::return_value_policy::reference_internal))
+        .def_property_readonly("diagnostics_", py::cpp_function([](const CrossCurrencyCalibrationResult_& r) -> const CrossCurrencyCalibrationDiagnostics_& {
             return r.diagnostics_;
-        });
+        }, py::return_value_policy::reference_internal));
 
     m.def("CalibrateXccyMarket", &CalibrateXccyMarket, py::arg("spec"));
 }
