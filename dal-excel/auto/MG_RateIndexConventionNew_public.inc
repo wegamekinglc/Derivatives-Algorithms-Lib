@@ -16,7 +16,7 @@ ENV_SEED_TYPE(ObjectAccess_);
         argName = "collateral (input #3)";
         const String_ collateral = Excel::ToString(xl_collateral);
         argName = "useProjectionCurve (input #4)";
-        const boost::optional<bool> useProjectionCurve = Excel::ToBool(xl_useProjectionCurve, true);
+        const bool useProjectionCurve = Excel::ToBool(xl_useProjectionCurve, true).value_or(false);
         argName = 0;
 		Handle_<StorableRateIndexConvention_> convention;
         RateIndexConventionNew(forecastTenor, basis, collateral, useProjectionCurve, &convention);
@@ -42,7 +42,7 @@ struct XlRegister_RateIndexConventionNew_
         argHelp.push_back("Forecast tenor as an ISO period (e.g. \"3M\", \"6M\")");
         argHelp.push_back("Day basis name (e.g. \"ACT_365F\", \"ACT_360\")");
         argHelp.push_back("Collateral type string (e.g. \"OIS\", \"GC\")");
-        argHelp.push_back("Whether to use a projection curve (default false)");
+        argHelp.push_back("Whether to use a projection curve");
         Excel::Register("Base", "xl_RateIndexConventionNew", "DA.RATEINDEXCONVENTIONNEW", "Create a rate index convention handle", "QQQQQ", "forecastTenor,basis,collateral,[useProjectionCurve]", argHelp, false);
     }
 };

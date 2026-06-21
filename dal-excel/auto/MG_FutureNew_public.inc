@@ -20,7 +20,7 @@ ENV_SEED_TYPE(ObjectAccess_);
         argName = "convention (input #5)";
         const Handle_<StorableRateIndexConvention_> convention = Excel::ToHandle<StorableRateIndexConvention_>(_env, xl_convention);
         argName = "convexityAdjustment (input #6)";
-        const boost::optional<double> convexityAdjustment = Excel::ToDouble(xl_convexityAdjustment, true);
+        const double convexityAdjustment = Excel::ToDouble(xl_convexityAdjustment, true).value_or(0.0);
         argName = 0;
 		Handle_<StorableYCInstrument_> instrument;
         FutureNew(tradeDate, start, maturity, marketRate, convention, convexityAdjustment, &instrument);
@@ -48,7 +48,7 @@ struct XlRegister_FutureNew_
         argHelp.push_back("The maturity date of the future");
         argHelp.push_back("The market quoted rate");
         argHelp.push_back("The rate index convention");
-        argHelp.push_back("Convexity adjustment (default 0.0)");
+        argHelp.push_back("Convexity adjustment");
         Excel::Register("Base", "xl_FutureNew", "DA.FUTURENEW", "Create a future instrument for curve calibration", "QQQQQQQ", "tradeDate,start,maturity,marketRate,convention,[convexityAdjustment]", argHelp, false);
     }
 };

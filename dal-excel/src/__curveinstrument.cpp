@@ -61,8 +61,8 @@ marketRate is number
 convention is handle StorableRateIndexConvention
     The rate index convention
 &optional
-convexityAdjustment is number
-    Convexity adjustment (default 0.0)
+convexityAdjustment is number (0.0)
+    Convexity adjustment
 &outputs
 instrument is handle StorableYCInstrument
     The future instrument
@@ -162,10 +162,10 @@ foreignLeg is handle StorableRateLegConvention
 foreignIndex is handle StorableRateIndexConvention
     The foreign index convention
 &optional
-domesticNotional is number
-    Domestic notional (default 100.0)
-foreignNotional is number
-    Foreign notional (default 100.0)
+domesticNotional is number (100.0)
+    Domestic notional
+foreignNotional is number (100.0)
+    Foreign notional
 &outputs
 instrument is handle StorableCrossCurrencySwap
     The cross-currency swap instrument

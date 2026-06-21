@@ -73,8 +73,8 @@ basis is string
 collateral is string
     Collateral type string (e.g. "OIS", "GC")
 &optional
-useProjectionCurve is boolean
-    Whether to use a projection curve (default false)
+useProjectionCurve is boolean (false)
+    Whether to use a projection curve
 &outputs
 convention is handle StorableRateIndexConvention
     The rate index convention
