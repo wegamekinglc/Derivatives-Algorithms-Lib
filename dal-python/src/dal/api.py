@@ -8,6 +8,8 @@ def Product_New(events_dates: list, events: list[str]):
 
 def _apply_optional_setting(spec, name, value):
     """Apply a single optional setting to a spec builder if the value is not None."""
+    if value is None:
+        return
     attr = {
         'curve_name': 'curveName_',
         'target_collateral': 'targetCollateral_',

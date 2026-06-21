@@ -54,7 +54,7 @@ struct XlRegister_CalibrateSingleCurve_
         Vector_<String_> argHelp;        
         argHelp.push_back("The valuation/trade date");
         argHelp.push_back("Currency code (e.g. \"USD\")");
-        argHelp.push_back("Array of instrument handles (created with DA.DEPOSIT.NEW, DA.SWAP.NEW, etc.)");
+        argHelp.push_back("Array of instrument handles (created with DA.DEPOSITNEW, DA.SWAPNEW, etc.)");
         argHelp.push_back("Knot dates (can be empty for auto-detection)");
         argHelp.push_back("Optional settings as a two-column range. Supported keys: curveName (string), calibrateDiscountCurve (boolean), smoothingWeight (number), tolerance (number), fitTolerance (number), maxEvaluations (integer), maxRestarts (integer), initialGuess (number), solveMode (string: EXACT|APPROXIMATE), parameterization (string: PIECEWISE_LINEAR_FWD|PIECEWISE_CONSTANT_FWD|ZERO_RATE|LOG_DISCOUNT), logDfScheme (string: LOG_LINEAR|LOG_CUBIC_NATURAL|MIXED), liborBasis (string), targetCollateral (string), targetTenor (string)");
         Excel::Register("Base", "xl_CalibrateSingleCurve", "DA.CALIBRATESINGLECURVE", "Calibrate a single yield curve from instruments and settings. Returns the calibrated curve handle plus diagnostics (market rates, model rates, residuals, maxAbsResidual, rmsResidual)", "QQQQQQQ", "today,ccy,instruments,knotDates,[settings],format", argHelp, false);

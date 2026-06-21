@@ -20,7 +20,7 @@ today is date
 ccy is string
     Currency code (e.g. "USD")
 instruments is handle[]
-    Array of instrument handles (created with DA.DEPOSIT.NEW, DA.SWAP.NEW, etc.)
+    Array of instrument handles (created with DA.DEPOSITNEW, DA.SWAPNEW, etc.)
 knotDates is date[]
     Knot dates (can be empty for auto-detection)
 &optional

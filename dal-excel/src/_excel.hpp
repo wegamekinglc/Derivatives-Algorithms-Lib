@@ -150,7 +150,7 @@ namespace Dal {
 
             void Load(double s);
             void Load(int s) { Load(double(s)); }
-            void Load(bool s) { Load(double(s ? 1.0 : 0.0)); }
+            void Load(bool s) { Load(Cell_(s)); }
             void Load(const Date_& s) { Load(Cell_(s)); }
             void Load(const DateTime_& s) { Load(Cell_(s)); }
             void Load(const String_& s);

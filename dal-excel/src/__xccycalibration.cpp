@@ -24,7 +24,7 @@ domesticBlock is handle StorableCurveBlock
 foreignBlock is handle StorableCurveBlock
     The pre-calibrated foreign curve block
 instruments is handle[]
-    Array of cross-currency swap instrument handles (created with DA.CROSS.CURRENCY.SWAP.NEW)
+    Array of cross-currency swap instrument handles (created with DA.CROSSCURRENCYSWAPNEW)
 knotDates is date[]
     Knot dates for the basis curve
 &optional

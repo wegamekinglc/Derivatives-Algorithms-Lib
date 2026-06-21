@@ -4,7 +4,6 @@
 #include "_excel.hpp"
 #include "_xlcall.hpp"
 #include <dal/platform/platform.hpp>
-#include <dal/platform/initall.hpp>
 #include <dal/platform/strict.hpp>
 #include <algorithm>
 #include <deque>

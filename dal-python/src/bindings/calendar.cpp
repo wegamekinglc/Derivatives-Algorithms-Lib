@@ -11,7 +11,7 @@
 
 namespace Dal {
 #include <dal/auto/MG_BizDayConvention_enum.hpp>
-}
+} // namespace Dal
 
 using namespace Dal;
 

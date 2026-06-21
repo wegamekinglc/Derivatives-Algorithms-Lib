@@ -9,7 +9,7 @@
 #include <dal/time/holidays.hpp>
 namespace Dal {
 #include <dal/auto/MG_BizDayConvention_enum.hpp>
-}
+} // namespace Dal
 
 /*IF--------------------------------------------------------------------------
 public IsBusinessDay
