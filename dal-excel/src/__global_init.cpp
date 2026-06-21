@@ -8,7 +8,7 @@
 #include <dal-public/src/global.hpp>
 
 /*IF--------------------------------------------------------------------------
-public InitGlobalData
+public Init_GlobalData
     Initialize the DAL global environment (thread pool, repository, etc.)
 &inputs
 nThreads is integer
@@ -20,12 +20,12 @@ ok is boolean
 
 namespace Dal {
     namespace {
-        void InitGlobalData(int nThreads, bool* ok) {
+        void Init_GlobalData(int nThreads, bool* ok) {
             Dal::InitGlobalData(nThreads);
             *ok = true;
         }
     }
 #ifdef _WIN32
-#include <dal-excel/auto/MG_InitGlobalData_public.inc>
+#include <dal-excel/auto/MG_Init_GlobalData_public.inc>
 #endif
 }

@@ -64,7 +64,7 @@ struct XlRegister_CrossCurrencySwap_New_
         argHelp.push_back("The foreign index convention");
         argHelp.push_back("Domestic notional");
         argHelp.push_back("Foreign notional");
-        Excel::Register("Base", "xl_CrossCurrencySwap_New", "DA.CROSSCURRENCYSWAPNEW", "Create a cross-currency swap instrument for xccy calibration", "QQQQQQQQQQQQ", "tradeDate,start,maturity,marketRate,currencies,domesticLeg,domesticIndex,foreignLeg,foreignIndex,[domesticNotional],[foreignNotional]", argHelp, false);
+        Excel::Register("Base", "xl_CrossCurrencySwap_New", "CROSSCURRENCYSWAP.NEW", "Create a cross-currency swap instrument for xccy calibration", "QQQQQQQQQQQQ", "tradeDate,start,maturity,marketRate,currencies,domesticLeg,domesticIndex,foreignLeg,foreignIndex,[domesticNotional],[foreignNotional]", argHelp, false);
     }
 };
 static XlRegister_CrossCurrencySwap_New_ The_CrossCurrencySwap_New_XlRegisterer;

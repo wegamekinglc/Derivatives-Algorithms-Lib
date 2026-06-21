@@ -37,7 +37,7 @@ struct XlRegister_CurveBlock_New_Simple_
         Vector_<String_> argHelp;        
         argHelp.push_back("The discount curve");
         argHelp.push_back("Libor day basis name (default \"ACT_365F\")");
-        Excel::Register("Base", "xl_CurveBlock_New_Simple", "DA.CURVEBLOCKNEWSIMPLE", "Build a CurveBlock from a single discount curve", "QQQ", "dc,[liborBasis]", argHelp, false);
+        Excel::Register("Base", "xl_CurveBlock_New_Simple", "CURVEBLOCK.NEW.SIMPLE", "Build a CurveBlock from a single discount curve", "QQQ", "dc,[liborBasis]", argHelp, false);
     }
 };
 static XlRegister_CurveBlock_New_Simple_ The_CurveBlock_New_Simple_XlRegisterer;

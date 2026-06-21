@@ -46,7 +46,7 @@ struct XlRegister_FRA_New_
         argHelp.push_back("The maturity date of the FRA");
         argHelp.push_back("The market quoted rate");
         argHelp.push_back("The rate index convention");
-        Excel::Register("Base", "xl_FRA_New", "DA.FRANEW", "Create a FRA instrument for curve calibration", "QQQQQQ", "tradeDate,start,maturity,marketRate,convention", argHelp, false);
+        Excel::Register("Base", "xl_FRA_New", "FRA.NEW", "Create a FRA instrument for curve calibration", "QQQQQQ", "tradeDate,start,maturity,marketRate,convention", argHelp, false);
     }
 };
 static XlRegister_FRA_New_ The_FRA_New_XlRegisterer;

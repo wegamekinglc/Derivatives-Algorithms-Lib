@@ -37,7 +37,7 @@ struct XlRegister_Is_BizDay_
         Vector_<String_> argHelp;        
         argHelp.push_back("Holiday center name (e.g. \"BEY\" for Beijing, empty string for no holidays)");
         argHelp.push_back("The date to check");
-        Excel::Register("Base", "xl_Is_BizDay", "DA.ISBUSINESSDAY", "Check whether a date is a business day for a given holiday center", "QQQ", "center,date", argHelp, false);
+        Excel::Register("Base", "xl_Is_BizDay", "IS.BIZDAY", "Check whether a date is a business day for a given holiday center", "QQQ", "center,date", argHelp, false);
     }
 };
 static XlRegister_Is_BizDay_ The_Is_BizDay_XlRegisterer;

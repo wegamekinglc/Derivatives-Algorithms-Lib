@@ -52,7 +52,7 @@ struct XlRegister_Swap_New_
         argHelp.push_back("The fixed leg convention");
         argHelp.push_back("The floating index convention");
         argHelp.push_back("The floating leg convention");
-        Excel::Register("Base", "xl_Swap_New", "DA.SWAPNEW", "Create a swap instrument for curve calibration", "QQQQQQQQ", "tradeDate,start,maturity,marketRate,fixedLeg,floatIndex,floatLeg", argHelp, false);
+        Excel::Register("Base", "xl_Swap_New", "SWAP.NEW", "Create a swap instrument for curve calibration", "QQQQQQQQ", "tradeDate,start,maturity,marketRate,fixedLeg,floatIndex,floatLeg", argHelp, false);
     }
 };
 static XlRegister_Swap_New_ The_Swap_New_XlRegisterer;

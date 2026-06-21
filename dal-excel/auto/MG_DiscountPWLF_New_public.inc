@@ -47,7 +47,7 @@ struct XlRegister_DiscountPWLF_New_
         argHelp.push_back("Knot dates for the curve");
         argHelp.push_back("Forward rates at each knot date");
         argHelp.push_back("Optional base discount curve");
-        Excel::Register("Base", "xl_DiscountPWLF_New", "DA.DISCOUNTPWLFNEW", "Build a discount curve from knot dates and forward rates (piecewise-linear forward)", "QQQQQQ", "name,ccy,knotDates,fwdRates,[base]", argHelp, false);
+        Excel::Register("Base", "xl_DiscountPWLF_New", "DISCOUNTPWLF.NEW", "Build a discount curve from knot dates and forward rates (piecewise-linear forward)", "QQQQQQ", "name,ccy,knotDates,fwdRates,[base]", argHelp, false);
     }
 };
 static XlRegister_DiscountPWLF_New_ The_DiscountPWLF_New_XlRegisterer;

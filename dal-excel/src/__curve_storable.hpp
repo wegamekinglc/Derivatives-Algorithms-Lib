@@ -15,6 +15,7 @@
 #include <dal/curve/calibration.hpp>
 #include <dal/curve/xccycalibration.hpp>
 #include <dal-public/src/curveprotocol.hpp>
+#include <dal-public/src/curvespec.hpp>
 
 namespace Dal {
 
@@ -95,10 +96,28 @@ namespace Dal {
         void Write(Archive::Store_&) const override {}
     };
 
+    // -- CalibrationResult_ wrapper (curve + diagnostics), returned by Calibrate_SingleCurve
+    struct StorableCurveCalibrationResult_ : public Storable_ {
+        CalibrationResult_ val_;
+        explicit StorableCurveCalibrationResult_(const CalibrationResult_& v) : Storable_("CurveCalibrationResult", String_()), val_(v) {}
+        void Write(Archive::Store_&) const override {}
+    };
+
     // -- CrossCurrencyCalibrationSpec_ wrapper
     struct StorableCrossCurrencyCalibrationSpec_ : public Storable_ {
         CrossCurrencyCalibrationSpec_ val_;
         explicit StorableCrossCurrencyCalibrationSpec_(const CrossCurrencyCalibrationSpec_& v) : Storable_("CrossCurrencyCalibrationSpec", String_()), val_(v) {}
+        void Write(Archive::Store_&) const override {}
+    };
+
+    // -- CrossCurrencyCalibrationResult_ wrapper, returned by Calibrate_XccyMarket.
+    // Holds the full result plus the basis curve resolved for the calibrated pair.
+    struct StorableCrossCurrencyCalibrationResult_ : public Storable_ {
+        CrossCurrencyCalibrationResult_ val_;
+        Handle_<DiscountCurve_> basisCurve_;
+        explicit StorableCrossCurrencyCalibrationResult_(const CrossCurrencyCalibrationResult_& v,
+                                                          const Handle_<DiscountCurve_>& basis)
+            : Storable_("CrossCurrencyCalibrationResult", String_()), val_(v), basisCurve_(basis) {}
         void Write(Archive::Store_&) const override {}
     };
 

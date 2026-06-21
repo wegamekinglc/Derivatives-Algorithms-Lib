@@ -49,7 +49,7 @@ struct XlRegister_Future_New_
         argHelp.push_back("The market quoted rate");
         argHelp.push_back("The rate index convention");
         argHelp.push_back("Convexity adjustment");
-        Excel::Register("Base", "xl_Future_New", "DA.FUTURENEW", "Create a future instrument for curve calibration", "QQQQQQQ", "tradeDate,start,maturity,marketRate,convention,[convexityAdjustment]", argHelp, false);
+        Excel::Register("Base", "xl_Future_New", "FUTURE.NEW", "Create a future instrument for curve calibration", "QQQQQQQ", "tradeDate,start,maturity,marketRate,convention,[convexityAdjustment]", argHelp, false);
     }
 };
 static XlRegister_Future_New_ The_Future_New_XlRegisterer;

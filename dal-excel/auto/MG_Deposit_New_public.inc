@@ -46,7 +46,7 @@ struct XlRegister_Deposit_New_
         argHelp.push_back("The maturity date of the deposit");
         argHelp.push_back("The market quoted rate");
         argHelp.push_back("The rate index convention");
-        Excel::Register("Base", "xl_Deposit_New", "DA.DEPOSITNEW", "Create a deposit instrument for curve calibration", "QQQQQQ", "tradeDate,start,maturity,marketRate,convention", argHelp, false);
+        Excel::Register("Base", "xl_Deposit_New", "DEPOSIT.NEW", "Create a deposit instrument for curve calibration", "QQQQQQ", "tradeDate,start,maturity,marketRate,convention", argHelp, false);
     }
 };
 static XlRegister_Deposit_New_ The_Deposit_New_XlRegisterer;

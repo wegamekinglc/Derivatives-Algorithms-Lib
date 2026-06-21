@@ -6,12 +6,14 @@
 
 #include "__platform.hpp"
 #include "__curve_storable.hpp"
+#include <dal/math/cell.hpp>
 #include <dal-public/src/xccycalibration.hpp>
 #include <dal/utilities/dictionary.hpp>
 
 /*IF--------------------------------------------------------------------------
-public CalibrateXccyMarket
-    Calibrate a cross-currency basis market from instruments and settings
+public Calibrate_XccyMarket
+    Calibrate a cross-currency basis market from instruments and settings.
+    Returns a result handle bundling the basis curve and the fit diagnostics.
 &inputs
 today is date
     The valuation/trade date
@@ -24,23 +26,42 @@ domesticBlock is handle StorableCurveBlock
 foreignBlock is handle StorableCurveBlock
     The pre-calibrated foreign curve block
 instruments is handle[]
-    Array of cross-currency swap instrument handles (created with DA.CROSSCURRENCYSWAPNEW)
+    Array of cross-currency swap instrument handles (created with CROSSCURRENCYSWAP.NEW)
 knotDates is date[]
     Knot dates for the basis curve
 &optional
 settings is cell[][]
     &$.Cols() == 2 || $.Empty()\must have two columns (key, value)
-    Optional settings as a two-column range. Supported keys:
-    fxSpot (number), fxForwardCollateral (string), smoothingWeight (number),
-    tolerance (number), fitTolerance (number), initialGuess (number),
-    maxEvaluations (integer), maxRestarts (integer), solveMode (string: EXACT|APPROXIMATE)
+    Optional two-column (key,value) settings. Keys: fxSpot, fxForwardCollateral, smoothingWeight, tolerance, fitTolerance, initialGuess, maxEvaluations, maxRestarts, solveMode (EXACT|APPROXIMATE)
 &outputs
-basisCurve is handle StorableDiscountCurve
+result is handle StorableCrossCurrencyCalibrationResult
+    The cross-currency calibration result (basis curve + diagnostics)
+-IF-------------------------------------------------------------------------*/
+
+/*IF--------------------------------------------------------------------------
+public XccyCalibrationResult_Get_BasisCurve
+    Extract the basis discount curve from a cross-currency calibration result
+&inputs
+result is handle StorableCrossCurrencyCalibrationResult
+    The cross-currency calibration result handle (from CALIBRATE.XCCYMARKET)
+&outputs
+curve is handle StorableDiscountCurve
     The calibrated basis discount curve
-maxAbsResidual is number
-    Maximum absolute residual
-rmsResidual is number
-    Root-mean-square residual
+-IF-------------------------------------------------------------------------*/
+
+/*IF--------------------------------------------------------------------------
+public XccyCalibrationResult_Get
+    Extract a diagnostic attribute from a cross-currency calibration result.
+    Use XCCYCALIBRATIONRESULT.GET.BASISCURVE for the basis curve itself.
+&inputs
+result is handle StorableCrossCurrencyCalibrationResult
+    The cross-currency calibration result handle (from CALIBRATE.XCCYMARKET)
+attribute is string
+    Attribute name: marketRates, modelRates, residuals, maxAbsResidual, rmsResidual
+&outputs
+value is cell[][]
+    The requested diagnostic. Rate vectors (marketRates/modelRates/residuals) return
+    as an Nx1 column; scalar stats (maxAbsResidual/rmsResidual) return as 1x1.
 -IF-------------------------------------------------------------------------*/
 
 namespace Dal {
@@ -88,17 +109,22 @@ namespace Dal {
             }
         }
 
-        void CalibrateXccyMarket(const Date_& today,
-                                  const String_& domesticCcy,
-                                  const String_& foreignCcy,
-                                  const Handle_<StorableCurveBlock_>& domesticBlock,
-                                  const Handle_<StorableCurveBlock_>& foreignBlock,
-                                  const Vector_<Handle_<Storable_>>& instrumentWrappers,
-                                  const Vector_<Date_>& knotDates,
-                                  const Matrix_<Cell_>& settings,
-                                  Handle_<StorableDiscountCurve_>* basisCurve,
-                                  double* maxAbsResidual,
-                                  double* rmsResidual) {
+        Matrix_<Cell_> AsColumn(const Vector_<>& v) {
+            Matrix_<Cell_> m(v.size(), 1);
+            for (int i = 0; i < v.size(); ++i)
+                m(i, 0) = Cell_(v[i]);
+            return m;
+        }
+
+        void Calibrate_XccyMarket(const Date_& today,
+                                   const String_& domesticCcy,
+                                   const String_& foreignCcy,
+                                   const Handle_<StorableCurveBlock_>& domesticBlock,
+                                   const Handle_<StorableCurveBlock_>& foreignBlock,
+                                   const Vector_<Handle_<Storable_>>& instrumentWrappers,
+                                   const Vector_<Date_>& knotDates,
+                                   const Matrix_<Cell_>& settings,
+                                   Handle_<StorableCrossCurrencyCalibrationResult_>* result) {
             REQUIRE(domesticBlock, "Invalid domestic curve block handle");
             REQUIRE(foreignBlock, "Invalid foreign curve block handle");
 
@@ -116,7 +142,6 @@ namespace Dal {
                 builder.instruments_.push_back(xccyInst->val_);
             }
 
-            // Set knot dates
             builder.knotDates_ = knotDates;
 
             // Convert Matrix_<Cell_> to Dictionary_ and apply optional settings
@@ -130,22 +155,45 @@ namespace Dal {
                 ApplyXccySettings(dict, builder);
             }
 
-            // Build spec and calibrate
+            const CurrencyPair_ pair = builder.basisPair_;
             auto spec = builder.Build();
-            auto result = Dal::CalibrateXccyMarket(spec);
+            auto calibrated = Dal::CalibrateXccyMarket(spec);
 
-            // Output basis curve for the requested currency pair
-            auto it = result.basisCurves_.find(builder.basisPair_);
-            REQUIRE(it != result.basisCurves_.end(), "Basis curve not found for requested currency pair");
-            basisCurve->reset(new StorableDiscountCurve_(it->second));
+            // Resolve the basis curve for the calibrated currency pair
+            auto it = calibrated.basisCurves_.find(pair);
+            REQUIRE(it != calibrated.basisCurves_.end(), "Basis curve not found for requested currency pair");
+            result->reset(new StorableCrossCurrencyCalibrationResult_(calibrated, it->second));
+        }
 
-            // Output diagnostics
-            const auto& diag = result.diagnostics_;
-            *maxAbsResidual = diag.maxAbsResidual_;
-            *rmsResidual = diag.rmsResidual_;
+        void XccyCalibrationResult_Get_BasisCurve(const Handle_<StorableCrossCurrencyCalibrationResult_>& result,
+                                                    Handle_<StorableDiscountCurve_>* curve) {
+            REQUIRE(result, "Invalid XCCY calibration result handle");
+            curve->reset(new StorableDiscountCurve_(result->basisCurve_));
+        }
+
+        void XccyCalibrationResult_Get(const Handle_<StorableCrossCurrencyCalibrationResult_>& result,
+                                         const String_& attribute,
+                                         Matrix_<Cell_>* value) {
+            REQUIRE(result, "Invalid XCCY calibration result handle");
+            const auto& diag = result->val_.diagnostics_;
+            if (attribute == "marketRates")
+                *value = AsColumn(diag.marketRates_);
+            else if (attribute == "modelRates")
+                *value = AsColumn(diag.modelRates_);
+            else if (attribute == "residuals")
+                *value = AsColumn(diag.residuals_);
+            else if (attribute == "maxAbsResidual")
+                *value = Matrix_<Cell_>(1, 1, Cell_(diag.maxAbsResidual_));
+            else if (attribute == "rmsResidual")
+                *value = Matrix_<Cell_>(1, 1, Cell_(diag.rmsResidual_));
+            else
+                THROW("Unknown XCCY calibration attribute: " + attribute
+                      + " (expected marketRates, modelRates, residuals, maxAbsResidual, or rmsResidual)");
         }
     }
 #ifdef _WIN32
-#include <dal-excel/auto/MG_CalibrateXccyMarket_public.inc>
+#include <dal-excel/auto/MG_Calibrate_XccyMarket_public.inc>
+#include <dal-excel/auto/MG_XccyCalibrationResult_Get_BasisCurve_public.inc>
+#include <dal-excel/auto/MG_XccyCalibrationResult_Get_public.inc>
 #endif
-}
+} // namespace Dal

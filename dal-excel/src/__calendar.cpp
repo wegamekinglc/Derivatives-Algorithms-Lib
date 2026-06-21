@@ -25,7 +25,7 @@ result is boolean
 -IF-------------------------------------------------------------------------*/
 
 /*IF--------------------------------------------------------------------------
-public NextBizDay
+public Next_BizDay
     Find the next business day on or after the given date
 &inputs
 center is string
@@ -38,7 +38,7 @@ result is date
 -IF-------------------------------------------------------------------------*/
 
 /*IF--------------------------------------------------------------------------
-public PrevBizDay
+public Prev_BizDay
     Find the previous business day on or before the given date
 &inputs
 center is string
@@ -51,7 +51,7 @@ result is date
 -IF-------------------------------------------------------------------------*/
 
 /*IF--------------------------------------------------------------------------
-public Adjust
+public Adjust_Date
     Adjust a date according to a business day convention
 &inputs
 center is string
@@ -66,7 +66,7 @@ result is date
 -IF-------------------------------------------------------------------------*/
 
 /*IF--------------------------------------------------------------------------
-public CountBusDays
+public Count_BusDays
     Count business days between two dates
 &inputs
 center is string
@@ -87,23 +87,23 @@ namespace Dal {
             *result = Holidays::IsBusinessDay(hols, date);
         }
 
-        void NextBizDay(const String_& center, const Date_& date, Date_* result) {
+        void Next_BizDay(const String_& center, const Date_& date, Date_* result) {
             Holidays_ hols(center);
             *result = Holidays::NextBus(hols, date);
         }
 
-        void PrevBizDay(const String_& center, const Date_& date, Date_* result) {
+        void Prev_BizDay(const String_& center, const Date_& date, Date_* result) {
             Holidays_ hols(center);
             *result = Holidays::PrevBus(hols, date);
         }
 
-        void Adjust(const String_& center, const Date_& date, const String_& convention, Date_* result) {
+        void Adjust_Date(const String_& center, const Date_& date, const String_& convention, Date_* result) {
             Holidays_ hols(center);
             BizDayConvention_ conv(convention);
             *result = Holidays::Adjust(hols, date, conv);
         }
 
-        void CountBusDays(const String_& center, const Date_& begin, const Date_& end, int* result) {
+        void Count_BusDays(const String_& center, const Date_& begin, const Date_& end, int* result) {
             Holidays_ hols(center);
             CountBusDays_ counter(hols);
             *result = counter(begin, end);
@@ -111,9 +111,9 @@ namespace Dal {
     }
 #ifdef _WIN32
 #include <dal-excel/auto/MG_Is_BizDay_public.inc>
-#include <dal-excel/auto/MG_NextBizDay_public.inc>
-#include <dal-excel/auto/MG_PrevBizDay_public.inc>
-#include <dal-excel/auto/MG_Adjust_public.inc>
-#include <dal-excel/auto/MG_CountBusDays_public.inc>
+#include <dal-excel/auto/MG_Next_BizDay_public.inc>
+#include <dal-excel/auto/MG_Prev_BizDay_public.inc>
+#include <dal-excel/auto/MG_Adjust_Date_public.inc>
+#include <dal-excel/auto/MG_Count_BusDays_public.inc>
 #endif
 }

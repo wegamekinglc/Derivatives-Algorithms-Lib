@@ -6,46 +6,59 @@
 
 #include "__platform.hpp"
 #include "__curve_storable.hpp"
+#include <dal/math/cell.hpp>
 #include <dal-public/src/curvespec.hpp>
 #include <dal-public/src/curveprotocol.hpp>
 #include <dal/utilities/dictionary.hpp>
 
 /*IF--------------------------------------------------------------------------
-public CalibrateSingleCurve
+public Calibrate_SingleCurve
     Calibrate a single yield curve from instruments and settings.
-    Returns the calibrated curve handle plus diagnostics (market rates, model rates, residuals, maxAbsResidual, rmsResidual)
+    Returns a result handle bundling the calibrated curve and the fit diagnostics.
 &inputs
 today is date
     The valuation/trade date
 ccy is string
     Currency code (e.g. "USD")
 instruments is handle[]
-    Array of instrument handles (created with DA.DEPOSITNEW, DA.SWAPNEW, etc.)
+    Array of instrument handles (created with DEPOSIT.NEW, SWAP.NEW, etc.)
 knotDates is date[]
     Knot dates (can be empty for auto-detection)
 &optional
 settings is cell[][]
     &$.Cols() == 2 || $.Empty()\must have two columns (key, value)
-    Optional settings as a two-column range. Supported keys:
-    curveName (string), calibrateDiscountCurve (boolean), smoothingWeight (number),
-    tolerance (number), fitTolerance (number), maxEvaluations (integer), maxRestarts (integer),
-    initialGuess (number), solveMode (string: EXACT|APPROXIMATE),
-    parameterization (string: PIECEWISE_LINEAR_FWD|PIECEWISE_CONSTANT_FWD|ZERO_RATE|LOG_DISCOUNT),
-    logDfScheme (string: LOG_LINEAR|LOG_CUBIC_NATURAL|MIXED),
-    liborBasis (string), targetCollateral (string), targetTenor (string)
+    Optional (key,value) settings. Keys: curveName, calibrateDiscountCurve, solveMode, parameterization, logDfScheme, smoothingWeight, tolerance, fitTolerance, initialGuess, maxEvaluations, maxRestarts, targetCollateral, targetTenor, liborBasis
+discountCurve is handle StorableDiscountCurve
+    Optional discount curve (OIS-collateralized) needed when calibrating a forward curve (calibrateDiscountCurve=FALSE)
+&outputs
+result is handle StorableCurveCalibrationResult
+    The calibration result (curve + diagnostics)
+-IF-------------------------------------------------------------------------*/
+
+/*IF--------------------------------------------------------------------------
+public CalibrationResult_Get_Curve
+    Extract the calibrated discount curve from a curve calibration result
+&inputs
+result is handle StorableCurveCalibrationResult
+    The calibration result handle (from CALIBRATE.SINGLECURVE)
 &outputs
 curve is handle StorableDiscountCurve
     The calibrated discount curve
-marketRates is number[]
-    Market quoted rates for each instrument
-modelRates is number[]
-    Model-implied rates for each instrument
-residuals is number[]
-    Rate residuals (model - market)
-maxAbsResidual is number
-    Maximum absolute residual
-rmsResidual is number
-    Root-mean-square residual
+-IF-------------------------------------------------------------------------*/
+
+/*IF--------------------------------------------------------------------------
+public CalibrationResult_Get
+    Extract a diagnostic attribute from a curve calibration result.
+    Use CALIBRATIONRESULT.GET.CURVE for the curve itself.
+&inputs
+result is handle StorableCurveCalibrationResult
+    The calibration result handle (from CALIBRATE.SINGLECURVE)
+attribute is string
+    Attribute name: marketRates, modelRates, residuals, maxAbsResidual, rmsResidual
+&outputs
+value is cell[][]
+    The requested diagnostic. Rate vectors (marketRates/modelRates/residuals) return
+    as an Nx1 column; scalar stats (maxAbsResidual/rmsResidual) return as 1x1.
 -IF-------------------------------------------------------------------------*/
 
 namespace Dal {
@@ -110,17 +123,13 @@ namespace Dal {
             }
         }
 
-        void CalibrateSingleCurve(const Date_& today,
-                                   const String_& ccy,
-                                   const Vector_<Handle_<Storable_>>& instrumentWrappers,
-                                   const Vector_<Date_>& knotDates,
-                                   const Matrix_<Cell_>& settings,
-                                   Handle_<StorableDiscountCurve_>* curve,
-                                   Vector_<>* marketRates,
-                                   Vector_<>* modelRates,
-                                   Vector_<>* residuals,
-                                   double* maxAbsResidual,
-                                   double* rmsResidual) {
+        void Calibrate_SingleCurve(const Date_& today,
+                                    const String_& ccy,
+                                    const Vector_<Handle_<Storable_>>& instrumentWrappers,
+                                    const Vector_<Date_>& knotDates,
+                                    const Matrix_<Cell_>& settings,
+                                    const Handle_<StorableDiscountCurve_>& discountCurve,
+                                    Handle_<StorableCurveCalibrationResult_>* result) {
             CurveCalibrationSpecBuilder_ builder;
             builder.today_ = today;
             builder.ccy_ = ccy;
@@ -147,23 +156,54 @@ namespace Dal {
                 ApplySettings(dict, builder);
             }
 
-            // Build spec and calibrate
+            // Optional discount curve (OIS-collateralized) for forward-curve calibration
+            if (discountCurve)
+                builder.discountCurves_[CollateralType_(CollateralType_::Value_::OIS)] = discountCurve->val_;
+
+            // Build spec and calibrate via the dal-public interface
             auto spec = builder.Build();
-            auto result = Dal::CalibrateSingleCurve(spec);
+            auto calibrated = Dal::CalibrateSingleCurve(spec);
 
-            // Output curve
-            curve->reset(new StorableDiscountCurve_(result.curve_));
+            // Bundle curve + diagnostics into a single storable result handle
+            result->reset(new StorableCurveCalibrationResult_(calibrated));
+        }
 
-            // Output diagnostics
-            const auto& diag = result.diagnostics_;
-            *marketRates = diag.marketRates_;
-            *modelRates = diag.modelRates_;
-            *residuals = diag.residuals_;
-            *maxAbsResidual = diag.maxAbsResidual_;
-            *rmsResidual = diag.rmsResidual_;
+        void CalibrationResult_Get_Curve(const Handle_<StorableCurveCalibrationResult_>& result,
+                                          Handle_<StorableDiscountCurve_>* curve) {
+            REQUIRE(result, "Invalid calibration result handle");
+            curve->reset(new StorableDiscountCurve_(result->val_.curve_));
+        }
+
+        Matrix_<Cell_> AsColumn(const Vector_<>& v) {
+            Matrix_<Cell_> m(v.size(), 1);
+            for (int i = 0; i < v.size(); ++i)
+                m(i, 0) = Cell_(v[i]);
+            return m;
+        }
+
+        void CalibrationResult_Get(const Handle_<StorableCurveCalibrationResult_>& result,
+                                    const String_& attribute,
+                                    Matrix_<Cell_>* value) {
+            REQUIRE(result, "Invalid calibration result handle");
+            const auto& diag = result->val_.diagnostics_;
+            if (attribute == "marketRates")
+                *value = AsColumn(diag.marketRates_);
+            else if (attribute == "modelRates")
+                *value = AsColumn(diag.modelRates_);
+            else if (attribute == "residuals")
+                *value = AsColumn(diag.residuals_);
+            else if (attribute == "maxAbsResidual")
+                *value = Matrix_<Cell_>(1, 1, Cell_(diag.maxAbsResidual_));
+            else if (attribute == "rmsResidual")
+                *value = Matrix_<Cell_>(1, 1, Cell_(diag.rmsResidual_));
+            else
+                THROW("Unknown calibration attribute: " + attribute
+                      + " (expected marketRates, modelRates, residuals, maxAbsResidual, or rmsResidual)");
         }
     }
 #ifdef _WIN32
-#include <dal-excel/auto/MG_CalibrateSingleCurve_public.inc>
+#include <dal-excel/auto/MG_Calibrate_SingleCurve_public.inc>
+#include <dal-excel/auto/MG_CalibrationResult_Get_Curve_public.inc>
+#include <dal-excel/auto/MG_CalibrationResult_Get_public.inc>
 #endif
-}
+} // namespace Dal

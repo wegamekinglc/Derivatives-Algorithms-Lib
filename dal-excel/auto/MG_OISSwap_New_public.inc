@@ -52,7 +52,7 @@ struct XlRegister_OISSwap_New_
         argHelp.push_back("The fixed leg convention");
         argHelp.push_back("The overnight index convention");
         argHelp.push_back("The floating leg convention");
-        Excel::Register("Base", "xl_OISSwap_New", "DA.OISSWAPNEW", "Create an OIS swap instrument for curve calibration", "QQQQQQQQ", "tradeDate,start,maturity,marketRate,fixedLeg,overnightIndex,floatLeg", argHelp, false);
+        Excel::Register("Base", "xl_OISSwap_New", "OISSWAP.NEW", "Create an OIS swap instrument for curve calibration", "QQQQQQQQ", "tradeDate,start,maturity,marketRate,fixedLeg,overnightIndex,floatLeg", argHelp, false);
     }
 };
 static XlRegister_OISSwap_New_ The_OISSwap_New_XlRegisterer;

@@ -1,0 +1,40 @@
+
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+<title>RateIndexConvention_New</title>
+<link href="tablecloth/tablecloth.css" rel="stylesheet" type="text/css" media="screen" />
+<link href="hbk.css" rel="stylesheet" type="text/css" media="screen" />
+<script type="text/javascript" src="tablecloth/tablecloth.js"></script>
+</head>
+<body>
+<h1>RateIndexConvention_New (in Excel: RATEINDEXCONVENTION.NEW)</h1>
+Create a rate index convention handle
+
+<h2>Inputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th>Optional?</th><th></th></tr>
+
+<tr><td>forecastTenor</td><td>string</td><td></td><td>Forecast tenor as an ISO period (e.g. "3M", "6M")</td></tr>
+<tr><td>basis</td><td>string</td><td></td><td>Day basis name (e.g. "ACT_365F", "ACT_360")</td></tr>
+<tr><td>collateral</td><td>string</td><td></td><td>Collateral type string (e.g. "OIS", "GC")</td></tr>
+<tr><td>useProjectionCurve</td><td>boolean</td><td>yes (default = false)</td><td>Whether to use a projection curve</td></tr>
+
+</table>
+
+
+
+
+
+<h2>Outputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th></th></tr>
+
+<tr><td>convention</td><td>handle of type StorableRateIndexConvention</td><td>The rate index convention</td></tr>
+</table>
+
+
+
+
+
+

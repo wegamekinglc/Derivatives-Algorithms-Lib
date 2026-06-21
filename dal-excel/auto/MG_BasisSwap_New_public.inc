@@ -55,7 +55,7 @@ struct XlRegister_BasisSwap_New_
         argHelp.push_back("The spread leg convention");
         argHelp.push_back("The reference index convention");
         argHelp.push_back("The reference leg convention");
-        Excel::Register("Base", "xl_BasisSwap_New", "DA.BASISSWAPNEW", "Create a basis swap instrument for curve calibration", "QQQQQQQQQ", "tradeDate,start,maturity,marketRate,spreadIndex,spreadLeg,refIndex,refLeg", argHelp, false);
+        Excel::Register("Base", "xl_BasisSwap_New", "BASISSWAP.NEW", "Create a basis swap instrument for curve calibration", "QQQQQQQQQ", "tradeDate,start,maturity,marketRate,spreadIndex,spreadLeg,refIndex,refLeg", argHelp, false);
     }
 };
 static XlRegister_BasisSwap_New_ The_BasisSwap_New_XlRegisterer;
