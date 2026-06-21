@@ -256,7 +256,7 @@ namespace {
             .value("MIXED", LogDfScheme_::Value_::MIXED);
     }
 
-    void init_bindings_curve_calibration(py::module_& m) {
+    void init_bindings_curve_calibration_builder(py::module_& m) {
         py::class_<CurveCalibrationSpecBuilder_>(m, "CurveCalibrationSpecBuilder_")
             .def(py::init<>())
             .def_readwrite("today_", &CurveCalibrationSpecBuilder_::today_)
@@ -341,7 +341,9 @@ namespace {
                         std::const_pointer_cast<const DiscountCurve_>(curve));
                 })
             .def("Build", &CurveCalibrationSpecBuilder_::Build);
+    }
 
+    void init_bindings_curve_calibration_diagnostics(py::module_& m) {
         py::class_<CurveCalibrationDiagnostics_>(m, "CurveCalibrationDiagnostics_")
             .def_property_readonly("curveName_", [](const CurveCalibrationDiagnostics_& d) { return d.curveName_; })
             .def_property_readonly("marketRates_", [](const CurveCalibrationDiagnostics_& d) -> py::list {
@@ -371,7 +373,9 @@ namespace {
             .def_property_readonly("diagnostics_", py::cpp_function([](const CalibrationResult_& r) -> const CurveCalibrationDiagnostics_& {
                 return r.diagnostics_;
             }, py::return_value_policy::reference_internal));
+    }
 
+    void init_bindings_curve_calibration_results(py::module_& m) {
         py::class_<MultiCurveCalibrationResult_>(m, "MultiCurveCalibrationResult_")
             .def_property_readonly("discountCurves_", [](const MultiCurveCalibrationResult_& r)
                 -> std::map<CollateralType_, std::shared_ptr<DiscountCurve_>> {
@@ -532,6 +536,8 @@ void init_bindings_curve(py::module_& m) {
     init_bindings_curve_instruments(m);
     init_bindings_curve_data(m);
     init_bindings_curve_enums(m);
-    init_bindings_curve_calibration(m);
+    init_bindings_curve_calibration_builder(m);
+    init_bindings_curve_calibration_diagnostics(m);
+    init_bindings_curve_calibration_results(m);
     init_bindings_curve_xccy(m);
 }
