@@ -156,9 +156,14 @@ namespace Dal {
                 ApplySettings(dict, builder);
             }
 
-            // Optional discount curve (OIS-collateralized) for forward-curve calibration
+            // Optional discount curve for forward-curve calibration, keyed by the
+            // calibration's target collateral (defaults to OIS). Forward calibration
+            // (calibrateDiscountCurve=FALSE) requires it; discount calibration does not.
             if (discountCurve)
-                builder.discountCurves_[CollateralType_(CollateralType_::Value_::OIS)] = discountCurve->val_;
+                builder.discountCurves_[builder.targetCollateral_] = discountCurve->val_;
+            else
+                REQUIRE(builder.calibrateDiscountCurve_,
+                        "Forward-curve calibration (calibrateDiscountCurve=FALSE) requires a discountCurve input");
 
             // Build spec and calibrate via the dal-public interface
             auto spec = builder.Build();

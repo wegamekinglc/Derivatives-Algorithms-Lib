@@ -70,21 +70,33 @@ def _build_calibration_spec(today, ccy, instruments, knot_dates, settings):
 def calibrate_curve(today, ccy, instruments, knot_dates, settings=None, jacobian_mode=None):
     """High-level single-curve calibration with sensible defaults.
 
+    Only discount-curve calibration (calibrate_discount=True) is supported here;
+    forward-curve calibration needs a preloaded discount curve, so build a
+    CurveCalibrationSpecBuilder_ directly (set discountCurves_) and call
+    dal.CalibrateSingleCurve.
+
     Args:
         today: Date_ for the calibration date
         ccy: Currency string (e.g. "USD")
         instruments: List of YCInstrument_ handles
         knot_dates: List of Date_ knot points
         settings: Optional dict of override settings. Supported keys:
-            curve_name, target_collateral, target_tenor, calibrate_discount,
-            libor_basis, smoothing_weight, tolerance, fit_tolerance,
-            max_evaluations, max_restarts, initial_guess, solve_mode,
-            parameterization, log_df_scheme
+            curve_name, target_collateral, target_tenor, calibrate_discount
+            (must be True), libor_basis, smoothing_weight, tolerance,
+            fit_tolerance, max_evaluations, max_restarts, initial_guess,
+            solve_mode, parameterization, log_df_scheme
         jacobian_mode: CurveJacobianMode enum (None = default without Jacobian)
 
     Returns:
         CalibrationResult_ with curve_ and diagnostics_
     """
+    if settings and settings.get("calibrate_discount") is False:
+        raise ValueError(
+            "calibrate_curve() only supports discount-curve calibration "
+            "(calibrate_discount=True). For forward-curve calibration, build a "
+            "CurveCalibrationSpecBuilder_ with discountCurves_ and call "
+            "dal.CalibrateSingleCurve directly."
+        )
     spec = _build_calibration_spec(today, ccy, instruments, knot_dates, settings)
     if jacobian_mode is not None:
         return _bindings.CalibrateSingleCurve(spec.Build(), jacobian_mode)

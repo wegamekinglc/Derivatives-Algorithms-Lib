@@ -149,6 +149,8 @@ namespace Dal {
             }
 
             const CurrencyPair_ pair = builder.basisPair_;
+            REQUIRE(builder.fxSpot_ > 0.0,
+                    "Cross-currency calibration requires an fxSpot setting (e.g. fxSpot=1.10)");
             auto spec = builder.Build();
             auto calibrated = Dal::CalibrateXccyMarket(spec);
 

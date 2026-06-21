@@ -2,8 +2,6 @@
 
 import dal
 
-S = dal.String_
-
 
 def _today():
     return dal.Date_(2025, 6, 20)
