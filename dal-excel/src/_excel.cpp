@@ -4,7 +4,6 @@
 #include "_excel.hpp"
 #include "_xlcall.hpp"
 #include <dal/platform/platform.hpp>
-#include <dal/platform/initall.hpp>
 #include <dal/platform/strict.hpp>
 #include <algorithm>
 #include <deque>
@@ -14,6 +13,7 @@
 #include <dal/storage/_repository.hpp>
 #include <dal/utilities/exceptions.hpp>
 #include <dal/utilities/numerics.hpp>
+#include <dal-public/src/global.hpp>
 
 ///***************************************************************************
 // File:	FRAMEWRK.C
@@ -1395,7 +1395,7 @@ namespace Dal {
     // Initialization routine
     extern "C" __declspec(dllexport) int xlAutoOpen(void) {
         // dal initialization
-        Dal::RegisterAll_::Init();
+        Dal::InitGlobalData();
 
         // Get XLL file name
         static OPER_ xDll;
@@ -1422,8 +1422,14 @@ namespace Dal {
             xl4args[6] = TempStr(CATEGORY);
             xl4args[7] = xl4args[8] = TempStr(BLANK);
             xl4args[9] = TempStr(func.help_);
+            // Excel xlfRegister rejects argument-help strings longer than 255 chars
+            // (silent #VALUE! failure -> function unresolved, #NAME? at call site).
+            // Truncate defensively so no function can hit this limit.
+            auto clampStr = [](const String_& s) -> String_ {
+                return s.size() > 255 ? s.substr(0, 252) + "..." : s;
+            };
             for (const auto& h : func.argHelp_)
-                xl4args.push_back(TempStr(h));
+                xl4args.push_back(TempStr(clampStr(h)));
 
             const int err = XL_CALLBACK(xlfRegister, &result, xl4args.size(), &xl4args[0]);
             if (err != xlretSuccess) {
@@ -1465,7 +1471,7 @@ namespace Dal {
 
     namespace {
 /*IF--------------------------------------------------------------------------
-public Format
+public Format_Output
         Combine data according to a user - supplied format string
 -java
 -python
@@ -1498,7 +1504,7 @@ result is cell[][]
         A combined table created according to the format instructions
 -IF-------------------------------------------------------------------------*/
 
-        void Format(const String_& format,
+        void Format_Output(const String_& format,
                     const Matrix_<Cell_>& arg1,
                     const Matrix_<Cell_>& arg2,
                     const Matrix_<Cell_>& arg3,
@@ -1523,7 +1529,7 @@ result is cell[][]
         }
 
 /*IF--------------------------------------------------------------------------
-public PasteWithArgs
+public Paste_WithArgs
         Shows all the argument names of a function
 -java
 -python
@@ -1535,7 +1541,7 @@ func_with_args is string
         The text of the function call with argument names inserted
 -IF-------------------------------------------------------------------------*/
 
-        void PasteWithArgs(const String_& func_name, String_* text) {
+        void Paste_WithArgs(const String_& func_name, String_* text) {
             for (const auto& func : TheFunctions()) {
                 if (func_name == func.xlName_) {
                     *text = '=' + func.xlName_ + '(' + func.argNames_ + ')';
@@ -1546,8 +1552,8 @@ func_with_args is string
         }
     } // namespace
 
-#include "dal-excel/auto/MG_Format_public.inc"
-#include "dal-excel/auto/MG_PasteWithArgs_public.inc"
+#include "dal-excel/auto/MG_Format_Output_public.inc"
+#include "dal-excel/auto/MG_Paste_WithArgs_public.inc"
 }
 
 #endif

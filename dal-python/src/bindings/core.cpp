@@ -79,5 +79,7 @@ void init_bindings_core(py::module_& m) {
              py::arg("rows"), py::arg("cols"), py::arg("fill") = 0.0)
         .def("__call__", [](const Matrix_<>& m, int i, int j) -> double {
             return m(i, j);
-        });
+        })
+        .def("Rows", &Matrix_<>::Rows)
+        .def("Cols", &Matrix_<>::Cols);
 }

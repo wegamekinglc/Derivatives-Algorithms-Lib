@@ -184,7 +184,9 @@ endif()
 
 pybind11_add_module(_dal
     ${CMAKE_CURRENT_SOURCE_DIR}/src/bindings/module.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/bindings/calendar.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/bindings/core.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/bindings/curve.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/bindings/global.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/bindings/models.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/bindings/random.cpp
@@ -255,6 +257,11 @@ install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/src/dal/
 # (`__init__.py`, `api.py`) live in `src/dal/` and are copied into the
 # build tree at configure time so CTest can `import dal` without
 # a separate `pip install -e .` step.
+#
+# For multi-config generators (Visual Studio, Xcode) the compiled .pyd
+# lands in a <Config> subdirectory (e.g. dal/Release/).  A POST_BUILD
+# step copies it up to dal/ so the Python package files and the native
+# module live in the same directory regardless of generator.
 # ---------------------------------------------------------------------------
 if(DAL_PYTHON_BUILD_TESTS)
     enable_testing()
@@ -263,6 +270,11 @@ if(DAL_PYTHON_BUILD_TESTS)
         ${CMAKE_CURRENT_SOURCE_DIR}/src/dal/__init__.py
         ${CMAKE_CURRENT_SOURCE_DIR}/src/dal/api.py
         DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/dal)
+
+    add_custom_command(TARGET _dal POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "$<TARGET_FILE:_dal>"
+            "${CMAKE_CURRENT_BINARY_DIR}/dal/")
 
     add_test(NAME dal_python_pytest
              COMMAND ${Python3_EXECUTABLE} -m pytest ${CMAKE_CURRENT_SOURCE_DIR}/tests -v

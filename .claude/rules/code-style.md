@@ -138,6 +138,36 @@ Then build normally. The auto-generated files (`dal-cpp/dal/auto/MG_*_enum.hpp`,
 - **RAII**: Smart pointers, scope-based tape/stack cleanup
 - **Private inheritance**: `Vector_<E_> : private std::vector<E_>`
 
+## Public Function Naming (`dal-excel` and `dal-python`)
+
+These conventions apply to both:
+
+- **`dal-excel`**: Machinist `public` function names in `dal-excel/src/` markup blocks. The generated Excel name turns underscores into dots and uppercases; names containing a dot keep that form, while names without a dot get a `DA.` prefix (e.g., `Deposit_New` → `DEPOSIT.NEW`, `Is_BizDay` → `IS.BIZDAY`, `Calibrate_SingleCurve` → `CALIBRATE.SINGLECURVE`).
+- **`dal-python`**: `m.def()` names in `dal-python/src/bindings/` files. The Python-visible name keeps the underscores as-is (e.g., `PseudoRSG_New` stays `PseudoRSG_New`).
+
+Reference files:
+- `dal-excel/src/__random.cpp` — `PseudoRSG_New`, `SobolRSG_New`, `PseudoRSG_Get_Uniform`, `SobolRSG_Get_Normal`
+- `dal-python/src/bindings/random.cpp` — same names, mirrored in pybind11 `m.def()` calls
+
+- **Instance creation (factory) functions**: end with `_New`, preceded by the type name in PascalCase.
+  - `Deposit_New`, `Swap_New`, `CrossCurrencySwap_New`, `DiscountPWLF_New`, `CurveBlock_New`
+  - `PseudoRSG_New`, `SobolRSG_New`
+  - The function returns a handle to a newly-created object.
+- **Enum value constructors**: follow the pattern `<EnumType>_<EnumValue>`, where `EnumType` is the enum class name (without trailing `_`) and `EnumValue` is the value name.
+  - `CollateralType_OIS`, `CollateralType_Libor` — create a `CollateralType_` with a specific enum value.
+  - These are named constants, not factories — they do NOT use `_New`.
+- **Result / getter functions** (operating on an existing handle): follow the pattern `<Type>_Get_<Result>`, where `Type` is the handle's class name and `Result` describes what is retrieved.
+  - `PseudoRSG_Get_Uniform`, `PseudoRSG_Get_Normal`, `SobolRSG_Get_Uniform`, `SobolRSG_Get_Normal`
+  - For global state accessors (no handle input), the form is `<Name>_Get`: `EvaluationDate_Get`
+  - Use this pattern only when the function extracts or computes a result from an existing handle input or global state; standalone utility functions (e.g., `PrevBizDay`, `NextBizDay`) and action functions (e.g., `CalibrateSingleCurve`) do not need this prefix.
+- **Setter / mutator functions**: mirror the getter pattern with `_Set` in place of `_Get`.
+  - `<Type>_Set_<Result>` for handle-based setters, or `<Name>_Set` for global state.
+  - `EvaluationDate_Set` — sets the global evaluation date.
+  - A `_Set` function should always have a corresponding `_Get` function; do not create a standalone `_Set` without its getter counterpart.
+- **Status / check functions**: start with `Is_` followed by the condition being tested in PascalCase.
+  - `Is_BizDay` — returns a boolean indicating whether a date is a business day.
+  - Use this prefix for any public function whose primary purpose is to answer a yes/no question about its inputs.
+
 ## Key Macros
 
 - `FORCE_INLINE`: platform-specific forced inline

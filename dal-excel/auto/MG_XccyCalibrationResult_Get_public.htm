@@ -1,0 +1,38 @@
+
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+<title>XccyCalibrationResult_Get</title>
+<link href="tablecloth/tablecloth.css" rel="stylesheet" type="text/css" media="screen" />
+<link href="hbk.css" rel="stylesheet" type="text/css" media="screen" />
+<script type="text/javascript" src="tablecloth/tablecloth.js"></script>
+</head>
+<body>
+<h1>XccyCalibrationResult_Get (in Excel: XCCYCALIBRATIONRESULT.GET)</h1>
+Extract a diagnostic attribute from a cross-currency calibration result. Use XCCYCALIBRATIONRESULT.GET.BASISCURVE for the basis curve itself.
+
+<h2>Inputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th>Optional?</th><th></th></tr>
+
+<tr><td>result</td><td>handle of type StorableCrossCurrencyCalibrationResult</td><td></td><td>The cross-currency calibration result handle (from CALIBRATE.XCCYMARKET)</td></tr>
+<tr><td>attribute</td><td>string</td><td></td><td>Attribute name: marketRates, modelRates, residuals, maxAbsResidual, rmsResidual</td></tr>
+
+</table>
+
+
+
+
+
+<h2>Outputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th></th></tr>
+
+<tr><td>value</td><td>matrix of cells</td><td>The requested diagnostic. Rate vectors (marketRates/modelRates/residuals) return as an Nx1 column; scalar stats (maxAbsResidual/rmsResidual) return as 1x1.</td></tr>
+</table>
+
+
+
+
+
+
