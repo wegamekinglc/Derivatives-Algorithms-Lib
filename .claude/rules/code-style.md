@@ -155,7 +155,12 @@ Reference files:
   - The function returns a handle to a newly-created object.
 - **Result / getter functions** (operating on an existing handle): follow the pattern `<Type>_Get_<Result>`, where `Type` is the handle's class name and `Result` describes what is retrieved.
   - `PseudoRSG_Get_Uniform`, `PseudoRSG_Get_Normal`, `SobolRSG_Get_Uniform`, `SobolRSG_Get_Normal`
-  - Use this pattern only when the function extracts or computes a result from an existing handle input; standalone utility functions (e.g., `PrevBus`, `NextBus`) and action functions (e.g., `CalibrateSingleCurve`) do not need this prefix.
+  - For global state accessors (no handle input), the form is `<Name>_Get`: `EvaluationDate_Get`
+  - Use this pattern only when the function extracts or computes a result from an existing handle input or global state; standalone utility functions (e.g., `PrevBus`, `NextBus`) and action functions (e.g., `CalibrateSingleCurve`) do not need this prefix.
+- **Setter / mutator functions**: mirror the getter pattern with `_Set` in place of `_Get`.
+  - `<Type>_Set_<Result>` for handle-based setters, or `<Name>_Set` for global state.
+  - `EvaluationDate_Set` — sets the global evaluation date.
+  - A `_Set` function should always have a corresponding `_Get` function; do not create a standalone `_Set` without its getter counterpart.
 - **Status / check functions**: start with `Is_` followed by the condition being tested in PascalCase.
   - `Is_BusinessDay` — returns a boolean indicating whether a date is a business day.
   - Use this prefix for any public function whose primary purpose is to answer a yes/no question about its inputs.
