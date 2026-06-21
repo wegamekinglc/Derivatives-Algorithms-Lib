@@ -138,6 +138,19 @@ Then build normally. The auto-generated files (`dal-cpp/dal/auto/MG_*_enum.hpp`,
 - **RAII**: Smart pointers, scope-based tape/stack cleanup
 - **Private inheritance**: `Vector_<E_> : private std::vector<E_>`
 
+## Excel Public Function Naming (`dal-excel`)
+
+These conventions apply to Machinist `public` function names in `dal-excel/src/` markup blocks. The generated Excel function name is derived from the public name by removing underscores and uppercasing (e.g., `Deposit_New` → `DA.DEPOSITNEW`, `PseudoRSG_Get_Uniform` → `DA.PSEUDORSGGETUNIFORM`).
+
+Reference: `dal-excel/src/__random.cpp` — `PseudoRSG_New`, `SobolRSG_New`, `PseudoRSG_Get_Uniform`, `SobolRSG_Get_Normal`.
+
+- **Instance creation (factory) functions**: end with `_New`, preceded by the type name in PascalCase.
+  - `Deposit_New`, `Swap_New`, `CrossCurrencySwap_New`, `DiscountPWLF_New`, `CurveBlock_New`
+  - The function returns a handle to a newly-created object.
+- **Result / getter functions** (operating on an existing handle): follow the pattern `<Type>_Get_<Result>`, where `Type` is the handle's class name and `Result` describes what is retrieved.
+  - `PseudoRSG_Get_Uniform`, `PseudoRSG_Get_Normal`, `SobolRSG_Get_Uniform`
+  - Use this pattern only when the function extracts or computes a result from an existing handle input; standalone utility functions (e.g., `PrevBus`, `NextBus`) and action functions (e.g., `CalibrateSingleCurve`) do not need this prefix.
+
 ## Key Macros
 
 - `FORCE_INLINE`: platform-specific forced inline
