@@ -134,12 +134,10 @@ namespace Dal {
             auto spec = builder.Build();
             auto result = Dal::CalibrateXccyMarket(spec);
 
-            // Output basis curve (take the first one from the map)
-            *basisCurve = Handle_<StorableDiscountCurve_>();
-            for (const auto& kv : result.basisCurves_) {
-                basisCurve->reset(new StorableDiscountCurve_(kv.second));
-                break; // return first basis curve
-            }
+            // Output basis curve for the requested currency pair
+            auto it = result.basisCurves_.find(builder.basisPair_);
+            REQUIRE(it != result.basisCurves_.end(), "Basis curve not found for requested currency pair");
+            basisCurve->reset(new StorableDiscountCurve_(it->second));
 
             // Output diagnostics
             const auto& diag = result.diagnostics_;

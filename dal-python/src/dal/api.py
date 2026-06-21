@@ -6,6 +6,16 @@ def Product_New(events_dates: list, events: list[str]):
     return _bindings.Product_New(wrapped, events)
 
 
+# Settings whose target fields expect DAL value types — plain Python str
+# must be wrapped before setattr so pybind11 can convert them correctly.
+_DAL_TYPE_CONVERTERS = {
+    'curve_name': lambda v: _bindings.String_(v),
+    'target_collateral': lambda v: _bindings.CollateralType_(v),
+    'target_tenor': lambda v: _bindings.PeriodLength_(v),
+    'libor_basis': lambda v: _bindings.DayBasis_(v),
+}
+
+
 def _apply_optional_setting(spec, name, value):
     """Apply a single optional setting to a spec builder if the value is not None."""
     if value is None:
@@ -27,7 +37,8 @@ def _apply_optional_setting(spec, name, value):
         'log_df_scheme': 'logDfScheme_',
     }.get(name)
     if attr is not None:
-        setattr(spec, attr, value)
+        convert = _DAL_TYPE_CONVERTERS.get(name)
+        setattr(spec, attr, convert(value) if convert else value)
 
 
 def _build_calibration_spec(today, ccy, instruments, knot_dates, settings):
