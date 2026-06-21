@@ -153,6 +153,9 @@ Reference files:
   - `Deposit_New`, `Swap_New`, `CrossCurrencySwap_New`, `DiscountPWLF_New`, `CurveBlock_New`
   - `PseudoRSG_New`, `SobolRSG_New`
   - The function returns a handle to a newly-created object.
+- **Enum value constructors**: follow the pattern `<EnumType>_<EnumValue>`, where `EnumType` is the enum class name (without trailing `_`) and `EnumValue` is the value name.
+  - `CollateralType_OIS`, `CollateralType_Libor` — create a `CollateralType_` with a specific enum value.
+  - These are named constants, not factories — they do NOT use `_New`.
 - **Result / getter functions** (operating on an existing handle): follow the pattern `<Type>_Get_<Result>`, where `Type` is the handle's class name and `Result` describes what is retrieved.
   - `PseudoRSG_Get_Uniform`, `PseudoRSG_Get_Normal`, `SobolRSG_Get_Uniform`, `SobolRSG_Get_Normal`
   - For global state accessors (no handle input), the form is `<Name>_Get`: `EvaluationDate_Get`
