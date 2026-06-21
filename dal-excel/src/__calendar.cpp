@@ -25,7 +25,7 @@ result is boolean
 -IF-------------------------------------------------------------------------*/
 
 /*IF--------------------------------------------------------------------------
-public NextBus
+public NextBizDay
     Find the next business day on or after the given date
 &inputs
 center is string
@@ -38,7 +38,7 @@ result is date
 -IF-------------------------------------------------------------------------*/
 
 /*IF--------------------------------------------------------------------------
-public PrevBus
+public PrevBizDay
     Find the previous business day on or before the given date
 &inputs
 center is string
@@ -87,12 +87,12 @@ namespace Dal {
             *result = Holidays::IsBusinessDay(hols, date);
         }
 
-        void NextBus(const String_& center, const Date_& date, Date_* result) {
+        void NextBizDay(const String_& center, const Date_& date, Date_* result) {
             Holidays_ hols(center);
             *result = Holidays::NextBus(hols, date);
         }
 
-        void PrevBus(const String_& center, const Date_& date, Date_* result) {
+        void PrevBizDay(const String_& center, const Date_& date, Date_* result) {
             Holidays_ hols(center);
             *result = Holidays::PrevBus(hols, date);
         }
@@ -111,8 +111,8 @@ namespace Dal {
     }
 #ifdef _WIN32
 #include <dal-excel/auto/MG_IsBusinessDay_public.inc>
-#include <dal-excel/auto/MG_NextBus_public.inc>
-#include <dal-excel/auto/MG_PrevBus_public.inc>
+#include <dal-excel/auto/MG_NextBizDay_public.inc>
+#include <dal-excel/auto/MG_PrevBizDay_public.inc>
 #include <dal-excel/auto/MG_Adjust_public.inc>
 #include <dal-excel/auto/MG_CountBusDays_public.inc>
 #endif

@@ -156,7 +156,7 @@ Reference files:
 - **Result / getter functions** (operating on an existing handle): follow the pattern `<Type>_Get_<Result>`, where `Type` is the handle's class name and `Result` describes what is retrieved.
   - `PseudoRSG_Get_Uniform`, `PseudoRSG_Get_Normal`, `SobolRSG_Get_Uniform`, `SobolRSG_Get_Normal`
   - For global state accessors (no handle input), the form is `<Name>_Get`: `EvaluationDate_Get`
-  - Use this pattern only when the function extracts or computes a result from an existing handle input or global state; standalone utility functions (e.g., `PrevBus`, `NextBus`) and action functions (e.g., `CalibrateSingleCurve`) do not need this prefix.
+  - Use this pattern only when the function extracts or computes a result from an existing handle input or global state; standalone utility functions (e.g., `PrevBizDay`, `NextBizDay`) and action functions (e.g., `CalibrateSingleCurve`) do not need this prefix.
 - **Setter / mutator functions**: mirror the getter pattern with `_Set` in place of `_Get`.
   - `<Type>_Set_<Result>` for handle-based setters, or `<Name>_Set` for global state.
   - `EvaluationDate_Set` — sets the global evaluation date.

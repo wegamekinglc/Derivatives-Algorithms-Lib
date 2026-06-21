@@ -114,39 +114,39 @@ def test_is_business_day_cn_ib():
     assert dal.IsBusinessDay(hol, dal.Date_(2020, 10, 10))  # nosec B101 - pytest assertions are intentional
 
 
-# ---- NextBus / PrevBus ----
+# ---- NextBizDay / PrevBizDay ----
 
 def test_next_bus_cn_sse():
-    """NextBus finds the next business day after a Saturday."""
+    """NextBizDay finds the next business day after a Saturday."""
     hol = dal.Holidays_("CN.SSE")
     # Oct 10, 2020 is Saturday. Next business day is Monday Oct 12
     d = dal.Date_(2020, 10, 10)
-    nxt = dal.NextBus(hol, d)
+    nxt = dal.NextBizDay(hol, d)
     assert nxt == dal.Date_(2020, 10, 12)  # nosec B101 - pytest assertions are intentional
 
 
 def test_next_bus_cn_ib_work_weekend():
-    """NextBus CN.IB: a working weekend is its own next business day."""
+    """NextBizDay CN.IB: a working weekend is its own next business day."""
     hol = dal.Holidays_("CN.IB")
     d = dal.Date_(2020, 10, 10)
-    nxt = dal.NextBus(hol, d)
+    nxt = dal.NextBizDay(hol, d)
     assert nxt == dal.Date_(2020, 10, 10)  # nosec B101 - pytest assertions are intentional
 
 
 def test_prev_bus_cn_sse():
-    """PrevBus finds the previous business day before a Saturday."""
+    """PrevBizDay finds the previous business day before a Saturday."""
     hol = dal.Holidays_("CN.SSE")
     # Oct 10, 2020 is Saturday. Previous business day is Friday Oct 9
     d = dal.Date_(2020, 10, 10)
-    prv = dal.PrevBus(hol, d)
+    prv = dal.PrevBizDay(hol, d)
     assert prv == dal.Date_(2020, 10, 9)  # nosec B101 - pytest assertions are intentional
 
 
 def test_prev_bus_cn_ib_work_weekend():
-    """PrevBus CN.IB: a working weekend is its own previous business day."""
+    """PrevBizDay CN.IB: a working weekend is its own previous business day."""
     hol = dal.Holidays_("CN.IB")
     d = dal.Date_(2020, 10, 10)
-    prv = dal.PrevBus(hol, d)
+    prv = dal.PrevBizDay(hol, d)
     assert prv == dal.Date_(2020, 10, 10)  # nosec B101 - pytest assertions are intentional
 
 
@@ -203,9 +203,9 @@ def test_biz_day_convention_values():
 # ---- Cross-calendar: CN.SSE vs CN.IB composite ----
 
 def test_composite_next_bus():
-    """Composite calendar: NextBus treats IB working weekends as business days."""
+    """Composite calendar: NextBizDay treats IB working weekends as business days."""
     hol = dal.Holidays_("CN.SSE CN.IB")
     # Oct 10, 2020: CN.SSE says weekend, CN.IB says work weekend — composite says bus day
     d = dal.Date_(2020, 10, 10)
-    nxt = dal.NextBus(hol, d)
+    nxt = dal.NextBizDay(hol, d)
     assert nxt == dal.Date_(2020, 10, 10)  # nosec B101 - pytest assertions are intentional

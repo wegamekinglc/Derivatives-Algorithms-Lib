@@ -51,9 +51,9 @@ void init_bindings_calendar(py::module_& m) {
     // =======================================================================
     m.def("IsBusinessDay", &Holidays::IsBusinessDay,
           py::arg("holidays"), py::arg("date"));
-    m.def("NextBus", &Holidays::NextBus,
+    m.def("NextBizDay", &Holidays::NextBus,
           py::arg("holidays"), py::arg("date"));
-    m.def("PrevBus", &Holidays::PrevBus,
+    m.def("PrevBizDay", &Holidays::PrevBus,
           py::arg("holidays"), py::arg("date"));
     m.def("Adjust", [](const Holidays_& hols, const Date_& date,
                           BizDayConvention_::Value_ convention) -> Date_ {
