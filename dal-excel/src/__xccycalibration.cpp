@@ -29,7 +29,7 @@ knotDates is date[]
     Knot dates for the basis curve
 &optional
 settings is cell[][]
-    &$.Cols() == 2 || $.empty()\must have two columns (key, value)
+    &$.Cols() == 2 || $.Empty()\must have two columns (key, value)
     Optional settings as a two-column range. Supported keys:
     fxSpot (number), fxForwardCollateral (string), smoothingWeight (number),
     tolerance (number), fitTolerance (number), initialGuess (number),
@@ -45,36 +45,44 @@ rmsResidual is number
 
 namespace Dal {
     namespace {
+        void ApplyXccyStringSettings(const String_& key, const Cell_& val, CrossCurrencyCalibrationSpecBuilder_& b) {
+            if (key == "fxForwardCollateral")
+                b.fxForwardCollateral_ = CollateralType_(Cell::ToString(val));
+            else if (key == "solveMode")
+                b.solveMode_ = CurveSolveMode_(Cell::ToString(val));
+        }
+
+        void ApplyXccyNumericSettings(const String_& key, const Cell_& val, CrossCurrencyCalibrationSpecBuilder_& b) {
+            if (key == "fxSpot") {
+                if (Cell::IsDouble(val))
+                    b.fxSpot_ = Cell::ToDouble(val);
+            } else if (key == "smoothingWeight") {
+                if (Cell::IsDouble(val))
+                    b.smoothingWeight_ = Cell::ToDouble(val);
+            } else if (key == "tolerance") {
+                if (Cell::IsDouble(val))
+                    b.tolerance_ = Cell::ToDouble(val);
+            } else if (key == "fitTolerance") {
+                if (Cell::IsDouble(val))
+                    b.fitTolerance_ = Cell::ToDouble(val);
+            } else if (key == "initialGuess") {
+                if (Cell::IsDouble(val))
+                    b.initialGuess_ = Cell::ToDouble(val);
+            } else if (key == "maxEvaluations") {
+                if (Cell::IsInt(val))
+                    b.maxEvaluations_ = Cell::ToInt(val);
+            } else if (key == "maxRestarts") {
+                if (Cell::IsInt(val))
+                    b.maxRestarts_ = Cell::ToInt(val);
+            }
+        }
+
         void ApplyXccySettings(const Dictionary_& settings, CrossCurrencyCalibrationSpecBuilder_& b) {
             for (const auto& kv : settings) {
-                const String_ key = kv.first;
+                const String_& key = kv.first;
                 const Cell_& val = kv.second;
-                if (key == "fxSpot") {
-                    if (Cell::IsDouble(val))
-                        b.fxSpot_ = Cell::ToDouble(val);
-                } else if (key == "fxForwardCollateral") {
-                    b.fxForwardCollateral_ = CollateralType_(Cell::CoerceToString(val));
-                } else if (key == "smoothingWeight") {
-                    if (Cell::IsDouble(val))
-                        b.smoothingWeight_ = Cell::ToDouble(val);
-                } else if (key == "tolerance") {
-                    if (Cell::IsDouble(val))
-                        b.tolerance_ = Cell::ToDouble(val);
-                } else if (key == "fitTolerance") {
-                    if (Cell::IsDouble(val))
-                        b.fitTolerance_ = Cell::ToDouble(val);
-                } else if (key == "initialGuess") {
-                    if (Cell::IsDouble(val))
-                        b.initialGuess_ = Cell::ToDouble(val);
-                } else if (key == "maxEvaluations") {
-                    if (Cell::IsInt(val))
-                        b.maxEvaluations_ = Cell::ToInt(val);
-                } else if (key == "maxRestarts") {
-                    if (Cell::IsInt(val))
-                        b.maxRestarts_ = Cell::ToInt(val);
-                } else if (key == "solveMode") {
-                    b.solveMode_ = CurveSolveMode_(Cell::CoerceToString(val));
-                }
+                ApplyXccyStringSettings(key, val, b);
+                ApplyXccyNumericSettings(key, val, b);
             }
         }
 
@@ -83,9 +91,9 @@ namespace Dal {
                                   const String_& foreignCcy,
                                   const Handle_<StorableCurveBlock_>& domesticBlock,
                                   const Handle_<StorableCurveBlock_>& foreignBlock,
-                                  const Vector_<Handle_<StorableCrossCurrencySwap_>>& instrumentWrappers,
+                                  const Vector_<Handle_<Storable_>>& instrumentWrappers,
                                   const Vector_<Date_>& knotDates,
-                                  const Dictionary_& settings,
+                                  const Matrix_<Cell_>& settings,
                                   Handle_<StorableDiscountCurve_>* basisCurve,
                                   double* maxAbsResidual,
                                   double* rmsResidual) {
@@ -101,15 +109,24 @@ namespace Dal {
             // Convert instrument wrappers to raw handles
             for (const auto& w : instrumentWrappers) {
                 REQUIRE(w, "Invalid instrument handle");
-                builder.instruments_.push_back(w->val_);
+                auto xccyInst = handle_cast<StorableCrossCurrencySwap_>(w);
+                REQUIRE(xccyInst, "Instrument must be a cross-currency swap");
+                builder.instruments_.push_back(xccyInst->val_);
             }
 
             // Set knot dates
             builder.knotDates_ = knotDates;
 
-            // Apply optional settings
-            if (!settings.empty())
-                ApplyXccySettings(settings, builder);
+            // Convert Matrix_<Cell_> to Dictionary_ and apply optional settings
+            if (!settings.Empty()) {
+                Dictionary_ dict;
+                for (int i = 0; i < settings.Rows(); ++i) {
+                    if (Cell::IsEmpty(settings(i, 0)))
+                        break;
+                    dict.Insert(Cell::ToString(settings(i, 0)), settings(i, 1));
+                }
+                ApplyXccySettings(dict, builder);
+            }
 
             // Build spec and calibrate
             auto spec = builder.Build();

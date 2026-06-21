@@ -25,7 +25,7 @@ knotDates is date[]
     Knot dates (can be empty for auto-detection)
 &optional
 settings is cell[][]
-    &$.Cols() == 2 || $.empty()\must have two columns (key, value)
+    &$.Cols() == 2 || $.Empty()\must have two columns (key, value)
     Optional settings as a two-column range. Supported keys:
     curveName (string), calibrateDiscountCurve (boolean), smoothingWeight (number),
     tolerance (number), fitTolerance (number), maxEvaluations (integer), maxRestarts (integer),
@@ -50,55 +50,65 @@ rmsResidual is number
 
 namespace Dal {
     namespace {
+        // Helper: apply string-based settings
+        void ApplyStringSettings(const String_& key, const Cell_& val, CurveCalibrationSpecBuilder_& b) {
+            if (key == "curveName")
+                b.curveName_ = Cell::ToString(val);
+            else if (key == "solveMode")
+                b.solveMode_ = CurveSolveMode_(Cell::ToString(val));
+            else if (key == "parameterization")
+                b.parameterization_ = CurveParameterization_(Cell::ToString(val));
+            else if (key == "logDfScheme")
+                b.logDfScheme_ = LogDfScheme_(Cell::ToString(val));
+            else if (key == "liborBasis")
+                b.liborBasis_ = DayBasis_(Cell::ToString(val));
+            else if (key == "targetCollateral")
+                b.targetCollateral_ = CollateralType_(Cell::ToString(val));
+            else if (key == "targetTenor")
+                b.targetTenor_ = PeriodLength_(Cell::ToString(val));
+        }
+
+        // Helper: apply numeric/bool settings
+        void ApplyNumericSettings(const String_& key, const Cell_& val, CurveCalibrationSpecBuilder_& b) {
+            if (key == "calibrateDiscountCurve") {
+                if (Cell::IsBool(val))
+                    b.calibrateDiscountCurve_ = Cell::ToBool(val);
+            } else if (key == "smoothingWeight") {
+                if (Cell::IsDouble(val))
+                    b.smoothingWeight_ = Cell::ToDouble(val);
+            } else if (key == "tolerance") {
+                if (Cell::IsDouble(val))
+                    b.tolerance_ = Cell::ToDouble(val);
+            } else if (key == "fitTolerance") {
+                if (Cell::IsDouble(val))
+                    b.fitTolerance_ = Cell::ToDouble(val);
+            } else if (key == "maxEvaluations") {
+                if (Cell::IsInt(val))
+                    b.maxEvaluations_ = Cell::ToInt(val);
+            } else if (key == "maxRestarts") {
+                if (Cell::IsInt(val))
+                    b.maxRestarts_ = Cell::ToInt(val);
+            } else if (key == "initialGuess") {
+                if (Cell::IsDouble(val))
+                    b.initialGuess_ = Cell::ToDouble(val);
+            }
+        }
+
         // Helper: apply dictionary settings to a CurveCalibrationSpecBuilder_
         void ApplySettings(const Dictionary_& settings, CurveCalibrationSpecBuilder_& b) {
             for (const auto& kv : settings) {
-                const String_ key = kv.first;
+                const String_& key = kv.first;
                 const Cell_& val = kv.second;
-                if (key == "curveName") {
-                    b.curveName_ = Cell::CoerceToString(val);
-                } else if (key == "calibrateDiscountCurve") {
-                    if (Cell::IsBool(val))
-                        b.calibrateDiscountCurve_ = Cell::ToBool(val);
-                } else if (key == "smoothingWeight") {
-                    if (Cell::IsDouble(val))
-                        b.smoothingWeight_ = Cell::ToDouble(val);
-                } else if (key == "tolerance") {
-                    if (Cell::IsDouble(val))
-                        b.tolerance_ = Cell::ToDouble(val);
-                } else if (key == "fitTolerance") {
-                    if (Cell::IsDouble(val))
-                        b.fitTolerance_ = Cell::ToDouble(val);
-                } else if (key == "maxEvaluations") {
-                    if (Cell::IsInt(val))
-                        b.maxEvaluations_ = Cell::ToInt(val);
-                } else if (key == "maxRestarts") {
-                    if (Cell::IsInt(val))
-                        b.maxRestarts_ = Cell::ToInt(val);
-                } else if (key == "initialGuess") {
-                    if (Cell::IsDouble(val))
-                        b.initialGuess_ = Cell::ToDouble(val);
-                } else if (key == "solveMode") {
-                    b.solveMode_ = CurveSolveMode_(Cell::CoerceToString(val));
-                } else if (key == "parameterization") {
-                    b.parameterization_ = CurveParameterization_(Cell::CoerceToString(val));
-                } else if (key == "logDfScheme") {
-                    b.logDfScheme_ = LogDfScheme_(Cell::CoerceToString(val));
-                } else if (key == "liborBasis") {
-                    b.liborBasis_ = DayBasis_(Cell::CoerceToString(val));
-                } else if (key == "targetCollateral") {
-                    b.targetCollateral_ = CollateralType_(Cell::CoerceToString(val));
-                } else if (key == "targetTenor") {
-                    b.targetTenor_ = PeriodLength_(Cell::CoerceToString(val));
-                }
+                ApplyStringSettings(key, val, b);
+                ApplyNumericSettings(key, val, b);
             }
         }
 
         void CalibrateSingleCurve(const Date_& today,
                                    const String_& ccy,
-                                   const Vector_<Handle_<StorableYCInstrument_>>& instrumentWrappers,
+                                   const Vector_<Handle_<Storable_>>& instrumentWrappers,
                                    const Vector_<Date_>& knotDates,
-                                   const Dictionary_& settings,
+                                   const Matrix_<Cell_>& settings,
                                    Handle_<StorableDiscountCurve_>* curve,
                                    Vector_<>* marketRates,
                                    Vector_<>* modelRates,
@@ -112,15 +122,24 @@ namespace Dal {
             // Convert instrument wrappers to raw handles
             for (const auto& w : instrumentWrappers) {
                 REQUIRE(w, "Invalid instrument handle");
-                builder.instruments_.push_back(w->val_);
+                auto ycInst = handle_cast<StorableYCInstrument_>(w);
+                REQUIRE(ycInst, "Instrument must be a YC instrument");
+                builder.instruments_.push_back(ycInst->val_);
             }
 
             // Set knot dates
             builder.knotDates_ = knotDates;
 
-            // Apply optional settings
-            if (!settings.empty())
-                ApplySettings(settings, builder);
+            // Convert Matrix_<Cell_> to Dictionary_ and apply optional settings
+            if (!settings.Empty()) {
+                Dictionary_ dict;
+                for (int i = 0; i < settings.Rows(); ++i) {
+                    if (Cell::IsEmpty(settings(i, 0)))
+                        break;
+                    dict.Insert(Cell::ToString(settings(i, 0)), settings(i, 1));
+                }
+                ApplySettings(dict, builder);
+            }
 
             // Build spec and calibrate
             auto spec = builder.Build();

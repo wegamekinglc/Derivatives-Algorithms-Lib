@@ -19,7 +19,7 @@ ENV_SEED_TYPE(ObjectAccess_);
         const Vector_<Date_> knotDates = Excel::ToDateVector(xl_knotDates);
         argName = "settings (input #5)";
         const Matrix_<Cell_> settings = Excel::ToCellMatrix(xl_settings, true);
-      REQUIRE(settings.Cols() == 2 || settings.empty(), "must have two columns (key, value)");
+      REQUIRE(settings.Cols() == 2 || settings.Empty(), "must have two columns (key, value)");
         argName = 0;
 		Handle_<StorableDiscountCurve_> curve;
 		Vector_<double> marketRates;
