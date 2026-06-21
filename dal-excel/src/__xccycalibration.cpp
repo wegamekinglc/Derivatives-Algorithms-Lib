@@ -109,13 +109,6 @@ namespace Dal {
             }
         }
 
-        Matrix_<Cell_> AsColumn(const Vector_<>& v) {
-            Matrix_<Cell_> m(v.size(), 1);
-            for (int i = 0; i < v.size(); ++i)
-                m(i, 0) = Cell_(v[i]);
-            return m;
-        }
-
         void Calibrate_XccyMarket(const Date_& today,
                                    const String_& domesticCcy,
                                    const String_& foreignCcy,
@@ -177,11 +170,11 @@ namespace Dal {
             REQUIRE(result, "Invalid XCCY calibration result handle");
             const auto& diag = result->val_.diagnostics_;
             if (attribute == "marketRates")
-                *value = AsColumn(diag.marketRates_);
+                *value = AsCellColumn(diag.marketRates_);
             else if (attribute == "modelRates")
-                *value = AsColumn(diag.modelRates_);
+                *value = AsCellColumn(diag.modelRates_);
             else if (attribute == "residuals")
-                *value = AsColumn(diag.residuals_);
+                *value = AsCellColumn(diag.residuals_);
             else if (attribute == "maxAbsResidual")
                 *value = Matrix_<Cell_>(1, 1, Cell_(diag.maxAbsResidual_));
             else if (attribute == "rmsResidual")

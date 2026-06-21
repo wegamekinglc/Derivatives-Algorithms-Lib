@@ -174,24 +174,17 @@ namespace Dal {
             curve->reset(new StorableDiscountCurve_(result->val_.curve_));
         }
 
-        Matrix_<Cell_> AsColumn(const Vector_<>& v) {
-            Matrix_<Cell_> m(v.size(), 1);
-            for (int i = 0; i < v.size(); ++i)
-                m(i, 0) = Cell_(v[i]);
-            return m;
-        }
-
         void CalibrationResult_Get(const Handle_<StorableCurveCalibrationResult_>& result,
                                     const String_& attribute,
                                     Matrix_<Cell_>* value) {
             REQUIRE(result, "Invalid calibration result handle");
             const auto& diag = result->val_.diagnostics_;
             if (attribute == "marketRates")
-                *value = AsColumn(diag.marketRates_);
+                *value = AsCellColumn(diag.marketRates_);
             else if (attribute == "modelRates")
-                *value = AsColumn(diag.modelRates_);
+                *value = AsCellColumn(diag.modelRates_);
             else if (attribute == "residuals")
-                *value = AsColumn(diag.residuals_);
+                *value = AsCellColumn(diag.residuals_);
             else if (attribute == "maxAbsResidual")
                 *value = Matrix_<Cell_>(1, 1, Cell_(diag.maxAbsResidual_));
             else if (attribute == "rmsResidual")

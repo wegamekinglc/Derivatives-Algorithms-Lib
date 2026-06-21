@@ -7,6 +7,7 @@
 #pragma once
 
 #include "__platform.hpp"
+#include <dal/math/cell.hpp>
 #include <dal/storage/storable.hpp>
 #include <dal/curve/ycinstrument.hpp>
 #include <dal/curve/xccyinstrument.hpp>
@@ -120,5 +121,14 @@ namespace Dal {
             : Storable_("CrossCurrencyCalibrationResult", String_()), val_(v), basisCurve_(basis) {}
         void Write(Archive::Store_&) const override {}
     };
+
+    // Lay a double vector down as an Nx1 cell column, used by the calibration
+    // result Get accessors to return rate vectors to Excel.
+    inline Matrix_<Cell_> AsCellColumn(const Vector_<>& v) {
+        Matrix_<Cell_> m(v.size(), 1);
+        for (int i = 0; i < v.size(); ++i)
+            m(i, 0) = Cell_(v[i]);
+        return m;
+    }
 
 } // namespace Dal
