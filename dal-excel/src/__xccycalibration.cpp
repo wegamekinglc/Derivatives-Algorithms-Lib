@@ -52,29 +52,30 @@ namespace Dal {
                 b.solveMode_ = CurveSolveMode_(Cell::ToString(val));
         }
 
-        void ApplyXccyNumericSettings(const String_& key, const Cell_& val, CrossCurrencyCalibrationSpecBuilder_& b) {
-            if (key == "fxSpot") {
-                if (Cell::IsDouble(val))
-                    b.fxSpot_ = Cell::ToDouble(val);
-            } else if (key == "smoothingWeight") {
-                if (Cell::IsDouble(val))
-                    b.smoothingWeight_ = Cell::ToDouble(val);
-            } else if (key == "tolerance") {
-                if (Cell::IsDouble(val))
-                    b.tolerance_ = Cell::ToDouble(val);
-            } else if (key == "fitTolerance") {
-                if (Cell::IsDouble(val))
-                    b.fitTolerance_ = Cell::ToDouble(val);
-            } else if (key == "initialGuess") {
-                if (Cell::IsDouble(val))
-                    b.initialGuess_ = Cell::ToDouble(val);
-            } else if (key == "maxEvaluations") {
-                if (Cell::IsInt(val))
-                    b.maxEvaluations_ = Cell::ToInt(val);
-            } else if (key == "maxRestarts") {
-                if (Cell::IsInt(val))
-                    b.maxRestarts_ = Cell::ToInt(val);
-            }
+        void ApplyXccyDoubleSettings(const String_& key, const Cell_& val, CrossCurrencyCalibrationSpecBuilder_& b) {
+            if (!Cell::IsDouble(val))
+                return;
+            double d = Cell::ToDouble(val);
+            if (key == "fxSpot")
+                b.fxSpot_ = d;
+            else if (key == "smoothingWeight")
+                b.smoothingWeight_ = d;
+            else if (key == "tolerance")
+                b.tolerance_ = d;
+            else if (key == "fitTolerance")
+                b.fitTolerance_ = d;
+            else if (key == "initialGuess")
+                b.initialGuess_ = d;
+        }
+
+        void ApplyXccyIntSettings(const String_& key, const Cell_& val, CrossCurrencyCalibrationSpecBuilder_& b) {
+            if (!Cell::IsInt(val))
+                return;
+            int i = Cell::ToInt(val);
+            if (key == "maxEvaluations")
+                b.maxEvaluations_ = i;
+            else if (key == "maxRestarts")
+                b.maxRestarts_ = i;
         }
 
         void ApplyXccySettings(const Dictionary_& settings, CrossCurrencyCalibrationSpecBuilder_& b) {
@@ -82,7 +83,8 @@ namespace Dal {
                 const String_& key = kv.first;
                 const Cell_& val = kv.second;
                 ApplyXccyStringSettings(key, val, b);
-                ApplyXccyNumericSettings(key, val, b);
+                ApplyXccyDoubleSettings(key, val, b);
+                ApplyXccyIntSettings(key, val, b);
             }
         }
 

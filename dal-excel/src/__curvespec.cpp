@@ -68,30 +68,30 @@ namespace Dal {
                 b.targetTenor_ = PeriodLength_(Cell::ToString(val));
         }
 
-        // Helper: apply numeric/bool settings
-        void ApplyNumericSettings(const String_& key, const Cell_& val, CurveCalibrationSpecBuilder_& b) {
-            if (key == "calibrateDiscountCurve") {
-                if (Cell::IsBool(val))
-                    b.calibrateDiscountCurve_ = Cell::ToBool(val);
-            } else if (key == "smoothingWeight") {
-                if (Cell::IsDouble(val))
-                    b.smoothingWeight_ = Cell::ToDouble(val);
-            } else if (key == "tolerance") {
-                if (Cell::IsDouble(val))
-                    b.tolerance_ = Cell::ToDouble(val);
-            } else if (key == "fitTolerance") {
-                if (Cell::IsDouble(val))
-                    b.fitTolerance_ = Cell::ToDouble(val);
-            } else if (key == "maxEvaluations") {
-                if (Cell::IsInt(val))
-                    b.maxEvaluations_ = Cell::ToInt(val);
-            } else if (key == "maxRestarts") {
-                if (Cell::IsInt(val))
-                    b.maxRestarts_ = Cell::ToInt(val);
-            } else if (key == "initialGuess") {
-                if (Cell::IsDouble(val))
-                    b.initialGuess_ = Cell::ToDouble(val);
-            }
+        // Helper: apply double-valued settings (type check once, then dispatch by key)
+        void ApplyDoubleSettings(const String_& key, const Cell_& val, CurveCalibrationSpecBuilder_& b) {
+            if (!Cell::IsDouble(val))
+                return;
+            double d = Cell::ToDouble(val);
+            if (key == "smoothingWeight")
+                b.smoothingWeight_ = d;
+            else if (key == "tolerance")
+                b.tolerance_ = d;
+            else if (key == "fitTolerance")
+                b.fitTolerance_ = d;
+            else if (key == "initialGuess")
+                b.initialGuess_ = d;
+        }
+
+        // Helper: apply int-valued settings
+        void ApplyIntSettings(const String_& key, const Cell_& val, CurveCalibrationSpecBuilder_& b) {
+            if (!Cell::IsInt(val))
+                return;
+            int i = Cell::ToInt(val);
+            if (key == "maxEvaluations")
+                b.maxEvaluations_ = i;
+            else if (key == "maxRestarts")
+                b.maxRestarts_ = i;
         }
 
         // Helper: apply dictionary settings to a CurveCalibrationSpecBuilder_
@@ -99,8 +99,14 @@ namespace Dal {
             for (const auto& kv : settings) {
                 const String_& key = kv.first;
                 const Cell_& val = kv.second;
-                ApplyStringSettings(key, val, b);
-                ApplyNumericSettings(key, val, b);
+                if (key == "calibrateDiscountCurve") {
+                    if (Cell::IsBool(val))
+                        b.calibrateDiscountCurve_ = Cell::ToBool(val);
+                } else {
+                    ApplyStringSettings(key, val, b);
+                    ApplyDoubleSettings(key, val, b);
+                    ApplyIntSettings(key, val, b);
+                }
             }
         }
 
