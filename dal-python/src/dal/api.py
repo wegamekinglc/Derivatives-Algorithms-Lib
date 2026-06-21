@@ -8,11 +8,12 @@ def Product_New(events_dates: list, events: list[str]):
 
 # Settings whose target fields expect DAL value types — plain Python str
 # must be wrapped before setattr so pybind11 can convert them correctly.
+# DAL objects (String_, CollateralType_ etc.) pass through as-is.
 _DAL_TYPE_CONVERTERS = {
-    'curve_name': lambda v: _bindings.String_(v),
-    'target_collateral': lambda v: _bindings.CollateralType_(v),
-    'target_tenor': lambda v: _bindings.PeriodLength_(v),
-    'libor_basis': lambda v: _bindings.DayBasis_(v),
+    'curve_name': lambda v: _bindings.String_(v) if isinstance(v, str) else v,
+    'target_collateral': lambda v: _bindings.CollateralType_(v) if isinstance(v, str) else v,
+    'target_tenor': lambda v: _bindings.PeriodLength_(v) if isinstance(v, str) else v,
+    'libor_basis': lambda v: _bindings.DayBasis_(v) if isinstance(v, str) else v,
 }
 
 
