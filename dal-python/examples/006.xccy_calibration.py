@@ -136,7 +136,7 @@ def main():
     # ------------------------------------------------------------------
     # Run cross-currency calibration
     # ------------------------------------------------------------------
-    result = _dal.CalibrateXccyMarket(xccy_spec)
+    result = _dal.CalibrateXccyMarket_New(xccy_spec)
     diag = result.diagnostics_
 
     # ------------------------------------------------------------------

@@ -10,7 +10,7 @@
 #include <dal/utilities/dictionary.hpp>
 
 /*IF--------------------------------------------------------------------------
-public CalibrateXccyMarket
+public CalibrateXccyMarket_New
     Calibrate a cross-currency basis market from instruments and settings
 &inputs
 today is date
@@ -88,7 +88,7 @@ namespace Dal {
             }
         }
 
-        void CalibrateXccyMarket(const Date_& today,
+        void CalibrateXccyMarket_New(const Date_& today,
                                   const String_& domesticCcy,
                                   const String_& foreignCcy,
                                   const Handle_<StorableCurveBlock_>& domesticBlock,
@@ -148,6 +148,6 @@ namespace Dal {
         }
     }
 #ifdef _WIN32
-#include <dal-excel/auto/MG_CalibrateXccyMarket_public.inc>
+#include <dal-excel/auto/MG_CalibrateXccyMarket_New_public.inc>
 #endif
 }

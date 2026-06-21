@@ -100,7 +100,7 @@ def test_calibrate_xccy_market():
     builder.knotDates_ = knot_dates
 
     spec = builder.Build()
-    result = dal.CalibrateXccyMarket(spec)
+    result = dal.CalibrateXccyMarket_New(spec)
 
     diag = result.diagnostics_
     assert len(diag.marketRates_) > 0  # nosec B101 - pytest assertions are intentional
@@ -132,7 +132,7 @@ def test_calibrate_xccy_market_result_has_market():
     builder.knotDates_ = knot_dates
 
     spec = builder.Build()
-    result = dal.CalibrateXccyMarket(spec)
+    result = dal.CalibrateXccyMarket_New(spec)
 
     assert result.market_ is not None  # nosec B101 - pytest assertions are intentional
     assert result.fxForwardCurve_ is not None  # nosec B101 - pytest assertions are intentional

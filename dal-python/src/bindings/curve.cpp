@@ -526,7 +526,7 @@ namespace {
                 return r.diagnostics_;
             }, py::return_value_policy::reference_internal));
 
-        m.def("CalibrateXccyMarket", &CalibrateXccyMarket, py::arg("spec"));
+        m.def("CalibrateXccyMarket_New", &CalibrateXccyMarket, py::arg("spec"));
     }
 } // anonymous namespace
 
