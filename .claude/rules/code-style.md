@@ -142,7 +142,7 @@ Then build normally. The auto-generated files (`dal-cpp/dal/auto/MG_*_enum.hpp`,
 
 These conventions apply to both:
 
-- **`dal-excel`**: Machinist `public` function names in `dal-excel/src/` markup blocks. The generated Excel name strips underscores and uppercases (e.g., `Deposit_New` → `DA.DEPOSITNEW`).
+- **`dal-excel`**: Machinist `public` function names in `dal-excel/src/` markup blocks. The generated Excel name turns underscores into dots and uppercases; names containing a dot keep that form, while names without a dot get a `DA.` prefix (e.g., `Deposit_New` → `DEPOSIT.NEW`, `Is_BizDay` → `IS.BIZDAY`, `Calibrate_SingleCurve` → `CALIBRATE.SINGLECURVE`).
 - **`dal-python`**: `m.def()` names in `dal-python/src/bindings/` files. The Python-visible name keeps the underscores as-is (e.g., `PseudoRSG_New` stays `PseudoRSG_New`).
 
 Reference files:
