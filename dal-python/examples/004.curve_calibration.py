@@ -25,7 +25,7 @@ S = dal.String_
 
 
 def make_flat_discount_curve(name, ccy, today, rate):
-    """Build a flat discount curve using DiscountPWLFNew for synthetic market data."""
+    """Build a flat discount curve using DiscountPWLF_New for synthetic market data."""
     knot_dates = [
         today.AddDays(30),    # 1M
         today.AddDays(90),    # 3M
@@ -38,7 +38,7 @@ def make_flat_discount_curve(name, ccy, today, rate):
         today.AddDays(3650),  # 120M
     ]
     fwd_rates = [rate] * len(knot_dates)
-    return dal.DiscountPWLFNew(name, ccy, knot_dates, fwd_rates)
+    return dal.DiscountPWLF_New(name, ccy, knot_dates, fwd_rates)
 
 
 def main():

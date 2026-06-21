@@ -18,11 +18,11 @@ def _make_baseline_curves():
     knot_dates = [_spot(), _spot().AddDays(3650)]
     ois_rates = [0.04, 0.04]
 
-    usd_ois = dal.DiscountPWLFNew("usd_ois", "USD", knot_dates, ois_rates)
-    eur_ois = dal.DiscountPWLFNew("eur_ois", "EUR", knot_dates, ois_rates)
+    usd_ois = dal.DiscountPWLF_New("usd_ois", "USD", knot_dates, ois_rates)
+    eur_ois = dal.DiscountPWLF_New("eur_ois", "EUR", knot_dates, ois_rates)
 
-    usd_block = dal.CurveBlockNew(usd_ois, libor_basis=dal.DayBasis_New("ACT_365F"))
-    eur_block = dal.CurveBlockNew(eur_ois, libor_basis=dal.DayBasis_New("ACT_360"))
+    usd_block = dal.CurveBlock_New(usd_ois, libor_basis=dal.DayBasis_New("ACT_365F"))
+    eur_block = dal.CurveBlock_New(eur_ois, libor_basis=dal.DayBasis_New("ACT_360"))
 
     return usd_block, eur_block
 

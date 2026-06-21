@@ -31,13 +31,13 @@ def make_flat_curve(ccy, today, rate):
         today.AddDays(10950),
     ]
     fwd_rates = [rate] * len(knot_dates)
-    return _dal.DiscountPWLFNew(ccy, ccy, knot_dates, fwd_rates)
+    return _dal.DiscountPWLF_New(ccy, ccy, knot_dates, fwd_rates)
 
 
 def make_xccy_block(ccy, today, rate):
     """Build a CurveBlock_ from a single discount curve."""
     curve = make_flat_curve(ccy, today, rate)
-    return _dal.CurveBlockNew(curve)
+    return _dal.CurveBlock_New(curve)
 
 
 def make_xccy_index():

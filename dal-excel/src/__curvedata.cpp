@@ -9,7 +9,7 @@
 #include <dal-public/src/curvedata.hpp>
 
 /*IF--------------------------------------------------------------------------
-public DiscountPWLFNew
+public DiscountPWLF_New
     Build a discount curve from knot dates and forward rates (piecewise-linear forward)
 &inputs
 name is string
@@ -30,7 +30,7 @@ curve is handle StorableDiscountCurve
 -IF-------------------------------------------------------------------------*/
 
 /*IF--------------------------------------------------------------------------
-public CurveBlockNewSimple
+public CurveBlock_New_Simple
     Build a CurveBlock from a single discount curve
 &inputs
 dc is handle StorableDiscountCurve
@@ -45,7 +45,7 @@ block is handle StorableCurveBlock
 
 namespace Dal {
     namespace {
-        void DiscountPWLFNew(const String_& name,
+        void DiscountPWLF_New(const String_& name,
                               const String_& ccy,
                               const Vector_<Date_>& knotDates,
                               const Vector_<>& fwdRates,
@@ -58,7 +58,7 @@ namespace Dal {
             curve->reset(new StorableDiscountCurve_(result));
         }
 
-        void CurveBlockNewSimple(const Handle_<StorableDiscountCurve_>& dc,
+        void CurveBlock_New_Simple(const Handle_<StorableDiscountCurve_>& dc,
                                   const String_& liborBasis,
                                   Handle_<StorableCurveBlock_>* block) {
             REQUIRE(dc, "Invalid discount curve handle");
@@ -67,7 +67,7 @@ namespace Dal {
         }
     }
 #ifdef _WIN32
-#include <dal-excel/auto/MG_DiscountPWLFNew_public.inc>
-#include <dal-excel/auto/MG_CurveBlockNewSimple_public.inc>
+#include <dal-excel/auto/MG_DiscountPWLF_New_public.inc>
+#include <dal-excel/auto/MG_CurveBlock_New_Simple_public.inc>
 #endif
 }

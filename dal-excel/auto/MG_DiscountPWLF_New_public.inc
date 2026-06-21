@@ -1,6 +1,6 @@
 
 
-extern "C" __declspec(dllexport) OPER_* xl_DiscountPWLFNew
+extern "C" __declspec(dllexport) OPER_* xl_DiscountPWLF_New
     (const OPER_* xl_name, const OPER_* xl_ccy, const OPER_* xl_knotDates, const OPER_* xl_fwdRates, const OPER_* xl_base)	
 {
     Excel::InitializeSessionIfNeeded();
@@ -8,7 +8,7 @@ ENV_SEED_TYPE(ObjectAccess_);
     const char* argName = 0;
     try
     {	
-        Logging::Write("DiscountPWLFNew");        
+        Logging::Write("DiscountPWLF_New");        
         argName = "name (input #1)";
         const String_ name = Excel::ToString(xl_name);
         argName = "ccy (input #2)";
@@ -22,7 +22,7 @@ ENV_SEED_TYPE(ObjectAccess_);
         const Handle_<StorableDiscountCurve_> base = Excel::ToHandle<StorableDiscountCurve_>(_env, xl_base, true);
         argName = 0;
 		Handle_<StorableDiscountCurve_> curve;
-        DiscountPWLFNew(name, ccy, knotDates, fwdRates, base, &curve);
+        DiscountPWLF_New(name, ccy, knotDates, fwdRates, base, &curve);
         Excel::Retval_ retval;
         retval.Load(_env, curve);
         return retval.ToXloper();
@@ -37,9 +37,9 @@ ENV_SEED_TYPE(ObjectAccess_);
     }
 }
 
-struct XlRegister_DiscountPWLFNew_
+struct XlRegister_DiscountPWLF_New_
 {
-    XlRegister_DiscountPWLFNew_()
+    XlRegister_DiscountPWLF_New_()
     {
         Vector_<String_> argHelp;        
         argHelp.push_back("A name for the curve");
@@ -47,7 +47,7 @@ struct XlRegister_DiscountPWLFNew_
         argHelp.push_back("Knot dates for the curve");
         argHelp.push_back("Forward rates at each knot date");
         argHelp.push_back("Optional base discount curve");
-        Excel::Register("Base", "xl_DiscountPWLFNew", "DA.DISCOUNTPWLFNEW", "Build a discount curve from knot dates and forward rates (piecewise-linear forward)", "QQQQQQ", "name,ccy,knotDates,fwdRates,[base]", argHelp, false);
+        Excel::Register("Base", "xl_DiscountPWLF_New", "DA.DISCOUNTPWLFNEW", "Build a discount curve from knot dates and forward rates (piecewise-linear forward)", "QQQQQQ", "name,ccy,knotDates,fwdRates,[base]", argHelp, false);
     }
 };
-static XlRegister_DiscountPWLFNew_ The_DiscountPWLFNew_XlRegisterer;
+static XlRegister_DiscountPWLF_New_ The_DiscountPWLF_New_XlRegisterer;

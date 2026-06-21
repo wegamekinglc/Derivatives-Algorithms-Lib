@@ -180,7 +180,7 @@ namespace {
     }
 
     void init_bindings_curve_data(py::module_& m) {
-        m.def("DiscountPWLFNew",
+        m.def("DiscountPWLF_New",
             [](const char* name, const char* ccy,
                const py::iterable& knotDatesPy,
                const py::iterable& fwdRatesPy,
@@ -201,7 +201,7 @@ namespace {
             py::arg("knot_dates"), py::arg("fwd_rates"),
             py::arg("base") = std::shared_ptr<DiscountCurve_>());
 
-        m.def("CurveBlockNew",
+        m.def("CurveBlock_New",
             [](const std::shared_ptr<DiscountCurve_>& dc,
                const DayBasis_& liborBasis)
                -> std::shared_ptr<CurveBlock_> {
@@ -213,7 +213,7 @@ namespace {
             py::arg("discount_curve"),
             py::arg("libor_basis") = DayBasis_("ACT_365F"));
 
-        m.def("CurveBlockNew",
+        m.def("CurveBlock_New",
             [](const char* name, const char* ccy,
                const std::map<CollateralType_, std::shared_ptr<DiscountCurve_>>& discountsPy,
                const std::map<PeriodLength_, std::shared_ptr<DiscountCurve_>>& forwardsPy,
