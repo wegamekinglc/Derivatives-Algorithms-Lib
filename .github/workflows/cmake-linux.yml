@@ -93,7 +93,6 @@ jobs:
 
       - name: Coveralls
         if: matrix.coverage && matrix.compiler == 'gcc-14' && matrix.aad-backend == 'aadet'
-        continue-on-error: true
         uses: coverallsapp/github-action@5cbfd81b66ca5d10c19b062c04de0199c215fb6e
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
