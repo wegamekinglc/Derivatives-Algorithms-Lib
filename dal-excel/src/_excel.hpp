@@ -149,6 +149,10 @@ namespace Dal {
             Vector_<int> matrices_;
 
             void Load(double s);
+            void Load(int s) { Load(double(s)); }
+            void Load(bool s) { Load(double(s ? 1.0 : 0.0)); }
+            void Load(const Date_& s) { Load(Cell_(s)); }
+            void Load(const DateTime_& s) { Load(Cell_(s)); }
             void Load(const String_& s);
             void Load(const Cell_& s);
             void LoadBase(_ENV, const Handle_<Storable_>& s);
