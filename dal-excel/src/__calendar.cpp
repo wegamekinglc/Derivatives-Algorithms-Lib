@@ -12,7 +12,7 @@ namespace Dal {
 } // namespace Dal
 
 /*IF--------------------------------------------------------------------------
-public IsBusinessDay
+public Is_BizDay
     Check whether a date is a business day for a given holiday center
 &inputs
 center is string
@@ -82,7 +82,7 @@ result is integer
 
 namespace Dal {
     namespace {
-        void IsBusinessDay(const String_& center, const Date_& date, bool* result) {
+        void Is_BizDay(const String_& center, const Date_& date, bool* result) {
             Holidays_ hols(center);
             *result = Holidays::IsBusinessDay(hols, date);
         }
@@ -110,7 +110,7 @@ namespace Dal {
         }
     }
 #ifdef _WIN32
-#include <dal-excel/auto/MG_IsBusinessDay_public.inc>
+#include <dal-excel/auto/MG_Is_BizDay_public.inc>
 #include <dal-excel/auto/MG_NextBizDay_public.inc>
 #include <dal-excel/auto/MG_PrevBizDay_public.inc>
 #include <dal-excel/auto/MG_Adjust_public.inc>

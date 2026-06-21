@@ -49,7 +49,7 @@ void init_bindings_calendar(py::module_& m) {
     // =======================================================================
     // Holidays namespace functions (module-level)
     // =======================================================================
-    m.def("IsBusinessDay", &Holidays::IsBusinessDay,
+    m.def("Is_BizDay", &Holidays::IsBusinessDay,
           py::arg("holidays"), py::arg("date"));
     m.def("NextBizDay", &Holidays::NextBus,
           py::arg("holidays"), py::arg("date"));

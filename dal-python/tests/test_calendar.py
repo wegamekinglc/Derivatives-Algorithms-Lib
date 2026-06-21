@@ -96,22 +96,22 @@ def test_composite_has_work_weekends():
     assert hol.IsWorkWeekends(dal.Date_(2020, 10, 10))  # nosec B101 - pytest assertions are intentional
 
 
-# ---- IsBusinessDay ----
+# ---- Is_BizDay ----
 
 def test_is_business_day_cn_sse():
-    """IsBusinessDay returns True for regular business days, False for holidays."""
+    """Is_BizDay returns True for regular business days, False for holidays."""
     hol = dal.Holidays_("CN.SSE")
     # Oct 9, 2020 is a Friday between National Day and a weekend — it's a business day
-    assert dal.IsBusinessDay(hol, dal.Date_(2020, 10, 9))  # nosec B101 - pytest assertions are intentional
+    assert dal.Is_BizDay(hol, dal.Date_(2020, 10, 9))  # nosec B101 - pytest assertions are intentional
     # Oct 7, 2020 is National Day holiday
-    assert not dal.IsBusinessDay(hol, dal.Date_(2020, 10, 7))  # nosec B101 - pytest assertions are intentional
+    assert not dal.Is_BizDay(hol, dal.Date_(2020, 10, 7))  # nosec B101 - pytest assertions are intentional
 
 
 def test_is_business_day_cn_ib():
-    """IsBusinessDay CN.IB: working weekends count as business days."""
+    """Is_BizDay CN.IB: working weekends count as business days."""
     hol = dal.Holidays_("CN.IB")
     # Oct 10, 2020 is a Saturday but a working weekend
-    assert dal.IsBusinessDay(hol, dal.Date_(2020, 10, 10))  # nosec B101 - pytest assertions are intentional
+    assert dal.Is_BizDay(hol, dal.Date_(2020, 10, 10))  # nosec B101 - pytest assertions are intentional
 
 
 # ---- NextBizDay / PrevBizDay ----

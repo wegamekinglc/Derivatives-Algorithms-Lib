@@ -165,7 +165,7 @@ Reference files:
   - `EvaluationDate_Set` — sets the global evaluation date.
   - A `_Set` function should always have a corresponding `_Get` function; do not create a standalone `_Set` without its getter counterpart.
 - **Status / check functions**: start with `Is_` followed by the condition being tested in PascalCase.
-  - `Is_BusinessDay` — returns a boolean indicating whether a date is a business day.
+  - `Is_BizDay` — returns a boolean indicating whether a date is a business day.
   - Use this prefix for any public function whose primary purpose is to answer a yes/no question about its inputs.
 
 ## Key Macros
