@@ -1,6 +1,6 @@
 
 
-extern "C" __declspec(dllexport) OPER_* xl_DepositNew
+extern "C" __declspec(dllexport) OPER_* xl_FRA_New
     (const OPER_* xl_tradeDate, const OPER_* xl_start, const OPER_* xl_maturity, const OPER_* xl_marketRate, const OPER_* xl_convention)	
 {
     Excel::InitializeSessionIfNeeded();
@@ -8,7 +8,7 @@ ENV_SEED_TYPE(ObjectAccess_);
     const char* argName = 0;
     try
     {	
-        Logging::Write("DepositNew");        
+        Logging::Write("FRA_New");        
         argName = "tradeDate (input #1)";
         const Date_ tradeDate = Excel::ToDate(xl_tradeDate);
         argName = "start (input #2)";
@@ -21,7 +21,7 @@ ENV_SEED_TYPE(ObjectAccess_);
         const Handle_<StorableRateIndexConvention_> convention = Excel::ToHandle<StorableRateIndexConvention_>(_env, xl_convention);
         argName = 0;
 		Handle_<StorableYCInstrument_> instrument;
-        DepositNew(tradeDate, start, maturity, marketRate, convention, &instrument);
+        FRA_New(tradeDate, start, maturity, marketRate, convention, &instrument);
         Excel::Retval_ retval;
         retval.Load(_env, instrument);
         return retval.ToXloper();
@@ -36,17 +36,17 @@ ENV_SEED_TYPE(ObjectAccess_);
     }
 }
 
-struct XlRegister_DepositNew_
+struct XlRegister_FRA_New_
 {
-    XlRegister_DepositNew_()
+    XlRegister_FRA_New_()
     {
         Vector_<String_> argHelp;        
         argHelp.push_back("The trade/settlement date");
-        argHelp.push_back("The start date of the deposit");
-        argHelp.push_back("The maturity date of the deposit");
+        argHelp.push_back("The start date of the FRA");
+        argHelp.push_back("The maturity date of the FRA");
         argHelp.push_back("The market quoted rate");
         argHelp.push_back("The rate index convention");
-        Excel::Register("Base", "xl_DepositNew", "DA.DEPOSITNEW", "Create a deposit instrument for curve calibration", "QQQQQQ", "tradeDate,start,maturity,marketRate,convention", argHelp, false);
+        Excel::Register("Base", "xl_FRA_New", "DA.FRANEW", "Create a FRA instrument for curve calibration", "QQQQQQ", "tradeDate,start,maturity,marketRate,convention", argHelp, false);
     }
 };
-static XlRegister_DepositNew_ The_DepositNew_XlRegisterer;
+static XlRegister_FRA_New_ The_FRA_New_XlRegisterer;

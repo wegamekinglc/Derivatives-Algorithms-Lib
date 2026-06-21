@@ -34,86 +34,86 @@ def _overnight_index():
 # ---- Deposit ----
 
 def test_deposit_new():
-    """DepositNew constructs a deposit instrument."""
+    """Deposit_New constructs a deposit instrument."""
     start = _spot()
     maturity = start.AddDays(90)
-    inst = dal.DepositNew(_today(), start, maturity, 0.05, _libor_3m())
+    inst = dal.Deposit_New(_today(), start, maturity, 0.05, _libor_3m())
     assert inst is not None  # nosec B101 - pytest assertions are intentional
 
 
 def test_deposit_new_various_maturities():
-    """DepositNew works for various maturities."""
+    """Deposit_New works for various maturities."""
     for days in [30, 90, 180, 365]:
         start = _spot()
         maturity = start.AddDays(days)
-        inst = dal.DepositNew(_today(), start, maturity, 0.04, _libor_3m())
+        inst = dal.Deposit_New(_today(), start, maturity, 0.04, _libor_3m())
         assert inst is not None  # nosec B101 - pytest assertions are intentional
 
 
 # ---- FRA ----
 
 def test_fra_new():
-    """FRANew constructs a FRA instrument."""
+    """FRA_New constructs a FRA instrument."""
     start = _spot().AddDays(180)
     maturity = start.AddDays(90)
-    inst = dal.FRANew(_today(), start, maturity, 0.045, _libor_3m())
+    inst = dal.FRA_New(_today(), start, maturity, 0.045, _libor_3m())
     assert inst is not None  # nosec B101 - pytest assertions are intentional
 
 
 # ---- Future ----
 
 def test_future_new():
-    """FutureNew constructs a future instrument."""
+    """Future_New constructs a future instrument."""
     start = _spot().AddDays(90)
     maturity = start.AddDays(90)
-    inst = dal.FutureNew(_today(), start, maturity, 0.045, _libor_3m())
+    inst = dal.Future_New(_today(), start, maturity, 0.045, _libor_3m())
     assert inst is not None  # nosec B101 - pytest assertions are intentional
 
 
 def test_future_new_with_convexity():
-    """FutureNew accepts a convexity adjustment."""
+    """Future_New accepts a convexity adjustment."""
     start = _spot().AddDays(90)
     maturity = start.AddDays(90)
-    inst = dal.FutureNew(_today(), start, maturity, 0.045, _libor_3m(), convexity_adjustment=0.0005)
+    inst = dal.Future_New(_today(), start, maturity, 0.045, _libor_3m(), convexity_adjustment=0.0005)
     assert inst is not None  # nosec B101 - pytest assertions are intentional
 
 
 # ---- Vanilla Swap ----
 
 def test_swap_new():
-    """SwapNew constructs a vanilla Libor swap."""
+    """Swap_New constructs a vanilla Libor swap."""
     start = _spot()
     maturity = start.AddDays(1825)  # 5 years
-    inst = dal.SwapNew(_today(), start, maturity, 0.04, _fixed_6m(), _libor_3m(), _float_3m())
+    inst = dal.Swap_New(_today(), start, maturity, 0.04, _fixed_6m(), _libor_3m(), _float_3m())
     assert inst is not None  # nosec B101 - pytest assertions are intentional
 
 
 def test_swap_new_various_maturities():
-    """SwapNew works for various maturities."""
+    """Swap_New works for various maturities."""
     for years in [1, 2, 5, 10, 30]:
         start = _spot()
         maturity = start.AddDays(years * 365)
-        inst = dal.SwapNew(_today(), start, maturity, 0.04, _fixed_6m(), _libor_3m(), _float_3m())
+        inst = dal.Swap_New(_today(), start, maturity, 0.04, _fixed_6m(), _libor_3m(), _float_3m())
         assert inst is not None  # nosec B101 - pytest assertions are intentional
 
 
 # ---- OIS Swap ----
 
 def test_ois_swap_new():
-    """OISSwapNew constructs an OIS swap."""
+    """OISSwap_New constructs an OIS swap."""
     start = _spot()
     maturity = start.AddDays(1825)
-    inst = dal.OISSwapNew(_today(), start, maturity, 0.035, _fixed_6m(), _overnight_index(), _float_3m())
+    inst = dal.OISSwap_New(_today(), start, maturity, 0.035, _fixed_6m(), _overnight_index(), _float_3m())
     assert inst is not None  # nosec B101 - pytest assertions are intentional
 
 
 # ---- Basis Swap ----
 
 def test_basis_swap_new():
-    """BasisSwapNew constructs a basis swap."""
+    """BasisSwap_New constructs a basis swap."""
     start = _spot()
     maturity = start.AddDays(3650)  # 10 years
-    inst = dal.BasisSwapNew(
+    inst = dal.BasisSwap_New(
         _today(), start, maturity, 0.0025,
         _libor_3m(), _float_3m(),         # spread leg
         _overnight_index(), _float_3m(),   # ref leg
@@ -124,7 +124,7 @@ def test_basis_swap_new():
 # ---- Cross-Currency Swap ----
 
 def test_cross_currency_swap_new():
-    """CrossCurrencySwapNew constructs a cross-currency swap with explicit conventions."""
+    """CrossCurrencySwap_New constructs a cross-currency swap with explicit conventions."""
     start = _spot()
     maturity = start.AddDays(3650)
     currencies = dal.CurrencyPair_New("USD", "EUR")
@@ -136,7 +136,7 @@ def test_cross_currency_swap_new():
     foreign_index = dal.RateIndexConvention_New(
         dal.PeriodLength_New("6M"), dal.DayBasis_New("ACT_360"), dal.CollateralType_OIS()
     )
-    inst = dal.CrossCurrencySwapNew(
+    inst = dal.CrossCurrencySwap_New(
         _today(), start, maturity, 0.001,
         currencies,
         domestic_notional=100.0, foreign_notional=90.0,
@@ -147,9 +147,9 @@ def test_cross_currency_swap_new():
 
 
 def test_cross_currency_swap_new_defaults():
-    """CrossCurrencySwapNew works with default leg/index conventions."""
+    """CrossCurrencySwap_New works with default leg/index conventions."""
     start = _spot()
     maturity = start.AddDays(3650)
     currencies = dal.CurrencyPair_New("USD", "EUR")
-    inst = dal.CrossCurrencySwapNew(_today(), start, maturity, 0.001, currencies)
+    inst = dal.CrossCurrencySwap_New(_today(), start, maturity, 0.001, currencies)
     assert inst is not None  # nosec B101 - pytest assertions are intentional

@@ -1,6 +1,6 @@
 
 
-extern "C" __declspec(dllexport) OPER_* xl_CrossCurrencySwapNew
+extern "C" __declspec(dllexport) OPER_* xl_CrossCurrencySwap_New
     (const OPER_* xl_tradeDate, const OPER_* xl_start, const OPER_* xl_maturity, const OPER_* xl_marketRate, const OPER_* xl_currencies, const OPER_* xl_domesticLeg, const OPER_* xl_domesticIndex, const OPER_* xl_foreignLeg, const OPER_* xl_foreignIndex, const OPER_* xl_domesticNotional, const OPER_* xl_foreignNotional)	
 {
     Excel::InitializeSessionIfNeeded();
@@ -8,7 +8,7 @@ ENV_SEED_TYPE(ObjectAccess_);
     const char* argName = 0;
     try
     {	
-        Logging::Write("CrossCurrencySwapNew");        
+        Logging::Write("CrossCurrencySwap_New");        
         argName = "tradeDate (input #1)";
         const Date_ tradeDate = Excel::ToDate(xl_tradeDate);
         argName = "start (input #2)";
@@ -33,7 +33,7 @@ ENV_SEED_TYPE(ObjectAccess_);
         const double foreignNotional = Excel::ToDouble(xl_foreignNotional, true).value_or(100.0);
         argName = 0;
 		Handle_<StorableCrossCurrencySwap_> instrument;
-        CrossCurrencySwapNew(tradeDate, start, maturity, marketRate, currencies, domesticLeg, domesticIndex, foreignLeg, foreignIndex, domesticNotional, foreignNotional, &instrument);
+        CrossCurrencySwap_New(tradeDate, start, maturity, marketRate, currencies, domesticLeg, domesticIndex, foreignLeg, foreignIndex, domesticNotional, foreignNotional, &instrument);
         Excel::Retval_ retval;
         retval.Load(_env, instrument);
         return retval.ToXloper();
@@ -48,9 +48,9 @@ ENV_SEED_TYPE(ObjectAccess_);
     }
 }
 
-struct XlRegister_CrossCurrencySwapNew_
+struct XlRegister_CrossCurrencySwap_New_
 {
-    XlRegister_CrossCurrencySwapNew_()
+    XlRegister_CrossCurrencySwap_New_()
     {
         Vector_<String_> argHelp;        
         argHelp.push_back("The trade/settlement date");
@@ -64,7 +64,7 @@ struct XlRegister_CrossCurrencySwapNew_
         argHelp.push_back("The foreign index convention");
         argHelp.push_back("Domestic notional");
         argHelp.push_back("Foreign notional");
-        Excel::Register("Base", "xl_CrossCurrencySwapNew", "DA.CROSSCURRENCYSWAPNEW", "Create a cross-currency swap instrument for xccy calibration", "QQQQQQQQQQQQ", "tradeDate,start,maturity,marketRate,currencies,domesticLeg,domesticIndex,foreignLeg,foreignIndex,[domesticNotional],[foreignNotional]", argHelp, false);
+        Excel::Register("Base", "xl_CrossCurrencySwap_New", "DA.CROSSCURRENCYSWAPNEW", "Create a cross-currency swap instrument for xccy calibration", "QQQQQQQQQQQQ", "tradeDate,start,maturity,marketRate,currencies,domesticLeg,domesticIndex,foreignLeg,foreignIndex,[domesticNotional],[foreignNotional]", argHelp, false);
     }
 };
-static XlRegister_CrossCurrencySwapNew_ The_CrossCurrencySwapNew_XlRegisterer;
+static XlRegister_CrossCurrencySwap_New_ The_CrossCurrencySwap_New_XlRegisterer;

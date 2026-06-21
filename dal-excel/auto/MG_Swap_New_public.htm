@@ -2,14 +2,14 @@
 <!DOCTYPE html>
 <html lang="en-US">
 <head>
-<title>OISSwapNew</title>
+<title>Swap_New</title>
 <link href="tablecloth/tablecloth.css" rel="stylesheet" type="text/css" media="screen" />
 <link href="hbk.css" rel="stylesheet" type="text/css" media="screen" />
 <script type="text/javascript" src="tablecloth/tablecloth.js"></script>
 </head>
 <body>
-<h1>OISSwapNew (in Excel: DA.OISSWAPNEW)</h1>
-Create an OIS swap instrument for curve calibration
+<h1>Swap_New (in Excel: DA.SWAPNEW)</h1>
+Create a swap instrument for curve calibration
 
 <h2>Inputs:</h2>
 <table border="1" cellpadding="3">
@@ -20,7 +20,7 @@ Create an OIS swap instrument for curve calibration
 <tr><td>maturity</td><td>date</td><td></td><td>The maturity date of the swap</td></tr>
 <tr><td>marketRate</td><td>number</td><td></td><td>The market quoted rate</td></tr>
 <tr><td>fixedLeg</td><td>handle of type StorableRateLegConvention</td><td></td><td>The fixed leg convention</td></tr>
-<tr><td>overnightIndex</td><td>handle of type StorableRateIndexConvention</td><td></td><td>The overnight index convention</td></tr>
+<tr><td>floatIndex</td><td>handle of type StorableRateIndexConvention</td><td></td><td>The floating index convention</td></tr>
 <tr><td>floatLeg</td><td>handle of type StorableRateLegConvention</td><td></td><td>The floating leg convention</td></tr>
 
 </table>
@@ -33,7 +33,7 @@ Create an OIS swap instrument for curve calibration
 <table border="1" cellpadding="3">
 <tr><th>Name</th><th style="width:120px">Type</th><th></th></tr>
 
-<tr><td>instrument</td><td>handle of type StorableYCInstrument</td><td>The OIS swap instrument</td></tr>
+<tr><td>instrument</td><td>handle of type StorableYCInstrument</td><td>The swap instrument</td></tr>
 </table>
 
 

@@ -72,7 +72,7 @@ def _make_xccy_instruments(fx_spot):
     for y in [2, 5, 10]:
         maturity = _spot().AddDays(y * 365)
         knot_dates.append(maturity)
-        inst = dal.CrossCurrencySwapNew(
+        inst = dal.CrossCurrencySwap_New(
             _today(), _spot(), maturity, 0.01, currencies,
             domestic_notional=100.0, foreign_notional=100.0 / fx_spot,
             domestic_leg=usd_leg, domestic_index=usd_index,

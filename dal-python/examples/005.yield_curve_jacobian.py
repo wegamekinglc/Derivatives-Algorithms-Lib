@@ -174,7 +174,7 @@ def _build_spec(today, ccy, n_instruments):
         frac = (y - 1) / (n_instruments - 1)
         par_rate = (1.00 + 1.50 * frac) / 100.0
         instruments.append(
-            dal.SwapNew(today, today, maturity, par_rate, fixed_leg, float_idx, float_leg))
+            dal.Swap_New(today, today, maturity, par_rate, fixed_leg, float_idx, float_leg))
 
     spec_builder = dal.CurveCalibrationSpecBuilder_()
     spec_builder.today_ = today

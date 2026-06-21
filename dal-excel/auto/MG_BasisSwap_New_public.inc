@@ -1,6 +1,6 @@
 
 
-extern "C" __declspec(dllexport) OPER_* xl_BasisSwapNew
+extern "C" __declspec(dllexport) OPER_* xl_BasisSwap_New
     (const OPER_* xl_tradeDate, const OPER_* xl_start, const OPER_* xl_maturity, const OPER_* xl_marketRate, const OPER_* xl_spreadIndex, const OPER_* xl_spreadLeg, const OPER_* xl_refIndex, const OPER_* xl_refLeg)	
 {
     Excel::InitializeSessionIfNeeded();
@@ -8,7 +8,7 @@ ENV_SEED_TYPE(ObjectAccess_);
     const char* argName = 0;
     try
     {	
-        Logging::Write("BasisSwapNew");        
+        Logging::Write("BasisSwap_New");        
         argName = "tradeDate (input #1)";
         const Date_ tradeDate = Excel::ToDate(xl_tradeDate);
         argName = "start (input #2)";
@@ -27,7 +27,7 @@ ENV_SEED_TYPE(ObjectAccess_);
         const Handle_<StorableRateLegConvention_> refLeg = Excel::ToHandle<StorableRateLegConvention_>(_env, xl_refLeg);
         argName = 0;
 		Handle_<StorableYCInstrument_> instrument;
-        BasisSwapNew(tradeDate, start, maturity, marketRate, spreadIndex, spreadLeg, refIndex, refLeg, &instrument);
+        BasisSwap_New(tradeDate, start, maturity, marketRate, spreadIndex, spreadLeg, refIndex, refLeg, &instrument);
         Excel::Retval_ retval;
         retval.Load(_env, instrument);
         return retval.ToXloper();
@@ -42,9 +42,9 @@ ENV_SEED_TYPE(ObjectAccess_);
     }
 }
 
-struct XlRegister_BasisSwapNew_
+struct XlRegister_BasisSwap_New_
 {
-    XlRegister_BasisSwapNew_()
+    XlRegister_BasisSwap_New_()
     {
         Vector_<String_> argHelp;        
         argHelp.push_back("The trade/settlement date");
@@ -55,7 +55,7 @@ struct XlRegister_BasisSwapNew_
         argHelp.push_back("The spread leg convention");
         argHelp.push_back("The reference index convention");
         argHelp.push_back("The reference leg convention");
-        Excel::Register("Base", "xl_BasisSwapNew", "DA.BASISSWAPNEW", "Create a basis swap instrument for curve calibration", "QQQQQQQQQ", "tradeDate,start,maturity,marketRate,spreadIndex,spreadLeg,refIndex,refLeg", argHelp, false);
+        Excel::Register("Base", "xl_BasisSwap_New", "DA.BASISSWAPNEW", "Create a basis swap instrument for curve calibration", "QQQQQQQQQ", "tradeDate,start,maturity,marketRate,spreadIndex,spreadLeg,refIndex,refLeg", argHelp, false);
     }
 };
-static XlRegister_BasisSwapNew_ The_BasisSwapNew_XlRegisterer;
+static XlRegister_BasisSwap_New_ The_BasisSwap_New_XlRegisterer;

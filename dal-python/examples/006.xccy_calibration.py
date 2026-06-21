@@ -100,7 +100,7 @@ def main():
     instruments = []
     for m in maturities_months:
         maturity = today.AddDays(m * 30)
-        inst = _dal.CrossCurrencySwapNew(
+        inst = _dal.CrossCurrencySwap_New(
             today, today, maturity,
             basis_rate,
             currencies,

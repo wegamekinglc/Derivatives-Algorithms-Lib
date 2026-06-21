@@ -1,14 +1,14 @@
 
 
-extern "C" __declspec(dllexport) OPER_* xl_OISSwapNew
-    (const OPER_* xl_tradeDate, const OPER_* xl_start, const OPER_* xl_maturity, const OPER_* xl_marketRate, const OPER_* xl_fixedLeg, const OPER_* xl_overnightIndex, const OPER_* xl_floatLeg)	
+extern "C" __declspec(dllexport) OPER_* xl_Swap_New
+    (const OPER_* xl_tradeDate, const OPER_* xl_start, const OPER_* xl_maturity, const OPER_* xl_marketRate, const OPER_* xl_fixedLeg, const OPER_* xl_floatIndex, const OPER_* xl_floatLeg)	
 {
     Excel::InitializeSessionIfNeeded();
 ENV_SEED_TYPE(ObjectAccess_);
     const char* argName = 0;
     try
     {	
-        Logging::Write("OISSwapNew");        
+        Logging::Write("Swap_New");        
         argName = "tradeDate (input #1)";
         const Date_ tradeDate = Excel::ToDate(xl_tradeDate);
         argName = "start (input #2)";
@@ -19,13 +19,13 @@ ENV_SEED_TYPE(ObjectAccess_);
         const double marketRate = Excel::ToDouble(xl_marketRate);
         argName = "fixedLeg (input #5)";
         const Handle_<StorableRateLegConvention_> fixedLeg = Excel::ToHandle<StorableRateLegConvention_>(_env, xl_fixedLeg);
-        argName = "overnightIndex (input #6)";
-        const Handle_<StorableRateIndexConvention_> overnightIndex = Excel::ToHandle<StorableRateIndexConvention_>(_env, xl_overnightIndex);
+        argName = "floatIndex (input #6)";
+        const Handle_<StorableRateIndexConvention_> floatIndex = Excel::ToHandle<StorableRateIndexConvention_>(_env, xl_floatIndex);
         argName = "floatLeg (input #7)";
         const Handle_<StorableRateLegConvention_> floatLeg = Excel::ToHandle<StorableRateLegConvention_>(_env, xl_floatLeg);
         argName = 0;
 		Handle_<StorableYCInstrument_> instrument;
-        OISSwapNew(tradeDate, start, maturity, marketRate, fixedLeg, overnightIndex, floatLeg, &instrument);
+        Swap_New(tradeDate, start, maturity, marketRate, fixedLeg, floatIndex, floatLeg, &instrument);
         Excel::Retval_ retval;
         retval.Load(_env, instrument);
         return retval.ToXloper();
@@ -40,9 +40,9 @@ ENV_SEED_TYPE(ObjectAccess_);
     }
 }
 
-struct XlRegister_OISSwapNew_
+struct XlRegister_Swap_New_
 {
-    XlRegister_OISSwapNew_()
+    XlRegister_Swap_New_()
     {
         Vector_<String_> argHelp;        
         argHelp.push_back("The trade/settlement date");
@@ -50,9 +50,9 @@ struct XlRegister_OISSwapNew_
         argHelp.push_back("The maturity date of the swap");
         argHelp.push_back("The market quoted rate");
         argHelp.push_back("The fixed leg convention");
-        argHelp.push_back("The overnight index convention");
+        argHelp.push_back("The floating index convention");
         argHelp.push_back("The floating leg convention");
-        Excel::Register("Base", "xl_OISSwapNew", "DA.OISSWAPNEW", "Create an OIS swap instrument for curve calibration", "QQQQQQQQ", "tradeDate,start,maturity,marketRate,fixedLeg,overnightIndex,floatLeg", argHelp, false);
+        Excel::Register("Base", "xl_Swap_New", "DA.SWAPNEW", "Create a swap instrument for curve calibration", "QQQQQQQQ", "tradeDate,start,maturity,marketRate,fixedLeg,floatIndex,floatLeg", argHelp, false);
     }
 };
-static XlRegister_OISSwapNew_ The_OISSwapNew_XlRegisterer;
+static XlRegister_Swap_New_ The_Swap_New_XlRegisterer;

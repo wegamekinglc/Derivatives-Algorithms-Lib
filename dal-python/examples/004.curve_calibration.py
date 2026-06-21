@@ -87,15 +87,15 @@ def main():
     # Each knot pillar is "pinned" by exactly one instrument.
     # The EXACT solver interpolates: zero residual at every quote.
     ois_instruments = [
-        dal.DepositNew(today, today, today.AddDays(30),  0.01, overnight_index),
-        dal.DepositNew(today, today, today.AddDays(90),  0.01, overnight_index),
-        dal.DepositNew(today, today, today.AddDays(180), 0.01, overnight_index),
-        dal.OISSwapNew(today, today, today.AddDays(365),  0.01, fixed_leg, overnight_index, overnight_leg),
-        dal.OISSwapNew(today, today, today.AddDays(730),  0.01, fixed_leg, overnight_index, overnight_leg),
-        dal.OISSwapNew(today, today, today.AddDays(1095), 0.01, fixed_leg, overnight_index, overnight_leg),
-        dal.OISSwapNew(today, today, today.AddDays(1825), 0.01, fixed_leg, overnight_index, overnight_leg),
-        dal.OISSwapNew(today, today, today.AddDays(2555), 0.01, fixed_leg, overnight_index, overnight_leg),
-        dal.OISSwapNew(today, today, today.AddDays(3650), 0.01, fixed_leg, overnight_index, overnight_leg),
+        dal.Deposit_New(today, today, today.AddDays(30),  0.01, overnight_index),
+        dal.Deposit_New(today, today, today.AddDays(90),  0.01, overnight_index),
+        dal.Deposit_New(today, today, today.AddDays(180), 0.01, overnight_index),
+        dal.OISSwap_New(today, today, today.AddDays(365),  0.01, fixed_leg, overnight_index, overnight_leg),
+        dal.OISSwap_New(today, today, today.AddDays(730),  0.01, fixed_leg, overnight_index, overnight_leg),
+        dal.OISSwap_New(today, today, today.AddDays(1095), 0.01, fixed_leg, overnight_index, overnight_leg),
+        dal.OISSwap_New(today, today, today.AddDays(1825), 0.01, fixed_leg, overnight_index, overnight_leg),
+        dal.OISSwap_New(today, today, today.AddDays(2555), 0.01, fixed_leg, overnight_index, overnight_leg),
+        dal.OISSwap_New(today, today, today.AddDays(3650), 0.01, fixed_leg, overnight_index, overnight_leg),
     ]
 
     ois_knots = [
@@ -134,15 +134,15 @@ def main():
     # Stage 2: Libor 3M forward curve — 9 instruments on 9 knots (square)
     # ------------------------------------------------------------------
     libor_instruments = [
-        dal.FRANew(today, today.AddDays(30),  today.AddDays(120),  0.03, libor3m_index),
-        dal.FRANew(today, today.AddDays(90),  today.AddDays(180),  0.03, libor3m_index),
-        dal.FRANew(today, today.AddDays(180), today.AddDays(270),  0.03, libor3m_index),
-        dal.SwapNew(today, today, today.AddDays(365),  0.03, fixed_leg, libor3m_index, float_leg),
-        dal.SwapNew(today, today, today.AddDays(730),  0.03, fixed_leg, libor3m_index, float_leg),
-        dal.SwapNew(today, today, today.AddDays(1095), 0.03, fixed_leg, libor3m_index, float_leg),
-        dal.SwapNew(today, today, today.AddDays(1825), 0.03, fixed_leg, libor3m_index, float_leg),
-        dal.SwapNew(today, today, today.AddDays(2555), 0.03, fixed_leg, libor3m_index, float_leg),
-        dal.SwapNew(today, today, today.AddDays(3650), 0.03, fixed_leg, libor3m_index, float_leg),
+        dal.FRA_New(today, today.AddDays(30),  today.AddDays(120),  0.03, libor3m_index),
+        dal.FRA_New(today, today.AddDays(90),  today.AddDays(180),  0.03, libor3m_index),
+        dal.FRA_New(today, today.AddDays(180), today.AddDays(270),  0.03, libor3m_index),
+        dal.Swap_New(today, today, today.AddDays(365),  0.03, fixed_leg, libor3m_index, float_leg),
+        dal.Swap_New(today, today, today.AddDays(730),  0.03, fixed_leg, libor3m_index, float_leg),
+        dal.Swap_New(today, today, today.AddDays(1095), 0.03, fixed_leg, libor3m_index, float_leg),
+        dal.Swap_New(today, today, today.AddDays(1825), 0.03, fixed_leg, libor3m_index, float_leg),
+        dal.Swap_New(today, today, today.AddDays(2555), 0.03, fixed_leg, libor3m_index, float_leg),
+        dal.Swap_New(today, today, today.AddDays(3650), 0.03, fixed_leg, libor3m_index, float_leg),
     ]
 
     libor_knots = [

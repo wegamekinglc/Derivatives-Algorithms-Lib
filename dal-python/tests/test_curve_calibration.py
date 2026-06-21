@@ -40,7 +40,7 @@ def _make_ois_instruments():
     for y in [2, 5, 10]:
         maturity = _spot().AddDays(y * 365)
         knot_dates.append(maturity)
-        inst = dal.OISSwapNew(_today(), _spot(), maturity, 0.04, _fixed_6m(), _overnight_index(), _float_3m())
+        inst = dal.OISSwap_New(_today(), _spot(), maturity, 0.04, _fixed_6m(), _overnight_index(), _float_3m())
         instruments.append(inst)
     return instruments, knot_dates
 
@@ -122,7 +122,7 @@ def test_calibrate_single_curve_with_analytic_jacobian():
     for y in [2, 5, 10]:
         maturity = _spot().AddDays(y * 365)
         knot_dates.append(maturity)
-        inst = dal.OISSwapNew(_today(), _spot(), maturity, 0.04, _fixed_6m(), _overnight_index(), _float_3m())
+        inst = dal.OISSwap_New(_today(), _spot(), maturity, 0.04, _fixed_6m(), _overnight_index(), _float_3m())
         instruments.append(inst)
 
     builder = dal.CurveCalibrationSpecBuilder_()
@@ -186,7 +186,7 @@ def test_api_calibrate_curve_with_jacobian():
     for y in [2, 5, 10]:
         maturity = _spot().AddDays(y * 365)
         knot_dates.append(maturity)
-        inst = dal.OISSwapNew(_today(), _spot(), maturity, 0.04, _fixed_6m(), _overnight_index(), _float_3m())
+        inst = dal.OISSwap_New(_today(), _spot(), maturity, 0.04, _fixed_6m(), _overnight_index(), _float_3m())
         instruments.append(inst)
 
     result = dal.api.calibrate_curve(

@@ -79,7 +79,7 @@ namespace {
     }
 
     void init_bindings_curve_instruments(py::module_& m) {
-        m.def("DepositNew",
+        m.def("Deposit_New",
             [](const Date_& tradeDate, const Date_& start, const Date_& maturity,
                double marketRate, const RateIndexConvention_& convention)
                -> std::shared_ptr<YCInstrument_> {
@@ -89,7 +89,7 @@ namespace {
             py::arg("trade_date"), py::arg("start"), py::arg("maturity"),
             py::arg("market_rate"), py::arg("convention"));
 
-        m.def("FRANew",
+        m.def("FRA_New",
             [](const Date_& tradeDate, const Date_& start, const Date_& maturity,
                double marketRate, const RateIndexConvention_& convention)
                -> std::shared_ptr<YCInstrument_> {
@@ -99,7 +99,7 @@ namespace {
             py::arg("trade_date"), py::arg("start"), py::arg("maturity"),
             py::arg("market_rate"), py::arg("convention"));
 
-        m.def("FutureNew",
+        m.def("Future_New",
             [](const Date_& tradeDate, const Date_& start, const Date_& maturity,
                double marketRate, const RateIndexConvention_& convention,
                double convexityAdjustment) -> std::shared_ptr<YCInstrument_> {
@@ -110,7 +110,7 @@ namespace {
             py::arg("market_rate"), py::arg("convention"),
             py::arg("convexity_adjustment") = 0.0);
 
-        m.def("SwapNew",
+        m.def("Swap_New",
             [](const Date_& tradeDate, const Date_& start, const Date_& maturity,
                double marketRate,
                const RateLegConvention_& fixedLeg,
@@ -124,7 +124,7 @@ namespace {
             py::arg("market_rate"), py::arg("fixed_leg"),
             py::arg("float_index"), py::arg("float_leg"));
 
-        m.def("OISSwapNew",
+        m.def("OISSwap_New",
             [](const Date_& tradeDate, const Date_& start, const Date_& maturity,
                double marketRate,
                const RateLegConvention_& fixedLeg,
@@ -138,7 +138,7 @@ namespace {
             py::arg("market_rate"), py::arg("fixed_leg"),
             py::arg("overnight_index"), py::arg("float_leg"));
 
-        m.def("BasisSwapNew",
+        m.def("BasisSwap_New",
             [](const Date_& tradeDate, const Date_& start, const Date_& maturity,
                double marketRate,
                const RateIndexConvention_& spreadIndex,
@@ -153,7 +153,7 @@ namespace {
             py::arg("market_rate"), py::arg("spread_index"), py::arg("spread_leg"),
             py::arg("ref_index"), py::arg("ref_leg"));
 
-        m.def("CrossCurrencySwapNew",
+        m.def("CrossCurrencySwap_New",
             [](const Date_& tradeDate, const Date_& start, const Date_& maturity,
                double marketRate,
                const CurrencyPair_& currencies,

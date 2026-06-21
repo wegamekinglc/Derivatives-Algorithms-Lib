@@ -1,14 +1,14 @@
 
 
-extern "C" __declspec(dllexport) OPER_* xl_FutureNew
-    (const OPER_* xl_tradeDate, const OPER_* xl_start, const OPER_* xl_maturity, const OPER_* xl_marketRate, const OPER_* xl_convention, const OPER_* xl_convexityAdjustment)	
+extern "C" __declspec(dllexport) OPER_* xl_Deposit_New
+    (const OPER_* xl_tradeDate, const OPER_* xl_start, const OPER_* xl_maturity, const OPER_* xl_marketRate, const OPER_* xl_convention)	
 {
     Excel::InitializeSessionIfNeeded();
 ENV_SEED_TYPE(ObjectAccess_);
     const char* argName = 0;
     try
     {	
-        Logging::Write("FutureNew");        
+        Logging::Write("Deposit_New");        
         argName = "tradeDate (input #1)";
         const Date_ tradeDate = Excel::ToDate(xl_tradeDate);
         argName = "start (input #2)";
@@ -19,11 +19,9 @@ ENV_SEED_TYPE(ObjectAccess_);
         const double marketRate = Excel::ToDouble(xl_marketRate);
         argName = "convention (input #5)";
         const Handle_<StorableRateIndexConvention_> convention = Excel::ToHandle<StorableRateIndexConvention_>(_env, xl_convention);
-        argName = "convexityAdjustment (input #6)";
-        const double convexityAdjustment = Excel::ToDouble(xl_convexityAdjustment, true).value_or(0.0);
         argName = 0;
 		Handle_<StorableYCInstrument_> instrument;
-        FutureNew(tradeDate, start, maturity, marketRate, convention, convexityAdjustment, &instrument);
+        Deposit_New(tradeDate, start, maturity, marketRate, convention, &instrument);
         Excel::Retval_ retval;
         retval.Load(_env, instrument);
         return retval.ToXloper();
@@ -38,18 +36,17 @@ ENV_SEED_TYPE(ObjectAccess_);
     }
 }
 
-struct XlRegister_FutureNew_
+struct XlRegister_Deposit_New_
 {
-    XlRegister_FutureNew_()
+    XlRegister_Deposit_New_()
     {
         Vector_<String_> argHelp;        
         argHelp.push_back("The trade/settlement date");
-        argHelp.push_back("The start date of the future");
-        argHelp.push_back("The maturity date of the future");
+        argHelp.push_back("The start date of the deposit");
+        argHelp.push_back("The maturity date of the deposit");
         argHelp.push_back("The market quoted rate");
         argHelp.push_back("The rate index convention");
-        argHelp.push_back("Convexity adjustment");
-        Excel::Register("Base", "xl_FutureNew", "DA.FUTURENEW", "Create a future instrument for curve calibration", "QQQQQQQ", "tradeDate,start,maturity,marketRate,convention,[convexityAdjustment]", argHelp, false);
+        Excel::Register("Base", "xl_Deposit_New", "DA.DEPOSITNEW", "Create a deposit instrument for curve calibration", "QQQQQQ", "tradeDate,start,maturity,marketRate,convention", argHelp, false);
     }
 };
-static XlRegister_FutureNew_ The_FutureNew_XlRegisterer;
+static XlRegister_Deposit_New_ The_Deposit_New_XlRegisterer;

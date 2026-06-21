@@ -9,7 +9,7 @@
 #include <dal-public/src/curveinstrument.hpp>
 
 /*IF--------------------------------------------------------------------------
-public DepositNew
+public Deposit_New
     Create a deposit instrument for curve calibration
 &inputs
 tradeDate is date
@@ -28,7 +28,7 @@ instrument is handle StorableYCInstrument
 -IF-------------------------------------------------------------------------*/
 
 /*IF--------------------------------------------------------------------------
-public FRANew
+public FRA_New
     Create a FRA instrument for curve calibration
 &inputs
 tradeDate is date
@@ -47,7 +47,7 @@ instrument is handle StorableYCInstrument
 -IF-------------------------------------------------------------------------*/
 
 /*IF--------------------------------------------------------------------------
-public FutureNew
+public Future_New
     Create a future instrument for curve calibration
 &inputs
 tradeDate is date
@@ -69,7 +69,7 @@ instrument is handle StorableYCInstrument
 -IF-------------------------------------------------------------------------*/
 
 /*IF--------------------------------------------------------------------------
-public SwapNew
+public Swap_New
     Create a swap instrument for curve calibration
 &inputs
 tradeDate is date
@@ -92,7 +92,7 @@ instrument is handle StorableYCInstrument
 -IF-------------------------------------------------------------------------*/
 
 /*IF--------------------------------------------------------------------------
-public OISSwapNew
+public OISSwap_New
     Create an OIS swap instrument for curve calibration
 &inputs
 tradeDate is date
@@ -115,7 +115,7 @@ instrument is handle StorableYCInstrument
 -IF-------------------------------------------------------------------------*/
 
 /*IF--------------------------------------------------------------------------
-public BasisSwapNew
+public BasisSwap_New
     Create a basis swap instrument for curve calibration
 &inputs
 tradeDate is date
@@ -140,7 +140,7 @@ instrument is handle StorableYCInstrument
 -IF-------------------------------------------------------------------------*/
 
 /*IF--------------------------------------------------------------------------
-public CrossCurrencySwapNew
+public CrossCurrencySwap_New
     Create a cross-currency swap instrument for xccy calibration
 &inputs
 tradeDate is date
@@ -173,7 +173,7 @@ instrument is handle StorableCrossCurrencySwap
 
 namespace Dal {
     namespace {
-        void DepositNew(const Date_& tradeDate,
+        void Deposit_New(const Date_& tradeDate,
                          const Date_& start,
                          const Date_& maturity,
                          double marketRate,
@@ -184,7 +184,7 @@ namespace Dal {
             instrument->reset(new StorableYCInstrument_(result));
         }
 
-        void FRANew(const Date_& tradeDate,
+        void FRA_New(const Date_& tradeDate,
                      const Date_& start,
                      const Date_& maturity,
                      double marketRate,
@@ -195,7 +195,7 @@ namespace Dal {
             instrument->reset(new StorableYCInstrument_(result));
         }
 
-        void FutureNew(const Date_& tradeDate,
+        void Future_New(const Date_& tradeDate,
                         const Date_& start,
                         const Date_& maturity,
                         double marketRate,
@@ -207,7 +207,7 @@ namespace Dal {
             instrument->reset(new StorableYCInstrument_(result));
         }
 
-        void SwapNew(const Date_& tradeDate,
+        void Swap_New(const Date_& tradeDate,
                       const Date_& start,
                       const Date_& maturity,
                       double marketRate,
@@ -223,7 +223,7 @@ namespace Dal {
             instrument->reset(new StorableYCInstrument_(result));
         }
 
-        void OISSwapNew(const Date_& tradeDate,
+        void OISSwap_New(const Date_& tradeDate,
                          const Date_& start,
                          const Date_& maturity,
                          double marketRate,
@@ -239,7 +239,7 @@ namespace Dal {
             instrument->reset(new StorableYCInstrument_(result));
         }
 
-        void BasisSwapNew(const Date_& tradeDate,
+        void BasisSwap_New(const Date_& tradeDate,
                            const Date_& start,
                            const Date_& maturity,
                            double marketRate,
@@ -258,7 +258,7 @@ namespace Dal {
             instrument->reset(new StorableYCInstrument_(result));
         }
 
-        void CrossCurrencySwapNew(const Date_& tradeDate,
+        void CrossCurrencySwap_New(const Date_& tradeDate,
                                    const Date_& start,
                                    const Date_& maturity,
                                    double marketRate,
@@ -284,12 +284,12 @@ namespace Dal {
         }
     }
 #ifdef _WIN32
-#include <dal-excel/auto/MG_DepositNew_public.inc>
-#include <dal-excel/auto/MG_FRANew_public.inc>
-#include <dal-excel/auto/MG_FutureNew_public.inc>
-#include <dal-excel/auto/MG_SwapNew_public.inc>
-#include <dal-excel/auto/MG_OISSwapNew_public.inc>
-#include <dal-excel/auto/MG_BasisSwapNew_public.inc>
-#include <dal-excel/auto/MG_CrossCurrencySwapNew_public.inc>
+#include <dal-excel/auto/MG_Deposit_New_public.inc>
+#include <dal-excel/auto/MG_FRA_New_public.inc>
+#include <dal-excel/auto/MG_Future_New_public.inc>
+#include <dal-excel/auto/MG_Swap_New_public.inc>
+#include <dal-excel/auto/MG_OISSwap_New_public.inc>
+#include <dal-excel/auto/MG_BasisSwap_New_public.inc>
+#include <dal-excel/auto/MG_CrossCurrencySwap_New_public.inc>
 #endif
 }
