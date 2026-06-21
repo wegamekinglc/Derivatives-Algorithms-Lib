@@ -1,6 +1,6 @@
 
 
-extern "C" __declspec(dllexport) OPER_* xl_CalibrateXccyMarket_New
+extern "C" __declspec(dllexport) OPER_* xl_CalibrateXccyMarket
     (const OPER_* xl_today, const OPER_* xl_domesticCcy, const OPER_* xl_foreignCcy, const OPER_* xl_domesticBlock, const OPER_* xl_foreignBlock, const OPER_* xl_instruments, const OPER_* xl_knotDates, const OPER_* xl_settings, const OPER_* format)	
 {
     Excel::InitializeSessionIfNeeded();
@@ -8,7 +8,7 @@ ENV_SEED_TYPE(ObjectAccess_);
     const char* argName = 0;
     try
     {	
-        Logging::Write("CalibrateXccyMarket_New");        
+        Logging::Write("CalibrateXccyMarket");        
         argName = "today (input #1)";
         const Date_ today = Excel::ToDate(xl_today);
         argName = "domesticCcy (input #2)";
@@ -30,7 +30,7 @@ ENV_SEED_TYPE(ObjectAccess_);
 		Handle_<StorableDiscountCurve_> basisCurve;
 		double maxAbsResidual;
 		double rmsResidual;
-        CalibrateXccyMarket_New(today, domesticCcy, foreignCcy, domesticBlock, foreignBlock, instruments, knotDates, settings, &basisCurve, &maxAbsResidual, &rmsResidual);
+        CalibrateXccyMarket(today, domesticCcy, foreignCcy, domesticBlock, foreignBlock, instruments, knotDates, settings, &basisCurve, &maxAbsResidual, &rmsResidual);
         Excel::Retval_ retval;
         retval.Load(_env, basisCurve);
         retval.Load(maxAbsResidual);
@@ -47,9 +47,9 @@ ENV_SEED_TYPE(ObjectAccess_);
     }
 }
 
-struct XlRegister_CalibrateXccyMarket_New_
+struct XlRegister_CalibrateXccyMarket_
 {
-    XlRegister_CalibrateXccyMarket_New_()
+    XlRegister_CalibrateXccyMarket_()
     {
         Vector_<String_> argHelp;        
         argHelp.push_back("The valuation/trade date");
@@ -60,7 +60,7 @@ struct XlRegister_CalibrateXccyMarket_New_
         argHelp.push_back("Array of cross-currency swap instrument handles (created with DA.CROSSCURRENCYSWAPNEW)");
         argHelp.push_back("Knot dates for the basis curve");
         argHelp.push_back("Optional settings as a two-column range. Supported keys: fxSpot (number), fxForwardCollateral (string), smoothingWeight (number), tolerance (number), fitTolerance (number), initialGuess (number), maxEvaluations (integer), maxRestarts (integer), solveMode (string: EXACT|APPROXIMATE)");
-        Excel::Register("Base", "xl_CalibrateXccyMarket_New", "DA.CALIBRATEXCCYMARKET", "Calibrate a cross-currency basis market from instruments and settings", "QQQQQQQQQQ", "today,domesticCcy,foreignCcy,domesticBlock,foreignBlock,instruments,knotDates,[settings],format", argHelp, false);
+        Excel::Register("Base", "xl_CalibrateXccyMarket", "DA.CALIBRATEXCCYMARKET", "Calibrate a cross-currency basis market from instruments and settings", "QQQQQQQQQQ", "today,domesticCcy,foreignCcy,domesticBlock,foreignBlock,instruments,knotDates,[settings],format", argHelp, false);
     }
 };
-static XlRegister_CalibrateXccyMarket_New_ The_CalibrateXccyMarket_New_XlRegisterer;
+static XlRegister_CalibrateXccyMarket_ The_CalibrateXccyMarket_XlRegisterer;
