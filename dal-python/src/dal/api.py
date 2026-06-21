@@ -6,22 +6,54 @@ def Product_New(events_dates: list, events: list[str]):
     return _bindings.Product_New(wrapped, events)
 
 
-def calibrate_curve(today, ccy, instruments, knot_dates, *,
-                    curve_name="calibrated",
-                    target_collateral=None,
-                    target_tenor=None,
-                    calibrate_discount=True,
-                    libor_basis=None,
-                    smoothing_weight=1.0,
-                    tolerance=1e-8,
-                    fit_tolerance=1e-6,
-                    max_evaluations=200,
-                    max_restarts=20,
-                    initial_guess=0.05,
-                    solve_mode=None,
-                    parameterization=None,
-                    log_df_scheme=None,
-                    jacobian_mode=None):
+def _apply_optional_setting(spec, name, value):
+    """Apply a single optional setting to a spec builder if the value is not None."""
+    attr = {
+        'curve_name': 'curveName_',
+        'target_collateral': 'targetCollateral_',
+        'target_tenor': 'targetTenor_',
+        'calibrate_discount': 'calibrateDiscountCurve_',
+        'libor_basis': 'liborBasis_',
+        'smoothing_weight': 'smoothingWeight_',
+        'tolerance': 'tolerance_',
+        'fit_tolerance': 'fitTolerance_',
+        'max_evaluations': 'maxEvaluations_',
+        'max_restarts': 'maxRestarts_',
+        'initial_guess': 'initialGuess_',
+        'solve_mode': 'solveMode_',
+        'parameterization': 'parameterization_',
+        'log_df_scheme': 'logDfScheme_',
+    }.get(name)
+    if attr is not None:
+        setattr(spec, attr, value)
+
+
+def _build_calibration_spec(today, ccy, instruments, knot_dates, settings):
+    """Build a CurveCalibrationSpec_ with sensible defaults and optional overrides."""
+    spec = _bindings.CurveCalibrationSpecBuilder_()
+    spec.today_ = today
+    spec.ccy_ = ccy if isinstance(ccy, _bindings.String_) else _bindings.String_(ccy)
+
+    spec.curveName_ = _bindings.String_("calibrated")
+    spec.calibrateDiscountCurve_ = True
+    spec.smoothingWeight_ = 1.0
+    spec.tolerance_ = 1e-8
+    spec.fitTolerance_ = 1e-6
+    spec.maxEvaluations_ = 200
+    spec.maxRestarts_ = 20
+    spec.initialGuess_ = 0.05
+
+    spec.instruments_ = instruments
+    spec.knotDates_ = knot_dates
+
+    if settings:
+        for key, value in settings.items():
+            _apply_optional_setting(spec, key, value)
+
+    return spec
+
+
+def calibrate_curve(today, ccy, instruments, knot_dates, settings=None, jacobian_mode=None):
     """High-level single-curve calibration with sensible defaults.
 
     Args:
@@ -29,39 +61,17 @@ def calibrate_curve(today, ccy, instruments, knot_dates, *,
         ccy: Currency string (e.g. "USD")
         instruments: List of YCInstrument_ handles
         knot_dates: List of Date_ knot points
-        curve_name: Name for the calibrated curve
-        jacobian_mode: CurveJacobianMode enum (None = default EXACT without Jacobian)
+        settings: Optional dict of override settings. Supported keys:
+            curve_name, target_collateral, target_tenor, calibrate_discount,
+            libor_basis, smoothing_weight, tolerance, fit_tolerance,
+            max_evaluations, max_restarts, initial_guess, solve_mode,
+            parameterization, log_df_scheme
+        jacobian_mode: CurveJacobianMode enum (None = default without Jacobian)
 
     Returns:
         CalibrationResult_ with curve_ and diagnostics_
     """
-    spec = _bindings.CurveCalibrationSpecBuilder_()
-    spec.today_ = today
-    spec.ccy_ = ccy if isinstance(ccy, _bindings.String_) else _bindings.String_(ccy)
-    spec.curveName_ = curve_name if isinstance(curve_name, _bindings.String_) else _bindings.String_(curve_name)
-    spec.instruments_ = instruments
-    spec.knotDates_ = knot_dates
-    spec.calibrateDiscountCurve_ = calibrate_discount
-    spec.smoothingWeight_ = smoothing_weight
-    spec.tolerance_ = tolerance
-    spec.fitTolerance_ = fit_tolerance
-    spec.maxEvaluations_ = max_evaluations
-    spec.maxRestarts_ = max_restarts
-    spec.initialGuess_ = initial_guess
-
-    if target_collateral is not None:
-        spec.targetCollateral_ = target_collateral
-    if target_tenor is not None:
-        spec.targetTenor_ = target_tenor
-    if libor_basis is not None:
-        spec.liborBasis_ = libor_basis
-    if solve_mode is not None:
-        spec.solveMode_ = solve_mode
-    if parameterization is not None:
-        spec.parameterization_ = parameterization
-    if log_df_scheme is not None:
-        spec.logDfScheme_ = log_df_scheme
-
+    spec = _build_calibration_spec(today, ccy, instruments, knot_dates, settings)
     if jacobian_mode is not None:
         return _bindings.CalibrateSingleCurve(spec.Build(), jacobian_mode)
     else:

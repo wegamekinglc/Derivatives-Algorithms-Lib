@@ -173,9 +173,7 @@ def test_api_calibrate_curve():
 
     result = dal.api.calibrate_curve(
         _today(), "USD", instruments, knot_dates,
-        curve_name=S("api_test"),
-        tolerance=1e-8,
-        initial_guess=0.04,
+        settings=dict(curve_name=S("api_test"), tolerance=1e-8, initial_guess=0.04),
     )
     assert result.curve_ is not None  # nosec B101 - pytest assertions are intentional
     assert result.diagnostics_.maxAbsResidual_ < 1.0e-6  # nosec B101 - pytest assertions are intentional
@@ -193,10 +191,8 @@ def test_api_calibrate_curve_with_jacobian():
 
     result = dal.api.calibrate_curve(
         _today(), "USD", instruments, knot_dates,
-        curve_name=S("api_jac"),
-        tolerance=1e-8,
-        initial_guess=0.04,
-        parameterization=dal.CurveParameterization.LOG_DISCOUNT,
+        settings=dict(curve_name=S("api_jac"), tolerance=1e-8, initial_guess=0.04,
+                      parameterization=dal.CurveParameterization.LOG_DISCOUNT),
         jacobian_mode=dal.CurveJacobianMode.ANALYTIC,
     )
     assert result.diagnostics_.jacobian_ is not None  # nosec B101 - pytest assertions are intentional

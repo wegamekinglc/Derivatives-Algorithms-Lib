@@ -31,7 +31,7 @@ def make_flat_curve(ccy, today, rate):
         today.AddDays(10950),
     ]
     fwd_rates = [rate] * len(knot_dates)
-    return _dal.DiscountPWLFNew(_dal.String_(ccy), _dal.String_(ccy), knot_dates, fwd_rates)
+    return _dal.DiscountPWLFNew(ccy, ccy, knot_dates, fwd_rates)
 
 
 def make_xccy_block(ccy, today, rate):
@@ -86,7 +86,7 @@ def main():
     foreign_index = make_xccy_index()
     foreign_leg = make_xccy_leg()
 
-    currencies = _dal.CurrencyPair_New(_dal.String_("USD"), _dal.String_("EUR"))
+    currencies = _dal.CurrencyPair_New("USD", "EUR")
 
     # ------------------------------------------------------------------
     # Create cross-currency swaps at selected maturities
