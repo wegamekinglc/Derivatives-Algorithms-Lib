@@ -13,10 +13,6 @@
 using namespace Dal;
 
 void init_bindings_models(py::module_& m) {
-    // =======================================================================
-    // Models
-    // =======================================================================
-
     m.def("BSModelData_New",
         [](double spot, double vol, double rate, double div)
             -> std::shared_ptr<ModelData_> {

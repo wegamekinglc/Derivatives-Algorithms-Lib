@@ -11,10 +11,6 @@
 using namespace Dal;
 
 void init_bindings_random(py::module_& m) {
-    // =======================================================================
-    // Random sequence generators
-    // =======================================================================
-
     m.def("PseudoRSG_New",
         [](int seed, int ndim) -> std::shared_ptr<PseudoRSG_> {
             return std::const_pointer_cast<PseudoRSG_>(

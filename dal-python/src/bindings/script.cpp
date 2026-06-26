@@ -15,10 +15,6 @@
 using namespace Dal;
 
 void init_bindings_script(py::module_& m) {
-    // =======================================================================
-    // Script product
-    // =======================================================================
-
     m.def("Product_New",
         [](const py::iterable& dates, const py::iterable& events)
             -> std::shared_ptr<ScriptProductData_> {
