@@ -105,6 +105,40 @@ new `NodeLogDF()` against the linear prediction). That re-solve path is the
 honest sanity check: the alternative "analytic forward map" prediction is
 tautological and is deliberately not used.
 
+### Nonlinear re-solve tolerance
+
+The re-solve sanity check compares the linear inverse-Jacobian prediction
+`effJacobianInverse_ · Δquote / tolerance_` against the true rebumped parameter
+delta from a fresh `CalibrateYieldCurve`. The two diverge at a relative error
+that **grows with the number of knots**: bumping a long-end quote propagates
+through every intervening LOG_DISCOUNT knot, accumulating second-order terms the
+linear map cannot capture. The observed worst-case relative error scales roughly
+as $7\times10^{-7}$ at 5 instruments, $1.8\times10^{-5}$ at 10, and
+$1.3\times10^{-4}$ at 16. A bar of $10^{-4}$ relative at the 10-instrument size
+leaves about $5\times$ headroom over the observed worst case; it should be
+re-measured (and tightened back toward $10^{-6}$ for shorter ladders, or relaxed
+for longer ones) whenever the ladder length changes. This is looser than the
+$10^{-9}$ forward-Jacobian agreement bar by design, because the re-solve is a
+genuine nonlinear operation rather than a finite-difference check of an analytic
+derivative.
+
+## Timing: BUMPED vs ANALYTIC
+
+The example also times `CurveJacobianMode_::{BUMPED,ANALYTIC}` calibrations on
+the same EXACT solve. Both modes run the identical Phase A Newton solve; the only
+difference is how the forward Jacobian is obtained — $n$ serial finite-difference
+re-calibrations for `BUMPED` versus one AAD reverse sweep per residual row for
+`ANALYTIC`. Each `CalibrateYieldCurve` call resets its own tape internally, so
+repeated calls are independent and safe to time.
+
+The comparison is not pure like-for-like. The `ANALYTIC` time includes the
+single at-solution forward-Jacobian evaluation the solver makes on its
+convergence branch to populate `CurveCalibrationDiagnostics_::jacobian_`, which
+`BUMPED` does not perform. The honest reading of the ratio is therefore
+"`ANALYTIC` solve-with-Jacobian vs `BUMPED` solve-without-Jacobian". A truly
+matched comparison would give `BUMPED` its own separate finite-difference
+Jacobian pass to produce the same diagnostic, which the example does not do.
+
 ### Parameter sensitivity $g$
 
 The transform needs $g$ as a *portfolio* sensitivity, computed independently of
