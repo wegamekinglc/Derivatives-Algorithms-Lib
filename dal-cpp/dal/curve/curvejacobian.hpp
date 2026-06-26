@@ -14,13 +14,6 @@
 #include <dal/utilities/numerics.hpp>
 
 namespace Dal {
-    // Dense Jacobian subclass for curve calibration. Storage is dense regardless of how the matrix
-    // is filled; assembly is sparse-by-row because AAD produces exact structural zeros. Used by both
-    // the single-curve AAD path (calibration.cpp) and the joint multi-curve AAD path
-    // (jointcalibration.cpp). The method bodies mirror XJDense_ (underdetermined.cpp) -- the
-    // storage is dense regardless of how the matrix is filled. Declared in Dal:: (not anonymous) so
-    // the calibration flow can construct it and the solver's virtual Jacobian_ interface
-    // (MultiplyLeft) can read its contents without an inline accessor.
     struct XCurveJacobian_ : Underdetermined::Jacobian_ {
         Matrix_<> j_;
         explicit XCurveJacobian_(Matrix_<>&& j) : j_(std::move(j)) {}

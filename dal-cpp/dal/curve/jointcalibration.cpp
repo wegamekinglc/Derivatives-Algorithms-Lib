@@ -35,7 +35,7 @@ namespace Dal {
         constexpr const char* KEY_MAX_EVALUATIONS = "MAXEVALUATIONS";
         constexpr const char* KEY_MAX_RESTARTS = "MAXRESTARTS";
 
-        // PWL/PWC params only; LOG_DISCOUNT and ZERO_RATE fail loudly for the joint path.
+        // See docs/methodology/yield_curve_jacobian.md §Joint Multi-Curve Analytic Jacobian.
         int ParamsPerKnot(CurveParameterization_ parameterization) {
             switch (parameterization.Switch()) {
             case CurveParameterization_::Value_::PIECEWISE_LINEAR_FWD:
@@ -95,7 +95,7 @@ namespace Dal {
             return nullptr;
         }
 
-        // Forward-declaration instruments must route fixings through the forward curve (useProjectionCurve_ == true).
+        // See docs/methodology/yield_curve_jacobian.md §Joint Multi-Curve Analytic Jacobian.
         String_ ForwardDeclarationOffendingInstrument(const JointCurveDeclaration_& decl) {
             for (const auto& inst : decl.instruments_) {
                 const RateIndexConvention_* conv = FloatConventionOf(*inst);
@@ -237,7 +237,7 @@ namespace Dal {
             return Vector_<>(nParams, spec.initialGuess_);
         }
 
-        // Clear the AAD tape on entry and exit (exception-safe), single-threaded.
+        // See docs/methodology/yield_curve_jacobian.md §Joint Multi-Curve Analytic Jacobian.
         struct TapeGuard_ {
             Dal::AAD::Tape_* t_;
             explicit TapeGuard_(Dal::AAD::Tape_* t) : t_(t) { Dal::AAD::Clear(*t_); }
@@ -252,7 +252,7 @@ namespace Dal {
             TapeGuard_& operator=(const TapeGuard_&) = delete;
         };
 
-        // Templated PWL_FWD curve builder. Base-layered when a base handle is supplied so adjoints propagate through the reverse sweep.
+        // See docs/methodology/yield_curve_jacobian.md §Joint Multi-Curve Analytic Jacobian.
         template <class T_, class B_ = Tape::DiscountCurve_<double>>
         std::shared_ptr<Tape::DiscountPWLF_<T_, B_>>
         BuildDeclarationCurveT(const JointCurveDeclaration_& decl,
@@ -279,7 +279,7 @@ namespace Dal {
             }
             const RateIndexConvention_& conv = *convPtr;
             if (IsSupportedInstrumentType(inst)) {
-                // Discount-declaration instruments must NOT project so fixings route to a single curve on the AAD tape.
+                // See docs/methodology/yield_curve_jacobian.md §Joint Multi-Curve Analytic Jacobian.
                 if (onDiscountDeclaration && conv.useProjectionCurve_) {
                     const String_ msg = String_("Joint AAD Jacobian requires discount-declaration instruments to forecast off "
                                                 "the discount curve; instrument '")

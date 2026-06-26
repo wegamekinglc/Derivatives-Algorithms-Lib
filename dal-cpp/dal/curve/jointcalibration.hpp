@@ -18,24 +18,7 @@
 
 namespace Dal {
 
-    // A declaration of ONE curve's role in a joint simultaneous multi-curve calibration. This is a
-    // thinned CurveCalibrationSpec_: only the fields the joint solver consumes. The staged-only
-    // fields (discountCurves_, forwardCurves_) are deliberately absent; the joint path has no
-    // staging.
-    //
-    // Discount-vs-forward routing for an IBOR stage is expressed by calibrateDiscountCurve_ == false
-    // plus a non-default targetTenor_. The discount curve that discounts the IBOR instruments is
-    // supplied by ANOTHER declaration in the same JointMultiCurveCalibrationSpec_ whose
-    // calibrateDiscountCurve_ == true and whose targetCollateral_ matches the collateral the IBOR
-    // leg is discounted at (OIS in the canonical example). The capability wires that routing
-    // internally by assembling a CurveBlock_ from every declaration's curves.
-    //
-    // baseLayeredOverDiscount_ (forward declarations only): when true, build this curve as
-    // NewDiscountPWLF(..., base = the discount curve at targetCollateral_ built in the SAME solve).
-    // The smoother then acts on the spread forward f_abs - f_ois instead of the absolute forward,
-    // matching the staged path's ApplyStageDefaults base layering (calibration.cpp:113-118). Opt-in
-    // so the capability still supports the baseless representation. Requires a discount declaration
-    // with matching targetCollateral_ to be present in the same spec.
+    // See docs/methodology/yield_curve_jacobian.md §Joint Multi-Curve Analytic Jacobian.
     struct JointCurveDeclaration_ {
         String_ curveName_ = "joint";
         Vector_<Handle_<YCInstrument_>> instruments_;
@@ -91,42 +74,12 @@ namespace Dal {
         // CalibrateYieldCurve). Retained for a future non-throwing overload.
         bool converged_ = false;
         int solverEvaluations_ = 0; // informational
-        // Unscaled analytic forward Jacobian d(residual_i) / d(param_j) at the solved x, shape
-        // (totalResiduals) x (totalFreeParams), captured by a single in-solver Gradient evaluation on
-        // convergence (the solver's fwd_jacobian_at_solution hook). Populated ONLY when
-        // options.jacobianMode_ == ANALYTIC AND the spec is eligible AND solveMode_ == EXACT; empty
-        // otherwise. The oracle test (AC1) reads this and compares against a central-FD bump of F.
+        // See docs/methodology/yield_curve_jacobian.md §Joint Multi-Curve Analytic Jacobian.
         Matrix_<> jacobianAtSolution_;
     };
 
-    // Solver-side options for joint multi-curve calibration. NOT serialized with the spec: the
-    // spec describes WHAT to calibrate (declarations, knots, instruments); the options describe HOW
-    // to solve (Jacobian construction). A default-constructed JointMultiCurveCalibrationOptions_
-    // engages the AAD path on eligible specs (matching the single-curve CurveCalibrationOptions_
-    // default); on an ineligible spec it emits a one-time NOTICE and falls back to the
-    // byte-for-byte bumped path.
+    // See docs/methodology/yield_curve_jacobian.md §Joint Multi-Curve Analytic Jacobian.
     struct JointMultiCurveCalibrationOptions_ {
-        // Jacobian construction for the joint calibration solver.
-        //   BUMPED   -- finite-difference bumping of every free parameter. Always available;
-        //               byte-for-byte identical to the pre-Phase-B path.
-        //   ANALYTIC -- AAD-derived dense Jacobian over the joint stacked parameter vector
-        //               (default). Engages only when EligibleForAnalyticJacobian() is true (every
-        //               declaration PIECEWISE_LINEAR_FWD + base collateral resolves +
-        //               liborBasis_ == ACT_365F + vanilla Deposit/FRA/Future/Swap only -- OISSwap_
-        //               rides the inherited Swap_::PrecomputeT<T_> since its overnight index has
-        //               useProjectionCurve_ == false, so forecast == discount == OIS and both AAD
-        //               and bumped paths share the identical simple-rate arithmetic; see
-        //               .claude/designs/joint-aad-gradient.md Gap 5);
-        //               otherwise falls back to BUMPED with a NOTICE (at most once per
-        //               CalibrateJointMultiCurve call; never throws). The joint residual prices
-        //               IBOR projection instruments through a NEW Tape::JointRate_<T_> base (CP3)
-        //               reading a Tape::JointCurveBlock_<T_> routing context.
-        //
-        // DEFAULT IS ANALYTIC, matching single-curve CurveCalibrationOptions_
-        // (dal-cpp/dal/curve/calibration.hpp). Every existing joint caller exercises the new
-        // Tape::DiscountPWLF_<T_> + Tape::JointCurveBlock_<T_> machinery on eligible specs after
-        // the upgrade; the mitigation is the AAD-vs-bumped oracle test (spec AC1) and the
-        // four-backend build matrix (spec AC6).
         CurveJacobianMode_ jacobianMode_ = CurveJacobianMode_::Value_::ANALYTIC;
     };
 

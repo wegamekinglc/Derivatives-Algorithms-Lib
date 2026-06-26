@@ -18,18 +18,14 @@ namespace Dal {
     class String_;
 
     namespace Tape {
-        // Phase A templated rate interface. The Number_-typed sibling of YCInstrument_::Rate_; lives
-        // only under the native backend (the gate matches the native Number_ definition in expr.hpp).
-        // The AAD-tape Gradient override constructs Rate_<Number_> instances from the same instrument
-        // specs the double path uses and reads number-typed rates off the templated yield context.
+        // See docs/methodology/yield_curve_jacobian.md §Joint Multi-Curve Analytic Jacobian.
         template <class T_> struct Rate_ : noncopyable {
             virtual ~Rate_() = default;
             virtual T_ operator()(const YCCtx_<T_>& ctx) const = 0;
         };
 
-        // Phase B projection-capable rate interface (CP3). Forward-declared here so the instrument
-        // classes below can declare PrecomputeProjectionT<T_> member templates returning
-        // Handle_<JointRate_<T_>>. Defined in jointrate.hpp (which includes this header).
+        // Forward-declared so the instrument classes below can declare PrecomputeProjectionT<T_>
+        // member templates. Defined in jointrate.hpp (which includes this header).
         template <class T_> struct JointRate_;
         template <class T_> struct JointCurveBlock_;
     } // namespace Tape
@@ -53,12 +49,7 @@ namespace Dal {
 
         [[nodiscard]] virtual Handle_<Rate_> Precompute(const Handle_<YieldCurve_>& funding_yc) const = 0;
 
-        // Templated factory mirroring Precompute: returns a Tape::Rate_<T_> bound to the supplied
-        // yield context. Declared only on the concrete instruments that have a Phase A templated
-        // rate (Deposit_/FRA_/Future_/Swap_, plus their derived OISSwap_/STIR_); PhaseARateAt
-        // dispatches via dynamic_cast to those types, so there is no base-class entry point.
-        // Instruments without a templated rate (e.g. BasisSwap_) make EligibleForAnalyticJacobian reject the
-        // whole calibration and the solver dense-bumps instead.
+        // See docs/methodology/yield_curve_jacobian.md §Joint Multi-Curve Analytic Jacobian.
     };
 
     class Deposit_ : public YCInstrument_ {
