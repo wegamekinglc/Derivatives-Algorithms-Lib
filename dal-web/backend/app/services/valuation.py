@@ -103,11 +103,6 @@ def _aggregate_trade_valuations(
     return total_pv, total_greeks
 
 
-# ---------------------------------------------------------------------------
-# Synchronous pricing (legacy path — blocks until done)
-# ---------------------------------------------------------------------------
-
-
 def value_portfolio(
     store: Store,
     gateway: DalGateway,
@@ -152,11 +147,6 @@ def value_single_trade(
         created_at=_utc_now(),
     )
     return store.add_valuation(result)
-
-
-# ---------------------------------------------------------------------------
-# Asynchronous pricing (creates a pending result, runs in background task)
-# ---------------------------------------------------------------------------
 
 
 def _run_portfolio_pricing(

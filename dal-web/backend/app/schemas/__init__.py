@@ -13,11 +13,6 @@ def _new_id() -> str:
     return uuid4().hex
 
 
-# ---------------------------------------------------------------------------
-# Product definition (maps onto DAL scripted products)
-# ---------------------------------------------------------------------------
-
-
 class EventRow(BaseModel):
     """A single (date / schedule label, event-script) pair.
 
@@ -72,11 +67,6 @@ class ProductUpdate(BaseModel):
     rows: list[EventRow] | None = None
 
 
-# ---------------------------------------------------------------------------
-# Model definitions (map onto DAL model data)
-# ---------------------------------------------------------------------------
-
-
 class BSModelParams(BaseModel):
     spot: float
     vol: float = Field(..., ge=0.0)
@@ -124,11 +114,6 @@ class ModelUpdate(BaseModel):
     dupire: DupireModelParams | None = None
 
 
-# ---------------------------------------------------------------------------
-# Portfolio / trade hierarchy
-# ---------------------------------------------------------------------------
-
-
 class Trade(BaseModel):
     id: str = Field(default_factory=_new_id)
     name: str
@@ -173,11 +158,6 @@ class Portfolio(BaseModel):
 class PortfolioCreate(BaseModel):
     name: str
     description: str = ""
-
-
-# ---------------------------------------------------------------------------
-# Valuation
-# ---------------------------------------------------------------------------
 
 
 class ValuationConfig(BaseModel):

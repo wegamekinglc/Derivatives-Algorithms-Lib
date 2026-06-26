@@ -22,10 +22,6 @@ import math
 import re
 from typing import Any
 
-# ---------------------------------------------------------------------------
-# Primitive value types (mirroring dal.Date_ / dal.Cell_)
-# ---------------------------------------------------------------------------
-
 
 class Date_:  # noqa: N801 - match DAL public naming
     """Minimal stand-in for ``dal.Date_``."""
@@ -67,11 +63,6 @@ def EvaluationDate_Set(d: Date_) -> None:  # noqa: N802 - match DAL naming
 
 def EvaluationDate_Get() -> Date_:  # noqa: N802 - match DAL naming
     return _EVALUATION_DATE_BOX[0]
-
-
-# ---------------------------------------------------------------------------
-# Product / model handles
-# ---------------------------------------------------------------------------
 
 
 class _ProductHandle:
@@ -126,10 +117,6 @@ def DupireModelData_New(  # noqa: N802
         {"spot": spot, "rate": rate, "div": repo, "vol": flat_vol},
     )
 
-
-# ---------------------------------------------------------------------------
-# Valuation
-# ---------------------------------------------------------------------------
 
 _STRIKE_RE = re.compile(r"STRIKE", re.IGNORECASE)
 _NUMBER_RE = re.compile(r"[-+]?\d*\.?\d+")
