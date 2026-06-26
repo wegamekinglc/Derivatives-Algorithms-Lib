@@ -289,7 +289,7 @@ namespace Dal {
 
             void Unexpected(const String_&) const override {}
         };
-    }
+    } // namespace
 
     Handle_<Storable_> JSON::ReadString(const String_& src, bool quiet) {
         NOTE("Extracting object from JSON string");

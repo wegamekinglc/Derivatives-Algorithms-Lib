@@ -253,12 +253,12 @@ The `Underdetermined::Controls_` struct (default-constructed) carries:
 
 | Field                   | Default        | Role                                                          |
 |-------------------------|----------------|---------------------------------------------------------------|
-| `maxEvaluations_`       | $150$          | Hard evaluation budget across all restarts                     |
-| `maxRestarts_`          | $3$            | Maximum Broyden refreshes before failure                       |
-| `maxBacktrackTries_`    | $3$            | Line-search tries per iteration                                |
-| `maxBacktrack_`         | $0.5$          | Maximum fractional step shrinkage                              |
-| `backtrackTolerance_`   | $0.1$          | $k_{\min}$ below which the full step is accepted               |
-| `restartTolerance_`     | $0.5$          | $k_{\min}$ above which the linear model is considered invalid  |
+| `maxEvaluations_`       | $150$          | Hard evaluation budget across all restarts                    |
+| `maxRestarts_`          | $3$            | Maximum Broyden refreshes before failure                      |
+| `maxBacktrackTries_`    | $3$            | Line-search tries per iteration                               |
+| `maxBacktrack_`         | $0.5$          | Maximum fractional step shrinkage                             |
+| `backtrackTolerance_`   | $0.1$          | $k_{\min}$ below which the full step is accepted              |
+| `restartTolerance_`     | $0.5$          | $k_{\min}$ above which the linear model is considered invalid |
 
 ## Summary
 

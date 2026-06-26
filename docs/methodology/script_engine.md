@@ -32,12 +32,12 @@ every meaningful decision delegates to a protected virtual method, so a derived
 preprocessor can recognise new directive kinds or new placeholders without
 re-implementing the orchestration.
 
-| Virtual method                 | Role                                                              |
-|--------------------------------|-------------------------------------------------------------------|
-| `IsSchedule(desc)`             | True when a non-date directive description denotes a schedule     |
-| `IsConstVariable(value)`       | True when a non-date directive value defines a constant variable  |
-| `ExpandMacros(stmt, macros)`   | Replace every registered macro name in a statement with its body  |
-| `ExpandSchedulePlaceholders(...)` | Replace `PeriodBegin` / `PeriodEnd` placeholders for one period |
+| Virtual method                    | Role                                                              |
+|-----------------------------------|-------------------------------------------------------------------|
+| `IsSchedule(desc)`                | True when a non-date directive description denotes a schedule     |
+| `IsConstVariable(value)`          | True when a non-date directive value defines a constant variable  |
+| `ExpandMacros(stmt, macros)`      | Replace every registered macro name in a statement with its body  |
+| `ExpandSchedulePlaceholders(...)` | Replace `PeriodBegin` / `PeriodEnd` placeholders for one period   |
 
 The default implementation recognises simple textual macros and period-based
 schedule expansion; a derived preprocessor can override any of these to support

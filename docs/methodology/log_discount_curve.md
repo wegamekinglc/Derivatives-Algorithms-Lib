@@ -130,10 +130,10 @@ at construction. `BuildNaturalCubicFppCoef` solves the interior tridiagonal syst
 each unit source $\ell_j$ column to populate this matrix.
 
 **MIXED.** The cutoff is at the $(N-4)$-th knot (ensuring $\ge 3$ knots in the cubic
-tail). The cubic portion (`LOG_CUBIC_NATURAL` basis) applies for $\tau \le \tau_{\text{cutoff}}$;
-`LOG_LINEAR` basis applies beyond. The `fppCoef_` matrix is computed on the cubic tail
-subarray and expanded back to full storage-node indices, with `mixedCutoffIndex_` and
-`mixedCutoffYf_` stored for dispatch at evaluation.
+tail). `LOG_LINEAR` basis applies for $\tau \le \tau_{\text{cutoff}}$; the cubic portion
+(`LOG_CUBIC_NATURAL` basis) applies beyond. The `fppCoef_` matrix is computed on the
+cubic tail subarray and expanded back to full storage-node indices, with
+`mixedCutoffIndex_` and `mixedCutoffYf_` stored for dispatch at evaluation.
 
 ### Extrapolation
 
@@ -183,10 +183,10 @@ constructs the curve directly with the tape-registered `logDF` vector). A stale
 ### Double vs Number_ Dispatch
 
 The `DiscountLogDF_<T_>::operator()(from, to)` method uses `if constexpr` to select the
-`double` path (reads `LogDfAt` + `std::exp` + base multiplication as pure arithmetic,
-byte-identical to the pre-Phase-A implementation) or the `Number_` path where the
-base curve is treated as a constant `double` multiplier. Both specializations are
-explicitly instantiated so the linker finds them under every AAD backend.
+`double` path (reads `LogDfAt` + `std::exp` + base multiplication as pure arithmetic)
+or the `Number_` path where the base curve is treated as a constant `double` multiplier.
+Both specializations are explicitly instantiated so the linker finds them under every
+AAD backend.
 
 ### Serialization: v1 vs v2
 
