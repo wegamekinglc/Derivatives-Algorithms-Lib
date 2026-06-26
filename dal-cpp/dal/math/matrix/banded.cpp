@@ -245,7 +245,6 @@ namespace Dal {
                         (*correlated)[jj] += val_(jj, ii) * (*iidBegin);
                 }
 
-                // TODO: why return the end?
                 return iidBegin;
             }
 

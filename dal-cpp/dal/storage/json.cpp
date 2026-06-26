@@ -32,7 +32,6 @@ namespace Dal {
         rapidjson::GenericStringRef<char> LendToJSON(const String_& s) {
             return {s.c_str(), static_cast<rapidjson::SizeType>(s.size())};
         }
-        // POSTPONED -- add checking strategy for funny characters inside strings
         struct XDocStore_ : Archive::Store_ {
             std::ostream& dst_;
             std::map<const Storable_*, String_>& sharedTags_;

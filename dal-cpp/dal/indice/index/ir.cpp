@@ -27,7 +27,6 @@ namespace Dal {
         }
 
         String_ MatPostfix(const Cell_& start) {
-            // TODO: incomplete implementation
             if (Cell::IsString(start))
                 return Cell::ToString(start);
             else if (Cell::IsDate(start))
