@@ -19,6 +19,10 @@
 #include <dal/utilities/exceptions.hpp>
 
 namespace Dal {
+    // SINGLE-INCLUSION: DiscountPWLF_v1::XWrite is defined here. It is marked inline, but this
+    // .inc file must remain included in exactly one translation unit to keep the inline function
+    // body out of every header that pulls it in.
+    #include <dal/auto/MG_DiscountPWLF_v1_Write.inc>
     namespace Tape {
         template <class T_, class B_>
         DiscountPWLF_<T_, B_>::DiscountPWLF_(const String_& name,
@@ -118,12 +122,13 @@ namespace Dal {
 
         template <class T_, class B_>
         void DiscountPWLF_<T_, B_>::Write(Archive::Store_& dst) const {
-            // The Number_ specialization is never serialized (the AAD path constructs it only for
-            // the duration of one Gradient sweep); this method exists to satisfy the base-class
-            // virtual and is exercised only on the double specialization. Extract doubles via
-            // Dal::AAD::Value so the template compiles on every T_.
-            REQUIRE(false, "Tape::DiscountPWLF_<T_>::Write is not implemented -- the templated PWL-forward curve is non-storable; use the anonymous-namespace double DiscountPWLF_ at ycimp.cpp for storage");
-            static_cast<void>(dst);
+            if constexpr (std::is_same_v<T_, double> && std::is_same_v<B_, DiscountCurve_<double>>) {
+                DiscountPWLF_v1::XWrite(dst, this->name_, this->ccy_.String(),
+                                        knotDates_, fLeftT_, fRightT_, this->base_);
+            } else {
+                REQUIRE(false, "Tape::DiscountPWLF_ is only serializable for <double, DiscountCurve_<double>>");
+                static_cast<void>(dst);
+            }
         }
 
         template <class T_, class B_>

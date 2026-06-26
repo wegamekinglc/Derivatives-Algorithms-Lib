@@ -3,6 +3,7 @@
 //
 
 #include <gtest/gtest.h>
+#include <cmath>
 #include <map>
 #include <memory>
 #include <utility>
@@ -30,43 +31,12 @@ using namespace Dal;
 // AAD backend (native, XAD, CoDiPack, Adept) via the Dal::AAD facade. Every test below runs on
 // every backend; there is no skip machinery.
 //
-// AC11 is the cheapest falsifier for the templated PWL arithmetic (critique S8): the double
-// specialization Tape::DiscountPWLF_<double>::operator() must match the existing anonymous-namespace
-// double DiscountPWLF_ (ycimp.cpp:63-66) element-wise across all four IntegralTo branches.
+// AC10 validates factory-vs-direct-construction identity of Tape::DiscountPWLF_<double>.
+// AC11 validates Tape::DiscountPWLF_<double>::operator() against the independent
+// PiecewiseLinear_::IntegralTo() oracle across all four IntegralTo branches.
+// AC12 validates ApplyDX produces correct post-bump discount factors.
 
 namespace {
-    // Build a PWL forward with a DISCONTINUITY at every knot (fLeft != fRight), so the
-    // fLeftT_[ii] + fRightT_[ii-1] segment indexing from PiecewiseLinear_::Sofar is exercised.
-    // Returns the templated curve and a parallel double DiscountPWLF_ for byte-for-byte comparison.
-    struct PwlPair_ {
-        Handle_<DiscountCurve_> refCurve;                 // anonymous-namespace double DiscountPWLF_
-        std::shared_ptr<Tape::DiscountPWLF_<double>> tCurve; // templated double specialization
-        Vector_<Date_> knots;
-    };
-
-    PwlPair_ BuildDiscontinuousPwlPair() {
-        const Date_ today(2024, 1, 15);
-        const Vector_<Date_> knots = {
-            Date_(2024, 4, 15), Date_(2024, 7, 15), Date_(2024, 10, 15),
-            Date_(2025, 1, 15), Date_(2025, 7, 15), Date_(2026, 1, 15),
-            Date_(2027, 1, 15), Date_(2029, 1, 15),
-        };
-        const int nKnots = static_cast<int>(knots.size());
-        Vector_<> fLeft(nKnots);
-        Vector_<> fRight(nKnots);
-        // Distinct fLeft/fRight at every knot so the discontinuity is non-trivial.
-        for (int k = 0; k < nKnots; ++k) {
-            fLeft[k] = 0.02 + 0.001 * k + 0.0007 * (k % 3);
-            fRight[k] = 0.025 + 0.0013 * k - 0.0005 * (k % 4);
-        }
-        const PiecewiseLinear_ pw(knots, fLeft, fRight);
-        PwlPair_ retval;
-        retval.knots = knots;
-        retval.refCurve = Handle_<DiscountCurve_>(NewDiscountPWLF("ref", "USD", pw));
-        retval.tCurve = std::make_shared<Tape::DiscountPWLF_<double>>("templ", "USD", knots, fLeft, fRight);
-        return retval;
-    }
-
     // A small joint system: 1 OIS-discount declaration (OIS swaps + deposits) + 1 IBOR-3M forward
     // declaration (FRAs + swaps), base-layered over OIS. This is the canonical AC1-AC8 workload.
     // Reused across the oracle (AC1), eligibility (AC7), and BUMPED-fallback (AC8) tests.
@@ -193,30 +163,149 @@ namespace {
     }
 } // namespace
 
-TEST(JointAnalyticJacobianTest, TestTemplatedPwlByteForByte) {
-    // AC11: the templated Tape::DiscountPWLF_<double>::operator()(from, to) matches the existing
-    // anonymous-namespace double DiscountPWLF_ (ycimp.cpp:63-66) element-wise to 1e-15 across query
-    // intervals that hit all four IntegralTo branches: below first knot, beyond last knot, on a
-    // knot, in-range partial trapezoid.
-    const PwlPair_ p = BuildDiscontinuousPwlPair();
-    const Date_ beforeFirst = Date_(2024, 2, 15);    // branch 1: below first knot
-    const Date_ onKnot0 = p.knots.front();           // branch 3: exactly on knot 0
-    const Date_ onKnotMid = p.knots[4];              // branch 3: exactly on a middle knot
-    const Date_ inRange1 = Date_(2024, 8, 20);       // branch 4: interior partial trapezoid
-    const Date_ inRange2 = Date_(2025, 10, 1);       // branch 4: interior partial trapezoid (later segment)
-    const Date_ beyondLast = Date_(2030, 6, 15);     // branch 2: flat-forward extrapolation past last knot
+TEST(JointAnalyticJacobianTest, TestPwlFactoryVsDirectConstruction) {
+    // AC10: after dedup, the factory (NewDiscountPWLF) constructs Tape::DiscountPWLF_<double> by
+    // unpacking a PiecewiseLinear_ into flat vectors. Compare its DFs against a directly-constructed
+    // Tape::DiscountPWLF_<double> with the same data to catch factory-unpacking bugs, constructor
+    // divergence, or data corruption. All four IntegralTo branches are exercised.
+    const Date_ today(2024, 1, 15);
+    const Vector_<Date_> knots = {
+        Date_(2024, 4, 15), Date_(2024, 7, 15), Date_(2024, 10, 15),
+        Date_(2025, 1, 15), Date_(2025, 7, 15), Date_(2026, 1, 15),
+        Date_(2027, 1, 15), Date_(2029, 1, 15),
+    };
+    const int nKnots = static_cast<int>(knots.size());
+    Vector_<> fLeft(nKnots);
+    Vector_<> fRight(nKnots);
+    for (int k = 0; k < nKnots; ++k) {
+        fLeft[k] = 0.02 + 0.001 * k + 0.0007 * (k % 3);
+        fRight[k] = 0.025 + 0.0013 * k - 0.0005 * (k % 4);
+    }
+
+    // Factory path: goes through PiecewiseLinear_ -> unpacked in NewDiscountPWLF.
+    const PiecewiseLinear_ pw(knots, fLeft, fRight);
+    Handle_<DiscountCurve_> factoryCurve(NewDiscountPWLF("factory", "USD", pw));
+
+    // Direct path: template constructor with flat vectors.
+    auto directCurve = std::make_shared<Tape::DiscountPWLF_<double>>("direct", "USD", knots, fLeft, fRight);
+
+    const Date_ beforeFirst(2024, 2, 15);
+    const Date_ onKnot0 = knots.front();
+    const Date_ onKnotMid = knots[4];
+    const Date_ inRange1(2024, 8, 20);
+    const Date_ inRange2(2025, 10, 1);
+    const Date_ beyondLast(2030, 6, 15);
 
     const Vector_<Date_> queries = {beforeFirst, onKnot0, onKnotMid, inRange1, inRange2, beyondLast};
     for (int i = 0; i < static_cast<int>(queries.size()); ++i) {
         for (int j = i + 1; j < static_cast<int>(queries.size()); ++j) {
             const Date_ from = queries[i];
             const Date_ to = queries[j];
-            const double ref = (*p.refCurve)(from, to);
-            const double got = (*p.tCurve)(from, to);
-            ASSERT_NEAR(got, ref, 1e-15) << "Mismatch at from=" << Date::ToString(from) << ", to=" << Date::ToString(to)
-                                         << " (ref=" << ref << ", got=" << got << ")";
+            const double factoryDf = (*factoryCurve)(from, to);
+            const double directDf = (*directCurve)(from, to);
+            ASSERT_NEAR(factoryDf, directDf, 1e-15)
+                << "Factory-vs-direct mismatch at from=" << Date::ToString(from)
+                << ", to=" << Date::ToString(to);
         }
     }
+}
+
+TEST(JointAnalyticJacobianTest, TestPwlAnalyticalIntegral) {
+    // AC11: validate Tape::DiscountPWLF_<double>::operator() against the independent
+    // PiecewiseLinear_::IntegralTo() oracle (independently tested in test_piecewiselinear.cpp).
+    // Exercises all four IntegralTo branches: below first knot, beyond last knot, on a knot,
+    // in-range partial trapezoid.
+    const Date_ today(2024, 1, 15);
+    const Vector_<Date_> knots = {
+        Date_(2024, 4, 15), Date_(2024, 7, 15), Date_(2024, 10, 15),
+        Date_(2025, 1, 15), Date_(2025, 7, 15), Date_(2026, 1, 15),
+        Date_(2027, 1, 15), Date_(2029, 1, 15),
+    };
+    const int nKnots = static_cast<int>(knots.size());
+    Vector_<> fLeft(nKnots);
+    Vector_<> fRight(nKnots);
+    for (int k = 0; k < nKnots; ++k) {
+        fLeft[k] = 0.02 + 0.001 * k + 0.0007 * (k % 3);
+        fRight[k] = 0.025 + 0.0013 * k - 0.0005 * (k % 4);
+    }
+
+    // Template curve under test.
+    auto curve = std::make_shared<Tape::DiscountPWLF_<double>>("test", "USD", knots, fLeft, fRight);
+
+    // Independent oracle: PiecewiseLinear_ with the same data.
+    const PiecewiseLinear_ oracle(knots, fLeft, fRight);
+
+    const Date_ beforeFirst(2024, 2, 15);
+    const Date_ onKnot0 = knots.front();
+    const Date_ onKnotMid = knots[4];
+    const Date_ inRange1(2024, 8, 20);
+    const Date_ inRange2(2025, 10, 1);
+    const Date_ beyondLast(2030, 6, 15);
+
+    const Vector_<Date_> queries = {beforeFirst, onKnot0, onKnotMid, inRange1, inRange2, beyondLast};
+    for (int i = 0; i < static_cast<int>(queries.size()); ++i) {
+        for (int j = i + 1; j < static_cast<int>(queries.size()); ++j) {
+            const Date_ from = queries[i];
+            const Date_ to = queries[j];
+            const double got = (*curve)(from, to);
+
+            // Oracle: DF = exp(-(IntegralTo(to) - IntegralTo(from)) / 365.0).
+            const double oracleIntegralTo = oracle.IntegralTo(to);
+            const double oracleIntegralFrom = oracle.IntegralTo(from);
+            const double expected = std::exp(-(oracleIntegralTo - oracleIntegralFrom) / 365.0);
+
+            ASSERT_NEAR(got, expected, 1e-15)
+                << "Mismatch vs PiecewiseLinear_ oracle at from=" << Date::ToString(from)
+                << ", to=" << Date::ToString(to);
+        }
+    }
+}
+
+TEST(JointAnalyticJacobianTest, TestPwlApplyDxRoundTrip) {
+    // AC12: ApplyDX on Tape::DiscountPWLF_<double> correctly shifts the forward rates and the effect
+    // on discount factors matches a manually bumped PiecewiseLinear_ reference.
+    const Date_ today(2024, 1, 15);
+    const Vector_<Date_> knots = {
+        Date_(2024, 4, 15), Date_(2024, 7, 15), Date_(2024, 10, 15),
+        Date_(2025, 1, 15), Date_(2025, 7, 15),
+    };
+    const int nKnots = static_cast<int>(knots.size());
+    Vector_<> fLeft(nKnots, 0.02);
+    Vector_<> fRight(nKnots, 0.02);
+    // Discontinuity: fRight != fLeft at each interior knot.
+    for (int k = 0; k < nKnots; ++k) {
+        fLeft[k] += 0.001 * k;
+        fRight[k] += 0.0005 * k;
+    }
+
+    auto curve = std::make_shared<Tape::DiscountPWLF_<double>>("test", "USD", knots, fLeft, fRight);
+
+    // Snapshot DFs before bump.
+    const Date_ from = knots.front();
+    const Date_ to = knots.back();
+    const double dfBefore = (*curve)(from, to);
+
+    // Bump: shift fLeft[1] and fRight[1] by +0.001 each.
+    // NX() = 2 * nKnots, so params are [fLeft0, fRight0, fLeft1, fRight1, ...].
+    Vector_<> dx(2 * nKnots, 0.0);
+    dx[2] = 0.001;  // fLeft[1]
+    dx[3] = 0.001;  // fRight[1]
+    curve->ApplyDX(dx.begin(), 1.0);
+
+    const double dfAfter = (*curve)(from, to);
+
+    // Manually bump the fLeft/fRight and recompute via PiecewiseLinear_ to get the expected DF.
+    auto bumpedLeft = fLeft;
+    auto bumpedRight = fRight;
+    bumpedLeft[1] += 0.001;
+    bumpedRight[1] += 0.001;
+    const PiecewiseLinear_ bumpedOracle(knots, bumpedLeft, bumpedRight);
+    const double expected = std::exp(-(bumpedOracle.IntegralTo(to) - bumpedOracle.IntegralTo(from)) / 365.0);
+
+    ASSERT_NEAR(dfAfter, expected, 1e-15) << "ApplyDX bump did not match reference";
+
+    // Sanity: bumped DF should differ from pre-bump DF.
+    ASSERT_NE(dfAfter, dfBefore) << "ApplyDX had no effect on discount factors";
 }
 
 TEST(JointAnalyticJacobianTest, TestBumpedFallbackIsByteForByte) {
