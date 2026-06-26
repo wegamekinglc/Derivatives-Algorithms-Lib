@@ -59,6 +59,145 @@ path rebuilds a fresh curve per perturbation, and a missed `RegisterIndependent`
 or a wrong recording order would make the AAD row silently zero. That is exactly
 the failure the two-way comparison is built to catch.
 
+## Joint Multi-Curve Analytic Jacobian
+
+The single-curve path calibrates one discount curve under the
+$\text{forecast} = \text{discount}$ identity. The joint multi-curve path
+(`CalibrateJointMultiCurve` in `dal-cpp/dal/curve/jointcalibration.cpp`)
+calibrates several curves in **one** `Underdetermined::Find` / `Approximate`
+solve over the concatenated free-parameter vector of every declaration, and
+produces an AAD-derived dense residual Jacobian over that stacked vector. The
+result is exposed as
+`JointMultiCurveCalibrationResult_::jacobianAtSolution_`, shaped
+`(totalResiduals) × (totalFreeParams)`, populated iff
+`JointMultiCurveCalibrationOptions_::jacobianMode_ == ANALYTIC`,
+`solveMode_ == EXACT`, and the spec is eligible; empty otherwise.
+
+The mechanics mirror the single-curve path — register the stacked free
+parameters on the tape, build `Number_`-typed curves, compute `Number_`-typed
+residuals, run one reverse sweep per residual row — but the routing of a
+discount-factor read now has to choose between multiple curves, and the curve
+types themselves have to carry their parameter dependence through that routing.
+The library encodes this in three templated primitives under `namespace Dal::Tape`
+(see [AAD methodology — Tape-Layer Primitives for Curve Calibration](aad.md#tape-layer-primitives-for-curve-calibration)
+for the type-by-type detail). The methodology that is *specific* to the joint
+path — the routing rules, the eligibility gate, the smoothing — is what this
+section covers.
+
+### Eligibility
+
+`JointSpecEligibleForAnalyticJacobian` admits a spec only when **all** of the
+following hold (each failing condition emits a `NOTICE` naming it, then the
+solver dense-bumps):
+
+- every declaration is `PIECEWISE_LINEAR_FWD` — the independents are the
+  per-knot forward parameters `fLeftT_[k]`, `fRightT_[k]` ($2 \cdot n_{\text{knots}}$
+  per declaration, no anchor exclusion);
+- `liborBasis_ == ACT_365F` — the basis-year fraction in the simple-rate
+  arithmetic must match the basis the templated rates assume;
+- every instrument is a vanilla `Deposit_`, `FRA_`, `Future_`, or `Swap_`
+  (`OISSwap_` rides the inherited `Swap_::PrecomputeT<T_>`, since its overnight
+  index has `useProjectionCurve_ == false`, so forecast == discount == OIS and
+  both the AAD and bumped paths share the identical simple-rate arithmetic);
+  instruments without a templated rate (e.g. `BasisSwap_`) reject the whole
+  calibration;
+- on a **discount** declaration, no instrument projects
+  (`useProjectionCurve_ == false`) so every fixing routes to a single curve on
+  the tape; on a **forward** declaration, every instrument projects
+  (`useProjectionCurve_ == true`) so the forward curve is actually constrained.
+
+The verdict is evaluated once per `CalibrateJointMultiCurve` call and cached, so
+the `NOTICE`s fire at most once even though `Gradient` is invoked per solver
+iteration. `ANALYTIC` never throws — an ineligible spec falls back to `BUMPED`
+byte-for-byte.
+
+### Discount-vs-forward routing, and the OIS post-2008 fallback
+
+A joint spec has two slot kinds. A **discount** declaration
+(`calibrateDiscountCurve_ == true`) produces one discount curve per
+`targetCollateral_`. A **forward** declaration
+(`calibrateDiscountCurve_ == false`, with a non-default `targetTenor_`) produces
+one forward curve per tenor. The IBOR leg of a forward-declaration instrument is
+discounted at the collateral of another declaration's discount curve —
+canonically OIS. The capability wires that routing internally by assembling a
+`CurveBlock_` from every declaration's curves; the caller never names "which
+curve discounts which other curve."
+
+On the AAD tape this routing is reproduced by `Tape::JointCurveBlock_<T_>` (in
+`dal-cpp/dal/curve/jointycctx.hpp`), whose `Discount(collateral)` and
+`Forward(tenor, collateral)` reads mirror `CurveBlock_::Discount` /
+`CurveBlock_::Forward` exactly. Two fallbacks are load-bearing:
+
+1. **OIS fallback on discount.** `Discount(collateral)` first looks for an
+   exact-collateral match; if none is registered it falls back to the OIS
+   discount curve. This is the post-2008 single-curve convention preserved on
+   the tape: an OIS knot perturbation must flow into an IBOR leg's discounting
+   when the leg's collateral is not OIS. Dropping this fallback on the tape
+   would silently zero the OIS-to-IBOR discounting sensitivity — exactly the
+   cross-curve coupling the joint solve exists to capture.
+2. **Forward-to-discount fallback.** `Forward(tenor, collateral)` first looks
+   for an exact-tenor forward curve; if none is registered it routes to
+   `Discount(collateral)`. This admits the discount-slice / baseless-forward
+   case where forecast == discount (e.g. an OIS-discount slice), and the
+   eligibility predicate treats it as supported rather than as a missing curve.
+
+### Base layering over discount
+
+A forward declaration may optionally set `baseLayeredOverDiscount_ == true`. The
+forward curve is then built with its base set to the discount curve at
+`targetCollateral_` produced in the **same** solve, so the curve the smoother
+acts on is the **spread forward** $f_{\text{abs}} - f_{\text{ois}}$ rather than
+the absolute forward $f_{\text{abs}}$. This matches the staged calibration's
+base layering and is the form in which a LIBOR-OIS forward is naturally smooth.
+
+On the AAD tape this is realised by giving `Tape::DiscountPWLF_<T_, B_>` a
+second template parameter `B_`:
+
+- `B_ = DiscountCurve_<double>` — baseless / constant-base (the base is passive;
+  its parameters carry no adjoints);
+- `B_ = DiscountCurve_<T_>` — base-layered (the base's own parameters carry
+  adjoints, and the reverse sweep propagates OIS sensitivities through the base
+  multiplication into the discount-curve free nodes).
+
+The base-layered form is required for the joint solve to see the OIS → forward
+coupling on the tape; the baseless form remains supported for representations
+that do not layer. `PIECEWISE_CONSTANT_FWD` declarations cannot be base-layered
+— base layering requires `PIECEWISE_LINEAR_FWD`.
+
+### PWL-forward → log-DF integration
+
+`Tape::DiscountPWLF_<T_, B_>` interpolates forward rates piecewise-linearly on
+`T_` and integrates them to log-discount factors. The running integral
+`sofarT_[k] = ∫_{knot_0}^{knot_k} f(τ) dτ` is `T_`-typed (mirroring the
+`PiecewiseLinear_::sofar_` member but on `T_`), so the dependence of every
+discount-factor read on `fLeftT_` / `fRightT_` records on the tape. The
+year-fraction weights (`dt`) stay `double` — they are functions of the knot
+abscissae only, identical for any `T_`. `UpdateT()` recomputes `sofarT_`
+whenever the forward parameters change. The `double` specialization of the
+templated class is byte-for-byte identical in arithmetic to the non-templated
+`DiscountPWLF_` the bumped path uses, so the AAD-vs-bump agreement bar is
+defined against the same residual function.
+
+### Why assembly is sparse-by-row
+
+The reverse sweep produces one row of $J$ at a time. Each residual row has
+nonzero parameter dependence only on the knots of the declaration whose
+instruments produced that residual — AAD produces **exact structural zeros** at
+every parameter the residual does not touch, including every parameter of every
+*other* declaration. Storage is dense (in `XCurveJacobian_`,
+`dal-cpp/dal/curve/curvejacobian.hpp`, shared with the single-curve path), so
+those zeros are stored explicitly rather than compressed away; the structural
+sparsity is exploited only at assembly time, by sweeping each row independently.
+The dense storage is what the underdetermined solver's `MultiplyLeft` /
+`MultiplyRight` / `QForm` virtual interface reads; the row-wise AAD sweep is
+what guarantees the off-block entries are exactly zero and not numerical noise.
+
+The pointers in `Tape::JointCurveBlock_<T_>` are non-owning `const
+DiscountCurve_<T_>*` (not `Handle_<...>`) because the curves they reference live
+on the `shared_ptr` storage of the analytic-Jacobian frame for the duration of
+the single sweep and are destroyed when that frame goes out of scope — wrapping
+them in `Handle_<...>` would imply shared ownership the frame does not need.
+
 ## The Inverse Jacobian and Bucketed IR Risk
 
 Once the curve is calibrated with `solveMode_ = EXACT`, the diagnostics carry
