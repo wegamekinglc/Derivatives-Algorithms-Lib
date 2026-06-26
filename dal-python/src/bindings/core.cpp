@@ -25,11 +25,6 @@ PYBIND11_MAKE_OPAQUE(std::vector<Dal::Date_>);
 PYBIND11_MAKE_OPAQUE(std::vector<Dal::Cell_>);
 
 void init_bindings_core(py::module_& m) {
-    // =======================================================================
-    // Core types
-    // =======================================================================
-
-    // -- Date_ --------------------------------------------------------------
     py::class_<Date_>(m, "Date_")
         .def(py::init<int, int, int>(),
              py::arg("yyyy"), py::arg("mm"), py::arg("dd"))
@@ -51,7 +46,6 @@ void init_bindings_core(py::module_& m) {
     m.def("Month", [](const Date_& d) { return Date::Month(d); });
     m.def("Day", [](const Date_& d) { return Date::Day(d); });
 
-    // -- String_ ------------------------------------------------------------
     py::class_<String_>(m, "String_")
         .def(py::init<const char*>(), py::arg("src"))
         .def(py::init<const std::string&>(), py::arg("src"))
@@ -59,7 +53,6 @@ void init_bindings_core(py::module_& m) {
             return s.c_str();
         });
 
-    // -- Cell_ --------------------------------------------------------------
     py::class_<Cell_>(m, "Cell_")
         .def(py::init<bool>(), py::arg("b"))
         .def(py::init<double>(), py::arg("d"))
@@ -67,13 +60,11 @@ void init_bindings_core(py::module_& m) {
         .def(py::init<const String_&>(), py::arg("s"))
         .def(py::init<const char*>(), py::arg("s"));
 
-    // -- STL vector bindings ------------------------------------------------
     py::bind_vector<std::vector<double>>(m, "DoubleVector");
     py::bind_vector<std::vector<std::string>>(m, "StrVector");
     py::bind_vector<std::vector<Date_>>(m, "DateVector");
     py::bind_vector<std::vector<Cell_>>(m, "CellVector");
 
-    // -- DoubleMatrix_ ------------------------------------------------------
     py::class_<Matrix_<>>(m, "DoubleMatrix_")
         .def(py::init<int, int, double>(),
              py::arg("rows"), py::arg("cols"), py::arg("fill") = 0.0)

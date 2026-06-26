@@ -14,10 +14,6 @@
 using namespace Dal;
 
 void init_bindings_value(py::module_& m) {
-    // =======================================================================
-    // Monte Carlo valuation
-    // =======================================================================
-
     m.def("MonteCarlo_Value",
         [](const std::shared_ptr<ScriptProductData_>& product,
            const std::shared_ptr<ModelData_>& modelData,
