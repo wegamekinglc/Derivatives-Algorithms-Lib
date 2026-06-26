@@ -14,7 +14,6 @@ namespace Dal {
                                 const Dal::DateTime_ &to,
                                 double monitoring_interval,
                                 const std::pair<double, double> &collar) const {
-        // TODO: fix this implementation
         auto prob = AllInRangeProb(from, to, collar, monitoring_interval, 0.0);
         if (prob > 0.0 && maximum)
             return collar.second;

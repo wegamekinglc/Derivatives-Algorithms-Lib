@@ -13,7 +13,6 @@
 
 namespace Dal {
     namespace {
-        // stubbed out, sorry
         Index_* ParseSuperShot(const String_&) { return nullptr; }
 
         std::map<String_, Index::parser_t>& TheIndexParsers() { RETURN_STATIC(std::map<String_, Index::parser_t>); }
@@ -28,7 +27,6 @@ namespace Dal {
             return (*pp->second)(name);
         }
 
-        // stubbed out, sorry
         Index::Composite_* ParseComposite(const String_&) { return nullptr; }
     } // namespace
 
