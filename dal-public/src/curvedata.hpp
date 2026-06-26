@@ -17,7 +17,6 @@
 
 namespace Dal {
 
-    // --- DiscountPWLFNew: Build a discount curve from knot dates and flat forward rates ---
     FORCE_INLINE Handle_<DiscountCurve_> DiscountPWLFNew(const String_& name,
                                                          const String_& ccy,
                                                          const Vector_<Date_>& knotDates,
@@ -26,13 +25,11 @@ namespace Dal {
         return Handle_<DiscountCurve_>(NewDiscountPWLF(name, ccy, PiecewiseLinear_(knotDates, fwdRates, fwdRates), base));
     }
 
-    // --- CurveBlockNew (simple): Build a CurveBlock_ from a single discount curve ---
     FORCE_INLINE Handle_<CurveBlock_> CurveBlockNew(const Handle_<DiscountCurve_>& dc,
                                                     const DayBasis_& liborBasis = DayBasis_("ACT_365F")) {
         return Handle_<CurveBlock_>(new CurveBlock_(dc, liborBasis));
     }
 
-    // --- CurveBlockNew: Build a CurveBlock_ from discount and forward curve maps ---
     FORCE_INLINE Handle_<CurveBlock_> CurveBlockNew(const String_& name,
                                                     const String_& ccy,
                                                     const std::map<CollateralType_, Handle_<DiscountCurve_>>& discounts,

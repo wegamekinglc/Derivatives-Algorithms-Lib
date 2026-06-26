@@ -23,8 +23,6 @@ namespace {
     double Quartic(double x) { return x * x * x * x; }
 } // namespace
 
-// --- Increment ---
-
 TEST(QuadratureTest, TestIncrementScalar) {
     double dst = 1.0;
     Increment(&dst, 2.0, 0.5);
@@ -39,8 +37,6 @@ TEST(QuadratureTest, TestIncrementVector) {
     ASSERT_NEAR(dst[1], 1.0, 1e-10);
     ASSERT_NEAR(dst[2], 1.5, 1e-10);
 }
-
-// --- SimpsonWeights ---
 
 TEST(QuadratureTest, TestSimpsonWeightsBasic) {
     Vector_<> x(3), w(3);
@@ -75,8 +71,6 @@ TEST(QuadratureTest, TestSimpsonWeightsSum) {
     }
 }
 
-// --- QuadSimpson_ ---
-
 TEST(QuadratureTest, TestSimpsonConstant) {
     QuadSimpson_<> quad(3, 0.0, 1.0);
     while (!quad.IsComplete())
@@ -110,8 +104,6 @@ TEST(QuadratureTest, TestSimpsonCubic) {
     }
     ASSERT_NEAR(quad.Result(), 0.25, 1e-10);
 }
-
-// --- NCDFGaussHermiteWeights ---
 
 TEST(QuadratureTest, TestHermiteOneNode) {
     Vector_<> x(1), w(1);
@@ -151,8 +143,6 @@ TEST(QuadratureTest, TestHermiteSymmetry) {
         }
     }
 }
-
-// --- NormalExpectation_ ---
 
 TEST(QuadratureTest, TestNormalExpectConstant) {
     NormalExpectation_<> quad(5);
@@ -218,8 +208,6 @@ TEST(QuadratureTest, TestNormalExpectConvergence) {
     }
 }
 
-// --- Quad1DFixed_ state machine ---
-
 TEST(QuadratureTest, TestStateTransitions) {
     QuadSimpson_<> quad(3, 0.0, 1.0);
     ASSERT_FALSE(quad.IsComplete());
@@ -248,8 +236,6 @@ TEST(QuadratureTest, TestSimpsonRestartReuse) {
 
     ASSERT_NEAR(first, second, 1e-10);
 }
-
-// --- Vector-valued quadrature ---
 
 TEST(QuadratureTest, TestVectorValuedSimpson) {
     QuadSimpson_<Vector_<>> quad(3, 0.0, 1.0, Vector_<>(2));

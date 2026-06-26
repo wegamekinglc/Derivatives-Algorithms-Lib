@@ -12,7 +12,6 @@
 
 namespace Dal {
 
-    // --- Deposit ---
     FORCE_INLINE Handle_<YCInstrument_> DepositNew(const Date_& tradeDate,
                                                     const Date_& start,
                                                     const Date_& maturity,
@@ -21,7 +20,6 @@ namespace Dal {
         return Handle_<YCInstrument_>(new Deposit_(tradeDate, start, maturity, marketRate, convention));
     }
 
-    // --- FRA ---
     FORCE_INLINE Handle_<YCInstrument_> FRANew(const Date_& tradeDate,
                                                 const Date_& start,
                                                 const Date_& maturity,
@@ -30,7 +28,6 @@ namespace Dal {
         return Handle_<YCInstrument_>(new FRA_(tradeDate, start, maturity, marketRate, convention));
     }
 
-    // --- Future ---
     FORCE_INLINE Handle_<YCInstrument_> FutureNew(const Date_& tradeDate,
                                                    const Date_& start,
                                                    const Date_& maturity,
@@ -40,7 +37,6 @@ namespace Dal {
         return Handle_<YCInstrument_>(new Future_(tradeDate, start, maturity, marketRate, convention, convexityAdjustment));
     }
 
-    // --- Vanilla Swap (Libor) ---
     FORCE_INLINE Handle_<YCInstrument_> SwapNew(const Date_& tradeDate,
                                                  const Date_& start,
                                                  const Date_& maturity,
@@ -51,7 +47,6 @@ namespace Dal {
         return Handle_<YCInstrument_>(new Swap_(tradeDate, start, maturity, marketRate, fixedLeg, floatIndex, floatLeg));
     }
 
-    // --- OIS Swap ---
     FORCE_INLINE Handle_<YCInstrument_> OISSwapNew(const Date_& tradeDate,
                                                     const Date_& start,
                                                     const Date_& maturity,
@@ -62,7 +57,6 @@ namespace Dal {
         return Handle_<YCInstrument_>(new OISSwap_(tradeDate, start, maturity, marketRate, fixedLeg, overnightIndex, floatLeg));
     }
 
-    // --- Basis Swap ---
     FORCE_INLINE Handle_<YCInstrument_> BasisSwapNew(const Date_& tradeDate,
                                                       const Date_& start,
                                                       const Date_& maturity,
@@ -75,7 +69,6 @@ namespace Dal {
             new BasisSwap_(tradeDate, start, maturity, marketRate, spreadIndex, spreadLeg, refIndex, refLeg));
     }
 
-    // --- Cross-Currency Swap ---
     FORCE_INLINE Handle_<CrossCurrencySwap_> CrossCurrencySwapNew(const Date_& tradeDate,
                                                                    const Date_& start,
                                                                    const Date_& maturity,

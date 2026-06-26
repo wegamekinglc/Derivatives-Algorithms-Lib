@@ -56,9 +56,7 @@ Dal::RateIndexConvention_ OvernightIndex() {
 
 } // namespace
 
-// ============================================================================
 // CurveCalibrationSpecBuilder_ defaults
-// ============================================================================
 
 TEST(CurveSpecTest, TestBuilderDefaults) {
     CurveCalibrationSpecBuilder_ builder;
@@ -75,9 +73,7 @@ TEST(CurveSpecTest, TestBuilderDefaults) {
               CurveParameterization_::Value_::PIECEWISE_LINEAR_FWD);
 }
 
-// ============================================================================
 // Single-curve calibration (EXACT, PIECEWISE_LINEAR_FWD)
-// ============================================================================
 
 TEST(CurveSpecTest, TestCalibrateSingleCurveExact) {
     // Build a flat 4% OIS market using OIS swaps
@@ -108,9 +104,7 @@ TEST(CurveSpecTest, TestCalibrateSingleCurveExact) {
     ASSERT_LT(result.diagnostics_.rmsResidual_, 1.0e-6);
 }
 
-// ============================================================================
 // Single-curve calibration with Jacobian
-// ============================================================================
 
 TEST(CurveSpecTest, TestCalibrateSingleCurveWithBumpedJacobian) {
     // Calibration with BUMPED Jacobian mode (uses APPROXIMATE + PIECEWISE_LINEAR_FWD)
@@ -173,9 +167,7 @@ TEST(CurveSpecTest, TestCalibrateSingleCurveWithAnalyticJacobian) {
     ASSERT_GT(result.diagnostics_.jacobian_.Cols(), 0);
 }
 
-// ============================================================================
 // Multi-curve calibration (sequential)
-// ============================================================================
 
 TEST(CurveSpecTest, TestCalibrateMultiCurveBundle) {
     MultiCurveCalibrationSpec_ multiSpec;

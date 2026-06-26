@@ -12,13 +12,11 @@
 
 namespace Dal {
 
-    // --- Result wrapper: converts unique_ptr<DiscountCurve_> to Handle_<DiscountCurve_> ---
     struct CalibrationResult_ {
         Handle_<DiscountCurve_> curve_;
         CurveCalibrationDiagnostics_ diagnostics_;
     };
 
-    // --- Builder for single-curve calibration spec ---
     struct CurveCalibrationSpecBuilder_ {
         Date_ today_;
         String_ ccy_;
@@ -47,7 +45,6 @@ namespace Dal {
         CurveCalibrationSpec_ Build() const;
     };
 
-    // --- Calibration functions ---
     CalibrationResult_ CalibrateSingleCurve(const CurveCalibrationSpec_& spec);
     CalibrationResult_ CalibrateSingleCurve(const CurveCalibrationSpec_& spec,
                                              CurveJacobianMode_ jacobianMode);

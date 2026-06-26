@@ -9,7 +9,6 @@
 
 namespace Dal {
 
-    // --- Builder for cross-currency calibration spec ---
     struct CrossCurrencyCalibrationSpecBuilder_ {
         Date_ today_;
         CurrencyPair_ basisPair_;
@@ -30,7 +29,6 @@ namespace Dal {
         CrossCurrencyCalibrationSpec_ Build() const;
     };
 
-    // --- Cross-currency calibration function ---
     CrossCurrencyCalibrationResult_ CalibrateXccyMarket(const CrossCurrencyCalibrationSpec_& spec);
 
 } // namespace Dal

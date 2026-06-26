@@ -24,9 +24,7 @@ Date_ Spot() { return Today().AddDays(2); }
 
 } // namespace
 
-// ============================================================================
 // DiscountPWLFNew
-// ============================================================================
 
 TEST(CurveDataTest, TestDiscountPWLFNew) {
     Vector_<Date_> knotDates;
@@ -70,9 +68,7 @@ TEST(CurveDataTest, TestDiscountPWLFNewWithBase) {
     ASSERT_TRUE(curve != nullptr);
 }
 
-// ============================================================================
 // CurveBlockNew (simple overload)
-// ============================================================================
 
 TEST(CurveDataTest, TestCurveBlockNewSimple) {
     Vector_<Date_> knotDates;
@@ -100,9 +96,7 @@ TEST(CurveDataTest, TestCurveBlockNewSimpleWithBasis) {
     ASSERT_TRUE(block != nullptr);
 }
 
-// ============================================================================
 // CurveBlockNew (full overload)
-// ============================================================================
 
 TEST(CurveDataTest, TestCurveBlockNewFull) {
     // Build two discount curves: OIS and Libor 3M
