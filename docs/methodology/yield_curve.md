@@ -351,6 +351,50 @@ by element-wise agreement against a central finite-difference bump of the
 joint residual function. The oracle tests live at
 `dal-cpp/tests/curve/test_joint_analytic_jacobian.cpp`.
 
+### Joint vs staged calibration drift
+
+`CalibrateJointMultiCurve` (simultaneous) and `CalibrateMultiCurve` (sequential
+stages) both repricing the same instrument set to the same `fitTolerance_` do
+not produce byte-identical curves: the joint solve lands a few parts in
+$10^7$ off the staged solve on the OIS slice and up to a few parts in $10^5$
+on the 3M slice. The drift is expected and is not a bug — it is the
+mathematical consequence of solving the two curves together rather than one at
+a time.
+
+When both paths base-layer the 3M forward over the OIS discount curve (the
+joint path via `JointCurveDeclaration_::baseLayeredOverDiscount_`, the staged
+path via `ApplyStageDefaults`), both smoothers act on the OIS **spread**
+forward $f_{\text{abs}} - f_{\text{ois}}$, so the stored 3M curves are
+structurally identical (`DiscountPWLF_` with base = OIS). This eliminates the
+much larger representation-mismatch drift (around $3\times10^{-4}$ on the 3M
+short end) that appears when the two paths smooth different quantities.
+
+The residual drift has two sources:
+
+- **OIS slice (BAR-B, informational).** The joint OIS slice is co-determined
+  with the 3M-spread slice: the OIS columns of the joint Jacobian carry entries
+  from the 3M residual rows (IBOR annuities discount through OIS), and the
+  3M-spread parameters depend on the OIS base. The coupled solve therefore lands
+  the OIS knots a few $10^{-7}$ off the OIS-only staged solve. Base layering
+  widens this slightly (from $\sim4\times10^{-8}$ to $\sim6\times10^{-7}$)
+  because the spread smoothing couples the OIS and 3M-spread searches more
+  strongly.
+- **3M slice (BAR-C, informational).** With both paths smoothing the spread,
+  the residual drift is the OIS-slice difference above propagating through the
+  3M base handle, plus a small boundary contribution at the 1Y and 10Y knots
+  where the piecewise-linear system is least constrained. The 2Y–7Y core agrees
+  to $\sim10^{-7}$ (the OIS-agreement level); the maximum is $\sim2.4\times10^{-5}$
+  at the 1Y pillar — about $14\times$ tighter than the baseless default.
+
+These drift figures are reported by the example
+`dal-cpp/examples/joint_multi_curve_calibration/joint_multi_curve_calibration.cpp`
+as informational measurements (BAR-B, BAR-C), not gated. The example's sole
+pass/fail gate (BAR-A) checks that both paths converge and reprice every
+instrument to `10 * fitTolerance_`. A curve-routing bug — for example, the joint
+3M leg fixing off the wrong curve — would show up at the $10^{-2}$ level, far
+above the measured drift, so the informational diagnostic still discriminates
+correct wiring from mis-routing.
+
 ## Examples
 
 The snippets below are condensed from the standalone example programs under

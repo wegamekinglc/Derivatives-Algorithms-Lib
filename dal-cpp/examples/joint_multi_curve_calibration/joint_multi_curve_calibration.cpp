@@ -42,29 +42,12 @@ namespace {
             THROW(msg);                                                                                                                              \
     } while (false)
 
-    // BAR-A is the sole PASS gate: both paths must converge and reprice every instrument to
-    // 10 * fitTolerance_. BAR-B and BAR-C are INFORMATIONAL measurements of joint-vs-staged DF
-    // drift, printed for teaching, NOT pass/fail bars. The drift is expected and is NOT a bug.
-    // Both paths run EXACT (CurveSolveMode_::EXACT -> Underdetermined::Find) and BOTH base-layer
-    // the 3M forward curve over the OIS discount curve (the joint path via
-    // baseLayeredOverDiscount_, the staged path via ApplyStageDefaults), so both smoothers act on
-    // the OIS SPREAD forward and the stored 3M curves are structurally identical (DiscountPWLF_
-    // with base = OIS).
-    //
-    //   * OIS (BAR-B): the joint OIS slice is co-determined with the 3M-spread slice (the joint
-    //     Jacobian's OIS columns carry entries from the 3M residual rows because IBOR annuities
-    //     discount through OIS AND the 3M-spread parameters depend on the OIS base), so the coupled
-    //     Find lands a few e-7 off the OIS-only staged Find; the short knots agree more tightly.
-    //     Base layering widens this slightly vs the baseless default (3.7e-8 -> 6.4e-7) because the
-    //     spread smoothing couples the OIS and 3M-spread searches more strongly.
-    //
-    //   * 3M (BAR-C): because both paths smooth the spread, the representation mismatch that drove
-    //     the baseless short-end drift (3.3e-4) is gone. The residual drift is the joint-vs-staged
-    //     OIS-slice difference (BAR-B) propagating through the 3M base handle, plus a small
-    //     boundary contribution at the 1Y and 10Y knots where the PWL system is least constrained.
-    //     The 2Y-7Y core agrees to ~1e-7 (the OIS-agreement level); the max is ~2.4e-5 at the 1Y
-    //     pillar. This is ~14x tighter than the baseless default and confirms the base wiring: an
-    //     OIS bump now propagates into the joint 3M DFs through the base handle (B-new-2 fixed).
+    // BAR-A is the sole PASS gate (both paths reprice to 10 * fitTolerance_). BAR-B and BAR-C are
+    // INFORMATIONAL joint-vs-staged DF-drift measurements, printed for teaching, NOT pass/fail bars
+    // (the drift is expected and is NOT a bug -- see docs/methodology/yield_curve.md,
+    // "Joint simultaneous calibration"). Both paths run EXACT and base-layer the 3M forward over
+    // the OIS discount curve (joint via baseLayeredOverDiscount_, staged via ApplyStageDefaults),
+    // so the stored 3M curves are structurally identical (DiscountPWLF_ with base = OIS).
     constexpr double BAR_A_TOLERANCE = 1.0e-7;  // PASS gate: 10 * fitTolerance_, both paths
     constexpr double BAR_B_REFERENCE = 1.0e-6;  // measured EXACT OIS drift 6.42e-7, rounded up (informational)
     constexpr double BAR_C_REFERENCE = 5.0e-5;  // measured EXACT 3M drift 2.39e-5, rounded up (informational)
@@ -346,29 +329,19 @@ namespace {
             }
         }
 
-        // BAR-B (informational, OIS): joint-vs-staged OIS DF drift under EXACT (Underdetermined::Find).
-        // NOT a pass/fail bar. The joint OIS slice is co-determined with the 3M-spread slice -- the
-        // OIS columns of the joint Jacobian carry entries from the 3M residual rows (IBOR annuities
-        // discount through OIS) AND the 3M-spread parameters depend on the OIS base -- so the coupled
-        // Find lands the OIS knots a few e-7 off the OIS-only staged Find. Base layering couples the
-        // OIS and 3M-spread searches more strongly than the baseless default, widening this drift
-        // slightly (3.7e-8 -> 6.4e-7). Reported, not gated.
+        // BAR-B (informational, OIS): joint-vs-staged OIS DF drift -- NOT a pass/fail bar. Reported,
+        // not gated. Driven by joint OIS<->3M-spread cross-curve coupling (see
+        // docs/methodology/yield_curve.md, "Joint simultaneous calibration").
         double maxOisDiff = 0.0;
         for (const int months : pillarMonths) {
             const Date_ pillar = Date::AddMonths(today, months);
             maxOisDiff = std::max(maxOisDiff, std::fabs(jointOis(today, pillar) - stagedOis(today, pillar)));
         }
 
-        // BAR-C (informational, 3M): joint-vs-staged 3M DF drift under EXACT (Underdetermined::Find).
-        // NOT a pass/fail bar. Both paths base-layer the 3M forward over the OIS discount curve
-        // (joint via baseLayeredOverDiscount_, staged via ApplyStageDefaults), so both smoothers act
-        // on the OIS SPREAD forward and the representation mismatch that drove the baseless
-        // short-end drift (3.3e-4) is gone. The residual drift is the joint-vs-staged OIS-slice
-        // difference (BAR-B) propagating through the 3M base handle, plus a small boundary
-        // contribution at the 1Y and 10Y knots. The 2Y-7Y core agrees to ~1e-7 (the OIS-agreement
-        // level); the max is ~2.4e-5 at the 1Y pillar, ~14x tighter than the baseless default.
-        // Reported, not gated. (A mis-routing bug -- B-new-1, fixing off OIS -- would show up as
-        // ~1e-2 drift, well above what is measured here, so the diagnostic still discriminates.)
+        // BAR-C (informational, 3M): joint-vs-staged 3M DF drift -- NOT a pass/fail bar. Reported,
+        // not gated. The OIS-slice difference (BAR-B) propagating through the 3M base handle, plus
+        // a boundary contribution at the least-constrained 1Y/10Y knots. A mis-routing bug (fixing
+        // off OIS) would show up at ~1e-2 here, so the diagnostic still discriminates.
         double max3mDiff = 0.0;
         for (const int months : pillarMonths) {
             const Date_ pillar = Date::AddMonths(today, months);

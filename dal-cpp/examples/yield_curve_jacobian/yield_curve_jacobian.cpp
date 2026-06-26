@@ -38,40 +38,18 @@ using namespace Dal;
             THROW(msg);                                                                                                                             \
     } while (false)
 
-// This example demonstrates two teaching arcs on a single-curve Phase A calibration:
-//
-//   (a) The calibration residual Jacobian J = d(modelRate_i) / d(logDF_free_k) computed two
-//       independent ways -- a central-difference bump oracle and an AAD reverse sweep -- and shown
-//       to agree element-wise to 1e-9 relative.
-//   (b) The inverse-Jacobian IR-risk transform: take the par-rate parameter-sensitivity g of one
-//       off-anchor swap (an independent bump oracle, NOT the AAD tape from arc (a)), left-multiply
-//       by the calibration inverse Jacobian effJacobianInverse_ (the solver-scaled pseudoinverse;
-//       see the units note in TransformToQuoteRisk), and read off bucketed risk per calibration
-//       instrument.
-//
-// AAD is always compiled in this library (dal-cpp/dal/math/aad/aad.hpp:17 defines the native AAET
-// backend on the "no DAL_USE_*_AAD flag set" branch) and the analytic Jacobian it produces runs
-// identically under native AAET, Adept, XAD, and CoDiPack. Arc (a) does not record its own tape:
-// it reads the forward Jacobian the calibration already computed -- CalibrateYieldCurve requests
-// CurveCalibrationDiagnostics_::jacobian_ from the solver, whose convergence-branch hook calls
-// YieldCurveCalibrationFunc_::Gradient(xNew, fNew) ONCE at the solved x (the same AnalyticJacobian
-// machinery in dal-cpp/dal/curve/calibration.cpp) -- so the AAD recording contract and backend-
-// portability rules live in exactly one place. The bump oracle below remains an independent finite-
-// difference check; the AAD-vs-bump comparison is what makes arc (a) a real cross-check rather than
-// a tautology.
+// Demonstrates two arcs on a single-curve Phase A calibration (methodology in
+// docs/methodology/yield_curve_jacobian.md): (a) the residual Jacobian d(modelRate_i)/d(logDF_k)
+// computed two independent ways -- a central-difference bump oracle and the analytic AAD reverse
+// sweep read from diagnostics_.jacobian_ -- and shown to agree; (b) the inverse-Jacobian IR-risk
+// transform turning a portfolio par-rate sensitivity into bucketed risk per market quote.
 
 namespace {
-    // Self-check bars (see .claude/specs/yield-curve-jacobian-example.md "AAD-vs-Bump Tolerance
-    // Choice"). The 1e-9 AAD-vs-bump bar holds because the Phase A LOG_DISCOUNT residual Jacobian
-    // is O(1) and well-conditioned at the chosen 1.0%-2.5% par rates; central-difference round-off
-    // at h=1e-6 is ~eps/h ~= 2e-10 relative, leaving ~5x margin, and it is size-invariant. The FR6
-    // re-solve is a genuine nonlinear operation: bumping a long-end quote propagates through every
-    // intervening LOG_DISCOUNT knot, accumulating second-order terms the linear prediction cannot
-    // capture, so the worst observed rel grows with ladder length (~7e-7 at 5 instruments, ~1.8e-5
-    // at 10 instruments, ~1.3e-4 at 16 instruments). The 1e-4 bar at the 10-instrument size gives
-    // ~5x headroom over the observed worst rel; tighten it back toward 1e-6 if the ladder is
-    // shortened. (docs-sync follow-up: the FR6 bar scales with ladder length -- re-measure and
-    // record the trend alongside the spec's bar methodology when it is finalized.)
+    // Self-check bars (tolerance derivation in docs/methodology/yield_curve_jacobian.md). The 1e-9
+    // AAD-vs-bump bar is set by the central-difference round-off floor at h=1e-6 (~eps/h ~= 2e-10
+    // relative for O(1) entries). The FR6 re-solve bar is looser because the nonlinear re-solve
+    // accumulates second-order terms the linear prediction cannot capture; it scales with ladder
+    // length, so re-measure if the instrument count changes.
     constexpr double BUMP_STEP = 1.0e-6;
     constexpr double AAD_TOL = 1.0e-9;
     constexpr double RE_SOLVE_TOL = 1.0e-4;
@@ -122,14 +100,9 @@ namespace {
         return idx;
     }
 
-    // The 10-instrument vanilla-swap Phase A calibration. Stays eligible for the analytic (AAD-tape)
-    // Jacobian by mirroring the shape validated in dal-cpp/tests/curve/test_analytic_jacobian.cpp
-    // (LOG_DISCOUNT, EXACT, anchor == today_, no projection curve, vanilla Swap_ only) -- only the
-    // ladder length changes. The system is square: 10 instruments on 11 annual knots (10 free params
-    // + the today_ anchor), so EXACT converges to the fitTolerance_ and requesting
-    // CurveJacobianMode_::ANALYTIC engages the tape rather than silently falling back to bumping.
-    // Par rates rise smoothly from ~1.0% to ~2.5% across 1Y..10Y so the LOG_DISCOUNT system is well-
-    // conditioned and the 1e-9 AAD-vs-bump bar still holds.
+    // 10-instrument vanilla-swap Phase A calibration: square (10 instruments on 11 annual knots ->
+    // 10 free params + the today_ anchor), so EXACT converges and CurveJacobianMode_::ANALYTIC
+    // engages the AAD tape on this LOG_DISCOUNT, no-projection-curve, vanilla-Swap_ shape.
     CurveCalibrationSpec_ BuildCalibrationSpec() {
         CurveCalibrationSpec_ spec;
         spec.today_ = Date_(2022, 1, 1);
@@ -160,13 +133,8 @@ namespace {
         const auto mkSwap = [&](const Date_& end, double parPct) {
             return Handle_<YCInstrument_>(new Swap_(spec.today_, spec.today_, end, parPct / 100.0, fixedLeg, floatIdx, floatLeg));
         };
-        // Annual swaps maturing at 1Y..10Y with a smoothly rising par-rate term structure
-        // (1.00% -> 2.50%): a gentle linear ramp keeps the 10x10 LOG_DISCOUNT system well-
-        // conditioned so the 1e-9 AAD-vs-bump bar holds. The FR6 nonlinear re-solve bar is set to
-        // 1e-4 at this size (see RE_SOLVE_TOL) because the linear-vs-nonlinear gap grows
-        // intrinsically with the number of knots -- bumping a long-end quote propagates through
-        // every intervening LOG_DISCOUNT knot, accumulating second-order terms that the linear
-        // prediction cannot capture.
+        // Annual swaps at 1Y..10Y with a smoothly rising par-rate ramp (1.00% -> 2.50%) keep the
+        // 10x10 LOG_DISCOUNT system well-conditioned so the AAD-vs-bump and re-solve bars hold.
         spec.instruments_.reserve(nInstruments);
         for (int y = 1; y <= nInstruments; ++y) {
             const double frac = static_cast<double>(y - 1) / static_cast<double>(nInstruments - 1);
@@ -492,18 +460,9 @@ namespace {
             std::cout << "  Verdict : PASS  (all rel <= " << RE_SOLVE_TOL << ")\n";
     }
 
-    // (i) Calibration elapsed time -- BUMPED vs ANALYTIC. Both modes run the same EXACT Phase A
-    // solve; the only difference is how the forward Jacobian is obtained (n serial finite-difference
-    // re-calibrations for BUMPED vs one AAD reverse sweep for ANALYTIC). Each CalibrateYieldCurve
-    // call resets its own tape internally, so repeated calls are independent and safe to time.
-    //
-    // Honesty note: the ANALYTIC time includes the at-solution forward-Jacobian evaluation -- a
-    // single extra func.Gradient call the solver makes on its convergence branch to populate the
-    // diagnostics jacobian_ field -- which BUMPED does not perform. So ANALYTIC may trail BUMPED by
-    // that one convergence-J evaluation; the fair read of the ratio is "ANALYTIC solve-with-Jacobian
-    // vs BUMPED solve-without-Jacobian", not a pure like-for-like solve cost. BUMPED would need its
-    // own separate finite-difference Jacobian pass to match the ANALYTIC output, which it does not
-    // do here.
+    // (i) Calibration elapsed time -- BUMPED vs ANALYTIC (both EXACT Phase A solves; ANALYTIC also
+    // pays the single at-solution forward-J eval that populates diagnostics_.jacobian_). See the
+    // timing caveat in docs/methodology/yield_curve_jacobian.md.
     void RunCalibrationTimingComparison(const CurveCalibrationSpec_& spec) {
         constexpr int nRuns = 5;
         CurveCalibrationOptions_ optsBumped;
@@ -567,7 +526,6 @@ int main() {
     std::cout << "Parameterization: LOG_DISCOUNT   Solve mode: EXACT   Jacobian mode: ANALYTIC\n";
     std::cout << "Bump step h: " << std::scientific << std::setprecision(6) << BUMP_STEP << std::fixed << "\n";
 
-    // ---- (a) Calibrate with the analytic Jacobian engaged ----
     CurveCalibrationOptions_ options;
     options.jacobianMode_ = CurveJacobianMode_::Value_::ANALYTIC;
     const auto result = CalibrateYieldCurve(spec, options);
@@ -583,12 +541,10 @@ int main() {
     std::cout << "\nSolved free-node log-DF params x (anchor pinned at 0):\n";
     PrintFreeParamVector("", x, freeKnots);
 
-    // ---- (b) Bump Jacobian (oracle) ----
     const Matrix_<> jBump = BumpJacobian(spec, x, BUMP_STEP);
     PrintSection("(b) Bump Jacobian  J_bump = d(modelRate_i) / d(logDF_free_k)");
     PrintMatrix("", jBump, "rows = instruments, cols = free params; central diff h = 1e-6", maturities, freeKnots);
 
-    // ---- (c) AAD Jacobian (analytic reverse sweep, read from the calibration diagnostics) ----
     // jacobian_ is populated by the solver's convergence-branch hook on the EXACT + ANALYTIC +
     // eligible path via a single func.Gradient(xNew, fNew) call at the solved x -- the same point
     // the bump oracle evaluates -- so the AAD-vs-bump comparison below cross-checks the library's
@@ -603,7 +559,6 @@ int main() {
     PrintSection("(c) AAD Jacobian  J_aad = d(modelRate_i) / d(logDF_free_k)");
     PrintMatrix("", jAad, "rows = instruments, cols = free params; reverse sweep, 1 per row", maturities, freeKnots);
 
-    // ---- (d) AAD-vs-bump agreement (verbatim two-branch form, tol = 1e-9) ----
     PrintSection("(d) AAD-vs-bump agreement  (verbatim two-branch form, tol = 1e-9)");
     const AgreementResult_ agree = RunAgreementCheck(jBump, jAad);
     std::cout << std::fixed << std::setprecision(12);
@@ -611,7 +566,6 @@ int main() {
     std::cout << "  max rel discrepancy : " << agree.maxRel_ << "\n";
     std::cout << "  Verdict              : PASS  (rel <= 1e-9)\n";
 
-    // ---- (e) effJacobianInverse_ from the EXACT solve ----
     // The solver returns the inverse Jacobian pre-scaled by tolerance_ (each residual row is
     // divided by tolerance_ before the pseudoinverse is formed), so the raw effJacobianInverse_(k,i)
     // has units d(params) * tolerance_ / d(decimal-rate perturbation) and is ~1e-10 here -- invisible
@@ -626,7 +580,6 @@ int main() {
     PrintMatrix("", effJacobianInverse, "rows = free params, cols = instruments; = effJacobianInverse_ / tolerance_", freeKnots, maturities,
                 1.0 / spec.tolerance_);
 
-    // ---- (f) Portfolio parameter sensitivity g ----
     const Vector_<> g = PortfolioParamSensitivity(spec, x, BUMP_STEP);
     PrintSection("(f) Portfolio parameter-sensitivity  g = d(modelParRate_portfolio) / d(logDF_free_k)");
     std::cout << "  portfolio = swap " << PORTFOLIO_INDEX << " (maturity " << IsoDate(maturities[PORTFOLIO_INDEX]) << "); length = nFree = " << g.size()
@@ -634,14 +587,12 @@ int main() {
     std::cout << "  units: par-rate per unit log-DF bump (annuity-scaled PV not exposed by YCInstrument_)\n";
     PrintFreeParamVector("", g, freeKnots);
 
-    // ---- (g) Bucketed IR risk r = g^T * effJacobianInverse_ ----
     const Vector_<> r = TransformToQuoteRisk(g, effJacobianInverse, spec.tolerance_);
     PrintSection("(g) Bucketed IR risk  r = g^T * effJacobianInverse_");
     std::cout << "  length = nInstruments = " << r.size() << "\n";
     std::cout << "  units: par-rate per absolute decimal quote bump\n";
     PrintQuoteRisk(r, maturities);
 
-    // ---- (h) FR6 inverse-Jacobian nonlinear re-solve sanity ----
     PrintSection("(h) FR6 inverse-Jacobian nonlinear re-solve sanity");
     std::cout << "  bump each marketRate by +1e-4, re-run CalibrateYieldCurve (ANALYTIC),\n";
     std::cout << "  compare true delta vs linear prediction effJacobianInverse_(k,i) * 1e-4 / tolerance_ (tol = " << RE_SOLVE_TOL << " rel)\n";
@@ -654,7 +605,6 @@ int main() {
     // effJacobianInverse_ * delta_m, which is off by the tolerance factor).
     RunFR6ReSolve(spec, options, effJacobianInverse, x, maturities, nInst, nFree);
 
-    // ---- (i) Calibration elapsed time -- BUMPED vs ANALYTIC ----
     PrintSection("(i) Calibration elapsed time  (BUMPED vs ANALYTIC, mean over N runs)");
     RunCalibrationTimingComparison(spec);
 
