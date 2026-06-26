@@ -37,13 +37,9 @@ namespace Dal {
     public:
         [[nodiscard]] static Handle_<Storable_> Fetch(const String_& tag, bool quiet = false);
 
-        // count handles
         [[nodiscard]] static int Size();
-        // return all matching handles
         [[nodiscard]] static Vector_<Handle_<Storable_>> Find(const String_& pattern);
-        // erase all matching handles, return number erased
         [[nodiscard]] static int Erase(const String_& pattern);
-        // erase one handle
         [[nodiscard]] static bool Erase(const Storable_& object);
 
         template <class T_> static String_ Add(const Handle_<T_>& object, const RepositoryErase_& erase) {

@@ -77,13 +77,9 @@ namespace Dal {
         return ret_val;
     }
 
-    //----------------------------------------------------------------------------
-
     // fixings history store looks very much like date store
 
     namespace {
-        // this needs to be a Meyers singleton, not a file-scope static, because we will initialize it with a file-scope
-        // static
         std::unique_ptr<Global::Store_>& XTheFixingsStore() { RETURN_STATIC(std::unique_ptr<Global::Store_>); }
         const String_ FIX_PREFIX("FixingsFor:");
     } // namespace

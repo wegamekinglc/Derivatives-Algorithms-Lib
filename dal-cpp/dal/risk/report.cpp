@@ -47,7 +47,6 @@ namespace Dal {
                     retval->AddHeaderRow(axis_names_[jj], kr, temp);
                 }
             }
-            // widen interface with this function that lets us set values
             retval->SetAll(vals_);
             return retval.release();
         }
