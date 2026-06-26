@@ -32,12 +32,7 @@ namespace Dal {
         rapidjson::GenericStringRef<char> LendToJSON(const String_& s) {
             return {s.c_str(), static_cast<rapidjson::SizeType>(s.size())};
         }
-        // WRITE interface
-        // given up on rapidjson, think it is simple enough to just stream out
-        // POSTPONED -- add a template parameter determining the checking strategy for funny characters inside strings
-        // this simple implementation just assumes there are none (fastest)
-        // could have one that wraps, one that errors
-
+        // POSTPONED -- add checking strategy for funny characters inside strings
         struct XDocStore_ : Archive::Store_ {
             std::ostream& dst_;
             std::map<const Storable_*, String_>& sharedTags_;
@@ -71,7 +66,6 @@ namespace Dal {
                 return false;
             }
             void SetType(const String_& type) override {
-                // assert(!empty_);	// should have a tag -- unless it is the toplevel!
                 dst_ << Prep() << "\"" << TYPE_LABEL << "\": \"" << type << "\"";
                 empty_ = false;
             }
@@ -79,14 +73,12 @@ namespace Dal {
             Store_& Child(const String_& name) override {
                 std::shared_ptr<XDocStore_>& retval = children_[name];
                 if (!retval) {
-                    // assume we are going to write the child immediately
                     dst_ << Prep() << "\"" << name << "\": ";
                     retval = std::make_shared<XDocStore_>(dst_, sharedTags_, this, name);
                 }
                 return *retval;
             }
 
-            // store atoms
             XDocStore_& operator=(const double val) override {
                 char buf[32];
                 std::snprintf(buf, sizeof(buf), "%.15g", val);
@@ -162,7 +154,6 @@ namespace Dal {
             XDocStore_& operator=(const Dictionary_& val) override { operator=(Dictionary::ToString(val)); return *this; }
         };
 
-        // READ interface
         template <class E_>
         auto AsVector(element_t& doc, const E_& extract) -> typename vector_of<decltype(extract(doc))>::type {
             REQUIRE(doc.IsArray(), "Can't get a vector value");
@@ -172,7 +163,6 @@ namespace Dal {
                 ret_val[ii] = extract(doc[ii]);
             return ret_val;
         }
-        // create matrix from vector of values
         template <class E_> Matrix_<E_> AsMatrix(int cols, const Vector_<E_>& vals) {
             REQUIRE(cols > 0 && !(vals.size() % cols), "Invalid number of matrix columns");
             const int rows = vals.size() / cols;
@@ -182,7 +172,6 @@ namespace Dal {
             return ret_val;
         }
 
-        // need checked access at every level -- support with "E" element-extractors
         double EDouble(const element_t& doc) {
             REQUIRE(doc.IsDouble() || doc.IsInt(), "Can't get a numeric value");
             return doc.GetDouble();
@@ -238,14 +227,11 @@ namespace Dal {
             THROW("Invalid cell type");
         }
 
-        // JSON reader based on RapidJSON DOM interface
         struct XDocView_ : Archive::View_ {
-            element_t& doc_; // may be shared
+            element_t& doc_;
             mutable std::map<String_, Handle_<XDocView_>> children_;
             explicit XDocView_(element_t& doc) : doc_(doc) {}
 
-            // shared-object part of Archive::View_ interface
-            // we will do this by having a Tag() which is empty except for shared objects (same as Splat)
             String_ AfterPrefix(char prefix) const {
                 if (doc_.IsString() && doc_.GetStringLength() > 1 && doc_.GetString()[0] == prefix) {
                     return String_(doc_.GetString()).substr(1);
@@ -257,12 +243,10 @@ namespace Dal {
                     return EString(doc_[TAG_LABEL]);
                 return {};
             }
-            Handle_<Storable_>& Known(Archive::Built_& built) const override // returns a reference within 'built'
-            {
+            Handle_<Storable_>& Known(Archive::Built_& built) const override {
                 return built.known_[Tag()];
             }
 
-            // direct storage of atoms
             double AsDouble() const override { return EDouble(doc_); }
             int AsInt() const override { return EInt(doc_); }
             bool AsBool() const override { return EBool(doc_); }
@@ -278,9 +262,7 @@ namespace Dal {
             Vector_<DateTime_> AsDateTimeVector() const override { return AsVector(doc_, EDateTime); }
             Vector_<Cell_> AsCellVector() const override { return AsVector(doc_, ECell); }
 
-            // matrix storage is:
-            //		the matrix has a child "cols" that gives the number of columns
-            //		and a child "vals" that gives all the values, scanning each row in turn
+            // Matrix stored as child "cols" + child "vals" (row-major)
             Matrix_<> AsDoubleMatrix() const override {
                 return AsMatrix(EInt(doc_[COLS_LABEL]), AsVector(doc_[VALS_LABEL], EDouble));
             }
@@ -291,7 +273,6 @@ namespace Dal {
                 return AsMatrix(EInt(doc_[COLS_LABEL]), AsVector(doc_[VALS_LABEL], ECell));
             }
 
-            // object query interface
             String_ Type() const override {
                 if (doc_.HasMember(TYPE_LABEL))
                     return EString(doc_[TYPE_LABEL]);
@@ -306,9 +287,9 @@ namespace Dal {
                 return *ret_val;
             }
 
-            void Unexpected(const String_&) const override {} // ignore extra children
+            void Unexpected(const String_&) const override {}
         };
-    }	// leave local
+    }
 
     Handle_<Storable_> JSON::ReadString(const String_& src, bool quiet) {
         NOTE("Extracting object from JSON string");

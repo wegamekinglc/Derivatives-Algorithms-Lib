@@ -11,7 +11,6 @@
 #include <dal/utilities/exceptions.hpp>
 
 namespace Dal {
-    // derived classes can call this explicitly
     void PseudoRandom_::FillUniform(Vector_<>* devs) {
         if (anti_) {
             for (size_t i = 0; i < devs->size(); ++i)
@@ -68,11 +67,9 @@ namespace Dal {
                 : PseudoRandom_(nDim, precise), seed_(seed), irn_(M_), shuffle_(S_), irl_(0) {
                 const unsigned MASK = 0x1F2E3D4C;
                 const unsigned MUL = 17;
-                // initialize IRN_
                 irn_[0] = seed;
                 for (int ii = 1; ii < M_; ++ii)
                     irn_[ii] = ((MUL * irn_[ii - 1]) % DE_NOM) ^ MASK;
-                // initialize shuffle_
                 for (int ii = 0; ii < S_; ++ii)
                     shuffle_[ii] = IRN();
             }
@@ -104,23 +101,19 @@ namespace Dal {
             }
 
             void Reset() {
-                // Reset state
                 xn_ = xn1_ = xn2_ = a_;
                 yn_ = yn1_ = yn2_ = b_;
             }
 
             double NextUniform() override {
                 double x = a12_ * xn1_ - a13_ * xn2_;
-                // Modulus
                 x -= long(x / m1_) * m1_;
                 if (x < 0)
                     x += m1_;
-                // Update
                 xn2_ = xn1_;
                 xn1_ = xn_;
                 xn_ = x;
 
-                // Same for Y
                 double y = a21_ * yn_ - a23_ * yn2_;
                 y -= long(y / m2_) * m2_;
                 if (y < 0)
@@ -129,7 +122,6 @@ namespace Dal {
                 yn1_ = yn_;
                 yn_ = y;
 
-                // Uniform
                 const double u = x > y ? (x - y) / m1p1_ : (x - y + m1_) / m1p1_;
                 return u;
             }
@@ -188,30 +180,22 @@ namespace Dal {
             }
 
         private:
-            //  Matrix product with modulus
             static void MPrd(const size_t lhs[3][3], const size_t rhs[3][3], const size_t& mod, size_t result[3][3]) {
-                // Result go to temp, in case result points to lhs or rhs
                 size_t temp[3][3];
 
                 for (size_t j = 0; j < 3; j++) {
                     for (size_t k = 0; k < 3; k++) {
                         size_t s = 0;
                         for (size_t l = 0; l < 3; l++) {
-                            //	Apply modulus to innermost product
                             size_t tmpNum = lhs[j][l] * rhs[l][k];
-                            //	Apply mod
                             tmpNum %= mod;
-                            //	Result
                             s += tmpNum;
-                            //	Reapply mod
                             s %= mod;
                         }
-                        //  Store result in temp
                         temp[j][k] = s;
                     }
                 }
 
-                //	Now product is done, copy temp to result
                 for (int j = 0; j < 3; j++) {
                     for (int k = 0; k < 3; k++) {
                         result[j][k] = temp[j][k];

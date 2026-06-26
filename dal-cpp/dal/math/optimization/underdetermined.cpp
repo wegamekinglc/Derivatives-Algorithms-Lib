@@ -87,7 +87,7 @@ namespace Dal {
             const Underdetermined::Function_& func_;
             int nEvals_;
             int nRestarts_;
-            Matrix_<> jDense_; // provides memory, if needed, underpinning jacobian structure
+            Matrix_<> jDense_;
 
             XScaledFunc_(const Vector_<>& tol,
                          const Underdetermined::Function_& func,
@@ -107,7 +107,6 @@ namespace Dal {
                     sparse->DivideRows(tol_);
                     return sparse;
                 }
-                // have to set up dense J
                 func_.Gradient(x, f, &jDense_);
                 std::unique_ptr<XJDense_> retVal(new XJDense_(jDense_));
                 retVal->DivideRows(tol_);
@@ -150,11 +149,6 @@ namespace Dal {
             }
         }
 
-        // Capture the UNSCALED dense forward Jacobian at the solution. Called only on the convergence
-        // branch with the RAW func (funcIn), so DivideRows(tol) is never applied -- the output is the
-        // plain dF_i/dx_j matrix. Works for any Jacobian_ subclass by probing each unit column via
-        // MultiplyLeft (which returns J * e_k = column k, length Rows). The caller guards the
-        // nullptr-Gradient case before calling, so jac is always a valid Jacobian here.
         void StoreForwardJacobianAtSolution(const Underdetermined::Jacobian_& jac, Matrix_<>* out) {
             out->Resize(jac.Rows(), jac.Columns());
             for (int k = 0; k < jac.Columns(); ++k) {
@@ -246,7 +240,6 @@ namespace Dal {
                                     const Controls_& controls,
                                     Matrix_<>* effJInv,
                                     Matrix_<>* fwdJacobianAtSolution) {
-        // set up the wrapper through which we will call the function
         XScaledFunc_ func(tol, funcIn, controls);
         Vector_<> xOld(guess);
         Vector_<> fOld = func.F(xOld);
@@ -262,22 +255,12 @@ namespace Dal {
                 restart = false;
             }
             QPStep(fOld, *j, w, &q, &s);
-            // backtracking linesearch
             bool tookStep = false;
             for (int iBacktrack = 0; iBacktrack < controls.maxBacktrackTries_; ++iBacktrack) {
                 Transform(xOld, s, std::plus<>(), &xNew);
                 Vector_<> fNew = func.F(xNew);
                 if (*MaxElement(fNew) < 1.0 && *MinElement(fNew) > -1.0) {
                     StoreEffectiveJacobianInverse(*j, w, effJInv);
-                    // Unscaled forward Jacobian at the solution, produced by ONE raw funcIn.Gradient
-                    // call (NOT XScaledFunc_::J), so DivideRows(tol) is never applied. fNew is the
-                    // SCALED residual (XScaledFunc_::F divides by tol), so reconstruct the UNSCALED
-                    // residual as fNew * tol element-wise and pass that -- no redundant funcIn.F
-                    // evaluation, which matters because funcIn.F bypasses the solver's nEvals_ budget
-                    // in XScaledFunc_. (F/tol)*tol == F to machine precision, and it is correct for any
-                    // Function_ whose Gradient consumes f, harmless for the analytic path (which
-                    // ignores f). A nullptr Gradient return clears the output so a caller-reused matrix
-                    // cannot leak stale contents; there is no dense-FD fallback on this branch.
                     if (fwdJacobianAtSolution) {
                         fwdJacobianAtSolution->Clear();
                         Vector_<> fUnscaled = fNew;
@@ -292,8 +275,6 @@ namespace Dal {
                 const double oldOld = InnerProduct(fOld, fOld);
                 const double oldNew = InnerProduct(fOld, fNew);
                 const double newNew = InnerProduct(fNew, fNew);
-                // \tilde f^2 = oldOld * k^2 + 2 * oldNew * k * (1-k) + newNew * (1-k)^2
-                // its k-derivative is oldOld * 2 * k + oldNew * (1 - 2*k) + 2 * newNew * (k-1)
                 double kMin = (newNew - 0.5 * oldNew) / (newNew - oldNew + oldOld);
                 if (kMin < controls.backtrackTolerance_) {
                     if (!restart) {
@@ -310,7 +291,7 @@ namespace Dal {
                 double k = min(controls.maxBacktrack_, min(kMin, 2 * (kMin - controls.backtrackTolerance_)));
                 assert(k > 0.0);
                 s *= 1.0 - k;
-            } // end backtracking loop
+            }
             REQUIRE(tookStep || approxJ, "Could not find a descent direction in underdetermined search");
         }
     }
@@ -321,7 +302,6 @@ namespace Dal {
                                            double fitTol,            // accuracy of approximate fit
                                            const Sparse::Square_& w,
                                            const Controls_& controls) {
-        // set up the wrapper through which we will call the function
         XScaledFunc_ func(funcTol, funcIn, controls);
         Vector_<> xOld(guess);
         Vector_<> fOld = func.F(xOld);
@@ -339,7 +319,7 @@ namespace Dal {
                 ++ie; // we used up an evaluation too
             }
             Vector_<> s = ApproxQPStep(guess, xOld, fOld, *j, jWeight, w);
-            // const double sNorm = InnerProduct(s, s); POSTPONED -- stop early when step is very small
+            // POSTPONED -- stop early when step is very small
             Transform(xOld, s, std::plus<>(), &xNew);
             Vector_<> fNew = func.F(xNew);
             if (sqrt(InnerProduct(fNew, fNew)) <= fitTol)
