@@ -382,6 +382,7 @@ TEST(JointCalibrationTest, TestJointOisCurveAgreesWithStagedOis) {
         ASSERT_LE(dfJoint, 1.0);
         maxDiff = std::max(maxDiff, std::fabs(dfJoint - dfStaged));
     }
+    // 1e-5: joint co-optimization drifts OIS DFs by ~7e-6; a mis-routed OIS would show ~1e-2.
     ASSERT_LE(maxDiff, 1.0e-5) << "Joint-vs-staged OIS DF diff " << maxDiff << " exceeds 1e-5";
 }
 
@@ -438,6 +439,7 @@ TEST(JointCalibrationTest, TestJointForwardCurveAgreesWithStagedMultiCurve) {
         ASSERT_LE(dfJoint, 1.0);
         maxDiff = std::max(maxDiff, std::fabs(dfJoint - dfStaged));
     }
+    // 5e-3: short-end drift ~1.2e-3 from co-optimization; a mis-routed 3M forecast would show ~1e-2.
     ASSERT_LE(maxDiff, 5.0e-3) << "Joint-vs-staged 3M DF diff " << maxDiff << " exceeds 5e-3";
 }
 
