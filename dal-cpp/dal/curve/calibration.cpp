@@ -18,6 +18,7 @@
 #include <dal/curve/ycimp.hpp>
 #include <dal/curve/yclogdf.hpp>
 #include <dal/math/aad/aad.hpp>
+#include <dal/curve/tapeguard.hpp>
 #include <dal/math/matrix/banded.hpp>
 #include <dal/math/matrix/matrixarithmetic.hpp>
 #include <dal/math/matrix/squarematrix.hpp>
@@ -201,21 +202,6 @@ namespace Dal {
             return std::unique_ptr<Tape::DiscountCurve_<T_>>(
                 new Tape::DiscountLogDF_<T_>(name, ccy, knotDates, logDF, dayCount, logDfScheme, baseCurve));
         }
-
-        // Clear the AAD tape on entry and exit (exception-safe), single-threaded.
-        struct TapeGuard_ {
-            Dal::AAD::Tape_* t_;
-            explicit TapeGuard_(Dal::AAD::Tape_* t) : t_(t) { Dal::AAD::Clear(*t_); }
-            ~TapeGuard_() {
-                try {
-                    Dal::AAD::Clear(*t_);
-                } catch (...) {
-                    // swallow; we are unwinding
-                }
-            }
-            TapeGuard_(const TapeGuard_&) = delete;
-            TapeGuard_& operator=(const TapeGuard_&) = delete;
-        };
 
         class YieldCurveCalibrationFunc_ : public Underdetermined::Function_ {
             // Cached eligibility avoids re-evaluating the expensive per-instrument predicate every solver iteration.
