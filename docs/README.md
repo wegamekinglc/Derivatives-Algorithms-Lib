@@ -31,13 +31,15 @@ Deep dives into the quantitative methods and algorithms implemented in DAL:
   - Discount curve framework (`DiscountPWLF_`, `DiscountPWC_`)
   - Piecewise-linear and piecewise-constant forward rates
   - Multi-curve construction and calibration (sequential and joint simultaneous)
+  - Single-curve AAD calibration internals (TapeGuard, eligibility predicate, analytic Jacobian)
   - Joint multi-curve AAD analytic Jacobian (reverse-sweep, backend-neutral)
   - Integration with the underdetermined solver
 
 - **[underdetermined_search.md](methodology/underdetermined_search.md)** — Underdetermined Optimization
   - Scaled quasi-Newton method for underdetermined systems
-  - Application to yield curve calibration
-  - Regularization and smoothness penalties
+  - Residual scaling, backtracking line search, forward Jacobian capture at solution
+  - Solver controls structure and Broyden update regime
+  - Application to yield curve calibration via smoothness penalties
 
 - **[xccy_calibration.md](methodology/xccy_calibration.md)** — Cross-Currency Calibration
   - Cross-currency market and basis curve framework
@@ -54,12 +56,20 @@ Deep dives into the quantitative methods and algorithms implemented in DAL:
 - **[log_discount_curve.md](methodology/log_discount_curve.md)** — Log-Discount Curve
   - Node log-discount-factor representation and anchor convention
   - `LogDfScheme_` interpolation schemes (`LOG_LINEAR`, `LOG_CUBIC_NATURAL`, `MIXED`)
+  - Thomas algorithm for the natural-cubic system, basis weights, and `fppCoef_` matrix
+  - Serialization version design (v1 without scheme, v2 with named scheme)
   - Why `LOG_DISCOUNT` is the parameterization that supports the analytic Jacobian
 
 - **[yield_curve_jacobian.md](methodology/yield_curve_jacobian.md)** — Yield-Curve Jacobian and Inverse-Jacobian Risk
   - Forward residual Jacobian via AAD reverse sweep vs finite-difference bump
   - Inverse-Jacobian IR-risk transform `r = gᵀ · effJacobianInverse_ / tolerance_`
   - Why `effJacobianInverse_` carries an extra `tolerance_` factor (solver residual scaling)
+
+- **[script_engine.md](methodology/script_engine.md)** — Script Engine
+  - Preprocessing pipeline (macros, schedules, constant variables)
+  - Domain processor (variable range analysis, always-true/false flags)
+  - Constant condition processor (dead-branch pruning)
+  - Fuzzy evaluator (smooth transitions for pathwise AAD; nested-if merging)
 
 ### Experimental (`experimental/`)
 
