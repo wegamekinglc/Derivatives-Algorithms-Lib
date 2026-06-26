@@ -252,14 +252,12 @@ namespace Dal {
                 REQUIRE(j_mat.Cols() == Size(), "j_mat size should match with this matrix's size");
                 Vector_<Vector_<>> temp(j_mat.Rows());
 
-                // compute L^{-1}
                 for (int ii = 0; ii < j_mat.Rows(); ++ii) {
                     temp[ii].Resize(Size());
                     Copy(j_mat[ii], &temp[ii]);
                     BandedLSolve(val_, temp[ii], &temp[ii]);
                 }
 
-                // compute result
                 form->Resize(j_mat.Rows());
                 for (int io = 0; io < j_mat.Rows(); ++io)
                     for (int k = 0; k <= io; ++k)
@@ -278,7 +276,6 @@ namespace Dal {
             void MultiplyRight(const Vector_<>& x, Vector_<>* b) const override { BandedMultiply<true>(val_, x, b); }
 
             [[nodiscard]] bool IsSymmetric() const override {
-                // brute-force check
                 const int n = Size();
                 const int width = max(val_.nBelow_, val_.view_.Cols() - val_.nBelow_ - 1);
                 for (int ii = 0; ii < n; ++ii) {
@@ -331,8 +328,6 @@ namespace Dal {
             return new Banded_(size, nAbove, nBelow);
         }
     } // namespace Sparse
-
-    // ----------------------------------------------------------------
 
     namespace {
         Vector_<> PadAtFront(const Vector_<>& src, int size) {

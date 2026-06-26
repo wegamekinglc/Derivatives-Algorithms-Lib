@@ -109,9 +109,6 @@ namespace Dal::AAD {
         FORCE_INLINE static double RightDerivative(double l, double r, double v) { return r < l ? 1.0 : 0.0; }
     };
 
-    // operator overloading for binary expression
-    // build the corresponding expressions
-
     template <class LHS_, class RHS_>
     FORCE_INLINE BinaryExpression_<LHS_, RHS_, OPMult_> operator*(const Expression_<LHS_>& lhs, const Expression_<RHS_>& rhs) {
         return BinaryExpression_<LHS_, RHS_, OPMult_>(lhs, rhs);
@@ -146,10 +143,6 @@ namespace Dal::AAD {
     FORCE_INLINE BinaryExpression_<LHS_, RHS_, OPMin_> min(const Expression_<LHS_>& lhs, const Expression_<RHS_>& rhs) {
         return BinaryExpression_<LHS_, RHS_, OPMin_>(lhs, rhs);
     }
-
-    // Unary expression: same logic with one argument
-
-    // the CRTP class
 
     template <class ARG_, class OP_> class UnaryExpression_ : public Expression_<UnaryExpression_<ARG_, OP_>> {
         const double value_;
@@ -217,8 +210,6 @@ namespace Dal::AAD {
         FORCE_INLINE static double Derivative(double r, double v, double d) { return -1.12837916709551 * std::exp(-r*r); }
     };
 
-    // binary operators with a double on one side
-
     struct OPMultD_ {
         FORCE_INLINE static double Eval(double r, double d) { return r * d; }
 
@@ -279,8 +270,6 @@ namespace Dal::AAD {
         FORCE_INLINE static double Derivative(double r, double v, double d) { return r < d ? 1.0 : 0.0; }
     };
 
-    // overloading
-
     template <class ARG_>
     FORCE_INLINE UnaryExpression_<ARG_, OPExp_> exp(const Expression_<ARG_>& arg) {
         return UnaryExpression_<ARG_, OPExp_>(arg);
@@ -315,8 +304,6 @@ namespace Dal::AAD {
     FORCE_INLINE UnaryExpression_<ARG_, OPErfc_> erfc(const Expression_<ARG_>& arg) {
         return UnaryExpression_<ARG_, OPErfc_>(arg);
     }
-
-    // binary operators with a double on one side
 
     template <class ARG_>
     FORCE_INLINE UnaryExpression_<ARG_, OPMultD_> operator*(double d, const Expression_<ARG_>& rhs) {
@@ -388,8 +375,6 @@ namespace Dal::AAD {
         return UnaryExpression_<ARG_, OPMinD_>(lhs, d);
     }
 
-    // comparison same as traditional
-
     template <class E_, class F_>
     FORCE_INLINE bool operator==(const Expression_<E_>& lhs, const Expression_<F_>& rhs) { return Value(lhs) == Value(rhs); }
 
@@ -454,8 +439,6 @@ namespace Dal::AAD {
     template <class E_>
     FORCE_INLINE bool operator>=(double lhs, const Expression_<E_>& rhs) { return lhs >= Value(rhs); }
 
-    // unary operators +/-
-
     template <class RHS_>
     FORCE_INLINE UnaryExpression_<RHS_, OPSubDL_> operator-(const Expression_<RHS_>& rhs) {
         return 0.0 - rhs;
@@ -465,8 +448,6 @@ namespace Dal::AAD {
     FORCE_INLINE UnaryExpression_<RHS_, OPAddD_> operator+(const Expression_<RHS_>& rhs) {
         return rhs + 0.0;
     }
-
-    // the Number type, also an expression
 
     class Number_ : public Expression_<Number_> {
         double value_;
@@ -516,8 +497,6 @@ namespace Dal::AAD {
 
         friend double Value(const Number_&);
         friend double& Adjoint(const Number_&);
-
-        // unary operators
 
         template <class E_>
         FORCE_INLINE Number_& operator+=(const Expression_<E_>& e) {
