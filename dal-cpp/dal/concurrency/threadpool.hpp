@@ -29,7 +29,6 @@ namespace Dal {
         static thread_local size_t tlsNum_;
 
         void ThreadFunc(const size_t& num);
-        //  The constructor stays private, ensuring single instance
         ThreadPool_() : active_(false), interrupt_(false) {
             Start();
         }
@@ -61,11 +60,6 @@ namespace Dal {
             return f;
         }
 
-        /*
-         * Run queued tasks synchronously
-         * while waiting on a future,
-         * return true if at least one task was run
-         */
         bool ActiveWait(const TaskHandle_& f);
     };
 } // namespace Dal

@@ -137,9 +137,6 @@ namespace Dal {
             }
         };
 
-        // --------------------------------------
-        // helper functions for UnSplat
-
         struct ExtractDouble_ {
             double operator()(double d) const { return d; }
             double operator()(const String_& s) const {
