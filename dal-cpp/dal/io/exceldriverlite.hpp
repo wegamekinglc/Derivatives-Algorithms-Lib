@@ -14,36 +14,28 @@
 #include <dal/string/strings.hpp>
 #include <dal/io/excelimport.hpp>
 
-// Excel driver class definition. Contains functionality to add charts
-// and matrices. Hides all COM details. COM exceptions are re-thrown
-// as Dal::Exception_.
 namespace Dal {
     class ExcelDriver_ {
     private:
-        // Private member data.
-        Excel::_ApplicationPtr xl_; // Pointer to Excel.
+        Excel::_ApplicationPtr xl_;
 
         int curDataColumn_;
 
-        // Writes label and std::vector<double> to cells in horizontal direction.
         void ToSheetHorizontal(Excel::_WorksheetPtr sheet,
                                int sheetRow,
                                int sheetColumn,
                                const String_& label,
                                const Vector_<>& values);
 
-        // Writes label and std::vector<double> to cells in vertical direction.
         void ToSheetVertical(Excel::_WorksheetPtr sheet,
                              int sheetRow,
                              int sheetColumn,
                              const String_& label,
                              const Vector_<>& values);
 
-        // Throw COM error as string.
         void ThrowAsString(_com_error& error);
 
     public:
-        // Constructor. Starts Excel in invisible mode.
         explicit ExcelDriver_(int currentColumn = 1);
         ~ExcelDriver_();
 
@@ -55,26 +47,12 @@ namespace Dal {
             return instance;
         }
 
-        // Create chart with a number of functions. The arguments are:
-        //  x:			std::vector<double> with input values
-        //  labels:		labels for output values
-        //  vectorList: list of vectors with output values.
-        //  chartTitle:	title of chart
-        //  xTitle:		label of x axis
-        //  yTitle:		label of y axis
         void CreateChart(const Vector_<>& x,
                          const Vector_<String_>& labels,
                          const Vector_<Vector_<>>& vectorList,
                          const String_& chartTitle,
                          const String_& xTitle = "X",
                          const String_& yTitle = "Y");
-
-        // Create chart with a number of functions. The arguments are:
-        //  x:			std::vector<double> with input values
-        //  y:			std::vector<double> with output values.
-        //  chartTitle:	title of chart
-        //  xTitle:		label of x axis
-        //  yTitle:		label of y axis
 
         void CreateChart(const Vector_<>& x,
                          const Vector_<>& y,
@@ -84,7 +62,6 @@ namespace Dal {
 
         void MakeVisible(bool b);
 
-        // Matrix visualisation
         void AddMatrix(const Matrix_<>& matrix, const String_& name = String_("Matrix"), int row = 1, int col = 1);
 
         void AddMatrix(const Matrix_<>& matrix,
@@ -94,7 +71,6 @@ namespace Dal {
                        int row = 1,
                        int col = 1);
 
-        // Vector visualisation as numbers
         void AddVector(const Vector_<>& vec,
                        const String_& sheetName = String_("Vector"),
                        int row = 1,
@@ -107,7 +83,6 @@ namespace Dal {
                        int row = 1,
                        int col = 1);
 
-        // For debugging, for example; print string at a (row,col) position
         void PrintStringInExcel(const String_& s, int row, int col);
         void PrintStringInExcel(const Vector_<String_>& s, int row, int col);
     };

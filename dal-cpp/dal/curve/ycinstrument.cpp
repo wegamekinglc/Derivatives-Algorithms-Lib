@@ -255,13 +255,6 @@ namespace Dal {
     } // namespace
 
     namespace Tape {
-        // Phase A templated rate classes (native AAD only). These mirror the double rate
-        // classes above; the arithmetic bodies are identical with T_ in place of double for the
-        // DF reads and the rate/annuity/fixing accumulations. dcf, yf, fixing dates and convexity
-        // adjustments stay double -- they are schedule-driven constants. The tape records the
-        // dependence of the residual on each free-node logDF value through the templated curve's
-        // operator() (which reads logDF_<T_> through the basis-weight machinery).
-
         template <class T_>
         T_ ForwardRate(const DiscountCurve_<T_>& forecast,
                         const Date_& start,
@@ -346,9 +339,7 @@ namespace Dal {
                   floatIndexConvention_(floatIndexConvention) {}
 
             T_ operator()(const YCCtx_<T_>& ctx) const override {
-                // Phase A eligibility guarantees forecast == discount == ctx.curve_ (the calibrated
-                // target curve), so we read every DF from ctx.curve_. tradeDate_ == anchor is also
-                // guaranteed by EligibleForAnalyticJacobian, so DF(anchor, p) = ctx.curve_(tradeDate_, p).
+                // Phase A: forecast == discount == ctx.curve_ (guaranteed by EligibleForAnalyticJacobian).
                 const DiscountCurve_<T_>& discount = ctx.curve_;
                 T_ annuity(static_cast<double>(0.0));
                 for (const auto& period : fixedPeriods_)
@@ -370,20 +361,7 @@ namespace Dal {
             }
         };
 
-        // ---- Phase B projection-capable rates (CP3, critique B4) ----
-        //
-        // Sibling classes of the Phase A Tape::Rate_<T_> hierarchy above, inheriting JointRate_<T_>
-        // instead. The pure virtual takes a JointCurveBlock_<T_> routing context (Gap 1) and performs
-        // BOTH a discount read at the leg's collateral AND a forecast read at (forecastTenor_,
-        // collateral_) in the T_ domain (Gap 3). Used ONLY for the IBOR(3M) projection slice where
-        // forecast != discount; the OIS-discount slice (forecast == discount) rides the inherited
-        // Swap_::PrecomputeT<T_> above (no projection needed). Phase A's Tape::Rate_<T_>, YCCtx_<T_>,
-        // and the four rate subclasses above are UNTOUCHED (NG2).
-
-        // Resolve a T_-typed forecast curve: the forecast tenor's registered forward curve when
-        // useProjectionCurve_, else the discount curve at the convention's collateral. Mirrors
-        // ResolveForecastCurve (ycinstrument.cpp:41-51) and CurveBlock_::Forward's fallback
-        // (curveblock.cpp:76-83).
+        // Resolve forecast curve in joint block: forward if useProjectionCurve_, else discount.
         template <class T_>
         inline const DiscountCurve_<T_>& ResolveForecastT(const JointCurveBlock_<T_>& block, const RateIndexConvention_& conv) {
             return conv.useProjectionCurve_ ? block.Forward(conv.forecastTenor_, conv.collateral_)
@@ -466,11 +444,7 @@ namespace Dal {
                   floatIndexConvention_(floatIndexConvention) {}
 
             T_ operator()(const JointCurveBlock_<T_>& block) const override {
-                // The joint analogue of Tape::SwapRate_<T_>::operator() above, but the forecast and
-                // discount curves are DISTINCT (Gap 3): forecast resolves via ResolveForecastT (the
-                // forward curve at (forecastTenor_, collateral_) when useProjectionCurve_, else the
-                // discount curve), and discount reads via block.Discount(collateral_). Every DF and
-                // fixing read records on the tape through the T_-typed block.
+                // Forecast and discount are distinct: forecast via ResolveForecastT, discount via block.Discount.
                 const DiscountCurve_<T_>& discount = block.Discount(floatIndexConvention_.collateral_);
                 const DiscountCurve_<T_>& forecast = ResolveForecastT<T_>(block, floatIndexConvention_);
                 T_ annuity(static_cast<double>(0.0));
@@ -511,15 +485,10 @@ namespace Dal {
         return Handle_<Rate_>(new DepositRate_(start_, maturity_, convention_, funding_yc));
     }
 
-    // Phase A templated factory: returns a Tape::DepositRate_<T_> bound to the instrument's schedule.
-    // The funding-yc handle is unused -- Phase A rates read only the calibrated target curve.
     template <class T_> Handle_<Tape::Rate_<T_>> Deposit_::PrecomputeT() const {
         return Handle_<Tape::Rate_<T_>>(new Tape::DepositRate_<T_>(start_, maturity_, convention_));
     }
 
-    // Phase B projection factory: returns a Tape::DepositRateProj_<T_> that reads BOTH a forecast
-    // curve (at the convention's forecastTenor_/collateral_) AND a discount curve (at collateral_)
-    // off a JointCurveBlock_<T_>. Used only on the IBOR projection slice where forecast != discount.
     template <class T_> Handle_<Tape::JointRate_<T_>> Deposit_::PrecomputeProjectionT() const {
         return Handle_<Tape::JointRate_<T_>>(new Tape::DepositRateProj_<T_>(start_, maturity_, convention_));
     }
@@ -624,9 +593,6 @@ namespace Dal {
         return Handle_<Rate_>(new SwapRate_(tradeDate_, fixedPeriods, floatPeriods, floatIndexConvention_, funding_yc));
     }
 
-    // Phase A templated factory: shares the schedule-building logic with the double Precompute.
-    // The only T_-parameterised part is the final Tape::SwapRate_<T_> construction; the schedule is
-    // scalar-free and reused verbatim. The funding-yc handle is unused on the Phase A path.
     template <class T_> Handle_<Tape::Rate_<T_>> Swap_::PrecomputeT() const {
         const auto fixedPeriods = BuildLegPeriods(start_,
                                                   maturity_,
@@ -641,11 +607,6 @@ namespace Dal {
         return Handle_<Tape::Rate_<T_>>(new Tape::SwapRate_<T_>(tradeDate_, fixedPeriods, floatPeriods, floatIndexConvention_));
     }
 
-    // Phase B projection factory for vanilla Swap_ (and OISSwap_ which inherits it). The schedule
-    // is identical to PrecomputeT; only the returned rate class differs -- SwapRateProj_<T_> reads
-    // forecast and discount off separate slots of a JointCurveBlock_<T_>. OIS-discount-slice
-    // instruments (forecast == discount) ride the inherited PrecomputeT instead, so this factory
-    // is invoked only on the IBOR projection slice where forecast != discount.
     template <class T_> Handle_<Tape::JointRate_<T_>> Swap_::PrecomputeProjectionT() const {
         const auto fixedPeriods = BuildLegPeriods(start_,
                                                   maturity_,
@@ -660,30 +621,17 @@ namespace Dal {
         return Handle_<Tape::JointRate_<T_>>(new Tape::SwapRateProj_<T_>(tradeDate_, fixedPeriods, floatPeriods, floatIndexConvention_));
     }
 
-    // Explicit instantiation of PrecomputeT<Dal::AAD::Number_> on each instrument so the linker
-    // finds the symbol when calibration.cpp's AnalyticJacobian calls it. The Number_-typed rate
-    // bodies forward arithmetic and value extraction to the Dal::AAD facade, so they compile and
-    // run under every AAD backend. These were previously gated to the native backend because the
-    // analytic Jacobian reached into the native-only Dal::AAD::Tape_::nodes_ member; that reach is
-    // gone (zeroing now goes through the backend-neutral Dal::AAD::ZeroAdjoints), so the gate is
-    // gone too and the instantiation is needed under every backend.
     template Handle_<Tape::Rate_<Dal::AAD::Number_>> Deposit_::PrecomputeT<Dal::AAD::Number_>() const;
     template Handle_<Tape::Rate_<Dal::AAD::Number_>> FRA_::PrecomputeT<Dal::AAD::Number_>() const;
     template Handle_<Tape::Rate_<Dal::AAD::Number_>> Future_::PrecomputeT<Dal::AAD::Number_>() const;
     template Handle_<Tape::Rate_<Dal::AAD::Number_>> Swap_::PrecomputeT<Dal::AAD::Number_>() const;
 
-    // Phase B projection-rate explicit instantiations. Same backend-neutral contract as PrecomputeT
-    // above: the Number_-typed rate bodies forward arithmetic and value extraction to the Dal::AAD
-    // facade, so they compile and run under every AAD backend.
     template Handle_<Tape::JointRate_<Dal::AAD::Number_>> Deposit_::PrecomputeProjectionT<Dal::AAD::Number_>() const;
     template Handle_<Tape::JointRate_<Dal::AAD::Number_>> FRA_::PrecomputeProjectionT<Dal::AAD::Number_>() const;
     template Handle_<Tape::JointRate_<Dal::AAD::Number_>> Future_::PrecomputeProjectionT<Dal::AAD::Number_>() const;
     template Handle_<Tape::JointRate_<Dal::AAD::Number_>> Swap_::PrecomputeProjectionT<Dal::AAD::Number_>() const;
 
     namespace Tape {
-        // Dispatch the projection-rate factory by dynamic_cast (mirrors PhaseARateAt<T_> in
-        // calibration.cpp:499-510). Returns an empty handle if the instrument type has no projection
-        // subclass; the joint eligibility predicate rejects such types upstream.
         template <class T_>
         Handle_<JointRate_<T_>> ProjectionRateAt(const YCInstrument_& inst) {
             if (const auto* d = dynamic_cast<const Deposit_*>(&inst))

@@ -175,6 +175,66 @@ without re-solving the system. That inverse carries a `tolerance_` factor from t
 solver's residual scaling — see [Yield-Curve Jacobian and Inverse-Jacobian
 Risk](yield_curve_jacobian.md) before consuming it.
 
+### Single-Curve AAD Calibration Internals
+
+When `CurveJacobianMode_::ANALYTIC` is set and the calibration is eligible, the
+residual function `YieldCurveCalibrationFunc_` in
+`dal-cpp/dal/curve/calibration.cpp` overrides `Underdetermined::Function_::Gradient`
+to supply an AAD-tape Jacobian instead of returning `nullptr` (which would trigger
+dense bumping). The `LOG_DISCOUNT` parameterization exposes the node log-discount
+factors $\ell_1,\dots,\ell_{N-1}$ as the free parameters.
+
+**TapeGuard.** Each analytic-Jacobian cycle is bracketed by `TapeGuard_`, an RAII
+scope that calls `Dal::AAD::Clear` on the active tape at construction and (via its
+destructor) at scope exit, even on exception. The guard does **not** open a
+recording — the recording is opened explicitly by `AnalyticJacobian` after
+`RegisterIndependent` (the canonical order across all four AAD backends).
+
+**Eligibility predicate.** `EligibleForAnalyticJacobian()` is a pure query over
+member state: it checks `parameterization_ == LOG_DISCOUNT`,
+`calibrateDiscountCurve_ == true`, and every instrument passes
+`InstrumentEligibleForAnalyticJacobian`. Each fall-through path emits a `NOTICE`
+naming the offending condition. The predicate never throws — ineligibility routes
+through `return nullptr` so the solver dense-bumps. The verdict is evaluated once
+per `CalibrateYieldCurve` call and cached (via `EvaluateEligibilityOnce`), so
+every `NOTICE` fires at most once.
+
+Per-instrument eligibility requires the instrument to:
+
+- Have a type among `Deposit_`, `FRA_`, `Future_`, and `Swap_` (the set for which
+  templated `Tape::Rate_<T_>` subclasses exist).
+- **Not** use a projection curve (`useProjectionCurve_ == false`), so forecast
+  equals discount (both read from the single calibrated curve).
+- Trade at the curve anchor date (`TradeDate() == knotDates_.front()`), because the
+  templated rates read $P(\text{tradeDate}, p)$ from the calibrated curve
+  directly. Spot-started instruments trade before their effective start, so the
+  real trade date — not `TimeSpan().first` — must be checked.
+
+**Analytic Jacobian construction.** `AnalyticJacobian` performs one reverse sweep
+per residual row:
+
+1. Register the free node values $x_0,\dots,x_{N-2}$ on the tape via
+   `Dal::AAD::RegisterIndependent(logDF[i+1], x[i])`, where the anchored node
+   $\ell_0$ is assigned $0$ but not registered (it is not an independent).
+2. Open the recording with `Dal::AAD::NewRecording(*tape)`.
+3. Forward pass: build `Tape::DiscountLogDF_<Number_>`, construct each
+   `Tape::Rate_<Number_>` via `PrecomputeT<Number_>()`, evaluate residuals.
+4. For each row $i$: zero all adjoints, seed $\bar r_i = 1$, propagate to start,
+   and harvest $\bar{\ell}_{j+1}$ as $\partial r_i / \partial x_j$. The column
+   map is `col j = storage node j+1`, and AAD produces exact structural zeros
+   at nodes an instrument does not touch.
+
+The single-result path (one sweep per row) is simpler than the multi-result
+alternative and runs identically on all four backends.
+
+**Forward Jacobian at the solution.** The solver's convergence branch can capture
+an unscaled forward Jacobian $J$ at the solved $x^\star$ by calling
+`func.Gradient(x, f, &fwdJacobian)` once at the solution. This is requested only
+when `jacobianMode_ == ANALYTIC AND solveMode_ == EXACT AND eligible`; callers
+pass `nullptr` otherwise so the solver leaves the output empty. The output appears
+on `CurveCalibrationDiagnostics_::jacobian_` (shape $m \times (N-1)$), unscaled
+— it is the plain $J$ before the solver's `DivideRows(tol_)` row-scaling.
+
 ## Construction Pipeline
 
 ```text
@@ -510,3 +570,7 @@ API citations:
   cross-currency basis curve.
 - [AAD methodology](aad.md) — supplies the analytic Jacobian used in calibration
   and the curve risk sensitivities.
+- [Log-Discount Curve](log_discount_curve.md) — the curve parameterization on which
+  the single-curve AAD path operates.
+- [Script Engine](script_engine.md) — the preprocessing and evaluation pipeline for
+  script-based payoff descriptions.

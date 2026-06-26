@@ -175,6 +175,91 @@ penalising differences between adjacent knots acts as a discrete smoothness
 solver then selects the smoothest — the least oscillatory curve consistent with the
 market.
 
+## Implementation Details
+
+The solver is implemented as free functions `Underdetermined::Find` and
+`Underdetermined::Approximate` in `dal-cpp/dal/math/optimization/underdetermined.cpp`.
+
+### Scaled Residual Wrapper (`XScaledFunc_`)
+
+Before the solver loop, the raw residual function `funcIn` is wrapped in
+`XScaledFunc_`, which divides every residual and every Jacobian row by the per-instrument
+tolerance $\tau_j$ returned by `funcIn.Tolerances()`. This normalises the convergence test
+to $|f_j| \le 1$ per component (exact mode) or $\|f\| \le \texttt{fitTol}$ (approximate
+mode). The wrapper also caps the evaluation budget and tracks `nEvals_`.
+
+The wrapper's Jacobian factory `XScaledFunc_::J` first queries the raw function's
+`Gradient` method. If it returns a sparse Jacobian, the tol-divided sparse is used
+directly. If it returns a dense Jacobian (the `XCurveJacobian_` case), the wrapper
+divides rows by tol and wraps the result in an `XJDense_`. If `Gradient` returns
+`nullptr` (bump fallback, or the analytic path declined eligibility), the wrapper
+allocates a dense `jDense_` member, calls `funcIn.Gradient(x, f, &jDense_)` to fill
+it, and divides rows. This shared dense storage avoids repeated allocation across
+bump iterations.
+
+### Forward Jacobian at the Solution
+
+When the caller requests `fwdJacobianAtSolution` (non-null pointer), the convergence
+branch in `Find` captures the **unscaled** dense forward Jacobian at the solution:
+
+1. The raw (unwrapped) `funcIn` is called: `funcIn.Gradient(xNew, fUnscaled, fwdJacobianAtSolution)`.
+2. The residual `fUnscaled` is reconstructed by element-wise multiplication of the
+   scaled residual by the tolerance vector — avoiding a redundant `funcIn.F()` call
+   that would bypass the solver's evaluation budget.
+3. If `Gradient` returns `nullptr` (no analytic Jacobian at this `x`), the output is
+   cleared so a caller-reused matrix cannot leak stale contents. There is no dense-FD
+   fallback on this branch.
+
+`StoreForwardJacobianAtSolution` performs the column-by-column extraction: it probes
+each unit column of the Jacobian via `MultiplyLeft` (which returns $J \cdot e_k =
+\text{column } k$, length $m$) and stores it into the output. This works for any
+`Jacobian_` subclass.
+
+### Backtracking Line Search
+
+The exact-mode line search minimises a one-dimensional quadratic model of the scaled
+residual norm squared along the trial step $s$. Given $a = f^{\mathsf T} f$ (current),
+$b = f^{\mathsf T} f_{\text{new}}$ (cross), and $c = f_{\text{new}}^{\mathsf T}
+f_{\text{new}}$ (candidate), the quadratic model
+
+$$
+\tilde f^2(k) = a\,k^2 + 2b\,k(1-k) + c\,(1-k)^2
+$$
+
+has derivative $\partial\tilde f^2/\partial k = 2a k + 2b(1-2k) + 2c(k-1)$, which
+vanishes at
+
+$$
+k_{\min} = \frac{c - \tfrac{1}{2} b}{c - b + a}.
+$$
+
+The interpretation of $k_{\min}$ relative to the backtrack and restart tolerances:
+
+- $k_{\min} < \texttt{backtrackTolerance\_}$ — the full step is good; accept it and
+  optionally capture the forward Jacobian at the solution.
+- $k_{\min} > \texttt{restartTolerance\_}$ — the linear model is poor; discard the
+  secant-updated Jacobian (or the analytic one) and restart from a freshly computed
+  Jacobian.
+- Between the two — shrink the step by factor $1 - k$, capped by `maxBacktrack_`, and
+  retry with the same Jacobian.
+
+The loop budgets `maxBacktrackTries_` attempts per iteration; exceeding it forces a
+restart. The `approxJ` guard (Broyden-updated Jacobian) ensures at least one Jacobian
+is freshly computed per restart cycle.
+
+### Controls Structure
+
+The `Underdetermined::Controls_` struct (default-constructed) carries:
+
+| Field                   | Default        | Role                                                          |
+|-------------------------|----------------|---------------------------------------------------------------|
+| `maxEvaluations_`       | $150$          | Hard evaluation budget across all restarts                    |
+| `maxRestarts_`          | $3$            | Maximum Broyden refreshes before failure                      |
+| `maxBacktrackTries_`    | $3$            | Line-search tries per iteration                               |
+| `maxBacktrack_`         | $0.5$          | Maximum fractional step shrinkage                             |
+| `backtrackTolerance_`   | $0.1$          | $k_{\min}$ below which the full step is accepted              |
+| `restartTolerance_`     | $0.5$          | $k_{\min}$ above which the linear model is considered invalid |
+
 ## Summary
 
 The method poses calibration as a constrained least-change problem. The exact mode
