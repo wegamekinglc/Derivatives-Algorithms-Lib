@@ -46,9 +46,8 @@ namespace Dal {
 
         template <class T_, class B_>
         void DiscountPWLF_<T_, B_>::UpdateT() {
-            // T_-typed analogue of PiecewiseLinear_::Sofar (piecewiselinear.cpp:13-21), using the
-            // SAME fLeftT_[ii] + fRightT_[ii-1] segment indexing (critique S8). Abscissa weights
-            // (dt) are double; mean and sofarT_ are T_.
+            // T_-typed running integral using fLeftT_[ii] + fRightT_[ii-1] segment indexing.
+            // Abscissa weights (dt) are double; mean and sofarT_ are T_.
             const int n = static_cast<int>(knotDates_.size());
             if (static_cast<int>(sofarT_.size()) != n)
                 sofarT_.Resize(n);
@@ -109,10 +108,7 @@ namespace Dal {
 
         template <class T_, class B_>
         void DiscountPWLF_<T_, B_>::ApplyDX(Vector_<>::const_iterator dx, double leverage) {
-            // CRITIQUE S9: ApplyDX compiles on T_ = Number_ (via the facade's += and
-            // leverage * double operators) but is UNREACHABLE on the AAD path: the Number_ factory
-            // constructs the curve directly with tape-registered fLeftT_/fRightT_, never calling
-            // ApplyDX. The bumped fallback uses the existing double DiscountPWLF_ (ycimp.cpp:56-83).
+            // See docs/methodology/yield_curve_jacobian.md §Joint Multi-Curve Analytic Jacobian.
             for (int k = 0; k < static_cast<int>(fLeftT_.size()); ++k) {
                 fLeftT_[k] += static_cast<double>(leverage) * *dx++;
                 fRightT_[k] += static_cast<double>(leverage) * *dx++;
@@ -136,9 +132,7 @@ namespace Dal {
             return new DiscountPWLF_<T_, B_>(new_name, this->ccy_.String(), knotDates_, fLeftT_, fRightT_, this->NewBase(base_changes));
         }
 
-        // Explicit instantiations. The double variant is exercised by the AC11 byte-for-byte test
-        // and by the double specialization of the templated joint residual. The Number_ variants
-        // (baseless and base-layered) are exercised by the joint AAD-tape Gradient override.
+        // See docs/methodology/yield_curve_jacobian.md §Joint Multi-Curve Analytic Jacobian.
         template class DiscountPWLF_<double>;
         template class DiscountPWLF_<Dal::AAD::Number_>;
         template class DiscountPWLF_<Dal::AAD::Number_, DiscountCurve_<Dal::AAD::Number_>>;

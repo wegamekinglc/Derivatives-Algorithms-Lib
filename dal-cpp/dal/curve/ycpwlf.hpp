@@ -13,22 +13,7 @@
 #include <dal/utilities/algorithms.hpp>
 
 namespace Dal {
-    // Phase B templatization: the templated PWL-forward curve. Interpolates forwards piecewise-
-    // linearly on T_ (fLeftT_/fRightT_ are the 2 * nKnots free parameters, NO anchor exclusion --
-    // every knot is free), integrates forwards to log-DF on T_ via the Vector_<T_> sofarT_ running
-    // integral, and multiplies by a T_-typed base when supplied. The double specialization
-    // (T_ = double) is byte-for-byte identical in arithmetic to the anonymous-namespace
-    // DiscountPWLF_ at ycimp.cpp:56-83 (modulo routing the denominator through DAYS_PER_YEAR). The
-    // Number_ specialization is constructed only by the AAD-tape Gradient override in
-    // jointcalibration.cpp.
-    //
-    // CRITIQUE S9 DECISION: the templated class holds FLAT Vector_<T_> members (fLeftT_, fRightT_,
-    // sofarT_), NOT a templated PiecewiseLinearT_<T_>. The joint path is the only consumer, so flat
-    // members minimize surface.
-    //
-    // The base is a SECOND template parameter (defaulted to DiscountCurve_<double> for the baseless
-    // / constant-base case, matching Phase A's DiscountLogDF_<T_> pattern). Under base layering,
-    // B_ = DiscountCurve_<T_> so the base adjoints propagate through the reverse sweep (Gap 4).
+    // See docs/methodology/yield_curve_jacobian.md §Joint Multi-Curve Analytic Jacobian.
     namespace Tape {
         constexpr double DAYS_PER_YEAR_PWLF = 365.0;
 
@@ -41,9 +26,8 @@ namespace Dal {
             Vector_<T_> fLeftT_;
             Vector_<T_> fRightT_;
             // T_-typed running integral sofarT_[k] = integral of the PWL forward from knot 0 to
-            // knot k. Mirrors PiecewiseLinear_::sofar_ but T_-typed so the dependence on
-            // fLeftT_/fRightT_ records on the tape. Recomputed by UpdateT() whenever fLeftT_/
-            // fRightT_ change (critique S8).
+            // knot k. T_-typed so the dependence on fLeftT_/fRightT_ records on the tape.
+            // Recomputed by UpdateT() whenever fLeftT_/fRightT_ change.
             Vector_<T_> sofarT_;
             // Double knot abscissae (serial-day offsets from knot 0). Computed once at
             // construction; identical for any T_.
