@@ -180,9 +180,7 @@ namespace {
     }
 } // namespace
 
-// ============================================================================
 // Category 1: AAD-tape Jacobian matches two-sided central differences
-// ============================================================================
 // The Phase A override returns dModelRate_i/dx_j via one reverse sweep per row. The byproduct J
 // (diagnostics_.jacobian_) is evaluated at the solved x, so the FD oracle runs at the same point:
 // a clean AAD-vs-FD agreement with no iterate-vs-solution gap.
@@ -192,9 +190,7 @@ TEST(AnalyticJacobianTest, TestMatchesCentralDifferenceLogLinear) {
     AssertJacobianMatchesCentralDifferenceAtSolution(spec, 1.0e-6, 1.0e-9);
 }
 
-// ============================================================================
 // Category 2: Structural zeros are EXACTLY zero
-// ============================================================================
 // AAD produces exact structural zeros (no bump noise). Each row of the Jacobian must have at least
 // one exactly-zero entry for a column beyond the instrument's cashflow support.
 
@@ -213,9 +209,7 @@ TEST(AnalyticJacobianTest, TestStructuralZerosAreExactlyZero) {
         ASSERT_EQ(J(0, c), 0.0) << "row 0 col " << c << " = " << J(0, c) << " (expected exactly zero)";
 }
 
-// ============================================================================
 // Category 3: Solve convergence -- the AAD-tape Jacobian drives the solver to a fit
-// ============================================================================
 // We do NOT assert iteration count (linesearch varies), only that the residual converges.
 
 TEST(AnalyticJacobianTest, TestSolveConvergesLogLinear) {
@@ -230,9 +224,7 @@ TEST(AnalyticJacobianTest, TestSolveConvergesLogLinear) {
     ASSERT_EQ(static_cast<int>(cAAD->NodeLogDF().size()), 6);
 }
 
-// ============================================================================
 // Category 4: Ineligibility -- the AAD Jacobian falls back to bumping with a NOTICE
-// ============================================================================
 // Phase A is ineligible for non-LOG_DISCOUNT parameterizations. EligibleForAnalyticJacobian
 // returns false, the solver dense-bumps, and a NOTICE fires. We cannot easily assert the NOTICE
 // text from a unit test, but we CAN assert the fallback behavior via the byproduct: an ANALYTIC
@@ -249,9 +241,7 @@ TEST(AnalyticJacobianTest, TestIneligibleParameterizationFallsBack) {
     ASSERT_TRUE(result.diagnostics_.jacobian_.Empty()); // empty -> ineligible, solver dense-bumps
 }
 
-// ============================================================================
 // Category 4b: forecast-target calibration (calibrateDiscountCurve_ == false) is ineligible
-// ============================================================================
 // A forecast-target calibration slots the calibrated curve into forwardCurves_ (a distinct code
 // path from the discount-target case in YieldCurveWith). EligibleForAnalyticJacobian rejects it,
 // so the byproduct diagnostics_.jacobian_ is EMPTY. Observed here via the multi-curve flow: a
@@ -355,9 +345,7 @@ TEST(AnalyticJacobianTest, TestIneligibleForecastTargetFallsBack) {
     ASSERT_TRUE(result.diagnostics_[1].jacobian_.Empty());
 }
 
-// ============================================================================
 // Category 5: tradeDate != start must be rejected (regression for the gate bug)
-// ============================================================================
 // Phase A's templated rates read DF(tradeDate_, p) (see ycinstrument.cpp), so eligibility must be
 // checked against the real trade date, not the effective/spot start that TimeSpan().first returns.
 // A spot-started instrument has tradeDate strictly before start (the typical spotLag-business-days
@@ -403,9 +391,7 @@ TEST(AnalyticJacobianTest, TestTradeDateEqualsStartStillAdmitted) {
     ASSERT_EQ(J.Cols(), 5);
 }
 
-// ============================================================================
 // Category 6: Tape isolation -- two consecutive calibrations do not leak state
-// ============================================================================
 // If the TapeGuard_ leaks adjoints, the second calibration's Jacobian would inherit the first
 // call's residuals and produce wrong numbers. We assert the second byproduct J reproduces the
 // first exactly.
@@ -427,9 +413,7 @@ TEST(AnalyticJacobianTest, TestTapeIsolationAcrossCalls) {
             ASSERT_NEAR(J1(r, c), J2(r, c), 1e-12) << "row=" << r << " col=" << c;
 }
 
-// ============================================================================
 // Category 7: All three LogDfScheme_ values must match central differences
-// ============================================================================
 // Phase A eligibility is scheme-agnostic -- the templated DiscountLogDF_<T_> dispatches on scheme
 // inside the tape. The TestMatchesCentralDifferenceLogLinear test above covers LOG_LINEAR; these
 // two cover LOG_CUBIC_NATURAL and MIXED, exercising the natural-cubic and mixed-cutoff spline
@@ -445,9 +429,7 @@ TEST(AnalyticJacobianTest, TestMatchesCentralDifferenceMixed) {
     AssertJacobianMatchesCentralDifferenceAtSolution(spec, 1.0e-6, 1.0e-9);
 }
 
-// ============================================================================
 // Category 8: Single-instrument tape canary (Deposit)
-// ============================================================================
 // A single Deposit isolates the tape from multi-row sparsity. The Jacobian is 1 x N: one reverse
 // sweep over one residual. If the tape mis-computes dResidual/d(logDF_node), this test catches it
 // directly -- there is no confounding with structural-zero assembly across rows. We assert the
@@ -497,9 +479,7 @@ TEST(AnalyticJacobianTest, TestSingleDepositTapeMatchesCentralDifference) {
         ASSERT_EQ(J(0, c), 0.0) << "deposit row col " << c << " = " << J(0, c) << " (expected exactly zero)";
 }
 
-// ============================================================================
 // Category 9: Mixed instrument types in one calibration (Deposit + FRA + Swap)
-// ============================================================================
 // Phase A is eligible for vanilla Swap, Deposit, FRA, and Future. A calibration mixing all three
 // primary cash instrument types exercises the per-instrument dispatch in PhaseAJacobian_
 // (Tape::DepositRate_ + Tape::ForwardRate_ + Tape::SwapRate_) in a single recording. The byproduct
@@ -552,9 +532,7 @@ TEST(AnalyticJacobianTest, TestMixedInstrumentCalibrationMatchesCentralDifferenc
         ASSERT_EQ(J(1, c), 0.0) << "fra row col " << c << " = " << J(1, c);
 }
 
-// ============================================================================
 // Category 10: B2 sentinel -- every row has a non-trivial Jacobian
-// ============================================================================
 // The signature failure mode for a missed registerInput / broken recording window (the B2 class)
 // is an ALL-ZERO Jacobian row: the tape never learned the input is an independent, so the reverse
 // sweep propagates nothing and the harvested row is zero. This invariant trips that failure on the
@@ -577,9 +555,7 @@ TEST(AnalyticJacobianTest, TestEveryRowHasNonTrivialJacobian) {
     }
 }
 
-// ============================================================================
 // Category 11: B1 sentinel -- later rows stay clean of earlier rows' residue
-// ============================================================================
 // On Adept the compute_adjoint override zeroes only each consumed statement's LHS and accumulates
 // into operands whose gradients are never cleared between single-result sweeps. If ZeroAdjoints
 // were a no-op (the B1 bug), row 1's seed would leave operand residue that row 2's sweep inherits,
@@ -631,9 +607,7 @@ TEST(AnalyticJacobianTest, TestLaterRowsCleanOfEarlierResidue) {
     }
 }
 
-// ============================================================================
 // Category 12: Structural asymmetry guard (defense against a future Jacobian-layout transpose)
-// ============================================================================
 // A multi-result fast path (e.g. Adept stack.jacobian(), deferred) could transpose the Jacobian
 // layout if its dep/indep offset bookkeeping is wrong. The LOG_DISCOUNT swap ladder is provably
 // non-symmetric: swap i (maturing at knot i+1) has cashflow support over columns 0..i, so

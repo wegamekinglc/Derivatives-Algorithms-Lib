@@ -56,9 +56,7 @@ Dal::RateLegConvention_ FloatLeg(const char* tenor, const char* basis) {
 
 } // namespace
 
-// ============================================================================
 // CrossCurrencyCalibrationSpecBuilder_ defaults
-// ============================================================================
 
 TEST(XccyCalibrationTest, TestBuilderDefaults) {
     CrossCurrencyCalibrationSpecBuilder_ builder;
@@ -72,9 +70,7 @@ TEST(XccyCalibrationTest, TestBuilderDefaults) {
     ASSERT_EQ(builder.solveMode_.Switch(), CurveSolveMode_::Value_::EXACT);
 }
 
-// ============================================================================
 // Build baseline curves for XCCY calibration
-// ============================================================================
 
 namespace {
 
@@ -105,9 +101,7 @@ BaselineCurves_ MakeBaselineCurves() {
 
 } // namespace
 
-// ============================================================================
 // Cross-currency calibration
-// ============================================================================
 
 TEST(XccyCalibrationTest, TestCalibrateXccyMarket) {
     auto curves = MakeBaselineCurves();

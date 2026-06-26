@@ -49,9 +49,7 @@ Dal::RateLegConvention_ Float3M() {
 }
 } // namespace
 
-// ============================================================================
 // Deposit
-// ============================================================================
 
 TEST(CurveInstrumentTest, TestDepositNew) {
     Date_ start = Spot();
@@ -69,9 +67,7 @@ TEST(CurveInstrumentTest, TestDepositNewVariousMaturities) {
     }
 }
 
-// ============================================================================
 // FRA
-// ============================================================================
 
 TEST(CurveInstrumentTest, TestFRANew) {
     Date_ start = Spot().AddDays(180);
@@ -80,9 +76,7 @@ TEST(CurveInstrumentTest, TestFRANew) {
     ASSERT_TRUE(inst != nullptr);
 }
 
-// ============================================================================
 // Future
-// ============================================================================
 
 TEST(CurveInstrumentTest, TestFutureNew) {
     Date_ start = Spot().AddDays(90);
@@ -98,9 +92,7 @@ TEST(CurveInstrumentTest, TestFutureNewWithConvexity) {
     ASSERT_TRUE(inst != nullptr);
 }
 
-// ============================================================================
 // Vanilla Swap
-// ============================================================================
 
 TEST(CurveInstrumentTest, TestSwapNew) {
     Date_ start = Spot();
@@ -118,9 +110,7 @@ TEST(CurveInstrumentTest, TestSwapNewVariousMaturities) {
     }
 }
 
-// ============================================================================
 // OIS Swap
-// ============================================================================
 
 TEST(CurveInstrumentTest, TestOISSwapNew) {
     Date_ start = Spot();
@@ -129,9 +119,7 @@ TEST(CurveInstrumentTest, TestOISSwapNew) {
     ASSERT_TRUE(inst != nullptr);
 }
 
-// ============================================================================
 // Basis Swap
-// ============================================================================
 
 TEST(CurveInstrumentTest, TestBasisSwapNew) {
     Date_ start = Spot();
@@ -142,9 +130,7 @@ TEST(CurveInstrumentTest, TestBasisSwapNew) {
     ASSERT_TRUE(inst != nullptr);
 }
 
-// ============================================================================
 // Cross-Currency Swap
-// ============================================================================
 
 TEST(CurveInstrumentTest, TestCrossCurrencySwapNew) {
     Date_ start = Spot();

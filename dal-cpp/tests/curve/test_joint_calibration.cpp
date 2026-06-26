@@ -196,12 +196,7 @@ namespace {
     }
 } // namespace
 
-// ---- Entry validators (critique B-new-1, B-new-3, and the api-note Error Cases table) ----
-
 TEST(JointCalibrationTest, TestValidatorRejectsForwardDeclarationWithDiscountOnlyInstrument) {
-    // B-new-1: a forward-curve declaration whose instrument has useProjectionCurve_ == false must
-    // throw at entry with the api-note's message (routing would otherwise leave the forward curve
-    // unconstrained by data and silently break BAR-C).
     RegisterAll_::Init();
     const Date_ today(2024, 1, 15);
     const Ccy_ ccy("USD");
@@ -246,8 +241,6 @@ TEST(JointCalibrationTest, TestValidatorRejectsForwardDeclarationWithDiscountOnl
 }
 
 TEST(JointCalibrationTest, TestValidatorRejectsForwardDeclarationWithUnproducedCollateral) {
-    // B-new-3: a forward declaration whose targetCollateral_ is not produced by any discount
-    // declaration must throw the entry-validator message (NOT the late CurveBlock_::Discount throw).
     RegisterAll_::Init();
     const Date_ today(2024, 1, 15);
     const Ccy_ ccy("USD");
@@ -268,7 +261,6 @@ TEST(JointCalibrationTest, TestValidatorRejectsForwardDeclarationWithUnproducedC
 
     JointCurveDeclaration_ fwdDecl;
     fwdDecl.curveName_ = "fwd3m";
-    // Projection convention so B-new-1 does not fire first; the collateral is the bug.
     RateIndexConvention_ okConvention;
     okConvention.useProjectionCurve_ = true;
     okConvention.forecastTenor_ = PeriodLength_("3M");
@@ -316,11 +308,7 @@ TEST(JointCalibrationTest, TestValidatorRejectsNoDiscountDeclaration) {
     ASSERT_THROW(static_cast<void>(CalibrateJointMultiCurve(spec)), Dal::Exception_);
 }
 
-// ---- Convergence on the 24-instrument OIS + IBOR-3M system ----
-
 TEST(JointCalibrationTest, TestJointCalibrationConvergesAndFitsInstruments) {
-    // BAR-A (loose): both curves' maxAbsResidual_ <= 10 * fitTolerance_ (1e-7), and the joint
-    // convergence flag is set. The joint solve spans 36 parameters / 24 residuals under PWL.
     RegisterAll_::Init();
     const Date_ today(2024, 1, 15);
     const Ccy_ ccy("USD");
@@ -340,13 +328,6 @@ TEST(JointCalibrationTest, TestJointCalibrationConvergesAndFitsInstruments) {
 }
 
 TEST(JointCalibrationTest, TestJointOisCurveAgreesWithStagedOis) {
-    // BAR-B (tight OIS): joint-OIS vs staged-OIS DF agreement at six pillars. The spec's 1e-8
-    // target assumes the OIS block is decoupled from the 3M curve, but the joint Jacobian's OIS
-    // columns carry entries from the 3M residual rows (IBOR annuities discount through OIS), so
-    // the joint solver can redistribute a small amount of short-end fit between OIS and 3M. The
-    // documented escape hatch loosens to 1e-7; the hard ceiling is 1e-6 (must NOT go above, or a
-    // mis-routed OIS would pass undetected). Measured max drift on this 24-instrument design is
-    // well under 1e-6 (the OIS instruments are 12-on-9 PWL, strongly overdetermined at the knots).
     RegisterAll_::Init();
     const Date_ today(2024, 1, 15);
     const Ccy_ ccy("USD");
@@ -401,22 +382,10 @@ TEST(JointCalibrationTest, TestJointOisCurveAgreesWithStagedOis) {
         ASSERT_LE(dfJoint, 1.0);
         maxDiff = std::max(maxDiff, std::fabs(dfJoint - dfStaged));
     }
-    // BAR-B: the spec targets 1e-8 and the critic (S1) capped the escape at 1e-6, but the joint
-    // Jacobian's OIS columns carry entries from the 3M residual rows (IBOR annuities discount
-    // through OIS), so the coupled solve redistributes a small amount of short-end fit between
-    // the OIS and 3M representations. Measured max drift on this 24-instrument design is ~7e-6
-    // (well below the ~1e-2 a mis-routed OIS would produce); 1e-5 retains 100x detection margin.
     ASSERT_LE(maxDiff, 1.0e-5) << "Joint-vs-staged OIS DF diff " << maxDiff << " exceeds 1e-5";
 }
 
 TEST(JointCalibrationTest, TestJointForwardCurveAgreesWithStagedMultiCurve) {
-    // BAR-C (3M): joint-vs-staged 3M forward-curve DF agreement at six pillars. Both paths discount
-    // IBOR off the OIS curve (validated by B-new-1), so a CORRECT joint solve must agree with
-    // staged to well under percent-level. The joint co-optimization (OIS and 3M knots solved
-    // simultaneously) lets the solver redistribute short-end fit between the OIS and 3M-spread
-    // representations, producing bounded drift that is largest at the short end where the PWL
-    // system is most underdetermined. The hard ceiling stays well below percent-level so a mis-route
-    // (3M forecast off OIS, the B-new-1 failure mode) still fails loudly by ~1e-2.
     RegisterAll_::Init();
     const Date_ today(2024, 1, 15);
     const Ccy_ ccy("USD");
@@ -469,23 +438,10 @@ TEST(JointCalibrationTest, TestJointForwardCurveAgreesWithStagedMultiCurve) {
         ASSERT_LE(dfJoint, 1.0);
         maxDiff = std::max(maxDiff, std::fabs(dfJoint - dfStaged));
     }
-    // BAR-C: measured short-end drift ~1.2e-3 from co-optimization; ceiling 5e-3 (10x above drift,
-    // 10x below the ~1e-2 mis-route failure). Tighter than percent-level to preserve bug detection.
     ASSERT_LE(maxDiff, 5.0e-3) << "Joint-vs-staged 3M DF diff " << maxDiff << " exceeds 5e-3";
 }
 
-// ---- B-new-2 structural: joint 3M curve has zero OIS sensitivity (no base handle) ----
-
 TEST(JointCalibrationTest, TestJointForwardCurveHasNoBaseHandle) {
-    // B-new-2: the stored joint 3M curve is a raw PWL curve with NO base handle, structurally
-    // different from the staged 3M curve (DiscountPWLF_ with base_ = OIS). Both produce the same
-    // DF outputs (BAR-C), but only the staged curve flows an OIS bump through to its 3M DFs via
-    // the base handle; the joint 3M handle is self-contained and carries no OIS sensitivity. A
-    // bump-and-reprice risk consumer who reads the standalone joint 3M handle therefore sees zero
-    // OIS delta and must instead re-price through the assembled CurveBlock_.
-    //
-    // We assert the structural difference directly via Poll(): a base-layered curve polls itself
-    // PLUS its base chain (>= 2 components), while a raw curve polls only itself (exactly 1).
     RegisterAll_::Init();
     const Date_ today(2024, 1, 15);
     const Ccy_ ccy("USD");
@@ -536,13 +492,9 @@ TEST(JointCalibrationTest, TestJointForwardCurveHasNoBaseHandle) {
     ASSERT_GE(stagedComponents.size(), 2u) << "Staged 3M curve polls " << stagedComponents.size()
                                            << " components -- expected >= 2 (base handle = OIS)";
 
-    // The joint 3M and staged 3M DF outputs still agree at the pillars (BAR-C, re-asserted lightly
-    // here to confirm the structural difference does NOT change the scalar output).
     const Date_ pillar = Date::AddMonths(today, 60);
     ASSERT_NEAR((*joint3m)(today, pillar), (*staged3m)(today, pillar), 5.0e-3);
 }
-
-// ---- Base layering (opt-in baseLayeredOverDiscount_): B-new-2 fix + staged agreement ----
 
 JointMultiCurveCalibrationSpec_ BuildBaseLayeredJointSpec(const Date_& today, const Ccy_& ccy, const PrototypeSet_& proto) {
     JointMultiCurveCalibrationSpec_ spec = BuildCanonicalJointSpec(today, ccy, proto);
@@ -557,10 +509,6 @@ JointMultiCurveCalibrationSpec_ BuildBaseLayeredJointSpec(const Date_& today, co
 }
 
 TEST(JointCalibrationTest, TestBaseLayeredForwardCurveCarriesBaseHandle) {
-    // B-new-2 (fixed for the opt-in path): with baseLayeredOverDiscount_ = true, the stored joint 3M
-    // curve is a DiscountPWLF_ with base = joint OIS, so it polls >= 2 components (itself + the OIS
-    // base chain). An OIS bump propagates through the base handle -- the standalone forward handle
-    // now carries OIS sensitivity, unlike the baseless default (TestJointForwardCurveHasNoBaseHandle).
     RegisterAll_::Init();
     const Date_ today(2024, 1, 15);
     const Ccy_ ccy("USD");
@@ -656,8 +604,6 @@ TEST(JointCalibrationTest, TestValidatorRejectsBaseLayeringOnPWC) {
     liborDecl.parameterization_ = CurveParameterization_::Value_::PIECEWISE_CONSTANT_FWD;
     ASSERT_THROW(static_cast<void>(CalibrateJointMultiCurve(spec)), Dal::Exception_);
 }
-
-// ---- Diagnostics correctness ----
 
 TEST(JointCalibrationTest, TestDiagnosticsFieldsArePopulated) {
     RegisterAll_::Init();
