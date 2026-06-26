@@ -43,10 +43,7 @@ namespace Dal {
 #include <dal/auto/MG_DiscountLogDF_v2_Write.inc>
 
     namespace {
-        // Build the log-DF interpolator from knot year-fractions and log(DF) values.
-        // Centralised here so calibration, ApplyDX, and deserialisation all share one definition;
-        // each scheme is fully determined by (yf, logDF) -- boundary conditions are fixed (natural
-        // cubic) and the mixed cutoff is the (nKnots-4)-th knot, matching calibration.cpp.
+        // Centralised here so calibration, ApplyDX, and deserialisation share one definition.
         Handle_<Interp1_> BuildLogDfInterpFromYf(const String_& name,
                                                  LogDfScheme_ scheme,
                                                  const Vector_<>& yf,
@@ -56,12 +53,11 @@ namespace Dal {
                 // linear on log(DF) is log-linear on DF
                 return Handle_<Interp1_>(Interp::NewLinear(name + "_loglin", yf, logDF));
             case LogDfScheme_::Value_::LOG_CUBIC_NATURAL: {
-                // natural cubic on log(DF) (Boundary_(2, 0.0)) -- the primary choice per design §3.2 D3.
                 const Interp::Boundary_ natural(2, 0.0);
                 return Handle_<Interp1_>(Interp::NewCubic(name + "_logcub", yf, logDF, natural, natural));
             }
             case LogDfScheme_::Value_::MIXED: {
-                // cutoff at the (nKnots-4)-th knot so the cubic tail has >= 3 knots beyond it.
+                // cutoff at (nKnots-4) so the cubic tail has >= 3 knots beyond it.
                 const int cutoffIndex = std::max(1, static_cast<int>(yf.size()) - 5);
                 MixedSchemeSpec_ spec;
                 spec.cutoffYf_ = yf[cutoffIndex];
@@ -72,10 +68,7 @@ namespace Dal {
             }
         }
 
-        // Solve a symmetric tridiagonal system M z = b in place where M is specified by its
-        // subdiagonal `a` (size n-1), diagonal `d` (size n), and superdiagonal `c` (size n-1).
-        // Returns z (size n). Standard Thomas algorithm; assumes M is diagonally dominant
-        // (true for the natural-cubic spline matrix).
+        // Standard Thomas algorithm; M is diagonally dominant (true for natural-cubic splines).
         Vector_<> SolveTriDiagonal(const Vector_<>& a, const Vector_<>& d, const Vector_<>& c, const Vector_<>& b) {
             const int n = static_cast<int>(d.size());
             REQUIRE(static_cast<int>(a.size()) == n - 1 && static_cast<int>(c.size()) == n - 1 && static_cast<int>(b.size()) == n,
@@ -93,21 +86,16 @@ namespace Dal {
                 }
             }
             Vector_<> x(n);
-            // Forward substitution: y[i] = (b[i] - a[i-1]*y[i-1]) / dp[i]
             Vector_<> y(n);
             y[0] = b[0] / dp[0];
             for (int i = 1; i < n; ++i)
                 y[i] = (b[i] - a[i - 1] * y[i - 1]) / dp[i];
-            // Back-substitution: x[n-1] = y[n-1]; x[i] = y[i] - cp[i]*x[i+1]
             x[n - 1] = y[n - 1];
             for (int i = n - 2; i >= 0; --i)
                 x[i] = y[i] - cp[i] * x[i + 1];
             return x;
         }
 
-        // db[i]/d(f[j]) for the natural-cubic rhs at interior node i, source knot j, given the
-        // segment lengths h. The four Kronecker-delta terms of the second-difference collapse to
-        // this dispatch; extracted so the per-source loop stays linear in branches.
         double NaturalCubicRhsEntry(int j, int i, const Vector_<>& h) {
             double val = 0.0;
             if (j == i + 1)
@@ -121,11 +109,9 @@ namespace Dal {
             return 6.0 * val;
         }
 
-        // Build the sub/diag/sup rows of the (n-2) x (n-2) interior natural-cubic system in the
-        // segment-length vector h (size n, with h[0] unused).
         void NaturalCubicInteriorMatrix(const Vector_<>& h, int m, Vector_<>* sub, Vector_<>* diag, Vector_<>* sup) {
             for (int r = 0; r < m; ++r) {
-                const int i = r + 1; // interior node index
+                const int i = r + 1;
                 (*diag)[r] = 2.0 * (h[i] + h[i + 1]);
                 if (r > 0)
                     (*sub)[r - 1] = h[i];
@@ -134,12 +120,6 @@ namespace Dal {
             }
         }
 
-        // Natural-cubic-spline second-derivative sensitivity matrix:
-        //   fppCoef[k][j] = d(fpp[k]) / d(f[j])
-        // where fpp[0] = fpp[n-1] = 0 (natural BC) and fpp[1..n-2] are obtained by solving
-        //   h[i-1]*fpp[i-1] + 2*(h[i-1]+h[i])*fpp[i] + h[i]*fpp[i+1] = b[i]   for i = 1..n-2
-        // with h[k] = x[k] - x[k-1] and b[i] = 6*((f[i+1]-f[i])/h[i+1] - (f[i]-f[i-1])/h[i]).
-        // We solve n column systems (one per nonzero source f[j]).
         Vector_<Vector_<>> BuildNaturalCubicFppCoef(const Vector_<>& x) {
             const int n = static_cast<int>(x.size());
             Vector_<Vector_<>> coef(n, Vector_<>(n, 0.0));
@@ -166,11 +146,8 @@ namespace Dal {
             return coef;
         }
 
-        // Locate the largest index k such that yf_[k] <= yf; return 0 if yf < yf_[1]. Identical
-        // semantics to InterpLinearImplX's lower-bound branch used by Interp1Linear_::operator().
         int LowerBoundSegment(const Vector_<>& yf, double yfQuery) {
             const int n = static_cast<int>(yf.size());
-            // Anchor (yf[0]) is 0; we are interested in the segment [k, k+1].
             int k = 0;
             for (int i = 1; i < n - 1; ++i) {
                 if (yf[i] <= yfQuery)
@@ -178,14 +155,12 @@ namespace Dal {
                 else
                     break;
             }
-            // Clamp: yfQuery may equal yf[n-1] exactly (last knot) -- segment is k=n-2.
+            // Clamp: yfQuery may equal yf[n-1] exactly.
             if (k > n - 2)
                 k = n - 2;
             return k;
         }
 
-        // Linear-basis storage-node weights on segment [yf[k], yf[k+1]]: (1-g) at storage k, g at
-        // storage k+1, with g = (yfQuery - yf[k])/h. Shared by LOG_LINEAR and the MIXED head.
         Vector_<std::pair<int, double>> LinearSegmentWeights(const Vector_<>& yf, int k, double yfQuery) {
             const double h = yf[k + 1] - yf[k];
             const double g = (yfQuery - yf[k]) / h;
@@ -198,11 +173,8 @@ namespace Dal {
 
     namespace Tape {
 
-    // The ctor body is parameterised on T_ but the runtime validation (REQUIRE on logDF[0] == 0,
-    // IsMonotonic) only makes sense for double -- for Number_ the value extraction would record
-    // spurious tape nodes. The geometric invariants (nodeDates, dayCount, yf, scheme, interp,
-    // fppCoef) are T_-independent and built unconditionally. The Number_ factory in calibration.cpp
-    // pins logDF[0] = 0 itself before construction, so the runtime check is redundant there.
+    // Runtime validation (isfinite, logDF[0]==0) is double-only -- Number_ value extraction
+    // would record spurious tape nodes. The Number_ factory pins logDF[0]=0 before construction.
     template <class T_>
     DiscountLogDF_<T_>::DiscountLogDF_(const String_& name,
                                           const String_& ccy,
@@ -238,11 +210,8 @@ namespace Dal {
 
     template <class T_>
     void DiscountLogDF_<T_>::RebuildInterp() {
-        // interp_ is always double-valued and depends only on yf_ and the (double-extracted) logDF
-        // values -- it is the knot-position-driven interpolator the double path reads through.
-        // For Number_ we cannot build a double interp_ from Number_ values; we extract via Value()
-        // so the interpolator exists for any code that defensively calls it, but the Number_ LogDfAt
-        // path does NOT consult interp_ (it accumulates basis weights against logDF_ directly).
+        // interp_ is always double-valued; extract via Value() for existence,
+        // but the Number_ LogDfAt path does not consult it.
         Vector_<> logDFDouble(yf_.size());
         for (int i = 0; i < static_cast<int>(logDF_.size()); ++i)
             logDFDouble[i] = Dal::AAD::Value(logDF_[i]);
@@ -258,21 +227,15 @@ namespace Dal {
         if (scheme_ == LogDfScheme_::Value_::LOG_CUBIC_NATURAL) {
             fppCoef_ = BuildNaturalCubicFppCoef(yf_);
         } else if (scheme_ == LogDfScheme_::Value_::MIXED) {
-            // The cutoff is the (nKnots-4)-th knot (see BuildLogDfInterpFromYf). The cubic tail
-            // needs fppCoef_ over the tail subarray; we store the full-curve fppCoef_ as if the
-            // cubic ran over the whole array -- BUT the actual cubic is built on the tail only.
-            // To stay correct, we compute fppCoef_ on the cubic TAIL subarray (from cutoffIndex
-            // onward) and store offsets so CubicBasisAt can map back to storage nodes.
+            // Cutoff at (n-4)-th knot; cubic tail fppCoef_ computed on subarray, expanded back.
             const int cutoffIndex = std::max(1, static_cast<int>(yf_.size()) - 5);
             mixedCutoffIndex_ = cutoffIndex;
             mixedCutoffYf_ = yf_[cutoffIndex];
-            // The cubic tail is yf_[cutoffIndex..end]; build fppCoef_ on this subarray.
             const int tailLen = static_cast<int>(yf_.size()) - cutoffIndex;
             Vector_<> tailYf(tailLen);
             for (int i = 0; i < tailLen; ++i)
                 tailYf[i] = yf_[cutoffIndex + i];
             Vector_<Vector_<>> tailCoef = BuildNaturalCubicFppCoef(tailYf);
-            // Expand tailCoef back to full-curve storage indices.
             fppCoef_ = Vector_<Vector_<>>(yf_.size(), Vector_<>(yf_.size(), 0.0));
             for (int k = 0; k < tailLen; ++k)
                 for (int j = 0; j < tailLen; ++j)
@@ -282,12 +245,7 @@ namespace Dal {
 
     template <class T_>
     Vector_<std::pair<int, double>> DiscountLogDF_<T_>::CubicBasisAt(int k, double yf) const {
-        // On segment [yf_[k], yf_[k+1]] with h = yf_[k+1] - yf_[k]:
-        //   S(yf) = a*f[k] + b*f[k+1] - a*b*(h^2/6) * ((1+a)*fpp[k] + (1+b)*fpp[k+1])
-        // where a = 1-b, b = (yf - yf_[k])/h. The basis weight at storage node j is
-        //   b_j(yf) = a*delta(j,k) + b*delta(j,k+1)
-        //             - a*b*(h^2/6) * ((1+a)*fppCoef_[k][j] + (1+b)*fppCoef_[k+1][j])
-        // fppCoef_ is the storage-indexed matrix (empty entries are zero).
+        // fppCoef_ is the storage-indexed second-derivative sensitivity matrix.
         const double h = yf_[k + 1] - yf_[k];
         const double b = (yf - yf_[k]) / h;
         const double a = 1.0 - b;
@@ -310,12 +268,8 @@ namespace Dal {
 
     template <class T_>
     Vector_<std::pair<int, double>> DiscountLogDF_<T_>::CubicExtrapWeights(double yf) const {
-        // LogDfAt extrapolates past yf_.back() by the last segment's log-DF secant slope:
-        //   logDF(yf) = logDF[n-1] + slopeLast * (yf - yf_[n-1])
-        // where slopeLast = (logDF[n-1] - logDF[n-2]) / (yf_[n-1] - yf_[n-2]).
-        // So dlogDF(yf)/dlogDF[j] is 1 if j==n-1, slopeLast/slopeLast==1 if j==n-2 (with weight
-        // -(yf-yf_[n-1])/h), and 0 elsewhere. For LOG_CUBIC_NATURAL the same secant-extension is
-        // used (see LogDfAt docstring) -- it does NOT use the cubic derivative at the boundary.
+        // Secant-extension of the last segment: does NOT use the cubic derivative at the boundary,
+        // even for LOG_CUBIC_NATURAL.
         const int n = static_cast<int>(yf_.size());
         const double dyfLast = yf_[n - 1] - yf_[n - 2];
         Vector_<std::pair<int, double>> retval;
@@ -323,8 +277,6 @@ namespace Dal {
             retval.emplace_back(n - 1, 1.0);
             return retval;
         }
-        // weight at storage node n-2: -(yf - yf_[n-1]) / dyfLast
-        // weight at storage node n-1: 1 + (yf - yf_[n-1]) / dyfLast
         const double excess = (yf - yf_[n - 1]) / dyfLast;
         retval.emplace_back(n - 2, -excess);
         retval.emplace_back(n - 1, 1.0 + excess);
@@ -333,9 +285,7 @@ namespace Dal {
 
     template <class T_>
     Vector_<std::pair<int, double>> DiscountLogDF_<T_>::StorageBasisWeightsAt(double yf) const {
-        // Returns STORAGE-node weights (no anchor drop, no solver-column remap). The Number_-typed
-        // LogDfAt accumulates these against logDF_ to produce a tape-registered logDF(yf). The
-        // weights are functions of knot positions only, so they are identical for any T_.
+        // Returns storage-node weights (knot-position-dependent only, same for any T_).
         if (yf < 0.0 || yf_.size() < 2)
             return {};
         if (yf > yf_.back())
@@ -358,13 +308,11 @@ namespace Dal {
         const double yfFrom = dayCount_(nodeDates_.front(), from, nullptr);
         const double yfTo = dayCount_(nodeDates_.front(), to, nullptr);
         if constexpr (std::is_same_v<T_, double>) {
-            // Byte-identical to pre-Phase-A DiscountLogDF_::operator().
             const double logDfFrom = LogDfAt(yfFrom);
             const double logDfTo = LogDfAt(yfTo);
             return std::exp(logDfTo - logDfFrom) * (this->base_ ? (*this->base_)(from, to) : 1.0);
         } else {
-            // Number_ path: tape records dependence of logDf* on each free-node logDF_ value.
-            // The base curve is double and is treated as a constant multiplier.
+            // Base curve is double and treated as a constant multiplier.
             const T_ logDfFrom = LogDfAt(yfFrom);
             const T_ logDfTo = LogDfAt(yfTo);
             const double baseFactor = this->base_ ? (*this->base_)(from, to) : 1.0;
@@ -372,16 +320,6 @@ namespace Dal {
         }
     }
 
-    // Evaluate log(DF) at year-fraction yf.
-    //
-    // For T_=double (byte-identical to pre-Phase-A): the path uses (*interp_)(yf) in-range, and
-    // the final-segment secant slope out of range. The interp_ rebuild at construction stores the
-    // double-extracted logDF values so this matches the pre-Phase-A behaviour exactly.
-    //
-    // For T_=Number_: the path accumulates StorageBasisWeightsAt(yf) against logDF_, so the tape
-    // records the dependence of logDF(yf) on each free-node logDF_ value. Out-of-range the same
-    // secant weights apply. The forward evaluation here re-uses the same basis-weight machinery
-    // the double path computes, now differentiated through the tape.
     template <class T_>
     T_ DiscountLogDF_<T_>::LogDfAt(double yf) const {
         if constexpr (std::is_same_v<T_, double>) {
@@ -394,12 +332,8 @@ namespace Dal {
             const double slopeLast = (logDF_[n - 1] - logDF_[n - 2]) / dyfLast;
             return logDF_[n - 1] + slopeLast * (yf - yf_[n - 1]);
         } else {
-            // Anchor (storage node 0) is pinned at logDF=0; dropping it from the weighted sum is
-            // value-preserving (0 * w_0 = 0) AND produces the correct Jacobian: d(logDF(yf)) /
-            // d(logDF_[0]) must be zero because the anchor is a constant. Including it would
-            // register a tape dependence on logDF_[0] that the calibration overrides anyway, but
-            // it is cleaner to omit it here so the column map (solver col = storage node - 1)
-            // holds without exception.
+            // Anchor is pinned at logDF=0; excluding it gives the correct Jacobian
+            // and keeps the column map (solver col = storage node - 1) clean.
             T_ acc(static_cast<double>(0.0));
             for (const auto& [storageNode, w] : StorageBasisWeightsAt(yf)) {
                 if (storageNode == 0)
@@ -410,18 +344,11 @@ namespace Dal {
         }
     }
 
-    // Free-node count: the anchor (node 0, logDF pinned at 0) is excluded from the unknown
-    // vector. For a square 13-instrument / 13-free-node LOG_DISCOUNT solve this is what makes
-    // the parameter dimension match the instrument count.
+    // Free-node count: anchor (node 0) is pinned, so solver dimension = n-1.
     template <class T_>
     int DiscountLogDF_<T_>::NX() const { return static_cast<int>(logDF_.size()) - 1; }
 
-    // Bump only the FREE nodes logDF_[1..] by dx[i] * leverage; keep logDF_[0] pinned at 0 and
-    // rebuild interp_ so operator() reflects the bumped curve. A stale interp_ after a bump would
-    // silently desync the curve from its node values -- the risk-engine landmine the reviewer flagged.
-    // The Number_ factory in calibration.cpp never calls ApplyDX (the AAD path constructs the
-    // curve directly with the tape-registered logDF vector), so the body below is only ever
-    // exercised for T_=double; for T_=Number_ it would compile but is unreachable.
+    // Stale interp_ after bump silently desyncs the curve from node values.
     template <class T_>
     void DiscountLogDF_<T_>::ApplyDX(Vector_<>::const_iterator dx, double leverage) {
         for (int i = 1; i < static_cast<int>(logDF_.size()); ++i)
@@ -431,9 +358,7 @@ namespace Dal {
 
     template <class T_>
     void DiscountLogDF_<T_>::Write(Archive::Store_& dst) const {
-        // Serialisation is double-only; the Number_ path never persists. Extract the primal value
-        // via the backend-neutral Dal::AAD::Value facade (static_cast<double> works on native and
-        // CoDiPack but not on XAD/Adept, which have no conversion operator).
+        // Extract primal via backend-neutral Value facade.
         Vector_<> logDFDouble(logDF_.size());
         for (int i = 0; i < static_cast<int>(logDF_.size()); ++i)
             logDFDouble[i] = Dal::AAD::Value(logDF_[i]);
@@ -463,25 +388,12 @@ namespace Dal {
 
     template <class T_>
     Vector_<> DiscountLogDF_<T_>::NodeLogDF() const {
-        // Returns the double view of logDF_ -- for T_=double this is logDF_ itself (byte-identical
-        // to pre-Phase-A); for T_=Number_ it is the primal values. The Number_ path is never
-        // introspected this way at runtime (the AAD override works off the tape, not the curve),
-        // but the method exists so dynamic_cast<DiscountLogDF_<Number_>*> does not yield a type
-        // missing the public surface a caller might assume.
         Vector_<> retval(logDF_.size());
         for (int i = 0; i < static_cast<int>(logDF_.size()); ++i)
             retval[i] = Dal::AAD::Value(logDF_[i]);
         return retval;
     }
 
-    // Explicit instantiations. DiscountLogDF_<double> is the hot path (F loop, bumped fallback,
-    // serialisation). DiscountLogDF_<Dal::AAD::Number_> is linked into the AnalyticJacobian override
-    // in calibration.cpp; the Number_-typed body forwards to the Dal::AAD facade (exp/log/value via
-    // ADL), so it compiles and runs under every AAD backend. These instantiations were previously
-    // gated to the native backend because the analytic Jacobian zeroed adjoints by walking the
-    // native-only Dal::AAD::Tape_::nodes_ member; zeroing now goes through the backend-neutral
-    // Dal::AAD::ZeroAdjoints facade primitive, so the gate is gone and the instantiation is needed
-    // under every backend.
     template class DiscountLogDF_<double>;
     template class DiscountLogDF_<Dal::AAD::Number_>;
 
@@ -501,19 +413,15 @@ namespace Dal {
 #include <dal/auto/MG_DiscountLogDF_v2_Read.inc>
 
     Storable_* DiscountLogDF_v1::Reader_::Build() const {
-        // Legacy v1 stored the built Interp1_ handle directly and did NOT persist the LogDfScheme_.
-        // The scheme cannot be recovered from the deserialised handle: every Interp1_ subtype reports
-        // the same Storable_::type_ ("Interp1", fixed by the Interp1_ base constructor -- it is not
-        // "Cubic1"/"Interp1Linear"), and the concrete interpolators live in anonymous namespaces so
-        // RTTI cannot tell them apart either. v1 therefore always reconstructs as LOG_LINEAR, the only
-        // scheme honestly rebuildable from (nodeDates, logDF) alone. This is exactly why v2 -- the
-        // canonical format -- carries the scheme by name; callers needing cubic/mixed must use v2.
+        // Legacy v1 stored a built Interp1_ handle and did NOT persist LogDfScheme_.
+        // The scheme cannot be recovered from the handle (all interp subtypes report
+        // type "Interp1"), so v1 always reconstructs as LOG_LINEAR.
+        // v2 (the canonical format) carries the scheme by name.
         return new Tape::DiscountLogDF_<double>(
             name_, ccy_, nodeDates_, logDF_, DayBasis_(dayCount_), LogDfScheme_::Value_::LOG_LINEAR, base_);
     }
 
     Storable_* DiscountLogDF_v2::Reader_::Build() const {
-        // v2 stores the scheme by name and rebuilds the interpolator from (nodeDates, logDF).
         return new Tape::DiscountLogDF_<double>(name_, ccy_, nodeDates_, logDF_, DayBasis_(dayCount_), LogDfScheme_(scheme_), base_);
     }
 } // namespace Dal
