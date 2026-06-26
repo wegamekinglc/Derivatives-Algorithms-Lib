@@ -489,10 +489,6 @@ namespace Dal::Script {
                 }
 
                 // General case: we insert the interval in such a way that the resulting set of intervals are all distinct
-                // Find an interval in intervals_ that intersects interval, or interval.end() if none
-                // STL implementation, nice and elegant, unfortunately poor performance
-                // auto it = find_if( intervals_.begin(), intervals_.end(), [&interval] (const Interval_& i) { return intersect( i, interval); });
-                // Custom implementation, for performance, much less elegant
                 auto it = itb;
                 // First interval is on the strict right of interval, there will be no intersection
                 if (itb->Left() > r)
@@ -506,7 +502,6 @@ namespace Dal::Script {
                         it = ite;
 
                     else {
-                        // We may have an intersection, find it
                         it = intervals_.lower_bound(
                             interval); // Smallest myInterval >= interval, means it.Left() >= l
                         if (it == ite || it->Left() > r)
@@ -516,27 +511,15 @@ namespace Dal::Script {
                     }
                 }
 
-                // End of find an interval in intervals_ that intersects interval
-                // it points to an interval in intervals_ that intersects interval, or ite if none
                 // No intersection, just add the interval
                 if (it == ite) {
                     intervals_.insert(interval);
                     return;
                 }
 
-                // We have an intersection
-
-                // Merge the intersecting interval from intervals_ into interval
-
-                // We don't use the generic merge: too slow
-                // merge( interval, *it, &interval);
-                // Quick merge
                 interval.Merge(*it);
 
-                // Remove the merged interval from set
                 intervals_.erase(it);
-
-                // Go again until we find no more intersect
             }
         }
 

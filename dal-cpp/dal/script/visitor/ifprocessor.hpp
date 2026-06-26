@@ -56,7 +56,7 @@ namespace Dal::Script {
             --nestedIfLvl_;
 
             //	If not out-most if, copy changed vars into the immediately outer if
-            //	Variables changed in a nested if are also changed in the in-globing if
+            //	Variables changed in a nested if are also changed in the encompassing if
             if (nestedIfLvl_)
                 copy(node.affectedVars_.begin(), node.affectedVars_.end(),
                      inserter(varStack_.Top(), varStack_.Top().end()));
