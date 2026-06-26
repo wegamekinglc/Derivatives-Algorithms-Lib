@@ -109,4 +109,4 @@ When adding new documentation:
 2. **Update this index** — add a brief description and link to new documents
 3. **Cross-reference** — link related documents using relative paths
 
-Keep documentation focused and technical. Avoid duplicating information that belongs in code comments or the main README.
+Keep documentation focused and technical. Docs own the **WHY** (methodology, math, invariants); source comments own the **WHAT** (local intent, invariants that must live next to the code they constrain). When a comment grows into methodology prose, move the prose here and reduce the comment to a short pointer rather than duplicating it in both places.
