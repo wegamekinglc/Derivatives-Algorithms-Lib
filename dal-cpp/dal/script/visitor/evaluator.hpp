@@ -102,8 +102,6 @@ namespace Dal::Script {
         FORCE_INLINE void SetCurEvt(size_t curEvt) { curEvt_ = curEvt; }
 
         // Visitors
-        // Expressions
-        // Binaries
         template <class OP> FORCE_INLINE void VisitBinary(const ExprNode_& node, OP op) {
             VisitNode(*node.arguments_[0]);
             VisitNode(*node.arguments_[1]);
@@ -145,7 +143,6 @@ namespace Dal::Script {
             });
         }
 
-        // Unaries
         template <class OP> FORCE_INLINE void VisitUnary(const ExprNode_& node, OP op) {
             VisitNode(*node.arguments_[0]);
             op(dStack_.Top());
@@ -159,7 +156,6 @@ namespace Dal::Script {
             VisitUnary(node, [](T_& x) { x = -x; });
         }
 
-        // Functions
         FORCE_INLINE void Visit(const NodeLog_& node) {
             VisitUnary(node, [](T_& x) { x = log(x); });
         }
@@ -172,7 +168,6 @@ namespace Dal::Script {
             VisitUnary(node, [](T_& x) { x = exp(x); });
         }
 
-        // Conditions
         template <class OP> FORCE_INLINE void VisitCondition(const BoolNode_& node, OP op) {
             VisitNode(*node.arguments_[0]);
             bStack_.Push(op(dStack_.TopAndPop()));
@@ -212,7 +207,6 @@ namespace Dal::Script {
             b = !b;
         }
 
-        // Instructions
         void Visit(const NodeIf_& node) {
             //	Eval the condition
             VisitNode(*node.arguments_[0]);
@@ -254,7 +248,6 @@ namespace Dal::Script {
             variables_[varIdx] += dStack_.TopAndPop() / (*scenario_)[curEvt_].numeraire_;
         }
 
-        // Variables and constants
         FORCE_INLINE void Visit(const NodeVar_& node) {
             //	Push value onto the stack
             dStack_.Push(variables_[node.index_]);
@@ -271,7 +264,6 @@ namespace Dal::Script {
         FORCE_INLINE void Visit(const NodeTrue_& node) { bStack_.Push(true); }
         FORCE_INLINE void Visit(const NodeFalse_& node) { bStack_.Push(false); }
 
-        // Scenario related
         FORCE_INLINE void Visit(const NodeSpot_& node) { dStack_.Push((*scenario_)[curEvt_].spot_); }
     };
 

@@ -11,15 +11,11 @@
 
 
 namespace Dal::Script {
-    //  Hierarchy
-
-    //  Nodes that return a number
     struct ExprNode_ : public Node_ {
         bool isConst_ = false;
         double constVal_ = 0.0;
     };
 
-    //  Action nodes
     struct ActNode_ : public Node_ {};
 
     //  Nodes that return a bool
@@ -44,12 +40,9 @@ namespace Dal::Script {
     struct NodeUPlus_ : public Visitable_<ExprNode_, NodeUPlus_, VISITORS> {};
     struct NodeUMinus_ : public Visitable_<ExprNode_, NodeUMinus_, VISITORS> {};
 
-    //	Math operators
     struct NodeLog_ : public Visitable_<ExprNode_, NodeLog_, VISITORS> {};
     struct NodeSqrt_ : public Visitable_<ExprNode_, NodeSqrt_, VISITORS> {};
     struct NodeExp_ : public Visitable_<ExprNode_, NodeExp_, VISITORS> {};
-
-    //  Comparisons
 
     struct CompNode_ : public BoolNode_ {
         // Fuzzying stuff
@@ -73,8 +66,6 @@ namespace Dal::Script {
     struct NodeOr_ : public Visitable_<BoolNode_, NodeOr_, VISITORS> {};
 
     struct NodeNot_ : public Visitable_<BoolNode_, NodeNot_, VISITORS> {};
-
-    //  Leaves
 
     //	Market access
     struct NodeSpot_ : public Visitable_<ExprNode_, NodeSpot_, VISITORS> {};

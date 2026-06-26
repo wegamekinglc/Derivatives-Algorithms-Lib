@@ -67,38 +67,5 @@ namespace Dal::Script {
     //  Concrete Nodes must inherit Visitable_
     //      so they (automatically) declare overrides accepts for all visitors on the list
 
-    /*
-    Note that despite the complexity of that meta code, its use is trivial:
-
-    To declare struct Node_ : VisitableBase_<Visitor1, Visitor2, ...> {};
-
-        is only sugar for :
-
-        struct Node_
-        {
-            virtual void Accept(Visitor1&) = 0;
-            virtual void Accept(Visitor2&) = 0;
-            ...
-        };
-
-    And to declare a concrete node (say, NodeAdd_) as NodeAdd_ : Visitable_<Node_, AddNode, Visitor1, Visitor2, ...> {};
-
-        is sugar for:
-
-        struct NodeAdd_ : Node_
-        {
-            void Accept(Visitor1& v) override
-            {
-                v.Visit(*this);
-            }
-
-            void Accept(Visitor2& v) override
-            {
-                v.Visit(*this);
-            }
-
-            ...
-        };
-
-    */
+    //  Visitor/CRTP machinery: see docs/methodology/script_engine.md §Visitor Machinery.
 }
