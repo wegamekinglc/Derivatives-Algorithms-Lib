@@ -35,10 +35,7 @@ namespace Dal {
         constexpr const char* KEY_MAX_EVALUATIONS = "MAXEVALUATIONS";
         constexpr const char* KEY_MAX_RESTARTS = "MAXRESTARTS";
 
-        // PWL/PWC params-per-knot for the joint path. LOG_DISCOUNT and ZERO_RATE are out of scope
-        // for the joint first cut (the spec scopes the joint residual to PIECEWISE_LINEAR_FWD); we
-        // REQUIRE(false) on them so a future caller fails loudly at validation rather than silently
-        // slicing the wrong number of parameters.
+        // PWL/PWC params only; LOG_DISCOUNT and ZERO_RATE fail loudly for the joint path.
         int ParamsPerKnot(CurveParameterization_ parameterization) {
             switch (parameterization.Switch()) {
             case CurveParameterization_::Value_::PIECEWISE_LINEAR_FWD:
@@ -57,20 +54,6 @@ namespace Dal {
             }
         }
 
-        // Build ONE declaration's curve from its slice of the joint parameter vector. A forward
-        // declaration may opt into base layering via decl.baseLayeredOverDiscount_: when set, the
-        // caller supplies the discount curve at decl.targetCollateral_ (built earlier in the SAME
-        // solve iteration) as `base`, and the forward curve is stored as NewDiscountPWLF(..., base)
-        // so the smoother acts on the spread forward f_abs - f_ois -- matching the staged path's
-        // ApplyStageDefaults base layering. When base is empty (the default, including every
-        // discount declaration and every baseless forward declaration), the curve is a raw PWL/PWC
-        // with no base handle; the IBOR residual rows still read yc.Forward off the assembled
-        // CurveBlock_ and route discounting to the discount declaration's slice.
-        //
-        // Base-layered forward curves carry OIS sensitivity through their base handle (B-new-2 fixed
-        // for the opt-in path): a bump-and-reprice consumer who reads the standalone forward handle
-        // sees the OIS delta flow through. The baseless representation remains available for callers
-        // who prefer a self-contained forward curve and re-price through the assembled CurveBlock_.
         Handle_<DiscountCurve_> BuildDeclarationCurve(const JointCurveDeclaration_& decl,
                                                       const String_& ccy,
                                                       const DayBasis_& dayCount,
@@ -100,9 +83,6 @@ namespace Dal {
             }
         }
 
-        // The Phase A float-convention accessor (Deposit/FRA/Future/Swap), or nullptr if the
-        // instrument has no projection convention to inspect. Mirrors the eligibility helper in
-        // calibration.cpp but is read-only here (used by the forward-projection validator).
         const RateIndexConvention_* FloatConventionOf(const YCInstrument_& inst) {
             if (const auto* deposit = dynamic_cast<const Deposit_*>(&inst))
                 return &deposit->FloatConvention();
@@ -115,10 +95,7 @@ namespace Dal {
             return nullptr;
         }
 
-        // B-new-1 validator: every forward declaration's instruments must route their fixing
-        // through the forward curve (useProjectionCurve_ == true). A mis-conventioned instrument
-        // would silently leave the forward curve unconstrained by data (BAR-C fails by percent-level
-        // with no principled diagnostic). Returns the offending instrument name, or empty if OK.
+        // Forward-declaration instruments must route fixings through the forward curve (useProjectionCurve_ == true).
         String_ ForwardDeclarationOffendingInstrument(const JointCurveDeclaration_& decl) {
             for (const auto& inst : decl.instruments_) {
                 const RateIndexConvention_* conv = FloatConventionOf(*inst);
@@ -128,9 +105,6 @@ namespace Dal {
             return String_();
         }
 
-        // Mirrors calibration.cpp's OrderInstruments: sort by (maturity, start, name) so the
-        // residual vector the solver sees is in a deterministic, monotone order. The per-curve
-        // diagnostics preserve this order (instrumentNames_[i] aligns with residuals_[i]).
         Vector_<Handle_<YCInstrument_>> OrderInstruments(const Vector_<Handle_<YCInstrument_>>& instruments) {
             auto ordered = instruments;
             std::sort(ordered.begin(), ordered.end(), [](const Handle_<YCInstrument_>& lhs, const Handle_<YCInstrument_>& rhs) {
@@ -145,8 +119,6 @@ namespace Dal {
             return ordered;
         }
 
-        // Per-curve slice metadata: where this declaration's free parameters live in the joint x
-        // vector, and where its instrument residuals live in the stacked residual vector.
         struct CurveSlot_ {
             int curveIndex;
             int paramOffset;
@@ -161,13 +133,6 @@ namespace Dal {
             double smoothingWeight;
         };
 
-        // Entry-point validation per the api-note Error Cases table. Throws on the first violation
-        // with a message naming the offending input. Runs BEFORE the residual function, the
-        // CurveBlock_, and the solver are constructed so mis-routings surface as clear entry errors
-        // rather than late confusing throws deep inside the first residual evaluation.
-        // Validate spec-level fields, detect duplicate collaterals/tenors and forward-only invariants.
-        // Returns (producedCollaterals, producedTenors).  Extracted from ValidateAndBuildSlots
-        // for cyclomatic complexity (Codacy).
         std::pair<std::set<CollateralType_>, std::set<PeriodLength_>>
         DedupCollateralsAndTenors(const JointMultiCurveCalibrationSpec_& spec) {
             REQUIRE(!spec.curves_.empty(), "Joint multi-curve calibration requires at least one curve declaration");
@@ -247,10 +212,6 @@ namespace Dal {
             return slots;
         }
 
-        // Block-diagonal smoothing matrix: one tridiagonal block per curve, zero off-block by
-        // construction. Each block is built by Underdetermined::SelfCouplePWC at the curve's
-        // parameter offset, mirroring BuildCurveCalibrationWeights in calibration.cpp but
-        // accumulated into a single full-joint-size Sparse::TriDiagonal_.
         std::unique_ptr<Sparse::TriDiagonal_> BuildJointSmoothing(const std::vector<CurveSlot_>& slots) {
             int totalParams = 0;
             for (const auto& slot : slots)
@@ -267,8 +228,6 @@ namespace Dal {
             return weights;
         }
 
-        // Build the per-declaration initial-guess slice. Falls back to spec.initialGuess_ flat when
-        // the declaration leaves initialGuessPerNode_ empty.
         Vector_<> BuildGuessSlice(const JointMultiCurveCalibrationSpec_& spec, const JointCurveDeclaration_& decl, int nParams) {
             if (!decl.initialGuessPerNode_.empty()) {
                 REQUIRE(static_cast<int>(decl.initialGuessPerNode_.size()) == nParams,
@@ -278,9 +237,7 @@ namespace Dal {
             return Vector_<>(nParams, spec.initialGuess_);
         }
 
-        // RAII tape scope: Clear on entry and on exit (exception-safe), single-threaded contract.
-        // Verbatim from calibration.cpp:268-280 (Phase A); factored inline here because the joint
-        // path is the only second consumer and a shared header for two consumers is premature.
+        // Clear the AAD tape on entry and exit (exception-safe), single-threaded.
         struct TapeGuard_ {
             Dal::AAD::Tape_* t_;
             explicit TapeGuard_(Dal::AAD::Tape_* t) : t_(t) { Dal::AAD::Clear(*t_); }
@@ -295,10 +252,7 @@ namespace Dal {
             TapeGuard_& operator=(const TapeGuard_&) = delete;
         };
 
-        // Templated PWL_FWD curve builder (joint analogue of calibration.cpp:239-256
-        // BuildDiscountCurveT<T_>). Constructs a Tape::DiscountPWLF_<T_> from the declaration's
-        // fLeft/fRight parameter slice. Baseless when base is empty; base-layered (B_ = T_) when a
-        // base handle is supplied (Gap 4 -- the base adjoints propagate through the reverse sweep).
+        // Templated PWL_FWD curve builder. Base-layered when a base handle is supplied so adjoints propagate through the reverse sweep.
         template <class T_, class B_ = Tape::DiscountCurve_<double>>
         std::shared_ptr<Tape::DiscountPWLF_<T_, B_>>
         BuildDeclarationCurveT(const JointCurveDeclaration_& decl,
@@ -312,15 +266,11 @@ namespace Dal {
             return std::make_shared<Tape::DiscountPWLF_<T_, B_>>(decl.curveName_, ccy, knotDates, fLeftT, fRightT, base);
         }
 
-        // True if the instrument type is among the supported set for the AAD path.
         [[nodiscard]] bool IsSupportedInstrumentType(const YCInstrument_& inst) {
             return dynamic_cast<const OISSwap_*>(&inst) || dynamic_cast<const Swap_*>(&inst) || dynamic_cast<const Deposit_*>(&inst)
                    || dynamic_cast<const FRA_*>(&inst) || dynamic_cast<const Future_*>(&inst);
         }
 
-        // Per-instrument joint eligibility (FR3 (e)/(g)). Returns true if the instrument can be
-        // priced on the AAD tape; on fall-through emits a NOTICE naming the instrument and the
-        // failing condition. NEVER throws (FR6).
         bool InstrumentEligibleForAnalyticJacobian(const YCInstrument_& inst, bool onDiscountDeclaration) {
             const RateIndexConvention_* convPtr = FloatConventionOf(inst);
             if (!convPtr) {
@@ -329,11 +279,7 @@ namespace Dal {
             }
             const RateIndexConvention_& conv = *convPtr;
             if (IsSupportedInstrumentType(inst)) {
-                // Type is fine. Check projection-vs-declaration consistency (FR3 (g)): a
-                // discount-declaration instrument must NOT project (useProjectionCurve_ == false),
-                // so its fixing routes to the discount curve and the AAD path binds a single curve.
-                // OIS-discount-slice instruments (OIS overnight index has useProjectionCurve_ == false)
-                // are the canonical discount-eligible case.
+                // Discount-declaration instruments must NOT project so fixings route to a single curve on the AAD tape.
                 if (onDiscountDeclaration && conv.useProjectionCurve_) {
                     const String_ msg = String_("Joint AAD Jacobian requires discount-declaration instruments to forecast off "
                                                 "the discount curve; instrument '")
@@ -351,13 +297,9 @@ namespace Dal {
             return false;
         }
 
-        // Per-spec joint eligibility (FR3). Pure query over ctor-stored state, NEVER throws,
-        // returns true iff EVERY clause holds. Evaluated once and cached on JointResidualFunction_
-        // (Phase A H1 once-per-call NOTICE budget).
         bool JointSpecEligibleForAnalyticJacobian(const JointMultiCurveCalibrationSpec_* spec,
                                                    const std::vector<CurveSlot_>* slots) {
             REQUIRE(spec && slots, "JointSpecEligibleForAnalyticJacobian: null spec/slots");
-            // (j): liborBasis_ == ACT_365F (spec-level, checked once).
             if (spec->liborBasis_.String() != String_("ACT_365F")) {
                 NOTICE("Joint AAD Jacobian requires liborBasis_ == ACT_365F; falling back to bumped");
                 return false;
@@ -378,11 +320,6 @@ namespace Dal {
             return true;
         }
 
-        // The joint residual function. Builds EVERY declaration's curve from its slice of x,
-        // assembles them into ONE CurveBlock_, and returns the stacked residuals of every
-        // instrument. The CurveBlock_ routes IBOR discounting to the OIS slice of x automatically
-        // (the post-2008 routing in curveblock.cpp) -- the one cross-curve coupling the joint
-        // system has under interpretation (a).
         class JointResidualFunction_ : public Underdetermined::Function_ {
             const JointMultiCurveCalibrationSpec_* spec_;
             const std::vector<CurveSlot_>* slots_;
@@ -414,8 +351,6 @@ namespace Dal {
 
             [[nodiscard]] int EvaluationCount() const { return evaluationCount_; }
 
-            // Two-pass double curve build from the parameter vector x. Extracted from F for
-            // cyclomatic complexity (Codacy).
             CurveBlock_ BuildCurvesFromX(const Vector_<>& x) const {
                 std::map<CollateralType_, Handle_<DiscountCurve_>> discountCurves;
                 std::map<PeriodLength_, Handle_<DiscountCurve_>> forwardCurves;
@@ -454,9 +389,7 @@ namespace Dal {
                 return residuals;
             }
 
-            // Engage the analytic Jacobian IFF the mode is ANALYTIC AND the cached eligibility
-            // verdict is Eligible. Otherwise return nullptr and the solver dense-bumps. Mirrors
-            // Phase A's YieldCurveCalibrationFunc_::Gradient at calibration.cpp:368-389.
+            // Returns AAD-tape Jacobian when ANALYTIC + eligible; nullptr otherwise (solver dense-bumps).
             [[nodiscard]] Underdetermined::Jacobian_* Gradient(const Vector_<>& x, const Vector_<>& f) const override {
                 if (jacobianMode_ != CurveJacobianMode_::Value_::ANALYTIC)
                     return nullptr;
@@ -465,8 +398,6 @@ namespace Dal {
                     return AnalyticJacobian(x, f);
                 return nullptr;
             }
-
-            // Extracted helpers for AnalyticJacobian — reduce cyclomatic complexity (Codacy AC).
 
             [[nodiscard]] std::vector<std::pair<Vector_<Dal::AAD::Number_>, Vector_<Dal::AAD::Number_>>>
             RegisterTapeParameters(const Vector_<>& x) const {
@@ -509,12 +440,6 @@ namespace Dal {
                 return forwardStorage;
             }
 
-            // Compute every instrument's templated residual given the assembled JointCurveBlock_.
-            // Projection instruments (useProjectionCurve_ == true) are priced through
-            // Tape::ProjectionRateAt<T_> reading the block's discount+forward handles; discount-slice
-            // instruments are priced through the single-curve YCCtx_<T_> path.
-            // Compute the Number_-typed rate for one instrument.  Extracted from
-            // ComputeTemplatedResiduals to reduce cyclomatic complexity (Codacy).
             [[nodiscard]] Handle_<Tape::Rate_<Dal::AAD::Number_>>
             DiscountRateT(const YCInstrument_& inst) const {
                 if (const auto* dep = dynamic_cast<const Deposit_*>(&inst))
@@ -551,12 +476,6 @@ namespace Dal {
             }
         };
 
-        // The AAD reverse-sweep Jacobian (FR2, FR5). Recording contract (the ONE order that works on
-        // all four backends): Clear -> RegisterIndependent (per free parameter, every declaration's
-        // 2 * nKnots PWL params, NO anchor exclusion) -> NewRecording -> forward eval (build every
-        // Number_-typed Tape::DiscountPWLF_<Number_>, baseless or base-layered, assemble the
-        // JointCurveBlock_<Number_> + per-collateral YCCtx_<Number_> map) -> per residual row
-        // {ZeroAdjoints -> Adjoint(residuals[i]) = 1.0 -> PropagateToStart -> harvest}.
         Underdetermined::Jacobian_* JointResidualFunction_::AnalyticJacobian(const Vector_<>& x, const Vector_<>& /*f*/) const {
             auto* tape = Dal::AAD::Tape();
             TapeGuard_ guard(tape);
@@ -596,7 +515,6 @@ namespace Dal {
             return new XCurveJacobian_(std::move(j));
         }
 
-        // Run the joint solver (EXACT via Find, APPROXIMATE via Approximate) and return the solved x.
         Vector_<> RunJointSolver(const JointMultiCurveCalibrationSpec_& spec,
                                  const JointResidualFunction_& func,
                                  const Vector_<>& guess,
@@ -615,8 +533,6 @@ namespace Dal {
             return Underdetermined::Approximate(func, guess, tol, spec.fitTolerance_, weights, controls);
         }
 
-        // Assemble the per-curve + joint diagnostics from the solved x. Mirrors BuildDiagnostics in
-        // calibration.cpp: modelRates via a final CurveBlock_ read, residuals = model - market.
         JointCurveCalibrationDiagnostics_
         BuildCurveDiagnostics(const JointCurveDeclaration_& decl, const CurveSlot_& slot, const CurveBlock_& solvedBlock, bool usedApproximateFit) {
             JointCurveCalibrationDiagnostics_ diag;
@@ -643,8 +559,6 @@ namespace Dal {
             return diag;
         }
 
-        // On non-convergence the joint residual norm exceeds the fit tolerance floor. Report the
-        // failing solve and the residual norm so the caller can see how far off convergence is.
         [[noreturn]] void ThrowNonConvergence(const JointResidualFunction_& func, const Vector_<>& residuals) {
             double maxAbs = 0.0;
             double sq = 0.0;

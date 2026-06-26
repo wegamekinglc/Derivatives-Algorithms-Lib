@@ -187,10 +187,6 @@ namespace Dal {
             }
         }
 
-        // Phase A templated curve builder. Handles ONLY LOG_DISCOUNT -- the only parameterization
-        // the AAD path supports. The other parameterizations REQUIRE(false) in the Number_
-        // instantiation; this is unreachable because EligibleForAnalyticJacobian rejects non-LOG_DISCOUNT
-        // before constructing any templated object.
         template <class T_>
         std::unique_ptr<Tape::DiscountCurve_<T_>> BuildDiscountCurveT(const String_& name,
                                                                  const String_& ccy,
@@ -200,26 +196,13 @@ namespace Dal {
                                                                  const Vector_<T_>& logDF,
                                                                  const DayBasis_& dayCount,
                                                                  const Handle_<DiscountCurve_>& baseCurve) {
-            // baseCurve is a Handle_<DiscountCurve_> (double) -- the templated curve treats it as
-            // a constant multiplier. The Number_-typed Tape::DiscountLogDF_ ctor accepts this via the
-            // CurveWithBase_<Tape::DiscountCurve_<T_>> base, but the base's operator() reads double DFs
-            // (constant from the tape's perspective).
             REQUIRE(parameterization == CurveParameterization_::Value_::LOG_DISCOUNT,
                     "Phase A BuildDiscountCurveT: only LOG_DISCOUNT parameterization is supported");
             return std::unique_ptr<Tape::DiscountCurve_<T_>>(
                 new Tape::DiscountLogDF_<T_>(name, ccy, knotDates, logDF, dayCount, logDfScheme, baseCurve));
         }
 
-        // RAII tape scope: Clear on entry, Clear on exit (even on throw). AnalyticJacobian owns
-        // exactly one AAD cycle per solver restart -- the recording, sweep, and harvest all live
-        // inside this scope. NewRecording is opened by AnalyticJacobian AFTER RegisterIndependent,
-        // not here: XAD requires inputs registered before the recording window opens (its canonical
-        // idiom), and opening the recording before registration silently drops the inputs and yields
-        // an all-zero Jacobian. The tape must be clean before the next Gradient call (or the next
-        // F call which, while it does not touch the tape, would inherit any state if a future change
-        // ever reads the tape from F). Single-threaded today; thread-local Tape_ isolates
-        // per-worker state if calibration ever becomes parallel, but the residual loop itself must
-        // stay serial until a parallel-residual design exists.
+        // Clear the AAD tape on entry and exit (exception-safe), single-threaded.
         struct TapeGuard_ {
             Dal::AAD::Tape_* t_;
             explicit TapeGuard_(Dal::AAD::Tape_* t) : t_(t) { Dal::AAD::Clear(*t_); }
@@ -235,11 +218,7 @@ namespace Dal {
         };
 
         class YieldCurveCalibrationFunc_ : public Underdetermined::Function_ {
-            // Cached eligibility verdict for the AAD analytic Jacobian. EligibleForAnalyticJacobian()
-            // is expensive (walks every instrument) and emits NOTICEs on fall-through, and Gradient is
-            // called per solver iteration (up to maxEvaluations_ * maxRestarts_). Evaluating the
-            // predicate once and caching the verdict bounds every NOTICE to at most one per
-            // CalibrateYieldCurve call (H1 NOTICE-frequency contract).
+            // Cached eligibility avoids re-evaluating the expensive per-instrument predicate every solver iteration.
             enum class Eligibility_ { Unknown, Eligible, Ineligible };
 
             String_ ccy_;
@@ -313,62 +292,33 @@ namespace Dal {
                 return CurveBlock_(curveName_, ccy_, discountCurves, forwardCurves, liborBasis_);
             }
 
-            // Sparse Jacobian (LOG_DISCOUNT free-node log-DF unknowns). Returns the reverse-mode AAD
-            // Jacobian (single-result sweep on the active Number_ tape) when the mode is ANALYTIC and
-            // EligibleForAnalyticJacobian() holds; otherwise returns nullptr so the solver dense-bumps.
-            // The residual is modelRate - marketRate, so dResidual_i/dx_j = dModelRate_i/dx_j
-            // (marketRate is constant, contributes nothing). Backend-neutral: the same path runs under
-            // native, XAD, CoDiPack, and Adept via the Dal::AAD facade (RegisterIndependent,
-            // ZeroAdjoints, Adjoint, PropagateToStart).
+            // Returns AAD-tape Jacobian when ANALYTIC + eligible; nullptr otherwise (solver falls back to dense bumping).
             [[nodiscard]] Underdetermined::Jacobian_* Gradient(const Vector_<>& x, const Vector_<>& f) const override {
-                // Engage the analytic Jacobian IFF the mode is explicitly ANALYTIC. Both BUMPED and
-                // _NOT_SET (default-constructed / uninitialized) route to nullptr so the solver
-                // dense-bumps -- this matches the contract "analytic iff mode == ANALYTIC && eligible"
-                // and keeps a stray _NOT_SET off the analytic path.
                 if (jacobianMode_ != CurveJacobianMode_::Value_::ANALYTIC) {
                     static_cast<void>(x);
                     static_cast<void>(f);
                     return nullptr;
                 }
-                // ANALYTIC: engage the AAD Jacobian iff the cached eligibility verdict is Eligible.
-                // The verdict is evaluated once (EvaluateEligibilityOnce) and cached, so the NOTICEs
-                // inside EligibleForAnalyticJacobian fire at most once per CalibrateYieldCurve call.
                 EvaluateEligibilityOnce();
                 if (cachedEligibility_ == Eligibility_::Eligible)
                     return AnalyticJacobian(x, f);
-                // Ineligible: NOTICE was emitted once inside EvaluateEligibilityOnce; return nullptr so
-                // the solver dense-bumps. ANALYTIC never throws -- it is a best-effort hint.
                 static_cast<void>(x);
                 static_cast<void>(f);
                 return nullptr;
             }
 
-            // Evaluate EligibleForAnalyticJacobian() exactly once per func lifetime and cache the
-            // verdict. Gradient is called per solver iteration; without this guard the predicate (and
-            // its NOTICEs) would re-fire thousands of times per CalibrateYieldCurve call. The NOTICEs
-            // naming the offending condition live inside EligibleForAnalyticJacobian and fire on the
-            // single uncached evaluation.
+            // Cache the eligibility verdict once; Gradient is called per solver iteration.
             void EvaluateEligibilityOnce() const {
                 if (cachedEligibility_ != Eligibility_::Unknown)
                     return;
                 cachedEligibility_ = EligibleForAnalyticJacobian() ? Eligibility_::Eligible : Eligibility_::Ineligible;
             }
 
-            // Force-evaluate and return the cached analytic-Jacobian eligibility verdict. Public so
-            // CalibrateYieldCurve can decide whether to request the at-solution forward Jacobian from
-            // the solver (only the ANALYTIC && EXACT && eligible path produces a well-defined forward J;
-            // every other path must pass nullptr so the solver leaves the output empty).
             [[nodiscard]] bool Eligible() const {
                 EvaluateEligibilityOnce();
                 return cachedEligibility_ == Eligibility_::Eligible;
             }
 
-            // Phase A eligibility predicate (per .claude/designs/aad-analytic-jacobian-selector-api.md
-            // §4.2). Returns true iff every Phase A constraint is satisfied. The predicate is a
-            // pure query over ctor-stored state and NEVER throws -- ineligibility routes through
-            // a NOTICE + return nullptr (solver dense-bumps) instead of failing. Each fall-through
-            // path emits a NOTICE that names the offending condition so the user can see why the
-            // AAD Jacobian did not engage.
             [[nodiscard]] bool EligibleForAnalyticJacobian() const {
                 if (parameterization_ != CurveParameterization_::Value_::LOG_DISCOUNT) {
                     const String_ msg = String_("AAD Jacobian requires CurveParameterization_::LOG_DISCOUNT, got ")
@@ -381,20 +331,12 @@ namespace Dal {
                            "(calibrateDiscountCurve_ == true); falling back to bumped");
                     return false;
                 }
-                // Every instrument must (a) be a type Phase A has a templated rate for, and
-                // (b) not use a projection curve (forecast == discount). The tradeDate == anchor
-                // check is folded in: a Swap_ with tradeDate != knotDates_.front() is structurally
-                // fine for Phase A (the templated Tape::SwapRate_ reads DF(tradeDate_, p) directly), but
-                // requires anchor alignment so every instrument starts at knotDates_.front().
                 for (int i = 0; i < static_cast<int>(instruments_.size()); ++i)
                     if (!InstrumentEligibleForAnalyticJacobian(instruments_[i].get()))
                         return false;
                 return true;
             }
 
-            // Float-index convention of a Phase-A-supported instrument (Deposit/FRA/Future/vanilla
-            // Swap, in that priority order), or nullptr if the instrument type has no Phase A
-            // templated rate. Mirrors the dispatch in PhaseARateAt so eligibility and pricing agree.
             [[nodiscard]] static const RateIndexConvention_* PhaseAFloatConvention(const YCInstrument_* inst) {
                 if (const auto* deposit = dynamic_cast<const Deposit_*>(inst))
                     return &deposit->FloatConvention();
@@ -407,9 +349,6 @@ namespace Dal {
                 return nullptr;
             }
 
-            // Per-instrument Phase A eligibility. Returns true iff the instrument has a templated
-            // rate, uses no projection curve (forecast == discount), and starts at the curve anchor.
-            // Emits a NOTICE naming the offending condition on each fall-through.
             [[nodiscard]] bool InstrumentEligibleForAnalyticJacobian(const YCInstrument_* inst) const {
                 const String_ name = inst->Name();
                 const RateIndexConvention_* floatConv = PhaseAFloatConvention(inst);
@@ -426,11 +365,7 @@ namespace Dal {
                     NOTICE(msg);
                     return false;
                 }
-                // tradeDate == anchor (knotDates_.front()). Phase A's templated rates read
-                // DF(tradeDate_, p) (see ycinstrument.cpp), so the gate must check the real trade
-                // date via TradeDate(), not the effective/spot start that TimeSpan().first returns
-                // -- a spot-started instrument has tradeDate strictly before start, and admitting
-                // it would silently misprice its residual row on the tape.
+                // Must use TradeDate(), not TimeSpan().first -- spot-started instruments trade before start.
                 if (inst->TradeDate() != knotDates_.front()) {
                     const String_ msg = String_("AAD Jacobian requires every instrument to trade at the "
                                                 "curve anchor; instrument '")
@@ -441,16 +376,8 @@ namespace Dal {
                 return true;
             }
 
-            // Phase A AAD-tape Jacobian. Single-result reverse sweep: one forward recording per
-            // Gradient call, nRows reverse sweeps (one per residual), harvest adjoints column by
-            // column. Returns XCurveJacobian_ (a dense Jacobian subclass: storage is dense,
-            // assembly is sparse-by-row because AAD produces exact structural zeros).
             [[nodiscard]] Underdetermined::Jacobian_* AnalyticJacobian(const Vector_<>& x, const Vector_<>& f) const;
 
-            // Downcast instrument i to its concrete type and dispatch to PrecomputeT<T_>. Returns
-            // an empty handle if the instrument type is not supported (Phase A scope is Deposit,
-            // FRA, Future, vanilla Swap); EligibleForAnalyticJacobian rejects such calibrations before this
-            // is ever called, so the empty-handle branch is unreachable in practice.
             template <class T_> [[nodiscard]] Handle_<Tape::Rate_<T_>> PhaseARateAt(int i) const {
                 const auto* inst = instruments_[i].get();
                 if (const auto* d = dynamic_cast<const Deposit_*>(inst))
@@ -465,44 +392,27 @@ namespace Dal {
             }
         };
 
-        // AnalyticJacobian body. TapeGuard on entry/exit (Clear only), build Number_-typed
-        // curve, build Number_-typed rates via PrecomputeT<Number_>, compute residuals, single-result
-        // reverse loop. NewRecording is opened explicitly after RegisterIndependent (XAD requires
-        // inputs registered before newRecording). The column map is solver col j = storage node j+1,
-        // so Adjoint(logDF[j+1]) reads the sensitivity to x[j]. Backend-neutral: RegisterIndependent,
-        // ZeroAdjoints, Adjoint, and PropagateToStart are all Dal::AAD facade primitives, so the same
-        // loop runs unchanged under native, XAD, CoDiPack, and Adept.
         Underdetermined::Jacobian_* YieldCurveCalibrationFunc_::AnalyticJacobian(const Vector_<>& x, const Vector_<>& f) const {
             auto* tape = Dal::AAD::Tape();
             TapeGuard_ guard(tape);
             static_cast<void>(f); // the residual values themselves are unused; we recompute on the tape
 
-            // Independents: free-node log(DF) values. Anchor (node 0) is pinned at 0 and is NOT an
-            // independent -- the solver's x vector has NX() = nNodes-1 entries, matching. RegisterIndependent
-            // registers each node with the active tape on every backend; the anchor stays a plain
-            // assignment because routing it through RegisterIndependent would add a phantom input column.
             const int nNodes = static_cast<int>(knotDates_.size());
             REQUIRE(static_cast<int>(x.size()) == nNodes - 1,
                     "AnalyticJacobian: x vector length must equal nNodes - 1 (anchor excluded)");
             Vector_<Dal::AAD::Number_> logDF(nNodes);
-            logDF[0] = 0.0; // pinned anchor; deliberately NOT registered (adjoint never read)
+            logDF[0] = 0.0; // anchor fixed at 0, not registered (no adjoint)
             for (int i = 0; i < static_cast<int>(x.size()); ++i)
                 Dal::AAD::RegisterIndependent(logDF[i + 1], x[i]);
 
-            // Open the recording AFTER registering the independents and BEFORE the forward pass.
-            // XAD's canonical contract requires inputs registered before newRecording; opening the
-            // recording earlier silently drops them and yields an all-zero Jacobian (the B2 class).
-            // On native NewRecording is a no-op, so this is invisible there; on CoDiPack/Adept it
-            // anchors the sweep bounds to this point, which is exactly what PropagateToStart sweeps.
+            // XAD requires inputs registered BEFORE NewRecording; opening earlier silently produces an all-zero Jacobian.
             Dal::AAD::NewRecording(*tape);
 
-            // Build the Number_-typed calibrated curve directly with the tape-registered logDF.
             std::unique_ptr<Tape::DiscountCurve_<Dal::AAD::Number_>> dc(
                 BuildDiscountCurveT<Dal::AAD::Number_>(curveName_, ccy_, parameterization_, logDfScheme_,
                                                        knotDates_, logDF, liborBasis_, baseCurve_));
             Tape::YCCtx_<Dal::AAD::Number_> ctx(*dc);
 
-            // Compute Number_-typed residuals: modelRate - marketRate, for every instrument.
             const int nRows = static_cast<int>(instruments_.size());
             Vector_<Dal::AAD::Number_> residuals(nRows);
             for (int i = 0; i < nRows; ++i) {
@@ -510,16 +420,10 @@ namespace Dal {
                 residuals[i] = (*rateT)(ctx) - static_cast<double>(marketRates_[i]);
             }
 
-            // Dense Jacobian (m x NX()). Assembly is sparse by row; structural zeros stay exactly
-            // zero because AAD produces exact structural zeros (one of the wins over bump).
             const int nCols = nNodes - 1;
             Matrix_<> j(nRows, nCols, 0.0);
 
-            // Single-result reverse sweep. One PropagateToStart per residual row; ZeroAdjoints clears
-            // the propagated adjoints between rows so each seed lands on a clean slate. The multi-result
-            // path (SetNumResultsForAAD(true, nRows), one sweep for all rows) is a ~nRows-x speedup and
-            // remains a profiling-driven follow-up; the single-result path is simpler and runs identically
-            // on every backend.
+            // Single-result reverse sweep: one PropagateToStart per row yields exact structural zeros.
             for (int i = 0; i < nRows; ++i) {
                 Dal::AAD::ZeroAdjoints(*tape);
                 Dal::AAD::Adjoint(residuals[i]) = 1.0;
@@ -648,9 +552,6 @@ namespace Dal {
     }
 
     namespace {
-        // Build the initial-guess vector for the solver. Split out of CalibrateYieldCurve to keep
-        // its cyclomatic complexity under the Codacy limit. Behavior is byte-for-byte identical to
-        // the inlined version that previously lived in CalibrateYieldCurve.
         Vector_<> BuildCalibrationGuess(const CurveCalibrationSpec_& spec, const Vector_<Date_>& knotDates, bool anchorIsToday, int nParams) {
             const int nKnots = static_cast<int>(knotDates.size());
             Vector_<> guess(nParams);
@@ -669,8 +570,6 @@ namespace Dal {
             return guess;
         }
 
-        // Run the EXACT or APPROXIMATE solver and return {result, effJacobianInverse}. Split out so
-        // the solveMode branch does not count against CalibrateYieldCurve's cyclomatic complexity.
         struct SolverOutput_ {
             Vector_<> result_;
             Matrix_<> effJacobianInverse_;
@@ -689,9 +588,6 @@ namespace Dal {
             SolverOutput_ out;
             if (spec.solveMode_ == CurveSolveMode_::Value_::EXACT) {
                 std::unique_ptr<Sparse::SymmetricDecomposition_> wDecomp(weights.DecomposeSymmetric());
-                // The at-solution forward Jacobian is requested only on the ANALYTIC && eligible path
-                // (caller passes nullptr otherwise). The solver's convergence-branch hook then calls
-                // func.Gradient ONCE at the solved x to capture the UNSCALED forward J.
                 out.result_ = Underdetermined::Find(func, guess, tol, *wDecomp, controls, &out.effJacobianInverse_, fwdJacobian);
             } else {
                 out.result_ = Underdetermined::Approximate(func, guess, tol, spec.fitTolerance_, weights, controls);
@@ -699,9 +595,6 @@ namespace Dal {
             return out;
         }
 
-        // Assemble the CurveCalibrationResult_ from the solver output. Split out so the
-        // parameterization / diagnostics branches do not count against CalibrateYieldCurve's
-        // cyclomatic complexity. Behavior is byte-for-byte identical to the inlined version.
         CurveCalibrationResult_ AssembleCalibrationResult(const CurveCalibrationSpec_& spec,
                                                           const Vector_<Handle_<YCInstrument_>>& instruments,
                                                           const Vector_<Date_>& knotDates,
@@ -739,7 +632,6 @@ namespace Dal {
     } // namespace
 
     CurveCalibrationResult_ CalibrateYieldCurve(const CurveCalibrationSpec_& spec) {
-        // Default-constructed options -> jacobianMode_ == BUMPED -> byte-for-byte pre-analytic path.
         return CalibrateYieldCurve(spec, CurveCalibrationOptions_());
     }
 
@@ -770,12 +662,7 @@ namespace Dal {
                                         spec.forwardCurves_, spec.baseCurve_, spec.targetCollateral_, spec.targetTenor_, spec.calibrateDiscountCurve_,
                                         spec.liborBasis_, spec.logDfScheme_, options.jacobianMode_);
 
-        // The at-solution forward Jacobian is requested from the solver only when all three hold:
-        // jacobianMode_ == ANALYTIC, solveMode_ == EXACT, AND the calibration is eligible for the
-        // AAD-tape Jacobian. Otherwise nullptr is passed so the solver leaves the output empty,
-        // preserving the contract (jacobian_ empty for BUMPED / APPROXIMATE / ineligible ANALYTIC).
-        // The solver's convergence-branch hook then captures the UNSCALED forward J with a single
-        // raw func.Gradient(xNew, fNew) call -- evaluated at the solution, not the iterate.
+        // Forward Jacobian requested only for ANALYTIC + EXACT + eligible; nullptr otherwise so the solver leaves the output empty.
         const bool wantFwdJacobian = options.jacobianMode_ == CurveJacobianMode_::Value_::ANALYTIC && spec.solveMode_ == CurveSolveMode_::Value_::EXACT
                                      && func.Eligible();
         Matrix_<> fwdJacobian;
