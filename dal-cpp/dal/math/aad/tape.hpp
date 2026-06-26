@@ -120,15 +120,7 @@ namespace Dal::AAD {
             }
         }
 
-        // Zero the live gradient array, leaving gradients_initialized_ true and the statement graph
-        // intact. compute_adjoint above zeroes only each consumed statement's LHS, then accumulates
-        // into operands whose gradients are never cleared; in a single-result reverse-sweep loop row
-        // 2's seed would land on row 1's operand residue and corrupt the Jacobian. Called by the
-        // Dal::AAD::ZeroAdjoints facade between sweeps. initialize_gradients() (protected on
-        // adept::Stack, reachable because Tape_ inherits it publicly) allocates gradient_ to
-        // max_gradient_ on first call and zeroes every entry on every call -- it touches only
-        // gradient_, n_allocated_gradients_, and gradients_initialized_, never the statement graph,
-        // so it is safe to call between sweeps and satisfies the compute_adjoint THROW guard above.
+        // Per-backend recording + gradient-zeroing contract: see docs/methodology/aad.md §Backends.
         void ZeroGradientArray() { initialize_gradients(); }
     };
 

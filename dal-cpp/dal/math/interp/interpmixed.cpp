@@ -15,8 +15,7 @@
 namespace Dal {
     namespace {
         // Composite interpolator: linear on log(DF) up to cutoffYf_, natural cubic on log(DF) beyond.
-        // The cutoff must be one of the knot abscissae so both sub-interpolators reproduce its value
-        // (C0 continuity). The cubic domain is the tail subarray at and beyond the cutoff.
+        // C0-continuity invariant: see docs/methodology/interpolation.md §Mixed Log-DF.
         class MixedLogDF_ : public Interp1_ {
             Vector_<> yf_;
             Vector_<> logDF_;
@@ -38,8 +37,7 @@ namespace Dal {
                 REQUIRE(yf_.size() == logDF_.size(), "Mixed log-DF interpolator: yf and logDF must have equal length");
                 REQUIRE(yf_.size() >= 4, "Mixed log-DF interpolator: need at least 4 abscissae (cutoff + 3 cubic points)");
                 REQUIRE(IsMonotonic(yf_), "Mixed log-DF interpolator: yf must be strictly increasing");
-                // The cutoff must land exactly on a knot so both sub-interpolators reproduce its value
-                // (C0 continuity at the join). Locate the knot whose abscissa equals cutoffYf_.
+                // Cutoff must equal a knot abscissa (C0 continuity): see docs/methodology/interpolation.md §Mixed Log-DF.
                 for (int i = 0; i < static_cast<int>(yf_.size()); ++i) {
                     if (yf_[i] == cutoffYf_)
                         cutoffIndex_ = i;

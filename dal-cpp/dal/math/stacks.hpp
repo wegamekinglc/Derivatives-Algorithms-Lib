@@ -15,8 +15,6 @@ namespace Dal {
         int sp_;
 
     public:
-        //	Constructor, destructor
-
         explicit Stack_(int chunk_size = DefaultSize) {
             size_ = chunk_size;
             if (size_)
@@ -30,8 +28,6 @@ namespace Dal {
             if (data_)
                 delete[] data_;
         }
-
-        //	Copier, mover
 
         Stack_(const Stack_& rhs) {
             size_ = rhs.size_;
@@ -140,7 +136,6 @@ namespace Dal {
 
         FORCE_INLINE const T& Top() const { return data_[sp_]; }
 
-        //	Random access
         FORCE_INLINE T& operator[](int i) { return data_[sp_ - i]; }
 
         FORCE_INLINE const T& operator[](int i) const { return data_[sp_ - i]; }

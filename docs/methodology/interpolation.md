@@ -98,6 +98,13 @@ fraction `cutoffYf_` and linear in $\ln P$ beyond it. This gives the smoothness 
 where the term structure is data-rich and the robustness of log-linear extrapolation at the
 long end, where knots are sparse and a spline would oscillate.
 
+The cutoff must coincide with one of the knot abscissae so that both sub-interpolators
+reproduce its value exactly. The linear head and the cubic tail are built on overlapping
+sub-arrays that both include the cutoff knot; because each sub-interpolator is exact at its
+own knots, the two pieces agree at the cutoff and the composite curve is $C^0$ continuous
+across the join. Construction therefore searches the knot vector for the abscissa equal to
+`cutoffYf_` rather than interpolating between knots, which would introduce a discontinuity.
+
 Factory: `NewMixedLogDF(name, yf, logDF, spec)` where `spec` is a `MixedSchemeSpec_`
 carrying `cutoffYf_` and the two cubic `Boundary_` conditions
 (`dal-cpp/dal/math/interp/interpmixed.hpp`). This scheme backs the `MIXED` value of

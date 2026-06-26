@@ -39,13 +39,10 @@ namespace Dal::AAD {
         return Clear(*tape);
     }
 
-    // Register n as a tape-tracked independent holding value v. Native: Number_::operator=(double)
-    // (expr.hpp) records a fresh node -- that IS the registration. Mirrors the curve calibration
-    // independent-registration step behind a backend-neutral name.
+    // Per-backend recording + gradient-zeroing contract: see docs/methodology/aad.md §Backends.
     FORCE_INLINE void RegisterIndependent(Number_& n, double v) { n = v; }
 
-    // Zero every node's adjoint, leaving the recorded graph intact. Used between single-result
-    // reverse sweeps so each row's seed propagates from a clean slate.
+    // Per-backend recording + gradient-zeroing contract: see docs/methodology/aad.md §Backends.
     FORCE_INLINE void ZeroAdjoints(Tape_& tape) {
         for (auto it = tape.nodes_.Begin(); it != tape.nodes_.End(); ++it)
             it->Adjoint() = 0.0;
@@ -66,15 +63,10 @@ namespace Dal::AAD {
         return Clear(*tape);
     }
 
-    // Register n as an independent holding value v. Adept records the assignment as a statement on
-    // the active stack; no separate registerInput call is needed.
+    // Per-backend recording + gradient-zeroing contract: see docs/methodology/aad.md §Backends.
     FORCE_INLINE void RegisterIndependent(Number_& n, double v) { n = v; }
 
-    // Zero every gradient between single-result sweeps. NOT a no-op on Adept: the compute_adjoint
-    // override (tape.hpp) zeroes only each consumed statement's LHS, then accumulates into operands
-    // whose gradients are never cleared -- row 2's seed would land on row 1's residue and corrupt
-    // the Jacobian. ZeroGradientArray clears the live gradient array while keeping
-    // gradients_initialized_ true so the override's THROW guard stays satisfied.
+    // Per-backend recording + gradient-zeroing contract: see docs/methodology/aad.md §Backends.
     FORCE_INLINE void ZeroAdjoints(Tape_& tape) { tape.ZeroGradientArray(); }
 
 } // namespace Dal::AAD
@@ -93,11 +85,7 @@ namespace Dal::AAD {
         return Clear(*tape);
     }
 
-    // Register n as an independent holding value v. XAD requires registerInput to run BEFORE the
-    // recording window opens (NewRecording): registering an input AFTER NewRecording silently drops
-    // it and yields an all-zero Jacobian column, so callers must RegisterIndependent first, then
-    // NewRecording, then the forward pass. The facade asserts the tape is active (clearAll does not
-    // deactivate a tape constructed with activate=true), so a passive tape fails loud here.
+    // Per-backend recording + gradient-zeroing contract: see docs/methodology/aad.md §Backends.
     FORCE_INLINE void RegisterIndependent(Number_& n, double v) {
         auto* t = Tape();
         REQUIRE(t->tape_.isActive(), "Dal::AAD::RegisterIndependent: XAD tape is not active");
@@ -122,13 +110,12 @@ namespace Dal::AAD {
         return Clear(*tape);
     }
 
-    // Register n as an independent holding value v on the active CoDiPack tape.
+    // Per-backend recording + gradient-zeroing contract: see docs/methodology/aad.md §Backends.
     FORCE_INLINE void RegisterIndependent(Number_& n, double v) {
         Tape()->tape_.registerInput(n);
         n.setValue(v);
     }
 
-    // Zero every adjoint (no-arg clearAdjoints zeroes up to the largest created index), graph intact.
     FORCE_INLINE void ZeroAdjoints(Tape_& tape) { tape.tape_.clearAdjoints(); }
 
 } // namespace Dal::AAD
