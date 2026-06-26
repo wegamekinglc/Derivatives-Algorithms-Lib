@@ -21,6 +21,94 @@ interface:
 After parsing, a sequence of **visitor passes** (domain analysis, constant-condition
 folding, evaluation) walks the AST to prepare and execute it.
 
+## Parser and AST
+
+`Parser_` (`dal-cpp/dal/script/parser.cpp`) consumes a token stream produced by
+the lexer (`dal-cpp/dal/script/lexer.cpp`) and builds an expression tree of
+`Node_` objects (`dal-cpp/dal/script/node.hpp`). Every node holds a vector of
+child expressions in `arguments_`, so arithmetic, conditions, assignments, and
+control flow all share one polymorphic hierarchy.
+
+### Precedence Levels
+
+The parser implements expressions as a cascade of precedence levels, each
+delegating to the next tighter level:
+
+| Level | Operator class          | Produces                                                                                                   |
+|-------|-------------------------|------------------------------------------------------------------------------------------------------------|
+| L1    | `+`, `-` (binary)       | `NodeAdd_`, `NodeSub_`                                                                                     |
+| L2    | `*`, `/`                | `NodeMulti_`, `NodeDiv_`                                                                                   |
+| L3    | `^` (right-assoc)       | `NodePow_`                                                                                                 |
+| L4    | unary `+`, `-`          | `NodeUPlus_`, `NodeUMinus_`                                                                                |
+| Atom  | literal, variable, func | `NodeConst_`, `NodeVar_`/`NodeConstVar_`, `NodeSpot_`, `NodeLog_`, `NodeExp_`, `NodeSqrt_`, `NodeMin_`, `NodeMax_` |
+
+Parenthesised sub-expressions re-enter at the top level through a shared
+`ParseParentheses` helper. Conditions form a parallel cascade — `OR` (loosest)
+binds over `AND`, which binds over comparison elements — producing `NodeOr_`,
+`NodeAnd_`, and the comparison/equality nodes.
+
+### Reserved Keywords and Variables
+
+A fixed reserved-word set (`IF`, `THEN`, `ELSE`, `END`, `PAYS`, `AND`, `OR`,
+`SPOT`, `MAX`, `MIN`, `LOG`, `SQRT`, `EXP`, `DCF`) cannot be used as variable
+names. Any other alphabetic token becomes either a `NodeVar_` (looked up in the
+preprocessor's constant-variable map and promoted to `NodeConstVar_` if it
+resolves there). Statements are either assignments (`=`, `NodeAssign_`), pays
+clauses (`PAYS`, `NodePays_`), or `IF/THEN/ELSE/END` blocks (`NodeIf_`, with
+`firstElse_` indexing the else-branch within `arguments_`).
+
+### Comparators and Smoothing Hints
+
+`ParseCondElem` lowers every comparison to a subtraction wrapped in the
+appropriate condition node (`NodeEqual_`, `NodeSup_`, `NodeSupEqual_`), with
+`!=`, `<`, `<=` rewritten in terms of `=`, `>`, `>=`. An optional `;eps` or
+`:eps` suffix on a comparison sets the node's `eps_` field, which the fuzzy
+evaluator consumes as the smoothing width for that condition (see
+[Fuzzy Evaluator](#fuzzy-evaluator)).
+
+### Day-Count Functions
+
+`DCF(basis, start, end)` is folded to a literal at parse time: the parser
+extracts the basis code and the two date strings, constructs a `DayBasis_`, and
+emits a `NodeConst_` carrying the computed year fraction. This means a
+`DCF(...)` call cannot contain a nested expression — its arguments must be
+literal tokens.
+
+## Events and Schedules
+
+A script product is a sequence of dated events. `ScriptProduct_`
+(`dal-cpp/dal/script/event.hpp`) splits the preprocessed events into **past**
+events (dates before the evaluation date, evaluated once with the known fixings)
+and **future** events (dates on or after the evaluation date, evaluated per
+simulated path). Both halves share the same AST representation
+(`Event_ = Vector_<Statement_>`).
+
+### From Events to a Timeline
+
+`PreProcess` builds the simulation timeline from the future event dates: each
+event date is converted to a year fraction from the evaluation date and paired
+with an `AAD::SampleDef_` that requests the numeraire, a forward maturity at the
+event time, and a discount factor at the event time. The model consumes this
+`defLine_` to allocate the per-event scenario structure that evaluators read
+when they walk the AST.
+
+### Schedule Expansion
+
+Schedule expansion itself lives in the preprocessor
+([Preprocessing Pipeline](#preprocessing-pipeline)): the `ExpandSchedulePlaceholders`
+virtual replaces `PeriodBegin` / `PeriodEnd` placeholders for each period of a
+recurring schedule, producing one dated event description per period. The parser
+and event layer see only the expanded, dated descriptions — they know nothing
+about schedules.
+
+### Variable Indexing and the Payoff Slot
+
+After parsing, `IndexVariables` runs a `VarIndexer_` pass to assign every named
+variable a stable integer slot in the evaluator's variable vector. The product
+also records the slot of the variable named in its `payoff_` field
+(`payoffIdx_`, defaulting to the last variable); simulation harvests that slot
+as the path value.
+
 ## Preprocessing Pipeline
 
 The `Preprocessor_` class in `dal-cpp/dal/script/preprocessor.hpp` resolves a raw
@@ -208,6 +296,95 @@ The visitors must run in a specific order:
 The shared AST nodes and visitor base classes live in
 `dal-cpp/dal/script/visitor/`; the preprocessor lives in `dal-cpp/dal/script/`
 and is deliberately separate.
+
+## Simulation and Evaluation
+
+`MCSimulation<T_>` (`dal-cpp/dal/script/simulation.hpp`) drives Monte Carlo
+valuation of a `ScriptProduct_`. It has two instantiations: `T_ = double`
+(value-only) and `T_ = AAD::Number_` (pathwise-adjoint, see
+[Automatic Adjoint Differentiation](aad.md)).
+
+### RNG and Brownian Bridge
+
+`CreateRNG` selects the underlying generator from a method string — `sobol`
+(Sobol low-discrepancy), `mrg32` (MRG32k3a pseudo-random), or `irn` (industrial
+pseudo-random) — sized to the model's simulation dimension. When the Brownian
+bridge flag is set, the generator is wrapped in a `BrownianBridge_` so the draw
+order reconstructs the path from coarse to fine maturities rather than in
+chronological order; this often reduces variance for path-dependent payoffs.
+
+### Batching and Thread Pool
+
+Paths are divided into batches (`BATCH_SIZE = 8192`, clamped to keep at least
+one path per thread) and submitted to `ThreadPool_::GetInstance()`. Each thread
+owns its own RNG, Gaussian vector, scenario (`Scenario_<T_>`), and evaluator
+state, so the per-path work is lock-free; thread-local results are summed at
+the end. This is the parallel structure described in [Pathwise Adjoints in Monte
+Carlo](aad.md#pathwise-adjoints-in-monte-carlo).
+
+### Value-Only vs AAD Evaluation
+
+The `double` instantiation walks the AST with an `Evaluator_<double>` (or, in
+compiled mode, an `EvalState_<double>` over pre-compiled node/const/data
+streams) and accumulates the payoff slot across paths. The `AAD::Number_`
+instantiation additionally:
+
+1. Activates the tape and registers model parameters and constant variables on
+   it (`InitModel4ParallelAAD`), then marks.
+2. Per path: rewinds to the mark, generates the path, evaluates the AST with a
+   `FuzzyEvaluator_<AAD::Number_>` (or compiled `EvalState_<AAD::Number_>`),
+   seeds the payoff adjoint to $1$, and propagates back to the mark.
+3. After the batch: propagates from mark to start, harvests per-parameter
+   adjoints, and divides by `nPaths`.
+
+The result is a `SimResults_` carrying the aggregated payoff and a risk vector
+labelled by model parameter and constant variable.
+
+### Compiled vs Interpreted
+
+`Compile()` flattens each event's AST into a `nodeStreams_` / `constStreams_` /
+`dataStreams_` triple via a `Compiler_` visitor. `EvaluateCompiled` interprets
+that flat representation against a scenario without re-walking the polymorphic
+node tree, trading the per-node virtual dispatch for a tight switch over a
+stream of opcodes. The interpreted path (`Evaluate`) is simpler and is used
+where the AST is small or where the compile step is not worth its cost.
+
+## Visitor Machinery
+
+Every AST pass — indexing, IF-flattening, domain analysis, constant-condition
+folding, evaluation, fuzzy evaluation, compilation, debugging — is a visitor.
+The machinery in `dal-cpp/dal/script/visitor.hpp` and
+`dal-cpp/dal/script/visitorlist.hpp` makes adding a new pass or a new node type
+cheap.
+
+### Visitor Base
+
+`Visitor_<V_>` and `ConstVisitor_<V_>` provide two helpers each: `VisitNode`
+dispatches a node to the concrete visitor `V_` via `node.Accept(...)`, and
+`VisitArguments` walks the node's `arguments_` children. They also provide a
+default `Visit(Node_&)`/`Visit(const N_&)` that simply visits the children — so
+a concrete visitor only declares `Visit(...)` overloads for the node types it
+actually cares about, and the rest fall through to traversal.
+
+### The Visitable Sugar
+
+`VisitableBase_<V1, V2, ...>` declares, for the abstract `Node_`, one pure
+virtual `Accept(Vi&)` per visitor on the list. `Visitable_<Node_, NodeTag, V1, V2, ...>`
+generates, for a concrete node, the matching overrides that each call
+`v.Visit(*this)`. The generated code is exactly what one would write by hand
+(`virtual void Accept(Vi& v) override { v.Visit(*this); }` for each visitor),
+so the meta-programming is purely sugar — the run-time behaviour is a plain
+double-dispatch table. Adding a node type means inheriting `Visitable_<...>`
+with the full visitor list; adding a visitor means adding it to the list once.
+
+### Const-Correctness
+
+`ConstVisitor_<V_>` is used by passes that only read the tree (evaluation,
+debugging); `Visitor_<V_>` is used by passes that mutate it
+(`ConstCondProcessor_`, `DomainProcessor_`). The const visitor enforces its
+contract at compile time: a non-const `Visit` overload on a const visitor does
+not override the const base, so attempts to mutate through a const visitor fail
+to build rather than corrupt the tree.
 
 ## See Also
 

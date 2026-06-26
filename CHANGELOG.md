@@ -29,6 +29,17 @@ here as the baseline rather than dated releases:
   nonlinear calibration. See `docs/methodology/underdetermined_search.md`.
 - **Cross-Currency Calibration** — XCCY basis-curve fitting across two currencies. See
   `docs/methodology/xccy_calibration.md`.
+- **Interpolation** — linear, log-linear, cubic-spline, and mixed 1D interpolators plus
+  bilinear 2D interpolation. See `docs/methodology/interpolation.md`.
+- **Log-Discount Curve** — node log-discount-factor parameterisation with `LogDfScheme_`
+  interpolation schemes (the parameterisation that supports the analytic Jacobian). See
+  `docs/methodology/log_discount_curve.md`.
+- **Yield-Curve Jacobian and Inverse-Jacobian Risk** — AAD forward Jacobian and the
+  inverse-Jacobian IR-risk transform, including the `effJacobianInverse_` unit convention.
+  See `docs/methodology/yield_curve_jacobian.md`.
+- **Script Engine** — events-table to AST pipeline, visitor passes (domain analysis,
+  constant-condition folding), and the fuzzy evaluator for pathwise AAD through
+  discontinuous payoffs. See `docs/methodology/script_engine.md`.
 - **Analytic Jacobian for curve calibration (CurveJacobianMode flag)** — optional analytic
   Jacobian mode for yield-curve calibration. See
   `docs/experimental/aad-analytic-jacobian-curve-calibration.md`.

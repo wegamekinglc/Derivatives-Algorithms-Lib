@@ -293,6 +293,86 @@ per declaration. The harvested adjoints form a dense
 `XCurveJacobian_` (`dal-cpp/dal/curve/curvejacobian.hpp`) with exact structural
 zeros where an instrument has no parametric dependence on a given knot.
 
+## Backends
+
+The library compiles with one of four AAD backends selected at build time:
+
+- **native** — the in-tree reference tape (`dal-cpp/dal/math/aad/tape.hpp`,
+  `dal-cpp/dal/math/aad/node.hpp`), always available.
+- **Adept** (`DAL_USE_ADEPT_AAD`) — `adept::Stack`-based tape.
+- **XAD** (`DAL_USE_XAD_AAD`) — `xad::adj<double>` tape.
+- **CoDiPack** (`DAL_USE_CODIPACK_AAD`) — `codi::RealReverseUnchecked` tape.
+
+All four expose the same `Number_` / `Tape_` surface through facade functions in
+`dal-cpp/dal/math/aad/aad.hpp`, so caller code is backend-neutral. The
+differences that matter at the call site are the recording contract and the
+gradient-zeroing semantics between single-result reverse sweeps.
+
+### Load-Bearing Recording Contract
+
+A correct Jacobian on all four backends requires this exact ordering:
+
+$$
+\text{Clear}(\textit{tape}) \;\rightarrow\;
+\text{RegisterIndependent}(x_k)\;\forall k \;\rightarrow\;
+\text{NewRecording}(\textit{tape}) \;\rightarrow\;
+\text{forward pass} \;\rightarrow\;
+\text{per output row } \bigl\{\,\text{ZeroAdjoints},\;\bar{y}_i = 1,\;\text{PropagateToStart},\;\text{harvest}\,\bigr\}.
+$$
+
+Each step has a backend-specific reason to be in this position:
+
+- **Clear** resets the recorded graph and the position markers so nothing from
+  a previous run contaminates the new one.
+- **RegisterIndependent** stamps each input as a tape leaf that subsequent
+  operations differentiate. It must run *before* `NewRecording` opens the
+  recording window on XAD (see below); running it after silently drops the input
+  and yields an all-zero Jacobian column.
+- **NewRecording** marks the start of the live recording so the reverse sweep
+  terminates at the right point.
+- **ZeroAdjoints** between rows is **not** a no-op on every backend (Adept in
+  particular), and is the single most common source of corrupted multi-row
+  Jacobians.
+
+### Per-Backend Zeroing Semantics
+
+- **Native.** `ZeroAdjoints` walks the node list and writes `0.0` to every
+  node's adjoint, leaving the recorded graph intact. Behaviour is the obvious
+  one and is safe to call between rows.
+
+- **Adept.** Adept's `compute_adjoint` zeroes only the LHS adjoint of each
+  consumed statement and then accumulates into the operands; operands whose
+  gradients are never cleared keep residual values across sweeps. In a
+  single-result reverse-sweep loop, row 2's seed would land on row 1's operand
+  residue and corrupt the Jacobian. The `ZeroGradientArray` helper
+  (`tape.hpp`) clears the live gradient array while keeping
+  `gradients_initialized_` true, which satisfies the `compute_adjoint` `THROW`
+  guard ("Adept gradients are not initialized"). `Dal::AAD::ZeroAdjoints`
+  routes to `ZeroGradientArray` on this backend, so callers that use the facade
+  are safe; callers that bypass it must replicate the semantics.
+
+- **XAD.** `registerInput` must run *before* `NewRecording` opens the recording
+  window: registering an input after `NewRecording` silently drops it and
+  yields an all-zero Jacobian column. The `RegisterIndependent` facade asserts
+  the tape is active (`clearAll` does not deactivate a tape constructed with
+  `activate=true`), so a passive tape fails loudly at registration time rather
+  than producing a silent zero column. `ZeroAdjoints` maps to
+  `xad::Tape::clearDerivatives`.
+
+- **CoDiPack.** `RegisterIndependent` calls `tape.registerInput` on the active
+  tape; `ZeroAdjoints` calls the no-argument `clearAdjoints`, which zeroes up
+  to the largest created index and leaves the statement graph intact. Both are
+  safe between sweeps.
+
+### Passive vs Active Tape
+
+XAD and CoDiPack distinguish an *active* tape (records statements) from a
+*passive* tape (does not). The native backend has no notion of a passive tape —
+recording is unconditional — and Adept's activity is governed by its
+`Stack` base. Code that needs a value-only pass (e.g. a baseline pricing run
+without differentiation) should use a plain `double` evaluation rather than
+relying on tape passivity, which is backend-dependent.
+
 ## Summary
 
 Reverse-mode AAD records the computational graph on a forward pass and applies
