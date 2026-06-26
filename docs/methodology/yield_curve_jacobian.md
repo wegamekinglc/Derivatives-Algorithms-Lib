@@ -111,6 +111,16 @@ the `NOTICE`s fire at most once even though `Gradient` is invoked per solver
 iteration. `ANALYTIC` never throws — an ineligible spec falls back to `BUMPED`
 byte-for-byte.
 
+The supported-parameterization set is narrower still, and **not** gated by
+eligibility: the joint path supports `PIECEWISE_LINEAR_FWD` and
+`PIECEWISE_CONSTANT_FWD` only. A declaration with `parameterization_` of
+`LOG_DISCOUNT` or `ZERO_RATE` is rejected at validation with a hard `REQUIRE`
+(it throws `Dal::Exception_`) on **both** the `BUMPED` and `ANALYTIC` paths —
+the joint residual function has no log-DF or zero-rate machinery, and there is
+no fallback. `CalibrateJointMultiCurve` is single-threaded: the AAD tape is
+thread-local and a `TapeGuard_` clears it on entry and exit (also under
+exception unwind), so concurrent calls would corrupt the tape.
+
 ### Discount-vs-forward routing, and the OIS post-2008 fallback
 
 A joint spec has two slot kinds. A **discount** declaration
@@ -178,25 +188,59 @@ templated class is byte-for-byte identical in arithmetic to the non-templated
 `DiscountPWLF_` the bumped path uses, so the AAD-vs-bump agreement bar is
 defined against the same residual function.
 
+The `Number_`-typed curve is constructed directly from tape-registered forward
+parameters — the `AnalyticJacobian` override registers `fLeftT_` / `fRightT_`
+as independents and passes them straight to the `Tape::DiscountPWLF_<T_, B_>`
+constructor. `ApplyDX` is never invoked on the AAD path (it would overwrite a
+tape leaf with a non-typed `double` increment and break the recording). This is
+why the class holds flat `Vector_<T_>` members rather than a templated
+interpolator: the joint path is the only consumer of the templated curve, the
+parameters are always supplied at construction, and flat members minimise the
+surface the tape has to traverse.
+
+The templated `Tape::DiscountPWLF_<T_, B_>` is **non-storable** — its `Write()`
+override is a hard `REQUIRE(false)`. Only the anonymous-namespace `double`
+`DiscountPWLF_` in `dal-cpp/dal/curve/ycimp.cpp` is serializable, and that is
+the one the bumped path and any persistent result curve use; the templated
+curve exists only for the duration of one `Gradient` sweep and is discarded
+with the analytic-Jacobian frame.
+
 ### Why assembly is sparse-by-row
 
-The reverse sweep produces one row of $J$ at a time. Each residual row has
-nonzero parameter dependence only on the knots of the declaration whose
-instruments produced that residual — AAD produces **exact structural zeros** at
-every parameter the residual does not touch, including every parameter of every
-*other* declaration. Storage is dense (in `XCurveJacobian_`,
-`dal-cpp/dal/curve/curvejacobian.hpp`, shared with the single-curve path), so
-those zeros are stored explicitly rather than compressed away; the structural
-sparsity is exploited only at assembly time, by sweeping each row independently.
-The dense storage is what the underdetermined solver's `MultiplyLeft` /
-`MultiplyRight` / `QForm` virtual interface reads; the row-wise AAD sweep is
-what guarantees the off-block entries are exactly zero and not numerical noise.
+The reverse sweep produces one row of $J$ at a time. AAD produces **exact
+structural zeros** at every parameter a residual does not touch by any routing
+path. Which cross-declaration entries are nonzero is determined entirely by the
+residual map's routing — a forward-declaration residual touches the OIS
+discount declaration's parameters through the discount leg (OIS fallback) or
+through base layering, and those entries are genuinely nonzero; parameters no
+residual reaches by any route are exactly zero. Storage is dense (in
+`XCurveJacobian_`, `dal-cpp/dal/curve/curvejacobian.hpp`, shared with the
+single-curve path), so the zeros are stored explicitly rather than compressed
+away; the structural sparsity is exploited only at assembly time, by sweeping
+each row independently. The dense storage is what the underdetermined solver's
+`MultiplyLeft` / `MultiplyRight` / `QForm` virtual interface reads; the row-wise
+AAD sweep is what guarantees the untouched entries are exactly zero and not
+numerical noise.
 
 The pointers in `Tape::JointCurveBlock_<T_>` are non-owning `const
 DiscountCurve_<T_>*` (not `Handle_<...>`) because the curves they reference live
 on the `shared_ptr` storage of the analytic-Jacobian frame for the duration of
 the single sweep and are destroyed when that frame goes out of scope — wrapping
 them in `Handle_<...>` would imply shared ownership the frame does not need.
+
+The joint smoother is **block-diagonal**: `BuildJointSmoothing` assembles a
+single tridiagonal weight matrix over the stacked parameter vector, but each
+declaration's self-coupling is written independently into the diagonal block at
+that declaration's `paramOffset` (one per-slot `SelfCouplePWC` call, using only
+that declaration's own knots and `smoothingWeight_`). No cross-declaration
+smoothing entries are ever introduced. The smoother therefore adds **no**
+cross-declaration coupling to the Jacobian beyond what the residual map's
+routing already establishes: the only cross-declaration nonzeros in $J$ come
+from a forward-declaration residual reading a discount declaration's parameters
+(via the OIS discount-fallback on the leg, or via base layering), not from the
+smoother. The exact structural zeros the AAD sweep produces sit at parameters
+no residual touches by any route — the block-diagonal smoother simply ensures
+the smoothing pass does not smear those zeros into small non-zero entries.
 
 ## The Inverse Jacobian and Bucketed IR Risk
 
