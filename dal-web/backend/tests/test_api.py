@@ -160,11 +160,6 @@ def test_create_trade_with_unknown_product_fails(client):
     assert resp.status_code == 422
 
 
-# ---------------------------------------------------------------------------
-# Delete guards — cannot delete products/models still referenced by trades
-# ---------------------------------------------------------------------------
-
-
 def test_delete_product_referenced_by_trade_fails(client):
     product_id = _create_european_product(client)
     model_id = _create_bs_model(client)
@@ -193,11 +188,6 @@ def test_delete_product_without_references_succeeds(client):
     product_id = _create_european_product(client)
     resp = client.delete(f"/api/products/{product_id}")
     assert resp.status_code == 204
-
-
-# ---------------------------------------------------------------------------
-# PUT (update) endpoints
-# ---------------------------------------------------------------------------
 
 
 def test_update_product(client):
@@ -250,11 +240,6 @@ def test_update_trade_with_missing_product_fails(client):
         json={"product_id": "nonexistent"},
     )
     assert resp.status_code == 404
-
-
-# ---------------------------------------------------------------------------
-# Async valuation status
-# ---------------------------------------------------------------------------
 
 
 def test_valuation_returns_running_then_completed(client):

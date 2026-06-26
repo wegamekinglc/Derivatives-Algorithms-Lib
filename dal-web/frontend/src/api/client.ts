@@ -157,7 +157,6 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 export const api = {
   health: () => request<Health>("/health"),
 
-  // products
   listTemplates: () => request<ProductTemplate[]>("/products/templates"),
   listProducts: () => request<ProductDefinition[]>("/products"),
   createProduct: (body: Omit<ProductDefinition, "id">) =>
@@ -175,7 +174,6 @@ export const api = {
       body: JSON.stringify({ rows }),
     }),
 
-  // models
   listModels: () => request<ModelDefinition[]>("/models"),
   createModel: (body: Omit<ModelDefinition, "id">) =>
     request<ModelDefinition>("/models", { method: "POST", body: JSON.stringify(body) }),
@@ -186,7 +184,6 @@ export const api = {
     }),
   deleteModel: (id: string) => request<undefined>(`/models/${id}`, { method: "DELETE" }),
 
-  // trades
   listTrades: () => request<Trade[]>("/trades"),
   createTrade: (body: Omit<Trade, "id" | "tags"> & { tags?: string[] }) =>
     request<Trade>("/trades", { method: "POST", body: JSON.stringify(body) }),
@@ -199,7 +196,6 @@ export const api = {
       body: JSON.stringify(config),
     }),
 
-  // portfolios
   listPortfolios: () => request<Portfolio[]>("/portfolios"),
   createPortfolio: (body: { name: string; description?: string }) =>
     request<Portfolio>("/portfolios", { method: "POST", body: JSON.stringify(body) }),
@@ -216,7 +212,6 @@ export const api = {
       body: JSON.stringify(config),
     }),
 
-  // valuations
   listValuations: () => request<ValuationResult[]>("/valuations"),
   getValuation: (id: string) => request<ValuationResult>(`/valuations/${id}`),
 };

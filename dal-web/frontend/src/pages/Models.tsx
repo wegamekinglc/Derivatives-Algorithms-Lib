@@ -7,17 +7,14 @@ export default function Models() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Shared fields
   const [name, setName] = useState("BS spot=100 vol=20%");
   const [kind, setKind] = useState<ModelKind>("BSModelData_");
 
-  // Black-Scholes params
   const [spot, setSpot] = useState(100);
   const [vol, setVol] = useState(0.2);
   const [rate, setRate] = useState(0.0);
   const [div, setDiv] = useState(0.0);
 
-  // Dupire params
   const [dupireSpot, setDupireSpot] = useState(100);
   const [dupireRate, setDupireRate] = useState(0.0);
   const [dupireRepo, setDupireRepo] = useState(0.0);
