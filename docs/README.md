@@ -53,6 +53,12 @@ Deep dives into the quantitative methods and algorithms implemented in DAL:
   - Bilinear (2D) interpolation on a rectilinear grid
   - Selection guidance and where each scheme is used
 
+- **[matrix.md](methodology/matrix.md)** — Matrix and Linear Algebra
+  - Numerical-Recipes band-storage layout and the `Sparse::Square_` / decomposition interfaces
+  - Tri-diagonal Thomas-algorithm solve (`TriDiagonal_`, `TriDecomp_`, `TriDecompSymm_`)
+  - Dense and band-Cholesky factorizations with diagonal regularization
+  - Preconditioned conjugate-gradient (CG) and bi-conjugate-gradient (BCG) Krylov solvers
+
 - **[log_discount_curve.md](methodology/log_discount_curve.md)** — Log-Discount Curve
   - Node log-discount-factor representation and anchor convention
   - `LogDfScheme_` interpolation schemes (`LOG_LINEAR`, `LOG_CUBIC_NATURAL`, `MIXED`)
