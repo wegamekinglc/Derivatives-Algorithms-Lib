@@ -15,8 +15,26 @@
 #include <dal/io/excelimport.hpp>
 
 namespace Dal {
+    // Initializes COM for the lifetime of the enclosing object. Declared as the
+    // first member of ExcelDriver_ so it is destroyed after xl_, keeping COM
+    // available for every COM call issued through the driver.
+    class ComInitializer_ {
+    private:
+        bool initialized_;
+
+    public:
+        ComInitializer_();
+        ~ComInitializer_();
+
+        ComInitializer_(const ComInitializer_&) = delete;
+        ComInitializer_& operator=(const ComInitializer_&) = delete;
+    };
+
     class ExcelDriver_ {
     private:
+        // Declaration order matters: comInit_ must outlive xl_ so that COM is
+        // still initialized when xl_ is released in the destructor.
+        ComInitializer_ comInit_;
         Excel::_ApplicationPtr xl_;
 
         int curDataColumn_;

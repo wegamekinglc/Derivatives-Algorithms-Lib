@@ -25,8 +25,6 @@ public:
     explicit Clearer_(const String_& src);
     const char* String() const;
     Value_ Switch() const {return val_;}
-	// idiosyncratic (hand-written) members:
-    CollateralType_ Collateral() const;
     Clearer_() : val_(Value_::_NOT_SET) {};
 };
 

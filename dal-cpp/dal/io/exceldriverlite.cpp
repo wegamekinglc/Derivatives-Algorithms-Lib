@@ -59,33 +59,23 @@ namespace Dal {
         THROW(String_(description));
     }
 
-    class ComInitializer_ {
-    private:
-        bool initialized_;
-    public:
-        ComInitializer_() : initialized_(false) {
-            HRESULT hr = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
-            if (SUCCEEDED(hr)) {
-                initialized_ = true;
-            } else if (hr != S_FALSE) {
-                // S_FALSE means COM is already initialized on this thread, which is OK
-                THROW(String_("CoInitializeEx failed"));
-            }
+    ComInitializer_::ComInitializer_() : initialized_(false) {
+        HRESULT hr = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
+        if (SUCCEEDED(hr)) {
+            initialized_ = true;
+        } else if (hr != S_FALSE) {
+            // S_FALSE means COM is already initialized on this thread, which is OK
+            THROW(String_("CoInitializeEx failed"));
         }
+    }
 
-        ~ComInitializer_() {
-            if (initialized_) {
-                CoUninitialize();
-            }
+    ComInitializer_::~ComInitializer_() {
+        if (initialized_) {
+            CoUninitialize();
         }
+    }
 
-        ComInitializer_(const ComInitializer_&) = delete;
-        ComInitializer_& operator=(const ComInitializer_&) = delete;
-    };
-
-    ExcelDriver_::ExcelDriver_(int currentColumn) : curDataColumn_(currentColumn) {
-        ComInitializer_ comInit;
-
+    ExcelDriver_::ExcelDriver_(int currentColumn) : comInit_(), curDataColumn_(currentColumn) {
         try {
             xl_.CreateInstance(L"Excel.Application");
             xl_->Workbooks->Add((long)Excel::xlWorksheet);
@@ -113,7 +103,8 @@ namespace Dal {
         } catch (...) {
             // Destructors must not throw; continue with COM uninitialization.
         }
-        // COM is automatically uninitialized when ComInitializer_ is destroyed during static destruction
+        // comInit_ is destroyed after xl_ (reverse declaration order), so COM
+        // stays valid while xl_ is released above.
     }
 
 

@@ -28,7 +28,6 @@ public:
     Value_ Switch() const {return val_;}
 	// idiosyncratic (hand-written) members:
     template<class T_> T_ Payout(T_ spot, T_ strike) const;
-    OptionType_ Opposite() const;
     OptionType_() : val_(Value_::_NOT_SET) {};
 };
 

@@ -16,7 +16,6 @@ alternative CALL C
 alternative PUT P
 alternative STRADDLE V C+P
 method template<class T_> T_ Payout(T_ spot, T_ strike) const;
-method OptionType_ Opposite() const;
 -IF------------------------------------------------------*/
 
 namespace Dal {
