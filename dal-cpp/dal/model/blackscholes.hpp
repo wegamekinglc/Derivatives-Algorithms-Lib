@@ -87,7 +87,7 @@ namespace Dal {
             }
 
             void Allocate(const Vector_<>& productTimeLine, const Vector_<SampleDef_>& defLine) override {
-                REQUIRE(!productTimeLine.empty(), "empty product timeline");
+                REQUIRE(!productTimeLine.empty(), "BlackScholes_::Allocate: empty product timeline");
                 timeLine_.clear();
                 timeLine_.push_back(0);
 
