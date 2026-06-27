@@ -29,6 +29,16 @@ the lexer (`dal-cpp/dal/script/lexer.cpp`) and builds an expression tree of
 child expressions in `arguments_`, so arithmetic, conditions, assignments, and
 control flow all share one polymorphic hierarchy.
 
+### Lexer
+
+`Tokenize` (`dal-cpp/dal/script/lexer.hpp`) is the single tokenization primitive
+in the engine. Both halves of the pipeline consume it: the preprocessor
+(`Preprocessor_`, the definition front-end) tokenizes directive values, and the
+parser (`Parser_`, the payoff back-end) tokenizes statement text. Housing it in
+its own translation unit — rather than inside either consumer — keeps the two
+halves decoupled and avoids a circular ownership relationship between the
+front-end that resolves schedules and the back-end that builds the AST.
+
 ### Precedence Levels
 
 The parser implements expressions as a cascade of precedence levels, each
@@ -377,14 +387,34 @@ so the meta-programming is purely sugar — the run-time behaviour is a plain
 double-dispatch table. Adding a node type means inheriting `Visitable_<...>`
 with the full visitor list; adding a visitor means adding it to the list once.
 
+### Visit-Trait Dispatch
+
+The dispatch layer in `dal-cpp/dal/script/visitorlist.hpp` resolves, entirely at
+compile time, three questions that the visitor framework needs answered without
+run-time cost:
+
+- `IsVisitorConst<V_>()` — whether `V_` is a read-only (`ConstVisitor_`-derived)
+  pass or a mutating (`Visitor_`-derived) pass. It is a `Pack_<...>::Includes`
+  check against the const-visitor list, so the answer is a `constexpr bool`.
+- `HasConstVisit_<V_>::ForNodeType<N_>()` — whether `V_` declares
+  `void Visit(const N_&)`. Uses SFINAE on the member-function pointer type.
+- `HasNonConstVisit_<V_>::ForNodeType<N_>()` — the mutating dual of the above,
+  probing for `void Visit(N_&)`.
+
+Because all three are constant expressions, the dispatch in `visitor.hpp` can
+select the correct `Accept` / `Visit` path with no virtual overhead beyond the
+double-dispatch table itself, and const-correctness (next subsection) is decided
+during template instantiation rather than at run time.
+
 ### Const-Correctness
 
 `ConstVisitor_<V_>` is used by passes that only read the tree (evaluation,
 debugging); `Visitor_<V_>` is used by passes that mutate it
 (`ConstCondProcessor_`, `DomainProcessor_`). The const visitor enforces its
-contract at compile time: a non-const `Visit` overload on a const visitor does
-not override the const base, so attempts to mutate through a const visitor fail
-to build rather than corrupt the tree.
+contract at compile time via `HasConstVisit_` / `HasNonConstVisit_`: a non-const
+`Visit` overload on a const visitor does not satisfy the const base signature, so
+attempts to mutate through a const visitor fail to build rather than corrupt the
+tree.
 
 ## See Also
 
