@@ -64,13 +64,13 @@ namespace Dal::Bench {
     }
 
     inline void PrintHeader() {
-        std::cout << std::setw(25) << std::left << "Benchmark"
+        std::cout << std::setw(40) << std::left << "Benchmark"
                   << std::setw(14) << std::right << "Median"
                   << std::setw(14) << std::right << "Min"
                   << std::setw(14) << std::right << "Max"
                   << std::setw(8) << std::right << "Reps"
                   << std::endl;
-        std::cout << std::string(75, '-') << std::endl;
+        std::cout << std::string(90, '-') << std::endl;
     }
 
     inline std::string FormatScaled(int64_t ns) {
@@ -86,7 +86,7 @@ namespace Dal::Bench {
     }
 
     inline void Print(const Result_& r) {
-        std::cout << std::setw(25) << std::left << r.name
+        std::cout << std::setw(40) << std::left << r.name
                   << std::setw(14) << std::right << FormatScaled(r.medianNs)
                   << std::setw(14) << std::right << FormatScaled(r.minNs)
                   << std::setw(14) << std::right << FormatScaled(r.maxNs)
