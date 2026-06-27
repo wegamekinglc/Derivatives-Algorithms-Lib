@@ -61,8 +61,8 @@ namespace Dal {
             double betaPrev;
 
             KrylovState_(const Sparse::Square_& a, const XPrecondition_& prec, bool biConjugate, int n)
-                : A(a), precondition(prec), biConjugate(biConjugate), r(n), rr(n), z(n), zz(n), p(n), pp(n), zzRef(biConjugate ? zz : z),
-                  ppRef(biConjugate ? pp : p), betaPrev(0.0) {}
+                : A(a), precondition(prec), biConjugate(biConjugate), r(n), rr(biConjugate ? n : 0), z(n), zz(biConjugate ? n : 0), p(n),
+                  pp(biConjugate ? n : 0), zzRef(biConjugate ? zz : z), ppRef(biConjugate ? pp : p), betaPrev(0.0) {}
         };
 
         double PrepareDirection_(KrylovState_& s, int ii) {
@@ -93,8 +93,8 @@ namespace Dal {
         }
 
         void ValidateKrylovParams_(int n, const Vector_<>& b, const Vector_<>* x, double tolRel, double tolAbs, int maxIterations) {
-            REQUIRE(b.size() == n && x->size() == n, "matrix size is not compatible");
-            REQUIRE((IsPositive(tolRel) || IsPositive(tolAbs)) && maxIterations > 0, "parameters is not valid");
+            REQUIRE(b.size() == n && x->size() == n, "matrix dimensions are incompatible");
+            REQUIRE((IsPositive(tolRel) || IsPositive(tolAbs)) && maxIterations > 0, "parameters are invalid");
         }
 
         void
