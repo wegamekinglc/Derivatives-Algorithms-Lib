@@ -51,6 +51,6 @@ namespace Dal {
         for (int i = 0; i < size - 1; ++i) {
             dplus_[i] = dminus_[i + 1] = locations_[i + 1] - locations_[i];
         }
-        dplus_.back() = dminus_.front() = Null_<double>();
+        FinalizeSpacings();
     }
-}
+} // namespace Dal

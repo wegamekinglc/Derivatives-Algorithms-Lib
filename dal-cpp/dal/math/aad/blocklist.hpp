@@ -16,6 +16,7 @@
 #include <cstring>
 #include <iterator>
 #include <list>
+#include <type_traits>
 
 namespace Dal::AAD {
 
@@ -154,24 +155,27 @@ namespace Dal::AAD {
 
 
 
-        class Iterator_ {
+        template <bool Const_> class IteratorImpl_ {
         public:
-            iterator currBlock_;
-            block_iter currSpace_;
-            block_iter firstSpace_;
-            block_iter lastSpace_;
+            using block_iterator = std::conditional_t<Const_, const_iterator, iterator>;
+            using space_iterator = std::conditional_t<Const_, const_block_iter, block_iter>;
+
+            block_iterator currBlock_;
+            space_iterator currSpace_;
+            space_iterator firstSpace_;
+            space_iterator lastSpace_;
 
             using difference_type = std::ptrdiff_t;
-            using reference = T_&;
-            using pointer = T_*;
+            using reference = std::conditional_t<Const_, const T_&, T_&>;
+            using pointer = std::conditional_t<Const_, const T_*, T_*>;
             using value_type = T_;
             using iterator_category = std::bidirectional_iterator_tag;
 
-            Iterator_() = default;
-            Iterator_(iterator cb, block_iter cs, block_iter fs, block_iter ls)
+            IteratorImpl_() = default;
+            IteratorImpl_(block_iterator cb, space_iterator cs, space_iterator fs, space_iterator ls)
                 : currBlock_(cb), currSpace_(cs), firstSpace_(fs), lastSpace_(ls) {}
 
-            Iterator_& operator++() {
+            IteratorImpl_& operator++() {
                 ++currSpace_;
                 if (currSpace_ == lastSpace_) {
                     ++currBlock_;
@@ -182,11 +186,7 @@ namespace Dal::AAD {
                 return *this;
             }
 
-            inline const Iterator_& operator++() const {
-                return this->operator++();
-            }
-
-            Iterator_& operator--() {
+            IteratorImpl_& operator--() {
                 if (currSpace_ == firstSpace_) {
                     --currBlock_;
                     firstSpace_ = currBlock_->begin();
@@ -197,77 +197,20 @@ namespace Dal::AAD {
                 return *this;
             }
 
-            inline const Iterator_& operator--() const {
-                return this->operator--();
-            }
+            reference operator*() const { return *currSpace_; }
+            pointer operator->() const { return &*currSpace_; }
 
-            T_& operator*() { return *currSpace_; }
-
-            const T_& operator*() const { return *currSpace_; }
-
-            T_* operator->() { return &*currSpace_; }
-
-            const T_* operator->() const { return &*currSpace_; }
-
-            bool operator==(const Iterator_& rhs) {
+            bool operator==(const IteratorImpl_& rhs) {
                 return currBlock_ == rhs.currBlock_ && currSpace_ == rhs.currSpace_;
             }
 
-            bool operator!=(const Iterator_& rhs) {
+            bool operator!=(const IteratorImpl_& rhs) {
                 return currBlock_ != rhs.currBlock_ || currSpace_ != rhs.currSpace_;
             }
         };
 
-        class ConstIterator_ {
-        public:
-            const_iterator currBlock_;
-            const_block_iter currSpace_;
-            const_block_iter firstSpace_;
-            const_block_iter lastSpace_;
-
-            using difference_type = std::ptrdiff_t;
-            using reference = const T_&;
-            using pointer = const T_*;
-            using value_type = T_;
-            using iterator_category = std::bidirectional_iterator_tag;
-
-            ConstIterator_() = default;
-            ConstIterator_(const_iterator cb, const_block_iter cs, const_block_iter fs, const_block_iter ls)
-                : currBlock_(cb), currSpace_(cs), firstSpace_(fs), lastSpace_(ls) {}
-
-            ConstIterator_& operator++() {
-                ++currSpace_;
-                if (currSpace_ == lastSpace_) {
-                    ++currBlock_;
-                    firstSpace_ = currBlock_->begin();
-                    lastSpace_ = currBlock_->end();
-                    currSpace_ = firstSpace_;
-                }
-                return *this;
-            }
-
-            ConstIterator_& operator--() {
-                if (currSpace_ == firstSpace_) {
-                    --currBlock_;
-                    firstSpace_ = currBlock_->begin();
-                    lastSpace_ = currBlock_->end();
-                    currSpace_ = lastSpace_;
-                }
-                --currSpace_;
-                return *this;
-            }
-
-            const T_& operator*() const { return *currSpace_; }
-            const T_* operator->() const { return &*currSpace_; }
-
-            bool operator==(const ConstIterator_& rhs) {
-                return currBlock_ == rhs.currBlock_ && currSpace_ == rhs.currSpace_;
-            }
-
-            bool operator!=(const ConstIterator_& rhs) {
-                return currBlock_ != rhs.currBlock_ || currSpace_ != rhs.currSpace_;
-            }
-        };
+        using Iterator_ = IteratorImpl_<false>;
+        using ConstIterator_ = IteratorImpl_<true>;
 
         Iterator_ Begin() {
             return Iterator_(data_.begin(), data_.begin()->begin(), data_.begin()->begin(), data_.begin()->end());
