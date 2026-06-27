@@ -41,11 +41,17 @@ namespace Dal::AAD {
         double& Adjoint(size_t n) { return pAdjoints_[n]; }
 
         void PropagateOne() {
-            if (!n_ || std::abs(adjoint_) <= Dal::EPSILON)
+            if (!n_)
                 return;
-
-            for (size_t i = 0; i < n_; ++i)
-                *(pAdjPtrs_[i]) += adjoint_ * pDerivatives_[i];
+            if (std::abs(adjoint_) > Dal::EPSILON) {
+                for (size_t i = 0; i < n_; ++i)
+                    *(pAdjPtrs_[i]) += adjoint_ * pDerivatives_[i];
+            }
+            // Zero the consumed adjoint inline so the next propagation sweep starts
+            // clean; this makes a separate ZeroAdjoints pass before each Jacobian
+            // row unnecessary. Leaf parameter nodes (n_ == 0) return early above and
+            // retain their accumulated adjoint for harvest.
+            adjoint_ = 0.0;
         }
 
         void PropagateAll() {

@@ -8,15 +8,18 @@
 
 namespace Dal {
 
-    // RAII guard that clears the AAD tape on construction and destruction.
-    // Used around analytic-Jacobian tape sweeps that must not interfere with
-    // any outer tape recording. Single-threaded.
+    // RAII guard that rewinds the AAD tape on construction and destruction.
+    // Rewind (cursor reset, block reuse) keeps blocks allocated across consecutive
+    // calibration Jacobian sweeps instead of freeing and re-allocating them every
+    // Newton step. The next NewRecording + RegisterIndependent calls overwrite the
+    // reused node storage, so no stale data leaks into the next sweep.
+    // Single-threaded.
     struct TapeGuard_ {
         Dal::AAD::Tape_* t_;
-        explicit TapeGuard_(Dal::AAD::Tape_* t) : t_(t) { Dal::AAD::Clear(*t_); }
+        explicit TapeGuard_(Dal::AAD::Tape_* t) : t_(t) { Dal::AAD::Rewind(*t_); }
         ~TapeGuard_() {
             try {
-                Dal::AAD::Clear(*t_);
+                Dal::AAD::Rewind(*t_);
             } catch (...) {
                 // swallow; we are unwinding
             }

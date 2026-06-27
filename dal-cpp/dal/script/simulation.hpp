@@ -190,7 +190,9 @@ namespace Dal::Script {
             auto pathsInTask = std::min(pathsLeft, batchSize);
             futures.push_back(pool->SpawnTask([&, firstPath, pathsInTask]() {
                 const size_t threadNum = ThreadPool_::ThreadNum();
-                Dal::AAD::Clear(*Dal::AAD::Tape());
+                // Rewind (cursor reset, block reuse) suffices: the tape is immediately
+                // re-populated by the per-path recording below. Clear would free and
+                // re-allocate every block per batch.
                 AAD::Rewind(*AAD::Tape());
                 std::unique_ptr<AAD::Model_<AAD::Number_>> model = mdl->Clone();
                 model->Allocate(product.TimeLine(), product.DefLine());
