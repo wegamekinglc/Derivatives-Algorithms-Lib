@@ -19,46 +19,31 @@ namespace Dal {
         return Handle_<SobolRSG_>(new SobolRSG_(name, iPath, ndim));
     }
 
-    FORCE_INLINE void GetPseudoRSGUniform(const Handle_<PseudoRSG_>& f, int numPath, Matrix_<>* y) {
+    template <class RSG_>
+    FORCE_INLINE void FillRSG_(const Handle_<RSG_>& f, int numPath, void (RSG_::*fill)(Vector_<>*), Matrix_<>* y) {
         int n_dim = f->NDim();
         y->Resize(numPath, n_dim);
         Vector_<> deviates(n_dim);
         for(int i = 0; i < numPath; ++i) {
-            f->FillUniform(&deviates);
+            (f.Get()->*fill)(&deviates);
             for(int j = 0; j < n_dim; ++j)
                 (*y)(i, j) = deviates[j];
         }
+    }
+
+    FORCE_INLINE void GetPseudoRSGUniform(const Handle_<PseudoRSG_>& f, int numPath, Matrix_<>* y) {
+        FillRSG_(f, numPath, &PseudoRSG_::FillUniform, y);
     }
 
     FORCE_INLINE void GetSobolRSGUniform(const Handle_<SobolRSG_>& f, int numPath, Matrix_<>* y) {
-        int n_dim = f->NDim();
-        y->Resize(numPath, n_dim);
-        Vector_<> deviates(n_dim);
-        for(int i = 0; i < numPath; ++i) {
-            f->FillUniform(&deviates);
-            for(int j = 0; j < n_dim; ++j)
-                (*y)(i, j) = deviates[j];
-        }
+        FillRSG_(f, numPath, &SobolRSG_::FillUniform, y);
     }
+
     FORCE_INLINE void GetPseudoRSGNormal(const Handle_<PseudoRSG_>& f, int numPath, Matrix_<>* y) {
-        int n_dim = f->NDim();
-        y->Resize(numPath, n_dim);
-        Vector_<> deviates(n_dim);
-        for(int i = 0; i < numPath; ++i) {
-            f->FillNormal(&deviates);
-            for(int j = 0; j < n_dim; ++j)
-                (*y)(i, j) = deviates[j];
-        }
+        FillRSG_(f, numPath, &PseudoRSG_::FillNormal, y);
     }
 
     FORCE_INLINE void GetSobolRSGNormal(const Handle_<SobolRSG_>& f, int numPath, Matrix_<>* y) {
-        int n_dim = f->NDim();
-        y->Resize(numPath, n_dim);
-        Vector_<> deviates(n_dim);
-        for(int i = 0; i < numPath; ++i) {
-            f->FillNormal(&deviates);
-            for(int j = 0; j < n_dim; ++j)
-                (*y)(i, j) = deviates[j];
-        }
+        FillRSG_(f, numPath, &SobolRSG_::FillNormal, y);
     }
 } // namespace Dal
