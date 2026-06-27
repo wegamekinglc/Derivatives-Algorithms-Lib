@@ -19,16 +19,17 @@ solved discount factors are tabulated and compared.
 This is an excellent DAL exercise because it stresses several subsystems at once:
 
 - **Curve representation** — a discount curve defined by *discount-factor nodes* with
-  a configurable interpolation rule (not the forward-rate parameterization DAL ships
-  today).
+  a configurable interpolation rule (DAL's `LOG_DISCOUNT` parameterization via
+  `NewDiscountLogDF`), alongside the forward-rate parameterizations DAL also ships.
 - **Interpolation** — log-linear on DF, cubic spline on log-DF, and a piecewise
-  "mixed" scheme controlled by a knot sequence.
+  "mixed" scheme, all selected by `LogDfScheme_`.
 - **Calibration** — a single global least-squares/least-change solve over all curve
   nodes simultaneously, exactly the regime DAL's underdetermined search targets.
 - **Date machinery** — IMM-style node dates, single-business-day and stub swaps,
   Act/365F, an all-days (no-holiday) calendar, annual frequency, zero payment lag.
-- **AAD** — DAL's differentiator can supply an analytic Jacobian for the solver,
-  which is where DAL can do *better* than the reference implementation.
+- **AAD** — DAL's differentiator supplies an analytic Jacobian for the solver on
+  eligible `LOG_DISCOUNT` specs, which is where DAL does *better* than the reference's
+  bumped/auto-diff solve.
 
 ## 2. The Target (numerical acceptance criteria)
 
@@ -161,15 +162,18 @@ observed max `|err|` of ~`5.2e-7` (`log_linear`), ~`4.6e-7` (`log_cubic`), and
 
 - `DiscountCurve_` is the abstract discount-curve interface; `operator()(from, to)`
   returns a discount factor (`dal-cpp/dal/curve/discount.hpp`).
-- Concrete builders are **forward-rate parameterized**, not DF-node parameterized:
+- Concrete builders:
   - `NewDiscountPWLF` — piecewise-**linear forward** over knot dates
     (`dal-cpp/dal/curve/ycimp.hpp`), backed by `PiecewiseLinear_`
     (`dal-cpp/dal/curve/piecewiselinear.hpp`, which integrates a forward rate
     to produce `log(DF)`).
   - `NewDiscountPWC` — piecewise-**constant forward** (`dal-cpp/dal/curve/ycconst.hpp`).
-- There is **no** discount curve defined by explicit `(date, DF)` nodes with a
-  pluggable interpolation rule on DF or `log(DF)`. Verified: the only `NewDiscount*`
-  factories are PWLF and PWC (`grep NewDiscount dal-cpp/dal/curve/*.hpp`).
+  - `NewDiscountLogDF` — the DF-node parameterization this exercise needs: a curve
+    defined by explicit node dates + `log(DF)` values with a pluggable
+    `LogDfScheme_` interpolation rule on `log(DF)`
+    (`dal-cpp/dal/curve/yclogdf.hpp`, `dal-cpp/dal/curve/yclogdf.cpp`; see
+    [Log-discount curve](../methodology/log_discount_curve.md)). It is selected by
+    the `LOG_DISCOUNT` value of `CurveParameterization_`.
 
 ### 3.2 Interpolation methods
 
@@ -182,14 +186,20 @@ observed max `|err|` of ~`5.2e-7` (`log_linear`), ~`4.6e-7` (`log_cubic`), and
   - **Cubic spline** — `Cubic1_` (Numerical Recipes `splint`) with first/second/third
     boundary orders (`dal-cpp/dal/math/interp/interpcubic.cpp`); extrapolation
     is forbidden (`IsInBounds`).
-- **Gaps:** there is no cubic-spline-on-`log(DF)` wrapper, no knot-sequence (`t`)
-  B-spline form, and no "mixed" piecewise interpolator. The cubic spline is a natural
-  cubic over the value array, not a B-spline with repeated boundary knots.
-- Crucially, **none of these interpolators is wired in as a discount-curve
-  parameterization.** The calibration `enum CurveParameterization` lists `ZERO_RATE`
-  and `LOG_DISCOUNT` but both are explicitly unimplemented:
-  `ParamsPerKnot` and `BuildDiscountCurve` `REQUIRE(false, ...)` for them
-  (in `dal-cpp/dal/curve/calibration.cpp`).
+- **On-curve schemes.** The `LogDfScheme_` enumeration
+  (`dal-cpp/dal/curve/logdfscheme.hpp`) selects how `DiscountLogDF_` interpolates
+  between node `log(DF)` values, covering all three reference schemes:
+  `LOG_LINEAR` (linear in $\ell$, scheme 1), `LOG_CUBIC_NATURAL` (natural cubic
+  spline in $\ell$, scheme 2), and `MIXED` (cubic to a cutoff knot, linear beyond,
+  scheme 3). The scheme is carried on `CurveCalibrationSpec_::logDfScheme_` and
+  dispatched in `dal-cpp/dal/curve/yclogdf.cpp` (see
+  [Log-discount curve](../methodology/log_discount_curve.md)). The cubic and mixed
+  forms are natural cubics over the value array, not rateslib's clamped B-spline with
+  repeated boundary knots — see §2.4 for how the boundary mapping is validated.
+- **`CurveParameterization_` status.** `LOG_DISCOUNT` is fully implemented
+  (`ParamsPerKnot` returns 1; `BuildDiscountCurve` calls `NewDiscountLogDF` in
+  `dal-cpp/dal/curve/calibration.cpp`). `ZERO_RATE` is the only value that still
+  `REQUIRE(false)`.
 
 ### 3.3 Calibration / solver
 
@@ -208,11 +218,15 @@ observed max `|err|` of ~`5.2e-7` (`log_linear`), ~`4.6e-7` (`log_cubic`), and
   EXACT mode (drive residuals into tolerance) and an APPROXIMATE least-squares mode.
   This is the natural analog of the reference's Levenberg-Marquardt least-squares
   solve; for the square 13-instrument / 13-free-node case it is exactly determined.
-- **Jacobian is finite-difference bumped**, not analytic. The base
-  `Function_::Gradient` bumps each parameter by `BumpSize() = 1e-4`
-  (`dal-cpp/dal/math/optimization/underdetermined.cpp`).
-  `YieldCurveCalibrationFunc_` does **not** override `Gradient`, so curve calibration
-  uses bumping today.
+- **Jacobian.** `YieldCurveCalibrationFunc_` overrides
+  `Underdetermined::Function_::Gradient` to supply an AAD-derived analytic Jacobian
+  when the spec is eligible (`parameterization_ == LOG_DISCOUNT`,
+  discount-target, `forecast == discount`, every instrument trades at the curve
+  anchor). Ineligible specs fall back to the base finite-difference bump
+  (`BumpSize() = 1e-4`, `dal-cpp/dal/math/optimization/underdetermined.cpp`). The
+  eligibility verdict is evaluated once per `CalibrateYieldCurve` call and cached;
+  see [AAD analytic Jacobian](aad-analytic-jacobian-curve-calibration.md) and
+  [Yield-curve Jacobian](../methodology/yield_curve_jacobian.md).
 
 ### 3.4 Day count / calendar / schedule / payment lag
 
@@ -237,9 +251,9 @@ observed max `|err|` of ~`5.2e-7` (`log_linear`), ~`4.6e-7` (`log_cubic`), and
 
 - DAL ships a full reverse-mode AAD type `Number_`
   (`dal-cpp/dal/math/aad/expr.hpp`) with tape (`dal-cpp/dal/math/aad/tape.hpp`).
-- It is **not** used in curve construction or calibration (no AAD symbols in
-  `dal-cpp/dal/curve/`, verified by grep). The curve calibration Jacobian is bumped
-  (§3.3). This is the headroom where DAL can add an analytic Jacobian.
+- It **is** used in curve calibration: `YieldCurveCalibrationFunc_::Gradient`
+  produces an AAD-derived analytic Jacobian on eligible `LOG_DISCOUNT` specs
+  (§3.3), with a bumped fallback when the eligibility predicate rejects the spec.
 
 ### 3.6 Public API / Python bindings / examples
 
@@ -255,107 +269,104 @@ observed max `|err|` of ~`5.2e-7` (`log_linear`), ~`4.6e-7` (`log_cubic`), and
   `Holidays::None`, explicit knot dates, and `CalibrateMultiCurve`. It is the natural
   template/home for the new example.
 
-## 4. Gap Analysis
+## 4. Capability Inventory
 
-| Capability needed                                   | Exists? | Evidence (path)                                            | Work required                                                                                  |
-|-----------------------------------------------------|---------|------------------------------------------------------------|------------------------------------------------------------------------------------------------|
-| Discount curve interface (DF from/to)               | yes     | `dal/curve/discount.hpp`                                   | reuse as-is                                                                                     |
-| Curve defined by explicit DF nodes + interp rule    | no      | only PWLF / PWC forward param; `ycimp.hpp`, `ycconst.hpp`  | add a DF-node discount curve that holds node dates + `log(DF)` and a pluggable `Interp1_`       |
-| Log-linear on DF (scheme 1)                          | partial | `LogLinear1_`, `interploglinear.cpp`                       | reuse interpolator; wire it as a curve parameterization                                         |
-| Cubic spline on `log(DF)` (scheme 2)                 | partial | `Cubic1_`, `interpcubic.cpp`                               | wrap cubic over `log(DF)`; support knot sequence + clamped/repeated end knots                   |
-| Knot-sequence (`t`) configuration                    | no      | cubic takes value array, not B-spline knot vector          | add knot-sequence representation + boundary handling                                            |
-| "Mixed" piecewise (log-linear → log-cubic) scheme   | no      | none                                                       | add a composite interpolator switching at a cutoff knot                                         |
-| IMM / stub swaps via explicit dates                 | yes     | `ycinstrument.hpp`, `ycinstrument.cpp`                     | construct with explicit effective/termination dates; verify stub day-count context             |
-| 1-business-day swap                                 | yes     | degenerate single-period `Swap_`                           | construct with 1-day span; confirm annuity > 0 path (`ycinstrument.cpp`)                        |
-| Act/365F day count                                  | yes     | `daybasis.hpp`                                             | reuse                                                                                           |
-| All-days / no-holiday calendar                      | yes     | `holidays.hpp`, `ycinstrument.cpp`                         | reuse `Holidays::None()`                                                                        |
-| Annual frequency, payment lag 0                     | yes     | `ycinstrument.cpp`                                         | reuse leg conventions                                                                           |
-| Global simultaneous solve over nodes                | yes     | `calibration.cpp`                                          | reuse `Underdetermined::Find`; add DF-node parameterization plumbing                            |
-| Levenberg-Marquardt least-squares                   | partial | underdetermined least-change EXACT/APPROXIMATE; `underdetermined.hpp` | acceptable analog; document equivalence for the square 13×13 case                              |
-| Analytic (AAD) Jacobian for the solver              | no      | `Number_` exists `aad/expr.hpp`; not used in `dal/curve/`  | optional: override `Function_::Gradient` with AAD-derived sparse Jacobian                       |
-| Anchor node with fixed DF = 1                       | partial | calibration solves all knots; anchor handling not explicit | hold node 0 fixed (exclude from unknowns) or pin via the parameterization                       |
-| Public API exposure                                 | no      | `dal-public/src/interp.cpp`                                | add public entry points for DF-node curve + calibration (optional for a C++-only deliverable)   |
-| Python bindings                                     | no      | `dal-python/src/bindings/module.cpp`                       | add pybind11 bindings (optional second deliverable)                                             |
+Each row maps a capability the reference exercise needs onto its current DAL
+implementation. Items marked **gap** are not yet wired in this configuration.
 
-Legend: **yes** = usable as-is; **partial** = building block exists but needs wiring;
-**no** = must be added.
+| Capability                                    | Status   | Evidence (path)                                                                                       | Notes                                                                                  |
+|-----------------------------------------------|----------|-------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------|
+| Discount curve interface (DF from/to)         | yes      | `dal-cpp/dal/curve/discount.hpp`                                                                      | reuse as-is                                                                            |
+| DF-node curve + `log(DF)` interpolation rule  | yes      | `NewDiscountLogDF`, `dal-cpp/dal/curve/yclogdf.hpp` / `yclogdf.cpp`                                   | node dates + `log(DF)` + pluggable `LogDfScheme_`; selected by `CurveParameterization_::LOG_DISCOUNT` |
+| Log-linear on DF (scheme 1)                   | yes      | `LogDfScheme_::LOG_LINEAR`, `dal-cpp/dal/curve/logdfscheme.hpp`                                       | linear in $\ell$ = log-linear in $P$                                                   |
+| Cubic on `log(DF)` (scheme 2)                 | yes      | `LogDfScheme_::LOG_CUBIC_NATURAL`, `dal-cpp/dal/curve/yclogdf.cpp`                                    | natural cubic spline in $\ell$ (Boundary_(2,0.0)), not rateslib's clamped B-spline     |
+| "Mixed" (log-linear → log-cubic) (scheme 3)   | yes      | `LogDfScheme_::MIXED`, `dal-cpp/dal/curve/yclogdf.cpp`                                                | cubic to a cutoff knot, linear beyond; C0 at the cutoff                                |
+| Knot-sequence (`t`) configuration             | n/a      | —                                                                                                     | DAL uses knot dates + scheme, not a B-spline knot vector                               |
+| IMM / stub swaps via explicit dates           | yes      | `Swap_(tradeDate, start, maturity, ...)`, `dal-cpp/dal/curve/ycinstrument.hpp`                        | explicit effective/termination dates per leg                                          |
+| 1-business-day swap                           | yes      | degenerate single-period `Swap_`, `dal-cpp/dal/curve/ycinstrument.cpp`                                | 1-day span; annuity > 0 path                                                           |
+| Act/365F day count                            | yes      | `ACT_365F`, `dal-cpp/dal/time/daybasis.hpp`                                                           | reuse                                                                                  |
+| All-days / no-holiday calendar                | yes      | `Holidays::None()`, `dal-cpp/dal/time/holidays.hpp`                                                   | matches calendar = "all"                                                               |
+| Annual frequency, payment lag 0               | yes      | `RateLegConvention_`, `dal-cpp/dal/curve/ycinstrument.cpp`                                            | `PeriodLength_("12M")`, `paymentLag_ = 0`                                              |
+| Global simultaneous solve over nodes          | yes      | `Underdetermined::Find`, `dal-cpp/dal/curve/calibration.cpp`                                          | one global solve, not a sequential bootstrap                                           |
+| Levenberg-Marquardt least-squares             | analog   | underdetermined least-change EXACT/APPROXIMATE, `dal-cpp/dal/math/optimization/underdetermined.hpp`   | equivalent for the square 13×13 case                                                   |
+| Analytic (AAD) Jacobian for the solver        | yes      | `YieldCurveCalibrationFunc_::Gradient`, `dal-cpp/dal/curve/calibration.cpp`                           | AAD reverse sweep when eligible; bumped fallback otherwise                             |
+| Anchor node with fixed DF = 1                 | yes      | `LOG_DISCOUNT` anchor exclusion, `dal-cpp/dal/curve/calibration.cpp`                                  | anchor pinned at $\ell_0 = 0$, excluded from unknowns                                  |
+| Public API exposure                           | gap      | `dal-public/src/interp.cpp`                                                                           | only `Interp1NewLinear` exposed; no curve/calibration entry points                     |
+| Python bindings                               | gap      | `dal-python/src/bindings/module.cpp`                                                                  | no curve/calibration bindings                                                          |
 
-## 5. Extension Work
+## 5. Reproduction Pipeline
 
-The work to reproduce the reference table splits into the items below. Schemes 1-3
-and the global solve (items 1-5) are the core deliverable; the AAD Jacobian and
-public-API exposure (items 6-7) are independent enhancements.
+Reproducing the reference table exercises the as-built pipeline below. Items 1-6 are
+implemented and validated against rateslib Table 6.2 (see §2.5); items 7-8 are the
+two remaining gaps.
 
 ### 1. DF-node discount curve with pluggable interpolation
-- Add a discount curve parameterized by **node dates + `log(DF)` values** and a
-  pluggable `Interp1_` (initially `LogLinear1_`). Interpolate on `log(DF)` in the
-  time metric implied by Act/365F so that `operator()(from, to)` returns
-  `exp(interp(t_to) - interp(t_from))`.
-- Implement the **`LOG_DISCOUNT`** branch of `CurveParameterization` that is currently
-  `REQUIRE(false)` (in `dal-cpp/dal/curve/calibration.cpp`), so the existing global solver
-  can drive the node `log(DF)` directly.
-- Treat node 0 (`2022-01-01`) as a **fixed anchor** (`DF = 1`): exclude it from the
-  unknown vector so the solver has 13 free parameters for 13 instruments (square,
-  exactly determined). This mirrors the reference's fixed initial node.
-- **Outcome:** scheme 1 (`log_linear`) end-to-end via `CalibrateYieldCurve`.
+- `NewDiscountLogDF` (`dal-cpp/dal/curve/yclogdf.hpp`) is the curve this exercise
+  needs: node dates + `log(DF)` values with a `LogDfScheme_` interpolation rule.
+  `operator()(from, to)` returns `exp(interp(t_to) - interp(t_from))` in the Act/365F
+  year-fraction metric.
+- The `LOG_DISCOUNT` branch of `CurveParameterization_` is implemented
+  (`dal-cpp/dal/curve/calibration.cpp`), so the global solver drives the node
+  `log(DF)` directly.
+- Node 0 (`2022-01-01`) is the **fixed anchor** ($\ell_0 = 0$, `DF = 1`), excluded
+  from the unknown vector, so the solver has 13 free parameters for 13 instruments
+  (square, exactly determined).
 
 ### 2. Log-cubic spline parameterization
-- Add a cubic-spline-on-`log(DF)` interpolator reusing `Cubic1_`
-  (`interpcubic.cpp`), parameterized by a **knot sequence `t`** with
-  clamped/repeated boundary knots (`2024-03-15` ×4 … `2032-01-01` ×4 per §2.4).
-- Decide boundary conditions (natural vs clamped) and document them; `Cubic1_`
-  supports first/second/third-order boundaries already (`dal-cpp/dal/math/interp/interpcubic.cpp`).
-- Wire it as a second `LOG_DISCOUNT` interpolation variant selectable on the spec.
-- **Outcome:** scheme 2 (`log_cubic`).
+- `LogDfScheme_::LOG_CUBIC_NATURAL` selects a natural cubic spline in $\ell$ over the
+  node values (`Boundary_(2, 0.0)` at both ends), dispatched in
+  `dal-cpp/dal/curve/yclogdf.cpp`. This is DAL's scheme-2 analogue; it is a natural
+  cubic, not rateslib's clamped B-spline with repeated boundary knots (see §2.4 for
+  how the boundary mapping is validated).
 
 ### 3. Mixed (composite) interpolator
-- Add a composite `Interp1_` that is log-linear up to a cutoff knot and log-cubic
-  beyond it, switching at the first interior knot of `t`. Ensure value (and ideally
-  first-derivative) continuity at the cutoff.
-- **Outcome:** scheme 3 (`mixed`).
+- `LogDfScheme_::MIXED` is cubic to a cutoff knot and linear beyond it, with C0
+  continuity at the cutoff (`dal-cpp/dal/curve/yclogdf.cpp`). This is DAL's scheme-3
+  analogue.
 
 ### 4. Instrument construction for the PTIRDS set
-- Build the 13 swaps via the explicit-date `Swap_` constructor
+- The 13 swaps are built via the explicit-date `Swap_` constructor
   (`dal-cpp/dal/curve/ycinstrument.hpp`): annual fixed/float legs, Act/365F,
   `Holidays::None()`, payment lag 0, explicit IMM stub effective/termination dates,
-  and the degenerate 1-business-day swap. Verify the stub day-count context
-  (`SinglePeriodContext`, `dal-cpp/dal/curve/ycinstrument.cpp`) reproduces the reference accruals.
+  and the degenerate 1-business-day swap. The stub day-count context
+  (`SinglePeriodContext`, `dal-cpp/dal/curve/ycinstrument.cpp`) reproduces the
+  reference accruals.
 
 ### 5. Global solve + verification harness
-- Assemble a `CurveCalibrationSpec_` with `parameterization_ = LOG_DISCOUNT`,
+- A `CurveCalibrationSpec_` with `parameterization_ = LOG_DISCOUNT`,
   `knotPolicy_ = INPUT`, the 14 node dates, the 13 instruments and par rates, and
-  `solveMode_ = EXACT`. Solve via `CalibrateYieldCurve` for each of the three schemes.
-- Compare solved node DFs against the **per-scheme** column of the §2.5 table within
-  `1e-6` (each scheme validated against its own rateslib Table 6.2 column, **not**
-  against the other two schemes), and confirm repricing residuals are `< 1e-8` per
-  instrument. The three schemes **deliberately differ** at the nodes (log-cubic diverges
-  from log-linear throughout by ~`1.2e-5`; mixed matches log-linear exactly through
-  `2025-01-01` and diverges only at `2027/2029/2032`), so cross-scheme agreement is not
-  a valid acceptance criterion.
+  `solveMode_ = EXACT` is solved via `CalibrateYieldCurve` for each of the three
+  schemes.
+- Solved node DFs are compared against the **per-scheme** column of the §2.5 table
+  within `1e-6` (each scheme validated against its own rateslib Table 6.2 column,
+  **not** against the other two schemes), with repricing residuals `< 1e-8` per
+  instrument. The three schemes **deliberately differ** at the nodes (log-cubic
+  diverges from log-linear throughout by ~`1.2e-5`; mixed matches log-linear exactly
+  through `2025-01-01` and diverges only at `2027/2029/2032`), so cross-scheme
+  agreement is not a valid acceptance criterion.
 
-### 6. (Optional) AAD analytic Jacobian
-- Override `Function_::Gradient` in the curve calibration function with an
-  AAD-derived sparse Jacobian using `Number_` (`dal-cpp/dal/math/aad/expr.hpp`) instead of the
-  default bump (`dal-cpp/dal/math/optimization/underdetermined.cpp`). For a swap repricing each instrument
-  depends on only a handful of node `log(DF)`s, so the Jacobian is sparse and AAD
-  delivers it exactly in one reverse sweep — **this is where DAL beats the reference's
-  bumped/auto-diff solve**: fewer iterations, no bump-noise, exact curve risk.
+### 6. AAD analytic Jacobian
+- `YieldCurveCalibrationFunc_::Gradient` overrides the bumped default with an
+  AAD-derived sparse Jacobian (`dal-cpp/dal/curve/calibration.cpp`). For a swap
+  repricing, each instrument depends on only a handful of node `log(DF)`s, so the
+  Jacobian is sparse and AAD delivers it exactly in one reverse sweep — fewer
+  iterations, no bump-noise, exact curve risk relative to the reference's
+  bumped/auto-diff solve.
 
-### 7. (Optional) Public API + Python bindings
+### 7. (Remaining) Public API exposure
 - Expose the DF-node curve, the three interpolation schemes, the swap builders, and
-  the calibration entry point through `dal-public/src/` and add pybind11 bindings in
-  `dal-python/src/bindings/` (a new `curve` translation unit registered in
-  `module.cpp`), so a Python user can reproduce the table directly.
+  the calibration entry point through `dal-public/src/`, so a non-C++ caller can
+  reproduce the table.
+
+### 8. (Remaining) Python bindings
+- Add pybind11 bindings for the same surface in `dal-python/src/bindings/` (a new
+  `curve` translation unit registered in `module.cpp`), so a Python user can
+  reproduce the table directly.
 
 ## 6. Proposed Deliverable
 
-- **Primary:** a new C++ example
-  `dal-cpp/examples/ptirds_single_currency_curve/` (sibling of
-  `dal-cpp/examples/curve_calibration/`) that builds the nodes, instruments, and the
-  three interpolation schemes, runs the global solve, and prints the solved-DF table
-  plus a forward-rate comparison.
-- **Tests:** a Google Test suite (e.g. `dal-cpp/tests/curve/test_ptirds_curve.cpp`)
-  asserting:
+- **Tests:** `dal-cpp/tests/curve/test_ptirds_curve.cpp` is the validation harness.
+  It asserts:
   - solved node DFs match §2.5 within `1e-6` for `log_linear` (validated against the
     `log-linear` column of rateslib Table 6.2);
   - solved node DFs match §2.5 within `1e-6` for `log_cubic` and `mixed` (each
@@ -365,8 +376,13 @@ public-API exposure (items 6-7) are independent enhancements.
     through `2025-01-01` and diverges only at `2027/2029/2032`);
   - each calibrated curve reprices all 13 instruments within the solver tolerance
     (residual `< 1e-8`).
+- **Remaining:** a standalone C++ example
+  `dal-cpp/examples/ptirds_single_currency_curve/` (sibling of
+  `dal-cpp/examples/curve_calibration/`) that builds the nodes, instruments, and the
+  three interpolation schemes, runs the global solve, and prints the solved-DF table
+  plus a forward-rate comparison.
 - **Optional:** a Python example under `dal-python/examples/` mirroring the C++ one,
-  contingent on item 7.
+  contingent on items 7-8.
 
 ## 7. Risks / Open Questions
 
@@ -374,24 +390,13 @@ public-API exposure (items 6-7) are independent enhancements.
   *assumed*. The exact roll/stub rule for the IMM dates, the 1-business-day swap's
   termination, and whether the fixed and float legs share the annual schedule must be
   pinned to reproduce the table to 6 dp.
-- **Spline boundary conditions.** `log_cubic`/`mixed` results depend on end-knot
-  treatment. The reference uses repeated boundary knots (`×4`); DAL's `Cubic1_` is a
-  natural-cubic `splint`, so the boundary mapping (natural vs clamped vs not-a-knot)
-  must be chosen and validated against the long-end DFs.
-- **Knot-sequence representation.** DAL has no first-class knot vector `t`; a
-  representation (and its mapping to `Cubic1_`'s value array / boundary orders) must
-  be designed alongside the log-cubic work (item 2).
-- **Mixed-scheme continuity.** The cutoff between log-linear and log-cubic must
-  preserve continuity (and ideally C¹) to avoid spurious forward-rate jumps.
 - **Solver equivalence.** DAL's underdetermined least-change EXACT mode is not
-  literally Levenberg-Marquardt. For the square 13×13 case it should converge to the
-  same root, but the smoothing-weight metric (`smoothingWeight_`,
+  literally Levenberg-Marquardt. For the square 13×13 case it converges to the same
+  root, but the smoothing-weight metric (`smoothingWeight_`,
   `BuildCurveCalibrationWeights`, `dal-cpp/dal/curve/calibration.cpp`) must be neutral so it
   does not bias an exactly-determined solve.
-- **Seeding / convergence.** Initial guess defaults to `initialGuess_ = 0.05`
-  (`dal-cpp/dal/curve/calibration.hpp`) on forward rates; for a `log(DF)` parameterization the seed
-  must be reconsidered (e.g. flat curve) so the solver converges in ~6 iterations as
-  in the reference.
-- **Anchor handling.** Confirm whether the fixed DF = 1 node is best implemented by
-  excluding it from the unknowns or by a parameterization that pins `log(DF) = 0` at
-  `today`.
+
+The boundary-condition, anchor-handling, and seeding questions that originally
+accompanied this exercise are settled by the shipped `LOG_DISCOUNT` implementation
+(natural cubic end conditions, anchor node pinned at $\ell_0 = 0$, parameterization-
+specific initial seed).
