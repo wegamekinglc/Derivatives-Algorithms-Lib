@@ -138,6 +138,7 @@ Detailed documentation of the quantitative methods implemented in this library:
 - **Log-Discount Curve** — [Log-discount curve](docs/methodology/log_discount_curve.md)
 - **Yield-Curve Jacobian and Inverse-Jacobian Risk** — [Yield-curve Jacobian](docs/methodology/yield_curve_jacobian.md)
 - **Script Engine** — [Script engine](docs/methodology/script_engine.md)
+- **Dupire Local Volatility** — [Dupire local volatility](docs/methodology/dupire.md)
 
 Notable fundamental changes are recorded in [CHANGELOG.md](CHANGELOG.md).
 
