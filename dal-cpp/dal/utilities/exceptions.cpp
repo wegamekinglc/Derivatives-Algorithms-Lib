@@ -50,17 +50,7 @@ namespace Dal {
         }
 
         namespace {
-            /* more appropriate implementation for production
-            Vector_<XStackInfo_>& TheStack()
-            {
-                static boost::thread_specific_ptr<Vector_<XStackInfo_>> INSTANCE;
-                if (!INSTANCE.get())	// get is thread-specific
-                    INSTANCE.Reset(new Vector_<XStackInfo_>);
-                return *INSTANCE;	// so is operator*
-            }
-            */
-
-            /* less-efficient implementation, used here to avoid boost link dependency */
+            // thread_local avoids a boost link dependency.
             Vector_<XStackInfo_>* XTheStack(bool free_if_empty = false) {
                 thread_local static Vector_<XStackInfo_>* INSTANCE = nullptr;
                 if (!INSTANCE)
@@ -82,10 +72,7 @@ namespace Dal {
             if (!TheStack().empty())
                 TheStack().pop_back();
 
-            // the following statement cleans up the stack pointer when it becomes empty
-            // this prevents a memory leak (though not as reliably as a smart pointer implementation)
-            // of course there is a runtime cost to the extra delete/new cycle
-            // erase this line for production implementation using thread_specific_ptr
+            // free the per-thread stack once empty to avoid leaks.
             XTheStack(true);
         }
     } // namespace exception
