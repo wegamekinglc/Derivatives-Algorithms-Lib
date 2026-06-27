@@ -148,3 +148,45 @@ TEST(XccyCalibrationTest, TestCalibrateXccyMarket) {
     ASSERT_EQ(result.fxForwardCurve_.dates_.size(),
               result.fxForwardCurve_.forwards_.size());
 }
+
+// Round-trip every builder field through Build() to guard against brace-init
+// order/count drift between the builder and CrossCurrencyCalibrationSpec_.
+
+TEST(XccyCalibrationTest, TestBuildRoundTripsEveryField) {
+    auto curves = MakeBaselineCurves();
+
+    CrossCurrencyCalibrationSpecBuilder_ b;
+    b.today_ = Today();
+    b.basisPair_ = CurrencyPair_New("USD", "EUR");
+    b.domesticCurveBlock_ = curves.domesticBlock_;
+    b.foreignCurveBlock_ = curves.foreignBlock_;
+    b.fxSpot_ = 1.0825;
+    b.fxForwardCollateral_ = CollateralType_OIS();
+    b.smoothingWeight_ = 1.25;
+    b.tolerance_ = 5.0e-11;
+    b.fitTolerance_ = 6.0e-7;
+    b.initialGuess_ = 0.0025;
+    b.maxEvaluations_ = 233;
+    b.maxRestarts_ = 17;
+    b.solveMode_ = CurveSolveMode_::Value_::APPROXIMATE;
+    b.knotDates_ = Vector_<Date_>{Spot(), Spot().AddDays(3650)};
+    b.instruments_ = Vector_<Dal::Handle_<Dal::CrossCurrencySwap_>>{};
+
+    auto spec = b.Build();
+
+    ASSERT_EQ(spec.today_, b.today_);
+    ASSERT_TRUE(spec.basisPair_ == b.basisPair_);
+    ASSERT_EQ(spec.domesticCurveBlock_.get(), b.domesticCurveBlock_.get());
+    ASSERT_EQ(spec.foreignCurveBlock_.get(), b.foreignCurveBlock_.get());
+    ASSERT_NEAR(spec.fxSpot_, 1.0825, 1e-15);
+    ASSERT_EQ(spec.fxForwardCollateral_.Switch(), b.fxForwardCollateral_.Switch());
+    ASSERT_NEAR(spec.smoothingWeight_, 1.25, 1e-15);
+    ASSERT_NEAR(spec.tolerance_, 5.0e-11, 1e-15);
+    ASSERT_NEAR(spec.fitTolerance_, 6.0e-7, 1e-15);
+    ASSERT_NEAR(spec.initialGuess_, 0.0025, 1e-15);
+    ASSERT_EQ(spec.maxEvaluations_, 233);
+    ASSERT_EQ(spec.maxRestarts_, 17);
+    ASSERT_EQ(spec.solveMode_.Switch(), CurveSolveMode_::Value_::APPROXIMATE);
+    ASSERT_EQ(spec.knotDates_.size(), static_cast<size_t>(2));
+    ASSERT_TRUE(spec.instruments_.empty());
+}

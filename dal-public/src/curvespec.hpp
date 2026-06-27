@@ -12,6 +12,19 @@
 
 namespace Dal {
 
+    // Shared solver-tuning knobs and single-curve defaults. Not embedded in the builders: they
+    // keep flat fields so dal-python's member-pointer bindings stay source-compatible. The xccy
+    // builder/spec override tolerance_ to 1e-10 and initialGuess_ to 0.0.
+    struct CurveSolverOptions_ {
+        double smoothingWeight_ = 1.0;
+        double tolerance_ = 1.0e-8;
+        double fitTolerance_ = 1.0e-6;
+        double initialGuess_ = 0.05;
+        int maxEvaluations_ = 200;
+        int maxRestarts_ = 20;
+        CurveSolveMode_ solveMode_ = CurveSolveMode_::Value_::EXACT;
+    };
+
     struct CalibrationResult_ {
         Handle_<DiscountCurve_> curve_;
         CurveCalibrationDiagnostics_ diagnostics_;
@@ -30,6 +43,7 @@ namespace Dal {
         PeriodLength_ targetTenor_;
         bool calibrateDiscountCurve_ = true;
         DayBasis_ liborBasis_ = DayBasis_("ACT_365F");
+        // keep in sync with CurveSolverOptions_
         double smoothingWeight_ = 1.0;
         double tolerance_ = 1.0e-8;
         double fitTolerance_ = 1.0e-6;
