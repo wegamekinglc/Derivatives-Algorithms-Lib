@@ -124,6 +124,13 @@ falling back to OIS when a specific collateral curve is absent; forecasting is
 routed to the relevant tenor curve, falling back to the single discount curve in a
 single-curve setup.
 
+The `CollateralType_` enum distinguishes only the curve families the framework
+actually builds (OIS, GC); tenor-specific collateral is **not** encoded as a
+distinct enum value. The `CollateralType_Libor(tenor)` factory therefore returns
+`GC` and ignores its `tenor` argument — tenor distinctions live on the
+projection-curve side (the `useProjectionCurve_` / `forecastTenor_` fields of
+`RateIndexConvention_`), not on the collateral type.
+
 Because the spread is multiplicative in discount factors (additive in the
 integrated forward rate), the dependency of derived curves on their base is exact
 and is tracked so that a bump to the base curve flows consistently through every
@@ -174,6 +181,16 @@ maturities, or formed from the union of both. After the solve, repricing residua
 without re-solving the system. That inverse carries a `tolerance_` factor from the
 solver's residual scaling — see [Yield-Curve Jacobian and Inverse-Jacobian
 Risk](yield_curve_jacobian.md) before consuming it.
+
+### Curve Instrument Date and Tenor Conventions
+
+The discount-factor index `DF_` (in `dal-cpp/dal/indice/index/ir.hpp`) fixes the
+date semantics of curve instruments. Its `maturity_` and `start_` cells may each
+hold a fixed date, a number-of-days offset, or a tenor offset. Both offsets are
+measured **from the fixing date**, not from the start date. A forward-started
+quote with `"2Y"` as `start_` and `"3Y"` as `maturity_` therefore matures at
+$T_{\text{fixing}} + 3Y$, not at $T_{\text{fixing}} + 2Y + 3Y$. Leaving `start_`
+empty denotes the usual spot-started index.
 
 ### Single-Curve AAD Calibration Internals
 
