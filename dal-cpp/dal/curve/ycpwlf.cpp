@@ -11,6 +11,7 @@
 #include <dal/curve/fittable.hpp>
 #include <dal/curve/yccomponent.hpp>
 #include <dal/curve/discount.hpp>
+#include <dal/curve/piecewiselinear.hpp>
 #include <dal/math/aad/aad.hpp>
 #include <dal/math/vectors.hpp>
 #include <dal/storage/archive.hpp>
@@ -50,16 +51,21 @@ namespace Dal {
 
         template <class T_, class B_>
         void DiscountPWLF_<T_, B_>::UpdateT() {
-            // T_-typed running integral using fLeftT_[ii] + fRightT_[ii-1] segment indexing.
-            // Abscissa weights (dt) are double; mean and sofarT_ are T_.
-            const int n = static_cast<int>(knotDates_.size());
-            if (static_cast<int>(sofarT_.size()) != n)
-                sofarT_.Resize(n);
-            sofarT_.Fill(T_(0.0));
-            for (int ii = 1; ii < n; ++ii) {
-                const double dt = knotAbscissae_[ii] - knotAbscissae_[ii - 1];
-                const T_ mean = (fLeftT_[ii] + fRightT_[ii - 1]) * static_cast<double>(0.5);
-                sofarT_[ii] = sofarT_[ii - 1] + static_cast<double>(dt) * mean;
+            if constexpr (std::is_same_v<T_, double>) {
+                // The double running integral delegates to PiecewiseLinear_::Sofar so the double
+                // curve's intermediate Jacobian/ApplyDX states stay bit-identical to the pre-dedup
+                // factory curve across compilers. The T_-typed accumulation below stays the AAD path.
+                sofarT_ = PiecewiseLinear_(knotDates_, fLeftT_, fRightT_).Sofar();
+            } else {
+                const int n = static_cast<int>(knotDates_.size());
+                if (static_cast<int>(sofarT_.size()) != n)
+                    sofarT_.Resize(n);
+                sofarT_.Fill(T_(0.0));
+                for (int ii = 1; ii < n; ++ii) {
+                    const double dt = knotAbscissae_[ii] - knotAbscissae_[ii - 1];
+                    const T_ mean = (fLeftT_[ii] + fRightT_[ii - 1]) * static_cast<double>(0.5);
+                    sofarT_[ii] = sofarT_[ii - 1] + static_cast<double>(dt) * mean;
+                }
             }
         }
 
@@ -89,13 +95,19 @@ namespace Dal {
 
         template <class T_, class B_>
         T_ DiscountPWLF_<T_, B_>::operator()(const Date_& from, const Date_& to) const {
-            const double fromT = static_cast<double>(from - knotDates_.front());
-            const double toT = static_cast<double>(to - knotDates_.front());
-            const T_ logDf = -(IntegralTo(toT) - IntegralTo(fromT)) / static_cast<double>(DAYS_PER_YEAR_PWLF);
             if constexpr (std::is_same_v<T_, double>) {
+                // The double curve reuses PiecewiseLinear_::IntegralTo so its DFs are bit-identical to
+                // the pre-dedup factory curve; combined with UpdateT delegating to PiecewiseLinear_::Sofar
+                // this keeps joint-vs-staged calibration drift stable across gcc/clang/msvc. The offset
+                // path below stays the AAD-tape recording path.
+                const PiecewiseLinear_ pwl(knotDates_, fLeftT_, fRightT_);
+                const double integral = pwl.IntegralTo(to) - pwl.IntegralTo(from);
                 const double baseFactor = this->base_ ? (*this->base_)(from, to) : 1.0;
-                return std::exp(logDf) * baseFactor;
+                return std::exp(-integral / DAYS_PER_YEAR_PWLF) * baseFactor;
             } else {
+                const double fromT = static_cast<double>(from - knotDates_.front());
+                const double toT = static_cast<double>(to - knotDates_.front());
+                const T_ logDf = -(IntegralTo(toT) - IntegralTo(fromT)) / static_cast<double>(DAYS_PER_YEAR_PWLF);
                 if (this->base_) {
                     const auto baseVal = (*this->base_)(from, to);
                     return Dal::AAD::exp(logDf) * baseVal;
