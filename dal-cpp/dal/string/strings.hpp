@@ -60,7 +60,7 @@ namespace Dal {
         String_(const base_t& src) : base_t(src) {}
         String_(const size_t size, const char val) : base_t(size, val) {}
         template <class I_> String_(I_ begin, I_ end) : base_t(begin, end) {}
-        explicit String_(const std::string& src) : base_t(*reinterpret_cast<const String_*>(&src)) {}
+        explicit String_(const std::string& src) : base_t(src.begin(), src.end()) {}
         void Swap(String_* other) { swap(*other); }
         friend std::ostream& operator<<(std::ostream& os, const String_& src);
     };

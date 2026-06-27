@@ -53,19 +53,19 @@ namespace Dal {
         T_& operator=(const T_& rhs);
     };
 
-    template <class T_> Composite_<T_>& CastComposite(T_* src) { return dynamic_cast<Composite_<T_>*>(src); }
+    template <class T_> Composite_<T_>* CastComposite(T_* src) { return dynamic_cast<Composite_<T_>*>(src); }
 
     template <class T_> Composite_<T_>& CoerceComposite(T_* src) {
         assert(dynamic_cast<Composite_<T_>*>(src));
         return static_cast<Composite_<T_>&>(*src);
     }
 
-    template <class T_> const Composite_<T_>& CastComposite(const T_* src) {
-        return dynamic_cast<Composite_<T_>*>(src);
+    template <class T_> const Composite_<T_>* CastComposite(const T_* src) {
+        return dynamic_cast<const Composite_<T_>*>(src);
     }
 
     template <class T_> const Composite_<T_>& CoerceComposite(const T_* src) {
-        assert(dynamic_cast<Composite_<T_>*>(src));
-        return static_cast<Composite_<T_>&>(*src);
+        assert(dynamic_cast<const Composite_<T_>*>(src));
+        return static_cast<const Composite_<T_>&>(*src);
     }
 } // namespace Dal

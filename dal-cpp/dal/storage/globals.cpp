@@ -13,6 +13,7 @@
 #include <dal/math/matrix/matrixs.hpp>
 #include <dal/math/matrix/matrixutils.hpp>
 #include <dal/time/dateutils.hpp>
+#include <dal/utilities/exceptions.hpp>
 
 namespace Dal {
 
@@ -90,9 +91,9 @@ namespace Dal {
         FixHistory_ retval;
         if (stored.Empty())
             return retval;
-        assert(stored.Cols() == 2);
-        assert(AllOf(stored.Col(0), Cell::TypeCheck_<DateTime_>()));
-        assert(AllOf(stored.Col(0), Cell::TypeCheck_<double>()));
+        REQUIRE(stored.Cols() == 2, "Fixings store must have 2 columns (date, value)");
+        REQUIRE(AllOf(stored.Col(0), Cell::TypeCheck_<DateTime_>()), "Fixings store column 0 must hold dates");
+        REQUIRE(AllOf(stored.Col(1), Cell::TypeCheck_<double>()), "Fixings store column 1 must hold values");
         const int n = stored.Rows();
         retval.vals_.Resize(n);
         for (int ii = 0; ii < n; ++ii)
