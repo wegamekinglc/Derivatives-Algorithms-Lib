@@ -195,3 +195,10 @@ The difference operators and the one-dimensional engine that consume a mesher li
 The boundary-null convention is what makes these consumers safe: a stencil that would read
 $\Delta^+_{n-1}$ or $\Delta^-_0$ at a boundary instead gets the null sentinel, forcing the
 boundary to be handled by its one-sided inward difference.
+
+## See Also
+
+- [Interpolation](interpolation.md) — the snapped-knot device in the concentrating
+  mesher builds a piecewise-linear `Interp1_` over a small knot set.
+- [Matrix and linear algebra](matrix.md) — the finite-difference operators are
+  tri-diagonal and solved by the Thomas algorithm documented there.

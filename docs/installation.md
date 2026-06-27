@@ -100,7 +100,7 @@ ADDITIONAL_CMAKE_FLAGS="-DDAL_BUILD_PYTHON=OFF" bash build_linux.sh
 # Disable benchmarks
 ADDITIONAL_CMAKE_FLAGS="-DDAL_CPP_BUILD_BENCHMARKS=OFF" bash build_linux.sh
 
-# Use XAD backend instead of the native backend
+# Use XAD backend instead of the default Adept backend
 ADDITIONAL_CMAKE_FLAGS="-DDAL_USE_XAD_AAD=ON -DDAL_USE_ADEPT_AAD=OFF" bash build_linux.sh
 ```
 

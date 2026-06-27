@@ -200,3 +200,12 @@ For expectations under a normal, Gauss-Hermite is strongly preferred over
 Simpson on a truncated interval: it places nodes where the density has mass,
 needs no truncation, and achieves exactness for polynomial payoffs that
 Simpson matches only approximately and at far higher cost.
+
+## See Also
+
+- [Black / Bachelier vanilla pricing](black_scholes.md) — the normal CDF/PDF at the
+  heart of the closed forms is the distribution `NormalExpectation_` integrates
+  against when a payoff is not available in closed form.
+- [Script engine](script_engine.md) — the Monte Carlo driver integrates payoffs
+  pathwise rather than by quadrature, but `NormalExpectation_` is the right tool
+  for low-dimensional analytic expectations that arise during model setup.

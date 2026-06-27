@@ -32,7 +32,8 @@ Deep dives into the quantitative methods and algorithms implemented in DAL:
   - Piecewise-linear and piecewise-constant forward rates
   - Multi-curve construction and calibration (sequential and joint simultaneous)
   - Single-curve AAD calibration internals (TapeGuard, eligibility predicate, analytic Jacobian)
-  - Joint multi-curve AAD analytic Jacobian (reverse-sweep, backend-neutral)
+  - Joint simultaneous calibration (`CalibrateJointMultiCurve`) with stacked-parameter AAD Jacobian
+  - Joint vs staged calibration drift characteristics
   - Integration with the underdetermined solver
 
 - **[underdetermined_search.md](methodology/underdetermined_search.md)** — Underdetermined Optimization
