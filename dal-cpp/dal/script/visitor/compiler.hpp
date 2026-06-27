@@ -100,6 +100,10 @@ namespace Dal::Script {
         }
     };
 
+    // NOTE: NodeType_ kept hand-written (not dal/auto/MG_NodeType_enum); the generated form
+    // is a class wrapper (not an enum) and cannot serve as a non-type template parameter for
+    // VisitBinary/VisitUnary/VisitCondition. Migrating is high-risk (~167 bare-opcode refs +
+    // the compiled nodeStream_ integer contract) and is deferred to a dedicated PR.
     enum NodeType_ {
         Add = 0,
         AddConst = 1,
@@ -543,26 +547,6 @@ namespace Dal::Script {
                 if (!bStack[1])
                     bStack[1] = bStack.Top();
                 bStack.Pop();
-                ++i;
-                break;
-            case Smooth:
-                // Eval the condition
-                x = dStack[3];
-                y = 0.5 * dStack.Top();
-                z = dStack[2];
-                t = dStack[1];
-
-                dStack.Pop(3);
-                // Left
-                if (x < -y)
-                    dStack.Top() = t;
-                // Right
-                if (x < -y)
-                    dStack.Top() = z;
-
-                // Fuzzy
-                else
-                    dStack.Top() = t + 0.5 * (z - t) / y * (x + y);
                 ++i;
                 break;
             case Sqrt:

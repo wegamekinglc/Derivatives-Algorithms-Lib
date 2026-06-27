@@ -59,10 +59,9 @@ namespace Dal::Script {
         }
 
         EvaluatorBase_(EvaluatorBase_&& rhs) noexcept
-            : variables_(std::move(rhs.variables_)), constVariables_(std::move(rhs.constVariables_)), curEvt_(rhs.curEvt_) {
-            bStack_ = rhs.bStack_;
-            scenario_ = rhs.scenario_;
-        }
+            : variables_(std::move(rhs.variables_)), variablesInit_(std::move(rhs.variablesInit_)),
+              constVariables_(std::move(rhs.constVariables_)), bStack_(std::move(rhs.bStack_)), scenario_(rhs.scenario_),
+              curEvt_(rhs.curEvt_) {}
         EvaluatorBase_& operator=(EvaluatorBase_&& rhs) noexcept {
             variables_ = std::move(rhs.variables_);
             variablesInit_ = std::move(rhs.variablesInit_);
