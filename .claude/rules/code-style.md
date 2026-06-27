@@ -31,6 +31,12 @@
 | Test files        | `test_` prefix, snake_case | `test_vectors.cpp`, `test_date.cpp`               |
 | Namespaces        | PascalCase or lowercase    | `Dal`, `Dal::AAD`, `namespace exception`          |
 
+## No Duplication
+
+- Don't repeat logic — if two code paths do the same thing, extract a shared function/template/helper.
+- **Includes duplication hidden in control flow.** `if`/`else if`/`else` and `switch` branches that copy-paste the same logic with only a type or value differing must be unified — via a template parameter, a lambda, a lookup table, or a shared helper — not spelled out per branch. Before adding a new `case` or `else` block, check whether an existing branch already does the same thing in a different guise.
+- Apply the same standard to near-duplicate classes/structs (e.g. a templated and a non-templated version of the same concept): collapse to one definition plus a `using` alias or specialization, unless they are genuinely interface-divergent (and if they are, leave a one-line comment saying why they are not unified).
+
 ## Markdown Tables
 
 - Align pipe-table columns by padding cells with spaces. Each column is exactly wide enough for its longest cell content plus one leading and one trailing space — no extra padding.
@@ -193,6 +199,10 @@ Reference files:
 - Single-line `//` for inline notes
 - No docstrings or doxygen-style comments
 - File headers are the only mandatory comments
+- **No large explanatory comments.** Multi-line comments that explain design, methodology, or
+  algorithm derivations belong in `docs/methodology/`, not in source. Move the prose to the doc
+  (via the `dal-doc-writer` agent) and leave at most a one-line `// why` pointer — or nothing. A
+  comment block that reads like a paragraph of documentation is a signal to migrate it.
 
 ## Documentation
 
@@ -205,3 +215,7 @@ Reference files:
 - Fundamental changes (breaking API, new methodology, significant capability, removal of a
   public surface) must be recorded in `CHANGELOG.md`. Routine refactors, test work,
   formatting, and build changes are deliberately omitted from the changelog.
+- **`docs/` is the home for methodology prose migrated out of source comments.** When a code
+  comment grows into design/methodology/algorithm explanation, move the prose into the matching
+  `docs/methodology/` note and reduce the source comment to a one-line pointer or delete it.
+  See the Comment Style section and the `dal-doc-writer` agent.
