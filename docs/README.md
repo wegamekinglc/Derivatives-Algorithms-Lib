@@ -71,6 +71,12 @@ Deep dives into the quantitative methods and algorithms implemented in DAL:
   - Constant condition processor (dead-branch pruning)
   - Fuzzy evaluator (smooth transitions for pathwise AAD; nested-if merging)
 
+- **[dupire.md](methodology/dupire.md)** — Dupire Local Volatility
+  - Dupire local-volatility formula from an IVS
+  - Central-difference IVS inversion (`IVS_::LocalVol`) and relative bump sizing
+  - Calibration grid construction (`DupireCalib`, `DupireCalibMaturity`)
+  - 2.5-$\Sigma$ strike cutoff, the ATM-call $\sqrt{2\pi}$ proxy, and flat-tail extrapolation
+
 ### Experimental (`experimental/`)
 
 Notes on capabilities that are working but not yet promoted to normative methodology. These
