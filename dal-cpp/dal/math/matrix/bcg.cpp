@@ -43,82 +43,89 @@ namespace Dal {
         };
     } // namespace
 
-    void Sparse::CGSolve(const Sparse::Square_& A,
-                         const Vector_<>& b,
-                         double tolRel,
-                         double tolAbs,
-                         int maxIterations,
-                         Vector_<>* x) {
-        const int n = A.Size();
-        REQUIRE(b.size() == n && x->size() == n, "matrix size is not compatible");
-        REQUIRE((IsPositive(tolRel) || IsPositive(tolAbs)) && maxIterations > 0, "parameters is not valid");
+    namespace {
+        // Unified Krylov state for CG (biConjugate = false) and BCG (true). For CG, zzRef/ppRef
+        // alias the real vectors so the shared arithmetic is byte-identical to standalone CG.
+        struct KrylovState_ {
+            const Sparse::Square_& A;
+            const XPrecondition_& precondition;
+            const bool biConjugate;
+            Vector_<> r;
+            Vector_<> rr;
+            Vector_<> z;
+            Vector_<> zz;
+            Vector_<> p;
+            Vector_<> pp;
+            Vector_<>& zzRef; // aliases z for CG, zz for BCG
+            Vector_<>& ppRef; // aliases p for CG, pp for BCG
+            double betaPrev;
 
-        double tNorm = tolRel * sqrt(InnerProduct(b, b)) + tolAbs;
-        XPrecondition_ precondition(A);
-        Vector_<> r(n);
-        Vector_<> z(n);
-        Vector_<> p(n);
-        A.MultiplyLeft(*x, &r);
-        Transform(b, r, std::minus<>(), &r); // r = b - Ax
-        double betaPrev;
-        for (int ii = 0; ii < maxIterations; ++ii) {
-            precondition.Left(r, &z);
-            const double beta = InnerProduct(z, r);
-            p *= ii > 0 ? beta / betaPrev : 0.0;
-            p += z;
-            betaPrev = beta;
-            A.MultiplyLeft(p, &z);
-            const double alphaK = beta / InnerProduct(z, p);
-            Transform(x, p, LinearIncrement(alphaK));
-            Transform(&r, z, LinearIncrement(-alphaK));
-            if (sqrt(InnerProduct(r, r)) <= tNorm)
-                return;
+            KrylovState_(const Sparse::Square_& a, const XPrecondition_& prec, bool biConjugate, int n)
+                : A(a), precondition(prec), biConjugate(biConjugate), r(n), rr(n), z(n), zz(n), p(n), pp(n), zzRef(biConjugate ? zz : z),
+                  ppRef(biConjugate ? pp : p), betaPrev(0.0) {}
+        };
+
+        double PrepareDirection_(KrylovState_& s, int ii) {
+            s.precondition.Left(s.r, &s.z);
+            if (s.biConjugate)
+                s.precondition.Right(s.rr, &s.zz);
+            const double beta = InnerProduct(s.zzRef, s.r);
+            const double multiply = ii > 0 ? beta / s.betaPrev : 0.0;
+            s.p *= multiply;
+            if (s.biConjugate)
+                s.pp *= multiply;
+            s.p += s.z;
+            if (s.biConjugate)
+                s.pp += s.zz;
+            s.betaPrev = beta;
+            return beta;
         }
-        THROW("Exhausted iterations in CGSolve");
+
+        void UpdateSolution_(KrylovState_& s, double beta, Vector_<>* x) {
+            s.A.MultiplyLeft(s.p, &s.z);
+            if (s.biConjugate)
+                s.A.MultiplyRight(s.pp, &s.zz);
+            const double alphaK = beta / InnerProduct(s.z, s.ppRef);
+            Transform(x, s.p, LinearIncrement(alphaK));
+            Transform(&s.r, s.z, LinearIncrement(-alphaK));
+            if (s.biConjugate)
+                Transform(&s.rr, s.zz, LinearIncrement(-alphaK));
+        }
+
+        void ValidateKrylovParams_(int n, const Vector_<>& b, const Vector_<>* x, double tolRel, double tolAbs, int maxIterations) {
+            REQUIRE(b.size() == n && x->size() == n, "matrix size is not compatible");
+            REQUIRE((IsPositive(tolRel) || IsPositive(tolAbs)) && maxIterations > 0, "parameters is not valid");
+        }
+
+        void
+        KrylovSolve_(const Sparse::Square_& A, const Vector_<>& b, double tolRel, double tolAbs, int maxIterations, bool biConjugate, Vector_<>* x) {
+            const int n = A.Size();
+            ValidateKrylovParams_(n, b, x, tolRel, tolAbs, maxIterations);
+
+            const double tNorm = tolRel * sqrt(InnerProduct(b, b)) + tolAbs;
+            XPrecondition_ precondition(A);
+            KrylovState_ s(A, precondition, biConjugate, n);
+
+            A.MultiplyLeft(*x, &s.r);
+            Transform(b, s.r, std::minus<>(), &s.r); // r = b - Ax
+            if (biConjugate)
+                s.rr = s.r;
+
+            for (int ii = 0; ii < maxIterations; ++ii) {
+                const double beta = PrepareDirection_(s, ii);
+                UpdateSolution_(s, beta, x);
+                if (sqrt(InnerProduct(s.r, s.r)) <= tNorm)
+                    return;
+            }
+            THROW(biConjugate ? "Exhausted iterations in BCGSolve" : "Exhausted iterations in CGSolve");
+        }
+    } // namespace
+
+    void Sparse::CGSolve(const Sparse::Square_& A, const Vector_<>& b, double tolRel, double tolAbs, int maxIterations, Vector_<>* x) {
+        KrylovSolve_(A, b, tolRel, tolAbs, maxIterations, false, x);
     }
 
-    void Sparse::BCGSolve(const Sparse::Square_ &A,
-                          const Vector_<> &b,
-                          double tolRel,
-                          double tolAbs,
-                          int maxIterations, Vector_<> *x) {
-        const int n = A.Size();
-        REQUIRE(b.size() == n && x->size() == n, "matrix size is not compatible");
-        REQUIRE((IsPositive(tolRel) || IsPositive(tolAbs)) && maxIterations > 0, "parameters is not valid");
-
-        double tNorm = tolRel * sqrt(InnerProduct(b, b)) + tolAbs;
-        XPrecondition_ precondition(A);
-        Vector_<> r(n);
-        Vector_<> rr(n);
-        Vector_<> z(n);
-        Vector_<> zz(n);
-        Vector_<> p(n);
-        Vector_<> pp(n);
-
-        A.MultiplyLeft(*x, &r);
-        Transform(b, r, std::minus<>(), &r); // r = b - Ax
-        rr = r;
-
-        double betaPrev;
-        for (int ii = 0; ii < maxIterations; ++ii) {
-            precondition.Left(r, &z);
-            precondition.Right(rr, &zz);
-            const double beta = InnerProduct(zz, r);
-            const double multiply = ii > 0 ? beta / betaPrev : 0.0;
-            p *= multiply;
-            pp *= multiply;
-            p += z;
-            pp += zz;
-            betaPrev = beta;
-            A.MultiplyLeft(p, &z);
-            A.MultiplyRight(pp, &zz);
-            const double alphaK = beta / InnerProduct(z, pp);
-            Transform(x, p, LinearIncrement(alphaK));
-            Transform(&r, z, LinearIncrement(-alphaK));
-            Transform(&rr, zz, LinearIncrement(-alphaK));
-            if (sqrt(InnerProduct(r, r)) <= tNorm)
-                return;
-        }
-        THROW("Exhausted iterations in BCGSolve");
+    void Sparse::BCGSolve(const Sparse::Square_& A, const Vector_<>& b, double tolRel, double tolAbs, int maxIterations, Vector_<>* x) {
+        KrylovSolve_(A, b, tolRel, tolAbs, maxIterations, true, x);
     }
 } // namespace Dal
