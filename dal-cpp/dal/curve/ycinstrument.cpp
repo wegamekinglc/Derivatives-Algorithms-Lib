@@ -33,11 +33,6 @@ namespace Dal {
             return PeriodLength_(String::FromInt(months) + "M");
         }
 
-        Handle_<DayBasis::Context_> SinglePeriodContext(const Date_& start, const Date_& maturity, int couponMonths) {
-            const bool singleCouponPeriodIsLast = true;
-            return Handle_<DayBasis::Context_>(new DayBasis::Context_(singleCouponPeriodIsLast, start, maturity, couponMonths));
-        }
-
         const DiscountCurve_& ResolveDiscountCurve(const YieldCurve_& yc,
                                                    const Handle_<YieldCurve_>& fallback,
                                                    const CollateralType_& collateral) {
@@ -79,12 +74,7 @@ namespace Dal {
                 : start_(start), maturity_(maturity), convention_(convention), fallback_(fallback) {}
 
             double operator()(const YieldCurve_& yc) const override {
-                SchedulePeriod_ period;
-                period.unadjustedStart_ = start_;
-                period.unadjustedEnd_ = maturity_;
-                period.accrualStart_ = Holidays::Adjust(convention_.accrualHolidays_, start_, convention_.businessDayConvention_);
-                period.accrualEnd_ = Holidays::Adjust(convention_.accrualHolidays_, maturity_, convention_.businessDayConvention_);
-                period.dayCountContext_ = SinglePeriodContext(start_, maturity_, CouponMonths(start_, maturity_));
+                const SchedulePeriod_ period = BuildSinglePeriodSchedule(start_, maturity_, convention_, CouponMonths(start_, maturity_));
                 const DiscountCurve_& forecast = ResolveForecastCurve(yc, fallback_, convention_);
                 return Tape::ForwardRate<double>(forecast,
                                                  period.accrualStart_,
@@ -113,16 +103,8 @@ namespace Dal {
                   fallback_(fallback) {}
 
             double operator()(const YieldCurve_& yc) const override {
-                SchedulePeriod_ period;
-                period.unadjustedStart_ = start_;
-                period.unadjustedEnd_ = maturity_;
-                period.accrualStart_ = Holidays::Adjust(convention_.accrualHolidays_, start_, convention_.businessDayConvention_);
-                period.accrualEnd_ = Holidays::Adjust(convention_.accrualHolidays_, maturity_, convention_.businessDayConvention_);
-                period.dayCountContext_ = SinglePeriodContext(start_,
-                                                              maturity_,
-                                                              convention_.useProjectionCurve_
-                                                                  ? convention_.forecastTenor_.Months()
-                                                                  : CouponMonths(start_, maturity_));
+                const SchedulePeriod_ period =
+                    BuildSinglePeriodSchedule(start_, maturity_, convention_, SinglePeriodCouponMonths(convention_, start_, maturity_));
                 const DiscountCurve_& forecast = ResolveForecastCurve(yc, fallback_, convention_);
                 return Tape::ForwardRate<double>(forecast,
                                                  period.accrualStart_,
@@ -249,12 +231,7 @@ namespace Dal {
                 : start_(start), maturity_(maturity), convention_(convention) {}
 
             T_ operator()(const YCCtx_<T_>& ctx) const override {
-                SchedulePeriod_ period;
-                period.unadjustedStart_ = start_;
-                period.unadjustedEnd_ = maturity_;
-                period.accrualStart_ = Holidays::Adjust(convention_.accrualHolidays_, start_, convention_.businessDayConvention_);
-                period.accrualEnd_ = Holidays::Adjust(convention_.accrualHolidays_, maturity_, convention_.businessDayConvention_);
-                period.dayCountContext_ = SinglePeriodContext(start_, maturity_, CouponMonths(start_, maturity_));
+                const SchedulePeriod_ period = BuildSinglePeriodSchedule(start_, maturity_, convention_, CouponMonths(start_, maturity_));
                 return ForwardRate(ctx.curve_,
                                     period.accrualStart_,
                                     period.accrualEnd_,
@@ -277,16 +254,8 @@ namespace Dal {
                 : start_(start), maturity_(maturity), convexityAdjustment_(convexityAdjustment), convention_(convention) {}
 
             T_ operator()(const YCCtx_<T_>& ctx) const override {
-                SchedulePeriod_ period;
-                period.unadjustedStart_ = start_;
-                period.unadjustedEnd_ = maturity_;
-                period.accrualStart_ = Holidays::Adjust(convention_.accrualHolidays_, start_, convention_.businessDayConvention_);
-                period.accrualEnd_ = Holidays::Adjust(convention_.accrualHolidays_, maturity_, convention_.businessDayConvention_);
-                period.dayCountContext_ = SinglePeriodContext(start_,
-                                                              maturity_,
-                                                              convention_.useProjectionCurve_
-                                                                  ? convention_.forecastTenor_.Months()
-                                                                  : CouponMonths(start_, maturity_));
+                const SchedulePeriod_ period =
+                    BuildSinglePeriodSchedule(start_, maturity_, convention_, SinglePeriodCouponMonths(convention_, start_, maturity_));
                 return ForwardRate(ctx.curve_,
                                     period.accrualStart_,
                                     period.accrualEnd_,
@@ -353,12 +322,7 @@ namespace Dal {
 
             T_ operator()(const JointCurveBlock_<T_>& block) const override {
                 const DiscountCurve_<T_>& forecast = ResolveForecastT<T_>(block, convention_);
-                SchedulePeriod_ period;
-                period.unadjustedStart_ = start_;
-                period.unadjustedEnd_ = maturity_;
-                period.accrualStart_ = Holidays::Adjust(convention_.accrualHolidays_, start_, convention_.businessDayConvention_);
-                period.accrualEnd_ = Holidays::Adjust(convention_.accrualHolidays_, maturity_, convention_.businessDayConvention_);
-                period.dayCountContext_ = SinglePeriodContext(start_, maturity_, CouponMonths(start_, maturity_));
+                const SchedulePeriod_ period = BuildSinglePeriodSchedule(start_, maturity_, convention_, CouponMonths(start_, maturity_));
                 return ForwardRate(forecast,
                                    period.accrualStart_,
                                    period.accrualEnd_,
@@ -382,16 +346,8 @@ namespace Dal {
 
             T_ operator()(const JointCurveBlock_<T_>& block) const override {
                 const DiscountCurve_<T_>& forecast = ResolveForecastT<T_>(block, convention_);
-                SchedulePeriod_ period;
-                period.unadjustedStart_ = start_;
-                period.unadjustedEnd_ = maturity_;
-                period.accrualStart_ = Holidays::Adjust(convention_.accrualHolidays_, start_, convention_.businessDayConvention_);
-                period.accrualEnd_ = Holidays::Adjust(convention_.accrualHolidays_, maturity_, convention_.businessDayConvention_);
-                period.dayCountContext_ = SinglePeriodContext(start_,
-                                                              maturity_,
-                                                              convention_.useProjectionCurve_
-                                                                  ? convention_.forecastTenor_.Months()
-                                                                  : CouponMonths(start_, maturity_));
+                const SchedulePeriod_ period =
+                    BuildSinglePeriodSchedule(start_, maturity_, convention_, SinglePeriodCouponMonths(convention_, start_, maturity_));
                 return ForwardRate(forecast,
                                    period.accrualStart_,
                                    period.accrualEnd_,
@@ -608,15 +564,12 @@ namespace Dal {
     namespace Tape {
         template <class T_>
         Handle_<JointRate_<T_>> ProjectionRateAt(const YCInstrument_& inst) {
-            if (const auto* d = dynamic_cast<const Deposit_*>(&inst))
-                return d->PrecomputeProjectionT<T_>();
-            if (const auto* f = dynamic_cast<const FRA_*>(&inst))
-                return f->PrecomputeProjectionT<T_>();
-            if (const auto* fu = dynamic_cast<const Future_*>(&inst))
-                return fu->PrecomputeProjectionT<T_>();
-            if (const auto* s = dynamic_cast<const Swap_*>(&inst))
-                return s->PrecomputeProjectionT<T_>();
-            return Handle_<JointRate_<T_>>();
+            return VisitRate(
+                inst,
+                [](const Deposit_& d) { return d.PrecomputeProjectionT<T_>(); },
+                [](const FRA_& f) { return f.PrecomputeProjectionT<T_>(); },
+                [](const Future_& fu) { return fu.PrecomputeProjectionT<T_>(); },
+                [](const Swap_& s) { return s.PrecomputeProjectionT<T_>(); });
         }
 
         template Handle_<JointRate_<Dal::AAD::Number_>> ProjectionRateAt<Dal::AAD::Number_>(const YCInstrument_&);

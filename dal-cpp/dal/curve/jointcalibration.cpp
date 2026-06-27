@@ -228,8 +228,14 @@ namespace Dal {
         }
 
         [[nodiscard]] bool IsSupportedInstrumentType(const YCInstrument_& inst) {
-            return dynamic_cast<const OISSwap_*>(&inst) || dynamic_cast<const Swap_*>(&inst) || dynamic_cast<const Deposit_*>(&inst)
-                   || dynamic_cast<const FRA_*>(&inst) || dynamic_cast<const Future_*>(&inst);
+            // OISSwap_ : public Swap_ reaches the Swap_ arm; the explicit OISSwap_ check in the
+            // original ||-chain was therefore redundant and is dropped here.
+            return VisitRate(
+                inst,
+                [](const Deposit_&) { return true; },
+                [](const FRA_&) { return true; },
+                [](const Future_&) { return true; },
+                [](const Swap_&) { return true; });
         }
 
         bool InstrumentEligibleForAnalyticJacobian(const YCInstrument_& inst, bool onDiscountDeclaration) {
@@ -403,13 +409,14 @@ namespace Dal {
 
             [[nodiscard]] Handle_<Tape::Rate_<Dal::AAD::Number_>>
             DiscountRateT(const YCInstrument_& inst) const {
-                if (const auto* dep = dynamic_cast<const Deposit_*>(&inst))
-                    return dep->PrecomputeT<Dal::AAD::Number_>();
-                if (const auto* f = dynamic_cast<const FRA_*>(&inst))
-                    return f->PrecomputeT<Dal::AAD::Number_>();
-                if (const auto* fu = dynamic_cast<const Future_*>(&inst))
-                    return fu->PrecomputeT<Dal::AAD::Number_>();
-                return static_cast<const Swap_*>(&inst)->PrecomputeT<Dal::AAD::Number_>();
+                // Caller (ComputeTemplatedResiduals) has already filtered to supported types via
+                // InstrumentEligibleForAnalyticJacobian; VisitRate returns an empty handle on miss.
+                return VisitRate(
+                    inst,
+                    [](const Deposit_& d) { return d.PrecomputeT<Dal::AAD::Number_>(); },
+                    [](const FRA_& f) { return f.PrecomputeT<Dal::AAD::Number_>(); },
+                    [](const Future_& fu) { return fu.PrecomputeT<Dal::AAD::Number_>(); },
+                    [](const Swap_& s) { return s.PrecomputeT<Dal::AAD::Number_>(); });
             }
 
             [[nodiscard]] Vector_<Dal::AAD::Number_>
@@ -504,32 +511,24 @@ namespace Dal {
             diag.marketRates_.reserve(slot.nInstruments);
             diag.modelRates_.reserve(slot.nInstruments);
             diag.residuals_.reserve(slot.nInstruments);
-            double sqResidual = 0.0;
             for (int i = 0; i < slot.nInstruments; ++i) {
                 const double modelRate = (*slot.rates[i])(solvedBlock);
                 const double marketRate = slot.marketRates[i];
-                const double residual = modelRate - marketRate;
                 diag.instrumentNames_.push_back(slot.instruments[i]->Name());
                 diag.marketRates_.push_back(marketRate);
                 diag.modelRates_.push_back(modelRate);
-                diag.residuals_.push_back(residual);
-                diag.maxAbsResidual_ = std::max(diag.maxAbsResidual_, std::fabs(residual));
-                sqResidual += residual * residual;
+                diag.residuals_.push_back(modelRate - marketRate);
             }
-            diag.rmsResidual_ = slot.nInstruments == 0 ? 0.0 : std::sqrt(sqResidual / slot.nInstruments);
+            const ResidualStats_ stats = ResidualStats(diag.residuals_);
+            diag.maxAbsResidual_ = stats.maxAbsResidual_;
+            diag.rmsResidual_ = stats.rmsResidual_;
             return diag;
         }
 
         [[noreturn]] void ThrowNonConvergence(const JointResidualFunction_& func, const Vector_<>& residuals) {
-            double maxAbs = 0.0;
-            double sq = 0.0;
-            for (const double r : residuals) {
-                maxAbs = std::max(maxAbs, std::fabs(r));
-                sq += r * r;
-            }
-            const double rms = residuals.empty() ? 0.0 : std::sqrt(sq / residuals.size());
-            THROW(String_("Joint multi-curve calibration failed to converge: maxAbsResidual = ") + String::FromDouble(maxAbs) +
-                  ", rmsResidual = " + String::FromDouble(rms) + " after " + String::FromInt(func.EvaluationCount()) + " evaluations");
+            const ResidualStats_ stats = ResidualStats(residuals);
+            THROW(String_("Joint multi-curve calibration failed to converge: maxAbsResidual = ") + String::FromDouble(stats.maxAbsResidual_) +
+                  ", rmsResidual = " + String::FromDouble(stats.rmsResidual_) + " after " + String::FromInt(func.EvaluationCount()) + " evaluations");
         }
 
         // ---- Helpers extracted from CalibrateJointMultiCurve for cyclomatic complexity (Codacy) ----
