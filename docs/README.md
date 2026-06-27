@@ -95,6 +95,12 @@ Deep dives into the quantitative methods and algorithms implemented in DAL:
   - `DistributionNormalLike_` shared base, vega-notional (`VolVega`), parameter derivatives
   - Brent implied-vol inversion (`BlackIV` / `BachelierIV`) and intrinsic floor
 
+- **[quadrature.md](methodology/quadrature.md)** — Numerical Quadrature
+  - Gauss-Hermite construction (orthonormal Hermite recurrence, Newton root search, node/weight mapping)
+  - Standard-normal-expectation rule `NCDFGaussHermiteWeights` / `NormalExpectation_`
+  - Composite Simpson's 1/3 rule `SimpsonWeights` / `QuadSimpson_` and the odd-node forcing
+  - The `Quad1DFixed_<T_>` pull-style driver loop and vector-valued integration
+
 ### Experimental (`experimental/`)
 
 Notes on capabilities that are working but not yet promoted to normative methodology. These
