@@ -26,4 +26,4 @@ namespace Dal {
 
         void FinalizeSpacings() { dplus_.back() = dminus_.front() = Null_<double>(); }
     };
-}
+} // namespace Dal

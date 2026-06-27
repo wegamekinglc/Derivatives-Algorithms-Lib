@@ -72,3 +72,25 @@ TEST(AADTapeTest, TestRepeatedClearAndRecord) {
         ASSERT_NEAR(Adjoint(x), 2.0, 1e-10);
     }
 }
+
+#if !defined(DAL_USE_XAD_AAD) && !defined(DAL_USE_CODIPACK_AAD) && !defined(DAL_USE_ADEPT_AAD)
+TEST(AADTapeTest, TestClearEmptiesAdjointsMultiAfterMultiToNonMultiToggle) {
+    auto* tape = Dal::AAD::Tape();
+    Clear(*tape);
+
+    {
+        auto resetter = Dal::AAD::SetNumResultsForAAD(true, 2);
+        Number_ x0 = 1.0;
+        Number_ x1 = 2.0;
+        PutOnTape(x0);
+        PutOnTape(x1);
+        ASSERT_GT(tape->adjointsMulti_.Size(), 0);
+    }
+
+    ASSERT_FALSE(Tape_::multi_);
+    Clear(*tape);
+    ASSERT_EQ(tape->adjointsMulti_.Size(), 0);
+
+    Clear(*tape);
+}
+#endif

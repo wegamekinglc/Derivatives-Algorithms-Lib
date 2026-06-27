@@ -37,6 +37,15 @@ namespace Dal::AAD {
             fn(tape.argPtrs_);
             fn(tape.nodes_);
         }
+
+        // adjointsMulti_ is cleared unconditionally so a tape toggled from multi
+        // to non-multi (SetNumResultsForAAD) does not retain stale adjoints.
+        template <class F_> void ForEachBlockAll(Tape_& tape, F_&& fn) {
+            fn(tape.adjointsMulti_);
+            fn(tape.ders_);
+            fn(tape.argPtrs_);
+            fn(tape.nodes_);
+        }
     }
 
     void PropagateMarkToStart(Tape_& tape) {
@@ -52,7 +61,7 @@ namespace Dal::AAD {
     }
 
     void Clear(Tape_& tape) {
-        ForEachBlock(tape, [](auto& block) { block.Clear(); });
+        ForEachBlockAll(tape, [](auto& block) { block.Clear(); });
     }
 
     void Mark(Tape_& tape) {
