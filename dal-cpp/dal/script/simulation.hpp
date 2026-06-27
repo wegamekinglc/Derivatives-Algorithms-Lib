@@ -205,51 +205,46 @@ namespace Dal::Script {
 
                 double sumValue = 0.0;
                 auto& results = simResults(threadNum);
+
+                auto runPaths = [&](auto& evaluator, auto evaluate) {
+                    InitModel4ParallelAAD(product, *model, path, evaluator);
+                    for (size_t i = 0; i < pathsInTask; i++) {
+                        AAD::RewindToMark(*AAD::Tape());
+                        random->FillNormal(&gVec);
+                        model->GeneratePath(gVec, &path);
+                        evaluate(path, evaluator);
+                        AAD::Number_ res = evaluator.VarVals()[payoffIndex];
+                        Adjoint(res) = 1.0;
+                        AAD::PropagateToMark(*AAD::Tape());
+                        sumValue += Value(res);
+                    }
+                };
+
+                // Accumulate const-var risks into results.risks_ from whichever evaluator was used
+                auto accumulateConstVarRisks = [&](const auto& constVarVals) {
+                    for (size_t j = 0; j < nConstVars; ++j)
+                        results.risks_[j + nParams] += Adjoint(constVarVals[j]) / static_cast<double>(nPaths);
+                };
+
                 if (compiled) {
                     EvalState_<AAD::Number_> evalState = product.BuildEvalState<AAD::Number_>();
-                    InitModel4ParallelAAD(product, *model, path, evalState);
-
-                    for (size_t i = 0; i < pathsInTask; i++) {
-                        AAD::RewindToMark(*AAD::Tape());
-                        random->FillNormal(&gVec);
-                        model->GeneratePath(gVec, &path);
-                        product.EvaluateCompiled(path, evalState);
-                        AAD::Number_ res = evalState.VarVals()[payoffIndex];
-                        Adjoint(res) = 1.0;
-                        AAD::PropagateToMark(*AAD::Tape());
-                        sumValue += Value(res);
-                    }
-
+                    runPaths(evalState, [&](Scenario_<AAD::Number_>& p, EvalState_<AAD::Number_>& e) {
+                        product.EvaluateCompiled(p, e);
+                    });
                     AAD::PropagateMarkToStart(*AAD::Tape());
-                    for (size_t j = 0; j < nParams; ++j)
-                        results.risks_[j] += Adjoint(*model->Parameters()[j]) / static_cast<double>(nPaths);
-
-                    for (size_t j = 0; j < nConstVars; ++j)
-                        results.risks_[j + nParams] +=  Adjoint(evalState.ConstVarVals()[j]) / static_cast<double>(nPaths);
-                }
-                else {
+                    accumulateConstVarRisks(evalState.ConstVarVals());
+                } else {
                     FuzzyEvaluator_<AAD::Number_> eval = product.BuildFuzzyEvaluator<AAD::Number_>(maxNestedIfs, eps);
-                    InitModel4ParallelAAD(product, *model, path, eval);
-
-                    for (size_t i = 0; i < pathsInTask; i++) {
-                        AAD::RewindToMark(*AAD::Tape());
-                        random->FillNormal(&gVec);
-                        model->GeneratePath(gVec, &path);
-                        product.Evaluate(path, eval);
-                        AAD::Number_ res = eval.VarVals()[payoffIndex];
-                        Adjoint(res) = 1.0;
-                        AAD::PropagateToMark(*AAD::Tape());
-                        sumValue += Value(res);
-                    }
-
+                    runPaths(eval, [&](Scenario_<AAD::Number_>& p, FuzzyEvaluator_<AAD::Number_>& e) {
+                        product.Evaluate(p, e);
+                    });
                     AAD::PropagateMarkToStart(*AAD::Tape());
-                    for (size_t j = 0; j < nParams; ++j)
-                        results.risks_[j] += Adjoint(*model->Parameters()[j]) / static_cast<double>(nPaths);
-
-                    for (size_t j = 0; j < nConstVars; ++j)
-                        results.risks_[j + nParams] +=  Adjoint(eval.ConstVarVals()[j]) / static_cast<double>(nPaths);
-
+                    accumulateConstVarRisks(eval.ConstVarVals());
                 }
+
+                for (size_t j = 0; j < nParams; ++j)
+                    results.risks_[j] += Adjoint(*model->Parameters()[j]) / static_cast<double>(nPaths);
+
                 results.aggregated_ += sumValue;
                 return true;
             }));
