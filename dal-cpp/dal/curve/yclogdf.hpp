@@ -13,14 +13,6 @@
 #include <dal/time/daybasis.hpp>
 
 namespace Dal {
-    // Phase A templatization: DiscountLogDF_ is an alias of Tape::DiscountLogDF_<double>. The double
-    // specialization stays byte-for-byte identical to the pre-Phase-A DiscountLogDF_ (same member
-    // layout, same LogDfAt using interp_ directly, same operator() with std::exp). The Number_
-    // specialization is constructed only by the AAD-tape Gradient override in calibration.cpp, and
-    // its LogDfAt routes through the basis-weight machinery instead of interp_ (the tape records
-    // the dependence on logDF_ that way). Declared in the header so calibration and tests can read
-    // back node dates / DFs via dynamic_cast. Construction is factory-only via NewDiscountLogDF
-    // (double) -- the Number_ factory lives in calibration.cpp and is unreachable from public code.
     namespace Tape {
     template <class T_>
     class DiscountLogDF_ : public CurveWithBase_<DiscountCurve_<T_>, DiscountCurve_<double>>, public FittableCurve_ {
@@ -30,10 +22,7 @@ namespace Dal {
         Vector_<T_> logDF_;
         LogDfScheme_ scheme_;
         Handle_<Interp1_> interp_;
-        // Spline second-derivative sensitivity matrix for LOG_CUBIC_NATURAL: fppCoef_[k][j] holds
-        // d(fpp[k])/d(logDF[j]). For LOG_LINEAR / MIXED-head segments it is empty and unused. The
-        // matrix is a function of the knot abscissae yf_ only, so it is computed once at construction
-        // and is identical for any T_.
+        // LOG_CUBIC_NATURAL / MIXED second-derivative sensitivity matrix; see docs/methodology/log_discount_curve.md §"Basis Weights by Interpolation Scheme".
         Vector_<Vector_<>> fppCoef_;
         // For MIXED: index of the cutoff knot inside yf_ (set even when scheme is non-mixed, so
         // StorageBasisWeightsAt can dispatch without recomputing it). -1 when not applicable.
@@ -42,21 +31,14 @@ namespace Dal {
 
         void RebuildInterp();
         void RebuildBasisAux();
-        // double path: calls interp_(yf) directly (byte-identical to pre-Phase-A).
-        // Number_ path: accumulates the basis weights against logDF_ so the tape records the
-        // dependence on the free-node logDF values (see .claude/designs/aad-analytic-jacobian-phase-a-plan.md
-        // §5.1). Dispatch is compile-time via if constexpr.
+        // T_-dispatched log-DF at year-fraction; see docs/methodology/log_discount_curve.md §"Basis Weights by Interpolation Scheme".
         [[nodiscard]] T_ LogDfAt(double yf) const;
-        // LOG_CUBIC_NATURAL basis weights at yf, on the segment [yf_[k], yf_[k+1]] with the
-        // fppCoef_ second-derivative sensitivities. Output is the (storage node index, weight)
-        // pairs whose weight is non-zero; caller remaps storage node k to solver column k-1.
+        // LOG_CUBIC_NATURAL basis weights at yf on segment k; see docs/methodology/log_discount_curve.md §"Basis Weights by Interpolation Scheme".
         [[nodiscard]] Vector_<std::pair<int, double>> CubicBasisAt(int k, double yf) const;
         // LOG_CUBIC_NATURAL extrapolation weights for yf > yf_.back() (secant extension of the
         // last segment): only the last two free nodes carry nonzero weight.
         [[nodiscard]] Vector_<std::pair<int, double>> CubicExtrapWeights(double yf) const;
-        // Knot-position-only (no logDF dependence) basis weights at query year-fraction yf, as
-        // (storage node index, weight) pairs. Used by the Number_-typed LogDfAt forward path to
-        // accumulate the basis weights against logDF_ on the tape.
+        // Knot-position basis weights at yf; see docs/methodology/log_discount_curve.md §"Basis Weights by Interpolation Scheme".
         [[nodiscard]] Vector_<std::pair<int, double>> StorageBasisWeightsAt(double yf) const;
 
     public:

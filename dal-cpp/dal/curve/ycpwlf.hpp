@@ -20,17 +20,12 @@ namespace Dal {
         template <class T_, class B_ = DiscountCurve_<double>>
         class DiscountPWLF_ : public CurveWithBase_<DiscountCurve_<T_>, B_>, public FittableCurve_ {
             Vector_<Date_> knotDates_;
-            // T_-typed PWL forward parameters: fLeftT_[k], fRightT_[k] per knot k. Registered as
-            // independents on the tape (the free-parameter vector is 2 * nKnots with NO anchor
-            // exclusion -- every knot is free).
+            // T_-typed PWL-forward state; see docs/methodology/yield_curve_jacobian.md §"PWL-forward → log-DF integration".
             Vector_<T_> fLeftT_;
             Vector_<T_> fRightT_;
-            // T_-typed running integral sofarT_[k] = integral of the PWL forward from knot 0 to
-            // knot k. T_-typed so the dependence on fLeftT_/fRightT_ records on the tape.
-            // Recomputed by UpdateT() whenever fLeftT_/fRightT_ change.
+            // T_-typed PWL-forward state; see docs/methodology/yield_curve_jacobian.md §"PWL-forward → log-DF integration".
             Vector_<T_> sofarT_;
-            // Double knot abscissae (serial-day offsets from knot 0). Computed once at
-            // construction; identical for any T_.
+            // T_-typed PWL-forward state; see docs/methodology/yield_curve_jacobian.md §"PWL-forward → log-DF integration".
             Vector_<double> knotAbscissae_;
 
             void UpdateT();
