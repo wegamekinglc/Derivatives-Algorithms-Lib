@@ -55,7 +55,7 @@ namespace Dal {
         double BachelierIV(double fwd, double strike, const OptionType_& type, double price, double guess) {
             static const int MAX_ITERATIONS = 30;
             static const double TOL = 1.0e-10;
-            REQUIRE(price >= type.Payout(fwd, strike), "value below intrinsic value in BlackIV");
+            REQUIRE(price >= type.Payout(fwd, strike), "value below intrinsic value in BachelierIV");
             Brent_ task(guess > 0.0 ? guess : -1.5 * fwd);
             Converged_ done(TOL * max(1.0, fwd), TOL * max(1.0, price));
             for (int i = 0; i < MAX_ITERATIONS; ++i) {
