@@ -37,10 +37,8 @@ namespace Dal::Script {
 
     //  Is V_ a const visitor?
 
+    // Compile-time visitor traits; see docs/methodology/script_engine.md §"Visit-Trait Dispatch".
     template <class V_> inline constexpr bool IsVisitorConst() { return Pack_<CONST_VISITORS>::Includes<V_>(); }
-
-    //  Use : IsVisitorConst<V_>() returns true if V_ is const, or false
-    //  IsVisitorConst() resolves at compile time
 
     //  Does V_ have a Visit for a const N_? A non-const N_?
 
@@ -57,12 +55,5 @@ namespace Dal::Script {
 
         template <typename N_> static bool constexpr ForNodeType(...) { return false; }
     };
-
-    //  Use: HasConstVisit_<V_>::ForNodeType<N_>() returns true
-    //      if V_ declares a method void Visit(const N_&)
-    //      false otherwise
-    //  Everything resolves at compile time
-    //  HasNonConstVisit_ is the same: HasNonConstVisit_<V_>::ForNodeType<N_>()
-    //      returns true if V_ declares void Visit(N_&)
 
 } // namespace Dal::Script

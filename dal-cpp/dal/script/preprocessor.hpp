@@ -19,9 +19,6 @@ namespace Dal::Script {
         std::map<Date_, String_> events_;
     };
 
-    // Built for extension: Process orchestrates a fixed pipeline; every meaningful decision
-    // is a protected virtual, so a derived class can recognise new directive kinds or
-    // placeholders without re-implementing the orchestration.
     class Preprocessor_ {
     public:
         virtual ~Preprocessor_() = default;
