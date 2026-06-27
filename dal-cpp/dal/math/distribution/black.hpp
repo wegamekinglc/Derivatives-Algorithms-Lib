@@ -110,4 +110,4 @@ namespace Dal {
             return Distribution::BachelierGreeks(f_, vol_, strike, type);
         }
     };
-}
+} // namespace Dal

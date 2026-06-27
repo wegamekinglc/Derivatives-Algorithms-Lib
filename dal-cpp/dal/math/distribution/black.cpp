@@ -28,8 +28,9 @@ namespace Dal {
                 Converged_ done(TOL * max(1.0, fwd), TOL * max(1.0, price));
                 for (int i = 0; i < MAX_ITERATIONS; ++i) {
                     const double vol = exp(task.NextX());
-                    if (done(task, pricer(vol) - price))
+                    if (done(task, pricer(vol) - price)) {
                         return vol;
+                    }
                 }
                 THROW("exhausted iterations in " + String_(caller));
             }
@@ -79,7 +80,7 @@ namespace Dal {
         double BachelierIV(double fwd, double strike, const OptionType_& type, double price, double guess) {
             REQUIRE(price >= type.Payout(fwd, strike), "value below intrinsic value in BachelierIV");
             auto pricer = [&](double vol) { return BachelierOpt(fwd, vol, strike, type); };
-            auto guessTransform = [](double g, double fwd) { return g > 0.0 ? g : -1.5 * fwd; };
+            auto guessTransform = [](double g, double fwdIn) { return g > 0.0 ? g : -1.5 * fwdIn; };
             return SolveIV(fwd, price, "BachelierIV", pricer, guessTransform, guess);
         }
 
