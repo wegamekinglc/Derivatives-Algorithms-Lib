@@ -57,6 +57,17 @@ namespace Dal::Script {
             stack_.Push(std::move(str));
         }
 
+        void DebugComp(const CompNode_& node, const char* label) {
+            String_ s = label;
+            if (!node.isDiscrete_) {
+                s += String_("[CONT,EPS=" + std::to_string(node.eps_) + "]");
+            } else {
+                s += "[DISCRETE,";
+                s += String_("BOUNDS=" + std::to_string(node.lb_) + "," + std::to_string(node.rb_) + "]");
+            }
+            Debug(node, s);
+        }
+
     public:
         using ConstVisitor_::Visit;
 
@@ -80,44 +91,16 @@ namespace Dal::Script {
         void Visit(const NodeMax_& node) { Debug(node, "MAX"); }
         void Visit(const NodeMin_& node) { Debug(node, "MIN"); }
 
-        void Visit(const NodeEqual_& node) {
-            String_ s = "EQUALZERO";
-
-            if (!node.isDiscrete_) {
-                s += String_("[CONT,EPS=" + std::to_string(node.eps_) + "]");
-            } else {
-                s += String_("[DISCRETE,");
-                s += String_("BOUNDS=" + std::to_string(node.lb_) + "," + std::to_string(node.rb_) + "]");
-            }
-            Debug(node, s);
-        }
+        void Visit(const NodeEqual_& node) { DebugComp(node, "EQUALZERO"); }
 
         void Visit(const NodeNot_& node) {
             const String_ s = "NOT";
             Debug(node, s);
         }
 
-        void Visit(const NodeSup_& node) {
-            String_ s = "GTZERO";
-            if (!node.isDiscrete_) {
-                s += String_("[CONT,EPS=" + std::to_string(node.eps_) + "]");
-            } else {
-                s += "[DISCRETE,";
-                s += String_("BOUNDS=" + std::to_string(node.lb_) + "," + std::to_string(node.rb_) + "]");
-            }
-            Debug(node, s);
-        }
+        void Visit(const NodeSup_& node) { DebugComp(node, "GTZERO"); }
 
-        void Visit(const NodeSupEqual_& node) {
-            String_ s = "GTEQUALZERO";
-            if (!node.isDiscrete_) {
-                s += String_("[CONT,EPS=" + std::to_string(node.eps_) + "]");
-            } else {
-                s += "[DISCRETE,";
-                s += String_("BOUNDS=" + std::to_string(node.lb_) + "," + std::to_string(node.rb_) + "]");
-            }
-            Debug(node, s);
-        }
+        void Visit(const NodeSupEqual_& node) { DebugComp(node, "GTEQUALZERO"); }
 
         void Visit(const NodeAnd_& node) {
             const String_ s = "AND";

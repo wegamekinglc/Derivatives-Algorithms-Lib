@@ -52,29 +52,24 @@ namespace Dal::Script {
 
         // Expressions — binaries
 
-        void Visit(NodeAdd_& node) {
+        template <class OP_> void VisitBinary(Node_& node, const OP_& op) {
             VisitArguments(node);
-            Domain_ res = domStack_[1] + domStack_[0];
+            Domain_ res = op(domStack_[1], domStack_[0]);
             domStack_.Pop(2);
             domStack_.Push(std::move(res));
+        }
+
+        void Visit(NodeAdd_& node) {
+            VisitBinary(node, [](const Domain_& x, const Domain_& y) { return x + y; });
         }
         void Visit(NodeSub_& node) {
-            VisitArguments(node);
-            Domain_ res = domStack_[1] - domStack_[0];
-            domStack_.Pop(2);
-            domStack_.Push(std::move(res));
+            VisitBinary(node, [](const Domain_& x, const Domain_& y) { return x - y; });
         }
         void Visit(NodeMulti_& node) {
-            VisitArguments(node);
-            Domain_ res = domStack_[1] * domStack_[0];
-            domStack_.Pop(2);
-            domStack_.Push(std::move(res));
+            VisitBinary(node, [](const Domain_& x, const Domain_& y) { return x * y; });
         }
         void Visit(NodeDiv_& node) {
-            VisitArguments(node);
-            Domain_ res = domStack_[1] / domStack_[0];
-            domStack_.Pop(2);
-            domStack_.Push(std::move(res));
+            VisitBinary(node, [](const Domain_& x, const Domain_& y) { return x / y; });
         }
         void Visit(NodePow_& node) {
             VisitArguments(node);
