@@ -25,16 +25,16 @@ namespace Dal {
         return RET_VAL;
     }
 
-    double FixHistory_::Find(const DateTime_& fix_time, bool quiet) const {
-        auto less_ = [](const pair<DateTime_, double>& lhs, const DateTime_& rhs) { return lhs.first < rhs; };
-
-        auto pGE = std::lower_bound(vals_.begin(), vals_.end(), fix_time, less_);
-        if (pGE == vals_.end() || pGE->first != fix_time) {
+    double LookupFixing(const std::map<DateTime_, double>& vals, const DateTime_& fixTime, bool quiet) {
+        auto pf = vals.find(fixTime);
+        if (pf == vals.end()) {
             REQUIRE(quiet, "no fixings for that time");
             return -INF;
         }
-        return pGE->second;
+        return pf->second;
     }
+
+    double FixHistory_::Find(const DateTime_& fix_time, bool quiet) const { return LookupFixing(vals_, fix_time, quiet); }
 
     void Fixings_::Write(Archive::Store_& dst) const {
         Fixings::XWrite(dst, name_, MapValues(vals_), Keys(vals_));

@@ -15,9 +15,7 @@ namespace Dal {
     }
 
     DupireModelData_* DupireModelData_::MutantModel(const String_* newName, const Slide_* slide) const {
-        std::unique_ptr<DupireModelData_> temp(new DupireModelData_(*newName, spot_, rate_, repo_, spots_, times_, vols_));
-        if (slide) {
-        }
-        return temp.release();
+        REQUIRE(!slide, "slides are not supported for DupireModelData");
+        return new DupireModelData_(*newName, spot_, rate_, repo_, spots_, times_, vols_);
     }
-}
+} // namespace Dal

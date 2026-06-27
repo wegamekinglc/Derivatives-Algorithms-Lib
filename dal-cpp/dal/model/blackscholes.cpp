@@ -15,9 +15,7 @@ namespace Dal {
     }
 
     BSModelData_* BSModelData_::MutantModel(const String_* newName, const Slide_* slide) const {
-        std::unique_ptr<BSModelData_> temp(new BSModelData_(*newName, spot_, vol_, rate_, div_));
-        if (slide) {
-        }
-        return temp.release();
+        REQUIRE(!slide, "slides are not supported for BSModelData");
+        return new BSModelData_(*newName, spot_, vol_, rate_, div_);
     }
-}
+} // namespace Dal
