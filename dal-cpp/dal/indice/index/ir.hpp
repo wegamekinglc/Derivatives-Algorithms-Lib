@@ -43,11 +43,10 @@ namespace Dal::Index {
     class DF_ : public Index_ {
     public:
         const Ccy_ ccy_;
-        const Cell_ maturity_; // fixed end date, or days/tenor offset -- offset is from fixing, NOT from start date
-                               // (i.e., "2Y" start and "3Y" maturity does not lead to 5y final maturity)
+        // maturity/start offsets are from the fixing date; see docs/methodology/yield_curve.md §"Multi-Curve Framework".
+        const Cell_ maturity_;
         const CollateralType_ collateral_;
-        Cell_ start_; // fixed start date, or number of days offset, or tenor offset -- leave empty for the usual spot
-                      // index
+        Cell_ start_;
 
         DF_(const Ccy_& ccy,
             const Cell_& maturity,

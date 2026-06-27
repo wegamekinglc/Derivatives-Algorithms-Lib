@@ -2,9 +2,7 @@
 // Created by wegam on 2022/4/3.
 //
 
-// global in-process store of objects
-// allows objects to be identified with string tags, e.g. for Excel use
-// provide this as an environment entry, so it can be shared by callers
+// In-process store of objects identified by string tags, exposed as an environment entry.
 
 #pragma once
 
