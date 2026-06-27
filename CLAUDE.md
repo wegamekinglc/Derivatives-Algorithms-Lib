@@ -139,6 +139,7 @@ Detailed documentation of the quantitative methods implemented in this library:
 - **Yield-Curve Jacobian and Inverse-Jacobian Risk** — [Yield-curve Jacobian](docs/methodology/yield_curve_jacobian.md)
 - **Script Engine** — [Script engine](docs/methodology/script_engine.md)
 - **Dupire Local Volatility** — [Dupire local volatility](docs/methodology/dupire.md)
+- **Black / Bachelier Vanilla Pricing** — [Black / Bachelier vanilla pricing](docs/methodology/black_scholes.md)
 
 Notable fundamental changes are recorded in [CHANGELOG.md](CHANGELOG.md).
 
