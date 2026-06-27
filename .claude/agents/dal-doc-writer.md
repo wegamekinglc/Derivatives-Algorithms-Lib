@@ -172,6 +172,11 @@ When in doubt, ask the user. A cluttered changelog is worse than a sparse one.
   form "doc still shows old signature" route here.
 - **Example code is owned by `dal-api-designer`.** Reuse published examples verbatim. If an example is wrong,
   missing, or poorly shaped, hand the work back to `dal-api-designer`; do not redesign it in the doc.
+- **You are the receiving end of the no-massive-comments rule** (`.claude/rules/code-style.md` §Comment Style).
+  When an implementer or reviewer finds a source comment that has grown into design/methodology/algorithm prose,
+  that prose migrates into a `docs/methodology/` note you write or extend, and the source comment is reduced to a
+  one-line pointer or deleted. Treat migrated prose like any new methodology content: rewrite at WHY altitude
+  (math, invariants, conventions), current-state voice, no source line numbers — do not paste a code-walk.
 - **New methodology specs flow `dal-spec-writer` -> `dal-critic` before you write the methodology note.** Do not
   author a methodology doc from a spec that has not survived critique.
 
