@@ -11,6 +11,7 @@
 #include <dal/curve/fittable.hpp>
 #include <dal/curve/yccomponent.hpp>
 #include <dal/curve/discount.hpp>
+#include <dal/curve/piecewiselinear.hpp>
 #include <dal/math/aad/aad.hpp>
 #include <dal/math/vectors.hpp>
 #include <dal/storage/archive.hpp>
@@ -19,6 +20,10 @@
 #include <dal/utilities/exceptions.hpp>
 
 namespace Dal {
+    // SINGLE-INCLUSION: DiscountPWLF_v1::XWrite is defined here. It is marked inline, but this
+    // .inc file must remain included in exactly one translation unit to keep the inline function
+    // body out of every header that pulls it in.
+    #include <dal/auto/MG_DiscountPWLF_v1_Write.inc>
     namespace Tape {
         template <class T_, class B_>
         DiscountPWLF_<T_, B_>::DiscountPWLF_(const String_& name,
@@ -46,16 +51,21 @@ namespace Dal {
 
         template <class T_, class B_>
         void DiscountPWLF_<T_, B_>::UpdateT() {
-            // T_-typed running integral using fLeftT_[ii] + fRightT_[ii-1] segment indexing.
-            // Abscissa weights (dt) are double; mean and sofarT_ are T_.
-            const int n = static_cast<int>(knotDates_.size());
-            if (static_cast<int>(sofarT_.size()) != n)
-                sofarT_.Resize(n);
-            sofarT_.Fill(T_(0.0));
-            for (int ii = 1; ii < n; ++ii) {
-                const double dt = knotAbscissae_[ii] - knotAbscissae_[ii - 1];
-                const T_ mean = (fLeftT_[ii] + fRightT_[ii - 1]) * static_cast<double>(0.5);
-                sofarT_[ii] = sofarT_[ii - 1] + static_cast<double>(dt) * mean;
+            if constexpr (std::is_same_v<T_, double>) {
+                // The double running integral delegates to PiecewiseLinear_::Sofar so the double
+                // curve's intermediate Jacobian/ApplyDX states stay bit-identical to the pre-dedup
+                // factory curve across compilers. The T_-typed accumulation below stays the AAD path.
+                sofarT_ = PiecewiseLinear_(knotDates_, fLeftT_, fRightT_).Sofar();
+            } else {
+                const int n = static_cast<int>(knotDates_.size());
+                if (static_cast<int>(sofarT_.size()) != n)
+                    sofarT_.Resize(n);
+                sofarT_.Fill(T_(0.0));
+                for (int ii = 1; ii < n; ++ii) {
+                    const double dt = knotAbscissae_[ii] - knotAbscissae_[ii - 1];
+                    const T_ mean = (fLeftT_[ii] + fRightT_[ii - 1]) * static_cast<double>(0.5);
+                    sofarT_[ii] = sofarT_[ii - 1] + static_cast<double>(dt) * mean;
+                }
             }
         }
 
@@ -85,13 +95,19 @@ namespace Dal {
 
         template <class T_, class B_>
         T_ DiscountPWLF_<T_, B_>::operator()(const Date_& from, const Date_& to) const {
-            const double fromT = static_cast<double>(from - knotDates_.front());
-            const double toT = static_cast<double>(to - knotDates_.front());
-            const T_ logDf = -(IntegralTo(toT) - IntegralTo(fromT)) / static_cast<double>(DAYS_PER_YEAR_PWLF);
             if constexpr (std::is_same_v<T_, double>) {
+                // The double curve reuses PiecewiseLinear_::IntegralTo so its DFs are bit-identical to
+                // the pre-dedup factory curve; combined with UpdateT delegating to PiecewiseLinear_::Sofar
+                // this keeps joint-vs-staged calibration drift stable across gcc/clang/msvc. The offset
+                // path below stays the AAD-tape recording path.
+                const PiecewiseLinear_ pwl(knotDates_, fLeftT_, fRightT_);
+                const double integral = pwl.IntegralTo(to) - pwl.IntegralTo(from);
                 const double baseFactor = this->base_ ? (*this->base_)(from, to) : 1.0;
-                return std::exp(logDf) * baseFactor;
+                return std::exp(-integral / DAYS_PER_YEAR_PWLF) * baseFactor;
             } else {
+                const double fromT = static_cast<double>(from - knotDates_.front());
+                const double toT = static_cast<double>(to - knotDates_.front());
+                const T_ logDf = -(IntegralTo(toT) - IntegralTo(fromT)) / static_cast<double>(DAYS_PER_YEAR_PWLF);
                 if (this->base_) {
                     const auto baseVal = (*this->base_)(from, to);
                     return Dal::AAD::exp(logDf) * baseVal;
@@ -118,12 +134,13 @@ namespace Dal {
 
         template <class T_, class B_>
         void DiscountPWLF_<T_, B_>::Write(Archive::Store_& dst) const {
-            // The Number_ specialization is never serialized (the AAD path constructs it only for
-            // the duration of one Gradient sweep); this method exists to satisfy the base-class
-            // virtual and is exercised only on the double specialization. Extract doubles via
-            // Dal::AAD::Value so the template compiles on every T_.
-            REQUIRE(false, "Tape::DiscountPWLF_<T_>::Write is not implemented -- the templated PWL-forward curve is non-storable; use the anonymous-namespace double DiscountPWLF_ at ycimp.cpp for storage");
-            static_cast<void>(dst);
+            if constexpr (std::is_same_v<T_, double> && std::is_same_v<B_, DiscountCurve_<double>>) {
+                DiscountPWLF_v1::XWrite(dst, this->name_, this->ccy_.String(),
+                                        knotDates_, fLeftT_, fRightT_, this->base_);
+            } else {
+                REQUIRE(false, "Tape::DiscountPWLF_ is only serializable for <double, DiscountCurve_<double>>");
+                static_cast<void>(dst);
+            }
         }
 
         template <class T_, class B_>
