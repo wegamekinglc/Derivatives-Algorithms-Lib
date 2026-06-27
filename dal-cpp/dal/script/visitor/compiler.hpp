@@ -100,6 +100,14 @@ namespace Dal::Script {
         }
     };
 
+    // TODO: this hand-written enum duplicates the Machinist block above, but migration is
+    // deferred. The generated NodeType_ is a class wrapper over Value_ : char, not an enum,
+    // so it cannot be used as a non-type template parameter (VisitBinary/VisitUnary/
+    // VisitCondition rely on template <NodeType_ ...>). The two enums also diverge: the
+    // markup names differ (Mult vs Multi, Uminus vs UMinus) and omit Exp, and the integer
+    // values diverge from Smooth/Sqrt/Log onward. Migrating would require restructuring the
+    // templates and renaming ~167 bare-opcode references while keeping the compiled
+    // nodeStream_ integer contract stable. See PR body for the full assessment.
     enum NodeType_ {
         Add = 0,
         AddConst = 1,
@@ -546,6 +554,9 @@ namespace Dal::Script {
                 ++i;
                 break;
             case Smooth:
+                // Dead opcode: Compiler_::Visit* never emits Smooth into nodeStream_,
+                // so this case is unreachable. (Right-branch below would also be wrong
+                // if it were ever emitted; left and right both test x < -y.)
                 // Eval the condition
                 x = dStack[3];
                 y = 0.5 * dStack.Top();

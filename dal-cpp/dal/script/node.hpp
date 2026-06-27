@@ -115,7 +115,8 @@ namespace Dal::Script {
 
     //	If
     struct NodeIf_ : public Visitable_<ActNode_, NodeIf_, VISITORS> {
-        int firstElse_ = 0;
+        // -1 means no else branch; consumers test firstElse_ == -1
+        int firstElse_ = -1;
         //	For fuzzy eval: indices of variables affected in statements, including nested
         Vector_<size_t> affectedVars_;
         //	Always true/false as per domain processor
