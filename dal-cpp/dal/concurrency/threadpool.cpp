@@ -23,7 +23,7 @@ namespace Dal {
 
     void ThreadPool_::Start(size_t n_threads, bool restart) {
         const size_t hw = std::max<unsigned>(1u, std::thread::hardware_concurrency());
-        if (n_threads <= 0 || n_threads > hw)
+        if (n_threads == 0 || n_threads > hw)
             n_threads = hw;
 
         if (active_ && restart)
