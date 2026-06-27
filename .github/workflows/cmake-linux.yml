@@ -138,3 +138,38 @@ jobs:
           ADDITIONAL_CMAKE_FLAGS: -DDAL_USE_XAD_AAD=off -DDAL_USE_CODIPACK_AAD=off -DDAL_USE_ADEPT_AAD=off -DDAL_BUILD_PYTHON=ON
         run: |
           bash -e ./build_linux.sh
+
+  # Benchmark job: builds and runs all 8 performance benchmarks on one
+  # representative configuration (gcc-14, native/AADet backend, -O3).
+  # Results appear in the CI logs — no pass/fail gate (timing, not correctness).
+  benchmark:
+    name: Benchmarks
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+        with:
+          submodules: recursive
+
+      - name: Setup
+        run: |
+          sudo apt install -y gcc-14 g++-14 make cmake \
+            libc++-dev autotools-dev autoconf libtool
+
+      - name: Build
+        env:
+          CC: gcc-14
+          CXX: g++-14
+          CXXFLAGS: -O3
+          ADDITIONAL_CMAKE_FLAGS: -DDAL_USE_XAD_AAD=off -DDAL_USE_CODIPACK_AAD=off -DDAL_USE_ADEPT_AAD=off -DDAL_BUILD_PYTHON=OFF
+        run: |
+          bash -e ./build_linux.sh
+
+      - name: Run benchmarks
+        run: |
+          for bench in tape_perf jacobian_perf pde_perf rng_perf \
+                       interp_perf krylov_perf banded_perf cholesky_perf; do
+            echo "========== $bench =========="
+            ./bin/$bench || true
+            echo
+          done

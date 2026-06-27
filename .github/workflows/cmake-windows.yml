@@ -144,3 +144,84 @@ jobs:
         run: |
           cd build
           ctest --output-on-failure --verbose -C Release
+
+  # Benchmark job: builds and runs all 8 performance benchmarks on one
+  # representative configuration (msvc, native/AADet backend).
+  # Results appear in the CI logs — no pass/fail gate (timing, not correctness).
+  benchmark:
+    name: Benchmarks
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+        with:
+          submodules: recursive
+
+      - name: Setup MSVC environment
+        shell: pwsh
+        run: |
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $vsPath = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          if (-not $vsPath) {
+            throw "Visual Studio with C++ build tools was not found"
+          }
+          $vsDevCmd = Join-Path $vsPath "Common7\Tools\VsDevCmd.bat"
+          if (-not (Test-Path $vsDevCmd)) {
+            throw "VsDevCmd.bat was not found at $vsDevCmd"
+          }
+          $varsToExport = @(
+            "Path", "PATH", "INCLUDE", "LIB", "LIBPATH",
+            "UniversalCRTSdkDir", "UCRTVersion", "VCINSTALLDIR",
+            "VCToolsInstallDir", "VSINSTALLDIR", "WindowsSdkDir", "WindowsSDKVersion"
+          )
+          cmd /c "`"$vsDevCmd`" -host_arch=x64 -arch=x64 && set" | ForEach-Object {
+            if ($_ -match "^(.*?)=(.*)$") {
+              $name = $matches[1]
+              if ($varsToExport -contains $name) {
+                "$name=$($matches[2])" >> $env:GITHUB_ENV
+              }
+            }
+          }
+
+      - name: Build Machinist
+        shell: bash
+        run: |
+          cd dal-cpp/externals/machinist
+          rm -rf build
+          mkdir -p build
+          cd build
+          cmake --preset Release-windows ..
+          cmake --build .
+          cmake --install .
+
+      - name: Run code generation
+        shell: bash
+        run: |
+          export MACHINIST_TEMPLATE_DIR="$(pwd -W)/dal-cpp/externals/machinist/template/"
+          ./dal-cpp/externals/machinist/bin/Machinist.exe -c dal-cpp/config/dal.ifc -l dal-cpp/config/dal.mgl -d ./dal-cpp/dal
+          ./dal-cpp/externals/machinist/bin/Machinist.exe -c dal-cpp/config/dal.ifc -l dal-cpp/config/dal.mgl -d ./dal-excel
+
+      - name: Compile
+        shell: bash
+        env:
+          CC: cl
+          CXX: cl
+        run: |
+          rm -rf build
+          mkdir -p build
+          cd build
+          cmake --preset Release-windows -DDAL_BUILD_PUBLIC=ON -DDAL_CPP_BUILD_EXAMPLES=ON \
+            -DDAL_USE_XAD_AAD=off -DDAL_USE_CODIPACK_AAD=off -DDAL_USE_ADEPT_AAD=off \
+            -DDAL_BUILD_PYTHON=OFF ..
+          cmake --build .
+          cmake --install .
+
+      - name: Run benchmarks
+        shell: bash
+        run: |
+          for bench in tape_perf jacobian_perf pde_perf rng_perf \
+                       interp_perf krylov_perf banded_perf cholesky_perf; do
+            echo "========== $bench =========="
+            ./bin/$bench.exe || true
+            echo
+          done
