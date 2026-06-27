@@ -6,7 +6,6 @@
 
 #include <dal/math/vectors.hpp>
 #include <dal/utilities/exceptions.hpp>
-#include <dal/protocol/collateraltype.hpp>
 
 /*IF--------------------------------------------------------------------------
 enumeration Clearer
@@ -14,7 +13,6 @@ enumeration Clearer
 switchable
 alternative CME
 alternative LCH
-method CollateralType_ Collateral() const;
 -IF-------------------------------------------------------------------------*/
 
 namespace Dal {
