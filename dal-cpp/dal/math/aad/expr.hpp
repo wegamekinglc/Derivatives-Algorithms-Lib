@@ -623,14 +623,6 @@ namespace Dal::AAD {
     }
 
     FORCE_INLINE void PutOnTape(Number_&) {}
-
-    FORCE_INLINE Number_ NPDF(const Number_& z) {
-        return 0.3989422804014327 * exp(-0.5 * z * z);
-    }
-
-    FORCE_INLINE Number_ NCDF(const Number_& z) {
-        return 0.5 * erfc(-z / 1.4142135623730951);
-    }
 } // namespace Dal::AAD
 #elif defined(DAL_USE_XAD_AAD)
 #include <dal/math/aad/tape.hpp>
@@ -681,17 +673,6 @@ namespace Dal::AAD {
 
     FORCE_INLINE void PutOnTape(Number_& n) {
         Tape()->tape_.registerInput(n);
-    }
-
-
-    template <class T_>
-    FORCE_INLINE auto NPDF(const T_& z) {
-        return 0.3989422804014327 * exp(-0.5 * z * z);
-    }
-
-    template <class T_>
-    FORCE_INLINE auto NCDF(const T_& z) {
-        return 0.5 * erfc(-z / 1.4142135623730951);
     }
 } // namespace Dal::AAD
 #elif defined(DAL_USE_CODIPACK_AAD)
@@ -744,15 +725,20 @@ namespace Dal::AAD {
     FORCE_INLINE void PutOnTape(Number_& n) {
         Tape()->tape_.registerInput(n);
     }
+} // namespace Dal::AAD
+#endif
 
-    template <class T_>
-    FORCE_INLINE auto NPDF(const T_& z) {
-        return 0.3989422804014327 * exp(-0.5 * z * z);
+#if defined(DAL_USE_ADEPT_AAD) || defined(DAL_USE_XAD_AAD) || defined(DAL_USE_CODIPACK_AAD)
+namespace Dal::AAD {
+    constexpr double INV_SQRT_2PI = 0.3989422804014327;
+    constexpr double SQRT_2 = 1.4142135623730951;
+
+    FORCE_INLINE Number_ NPDF(const Number_& z) {
+        return INV_SQRT_2PI * exp(-0.5 * z * z);
     }
 
-    template <class T_>
-    FORCE_INLINE auto NCDF(const T_& z) {
-        return 0.5 * erfc(-z / 1.4142135623730951);
+    FORCE_INLINE Number_ NCDF(const Number_& z) {
+        return 0.5 * erfc(-z / SQRT_2);
     }
 } // namespace Dal::AAD
 #endif

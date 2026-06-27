@@ -119,6 +119,6 @@ namespace Dal {
             if (sqrt(InnerProduct(r, r)) <= tNorm)
                 return;
         }
-        THROW("Exhausted iterations in CGSolve");
+        THROW("Exhausted iterations in BCGSolve");
     }
 } // namespace Dal
