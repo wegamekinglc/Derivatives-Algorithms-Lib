@@ -67,7 +67,7 @@ eligible calibration through `CalibrateYieldCurve` and read
 rebuild the curve via `NewDiscountLogDF(...)`, reprice every instrument — gives
 the same $J$ with a truncation error of $O(h^2)$ and a round-off floor of
 roughly $\varepsilon/h$. At $h = 10^{-6}$ both are around $10^{-10}$ for the
-well-conditioned Phase A residual map, so the two methods agree to $10^{-9}$
+well-conditioned `LOG_DISCOUNT` residual map, so the two methods agree to $10^{-9}$
 relative. The example asserts that bar element-wise and prints the worst
 discrepancy.
 
@@ -307,6 +307,19 @@ new `NodeLogDF()` against the linear prediction). That re-solve path is the
 honest sanity check: the alternative "analytic forward map" prediction is
 tautological and is deliberately not used.
 
+### Parameter sensitivity $g$
+
+The transform needs $g$ as a *portfolio* sensitivity, computed independently of
+the AAD tape that produced the residual Jacobian. That tape records
+$\partial(\text{modelRate} - \text{marketRate})/\partial x$ — a rate residual, not
+a price. Reusing it for $g$ would conflate a residual sensitivity with a PV
+sensitivity (different units, different sign). The example computes $g$ by its
+own central-difference bump on the calibrated curve. In the public API the
+`YCInstrument_` surface exposes only the par-rate model rate (float-PV over
+annuity), not the leg PVs, so $g$ there is a par-rate sensitivity and $r$ is a
+par-rate risk per decimal quote bump; the annuity scaling that would convert it
+to a true price DV01 is not exposed.
+
 ### Nonlinear re-solve tolerance
 
 The re-solve sanity check compares the linear inverse-Jacobian prediction
@@ -327,7 +340,7 @@ derivative.
 ## Timing: BUMPED vs ANALYTIC
 
 The example also times `CurveJacobianMode_::{BUMPED,ANALYTIC}` calibrations on
-the same EXACT solve. Both modes run the identical Phase A Newton solve; the only
+the same EXACT solve. Both modes run the identical Newton solve; the only
 difference is how the forward Jacobian is obtained — $n$ serial finite-difference
 re-calibrations for `BUMPED` versus one AAD reverse sweep per residual row for
 `ANALYTIC`. Each `CalibrateYieldCurve` call resets its own tape internally, so
@@ -340,19 +353,6 @@ convergence branch to populate `CurveCalibrationDiagnostics_::jacobian_`, which
 "`ANALYTIC` solve-with-Jacobian vs `BUMPED` solve-without-Jacobian". A truly
 matched comparison would give `BUMPED` its own separate finite-difference
 Jacobian pass to produce the same diagnostic, which the example does not do.
-
-### Parameter sensitivity $g$
-
-The transform needs $g$ as a *portfolio* sensitivity, computed independently of
-the AAD tape that produced the residual Jacobian. That tape records
-$\partial(\text{modelRate} - \text{marketRate})/\partial x$ — a rate residual, not
-a price. Reusing it for $g$ would conflate a residual sensitivity with a PV
-sensitivity (different units, different sign). The example computes $g$ by its
-own central-difference bump on the calibrated curve. In the public API the
-`YCInstrument_` surface exposes only the par-rate model rate (float-PV over
-annuity), not the leg PVs, so $g$ there is a par-rate sensitivity and $r$ is a
-par-rate risk per decimal quote bump; the annuity scaling that would convert it
-to a true price DV01 is not exposed.
 
 ## See Also
 

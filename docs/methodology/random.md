@@ -252,3 +252,12 @@ directly rather than iterating through every intermediate point.
   engines, `MRG32` has the stronger theoretical guarantees and full `SkipTo`
   support for substream parallelism; `IRN` is retained as a lightweight
   Knuth-style alternative.
+
+## See Also
+
+- [Script engine](script_engine.md) — the Monte Carlo driver that consumes these
+  generators; the Brownian bridge is most effective when wrapped around a Sobol
+  sequence for path-dependent payoffs.
+- [AAD methodology](aad.md) — `SkipTo` and the per-thread tape make pathwise-adjoint
+  Monte Carlo parallelisable without synchronisation during the forward or reverse
+  passes.

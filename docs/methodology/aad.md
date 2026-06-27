@@ -258,8 +258,8 @@ at one curve, forecast at another) that IBOR-projection instruments require.
 dal-cpp/dal/curve/jointrate.hpp
 ```
 
-A sibling of Phase A's `Tape::Rate_<T_>` (which is bound to `YCCtx_<T_>` and
-reads a single curve). `JointRate_<T_>` declares a pure virtual
+A sibling of the single-curve `Tape::Rate_<T_>` (which is bound to `YCCtx_<T_>`
+and reads a single curve). `JointRate_<T_>` declares a pure virtual
 `T_ operator()(const JointCurveBlock_<T_>& block)` so each subclass can read
 both a discount curve AND a forecast curve in the `T_` domain. The three
 projection-capable subclasses are:

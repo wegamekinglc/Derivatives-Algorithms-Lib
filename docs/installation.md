@@ -100,8 +100,8 @@ ADDITIONAL_CMAKE_FLAGS="-DDAL_BUILD_PYTHON=OFF" bash build_linux.sh
 # Disable benchmarks
 ADDITIONAL_CMAKE_FLAGS="-DDAL_CPP_BUILD_BENCHMARKS=OFF" bash build_linux.sh
 
-# Use XAD backend instead of the native backend
-ADDITIONAL_CMAKE_FLAGS="-DDAL_USE_XAD_AAD=ON -DDAL_USE_ADEPT_AAD=OFF" bash build_linux.sh
+# Use the XAD backend instead of the preset default (native)
+ADDITIONAL_CMAKE_FLAGS="-DDAL_USE_XAD_AAD=ON" bash build_linux.sh
 ```
 
 #### Manual Build
@@ -145,7 +145,7 @@ OFF on Linux and ON on Windows) unless you override them with `-D...` flags.
 | `DAL_CPP_BUILD_TESTS`      | `ON`    | Build test suite                               |
 | `DAL_CPP_BUILD_EXAMPLES`   | `ON`    | Build example programs                         |
 | `DAL_CPP_BUILD_BENCHMARKS` | `ON`    | Build performance benchmarks                   |
-| `DAL_USE_ADEPT_AAD`        | `ON`    | Use Adept AAD backend                          |
+| `DAL_USE_ADEPT_AAD`        | `ON`    | Use Adept AAD backend (preset default: OFF)    |
 | `DAL_USE_XAD_AAD`          | `OFF`   | Use XAD AAD backend                            |
 | `DAL_USE_CODIPACK_AAD`     | `OFF`   | Use CoDiPack AAD backend                       |
 

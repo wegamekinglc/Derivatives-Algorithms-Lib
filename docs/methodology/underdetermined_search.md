@@ -88,30 +88,8 @@ The solver is a scaled quasi-Newton loop with a backtracking line search:
 5. **Convergence test (componentwise):** stop if every scaled residual lies in
    $[-1, 1]$. This is a per-instrument satisfaction test, not a norm — each
    instrument must be fit to its own tolerance.
-6. Otherwise apply line-search / restart logic and iterate.
-
-### Line Search and Restart
-
-For a trial step the solver compares the residual norms before and after, using
-the inner products $a = f^{\mathsf T} f$, $b = f^{\mathsf T} f_{\text{new}}$,
-$c = f_{\text{new}}^{\mathsf T} f_{\text{new}}$, and forms a one-dimensional
-quadratic model of $\|\tilde r\|^2$ along the step. Its minimiser is
-
-$$
-k_{\min} = \frac{c - \tfrac{1}{2} b}{c - b + a},
-$$
-
-interpreted as how far past (or short of) the full step the model bottoms out:
-
-- $k_{\min}$ small (below the *backtrack tolerance*) → the full step is good;
-  **accept** it.
-- $k_{\min}$ large (above the *restart tolerance*) → the linear model is poor;
-  discard the secant-updated Jacobian and **restart** from a freshly computed one.
-- in between → **shrink** the step by a factor $1-k$ (capped by a maximum
-  backtrack fraction) and retry.
-
-Restarts and total evaluations are budgeted; exhausting either is treated as a
-failure to converge.
+6. Otherwise apply the line-search / restart logic
+   (see [Backtracking Line Search](#backtracking-line-search)) and iterate.
 
 ## Jacobian Construction and Maintenance
 
