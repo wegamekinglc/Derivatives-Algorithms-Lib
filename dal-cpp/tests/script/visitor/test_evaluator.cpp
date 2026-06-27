@@ -267,3 +267,32 @@ TEST(ScriptTest, TestEvaluatorConditionLess) {
     )");
     ASSERT_NEAR(vars["y"], 1.0, 1e-10);
 }
+
+TEST(ScriptTest, TestEvaluatorMoveConstructorPreservesVariablesInit) {
+    // Regression: EvaluatorBase_ move ctor previously omitted variablesInit_, so a
+    // moved-into evaluator's Init() reset all variables to zero instead of their
+    // initial values. variablesInit_ is the data Init() restores from.
+    const Vector_<> initialValues = {10.0, 20.0};
+
+    // Evaluate an assignment after the move so variables_ differ from initialValues,
+    // then confirm Init() restores them (proving variablesInit_ survived the move).
+    Parser_ parser;
+    auto event = parser.Parse("x = 999\ny = 999\n");
+    VarIndexer_ indexer;
+    for (auto& stat : event)
+        stat->Accept(indexer);
+
+    Evaluator_<double> src(initialValues);
+    Evaluator_<double> dst(std::move(src));
+    ASSERT_EQ(dst.VarVals().size(), 2u);
+
+    for (auto& stat : event)
+        stat->Accept(dst);
+    ASSERT_NEAR(dst.VarVals()[0], 999.0, 1e-10);
+    ASSERT_NEAR(dst.VarVals()[1], 999.0, 1e-10);
+
+    // Init() reads variablesInit_; if the move dropped it, variables stay at 0
+    dst.Init();
+    ASSERT_NEAR(dst.VarVals()[0], 10.0, 1e-10);
+    ASSERT_NEAR(dst.VarVals()[1], 20.0, 1e-10);
+}

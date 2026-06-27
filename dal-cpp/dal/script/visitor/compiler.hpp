@@ -100,14 +100,10 @@ namespace Dal::Script {
         }
     };
 
-    // TODO: this hand-written enum duplicates the Machinist block above, but migration is
-    // deferred. The generated NodeType_ is a class wrapper over Value_ : char, not an enum,
-    // so it cannot be used as a non-type template parameter (VisitBinary/VisitUnary/
-    // VisitCondition rely on template <NodeType_ ...>). The two enums also diverge: the
-    // markup names differ (Mult vs Multi, Uminus vs UMinus) and omit Exp, and the integer
-    // values diverge from Smooth/Sqrt/Log onward. Migrating would require restructuring the
-    // templates and renaming ~167 bare-opcode references while keeping the compiled
-    // nodeStream_ integer contract stable. See PR body for the full assessment.
+    // NOTE: NodeType_ kept hand-written (not dal/auto/MG_NodeType_enum); the generated form
+    // is a class wrapper (not an enum) and cannot serve as a non-type template parameter for
+    // VisitBinary/VisitUnary/VisitCondition. Migrating is high-risk (~167 bare-opcode refs +
+    // the compiled nodeStream_ integer contract) and is deferred to a dedicated PR.
     enum NodeType_ {
         Add = 0,
         AddConst = 1,
@@ -551,29 +547,6 @@ namespace Dal::Script {
                 if (!bStack[1])
                     bStack[1] = bStack.Top();
                 bStack.Pop();
-                ++i;
-                break;
-            case Smooth:
-                // Dead opcode: Compiler_::Visit* never emits Smooth into nodeStream_,
-                // so this case is unreachable. (Right-branch below would also be wrong
-                // if it were ever emitted; left and right both test x < -y.)
-                // Eval the condition
-                x = dStack[3];
-                y = 0.5 * dStack.Top();
-                z = dStack[2];
-                t = dStack[1];
-
-                dStack.Pop(3);
-                // Left
-                if (x < -y)
-                    dStack.Top() = t;
-                // Right
-                if (x < -y)
-                    dStack.Top() = z;
-
-                // Fuzzy
-                else
-                    dStack.Top() = t + 0.5 * (z - t) / y * (x + y);
                 ++i;
                 break;
             case Sqrt:
