@@ -38,7 +38,7 @@ namespace Dal {
             [[nodiscard]] virtual const Vector_<T_*>& Parameters() const = 0;
             [[nodiscard]] virtual const Vector_<String_>& ParameterLabels() const = 0;
 
-            [[nodiscard]] size_t NumParams() const { return const_cast<Model_*>(this)->Parameters().size(); }
+            [[nodiscard]] size_t NumParams() const { return Parameters().size(); }
         };
     }
 
