@@ -63,6 +63,7 @@ namespace Dal::AAD {
             return BlackScholes<T_>(spot_, strike, ImpliedVol(strike, mat) + (risk ? risk->Spread(strike, mat) : T_(0.0)), mat);
         }
 
+        // Dupire local vol from IV via central differences; see docs/methodology/dupire.md §"IVS Inversion by Central Differences".
         template <class T_ = double>
         T_ LocalVol(double strike, double mat, const RiskView_<T_>* risk = nullptr) const {
             const T_ c00 = Call(strike, mat, risk);
