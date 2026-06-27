@@ -6,6 +6,7 @@
 #include <cmath>
 #include <dal/platform/platform.hpp>
 #include <dal/platform/strict.hpp>
+#include <dal/curve/calibration_internal.hpp>
 #include <dal/curve/piecewiseconstant.hpp>
 #include <dal/curve/xccyinstrument.hpp>
 #include <dal/curve/xccycalibration.hpp>
@@ -25,21 +26,17 @@ namespace Dal {
                                                               const Matrix_<>* effJacobianInverse = nullptr) {
             CrossCurrencyCalibrationDiagnostics_ retval;
             retval.usedApproximateFit_ = usedApproximateFit;
-            double maxResidual = 0.0;
-            double sqResidual = 0.0;
             for (const auto& instrument : instruments) {
                 const double modelRate = (*instrument->Precompute())(market);
                 const double marketRate = instrument->MarketRate();
-                const double residual = modelRate - marketRate;
                 retval.instrumentNames_.push_back(instrument->Name());
                 retval.marketRates_.push_back(marketRate);
                 retval.modelRates_.push_back(modelRate);
-                retval.residuals_.push_back(residual);
-                maxResidual = std::max(maxResidual, std::fabs(residual));
-                sqResidual += residual * residual;
+                retval.residuals_.push_back(modelRate - marketRate);
             }
-            retval.maxAbsResidual_ = maxResidual;
-            retval.rmsResidual_ = instruments.empty() ? 0.0 : std::sqrt(sqResidual / instruments.size());
+            const ResidualStats_ stats = ResidualStats(retval.residuals_);
+            retval.maxAbsResidual_ = stats.maxAbsResidual_;
+            retval.rmsResidual_ = stats.rmsResidual_;
             if (effJacobianInverse)
                 retval.effJacobianInverse_ = *effJacobianInverse;
             return retval;

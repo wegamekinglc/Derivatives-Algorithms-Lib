@@ -340,16 +340,12 @@ namespace Dal {
             [[nodiscard]] Underdetermined::Jacobian_* AnalyticJacobian(const Vector_<>& x, const Vector_<>& f) const;
 
             template <class T_> [[nodiscard]] Handle_<Tape::Rate_<T_>> PhaseARateAt(int i) const {
-                const auto* inst = instruments_[i].get();
-                if (const auto* d = dynamic_cast<const Deposit_*>(inst))
-                    return d->PrecomputeT<T_>();
-                if (const auto* f = dynamic_cast<const FRA_*>(inst))
-                    return f->PrecomputeT<T_>();
-                if (const auto* fu = dynamic_cast<const Future_*>(inst))
-                    return fu->PrecomputeT<T_>();
-                if (const auto* s = dynamic_cast<const Swap_*>(inst))
-                    return s->PrecomputeT<T_>();
-                return Handle_<Tape::Rate_<T_>>();
+                return VisitRate(
+                    *instruments_[i],
+                    [](const Deposit_& d) { return d.PrecomputeT<T_>(); },
+                    [](const FRA_& f) { return f.PrecomputeT<T_>(); },
+                    [](const Future_& fu) { return fu.PrecomputeT<T_>(); },
+                    [](const Swap_& s) { return s.PrecomputeT<T_>(); });
             }
         };
 
@@ -417,16 +413,14 @@ namespace Dal {
             retval.instrumentNames_.reserve(instruments.size());
             retval.marketRates_.reserve(instruments.size());
             retval.residuals_.reserve(instruments.size());
-            double sqResidual = 0.0;
             for (int i = 0; i < static_cast<int>(instruments.size()); ++i) {
                 retval.instrumentNames_.push_back(instruments[i]->Name());
                 retval.marketRates_.push_back(instruments[i]->MarketRate());
-                const double residual = retval.modelRates_[i] - retval.marketRates_[i];
-                retval.residuals_.push_back(residual);
-                retval.maxAbsResidual_ = std::max(retval.maxAbsResidual_, std::fabs(residual));
-                sqResidual += residual * residual;
+                retval.residuals_.push_back(retval.modelRates_[i] - retval.marketRates_[i]);
             }
-            retval.rmsResidual_ = retval.residuals_.empty() ? 0.0 : std::sqrt(sqResidual / retval.residuals_.size());
+            const ResidualStats_ stats = ResidualStats(retval.residuals_);
+            retval.maxAbsResidual_ = stats.maxAbsResidual_;
+            retval.rmsResidual_ = stats.rmsResidual_;
             if (effJacobianInverse)
                 retval.effJacobianInverse_ = *effJacobianInverse;
             return retval;
