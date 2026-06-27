@@ -77,8 +77,7 @@ namespace Dal {
         case Value_::BOND:
             return Bond(from, to);
         default:
-            assert(!"Unrecognized day basis");
-            return 0.0;
+            THROW("Unrecognized day basis");
         }
     }
 } // namespace Dal
