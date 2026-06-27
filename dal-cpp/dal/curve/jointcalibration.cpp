@@ -22,6 +22,7 @@
 #include <dal/curve/ycinstrument.hpp>
 #include <dal/curve/ycpwlf.hpp>
 #include <dal/math/aad/aad.hpp>
+#include <dal/curve/tapeguard.hpp>
 #include <dal/math/matrix/banded.hpp>
 #include <dal/math/optimization/underdetermined.hpp>
 #include <dal/math/optimization/underdeterminedutils.hpp>
@@ -236,21 +237,6 @@ namespace Dal {
             }
             return Vector_<>(nParams, spec.initialGuess_);
         }
-
-        // See docs/methodology/yield_curve_jacobian.md §Joint Multi-Curve Analytic Jacobian.
-        struct TapeGuard_ {
-            Dal::AAD::Tape_* t_;
-            explicit TapeGuard_(Dal::AAD::Tape_* t) : t_(t) { Dal::AAD::Clear(*t_); }
-            ~TapeGuard_() {
-                try {
-                    Dal::AAD::Clear(*t_);
-                } catch (...) {
-                    // swallow; we are unwinding
-                }
-            }
-            TapeGuard_(const TapeGuard_&) = delete;
-            TapeGuard_& operator=(const TapeGuard_&) = delete;
-        };
 
         // See docs/methodology/yield_curve_jacobian.md §Joint Multi-Curve Analytic Jacobian.
         template <class T_, class B_ = Tape::DiscountCurve_<double>>
