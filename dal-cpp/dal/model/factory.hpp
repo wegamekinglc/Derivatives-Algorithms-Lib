@@ -38,5 +38,5 @@ namespace Dal {
 
         THROW("can't find matched model type");
     }
-}
+} // namespace Dal
 

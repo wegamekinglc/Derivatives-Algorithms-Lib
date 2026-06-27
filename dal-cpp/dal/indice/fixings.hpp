@@ -38,7 +38,7 @@ namespace Dal {
         const FixHistory_& Empty();
     }
 
-    double LookupFixing(const std::map<DateTime_, double>& vals, const DateTime_& fix_time, bool quiet = false);
+    double LookupFixing(const std::map<DateTime_, double>& vals, const DateTime_& fixTime, bool quiet = false);
 
     class Fixings_ : public Storable_ {
     public:

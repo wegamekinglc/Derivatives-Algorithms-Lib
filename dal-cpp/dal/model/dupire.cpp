@@ -18,4 +18,4 @@ namespace Dal {
         REQUIRE(!slide, "slides are not supported for DupireModelData");
         return new DupireModelData_(*newName, spot_, rate_, repo_, spots_, times_, vols_);
     }
-}
+} // namespace Dal

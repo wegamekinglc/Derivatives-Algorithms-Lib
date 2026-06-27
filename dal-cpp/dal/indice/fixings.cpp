@@ -25,8 +25,8 @@ namespace Dal {
         return RET_VAL;
     }
 
-    double LookupFixing(const std::map<DateTime_, double>& vals, const DateTime_& fix_time, bool quiet) {
-        auto pf = vals.find(fix_time);
+    double LookupFixing(const std::map<DateTime_, double>& vals, const DateTime_& fixTime, bool quiet) {
+        auto pf = vals.find(fixTime);
         if (pf == vals.end()) {
             REQUIRE(quiet, "no fixings for that time");
             return -INF;

@@ -46,5 +46,5 @@ TEST(IndexTest, TestPastFixingQuietMissingReturnsNegInf) {
     DateTime_ miss(Date_(2023, 1, 25));
     ASSERT_DOUBLE_EQ(Index::PastFixing(_env, name, miss, true), -Dal::INF);
     ASSERT_DOUBLE_EQ(Index::PastFixing(_env, name, hit, true), 2.0);
-    ASSERT_THROW(Index::PastFixing(_env, name, miss), std::runtime_error);
+    ASSERT_THROW(Index::PastFixing(_env, name, miss), Dal::Exception_);
 }

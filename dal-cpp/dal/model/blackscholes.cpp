@@ -18,4 +18,4 @@ namespace Dal {
         REQUIRE(!slide, "slides are not supported for BSModelData");
         return new BSModelData_(*newName, spot_, vol_, rate_, div_);
     }
-}
+} // namespace Dal
