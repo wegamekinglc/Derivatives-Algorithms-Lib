@@ -77,6 +77,12 @@ Deep dives into the quantitative methods and algorithms implemented in DAL:
   - Calibration grid construction (`DupireCalib`, `DupireCalibMaturity`)
   - 2.5-$\Sigma$ strike cutoff, the ATM-call $\sqrt{2\pi}$ proxy, and flat-tail extrapolation
 
+- **[black_scholes.md](methodology/black_scholes.md)** — Black / Bachelier Vanilla Pricing
+  - Black (lognormal) and Bachelier (normal) European closed forms, de-annualized vol convention
+  - Forward delta and vega greeks by `OptionType_` (`CALL` / `PUT` / `STRADDLE`)
+  - `DistributionNormalLike_` shared base, vega-notional (`VolVega`), parameter derivatives
+  - Brent implied-vol inversion (`BlackIV` / `BachelierIV`) and intrinsic floor
+
 ### Experimental (`experimental/`)
 
 Notes on capabilities that are working but not yet promoted to normative methodology. These
