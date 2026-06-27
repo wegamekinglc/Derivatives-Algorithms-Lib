@@ -4,6 +4,7 @@
 
 #include <dal/platform/platform.hpp>
 #include <dal/platform/strict.hpp>
+#include <dal/curve/calibration_internal.hpp>
 #include <dal/curve/curveblock.hpp>
 #include <dal/curve/discount.hpp>
 #include <dal/curve/jointrate.hpp>
@@ -60,37 +61,10 @@ namespace Dal {
             return fallback->Forward(convention.forecastTenor_, convention.collateral_);
         }
 
-        AccrualPeriod_ MakeAccrualPeriod(const SchedulePeriod_& period, const DayBasis_& basis) {
-            return AccrualPeriod_(period.accrualStart_, period.accrualEnd_, 1.0, basis, period.dayCountContext_, period.isStub_);
-        }
-
         struct CouponPeriod_ {
             SchedulePeriod_ schedule_;
             AccrualPeriod_ accrual_;
         };
-
-        Vector_<CouponPeriod_> BuildLegPeriods(const Date_& start,
-                                               const Date_& maturity,
-                                               const RateLegConvention_& legConvention,
-                                               int fixingLag,
-                                               const Holidays_& fixingHolidays) {
-            Vector_<CouponPeriod_> retval;
-            for (const auto& period : MakeSchedulePeriods(start,
-                                                          maturity,
-                                                          legConvention.paymentFrequency_,
-                                                          legConvention.accrualHolidays_,
-                                                          fixingLag,
-                                                          fixingHolidays,
-                                                          legConvention.paymentLag_,
-                                                          legConvention.paymentHolidays_,
-                                                          DateGeneration_("Forward"),
-                                                          legConvention.businessDayConvention_,
-                                                          legConvention.paymentConvention_,
-                                                          legConvention.endOfMonth_)) {
-                retval.push_back({period, MakeAccrualPeriod(period, legConvention.dayBasis_)});
-            }
-            return retval;
-        }
 
         class DepositRate_ : public YCInstrument_::Rate_ {
             Date_ start_;
@@ -580,12 +554,12 @@ namespace Dal {
     pair<Date_, Date_> Swap_::TimeSpan() const { return {start_, maturity_}; }
 
     Handle_<YCInstrument_::Rate_> Swap_::Precompute(const Handle_<YieldCurve_>& funding_yc) const {
-        const auto fixedPeriods = BuildLegPeriods(start_,
+        const auto fixedPeriods = BuildLegPeriods<CouponPeriod_>(start_,
                                                   maturity_,
                                                   fixedLegConvention_,
                                                   0,
                                                   Holidays::None());
-        const auto floatPeriods = BuildLegPeriods(start_,
+        const auto floatPeriods = BuildLegPeriods<CouponPeriod_>(start_,
                                                   maturity_,
                                                   floatLegConvention_,
                                                   floatIndexConvention_.fixingLag_,
@@ -594,12 +568,12 @@ namespace Dal {
     }
 
     template <class T_> Handle_<Tape::Rate_<T_>> Swap_::PrecomputeT() const {
-        const auto fixedPeriods = BuildLegPeriods(start_,
+        const auto fixedPeriods = BuildLegPeriods<CouponPeriod_>(start_,
                                                   maturity_,
                                                   fixedLegConvention_,
                                                   0,
                                                   Holidays::None());
-        const auto floatPeriods = BuildLegPeriods(start_,
+        const auto floatPeriods = BuildLegPeriods<CouponPeriod_>(start_,
                                                   maturity_,
                                                   floatLegConvention_,
                                                   floatIndexConvention_.fixingLag_,
@@ -608,12 +582,12 @@ namespace Dal {
     }
 
     template <class T_> Handle_<Tape::JointRate_<T_>> Swap_::PrecomputeProjectionT() const {
-        const auto fixedPeriods = BuildLegPeriods(start_,
+        const auto fixedPeriods = BuildLegPeriods<CouponPeriod_>(start_,
                                                   maturity_,
                                                   fixedLegConvention_,
                                                   0,
                                                   Holidays::None());
-        const auto floatPeriods = BuildLegPeriods(start_,
+        const auto floatPeriods = BuildLegPeriods<CouponPeriod_>(start_,
                                                   maturity_,
                                                   floatLegConvention_,
                                                   floatIndexConvention_.fixingLag_,
@@ -685,12 +659,12 @@ namespace Dal {
     pair<Date_, Date_> BasisSwap_::TimeSpan() const { return {start_, maturity_}; }
 
     Handle_<YCInstrument_::Rate_> BasisSwap_::Precompute(const Handle_<YieldCurve_>& funding_yc) const {
-        const auto spreadPeriods = BuildLegPeriods(start_,
+        const auto spreadPeriods = BuildLegPeriods<CouponPeriod_>(start_,
                                                    maturity_,
                                                    spreadLegConvention_,
                                                    spreadIndexConvention_.fixingLag_,
                                                    spreadIndexConvention_.fixingHolidays_);
-        const auto referencePeriods = BuildLegPeriods(start_,
+        const auto referencePeriods = BuildLegPeriods<CouponPeriod_>(start_,
                                                       maturity_,
                                                       referenceLegConvention_,
                                                       referenceIndexConvention_.fixingLag_,

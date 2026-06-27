@@ -4,6 +4,7 @@
 
 #include <dal/platform/platform.hpp>
 #include <dal/platform/strict.hpp>
+#include <dal/curve/calibration_internal.hpp>
 #include <dal/curve/discount.hpp>
 #include <dal/curve/xccycalibration.hpp>
 #include <dal/curve/xccyinstrument.hpp>
@@ -18,33 +19,6 @@ namespace Dal {
             SchedulePeriod_ schedule_;
             AccrualPeriod_ accrual_;
         };
-
-        AccrualPeriod_ MakeAccrualPeriod(const SchedulePeriod_& period, const DayBasis_& basis) {
-            return AccrualPeriod_(period.accrualStart_, period.accrualEnd_, 1.0, basis, period.dayCountContext_, period.isStub_);
-        }
-
-        Vector_<XccyCouponPeriod_> BuildLegPeriods(const Date_& start,
-                                                   const Date_& maturity,
-                                                   const RateLegConvention_& legConvention,
-                                                   int fixingLag,
-                                                   const Holidays_& fixingHolidays) {
-            Vector_<XccyCouponPeriod_> retval;
-            for (const auto& period : MakeSchedulePeriods(start,
-                                                          maturity,
-                                                          legConvention.paymentFrequency_,
-                                                          legConvention.accrualHolidays_,
-                                                          fixingLag,
-                                                          fixingHolidays,
-                                                          legConvention.paymentLag_,
-                                                          legConvention.paymentHolidays_,
-                                                          DateGeneration_("Forward"),
-                                                          legConvention.businessDayConvention_,
-                                                          legConvention.paymentConvention_,
-                                                          legConvention.endOfMonth_)) {
-                retval.push_back({period, MakeAccrualPeriod(period, legConvention.dayBasis_)});
-            }
-            return retval;
-        }
 
         double ForwardRate(const DiscountCurve_& forecast,
                            const XccyCouponPeriod_& period,
@@ -251,12 +225,12 @@ namespace Dal {
     Handle_<CrossCurrencySwap_::Rate_> CrossCurrencySwap_::Precompute() const {
         REQUIRE(!convention_.resettableNotional_, "Resettable cross-currency notionals are not implemented");
         REQUIRE(!convention_.markToMarketNotional_, "Mark-to-market cross-currency notionals are not implemented");
-        const auto domesticPeriods = BuildLegPeriods(start_,
+        const auto domesticPeriods = BuildLegPeriods<XccyCouponPeriod_>(start_,
                                                      maturity_,
                                                      convention_.domesticLeg_,
                                                      convention_.domesticIndex_.fixingLag_,
                                                      convention_.domesticIndex_.fixingHolidays_);
-        const auto foreignPeriods = BuildLegPeriods(start_,
+        const auto foreignPeriods = BuildLegPeriods<XccyCouponPeriod_>(start_,
                                                     maturity_,
                                                     convention_.foreignLeg_,
                                                     convention_.foreignIndex_.fixingLag_,

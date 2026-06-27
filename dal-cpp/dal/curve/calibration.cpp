@@ -18,6 +18,7 @@
 #include <dal/curve/ycimp.hpp>
 #include <dal/curve/yclogdf.hpp>
 #include <dal/math/aad/aad.hpp>
+#include <dal/curve/calibration_internal.hpp>
 #include <dal/curve/tapeguard.hpp>
 #include <dal/math/matrix/banded.hpp>
 #include <dal/math/matrix/matrixarithmetic.hpp>
@@ -96,20 +97,6 @@ namespace Dal {
             default:
                 return "unknown";
             }
-        }
-
-        Vector_<Handle_<YCInstrument_>> OrderInstruments(const Vector_<Handle_<YCInstrument_>>& instruments) {
-            auto ordered = instruments;
-            std::sort(ordered.begin(), ordered.end(), [](const Handle_<YCInstrument_>& lhs, const Handle_<YCInstrument_>& rhs) {
-                const auto lhsSpan = lhs->TimeSpan();
-                const auto rhsSpan = rhs->TimeSpan();
-                if (lhsSpan.second != rhsSpan.second)
-                    return lhsSpan.second < rhsSpan.second;
-                if (lhsSpan.first != rhsSpan.first)
-                    return lhsSpan.first < rhsSpan.first;
-                return lhs->Name() < rhs->Name();
-            });
-            return ordered;
         }
 
         Vector_<Date_> UniqueSortedDates(const Vector_<Date_>& dates) {
@@ -323,21 +310,9 @@ namespace Dal {
                 return true;
             }
 
-            [[nodiscard]] static const RateIndexConvention_* PhaseAFloatConvention(const YCInstrument_* inst) {
-                if (const auto* deposit = dynamic_cast<const Deposit_*>(inst))
-                    return &deposit->FloatConvention();
-                if (const auto* fra = dynamic_cast<const FRA_*>(inst))
-                    return &fra->FloatConvention();
-                if (const auto* future = dynamic_cast<const Future_*>(inst))
-                    return &future->FloatConvention();
-                if (const auto* swap = dynamic_cast<const Swap_*>(inst))
-                    return &swap->FloatConvention();
-                return nullptr;
-            }
-
             [[nodiscard]] bool InstrumentEligibleForAnalyticJacobian(const YCInstrument_* inst) const {
                 const String_ name = inst->Name();
-                const RateIndexConvention_* floatConv = PhaseAFloatConvention(inst);
+                const RateIndexConvention_* floatConv = FloatConventionOf(*inst);
                 if (!floatConv) {
                     const String_ msg = String_("AAD Jacobian has no templated rate for instrument '")
                                         + name + "'; falling back to bumped";
