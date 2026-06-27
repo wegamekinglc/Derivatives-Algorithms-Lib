@@ -17,6 +17,15 @@
 
 namespace Dal {
 
+    namespace Tape {
+        template <class T_>
+        T_ ForwardRate(const DiscountCurve_<T_>& forecast,
+                       const Date_& start,
+                       const Date_& maturity,
+                       const DayBasis_& basis,
+                       const Handle_<DayBasis::Context_>& context);
+    } // namespace Tape
+
     namespace {
         PeriodLength_ PeriodFromMonths(int months) {
             REQUIRE(months == 1 || months == 3 || months == 6 || months == 12, "Unsupported calibration instrument frequency");
@@ -49,15 +58,6 @@ namespace Dal {
             REQUIRE(fallback, "Instrument pricing requires a forecast curve context");
             REQUIRE(fallback->HasForward(convention.forecastTenor_), "Fallback pricing context does not contain requested forward curve");
             return fallback->Forward(convention.forecastTenor_, convention.collateral_);
-        }
-
-        double ForwardRate(const DiscountCurve_& forecast,
-                           const Date_& start,
-                           const Date_& maturity,
-                           const DayBasis_& basis,
-                           const Handle_<DayBasis::Context_>& context) {
-            const double fwdDf = forecast(start, maturity);
-            return (1.0 / fwdDf - 1.0) / basis(start, maturity, context.get());
         }
 
         AccrualPeriod_ MakeAccrualPeriod(const SchedulePeriod_& period, const DayBasis_& basis) {
@@ -112,11 +112,11 @@ namespace Dal {
                 period.accrualEnd_ = Holidays::Adjust(convention_.accrualHolidays_, maturity_, convention_.businessDayConvention_);
                 period.dayCountContext_ = SinglePeriodContext(start_, maturity_, CouponMonths(start_, maturity_));
                 const DiscountCurve_& forecast = ResolveForecastCurve(yc, fallback_, convention_);
-                return ForwardRate(forecast,
-                                   period.accrualStart_,
-                                   period.accrualEnd_,
-                                   convention_.dayBasis_,
-                                   period.dayCountContext_);
+                return Tape::ForwardRate<double>(forecast,
+                                                 period.accrualStart_,
+                                                 period.accrualEnd_,
+                                                 convention_.dayBasis_,
+                                                 period.dayCountContext_);
             }
         };
 
@@ -150,11 +150,11 @@ namespace Dal {
                                                                   ? convention_.forecastTenor_.Months()
                                                                   : CouponMonths(start_, maturity_));
                 const DiscountCurve_& forecast = ResolveForecastCurve(yc, fallback_, convention_);
-                return ForwardRate(forecast,
-                                   period.accrualStart_,
-                                   period.accrualEnd_,
-                                   convention_.dayBasis_,
-                                   period.dayCountContext_) - convexityAdjustment_;
+                return Tape::ForwardRate<double>(forecast,
+                                                 period.accrualStart_,
+                                                 period.accrualEnd_,
+                                                 convention_.dayBasis_,
+                                                 period.dayCountContext_) - convexityAdjustment_;
             }
         };
 
@@ -187,11 +187,11 @@ namespace Dal {
 
                 double floatPv = 0.0;
                 for (const auto& period : floatPeriods_) {
-                    const double fixing = ForwardRate(forecast,
-                                                      period.schedule_.accrualStart_,
-                                                      period.schedule_.accrualEnd_,
-                                                      floatIndexConvention_.dayBasis_,
-                                                      period.schedule_.dayCountContext_);
+                    const double fixing = Tape::ForwardRate<double>(forecast,
+                                                                    period.schedule_.accrualStart_,
+                                                                    period.schedule_.accrualEnd_,
+                                                                    floatIndexConvention_.dayBasis_,
+                                                                    period.schedule_.dayCountContext_);
                     floatPv += fixing * period.accrual_.dcf_ * discount(tradeDate_, period.schedule_.paymentDate_);
                 }
                 return floatPv / annuity;
@@ -227,11 +227,11 @@ namespace Dal {
                 double spreadBasePv = 0.0;
                 double spreadAnnuity = 0.0;
                 for (const auto& period : spreadPeriods_) {
-                    const double fixing = ForwardRate(spreadForecast,
-                                                      period.schedule_.accrualStart_,
-                                                      period.schedule_.accrualEnd_,
-                                                      spreadIndexConvention_.dayBasis_,
-                                                      period.schedule_.dayCountContext_);
+                    const double fixing = Tape::ForwardRate<double>(spreadForecast,
+                                                                    period.schedule_.accrualStart_,
+                                                                    period.schedule_.accrualEnd_,
+                                                                    spreadIndexConvention_.dayBasis_,
+                                                                    period.schedule_.dayCountContext_);
                     const double df = discount(tradeDate_, period.schedule_.paymentDate_);
                     spreadBasePv += fixing * period.accrual_.dcf_ * df;
                     spreadAnnuity += period.accrual_.dcf_ * df;
@@ -240,11 +240,11 @@ namespace Dal {
 
                 double referencePv = 0.0;
                 for (const auto& period : referencePeriods_) {
-                    const double fixing = ForwardRate(referenceForecast,
-                                                      period.schedule_.accrualStart_,
-                                                      period.schedule_.accrualEnd_,
-                                                      referenceIndexConvention_.dayBasis_,
-                                                      period.schedule_.dayCountContext_);
+                    const double fixing = Tape::ForwardRate<double>(referenceForecast,
+                                                                    period.schedule_.accrualStart_,
+                                                                    period.schedule_.accrualEnd_,
+                                                                    referenceIndexConvention_.dayBasis_,
+                                                                    period.schedule_.dayCountContext_);
                     referencePv += fixing * period.accrual_.dcf_ * discount(tradeDate_, period.schedule_.paymentDate_);
                 }
 
