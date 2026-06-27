@@ -143,6 +143,7 @@ Detailed documentation of the quantitative methods implemented in this library:
 - **Dupire Local Volatility** — [Dupire local volatility](docs/methodology/dupire.md)
 - **Black / Bachelier Vanilla Pricing** — [Black / Bachelier vanilla pricing](docs/methodology/black_scholes.md)
 - **Numerical Quadrature** — [Numerical quadrature](docs/methodology/quadrature.md)
+- **Random Number Generation and Path Construction** — [Random and path generation](docs/methodology/random.md)
 
 Notable fundamental changes are recorded in [CHANGELOG.md](CHANGELOG.md).
 
