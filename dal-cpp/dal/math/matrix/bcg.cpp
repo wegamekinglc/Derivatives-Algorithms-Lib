@@ -43,82 +43,69 @@ namespace Dal {
         };
     } // namespace
 
-    void Sparse::CGSolve(const Sparse::Square_& A,
-                         const Vector_<>& b,
-                         double tolRel,
-                         double tolAbs,
-                         int maxIterations,
-                         Vector_<>* x) {
-        const int n = A.Size();
-        REQUIRE(b.size() == n && x->size() == n, "matrix size is not compatible");
-        REQUIRE((IsPositive(tolRel) || IsPositive(tolAbs)) && maxIterations > 0, "parameters is not valid");
+    namespace {
+        // Unified Krylov iteration for CG (biConjugate = false) and BCG (true). CG aliases the
+        // shadow vectors onto the real ones so the shared arithmetic stays byte-identical to
+        // standalone CG; shadow maintenance is gated on the flag.
+        void
+        KrylovSolve_(const Sparse::Square_& A, const Vector_<>& b, double tolRel, double tolAbs, int maxIterations, bool biConjugate, Vector_<>* x) {
+            const int n = A.Size();
+            REQUIRE(b.size() == n && x->size() == n, "matrix size is not compatible");
+            REQUIRE((IsPositive(tolRel) || IsPositive(tolAbs)) && maxIterations > 0, "parameters is not valid");
 
-        double tNorm = tolRel * sqrt(InnerProduct(b, b)) + tolAbs;
-        XPrecondition_ precondition(A);
-        Vector_<> r(n);
-        Vector_<> z(n);
-        Vector_<> p(n);
-        A.MultiplyLeft(*x, &r);
-        Transform(b, r, std::minus<>(), &r); // r = b - Ax
-        double betaPrev;
-        for (int ii = 0; ii < maxIterations; ++ii) {
-            precondition.Left(r, &z);
-            const double beta = InnerProduct(z, r);
-            p *= ii > 0 ? beta / betaPrev : 0.0;
-            p += z;
-            betaPrev = beta;
-            A.MultiplyLeft(p, &z);
-            const double alphaK = beta / InnerProduct(z, p);
-            Transform(x, p, LinearIncrement(alphaK));
-            Transform(&r, z, LinearIncrement(-alphaK));
-            if (sqrt(InnerProduct(r, r)) <= tNorm)
-                return;
+            double tNorm = tolRel * sqrt(InnerProduct(b, b)) + tolAbs;
+            XPrecondition_ precondition(A);
+            Vector_<> r(n);
+            Vector_<> rr(n);
+            Vector_<> z(n);
+            Vector_<> zz(n);
+            Vector_<> p(n);
+            Vector_<> pp(n);
+
+            A.MultiplyLeft(*x, &r);
+            Transform(b, r, std::minus<>(), &r); // r = b - Ax
+            if (biConjugate)
+                rr = r;
+
+            // CG collapses each shadow vector onto its real counterpart, so beta and alphaK
+            // reduce to the standalone-CG expressions InnerProduct(z, r) and beta/InnerProduct(z, p).
+            Vector_<>& zzRef = biConjugate ? zz : z;
+            Vector_<>& ppRef = biConjugate ? pp : p;
+
+            double betaPrev;
+            for (int ii = 0; ii < maxIterations; ++ii) {
+                precondition.Left(r, &z);
+                if (biConjugate)
+                    precondition.Right(rr, &zz);
+                const double beta = InnerProduct(zzRef, r);
+                const double multiply = ii > 0 ? beta / betaPrev : 0.0;
+                p *= multiply;
+                if (biConjugate)
+                    pp *= multiply;
+                p += z;
+                if (biConjugate)
+                    pp += zz;
+                betaPrev = beta;
+                A.MultiplyLeft(p, &z);
+                if (biConjugate)
+                    A.MultiplyRight(pp, &zz);
+                const double alphaK = beta / InnerProduct(z, ppRef);
+                Transform(x, p, LinearIncrement(alphaK));
+                Transform(&r, z, LinearIncrement(-alphaK));
+                if (biConjugate)
+                    Transform(&rr, zz, LinearIncrement(-alphaK));
+                if (sqrt(InnerProduct(r, r)) <= tNorm)
+                    return;
+            }
+            THROW(biConjugate ? "Exhausted iterations in BCGSolve" : "Exhausted iterations in CGSolve");
         }
-        THROW("Exhausted iterations in CGSolve");
+    } // namespace
+
+    void Sparse::CGSolve(const Sparse::Square_& A, const Vector_<>& b, double tolRel, double tolAbs, int maxIterations, Vector_<>* x) {
+        KrylovSolve_(A, b, tolRel, tolAbs, maxIterations, false, x);
     }
 
-    void Sparse::BCGSolve(const Sparse::Square_ &A,
-                          const Vector_<> &b,
-                          double tolRel,
-                          double tolAbs,
-                          int maxIterations, Vector_<> *x) {
-        const int n = A.Size();
-        REQUIRE(b.size() == n && x->size() == n, "matrix size is not compatible");
-        REQUIRE((IsPositive(tolRel) || IsPositive(tolAbs)) && maxIterations > 0, "parameters is not valid");
-
-        double tNorm = tolRel * sqrt(InnerProduct(b, b)) + tolAbs;
-        XPrecondition_ precondition(A);
-        Vector_<> r(n);
-        Vector_<> rr(n);
-        Vector_<> z(n);
-        Vector_<> zz(n);
-        Vector_<> p(n);
-        Vector_<> pp(n);
-
-        A.MultiplyLeft(*x, &r);
-        Transform(b, r, std::minus<>(), &r); // r = b - Ax
-        rr = r;
-
-        double betaPrev;
-        for (int ii = 0; ii < maxIterations; ++ii) {
-            precondition.Left(r, &z);
-            precondition.Right(rr, &zz);
-            const double beta = InnerProduct(zz, r);
-            const double multiply = ii > 0 ? beta / betaPrev : 0.0;
-            p *= multiply;
-            pp *= multiply;
-            p += z;
-            pp += zz;
-            betaPrev = beta;
-            A.MultiplyLeft(p, &z);
-            A.MultiplyRight(pp, &zz);
-            const double alphaK = beta / InnerProduct(z, pp);
-            Transform(x, p, LinearIncrement(alphaK));
-            Transform(&r, z, LinearIncrement(-alphaK));
-            Transform(&rr, zz, LinearIncrement(-alphaK));
-            if (sqrt(InnerProduct(r, r)) <= tNorm)
-                return;
-        }
-        THROW("Exhausted iterations in BCGSolve");
+    void Sparse::BCGSolve(const Sparse::Square_& A, const Vector_<>& b, double tolRel, double tolAbs, int maxIterations, Vector_<>* x) {
+        KrylovSolve_(A, b, tolRel, tolAbs, maxIterations, true, x);
     }
 } // namespace Dal
