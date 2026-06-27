@@ -136,6 +136,7 @@ Detailed documentation of the quantitative methods implemented in this library:
 - **Cross-Currency Calibration** — [Cross-currency calibration](docs/methodology/xccy_calibration.md)
 - **Interpolation** — [Interpolation](docs/methodology/interpolation.md)
 - **Log-Discount Curve** — [Log-discount curve](docs/methodology/log_discount_curve.md)
+- **PDE Finite-Difference Meshers and Coordinate Maps** — [PDE meshers](docs/methodology/pde.md)
 - **Yield-Curve Jacobian and Inverse-Jacobian Risk** — [Yield-curve Jacobian](docs/methodology/yield_curve_jacobian.md)
 - **Script Engine** — [Script engine](docs/methodology/script_engine.md)
 - **Dupire Local Volatility** — [Dupire local volatility](docs/methodology/dupire.md)

@@ -60,6 +60,12 @@ Deep dives into the quantitative methods and algorithms implemented in DAL:
   - Serialization version design (v1 without scheme, v2 with named scheme)
   - Why `LOG_DISCOUNT` is the parameterization that supports the analytic Jacobian
 
+- **[pde.md](methodology/pde.md)** — PDE Finite-Difference Meshers and Coordinate Maps
+  - `FDM1DMesher_` interface, `locations_` / `dplus_` / `dminus_`, and the boundary-null convention
+  - `Uniform1DMesher_` constant spacing and endpoint pinning
+  - `Concentrating1dMesher_` sinh/asinh coordinate stretch, density scaling, and snapped-knot device
+  - `CoordinateMap_`, `NewSinhMap(xWidth, dxdyRange)`, and identity degeneration
+
 - **[yield_curve_jacobian.md](methodology/yield_curve_jacobian.md)** — Yield-Curve Jacobian and Inverse-Jacobian Risk
   - Forward residual Jacobian via AAD reverse sweep vs finite-difference bump
   - Inverse-Jacobian IR-risk transform `r = gᵀ · effJacobianInverse_ / tolerance_`
