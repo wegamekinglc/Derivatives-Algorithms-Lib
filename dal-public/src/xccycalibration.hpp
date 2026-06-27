@@ -18,6 +18,7 @@ namespace Dal {
         CollateralType_ fxForwardCollateral_ = CollateralType_(CollateralType_::Value_::OIS);
         Vector_<Handle_<CrossCurrencySwap_>> instruments_;
         Vector_<Date_> knotDates_;
+        // keep in sync with CurveSolverOptions_ in curvespec.hpp
         double smoothingWeight_ = 1.0;
         double tolerance_ = 1.0e-10;
         double fitTolerance_ = 1.0e-6;

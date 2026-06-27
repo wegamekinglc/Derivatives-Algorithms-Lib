@@ -9,30 +9,14 @@
 namespace Dal {
 
     CurveCalibrationSpec_ CurveCalibrationSpecBuilder_::Build() const {
-        CurveCalibrationSpec_ spec;
-        spec.today_ = today_;
-        spec.ccy_ = ccy_;
-        spec.curveName_ = curveName_;
-        spec.instruments_ = instruments_;
-        spec.knotDates_ = knotDates_;
-        spec.discountCurves_ = discountCurves_;
-        spec.forwardCurves_ = forwardCurves_;
-        spec.baseCurve_ = baseCurve_;
-        spec.targetCollateral_ = targetCollateral_;
-        spec.targetTenor_ = targetTenor_;
-        spec.calibrateDiscountCurve_ = calibrateDiscountCurve_;
-        spec.liborBasis_ = liborBasis_;
-        spec.smoothingWeight_ = smoothingWeight_;
-        spec.tolerance_ = tolerance_;
-        spec.fitTolerance_ = fitTolerance_;
-        spec.maxEvaluations_ = maxEvaluations_;
-        spec.maxRestarts_ = maxRestarts_;
-        spec.initialGuess_ = initialGuess_;
-        spec.solveMode_ = solveMode_;
-        spec.parameterization_ = parameterization_;
-        spec.knotPolicy_ = knotPolicy_;
-        spec.initialGuessPerNode_ = initialGuessPerNode_;
-        spec.logDfScheme_ = logDfScheme_;
+        CurveCalibrationSpec_ spec{
+            today_, ccy_, curveName_, instruments_, knotDates_,
+            discountCurves_, forwardCurves_, baseCurve_, targetCollateral_,
+            targetTenor_, calibrateDiscountCurve_, liborBasis_,
+            smoothingWeight_, tolerance_, fitTolerance_, maxEvaluations_,
+            maxRestarts_, initialGuess_, solveMode_, parameterization_,
+            knotPolicy_, initialGuessPerNode_, logDfScheme_
+        };
         ValidateCurveCalibrationSpec(spec);
         return spec;
     }

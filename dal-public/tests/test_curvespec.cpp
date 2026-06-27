@@ -14,12 +14,15 @@ using Dal::CalibrateSingleCurve;
 using Dal::CalibrationResult_;
 using Dal::CollateralType_OIS;
 using Dal::CurveCalibrationSpecBuilder_;
+using Dal::CurveKnotPolicy_;
 using Dal::CurveParameterization_;
 using Dal::CurveSolveMode_;
+using Dal::CurveSolverOptions_;
 using Dal::Date_;
 using Dal::DayBasis_New;
 using Dal::DepositNew;
 using Dal::DiscountPWLFNew;
+using Dal::LogDfScheme_;
 using Dal::MultiCurveCalibrationSpec_;
 using Dal::OISSwapNew;
 using Dal::PeriodLength_New;
@@ -205,4 +208,75 @@ TEST(CurveSpecTest, TestCalibrateMultiCurveBundle) {
     // Check stage 1 diagnostics
     ASSERT_LT(result.diagnostics_[0].maxAbsResidual_, 1.0e-6);
     ASSERT_LT(result.diagnostics_[0].rmsResidual_, 1.0e-6);
+}
+
+// CurveSolverOptions_ centralizes the shared knob names and the single-curve defaults.
+
+TEST(CurveSpecTest, TestCurveSolverOptionsDefaults) {
+    CurveSolverOptions_ opts;
+    ASSERT_NEAR(opts.smoothingWeight_, 1.0, 1e-15);
+    ASSERT_NEAR(opts.tolerance_, 1.0e-8, 1e-15);
+    ASSERT_NEAR(opts.fitTolerance_, 1.0e-6, 1e-15);
+    ASSERT_NEAR(opts.initialGuess_, 0.05, 1e-15);
+    ASSERT_EQ(opts.maxEvaluations_, 200);
+    ASSERT_EQ(opts.maxRestarts_, 20);
+    ASSERT_EQ(opts.solveMode_.Switch(), CurveSolveMode_::Value_::EXACT);
+}
+
+// Round-trip every builder field through Build() to guard against brace-init
+// order/count drift between the builder and CurveCalibrationSpec_.
+
+TEST(CurveSpecTest, TestBuildRoundTripsEveryField) {
+    CurveCalibrationSpecBuilder_ b;
+    b.today_ = Today();
+    b.ccy_ = "USD";
+    b.curveName_ = "roundtrip";
+    b.calibrateDiscountCurve_ = true;
+    b.targetCollateral_ = CollateralType_OIS();
+    b.liborBasis_ = DayBasis_New("ACT_365F");
+
+    // Distinct scalar sentinels catch any adjacent-field reorder in the brace-init.
+    b.smoothingWeight_ = 1.5;
+    b.tolerance_ = 3.0e-9;
+    b.fitTolerance_ = 4.0e-7;
+    b.initialGuess_ = 0.037;
+    b.maxEvaluations_ = 177;
+    b.maxRestarts_ = 13;
+    b.solveMode_ = CurveSolveMode_::Value_::APPROXIMATE;
+    b.parameterization_ = CurveParameterization_::Value_::LOG_DISCOUNT;
+    b.knotPolicy_ = CurveKnotPolicy_::Value_::AUGMENTED;
+    b.logDfScheme_ = LogDfScheme_::Value_::LOG_CUBIC_NATURAL;
+    b.initialGuessPerNode_ = Vector_<>{0.04, 0.04, 0.04, 0.04};
+
+    Vector_<Date_> knotDates;
+    knotDates.push_back(b.today_); // LOG_DISCOUNT anchor knot
+    for (int y : {2, 5, 10}) {
+        Date_ maturity = Spot().AddDays(y * 365);
+        knotDates.push_back(maturity);
+        b.instruments_.push_back(
+            OISSwapNew(Today(), Spot(), maturity, 0.04, Fixed6M(), OvernightIndex(), Float3M()));
+    }
+    b.knotDates_ = knotDates;
+
+    auto spec = b.Build();
+
+    ASSERT_EQ(spec.today_, b.today_);
+    ASSERT_EQ(spec.ccy_, b.ccy_);
+    ASSERT_EQ(spec.curveName_, String_("roundtrip"));
+    ASSERT_EQ(spec.calibrateDiscountCurve_, true);
+    ASSERT_EQ(spec.targetCollateral_.Switch(), b.targetCollateral_.Switch());
+    ASSERT_EQ(spec.liborBasis_, b.liborBasis_);
+    ASSERT_NEAR(spec.smoothingWeight_, 1.5, 1e-15);
+    ASSERT_NEAR(spec.tolerance_, 3.0e-9, 1e-15);
+    ASSERT_NEAR(spec.fitTolerance_, 4.0e-7, 1e-15);
+    ASSERT_NEAR(spec.initialGuess_, 0.037, 1e-15);
+    ASSERT_EQ(spec.maxEvaluations_, 177);
+    ASSERT_EQ(spec.maxRestarts_, 13);
+    ASSERT_EQ(spec.solveMode_.Switch(), CurveSolveMode_::Value_::APPROXIMATE);
+    ASSERT_EQ(spec.parameterization_.Switch(), CurveParameterization_::Value_::LOG_DISCOUNT);
+    ASSERT_EQ(spec.knotPolicy_.Switch(), CurveKnotPolicy_::Value_::AUGMENTED);
+    ASSERT_EQ(spec.logDfScheme_.Switch(), LogDfScheme_::Value_::LOG_CUBIC_NATURAL);
+    ASSERT_EQ(spec.instruments_.size(), static_cast<size_t>(3));
+    ASSERT_EQ(spec.knotDates_.size(), static_cast<size_t>(4));
+    ASSERT_EQ(spec.initialGuessPerNode_.size(), static_cast<size_t>(4));
 }
