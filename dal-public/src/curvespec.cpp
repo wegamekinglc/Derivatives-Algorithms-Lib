@@ -38,11 +38,7 @@ namespace Dal {
     }
 
     CalibrationResult_ CalibrateSingleCurve(const CurveCalibrationSpec_& spec) {
-        auto result = CalibrateYieldCurve(spec);
-        CalibrationResult_ rtn;
-        rtn.curve_ = Handle_<DiscountCurve_>(result.curve_.release());
-        rtn.diagnostics_ = std::move(result.diagnostics_);
-        return rtn;
+        return CalibrateSingleCurve(spec, CurveJacobianMode_::Value_::ANALYTIC);
     }
 
     CalibrationResult_ CalibrateSingleCurve(const CurveCalibrationSpec_& spec,
