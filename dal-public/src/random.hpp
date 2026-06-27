@@ -20,12 +20,12 @@ namespace Dal {
     }
 
     template <class RSG_>
-    FORCE_INLINE void FillRSG_(const Handle_<RSG_>& f, int numPath, void (RSG_::*fill)(Vector_<>*), Matrix_<>* y) {
+    FORCE_INLINE void FillRSG_(const Handle_<RSG_>& f, int numPath, void (RSG_::*fill)(Vector_<>* ) const, Matrix_<>* y) {
         int n_dim = f->NDim();
         y->Resize(numPath, n_dim);
         Vector_<> deviates(n_dim);
         for(int i = 0; i < numPath; ++i) {
-            (f.Get()->*fill)(&deviates);
+            (f.get()->*fill)(&deviates);
             for(int j = 0; j < n_dim; ++j)
                 (*y)(i, j) = deviates[j];
         }
