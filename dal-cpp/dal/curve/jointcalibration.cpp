@@ -22,6 +22,7 @@
 #include <dal/curve/ycinstrument.hpp>
 #include <dal/curve/ycpwlf.hpp>
 #include <dal/math/aad/aad.hpp>
+#include <dal/curve/calibration_internal.hpp>
 #include <dal/curve/tapeguard.hpp>
 #include <dal/math/matrix/banded.hpp>
 #include <dal/math/optimization/underdetermined.hpp>
@@ -84,18 +85,6 @@ namespace Dal {
             }
         }
 
-        const RateIndexConvention_* FloatConventionOf(const YCInstrument_& inst) {
-            if (const auto* deposit = dynamic_cast<const Deposit_*>(&inst))
-                return &deposit->FloatConvention();
-            if (const auto* fra = dynamic_cast<const FRA_*>(&inst))
-                return &fra->FloatConvention();
-            if (const auto* future = dynamic_cast<const Future_*>(&inst))
-                return &future->FloatConvention();
-            if (const auto* swap = dynamic_cast<const Swap_*>(&inst))
-                return &swap->FloatConvention();
-            return nullptr;
-        }
-
         // See docs/methodology/yield_curve_jacobian.md §Joint Multi-Curve Analytic Jacobian.
         String_ ForwardDeclarationOffendingInstrument(const JointCurveDeclaration_& decl) {
             for (const auto& inst : decl.instruments_) {
@@ -104,20 +93,6 @@ namespace Dal {
                     return inst->Name();
             }
             return String_();
-        }
-
-        Vector_<Handle_<YCInstrument_>> OrderInstruments(const Vector_<Handle_<YCInstrument_>>& instruments) {
-            auto ordered = instruments;
-            std::sort(ordered.begin(), ordered.end(), [](const Handle_<YCInstrument_>& lhs, const Handle_<YCInstrument_>& rhs) {
-                const auto lhsSpan = lhs->TimeSpan();
-                const auto rhsSpan = rhs->TimeSpan();
-                if (lhsSpan.second != rhsSpan.second)
-                    return lhsSpan.second < rhsSpan.second;
-                if (lhsSpan.first != rhsSpan.first)
-                    return lhsSpan.first < rhsSpan.first;
-                return lhs->Name() < rhs->Name();
-            });
-            return ordered;
         }
 
         struct CurveSlot_ {
