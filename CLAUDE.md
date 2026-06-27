@@ -135,6 +135,7 @@ Detailed documentation of the quantitative methods implemented in this library:
 - **Underdetermined Search** — [Underdetermined search](docs/methodology/underdetermined_search.md)
 - **Cross-Currency Calibration** — [Cross-currency calibration](docs/methodology/xccy_calibration.md)
 - **Interpolation** — [Interpolation](docs/methodology/interpolation.md)
+- **Matrix and Linear Algebra** — [Matrix and linear algebra](docs/methodology/matrix.md)
 - **Log-Discount Curve** — [Log-discount curve](docs/methodology/log_discount_curve.md)
 - **Yield-Curve Jacobian and Inverse-Jacobian Risk** — [Yield-curve Jacobian](docs/methodology/yield_curve_jacobian.md)
 - **Script Engine** — [Script engine](docs/methodology/script_engine.md)
