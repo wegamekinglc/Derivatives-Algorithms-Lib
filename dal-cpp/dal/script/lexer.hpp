@@ -8,10 +8,6 @@
 #include <dal/string/strings.hpp>
 
 namespace Dal::Script {
-    // Shared lexer for the script engine.
-    //
-    // Tokenize is the single tokenization primitive used by both the definition
-    // front-end (Preprocessor_) and the payoff back-end (Parser_), so it lives in
-    // its own translation unit instead of being owned by either component.
+    // Shared tokenizer for the preprocessor and parser; see docs/methodology/script_engine.md §"Lexer".
     Vector_<String_> Tokenize(const String_& str);
 }
