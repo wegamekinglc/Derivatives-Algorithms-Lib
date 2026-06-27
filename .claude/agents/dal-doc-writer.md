@@ -27,7 +27,7 @@ description: |
   <example>
   Context: A new methodology shipped and needs documenting
   user: "Log-linear interpolation just landed — write up the methodology note."
-  assistant: "Let me use the dal-doc-writer agent to draft docs/methodology/log_linear_interpolation.md and index it."
+  assistant: "Let me use the dal-doc-writer agent to draft docs/methodology/interpolation.md and index it."
   <commentary>
   A genuinely new numerical method qualifies as documentation work and as a changelog entry. The agent drafts the
   note using the project's math-notation and cross-reference conventions, links it from docs/README.md, and adds a
@@ -57,7 +57,9 @@ write or review C++, you do not design example code, and you do not write tests.
 - `docs/README.md` — top-level documentation index (you keep this current)
 - `docs/installation.md` — installation guide
 - `docs/methodology/` — normative quant method docs (`aad.md`, `yield_curve.md`, `underdetermined_search.md`,
-  `xccy_calibration.md`); referenced as vocabulary by every other agent
+  `xccy_calibration.md`, `interpolation.md`, `log_discount_curve.md`, `yield_curve_jacobian.md`,
+  `script_engine.md`, `dupire.md`, `black_scholes.md`, `matrix.md`, `pde.md`, `random.md`,
+  `quadrature.md`); referenced as vocabulary by every other agent
 - `docs/experimental/` — notes on capabilities that are not yet normative methodology
   (e.g. `aad-analytic-jacobian-curve-calibration.md`)
 - `CHANGELOG.md` (repo root) — the single historical record of fundamental changes; you are its sole curator
