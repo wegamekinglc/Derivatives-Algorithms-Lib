@@ -15,7 +15,12 @@
 #include <dal/math/vectors.hpp>
 #include <dal/storage/archive.hpp>
 
-#define HALF_DAY 0.00136986301369863
+namespace Dal::AAD {
+    // year-fraction (1/730)
+    constexpr double HALF_DAY_YF = 0.00136986301369863;
+    // std approximation used by the strike cutoff: atmCall * sqrt(2pi)
+    constexpr double SQRT_2PI = 2.506628274631;
+}
 
 /*IF--------------------------------------------------------------------------
 storable DupireModelData
@@ -101,7 +106,7 @@ namespace Dal {
             //  Initialize timeline
             void Allocate(const Vector_<>& productTimeline, const Vector_<SampleDef_>& defLine) override {
                 Vector_<> added(1, 0); // just to add 0
-                timeLine_ = FillData(productTimeline, maxDt_, HALF_DAY, added.begin(), added.end());
+                timeLine_ = FillData(productTimeline, maxDt_, HALF_DAY_YF, added.begin(), added.end());
                 commonSteps_.Resize(timeLine_.size());
                 Transform(timeLine_, [&productTimeline](double t) { return std::binary_search(productTimeline.begin(), productTimeline.end(), t); }, &commonSteps_);
                 defLine_ = &defLine;
@@ -184,6 +189,7 @@ namespace Dal {
             }
         };
 
+        // Dupire local-vol calibration grid; see docs/methodology/dupire.md.
         template <class IT_, class OT_, class T_ = double>
         void DupireCalibMaturity(const IVS_& ivs,
                                  double maturity,
@@ -191,16 +197,12 @@ namespace Dal {
                                  IT_ spotsEnd,
                                  OT_ lVolsBegin,
                                  const RiskView_<T_>& riskView = RiskView_<double>()) {
-            // Number of spots
             IT_ spots = spotsBegin;
             const size_t nSpots = distance(spotsBegin, spotsEnd);
 
-            // Estimate ATM, and we cut the grid 2 stdevs away to avoid instabilities
             const auto atmCall = static_cast<double>(ivs.Call(ivs.Spot(), maturity));
-            // Standard deviation, approx. atm call * sqrt(2pi)
-            const double std = atmCall * 2.506628274631;
+            const double std = atmCall * SQRT_2PI;
 
-            // Skip spots below and above 2.5 std
             int il = 0;
             while (il < nSpots && spots[il] < ivs.Spot() - 2.5 * std)
                 ++il;
@@ -208,20 +210,16 @@ namespace Dal {
             while (ih >= 0 && spots[ih] > ivs.Spot() + 2.5 * std)
                 --ih;
 
-            // Loop on spots
             for (int i = il; i <= ih; ++i) {
-                //  Dupire's formula
                 lVolsBegin[i] = ivs.LocalVol(spots[i], maturity, &riskView);
             }
 
-            // Extrapolate flat outside std
             for (int i = 0; i < il; ++i)
                 lVolsBegin[i] = lVolsBegin[il];
             for (int i = ih + 1; i < nSpots; ++i)
                 lVolsBegin[i] = lVolsBegin[ih];
         }
 
-        // Returns a struct with spots, times and lVols
         template <class T_ = double>
         inline auto DupireCalib(const IVS_& ivs, const Vector_<>& inclSpots, double maxDs, const Vector_<>& inclTimes, double maxDt, const RiskView_<T_>& riskView = RiskView_<double>()) {
             struct {
@@ -230,9 +228,10 @@ namespace Dal {
                 Matrix_<T_> lVols_;
             } results;
 
-            static const double ONE_HOUR = 0.000114469;
+            // year-fraction (1/8760)
+            constexpr double ONE_HOUR_YF = 0.000114469;
             results.spots_ = FillData(inclSpots, maxDs, 0.01);
-            results.times_ = FillData(inclTimes, maxDt, ONE_HOUR,&maxDt, &maxDt + 1);
+            results.times_ = FillData(inclTimes, maxDt, ONE_HOUR_YF, &maxDt, &maxDt + 1);
 
             Matrix_<T_> lVolsT(results.times_.size(), results.spots_.size());
 
