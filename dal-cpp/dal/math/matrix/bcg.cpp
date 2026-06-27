@@ -44,57 +44,77 @@ namespace Dal {
     } // namespace
 
     namespace {
-        // Unified Krylov iteration for CG (biConjugate = false) and BCG (true). CG aliases the
-        // shadow vectors onto the real ones so the shared arithmetic stays byte-identical to
-        // standalone CG; shadow maintenance is gated on the flag.
+        // Unified Krylov state for CG (biConjugate = false) and BCG (true). For CG, zzRef/ppRef
+        // alias the real vectors so the shared arithmetic is byte-identical to standalone CG.
+        struct KrylovState_ {
+            const Sparse::Square_& A;
+            const XPrecondition_& precondition;
+            const bool biConjugate;
+            Vector_<> r;
+            Vector_<> rr;
+            Vector_<> z;
+            Vector_<> zz;
+            Vector_<> p;
+            Vector_<> pp;
+            Vector_<>& zzRef; // aliases z for CG, zz for BCG
+            Vector_<>& ppRef; // aliases p for CG, pp for BCG
+            double betaPrev;
+
+            KrylovState_(const Sparse::Square_& a, const XPrecondition_& prec, bool biConjugate, int n)
+                : A(a), precondition(prec), biConjugate(biConjugate), r(n), rr(n), z(n), zz(n), p(n), pp(n), zzRef(biConjugate ? zz : z),
+                  ppRef(biConjugate ? pp : p), betaPrev(0.0) {}
+        };
+
+        double PrepareDirection_(KrylovState_& s, int ii) {
+            s.precondition.Left(s.r, &s.z);
+            if (s.biConjugate)
+                s.precondition.Right(s.rr, &s.zz);
+            const double beta = InnerProduct(s.zzRef, s.r);
+            const double multiply = ii > 0 ? beta / s.betaPrev : 0.0;
+            s.p *= multiply;
+            if (s.biConjugate)
+                s.pp *= multiply;
+            s.p += s.z;
+            if (s.biConjugate)
+                s.pp += s.zz;
+            s.betaPrev = beta;
+            return beta;
+        }
+
+        void UpdateSolution_(KrylovState_& s, double beta, Vector_<>* x) {
+            s.A.MultiplyLeft(s.p, &s.z);
+            if (s.biConjugate)
+                s.A.MultiplyRight(s.pp, &s.zz);
+            const double alphaK = beta / InnerProduct(s.z, s.ppRef);
+            Transform(x, s.p, LinearIncrement(alphaK));
+            Transform(&s.r, s.z, LinearIncrement(-alphaK));
+            if (s.biConjugate)
+                Transform(&s.rr, s.zz, LinearIncrement(-alphaK));
+        }
+
+        void ValidateKrylovParams_(int n, const Vector_<>& b, const Vector_<>* x, double tolRel, double tolAbs, int maxIterations) {
+            REQUIRE(b.size() == n && x->size() == n, "matrix size is not compatible");
+            REQUIRE((IsPositive(tolRel) || IsPositive(tolAbs)) && maxIterations > 0, "parameters is not valid");
+        }
+
         void
         KrylovSolve_(const Sparse::Square_& A, const Vector_<>& b, double tolRel, double tolAbs, int maxIterations, bool biConjugate, Vector_<>* x) {
             const int n = A.Size();
-            REQUIRE(b.size() == n && x->size() == n, "matrix size is not compatible");
-            REQUIRE((IsPositive(tolRel) || IsPositive(tolAbs)) && maxIterations > 0, "parameters is not valid");
+            ValidateKrylovParams_(n, b, x, tolRel, tolAbs, maxIterations);
 
-            double tNorm = tolRel * sqrt(InnerProduct(b, b)) + tolAbs;
+            const double tNorm = tolRel * sqrt(InnerProduct(b, b)) + tolAbs;
             XPrecondition_ precondition(A);
-            Vector_<> r(n);
-            Vector_<> rr(n);
-            Vector_<> z(n);
-            Vector_<> zz(n);
-            Vector_<> p(n);
-            Vector_<> pp(n);
+            KrylovState_ s(A, precondition, biConjugate, n);
 
-            A.MultiplyLeft(*x, &r);
-            Transform(b, r, std::minus<>(), &r); // r = b - Ax
+            A.MultiplyLeft(*x, &s.r);
+            Transform(b, s.r, std::minus<>(), &s.r); // r = b - Ax
             if (biConjugate)
-                rr = r;
+                s.rr = s.r;
 
-            // CG collapses each shadow vector onto its real counterpart, so beta and alphaK
-            // reduce to the standalone-CG expressions InnerProduct(z, r) and beta/InnerProduct(z, p).
-            Vector_<>& zzRef = biConjugate ? zz : z;
-            Vector_<>& ppRef = biConjugate ? pp : p;
-
-            double betaPrev;
             for (int ii = 0; ii < maxIterations; ++ii) {
-                precondition.Left(r, &z);
-                if (biConjugate)
-                    precondition.Right(rr, &zz);
-                const double beta = InnerProduct(zzRef, r);
-                const double multiply = ii > 0 ? beta / betaPrev : 0.0;
-                p *= multiply;
-                if (biConjugate)
-                    pp *= multiply;
-                p += z;
-                if (biConjugate)
-                    pp += zz;
-                betaPrev = beta;
-                A.MultiplyLeft(p, &z);
-                if (biConjugate)
-                    A.MultiplyRight(pp, &zz);
-                const double alphaK = beta / InnerProduct(z, ppRef);
-                Transform(x, p, LinearIncrement(alphaK));
-                Transform(&r, z, LinearIncrement(-alphaK));
-                if (biConjugate)
-                    Transform(&rr, zz, LinearIncrement(-alphaK));
-                if (sqrt(InnerProduct(r, r)) <= tNorm)
+                const double beta = PrepareDirection_(s, ii);
+                UpdateSolution_(s, beta, x);
+                if (sqrt(InnerProduct(s.r, s.r)) <= tNorm)
                     return;
             }
             THROW(biConjugate ? "Exhausted iterations in BCGSolve" : "Exhausted iterations in CGSolve");
