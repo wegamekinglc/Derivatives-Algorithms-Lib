@@ -101,6 +101,12 @@ Deep dives into the quantitative methods and algorithms implemented in DAL:
   - Composite Simpson's 1/3 rule `SimpsonWeights` / `QuadSimpson_` and the odd-node forcing
   - The `Quad1DFixed_<T_>` pull-style driver loop and vector-valued integration
 
+- **[random.md](methodology/random.md)** — Random Number Generation and Path Construction
+  - `Random_` interface and the pseudo-random vs. quasi-random split
+  - Brownian bridge: bisection order, conditional mean/variance, variation normalization
+  - Sobol direction numbers and the Gray-code $O(1)$ recurrence
+  - Path seeking via direct state reconstruction (`SobolSet_::SkipTo`, MRG32k32a matrix jump)
+
 ### Experimental (`experimental/`)
 
 Notes on capabilities that are working but not yet promoted to normative methodology. These
