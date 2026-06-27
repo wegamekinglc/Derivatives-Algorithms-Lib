@@ -21232,6 +21232,14 @@ const uint_least32_t* const DIRECTIONS[21201] = {
             return ret_val;
         }
 
+        void Seek(Vector_<uint_least32_t>& state, size_t iPath, const Matrix_<uint_least32_t>& directions) {
+            Fill(&state, 0);
+            for (size_t jj = 0, ip = iPath; ip; ++jj, ip >>= 1) {
+                if ((ip ^ (ip >> 1)) & 1)
+                    Transform(state, directions.Row(jj), XOR, &state);
+            }
+        }
+
         struct SobolSet_ : SequenceSet_ {
             Matrix_<uint_least32_t> directions_;
             size_t iPath_;
@@ -21253,11 +21261,7 @@ const uint_least32_t* const DIRECTIONS[21201] = {
             }
             void SkipTo(size_t nPaths) override {
                 iPath_ = nPaths;
-                Fill(&state_, 0);
-                for (size_t jj = 0, ip = iPath_; ip; ++jj, ip >>= 1) {
-                    if ((ip ^ (ip >> 1)) & 1)
-                        Transform(state_, directions_.Row(jj), XOR, &state_);
-                }
+                Seek(state_, iPath_, directions_);
             }
             SobolSet_* TakeAway(int subSize) override;
         };
@@ -21306,11 +21310,7 @@ const uint_least32_t* const DIRECTIONS[21201] = {
         std::unique_ptr<SobolSet_> seq(new SobolSet_(iPath, precise));
         seq->state_.Resize(size);
         seq->directions_ = Directions(size);
-        Fill(&seq->state_, 0);
-        for (size_t jj = 0, ip = iPath; ip; ++jj, ip >>= 1) {
-            if ((ip ^ (ip >> 1)) & 1)
-                Transform(seq->state_, seq->directions_.Row(jj), XOR, &seq->state_);
-        }
+        Seek(seq->state_, iPath, seq->directions_);
         return seq.release();
     }
 

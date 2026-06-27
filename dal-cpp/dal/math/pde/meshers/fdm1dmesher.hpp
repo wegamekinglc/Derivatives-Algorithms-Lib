@@ -5,6 +5,7 @@
 #pragma once
 
 #include <dal/math/vectors.hpp>
+#include <dal/utilities/null.hpp>
 
 namespace Dal {
     class FDM1DMesher_ {
@@ -22,5 +23,7 @@ namespace Dal {
         Vector_<> locations_;
         Vector_<> dplus_;
         Vector_<> dminus_;
+
+        void FinalizeSpacings() { dplus_.back() = dminus_.front() = Null_<double>(); }
     };
 }

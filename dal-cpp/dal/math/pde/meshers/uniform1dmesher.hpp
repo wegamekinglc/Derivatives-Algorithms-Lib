@@ -21,7 +21,7 @@ namespace Dal {
             }
 
             locations_.back() = end;
-            dplus_.back() = dminus_.front() = Null_<double>();
+            FinalizeSpacings();
         }
     };
 }

@@ -29,6 +29,14 @@ namespace Dal::AAD {
             }
             it->PropagateOne();
         }
+
+        template <class F_> void ForEachBlock(Tape_& tape, F_&& fn) {
+            if (Tape_::multi_)
+                fn(tape.adjointsMulti_);
+            fn(tape.ders_);
+            fn(tape.argPtrs_);
+            fn(tape.nodes_);
+        }
     }
 
     void PropagateMarkToStart(Tape_& tape) {
@@ -44,34 +52,19 @@ namespace Dal::AAD {
     }
 
     void Clear(Tape_& tape) {
-        tape.adjointsMulti_.Clear();
-        tape.ders_.Clear();
-        tape.argPtrs_.Clear();
-        tape.nodes_.Clear();
+        ForEachBlock(tape, [](auto& block) { block.Clear(); });
     }
 
     void Mark(Tape_& tape) {
-        if (Tape_::multi_)
-            tape.adjointsMulti_.SetMark();
-        tape.ders_.SetMark();
-        tape.argPtrs_.SetMark();
-        tape.nodes_.SetMark();
+        ForEachBlock(tape, [](auto& block) { block.SetMark(); });
     }
 
     void Rewind(Tape_& tape) {
-        if (Tape_::multi_)
-            tape.adjointsMulti_.Rewind();
-        tape.ders_.Rewind();
-        tape.argPtrs_.Rewind();
-        tape.nodes_.Rewind();
+        ForEachBlock(tape, [](auto& block) { block.Rewind(); });
     }
 
     void RewindToMark(Tape_& tape) {
-        if (Tape_::multi_)
-            tape.adjointsMulti_.RewindToMark();
-        tape.ders_.RewindToMark();
-        tape.argPtrs_.RewindToMark();
-        tape.nodes_.RewindToMark();
+        ForEachBlock(tape, [](auto& block) { block.RewindToMark(); });
     }
 
     void NewRecording(Tape_&) {}
