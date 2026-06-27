@@ -283,13 +283,16 @@ namespace Dal {
             // Slot a calibrated discount curve into the discount or forward position (per
             // calibrateDiscountCurve_) and return the yield-curve context the rates read from.
             CurveBlock_ YieldCurveWith(const Handle_<DiscountCurve_>& dc) const {
-                auto discountCurves = discountCurves_;
-                auto forwardCurves = forwardCurves_;
-                if (calibrateDiscountCurve_)
+                // F() runs this on every solver iteration, so copy only the map that is
+                // actually mutated and forward the unchanged member directly.
+                if (calibrateDiscountCurve_) {
+                    auto discountCurves = discountCurves_;
                     discountCurves[targetCollateral_] = dc;
-                else
-                    forwardCurves[targetTenor_] = dc;
-                return CurveBlock_(curveName_, ccy_, discountCurves, forwardCurves, liborBasis_);
+                    return CurveBlock_(curveName_, ccy_, discountCurves, forwardCurves_, liborBasis_);
+                }
+                auto forwardCurves = forwardCurves_;
+                forwardCurves[targetTenor_] = dc;
+                return CurveBlock_(curveName_, ccy_, discountCurves_, forwardCurves, liborBasis_);
             }
 
             // Returns AAD-tape Jacobian when ANALYTIC + eligible; nullptr otherwise (solver falls back to dense bumping).
