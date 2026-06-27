@@ -9,6 +9,7 @@
 #include <dal/math/aad/sample.hpp>
 #include <dal/math/vectors.hpp>
 #include <dal/string/strings.hpp>
+#include <dal/utilities/exceptions.hpp>
 
 namespace Dal {
     namespace AAD {
@@ -42,19 +43,18 @@ namespace Dal {
         };
     }
 
-    class Slide_;
+    class Slide_ {
+    public:
+        virtual ~Slide_() = default;
+    };
 
     struct ModelData_: public Storable_ {
         Vector_<String_> parameterLabels_;
 
         ModelData_(const String_& type, const String_& name): Storable_(type.c_str(), name) {}
         [[nodiscard]] ModelData_* MutantModel(const String_& newName, const Vector_<Handle_<Slide_> >& slides) const {
-            std::unique_ptr<ModelData_> retval(MutantModel(&newName, nullptr));
-            for (const auto& s : slides) {
-		std::unique_ptr<ModelData_> temp(retval->MutantModel(nullptr, s.get()));
-		std::swap(retval, temp);
-            }
-	    return retval.release();
+            REQUIRE(slides.empty(), "slides are not supported for ModelData");
+            return MutantModel(&newName, nullptr);
         }
 
     private:

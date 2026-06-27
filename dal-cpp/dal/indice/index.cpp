@@ -15,13 +15,8 @@ namespace Dal {
         auto fixings = hist->Fetch(indexName);
         REQUIRE(fixings || quiet, "no fixings exist");
 
-        auto vals = fixings ? fixings->vals_ : EMPTY;
-        auto pf = vals.find(fixingTime);
-        if (pf == vals.end()) {
-            REQUIRE(quiet, "No fixing for this time");
-            return -INF;
-        }
-        return pf->second;
+        const auto& vals = fixings ? fixings->vals_ : EMPTY;
+        return LookupFixing(vals, fixingTime, quiet);
     }
 
     double Index_::Fixing(_ENV, const DateTime_& fixingTime) const {

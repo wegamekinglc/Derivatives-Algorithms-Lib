@@ -32,3 +32,19 @@ TEST(IndexTest, TestIndexFxFixing) {
         ASSERT_DOUBLE_EQ(index->Fixing(_env, fixing_time), 2.0);
     }
 }
+
+TEST(IndexTest, TestPastFixingQuietMissingReturnsNegInf) {
+    String_ name("FX[USD/GBP]");
+    FixingsAccess_ fixings_access;
+    std::map<DateTime_, double> vals;
+    DateTime_ hit(Date_(2023, 1, 24));
+    vals.insert(std::make_pair(hit, 2.0));
+    Handle_<Fixings_> fixings(new Fixings_(name, vals));
+    fixings_access.fixings_.insert(std::make_pair(name, fixings));
+    ENV_SEED(fixings_access);
+
+    DateTime_ miss(Date_(2023, 1, 25));
+    ASSERT_DOUBLE_EQ(Index::PastFixing(_env, name, miss, true), -Dal::INF);
+    ASSERT_DOUBLE_EQ(Index::PastFixing(_env, name, hit, true), 2.0);
+    ASSERT_THROW(Index::PastFixing(_env, name, miss), std::runtime_error);
+}
