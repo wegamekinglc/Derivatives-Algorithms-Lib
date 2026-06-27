@@ -61,10 +61,13 @@ namespace Dal {
 
     ComInitializer_::ComInitializer_() : initialized_(false) {
         HRESULT hr = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
+        // SUCCEEDED treats both S_OK and S_FALSE as success. S_FALSE means COM
+        // was already initialized on this thread; either way we own a matching
+        // CoUninitialize call, so record initialization. Any other HRESULT is a
+        // real failure.
         if (SUCCEEDED(hr)) {
             initialized_ = true;
-        } else if (hr != S_FALSE) {
-            // S_FALSE means COM is already initialized on this thread, which is OK
+        } else {
             THROW(String_("CoInitializeEx failed"));
         }
     }
