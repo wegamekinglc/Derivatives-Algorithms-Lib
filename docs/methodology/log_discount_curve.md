@@ -135,6 +135,19 @@ tail). `LOG_LINEAR` basis applies for $\tau \le \tau_{\text{cutoff}}$; the cubic
 cubic tail subarray and expanded back to full storage-node indices, with
 `mixedCutoffIndex_` and `mixedCutoffYf_` stored for dispatch at evaluation.
 
+### The `fppCoef_` second-derivative sensitivity matrix
+
+`fppCoef_[k][j]` holds $\partial\,\ell''_k / \partial\,\ell_j$ — the sensitivity of
+each interior knot's second derivative to each storage-node $\ell$ value. It exists
+**only** for the cubic machinery: it is computed once at construction for
+`LOG_CUBIC_NATURAL` and for the cubic tail of `MIXED`, and it is **empty and unused**
+for `LOG_LINEAR` and for the linear head of `MIXED` (the linear basis weights are
+closed-form in the knot positions and need no second-derivative solve). Because the
+matrix is a function of the knot abscissae $\tau_i$ only, the same instance serves
+the `double` and `Number_` specialisations identically — only the basis-weight
+accumulation against `logDF_` differs, and that is what the `Number_` path does on
+the tape.
+
 ### Extrapolation
 
 Beyond $\tau_{N-1}$, every scheme uses the secant slope of the last segment:

@@ -46,6 +46,23 @@ and evaluated at the solution, whereas `effJacobianInverse_` is a solver-weighte
 tolerance-scaled pseudoinverse formed at the solver's final iterate. They are not
 inverses in their exposed form.
 
+### How `jacobian_` is captured
+
+The forward Jacobian is not re-derived by the consumer; it is captured **once,
+inside the solver, on its convergence branch**. When the solve is eligible for
+the analytic path, the convergence hook issues a single
+`func.Gradient(xNew, fNew)` call at the solved $x^\star$, and the reverse sweep
+that fills `jacobian_` is that one evaluation. The output is the plain Jacobian
+before the solver's `DivideRows(tol_)` row-scaling, and an independent
+finite-difference bump of the solved nodes reproduces it element-wise.
+
+There is deliberately **no standalone "analytic Jacobian at a point" accessor**.
+The forward Jacobian is obtainable only as a byproduct of an eligible
+calibration, on the public diagnostics struct — never as a free-standing query
+on a curve. A consumer that wants $J$ at an arbitrary point must run an
+eligible calibration through `CalibrateYieldCurve` and read
+`result.diagnostics_.jacobian_`, or perform the bump locally.
+
 **Bump oracle.** A two-sided central difference — perturb $x_k$ by $\pm h$,
 rebuild the curve via `NewDiscountLogDF(...)`, reprice every instrument — gives
 the same $J$ with a truncation error of $O(h^2)$ and a round-off floor of
@@ -181,12 +198,14 @@ that do not layer. `PIECEWISE_CONSTANT_FWD` declarations cannot be base-layered
 `sofarT_[k] = ∫_{knot_0}^{knot_k} f(τ) dτ` is `T_`-typed (mirroring the
 `PiecewiseLinear_::sofar_` member but on `T_`), so the dependence of every
 discount-factor read on `fLeftT_` / `fRightT_` records on the tape. The
-year-fraction weights (`dt`) stay `double` — they are functions of the knot
-abscissae only, identical for any `T_`. `UpdateT()` recomputes `sofarT_`
-whenever the forward parameters change. The `double` specialization of the
-templated class is byte-for-byte identical in arithmetic to the non-templated
-`DiscountPWLF_` the bumped path uses, so the AAD-vs-bump agreement bar is
-defined against the same residual function.
+year-fraction weights (`dt`) and the knot abscissae themselves
+(`knotAbscissae_`, serial-day offsets from knot 0) stay `double` — they are
+functions of the knot positions only, computed once at construction and
+identical for any `T_`. `UpdateT()` recomputes `sofarT_` whenever the forward
+parameters change. The `double` specialization of the templated class is
+byte-for-byte identical in arithmetic to the non-templated `DiscountPWLF_` the
+bumped path uses, so the AAD-vs-bump agreement bar is defined against the same
+residual function.
 
 The `Number_`-typed curve is constructed directly from tape-registered forward
 parameters — the `AnalyticJacobian` override registers `fLeftT_` / `fRightT_`
