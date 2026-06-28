@@ -4,11 +4,11 @@
 
 #include <dal/platform/platform.hpp>
 #include <dal/platform/strict.hpp>
-#include <functional>
 #include <dal/math/matrix/bcg.hpp>
 #include <dal/math/matrix/sparse.hpp>
 #include <dal/utilities/algorithms.hpp>
 #include <dal/utilities/numerics.hpp>
+#include <dal/utilities/functionals.hpp>
 
 namespace Dal {
     namespace {
@@ -71,24 +71,12 @@ namespace Dal {
                 s.precondition.Right(s.rr, &s.zz);
             const double beta = InnerProduct(s.zzRef, s.r);
             const double multiply = ii > 0 ? beta / s.betaPrev : 0.0;
-            // Fused AXPY sweep mirroring the unfused operation order (p *= multiply; p += z)
-            // so -ffp-contract=fast forms the same FMAs as the original two-pass code.
-            {
-                auto pIt = s.p.begin();
-                auto zIt = s.z.begin();
-                const auto pEnd = s.p.end();
-                if (s.biConjugate) {
-                    auto ppIt = s.pp.begin();
-                    auto zzIt = s.zz.begin();
-                    for (; pIt != pEnd; ++pIt, ++zIt, ++ppIt, ++zzIt) {
-                        *pIt = *pIt * multiply + *zIt;
-                        *ppIt = *ppIt * multiply + *zzIt;
-                    }
-                } else {
-                    for (; pIt != pEnd; ++pIt, ++zIt)
-                        *pIt = *pIt * multiply + *zIt;
-                }
-            }
+            s.p *= multiply;
+            if (s.biConjugate)
+                s.pp *= multiply;
+            s.p += s.z;
+            if (s.biConjugate)
+                s.pp += s.zz;
             s.betaPrev = beta;
             return beta;
         }
@@ -98,30 +86,10 @@ namespace Dal {
             if (s.biConjugate)
                 s.A.MultiplyRight(s.pp, &s.zz);
             const double alphaK = beta / InnerProduct(s.z, s.ppRef);
-            // Fused AXPY sweep mirroring LinearIncrement(scale) = dst + scale * src, so the
-            // FMA pattern matches the unfused Transform calls (r + (-alphaK)*z, not r - alphaK*z).
-            const double negAlphaK = -alphaK;
-            {
-                auto xIt = x->begin();
-                auto pIt = s.p.begin();
-                auto rIt = s.r.begin();
-                auto zIt = s.z.begin();
-                const auto xEnd = x->end();
-                if (s.biConjugate) {
-                    auto rrIt = s.rr.begin();
-                    auto zzIt = s.zz.begin();
-                    for (; xIt != xEnd; ++xIt, ++pIt, ++rIt, ++zIt, ++rrIt, ++zzIt) {
-                        *xIt = *xIt + alphaK * *pIt;
-                        *rIt = *rIt + negAlphaK * *zIt;
-                        *rrIt = *rrIt + negAlphaK * *zzIt;
-                    }
-                } else {
-                    for (; xIt != xEnd; ++xIt, ++pIt, ++rIt, ++zIt) {
-                        *xIt = *xIt + alphaK * *pIt;
-                        *rIt = *rIt + negAlphaK * *zIt;
-                    }
-                }
-            }
+            Transform(x, s.p, LinearIncrement(alphaK));
+            Transform(&s.r, s.z, LinearIncrement(-alphaK));
+            if (s.biConjugate)
+                Transform(&s.rr, s.zz, LinearIncrement(-alphaK));
         }
 
         void ValidateKrylovParams_(int n, const Vector_<>& b, const Vector_<>* x, double tolRel, double tolAbs, int maxIterations) {
