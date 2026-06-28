@@ -71,12 +71,16 @@ namespace Dal {
                 s.precondition.Right(s.rr, &s.zz);
             const double beta = InnerProduct(s.zzRef, s.r);
             const double multiply = ii > 0 ? beta / s.betaPrev : 0.0;
-            s.p *= multiply;
-            if (s.biConjugate)
-                s.pp *= multiply;
-            s.p += s.z;
-            if (s.biConjugate)
-                s.pp += s.zz;
+            {
+                auto pz = s.z.begin();
+                for (auto pp = s.p.begin(); pp != s.p.end(); ++pp, ++pz)
+                    *pp = *pz + multiply * *pp;
+            }
+            if (s.biConjugate) {
+                auto pzz = s.zz.begin();
+                for (auto pp = s.pp.begin(); pp != s.pp.end(); ++pp, ++pzz)
+                    *pp = *pzz + multiply * *pp;
+            }
             s.betaPrev = beta;
             return beta;
         }
@@ -86,10 +90,20 @@ namespace Dal {
             if (s.biConjugate)
                 s.A.MultiplyRight(s.pp, &s.zz);
             const double alphaK = beta / InnerProduct(s.z, s.ppRef);
-            Transform(x, s.p, LinearIncrement(alphaK));
-            Transform(&s.r, s.z, LinearIncrement(-alphaK));
-            if (s.biConjugate)
-                Transform(&s.rr, s.zz, LinearIncrement(-alphaK));
+            {
+                auto pp = s.p.begin();
+                auto zp = s.z.begin();
+                for (auto xp = x->begin(), rp = s.r.begin(); rp != s.r.end(); ++xp, ++rp, ++pp, ++zp) {
+                    *xp += alphaK * *pp;
+                    *rp -= alphaK * *zp;
+                }
+            }
+            if (s.biConjugate) {
+                auto ppp = s.pp.begin();
+                auto zzp = s.zz.begin();
+                for (auto rp = s.rr.begin(); rp != s.rr.end(); ++rp, ++ppp, ++zzp)
+                    *rp -= alphaK * *zzp;
+            }
         }
 
         void ValidateKrylovParams_(int n, const Vector_<>& b, const Vector_<>* x, double tolRel, double tolAbs, int maxIterations) {

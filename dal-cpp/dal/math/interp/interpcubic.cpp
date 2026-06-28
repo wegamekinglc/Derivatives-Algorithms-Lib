@@ -30,6 +30,7 @@ namespace Dal {
     namespace {
         struct Cubic1_ : Interp1_ {
             Vector_<> x_, f_, fpp_;
+            mutable size_t lastIndex_ = 0;
             double operator()(double x) const override;
             bool IsInBounds(double x) const override {
                 return x >= x_.front() && x <= x_.back();
@@ -49,16 +50,34 @@ namespace Dal {
 
         // based on Numerical Recipes' splint
         double Cubic1_::operator()(double x) const {
-            auto pGE = LowerBound(x_, x);
-            if (pGE != x_.end() && *pGE == x)
-                return f_[pGE - x_.begin()];
-            const ptrdiff_t iGE = std::min(static_cast<ptrdiff_t>(x_.size() - 1), std::max(static_cast<ptrdiff_t>(1), pGE - x_.begin()));
-            const ptrdiff_t iLT = iGE - 1;
-            const double h = x_[iGE] - x_[iLT];
+            const ptrdiff_t n = static_cast<ptrdiff_t>(x_.size());
+            ptrdiff_t iGE;
+            size_t idx = lastIndex_ < static_cast<size_t>(n) ? lastIndex_ : static_cast<size_t>(n - 1);
+            if (x >= x_[idx]) {
+                while (idx + 1 < static_cast<size_t>(n) && x_[idx + 1] <= x)
+                    ++idx;
+            } else {
+                while (idx > 0 && x_[idx] > x)
+                    --idx;
+            }
+            if ((idx + 1 == static_cast<size_t>(n) && x >= x_[idx]) ||
+                (x_[idx] <= x && (idx + 1 == static_cast<size_t>(n) || x_[idx + 1] > x))) {
+                iGE = (x_[idx] == x) ? static_cast<ptrdiff_t>(idx) : static_cast<ptrdiff_t>(idx + 1);
+                lastIndex_ = idx;
+            } else {
+                auto pGE = LowerBound(x_, x);
+                iGE = pGE - x_.begin();
+                lastIndex_ = static_cast<size_t>(std::min(iGE, n - 1));
+            }
+            if (iGE < n && x_[iGE] == x)
+                return f_[iGE];
+            const ptrdiff_t iClamp = std::min(n - 1, std::max<ptrdiff_t>(1, iGE));
+            const ptrdiff_t iLT = iClamp - 1;
+            const double h = x_[iClamp] - x_[iLT];
             const double b = (x - x_[iLT]) / h;
             const double a = 1.0 - b;
-            return a * f_[iLT] + b * f_[iGE] -
-                   a * b * ((1.0 + a) * fpp_[iLT] + (1.0 + b) * fpp_[iGE]) * Square(h) / 6.0;
+            return a * f_[iLT] + b * f_[iClamp] -
+                   a * b * ((1.0 + a) * fpp_[iLT] + (1.0 + b) * fpp_[iClamp]) * Square(h) / 6.0;
         }
 
         // the spline-fitting process
