@@ -181,8 +181,28 @@ $$
 then scales each state word by $2^{-32}$ to map it into $(0,1)$. The
 trailing-zero count is obtained by shifting until the lowest bit is set; if
 $k$ reaches `directions_.Rows()` (i.e. the index has exceeded $2^{32}$
-points), the generator throws. `FillNormal` applies `InverseNCDF` (with the
-`precise_` flag) to each uniform variate.
+points), the generator throws.
+
+### Normal-Draw Precision and `polish_`
+
+`FillNormal` applies `InverseNCDF` to each uniform variate. Two flags govern the
+inverse-CDF evaluation, both defaulted on construction and stored on the
+storable wrapper `SobolRSG_` (`dal-cpp/dal/math/random/sobol.hpp`) and on
+`SobolSet_`:
+
+- `precise_` selects a higher-accuracy inverse-normal-CDF routine, mirroring the
+  pseudo-random family.
+- `polish_` toggles the Newton polish step in `InverseNCDF`. The Acklam rational
+  approximation without polish is already accurate to roughly $10^{-9}$, well
+  below quasi-Monte-Carlo sampling noise, so polish defaults to **`false`** and
+  is only enabled when a caller explicitly requests it. Skipping polish roughly
+  halves the per-deviate cost of `FillNormal` without measurably moving QMC
+  convergence.
+
+The constructor surface is therefore `NewSobol(size, iPath, precise = false,
+polish = false)` and the storable `SobolRSG_(name, iPath, nDim = 1, precise =
+false, polish = false)`; both flags are persisted by the storable markup so a
+serialised generator round-trips with its precision settings intact.
 
 ### Path Seeking
 

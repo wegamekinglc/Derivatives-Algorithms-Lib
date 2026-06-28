@@ -202,8 +202,11 @@ dense bumping). The `LOG_DISCOUNT` parameterization exposes the node log-discoun
 factors $\ell_1,\dots,\ell_{N-1}$ as the free parameters.
 
 **TapeGuard.** Each analytic-Jacobian cycle is bracketed by `TapeGuard_`, an RAII
-scope that calls `Dal::AAD::Clear` on the active tape at construction and (via its
-destructor) at scope exit, even on exception. The guard does **not** open a
+scope that calls `Dal::AAD::Rewind` on the active tape at construction and (via its
+destructor) at scope exit, even on exception. `Rewind` resets the tape's write
+cursor so the next recording reuses the already-allocated node blocks, avoiding
+the free/re-allocate cycle of `Clear` on every iteration; the reused storage is
+overwritten in place by the next forward pass. The guard does **not** open a
 recording — the recording is opened explicitly by `AnalyticJacobian` after
 `RegisterIndependent` (the canonical order across all four AAD backends).
 
@@ -292,7 +295,7 @@ rather than running $P+1$ dense-bump evaluations.
 backends (native, XAD, CoDiPack, Adept) is:
 
 $$
-\text{Clear} \rightarrow \text{RegisterIndependent}(x_k) \;\forall k \;
+\text{Rewind} \rightarrow \text{RegisterIndependent}(x_k) \;\forall k \;
 \rightarrow \text{NewRecording} \rightarrow \text{forward pass} \rightarrow
 \text{per-row } \{\text{ZeroAdjoints},\; \bar{r}_i = 1,\;
 \text{PropagateToStart},\; \text{harvest}\}.

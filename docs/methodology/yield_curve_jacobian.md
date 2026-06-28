@@ -135,7 +135,7 @@ eligibility: the joint path supports `PIECEWISE_LINEAR_FWD` and
 (it throws `Dal::Exception_`) on **both** the `BUMPED` and `ANALYTIC` paths —
 the joint residual function has no log-DF or zero-rate machinery, and there is
 no fallback. `CalibrateJointMultiCurve` is single-threaded: the AAD tape is
-thread-local and a `TapeGuard_` clears it on entry and exit (also under
+thread-local and a `TapeGuard_` rewinds it on entry and exit (also under
 exception unwind), so concurrent calls would corrupt the tape.
 
 ### Discount-vs-forward routing, and the OIS post-2008 fallback

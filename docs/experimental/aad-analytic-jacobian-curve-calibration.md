@@ -54,7 +54,7 @@ the `NOTICE`s fire at most once even though `Gradient` is invoked per solver ite
 `PropagateToStart`) rather than any backend-specific API, and there is no longer a
 compile-time backend `#if` gate around it in `dal-cpp/dal/curve/calibration.cpp`. The
 recording contract that works on every backend is
-`Clear(*Tape())` → `RegisterIndependent` → `NewRecording` → forward → per-row
+`Rewind(*Tape())` → `RegisterIndependent` → `NewRecording` → forward → per-row
 `ZeroAdjoints`/seed/`PropagateToStart`.
 
 **Mechanics.** `YieldCurveCalibrationFunc_::AnalyticJacobian` registers the free-node
