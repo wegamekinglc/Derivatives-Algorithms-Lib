@@ -17,6 +17,8 @@
 
 - All files must end with a newline
 - Use `nullptr` instead of `NULL`
+- **Do not use `volatile`** — it is banned in this project. Use other mechanisms (atomics, synchronization primitives, or algorithm restructuring) if you need to prevent compiler reordering or FP contraction.
+- **Do not use `mutable`** class members — const evaluators must be pure const. If a caching/hint optimization requires hidden state, redesign the API to make the caller manage the state explicitly (e.g., pass a hint by reference), or skip the optimization.
 
 | Element           | Convention                 | Examples                                          |
 |-------------------|----------------------------|---------------------------------------------------|
