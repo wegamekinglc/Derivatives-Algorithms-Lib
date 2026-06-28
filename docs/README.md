@@ -72,6 +72,7 @@ Deep dives into the quantitative methods and algorithms implemented in DAL:
   - `Uniform1DMesher_` constant spacing and endpoint pinning
   - `Concentrating1dMesher_` sinh/asinh coordinate stretch, density scaling, and snapped-knot device
   - `CoordinateMap_`, `NewSinhMap(xWidth, dxdyRange)`, and identity degeneration
+  - `FD1D_` cached implicit-operator decomposition reused across time-homogeneous rolls
 
 - **[yield_curve_jacobian.md](methodology/yield_curve_jacobian.md)** — Yield-Curve Jacobian and Inverse-Jacobian Risk
   - Forward residual Jacobian via AAD reverse sweep vs finite-difference bump
@@ -106,6 +107,7 @@ Deep dives into the quantitative methods and algorithms implemented in DAL:
   - `Random_` interface and the pseudo-random vs. quasi-random split
   - Brownian bridge: bisection order, conditional mean/variance, variation normalization
   - Sobol direction numbers and the Gray-code $O(1)$ recurrence
+  - Sobol normal-draw precision knobs: `precise_` (high-accuracy inverse CDF) and `polish_` (Newton polish, default off)
   - Path seeking via direct state reconstruction (`SobolSet_::SkipTo`, MRG32k32a matrix jump)
 
 ### Experimental (`experimental/`)

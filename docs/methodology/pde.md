@@ -192,6 +192,25 @@ The difference operators and the one-dimensional engine that consume a mesher li
   exposes the node locations through `FD1D_::X()`, which returns `Locations()`. The engine's
   drift, variance, and result vectors are all indexed against this mesh.
 
+### Cached implicit-operator decomposition
+
+`FD1D_::RollBwd` solves a $\theta$-scheme step that combines the explicit
+($1-\theta$) and implicit ($\theta$) applications of the drift-plus-diffusion
+operator assembled by `CalcAx` from the mesher-derived `Dx` / `Dxx` stencils
+and the per-node `mu_`, `var_`, `r_` coefficient vectors. The implicit solve
+factorises the operator $A$ and calls `SolveLeft` against it. For a
+time-homogeneous problem the step `dt`, the weight `theta`, and the
+coefficients (`mu_`, `var_`, `r_`) do not change between rolls, so the same
+factorisation is valid roll-to-roll. `FD1D_` caches the
+`SquareMatrixDecomposition_` of $A$ and reuses it across rolls as long as
+`CacheHit(dt, theta)` confirms that `dt`, `theta`, and the three coefficient
+vectors all still match the cached values; any of them changing rebuilds the
+cache (and the explicit-operator product is recomputed unconditionally, since
+it is not factorised). The `DecompositionsSinceInit()` counter exposes how many
+fresh factorisations the engine has performed since `Init()`, so a caller can
+confirm that a time-homogeneous sweep is reusing a single decomposition rather
+than re-factoring every step.
+
 The boundary-null convention is what makes these consumers safe: a stencil that would read
 $\Delta^+_{n-1}$ or $\Delta^-_0$ at a boundary instead gets the null sentinel, forcing the
 boundary to be handled by its one-sided inward difference.
