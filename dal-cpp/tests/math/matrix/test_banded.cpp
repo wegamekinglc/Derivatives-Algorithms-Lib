@@ -108,3 +108,36 @@ TEST(MatrixTest, TestTriDiagonalSolve) {
     for (int i = 0; i < n; ++i)
         ASSERT_NEAR(calculated[i], expected[i], 1e-6);
 }
+
+// Varying x with distinct, asymmetric above/below bands exercises every branch of
+// the fused TriMultiply (interior points combine all three bands; both boundaries
+// drop one term). Hand-computed expected values lock the fused contract.
+TEST(MatrixTest, TestTriDiagonalMultiplyAsymmetricFused) {
+    const auto n = 5;
+    Sparse::TriDiagonal_ trig(n);
+    trig.Set(0, 0, 2.0);
+    trig.Set(0, 1, 3.0); // above[0]
+    trig.Set(1, 0, 4.0); // below[0]
+    trig.Set(1, 1, 5.0);
+    trig.Set(1, 2, 6.0); // above[1]
+    trig.Set(2, 1, 7.0); // below[1]
+    trig.Set(2, 2, 8.0);
+    trig.Set(2, 3, 9.0); // above[2]
+    trig.Set(3, 2, 10.0); // below[2]
+    trig.Set(3, 3, 11.0);
+    trig.Set(3, 4, 12.0); // above[3]
+    trig.Set(4, 3, 13.0); // below[3]
+    trig.Set(4, 4, 14.0);
+
+    Vector_<> x = {1.0, 2.0, 3.0, 4.0, 5.0};
+    Vector_<> calculated(n);
+    trig.MultiplyLeft(x, &calculated);
+    // r[0] = diag[0]*x[0] + above[0]*x[1]
+    // r[1] = diag[1]*x[1] + above[1]*x[2] + below[0]*x[0]
+    // r[2] = diag[2]*x[2] + above[2]*x[3] + below[1]*x[1]
+    // r[3] = diag[3]*x[3] + above[3]*x[4] + below[2]*x[2]
+    // r[4] = diag[4]*x[4] + below[3]*x[3]
+    Vector_<> expected = {2 * 1 + 3 * 2, 5 * 2 + 6 * 3 + 4 * 1, 8 * 3 + 9 * 4 + 7 * 2, 11 * 4 + 12 * 5 + 10 * 3, 14 * 5 + 13 * 4};
+    for (int i = 0; i < n; ++i)
+        ASSERT_DOUBLE_EQ(calculated[i], expected[i]);
+}
