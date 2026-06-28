@@ -254,7 +254,7 @@ namespace Dal {
             }
 
             const View_& Child(const String_& name) const override {
-                REQUIRE(!Type().empty(), "Can't be a empty view");
+                REQUIRE(!Type().empty(), "Can't be an empty view");
                 const auto it = children_.find(name);
                 if (it != children_.end())
                     return *it->second;
@@ -262,7 +262,7 @@ namespace Dal {
             }
 
             bool HasChild(const String_& name) const override {
-                REQUIRE(!Type().empty(), "Can't be a empty view");
+                REQUIRE(!Type().empty(), "Can't be an empty view");
                 return children_.find(name) != children_.end();
             }
 

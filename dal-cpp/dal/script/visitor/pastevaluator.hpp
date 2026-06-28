@@ -27,7 +27,7 @@ namespace Dal::Script {
         }
 
         FORCE_INLINE void Visit(const NodeSpot_&) {
-            // push the spot value 30.0
+            // known limitation: placeholder spot value 30.0
             dStack_.Push(30.0);
         }
 
@@ -37,4 +37,3 @@ namespace Dal::Script {
     };
 
 } // namespace Dal::Script
-

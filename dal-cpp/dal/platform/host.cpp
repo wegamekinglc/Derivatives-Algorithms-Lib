@@ -23,4 +23,4 @@ namespace Dal::Host {
         ASSIGN(minute, now.tm_min);
         ASSIGN(second, now.tm_sec);
     }
-} // namespace Dal
+} // namespace Dal::Host

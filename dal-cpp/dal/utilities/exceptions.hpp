@@ -4,10 +4,11 @@
 
 #pragma once
 
+#include <stdexcept>
+
 #include <dal/platform/config.hpp>
 #include <dal/math/vectors.hpp>
 #include <dal/string/strings.hpp>
-#include <exception>
 
 /*IF--------------------------------------------------------------------------
 enumeration StackInfoType

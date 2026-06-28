@@ -4,7 +4,6 @@
 
 /*
 Written by Antoine Savine in 2018
-Written by Antoine Savine in 2018
 
 This code is the strict IP of Antoine Savine
 
@@ -181,4 +180,3 @@ namespace Dal::Script {
         // We don't Visit constants (which are always const) or spots (which are never const)
     };
 } // namespace Dal::Script
-
