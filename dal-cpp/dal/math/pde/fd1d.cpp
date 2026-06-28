@@ -18,6 +18,14 @@ namespace Dal::PDE {
 
         A_ = std::make_unique<Sparse::TriDiagonal_>(dx_->Size());
         vs_.Resize(dx_->Size());
+
+        cachedDecomp_.reset();
+        cachedDt_ = 0.0;
+        cachedTheta_ = 0.0;
+        cachedMu_.clear();
+        cachedVar_.clear();
+        cachedR_.clear();
+        decompCount_ = 0;
     }
 
     void FD1D_::CalcAx(double one, double dtTheta) {
@@ -34,6 +42,16 @@ namespace Dal::PDE {
         }
     }
 
+    bool FD1D_::CacheHit(double dt, double theta) const {
+        if (!cachedDecomp_)
+            return false;
+        if (dt != cachedDt_ || theta != cachedTheta_)
+            return false;
+        if (mu_ != cachedMu_ || var_ != cachedVar_ || r_ != cachedR_)
+            return false;
+        return true;
+    }
+
     void FD1D_::RollBwd(double dt, double theta, Vector_<>& res) {
         if (theta != 1.0) {
             CalcAx(1.0, dt * (1.0 - theta));
@@ -42,10 +60,18 @@ namespace Dal::PDE {
         }
 
         if (theta != 0.0) {
-            CalcAx(1.0, -dt * theta);
+            if (!CacheHit(dt, theta)) {
+                CalcAx(1.0, -dt * theta);
+                cachedDecomp_.reset(A_->Decompose());
+                cachedDt_ = dt;
+                cachedTheta_ = theta;
+                cachedMu_ = mu_;
+                cachedVar_ = var_;
+                cachedR_ = r_;
+                ++decompCount_;
+            }
             vs_ = res;
-            std::unique_ptr<SquareMatrixDecomposition_> comp(A_->Decompose());
-            comp->SolveLeft(vs_, &res);
+            cachedDecomp_->SolveLeft(vs_, &res);
         }
     }
 } // namespace Dal::PDE

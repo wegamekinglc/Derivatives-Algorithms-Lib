@@ -29,6 +29,11 @@ namespace Dal::PDE {
         void CalcAx(double one, double dtTheta);
         void RollBwd(double dt, double theta, Vector_<>& res);
 
+        // Number of implicit-matrix decompositions performed since the last
+        // Init(). Exposed so callers and tests can confirm that repeated
+        // time-homogeneous rolls reuse a cached decomposition.
+        [[nodiscard]] int DecompositionsSinceInit() const { return decompCount_; }
+
     private:
         const FDM1DMesher_& x_;
         Vector_<> r_;
@@ -40,6 +45,19 @@ namespace Dal::PDE {
         std::unique_ptr<Sparse::TriDiagonal_> A_;
         Vector_<> vs_;
         Vector_<> res_;
+
+        // Cached decomposition of the implicit (theta-weighted) operator,
+        // valid only while (dt, theta, mu, var, r) are unchanged. A miss on
+        // any of these rebuilds the cache.
+        std::unique_ptr<SquareMatrixDecomposition_> cachedDecomp_;
+        double cachedDt_ = 0.0;
+        double cachedTheta_ = 0.0;
+        Vector_<> cachedMu_;
+        Vector_<> cachedVar_;
+        Vector_<> cachedR_;
+        int decompCount_ = 0;
+
+        [[nodiscard]] bool CacheHit(double dt, double theta) const;
     };
 
 } // namespace Dal::PDE
