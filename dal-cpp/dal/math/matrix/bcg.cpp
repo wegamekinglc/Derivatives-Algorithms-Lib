@@ -72,14 +72,14 @@ namespace Dal {
             const double beta = InnerProduct(s.zzRef, s.r);
             const double multiply = ii > 0 ? beta / s.betaPrev : 0.0;
             {
-                auto pz = s.z.begin();
-                for (auto pp = s.p.begin(); pp != s.p.end(); ++pp, ++pz)
-                    *pp = *pz + multiply * *pp;
+                auto zIt = s.z.begin();
+                for (auto pIt = s.p.begin(); pIt != s.p.end(); ++pIt, ++zIt)
+                    *pIt = *zIt + multiply * *pIt;
             }
             if (s.biConjugate) {
-                auto pzz = s.zz.begin();
-                for (auto pp = s.pp.begin(); pp != s.pp.end(); ++pp, ++pzz)
-                    *pp = *pzz + multiply * *pp;
+                auto zzIt = s.zz.begin();
+                for (auto ppIt = s.pp.begin(); ppIt != s.pp.end(); ++ppIt, ++zzIt)
+                    *ppIt = *zzIt + multiply * *ppIt;
             }
             s.betaPrev = beta;
             return beta;
@@ -91,18 +91,18 @@ namespace Dal {
                 s.A.MultiplyRight(s.pp, &s.zz);
             const double alphaK = beta / InnerProduct(s.z, s.ppRef);
             {
-                auto pp = s.p.begin();
-                auto zp = s.z.begin();
-                for (auto xp = x->begin(), rp = s.r.begin(); rp != s.r.end(); ++xp, ++rp, ++pp, ++zp) {
-                    *xp += alphaK * *pp;
-                    *rp -= alphaK * *zp;
+                auto pIt = s.p.begin();
+                auto zIt = s.z.begin();
+                for (auto xIt = x->begin(), rIt = s.r.begin(); rIt != s.r.end(); ++xIt, ++rIt, ++pIt, ++zIt) {
+                    *xIt += alphaK * *pIt;
+                    *rIt -= alphaK * *zIt;
                 }
             }
             if (s.biConjugate) {
-                auto ppp = s.pp.begin();
-                auto zzp = s.zz.begin();
-                for (auto rp = s.rr.begin(); rp != s.rr.end(); ++rp, ++ppp, ++zzp)
-                    *rp -= alphaK * *zzp;
+                auto ppIt = s.pp.begin();
+                auto zzIt = s.zz.begin();
+                for (auto rIt = s.rr.begin(); rIt != s.rr.end(); ++rIt, ++ppIt, ++zzIt)
+                    *rIt -= alphaK * *zzIt;
             }
         }
 
