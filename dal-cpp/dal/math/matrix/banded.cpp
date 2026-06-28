@@ -17,13 +17,32 @@ namespace Dal {
             const Vector_<>& x, const Vector_<>& diag, const Vector_<>& above, const Vector_<>& below, Vector_<>* r) {
             REQUIRE(x.size() == diag.size(), "");
             r->Resize(x.size());
+            // Pass 1 (vectorizable elementwise, identical to the unfused Transform) seeds r = diag * x.
             Transform(x, diag, std::multiplies<>(), r);
-            auto pr = r->begin();
-            for (auto px = x.begin() + 1, pa = above.begin(); pa != above.end(); ++px, ++pa, ++pr)
-                *pr += *px * *pa;
-            pr = r->begin() + 1;
-            for (auto px = x.begin(), pb = below.begin(); pb != below.end(); ++px, ++pb, ++pr)
-                *pr += *px * *pb;
+            // Pass 2 fuses the two strided neighbour corrections into one sweep:
+            //   r[i] += above[i] * x[i+1]  (superdiagonal, i = 0..n-2)
+            //   r[i] += below[i-1] * x[i-1] (subdiagonal, i = 1..n-1)
+            // The accumulator order (above term first, then below) matches the unfused code so
+            // -ffp-contract=fast forms the same FMAs.
+            const int n = static_cast<int>(x.size());
+            if (n < 2)
+                return;
+            auto xNext = x.begin() + 1; // x[i+1], walks with i
+            auto xPrev = x.begin();     // x[i-1], lags by one; valid for i >= 1
+            auto rIt = r->begin();
+            auto aboveIt = above.begin();
+            auto belowPrev = below.begin(); // below[i-1], lags by one; valid for i >= 1
+            // i = 0: superdiagonal only (below has no i-1 term yet).
+            *rIt += *aboveIt * *xNext;
+            ++rIt;
+            ++aboveIt;
+            ++xNext;
+            for (int ii = 1; ii < n - 1; ++ii, ++rIt, ++aboveIt, ++belowPrev, ++xNext, ++xPrev) {
+                *rIt += *aboveIt * *xNext;
+                *rIt += *belowPrev * *xPrev;
+            }
+            // i = n-1: subdiagonal only (above has no term at the last row).
+            *rIt += *belowPrev * *xPrev;
         }
 
         Vector_<> TridagBetaInverse(const Vector_<>& diag, const Vector_<>& above, const Vector_<>& below) {
