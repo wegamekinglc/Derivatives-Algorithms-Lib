@@ -280,12 +280,13 @@ inherited `Swap_::PrecomputeT<T_>`.
 The recording contract that produces a correct Jacobian on all four backends is
 the same as the single-curve path:
 
-$$\text{Clear}(\textit{tape}) \rightarrow
+$$\text{Rewind}(\textit{tape}) \rightarrow
 \text{RegisterIndependent}(x_k)\;\forall k \rightarrow
 \text{NewRecording}(\textit{tape}) \rightarrow
 \text{forward pass (build curves, price residuals)} \rightarrow
-\text{per row } \{\text{ZeroAdjoints},\; \bar{r}_i = 1,\;
-\text{PropagateToStart},\; \text{harvest } \bar{x}_j\}.$$
+\text{per row } \{\bar{r}_i = 1,\;
+\text{PropagateToStart},\; \text{harvest } \bar{x}_j,\;
+\text{zero each } \bar{x}_j\}.$$
 
 Under PWL_FWD every knot is free (no anchor exclusion), so the independent
 registration covers all $2 \cdot n_{\text{knots}}$ forward-rate parameters
@@ -313,32 +314,44 @@ gradient-zeroing semantics between single-result reverse sweeps.
 A correct Jacobian on all four backends requires this exact ordering:
 
 $$
-\text{Clear}(\textit{tape}) \;\rightarrow\;
+\text{Rewind}(\textit{tape}) \;\rightarrow\;
 \text{RegisterIndependent}(x_k)\;\forall k \;\rightarrow\;
 \text{NewRecording}(\textit{tape}) \;\rightarrow\;
 \text{forward pass} \;\rightarrow\;
-\text{per output row } \bigl\{\,\text{ZeroAdjoints},\;\bar{y}_i = 1,\;\text{PropagateToStart},\;\text{harvest}\,\bigr\}.
+\text{per output row } \bigl\{\,\bar{y}_i = 1,\;\text{PropagateToStart},\;\text{harvest},\;\text{zero each leaf}\,\bigr\}.
 $$
 
 Each step has a backend-specific reason to be in this position:
 
-- **Clear** resets the recorded graph and the position markers so nothing from
-  a previous run contaminates the new one.
+- **Rewind** resets the tape's write cursor to the start so the next recording
+  reuses the already-allocated node blocks, avoiding the free/re-allocate cycle
+  of `Clear` on every iteration. The reused storage is overwritten in place by
+  the next forward pass, so no stale data leaks into the new sweep.
 - **RegisterIndependent** stamps each input as a tape leaf that subsequent
   operations differentiate. It must run *before* `NewRecording` opens the
   recording window on XAD (see below); running it after silently drops the input
   and yields an all-zero Jacobian column.
 - **NewRecording** marks the start of the live recording so the reverse sweep
   terminates at the right point.
-- **ZeroAdjoints** between rows is **not** a no-op on every backend (Adept in
-  particular), and is the single most common source of corrupted multi-row
-  Jacobians.
+- **Zeroing between rows** is **not** uniform across backends. On native the
+  inline-zeroing `PropagateOne` clears each consumed intermediate adjoint, so
+  only the parameter leaves must be zeroed by the caller after harvest; on the
+  other backends a full `ZeroAdjoints` pass before each row is still required.
+  Skipping the between-row zero is the single most common source of corrupted
+  multi-row Jacobians.
 
 ### Per-Backend Zeroing Semantics
 
-- **Native.** `ZeroAdjoints` walks the node list and writes `0.0` to every
-  node's adjoint, leaving the recorded graph intact. Behaviour is the obvious
-  one and is safe to call between rows.
+- **Native.** `PropagateOne` (`dal-cpp/dal/math/aad/node.hpp`) zeroes each
+  consumed node's adjoint inline after propagating it to its parents, so the
+  intermediate graph starts clean for the next reverse sweep without a separate
+  pass. Leaf parameter nodes (`n_ == 0`) are *not* consumed by `PropagateOne`
+  and would accumulate across rows; the calibration call sites
+  (`dal-cpp/dal/curve/calibration.cpp`, `dal-cpp/dal/curve/jointcalibration.cpp`)
+  zero each harvested leaf adjoint in place immediately after reading it, which
+  is O(nParams) per row instead of the O(all nodes) `ZeroAdjoints` sweep. The
+  `ZeroAdjoints` facade is still defined for callers that need a full sweep
+  outside this pattern.
 
 - **Adept.** Adept's `compute_adjoint` zeroes only the LHS adjoint of each
   consumed statement and then accumulates into the operands; operands whose

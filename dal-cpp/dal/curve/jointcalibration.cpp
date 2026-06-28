@@ -463,11 +463,19 @@ namespace Dal {
             Vector_<Dal::AAD::Number_> residuals = ComputeTemplatedResiduals(block);
             const int totalResiduals = static_cast<int>(residuals.size());
 
-            // Reverse sweep: per-residual {ZeroAdjoints, Adjoint=1.0, PropagateToStart, harvest}.
+            // Reverse sweep: per-residual {Adjoint=1.0, PropagateToStart, harvest}.
+            // Native: PropagateOne zeroes each consumed intermediate adjoint inline, so no full-tape
+            // ZeroAdjoints pass is needed before each row. The parameter leaves are not consumed by
+            // PropagateOne and would accumulate across rows, so they are zeroed locally after harvest
+            // -- O(nParams) per row instead of O(all nodes).
+            // XAD/CoDi/Adept: no inline zeroing in PropagateOne, and Adjoint() returns by value, so
+            // a full ZeroAdjoints sweep before each row is still required.
             const int nCols = static_cast<int>(x.size());
             Matrix_<> j(totalResiduals, nCols, 0.0);
             for (int i = 0; i < totalResiduals; ++i) {
+#if defined(DAL_USE_XAD_AAD) || defined(DAL_USE_CODIPACK_AAD) || defined(DAL_USE_ADEPT_AAD)
                 Dal::AAD::ZeroAdjoints(*tape);
+#endif
                 Dal::AAD::Adjoint(residuals[i]) = 1.0;
                 Dal::AAD::PropagateToStart(*tape);
                 for (int d = 0; d < static_cast<int>(slots_->size()); ++d) {
@@ -477,6 +485,10 @@ namespace Dal {
                     for (int k = 0; k < nKnots; ++k) {
                         j(i, slot.paramOffset + 2 * k) = Dal::AAD::Value(Dal::AAD::Adjoint(fLeftT[k]));
                         j(i, slot.paramOffset + 2 * k + 1) = Dal::AAD::Value(Dal::AAD::Adjoint(fRightT[k]));
+#if !defined(DAL_USE_XAD_AAD) && !defined(DAL_USE_CODIPACK_AAD) && !defined(DAL_USE_ADEPT_AAD)
+                        Dal::AAD::Adjoint(fLeftT[k]) = 0.0;
+                        Dal::AAD::Adjoint(fRightT[k]) = 0.0;
+#endif
                     }
                 }
             }

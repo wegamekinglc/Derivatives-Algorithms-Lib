@@ -381,12 +381,24 @@ namespace Dal {
             Matrix_<> j(nRows, nCols, 0.0);
 
             // Single-result reverse sweep: one PropagateToStart per row yields exact structural zeros.
+            // Native: PropagateOne zeroes each consumed intermediate adjoint inline, so no full-tape
+            // ZeroAdjoints pass is needed before each row. The parameter leaves (n_ == 0) are not
+            // consumed by PropagateOne and would accumulate across rows, so they are zeroed locally
+            // after harvest -- O(nCols) per row instead of O(all nodes).
+            // XAD/CoDi/Adept: no inline zeroing in PropagateOne, and Adjoint() returns by value, so
+            // a full ZeroAdjoints sweep before each row is still required.
             for (int i = 0; i < nRows; ++i) {
+#if defined(DAL_USE_XAD_AAD) || defined(DAL_USE_CODIPACK_AAD) || defined(DAL_USE_ADEPT_AAD)
                 Dal::AAD::ZeroAdjoints(*tape);
+#endif
                 Dal::AAD::Adjoint(residuals[i]) = 1.0;
                 Dal::AAD::PropagateToStart(*tape);
-                for (int col = 0; col < nCols; ++col)
+                for (int col = 0; col < nCols; ++col) {
                     j(i, col) = Dal::AAD::Adjoint(logDF[col + 1]);
+#if !defined(DAL_USE_XAD_AAD) && !defined(DAL_USE_CODIPACK_AAD) && !defined(DAL_USE_ADEPT_AAD)
+                    Dal::AAD::Adjoint(logDF[col + 1]) = 0.0;
+#endif
+                }
             }
             return new XCurveJacobian_(std::move(j));
         }
