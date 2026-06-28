@@ -63,4 +63,4 @@ namespace Dal {
         return prob;
     }
 
-}
+} // namespace Dal

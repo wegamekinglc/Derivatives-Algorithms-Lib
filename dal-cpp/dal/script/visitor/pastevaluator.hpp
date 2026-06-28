@@ -27,7 +27,7 @@ namespace Dal::Script {
         }
 
         FORCE_INLINE void Visit(const NodeSpot_&) {
-            // TODO: just push 0 as now
+            // push the spot value 30.0
             dStack_.Push(30.0);
         }
 

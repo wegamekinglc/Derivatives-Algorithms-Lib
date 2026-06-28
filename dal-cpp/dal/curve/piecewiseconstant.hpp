@@ -45,5 +45,5 @@ namespace Dal {
         inline PiecewiseConstant_ *NewConstant(double val, const Date_ &from = Date::Minimum()) {
             return new PiecewiseConstant_(Vector::V1(from), Vector::V1(val));
         }
-    }
+    } // namespace PWC
 } // namespace Dal

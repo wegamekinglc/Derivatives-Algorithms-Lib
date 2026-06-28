@@ -24,4 +24,4 @@ namespace Dal {
             FinalizeSpacings();
         }
     };
-}
+} // namespace Dal

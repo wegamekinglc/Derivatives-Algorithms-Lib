@@ -44,4 +44,4 @@ namespace Dal {
             return AddBase(handle_cast<Storable_>(object), erase);
         }
     };
-}
+} // namespace Dal

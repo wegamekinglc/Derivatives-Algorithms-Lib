@@ -60,7 +60,7 @@ namespace Dal {
         Interp1_* NewLinear(const String_& name, const Vector_<>& x, const Vector_<>& f) {
             return new Interp1Linear_(name, x, f);
         }
-    }
+    } // namespace Interp
     
     void Interp1Linear_::Write(Archive::Store_& dst) const {
         Interp1Linear_v1::XWrite(dst, name_, x_, f_);

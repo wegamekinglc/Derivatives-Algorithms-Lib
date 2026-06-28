@@ -216,11 +216,27 @@ namespace Dal {
             int rowStart_;
             int rowStop_;
             int colStart_;
-            mutable Vector_<shared_ptr<XUnSplat_>> children_;
+            std::map<String_, std::shared_ptr<XUnSplat_>> children_;
             bool quiet_;
 
             XUnSplat_(const Matrix_<Cell_>& data, int row_start, int row_stop, int col_start, bool quiet)
-                : data_(data), rowStart_(row_start), rowStop_(row_stop), colStart_(col_start), quiet_(quiet) {}
+                : data_(data), rowStart_(row_start), rowStop_(row_stop), colStart_(col_start), quiet_(quiet) {
+                if (!Type().empty() && colStart_ + 1 < data_.Cols()) {
+                    const int nameCol = colStart_ + 1;
+                    for (int ir = rowStart_; ir < rowStop_; ++ir) {
+                        const Cell_& nameCell = data_(ir, nameCol);
+                        if (Cell::IsEmpty(nameCell))
+                            continue;
+                        const auto* nameStr = std::get_if<String_>(&nameCell.val_);
+                        if (!nameStr)
+                            continue;
+                        int jr = ir + 1;
+                        while (jr < rowStop_ && Cell::IsEmpty(data_(jr, nameCol)))
+                            ++jr;
+                        children_.emplace(*nameStr, std::make_shared<XUnSplat_>(data_, ir, jr, nameCol + 1, quiet_));
+                    }
+                }
+            }
 
             String_ Type() const override {
                 const Cell_& c = data_(rowStart_, colStart_);
@@ -239,30 +255,15 @@ namespace Dal {
 
             const View_& Child(const String_& name) const override {
                 REQUIRE(!Type().empty(), "Can't be a empty view");
-                const auto nameCol = colStart_ + 1;
-                REQUIRE(nameCol < data_.Cols(), "Can't have a child");
-                for (auto ir = rowStart_; ir < rowStop_; ++ir) {
-                    if (data_(ir, nameCol) == name) {
-                        auto jr = ir + 1;
-                        while (jr < rowStop_ && Cell::IsEmpty(data_(jr, nameCol)))
-                            ++jr;
-                        children_.emplace_back(new XUnSplat_(data_, ir, jr, nameCol + 1, quiet_));
-                        return *children_.back();
-                    }
-                }
+                const auto it = children_.find(name);
+                if (it != children_.end())
+                    return *it->second;
                 THROW("Child '" + name + "' not found");
             }
 
             bool HasChild(const String_& name) const override {
                 REQUIRE(!Type().empty(), "Can't be a empty view");
-                const auto nameCol = colStart_ + 1;
-                REQUIRE(nameCol < data_.Cols(), "Can't have a child");
-                for (auto ir = rowStart_; ir < rowStop_; ++ir) {
-                    if (data_(ir, nameCol) == name) {
-                        return true;
-                    }
-                }
-                return false;
+                return children_.find(name) != children_.end();
             }
 
             void Unexpected(const String_& child_name) const override {

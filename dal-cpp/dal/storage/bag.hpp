@@ -27,4 +27,4 @@ namespace Dal {
         void Write(Archive::Store_& dst) const override;
     };
 
-}
+} // namespace Dal

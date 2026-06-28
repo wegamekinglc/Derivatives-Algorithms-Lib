@@ -18,4 +18,4 @@ namespace Dal::Distribution {
         }
         return BlackIV(f, strike, type, model.OptionPrice(strike ,type), guess);
     }
-}
+} // namespace Dal::Distribution

@@ -30,13 +30,13 @@ namespace Dal {
         vals_t vals_;
 
     public:
-        FixHistory_(const vals_t& vals) : vals_(vals) {}
+        explicit FixHistory_(const vals_t& vals) : vals_(vals) {}
         double Find(const DateTime_& fix_time, bool quiet = false) const;
     };
 
     namespace FixHistory {
         const FixHistory_& Empty();
-    }
+    } // namespace FixHistory
 
     double LookupFixing(const std::map<DateTime_, double>& vals, const DateTime_& fixTime, bool quiet = false);
 

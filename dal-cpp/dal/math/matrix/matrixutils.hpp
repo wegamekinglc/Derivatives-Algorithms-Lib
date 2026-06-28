@@ -59,23 +59,23 @@ namespace Dal {
         }
         template <class E_, class EE_, class Op_>
         void Transform(Matrix_<E_>* to_modify, const Matrix_<EE_>& other, Op_ op) {
-            assert(other.Rows() == to_modify->Rows() && other.Cols() == to_modify->Cols());
+            REQUIRE(other.Rows() == to_modify->Rows() && other.Cols() == to_modify->Cols(), "matrix sizes are incompatible");
             typename Matrix_<E_>::Row_::iterator b = BeginElements(*to_modify);
             std::transform(b, EndElements(*to_modify), BeginElements(other), b, op);
         }
         template <class EI_, class EO_, class Op_> void Transform(const Matrix_<EI_>& in, Op_ op, Matrix_<EO_>* out) {
-            assert(in.Rows() == out->Rows() && in.Cols() == out->Cols());
+            REQUIRE(in.Rows() == out->Rows() && in.Cols() == out->Cols(), "matrix sizes are incompatible");
             std::transform(BeginElements(in), EndElements(in), BeginElements(*out), op);
         }
         template <class E1_, class E2_, class EO_, class Op_>
         void Transform(const Matrix_<E1_>& in1, const Matrix_<E2_>& in2, Op_ op, Matrix_<EO_>* out) {
-            assert(in1.Rows() == out->Rows() && in1.Cols() == out->Cols());
-            assert(in2.Rows() == out->Rows() && in2.Cols() == out->Cols());
+            REQUIRE(in1.Rows() == out->Rows() && in1.Cols() == out->Cols(), "matrix sizes are incompatible");
+            REQUIRE(in2.Rows() == out->Rows() && in2.Cols() == out->Cols(), "matrix sizes are incompatible");
             std::transform(in1.Row(0).begin(), EndElements(in1), in2.Row(0).begin(), out->Row(0).begin(), op);
         }
 
         template <class ES_, class ED_> void Copy(const Matrix_<ES_>& src, Matrix_<ED_>* dst) {
-            assert(dst && src.Rows() == dst->Rows() && src.Cols() == dst->Cols());
+            REQUIRE(dst && src.Rows() == dst->Rows() && src.Cols() == dst->Cols(), "matrix sizes are incompatible");
             std::copy(src.Row(0).begin(), EndElements(src), dst->Row(0).begin());
         }
         template <class E_, class Op_> auto Apply(Op_ op, const Matrix_<E_>& src) -> Matrix_<decltype(op(src(0, 0)))> {

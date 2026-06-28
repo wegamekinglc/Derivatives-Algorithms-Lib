@@ -99,7 +99,7 @@ namespace Dal::China {
                 Date_(2026, 10, 1), Date_(2026, 10, 2), Date_(2026, 10, 5), Date_(2026, 10, 6), Date_(2026, 10, 7)
 
         };
-    }
+    } // namespace SSE
 
     namespace IB {
         static const Vector_<Date_> WORK_WEEKENDS = {
@@ -132,5 +132,5 @@ namespace Dal::China {
                 Date_(2025, 1, 26), Date_(2025, 2, 8), Date_(2025, 4, 27), Date_(2025, 9, 28), Date_(2025, 10, 11),
                 Date_(2026, 1, 4), Date_(2026, 2, 14), Date_(2026, 2, 28), Date_(2026, 5, 9), Date_(2026, 9, 20), Date_(2026, 10, 10)
         };
-    }
+    } // namespace IB
 } // namespace Dal

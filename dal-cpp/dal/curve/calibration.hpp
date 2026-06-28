@@ -50,6 +50,15 @@ alternative ANALYTIC
     throws -- it is a best-effort hint.
 -IF-------------------------------------------------------------------------*/
 
+/*IF--------------------------------------------------------------------------
+enumeration AnalyticEligibility
+    Cached eligibility verdict for the analytic Jacobian path
+switchable
+alternative UNKNOWN
+alternative ELIGIBLE
+alternative INELIGIBLE
+-IF-------------------------------------------------------------------------*/
+
 #include <memory>
 #include <map>
 #include <dal/platform/platform.hpp>
@@ -67,6 +76,7 @@ namespace Dal {
 #include <dal/auto/MG_CurveParameterization_enum.hpp>
 #include <dal/auto/MG_CurveKnotPolicy_enum.hpp>
 #include <dal/auto/MG_CurveJacobianMode_enum.hpp>
+#include <dal/auto/MG_AnalyticEligibility_enum.hpp>
 
     struct CurveCalibrationSpec_ {
         Date_ today_;

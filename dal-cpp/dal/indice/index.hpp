@@ -20,7 +20,7 @@ namespace Dal {
 
     namespace Index {
         double PastFixing(_ENV, const String_& indexName, const DateTime_& fixingTime, bool quiet = false);
-    }
+    } // namespace Index
 
     class Index_ : noncopyable {
     public:

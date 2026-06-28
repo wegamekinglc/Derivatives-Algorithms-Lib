@@ -33,7 +33,7 @@ namespace Dal {
         struct ToInt_ {
             int operator()(double d) const {
                 int ii = AsInt(d);
-                REQUIRE(ii == d, "Call contains non-integer number");
+                REQUIRE(ii == d, "Cell contains non-integer number");
                 return ii;
             }
             int operator()(bool b) const { return b ? 1 : 0; }

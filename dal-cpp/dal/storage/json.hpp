@@ -13,5 +13,5 @@ namespace Dal {
         Handle_<Storable_> ReadFile(const String_& filename, bool quiet);
         void WriteFile(const Storable_& object, const String_& filename);
         String_ WriteString(const Storable_& object);
-    }
-}
+    } // namespace JSON
+} // namespace Dal

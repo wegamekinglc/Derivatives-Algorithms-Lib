@@ -50,4 +50,4 @@ namespace Dal {
         return fStart + elapsedFrac * (fLeft_[iGE] - fStart);
     }
 
-}
+} // namespace Dal

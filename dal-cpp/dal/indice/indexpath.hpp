@@ -44,4 +44,4 @@ namespace Dal {
 
         explicit IndexPathHistorical_(const std::map<DateTime_, double>& fixings = std::map<DateTime_, double>()): fixings_((fixings)) {}
     };
-}
+} // namespace Dal

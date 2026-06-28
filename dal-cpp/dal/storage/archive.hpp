@@ -14,7 +14,7 @@
 namespace Dal::Archive {
     namespace Utils {
         void SetStorable(Archive::Store_& dst, const String_& name, const Storable_& value);
-    }
+    } // namespace Utils
 
     class Store_ : noncopyable {
         virtual bool StoreRef(const Storable_* object) = 0;

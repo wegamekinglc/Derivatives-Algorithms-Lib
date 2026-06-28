@@ -44,77 +44,77 @@ namespace Dal {
     } // namespace
 
     namespace {
-        // Unified Krylov state for CG (biConjugate = false) and BCG (true). For CG, zzRef/ppRef
+        // Unified Krylov state for CG (biConjugate_ = false) and BCG (true). For CG, zzRef_/ppRef_
         // alias the real vectors so the shared arithmetic is byte-identical to standalone CG.
         struct KrylovState_ {
-            const Sparse::Square_& A;
-            const XPrecondition_& precondition;
-            const bool biConjugate;
-            Vector_<> r;
-            Vector_<> rr;
-            Vector_<> z;
-            Vector_<> zz;
-            Vector_<> p;
-            Vector_<> pp;
-            Vector_<>& zzRef; // aliases z for CG, zz for BCG
-            Vector_<>& ppRef; // aliases p for CG, pp for BCG
-            double betaPrev;
+            const Sparse::Square_& A_;
+            const XPrecondition_& precondition_;
+            const bool biConjugate_;
+            Vector_<> r_;
+            Vector_<> rr_;
+            Vector_<> z_;
+            Vector_<> zz_;
+            Vector_<> p_;
+            Vector_<> pp_;
+            Vector_<>& zzRef_; // aliases z for CG, zz for BCG
+            Vector_<>& ppRef_; // aliases p for CG, pp for BCG
+            double betaPrev_;
 
             KrylovState_(const Sparse::Square_& a, const XPrecondition_& prec, bool biConjugate, int n)
-                : A(a), precondition(prec), biConjugate(biConjugate), r(n), rr(biConjugate ? n : 0), z(n), zz(biConjugate ? n : 0), p(n),
-                  pp(biConjugate ? n : 0), zzRef(biConjugate ? zz : z), ppRef(biConjugate ? pp : p), betaPrev(0.0) {}
+                : A_(a), precondition_(prec), biConjugate_(biConjugate), r_(n), rr_(biConjugate ? n : 0), z_(n), zz_(biConjugate ? n : 0), p_(n),
+                  pp_(biConjugate ? n : 0), zzRef_(biConjugate ? zz_ : z_), ppRef_(biConjugate ? pp_ : p_), betaPrev_(0.0) {}
         };
 
-        double PrepareDirection_(KrylovState_& s, int ii) {
-            s.precondition.Left(s.r, &s.z);
-            if (s.biConjugate)
-                s.precondition.Right(s.rr, &s.zz);
-            const double beta = InnerProduct(s.zzRef, s.r);
-            const double multiply = ii > 0 ? beta / s.betaPrev : 0.0;
-            s.p *= multiply;
-            if (s.biConjugate)
-                s.pp *= multiply;
-            s.p += s.z;
-            if (s.biConjugate)
-                s.pp += s.zz;
-            s.betaPrev = beta;
+        double PrepareDirection(KrylovState_& s, int ii) {
+            s.precondition_.Left(s.r_, &s.z_);
+            if (s.biConjugate_)
+                s.precondition_.Right(s.rr_, &s.zz_);
+            const double beta = InnerProduct(s.zzRef_, s.r_);
+            const double multiply = ii > 0 ? beta / s.betaPrev_ : 0.0;
+            s.p_ *= multiply;
+            if (s.biConjugate_)
+                s.pp_ *= multiply;
+            s.p_ += s.z_;
+            if (s.biConjugate_)
+                s.pp_ += s.zz_;
+            s.betaPrev_ = beta;
             return beta;
         }
 
-        void UpdateSolution_(KrylovState_& s, double beta, Vector_<>* x) {
-            s.A.MultiplyLeft(s.p, &s.z);
-            if (s.biConjugate)
-                s.A.MultiplyRight(s.pp, &s.zz);
-            const double alphaK = beta / InnerProduct(s.z, s.ppRef);
-            Transform(x, s.p, LinearIncrement(alphaK));
-            Transform(&s.r, s.z, LinearIncrement(-alphaK));
-            if (s.biConjugate)
-                Transform(&s.rr, s.zz, LinearIncrement(-alphaK));
+        void UpdateSolution(KrylovState_& s, double beta, Vector_<>* x) {
+            s.A_.MultiplyLeft(s.p_, &s.z_);
+            if (s.biConjugate_)
+                s.A_.MultiplyRight(s.pp_, &s.zz_);
+            const double alphaK = beta / InnerProduct(s.z_, s.ppRef_);
+            Transform(x, s.p_, LinearIncrement(alphaK));
+            Transform(&s.r_, s.z_, LinearIncrement(-alphaK));
+            if (s.biConjugate_)
+                Transform(&s.rr_, s.zz_, LinearIncrement(-alphaK));
         }
 
-        void ValidateKrylovParams_(int n, const Vector_<>& b, const Vector_<>* x, double tolRel, double tolAbs, int maxIterations) {
+        void ValidateKrylovParams(int n, const Vector_<>& b, const Vector_<>* x, double tolRel, double tolAbs, int maxIterations) {
             REQUIRE(b.size() == n && x->size() == n, "matrix dimensions are incompatible");
             REQUIRE((IsPositive(tolRel) || IsPositive(tolAbs)) && maxIterations > 0, "parameters are invalid");
         }
 
         void
-        KrylovSolve_(const Sparse::Square_& A, const Vector_<>& b, double tolRel, double tolAbs, int maxIterations, bool biConjugate, Vector_<>* x) {
+        KrylovSolve(const Sparse::Square_& A, const Vector_<>& b, double tolRel, double tolAbs, int maxIterations, bool biConjugate, Vector_<>* x) {
             const int n = A.Size();
-            ValidateKrylovParams_(n, b, x, tolRel, tolAbs, maxIterations);
+            ValidateKrylovParams(n, b, x, tolRel, tolAbs, maxIterations);
 
             const double tNorm = tolRel * sqrt(InnerProduct(b, b)) + tolAbs;
             XPrecondition_ precondition(A);
             KrylovState_ s(A, precondition, biConjugate, n);
 
-            A.MultiplyLeft(*x, &s.r);
-            Transform(b, s.r, std::minus<>(), &s.r); // r = b - Ax
+            A.MultiplyLeft(*x, &s.r_);
+            Transform(b, s.r_, std::minus<>(), &s.r_); // r = b - Ax
             if (biConjugate)
-                s.rr = s.r;
+                s.rr_ = s.r_;
 
             for (int ii = 0; ii < maxIterations; ++ii) {
-                const double beta = PrepareDirection_(s, ii);
-                UpdateSolution_(s, beta, x);
-                if (sqrt(InnerProduct(s.r, s.r)) <= tNorm)
+                const double beta = PrepareDirection(s, ii);
+                UpdateSolution(s, beta, x);
+                if (sqrt(InnerProduct(s.r_, s.r_)) <= tNorm)
                     return;
             }
             THROW(biConjugate ? "Exhausted iterations in BCGSolve" : "Exhausted iterations in CGSolve");
@@ -122,10 +122,10 @@ namespace Dal {
     } // namespace
 
     void Sparse::CGSolve(const Sparse::Square_& A, const Vector_<>& b, double tolRel, double tolAbs, int maxIterations, Vector_<>* x) {
-        KrylovSolve_(A, b, tolRel, tolAbs, maxIterations, false, x);
+        KrylovSolve(A, b, tolRel, tolAbs, maxIterations, false, x);
     }
 
     void Sparse::BCGSolve(const Sparse::Square_& A, const Vector_<>& b, double tolRel, double tolAbs, int maxIterations, Vector_<>* x) {
-        KrylovSolve_(A, b, tolRel, tolAbs, maxIterations, true, x);
+        KrylovSolve(A, b, tolRel, tolAbs, maxIterations, true, x);
     }
 } // namespace Dal

@@ -11,7 +11,7 @@ using namespace Dal;
 TEST(ProtocolTest, TestPaymentConditionsDefault) {
     Payment::Conditions_ conditions;
 
-    ASSERT_EQ(conditions.exerciseCondition_, Payment::Conditions_::Exercise_::UNCONDITIONAL);
+    ASSERT_EQ(conditions.exerciseCondition_, ExerciseCondition_::Value_::UNCONDITIONAL);
 }
 
 TEST(ProtocolTest, TestPaymentInfoStoresOptionalAccrualPeriod) {
@@ -22,7 +22,7 @@ TEST(ProtocolTest, TestPaymentInfoStoresOptionalAccrualPeriod) {
 
     ASSERT_EQ(info.description_, String_("coupon"));
     ASSERT_EQ(info.knownTime_, DateTime_(Date_(2024, 1, 15), 0.5));
-    ASSERT_EQ(info.conditions_.exerciseCondition_, Payment::Conditions_::Exercise_::UNCONDITIONAL);
+    ASSERT_EQ(info.conditions_.exerciseCondition_, ExerciseCondition_::Value_::UNCONDITIONAL);
     ASSERT_TRUE(info.period_.has_value());
     ASSERT_EQ(info.period_->startDate_, accrual.startDate_);
     ASSERT_EQ(info.period_->endDate_, accrual.endDate_);

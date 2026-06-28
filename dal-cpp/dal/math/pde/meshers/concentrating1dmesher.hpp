@@ -16,4 +16,4 @@ namespace Dal {
                                const std::pair<double, double>& cPoints,
                                bool requireCPoint = false);
     };
-}
+} // namespace Dal

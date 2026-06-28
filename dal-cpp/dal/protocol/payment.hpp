@@ -10,8 +10,19 @@
 #include <dal/protocol/accrualperiod.hpp>
 #include <dal/currency/currency.hpp>
 
+/*IF--------------------------------------------------------------------------
+enumeration ExerciseCondition
+    Condition under which a payment is made
+switchable
+alternative UNCONDITIONAL
+alternative ON_EXERCISE
+alternative ON_BARRIER_HIT
+alternative ON_CONTINUATION
+-IF-------------------------------------------------------------------------*/
 
 namespace Dal {
+#include <dal/auto/MG_ExerciseCondition_enum.hpp>
+
     namespace Payment {
         class Tag_ : noncopyable {
         public:
@@ -25,15 +36,10 @@ namespace Dal {
                 virtual ~Tag_() = default;
             };
 
-        }
+        } // namespace Amount
 
         struct Conditions_ {
-            enum class Exercise_: char {
-                UNCONDITIONAL,
-                ON_EXERCISE,
-                ON_BARRIER_HIT,
-                ON_CONTINUATION
-            } exerciseCondition_;
+            ExerciseCondition_ exerciseCondition_;
 
             Conditions_();
         };
@@ -48,7 +54,7 @@ namespace Dal {
                            const Conditions_& conditions = Conditions_(),
                            const AccrualPeriod_* accrual = nullptr);
         };
-    }
+    } // namespace Payment
 
     struct Payment_ {
         DateTime_ eventTime_;
@@ -85,4 +91,4 @@ namespace Dal {
             return operator[](*tag);
         }
     };
-}
+} // namespace Dal

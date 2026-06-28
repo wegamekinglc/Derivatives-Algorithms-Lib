@@ -208,7 +208,6 @@ namespace Dal {
         };
         Col_ Col(int iCol) { return Col_(hooks_[0] + iCol, hooks_.size(), cols_); }
 
-        // POSTPONED -- sub-matrix
         void Swap(Matrix_<E_>* other) {
             REQUIRE(other != nullptr, "can't swap with null");
             vals_.Swap(&other->vals_);

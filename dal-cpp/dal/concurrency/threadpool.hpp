@@ -36,11 +36,11 @@ namespace Dal {
     public:
         static ThreadPool_* GetInstance() { return &instance_; }
 
-        size_t NumThreads() const {
+        [[nodiscard]] size_t NumThreads() const {
             return threads_.size() + 1;
         }
 
-        static size_t ThreadNum() { return tlsNum_; }
+        [[nodiscard]] static size_t ThreadNum() { return tlsNum_; }
 
         void Start(size_t n_threads = std::thread::hardware_concurrency(), bool restart = false);
 

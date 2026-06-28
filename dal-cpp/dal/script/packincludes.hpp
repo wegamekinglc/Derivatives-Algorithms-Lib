@@ -17,4 +17,4 @@ namespace Dal::Script {
             return Pack_<V_>::template Includes<T_>() || Pack_<Vs_...>::template Includes<T_>();
         }
     };
-}
+} // namespace Dal::Script

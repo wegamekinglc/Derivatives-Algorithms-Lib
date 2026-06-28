@@ -265,4 +265,4 @@ namespace Dal::Script {
         }
         return rtn;
     }
-}
+} // namespace Dal::Script

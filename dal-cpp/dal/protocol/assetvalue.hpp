@@ -19,7 +19,7 @@ namespace Dal {
             uint64_t val_;
             explicit IndexAddress_(const int64_t val): val_(val) {}
         };
-    }
+    } // namespace Valuation
 
     class UpdateToken_ {
         using indices_t = Vector_<Handle_<IndexPath_>>;
@@ -51,4 +51,4 @@ namespace Dal {
             return (loc.val_ & dateMask_) >> dateOffSet_;
         }
     };
-}
+} // namespace Dal

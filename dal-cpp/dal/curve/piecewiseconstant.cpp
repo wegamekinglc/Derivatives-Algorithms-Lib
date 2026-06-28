@@ -26,7 +26,7 @@ namespace Dal {
 #include <dal/auto/MG_PiecewiseConstant_v1_Write.inc>
 #include <dal/auto/MG_PiecewiseConstant_v1_Read.inc>
 
-    }
+    } // namespace
 
     void PiecewiseConstant_::Write(Archive::Store_ &dst) const {
         PiecewiseConstant_v1::XWrite(dst, knotDates_, fRight_, name_);
@@ -65,4 +65,4 @@ namespace Dal {
         ASSIGN(is_knot, false);
         return pGE == pwc.knotDates_.begin() ? pwc.fRight_.front() : pwc.fRight_[iGE - 1];
     }
-}
+} // namespace Dal

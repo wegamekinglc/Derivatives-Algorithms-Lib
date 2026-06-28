@@ -43,4 +43,4 @@ namespace Dal {
             return ndim_;
         }
     };
-}
+} // namespace Dal

@@ -105,7 +105,7 @@ namespace Dal {
                 return iidBegin + n;
             }
         };
-    }
+    } // namespace
 
     Sparse::SymmetricDecomposition_* CholeskyDecomposition(const SquareMatrix_<>& src) {
         return new Cholesky_(src);

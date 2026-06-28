@@ -17,9 +17,9 @@ namespace Dal {
         Storable_* Bag::Reader_::Build() const {
             return new Bag_(name_, ZipToMultimap(keys_, contents_));
         }
-    }
+    } // namespace
 
     void Bag_::Write(Archive::Store_& dst) const {
         Bag::XWrite(dst, name_, MapValues(contents_), Keys(contents_));
     }
-}
+} // namespace Dal

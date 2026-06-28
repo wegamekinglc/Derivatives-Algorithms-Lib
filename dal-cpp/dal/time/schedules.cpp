@@ -171,4 +171,4 @@ namespace Dal {
         }
         return retVal;
     }
-}
+} // namespace Dal

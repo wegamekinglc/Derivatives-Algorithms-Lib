@@ -81,4 +81,4 @@ namespace Dal::Script {
         Vector_<ExprTree_> arguments_;
         virtual ~Node_() = default;
     };
-}
+} // namespace Dal::Script

@@ -34,4 +34,4 @@ namespace Dal::Script {
                                                                  const Date_& begin,
                                                                  const Date_& end) const;
     };
-}
+} // namespace Dal::Script

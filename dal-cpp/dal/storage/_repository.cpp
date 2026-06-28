@@ -17,8 +17,7 @@
 namespace Dal {
 #include <dal/auto/MG_RepositoryErase_enum.inc>
     namespace {
-        // a repository of objects
-        // POSTPONED -- make repository thread safe
+        // known limitation: repository is not fully thread-safe
         std::map<String_, Handle_<Storable_>>& TheObjects() { RETURN_STATIC(std::map<String_, Handle_<Storable_>>); }
 
         std::mutex TheObjectsMutex;

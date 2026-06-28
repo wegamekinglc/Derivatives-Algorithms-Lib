@@ -294,18 +294,17 @@ namespace Dal {
             DayBasis_ dayCount_;
             CurveJacobianMode_ jacobianMode_;
             mutable int evaluationCount_ = 0;
-            enum class Eligibility_ { Unknown, Eligible, Ineligible };
-            mutable Eligibility_ cachedEligibility_ = Eligibility_::Unknown;
+            mutable AnalyticEligibility_ cachedEligibility_ = AnalyticEligibility_::Value_::UNKNOWN;
 
             void EvaluateEligibilityOnce() const {
-                if (cachedEligibility_ != Eligibility_::Unknown)
+                if (cachedEligibility_ != AnalyticEligibility_::Value_::UNKNOWN)
                     return;
-                cachedEligibility_ = JointSpecEligibleForAnalyticJacobian(spec_, slots_) ? Eligibility_::Eligible : Eligibility_::Ineligible;
+                cachedEligibility_ = JointSpecEligibleForAnalyticJacobian(spec_, slots_) ? AnalyticEligibility_::Value_::ELIGIBLE : AnalyticEligibility_::Value_::INELIGIBLE;
             }
 
             [[nodiscard]] bool Eligible() const {
                 EvaluateEligibilityOnce();
-                return cachedEligibility_ == Eligibility_::Eligible;
+                return cachedEligibility_ == AnalyticEligibility_::Value_::ELIGIBLE;
             }
 
             [[nodiscard]] Underdetermined::Jacobian_* AnalyticJacobian(const Vector_<>& x, const Vector_<>& /*f*/) const;
@@ -361,7 +360,7 @@ namespace Dal {
                 if (jacobianMode_ != CurveJacobianMode_::Value_::ANALYTIC)
                     return nullptr;
                 EvaluateEligibilityOnce();
-                if (cachedEligibility_ == Eligibility_::Eligible)
+                if (cachedEligibility_ == AnalyticEligibility_::Value_::ELIGIBLE)
                     return AnalyticJacobian(x, f);
                 return nullptr;
             }

@@ -13,7 +13,7 @@ namespace Dal {
         typedef Matrix_<Cell_> Table_;
 
         struct WriterView_ {
-            mutable Table_* dst_;
+            Table_* dst_;
             int rowOffset_;
             int colOffset_;
             // linear mapping from input coordinate to coordinate in dst_
@@ -228,7 +228,6 @@ namespace Dal {
         }
 
         Writer_* XNewWriter(const String_& format) {
-            // POSTPONED -- should ':' and ';' have the same precedence?
             if (auto vr = MultipleWriter(format, ':', []() { return new VerticalWriter_(true); }))
                 return vr;
             if (auto vl = MultipleWriter(format, ';', []() { return new VerticalWriter_(false); }))

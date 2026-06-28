@@ -41,7 +41,7 @@ namespace Dal {
 
             [[nodiscard]] size_t NumParams() const { return Parameters().size(); }
         };
-    }
+    } // namespace AAD
 
     class Slide_ {
     public:

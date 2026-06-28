@@ -27,7 +27,7 @@ namespace Dal {
         int maxRestarts_ = 20;
         CurveSolveMode_ solveMode_ = CurveSolveMode_::Value_::EXACT;
 
-        CrossCurrencyCalibrationSpec_ Build() const;
+        [[nodiscard]] CrossCurrencyCalibrationSpec_ Build() const;
     };
 
     CrossCurrencyCalibrationResult_ CalibrateXccyMarket(const CrossCurrencyCalibrationSpec_& spec);

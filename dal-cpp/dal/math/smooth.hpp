@@ -13,4 +13,4 @@ namespace Dal {
                            const Vector_<>& y,
                            const Vector_<>& weight = Vector_<>(),
                            double lambda = 0.0);
-}
+} // namespace Dal

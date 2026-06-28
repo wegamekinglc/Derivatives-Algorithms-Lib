@@ -88,11 +88,11 @@ namespace Dal::AAD {
         double vol_;
         double intensity_;
         double averageJmp_;
-        double jmpStd;
+        double jmpStd_;
 
     public:
         MertonIVS_(double spot, double vol, double intens, double aveJmp, double stdJmp)
-            : IVS_(spot), vol_(vol), intensity_(intens), averageJmp_(aveJmp), jmpStd(stdJmp) {}
+            : IVS_(spot), vol_(vol), intensity_(intens), averageJmp_(aveJmp), jmpStd_(stdJmp) {}
 
         [[nodiscard]] double ImpliedVol(double strike, double mat) const override;
     };

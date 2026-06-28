@@ -14,5 +14,5 @@ namespace Dal {
     namespace Libor {
         Date_ StartFromFix(const Ccy_& ccy, const Date_& fixDate);
         DateTime_ FixFromStart(const Ccy_& ccy, const Date_& startDate);
-    }
-}
+    } // namespace Libor
+} // namespace Dal

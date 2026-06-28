@@ -68,4 +68,4 @@ namespace Dal::Script {
     //      so they (automatically) declare overrides accepts for all visitors on the list
 
     //  Visitor/CRTP machinery: see docs/methodology/script_engine.md §Visitor Machinery.
-}
+} // namespace Dal::Script

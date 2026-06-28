@@ -16,4 +16,4 @@ namespace Dal::Index {
         static const String_ SEP("/");
         return String_("FX[") + (invert ? dom_ : fgn_).String() + SEP + (invert ? fgn_ : dom_).String() + String_("]");
     }
-}
+} // namespace Dal::Index

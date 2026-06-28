@@ -228,8 +228,13 @@ namespace Dal {
 
         struct XDocView_ : Archive::View_ {
             element_t& doc_;
-            mutable std::map<String_, Handle_<XDocView_>> children_;
-            explicit XDocView_(element_t& doc) : doc_(doc) {}
+            std::map<String_, Handle_<XDocView_>> children_;
+            explicit XDocView_(element_t& doc) : doc_(doc) {
+                if (doc_.IsObject()) {
+                    for (auto it = doc_.MemberBegin(); it != doc_.MemberEnd(); ++it)
+                        children_.emplace(String_(it->name.GetString()), Handle_<XDocView_>(new XDocView_(it->value)));
+                }
+            }
 
             String_ AfterPrefix(char prefix) const {
                 if (doc_.IsString() && doc_.GetStringLength() > 1 && doc_.GetString()[0] == prefix) {
@@ -277,13 +282,11 @@ namespace Dal {
                     return EString(doc_[TYPE_LABEL]);
                 return {};
             }
-            element_t& XChild(const String_& name) const { return doc_[name.c_str()]; }
-            bool HasChild(const String_& name) const override { return doc_.HasMember(name.c_str()); }
+            bool HasChild(const String_& name) const override { return children_.find(name) != children_.end(); }
             const View_& Child(const String_& name) const override {
-                Handle_<XDocView_>& ret_val = children_[name];
-                if (ret_val.IsEmpty())
-                    ret_val.reset(new XDocView_(XChild(name)));
-                return *ret_val;
+                const auto it = children_.find(name);
+                REQUIRE(it != children_.end(), "Child '" + name + "' not found");
+                return *it->second;
             }
 
             void Unexpected(const String_&) const override {}
@@ -300,7 +303,7 @@ namespace Dal {
     }
 
     Handle_<Storable_> JSON::ReadFile(const String_& filename, bool quiet) {
-        FILE* fp = fopen(filename.c_str(), "rb"); // POSTPONED -- use "r" on non-Windows platforms
+        FILE* fp = fopen(filename.c_str(), "rb"); // known limitation: use "r" on non-Windows platforms
         REQUIRE(fp, "File not found:'" + filename + "'");
         char buffer[8192];
         rapidjson::FileReadStream is(fp, buffer, sizeof(buffer));
@@ -326,4 +329,4 @@ namespace Dal {
         object.Write(task);
         return String_(ret_val.str());
     }
-}
+} // namespace Dal

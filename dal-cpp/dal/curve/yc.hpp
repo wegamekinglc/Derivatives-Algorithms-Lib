@@ -24,4 +24,4 @@ namespace Dal {
                                                             const CollateralType_& collateral) const = 0;
         [[nodiscard]] virtual double FwdLibor(const PeriodLength_ &tenor, const Date_ &fixingDate) const = 0;
     };
-}
+} // namespace Dal

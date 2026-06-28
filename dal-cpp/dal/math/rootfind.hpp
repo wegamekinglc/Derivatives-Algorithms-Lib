@@ -5,8 +5,21 @@
 #pragma once
 
 #include <cmath>
+#include <dal/platform/platform.hpp>
+#include <dal/string/strings.hpp>
+#include <dal/utilities/exceptions.hpp>
+
+/*IF--------------------------------------------------------------------------
+enumeration BrentPhase
+    Internal state-machine phase for the Brent root finder
+switchable
+alternative INITIALIZE
+alternative HUNT
+alternative BRACKETED
+-IF-------------------------------------------------------------------------*/
 
 namespace Dal {
+#include <dal/auto/MG_BrentPhase_enum.hpp>
     class RootFinder_ {
     public:
         virtual ~RootFinder_() = default;
@@ -45,7 +58,7 @@ namespace Dal {
     };
 
     class Brent_ : public RootFinder_ {
-        enum class Phase_ { INITIALIZE, HUNT, BRACKETED } phase_;
+        BrentPhase_ phase_;
         bool increasing_;
         double stepSize_, trialX_;
         std::pair<double, double> knownPoint_;

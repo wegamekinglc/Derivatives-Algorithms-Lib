@@ -27,4 +27,4 @@ namespace Dal {
             return duration_cast<D_>(high_resolution_clock::now() - begin_).count();
         }
     };
-}
+} // namespace Dal

@@ -30,7 +30,7 @@ namespace Dal {
 
     } // namespace detail
 
-    //! template class providing a null value for a given type.
+    // template class providing a null value for a given type
     template <class Type> class Null_;
 
     // default implementation for built-in types

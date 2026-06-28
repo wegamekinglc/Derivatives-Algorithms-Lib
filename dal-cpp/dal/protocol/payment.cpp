@@ -8,8 +8,9 @@
 #include <dal/protocol/payment.hpp>
 
 namespace Dal {
+#include <dal/auto/MG_ExerciseCondition_enum.inc>
     Payment::Conditions_::Conditions_()
-    : exerciseCondition_(Exercise_::UNCONDITIONAL) {}
+    : exerciseCondition_(ExerciseCondition_::Value_::UNCONDITIONAL) {}
 
     Payment::Info_::Info_(String_ des,
                           const DateTime_ &known,
@@ -31,4 +32,4 @@ namespace Dal {
     const Handle_<Payment::Tag_>& Payment::Null() {
         RETURN_STATIC(const Handle_<Tag_>);
     }
-}
+} // namespace Dal

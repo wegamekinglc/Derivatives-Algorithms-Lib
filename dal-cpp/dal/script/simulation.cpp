@@ -23,4 +23,4 @@ namespace Dal::Script {
             return std::make_unique<BrownianBridge_>(std::move(rsg));
         return rsg;
     }
-}
+} // namespace Dal::Script

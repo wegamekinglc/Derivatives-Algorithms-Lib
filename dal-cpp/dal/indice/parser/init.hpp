@@ -12,4 +12,4 @@ namespace Dal {
     private:
         static bool init_;
     };
-}
+} // namespace Dal

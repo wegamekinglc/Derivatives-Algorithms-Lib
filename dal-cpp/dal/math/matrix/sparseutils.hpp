@@ -17,4 +17,4 @@ namespace Dal::Sparse {
     FORCE_INLINE void AddCoupling(Square_* dst, int i, int j, double amount) {
         AddBinomial(dst, amount, i, j, 1.0, -1.0);
     }
-}
+} // namespace Dal::Sparse
