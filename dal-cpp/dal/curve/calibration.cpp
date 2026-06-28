@@ -381,24 +381,26 @@ namespace Dal {
             Matrix_<> j(nRows, nCols, 0.0);
 
             // Single-result reverse sweep: one PropagateToStart per row yields exact structural zeros.
-            // Native: PropagateOne zeroes each consumed intermediate adjoint inline, so no full-tape
-            // ZeroAdjoints pass is needed before each row. The parameter leaves (n_ == 0) are not
-            // consumed by PropagateOne and would accumulate across rows, so they are zeroed locally
-            // after harvest -- O(nCols) per row instead of O(all nodes).
-            // XAD/CoDi/Adept: no inline zeroing in PropagateOne, and Adjoint() returns by value, so
-            // a full ZeroAdjoints sweep before each row is still required.
+            // The Jacobian is lower-triangular by maturity, so harvest only the leading RowWidthForMaturity
+            // columns per row and leave the trailing structural zeros at their 0.0 fill. Solver ops stay
+            // dense: SecantUpdate is a rank-1 correction that fills trailing zeros, so the width does not
+            // outlive the first update and is not carried on the XCurveJacobian_.
             for (int i = 0; i < nRows; ++i) {
+                const int width = RowWidthForMaturity(knotDates_, instruments_[i]->TimeSpan().second);
 #if defined(DAL_USE_XAD_AAD) || defined(DAL_USE_CODIPACK_AAD) || defined(DAL_USE_ADEPT_AAD)
+                // No inline zeroing in PropagateOne; full-tape ZeroAdjoints is still required per row.
                 Dal::AAD::ZeroAdjoints(*tape);
 #endif
                 Dal::AAD::Adjoint(residuals[i]) = 1.0;
                 Dal::AAD::PropagateToStart(*tape);
-                for (int col = 0; col < nCols; ++col) {
+                for (int col = 0; col < width; ++col)
                     j(i, col) = Dal::AAD::Adjoint(logDF[col + 1]);
 #if !defined(DAL_USE_XAD_AAD) && !defined(DAL_USE_CODIPACK_AAD) && !defined(DAL_USE_ADEPT_AAD)
+                // Native leaf-zeroing must cover every parameter leaf, not just the harvested prefix:
+                // unzeroed leaves accumulate across rows and corrupt later rows that DO depend on them.
+                for (int col = 0; col < nCols; ++col)
                     Dal::AAD::Adjoint(logDF[col + 1]) = 0.0;
 #endif
-                }
             }
             return new XCurveJacobian_(std::move(j));
         }
