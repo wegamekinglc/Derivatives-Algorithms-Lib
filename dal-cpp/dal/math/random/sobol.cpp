@@ -21322,7 +21322,7 @@ const uint_least32_t* const DIRECTIONS[21201] = {
 #include <dal/auto/MG_SobolRSG_v1_Write.inc>
 
     void SobolRSG_::Write(Archive::Store_& dst) const {
-        SobolRSG_v1::XWrite(dst, name_, i_path_, ndim_, precise_);
+        SobolRSG_v1::XWrite(dst, name_, i_path_, ndim_, precise_, polish_);
     }
     void SobolRSG_::FillUniform(Vector_<>* deviates) const {
         rsg_->FillUniform(deviates);

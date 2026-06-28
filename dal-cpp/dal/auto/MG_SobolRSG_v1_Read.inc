@@ -5,6 +5,7 @@ namespace SobolRSG_v1 {
         double i_path_;
         double n_dim_;
         bool precise_;
+        bool polish_;
         Reader_(const Archive::View_& src, Archive::Built_& share) {
             using namespace Archive::Utils;
             NOTE("Reading SobolRSG_v1 from store");
@@ -13,10 +14,11 @@ namespace SobolRSG_v1 {
             Get(src, "i_path", &i_path_, std::mem_fn(&Archive::View_::AsDouble));
             Get(src, "n_dim", &n_dim_, std::mem_fn(&Archive::View_::AsDouble));
             Get(src, "precise", &precise_, std::mem_fn(&Archive::View_::AsBool));
+            Get(src, "polish", &polish_, std::mem_fn(&Archive::View_::AsBool));
         }
         SobolRSG_* Build() const
         {
-         return new SobolRSG_(name_, i_path_, n_dim_, precise_);
+         return new SobolRSG_(name_, i_path_, n_dim_, precise_, polish_);
         }
         SobolRSG_* Build(const Archive::View_& src, Archive::Built_& share) const {
             return Reader_(src, share).Build();

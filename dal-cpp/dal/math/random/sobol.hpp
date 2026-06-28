@@ -16,6 +16,7 @@ name is ?string
 i_path is number
 n_dim is number
 precise is boolean
+polish is boolean
 -IF-------------------------------------------------------------------------*/
 
 namespace Dal {
