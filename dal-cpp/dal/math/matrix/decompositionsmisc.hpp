@@ -10,4 +10,4 @@ namespace Dal {
 
     SymmetricMatrixDecomposition_* DiagonalAsDecomposition(const Vector_<>& diag);
     SquareMatrixDecomposition_* LowerTriangularAsDecomposition(const SquareMatrix_<>& src);
-}
+} // namespace Dal

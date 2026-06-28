@@ -37,4 +37,4 @@ namespace Dal {
         return z;
 
     }
-}
+} // namespace Dal

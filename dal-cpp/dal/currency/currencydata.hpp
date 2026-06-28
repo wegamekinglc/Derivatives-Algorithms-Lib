@@ -31,6 +31,6 @@ namespace Dal {
             const Fact_<RateLegConvention_>& SwapFixedLeg();
             const Fact_<RateLegConvention_>& SwapFloatLeg();
             const Fact_<CrossCurrencyConvention_>& Xcs();
-        }
-    }
-}
+        } // namespace Conventions
+    } // namespace Ccy
+} // namespace Dal

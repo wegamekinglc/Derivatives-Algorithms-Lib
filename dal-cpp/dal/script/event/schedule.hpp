@@ -9,4 +9,4 @@
 
 namespace Dal {
     Vector_<std::tuple<Date_, Date_, Date_>> ParseSchedule(const Vector_<String_>& tokens);
-}
+} // namespace Dal

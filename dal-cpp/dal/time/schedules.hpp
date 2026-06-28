@@ -42,7 +42,7 @@ namespace Dal {
 
     namespace Date {
         class Increment_;
-    }
+    } // namespace Date
 
     struct Cell_;
     class Date_;
@@ -90,4 +90,4 @@ namespace Dal {
                                                  BizDayConvention_ accrualConvention = BizDayConvention_("Following"),
                                                  BizDayConvention_ paymentConvention = BizDayConvention_("Following"),
                                                  bool preserveEom = false);
-}
+} // namespace Dal

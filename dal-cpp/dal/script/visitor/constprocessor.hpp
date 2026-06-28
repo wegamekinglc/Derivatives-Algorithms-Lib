@@ -1,3 +1,7 @@
+//
+// Created by wegam on 2026/6/28.
+//
+
 /*
 Written by Antoine Savine in 2018
 
@@ -175,5 +179,4 @@ namespace Dal::Script {
         // We don't Visit IsBoolean nodes, that is best left to fuzzy logic
         // We don't Visit constants (which are always const) or spots (which are never const)
     };
-}
-
+} // namespace Dal::Script

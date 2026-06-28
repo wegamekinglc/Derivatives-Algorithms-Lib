@@ -25,5 +25,5 @@ namespace Dal {
     class Ccy_;
     namespace Date {
         Date_ NominalMaturity(const Date_& start, const PeriodLength_& step, const Ccy_& ccy);
-    }
+    } // namespace Date
 } // namespace Dal

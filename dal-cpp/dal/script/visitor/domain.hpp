@@ -891,4 +891,4 @@ namespace Dal::Script {
             return true;
         }
     };
-}
+} // namespace Dal::Script

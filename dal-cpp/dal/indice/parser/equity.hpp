@@ -9,5 +9,5 @@ namespace Dal {
     class String_;
     namespace Index {
         Index_* EquityParser(const String_&);
-    }
+    } // namespace Index
 } // namespace Dal

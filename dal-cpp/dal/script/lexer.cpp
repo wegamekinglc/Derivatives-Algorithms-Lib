@@ -15,4 +15,4 @@ namespace Dal::Script {
             v.push_back(String_((*it)[0]));
         return v;
     }
-}
+} // namespace Dal::Script

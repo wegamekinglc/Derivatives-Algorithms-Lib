@@ -19,7 +19,7 @@ namespace Dal {
         Storable_* Fixings::Reader_::Build() const {
             return new Fixings_(name_, ZipToMap(fixing_times_, fixings_));
         }
-    }
+    } // namespace
     const FixHistory_& FixHistory::Empty() {
         static const FixHistory_ RET_VAL((FixHistory_::vals_t()));
         return RET_VAL;

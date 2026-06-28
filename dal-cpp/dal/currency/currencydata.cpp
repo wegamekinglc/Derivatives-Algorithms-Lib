@@ -43,7 +43,7 @@ namespace Dal {
             }
             [[nodiscard]] writer_t& XWrite() const override { return *writer_; }
         };
-    } // leave local
+    } // namespace
 
     namespace Ccy {
 #define SINGLETON_FACT_ACCESSOR(type, func) \
@@ -61,5 +61,5 @@ const Fact_<type>& Conventions::func() { RETURN_STATIC(const OneFactImp_<type>);
         SINGLETON_FACT_ACCESSOR(RateLegConvention_, SwapFixedLeg);
         SINGLETON_FACT_ACCESSOR(RateLegConvention_, SwapFloatLeg);
         SINGLETON_FACT_ACCESSOR(CrossCurrencyConvention_, Xcs);
-    }
-}
+    } // namespace Ccy
+} // namespace Dal

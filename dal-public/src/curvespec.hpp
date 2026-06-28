@@ -56,7 +56,7 @@ namespace Dal {
         Vector_<double> initialGuessPerNode_;
         LogDfScheme_ logDfScheme_ = LogDfScheme_::Value_::LOG_LINEAR;
 
-        CurveCalibrationSpec_ Build() const;
+        [[nodiscard]] CurveCalibrationSpec_ Build() const;
     };
 
     CalibrationResult_ CalibrateSingleCurve(const CurveCalibrationSpec_& spec);

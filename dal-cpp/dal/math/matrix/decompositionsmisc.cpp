@@ -100,7 +100,7 @@ namespace Dal {
                 }
             }
         };
-    }
+    } // namespace
 
     SymmetricMatrixDecomposition_* DiagonalAsDecomposition(const Vector_<> &diag) {
         return new Diagonal_(diag);
@@ -109,4 +109,4 @@ namespace Dal {
     SquareMatrixDecomposition_* LowerTriangularAsDecomposition(const SquareMatrix_<> &elements) {
         return new LowerTriangular_(elements);
     }
-}
+} // namespace Dal

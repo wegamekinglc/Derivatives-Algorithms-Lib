@@ -9,4 +9,4 @@
 namespace Dal {
     class LVComponent_ : public Storable_ {
     };
-}
+} // namespace Dal

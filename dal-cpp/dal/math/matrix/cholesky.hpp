@@ -11,4 +11,4 @@ namespace Dal {
 
     Sparse::SymmetricDecomposition_* CholeskyDecomposition(const SquareMatrix_<>& src);
     void CholeskySolve(SquareMatrix_<>* a, Vector_<Vector_<>>* b, double regularization = Dal::EPSILON);
-}
+} // namespace Dal

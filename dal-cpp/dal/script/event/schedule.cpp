@@ -75,4 +75,4 @@ namespace Dal {
             }
             return rtn;
         }
-}
+} // namespace Dal

@@ -16,7 +16,7 @@ namespace Dal {
                 "BSModelData_",
                 "DupireModelData_"
         };
-    }
+    } // namespace
 
 
     std::map<String_, double> ValueByMonteCarlo(const Handle_<ScriptProductData_>& product,

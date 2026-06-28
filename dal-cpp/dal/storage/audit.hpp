@@ -7,8 +7,19 @@
 #include <dal/utilities/environment.hpp>
 #include <dal/storage/bag.hpp>
 
+/*IF--------------------------------------------------------------------------
+enumeration AuditorMode
+    Operating mode of the auditor implementation
+switchable
+alternative PASSIVE
+alternative READING
+alternative READING_EXCLUSIVE
+alternative SHOWING
+-IF-------------------------------------------------------------------------*/
 
 namespace Dal {
+#include <dal/auto/MG_AuditorMode_enum.hpp>
+
     class Auditor_ : public Environment_::Entry_ {
     public:
         virtual void Notice(const String_& key, const Handle_<Storable_>& value) const = 0;
@@ -20,12 +31,7 @@ namespace Dal {
         std::shared_ptr<Bag_> mine_;
 
     public:
-        enum {
-            PASSIVE,
-            READING,
-            READING_EXCLUSIVE, // avoid vast memory use
-            SHOWING,
-        } mode_;
+        AuditorMode_ mode_;
         AuditorImp_(): mine_(new Bag_("bag", Bag_::map_t())) {}
         void Notice(const String_& key, const Handle_<Storable_>& value) const override;
         [[nodiscard]] Vector_<Handle_<Storable_>> Find(const String_& key) const override;
@@ -62,6 +68,6 @@ namespace Dal {
             auto func = Recall_<T_>(_env, key, value);
             Iterate(_env, func);
         }
-    }
-}
+    } // namespace Environment
+} // namespace Dal
 

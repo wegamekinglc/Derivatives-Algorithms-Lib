@@ -10,5 +10,5 @@ namespace Dal::ReportAxes {
     BAREWORD(TRADE);
     BAREWORD(VIEW);
     // ...
-}
+} // namespace Dal::ReportAxes
 

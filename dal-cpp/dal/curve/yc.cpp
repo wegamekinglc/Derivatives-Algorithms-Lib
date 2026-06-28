@@ -9,4 +9,4 @@
 namespace Dal {
     YieldCurve_::YieldCurve_(const String_ &name, const String_ &ccy)
     : Storable_("YieldCurve", name), ccy_(ccy) {}
-}
+} // namespace Dal

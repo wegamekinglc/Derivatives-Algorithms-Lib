@@ -51,7 +51,7 @@ namespace Dal {
 
         double BachelierIV(double fwd, double strike, const OptionType_& type, double price, double guess = 0.0);
         Vector_<> BachelierGreeks(double fwd, double vol, double strike, const OptionType_& type);
-    }
+    } // namespace Distribution
 
     // Shared storage and reporting for lognormal (Black) and normal (Bachelier) distributions.
     // The two public types remain distinct because their pricing math differs; only the

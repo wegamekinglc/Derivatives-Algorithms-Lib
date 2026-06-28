@@ -4,64 +4,27 @@
 
 #pragma once
 
+#include <stdexcept>
+
 #include <dal/platform/config.hpp>
 #include <dal/math/vectors.hpp>
 #include <dal/string/strings.hpp>
-#include <exception>
+
+/*IF--------------------------------------------------------------------------
+enumeration StackInfoType
+    Tag identifying the payload type carried by an exception stack entry
+switchable
+alternative INT
+alternative DBL
+alternative CSTR
+alternative STR
+alternative DATE
+alternative DATETIME
+alternative VOID
+-IF-------------------------------------------------------------------------*/
 
 namespace Dal {
-
-    class Date_;
-    class DateTime_;
-
-    class Exception_ : public std::runtime_error {
-    public:
-        Exception_(const std::string& file, long line, const std::string& functionName, const char* msg);
-        Exception_(const std::string& file, long line, const std::string& functionName, const std::string& msg)
-            : Exception_(file, line, functionName, msg.c_str()) {}
-        Exception_(const std::string& file, long line, const std::string& functionName, const String_& msg)
-            : Exception_(file, line, functionName, msg.c_str()) {}
-    };
-
-    namespace exception {
-        class XStackInfo_ {
-            const char* name_;
-            const void* value_;
-            enum class Type_ { INT, DBL, CSTR, STR, DATE, DATETIME, VOID } type_;
-            template <class T_> XStackInfo_(const char*, T_) {}; // other data type is not allowed
-
-        public:
-            XStackInfo_(const char* name, const int& val);
-            XStackInfo_(const char* name, const double& val);
-            XStackInfo_(const char* name, const char* val);
-            XStackInfo_(const char* name, const Date_& val);
-            XStackInfo_(const char* name, const DateTime_& val);
-            XStackInfo_(const char* name, const String_& val);
-            explicit XStackInfo_(const char* msg);
-            std::string Message() const;
-        };
-
-        void PushStack(const XStackInfo_& info);
-        void PopStack();
-
-        struct StackRegister_ {
-            ~StackRegister_() { PopStack(); }
-            template <class T_> StackRegister_(const char* name, const T_& val) { PushStack(XStackInfo_(name, val)); }
-
-            explicit StackRegister_(const char* msg) { PushStack(XStackInfo_(msg)); }
-        };
-    } // namespace exception
-
-    class ScriptError_: public Exception_ {
-    public:
-        ScriptError_(const std::string& file, long line, const std::string& functionName, const char* msg)
-            : Exception_(file, line, functionName, msg) {}
-        ScriptError_(const std::string& file, long line, const std::string& functionName, const std::string& msg)
-            : ScriptError_(file, line, functionName, msg.c_str()) {}
-        ScriptError_(const std::string& file, long line, const std::string& functionName, const String_& msg)
-            : ScriptError_(file, line, functionName, msg.c_str()) {}
-    };
-
+    class Exception_;
 } // namespace Dal
 
 #define THROW(msg) throw Dal::Exception_(__FILE__, __LINE__, __func__, msg)
@@ -102,6 +65,63 @@ namespace Dal {
 #define REQUIRE2(cond, msg, exception_type)
 #define ASSURE(cond, msg)
 #endif
+
+namespace Dal {
+
+    class Date_;
+    class DateTime_;
+
+    class Exception_ : public std::runtime_error {
+    public:
+        Exception_(const std::string& file, long line, const std::string& functionName, const char* msg);
+        Exception_(const std::string& file, long line, const std::string& functionName, const std::string& msg)
+            : Exception_(file, line, functionName, msg.c_str()) {}
+        Exception_(const std::string& file, long line, const std::string& functionName, const String_& msg)
+            : Exception_(file, line, functionName, msg.c_str()) {}
+    };
+
+#include <dal/auto/MG_StackInfoType_enum.hpp>
+
+    namespace exception {
+        class XStackInfo_ {
+            const char* name_;
+            const void* value_;
+            StackInfoType_ type_;
+            template <class T_> XStackInfo_(const char*, T_) {}; // other data type is not allowed
+
+        public:
+            XStackInfo_(const char* name, const int& val);
+            XStackInfo_(const char* name, const double& val);
+            XStackInfo_(const char* name, const char* val);
+            XStackInfo_(const char* name, const Date_& val);
+            XStackInfo_(const char* name, const DateTime_& val);
+            XStackInfo_(const char* name, const String_& val);
+            explicit XStackInfo_(const char* msg);
+            std::string Message() const;
+        };
+
+        void PushStack(const XStackInfo_& info);
+        void PopStack();
+
+        struct StackRegister_ {
+            ~StackRegister_() { PopStack(); }
+            template <class T_> StackRegister_(const char* name, const T_& val) { PushStack(XStackInfo_(name, val)); }
+
+            explicit StackRegister_(const char* msg) { PushStack(XStackInfo_(msg)); }
+        };
+    } // namespace exception
+
+    class ScriptError_: public Exception_ {
+    public:
+        ScriptError_(const std::string& file, long line, const std::string& functionName, const char* msg)
+            : Exception_(file, line, functionName, msg) {}
+        ScriptError_(const std::string& file, long line, const std::string& functionName, const std::string& msg)
+            : ScriptError_(file, line, functionName, msg.c_str()) {}
+        ScriptError_(const std::string& file, long line, const std::string& functionName, const String_& msg)
+            : ScriptError_(file, line, functionName, msg.c_str()) {}
+    };
+
+} // namespace Dal
 
 #ifdef DAL_USE_NOTE
 #define XXNOTICE(u, n, v) Dal::exception::StackRegister_ __xsr##u(n, v)

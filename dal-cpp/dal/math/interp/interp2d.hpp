@@ -65,5 +65,5 @@ namespace Dal {
 
     namespace Interp {
         Interp2_* NewLinear2(const String_& name, const Vector_<>& x, const Vector_<>& y, const Matrix_<>& f);
-    }
-}
+    } // namespace Interp
+} // namespace Dal

@@ -9,5 +9,5 @@ namespace Dal {
     class String_;
     namespace Index {
         Index_* FxParser(const String_&);
-    }
+    } // namespace Index
 } // namespace Dal

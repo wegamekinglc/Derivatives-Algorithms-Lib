@@ -289,7 +289,7 @@ namespace Dal {
                 if (kMin > controls.restartTolerance_)
                     restart = true;
                 double k = min(controls.maxBacktrack_, min(kMin, 2 * (kMin - controls.backtrackTolerance_)));
-                assert(k > 0.0);
+                REQUIRE(k > 0.0, "backtrack step must be positive");
                 s *= 1.0 - k;
             }
             REQUIRE(tookStep || approxJ, "Could not find a descent direction in underdetermined search");
@@ -319,7 +319,6 @@ namespace Dal {
                 ++ie; // we used up an evaluation too
             }
             Vector_<> s = ApproxQPStep(guess, xOld, fOld, *j, jWeight, w);
-            // POSTPONED -- stop early when step is very small
             Transform(xOld, s, std::plus<>(), &xNew);
             Vector_<> fNew = func.F(xNew);
             if (sqrt(InnerProduct(fNew, fNew)) <= fitTol)

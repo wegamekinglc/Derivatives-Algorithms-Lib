@@ -15,7 +15,7 @@ namespace {
             "IF", "END", "THEN", "ELSE", "DCF", "PAYS", "AND", "OR", "SPOT", "MAX", "MIN",
             "LOG", "SQRT", "EXP"
     };
-}
+} // namespace
 
 namespace Dal::Script {
     Expression_ Parser_::ParseExpr(TokIt_& cur, const TokIt_& end) {

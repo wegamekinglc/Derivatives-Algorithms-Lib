@@ -133,4 +133,4 @@ namespace Dal::Script {
         void Visit(const NodeConstVar_& node) {
             Debug(node, String_("CONST_VAR[") + node.name_ + String_(',' + std::to_string(node.index_)) + ',' + String::FromDouble( node.constVal_) + ']'); }
     };
-}
+} // namespace Dal::Script

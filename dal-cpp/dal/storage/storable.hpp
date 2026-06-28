@@ -10,7 +10,7 @@
 namespace Dal {
     namespace Archive {
         class Store_;
-    }
+    } // namespace Archive
 
     class BASE_EXPORT Storable_ : noncopyable {
     public:

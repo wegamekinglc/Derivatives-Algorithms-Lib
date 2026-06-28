@@ -1,3 +1,7 @@
+//
+// Created by wegam on 2026/6/28.
+//
+
 #include <dal/platform/platform.hpp>
 #include <dal/risk/report.hpp>
 #include <dal/platform/strict.hpp>
@@ -139,4 +143,4 @@ namespace Dal {
     }
 
     const Report::Header_& Report_::Header(const String_& axis) const { return headers_[FindAxis(axes_, axis)]; }
-}
+} // namespace Dal

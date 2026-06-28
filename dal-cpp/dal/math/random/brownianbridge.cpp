@@ -83,4 +83,4 @@ namespace Dal {
         }
         (*deviates)[0] /= sqrtdt_[0];
     }
-}
+} // namespace Dal

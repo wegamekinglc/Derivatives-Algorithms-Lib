@@ -10,4 +10,4 @@
 namespace Dal::Script {
     // Shared tokenizer for the preprocessor and parser; see docs/methodology/script_engine.md §"Lexer".
     Vector_<String_> Tokenize(const String_& str);
-}
+} // namespace Dal::Script

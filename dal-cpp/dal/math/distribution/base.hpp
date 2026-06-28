@@ -26,4 +26,4 @@ namespace Dal {
                                                                              const OptionType_& type,
                                                                              const Vector_<String_>& to_report) const = 0;
     };
-}
+} // namespace Dal

@@ -8,6 +8,7 @@
 #include <dal/utilities/exceptions.hpp>
 
 namespace Dal {
+#include <dal/auto/MG_BrentPhase_enum.inc>
     BracketedBrent_::BracketedBrent_(const std::pair<double, double>& low,
                                      const std::pair<double, double>& high,
                                      double tol)
@@ -61,27 +62,27 @@ namespace Dal {
     // preliminary hunt phase, followed by BracketedBrent
 
     Brent_::Brent_(double guess, double tol, double step_size)
-        : phase_(Phase_::INITIALIZE), increasing_(true),
+        : phase_(BrentPhase_::Value_::INITIALIZE), increasing_(true),
           stepSize_(step_size > 0.0 ? step_size : 0.1 * std::max(0.01, std::abs(guess))), trialX_(guess),
           knownPoint_(Dal::INF, Dal::INF), engine_(tol) {}
 
-    double Brent_::NextX() { return phase_ == Phase_::BRACKETED ? engine_.NextX() : trialX_; }
+    double Brent_::NextX() { return phase_ == BrentPhase_::Value_::BRACKETED ? engine_.NextX() : trialX_; }
 
     void Brent_::PutY(double y) {
         static const double EXPANSION = std::exp(1.0);
-        switch (phase_) {
-        case Phase_::INITIALIZE:
+        switch (phase_.Switch()) {
+        case BrentPhase_::Value_::INITIALIZE:
             knownPoint_ = std::make_pair(trialX_, y);
             trialX_ += stepSize_ * (increasing_ ? 1 : -1) * (y < 0.0 ? 1 : -1);
-            phase_ = Phase_::HUNT;
+            phase_ = BrentPhase_::Value_::HUNT;
             break;
-        case Phase_::BRACKETED:
+        case BrentPhase_::Value_::BRACKETED:
             engine_.PutY(y);
             break;
-        case Phase_::HUNT:
+        case BrentPhase_::Value_::HUNT:
             if (y * knownPoint_.second <= 0.0) {
                 engine_.Initialize(knownPoint_, std::make_pair(trialX_, y));
-                phase_ = Phase_::BRACKETED;
+                phase_ = BrentPhase_::Value_::BRACKETED;
             } else {
                 if (std::abs(y) > std::abs(knownPoint_.second))
                     increasing_ = !increasing_;
@@ -94,5 +95,5 @@ namespace Dal {
         }
     }
 
-    double Brent_::BracketWidth() const { return phase_ == Phase_::BRACKETED ? engine_.BracketWidth() : Dal::INF; }
+    double Brent_::BracketWidth() const { return phase_ == BrentPhase_::Value_::BRACKETED ? engine_.BracketWidth() : Dal::INF; }
 } // namespace Dal

@@ -98,4 +98,4 @@ namespace Dal::Script {
         Statement_ ParseStatement(TokIt_& cur, const TokIt_& end);
         Event_ Parse(const String_& event);
     };
-}
+} // namespace Dal::Script

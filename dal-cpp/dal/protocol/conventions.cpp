@@ -33,10 +33,10 @@ namespace Dal {
                 ret_val = Holidays::PrevBus(hols, ret_val.AddDays(-1));
             return ret_val;
         }
-    }	// leave local
+    } // namespace
 
-    // TODO: POSTPONED:  fix this to be consistent with StartFromFix, and to know correct fixing time
+    // known limitation: fix to be consistent with StartFromFix and to know correct fixing time
     DateTime_ Libor::FixFromStart(const Ccy_& ccy, const Date_& startDate) {
         return DateTime_(FixDateFromStart(ccy, startDate), 10);
     }
-}
+} // namespace Dal

@@ -43,7 +43,7 @@ namespace Dal {
             else
                 return "," + MatPostfix(start);
         }
-    }
+    } // namespace
 
     namespace Index {
         Date_ IRForward_::StartDate(const DateTime_& fixingTime) const {
@@ -74,5 +74,5 @@ namespace Dal {
             return DateFromCell(maturity_, fixingTime.Date());
         }
 
-    }
-}
+    } // namespace Index
+} // namespace Dal

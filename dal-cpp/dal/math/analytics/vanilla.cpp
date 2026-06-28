@@ -19,4 +19,4 @@ namespace Dal::AAD {
         const auto std_dev = Dal::Distribution::BachelierIV(spot, strike, type, prem);
         return std_dev / Dal::sqrt(mat);
     }
-}
+} // namespace Dal::AAD

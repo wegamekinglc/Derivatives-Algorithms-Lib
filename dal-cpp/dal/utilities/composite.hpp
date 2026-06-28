@@ -46,7 +46,7 @@ namespace Dal {
         // Copy constructible if T_ is clonable
         Composite_(const Composite_<T_>& src) {
             for (const auto& sc : src.contents_)
-                Append(sc ? sc->Clone() : 0);
+                Append(sc ? sc->Clone() : nullptr);
         }
         Composite_<T_>* Clone() const { return new Composite_<T_>(*this); }
         // Assignable if T_ is

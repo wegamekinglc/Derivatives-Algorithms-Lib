@@ -12,4 +12,4 @@
 namespace Dal::PDE {
     Sparse::TriDiagonal_* Dx(const FDM1DMesher_& x);
     Sparse::TriDiagonal_* Dxx(const FDM1DMesher_& x);
-}
+} // namespace Dal::PDE

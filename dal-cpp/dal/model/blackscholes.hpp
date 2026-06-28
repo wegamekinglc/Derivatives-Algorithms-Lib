@@ -142,7 +142,7 @@ namespace Dal {
                 }
             }
         };
-    }
+    } // namespace AAD
 
     struct BSModelData_: ModelData_ {
         double spot_;

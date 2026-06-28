@@ -32,7 +32,7 @@ namespace Dal {
             int size_ = 0;
             Vector_<String_> labels_; // will be placed in a Header_
         };
-    }
+    } // namespace Report
 
     class Report_: public Storable_ {
         std::map<String_, int> axes_; // lookup location
@@ -56,4 +56,4 @@ namespace Dal {
         [[nodiscard]] const Report::Header_& Header(const String_& axis) const;
         void AddHeaderRow(const String_& axes, int offset, const Vector_<Cell_>& values);
     };
-}
+} // namespace Dal

@@ -20,5 +20,5 @@ namespace Dal {
 
         void BCGSolve(const Sparse::Square_& A,
                       const Vector_<>& b, double tolRel, double tolAbs, int maxIterations, Vector_<>* x);
-    }
-}
+    } // namespace Sparse
+} // namespace Dal

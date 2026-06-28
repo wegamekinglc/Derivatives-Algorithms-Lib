@@ -38,7 +38,7 @@ namespace Dal {
     namespace Sparse {
         class Square_;
         class SymmetricDecomposition_;
-    }
+    } // namespace Sparse
 
     namespace Underdetermined {
         using Controls_ = UnderdeterminedControls_;

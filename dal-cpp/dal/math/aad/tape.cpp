@@ -46,7 +46,7 @@ namespace Dal::AAD {
             fn(tape.argPtrs_);
             fn(tape.nodes_);
         }
-    }
+    } // namespace
 
     void PropagateMarkToStart(Tape_& tape) {
         PropagateAdjoints(std::prev(MarkIt(tape)), Begin(tape));

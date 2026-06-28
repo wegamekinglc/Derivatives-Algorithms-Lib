@@ -24,4 +24,4 @@ namespace Dal {
             ret_val.insert(std::make_pair(v1[ii], v2[ii]));
         return ret_val;
     }
-}
+} // namespace Dal

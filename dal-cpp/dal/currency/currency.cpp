@@ -9,4 +9,4 @@
 
 namespace Dal {
 #include <dal/auto/MG_Ccy_enum.inc>
-}
+} // namespace Dal

@@ -10,7 +10,7 @@ namespace Dal::PDE {
 
     Sparse::TriDiagonal_* Dx(const FDM1DMesher_& x) {
         int n = x.Size();
-        REQUIRE(n > 2, "grids size should not less then 3");
+        REQUIRE(n > 2, "Grid size must be at least 3");
 
         auto* rtn = new Sparse::TriDiagonal_(n);
 
@@ -31,7 +31,7 @@ namespace Dal::PDE {
 
     Sparse::TriDiagonal_* Dxx(const FDM1DMesher_& x) {
         int n = x.Size();
-        REQUIRE(n > 2, "grids size should not less then 3");
+        REQUIRE(n > 2, "Grid size must be at least 3");
         auto* rtn = new Sparse::TriDiagonal_(n);
 
         double dxl, dxu, dxm;

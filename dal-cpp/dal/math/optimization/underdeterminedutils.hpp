@@ -20,4 +20,4 @@ namespace Dal::Underdetermined {
         SelfCouplePWC(ret_val.get(), knots, tau_s, 0);
         return ret_val.release();
     }
-}
+} // namespace Dal::Underdetermined

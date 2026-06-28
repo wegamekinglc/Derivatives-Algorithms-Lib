@@ -26,4 +26,4 @@ namespace Dal {
         };
         virtual Writer_& XWrite() const = 0;
     };
-}
+} // namespace Dal

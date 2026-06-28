@@ -17,5 +17,5 @@
 namespace Dal::AAD {
     size_t TapNode_::numAdj_ = 1;
     bool Tape_::multi_ = false;
-}
+} // namespace Dal::AAD
 #endif

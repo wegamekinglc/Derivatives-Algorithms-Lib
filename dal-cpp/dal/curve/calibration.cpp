@@ -35,6 +35,7 @@ namespace Dal {
 #include <dal/auto/MG_CurveParameterization_enum.inc>
 #include <dal/auto/MG_CurveKnotPolicy_enum.inc>
 #include <dal/auto/MG_CurveJacobianMode_enum.inc>
+#include <dal/auto/MG_AnalyticEligibility_enum.inc>
 #include <dal/auto/MG_LogDfScheme_enum.inc>
 
     namespace {
@@ -192,7 +193,6 @@ namespace Dal {
 
         class YieldCurveCalibrationFunc_ : public Underdetermined::Function_ {
             // Cached eligibility avoids re-evaluating the expensive per-instrument predicate every solver iteration.
-            enum class Eligibility_ { Unknown, Eligible, Ineligible };
 
             String_ ccy_;
             String_ curveName_;
@@ -210,7 +210,7 @@ namespace Dal {
             DayBasis_ liborBasis_;
             LogDfScheme_ logDfScheme_;
             CurveJacobianMode_ jacobianMode_;
-            mutable Eligibility_ cachedEligibility_ = Eligibility_::Unknown;
+            mutable AnalyticEligibility_ cachedEligibility_ = AnalyticEligibility_::Value_::UNKNOWN;
 
         public:
             YieldCurveCalibrationFunc_(const String_& ccy,
@@ -273,7 +273,7 @@ namespace Dal {
                     return nullptr;
                 }
                 EvaluateEligibilityOnce();
-                if (cachedEligibility_ == Eligibility_::Eligible)
+                if (cachedEligibility_ == AnalyticEligibility_::Value_::ELIGIBLE)
                     return AnalyticJacobian(x, f);
                 static_cast<void>(x);
                 static_cast<void>(f);
@@ -282,14 +282,14 @@ namespace Dal {
 
             // Cache the eligibility verdict once; Gradient is called per solver iteration.
             void EvaluateEligibilityOnce() const {
-                if (cachedEligibility_ != Eligibility_::Unknown)
+                if (cachedEligibility_ != AnalyticEligibility_::Value_::UNKNOWN)
                     return;
-                cachedEligibility_ = EligibleForAnalyticJacobian() ? Eligibility_::Eligible : Eligibility_::Ineligible;
+                cachedEligibility_ = EligibleForAnalyticJacobian() ? AnalyticEligibility_::Value_::ELIGIBLE : AnalyticEligibility_::Value_::INELIGIBLE;
             }
 
             [[nodiscard]] bool Eligible() const {
                 EvaluateEligibilityOnce();
-                return cachedEligibility_ == Eligibility_::Eligible;
+                return cachedEligibility_ == AnalyticEligibility_::Value_::ELIGIBLE;
             }
 
             [[nodiscard]] bool EligibleForAnalyticJacobian() const {

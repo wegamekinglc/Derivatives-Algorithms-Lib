@@ -20,7 +20,7 @@ namespace Dal::AAD {
     constexpr double HALF_DAY_YF = 0.00136986301369863;
     // std approximation used by the strike cutoff: atmCall * sqrt(2pi)
     constexpr double SQRT_2PI = 2.506628274631;
-}
+} // namespace Dal::AAD
 
 /*IF--------------------------------------------------------------------------
 storable DupireModelData
@@ -243,7 +243,7 @@ namespace Dal {
             results.lVols_ = Dal::Matrix::MakeTranspose(lVolsT);
             return results;
         }
-    }
+    } // namespace AAD
 
     struct DupireModelData_: ModelData_ {
         double spot_;

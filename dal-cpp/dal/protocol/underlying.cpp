@@ -17,7 +17,7 @@ namespace Dal {
                     (*base)[kv.first] = kv.second;
             }
         }
-    }
+    } // namespace
 
     Underlying_& Underlying_::operator+=(const Underlying_ &more) {
         MergeMax(&payCcys_, more.payCcys_);

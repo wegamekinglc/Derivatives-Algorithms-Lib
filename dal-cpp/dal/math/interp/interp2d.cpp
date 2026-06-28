@@ -14,8 +14,8 @@ namespace Dal {
         Interp2_* NewLinear2(const String_& name, const Vector_<>& x, const Vector_<>& y, const Matrix_<>& f) {
             return new Interp2Linear_(name, x, y, f);
         }
-    }
-}
+    } // namespace Interp
+} // namespace Dal
 
 namespace {
     using namespace Dal;

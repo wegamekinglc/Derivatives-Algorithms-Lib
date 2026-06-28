@@ -33,5 +33,5 @@ namespace Dal {
             THROW("invalid option type");
         }
     }
-}
+} // namespace Dal
 
