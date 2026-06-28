@@ -21244,9 +21244,11 @@ const uint_least32_t* const DIRECTIONS[21201] = {
             Matrix_<uint_least32_t> directions_;
             size_t iPath_;
             bool precise_;
+            bool polish_;
             Vector_<uint_least32_t> state_;
 
-            explicit SobolSet_(size_t iPath, bool precise = false) : iPath_(iPath), precise_(precise) {}
+            explicit SobolSet_(size_t iPath, bool precise = false, bool polish = false)
+                : iPath_(iPath), precise_(precise), polish_(polish) {}
 
         public:
 
@@ -21280,14 +21282,14 @@ const uint_least32_t* const DIRECTIONS[21201] = {
         void SobolSet_::FillNormal(Vector_<>* dst) {
             // Acklam rational approximation without Newton polish is ~1e-9 accurate,
             // well below QMC sampling noise. Skip polish to halve the per-deviate cost.
-            auto func = [this](double x) { return InverseNCDF(x, this->precise_, /*polish=*/false); };
+            auto func = [this](double x) { return InverseNCDF(x, this->precise_, this->polish_); };
             FillUniform(dst);
             Transform(dst, func);
         }
 
         SobolSet_* SobolSet_::TakeAway(int subSize) {
             REQUIRE(subSize > 0 && subSize <= NDim(), "Invalid sequence subSize");
-            std::unique_ptr<SobolSet_> ret_val(new SobolSet_(iPath_));
+            std::unique_ptr<SobolSet_> ret_val(new SobolSet_(iPath_, precise_, polish_));
             if (subSize == NDim()) {
                 directions_.Swap(&ret_val->directions_);
                 state_.Swap(&ret_val->state_);
@@ -21308,8 +21310,8 @@ const uint_least32_t* const DIRECTIONS[21201] = {
         }
     } // namespace
 
-    SequenceSet_* NewSobol(int size, size_t iPath, bool precise) {
-        std::unique_ptr<SobolSet_> seq(new SobolSet_(iPath, precise));
+    SequenceSet_* NewSobol(int size, size_t iPath, bool precise, bool polish) {
+        std::unique_ptr<SobolSet_> seq(new SobolSet_(iPath, precise, polish));
         seq->state_.Resize(size);
         seq->directions_ = Directions(size);
         Seek(seq->state_, iPath, seq->directions_);
