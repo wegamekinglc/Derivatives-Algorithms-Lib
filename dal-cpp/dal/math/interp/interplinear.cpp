@@ -25,7 +25,6 @@ namespace Dal {
         class Interp1Linear_ : public Interp1_ {
             Vector_<> x_;
             Vector_<> f_;
-            mutable size_t lastIndex_ = 0;
 
         public:
             Interp1Linear_(const String_& name, const Vector_<>& x, const Vector_<>& f);
@@ -48,7 +47,7 @@ namespace Dal {
         }
 
         double Interp1Linear_::operator()(double x) const {
-            return InterpLinearImplX(x_, f_, x, &lastIndex_);
+            return InterpLinearImplX(x_, f_, x);
         }
 
     } // namespace
