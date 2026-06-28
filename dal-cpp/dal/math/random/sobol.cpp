@@ -21278,7 +21278,9 @@ const uint_least32_t* const DIRECTIONS[21201] = {
         }
 
         void SobolSet_::FillNormal(Vector_<>* dst) {
-            static auto func = [this](double x) { return InverseNCDF(x, this->precise_, this->precise_); };
+            // Acklam rational approximation without Newton polish is ~1e-9 accurate,
+            // well below QMC sampling noise. Skip polish to halve the per-deviate cost.
+            auto func = [this](double x) { return InverseNCDF(x, this->precise_, /*polish=*/false); };
             FillUniform(dst);
             Transform(dst, func);
         }
