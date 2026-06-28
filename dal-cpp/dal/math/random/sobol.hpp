@@ -16,20 +16,22 @@ name is ?string
 i_path is number
 n_dim is number
 precise is boolean
+polish is boolean
 -IF-------------------------------------------------------------------------*/
 
 namespace Dal {
-    SequenceSet_* NewSobol(int size, size_t iPath, bool precise = false);
+    SequenceSet_* NewSobol(int size, size_t iPath, bool precise = false, bool polish = false);
 
     class BASE_EXPORT SobolRSG_: public Storable_ {
         std::unique_ptr<SequenceSet_> rsg_;
         double i_path_;
         double ndim_;
         bool precise_;
+        bool polish_;
     public:
-        SobolRSG_(const String_& name, double iPath, double nDim = 1, bool precise = false)
-            : Storable_("SobolRSG", name), i_path_(iPath), ndim_(nDim), precise_(precise) {
-            rsg_.reset(NewSobol(static_cast<int>(ndim_), static_cast<size_t>(i_path_), precise));
+        SobolRSG_(const String_& name, double iPath, double nDim = 1, bool precise = false, bool polish = false)
+            : Storable_("SobolRSG", name), i_path_(iPath), ndim_(nDim), precise_(precise), polish_(polish) {
+            rsg_.reset(NewSobol(static_cast<int>(ndim_), static_cast<size_t>(i_path_), precise, polish));
         }
         void Write(Archive::Store_& dst) const override;
         void FillUniform(Vector_<>* deviates) const;
