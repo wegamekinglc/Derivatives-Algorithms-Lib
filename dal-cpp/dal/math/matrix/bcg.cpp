@@ -73,13 +73,17 @@ namespace Dal {
             const double multiply = ii > 0 ? beta / s.betaPrev : 0.0;
             {
                 auto zIt = s.z.begin();
-                for (auto pIt = s.p.begin(); pIt != s.p.end(); ++pIt, ++zIt)
-                    *pIt = *zIt + multiply * *pIt;
+                for (auto pIt = s.p.begin(); pIt != s.p.end(); ++pIt, ++zIt) {
+                    volatile double scaled = multiply * *pIt;
+                    *pIt = *zIt + scaled;
+                }
             }
             if (s.biConjugate) {
                 auto zzIt = s.zz.begin();
-                for (auto ppIt = s.pp.begin(); ppIt != s.pp.end(); ++ppIt, ++zzIt)
-                    *ppIt = *zzIt + multiply * *ppIt;
+                for (auto ppIt = s.pp.begin(); ppIt != s.pp.end(); ++ppIt, ++zzIt) {
+                    volatile double scaled = multiply * *ppIt;
+                    *ppIt = *zzIt + scaled;
+                }
             }
             s.betaPrev = beta;
             return beta;
@@ -94,15 +98,19 @@ namespace Dal {
                 auto pIt = s.p.begin();
                 auto zIt = s.z.begin();
                 for (auto xIt = x->begin(), rIt = s.r.begin(); rIt != s.r.end(); ++xIt, ++rIt, ++pIt, ++zIt) {
-                    *xIt += alphaK * *pIt;
-                    *rIt -= alphaK * *zIt;
+                    volatile double dx = alphaK * *pIt;
+                    volatile double dr = alphaK * *zIt;
+                    *xIt += dx;
+                    *rIt -= dr;
                 }
             }
             if (s.biConjugate) {
                 auto ppIt = s.pp.begin();
                 auto zzIt = s.zz.begin();
-                for (auto rIt = s.rr.begin(); rIt != s.rr.end(); ++rIt, ++ppIt, ++zzIt)
-                    *rIt -= alphaK * *zzIt;
+                for (auto rIt = s.rr.begin(); rIt != s.rr.end(); ++rIt, ++ppIt, ++zzIt) {
+                    volatile double dr = alphaK * *zzIt;
+                    *rIt -= dr;
+                }
             }
         }
 
