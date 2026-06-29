@@ -109,9 +109,9 @@ The dependency graph is `dal-cpp ← dal-public ← {dal-python, dal-excel}`. Ea
 **Web UI (`dal-web/`, not built by CMake)** — FastAPI backend + React frontend:
 - `dal-web/backend/` — Python FastAPI application, uses `dal-python` bindings or stub
 - `dal-web/frontend/` — React + TypeScript SPA, uses Vite
-- `dal-web/scripts/` — `start.sh`, `stop.sh`, and `setup-playwright.sh`
+- `dal-web/scripts/` — `start.sh`/`stop.sh` (Linux/macOS), `start.ps1`/`stop.ps1` (Windows/PowerShell 7), and `setup-playwright.sh`
 
-Start the web UI with `./dal-web/scripts/start.sh` (requires Python 3.13+, uv, Node.js 20+, npm). Frontend at http://localhost:5173, backend API docs at http://127.0.0.1:8001/docs. For frontend e2e, run `./dal-web/scripts/setup-playwright.sh` once, then `cd dal-web/frontend && npm run test:e2e`.
+Start the web UI with `./dal-web/scripts/start.sh` on Linux/macOS or `dal-web/scripts/start.ps1` on Windows (requires Python 3.13+, uv, Node.js 20+, npm). Frontend at http://localhost:5173, backend API docs at http://127.0.0.1:8001/docs. For frontend e2e, run `./dal-web/scripts/setup-playwright.sh` once, then `cd dal-web/frontend && npm run test:e2e`.
 
 **Code generation** — `dal-cpp/config/dal.ifc` is processed by the Machinist tool. `build_linux.sh` runs Machinist twice:
 - once with `-d ./dal-cpp/dal` to produce core enum and serialization files under `dal-cpp/dal/auto/`
