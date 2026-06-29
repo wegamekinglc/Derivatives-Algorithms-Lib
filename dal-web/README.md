@@ -12,8 +12,11 @@ Derivatives Algorithms Library (DAL).
 ```
 dal-web/
 ├── scripts/
-│   ├── start.sh             start both services (backend + frontend)
-│   └── stop.sh              stop both services (with optional --force)
+│   ├── start.sh             start both services (backend + frontend) — Linux/macOS
+│   ├── start.ps1            Windows/PowerShell 7 equivalent of start.sh
+│   ├── stop.sh              stop both services (with optional --force) — Linux/macOS
+│   ├── stop.ps1             Windows/PowerShell 7 equivalent of stop.sh (with -Force)
+│   └── setup-playwright.sh  one-time browser/runtime setup for the frontend e2e suite
 ├── backend/                 FastAPI service
 │   ├── app/
 │   │   ├── main.py          app factory + router wiring
@@ -74,29 +77,47 @@ strict). The `/api/health` endpoint reports which backend is active.
 
 ### Quick Start (both services)
 
-The easiest way to start and stop the web UI is with the scripts in `dal-web/scripts/`:
+The easiest way to start and stop the web UI is with the scripts in `dal-web/scripts/`.
+Use the `.sh` scripts on Linux/macOS and the `.ps1` scripts on Windows (PowerShell 7+):
 
 ```bash
-# Start both services
+# Start both services — Linux/macOS
 ./dal-web/scripts/start.sh
 
-# Stop both services
+# Stop both services — Linux/macOS
 ./dal-web/scripts/stop.sh          # SIGTERM
 ./dal-web/scripts/stop.sh --force  # escalate to SIGKILL if needed
 ```
 
-`start.sh` checks prerequisites (Python ≥ 3.13, uv, node, npm), verifies ports
-`8001` (backend) and `5173` (frontend) are free, installs dependencies
-(`uv sync` in `dal-web/backend/`, `npm install` in `dal-web/frontend/`), launches
-both servers in the background, waits for the backend `/api/health` endpoint and
-the frontend to become ready, then smoke-tests the vite proxy (`/api` → backend).
-PIDs are saved to `dal-web/{backend,frontend}/.server.pid` and logs to
-`.server.log` next to each server.
+```powershell
+# Start both services — Windows (PowerShell 7+)
+pwsh -NoProfile -ExecutionPolicy Bypass -File dal-web/scripts/start.ps1
 
-`stop.sh` kills by PID from those files, verifies each port is actually free,
-and falls back to port-based kill if an orphaned child is holding the socket
-(for example when the launcher spawns a wrapper process). With `--force` it
-escalates to SIGKILL after 5s.
+# Stop both services — Windows
+pwsh -NoProfile -ExecutionPolicy Bypass -File dal-web/scripts/stop.ps1           # graceful
+pwsh -NoProfile -ExecutionPolicy Bypass -File dal-web/scripts/stop.ps1 -Force    # escalate to force kill
+```
+
+Both launchers check prerequisites (Python ≥ 3.13, uv, node, npm, curl), verify
+ports `8001` (backend) and `5173` (frontend) are free, install dependencies
+(`uv sync` in `dal-web/backend/`, `npm install` in `dal-web/frontend/`), launch
+both servers in the background, wait for the backend `/api/health` endpoint and
+the frontend to become ready, then smoke-test the vite proxy (`/api` → backend).
+PIDs are saved to `dal-web/{backend,frontend}/.server.pid`.
+
+Log files differ by platform. On Linux/macOS both streams are merged into a
+single `.server.log` next to each server. On Windows each service writes two
+files: `.server.log` (stdout) and `.server.log.err` (stderr).
+
+Note the one prerequisite-name difference: the bash script checks `python3`,
+the PowerShell script checks `python`.
+
+`stop.sh` / `stop.ps1` kill by PID from those files, verify each port is
+actually free, and fall back to port-based kill if an orphaned child is holding
+the socket. The Windows stopper additionally walks the recorded PID's process
+tree so child workers (the uvicorn `--reload` worker, vite/node children) are
+terminated before the port-based fallback. With `--force` (bash) or `-Force`
+(PowerShell) the stopper escalates to a hard kill after a 5s grace period.
 
 Once running, open **http://localhost:5173** in your browser. The Vite dev
 server proxies `/api` requests to the backend automatically (target port is
@@ -134,15 +155,19 @@ port, update the `proxy.target` in that file and restart the frontend.
 
 > **Note:** Run vite directly rather than `npm run dev` when launching by hand.
 > `npm run` wraps the command in a parent process that does not forward SIGTERM,
-> which leaves an orphan holding the port on shutdown. The `start.sh` script
-> already does this for you.
+> which leaves an orphan holding the port on shutdown. Both `start.sh` and
+> `start.ps1` already do this for you.
 
 ### Stopping
 
-If you started the services with `start.sh`, stop them with:
+If you started the services with a start script, stop them with the matching
+stop script:
 
 ```bash
-./dal-web/scripts/stop.sh
+./dal-web/scripts/stop.sh                       # Linux/macOS
+```
+```powershell
+pwsh -NoProfile -ExecutionPolicy Bypass -File dal-web/scripts/stop.ps1   # Windows
 ```
 
 If you started them manually, press `Ctrl+C` in each terminal, or use the stop
@@ -151,7 +176,8 @@ script (it will fall back to port-based kill if no PID files exist).
 ### Troubleshooting
 
 **Port 8001 already in use.** If the backend fails with `[Errno 98] Address
-already in use`, either free the port or run on a different one:
+already in use` (Linux/macOS) or reports the port is bound (Windows), either
+free the port or run on a different one:
 
 ```bash
 # Option A — stop any running web UI
@@ -162,6 +188,17 @@ fuser -k 8001/tcp
 
 # Option C — use a different port (e.g. 8002)
 uv run python -m uvicorn app.main:app --reload --port 8002
+```
+
+On Windows the equivalents are:
+
+```powershell
+# Option A — stop any running web UI
+pwsh -NoProfile -ExecutionPolicy Bypass -File dal-web/scripts/stop.ps1
+
+# Option B — find what owns the port, then kill it
+Get-NetTCPConnection -LocalPort 8001 -State Listen
+Stop-Process -Id <pid from above> -Force
 ```
 
 If you choose Option C, also update the proxy target in
