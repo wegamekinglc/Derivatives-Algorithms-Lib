@@ -1,6 +1,6 @@
 ---
 name: dal-web-setup
-description: Start or stop the DAL derivatives portfolio web UI (FastAPI backend + React/Vite frontend). Use when the user says "start the web UI", "run the Web UI", "stop the web UI", "shut down the Web UI", "launch the dashboard", or anything about bringing the DAL web UI up or down.
+description: Start or stop the DAL derivatives portfolio web UI (FastAPI backend + React/Vite frontend). Use when the user says "start the web UI", "run the Web UI", "stop the web UI", "shut down the Web UI", "launch the dashboard", or anything about bringing the DAL web UI up or down. On Windows/PowerShell 7 it uses the `.ps1` scripts; elsewhere it uses the `.sh` scripts.
 user-invocable: true
 ---
 
@@ -8,30 +8,47 @@ user-invocable: true
 
 Brings up or tears down the two-service web UI that sits on top of the DAL Python public API.
 
-Two scripts handle the actual work:
+Four launcher scripts handle the actual work — pick by platform:
 
-| Command                                 | What it does                                                                                                                 |
-|-----------------------------------------|------------------------------------------------------------------------------------------------------------------------------|
-| `./dal-web/scripts/start.sh`            | Checks prerequisites, starts backend (uvicorn on `:8001`) and frontend (vite on `:5173`), waits for both, runs a smoke test. |
-| `./dal-web/scripts/stop.sh [--force]`   | Stops both services (by PID file, falling back to port-based kill). Use `--force` to escalate to SIGKILL.                    |
-| `./dal-web/scripts/setup-playwright.sh` | One-time setup for the frontend e2e suite: downloads Chrome and its NSS runtime libraries used by Playwright.                |
+| Platform            | Start                                                                                  | Stop (graceful → force)                                                                                                |
+|---------------------|----------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------|
+| Linux / macOS       | `./dal-web/scripts/start.sh`                                                           | `./dal-web/scripts/stop.sh` → `./dal-web/scripts/stop.sh --force`                                                      |
+| Windows (pwsh 7+)   | `pwsh -NoProfile -ExecutionPolicy Bypass -File dal-web/scripts/start.ps1`              | `pwsh -NoProfile -ExecutionPolicy Bypass -File dal-web/scripts/stop.ps1` → add `-Force`                               |
+
+`dal-web/scripts/setup-playwright.sh` (one-time frontend e2e browser/runtime setup) has no PowerShell equivalent; run it under bash/git-bash on Windows.
+
+## Platform dispatch
+
+Choose the launcher by platform, not by guess:
+
+- **Windows** — when `pwsh` is on `PATH` (PowerShell 7+) or the session platform is `win32`, use the `.ps1` scripts.
+- **Linux / macOS / WSL / git-bash** — otherwise use the `.sh` scripts.
+
+The two families are behaviourally equivalent (same prereqs, ports, health checks, smoke test, PID/log files, exit codes). Two platform differences are worth remembering:
+
+- **Prereq command name:** the bash script checks `python3`; the PowerShell script checks `python`.
+- **Log files:** on Linux/macOS each service writes a single merged `.server.log`. On Windows each service writes two files — `.server.log` (stdout) and `.server.log.err` (stderr).
+- **Force flag spelling:** `--force` (bash) versus `-Force` (PowerShell). Do not mix them.
 
 ## When to use
 
-- **User wants to start the web UI** → run `./dal-web/scripts/start.sh`
-- **User wants to stop the web UI** → run `./dal-web/scripts/stop.sh`
+- **User wants to start the web UI** → run the start script for the current platform.
+- **User wants to stop the web UI** → run the stop script for the current platform.
 - **User wants to run tests** → the skill can also invoke the test suites directly (see below).
 
 ## Startup flow
 
-When the user asks to start the web UI:
+When the user asks to start the web UI, run the launcher for the current platform:
 
 ```bash
-./dal-web/scripts/start.sh
+./dal-web/scripts/start.sh                                              # Linux/macOS
+```
+```powershell
+pwsh -NoProfile -ExecutionPolicy Bypass -File dal-web/scripts/start.ps1  # Windows
 ```
 
 The script:
-1. Verifies prerequisites (python ≥ 3.13, uv, node, npm)
+1. Verifies prerequisites (python ≥ 3.13, uv, node, npm; `python3` on bash, `python` on PowerShell)
 2. Reads the backend port from `dal-web/frontend/vite.config.ts` (currently `:8001`)
 3. Checks that both ports are free
 4. Runs `uv sync` in `dal-web/backend/`
@@ -43,24 +60,28 @@ The script:
 10. Smoke-tests the proxy (frontend → backend)
 11. Prints the URLs
 
-Logs go to `dal-web/backend/.server.log` and `dal-web/frontend/.server.log`.
+Logs go to `.server.log` next to each server (plus a separate `.server.log.err` for stderr on Windows).
 
 ## Shutdown flow
 
-When the user asks to stop the web UI:
+When the user asks to stop the web UI, run the stopper for the current platform:
 
 ```bash
-./dal-web/scripts/stop.sh
+./dal-web/scripts/stop.sh                  # Linux/macOS; add --force to escalate
+```
+```powershell
+pwsh -NoProfile -ExecutionPolicy Bypass -File dal-web/scripts/stop.ps1   # Windows; add -Force to escalate
 ```
 
 The script:
 1. Reads the backend port from `vite.config.ts`
-2. Kills the backend by PID (from `.server.pid`), or by port if no PID file
+2. Kills the backend by PID (from `.server.pid`). On Windows it walks the PID's process tree first so child workers (uvicorn `--reload` worker, node/vite children) are terminated.
 3. Kills the frontend the same way
-4. Removes PID files
-5. Verifies both ports are free
+4. Falls back to a port-based kill if a child still holds the socket after the PID kill
+5. Removes PID files
+6. Verifies both ports are free
 
-If a service refuses to stop within 5s, the script warns. Re-run with `--force` to escalate to SIGKILL.
+If a service refuses to stop within 5s, the script warns. Re-run with `--force` (bash) or `-Force` (PowerShell) to escalate to a hard kill.
 
 ## Running tests
 
@@ -92,11 +113,17 @@ The start script respects environment variables, so you can do:
 DAL_REQUIRE_NATIVE=1 ./dal-web/scripts/start.sh
 ```
 
+On Windows the launcher inherits the caller's environment, so set the variable first:
+
+```powershell
+$env:DAL_REQUIRE_NATIVE=1; pwsh -NoProfile -ExecutionPolicy Bypass -File dal-web/scripts/start.ps1
+```
+
 ## Troubleshooting
 
-- **Port already in use** — run `./dal-web/scripts/stop.sh` first, or manually free the port with `sudo fuser -k <port>/tcp`.
-- **Backend fails to start** — check `dal-web/backend/.server.log`. Common causes: missing dependencies, port conflict, Python version mismatch.
-- **Frontend fails to start** — check `dal-web/frontend/.server.log`. Common causes: port conflict, node_modules out of date (try `rm -rf node_modules && npm install`).
+- **Port already in use** — run the stop script for your platform first, or manually free the port: `sudo fuser -k <port>/tcp` on Linux/macOS; on Windows, `Get-NetTCPConnection -LocalPort <port> -State Listen` then `Stop-Process -Id <pid> -Force`.
+- **Backend fails to start** — check `dal-web/backend/.server.log` (and `.server.log.err` on Windows). Common causes: missing dependencies, port conflict, Python version mismatch.
+- **Frontend fails to start** — check `dal-web/frontend/.server.log` (and `.server.log.err` on Windows). Common causes: port conflict, node_modules out of date (try `rm -rf node_modules && npm install`).
 - **Proxy not forwarding** — verify `dal-web/frontend/vite.config.ts` has the correct `proxy.target` port, and that the backend is actually running.
 
 ## Reference
