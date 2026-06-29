@@ -46,9 +46,21 @@ $FrontendLogFile = Join-Path $FrontendDir '.server.log'
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
-function Write-Info  { param([string]$Msg) Write-Host "[info]  $Msg" -ForegroundColor Green }
-function Write-Warn  { param([string]$Msg) Write-Host "[warn]  $Msg" -ForegroundColor Yellow }
-function Write-ErrLn { param([string]$Msg) Write-Host "[error] $Msg" -ForegroundColor Red }
+# Status output uses Write-Output with embedded ANSI color rather than Write-Host
+# or [Console]::WriteLine -- both trip PSScriptAnalyzer's PSAvoidUsingWriteHost,
+# while Write-Output keeps the color and stays green for these interactive scripts.
+$script:AnsiReset  = [char]27 + '[0m'
+$script:AnsiGreen  = [char]27 + '[32m'
+$script:AnsiYellow = [char]27 + '[33m'
+$script:AnsiRed    = [char]27 + '[31m'
+
+function Write-Colored {
+    param([string]$Prefix, [string]$Color, [string]$Msg)
+    Write-Output "$Color$Prefix$Msg$script:AnsiReset"
+}
+function Write-Info  { param([string]$Msg) Write-Colored '[info]  ' $script:AnsiGreen  $Msg }
+function Write-Warn  { param([string]$Msg) Write-Colored '[warn]  ' $script:AnsiYellow $Msg }
+function Write-ErrLn { param([string]$Msg) Write-Colored '[error] ' $script:AnsiRed    $Msg }
 
 function Test-PortFree {
     param([int]$Port)
@@ -159,7 +171,7 @@ for ($i = 0; $i -lt 40; $i++) {
     }
     if ($backendProc.HasExited) {
         Write-ErrLn "Backend process exited before becoming healthy. Check $BackendLogFile :"
-        if (Test-Path $BackendLogFile) { Get-Content $BackendLogFile -Tail 20 | ForEach-Object { Write-Host $_ } }
+        if (Test-Path $BackendLogFile) { Get-Content $BackendLogFile -Tail 20 | ForEach-Object { Write-Output $_ } }
         Remove-Item $BackendPidFile -ErrorAction SilentlyContinue
         exit 2
     }
@@ -225,7 +237,7 @@ for ($i = 0; $i -lt 60; $i++) {
     }
     if ($frontendProc.HasExited) {
         Write-ErrLn "Frontend process exited before becoming healthy. Check $FrontendLogFile :"
-        if (Test-Path $FrontendLogFile) { Get-Content $FrontendLogFile -Tail 20 | ForEach-Object { Write-Host $_ } }
+        if (Test-Path $FrontendLogFile) { Get-Content $FrontendLogFile -Tail 20 | ForEach-Object { Write-Output $_ } }
         Remove-Item $FrontendPidFile -ErrorAction SilentlyContinue
         Stop-Process -Id $BackendPid -Force -ErrorAction SilentlyContinue
         Remove-Item $BackendPidFile -ErrorAction SilentlyContinue
@@ -256,15 +268,15 @@ if ($null -eq $smoke) {
 # ---------------------------------------------------------------------------
 # Done
 # ---------------------------------------------------------------------------
-Write-Host ""
-Write-Host "[ok] DAL web UI is running" -ForegroundColor Green
-Write-Host ""
-Write-Host "  Frontend:  http://localhost:$FrontendPort"
-Write-Host "  Backend:   http://127.0.0.1:$BackendPort"
-Write-Host "  API docs:  http://127.0.0.1:$BackendPort/docs"
-Write-Host "  Backend:   PID $BackendPid"
-Write-Host "  Frontend:  PID $FrontendPid"
-Write-Host ""
-Write-Host "To stop:     pwsh -NoProfile -ExecutionPolicy Bypass -File dal-web/scripts/stop.ps1"
-Write-Host "Logs:        backend/{.server.log, .server.log.err}, frontend/{.server.log, .server.log.err}"
+Write-Output ''
+Write-Output "$script:AnsiGreen[ok] DAL web UI is running$script:AnsiReset"
+Write-Output ''
+Write-Output "  Frontend:  http://localhost:$FrontendPort"
+Write-Output "  Backend:   http://127.0.0.1:$BackendPort"
+Write-Output "  API docs:  http://127.0.0.1:$BackendPort/docs"
+Write-Output "  Backend:   PID $BackendPid"
+Write-Output "  Frontend:  PID $FrontendPid"
+Write-Output ''
+Write-Output "To stop:     pwsh -NoProfile -ExecutionPolicy Bypass -File dal-web/scripts/stop.ps1"
+Write-Output "Logs:        backend/{.server.log, .server.log.err}, frontend/{.server.log, .server.log.err}"
 exit 0

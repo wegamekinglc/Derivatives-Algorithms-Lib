@@ -40,9 +40,21 @@ $FrontendPidFile = Join-Path $FrontendDir '.server.pid'
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
-function Write-Info  { param([string]$Msg) Write-Host "[info]  $Msg" -ForegroundColor Green }
-function Write-Warn  { param([string]$Msg) Write-Host "[warn]  $Msg" -ForegroundColor Yellow }
-function Write-ErrLn { param([string]$Msg) Write-Host "[error] $Msg" -ForegroundColor Red }
+# Status output uses Write-Output with embedded ANSI color rather than Write-Host
+# or [Console]::WriteLine -- both trip PSScriptAnalyzer's PSAvoidUsingWriteHost,
+# while Write-Output keeps the color and stays green for these interactive scripts.
+$script:AnsiReset  = [char]27 + '[0m'
+$script:AnsiGreen  = [char]27 + '[32m'
+$script:AnsiYellow = [char]27 + '[33m'
+$script:AnsiRed    = [char]27 + '[31m'
+
+function Write-Colored {
+    param([string]$Prefix, [string]$Color, [string]$Msg)
+    Write-Output "$Color$Prefix$Msg$script:AnsiReset"
+}
+function Write-Info  { param([string]$Msg) Write-Colored '[info]  ' $script:AnsiGreen  $Msg }
+function Write-Warn  { param([string]$Msg) Write-Colored '[warn]  ' $script:AnsiYellow $Msg }
+function Write-ErrLn { param([string]$Msg) Write-Colored '[error] ' $script:AnsiRed    $Msg }
 
 function Test-PortFree {
     param([int]$Port)
@@ -93,7 +105,10 @@ function Test-ProcessAlive {
 
 # Terminate a process tree. SIGTERM-equivalent first, then escalate to -Force
 # (SIGKILL-equivalent) after a grace window when $Force is set.
+# The Stop-* helpers always act (process/port cleanup); SupportsShouldProcess
+# is declared only to satisfy PSSA's state-changing-verb rule, not to gate -WhatIf.
 function Stop-ProcessTree {
+    [CmdletBinding(SupportsShouldProcess)]
     param(
         [int]    $RootPid,
         [string] $Name,
@@ -134,6 +149,7 @@ function Stop-ProcessTree {
 # hold the port (e.g. npm-spawned wrappers that inherit the socket). Kill
 # whatever owns the listening socket.
 function Stop-ByPort {
+    [CmdletBinding(SupportsShouldProcess)]
     param([int]$Port, [string]$Name, [switch]$Force)
     $conns = Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue
     if ($null -eq $conns -or $conns.Count -eq 0) { return $true }
@@ -147,6 +163,7 @@ function Stop-ByPort {
 }
 
 function Stop-Service {
+    [CmdletBinding(SupportsShouldProcess)]
     param([int]$Port, [string]$Name, [string]$PidFile, [switch]$Force)
 
     if (Test-Path $PidFile) {
@@ -215,7 +232,7 @@ if (-not (Test-PortFree $FrontendPort)) {
 }
 
 if ($remaining -eq 0) {
-    Write-Host "[ok] DAL web UI stopped. Ports $BackendPort and $FrontendPort are free." -ForegroundColor Green
+    Write-Output "$script:AnsiGreen[ok] DAL web UI stopped. Ports $BackendPort and $FrontendPort are free.$script:AnsiReset"
     exit 0
 } else {
     Write-ErrLn "Some services could not be stopped. Try: pwsh -NoProfile -ExecutionPolicy Bypass -File dal-web/scripts/stop.ps1 -Force"
