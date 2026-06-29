@@ -13,9 +13,10 @@
 #   6. Waits for both to be ready, then runs a smoke test.
 #   7. Prints the URLs.
 #
-# Logs are written to dal-web/backend/.server.log and
-# dal-web/frontend/.server.log. PIDs are stored in .server.pid next to
-# the respective server directory, so stop.ps1 can kill them cleanly.
+# Logs are written under each server directory: .server.log (stdout) and
+# .server.log.err (stderr) for both dal-web/backend/ and dal-web/frontend/.
+# PIDs are stored in .server.pid next to the respective server directory, so
+# stop.ps1 can kill them cleanly.
 #
 # Exit codes:
 #   0  both services started successfully
@@ -145,7 +146,7 @@ $backendProc = Start-Process -FilePath 'uv' `
     -PassThru
 $BackendPid = $backendProc.Id
 Set-Content -Path $BackendPidFile -Value $BackendPid -NoNewline
-Write-Info "  backend PID $BackendPid, log: backend/.server.log"
+Write-Info "  backend PID $BackendPid, log: backend/.server.log (+ .server.log.err)"
 
 # Wait for backend to accept connections (up to 20s).
 Write-Info "Waiting for backend health check..."
@@ -185,7 +186,7 @@ Write-Info "Starting frontend on port $FrontendPort..."
 # processes behind on stop. On Windows we invoke vite's JS entry via node so the
 # recorded PID is the single port-holding node process (and stop.ps1 walks its
 # children as defense in depth).
-$viteJs   = Join-Path $FrontendDir 'node_modules\vite\vite.js'
+$viteJs   = Join-Path $FrontendDir 'node_modules\vite\bin\vite.js'
 $viteShim = Join-Path $FrontendDir 'node_modules\.bin\vite.cmd'
 if (Test-Path $viteJs) {
     $frontendProc = Start-Process -FilePath 'node' `
@@ -211,7 +212,7 @@ if (Test-Path $viteJs) {
 }
 $FrontendPid = $frontendProc.Id
 Set-Content -Path $FrontendPidFile -Value $FrontendPid -NoNewline
-Write-Info "  frontend PID $FrontendPid, log: frontend/.server.log"
+Write-Info "  frontend PID $FrontendPid, log: frontend/.server.log (+ .server.log.err)"
 
 # Wait for frontend to accept connections (up to 30s).
 Write-Info "Waiting for frontend to be ready..."
@@ -265,5 +266,5 @@ Write-Host "  Backend:   PID $BackendPid"
 Write-Host "  Frontend:  PID $FrontendPid"
 Write-Host ""
 Write-Host "To stop:     pwsh -NoProfile -ExecutionPolicy Bypass -File dal-web/scripts/stop.ps1"
-Write-Host "Logs:        backend/.server.log, frontend/.server.log"
+Write-Host "Logs:        backend/{.server.log, .server.log.err}, frontend/{.server.log, .server.log.err}"
 exit 0
