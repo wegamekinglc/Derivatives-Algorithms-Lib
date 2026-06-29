@@ -16,7 +16,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from datetime import datetime, timezone
-from typing import Coroutine
+from typing import Any, Coroutine
 
 from app.schemas import (
     Trade,
@@ -159,7 +159,7 @@ def value_single_trade(
     return store.add_valuation(result)
 
 
-def _schedule_pricing(coro: "Coroutine[None, None, None]") -> "asyncio.Task[None]":
+def _schedule_pricing(coro: Coroutine[Any, Any, None]) -> "asyncio.Task[None]":
     """Create a pricing task and retain it until it finishes.
 
     The task is added to ``_BACKGROUND_TASKS`` so the event loop cannot garbage
@@ -180,16 +180,18 @@ async def _run_portfolio_pricing_async(
 ) -> None:
     """Price a portfolio and update the ValuationResult in-place.
 
-    The per-trade C++ pricing is offloaded to worker threads via
+    Each per-trade C++ pricing call is offloaded to a worker thread via
     ``asyncio.to_thread`` so the event loop stays responsive; ``gateway.value``
     holds the GIL for the whole Monte Carlo run.  ``DalGateway._lock`` keeps
-    concurrent dispatch serial inside the gateway.
+    concurrent dispatch serial inside the gateway, so the trades are priced
+    sequentially -- running them concurrently would only spawn worker threads
+    that block on the lock and risk exhausting the default thread pool.
     """
     try:
         trades = store.portfolio_trades(portfolio_id)
-        trade_valuations = await asyncio.gather(
-            *(asyncio.to_thread(_price_trade, store, gateway, t, config) for t in trades)
-        )
+        trade_valuations = [
+            await asyncio.to_thread(_price_trade, store, gateway, t, config) for t in trades
+        ]
         total_pv, total_greeks = _aggregate_trade_valuations(trade_valuations)
         store.update_valuation(
             valuation_id,
