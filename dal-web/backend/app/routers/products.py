@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+
 from fastapi import APIRouter, Depends, HTTPException
 
 from app.dependencies import gateway_dependency, store_dependency
@@ -20,17 +22,19 @@ router = APIRouter(prefix="/api/products", tags=["products"])
 
 
 @router.get("/templates")
-def list_templates() -> list:
+async def list_templates() -> list:
     return product_templates()
 
 
 @router.get("", response_model=list[ProductDefinition])
-def list_products(store: Store = Depends(store_dependency)) -> list[ProductDefinition]:
+async def list_products(
+    store: Store = Depends(store_dependency),
+) -> list[ProductDefinition]:
     return store.list_products()
 
 
 @router.post("", response_model=ProductDefinition, status_code=201)
-def create_product(
+async def create_product(
     payload: ProductCreate,
     store: Store = Depends(store_dependency),
 ) -> ProductDefinition:
@@ -39,7 +43,7 @@ def create_product(
 
 
 @router.get("/{product_id}", response_model=ProductDefinition)
-def get_product(
+async def get_product(
     product_id: str,
     store: Store = Depends(store_dependency),
 ) -> ProductDefinition:
@@ -50,7 +54,7 @@ def get_product(
 
 
 @router.put("/{product_id}", response_model=ProductDefinition)
-def update_product(
+async def update_product(
     product_id: str,
     payload: ProductUpdate,
     store: Store = Depends(store_dependency),
@@ -63,7 +67,9 @@ def update_product(
 
 
 @router.delete("/{product_id}", status_code=204)
-def delete_product(product_id: str, store: Store = Depends(store_dependency)) -> None:
+async def delete_product(
+    product_id: str, store: Store = Depends(store_dependency)
+) -> None:
     try:
         store.delete_product(product_id)
     except ConflictError as exc:
@@ -71,7 +77,7 @@ def delete_product(product_id: str, store: Store = Depends(store_dependency)) ->
 
 
 @router.post("/debug", response_model=ProductDebugResponse)
-def debug_product(
+async def debug_product(
     payload: ProductDebugRequest,
     gateway: DalGateway = Depends(gateway_dependency),
 ) -> ProductDebugResponse:
@@ -79,7 +85,7 @@ def debug_product(
     dates = [r.to_event_date_token() for r in payload.rows]
     events = [r.event for r in payload.rows]
     try:
-        debug = gateway.debug_product(dates, events)
+        debug = await asyncio.to_thread(gateway.debug_product, dates, events)
     except (ValueError, RuntimeError) as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return ProductDebugResponse(debug=debug)

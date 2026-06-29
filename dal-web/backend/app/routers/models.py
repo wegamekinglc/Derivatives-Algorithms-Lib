@@ -12,12 +12,14 @@ router = APIRouter(prefix="/api/models", tags=["models"])
 
 
 @router.get("", response_model=list[ModelDefinition])
-def list_models(store: Store = Depends(store_dependency)) -> list[ModelDefinition]:
+async def list_models(
+    store: Store = Depends(store_dependency),
+) -> list[ModelDefinition]:
     return store.list_models()
 
 
 @router.post("", response_model=ModelDefinition, status_code=201)
-def create_model(
+async def create_model(
     payload: ModelCreate,
     store: Store = Depends(store_dependency),
 ) -> ModelDefinition:
@@ -30,7 +32,7 @@ def create_model(
 
 
 @router.get("/{model_id}", response_model=ModelDefinition)
-def get_model(
+async def get_model(
     model_id: str,
     store: Store = Depends(store_dependency),
 ) -> ModelDefinition:
@@ -41,7 +43,7 @@ def get_model(
 
 
 @router.put("/{model_id}", response_model=ModelDefinition)
-def update_model(
+async def update_model(
     model_id: str,
     payload: ModelUpdate,
     store: Store = Depends(store_dependency),
@@ -57,7 +59,9 @@ def update_model(
 
 
 @router.delete("/{model_id}", status_code=204)
-def delete_model(model_id: str, store: Store = Depends(store_dependency)) -> None:
+async def delete_model(
+    model_id: str, store: Store = Depends(store_dependency)
+) -> None:
     try:
         store.delete_model(model_id)
     except ConflictError as exc:
