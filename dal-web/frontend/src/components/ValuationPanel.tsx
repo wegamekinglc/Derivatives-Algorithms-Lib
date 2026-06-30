@@ -9,6 +9,9 @@ interface Props {
 
 const POLL_INTERVAL_MS = 300;
 const MAX_POLL_ATTEMPTS = 200;
+// Upper bound keeps path counts sane so a stray keystroke cannot launch a
+// ruinously long Monte Carlo run. 2^24 (~16.7M) is far past convergence.
+const MAX_PATHS = 1 << 24;
 
 export default function ValuationPanel({ onRun, title = "Run valuation" }: Props) {
   const [numPaths, setNumPaths] = useState(65536);
@@ -71,11 +74,14 @@ export default function ValuationPanel({ onRun, title = "Run valuation" }: Props
             id="valuation-paths"
             type="number"
             min={1}
+            max={MAX_PATHS}
             step={1}
             value={numPaths}
             onChange={(e) => {
               const v = Number(e.target.value);
-              setNumPaths(Number.isFinite(v) && v >= 1 ? Math.floor(v) : 1);
+              setNumPaths(
+                Number.isFinite(v) && v >= 1 ? Math.min(MAX_PATHS, Math.floor(v)) : 1,
+              );
             }}
           />
         </div>

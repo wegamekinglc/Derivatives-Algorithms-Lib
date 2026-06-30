@@ -9,16 +9,18 @@ deliberately re-implements the exact same public entry points that the real
 backend never has to know whether it is talking to the native library or to
 this stub.
 
-The numbers produced here are intentionally simple (a closed-form
-Black-Scholes for European-style payoffs, finite-difference Greeks).  They are
-good enough to exercise the UI end-to-end but are **not** a substitute for the
-real DAL Monte Carlo engine.
+Valuation is a genuine Monte Carlo: under the Black-Scholes GBM the terminal
+spot on each path is ``S_T = S0 * exp((r - div - 0.5*vol^2)*t + vol*sqrt(t)*Z)``
+with ``Z ~ N(0,1)``; the discounted payoff is averaged over ``num_path`` draws,
+mirroring ``dal-cpp/examples/european_mc`` and the C++ ``BlackScholes_`` path
+generation.  Greeks come from finite differences on the same MC pricer.  This is
+not the production script engine, but it is a real stochastic sampling -- the
+price genuinely converges to the closed-form value as ``num_path`` grows.
 """
 
 from __future__ import annotations
 
 import datetime as _dt
-import hashlib
 import math
 import random
 import re
@@ -124,10 +126,6 @@ _STRIKE_RE = re.compile(r"STRIKE", re.IGNORECASE)
 _NUMBER_RE = re.compile(r"[-+]?\d*\.?\d+")
 
 
-def _norm_cdf(x: float) -> float:
-    return 0.5 * (1.0 + math.erf(x / math.sqrt(2.0)))
-
-
 def _infer_strike(product: _ProductHandle) -> float:
     """Best-effort extraction of a numeric strike from the event script."""
     for d, e in zip(product.dates, product.events):
@@ -157,30 +155,56 @@ def _years_to_maturity(product: _ProductHandle) -> float:
     return max(days / 365.0, 1.0 / 365.0)
 
 
-def _bs_price(
-    spot: float, strike: float, vol: float, rate: float, div: float, t: float, is_put: bool
+_MC_SEED_SALT = 0xA5C3  # fixed salt so the same trade reproduces the same draws across calls
+
+
+def _mc_seed(spot: float, strike: float, vol: float, rate: float, div: float, t: float, is_put: bool) -> int:
+    # Stable per-trade seed (independent of num_path) so that finite-difference bumps at the
+    # same path count share the same Gaussian draws -- common random numbers slash Greek noise.
+    key = (
+        round(spot, 10),
+        round(strike, 10),
+        round(vol, 10),
+        round(rate, 10),
+        round(div, 10),
+        round(t, 10),
+        bool(is_put),
+        _MC_SEED_SALT,
+    )
+    return hash(key) & 0x7FFFFFFF
+
+
+def _mc_price(
+    spot: float,
+    strike: float,
+    vol: float,
+    rate: float,
+    div: float,
+    t: float,
+    is_put: bool,
+    num_path: int,
+    seed: int,
 ) -> float:
-    if vol <= 0 or t <= 0:
-        fwd_intrinsic = (strike - spot) if is_put else (spot - strike)
-        return max(fwd_intrinsic, 0.0) * math.exp(-rate * t)
-    d1 = (math.log(spot / strike) + (rate - div + 0.5 * vol * vol) * t) / (vol * math.sqrt(t))
-    d2 = d1 - vol * math.sqrt(t)
-    if is_put:
-        return strike * math.exp(-rate * t) * _norm_cdf(-d2) - spot * math.exp(-div * t) * _norm_cdf(-d1)
-    return spot * math.exp(-div * t) * _norm_cdf(d1) - strike * math.exp(-rate * t) * _norm_cdf(d2)
-
-
-_MC_NOISE_SCALE = 0.02  # relative MC-noise surrogate at N=1; shrinks as 1/sqrt(N)
-
-
-def _mc_noise_factor(
-    spot: float, strike: float, vol: float, rate: float, div: float, t: float, is_put: bool, num_path: int
-) -> float:
-    # Deterministic surrogate for Monte Carlo sampling error so the UI reflects path-count sensitivity.
-    key = "|".join(repr(v) for v in (spot, strike, vol, rate, div, t, int(is_put), num_path))
-    seed = int.from_bytes(hashlib.md5(key.encode()).digest()[:8], "big")
-    u = random.Random(seed).random() - 0.5  # uniform in [-0.5, 0.5)
-    return 1.0 + _MC_NOISE_SCALE * u / math.sqrt(num_path)
+    # European option under GBM: S_T = S0 * exp((r-div-0.5*vol^2)*t + vol*sqrt(t)*Z).
+    # Discounted payoff is averaged over num_path antithetic pairs (Z, -Z) of standard normals.
+    n = max(int(num_path), 1)
+    if vol <= 0.0 or t <= 0.0:
+        intrinsic = (strike - spot) if is_put else (spot - strike)
+        return max(intrinsic, 0.0) * math.exp(-rate * t)
+    drift = (rate - div - 0.5 * vol * vol) * t
+    diffusion = vol * math.sqrt(t)
+    discount = math.exp(-rate * t)
+    half = (n + 1) // 2  # antithetic: each Z feeds two paths, so ceil(N/2) draws
+    rng = random.Random(seed)
+    total = 0.0
+    for _ in range(half):
+        z = rng.gauss(0.0, 1.0)
+        for zz in (z, -z):
+            s_t = spot * math.exp(drift + diffusion * zz)
+            pay = (strike - s_t) if is_put else (s_t - strike)
+            if pay > 0.0:
+                total += pay
+    return discount * total / n
 
 
 def MonteCarlo_Value(  # noqa: N802 - match DAL naming
@@ -199,20 +223,27 @@ def MonteCarlo_Value(  # noqa: N802 - match DAL naming
     is_put = _infer_is_put(product)
     t = _years_to_maturity(product)
 
-    # One noise draw per (trade, N); the same factor scales PV and every bumped re-price so
-    # the noise cancels in finite-difference Greeks instead of dominating them.
-    noise_factor = _mc_noise_factor(spot, strike, vol, rate, div, t, is_put, n)
+    seed = _mc_seed(spot, strike, vol, rate, div, t, is_put)
 
     def price_with(spot_: float, vol_: float, rate_: float, div_: float) -> float:
-        return _bs_price(spot_, strike, vol_, rate_, div_, t, is_put) * noise_factor
+        return _mc_price(spot_, strike, vol_, rate_, div_, t, is_put, n, seed)
 
     pv = price_with(spot, vol, rate, div)
     result: dict[str, float] = {"PV": pv}
 
     if enable_aad:
         eps = 1e-4
-        result["d_spot"] = (price_with(spot * (1 + eps), vol, rate, div) - price_with(spot * (1 - eps), vol, rate, div)) / (2 * spot * eps)
-        result["d_vol"] = (price_with(spot, vol + eps, rate, div) - price_with(spot, vol - eps, rate, div)) / (2 * eps)
-        result["d_rate"] = (price_with(spot, vol, rate + eps, div) - price_with(spot, vol, rate - eps, div)) / (2 * eps)
-        result["d_div"] = (price_with(spot, vol, rate, div + eps) - price_with(spot, vol, rate, div - eps)) / (2 * eps)
+        result["d_spot"] = (
+            price_with(spot * (1 + eps), vol, rate, div)
+            - price_with(spot * (1 - eps), vol, rate, div)
+        ) / (2 * spot * eps)
+        result["d_vol"] = (
+            price_with(spot, vol + eps, rate, div) - price_with(spot, vol - eps, rate, div)
+        ) / (2 * eps)
+        result["d_rate"] = (
+            price_with(spot, vol, rate + eps, div) - price_with(spot, vol, rate - eps, div)
+        ) / (2 * eps)
+        result["d_div"] = (
+            price_with(spot, vol, rate, div + eps) - price_with(spot, vol, rate, div - eps)
+        ) / (2 * eps)
     return result
