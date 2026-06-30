@@ -176,7 +176,7 @@ def _mc_seed(
     return hash(key) & 0x7FFFFFFF
 
 
-def _mc_price(
+def _mc_price(  # pylint: disable=too-many-locals
     spot: float,
     strike: float,
     vol: float,
@@ -198,18 +198,16 @@ def _mc_price(
         return max((strike - spot) if is_put else (spot - strike), 0.0) * math.exp(-rate * t)
     drift = (rate - div - 0.5 * vol * vol) * t
     spread = vol * math.sqrt(t)
-    growth = math.exp(drift)
-    discount = math.exp(-rate * t)
     rng = random.Random(seed)  # nosec B311 - Monte-Carlo sampling, not cryptographic
     total = 0.0
     for _ in range((n + 1) // 2):  # antithetic: each Z feeds two paths
         z = rng.gauss(0.0, 1.0)
         for sign in (1.0, -1.0):
-            s_t = spot * growth * math.exp(spread * sign * z)
+            s_t = spot * math.exp(drift + spread * sign * z)
             payoff = (strike - s_t) if is_put else (s_t - strike)
             if payoff > 0.0:
                 total += payoff
-    return discount * total / n
+    return math.exp(-rate * t) * total / n
 
 
 def MonteCarlo_Value(  # noqa: N802 - match DAL naming
