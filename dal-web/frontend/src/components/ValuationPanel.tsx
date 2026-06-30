@@ -11,7 +11,7 @@ const POLL_INTERVAL_MS = 300;
 const MAX_POLL_ATTEMPTS = 200;
 // Upper bound keeps path counts sane so a stray keystroke cannot launch a
 // ruinously long Monte Carlo run. 2^24 (~16.7M) is far past convergence.
-const MAX_PATHS = 1 << 24;
+const MAX_PATHS = 2 ** 24;
 
 export default function ValuationPanel({ onRun, title = "Run valuation" }: Props) {
   const [numPaths, setNumPaths] = useState(65536);
