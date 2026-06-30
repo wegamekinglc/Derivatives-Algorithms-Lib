@@ -119,7 +119,7 @@ tree so child workers (the uvicorn `--reload` worker, vite/node children) are
 terminated before the port-based fallback. With `--force` (bash) or `-Force`
 (PowerShell) the stopper escalates to a hard kill after a 5s grace period.
 
-Once running, open **http://localhost:5173** in your browser. The Vite dev
+Once running, open **<http://localhost:5173>** in your browser. The Vite dev
 server proxies `/api` requests to the backend automatically (target port is
 `8001`, configured in `vite.config.ts`).
 
