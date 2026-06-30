@@ -18,7 +18,9 @@ real DAL Monte Carlo engine.
 from __future__ import annotations
 
 import datetime as _dt
+import hashlib
 import math
+import random
 import re
 from typing import Any
 
@@ -168,6 +170,19 @@ def _bs_price(
     return spot * math.exp(-div * t) * _norm_cdf(d1) - strike * math.exp(-rate * t) * _norm_cdf(d2)
 
 
+_MC_NOISE_SCALE = 0.02  # relative MC-noise surrogate at N=1; shrinks as 1/sqrt(N)
+
+
+def _mc_noise_factor(
+    spot: float, strike: float, vol: float, rate: float, div: float, t: float, is_put: bool, num_path: int
+) -> float:
+    # Deterministic surrogate for Monte Carlo sampling error so the UI reflects path-count sensitivity.
+    key = "|".join(repr(v) for v in (spot, strike, vol, rate, div, t, int(is_put), num_path))
+    seed = int.from_bytes(hashlib.md5(key.encode()).digest()[:8], "big")
+    u = random.Random(seed).random() - 0.5  # uniform in [-0.5, 0.5)
+    return 1.0 + _MC_NOISE_SCALE * u / math.sqrt(num_path)
+
+
 def MonteCarlo_Value(  # noqa: N802 - match DAL naming
     product: _ProductHandle,
     model: _ModelHandle,
@@ -177,31 +192,27 @@ def MonteCarlo_Value(  # noqa: N802 - match DAL naming
     enable_aad: bool = False,
     smooth: float = 0.01,
 ) -> dict[str, float]:
+    n = max(int(num_path), 1)
     p = model.params
     spot, vol, rate, div = p["spot"], p["vol"], p["rate"], p["div"]
     strike = _infer_strike(product)
     is_put = _infer_is_put(product)
     t = _years_to_maturity(product)
 
-    pv = _bs_price(spot, strike, vol, rate, div, t, is_put)
+    # One noise draw per (trade, N); the same factor scales PV and every bumped re-price so
+    # the noise cancels in finite-difference Greeks instead of dominating them.
+    noise_factor = _mc_noise_factor(spot, strike, vol, rate, div, t, is_put, n)
+
+    def price_with(spot_: float, vol_: float, rate_: float, div_: float) -> float:
+        return _bs_price(spot_, strike, vol_, rate_, div_, t, is_put) * noise_factor
+
+    pv = price_with(spot, vol, rate, div)
     result: dict[str, float] = {"PV": pv}
 
     if enable_aad:
         eps = 1e-4
-        result["d_spot"] = (
-            _bs_price(spot * (1 + eps), strike, vol, rate, div, t, is_put)
-            - _bs_price(spot * (1 - eps), strike, vol, rate, div, t, is_put)
-        ) / (2 * spot * eps)
-        result["d_vol"] = (
-            _bs_price(spot, strike, vol + eps, rate, div, t, is_put)
-            - _bs_price(spot, strike, vol - eps, rate, div, t, is_put)
-        ) / (2 * eps)
-        result["d_rate"] = (
-            _bs_price(spot, strike, vol, rate + eps, div, t, is_put)
-            - _bs_price(spot, strike, vol, rate - eps, div, t, is_put)
-        ) / (2 * eps)
-        result["d_div"] = (
-            _bs_price(spot, strike, vol, rate, div + eps, t, is_put)
-            - _bs_price(spot, strike, vol, rate, div - eps, t, is_put)
-        ) / (2 * eps)
+        result["d_spot"] = (price_with(spot * (1 + eps), vol, rate, div) - price_with(spot * (1 - eps), vol, rate, div)) / (2 * spot * eps)
+        result["d_vol"] = (price_with(spot, vol + eps, rate, div) - price_with(spot, vol - eps, rate, div)) / (2 * eps)
+        result["d_rate"] = (price_with(spot, vol, rate + eps, div) - price_with(spot, vol, rate - eps, div)) / (2 * eps)
+        result["d_div"] = (price_with(spot, vol, rate, div + eps) - price_with(spot, vol, rate, div - eps)) / (2 * eps)
     return result

@@ -7,12 +7,11 @@ interface Props {
   title?: string;
 }
 
-const PATH_CHOICES = [10, 12, 14, 16, 18, 20];
 const POLL_INTERVAL_MS = 300;
 const MAX_POLL_ATTEMPTS = 200;
 
 export default function ValuationPanel({ onRun, title = "Run valuation" }: Props) {
-  const [pathsPow, setPathsPow] = useState(16);
+  const [numPaths, setNumPaths] = useState(65536);
   const [method, setMethod] = useState<"sobol" | "pseudo">("sobol");
   const [aad, setAad] = useState(true);
   const [bb, setBb] = useState(false);
@@ -28,7 +27,7 @@ export default function ValuationPanel({ onRun, title = "Run valuation" }: Props
     setStatusLabel("submitting…");
     try {
       const request: ValuationConfig = {
-        num_paths: 2 ** pathsPow,
+        num_paths: numPaths,
         method,
         use_brownian_bridge: bb,
         enable_aad: aad,
@@ -67,20 +66,18 @@ export default function ValuationPanel({ onRun, title = "Run valuation" }: Props
       {error && <div {...css("error")}>{error}</div>}
       <div {...css("row")} {...inlineStyle({ marginBottom: 12 })}>
         <div>
-          <label htmlFor="valuation-paths"># paths (2^n)</label>
-          <select
+          <label htmlFor="valuation-paths">Number of paths</label>
+          <input
             id="valuation-paths"
-            value={pathsPow}
+            type="number"
+            min={1}
+            step={1}
+            value={numPaths}
             onChange={(e) => {
-              setPathsPow(Number(e.target.value));
+              const v = Number(e.target.value);
+              setNumPaths(Number.isFinite(v) && v >= 1 ? Math.floor(v) : 1);
             }}
-          >
-            {PATH_CHOICES.map((p) => (
-              <option key={p} value={p}>
-                2^{p} = {(2 ** p).toLocaleString()}
-              </option>
-            ))}
-          </select>
+          />
         </div>
         <div>
           <label htmlFor="valuation-method">RNG method</label>
