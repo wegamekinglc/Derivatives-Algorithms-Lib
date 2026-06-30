@@ -158,7 +158,7 @@ def _years_to_maturity(product: _ProductHandle) -> float:
 _MC_SEED_SALT = 0xA5C3  # fixed salt so the same trade reproduces the same draws across calls
 
 
-def _mc_seed(
+def _mc_seed(  # pylint: disable=too-many-arguments,too-many-positional-arguments
     spot: float, strike: float, vol: float, rate: float, div: float, t: float, is_put: bool,
 ) -> int:
     # Stable per-trade seed (independent of num_path) so that finite-difference bumps at the
@@ -176,7 +176,7 @@ def _mc_seed(
     return hash(key) & 0x7FFFFFFF
 
 
-def _mc_price(  # pylint: disable=too-many-locals
+def _mc_price(  # pylint: disable=too-many-locals,too-many-arguments,too-many-positional-arguments
     spot: float,
     strike: float,
     vol: float,
