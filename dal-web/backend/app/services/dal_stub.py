@@ -158,7 +158,9 @@ def _years_to_maturity(product: _ProductHandle) -> float:
 _MC_SEED_SALT = 0xA5C3  # fixed salt so the same trade reproduces the same draws across calls
 
 
-def _mc_seed(spot: float, strike: float, vol: float, rate: float, div: float, t: float, is_put: bool) -> int:
+def _mc_seed(
+    spot: float, strike: float, vol: float, rate: float, div: float, t: float, is_put: bool,
+) -> int:
     # Stable per-trade seed (independent of num_path) so that finite-difference bumps at the
     # same path count share the same Gaussian draws -- common random numbers slash Greek noise.
     key = (
@@ -185,25 +187,28 @@ def _mc_price(
     num_path: int,
     seed: int,
 ) -> float:
-    # European option under GBM: S_T = S0 * exp((r-div-0.5*vol^2)*t + vol*sqrt(t)*Z).
-    # Discounted payoff is averaged over num_path antithetic pairs (Z, -Z) of standard normals.
+    """Discounted Monte-Carlo price of a European option under Black-Scholes GBM.
+
+    Each path's terminal spot is ``S0*exp((r-div-0.5*vol^2)*t + vol*sqrt(t)*Z)`` with
+    ``Z ~ N(0,1)``; antithetic pairs ``(Z, -Z)`` halve the draw count. ``num_path`` drives
+    the result through genuine sampling and convergence to the closed-form value.
+    """
     n = max(int(num_path), 1)
     if vol <= 0.0 or t <= 0.0:
-        intrinsic = (strike - spot) if is_put else (spot - strike)
-        return max(intrinsic, 0.0) * math.exp(-rate * t)
+        return max((strike - spot) if is_put else (spot - strike), 0.0) * math.exp(-rate * t)
     drift = (rate - div - 0.5 * vol * vol) * t
-    diffusion = vol * math.sqrt(t)
+    spread = vol * math.sqrt(t)
+    growth = math.exp(drift)
     discount = math.exp(-rate * t)
-    half = (n + 1) // 2  # antithetic: each Z feeds two paths, so ceil(N/2) draws
-    rng = random.Random(seed)
+    rng = random.Random(seed)  # nosec B311 - Monte-Carlo sampling, not cryptographic
     total = 0.0
-    for _ in range(half):
+    for _ in range((n + 1) // 2):  # antithetic: each Z feeds two paths
         z = rng.gauss(0.0, 1.0)
-        for zz in (z, -z):
-            s_t = spot * math.exp(drift + diffusion * zz)
-            pay = (strike - s_t) if is_put else (s_t - strike)
-            if pay > 0.0:
-                total += pay
+        for sign in (1.0, -1.0):
+            s_t = spot * growth * math.exp(spread * sign * z)
+            payoff = (strike - s_t) if is_put else (s_t - strike)
+            if payoff > 0.0:
+                total += payoff
     return discount * total / n
 
 
