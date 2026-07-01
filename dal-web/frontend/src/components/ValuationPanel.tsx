@@ -68,10 +68,9 @@ export default function ValuationPanel({ onRun, title = "Run valuation" }: Props
       <h2>{title}</h2>
       {error && <div {...css("error")}>{error}</div>}
       <div {...css("row")} {...inlineStyle({ marginBottom: 12 })}>
-        <div>
-          <label htmlFor="valuation-paths">Number of paths</label>
+        <label>
+          Number of paths
           <input
-            id="valuation-paths"
             type="number"
             min={1}
             max={MAX_PATHS}
@@ -84,11 +83,10 @@ export default function ValuationPanel({ onRun, title = "Run valuation" }: Props
               );
             }}
           />
-        </div>
-        <div>
-          <label htmlFor="valuation-method">RNG method</label>
+        </label>
+        <label>
+          RNG method
           <select
-            id="valuation-method"
             value={method}
             onChange={(e) => {
               setMethod(e.target.value as "sobol" | "pseudo");
@@ -97,18 +95,17 @@ export default function ValuationPanel({ onRun, title = "Run valuation" }: Props
             <option value="sobol">sobol</option>
             <option value="pseudo">pseudo</option>
           </select>
-        </div>
-        <div>
-          <label htmlFor="valuation-date">Evaluation date</label>
+        </label>
+        <label>
+          Evaluation date
           <input
-            id="valuation-date"
             type="date"
             value={evalDate}
             onChange={(e) => {
               setEvalDate(e.target.value);
             }}
           />
-        </div>
+        </label>
       </div>
       <div {...css("row")} {...inlineStyle({ marginBottom: 12 })}>
         <label {...inlineStyle({ display: "flex", gap: 8, alignItems: "center" })}>
