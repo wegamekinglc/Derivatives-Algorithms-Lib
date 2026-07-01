@@ -314,9 +314,9 @@ namespace for curve calibration:
 | `Tape::JointCurveBlock_<T_>`          | Multi-curve routing context: `Discount(collateral)` and `Forward(tenor,collateral)` reads in the `T_` domain | `dal-cpp/dal/curve/jointycctx.hpp` |
 | `Tape::JointRate_<T_>`                | Projection-capable rate base: `operator()(const JointCurveBlock_<T_>&)`   | `dal-cpp/dal/curve/jointrate.hpp`                  |
 
-The double specialisation of `Tape::DiscountPWLF_` is byte-for-byte identical
-to the existing anonymous-namespace `DiscountPWLF_` at
-`dal-cpp/dal/curve/ycimp.cpp`. The `Number_` specialisation is constructed only
+The `double` specialisation of `Tape::DiscountPWLF_` is the curve that
+`NewDiscountPWLF` and the `DiscountPWLF` v1 reader construct
+(`dal-cpp/dal/curve/ycimp.cpp`). The `Number_` specialisation is constructed only
 by the AAD `Gradient` override, with a two-pass build: discount declarations
 first as baseless `Tape::DiscountPWLF_<Number_>`, then forward declarations as
 base-layered `Tape::DiscountPWLF_<Number_, DiscountCurve_<Number_>>` with the
