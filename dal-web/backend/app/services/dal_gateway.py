@@ -12,8 +12,10 @@ Backend selection
 * ``DAL_MODULE`` (default ``"dal"``) -- the importable module that provides the
   public API.  In a real deployment this is the compiled pybind11 extension.
 * If that import fails and ``DAL_REQUIRE_NATIVE`` is not set to a truthy value,
-  the gateway falls back to :mod:`app.services.dal_stub`, which re-implements
-  the same public API in pure Python for local development and CI.
+  the gateway falls back to :mod:`app.services.dal_stub`, which mirrors the
+  construction / debugging API in pure Python for local development and CI.  The
+  stub does **not** price, so :meth:`DalGateway.value` raises unless the native
+  module is loaded.
 """
 
 from __future__ import annotations
@@ -173,6 +175,14 @@ class DalGateway:
 
     def value(self, request: ValuationRequest) -> dict[str, float]:
         with self._lock:
+            if not self._is_native:
+                raise RuntimeError(
+                    "Monte Carlo valuation requires the compiled 'dal' native "
+                    "module (dal-python pybind11 bindings, defined in "
+                    "dal-python/src/bindings/value.cpp). Backend is bound to "
+                    f"'{self.backend_name}', which does not perform Monte Carlo; "
+                    "build and install dal-python into this environment."
+                )
             if request.evaluation_date is not None:
                 self.set_evaluation_date(*request.evaluation_date)
             product = self.build_product(request.event_dates, request.events)
