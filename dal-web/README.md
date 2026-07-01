@@ -138,8 +138,13 @@ needed) and resolves dependencies from the committed `uv.lock`. API docs are the
 available at <http://127.0.0.1:8001/docs>.
 
 > To run against the compiled native `dal` package instead of the dev stub,
-> install it into the uv environment (`uv pip install /path/to/dal`) and start
-> the server with `DAL_REQUIRE_NATIVE=1`.
+> build the `dal-python` bindings (see `dal-python/` and the repository root
+> `README.md`) and install the resulting `dal` package into the backend's uv
+> environment, e.g. `uv pip install -e ../dal-python` once built, then start
+> the server with `DAL_REQUIRE_NATIVE=1` so a missing native build is a hard
+> error rather than a silent stub fallback. `/api/health` reports
+> `is_native: true` and the resolved `backend` module name once the real
+> engine is loaded.
 
 ### Frontend
 
