@@ -24,11 +24,10 @@ dal-web/
 │   │   ├── routers/         products, models, trades, portfolios, system
 │   │   └── services/
 │   │       ├── dal_gateway.py   ← the ONLY place that imports the dal public API
-│   │       ├── dal_stub.py      pure-python dev/CI fallback (same public API)
 │   │       ├── store.py         in-memory entity store
 │   │       ├── valuation.py     trade/portfolio pricing orchestration
 │   │       └── templates.py     product-builder presets + demo seed
-│   └── tests/               pytest suite (runs against the stub)
+│   └── tests/               pytest suite (fake dal module, no C++ build needed)
 └── frontend/                React + Vite SPA
     └── src/
         ├── api/client.ts    typed API client
@@ -53,25 +52,24 @@ No other module imports `dal` directly -- routers and services depend on
 `DalGateway`, satisfying the "calls to DAL only through the Python public API"
 requirement.
 
-### Native library vs. development stub
+### DAL dependency
 
-The compiled `dal` package requires a full C++ build with pybind11 bindings (see the
-repository root `README.md` and `dal-python/`). So that the web app can be
-developed and tested without that build, `dal_gateway.py` falls back to
-`dal_stub.py` -- a pure-python module that re-implements the **same** public API
-surface (closed-form Black-Scholes for European-style payoffs, finite-difference
-Greeks). Selection is controlled by environment variables:
+The backend imports the compiled `dal` package (the dal-python pybind11 bindings;
+see `dal-python/` and the repository root `README.md`) directly -- it is the sole
+pricing engine, with no pure-Python fallback. Build and install `dal-python` into
+the backend's uv environment before running the server, e.g.
+`uv pip install -e ../dal-python` once built.
+
+The pytest suite registers a minimal fake `dal` module (see `tests/conftest.py`)
+so the FastAPI wiring can be exercised without a C++ build; production imports
+the real `dal`.
+
+Runtime configuration:
 
 | Variable             | Default                                       | Meaning                                                            |
 |----------------------|-----------------------------------------------|--------------------------------------------------------------------|
-| `DAL_MODULE`         | `dal`                                         | Importable module providing the public API.                        |
-| `DAL_REQUIRE_NATIVE` | unset                                         | If truthy, never fall back to the stub -- fail if `dal` is absent. |
 | `WEBUI_SEED_DEMO`    | `1`                                           | Seed a demo portfolio/trade/model/product on startup.              |
 | `WEBUI_CORS_ORIGINS` | `http://localhost:5173,http://127.0.0.1:5173` | Comma-separated allowed CORS origins (scheme required).            |
-
-To use the real library, build the bindings, install the `dal` package into your
-environment, then run the backend normally (with `DAL_REQUIRE_NATIVE=1` to be
-strict). The `/api/health` endpoint reports which backend is active.
 
 ## Running
 
@@ -137,14 +135,10 @@ uv run python -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8001
 needed) and resolves dependencies from the committed `uv.lock`. API docs are then
 available at <http://127.0.0.1:8001/docs>.
 
-> To run against the compiled native `dal` package instead of the dev stub,
-> build the `dal-python` bindings (see `dal-python/` and the repository root
-> `README.md`) and install the resulting `dal` package into the backend's uv
-> environment, e.g. `uv pip install -e ../dal-python` once built, then start
-> the server with `DAL_REQUIRE_NATIVE=1` so a missing native build is a hard
-> error rather than a silent stub fallback. `/api/health` reports
-> `is_native: true` and the resolved `backend` module name once the real
-> engine is loaded.
+> The backend requires the compiled `dal` package. Build the `dal-python`
+> bindings (see `dal-python/` and the repository root `README.md`) and install
+> the resulting `dal` package into the backend's uv environment, e.g.
+> `uv pip install -e ../dal-python` once built, before starting the server.
 
 ### Frontend
 
@@ -221,7 +215,7 @@ The backend exposes a REST-ish API under `/api`. Full OpenAPI docs are served at
 
 | Endpoint                                       | Notes                                                                    |
 |------------------------------------------------|--------------------------------------------------------------------------|
-| `GET /api/health`                              | Reports which DAL backend is active (native vs. stub).                   |
+| `GET /api/health`                              | Reports the active DAL backend (`dal`).                                  |
 | `POST /api/products`, `PUT /api/products/{id}` | Create / partially update a scripted product.                            |
 | `POST /api/products/debug`                     | Render the DAL `Product_Debug` dump for arbitrary rows.                  |
 | `POST /api/models`, `PUT /api/models/{id}`     | Black-Scholes or Dupire model data.                                      |
@@ -249,7 +243,7 @@ the result is updated in-place once it completes. The frontend polls
 
 ```bash
 cd dal-web/backend
-uv run pytest               # runs against the in-process DAL stub
+uv run pytest               # uses a fake dal module (no C++ build needed)
 ```
 
 ```bash

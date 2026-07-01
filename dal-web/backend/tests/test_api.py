@@ -5,13 +5,13 @@ from __future__ import annotations
 import time
 
 
-def test_health_reports_stub_backend(client):
+def test_health_reports_dal_backend(client):
     resp = client.get("/api/health")
     assert resp.status_code == 200
     body = resp.json()
     assert body["status"] == "ok"
-    assert body["backend"] == "dal_stub"
-    assert body["is_native"] is False
+    assert body["backend"] == "dal"
+    assert body["is_native"] is True
 
 
 def test_product_templates_available(client):
@@ -62,11 +62,11 @@ def _wait_for_valuation(client, valuation_id: str, max_polls: int = 20) -> dict:
     raise AssertionError(f"Valuation {valuation_id} did not complete within {max_polls} polls")
 
 
-def test_full_workflow_value_portfolio(native_client):
-    product_id = _create_european_product(native_client)
-    model_id = _create_bs_model(native_client)
+def test_full_workflow_value_portfolio(client):
+    product_id = _create_european_product(client)
+    model_id = _create_bs_model(client)
 
-    trade_resp = native_client.post(
+    trade_resp = client.post(
         "/api/trades",
         json={
             "name": "Call 100",
@@ -80,15 +80,15 @@ def test_full_workflow_value_portfolio(native_client):
     assert trade_resp.status_code == 201
     trade_id = trade_resp.json()["id"]
 
-    pf_resp = native_client.post("/api/portfolios", json={"name": "Book A"})
+    pf_resp = client.post("/api/portfolios", json={"name": "Book A"})
     assert pf_resp.status_code == 201
     pf_id = pf_resp.json()["id"]
 
-    add_resp = native_client.post(f"/api/portfolios/{pf_id}/trades/{trade_id}")
+    add_resp = client.post(f"/api/portfolios/{pf_id}/trades/{trade_id}")
     assert add_resp.status_code == 200
     assert trade_id in add_resp.json()["trade_ids"]
 
-    val_resp = native_client.post(
+    val_resp = client.post(
         f"/api/portfolios/{pf_id}/value",
         json={"num_paths": 1024, "enable_aad": True, "evaluation_date": "2022-09-15"},
     )
@@ -98,7 +98,7 @@ def test_full_workflow_value_portfolio(native_client):
     assert pending["target_kind"] == "portfolio"
 
     # Poll until the background pricing completes.
-    body = _wait_for_valuation(native_client, pending["id"])
+    body = _wait_for_valuation(client, pending["id"])
     assert body["status"] == "completed"
     assert body["total_pv"] > 0.0
     assert "d_spot" in body["total_greeks"]
@@ -107,10 +107,10 @@ def test_full_workflow_value_portfolio(native_client):
     assert len(body["trades"]) == 1
 
 
-def test_trade_value_endpoint(native_client):
-    product_id = _create_european_product(native_client)
-    model_id = _create_bs_model(native_client)
-    trade_resp = native_client.post(
+def test_trade_value_endpoint(client):
+    product_id = _create_european_product(client)
+    model_id = _create_bs_model(client)
+    trade_resp = client.post(
         "/api/trades",
         json={
             "name": "Call 100",
@@ -120,7 +120,7 @@ def test_trade_value_endpoint(native_client):
         },
     )
     trade_id = trade_resp.json()["id"]
-    val_resp = native_client.post(
+    val_resp = client.post(
         f"/api/trades/{trade_id}/value",
         json={"num_paths": 512, "enable_aad": True, "evaluation_date": "2022-09-15"},
     )
@@ -128,7 +128,7 @@ def test_trade_value_endpoint(native_client):
     pending = val_resp.json()
     assert pending["status"] == "running"
 
-    body = _wait_for_valuation(native_client, pending["id"])
+    body = _wait_for_valuation(client, pending["id"])
     assert body["status"] == "completed"
     assert 7.0 < body["total_pv"] < 9.0
 
@@ -242,29 +242,7 @@ def test_update_trade_with_missing_product_fails(client):
     assert resp.status_code == 404
 
 
-def test_valuation_returns_running_then_completed(native_client):
-    product_id = _create_european_product(native_client)
-    model_id = _create_bs_model(native_client)
-    trade_resp = native_client.post(
-        "/api/trades",
-        json={"name": "t", "product_id": product_id, "model_id": model_id, "notional": 1.0},
-    )
-    trade_id = trade_resp.json()["id"]
-    val_resp = native_client.post(
-        f"/api/trades/{trade_id}/value",
-        json={"num_paths": 256, "enable_aad": False, "evaluation_date": "2022-09-15"},
-    )
-    pending = val_resp.json()
-    assert pending["status"] == "running"
-    assert pending["total_pv"] == 0.0
-
-    body = _wait_for_valuation(native_client, pending["id"])
-    assert body["status"] == "completed"
-    assert body["total_pv"] > 0.0
-
-
-def test_valuation_fails_loudly_without_native(client):
-    """Without the native dal module the stub does not price; the error must surface."""
+def test_valuation_returns_running_then_completed(client):
     product_id = _create_european_product(client)
     model_id = _create_bs_model(client)
     trade_resp = client.post(
@@ -276,11 +254,13 @@ def test_valuation_fails_loudly_without_native(client):
         f"/api/trades/{trade_id}/value",
         json={"num_paths": 256, "enable_aad": False, "evaluation_date": "2022-09-15"},
     )
-    body = _wait_for_valuation(client, val_resp.json()["id"])
-    # No PV is fabricated when the native engine is absent.
-    assert body["total_pv"] == 0.0
-    errors = [t.get("error") or "" for t in body["trades"]]
-    assert any("native" in e.lower() for e in errors), errors
+    pending = val_resp.json()
+    assert pending["status"] == "running"
+    assert pending["total_pv"] == 0.0
+
+    body = _wait_for_valuation(client, pending["id"])
+    assert body["status"] == "completed"
+    assert body["total_pv"] > 0.0
 
 
 def test_delete_unused_product_and_model(client):

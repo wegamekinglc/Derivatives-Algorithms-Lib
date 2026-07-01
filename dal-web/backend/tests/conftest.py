@@ -1,14 +1,14 @@
-"""Pytest fixtures: in-process DAL stub (default) and a fake native module.
+"""Pytest fixtures: a fake ``dal`` module so tests need no C++ build.
 
-The default ``client`` fixture binds the gateway to the pure-python stub so the
-non-valuation workflow (product/model/trade CRUD, debugging) needs no C++ build.
-The ``native_client`` fixture binds the gateway to a fake *native* module so the
-async valuation flow can be exercised end-to-end without a C++ build and so the
-suite proves valuation routes through ``MonteCarlo_Value``.
+The backend imports the compiled ``dal`` package (dal-python) directly. For
+tests we register a minimal fake ``dal`` in :data:`sys.modules` before the app
+imports the gateway, so the FastAPI wiring can be exercised without building the
+C++ extension. In production the real ``dal`` is imported.
 """
 
 from __future__ import annotations
 
+import datetime as _dt
 import os
 import sys
 import types
@@ -16,42 +16,62 @@ from typing import Any
 
 import pytest
 
-# Default backend: the pure-python stub regardless of environment.
-os.environ["DAL_MODULE"] = "app.services.dal_stub"
-os.environ.pop("DAL_REQUIRE_NATIVE", None)
-os.environ["WEBUI_SEED_DEMO"] = "0"
-
-_FAKE_NATIVE_MODULE_NAME = "fake_dal_native"
+# Seed a demo portfolio only when explicitly requested.
+os.environ.setdefault("WEBUI_SEED_DEMO", "0")
 
 
-def _build_fake_native() -> types.ModuleType:
-    """Build a fake *native* dal module for tests.
+def _build_fake_dal() -> types.ModuleType:
+    """Minimal stand-in for the compiled ``dal`` package.
 
-    Reuses :mod:`app.services.dal_stub` for every non-valuation entry point and
-    substitutes a canned, non-Monte-Carlo ``MonteCarlo_Value`` so the async
-    valuation machinery can be exercised end-to-end without a C++ build.  The
-    module name does not end in ``dal_stub``, so ``DalGateway.is_native`` is
-    ``True`` -- the gateway routes valuation through ``MonteCarlo_Value`` exactly
-    as it would against the real compiled bindings.
+    Implements just the public surface ``DalGateway`` touches. ``MonteCarlo_Value``
+    is a canned test double (NOT a pricer) that records its call so tests can
+    assert the gateway routes pricing through it.
     """
-    from app.services import dal_stub
+    fake = types.ModuleType("dal")
 
-    fake = types.ModuleType(_FAKE_NATIVE_MODULE_NAME)
-    for attr in (
-        "Date_",
-        "Cell_",
-        "EvaluationDate_Set",
-        "EvaluationDate_Get",
-        "Product_New",
-        "Product_Debug",
-        "BSModelData_New",
-        "DupireModelData_New",
-    ):
-        setattr(fake, attr, getattr(dal_stub, attr))
+    class Date_:  # noqa: N801 - match DAL public naming
+        def __init__(self, y: int, m: int, d: int) -> None:
+            self._d = _dt.date(y, m, d)
+
+        def __sub__(self, other: "Date_") -> int:
+            return (self._d - other._d).days
+
+        def __repr__(self) -> str:
+            return self._d.strftime("%Y-%m-%d")
+
+    class Cell_:  # noqa: N801 - match DAL public naming
+        def __init__(self, value: Any) -> None:
+            self.value = value
+
+        def __repr__(self) -> str:
+            return f"Cell_({self.value!r})"
+
+    eval_box: list[Any] = [Date_(2022, 9, 15)]
+
+    def EvaluationDate_Set(d: Date_) -> None:  # noqa: N802
+        eval_box[0] = d
+
+    def EvaluationDate_Get() -> Date_:  # noqa: N802
+        return eval_box[0]
+
+    def Product_New(dates: list[Any], events: list[str]) -> tuple[list[Any], list[str]]:  # noqa: N802
+        return list(dates), list(events)
+
+    def Product_Debug(product: tuple[list[Any], list[str]]) -> str:  # noqa: N802
+        dates, events = product
+        return "\n".join(f"{d!r}: {e}" for d, e in zip(dates, events))
+
+    def BSModelData_New(spot: float, vol: float, rate: float, div: float) -> dict[str, float]:  # noqa: N802
+        return {"spot": spot, "vol": vol, "rate": rate, "div": div}
+
+    def DupireModelData_New(  # noqa: N802
+        spot: float, rate: float, repo: float, spots: list[float], times: list[float], vols: Any
+    ) -> dict[str, float]:
+        return {"spot": spot, "rate": rate, "div": repo, "vol": 0.2}
 
     calls: list[dict[str, Any]] = []
 
-    def monte_carlo_value(
+    def MonteCarlo_Value(  # noqa: N802
         product: Any,
         model_data: Any,
         num_path: int,
@@ -75,19 +95,24 @@ def _build_fake_native() -> types.ModuleType:
             out.update({"d_spot": 0.5, "d_vol": 0.2, "d_rate": 0.0, "d_div": 0.0})
         return out
 
-    fake.MonteCarlo_Value = monte_carlo_value
+    fake.Date_ = Date_
+    fake.Cell_ = Cell_
+    fake.EvaluationDate_Set = EvaluationDate_Set
+    fake.EvaluationDate_Get = EvaluationDate_Get
+    fake.Product_New = Product_New
+    fake.Product_Debug = Product_Debug
+    fake.BSModelData_New = BSModelData_New
+    fake.DupireModelData_New = DupireModelData_New
+    fake.MonteCarlo_Value = MonteCarlo_Value
     fake.monte_carlo_calls = calls
     return fake
 
 
-def _install_fake_native(monkeypatch: pytest.MonkeyPatch) -> types.ModuleType:
-    fake = _build_fake_native()
-    monkeypatch.setitem(sys.modules, _FAKE_NATIVE_MODULE_NAME, fake)
-    return fake
+# Install before any `import dal` inside the app under test.
+sys.modules["dal"] = _build_fake_dal()
 
 
 def _reset_singletons() -> None:
-    # Singletons live in list wrappers so getters need no `global` statement.
     import app.services.dal_gateway as gw
     import app.services.store as st
 
@@ -96,34 +121,9 @@ def _reset_singletons() -> None:
 
 
 @pytest.fixture()
-def fake_native_module(monkeypatch: pytest.MonkeyPatch) -> types.ModuleType:
-    """Registered fake native module, for direct gateway unit tests."""
-    return _install_fake_native(monkeypatch)
-
-
-@pytest.fixture()
 def client():
     from fastapi.testclient import TestClient
 
-    _reset_singletons()
-    from app.main import create_app
-
-    with TestClient(create_app()) as c:
-        yield c
-
-
-@pytest.fixture()
-def native_client(monkeypatch: pytest.MonkeyPatch):
-    """TestClient whose gateway binds to the fake native module.
-
-    Lets the async valuation flow run to completion (task scheduling, polling,
-    Greek aggregation) without a C++ build, and proves pricing goes through
-    ``MonteCarlo_Value`` rather than the stub.
-    """
-    from fastapi.testclient import TestClient
-
-    _install_fake_native(monkeypatch)
-    monkeypatch.setenv("DAL_MODULE", _FAKE_NATIVE_MODULE_NAME)
     _reset_singletons()
     from app.main import create_app
 
