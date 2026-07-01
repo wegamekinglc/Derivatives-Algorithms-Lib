@@ -13,6 +13,12 @@ def _new_id() -> str:
     return uuid4().hex
 
 
+# Upper bound on Monte Carlo path counts accepted by the API.  Mirrors the
+# frontend cap in ValuationPanel.tsx so a request cannot bypass the UI to
+# launch a ruinously long C++ pricing run.
+MAX_PATHS = 1 << 24
+
+
 class EventRow(BaseModel):
     """A single (date / schedule label, event-script) pair.
 
@@ -161,7 +167,7 @@ class PortfolioCreate(BaseModel):
 
 
 class ValuationConfig(BaseModel):
-    num_paths: int = Field(default=1 << 16, ge=1)
+    num_paths: int = Field(default=1 << 16, ge=1, le=MAX_PATHS)
     method: Literal["sobol", "pseudo"] = "sobol"
     use_brownian_bridge: bool = False
     enable_aad: bool = True

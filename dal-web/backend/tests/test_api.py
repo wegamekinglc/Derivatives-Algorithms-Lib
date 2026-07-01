@@ -279,3 +279,20 @@ def test_delete_unused_product_and_model(client):
     # Now product and model can be deleted.
     assert client.delete(f"/api/products/{product_id}").status_code == 204
     assert client.delete(f"/api/models/{model_id}").status_code == 204
+
+
+def test_valuation_rejects_path_count_over_cap(client):
+    """The num_paths upper bound is enforced at the API boundary."""
+    product_id = _create_european_product(client)
+    model_id = _create_bs_model(client)
+    trade_resp = client.post(
+        "/api/trades",
+        json={"name": "t", "product_id": product_id, "model_id": model_id},
+    )
+    trade_id = trade_resp.json()["id"]
+    over_cap = (1 << 24) + 1
+    val_resp = client.post(
+        f"/api/trades/{trade_id}/value",
+        json={"num_paths": over_cap, "enable_aad": True},
+    )
+    assert val_resp.status_code == 422
