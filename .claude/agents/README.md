@@ -6,16 +6,17 @@ implement → review → document pipeline. The orchestrator routes work between
 
 ## Team Roster
 
-| Role         | Agent              | Color  | Reads                            | Writes                                                                                     |
-|--------------|--------------------|--------|----------------------------------|--------------------------------------------------------------------------------------------|
-| Orchestrator | `dal-orchestrator` | purple | GitHub issues, all artifacts     | task list, PRs                                                                             |
-| Spec writer  | `dal-spec-writer`  | orange | issues, methodology, rules       | `.claude/specs/<slug>.md`                                                                  |
-| API designer | `dal-api-designer` | pink   | spec, design, public headers     | `.claude/api-notes/<slug>.md`                                                              |
-| Critic       | `dal-critic`       | red    | spec, design, api-note           | `.claude/critiques/<slug>.md`                                                              |
-| Implementer  | `dal-implementer`  | green  | spec, design, api-note, critique | source code, tests, TDD in worktree                                                        |
-| Tester       | `dal-tester`       | cyan   | source under-test, conventions   | `dal-cpp/tests/<module>/*` and, for web scope, `dal-web/frontend/tests/e2e/*`, in worktree |
-| Reviewer     | `dal-reviewer`     | amber  | PR diff, all upstream artifacts  | review report, optional merge                                                              |
-| Doc writer   | `dal-doc-writer`   | teal   | current source, CLAUDE.md, docs  | `docs/` and `CHANGELOG.md`                                                                 |
+| Role         | Agent              | Color  | Reads                                                         | Writes                                                                                     |
+|--------------|--------------------|--------|---------------------------------------------------------------|--------------------------------------------------------------------------------------------|
+| Orchestrator | `dal-orchestrator` | purple | GitHub issues, all artifacts                                  | task list, PRs                                                                             |
+| Spec writer  | `dal-spec-writer`  | orange | issues, methodology, rules                                    | `.claude/specs/<slug>.md`                                                                  |
+| API designer | `dal-api-designer` | pink   | spec, design, public headers                                  | `.claude/api-notes/<slug>.md`                                                              |
+| Critic       | `dal-critic`       | red    | spec, design, api-note                                        | `.claude/critiques/<slug>.md`                                                              |
+| Implementer  | `dal-implementer`  | green  | spec, design, api-note, critique                              | source code, tests, TDD in worktree                                                        |
+| Tester       | `dal-tester`       | cyan   | source under-test, conventions                                | `dal-cpp/tests/<module>/*` and, for web scope, `dal-web/frontend/tests/e2e/*`, in worktree |
+| Reviewer     | `dal-reviewer`     | amber  | PR diff, all upstream artifacts                               | review report, optional merge                                                              |
+| Performancer | `dal-performancer` | yellow | finished impl, benchmark binaries, baseline `*_perf` output   | perf-regression report, benchmark-coverage advisory                                        |
+| Doc writer   | `dal-doc-writer`   | teal   | current source, CLAUDE.md, docs                               | `docs/` and `CHANGELOG.md`                                                                 |
 
 
 ## Workflow
@@ -24,13 +25,14 @@ implement → review → document pipeline. The orchestrator routes work between
 issue ──► spec-writer ──► api-designer ──► critic
                           (if public)        │
                                             ▼
-                  reviewer ◄──── implementer (+ tester) ◄──────┘
-                       │
-                       ▼
-                  doc-writer (reconcile docs/ + CHANGELOG.md)
-                       │
-                       ▼
-                    merged PR
+            reviewer   ◄──── implementer (+ tester) ◄──────┘
+            performancer
+                 │
+                 ▼
+            doc-writer (reconcile docs/ + CHANGELOG.md)
+                 │
+                 ▼
+              merged PR
 ```
 
 The orchestrator is the only agent that decides which steps to skip. Most issues take a
@@ -69,7 +71,8 @@ through `specs/log-linear-interp.md → api-notes/log-linear-interp.md → ...` 
 ## Team Working Agreements
 
 Two practices are mandatory for every agent that changes files in the repository
-(`dal-implementer`, `dal-tester`, `dal-doc-writer`; the `dal-reviewer` also reviews inside a worktree):
+(`dal-implementer`, `dal-tester`, `dal-doc-writer`, and `dal-performancer` when it adds a benchmark;
+the `dal-reviewer` also reviews inside a worktree):
 
 - **Worktree isolation.** Enter an isolated git worktree (`EnterWorktree`) before creating or
   editing any file. All edits, builds, iteration, and the commit/PR happen inside it, keeping
