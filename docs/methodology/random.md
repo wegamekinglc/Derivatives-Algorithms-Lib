@@ -61,9 +61,9 @@ variance modes accelerates convergence of the simulator's price estimate.
 
 ### Construction
 
-Given $N$ equally spaced times $t_i = i$ (the constructor in
-`dal-cpp/dal/math/random/brownianbridge.cpp` uses $t_i = i$), the constructor
-pre-computes, for each draw position $i = 0, \ldots, N-1$:
+Given $N$ equally spaced unit-step times $t_i = i + 1$ (the constructor in
+`dal-cpp/dal/math/random/brownianbridge.cpp` sets `t_[i] = i + 1`), the
+constructor pre-computes, for each draw position $i = 0, \ldots, N-1$:
 
 - `bridgeIndex_[i]` — the time index $l$ being filled at step $i$,
 - `leftIndex_[i]` and `rightIndex_[i]` — the bracketing already-filled times

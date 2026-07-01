@@ -243,7 +243,7 @@ observed max `|err|` of ~`5.2e-7` (`log_linear`), ~`4.6e-7` (`log_cubic`), and
 - **IMM / stub swaps:** `Swap_` has a constructor taking explicit
   `(tradeDate, start, maturity, ...)` with arbitrary dates and per-leg conventions
   (`dal-cpp/dal/curve/ycinstrument.hpp`). Schedules are generated forward with
-  configurable stubs (`SchedulePeriod_::isStub_`, `dal-cpp/dal/curve/schedules.hpp`).
+  configurable stubs (`SchedulePeriod_::isStub_`, `dal-cpp/dal/time/schedules.hpp`).
   Explicit effective/termination IMM stub swaps are therefore constructible, and a
   single very short (1-business-day) swap is just a degenerate single-period swap.
 
@@ -259,11 +259,19 @@ observed max `|err|` of ~`5.2e-7` (`log_linear`), ~`4.6e-7` (`log_cubic`), and
 
 - **Public surface** (`dal-public/src/`) exposes interpolation only as
   `Interp1NewLinear` (`dal-public/src/interp.cpp`); it does **not** expose
-  curve calibration, instruments, log-linear, or cubic interpolators.
+  curve calibration, instruments, log-linear, or cubic interpolators. The full
+  curve/calibration surface is, however, reachable from Python (next bullet).
 - **Python bindings** (pybind11, `dal-python/src/bindings/`) wire `core`, `global`,
-  `models`, `random`, `script`, `value` (`dal-python/src/bindings/module.cpp`).
-  There are **no** curve / calibration / interpolation / instrument bindings (grep of
-  `dal-python/src/bindings` for `Calibrat|DiscountCurve|Interp|Swap` returns nothing).
+  `models`, `random`, `script`, `value`, plus `curve` and `calendar`
+  (`dal-python/src/bindings/module.cpp`). The `curve` translation unit
+  (`dal-python/src/bindings/curve.cpp`) exposes the instrument builders
+  (`Deposit_New`, `FRA_New`, `Future_New`, `Swap_New`, `OISSwap_New`,
+  `BasisSwap_New`, `CrossCurrencySwap_New`), the curve factories
+  (`DiscountPWLF_New`, `NewDiscountLogDF`), the calibration entry points
+  (`CalibrateSingleCurve`, `CalibrateMultiCurveBundle`, `CalibrateXccyMarket`),
+  the `CurveParameterization` / `CurveSolveMode` / `CurveJacobianMode` /
+  `LogDfScheme` enums, and `CurveCalibrationSpecBuilder_`; `dal-python/src/dal/api.py`
+  adds a `calibrate_curve(...)` convenience wrapper.
 - **Examples:** `dal-cpp/examples/curve_calibration/curve_calibration.cpp` already
   demonstrates `CurveCalibrationSpec_` / `MultiCurveCalibrationSpec_` with
   `Holidays::None`, explicit knot dates, and `CalibrateMultiCurve`. It is the natural
@@ -291,14 +299,14 @@ implementation. Items marked **gap** are not yet wired in this configuration.
 | Levenberg-Marquardt least-squares             | analog   | underdetermined least-change EXACT/APPROXIMATE, `dal-cpp/dal/math/optimization/underdetermined.hpp`   | equivalent for the square 13×13 case                                                   |
 | Analytic (AAD) Jacobian for the solver        | yes      | `YieldCurveCalibrationFunc_::Gradient`, `dal-cpp/dal/curve/calibration.cpp`                           | AAD reverse sweep when eligible; bumped fallback otherwise                             |
 | Anchor node with fixed DF = 1                 | yes      | `LOG_DISCOUNT` anchor exclusion, `dal-cpp/dal/curve/calibration.cpp`                                  | anchor pinned at $\ell_0 = 0$, excluded from unknowns                                  |
-| Public API exposure                           | gap      | `dal-public/src/interp.cpp`                                                                           | only `Interp1NewLinear` exposed; no curve/calibration entry points                     |
-| Python bindings                               | gap      | `dal-python/src/bindings/module.cpp`                                                                  | no curve/calibration bindings                                                          |
+| Public API exposure                           | partial  | `dal-public/src/interp.cpp`, `dal-python/src/bindings/curve.cpp`                                      | C++ `dal-public` exposes only `Interp1NewLinear`; full curve/calibration surface reachable from Python |
+| Python bindings                               | yes      | `dal-python/src/bindings/curve.cpp`                                                                   | instruments, curves, calibration entry points, enums, `CurveCalibrationSpecBuilder_`  |
 
 ## 5. Reproduction Pipeline
 
-Reproducing the reference table exercises the as-built pipeline below. Items 1-6 are
-implemented and validated against rateslib Table 6.2 (see §2.5); items 7-8 are the
-two remaining gaps.
+Reproducing the reference table exercises the as-built pipeline below. Items 1-6 and
+item 8 (Python bindings) are implemented and validated against rateslib Table 6.2
+(see §2.5); item 7 (C++ `dal-public` exposure) is the remaining gap.
 
 ### 1. DF-node discount curve with pluggable interpolation
 - `NewDiscountLogDF` (`dal-cpp/dal/curve/yclogdf.hpp`) is the curve this exercise
@@ -329,8 +337,9 @@ two remaining gaps.
   (`dal-cpp/dal/curve/ycinstrument.hpp`): annual fixed/float legs, Act/365F,
   `Holidays::None()`, payment lag 0, explicit IMM stub effective/termination dates,
   and the degenerate 1-business-day swap. The stub day-count context
-  (`SinglePeriodContext`, `dal-cpp/dal/curve/ycinstrument.cpp`) reproduces the
-  reference accruals.
+  (`SchedulePeriod_::dayCountContext_`, a `Handle_<DayBasis::Context_>` built by
+  `BuildSinglePeriodSchedule` in `dal-cpp/dal/curve/calibration_internal.hpp`)
+  reproduces the reference accruals.
 
 ### 5. Global solve + verification harness
 - A `CurveCalibrationSpec_` with `parameterization_ = LOG_DISCOUNT`,
@@ -353,15 +362,18 @@ two remaining gaps.
   iterations, no bump-noise, exact curve risk relative to the reference's
   bumped/auto-diff solve.
 
-### 7. (Remaining) Public API exposure
-- Expose the DF-node curve, the three interpolation schemes, the swap builders, and
-  the calibration entry point through `dal-public/src/`, so a non-C++ caller can
-  reproduce the table.
+### 7. (Remaining) C++ public API exposure
+- The C++ `dal-public/src/` surface still exposes only `Interp1NewLinear`. Exposing
+  the DF-node curve, the three interpolation schemes, the swap builders, and the
+  calibration entry point through `dal-public/src/` remains open. The same surface is
+  already reachable from Python (item 8).
 
-### 8. (Remaining) Python bindings
-- Add pybind11 bindings for the same surface in `dal-python/src/bindings/` (a new
-  `curve` translation unit registered in `module.cpp`), so a Python user can
-  reproduce the table directly.
+### 8. Python bindings
+- pybind11 bindings for the curve/calibration surface ship in
+  `dal-python/src/bindings/curve.cpp` (registered in `module.cpp`): the instrument
+  builders, curve factories, calibration entry points, enums, and
+  `CurveCalibrationSpecBuilder_`, with a `calibrate_curve(...)` convenience wrapper
+  in `dal-python/src/dal/api.py`. A Python user can reproduce the table directly.
 
 ## 6. Proposed Deliverable
 

@@ -85,7 +85,7 @@ More examples: [Python](dal-python/examples/), [Excel](dal-excel/examples/), [C+
 ```
 =PRODUCT.NEW("my_product", A2, B2)
 =BSMODELDATA.NEW("model", 100, 0.15, 0.0, 0.0)
-=MONTECARLO.VALUE(A5, C7, 2^20, "sobol", FALSE)
+=MONTECARLO.VALUE(A5, C7, 2^20, "sobol", FALSE, TRUE, 0.01)
 ```
 
 ## Web UI
@@ -93,22 +93,38 @@ More examples: [Python](dal-python/examples/), [Excel](dal-excel/examples/), [C+
 Portfolio management web app in `dal-web/`:
 
 ```bash
-./dal-web/scripts/start.sh     # Start backend + frontend
-./dal-web/scripts/stop.sh      # Stop services
+./dal-web/scripts/start.sh     # Start backend + frontend (Linux/macOS)
+./dal-web/scripts/stop.sh      # Stop services (Linux/macOS)
 ./dal-web/scripts/setup-playwright.sh
 cd dal-web/frontend && npm run test:e2e   # frontend e2e smoke tests
+```
+
+```powershell
+# Windows (requires PowerShell 7+)
+pwsh -NoProfile -ExecutionPolicy Bypass -File dal-web/scripts/start.ps1
+pwsh -NoProfile -ExecutionPolicy Bypass -File dal-web/scripts/stop.ps1
 ```
 
 - Frontend: http://localhost:5173
 - API docs: http://127.0.0.1:8001/docs
 
+See [dal-web/README.md](dal-web/README.md) for the full cross-platform guide (prerequisites, manual launch, troubleshooting).
+
 ## Documentation
 
 - **[Installation Guide](docs/installation.md)** — Complete setup instructions
-- **[Methodology](docs/methodology/)** — Technical deep dives:
-  - [AAD](docs/methodology/aad.md) — Expression templates, tape, propagation
-  - [Yield Curves](docs/methodology/yield_curve.md) — Discount curves, calibration
-  - [Underdetermined Search](docs/methodology/underdetermined_search.md) — Optimization
+- **[Documentation Index](docs/README.md)** — Canonical index of all docs
+
+Methodology notes (see the index above for the full list):
+
+- [AAD](docs/methodology/aad.md) — Automatic adjoint differentiation: expression templates, tape, propagation
+- [Yield Curve](docs/methodology/yield_curve.md) and [Yield-Curve Jacobian](docs/methodology/yield_curve_jacobian.md) — discount curves, calibration, Jacobian / inverse-Jacobian risk
+- [Interpolation](docs/methodology/interpolation.md) — linear, log-linear, cubic interpolators
+- [PDE](docs/methodology/pde.md) — finite-difference meshers and coordinate maps
+- [Script Engine](docs/methodology/script_engine.md) — expression scripting for exotic payoffs
+- [Random](docs/methodology/random.md) — random number generation and path construction
+- [Black / Bachelier](docs/methodology/black_scholes.md) — vanilla option pricing
+- [Matrix](docs/methodology/matrix.md) — matrix and linear algebra
 
 ## License
 

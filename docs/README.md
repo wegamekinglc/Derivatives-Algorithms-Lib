@@ -117,8 +117,8 @@ may change shape before becoming methodology docs:
 
 - **[aad-analytic-jacobian-curve-calibration.md](experimental/aad-analytic-jacobian-curve-calibration.md)**
   — AAD-derived analytic Jacobian for yield-curve calibration, gated by the runtime
-  `CurveJacobianMode_` flag (`BUMPED` default / `ANALYTIC` opt-in) on
-  `CurveCalibrationOptions_`. Backend-neutral across all four AAD backends.
+  `CurveJacobianMode_` flag (`ANALYTIC` default, falling back to `BUMPED` for ineligible
+  calibrations) on `CurveCalibrationOptions_`. Backend-neutral across all four AAD backends.
 - **[replicate-ptirds-single-currency-curve.md](experimental/replicate-ptirds-single-currency-curve.md)**
   — Replication study for single-currency-curve PTI ratchet/digital swaps.
 

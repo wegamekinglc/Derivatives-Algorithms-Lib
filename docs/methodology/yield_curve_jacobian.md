@@ -217,12 +217,13 @@ interpolator: the joint path is the only consumer of the templated curve, the
 parameters are always supplied at construction, and flat members minimise the
 surface the tape has to traverse.
 
-The templated `Tape::DiscountPWLF_<T_, B_>` is **non-storable** — its `Write()`
-override is a hard `REQUIRE(false)`. Only the anonymous-namespace `double`
-`DiscountPWLF_` in `dal-cpp/dal/curve/ycimp.cpp` is serializable, and that is
-the one the bumped path and any persistent result curve use; the templated
-curve exists only for the duration of one `Gradient` sweep and is discarded
-with the analytic-Jacobian frame.
+The baseless `double` specialisation
+`Tape::DiscountPWLF_<double, DiscountCurve_<double>>` is the only serializable
+form — its `Write()` override emits the v1 layout; every `Number_`-typed or
+base-layered specialisation has a `Write()` that throws. The bumped path and any
+persistent result curve use the serializable `double` specialisation; the
+`Number_`-typed curve exists only for the duration of one `Gradient` sweep and is
+discarded with the analytic-Jacobian frame.
 
 ### Why assembly is sparse-by-row
 

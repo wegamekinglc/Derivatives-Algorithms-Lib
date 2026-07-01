@@ -39,7 +39,7 @@ This guide covers the complete installation process for DAL, including the C++ l
 
 - Python 3.10 or later
 - [uv](https://docs.astral.sh/uv/) package manager (recommended) or pip
-- pybind11 (fetched automatically via CMake FetchContent)
+- pybind11 (vendored as a git submodule at `dal-cpp/externals/pybind11`)
 
 ### Web UI
 
@@ -526,7 +526,7 @@ cl               # Windows (from Developer Command Prompt)
 **Error:** pybind11 compilation errors
 
 **Solution:**
-1. Ensure pybind11 is available: CMake FetchContent downloads it automatically, but if you're offline, install `pybind11` system-wide and set `pybind11_DIR` or `CMAKE_PREFIX_PATH` so CMake can find it.
+1. Ensure pybind11 is available: it is vendored as a git submodule at `dal-cpp/externals/pybind11` (run `git submodule update --init` if the directory is empty), or install `pybind11` system-wide and set `pybind11_DIR` or `CMAKE_PREFIX_PATH` so CMake's `find_package` locates it.
 2. Clean and rebuild:
 
 ```bash

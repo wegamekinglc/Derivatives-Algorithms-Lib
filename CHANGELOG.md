@@ -81,6 +81,16 @@ here as the baseline rather than dated releases:
   See `docs/methodology/yield_curve.md` and `docs/methodology/aad.md`. Non-breaking (additive
   public surface; existing single-arg callers exercise the AAD path by default on eligible specs).
 
+## 2026-07
+
+- `random`: Sobol normal draws now skip the Newton polish on `InverseNCDF` by default
+  (`SobolRSG_(..., polish=false)`, `dal-cpp/dal/math/random/sobol.hpp`), halving the per-deviate
+  cost at the cost of ~1e-9 Acklam accuracy instead of ~1e-15 (Acklam+Newton) — below QMC sampling
+  noise. This is a default-argument reproducibility change: default Sobol normal variates shifted
+  from ~1e-15 to ~1e-9. Opt back in via `polish=true`. The new `polish_` member is serialized in the
+  `SobolRSG` storable (`MG_SobolRSG_v1`). See `docs/methodology/random.md`. Non-breaking (additive
+  public field; default changed for speed).
+
 <!-- Add new qualifying changes below as dated sections, e.g. -->
 <!-- ## 2026-06 -->
 <!-- - `curve`: Added log-linear interpolation to the interpolation module (non-breaking). -->
