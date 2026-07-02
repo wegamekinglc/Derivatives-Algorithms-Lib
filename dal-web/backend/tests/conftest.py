@@ -120,13 +120,6 @@ def _reset_singletons() -> None:
     st._store_box[0] = None
 
 
-def _reset_engine_cache() -> None:
-    """Drop cached engines so a new test points at a new database file."""
-    import app.services.db.session as session_mod
-
-    session_mod.reset_engine_cache()
-
-
 @pytest.fixture()
 def store(tmp_path, monkeypatch):
     """A fresh ``DbStore`` against a per-test temp SQLite file.
@@ -136,7 +129,6 @@ def store(tmp_path, monkeypatch):
     would resolve to the same database.
     """
     _reset_singletons()
-    _reset_engine_cache()
     db_path = tmp_path / "test.db"
     monkeypatch.delenv("DAL_WEB_STORE", raising=False)
     monkeypatch.setenv("DAL_WEB_DB_URL", f"sqlite:///{db_path}")
@@ -154,7 +146,6 @@ def client(tmp_path, monkeypatch):
     from fastapi.testclient import TestClient
 
     _reset_singletons()
-    _reset_engine_cache()
     # Point the app at a per-test SQLite file so router tests exercise the
     # real DbStore path end-to-end. ``DAL_WEB_STORE`` stays unset.
     monkeypatch.delenv("DAL_WEB_STORE", raising=False)

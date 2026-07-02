@@ -25,6 +25,7 @@ from app.schemas import (
     Portfolio,
     ProductDefinition,
     Trade,
+    TradeValuation,
     ValuationConfig,
     ValuationResult,
 )
@@ -187,6 +188,55 @@ def test_json_columns_round_trip(tmp_path: Path) -> None:
     # And the product / model JSON columns.
     assert reopened.get_product(product.id).rows == product.rows
     assert reopened.get_model(model.id).bs == model.bs
+
+
+def test_update_valuation_persists_across_reopen(tmp_path: Path) -> None:
+    # The async pricer writes results back exclusively via update_valuation
+    # (status running -> completed/failed), so a patch must survive a reopen.
+    store = _open_store(tmp_path / "dalweb.db")
+    product = store.add_product(_make_product())
+    model = store.add_model(_make_bs_model())
+    trade = store.add_trade(Trade(name="t", product_id=product.id, model_id=model.id))
+
+    pending = ValuationResult(
+        target_kind="trade",
+        target_id=trade.id,
+        backend="native",
+        is_native=True,
+        config=ValuationConfig(num_paths=512),
+        total_pv=0.0,
+        trades=[],
+        created_at="2026-07-03T00:00:00+00:00",
+        status="running",
+    )
+    saved = store.add_valuation(pending)
+
+    tv = TradeValuation(
+        trade_id=trade.id,
+        trade_name="t",
+        pv=11.0,
+        scaled_pv=22.0,
+        greeks={"d_spot": 0.9},
+    )
+    store.update_valuation(
+        saved.id,
+        {
+            "status": "completed",
+            "total_pv": 22.0,
+            "total_greeks": {"d_spot": 0.9},
+            "trades": [tv],
+        },
+    )
+    store.close()
+
+    reopened = _open_store(tmp_path / "dalweb.db")
+    loaded = reopened.get_valuation(saved.id)
+    assert loaded.status == "completed"
+    assert loaded.total_pv == 22.0
+    assert loaded.total_greeks == {"d_spot": 0.9}
+    assert len(loaded.trades) == 1
+    assert loaded.trades[0].scaled_pv == 22.0
+    assert loaded.trades[0].greeks == {"d_spot": 0.9}
 
 
 def test_get_store_returns_memory_store_when_env_set(monkeypatch: pytest.MonkeyPatch) -> None:

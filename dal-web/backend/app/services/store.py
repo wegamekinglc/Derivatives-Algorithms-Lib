@@ -314,9 +314,10 @@ def _build_store() -> StoreProtocol:
     if is_memory_mode():
         return Store()
     # Imported lazily so the in-memory path never depends on SQLAlchemy.
+    from app.services.db.session import default_db_url
     from app.services.db.store_db import DbStore
 
-    url = os.environ.get("DAL_WEB_DB_URL") or None
+    url = os.environ.get("DAL_WEB_DB_URL") or default_db_url()
     store = DbStore(url=url)
     store.create_all()
     return store

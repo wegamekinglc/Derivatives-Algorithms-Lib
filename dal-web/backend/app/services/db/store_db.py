@@ -29,15 +29,15 @@ from app.services.db.models import (
     TradeRow,
     ValuationRow,
 )
-from app.services.db.session import default_db_url, engine_from_url
+from app.services.db.session import engine_from_url
 from app.services.store import ConflictError, NotFoundError
 
 
 class DbStore:
     """A :class:`Store`-compatible facade backed by a SQLAlchemy database."""
 
-    def __init__(self, url: str | None = None) -> None:
-        self._url = url or default_db_url()
+    def __init__(self, url: str) -> None:
+        self._url = url
         self._engine = engine_from_url(self._url)
         self._session_factory: sessionmaker[Session] = sessionmaker(
             bind=self._engine, expire_on_commit=False, future=True
@@ -290,6 +290,8 @@ class DbStore:
                 raise NotFoundError(f"trade {trade_id}")
             existing_ids = {m.trade_id for m in pf.memberships}
             if trade_id not in existing_ids:
+                # position stays gap-free: remove_trade_from_portfolio renumbers
+                # surviving rows, so len(memberships) is the next free index.
                 pf.memberships.append(
                     PortfolioTradeRow(
                         portfolio_id=portfolio_id,

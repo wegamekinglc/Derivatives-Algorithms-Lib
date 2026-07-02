@@ -1,22 +1,18 @@
-"""Engine and session plumbing for the DB-backed store.
+"""Engine plumbing for the DB-backed store.
 
-A single :class:`~sqlalchemy.engine.Engine` is built lazily per database URL and
-cached for the life of the process. For SQLite URLs the engine is created with
-``check_same_thread=False`` (sessions are still short-lived and never shared
-across threads) and a connection event installs the WAL journal mode and
-foreign-key enforcement pragmas -- both essential for the async valuation path
-that offloads C++ pricing to worker threads via ``asyncio.to_thread``.
+For SQLite URLs the engine is created with ``check_same_thread=False`` (sessions
+are still short-lived and never shared across threads) and a connection event
+installs the WAL journal mode and foreign-key enforcement pragmas -- both
+essential for the async valuation path that offloads C++ pricing to worker
+threads via ``asyncio.to_thread``.
 """
 
 from __future__ import annotations
 
-import os
-import threading
 from pathlib import Path
 
 from sqlalchemy import create_engine, event
 from sqlalchemy.engine import Engine
-from sqlalchemy.orm import Session, sessionmaker
 
 
 def _backend_dir() -> Path:
@@ -48,8 +44,7 @@ def engine_from_url(url: str) -> Engine:
 
     SQLite engines get ``check_same_thread=False`` (passed to the DBAPI via
     ``connect_args``) plus WAL and foreign-key pragmas applied on every
-    connection. The engine is the unit of caching -- callers should hand the
-    returned engine to :func:`session_maker`.
+    connection.
     """
     kwargs: dict = {"future": True}
     if _is_sqlite(url):
@@ -67,37 +62,3 @@ def engine_from_url(url: str) -> Engine:
                 cursor.close()
 
     return engine
-
-
-def session_maker(engine: Engine) -> sessionmaker[Session]:
-    """A thread-safe :class:`sessionmaker` bound to ``engine``."""
-    return sessionmaker(bind=engine, expire_on_commit=False, future=True)
-
-
-_engine_cache: dict[str, Engine] = {}
-_engine_lock = threading.Lock()
-
-
-def get_engine(url: str | None = None) -> Engine:
-    """Return the process-wide engine for ``url`` (or the configured default).
-
-    Engines are cached per URL so repeated ``get_store()`` calls against the
-    same database reuse one connection pool rather than opening a new one.
-    """
-    if url is None:
-        url = os.environ.get("DAL_WEB_DB_URL") or default_db_url()
-    with _engine_lock:
-        if url not in _engine_cache:
-            _engine_cache[url] = engine_from_url(url)
-        return _engine_cache[url]
-
-
-def reset_engine_cache() -> None:
-    """Drop all cached engines and close their connection pools.
-
-    Intended for tests that need to point the process at a fresh database file.
-    """
-    with _engine_lock:
-        for engine in _engine_cache.values():
-            engine.dispose()
-        _engine_cache.clear()
