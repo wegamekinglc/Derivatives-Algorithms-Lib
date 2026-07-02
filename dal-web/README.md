@@ -58,7 +58,7 @@ The backend imports the compiled `dal` package (the dal-python pybind11 bindings
 see `dal-python/` and the repository root `README.md`) directly -- it is the sole
 pricing engine, with no pure-Python fallback. Build and install `dal-python` into
 the backend's uv environment before running the server, e.g.
-`uv pip install -e ../dal-python` once built.
+`uv pip install -e ../../dal-python` once built.
 
 The pytest suite registers a minimal fake `dal` module (see `tests/conftest.py`)
 so the FastAPI wiring can be exercised without a C++ build; production imports
@@ -138,7 +138,7 @@ available at <http://127.0.0.1:8001/docs>.
 > The backend requires the compiled `dal` package. Build the `dal-python`
 > bindings (see `dal-python/` and the repository root `README.md`) and install
 > the resulting `dal` package into the backend's uv environment, e.g.
-> `uv pip install -e ../dal-python` once built, before starting the server.
+> `uv pip install -e ../../dal-python` once built, before starting the server.
 
 ### Frontend
 
