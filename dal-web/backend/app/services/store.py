@@ -1,13 +1,17 @@
-"""Thread-safe in-memory store for portfolios, trades, products and models.
+"""Persistence seam for portfolios, trades, products, models and valuations.
 
-This keeps the example self-contained (no external database).  The store is
-deliberately small and could be swapped for a real persistence layer without
-touching the routers, which depend only on its public methods.
+Two implementations live behind this seam: the in-memory :class:`Store` (no
+external dependencies, lost on restart) and the database-backed
+:class:`~app.services.db.store_db.DbStore` (SQLAlchemy, persists to disk).
+Routers depend only on :class:`StoreProtocol`, so either implementation can be
+selected at startup via environment variables without touching router code.
 """
 
 from __future__ import annotations
 
+import os
 import threading
+from typing import Protocol, runtime_checkable
 
 from app.schemas import (
     ModelDefinition,
@@ -24,6 +28,47 @@ class NotFoundError(KeyError):
 
 class ConflictError(Exception):
     """Raised when an operation conflicts with existing state (e.g., references)."""
+
+
+@runtime_checkable
+class StoreProtocol(Protocol):
+    """The router-facing surface every store implementation must provide."""
+
+    # products
+    def add_product(self, product: ProductDefinition) -> ProductDefinition: ...
+    def list_products(self) -> list[ProductDefinition]: ...
+    def get_product(self, product_id: str) -> ProductDefinition: ...
+    def delete_product(self, product_id: str) -> None: ...
+    def update_product(self, product_id: str, patch: dict) -> ProductDefinition: ...
+
+    # models
+    def add_model(self, model: ModelDefinition) -> ModelDefinition: ...
+    def list_models(self) -> list[ModelDefinition]: ...
+    def get_model(self, model_id: str) -> ModelDefinition: ...
+    def delete_model(self, model_id: str) -> None: ...
+    def update_model(self, model_id: str, patch: dict) -> ModelDefinition: ...
+
+    # trades
+    def add_trade(self, trade: Trade) -> Trade: ...
+    def list_trades(self) -> list[Trade]: ...
+    def get_trade(self, trade_id: str) -> Trade: ...
+    def delete_trade(self, trade_id: str) -> None: ...
+    def update_trade(self, trade_id: str, patch: dict) -> Trade: ...
+
+    # portfolios
+    def add_portfolio(self, portfolio: Portfolio) -> Portfolio: ...
+    def list_portfolios(self) -> list[Portfolio]: ...
+    def get_portfolio(self, portfolio_id: str) -> Portfolio: ...
+    def delete_portfolio(self, portfolio_id: str) -> None: ...
+    def portfolio_trades(self, portfolio_id: str) -> list[Trade]: ...
+    def add_trade_to_portfolio(self, portfolio_id: str, trade_id: str) -> Portfolio: ...
+    def remove_trade_from_portfolio(self, portfolio_id: str, trade_id: str) -> Portfolio: ...
+
+    # valuations
+    def add_valuation(self, result: ValuationResult) -> ValuationResult: ...
+    def list_valuations(self) -> list[ValuationResult]: ...
+    def get_valuation(self, valuation_id: str) -> ValuationResult: ...
+    def update_valuation(self, valuation_id: str, patch: dict) -> ValuationResult: ...
 
 
 class Store:
@@ -240,13 +285,38 @@ class Store:
 
 # Process-wide singleton stored in a mutable container so get_store()
 # does not need a `global` statement.
-_store_box: list[Store | None] = [None]
+_store_box: list[StoreProtocol | None] = [None]
 _store_lock = threading.Lock()
 
 
-def get_store() -> Store:
+def is_memory_mode() -> bool:
+    """``DAL_WEB_STORE=memory`` opts into the legacy in-memory store."""
+    return os.environ.get("DAL_WEB_STORE", "").strip().lower() == "memory"
+
+
+def get_store() -> StoreProtocol:
+    """Return the process-wide store, building it on first use.
+
+    By default a :class:`~app.services.db.store_db.DbStore` is built against
+    ``DAL_WEB_DB_URL`` (or the local default SQLite file). Setting
+    ``DAL_WEB_STORE=memory`` returns the legacy in-memory :class:`Store` instead
+    -- the escape hatch for read-only environments and smoke tests.
+    """
     if _store_box[0] is None:
         with _store_lock:
             if _store_box[0] is None:
-                _store_box[0] = Store()
+                _store_box[0] = _build_store()
     return _store_box[0]
+
+
+def _build_store() -> StoreProtocol:
+    """Construct a fresh store based on the current environment."""
+    if is_memory_mode():
+        return Store()
+    # Imported lazily so the in-memory path never depends on SQLAlchemy.
+    from app.services.db.store_db import DbStore
+
+    url = os.environ.get("DAL_WEB_DB_URL") or None
+    store = DbStore(url=url)
+    store.create_all()
+    return store
