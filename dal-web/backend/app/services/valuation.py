@@ -15,8 +15,9 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from datetime import datetime, timezone
-from typing import Any, Coroutine
+from collections.abc import Coroutine
+from datetime import UTC, datetime
+from typing import Any
 
 from app.schemas import (
     Trade,
@@ -36,7 +37,7 @@ _BACKGROUND_TASKS: set[asyncio.Task[None]] = set()
 
 
 def _utc_now() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 def _price_trade(
@@ -159,7 +160,7 @@ def value_single_trade(
     return store.add_valuation(result)
 
 
-def _schedule_pricing(coro: Coroutine[Any, Any, None]) -> "asyncio.Task[None]":
+def _schedule_pricing(coro: Coroutine[Any, Any, None]) -> asyncio.Task[None]:
     """Create a pricing task and retain it until it finishes.
 
     The task is added to ``_BACKGROUND_TASKS`` so the event loop cannot garbage

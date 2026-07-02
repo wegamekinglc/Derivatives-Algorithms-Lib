@@ -33,7 +33,7 @@ def _build_fake_dal() -> types.ModuleType:
         def __init__(self, y: int, m: int, d: int) -> None:
             self._d = _dt.date(y, m, d)
 
-        def __sub__(self, other: "Date_") -> int:
+        def __sub__(self, other: Date_) -> int:
             return (self._d - other._d).days
 
         def __repr__(self) -> str:
@@ -59,7 +59,7 @@ def _build_fake_dal() -> types.ModuleType:
 
     def Product_Debug(product: tuple[list[Any], list[str]]) -> str:  # noqa: N802
         dates, events = product
-        return "\n".join(f"{d!r}: {e}" for d, e in zip(dates, events))
+        return "\n".join(f"{d!r}: {e}" for d, e in zip(dates, events, strict=False))
 
     def BSModelData_New(spot: float, vol: float, rate: float, div: float) -> dict[str, float]:  # noqa: N802
         return {"spot": spot, "vol": vol, "rate": rate, "div": div}
