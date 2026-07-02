@@ -24,7 +24,8 @@ dal-web/
 │   │   ├── routers/         products, models, trades, portfolios, system
 │   │   └── services/
 │   │       ├── dal_gateway.py   ← the ONLY place that imports the dal public API
-│   │       ├── store.py         in-memory entity store
+│   │       ├── store.py         Store seam: StoreProtocol + in-memory Store + get_store()
+│   │       ├── db/              SQLAlchemy 2.x DbStore (session / models / store_db) + migrations
 │   │       ├── valuation.py     trade/portfolio pricing orchestration
 │   │       └── templates.py     product-builder presets + demo seed
 │   └── tests/               pytest suite (fake dal module, no C++ build needed)
@@ -70,6 +71,29 @@ Runtime configuration:
 |----------------------|-----------------------------------------------|--------------------------------------------------------------------|
 | `WEBUI_SEED_DEMO`    | `1`                                           | Seed a demo portfolio/trade/model/product on startup.              |
 | `WEBUI_CORS_ORIGINS` | `http://localhost:5173,http://127.0.0.1:5173` | Comma-separated allowed CORS origins (scheme required).            |
+| `DAL_WEB_DB_URL`     | `sqlite:///<backend>/.data/dalweb.db`         | SQLAlchemy URL for the persistence layer.                          |
+| `DAL_WEB_STORE`      | unset                                         | Set to `memory` to bypass the DB and use the legacy in-memory store. |
+| `DAL_WEB_AUTO_MIGRATE` | unset                                       | Set to `1` to bring the schema up to date via `alembic upgrade head` on startup (otherwise `create_all()`). |
+
+## Persistence
+
+All five entities (products, models, trades, portfolios, valuation results) are
+persisted by a SQLAlchemy 2.x **sync** store (`app/services/db/store_db.py`)
+that implements the same `StoreProtocol` the routers depend on. The default
+backend is a local SQLite file under `dal-web/backend/.data/` (gitignored);
+point `DAL_WEB_DB_URL` at any SQLAlchemy URL to switch backends, e.g.
+`postgresql+psycopg://host/db`. SQLite connections get WAL journaling and
+foreign-key enforcement enabled automatically.
+
+Schema management defaults to `create_all()` on startup (idempotent, zero
+friction). Set `DAL_WEB_AUTO_MIGRATE=1` to apply Alembic migrations instead
+(`alembic upgrade head`); the migration set lives in `dal-web/backend/migrations/`
+and can be run directly with `uv run alembic upgrade head` from the backend
+directory.
+
+For ephemeral or read-only environments where no database is wanted, set
+`DAL_WEB_STORE=memory` to fall back to the original in-memory store -- no file,
+no SQLAlchemy.
 
 ## Running
 
