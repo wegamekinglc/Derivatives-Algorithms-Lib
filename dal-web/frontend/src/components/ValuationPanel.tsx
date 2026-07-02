@@ -7,12 +7,14 @@ interface Props {
   title?: string;
 }
 
-const PATH_CHOICES = [10, 12, 14, 16, 18, 20];
 const POLL_INTERVAL_MS = 300;
 const MAX_POLL_ATTEMPTS = 200;
+// Upper bound keeps path counts sane so a stray keystroke cannot launch a
+// ruinously long Monte Carlo run. 2^24 (~16.7M) is far past convergence.
+const MAX_PATHS = 2 ** 24;
 
 export default function ValuationPanel({ onRun, title = "Run valuation" }: Props) {
-  const [pathsPow, setPathsPow] = useState(16);
+  const [numPaths, setNumPaths] = useState(65536);
   const [method, setMethod] = useState<"sobol" | "pseudo">("sobol");
   const [aad, setAad] = useState(true);
   const [bb, setBb] = useState(false);
@@ -28,7 +30,7 @@ export default function ValuationPanel({ onRun, title = "Run valuation" }: Props
     setStatusLabel("submitting…");
     try {
       const request: ValuationConfig = {
-        num_paths: 2 ** pathsPow,
+        num_paths: numPaths,
         method,
         use_brownian_bridge: bb,
         enable_aad: aad,
@@ -66,26 +68,25 @@ export default function ValuationPanel({ onRun, title = "Run valuation" }: Props
       <h2>{title}</h2>
       {error && <div {...css("error")}>{error}</div>}
       <div {...css("row")} {...inlineStyle({ marginBottom: 12 })}>
-        <div>
-          <label htmlFor="valuation-paths"># paths (2^n)</label>
-          <select
-            id="valuation-paths"
-            value={pathsPow}
+        <label>
+          Number of paths
+          <input
+            type="number"
+            min={1}
+            max={MAX_PATHS}
+            step={1}
+            value={numPaths}
             onChange={(e) => {
-              setPathsPow(Number(e.target.value));
+              const v = Number(e.target.value);
+              setNumPaths(
+                Number.isFinite(v) && v >= 1 ? Math.min(MAX_PATHS, Math.floor(v)) : 1,
+              );
             }}
-          >
-            {PATH_CHOICES.map((p) => (
-              <option key={p} value={p}>
-                2^{p} = {(2 ** p).toLocaleString()}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label htmlFor="valuation-method">RNG method</label>
+          />
+        </label>
+        <label>
+          RNG method
           <select
-            id="valuation-method"
             value={method}
             onChange={(e) => {
               setMethod(e.target.value as "sobol" | "pseudo");
@@ -94,18 +95,17 @@ export default function ValuationPanel({ onRun, title = "Run valuation" }: Props
             <option value="sobol">sobol</option>
             <option value="pseudo">pseudo</option>
           </select>
-        </div>
-        <div>
-          <label htmlFor="valuation-date">Evaluation date</label>
+        </label>
+        <label>
+          Evaluation date
           <input
-            id="valuation-date"
             type="date"
             value={evalDate}
             onChange={(e) => {
               setEvalDate(e.target.value);
             }}
           />
-        </div>
+        </label>
       </div>
       <div {...css("row")} {...inlineStyle({ marginBottom: 12 })}>
         <label {...inlineStyle({ display: "flex", gap: 8, alignItems: "center" })}>

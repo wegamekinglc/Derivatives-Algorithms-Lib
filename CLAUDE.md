@@ -107,7 +107,7 @@ The dependency graph is `dal-cpp ← dal-public ← {dal-python, dal-excel}`. Ea
 - `dal-excel/tests/` — Excel-specific tests
 
 **Web UI (`dal-web/`, not built by CMake)** — FastAPI backend + React frontend:
-- `dal-web/backend/` — Python FastAPI application, uses `dal-python` bindings or stub
+- `dal-web/backend/` — Python FastAPI application, uses the `dal-python` bindings directly
 - `dal-web/frontend/` — React + TypeScript SPA, uses Vite
 - `dal-web/scripts/` — `start.sh`/`stop.sh` (Linux/macOS), `start.ps1`/`stop.ps1` (Windows/PowerShell 7), and `setup-playwright.sh`
 

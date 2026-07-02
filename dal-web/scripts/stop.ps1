@@ -77,7 +77,7 @@ function Read-BackendPort {
 # whole subtree in one pass -- necessary because uvicorn --reload and vite both
 # spawn child workers that inherit the listening socket but have a different PID
 # than the parent we recorded.
-function Get-DescendantPids {
+function Get-ProcessTree {
     param([int]$RootPid)
     $result = [System.Collections.Generic.List[int]]::new()
     $result.Add($RootPid)
@@ -116,7 +116,7 @@ function Stop-ProcessTree {
     )
     if (-not (Test-ProcessAlive $RootPid)) { return $true }
 
-    $pids = Get-DescendantPids -RootPid $RootPid
+    $pids = Get-ProcessTree -RootPid $RootPid
     Write-Info "Stopping $Name tree (PIDs: $($pids -join ', '))..."
     foreach ($p in $pids) {
         if (Test-ProcessAlive $p) {
@@ -162,7 +162,7 @@ function Stop-ByPort {
     (Test-PortFree $Port)
 }
 
-function Stop-Service {
+function Stop-WebUiService {
     [CmdletBinding(SupportsShouldProcess)]
     param([int]$Port, [string]$Name, [string]$PidFile, [switch]$Force)
 
@@ -207,14 +207,14 @@ if (-not $backendRunning -and -not $frontendRunning) {
 # 2. Stop backend
 # ---------------------------------------------------------------------------
 if ($backendRunning) {
-    Stop-Service -Port $BackendPort -Name 'backend' -PidFile $BackendPidFile -Force:$Force
+    Stop-WebUiService -Port $BackendPort -Name 'backend' -PidFile $BackendPidFile -Force:$Force
 }
 
 # ---------------------------------------------------------------------------
 # 3. Stop frontend
 # ---------------------------------------------------------------------------
 if ($frontendRunning) {
-    Stop-Service -Port $FrontendPort -Name 'frontend' -PidFile $FrontendPidFile -Force:$Force
+    Stop-WebUiService -Port $FrontendPort -Name 'frontend' -PidFile $FrontendPidFile -Force:$Force
 }
 
 # ---------------------------------------------------------------------------

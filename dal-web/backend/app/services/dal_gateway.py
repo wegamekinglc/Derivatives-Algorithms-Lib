@@ -1,34 +1,18 @@
 """The one and only integration surface with the DAL library.
 
-Per the project requirement, the web backend talks to the Derivatives
-Algorithms Library **exclusively through its Python public API** (the symbols
-exported by the ``dal`` package: ``Date_``, ``Cell_``, ``EvaluationDate_Set``,
-``Product_New``, ``BSModelData_New``, ``DupireModelData_New``,
-``MonteCarlo_Value`` ...).  No router, schema or service module imports ``dal``
-directly -- they all go through :class:`DalGateway`.
-
-Backend selection
------------------
-* ``DAL_MODULE`` (default ``"dal"``) -- the importable module that provides the
-  public API.  In a real deployment this is the compiled pybind11 extension.
-* If that import fails and ``DAL_REQUIRE_NATIVE`` is not set to a truthy value,
-  the gateway falls back to :mod:`app.services.dal_stub`, which re-implements
-  the same public API in pure Python for local development and CI.
+The web backend talks to the Derivatives Algorithms Library exclusively through
+its Python public API -- the compiled ``dal`` package (the dal-python pybind11
+bindings; see ``dal-python/src/bindings/value.cpp``).  No router, schema or
+service module imports ``dal`` directly -- they all go through :class:`DalGateway`.
 """
 
 from __future__ import annotations
 
-import importlib
-import os
 import threading
 from dataclasses import dataclass
 from typing import Any
 
-_TRUTHY = frozenset({"1", "true", "yes", "on"})
-
-
-def _is_truthy(value: str | None) -> bool:
-    return value is not None and value.strip().lower() in _TRUTHY
+import dal
 
 
 @dataclass(frozen=True)
@@ -50,39 +34,17 @@ class ValuationRequest:
 class DalGateway:
     """Thin, thread-safe adapter over the DAL public Python API."""
 
-    def __init__(self, module_name: str | None = None) -> None:
+    def __init__(self) -> None:
         self._lock = threading.Lock()
-        self._module_name = module_name or os.environ.get("DAL_MODULE", "dal")
-        self._dal, self._is_native = self._load_module(self._module_name)
-
-    # -- module loading ---------------------------------------------------
-
-    @staticmethod
-    def _load_module(module_name: str) -> tuple[Any, bool]:
-        try:
-            module = importlib.import_module(module_name)
-            # The pure-python development fallback is never considered native.
-            is_native = not module.__name__.endswith("dal_stub")
-            return module, is_native
-        except ImportError as native_error:
-            if _is_truthy(os.environ.get("DAL_REQUIRE_NATIVE")):
-                raise RuntimeError(
-                    f"Could not import native DAL module '{module_name}': {native_error}. "
-                    "Build the C++ library and pybind11 Python bindings, or unset "
-                    "DAL_REQUIRE_NATIVE to use the development stub."
-                ) from native_error
-            from app.services import dal_stub
-
-            return dal_stub, False
+        self._dal = dal
 
     @property
     def is_native(self) -> bool:
-        """True when bound to the compiled DAL extension, False for the stub."""
-        return self._is_native
+        return True
 
     @property
     def backend_name(self) -> str:
-        return self._module_name if self._is_native else "dal_stub"
+        return "dal"
 
     # -- primitive constructors ------------------------------------------
 

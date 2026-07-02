@@ -150,7 +150,7 @@ Write-Info "Starting backend on port $BackendPort..."
 # a worker child. We capture the parent PID and rely on stop.ps1's process-tree
 # walk plus port-based fallback to clean up the worker holding the socket.
 $backendProc = Start-Process -FilePath 'uv' `
-    -ArgumentList @('run','python','-m','uvicorn','app.main:app','--reload','--host','127.0.0.1','--port',"$BackendPort") `
+    -ArgumentList @('run','python','-m','uvicorn','app.main:app','--reload','--host','127.0.0.1','--port',"$BackendPort",'--log-config','log_config.json') `
     -WorkingDirectory $BackendDir `
     -WindowStyle Hidden `
     -RedirectStandardOutput $BackendLogFile `

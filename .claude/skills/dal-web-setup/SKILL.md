@@ -88,7 +88,7 @@ If a service refuses to stop within 5s, the script warns. Re-run with `--force` 
 If the user asks to run tests after starting the UI:
 
 ```bash
-# Backend tests (pytest, runs against the stub by default)
+# Backend tests (pytest, uses a fake dal module)
 (cd dal-web/backend && uv run pytest)
 
 # Frontend type-check + production build
@@ -99,25 +99,24 @@ If the user asks to run tests after starting the UI:
 (cd dal-web/frontend && npm run test:e2e)
 ```
 
-## Native vs. stub DAL backend
+## DAL backend (dal-python)
 
-By default the backend uses `dal_stub.py` (pure-Python closed-form Black-Scholes). To use the compiled pybind11 bindings:
+The backend imports the compiled `dal` package (dal-python pybind11 bindings) directly -- there is no pure-Python fallback, so build and install it before running the server:
 
 1. Build `dal-python` per the repo root `README.md`.
 2. Install into the uv env: `uv pip install ../../dal-python` (from `dal-web/backend/`).
-3. Set `DAL_REQUIRE_NATIVE=1` before starting the backend.
 
-The start script respects environment variables, so you can do:
+The start scripts inherit the caller's environment, so once `dal` is importable just run them directly:
 
 ```bash
-DAL_REQUIRE_NATIVE=1 ./dal-web/scripts/start.sh
+./dal-web/scripts/start.sh
 ```
-
-On Windows the launcher inherits the caller's environment, so set the variable first:
 
 ```powershell
-$env:DAL_REQUIRE_NATIVE=1; pwsh -NoProfile -ExecutionPolicy Bypass -File dal-web/scripts/start.ps1
+pwsh -NoProfile -ExecutionPolicy Bypass -File dal-web/scripts/start.ps1
 ```
+
+The pytest suite uses a fake `dal` module (see `dal-web/backend/tests/conftest.py`), so `uv run pytest` needs no C++ build.
 
 ## Troubleshooting
 
