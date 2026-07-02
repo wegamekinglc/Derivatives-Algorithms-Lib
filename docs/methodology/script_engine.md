@@ -317,7 +317,7 @@ valuation of a `ScriptProduct_`. It has two instantiations: `T_ = double`
 ### RNG and Brownian Bridge
 
 `CreateRNG` selects the underlying generator from a method string — `sobol`
-(Sobol low-discrepancy), `mrg32` (MRG32k3a pseudo-random), or `irn` (industrial
+(Sobol low-discrepancy), `mrg32` (MRG32k32a pseudo-random), or `irn` (industrial
 pseudo-random) — sized to the model's simulation dimension. When the Brownian
 bridge flag is set, the generator is wrapped in a `BrownianBridge_` so the draw
 order reconstructs the path from coarse to fine maturities rather than in
@@ -420,5 +420,6 @@ tree.
 
 - [Automatic Adjoint Differentiation](aad.md) — the reverse-mode machinery that
   fuzzy evaluation feeds, enabling pathwise Greeks through discontinuous payoffs.
-- `dal-cpp/examples/script.cpp` — runnable example of the full pipeline: events
-  table parsing, preprocessing, domain analysis, condition folding, and evaluation.
+- `dal-cpp/examples/script/script.cpp` — runnable example of the full pipeline:
+  events table parsing, preprocessing, domain analysis, condition folding, and
+  evaluation.

@@ -233,11 +233,12 @@ trade first (which cascades out of any portfolios) and then the product/model.
 
 ### Async valuation
 
-Valuation endpoints now return a pending `ValuationResult` with
-`status: "running"` immediately. Pricing runs in a FastAPI background task, and
-the result is updated in-place once it completes. The frontend polls
-`GET /api/valuations/{id}` at 300ms intervals until the status becomes
-`"completed"` or `"failed"`.
+Valuation endpoints return a pending `ValuationResult` with
+`status: "running"` immediately. Pricing runs as an `asyncio` task that
+offloads the blocking C++ pricing call to a worker thread via
+`asyncio.to_thread`, and the result is updated in-place once it completes. The
+frontend polls `GET /api/valuations/{id}` at 300ms intervals until the status
+becomes `"completed"` or `"failed"`.
 
 ### Tests
 

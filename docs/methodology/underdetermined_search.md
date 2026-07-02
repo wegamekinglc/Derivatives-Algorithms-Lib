@@ -162,7 +162,8 @@ The solver is implemented as free functions `Underdetermined::Find` and
 
 Before the solver loop, the raw residual function `funcIn` is wrapped in
 `XScaledFunc_`, which divides every residual and every Jacobian row by the per-instrument
-tolerance $\tau_j$ returned by `funcIn.Tolerances()`. This normalises the convergence test
+tolerance $\tau_j$ passed to `Find` as `tol` (or to `Approximate` as `funcTol`). This normalises
+the convergence test
 to $|f_j| \le 1$ per component (exact mode) or $\|f\| \le \texttt{fitTol}$ (approximate
 mode). The wrapper also caps the evaluation budget and tracks `nEvals_`.
 
@@ -180,7 +181,8 @@ bump iterations.
 When the caller requests `fwdJacobianAtSolution` (non-null pointer), the convergence
 branch in `Find` captures the **unscaled** dense forward Jacobian at the solution:
 
-1. The raw (unwrapped) `funcIn` is called: `funcIn.Gradient(xNew, fUnscaled, fwdJacobianAtSolution)`.
+1. The raw (unwrapped) `funcIn` is called: `funcIn.Gradient(xNew, fUnscaled)` returns a sparse
+   `Jacobian_*` (the dense overload is not used on this branch).
 2. The residual `fUnscaled` is reconstructed by element-wise multiplication of the
    scaled residual by the tolerance vector — avoiding a redundant `funcIn.F()` call
    that would bypass the solver's evaluation budget.
@@ -227,16 +229,18 @@ is freshly computed per restart cycle.
 
 ### Controls Structure
 
-The `Underdetermined::Controls_` struct (default-constructed) carries:
+The `Underdetermined::Controls_` struct is a Machinist `settings` storable built from a
+`Dictionary_`; omitted keys take the defaults below, and `maxEvaluations_` / `maxRestarts_`
+are required (no default). It carries:
 
-| Field                   | Default        | Role                                                          |
-|-------------------------|----------------|---------------------------------------------------------------|
-| `maxEvaluations_`       | $150$          | Hard evaluation budget across all restarts                    |
-| `maxRestarts_`          | $3$            | Maximum Broyden refreshes before failure                      |
-| `maxBacktrackTries_`    | $3$            | Line-search tries per iteration                               |
-| `maxBacktrack_`         | $0.5$          | Maximum fractional step shrinkage                             |
-| `backtrackTolerance_`   | $0.1$          | $k_{\min}$ below which the full step is accepted              |
-| `restartTolerance_`     | $0.5$          | $k_{\min}$ above which the linear model is considered invalid |
+| Field                 | Default  | Role                                                          |
+|-----------------------|----------|---------------------------------------------------------------|
+| `maxEvaluations_`     | required | Point evaluations before giving up                            |
+| `maxRestarts_`        | required | Gradient calculations before giving up                        |
+| `maxBacktrackTries_`  | $5$      | Line-search tries per iteration                               |
+| `maxBacktrack_`       | $0.8$    | Maximum fractional step shrinkage                             |
+| `backtrackTolerance_` | $0.1$    | $k_{\min}$ below which the full step is accepted              |
+| `restartTolerance_`   | $0.4$    | $k_{\min}$ above which the linear model is considered invalid |
 
 ## Summary
 

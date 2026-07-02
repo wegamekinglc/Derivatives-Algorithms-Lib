@@ -124,11 +124,11 @@ step sizes (`maxDs`, `maxDt`). `FillData` (in `dal-cpp/dal/model/utilities.hpp`)
 densifies each axis: it walks the sorted union of the inclusion points and any
 explicit additions, and whenever two consecutive points are farther apart than
 the maximum step it inserts uniformly spaced fill points so no gap exceeds the
-step. The maturity axis is densified with a minimum step floor of `ONE_HOUR`
+step. The maturity axis is densified with a minimum step floor of `ONE_HOUR_YF`
 (the literal `0.000114469`, i.e. a $1/8760$ year fraction), and the strike axis
 with a minimum step floor of `0.01`. The `Dupire_` simulation timeline itself is
-densified against `HALF_DAY` (`0.00136986301369863`, i.e. $1/730$ year) via the
-same helper.
+densified against `HALF_DAY_YF` (`0.00136986301369863`, i.e. $1/730$ year) via
+the same helper.
 
 The dense grid is then evaluated maturity-by-maturity: each maturity slice is
 filled by one call to `DupireCalibMaturity`, which applies the 2.5-$\Sigma$
