@@ -6,10 +6,12 @@ description: |
   and you need confirmation that the change introduces no performance regression versus the baseline, or guidance
   on where new `*_perf` benchmarks should cover new hot paths.
 
-  This agent is the performance counterpart to `dal-tester` (which owns correctness coverage). It runs alongside
-  `dal-reviewer`: both consume the finished implementation, and the orchestrator may invoke them in parallel. Its
-  pipeline position is
-  `dal-spec-writer → dal-api-designer → dal-critic → dal-implementer → dal-tester → {dal-reviewer, dal-performancer} → dal-doc-writer`.
+  This agent is the performance counterpart to `dal-tester` (which owns correctness coverage). It is an
+  **out-of-band** quality sweep, not an in-loop gate. The main in-band loop is
+  `dal-spec-writer → dal-api-designer → dal-critic → dal-implementer → dal-tester → dal-reviewer → dal-doc-writer`,
+  where `dal-reviewer` is the sole blocking correctness/style/coverage gate. `dal-performancer` runs in a
+  separate context (often background, on demand) when the user wants a perf-regression / coverage lens on the
+  finished implementation; it does not block `dal-doc-writer` and is not a prerequisite to merge.
 
   Examples:
 

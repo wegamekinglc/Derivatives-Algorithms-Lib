@@ -16,6 +16,7 @@ implement → review → document pipeline. The orchestrator routes work between
 | Tester       | `dal-tester`       | cyan   | source under-test, conventions                                | `dal-cpp/tests/<module>/*` and, for web scope, `dal-web/frontend/tests/e2e/*`, in worktree |
 | Reviewer     | `dal-reviewer`     | amber  | PR diff, all upstream artifacts                               | review report, optional merge                                                              |
 | Performancer | `dal-performancer` | yellow | finished impl, benchmark binaries, baseline `*_perf` output   | perf-regression report, benchmark-coverage advisory                                        |
+| Simplifier   | `dal-simplifier`   | blue   | finished impl, existing modules                               | simplification report (duplication, near-duplicate types, dead code, verbose constructs, oversized comments); optional apply-mode edits |
 | Doc writer   | `dal-doc-writer`   | teal   | current source, CLAUDE.md, docs                               | `docs/` and `CHANGELOG.md`                                                                 |
 
 
@@ -25,18 +26,30 @@ implement → review → document pipeline. The orchestrator routes work between
 issue ──► spec-writer ──► api-designer ──► critic
                           (if public)        │
                                             ▼
-            reviewer   ◄──── implementer (+ tester) ◄──────┘
-            performancer
-                 │
-                 ▼
-            doc-writer (reconcile docs/ + CHANGELOG.md)
-                 │
-                 ▼
-              merged PR
+                          implementer (+ tester) ◄──┘
+                                 │
+                                 ▼
+                             reviewer        ◄── in-band gate (blocking, every iteration)
+                                 │
+                                 ▼
+                          doc-writer (reconcile docs/ + CHANGELOG.md)
+                                 │
+                                 ▼
+                            merged PR
+
+  out-of-band quality sweeps (separate context, often background, on demand):
+    ┌─────────────────┐         ┌───────────────┐
+    │ dal-performancer│         │ dal-simplifier │
+    └────────┬────────┘         └───────┬───────┘
+             │ consume finished implementation       │
+             └────────────► (advisory; do not block merge, do not gate doc-writer)
 ```
 
 The orchestrator is the only agent that decides which steps to skip. Most issues take a
-subset of the pipeline (see `dal-orchestrator.md` for the routing table).
+subset of the pipeline (see `dal-orchestrator.md` for the routing table). The main loop
+ends at `dal-reviewer` → `dal-doc-writer`; `dal-performancer` and `dal-simplifier` are
+out-of-band sweeps invoked on demand in a separate context (often background), not
+prerequisites to merge.
 
 ## Artifact Layout
 
@@ -71,8 +84,8 @@ through `specs/log-linear-interp.md → api-notes/log-linear-interp.md → ...` 
 ## Team Working Agreements
 
 Two practices are mandatory for every agent that changes files in the repository
-(`dal-implementer`, `dal-tester`, `dal-doc-writer`, and `dal-performancer` when it adds a benchmark;
-the `dal-reviewer` also reviews inside a worktree):
+(`dal-implementer`, `dal-tester`, `dal-doc-writer`, `dal-performancer` when it adds a benchmark, and
+`dal-simplifier` when the user has opted into apply mode; the `dal-reviewer` also reviews inside a worktree):
 
 - **Worktree isolation.** Enter an isolated git worktree (`EnterWorktree`) before creating or
   editing any file. All edits, builds, iteration, and the commit/PR happen inside it, keeping
