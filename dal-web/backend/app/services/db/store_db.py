@@ -307,11 +307,13 @@ class DbStore:
             pf = session.get(PortfolioRow, portfolio_id)
             if pf is None:
                 raise NotFoundError(f"portfolio {portfolio_id}")
-            kept = [m for m in pf.memberships if m.trade_id != trade_id]
-            for m in pf.memberships:
-                if m.trade_id == trade_id:
-                    session.delete(m)
-            for position, m in enumerate(kept):
+            # Mutate the relationship collection rather than session.delete():
+            # cascade="all, delete-orphan" drops the row, and under
+            # expire_on_commit=False the in-memory collection stays consistent
+            # so to_schema() no longer reports the removed trade.
+            for m in [m for m in pf.memberships if m.trade_id == trade_id]:
+                pf.memberships.remove(m)
+            for position, m in enumerate(pf.memberships):
                 m.position = position
             session.commit()
             return pf.to_schema()

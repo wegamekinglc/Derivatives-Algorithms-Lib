@@ -310,7 +310,12 @@ def get_store() -> StoreProtocol:
 
 
 def _build_store() -> StoreProtocol:
-    """Construct a fresh store based on the current environment."""
+    """Construct a fresh store based on the current environment.
+
+    Schema creation is deliberately *not* done here -- it lives in
+    :func:`app.main._init_database`, so ``DAL_WEB_AUTO_MIGRATE=1`` can build the
+    schema via Alembic without ``create_all()`` having already populated it.
+    """
     if is_memory_mode():
         return Store()
     # Imported lazily so the in-memory path never depends on SQLAlchemy.
@@ -318,6 +323,4 @@ def _build_store() -> StoreProtocol:
     from app.services.db.store_db import DbStore
 
     url = os.environ.get("DAL_WEB_DB_URL") or default_db_url()
-    store = DbStore(url=url)
-    store.create_all()
-    return store
+    return DbStore(url=url)

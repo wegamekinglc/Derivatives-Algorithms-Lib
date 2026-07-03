@@ -3,9 +3,9 @@
 The database URL is read from ``DAL_WEB_DB_URL`` (falling back to the default
 SQLite file) so a single migration set serves every backend without editing
 ``alembic.ini``. The ``offline`` and ``online`` modes follow Alembic's standard
-pattern; ``online`` reuses the cached engine when the URL matches so running
-``alembic upgrade head`` from inside the app process does not open a second
-connection pool.
+pattern; ``online`` builds a short-lived ``NullPool`` engine for the migration,
+so running ``alembic upgrade head`` from inside the app process does not hold a
+long-lived second pool alongside the store's engine.
 """
 
 from __future__ import annotations

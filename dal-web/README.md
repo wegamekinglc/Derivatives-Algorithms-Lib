@@ -67,13 +67,13 @@ the real `dal`.
 
 Runtime configuration:
 
-| Variable             | Default                                       | Meaning                                                            |
-|----------------------|-----------------------------------------------|--------------------------------------------------------------------|
-| `WEBUI_SEED_DEMO`    | `1`                                           | Seed a demo portfolio/trade/model/product on startup.              |
-| `WEBUI_CORS_ORIGINS` | `http://localhost:5173,http://127.0.0.1:5173` | Comma-separated allowed CORS origins (scheme required).            |
-| `DAL_WEB_DB_URL`     | `sqlite:///<backend>/.data/dalweb.db`         | SQLAlchemy URL for the persistence layer.                          |
-| `DAL_WEB_STORE`      | unset                                         | Set to `memory` to bypass the DB and use the legacy in-memory store. |
-| `DAL_WEB_AUTO_MIGRATE` | unset                                       | Set to `1` to bring the schema up to date via `alembic upgrade head` on startup (otherwise `create_all()`). |
+| Variable               | Default                                       | Meaning                                                                                                     |
+|------------------------|-----------------------------------------------|-------------------------------------------------------------------------------------------------------------|
+| `WEBUI_SEED_DEMO`      | `1`                                           | Seed a demo portfolio/trade/model/product on startup.                                                       |
+| `WEBUI_CORS_ORIGINS`   | `http://localhost:5173,http://127.0.0.1:5173` | Comma-separated allowed CORS origins (scheme required).                                                     |
+| `DAL_WEB_DB_URL`       | `sqlite:///<backend>/.data/dalweb.db`         | SQLAlchemy URL for the persistence layer.                                                                   |
+| `DAL_WEB_STORE`        | unset                                         | Set to `memory` to bypass the DB and use the legacy in-memory store.                                        |
+| `DAL_WEB_AUTO_MIGRATE` | unset                                         | Set to `1` to bring the schema up to date via `alembic upgrade head` on startup (otherwise `create_all()`). |
 
 ## Persistence
 

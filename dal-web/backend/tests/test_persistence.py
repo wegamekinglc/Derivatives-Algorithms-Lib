@@ -292,3 +292,56 @@ def test_seed_demo_data_is_idempotent(tmp_path: Path) -> None:
     seed_demo_data(store)
     assert len(store.list_products()) == n_products_after_first
     assert len(store.list_portfolios()) == n_portfolios_after_first
+
+
+def test_remove_trade_from_portfolio_excludes_removed_trade(tmp_path: Path) -> None:
+    # Under expire_on_commit=False, session.delete(m) used to leave the row in
+    # pf.memberships, so the returned Portfolio still named the removed trade.
+    # The return value (and a fresh read) must reflect the removal.
+    store = _open_store(tmp_path / "dalweb.db")
+    product = store.add_product(_make_product())
+    model = store.add_model(_make_bs_model())
+    t1 = store.add_trade(Trade(name="t1", product_id=product.id, model_id=model.id))
+    t2 = store.add_trade(Trade(name="t2", product_id=product.id, model_id=model.id))
+    t3 = store.add_trade(Trade(name="t3", product_id=product.id, model_id=model.id))
+    portfolio = store.add_portfolio(Portfolio(name="PF", trade_ids=[t1.id, t2.id, t3.id]))
+
+    after = store.remove_trade_from_portfolio(portfolio.id, t2.id)
+
+    assert t2.id not in after.trade_ids
+    assert after.trade_ids == [t1.id, t3.id]
+    assert store.get_portfolio(portfolio.id).trade_ids == [t1.id, t3.id]
+    assert [t.id for t in store.portfolio_trades(portfolio.id)] == [t1.id, t3.id]
+
+
+def test_init_database_runs_alembic_under_auto_migrate(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    # DAL_WEB_AUTO_MIGRATE=1 must build the schema via Alembic. Previously
+    # _build_store() called create_all() first, so the initial Alembic migration
+    # collided with tables that already existed. Proof that Alembic ran (rather
+    # than create_all()): an `alembic_version` table is present.
+    from sqlalchemy import create_engine, inspect
+
+    import app.services.store as st
+
+    db_url = f"sqlite:///{tmp_path / 'migrate.db'}"
+    monkeypatch.delenv("DAL_WEB_STORE", raising=False)
+    monkeypatch.setenv("DAL_WEB_DB_URL", db_url)
+    monkeypatch.setenv("DAL_WEB_AUTO_MIGRATE", "1")
+    st._store_box[0] = None
+    try:
+        from app.main import _init_database
+
+        _init_database()
+
+        engine = create_engine(db_url)
+        names = set(inspect(engine).get_table_names())
+        engine.dispose()
+    finally:
+        if st._store_box[0] is not None and hasattr(st._store_box[0], "close"):
+            st._store_box[0].close()
+        st._store_box[0] = None
+
+    assert "product" in names
+    assert "alembic_version" in names

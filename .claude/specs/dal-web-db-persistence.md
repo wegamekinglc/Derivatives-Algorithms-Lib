@@ -20,14 +20,14 @@ identical.
 
 ## Decisions (approved)
 
-| Decision | Choice |
-|----------|--------|
-| Where DB logic lives | DB-backed `Store` implementing today's public interface (routers untouched) |
-| ORM | SQLAlchemy 2.x, **sync** (separate ORM models from Pydantic schemas) |
-| Schema management | Alembic migrations, with `create_all()` as the dev/test fast path |
-| Backend selection | `DAL_WEB_DB_URL` env var (SQLAlchemy URL), defaults to a local SQLite file; `DAL_WEB_STORE=memory` opts into the legacy in-memory store |
-| Column mapping | Hybrid: scalar fields as columns, nested/variable blobs as JSON columns |
-| Branch | New branch `feature/dal-web-db-persistence` off `master` |
+| Decision             | Choice                                                                                                                                  |
+|----------------------|-----------------------------------------------------------------------------------------------------------------------------------------|
+| Where DB logic lives | DB-backed `Store` implementing today's public interface (routers untouched)                                                             |
+| ORM                  | SQLAlchemy 2.x, **sync** (separate ORM models from Pydantic schemas)                                                                    |
+| Schema management    | Alembic migrations, with `create_all()` as the dev/test fast path                                                                       |
+| Backend selection    | `DAL_WEB_DB_URL` env var (SQLAlchemy URL), defaults to a local SQLite file; `DAL_WEB_STORE=memory` opts into the legacy in-memory store |
+| Column mapping       | Hybrid: scalar fields as columns, nested/variable blobs as JSON columns                                                                 |
+| Branch               | New branch `feature/dal-web-db-persistence` off `master`                                                                                |
 
 Rejected: sessions-in-routers (rewrites routers, discards the `Store` seam);
 SQLModel (nested schemas don't fit flat tables); async SQLAlchemy (app is
@@ -81,14 +81,14 @@ across threads.
 Scalar fields are columns; nested/variable structures are portable JSON columns
 (SQLite JSON1 / Postgres JSONB):
 
-| table | columns |
-|-------|---------|
-| `product` | `id` PK, `name`, `description`, `template`, `rows` JSON |
-| `model` | `id` PK, `name`, `kind`, `params` JSON (holds `bs` or `dupire`) |
-| `trade` | `id` PK, `name`, `book`, `counterparty`, `notional`, `quantity`, `product_id` FK→product, `model_id` FK→model, `tags` JSON |
-| `portfolio` | `id` PK, `name`, `description` |
-| `portfolio_trade` | `portfolio_id` FK, `trade_id` FK, `position` — composite PK (replaces the `trade_ids` list) |
-| `valuation` | `id` PK, `target_kind`, `target_id`, `backend`, `is_native`, `config` JSON, `total_pv`, `total_greeks` JSON, `trades` JSON, `created_at`, `status`, `error_message` |
+| table             | columns                                                                                                                                                             |
+|-------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `product`         | `id` PK, `name`, `description`, `template`, `rows` JSON                                                                                                             |
+| `model`           | `id` PK, `name`, `kind`, `params` JSON (holds `bs` or `dupire`)                                                                                                     |
+| `trade`           | `id` PK, `name`, `book`, `counterparty`, `notional`, `quantity`, `product_id` FK→product, `model_id` FK→model, `tags` JSON                                          |
+| `portfolio`       | `id` PK, `name`, `description`                                                                                                                                      |
+| `portfolio_trade` | `portfolio_id` FK, `trade_id` FK, `position` — composite PK (replaces the `trade_ids` list)                                                                         |
+| `valuation`       | `id` PK, `target_kind`, `target_id`, `backend`, `is_native`, `config` JSON, `total_pv`, `total_greeks` JSON, `trades` JSON, `created_at`, `status`, `error_message` |
 
 `portfolio_trade` uses `ON DELETE CASCADE`. `valuation` keeps history even if its
 target trade/portfolio is deleted (no FK to target) — valuation results are an
