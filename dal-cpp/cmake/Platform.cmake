@@ -42,11 +42,19 @@ if (MSVC)
     add_definitions(-D_SCL_SECURE_NO_WARNINGS -D_CRT_SECURE_NO_WARNINGS)
 elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
     set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+    include(CheckCXXCompilerFlag)
     # Clang enables -ffp-contract=fast by default; explicitly set it for clarity.
     if ("${USE_COVERAGE}" STREQUAL "true")
         set(CMAKE_CXX_FLAGS "-O3 -march=native -ffp-contract=fast -fprofile-instr-generate -fcoverage-mapping")
     else()
         set(CMAKE_CXX_FLAGS "-O3 -march=native -ffp-contract=fast")
+    endif()
+    # clang-19 may emit -Winvalid-feature-combination when -march=native resolves to a
+    # CPU advertising +avx10.1-256; the xad external builds with -Werror, turning that
+    # warning fatal. Keep it a non-fatal warning on clang versions that accept the flag.
+    check_cxx_compiler_flag("-Wno-error=invalid-feature-combination" CLANG_HAS_WNO_ERROR_INVALID_FEATURE_COMBINATION)
+    if (CLANG_HAS_WNO_ERROR_INVALID_FEATURE_COMBINATION)
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-error=invalid-feature-combination")
     endif()
     message("-- CMAKE_CXX_FLAGS: ${CMAKE_CXX_FLAGS}")
 else()
