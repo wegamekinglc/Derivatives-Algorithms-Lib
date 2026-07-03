@@ -1,204 +1,91 @@
 //
-// Created by wegam on 24-3-24.
+// Created by dal-implementer on 2026-7-4.
 //
+// Production Dal::Matrix kernel micro-benchmark.
+// The previous incarnation of this target benchmarked a hand-rolled local Matrix_
+// class for self-comparison of five matmul variants -- it did NOT exercise any
+// Dal::Matrix::* kernel the calibration solver uses (G8 phantom). This version
+// times Dal::Matrix::Multiply, AddJSquaredToUpper, and WeightedInnerProduct at
+// 200x200 and 500x500 (matching cholesky_perf / krylov_perf sizes) -- the kernels
+// consumed by Underdetermined::Find and the curve-Jacobian assembly.
+//
+// Sparse::SymmetricDecomposition_::QForm (also named in G8) is not exercised here:
+// the dense Cholesky path's XSolve_af does not pre-size its output vector, so the
+// QForm wrapper's empty Vector_<> wij triggers an out-of-bounds write. That is a
+// pre-existing latent bug in dal-cpp/dal/math/matrix/sparse.cpp, outside the
+// benchmark-only scope of this change. Production calibration hits the banded
+// QForm override (which pre-sizes), not this path.
 
+#include <memory>
 #include <dal/platform/platform.hpp>
-#include <dal/utilities/numerics.hpp>
+#include <dal/math/matrix/matrixarithmetic.hpp>
+#include <dal/math/matrix/matrixs.hpp>
 #include <dal/math/random/sobol.hpp>
 #include <dal/math/vectors.hpp>
-#include <dal/utilities/timer.hpp>
+#include <dal/benchmarks/bench.hpp>
 
-class Matrix_ {
-    int rows_ = 0;
-    int cols_ = 0;
-    std::vector<double> vector_;
+using namespace Dal;
 
-public:
-    using value_type = double;
-    Matrix_() = default;
-    Matrix_(const int rows, const int cols, const std::unique_ptr<Dal::Random_>& random): rows_(rows), cols_(cols), vector_(rows * cols) {
-        if(random) {
-            Dal::Vector_<double> temp(cols_);
-            for(int i = 0; i < rows_; ++i) {
-                random->FillNormal(&temp);
-                for(int j = 0; j < cols_; ++j)
-                    vector_[i * cols + j] = temp[j];
-            }
+namespace {
+    // Build a dense Matrix_<> filled with quasi-normal deviates (deterministic across runs).
+    Matrix_<> RandomMatrix(int rows, int cols, int seed) {
+        std::unique_ptr<Random_> rsg(NewSobol(cols, seed));
+        Matrix_<> m(rows, cols, 0.0);
+        Vector_<> row(cols);
+        for (int i = 0; i < rows; ++i) {
+            rsg->FillNormal(&row);
+            for (int j = 0; j < cols; ++j)
+                m(i, j) = row[j];
         }
+        return m;
     }
-
-    [[nodiscard]] int Rows() const { return rows_; }
-    [[nodiscard]] int Cols() const { return cols_; }
-
-    FORCE_INLINE double* operator[](int row) { return &vector_[row * cols_]; }
-    FORCE_INLINE const double* operator[](int row) const { return &vector_[row * cols_]; }
-    [[nodiscard]] double Sum() const {
-        return Dal::Accumulate(vector_, [](double x, double y) { return x + y;});
-    }
-
-    void Clear() {
-        Dal::Fill(&vector_, 0.0);
-    }
-};
-
-void MultiV1(const Matrix_& a, const Matrix_& b, Matrix_& c) {
-    const int rows = a.Rows();
-    const int cols = b.Cols();
-    const int n = a.Cols();
-
-    for(int i = 0; i < rows; ++i) {
-        const auto ai = a[i];
-        auto ci = c[i];
-
-        for(int j = 0; j < cols; ++j) {
-            double res = 0.0;
-            for(int k = 0; k < n; ++k)
-                res += ai[k] * b[k][j];
-            ci[j] = res;
-        }
-    }
-}
-
-void MultiV2(const Matrix_& a, const Matrix_& b, Matrix_& c) {
-    const int rows = a.Rows();
-    const int cols = b.Cols();
-    const int n = a.Cols();
-
-    for(int i = 0; i < rows; ++i) {
-        const auto ai = a[i];
-        auto ci = c[i];
-
-        for(int j = 0; j < cols; ++j) {
-            const double* bkj = &b[0][j];
-            double res = 0.0;
-            for(int k = 0; k < n; ++k) {
-                res += ai[k] * *bkj;
-                bkj += rows;
-            }
-            ci[j] = res;
-        }
-    }
-}
-
-void MultiV3(const Matrix_& a, const Matrix_& b, Matrix_& c) {
-    const int rows = a.Rows();
-    const int cols = b.Cols();
-    const int n = a.Cols();
-
-    for(int i = 0; i < rows; ++i) {
-        const auto ai = a[i];
-        auto ci = c[i];
-
-        for(int k = 0; k < n; ++k) {
-            const auto bk = b[k];
-            const auto aik = ai[k];
-
-            #pragma loop(no_vector)
-            for(int j = 0; j < cols; ++j)
-                ci[j] += aik * bk[j];
-        }
-    }
-}
-
-
-void MultiV4(const Matrix_& a, const Matrix_& b, Matrix_& c) {
-    const int rows = a.Rows();
-    const int cols = b.Cols();
-    const int n = a.Cols();
-
-    for(int i = 0; i < rows; ++i) {
-        const auto ai = a[i];
-        auto ci = c[i];
-
-        for(int k = 0; k < n; ++k) {
-            const auto bk = b[k];
-            const auto aik = ai[k];
-
-            for(int j = 0; j < cols; ++j)
-                ci[j] += aik * bk[j];
-        }
-    }
-}
-
-void MultiV5(const Matrix_& a, const Matrix_& b, Matrix_& c) {
-    const int rows = a.Rows();
-    const int cols = b.Cols();
-    const int n = a.Cols();
-
-    #pragma omp parallel for
-    for(int i = 0; i < rows; ++i) {
-        const auto ai = a[i];
-        auto ci = c[i];
-
-        for(int k = 0; k < n; ++k) {
-            const auto bk = b[k];
-            const auto aik = ai[k];
-
-            for(int j = 0; j < cols; ++j)
-                ci[j] += aik * bk[j];
-        }
-    }
-}
+} // namespace
 
 int main() {
-    const int n = 1000;
-    std::unique_ptr<Dal::Random_> random(Dal::NewSobol(n, 1000));
-    Matrix_ a(n, n, random);
-    Matrix_ b(n, n, random);
-    Matrix_ c(n, n, nullptr);
+    constexpr int kRepeats = 10;
+    Bench::PrintHeader();
 
-    Dal::Vector_<int> widths = {20, 20, 20};
+    for (const int n : {200, 500}) {
+        Matrix_<> a = RandomMatrix(n, n, 1000);
+        Matrix_<> b = RandomMatrix(n, n, 2000);
+        Matrix_<> c(n, n, 0.0);
+        Vector_<> v(n);
+        for (int i = 0; i < n; ++i)
+            v[i] = 0.1 * static_cast<double>(i);
 
-    std::cout << std::setw(widths[0]) << std::right << "Model"
-              << std::setw(widths[1]) << std::right << "Duration"
-              << std::setw(widths[2]) << std::right << "Total Sum." << std::endl;
+        {
+            double sink = 0.0;
+            auto r = Bench::Run("Dal::Matrix::Multiply (" + std::to_string(n) + "x" + std::to_string(n) + ")",
+                                [&]() { Dal::Matrix::Multiply(a, b, &c); }, 1, kRepeats);
+            sink += c(0, 0);
+            Bench::Print(r);
+            Bench::DoNotOptimize(&sink);
+        }
 
-    Dal::Timer_ timer;
+        {
+            double sink = 0.0;
+            Matrix_<> h(n, n, 0.0);
+            auto r = Bench::Run("Dal::Matrix::AddJSquaredToUpper (" + std::to_string(n) + "x" + std::to_string(n) + ")",
+                                [&]() {
+                                    for (int i = 0; i < n; ++i)
+                                        for (int j = 0; j < n; ++j)
+                                            h(i, j) = 0.0;
+                                    Dal::Matrix::AddJSquaredToUpper(a, &h);
+                                },
+                                1, kRepeats);
+            sink += h(0, 0);
+            Bench::Print(r);
+            Bench::DoNotOptimize(&sink);
+        }
 
-    c.Clear();
-    timer.Reset();
-    MultiV1(a, b, c);
-    std::cout << std::setw(widths[0]) << std::right << "Multi. V1"
-              << std::fixed
-              << std::setprecision(4)
-              << std::setw(widths[1]) << std::right << int(timer.Elapsed<Dal::milliseconds>())
-              << std::setw(widths[2]) << std::right << c.Sum() << std::endl;
-
-    c.Clear();
-    timer.Reset();
-    MultiV2(a, b, c);
-    std::cout << std::setw(widths[0]) << std::right << "Multi. V2"
-              << std::fixed
-              << std::setprecision(4)
-              << std::setw(widths[1]) << std::right << int(timer.Elapsed<Dal::milliseconds>())
-              << std::setw(widths[2]) << std::right << c.Sum() << std::endl;
-
-    c.Clear();
-    timer.Reset();
-    MultiV3(a, b, c);
-    std::cout << std::setw(widths[0]) << std::right << "Multi. V3"
-              << std::fixed
-              << std::setprecision(4)
-              << std::setw(widths[1]) << std::right << int(timer.Elapsed<Dal::milliseconds>())
-              << std::setw(widths[2]) << std::right << c.Sum() << std::endl;
-
-    c.Clear();
-    timer.Reset();
-    MultiV4(a, b, c);
-    std::cout << std::setw(widths[0]) << std::right << "Multi. V4"
-              << std::fixed
-              << std::setprecision(4)
-              << std::setw(widths[1]) << std::right << int(timer.Elapsed<Dal::milliseconds>())
-              << std::setw(widths[2]) << std::right << c.Sum() << std::endl;
-
-    c.Clear();
-    timer.Reset();
-    MultiV5(a, b, c);
-    std::cout << std::setw(widths[0]) << std::right << "Multi. V5"
-              << std::fixed
-              << std::setprecision(4)
-              << std::setw(widths[1]) << std::right << int(timer.Elapsed<Dal::milliseconds>())
-              << std::setw(widths[2]) << std::right << c.Sum() << std::endl;
+        {
+            double sink = 0.0;
+            auto r = Bench::Run("Dal::Matrix::WeightedInnerProduct (" + std::to_string(n) + ")",
+                                [&]() { sink += Dal::Matrix::WeightedInnerProduct(v, a, v); }, 2, kRepeats);
+            Bench::Print(r);
+            Bench::DoNotOptimize(&sink);
+        }
+    }
 
     return 0;
 }
