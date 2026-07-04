@@ -18,6 +18,9 @@
 #endif
 
 namespace Dal::Bench {
+    // First-column width: comfortably fits the longest case name (~60 chars) with headroom.
+    constexpr int kNameColumnWidth = 75;
+
     // Anti-dead-code-elimination sink. Forces the compiler to materialize
     // side effects of the benchmark body so work is not optimized away.
     inline void DoNotOptimize(const void* p) {
@@ -64,13 +67,13 @@ namespace Dal::Bench {
     }
 
     inline void PrintHeader() {
-        std::cout << std::setw(50) << std::left << "Benchmark"
+        std::cout << std::setw(kNameColumnWidth) << std::left << "Benchmark"
                   << std::setw(18) << std::right << "Median"
                   << std::setw(18) << std::right << "Min"
                   << std::setw(18) << std::right << "Max"
                   << std::setw(10) << std::right << "Reps"
                   << std::endl;
-        std::cout << std::string(114, '-') << std::endl;
+        std::cout << std::string(kNameColumnWidth + 18 * 3 + 10, '-') << std::endl;
     }
 
     inline std::string FormatScaled(int64_t ns) {
@@ -86,7 +89,7 @@ namespace Dal::Bench {
     }
 
     inline void Print(const Result_& r) {
-        std::cout << std::setw(50) << std::left << r.name
+        std::cout << std::setw(kNameColumnWidth) << std::left << r.name
                   << std::setw(18) << std::right << FormatScaled(r.medianNs)
                   << std::setw(18) << std::right << FormatScaled(r.minNs)
                   << std::setw(18) << std::right << FormatScaled(r.maxNs)
