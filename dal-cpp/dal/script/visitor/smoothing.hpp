@@ -7,9 +7,7 @@
 #include <dal/platform/host.hpp>
 #include <dal/math/operators.hpp>
 
-//  Smoothed condition kernels shared by the tree-walk FuzzyEvaluator_ and
-//  the compiled fuzzy opcodes (FuzzyEqual/FuzzyComp and their discrete
-//  variants): call-spread for inequalities, butterfly for equalities.
+//  Smoothed condition kernels shared by fuzzy evaluators.
 
 namespace Dal::Script {
 

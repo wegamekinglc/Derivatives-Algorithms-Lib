@@ -1,13 +1,7 @@
 //
 // Created by dal-implementer on 2026-7-4.
 //
-// Script-engine per-path evaluator benchmark set.
-// MCSimulation is the N_paths x N_events inner loop of every MC pricing -- the
-// dominant per-path cost. script_perf only times the parser front-end; it never
-// calls MCSimulation. Tree-walk is the default for both specializations;
-// compiled=true opts into the flat-stream evaluator. This target times paired
-// compiled=false/true runs across simple and schedule-heavy products for both
-// double (production value path) and Number_ (AAD/tape-on-MC path).
+// Script-engine tree-walk vs compiled evaluator benchmarks.
 
 #include <string>
 
@@ -38,7 +32,6 @@ namespace {
         return {eventDates, events, "call"};
     }
 
-    // A weekly-barrier up-and-out call, ~52 monitoring events over a 1Y maturity.
     ScriptProduct_ BuildWeeklyBarrierProduct() {
         const Date_ start = Date_(2024, 1, 1);
         const Date_ maturity = Date_(2025, 1, 1);

@@ -29,10 +29,7 @@ events is string[]
 namespace Dal::Script {
     using AAD::Scenario_;
 
-    //  Compiled form of a ScriptProduct_: flat per-event node/const streams
-    //  produced by ScriptProduct_::Compile(). A separate artifact keeps
-    //  compilation const-correct — the product's AST is never mutated to
-    //  hold compiled state.
+    //  Flat per-event artifact produced by ScriptProduct_::Compile().
     class ScriptCompiled_ {
         Vector_<Vector_<int>> nodeStreams_;
         Vector_<Vector_<>> constStreams_;
@@ -71,8 +68,7 @@ namespace Dal::Script {
         Vector_<> timeLine_;
         Vector_<AAD::SampleDef_> defLine_;
 
-        //  Set by PreProcess (Compile() requires indexed variables and
-        //  const-processed nodes)
+        //  Set by PreProcess().
         bool preProcessed_ = false;
 
     public:
@@ -143,7 +139,6 @@ namespace Dal::Script {
         }
 
         template <class T_, class E_> void Evaluate(const Scenario_<T_>& scenario, E_& eval) const {
-            // evaluation will only do on future events
             eval.SetScenario(&scenario);
             eval.Init();
             for (size_t i = 0; i < events_.size(); ++i) {

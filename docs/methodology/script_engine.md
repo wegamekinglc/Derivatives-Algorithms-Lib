@@ -365,34 +365,76 @@ streams) and accumulates the payoff slot across paths. The
 The result is a `SimResults_` carrying the aggregated payoff and a risk vector
 labelled by model parameter and constant variable.
 
-### Compiled vs Interpreted
+### Tree-Walk and Compiled Evaluation
 
-`Compile(fuzzy)` is `const` and flattens each event's (pre-processed) AST into
-a `ScriptCompiled_` artifact holding one node stream (integer opcodes and
-operands) and one const stream per event, via a `Compiler_` visitor. The
-artifact's `Evaluate` interprets that flat representation against a scenario
-without re-walking the polymorphic node tree, trading per-node virtual dispatch
-for a tight switch over a stream of opcodes.
+The script engine has two execution modes. The tree-walk mode evaluates the
+preprocessed AST directly with `Evaluator_<double>` for value-only paths and
+`FuzzyEvaluator_<AAD::Number_>` for AAD paths. The compiled mode first lowers
+the same AST into flat per-event streams and then evaluates those streams with
+`EvalState_<T>`.
 
-With `fuzzy = false` the stream mirrors `Evaluator_<T>` exactly: comparisons
-push booleans, `If`/`IfElse` hard-branch. With `fuzzy = true` the stream
-mirrors `FuzzyEvaluator_<T>` exactly: comparisons compile to smoothed opcodes
-(`FuzzyComp`/`FuzzyEqual` and their discrete-bound variants, applying the same
-call-spread/butterfly kernels from `smoothing.hpp`), `AND`/`OR`/`NOT` compile
-to the probability combinators, and `If` compiles to a `FuzzyIf` opcode that
-performs the same dt-blend over the statement's affected variables, with the
-evaluator's `defEps_` resolving negative per-node `eps_` overrides. Constant
-conditions are never hard-folded on the fuzzy path, so a constant within
-$\varepsilon/2$ of the threshold produces the same fractional degree of truth
-as the tree-walk.
+`compiled` is a performance flag, not a pricing model flag. The default is
+`compiled = false` for both `MCSimulation<double>` and
+`MCSimulation<AAD::Number_>`, preserving the historical tree-walk behavior.
+Callers can pass `compiled = true` to opt into the stream evaluator. Both modes
+are required to produce the same payoff and risk numbers, aside from normal
+floating-point association noise.
 
-Both `MCSimulation` instantiations therefore accept `compiled` as a pure
-performance flag: every product and configuration produces the same numbers
-(within floating-point association noise) through either path. The default is
-`compiled = false` for both `double` and `AAD::Number_`; pass `compiled = true`
-to use the compiled evaluators. `MCSimulation` compiles internally
-(`Compile()` for `double`, `Compile(true)` for `Number_`, matching the fuzzy
-tree-walk it replaces), so callers never manage the artifact themselves.
+`ScriptProduct_::Compile(fuzzy)` is `const`, but it requires that
+`PreProcess(...)` has already run. Preprocessing indexes variables, seeds past
+event values, folds domain-provable constant conditions, and finalizes constant
+metadata. `Compile` returns a separate `ScriptCompiled_` artifact instead of
+storing streams on the product, so the AST remains reusable by tree-walk
+evaluation after compilation. `MCSimulation` compiles once per valuation on the
+main thread before dispatching path batches; a missing `PreProcess` is therefore
+reported as a normal exception rather than being hidden inside worker tasks.
+
+The compiled artifact stores one integer opcode stream and one constant stream
+per future event. The integer stream contains opcodes plus operands such as
+variable indexes, const-stream indexes, and branch jump positions. This removes
+per-node virtual dispatch in the inner path loop and replaces it with a tight
+switch over the opcode stream. `NodeType_` is intentionally hand-written:
+opcodes are both non-type template parameters in the compiler visitor and
+serialized integers in the node stream, which a generated Machinist wrapper enum
+does not provide.
+
+In value mode (`fuzzy = false`), compiled evaluation mirrors
+`Evaluator_<T>`:
+
+- arithmetic and payoff opcodes use the same formulas as tree-walk nodes;
+- comparisons push hard boolean values;
+- `If` and `IfElse` take only the active branch;
+- `AND` and `OR` remain eager, matching the documented boolean semantics;
+- `SupEqual` uses the same `x >= 0` comparison for constant folding and runtime
+  evaluation.
+
+In AAD mode (`fuzzy = true`), compiled evaluation mirrors
+`FuzzyEvaluator_<T>`:
+
+- comparisons emit `FuzzyEqual`, `FuzzyComp`, or their discrete-bound variants;
+- the smoothing kernels are shared with tree-walk (`BFly` for equality,
+  `CSpr` for inequalities);
+- a negative per-node `eps_` falls back to the evaluator default `defEps_`;
+- `AND`, `OR`, and `NOT` use the same probability-style fuzzy combinators;
+- `If` emits `FuzzyIf`, which stores the affected variable list, evaluates the
+  hard branch when the degree of truth is within `EPSILON` of 0 or 1, and
+  otherwise evaluates both branches and blends the affected variables by the
+  fuzzy degree of truth.
+
+Constant variables stay live in both modes. They are represented by the
+`ConstVar` opcode and read from evaluator state, rather than being baked into
+the const stream. This keeps `EvalState_::ConstVarVals()` mutable in the same
+way as tree-walk evaluators and allows AAD const-variable risks to be recorded
+on the tape.
+
+Regression coverage lives in `dal-cpp/tests/script/test_compile_parity.cpp`.
+It checks per-path double parity, Monte Carlo aggregate parity, AAD PV/risk
+parity, const-variable mutation, preprocessing guards, fuzzy condition
+behavior, and opcode reachability. The benchmark target
+`dal-cpp/benchmarks/script_mc_perf` compares `compiled=false` and
+`compiled=true` runs across simple and schedule-heavy products for both
+`double` and `AAD::Number_`; it times the Monte Carlo path loop rather than the
+parser front-end.
 
 ## Visitor Machinery
 

@@ -30,20 +30,16 @@ As long as this comment is preserved at the Top of the file
 
 namespace Dal::Script {
     template <class T_> struct EvalState_ {
-        // State
         Vector_<T_> variables_;
         Vector_<> variablesInit_;
         Vector_<T_> constVariables_;
 
-        //  Fuzzy state (compiled fuzzy If): default smoothing eps for
-        //  conditions that don't override it, current nested-if level and
-        //  the per-level variable stores used by the dt-blend.
+        //  Fuzzy If blend state.
         double defEps_ = 0.0;
         size_t nestedIfLvl_ = 0;
         Vector_<Vector_<T_>> varStore0_;
         Vector_<Vector_<T_>> varStore1_;
 
-        //  Constructor
         explicit EvalState_(const Vector_<>& variables,
                             const Vector_<T_>& constVariables = Vector_<T_>(),
                             size_t maxNestedIfs = 0,
@@ -59,7 +55,6 @@ namespace Dal::Script {
                 varStore.Resize(variables_.size());
         }
 
-        //  Initializer
         void Init() {
             for (auto i = 0; i < variables_.size(); ++i)
                 variables_[i] = T_(variablesInit_[i]);
@@ -76,11 +71,7 @@ namespace Dal::Script {
         }
     };
 
-    // NOTE: NodeType_ is hand-written rather than a Machinist enumeration: the generated
-    // form is a class wrapper (not an enum) and cannot serve as a non-type template
-    // parameter for VisitBinary/VisitUnary/VisitCondition, nor as integer opcodes in the
-    // compiled nodeStream_. The unused MG_NodeType markup and generated files were removed
-    // (defect #9) so this enum is the single source of truth.
+    //  Hand-written because opcodes are NTTPs and serialized stream integers.
     enum NodeType_ {
         Add = 0,
         AddConst = 1,
@@ -113,8 +104,7 @@ namespace Dal::Script {
         SupEqual = 28,
         And = 29,
         Or = 30,
-        //  31 retired: dead Smooth opcode (defect #7), replaced by the
-        //  dedicated fuzzy opcodes 40+ below.
+        //  31 is intentionally unused.
         Sqrt = 32,
         Log = 33,
         Exp = 34,
@@ -123,40 +113,31 @@ namespace Dal::Script {
         True = 37,
         False = 38,
         ConstVar = 39,
-        //  Fuzzy opcodes (compiled counterpart of FuzzyEvaluator_): smoothed
-        //  condition results are T-valued probabilities on the value stack.
-        FuzzyEqual = 40,         //  operand: const idx (eps; < 0 means state.defEps_)
-        FuzzyEqualDiscrete = 41, //  operands: const idx (lb), const idx (rb)
-        FuzzyComp = 42,          //  operand: const idx (eps; < 0 means state.defEps_)
-        FuzzyCompDiscrete = 43,  //  operands: const idx (lb), const idx (rb)
-        FuzzyAnd = 44,           //  a * b
-        FuzzyOr = 45,            //  a + b - a * b
-        FuzzyNot = 46,           //  1 - x
+        //  Fuzzy opcodes.
+        FuzzyEqual = 40,
+        FuzzyEqualDiscrete = 41,
+        FuzzyComp = 42,
+        FuzzyCompDiscrete = 43,
+        FuzzyAnd = 44,
+        FuzzyOr = 45,
+        FuzzyNot = 46,
         FuzzyTrue = 47,
         FuzzyFalse = 48,
         FuzzyIf = 49             //  operands: lastTrue, lastFalse, nAff, aff...
     };
 
     class Compiler_ : public ConstVisitor_<Compiler_> {
-        // State
         Vector_<int> nodeStream_;
         Vector_<double> constStream_;
-        //  Fuzzy mode: conditions compile to smoothed (CSpr/BFly) opcodes and
-        //  If compiles to the dt-blend FuzzyIf, mirroring FuzzyEvaluator_.
         const bool fuzzy_;
 
     public:
         explicit Compiler_(bool fuzzy = false) : fuzzy_(fuzzy) {}
 
         using ConstVisitor_<Compiler_>::Visit;
-        // Accessors
-        // Access the streams after traversal
         [[nodiscard]] const Vector_<int>& NodeStream() const { return nodeStream_; }
         [[nodiscard]] const Vector_<double>& ConstStream() const { return constStream_; }
 
-        // Visitors
-        // Expressions
-        //  Binaries
         template <NodeType_ IfBin, NodeType_ IfConstLeft, NodeType_ IfConstRight> void VisitBinary(const ExprNode_& node) {
             if (node.isConst_) {
                 nodeStream_.emplace_back(Const);
@@ -194,7 +175,6 @@ namespace Dal::Script {
 
         void Visit(const NodeMin_& node) { VisitBinary<Min2, Min2Const, Min2Const>(node); }
 
-        // unary
         template <NodeType_ NT> void VisitUnary(const ExprNode_& node) {
             if (node.isConst_) {
                 nodeStream_.emplace_back(Const);
@@ -213,14 +193,9 @@ namespace Dal::Script {
         void Visit(const NodeSqrt_& node) { VisitUnary<Sqrt>(node); }
         void Visit(const NodeExp_& node) { VisitUnary<Exp>(node); }
 
-        // Conditions
         template <NodeType_ NT, typename OP> void VisitCondition(const CompNode_& node, OP op) {
             if (fuzzy_) {
-                //  #12: never hard-fold conditions on the fuzzy path — a
-                //  const argument compiles to a plain value push and the
-                //  smoothed comparison below computes exactly what
-                //  FuzzyEvaluator_ computes (CSpr/BFly), fractional dt
-                //  included when |const| < eps / 2.
+                //  Keep fuzzy conditions as smoothed runtime opcodes.
                 node.arguments_[0]->Accept(*this);
                 if (node.isDiscrete_) {
                     nodeStream_.emplace_back(NT == Equal ? FuzzyEqualDiscrete : FuzzyCompDiscrete);
@@ -255,13 +230,8 @@ namespace Dal::Script {
             VisitCondition<Sup>(node, [](double x) { return x > 0.0; });
         }
         void Visit(const NodeSupEqual_& node) {
-            //  Fold matches the runtime SupEqual opcode and the tree-walk
-            //  evaluator exactly (x >= 0); an EPSILON band here would diverge
-            //  for constants in (-EPSILON, 0).
             VisitCondition<SupEqual>(node, [](double x) { return x >= 0.0; });
         }
-
-        //  And/Or/Not
 
         void Visit(const NodeAnd_& node) {
             node.arguments_[0]->Accept(*this);
@@ -279,8 +249,6 @@ namespace Dal::Script {
             node.arguments_[0]->Accept(*this);
             nodeStream_.emplace_back(fuzzy_ ? FuzzyNot : Not);
         }
-
-        //  Assign, pays
 
         void Visit(const NodeAssign_& node) {
             const auto* var = Downcast<NodeVar_>(node.arguments_[0]);
@@ -312,8 +280,6 @@ namespace Dal::Script {
             nodeStream_.emplace_back(var->index_);
         }
 
-        //  Leaves
-
         void Visit(const NodeVar_& node) {
             nodeStream_.emplace_back(Var);
             nodeStream_.emplace_back(node.index_);
@@ -334,16 +300,11 @@ namespace Dal::Script {
 
         void Visit(const NodeFalse_&) { nodeStream_.emplace_back(fuzzy_ ? FuzzyFalse : False); }
 
-        // Scenario related
         void Visit(const NodeSpot_&) { nodeStream_.emplace_back(Spot); }
 
-        //  NodeCollect_ (inserted by ConstCondProcessor_ when it unwraps an
-        //  always-true/false If): pure grouping, compile the children in place.
         void Visit(const NodeCollect_& node) { VisitArguments(node); }
 
-        // Instructions
         void Visit(const NodeIf_& node) {
-            //  Visit condition
             node.arguments_[0]->Accept(*this);
 
             const auto lastTrue = node.firstElse_ == -1 ? node.arguments_.size() - 1 : node.firstElse_ - 1;
@@ -351,8 +312,6 @@ namespace Dal::Script {
 
             if (fuzzy_) {
                 //  Layout: FuzzyIf lastTrue lastFalse nAff aff... [true][false]
-                //  lastFalse == lastTrue when there is no else branch, so the
-                //  runtime continue point is uniformly lastFalse.
                 nodeStream_.emplace_back(FuzzyIf);
                 const size_t thisSpace = nodeStream_.size() - 1;
                 nodeStream_.emplace_back(0);
@@ -372,53 +331,37 @@ namespace Dal::Script {
                 return;
             }
 
-            //  Mark instruction
             nodeStream_.emplace_back(node.firstElse_ == -1 ? If : IfElse);
-            //  Record space
             const size_t thisSpace = nodeStream_.size() - 1;
-            //  Make 2 spaces for last if-true and last if-false
             nodeStream_.emplace_back(0);
             if (node.firstElse_ != -1)
                 nodeStream_.emplace_back(0);
 
-            //  Visit if-true statements
             for (size_t i = 1; i <= lastTrue; ++i) {
                 node.arguments_[i]->Accept(*this);
             }
-            //  Record last if-true space
             nodeStream_[thisSpace + 1] = int(nodeStream_.size());
 
-            //  Visit if-false statements
             if (node.firstElse_ != -1) {
                 for (size_t i = node.firstElse_; i < n; ++i) {
                     node.arguments_[i]->Accept(*this);
                 }
-                //  Record last if-false space
                 nodeStream_[thisSpace + 2] = int(nodeStream_.size());
             }
         }
     };
 
     template <class T_>
-    inline void EvalCompiled(
-        //  Stream to eval
-        const Vector_<int>& nodeStream,
-        const Vector_<double>& constStream,
-        //  Scenario
-        const AAD::Sample_<T_>& scenario,
-        //  State
-        EvalState_<T_>& state,
-        //  First (included), last (excluded), reset flag
-        size_t first = 0,
-        size_t last = 0,
-        //  Per-event entry resets the thread_local stacks; the IfElse
-        //  true-branch re-entry passes false so the parent's bStack
-        //  (still holding the condition) is not wiped.
-        bool reset = true) {
+    inline void EvalCompiled(const Vector_<int>& nodeStream,
+                             const Vector_<double>& constStream,
+                             const AAD::Sample_<T_>& scenario,
+                             EvalState_<T_>& state,
+                             size_t first = 0,
+                             size_t last = 0,
+                             bool reset = true) {
         const size_t n = last ? last : nodeStream.size();
         size_t i = first;
 
-        //  Stacks
         thread_local static StaticStack_<T_> dStack;
         if (reset)
             dStack.Reset();
@@ -426,9 +369,7 @@ namespace Dal::Script {
         if (reset)
             bStack.Reset();
 
-        //  Loop on instructions
         while (i < n) {
-            //  Big switch
             switch (nodeStream[i]) {
 
             case Add:
@@ -572,8 +513,7 @@ namespace Dal::Script {
                 if (!bStack.Top()) {
                     i = nodeStream[++i];
                 } else {
-                    //  Re-entrant call over the true branch only. reset=false:
-                    //  the parent frame still needs bStack (Pop below) and dStack.
+                    //  Preserve parent stacks while running the true branch.
                     EvalCompiled(nodeStream, constStream, scenario, state, i + 3, nodeStream[i + 1], false);
                     i = nodeStream[i + 2];
                 }
@@ -658,14 +598,12 @@ namespace Dal::Script {
                 break;
             }
             case FuzzyAnd: {
-                //  Probability combinators, same as FuzzyEvaluator_: a * b.
                 const T_ x = dStack.TopAndPop();
                 dStack.Top() *= x;
                 ++i;
                 break;
             }
             case FuzzyOr: {
-                //  a + b - a * b
                 const T_ x = dStack.TopAndPop();
                 const T_ y = dStack.TopAndPop();
                 dStack.Push(x + y - x * y);
@@ -686,10 +624,6 @@ namespace Dal::Script {
                 break;
             case FuzzyIf: {
                 //  Layout: FuzzyIf lastTrue lastFalse nAff aff... [true][false]
-                //  (lastFalse == lastTrue when there is no else). Mirrors
-                //  FuzzyEvaluator_::Visit(NodeIf_): hard-branch when dt is
-                //  within EPSILON of 0/1, otherwise evaluate both branches
-                //  over the affected variables and blend by dt.
                 const size_t lastTrue = nodeStream[i + 1];
                 const size_t lastFalse = nodeStream[i + 2];
                 const int nAff = nodeStream[i + 3];
@@ -698,11 +632,9 @@ namespace Dal::Script {
 
                 const T_ t = dStack.TopAndPop();
                 if (t > 1.0 - EPSILON) {
-                    //  Absolutely true: run the true branch, skip the else.
                     EvalCompiled(nodeStream, constStream, scenario, state, firstTrue, lastTrue, false);
                     i = lastFalse;
                 } else if (t < EPSILON) {
-                    //  Absolutely false: fall through to the else statements.
                     i = lastTrue;
                 } else {
                     const size_t lvl = state.nestedIfLvl_++;

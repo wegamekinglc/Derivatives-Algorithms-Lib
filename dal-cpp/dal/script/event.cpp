@@ -58,7 +58,6 @@ namespace Dal::Script {
         return ifProc.MaxNestedIFs();
     }
 
-    //	Domain processing
     void ScriptProduct_::DomainProcess(bool fuzzy) {
         DomainProcessor_ domProc(variables_.size(), fuzzy);
         Visit(domProc);
@@ -77,7 +76,6 @@ namespace Dal::Script {
         }
     }
 
-    //	All preprocessing
     size_t ScriptProduct_::PreProcess(bool fuzzy, bool skip_domain) {
         IndexVariables();
         variableValues_ = PastEvaluate();
@@ -89,7 +87,6 @@ namespace Dal::Script {
             ConstCondProcess();
         }
 
-        // generate time line and definition
         // TODO: more specific data settings
         const auto evaluationDate = Global::Dates_::EvaluationDate();
         for (auto& date : eventDates_) {
@@ -102,17 +99,13 @@ namespace Dal::Script {
             defLine_.emplace_back(sampleDef);
         }
 
-        //  Identify constants last (after const-condition folding) so
-        //  Compile() can stay const: isConst_/constVal_ markings are
-        //  invisible to the tree-walk evaluators (pinned by
-        //  TestParity_TreeWalkUnchangedAfterCompile).
+        // Const metadata is finalized after condition folding.
         ConstProcess();
         preProcessed_ = true;
 
         return maxNestedIfs;
     }
 
-    //	Debug whole product
     void ScriptProduct_::Debug(std::ostream& ost) const {
         size_t v = 0;
         for (auto& variable : variables_)
@@ -138,20 +131,15 @@ namespace Dal::Script {
         Vector_<Vector_<int>> nodeStreams;
         Vector_<Vector_<>> constStreams;
 
-        //  One per event date
         nodeStreams.reserve(events_.size());
         constStreams.reserve(events_.size());
 
-        //	Visit
         for (const auto& evt : events_) {
-            //	The compiler
             Compiler_ comp(fuzzy);
 
-            //	Loop over statements in event
             for (const auto& stat : evt)
                 stat->Accept(comp);
 
-            //  Get compiled
             nodeStreams.push_back(comp.NodeStream());
             constStreams.push_back(comp.ConstStream());
         }

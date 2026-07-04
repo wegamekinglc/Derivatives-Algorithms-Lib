@@ -14,7 +14,6 @@
 namespace Dal::Script {
 
     template <class T> class FuzzyEvaluator_ : public EvaluatorBase_<T, FuzzyEvaluator_> {
-        // Default smoothing factor for conditions that don't override it
         double defEps_;
         StaticStack_<T> fuzzyStack_;
 
@@ -94,18 +93,15 @@ namespace Dal::Script {
             VisitNode(*node.arguments_[0]);
             const T dt = fuzzyStack_.TopAndPop();
 
-            // Absolutely true
             if (dt > 1.0 - EPSILON) {
                 for (size_t i = 1; i <= lastTrueStat; ++i)
                     VisitNode(*node.arguments_[i]);
             }
-            // Absolutely false
             else if (dt < EPSILON) {
                 if (node.firstElse_ != -1)
                     for (size_t i = node.firstElse_; i < node.arguments_.size(); ++i)
                         VisitNode(*node.arguments_[i]);
             }
-            // Fuzzy: split evaluation between true and false branches, weight by dt
             else {
                 for (auto idx : node.affectedVars_)
                     varStore0_[nestedIfLvl_ - 1][idx] = variables_[idx];
@@ -129,38 +125,28 @@ namespace Dal::Script {
             --nestedIfLvl_;
         }
 
-        // Conditions
         FORCE_INLINE void Visit(const NodeTrue_& node) { fuzzyStack_.Push(1.0); }
         FORCE_INLINE void Visit(const NodeFalse_& node) { fuzzyStack_.Push(0.0); }
 
-        // Equality
         FORCE_INLINE void Visit(const NodeEqual_& node) {
             VisitNode(*node.arguments_[0]);
             const T expr = dStack_.TopAndPop();
 
-            // Discrete case: 0 is a singleton in expr's domain
             if (node.isDiscrete_)
                 fuzzyStack_.Push(BFly(expr, node.lb_, node.rb_));
-            // Continuous case: 0 lies inside expr's continuous domain
             else {
-                // Use node's epsilon if set, otherwise fall back to default
                 double eps = node.eps_ < 0 ? defEps_ : node.eps_;
                 fuzzyStack_.Push(BFly(expr, eps));
             }
         }
 
-        // Inequality (sup/supEqual share the logic)
         void VisitComp(const CompNode_& node) {
             VisitNode(*node.arguments_[0]);
             const T expr = dStack_.TopAndPop();
 
-            // Discrete case: 0 is either a singleton or outside expr's domain entirely,
-            // but with subdomains on both sides (otherwise the condition is always true/false)
             if (node.isDiscrete_) {
                 fuzzyStack_.Push(CSpr(expr, node.lb_, node.rb_));
-            }
-            // Continuous case: 0 lies inside expr's continuous domain
-            else {
+            } else {
                 const double eps = node.eps_ < 0 ? defEps_ : node.eps_;
                 fuzzyStack_.Push(CSpr(expr, eps));
             }
@@ -169,13 +155,11 @@ namespace Dal::Script {
         FORCE_INLINE void Visit(const NodeSup_& node) { VisitComp(node); }
         FORCE_INLINE void Visit(const NodeSupEqual_& node) { VisitComp(node); }
 
-        // Negation: probability complement on the fuzzy stack
         FORCE_INLINE void Visit(const NodeNot_& node) {
             VisitNode(*node.arguments_[0]);
             fuzzyStack_.Top() = 1.0 - fuzzyStack_.Top();
         }
 
-        // Combinators: probability-style fuzzy logic
         FORCE_INLINE void Visit(const NodeAnd_& node) {
             VisitNode(*node.arguments_[0]);
             VisitNode(*node.arguments_[1]);

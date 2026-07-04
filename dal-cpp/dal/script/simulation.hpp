@@ -80,13 +80,8 @@ namespace Dal::Script {
                              std::optional<bool> compiled,
                              int maxNestedIfs,
                              double eps) {
-        //  Compiled and tree-walk produce the same numbers (pinned by the
-        //  ScriptCompiledParity suite): `compiled` is a performance flag.
         const bool useCompiled = compiled.value_or(false);
 
-        //  Compile once per valuation, const-correctly, on the main thread
-        //  (throws if PreProcess was not run; ThreadPool_ tasks swallow
-        //  exceptions). Never fall back to the tree-walk silently.
         std::optional<ScriptCompiled_> compiledProduct;
         if (useCompiled)
             compiledProduct.emplace(product.Compile());
@@ -167,7 +162,6 @@ namespace Dal::Script {
         for (auto& future : futures)
             pool->ActiveWait(future);
 
-        // aggregate all the results
         results.aggregated_ = Accumulate(simResults);
         return results;
     }
@@ -181,9 +175,6 @@ namespace Dal::Script {
                              std::optional<bool> compiled,
                              int maxNestedIfs,
                              double eps) {
-        //  The compiled fuzzy stream mirrors FuzzyEvaluator_ exactly:
-        //  smoothed conditions (CSpr/BFly), probability combinators and the
-        //  dt-blend FuzzyIf produce the same numbers with flat-stream speed.
         const bool useCompiled = compiled.value_or(false);
 
         std::optional<ScriptCompiled_> compiledProduct;
@@ -244,7 +235,6 @@ namespace Dal::Script {
                     }
                 };
 
-                // Accumulate const-var risks into results.risks_ from whichever evaluator was used
                 auto accumulateConstVarRisks = [&](const auto& constVarVals) {
                     for (size_t j = 0; j < nConstVars; ++j)
                         results.risks_[j + nParams] += Adjoint(constVarVals[j]) / static_cast<double>(nPaths);

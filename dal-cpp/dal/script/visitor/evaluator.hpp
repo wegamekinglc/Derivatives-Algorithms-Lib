@@ -15,26 +15,21 @@ namespace Dal::Script {
 
     template <class T_, template <typename> class EVAL_> class EvaluatorBase_ : public ConstVisitor_<EVAL_<T_>> {
     protected:
-        // State
         Vector_<T_> variables_;
         Vector_<> variablesInit_;
         Vector_<T_> constVariables_;
 
-        // Stacks
         StaticStack_<T_> dStack_;
         StaticStack_<bool> bStack_;
 
-        // Reference to current scenario
         const AAD::Scenario_<T_>* scenario_;
 
-        // Index of current event
         size_t curEvt_;
 
     public:
         using ConstVisitor_<EVAL_<T_>>::Visit;
         using ConstVisitor_<EVAL_<T_>>::VisitNode;
 
-        // Constructor, nVar = number of variables, from Product after parsing and variable indexation
         EvaluatorBase_(const Vector_<>& variables, const Vector_<T_>& constVariables)
             : variablesInit_(variables), constVariables_(constVariables), curEvt_(-1) {
             variables_.Resize(variablesInit_.size());
@@ -44,7 +39,6 @@ namespace Dal::Script {
             scenario_ = nullptr;
         }
 
-        // Copy/Move
         EvaluatorBase_(const EvaluatorBase_& rhs)
             : variables_(rhs.variables_), variablesInit_(rhs.variablesInit_), constVariables_(rhs.constVariables_), curEvt_(rhs.curEvt_), bStack_(rhs.bStack_), scenario_(rhs.scenario_) {}
         EvaluatorBase_& operator=(const EvaluatorBase_& rhs) {
@@ -79,28 +73,19 @@ namespace Dal::Script {
             return constVariables_;
         }
 
-        // (Re-)initialize before evaluation in each scenario
         void Init() {
             for (auto i = 0; i < variables_.size(); ++i)
                 variables_[i] = T_(variablesInit_[i]);
-            //	Stacks should be empty, if this is not the case the empty them
-            //	without affecting capacity for added performance
             dStack_.Reset();
             bStack_.Reset();
         }
 
-        // Accessors
-        // Access to variable values after evaluation
         [[nodiscard]] FORCE_INLINE const Vector_<T_>& VarVals() const { return variables_; }
 
-        // Set generated scenarios and current event
-        // Set reference to current scenario
         FORCE_INLINE void SetScenario(const AAD::Scenario_<T_>* scenario) { scenario_ = scenario; }
 
-        // Set index of current event
         FORCE_INLINE void SetCurEvt(size_t curEvt) { curEvt_ = curEvt; }
 
-        // Visitors
         template <class OP> FORCE_INLINE void VisitBinary(const ExprNode_& node, OP op) {
             VisitNode(*node.arguments_[0]);
             VisitNode(*node.arguments_[1]);
@@ -185,10 +170,6 @@ namespace Dal::Script {
         }
 
         FORCE_INLINE void Visit(const NodeAnd_& node) {
-            //  Eager: both operands always evaluated, matching the compiled
-            //  stream and the fuzzy combinators. Conditions are pure in this
-            //  grammar, so this is observationally equivalent to
-            //  short-circuit; scripts must not rely on short-circuit.
             VisitNode(*node.arguments_[0]);
             VisitNode(*node.arguments_[1]);
             const bool rhs = bStack_.TopAndPop();
@@ -211,13 +192,10 @@ namespace Dal::Script {
         }
 
         void Visit(const NodeIf_& node) {
-            //	Eval the condition
             VisitNode(*node.arguments_[0]);
 
-            //	Pick the result
             const auto isTrue = bStack_.TopAndPop();
 
-            //	Evaluate the relevant statements
             if (isTrue) {
                 const auto lastTrue = node.firstElse_ == -1 ? node.arguments_.size() - 1 : node.firstElse_ - 1;
                 for (unsigned i = 1; i <= lastTrue; ++i) {
@@ -234,30 +212,24 @@ namespace Dal::Script {
         FORCE_INLINE void Visit(const NodeAssign_& node) {
             const auto varIdx = Downcast<NodeVar_>(node.arguments_[0])->index_;
 
-            //	Visit the RHS expression
             VisitNode(*node.arguments_[1]);
 
-            //	Write result into variable
             variables_[varIdx] = dStack_.TopAndPop();
         }
 
         FORCE_INLINE void Visit(const NodePays_& node) {
             const auto varIdx = Downcast<NodeVar_>(node.arguments_[0])->index_;
 
-            //	Visit the RHS expression
             VisitNode(*node.arguments_[1]);
 
-            //	Write result into variable
             variables_[varIdx] += dStack_.TopAndPop() / (*scenario_)[curEvt_].numeraire_;
         }
 
         FORCE_INLINE void Visit(const NodeVar_& node) {
-            //	Push value onto the stack
             dStack_.Push(variables_[node.index_]);
         }
 
         FORCE_INLINE void Visit(const NodeConstVar_& node) {
-            //	Push value onto the stack
             dStack_.Push(constVariables_[node.index_]);
         }
 
@@ -269,12 +241,9 @@ namespace Dal::Script {
 
         FORCE_INLINE void Visit(const NodeSpot_& node) { dStack_.Push((*scenario_)[curEvt_].spot_); }
 
-        //  NodeCollect_ (inserted by ConstCondProcessor_ when it unwraps an
-        //  always-true/false If): pure grouping, evaluate the children in place.
         FORCE_INLINE void Visit(const NodeCollect_& node) { this->VisitArguments(node); }
     };
 
-    //  Concrete Evaluator_
     template <class T_> class Evaluator_ : public EvaluatorBase_<T_, Evaluator_> {
 
     public:
