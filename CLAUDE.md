@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository. Keep this as operational guidance for agents; keep public project orientation in [README.md](README.md), and put method-level explanations under `docs/methodology/`.
 
 ## Build Commands
 
@@ -50,6 +50,16 @@ bin/dal_cpp_tests --gtest_filter=<SuiteName>.*
 
 # Run a single test
 bin/dal_cpp_tests --gtest_filter=<SuiteName>.<TestName>
+
+# Focused script tree-walk/compiled evaluator parity checks
+bin/dal_cpp_tests --gtest_filter='ScriptCompiledParityTest.*:ScriptCompiledParityFuzzTest.*'
+```
+
+For script engine performance changes, build and smoke-run the benchmark:
+
+```bash
+cmake --build build --target script_mc_perf -j 4
+./build/dal-cpp/benchmarks/script_mc_perf/script_mc_perf
 ```
 
 ## Code Style
@@ -77,7 +87,7 @@ The dependency graph is `dal-cpp ← dal-public ← {dal-python, dal-excel}`. Ea
 
 **Core library (`dal-cpp/`)** — built as the `dal_cpp` target (alias `DAL::cpp`):
 - `dal-cpp/dal/math/` — numerical algorithms: interpolation, optimization, PDE solvers, random number generation, matrix ops, root finding, AAD
-- `dal-cpp/dal/script/` — expression scripting engine using visitor pattern (parser → AST nodes → simulation/evaluation)
+- `dal-cpp/dal/script/` — expression scripting engine using visitor pattern (parser → AST nodes → simulation/evaluation), with tree-walk evaluation as the default and a compiled flat-stream evaluator behind the `compiled` flag
 - `dal-cpp/dal/model/` — financial models
 - `dal-cpp/dal/curve/` — yield/discount curve handling
 - `dal-cpp/dal/indice/` — reference rate index management
@@ -87,7 +97,7 @@ The dependency graph is `dal-cpp ← dal-public ← {dal-python, dal-excel}`. Ea
 - `dal-cpp/dal/auto/` — auto-generated code (Machinist output, glob-included into the library)
 - `dal-cpp/tests/` — Google Test files compiled into the `dal_cpp_tests` binary
 - `dal-cpp/examples/` — standalone example programs (AAD, Monte Carlo, finite difference, scripting, concurrency, Sobol, underdetermined optimization)
-- `dal-cpp/benchmarks/` — standalone performance benchmark programs (matrix, script engine)
+- `dal-cpp/benchmarks/` — standalone performance benchmark programs (matrix, script engine; `script_mc_perf` compares tree-walk and compiled script evaluation)
 - `dal-cpp/externals/` — git submodules for AAD frameworks, gtest, rapidjson, machinist
 - `dal-cpp/config/` — Machinist input (`dal.ifc`, `dal.mgl`)
 - `dal-cpp/cmake/` — `Platform.cmake` and helpers
@@ -141,7 +151,7 @@ Detailed documentation of the quantitative methods implemented in this library:
 - **Log-Discount Curve** — [Log-discount curve](docs/methodology/log_discount_curve.md)
 - **PDE Finite-Difference Meshers and Coordinate Maps** — [PDE meshers](docs/methodology/pde.md)
 - **Yield-Curve Jacobian and Inverse-Jacobian Risk** — [Yield-curve Jacobian](docs/methodology/yield_curve_jacobian.md)
-- **Script Engine** — [Script engine](docs/methodology/script_engine.md)
+- **Script Engine** — [Script engine](docs/methodology/script_engine.md), including tree-walk, fuzzy AAD, compiled evaluation, parity coverage, and benchmarks
 - **Dupire Local Volatility** — [Dupire local volatility](docs/methodology/dupire.md)
 - **Black / Bachelier Vanilla Pricing** — [Black / Bachelier vanilla pricing](docs/methodology/black_scholes.md)
 - **Numerical Quadrature** — [Numerical quadrature](docs/methodology/quadrature.md)
@@ -156,6 +166,11 @@ Notable fundamental changes are recorded in [CHANGELOG.md](CHANGELOG.md).
 - **web UI design**: [Web UI design standards](.claude/rules/dal-web-design.md)
 - **dal-web backend style**: [dal-web backend code style](.claude/rules/dal-web-code-style.md)
 
+Documentation guidance:
+- Keep `README.md` concise and user-facing; link to detailed methodology instead of duplicating it.
+- Put script engine evaluator details in [docs/methodology/script_engine.md](docs/methodology/script_engine.md), especially tree-walk vs compiled behavior, AAD/fuzzy behavior, parity tests, and benchmark scope.
+- Update [CHANGELOG.md](CHANGELOG.md) only for notable behavior, API, methodology, or performance-facing changes.
+
 ## Specialist agents
 
 Specialist agents for the spec -> design -> critique -> implement -> review -> document
@@ -163,4 +178,3 @@ pipeline are defined in [.claude/agents/](.claude/agents/README.md). In particul
 `dal-doc-writer` owns the freshness of everything under `docs/` and curates
 [CHANGELOG.md](CHANGELOG.md); invoke it when docs need reconciling against current code or a
 change may warrant a changelog entry.
-
