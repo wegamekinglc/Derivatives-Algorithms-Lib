@@ -65,7 +65,7 @@ namespace Dal::Script {
                              size_t nPaths,
                              const String_& rsg = "sobol",
                              bool useBb = false,
-                             std::optional<bool> compiled = false,
+                             std::optional<bool> compiled = std::nullopt,
                              int maxNestedIfs = -1,
                              double eps = 0.01) {
         THROW("not implemented");

@@ -880,7 +880,7 @@ namespace Dal::Script {
                 continue;
             if (EvalFuzzyOpcode(op, nodeStream, constStream, scenario, state, i, dStack))
                 continue;
-            THROW("unknown compiled script opcode");
+            THROW("unknown compiled script opcode: " + std::to_string(op));
         }
     }
 } // namespace Dal::Script

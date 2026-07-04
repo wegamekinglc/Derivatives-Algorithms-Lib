@@ -94,7 +94,7 @@ here as the baseline rather than dated releases:
   the same numbers (tol 1e-8) through either path. `ScriptProduct_::Compile(fuzzy)`
   is now `const` and returns a `ScriptCompiled_` artifact; `MCSimulation` compiles
   internally when requested, and `compiled` is `std::optional<bool>` (unset =
-  library default).
+  tree-walk / `false`).
   Exposed through `ValueByMonteCarlo` (`dal-public/src/value.hpp`) and the Python
   `MonteCarlo_Value` binding as a backward-compatible `compiled` keyword. **Breaking
   API behavior**: (1) `AND`/`OR` are now eager in ALL evaluators — both
