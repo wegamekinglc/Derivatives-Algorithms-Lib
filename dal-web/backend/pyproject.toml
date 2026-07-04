@@ -12,12 +12,15 @@ dependencies = [
     "fastapi>=0.110",
     "uvicorn[standard]>=0.29",
     "pydantic>=2.6",
+    "sqlalchemy>=2.0",
+    "alembic",
 ]
 
 [project.optional-dependencies]
 dev = [
     "pytest>=9.0.3",
     "httpx>=0.27",
+    "ruff>=0.6",
 ]
 
 # uv-native development dependency group. `uv sync` installs these by default;
@@ -26,6 +29,7 @@ dev = [
 dev = [
     "pytest>=9.0.3",
     "httpx>=0.27",
+    "ruff>=0.6",
 ]
 
 [tool.setuptools]
@@ -33,3 +37,13 @@ packages = ["app"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM", "N"]
+# B008: FastAPI's ``Depends(...)`` / ``Body(...)`` defaults are idiomatic and
+# unavoidable in router signatures.
+ignore = ["E501", "B008"]

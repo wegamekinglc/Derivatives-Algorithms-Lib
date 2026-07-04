@@ -29,7 +29,7 @@ using namespace Dal;
 namespace {
     // Build a dense Matrix_<> filled with quasi-normal deviates (deterministic across runs).
     Matrix_<> RandomMatrix(int rows, int cols, int seed) {
-        std::unique_ptr<Random_> rsg(NewSobol(cols, seed));
+        std::unique_ptr<Random_> rsg(NewSobol(cols, seed, /*precise=*/false));
         Matrix_<> m(rows, cols, 0.0);
         Vector_<> row(cols);
         for (int i = 0; i < rows; ++i) {

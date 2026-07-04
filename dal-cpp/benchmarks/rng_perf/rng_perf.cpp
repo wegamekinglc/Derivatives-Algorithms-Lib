@@ -2,11 +2,14 @@
 // Created by dal-implementer on 2026-6-28.
 //
 // Random-number-generator micro-benchmark.
-// Builds a SobolRSG_ (dimension 10) and measures FillNormal and FillUniform
-// over a 100K-path batch, the dominant MC inner loop. Also covers BrownianBridge
-// (variance-reduction wrapper, useBb=true) and the PseudoRandom_ alternatives
-// MRG32k3a and ShuffledIRN -- all three carry the same per-deviate InverseNCDF
-// cost as Sobol on top of their own generator arithmetic.
+// Builds RNGs (dimension 10) and measures FillNormal / FillUniform over a 100K-path
+// batch, the dominant MC inner loop. Sobol is split into fast (precise=false,
+// Acklam-only ~1e-9) and precise (precise=true, Acklam+Newton ~1e-15, the library
+// default since 2026-07) so the per-deviate inverse-CDF cost difference is tracked.
+// BrownianBridge (variance-reduction wrapper) and the PseudoRandom_ alternatives
+// MRG32k3a / ShuffledIRN are pinned to precise=false, isolating their generator-
+// specific overhead against the Sobol fast baseline rather than re-measuring the
+// common inverse-CDF cost (already covered by the Sobol fast/precise pair).
 
 #include <dal/platform/platform.hpp>
 #include <dal/math/random/brownianbridge.hpp>
@@ -28,8 +31,22 @@ int main() {
 
     {
         double sink = 0.0;
-        auto r = Bench::Run("Sobol FillNormal (100K x 10D)", [&]() {
-            std::unique_ptr<SequenceSet_> rsg(NewSobol(kDim, 0));
+        auto r = Bench::Run("Sobol FillNormal fast (100K x 10D)", [&]() {
+            std::unique_ptr<SequenceSet_> rsg(NewSobol(kDim, 0, /*precise=*/false));
+            Vector_<> dst(kDim);
+            for (int i = 0; i < kNumPaths; ++i) {
+                rsg->FillNormal(&dst);
+                sink += dst[0];
+            }
+        }, 2, kRepeats);
+        Bench::Print(r);
+        Bench::DoNotOptimize(&sink);
+    }
+
+    {
+        double sink = 0.0;
+        auto r = Bench::Run("Sobol FillNormal precise (100K x 10D)", [&]() {
+            std::unique_ptr<SequenceSet_> rsg(NewSobol(kDim, 0, /*precise=*/true));
             Vector_<> dst(kDim);
             for (int i = 0; i < kNumPaths; ++i) {
                 rsg->FillNormal(&dst);
@@ -43,7 +60,7 @@ int main() {
     {
         double sink = 0.0;
         auto r = Bench::Run("Sobol FillUniform (100K x 10D)", [&]() {
-            std::unique_ptr<SequenceSet_> rsg(NewSobol(kDim, 0));
+            std::unique_ptr<SequenceSet_> rsg(NewSobol(kDim, 0, /*precise=*/false));
             Vector_<> dst(kDim);
             for (int i = 0; i < kNumPaths; ++i) {
                 rsg->FillUniform(&dst);
@@ -57,7 +74,7 @@ int main() {
     {
         double sink = 0.0;
         auto r = Bench::Run("BrownianBridge FillNormal (100K x 10D)", [&]() {
-            std::unique_ptr<Random_> inner(NewSobol(kDim, 0));
+            std::unique_ptr<Random_> inner(NewSobol(kDim, 0, /*precise=*/false));
             BrownianBridge_ bb(std::move(inner));
             Vector_<> dst(kDim);
             for (int i = 0; i < kNumPaths; ++i) {
@@ -72,7 +89,7 @@ int main() {
     {
         double sink = 0.0;
         auto r = Bench::Run("MRG32k3a FillNormal (100K x 10D)", [&]() {
-            std::unique_ptr<Random_> rsg(New(RNGType_("MRG32"), 1024, kDim));
+            std::unique_ptr<Random_> rsg(New(RNGType_("MRG32"), 1024, kDim, /*precise=*/false));
             Vector_<> dst(kDim);
             for (int i = 0; i < kNumPaths; ++i) {
                 rsg->FillNormal(&dst);
@@ -86,7 +103,7 @@ int main() {
     {
         double sink = 0.0;
         auto r = Bench::Run("ShuffledIRN FillNormal (100K x 10D)", [&]() {
-            std::unique_ptr<Random_> rsg(New(RNGType_("IRN"), 1024, kDim));
+            std::unique_ptr<Random_> rsg(New(RNGType_("IRN"), 1024, kDim, /*precise=*/false));
             Vector_<> dst(kDim);
             for (int i = 0; i < kNumPaths; ++i) {
                 rsg->FillNormal(&dst);

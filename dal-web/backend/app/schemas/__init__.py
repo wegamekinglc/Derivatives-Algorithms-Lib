@@ -33,7 +33,7 @@ class EventRow(BaseModel):
     event: str = Field(..., description="DAL event script for this row")
 
     @model_validator(mode="after")
-    def _check_row_consistency(self) -> "EventRow":
+    def _check_row_consistency(self) -> EventRow:
         if self.date_kind == "date" and self.date is None:
             raise ValueError("date_kind='date' requires a date value")
         if self.date_kind == "label" and not self.label:
