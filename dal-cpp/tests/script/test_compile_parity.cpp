@@ -228,13 +228,15 @@ TEST(ScriptCompiledParityTest, TestParity_IfElse_NestedInTrueBranch) {
 // divergence is observable only when the RHS has a detectable side effect
 // (throw or state mutation). The script grammar's && RHS is a pure condition,
 // and C++ std::log of a non-positive returns NaN/-inf without throwing, so the
-// &&/|| result converges on the same boolean on both evaluators — confirmed
-// LIVE (PASSED) at spot=5.0 in both arms. The per-path harness cannot cleanly
-// construct a divergence. Phase 1b's fix (jump opcodes so the RHS sub-stream
-// is skipped when the LHS decides the boolean) is verified by a direct
-// Compiler_ unit test in that phase; this pin guards against regression once
-// the fix lands and the fuzz layer (test_compile_parity_fuzz.cpp) hits it.
-TEST(ScriptCompiledParityTest, DISABLED_TestParity_And_OrShortCircuit_SideEffectingRHS) {
+// &&/|| result converges on the same boolean on both evaluators - this pin
+// PASSES pre- and post-fix and so cannot be the primary verification. Phase
+// 1b's fix (jump opcodes so the RHS sub-stream is skipped when the LHS decides
+// the boolean) is verified by direct Compiler_ unit tests in
+// dal-cpp/tests/script/visitor/test_compiler.cpp
+// (TestAndShortCircuit_SkipsRhsWhenLhsFalse, TestOrShortCircuit_SkipsRhsWhenLhsTrue);
+// this pin stays live as a regression guard and is hit by the fuzz layer
+// (test_compile_parity_fuzz.cpp).
+TEST(ScriptCompiledParityTest, TestParity_And_OrShortCircuit_SideEffectingRHS) {
     Global::Dates_::SetEvaluationDate(Date_(2023, 1, 1));
     Vector_<Cell_> eventDates{Cell_(Date_(2023, 1, 28))};
     Vector_<String_> events{R"(
@@ -256,17 +258,19 @@ TEST(ScriptCompiledParityTest, DISABLED_TestParity_And_OrShortCircuit_SideEffect
 
 // #5 SupEqual const-fold edge. The compiler's VisitCondition<SupEqual>
 // const-folds via (x > -EPSILON) while the runtime SupEqual opcode uses
-// (x >= 0) — divergent for x in (-EPSILON, 0). Constructing a per-path
-// divergence is delicate: PreProcess(false, false) runs ConstCondProcess
-// which collapses a fully-constant condition (using domain.hpp's
-// IsPositive/IsNegative, also EPSILON-based) BEFORE Compile() emits the
-// opcode stream, so the compiler's VisitCondition<SupEqual> fold is only
-// reachable when both children appear const to the compiler but the
+// (x >= 0) - divergent for x in (-EPSILON, 0). PreProcess(false, false) runs
+// ConstCondProcess which collapses a fully-constant condition (using
+// domain.hpp's IsPositive/IsNegative, also EPSILON-based) BEFORE Compile()
+// emits the opcode stream, so the compiler's VisitCondition<SupEqual> fold is
+// only reachable when both children appear const to the compiler but the
 // surrounding IF survives ConstCondProcess. The script tokenizer
-// ([\w.]+|[/-]) rejects scientific notation. Enabled by Phase 1b; the fix
-// (x > -EPSILON -> x >= 0) is verified directly by a Compiler_ unit test
-// in that phase. This pin guards against regression once green.
-TEST(ScriptCompiledParityTest, DISABLED_TestParity_SupEqual_ConstFold_TinyNegative) {
+// ([\w.]+|[/-]) rejects scientific notation, which makes the per-path pin
+// pass pre- and post-fix and so unable to act as primary verification. The
+// Phase 1b fix (x > -EPSILON -> x >= 0) is verified directly by a Compiler_
+// unit test in dal-cpp/tests/script/visitor/test_compiler.cpp
+// (TestSupEqualConstFold_TinyNegativeIsFalse_TinyPositiveIsTrue). This pin
+// stays live as a regression guard.
+TEST(ScriptCompiledParityTest, TestParity_SupEqual_ConstFold_TinyNegative) {
     Global::Dates_::SetEvaluationDate(Date_(2023, 1, 1));
     Vector_<Cell_> eventDates{Cell_(Date_(2023, 1, 28))};
     Vector_<String_> events{R"(
@@ -430,3 +434,22 @@ TEST(ScriptCompiledParityTest, DISABLED_TestParity_Number_ConstCondition_WithinE
     // not ship until Phase 5b. The pin is staged here so 5b can enable it.
     GTEST_SKIP() << "Phase 5b blocker: requires compiled-fuzzy opcodes (CSpr/BFly/FuzzyIf)";
 }
+
+// ============================================================================
+// Opcode-coverage responsibility (Phase 1b note).
+//
+// The spec asked for an assertion that the new short-circuit opcodes
+// (AndIfFalse, OrIfTrue) appear in the union of compiled nodeStreams across
+// the suite. That coverage is enforced in the direct Compiler_ unit tests
+// dal-cpp/tests/script/visitor/test_compiler.cpp
+//   - TestAndShortCircuit_SkipsRhsWhenLhsFalse  asserts AndIfFalse is emitted
+//   - TestOrShortCircuit_SkipsRhsWhenLhsTrue     asserts OrIfTrue is emitted
+// and the parity fuzz layer (test_compile_parity_fuzz.cpp) emits random
+// AND/OR conditions that exercise the opcodes on real products.
+//
+// A standalone "every reachable opcode is covered by some product" assertion
+// would require either a public NodeStreams() accessor on ScriptProduct_
+// (public-API expansion) or a parallel hand-built AST builder in the test
+// (duplication of the parser). The benefit overlaps heavily with the direct
+// tests + fuzz layer, so the standalone assertion is deferred.
+// ============================================================================

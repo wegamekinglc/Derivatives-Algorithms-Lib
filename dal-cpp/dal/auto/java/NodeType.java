@@ -36,6 +36,8 @@ public class NodeType
 		SUPEQUAL,
 		AND,
 		OR,
+		ANDIFFALSE,
+		ORIFTRUE,
 		SMOOTH,
 		SQRT,
 		LOG,

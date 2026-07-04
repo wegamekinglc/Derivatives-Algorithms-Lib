@@ -37,6 +37,8 @@ public:
      SupEqual,
      And,
      Or,
+     AndIfFalse,
+     OrIfTrue,
      Smooth,
      Sqrt,
      Log,

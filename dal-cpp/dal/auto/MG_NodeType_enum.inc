@@ -39,6 +39,8 @@ Vector_<NodeType_> NodeTypeListAll() {
         TheNodeTypeList().emplace_back(NodeType_::Value_::SupEqual);
         TheNodeTypeList().emplace_back(NodeType_::Value_::And);
         TheNodeTypeList().emplace_back(NodeType_::Value_::Or);
+        TheNodeTypeList().emplace_back(NodeType_::Value_::AndIfFalse);
+        TheNodeTypeList().emplace_back(NodeType_::Value_::OrIfTrue);
         TheNodeTypeList().emplace_back(NodeType_::Value_::Smooth);
         TheNodeTypeList().emplace_back(NodeType_::Value_::Sqrt);
         TheNodeTypeList().emplace_back(NodeType_::Value_::Log);
@@ -120,6 +122,10 @@ const char* NodeType_::String() const {
         return "And";
     case Value_::Or:
         return "Or";
+    case Value_::AndIfFalse:
+        return "AndIfFalse";
+    case Value_::OrIfTrue:
+        return "OrIfTrue";
     case Value_::Smooth:
         return "Smooth";
     case Value_::Sqrt:
@@ -242,6 +248,12 @@ struct ReadStringNodeType_
 
 	else if (String::Equivalent(src, "OR"))
         *val = NodeType_::Value_::Or;
+
+	else if (String::Equivalent(src, "ANDIFFALSE"))
+        *val = NodeType_::Value_::AndIfFalse;
+
+	else if (String::Equivalent(src, "ORIFTRUE"))
+        *val = NodeType_::Value_::OrIfTrue;
 
 	else if (String::Equivalent(src, "SMOOTH"))
         *val = NodeType_::Value_::Smooth;

@@ -62,6 +62,8 @@ alternative Sup
 alternative SupEqual
 alternative And
 alternative Or
+alternative AndIfFalse
+alternative OrIfTrue
 alternative Smooth
 alternative Sqrt
 alternative Log
@@ -139,15 +141,17 @@ namespace Dal::Script {
         SupEqual = 28,
         And = 29,
         Or = 30,
-        Smooth = 31,
-        Sqrt = 32,
-        Log = 33,
-        Exp = 34,
-        Not = 35,
-        UMinus = 36,
-        True = 37,
-        False = 38,
-        ConstVar = 39
+        AndIfFalse = 31,
+        OrIfTrue = 32,
+        Smooth = 33,
+        Sqrt = 34,
+        Log = 35,
+        Exp = 36,
+        Not = 37,
+        UMinus = 38,
+        True = 39,
+        False = 40,
+        ConstVar = 41
     };
 
     class Compiler_ : public ConstVisitor_<Compiler_> {
@@ -244,21 +248,37 @@ namespace Dal::Script {
             VisitCondition<Sup>(node, [](double x) { return x > 0.0; });
         }
         void Visit(const NodeSupEqual_& node) {
-            VisitCondition<SupEqual>(node, [](double x) { return x > -Dal::EPSILON; });
+            VisitCondition<SupEqual>(node, [](double x) { return x >= 0.0; });
         }
 
         //  And/Or/Not
+        //
+        //  And/Or emit a short-circuit guard so the RHS sub-stream is skipped
+        //  when the LHS already decides the boolean, mirroring the tree-walk
+        //  (Evaluator_::Visit(NodeAnd_)/NodeOr_). The guard peeks the LHS bool
+        //  on bStack and jumps PAST the trailing merge when it short-circuits,
+        //  so the merge (which expects two operands) only runs when the RHS
+        //  actually executes; the deciding LHS bool is left on bStack as the
+        //  result in the short-circuit case.
 
         void Visit(const NodeAnd_& node) {
             node.arguments_[0]->Accept(*this);
+            nodeStream_.emplace_back(AndIfFalse);
+            const size_t jumpSlot = nodeStream_.size();
+            nodeStream_.emplace_back(0);
             node.arguments_[1]->Accept(*this);
             nodeStream_.emplace_back(And);
+            nodeStream_[jumpSlot] = int(nodeStream_.size());
         }
 
         void Visit(const NodeOr_& node) {
             node.arguments_[0]->Accept(*this);
+            nodeStream_.emplace_back(OrIfTrue);
+            const size_t jumpSlot = nodeStream_.size();
+            nodeStream_.emplace_back(0);
             node.arguments_[1]->Accept(*this);
             nodeStream_.emplace_back(Or);
+            nodeStream_[jumpSlot] = int(nodeStream_.size());
         }
 
         void Visit(const NodeNot_& node) {
@@ -545,6 +565,18 @@ namespace Dal::Script {
             case SupEqual:
                 bStack.Push(dStack.TopAndPop() >= 0);
                 ++i;
+                break;
+            case AndIfFalse:
+                if (!bStack.Top())
+                    i = nodeStream[++i];
+                else
+                    i += 2;
+                break;
+            case OrIfTrue:
+                if (bStack.Top())
+                    i = nodeStream[++i];
+                else
+                    i += 2;
                 break;
             case And:
                 if (bStack[1])
