@@ -1,0 +1,4 @@
+interface:
+  display_name: "DAL Git PR"
+  short_description: "Package DAL changes into commits and PRs."
+  default_prompt: "Use the DAL git PR skill to commit, push, or open a pull request."

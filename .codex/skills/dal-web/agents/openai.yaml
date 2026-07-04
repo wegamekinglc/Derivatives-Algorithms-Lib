@@ -1,0 +1,4 @@
+interface:
+  display_name: "DAL Web"
+  short_description: "Run and style the DAL web app."
+  default_prompt: "Use the DAL web skill for this web UI task."
