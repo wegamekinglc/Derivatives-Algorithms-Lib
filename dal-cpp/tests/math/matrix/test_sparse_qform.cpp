@@ -11,6 +11,22 @@
 using namespace Dal;
 using namespace Dal::Sparse;
 
+namespace {
+    Vector_<Vector_<>> SolveEachRow(SymmetricDecomposition_& deComp, const Matrix_<>& j_mat) {
+        const int jRows = j_mat.Rows();
+        const int n = j_mat.Cols();
+        Vector_<Vector_<>> solvedRows(jRows);
+        for (int i = 0; i < jRows; ++i) {
+            Vector_<> rowJ(n);
+            for (int k = 0; k < n; ++k)
+                rowJ[k] = j_mat(i, k);
+            solvedRows[i].Resize(n);
+            deComp.Solve(rowJ, &solvedRows[i]);
+        }
+        return solvedRows;
+    }
+} // namespace
+
 TEST(SparseQFormTest, TestDenseSymmetricDecompositionQForm) {
     const int n = 4;
     double tmpW[n][n] = {
@@ -40,14 +56,7 @@ TEST(SparseQFormTest, TestDenseSymmetricDecompositionQForm) {
 
     // Reference: dst_ref[i][k] = sum_r (W^{-1} J^T)[r][i] * J[k][r] via per-row solves.
     // Solve W x_i = J_i for each J row; then dst_ref[i][k] = InnerProduct(x_i, J_k).
-    Vector_<Vector_<>> solvedRows(jRows);
-    for (int i = 0; i < jRows; ++i) {
-        Vector_<> rowJ(n);
-        for (int k = 0; k < n; ++k)
-            rowJ[k] = j_mat(i, k);
-        solvedRows[i].Resize(n);
-        deComp->Solve(rowJ, &solvedRows[i]);
-    }
+    const Vector_<Vector_<>> solvedRows = SolveEachRow(*deComp, j_mat);
 
     ASSERT_EQ(dst.Rows(), jRows);
     ASSERT_EQ(dst.Cols(), jRows);
