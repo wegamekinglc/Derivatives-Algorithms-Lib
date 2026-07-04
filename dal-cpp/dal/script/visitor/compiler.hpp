@@ -368,7 +368,7 @@ namespace Dal::Script {
                              bool reset = true);
 
     template <class T_>
-    inline bool EvalBinaryArithmeticOp(int op, size_t& i, StaticStack_<T_>& dStack) {
+    inline bool EvalBasicArithmeticOp(int op, size_t& i, StaticStack_<T_>& dStack) {
         switch (op) {
         case Add:
             dStack[1] += dStack.Top();
@@ -395,6 +395,14 @@ namespace Dal::Script {
             dStack.Pop();
             ++i;
             return true;
+        default:
+            return false;
+        }
+    }
+
+    template <class T_>
+    inline bool EvalExtremaOp(int op, size_t& i, StaticStack_<T_>& dStack) {
+        switch (op) {
         case Max2: {
             const T_ y = dStack.TopAndPop();
             if (y > dStack[0])
@@ -445,6 +453,18 @@ namespace Dal::Script {
             dStack.Top() = constStream[nodeStream[++i]] / dStack.Top();
             ++i;
             return true;
+        default:
+            return false;
+        }
+    }
+
+    template <class T_>
+    inline bool EvalConstPowOp(int op,
+                               const Vector_<int>& nodeStream,
+                               const Vector_<double>& constStream,
+                               size_t& i,
+                               StaticStack_<T_>& dStack) {
+        switch (op) {
         case PowConst:
             dStack.Top() = pow(dStack.Top(), constStream[nodeStream[++i]]);
             ++i;
@@ -509,13 +529,13 @@ namespace Dal::Script {
     }
 
     template <class T_>
-    inline bool EvalLoadStoreOp(int op,
-                                const Vector_<int>& nodeStream,
-                                const Vector_<double>& constStream,
-                                const AAD::Sample_<T_>& scenario,
-                                EvalState_<T_>& state,
-                                size_t& i,
-                                StaticStack_<T_>& dStack) {
+    inline bool EvalLoadOp(int op,
+                           const Vector_<int>& nodeStream,
+                           const Vector_<double>& constStream,
+                           const AAD::Sample_<T_>& scenario,
+                           EvalState_<T_>& state,
+                           size_t& i,
+                           StaticStack_<T_>& dStack) {
         switch (op) {
         case Spot:
             dStack.Push(scenario.spot_);
@@ -533,6 +553,20 @@ namespace Dal::Script {
             dStack.Push(constStream[nodeStream[++i]]);
             ++i;
             return true;
+        default:
+            return false;
+        }
+    }
+
+    template <class T_>
+    inline bool EvalStoreOp(int op,
+                            const Vector_<int>& nodeStream,
+                            const Vector_<double>& constStream,
+                            const AAD::Sample_<T_>& scenario,
+                            EvalState_<T_>& state,
+                            size_t& i,
+                            StaticStack_<T_>& dStack) {
+        switch (op) {
         case Assign: {
             const size_t idx = nodeStream[++i];
             state.variables_[idx] = dStack.TopAndPop();
@@ -772,9 +806,13 @@ namespace Dal::Script {
                               const Vector_<double>& constStream,
                               size_t& i,
                               StaticStack_<T_>& dStack) {
-        if (EvalBinaryArithmeticOp(op, i, dStack))
+        if (EvalBasicArithmeticOp(op, i, dStack))
+            return true;
+        if (EvalExtremaOp(op, i, dStack))
             return true;
         if (EvalConstArithmeticOp(op, nodeStream, constStream, i, dStack))
+            return true;
+        if (EvalConstPowOp(op, nodeStream, constStream, i, dStack))
             return true;
         return EvalConstExtremaOp(op, nodeStream, constStream, i, dStack);
     }
@@ -790,7 +828,9 @@ namespace Dal::Script {
                               StaticStack_<bool>& bStack) {
         if (EvalUnaryMathOp(op, i, dStack))
             return true;
-        if (EvalLoadStoreOp(op, nodeStream, constStream, scenario, state, i, dStack))
+        if (EvalLoadOp(op, nodeStream, constStream, scenario, state, i, dStack))
+            return true;
+        if (EvalStoreOp(op, nodeStream, constStream, scenario, state, i, dStack))
             return true;
         if (EvalBranchOp(op, nodeStream, constStream, scenario, state, i, bStack))
             return true;
