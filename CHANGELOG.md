@@ -83,6 +83,14 @@ here as the baseline rather than dated releases:
 
 ## 2026-07
 
+- `random`: Sobol and PseudoRandom normal draws now default to the precise
+  inverse-normal-CDF routine (`precise=true`) on `NewSobol`, `SobolRSG_`,
+  `PseudoRandom_::New`, and `PseudoRSG_` (`dal-cpp/dal/math/random/{sobol,pseudorandom}.hpp`),
+  restoring ~1e-15 Acklam+Newton accuracy in the default path (previously the
+  faster ~1e-9 Acklam-only routine was the default). This shifts default
+  Sobol/PseudoRandom normal variates; opt back into the fast path with
+  `precise=false`. See `docs/methodology/random.md`. Non-breaking (default-argument
+  reproducibility change only; the precise routine was already available).
 - `random`: Sobol normal draws now skip the Newton polish on `InverseNCDF` by default
   (`SobolRSG_(..., polish=false)`, `dal-cpp/dal/math/random/sobol.hpp`), halving the per-deviate
   cost at the cost of ~1e-9 Acklam accuracy instead of ~1e-15 (Acklam+Newton) — below QMC sampling

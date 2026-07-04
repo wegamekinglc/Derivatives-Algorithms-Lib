@@ -142,7 +142,7 @@ void MultiV5(const Matrix_& a, const Matrix_& b, Matrix_& c) {
 
 int main() {
     const int n = 1000;
-    std::unique_ptr<Dal::Random_> random(Dal::NewSobol(n, 1000));
+    std::unique_ptr<Dal::Random_> random(Dal::NewSobol(n, 1000, /*precise=*/false));
     Matrix_ a(n, n, random);
     Matrix_ b(n, n, random);
     Matrix_ c(n, n, nullptr);

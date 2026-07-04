@@ -36,7 +36,7 @@ namespace Dal {
         Vector_<> cache_;
 
     public:
-        explicit PseudoRandom_(size_t nDim, bool precise = false) : cache_(nDim), precise_(precise) {}
+        explicit PseudoRandom_(size_t nDim, bool precise = true) : cache_(nDim), precise_(precise) {}
         ~PseudoRandom_() override = default;
         virtual double NextUniform() = 0;
         void FillUniform(Vector_<>* deviates) override;
@@ -48,7 +48,7 @@ namespace Dal {
     };
 
 #include <dal/auto/MG_RNGType_enum.hpp>
-    PseudoRandom_* New(const RNGType_& type, int seed, size_t nDim = 1, bool precise = false);
+    PseudoRandom_* New(const RNGType_& type, int seed, size_t nDim = 1, bool precise = true);
 
     class BASE_EXPORT PseudoRSG_: public Storable_ {
         std::unique_ptr<PseudoRandom_> rsg_;
@@ -56,7 +56,7 @@ namespace Dal {
         double ndim_;
         bool precise_;
     public:
-        PseudoRSG_(const String_& name, double seed, double ndim = 1, bool precise = false)
+        PseudoRSG_(const String_& name, double seed, double ndim = 1, bool precise = true)
         : Storable_("PseudoRSG", name), seed_(seed), ndim_(ndim), precise_(precise) {
             rsg_.reset(New(RNGType_(name), static_cast<int>(seed), static_cast<size_t>(ndim), precise));
         }

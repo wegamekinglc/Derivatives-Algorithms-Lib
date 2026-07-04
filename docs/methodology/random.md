@@ -190,8 +190,11 @@ inverse-CDF evaluation, both defaulted on construction and stored on the
 storable wrapper `SobolRSG_` (`dal-cpp/dal/math/random/sobol.hpp`) and on
 `SobolSet_`:
 
-- `precise_` selects a higher-accuracy inverse-normal-CDF routine, mirroring the
-  pseudo-random family.
+- `precise_` selects the higher-accuracy inverse-normal-CDF routine (Acklam's
+  rational approximation refined by a Newton step, ~1e-15 accuracy), mirroring
+  the pseudo-random family. It defaults to **`true`** so default Sobol normal
+  variates are full-precision; pass `precise = false` to opt back into the
+  faster Acklam-only routine (~1e-9), which is still below QMC sampling noise.
 - `polish_` toggles the Newton polish step in `InverseNCDF`. The Acklam rational
   approximation without polish is already accurate to roughly $10^{-9}$, well
   below quasi-Monte-Carlo sampling noise, so polish defaults to **`false`** and
@@ -199,10 +202,12 @@ storable wrapper `SobolRSG_` (`dal-cpp/dal/math/random/sobol.hpp`) and on
   halves the per-deviate cost of `FillNormal` without measurably moving QMC
   convergence.
 
-The constructor surface is therefore `NewSobol(size, iPath, precise = false,
+The constructor surface is therefore `NewSobol(size, iPath, precise = true,
 polish = false)` and the storable `SobolRSG_(name, iPath, nDim = 1, precise =
-false, polish = false)`; both flags are persisted by the storable markup so a
-serialised generator round-trips with its precision settings intact.
+true, polish = false)`; `precise = true` is the public default, and a caller
+passes `precise = false` to opt back into the fast Acklam-only path. Both flags
+are persisted by the storable markup so a serialised generator round-trips with
+its precision settings intact.
 
 ### Path Seeking
 
