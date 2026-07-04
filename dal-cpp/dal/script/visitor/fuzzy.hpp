@@ -206,8 +206,8 @@ namespace Dal::Script {
         FORCE_INLINE void Visit(const NodeSup_& node) { VisitComp(node); }
         FORCE_INLINE void Visit(const NodeSupEqual_& node) { VisitComp(node); }
 
-        // Negation
-        FORCE_INLINE void visitNot(const NodeNot_& node) {
+        // Negation: probability complement on the fuzzy stack
+        FORCE_INLINE void Visit(const NodeNot_& node) {
             VisitNode(*node.arguments_[0]);
             fuzzyStack_.Top() = 1.0 - fuzzyStack_.Top();
         }
