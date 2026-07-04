@@ -83,6 +83,25 @@ here as the baseline rather than dated releases:
 
 ## 2026-07
 
+- `script`: The compiled (flat-stream) evaluator is now the production default for
+  `MCSimulation` in **both** specializations (`compiled=true` for `<double>` and
+  `<AAD::Number_>`; `dal-cpp/dal/script/simulation.hpp`), and is at strict capability
+  parity with the tree-walk evaluators: fuzzy smoothing (call-spread/butterfly
+  kernels shared via `dal-cpp/dal/script/visitor/smoothing.hpp`, dt-blend `FuzzyIf`,
+  per-condition `eps` overrides, `maxNestedIfs`), const variables (live `ConstVar`
+  opcode preserving const-var greeks), past events, and `NodeCollect_` all produce
+  the same numbers (tol 1e-8) through either path. `ScriptProduct_::Compile(fuzzy)`
+  is now `const` and returns a `ScriptCompiled_` artifact; `MCSimulation` compiles
+  internally, and `compiled` is `std::optional<bool>` (unset = library default).
+  Exposed through `ValueByMonteCarlo` (`dal-public/src/value.hpp`) and the Python
+  `MonteCarlo_Value` binding as a backward-compatible `compiled` keyword. **Breaking
+  (behavioral defaults)**: (1) `AND`/`OR` are now eager in ALL evaluators — both
+  operands always evaluate; scripts must not rely on short-circuit (conditions in
+  this grammar are pure, so parseable scripts are unaffected); (2) evaluation
+  defaults flipped from tree-walk to compiled (same numbers, ~20-25% faster);
+  (3) `Compile()` signature/semantics changed from mutating member streams to a
+  const artifact factory. See `docs/methodology/script_engine.md`.
+
 - `random`: Sobol and PseudoRandom normal draws now default to the precise
   inverse-normal-CDF routine (`precise=true`) on `NewSobol`, `SobolRSG_`,
   `PseudoRandom_::New`, and `PseudoRSG_` (`dal-cpp/dal/math/random/{sobol,pseudorandom}.hpp`),

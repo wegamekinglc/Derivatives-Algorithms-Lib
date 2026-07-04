@@ -137,12 +137,10 @@ namespace Dal::Script {
 
         Vector_<Vector_<int>> nodeStreams;
         Vector_<Vector_<>> constStreams;
-        Vector_<Vector_<const void*>> dataStreams;
 
         //  One per event date
         nodeStreams.reserve(events_.size());
         constStreams.reserve(events_.size());
-        dataStreams.reserve(events_.size());
 
         //	Visit
         for (const auto& evt : events_) {
@@ -156,10 +154,9 @@ namespace Dal::Script {
             //  Get compiled
             nodeStreams.push_back(comp.NodeStream());
             constStreams.push_back(comp.ConstStream());
-            dataStreams.push_back(comp.DataStream());
         }
 
-        return {std::move(nodeStreams), std::move(constStreams), std::move(dataStreams)};
+        return {std::move(nodeStreams), std::move(constStreams)};
     }
 
 

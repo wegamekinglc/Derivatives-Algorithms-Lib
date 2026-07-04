@@ -236,3 +236,34 @@ def test_mc_value_use_bb_flag():
 
     result = dal.MonteCarlo_Value(product, model, 2**14, "sobol", True)
     assert "PV" in result  # nosec B101 - pytest assertions are intentional
+
+
+# ---- Compiled Evaluator Flag ---------------------------------------------------
+
+
+def test_mc_value_compiled_flag_parity():
+    """compiled=True/False/None (default) produce the same PV: performance flag only."""
+    model = dal.BSModelData_New(spot=100.0, vol=0.2, rate=0.05, div=0.02)
+    product = _make_european_call(100.0, dal.Date_(2023, 9, 25))
+
+    pv_default = dal.MonteCarlo_Value(product, model, 2**14)["PV"]
+    pv_compiled = dal.MonteCarlo_Value(product, model, 2**14, compiled=True)["PV"]
+    pv_tree_walk = dal.MonteCarlo_Value(product, model, 2**14, compiled=False)["PV"]
+
+    assert abs(pv_compiled - pv_tree_walk) < 1e-8  # nosec B101 - pytest assertions are intentional
+    assert abs(pv_default - pv_compiled) < 1e-8  # nosec B101 - pytest assertions are intentional
+
+
+def test_mc_value_compiled_flag_parity_aad():
+    """The compiled flag preserves PV and every greek in the AAD path."""
+    model = dal.BSModelData_New(spot=100.0, vol=0.2, rate=0.05, div=0.02)
+    product = _make_european_call(100.0, dal.Date_(2023, 9, 25))
+
+    res_compiled = dal.MonteCarlo_Value(
+        product, model, 2**14, enable_aad=True, compiled=True)
+    res_tree_walk = dal.MonteCarlo_Value(
+        product, model, 2**14, enable_aad=True, compiled=False)
+
+    assert res_compiled.keys() == res_tree_walk.keys()  # nosec B101 - pytest assertions are intentional
+    for key in res_compiled:
+        assert abs(res_compiled[key] - res_tree_walk[key]) < 1e-8  # nosec B101 - pytest assertions are intentional

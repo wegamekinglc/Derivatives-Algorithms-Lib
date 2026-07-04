@@ -226,7 +226,9 @@ trading a small controlled bias for a finite, low-variance derivative.
 
 ### Smoothing Functions
 
-Two primitive smooth transitions are used. For a comparison `expr > 0` (or `>=`),
+Two primitive smooth transitions are used; both kernels live in
+`dal-cpp/dal/script/visitor/smoothing.hpp`, shared by the fuzzy tree-walk and
+the compiled fuzzy opcodes. For a comparison `expr > 0` (or `>=`),
 the **continuous spread** function transitions from $0$ to $1$ across a band of
 width $\varepsilon$:
 
@@ -348,9 +350,9 @@ Carlo](aad.md#pathwise-adjoints-in-monte-carlo).
 ### Value-Only vs AAD Evaluation
 
 The `double` instantiation walks the AST with an `Evaluator_<double>` (or, in
-compiled mode, an `EvalState_<double>` over pre-compiled node/const/data
-streams) and accumulates the payoff slot across paths. The `AAD::Number_`
-instantiation additionally:
+compiled mode — the default — an `EvalState_<double>` over the pre-compiled
+node/const streams) and accumulates the payoff slot across paths. The
+`AAD::Number_` instantiation additionally:
 
 1. Activates the tape and registers model parameters and constant variables on
    it (`InitModel4ParallelAAD`), then marks.
@@ -365,12 +367,32 @@ labelled by model parameter and constant variable.
 
 ### Compiled vs Interpreted
 
-`Compile()` flattens each event's AST into a `nodeStreams_` / `constStreams_` /
-`dataStreams_` triple via a `Compiler_` visitor. `EvaluateCompiled` interprets
-that flat representation against a scenario without re-walking the polymorphic
-node tree, trading the per-node virtual dispatch for a tight switch over a
-stream of opcodes. The interpreted path (`Evaluate`) is simpler and is used
-where the AST is small or where the compile step is not worth its cost.
+`Compile(fuzzy)` is `const` and flattens each event's (pre-processed) AST into
+a `ScriptCompiled_` artifact holding one node stream (integer opcodes and
+operands) and one const stream per event, via a `Compiler_` visitor. The
+artifact's `Evaluate` interprets that flat representation against a scenario
+without re-walking the polymorphic node tree, trading per-node virtual dispatch
+for a tight switch over a stream of opcodes.
+
+With `fuzzy = false` the stream mirrors `Evaluator_<T>` exactly: comparisons
+push booleans, `If`/`IfElse` hard-branch. With `fuzzy = true` the stream
+mirrors `FuzzyEvaluator_<T>` exactly: comparisons compile to smoothed opcodes
+(`FuzzyComp`/`FuzzyEqual` and their discrete-bound variants, applying the same
+call-spread/butterfly kernels from `smoothing.hpp`), `AND`/`OR`/`NOT` compile
+to the probability combinators, and `If` compiles to a `FuzzyIf` opcode that
+performs the same dt-blend over the statement's affected variables, with the
+evaluator's `defEps_` resolving negative per-node `eps_` overrides. Constant
+conditions are never hard-folded on the fuzzy path, so a constant within
+$\varepsilon/2$ of the threshold produces the same fractional degree of truth
+as the tree-walk.
+
+Both `MCSimulation` instantiations therefore accept `compiled` as a pure
+performance flag: every product and configuration produces the same numbers
+(within floating-point association noise) through either path. The default is
+`compiled = true` for both `double` and `AAD::Number_`; pass `compiled = false`
+to force the tree-walk evaluators. `MCSimulation` compiles internally
+(`Compile()` for `double`, `Compile(true)` for `Number_`, matching the fuzzy
+tree-walk it replaces), so callers never manage the artifact themselves.
 
 ## Visitor Machinery
 

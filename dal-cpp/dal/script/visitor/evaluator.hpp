@@ -268,6 +268,10 @@ namespace Dal::Script {
         FORCE_INLINE void Visit(const NodeFalse_& node) { bStack_.Push(false); }
 
         FORCE_INLINE void Visit(const NodeSpot_& node) { dStack_.Push((*scenario_)[curEvt_].spot_); }
+
+        //  NodeCollect_ (inserted by ConstCondProcessor_ when it unwraps an
+        //  always-true/false If): pure grouping, evaluate the children in place.
+        FORCE_INLINE void Visit(const NodeCollect_& node) { this->VisitArguments(node); }
     };
 
     //  Concrete Evaluator_

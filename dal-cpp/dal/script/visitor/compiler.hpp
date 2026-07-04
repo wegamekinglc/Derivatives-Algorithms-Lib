@@ -28,51 +28,6 @@ As long as this comment is preserved at the Top of the file
 #include <dal/script/visitor.hpp>
 #include <dal/script/visitor/smoothing.hpp>
 
-/*IF--------------------------------------------------------------------------
-enumeration NodeType
-    node type list
-switchable
-alternative Add
-alternative AddConst
-alternative Sub
-alternative SubConst
-alternative ConstSub
-alternative Mult
-alternative MultConst
-alternative Div
-alternative DivConst
-alternative ConstDiv
-alternative Pow
-alternative PowConst
-alternative ConstPow
-alternative Max2
-alternative Max2Const
-alternative Min2
-alternative Min2Const
-alternative Spot
-alternative Var
-alternative Const
-alternative Assign
-alternative AssignConst
-alternative Pays
-alternative PaysConst
-alternative If
-alternative IfElse
-alternative Equal
-alternative Sup
-alternative SupEqual
-alternative And
-alternative Or
-alternative Smooth
-alternative Sqrt
-alternative Log
-alternative Not
-alternative Uminus
-alternative True
-alternative False
-alternative ConstVar
--IF-------------------------------------------------------------------------*/
-
 namespace Dal::Script {
     template <class T_> struct EvalState_ {
         // State
@@ -121,10 +76,11 @@ namespace Dal::Script {
         }
     };
 
-    // NOTE: NodeType_ kept hand-written (not dal/auto/MG_NodeType_enum); the generated form
-    // is a class wrapper (not an enum) and cannot serve as a non-type template parameter for
-    // VisitBinary/VisitUnary/VisitCondition. Migrating is high-risk (~167 bare-opcode refs +
-    // the compiled nodeStream_ integer contract) and is deferred to a dedicated PR.
+    // NOTE: NodeType_ is hand-written rather than a Machinist enumeration: the generated
+    // form is a class wrapper (not an enum) and cannot serve as a non-type template
+    // parameter for VisitBinary/VisitUnary/VisitCondition, nor as integer opcodes in the
+    // compiled nodeStream_. The unused MG_NodeType markup and generated files were removed
+    // (defect #9) so this enum is the single source of truth.
     enum NodeType_ {
         Add = 0,
         AddConst = 1,
@@ -185,7 +141,6 @@ namespace Dal::Script {
         // State
         Vector_<int> nodeStream_;
         Vector_<double> constStream_;
-        Vector_<const void*> dataStream_;
         //  Fuzzy mode: conditions compile to smoothed (CSpr/BFly) opcodes and
         //  If compiles to the dt-blend FuzzyIf, mirroring FuzzyEvaluator_.
         const bool fuzzy_;
@@ -198,7 +153,6 @@ namespace Dal::Script {
         // Access the streams after traversal
         [[nodiscard]] const Vector_<int>& NodeStream() const { return nodeStream_; }
         [[nodiscard]] const Vector_<double>& ConstStream() const { return constStream_; }
-        [[nodiscard]] const Vector_<const void*>& DataStream() const { return dataStream_; }
 
         // Visitors
         // Expressions
@@ -383,6 +337,10 @@ namespace Dal::Script {
         // Scenario related
         void Visit(const NodeSpot_&) { nodeStream_.emplace_back(Spot); }
 
+        //  NodeCollect_ (inserted by ConstCondProcessor_ when it unwraps an
+        //  always-true/false If): pure grouping, compile the children in place.
+        void Visit(const NodeCollect_& node) { VisitArguments(node); }
+
         // Instructions
         void Visit(const NodeIf_& node) {
             //  Visit condition
@@ -446,7 +404,6 @@ namespace Dal::Script {
         //  Stream to eval
         const Vector_<int>& nodeStream,
         const Vector_<double>& constStream,
-        const Vector_<const void*>& dataStream,
         //  Scenario
         const AAD::Sample_<T_>& scenario,
         //  State
@@ -460,10 +417,6 @@ namespace Dal::Script {
         bool reset = true) {
         const size_t n = last ? last : nodeStream.size();
         size_t i = first;
-
-        //  Work space
-        T_ x, y, z, t;
-        size_t idx;
 
         //  Stacks
         thread_local static StaticStack_<T_> dStack;
@@ -537,31 +490,34 @@ namespace Dal::Script {
                 dStack.Top() = pow(constStream[nodeStream[++i]], dStack.Top());
                 ++i;
                 break;
-            case Max2:
-                y = dStack.TopAndPop();
+            case Max2: {
+                const T_ y = dStack.TopAndPop();
                 if (y > dStack[0])
                     dStack[0] = y;
                 ++i;
                 break;
-            case Max2Const:
-                y = T_(constStream[nodeStream[++i]]);
+            }
+            case Max2Const: {
+                const T_ y(constStream[nodeStream[++i]]);
                 if (y > dStack.Top())
                     dStack.Top() = y;
                 ++i;
                 break;
-            case Min2:
-                y = dStack.Top();
-                if (y < dStack[1])
-                    dStack[1] = y;
-                dStack.Pop();
+            }
+            case Min2: {
+                const T_ y = dStack.TopAndPop();
+                if (y < dStack[0])
+                    dStack[0] = y;
                 ++i;
                 break;
-            case Min2Const:
-                y = T_(constStream[nodeStream[++i]]);
+            }
+            case Min2Const: {
+                const T_ y(constStream[nodeStream[++i]]);
                 if (y < dStack.Top())
                     dStack.Top() = y;
                 ++i;
                 break;
+            }
             case Spot:
                 dStack.Push(scenario.spot_);
                 ++i;
@@ -578,29 +534,32 @@ namespace Dal::Script {
                 dStack.Push(constStream[nodeStream[++i]]);
                 ++i;
                 break;
-            case Assign:
-                idx = nodeStream[++i];
+            case Assign: {
+                const size_t idx = nodeStream[++i];
                 state.variables_[idx] = dStack.TopAndPop();
                 ++i;
                 break;
-            case AssignConst:
-                x = T_(constStream[nodeStream[++i]]);
-                idx = nodeStream[++i];
-                state.variables_[idx] = x;
+            }
+            case AssignConst: {
+                const double val = constStream[nodeStream[++i]];
+                const size_t idx = nodeStream[++i];
+                state.variables_[idx] = T_(val);
                 ++i;
                 break;
-            case Pays:
-                ++i;
-                idx = nodeStream[i];
+            }
+            case Pays: {
+                const size_t idx = nodeStream[++i];
                 state.variables_[idx] += dStack.TopAndPop() / scenario.numeraire_;
                 ++i;
                 break;
-            case PaysConst:
-                x = T_(constStream[nodeStream[++i]]);
-                idx = nodeStream[++i];
-                state.variables_[idx] += x / scenario.numeraire_;
+            }
+            case PaysConst: {
+                const double val = constStream[nodeStream[++i]];
+                const size_t idx = nodeStream[++i];
+                state.variables_[idx] += T_(val) / scenario.numeraire_;
                 ++i;
                 break;
+            }
             case If:
                 if (bStack.Top()) {
                     i += 2;
@@ -615,7 +574,7 @@ namespace Dal::Script {
                 } else {
                     //  Re-entrant call over the true branch only. reset=false:
                     //  the parent frame still needs bStack (Pop below) and dStack.
-                    EvalCompiled(nodeStream, constStream, dataStream, scenario, state, i + 3, nodeStream[i + 1], false);
+                    EvalCompiled(nodeStream, constStream, scenario, state, i + 3, nodeStream[i + 1], false);
                     i = nodeStream[i + 2];
                 }
                 bStack.Pop();
@@ -698,19 +657,21 @@ namespace Dal::Script {
                 ++i;
                 break;
             }
-            case FuzzyAnd:
+            case FuzzyAnd: {
                 //  Probability combinators, same as FuzzyEvaluator_: a * b.
-                x = dStack.TopAndPop();
+                const T_ x = dStack.TopAndPop();
                 dStack.Top() *= x;
                 ++i;
                 break;
-            case FuzzyOr:
+            }
+            case FuzzyOr: {
                 //  a + b - a * b
-                x = dStack.TopAndPop();
-                y = dStack.TopAndPop();
+                const T_ x = dStack.TopAndPop();
+                const T_ y = dStack.TopAndPop();
                 dStack.Push(x + y - x * y);
                 ++i;
                 break;
+            }
             case FuzzyNot:
                 dStack.Top() = 1.0 - dStack.Top();
                 ++i;
@@ -735,10 +696,10 @@ namespace Dal::Script {
                 const size_t firstAff = i + 4;
                 const size_t firstTrue = firstAff + nAff;
 
-                t = dStack.TopAndPop();
+                const T_ t = dStack.TopAndPop();
                 if (t > 1.0 - EPSILON) {
                     //  Absolutely true: run the true branch, skip the else.
-                    EvalCompiled(nodeStream, constStream, dataStream, scenario, state, firstTrue, lastTrue, false);
+                    EvalCompiled(nodeStream, constStream, scenario, state, firstTrue, lastTrue, false);
                     i = lastFalse;
                 } else if (t < EPSILON) {
                     //  Absolutely false: fall through to the else statements.
@@ -746,18 +707,18 @@ namespace Dal::Script {
                 } else {
                     const size_t lvl = state.nestedIfLvl_++;
                     for (int k = 0; k < nAff; ++k) {
-                        idx = nodeStream[firstAff + k];
+                        const size_t idx = nodeStream[firstAff + k];
                         state.varStore0_[lvl][idx] = state.variables_[idx];
                     }
-                    EvalCompiled(nodeStream, constStream, dataStream, scenario, state, firstTrue, lastTrue, false);
+                    EvalCompiled(nodeStream, constStream, scenario, state, firstTrue, lastTrue, false);
                     for (int k = 0; k < nAff; ++k) {
-                        idx = nodeStream[firstAff + k];
+                        const size_t idx = nodeStream[firstAff + k];
                         state.varStore1_[lvl][idx] = state.variables_[idx];
                         state.variables_[idx] = state.varStore0_[lvl][idx];
                     }
-                    EvalCompiled(nodeStream, constStream, dataStream, scenario, state, lastTrue, lastFalse, false);
+                    EvalCompiled(nodeStream, constStream, scenario, state, lastTrue, lastFalse, false);
                     for (int k = 0; k < nAff; ++k) {
-                        idx = nodeStream[firstAff + k];
+                        const size_t idx = nodeStream[firstAff + k];
                         state.variables_[idx] = t * state.varStore1_[lvl][idx] + (1.0 - t) * state.variables_[idx];
                     }
                     --state.nestedIfLvl_;

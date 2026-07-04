@@ -36,15 +36,12 @@ namespace Dal::Script {
     class ScriptCompiled_ {
         Vector_<Vector_<int>> nodeStreams_;
         Vector_<Vector_<>> constStreams_;
-        Vector_<Vector_<const void*>> dataStreams_;
 
     public:
         ScriptCompiled_(Vector_<Vector_<int>>&& nodeStreams,
-                        Vector_<Vector_<>>&& constStreams,
-                        Vector_<Vector_<const void*>>&& dataStreams)
+                        Vector_<Vector_<>>&& constStreams)
             : nodeStreams_(std::move(nodeStreams)),
-              constStreams_(std::move(constStreams)),
-              dataStreams_(std::move(dataStreams)) {}
+              constStreams_(std::move(constStreams)) {}
 
         [[nodiscard]] const Vector_<Vector_<int>>& NodeStreams() const { return nodeStreams_; }
 
@@ -53,7 +50,6 @@ namespace Dal::Script {
             for (size_t i = 0; i < nodeStreams_.size(); ++i)
                 EvalCompiled(nodeStreams_[i],
                              constStreams_[i],
-                             dataStreams_[i],
                              scenario[i],
                              state);
         }
