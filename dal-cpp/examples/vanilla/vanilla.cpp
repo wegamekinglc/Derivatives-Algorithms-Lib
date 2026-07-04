@@ -113,12 +113,34 @@ int main() {
         timer.Reset();
         Handle_<ModelData_> modelData(new BSModelData_("bsmodel", spot, vol, rate, div));
         ScriptProduct_ product(eventDates, events, "call");
-        int maxNestedIfs = product.PreProcess(false, false);
+        product.PreProcess(false, false);
         SimResults_ results = MCSimulation<double>(product, modelData, numPath, String_("sobol"), false, false);
 
         auto calculated = results.aggregated_ / static_cast<double>(numPath);
 
         std::cout << std::setw(widths[0]) << std::left << "Non-AAD"
+                  << std::setw(widths[1]) << std::right << numPath
+                  << std::setw(widths[2]) << std::right << 1
+                  << std::fixed << std::setprecision(6)
+                  << std::setw(widths[3]) << std::right << calculated
+                  << std::setw(widths[4]) << std::right << "#NA"
+                  << std::setw(widths[5]) << std::right << "#NA"
+                  << std::setw(widths[6]) << std::right << "#NA"
+                  << std::setw(widths[7]) << std::right << "#NA"
+                  << std::setw(widths[8]) << std::right << "#NA"
+                  << std::setw(widths[9]) << std::right << int(timer.Elapsed<milliseconds>()) << std::endl;
+    }
+
+    {
+        timer.Reset();
+        Handle_<ModelData_> modelData(new BSModelData_("bsmodel", spot, vol, rate, div));
+        ScriptProduct_ product(eventDates, events, "call");
+        product.PreProcess(false, false);
+        SimResults_ results = MCSimulation<double>(product, modelData, numPath, String_("sobol"), false, true);
+
+        auto calculated = results.aggregated_ / static_cast<double>(numPath);
+
+        std::cout << std::setw(widths[0]) << std::left << "Non-AAD Comp"
                   << std::setw(widths[1]) << std::right << numPath
                   << std::setw(widths[2]) << std::right << 1
                   << std::fixed << std::setprecision(6)
@@ -226,6 +248,28 @@ int main() {
         auto calculated = results.aggregated_ / static_cast<double>(numPath);
 
         std::cout << std::setw(widths[0]) << std::left << "AAD"
+                  << std::setw(widths[1]) << std::right << numPath
+                  << std::setw(widths[2]) << std::right << 1
+                  << std::fixed << std::setprecision(6)
+                  << std::setw(widths[3]) << std::right << calculated
+                  << std::setw(widths[4]) << std::right << results.risks_[0]
+                  << std::setw(widths[5]) << std::right << results.risks_[1]
+                  << std::setw(widths[6]) << std::right << results.risks_[2]
+                  << std::setw(widths[7]) << std::right << results.risks_[3]
+                  << std::setw(widths[8]) << std::right << results.risks_[4]
+                  << std::setw(widths[9]) << std::right << int(timer.Elapsed<milliseconds>()) << std::endl;
+    }
+
+    {
+        timer.Reset();
+        Handle_<ModelData_> modelData(new BSModelData_("bsmodel", spot, vol, rate, div));
+        ScriptProduct_ product(eventDates, events, "call");
+        int maxNestedIfs = product.PreProcess(true, true);
+        SimResults_ results = MCSimulation<Number_>(product, modelData, numPath, String_("sobol"), false, true, maxNestedIfs);
+
+        auto calculated = results.aggregated_ / static_cast<double>(numPath);
+
+        std::cout << std::setw(widths[0]) << std::left << "AAD Comp"
                   << std::setw(widths[1]) << std::right << numPath
                   << std::setw(widths[2]) << std::right << 1
                   << std::fixed << std::setprecision(6)
