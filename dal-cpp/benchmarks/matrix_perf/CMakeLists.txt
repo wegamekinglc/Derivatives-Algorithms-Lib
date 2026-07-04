@@ -1,10 +1,8 @@
 file(GLOB_RECURSE MATRIX_PERF_FILES "*.hpp" "*.cpp")
 
-find_package(OpenMP REQUIRED)
-
 add_executable(matrix_perf ${MATRIX_PERF_FILES})
 
-target_link_libraries(matrix_perf dal_library OpenMP::OpenMP_CXX)
+target_link_libraries(matrix_perf dal_library)
 
 if(DAL_USE_XAD_AAD)
     target_link_libraries(matrix_perf XAD::xad)
