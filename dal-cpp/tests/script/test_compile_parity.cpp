@@ -175,7 +175,7 @@ TEST(ScriptCompiledParityTest, TestParity_PastEvents_InitSeeding) {
 // RED under UBSAN: dal-cpp/dal/math/stacks.hpp:133,135 "index -1 out of bounds
 // for type 'bool [128]'" (the parent Pop after the recursive true branch).
 // UB today; enabled by Phase 1a.
-TEST(ScriptCompiledParityTest, DISABLED_TestParity_IfElse_ConsecutiveBothTrue) {
+TEST(ScriptCompiledParityTest, TestParity_IfElse_ConsecutiveBothTrue) {
     Global::Dates_::SetEvaluationDate(Date_(2023, 1, 1));
     Vector_<Cell_> eventDates{Cell_(Date_(2023, 1, 28))};
     Vector_<String_> events{R"(
@@ -202,7 +202,7 @@ TEST(ScriptCompiledParityTest, DISABLED_TestParity_IfElse_ConsecutiveBothTrue) {
 // #1 nested: the recursive EvalCompiled in the true branch shares the parent's
 // thread_local dStack/bStack; a nested IfElse whose outer condition is true
 // stresses the same shared-stack underflow via recursion depth.
-TEST(ScriptCompiledParityTest, DISABLED_TestParity_IfElse_NestedInTrueBranch) {
+TEST(ScriptCompiledParityTest, TestParity_IfElse_NestedInTrueBranch) {
     Global::Dates_::SetEvaluationDate(Date_(2023, 1, 1));
     Vector_<Cell_> eventDates{Cell_(Date_(2023, 1, 28))};
     Vector_<String_> events{R"(

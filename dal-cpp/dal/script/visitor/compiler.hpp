@@ -358,7 +358,6 @@ namespace Dal::Script {
         }
     };
 
-    
     template <class T_>
     inline void EvalCompiled(
         //  Stream to eval
@@ -369,9 +368,13 @@ namespace Dal::Script {
         const AAD::Sample_<T_>& scenario,
         //  State
         EvalState_<T_>& state,
-        //  First (included), last (excluded)
+        //  First (included), last (excluded), reset flag
         size_t first = 0,
-        size_t last = 0) {
+        size_t last = 0,
+        //  Per-event entry resets the thread_local stacks; the IfElse
+        //  true-branch re-entry passes false so the parent's bStack
+        //  (still holding the condition) is not wiped.
+        bool reset = true) {
         const size_t n = last ? last : nodeStream.size();
         size_t i = first;
 
@@ -380,10 +383,12 @@ namespace Dal::Script {
         size_t idx;
 
         //  Stacks
-        thread_local  static StaticStack_<T_> dStack;
-        dStack.Reset();
+        thread_local static StaticStack_<T_> dStack;
+        if (reset)
+            dStack.Reset();
         thread_local static StaticStack_<bool> bStack;
-        bStack.Reset();
+        if (reset)
+            bStack.Reset();
 
         //  Loop on instructions
         while (i < n) {
@@ -522,8 +527,9 @@ namespace Dal::Script {
                 if (!bStack.Top()) {
                     i = nodeStream[++i];
                 } else {
-                    //  Cannot avoid nested call here
-                    EvalCompiled(nodeStream, constStream, dataStream, scenario, state, i + 3, nodeStream[i + 1]);
+                    //  Re-entrant call over the true branch only. reset=false:
+                    //  the parent frame still needs bStack (Pop below) and dStack.
+                    EvalCompiled(nodeStream, constStream, dataStream, scenario, state, i + 3, nodeStream[i + 1], false);
                     i = nodeStream[i + 2];
                 }
                 bStack.Pop();
