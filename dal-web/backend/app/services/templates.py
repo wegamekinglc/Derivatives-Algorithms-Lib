@@ -24,8 +24,11 @@ def product_templates() -> list[dict]:
             "description": "Vanilla European call paying MAX(spot-K, 0) at maturity.",
             "rows": [
                 {"date_kind": "label", "label": "STRIKE", "event": "120.00"},
-                {"date_kind": "date", "date": "2025-09-15",
-                 "event": "call pays MAX(spot() - STRIKE, 0.0)"},
+                {
+                    "date_kind": "date",
+                    "date": "2025-09-15",
+                    "event": "call pays MAX(spot() - STRIKE, 0.0)",
+                },
             ],
         },
         {
@@ -36,12 +39,17 @@ def product_templates() -> list[dict]:
                 {"date_kind": "label", "label": "STRIKE", "event": "120.00"},
                 {"date_kind": "label", "label": "BARRIER", "event": "150.00"},
                 {"date_kind": "date", "date": "2022-09-25", "event": "alive = 1"},
-                {"date_kind": "label",
-                 "label": "START: 2022-09-25 END: 2025-09-25 FREQ: 1W",
-                 "event": "IF spot() > BARRIER:0.1 THEN alive = 0 END"},
-                {"date_kind": "date", "date": "2025-09-25",
-                 "event": "IF spot() > BARRIER:0.1 THEN alive = 0 END "
-                          "uoc pays alive * MAX(spot() - STRIKE, 0.0)"},
+                {
+                    "date_kind": "label",
+                    "label": "START: 2022-09-25 END: 2025-09-25 FREQ: 1W",
+                    "event": "IF spot() > BARRIER:0.1 THEN alive = 0 END",
+                },
+                {
+                    "date_kind": "date",
+                    "date": "2025-09-25",
+                    "event": "IF spot() > BARRIER:0.1 THEN alive = 0 END "
+                    "uoc pays alive * MAX(spot() - STRIKE, 0.0)",
+                },
             ],
         },
         {
@@ -53,20 +61,24 @@ def product_templates() -> list[dict]:
                 {"date_kind": "label", "label": "KO", "event": "1.00"},
                 {"date_kind": "label", "label": "STRIKE", "event": "1.00"},
                 {"date_kind": "label", "label": "COUPON", "event": "0.069"},
-                {"date_kind": "date", "date": "2023-03-01",
-                 "event": "alive = 1 is_ki = 0"},
-                {"date_kind": "label",
-                 "label": "START: 2023-06-01 END: 2025-02-01 FREQ: 1M",
-                 "event": "if spot() < KI:0.001 then is_ki = 1 end\n"
-                          "if spot() > KO:0.001 then call pays alive * COUPON * "
-                          "DCF(ACT365F, 2023-03-01, PeriodEnd) alive = 0 end"},
-                {"date_kind": "date", "date": "2025-03-01",
-                 "event": "if spot() < KI:0.001 then is_ki = 1 end\n"
-                          "if spot() > KO:0.001 then call pays alive * COUPON * "
-                          "DCF(ACT365F, 2023-03-01, 2025-03-01) alive = 0 end\n"
-                          "call pays alive * is_ki * (spot() - STRIKE) + "
-                          "alive * (1.000000 - is_ki) * COUPON * "
-                          "DCF(ACT365F, 2023-03-01, 2025-03-01)"},
+                {"date_kind": "date", "date": "2023-03-01", "event": "alive = 1 is_ki = 0"},
+                {
+                    "date_kind": "label",
+                    "label": "START: 2023-06-01 END: 2025-02-01 FREQ: 1M",
+                    "event": "if spot() < KI:0.001 then is_ki = 1 end\n"
+                    "if spot() > KO:0.001 then call pays alive * COUPON * "
+                    "DCF(ACT365F, 2023-03-01, PeriodEnd) alive = 0 end",
+                },
+                {
+                    "date_kind": "date",
+                    "date": "2025-03-01",
+                    "event": "if spot() < KI:0.001 then is_ki = 1 end\n"
+                    "if spot() > KO:0.001 then call pays alive * COUPON * "
+                    "DCF(ACT365F, 2023-03-01, 2025-03-01) alive = 0 end\n"
+                    "call pays alive * is_ki * (spot() - STRIKE) + "
+                    "alive * (1.000000 - is_ki) * COUPON * "
+                    "DCF(ACT365F, 2023-03-01, 2025-03-01)",
+                },
             ],
         },
     ]

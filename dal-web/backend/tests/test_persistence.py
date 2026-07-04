@@ -40,7 +40,11 @@ def _make_product(name: str = "P") -> ProductDefinition:
         template="european_call",
         rows=[
             EventRow(date_kind="label", label="STRIKE", event="120.00"),
-            EventRow(date_kind="date", date=date(2025, 9, 15), event="call pays MAX(spot() - STRIKE, 0.0)"),
+            EventRow(
+                date_kind="date",
+                date=date(2025, 9, 15),
+                event="call pays MAX(spot() - STRIKE, 0.0)",
+            ),
         ],
     )
 
@@ -105,9 +109,7 @@ def test_delete_product_referenced_by_trade_raises_conflict(tmp_path: Path) -> N
     store = _open_store(tmp_path / "dalweb.db")
     product = store.add_product(_make_product())
     model = store.add_model(_make_bs_model())
-    store.add_trade(
-        Trade(name="t", product_id=product.id, model_id=model.id)
-    )
+    store.add_trade(Trade(name="t", product_id=product.id, model_id=model.id))
 
     with pytest.raises(ConflictError):
         store.delete_product(product.id)
@@ -119,9 +121,7 @@ def test_delete_model_referenced_by_trade_raises_conflict(tmp_path: Path) -> Non
     store = _open_store(tmp_path / "dalweb.db")
     product = store.add_product(_make_product())
     model = store.add_model(_make_bs_model())
-    store.add_trade(
-        Trade(name="t", product_id=product.id, model_id=model.id)
-    )
+    store.add_trade(Trade(name="t", product_id=product.id, model_id=model.id))
 
     with pytest.raises(ConflictError):
         store.delete_model(model.id)

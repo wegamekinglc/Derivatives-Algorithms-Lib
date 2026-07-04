@@ -58,9 +58,7 @@ async def update_trade(
 
 
 @router.delete("/{trade_id}", status_code=204)
-async def delete_trade(
-    trade_id: str, store: Store = Depends(store_dependency)
-) -> None:
+async def delete_trade(trade_id: str, store: Store = Depends(store_dependency)) -> None:
     store.delete_trade(trade_id)
 
 

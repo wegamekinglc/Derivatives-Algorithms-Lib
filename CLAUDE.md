@@ -154,6 +154,7 @@ Notable fundamental changes are recorded in [CHANGELOG.md](CHANGELOG.md).
 - **coding style**: [Code style guide](.claude/rules/code-style.md)
 - **unit test style**: [Unit test style guide](.claude/rules/unit-test-style.md)
 - **web UI design**: [Web UI design standards](.claude/rules/dal-web-design.md)
+- **dal-web backend style**: [dal-web backend code style](.claude/rules/dal-web-code-style.md)
 
 ## Specialist agents
 

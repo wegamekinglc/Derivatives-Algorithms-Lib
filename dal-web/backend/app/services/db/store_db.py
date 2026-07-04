@@ -275,9 +275,7 @@ class DbStore:
             trade_ids = [m.trade_id for m in pf.memberships]
             if not trade_ids:
                 return []
-            rows = session.scalars(
-                select(TradeRow).where(TradeRow.id.in_(trade_ids))
-            ).all()
+            rows = session.scalars(select(TradeRow).where(TradeRow.id.in_(trade_ids))).all()
             by_id = {r.id: r.to_schema() for r in rows}
             return [by_id[tid] for tid in trade_ids if tid in by_id]
 

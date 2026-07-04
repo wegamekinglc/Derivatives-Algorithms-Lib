@@ -59,9 +59,7 @@ async def update_model(
 
 
 @router.delete("/{model_id}", status_code=204)
-async def delete_model(
-    model_id: str, store: Store = Depends(store_dependency)
-) -> None:
+async def delete_model(model_id: str, store: Store = Depends(store_dependency)) -> None:
     try:
         store.delete_model(model_id)
     except ConflictError as exc:

@@ -47,9 +47,7 @@ async def get_portfolio(
 
 
 @router.delete("/{portfolio_id}", status_code=204)
-async def delete_portfolio(
-    portfolio_id: str, store: Store = Depends(store_dependency)
-) -> None:
+async def delete_portfolio(portfolio_id: str, store: Store = Depends(store_dependency)) -> None:
     store.delete_portfolio(portfolio_id)
 
 

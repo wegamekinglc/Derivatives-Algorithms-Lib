@@ -276,9 +276,7 @@ async def value_portfolio_async(
         status="running",
     )
     added = store.add_valuation(pending)
-    _schedule_pricing(
-        _run_portfolio_pricing_async(store, gateway, added.id, portfolio_id, config)
-    )
+    _schedule_pricing(_run_portfolio_pricing_async(store, gateway, added.id, portfolio_id, config))
     return added
 
 
@@ -306,7 +304,5 @@ async def value_single_trade_async(
         status="running",
     )
     added = store.add_valuation(pending)
-    _schedule_pricing(
-        _run_trade_pricing_async(store, gateway, added.id, trade_id, config)
-    )
+    _schedule_pricing(_run_trade_pricing_async(store, gateway, added.id, trade_id, config))
     return added
