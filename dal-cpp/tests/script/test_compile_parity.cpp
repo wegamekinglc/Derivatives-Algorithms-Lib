@@ -15,6 +15,10 @@
 #include <dal/storage/globals.hpp>
 #include <dal/script/event.hpp>
 #include <dal/script/simulation.hpp>
+#include <dal/script/visitor/compiler.hpp>
+
+#include <set>
+#include <string>
 
 using namespace Dal;
 using namespace Dal::AAD;
@@ -83,6 +87,24 @@ namespace {
 
     Handle_<ModelData_> StandardBSModel(double spot, double vol, double rate, double div) {
         return Handle_<ModelData_>(new BSModelData_("bsmodel", spot, vol, rate, div));
+    }
+
+    // A discretely monitored up-and-out call: two const variables, an init
+    // event, two monitoring events with knock-out IFs, and a final payoff.
+    // Shared by the barrier parity test and the golden pin.
+    ScriptProduct_ FixedBarrierProduct() {
+        Vector_<Cell_> eventDates;
+        Vector_<String_> events;
+        eventDates.push_back(Cell_(String_("STRIKE"))); events.push_back("11.0");
+        eventDates.push_back(Cell_(String_("BARRIER"))); events.push_back("15.0");
+        eventDates.push_back(Cell_(Date_(2022, 9, 21))); events.push_back("alive = 1");
+        eventDates.push_back(Cell_(Date_(2023, 3, 21)));
+        events.push_back("IF spot() >= BARRIER THEN alive = 0 END");
+        eventDates.push_back(Cell_(Date_(2023, 9, 21)));
+        events.push_back("IF spot() >= BARRIER THEN alive = 0 END");
+        eventDates.push_back(Cell_(Date_(2024, 6, 21)));
+        events.push_back("call pays alive * MAX(spot() - STRIKE, 0.0)");
+        return ScriptProduct_(eventDates, events, "call");
     }
 } // namespace
 
@@ -223,49 +245,67 @@ TEST(ScriptCompiledParityTest, TestParity_IfElse_NestedInTrueBranch) {
     AssertPerPathParity(product, 5.0);
 }
 
-// #2 short-circuit loss in compiled. Tree-walk short-circuits &&/|| so the RHS
-// is never evaluated; compiled emits both sub-streams unconditionally. The
-// divergence is observable only when the RHS has a detectable side effect
-// (throw or state mutation). The script grammar's && RHS is a pure condition,
-// and C++ std::log of a non-positive returns NaN/-inf without throwing, so the
-// &&/|| result converges on the same boolean on both evaluators — confirmed
-// LIVE (PASSED) at spot=5.0 in both arms. The per-path harness cannot cleanly
-// construct a divergence. Phase 1b's fix (jump opcodes so the RHS sub-stream
-// is skipped when the LHS decides the boolean) is verified by a direct
-// Compiler_ unit test in that phase; this pin guards against regression once
-// the fix lands and the fuzz layer (test_compile_parity_fuzz.cpp) hits it.
-TEST(ScriptCompiledParityTest, DISABLED_TestParity_And_OrShortCircuit_SideEffectingRHS) {
+// #2 boolean-combinator semantics. Resolution (user-mandated): NO jump/skip
+// opcodes in the compiled stream; instead the tree-walk Evaluator_ becomes
+// EAGER on And/Or (both operands always evaluated), matching the compiled
+// stream and FuzzyEvaluator_'s already-eager probability combinators
+// (a*b, a+b-a*b). One eager semantics across all three evaluators; scripts
+// must not rely on short-circuit (documented in docs/methodology/
+// script_engine.md by Phase 1).
+//
+// This test is a GREEN guard, not a red pin: on the hard <double> path eager
+// and short-circuit evaluation are observationally equivalent, because the
+// grammar's conditions are pure and C++ LOG/SQRT of a non-positive quietly
+// return NaN/-inf whose comparisons are false — the combined boolean absorbs
+// the poisoned side (false AND NaN-cmp == false; true OR NaN-cmp == true).
+// The test pins that equivalence across both combinators with a poisoned
+// RHS at spots that decide the LHS both ways.
+TEST(ScriptCompiledParityTest, TestParity_And_Or_EagerBothSides) {
     Global::Dates_::SetEvaluationDate(Date_(2023, 1, 1));
     Vector_<Cell_> eventDates{Cell_(Date_(2023, 1, 28))};
     Vector_<String_> events{R"(
-        IF spot() < 0 AND log(spot()) > 1 THEN
+        w = 0
+        IF spot() > 3 AND spot() < 8 THEN
+            w = 1
+        ELSE
+            w = 2
+        END
+        y = 0
+        IF spot() < 1 AND LOG(spot() - 2) > 0 THEN
             y = 1
         ELSE
             y = 2
         END
-        out pays y
+        z = 0
+        IF spot() > 1 OR LOG(spot() - 2) > 0 THEN
+            z = 3
+        ELSE
+            z = 4
+        END
+        out pays w + y + z
     )"};
-    ScriptProduct_ product(eventDates, events);
+    ScriptProduct_ product(eventDates, events, "out");
     product.PreProcess(false, false);
     product.Compile();
-    // spot > 0 → LHS false. Both arms yield y=2 today (RHS converges to a
-    // boolean even when evaluated). This guard catches regressions but does
-    // not by itself prove short-circuit equivalence — see the comment above.
-    AssertPerPathParity(product, 5.0);
+    // spot=0.5: AND rhs poisoned (LOG(-1.5)); OR lhs false, rhs poisoned.
+    // spot=5.0: AND both true; OR lhs true, rhs live.
+    // spot=10.0: AND lhs true rhs false; OR lhs true.
+    for (const double spot : {0.5, 5.0, 10.0}) {
+        SCOPED_TRACE("spot=" + std::to_string(spot));
+        AssertPerPathParity(product, spot);
+    }
 }
 
 // #5 SupEqual const-fold edge. The compiler's VisitCondition<SupEqual>
 // const-folds via (x > -EPSILON) while the runtime SupEqual opcode uses
-// (x >= 0) — divergent for x in (-EPSILON, 0). Constructing a per-path
-// divergence is delicate: PreProcess(false, false) runs ConstCondProcess
-// which collapses a fully-constant condition (using domain.hpp's
-// IsPositive/IsNegative, also EPSILON-based) BEFORE Compile() emits the
-// opcode stream, so the compiler's VisitCondition<SupEqual> fold is only
-// reachable when both children appear const to the compiler but the
-// surrounding IF survives ConstCondProcess. The script tokenizer
-// ([\w.]+|[/-]) rejects scientific notation. Enabled by Phase 1b; the fix
-// (x > -EPSILON -> x >= 0) is verified directly by a Compiler_ unit test
-// in that phase. This pin guards against regression once green.
+// (x >= 0) — divergent for x in (-EPSILON, 0). PreProcess(false, true) skips
+// ConstCondProcess (which would itself collapse the constant IF, via
+// domain.hpp's equally EPSILON-based IsPositive/IsNegative, before Compile()
+// ever emits opcodes) so the stream genuinely reaches the compiler's fold.
+// Confirmed RED at head: x = -1e-15 lies inside (-EPSILON, 0), so the fold
+// takes the TRUE branch (y=1) while the tree-walk computes -1e-15 >= 0 ==
+// false (y=2). The script tokenizer rejects scientific notation, hence the
+// long literal. Enabled by Phase 1 (fold becomes x >= 0.0).
 TEST(ScriptCompiledParityTest, DISABLED_TestParity_SupEqual_ConstFold_TinyNegative) {
     Global::Dates_::SetEvaluationDate(Date_(2023, 1, 1));
     Vector_<Cell_> eventDates{Cell_(Date_(2023, 1, 28))};
@@ -278,8 +318,8 @@ TEST(ScriptCompiledParityTest, DISABLED_TestParity_SupEqual_ConstFold_TinyNegati
         END
         out pays y
     )"};
-    ScriptProduct_ product(eventDates, events);
-    product.PreProcess(false, false);
+    ScriptProduct_ product(eventDates, events, "out");
+    product.PreProcess(false, true);
     product.Compile();
     AssertPerPathParity(product, 5.0);
 }
@@ -429,4 +469,278 @@ TEST(ScriptCompiledParityTest, DISABLED_TestParity_Number_ConstCondition_WithinE
     // Construction needs compiled-fuzzy opcodes (CSpr/BFly/FuzzyIf) that do
     // not ship until Phase 5b. The pin is staged here so 5b can enable it.
     GTEST_SKIP() << "Phase 5b blocker: requires compiled-fuzzy opcodes (CSpr/BFly/FuzzyIf)";
+}
+
+// ============================================================================
+// LIVE conditional-surface parity (<double>; green since the #1 fix). The
+// <Number_> fuzzy arms of these products are Phase 5 scope.
+// ============================================================================
+
+// Conditional surface via SupEqual knock-outs plus const variables. Exercises
+// If (no else) with state mutation across events.
+TEST(ScriptCompiledParityTest, TestParity_Barrier_Sup) {
+    Global::Dates_::SetEvaluationDate(Date_(2022, 6, 22));
+    ScriptProduct_ product = FixedBarrierProduct();
+    product.PreProcess(false, false);
+    product.Compile();
+
+    // Below barrier / ITM path / above barrier (knocked out on every event).
+    for (const double spot : {10.0, 13.0, 16.0}) {
+        SCOPED_TRACE("spot=" + std::to_string(spot));
+        AssertPerPathParity(product, spot);
+    }
+
+    auto model = StandardBSModel(10.0, 0.20, 0.034, 0.021);
+    AssertAggregatedParityDouble(product, model, 4096);
+}
+
+// Digital payoff on strict equality (measure-zero on the hard path but the
+// Equal opcode must still agree per-path, including exactly AT the strike).
+TEST(ScriptCompiledParityTest, TestParity_Digital_Equal) {
+    Global::Dates_::SetEvaluationDate(Date_(2022, 6, 22));
+    Vector_<Cell_> eventDates{Cell_(String_("K")), Cell_(Date_(2024, 6, 21))};
+    Vector_<String_> events{"11.0", R"(
+        v = 0
+        IF spot() = K THEN
+            v = 1
+        ELSE
+            v = 0
+        END
+        out pays v
+    )"};
+    ScriptProduct_ product(eventDates, events, "out");
+    product.PreProcess(false, false);
+    product.Compile();
+    for (const double spot : {11.0, 11.5, 9.0}) {
+        SCOPED_TRACE("spot=" + std::to_string(spot));
+        AssertPerPathParity(product, spot);
+    }
+}
+
+// Nested IF/IfElse in both branches — stresses the recursive IfElse
+// evaluation sharing the parent's thread_local stacks (#1 regression guard,
+// deeper shape than the two dedicated #1 pins).
+TEST(ScriptCompiledParityTest, TestParity_NestedIf) {
+    Global::Dates_::SetEvaluationDate(Date_(2023, 1, 1));
+    Vector_<Cell_> eventDates{Cell_(Date_(2023, 1, 28))};
+    Vector_<String_> events{R"(
+        y = 0
+        IF spot() >= 2 THEN
+            IF spot() >= 8 THEN
+                y = 1
+            ELSE
+                IF spot() >= 4 THEN
+                    y = 2
+                ELSE
+                    y = 3
+                END
+            END
+        ELSE
+            IF spot() >= 1 THEN
+                y = 4
+            ELSE
+                y = 5
+            END
+        END
+        out pays y
+    )"};
+    ScriptProduct_ product(eventDates, events, "out");
+    product.PreProcess(false, false);
+    product.Compile();
+    for (const double spot : {0.5, 1.5, 3.0, 5.0, 9.0}) {
+        SCOPED_TRACE("spot=" + std::to_string(spot));
+        AssertPerPathParity(product, spot);
+    }
+}
+
+// Multi-event accumulation with conditionals: running state (acc) carried
+// across three future events, conditionally updated, then paid.
+TEST(ScriptCompiledParityTest, TestParity_MultiEvent) {
+    Global::Dates_::SetEvaluationDate(Date_(2022, 6, 22));
+    Vector_<Cell_> eventDates;
+    Vector_<String_> events;
+    eventDates.push_back(Cell_(String_("K"))); events.push_back("10.0");
+    eventDates.push_back(Cell_(Date_(2023, 6, 21)));
+    events.push_back("acc = MAX(spot() - K, 0.0)");
+    eventDates.push_back(Cell_(Date_(2023, 12, 21)));
+    events.push_back("IF spot() > K THEN acc = acc + spot() - K END");
+    eventDates.push_back(Cell_(Date_(2024, 6, 21)));
+    events.push_back(R"(
+        IF acc > 1 OR spot() > K THEN
+            acc = acc + 1
+        END
+        out pays acc
+    )");
+    ScriptProduct_ product(eventDates, events, "out");
+    product.PreProcess(false, false);
+    product.Compile();
+
+    for (const double spot : {8.0, 10.5, 14.0}) {
+        SCOPED_TRACE("spot=" + std::to_string(spot));
+        AssertPerPathParity(product, spot);
+    }
+
+    auto model = StandardBSModel(10.0, 0.20, 0.034, 0.021);
+    AssertAggregatedParityDouble(product, model, 2048);
+}
+
+// ============================================================================
+// Golden pin: fixed barrier PV + risks through the tree-walk <Number_> arm.
+// Values generated by running THIS machine's tree-walk (AADET framework,
+// sobol, 4096 paths, default smoothing) — the goal is to freeze tree-walk
+// numbers so the later default-flip phases can prove the numbers never move.
+// Tolerance 1e-6 (goldens are machine-generated literals, not analytics).
+// ============================================================================
+TEST(ScriptCompiledParityTest, TestGolden_FixedBarrier_PV_Risks) {
+    Global::Dates_::SetEvaluationDate(Date_(2022, 6, 22));
+    ScriptProduct_ product = FixedBarrierProduct();
+    const int maxNested = static_cast<int>(product.PreProcess(true, false));
+
+    auto model = StandardBSModel(10.0, 0.20, 0.034, 0.021);
+    const SimResults_ results = MCSimulation<Number_>(product, model, 4096, "sobol", false, false, maxNested);
+
+    ASSERT_NEAR(results.aggregated_, 2616.68830169999, 1e-6);
+
+    // risks_[0..3]: BS params (spot, vol, rate, div); risks_[4..5]: const
+    // variables in alphabetical order (BARRIER, STRIKE).
+    ASSERT_EQ(results.risks_.size(), 6u);
+    ASSERT_NEAR(results.risks_[0], 0.392061230359593, 1e-6);
+    ASSERT_NEAR(results.risks_[1], 4.25364478488146, 1e-6);
+    ASSERT_NEAR(results.risks_[2], 6.56354477237741, 1e-6);
+    ASSERT_NEAR(results.risks_[3], -7.84122460719187, 1e-6);
+    ASSERT_NEAR(results.risks_[4], 0.0, 1e-6);
+    ASSERT_NEAR(results.risks_[5], -0.298342944198973, 1e-6);
+}
+
+// ============================================================================
+// Opcode coverage: the union of compiled node streams across a battery of
+// products must cover every reachable opcode, so no compiled case is left
+// untested by the parity suite. Reachability today (verified empirically):
+//   - Const (19) is dead-by-construction: Compile() always runs ConstProcess
+//     first, and every visitor that could reach a fully-const sub-expression
+//     bakes it into a *Const variant (AddConst, AssignConst, ...) without
+//     visiting it, so the bare Const opcode is never emitted.
+//   - Smooth (31) is dead (defect #7): no visitor emits it. Phase 5 replaces
+//     it with real fuzzy opcodes.
+//   - ConstVar (39) is dead until the #11 fix: NodeConstVar_ is born
+//     isConst_=true, so every parent folds it into a *Const variant before
+//     Visit(NodeConstVar_) can run. Phase 1 moves it to the REQUIRED set.
+// ============================================================================
+namespace {
+    // Walk a compiled node stream, skipping operands, collecting opcodes.
+    void CollectOpcodes(const Vector_<int>& stream, std::set<int>* out) {
+        size_t i = 0;
+        while (i < stream.size()) {
+            const int op = stream[i];
+            out->insert(op);
+            switch (op) {
+            case AddConst: case SubConst: case ConstSub: case MultiConst:
+            case DivConst: case ConstDiv: case PowConst: case ConstPow:
+            case Max2Const: case Min2Const: case Var: case Const:
+            case ConstVar: case Assign: case Pays: case If:
+                i += 2;
+                break;
+            case AssignConst: case PaysConst: case IfElse:
+                i += 3;
+                break;
+            default:
+                i += 1;
+                break;
+            }
+        }
+    }
+
+    // Compile a one-event product body and merge its opcodes into `out`.
+    // PreProcess(false, true) keeps conditions alive down to Compile() so
+    // condition opcodes (Equal/Sup/SupEqual/And/Or/Not/True/False) survive.
+    void MergeProductOpcodes(const String_& body, std::set<int>* out) {
+        Vector_<Cell_> eventDates{Cell_(Date_(2023, 1, 28))};
+        Vector_<String_> events{body};
+        ScriptProduct_ product(eventDates, events);
+        product.PreProcess(false, true);
+        product.Compile(); // runs ConstProcess; required before Compiler_
+        Compiler_ compiler;
+        product.Visit(compiler, false, true);
+        CollectOpcodes(compiler.NodeStream(), out);
+    }
+} // namespace
+
+TEST(ScriptCompiledParityTest, TestOpcodeCoverage_AllReachableOpcodesExercised) {
+    Global::Dates_::SetEvaluationDate(Date_(2023, 1, 1));
+    std::set<int> seen;
+
+    // Arithmetic battery: every binary/unary arithmetic opcode incl. the
+    // *Const / Const* left-right variants, Assign/AssignConst, Pays/PaysConst.
+    MergeProductOpcodes(R"(
+        x = spot()
+        a = x + x
+        a = x + 1
+        a = x - x
+        a = x - 1
+        a = 1 - x
+        a = x * x
+        a = x * 2
+        a = x / x
+        a = x / 2
+        a = 2 / x
+        a = x ^ x
+        a = x ^ 2
+        a = 2 ^ x
+        a = MAX(x, x + 1)
+        a = MAX(x, 2)
+        a = MIN(x, x + 1)
+        a = MIN(x, 2)
+        a = SQRT(x)
+        a = LOG(x)
+        a = EXP(x)
+        a = -x
+        a = 3
+        out pays a
+        out pays 3
+    )", &seen);
+
+    // Conditional battery: If/IfElse, all comparison opcodes, boolean
+    // combinators, Not (via !=), and const-folded True/False conditions.
+    MergeProductOpcodes(R"(
+        x = spot()
+        IF x > 1 THEN
+            y = 1
+        END
+        IF x >= 1 THEN
+            y = 2
+        ELSE
+            y = 3
+        END
+        IF x = 2 THEN
+            y = 4
+        END
+        IF x != 2 THEN
+            y = 5
+        END
+        IF x > 1 AND x < 3 THEN
+            y = 6
+        END
+        IF x > 1 OR x < 0 THEN
+            y = 7
+        END
+        IF 1 > 0 THEN
+            y = 8
+        END
+        IF 0 > 1 THEN
+            y = 9
+        END
+        out pays y
+    )", &seen);
+
+    const std::set<int> unreachable = {Const, Smooth, ConstVar};
+    for (int op = Add; op <= ConstVar; ++op) {
+        if (unreachable.count(op)) {
+            ASSERT_EQ(seen.count(op), 0u)
+                << "opcode " << op << " was believed unreachable but was emitted; "
+                   "update the coverage contract in this test";
+        } else {
+            ASSERT_EQ(seen.count(op), 1u)
+                << "reachable opcode " << op << " is not covered by any compiled stream in this suite";
+        }
+    }
 }
