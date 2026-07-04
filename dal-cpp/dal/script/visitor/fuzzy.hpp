@@ -85,6 +85,43 @@ namespace Dal::Script {
 
         FORCE_INLINE void SetDefEps(double defEps) { defEps_ = defEps; }
 
+        void EvalTrueBranch(const NodeIf_& node, size_t lastTrueStat) {
+            for (size_t i = 1; i <= lastTrueStat; ++i)
+                VisitNode(*node.arguments_[i]);
+        }
+
+        void EvalFalseBranch(const NodeIf_& node) {
+            if (node.firstElse_ != -1)
+                for (size_t i = node.firstElse_; i < node.arguments_.size(); ++i)
+                    VisitNode(*node.arguments_[i]);
+        }
+
+        void StoreAffectedVars(const NodeIf_& node, size_t lvl) {
+            for (auto idx : node.affectedVars_)
+                varStore0_[lvl][idx] = variables_[idx];
+        }
+
+        void CaptureTrueBranchVars(const NodeIf_& node, size_t lvl) {
+            for (auto idx : node.affectedVars_) {
+                varStore1_[lvl][idx] = variables_[idx];
+                variables_[idx] = varStore0_[lvl][idx];
+            }
+        }
+
+        void BlendAffectedVars(const NodeIf_& node, size_t lvl, const T& dt) {
+            for (auto idx : node.affectedVars_)
+                variables_[idx] = dt * varStore1_[lvl][idx] + (1.0 - dt) * variables_[idx];
+        }
+
+        void EvalFuzzyBranches(const NodeIf_& node, size_t lastTrueStat, const T& dt) {
+            const size_t lvl = nestedIfLvl_ - 1;
+            StoreAffectedVars(node, lvl);
+            EvalTrueBranch(node, lastTrueStat);
+            CaptureTrueBranchVars(node, lvl);
+            EvalFalseBranch(node);
+            BlendAffectedVars(node, lvl, dt);
+        }
+
         void Visit(const NodeIf_& node) {
             const size_t lastTrueStat = node.firstElse_ == -1 ? node.arguments_.size() - 1 : node.firstElse_ - 1;
 
@@ -93,34 +130,12 @@ namespace Dal::Script {
             VisitNode(*node.arguments_[0]);
             const T dt = fuzzyStack_.TopAndPop();
 
-            if (dt > 1.0 - EPSILON) {
-                for (size_t i = 1; i <= lastTrueStat; ++i)
-                    VisitNode(*node.arguments_[i]);
-            }
-            else if (dt < EPSILON) {
-                if (node.firstElse_ != -1)
-                    for (size_t i = node.firstElse_; i < node.arguments_.size(); ++i)
-                        VisitNode(*node.arguments_[i]);
-            }
-            else {
-                for (auto idx : node.affectedVars_)
-                    varStore0_[nestedIfLvl_ - 1][idx] = variables_[idx];
-
-                for (size_t i = 1; i <= lastTrueStat; ++i)
-                    VisitNode(*node.arguments_[i]);
-
-                for (auto idx : node.affectedVars_) {
-                    varStore1_[nestedIfLvl_ - 1][idx] = variables_[idx];
-                    variables_[idx] = varStore0_[nestedIfLvl_ - 1][idx];
-                }
-
-                if (node.firstElse_ != -1)
-                    for (size_t i = node.firstElse_; i < node.arguments_.size(); ++i)
-                        VisitNode(*node.arguments_[i]);
-
-                for (auto idx : node.affectedVars_)
-                    variables_[idx] = dt * varStore1_[nestedIfLvl_ - 1][idx] + (1.0 - dt) * variables_[idx];
-            }
+            if (dt > 1.0 - EPSILON)
+                EvalTrueBranch(node, lastTrueStat);
+            else if (dt < EPSILON)
+                EvalFalseBranch(node);
+            else
+                EvalFuzzyBranches(node, lastTrueStat, dt);
 
             --nestedIfLvl_;
         }
