@@ -37,7 +37,7 @@ int main() {
         {true, false},
         {true, true},
     };
-    Vector_<int> pNumPaths = {10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30};
+    Vector_<int> pNumPaths = {10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22};
     const int numDims  = 5;
     for (auto i: pNumPaths) {
         const auto numPaths = static_cast<size_t>(std::pow(2, i));
