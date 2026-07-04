@@ -53,7 +53,7 @@ severity (rows `#11`-`#13` were added in review and slotted by severity).
 
 - **#1 — `IfElse` true-branch `bStack` underflow** — *both paths; 🔴 memory-safety / correctness.* `EvalCompiled` resets the `thread_local` `bStack` on entry; the `IfElse` case runs the true branch via a recursive `EvalCompiled` which wipes the parent's `bStack`, then the parent does `bStack.Pop()` — underflowing `sp_` (unchecked in `StaticStack_::Pop`). A later condition `Push` then writes into the call frame's locals. Every `IfElse` whose condition is **true** underflows. Suspected until the parity test confirms at runtime. Anchor: `dal-cpp/dal/script/visitor/compiler.hpp:521-530` and `:383-386`.
 
-- **#2 — `&&`/`||` lose short-circuit** — *both paths; 🔴 correctness.* `Compiler_` emits both RHS substreams unconditionally; tree-walk short-circuits. Side-effecting RHS (div0, `log(neg)`) executes in compiled → throw/NaN where tree-walk skips; AAD records dead RHS adjoints. Anchor: `dal-cpp/dal/script/visitor/compiler.hpp:252-262`, cases at `:543` and `:549`.
+- **#2 — `&&`/`||` lose short-circuit** — *both paths; ⚪ deferred (no practical divergence).* `Compiler_` emits both RHS substreams unconditionally; tree-walk short-circuits. Originally rated 🔴 on the theory that a side-effecting RHS would throw/NaN where tree-walk skips. **Phase 0's harness disproved the practical divergence** — the #2 parity pin passes on unfixed code: C++ double math doesn't throw (`1/0` = inf, `log(neg)` = NaN), the `&&`/`||` boolean converges (the deciding LHS fixes the result), script `&&`/`||` RHS is a pure expression (no state side effects), and on AAD the compiled path's hard bools carry zero derivative (and Phase 5a retires the compiled AAD path anyway). Revisit only if a future script op can throw from a boolean RHS. Anchor: `dal-cpp/dal/script/visitor/compiler.hpp:252-262`, cases at `:543` and `:549`.
 
 - **#3 — Silent AAD smoothing drop** — *`<Number_>`; 🔴 silent wrongness.* `MCSimulation<Number_>` `compiled=true` ignores `eps`/`maxNestedIfs`, runs un-smoothed → zero/nonsense greeks through conditionals, no diagnostic. Smoking gun: `dal-cpp/examples/uoc_compiled/uoc_compiled.cpp:120-122` passes `eps=0.01` that is thrown on the floor. Anchor: `dal-cpp/dal/script/simulation.hpp:231-237`.
 
@@ -63,7 +63,7 @@ severity (rows `#11`-`#13` were added in review and slotted by severity).
 
 - **#6 — UB if `Compile()` skipped** — *both paths; 🟠 footgun.* `MCSimulation` does not call `Compile()`; if a caller passes `compiled=true` without it, `EvaluateCompiled` loops `events_.size()` times indexing the **empty** `nodeStreams_[i]` (`dal-cpp/dal/script/event.hpp:129-141`) — out-of-bounds UB in release, no assertion. Anchor: `dal-cpp/dal/script/simulation.hpp`; `dal-cpp/dal/script/event.hpp:129-141`; `dal-cpp/dal/script/event.cpp:127-155`.
 
-- **#5 — `SupEqual` const-fold** — *both paths; 🟡 edge.* Uses `x > -EPSILON` where runtime uses `x >= 0` — a tiny-negative const folds to `True` vs `False`. Anchor: `dal-cpp/dal/script/visitor/compiler.hpp:246-248`.
+- **#5 — `SupEqual` const-fold** — *both paths; 🟡 edge (folded into Phase 6 cleanup).* Uses `x > -EPSILON` where runtime uses `x >= 0` — a tiny-negative const folds to `True` vs `False`. One-line predicate fix; Phase 0 found it hard to reach from parsed products (`PreProcess` pre-folds constant conditions before `Compile()`). Anchor: `dal-cpp/dal/script/visitor/compiler.hpp:246-248`.
 
 - **#12 — Const-folded conditions vs fuzzy** — *`<Number_>` fuzzy; 🟡 latent (5b blocker).* `Compiler_::VisitCondition` folds constant conditions to hard `True`/`False` (`dal-cpp/dal/script/visitor/compiler.hpp:227-248`); `FuzzyEvaluator_` would push `CSpr`/`BFly(const, eps)` — a *fractional* dt when `|const| < eps/2` — while the compiled stream has already crisped it. Latent until Phase 5b (compiled fuzzy). Anchor: `dal-cpp/dal/script/visitor/compiler.hpp:227-248`; `dal-cpp/dal/script/visitor/fuzzy.hpp:174-207`.
 
@@ -91,9 +91,8 @@ below). On landing it confirms the `<double>` failures (#1, #2, #5), the
 **Phase 1 — Fix `<double>` correctness bugs** (unblocks any default flip):
 
 - **#1 IfElse underflow** — the recursive `EvalCompiled` must not clobber the parent frame. Preferred fix: extract an `EvalCompiledRange(first, last)` helper that skips the `Reset()` prologue and dispatch the true branch through it. Verify with the consecutive-both-true `IfElse` test.
-- **#2 short-circuit** — add jump opcodes so the RHS substream is skipped when the LHS decides the boolean, mirroring the tree-walk (`dal-cpp/dal/script/visitor/evaluator.hpp:187-201`). Alternative (document both-evaluate + forbid side-effecting RHS) is less aligned; short-circuit is preferred.
-- **#5 SupEqual const-fold** — `x > -EPSILON` → `x >= 0.0` to match the runtime predicate.
 - **#11 ConstVar state read** — make `ConstVar` a real opcode that reads `state.constVariables_[idx]` instead of falling through to `Const`, and stop `Compiler_` const-folding through `NodeConstVar_` (its value is mutable via `ConstVarVals()` and must stay live on the AAD tape). This restores the compiled `EvalState_::ConstVarVals()` seam and un-zeros const-var greeks.
+- *(Descoped from Phase 1: #2 short-circuit deferred — no practical divergence, see the #2 register entry; #5 SupEqual const-fold folded into Phase 6 cleanup.)*
 
 **Phase 2 — Fix `NodeNot_` (#4)** in `dal-cpp/dal/script/visitor/fuzzy.hpp:210` (rename `visitNot` → `Visit`, operate on `fuzzyStack_`), with the `!=` fuzzy regression test.
 
@@ -188,7 +187,7 @@ every PR (the project gate). gcc is the bar for FMA tolerance.
 
 1. **Phase 1 IfElse fix shape** — `EvalCompiledRange` helper (preferred, fixes root cause) vs. save-and-pop-before-recursion. Confirmable empirically once the red test exists.
 2. **AAD path** — Phase 5a (force `FuzzyEvaluator_`, defer compiled-fuzzy — recommended, low risk) vs. push straight to Phase 5b (implement compiled fuzzy; larger project, only path to an AAD-compiled speedup).
-3. **Short-circuit (#2)** — real short-circuit via jump opcodes (recommended) vs. document both-evaluate and forbid/guard side-effecting RHS.
+3. **Short-circuit (#2)** — moot; #2 deferred (no practical divergence, see the #2 register entry).
 4. **`Compile()` const-API shape (#13, Phase 4)** — const `Compile()` producing a separate compiled artifact vs. caller-must-pre-compile with the Phase 3 THROW as the guard.
 
 The most urgent single action is **#1 (IfElse underflow)** — memory-safety,
