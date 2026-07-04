@@ -355,11 +355,12 @@ TEST(ScriptCompiledParityTest, DISABLED_TestParity_Number_NotEqual_Fuzzy) {
     ASSERT_NEAR(compiled.aggregated_, treeWalk.aggregated_, 1e-8);
 }
 
-// #6 / #3 guard. compiled=true without Compile() indexes the empty
-// nodeStreams_ — out-of-bounds UB today. We assert the THROW guard that does
-// not exist yet; the test is DISABLED because today's behavior is UB, never
-// run it un-sanitized. Guard added in Phase 3.
-TEST(ScriptCompiledParityTest, DISABLED_TestParity_CompileNotCalled_GuardsThrow) {
+// #6 / #3 guard. compiled=true without Compile() used to index the empty
+// nodeStreams_ — out-of-bounds UB. The guard was added BEFORE this test was
+// enabled (the pre-guard out-of-bounds path was never executed): both
+// MCSimulation (main thread; the pool tasks swallow exceptions) and the
+// EvaluateCompiled seam now REQUIRE a compiled product.
+TEST(ScriptCompiledParityTest, TestParity_CompileNotCalled_GuardsThrow) {
     Global::Dates_::SetEvaluationDate(Date_(2022, 6, 22));
     Date_ exerciseDate(2024, 6, 21);
     VanillaProduct_ vanilla(exerciseDate, 11.0, "call pays MAX(spot() - STRIKE, 0.0)");
@@ -368,9 +369,15 @@ TEST(ScriptCompiledParityTest, DISABLED_TestParity_CompileNotCalled_GuardsThrow)
     // NOTE: Compile() deliberately NOT called.
 
     auto model = StandardBSModel(10.0, 0.20, 0.034, 0.021);
-    // Today: indexes empty nodeStreams_, UB. Phase 3 will add the guard that
-    // makes this THROW cleanly.
     ASSERT_THROW(MCSimulation<double>(product, model, 64, "sobol", false, true), Dal::Exception_);
+
+    // The EvaluateCompiled seam itself must also refuse (direct callers
+    // bypass MCSimulation).
+    Scenario_<double> scenario(1);
+    scenario[0].spot_ = 10.0;
+    scenario[0].numeraire_ = 1.0;
+    EvalState_<double> state = product.BuildEvalState<double>();
+    ASSERT_THROW(product.EvaluateCompiled(scenario, state), Dal::Exception_);
 }
 
 // #11 const variables dead in compiled path. The compiler bakes constVar
@@ -436,6 +443,31 @@ TEST(ScriptCompiledParityTest, TestParity_ConstVarVals_MutationSeam) {
     const double compiledPayoff = compiledState.VarVals()[product.PayOffIdx()];
 
     ASSERT_NEAR(compiledPayoff, treePayoff, 1e-8);
+}
+
+// #3 INTERIM guard (this test is DELETED when compiled fuzzy lands in Phase
+// 5): the compiled <Number_> path hard-branches conditions instead of
+// smoothing them like FuzzyEvaluator_, so MCSimulation<Number_> must refuse
+// compiled=true for a product with conditional statements rather than
+// silently produce non-smoothed greeks. Safe to run RED (no UB): pre-guard it
+// simply runs and returns un-smoothed numbers without throwing.
+TEST(ScriptCompiledParityTest, TestParity_Number_Conditional_CompiledGuardThrows) {
+    Global::Dates_::SetEvaluationDate(Date_(2022, 6, 22));
+    Date_ exerciseDate(2024, 6, 21);
+    Vector_<Cell_> eventDates{Cell_(String_("K")), Cell_(exerciseDate)};
+    Vector_<String_> events{"11.0", R"(
+        v = 0.0
+        IF spot() > K THEN
+            v = 1.0
+        END
+        out pays v
+    )"};
+    ScriptProduct_ product(eventDates, events);
+    int maxNested = static_cast<int>(product.PreProcess(true, false));
+    product.Compile();
+
+    auto model = StandardBSModel(10.0, 0.20, 0.034, 0.021);
+    ASSERT_THROW(MCSimulation<Number_>(product, model, 64, "sobol", false, true, maxNested), Dal::Exception_);
 }
 
 // #10 NodeCollect_. PreProcess(false, false) runs ConstCondProcess which

@@ -127,6 +127,9 @@ namespace Dal::Script {
         }
 
         template <class T_> void EvaluateCompiled(const Scenario_<T_>& scenario, EvalState_<T_>& state) const {
+            REQUIRE2(nodeStreams_.size() == events_.size(),
+                     "product is not compiled: call Compile() before EvaluateCompiled()", ScriptError_);
+
             // Initialize state
             state.Init();
 
@@ -150,6 +153,7 @@ namespace Dal::Script {
         size_t PreProcess(bool fuzzy, bool skip_domain);
         void Debug(std::ostream& ost = std::cout) const;
         void Compile();
+        [[nodiscard]] bool IsCompiled() const { return nodeStreams_.size() == events_.size(); }
 
         [[nodiscard]] auto PayOffIdx() const { return payoffIdx_; }
     };

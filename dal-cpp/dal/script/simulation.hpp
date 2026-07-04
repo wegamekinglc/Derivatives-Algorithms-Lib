@@ -57,6 +57,27 @@ namespace Dal::Script {
 
     std::unique_ptr<Random_> CreateRNG(const String_& method, size_t nDim, bool useBb);
 
+    //  INTERIM (deleted when the compiled evaluator learns fuzzy smoothing):
+    //  detect a conditional statement anywhere in the product's future events
+    //  so the <Number_> compiled path can refuse to run instead of silently
+    //  producing hard-branched (non-smoothed) greeks.
+    inline bool HasConditionalStatement(const Node_& node) {
+        if (dynamic_cast<const NodeIf_*>(&node) != nullptr)
+            return true;
+        for (const auto& arg : node.arguments_)
+            if (arg && HasConditionalStatement(*arg))
+                return true;
+        return false;
+    }
+
+    inline bool HasConditionalStatement(const ScriptProduct_& product) {
+        for (const auto& evt : product.Events())
+            for (const auto& stat : evt)
+                if (stat && HasConditionalStatement(*stat))
+                    return true;
+        return false;
+    }
+
     template <class T_>
     SimResults_ MCSimulation(const ScriptProduct_& product,
                              const Handle_<ModelData_>& modelData,
@@ -78,6 +99,13 @@ namespace Dal::Script {
                              bool compiled,
                              int maxNestedIfs,
                              double eps) {
+        //  Never fall back to the tree-walk silently: an un-compiled product
+        //  with compiled=true is a caller error. Guard here (the pool tasks
+        //  swallow exceptions) and again at the EvaluateCompiled seam.
+        if (compiled)
+            REQUIRE2(product.IsCompiled(),
+                     "product is not compiled: call Compile() before MCSimulation with compiled=true", ScriptError_);
+
         auto mdl = CreateModel<double>(modelData);
 
         mdl->Allocate(product.TimeLine(), product.DefLine());
@@ -168,6 +196,18 @@ namespace Dal::Script {
                              bool compiled,
                              int maxNestedIfs,
                              double eps) {
+        if (compiled) {
+            REQUIRE2(product.IsCompiled(),
+                     "product is not compiled: call Compile() before MCSimulation with compiled=true", ScriptError_);
+            //  INTERIM guard, deleted when the compiled evaluator learns
+            //  fuzzy smoothing: the compiled stream hard-branches conditions
+            //  while the tree-walk <Number_> path smooths them with
+            //  FuzzyEvaluator_; refuse rather than return non-smoothed greeks.
+            REQUIRE2(!HasConditionalStatement(product),
+                     "compiled <Number_> evaluation cannot smooth conditional statements yet: use compiled=false",
+                     ScriptError_);
+        }
+
         AAD::Activate(*AAD::Tape());
         std::unique_ptr<AAD::Model_<AAD::Number_>> mdl = CreateModel<AAD::Number_>(modelData);
         const auto nParams = mdl->Parameters().size();
