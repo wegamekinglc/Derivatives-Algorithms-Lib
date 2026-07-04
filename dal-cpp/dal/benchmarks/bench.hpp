@@ -18,8 +18,8 @@
 #endif
 
 namespace Dal::Bench {
-    // Sized to fit the longest case name in dal-cpp/benchmarks/ plus a margin.
-    constexpr int kNameColumnWidth = 64;
+    // First-column width: comfortably fits the longest case name (~60 chars) with headroom.
+    constexpr int kNameColumnWidth = 75;
 
     // Anti-dead-code-elimination sink. Forces the compiler to materialize
     // side effects of the benchmark body so work is not optimized away.
