@@ -17,13 +17,13 @@ int main() {
     Dal::RegisterAll_::Init();
 
     Timer_ timer;
-    Vector_<int> widths = {20, 14, 14, 14, 14};
+    Vector_<int> widths = {20, 14, 22, 22, 22};
 
     std::cout << std::setw(widths[0]) << std::right << "# of paths"
               << std::setw(widths[1]) << std::right << "# of dims"
-              << std::setw(widths[2]) << std::right << "precise"
-              << std::setw(widths[3]) << std::right << "polish"
-              << std::setw(widths[4]) << std::right << "Normal (ms)"
+              << std::setw(widths[2]) << std::right << "precise=F polish=F"
+              << std::setw(widths[3]) << std::right << "precise=T polish=F"
+              << std::setw(widths[4]) << std::right << "precise=T polish=T"
               << std::endl;
 
     struct SobolNormalSetting_ {
@@ -41,6 +41,11 @@ int main() {
     for (auto i: pNumPaths) {
         const auto numPaths = static_cast<size_t>(std::pow(2, i));
 
+        std::cout << std::fixed
+                  << std::setprecision(6)
+                  << std::setw(widths[0]) << std::right << numPaths
+                  << std::setw(widths[1]) << std::right << numDims;
+
         for (const auto& setting: settings) {
             Vector_<> dst;
             unique_ptr<SequenceSet_> rsg(NewSobol(numDims, 1000, setting.precise_, setting.polish_));
@@ -50,17 +55,10 @@ int main() {
                 rsg->FillNormal(&dst);
             auto normalDuration = int(timer.Elapsed<milliseconds>());
 
-            std::cout << std::fixed
-                      << std::setprecision(6)
-                      << std::boolalpha
-                      << std::setw(widths[0]) << std::right << numPaths
-                      << std::setw(widths[1]) << std::right << numDims
-                      << std::setw(widths[2]) << std::right << setting.precise_
-                      << std::setw(widths[3]) << std::right << setting.polish_
-                      << std::setw(widths[4]) << std::right << normalDuration
-                      << std::endl;
+            std::cout << std::setw(widths[2]) << std::right << normalDuration;
         }
 
+        std::cout << std::endl;
     }
     return 0;
 }
