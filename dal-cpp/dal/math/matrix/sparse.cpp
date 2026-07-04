@@ -11,9 +11,10 @@
 namespace Dal::Sparse {
     // brute-force implementation
     void SymmetricDecomposition_::QForm(const Matrix_<>& j_mat, SquareMatrix_<>* dst) const {
+        REQUIRE(j_mat.Cols() == Size(), "j_mat size should match with this matrix's size");
         dst->Resize(j_mat.Rows());
 
-        Vector_<> wij;
+        Vector_<> wij(Size());
         Vector_<> row(j_mat.Cols());
 
         for (int ii = 0; ii < j_mat.Rows(); ++ii) {
