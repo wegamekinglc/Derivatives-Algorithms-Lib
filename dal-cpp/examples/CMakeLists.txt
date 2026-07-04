@@ -13,7 +13,6 @@ add_subdirectory(sobol)
 add_subdirectory(script)
 add_subdirectory(underdetermined)
 add_subdirectory(uoc)
-add_subdirectory(uoc_compiled)
 add_subdirectory(vanilla)
 add_subdirectory(yield_curve_jacobian)
 

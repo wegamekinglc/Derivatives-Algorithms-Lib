@@ -9,6 +9,10 @@
 //
 
 #include <gtest/gtest.h>
+
+#include <set>
+#include <string>
+
 #include <dal/platform/platform.hpp>
 #include <dal/math/aad/aad.hpp>
 #include <dal/model/blackscholes.hpp>
@@ -16,9 +20,6 @@
 #include <dal/script/event.hpp>
 #include <dal/script/simulation.hpp>
 #include <dal/script/visitor/compiler.hpp>
-
-#include <set>
-#include <string>
 
 using namespace Dal;
 using namespace Dal::AAD;
@@ -184,8 +185,8 @@ TEST(ScriptCompiledParityTest, TestParity_TreeWalkUnchangedAfterCompile) {
 // #13 const-correct compilation. Compile() is const and produces a separate
 // ScriptCompiled_ artifact (no member streams), so MCSimulation's
 // const ScriptProduct_& compiles internally and `compiled` is a pure
-// performance flag. Also pins the <double> default flip: an omitted flag
-// must run compiled and match the explicit tree-walk PV.
+// performance flag. Also pins the <double> default: an omitted flag must run
+// tree-walk and match explicit tree-walk PV.
 TEST(ScriptCompiledParityTest, TestParity_ConstCompile_Artifact) {
     Global::Dates_::SetEvaluationDate(Date_(2022, 6, 22));
     Date_ exerciseDate(2024, 6, 21);
@@ -211,7 +212,7 @@ TEST(ScriptCompiledParityTest, TestParity_ConstCompile_Artifact) {
     const SimResults_ defaulted = MCSimulation<double>(product, model, 2048, "sobol", false);
     const SimResults_ treeWalk = MCSimulation<double>(product, model, 2048, "sobol", false, false);
     ASSERT_NEAR(defaulted.aggregated_, treeWalk.aggregated_, 1e-8)
-        << "<double> default (compiled) diverges from tree-walk";
+        << "<double> default diverges from explicit tree-walk";
 }
 
 // Pins past-events init seeding: evaluation date mid-schedule so PastEvaluate()
@@ -294,21 +295,8 @@ TEST(ScriptCompiledParityTest, TestParity_IfElse_NestedInTrueBranch) {
     AssertPerPathParity(product, 5.0);
 }
 
-// #2 boolean-combinator semantics. Resolution (user-mandated): NO jump/skip
-// opcodes in the compiled stream; instead the tree-walk Evaluator_ becomes
-// EAGER on And/Or (both operands always evaluated), matching the compiled
-// stream and FuzzyEvaluator_'s already-eager probability combinators
-// (a*b, a+b-a*b). One eager semantics across all three evaluators; scripts
-// must not rely on short-circuit (documented in docs/methodology/
-// script_engine.md by Phase 1).
-//
-// This test is a GREEN guard, not a red pin: on the hard <double> path eager
-// and short-circuit evaluation are observationally equivalent, because the
-// grammar's conditions are pure and C++ LOG/SQRT of a non-positive quietly
-// return NaN/-inf whose comparisons are false — the combined boolean absorbs
-// the poisoned side (false AND NaN-cmp == false; true OR NaN-cmp == true).
-// The test pins that equivalence across both combinators with a poisoned
-// RHS at spots that decide the LHS both ways.
+// Eager boolean semantics are documented in docs/methodology/script_engine.md.
+// This guard keeps tree-walk and compiled behavior aligned on poisoned RHSs.
 TEST(ScriptCompiledParityTest, TestParity_And_Or_EagerBothSides) {
     Global::Dates_::SetEvaluationDate(Date_(2023, 1, 1));
     Vector_<Cell_> eventDates{Cell_(Date_(2023, 1, 28))};
@@ -416,7 +404,7 @@ TEST(ScriptCompiledParityTest, TestParity_CompileNotCalled_GuardsThrow) {
     ScriptProduct_ product = vanilla.Build();
     // NOTE: PreProcess() deliberately NOT called.
 
-    ASSERT_THROW(product.Compile(), Dal::Exception_);
+    ASSERT_THROW(static_cast<void>(product.Compile()), Dal::Exception_);
 
     auto model = StandardBSModel(10.0, 0.20, 0.034, 0.021);
     ASSERT_THROW(MCSimulation<double>(product, model, 64, "sobol", false, true), Dal::Exception_);
@@ -788,33 +776,39 @@ TEST(ScriptCompiledParityTest, TestGolden_FixedBarrier_PV_Risks) {
 //     battery compiles a fuzzy-preprocessed product with Compile(true).
 // ============================================================================
 namespace {
+    bool IsOneOperandOpcode(int op) {
+        static const std::set<int> ops = {
+            AddConst, SubConst, ConstSub, MultiConst, DivConst, ConstDiv,
+            PowConst, ConstPow, Max2Const, Min2Const, Var, Const, ConstVar,
+            Assign, Pays, If, FuzzyEqual, FuzzyComp
+        };
+        return ops.count(op) != 0;
+    }
+
+    bool IsTwoOperandOpcode(int op) {
+        static const std::set<int> ops = {
+            AssignConst, PaysConst, IfElse, FuzzyEqualDiscrete, FuzzyCompDiscrete
+        };
+        return ops.count(op) != 0;
+    }
+
+    size_t OpcodeWidth(const Vector_<int>& stream, size_t idx) {
+        const int op = stream[idx];
+        if (IsOneOperandOpcode(op))
+            return 2;
+        if (IsTwoOperandOpcode(op))
+            return 3;
+        if (op == FuzzyIf)
+            return 4 + stream[idx + 3];
+        return 1;
+    }
+
     // Walk a compiled node stream, skipping operands, collecting opcodes.
     void CollectOpcodes(const Vector_<int>& stream, std::set<int>* out) {
         size_t i = 0;
         while (i < stream.size()) {
-            const int op = stream[i];
-            out->insert(op);
-            switch (op) {
-            case AddConst: case SubConst: case ConstSub: case MultiConst:
-            case DivConst: case ConstDiv: case PowConst: case ConstPow:
-            case Max2Const: case Min2Const: case Var: case Const:
-            case ConstVar: case Assign: case Pays: case If:
-            case FuzzyEqual: case FuzzyComp:
-                i += 2;
-                break;
-            case AssignConst: case PaysConst: case IfElse:
-            case FuzzyEqualDiscrete: case FuzzyCompDiscrete:
-                i += 3;
-                break;
-            case FuzzyIf:
-                //  FuzzyIf lastTrue lastFalse nAff aff... — the true/false
-                //  statement code follows inline and is walked normally.
-                i += 4 + stream[i + 3];
-                break;
-            default:
-                i += 1;
-                break;
-            }
+            out->insert(stream[i]);
+            i += OpcodeWidth(stream, i);
         }
     }
 

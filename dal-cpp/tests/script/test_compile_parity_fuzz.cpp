@@ -15,6 +15,11 @@
 //
 
 #include <gtest/gtest.h>
+
+#include <random>
+#include <sstream>
+#include <string>
+
 #include <dal/platform/platform.hpp>
 #include <dal/math/aad/aad.hpp>
 #include <dal/model/blackscholes.hpp>
@@ -22,10 +27,6 @@
 #include <dal/script/event.hpp>
 #include <dal/script/simulation.hpp>
 #include <dal/time/date.hpp>
-
-#include <random>
-#include <sstream>
-#include <string>
 
 using namespace Dal;
 using namespace Dal::AAD;
@@ -72,33 +73,45 @@ namespace {
         return ops[rng.UniformInt(0, static_cast<int>(ops.size()) - 1)];
     }
 
-    // Build a random arithmetic expression of bounded depth over spot(),
-    // const variables, prior variables and literals. Division RHS is guarded
-    // away from zero so the layer does not manufacture NaN/inf on its own
-    // (the harness exists to catch evaluator divergence, not math errors —
-    // and ASSERT_NEAR(NaN, NaN) fails even when both arms agree).
-    String_ BuildExpr(Rng_& rng, int depth, const Vector_<String_>& leaves) {
-        if (depth <= 0 || rng.Bernoulli(0.35)) {
-            const int pick = rng.UniformInt(0, static_cast<int>(leaves.size())); // leaves + literal
-            if (pick < static_cast<int>(leaves.size()))
-                return leaves[pick];
-            return FormatLiteral(rng.UniformReal(0.5, 5.0));
-        }
-        const int shape = rng.UniformInt(0, 5);
+    String_ BuildExpr(Rng_& rng, int depth, const Vector_<String_>& leaves);
+
+    String_ BuildExprLeaf(Rng_& rng, const Vector_<String_>& leaves) {
+        const int pick = rng.UniformInt(0, static_cast<int>(leaves.size()));
+        if (pick < static_cast<int>(leaves.size()))
+            return leaves[pick];
+        return FormatLiteral(rng.UniformReal(0.5, 5.0));
+    }
+
+    String_ BuildFuncExpr(Rng_& rng, int depth, const Vector_<String_>& leaves, int shape) {
         if (shape == 0)
             return "MAX(" + BuildExpr(rng, depth - 1, leaves) + ", " + BuildExpr(rng, depth - 1, leaves) + ")";
         if (shape == 1)
             return "MIN(" + BuildExpr(rng, depth - 1, leaves) + ", " + BuildExpr(rng, depth - 1, leaves) + ")";
         if (shape == 2)
             return "SQRT(MAX(" + BuildExpr(rng, depth - 1, leaves) + ", 0.25))";
-        if (shape == 3)
-            return "-(" + BuildExpr(rng, depth - 1, leaves) + ")";
+        return "-(" + BuildExpr(rng, depth - 1, leaves) + ")";
+    }
+
+    String_ BuildBinaryExpr(Rng_& rng, int depth, const Vector_<String_>& leaves) {
         const String_ lhs = BuildExpr(rng, depth - 1, leaves);
         const String_ op = RandomArithOp(rng);
         String_ rhs = BuildExpr(rng, depth - 1, leaves);
         if (op == "/")
             rhs = "MAX(" + rhs + ", 0.5)";
         return "(" + lhs + " " + op + " " + rhs + ")";
+    }
+
+    // Build a random arithmetic expression of bounded depth over spot(),
+    // const variables, prior variables and literals. Division RHS is guarded
+    // away from zero so the layer does not manufacture NaN/inf on its own
+    // (the harness exists to catch evaluator divergence, not math errors —
+    // and ASSERT_NEAR(NaN, NaN) fails even when both arms agree).
+    String_ BuildExpr(Rng_& rng, int depth, const Vector_<String_>& leaves) {
+        if (depth <= 0 || rng.Bernoulli(0.35))
+            return BuildExprLeaf(rng, leaves);
+        const int shape = rng.UniformInt(0, 5);
+        return shape < 4 ? BuildFuncExpr(rng, depth, leaves, shape)
+                         : BuildBinaryExpr(rng, depth, leaves);
     }
 
     // Build a random boolean condition of bounded depth, optionally with a
@@ -154,6 +167,67 @@ namespace {
         return String_(os.str());
     }
 
+    void AddConstVariables(Rng_& rng, Vector_<Cell_>& eventDates,
+                           Vector_<String_>& events, Vector_<String_>& leaves) {
+        leaves.push_back("spot()");
+        eventDates.push_back(Cell_(String_("STRIKE")));
+        events.push_back(FormatLiteral(rng.UniformReal(8.0, 14.0)));
+        leaves.push_back("STRIKE");
+        if (rng.Bernoulli(0.5)) {
+            eventDates.push_back(Cell_(String_("BARRIER")));
+            events.push_back(FormatLiteral(rng.UniformReal(12.0, 20.0)));
+            leaves.push_back("BARRIER");
+        }
+    }
+
+    void AddPastFixings(Rng_& rng, Vector_<Cell_>& eventDates,
+                        Vector_<String_>& events, Vector_<String_>& leaves) {
+        if (!rng.Bernoulli(0.4))
+            return;
+        eventDates.push_back(Cell_(Date_(2022, 6, 20)));
+        events.push_back("pre = " + FormatLiteral(rng.UniformReal(0.5, 3.0)));
+        leaves.push_back("pre");
+        if (rng.Bernoulli(0.3)) {
+            eventDates.push_back(Cell_(Date_(2022, 6, 21)));
+            events.push_back("pre2 = " + BuildExpr(rng, 1, {String_("pre")}));
+            leaves.push_back("pre2");
+        }
+    }
+
+    void AddScheduleStructure(Rng_& rng, const Vector_<String_>& leaves,
+                              Vector_<Cell_>& eventDates, Vector_<String_>& events) {
+        eventDates.push_back(Cell_(Date_(2023, 1, 4)));
+        events.push_back("v = " + BuildExpr(rng, 1, leaves) + "\n");
+        Vector_<String_> vLeaves = leaves;
+        vLeaves.push_back("v");
+        eventDates.push_back(Cell_(String_("START: " + Date::ToString(Date_(2023, 1, 4)) +
+                                           " END: " + Date::ToString(Date_(2023, rng.UniformInt(2, 4), 15)) +
+                                           " FREQ: 1W")));
+        events.push_back(BuildBlock(rng, "v", vLeaves, leaves));
+        eventDates.push_back(Cell_(Date_(2024, 6, 21)));
+        events.push_back("out pays " + BuildExpr(rng, 1, vLeaves));
+    }
+
+    void AddDatedStructure(Rng_& rng, int nEvents, const Vector_<String_>& leaves,
+                           Vector_<Cell_>& eventDates, Vector_<String_>& events) {
+        Vector_<String_> vLeaves = leaves;
+        for (int e = 0; e < nEvents; ++e) {
+            eventDates.push_back(Cell_(Date_(2023, 1, 4).AddDays(91 * e)));
+            std::ostringstream body;
+            if (e == 0)
+                body << "v = " << BuildExpr(rng, 1, leaves) << "\n";
+            else
+                body << BuildBlock(rng, "v", vLeaves, leaves);
+            if (e == 0)
+                vLeaves.push_back("v");
+            if (e == nEvents - 1) {
+                body << BuildBlock(rng, "v", vLeaves, leaves);
+                body << "out pays " << BuildExpr(rng, 1, vLeaves) << "\n";
+            }
+            events.push_back(String_(body.str()));
+        }
+    }
+
     // A generated product plus its reproduction info. Held via unique_ptr
     // because ScriptProduct_ has no default constructor.
     struct FuzzProduct_ {
@@ -169,63 +243,15 @@ namespace {
             Vector_<Cell_> eventDates;
             Vector_<String_> events;
 
-            // Const variables (macro events; must precede dated events).
             Vector_<String_> leaves;
-            leaves.push_back("spot()");
-            eventDates.push_back(Cell_(String_("STRIKE")));
-            events.push_back(FormatLiteral(rng.UniformReal(8.0, 14.0)));
-            leaves.push_back("STRIKE");
-            if (rng.Bernoulli(0.5)) {
-                eventDates.push_back(Cell_(String_("BARRIER")));
-                events.push_back(FormatLiteral(rng.UniformReal(12.0, 20.0)));
-                leaves.push_back("BARRIER");
-            }
+            AddConstVariables(rng, eventDates, events, leaves);
+            AddPastFixings(rng, eventDates, events, leaves);
 
-            // Optional past fixings (dated before the 2022-6-22 evaluation
-            // date) so PastEvaluate() seeds both evaluators identically.
-            if (rng.Bernoulli(0.4)) {
-                eventDates.push_back(Cell_(Date_(2022, 6, 20)));
-                events.push_back("pre = " + FormatLiteral(rng.UniformReal(0.5, 3.0)));
-                leaves.push_back("pre");
-                if (rng.Bernoulli(0.3)) {
-                    eventDates.push_back(Cell_(Date_(2022, 6, 21)));
-                    events.push_back("pre2 = " + BuildExpr(rng, 1, {String_("pre")}));
-                    leaves.push_back("pre2");
-                }
-            }
-
-            if (structure == 2) {
-                // Schedule: init event, weekly monitoring over ~2 months,
-                // then payoff at maturity.
-                eventDates.push_back(Cell_(Date_(2023, 1, 4)));
-                events.push_back("v = " + BuildExpr(rng, 1, leaves) + "\n");
-                Vector_<String_> vLeaves = leaves;
-                vLeaves.push_back("v");
-                eventDates.push_back(Cell_(String_("START: " + Date::ToString(Date_(2023, 1, 4)) +
-                                                   " END: " + Date::ToString(Date_(2023, rng.UniformInt(2, 4), 15)) +
-                                                   " FREQ: 1W")));
-                events.push_back(BuildBlock(rng, "v", vLeaves, leaves));
-                eventDates.push_back(Cell_(Date_(2024, 6, 21)));
-                events.push_back("out pays " + BuildExpr(rng, 1, vLeaves));
-            } else {
-                const int nEvents = structure == 1 ? rng.UniformInt(2, 4) : 1;
-                Vector_<String_> vLeaves = leaves;
-                for (int e = 0; e < nEvents; ++e) {
-                    eventDates.push_back(Cell_(Date_(2023, 1, 4).AddDays(91 * e)));
-                    std::ostringstream body;
-                    if (e == 0)
-                        body << "v = " << BuildExpr(rng, 1, leaves) << "\n";
-                    else
-                        body << BuildBlock(rng, "v", vLeaves, leaves);
-                    if (e == 0)
-                        vLeaves.push_back("v");
-                    if (e == nEvents - 1) {
-                        body << BuildBlock(rng, "v", vLeaves, leaves);
-                        body << "out pays " << BuildExpr(rng, 1, vLeaves) << "\n";
-                    }
-                    events.push_back(String_(body.str()));
-                }
-            }
+            if (structure == 2)
+                AddScheduleStructure(rng, leaves, eventDates, events);
+            else
+                AddDatedStructure(rng, structure == 1 ? rng.UniformInt(2, 4) : 1,
+                                  leaves, eventDates, events);
 
             fp.product = std::make_unique<ScriptProduct_>(eventDates, events, "out");
             return fp;

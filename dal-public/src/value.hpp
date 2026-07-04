@@ -13,7 +13,7 @@ namespace Dal {
     using Script::ScriptProductData_;
 
     //  compiled: run the script through the compiled (flat-stream) evaluator.
-    //  Unset means the library default (compiled) — compiled and tree-walk
+    //  Unset means the library default (tree-walk) — compiled and tree-walk
     //  produce the same numbers; the flag is a performance knob only.
     std::map<String_, double> ValueByMonteCarlo(const Handle_<ScriptProductData_>& product,
                                                 const Handle_<ModelData_>& modelData,

@@ -75,6 +75,9 @@
 ## Enums
 
 - All enumeration types must use **Machinist markup** — never hand-write `enum class` definitions.
+- Exception: a private opcode enum may be hand-written when it must be used as
+  non-type template parameters or as stable integer bytecode operands; document
+  the constraint next to the enum and do not add unused Machinist markup.
 - The Machinist code-generation tool reads `/*IF----------...` blocks and produces auto-generated `.hpp` (class definition) and `.inc` (implementation) files under `dal-cpp/dal/auto/` (and `dal-excel/auto/` for Excel public-function stubs).
 - Generated enum types are classes with a nested `enum class Value_ : char`, a `String()` method, construction from `String_`, comparison operators, and a `ListAll()` vector.
 - Use `switchable` in the markup when the enum needs `.Switch()` and `operator==` against `Value_`.

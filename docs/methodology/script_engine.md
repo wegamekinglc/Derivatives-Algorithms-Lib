@@ -79,15 +79,15 @@ evaluator consumes as the smoothing width for that condition (see
 ### Boolean Operator Semantics
 
 `AND` and `OR` are **eager**: both operands are always evaluated, in all
-evaluators — the exact tree-walk (`Evaluator_`), the fuzzy tree-walk
+evaluators - the exact tree-walk (`Evaluator_`), the fuzzy tree-walk
 (`FuzzyEvaluator_`, whose probability combinators $a \cdot b$ and
 $a + b - a \cdot b$ are inherently two-sided), and the compiled stream (which
 emits both operand sub-streams before the combinator opcode). Scripts must not
 rely on short-circuit evaluation. Conditions in this grammar are pure (no
-side effects, no partial functions beyond IEEE arithmetic, and comparisons on
-NaN are false), so eager evaluation is observationally equivalent to
-short-circuit for any parseable script; the eager contract exists so that all
-three evaluators share one semantics.
+side effects); eager evaluation may produce IEEE NaN or infinities in a
+discarded operand, but each script comparison still resolves to a boolean that
+`AND`/`OR` combines normally. The eager contract exists so that all three
+evaluators share one semantics.
 
 ### Day-Count Functions
 
@@ -350,8 +350,8 @@ Carlo](aad.md#pathwise-adjoints-in-monte-carlo).
 ### Value-Only vs AAD Evaluation
 
 The `double` instantiation walks the AST with an `Evaluator_<double>` (or, in
-compiled mode — the default — an `EvalState_<double>` over the pre-compiled
-node/const streams) and accumulates the payoff slot across paths. The
+compiled mode, an `EvalState_<double>` over the pre-compiled node/const
+streams) and accumulates the payoff slot across paths. The
 `AAD::Number_` instantiation additionally:
 
 1. Activates the tape and registers model parameters and constant variables on
@@ -389,8 +389,8 @@ as the tree-walk.
 Both `MCSimulation` instantiations therefore accept `compiled` as a pure
 performance flag: every product and configuration produces the same numbers
 (within floating-point association noise) through either path. The default is
-`compiled = true` for both `double` and `AAD::Number_`; pass `compiled = false`
-to force the tree-walk evaluators. `MCSimulation` compiles internally
+`compiled = false` for both `double` and `AAD::Number_`; pass `compiled = true`
+to use the compiled evaluators. `MCSimulation` compiles internally
 (`Compile()` for `double`, `Compile(true)` for `Number_`, matching the fuzzy
 tree-walk it replaces), so callers never manage the artifact themselves.
 

@@ -4,11 +4,11 @@
 // Script-engine per-path evaluator micro-benchmark.
 // MCSimulation is the N_paths x N_events inner loop of every MC pricing -- the
 // dominant per-path cost. script_perf only times the parser front-end; it never
-// calls MCSimulation. The compiled (flat-stream) evaluator is the production
-// default for both specializations; compiled=false keeps the tree-walk
-// evaluators. This target times both evaluator forms for the double
-// specialization (the production pricing path) and the Number_ specialization
-// (the AAD/tape-on-MC path) so a regression in either shows up side by side.
+// calls MCSimulation. Tree-walk is the default for both specializations;
+// compiled=true opts into the flat-stream evaluator. This target times both
+// evaluator forms for the double specialization (the production pricing path)
+// and the Number_ specialization (the AAD/tape-on-MC path) so a regression in
+// either shows up side by side.
 
 #include <dal/platform/platform.hpp>
 #include <dal/platform/initall.hpp>

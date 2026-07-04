@@ -4,6 +4,8 @@
 
 #pragma once
 
+#include <optional>
+
 #include <dal/script/event.hpp>
 #include <dal/model/base.hpp>
 #include <dal/math/random/brownianbridge.hpp>
@@ -14,7 +16,6 @@
 #include <dal/math/aad/aad.hpp>
 #include <dal/model/factory.hpp>
 #include <dal/utilities/numerics.hpp>
-#include <optional>
 
 
 namespace Dal::Script {
@@ -64,7 +65,7 @@ namespace Dal::Script {
                              size_t nPaths,
                              const String_& rsg = "sobol",
                              bool useBb = false,
-                             std::optional<bool> compiled = std::nullopt,
+                             std::optional<bool> compiled = false,
                              int maxNestedIfs = -1,
                              double eps = 0.01) {
         THROW("not implemented");
@@ -80,9 +81,8 @@ namespace Dal::Script {
                              int maxNestedIfs,
                              double eps) {
         //  Compiled and tree-walk produce the same numbers (pinned by the
-        //  ScriptCompiledParity suite): `compiled` is a performance flag and
-        //  the <double> path defaults to the faster compiled evaluator.
-        const bool useCompiled = compiled.value_or(true);
+        //  ScriptCompiledParity suite): `compiled` is a performance flag.
+        const bool useCompiled = compiled.value_or(false);
 
         //  Compile once per valuation, const-correctly, on the main thread
         //  (throws if PreProcess was not run; ThreadPool_ tasks swallow
@@ -181,12 +181,10 @@ namespace Dal::Script {
                              std::optional<bool> compiled,
                              int maxNestedIfs,
                              double eps) {
-        //  <Number_> defaults to the compiled fuzzy stream since Phase 5:
+        //  The compiled fuzzy stream mirrors FuzzyEvaluator_ exactly:
         //  smoothed conditions (CSpr/BFly), probability combinators and the
-        //  dt-blend FuzzyIf produce the exact FuzzyEvaluator_ numbers with
-        //  the compiled evaluator's flat-stream speed. compiled=false keeps
-        //  the tree-walk FuzzyEvaluator_.
-        const bool useCompiled = compiled.value_or(true);
+        //  dt-blend FuzzyIf produce the same numbers with flat-stream speed.
+        const bool useCompiled = compiled.value_or(false);
 
         std::optional<ScriptCompiled_> compiledProduct;
         if (useCompiled)
