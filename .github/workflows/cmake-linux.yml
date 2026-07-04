@@ -139,9 +139,9 @@ jobs:
         run: |
           bash -e ./build_linux.sh
 
-  # Benchmark job: builds and runs all 8 performance benchmarks on one
+  # Benchmark job: builds and runs all performance benchmarks on one
   # representative configuration (gcc-14, native/AADet backend, -O3).
-  # Results appear in the CI logs — no pass/fail gate (timing, not correctness).
+  # Results appear in the CI logs and job summary; timings are not a pass/fail gate.
   benchmark:
     name: Benchmarks
     runs-on: ubuntu-latest
@@ -167,9 +167,53 @@ jobs:
 
       - name: Run benchmarks
         run: |
-          for bench in tape_perf jacobian_perf pde_perf rng_perf \
-                       interp_perf krylov_perf banded_perf cholesky_perf; do
-            echo "========== $bench =========="
-            ./bin/$bench || true
+          benchmarks=(
+            matrix_perf
+            script_perf
+            tape_perf
+            jacobian_perf
+            pde_perf
+            rng_perf
+            interp_perf
+            krylov_perf
+            banded_perf
+            cholesky_perf
+            specialfunctions_perf
+            black_perf
+            iv_brent_perf
+            script_mc_perf
+            curve_calibration_perf
+          )
+
+          mkdir -p benchmark-results
+          {
+            echo "## Benchmark Results"
             echo
+            echo "Configuration: gcc-14, native/AADet backend, -O3."
+            echo
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          for bench in "${benchmarks[@]}"; do
+            echo "========== $bench =========="
+            result_file="benchmark-results/${bench}.txt"
+            if "./bin/$bench" > "$result_file" 2>&1; then
+              status=0
+            else
+              status=$?
+            fi
+            cat "$result_file"
+            echo
+
+            {
+              echo "### $bench"
+              echo
+              echo '```text'
+              cat "$result_file"
+              echo '```'
+              if [ "$status" -ne 0 ]; then
+                echo
+                echo "Exit code: $status (not fail-gated)."
+              fi
+              echo
+            } >> "$GITHUB_STEP_SUMMARY"
           done
