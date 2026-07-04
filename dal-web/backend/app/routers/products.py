@@ -67,9 +67,7 @@ async def update_product(
 
 
 @router.delete("/{product_id}", status_code=204)
-async def delete_product(
-    product_id: str, store: Store = Depends(store_dependency)
-) -> None:
+async def delete_product(product_id: str, store: Store = Depends(store_dependency)) -> None:
     try:
         store.delete_product(product_id)
     except ConflictError as exc:

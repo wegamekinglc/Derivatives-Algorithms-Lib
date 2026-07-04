@@ -52,6 +52,7 @@ def engine_from_url(url: str) -> Engine:
     engine = create_engine(url, **kwargs)
 
     if _is_sqlite(url):
+
         @event.listens_for(engine, "connect")
         def _set_sqlite_pragmas(dbapi_connection, _connection_record):  # noqa: ANN001
             cursor = dbapi_connection.cursor()

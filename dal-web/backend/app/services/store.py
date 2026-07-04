@@ -261,9 +261,7 @@ class Store:
 
     def list_valuations(self) -> list[ValuationResult]:
         with self._lock:
-            return sorted(
-                self._valuations.values(), key=lambda r: r.created_at, reverse=True
-            )
+            return sorted(self._valuations.values(), key=lambda r: r.created_at, reverse=True)
 
     def get_valuation(self, valuation_id: str) -> ValuationResult:
         with self._lock:
