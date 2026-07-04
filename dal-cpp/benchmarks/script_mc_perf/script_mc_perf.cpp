@@ -78,7 +78,6 @@ int main() {
         auto r = Bench::Run("MCSimulation<double> compiled=true (1e5 paths x 52 events)", [&]() {
             ScriptProduct_ product = BuildProduct();
             (void) product.PreProcess(false, false);
-            product.Compile();
             auto results = MCSimulation<double>(product, BuildModelData(), kDoublePaths, "sobol", false, true);
             sink += results.aggregated_;
         }, 1, kRepeats);
@@ -105,7 +104,6 @@ int main() {
         auto r = Bench::Run("MCSimulation<Number_> compiled=true (1e4 paths x 52 events)", [&]() {
             ScriptProduct_ product = BuildProduct();
             int maxNestedIfs = product.PreProcess(true, true);
-            product.Compile();
             auto results = MCSimulation<Number_>(product, BuildModelData(), kAadPaths, "sobol", false, true, maxNestedIfs, 0.01);
             sink += results.aggregated_;
             if (!results.risks_.empty())

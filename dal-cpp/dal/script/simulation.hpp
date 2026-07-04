@@ -14,6 +14,7 @@
 #include <dal/math/aad/aad.hpp>
 #include <dal/model/factory.hpp>
 #include <dal/utilities/numerics.hpp>
+#include <optional>
 
 
 namespace Dal::Script {
@@ -84,7 +85,7 @@ namespace Dal::Script {
                              size_t nPaths,
                              const String_& rsg = "sobol",
                              bool useBb = false,
-                             bool compiled = false,
+                             std::optional<bool> compiled = std::nullopt,
                              int maxNestedIfs = -1,
                              double eps = 0.01) {
         THROW("not implemented");
@@ -96,15 +97,20 @@ namespace Dal::Script {
                              size_t nPaths,
                              const String_& rsg,
                              bool useBb,
-                             bool compiled,
+                             std::optional<bool> compiled,
                              int maxNestedIfs,
                              double eps) {
-        //  Never fall back to the tree-walk silently: an un-compiled product
-        //  with compiled=true is a caller error. Guard here (the pool tasks
-        //  swallow exceptions) and again at the EvaluateCompiled seam.
-        if (compiled)
-            REQUIRE2(product.IsCompiled(),
-                     "product is not compiled: call Compile() before MCSimulation with compiled=true", ScriptError_);
+        //  Compiled and tree-walk produce the same numbers (pinned by the
+        //  ScriptCompiledParity suite): `compiled` is a performance flag and
+        //  the <double> path defaults to the faster compiled evaluator.
+        const bool useCompiled = compiled.value_or(true);
+
+        //  Compile once per valuation, const-correctly, on the main thread
+        //  (throws if PreProcess was not run; ThreadPool_ tasks swallow
+        //  exceptions). Never fall back to the tree-walk silently.
+        std::optional<ScriptCompiled_> compiledProduct;
+        if (useCompiled)
+            compiledProduct.emplace(product.Compile());
 
         auto mdl = CreateModel<double>(modelData);
 
@@ -156,12 +162,12 @@ namespace Dal::Script {
                 Scenario_<>& path = paths[threadNum];
                 auto& random = rngVector[threadNum];
                 random->SkipTo(firstPath);
-                if (compiled) {
+                if (useCompiled) {
                     EvalState_<double>& evalState = evalStateVector[threadNum];
                     for (size_t i = 0; i < pathsInTask; ++i) {
                         random->FillNormal(&gaussVec);
                         mdl->GeneratePath(gaussVec, &path);
-                        product.EvaluateCompiled(path, evalState);
+                        compiledProduct->Evaluate(path, evalState);
                         simResult += evalState.VarVals()[payoffIndex];
                     }
                 } else {
@@ -193,12 +199,15 @@ namespace Dal::Script {
                              size_t nPaths,
                              const String_& rsg,
                              bool useBb,
-                             bool compiled,
+                             std::optional<bool> compiled,
                              int maxNestedIfs,
                              double eps) {
-        if (compiled) {
-            REQUIRE2(product.IsCompiled(),
-                     "product is not compiled: call Compile() before MCSimulation with compiled=true", ScriptError_);
+        //  <Number_> defaults to the tree-walk (FuzzyEvaluator_) until the
+        //  compiled evaluator learns fuzzy smoothing.
+        const bool useCompiled = compiled.value_or(false);
+
+        std::optional<ScriptCompiled_> compiledProduct;
+        if (useCompiled) {
             //  INTERIM guard, deleted when the compiled evaluator learns
             //  fuzzy smoothing: the compiled stream hard-branches conditions
             //  while the tree-walk <Number_> path smooths them with
@@ -206,6 +215,7 @@ namespace Dal::Script {
             REQUIRE2(!HasConditionalStatement(product),
                      "compiled <Number_> evaluation cannot smooth conditional statements yet: use compiled=false",
                      ScriptError_);
+            compiledProduct.emplace(product.Compile());
         }
 
         AAD::Activate(*AAD::Tape());
@@ -268,10 +278,10 @@ namespace Dal::Script {
                         results.risks_[j + nParams] += Adjoint(constVarVals[j]) / static_cast<double>(nPaths);
                 };
 
-                if (compiled) {
+                if (useCompiled) {
                     EvalState_<AAD::Number_> evalState = product.BuildEvalState<AAD::Number_>();
                     runPaths(evalState, [&](Scenario_<AAD::Number_>& p, EvalState_<AAD::Number_>& e) {
-                        product.EvaluateCompiled(p, e);
+                        compiledProduct->Evaluate(p, e);
                     });
                     AAD::PropagateMarkToStart(*AAD::Tape());
                     accumulateConstVarRisks(evalState.ConstVarVals());

@@ -85,7 +85,6 @@ int main() {
 
         ScriptProduct_ product(eventDates, events);
         int maxNestedIfs = product.PreProcess(false, false);
-        product.Compile();
         const int numPath = std::pow(2, 20);
         SimResults_ results = MCSimulation<double>(product, modelData, numPath, String_("sobol"), false, true);
 
@@ -117,7 +116,6 @@ int main() {
 
         ScriptProduct_ product(eventDates, events);
         int maxNestedIfs = product.PreProcess(true, true);
-        product.Compile();
         const int numPath = std::pow(2, 20);
         SimResults_ results = MCSimulation<Number_>(product, modelData, numPath, String_("sobol"), false, true, maxNestedIfs, 0.01);
 

@@ -57,15 +57,16 @@ namespace {
             s.numeraire_ = 1.0;
         }
 
-        // Tree-walk uses Evaluator_<double>; compiled uses EvalState_<double>.
-        // We invoke both via the product's two evaluation entry points so the
-        // comparison reflects the actual MCSimulation code paths.
+        // Tree-walk uses Evaluator_<double>; compiled uses EvalState_<double>
+        // over the ScriptCompiled_ artifact. We invoke both via the actual
+        // MCSimulation code paths' entry points.
         Evaluator_<double> treeEval = product.BuildEvaluator<double>();
         product.Evaluate(scenario, treeEval);
         const double treePayoff = treeEval.VarVals()[product.PayOffIdx()];
 
+        const ScriptCompiled_ compiled = product.Compile();
         EvalState_<double> compiledState = product.BuildEvalState<double>();
-        product.EvaluateCompiled(scenario, compiledState);
+        compiled.Evaluate(scenario, compiledState);
         const double compiledPayoff = compiledState.VarVals()[product.PayOffIdx()];
 
         ASSERT_NEAR(compiledPayoff, treePayoff, tol)
@@ -118,7 +119,6 @@ TEST(ScriptCompiledParityTest, TestParity_VanillaCall) {
     VanillaProduct_ vanilla(exerciseDate, 11.0, "call pays MAX(spot() - STRIKE, 0.0)");
     ScriptProduct_ product = vanilla.Build();
     product.PreProcess(false, false);
-    product.Compile();
 
     // Per-path: in-the-money, at-the-money, out-of-the-money.
     {
@@ -139,9 +139,9 @@ TEST(ScriptCompiledParityTest, TestParity_VanillaCall) {
     AssertAggregatedParityDouble(product, model, 4096);
 }
 
-// Pins #13: tree-walk PV must be identical before vs after Compile() mutates
-// the shared AST (Compile() runs ConstProcess first). If this turns RED the
-// Compile() mutation has broken tree-walk semantics.
+// Pins #13: tree-walk PV must be identical before vs after Compile() (and
+// after PreProcess's ConstProcess pass, which marks isConst_/constVal_ on the
+// shared AST). If this turns RED, compilation has broken tree-walk semantics.
 TEST(ScriptCompiledParityTest, TestParity_TreeWalkUnchangedAfterCompile) {
     Global::Dates_::SetEvaluationDate(Date_(2022, 6, 22));
     Date_ exerciseDate(2024, 6, 21);
@@ -152,14 +152,47 @@ TEST(ScriptCompiledParityTest, TestParity_TreeWalkUnchangedAfterCompile) {
     auto model = StandardBSModel(10.0, 0.20, 0.034, 0.021);
     const SimResults_ before = MCSimulation<double>(product, model, 2048, "sobol", false, false);
 
-    product.Compile();
+    const ScriptCompiled_ compiled = product.Compile();
 
-    // Compile() does not touch variableValues_ / timeLine_; the tree-walk
+    // Compile() is const and produces a separate artifact; the tree-walk
     // evaluator ignores isConst_.
     const SimResults_ after = MCSimulation<double>(product, model, 2048, "sobol", false, false);
 
     ASSERT_NEAR(after.aggregated_, before.aggregated_, 1e-8)
         << "tree-walk PV changed after Compile(); Compile() must not mutate the AST in a tree-walk-visible way";
+}
+
+// #13 const-correct compilation. Compile() is const and produces a separate
+// ScriptCompiled_ artifact (no member streams), so MCSimulation's
+// const ScriptProduct_& compiles internally and `compiled` is a pure
+// performance flag. Also pins the <double> default flip: an omitted flag
+// must run compiled and match the explicit tree-walk PV.
+TEST(ScriptCompiledParityTest, TestParity_ConstCompile_Artifact) {
+    Global::Dates_::SetEvaluationDate(Date_(2022, 6, 22));
+    Date_ exerciseDate(2024, 6, 21);
+    VanillaProduct_ vanilla(exerciseDate, 11.0, "call pays MAX(spot() - STRIKE, 0.0)");
+    ScriptProduct_ product = vanilla.Build();
+    product.PreProcess(false, false);
+
+    const ScriptProduct_& constRef = product;
+    const ScriptCompiled_ compiled = constRef.Compile();
+
+    Scenario_<double> scenario(1);
+    scenario[0].spot_ = 13.0;
+    scenario[0].numeraire_ = 1.0;
+
+    EvalState_<double> state = constRef.BuildEvalState<double>();
+    compiled.Evaluate(scenario, state);
+
+    Evaluator_<double> treeEval = constRef.BuildEvaluator<double>();
+    constRef.Evaluate(scenario, treeEval);
+    ASSERT_NEAR(state.VarVals()[constRef.PayOffIdx()], treeEval.VarVals()[constRef.PayOffIdx()], 1e-8);
+
+    auto model = StandardBSModel(10.0, 0.20, 0.034, 0.021);
+    const SimResults_ defaulted = MCSimulation<double>(product, model, 2048, "sobol", false);
+    const SimResults_ treeWalk = MCSimulation<double>(product, model, 2048, "sobol", false, false);
+    ASSERT_NEAR(defaulted.aggregated_, treeWalk.aggregated_, 1e-8)
+        << "<double> default (compiled) diverges from tree-walk";
 }
 
 // Pins past-events init seeding: evaluation date mid-schedule so PastEvaluate()
@@ -178,7 +211,6 @@ TEST(ScriptCompiledParityTest, TestParity_PastEvents_InitSeeding) {
 
     ScriptProduct_ product(eventDates, events);
     product.PreProcess(false, false);
-    product.Compile();
 
     // Per-path: the past-seeded prevA/prevB (5, 7) must read identically.
     AssertPerPathParity(product, 1.0);
@@ -217,7 +249,6 @@ TEST(ScriptCompiledParityTest, TestParity_IfElse_ConsecutiveBothTrue) {
     )"};
     ScriptProduct_ product(eventDates, events);
     product.PreProcess(false, false);
-    product.Compile();
     AssertPerPathParity(product, 5.0);
 }
 
@@ -241,7 +272,6 @@ TEST(ScriptCompiledParityTest, TestParity_IfElse_NestedInTrueBranch) {
     )"};
     ScriptProduct_ product(eventDates, events);
     product.PreProcess(false, false);
-    product.Compile();
     AssertPerPathParity(product, 5.0);
 }
 
@@ -286,7 +316,6 @@ TEST(ScriptCompiledParityTest, TestParity_And_Or_EagerBothSides) {
     )"};
     ScriptProduct_ product(eventDates, events, "out");
     product.PreProcess(false, false);
-    product.Compile();
     // spot=0.5: AND rhs poisoned (LOG(-1.5)); OR lhs false, rhs poisoned.
     // spot=5.0: AND both true; OR lhs true, rhs live.
     // spot=10.0: AND lhs true rhs false; OR lhs true.
@@ -321,7 +350,6 @@ TEST(ScriptCompiledParityTest, TestParity_SupEqual_ConstFold_TinyNegative) {
     )"};
     ScriptProduct_ product(eventDates, events, "out");
     product.PreProcess(false, true);
-    product.Compile();
     AssertPerPathParity(product, 5.0);
 }
 
@@ -347,7 +375,6 @@ TEST(ScriptCompiledParityTest, DISABLED_TestParity_Number_NotEqual_Fuzzy) {
     )"};
     ScriptProduct_ product(eventDates, events);
     int maxNested = product.PreProcess(true, false);
-    product.Compile();
 
     auto model = StandardBSModel(10.0, 0.20, 0.034, 0.021);
     const SimResults_ treeWalk = MCSimulation<Number_>(product, model, 2048, "sobol", false, false, maxNested);
@@ -355,29 +382,22 @@ TEST(ScriptCompiledParityTest, DISABLED_TestParity_Number_NotEqual_Fuzzy) {
     ASSERT_NEAR(compiled.aggregated_, treeWalk.aggregated_, 1e-8);
 }
 
-// #6 / #3 guard. compiled=true without Compile() used to index the empty
-// nodeStreams_ — out-of-bounds UB. The guard was added BEFORE this test was
-// enabled (the pre-guard out-of-bounds path was never executed): both
-// MCSimulation (main thread; the pool tasks swallow exceptions) and the
-// EvaluateCompiled seam now REQUIRE a compiled product.
+// #6 / #3 guard. Compile() on a product that was never PreProcessed (no
+// variable indexing, no ConstProcess) must THROW rather than emit a garbage
+// stream, both directly and inside MCSimulation (main thread; the pool tasks
+// swallow exceptions). The guard predates this test's enablement, so the
+// unguarded path was never executed.
 TEST(ScriptCompiledParityTest, TestParity_CompileNotCalled_GuardsThrow) {
     Global::Dates_::SetEvaluationDate(Date_(2022, 6, 22));
     Date_ exerciseDate(2024, 6, 21);
     VanillaProduct_ vanilla(exerciseDate, 11.0, "call pays MAX(spot() - STRIKE, 0.0)");
     ScriptProduct_ product = vanilla.Build();
-    product.PreProcess(false, false);
-    // NOTE: Compile() deliberately NOT called.
+    // NOTE: PreProcess() deliberately NOT called.
+
+    ASSERT_THROW(product.Compile(), Dal::Exception_);
 
     auto model = StandardBSModel(10.0, 0.20, 0.034, 0.021);
     ASSERT_THROW(MCSimulation<double>(product, model, 64, "sobol", false, true), Dal::Exception_);
-
-    // The EvaluateCompiled seam itself must also refuse (direct callers
-    // bypass MCSimulation).
-    Scenario_<double> scenario(1);
-    scenario[0].spot_ = 10.0;
-    scenario[0].numeraire_ = 1.0;
-    EvalState_<double> state = product.BuildEvalState<double>();
-    ASSERT_THROW(product.EvaluateCompiled(scenario, state), Dal::Exception_);
 }
 
 // #11 const variables dead in compiled path. The compiler bakes constVar
@@ -395,7 +415,6 @@ TEST(ScriptCompiledParityTest, TestParity_Number_ConstVarRisks) {
     Vector_<String_> events{"11.0", "call pays MAX(spot() - STRIKE, 0.0)"};
     ScriptProduct_ product(eventDates, events);
     int maxNested = product.PreProcess(true, false);
-    product.Compile();
 
     auto model = StandardBSModel(10.0, 0.20, 0.034, 0.021);
     const SimResults_ treeWalk = MCSimulation<Number_>(product, model, 4096, "sobol", false, false, maxNested);
@@ -423,11 +442,11 @@ TEST(ScriptCompiledParityTest, TestParity_ConstVarVals_MutationSeam) {
     Vector_<String_> events{"11.0", "call pays MAX(spot() - STRIKE, 0.0)"};
     ScriptProduct_ product(eventDates, events);
     product.PreProcess(false, false);
-    product.Compile();
+    const ScriptCompiled_ compiled = product.Compile();
 
     // Build both states, mutate ConstVarVals on each, assert the payoff
-    // responds identically. On the compiled path the mutation is invisible
-    // today (baked into constStream_).
+    // responds identically. On the compiled path the mutation used to be
+    // invisible (baked into constStream_).
     Scenario_<double> scenario(1);
     scenario[0].spot_ = 13.0;
     scenario[0].numeraire_ = 1.0;
@@ -439,7 +458,7 @@ TEST(ScriptCompiledParityTest, TestParity_ConstVarVals_MutationSeam) {
 
     EvalState_<double> compiledState = product.BuildEvalState<double>();
     compiledState.ConstVarVals()[0] = 5.0;
-    product.EvaluateCompiled(scenario, compiledState);
+    compiled.Evaluate(scenario, compiledState);
     const double compiledPayoff = compiledState.VarVals()[product.PayOffIdx()];
 
     ASSERT_NEAR(compiledPayoff, treePayoff, 1e-8);
@@ -464,7 +483,6 @@ TEST(ScriptCompiledParityTest, TestParity_Number_Conditional_CompiledGuardThrows
     )"};
     ScriptProduct_ product(eventDates, events);
     int maxNested = static_cast<int>(product.PreProcess(true, false));
-    product.Compile();
 
     auto model = StandardBSModel(10.0, 0.20, 0.034, 0.021);
     ASSERT_THROW(MCSimulation<Number_>(product, model, 64, "sobol", false, true, maxNested), Dal::Exception_);
@@ -490,7 +508,6 @@ TEST(ScriptCompiledParityTest, TestParity_ConstCondProcessed_Collect) {
     // which both evaluators handle via the ConstVisitor_ catch-all traversal.
     ScriptProduct_ product(eventDates, events, "x");
     product.PreProcess(false, false);
-    product.Compile();
     AssertPerPathParity(product, 5.0);
 }
 
@@ -516,7 +533,6 @@ TEST(ScriptCompiledParityTest, TestParity_Barrier_Sup) {
     Global::Dates_::SetEvaluationDate(Date_(2022, 6, 22));
     ScriptProduct_ product = FixedBarrierProduct();
     product.PreProcess(false, false);
-    product.Compile();
 
     // Below barrier / ITM path / above barrier (knocked out on every event).
     for (const double spot : {10.0, 13.0, 16.0}) {
@@ -544,7 +560,6 @@ TEST(ScriptCompiledParityTest, TestParity_Digital_Equal) {
     )"};
     ScriptProduct_ product(eventDates, events, "out");
     product.PreProcess(false, false);
-    product.Compile();
     for (const double spot : {11.0, 11.5, 9.0}) {
         SCOPED_TRACE("spot=" + std::to_string(spot));
         AssertPerPathParity(product, spot);
@@ -580,7 +595,6 @@ TEST(ScriptCompiledParityTest, TestParity_NestedIf) {
     )"};
     ScriptProduct_ product(eventDates, events, "out");
     product.PreProcess(false, false);
-    product.Compile();
     for (const double spot : {0.5, 1.5, 3.0, 5.0, 9.0}) {
         SCOPED_TRACE("spot=" + std::to_string(spot));
         AssertPerPathParity(product, spot);
@@ -607,7 +621,6 @@ TEST(ScriptCompiledParityTest, TestParity_MultiEvent) {
     )");
     ScriptProduct_ product(eventDates, events, "out");
     product.PreProcess(false, false);
-    product.Compile();
 
     for (const double spot : {8.0, 10.5, 14.0}) {
         SCOPED_TRACE("spot=" + std::to_string(spot));
@@ -692,10 +705,9 @@ namespace {
         Vector_<String_> events{body};
         ScriptProduct_ product(eventDates, events);
         product.PreProcess(false, true);
-        product.Compile(); // runs ConstProcess; required before Compiler_
-        Compiler_ compiler;
-        product.Visit(compiler, false, true);
-        CollectOpcodes(compiler.NodeStream(), out);
+        const ScriptCompiled_ compiled = product.Compile();
+        for (const auto& stream : compiled.NodeStreams())
+            CollectOpcodes(stream, out);
     }
 
     // Compile a product with a live const variable and merge its opcodes.
@@ -708,10 +720,9 @@ namespace {
         events.push_back("out pays MAX(spot() - K, 0.0)");
         ScriptProduct_ product(eventDates, events, "out");
         product.PreProcess(false, true);
-        product.Compile();
-        Compiler_ compiler;
-        product.Visit(compiler, false, true);
-        CollectOpcodes(compiler.NodeStream(), out);
+        const ScriptCompiled_ compiled = product.Compile();
+        for (const auto& stream : compiled.NodeStreams())
+            CollectOpcodes(stream, out);
     }
 } // namespace
 

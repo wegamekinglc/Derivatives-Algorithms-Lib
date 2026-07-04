@@ -101,6 +101,14 @@ namespace Dal::Script {
             sampleDef.discountMats_.push_back(ttm);
             defLine_.emplace_back(sampleDef);
         }
+
+        //  Identify constants last (after const-condition folding) so
+        //  Compile() can stay const: isConst_/constVal_ markings are
+        //  invisible to the tree-walk evaluators (pinned by
+        //  TestParity_TreeWalkUnchangedAfterCompile).
+        ConstProcess();
+        preProcessed_ = true;
+
         return maxNestedIfs;
     }
 
@@ -124,34 +132,34 @@ namespace Dal::Script {
         }
     }
 
-    void ScriptProduct_::Compile() {
-        //  First, identify constants
-        ConstProcess();
+    ScriptCompiled_ ScriptProduct_::Compile() const {
+        REQUIRE2(preProcessed_, "product is not pre-processed: call PreProcess() before Compile()", ScriptError_);
 
-        //  Clear
-        nodeStreams_.clear();
-        constStreams_.clear();
-        dataStreams_.clear();
+        Vector_<Vector_<int>> nodeStreams;
+        Vector_<Vector_<>> constStreams;
+        Vector_<Vector_<const void*>> dataStreams;
 
         //  One per event date
-        nodeStreams_.reserve(events_.size());
-        constStreams_.reserve(events_.size());
-        dataStreams_.reserve(events_.size());
+        nodeStreams.reserve(events_.size());
+        constStreams.reserve(events_.size());
+        dataStreams.reserve(events_.size());
 
         //	Visit
-        for (auto& evt : events_) {
+        for (const auto& evt : events_) {
             //	The compiler
             Compiler_ comp;
 
             //	Loop over statements in event
-            for (auto& stat : evt)
+            for (const auto& stat : evt)
                 stat->Accept(comp);
 
             //  Get compiled
-            nodeStreams_.push_back(comp.NodeStream());
-            constStreams_.push_back(comp.ConstStream());
-            dataStreams_.push_back(comp.DataStream());
+            nodeStreams.push_back(comp.NodeStream());
+            constStreams.push_back(comp.ConstStream());
+            dataStreams.push_back(comp.DataStream());
         }
+
+        return {std::move(nodeStreams), std::move(constStreams), std::move(dataStreams)};
     }
 
 

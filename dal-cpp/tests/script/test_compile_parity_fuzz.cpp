@@ -243,7 +243,7 @@ namespace {
         FuzzProduct_ fp = FuzzProduct_::Build(seed, structure);
         ScriptProduct_& product = *fp.product;
         product.PreProcess(false, false);
-        product.Compile();
+        const ScriptCompiled_ compiled = product.Compile();
 
         const double spots[] = {0.5, 1.0, 5.0, 9.0, 11.0, 13.0, 20.0};
         for (const double spot : spots) {
@@ -258,7 +258,7 @@ namespace {
             const double treePayoff = treeEval.VarVals()[product.PayOffIdx()];
 
             EvalState_<double> compiledState = product.BuildEvalState<double>();
-            product.EvaluateCompiled(scenario, compiledState);
+            compiled.Evaluate(scenario, compiledState);
             const double compiledPayoff = compiledState.VarVals()[product.PayOffIdx()];
 
             ASSERT_NEAR(compiledPayoff, treePayoff, 1e-8)

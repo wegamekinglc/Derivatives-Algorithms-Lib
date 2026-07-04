@@ -29,6 +29,36 @@ events is string[]
 namespace Dal::Script {
     using AAD::Scenario_;
 
+    //  Compiled form of a ScriptProduct_: flat per-event node/const streams
+    //  produced by ScriptProduct_::Compile(). A separate artifact keeps
+    //  compilation const-correct — the product's AST is never mutated to
+    //  hold compiled state.
+    class ScriptCompiled_ {
+        Vector_<Vector_<int>> nodeStreams_;
+        Vector_<Vector_<>> constStreams_;
+        Vector_<Vector_<const void*>> dataStreams_;
+
+    public:
+        ScriptCompiled_(Vector_<Vector_<int>>&& nodeStreams,
+                        Vector_<Vector_<>>&& constStreams,
+                        Vector_<Vector_<const void*>>&& dataStreams)
+            : nodeStreams_(std::move(nodeStreams)),
+              constStreams_(std::move(constStreams)),
+              dataStreams_(std::move(dataStreams)) {}
+
+        [[nodiscard]] const Vector_<Vector_<int>>& NodeStreams() const { return nodeStreams_; }
+
+        template <class T_> void Evaluate(const Scenario_<T_>& scenario, EvalState_<T_>& state) const {
+            state.Init();
+            for (size_t i = 0; i < nodeStreams_.size(); ++i)
+                EvalCompiled(nodeStreams_[i],
+                             constStreams_[i],
+                             dataStreams_[i],
+                             scenario[i],
+                             state);
+        }
+    };
+
     class ScriptProduct_ {
         String_ payoff_;
         size_t payoffIdx_;
@@ -45,10 +75,9 @@ namespace Dal::Script {
         Vector_<> timeLine_;
         Vector_<AAD::SampleDef_> defLine_;
 
-        //  Compiled form
-        Vector_<Vector_<int>> nodeStreams_;
-        Vector_<Vector_<>> constStreams_;
-        Vector_<Vector_<const void*>> dataStreams_;
+        //  Set by PreProcess (Compile() requires indexed variables and
+        //  const-processed nodes)
+        bool preProcessed_ = false;
 
     public:
         ScriptProduct_(const Vector_<Cell_>& dates, const Vector_<String_>& events, String_ payoff = "")
@@ -126,23 +155,6 @@ namespace Dal::Script {
             }
         }
 
-        template <class T_> void EvaluateCompiled(const Scenario_<T_>& scenario, EvalState_<T_>& state) const {
-            REQUIRE2(nodeStreams_.size() == events_.size(),
-                     "product is not compiled: call Compile() before EvaluateCompiled()", ScriptError_);
-
-            // Initialize state
-            state.Init();
-
-            // Loop over events
-            for (size_t i = 0; i < events_.size(); ++i)
-                // Evaluate the compiled events
-                EvalCompiled(nodeStreams_[i],
-                             constStreams_[i],
-                             dataStreams_[i],
-                             scenario[i],
-                             state);
-        }
-
         void IndexVariables();
         [[nodiscard]] Vector_<> PastEvaluate() const;
         size_t IFProcess();
@@ -152,8 +164,7 @@ namespace Dal::Script {
 
         size_t PreProcess(bool fuzzy, bool skip_domain);
         void Debug(std::ostream& ost = std::cout) const;
-        void Compile();
-        [[nodiscard]] bool IsCompiled() const { return nodeStreams_.size() == events_.size(); }
+        [[nodiscard]] ScriptCompiled_ Compile() const;
 
         [[nodiscard]] auto PayOffIdx() const { return payoffIdx_; }
     };
