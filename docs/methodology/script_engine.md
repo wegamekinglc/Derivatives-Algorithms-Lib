@@ -76,6 +76,19 @@ appropriate condition node (`NodeEqual_`, `NodeSup_`, `NodeSupEqual_`), with
 evaluator consumes as the smoothing width for that condition (see
 [Fuzzy Evaluator](#fuzzy-evaluator)).
 
+### Boolean Operator Semantics
+
+`AND` and `OR` are **eager**: both operands are always evaluated, in all
+evaluators — the exact tree-walk (`Evaluator_`), the fuzzy tree-walk
+(`FuzzyEvaluator_`, whose probability combinators $a \cdot b$ and
+$a + b - a \cdot b$ are inherently two-sided), and the compiled stream (which
+emits both operand sub-streams before the combinator opcode). Scripts must not
+rely on short-circuit evaluation. Conditions in this grammar are pure (no
+side effects, no partial functions beyond IEEE arithmetic, and comparisons on
+NaN are false), so eager evaluation is observationally equivalent to
+short-circuit for any parseable script; the eager contract exists so that all
+three evaluators share one semantics.
+
 ### Day-Count Functions
 
 `DCF(basis, start, end)` is folded to a literal at parse time: the parser

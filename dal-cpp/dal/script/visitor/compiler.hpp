@@ -244,7 +244,10 @@ namespace Dal::Script {
             VisitCondition<Sup>(node, [](double x) { return x > 0.0; });
         }
         void Visit(const NodeSupEqual_& node) {
-            VisitCondition<SupEqual>(node, [](double x) { return x > -Dal::EPSILON; });
+            //  Fold matches the runtime SupEqual opcode and the tree-walk
+            //  evaluator exactly (x >= 0); an EPSILON band here would diverge
+            //  for constants in (-EPSILON, 0).
+            VisitCondition<SupEqual>(node, [](double x) { return x >= 0.0; });
         }
 
         //  And/Or/Not
@@ -307,8 +310,7 @@ namespace Dal::Script {
 
         void Visit(const NodeConstVar_& node) {
             nodeStream_.emplace_back(ConstVar);
-            nodeStream_.emplace_back(static_cast<int>(constStream_.size()));
-            constStream_.emplace_back(node.constVal_);
+            nodeStream_.emplace_back(node.index_);
         }
 
         void Visit(const NodeConst_& node) {
@@ -488,6 +490,9 @@ namespace Dal::Script {
                 ++i;
                 break;
             case ConstVar:
+                dStack.Push(state.constVariables_[nodeStream[++i]]);
+                ++i;
+                break;
             case Const:
                 dStack.Push(constStream[nodeStream[++i]]);
                 ++i;

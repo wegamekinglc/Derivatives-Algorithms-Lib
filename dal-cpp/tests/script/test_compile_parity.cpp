@@ -305,8 +305,9 @@ TEST(ScriptCompiledParityTest, TestParity_And_Or_EagerBothSides) {
 // Confirmed RED at head: x = -1e-15 lies inside (-EPSILON, 0), so the fold
 // takes the TRUE branch (y=1) while the tree-walk computes -1e-15 >= 0 ==
 // false (y=2). The script tokenizer rejects scientific notation, hence the
-// long literal. Enabled by Phase 1 (fold becomes x >= 0.0).
-TEST(ScriptCompiledParityTest, DISABLED_TestParity_SupEqual_ConstFold_TinyNegative) {
+// long literal. Fixed in Phase 1 (fold is now x >= 0.0, matching the runtime
+// opcode and the tree-walk).
+TEST(ScriptCompiledParityTest, TestParity_SupEqual_ConstFold_TinyNegative) {
     Global::Dates_::SetEvaluationDate(Date_(2023, 1, 1));
     Vector_<Cell_> eventDates{Cell_(Date_(2023, 1, 28))};
     Vector_<String_> events{R"(
@@ -377,9 +378,10 @@ TEST(ScriptCompiledParityTest, DISABLED_TestParity_CompileNotCalled_GuardsThrow)
 // to Const; VisitBinary const-folds whole sub-expressions containing const
 // vars away. Result: const-var adjoints are always exactly zero on the AAD
 // compiled path while tree-walk records them. Confirmed RED: compiled
-// risks_[nParams]=0, tree-walk risks_[nParams]=-0.326 (dP/dSTRIKE). Enabled
-// by Phase 1c.
-TEST(ScriptCompiledParityTest, DISABLED_TestParity_Number_ConstVarRisks) {
+// risks_[nParams]=0, tree-walk risks_[nParams]=-0.326 (dP/dSTRIKE). Fixed in
+// Phase 1: ConstVar is a real opcode reading state.constVariables_[idx],
+// which InitModel4ParallelAAD puts on tape.
+TEST(ScriptCompiledParityTest, TestParity_Number_ConstVarRisks) {
     Global::Dates_::SetEvaluationDate(Date_(2022, 6, 22));
     Date_ exerciseDate(2024, 6, 21);
     Vector_<Cell_> eventDates{Cell_(String_("STRIKE")), Cell_(exerciseDate)};
@@ -406,8 +408,8 @@ TEST(ScriptCompiledParityTest, DISABLED_TestParity_Number_ConstVarRisks) {
 // callers can tweak const vars post-build; on the compiled path it is a
 // no-op (the value is baked into constStream_). Confirmed RED at spot=13.0:
 // compiled payoff=2 (uses baked STRIKE=11 → max(13-11,0)=2), tree-walk
-// payoff=8 (respects mutated STRIKE=5 → max(13-5,0)=8). Enabled by Phase 1c.
-TEST(ScriptCompiledParityTest, DISABLED_TestParity_ConstVarVals_MutationSeam) {
+// payoff=8 (respects mutated STRIKE=5 → max(13-5,0)=8). Fixed in Phase 1.
+TEST(ScriptCompiledParityTest, TestParity_ConstVarVals_MutationSeam) {
     Global::Dates_::SetEvaluationDate(Date_(2022, 6, 22));
     Date_ exerciseDate(2024, 6, 21);
     Vector_<Cell_> eventDates{Cell_(String_("STRIKE")), Cell_(exerciseDate)};
@@ -622,9 +624,9 @@ TEST(ScriptCompiledParityTest, TestGolden_FixedBarrier_PV_Risks) {
 //     visiting it, so the bare Const opcode is never emitted.
 //   - Smooth (31) is dead (defect #7): no visitor emits it. Phase 5 replaces
 //     it with real fuzzy opcodes.
-//   - ConstVar (39) is dead until the #11 fix: NodeConstVar_ is born
-//     isConst_=true, so every parent folds it into a *Const variant before
-//     Visit(NodeConstVar_) can run. Phase 1 moves it to the REQUIRED set.
+//   - ConstVar (39) is REQUIRED since the Phase 1 #11 fix: NodeConstVar_ is
+//     no longer born isConst_=true, so parents stop folding it away and the
+//     const-var battery below emits a live ConstVar opcode.
 // ============================================================================
 namespace {
     // Walk a compiled node stream, skipping operands, collecting opcodes.
@@ -659,6 +661,22 @@ namespace {
         ScriptProduct_ product(eventDates, events);
         product.PreProcess(false, true);
         product.Compile(); // runs ConstProcess; required before Compiler_
+        Compiler_ compiler;
+        product.Visit(compiler, false, true);
+        CollectOpcodes(compiler.NodeStream(), out);
+    }
+
+    // Compile a product with a live const variable and merge its opcodes.
+    // Drives the ConstVar opcode (#11): reachable since Phase 1.
+    void MergeConstVarProductOpcodes(std::set<int>* out) {
+        Vector_<Cell_> eventDates;
+        Vector_<String_> events;
+        eventDates.push_back(Cell_(String_("K"))); events.push_back("11.0");
+        eventDates.push_back(Cell_(Date_(2023, 1, 28)));
+        events.push_back("out pays MAX(spot() - K, 0.0)");
+        ScriptProduct_ product(eventDates, events, "out");
+        product.PreProcess(false, true);
+        product.Compile();
         Compiler_ compiler;
         product.Visit(compiler, false, true);
         CollectOpcodes(compiler.NodeStream(), out);
@@ -732,7 +750,10 @@ TEST(ScriptCompiledParityTest, TestOpcodeCoverage_AllReachableOpcodesExercised) 
         out pays y
     )", &seen);
 
-    const std::set<int> unreachable = {Const, Smooth, ConstVar};
+    // Const-var battery: a live const variable must emit the ConstVar opcode.
+    MergeConstVarProductOpcodes(&seen);
+
+    const std::set<int> unreachable = {Const, Smooth};
     for (int op = Add; op <= ConstVar; ++op) {
         if (unreachable.count(op)) {
             ASSERT_EQ(seen.count(op), 0u)

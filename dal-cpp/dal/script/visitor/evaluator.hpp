@@ -185,19 +185,23 @@ namespace Dal::Script {
         }
 
         FORCE_INLINE void Visit(const NodeAnd_& node) {
+            //  Eager: both operands always evaluated, matching the compiled
+            //  stream and the fuzzy combinators. Conditions are pure in this
+            //  grammar, so this is observationally equivalent to
+            //  short-circuit; scripts must not rely on short-circuit.
             VisitNode(*node.arguments_[0]);
-            if (bStack_.Top()) {
-                bStack_.Pop();
-                VisitNode(*node.arguments_[1]);
-            }
+            VisitNode(*node.arguments_[1]);
+            const bool rhs = bStack_.TopAndPop();
+            auto& lhs = bStack_.Top();
+            lhs = lhs && rhs;
         }
 
         FORCE_INLINE void Visit(const NodeOr_& node) {
             VisitNode(*node.arguments_[0]);
-            if (!bStack_.Top()) {
-                bStack_.Pop();
-                VisitNode(*node.arguments_[1]);
-            }
+            VisitNode(*node.arguments_[1]);
+            const bool rhs = bStack_.TopAndPop();
+            auto& lhs = bStack_.Top();
+            lhs = lhs || rhs;
         }
 
         FORCE_INLINE void Visit(const NodeNot_& node) {
