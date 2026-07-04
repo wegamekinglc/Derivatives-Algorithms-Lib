@@ -25,11 +25,11 @@ TEST(ScriptTest, TestCompile) {
 
     ScriptProduct_ product(eventDates, events);
     product.PreProcess(false, true);
-    product.Compile();
+    const ScriptCompiled_ compiled = product.Compile();
 
     EvalState_<double> eval_state(Vector_<>(product.VarNames().size(), 0.0));
     Scenario_<double> scenario(1);
-    product.EvaluateCompiled(scenario, eval_state);
+    compiled.Evaluate(scenario, eval_state);
 
     ASSERT_DOUBLE_EQ(eval_state.variables_[0], 4);
     ASSERT_DOUBLE_EQ(eval_state.variables_[1], 7);
@@ -46,12 +46,12 @@ TEST(ScriptTest, TestCompileWithVariable) {
 
     ScriptProduct_ product(eventDates, events);
     product.PreProcess(false, true);
-    product.Compile();
+    const ScriptCompiled_ compiled = product.Compile();
 
     EvalState_<double> eval_state(Vector_<>(product.VarNames().size(), 0.0));
     Scenario_<double> scenario(1);
     scenario[0].spot_ = 4.0;
-    product.EvaluateCompiled(scenario, eval_state);
+    compiled.Evaluate(scenario, eval_state);
 
     ASSERT_DOUBLE_EQ(eval_state.variables_[0], 7);
 }
@@ -71,11 +71,11 @@ TEST(ScriptTest, TestCompileWithSeveralEvents) {
 
     ScriptProduct_ product(eventDates, events);
     product.PreProcess(false, true);
-    product.Compile();
+    const ScriptCompiled_ compiled = product.Compile();
 
     EvalState_<double> eval_state(Vector_<>(product.VarNames().size(), 0.0));
     Scenario_<double> scenario(2);
-    product.EvaluateCompiled(scenario, eval_state);
+    compiled.Evaluate(scenario, eval_state);
 
     ASSERT_DOUBLE_EQ(eval_state.variables_[0], 4);
     ASSERT_DOUBLE_EQ(eval_state.variables_[1], 7);

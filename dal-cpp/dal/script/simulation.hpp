@@ -4,6 +4,8 @@
 
 #pragma once
 
+#include <optional>
+
 #include <dal/script/event.hpp>
 #include <dal/model/base.hpp>
 #include <dal/math/random/brownianbridge.hpp>
@@ -63,7 +65,7 @@ namespace Dal::Script {
                              size_t nPaths,
                              const String_& rsg = "sobol",
                              bool useBb = false,
-                             bool compiled = false,
+                             std::optional<bool> compiled = std::nullopt,
                              int maxNestedIfs = -1,
                              double eps = 0.01) {
         THROW("not implemented");
@@ -75,9 +77,15 @@ namespace Dal::Script {
                              size_t nPaths,
                              const String_& rsg,
                              bool useBb,
-                             bool compiled,
+                             std::optional<bool> compiled,
                              int maxNestedIfs,
                              double eps) {
+        const bool useCompiled = compiled.value_or(false);
+
+        std::optional<ScriptCompiled_> compiledProduct;
+        if (useCompiled)
+            compiledProduct.emplace(product.Compile());
+
         auto mdl = CreateModel<double>(modelData);
 
         mdl->Allocate(product.TimeLine(), product.DefLine());
@@ -128,12 +136,12 @@ namespace Dal::Script {
                 Scenario_<>& path = paths[threadNum];
                 auto& random = rngVector[threadNum];
                 random->SkipTo(firstPath);
-                if (compiled) {
+                if (useCompiled) {
                     EvalState_<double>& evalState = evalStateVector[threadNum];
                     for (size_t i = 0; i < pathsInTask; ++i) {
                         random->FillNormal(&gaussVec);
                         mdl->GeneratePath(gaussVec, &path);
-                        product.EvaluateCompiled(path, evalState);
+                        compiledProduct->Evaluate(path, evalState);
                         simResult += evalState.VarVals()[payoffIndex];
                     }
                 } else {
@@ -154,7 +162,6 @@ namespace Dal::Script {
         for (auto& future : futures)
             pool->ActiveWait(future);
 
-        // aggregate all the results
         results.aggregated_ = Accumulate(simResults);
         return results;
     }
@@ -165,9 +172,15 @@ namespace Dal::Script {
                              size_t nPaths,
                              const String_& rsg,
                              bool useBb,
-                             bool compiled,
+                             std::optional<bool> compiled,
                              int maxNestedIfs,
                              double eps) {
+        const bool useCompiled = compiled.value_or(false);
+
+        std::optional<ScriptCompiled_> compiledProduct;
+        if (useCompiled)
+            compiledProduct.emplace(product.Compile(true));
+
         AAD::Activate(*AAD::Tape());
         std::unique_ptr<AAD::Model_<AAD::Number_>> mdl = CreateModel<AAD::Number_>(modelData);
         const auto nParams = mdl->Parameters().size();
@@ -222,16 +235,16 @@ namespace Dal::Script {
                     }
                 };
 
-                // Accumulate const-var risks into results.risks_ from whichever evaluator was used
                 auto accumulateConstVarRisks = [&](const auto& constVarVals) {
                     for (size_t j = 0; j < nConstVars; ++j)
                         results.risks_[j + nParams] += Adjoint(constVarVals[j]) / static_cast<double>(nPaths);
                 };
 
-                if (compiled) {
-                    EvalState_<AAD::Number_> evalState = product.BuildEvalState<AAD::Number_>();
+                if (useCompiled) {
+                    EvalState_<AAD::Number_> evalState =
+                        product.BuildEvalState<AAD::Number_>(static_cast<size_t>(std::max(maxNestedIfs, 0)), eps);
                     runPaths(evalState, [&](Scenario_<AAD::Number_>& p, EvalState_<AAD::Number_>& e) {
-                        product.EvaluateCompiled(p, e);
+                        compiledProduct->Evaluate(p, e);
                     });
                     AAD::PropagateMarkToStart(*AAD::Tape());
                     accumulateConstVarRisks(evalState.ConstVarVals());

@@ -8,50 +8,12 @@
 #include <dal/math/stacks.hpp>
 #include <dal/math/vectors.hpp>
 #include <dal/script/visitor/evaluator.hpp>
+#include <dal/script/visitor/smoothing.hpp>
 
 
 namespace Dal::Script {
 
-    template <class T_>
-    FORCE_INLINE T_ CSpr(const T_& x, double eps) {
-        const double halfEps = 0.5 * eps;
-
-        if (x < -halfEps)
-            return T_(0.0);
-        if (x > halfEps)
-            return T_(1.0);
-        return (x + halfEps) / eps;
-    }
-
-    template <class T_>
-    FORCE_INLINE T_ CSpr(const T_& x, double lb, double rb) {
-        if (x < lb)
-            return T_(0.0);
-        if (x > rb)
-            return T_(1.0);
-        return (x - lb) / (rb - lb);
-    }
-
-    template <class T_>
-    FORCE_INLINE T_ BFly(const T_& x, double eps) {
-        const double halfEps = 0.5 * eps;
-
-        if (x < -halfEps || x > halfEps)
-            return T_(0.0);
-        return (halfEps - abs(x)) / halfEps;
-    }
-
-    template <class T_>
-    FORCE_INLINE T_ BFly(const T_& x, double lb, double rb) {
-        if (x < lb || x > rb)
-            return T_(0.0);
-        if (x < 0.0)
-            return 1.0 - x / lb;
-        return 1.0 - x / rb;
-    }
-
     template <class T> class FuzzyEvaluator_ : public EvaluatorBase_<T, FuzzyEvaluator_> {
-        // Default smoothing factor for conditions that don't override it
         double defEps_;
         StaticStack_<T> fuzzyStack_;
 
@@ -123,6 +85,43 @@ namespace Dal::Script {
 
         FORCE_INLINE void SetDefEps(double defEps) { defEps_ = defEps; }
 
+        void EvalTrueBranch(const NodeIf_& node, size_t lastTrueStat) {
+            for (size_t i = 1; i <= lastTrueStat; ++i)
+                VisitNode(*node.arguments_[i]);
+        }
+
+        void EvalFalseBranch(const NodeIf_& node) {
+            if (node.firstElse_ != -1)
+                for (size_t i = node.firstElse_; i < node.arguments_.size(); ++i)
+                    VisitNode(*node.arguments_[i]);
+        }
+
+        void StoreAffectedVars(const NodeIf_& node, size_t lvl) {
+            for (auto idx : node.affectedVars_)
+                varStore0_[lvl][idx] = variables_[idx];
+        }
+
+        void CaptureTrueBranchVars(const NodeIf_& node, size_t lvl) {
+            for (auto idx : node.affectedVars_) {
+                varStore1_[lvl][idx] = variables_[idx];
+                variables_[idx] = varStore0_[lvl][idx];
+            }
+        }
+
+        void BlendAffectedVars(const NodeIf_& node, size_t lvl, const T& dt) {
+            for (auto idx : node.affectedVars_)
+                variables_[idx] = dt * varStore1_[lvl][idx] + (1.0 - dt) * variables_[idx];
+        }
+
+        void EvalFuzzyBranches(const NodeIf_& node, size_t lastTrueStat, const T& dt) {
+            const size_t lvl = nestedIfLvl_ - 1;
+            StoreAffectedVars(node, lvl);
+            EvalTrueBranch(node, lastTrueStat);
+            CaptureTrueBranchVars(node, lvl);
+            EvalFalseBranch(node);
+            BlendAffectedVars(node, lvl, dt);
+        }
+
         void Visit(const NodeIf_& node) {
             const size_t lastTrueStat = node.firstElse_ == -1 ? node.arguments_.size() - 1 : node.firstElse_ - 1;
 
@@ -131,73 +130,38 @@ namespace Dal::Script {
             VisitNode(*node.arguments_[0]);
             const T dt = fuzzyStack_.TopAndPop();
 
-            // Absolutely true
-            if (dt > 1.0 - EPSILON) {
-                for (size_t i = 1; i <= lastTrueStat; ++i)
-                    VisitNode(*node.arguments_[i]);
-            }
-            // Absolutely false
-            else if (dt < EPSILON) {
-                if (node.firstElse_ != -1)
-                    for (size_t i = node.firstElse_; i < node.arguments_.size(); ++i)
-                        VisitNode(*node.arguments_[i]);
-            }
-            // Fuzzy: split evaluation between true and false branches, weight by dt
-            else {
-                for (auto idx : node.affectedVars_)
-                    varStore0_[nestedIfLvl_ - 1][idx] = variables_[idx];
-
-                for (size_t i = 1; i <= lastTrueStat; ++i)
-                    VisitNode(*node.arguments_[i]);
-
-                for (auto idx : node.affectedVars_) {
-                    varStore1_[nestedIfLvl_ - 1][idx] = variables_[idx];
-                    variables_[idx] = varStore0_[nestedIfLvl_ - 1][idx];
-                }
-
-                if (node.firstElse_ != -1)
-                    for (size_t i = node.firstElse_; i < node.arguments_.size(); ++i)
-                        VisitNode(*node.arguments_[i]);
-
-                for (auto idx : node.affectedVars_)
-                    variables_[idx] = dt * varStore1_[nestedIfLvl_ - 1][idx] + (1.0 - dt) * variables_[idx];
-            }
+            if (dt > 1.0 - EPSILON)
+                EvalTrueBranch(node, lastTrueStat);
+            else if (dt < EPSILON)
+                EvalFalseBranch(node);
+            else
+                EvalFuzzyBranches(node, lastTrueStat, dt);
 
             --nestedIfLvl_;
         }
 
-        // Conditions
         FORCE_INLINE void Visit(const NodeTrue_& node) { fuzzyStack_.Push(1.0); }
         FORCE_INLINE void Visit(const NodeFalse_& node) { fuzzyStack_.Push(0.0); }
 
-        // Equality
         FORCE_INLINE void Visit(const NodeEqual_& node) {
             VisitNode(*node.arguments_[0]);
             const T expr = dStack_.TopAndPop();
 
-            // Discrete case: 0 is a singleton in expr's domain
             if (node.isDiscrete_)
                 fuzzyStack_.Push(BFly(expr, node.lb_, node.rb_));
-            // Continuous case: 0 lies inside expr's continuous domain
             else {
-                // Use node's epsilon if set, otherwise fall back to default
                 double eps = node.eps_ < 0 ? defEps_ : node.eps_;
                 fuzzyStack_.Push(BFly(expr, eps));
             }
         }
 
-        // Inequality (sup/supEqual share the logic)
         void VisitComp(const CompNode_& node) {
             VisitNode(*node.arguments_[0]);
             const T expr = dStack_.TopAndPop();
 
-            // Discrete case: 0 is either a singleton or outside expr's domain entirely,
-            // but with subdomains on both sides (otherwise the condition is always true/false)
             if (node.isDiscrete_) {
                 fuzzyStack_.Push(CSpr(expr, node.lb_, node.rb_));
-            }
-            // Continuous case: 0 lies inside expr's continuous domain
-            else {
+            } else {
                 const double eps = node.eps_ < 0 ? defEps_ : node.eps_;
                 fuzzyStack_.Push(CSpr(expr, eps));
             }
@@ -206,13 +170,11 @@ namespace Dal::Script {
         FORCE_INLINE void Visit(const NodeSup_& node) { VisitComp(node); }
         FORCE_INLINE void Visit(const NodeSupEqual_& node) { VisitComp(node); }
 
-        // Negation
-        FORCE_INLINE void visitNot(const NodeNot_& node) {
+        FORCE_INLINE void Visit(const NodeNot_& node) {
             VisitNode(*node.arguments_[0]);
             fuzzyStack_.Top() = 1.0 - fuzzyStack_.Top();
         }
 
-        // Combinators: probability-style fuzzy logic
         FORCE_INLINE void Visit(const NodeAnd_& node) {
             VisitNode(*node.arguments_[0]);
             VisitNode(*node.arguments_[1]);

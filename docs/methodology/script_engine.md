@@ -76,6 +76,19 @@ appropriate condition node (`NodeEqual_`, `NodeSup_`, `NodeSupEqual_`), with
 evaluator consumes as the smoothing width for that condition (see
 [Fuzzy Evaluator](#fuzzy-evaluator)).
 
+### Boolean Operator Semantics
+
+`AND` and `OR` are **eager**: both operands are always evaluated, in all
+evaluators - the exact tree-walk (`Evaluator_`), the fuzzy tree-walk
+(`FuzzyEvaluator_`, whose probability combinators $a \cdot b$ and
+$a + b - a \cdot b$ are inherently two-sided), and the compiled stream (which
+emits both operand sub-streams before the combinator opcode). Scripts must not
+rely on short-circuit evaluation. Conditions in this grammar are pure (no
+side effects); eager evaluation may produce IEEE NaN or infinities in a
+discarded operand, but each script comparison still resolves to a boolean that
+`AND`/`OR` combines normally. The eager contract exists so that all three
+evaluators share one semantics.
+
 ### Day-Count Functions
 
 `DCF(basis, start, end)` is folded to a literal at parse time: the parser
@@ -213,7 +226,9 @@ trading a small controlled bias for a finite, low-variance derivative.
 
 ### Smoothing Functions
 
-Two primitive smooth transitions are used. For a comparison `expr > 0` (or `>=`),
+Two primitive smooth transitions are used; both kernels live in
+`dal-cpp/dal/script/visitor/smoothing.hpp`, shared by the fuzzy tree-walk and
+the compiled fuzzy opcodes. For a comparison `expr > 0` (or `>=`),
 the **continuous spread** function transitions from $0$ to $1$ across a band of
 width $\varepsilon$:
 
@@ -335,9 +350,9 @@ Carlo](aad.md#pathwise-adjoints-in-monte-carlo).
 ### Value-Only vs AAD Evaluation
 
 The `double` instantiation walks the AST with an `Evaluator_<double>` (or, in
-compiled mode, an `EvalState_<double>` over pre-compiled node/const/data
-streams) and accumulates the payoff slot across paths. The `AAD::Number_`
-instantiation additionally:
+compiled mode, an `EvalState_<double>` over the pre-compiled node/const
+streams) and accumulates the payoff slot across paths. The
+`AAD::Number_` instantiation additionally:
 
 1. Activates the tape and registers model parameters and constant variables on
    it (`InitModel4ParallelAAD`), then marks.
@@ -350,14 +365,76 @@ instantiation additionally:
 The result is a `SimResults_` carrying the aggregated payoff and a risk vector
 labelled by model parameter and constant variable.
 
-### Compiled vs Interpreted
+### Tree-Walk and Compiled Evaluation
 
-`Compile()` flattens each event's AST into a `nodeStreams_` / `constStreams_` /
-`dataStreams_` triple via a `Compiler_` visitor. `EvaluateCompiled` interprets
-that flat representation against a scenario without re-walking the polymorphic
-node tree, trading the per-node virtual dispatch for a tight switch over a
-stream of opcodes. The interpreted path (`Evaluate`) is simpler and is used
-where the AST is small or where the compile step is not worth its cost.
+The script engine has two execution modes. The tree-walk mode evaluates the
+preprocessed AST directly with `Evaluator_<double>` for value-only paths and
+`FuzzyEvaluator_<AAD::Number_>` for AAD paths. The compiled mode first lowers
+the same AST into flat per-event streams and then evaluates those streams with
+`EvalState_<T>`.
+
+`compiled` is a performance flag, not a pricing model flag. The default is
+`compiled = false` for both `MCSimulation<double>` and
+`MCSimulation<AAD::Number_>`, preserving the historical tree-walk behavior.
+Callers can pass `compiled = true` to opt into the stream evaluator. Both modes
+are required to produce the same payoff and risk numbers, aside from normal
+floating-point association noise.
+
+`ScriptProduct_::Compile(fuzzy)` is `const`, but it requires that
+`PreProcess(...)` has already run. Preprocessing indexes variables, seeds past
+event values, folds domain-provable constant conditions, and finalizes constant
+metadata. `Compile` returns a separate `ScriptCompiled_` artifact instead of
+storing streams on the product, so the AST remains reusable by tree-walk
+evaluation after compilation. `MCSimulation` compiles once per valuation on the
+main thread before dispatching path batches; a missing `PreProcess` is therefore
+reported as a normal exception rather than being hidden inside worker tasks.
+
+The compiled artifact stores one integer opcode stream and one constant stream
+per future event. The integer stream contains opcodes plus operands such as
+variable indexes, const-stream indexes, and branch jump positions. This removes
+per-node virtual dispatch in the inner path loop and replaces it with a tight
+switch over the opcode stream. `NodeType_` is intentionally hand-written:
+opcodes are both non-type template parameters in the compiler visitor and
+serialized integers in the node stream, which a generated Machinist wrapper enum
+does not provide.
+
+In value mode (`fuzzy = false`), compiled evaluation mirrors
+`Evaluator_<T>`:
+
+- arithmetic and payoff opcodes use the same formulas as tree-walk nodes;
+- comparisons push hard boolean values;
+- `If` and `IfElse` take only the active branch;
+- `AND` and `OR` remain eager, matching the documented boolean semantics;
+- `SupEqual` uses the same `x >= 0` comparison for constant folding and runtime
+  evaluation.
+
+In AAD mode (`fuzzy = true`), compiled evaluation mirrors
+`FuzzyEvaluator_<T>`:
+
+- comparisons emit `FuzzyEqual`, `FuzzyComp`, or their discrete-bound variants;
+- the smoothing kernels are shared with tree-walk (`BFly` for equality,
+  `CSpr` for inequalities);
+- a negative per-node `eps_` falls back to the evaluator default `defEps_`;
+- `AND`, `OR`, and `NOT` use the same probability-style fuzzy combinators;
+- `If` emits `FuzzyIf`, which stores the affected variable list, evaluates the
+  hard branch when the degree of truth is within `EPSILON` of 0 or 1, and
+  otherwise evaluates both branches and blends the affected variables by the
+  fuzzy degree of truth.
+
+Constant variables stay live in both modes. They are represented by the
+`ConstVar` opcode and read from evaluator state, rather than being baked into
+the const stream. This keeps `EvalState_::ConstVarVals()` mutable in the same
+way as tree-walk evaluators and allows AAD const-variable risks to be recorded
+on the tape.
+
+Regression coverage lives in `dal-cpp/tests/script/test_compile_parity.cpp`.
+It checks per-path double parity, Monte Carlo aggregate parity, AAD PV/risk
+parity, const-variable mutation, preprocessing guards, fuzzy condition
+behavior, and opcode reachability. The benchmark target
+`dal-cpp/benchmarks/script_mc_perf` compares `compiled=false` and
+`compiled=true` runs across simple and schedule-heavy products for both
+`double` and `AAD::Number_`; it times the Monte Carlo path loop rather than the
+parser front-end.
 
 ## Visitor Machinery
 

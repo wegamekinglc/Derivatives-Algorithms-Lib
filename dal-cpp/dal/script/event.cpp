@@ -58,7 +58,6 @@ namespace Dal::Script {
         return ifProc.MaxNestedIFs();
     }
 
-    //	Domain processing
     void ScriptProduct_::DomainProcess(bool fuzzy) {
         DomainProcessor_ domProc(variables_.size(), fuzzy);
         Visit(domProc);
@@ -77,7 +76,6 @@ namespace Dal::Script {
         }
     }
 
-    //	All preprocessing
     size_t ScriptProduct_::PreProcess(bool fuzzy, bool skip_domain) {
         IndexVariables();
         variableValues_ = PastEvaluate();
@@ -89,7 +87,6 @@ namespace Dal::Script {
             ConstCondProcess();
         }
 
-        // generate time line and definition
         // TODO: more specific data settings
         const auto evaluationDate = Global::Dates_::EvaluationDate();
         for (auto& date : eventDates_) {
@@ -101,10 +98,14 @@ namespace Dal::Script {
             sampleDef.discountMats_.push_back(ttm);
             defLine_.emplace_back(sampleDef);
         }
+
+        // Const metadata is finalized after condition folding.
+        ConstProcess();
+        preProcessed_ = true;
+
         return maxNestedIfs;
     }
 
-    //	Debug whole product
     void ScriptProduct_::Debug(std::ostream& ost) const {
         size_t v = 0;
         for (auto& variable : variables_)
@@ -124,34 +125,26 @@ namespace Dal::Script {
         }
     }
 
-    void ScriptProduct_::Compile() {
-        //  First, identify constants
-        ConstProcess();
+    ScriptCompiled_ ScriptProduct_::Compile(bool fuzzy) const {
+        REQUIRE2(preProcessed_, "product is not pre-processed: call PreProcess() before Compile()", ScriptError_);
 
-        //  Clear
-        nodeStreams_.clear();
-        constStreams_.clear();
-        dataStreams_.clear();
+        Vector_<Vector_<int>> nodeStreams;
+        Vector_<Vector_<>> constStreams;
 
-        //  One per event date
-        nodeStreams_.reserve(events_.size());
-        constStreams_.reserve(events_.size());
-        dataStreams_.reserve(events_.size());
+        nodeStreams.reserve(events_.size());
+        constStreams.reserve(events_.size());
 
-        //	Visit
-        for (auto& evt : events_) {
-            //	The compiler
-            Compiler_ comp;
+        for (const auto& evt : events_) {
+            Compiler_ comp(fuzzy);
 
-            //	Loop over statements in event
-            for (auto& stat : evt)
+            for (const auto& stat : evt)
                 stat->Accept(comp);
 
-            //  Get compiled
-            nodeStreams_.push_back(comp.NodeStream());
-            constStreams_.push_back(comp.ConstStream());
-            dataStreams_.push_back(comp.DataStream());
+            nodeStreams.push_back(comp.NodeStream());
+            constStreams.push_back(comp.ConstStream());
         }
+
+        return {std::move(nodeStreams), std::move(constStreams)};
     }
 
 

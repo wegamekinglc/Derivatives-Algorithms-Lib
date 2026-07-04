@@ -99,7 +99,10 @@ namespace Dal::Script {
 
     struct NodeConstVar_: public Visitable_<ExprNode_, NodeConstVar_, VISITORS> {
         explicit NodeConstVar_(String_ name, double val) : name_(std::move(name)), index_(-1) {
-            ExprNode_::isConst_ = true;
+            //  NOT isConst_: the node must stay live so the compiled stream
+            //  reads state.constVariables_[index_] (AAD const-var greeks,
+            //  ConstVarVals() mutation seam). constVal_ still carries the
+            //  parsed value for VarIndexer_ and DomainProcessor_.
             ExprNode_::constVal_ = val;
         }
 

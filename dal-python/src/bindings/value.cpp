@@ -21,14 +21,15 @@ void init_bindings_value(py::module_& m) {
            const std::string& method,
            bool use_bb,
            bool enable_aad,
-           double smooth) {
+           double smooth,
+           std::optional<bool> compiled) {
 
             auto res = ValueByMonteCarlo(
                 Handle_<ScriptProductData_>(
                     std::const_pointer_cast<const ScriptProductData_>(product)),
                 Handle_<ModelData_>(
                     std::const_pointer_cast<const ModelData_>(modelData)),
-                num_path, String_(method), use_bb, enable_aad, smooth);
+                num_path, String_(method), use_bb, enable_aad, smooth, compiled);
             std::map<std::string, double> rtn;
             for (auto& d : res)
                 rtn[d.first.c_str()] = d.second;
@@ -40,6 +41,7 @@ void init_bindings_value(py::module_& m) {
         py::arg("method") = "sobol",
         py::arg("use_bb") = false,
         py::arg("enable_aad") = false,
-        py::arg("smooth") = 0.01
+        py::arg("smooth") = 0.01,
+        py::arg("compiled") = py::none()
     );
 }

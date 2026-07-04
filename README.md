@@ -4,7 +4,7 @@
 [![Codacy Grade](https://app.codacy.com/project/badge/Grade/9c84afd2bb534c6c87584e5d6e4cc420)](https://app.codacy.com/app/wegamekinglc/Derivatives-Algorithms-Lib)
 [![Coverage Status](https://coveralls.io/repos/wegamekinglc/Derivatives-Algorithms-Lib/badge.svg?branch=master)](https://coveralls.io/github/wegamekinglc/Derivatives-Algorithms-Lib?branch=master)
 
-A C++17 quantitative finance library with built-in Automatic Adjoint Differentiation (AAD). Features include yield curve construction, Monte Carlo simulation, finite difference PDE solvers, a scripting engine for exotic payoffs, and parallel model evaluation.
+A C++17 quantitative finance library with built-in Automatic Adjoint Differentiation (AAD). Features include yield curve construction, Monte Carlo simulation, finite difference PDE solvers, a scripting engine for exotic payoffs with tree-walk and compiled evaluators, and parallel model evaluation.
 
 ## Quick Start
 
@@ -42,7 +42,7 @@ Core modules in `dal-cpp/dal/`:
 - **math/** — Interpolation, optimization, PDE solvers, random numbers, matrix ops
 - **math/aad/** — Automatic Adjoint Differentiation (native, XAD, Adept, CoDiPack backends)
 - **curve/** — Yield curve construction, piecewise forward rates, calibration
-- **script/** — Expression scripting engine for exotic payoffs
+- **script/** — Expression scripting engine for exotic payoffs, with tree-walk and compiled evaluation modes
 - **model/** — Financial models (Black-Scholes, etc.)
 - **concurrency/** — Thread pool for parallel Monte Carlo
 
@@ -64,21 +64,39 @@ events = [f"call pays MAX(spot() - {strike}, 0.0)"]
 product = Product_New([maturity], events)
 model = BSModelData_New(spot, vol, rate, div)
 
-res = MonteCarlo_Value(product, model, 2**20, "sobol", False, True)
+res = MonteCarlo_Value(
+    product,
+    model,
+    2**20,
+    method="sobol",
+    enable_aad=True,
+    compiled=True,
+)
 for k, v in res.items():
     print(f"{k:<8}: {v:>10.4f}")
 ```
 
 Output:
 ```
+PV      :     4.0389
 d_div   :   -85.2290
 d_rate  :    73.1011
 d_spot  :     0.2838
 d_vol   :    58.7140
-value   :     4.0389
 ```
 
-More examples: [Python](dal-python/examples/), [Excel](dal-excel/examples/), [C++](dal-cpp/examples/)
+More examples: [Python](dal-python/examples/), [Excel](dal-excel/examples/), [C++](dal-cpp/examples/). The C++ Monte Carlo script examples show both tree-walk and compiled evaluator output where applicable.
+
+### Script Engine Modes
+
+Monte Carlo script valuation defaults to the tree-walk evaluator (`compiled=false`) to preserve historical behavior. Pass `compiled=True` in Python or `compiled=true` in C++ to opt into the flat-stream evaluator. The compiled mode is a performance option; payoff values and AAD risks are expected to match tree-walk results up to normal floating-point noise.
+
+For implementation details and parity coverage, see [Script Engine methodology](docs/methodology/script_engine.md#tree-walk-and-compiled-evaluation). To compare runtime locally, build and run the `script_mc_perf` benchmark target:
+
+```bash
+cmake --build build --target script_mc_perf -j 4
+./build/dal-cpp/benchmarks/script_mc_perf/script_mc_perf
+```
 
 ### Excel
 
@@ -121,7 +139,7 @@ Methodology notes (see the index above for the full list):
 - [Yield Curve](docs/methodology/yield_curve.md) and [Yield-Curve Jacobian](docs/methodology/yield_curve_jacobian.md) — discount curves, calibration, Jacobian / inverse-Jacobian risk
 - [Interpolation](docs/methodology/interpolation.md) — linear, log-linear, cubic interpolators
 - [PDE](docs/methodology/pde.md) — finite-difference meshers and coordinate maps
-- [Script Engine](docs/methodology/script_engine.md) — expression scripting for exotic payoffs
+- [Script Engine](docs/methodology/script_engine.md) — expression scripting, fuzzy AAD evaluation, and compiled evaluator parity
 - [Random](docs/methodology/random.md) — random number generation and path construction
 - [Black / Bachelier](docs/methodology/black_scholes.md) — vanilla option pricing
 - [Matrix](docs/methodology/matrix.md) — matrix and linear algebra

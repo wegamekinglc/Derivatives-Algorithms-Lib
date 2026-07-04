@@ -29,6 +29,29 @@ events is string[]
 namespace Dal::Script {
     using AAD::Scenario_;
 
+    //  Flat per-event artifact produced by ScriptProduct_::Compile().
+    class ScriptCompiled_ {
+        Vector_<Vector_<int>> nodeStreams_;
+        Vector_<Vector_<>> constStreams_;
+
+    public:
+        ScriptCompiled_(Vector_<Vector_<int>>&& nodeStreams,
+                        Vector_<Vector_<>>&& constStreams)
+            : nodeStreams_(std::move(nodeStreams)),
+              constStreams_(std::move(constStreams)) {}
+
+        [[nodiscard]] const Vector_<Vector_<int>>& NodeStreams() const { return nodeStreams_; }
+
+        template <class T_> void Evaluate(const Scenario_<T_>& scenario, EvalState_<T_>& state) const {
+            state.Init();
+            for (size_t i = 0; i < nodeStreams_.size(); ++i)
+                EvalCompiled(nodeStreams_[i],
+                             constStreams_[i],
+                             scenario[i],
+                             state);
+        }
+    };
+
     class ScriptProduct_ {
         String_ payoff_;
         size_t payoffIdx_;
@@ -45,10 +68,8 @@ namespace Dal::Script {
         Vector_<> timeLine_;
         Vector_<AAD::SampleDef_> defLine_;
 
-        //  Compiled form
-        Vector_<Vector_<int>> nodeStreams_;
-        Vector_<Vector_<>> constStreams_;
-        Vector_<Vector_<const void*>> dataStreams_;
+        //  Set by PreProcess().
+        bool preProcessed_ = false;
 
     public:
         ScriptProduct_(const Vector_<Cell_>& dates, const Vector_<String_>& events, String_ payoff = "")
@@ -80,9 +101,11 @@ namespace Dal::Script {
                                        defEps);
         }
 
-        template <class T_> EvalState_<T_> BuildEvalState() const {
+        template <class T_> EvalState_<T_> BuildEvalState(size_t maxNestedIfs = 0, double defEps = 0.0) const {
             return EvalState_<T_>(variableValues_,
-                                  Apply([](double x) {return T_(x);}, consVariablesValues_));
+                                  Apply([](double x) {return T_(x);}, consVariablesValues_),
+                                  maxNestedIfs,
+                                  defEps);
         }
 
         template <class T_> std::unique_ptr<Scenario_<T_>> BuildScenario() const {
@@ -116,7 +139,6 @@ namespace Dal::Script {
         }
 
         template <class T_, class E_> void Evaluate(const Scenario_<T_>& scenario, E_& eval) const {
-            // evaluation will only do on future events
             eval.SetScenario(&scenario);
             eval.Init();
             for (size_t i = 0; i < events_.size(); ++i) {
@@ -124,20 +146,6 @@ namespace Dal::Script {
                 for (auto& statIt : events_[i])
                     statIt->Accept(eval);
             }
-        }
-
-        template <class T_> void EvaluateCompiled(const Scenario_<T_>& scenario, EvalState_<T_>& state) const {
-            // Initialize state
-            state.Init();
-
-            // Loop over events
-            for (size_t i = 0; i < events_.size(); ++i)
-                // Evaluate the compiled events
-                EvalCompiled(nodeStreams_[i],
-                             constStreams_[i],
-                             dataStreams_[i],
-                             scenario[i],
-                             state);
         }
 
         void IndexVariables();
@@ -149,7 +157,7 @@ namespace Dal::Script {
 
         size_t PreProcess(bool fuzzy, bool skip_domain);
         void Debug(std::ostream& ost = std::cout) const;
-        void Compile();
+        [[nodiscard]] ScriptCompiled_ Compile(bool fuzzy = false) const;
 
         [[nodiscard]] auto PayOffIdx() const { return payoffIdx_; }
     };

@@ -25,20 +25,21 @@ namespace Dal {
                                                 const String_& rsg,
                                                 bool useBb,
                                                 bool enableAad,
-                                                double smooth) {
+                                                double smooth,
+                                                std::optional<bool> compiled) {
         const auto modelType = modelData->Type();
         REQUIRE(MODEL_STORE.find(modelType) != MODEL_STORE.end(), "only support Black-Scholes and Dupire model now");
         auto prd = product->Product();
         std::map<String_, double> res;
         if (enableAad) {
             int maxNestedIfs = prd.PreProcess(true, true);
-            SimResults_ results = Script::MCSimulation<AAD::Number_>(prd, modelData, nPaths, rsg, useBb, false, maxNestedIfs, smooth);
+            SimResults_ results = Script::MCSimulation<AAD::Number_>(prd, modelData, nPaths, rsg, useBb, compiled, maxNestedIfs, smooth);
             res["PV"] = results.aggregated_ / static_cast<double>(nPaths);
             for(const auto& n: results.names_)
                 res["d_" + n] = results[n];
         } else {
             prd.PreProcess(false, false);
-            SimResults_ results = Script::MCSimulation<double>(prd, modelData, nPaths, rsg, useBb, false);
+            SimResults_ results = Script::MCSimulation<double>(prd, modelData, nPaths, rsg, useBb, compiled);
             res["PV"] = results.aggregated_ / static_cast<double>(nPaths);
             return res;
         }

@@ -44,47 +44,52 @@ int main() {
     eventDates.push_back(Cell_(maturity));
     events.push_back("call pays MAX(spot() - STRIKE, 0.0)");
 
-    Vector_<int> widths = {20, 14, 14, 14, 14, 14, 14};
+    Vector_<int> widths = {14, 20, 14, 14, 14, 14, 14, 14};
     double discounts = std::exp(-rate * t);
     double fwd = std::exp((rate - div) * t) * spot;
     double volStd = std::sqrt(t) * vol;
     const auto benchmark = discounts * Distribution::BlackOpt(fwd, volStd, strike, OptionType_::Value_::CALL);
 
-    std::cout << std::setw(widths[0]) << std::right << "# of pathes"
-              << std::setw(widths[1]) << std::right << "spot"
-              << std::setw(widths[2]) << std::right << "price"
-              << std::setw(widths[3]) << std::right << "benchmark";
+    std::cout << std::setw(widths[0]) << std::left << "Method"
+              << std::setw(widths[1]) << std::right << "# of pathes"
+              << std::setw(widths[2]) << std::right << "spot"
+              << std::setw(widths[3]) << std::right << "price"
+              << std::setw(widths[4]) << std::right << "benchmark";
 
     Handle_<ModelData_> modelData(new BSModelData_("bsmodel", spot, vol, rate, div));
     for (const auto& s: modelData->parameterLabels_)
-        std::cout << std::setw(widths[4]) << std::right << s;
+        std::cout << std::setw(widths[5]) << std::right << s;
 
     ScriptProduct_ product(eventDates, events, "call");
-    int maxNested = product.PreProcess(false, false);
+    int maxNested = product.PreProcess(true, true);
 
     for (const auto& s: product.ConstVarNames())
-        std::cout << std::setw(widths[4]) << std::right << s;
-    std::cout << std::setw(widths[5]) << std::right << "Diff (bps)"
-              << std::setw(widths[6]) << std::right << "Elapsed (ms)"
+        std::cout << std::setw(widths[5]) << std::right << s;
+    std::cout << std::setw(widths[6]) << std::right << "Diff (bps)"
+              << std::setw(widths[7]) << std::right << "Elapsed (ms)"
               << std::endl;
 
     for (int i = 12; i <= 30; ++i) {
-        timer.Reset();
         int numPaths = std::pow(2, i);
-        SimResults_ results = MCSimulation<Real_>(product, modelData, numPaths, rsg, false, false, maxNested);
+        for (int compiledFlag = 0; compiledFlag < 2; ++compiledFlag) {
+            const bool compiled = compiledFlag != 0;
+            timer.Reset();
+            SimResults_ results = MCSimulation<Real_>(product, modelData, numPaths, rsg, false, compiled, maxNested);
 
-        auto calculated = results.aggregated_ / static_cast<double>(numPaths);
-        std::cout << std::setw(widths[0]) << std::right << int(std::pow(2, i))
-                  << std::fixed
-                  << std::setprecision(6)
-                  << std::setw(widths[1]) << std::right << spot
-                  << std::setw(widths[2]) << std::right << calculated
-                  << std::setw(widths[3]) << std::right << benchmark;
-        for (const auto& s: results.names_)
-            std::cout << std::setw(widths[4]) << std::right << results[s];
-        std::cout << std::setw(widths[5]) << std::right << (calculated - benchmark) / benchmark * 10000
-                  << std::setw(widths[6]) << std::right << int(timer.Elapsed<milliseconds>())
-                  << std::endl;
+            auto calculated = results.aggregated_ / static_cast<double>(numPaths);
+            std::cout << std::setw(widths[0]) << std::left << (compiled ? "AAD Comp" : "AAD")
+                      << std::setw(widths[1]) << std::right << numPaths
+                      << std::fixed
+                      << std::setprecision(6)
+                      << std::setw(widths[2]) << std::right << spot
+                      << std::setw(widths[3]) << std::right << calculated
+                      << std::setw(widths[4]) << std::right << benchmark;
+            for (const auto& s: results.names_)
+                std::cout << std::setw(widths[5]) << std::right << results[s];
+            std::cout << std::setw(widths[6]) << std::right << (calculated - benchmark) / benchmark * 10000
+                      << std::setw(widths[7]) << std::right << int(timer.Elapsed<milliseconds>())
+                      << std::endl;
+        }
     }
     return 0;
 }
