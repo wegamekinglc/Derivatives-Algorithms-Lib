@@ -90,6 +90,25 @@ namespace {
         return Handle_<ModelData_>(new BSModelData_("bsmodel", spot, vol, rate, div));
     }
 
+    // Aggregated <Number_> parity: compiled-fuzzy vs tree-walk-fuzzy under the
+    // same Sobol seed, path count, eps and maxNestedIfs. PV and every AAD
+    // risk (model params + const variables) must agree to tol.
+    void AssertAggregatedParityNumber(const ScriptProduct_& product,
+                                      const Handle_<ModelData_>& model,
+                                      size_t nPaths,
+                                      int maxNestedIfs,
+                                      double eps,
+                                      double tol = 1e-8) {
+        const SimResults_ treeWalk = MCSimulation<Number_>(product, model, nPaths, "sobol", false, false, maxNestedIfs, eps);
+        const SimResults_ compiled = MCSimulation<Number_>(product, model, nPaths, "sobol", false, true, maxNestedIfs, eps);
+        ASSERT_NEAR(compiled.aggregated_, treeWalk.aggregated_, tol)
+            << "aggregated <Number_> PV divergence (treeWalk=" << treeWalk.aggregated_ << ")";
+        ASSERT_EQ(compiled.risks_.size(), treeWalk.risks_.size());
+        for (size_t j = 0; j < treeWalk.risks_.size(); ++j)
+            ASSERT_NEAR(compiled.risks_[j], treeWalk.risks_[j], tol)
+                << "risk divergence at index " << j << " (treeWalk=" << treeWalk.risks_[j] << ")";
+    }
+
     // A discretely monitored up-and-out call: two const variables, an init
     // event, two monitoring events with knock-out IFs, and a final payoff.
     // Shared by the barrier parity test and the golden pin.
@@ -360,7 +379,7 @@ TEST(ScriptCompiledParityTest, TestParity_SupEqual_ConstFold_TinyNegative) {
 // type 'bool [128]'" plus a load of an invalid bool (the popped garbage)
 // at dal-cpp/dal/model/blackscholes.hpp:26. <Number_> only. Enabled by
 // Phase 2.
-TEST(ScriptCompiledParityTest, DISABLED_TestParity_Number_NotEqual_Fuzzy) {
+TEST(ScriptCompiledParityTest, TestParity_Number_NotEqual_Fuzzy) {
     Global::Dates_::SetEvaluationDate(Date_(2022, 6, 22));
     Date_ exerciseDate(2024, 6, 21);
     Vector_<Cell_> eventDates{Cell_(String_("K")), Cell_(exerciseDate)};
@@ -380,6 +399,9 @@ TEST(ScriptCompiledParityTest, DISABLED_TestParity_Number_NotEqual_Fuzzy) {
     const SimResults_ treeWalk = MCSimulation<Number_>(product, model, 2048, "sobol", false, false, maxNested);
     const SimResults_ compiled = MCSimulation<Number_>(product, model, 2048, "sobol", false, true, maxNested);
     ASSERT_NEAR(compiled.aggregated_, treeWalk.aggregated_, 1e-8);
+    ASSERT_EQ(compiled.risks_.size(), treeWalk.risks_.size());
+    for (size_t j = 0; j < treeWalk.risks_.size(); ++j)
+        ASSERT_NEAR(compiled.risks_[j], treeWalk.risks_[j], 1e-8) << "risk index " << j;
 }
 
 // #6 / #3 guard. Compile() on a product that was never PreProcessed (no
@@ -464,30 +486,6 @@ TEST(ScriptCompiledParityTest, TestParity_ConstVarVals_MutationSeam) {
     ASSERT_NEAR(compiledPayoff, treePayoff, 1e-8);
 }
 
-// #3 INTERIM guard (this test is DELETED when compiled fuzzy lands in Phase
-// 5): the compiled <Number_> path hard-branches conditions instead of
-// smoothing them like FuzzyEvaluator_, so MCSimulation<Number_> must refuse
-// compiled=true for a product with conditional statements rather than
-// silently produce non-smoothed greeks. Safe to run RED (no UB): pre-guard it
-// simply runs and returns un-smoothed numbers without throwing.
-TEST(ScriptCompiledParityTest, TestParity_Number_Conditional_CompiledGuardThrows) {
-    Global::Dates_::SetEvaluationDate(Date_(2022, 6, 22));
-    Date_ exerciseDate(2024, 6, 21);
-    Vector_<Cell_> eventDates{Cell_(String_("K")), Cell_(exerciseDate)};
-    Vector_<String_> events{"11.0", R"(
-        v = 0.0
-        IF spot() > K THEN
-            v = 1.0
-        END
-        out pays v
-    )"};
-    ScriptProduct_ product(eventDates, events);
-    int maxNested = static_cast<int>(product.PreProcess(true, false));
-
-    auto model = StandardBSModel(10.0, 0.20, 0.034, 0.021);
-    ASSERT_THROW(MCSimulation<Number_>(product, model, 64, "sobol", false, true, maxNested), Dal::Exception_);
-}
-
 // #10 NodeCollect_. PreProcess(false, false) runs ConstCondProcess which
 // collapses always-true conditions into NodeCollect_; the compiled product
 // routinely contains NodeCollect_ at Compile() time. Both Compiler_ and
@@ -511,15 +509,38 @@ TEST(ScriptCompiledParityTest, TestParity_ConstCondProcessed_Collect) {
     AssertPerPathParity(product, 5.0);
 }
 
-// #12 const-folded conditions vs fuzzy (5b gate). Compiler_::VisitCondition
-// folds constant conditions to hard True/False; FuzzyEvaluator_ would push
-// a fractional dt (CSpr/BFly) when |const| < eps/2. Requires the compiled
-// fuzzy path which does not exist yet (no Smooth/CSpr/BFly opcodes); cannot
-// be constructed without Phase 5b. Left disabled.
-TEST(ScriptCompiledParityTest, DISABLED_TestParity_Number_ConstCondition_WithinEps) {
-    // Construction needs compiled-fuzzy opcodes (CSpr/BFly/FuzzyIf) that do
-    // not ship until Phase 5b. The pin is staged here so 5b can enable it.
-    GTEST_SKIP() << "Phase 5b blocker: requires compiled-fuzzy opcodes (CSpr/BFly/FuzzyIf)";
+// #12 const conditions on the fuzzy path. Two layers, both pinned here:
+// (a) pipeline: DomainProcessor_ is eps-blind — it marks domain-provable
+//     const conditions alwaysTrue_/alwaysFalse_ and ConstCondProcessor_
+//     rewrites them to NodeTrue_/NodeFalse_ in the SHARED AST, so both
+//     evaluators see the same fold even when the constant (0.001 here) lies
+//     inside the smoothing band (eps=0.5). That is the pipeline contract.
+// (b) compiler: the surviving NodeTrue_/NodeFalse_ inside the combinators
+//     must compile to fuzzy 1.0/0.0 pushes on the VALUE stack feeding
+//     FuzzyAnd/FuzzyOr — never to the hard bool opcodes — and
+//     Compiler_::VisitCondition must not hard-fold const condition args at
+//     all in fuzzy mode (it emits the arg plus a smoothed comparison, which
+//     is exactly what FuzzyEvaluator_ computes).
+TEST(ScriptCompiledParityTest, TestParity_Number_ConstCondition_WithinEps) {
+    Global::Dates_::SetEvaluationDate(Date_(2022, 6, 22));
+    Vector_<Cell_> eventDates{Cell_(String_("K")), Cell_(Date_(2024, 6, 21))};
+    Vector_<String_> events{"11.0", R"(
+        v = 0.0
+        IF 0.001 > 0 AND spot() > K THEN
+            v = 1.0
+        ELSE
+            v = 2.0
+        END
+        IF 0 > 1 OR spot() > K THEN
+            v = v + 0.5
+        END
+        out pays v
+    )"};
+    ScriptProduct_ product(eventDates, events, "out");
+    const int maxNested = static_cast<int>(product.PreProcess(true, false));
+
+    auto model = StandardBSModel(10.0, 0.20, 0.034, 0.021);
+    AssertAggregatedParityNumber(product, model, 2048, maxNested, 0.5);
 }
 
 // ============================================================================
@@ -632,6 +653,95 @@ TEST(ScriptCompiledParityTest, TestParity_MultiEvent) {
 }
 
 // ============================================================================
+// <Number_> fuzzy-surface parity (Phase 5): the same conditional products as
+// the <double> tests above, but preprocessed fuzzy and run through
+// MCSimulation<Number_> — compiled-fuzzy vs FuzzyEvaluator_, PV + all risks.
+// ============================================================================
+
+TEST(ScriptCompiledParityTest, TestParity_Number_Barrier_Fuzzy) {
+    Global::Dates_::SetEvaluationDate(Date_(2022, 6, 22));
+    ScriptProduct_ product = FixedBarrierProduct();
+    const int maxNested = static_cast<int>(product.PreProcess(true, false));
+
+    auto model = StandardBSModel(10.0, 0.20, 0.034, 0.021);
+    AssertAggregatedParityNumber(product, model, 4096, maxNested, 0.01);
+}
+
+TEST(ScriptCompiledParityTest, TestParity_Number_Digital_Fuzzy) {
+    Global::Dates_::SetEvaluationDate(Date_(2022, 6, 22));
+    Vector_<Cell_> eventDates{Cell_(String_("K")), Cell_(Date_(2024, 6, 21))};
+    Vector_<String_> events{"11.0", R"(
+        v = 0
+        IF spot() = K THEN
+            v = 1
+        ELSE
+            v = 0
+        END
+        out pays v
+    )"};
+    ScriptProduct_ product(eventDates, events, "out");
+    const int maxNested = static_cast<int>(product.PreProcess(true, false));
+
+    auto model = StandardBSModel(10.0, 0.20, 0.034, 0.021);
+    // Butterfly-smoothed equality (BFly): exercise both a tight and a fat eps.
+    AssertAggregatedParityNumber(product, model, 2048, maxNested, 0.05);
+    AssertAggregatedParityNumber(product, model, 2048, maxNested, 1.0);
+}
+
+TEST(ScriptCompiledParityTest, TestParity_Number_NestedIf_Fuzzy) {
+    Global::Dates_::SetEvaluationDate(Date_(2022, 6, 22));
+    Vector_<Cell_> eventDates{Cell_(Date_(2023, 6, 21))};
+    Vector_<String_> events{R"(
+        y = 0
+        IF spot() >= 8 THEN
+            IF spot() >= 12 THEN
+                y = 1
+            ELSE
+                y = 2
+            END
+        ELSE
+            IF spot() >= 4 THEN
+                y = 3
+            ELSE
+                y = 4
+            END
+        END
+        out pays y
+    )"};
+    ScriptProduct_ product(eventDates, events, "out");
+    const int maxNested = static_cast<int>(product.PreProcess(true, false));
+    ASSERT_EQ(maxNested, 2);
+
+    auto model = StandardBSModel(10.0, 0.20, 0.034, 0.021);
+    // Fat eps keeps inner conditions fuzzy so the nested dt-blend
+    // (varStore levels) is genuinely exercised.
+    AssertAggregatedParityNumber(product, model, 2048, maxNested, 2.0);
+}
+
+TEST(ScriptCompiledParityTest, TestParity_Number_MultiEvent_Fuzzy) {
+    Global::Dates_::SetEvaluationDate(Date_(2022, 6, 22));
+    Vector_<Cell_> eventDates;
+    Vector_<String_> events;
+    eventDates.push_back(Cell_(String_("K"))); events.push_back("10.0");
+    eventDates.push_back(Cell_(Date_(2023, 6, 21)));
+    events.push_back("acc = MAX(spot() - K, 0.0)");
+    eventDates.push_back(Cell_(Date_(2023, 12, 21)));
+    events.push_back("IF spot() > K THEN acc = acc + spot() - K END");
+    eventDates.push_back(Cell_(Date_(2024, 6, 21)));
+    events.push_back(R"(
+        IF acc > 1 OR spot() > K THEN
+            acc = acc + 1
+        END
+        out pays acc
+    )");
+    ScriptProduct_ product(eventDates, events, "out");
+    const int maxNested = static_cast<int>(product.PreProcess(true, false));
+
+    auto model = StandardBSModel(10.0, 0.20, 0.034, 0.021);
+    AssertAggregatedParityNumber(product, model, 2048, maxNested, 0.5);
+}
+
+// ============================================================================
 // Golden pin: fixed barrier PV + risks through the tree-walk <Number_> arm.
 // Values generated by running THIS machine's tree-walk (AADET framework,
 // sobol, 4096 paths, default smoothing) — the goal is to freeze tree-walk
@@ -666,12 +776,16 @@ TEST(ScriptCompiledParityTest, TestGolden_FixedBarrier_PV_Risks) {
 //   - Const (19) is dead-by-construction: Compile() always runs ConstProcess
 //     first, and every visitor that could reach a fully-const sub-expression
 //     bakes it into a *Const variant (AddConst, AssignConst, ...) without
-//     visiting it, so the bare Const opcode is never emitted.
-//   - Smooth (31) is dead (defect #7): no visitor emits it. Phase 5 replaces
-//     it with real fuzzy opcodes.
+//     visiting it, so the bare Const opcode is never emitted. (Fuzzy mode
+//     COULD emit it for a const condition argument, but the fuzzy pipeline
+//     collapses domain-provable const conditions before Compile().)
+//   - Slot 31 (the retired Smooth opcode, defect #7) is a hole in the enum:
+//     Phase 5 replaced it with the dedicated fuzzy opcodes 40+.
 //   - ConstVar (39) is REQUIRED since the Phase 1 #11 fix: NodeConstVar_ is
 //     no longer born isConst_=true, so parents stop folding it away and the
 //     const-var battery below emits a live ConstVar opcode.
+//   - FuzzyEqual..FuzzyIf (40-49) are REQUIRED since Phase 5: the fuzzy
+//     battery compiles a fuzzy-preprocessed product with Compile(true).
 // ============================================================================
 namespace {
     // Walk a compiled node stream, skipping operands, collecting opcodes.
@@ -685,10 +799,17 @@ namespace {
             case DivConst: case ConstDiv: case PowConst: case ConstPow:
             case Max2Const: case Min2Const: case Var: case Const:
             case ConstVar: case Assign: case Pays: case If:
+            case FuzzyEqual: case FuzzyComp:
                 i += 2;
                 break;
             case AssignConst: case PaysConst: case IfElse:
+            case FuzzyEqualDiscrete: case FuzzyCompDiscrete:
                 i += 3;
+                break;
+            case FuzzyIf:
+                //  FuzzyIf lastTrue lastFalse nAff aff... — the true/false
+                //  statement code follows inline and is walked normally.
+                i += 4 + stream[i + 3];
                 break;
             default:
                 i += 1;
@@ -721,6 +842,46 @@ namespace {
         ScriptProduct_ product(eventDates, events, "out");
         product.PreProcess(false, true);
         const ScriptCompiled_ compiled = product.Compile();
+        for (const auto& stream : compiled.NodeStreams())
+            CollectOpcodes(stream, out);
+    }
+
+    // Fuzzy battery: compile a fuzzy-preprocessed product with Compile(true)
+    // so every fuzzy opcode is emitted — continuous and discrete comparisons,
+    // combinators, Not, collapsed True/False conditions, and FuzzyIf with and
+    // without else.
+    void MergeFuzzyProductOpcodes(std::set<int>* out) {
+        Vector_<Cell_> eventDates{Cell_(Date_(2023, 1, 28))};
+        Vector_<String_> events{R"(
+            d = 0
+            IF spot() > 5 THEN
+                d = 1
+            END
+            IF spot() = 10 THEN
+                y = 1
+            ELSE
+                y = 2
+            END
+            IF d = 1 THEN
+                y = y + 1
+            END
+            IF d > 0 THEN
+                y = y + 2
+            END
+            IF spot() != 3 THEN
+                y = y + 3
+            END
+            IF 1 > 0 AND spot() > 2 THEN
+                y = y + 4
+            END
+            IF 0 > 1 OR spot() > 4 THEN
+                y = y + 5
+            END
+            out pays y
+        )"};
+        ScriptProduct_ product(eventDates, events, "out");
+        product.PreProcess(true, false);
+        const ScriptCompiled_ compiled = product.Compile(true);
         for (const auto& stream : compiled.NodeStreams())
             CollectOpcodes(stream, out);
     }
@@ -796,8 +957,11 @@ TEST(ScriptCompiledParityTest, TestOpcodeCoverage_AllReachableOpcodesExercised) 
     // Const-var battery: a live const variable must emit the ConstVar opcode.
     MergeConstVarProductOpcodes(&seen);
 
-    const std::set<int> unreachable = {Const, Smooth};
-    for (int op = Add; op <= ConstVar; ++op) {
+    // Fuzzy battery: every fuzzy opcode must be emitted by Compile(true).
+    MergeFuzzyProductOpcodes(&seen);
+
+    const std::set<int> unreachable = {Const, 31 /* retired Smooth slot (#7) */};
+    for (int op = Add; op <= FuzzyIf; ++op) {
         if (unreachable.count(op)) {
             ASSERT_EQ(seen.count(op), 0u)
                 << "opcode " << op << " was believed unreachable but was emitted; "

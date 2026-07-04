@@ -132,7 +132,7 @@ namespace Dal::Script {
         }
     }
 
-    ScriptCompiled_ ScriptProduct_::Compile() const {
+    ScriptCompiled_ ScriptProduct_::Compile(bool fuzzy) const {
         REQUIRE2(preProcessed_, "product is not pre-processed: call PreProcess() before Compile()", ScriptError_);
 
         Vector_<Vector_<int>> nodeStreams;
@@ -147,7 +147,7 @@ namespace Dal::Script {
         //	Visit
         for (const auto& evt : events_) {
             //	The compiler
-            Compiler_ comp;
+            Compiler_ comp(fuzzy);
 
             //	Loop over statements in event
             for (const auto& stat : evt)

@@ -236,8 +236,10 @@ namespace {
     };
 
     // Run one fuzz case: build, preprocess, compile, run both evaluators on
-    // the same deterministic scenarios, assert per-path parity. <double>
-    // only in Phase 0; the <Number_>/fuzzy surface is Phase 5 scope.
+    // the same deterministic scenarios, assert per-path parity. The hard arm
+    // compares Evaluator_ vs Compile(); the fuzzy arm rebuilds the product
+    // with fuzzy preprocessing and compares FuzzyEvaluator_ vs Compile(true)
+    // across two smoothing widths.
     void RunFuzzCase(uint32_t seed, int structure) {
         Global::Dates_::SetEvaluationDate(Date_(2022, 6, 22));
         FuzzProduct_ fp = FuzzProduct_::Build(seed, structure);
@@ -264,6 +266,37 @@ namespace {
             ASSERT_NEAR(compiledPayoff, treePayoff, 1e-8)
                 << "FUZZ DIVERGENCE: seed=" << seed << " structure=" << structure
                 << " spot=" << spot;
+        }
+
+        //  Fuzzy arm: fresh build (PreProcess mutates the AST), fuzzy
+        //  preprocessing, FuzzyEvaluator_ vs the fuzzy-compiled stream.
+        FuzzProduct_ fzp = FuzzProduct_::Build(seed, structure);
+        ScriptProduct_& fuzzyProduct = *fzp.product;
+        const int maxNested = static_cast<int>(fuzzyProduct.PreProcess(true, false));
+        const ScriptCompiled_ fuzzyCompiled = fuzzyProduct.Compile(true);
+
+        const double epsValues[] = {0.05, 0.5};
+        for (const double eps : epsValues) {
+            for (const double spot : spots) {
+                Scenario_<double> scenario(fuzzyProduct.EventDates().size());
+                for (auto& s : scenario) {
+                    s.spot_ = spot;
+                    s.numeraire_ = 1.0;
+                }
+
+                FuzzyEvaluator_<double> fuzzyEval = fuzzyProduct.BuildFuzzyEvaluator<double>(maxNested, eps);
+                fuzzyProduct.Evaluate(scenario, fuzzyEval);
+                const double treePayoff = fuzzyEval.VarVals()[fuzzyProduct.PayOffIdx()];
+
+                EvalState_<double> compiledState =
+                    fuzzyProduct.BuildEvalState<double>(static_cast<size_t>(maxNested), eps);
+                fuzzyCompiled.Evaluate(scenario, compiledState);
+                const double compiledPayoff = compiledState.VarVals()[fuzzyProduct.PayOffIdx()];
+
+                ASSERT_NEAR(compiledPayoff, treePayoff, 1e-8)
+                    << "FUZZY FUZZ DIVERGENCE: seed=" << seed << " structure=" << structure
+                    << " spot=" << spot << " eps=" << eps;
+            }
         }
     }
 } // namespace

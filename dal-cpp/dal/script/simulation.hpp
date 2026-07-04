@@ -58,27 +58,6 @@ namespace Dal::Script {
 
     std::unique_ptr<Random_> CreateRNG(const String_& method, size_t nDim, bool useBb);
 
-    //  INTERIM (deleted when the compiled evaluator learns fuzzy smoothing):
-    //  detect a conditional statement anywhere in the product's future events
-    //  so the <Number_> compiled path can refuse to run instead of silently
-    //  producing hard-branched (non-smoothed) greeks.
-    inline bool HasConditionalStatement(const Node_& node) {
-        if (dynamic_cast<const NodeIf_*>(&node) != nullptr)
-            return true;
-        for (const auto& arg : node.arguments_)
-            if (arg && HasConditionalStatement(*arg))
-                return true;
-        return false;
-    }
-
-    inline bool HasConditionalStatement(const ScriptProduct_& product) {
-        for (const auto& evt : product.Events())
-            for (const auto& stat : evt)
-                if (stat && HasConditionalStatement(*stat))
-                    return true;
-        return false;
-    }
-
     template <class T_>
     SimResults_ MCSimulation(const ScriptProduct_& product,
                              const Handle_<ModelData_>& modelData,
@@ -202,21 +181,16 @@ namespace Dal::Script {
                              std::optional<bool> compiled,
                              int maxNestedIfs,
                              double eps) {
-        //  <Number_> defaults to the tree-walk (FuzzyEvaluator_) until the
-        //  compiled evaluator learns fuzzy smoothing.
-        const bool useCompiled = compiled.value_or(false);
+        //  <Number_> defaults to the compiled fuzzy stream since Phase 5:
+        //  smoothed conditions (CSpr/BFly), probability combinators and the
+        //  dt-blend FuzzyIf produce the exact FuzzyEvaluator_ numbers with
+        //  the compiled evaluator's flat-stream speed. compiled=false keeps
+        //  the tree-walk FuzzyEvaluator_.
+        const bool useCompiled = compiled.value_or(true);
 
         std::optional<ScriptCompiled_> compiledProduct;
-        if (useCompiled) {
-            //  INTERIM guard, deleted when the compiled evaluator learns
-            //  fuzzy smoothing: the compiled stream hard-branches conditions
-            //  while the tree-walk <Number_> path smooths them with
-            //  FuzzyEvaluator_; refuse rather than return non-smoothed greeks.
-            REQUIRE2(!HasConditionalStatement(product),
-                     "compiled <Number_> evaluation cannot smooth conditional statements yet: use compiled=false",
-                     ScriptError_);
-            compiledProduct.emplace(product.Compile());
-        }
+        if (useCompiled)
+            compiledProduct.emplace(product.Compile(true));
 
         AAD::Activate(*AAD::Tape());
         std::unique_ptr<AAD::Model_<AAD::Number_>> mdl = CreateModel<AAD::Number_>(modelData);
@@ -279,7 +253,8 @@ namespace Dal::Script {
                 };
 
                 if (useCompiled) {
-                    EvalState_<AAD::Number_> evalState = product.BuildEvalState<AAD::Number_>();
+                    EvalState_<AAD::Number_> evalState =
+                        product.BuildEvalState<AAD::Number_>(static_cast<size_t>(std::max(maxNestedIfs, 0)), eps);
                     runPaths(evalState, [&](Scenario_<AAD::Number_>& p, EvalState_<AAD::Number_>& e) {
                         compiledProduct->Evaluate(p, e);
                     });

@@ -8,47 +8,10 @@
 #include <dal/math/stacks.hpp>
 #include <dal/math/vectors.hpp>
 #include <dal/script/visitor/evaluator.hpp>
+#include <dal/script/visitor/smoothing.hpp>
 
 
 namespace Dal::Script {
-
-    template <class T_>
-    FORCE_INLINE T_ CSpr(const T_& x, double eps) {
-        const double halfEps = 0.5 * eps;
-
-        if (x < -halfEps)
-            return T_(0.0);
-        if (x > halfEps)
-            return T_(1.0);
-        return (x + halfEps) / eps;
-    }
-
-    template <class T_>
-    FORCE_INLINE T_ CSpr(const T_& x, double lb, double rb) {
-        if (x < lb)
-            return T_(0.0);
-        if (x > rb)
-            return T_(1.0);
-        return (x - lb) / (rb - lb);
-    }
-
-    template <class T_>
-    FORCE_INLINE T_ BFly(const T_& x, double eps) {
-        const double halfEps = 0.5 * eps;
-
-        if (x < -halfEps || x > halfEps)
-            return T_(0.0);
-        return (halfEps - abs(x)) / halfEps;
-    }
-
-    template <class T_>
-    FORCE_INLINE T_ BFly(const T_& x, double lb, double rb) {
-        if (x < lb || x > rb)
-            return T_(0.0);
-        if (x < 0.0)
-            return 1.0 - x / lb;
-        return 1.0 - x / rb;
-    }
 
     template <class T> class FuzzyEvaluator_ : public EvaluatorBase_<T, FuzzyEvaluator_> {
         // Default smoothing factor for conditions that don't override it

@@ -109,9 +109,11 @@ namespace Dal::Script {
                                        defEps);
         }
 
-        template <class T_> EvalState_<T_> BuildEvalState() const {
+        template <class T_> EvalState_<T_> BuildEvalState(size_t maxNestedIfs = 0, double defEps = 0.0) const {
             return EvalState_<T_>(variableValues_,
-                                  Apply([](double x) {return T_(x);}, consVariablesValues_));
+                                  Apply([](double x) {return T_(x);}, consVariablesValues_),
+                                  maxNestedIfs,
+                                  defEps);
         }
 
         template <class T_> std::unique_ptr<Scenario_<T_>> BuildScenario() const {
@@ -164,7 +166,7 @@ namespace Dal::Script {
 
         size_t PreProcess(bool fuzzy, bool skip_domain);
         void Debug(std::ostream& ost = std::cout) const;
-        [[nodiscard]] ScriptCompiled_ Compile() const;
+        [[nodiscard]] ScriptCompiled_ Compile(bool fuzzy = false) const;
 
         [[nodiscard]] auto PayOffIdx() const { return payoffIdx_; }
     };
