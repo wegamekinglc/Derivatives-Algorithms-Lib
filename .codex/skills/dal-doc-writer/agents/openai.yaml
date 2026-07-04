@@ -1,0 +1,4 @@
+interface:
+  display_name: "DAL Doc Writer"
+  short_description: "Reconcile DAL docs."
+  default_prompt: "Use dal-doc-writer to update DAL documentation."

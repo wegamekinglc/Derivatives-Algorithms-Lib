@@ -1,0 +1,4 @@
+interface:
+  display_name: "DAL Implementer"
+  short_description: "Implement DAL changes with TDD."
+  default_prompt: "Use dal-implementer to implement this DAL change."

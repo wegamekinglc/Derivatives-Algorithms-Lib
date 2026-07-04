@@ -1,0 +1,4 @@
+interface:
+  display_name: "DAL Reviewer"
+  short_description: "Review DAL PRs and diffs."
+  default_prompt: "Use dal-reviewer to review this DAL change."

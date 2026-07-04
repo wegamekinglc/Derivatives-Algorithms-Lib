@@ -1,0 +1,4 @@
+interface:
+  display_name: "DAL Orchestrator"
+  short_description: "Route work across DAL roles."
+  default_prompt: "Use dal-orchestrator to plan and route this DAL task."

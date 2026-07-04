@@ -1,0 +1,4 @@
+interface:
+  display_name: "DAL Performancer"
+  short_description: "Check DAL benchmark risk."
+  default_prompt: "Use dal-performancer to evaluate DAL performance risk."
