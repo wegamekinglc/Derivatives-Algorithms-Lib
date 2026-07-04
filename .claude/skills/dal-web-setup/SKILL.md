@@ -118,6 +118,18 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File dal-web/scripts/start.ps1
 
 The pytest suite uses a fake `dal` module (see `dal-web/backend/tests/conftest.py`), so `uv run pytest` needs no C++ build.
 
+## Persistence
+
+The backend persists all entities (products, models, trades, portfolios, valuation results) to a SQLAlchemy database behind the `Store` seam. The start scripts pass the caller environment through, so the relevant variables work out of the box:
+
+| Variable               | Default                               | Meaning                                                               |
+|------------------------|---------------------------------------|-----------------------------------------------------------------------|
+| `DAL_WEB_DB_URL`       | `sqlite:///<backend>/.data/dalweb.db` | SQLAlchemy URL for the DB. Point at Postgres/MySQL to switch.         |
+| `DAL_WEB_STORE`        | unset                                 | `memory` bypasses the DB and uses the legacy in-memory store.         |
+| `DAL_WEB_AUTO_MIGRATE` | unset                                 | `1` runs `alembic upgrade head` on startup; otherwise `create_all()`. |
+
+Default SQLite file is gitignored under `dal-web/backend/.data/`. To run the Alembic migrations by hand: `cd dal-web/backend && uv run alembic upgrade head`.
+
 ## Troubleshooting
 
 - **Port already in use** — run the stop script for your platform first, or manually free the port: `sudo fuser -k <port>/tcp` on Linux/macOS; on Windows, `Get-NetTCPConnection -LocalPort <port> -State Listen` then `Stop-Process -Id <pid> -Force`.

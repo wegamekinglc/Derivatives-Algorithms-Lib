@@ -33,7 +33,7 @@ def _build_fake_dal() -> types.ModuleType:
         def __init__(self, y: int, m: int, d: int) -> None:
             self._d = _dt.date(y, m, d)
 
-        def __sub__(self, other: "Date_") -> int:
+        def __sub__(self, other: Date_) -> int:
             return (self._d - other._d).days
 
         def __repr__(self) -> str:
@@ -59,7 +59,7 @@ def _build_fake_dal() -> types.ModuleType:
 
     def Product_Debug(product: tuple[list[Any], list[str]]) -> str:  # noqa: N802
         dates, events = product
-        return "\n".join(f"{d!r}: {e}" for d, e in zip(dates, events))
+        return "\n".join(f"{d!r}: {e}" for d, e in zip(dates, events, strict=False))
 
     def BSModelData_New(spot: float, vol: float, rate: float, div: float) -> dict[str, float]:  # noqa: N802
         return {"spot": spot, "vol": vol, "rate": rate, "div": div}
@@ -121,10 +121,35 @@ def _reset_singletons() -> None:
 
 
 @pytest.fixture()
-def client():
+def store(tmp_path, monkeypatch):
+    """A fresh ``DbStore`` against a per-test temp SQLite file.
+
+    Persistence tests exercise the real DB path -- there is no fake store for
+    the persistence layer. The env is rewired so ``get_store()`` inside the app
+    would resolve to the same database.
+    """
+    _reset_singletons()
+    db_path = tmp_path / "test.db"
+    monkeypatch.delenv("DAL_WEB_STORE", raising=False)
+    monkeypatch.setenv("DAL_WEB_DB_URL", f"sqlite:///{db_path}")
+
+    from app.services.db.store_db import DbStore
+
+    s = DbStore(url=f"sqlite:///{db_path}")
+    s.create_all()
+    yield s
+    s.close()
+
+
+@pytest.fixture()
+def client(tmp_path, monkeypatch):
     from fastapi.testclient import TestClient
 
     _reset_singletons()
+    # Point the app at a per-test SQLite file so router tests exercise the
+    # real DbStore path end-to-end. ``DAL_WEB_STORE`` stays unset.
+    monkeypatch.delenv("DAL_WEB_STORE", raising=False)
+    monkeypatch.setenv("DAL_WEB_DB_URL", f"sqlite:///{tmp_path / 'api.db'}")
     from app.main import create_app
 
     with TestClient(create_app()) as c:

@@ -111,6 +111,8 @@ The dependency graph is `dal-cpp ← dal-public ← {dal-python, dal-excel}`. Ea
 - `dal-web/frontend/` — React + TypeScript SPA, uses Vite
 - `dal-web/scripts/` — `start.sh`/`stop.sh` (Linux/macOS), `start.ps1`/`stop.ps1` (Windows/PowerShell 7), and `setup-playwright.sh`
 
+The backend persists all entities through a SQLAlchemy 2.x store (`app/services/db/`) behind the `Store` seam. Default backend is a local SQLite file under `dal-web/backend/.data/` (gitignored); set `DAL_WEB_DB_URL` to point at any SQLAlchemy URL, `DAL_WEB_STORE=memory` to use the legacy in-memory store, and `DAL_WEB_AUTO_MIGRATE=1` to apply Alembic migrations on startup instead of `create_all()`.
+
 Start the web UI with `./dal-web/scripts/start.sh` on Linux/macOS or `dal-web/scripts/start.ps1` on Windows (requires Python 3.13+, uv, Node.js 20+, npm). Frontend at http://localhost:5173, backend API docs at http://127.0.0.1:8001/docs. For frontend e2e, run `./dal-web/scripts/setup-playwright.sh` once, then `cd dal-web/frontend && npm run test:e2e`.
 
 **Code generation** — `dal-cpp/config/dal.ifc` is processed by the Machinist tool. `build_linux.sh` runs Machinist twice:

@@ -12,7 +12,7 @@ from app.schemas import (
     ProductDefinition,
     Trade,
 )
-from app.services.store import Store
+from app.services.store import StoreProtocol
 
 
 def product_templates() -> list[dict]:
@@ -86,9 +86,13 @@ def _rows_from_template(tpl: dict) -> list[EventRow]:
     return rows
 
 
-def seed_demo_data(store: Store) -> None:
-    """Populate the store with one portfolio, model, product and trade."""
-    if store.list_portfolios():
+def seed_demo_data(store: StoreProtocol) -> None:
+    """Populate the store with one portfolio, model, product and trade.
+
+    Idempotent: a store that already has any portfolio (or, defensively, any
+    product) is left untouched, so re-seeding on restart does not duplicate.
+    """
+    if store.list_portfolios() or store.list_products():
         return  # already seeded
 
     tpl = product_templates()[0]  # european call
