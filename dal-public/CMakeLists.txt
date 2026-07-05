@@ -39,6 +39,7 @@ add_library(DAL::public ALIAS dal_public)
 target_include_directories(dal_public PUBLIC ${DAL_WORKSPACE_ROOT})
 
 if(MSVC)
+    target_compile_options(dal_public PRIVATE /utf-8)
     target_compile_definitions(dal_public PRIVATE IS_BASE)
 endif()
 

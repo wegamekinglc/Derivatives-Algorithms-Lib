@@ -1,5 +1,5 @@
 //
-// calendar.cpp — calendar and holiday type bindings (Holidays_, BizDayConvention_, CountBusDays_)
+// calendar.cpp - calendar and holiday type bindings (Holidays_, BizDayConvention_, CountBusDays_)
 //
 
 #include "bindings.h"

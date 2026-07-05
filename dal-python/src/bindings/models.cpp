@@ -1,5 +1,5 @@
 //
-// models.cpp — model data bindings (BSModelData_, DupireModelData_)
+// models.cpp - model data bindings (BSModelData_, DupireModelData_)
 //
 
 #include "bindings.h"

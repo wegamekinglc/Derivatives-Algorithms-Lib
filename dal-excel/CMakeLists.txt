@@ -98,6 +98,7 @@ add_library(dal_excel SHARED ${EXCEL_FILES})
 add_library(DAL::excel ALIAS dal_excel)
 
 if(MSVC)
+    target_compile_options(dal_excel PRIVATE /utf-8)
     target_compile_definitions(dal_excel PRIVATE
         IS_BASE
         # Windows.h defines min/max as macros, which breaks AAD headers

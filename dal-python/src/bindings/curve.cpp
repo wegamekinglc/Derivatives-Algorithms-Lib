@@ -1,5 +1,5 @@
 //
-// curve.cpp — curve calibration bindings
+// curve.cpp - curve calibration bindings
 //
 
 #include "bindings.h"

@@ -1,5 +1,5 @@
 //
-// script.cpp — script product bindings (Product_New, Product_Debug)
+// script.cpp - script product bindings (Product_New, Product_Debug)
 //
 
 #include "bindings.h"

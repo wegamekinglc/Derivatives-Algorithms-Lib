@@ -40,6 +40,8 @@ if(MSVC)
         set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
     endif()
     message(STATUS "MSVC_RUNTIME: ${MSVC_RUNTIME} (CMAKE_MSVC_RUNTIME_LIBRARY=${CMAKE_MSVC_RUNTIME_LIBRARY})")
+
+    add_compile_options(/utf-8)
 endif()
 
 # Coverage flags must be applied to ALL sub-projects so dal-public tests
