@@ -20,12 +20,12 @@ namespace Dal {
         template <class T_, class B_ = DiscountCurve_<double>>
         class DiscountPWLF_ : public CurveWithBase_<DiscountCurve_<T_>, B_>, public FittableCurve_ {
             Vector_<Date_> knotDates_;
-            // T_-typed PWL-forward state; see docs/methodology/yield_curve_jacobian.md: "PWL-forward -> log-DF integration".
+            // T_-typed PWL-forward state; see docs/methodology/yield_curve_jacobian.md: "PWL-forward → log-DF integration".
             Vector_<T_> fLeftT_;
             Vector_<T_> fRightT_;
-            // T_-typed PWL-forward state; see docs/methodology/yield_curve_jacobian.md: "PWL-forward -> log-DF integration".
+            // T_-typed PWL-forward state; see docs/methodology/yield_curve_jacobian.md: "PWL-forward → log-DF integration".
             Vector_<T_> sofarT_;
-            // T_-typed PWL-forward state; see docs/methodology/yield_curve_jacobian.md: "PWL-forward -> log-DF integration".
+            // T_-typed PWL-forward state; see docs/methodology/yield_curve_jacobian.md: "PWL-forward → log-DF integration".
             Vector_<double> knotAbscissae_;
 
             void UpdateT();
