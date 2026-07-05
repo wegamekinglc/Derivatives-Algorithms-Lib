@@ -195,6 +195,10 @@ pybind11_add_module(_dal
 
 add_library(DAL::python ALIAS _dal)
 
+if(MSVC)
+    target_compile_options(_dal PRIVATE /utf-8)
+endif()
+
 # Link against the public library
 if(DAL_PUBLIC_TARGET)
     target_link_libraries(_dal PRIVATE ${DAL_PUBLIC_TARGET})

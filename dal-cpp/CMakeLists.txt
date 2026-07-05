@@ -163,7 +163,7 @@ endif()
 # Examples and benchmarks
 # ---------------------------------------------------------------------------
 if(DAL_CPP_BUILD_EXAMPLES OR DAL_CPP_BUILD_BENCHMARKS)
-    # Examples and benchmarks reference dal_library — provide compatibility alias
+    # Examples and benchmarks reference dal_library - provide compatibility alias
     if(NOT TARGET dal_library)
         add_library(dal_library ALIAS dal_cpp)
     endif()

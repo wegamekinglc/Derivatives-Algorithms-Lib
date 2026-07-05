@@ -28,12 +28,12 @@ if (MSVC)
     # Suppress warnings: "Prefer enum class over enum" (Enum.3)
 
     if (CMAKE_BUILD_TYPE STREQUAL "Debug")
-        SET(MSVC_COMPILER_OPTION /wd4267 /wd26812 /std:c++17)
+        SET(MSVC_COMPILER_OPTION /wd4267 /wd26812 /std:c++17 /utf-8)
     else()
         # /fp:contract enables FMA contraction to match clang's default
         # -ffp-contract=fast and gcc's -ffp-contract=fast for cross-compiler
         # FP consistency.
-        SET(MSVC_COMPILER_OPTION /wd4267 /wd26812 /std:c++17 /Qpar /Gy /arch:AVX2 /Oi /GL /Ot /Oy /fp:contract)
+        SET(MSVC_COMPILER_OPTION /wd4267 /wd26812 /std:c++17 /utf-8 /Qpar /Gy /arch:AVX2 /Oi /GL /Ot /Oy /fp:contract)
     endif()
     add_compile_options(${MSVC_COMPILER_OPTION})
     message("-- MSVC COMPILER OPTION: ${MSVC_COMPILER_OPTION}")

@@ -1,5 +1,5 @@
 //
-// bindings.h — shared header for DAL pybind11 bindings
+// bindings.h - shared header for DAL pybind11 bindings
 //
 // Declares init_bindings_<domain>() functions called from module.cpp.
 //
