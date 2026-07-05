@@ -233,7 +233,7 @@ the **continuous spread** function transitions from $0$ to $1$ across a band of
 width $\varepsilon$:
 
 $$
-\operatorname{CSpr}(x;\; \varepsilon) =
+\mathrm{CSpr}(x;\; \varepsilon) =
 \begin{cases}
 0       & x < -\varepsilon/2,\\
 1       & x > +\varepsilon/2,\\
@@ -245,7 +245,7 @@ For an equality `expr = 0`, the **butterfly** function is a triangular pulse
 centred at $0$:
 
 $$
-\operatorname{BFly}(x;\; \varepsilon) =
+\mathrm{BFly}(x;\; \varepsilon) =
 \begin{cases}
 0 & |x| \ge \varepsilon/2,\\
 (\varepsilon/2 - |x|)/(\varepsilon/2) & \text{otherwise}.
@@ -258,14 +258,14 @@ two-argument overloads use the subdomain endpoints instead of a symmetric
 $\pm\varepsilon/2$ band:
 
 $$
-\operatorname{CSpr}(x;\; lb, rb) =
+\mathrm{CSpr}(x;\; lb, rb) =
 \begin{cases}
 0          & x < lb,\\
 1          & x > rb,\\
 (x - lb)/(rb - lb) & \text{otherwise},
 \end{cases}
 \qquad
-\operatorname{BFly}(x;\; lb, rb) =
+\mathrm{BFly}(x;\; lb, rb) =
 \begin{cases}
 0            & x < lb \text{ or } x > rb,\\
 1 - x/lb & lb \le x < 0,\\
