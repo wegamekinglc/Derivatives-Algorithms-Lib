@@ -30,8 +30,10 @@ namespace Dal::Script {
         Vector_<String_> names_;
         std::map<String_, const double*> results_;
 
-        FORCE_INLINE double operator[](const String_& name) {
-            return *results_[name];
+        [[nodiscard]] FORCE_INLINE double operator[](const String_& name) const {
+            const auto it = results_.find(name);
+            REQUIRE2(it != results_.end(), "simulation result '" + name + "' is not available", ScriptError_);
+            return *it->second;
         }
     };
 

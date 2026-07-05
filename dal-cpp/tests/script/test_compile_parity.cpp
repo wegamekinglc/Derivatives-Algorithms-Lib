@@ -323,6 +323,16 @@ TEST(ScriptCompiledParityTest, TestParity_CompileNotCalled_GuardsThrow) {
     ASSERT_THROW(MCSimulation<double>(product, model, 64, "sobol", false, true), Dal::Exception_);
 }
 
+TEST(ScriptCompiledParityTest, TestSimResultsLookupRejectsUnknownName) {
+    Vector_<String_> names;
+    names.push_back(String_("delta"));
+    SimResults_ results(names);
+    results.risks_[0] = 1.25;
+
+    ASSERT_NEAR(results[String_("delta")], 1.25, 1e-10);
+    ASSERT_THROW(static_cast<void>(results[String_("missing")]), Dal::Exception_);
+}
+
 TEST(ScriptCompiledParityTest, TestParity_Number_ConstVarRisks) {
     Global::Dates_::SetEvaluationDate(Date_(2022, 6, 22));
     Date_ exerciseDate(2024, 6, 21);
