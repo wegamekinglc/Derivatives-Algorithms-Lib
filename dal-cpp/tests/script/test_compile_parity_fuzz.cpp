@@ -104,8 +104,8 @@ namespace {
     // Build a random arithmetic expression of bounded depth over spot(),
     // const variables, prior variables and literals. Division RHS is guarded
     // away from zero so the layer does not manufacture NaN/inf on its own
-    // (the harness exists to catch evaluator divergence, not math errors -
-    // and ASSERT_NEAR(NaN, NaN) fails even when both arms agree).
+    // (the harness exists to catch evaluator divergence, not math errors;
+    // ASSERT_NEAR(NaN, NaN) fails even when both arms agree).
     String_ BuildExpr(Rng_& rng, int depth, const Vector_<String_>& leaves) {
         if (depth <= 0 || rng.Bernoulli(0.35))
             return BuildExprLeaf(rng, leaves);
@@ -136,7 +136,7 @@ namespace {
     }
 
     // Build one random statement block assigning `target`: plain assignment,
-    // IF, or IF/ELSE - optionally with one nested IF in a branch. Conditions
+    // IF, or IF/ELSE, optionally with one nested IF in a branch. Conditions
     // may read the running variable (condLeaves); assignment RHS must not
     // (exprLeaves): a self-referential `v = v + v` replicated over many
     // schedule events makes DomainProcessor's discrete-set arithmetic grow
