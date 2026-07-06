@@ -36,7 +36,7 @@ build-*
 build2/
 CMakeUserPresets.json
 # Installed Python bindings (build artifact)
-dal/
+/dal/
 .claude/scheduled_tasks.lock
 /cmake/
 /pyproject.toml
