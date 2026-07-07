@@ -82,7 +82,7 @@ Execute these phases in order. The order matters: skipping the noise-floor repro
 2. Enumerate the 8-benchmark regression set and what each exercises (this is the closed set you gate on):
    - `tape_perf` — AAD tape Clear/Rewind/ZeroAdjoints/PropagateToStart (native backend)
    - `jacobian_perf` — curve-calibration Jacobian, row-by-row AAD sweep ("dense harvest" + "row-width harvest")
-   - `pde_perf` — European call via `FD1D_` Crank-Nicolson, 200×200, full `RollBwd` per iteration
+   - `pde_perf` — European call via `ThetaScheme_` Crank-Nicolson, 200×200, full rollback loop per iteration
    - `rng_perf` — Sobol `FillNormal` + `FillUniform` over 100K paths
    - `interp_perf` — cubic interpolator, 50 knots, 10K query points
    - `krylov_perf` — CG solver, 500×500 SPD tri-diagonal, 200-iteration budget

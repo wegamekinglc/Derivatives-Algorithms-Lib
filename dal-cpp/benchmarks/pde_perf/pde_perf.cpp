@@ -2,16 +2,15 @@
 // Created by dal-implementer on 2026-6-28.
 //
 // PDE time-stepping micro-benchmark.
-// Prices a European call via FD1D_ with Crank-Nicolson (theta = 0.5),
-// 200 space steps and 200 time steps. Each timed iteration rebuilds the
-// mesher, inits the FD operator, and runs the full RollBwd loop.
+// Prices a European call via ThetaScheme_ with Crank-Nicolson (theta = 0.5),
+// 200 space steps and 200 time steps. Each timed iteration rebuilds the grid,
+// prepares the operator, and runs the full rollback loop.
 
 #include <dal/platform/platform.hpp>
-#include <dal/math/pde/fd1d.hpp>
-#include <dal/math/pde/meshers/uniform1dmesher.hpp>
-#include <dal/math/vectors.hpp>
-#include <dal/utilities/algorithms.hpp>
 #include <dal/benchmarks/bench.hpp>
+#include <dal/math/pde/pdegrid.hpp>
+#include <dal/math/pde/thetascheme.hpp>
+#include <dal/math/vectors.hpp>
 
 using namespace Dal;
 using namespace Dal::PDE;
@@ -35,28 +34,36 @@ int main() {
 
     {
         double sink = 0.0;
-        auto r = Bench::Run("FD1D RollBwd (200x200 CN)", [&]() {
-            const double minX = 0.0;
-            const double maxX = 500.0;
-            const int numX = kSpaceSteps + 1;
-            Uniform1DMesher_ x(minX, maxX, numX);
-            Vector_<> v0 = Apply([](double s) { return std::max(s - kStrike, 0.0); }, x.Locations());
+        auto r = Bench::Run(
+            "ThetaScheme rollback (200x200 CN)",
+            [&]() {
+                const double minX = 0.0;
+                const double maxX = 500.0;
+                const int numX = kSpaceSteps + 1;
+                const CoordinateVector_ x = MakeUniformGrid(minX, maxX, numX);
+                const Vector_<CoordinateVector_> grids(1, x);
+                const Vector_<> loc = GridLocations(x);
 
-            FD1D_ fd(x);
-            fd.Init();
-            fd.Mu() = (kRate - kDiv) * x.Locations();
-            fd.R() = Vector_<>(numX, kRate);
-            fd.Var() = kVol * kVol * x.Locations() * x.Locations();
-            fd.Res() = v0;
+                Vector_<std::shared_ptr<Cube_<>>> vals(1, std::make_shared<Cube_<>>(1, 1, numX));
+                for (int k = 0; k < numX; ++k)
+                    (*vals[0])(0, 0, k) = std::max(loc[k] - kStrike, 0.0);
+                Vector_<std::shared_ptr<Cube_<>>> next(1, std::make_shared<Cube_<>>(1, 1, numX));
 
-            const double dt = kT / kTimeSteps;
-            for (int n = 0; n < kTimeSteps; ++n) {
-                fd.RollBwd(dt, kTheta, fd.Res());
-                fd.Res()[0] = 0.0;
-                fd.Res()[fd.Res().size() - 1] = maxX * std::exp(-kDiv * (n + 1) * dt) - std::exp(-kRate * (n + 1) * dt) * kStrike;
-            }
-            sink += fd.Res()[numX / 2];
-        }, 2, kRepeats);
+                const Handle_<ScalarCoeff_> disc(NewConstCoeff(kRate));
+                const Handle_<VectorCoeff_> mu(NewVectorCoeff([](double s) { return (kRate - kDiv) * s; }));
+                const Handle_<MatrixCoeff_> var(NewMatrixCoeff([](double s) { return kVol * kVol * s * s; }));
+                ThetaScheme_ scheme(kTheta);
+                const double dt = kT / kTimeSteps;
+                scheme.Prepare(dt, grids, *disc, *mu, *var);
+                for (int n = 0; n < kTimeSteps; ++n) {
+                    (*next[0])(0, 0, 0) = 0.0;
+                    (*next[0])(0, 0, numX - 1) = maxX * std::exp(-kDiv * (n + 1) * dt) - std::exp(-kRate * (n + 1) * dt) * kStrike;
+                    scheme(dt, grids, vals, *disc, *mu, *var, &next);
+                    vals.Swap(&next);
+                }
+                sink += (*vals[0])(0, 0, numX / 2);
+            },
+            2, kRepeats);
         Bench::Print(r);
         Bench::DoNotOptimize(&sink);
     }
