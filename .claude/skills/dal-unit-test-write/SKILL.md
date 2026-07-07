@@ -179,9 +179,9 @@ Check existing serialization tests in `dal-cpp/tests/storage/` for the exact API
 ### Exception / error-handling tests
 
 ```cpp
-TEST(MeshersTest, TestThrowsOnInvalidInput) {
-    ASSERT_THROW(Uniform1DMesher_(5.0, 0.0, 10), Dal::Exception_);
-    ASSERT_THROW(Uniform1DMesher_(0.0, 0.0, 5), Dal::Exception_);
+TEST(PdeGridTest, TestThrowsOnInvalidInput) {
+    ASSERT_THROW(Dal::PDE::MakeUniformGrid(5.0, 0.0, 10), Dal::Exception_);
+    ASSERT_THROW(Dal::PDE::MakeUniformGrid(0.0, 0.0, 5), Dal::Exception_);
 }
 ```
 

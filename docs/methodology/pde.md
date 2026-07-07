@@ -1,223 +1,327 @@
-# PDE Finite-Difference Meshers and Coordinate Maps
+# PDE Framework
 
-This note documents the one-dimensional finite-difference mesh generators under
-`dal-cpp/dal/math/pde/meshers/` and the coordinate-map abstraction in
-`dal-cpp/dal/math/pde/pde.hpp` that the operator machinery uses to remap the spatial
-coordinate. The meshers only lay out grid points and their forward/backward spacings; the
-actual difference operators are built downstream by `Dal::PDE::Dx()` and `Dal::PDE::Dxx()`
-from a mesher, and the one-dimensional finite-difference engine `Dal::PDE::FD1D_` holds a
-mesher by const-reference and exposes its node locations through `FD1D_::X()`.
+DAL's PDE framework lives under `dal-cpp/dal/math/pde/`. It provides coordinate maps,
+grid construction, finite-difference operator builders, coefficient adapters, and a
+one-dimensional theta rollback scheme. The public C++ surface is intentionally small:
 
-## The Mesher Interface
+- `pde.hpp` defines coordinate maps, coefficient interfaces, coefficient factories, and
+  the abstract `Rollback_` interface.
+- `pdegrid.hpp` materializes `CoordinateVector_` grids into physical node locations.
+- `pdeoperators.hpp` builds tridiagonal first- and second-derivative operators from node
+  locations.
+- `thetascheme.hpp` implements `ThetaScheme_`, a one-dimensional `Rollback_`.
 
-Every concrete mesher derives from `Dal::FDM1DMesher_`
-(`dal-cpp/dal/math/pde/meshers/fdm1dmesher.hpp`), which fixes the contract a downstream
-differencer relies on. The base class is constructed with a node count `size` and populates
-three parallel vectors of that length:
+The framework is plain `double`; it does not use active AAD types.
 
-- `locations_` — the physical grid abscissae $x_0, x_1, \dots, x_{n-1}$,
-- `dplus_` — the forward spacing $\Delta^+_i = x_{i+1} - x_i$,
-- `dminus_` — the backward spacing $\Delta^-_i = x_i - x_{i-1}$.
+## Coordinate Maps
 
-These are exposed through the getters `Size()`, `DPlus(int i)`, `DMinus(int i)`,
-`Location(int i)`, and `Locations()`. The interior convention is consistent:
-$\Delta^+_i = \Delta^-_{i+1} = x_{i+1} - x_i$, so a forward step out of node $i$ equals the
-backward step into node $i+1$.
-
-### Boundary-null convention
-
-At the two boundaries there is no "next" node past the last and no "previous" node before the
-first. The protected helper `FinalizeSpacings()` sets
-
-$$
-\Delta^+_{n-1} = \text{Null\_}<\text{double}>(), \qquad \Delta^-_0 = \text{Null\_}<\text{double}>().
-$$
-
-The `Null_<double>()` sentinel is intentional: downstream code that needs a one-sided
-difference at the boundary must use the inward spacing only ($\Delta^-_{n-1}$ on the right,
-$\Delta^+_0$ on the left). A differencer that accidentally reads the out-of-bounds slot gets
-the null sentinel rather than a silently-stale neighbour value, making the bug detectable.
-Every concrete mesher calls `FinalizeSpacings()` as its last step.
-
-## Uniform Mesher
-
-`Dal::Uniform1DMesher_` (`dal-cpp/dal/math/pde/meshers/uniform1dmesher.hpp`) lays out a
-constant-spacing grid on $[\text{start}, \text{end}]$ with $n$ nodes. The constructor requires
-$\text{end} > \text{start}$ and uses the spacing
-
-$$
-\Delta x = \frac{\text{end} - \text{start}}{n - 1}, \qquad x_i = \text{start} + i\,\Delta x.
-$$
-
-Each interior forward/backward pair is set to $\Delta x$.
-
-The last node is **pinned** to `end` directly (`locations_.back() = end`) rather than computed
-as $\text{start} + (n-1)\Delta x$. This is deliberate: the closed-form $x_{n-1}$ accumulates
-floating-point round-off through the repeated-addition form, so a grid that computed the
-endpoint would not close exactly on $[\text{start}, \text{end}]$. Assigning the endpoint
-verbatim guarantees the domain closes to machine precision, and the trailing
-`FinalizeSpacings()` nulls $\Delta^+_{n-1}$.
-
-## Concentrating Mesher
-
-`Dal::Concentrating1dMesher_`
-(`dal-cpp/dal/math/pde/meshers/concentrating1dmesher.{hpp,cpp}`) lays out a grid on
-$[\text{start}, \text{end}]$ that concentrates nodes around a chosen interior point. The
-constructor takes
-
-- `cPoints.first` — the concentration point $\mu$ (`cPoint`), required to lie in
-  $[\text{start}, \text{end}]$,
-- `cPoints.second` — a dimensionless density budget; the implementation sets
-  $\rho = \texttt{cPoints.second} \cdot (\text{end} - \text{start})$ and requires $\rho > 0$,
-- `requireCPoint` — when true, guarantees a node lands exactly on $\mu$.
-
-### The sinh/asinh coordinate stretch
-
-The grid is the image of a uniform sample on $y \in [0,1]$ under the transform
-
-$$
-x(y) = \mu + \rho \sinh\!\big(\alpha(1-y) + \beta y\big),
-$$
-
-where the endpoint constraints $x(0) = \text{start}$ and $x(1) = \text{end}$ fix
-
-$$
-\alpha = \operatorname{asinh}\!\left(\frac{\text{start} - \mu}{\rho}\right), \qquad
-\beta  = \operatorname{asinh}\!\left(\frac{\text{end} - \mu}{\rho}\right).
-$$
-
-Concentration arises because $\sinh$ has near-unit slope at the origin but grows like
-$\tfrac{1}{2}e^{|t|}$ for large $|t|$. The local node density is governed by
-
-$$
-\frac{\mathrm{d}x}{\mathrm{d}y} = \rho(\beta - \alpha)\cosh\!\big(\alpha(1-y) + \beta y\big).
-$$
-
-Where $\mathrm{d}x/\mathrm{d}y$ is small the grid is fine; where it is large the grid is coarse.
-Choosing $\rho$ small relative to $|\text{end} - \text{start}|$ drives $|\alpha|$ and $|\beta|$
-to large magnitudes, sharpening the $\cosh$ peak around the $y$ where the argument crosses
-zero — that is, around $x = \mu$. This is the concentration mechanism.
-
-The scaling $\rho = \texttt{cPoints.second} \cdot (\text{end} - \text{start})$ makes the
-user-supplied second element a dimensionless density budget: a larger value produces a coarser
-grid near $\mu$ and a more uniform overall spacing; a smaller value tightens the concentration
-near $\mu$.
-
-### The snapped-knot device
-
-With `requireCPoint = false` the implementation samples the transform directly at the uniform
-pre-image $y_i = i/(n-1)$. The resulting grid concentrates around $\mu$ but, except by
-coincidence, no node sits exactly on $\mu$.
-
-With `requireCPoint = true` the mesher forces a node onto $\mu$. The continuous pre-image that
-maps to $\mu$ solves $\alpha(1-z_0) + \beta z_0 = 0$, giving
-
-$$
-z_0 = \frac{-\alpha}{\beta - \alpha}.
-$$
-
-The implementation snaps $z_0$ to the nearest grid fraction $u_0 = \operatorname{round}(z_0
-(n-1))/(n-1)$, clamped to the interior range $[1, n-2]$, then builds a piecewise-linear
-`Interp1_` on the knots $(0,0)$, $(u_0, z_0)$, $(1,1)$. Each grid index $i$ is mapped through
-this interpolant to its effective pre-image $y_i$ before being fed to the $\sinh$ transform.
-The snap-and-clamp ensures $u_0$ is a valid interior node and that the $z_0 \mapsto \mu$ image
-is realized exactly by the linear interpolation. (When $\mu$ coincides with `start` or `end`
-the snapped knot is not inserted, since the endpoint pin already places a node there.)
-
-After computing the interior `locations_`, the mesher pins
-`locations_.front() = start` and `locations_.back() = end` (closing the domain exactly, as in
-the uniform case), derives $\Delta^+_i = \Delta^-_{i+1} = x_{i+1} - x_i$ from the final
-locations, and calls `FinalizeSpacings()`.
-
-## Coordinate Maps for Operators
-
-`Dal::PDE::CoordinateMap_` (`dal-cpp/dal/math/pde/pde.hpp`) is the operator-side counterpart
-of the mesher. Where a mesher lays out physical grid points, a coordinate map reparametrizes
-the spatial coordinate so that a uniform mesh in the computational coordinate $y$ corresponds
-to a stretched mesh in the physical coordinate $x$. The abstract interface is
+`CoordinateMap_` maps a computational coordinate `y` to a physical coordinate `x`:
 
 ```cpp
 virtual double operator()(double y, double* dxDy, double* d2xDy2) const = 0;
 virtual double Y(double x) const = 0;
 ```
 
-`operator()` maps $y \mapsto x$ and writes the first and second derivatives $\mathrm{d}x/\mathrm{d}y$,
-$\mathrm{d}^2x/\mathrm{d}y^2$ through the out-parameters; `Y()` is the inverse $x \mapsto y$.
+The derivative out-pointers may be null. Implementations use the DAL `ASSIGN` convention:
+when a pointer is null, the value is simply not written.
 
-### `NewSinhMap(xWidth, dxdyRange)`
+### Identity And Sinh Maps
 
-The free factory `Dal::PDE::NewSinhMap(double xWidth, double dxdyRange)` returns a
-`SinhMap_` implementing
+`NewIdentityMap()` returns the uniform map `x = y`, with `dx/dy = 1` and
+`d2x/dy2 = 0`.
+
+`NewSinhMap(xWidth, dxdyRange)` returns the stretch
 
 $$
-x = \lambda \sinh(y/\lambda), \qquad
-\frac{\mathrm{d}x}{\mathrm{d}y} = \cosh(y/\lambda), \qquad
-\frac{\mathrm{d}^2x}{\mathrm{d}y^2} = \frac{1}{\lambda}\sinh(y/\lambda), \qquad
-y(x) = \lambda\,\operatorname{asinh}(x/\lambda),
+x(y) = \lambda \sinh(y / \lambda),
+$$
+
+where
+
+$$
+\lambda = \frac{xWidth}{\sqrt{dxdyRange^2 - 1}}.
+$$
+
+The factory requires `xWidth > 0` and `dxdyRange >= 1`. When `dxdyRange == 1`, the
+factory degenerates to the identity map.
+
+### Concentrating Map
+
+`NewConcentratingMap(xLow, xHigh, cPoint, density)` returns a sinh/asinh stretch on
+`y in [0, 1]`:
+
+$$
+x(y) = \mu + \rho \sinh(c_1(1-y) + c_2y),
 $$
 
 with
 
 $$
-\lambda = \frac{\text{xWidth}}{y_{\max}}, \qquad y_{\max} = \sqrt{\text{dxdyRange}^2 - 1}.
+\mu = cPoint, \qquad
+\rho = density \cdot (xHigh - xLow),
 $$
 
-Because $\mathrm{d}x/\mathrm{d}y = \cosh(y/\lambda) \ge 1$, the map is monotone
-non-decreasing and stretches $y$-space outward: near the origin $y/x \to 1/\lambda$ (dense
-sampling in $x$), while for large $|x|$ the tails compress as
-$|y| \sim \lambda \ln(2|x|/\lambda)$. The `dxdyRange` parameter caps the stretching at the
-boundary — the maximum value of $\mathrm{d}x/\mathrm{d}y$ is exactly `dxdyRange`, attained
-where $y/\lambda = y_{\max}$. `xWidth` sets $\lambda$ and hence the physical half-width of the
-central high-resolution band. The factory requires `xWidth > 0` and `dxdyRange >= 1`.
+$$
+c_1 = \operatorname{asinh}\left(\frac{xLow-\mu}{\rho}\right), \qquad
+c_2 = \operatorname{asinh}\left(\frac{xHigh-\mu}{\rho}\right).
+$$
 
-### Degeneration to identity
+The map concentrates nodes near `cPoint`; smaller `density` gives tighter local
+concentration. The factory requires `xHigh > xLow`, `cPoint` in `[xLow, xHigh]`, and
+`density > 0`.
 
-When $\text{dxdyRange} = 1$ we have $y_{\max} = 0$, so $\sinh(y/\lambda) = y/\lambda$ collapses
-to the identity $x = y$ and the parametrization above degenerates. The factory detects this and
-returns an `IdentityMap_` instead. `NewIdentityMap()` is the explicit convenience for this
-case — it simply calls `NewSinhMap(1.0, 1.0)`.
+The concentrating map is endpoint-exact. Calling `operator()` with `y == 0.0` returns
+`xLow` bitwise, and `y == 1.0` returns `xHigh` bitwise. The inverse is endpoint-exact as
+well: `Y(xLow) == 0.0` and `Y(xHigh) == 1.0`. This endpoint snap applies only to exact
+endpoint arguments; derivative out-values at endpoints still use the analytic formulas.
 
-## Downstream Consumers
+The analytic derivatives are
 
-The difference operators and the one-dimensional engine that consume a mesher live in
-`dal-cpp/dal/math/pde/`:
+$$
+\frac{dx}{dy} = \rho(c_2-c_1)\cosh(c_1(1-y)+c_2y),
+$$
 
-- `Dal::PDE::Dx(const FDM1DMesher_&)` and `Dal::PDE::Dxx(const FDM1DMesher_&)`
-  (`dal-cpp/dal/math/pde/finitedifference.hpp`) build tridiagonal first- and
-  second-difference operators from the mesher's `dplus_`, `dminus_`, and `locations_` arrays.
-  The non-uniform spacing is exactly why those arrays exist: a one-sided first difference at
-  node $i$ uses $\Delta^\pm_i$, and the second-difference stencil weights its three nodes by
-  the local $\Delta^+ / \Delta^-$ ratio.
-- `Dal::PDE::FD1D_` (`dal-cpp/dal/math/pde/fd1d.hpp`) holds a `const FDM1DMesher_&` and
-  exposes the node locations through `FD1D_::X()`, which returns `Locations()`. The engine's
-  drift, variance, and result vectors are all indexed against this mesh.
+$$
+\frac{d^2x}{dy^2} = \rho(c_2-c_1)^2\sinh(c_1(1-y)+c_2y).
+$$
 
-### Cached implicit-operator decomposition
+## Grid Construction
 
-`FD1D_::RollBwd` solves a $\theta$-scheme step that combines the explicit
-($1-\theta$) and implicit ($\theta$) applications of the drift-plus-diffusion
-operator assembled by `CalcAx` from the mesher-derived `Dx` / `Dxx` stencils
-and the per-node `mu_`, `var_`, `r_` coefficient vectors. The implicit solve
-factorises the operator $A$ and calls `SolveLeft` against it. For a
-time-homogeneous problem the step `dt`, the weight `theta`, and the
-coefficients (`mu_`, `var_`, `r_`) do not change between rolls, so the same
-factorisation is valid roll-to-roll. `FD1D_` caches the
-`SquareMatrixDecomposition_` of $A$ and reuses it across rolls as long as
-`CacheHit(dt, theta)` confirms that `dt`, `theta`, and the three coefficient
-vectors all still match the cached values; any of them changing rebuilds the
-cache (and the explicit-operator product is recomputed unconditionally, since
-it is not factorised). The `DecompositionsSinceInit()` counter exposes how many
-fresh factorisations the engine has performed since `Init()`, so a caller can
-confirm that a time-homogeneous sweep is reusing a single decomposition rather
-than re-factoring every step.
+`CoordinateVector_` describes a one-dimensional computational grid:
 
-The boundary-null convention is what makes these consumers safe: a stencil that would read
-$\Delta^+_{n-1}$ or $\Delta^-_0$ at a boundary instead gets the null sentinel, forcing the
-boundary to be handled by its one-sided inward difference.
+```cpp
+struct CoordinateVector_ {
+    double yLow_;
+    double yHigh_;
+    int n_;
+    Handle_<CoordinateMap_> yToX_;
+};
+```
+
+`GridLocations(points)` samples `n_` computational nodes uniformly on
+`[yLow_, yHigh_]` and maps them through `yToX_`. It computes
+
+$$
+dy = \frac{yHigh-yLow}{n-1}
+$$
+
+once, assigns the first and last computational nodes verbatim to `yLow_` and `yHigh_`,
+and uses `yLow_ + i*dy` for interior nodes. This keeps the sampled endpoints exact in
+`y`-space; endpoint-exact maps then keep the physical grid endpoints exact as well.
+
+`GridLocations` requires:
+
+- at least three points,
+- `yHigh_ > yLow_`,
+- a non-empty coordinate-map handle,
+- strictly increasing mapped physical locations.
+
+Use `MakeUniformGrid(xLow, xHigh, n)` for a uniform physical grid. It pairs the identity
+map with `yLow_ = xLow` and `yHigh_ = xHigh`.
+
+Use `MakeConcentratingGrid(xLow, xHigh, n, cPoint, density)` for a concentrated physical
+grid. It pairs the concentrating map with `yLow_ = 0.0` and `yHigh_ = 1.0`, so callers do
+not have to remember the concentrating map's computational domain.
+
+## Difference Operators
+
+`NewDx` and `NewDxx` build `Sparse::TriDiagonal_` operators from physical node locations.
+They require at least three strictly increasing locations. Boundary rows are zero; the
+time-stepping scheme owns boundary policy.
+
+For an interior node `i`, define
+
+$$
+\Delta^- = x_i - x_{i-1}, \qquad \Delta^+ = x_{i+1} - x_i.
+$$
+
+The first-derivative row is
+
+$$
+\left[
+-\frac{\Delta^+}{\Delta^-(\Delta^-+\Delta^+)},
+\frac{\Delta^+-\Delta^-}{\Delta^-\Delta^+},
+\frac{\Delta^-}{\Delta^+(\Delta^-+\Delta^+)}
+\right].
+$$
+
+The second-derivative row is
+
+$$
+\left[
+\frac{2}{\Delta^-(\Delta^-+\Delta^+)},
+-\frac{2}{\Delta^-\Delta^+},
+\frac{2}{\Delta^+(\Delta^-+\Delta^+)}
+\right].
+$$
+
+The operators derive spacings from the final location vector, so their coefficients agree
+with endpoint-pinned grids.
+
+## Coefficients
+
+`ScalarCoeff_`, `VectorCoeff_`, and `MatrixCoeff_` expose a `Value(x, out)` virtual and
+an `XDependence()` declaration. Dependence flags are `std::bitset<MAX_DIMENSIONS>` values:
+bit `i` means the coefficient depends on spatial coordinate `x[i]`. Time is not a
+dependence bit; time-dependent coefficients are handled by calling `Prepare` again before
+the next roll.
+
+The factory functions follow DAL's raw-pointer `New*` convention. Callers normally wrap
+the returned pointer in `Handle_` or `std::unique_ptr`.
+
+Constant factories:
+
+```cpp
+ScalarCoeff_* NewConstCoeff(double val);
+VectorCoeff_* NewConstCoeff(const Vector_<>& val);
+MatrixCoeff_* NewConstCoeff(const Matrix_<>& val);
+```
+
+The matrix constant must be square. Constant coefficients report all-zero dependence.
+
+Callable factories:
+
+```cpp
+ScalarCoeff_* NewScalarCoeff(std::function<double(const Vector_<>&)> f, Coeff_::x_dep_t dep);
+VectorCoeff_* NewVectorCoeff(std::function<void(const Vector_<>&, Vector_<>*)> f,
+                             const Vector_<Coeff_::x_dep_t>& dep);
+MatrixCoeff_* NewMatrixCoeff(std::function<void(const Vector_<>&, SquareMatrix_<>*)> f,
+                             const Matrix_<Coeff_::x_dep_t>& dep);
+```
+
+For vector and matrix callables, `dep` declares both dependence and output shape. The
+adapter resizes the output object to match `dep` before invoking the callable.
+
+The one-dimensional convenience overloads infer axis-0 dependence and length/shape 1:
+
+```cpp
+ScalarCoeff_* NewScalarCoeff(std::function<double(double)> f);
+VectorCoeff_* NewVectorCoeff(std::function<double(double)> f);
+MatrixCoeff_* NewMatrixCoeff(std::function<double(double)> f);
+```
+
+These make Black-Scholes coefficients concise:
+
+```cpp
+Handle_<ScalarCoeff_> disc(NewConstCoeff(rate));
+Handle_<VectorCoeff_> mu(NewVectorCoeff([=](double s) { return (rate - div) * s; }));
+Handle_<MatrixCoeff_> var(NewMatrixCoeff([=](double s) { return vol * vol * s * s; }));
+```
+
+The diffusion coefficient supplies variance; schemes apply the `0.5` factor.
+
+## Value Layout
+
+`Rollback_` passes values as `Vector_<std::shared_ptr<Cube_<>>>`. Each cube layer holds one
+time level. For one-dimensional problems the shape is `(1, 1, nX)`:
+
+- axis I is reserved and must be size 1,
+- axis J is reserved for a future second spatial dimension and must be size 1 here,
+- axis K is the first spatial dimension.
+
+The last-axis layout makes each spatial row contiguous through
+`SliceBegin(0, 0)` / `SliceEnd(0, 0)`.
+
+## Theta Scheme
+
+`ThetaScheme_` implements one backward time step of
+
+$$
+\frac{\partial V}{\partial t}
++ \mu(x)\frac{\partial V}{\partial x}
++ \frac{1}{2}\sigma^2(x)\frac{\partial^2 V}{\partial x^2}
+- r(x)V = 0.
+$$
+
+`theta = 0` is explicit, `theta = 0.5` is Crank-Nicolson, and `theta = 1` is fully
+implicit. The constructor requires `theta` in `[0, 1]`. The implementation supports
+exactly one spatial dimension; a request with any other `xPoints` size throws.
+
+### Prepare And Roll
+
+`Prepare(dt, xPoints, discounting, advection, diffusion)` is the assembly phase. It
+requires `dt > 0`, materializes the grid, samples coefficients, builds the explicit and
+implicit tridiagonal operators with `dt` baked in, and factors the implicit operator when
+`theta > 0`.
+
+The const `operator()` is the roll phase. It does not assemble or factor. It checks that
+the `dt`, grid, and coefficient objects match the prepared state, revalidates coefficient
+probe values at the first, middle, and last nodes, applies the prepared explicit
+operator, and solves the prepared implicit operator when needed.
+
+`Decompositions()` returns the number of implicit factorizations since construction.
+Each `Prepare` with `theta > 0` increments the count once. `Prepare` with `theta == 0`
+does not factor and leaves the count unchanged. `operator()` never changes the count.
+
+### Boundary Policy
+
+Both prepared operators use identity rows at the two spatial boundaries. The discount term
+does not alter boundary diagonals.
+
+For full theta-scheme treatment of Dirichlet boundaries, `operator()` reads the target
+layer's two boundary values from `newVals` before writing output. Those target-time
+boundary values become the right-hand side for the implicit boundary rows, while the
+source layer's boundary values remain part of the explicit half-step for interior rows.
+This gives Crank-Nicolson (`theta = 0.5`) the usual old-boundary/new-boundary averaging.
+
+If a target layer is null or has the wrong shape, the scheme falls back to the source
+layer's boundary values. This preserves the pass-through behavior for constant-boundary
+or in-place rolls. For time-dependent boundaries, use a separate target layer, seed its
+end nodes for the target time level, call the scheme, and then swap the source and target
+vectors.
+
+### Aliasing And Output Layers
+
+`oldVals` must be non-empty and all layers must be non-null with shape `(1, 1, n)`.
+`newVals` must be non-null.
+
+Whole-vector aliasing is supported:
+
+```cpp
+scheme(dt, grids, vals, *disc, *mu, *var, &vals);
+```
+
+Whole-vector aliasing cannot supply boundary values that differ between source and target
+time levels. Use the separate-target pattern below when boundary values are
+time-dependent.
+
+Same-index layer aliasing is also supported. The scheme copies the source slice into local
+scratch before writing target values. A null or mis-shaped target layer is replaced with a
+fresh `Cube_<>(1, 1, n)`; the implementation does not resize cubes in place.
+
+## Example Roll Loop
+
+The European finite-difference example in `dal-cpp/examples/european_fd/` uses the
+framework as follows:
+
+```cpp
+const CoordinateVector_ x = MakeUniformGrid(0.0, 500.0, numX);
+const Vector_<CoordinateVector_> grids(1, x);
+const Vector_<> loc = GridLocations(x);
+
+Handle_<ScalarCoeff_> disc(NewConstCoeff(rate));
+Handle_<VectorCoeff_> mu(NewVectorCoeff([=](double s) { return (rate - div) * s; }));
+Handle_<MatrixCoeff_> var(NewMatrixCoeff([=](double s) { return vol * vol * s * s; }));
+
+Vector_<std::shared_ptr<Cube_<>>> vals(1, std::make_shared<Cube_<>>(1, 1, numX));
+for (int k = 0; k < numX; ++k)
+    (*vals[0])(0, 0, k) = std::max(loc[k] - strike, 0.0);
+Vector_<std::shared_ptr<Cube_<>>> next(1, std::make_shared<Cube_<>>(1, 1, numX));
+
+ThetaScheme_ scheme(0.5);
+const double dt = t / numT;
+scheme.Prepare(dt, grids, *disc, *mu, *var);
+for (int n = 0; n < numT; ++n) {
+    (*next[0])(0, 0, 0) = 0.0;
+    (*next[0])(0, 0, numX - 1) =
+        500.0 * std::exp(-div * (n + 1) * dt) - std::exp(-rate * (n + 1) * dt) * strike;
+    scheme(dt, grids, vals, *disc, *mu, *var, &next);
+    vals.Swap(&next);
+}
+```
 
 ## See Also
 
-- [Interpolation](interpolation.md) — the snapped-knot device in the concentrating
-  mesher builds a piecewise-linear `Interp1_` over a small knot set.
-- [Matrix and linear algebra](matrix.md) — the finite-difference operators are
-  tri-diagonal and solved by the Thomas algorithm documented there.
+- [Matrix and linear algebra](matrix.md) — tridiagonal storage and decomposition.
+- [Black / Bachelier Vanilla Pricing](black_scholes.md) — analytic benchmarks used by
+  the PDE tests and examples.

@@ -83,6 +83,13 @@ here as the baseline rather than dated releases:
 
 ## 2026-07
 
+- `pde`: Implemented the `Rollback_`-based PDE framework: coefficient factories and callable
+  adapters, endpoint-exact concentrating coordinate maps, grid materialization, node-location
+  derivative operators, and `ThetaScheme_` with explicit `Prepare`/decomposition reuse. The old
+  mesher/`FD1D_` stack was removed, and `european_fd` plus `pde_perf` now use the new framework.
+  See `docs/methodology/pde.md`. Breaking for direct `dal-cpp` PDE internals only; no
+  `dal-public`/Python/Excel surface changed.
+
 - `script`: The compiled (flat-stream) evaluator is now at strict capability
   parity with the tree-walk evaluators while `MCSimulation` keeps tree-walk as
   the default (`compiled=false`) in both specializations (`<double>` and

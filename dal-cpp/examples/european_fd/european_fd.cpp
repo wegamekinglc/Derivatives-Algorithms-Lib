@@ -2,15 +2,14 @@
 // Created by wegam on 2023/2/26.
 //
 
-#include <iomanip>
 #include <dal/platform/platform.hpp>
-#include <dal/math/operators.hpp>
-#include <dal/math/pde/fd1d.hpp>
 #include <dal/math/distribution/black.hpp>
 #include <dal/math/interp/interpcubic.hpp>
-#include <dal/math/pde/meshers/uniform1dmesher.hpp>
-#include <dal/math/pde/meshers/concentrating1dmesher.hpp>
+#include <dal/math/operators.hpp>
+#include <dal/math/pde/pdegrid.hpp>
+#include <dal/math/pde/thetascheme.hpp>
 #include <dal/utilities/timer.hpp>
+#include <iomanip>
 
 using namespace Dal;
 
@@ -36,50 +35,47 @@ int main() {
     double volStd = std::sqrt(t) * vol;
     const auto benchmark = discounts * Distribution::BlackOpt(fwd, volStd, strike, OptionType_::Value_::CALL);
 
-    std::cout << std::setw(widths[0]) << std::right << "# of grids (x/t)"
-              << std::setw(widths[1]) << std::right << "spot"
-              << std::setw(widths[2]) << std::right << "price"
-              << std::setw(widths[3]) << std::right << "benchmark"
-              << std::setw(widths[4]) << std::right << "Diff (bps)"
-              << std::setw(widths[5]) << std::right << "Elapsed (ms)"
-              << std::endl;
+    std::cout << std::setw(widths[0]) << std::right << "# of grids (x/t)" << std::setw(widths[1]) << std::right << "spot" << std::setw(widths[2])
+              << std::right << "price" << std::setw(widths[3]) << std::right << "benchmark" << std::setw(widths[4]) << std::right << "Diff (bps)"
+              << std::setw(widths[5]) << std::right << "Elapsed (ms)" << std::endl;
 
     for (int i = 1; i <= nRound; ++i) {
         int numX = steps * i + 1;
         int numT = steps * i;
 
         Timer_ timer;
-        Uniform1DMesher_ x(minX, maxX, numX);
-        Vector_<> v0 = Apply([&strike](double x) { return std::max(x - strike, 0.0); }, x.Locations());
+        const PDE::CoordinateVector_ x = PDE::MakeUniformGrid(minX, maxX, numX);
+        const Vector_<PDE::CoordinateVector_> grids(1, x);
+        const Vector_<> loc = PDE::GridLocations(x);
 
-        PDE::FD1D_ fd(x);
-        fd.Init();
+        Vector_<std::shared_ptr<Cube_<>>> vals(1, std::make_shared<Cube_<>>(1, 1, numX));
+        for (int k = 0; k < numX; ++k)
+            (*vals[0])(0, 0, k) = std::max(loc[k] - strike, 0.0);
+        Vector_<std::shared_ptr<Cube_<>>> next(1, std::make_shared<Cube_<>>(1, 1, numX));
 
-        fd.Mu() = (rate - div) * x.Locations();
-        fd.R() = Vector_<>(numX, rate);
-        fd.Var() = vol * vol * x.Locations() * x.Locations();
-        fd.Res() = v0;
-
+        const Handle_<PDE::ScalarCoeff_> disc(PDE::NewConstCoeff(rate));
+        const Handle_<PDE::VectorCoeff_> mu(PDE::NewVectorCoeff([=](double s) { return (rate - div) * s; }));
+        const Handle_<PDE::MatrixCoeff_> var(PDE::NewMatrixCoeff([=](double s) { return vol * vol * s * s; }));
+        PDE::ThetaScheme_ scheme(theta);
         double dt = t / numT;
+        scheme.Prepare(dt, grids, *disc, *mu, *var);
         for (int n = 0; n < numT; ++n) {
-            fd.RollBwd(dt, theta, fd.Res());
-            fd.Res()[0] = 0.0;
-            fd.Res()[fd.Res().size() - 1] = maxX * exp(-div * (n + 1) * dt) - std::exp(-rate * (n + 1) * dt) * strike;
+            (*next[0])(0, 0, 0) = 0.0;
+            (*next[0])(0, 0, numX - 1) = maxX * exp(-div * (n + 1) * dt) - std::exp(-rate * (n + 1) * dt) * strike;
+            scheme(dt, grids, vals, *disc, *mu, *var, &next);
+            vals.Swap(&next);
         }
 
+        const Cube_<>& value = *vals[0];
+        const Vector_<> res(value.SliceBegin(0, 0), value.SliceEnd(0, 0));
         Interp::Boundary_ lhs(2, 0.);
         Interp::Boundary_ rhs(2, 0);
-        std::unique_ptr<Interp1_> interp(Interp::NewCubic("cubic", fd.X(), fd.Res(), lhs, rhs));
+        std::unique_ptr<Interp1_> interp(Interp::NewCubic("cubic", loc, res, lhs, rhs));
         double calculated = (*interp)(spot);
-        std::cout << std::setw(widths[0]) << std::right << numT
-                  << std::fixed
-                  << std::setw(widths[1]) << std::right << spot
-                  << std::setprecision(6)
-                  << std::setw(widths[2]) << std::right << calculated
-                  << std::setw(widths[3]) << std::right << benchmark
-                  << std::setw(widths[4]) << std::right << (calculated - benchmark) / benchmark * 10000
-                  << std::setw(widths[5]) << std::right << int(timer.Elapsed<milliseconds>())
-                  << std::endl;
+        std::cout << std::setw(widths[0]) << std::right << numT << std::fixed << std::setw(widths[1]) << std::right << spot << std::setprecision(6)
+                  << std::setw(widths[2]) << std::right << calculated << std::setw(widths[3]) << std::right << benchmark << std::setw(widths[4])
+                  << std::right << (calculated - benchmark) / benchmark * 10000 << std::setw(widths[5]) << std::right
+                  << int(timer.Elapsed<milliseconds>()) << std::endl;
     }
 
     return 0;
