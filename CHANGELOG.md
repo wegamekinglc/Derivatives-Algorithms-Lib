@@ -44,6 +44,15 @@ here as the baseline rather than dated releases:
   Jacobian mode for yield-curve calibration. See
   `docs/experimental/aad-analytic-jacobian-curve-calibration.md`.
 
+## 2026-07
+
+- `curve`: Added opt-out controls for exact-calibration diagnostic matrix construction:
+  `CurveCalibrationOptions_::computeEffJacobianInverse_`,
+  `CurveCalibrationOptions_::computeForwardJacobian_`, and
+  `JointMultiCurveCalibrationOptions_::computeJacobianAtSolution_`. Defaults preserve the existing
+  diagnostics surface, while performance-sensitive callers can run solve-only calibrations. See
+  `docs/methodology/yield_curve.md` and `docs/methodology/yield_curve_jacobian.md`.
+
 ## 2026-06
 
 - `curve`: Added a yield-curve Jacobian example demonstrating AAD-vs-bump agreement and the

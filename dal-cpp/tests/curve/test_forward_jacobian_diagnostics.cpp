@@ -208,6 +208,30 @@ TEST(ForwardJacobianDiagnosticsTest, TestCoherentWithEffJacobianInversePopulatio
     ASSERT_EQ(result.diagnostics_.jacobian_.Cols(), result.diagnostics_.effJacobianInverse_.Rows());
 }
 
+TEST(ForwardJacobianDiagnosticsTest, TestCanSkipEffJacobianInverse) {
+    const auto spec = MakeEligibleSpec();
+    CurveCalibrationOptions_ opt;
+    opt.jacobianMode_ = CurveJacobianMode_::Value_::ANALYTIC;
+    opt.computeEffJacobianInverse_ = false;
+
+    const CurveCalibrationResult_ result = CalibrateYieldCurve(spec, opt);
+    ASSERT_LT(result.diagnostics_.maxAbsResidual_, 1.0e-7);
+    ASSERT_TRUE(result.diagnostics_.effJacobianInverse_.Empty());
+    ASSERT_FALSE(result.diagnostics_.jacobian_.Empty());
+}
+
+TEST(ForwardJacobianDiagnosticsTest, TestCanSkipForwardJacobian) {
+    const auto spec = MakeEligibleSpec();
+    CurveCalibrationOptions_ opt;
+    opt.jacobianMode_ = CurveJacobianMode_::Value_::ANALYTIC;
+    opt.computeForwardJacobian_ = false;
+
+    const CurveCalibrationResult_ result = CalibrateYieldCurve(spec, opt);
+    ASSERT_LT(result.diagnostics_.maxAbsResidual_, 1.0e-7);
+    ASSERT_FALSE(result.diagnostics_.effJacobianInverse_.Empty());
+    ASSERT_TRUE(result.diagnostics_.jacobian_.Empty());
+}
+
 // Empty-field regression: APPROXIMATE solve leaves jacobian_ empty.
 
 TEST(ForwardJacobianDiagnosticsTest, TestEmptyWhenApproximateSolve) {

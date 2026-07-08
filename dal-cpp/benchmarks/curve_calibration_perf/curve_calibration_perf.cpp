@@ -7,10 +7,11 @@
 // 24-instrument swap curve. jacobian_perf is synthetic (no curve, no instruments, no
 // solver iteration); this is the genuine calibration hot path.
 //
-// Four cases cross {LOG_LINEAR, LOG_CUBIC_NATURAL} x {ANALYTIC, BUMPED} Jacobian mode
-// so candidate #6a (curve rebuild on every F) and #5 (duplicate at-solution Gradient)
-// are both measurable. A fifth APPROXIMATE-mode case covers Underdetermined::Approximate
-// + the implicit CG penalty solve (G9). Mirrors the instrument set from
+// Cases cross {LOG_LINEAR, LOG_CUBIC_NATURAL} x {ANALYTIC, BUMPED} Jacobian mode
+// and split default diagnostics from solve-only timing so candidate #6a (curve rebuild
+// on every F) and #5 (duplicate at-solution Gradient) are separately measurable. An
+// APPROXIMATE-mode case covers Underdetermined::Approximate + the implicit CG penalty solve (G9).
+// Mirrors the instrument set from
 // examples/yield_curve_jacobian/yield_curve_jacobian.cpp.
 
 #include <memory>
@@ -85,9 +86,13 @@ namespace {
         return spec;
     }
 
-    CurveCalibrationOptions_ OptionsFor(CurveJacobianMode_::Value_ mode) {
+    CurveCalibrationOptions_ OptionsFor(CurveJacobianMode_::Value_ mode,
+                                        bool computeEffJacobianInverse = true,
+                                        bool computeForwardJacobian = true) {
         CurveCalibrationOptions_ opts;
         opts.jacobianMode_ = CurveJacobianMode_(mode);
+        opts.computeEffJacobianInverse_ = computeEffJacobianInverse;
+        opts.computeForwardJacobian_ = computeForwardJacobian;
         return opts;
     }
 
@@ -107,7 +112,9 @@ int main() {
     const auto specLin = BuildCalibrationSpec(LogDfScheme_::Value_::LOG_LINEAR);
     const auto specCub = BuildCalibrationSpec(LogDfScheme_::Value_::LOG_CUBIC_NATURAL);
     const auto optsAnalytic = OptionsFor(CurveJacobianMode_::Value_::ANALYTIC);
+    const auto optsAnalyticSolveOnly = OptionsFor(CurveJacobianMode_::Value_::ANALYTIC, false, false);
     const auto optsBumped = OptionsFor(CurveJacobianMode_::Value_::BUMPED);
+    const auto optsBumpedSolveOnly = OptionsFor(CurveJacobianMode_::Value_::BUMPED, false, false);
 
     auto runCase = [&](const char* name, const CurveCalibrationSpec_& spec, const CurveCalibrationOptions_& opts) {
         double sink = 0.0;
@@ -119,10 +126,14 @@ int main() {
         Bench::DoNotOptimize(&sink);
     };
 
-    runCase("CalibrateYieldCurve LOG_LINEAR  ANALYTIC  (24 swaps)", specLin, optsAnalytic);
-    runCase("CalibrateYieldCurve LOG_LINEAR  BUMPED    (24 swaps)", specLin, optsBumped);
-    runCase("CalibrateYieldCurve LOG_CUBIC_NATURAL ANALYTIC (24 swaps)", specCub, optsAnalytic);
-    runCase("CalibrateYieldCurve LOG_CUBIC_NATURAL BUMPED   (24 swaps)", specCub, optsBumped);
+    runCase("CalibrateYieldCurve LOG_LINEAR  ANALYTIC +DIAG (24 swaps)", specLin, optsAnalytic);
+    runCase("CalibrateYieldCurve LOG_LINEAR  ANALYTIC SOLVE  (24 swaps)", specLin, optsAnalyticSolveOnly);
+    runCase("CalibrateYieldCurve LOG_LINEAR  BUMPED   +DIAG  (24 swaps)", specLin, optsBumped);
+    runCase("CalibrateYieldCurve LOG_LINEAR  BUMPED   SOLVE   (24 swaps)", specLin, optsBumpedSolveOnly);
+    runCase("CalibrateYieldCurve LOG_CUBIC_NATURAL ANALYTIC +DIAG (24 swaps)", specCub, optsAnalytic);
+    runCase("CalibrateYieldCurve LOG_CUBIC_NATURAL ANALYTIC SOLVE  (24 swaps)", specCub, optsAnalyticSolveOnly);
+    runCase("CalibrateYieldCurve LOG_CUBIC_NATURAL BUMPED   +DIAG  (24 swaps)", specCub, optsBumped);
+    runCase("CalibrateYieldCurve LOG_CUBIC_NATURAL BUMPED   SOLVE   (24 swaps)", specCub, optsBumpedSolveOnly);
 
     // APPROXIMATE-mode case (G9): drives Underdetermined::Approximate + XDecompByCG_
     // implicit penalty solve. APPROXIMATE ignores the per-row AAD Jacobian and uses CG

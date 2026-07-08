@@ -81,6 +81,8 @@ namespace Dal {
     // See docs/methodology/yield_curve_jacobian.md §Joint Multi-Curve Analytic Jacobian.
     struct JointMultiCurveCalibrationOptions_ {
         CurveJacobianMode_ jacobianMode_ = CurveJacobianMode_::Value_::ANALYTIC;
+        // Analytic at-solution residual Jacobian; ignored unless ANALYTIC + EXACT + eligible.
+        bool computeJacobianAtSolution_ = true;
     };
 
     // Validate inputs and run ONE Underdetermined::Find / Approximate over the concatenated

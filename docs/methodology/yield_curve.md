@@ -254,6 +254,8 @@ when `jacobianMode_ == ANALYTIC AND solveMode_ == EXACT AND eligible`; callers
 pass `nullptr` otherwise so the solver leaves the output empty. The output appears
 on `CurveCalibrationDiagnostics_::jacobian_` (shape $m \times (N-1)$), unscaled
 — it is the plain $J$ before the solver's `DivideRows(tol_)` row-scaling.
+`CurveCalibrationOptions_::computeForwardJacobian_` defaults to `true`; setting
+it to `false` skips this at-solution sweep and leaves `jacobian_` empty.
 
 ## Construction Pipeline
 
@@ -361,7 +363,9 @@ The `JointMultiCurveCalibrationResult_` struct provides
 $d(\text{residual}_i) / d(\text{param}_j)$ at the solved point, shape
 `(totalResiduals) x (totalFreeParams)`. Populated only when
 `jacobianMode_ == ANALYTIC` AND the spec is eligible AND
-`solveMode_ == EXACT`; empty otherwise. The Jacobian is stored in a shared
+`solveMode_ == EXACT` AND `computeJacobianAtSolution_ == true`; empty otherwise.
+`computeJacobianAtSolution_` defaults to `true` to preserve the existing
+diagnostics surface. The Jacobian is stored in a shared
 `XCurveJacobian_` (`dal-cpp/dal/curve/curvejacobian.hpp`) -- the same dense
 subclass used by the single-curve AAD path.
 
@@ -521,7 +525,9 @@ forward-rate parameters without re-solving. Note that its units include an extra
 `tolerance_` factor (the solver scales residuals by `1/tolerance_` before forming
 the pseudoinverse), so a sensitivity transform must read
 `r = gᵀ · effJacobianInverse_ / tolerance_` — see [Yield-Curve Jacobian and
-Inverse-Jacobian Risk](yield_curve_jacobian.md).
+Inverse-Jacobian Risk](yield_curve_jacobian.md). Exact solves populate it by
+default; `CurveCalibrationOptions_::computeEffJacobianInverse_ = false` skips
+the pseudoinverse construction and leaves the matrix empty.
 
 API citations:
 

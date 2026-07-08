@@ -621,7 +621,8 @@ namespace Dal {
         std::unique_ptr<Sparse::TriDiagonal_> weights = BuildJointSmoothing(slots);
         JointResidualFunction_ func(spec, slots, options.jacobianMode_);
         Matrix_<> fwdJacAtSolution;
-        const Vector_<> solved = RunJointSolver(spec, func, guess, tol, *weights, &fwdJacAtSolution);
+        const Vector_<> solved =
+            RunJointSolver(spec, func, guess, tol, *weights, options.computeJacobianAtSolution_ ? &fwdJacAtSolution : nullptr);
 
         const Vector_<> finalResiduals = func.F(solved);
         const double barA = 10.0 * spec.fitTolerance_;

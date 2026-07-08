@@ -36,7 +36,9 @@ and `CalibrateYieldCurve` exposes its result on the public diagnostics struct:
 fresh analytic reverse sweep evaluated at the solved $x^\star$. It is the plain
 Jacobian before the solver's `DivideRows(tol_)` row-scaling, and it is populated
 iff `jacobianMode_ = ANALYTIC && solveMode_ = EXACT` and the calibration is
-eligible for the AAD-tape Jacobian (default-constructed empty otherwise). The
+eligible for the AAD-tape Jacobian and
+`CurveCalibrationOptions_::computeForwardJacobian_ == true`
+(default-constructed empty otherwise). The
 example reads $J$ straight from `result.diagnostics_.jacobian_`, so the AAD
 recording contract and backend-portability rules live in the library rather than
 in example code.
@@ -50,7 +52,7 @@ inverses in their exposed form.
 
 The forward Jacobian is not re-derived by the consumer; it is captured **once,
 inside the solver, on its convergence branch**. When the solve is eligible for
-the analytic path, the convergence hook issues a single
+the analytic path and `computeForwardJacobian_` is true, the convergence hook issues a single
 `func.Gradient(xNew, fNew)` call at the solved $x^\star$, and the reverse sweep
 that fills `jacobian_` is that one evaluation. The output is the plain Jacobian
 before the solver's `DivideRows(tol_)` row-scaling, and an independent
@@ -88,6 +90,7 @@ result is exposed as
 `JointMultiCurveCalibrationResult_::jacobianAtSolution_`, shaped
 `(totalResiduals) × (totalFreeParams)`, populated iff
 `JointMultiCurveCalibrationOptions_::jacobianMode_ == ANALYTIC`,
+`JointMultiCurveCalibrationOptions_::computeJacobianAtSolution_ == true`,
 `solveMode_ == EXACT`, and the spec is eligible; empty otherwise.
 
 The mechanics mirror the single-curve path — register the stacked free
@@ -347,13 +350,15 @@ re-calibrations for `BUMPED` versus one AAD reverse sweep per residual row for
 `ANALYTIC`. Each `CalibrateYieldCurve` call resets its own tape internally, so
 repeated calls are independent and safe to time.
 
-The comparison is not pure like-for-like. The `ANALYTIC` time includes the
+The comparison is not pure like-for-like unless diagnostics are disabled. The `ANALYTIC` time includes the
 single at-solution forward-Jacobian evaluation the solver makes on its
 convergence branch to populate `CurveCalibrationDiagnostics_::jacobian_`, which
 `BUMPED` does not perform. The honest reading of the ratio is therefore
 "`ANALYTIC` solve-with-Jacobian vs `BUMPED` solve-without-Jacobian". A truly
 matched comparison would give `BUMPED` its own separate finite-difference
-Jacobian pass to produce the same diagnostic, which the example does not do.
+Jacobian pass to produce the same diagnostic. `CurveCalibrationOptions_` can now
+disable `computeForwardJacobian_` and `computeEffJacobianInverse_` for solve-only
+benchmarking.
 
 ## See Also
 

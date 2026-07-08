@@ -110,6 +110,10 @@ namespace Dal {
     // default is byte-for-byte identical to the bumped path only for ineligible specs.
     struct CurveCalibrationOptions_ {
         CurveJacobianMode_ jacobianMode_ = CurveJacobianMode_::Value_::ANALYTIC;
+        // Exact-solve pseudoinverse used by inverse-Jacobian risk diagnostics.
+        bool computeEffJacobianInverse_ = true;
+        // Analytic at-solution residual Jacobian; ignored unless ANALYTIC + EXACT + eligible.
+        bool computeForwardJacobian_ = true;
     };
 
     struct CurveCalibrationDiagnostics_ {
