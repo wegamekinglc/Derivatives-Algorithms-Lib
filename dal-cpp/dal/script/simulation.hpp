@@ -138,13 +138,14 @@ namespace Dal::Script {
                 Scenario_<>& path = paths[threadNum];
                 auto& random = rngVector[threadNum];
                 random->SkipTo(firstPath);
+                double sumValue = 0.0;
                 if (useCompiled) {
                     EvalState_<double>& evalState = evalStateVector[threadNum];
                     for (size_t i = 0; i < pathsInTask; ++i) {
                         random->FillNormal(&gaussVec);
                         mdl->GeneratePath(gaussVec, &path);
                         compiledProduct->Evaluate(path, evalState);
-                        simResult += evalState.VarVals()[payoffIndex];
+                        sumValue += evalState.VarVals()[payoffIndex];
                     }
                 } else {
                     Evaluator_<double>& eval = evalVector[threadNum];
@@ -152,9 +153,10 @@ namespace Dal::Script {
                         random->FillNormal(&gaussVec);
                         mdl->GeneratePath(gaussVec, &path);
                         product.Evaluate(path, eval);
-                        simResult += eval.VarVals()[payoffIndex];
+                        sumValue += eval.VarVals()[payoffIndex];
                     }
                 }
+                simResult = sumValue;
                 return true;
             }));
             pathsLeft -= pathsInTask;
