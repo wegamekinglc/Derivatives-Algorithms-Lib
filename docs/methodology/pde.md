@@ -291,10 +291,22 @@ fresh `Cube_<>(1, 1, n)`; the implementation does not resize cubes in place.
 
 ## Example Roll Loop
 
-The European finite-difference example in `dal-cpp/examples/european_fd/` uses the
-framework as follows:
+The European finite-difference example in `dal-cpp/examples/european_fd/` runs explicit,
+Crank-Nicolson, and fully implicit scheme configurations through the same rollback helper.
+The explicit configuration uses a finer time grid because explicit rollback is
+conditionally stable. After the base scheme comparison, the example continues the
+Crank-Nicolson convergence sweep by increasing `spaceSteps` and `timeSteps` together. For
+each selected run, the helper uses:
 
 ```cpp
+const SchemeRun_ schemeRuns[] = {
+    {"Explicit", 0.0, kBaseSteps, kExplicitTimeSteps},
+    {"Crank-Nicolson", 0.5, kBaseSteps, kBaseSteps},
+    {"Implicit", 1.0, kBaseSteps, kBaseSteps},
+};
+
+const int numX = run.spaceSteps + 1;
+const int numT = run.timeSteps;
 const CoordinateVector_ x = MakeUniformGrid(0.0, 500.0, numX);
 const Vector_<CoordinateVector_> grids(1, x);
 const Vector_<> loc = GridLocations(x);
@@ -308,7 +320,7 @@ for (int k = 0; k < numX; ++k)
     (*vals[0])(0, 0, k) = std::max(loc[k] - strike, 0.0);
 Vector_<std::shared_ptr<Cube_<>>> next(1, std::make_shared<Cube_<>>(1, 1, numX));
 
-ThetaScheme_ scheme(0.5);
+ThetaScheme_ scheme(run.theta);
 const double dt = t / numT;
 scheme.Prepare(dt, grids, *disc, *mu, *var);
 for (int n = 0; n < numT; ++n) {
