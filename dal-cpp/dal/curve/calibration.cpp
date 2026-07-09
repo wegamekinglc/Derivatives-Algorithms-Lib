@@ -548,6 +548,7 @@ namespace Dal {
                                            const Vector_<>& guess,
                                            const Vector_<>& tol,
                                            const Sparse::TriDiagonal_& weights,
+                                           bool computeEffJacobianInverse,
                                            Matrix_<>* fwdJacobian) {
             Dictionary_ ctrlDict;
             ctrlDict.Insert(KEY_MAX_EVALUATIONS, Cell_(static_cast<double>(spec.maxEvaluations_)));
@@ -557,7 +558,8 @@ namespace Dal {
             SolverOutput_ out;
             if (spec.solveMode_ == CurveSolveMode_::Value_::EXACT) {
                 std::unique_ptr<Sparse::SymmetricDecomposition_> wDecomp(weights.DecomposeSymmetric());
-                out.result_ = Underdetermined::Find(func, guess, tol, *wDecomp, controls, &out.effJacobianInverse_, fwdJacobian);
+                Matrix_<>* effJacobianInverse = computeEffJacobianInverse ? &out.effJacobianInverse_ : nullptr;
+                out.result_ = Underdetermined::Find(func, guess, tol, *wDecomp, controls, effJacobianInverse, fwdJacobian);
             } else {
                 out.result_ = Underdetermined::Approximate(func, guess, tol, spec.fitTolerance_, weights, controls);
             }
@@ -568,7 +570,7 @@ namespace Dal {
                                                           const Vector_<Handle_<YCInstrument_>>& instruments,
                                                           const Vector_<Date_>& knotDates,
                                                           const Vector_<>& result,
-                                                          const Matrix_<>& effJacobianInverse) {
+                                                          const Matrix_<>* effJacobianInverse) {
             CurveCalibrationResult_ retval;
             retval.curve_ = BuildDiscountCurve(spec.curveName_, spec.ccy_, spec.parameterization_, spec.logDfScheme_, knotDates, result, spec.liborBasis_,
                                                spec.baseCurve_);
@@ -595,7 +597,7 @@ namespace Dal {
                 fundingCurve.reset(new CurveBlock_(spec.curveName_, spec.ccy_, spec.discountCurves_, spec.forwardCurves_, spec.liborBasis_));
             retval.diagnostics_ =
                 BuildDiagnostics(spec.curveName_, instruments, curveView, fundingCurve, spec.solveMode_ == CurveSolveMode_::Value_::APPROXIMATE,
-                                 spec.solveMode_ == CurveSolveMode_::Value_::EXACT ? &effJacobianInverse : nullptr);
+                                 spec.solveMode_ == CurveSolveMode_::Value_::EXACT ? effJacobianInverse : nullptr);
             return retval;
         }
     } // namespace
@@ -632,11 +634,16 @@ namespace Dal {
                                         spec.liborBasis_, spec.logDfScheme_, options.jacobianMode_);
 
         // Forward Jacobian requested only for ANALYTIC + EXACT + eligible; nullptr otherwise so the solver leaves the output empty.
-        const bool wantFwdJacobian = options.jacobianMode_ == CurveJacobianMode_::Value_::ANALYTIC && spec.solveMode_ == CurveSolveMode_::Value_::EXACT
-                                     && func.Eligible();
+        const bool wantFwdJacobian = options.computeForwardJacobian_ && options.jacobianMode_ == CurveJacobianMode_::Value_::ANALYTIC
+                                     && spec.solveMode_ == CurveSolveMode_::Value_::EXACT && func.Eligible();
         Matrix_<> fwdJacobian;
-        const SolverOutput_ solved = RunCalibrationSolver(spec, func, guess, tol, *weights, wantFwdJacobian ? &fwdJacobian : nullptr);
-        CurveCalibrationResult_ retval = AssembleCalibrationResult(spec, instruments, knotDates, solved.result_, solved.effJacobianInverse_);
+        const SolverOutput_ solved =
+            RunCalibrationSolver(spec, func, guess, tol, *weights, options.computeEffJacobianInverse_, wantFwdJacobian ? &fwdJacobian : nullptr);
+        CurveCalibrationResult_ retval = AssembleCalibrationResult(spec,
+                                                                   instruments,
+                                                                   knotDates,
+                                                                   solved.result_,
+                                                                   options.computeEffJacobianInverse_ ? &solved.effJacobianInverse_ : nullptr);
         retval.diagnostics_.jacobian_ = std::move(fwdJacobian);
         return retval;
     }

@@ -376,6 +376,22 @@ TEST(JointAnalyticJacobianTest, TestAnalyticEligibleAgreesWithBumped) {
     }
 }
 
+TEST(JointAnalyticJacobianTest, TestCanSkipJacobianAtSolution) {
+    RegisterAll_::Init();
+    const Date_ today(2024, 1, 15);
+    const Ccy_ ccy("USD");
+    const JointMultiCurveCalibrationSpec_ spec = BuildSmallJointSpec(today, ccy, /*baseLayered=*/true, DayBasis_("ACT_365F"));
+
+    JointMultiCurveCalibrationOptions_ opt;
+    opt.jacobianMode_ = CurveJacobianMode_::Value_::ANALYTIC;
+    opt.computeJacobianAtSolution_ = false;
+    const JointMultiCurveCalibrationResult_ result = CalibrateJointMultiCurve(spec, opt);
+
+    ASSERT_TRUE(result.converged_);
+    ASSERT_TRUE(result.jacobianAtSolution_.Empty());
+    ASSERT_LT(result.jointMaxAbsResidual_, 1.0e-7);
+}
+
 // AC7: the ANALYTIC default engages on an eligible spec without explicit options.
 TEST(JointAnalyticJacobianTest, TestDefaultEngagesAnalyticOnEligibleSpec) {
     RegisterAll_::Init();
