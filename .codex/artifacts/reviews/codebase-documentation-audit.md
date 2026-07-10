@@ -50,14 +50,14 @@ dal-cpp <- dal-public <- {dal-python, dal-excel}
 
 ### Component Responsibilities
 
-| Component | Current responsibility |
-|---|---|
-| `dal-cpp/` | Core types, calendars, conventions, storage, math, AAD, curves, models, scripting, Monte Carlo, PDE, random generation, and concurrency |
-| `dal-public/` | Thin C++ construction, calibration, and valuation facade over core types |
-| `dal-python/` | pybind11 bindings plus a small handwritten Python convenience layer |
-| `dal-excel/` | Excel conversion/repository layer plus Machinist-generated registration glue |
-| `dal-web/backend/` | FastAPI routers, persistence, valuation orchestration, and the single DAL gateway |
-| `dal-web/frontend/` | React/Vite portfolio, trade, model, product, and valuation UI |
+| Component           | Current responsibility                                                                                                                |
+|---------------------|---------------------------------------------------------------------------------------------------------------------------------------|
+| `dal-cpp/`          | Core types, calendars, conventions, storage, math, AAD, curves, models, scripting, Monte Carlo, PDE, random generation, and concurrency |
+| `dal-public/`       | Thin C++ construction, calibration, and valuation facade over core types                                                              |
+| `dal-python/`       | pybind11 bindings plus a small handwritten Python convenience layer                                                                   |
+| `dal-excel/`        | Excel conversion/repository layer plus Machinist-generated registration glue                                                          |
+| `dal-web/backend/`  | FastAPI routers, persistence, valuation orchestration, and the single DAL gateway                                                     |
+| `dal-web/frontend/` | React/Vite portfolio, trade, model, product, and valuation UI                                                                         |
 
 ### Representative Execution Flows
 
@@ -77,10 +77,10 @@ React/API/Python caller
 
 Primary implementation sites:
 
-- `dal-web/backend/app/services/dal_gateway.py:136`
-- `dal-python/src/bindings/value.cpp:17`
-- `dal-public/src/value.cpp:22`
-- `dal-cpp/dal/script/simulation.hpp:65`
+- `dal-web/backend/app/services/dal_gateway.py`
+- `dal-python/src/bindings/value.cpp`
+- `dal-public/src/value.cpp`
+- `dal-cpp/dal/script/simulation.hpp`
 
 #### Curve Calibration
 
@@ -95,9 +95,9 @@ public calibration builder
 
 Primary implementation sites:
 
-- `dal-public/src/curvespec.cpp:11`
-- `dal-cpp/dal/curve/calibration.hpp:81`
-- `dal-cpp/dal/curve/calibration.cpp:609`
+- `dal-public/src/curvespec.cpp`
+- `dal-cpp/dal/curve/calibration.hpp`
+- `dal-cpp/dal/curve/calibration.cpp`
 
 ## Findings
 
@@ -107,12 +107,12 @@ Primary implementation sites:
 
 **Evidence**
 
-- `docs/methodology/dupire.md:18-22` states the standard numerator term
+- `docs/methodology/dupire.md` states the standard numerator term
   `(r - q) * K * C_K`.
-- `docs/methodology/dupire.md:50-54` drops the strike multiplier in its
+- `docs/methodology/dupire.md` drops the strike multiplier in its
   implementation formula.
-- `dal-cpp/dal/model/ivs.hpp:68-80` implements the formula without `K`.
-- `IVS_::Call` at `dal-cpp/dal/model/ivs.hpp:61-64` does not use the stored `r_`
+- `dal-cpp/dal/model/ivs.hpp` implements the formula without `K`.
+- `IVS_::Call` in `dal-cpp/dal/model/ivs.hpp` does not use the stored `r_`
   or `q_` when producing the call surface.
 - Existing Dupire calibration coverage uses an `IVS_` with default zero rates, so
   the rate-aware path is not tested.
@@ -136,7 +136,7 @@ implied-volatility surface and may fail the defining vanilla-repricing property.
 
 **Evidence**
 
-`docs/methodology/underdetermined_search.md:200-214` defines
+`docs/methodology/underdetermined_search.md` defines
 
 ```text
 Q(k) = a*k^2 + 2*b*k*(1-k) + c*(1-k)^2
@@ -148,7 +148,7 @@ Differentiating that expression gives:
 k_min = (c - b) / (a - 2*b + c)
 ```
 
-The document and `dal-cpp/dal/math/optimization/underdetermined.cpp:275-293`
+The document and `dal-cpp/dal/math/optimization/underdetermined.cpp`
 instead use:
 
 ```text
@@ -171,13 +171,13 @@ of `k`, then correct either the model or the implementation.
 
 **Evidence**
 
-- `docs/methodology/black_scholes.md:127-147` says Bachelier solves directly in
+- `docs/methodology/black_scholes.md` says Bachelier solves directly in
   de-annualized volatility and supports real forwards/strikes.
-- The shared solver in `dal-cpp/dal/math/distribution/black.cpp:18-35` exponentiates
+- The shared solver in `dal-cpp/dal/math/distribution/black.cpp` exponentiates
   its coordinate for both Black and Bachelier.
-- The Bachelier guess transform at `black.cpp:80-84` supplies a direct volatility
+- The Bachelier guess transform in `black.cpp` supplies a direct volatility
   value to a solver that then exponentiates it.
-- `dal-cpp/dal/math/distribution/black.hpp:34-37` returns intrinsic value whenever
+- `dal-cpp/dal/math/distribution/black.hpp` returns intrinsic value whenever
   `fwd * strike` is not positive, even though the normal model is valid for negative
   and opposite-sign forwards/strikes.
 
@@ -196,11 +196,11 @@ including explicit positive guesses.
 
 **Evidence**
 
-- `dal-public/src/value.cpp:22-43` accepts signed `int nPaths` without validation.
+- `dal-public/src/value.cpp` accepts signed `int nPaths` without validation.
 - It passes the value to the `size_t` interface in
-  `dal-cpp/dal/script/simulation.hpp:65-80`.
-- Batching narrows path arithmetic back to `int` at `simulation.hpp:119-127` and
-  `simulation.hpp:196-201`.
+  `dal-cpp/dal/script/simulation.hpp`.
+- Batching narrows path arithmetic back to `int` in `simulation.hpp` and
+  `simulation.hpp`.
 - A direct Python probe returned `{"PV": NaN}` for zero paths.
 - A direct Python probe with `-1` terminated with `SIGFPE` during batching arithmetic.
 
@@ -221,14 +221,14 @@ C++, Python, and Excel regression tests for zero, negative, one, and boundary va
 
 **Evidence**
 
-- `dal-web/backend/app/services/dal_gateway.py:15` imports `dal` unconditionally.
-- `dal-web/backend/pyproject.toml:11-17` does not declare or install `dal-python`.
-- `dal-web/scripts/start.sh:115-125` runs `uv sync` and starts Uvicorn without
+- `dal-web/backend/app/services/dal_gateway.py` imports `dal` unconditionally.
+- `dal-web/backend/pyproject.toml` does not declare or install `dal-python`.
+- `dal-web/scripts/start.sh` runs `uv sync` and starts Uvicorn without
   installing or validating DAL.
 - A backend-environment probe reproduced `ModuleNotFoundError: No module named 'dal'`.
-- `README.md:31` and `docs/installation.md:343-359` describe a `dal_stub.py` default
+- `README.md` and `docs/installation.md` describe a `dal_stub.py` default
   and `DAL_REQUIRE_NATIVE`, but neither exists in runtime source.
-- `dal-web/README.md:56-66` correctly describes the current native-only behavior,
+- `dal-web/README.md` correctly describes the current native-only behavior,
   contradicting the other two documents.
 
 **Impact**
@@ -251,12 +251,12 @@ Update all startup docs and smoke tests to the chosen contract.
 
 **Evidence**
 
-- `dal-web/backend/app/services/valuation.py:184-195` claims that `to_thread` keeps
+- `dal-web/backend/app/services/valuation.py` claims that `to_thread` keeps
   the event loop responsive.
-- `dal-python/src/bindings/value.cpp:17-45` does not release the Python GIL around
+- `dal-python/src/bindings/value.cpp` does not release the Python GIL around
   `ValueByMonteCarlo`.
 - `DalGateway.value` holds a process-wide lock at
-  `dal-web/backend/app/services/dal_gateway.py:136-151` because evaluation date is
+  `dal-web/backend/app/services/dal_gateway.py` because evaluation date is
   global state.
 
 **Impact**
@@ -275,13 +275,13 @@ state that permits concurrent valuations.
 
 **Evidence**
 
-- `dal-cpp/dal/concurrency/threadpool.hpp:23-45` constructs and starts a static
+- `dal-cpp/dal/concurrency/threadpool.hpp` constructs and starts a static
   `ThreadPool_` using `hardware_concurrency()`.
-- `dal-cpp/dal/concurrency/threadpool.cpp:12-35` starts those workers during library
+- `dal-cpp/dal/concurrency/threadpool.cpp` starts those workers during library
   initialization.
 - Importing `dal` in the review environment changed the process from 1 to 32 threads.
 - `interrupt_` is a plain `bool` read by workers and written by `Stop()` across threads
-  (`threadpool.cpp:18,42`).
+  (`threadpool.cpp`).
 
 **Impact**
 
@@ -298,8 +298,8 @@ queue's synchronization primitive. Add lifecycle and repeated-start/stop tests.
 
 **Evidence**
 
-- `dal-web/frontend/src/pages/Models.tsx:18-23,59-69` accepts non-flat surfaces.
-- `dal-web/backend/app/services/dal_gateway.py:112-132` rejects non-flat surfaces at
+- `dal-web/frontend/src/pages/Models.tsx` accepts non-flat surfaces.
+- `dal-web/backend/app/services/dal_gateway.py` rejects non-flat surfaces at
   valuation time because the Python `DoubleMatrix_` binding lacks mutation support.
 
 **Impact**
@@ -318,12 +318,12 @@ in the UI control.
 
 **Evidence**
 
-- `dal-public/CMakeLists.txt:37-46` exports the repository root and links `DAL::cpp`
+- `dal-public/CMakeLists.txt` exports the repository root and links `DAL::cpp`
   publicly.
-- Public headers such as `dal-public/src/curvespec.hpp:9-31` expose core concrete
+- Public headers such as `dal-public/src/curvespec.hpp` expose core concrete
   types directly.
 - Python includes core calibration headers directly in
-  `dal-python/src/bindings/curve.cpp:9-20`.
+  `dal-python/src/bindings/curve.cpp`.
 - Excel reaches internal implementation headers from `dal-excel/src/__platform.hpp`.
 - Public consumers include headers through a path containing `src`, for example
   `<dal-public/src/value.hpp>`.
@@ -366,10 +366,10 @@ minimal external consumer that configures, links, and runs on Linux and Windows 
 
 **Evidence**
 
-- `dal-cpp/cmake/Platform.cmake:43-68` overwrites `CMAKE_CXX_FLAGS` with `-O3
+- `dal-cpp/cmake/Platform.cmake` overwrites `CMAKE_CXX_FLAGS` with `-O3
   -march=native` for GCC and Clang regardless of build type.
 - A configured Debug compile command contained both `-O3` and `-g`.
-- `docs/installation.md:129-131` describes `Debug-linux` as a normal debug build.
+- `docs/installation.md` describes `Debug-linux` as a normal debug build.
 - The same core libraries are linked into Python wheels, making Linux artifacts depend
   on the build machine's instruction set.
 
@@ -388,8 +388,8 @@ CPU baseline for wheels and CI artifacts.
 
 **Evidence**
 
-- `CMakePresets.json:18-22` enables Python and benchmarks in the base preset.
-- `README.md:11-15` and `docs/installation.md:78-90` present `build_linux.sh` as a
+- `CMakePresets.json` enables Python and benchmarks in the base preset.
+- `README.md` and `docs/installation.md` present `build_linux.sh` as a
   sufficient clean-checkout command.
 - `build_linux.sh` does not create a Python environment or install pytest/numpy; the
   extended Linux CI job performs these missing steps explicitly.
@@ -414,11 +414,11 @@ requirements whenever Python tests are enabled.
 
 **Evidence**
 
-- `docs/methodology/random.md:186-210` says `precise=true, polish=false` gives a
+- `docs/methodology/random.md` says `precise=true, polish=false` gives a
   full-precision default.
-- `dal-cpp/dal/math/specialfunctions.cpp:90-93` consults `precise` only inside the
+- `dal-cpp/dal/math/specialfunctions.cpp` consults `precise` only inside the
   `polish` branch, so `precise` has no effect when `polish=false`.
-- `SobolSet_::Clone` at `dal-cpp/dal/math/random/sobol.cpp:21258-21262` drops both
+- `SobolSet_::Clone` in `dal-cpp/dal/math/random/sobol.cpp` drops both
   precision flags.
 
 **Recommendation**
@@ -430,12 +430,12 @@ inverse-CDF mode. Add accuracy and clone-equivalence tests before updating the d
 
 **Evidence**
 
-- `docs/methodology/interpolation.md:92-104` and
-  `docs/methodology/log_discount_curve.md:43-60` describe a cubic head and linear
+- `docs/methodology/interpolation.md` and
+  `docs/methodology/log_discount_curve.md` describe a cubic head and linear
   long-end tail.
-- `dal-cpp/dal/math/interp/interpmixed.cpp:17-63` implements a linear head and cubic
+- `dal-cpp/dal/math/interp/interpmixed.cpp` implements a linear head and cubic
   tail.
-- `docs/methodology/log_discount_curve.md:132-136` later describes the implemented
+- `docs/methodology/log_discount_curve.md` later describes the implemented
   direction, contradicting the earlier section.
 - Existing tests verify knots and continuity but not which scheme applies on each side.
 
@@ -449,12 +449,12 @@ methodology documents.
 
 **Evidence**
 
-- `docs/methodology/quadrature.md:120-128` says a two-node Gauss-Hermite rule exactly
+- `docs/methodology/quadrature.md` says a two-node Gauss-Hermite rule exactly
   integrates the fourth moment; degree four requires at least three nodes because the
   exactness limit is `2*n - 1`.
-- `quadrature.md:132-150` alternates between treating `n` as subintervals and points;
-  `dal-cpp/dal/math/integral/quadrature.cpp:90-97` treats it as grid points.
-- `quadrature.md:154-156` calls composite Simpson globally second order while also
+- `quadrature.md` alternates between treating `n` as subintervals and points;
+  `dal-cpp/dal/math/integral/quadrature.cpp` treats it as grid points.
+- `quadrature.md` calls composite Simpson globally second order while also
   mentioning the correct fourth-order truncation behavior.
 
 **Recommendation**
@@ -467,9 +467,9 @@ moment test and a mesh-refinement test demonstrating fourth-order Simpson conver
 **Evidence**
 
 - Root `LICENSE:1` is MIT.
-- `README.md:147-149` says MIT.
-- `dal-python/pyproject.toml:10` declares `BSD-3-Clause`.
-- `dal-python/README.md:389-391` also says BSD 3-Clause.
+- `README.md` says MIT.
+- `dal-python/pyproject.toml` declares `BSD-3-Clause`.
+- `dal-python/README.md` also says BSD 3-Clause.
 
 **Impact**
 
@@ -485,10 +485,10 @@ separately rather than assuming the root license overrides their notices.
 
 **Evidence**
 
-- `docs/experimental/aad-analytic-jacobian-curve-calibration.md:3` labels an on-by-
+- `docs/experimental/aad-analytic-jacobian-curve-calibration.md` labels an on-by-
   default shipped capability "experimental" even though normative methodology already
   covers it.
-- `docs/installation.md:395-398` tells users to run `bin/dal_public_tests`, but that
+- `docs/installation.md` tells users to run `bin/dal_public_tests`, but that
   executable is not installed by `dal-public/CMakeLists.txt`.
 - The documented `CurveTest.*` filter has no matching suite.
 - `docs/README.md` calls itself the canonical index but omits component READMEs.
@@ -554,12 +554,12 @@ Add separate, focused CI jobs for:
 - Recursive source globs omit `CONFIGURE_DEPENDS`.
 - `dal-public/src/CMakeLists.txt` is unused legacy build logic that conflicts with the
   active parent definition.
-- `dal-public/src/random.hpp:8` includes itself.
+- `dal-public/src/random.hpp` includes itself.
 - `DiscountPWC_::Write` always throws an explicit TODO at
-  `dal-cpp/dal/curve/ycconst.cpp:57-59`.
+  `dal-cpp/dal/curve/ycconst.cpp`.
 - Several tests have no meaningful assertion, including the large-path Sobol and
   lower-band accumulator cases.
-- The dynamic `Stack_::TopAndPop` at `dal-cpp/dal/math/stacks.hpp:109` reads a different
+- The dynamic `Stack_::TopAndPop` in `dal-cpp/dal/math/stacks.hpp` reads a different
   index convention from `Top`, while the fixed script stack has no capacity checks.
 
 **Recommendation**
@@ -645,21 +645,21 @@ the public code paths it describes.
 
 The review used existing build artifacts and source-level probes.
 
-| Verification | Result |
-|---|---|
-| `ctest --test-dir build --output-on-failure` | 851/851 passed |
-| Direct core Google Test binary | 810 passed |
-| Direct public Google Test binary | 40 passed |
-| Direct Python binding pytest | 188 passed |
-| Web backend pytest | 32 passed, with two deprecation warnings |
-| Web backend Ruff | Passed |
-| Frontend `npm run build` | Passed |
-| Root README Python pricing example | Reproduced documented result |
-| Public `num_path=0` probe | Returned `PV = NaN` |
-| Public `num_path=-1` probe | Process terminated with `SIGFPE` |
-| Python import thread-count probe | Increased from 1 to 32 threads |
-| Clean backend native import probe | Failed with `ModuleNotFoundError: dal` |
-| Standalone `dal-public` CMake configure | Failed: missing `dal-cppConfig.cmake` |
+| Verification                                 | Result                                   |
+|----------------------------------------------|------------------------------------------|
+| `ctest --test-dir build --output-on-failure` | 851/851 passed                           |
+| Direct core Google Test binary               | 810 passed                               |
+| Direct public Google Test binary             | 40 passed                                |
+| Direct Python binding pytest                 | 188 passed                               |
+| Web backend pytest                           | 32 passed, with two deprecation warnings |
+| Web backend Ruff                             | Passed                                   |
+| Frontend `npm run build`                     | Passed                                   |
+| Root README Python pricing example           | Reproduced documented result             |
+| Public `num_path=0` probe                    | Returned `PV = NaN`                      |
+| Public `num_path=-1` probe                   | Process terminated with `SIGFPE`         |
+| Python import thread-count probe             | Increased from 1 to 32 threads           |
+| Clean backend native import probe            | Failed with `ModuleNotFoundError: dal`   |
+| Standalone `dal-public` CMake configure      | Failed: missing `dal-cppConfig.cmake`    |
 
 Not performed:
 
