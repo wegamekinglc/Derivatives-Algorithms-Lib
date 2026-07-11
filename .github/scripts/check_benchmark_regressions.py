@@ -8,10 +8,14 @@ import json
 import os
 from pathlib import Path
 import re
-import statistics
 import subprocess
 import sys
 
+
+# Per-process wall-clock cap. The regression binaries finish in seconds; this
+# only exists to fail loudly on a deadlock (e.g. a thread-pool regression)
+# instead of stalling the job to the GitHub Actions 6h cap.
+BENCHMARK_TIMEOUT_SECONDS = 600
 
 BENCHMARKS = (
     "tape_perf",
@@ -69,14 +73,23 @@ def run_benchmark(build_root: Path, benchmark: str, output_file: Path) -> dict[s
     environment = os.environ.copy()
     environment.setdefault("DAL_NUM_THREADS", "4")
     # Running the validated, locally built executable is this tool's purpose; no shell parses the path.
-    completed = subprocess.run(  # nosemgrep
-        [str(binary)],  # nosemgrep
-        check=False,
-        capture_output=True,
-        text=True,
-        env=environment,
-        shell=False,
-    )
+    try:
+        completed = subprocess.run(  # nosemgrep
+            [str(binary)],  # nosemgrep
+            check=False,
+            capture_output=True,
+            text=True,
+            env=environment,
+            shell=False,
+            timeout=BENCHMARK_TIMEOUT_SECONDS,
+        )
+    except subprocess.TimeoutExpired:
+        output_file.write_text(
+            f"{binary.name} timed out after {BENCHMARK_TIMEOUT_SECONDS}s\n", encoding="utf-8"
+        )
+        raise RuntimeError(
+            f"{binary.name} exceeded the {BENCHMARK_TIMEOUT_SECONDS}s timeout; see {output_file}"
+        )
     output_file.write_text(completed.stdout + completed.stderr, encoding="utf-8")
     if completed.returncode:
         raise RuntimeError(f"{binary.name} exited with {completed.returncode}; see {output_file}")
@@ -120,8 +133,10 @@ def validate_sample_counts(
             raise RuntimeError(f"{benchmark} / {side}: incomplete samples {incomplete}")
 
 
-def median_samples(samples: dict[str, list[float]]) -> dict[str, float]:
-    return {case: statistics.median(values) for case, values in samples.items()}
+def min_samples(samples: dict[str, list[float]]) -> dict[str, float]:
+    # Gate on best-of-N (min): benchmark timings are right-skewed, so the minimum
+    # is the sample least contaminated by scheduler/cache/page-fault transients.
+    return {case: min(values) for case, values in samples.items()}
 
 
 def permitted_case_migration(base_cases: set[str], head_cases: set[str]) -> bool:
@@ -151,9 +166,9 @@ def round_deltas(
     for round_index in range(round_count):
         first = round_index * round_size
         last = first + round_size
-        base_median = statistics.median(base[first:last])
-        head_median = statistics.median(head[first:last])
-        deltas.append(100.0 * (head_median / base_median - 1.0))
+        base_min = min(base[first:last])
+        head_min = min(head[first:last])
+        deltas.append(100.0 * (head_min / base_min - 1.0))
     return deltas
 
 
@@ -165,8 +180,8 @@ def comparison_row(
     round_size: int,
     round_count: int,
 ) -> dict[str, object]:
-    base_value = statistics.median(base)
-    head_value = statistics.median(head)
+    base_value = min(base)
+    head_value = min(head)
     deltas = round_deltas(base, head, round_size, round_count)
     return {
         "case": case,
@@ -203,8 +218,8 @@ def compare_benchmark(
     round_size: int,
     round_count: int,
 ) -> tuple[list[dict[str, object]], list[str]]:
-    base = median_samples(samples["base"])
-    head = median_samples(samples["head"])
+    base = min_samples(samples["base"])
+    head = min_samples(samples["head"])
     migration_permitted, failures = benchmark_case_differences(benchmark, base, head)
     rows = []
     if migration_permitted:
@@ -366,7 +381,7 @@ def main() -> int:
         args.samples,
         args.confirmation_rounds,
     )
-    rng_head = median_samples(collected["rng_perf"]["head"]) if "rng_perf" in collected else {}
+    rng_head = min_samples(collected["rng_perf"]["head"]) if "rng_perf" in collected else {}
     precise_ratio = precise_sobol_ratio(rng_head)
     report = markdown_report(
         comparisons,

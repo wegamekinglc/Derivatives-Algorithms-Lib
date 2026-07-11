@@ -3,6 +3,7 @@
 import importlib.util
 import os
 from pathlib import Path
+import subprocess
 import tempfile
 import unittest
 from unittest import mock
@@ -55,6 +56,22 @@ Case in nanoseconds      120.000 ns  100.000 ns  130.000 ns    10
 
         self.assertAlmostEqual(rows[0]["round_delta_percent"][0], 4.1)
         self.assertEqual(rows[0]["round_delta_percent"][1], 0.0)
+        self.assertEqual(failures, [])
+
+    def test_compare_benchmark_reduces_each_round_on_minimum(self):
+        # Project policy (ci-benchmark-noise-floor) gates on best-of-N (min) because
+        # benchmark timings are right-skewed; verify the reducer is min, not median.
+        # head min is 100.0 but head median is 102.05, so this distinguishes them.
+        samples = {
+            "base": {"case": [100.0] * 20},
+            "head": {"case": [104.1, 100.0] * 10},
+        }
+
+        rows, failures = BENCHMARKS.compare_benchmark("pde_perf", samples, 4.0, 10.0, 10, 2)
+
+        self.assertAlmostEqual(rows[0]["base_ns"], 100.0)
+        self.assertAlmostEqual(rows[0]["head_ns"], 100.0)
+        self.assertEqual(rows[0]["round_delta_percent"], [0.0, 0.0])
         self.assertEqual(failures, [])
 
     def test_validate_sample_counts_rejects_partial_case(self):
@@ -115,6 +132,23 @@ Case in nanoseconds      120.000 ns  100.000 ns  130.000 ns    10
             run.assert_called_once()
             self.assertEqual(run.call_args.args[0], [str(binary.resolve())])
             self.assertFalse(run.call_args.kwargs["shell"])
+            self.assertEqual(run.call_args.kwargs["timeout"], BENCHMARKS.BENCHMARK_TIMEOUT_SECONDS)
+
+    def test_run_benchmark_raises_and_writes_marker_on_timeout(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            temporary_root = Path(temporary_directory)
+            build_root = temporary_root / "build"
+            self._create_benchmark_binary(build_root)
+            output_file = temporary_root / "output.txt"
+            exc = subprocess.TimeoutExpired(
+                cmd=["x"], timeout=BENCHMARKS.BENCHMARK_TIMEOUT_SECONDS
+            )
+
+            with mock.patch.object(BENCHMARKS.subprocess, "run", side_effect=exc):
+                with self.assertRaisesRegex(RuntimeError, "exceeded"):
+                    BENCHMARKS.run_benchmark(build_root, "pde_perf", output_file)
+
+            self.assertIn("timed out", output_file.read_text(encoding="utf-8"))
 
     def test_rng_allows_precise_case_rename_and_checks_relative_cost(self):
         samples = {
