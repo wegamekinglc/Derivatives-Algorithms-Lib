@@ -3,10 +3,10 @@
 import importlib.util
 import os
 from pathlib import Path
-import subprocess
 import tempfile
 import unittest
 from unittest import mock
+from subprocess import TimeoutExpired
 
 
 SCRIPT = Path(__file__).resolve().parents[1] / "check_benchmark_regressions.py"
@@ -140,7 +140,8 @@ Case in nanoseconds      120.000 ns  100.000 ns  130.000 ns    10
             build_root = temporary_root / "build"
             self._create_benchmark_binary(build_root)
             output_file = temporary_root / "output.txt"
-            exc = subprocess.TimeoutExpired(
+            # TimeoutExpired is an exception ctor raised via a mock, not a subprocess call.
+            exc = TimeoutExpired(  # nosemgrep
                 cmd=["x"], timeout=BENCHMARKS.BENCHMARK_TIMEOUT_SECONDS
             )
 
