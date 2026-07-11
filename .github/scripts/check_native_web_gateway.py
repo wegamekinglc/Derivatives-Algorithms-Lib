@@ -10,7 +10,7 @@ import dal._dal as native_extension
 from app.services.dal_gateway import DalGateway, ValuationRequest
 
 
-def main() -> None:
+def checked_gateway() -> DalGateway:
     extension_path = Path(native_extension.__file__ or "")
     if extension_path.suffix not in {".so", ".pyd", ".dylib"}:
         raise AssertionError(f"expected a compiled DAL extension, got {extension_path}")
@@ -18,11 +18,16 @@ def main() -> None:
     gateway = DalGateway()
     if not gateway.is_native or gateway.backend_name != "dal":
         raise AssertionError("the web gateway did not select the native DAL backend")
+    return gateway
 
+
+def check_evaluation_date(gateway: DalGateway) -> None:
     gateway.set_evaluation_date(2022, 9, 15)
     if gateway.get_evaluation_date() != "2022-09-15":
         raise AssertionError("native evaluation-date round trip failed")
 
+
+def check_valuation(gateway: DalGateway) -> float:
     result = gateway.value(
         ValuationRequest(
             event_dates=["STRIKE", {"date": "2023-09-15"}],
@@ -37,6 +42,13 @@ def main() -> None:
     pv = result.get("PV")
     if pv is None or not math.isfinite(pv) or pv <= 0.0:
         raise AssertionError(f"native gateway returned an invalid PV: {result}")
+    return pv
+
+
+def main() -> None:
+    gateway = checked_gateway()
+    check_evaluation_date(gateway)
+    pv = check_valuation(gateway)
     print(f"Native web gateway smoke test passed (PV={pv:.10g}).")
 
 

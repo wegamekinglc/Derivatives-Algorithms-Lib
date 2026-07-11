@@ -29,6 +29,7 @@ LINK_RE = re.compile(r"!?\[[^\]]*\]\(([^)]+)\)")
 HEADING_RE = re.compile(r"^ {0,3}(#{1,6})\s+(.+?)\s*$")
 FENCE_RE = re.compile(r"^\s*(`{3,}|~{3,})")
 TABLE_DELIMITER_RE = re.compile(r"^:?-{3,}:?$")
+TABLE_TOKEN_RE = re.compile(r"\\.|`+|.", flags=re.DOTALL)
 BUILD_OPTION_RE = re.compile(r"(?m)^\s*(--[a-z][a-z-]*)\)\s*")
 
 STALE_DOCUMENTATION = {
@@ -93,90 +94,143 @@ def link_target(raw_target: str) -> str:
     return target.split(maxsplit=1)[0]
 
 
+def is_external_link(target: str) -> bool:
+    split = urlsplit(target)
+    return bool(split.scheme or split.netloc or target.startswith(("mailto:", "javascript:")))
+
+
+def resolve_link_path(document: Path, path_text: str) -> Path:
+    if path_text.startswith("/"):
+        return (ROOT / path_text.lstrip("/")).resolve()
+    if path_text:
+        return (document.parent / path_text).resolve()
+    return document.resolve()
+
+
+def existing_link_path(
+    document: Path, line_number: int, target: str, fragment: str, errors: list[str]
+) -> Path | None:
+    linked_path = resolve_link_path(document, urlsplit(target).path)
+    try:
+        linked_path.relative_to(ROOT)
+    except ValueError:
+        errors.append(
+            f"{relative(document)}:{line_number}: local link escapes the repository: {target}"
+        )
+        return None
+
+    if linked_path.is_dir():
+        if not fragment:
+            return None
+        linked_path /= "README.md"
+    if linked_path.exists():
+        return linked_path
+    errors.append(f"{relative(document)}:{line_number}: missing local link target: {target}")
+    return None
+
+
+def check_link(
+    document: Path,
+    line_number: int,
+    raw_target: str,
+    anchor_cache: dict[Path, set[str]],
+    errors: list[str],
+) -> None:
+    target = unquote(link_target(raw_target))
+    if is_external_link(target):
+        return
+    fragment = urlsplit(target).fragment
+    linked_path = existing_link_path(document, line_number, target, fragment, errors)
+    if linked_path is None or not fragment or linked_path.suffix.lower() != ".md":
+        return
+    if linked_path not in anchor_cache:
+        anchor_cache[linked_path] = anchors(linked_path)
+    if fragment not in anchor_cache[linked_path]:
+        errors.append(
+            f"{relative(document)}:{line_number}: missing anchor '#{fragment}' "
+            f"in {relative(linked_path)}"
+        )
+
+
 def check_links(errors: list[str]) -> None:
     anchor_cache: dict[Path, set[str]] = {}
     for document in DOCS:
         lines = document.read_text(encoding="utf-8").splitlines()
         for line_number, line in without_fenced_code(lines):
             for match in LINK_RE.finditer(line):
-                target = unquote(link_target(match.group(1)))
-                split = urlsplit(target)
-                if split.scheme or split.netloc or target.startswith(("mailto:", "javascript:")):
-                    continue
-
-                path_text = split.path
-                if path_text.startswith("/"):
-                    linked_path = ROOT / path_text.lstrip("/")
-                elif path_text:
-                    linked_path = document.parent / path_text
-                else:
-                    linked_path = document
-                linked_path = linked_path.resolve()
-
-                try:
-                    linked_path.relative_to(ROOT)
-                except ValueError:
-                    errors.append(
-                        f"{relative(document)}:{line_number}: local link escapes the repository: {target}"
-                    )
-                    continue
-
-                if linked_path.is_dir():
-                    if not split.fragment:
-                        continue
-                    linked_path /= "README.md"
-                if not linked_path.exists():
-                    errors.append(
-                        f"{relative(document)}:{line_number}: missing local link target: {target}"
-                    )
-                    continue
-
-                fragment = split.fragment
-                if fragment and linked_path.suffix.lower() == ".md":
-                    if linked_path not in anchor_cache:
-                        anchor_cache[linked_path] = anchors(linked_path)
-                    if fragment not in anchor_cache[linked_path]:
-                        errors.append(
-                            f"{relative(document)}:{line_number}: missing anchor '#{fragment}' "
-                            f"in {relative(linked_path)}"
-                        )
+                check_link(document, line_number, match.group(1), anchor_cache, errors)
 
 
-def split_table_row(line: str) -> list[str]:
+def table_row_content(line: str) -> str:
     stripped = line.strip()
     if stripped.startswith("|"):
         stripped = stripped[1:]
     if stripped.endswith("|") and not stripped.endswith(r"\|"):
         stripped = stripped[:-1]
+    return stripped
 
+
+def split_table_row(line: str) -> list[str]:
+    stripped = table_row_content(line)
     cells: list[str] = []
     current: list[str] = []
-    escaped = False
     code_delimiter = 0
-    index = 0
-    while index < len(stripped):
-        char = stripped[index]
-        if escaped:
-            current.append(char)
-            escaped = False
-        elif char == "\\":
-            current.append(char)
-            escaped = True
-        elif char == "`":
-            run = 1
-            while index + run < len(stripped) and stripped[index + run] == "`":
-                run += 1
-            current.extend("`" * run)
+    for match in TABLE_TOKEN_RE.finditer(stripped):
+        token = match.group(0)
+        if token.startswith("\\"):
+            current.append(token)
+        elif token.startswith("`"):
+            run = len(token)
+            current.append(token)
             code_delimiter = 0 if code_delimiter == run else run
-            index += run - 1
-        elif char == "|" and code_delimiter == 0:
+        elif token == "|" and code_delimiter == 0:
             cells.append("".join(current).strip())
             current = []
         else:
-            current.append(char)
-        index += 1
+            current.append(token)
     cells.append("".join(current).strip())
     return cells
+
+
+def table_header_cells(visible: dict[int, str], line_number: int) -> tuple[list[str], list[str]] | None:
+    header = visible.get(line_number)
+    delimiter = visible.get(line_number + 1)
+    if header is None or delimiter is None:
+        return None
+    if "|" not in header or "|" not in delimiter:
+        return None
+    header_cells = split_table_row(header)
+    delimiter_cells = split_table_row(delimiter)
+    if not delimiter_cells:
+        return None
+    if not all(TABLE_DELIMITER_RE.fullmatch(cell) for cell in delimiter_cells):
+        return None
+    return header_cells, delimiter_cells
+
+
+def is_table_body_row(row: str | None) -> bool:
+    return row is not None and bool(row.strip()) and "|" in row
+
+
+def check_table_body(
+    document: Path,
+    raw_line_count: int,
+    visible: dict[int, str],
+    row_number: int,
+    expected: int,
+    errors: list[str],
+) -> int:
+    while row_number <= raw_line_count:
+        row = visible.get(row_number)
+        if not is_table_body_row(row):
+            break
+        actual = len(split_table_row(row or ""))
+        if actual != expected:
+            errors.append(
+                f"{relative(document)}:{row_number}: table row has {actual} cells; expected {expected}"
+            )
+        row_number += 1
+    return row_number
 
 
 def check_tables(errors: list[str]) -> None:
@@ -185,34 +239,19 @@ def check_tables(errors: list[str]) -> None:
         visible = dict(without_fenced_code(raw_lines))
         line_number = 1
         while line_number < len(raw_lines):
-            header = visible.get(line_number)
-            delimiter = visible.get(line_number + 1)
-            if header is None or delimiter is None or "|" not in header or "|" not in delimiter:
+            cells = table_header_cells(visible, line_number)
+            if cells is None:
                 line_number += 1
                 continue
-            header_cells = split_table_row(header)
-            delimiter_cells = split_table_row(delimiter)
-            if not delimiter_cells or not all(TABLE_DELIMITER_RE.fullmatch(cell) for cell in delimiter_cells):
-                line_number += 1
-                continue
+            header_cells, delimiter_cells = cells
             if len(header_cells) != len(delimiter_cells):
                 errors.append(
                     f"{relative(document)}:{line_number + 1}: table delimiter has "
                     f"{len(delimiter_cells)} cells; header has {len(header_cells)}"
                 )
-            expected = len(header_cells)
-            row_number = line_number + 2
-            while row_number <= len(raw_lines):
-                row = visible.get(row_number)
-                if row is None or not row.strip() or "|" not in row:
-                    break
-                actual = len(split_table_row(row))
-                if actual != expected:
-                    errors.append(
-                        f"{relative(document)}:{row_number}: table row has {actual} cells; "
-                        f"expected {expected}"
-                    )
-                row_number += 1
+            row_number = check_table_body(
+                document, len(raw_lines), visible, line_number + 2, len(header_cells), errors
+            )
             line_number = max(line_number + 1, row_number)
 
 

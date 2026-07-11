@@ -8,6 +8,7 @@
 #include <cmath>
 #include <future>
 #include <limits>
+#include <stdexcept>
 #include <thread>
 #include <tuple>
 
@@ -166,6 +167,38 @@ TEST(ScriptTest, TestSimulationTaskGroupDrainsOnSubmissionFailureAndPoolRecovers
     ASSERT_FALSE(taskObservedDestroyedState.load());
     ASSERT_TRUE(capturedStateDestroyed.load());
     ASSERT_EQ(sentinelRuns.load(), 1);
+}
+
+TEST(ScriptTest, TestSimulationTaskGroupDrainsAllTasksBeforeRethrowingFirstFailure) {
+    ThreadPool_* threadPool = ThreadPool_::GetInstance();
+    const size_t originalThreadCount = threadPool->NumThreads();
+    threadPool->Start(1, true);
+    std::atomic<int> firstRuns{0};
+    std::atomic<int> secondRuns{0};
+    bool caughtFirstFailure = false;
+
+    try {
+        Script::SimulationTaskGroup_ tasks(threadPool, 2);
+        tasks.Spawn([&]() -> bool {
+            ++firstRuns;
+            throw std::runtime_error("first task failure");
+        });
+        tasks.Spawn([&]() -> bool {
+            ++secondRuns;
+            throw std::runtime_error("second task failure");
+        });
+        tasks.Complete();
+    } catch (const std::runtime_error& error) {
+        caughtFirstFailure = String_(error.what()).find("first task failure") != String_::npos;
+    }
+
+    threadPool->Stop();
+    threadPool->Start(originalThreadCount, true);
+    threadPool->Stop();
+
+    ASSERT_TRUE(caughtFirstFailure);
+    ASSERT_EQ(firstRuns.load(), 1);
+    ASSERT_EQ(secondRuns.load(), 1);
 }
 
 TEST(ScriptTest, TestAadSimulationPropagatesTaskFailureAndRemainsUsable) {

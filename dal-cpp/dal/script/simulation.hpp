@@ -80,37 +80,42 @@ namespace Dal::Script {
         Vector_<TaskHandle_> futures_;
         bool completed_ = false;
 
+        static void CaptureCurrentFailure(std::exception_ptr* firstFailure) noexcept {
+            if (!*firstFailure)
+                *firstFailure = std::current_exception();
+        }
+
+        void WaitUntilReady(TaskHandle_& future, std::exception_ptr* firstFailure) noexcept {
+            if (!future.valid())
+                return;
+            try {
+                pool_->ActiveWait(future);
+            } catch (...) {
+                CaptureCurrentFailure(firstFailure);
+                try {
+                    future.wait();
+                } catch (...) {
+                    CaptureCurrentFailure(firstFailure);
+                }
+            }
+        }
+
+        static void ConsumeResult(TaskHandle_& future, std::exception_ptr* firstFailure) noexcept {
+            if (!future.valid())
+                return;
+            try {
+                static_cast<void>(future.get());
+            } catch (...) {
+                CaptureCurrentFailure(firstFailure);
+            }
+        }
+
         std::exception_ptr Drain() noexcept {
             std::exception_ptr firstFailure;
-            auto captureFailure = [&firstFailure]() noexcept {
-                if (!firstFailure)
-                    firstFailure = std::current_exception();
-            };
-
-            for (auto& future : futures_) {
-                if (!future.valid())
-                    continue;
-                try {
-                    pool_->ActiveWait(future);
-                } catch (...) {
-                    captureFailure();
-                    try {
-                        future.wait();
-                    } catch (...) {
-                        captureFailure();
-                    }
-                }
-            }
-
-            for (auto& future : futures_) {
-                if (!future.valid())
-                    continue;
-                try {
-                    static_cast<void>(future.get());
-                } catch (...) {
-                    captureFailure();
-                }
-            }
+            for (auto& future : futures_)
+                WaitUntilReady(future, &firstFailure);
+            for (auto& future : futures_)
+                ConsumeResult(future, &firstFailure);
             completed_ = true;
             return firstFailure;
         }
