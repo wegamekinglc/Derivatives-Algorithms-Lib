@@ -144,7 +144,7 @@ namespace Dal {
     template <class T = double, size_t SIZE = 128> class StaticStack_ {
         static_assert(SIZE > 0, "StaticStack_ capacity must be positive");
 
-        T data_[SIZE];
+        T data_[SIZE]{};
         size_t sp_ = 0;
 
     public:

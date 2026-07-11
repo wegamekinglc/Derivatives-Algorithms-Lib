@@ -1,5 +1,20 @@
 import { expect, test } from "@playwright/test";
 
+test("uses the deliberate canned DAL backend when requested", async ({ request }) => {
+  test.skip(
+    process.env.DAL_PLAYWRIGHT_TEST_BACKEND !== "1",
+    "Only applies to the explicit Playwright test backend"
+  );
+
+  const response = await request.get("/api/health");
+  expect(response.ok()).toBeTruthy();
+  expect(await response.json()).toMatchObject({
+    status: "ok",
+    backend: "canned-dal",
+    is_native: false,
+  });
+});
+
 test("shows the dashboard shell", async ({ page }) => {
   await page.goto("/");
 

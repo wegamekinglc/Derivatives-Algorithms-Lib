@@ -69,6 +69,7 @@
       "name": "Release-windows",
       "inherits": "base",
       "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/Release-windows",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
         "MSVC_RUNTIME": "static",
@@ -80,6 +81,7 @@
       "name": "Debug-windows",
       "inherits": "base",
       "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/Debug-windows",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
         "MSVC_RUNTIME": "static",

@@ -24,11 +24,16 @@ paths. See the [installation guide](installation.md#installed-cmake-packages).
 find_package(dal-cpp 1.0 CONFIG REQUIRED)
 find_package(dal-public 1.0 CONFIG REQUIRED)
 
+add_executable(my_pricer main.cpp)
+dal_cpp_apply_msvc_runtime(my_pricer)
 target_link_libraries(my_pricer PRIVATE DAL::public)
 ```
 
 `DAL::public` links `DAL::cpp` transitively. Link `DAL::cpp` directly when using
-only core algorithms.
+only core algorithms. The core package exports
+`DAL_CPP_MSVC_RUNTIME_LIBRARY`; `dal_cpp_apply_msvc_runtime` applies that
+configuration-aware ABI choice to a consumer target under MSVC and is a no-op
+on other toolchains.
 
 ### Public facade headers
 
@@ -79,8 +84,12 @@ const auto result = Dal::ValueByMonteCarlo(product, model, 1 << 16);
 
 `ValueByMonteCarlo` requires `numPath > 0`. Its optional arguments select the
 random generator, Brownian bridge, AAD risks, fuzzy smoothing, and compiled
-script evaluator. The evaluation date is process-wide; coordinate concurrent
-callers that need different dates.
+script evaluator. The evaluation date is process-wide. Native Monte Carlo
+valuation holds the valuation/mutation barrier for its full date-dependent
+interval, so evaluation-date setters wait until valuation finishes while
+getters remain available through the store lock. Monte Carlo valuations are
+serialized within one process; callers that require independent concurrent
+dates should use isolated processes.
 
 ### C++ curve calibration
 
@@ -135,9 +144,9 @@ result = dal.MonteCarlo_Value(product, model, 2**16, enable_aad=True)
 ```
 
 `MonteCarlo_Value` requires `num_path > 0`. The binding releases the Python GIL
-only around native valuation, so unrelated Python threads can run during Monte
-Carlo. DAL's own process-wide evaluation date still requires application-level
-coordination.
+around native valuation, and `EvaluationDate_Get` / `EvaluationDate_Set` release
+it before waiting on native synchronization. A setter waits for an in-progress
+valuation; a getter can read the stable current date while valuation runs.
 
 ### Matrix and Dupire surface input
 
@@ -221,7 +230,10 @@ See [dal-excel/README.md](../dal-excel/README.md) for build and add-in guidance.
 - Python maps native exceptions to Python exceptions; invalid binding shapes and
   indices use `ValueError`/`IndexError` where appropriate.
 - Excel returns worksheet error text annotated with the failing argument.
-- Evaluation date and fixings are process-wide state.
+- Evaluation date and fixings are process-wide state. Evaluation-date mutation
+  is serialized with native valuation; evaluation-date reads use the store lock
+  and remain available during valuation. Fixings reads use the store mutex, but
+  callers must externally serialize fixings mutation with other fixings access.
 - AAD tapes are thread-local and must not be shared across recording frames.
 
 For ownership details, see [architecture](architecture.md).

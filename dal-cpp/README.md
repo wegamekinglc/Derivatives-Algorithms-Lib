@@ -34,7 +34,7 @@ ctest --test-dir build/core-dev --output-on-failure
 Run a focused core test from the build tree:
 
 ```bash
-build/core-dev/bin/dal_cpp_tests --gtest_filter=CalibrationTest.*
+build/core-dev/dal-cpp/dal_cpp_tests --gtest_filter=CalibrationTest.*
 ```
 
 Benchmarks are opt-in with `--benchmarks` on `build_linux.sh` or

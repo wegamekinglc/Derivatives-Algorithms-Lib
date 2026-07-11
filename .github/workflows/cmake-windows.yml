@@ -131,19 +131,16 @@ jobs:
           CC: ${{ matrix.cc }}
           CXX: ${{ matrix.cxx }}
         run: |
-          rm -rf build
-          mkdir -p build
-          cd build
+          rm -rf build/Release-windows build/stage/Release-windows
           cmake --preset Release-windows -DDAL_BUILD_PUBLIC=ON -DDAL_CPP_BUILD_EXAMPLES=ON ${ADDITIONAL_CMAKE_FLAGS} \
-            ${Python3_EXECUTABLE:+-DPython3_EXECUTABLE="$Python3_EXECUTABLE"} ..
-          cmake --build .
-          cmake --install .
+            ${Python3_EXECUTABLE:+-DPython3_EXECUTABLE="$Python3_EXECUTABLE"}
+          cmake --build build/Release-windows --parallel
+          cmake --install build/Release-windows
 
       - name: Test
         shell: bash
         run: |
-          cd build
-          ctest --output-on-failure --verbose -C Release
+          ctest --test-dir build/Release-windows --output-on-failure --verbose -C Release
 
       - name: Test installed CMake consumer
         shell: pwsh
@@ -155,6 +152,18 @@ jobs:
             -DDAL_GENERATOR=Ninja `
             -DDAL_BUILD_CONFIG=Release `
             -P tests/installed-consumer/run.cmake
+
+      - name: Build standalone dal-python against installed DAL
+        shell: pwsh
+        run: |
+          $stage = (Resolve-Path .\build\stage\Release-windows).Path
+          $pythonBuild = Join-Path $env:RUNNER_TEMP "dal-python-${{ matrix.aad-backend }}"
+          cmake -S dal-python -B $pythonBuild -G Ninja `
+            -DCMAKE_BUILD_TYPE=Release `
+            "-DDAL_INSTALL_PREFIX=$stage" `
+            "-DPython3_EXECUTABLE=$env:Python3_EXECUTABLE" `
+            -DDAL_PYTHON_BUILD_TESTS=OFF
+          cmake --build $pythonBuild --target _dal --parallel
 
   # Benchmark job: builds and runs all performance benchmarks on one
   # representative configuration (msvc, native/AADet backend).
@@ -218,14 +227,12 @@ jobs:
           CC: cl
           CXX: cl
         run: |
-          rm -rf build
-          mkdir -p build
-          cd build
+          rm -rf build/Release-windows build/stage/Release-windows
           cmake --preset Release-windows -DDAL_BUILD_PUBLIC=ON -DDAL_CPP_BUILD_EXAMPLES=ON \
             -DDAL_USE_XAD_AAD=off -DDAL_USE_CODIPACK_AAD=off -DDAL_USE_ADEPT_AAD=off \
-            -DDAL_BUILD_PYTHON=OFF -DDAL_CPP_BUILD_BENCHMARKS=ON ..
-          cmake --build .
-          cmake --install .
+            -DDAL_BUILD_PYTHON=OFF -DDAL_CPP_BUILD_BENCHMARKS=ON
+          cmake --build build/Release-windows --parallel
+          cmake --install build/Release-windows
 
       - name: Run benchmarks
         shell: bash
@@ -256,6 +263,7 @@ jobs:
             echo
           } >> "$GITHUB_STEP_SUMMARY"
 
+          benchmark_failure=0
           for bench in "${benchmarks[@]}"; do
             echo "========== $bench =========="
             result_file="benchmark-results/${bench}.txt"
@@ -263,6 +271,7 @@ jobs:
               status=0
             else
               status=$?
+              benchmark_failure=1
             fi
             cat "$result_file"
             echo
@@ -275,8 +284,10 @@ jobs:
               echo '```'
               if [ "$status" -ne 0 ]; then
                 echo
-                echo "Exit code: $status (not fail-gated)."
+                echo "Exit code: $status."
               fi
               echo
             } >> "$GITHUB_STEP_SUMMARY"
           done
+
+          exit "$benchmark_failure"

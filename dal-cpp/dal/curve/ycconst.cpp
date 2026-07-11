@@ -2,12 +2,14 @@
 // Created by wegam on 2026/5/9.
 //
 
+// Platform defines the default DAL container element types used by the curve headers.
 #include <dal/platform/platform.hpp>
 #include <dal/platform/strict.hpp>
-#include <dal/curve/ycconst.hpp>
+
 #include <dal/curve/fittable.hpp>
 #include <dal/curve/piecewiseconstant.hpp>
 #include <dal/curve/yccomponent.hpp>
+#include <dal/curve/ycconst.hpp>
 #include <dal/utilities/algorithms.hpp>
 
 namespace Dal {
@@ -54,21 +56,15 @@ namespace Dal {
                 sofar_ = fwds.sofar_;
             }
 
-            void Write(Archive::Store_&) const override {
-                REQUIRE(false, "DiscountPWC_ serialization is TODO until an archive schema is added");
-            }
+            void Write(Archive::Store_&) const override { THROW("DiscountPWC_ persistence is not supported"); }
 
-            [[nodiscard]] DiscountPWC_* Clone(const String_& newName,
-                                              const YCComponent_::substitutions_t& baseChanges) const override {
+            [[nodiscard]] DiscountPWC_* Clone(const String_& newName, const YCComponent_::substitutions_t& baseChanges) const override {
                 return new DiscountPWC_(newName, this->ccy_.String(), Fwds(), NewBase(baseChanges));
             }
         };
     } // namespace
 
-    DiscountCurve_* NewDiscountPWC(const String_& name,
-                                   const String_& ccy,
-                                   const PiecewiseConstant_& fwds,
-                                   const Handle_<DiscountCurve_>& base) {
+    DiscountCurve_* NewDiscountPWC(const String_& name, const String_& ccy, const PiecewiseConstant_& fwds, const Handle_<DiscountCurve_>& base) {
         return new DiscountPWC_(name, ccy, fwds, base);
     }
 

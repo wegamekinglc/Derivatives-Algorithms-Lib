@@ -114,7 +114,10 @@ add_custom_target(dal_generate
 find_package(Git QUIET)
 if(Git_FOUND)
     add_custom_target(dal_check_generated
-        COMMAND ${GIT_EXECUTABLE} diff --exit-code -- dal-cpp/dal dal-excel
+        COMMAND ${CMAKE_COMMAND}
+                -DGIT_EXECUTABLE=${GIT_EXECUTABLE}
+                -DDAL_REPOSITORY_ROOT=${PROJECT_SOURCE_DIR}/..
+                -P ${PROJECT_SOURCE_DIR}/cmake/check-generated.cmake
         DEPENDS dal_generate
         WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/..
         COMMENT "Checking generated DAL sources for drift"
@@ -185,6 +188,16 @@ set_target_properties(dal_cpp PROPERTIES
     EXPORT_NAME cpp
     OUTPUT_NAME dal_cpp
     VERSION ${PROJECT_VERSION})
+
+# Capture the runtime ABI from the target that is actually installed. The
+# configured package republishes this value so MSVC consumers can match it.
+set(DAL_CPP_MSVC_RUNTIME_LIBRARY "")
+if(MSVC)
+    get_target_property(DAL_CPP_MSVC_RUNTIME_LIBRARY dal_cpp MSVC_RUNTIME_LIBRARY)
+    if(NOT DAL_CPP_MSVC_RUNTIME_LIBRARY)
+        message(FATAL_ERROR "dal_cpp target does not declare an MSVC runtime library")
+    endif()
+endif()
 
 install(DIRECTORY ${PROJECT_SOURCE_DIR}/dal/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/dal
         FILES_MATCHING PATTERN "*.hpp" PATTERN "*.h")

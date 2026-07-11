@@ -99,3 +99,25 @@ TEST(StackTest, TestStaticStackBounds) {
     ASSERT_EQ(stack.PopAndTop(), 10);
     ASSERT_EQ(stack.Size(), 1);
 }
+
+TEST(StackTest, TestStaticStackEmptyScalarCopyAndAssignment) {
+    const StaticStack_<double, 2> emptyDoubles;
+    const StaticStack_<double, 2> copiedDoubles(emptyDoubles);
+    StaticStack_<double, 2> assignedDoubles;
+    assignedDoubles = emptyDoubles;
+
+    const StaticStack_<bool, 2> emptyBools;
+    const StaticStack_<bool, 2> copiedBools(emptyBools);
+    StaticStack_<bool, 2> assignedBools;
+    assignedBools = emptyBools;
+
+    ASSERT_TRUE(copiedDoubles.IsEmpty());
+    ASSERT_TRUE(assignedDoubles.IsEmpty());
+    ASSERT_TRUE(copiedBools.IsEmpty());
+    ASSERT_TRUE(assignedBools.IsEmpty());
+
+    assignedDoubles.Push(1.25);
+    assignedBools.Push(true);
+    ASSERT_DOUBLE_EQ(assignedDoubles.Top(), 1.25);
+    ASSERT_TRUE(assignedBools.Top());
+}

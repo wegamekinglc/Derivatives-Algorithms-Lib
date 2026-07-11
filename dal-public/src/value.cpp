@@ -5,10 +5,9 @@
 #include <dal/model/factory.hpp>
 #include <dal/platform/platform.hpp>
 #include <dal/platform/strict.hpp>
+#include <dal/storage/globals.hpp>
 
 #include <dal-public/src/value.hpp>
-
-#include <mutex>
 
 namespace Dal {
     using AAD::Model_;
@@ -16,7 +15,6 @@ namespace Dal {
 
     namespace {
         const std::set<String_> MODEL_STORE = {"BSModelData_", "DupireModelData_"};
-        std::mutex VALUE_MUTEX;
     } // namespace
 
     std::map<String_, double> ValueByMonteCarlo(const Handle_<ScriptProductData_>& product,
@@ -28,7 +26,7 @@ namespace Dal {
                                                 double smooth,
                                                 std::optional<bool> compiled) {
         REQUIRE(nPaths > 0, "number of Monte Carlo paths must be positive");
-        std::lock_guard<std::mutex> lock(VALUE_MUTEX);
+        XGLOBAL::ValuationMutationGuard_ valuationGuard;
         const size_t numPaths = static_cast<size_t>(nPaths);
         const auto modelType = modelData->Type();
         REQUIRE(MODEL_STORE.find(modelType) != MODEL_STORE.end(), "only support Black-Scholes and Dupire model now");

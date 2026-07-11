@@ -3,9 +3,12 @@
 //
 
 #include <gtest/gtest.h>
+
 #include <cmath>
 #include <memory>
+
 #include <dal/platform/platform.hpp>
+
 #include <dal/math/matrix/banded.hpp>
 #include <dal/math/matrix/matrixs.hpp>
 #include <dal/math/matrix/squarematrix.hpp>
@@ -83,9 +86,11 @@ namespace {
     };
 
     class BacktrackProbeFunc_ : public Underdetermined::Function_ {
-        mutable Vector_<Vector_<>> evaluations_;
+        Vector_<Vector_<>>& evaluations_;
 
     public:
+        explicit BacktrackProbeFunc_(Vector_<Vector_<>>& evaluations) : evaluations_(evaluations) {}
+
         [[nodiscard]] Vector_<> F(const Vector_<>& x) const override {
             evaluations_.push_back(x);
             if (evaluations_.size() == 3)
@@ -98,8 +103,6 @@ namespace {
             j(0, 0) = -1.0;
             return new DenseJacobian_(j);
         }
-
-        [[nodiscard]] const Vector_<Vector_<>>& Evaluations() const { return evaluations_; }
     };
 
     class MultiResidualFunc_ : public Underdetermined::Function_ {
@@ -262,7 +265,8 @@ TEST(UnderdeterminedTest, TestFindThrowsWhenControlsAreExhausted) {
 }
 
 TEST(UnderdeterminedTest, TestFindUsesQuadraticBacktrackMinimum) {
-    BacktrackProbeFunc_ func;
+    Vector_<Vector_<>> evaluations;
+    BacktrackProbeFunc_ func(evaluations);
     const Vector_<> guess = {0.0, 0.0};
     const Vector_<> tol = {0.1};
 
@@ -271,12 +275,12 @@ TEST(UnderdeterminedTest, TestFindUsesQuadraticBacktrackMinimum) {
     std::unique_ptr<SymmetricDecomposition_> decomp(weights.DecomposeSymmetric());
 
     ASSERT_THROW(Underdetermined::Find(func, guess, tol, *decomp, MakeControls()), Exception_);
-    ASSERT_EQ(func.Evaluations().size(), 3u);
+    ASSERT_EQ(evaluations.size(), 3u);
 
     // f_old=1 and f_new=-3, so Q(k)=|k*f_old+(1-k)*f_new|^2 is minimized at k=3/4.
     // The full Gauss-Newton step is x=1, hence retaining 1-k=1/4 of it evaluates x=0.25.
-    ASSERT_NEAR(func.Evaluations()[2][0], 0.25, 1e-12);
-    ASSERT_NEAR(func.Evaluations()[2][1], 0.0, 1e-12);
+    ASSERT_NEAR(evaluations[2][0], 0.25, 1e-12);
+    ASSERT_NEAR(evaluations[2][1], 0.0, 1e-12);
 }
 
 TEST(UnderdeterminedTest, TestFindPopulatesEffectiveJacobianInverse) {

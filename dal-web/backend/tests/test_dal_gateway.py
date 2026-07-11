@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import dal  # the fake installed by conftest
+import pytest
 
 from app.services.dal_gateway import DalGateway, ValuationRequest
 
@@ -64,6 +65,24 @@ def test_value_routes_through_monte_carlo():
     assert calls[0]["num_path"] == 2048
     assert calls[0]["method"] == "sobol"
     assert calls[0]["enable_aad"] is True
+
+
+def test_value_maps_public_pseudo_method_to_native_mrg32():
+    """The web RNG name must resolve to a method accepted by native DAL."""
+    dal.monte_carlo_calls.clear()
+    gw = make_gateway()
+
+    gw.value(_european_request(method="pseudo"))
+
+    assert len(dal.monte_carlo_calls) == 1
+    assert dal.monte_carlo_calls[0]["method"] == "mrg32"
+
+
+def test_value_rejects_unknown_monte_carlo_method():
+    gw = make_gateway()
+
+    with pytest.raises(ValueError, match="Unsupported Monte Carlo method"):
+        gw.value(_european_request(method="unknown"))
 
 
 def test_gateway_builds_non_flat_dupire_surface():

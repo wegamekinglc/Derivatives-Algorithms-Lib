@@ -15,12 +15,16 @@ The installed packages support normal CMake consumption:
 
 ```cmake
 find_package(dal-public 1.0 CONFIG REQUIRED)
+add_executable(my_pricer main.cpp)
+dal_cpp_apply_msvc_runtime(my_pricer)
 target_link_libraries(my_pricer PRIVATE DAL::public)
 ```
 
 `dal-publicConfig.cmake` resolves `DAL::cpp` as a dependency. See the
 [installation guide](../docs/installation.md#installed-cmake-packages) for staging
-and out-of-tree consumer commands.
+and out-of-tree consumer commands. On MSVC,
+`dal_cpp_apply_msvc_runtime` applies the configuration-aware runtime ABI stored
+in `DAL_CPP_MSVC_RUNTIME_LIBRARY`; it is a no-op on other toolchains.
 
 ## Surface
 
@@ -51,7 +55,7 @@ ctest --test-dir build/core-dev --output-on-failure
 For a focused public-facade check:
 
 ```bash
-build/core-dev/bin/dal_public_tests --gtest_filter=PublicApiTest.*
+build/core-dev/dal-public/dal_public_tests --gtest_filter=PublicApiTest.*
 ```
 
 The repository also carries an installed-package consumer under

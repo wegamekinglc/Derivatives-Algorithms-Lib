@@ -16,6 +16,11 @@ from app.native_runtime import load_native_dal
 
 dal = load_native_dal()
 
+_NATIVE_RNG_METHODS = {
+    "sobol": "sobol",
+    "pseudo": "mrg32",
+}
+
 
 @dataclass(frozen=True)
 class ValuationRequest:
@@ -127,6 +132,10 @@ class DalGateway:
 
     def value(self, request: ValuationRequest) -> dict[str, float]:
         with self._lock:
+            try:
+                native_method = _NATIVE_RNG_METHODS[request.method]
+            except KeyError as exc:
+                raise ValueError(f"Unsupported Monte Carlo method: {request.method!r}") from exc
             if request.evaluation_date is not None:
                 self.set_evaluation_date(*request.evaluation_date)
             product = self.build_product(request.event_dates, request.events)
@@ -135,7 +144,7 @@ class DalGateway:
                 product,
                 model,
                 int(request.num_paths),
-                str(request.method),
+                native_method,
                 bool(request.use_brownian_bridge),
                 bool(request.enable_aad),
                 float(request.smooth),

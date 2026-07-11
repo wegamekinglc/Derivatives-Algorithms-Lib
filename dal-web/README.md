@@ -155,9 +155,7 @@ Dependencies are managed with [uv](https://docs.astral.sh/uv/). From `dal-web/ba
 ```bash
 cd dal-web/backend
 uv sync --inexact
-REPO_ROOT=$(cd ../.. && pwd)
-uv pip install ../../dal-python \
-  --config-settings=cmake.define.DAL_INSTALL_PREFIX="$REPO_ROOT/build/stage/Release-linux"
+uv pip install ../../dal-python "--config-settings=cmake.define.DAL_INSTALL_PREFIX=/absolute/path/to/build/stage/<platform-preset>"
 uv run --no-sync python -m app.native_runtime
 uv run --no-sync python -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8001
 ```
@@ -165,6 +163,10 @@ uv run --no-sync python -m uvicorn app.main:app --reload --host 127.0.0.1 --port
 `uv` provisions a matching Python interpreter automatically (downloading one if
 needed) and resolves dependencies from the committed `uv.lock`. API docs are then
 available at <http://127.0.0.1:8001/docs>.
+
+Replace `<platform-preset>` with the stage produced by the active build, such as
+`Release-linux` or `Release-windows`. The quoted command works in POSIX shells
+and PowerShell.
 
 > The backend requires the compiled `dal` package. If the preflight fails, install
 > the package against the staged DAL prefix as shown in the
@@ -268,9 +270,14 @@ Valuation endpoints return a pending `ValuationResult` with
 offloads the blocking C++ pricing call to a worker thread via
 `asyncio.to_thread`. The Python binding releases the GIL around the pure native
 Monte Carlo call, so the event loop and unrelated Python work remain responsive.
-`DalGateway` holds one process-wide lock because evaluation date is shared, so
-pricing dispatch remains serialized within a backend process. The result is
-updated in-place once it completes, and the frontend polls
+The public valuation configuration calls the pseudo-random choice `pseudo`; the
+gateway maps it to DAL's `mrg32` generator before entering the native binding.
+DAL itself holds a re-entrant valuation/mutation barrier for the native pricing
+interval: evaluation-date setters wait, while getters can read the stable date
+through the store mutex. Separately, `DalGateway` holds a Python orchestration
+lock across request-level date mutation, product/model construction, and
+valuation. Pricing dispatch therefore remains serialized within a backend
+process. The result is updated in-place once it completes, and the frontend polls
 `GET /api/valuations/{id}` at 300ms intervals until the status becomes
 `"completed"` or `"failed"`.
 
@@ -287,6 +294,18 @@ cd dal-web/frontend
 npm run build               # type-check + production build
 npm run test:e2e            # Playwright smoke tests (starts/stops the web UI)
 ```
+
+The default Playwright command uses the native-only application startup path.
+CI uses an explicit canned DAL test double while retaining the real FastAPI
+routers and Vite frontend:
+
+```bash
+DAL_PLAYWRIGHT_TEST_BACKEND=1 npm run test:e2e
+```
+
+The test-backend entry point refuses to start without that flag and reports
+`backend=canned-dal`, `is_native=false` from the health endpoint. It is a
+browser integration fixture, not a development or production fallback.
 
 ## Screens
 

@@ -50,18 +50,24 @@ here as the baseline rather than dated releases:
   Dupire now prices a discounted spot call and includes the strike in
   $(r-q)K C_K$; the exact underdetermined solver uses the quadratic model's
   $k=(c-b)/(a-2b+c)$ backtrack fraction; and Bachelier pricing/implied volatility
-  now supports all real forward/strike pairs with a direct price-unit solve.
+  now supports all real forward/strike pairs with a finite, nonnegative
+  price-unit bracket and translation-invariant tolerances.
   See `docs/methodology/dupire.md`, `docs/methodology/underdetermined_search.md`,
   and `docs/methodology/black_scholes.md`.
 - `runtime`: Made Monte Carlo reject non-positive path counts at the public boundary,
-  made the DAL thread pool lazy and configurable with `DAL_NUM_THREADS`, and released
-  the Python GIL around pure native valuation. Python `DoubleMatrix_` now supports
-  rectangular nested-list construction and mutable indexing, enabling non-flat
-  Dupire surfaces through Python and the web gateway.
+  made the DAL thread pool lazy and configurable with `DAL_NUM_THREADS`, and added
+  size-safe batching with thread-local active AAD models and propagated task failures.
+  Stopping the pool waits for work already claimed by a worker or caller and cancels
+  work still queued. Native valuation now excludes concurrent evaluation-date mutation
+  while allowing date getters to progress; the Python valuation and date bindings
+  release the GIL around synchronized native work. Python `DoubleMatrix_` now supports
+  rectangular nested-list construction and mutable indexing, enabling non-flat Dupire
+  surfaces through Python and the web gateway.
 - `build`: Added relocatable `DAL::cpp` / `DAL::public` CMake packages and an
-  installed-consumer check; added `core-dev`, `full-dev`, and portable
-  `distribution` profiles; moved the automated Linux install into `build/stage`;
-  and made native-CPU tuning opt-in through `DAL_ENABLE_NATIVE_ARCH`.
+  installed-consumer check, including exported MSVC runtime metadata and a helper for
+  matching consumer targets; added `core-dev`, `full-dev`, and portable `distribution`
+  profiles; moved the automated Linux install into `build/stage`; and made native-CPU
+  tuning opt-in through `DAL_ENABLE_NATIVE_ARCH`.
 - `web`: Defined the backend as native-only and added startup preflight checks that
   preserve and validate the locally installed `dal` package before Uvicorn starts.
 

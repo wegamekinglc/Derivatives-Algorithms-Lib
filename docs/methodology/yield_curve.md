@@ -85,6 +85,16 @@ Piecewise-linear forwards give a smoother, more realistic curve (continuous
 forwards) at the price of twice as many parameters; piecewise-constant forwards
 are simpler and more robust. The calibration layer can use either.
 
+### Persistence contract
+
+Piecewise-linear discount curves use the archive-backed `DiscountPWLF` schema.
+Piecewise-constant discount curves created by `NewDiscountPWC` support pricing,
+fitting, cloning, and base-curve layering, but they do not have an archive schema
+and are not persistable. Calling their `Write` operation throws a DAL exception
+that identifies persistence as unsupported; applications must retain the knot
+dates, right-hand forward values, currency, and optional base needed to
+reconstruct the curve.
+
 ## Deriving Market Rates from the Curve
 
 Once $f(t)$ — hence $P(\cdot,\cdot)$ — is known, observable rates follow from

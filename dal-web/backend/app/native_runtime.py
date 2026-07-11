@@ -30,8 +30,10 @@ def _failure_message(reason: str) -> str:
         "Native DAL Python package is required by dal-web but could not be loaded.\n"
         "Install the repository binding into the backend environment, then retry:\n"
         "  cd dal-web/backend\n"
-        "  uv pip install ../../dal-python \\\n"
-        "    --config-settings=cmake.define.DAL_INSTALL_PREFIX=/absolute/path/to/build/stage/Release-linux\n"
+        "  uv pip install ../../dal-python "
+        '"--config-settings=cmake.define.DAL_INSTALL_PREFIX='
+        '/absolute/path/to/build/stage/<platform-preset>"\n'
+        "Replace <platform-preset> with the preset used to stage DAL on this platform.\n"
         "See ../../docs/installation.md#install-the-native-package-into-the-backend-environment.\n"
         f"Underlying error: {reason}"
     )

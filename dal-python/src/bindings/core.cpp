@@ -27,43 +27,87 @@ PYBIND11_MAKE_OPAQUE(std::vector<Dal::Cell_>);
 
 namespace {
 
-    Matrix_<> MatrixFromDimensions(int nRows, int nCols, double fill) {
-        if (nRows < 0 || nCols < 0)
-            throw py::value_error("DoubleMatrix_ dimensions must be non-negative");
-        return Matrix_<>(nRows, nCols, fill);
+    struct MatrixDimensions_ {
+        int rows_;
+        int cols_;
+    };
+
+    MatrixDimensions_ ValidateMatrixDimensions(size_t nRows, size_t nCols) {
+        const size_t maxInt = static_cast<size_t>(std::numeric_limits<int>::max());
+        if (nRows >= maxInt || (nCols > 0 && nRows + 1 > maxInt / nCols))
+            throw py::value_error("DoubleMatrix_ dimensions exceed native sentinel storage");
+
+        const size_t storageSize = (nRows + 1) * nCols;
+        if (storageSize > std::vector<double>().max_size() || nRows > std::vector<Matrix_<>::I_>().max_size())
+            throw py::value_error("DoubleMatrix_ dimensions exceed native storage limits");
+        return {static_cast<int>(nRows), static_cast<int>(nCols)};
+    }
+
+    size_t ParseMatrixDimension(const py::handle& value) {
+        if (!PyIndex_Check(value.ptr()))
+            throw py::type_error("DoubleMatrix_ dimensions must be integers");
+
+        const py::object index = py::reinterpret_steal<py::object>(PyNumber_Index(value.ptr()));
+        if (!index)
+            throw py::error_already_set();
+
+        const size_t result = PyLong_AsSize_t(index.ptr());
+        if (result == std::numeric_limits<size_t>::max() && PyErr_Occurred()) {
+            PyErr_Clear();
+            throw py::value_error("DoubleMatrix_ dimensions must be non-negative and fit the native size range");
+        }
+        return result;
+    }
+
+    Matrix_<> MatrixFromDimensions(const py::handle& nRows, const py::handle& nCols, double fill) {
+        const size_t parsedRows = ParseMatrixDimension(nRows);
+        const size_t parsedCols = ParseMatrixDimension(nCols);
+        const MatrixDimensions_ dimensions = ValidateMatrixDimensions(parsedRows, parsedCols);
+        return Matrix_<>(dimensions.rows_, dimensions.cols_, fill);
+    }
+
+    py::sequence MatrixRowSequence(const py::handle& rowHandle) {
+        if (!py::isinstance<py::sequence>(rowHandle) || py::isinstance<py::str>(rowHandle) || py::isinstance<py::bytes>(rowHandle))
+            throw py::value_error("DoubleMatrix_ rows must be numeric sequences");
+        return py::reinterpret_borrow<py::sequence>(rowHandle);
+    }
+
+    void SetOrValidateColumnCount(size_t rowIndex, size_t rowSize, size_t* nCols) {
+        if (rowIndex == 0)
+            *nCols = rowSize;
+        else if (rowSize != *nCols)
+            throw py::value_error("DoubleMatrix_ rows must form a rectangular matrix");
+    }
+
+    std::vector<double> ConvertMatrixRow(const py::sequence& row, size_t rowSize) {
+        std::vector<double> converted;
+        converted.reserve(rowSize);
+        for (const py::handle value : row)
+            converted.push_back(py::cast<double>(value));
+        return converted;
+    }
+
+    Matrix_<> MatrixFromValues(const std::vector<std::vector<double>>& values, const MatrixDimensions_& dimensions) {
+        Matrix_<> result(dimensions.rows_, dimensions.cols_);
+        for (size_t i = 0; i < values.size(); ++i) {
+            for (size_t j = 0; j < static_cast<size_t>(dimensions.cols_); ++j)
+                result(static_cast<int>(i), static_cast<int>(j)) = values[i][j];
+        }
+        return result;
     }
 
     Matrix_<> MatrixFromRows(const py::iterable& rows) {
         std::vector<std::vector<double>> values;
         size_t nCols = 0;
         for (const py::handle rowHandle : rows) {
-            if (!py::isinstance<py::sequence>(rowHandle) || py::isinstance<py::str>(rowHandle) || py::isinstance<py::bytes>(rowHandle)) {
-                throw py::value_error("DoubleMatrix_ rows must be numeric sequences");
-            }
-            const py::sequence row = py::reinterpret_borrow<py::sequence>(rowHandle);
+            const py::sequence row = MatrixRowSequence(rowHandle);
             const size_t rowSize = static_cast<size_t>(py::len(row));
-            if (!values.empty() && rowSize != nCols)
-                throw py::value_error("DoubleMatrix_ rows must form a rectangular matrix");
-            if (values.empty())
-                nCols = rowSize;
-
-            std::vector<double> converted;
-            converted.reserve(rowSize);
-            for (const py::handle value : row)
-                converted.push_back(py::cast<double>(value));
-            values.push_back(std::move(converted));
+            SetOrValidateColumnCount(values.size(), rowSize, &nCols);
+            ValidateMatrixDimensions(values.size() + 1, nCols);
+            values.push_back(ConvertMatrixRow(row, rowSize));
         }
 
-        if (values.size() > static_cast<size_t>(std::numeric_limits<int>::max()) || nCols > static_cast<size_t>(std::numeric_limits<int>::max())) {
-            throw py::value_error("DoubleMatrix_ dimensions exceed the native integer range");
-        }
-
-        Matrix_<> result(static_cast<int>(values.size()), static_cast<int>(nCols));
-        for (size_t i = 0; i < values.size(); ++i) {
-            for (size_t j = 0; j < nCols; ++j)
-                result(static_cast<int>(i), static_cast<int>(j)) = values[i][j];
-        }
-        return result;
+        return MatrixFromValues(values, ValidateMatrixDimensions(values.size(), nCols));
     }
 
     int NormalizeMatrixIndex(int index, int size) {

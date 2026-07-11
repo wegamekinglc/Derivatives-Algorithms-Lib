@@ -73,7 +73,7 @@ echo -e "${GREEN}✓ Build environment ready${NC}"
 
 # Install build dependencies
 echo -e "${YELLOW}Installing build dependencies...${NC}"
-uv pip install -q scikit-build-core build
+uv pip install -q scikit-build-core build "pybind11==2.11.1"
 echo -e "${GREEN}✓ Build dependencies installed${NC}"
 
 # Build sdist
@@ -99,16 +99,16 @@ echo ""
 # Show installation instructions
 echo "To build and install from source:"
 echo "  pip install $SDIST_FILE \\"
-echo "    --config-settings=cmake.define.DAL_INSTALL_PREFIX=/path/to/Derivatives-Algorithms-Lib/build/stage/Release-linux"
+echo "    \"--config-settings=cmake.define.DAL_INSTALL_PREFIX=/absolute/path/to/Derivatives-Algorithms-Lib/build/stage/<platform-preset>\""
 echo ""
 echo "Or with uv:"
 echo "  uv pip install $SDIST_FILE \\"
-echo "    --config-settings=cmake.define.DAL_INSTALL_PREFIX=/path/to/Derivatives-Algorithms-Lib/build/stage/Release-linux"
+echo "    \"--config-settings=cmake.define.DAL_INSTALL_PREFIX=/absolute/path/to/Derivatives-Algorithms-Lib/build/stage/<platform-preset>\""
 echo ""
 echo "Note: Building from source requires:"
 echo "  - C++17 compiler (GCC 13+, Clang 18+, or MSVC 2022)"
 echo "  - CMake 3.21+"
-echo "  - pybind11 (vendored as a git submodule at dal-cpp/externals/pybind11, v2.11.1)"
+echo "  - pybind11 2.11.1 (installed automatically from the sdist build requirements)"
 echo "  - Python 3.10+ development headers"
 echo "  - DAL staged install containing lib/cmake/dal-public/dal-publicConfig.cmake"
 echo ""

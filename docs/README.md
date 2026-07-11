@@ -111,10 +111,10 @@ Deep dives into the quantitative methods and algorithms implemented in DAL:
 
 - **[black_scholes.md](methodology/black_scholes.md)** — Black / Bachelier Vanilla Pricing
   - Black (lognormal) and Bachelier (normal) European closed forms, de-annualized vol convention
-  - Bachelier pricing for all real forward/strike pairs and direct-coordinate implied vol
+  - Bachelier pricing for all real forward/strike pairs and finite nonnegative implied-vol bracketing
   - Forward delta and vega greeks by `OptionType_` (`CALL` / `PUT` / `STRADDLE`)
   - `DistributionNormalLike_` shared base, vega-notional (`VolVega`), parameter derivatives
-  - Brent implied-vol inversion (`BlackIV` / `BachelierIV`) and intrinsic floor
+  - Translation-invariant Bachelier tolerances, finite-input checks, and intrinsic floor
 
 - **[quadrature.md](methodology/quadrature.md)** — Numerical Quadrature
   - Gauss-Hermite construction (orthonormal Hermite recurrence, Newton root search, node/weight mapping)
@@ -133,6 +133,8 @@ Deep dives into the quantitative methods and algorithms implemented in DAL:
 
 Reference studies and capability explorations that are not normative methodology:
 
+- **[aad-analytic-jacobian-curve-calibration.md](experimental/aad-analytic-jacobian-curve-calibration.md)**
+  — Compatibility redirect to the supported yield-curve and AAD methodology.
 - **[replicate-ptirds-single-currency-curve.md](experimental/replicate-ptirds-single-currency-curve.md)**
   — Validated rateslib/PTIRDS single-currency curve replication.
 

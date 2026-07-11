@@ -129,28 +129,52 @@ Asking `ParameterDerivatives` for any other name throws.
 
 `Distribution::BlackIV(F, K, type, price, guess)` and
 `Distribution::BachelierIV(...)` invert their respective pricers to recover the
-de-annualized implied $\nu$ that re-prices a given market `price`. The inversion is a
-scalar root-find on the residual $V(\nu) - \text{price}$, solved by the library's
-bracketing-aware `Brent_` root finder (`dal-cpp/dal/math/rootfind.hpp`):
+de-annualized implied $\nu$ that re-prices a given market `price`. Both solve the
+scalar residual $V(\nu) - \text{price}$, but their coordinates and bracketing
+contracts differ.
 
-- **Solver coordinate.** Black solves for $\ln \nu$ (so $\nu=\exp(x)$ stays positive).
-  A positive Black guess $g$ becomes $\ln g$; otherwise the starting coordinate is
-  $-1.5$. Bachelier solves directly in the price-unit coordinate $\nu$. A positive
-  explicit guess is used without transformation; otherwise the starting value is
-  $\max(0.01, |F-K|, \text{price})$.
-- **Convergence.** Both calls accept the residual as converged when either the residual
-  magnitude drops below $10^{-10}\max(1, \text{price})$, or the bracket width drops below
-  $10^{-10}\max(1, |F|)$. The iteration budget is 30 evaluations; exhausting it throws.
-- **Intrinsic floor.** A `REQUIRE` enforces $\text{price} \ge \text{intrinsic}$ before the
-  search starts. A price below intrinsic has no realizable $\nu \ge 0$ (the pricer is
-  monotone increasing in $\nu$ from intrinsic upward), so the inversion would search an
-  empty set; the `REQUIRE` fails fast with a "value below intrinsic value" message rather
-  than letting Brent hunt forever. `BachelierIV` returns $0$ immediately when price is
-  exactly intrinsic, regardless of the supplied guess.
+### Black inversion
 
-Because the pricers are monotone in $\nu$ for $\nu \ge 0$ and the residual is
-continuous, Brent converges from the supplied guess (or the fallback) without needing an
-explicit bracket. The annualized implied vol helpers in `vanilla.hpp`,
+Black solves in the log-volatility coordinate $x=\ln\nu$, so
+$\nu=\exp(x)$ remains positive. A positive guess becomes $\ln g$; otherwise the
+initial coordinate is $-1.5$. `Brent_` accepts either a residual magnitude below
+$10^{-10}\max(1,\text{price})$ or a coordinate-bracket width below
+$10^{-10}\max(1,|F|)$. The solve has a 30-evaluation budget. A price below the
+option's intrinsic value is rejected before iteration.
+
+### Bachelier inversion
+
+Bachelier solves directly in the price-unit volatility $\nu$ on an explicit
+finite nonnegative bracket. `BachelierIV` first requires finite forward, strike,
+price, guess, represented moneyness $F-K$, and intrinsic value. A price below
+intrinsic is rejected; a price exactly at intrinsic returns $\nu=0$.
+
+The lower endpoint is $\nu=0$. The initial positive upper endpoint is
+
+$$
+\max\left(0.01,\,|F-K|,\,\text{price},\,g\;\text{when }g>0\right).
+$$
+
+If this endpoint does not bracket the root, the implementation doubles it for at
+most 1024 expansions while checking the endpoint, option price, and residual for
+finiteness. Expansion stops when the residual changes sign or when a finite
+bracket cannot be formed; overflow or bracket exhaustion raises a DAL exception.
+`BracketedBrent_` then performs at most 100 solve iterations without evaluating a
+negative volatility.
+
+The Bachelier volatility-coordinate tolerance is
+
+$$
+10^{-10}\max(1,|F-K|,\text{price}),
+$$
+
+and the price-residual tolerance is
+$10^{-10}\max(1,\text{price})$. These scales depend on represented moneyness and
+price, not on the absolute level of $F$ or $K$. Consequently a common shift of
+forward and strike leaves the inversion unchanged whenever floating-point
+representation preserves $F-K$.
+
+The annualized implied-volatility helpers in `vanilla.hpp`,
 `Dal::AAD::BlackScholesIVol(spot, K, prem, T)` and `Dal::AAD::BachelierIVol(...)`, hard-code
 the `CALL` type, dispatch to the corresponding `*IV`, and divide by $\sqrt{T}$ to return
 the annualized $\sigma$.

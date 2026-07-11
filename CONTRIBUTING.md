@@ -50,8 +50,8 @@ ctest --test-dir build/core-dev --output-on-failure
 Focused examples:
 
 ```bash
-build/core-dev/bin/dal_cpp_tests --gtest_filter=CalibrationTest.*
-build/core-dev/bin/dal_public_tests --gtest_filter=PublicApiTest.*
+build/core-dev/dal-cpp/dal_cpp_tests --gtest_filter=CalibrationTest.*
+build/core-dev/dal-public/dal_public_tests --gtest_filter=PublicApiTest.*
 ```
 
 Google Tests use `TEST(Suite, TestName)`, `ASSERT_*`, deterministic tolerances,
@@ -118,7 +118,8 @@ cmake --build build/core-dev --target dal_check_generated
 ```
 
 The outputs are `dal-cpp/dal/auto/` and `dal-excel/auto/`. Do not hand-edit
-generated files; commit them with the markup source.
+generated files; commit them with the markup source. `dal_check_generated`
+fails on both tracked drift and newly generated untracked files.
 
 ## Public Surfaces
 

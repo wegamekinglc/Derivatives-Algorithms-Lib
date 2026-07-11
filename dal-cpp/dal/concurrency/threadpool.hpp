@@ -12,6 +12,7 @@
 
 #pragma once
 
+#include <atomic>
 #include <condition_variable>
 #include <dal/concurrency/concurrentqueue.hpp>
 #include <dal/utilities/exceptions.hpp>
@@ -24,18 +25,41 @@ namespace Dal {
     using Task_ = std::packaged_task<bool(void)>;
     using TaskHandle_ = std::future<bool>;
 
+    class ThreadPoolTestAccess_;
+
     class ThreadPool_ {
         static ThreadPool_ instance_;
         ConcurrentQueue_<Task_> queue_;
         std::vector<std::thread> threads_;
-        mutable std::mutex lifecycleMutex_;
+        std::mutex lifecycleMutex_;
         std::mutex transitionMutex_;
         std::condition_variable lifecycleCondition_;
         size_t threadCount_;
+        size_t generation_;
+        size_t activeCallers_;
         bool active_;
         bool stopping_;
+        std::atomic<void (*)()> beforeWorkerClaimHookForTesting_;
         static thread_local size_t tlsNum_;
         static thread_local bool tlsExecutingTask_;
+
+        friend class ThreadPoolTestAccess_;
+
+        void ReleaseActiveCaller(size_t generation);
+
+        class ActiveCallerGuard_ {
+            ThreadPool_* owner_;
+            size_t generation_;
+
+        public:
+            ActiveCallerGuard_(ThreadPool_* owner, size_t generation) : owner_(owner), generation_(generation) {}
+            ~ActiveCallerGuard_() { owner_->ReleaseActiveCaller(generation_); }
+
+            ActiveCallerGuard_(const ActiveCallerGuard_&) = delete;
+            ActiveCallerGuard_& operator=(const ActiveCallerGuard_&) = delete;
+            ActiveCallerGuard_(ActiveCallerGuard_&&) = delete;
+            ActiveCallerGuard_& operator=(ActiveCallerGuard_&&) = delete;
+        };
 
         void ThreadFunc(const size_t& num);
         void RunTask(Task_& task);
@@ -47,12 +71,12 @@ namespace Dal {
     public:
         static ThreadPool_* GetInstance() { return &instance_; }
 
-        [[nodiscard]] size_t NumThreads() const {
+        [[nodiscard]] size_t NumThreads() {
             std::lock_guard<std::mutex> lock(lifecycleMutex_);
             return threadCount_;
         }
 
-        [[nodiscard]] bool IsActive() const {
+        [[nodiscard]] bool IsActive() {
             std::lock_guard<std::mutex> lock(lifecycleMutex_);
             return active_;
         }

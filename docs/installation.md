@@ -162,16 +162,27 @@ An out-of-tree consumer can use:
 find_package(dal-cpp 1.0 CONFIG REQUIRED)
 find_package(dal-public 1.0 CONFIG REQUIRED)
 
+add_executable(my_pricer main.cpp)
+dal_cpp_apply_msvc_runtime(my_pricer)
 target_link_libraries(my_pricer PRIVATE DAL::cpp DAL::public)
 ```
+
+The core package publishes its runtime ABI as
+`DAL_CPP_MSVC_RUNTIME_LIBRARY`. Call `dal_cpp_apply_msvc_runtime` for each
+consumer target that links the installed static libraries. The helper applies
+the matching configuration-aware `/MT`/`/MTd` or `/MD`/`/MDd` selection under
+MSVC and is a no-op on other toolchains.
 
 Point CMake at the staged prefix:
 
 ```bash
 cmake -S /path/to/consumer -B /path/to/consumer/build \
-  -DCMAKE_PREFIX_PATH=/path/to/Derivatives-Algorithms-Lib/build/stage/Release-linux
+  "-DCMAKE_PREFIX_PATH=/path/to/Derivatives-Algorithms-Lib/build/stage/<platform-preset>"
 cmake --build /path/to/consumer/build
 ```
+
+Replace `<platform-preset>` with the preset that produced the install, such as
+`Release-linux` or `Release-windows`.
 
 The repository's consumer smoke test is under `tests/installed-consumer/`. Run it
 against an installed prefix with a separate build directory:
@@ -203,13 +214,13 @@ bash ./build_linux.sh
 cd dal-python
 uv venv
 source .venv/bin/activate
-uv pip install -e ".[test]" \
-  --config-settings=cmake.define.DAL_INSTALL_PREFIX=/absolute/path/to/Derivatives-Algorithms-Lib/build/stage/Release-linux
+uv pip install -e ".[test]" "--config-settings=cmake.define.DAL_INSTALL_PREFIX=/absolute/path/to/Derivatives-Algorithms-Lib/build/stage/<platform-preset>"
 python -m pytest tests -v
 ```
 
-On Windows, activate with `.venv\Scripts\activate` and point
-`DAL_INSTALL_PREFIX` at the Windows staging prefix. See the
+Replace `<platform-preset>` with `Release-linux` for the Linux workflow above
+or the matching Windows preset when building under MSVC. On Windows, activate
+with `.venv\Scripts\activate`. See the
 [Python component guide](../dal-python/README.md)
 for the exposed API and package layout.
 
@@ -285,8 +296,8 @@ ctest --test-dir build/core-dev --output-on-failure
 Run a focused Google Test from the build tree:
 
 ```bash
-build/core-dev/bin/dal_cpp_tests --gtest_filter=CalibrationTest.*
-build/core-dev/bin/dal_public_tests --gtest_filter=PublicApiTest.*
+build/core-dev/dal-cpp/dal_cpp_tests --gtest_filter=CalibrationTest.*
+build/core-dev/dal-public/dal_public_tests --gtest_filter=PublicApiTest.*
 ```
 
 Python and web checks:
@@ -316,7 +327,8 @@ cmake --build build/core-dev --target dal_check_generated
 
 `dal_generate` updates `dal-cpp/dal/auto/` and `dal-excel/auto/` from
 `dal-cpp/config/dal.ifc` and `dal-cpp/config/dal.mgl`. Commit generated changes
-with the markup that produced them.
+with the markup that produced them. `dal_check_generated` reruns generation and
+fails for either tracked diffs or new untracked files in those generated trees.
 
 ## Troubleshooting
 

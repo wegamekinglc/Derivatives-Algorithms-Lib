@@ -17,7 +17,9 @@ namespace Dal {
     thread_local size_t ThreadPool_::tlsNum_ = 0;
     thread_local bool ThreadPool_::tlsExecutingTask_ = false;
 
-    ThreadPool_::ThreadPool_() : threadCount_(DefaultThreadCount()), active_(false), stopping_(false) {}
+    ThreadPool_::ThreadPool_()
+        : threadCount_(DefaultThreadCount()), generation_(0), activeCallers_(0), active_(false), stopping_(false),
+          beforeWorkerClaimHookForTesting_(nullptr) {}
 
     size_t ThreadPool_::DefaultThreadCount() {
         const size_t hardware = std::max(1u, std::thread::hardware_concurrency());
@@ -37,9 +39,25 @@ namespace Dal {
 
     void ThreadPool_::ThreadFunc(const size_t& num) {
         tlsNum_ = num;
-        Task_ t;
-        while (queue_.Pop(t))
-            RunTask(t);
+        while (queue_.WaitForItem()) {
+            const auto beforeClaim = beforeWorkerClaimHookForTesting_.load(std::memory_order_acquire);
+            if (beforeClaim != nullptr)
+                beforeClaim();
+
+            Task_ task;
+            bool claimed = false;
+            bool stop = false;
+            {
+                std::lock_guard<std::mutex> lock(lifecycleMutex_);
+                stop = !active_ || stopping_;
+                if (!stop)
+                    claimed = queue_.TryPop(task);
+            }
+            if (stop)
+                break;
+            if (claimed)
+                RunTask(task);
+        }
         tlsNum_ = 0;
     }
 
@@ -57,6 +75,8 @@ namespace Dal {
 
     void ThreadPool_::StartLocked(std::unique_lock<std::mutex>& lock, size_t nThreads) {
         ASSERT(lock.owns_lock(), "thread pool lifecycle lock must be held when starting");
+        ASSERT(activeCallers_ == 0, "a new thread pool generation cannot start while caller tasks are active");
+        ++generation_;
         active_ = true;
         try {
             threads_.reserve(nThreads - 1);
@@ -67,11 +87,10 @@ namespace Dal {
             stopping_ = true;
             std::vector<std::thread> threads;
             threads.swap(threads_);
-            queue_.Interrupt();
+            queue_.InterruptAndClear();
             lock.unlock();
             std::for_each(threads.begin(), threads.end(), std::mem_fn(&std::thread::join));
             lock.lock();
-            queue_.Clear();
             queue_.ResetInterrupt();
             stopping_ = false;
             lifecycleCondition_.notify_all();
@@ -88,11 +107,11 @@ namespace Dal {
         stopping_ = true;
         std::vector<std::thread> threads;
         threads.swap(threads_);
-        queue_.Interrupt();
+        queue_.InterruptAndClear();
         lock.unlock();
         std::for_each(threads.begin(), threads.end(), std::mem_fn(&std::thread::join));
         lock.lock();
-        queue_.Clear();
+        lifecycleCondition_.wait(lock, [this]() { return activeCallers_ == 0; });
         queue_.ResetInterrupt();
         stopping_ = false;
         lifecycleCondition_.notify_all();
@@ -128,17 +147,32 @@ namespace Dal {
         bool b = false;
         while (f.wait_for(std::chrono::seconds(0)) != std::future_status::ready) {
             bool popped = false;
+            size_t generation = 0;
             {
                 std::lock_guard<std::mutex> lock(lifecycleMutex_);
-                if (active_ && !stopping_)
+                if (active_ && !stopping_) {
                     popped = queue_.TryPop(t);
+                    if (popped) {
+                        generation = generation_;
+                        ++activeCallers_;
+                    }
+                }
             }
             if (popped) {
+                ActiveCallerGuard_ callerGuard(this, generation);
                 RunTask(t);
                 b = true;
             } else
                 f.wait();
         }
         return b;
+    }
+
+    void ThreadPool_::ReleaseActiveCaller(size_t generation) {
+        std::lock_guard<std::mutex> lock(lifecycleMutex_);
+        ASSERT(generation == generation_, "caller task belongs to a stale thread pool generation");
+        ASSERT(activeCallers_ > 0, "thread pool caller task accounting underflow");
+        --activeCallers_;
+        lifecycleCondition_.notify_all();
     }
 } // namespace Dal

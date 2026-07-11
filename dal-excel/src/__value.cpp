@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include "__value.hpp"
 #include "__platform.hpp"
 #include <dal-public/src/value.hpp>
 #include <dal/math/matrix/matrixs.hpp>
@@ -32,7 +33,6 @@ values is cell[][]
     the output values
 -IF-------------------------------------------------------------------------*/
 
-
 namespace Dal {
     namespace {
         void MonteCarlo_Value(const Handle_<ScriptProductData_>& product,
@@ -43,7 +43,8 @@ namespace Dal {
                               bool enable_aad,
                               double smooth,
                               Matrix_<Cell_>* values) {
-            auto val = ValueByMonteCarlo(product, modelData, (int)n_paths, rsg, use_bb, enable_aad, smooth);
+            const int nPaths = Excel::CheckedMonteCarloPathCount(n_paths);
+            auto val = ValueByMonteCarlo(product, modelData, nPaths, rsg, use_bb, enable_aad, smooth);
             values->Resize(val.size(), 2);
             int i = 0;
             for (auto& d : val) {
@@ -52,9 +53,9 @@ namespace Dal {
                 ++i;
             }
         }
-    }
+    } // namespace
 
 #ifdef _WIN32
 #include <dal-excel/auto/MG_MonteCarlo_Value_public.inc>
 #endif
-}
+} // namespace Dal

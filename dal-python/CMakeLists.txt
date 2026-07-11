@@ -65,10 +65,21 @@ endif()
 find_package(Python3 REQUIRED COMPONENTS Interpreter Development.Module)
 message(STATUS "-- Python3: ${Python3_EXECUTABLE} (version ${Python3_VERSION})")
 
-# Find pybind11: prefer a system install if one is present, otherwise build
-# the pinned v2.11.1 vendored as a git submodule under
-# dal-cpp/externals/pybind11 (sibling of this project).
+# Find pybind11: prefer a discoverable system install, then the package in the
+# selected Python environment, and otherwise build the pinned v2.11.1 vendored
+# under dal-cpp/externals/pybind11 (sibling of this project).
 find_package(pybind11 CONFIG QUIET)
+if(NOT pybind11_FOUND)
+    execute_process(
+        COMMAND "${Python3_EXECUTABLE}" -m pybind11 --cmakedir
+        RESULT_VARIABLE DAL_PYBIND11_CMAKEDIR_RESULT
+        OUTPUT_VARIABLE DAL_PYBIND11_CMAKEDIR
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        ERROR_QUIET)
+    if(DAL_PYBIND11_CMAKEDIR_RESULT EQUAL 0 AND EXISTS "${DAL_PYBIND11_CMAKEDIR}/pybind11Config.cmake")
+        find_package(pybind11 2.11.1 CONFIG QUIET PATHS "${DAL_PYBIND11_CMAKEDIR}" NO_DEFAULT_PATH)
+    endif()
+endif()
 if(NOT pybind11_FOUND)
     # Resolve the submodule path. In monorepo mode (dal-python pulled in via
     # add_subdirectory from the top-level workspace), the submodule lives at
@@ -96,6 +107,7 @@ else()
 endif()
 
 # Find the DAL public library
+set(DAL_PYTHON_USES_INSTALLED_PUBLIC FALSE)
 if(TARGET DAL::public)
     message(STATUS "-- core: linking against sibling DAL::public")
     set(DAL_PUBLIC_TARGET DAL::public)
@@ -113,6 +125,7 @@ else()
         endif()
         message(STATUS "-- core: linking against installed DAL::public from ${DAL_INSTALL_PREFIX}")
         set(DAL_PUBLIC_TARGET DAL::public)
+        set(DAL_PYTHON_USES_INSTALLED_PUBLIC TRUE)
     else()
         message(FATAL_ERROR "dal-python requires dal-public (DAL::public or dal_public) target")
     endif()
@@ -138,6 +151,21 @@ pybind11_add_module(_dal
     ${CMAKE_CURRENT_SOURCE_DIR}/src/bindings/random.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/bindings/script.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/bindings/value.cpp)
+
+if(DAL_PYTHON_USES_INSTALLED_PUBLIC)
+    if(NOT COMMAND dal_cpp_apply_msvc_runtime)
+        message(FATAL_ERROR "installed dal-cpp package did not publish dal_cpp_apply_msvc_runtime")
+    endif()
+    dal_cpp_apply_msvc_runtime(_dal)
+    if(MSVC)
+        get_target_property(DAL_PYTHON_MSVC_RUNTIME _dal MSVC_RUNTIME_LIBRARY)
+        if(NOT "${DAL_PYTHON_MSVC_RUNTIME}" STREQUAL "${DAL_CPP_MSVC_RUNTIME_LIBRARY}")
+            message(FATAL_ERROR
+                "_dal runtime '${DAL_PYTHON_MSVC_RUNTIME}' does not match "
+                "installed DAL runtime '${DAL_CPP_MSVC_RUNTIME_LIBRARY}'")
+        endif()
+    endif()
+endif()
 
 add_library(DAL::python ALIAS _dal)
 

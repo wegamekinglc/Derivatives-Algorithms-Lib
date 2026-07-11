@@ -19,15 +19,15 @@ As long as this comment is preserved at the Top of the file
 
 #pragma once
 
-#include <iostream>
 #include <algorithm>
-#include <functional>
 #include <dal/math/aad/sample.hpp>
 #include <dal/math/stacks.hpp>
 #include <dal/script/node.hpp>
 #include <dal/script/visitor.hpp>
 #include <dal/script/visitor/smoothing.hpp>
 #include <dal/utilities/exceptions.hpp>
+#include <functional>
+#include <iostream>
 
 namespace Dal::Script {
     template <class T_> struct EvalState_ {
@@ -40,13 +40,14 @@ namespace Dal::Script {
         size_t nestedIfLvl_ = 0;
         Vector_<Vector_<T_>> varStore0_;
         Vector_<Vector_<T_>> varStore1_;
+        StaticStack_<T_> dStack_;
+        StaticStack_<bool> bStack_;
 
         explicit EvalState_(const Vector_<>& variables,
                             const Vector_<T_>& constVariables = Vector_<T_>(),
                             size_t maxNestedIfs = 0,
                             double defEps = 0.0)
-            : variablesInit_(variables), constVariables_(constVariables), defEps_(defEps),
-              varStore0_(maxNestedIfs), varStore1_(maxNestedIfs) {
+            : variablesInit_(variables), constVariables_(constVariables), defEps_(defEps), varStore0_(maxNestedIfs), varStore1_(maxNestedIfs) {
             variables_.Resize(variablesInit_.size());
             for (auto i = 0; i < variables_.size(); ++i)
                 variables_[i] = T_(variablesInit_[i]);
@@ -60,16 +61,13 @@ namespace Dal::Script {
             for (auto i = 0; i < variables_.size(); ++i)
                 variables_[i] = T_(variablesInit_[i]);
             nestedIfLvl_ = 0;
+            dStack_.Reset();
+            bStack_.Reset();
         }
-
 
         const Vector_<T_>& VarVals() const { return variables_; }
-        Vector_<T_>& ConstVarVals() {
-            return constVariables_;
-        }
-        const Vector_<T_>& ConstVarVals() const {
-            return constVariables_;
-        }
+        Vector_<T_>& ConstVarVals() { return constVariables_; }
+        const Vector_<T_>& ConstVarVals() const { return constVariables_; }
     };
 
     //  Hand-written because opcodes are NTTPs and serialized stream integers.
@@ -124,7 +122,7 @@ namespace Dal::Script {
         FuzzyNot = 46,
         FuzzyTrue = 47,
         FuzzyFalse = 48,
-        FuzzyIf = 49             //  operands: lastTrue, lastFalse, nAff, aff...
+        FuzzyIf = 49 //  operands: lastTrue, lastFalse, nAff, aff...
     };
 
     class Compiler_ : public ConstVisitor_<Compiler_> {
@@ -378,10 +376,10 @@ namespace Dal::Script {
         const size_t n = last ? last : nodeStream.size();
         size_t i = first;
 
-        thread_local static StaticStack_<T_> dStack;
+        StaticStack_<T_>& dStack = state.dStack_;
         if (reset)
             dStack.Reset();
-        thread_local static StaticStack_<bool> bStack;
+        StaticStack_<bool>& bStack = state.bStack_;
         if (reset)
             bStack.Reset();
 

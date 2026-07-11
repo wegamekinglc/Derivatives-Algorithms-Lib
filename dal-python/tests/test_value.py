@@ -4,6 +4,7 @@ import concurrent.futures
 import math
 import sys
 import threading
+import time
 
 import dal
 import pytest
@@ -101,6 +102,45 @@ def test_mc_value_releases_gil_during_native_pricing():
         sys.setswitchinterval(old_switch_interval)
         start.set()
         thread.join(timeout=5.0)
+
+
+def test_mc_value_and_date_setter_complete_without_gil_lock_inversion():
+    """A Python setter waiting on native valuation does not block valuation's return."""
+    original_date = dal.EvaluationDate_Get()
+    next_date = dal.Date_(2022, 9, 26)
+    model = dal.BSModelData_New(spot=100.0, vol=0.2, rate=0.05, div=0.02)
+    product = _make_european_call(100.0, dal.Date_(2023, 9, 25))
+    valuation_started = threading.Event()
+    setter_started = threading.Event()
+
+    def price():
+        valuation_started.set()
+        return dal.MonteCarlo_Value(product, model, 2**22)["PV"]
+
+    def set_date():
+        setter_started.set()
+        dal.EvaluationDate_Set(next_date)
+
+    try:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+            valuation = executor.submit(price)
+            assert valuation_started.wait(timeout=5.0)  # nosec B101
+
+            deadline = time.monotonic() + 5.0
+            while dal._dal._EvaluationDateBarrier_AvailableForTesting():
+                if valuation.done() or time.monotonic() >= deadline:
+                    pytest.fail("valuation did not hold the evaluation-date barrier")
+
+            setter = executor.submit(set_date)
+            assert setter_started.wait(timeout=5.0)  # nosec B101
+            assert setter.done() is False  # nosec B101
+            pv = valuation.result(timeout=30.0)
+            setter.result(timeout=30.0)
+
+        assert math.isfinite(pv)  # nosec B101 - pytest assertions are intentional
+        assert dal.EvaluationDate_Get() == next_date  # nosec B101
+    finally:
+        dal.EvaluationDate_Set(original_date)
 
 
 def test_mc_value_serializes_concurrent_native_calls():
@@ -241,6 +281,9 @@ def test_mc_value_more_paths_more_accurate():
     err_few = abs(result_few["PV"] - bs_price)
     err_many = abs(result_many["PV"] - bs_price)
 
+    assert err_many < err_few, (  # nosec B101 - pytest assertions are intentional
+        f"Many-path error {err_many:.4f} should improve on {err_few:.4f}"
+    )
     assert err_many < 1.0, f"Many-path error {err_many:.4f} too large"  # nosec B101 - pytest assertions are intentional
 
 
