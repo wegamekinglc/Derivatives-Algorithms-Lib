@@ -86,7 +86,7 @@ jobs:
       # Configure step so cmake's find_package(Python3) picks up the
       # venv's interpreter — otherwise dal_python_pytest runs against
       # the system python, which doesn't have pytest.
-      - uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # @v8.2.0
+      - uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # @v8.3.2
 
       - name: Set up Python venv
         shell: pwsh
