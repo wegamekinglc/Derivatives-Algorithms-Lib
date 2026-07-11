@@ -88,6 +88,40 @@ Web backend/frontend:
 Installed-package changes should also configure and run the consumer under
 `tests/installed-consumer/` against a fresh staging prefix.
 
+### Benchmark regressions
+
+Build benchmark targets locally with:
+
+```bash
+bash ./build_linux.sh --benchmarks
+```
+
+Linux pull requests compare base and head builds on the same runner with GCC 14,
+Release mode, native CPU tuning, the native AAD backend, and
+`DAL_NUM_THREADS=4`. The gate runs two independent rounds of ten interleaved
+process-level samples per side. A comparable case fails only when its head/base
+median exceeds `+4%` in both rounds, which requires a repeated regression rather
+than a single noisy measurement. Case-set changes fail unless they match the
+explicit Sobol precise-policy migration; the head Sobol precise/fast ratio also
+has a `10x` ceiling. The Windows benchmark job remains informational.
+
+To reproduce the comparator after building separate base and head trees:
+
+```bash
+python3 .github/scripts/check_benchmark_regressions.py \
+  --base-root <base-build> \
+  --head-root <head-build> \
+  --output-dir <results-dir> \
+  --samples 10 \
+  --confirmation-rounds 2 \
+  --threshold-percent 4 \
+  --precise-slowdown-limit 10
+```
+
+The roots are the CMake build directories containing
+`dal-cpp/benchmarks/<benchmark>/<benchmark>` executables. Preserve the CI build
+configuration when investigating a CI-only regression.
+
 ## C++ Style
 
 Use the root `.clang-format` configuration. The main conventions are:

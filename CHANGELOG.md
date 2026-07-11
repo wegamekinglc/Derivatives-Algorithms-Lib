@@ -109,11 +109,11 @@ here as the baseline rather than dated releases:
   `docs/methodology/script_engine.md`.
 
 - `random`: Sobol normal draws default to the fast Acklam inverse-CDF path;
-  precise-CDF Newton correction is explicitly opt-in through `precise=true` on
-  the core, public C++, Python, and Excel constructors. Fast-CDF Newton polish
-  remains separately opt-in, and Sobol clones preserve sequence state and both
-  policy flags. Pseudo-random normal draws retain their precise default. See
-  `docs/methodology/random.md`.
+  precise-CDF Newton correction is explicitly opt-in through `precise=true,
+  polish=true` on the core, public C++, Python, and Excel constructors. Fast-CDF
+  Newton polish (`precise=false, polish=true`) remains separately opt-in, and
+  Sobol clones preserve sequence state and both policy flags. Pseudo-random
+  normal draws retain their precise default. See `docs/methodology/random.md`.
 
 ## 2026-06
 

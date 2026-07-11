@@ -55,6 +55,23 @@ on other toolchains.
 The installed include path intentionally retains `dal-public/src/`. The facade
 also uses core `Handle_`, `Date_`, curve, model, and diagnostics types directly.
 
+### Sobol normal-draw policy
+
+The public constructor is:
+
+```cpp
+Dal::NewSobolRSG(name, iPath, ndim = 1, precise = false, polish = false)
+```
+
+The two policy flags are independent and are forwarded unchanged. `polish`
+controls whether the Acklam inverse-CDF result receives a Newton correction;
+when polishing is enabled, `precise` selects the precise CDF instead of the fast
+CDF for that correction. The default `false, false` path is Acklam-only, and the
+precise-CDF correction requires `precise = true, polish = true`. Python
+`dal.SobolRSG_New` and Excel `SOBOLRSG.NEW` use the same defaults and semantics.
+See the [random methodology policy table](methodology/random.md#normal-draw-inverse-cdf-modes)
+for all four combinations.
+
 ### Scripted Monte Carlo
 
 This minimal pattern is exercised by the public API tests:
@@ -148,6 +165,13 @@ around native valuation, and `EvaluationDate_Get` / `EvaluationDate_Set` release
 it before waiting on native synchronization. A setter waits for an in-progress
 valuation; a getter can read the stable current date while valuation runs.
 
+For precise-CDF-polished Sobol normal draws, pass both flags explicitly:
+
+```python
+rsg = dal.SobolRSG_New(i_path=0, ndim=3, precise=True, polish=True)
+normals = dal.SobolRSG_Get_Normal(rsg, 1024)
+```
+
 ### Matrix and Dupire surface input
 
 `DoubleMatrix_` supports all of the following:
@@ -203,6 +227,10 @@ For a local-volatility model, use
 `DUPIREMODELDATA.NEW(name, spot, rate, repo, spots, times, vols)`. The volatility
 range must be a rectangular spots-by-times matrix. `MONTECARLO.VALUE` requires a
 strictly positive path count.
+
+`SOBOLRSG.NEW(name, i_path, n_dim, precise, polish)` uses the same independent
+normal-draw flags as C++ and Python. Pass `TRUE, TRUE` for the precise-CDF Newton
+correction; leaving both optional flags `FALSE` selects the Acklam-only default.
 
 ### Curve workflows
 

@@ -197,15 +197,20 @@ by that correction:
 | `true`    | `false`  | `InverseNCDF(u, true, false)`       | Acklam rational approximation only             |
 | `true`    | `true`   | `InverseNCDF(u, true, true)`        | Acklam plus a Newton step using the precise CDF |
 
+The constructor stores both flags unchanged. In particular, `precise = true`
+does not imply `polish = true`; when polishing is disabled, `InverseNCDF`
+returns the Acklam result without evaluating either CDF.
+
 The constructor surface is `NewSobol(size, iPath, precise = false,
 polish = false)` and the storable wrapper is
 `SobolRSG_(name, iPath, nDim = 1, precise = false, polish = false)`. The default
 therefore uses the Acklam-only fast path. Set both `precise = true` and
 `polish = true` when the precise-CDF correction is required; `polish = true`
 with `precise = false` selects the cheaper fast-CDF correction. Both flags are
-persisted by the storable markup. `Clone()` also copies the current path index, direction
-matrix, XOR state, and both flags, so the original and clone produce identical
-subsequent uniform and normal draws until either is advanced independently.
+persisted by the storable markup. `Clone()` also copies the current path index,
+direction matrix, XOR state, and both flags, so the original and clone produce
+identical subsequent uniform and normal draws until either is advanced
+independently.
 
 ### Path Seeking
 
