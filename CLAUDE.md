@@ -5,17 +5,23 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Build Commands
 
 ```bash
-# Full Linux build (runs Machinist code generation, configures the workspace,
-# builds all enabled sub-projects, installs into the repo root, and runs CTest)
+# Default Linux build (configures core + public C++ + examples via the
+# Release-linux preset, installs into build/stage/Release-linux, and runs CTest).
+# Pass --full for Python plus benchmarks, --benchmarks for benchmarks only, or
+# --generate to regenerate Machinist sources.
 bash ./build_linux.sh
 
-# Manual build (top-level workspace)
-mkdir build && cd build
-cmake --preset=Release-linux .. && make -j32 && make install
+# Manual build (top-level workspace) -- Release-linux/Debug-linux do not declare a
+# binaryDir, so pass -S/-B explicitly (this is what build_linux.sh does) and use
+# cmake --build / cmake --install instead of raw make.
+cmake --preset=Release-linux -S . -B build/Release-linux
+cmake --build build/Release-linux -j32
+cmake --install build/Release-linux
 
 # Debug build
-mkdir build && cd build
-cmake --preset=Debug-linux .. && make -j32 && make install
+cmake --preset=Debug-linux -S . -B build/Debug-linux
+cmake --build build/Debug-linux -j32
+cmake --install build/Debug-linux
 ```
 
 The top-level `CMakeLists.txt` is a thin workspace that selects sub-projects via options:
@@ -25,10 +31,10 @@ The top-level `CMakeLists.txt` is a thin workspace that selects sub-projects via
 - `DAL_BUILD_EXCEL` (default `OFF`) — build `dal-excel` (Windows-only)
 - `DAL_CPP_BUILD_TESTS` (default `ON`) — build the `dal-cpp` test suite
 - `DAL_CPP_BUILD_EXAMPLES` (default `ON`) — build the `dal-cpp` example programs
-- `DAL_CPP_BUILD_BENCHMARKS` (default `ON`) — build the `dal-cpp` benchmark programs
+- `DAL_CPP_BUILD_BENCHMARKS` (CMake option default `ON`, but the `base` preset in `CMakePresets.json` overrides it to `off`, so preset-driven builds — including `build_linux.sh` without `--benchmarks`/`--full` — disable benchmarks) — build the `dal-cpp` benchmark programs
 - `DAL_USE_ADEPT_AAD` / `DAL_USE_XAD_AAD` / `DAL_USE_CODIPACK_AAD` — pick the AAD backend (source default: Adept; CMake presets override all three to OFF unless explicitly enabled)
 
-CMake installs to the repo root (`CMAKE_INSTALL_PREFIX=${sourceDir}`), placing binaries in `bin/`, libraries in `lib/`, and headers in `include/`.
+CMake installs into a per-preset stage directory (`CMAKE_INSTALL_PREFIX=${sourceDir}/build/stage/${presetName}` in `CMakePresets.json`); `build_linux.sh` installs into `build/stage/Release-linux/`, placing binaries in `bin/`, libraries in `lib/`, and headers in `include/` under that stage directory.
 
 ## Running Tests
 
@@ -38,29 +44,32 @@ Tests are driven through CTest at the workspace level. Each sub-project register
 - `dal_public_tests` — public-API tests (built from `dal-public/tests/`)
 
 ```bash
-# Run all registered tests
-(cd build && ctest --output-on-failure)
+# Run all registered tests (build_linux.sh puts the build tree at build/Release-linux)
+ctest --test-dir build/Release-linux --output-on-failure
 
-# Run a single binary directly
-bin/dal_cpp_tests
-bin/dal_public_tests
+# Run a single binary directly (build tree)
+./build/Release-linux/dal-cpp/dal_cpp_tests
+./build/Release-linux/dal-public/dal_public_tests
 
 # Run a single test suite
-bin/dal_cpp_tests --gtest_filter=<SuiteName>.*
+./build/Release-linux/dal-cpp/dal_cpp_tests --gtest_filter=<SuiteName>.*
 
 # Run a single test
-bin/dal_cpp_tests --gtest_filter=<SuiteName>.<TestName>
+./build/Release-linux/dal-cpp/dal_cpp_tests --gtest_filter=<SuiteName>.<TestName>
 
 # Focused script tree-walk/compiled evaluator parity checks
-bin/dal_cpp_tests --gtest_filter='ScriptCompiledParityTest.*:ScriptCompiledParityFuzzTest.*'
+./build/Release-linux/dal-cpp/dal_cpp_tests --gtest_filter='ScriptCompiledParityTest.*:ScriptCompiledParityFuzzTest.*'
 ```
 
-For script engine performance changes, build and smoke-run the benchmark:
+For script engine performance changes, build and smoke-run the benchmark (benchmarks are off in the `base` preset, so enable them explicitly):
 
 ```bash
-cmake --build build --target script_mc_perf -j 4
-./build/dal-cpp/benchmarks/script_mc_perf/script_mc_perf
+cmake --preset=Release-linux -S . -B build/Release-linux -DDAL_CPP_BUILD_BENCHMARKS=ON
+cmake --build build/Release-linux --target script_mc_perf -j 4
+./build/Release-linux/dal-cpp/benchmarks/script_mc_perf/script_mc_perf
 ```
+
+The paired regression gate that CI runs on pull requests lives in `.github/scripts/check_benchmark_regressions.py`; see `.claude/agents/dal-performancer.md` for reproducing it locally.
 
 ## Code Style
 
@@ -97,7 +106,7 @@ The dependency graph is `dal-cpp ← dal-public ← {dal-python, dal-excel}`. Ea
 - `dal-cpp/dal/auto/` — auto-generated code (Machinist output, glob-included into the library)
 - `dal-cpp/tests/` — Google Test files compiled into the `dal_cpp_tests` binary
 - `dal-cpp/examples/` — standalone example programs (AAD, Monte Carlo, finite difference, scripting, concurrency, Sobol, underdetermined optimization)
-- `dal-cpp/benchmarks/` — standalone performance benchmark programs (matrix, script engine; `script_mc_perf` compares tree-walk and compiled script evaluation)
+- `dal-cpp/benchmarks/` — standalone performance benchmark programs, one executable per target (17 total: matrix, script, tape, jacobian, pde, rng, interp, krylov, banded, cholesky, specialfunctions, black, iv_brent, script_mc, curve_calibration, threadpool, stacks); an 8-target subset is gated by the paired regression script. `script_mc_perf` compares tree-walk and compiled script evaluation
 - `dal-cpp/externals/` — git submodules for AAD frameworks, gtest, rapidjson, machinist
 - `dal-cpp/config/` — Machinist input (`dal.ifc`, `dal.mgl`)
 - `dal-cpp/cmake/` — `Platform.cmake` and helpers

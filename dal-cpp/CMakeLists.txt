@@ -259,6 +259,7 @@ if(DAL_CPP_BUILD_TESTS)
 
     add_executable(dal_cpp_tests ${TEST_FILES})
     target_link_libraries(dal_cpp_tests PRIVATE dal_cpp gtest gtest_main gmock gmock_main)
+    dal_apply_platform_options(dal_cpp_tests)
 
     gtest_discover_tests(dal_cpp_tests)
 

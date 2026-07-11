@@ -110,15 +110,14 @@ For helper classes, define them at file scope before the tests. Use anonymous `n
 ### 4. Build and verify
 
 ```bash
-mkdir -p build && cd build
-cmake --preset=Release-linux .. && make -j$(nproc) dal_cpp_tests && make install
-cd ..
+cmake --preset=Release-linux -S . -B build/Release-linux
+cmake --build build/Release-linux --target dal_cpp_tests -j$(nproc)
 ```
 
 Then run the new tests:
 
 ```bash
-bin/dal_cpp_tests --gtest_filter=<SuiteName>.<TestName>
+./build/Release-linux/dal-cpp/dal_cpp_tests --gtest_filter=<SuiteName>.<TestName>
 ```
 
 If the build fails, the most common causes are:

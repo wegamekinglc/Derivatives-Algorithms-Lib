@@ -1,16 +1,9 @@
 //
 // Created by dal-implementer on 2026-6-28.
 //
-// Random-number-generator micro-benchmark.
-// Builds RNGs (dimension 10) and measures FillNormal / FillUniform over a 100K-path
-// batch, the dominant MC inner loop. Sobol is split into fast (precise=false,
-// polish=false, Acklam-only ~1e-9, the library default) and precise opt-in
-// (precise=true, polish=true, Acklam+Newton ~1e-15) so the per-deviate
-// inverse-CDF cost difference is tracked.
-// BrownianBridge (variance-reduction wrapper) and the PseudoRandom_ alternatives
-// MRG32k3a / ShuffledIRN are pinned to precise=false, isolating their generator-
-// specific overhead against the Sobol fast baseline rather than re-measuring the
-// common inverse-CDF cost (already covered by the Sobol fast/precise pair).
+// Random-number-generator micro-benchmark; see docs/methodology/random.md
+// (Benchmark Coverage) for the fast/precise Sobol case split and the
+// precise=false pinning of the BrownianBridge / pseudo-random cases.
 
 #include <dal/platform/platform.hpp>
 #include <dal/math/random/brownianbridge.hpp>

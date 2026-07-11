@@ -281,6 +281,23 @@ directly rather than iterating through every intermediate point.
   support for substream parallelism; `IRN` is retained as a lightweight
   Knuth-style alternative.
 
+## Benchmark Coverage
+
+The `rng_perf` benchmark (`dal-cpp/benchmarks/rng_perf/rng_perf.cpp`) isolates
+the per-deviate inverse-CDF cost and the generator-specific overhead. Each case
+builds the generator at dimension 10 and drives `FillNormal` / `FillUniform`
+over a 100K-path batch, the dominant Monte Carlo inner loop.
+
+- **Sobol fast** (`precise=false`, `polish=false`, Acklam-only) and **Sobol
+  precise opt-in** (`precise=true`, `polish=true`, Acklam plus the Newton step)
+  split the inverse-CDF cost difference, since Sobol forwards both flags to
+  `InverseNCDF` unchanged.
+- **BrownianBridge** (the variance-reduction wrapper) and the `PseudoRandom_`
+  alternatives `MRG32k3a` and `ShuffledIRN` are pinned to `precise=false`,
+  isolating their generator-specific overhead against the Sobol fast baseline
+  rather than re-measuring the common inverse-CDF cost already covered by the
+  Sobol fast/precise pair.
+
 ## See Also
 
 - [Script engine](script_engine.md) — the Monte Carlo driver that consumes these

@@ -129,10 +129,9 @@ You may need to declare a minimal header/signature so the test compiles, but wri
 (leave it unimplemented, throwing, or returning a placeholder). Build and run the new test, and **confirm it fails
 for the right reason** — the assertion fails or the symbol is unimplemented, not a typo or unrelated breakage:
 ```bash
-mkdir -p build && cd build
-cmake --preset=Release-linux .. && make -j$(nproc) dal_cpp_tests && make install
-cd ..
-bin/dal_cpp_tests --gtest_filter=<SuiteName>.<TestName>
+cmake --preset=Release-linux -S . -B build/Release-linux
+cmake --build build/Release-linux --target dal_cpp_tests -j$(nproc)
+./build/Release-linux/dal-cpp/dal_cpp_tests --gtest_filter=<SuiteName>.<TestName>
 ```
 A test that passes before you write the implementation is not testing the new behavior — fix the test, don't move on.
 
@@ -160,8 +159,9 @@ Commit the generated files together with your markup source.
 
 Rebuild and re-run the target test until it is **green**:
 ```bash
-cd build && cmake --preset=Release-linux .. && make -j$(nproc) dal_cpp_tests && make install && cd ..
-bin/dal_cpp_tests --gtest_filter=<SuiteName>.<TestName>
+cmake --preset=Release-linux -S . -B build/Release-linux
+cmake --build build/Release-linux --target dal_cpp_tests -j$(nproc)
+./build/Release-linux/dal-cpp/dal_cpp_tests --gtest_filter=<SuiteName>.<TestName>
 ```
 If the test fails, fix the *implementation* — never weaken the test unless its expectation is genuinely wrong.
 
@@ -178,7 +178,7 @@ covered by a test that drove its implementation.
 
 **4.1 Run the full test suite** to check for regressions:
 ```bash
-bin/dal_cpp_tests
+./build/Release-linux/dal-cpp/dal_cpp_tests
 ```
 If existing tests fail, fix the regression before proceeding.
 

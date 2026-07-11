@@ -181,10 +181,10 @@ If the user has explicitly asked you to apply the fixes ("apply the duplication 
 2. Apply the agreed findings one at a time, building and re-running the affected suite after each change to
    prove behavior is unchanged:
    ```bash
-   mkdir -p build && cd build
-   cmake --preset=Release-linux .. && make -j$(nproc) dal_cpp_tests && make install && cd ..
-   bin/dal_cpp_tests --gtest_filter=<AffectedSuite>.*
-   bin/dal_cpp_tests
+   cmake --preset=Release-linux -S . -B build/Release-linux
+   cmake --build build/Release-linux --target dal_cpp_tests -j$(nproc)
+   ./build/Release-linux/dal-cpp/dal_cpp_tests --gtest_filter=<AffectedSuite>.*
+   ./build/Release-linux/dal-cpp/dal_cpp_tests
    ```
 3. Style-self-review the changed files against `.claude/rules/code-style.md`.
 4. Report what changed, the test result, and offer to commit/PR - do not commit or push yourself.

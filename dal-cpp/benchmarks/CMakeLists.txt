@@ -13,7 +13,9 @@ set(DAL_BENCHMARK_TARGETS
     black_perf
     iv_brent_perf
     script_mc_perf
-    curve_calibration_perf)
+    curve_calibration_perf
+    threadpool_perf
+    stacks_perf)
 
 foreach(benchmark_target IN LISTS DAL_BENCHMARK_TARGETS)
     add_subdirectory(${benchmark_target})
