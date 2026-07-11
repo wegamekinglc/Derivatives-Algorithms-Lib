@@ -333,43 +333,31 @@ TEST(JointCalibrationTest, TestJointOisCurveAgreesWithStagedOis) {
     const Ccy_ ccy("USD");
     const PrototypeSet_ proto = BuildPrototypes(today, ccy);
     const JointMultiCurveCalibrationSpec_ jointSpec = BuildCanonicalJointSpec(today, ccy, proto);
-    const JointMultiCurveCalibrationResult_ jointResult = CalibrateJointMultiCurve(jointSpec);
+    // This regression measures joint-vs-staged construction drift, so both underdetermined
+    // solves must use the same local-linearization method. BUMPED is the historical PWL path.
+    JointMultiCurveCalibrationOptions_ jointOptions;
+    jointOptions.jacobianMode_ = CurveJacobianMode_::Value_::BUMPED;
+    jointOptions.computeJacobianAtSolution_ = false;
+    const JointMultiCurveCalibrationResult_ jointResult = CalibrateJointMultiCurve(jointSpec, jointOptions);
 
-    MultiCurveCalibrationResult_ stagedResult;
-    {
-        CurveCalibrationSpec_ oisStage;
-        oisStage.today_ = today;
-        oisStage.ccy_ = ccy.String();
-        oisStage.curveName_ = "staged_ois";
-        oisStage.instruments_ = proto.ois;
-        oisStage.knotDates_ = SharedKnots(today);
-        oisStage.targetCollateral_ = CollateralType_(CollateralType_::Value_::OIS);
-        oisStage.solveMode_ = CurveSolveMode_::Value_::APPROXIMATE;
-        oisStage.fitTolerance_ = 1.0e-8;
-        oisStage.liborBasis_ = proto.liborBasis;
-
-        CurveCalibrationSpec_ liborStage;
-        liborStage.today_ = today;
-        liborStage.ccy_ = ccy.String();
-        liborStage.curveName_ = "staged_3m";
-        liborStage.instruments_ = proto.libor;
-        liborStage.knotDates_ = SharedKnots(today);
-        liborStage.targetCollateral_ = CollateralType_(CollateralType_::Value_::OIS);
-        liborStage.targetTenor_ = proto.forecastTenor;
-        liborStage.calibrateDiscountCurve_ = false;
-        liborStage.solveMode_ = CurveSolveMode_::Value_::APPROXIMATE;
-        liborStage.fitTolerance_ = 1.0e-8;
-        liborStage.liborBasis_ = proto.liborBasis;
-
-        MultiCurveCalibrationSpec_ multi;
-        multi.ccy_ = ccy.String();
-        multi.liborBasis_ = proto.liborBasis;
-        multi.stages_ = Vector_<CurveCalibrationSpec_>{oisStage, liborStage};
-        stagedResult = CalibrateMultiCurve(multi);
-    }
+    CurveCalibrationSpec_ oisStage;
+    oisStage.today_ = today;
+    oisStage.ccy_ = ccy.String();
+    oisStage.curveName_ = "staged_ois";
+    oisStage.instruments_ = proto.ois;
+    oisStage.knotDates_ = SharedKnots(today);
+    oisStage.targetCollateral_ = CollateralType_(CollateralType_::Value_::OIS);
+    oisStage.solveMode_ = CurveSolveMode_::Value_::APPROXIMATE;
+    oisStage.fitTolerance_ = 1.0e-8;
+    oisStage.liborBasis_ = proto.liborBasis;
+    CurveCalibrationOptions_ stagedOptions;
+    stagedOptions.jacobianMode_ = CurveJacobianMode_::Value_::BUMPED;
+    stagedOptions.computeEffJacobianInverse_ = false;
+    stagedOptions.computeForwardJacobian_ = false;
+    const CurveCalibrationResult_ stagedResult = CalibrateYieldCurve(oisStage, stagedOptions);
 
     const Handle_<DiscountCurve_>& jointOis = jointResult.discountCurves_.at(CollateralType_(CollateralType_::Value_::OIS));
-    const Handle_<DiscountCurve_>& stagedOis = stagedResult.discountCurves_.at(CollateralType_(CollateralType_::Value_::OIS));
+    const DiscountCurve_& stagedOis = *stagedResult.curve_;
     const Vector_<Date_> pillars = {
         Date::AddMonths(today, 12), Date::AddMonths(today, 24), Date::AddMonths(today, 36),
         Date::AddMonths(today, 60), Date::AddMonths(today, 84), Date::AddMonths(today, 120),
@@ -377,7 +365,7 @@ TEST(JointCalibrationTest, TestJointOisCurveAgreesWithStagedOis) {
     double maxDiff = 0.0;
     for (const auto& pillar : pillars) {
         const double dfJoint = (*jointOis)(today, pillar);
-        const double dfStaged = (*stagedOis)(today, pillar);
+        const double dfStaged = stagedOis(today, pillar);
         ASSERT_GT(dfJoint, 0.0);
         ASSERT_LE(dfJoint, 1.0);
         maxDiff = std::max(maxDiff, std::fabs(dfJoint - dfStaged));
@@ -595,7 +583,7 @@ TEST(JointCalibrationTest, TestValidatorRejectsBaseLayeringOnDiscountDeclaration
     ASSERT_THROW(static_cast<void>(CalibrateJointMultiCurve(spec)), Dal::Exception_);
 }
 
-TEST(JointCalibrationTest, TestValidatorRejectsBaseLayeringOnPWC) {
+TEST(JointCalibrationTest, TestValidatorAcceptsBaseLayeringOnPWC) {
     RegisterAll_::Init();
     const Date_ today(2024, 1, 15);
     const Ccy_ ccy("USD");
@@ -604,7 +592,13 @@ TEST(JointCalibrationTest, TestValidatorRejectsBaseLayeringOnPWC) {
     JointCurveDeclaration_& liborDecl = spec.curves_[1];
     liborDecl.baseLayeredOverDiscount_ = true;
     liborDecl.parameterization_ = CurveParameterization_::Value_::PIECEWISE_CONSTANT_FWD;
-    ASSERT_THROW(static_cast<void>(CalibrateJointMultiCurve(spec)), Dal::Exception_);
+    liborDecl.initialGuessPerNode_ = Vector_<>(liborDecl.knotDates_.size(), 0.005);
+    const JointMultiCurveCalibrationResult_ result = CalibrateJointMultiCurve(spec);
+    ASSERT_TRUE(result.converged_);
+    const Handle_<DiscountCurve_>& forward = result.forwardCurves_.at(liborDecl.targetTenor_);
+    Vector_<const YCComponent_*> components;
+    forward->Poll(&components);
+    ASSERT_GE(components.size(), 2u);
 }
 
 TEST(JointCalibrationTest, TestDiagnosticsFieldsArePopulated) {

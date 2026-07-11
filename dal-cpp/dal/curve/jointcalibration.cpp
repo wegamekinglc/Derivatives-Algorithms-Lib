@@ -4,86 +4,40 @@
 
 #include <algorithm>
 #include <cmath>
-#include <memory>
-#include <set>
-#include <utility>
-#include <vector>
-#include <dal/platform/platform.hpp>
-#include <dal/platform/strict.hpp>
+#include <dal/curve/aadjacobian.hpp>
+#include <dal/curve/calibration_internal.hpp>
 #include <dal/curve/curveblock.hpp>
 #include <dal/curve/curvejacobian.hpp>
+#include <dal/curve/curveparameterization.hpp>
 #include <dal/curve/jointcalibration.hpp>
 #include <dal/curve/jointrate.hpp>
 #include <dal/curve/piecewiseconstant.hpp>
 #include <dal/curve/piecewiselinear.hpp>
+#include <dal/curve/tapeguard.hpp>
 #include <dal/curve/ycconst.hpp>
 #include <dal/curve/ycctx.hpp>
 #include <dal/curve/ycimp.hpp>
 #include <dal/curve/ycinstrument.hpp>
 #include <dal/curve/ycpwlf.hpp>
 #include <dal/math/aad/aad.hpp>
-#include <dal/curve/calibration_internal.hpp>
-#include <dal/curve/tapeguard.hpp>
 #include <dal/math/matrix/banded.hpp>
 #include <dal/math/optimization/underdetermined.hpp>
 #include <dal/math/optimization/underdeterminedutils.hpp>
+#include <dal/platform/platform.hpp>
+#include <dal/platform/strict.hpp>
 #include <dal/time/datetime.hpp>
 #include <dal/utilities/dictionary.hpp>
 #include <dal/utilities/numerics.hpp>
+#include <memory>
+#include <set>
+#include <utility>
+#include <vector>
 
 namespace Dal {
 
     namespace {
         constexpr const char* KEY_MAX_EVALUATIONS = "MAXEVALUATIONS";
         constexpr const char* KEY_MAX_RESTARTS = "MAXRESTARTS";
-
-        // See docs/methodology/yield_curve_jacobian.md §Joint Multi-Curve Analytic Jacobian.
-        int ParamsPerKnot(CurveParameterization_ parameterization) {
-            switch (parameterization.Switch()) {
-            case CurveParameterization_::Value_::PIECEWISE_LINEAR_FWD:
-                return 2;
-            case CurveParameterization_::Value_::PIECEWISE_CONSTANT_FWD:
-                return 1;
-            case CurveParameterization_::Value_::LOG_DISCOUNT:
-                REQUIRE(false, "Joint multi-curve calibration does not support LOG_DISCOUNT in the first cut");
-                return 0;
-            case CurveParameterization_::Value_::ZERO_RATE:
-                REQUIRE(false, "Joint multi-curve calibration does not support ZERO_RATE");
-                return 0;
-            default:
-                REQUIRE(false, "Unknown curve parameterization");
-                return 0;
-            }
-        }
-
-        Handle_<DiscountCurve_> BuildDeclarationCurve(const JointCurveDeclaration_& decl,
-                                                      const String_& ccy,
-                                                      const DayBasis_& dayCount,
-                                                      const Vector_<>& xSlice,
-                                                      const Handle_<DiscountCurve_>& base = Handle_<DiscountCurve_>()) {
-            switch (decl.parameterization_.Switch()) {
-            case CurveParameterization_::Value_::PIECEWISE_LINEAR_FWD: {
-                const int nKnots = static_cast<int>(decl.knotDates_.size());
-                REQUIRE(static_cast<int>(xSlice.size()) == 2 * nKnots, "Joint PWL parameter slice length must equal 2 * nKnots");
-                Vector_<> fLeft(nKnots);
-                Vector_<> fRight(nKnots);
-                for (int i = 0; i < nKnots; ++i) {
-                    fLeft[i] = xSlice[2 * i];
-                    fRight[i] = xSlice[2 * i + 1];
-                }
-                return Handle_<DiscountCurve_>(NewDiscountPWLF(decl.curveName_, ccy, PiecewiseLinear_(decl.knotDates_, fLeft, fRight), base));
-            }
-            case CurveParameterization_::Value_::PIECEWISE_CONSTANT_FWD: {
-                REQUIRE(static_cast<int>(xSlice.size()) == static_cast<int>(decl.knotDates_.size()),
-                        "Joint PWC parameter slice length must equal nKnots");
-                REQUIRE(base.IsEmpty(), "Joint multi-curve calibration: base layering is not supported on PIECEWISE_CONSTANT_FWD declarations");
-                return Handle_<DiscountCurve_>(NewDiscountPWC(decl.curveName_, ccy, PiecewiseConstant_(decl.knotDates_, xSlice)));
-            }
-            default:
-                REQUIRE(false, "Joint multi-curve calibration: unsupported parameterization at curve build");
-                return Handle_<DiscountCurve_>();
-            }
-        }
 
         // See docs/methodology/yield_curve_jacobian.md §Joint Multi-Curve Analytic Jacobian.
         String_ ForwardDeclarationOffendingInstrument(const JointCurveDeclaration_& decl) {
@@ -104,13 +58,19 @@ namespace Dal {
             Vector_<Handle_<YCInstrument_>> instruments;
             Vector_<Handle_<YCInstrument_::Rate_>> rates;
             Vector_<> marketRates;
-            Vector_<Date_> knotDates;
-            int paramsPerKnot;
             double smoothingWeight;
+            CurveDefinition_ definition;
+            CurveParameterLayout_ layout;
         };
 
-        std::pair<std::set<CollateralType_>, std::set<PeriodLength_>>
-        DedupCollateralsAndTenors(const JointMultiCurveCalibrationSpec_& spec) {
+        template <class T_> Vector_<T_> SliceParameters(const Vector_<T_>& parameters, const CurveSlot_& slot) {
+            Vector_<T_> result(slot.nParams);
+            for (int i = 0; i < slot.nParams; ++i)
+                result[i] = parameters[slot.paramOffset + i];
+            return result;
+        }
+
+        std::pair<std::set<CollateralType_>, std::set<PeriodLength_>> DedupCollateralsAndTenors(const JointMultiCurveCalibrationSpec_& spec) {
             REQUIRE(!spec.curves_.empty(), "Joint multi-curve calibration requires at least one curve declaration");
             REQUIRE(spec.tolerance_ > 0.0 && spec.fitTolerance_ > 0.0, "Joint multi-curve calibration tolerances must be positive");
             REQUIRE(spec.maxEvaluations_ > 0 && spec.maxRestarts_ > 0, "Joint multi-curve calibration iteration caps must be positive");
@@ -126,8 +86,7 @@ namespace Dal {
                     REQUIRE(!decl.baseLayeredOverDiscount_,
                             String_("Declaration ") + String::FromInt(di) + " base-layered on a discount declaration");
                 } else {
-                    REQUIRE(tenors.insert(decl.targetTenor_).second,
-                            String_("Duplicate forward tenor ") + decl.targetTenor_.String());
+                    REQUIRE(tenors.insert(decl.targetTenor_).second, String_("Duplicate forward tenor ") + decl.targetTenor_.String());
                 }
             }
             REQUIRE(hasDiscount, "Joint multi-curve calibration requires at least one discount-curve declaration");
@@ -146,24 +105,25 @@ namespace Dal {
                 REQUIRE(!decl.instruments_.empty(), String_("Declaration ") + String::FromInt(i) + " requires at least one instrument");
                 REQUIRE(!decl.knotDates_.empty(), String_("Declaration ") + String::FromInt(i) + " requires at least one knot date");
                 for (int k = 1; k < static_cast<int>(decl.knotDates_.size()); ++k)
-                    REQUIRE(decl.knotDates_[k] > decl.knotDates_[k - 1], String_("Declaration ") + String::FromInt(i) + " knot dates must be strictly increasing");
+                    REQUIRE(decl.knotDates_[k] > decl.knotDates_[k - 1],
+                            String_("Declaration ") + String::FromInt(i) + " knot dates must be strictly increasing");
                 REQUIRE(decl.knotDates_.front() > spec.today_, String_("Declaration ") + String::FromInt(i) + " knot dates must be after today");
                 REQUIRE(decl.smoothingWeight_ > 0.0, String_("Declaration ") + String::FromInt(i) + " smoothing weight must be positive");
 
                 if (!decl.calibrateDiscountCurve_) {
                     REQUIRE(decl.targetTenor_ != PeriodLength_(), String_("Forward declaration ") + String::FromInt(i) + " requires a target tenor");
-                    if (decl.baseLayeredOverDiscount_)
-                        REQUIRE(decl.parameterization_ == CurveParameterization_::Value_::PIECEWISE_LINEAR_FWD,
-                                String_("Declaration ") + String::FromInt(i) + " base-layering requires PWL_FWD");
                     REQUIRE(producedCollaterals.count(decl.targetCollateral_) > 0,
                             String_("Declaration ") + String::FromInt(i) + " target collateral " + decl.targetCollateral_.String() +
                                 " is not produced by any discount-curve declaration in this spec");
                     const String_ offender = ForwardDeclarationOffendingInstrument(decl);
                     REQUIRE(offender.empty(), String_("Declaration ") + String::FromInt(i) + " forward instrument " + offender +
-                                                      " has useProjectionCurve_ = false and leaves the forward curve unconstrained");
+                                                  " has useProjectionCurve_ = false and leaves the forward curve unconstrained");
                 }
 
-                const int nParams = ParamsPerKnot(decl.parameterization_) * static_cast<int>(decl.knotDates_.size());
+                const CurveDefinition_ definition = MakeCurveDefinition(decl.curveName_, spec.ccy_, decl.parameterization_, decl.logDfScheme_,
+                                                                        decl.knotDates_, spec.today_, spec.liborBasis_);
+                const CurveParameterLayout_ layout = BuildCurveParameterLayout(definition);
+                const int nParams = layout.parameterCount_;
                 const auto ordered = OrderInstruments(decl.instruments_);
                 CurveSlot_ slot;
                 slot.curveIndex = i;
@@ -172,9 +132,9 @@ namespace Dal {
                 slot.residualOffset = residualOffset;
                 slot.nInstruments = static_cast<int>(ordered.size());
                 slot.instruments = ordered;
-                slot.knotDates = decl.knotDates_;
-                slot.paramsPerKnot = ParamsPerKnot(decl.parameterization_);
                 slot.smoothingWeight = decl.smoothingWeight_;
+                slot.definition = definition;
+                slot.layout = layout;
                 slot.rates.reserve(ordered.size());
                 slot.marketRates.reserve(ordered.size());
                 for (const auto& inst : ordered) {
@@ -195,10 +155,13 @@ namespace Dal {
             auto weights = std::make_unique<Sparse::TriDiagonal_>(totalParams);
             for (const auto& slot : slots) {
                 Vector_<DateTime_> expandedKnots;
-                expandedKnots.reserve(slot.knotDates.size() * slot.paramsPerKnot);
-                for (const auto& knot : slot.knotDates)
-                    for (int i = 0; i < slot.paramsPerKnot; ++i)
-                        expandedKnots.push_back(DateTime_(knot));
+                expandedKnots.reserve(slot.layout.parameterCount_);
+                const int firstFreeNode = slot.layout.pinnedAnchor_ ? 1 : 0;
+                for (int node = firstFreeNode; node < slot.layout.storageNodeCount_; ++node)
+                    for (int parameter = 0; parameter < slot.layout.paramsPerDeclaredKnot_; ++parameter)
+                        expandedKnots.push_back(DateTime_(slot.definition.nodeDates_[node]));
+                REQUIRE(static_cast<int>(expandedKnots.size()) == slot.layout.parameterCount_,
+                        "Joint curve smoothing dates must match the curve parameter layout");
                 Underdetermined::SelfCouplePWC(weights.get(), expandedKnots, slot.smoothingWeight, slot.paramOffset);
             }
             return weights;
@@ -213,28 +176,11 @@ namespace Dal {
             return Vector_<>(nParams, spec.initialGuess_);
         }
 
-        // See docs/methodology/yield_curve_jacobian.md §Joint Multi-Curve Analytic Jacobian.
-        template <class T_, class B_ = Tape::DiscountCurve_<double>>
-        std::shared_ptr<Tape::DiscountPWLF_<T_, B_>>
-        BuildDeclarationCurveT(const JointCurveDeclaration_& decl,
-                               const String_& ccy,
-                               const Vector_<Date_>& knotDates,
-                               const Vector_<T_>& fLeftT,
-                               const Vector_<T_>& fRightT,
-                               const Handle_<B_>& base = Handle_<B_>()) {
-            REQUIRE(decl.parameterization_ == CurveParameterization_::Value_::PIECEWISE_LINEAR_FWD,
-                    "JointResidualFunction_::BuildDeclarationCurveT: only PIECEWISE_LINEAR_FWD is supported on the AAD path");
-            return std::make_shared<Tape::DiscountPWLF_<T_, B_>>(decl.curveName_, ccy, knotDates, fLeftT, fRightT, base);
-        }
-
         [[nodiscard]] bool IsSupportedInstrumentType(const YCInstrument_& inst) {
             // OISSwap_ : public Swap_ reaches the Swap_ arm; the explicit OISSwap_ check in the
             // original ||-chain was therefore redundant and is dropped here.
             return VisitRate(
-                inst,
-                [](const Deposit_&) { return true; },
-                [](const FRA_&) { return true; },
-                [](const Future_&) { return true; },
+                inst, [](const Deposit_&) { return true; }, [](const FRA_&) { return true; }, [](const Future_&) { return true; },
                 [](const Swap_&) { return true; });
         }
 
@@ -249,23 +195,22 @@ namespace Dal {
                 // See docs/methodology/yield_curve_jacobian.md §Joint Multi-Curve Analytic Jacobian.
                 if (onDiscountDeclaration && conv.useProjectionCurve_) {
                     const String_ msg = String_("Joint AAD Jacobian requires discount-declaration instruments to forecast off "
-                                                "the discount curve; instrument '")
-                                        + inst.Name() + "' projects (useProjectionCurve_ == true), falling back to bumped";
+                                                "the discount curve; instrument '") +
+                                        inst.Name() + "' projects (useProjectionCurve_ == true), falling back to bumped";
                     NOTICE(msg);
                     return false;
                 }
                 return true;
             }
             {
-                const String_ msg = String_("Joint AAD Jacobian has no templated rate for instrument '") + inst.Name()
-                                    + "' (type " + inst.Name() + ") in this declaration; falling back to bumped";
+                const String_ msg = String_("Joint AAD Jacobian has no templated rate for instrument '") + inst.Name() + "' (type " + inst.Name() +
+                                    ") in this declaration; falling back to bumped";
                 NOTICE(msg);
             }
             return false;
         }
 
-        bool JointSpecEligibleForAnalyticJacobian(const JointMultiCurveCalibrationSpec_* spec,
-                                                   const std::vector<CurveSlot_>* slots) {
+        bool JointSpecEligibleForAnalyticJacobian(const JointMultiCurveCalibrationSpec_* spec, const std::vector<CurveSlot_>* slots) {
             REQUIRE(spec && slots, "JointSpecEligibleForAnalyticJacobian: null spec/slots");
             if (spec->liborBasis_.String() != String_("ACT_365F")) {
                 NOTICE("Joint AAD Jacobian requires liborBasis_ == ACT_365F; falling back to bumped");
@@ -274,8 +219,8 @@ namespace Dal {
             for (int d = 0; d < static_cast<int>(slots->size()); ++d) {
                 const CurveSlot_& slot = (*slots)[d];
                 const JointCurveDeclaration_& decl = spec->curves_[slot.curveIndex];
-                if (decl.parameterization_ != CurveParameterization_::Value_::PIECEWISE_LINEAR_FWD) {
-                    NOTICE("Joint AAD Jacobian requires PIECEWISE_LINEAR_FWD on every declaration; falling back to bumped");
+                if (decl.parameterization_ == CurveParameterization_::Value_::ZERO_RATE) {
+                    NOTICE("Joint AAD Jacobian does not support the unimplemented ZERO_RATE parameterization; falling back to bumped");
                     return false;
                 }
                 const bool onDiscountDecl = decl.calibrateDiscountCurve_;
@@ -299,7 +244,8 @@ namespace Dal {
             void EvaluateEligibilityOnce() const {
                 if (cachedEligibility_ != AnalyticEligibility_::Value_::UNKNOWN)
                     return;
-                cachedEligibility_ = JointSpecEligibleForAnalyticJacobian(spec_, slots_) ? AnalyticEligibility_::Value_::ELIGIBLE : AnalyticEligibility_::Value_::INELIGIBLE;
+                cachedEligibility_ = JointSpecEligibleForAnalyticJacobian(spec_, slots_) ? AnalyticEligibility_::Value_::ELIGIBLE
+                                                                                         : AnalyticEligibility_::Value_::INELIGIBLE;
             }
 
             [[nodiscard]] bool Eligible() const {
@@ -310,9 +256,7 @@ namespace Dal {
             [[nodiscard]] Underdetermined::Jacobian_* AnalyticJacobian(const Vector_<>& x, const Vector_<>& /*f*/) const;
 
         public:
-            JointResidualFunction_(const JointMultiCurveCalibrationSpec_& spec,
-                                   const std::vector<CurveSlot_>& slots,
-                                   CurveJacobianMode_ jacobianMode)
+            JointResidualFunction_(const JointMultiCurveCalibrationSpec_& spec, const std::vector<CurveSlot_>& slots, CurveJacobianMode_ jacobianMode)
                 : spec_(&spec), slots_(&slots), ccy_(spec.ccy_), dayCount_(spec.liborBasis_), jacobianMode_(jacobianMode) {}
 
             [[nodiscard]] int EvaluationCount() const { return evaluationCount_; }
@@ -320,12 +264,12 @@ namespace Dal {
             CurveBlock_ BuildCurvesFromX(const Vector_<>& x) const {
                 std::map<CollateralType_, Handle_<DiscountCurve_>> discountCurves;
                 std::map<PeriodLength_, Handle_<DiscountCurve_>> forwardCurves;
-                auto sliceX = [&](const CurveSlot_& s) { Vector_<> xs(s.nParams); for(int j=0;j<s.nParams;++j) xs[j]=x[s.paramOffset+j]; return xs; };
                 for (const auto& slot : *slots_) {
                     const JointCurveDeclaration_& decl = spec_->curves_[slot.curveIndex];
                     if (!decl.calibrateDiscountCurve_)
                         continue;
-                    discountCurves[decl.targetCollateral_] = BuildDeclarationCurve(decl, ccy_, dayCount_, sliceX(slot));
+                    discountCurves[decl.targetCollateral_] =
+                        Handle_<DiscountCurve_>(BuildDiscountCurveUniqueT<double>(slot.definition, SliceParameters(x, slot)).release());
                 }
                 for (const auto& slot : *slots_) {
                     const JointCurveDeclaration_& decl = spec_->curves_[slot.curveIndex];
@@ -334,7 +278,8 @@ namespace Dal {
                     Handle_<DiscountCurve_> base;
                     if (decl.baseLayeredOverDiscount_)
                         base = discountCurves.at(decl.targetCollateral_);
-                    forwardCurves[decl.targetTenor_] = BuildDeclarationCurve(decl, ccy_, dayCount_, sliceX(slot), base);
+                    forwardCurves[decl.targetTenor_] =
+                        Handle_<DiscountCurve_>(BuildDiscountCurveUniqueT<double>(slot.definition, SliceParameters(x, slot), base).release());
                 }
                 return CurveBlock_("joint", ccy_, discountCurves, forwardCurves, dayCount_);
             }
@@ -365,61 +310,43 @@ namespace Dal {
                 return nullptr;
             }
 
-            [[nodiscard]] std::vector<std::pair<Vector_<Dal::AAD::Number_>, Vector_<Dal::AAD::Number_>>>
-            RegisterTapeParameters(const Vector_<>& x) const {
-                std::vector<std::pair<Vector_<Dal::AAD::Number_>, Vector_<Dal::AAD::Number_>>> fwdParams(slots_->size());
-                for (int d = 0; d < static_cast<int>(slots_->size()); ++d) {
-                    const CurveSlot_& slot = (*slots_)[d];
-                    const int nKnots = static_cast<int>(slot.knotDates.size());
-                    auto& [fLeftT, fRightT] = fwdParams[d];
-                    fLeftT.Resize(nKnots);
-                    fRightT.Resize(nKnots);
-                    for (int k = 0; k < nKnots; ++k) {
-                        Dal::AAD::RegisterIndependent(fLeftT[k], x[slot.paramOffset + 2 * k]);
-                        Dal::AAD::RegisterIndependent(fRightT[k], x[slot.paramOffset + 2 * k + 1]);
-                    }
-                }
-                return fwdParams;
-            }
-
             [[nodiscard]] std::map<PeriodLength_, std::shared_ptr<Tape::DiscountCurve_<Dal::AAD::Number_>>>
-            BuildTemplatedCurves(const std::vector<std::pair<Vector_<Dal::AAD::Number_>, Vector_<Dal::AAD::Number_>>>& fwdParams,
-                                std::map<CollateralType_, std::shared_ptr<Tape::DiscountCurve_<Dal::AAD::Number_>>>& discountStorage) const {
+            BuildTemplatedCurves(const Vector_<Dal::AAD::Number_>& parameters,
+                                 std::map<CollateralType_, std::shared_ptr<Tape::DiscountCurve_<Dal::AAD::Number_>>>& discountStorage) const {
                 std::map<PeriodLength_, std::shared_ptr<Tape::DiscountCurve_<Dal::AAD::Number_>>> forwardStorage;
-                for (int d = 0; d < static_cast<int>(slots_->size()); ++d) {
-                    const CurveSlot_& slot = (*slots_)[d];
+                for (const auto& slot : *slots_) {
                     const JointCurveDeclaration_& decl = spec_->curves_[slot.curveIndex];
-                    const auto& [fLeftT, fRightT] = fwdParams[d];
-                    if (decl.calibrateDiscountCurve_) {
+                    if (decl.calibrateDiscountCurve_)
                         discountStorage[decl.targetCollateral_] =
-                            BuildDeclarationCurveT<Dal::AAD::Number_>(decl, ccy_, slot.knotDates, fLeftT, fRightT);
-                    } else if (decl.baseLayeredOverDiscount_) {
+                            BuildDiscountCurveT<Dal::AAD::Number_>(slot.definition, SliceParameters(parameters, slot));
+                }
+                for (const auto& slot : *slots_) {
+                    const JointCurveDeclaration_& decl = spec_->curves_[slot.curveIndex];
+                    if (decl.calibrateDiscountCurve_)
+                        continue;
+                    if (decl.baseLayeredOverDiscount_) {
                         Handle_<Tape::DiscountCurve_<Dal::AAD::Number_>> base(discountStorage.at(decl.targetCollateral_));
-                        forwardStorage[decl.targetTenor_] =
-                            BuildDeclarationCurveT<Dal::AAD::Number_, Tape::DiscountCurve_<Dal::AAD::Number_>>(
-                                decl, ccy_, slot.knotDates, fLeftT, fRightT, base);
+                        forwardStorage[decl.targetTenor_] = BuildDiscountCurveT<Dal::AAD::Number_, Tape::DiscountCurve_<Dal::AAD::Number_>>(
+                            slot.definition, SliceParameters(parameters, slot), base);
                     } else {
                         forwardStorage[decl.targetTenor_] =
-                            BuildDeclarationCurveT<Dal::AAD::Number_>(decl, ccy_, slot.knotDates, fLeftT, fRightT);
+                            BuildDiscountCurveT<Dal::AAD::Number_>(slot.definition, SliceParameters(parameters, slot));
                     }
                 }
                 return forwardStorage;
             }
 
-            [[nodiscard]] Handle_<Tape::Rate_<Dal::AAD::Number_>>
-            DiscountRateT(const YCInstrument_& inst) const {
+            [[nodiscard]] Handle_<Tape::Rate_<Dal::AAD::Number_>> DiscountRateT(const YCInstrument_& inst) const {
                 // Caller (ComputeTemplatedResiduals) has already filtered to supported types via
                 // InstrumentEligibleForAnalyticJacobian; VisitRate returns an empty handle on miss.
                 return VisitRate(
-                    inst,
-                    [](const Deposit_& d) { return d.PrecomputeT<Dal::AAD::Number_>(); },
+                    inst, [](const Deposit_& d) { return d.PrecomputeT<Dal::AAD::Number_>(); },
                     [](const FRA_& f) { return f.PrecomputeT<Dal::AAD::Number_>(); },
                     [](const Future_& fu) { return fu.PrecomputeT<Dal::AAD::Number_>(); },
                     [](const Swap_& s) { return s.PrecomputeT<Dal::AAD::Number_>(); });
             }
 
-            [[nodiscard]] Vector_<Dal::AAD::Number_>
-            ComputeTemplatedResiduals(const Tape::JointCurveBlock_<Dal::AAD::Number_>& block) const {
+            [[nodiscard]] Vector_<Dal::AAD::Number_> ComputeTemplatedResiduals(const Tape::JointCurveBlock_<Dal::AAD::Number_>& block) const {
                 int totalResiduals = 0;
                 for (const auto& slot : *slots_)
                     totalResiduals += slot.nInstruments;
@@ -431,11 +358,11 @@ namespace Dal {
                         const auto& inst = *slot.instruments[i];
                         const RateIndexConvention_& conv = *FloatConventionOf(inst);
                         if (conv.useProjectionCurve_)
-                            residuals[offset + i] = (*Tape::ProjectionRateAt<Dal::AAD::Number_>(inst))(block)
-                                                    - static_cast<double>(slot.marketRates[i]);
+                            residuals[offset + i] =
+                                (*Tape::ProjectionRateAt<Dal::AAD::Number_>(inst))(block) - static_cast<double>(slot.marketRates[i]);
                         else
-                            residuals[offset + i] = (*DiscountRateT(inst))(Tape::YCCtx_<Dal::AAD::Number_>(block.Discount(conv.collateral_)))
-                                                    - static_cast<double>(slot.marketRates[i]);
+                            residuals[offset + i] = (*DiscountRateT(inst))(Tape::YCCtx_<Dal::AAD::Number_>(block.Discount(conv.collateral_))) -
+                                                    static_cast<double>(slot.marketRates[i]);
                     }
                     offset += slot.nInstruments;
                 }
@@ -447,11 +374,11 @@ namespace Dal {
             auto* tape = Dal::AAD::Tape();
             TapeGuard_ guard(tape);
 
-            const auto fwdParams = RegisterTapeParameters(x);
+            Vector_<Dal::AAD::Number_> parameters = RegisterCurveParameters(x);
             Dal::AAD::NewRecording(*tape);
 
             std::map<CollateralType_, std::shared_ptr<Tape::DiscountCurve_<Dal::AAD::Number_>>> discountStorage;
-            const auto forwardStorage = BuildTemplatedCurves(fwdParams, discountStorage);
+            const auto forwardStorage = BuildTemplatedCurves(parameters, discountStorage);
 
             Tape::JointCurveBlock_<Dal::AAD::Number_> block;
             for (const auto& [collateral, curve] : discountStorage)
@@ -460,38 +387,7 @@ namespace Dal {
                 block.forwardCurves[tenor] = curve.get();
 
             Vector_<Dal::AAD::Number_> residuals = ComputeTemplatedResiduals(block);
-            const int totalResiduals = static_cast<int>(residuals.size());
-
-            // Reverse sweep: per-residual {Adjoint=1.0, PropagateToStart, harvest}.
-            // Native: PropagateOne zeroes each consumed intermediate adjoint inline, so no full-tape
-            // ZeroAdjoints pass is needed before each row. The parameter leaves are not consumed by
-            // PropagateOne and would accumulate across rows, so they are zeroed locally after harvest
-            // -- O(nParams) per row instead of O(all nodes).
-            // XAD/CoDi/Adept: no inline zeroing in PropagateOne, and Adjoint() returns by value, so
-            // a full ZeroAdjoints sweep before each row is still required.
-            const int nCols = static_cast<int>(x.size());
-            Matrix_<> j(totalResiduals, nCols, 0.0);
-            for (int i = 0; i < totalResiduals; ++i) {
-#if defined(DAL_USE_XAD_AAD) || defined(DAL_USE_CODIPACK_AAD) || defined(DAL_USE_ADEPT_AAD)
-                Dal::AAD::ZeroAdjoints(*tape);
-#endif
-                Dal::AAD::Adjoint(residuals[i]) = 1.0;
-                Dal::AAD::PropagateToStart(*tape);
-                for (int d = 0; d < static_cast<int>(slots_->size()); ++d) {
-                    const CurveSlot_& slot = (*slots_)[d];
-                    const int nKnots = static_cast<int>(slot.knotDates.size());
-                    const auto& [fLeftT, fRightT] = fwdParams[d];
-                    for (int k = 0; k < nKnots; ++k) {
-                        j(i, slot.paramOffset + 2 * k) = Dal::AAD::Value(Dal::AAD::Adjoint(fLeftT[k]));
-                        j(i, slot.paramOffset + 2 * k + 1) = Dal::AAD::Value(Dal::AAD::Adjoint(fRightT[k]));
-#if !defined(DAL_USE_XAD_AAD) && !defined(DAL_USE_CODIPACK_AAD) && !defined(DAL_USE_ADEPT_AAD)
-                        Dal::AAD::Adjoint(fLeftT[k]) = 0.0;
-                        Dal::AAD::Adjoint(fRightT[k]) = 0.0;
-#endif
-                    }
-                }
-            }
-            return new XCurveJacobian_(std::move(j));
+            return new XCurveJacobian_(HarvestCurveJacobian(*tape, parameters, residuals));
         }
 
         Vector_<> RunJointSolver(const JointMultiCurveCalibrationSpec_& spec,
@@ -544,54 +440,58 @@ namespace Dal {
 
         // ---- Helpers extracted from CalibrateJointMultiCurve for cyclomatic complexity (Codacy) ----
 
-        Vector_<> BuildInitialGuess(const JointMultiCurveCalibrationSpec_& spec,
-                                    const std::vector<CurveSlot_>& slots, int totalParams) {
+        Vector_<> BuildInitialGuess(const JointMultiCurveCalibrationSpec_& spec, const std::vector<CurveSlot_>& slots, int totalParams) {
             Vector_<> g(totalParams);
             int off = 0;
             for (const auto& s : slots) {
                 const Vector_<> sl = BuildGuessSlice(spec, spec.curves_[s.curveIndex], s.nParams);
-                for (int j = 0; j < s.nParams; ++j) g[off + j] = sl[j];
+                for (int j = 0; j < s.nParams; ++j)
+                    g[off + j] = sl[j];
                 off += s.nParams;
             }
             return g;
         }
 
         std::pair<std::map<CollateralType_, Handle_<DiscountCurve_>>, std::map<PeriodLength_, Handle_<DiscountCurve_>>>
-        BuildSolvedCurves(const JointMultiCurveCalibrationSpec_& spec,
-                          const std::vector<CurveSlot_>& slots, const Vector_<>& solved) {
-            auto sx = [&](const CurveSlot_& s) { Vector_<> xs(s.nParams); for(int j=0;j<s.nParams;++j) xs[j]=solved[s.paramOffset+j]; return xs; };
+        BuildSolvedCurves(const JointMultiCurveCalibrationSpec_& spec, const std::vector<CurveSlot_>& slots, const Vector_<>& solved) {
             std::map<CollateralType_, Handle_<DiscountCurve_>> dc;
             std::map<PeriodLength_, Handle_<DiscountCurve_>> fc;
             for (const auto& s : slots) {
                 const auto& d = spec.curves_[s.curveIndex];
-                if (!d.calibrateDiscountCurve_) continue;
-                dc[d.targetCollateral_] = BuildDeclarationCurve(d, spec.ccy_, spec.liborBasis_, sx(s));
+                if (!d.calibrateDiscountCurve_)
+                    continue;
+                dc[d.targetCollateral_] =
+                    Handle_<DiscountCurve_>(BuildDiscountCurveUniqueT<double>(s.definition, SliceParameters(solved, s)).release());
             }
             for (const auto& s : slots) {
                 const auto& d = spec.curves_[s.curveIndex];
-                if (d.calibrateDiscountCurve_) continue;
+                if (d.calibrateDiscountCurve_)
+                    continue;
                 Handle_<DiscountCurve_> b;
-                if (d.baseLayeredOverDiscount_) b = dc.at(d.targetCollateral_);
-                fc[d.targetTenor_] = BuildDeclarationCurve(d, spec.ccy_, spec.liborBasis_, sx(s), b);
+                if (d.baseLayeredOverDiscount_)
+                    b = dc.at(d.targetCollateral_);
+                fc[d.targetTenor_] =
+                    Handle_<DiscountCurve_>(BuildDiscountCurveUniqueT<double>(s.definition, SliceParameters(solved, s), b).release());
             }
             return {std::move(dc), std::move(fc)};
         }
 
-        JointMultiCurveCalibrationResult_
-        AssembleResult(const JointMultiCurveCalibrationSpec_& spec,
-                       const std::vector<CurveSlot_>& slots,
-                       const CurveBlock_& solvedBlock,
-                       std::map<CollateralType_, Handle_<DiscountCurve_>>& discountCurves,
-                       std::map<PeriodLength_, Handle_<DiscountCurve_>>& forwardCurves,
-                       int totalResiduals, int evalCount, Matrix_<>&& fwdJac) {
+        JointMultiCurveCalibrationResult_ AssembleResult(const JointMultiCurveCalibrationSpec_& spec,
+                                                         const std::vector<CurveSlot_>& slots,
+                                                         const CurveBlock_& solvedBlock,
+                                                         std::map<CollateralType_, Handle_<DiscountCurve_>>& discountCurves,
+                                                         std::map<PeriodLength_, Handle_<DiscountCurve_>>& forwardCurves,
+                                                         int totalResiduals,
+                                                         int evalCount,
+                                                         Matrix_<>&& fwdJac) {
             JointMultiCurveCalibrationResult_ result;
             const bool usedApprox = spec.solveMode_ == CurveSolveMode_::Value_::APPROXIMATE;
             double jointMaxAbs = 0.0, jointSq = 0.0;
             for (const auto& s : slots) {
-                const JointCurveCalibrationDiagnostics_ diag =
-                    BuildCurveDiagnostics(spec.curves_[s.curveIndex], s, solvedBlock, usedApprox);
+                const JointCurveCalibrationDiagnostics_ diag = BuildCurveDiagnostics(spec.curves_[s.curveIndex], s, solvedBlock, usedApprox);
                 jointMaxAbs = std::max(jointMaxAbs, diag.maxAbsResidual_);
-                for (const double r : diag.residuals_) jointSq += r * r;
+                for (const double r : diag.residuals_)
+                    jointSq += r * r;
                 result.diagnostics_.push_back(diag);
             }
             result.discountCurves_ = std::move(discountCurves);
@@ -608,12 +508,15 @@ namespace Dal {
         return CalibrateJointMultiCurve(spec, JointMultiCurveCalibrationOptions_());
     }
 
-    JointMultiCurveCalibrationResult_
-    CalibrateJointMultiCurve(const JointMultiCurveCalibrationSpec_& spec, const JointMultiCurveCalibrationOptions_& options) {
+    JointMultiCurveCalibrationResult_ CalibrateJointMultiCurve(const JointMultiCurveCalibrationSpec_& spec,
+                                                               const JointMultiCurveCalibrationOptions_& options) {
         const std::vector<CurveSlot_> slots = ValidateAndBuildSlots(spec);
 
         int totalParams = 0, totalResiduals = 0;
-        for (const auto& slot : slots) { totalParams += slot.nParams; totalResiduals += slot.nInstruments; }
+        for (const auto& slot : slots) {
+            totalParams += slot.nParams;
+            totalResiduals += slot.nInstruments;
+        }
 
         const Vector_<> guess = BuildInitialGuess(spec, slots, totalParams);
 
@@ -621,20 +524,25 @@ namespace Dal {
         std::unique_ptr<Sparse::TriDiagonal_> weights = BuildJointSmoothing(slots);
         JointResidualFunction_ func(spec, slots, options.jacobianMode_);
         Matrix_<> fwdJacAtSolution;
-        const Vector_<> solved =
-            RunJointSolver(spec, func, guess, tol, *weights, options.computeJacobianAtSolution_ ? &fwdJacAtSolution : nullptr);
+        const Vector_<> solved = RunJointSolver(spec, func, guess, tol, *weights, options.computeJacobianAtSolution_ ? &fwdJacAtSolution : nullptr);
 
         const Vector_<> finalResiduals = func.F(solved);
         const double barA = 10.0 * spec.fitTolerance_;
         bool converged = true;
-        for (const double r : finalResiduals) { if (std::fabs(r) > barA) { converged = false; break; } }
+        for (const double r : finalResiduals) {
+            if (std::fabs(r) > barA) {
+                converged = false;
+                break;
+            }
+        }
 
         auto [discountCurves, forwardCurves] = BuildSolvedCurves(spec, slots, solved);
         const CurveBlock_ solvedBlock("joint", spec.ccy_, discountCurves, forwardCurves, spec.liborBasis_);
 
-        JointMultiCurveCalibrationResult_ result = AssembleResult(spec, slots, solvedBlock, discountCurves, forwardCurves,
-                                                                   totalResiduals, func.EvaluationCount(), std::move(fwdJacAtSolution));
-        if (!converged) ThrowNonConvergence(func, finalResiduals);
+        JointMultiCurveCalibrationResult_ result = AssembleResult(spec, slots, solvedBlock, discountCurves, forwardCurves, totalResiduals,
+                                                                  func.EvaluationCount(), std::move(fwdJacAtSolution));
+        if (!converged)
+            ThrowNonConvergence(func, finalResiduals);
         result.converged_ = true;
         return result;
     }

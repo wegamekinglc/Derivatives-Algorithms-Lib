@@ -3,24 +3,28 @@
 //
 
 #include <gtest/gtest.h>
+
 #include <cmath>
-#include <map>
-#include <memory>
-#include <dal/platform/platform.hpp>
+#include <dal/currency/currency.hpp>
 #include <dal/curve/calibration.hpp>
 #include <dal/curve/curveblock.hpp>
+#include <dal/curve/curveparameterization.hpp>
 #include <dal/curve/discount.hpp>
 #include <dal/curve/piecewiselinear.hpp>
+#include <dal/curve/ycconst.hpp>
 #include <dal/curve/ycimp.hpp>
-#include <dal/curve/yclogdf.hpp>
 #include <dal/curve/ycinstrument.hpp>
-#include <dal/currency/currency.hpp>
+#include <dal/curve/yclogdf.hpp>
+#include <dal/curve/ycpwlf.hpp>
+#include <dal/platform/platform.hpp>
 #include <dal/protocol/collateraltype.hpp>
 #include <dal/protocol/rateconvention.hpp>
 #include <dal/time/date.hpp>
 #include <dal/time/daybasis.hpp>
 #include <dal/time/holidays.hpp>
 #include <dal/time/periodlength.hpp>
+#include <map>
+#include <memory>
 
 using namespace Dal;
 
@@ -78,8 +82,7 @@ namespace {
         spec.logDfScheme_ = scheme;
 
         spec.knotDates_ = {
-            Date_(2022, 1, 1), Date_(2022, 4, 1), Date_(2022, 7, 1), Date_(2023, 1, 1),
-            Date_(2024, 1, 1), Date_(2025, 1, 1),
+            Date_(2022, 1, 1), Date_(2022, 4, 1), Date_(2022, 7, 1), Date_(2023, 1, 1), Date_(2024, 1, 1), Date_(2025, 1, 1),
         };
 
         const auto fixedLeg = AnnualLeg();
@@ -89,12 +92,66 @@ namespace {
             return Handle_<YCInstrument_>(new Swap_(spec.today_, start, end, parPct / 100.0, fixedLeg, floatIdx, floatLeg));
         };
         spec.instruments_ = {
-            mkSwap(Date_(2022, 1, 1), Date_(2022, 4, 1), 1.00),
-            mkSwap(Date_(2022, 1, 1), Date_(2022, 7, 1), 1.10),
-            mkSwap(Date_(2022, 1, 1), Date_(2023, 1, 1), 1.25),
-            mkSwap(Date_(2022, 1, 1), Date_(2024, 1, 1), 1.55),
+            mkSwap(Date_(2022, 1, 1), Date_(2022, 4, 1), 1.00), mkSwap(Date_(2022, 1, 1), Date_(2022, 7, 1), 1.10),
+            mkSwap(Date_(2022, 1, 1), Date_(2023, 1, 1), 1.25), mkSwap(Date_(2022, 1, 1), Date_(2024, 1, 1), 1.55),
             mkSwap(Date_(2022, 1, 1), Date_(2025, 1, 1), 1.80),
         };
+        return spec;
+    }
+
+    CurveCalibrationSpec_ MakeForwardParameterizationSpec(CurveParameterization_ parameterization) {
+        CurveCalibrationSpec_ spec;
+        spec.today_ = Date_(2024, 1, 15);
+        spec.ccy_ = "USD";
+        spec.curveName_ = "forward_parameterization_test";
+        spec.parameterization_ = parameterization;
+        spec.knotPolicy_ = CurveKnotPolicy_::Value_::INPUT;
+        spec.solveMode_ = CurveSolveMode_::Value_::EXACT;
+        spec.liborBasis_ = DayBasis_("ACT_365F");
+        spec.tolerance_ = 1.0e-10;
+        spec.fitTolerance_ = 1.0e-8;
+        spec.smoothingWeight_ = 1.0;
+        spec.initialGuess_ = 0.02;
+        spec.knotDates_ = {Date::AddMonths(spec.today_, 3)};
+        const double flatRate = 0.015;
+        spec.instruments_.push_back(Handle_<YCInstrument_>(new Deposit_(spec.today_, spec.knotDates_[0], flatRate, spec.liborBasis_)));
+        return spec;
+    }
+
+    CurveCalibrationSpec_ MakeMultiKnotPiecewiseLinearSpec() {
+        CurveCalibrationSpec_ spec;
+        spec.today_ = Date_(2024, 1, 15);
+        spec.ccy_ = "USD";
+        spec.curveName_ = "multi_knot_pwl_test";
+        spec.parameterization_ = CurveParameterization_::Value_::PIECEWISE_LINEAR_FWD;
+        spec.knotPolicy_ = CurveKnotPolicy_::Value_::INPUT;
+        spec.solveMode_ = CurveSolveMode_::Value_::EXACT;
+        spec.liborBasis_ = DayBasis_("ACT_365F");
+        spec.tolerance_ = 1.0e-10;
+        spec.fitTolerance_ = 1.0e-8;
+        spec.smoothingWeight_ = 1.0;
+        spec.initialGuess_ = 0.02;
+        spec.knotDates_ = {
+            Date::AddMonths(spec.today_, 3),
+            Date::AddMonths(spec.today_, 12),
+            Date::AddMonths(spec.today_, 24),
+            Date::AddMonths(spec.today_, 36),
+        };
+
+        const Vector_<> left = {0.011, 0.017, 0.025, 0.032};
+        const Vector_<> right = {0.014, 0.021, 0.030, 0.035};
+        const Handle_<DiscountCurve_> market(NewDiscountPWLF("multi_knot_pwl_market", spec.ccy_, PiecewiseLinear_(spec.knotDates_, left, right)));
+        CurveBlock_ marketBlock(spec.curveName_, spec.ccy_, {{spec.targetCollateral_, market}}, {}, spec.liborBasis_);
+        const Vector_<Date_> maturities = {
+            Date::AddMonths(spec.today_, 1),  Date::AddMonths(spec.today_, 6),  Date::AddMonths(spec.today_, 9),
+            Date::AddMonths(spec.today_, 15), Date::AddMonths(spec.today_, 18), Date::AddMonths(spec.today_, 30),
+        };
+        Handle_<YieldCurve_> empty;
+        for (const auto& maturity : maturities) {
+            const Handle_<YCInstrument_> prototype(new Deposit_(spec.today_, maturity, 0.0, spec.liborBasis_));
+            const double marketRate = (*prototype->Precompute(empty))(marketBlock);
+            spec.instruments_.push_back(Handle_<YCInstrument_>(new Deposit_(spec.today_, maturity, marketRate, spec.liborBasis_)));
+        }
         return spec;
     }
 
@@ -105,6 +162,24 @@ namespace {
         CurveCalibrationOptions_ opt;
         opt.jacobianMode_ = CurveJacobianMode_::Value_::ANALYTIC;
         return CalibrateYieldCurve(spec, opt);
+    }
+
+    CurveCalibrationResult_ CalibrateBumped(const CurveCalibrationSpec_& spec) {
+        CurveCalibrationOptions_ opt;
+        opt.jacobianMode_ = CurveJacobianMode_::Value_::BUMPED;
+        return CalibrateYieldCurve(spec, opt);
+    }
+
+    void AssertCurveAgreesWithBumped(const CurveCalibrationSpec_& spec, const CurveCalibrationResult_& analytic, double tolerance = 1.0e-8) {
+        const CurveCalibrationResult_ bumped = CalibrateBumped(spec);
+        ASSERT_LT(bumped.diagnostics_.maxAbsResidual_, 1.0e-7);
+        for (const auto& knot : spec.knotDates_)
+            ASSERT_NEAR((*analytic.curve_)(spec.today_, knot), (*bumped.curve_)(spec.today_, knot), tolerance);
+        for (const auto& instrument : spec.instruments_) {
+            const Date_ maturity = instrument->TimeSpan().second;
+            ASSERT_NEAR((*analytic.curve_)(spec.today_, maturity), (*bumped.curve_)(spec.today_, maturity), tolerance)
+                << "instrument=" << instrument->Name();
+        }
     }
 
     // Solved free-node log-DFs: the calibrated DiscountLogDF_ node log-DFs with the pinned anchor
@@ -124,18 +199,16 @@ namespace {
         Vector_<> full(spec.knotDates_.size(), 0.0);
         for (int i = 1; i < static_cast<int>(spec.knotDates_.size()); ++i)
             full[i] = x[i - 1];
-        std::unique_ptr<DiscountCurve_> dc(
-            NewDiscountLogDF(spec.curveName_, spec.ccy_, spec.knotDates_, full, spec.liborBasis_, spec.logDfScheme_));
+        std::unique_ptr<DiscountCurve_> dc(NewDiscountLogDF(spec.curveName_, spec.ccy_, spec.knotDates_, full, spec.liborBasis_, spec.logDfScheme_));
         std::map<CollateralType_, Handle_<DiscountCurve_>> discounts;
-        discounts[spec.targetCollateral_] =
-            Handle_<DiscountCurve_>(std::shared_ptr<const DiscountCurve_>(std::shared_ptr<void>(), dc.get()));
+        discounts[spec.targetCollateral_] = Handle_<DiscountCurve_>(std::shared_ptr<const DiscountCurve_>(std::shared_ptr<void>(), dc.get()));
         std::map<PeriodLength_, Handle_<DiscountCurve_>> forwards;
         CurveBlock_ yc(spec.curveName_, spec.ccy_, discounts, forwards, spec.liborBasis_);
         Vector_<> f(spec.instruments_.size());
         Handle_<YieldCurve_> empty;
         for (int i = 0; i < static_cast<int>(spec.instruments_.size()); ++i) {
             auto rate = spec.instruments_[i]->Precompute(empty);
-            f[i] = (*rate)(yc) - spec.instruments_[i]->MarketRate();
+            f[i] = (*rate)(yc)-spec.instruments_[i]->MarketRate();
         }
         return f;
     }
@@ -144,7 +217,9 @@ namespace {
     // free-node log-DFs) to a two-sided central difference of EvalResiduals at the solution. Every
     // entry must match within relTol (scaled by the FD magnitude). Asserts the byproduct J is
     // populated with the expected nInstruments x (nKnots - 1) shape first.
-    void AssertJacobianMatchesCentralDifferenceAtSolution(const CurveCalibrationSpec_& spec, double h, double relTol,
+    void AssertJacobianMatchesCentralDifferenceAtSolution(const CurveCalibrationSpec_& spec,
+                                                          double h,
+                                                          double relTol,
                                                           CurveCalibrationResult_* outResult = nullptr) {
         CurveCalibrationResult_ result = CalibrateAnalytic(spec);
         ASSERT_LT(result.diagnostics_.maxAbsResidual_, 1.0e-7);
@@ -175,8 +250,65 @@ namespace {
                 }
             }
         }
+        AssertCurveAgreesWithBumped(spec, result);
         if (outResult)
             *outResult = std::move(result);
+    }
+
+    Vector_<> SolvedForwardParameters(const DiscountCurve_& curve, CurveParameterization_ parameterization) {
+        if (parameterization == CurveParameterization_::Value_::PIECEWISE_CONSTANT_FWD) {
+            const auto* pwc = dynamic_cast<const Tape::DiscountPWC_<double>*>(&curve);
+            REQUIRE(pwc != nullptr, "calibrated curve is not a DiscountPWC_");
+            return pwc->FRight();
+        }
+        const auto* pwl = dynamic_cast<const Tape::DiscountPWLF_<double>*>(&curve);
+        REQUIRE(pwl != nullptr, "calibrated curve is not a DiscountPWLF_");
+        const Vector_<> left = pwl->FLeft();
+        const Vector_<> right = pwl->FRight();
+        Vector_<> result(2 * left.size());
+        for (int i = 0; i < static_cast<int>(left.size()); ++i) {
+            result[2 * i] = left[i];
+            result[2 * i + 1] = right[i];
+        }
+        return result;
+    }
+
+    Vector_<> EvalForwardResiduals(const CurveCalibrationSpec_& spec, const Vector_<>& parameters) {
+        const CurveDefinition_ definition = MakeCurveDefinition(spec.curveName_, spec.ccy_, spec.parameterization_, spec.logDfScheme_,
+                                                                spec.knotDates_, spec.today_, spec.liborBasis_);
+        auto curve = BuildDiscountCurveUniqueT<double>(definition, parameters, spec.baseCurve_);
+        std::map<CollateralType_, Handle_<DiscountCurve_>> discounts;
+        discounts[spec.targetCollateral_] = Handle_<DiscountCurve_>(std::shared_ptr<const DiscountCurve_>(std::shared_ptr<void>(), curve.get()));
+        CurveBlock_ block(spec.curveName_, spec.ccy_, discounts, {}, spec.liborBasis_);
+        Vector_<> residuals(spec.instruments_.size());
+        Handle_<YieldCurve_> empty;
+        for (int i = 0; i < static_cast<int>(spec.instruments_.size()); ++i)
+            residuals[i] = (*spec.instruments_[i]->Precompute(empty))(block)-spec.instruments_[i]->MarketRate();
+        return residuals;
+    }
+
+    void AssertForwardJacobianMatchesCentralDifference(const CurveCalibrationSpec_& spec, double bump = 1.0e-6, double tolerance = 1.0e-9) {
+        const CurveCalibrationResult_ result = CalibrateAnalytic(spec);
+        ASSERT_LT(result.diagnostics_.maxAbsResidual_, 1.0e-7);
+        const CurveDefinition_ definition = MakeCurveDefinition(spec.curveName_, spec.ccy_, spec.parameterization_, spec.logDfScheme_,
+                                                                spec.knotDates_, spec.today_, spec.liborBasis_);
+        const int columns = BuildCurveParameterLayout(definition).parameterCount_;
+        ASSERT_EQ(result.diagnostics_.jacobian_.Rows(), static_cast<int>(spec.instruments_.size()));
+        ASSERT_EQ(result.diagnostics_.jacobian_.Cols(), columns);
+        const Vector_<> solved = SolvedForwardParameters(*result.curve_, spec.parameterization_);
+        for (int column = 0; column < columns; ++column) {
+            auto up = solved;
+            auto down = solved;
+            up[column] += bump;
+            down[column] -= bump;
+            const Vector_<> upResiduals = EvalForwardResiduals(spec, up);
+            const Vector_<> downResiduals = EvalForwardResiduals(spec, down);
+            for (int row = 0; row < static_cast<int>(spec.instruments_.size()); ++row) {
+                const double centralDifference = (upResiduals[row] - downResiduals[row]) / (2.0 * bump);
+                ASSERT_NEAR(result.diagnostics_.jacobian_(row, column), centralDifference, tolerance) << "row=" << row << ", column=" << column;
+            }
+        }
+        AssertCurveAgreesWithBumped(spec, result);
     }
 } // namespace
 
@@ -188,6 +320,45 @@ namespace {
 TEST(AnalyticJacobianTest, TestMatchesCentralDifferenceLogLinear) {
     auto spec = MakePhaseASpec(LogDfScheme_::Value_::LOG_LINEAR);
     AssertJacobianMatchesCentralDifferenceAtSolution(spec, 1.0e-6, 1.0e-9);
+}
+
+TEST(AnalyticJacobianTest, TestLogLinearOffKnotMaturityIncludesUpperBracket) {
+    auto spec = MakePhaseASpec(LogDfScheme_::Value_::LOG_LINEAR);
+    spec.instruments_[0] =
+        Handle_<YCInstrument_>(new Swap_(spec.today_, spec.today_, Date_(2022, 5, 1), 0.0105, AnnualLeg(), AnnualIndex(), AnnualLeg()));
+
+    CurveCalibrationResult_ result;
+    AssertJacobianMatchesCentralDifferenceAtSolution(spec, 1.0e-6, 1.0e-9, &result);
+    if (::testing::Test::HasFatalFailure())
+        return;
+    ASSERT_NE(result.diagnostics_.jacobian_(0, 1), 0.0);
+}
+
+TEST(AnalyticJacobianTest, TestLogLinearPaymentLagDoesNotTruncateRow) {
+    auto spec = MakePhaseASpec(LogDfScheme_::Value_::LOG_LINEAR);
+    auto fixedLeg = AnnualLeg();
+    auto floatLeg = AnnualLeg();
+    fixedLeg.paymentLag_ = 2;
+    floatLeg.paymentLag_ = 2;
+    spec.instruments_[3] = Handle_<YCInstrument_>(new Swap_(spec.today_, spec.today_, Date_(2024, 1, 1), 0.0155, fixedLeg, AnnualIndex(), floatLeg));
+
+    CurveCalibrationResult_ result;
+    AssertJacobianMatchesCentralDifferenceAtSolution(spec, 1.0e-6, 1.0e-9, &result);
+    if (::testing::Test::HasFatalFailure())
+        return;
+    ASSERT_NE(result.diagnostics_.jacobian_(3, 4), 0.0);
+}
+
+TEST(AnalyticJacobianTest, TestPiecewiseConstantForwardEngagesAnalyticJacobian) {
+    AssertForwardJacobianMatchesCentralDifference(MakeForwardParameterizationSpec(CurveParameterization_::Value_::PIECEWISE_CONSTANT_FWD));
+}
+
+TEST(AnalyticJacobianTest, TestPiecewiseLinearForwardEngagesAnalyticJacobian) {
+    AssertForwardJacobianMatchesCentralDifference(MakeForwardParameterizationSpec(CurveParameterization_::Value_::PIECEWISE_LINEAR_FWD));
+}
+
+TEST(AnalyticJacobianTest, TestMultiKnotPiecewiseLinearForwardMatchesCentralDifference) {
+    AssertForwardJacobianMatchesCentralDifference(MakeMultiKnotPiecewiseLinearSpec(), 1.0e-5);
 }
 
 // Category 2: Structural zeros are EXACTLY zero
@@ -224,24 +395,7 @@ TEST(AnalyticJacobianTest, TestSolveConvergesLogLinear) {
     ASSERT_EQ(static_cast<int>(cAAD->NodeLogDF().size()), 6);
 }
 
-// Category 4: Ineligibility -- the AAD Jacobian falls back to bumping with a NOTICE
-// Phase A is ineligible for non-LOG_DISCOUNT parameterizations. EligibleForAnalyticJacobian
-// returns false, the solver dense-bumps, and a NOTICE fires. We cannot easily assert the NOTICE
-// text from a unit test, but we CAN assert the fallback behavior via the byproduct: an ANALYTIC
-// calibration of an ineligible spec leaves diagnostics_.jacobian_ EMPTY (no analytic J was ever
-// produced).
-
-TEST(AnalyticJacobianTest, TestIneligibleParameterizationFallsBack) {
-    auto spec = MakePhaseASpec();
-    spec.parameterization_ = CurveParameterization_::Value_::PIECEWISE_LINEAR_FWD;
-    // Knot 0 must be > today for non-LOG_DISCOUNT.
-    spec.knotDates_[0] = Date_(2022, 4, 1);
-    const CurveCalibrationResult_ result = CalibrateAnalytic(spec);
-    ASSERT_NE(result.curve_, nullptr);
-    ASSERT_TRUE(result.diagnostics_.jacobian_.Empty()); // empty -> ineligible, solver dense-bumps
-}
-
-// Category 4b: forecast-target calibration (calibrateDiscountCurve_ == false) is ineligible
+// Category 4: forecast-target calibration (calibrateDiscountCurve_ == false) is ineligible
 // A forecast-target calibration slots the calibrated curve into forwardCurves_ (a distinct code
 // path from the discount-target case in YieldCurveWith). EligibleForAnalyticJacobian rejects it,
 // so the byproduct diagnostics_.jacobian_ is EMPTY. Observed here via the multi-curve flow: a
@@ -265,16 +419,11 @@ TEST(AnalyticJacobianTest, TestIneligibleForecastTargetFallsBack) {
 
     // Pre-built market curves with consistent discount + forward, so the instrument market rates
     // derived below are exactly reproducible and the calibrations solve.
-    const Handle_<DiscountCurve_> ois(NewDiscountPWLF(
-        "ois_mkt", "USD",
-        PiecewiseLinear_(knotDates, Vector_<>(knotDates.size(), 0.01), Vector_<>(knotDates.size(), 0.01))));
+    const Handle_<DiscountCurve_> ois(
+        NewDiscountPWLF("ois_mkt", "USD", PiecewiseLinear_(knotDates, Vector_<>(knotDates.size(), 0.01), Vector_<>(knotDates.size(), 0.01))));
     const Handle_<DiscountCurve_> libor3m(NewDiscountPWLF(
-        "libor3m_mkt", "USD",
-        PiecewiseLinear_(knotDates, Vector_<>(knotDates.size(), 0.02), Vector_<>(knotDates.size(), 0.02)), ois));
-    const CurveBlock_ marketCurve("market", "USD",
-                                  {{CollateralType_(CollateralType_::Value_::OIS), ois}},
-                                  {{PeriodLength_("3M"), libor3m}},
-                                  basis);
+        "libor3m_mkt", "USD", PiecewiseLinear_(knotDates, Vector_<>(knotDates.size(), 0.02), Vector_<>(knotDates.size(), 0.02)), ois));
+    const CurveBlock_ marketCurve("market", "USD", {{CollateralType_(CollateralType_::Value_::OIS), ois}}, {{PeriodLength_("3M"), libor3m}}, basis);
 
     RateLegConvention_ fixedLeg;
     fixedLeg.paymentFrequency_ = PeriodLength_("6M");
@@ -299,10 +448,8 @@ TEST(AnalyticJacobianTest, TestIneligibleForecastTargetFallsBack) {
 
     // Derive consistent market rates for the forward-stage instruments by pricing against the
     // pre-built market curves.
-    const auto fra = Handle_<YCInstrument_>(
-        new FRA_(today, Date::AddMonths(today, 3), Date::AddMonths(today, 6), 0.0, ibor3m));
-    const auto irs = Handle_<YCInstrument_>(
-        new Swap_(today, today, Date::AddMonths(today, 24), 0.0, fixedLeg, ibor3m, floatLeg));
+    const auto fra = Handle_<YCInstrument_>(new FRA_(today, Date::AddMonths(today, 3), Date::AddMonths(today, 6), 0.0, ibor3m));
+    const auto irs = Handle_<YCInstrument_>(new Swap_(today, today, Date::AddMonths(today, 24), 0.0, fixedLeg, ibor3m, floatLeg));
     const double fraRate = (*fra->Precompute(Handle_<YieldCurve_>()))(marketCurve);
     const double irsRate = (*irs->Precompute(Handle_<YieldCurve_>()))(marketCurve);
 
@@ -366,8 +513,7 @@ TEST(AnalyticJacobianTest, TestTradeDateNotStartRejected) {
         // Eligible swap: tradeDate == start == anchor.
         Handle_<YCInstrument_>(new Swap_(spec.today_, spec.today_, Date_(2022, 4, 1), 0.010, fixedLeg, floatIdx, floatLeg)),
         // Ineligible swap: tradeDate (2021-12-30) != start (2022-01-01 == anchor).
-        Handle_<YCInstrument_>(
-            new Swap_(Date_(2021, 12, 30), Date_(2022, 1, 1), Date_(2023, 1, 1), 0.012, fixedLeg, floatIdx, floatLeg)),
+        Handle_<YCInstrument_>(new Swap_(Date_(2021, 12, 30), Date_(2022, 1, 1), Date_(2023, 1, 1), 0.012, fixedLeg, floatIdx, floatLeg)),
     };
     const CurveCalibrationResult_ result = CalibrateAnalytic(spec);
     ASSERT_NE(result.curve_, nullptr);
@@ -456,14 +602,12 @@ TEST(AnalyticJacobianTest, TestSingleDepositTapeMatchesCentralDifference) {
     spec.logDfScheme_ = LogDfScheme_::Value_::LOG_LINEAR;
 
     spec.knotDates_ = {
-        Date_(2022, 1, 1), Date_(2022, 4, 1), Date_(2022, 7, 1), Date_(2023, 1, 1),
-        Date_(2024, 1, 1), Date_(2025, 1, 1),
+        Date_(2022, 1, 1), Date_(2022, 4, 1), Date_(2022, 7, 1), Date_(2023, 1, 1), Date_(2024, 1, 1), Date_(2025, 1, 1),
     };
 
     // One 3M deposit starting at the anchor. Its cashflow lands at 2022-04-01 (knot column 0).
     RateIndexConvention_ idx = AnnualIndex();
-    spec.instruments_ = {Handle_<YCInstrument_>(
-        new Deposit_(spec.today_, spec.today_, Date_(2022, 4, 1), 0.011, idx))};
+    spec.instruments_ = {Handle_<YCInstrument_>(new Deposit_(spec.today_, spec.today_, Date_(2022, 4, 1), 0.011, idx))};
 
     CurveCalibrationResult_ result;
     AssertJacobianMatchesCentralDifferenceAtSolution(spec, 1.0e-6, 1.0e-9, &result);
@@ -501,8 +645,7 @@ TEST(AnalyticJacobianTest, TestMixedInstrumentCalibrationMatchesCentralDifferenc
     spec.logDfScheme_ = LogDfScheme_::Value_::LOG_LINEAR;
 
     spec.knotDates_ = {
-        Date_(2022, 1, 1), Date_(2022, 4, 1), Date_(2022, 7, 1), Date_(2023, 1, 1),
-        Date_(2024, 1, 1), Date_(2025, 1, 1),
+        Date_(2022, 1, 1), Date_(2022, 4, 1), Date_(2022, 7, 1), Date_(2023, 1, 1), Date_(2024, 1, 1), Date_(2025, 1, 1),
     };
 
     // All three instruments start at the anchor (eligibility requires span.first == anchor).

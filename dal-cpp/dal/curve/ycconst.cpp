@@ -6,66 +6,86 @@
 #include <dal/platform/platform.hpp>
 #include <dal/platform/strict.hpp>
 
-#include <dal/curve/fittable.hpp>
+#include <cmath>
+#include <type_traits>
+
 #include <dal/curve/piecewiseconstant.hpp>
-#include <dal/curve/yccomponent.hpp>
 #include <dal/curve/ycconst.hpp>
+#include <dal/math/aad/aad.hpp>
 #include <dal/utilities/algorithms.hpp>
 
 namespace Dal {
+    namespace Tape {
+        constexpr double DAYS_PER_YEAR_PWC = 365.0;
 
-    namespace {
-        constexpr double DAYS_PER_YEAR = 365.0;
+        template <class T_, class B_>
+        DiscountPWC_<T_, B_>::DiscountPWC_(
+            const String_& name, const String_& ccy, const Vector_<Date_>& knotDates, const Vector_<T_>& fRightT, const Handle_<B_>& base)
+            : CurveWithBase_<DiscountCurve_<T_>, B_>(name, ccy, base), knotDates_(knotDates), fRightT_(fRightT), sofarT_(knotDates.size()) {
+            REQUIRE(!knotDates_.empty(), "DiscountPWC_: knot dates must not be empty");
+            REQUIRE(fRightT_.size() == knotDates_.size(), "DiscountPWC_: forward length must equal knot count");
+            REQUIRE(IsMonotonic(knotDates_), "DiscountPWC_: knot dates must be strictly increasing");
+            UpdateT();
+        }
 
-        class DiscountPWC_ : public CurveWithBase_<DiscountCurve_>, public FittableCurve_ {
-            Vector_<Date_> knotDates_;
-            Vector_<> fRight_;
-            Vector_<> sofar_;
-
-            [[nodiscard]] PiecewiseConstant_ Fwds() const { return PiecewiseConstant_(knotDates_, fRight_); }
-
-            [[nodiscard]] double IntegralTo(const Date_& dt) const {
-                const auto iGE = LowerBound(knotDates_, dt) - knotDates_.begin();
-                if (iGE <= 0)
-                    return -fRight_.front() * (knotDates_.front() - dt);
-                if (iGE < knotDates_.size() && knotDates_[iGE] == dt)
-                    return sofar_[iGE];
-                const auto iLT = iGE - 1;
-                const double elapsed = dt - knotDates_[iLT];
-                return sofar_[iLT] + elapsed * fRight_[iLT];
+        template <class T_, class B_> void DiscountPWC_<T_, B_>::UpdateT() {
+            if constexpr (std::is_same_v<T_, double>) {
+                sofarT_ = PiecewiseConstant_(knotDates_, fRightT_).Sofar();
+            } else {
+                sofarT_.Fill(T_(0.0));
+                for (int i = 1; i < static_cast<int>(knotDates_.size()); ++i) {
+                    const double elapsed = knotDates_[i] - knotDates_[i - 1];
+                    sofarT_[i] = sofarT_[i - 1] + elapsed * fRightT_[i - 1];
+                }
             }
+        }
 
-        public:
-            DiscountPWC_(const String_& name,
-                         const String_& ccy,
-                         const PiecewiseConstant_& fwds,
-                         const Handle_<DiscountCurve_>& base = Handle_<DiscountCurve_>())
-                : CurveWithBase_<DiscountCurve_>(name, ccy, base), knotDates_(fwds.knotDates_), fRight_(fwds.fRight_), sofar_(fwds.sofar_) {}
+        template <class T_, class B_> T_ DiscountPWC_<T_, B_>::IntegralTo(const Date_& date) const {
+            const int iGE = static_cast<int>(LowerBound(knotDates_, date) - knotDates_.begin());
+            if (iGE <= 0)
+                return -fRightT_.front() * static_cast<double>(knotDates_.front() - date);
+            if (iGE < static_cast<int>(knotDates_.size()) && knotDates_[iGE] == date)
+                return sofarT_[iGE];
+            const int iLT = iGE - 1;
+            const double elapsed = date - knotDates_[iLT];
+            return sofarT_[iLT] + elapsed * fRightT_[iLT];
+        }
 
-            double operator()(const Date_& from, const Date_& to) const override {
-                const double integral = IntegralTo(to) - IntegralTo(from);
-                return exp(-integral / DAYS_PER_YEAR) * (base_ ? (*base_)(from, to) : 1.0);
+        template <class T_, class B_> T_ DiscountPWC_<T_, B_>::operator()(const Date_& from, const Date_& to) const {
+            if constexpr (std::is_same_v<T_, double>) {
+                const PiecewiseConstant_ forwards(knotDates_, fRightT_);
+                const double integral = forwards.IntegralTo(to) - forwards.IntegralTo(from);
+                return std::exp(-integral / DAYS_PER_YEAR_PWC) * (this->base_ ? (*this->base_)(from, to) : 1.0);
+            } else {
+                const T_ logDf = -(IntegralTo(to) - IntegralTo(from)) / DAYS_PER_YEAR_PWC;
+                if (this->base_)
+                    return AAD::exp(logDf) * (*this->base_)(from, to);
+                return AAD::exp(logDf);
             }
+        }
 
-            [[nodiscard]] int NX() const override { return static_cast<int>(knotDates_.size()); }
+        template <class T_, class B_> int DiscountPWC_<T_, B_>::NX() const { return static_cast<int>(knotDates_.size()); }
 
-            void ApplyDX(Vector_<>::const_iterator dx, double leverage) override {
-                for (auto& val : fRight_)
-                    val += leverage * *dx++;
-                PiecewiseConstant_ fwds(knotDates_, fRight_);
-                sofar_ = fwds.sofar_;
-            }
+        template <class T_, class B_> void DiscountPWC_<T_, B_>::ApplyDX(Vector_<>::const_iterator dx, double leverage) {
+            for (auto& value : fRightT_)
+                value += leverage * *dx++;
+            UpdateT();
+        }
 
-            void Write(Archive::Store_&) const override { THROW("DiscountPWC_ persistence is not supported"); }
+        template <class T_, class B_> void DiscountPWC_<T_, B_>::Write(Archive::Store_&) const { THROW("DiscountPWC_ persistence is not supported"); }
 
-            [[nodiscard]] DiscountPWC_* Clone(const String_& newName, const YCComponent_::substitutions_t& baseChanges) const override {
-                return new DiscountPWC_(newName, this->ccy_.String(), Fwds(), NewBase(baseChanges));
-            }
-        };
-    } // namespace
+        template <class T_, class B_>
+        DiscountPWC_<T_, B_>* DiscountPWC_<T_, B_>::Clone(const String_& newName, const YCComponent_::substitutions_t& baseChanges) const {
+            return new DiscountPWC_<T_, B_>(newName, this->ccy_.String(), knotDates_, fRightT_, this->NewBase(baseChanges));
+        }
+
+        template class DiscountPWC_<double>;
+        template class DiscountPWC_<AAD::Number_>;
+        template class DiscountPWC_<AAD::Number_, DiscountCurve_<AAD::Number_>>;
+    } // namespace Tape
 
     DiscountCurve_* NewDiscountPWC(const String_& name, const String_& ccy, const PiecewiseConstant_& fwds, const Handle_<DiscountCurve_>& base) {
-        return new DiscountPWC_(name, ccy, fwds, base);
+        return new Tape::DiscountPWC_<double>(name, ccy, fwds.knotDates_, fwds.fRight_, base);
     }
 
 } // namespace Dal

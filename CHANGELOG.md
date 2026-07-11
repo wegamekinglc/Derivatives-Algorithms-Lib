@@ -32,7 +32,7 @@ here as the baseline rather than dated releases:
 - **Interpolation** — linear, log-linear, cubic-spline, and mixed 1D interpolators plus
   bilinear 2D interpolation. See `docs/methodology/interpolation.md`.
 - **Log-Discount Curve** — node log-discount-factor parameterisation with `LogDfScheme_`
-  interpolation schemes (the parameterisation that supports the analytic Jacobian). See
+  interpolation schemes and scalar-generic passive/AAD evaluation. See
   `docs/methodology/log_discount_curve.md`.
 - **Yield-Curve Jacobian and Inverse-Jacobian Risk** — AAD forward Jacobian and the
   inverse-Jacobian IR-risk transform, including the `effJacobianInverse_` unit convention.
@@ -45,6 +45,19 @@ here as the baseline rather than dated releases:
   `docs/methodology/yield_curve_jacobian.md`.
 
 ## 2026-07
+
+- `curve`: Unified passive and AAD curve construction across piecewise-constant forwards,
+  piecewise-linear forwards, and log-discount curves. Linear and natural-cubic interpolation
+  now separate passive geometry from typed ordinates, all log-DF schemes share one boundary
+  and extrapolation implementation, and both single and joint calibration can use AAD-derived
+  analytic Jacobians for every implemented representation. Joint declarations may mix methods
+  and base-layer any implemented forward representation over an actively calibrated discount
+  curve while preserving declaration-order solver columns. Newly analytic PWC/PWL
+  `APPROXIMATE` solves can select a different tolerance-satisfying curve than the historical
+  bumped path because the underdetermined solver stops at `fitTolerance_`; callers requiring
+  historical curve-level reproduction must select `BUMPED`. `ZERO_RATE` remains unimplemented.
+  See `docs/methodology/interpolation.md`, `docs/methodology/log_discount_curve.md`, and
+  `docs/methodology/yield_curve_jacobian.md`.
 
 - `numerics`: Corrected three output-affecting quantitative contracts: rate-aware
   Dupire now prices a discounted spot call and includes the strike in

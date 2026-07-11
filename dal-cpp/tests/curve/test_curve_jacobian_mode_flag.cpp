@@ -3,12 +3,13 @@
 //
 
 #include <gtest/gtest.h>
-#include <dal/platform/platform.hpp>
+
 #include <dal/curve/calibration.hpp>
 #include <dal/curve/curveblock.hpp>
 #include <dal/curve/discount.hpp>
-#include <dal/curve/yclogdf.hpp>
 #include <dal/curve/ycinstrument.hpp>
+#include <dal/curve/yclogdf.hpp>
+#include <dal/platform/platform.hpp>
 #include <dal/protocol/collateraltype.hpp>
 #include <dal/protocol/rateconvention.hpp>
 #include <dal/time/date.hpp>
@@ -65,8 +66,7 @@ namespace {
         spec.logDfScheme_ = LogDfScheme_::Value_::LOG_LINEAR;
 
         spec.knotDates_ = {
-            Date_(2022, 1, 1), Date_(2022, 4, 1), Date_(2022, 7, 1), Date_(2023, 1, 1),
-            Date_(2024, 1, 1), Date_(2025, 1, 1),
+            Date_(2022, 1, 1), Date_(2022, 4, 1), Date_(2022, 7, 1), Date_(2023, 1, 1), Date_(2024, 1, 1), Date_(2025, 1, 1),
         };
 
         const auto fixedLeg = AnnualLeg();
@@ -76,22 +76,18 @@ namespace {
             return Handle_<YCInstrument_>(new Swap_(spec.today_, start, end, parPct / 100.0, fixedLeg, floatIdx, floatLeg));
         };
         spec.instruments_ = {
-            mkSwap(Date_(2022, 1, 1), Date_(2022, 4, 1), 1.00),
-            mkSwap(Date_(2022, 1, 1), Date_(2022, 7, 1), 1.10),
-            mkSwap(Date_(2022, 1, 1), Date_(2023, 1, 1), 1.25),
-            mkSwap(Date_(2022, 1, 1), Date_(2024, 1, 1), 1.55),
+            mkSwap(Date_(2022, 1, 1), Date_(2022, 4, 1), 1.00), mkSwap(Date_(2022, 1, 1), Date_(2022, 7, 1), 1.10),
+            mkSwap(Date_(2022, 1, 1), Date_(2023, 1, 1), 1.25), mkSwap(Date_(2022, 1, 1), Date_(2024, 1, 1), 1.55),
             mkSwap(Date_(2022, 1, 1), Date_(2025, 1, 1), 1.80),
         };
         return spec;
     }
 
-    // Ineligible calibration: non-LOG_DISCOUNT parameterization is rejected by
-    // EligibleForAnalyticJacobian with a NOTICE and falls back to bumped.
+    // Ineligible calibration: one spot-started instrument trades before the curve anchor.
     CurveCalibrationSpec_ MakeIneligibleSpec() {
         auto spec = MakeEligibleSpec();
-        spec.parameterization_ = CurveParameterization_::Value_::PIECEWISE_LINEAR_FWD;
-        // Knot 0 must be > today for non-LOG_DISCOUNT parameterizations.
-        spec.knotDates_[0] = Date_(2022, 4, 1);
+        spec.instruments_[0] =
+            Handle_<YCInstrument_>(new Swap_(Date_(2021, 12, 30), spec.today_, Date_(2022, 4, 1), 0.010, AnnualLeg(), AnnualIndex(), AnnualLeg()));
         return spec;
     }
 
@@ -174,7 +170,7 @@ TEST(CurveJacobianModeFlagTest, TestAnalyticEligibleMatchesBumped) {
 }
 
 // ANALYTIC + ineligible: ANALYTIC never throws; on an ineligible spec Gradient returns nullptr
-// (solver dense-bumps), so the result equals explicit BUMPED. (PLF spec -> compare DFs, not log-DFs.)
+// (solver dense-bumps), so the result equals explicit BUMPED.
 
 TEST(CurveJacobianModeFlagTest, TestAnalyticIneligibleFallsBackToBumped) {
     const auto spec = MakeIneligibleSpec();
@@ -192,8 +188,7 @@ TEST(CurveJacobianModeFlagTest, TestAnalyticIneligibleFallsBackToBumped) {
     ASSERT_LT(rBumped.diagnostics_.maxAbsResidual_, 1.0e-7);
     ASSERT_LT(rAnalytic.diagnostics_.maxAbsResidual_, 1.0e-7);
 
-    // The fallback is bumped, so the discount factors must match exactly at every knot date. (The
-    // ineligible spec is PIECEWISE_LINEAR_FWD, so NodeLogDF does not apply -- compare DFs instead.)
+    // The fallback is bumped, so the discount factors must match exactly at every knot date.
     for (const auto& d : spec.knotDates_) {
         const double dfBumped = (*rBumped.curve_)(spec.today_, d);
         const double dfAnalytic = (*rAnalytic.curve_)(spec.today_, d);

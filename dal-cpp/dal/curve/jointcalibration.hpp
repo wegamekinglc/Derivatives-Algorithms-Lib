@@ -24,8 +24,8 @@ namespace Dal {
         Vector_<Handle_<YCInstrument_>> instruments_;
         Vector_<Date_> knotDates_;
         CollateralType_ targetCollateral_ = CollateralType_(CollateralType_::Value_::OIS);
-        PeriodLength_ targetTenor_;          // required iff calibrateDiscountCurve_ == false
-        bool calibrateDiscountCurve_ = true; // true: discount slot; false: forward slot
+        PeriodLength_ targetTenor_;            // required iff calibrateDiscountCurve_ == false
+        bool calibrateDiscountCurve_ = true;   // true: discount slot; false: forward slot
         bool baseLayeredOverDiscount_ = false; // forward decls only; base = discount curve at targetCollateral_
         CurveParameterization_ parameterization_ = CurveParameterization_::Value_::PIECEWISE_LINEAR_FWD;
         LogDfScheme_ logDfScheme_ = LogDfScheme_::Value_::LOG_LINEAR;
@@ -50,8 +50,8 @@ namespace Dal {
         CurveSolveMode_ solveMode_ = CurveSolveMode_::Value_::EXACT;
     };
 
-    // Per-curve + coarse-joint diagnostics. The joint Jacobian / effJacobianInverse are deferred
-    // (Non-Goals: no AAD in the first cut, Gradient returns nullptr).
+    // Per-curve + coarse-joint diagnostics. The optional stacked residual Jacobian is carried on
+    // JointMultiCurveCalibrationResult_; an effective inverse is not exposed by the joint API.
     struct JointCurveCalibrationDiagnostics_ {
         String_ curveName_;
         int curveIndex_ = 0; // position in spec.curves_ (0-based)

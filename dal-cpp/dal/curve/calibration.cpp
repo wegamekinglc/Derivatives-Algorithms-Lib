@@ -4,38 +4,40 @@
 
 #include <algorithm>
 #include <cmath>
-#include <memory>
-#include <utility>
-#include <dal/platform/platform.hpp>
-#include <dal/platform/strict.hpp>
+#include <dal/curve/aadjacobian.hpp>
 #include <dal/curve/calibration.hpp>
+#include <dal/curve/calibration_internal.hpp>
 #include <dal/curve/curveblock.hpp>
 #include <dal/curve/curvejacobian.hpp>
+#include <dal/curve/curveparameterization.hpp>
 #include <dal/curve/piecewiseconstant.hpp>
 #include <dal/curve/piecewiselinear.hpp>
+#include <dal/curve/tapeguard.hpp>
 #include <dal/curve/ycconst.hpp>
 #include <dal/curve/ycctx.hpp>
 #include <dal/curve/ycimp.hpp>
 #include <dal/curve/yclogdf.hpp>
 #include <dal/math/aad/aad.hpp>
-#include <dal/curve/calibration_internal.hpp>
-#include <dal/curve/tapeguard.hpp>
 #include <dal/math/matrix/banded.hpp>
 #include <dal/math/matrix/matrixarithmetic.hpp>
 #include <dal/math/matrix/squarematrix.hpp>
 #include <dal/math/optimization/underdetermined.hpp>
 #include <dal/math/optimization/underdeterminedutils.hpp>
+#include <dal/platform/platform.hpp>
+#include <dal/platform/strict.hpp>
 #include <dal/time/datetime.hpp>
 #include <dal/utilities/dictionary.hpp>
 #include <dal/utilities/functionals.hpp>
 #include <dal/utilities/numerics.hpp>
+#include <memory>
+#include <utility>
 
 namespace Dal {
-#include <dal/auto/MG_CurveSolveMode_enum.inc>
-#include <dal/auto/MG_CurveParameterization_enum.inc>
-#include <dal/auto/MG_CurveKnotPolicy_enum.inc>
-#include <dal/auto/MG_CurveJacobianMode_enum.inc>
 #include <dal/auto/MG_AnalyticEligibility_enum.inc>
+#include <dal/auto/MG_CurveJacobianMode_enum.inc>
+#include <dal/auto/MG_CurveKnotPolicy_enum.inc>
+#include <dal/auto/MG_CurveParameterization_enum.inc>
+#include <dal/auto/MG_CurveSolveMode_enum.inc>
 #include <dal/auto/MG_LogDfScheme_enum.inc>
 
     namespace {
@@ -85,21 +87,6 @@ namespace Dal {
             multiResult->diagnostics_.push_back(stageResult->diagnostics_);
         }
 
-        const char* ParameterizationName(CurveParameterization_ parameterization) {
-            switch (parameterization.Switch()) {
-            case CurveParameterization_::Value_::PIECEWISE_LINEAR_FWD:
-                return "piecewise linear forward";
-            case CurveParameterization_::Value_::PIECEWISE_CONSTANT_FWD:
-                return "piecewise constant forward";
-            case CurveParameterization_::Value_::ZERO_RATE:
-                return "zero rate";
-            case CurveParameterization_::Value_::LOG_DISCOUNT:
-                return "log discount";
-            default:
-                return "unknown";
-            }
-        }
-
         Vector_<Date_> UniqueSortedDates(const Vector_<Date_>& dates) {
             auto sorted = dates;
             std::sort(sorted.begin(), sorted.end());
@@ -120,87 +107,16 @@ namespace Dal {
             return UniqueSortedDates(retval);
         }
 
-        int ParamsPerKnot(CurveParameterization_ parameterization) {
-            switch (parameterization.Switch()) {
-            case CurveParameterization_::Value_::PIECEWISE_LINEAR_FWD:
-                return 2;
-            case CurveParameterization_::Value_::PIECEWISE_CONSTANT_FWD:
-                return 1;
-            case CurveParameterization_::Value_::LOG_DISCOUNT:
-                return 1;
-            case CurveParameterization_::Value_::ZERO_RATE:
-                REQUIRE(false, "Requested curve parameterization is not implemented");
-                return 0;
-            default:
-                REQUIRE(false, "Unknown curve parameterization");
-                return 0;
-            }
-        }
-
-        std::unique_ptr<DiscountCurve_> BuildDiscountCurve(const String_& name,
-                                                           const String_& ccy,
-                                                           CurveParameterization_ parameterization,
-                                                           LogDfScheme_ logDfScheme,
-                                                           const Vector_<Date_>& knotDates,
-                                                           const Vector_<>& x,
-                                                           const DayBasis_& dayCount,
-                                                           const Handle_<DiscountCurve_>& baseCurve) {
-            switch (parameterization.Switch()) {
-            case CurveParameterization_::Value_::PIECEWISE_LINEAR_FWD: {
-                Vector_<> fLeft(knotDates.size());
-                Vector_<> fRight(knotDates.size());
-                for (int i = 0; i < static_cast<int>(knotDates.size()); ++i) {
-                    fLeft[i] = x[2 * i];
-                    fRight[i] = x[2 * i + 1];
-                }
-                return std::unique_ptr<DiscountCurve_>(NewDiscountPWLF(name, ccy, PiecewiseLinear_(knotDates, fLeft, fRight), baseCurve));
-            }
-            case CurveParameterization_::Value_::PIECEWISE_CONSTANT_FWD:
-                return std::unique_ptr<DiscountCurve_>(NewDiscountPWC(name, ccy, PiecewiseConstant_(knotDates, x), baseCurve));
-            case CurveParameterization_::Value_::LOG_DISCOUNT: {
-                // x is the free-node parameter vector (anchor excluded); prepend log(DF)=0 for the anchor.
-                REQUIRE(static_cast<int>(x.size()) + 1 == static_cast<int>(knotDates.size()),
-                        "LOG_DISCOUNT parameter vector must have length (knotDates - 1)");
-                Vector_<> logDF(knotDates.size());
-                logDF[0] = 0.0;
-                std::copy(x.begin(), x.end(), logDF.begin() + 1);
-                return std::unique_ptr<DiscountCurve_>(NewDiscountLogDF(name, ccy, knotDates, logDF, dayCount, logDfScheme, baseCurve));
-            }
-            case CurveParameterization_::Value_::ZERO_RATE:
-                REQUIRE(false,
-                        String_("Requested curve parameterization is reserved for future implementation: ") + ParameterizationName(parameterization));
-                return nullptr;
-            default:
-                REQUIRE(false, "Unknown curve parameterization");
-                return nullptr;
-            }
-        }
-
-        template <class T_>
-        std::unique_ptr<Tape::DiscountCurve_<T_>> BuildDiscountCurveT(const String_& name,
-                                                                 const String_& ccy,
-                                                                 CurveParameterization_ parameterization,
-                                                                 LogDfScheme_ logDfScheme,
-                                                                 const Vector_<Date_>& knotDates,
-                                                                 const Vector_<T_>& logDF,
-                                                                 const DayBasis_& dayCount,
-                                                                 const Handle_<DiscountCurve_>& baseCurve) {
-            REQUIRE(parameterization == CurveParameterization_::Value_::LOG_DISCOUNT,
-                    "Phase A BuildDiscountCurveT: only LOG_DISCOUNT parameterization is supported");
-            return std::unique_ptr<Tape::DiscountCurve_<T_>>(
-                new Tape::DiscountLogDF_<T_>(name, ccy, knotDates, logDF, dayCount, logDfScheme, baseCurve));
-        }
-
         class YieldCurveCalibrationFunc_ : public Underdetermined::Function_ {
             // Cached eligibility avoids re-evaluating the expensive per-instrument predicate every solver iteration.
 
             String_ ccy_;
             String_ curveName_;
-            CurveParameterization_ parameterization_;
+            Date_ anchor_;
+            CurveDefinition_ definition_;
             Vector_<Handle_<YCInstrument_>> instruments_;
             Vector_<Handle_<YCInstrument_::Rate_>> rates_;
             Vector_<> marketRates_;
-            Vector_<Date_> knotDates_;
             std::map<CollateralType_, Handle_<DiscountCurve_>> discountCurves_;
             std::map<PeriodLength_, Handle_<DiscountCurve_>> forwardCurves_;
             Handle_<DiscountCurve_> baseCurve_;
@@ -208,13 +124,13 @@ namespace Dal {
             PeriodLength_ targetTenor_;
             bool calibrateDiscountCurve_;
             DayBasis_ liborBasis_;
-            LogDfScheme_ logDfScheme_;
             CurveJacobianMode_ jacobianMode_;
             mutable AnalyticEligibility_ cachedEligibility_ = AnalyticEligibility_::Value_::UNKNOWN;
 
         public:
             YieldCurveCalibrationFunc_(const String_& ccy,
                                        const String_& curveName,
+                                       const Date_& anchor,
                                        CurveParameterization_ parameterization,
                                        const Vector_<Handle_<YCInstrument_>>& instruments,
                                        const Vector_<Date_>& knotDates,
@@ -227,10 +143,11 @@ namespace Dal {
                                        const DayBasis_& liborBasis,
                                        LogDfScheme_ logDfScheme,
                                        CurveJacobianMode_ jacobianMode)
-                : ccy_(ccy), curveName_(curveName), parameterization_(parameterization), instruments_(instruments), knotDates_(knotDates),
-                  discountCurves_(discountCurves), forwardCurves_(forwardCurves), baseCurve_(baseCurve), targetCollateral_(targetCollateral),
-                  targetTenor_(targetTenor), calibrateDiscountCurve_(calibrateDiscountCurve), liborBasis_(liborBasis), logDfScheme_(logDfScheme),
-                  jacobianMode_(jacobianMode) {
+                : ccy_(ccy), curveName_(curveName), anchor_(anchor),
+                  definition_(MakeCurveDefinition(curveName, ccy, parameterization, logDfScheme, knotDates, anchor, liborBasis)),
+                  instruments_(instruments), discountCurves_(discountCurves), forwardCurves_(forwardCurves), baseCurve_(baseCurve),
+                  targetCollateral_(targetCollateral), targetTenor_(targetTenor), calibrateDiscountCurve_(calibrateDiscountCurve),
+                  liborBasis_(liborBasis), jacobianMode_(jacobianMode) {
                 Handle_<YieldCurve_> fundingYC;
                 if (!discountCurves_.empty())
                     fundingYC.reset(new CurveBlock_(curveName_, ccy_, discountCurves_, forwardCurves_, liborBasis_));
@@ -243,13 +160,12 @@ namespace Dal {
             }
 
             [[nodiscard]] Vector_<> F(const Vector_<>& x) const override {
-                Handle_<DiscountCurve_> dc(
-                    BuildDiscountCurve(curveName_, ccy_, parameterization_, logDfScheme_, knotDates_, x, liborBasis_, baseCurve_).release());
+                Handle_<DiscountCurve_> dc(BuildDiscountCurveUniqueT<double>(definition_, x, baseCurve_).release());
                 CurveBlock_ yc = YieldCurveWith(dc);
 
                 Vector_<> result(instruments_.size());
                 for (int i = 0; i < static_cast<int>(instruments_.size()); ++i)
-                    result[i] = (*rates_[i])(yc) - marketRates_[i];
+                    result[i] = (*rates_[i])(yc)-marketRates_[i];
                 return result;
             }
 
@@ -284,7 +200,8 @@ namespace Dal {
             void EvaluateEligibilityOnce() const {
                 if (cachedEligibility_ != AnalyticEligibility_::Value_::UNKNOWN)
                     return;
-                cachedEligibility_ = EligibleForAnalyticJacobian() ? AnalyticEligibility_::Value_::ELIGIBLE : AnalyticEligibility_::Value_::INELIGIBLE;
+                cachedEligibility_ =
+                    EligibleForAnalyticJacobian() ? AnalyticEligibility_::Value_::ELIGIBLE : AnalyticEligibility_::Value_::INELIGIBLE;
             }
 
             [[nodiscard]] bool Eligible() const {
@@ -293,10 +210,8 @@ namespace Dal {
             }
 
             [[nodiscard]] bool EligibleForAnalyticJacobian() const {
-                if (parameterization_ != CurveParameterization_::Value_::LOG_DISCOUNT) {
-                    const String_ msg = String_("AAD Jacobian requires CurveParameterization_::LOG_DISCOUNT, got ")
-                                        + parameterization_.String() + "; falling back to bumped";
-                    NOTICE(msg);
+                if (definition_.parameterization_ == CurveParameterization_::Value_::ZERO_RATE) {
+                    NOTICE("AAD Jacobian does not support the unimplemented ZERO_RATE parameterization; falling back to bumped");
                     return false;
                 }
                 if (!calibrateDiscountCurve_) {
@@ -314,23 +229,22 @@ namespace Dal {
                 const String_ name = inst->Name();
                 const RateIndexConvention_* floatConv = FloatConventionOf(*inst);
                 if (!floatConv) {
-                    const String_ msg = String_("AAD Jacobian has no templated rate for instrument '")
-                                        + name + "'; falling back to bumped";
+                    const String_ msg = String_("AAD Jacobian has no templated rate for instrument '") + name + "'; falling back to bumped";
                     NOTICE(msg);
                     return false;
                 }
                 if (floatConv->useProjectionCurve_) {
                     const String_ msg = String_("AAD Jacobian requires forecast==discount for every "
-                                                "instrument; instrument '")
-                                        + name + "' uses a projection curve, falling back to bumped";
+                                                "instrument; instrument '") +
+                                        name + "' uses a projection curve, falling back to bumped";
                     NOTICE(msg);
                     return false;
                 }
                 // Must use TradeDate(), not TimeSpan().first -- spot-started instruments trade before start.
-                if (inst->TradeDate() != knotDates_.front()) {
+                if (inst->TradeDate() != anchor_) {
                     const String_ msg = String_("AAD Jacobian requires every instrument to trade at the "
-                                                "curve anchor; instrument '")
-                                        + name + "' does not, falling back to bumped";
+                                                "curve anchor; instrument '") +
+                                        name + "' does not, falling back to bumped";
                     NOTICE(msg);
                     return false;
                 }
@@ -341,11 +255,8 @@ namespace Dal {
 
             template <class T_> [[nodiscard]] Handle_<Tape::Rate_<T_>> PhaseARateAt(int i) const {
                 return VisitRate(
-                    *instruments_[i],
-                    [](const Deposit_& d) { return d.PrecomputeT<T_>(); },
-                    [](const FRA_& f) { return f.PrecomputeT<T_>(); },
-                    [](const Future_& fu) { return fu.PrecomputeT<T_>(); },
-                    [](const Swap_& s) { return s.PrecomputeT<T_>(); });
+                    *instruments_[i], [](const Deposit_& d) { return d.PrecomputeT<T_>(); }, [](const FRA_& f) { return f.PrecomputeT<T_>(); },
+                    [](const Future_& fu) { return fu.PrecomputeT<T_>(); }, [](const Swap_& s) { return s.PrecomputeT<T_>(); });
             }
         };
 
@@ -354,20 +265,12 @@ namespace Dal {
             TapeGuard_ guard(tape);
             static_cast<void>(f); // the residual values themselves are unused; we recompute on the tape
 
-            const int nNodes = static_cast<int>(knotDates_.size());
-            REQUIRE(static_cast<int>(x.size()) == nNodes - 1,
-                    "AnalyticJacobian: x vector length must equal nNodes - 1 (anchor excluded)");
-            Vector_<Dal::AAD::Number_> logDF(nNodes);
-            logDF[0] = 0.0; // anchor fixed at 0, not registered (no adjoint)
-            for (int i = 0; i < static_cast<int>(x.size()); ++i)
-                Dal::AAD::RegisterIndependent(logDF[i + 1], x[i]);
-
-            // XAD requires inputs registered BEFORE NewRecording; opening earlier silently produces an all-zero Jacobian.
+            const CurveParameterLayout_ layout = BuildCurveParameterLayout(definition_);
+            REQUIRE(static_cast<int>(x.size()) == layout.parameterCount_, "AnalyticJacobian: x vector length must equal the curve parameter count");
+            Vector_<Dal::AAD::Number_> parameters = RegisterCurveParameters(x);
             Dal::AAD::NewRecording(*tape);
 
-            std::unique_ptr<Tape::DiscountCurve_<Dal::AAD::Number_>> dc(
-                BuildDiscountCurveT<Dal::AAD::Number_>(curveName_, ccy_, parameterization_, logDfScheme_,
-                                                       knotDates_, logDF, liborBasis_, baseCurve_));
+            auto dc = BuildDiscountCurveUniqueT<Dal::AAD::Number_>(definition_, parameters, baseCurve_);
             Tape::YCCtx_<Dal::AAD::Number_> ctx(*dc);
 
             const int nRows = static_cast<int>(instruments_.size());
@@ -377,32 +280,7 @@ namespace Dal {
                 residuals[i] = (*rateT)(ctx) - static_cast<double>(marketRates_[i]);
             }
 
-            const int nCols = nNodes - 1;
-            Matrix_<> j(nRows, nCols, 0.0);
-
-            // Single-result reverse sweep: one PropagateToStart per row yields exact structural zeros.
-            // The Jacobian is lower-triangular by maturity, so harvest only the leading RowWidthForMaturity
-            // columns per row and leave the trailing structural zeros at their 0.0 fill. Solver ops stay
-            // dense: SecantUpdate is a rank-1 correction that fills trailing zeros, so the width does not
-            // outlive the first update and is not carried on the XCurveJacobian_.
-            for (int i = 0; i < nRows; ++i) {
-                const int width = RowWidthForMaturity(knotDates_, instruments_[i]->TimeSpan().second);
-#if defined(DAL_USE_XAD_AAD) || defined(DAL_USE_CODIPACK_AAD) || defined(DAL_USE_ADEPT_AAD)
-                // No inline zeroing in PropagateOne; full-tape ZeroAdjoints is still required per row.
-                Dal::AAD::ZeroAdjoints(*tape);
-#endif
-                Dal::AAD::Adjoint(residuals[i]) = 1.0;
-                Dal::AAD::PropagateToStart(*tape);
-                for (int col = 0; col < width; ++col)
-                    j(i, col) = Dal::AAD::Adjoint(logDF[col + 1]);
-#if !defined(DAL_USE_XAD_AAD) && !defined(DAL_USE_CODIPACK_AAD) && !defined(DAL_USE_ADEPT_AAD)
-                // Native leaf-zeroing must cover every parameter leaf, not just the harvested prefix:
-                // unzeroed leaves accumulate across rows and corrupt later rows that DO depend on them.
-                for (int col = 0; col < nCols; ++col)
-                    Dal::AAD::Adjoint(logDF[col + 1]) = 0.0;
-#endif
-            }
-            return new XCurveJacobian_(std::move(j));
+            return new XCurveJacobian_(HarvestCurveJacobian(*tape, parameters, residuals));
         }
 
         Vector_<> ModelRates(const Vector_<Handle_<YCInstrument_>>& instruments, const YieldCurve_& curve, const Handle_<YieldCurve_>& fundingCurve) {
@@ -508,7 +386,8 @@ namespace Dal {
             latestEnd = std::max(latestEnd, span.second);
         }
         REQUIRE(knotDates.back() >= latestEnd, "Curve calibration knots must span all instrument maturities");
-        static_cast<void>(ParamsPerKnot(spec.parameterization_));
+        static_cast<void>(BuildCurveParameterLayout(
+            MakeCurveDefinition(spec.curveName_, spec.ccy_, spec.parameterization_, spec.logDfScheme_, knotDates, spec.today_, spec.liborBasis_)));
     }
 
     void ValidatePositiveDiscountFactors(const DiscountCurve_& curve, const Date_& today, const Vector_<Date_>& checkDates) {
@@ -568,12 +447,12 @@ namespace Dal {
 
         CurveCalibrationResult_ AssembleCalibrationResult(const CurveCalibrationSpec_& spec,
                                                           const Vector_<Handle_<YCInstrument_>>& instruments,
+                                                          const CurveDefinition_& definition,
                                                           const Vector_<Date_>& knotDates,
                                                           const Vector_<>& result,
                                                           const Matrix_<>* effJacobianInverse) {
             CurveCalibrationResult_ retval;
-            retval.curve_ = BuildDiscountCurve(spec.curveName_, spec.ccy_, spec.parameterization_, spec.logDfScheme_, knotDates, result, spec.liborBasis_,
-                                               spec.baseCurve_);
+            retval.curve_ = BuildDiscountCurveUniqueT<double>(definition, result, spec.baseCurve_);
             // For LOG_DISCOUNT the anchor knot equals today_ and would fail the strict > today check;
             // validate the free knots only.
             if (spec.parameterization_ == CurveParameterization_::Value_::LOG_DISCOUNT) {
@@ -602,20 +481,19 @@ namespace Dal {
         }
     } // namespace
 
-    CurveCalibrationResult_ CalibrateYieldCurve(const CurveCalibrationSpec_& spec) {
-        return CalibrateYieldCurve(spec, CurveCalibrationOptions_());
-    }
+    CurveCalibrationResult_ CalibrateYieldCurve(const CurveCalibrationSpec_& spec) { return CalibrateYieldCurve(spec, CurveCalibrationOptions_()); }
 
     CurveCalibrationResult_ CalibrateYieldCurve(const CurveCalibrationSpec_& spec, const CurveCalibrationOptions_& options) {
         ValidateCurveCalibrationSpec(spec);
 
         const Vector_<Handle_<YCInstrument_>> instruments = OrderInstruments(spec.instruments_);
         const Vector_<Date_> knotDates = BuildCurveCalibrationKnots(spec.today_, instruments, spec.knotDates_, spec.knotPolicy_);
-        const int paramsPerKnot = ParamsPerKnot(spec.parameterization_);
-        const int nKnots = static_cast<int>(knotDates.size());
-        const bool anchorIsToday = spec.parameterization_ == CurveParameterization_::Value_::LOG_DISCOUNT;
-        const int nFreeKnots = anchorIsToday ? nKnots - 1 : nKnots;
-        const int nParams = paramsPerKnot * nFreeKnots;
+        const CurveDefinition_ definition =
+            MakeCurveDefinition(spec.curveName_, spec.ccy_, spec.parameterization_, spec.logDfScheme_, knotDates, spec.today_, spec.liborBasis_);
+        const CurveParameterLayout_ layout = BuildCurveParameterLayout(definition);
+        const int paramsPerKnot = layout.paramsPerDeclaredKnot_;
+        const bool anchorIsToday = layout.pinnedAnchor_;
+        const int nParams = layout.parameterCount_;
 
         const Vector_<> guess = BuildCalibrationGuess(spec, knotDates, anchorIsToday, nParams);
         const Vector_<> tol(instruments.size(), spec.tolerance_);
@@ -629,20 +507,17 @@ namespace Dal {
         }
         std::unique_ptr<Sparse::TriDiagonal_> weights(BuildCurveCalibrationWeights(weightKnots, paramsPerKnot, spec.smoothingWeight_));
 
-        YieldCurveCalibrationFunc_ func(spec.ccy_, spec.curveName_, spec.parameterization_, instruments, knotDates, spec.discountCurves_,
+        YieldCurveCalibrationFunc_ func(spec.ccy_, spec.curveName_, spec.today_, spec.parameterization_, instruments, knotDates, spec.discountCurves_,
                                         spec.forwardCurves_, spec.baseCurve_, spec.targetCollateral_, spec.targetTenor_, spec.calibrateDiscountCurve_,
                                         spec.liborBasis_, spec.logDfScheme_, options.jacobianMode_);
 
         // Forward Jacobian requested only for ANALYTIC + EXACT + eligible; nullptr otherwise so the solver leaves the output empty.
-        const bool wantFwdJacobian = options.computeForwardJacobian_ && options.jacobianMode_ == CurveJacobianMode_::Value_::ANALYTIC
-                                     && spec.solveMode_ == CurveSolveMode_::Value_::EXACT && func.Eligible();
+        const bool wantFwdJacobian = options.computeForwardJacobian_ && options.jacobianMode_ == CurveJacobianMode_::Value_::ANALYTIC &&
+                                     spec.solveMode_ == CurveSolveMode_::Value_::EXACT && func.Eligible();
         Matrix_<> fwdJacobian;
         const SolverOutput_ solved =
             RunCalibrationSolver(spec, func, guess, tol, *weights, options.computeEffJacobianInverse_, wantFwdJacobian ? &fwdJacobian : nullptr);
-        CurveCalibrationResult_ retval = AssembleCalibrationResult(spec,
-                                                                   instruments,
-                                                                   knotDates,
-                                                                   solved.result_,
+        CurveCalibrationResult_ retval = AssembleCalibrationResult(spec, instruments, definition, knotDates, solved.result_,
                                                                    options.computeEffJacobianInverse_ ? &solved.effJacobianInverse_ : nullptr);
         retval.diagnostics_.jacobian_ = std::move(fwdJacobian);
         return retval;

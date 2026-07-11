@@ -43,11 +43,11 @@ alternative BUMPED
     Finite-difference bumping of each free node. Byte-for-byte identical to
     the pre-analytic path. Always available.
 alternative ANALYTIC
-    AAD-derived dense Jacobian. Default. Engages only when
-    EligibleForAnalyticJacobian() is true (LOG_DISCOUNT + DISCOUNT-target +
-    forecast==discount + vanilla swap/deposit/FRA/Future + tradeDate ==
-    anchor); otherwise falls back to BUMPED with a NOTICE. ANALYTIC never
-    throws -- it is a best-effort hint.
+    AAD-derived dense Jacobian. Default. Supports every implemented curve
+    representation (piecewise-constant forward, piecewise-linear forward,
+    and every log-discount interpolation scheme) when the calibration's
+    instrument and routing eligibility gates pass. Otherwise falls back to
+    BUMPED with a NOTICE. ANALYTIC never throws -- it is a best-effort hint.
 -IF-------------------------------------------------------------------------*/
 
 /*IF--------------------------------------------------------------------------
@@ -148,9 +148,7 @@ namespace Dal {
         Vector_<CurveCalibrationDiagnostics_> diagnostics_;
     };
 
-    Sparse::TriDiagonal_* BuildCurveCalibrationWeights(const Vector_<Date_>& knotDates,
-                                                       int paramsPerKnot,
-                                                       double smoothingWeight);
+    Sparse::TriDiagonal_* BuildCurveCalibrationWeights(const Vector_<Date_>& knotDates, int paramsPerKnot, double smoothingWeight);
     Vector_<Date_> BuildCurveCalibrationKnots(const Date_& today,
                                               const Vector_<Handle_<YCInstrument_>>& instruments,
                                               const Vector_<Date_>& inputKnots,

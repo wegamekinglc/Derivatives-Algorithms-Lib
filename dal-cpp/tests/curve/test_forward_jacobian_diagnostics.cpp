@@ -74,8 +74,7 @@ namespace {
         spec.logDfScheme_ = LogDfScheme_::Value_::LOG_LINEAR;
 
         spec.knotDates_ = {
-            Date_(2022, 1, 1), Date_(2022, 4, 1), Date_(2022, 7, 1), Date_(2023, 1, 1),
-            Date_(2024, 1, 1), Date_(2025, 1, 1),
+            Date_(2022, 1, 1), Date_(2022, 4, 1), Date_(2022, 7, 1), Date_(2023, 1, 1), Date_(2024, 1, 1), Date_(2025, 1, 1),
         };
 
         const auto fixedLeg = AnnualLeg();
@@ -85,20 +84,19 @@ namespace {
             return Handle_<YCInstrument_>(new Swap_(spec.today_, start, end, parPct / 100.0, fixedLeg, floatIdx, floatLeg));
         };
         spec.instruments_ = {
-            mkSwap(Date_(2022, 1, 1), Date_(2022, 4, 1), 1.00),
-            mkSwap(Date_(2022, 1, 1), Date_(2022, 7, 1), 1.10),
-            mkSwap(Date_(2022, 1, 1), Date_(2023, 1, 1), 1.25),
-            mkSwap(Date_(2022, 1, 1), Date_(2024, 1, 1), 1.55),
+            mkSwap(Date_(2022, 1, 1), Date_(2022, 4, 1), 1.00), mkSwap(Date_(2022, 1, 1), Date_(2022, 7, 1), 1.10),
+            mkSwap(Date_(2022, 1, 1), Date_(2023, 1, 1), 1.25), mkSwap(Date_(2022, 1, 1), Date_(2024, 1, 1), 1.55),
             mkSwap(Date_(2022, 1, 1), Date_(2025, 1, 1), 1.80),
         };
         return spec;
     }
 
-    // Ineligible spec: non-LOG_DISCOUNT parameterization falls back to bumped via NOTICE.
+    // Ineligible spec: an instrument that does not trade at the curve anchor falls back to
+    // bumped via NOTICE, independently of the now-supported curve representation.
     CurveCalibrationSpec_ MakeIneligibleSpec() {
         auto spec = MakeEligibleSpec();
-        spec.parameterization_ = CurveParameterization_::Value_::PIECEWISE_LINEAR_FWD;
-        spec.knotDates_[0] = Date_(2022, 4, 1); // knot 0 must be > today for non-LOG_DISCOUNT.
+        spec.instruments_[0] =
+            Handle_<YCInstrument_>(new Swap_(Date_(2021, 12, 30), spec.today_, Date_(2022, 4, 1), 0.01, AnnualLeg(), AnnualIndex(), AnnualLeg()));
         return spec;
     }
 
@@ -117,18 +115,16 @@ namespace {
         Vector_<> full(spec.knotDates_.size(), 0.0);
         for (int i = 1; i < static_cast<int>(spec.knotDates_.size()); ++i)
             full[i] = x[i - 1];
-        std::unique_ptr<DiscountCurve_> dc(
-            NewDiscountLogDF(spec.curveName_, spec.ccy_, spec.knotDates_, full, spec.liborBasis_, spec.logDfScheme_));
+        std::unique_ptr<DiscountCurve_> dc(NewDiscountLogDF(spec.curveName_, spec.ccy_, spec.knotDates_, full, spec.liborBasis_, spec.logDfScheme_));
         std::map<CollateralType_, Handle_<DiscountCurve_>> discounts;
-        discounts[spec.targetCollateral_] =
-            Handle_<DiscountCurve_>(std::shared_ptr<const DiscountCurve_>(std::shared_ptr<void>(), dc.get()));
+        discounts[spec.targetCollateral_] = Handle_<DiscountCurve_>(std::shared_ptr<const DiscountCurve_>(std::shared_ptr<void>(), dc.get()));
         std::map<PeriodLength_, Handle_<DiscountCurve_>> forwards;
         CurveBlock_ yc(spec.curveName_, spec.ccy_, discounts, forwards, spec.liborBasis_);
         Vector_<> f(spec.instruments_.size());
         Handle_<YieldCurve_> empty;
         for (int i = 0; i < static_cast<int>(spec.instruments_.size()); ++i) {
             auto rate = spec.instruments_[i]->Precompute(empty);
-            f[i] = (*rate)(yc) - spec.instruments_[i]->MarketRate();
+            f[i] = (*rate)(yc)-spec.instruments_[i]->MarketRate();
         }
         return f;
     }

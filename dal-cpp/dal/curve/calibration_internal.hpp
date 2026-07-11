@@ -23,19 +23,6 @@ namespace Dal {
     // xccyinstrument.cpp to eliminate byte-identical duplication. Marked inline so the header-only
     // definitions do not violate the ODR across translation units.
 
-    // Number of free knots (LOG_DISCOUNT solver columns) an instrument can have sensitivity to:
-    // the leading columns whose knot date is at or before the instrument maturity. Columns at or
-    // beyond it are structural zeros and need not be harvested. A cashflow strictly past the anchor
-    // still couples to the first free knot via short-end interpolation even when it lands before that
-    // knot, so any maturity past the anchor yields a minimum width of 1.
-    inline int RowWidthForMaturity(const Vector_<Date_>& knotDates, const Date_& maturity) {
-        REQUIRE(!knotDates.empty(), "RowWidthForMaturity: knot dates must be non-empty");
-        const auto it = std::upper_bound(knotDates.begin(), knotDates.end(), maturity);
-        const int lastKnotAtOrBefore = static_cast<int>(it - knotDates.begin()) - 1;
-        const int clamped = std::max(0, lastKnotAtOrBefore);
-        return (maturity > knotDates.front()) ? std::max(1, clamped) : clamped;
-    }
-
     // Stable ordering of curve-calibration instruments: by maturity, then by start, then by name.
     inline Vector_<Handle_<YCInstrument_>> OrderInstruments(const Vector_<Handle_<YCInstrument_>>& instruments) {
         auto ordered = instruments;

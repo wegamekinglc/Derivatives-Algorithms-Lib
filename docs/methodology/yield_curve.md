@@ -11,9 +11,9 @@ A single-currency interest-rate curve is captured by the **discount factor**
 $P(t_0, T)$ — today's value of one unit of currency paid at $T$. Everything else
 is derived from it.
 
-The library parameterises the curve by the **instantaneous forward rate $f(t)$**.
-Time is measured in days, and the day-count integral is annualised by dividing by
-$365$, so the discount factor is
+The library can parameterize the curve through the **instantaneous forward rate
+$f(t)$** or through node log discount factors. For the forward representations, time is
+measured in days and the integral is annualized by dividing by $365$:
 
 $$
 P(t_0, T) = \exp\!\left( -\frac{1}{365}\int_{t_0}^{T} f(t)\,dt \right).
@@ -84,6 +84,15 @@ Outside the knot range $f$ is held flat at the nearest endpoint value.
 Piecewise-linear forwards give a smoother, more realistic curve (continuous
 forwards) at the price of twice as many parameters; piecewise-constant forwards
 are simpler and more robust. The calibration layer can use either.
+
+### Log-Discount Factors
+
+`LOG_DISCOUNT` stores $\ell_i=\log P(t_0,t_i)$ at future nodes and pins an anchor
+node $(t_0,0)$. It contributes one free parameter per future node and interpolates
+$\ell(t)$ using log-linear, natural-cubic, or mixed linear/cubic geometry. The curve
+definition layer prepends the storage anchor for joint declarations and keeps it out of
+the solver vector. See [Log-discount curve](log_discount_curve.md) for the exact boundary,
+extrapolation, and column-order contracts.
 
 ### Persistence contract
 
@@ -180,6 +189,14 @@ suppresses spurious oscillation between instrument maturities. The mechanics of
 this constrained minimisation — and the approximate-fit variant for inconsistent
 quotes — are covered in [Underdetermined search](underdetermined_search.md).
 
+`APPROXIMATE` stops when the residual norm reaches `fitTolerance_`; it does not
+continue to a unique, Jacobian-independent curve inside that feasible region. Consequently,
+`ANALYTIC` and `BUMPED` can follow different local linearisations and return different
+parameter vectors while both satisfy the documented fit tolerance. Use one Jacobian mode
+consistently when curve-level reproducibility matters. `BUMPED` remains the compatibility
+reference for results produced before a representation gained AAD support; exact-mode tests
+separately require analytic and bumped curves to agree.
+
 ### Bootstrapping Order
 
 Instruments are ordered by maturity so that the curve is built outwards in time:
@@ -208,8 +225,9 @@ When `CurveJacobianMode_::ANALYTIC` is set and the calibration is eligible, the
 residual function `YieldCurveCalibrationFunc_` in
 `dal-cpp/dal/curve/calibration.cpp` overrides `Underdetermined::Function_::Gradient`
 to supply an AAD-tape Jacobian instead of returning `nullptr` (which would trigger
-dense bumping). The `LOG_DISCOUNT` parameterization exposes the node log-discount
-factors $\ell_1,\dots,\ell_{N-1}$ as the free parameters.
+dense bumping). PWC, PWL, and log-DF curves are all built through the same
+`CurveDefinition_`, `CurveParameterLayout_`, and scalar-templated factory used by the
+passive residual path.
 
 **TapeGuard.** Each analytic-Jacobian cycle is bracketed by `TapeGuard_`, an RAII
 scope that calls `Dal::AAD::Rewind` on the active tape at construction and (via its
@@ -221,8 +239,8 @@ recording — the recording is opened explicitly by `AnalyticJacobian` after
 `RegisterIndependent` (the canonical order across all four AAD backends).
 
 **Eligibility predicate.** `EligibleForAnalyticJacobian()` is a pure query over
-member state: it checks `parameterization_ == LOG_DISCOUNT`,
-`calibrateDiscountCurve_ == true`, and every instrument passes
+member state: it rejects only the unimplemented `ZERO_RATE` at the curve-method gate,
+requires `calibrateDiscountCurve_ == true`, and checks that every instrument passes
 `InstrumentEligibleForAnalyticJacobian`. Each fall-through path emits a `NOTICE`
 naming the offending condition. The predicate never throws — ineligibility routes
 through `return nullptr` so the solver dense-bumps. The verdict is evaluated once
@@ -235,7 +253,7 @@ Per-instrument eligibility requires the instrument to:
   templated `Tape::Rate_<T_>` subclasses exist).
 - **Not** use a projection curve (`useProjectionCurve_ == false`), so forecast
   equals discount (both read from the single calibrated curve).
-- Trade at the curve anchor date (`TradeDate() == knotDates_.front()`), because the
+- Trade at the curve anchor date (`TradeDate() == today_`), because the
   templated rates read $P(\text{tradeDate}, p)$ from the calibrated curve
   directly. Spot-started instruments trade before their effective start, so the
   real trade date — not `TimeSpan().first` — must be checked.
@@ -243,26 +261,29 @@ Per-instrument eligibility requires the instrument to:
 **Analytic Jacobian construction.** `AnalyticJacobian` performs one reverse sweep
 per residual row:
 
-1. Register the free node values $x_0,\dots,x_{N-2}$ on the tape via
-   `Dal::AAD::RegisterIndependent(logDF[i+1], x[i])`, where the anchored node
-   $\ell_0$ is assigned $0$ but not registered (it is not an independent).
+1. Register the flat solver vector in layout order. PWC contributes one right-hand
+   forward per knot; PWL contributes interleaved left/right forwards; log-DF contributes
+   future-node log DFs while its storage anchor remains fixed at zero.
 2. Open the recording with `Dal::AAD::NewRecording(*tape)`.
-3. Forward pass: build `Tape::DiscountLogDF_<Number_>`, construct each
-   `Tape::Rate_<Number_>` via `PrecomputeT<Number_>()`, evaluate residuals.
+3. Forward pass: build the selected `Tape::Discount*_<Number_>` through
+   `BuildDiscountCurveT`, construct each `Tape::Rate_<Number_>` via
+   `PrecomputeT<Number_>()`, and evaluate residuals.
 4. For each row $i$: zero all adjoints, seed $\bar r_i = 1$, propagate to start,
-   and harvest $\bar{\ell}_{j+1}$ as $\partial r_i / \partial x_j$. The column
-   map is `col j = storage node j+1`, and AAD produces exact structural zeros
-   at nodes an instrument does not touch.
+   and harvest every applicable flat parameter adjoint as
+   $\partial r_i / \partial x_j$. `HarvestCurveJacobian` centralizes the backend-specific
+   zeroing and row loop.
 
-The single-result path (one sweep per row) is simpler than the multi-result
-alternative and runs identically on all four backends.
+The single-result path runs identically on all four backends. Every representation is
+harvested at full width. Maturity-based truncation is intentionally avoided because
+payment lags and business-day adjustments can move a curve read beyond an instrument's
+nominal maturity.
 
 **Forward Jacobian at the solution.** The solver's convergence branch can capture
 an unscaled forward Jacobian $J$ at the solved $x^\star$ by calling
 `func.Gradient(x, f, &fwdJacobian)` once at the solution. This is requested only
 when `jacobianMode_ == ANALYTIC AND solveMode_ == EXACT AND eligible`; callers
 pass `nullptr` otherwise so the solver leaves the output empty. The output appears
-on `CurveCalibrationDiagnostics_::jacobian_` (shape $m \times (N-1)$), unscaled
+on `CurveCalibrationDiagnostics_::jacobian_` (shape $m \times n_{\mathrm{params}}$), unscaled
 — it is the plain $J$ before the solver's `DivideRows(tol_)` row-scaling.
 `CurveCalibrationOptions_::computeForwardJacobian_` defaults to `true`; setting
 it to `false` skips this at-solution sweep and leaves `jacobian_` empty.
@@ -276,8 +297,8 @@ market instruments (deposits, STIR, swaps)
 underdetermined solver  (min ½‖x−x₀‖²_W  s.t. r(x)=0)
         │  Jacobian via AAD; smoothness via weight matrix W
         ▼
-forward-rate parameters x   (piecewise constant: K, piecewise linear: 2K)
-        │  cumulative integrals S(t) precomputed at knots
+curve parameters x   (PWC: K, PWL: 2K, log DF: K future nodes)
+        │  typed integration or interpolation with passive geometry
         ▼
 discount factors  P(t₁,t₂) = exp(−∫f dt / 365) × P_base
         │
@@ -291,7 +312,7 @@ multi-curve routing: OIS discounting + tenor forecasting
 all discount and forward curves simultaneously from one **stacked parameter
 vector** $x$. Each curve is declared by a `JointCurveDeclaration_` and the
 joint spec carries a single `solveMode_`, `tolerance_`, and `smoothingWeight_`.
-The smoother is **block-diagonal**: each declaration's own $2K$ parameters are
+The smoother is **block-diagonal**: each declaration's own layout-defined parameters are
 penalised independently, so a knot perturbation on the OIS curve does not
 directly enter the 3M-curve's smoothing norm.
 
@@ -313,28 +334,27 @@ $$
 \text{PropagateToStart},\; \text{harvest}\}.
 $$
 
-Under piecewise-linear forwards each declaration contributes
-$2 \cdot n_{\text{knots}}$ independents -- every knot (including knot 0) is free;
-there is no anchor exclusion (unlike the single-curve LOG_DISCOUNT path).
+Each declaration contributes a flat slice in public declaration order: $K$ PWC values,
+$2K$ interleaved PWL values, or $K$ future-node log DFs. A joint log-DF definition
+prepends `today_` as its pinned storage anchor without changing the declaration's public
+future-knot vector.
 
-**Tape-layer primitives.** Three new templated types extend the `Dal::Tape`
-namespace for curve calibration:
+**Tape-layer primitives.** The scalar-templated curve and routing types are:
 
-| Type                                  | Role                                                                      | Header                                             |
-|---------------------------------------|---------------------------------------------------------------------------|----------------------------------------------------|
-| `Tape::DiscountPWLF_<T_, B_>`         | PWL-forward curve on `T_` with optional templated base handle             | `dal-cpp/dal/curve/ycpwlf.hpp`                     |
-| `Tape::JointCurveBlock_<T_>`          | Multi-curve routing context: `Discount(collateral)` and `Forward(tenor,collateral)` reads in the `T_` domain | `dal-cpp/dal/curve/jointycctx.hpp` |
-| `Tape::JointRate_<T_>`                | Projection-capable rate base: `operator()(const JointCurveBlock_<T_>&)`   | `dal-cpp/dal/curve/jointrate.hpp`                  |
+| Type | Role | Header |
+|------|------|--------|
+| `Tape::DiscountPWC_<T_, B_>` | Typed PWC-forward integration with optional typed base | `dal-cpp/dal/curve/ycconst.hpp` |
+| `Tape::DiscountPWLF_<T_, B_>` | Typed PWL-forward integration with optional typed base | `dal-cpp/dal/curve/ycpwlf.hpp` |
+| `Tape::DiscountLogDF_<T_, B_>` | Typed log-DF interpolation for all `LogDfScheme_` values | `dal-cpp/dal/curve/yclogdf.hpp` |
+| `Tape::JointCurveBlock_<T_>` | Multi-curve discount/forward routing in the `T_` domain | `dal-cpp/dal/curve/jointycctx.hpp` |
+| `Tape::JointRate_<T_>` | Projection-capable rate base over a joint block | `dal-cpp/dal/curve/jointrate.hpp` |
 
-The `double` specialisation of `Tape::DiscountPWLF_` is the curve that
-`NewDiscountPWLF` and the `DiscountPWLF` v1 reader construct
-(`dal-cpp/dal/curve/ycimp.cpp`). The `Number_` specialisation is constructed only
-by the AAD `Gradient` override, with a two-pass build: discount declarations
-first as baseless `Tape::DiscountPWLF_<Number_>`, then forward declarations as
-base-layered `Tape::DiscountPWLF_<Number_, DiscountCurve_<Number_>>` with the
-discount declaration's curve as a `Number_`-typed base handle -- so the reverse
-sweep propagates OIS adjoints through the forward curve's base multiplication
-into the OIS discount-curve free nodes.
+`BuildDiscountCurveT` dispatches once from each declaration's `CurveDefinition_` to
+the required typed curve. The AAD path uses a two-pass build: discount declarations first,
+then forward declarations with either an empty/passive base or a
+`DiscountCurve_<Number_>` base from the same solve. This applies uniformly to PWC, PWL,
+and log-DF curves, so the reverse sweep propagates OIS adjoints through any base-layered
+representation.
 
 **OIS-discount vs IBOR-projection routing.** The OIS-discount slice (where
 $\text{forecast} = \text{discount}$) rides the inherited
@@ -349,13 +369,15 @@ priced through the new `Tape::JointRate_<T_>` hierarchy:
 **Eligibility.** The AAD path engages only when every joint declaration
 satisfies:
 
-- `parameterization_ == PIECEWISE_LINEAR_FWD`,
+- `parameterization_` is `PIECEWISE_CONSTANT_FWD`, `PIECEWISE_LINEAR_FWD`, or
+  `LOG_DISCOUNT` with any log-DF interpolation scheme,
 - every instrument is a `Deposit_`, `FRA_`, `Future_`, or `Swap_` (including
   `OISSwap_`, which inherits `Swap_` and rides `Swap_::PrecomputeT<T_>`),
 - `liborBasis_ == ACT_365F` (agrees with the `DAYS_PER_YEAR = 365.0`
   denominator the templated curve assumes),
-- base-layered forward declarations resolve their base collateral against a
-  PIECEWISE_LINEAR_FWD discount declaration in the same spec.
+- forward declarations project and resolve their target collateral against a discount
+  declaration in the same spec; base layering may combine any implemented pair of curve
+  representations.
 
 Each failing condition emits a one-time `NOTICE` naming the declaration index
 and the condition; the solver then dense-bumps unchanged. The verdict is
@@ -650,7 +672,7 @@ API citations:
   cross-currency basis curve.
 - [AAD methodology](aad.md) — supplies the analytic Jacobian used in calibration
   and the curve risk sensitivities.
-- [Log-Discount Curve](log_discount_curve.md) — the curve parameterization on which
-  the single-curve AAD path operates.
+- [Log-Discount Curve](log_discount_curve.md) — scalar-generic log-DF interpolation and
+  its pinned-anchor column layout.
 - [Script Engine](script_engine.md) — the preprocessing and evaluation pipeline for
   script-based payoff descriptions.

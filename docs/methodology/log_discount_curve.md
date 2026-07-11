@@ -1,240 +1,212 @@
 # Log-Discount Curve
 
-This note describes the `LOG_DISCOUNT` curve parameterization: how a discount curve is
-represented as a set of node log-discount-factors, how it is interpolated, and why it is
-the parameterization on which the analytic Jacobian for calibration is built. It ties
-together [Yield curve construction](yield_curve.md) and
+This note describes the `LOG_DISCOUNT` curve parameterization: its stored node
+log-discount factors, scalar-generic interpolation, boundary policy, solver layout, and
+AAD behavior. It complements [Yield curve construction](yield_curve.md) and
 [Interpolation](interpolation.md).
 
 ## Representation
 
-A `LOG_DISCOUNT` curve stores the discount curve at a fixed set of **node dates**
-$t_0 < t_1 < \dots < t_{N-1}$ as the **log discount factors** relative to the anchor
+A log-discount curve stores node dates
+$t_0 < t_1 < \dots < t_{N-1}$ and log discount factors relative to the anchor
 $t_0$,
 
 $$
-\ell_i \equiv \ln P(t_0, t_i), \qquad \ell_0 = \ln P(t_0,t_0) = 0.
+\ell_i = \ln P(t_0,t_i), \qquad \ell_0 = 0.
 $$
 
-The anchor node is pinned at $\ell_0 = 0$ (today's discount factor is 1), so the curve
-has $N-1$ free parameters — the quantities the calibration solver drives. Between nodes
-the log discount factor is obtained by interpolation in the year-fraction abscissa
-$\tau = \mathrm{YearFrac}(t_0, t;\,\text{dayCount})$, and the discount factor itself is
+The anchor is pinned, so only $\ell_1,\dots,\ell_{N-1}$ are calibration
+parameters. At a date $t$, the curve maps the date to a passive year fraction
 
 $$
-P(t_0, t) = \exp\!\big( \ell(\tau) \big).
+\tau(t) = \operatorname{YearFrac}(t_0,t;\text{dayCount})
 $$
 
-Because the parameter is $\ell = \ln P$ rather than $P$ or the forward rate, every
-interpolated discount factor is strictly positive by construction — the exponential can
-never cross zero — which makes the curve numerically robust to bump during calibration.
-The implementation is `Tape::DiscountLogDF_<T_>` (alias `DiscountLogDF_` for `T_ = double`),
-declared in `dal-cpp/dal/curve/yclogdf.hpp` and constructed via the
-`NewDiscountLogDF(...)` factory.
-
-## Interpolation Schemes: `LogDfScheme_`
-
-The shape of $\ell(\tau)$ between nodes is selected by the `LogDfScheme_` enumeration
-(`dal-cpp/dal/curve/logdfscheme.hpp`), carried on the calibration spec as
-`CurveCalibrationSpec_::logDfScheme_` (default `LOG_LINEAR`). Each scheme is a concrete
-interpolator from [Interpolation](interpolation.md) applied to the $(\tau_i, \ell_i)$
-knots:
-
-| `LogDfScheme_`        | Interpolator on $\ell(\tau)$                         | Properties                                                       |
-|-----------------------|------------------------------------------------------|------------------------------------------------------------------|
-| `LOG_LINEAR`          | linear in $\ell$ (i.e. log-linear in $P$)            | $C^0$, positivity-preserving, cheapest; default                  |
-| `LOG_CUBIC_NATURAL`   | natural cubic spline in $\ell$ (`Boundary_(2, 0.0)`) | $C^2$ smooth, curved between knots                               |
-| `MIXED`               | linear through a cutoff, natural cubic beyond        | compatibility scheme; $C^0$ at the cutoff                        |
-
-The mapping lives in `BuildLogDfInterpFromYf` in `dal-cpp/dal/curve/yclogdf.cpp`.
-
-- **`LOG_LINEAR`** is the cheapest and most robust scheme; linear interpolation of $\ell$
-  is exactly log-linear interpolation of $P$ and is the default.
-- **`LOG_CUBIC_NATURAL`** fits a natural cubic spline (zero end curvature,
-  `Boundary_(2, 0.0)` on both sides) through the knot $\ell$ values, giving a $C^2$ curve.
-  Smoothness is valuable when second-derivative-dependent risk is computed off the curve.
-- **`MIXED`** preserves DAL's compatibility orientation: linear in $\ell$ from the
-  anchor through a cutoff knot, then natural cubic beyond the cutoff. The two pieces
-  share the cutoff knot and are $C^0$ there; derivative continuity is not imposed. For
-  $N$ knots the curve builder selects zero-based cutoff index
-  $\max(1,N-5)$. `NewMixedLogDF` also accepts an explicit cutoff through
-  `MixedSchemeSpec_` and requires it to equal a knot.
-
-## Why Log-Discount is the Analytic-Jacobian Parameterization
-
-The analytic Jacobian shipped for curve calibration (see
-[Yield-curve Jacobian](yield_curve_jacobian.md)) is scoped to `LOG_DISCOUNT`. The
-reason is mechanical. The calibration residuals are
-smooth functions of the node $\ell_i$ through the pricing machinery, so when the node
-$\ell_i$ are placed on the AAD tape as independents the per-residual adjoints produced by
-one reverse sweep per row are exactly the Jacobian entries
-$\partial r_j / \partial \ell_i$ — no bump noise, exact structural zeros at nodes an
-instrument does not touch. Because the anchor $\ell_0$ is pinned at zero, the solver's $x$
-has exactly $N-1$ entries and matches the free-node count.
-
-The `Tape::DiscountLogDF_<Number_>` specialization routes its log-DF evaluation through
-basis weights (one per interpolation scheme) rather than the `Interp1_` handle, so the
-tape records the dependence of every queried $\ell(\tau)$ on the node $\ell_i$ values
-directly. The same machinery supports all three schemes; eligibility for the analytic path
-is independent of which `LogDfScheme_` is chosen.
-
-## Internal Algorithms
-
-This section describes the numerical methods inside `Tape::DiscountLogDF_<T_>`, implemented
-in `dal-cpp/dal/curve/yclogdf.cpp`. The `T_ = double` path uses the `Interp1_` handle for
-evaluation; the `T_ = Dal::AAD::Number_` path accumulates storage-node basis weights
-directly against the tape-registered `logDF_` vector, so the tape records the dependence of
-every queried $\ell(\tau)$ on the node $\ell_i$.
-
-### Anchor and Free-Node Convention
-
-Storage node $0$ (the anchor, $\ell_0 = 0$) is pinned and excluded from the unknown vector.
-The solver column mapping is `solver col j = storage node j+1`, so the parameter dimension
-$N-1$ matches the instrument count in a square calibration. In the `Number_` path, the
-anchor is deliberately omitted from the weighted sum in `LogDfAt` — its contribution is
-zero by construction, and including it would register a spurious tape dependence on
-$\ell_0$ that the calibration overrides anyway. Excluding it keeps the column map clean
-without exception.
-
-### Basis Weights by Interpolation Scheme
-
-`StorageBasisWeightsAt(yf)` returns a sparse vector of `(storageNode, weight)` pairs so
-that $\ell(\tau) = \sum_{(j,w)} w \cdot \ell_j$. The weights are functions of the knot
-positions only, so they are identical for any `T_`.
-
-**LOG_LINEAR (log-linear / linear-in-$\ell$).** On segment $[\tau_k, \tau_{k+1}]$ with
-step $h = \tau_{k+1} - \tau_k$, the interpolation is
+and returns
 
 $$
-\ell(\tau) = \ell_k + \frac{\tau - \tau_k}{h} (\ell_{k+1} - \ell_k)
-           = (1 - g)\,\ell_k + g\,\ell_{k+1},
-\qquad g = \frac{\tau - \tau_k}{h}.
+P(t_a,t_b) = \exp\!\left(\ell(\tau(t_b))-\ell(\tau(t_a))\right)
+               P_{\mathrm{base}}(t_a,t_b),
 $$
 
-The basis weights are $(k,\; 1-g)$ and $(k+1,\; g)$. The same weights serve the `MIXED`
-head (the linear portion before the cutoff).
+with the base factor omitted when no base curve is attached. Positivity follows from the
+exponential for every finite interpolated value.
 
-**LOG_CUBIC_NATURAL (natural cubic spline).** On segment $[\tau_k, \tau_{k+1}]$ with
-$h = \tau_{k+1} - \tau_k$, the cubic Hermite representation in terms of the unknown
-second derivatives $\ell''_k$ (known as `fpp` in the code) gives the basis weight at
-storage node $j$ as
+The implementation is `Tape::DiscountLogDF_<T_, B_>` in
+`dal-cpp/dal/curve/yclogdf.hpp`; `DiscountLogDF_` aliases the passive
+`<double, DiscountCurve_<double>>` specialization. `NewDiscountLogDF(...)` remains the
+public passive factory.
 
-$$
-b_j(\tau) = a\,\delta_{j,k} + b\,\delta_{j,k+1}
-          - \frac{a\,b\,h^2}{6}\Big((1+a)\,\mathrm{fppCoef}_{k,j} + (1+b)\,\mathrm{fppCoef}_{k+1,j}\Big),
-$$
+## Unified Scalar-Generic Interpolation
 
-where $b = (\tau - \tau_k)/h$, $a = 1 - b$, and $\mathrm{fppCoef}_{k,j} = \partial\,
-\ell''_k / \partial\,\ell_j$ is the second-derivative sensitivity matrix, computed once
-at construction. `BuildNaturalCubicFppCoef` solves the interior tridiagonal system for
-each unit source $\ell_j$ column to populate this matrix.
-
-**MIXED.** The curve builder uses zero-based cutoff index $\max(1,N-5)$.
-`LOG_LINEAR` basis applies for $\tau \le \tau_{\text{cutoff}}$; the cubic portion
-(`LOG_CUBIC_NATURAL` basis) applies beyond. The `fppCoef_` matrix is computed on the
-cubic tail subarray and expanded back to full storage-node indices, with
-`mixedCutoffIndex_` and `mixedCutoffYf_` stored for dispatch at evaluation.
-
-### The `fppCoef_` second-derivative sensitivity matrix
-
-`fppCoef_[k][j]` holds $\partial\,\ell''_k / \partial\,\ell_j$ — the sensitivity of
-each interior knot's second derivative to each storage-node $\ell$ value. It exists
-**only** for the cubic machinery: it is computed once at construction for
-`LOG_CUBIC_NATURAL` and for the cubic tail of `MIXED`, and it is **empty and unused**
-for `LOG_LINEAR` and for the linear head of `MIXED` (the linear basis weights are
-closed-form in the knot positions and need no second-derivative solve). Because the
-matrix is a function of the knot abscissae $\tau_i$ only, the same instance serves
-the `double` and `Number_` specialisations identically — only the basis-weight
-accumulation against `logDF_` differs, and that is what the `Number_` path does on
-the tape.
-
-### Extrapolation
-
-Beyond $\tau_{N-1}$, every scheme uses the secant slope of the last segment:
+`LogDfInterpolation_` in `dal-cpp/dal/curve/logdfinterp.hpp` owns the passive
+year-fraction geometry and returns interpolation weights over storage nodes. Its
+`Evaluate<T_>` method applies those weights to `Vector_<T_>` ordinates:
 
 $$
-\ell(\tau) = \ell_{N-1} + \frac{\ell_{N-1} - \ell_{N-2}}{\tau_{N-1} - \tau_{N-2}}
-             (\tau - \tau_{N-1}).
+\ell(\tau)=\sum_{j=0}^{N-1}w_j(\tau)\ell_j.
 $$
 
-The weighting is linear in the last two storage nodes — the cubic derivative at the
-boundary is deliberately not used, even for `LOG_CUBIC_NATURAL`. This keeps the tail
-simple and consistent with the final secant segment.
+The same object and the same weights are used for `double` and `AAD::Number_`. Knot
+positions, segment choices, mixed cutoffs, and extrapolation weights remain passive;
+only the stored ordinates carry adjoints. There is no separate hand-maintained AAD
+interpolation formula and no passive interpolator to rebuild after a node bump.
 
-### Thomas Algorithm for the Natural-Cubic System
+The weight primitives live in `dal-cpp/dal/math/interp/interpweights.hpp`:
 
-The natural-cubic spline interior system for $\ell''_1,\dots,\ell''_{N-2}$ is
-tridiagonal and diagonally dominant:
+- `LinearWeightGeometry_` returns the two local affine weights, or one unit weight at a
+  knot or clamped endpoint;
+- `NaturalCubicWeightGeometry_` precomputes the dependence of every knot second
+  derivative on every ordinate, then returns the resulting natural-spline weights;
+- `ApplyInterpWeights<T_>` performs the typed ordinate accumulation.
 
-$$
-h_{i-1}\,\ell''_{i-1} + 2(h_{i-1}+h_i)\,\ell''_i + h_i\,\ell''_{i+1}
-= 6\!\left( \frac{\ell_{i+1}-\ell_i}{h_i} - \frac{\ell_i-\ell_{i-1}}{h_{i-1}} \right),
-\qquad i = 1,\dots,N-2,
-$$
+Natural-cubic weights are generally global: changing one node can alter second
+derivatives, and therefore interpolated values, on distant segments. Calibration
+Jacobians are harvested at full width for every scheme; nominal instrument maturity is
+not a safe truncation boundary when payment dates may be adjusted or lagged.
 
-with $h_i = \tau_{i+1} - \tau_i$. The solver `SolveTriDiagonal(a, d, c, b)` in
-`dal-cpp/dal/curve/yclogdf.cpp` uses the standard Thomas algorithm: forward elimination
-with the modified diagonal $d'_i = d_i - a_{i-1}c_{i-1}/d'_{i-1}$, then back-substitution.
-`NaturalCubicRhsEntry(j, i, h)` returns the four-term Kronecker-delta dispatch
-$\partial b_i / \partial \ell_j$ that feeds the column-solve loop in
-`BuildNaturalCubicFppCoef`.
+## `LogDfScheme_`
 
-### Rebuild and ApplyDX
+| Scheme | Definition on $\ell(\tau)$ | Minimum storage nodes | Sensitivity support |
+|--------|------------------------------|-----------------------|---------------------|
+| `LOG_LINEAR` | Piecewise linear | 2 | Local segment, except tail secant |
+| `LOG_CUBIC_NATURAL` | Natural cubic with zero endpoint curvature | 3 | Global |
+| `MIXED` | Linear head and natural-cubic tail | 4 | Local in head, global over tail |
 
-`RebuildInterp()` constructs the double-valued `interp_` handle from the (possibly
-`Number_`-typed) `logDF_` vector, extracting primals via `Dal::AAD::Value`. The
-`Number_` `LogDfAt` path does **not** consult `interp_` — it uses the basis weights
-above directly — but `RebuildInterp` still exists so the handle is available for any
-code that defensively calls it.
+### Log-linear
 
-`ApplyDX(dx, leverage)` bumps only the free nodes `logDF_[1..]` and calls
-`RebuildInterp` so the bumped curve re-synchronises the interpolator. This method is
-only exercised for `T_ = double`; the `Number_` factory never calls it (the AAD path
-constructs the curve directly with the tape-registered `logDF` vector). A stale
-`interp_` after a bump would silently desync the curve from its node values.
-
-### Double vs Number_ Dispatch
-
-The `DiscountLogDF_<T_>::operator()(from, to)` method uses `if constexpr` to select the
-`double` path (reads `LogDfAt` + `std::exp` + base multiplication as pure arithmetic)
-or the `Number_` path where the base curve is treated as a constant `double` multiplier.
-Both specializations are explicitly instantiated so the linker finds them under every
-AAD backend.
-
-### Serialization: v1 vs v2
-
-- **v1** (`DiscountLogDF_v1`) stored a built `Interp1_` handle and did **not** persist
-  `LogDfScheme_`. The scheme cannot be recovered from the deserialised handle (all
-  interpolator subtypes report the same `Storable_::type_` as `"Interp1"`, and RTTI
-  cannot tell them apart because the concrete classes live in anonymous namespaces). v1
-  therefore always reconstructs as `LOG_LINEAR`, the only scheme honestly rebuildable
-  from `(nodeDates, logDF)` alone.
-- **v2** (`DiscountLogDF_v2`) is the canonical format: it carries the scheme by name
-  (`LogDfScheme_` serialised as a string) and fully reconstructs the curve including
-  the `fppCoef_` matrix for cubic and mixed schemes.
-
-## Relationship to the Forward-Rate Parameterizations
-
-The [yield curve methodology](yield_curve.md) describes the curve through the
-instantaneous forward rate $f(t)$, parameterized as piecewise-constant or piecewise-linear
-across knots. `LOG_DISCOUNT` is an alternative parameterization of the *same* underlying
-discount curve: the node $\ell_i$ are the cumulative integrals of the forward rate up to
-each node,
+On $[\tau_i,\tau_{i+1}]$,
 
 $$
-\ell_i = -\tfrac{1}{365}\int_{t_0}^{t_i} f(t)\,dt,
+\ell(\tau)=(1-g)\ell_i+g\ell_{i+1},\qquad
+g=\frac{\tau-\tau_i}{\tau_{i+1}-\tau_i}.
 $$
 
-and interpolation in $\ell$ induces a particular between-node shape of $f$. The three views
-(forward rate, node $\ell$, node $P$) are equivalent descriptions of one curve object;
-`LOG_DISCOUNT` is preferred when analytic risk is wanted because its parameter is the
-natural input to the AAD tape.
+This is linear interpolation in log discount factor, equivalently log-linear
+interpolation in discount factor.
+
+### Natural cubic
+
+The natural spline solves the tridiagonal interior system
+
+$$
+h_{i-1}\ell''_{i-1}+2(h_{i-1}+h_i)\ell''_i+h_i\ell''_{i+1}
+=6\left(\frac{\ell_{i+1}-\ell_i}{h_i}
+-\frac{\ell_i-\ell_{i-1}}{h_{i-1}}\right),
+$$
+
+with $h_i=\tau_{i+1}-\tau_i$ and $\ell''_0=\ell''_{N-1}=0$. Geometry
+construction solves this system once for each unit ordinate. The resulting dense
+second-derivative weight map depends only on the passive abscissae and can be reused
+after every ordinate change.
+
+### Mixed
+
+For $N$ storage nodes, the cutoff is the zero-based storage index
+
+$$
+c=\max(1,N-5).
+$$
+
+The curve is log-linear through $\tau_c$ and natural-cubic on the overlapping tail
+$\tau_c,\dots,\tau_{N-1}$. Tail-local weight indices are translated back to full
+storage indices before typed evaluation. Both pieces reproduce the cutoff node exactly;
+the join is $C^0$, while first- and second-derivative continuity are not imposed.
+
+## Boundary and Extrapolation Policy
+
+The curve owns its boundary policy rather than inheriting whichever behavior a generic
+interpolator happens to provide:
+
+- before the anchor, `LOG_LINEAR` and `MIXED` clamp to $\ell_0=0$;
+- before the anchor, `LOG_CUBIC_NATURAL` extends the first cubic segment polynomial;
+- at every storage knot, every scheme returns the stored ordinate exactly;
+- beyond the last node, every scheme uses the final two-node secant,
+
+  $$
+  \ell(\tau)=\ell_{N-1}
+  +\frac{\ell_{N-1}-\ell_{N-2}}{\tau_{N-1}-\tau_{N-2}}
+   (\tau-\tau_{N-1}).
+  $$
+
+The right-tail policy deliberately does not use the cubic endpoint derivative. Passive
+and AAD curves therefore agree at the anchor boundaries and outside the node range.
+
+## Definitions, Layout, and Column Order
+
+`CurveDefinition_` and `CurveParameterLayout_` in
+`dal-cpp/dal/curve/curveparameterization.hpp` provide the common construction contract
+used by passive pricing, single calibration, and joint calibration.
+
+For `LOG_DISCOUNT`, `MakeCurveDefinition` prepends the anchor when the declared knots do
+not already contain it. The joint public declaration remains unchanged: its knot list
+contains only future free nodes, while the internal storage definition contains the
+pinned anchor exactly once. The single-curve validation surface continues to require
+the caller's first input knot to equal `today_`.
+
+The stable layout is:
+
+| Quantity | Count or mapping |
+|----------|------------------|
+| Storage nodes | anchor plus declared future nodes |
+| Free parameters | storage node count minus one |
+| Solver column $j$ | storage node $j+1$ |
+| Anchor | storage node 0, fixed at zero, never registered as an independent |
+
+Joint calibration concatenates each declaration's columns in declaration order. A
+log-DF declaration contributes its future-node log discount factors in date order.
+
+## AAD and Base Composition
+
+Calibration registers the flat free-parameter vector, opens the recording, and builds
+the typed curve through the common `BuildDiscountCurveT` factory. Every queried log
+discount factor is the typed weighted sum above, so a reverse sweep returns
+$\partial r_i/\partial\ell_j$ directly. Exact structural zeros are retained for
+log-linear queries that do not touch later nodes; natural-cubic and mixed-tail rows may
+be dense because their mathematical support is global.
+
+The base type is independently templated:
+
+- `B_ = DiscountCurve_<double>` treats an absent or pre-existing base as passive;
+- `B_ = DiscountCurve_<AAD::Number_>` propagates adjoints through a base curve built in
+  the same joint solve.
+
+Consequently a base-layered log-DF forward declaration carries cross-curve sensitivities
+to its discount declaration just like PWC and PWL forward declarations.
+
+`ApplyDX` changes only free ordinates `logDF_[1..]`. Interpolation geometry is unchanged,
+so no coefficient or interpolator rebuild is required.
+
+## Persistence
+
+The passive, passive-base specialization writes the `DiscountLogDF` v2 schema, including
+node dates, node log discount factors, day count, interpolation scheme, and optional
+base. Tape-active or active-base specializations are transient calibration objects and
+are not serializable.
+
+The v1 reader remains supported. Because v1 stored an `Interp1_` handle without an
+explicit `LogDfScheme_`, it reconstructs as `LOG_LINEAR`; v2 is the canonical format for
+scheme-preserving persistence.
+
+## Relationship to Forward-Rate Parameterizations
+
+PWC and PWL curves parameterize the instantaneous forward rate and integrate it to a log
+discount factor. `LOG_DISCOUNT` instead parameterizes cumulative log discount factors and
+interpolates them directly:
+
+$$
+\ell_i=-\frac{1}{365}\int_{t_0}^{t_i}f(t)\,dt.
+$$
+
+All three representations implement the same `DiscountCurve_` contract, use the same
+curve-definition/factory layer during calibration, and support the AAD-derived analytic
+residual Jacobian. Their solver column layouts and between-node shapes differ.
 
 ## See Also
 
-- [Interpolation](interpolation.md) — the linear, log-linear, cubic, and mixed
-  interpolators that `LogDfScheme_` selects between.
-- [Yield curve construction](yield_curve.md) — the forward-rate parameterizations and the
-  calibration pipeline this curve plugs into.
-- [Yield-curve Jacobian](yield_curve_jacobian.md) — the analytic forward Jacobian and
-  inverse-Jacobian risk contracts for this parameterization.
+- [Interpolation](interpolation.md) — passive interpolation geometry and typed ordinate
+  evaluation.
+- [Yield curve construction](yield_curve.md) — PWC/PWL integration, calibration, and
+  multi-curve routing.
+- [Yield-curve Jacobian](yield_curve_jacobian.md) — analytic support, column layouts, and
+  inverse-Jacobian risk.
