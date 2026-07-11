@@ -64,3 +64,23 @@ def test_value_routes_through_monte_carlo():
     assert calls[0]["num_path"] == 2048
     assert calls[0]["method"] == "sobol"
     assert calls[0]["enable_aad"] is True
+
+
+def test_gateway_builds_non_flat_dupire_surface():
+    """The web surface reaches DAL without being flattened or deferred to valuation."""
+    gw = make_gateway()
+    surface = [[0.24, 0.23], [0.21, 0.20], [0.19, 0.18]]
+
+    model = gw.build_model(
+        "DupireModelData_",
+        {
+            "spot": 100.0,
+            "rate": 0.03,
+            "repo": 0.01,
+            "spots": [90.0, 100.0, 110.0],
+            "times": [0.5, 1.0],
+            "vols": surface,
+        },
+    )
+
+    assert model["vols"] == surface  # nosec B101 - pytest assertions are intentional

@@ -1,0 +1,227 @@
+# DAL Public API Guide
+
+DAL exposes the same main workflows through C++, Python, and Excel. This guide
+identifies the supported entry points and their ownership contracts; it is not an
+exhaustive reference for every core numerical type.
+
+## API Layers
+
+| Layer | Intended use | Compatibility contract |
+|-------|--------------|------------------------|
+| `DAL::cpp` | Direct access to quantitative algorithms and core types | Source-level core API; advanced consumers track core changes |
+| `DAL::public` | Construction, calibration, scripted valuation, random generation, and repository helpers | Convenience facade; exposes core types and does not promise ABI isolation |
+| Python `dal` | Python-friendly wrappers over the public facade | Supported names are those exported by `_dal` and `dal/api.py` |
+| Excel XLL | Worksheet functions and repository handles | Supported worksheet names come from generated registrations |
+
+Installed C++ consumers should link imported targets instead of copying library
+paths. See the [installation guide](installation.md#installed-cmake-packages).
+
+## C++
+
+### CMake consumption
+
+```cmake
+find_package(dal-cpp 1.0 CONFIG REQUIRED)
+find_package(dal-public 1.0 CONFIG REQUIRED)
+
+target_link_libraries(my_pricer PRIVATE DAL::public)
+```
+
+`DAL::public` links `DAL::cpp` transitively. Link `DAL::cpp` directly when using
+only core algorithms.
+
+### Public facade headers
+
+| Header | Main entry points |
+|--------|-------------------|
+| `<dal-public/src/global.hpp>` | `InitGlobalData`, `SetEvaluationDate`, `GetEvaluationDate` |
+| `<dal-public/src/script.hpp>` | `NewScriptProduct`, `DebugScriptProduct` |
+| `<dal-public/src/models.hpp>` | `NewBSModelData`, `NewDupireModelData` |
+| `<dal-public/src/value.hpp>` | `ValueByMonteCarlo` |
+| `<dal-public/src/random.hpp>` | Pseudo/Sobol constructors and uniform/normal matrix fills |
+| `<dal-public/src/curveprotocol.hpp>` | Day-basis, tenor, collateral, rate-leg/index, and currency-pair builders |
+| `<dal-public/src/curveinstrument.hpp>` | Deposit, FRA, future, swap, OIS, basis-swap, and cross-currency-swap builders |
+| `<dal-public/src/curvedata.hpp>` | Piecewise-linear-forward curve and curve-block builders |
+| `<dal-public/src/curvespec.hpp>` | `CurveCalibrationSpecBuilder_`, `CalibrateSingleCurve`, `CalibrateMultiCurveBundle` |
+| `<dal-public/src/xccycalibration.hpp>` | Cross-currency spec builder and `CalibrateXccyMarket` |
+| `<dal-public/src/interp.hpp>` | Linear one-dimensional interpolation builder |
+| `<dal-public/src/repository.hpp>` | Repository find, erase, and size helpers for a configured host environment |
+
+The installed include path intentionally retains `dal-public/src/`. The facade
+also uses core `Handle_`, `Date_`, curve, model, and diagnostics types directly.
+
+### Scripted Monte Carlo
+
+This minimal pattern is exercised by the public API tests:
+
+```cpp
+#include <dal-public/src/global.hpp>
+#include <dal-public/src/models.hpp>
+#include <dal-public/src/script.hpp>
+#include <dal-public/src/value.hpp>
+
+Dal::InitGlobalData();
+Dal::SetEvaluationDate(Dal::Date_(2022, 9, 25));
+
+const Dal::Vector_<Dal::Cell_> dates = {
+    Dal::Cell_("STRIKE"),
+    Dal::Cell_(Dal::Date_(2023, 9, 25)),
+};
+const Dal::Vector_<Dal::String_> events = {
+    Dal::String_("100.0"),
+    Dal::String_("call pays MAX(spot() - STRIKE, 0.0)"),
+};
+
+const auto product = Dal::NewScriptProduct(Dal::String_("call"), dates, events);
+const auto model = Dal::NewBSModelData(Dal::String_("bs"), 100.0, 0.2, 0.05, 0.02);
+const auto result = Dal::ValueByMonteCarlo(product, model, 1 << 16);
+```
+
+`ValueByMonteCarlo` requires `numPath > 0`. Its optional arguments select the
+random generator, Brownian bridge, AAD risks, fuzzy smoothing, and compiled
+script evaluator. The evaluation date is process-wide; coordinate concurrent
+callers that need different dates.
+
+### C++ curve calibration
+
+The facade separates construction from solving:
+
+1. Build conventions with `PeriodLength_New`, `DayBasis_New`,
+   `RateLegConvention_New`, and `RateIndexConvention_New`.
+2. Build quoted instruments with `DepositNew`, `FRANew`, `FutureNew`, `SwapNew`,
+   `OISSwapNew`, or `BasisSwapNew`.
+3. Fill `CurveCalibrationSpecBuilder_` and call `Build()`.
+4. Call `CalibrateSingleCurve`, optionally selecting `CurveJacobianMode_`.
+5. Read `CalibrationResult_::curve_` and its diagnostics.
+
+For staged calibration, assemble `MultiCurveCalibrationSpec_` and call
+`CalibrateMultiCurveBundle`. Cross-currency calibration has the analogous
+`CrossCurrencyCalibrationSpecBuilder_` / `CalibrateXccyMarket` path. The full
+methodology is in [yield-curve construction](methodology/yield_curve.md).
+
+## Python
+
+Import the installed package with:
+
+```python
+import dal
+```
+
+### Common workflows
+
+| Workflow | Python entry points |
+|----------|---------------------|
+| Dates/global state | `Date_`, `Year`, `Month`, `Day`, `EvaluationDate_Set`, `EvaluationDate_Get` |
+| Script products | `Product_New`, `Product_Debug` |
+| Models | `BSModelData_New`, `DupireModelData_New` |
+| Valuation | `MonteCarlo_Value` |
+| Random generation | `PseudoRSG_New`, `SobolRSG_New`, `*_Get_Uniform`, `*_Get_Normal` |
+| Calendar operations | `Holidays_`, `Is_BizDay`, `NextBizDay`, `PrevBizDay`, `Adjust` |
+| Curves | Convention/instrument builders, `CurveCalibrationSpecBuilder_`, `CalibrateSingleCurve`, `CalibrateMultiCurveBundle`, `CalibrateXccyMarket` |
+| Convenience calibration | `calibrate_curve` from `dal/api.py` |
+
+The basic valuation shape is:
+
+```python
+import dal
+
+dal.EvaluationDate_Set(dal.Date_(2022, 9, 25))
+product = dal.Product_New(
+    ["STRIKE", dal.Date_(2023, 9, 25)],
+    ["100.0", "call pays MAX(spot() - STRIKE, 0.0)"],
+)
+model = dal.BSModelData_New(100.0, 0.2, 0.05, 0.02)
+result = dal.MonteCarlo_Value(product, model, 2**16, enable_aad=True)
+```
+
+`MonteCarlo_Value` requires `num_path > 0`. The binding releases the Python GIL
+only around native valuation, so unrelated Python threads can run during Monte
+Carlo. DAL's own process-wide evaluation date still requires application-level
+coordination.
+
+### Matrix and Dupire surface input
+
+`DoubleMatrix_` supports all of the following:
+
+```python
+surface = dal.DoubleMatrix_(3, 2, 0.20)
+surface[1, 0] = 0.21
+
+surface = dal.DoubleMatrix_([
+    [0.24, 0.23],
+    [0.21, 0.20],
+    [0.22, 0.21],
+])
+```
+
+Rows must be rectangular numeric sequences. `DupireModelData_New` expects a
+spots-by-times matrix, so its shape must be
+`len(spots) × len(times)`.
+
+### Python curve calibration
+
+`dal.calibrate_curve(...)` covers the common single discount-curve path. Use
+`CurveCalibrationSpecBuilder_` directly for projection-curve inputs, staged
+multi-curve calibration, or lower-level solver settings. Python enum names are:
+
+- `CurveParameterization`: `PIECEWISE_LINEAR_FWD`,
+  `PIECEWISE_CONSTANT_FWD`, `ZERO_RATE`, `LOG_DISCOUNT`;
+- `CurveSolveMode`: `EXACT`, `APPROXIMATE`;
+- `CurveJacobianMode`: `ANALYTIC`, `BUMPED`; and
+- `LogDfScheme`: `LOG_LINEAR`, `LOG_CUBIC_NATURAL`, `MIXED`.
+
+`ZERO_RATE` is present in the generated enumeration but is not a supported
+calibration parameterization; current validation rejects it. Choose one of the
+other three parameterizations.
+
+See [dal-python/README.md](../dal-python/README.md) for package-focused examples.
+
+## Excel
+
+The Windows XLL exposes worksheet functions and stores constructed objects in an
+Excel-side repository. Constructors return handles; pass those handles into later
+functions rather than attempting to unpack native objects in cells.
+
+### Script valuation
+
+```text
+=PRODUCT.NEW("call", dates, events)
+=BSMODELDATA.NEW("bs", 100, 0.20, 0.05, 0.02)
+=MONTECARLO.VALUE(product_handle, model_handle, 65536, "sobol", FALSE, TRUE, 0.01)
+```
+
+For a local-volatility model, use
+`DUPIREMODELDATA.NEW(name, spot, rate, repo, spots, times, vols)`. The volatility
+range must be a rectangular spots-by-times matrix. `MONTECARLO.VALUE` requires a
+strictly positive path count.
+
+### Curve workflows
+
+Primary worksheet families are:
+
+| Purpose | Worksheet functions |
+|---------|---------------------|
+| Conventions | `PERIODLENGTH.NEW`, `DAYBASIS.NEW`, `RATELEGCONVENTION.NEW`, `RATEINDEXCONVENTION.NEW`, `COLLATERALTYPE.*` |
+| Instruments | `DEPOSIT.NEW`, `FRA.NEW`, `FUTURE.NEW`, `SWAP.NEW`, `OISSWAP.NEW`, `BASISSWAP.NEW`, `CROSSCURRENCYSWAP.NEW` |
+| Calibration | `CALIBRATE.SINGLECURVE`, `CALIBRATE.XCCYMARKET` |
+| Results | `CALIBRATIONRESULT.GET`, `CALIBRATIONRESULT.GET.CURVE`, `XCCYCALIBRATIONRESULT.*` |
+| Repository | `REPOSITORY.FIND`, `REPOSITORY.ERASE`, `REPOSITORY.SIZE` |
+
+`CALIBRATE.SINGLECURVE` accepts a two-column optional settings range. Supported
+keys include curve name, target, solve mode, parameterization, log-DF scheme,
+smoothing/tolerances, initial guess, and evaluation budgets. Generated function
+help under `dal-excel/auto/*.htm` is the argument-level catalog used by Excel
+registration.
+
+See [dal-excel/README.md](../dal-excel/README.md) for build and add-in guidance.
+
+## Error and State Conventions
+
+- C++ failures use `Dal::Exception_` through `REQUIRE`/`THROW` paths.
+- Python maps native exceptions to Python exceptions; invalid binding shapes and
+  indices use `ValueError`/`IndexError` where appropriate.
+- Excel returns worksheet error text annotated with the failing argument.
+- Evaluation date and fixings are process-wide state.
+- AAD tapes are thread-local and must not be shared across recording frames.
+
+For ownership details, see [architecture](architecture.md).

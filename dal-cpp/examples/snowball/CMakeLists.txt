@@ -1,4 +1,4 @@
-file(GLOB_RECURSE SNOWBALL_FILES "*.hpp" "*.cpp")
+file(GLOB_RECURSE SNOWBALL_FILES CONFIGURE_DEPENDS "*.hpp" "*.cpp")
 add_executable(snowball ${SNOWBALL_FILES})
 
 target_link_libraries(snowball dal_library)

@@ -8,10 +8,11 @@
 #   1. Verifies prerequisites (python 3.13+, uv, node, npm).
 #   2. Reads the backend port from dal-web/frontend/vite.config.ts.
 #   3. Checks that both ports (backend + 5173) are free.
-#   4. Starts the backend (uvicorn) in the background.
-#   5. Starts the frontend (vite) in the background.
-#   6. Waits for both to be ready, then runs a smoke test.
-#   7. Prints the URLs.
+#   4. Verifies the native DAL Python package is installed.
+#   5. Starts the backend (uvicorn) in the background.
+#   6. Starts the frontend (vite) in the background.
+#   7. Waits for both to be ready, then runs a smoke test.
+#   8. Prints the URLs.
 #
 # Logs are written to dal-web/backend/.server.log and
 # dal-web/frontend/.server.log. PIDs are stored in .server.pid next to
@@ -113,12 +114,19 @@ fi
 # 3. Backend setup
 # ---------------------------------------------------------------------------
 info "Installing backend dependencies (uv sync)..."
-(cd "${BACKEND_DIR}" && uv sync --quiet)
+(cd "${BACKEND_DIR}" && uv sync --quiet --inexact)
+
+info "Checking native DAL Python package..."
+if ! NATIVE_ERROR="$(cd "${BACKEND_DIR}" && uv run --no-sync python -m app.native_runtime 2>&1)"; then
+  error "Native DAL preflight failed:"
+  printf '%s\n' "${NATIVE_ERROR}" >&2
+  exit 1
+fi
 
 info "Starting backend on port ${BACKEND_PORT}..."
 (
   cd "${BACKEND_DIR}"
-  nohup uv run python -m uvicorn app.main:app --reload --host 127.0.0.1 --port "${BACKEND_PORT}" \
+  nohup uv run --no-sync python -m uvicorn app.main:app --reload --host 127.0.0.1 --port "${BACKEND_PORT}" \
     --log-config log_config.json \
     > "${REPO_ROOT}/${BACKEND_LOG_FILE}" 2>&1 &
   echo $!

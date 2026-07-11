@@ -1,569 +1,360 @@
 # Installation Guide
 
-This guide covers the complete installation process for DAL, including the C++ library, Python bindings, and Web UI.
+This is the canonical setup guide for the DAL workspace. Component READMEs link
+here instead of maintaining separate build recipes.
 
-## Table of Contents
+## Requirements
 
-- [System Requirements](#system-requirements)
-- [Getting the Source Code](#getting-the-source-code)
-- [C++ Library Installation](#c-library-installation)
-  - [Linux](#linux)
-  - [Windows](#windows)
-- [Python Bindings](#python-bindings)
-- [Web UI](#web-ui)
-- [Verifying Installation](#verifying-installation)
-- [Troubleshooting](#troubleshooting)
+| Surface | Requirements |
+|---------|--------------|
+| Core C++ | Git with submodules, CMake 3.21+, a C++17 compiler, and a build tool |
+| Linux | GCC 13+ or Clang 18+; Make or Ninja |
+| Windows | Visual Studio 2022 toolchain; Ninja for the supplied presets |
+| Python | Python 3.10+ with development headers; `uv` recommended |
+| Web | Python 3.13+, `uv`, Node.js 20+, npm, and a built native `dal` package |
+| Excel | Windows and Microsoft Excel; build the XLL with `DAL_BUILD_EXCEL=ON` |
 
----
-
-## System Requirements
-
-### Core C++ Library
-
-**Common Requirements:**
-- Git (with submodule support)
-- CMake 3.21 or later
-- C++17-compatible compiler
-
-**Linux:**
-- GCC 13+ or Clang 18+
-- GNU Make or Ninja
-- Python 3.10+ (for Python bindings)
-
-**Windows:**
-- Visual Studio 2022 Community Edition (or later)
-- MSVC compiler with C++17 support
-- Python 3.10+ (for Python bindings)
-
-### Python Bindings
-
-- Python 3.10 or later
-- [uv](https://docs.astral.sh/uv/) package manager (recommended) or pip
-- pybind11 (vendored as a git submodule at `dal-cpp/externals/pybind11`)
-
-### Web UI
-
-- Python 3.13 or later
-- Node.js 20+ and npm
-- [uv](https://docs.astral.sh/uv/) package manager
-
----
-
-## Getting the Source Code
-
-Clone the repository with all submodules:
+Clone all submodules:
 
 ```bash
-# SSH (requires SSH key configured)
 git clone --recursive git@github.com:wegamekinglc/Derivatives-Algorithms-Lib.git
 cd Derivatives-Algorithms-Lib
 ```
 
-**Important:** The `--recursive` flag is required to fetch all git submodules (XAD, Adept, CoDiPack, Google Test, RapidJSON, Machinist).
-
-If you already cloned without `--recursive`:
+For an existing non-recursive clone:
 
 ```bash
 git submodule update --init --recursive
 ```
 
----
+## Linux Workspace Build
 
-## C++ Library Installation
-
-### Linux
-
-#### Automated Build (Recommended)
-
-The `build_linux.sh` script handles the entire build process:
+The supported automated workflow is:
 
 ```bash
-bash build_linux.sh
+bash ./build_linux.sh
 ```
 
-This script:
-1. Builds the Machinist code generator
-2. Runs code generation (creates `dal-cpp/dal/auto/` and `dal-excel/auto/`)
-3. Configures CMake with default options
-4. Compiles all enabled sub-projects
-5. Installs artifacts to the repository root
-6. Runs the test suite via CTest
+The default is a core development build: core and public C++ libraries, tests,
+and examples, with Python and benchmarks disabled. It configures
+`build/Release-linux`, installs to `build/stage/Release-linux`, and runs CTest.
+It does not regenerate tracked Machinist output unless requested.
 
-**Build Options:**
+### Script options
 
-To customize the build, pass CMake cache overrides through `ADDITIONAL_CMAKE_FLAGS`:
+| Option | Effect |
+|--------|--------|
+| `--full` | Enable Python bindings and benchmarks |
+| `--benchmarks` | Enable native benchmark targets |
+| `--generate` | Run the `dal_generate` target before the normal build |
+| `--coverage` | Enable coverage and produce a report with an available coverage tool |
+
+Examples:
 
 ```bash
-# Disable Python bindings
-ADDITIONAL_CMAKE_FLAGS="-DDAL_BUILD_PYTHON=OFF" bash build_linux.sh
-
-# Disable benchmarks
-ADDITIONAL_CMAKE_FLAGS="-DDAL_CPP_BUILD_BENCHMARKS=OFF" bash build_linux.sh
-
-# Use the XAD backend instead of the preset default (native)
-ADDITIONAL_CMAKE_FLAGS="-DDAL_USE_XAD_AAD=ON" bash build_linux.sh
+bash ./build_linux.sh --full
+bash ./build_linux.sh --benchmarks
+bash ./build_linux.sh --generate
+BUILD_TYPE=Debug bash ./build_linux.sh
 ```
 
-#### Manual Build
+When Python is requested, the script creates or reuses
+`dal-python/.venv`, installs `pytest` and `numpy` if needed, and configures CMake
+with that interpreter. Useful environment overrides are:
 
-For more control over the build process:
+| Variable | Meaning |
+|----------|---------|
+| `BUILD_TYPE` | `Release` by default; `Debug` selects the matching legacy preset |
+| `DAL_BUILD_DIR` | Override the build-tree path |
+| `DAL_INSTALL_DIR` | Override the staging prefix |
+| `NUM_CORES` | Override parallel build jobs |
+| `ADDITIONAL_CMAKE_FLAGS` | Append simple `-D...` cache overrides |
+| `VERBOSE=1` | Run CTest verbosely |
+
+For example, select the XAD backend explicitly:
 
 ```bash
-mkdir -p build && cd build
-
-# Configure (Release mode)
-cmake --preset=Release-linux \
-  -DDAL_BUILD_PUBLIC=ON \
-  -DDAL_CPP_BUILD_EXAMPLES=ON \
-  -DDAL_CPP_BUILD_BENCHMARKS=ON \
-  -DDAL_USE_ADEPT_AAD=ON \
-  ..
-
-# Build
-make -j$(nproc)
-
-# Install (to repository root)
-make install
+ADDITIONAL_CMAKE_FLAGS="-DDAL_USE_XAD_AAD=ON" bash ./build_linux.sh
 ```
 
-**Available CMake Presets:**
-- `Release-linux` — Optimized build with debugging symbols
-- `Debug-linux` — Debug build with full symbols
+Use only one external AAD backend at a time. With XAD, CoDiPack, and Adept all
+disabled, DAL uses its native AAD implementation.
 
-**CMake Options:**
+## CMake Profiles
 
-The table below shows source-level defaults from `CMakeLists.txt` files. Note that
-`CMakePresets.json` (`Release-linux`/`Debug-linux`) overrides several values (for
-example: all external AAD backends OFF, examples/benchmarks/public/Python ON, Excel
-OFF on Linux and ON on Windows) unless you override them with `-D...` flags.
+The named development profiles make build intent explicit:
 
-| Option                     | Default | Description                                    |
-|----------------------------|---------|------------------------------------------------|
-| `DAL_BUILD_PUBLIC`         | `ON`    | Build `dal-public` (stable public API)         |
-| `DAL_BUILD_PYTHON`         | `OFF`   | Build `dal-python` (pybind11 + Python package) |
-| `DAL_BUILD_EXCEL`          | `OFF`   | Build `dal-excel` (Windows-only)               |
-| `DAL_CPP_BUILD_TESTS`      | `ON`    | Build test suite                               |
-| `DAL_CPP_BUILD_EXAMPLES`   | `ON`    | Build example programs                         |
-| `DAL_CPP_BUILD_BENCHMARKS` | `ON`    | Build performance benchmarks                   |
-| `DAL_USE_ADEPT_AAD`        | `ON`    | Use Adept AAD backend (preset default: OFF)    |
-| `DAL_USE_XAD_AAD`          | `OFF`   | Use XAD AAD backend                            |
-| `DAL_USE_CODIPACK_AAD`     | `OFF`   | Use CoDiPack AAD backend                       |
+| Preset | Contents |
+|--------|----------|
+| `core-dev` | Core/public C++, tests, and examples; no Python or benchmarks |
+| `full-dev` | Core development plus Python and benchmarks |
+| `distribution` | Portable release libraries and install packages; no tests, examples, or benchmarks |
 
-Example with custom options:
+Configure, build, test, and install the core profile with:
 
 ```bash
-cmake --preset=Release-linux \
-  -DDAL_BUILD_PYTHON=ON \
-  -DDAL_CPP_BUILD_BENCHMARKS=ON \
-  -DDAL_USE_XAD_AAD=ON \
-  -DDAL_USE_ADEPT_AAD=OFF \
-  ..
+cmake --preset core-dev
+cmake --build build/core-dev --parallel
+ctest --test-dir build/core-dev --output-on-failure
+cmake --install build/core-dev
 ```
 
-#### Installed Artifacts
+The install prefix is `build/stage/<preset>`. The legacy `Release-linux`,
+`Debug-linux`, `Release-windows`, and `Debug-windows` presets remain available.
 
-After installation, the repository root contains:
+Release optimization is target-scoped. Builds are portable by default;
+machine-specific CPU instructions are opt-in:
 
-```
-bin/        — Executables (dal_cpp_tests, dal_public_tests, examples)
-lib/        — Static libraries (libdal_cpp.a, libdal_public.a)
-include/    — Public headers
-```
-
-### Windows
-
-#### Automated Build (Recommended)
-
-Use the batch script:
-
-```cmd
-build_windows.bat
+```bash
+cmake --preset core-dev -DDAL_ENABLE_NATIVE_ARCH=ON
 ```
 
-This performs the same steps as `build_linux.sh`:
-1. Builds Machinist
-2. Runs code generation
-3. Configures CMake (Visual Studio 2022 generator)
-4. Compiles all sub-projects
-5. Installs artifacts
-6. Runs tests via CTest
+Do not enable `DAL_ENABLE_NATIVE_ARCH` for artifacts that will run on machines
+with an unknown CPU baseline.
 
-#### Manual Build
+### Common CMake options
 
-```cmd
-mkdir build
-cd build
+| Option | Base default | Description |
+|--------|----------------|-------------|
+| `DAL_BUILD_PUBLIC` | `ON` | Build the public convenience facade |
+| `DAL_BUILD_PYTHON` | `OFF` | Build the pybind11 module |
+| `DAL_BUILD_EXCEL` | `OFF` | Build the Windows Excel add-in |
+| `DAL_CPP_BUILD_TESTS` | `ON` | Build core tests |
+| `DAL_PUBLIC_BUILD_TESTS` | `ON` | Build public-facade tests |
+| `DAL_CPP_BUILD_EXAMPLES` | `ON` | Build C++ examples |
+| `DAL_CPP_BUILD_BENCHMARKS` | `OFF` | Build benchmarks |
+| `DAL_ENABLE_NATIVE_ARCH` | `OFF` | Tune Release code for the build machine |
+| `DAL_USE_XAD_AAD` | `OFF` | Use XAD |
+| `DAL_USE_CODIPACK_AAD` | `OFF` | Use CoDiPack |
+| `DAL_USE_ADEPT_AAD` | `OFF` | Use Adept |
 
-:: Configure
-cmake --preset=Release-windows ..
+## Windows C++ and Excel
 
-:: Build
-cmake --build . --config Release
+From a Visual Studio 2022 developer shell with Ninja available:
 
-:: Install
-cmake --install . --config Release
+```powershell
+cmake --preset Release-windows
+cmake --build build/Release-windows --parallel
+ctest --test-dir build/Release-windows --output-on-failure
+cmake --install build/Release-windows
 ```
 
-**Note:** The Excel add-in (`dal-excel`) is only built on Windows when `DAL_BUILD_EXCEL=ON`.
+`Release-windows` enables the Excel add-in. Use `Debug-windows` for a Debug
+configuration. The staged prefix is `build/stage/Release-windows` or
+`build/stage/Debug-windows`.
 
----
+## Installed CMake Packages
+
+A staged install contains headers, libraries, and relocatable package metadata
+for both targets:
+
+```text
+include/
+lib/
+lib/cmake/dal-cpp/
+lib/cmake/dal-public/
+bin/                         # installed runtime/example targets when enabled
+```
+
+An out-of-tree consumer can use:
+
+```cmake
+find_package(dal-cpp 1.0 CONFIG REQUIRED)
+find_package(dal-public 1.0 CONFIG REQUIRED)
+
+target_link_libraries(my_pricer PRIVATE DAL::cpp DAL::public)
+```
+
+Point CMake at the staged prefix:
+
+```bash
+cmake -S /path/to/consumer -B /path/to/consumer/build \
+  -DCMAKE_PREFIX_PATH=/path/to/Derivatives-Algorithms-Lib/build/stage/Release-linux
+cmake --build /path/to/consumer/build
+```
+
+The repository's consumer smoke test is under `tests/installed-consumer/`. Run it
+against an installed prefix with a separate build directory:
+
+```bash
+cmake \
+  -DDAL_INSTALL_PREFIX="$PWD/build/stage/core-dev" \
+  -DDAL_CONSUMER_BINARY_DIR="$PWD/build/installed-consumer-smoke" \
+  -DDAL_BUILD_CONFIG=Release \
+  -P tests/installed-consumer/run.cmake
+```
+
+For a generator that must be selected explicitly, add
+`-DDAL_GENERATOR=Ninja` (or the required local generator).
 
 ## Python Bindings
 
-### Prerequisites
-
-Ensure the C++ library is built and installed (see above), so that `lib/` and `include/` are populated.
-
-### Installation with uv (Recommended)
-
-[uv](https://docs.astral.sh/uv/) is a fast Python package manager that handles virtual environments and dependencies automatically.
-
-From the `dal-python/` directory:
+To build and test Python as part of the workspace:
 
 ```bash
-cd dal-python
+bash ./build_linux.sh --full
+```
 
-# Create virtual environment
+For an editable package in a chosen environment, first build the C++ staging
+prefix, then install `dal-python` against that prefix:
+
+```bash
+bash ./build_linux.sh
+cd dal-python
 uv venv
-
-# Activate it
-source .venv/bin/activate        # Linux/macOS
-# or: .venv\Scripts\activate     # Windows
-
-# Install in editable mode with test dependencies
-uv pip install -e ".[test]" --no-build-isolation \
-  --config-settings=cmake.define.DAL_DIR=$(pwd)/..
+source .venv/bin/activate
+uv pip install -e ".[test]" \
+  --config-settings=cmake.define.DAL_INSTALL_PREFIX=/absolute/path/to/Derivatives-Algorithms-Lib/build/stage/Release-linux
+python -m pytest tests -v
 ```
 
-The `DAL_DIR` parameter should point to the repository root (where `lib/` and `include/` are located).
-
-### Quick Verification
-
-Test the installation with the provided test runner:
-
-```bash
-cd dal-python
-bash run_tests.sh
-```
-
-This runs the full pytest suite and verifies that the Python bindings work correctly.
-
-### Manual Installation with pip
-
-If you prefer using pip directly:
-
-```bash
-cd dal-python
-
-# Create and activate virtual environment
-python -m venv .venv
-source .venv/bin/activate        # Linux/macOS
-# or: .venv\Scripts\activate     # Windows
-
-# Install build dependencies
-pip install scikit-build-core pytest numpy
-
-# Install DAL in editable mode
-pip install -e . --no-build-isolation \
-  --config-settings=cmake.define.DAL_DIR=$(pwd)/..
-```
-
-### What Gets Installed
-
-The `dal` Python package exposes:
-- Public C++ API (products, models, valuations)
-- Monte Carlo pricing engine
-- AAD-aware Greeks computation
-- Scripted exotic product support
-
----
+On Windows, activate with `.venv\Scripts\activate` and point
+`DAL_INSTALL_PREFIX` at the Windows staging prefix. See the
+[Python component guide](../dal-python/README.md)
+for the exposed API and package layout.
 
 ## Web UI
 
-The Web UI is a FastAPI + React application for portfolio management. It is **not** part of the CMake workspace and runs as a separate service.
+The web application is not part of the CMake workspace. It is native-only: the
+backend requires the compiled `dal` Python package and has no runtime stub
+fallback. Backend unit tests inject a fake module only to isolate FastAPI wiring.
 
-### Prerequisites
+### Install the native package into the backend environment
 
-1. Build the C++ library (see [C++ Library Installation](#c-library-installation))
-2. Install Python bindings (see [Python Bindings](#python-bindings))
-3. Ensure Node.js 20+ and npm are installed
-
-### Installation
-
-The Web UI uses [uv](https://docs.astral.sh/uv/) for Python dependency management.
-
-From the repository root:
+Build a staged C++ install, then from `dal-web/backend`:
 
 ```bash
-cd dal-web/backend
-
-# Install Python dependencies
-uv sync
-
-cd ../frontend
-
-# Install Node.js dependencies
-npm install
+uv sync --inexact
+uv pip install ../../dal-python \
+  --config-settings=cmake.define.DAL_INSTALL_PREFIX=/absolute/path/to/Derivatives-Algorithms-Lib/build/stage/Release-linux
+uv run --no-sync python -m app.native_runtime
+cd ../..
 ```
 
-### Running the Web UI
+`uv sync --inexact` preserves the manually installed local DAL package. The
+preflight command checks the import and required binding symbols.
 
-The easiest way to start both services is with the provided scripts:
+PowerShell uses the Windows stage:
+
+```powershell
+Set-Location dal-web/backend
+uv sync --inexact
+$stage = Resolve-Path ../../build/stage/Release-windows
+uv pip install ../../dal-python --config-settings "cmake.define.DAL_INSTALL_PREFIX=$stage"
+uv run --no-sync python -m app.native_runtime
+Set-Location ../..
+```
+
+### Start both services
+
+Run the launchers from the repository root.
+
+Linux/macOS:
 
 ```bash
-# From repository root
 ./dal-web/scripts/start.sh
-```
-
-This script:
-1. Checks prerequisites (Python ≥ 3.13, uv, node, npm)
-2. Verifies ports 8001 (backend) and 5173 (frontend) are free
-3. Installs dependencies if needed
-4. Starts the backend (uvicorn on `:8001`)
-5. Starts the frontend (vite on `:5173`)
-6. Waits for both services to be ready
-7. Smoke-tests the proxy
-
-**Access the UI:**
-- Frontend: http://localhost:5173
-- Backend API docs: http://127.0.0.1:8001/docs
-
-### Stopping the Web UI
-
-```bash
 ./dal-web/scripts/stop.sh
 ```
 
-Use `--force` if services don't stop gracefully:
+Windows (PowerShell 7+):
 
-```bash
-./dal-web/scripts/stop.sh --force
+```powershell
+pwsh -NoProfile -ExecutionPolicy Bypass -File dal-web/scripts/start.ps1
+pwsh -NoProfile -ExecutionPolicy Bypass -File dal-web/scripts/stop.ps1
 ```
 
-### Using the Native DAL Backend
+Both launchers run `uv sync --inexact`, perform the native-DAL preflight, and
+then launch the backend with `uv run --no-sync` so dependency synchronization
+cannot remove the local binding. They also install frontend packages, check
+ports, wait for readiness, and smoke-test the Vite proxy.
 
-By default, the Web UI uses a pure-Python stub backend for development. To use the compiled DAL bindings:
+- Frontend: <http://localhost:5173>
+- Backend API docs: <http://127.0.0.1:8001/docs>
 
-1. Build and install Python bindings (see [Python Bindings](#python-bindings))
-2. Install into the backend's environment:
+See [dal-web/README.md](../dal-web/README.md) for persistence, API, and service
+details.
+
+## Verification
+
+The automated Linux script runs the configured CTest suite. For a manual build:
 
 ```bash
-cd dal-web/backend
-uv pip install ../../dal-python
+ctest --test-dir build/core-dev --output-on-failure
 ```
 
-3. Start the UI with the native backend flag:
+Run a focused Google Test from the build tree:
 
 ```bash
-DAL_REQUIRE_NATIVE=1 ./dal-web/scripts/start.sh
+build/core-dev/bin/dal_cpp_tests --gtest_filter=CalibrationTest.*
+build/core-dev/bin/dal_public_tests --gtest_filter=PublicApiTest.*
 ```
 
-### Manual Startup (Without Scripts)
-
-If you need to start services individually:
-
-**Backend:**
+Python and web checks:
 
 ```bash
-cd dal-web/backend
-uv sync
-uv run python -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8001
-```
-
-**Frontend:**
-
-```bash
-cd dal-web/frontend
-npm install
-./node_modules/.bin/vite
-```
-
-**Note:** Run vite directly (not `npm run dev`) to avoid parent process issues with signal handling.
-
----
-
-## Verifying Installation
-
-### C++ Library
-
-Run the test suite:
-
-```bash
-# From repository root (after build)
-(cd build && ctest --output-on-failure)
-
-# Or run installed binaries directly
-bin/dal_cpp_tests
-bin/dal_public_tests
-
-# Run specific test suites
-bin/dal_cpp_tests --gtest_filter=CurveTest.*
-bin/dal_cpp_tests --gtest_filter=AADTest.*
-```
-
-### Python Bindings
-
-Run the Python test suite:
-
-```bash
-cd dal-python
-bash run_tests.sh
-```
-
-Or manually:
-
-```bash
-cd dal-python
-source .venv/bin/activate
-pytest tests/ -v
-```
-
-### Web UI
-
-After starting the Web UI, verify:
-
-1. Backend health check:
-
-```bash
-curl http://127.0.0.1:8001/api/health
-# Expected: {"status":"ok","backend":"dal_stub","is_native":false,"evaluation_date":"2022-09-15"}
-```
-
-2. Frontend accessibility:
-
-Open http://localhost:5173 in a browser — the dashboard should load.
-
-3. Run backend tests:
-
-```bash
-cd dal-web/backend
-uv run pytest
-```
-
-4. Run frontend e2e smoke tests:
-
-```bash
+(cd dal-python && python -m pytest tests -v)
+(cd dal-web/backend && uv run --no-sync pytest)
+(cd dal-web/frontend && npm run build)
 ./dal-web/scripts/setup-playwright.sh
-cd dal-web/frontend
-npm run test:e2e
+(cd dal-web/frontend && npm run test:e2e)
 ```
 
----
+## Code Generation
+
+Machinist markup changes require both core and Excel generated output:
+
+```bash
+bash ./build_linux.sh --generate
+```
+
+For a configured build tree, the equivalent targets are:
+
+```bash
+cmake --build build/core-dev --target dal_generate
+cmake --build build/core-dev --target dal_check_generated
+```
+
+`dal_generate` updates `dal-cpp/dal/auto/` and `dal-excel/auto/` from
+`dal-cpp/config/dal.ifc` and `dal-cpp/config/dal.mgl`. Commit generated changes
+with the markup that produced them.
 
 ## Troubleshooting
 
-### Common Issues
-
-#### Submodules not initialized
-
-**Error:** CMake configuration fails with missing headers
-
-**Solution:**
+### Missing submodule content
 
 ```bash
 git submodule update --init --recursive
 ```
 
-#### Code generation fails
+### Python cannot find DAL
 
-**Error:** `Machinist: command not found` or missing generated files
-
-**Solution:** Ensure `build_linux.sh` (or `build_windows.bat`) completed successfully. The script builds Machinist and runs code generation automatically.
-
-To manually regenerate:
+Confirm that the editable install used an absolute staged
+`DAL_INSTALL_PREFIX`, then check:
 
 ```bash
-cd dal-cpp/externals/machinist
-bash build_linux.sh
-
-cd ../../..
-export MACHINIST_TEMPLATE_DIR=$PWD/dal-cpp/externals/machinist/template/
-./dal-cpp/externals/machinist/bin/Machinist -c dal-cpp/config/dal.ifc -l dal-cpp/config/dal.mgl -d ./dal-cpp/dal
-./dal-cpp/externals/machinist/bin/Machinist -c dal-cpp/config/dal.ifc -l dal-cpp/config/dal.mgl -d ./dal-excel
+python -c "import dal; print(dal.__version__)"
 ```
 
-#### Python bindings import error
-
-**Error:** `ModuleNotFoundError: No module named 'dal'`
-
-**Solution:**
-1. Ensure virtual environment is activated: `source .venv/bin/activate`
-2. Verify installation: `pip list | grep dal`
-3. Reinstall if needed: `uv pip install -e . --no-build-isolation --config-settings=cmake.define.DAL_DIR=/path/to/repo`
-
-#### Web UI port already in use
-
-**Error:** `Address already in use` for ports 8001 or 5173
-
-**Solution:**
-
-```bash
-# Stop any running instances
-./dal-web/scripts/stop.sh
-
-# Or manually kill processes
-sudo fuser -k 8001/tcp
-sudo fuser -k 5173/tcp
-```
-
-#### CMake build fails with C++17 errors
-
-**Error:** Compiler complains about missing C++17 features
-
-**Solution:**
-- **Linux:** Ensure GCC 13+ or Clang 18+ is installed
-- **Windows:** Ensure Visual Studio 2022 is installed and up to date
-
-Check compiler version:
-
-```bash
-g++ --version    # Linux
-cl               # Windows (from Developer Command Prompt)
-```
-
-#### Python bindings fail to compile
-
-**Error:** pybind11 compilation errors
-
-**Solution:**
-1. Ensure pybind11 is available: it is vendored as a git submodule at `dal-cpp/externals/pybind11` (run `git submodule update --init` if the directory is empty), or install `pybind11` system-wide and set `pybind11_DIR` or `CMAKE_PREFIX_PATH` so CMake's `find_package` locates it.
-2. Clean and rebuild:
-
-```bash
-cd dal-python
-rm -rf build/ dist/ *.egg-info
-uv pip install -e . --no-build-isolation --force-reinstall
-```
-
-#### Web UI backend fails to start
-
-**Error:** Backend crashes on startup
-
-**Solution:**
-1. Check logs: `cat dal-web/backend/.server.log`
-2. Verify Python dependencies: `cd dal-web/backend && uv sync`
-3. Test backend manually:
+For the web environment, run the actionable preflight:
 
 ```bash
 cd dal-web/backend
-uv run python -m uvicorn app.main:app --host 127.0.0.1 --port 8001
+uv run --no-sync python -m app.native_runtime
 ```
 
-### Getting Help
+### Web ports are occupied
 
-If you encounter issues not covered here:
+Use the matching stop script before restarting. The launchers report whether
+ports 8001 or 5173 are already bound.
 
-1. Check the main [README.md](../README.md) for additional context
-2. Review [methodology docs](methodology/) for algorithm details
-3. Open an issue on [GitHub](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/issues)
+### A clean Debug build appears optimized
 
----
+Use a Debug preset or `BUILD_TYPE=Debug`. Release-only optimization is selected
+with configuration expressions; `DAL_ENABLE_NATIVE_ARCH` controls only optional
+CPU-specific tuning.
 
 ## Next Steps
 
-After successful installation:
-
-- **Try the examples:** Run programs in `dal-cpp/examples/` to see DAL in action
-- **Explore the Web UI:** Visit http://localhost:5173 to manage portfolios
-- **Read the methodology:** Check [docs/methodology/](methodology/) for deep dives into algorithms
-- **Run benchmarks:** Build with `DAL_CPP_BUILD_BENCHMARKS=ON` and run programs in `dal-cpp/benchmarks/`
+- Read the [architecture guide](architecture.md).
+- Choose an entry point in the [public API guide](public-api.md).
+- Follow [CONTRIBUTING.md](../CONTRIBUTING.md) for development workflow.

@@ -3,12 +3,36 @@
 //
 
 #include <gtest/gtest.h>
+
+#include <cmath>
+
 #include <dal/platform/platform.hpp>
 #include <dal/math/operators.hpp>
 #include <dal/math/distribution/black.hpp>
 
 
 using namespace Dal;
+
+namespace {
+    double BachelierOracle(double forward, double vol, double strike, const OptionType_& type) {
+        const double diff = forward - strike;
+        const double d = diff / vol;
+        const double cdf = 0.5 * std::erfc(-d / std::sqrt(2.0));
+        const double pdf = std::exp(-0.5 * d * d) / 2.5066282746310002;
+        const double call = diff * cdf + vol * pdf;
+        const double put = call - diff;
+        switch (type.Switch()) {
+        case OptionType_::Value_::CALL:
+            return call;
+        case OptionType_::Value_::PUT:
+            return put;
+        case OptionType_::Value_::STRADDLE:
+            return call + put;
+        default:
+            return 0.0;
+        }
+    }
+} // namespace
 
 TEST(DistributionTest, TestBlackOptionPrice) {
     const auto vol = 0.2;
@@ -108,6 +132,39 @@ TEST(DistributionTest, TestBachelierOptionIV) {
     auto straddle_price = bachelier.OptionPrice(120.0, OptionType_("Straddle"));
     auto straddle_iv = Distribution::BachelierIV(forward, strike, OptionType_("Straddle"), straddle_price);
     ASSERT_NEAR(straddle_iv, vol * sqrt(T), 1e-6);
+}
+
+TEST(DistributionTest, TestBachelierRealForwardStrikeRoundTrips) {
+    struct Case_ {
+        double forward_;
+        double strike_;
+    };
+    const Case_ cases[] = {{110.0, 120.0}, {-110.0, -120.0}, {0.0, 10.0}, {10.0, 0.0}, {-10.0, 10.0}, {10.0, -10.0}};
+    const OptionType_ types[] = {OptionType_("Call"), OptionType_("Put"), OptionType_("Straddle")};
+    const double vol = 31.0;
+
+    for (const auto& testCase : cases) {
+        for (const auto& type : types) {
+            const double price = Distribution::BachelierOpt(testCase.forward_, vol, testCase.strike_, type);
+            const double expected = BachelierOracle(testCase.forward_, vol, testCase.strike_, type);
+            ASSERT_NEAR(price, expected, 1e-12) << "forward=" << testCase.forward_ << " strike=" << testCase.strike_;
+            ASSERT_GT(price, type.Payout(testCase.forward_, testCase.strike_));
+            ASSERT_NEAR(Distribution::BachelierIV(testCase.forward_, testCase.strike_, type, price), vol, 1e-8);
+        }
+
+        const OptionType_ call("Call");
+        const double callPrice = Distribution::BachelierOpt(testCase.forward_, vol, testCase.strike_, call);
+        ASSERT_NEAR(Distribution::BachelierIV(testCase.forward_, testCase.strike_, call, callPrice, 0.5 * vol), vol, 1e-8);
+    }
+}
+
+TEST(DistributionTest, TestBachelierIntrinsicHasZeroImpliedVol) {
+    const OptionType_ types[] = {OptionType_("Call"), OptionType_("Put"), OptionType_("Straddle")};
+    for (const auto& type : types) {
+        const double intrinsic = type.Payout(-10.0, 10.0);
+        ASSERT_DOUBLE_EQ(Distribution::BachelierIV(-10.0, 10.0, type, intrinsic), 0.0);
+        ASSERT_DOUBLE_EQ(Distribution::BachelierIV(-10.0, 10.0, type, intrinsic, 31.0), 0.0);
+    }
 }
 
 TEST(DistributionTest, TestBachelierParameterDerivatives) {

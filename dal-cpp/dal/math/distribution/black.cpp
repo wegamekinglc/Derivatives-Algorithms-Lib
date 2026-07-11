@@ -12,22 +12,21 @@
 namespace Dal {
     namespace Distribution {
         namespace {
-            // Shared Brent-on-log-vol implied-vol solver. The iteration sequence
-            // (NextX -> exp -> pricer -> done) matches the original BlackIV/BachelierIV
-            // implementations exactly, so floating-point results are byte-identical.
-            template <class Pricer_, class GuessTransform_>
+            // Black maps the solver coordinate through exp; Bachelier uses the coordinate directly.
+            template <class Pricer_, class GuessTransform_, class VolTransform_>
             double SolveIV(double fwd,
                            double price,
                            const char* caller,
                            Pricer_ pricer,
                            GuessTransform_ guessTransform,
+                           VolTransform_ volTransform,
                            double guess) {
                 static const int MAX_ITERATIONS = 30;
                 static const double TOL = 1.0e-10;
                 Brent_ task(guessTransform(guess, fwd));
-                Converged_ done(TOL * max(1.0, fwd), TOL * max(1.0, price));
+                Converged_ done(TOL * max(1.0, std::abs(fwd)), TOL * max(1.0, price));
                 for (int i = 0; i < MAX_ITERATIONS; ++i) {
-                    const double vol = exp(task.NextX());
+                    const double vol = volTransform(task.NextX());
                     if (done(task, pricer(vol) - price)) {
                         return vol;
                     }
@@ -68,7 +67,7 @@ namespace Dal {
             REQUIRE(price >= type.Payout(fwd, strike), "value below intrinsic value in BlackIV");
             auto pricer = [&](double vol) { return BlackOpt(fwd, vol, strike, type); };
             auto guessTransform = [](double g, double) { return g > 0.0 ? log(g) : -1.5; };
-            return SolveIV(fwd, price, "BlackIV", pricer, guessTransform, guess);
+            return SolveIV(fwd, price, "BlackIV", pricer, guessTransform, [](double x) { return exp(x); }, guess);
         }
 
         Vector_<> BlackGreeks(double fwd, double vol, double strike, const OptionType_& type) {
@@ -78,10 +77,15 @@ namespace Dal {
         }
 
         double BachelierIV(double fwd, double strike, const OptionType_& type, double price, double guess) {
-            REQUIRE(price >= type.Payout(fwd, strike), "value below intrinsic value in BachelierIV");
+            const double intrinsic = type.Payout(fwd, strike);
+            REQUIRE(price >= intrinsic, "value below intrinsic value in BachelierIV");
+            if (price == intrinsic)
+                return 0.0;
             auto pricer = [&](double vol) { return BachelierOpt(fwd, vol, strike, type); };
-            auto guessTransform = [](double g, double fwdIn) { return g > 0.0 ? g : -1.5 * fwdIn; };
-            return SolveIV(fwd, price, "BachelierIV", pricer, guessTransform, guess);
+            auto guessTransform = [strike, price](double g, double fwdIn) {
+                return g > 0.0 ? g : max(0.01, max(std::abs(fwdIn - strike), price));
+            };
+            return SolveIV(fwd, price, "BachelierIV", pricer, guessTransform, [](double x) { return x; }, guess);
         }
 
         Vector_<> BachelierGreeks(double fwd, double vol, double strike, const OptionType_& type) {

@@ -1,7 +1,12 @@
 """Tests for MonteCarlo_Value — end-to-end MC pricing."""
 
+import concurrent.futures
 import math
+import sys
+import threading
+
 import dal
+import pytest
 
 
 # ---- Helpers -----------------------------------------------------------------
@@ -45,6 +50,85 @@ def test_mc_value_returns_dict():
     result = dal.MonteCarlo_Value(product, model, 2**14)
     assert "PV" in result  # nosec B101 - pytest assertions are intentional
     assert result["PV"] > 0  # nosec B101 - pytest assertions are intentional
+
+
+@pytest.mark.parametrize("num_paths", [0, -1])
+def test_mc_value_rejects_non_positive_path_counts(num_paths):
+    """Invalid public path counts raise instead of returning NaN or crashing."""
+    model = dal.BSModelData_New(spot=100.0, vol=0.2, rate=0.05, div=0.02)
+    product = _make_european_call(100.0, dal.Date_(2023, 9, 25))
+
+    with pytest.raises(
+        RuntimeError, match="number of Monte Carlo paths must be positive"
+    ):
+        dal.MonteCarlo_Value(product, model, num_paths)
+
+
+def test_mc_value_accepts_one_path():
+    """The smallest valid path count produces a finite result."""
+    model = dal.BSModelData_New(spot=100.0, vol=0.2, rate=0.05, div=0.02)
+    product = _make_european_call(100.0, dal.Date_(2023, 9, 25))
+
+    result = dal.MonteCarlo_Value(product, model, 1)
+
+    assert math.isfinite(result["PV"])  # nosec B101 - pytest assertions are intentional
+
+
+def test_mc_value_releases_gil_during_native_pricing():
+    """A Python worker can run while the pure native valuation call is active."""
+    model = dal.BSModelData_New(spot=100.0, vol=0.2, rate=0.05, div=0.02)
+    product = _make_european_call(100.0, dal.Date_(2023, 9, 25))
+    ready = threading.Event()
+    start = threading.Event()
+    progressed = threading.Event()
+
+    def worker():
+        ready.set()
+        start.wait()
+        progressed.set()
+
+    thread = threading.Thread(target=worker)
+    thread.start()
+    assert ready.wait(timeout=1.0)  # nosec B101 - pytest assertions are intentional
+
+    old_switch_interval = sys.getswitchinterval()
+    sys.setswitchinterval(100.0)
+    try:
+        start.set()
+        dal.MonteCarlo_Value(product, model, 2**18)
+        assert progressed.is_set()  # nosec B101 - pytest assertions are intentional
+    finally:
+        sys.setswitchinterval(old_switch_interval)
+        start.set()
+        thread.join(timeout=5.0)
+
+
+def test_mc_value_serializes_concurrent_native_calls():
+    """Concurrent callers remain deterministic under the serialized native contract."""
+    call_model = dal.BSModelData_New(spot=100.0, vol=0.2, rate=0.05, div=0.02)
+    put_model = dal.BSModelData_New(spot=125.0, vol=0.35, rate=0.01, div=0.0)
+    call_product = _make_european_call(100.0, dal.Date_(2023, 9, 25))
+    put_product = _make_european_put(110.0, dal.Date_(2023, 9, 25))
+    num_paths = 2**18
+    expected_call = dal.MonteCarlo_Value(call_product, call_model, num_paths)["PV"]
+    expected_put = dal.MonteCarlo_Value(put_product, put_model, num_paths)["PV"]
+    rendezvous = threading.Barrier(2)
+
+    def repeatedly_price(product, model):
+        results = []
+        for _ in range(8):
+            rendezvous.wait(timeout=5.0)
+            results.append(dal.MonteCarlo_Value(product, model, num_paths)["PV"])
+        return results
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+        call_future = executor.submit(repeatedly_price, call_product, call_model)
+        put_future = executor.submit(repeatedly_price, put_product, put_model)
+        call_results = call_future.result(timeout=30.0)
+        put_results = put_future.result(timeout=30.0)
+
+    assert call_results == [expected_call] * 8  # nosec B101
+    assert put_results == [expected_put] * 8  # nosec B101
 
 
 def test_mc_value_european_call_sobol():

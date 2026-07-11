@@ -1,4 +1,4 @@
-file(GLOB_RECURSE INTERP_PERF_FILES "*.hpp" "*.cpp")
+file(GLOB_RECURSE INTERP_PERF_FILES CONFIGURE_DEPENDS "*.hpp" "*.cpp")
 
 add_executable(interp_perf ${INTERP_PERF_FILES})
 

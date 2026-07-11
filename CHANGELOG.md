@@ -42,9 +42,28 @@ here as the baseline rather than dated releases:
   discontinuous payoffs. See `docs/methodology/script_engine.md`.
 - **Analytic Jacobian for curve calibration (CurveJacobianMode flag)** — optional analytic
   Jacobian mode for yield-curve calibration. See
-  `docs/experimental/aad-analytic-jacobian-curve-calibration.md`.
+  `docs/methodology/yield_curve_jacobian.md`.
 
 ## 2026-07
+
+- `numerics`: Corrected three output-affecting quantitative contracts: rate-aware
+  Dupire now prices a discounted spot call and includes the strike in
+  $(r-q)K C_K$; the exact underdetermined solver uses the quadratic model's
+  $k=(c-b)/(a-2b+c)$ backtrack fraction; and Bachelier pricing/implied volatility
+  now supports all real forward/strike pairs with a direct price-unit solve.
+  See `docs/methodology/dupire.md`, `docs/methodology/underdetermined_search.md`,
+  and `docs/methodology/black_scholes.md`.
+- `runtime`: Made Monte Carlo reject non-positive path counts at the public boundary,
+  made the DAL thread pool lazy and configurable with `DAL_NUM_THREADS`, and released
+  the Python GIL around pure native valuation. Python `DoubleMatrix_` now supports
+  rectangular nested-list construction and mutable indexing, enabling non-flat
+  Dupire surfaces through Python and the web gateway.
+- `build`: Added relocatable `DAL::cpp` / `DAL::public` CMake packages and an
+  installed-consumer check; added `core-dev`, `full-dev`, and portable
+  `distribution` profiles; moved the automated Linux install into `build/stage`;
+  and made native-CPU tuning opt-in through `DAL_ENABLE_NATIVE_ARCH`.
+- `web`: Defined the backend as native-only and added startup preflight checks that
+  preserve and validate the locally installed `dal` package before Uvicorn starts.
 
 - `curve`: Added opt-out controls for exact-calibration diagnostic matrix construction:
   `CurveCalibrationOptions_::computeEffJacobianInverse_`,
@@ -52,6 +71,42 @@ here as the baseline rather than dated releases:
   `JointMultiCurveCalibrationOptions_::computeJacobianAtSolution_`. Defaults preserve the existing
   diagnostics surface, while performance-sensitive callers can run solve-only calibrations. See
   `docs/methodology/yield_curve.md` and `docs/methodology/yield_curve_jacobian.md`.
+
+- `pde`: Implemented the `Rollback_`-based PDE framework: coefficient factories and callable
+  adapters, endpoint-exact concentrating coordinate maps, grid materialization, node-location
+  derivative operators, and `ThetaScheme_` with explicit `Prepare`/decomposition reuse. The old
+  mesher/`FD1D_` stack was removed, and `european_fd` plus `pde_perf` now use the new framework.
+  See `docs/methodology/pde.md`. Breaking for direct `dal-cpp` PDE internals only; no
+  `dal-public`/Python/Excel surface changed.
+
+- `script`: The compiled (flat-stream) evaluator is now at strict capability
+  parity with the tree-walk evaluators while `MCSimulation` keeps tree-walk as
+  the default (`compiled=false`) in both specializations (`<double>` and
+  `<AAD::Number_>`; `dal-cpp/dal/script/simulation.hpp`): fuzzy smoothing
+  (call-spread/butterfly
+  kernels shared via `dal-cpp/dal/script/visitor/smoothing.hpp`, dt-blend `FuzzyIf`,
+  per-condition `eps` overrides, `maxNestedIfs`), const variables (live `ConstVar`
+  opcode preserving const-var greeks), past events, and `NodeCollect_` all produce
+  the same numbers (tol 1e-8) through either path. `ScriptProduct_::Compile(fuzzy)`
+  is now `const` and returns a `ScriptCompiled_` artifact; `MCSimulation` compiles
+  internally when requested, and `compiled` is `std::optional<bool>` (unset =
+  tree-walk / `false`).
+  Exposed through `ValueByMonteCarlo` (`dal-public/src/value.hpp`) and the Python
+  `MonteCarlo_Value` binding as a backward-compatible `compiled` keyword. **Breaking
+  API behavior**: (1) `AND`/`OR` are now eager in ALL evaluators — both
+  operands always evaluate; scripts must not rely on short-circuit (condition
+  expressions in this grammar are side-effect-free, so parseable scripts are
+  unaffected); (2) the
+  compiled evaluator remains opt-in with the same numbers and ~20-25% faster
+  runtime in the benchmarked path; (3) `Compile()` signature/semantics changed
+  from mutating member streams to a const artifact factory. See
+  `docs/methodology/script_engine.md`.
+
+- `random`: Sobol and pseudo-random normal draws default to precise inverse-CDF
+  evaluation. Sobol has three pinned policies: precise mode always uses
+  `InverseNCDF(u, true, true)` even when the public `polish` flag is false, while
+  fast mode selects Acklam-only or fast-CDF Newton polish. Sobol clones preserve
+  sequence state and both policy flags. See `docs/methodology/random.md`.
 
 ## 2026-06
 
@@ -89,54 +144,6 @@ here as the baseline rather than dated releases:
   including 4 new oracle tests at `dal-cpp/tests/curve/test_joint_analytic_jacobian.cpp`.
   See `docs/methodology/yield_curve.md` and `docs/methodology/aad.md`. Non-breaking (additive
   public surface; existing single-arg callers exercise the AAD path by default on eligible specs).
-
-## 2026-07
-
-- `pde`: Implemented the `Rollback_`-based PDE framework: coefficient factories and callable
-  adapters, endpoint-exact concentrating coordinate maps, grid materialization, node-location
-  derivative operators, and `ThetaScheme_` with explicit `Prepare`/decomposition reuse. The old
-  mesher/`FD1D_` stack was removed, and `european_fd` plus `pde_perf` now use the new framework.
-  See `docs/methodology/pde.md`. Breaking for direct `dal-cpp` PDE internals only; no
-  `dal-public`/Python/Excel surface changed.
-
-- `script`: The compiled (flat-stream) evaluator is now at strict capability
-  parity with the tree-walk evaluators while `MCSimulation` keeps tree-walk as
-  the default (`compiled=false`) in both specializations (`<double>` and
-  `<AAD::Number_>`; `dal-cpp/dal/script/simulation.hpp`): fuzzy smoothing
-  (call-spread/butterfly
-  kernels shared via `dal-cpp/dal/script/visitor/smoothing.hpp`, dt-blend `FuzzyIf`,
-  per-condition `eps` overrides, `maxNestedIfs`), const variables (live `ConstVar`
-  opcode preserving const-var greeks), past events, and `NodeCollect_` all produce
-  the same numbers (tol 1e-8) through either path. `ScriptProduct_::Compile(fuzzy)`
-  is now `const` and returns a `ScriptCompiled_` artifact; `MCSimulation` compiles
-  internally when requested, and `compiled` is `std::optional<bool>` (unset =
-  tree-walk / `false`).
-  Exposed through `ValueByMonteCarlo` (`dal-public/src/value.hpp`) and the Python
-  `MonteCarlo_Value` binding as a backward-compatible `compiled` keyword. **Breaking
-  API behavior**: (1) `AND`/`OR` are now eager in ALL evaluators — both
-  operands always evaluate; scripts must not rely on short-circuit (condition
-  expressions in this grammar are side-effect-free, so parseable scripts are
-  unaffected); (2) the
-  compiled evaluator remains opt-in with the same numbers and ~20-25% faster
-  runtime in the benchmarked path; (3) `Compile()` signature/semantics changed
-  from mutating member streams to a const artifact factory. See
-  `docs/methodology/script_engine.md`.
-
-- `random`: Sobol and PseudoRandom normal draws now default to the precise
-  inverse-normal-CDF routine (`precise=true`) on `NewSobol`, `SobolRSG_`,
-  `PseudoRandom_::New`, and `PseudoRSG_` (`dal-cpp/dal/math/random/{sobol,pseudorandom}.hpp`),
-  restoring ~1e-15 Acklam+Newton accuracy in the default path (previously the
-  faster ~1e-9 Acklam-only routine was the default). This shifts default
-  Sobol/PseudoRandom normal variates; opt back into the fast path with
-  `precise=false`. See `docs/methodology/random.md`. Non-breaking (default-argument
-  reproducibility change only; the precise routine was already available).
-- `random`: Sobol normal draws now skip the Newton polish on `InverseNCDF` by default
-  (`SobolRSG_(..., polish=false)`, `dal-cpp/dal/math/random/sobol.hpp`), halving the per-deviate
-  cost at the cost of ~1e-9 Acklam accuracy instead of ~1e-15 (Acklam+Newton) — below QMC sampling
-  noise. This is a default-argument reproducibility change: default Sobol normal variates shifted
-  from ~1e-15 to ~1e-9. Opt back in via `polish=true`. The new `polish_` member is serialized in the
-  `SobolRSG` storable (`MG_SobolRSG_v1`). See `docs/methodology/random.md`. Non-breaking (additive
-  public field; default changed for speed).
 
 <!-- Add new qualifying changes below as dated sections, e.g. -->
 <!-- ## 2026-06 -->

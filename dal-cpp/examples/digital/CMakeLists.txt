@@ -1,4 +1,4 @@
-file(GLOB_RECURSE DIGITAL_FILES "*.hpp" "*.cpp")
+file(GLOB_RECURSE DIGITAL_FILES CONFIGURE_DEPENDS "*.hpp" "*.cpp")
 add_executable(digital ${DIGITAL_FILES})
 
 target_link_libraries(digital dal_library)

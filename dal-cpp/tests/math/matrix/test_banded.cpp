@@ -39,10 +39,18 @@ TEST(MatrixTest, TestNewBandedBanded) {
 
 TEST(MatrixTest, TestLowerBandAccumulator) {
     LowerBandAccumulator_ acc(3, 1);
-    auto offset = 0;
-    Vector_<> v_in{1.0, 2.0};
-    acc.Add(v_in, offset);
-    acc.Add(2.0 * v_in, offset);
+    acc.Add(Vector_<>{2.0}, -1);
+    acc.Add(Vector_<>{3.0, 4.0}, -1);
+    acc.Add(Vector_<>{5.0, 6.0}, 0);
+
+    const Vector_<> b{2.0, 11.0, 28.0};
+    Vector_<> calculated;
+    acc.SolveLeft(b, &calculated);
+
+    const Vector_<> expected{1.0, 2.0, 3.0};
+    ASSERT_EQ(calculated.size(), expected.size());
+    for (int i = 0; i < calculated.size(); ++i)
+        ASSERT_NEAR(calculated[i], expected[i], 1e-10);
 }
 
 TEST(MatrixTest, TestTriDiagonalMultiply) {

@@ -145,6 +145,17 @@ jobs:
           cd build
           ctest --output-on-failure --verbose -C Release
 
+      - name: Test installed CMake consumer
+        shell: pwsh
+        run: |
+          $consumerBuild = Join-Path $env:RUNNER_TEMP "dal-consumer-${{ matrix.aad-backend }}"
+          cmake `
+            "-DDAL_INSTALL_PREFIX=$PWD/build/stage/Release-windows" `
+            "-DDAL_CONSUMER_BINARY_DIR=$consumerBuild" `
+            -DDAL_GENERATOR=Ninja `
+            -DDAL_BUILD_CONFIG=Release `
+            -P tests/installed-consumer/run.cmake
+
   # Benchmark job: builds and runs all performance benchmarks on one
   # representative configuration (msvc, native/AADet backend).
   # Results appear in the CI logs and job summary; timings are not a pass/fail gate.
@@ -212,7 +223,7 @@ jobs:
           cd build
           cmake --preset Release-windows -DDAL_BUILD_PUBLIC=ON -DDAL_CPP_BUILD_EXAMPLES=ON \
             -DDAL_USE_XAD_AAD=off -DDAL_USE_CODIPACK_AAD=off -DDAL_USE_ADEPT_AAD=off \
-            -DDAL_BUILD_PYTHON=OFF ..
+            -DDAL_BUILD_PYTHON=OFF -DDAL_CPP_BUILD_BENCHMARKS=ON ..
           cmake --build .
           cmake --install .
 
@@ -248,7 +259,7 @@ jobs:
           for bench in "${benchmarks[@]}"; do
             echo "========== $bench =========="
             result_file="benchmark-results/${bench}.txt"
-            if "./bin/$bench.exe" > "$result_file" 2>&1; then
+            if "./build/stage/Release-windows/bin/$bench.exe" > "$result_file" 2>&1; then
               status=0
             else
               status=$?

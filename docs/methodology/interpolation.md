@@ -31,7 +31,7 @@ implemented by `InterpLinearImplX` in `dal-cpp/dal/math/interp/interp.hpp`.
 | Linear                         | `Interp::NewLinear`              | `dal-cpp/dal/math/interp/interplinear.hpp`              |
 | Log-linear                     | `Interp::NewLogLinear`           | `dal-cpp/dal/math/interp/interploglinear.hpp`           |
 | Cubic spline                   | `Interp::NewCubic`               | `dal-cpp/dal/math/interp/interpcubic.hpp`               |
-| Mixed log-DF (cubic + linear)  | `NewMixedLogDF`                  | `dal-cpp/dal/math/interp/interpmixed.hpp`               |
+| Mixed log-DF (linear + cubic)  | `NewMixedLogDF`                  | `dal-cpp/dal/math/interp/interpmixed.hpp`               |
 | Bilinear (2D)                  | `Interp::NewLinear2`             | `dal-cpp/dal/math/interp/interp2d.hpp`                  |
 
 ## Linear
@@ -91,19 +91,19 @@ Requires $N > 2$ and strictly increasing $x$. `IsInBounds` forbids extrapolation
 
 ## Mixed Log-DF
 
-A composite scheme used by the log-discount curve to combine a smooth cubic core with a
-linear tail. The abscissa is the year fraction and the ordinate is $\ln P$. The curve is
-cubic (with configurable `Boundary_` conditions on each side) out to a cutoff year
-fraction `cutoffYf_` and linear in $\ln P$ beyond it. This gives the smoothness of a spline
-where the term structure is data-rich and the robustness of log-linear extrapolation at the
-long end, where knots are sparse and a spline would oscillate.
+A composite scheme used by the log-discount curve. The abscissa is the year fraction and
+the ordinate is $\ln P$. For compatibility with the existing `MIXED` curve contract, the
+scheme is **linear in $\ln P$ through the cutoff** `cutoffYf_` and a cubic spline beyond
+the cutoff. The cubic tail uses the configurable `Boundary_` conditions carried by
+`MixedSchemeSpec_`; the curve builder supplies natural conditions by default.
 
 The cutoff must coincide with one of the knot abscissae so that both sub-interpolators
-reproduce its value exactly. The linear head and the cubic tail are built on overlapping
+reproduce its value exactly. The linear head and cubic tail are built on overlapping
 sub-arrays that both include the cutoff knot; because each sub-interpolator is exact at its
 own knots, the two pieces agree at the cutoff and the composite curve is $C^0$ continuous
-across the join. Construction therefore searches the knot vector for the abscissa equal to
-`cutoffYf_` rather than interpolating between knots, which would introduce a discontinuity.
+across the join. First- and second-derivative continuity are not imposed. Construction
+therefore searches the knot vector for the abscissa equal to `cutoffYf_` rather than
+silently snapping an in-between value to a knot.
 
 Factory: `NewMixedLogDF(name, yf, logDF, spec)` where `spec` is a `MixedSchemeSpec_`
 carrying `cutoffYf_` and the two cubic `Boundary_` conditions
@@ -134,8 +134,9 @@ $(N_x, N_y)$ (`dal-cpp/dal/math/interp/interp2d.hpp`).
   factors and forward rates are the canonical cases.
 - Use **cubic** when $C^2$ smoothness matters (e.g. second-derivative-dependent risk) and
   the data is dense enough to support it; pick end conditions deliberately.
-- Use **mixed log-DF** for the long end of a discount curve, where a pure spline would
-  oscillate.
+- Use **mixed log-DF** when compatibility with DAL's linear-head/natural-cubic-tail
+  log-discount convention is required. Use a pure scheme when one interpolation shape is
+  desired across the entire curve.
 - Use **bilinear** for surfaces quoted on a regular grid (e.g. option volatility by
   expiry and strike).
 

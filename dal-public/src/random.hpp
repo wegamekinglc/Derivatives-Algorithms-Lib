@@ -5,7 +5,6 @@
 #pragma once
 
 #include <dal/string/strings.hpp>
-#include <dal-public/src/random.hpp>
 #include <dal/math/random/pseudorandom.hpp>
 #include <dal/math/random/sobol.hpp>
 

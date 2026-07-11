@@ -1,4 +1,4 @@
-file(GLOB_RECURSE EXCELWRITER_FILES "*.hpp" "*.cpp")
+file(GLOB_RECURSE EXCELWRITER_FILES CONFIGURE_DEPENDS "*.hpp" "*.cpp")
 add_executable(excelwriter ${EXCELWRITER_FILES})
 
 target_link_libraries(excelwriter dal_library)

@@ -46,6 +46,10 @@ def _build_fake_dal() -> types.ModuleType:
         def __repr__(self) -> str:
             return f"Cell_({self.value!r})"
 
+    class DoubleMatrix_:  # noqa: N801 - match DAL public naming
+        def __init__(self, rows: list[list[float]]) -> None:
+            self.values = [[float(value) for value in row] for row in rows]
+
     eval_box: list[Any] = [Date_(2022, 9, 15)]
 
     def EvaluationDate_Set(d: Date_) -> None:  # noqa: N802
@@ -66,8 +70,15 @@ def _build_fake_dal() -> types.ModuleType:
 
     def DupireModelData_New(  # noqa: N802
         spot: float, rate: float, repo: float, spots: list[float], times: list[float], vols: Any
-    ) -> dict[str, float]:
-        return {"spot": spot, "rate": rate, "div": repo, "vol": 0.2}
+    ) -> dict[str, Any]:
+        return {
+            "spot": spot,
+            "rate": rate,
+            "repo": repo,
+            "spots": spots,
+            "times": times,
+            "vols": vols.values,
+        }
 
     calls: list[dict[str, Any]] = []
 
@@ -97,6 +108,7 @@ def _build_fake_dal() -> types.ModuleType:
 
     fake.Date_ = Date_
     fake.Cell_ = Cell_
+    fake.DoubleMatrix_ = DoubleMatrix_
     fake.EvaluationDate_Set = EvaluationDate_Set
     fake.EvaluationDate_Get = EvaluationDate_Get
     fake.Product_New = Product_New

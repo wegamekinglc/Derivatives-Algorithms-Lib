@@ -1,4 +1,4 @@
-file(GLOB_RECURSE UOC_FILES "*.hpp" "*.cpp")
+file(GLOB_RECURSE UOC_FILES CONFIGURE_DEPENDS "*.hpp" "*.cpp")
 add_executable(uoc ${UOC_FILES})
 
 target_link_libraries(uoc dal_library)

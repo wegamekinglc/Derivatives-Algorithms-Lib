@@ -1,4 +1,4 @@
-file(GLOB_RECURSE AAD_FILES "*.hpp" "*.cpp")
+file(GLOB_RECURSE AAD_FILES CONFIGURE_DEPENDS "*.hpp" "*.cpp")
 add_executable(aad ${AAD_FILES})
 
 target_link_libraries(aad dal_library)

@@ -75,10 +75,18 @@ def test_dupire_model_flat_surface():
 
 
 def test_dupire_model_skewed_surface():
-    """Dupire with a non-trivial vol surface (flat fill — Matrix_ is read-only)."""
+    """Dupire accepts a non-flat volatility surface from nested Python rows."""
     spots = [80.0, 90.0, 100.0, 110.0, 120.0]
     times = [0.5, 1.0]
-    vols = dal.DoubleMatrix_(len(spots), len(times), 0.2)
+    vols = dal.DoubleMatrix_(
+        [
+            [0.25, 0.24],
+            [0.23, 0.22],
+            [0.21, 0.20],
+            [0.20, 0.19],
+            [0.19, 0.18],
+        ]
+    )
 
     model = dal.DupireModelData_New(
         spot=100.0,

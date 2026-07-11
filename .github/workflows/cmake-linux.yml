@@ -78,6 +78,19 @@ jobs:
           fi
           bash -e ./build_linux.sh $COVERAGE_FLAG
 
+      - name: Test installed CMake consumer
+        if: matrix.coverage == false
+        env:
+          CC: ${{ matrix.cc }}
+          CXX: ${{ matrix.cxx }}
+        run: |
+          consumer_build="$RUNNER_TEMP/dal-consumer-${{ matrix.compiler }}-${{ matrix.aad-backend }}"
+          cmake \
+            -DDAL_INSTALL_PREFIX="$PWD/build/stage/Release-linux" \
+            -DDAL_CONSUMER_BINARY_DIR="$consumer_build" \
+            -DDAL_BUILD_CONFIG=Release \
+            -P tests/installed-consumer/run.cmake
+
       - name: Coverage
         if: matrix.coverage
         run: |
@@ -163,7 +176,7 @@ jobs:
           CXXFLAGS: -O3
           ADDITIONAL_CMAKE_FLAGS: -DDAL_USE_XAD_AAD=off -DDAL_USE_CODIPACK_AAD=off -DDAL_USE_ADEPT_AAD=off -DDAL_BUILD_PYTHON=OFF
         run: |
-          bash -e ./build_linux.sh
+          bash -e ./build_linux.sh --benchmarks
 
       - name: Run benchmarks
         run: |
@@ -196,7 +209,7 @@ jobs:
           for bench in "${benchmarks[@]}"; do
             echo "========== $bench =========="
             result_file="benchmark-results/${bench}.txt"
-            if "./bin/$bench" > "$result_file" 2>&1; then
+            if "./build/stage/Release-linux/bin/$bench" > "$result_file" 2>&1; then
               status=0
             else
               status=$?

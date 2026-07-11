@@ -1,4 +1,4 @@
-file(GLOB_RECURSE VANILLA_FILES "*.hpp" "*.cpp")
+file(GLOB_RECURSE VANILLA_FILES CONFIGURE_DEPENDS "*.hpp" "*.cpp")
 add_executable(vanilla ${VANILLA_FILES})
 
 target_link_libraries(vanilla dal_library)

@@ -60,7 +60,10 @@ namespace Dal::AAD {
 
         template <class T_ = double>
         T_ Call(double strike, double mat, const RiskView_<T_>* risk = nullptr) const {
-            return BlackScholes<T_>(spot_, strike, ImpliedVol(strike, mat) + (risk ? risk->Spread(strike, mat) : T_(0.0)), mat);
+            const double forward = spot_ * Dal::exp((r_ - q_) * mat);
+            const double discount = Dal::exp(-r_ * mat);
+            return discount * BlackScholes<T_>(forward, strike,
+                                                ImpliedVol(strike, mat) + (risk ? risk->Spread(strike, mat) : T_(0.0)), mat);
         }
 
         // Dupire local vol from IV via central differences; see docs/methodology/dupire.md §"IVS Inversion by Central Differences".
@@ -77,7 +80,7 @@ namespace Dal::AAD {
             const T_ c20 = Call(strike + ds, mat, risk);
             const T_ ckk = (c10 + c20 - 2.0 * c00) / ds / ds;
             const T_ ck = (c20 - c10) * 0.5 / ds;
-            return Dal::sqrt(2.0 * (ct + q_ * c00 + (r_ - q_) * ck) / ckk) / strike;
+            return Dal::sqrt(2.0 * (ct + q_ * c00 + (r_ - q_) * strike * ck) / ckk) / strike;
         }
 
         virtual ~IVS_() = default;

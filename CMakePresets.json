@@ -10,15 +10,19 @@
       "name": "base",
       "hidden": true,
       "cacheVariables": {
-        "CMAKE_INSTALL_PREFIX": "${sourceDir}",
-        "Python3_ROOT_DIR": "${sourceDir}/dal-python/.venv",
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_INSTALL_PREFIX": "${sourceDir}/build/stage/${presetName}",
+        "BUILD_SHARED_LIBS": "off",
+        "DAL_ENABLE_NATIVE_ARCH": "off",
         "DAL_USE_XAD_AAD": "off",
         "DAL_USE_CODIPACK_AAD": "off",
         "DAL_USE_ADEPT_AAD": "off",
+        "DAL_CPP_BUILD_TESTS": "on",
         "DAL_CPP_BUILD_EXAMPLES": "on",
-        "DAL_CPP_BUILD_BENCHMARKS": "on",
+        "DAL_CPP_BUILD_BENCHMARKS": "off",
+        "DAL_PUBLIC_BUILD_TESTS": "on",
         "DAL_BUILD_PUBLIC": "on",
-        "DAL_BUILD_PYTHON": "on",
+        "DAL_BUILD_PYTHON": "off",
         "DAL_BUILD_EXCEL": "off",
         "XAD_ENABLE_TESTS": "off",
         "XAD_USE_STRONG_INLINE": "on",
@@ -28,6 +32,37 @@
         "XAD_TAPE_REUSE_SLOTS": "off",
         "XAD_ENABLE_JIT": "off",
         "XAD_ENABLE_CODEGEN": "off"
+      }
+    },
+    {
+      "name": "core-dev",
+      "displayName": "Core C++ development",
+      "description": "Core and public C++ libraries, tests, and examples without Python or benchmark prerequisites.",
+      "inherits": "base",
+      "binaryDir": "${sourceDir}/build/core-dev"
+    },
+    {
+      "name": "full-dev",
+      "displayName": "Full development workspace",
+      "description": "Core development plus Python bindings and native benchmarks.",
+      "inherits": "base",
+      "binaryDir": "${sourceDir}/build/full-dev",
+      "cacheVariables": {
+        "Python3_ROOT_DIR": "${sourceDir}/dal-python/.venv",
+        "DAL_CPP_BUILD_BENCHMARKS": "on",
+        "DAL_BUILD_PYTHON": "on"
+      }
+    },
+    {
+      "name": "distribution",
+      "displayName": "Portable distribution",
+      "description": "Portable release libraries and install packages without tests, examples, benchmarks, or native-CPU tuning.",
+      "inherits": "base",
+      "binaryDir": "${sourceDir}/build/distribution",
+      "cacheVariables": {
+        "DAL_CPP_BUILD_TESTS": "off",
+        "DAL_CPP_BUILD_EXAMPLES": "off",
+        "DAL_PUBLIC_BUILD_TESTS": "off"
       }
     },
     {
@@ -56,16 +91,14 @@
       "name": "Release-linux",
       "inherits": "base",
       "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Release",
-        "BUILD_SHARED_LIBS": "off"
+        "CMAKE_BUILD_TYPE": "Release"
       }
     },
     {
       "name": "Debug-linux",
       "inherits": "base",
       "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Debug",
-        "BUILD_SHARED_LIBS": "off"
+        "CMAKE_BUILD_TYPE": "Debug"
       }
     }
   ]

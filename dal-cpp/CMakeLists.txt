@@ -9,12 +9,16 @@ project(dal-cpp LANGUAGES CXX
     DESCRIPTION "DAL Core C++ Quant Library"
     VERSION 1.0.0)
 
+include(GNUInstallDirs)
+include(CMakePackageConfigHelpers)
+
 # ---------------------------------------------------------------------------
 # Options
 # ---------------------------------------------------------------------------
 option(DAL_CPP_BUILD_TESTS "Build dal-cpp tests" ON)
 option(DAL_CPP_BUILD_EXAMPLES "Build dal-cpp examples" ON)
 option(DAL_CPP_BUILD_BENCHMARKS "Build dal-cpp benchmarks" ON)
+option(DAL_ENABLE_NATIVE_ARCH "Optimize DAL for the build machine's CPU" OFF)
 
 option(DAL_USE_XAD_AAD "Use XAD AAD backend" OFF)
 option(DAL_USE_CODIPACK_AAD "Use CoDiPack AAD backend" OFF)
@@ -67,25 +71,60 @@ endif()
 # ---------------------------------------------------------------------------
 # External dependencies
 # ---------------------------------------------------------------------------
-add_subdirectory(${PROJECT_SOURCE_DIR}/externals/googletest)
-add_subdirectory(${PROJECT_SOURCE_DIR}/externals/rapidjson)
-add_subdirectory(${PROJECT_SOURCE_DIR}/externals/xad)
-add_subdirectory(${PROJECT_SOURCE_DIR}/externals/CodiPack)
-add_subdirectory(${PROJECT_SOURCE_DIR}/externals/adept)
-add_subdirectory(${PROJECT_SOURCE_DIR}/externals/machinist)
+if(DAL_CPP_BUILD_TESTS)
+    add_subdirectory(${PROJECT_SOURCE_DIR}/externals/googletest)
+endif()
 
-include_directories(${PROJECT_SOURCE_DIR}/externals/rapidjson/include)
-include_directories(${PROJECT_SOURCE_DIR}/externals/xad/include)
-include_directories(${PROJECT_SOURCE_DIR}/externals/CodiPack/include)
-include_directories(${PROJECT_SOURCE_DIR}/externals/adept/include)
+if(DAL_USE_XAD_AAD)
+    add_subdirectory(${PROJECT_SOURCE_DIR}/externals/xad)
+elseif(DAL_CPP_BUILD_EXAMPLES)
+    # The AAD comparison example exercises XAD explicitly even when DAL itself
+    # uses another backend. Keep it buildable without exporting or installing XAD.
+    add_subdirectory(${PROJECT_SOURCE_DIR}/externals/xad EXCLUDE_FROM_ALL)
+endif()
 
-# Make <dal/...> includes work
-include_directories(${PROJECT_SOURCE_DIR})
+if(DAL_USE_CODIPACK_AAD)
+    add_subdirectory(${PROJECT_SOURCE_DIR}/externals/CodiPack)
+elseif(DAL_USE_ADEPT_AAD)
+    add_subdirectory(${PROJECT_SOURCE_DIR}/externals/adept)
+endif()
+
+# Machinist is an explicit source-generation tool. It is built only when
+# dal_generate/dal_check_generated is requested and is never part of DAL installs.
+add_subdirectory(${PROJECT_SOURCE_DIR}/externals/machinist EXCLUDE_FROM_ALL)
+
+add_custom_target(dal_generate
+    COMMAND ${CMAKE_COMMAND} -E env
+            "MACHINIST_TEMPLATE_DIR=${PROJECT_SOURCE_DIR}/externals/machinist/template/"
+            $<TARGET_FILE:Machinist>
+            -c ${PROJECT_SOURCE_DIR}/config/dal.ifc
+            -l ${PROJECT_SOURCE_DIR}/config/dal.mgl
+            -d ${PROJECT_SOURCE_DIR}/dal
+    COMMAND ${CMAKE_COMMAND} -E env
+            "MACHINIST_TEMPLATE_DIR=${PROJECT_SOURCE_DIR}/externals/machinist/template/"
+            $<TARGET_FILE:Machinist>
+            -c ${PROJECT_SOURCE_DIR}/config/dal.ifc
+            -l ${PROJECT_SOURCE_DIR}/config/dal.mgl
+            -d ${PROJECT_SOURCE_DIR}/../dal-excel
+    DEPENDS Machinist
+    WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/..
+    COMMENT "Regenerating DAL core and Excel sources with Machinist"
+    VERBATIM)
+
+find_package(Git QUIET)
+if(Git_FOUND)
+    add_custom_target(dal_check_generated
+        COMMAND ${GIT_EXECUTABLE} diff --exit-code -- dal-cpp/dal dal-excel
+        DEPENDS dal_generate
+        WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/..
+        COMMENT "Checking generated DAL sources for drift"
+        VERBATIM)
+endif()
 
 # ---------------------------------------------------------------------------
 # Library target: dal_cpp (alias DAL::cpp)
 # ---------------------------------------------------------------------------
-file(GLOB_RECURSE DAL_CPP_SOURCES
+file(GLOB_RECURSE DAL_CPP_SOURCES CONFIGURE_DEPENDS
     "${PROJECT_SOURCE_DIR}/dal/*.h"
     "${PROJECT_SOURCE_DIR}/dal/*.hpp"
     "${PROJECT_SOURCE_DIR}/dal/*.cpp"
@@ -99,29 +138,47 @@ add_library(DAL::cpp ALIAS dal_cpp)
 target_compile_features(dal_cpp PUBLIC cxx_std_17)
 
 # Make <dal/...> available to consumers (dal-public, etc.)
-target_include_directories(dal_cpp PUBLIC ${PROJECT_SOURCE_DIR})
+target_include_directories(dal_cpp
+    PUBLIC
+        "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>"
+        "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>"
+    PRIVATE
+        ${PROJECT_SOURCE_DIR}/externals/rapidjson/include)
+
+dal_apply_platform_options(dal_cpp)
 
 if(MSVC)
     target_compile_definitions(dal_cpp PRIVATE IS_BASE)
 endif()
 
 if(DAL_USE_XAD_AAD)
-    target_link_libraries(dal_cpp PUBLIC XAD::xad)
+    set(DAL_CPP_AAD_BACKEND "XAD")
+    target_link_libraries(dal_cpp PUBLIC
+        "$<BUILD_INTERFACE:XAD::xad>"
+        "$<INSTALL_INTERFACE:XAD::xad>")
     target_compile_definitions(dal_cpp PUBLIC DAL_USE_XAD_AAD)
-    target_include_directories(dal_cpp PUBLIC ${PROJECT_SOURCE_DIR}/externals/xad/include)
 elseif(DAL_USE_CODIPACK_AAD)
-    target_link_libraries(dal_cpp PUBLIC CoDiPack)
+    set(DAL_CPP_AAD_BACKEND "CoDiPack")
+    target_link_libraries(dal_cpp PUBLIC
+        "$<BUILD_INTERFACE:CoDiPack>"
+        "$<INSTALL_INTERFACE:DAL::CoDiPack>")
     target_compile_definitions(dal_cpp PUBLIC DAL_USE_CODIPACK_AAD CODI_ForcedInlines)
-    target_include_directories(dal_cpp PUBLIC ${PROJECT_SOURCE_DIR}/externals/CodiPack/include)
 elseif(DAL_USE_ADEPT_AAD)
-    target_link_libraries(dal_cpp PUBLIC adept)
+    set(DAL_CPP_AAD_BACKEND "Adept")
+    target_link_libraries(dal_cpp PUBLIC
+        "$<BUILD_INTERFACE:adept>"
+        "$<INSTALL_INTERFACE:DAL::adept>")
     target_compile_definitions(dal_cpp PUBLIC
         DAL_USE_ADEPT_AAD
         ADEPT_FAST_EXPONENTIAL
         ADEPT_NO_DIMENSION_CHECKING
         ADEPT_NO_ALIAS_CHECKING
         ADEPT_INITIAL_STACK_LENGTH=10485760)
-    target_include_directories(dal_cpp PUBLIC ${PROJECT_SOURCE_DIR}/externals/adept/include)
+    target_include_directories(dal_cpp PUBLIC
+        "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/externals/adept/include>"
+        "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>")
+else()
+    set(DAL_CPP_AAD_BACKEND "Native")
 endif()
 
 set_target_properties(dal_cpp PROPERTIES
@@ -129,13 +186,53 @@ set_target_properties(dal_cpp PROPERTIES
     OUTPUT_NAME dal_cpp
     VERSION ${PROJECT_VERSION})
 
-install(DIRECTORY ${PROJECT_SOURCE_DIR}/dal/ DESTINATION include/dal
+install(DIRECTORY ${PROJECT_SOURCE_DIR}/dal/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/dal
         FILES_MATCHING PATTERN "*.hpp" PATTERN "*.h")
 
 install(TARGETS dal_cpp
-        ARCHIVE DESTINATION lib
-        LIBRARY DESTINATION lib
-        RUNTIME DESTINATION bin)
+        EXPORT DALCppTargets
+        ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+        INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+
+set(DAL_CPP_CONFIG_INSTALL_DIR "${CMAKE_INSTALL_LIBDIR}/cmake/dal-cpp")
+
+if(DAL_USE_CODIPACK_AAD)
+    install(TARGETS CoDiPack EXPORT DALCoDiPackTargets)
+    install(EXPORT DALCoDiPackTargets
+            FILE DALCoDiPackTargets.cmake
+            NAMESPACE DAL::
+            DESTINATION ${DAL_CPP_CONFIG_INSTALL_DIR})
+elseif(DAL_USE_ADEPT_AAD)
+    install(TARGETS adept
+            EXPORT DALAdeptTargets
+            ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+            LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+            RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+    install(EXPORT DALAdeptTargets
+            FILE DALAdeptTargets.cmake
+            NAMESPACE DAL::
+            DESTINATION ${DAL_CPP_CONFIG_INSTALL_DIR})
+endif()
+
+configure_package_config_file(
+    ${PROJECT_SOURCE_DIR}/cmake/dal-cppConfig.cmake.in
+    ${CMAKE_CURRENT_BINARY_DIR}/dal-cppConfig.cmake
+    INSTALL_DESTINATION ${DAL_CPP_CONFIG_INSTALL_DIR})
+write_basic_package_version_file(
+    ${CMAKE_CURRENT_BINARY_DIR}/dal-cppConfigVersion.cmake
+    VERSION ${PROJECT_VERSION}
+    COMPATIBILITY SameMajorVersion)
+
+install(EXPORT DALCppTargets
+        FILE dal-cppTargets.cmake
+        NAMESPACE DAL::
+        DESTINATION ${DAL_CPP_CONFIG_INSTALL_DIR})
+install(FILES
+        ${CMAKE_CURRENT_BINARY_DIR}/dal-cppConfig.cmake
+        ${CMAKE_CURRENT_BINARY_DIR}/dal-cppConfigVersion.cmake
+        DESTINATION ${DAL_CPP_CONFIG_INSTALL_DIR})
 
 # ---------------------------------------------------------------------------
 # Tests
@@ -143,7 +240,7 @@ install(TARGETS dal_cpp
 if(DAL_CPP_BUILD_TESTS)
     include(GoogleTest)
 
-    file(GLOB_RECURSE TEST_FILES
+    file(GLOB_RECURSE TEST_FILES CONFIGURE_DEPENDS
         "${PROJECT_SOURCE_DIR}/tests/*.hpp"
         "${PROJECT_SOURCE_DIR}/tests/*.cpp")
 
@@ -153,7 +250,7 @@ if(DAL_CPP_BUILD_TESTS)
     gtest_discover_tests(dal_cpp_tests)
 
     install(TARGETS dal_cpp_tests
-            RUNTIME DESTINATION bin
+            RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
             PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE
                         GROUP_READ GROUP_EXECUTE
                         WORLD_READ WORLD_EXECUTE)

@@ -1,4 +1,4 @@
-file(GLOB_RECURSE IV_BRENT_PERF_FILES "*.hpp" "*.cpp")
+file(GLOB_RECURSE IV_BRENT_PERF_FILES CONFIGURE_DEPENDS "*.hpp" "*.cpp")
 
 add_executable(iv_brent_perf ${IV_BRENT_PERF_FILES})
 

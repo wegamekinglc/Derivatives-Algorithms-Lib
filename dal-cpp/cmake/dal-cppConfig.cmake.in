@@ -1,0 +1,15 @@
+@PACKAGE_INIT@
+
+include(CMakeFindDependencyMacro)
+
+set(DAL_CPP_AAD_BACKEND "@DAL_CPP_AAD_BACKEND@")
+if(DAL_CPP_AAD_BACKEND STREQUAL "XAD")
+    find_dependency(XAD CONFIG)
+elseif(DAL_CPP_AAD_BACKEND STREQUAL "CoDiPack")
+    include("${CMAKE_CURRENT_LIST_DIR}/DALCoDiPackTargets.cmake")
+elseif(DAL_CPP_AAD_BACKEND STREQUAL "Adept")
+    include("${CMAKE_CURRENT_LIST_DIR}/DALAdeptTargets.cmake")
+endif()
+
+include("${CMAKE_CURRENT_LIST_DIR}/dal-cppTargets.cmake")
+check_required_components(dal-cpp)

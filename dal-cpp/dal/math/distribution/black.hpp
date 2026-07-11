@@ -32,8 +32,8 @@ namespace Dal {
         Vector_<> BlackGreeks(double fwd, double vol, double strike, const OptionType_& type);
 
         template <class T_>
-        T_ BachelierOpt(const T_& fwd, const T_& vol, const T_& strike, const OptionType_& type)  {
-            if (IsZero(vol) || !IsPositive(fwd * strike))
+        T_ BachelierOpt(const T_& fwd, const T_& vol, const T_& strike, const OptionType_& type) {
+            if (IsZero(vol))
                 return type.Payout(fwd, strike);
             T_ diff = fwd - strike;
             T_ d = diff / vol;

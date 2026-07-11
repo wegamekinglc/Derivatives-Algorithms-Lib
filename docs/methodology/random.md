@@ -183,31 +183,34 @@ trailing-zero count is obtained by shifting until the lowest bit is set; if
 $k$ reaches `directions_.Rows()` (i.e. the index has exceeded $2^{32}$
 points), the generator throws.
 
-### Normal-Draw Precision and `polish_`
+### Normal-Draw Inverse-CDF Modes
 
-`FillNormal` applies `InverseNCDF` to each uniform variate. Two flags govern the
-inverse-CDF evaluation, both defaulted on construction and stored on the
-storable wrapper `SobolRSG_` (`dal-cpp/dal/math/random/sobol.hpp`) and on
-`SobolSet_`:
+`FillNormal` applies `InverseNCDF` to each uniform variate. `SobolSet_` dispatches
+with
 
-- `precise_` selects the higher-accuracy inverse-normal-CDF routine (Acklam's
-  rational approximation refined by a Newton step, ~1e-15 accuracy), mirroring
-  the pseudo-random family. It defaults to **`true`** so default Sobol normal
-  variates are full-precision; pass `precise = false` to opt back into the
-  faster Acklam-only routine (~1e-9), which is still below QMC sampling noise.
-- `polish_` toggles the Newton polish step in `InverseNCDF`. The Acklam rational
-  approximation without polish is already accurate to roughly $10^{-9}$, well
-  below quasi-Monte-Carlo sampling noise, so polish defaults to **`false`** and
-  is only enabled when a caller explicitly requests it. Skipping polish roughly
-  halves the per-deviate cost of `FillNormal` without measurably moving QMC
-  convergence.
+```text
+InverseNCDF(u, precise, precise || polish)
+```
 
-The constructor surface is therefore `NewSobol(size, iPath, precise = true,
-polish = false)` and the storable `SobolRSG_(name, iPath, nDim = 1, precise =
-true, polish = false)`; `precise = true` is the public default, and a caller
-passes `precise = false` to opt back into the fast Acklam-only path. Both flags
-are persisted by the storable markup so a serialised generator round-trips with
-its precision settings intact.
+so the two public flags select three effective policies:
+
+| `precise` | `polish` | Effective call                    | Policy                                      |
+|-----------|----------|-----------------------------------|---------------------------------------------|
+| `true`    | either   | `InverseNCDF(u, true, true)`       | precise-CDF Newton correction               |
+| `false`   | `false`  | `InverseNCDF(u, false, false)`     | Acklam rational approximation only          |
+| `false`   | `true`   | `InverseNCDF(u, false, true)`      | Acklam plus a Newton step using the fast CDF |
+
+In particular, precise mode always performs the precise-CDF Newton correction,
+even when the public `polish` argument is `false`. `polish` controls only whether
+fast mode adds its fast-CDF correction.
+
+The constructor surface is `NewSobol(size, iPath, precise = true,
+polish = false)` and the storable wrapper is
+`SobolRSG_(name, iPath, nDim = 1, precise = true, polish = false)`. The default
+therefore selects the first row of the table. Both flags are persisted by the
+storable markup. `Clone()` also copies the current path index, direction matrix,
+XOR state, and both flags, so the original and clone produce identical subsequent
+uniform and normal draws until either is advanced independently.
 
 ### Path Seeking
 

@@ -1,4 +1,4 @@
-file(GLOB_RECURSE UNDERDETERMINED_FILES "*.hpp" "*.cpp")
+file(GLOB_RECURSE UNDERDETERMINED_FILES CONFIGURE_DEPENDS "*.hpp" "*.cpp")
 add_executable(underdetermined ${UNDERDETERMINED_FILES})
 
 target_link_libraries(underdetermined dal_library)

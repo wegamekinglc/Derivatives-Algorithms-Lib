@@ -1,4 +1,4 @@
-file(GLOB_RECURSE EUROPEAN_MC_FILES "*.hpp" "*.cpp")
+file(GLOB_RECURSE EUROPEAN_MC_FILES CONFIGURE_DEPENDS "*.hpp" "*.cpp")
 add_executable(european_mc ${EUROPEAN_MC_FILES})
 
 target_link_libraries(european_mc dal_library)

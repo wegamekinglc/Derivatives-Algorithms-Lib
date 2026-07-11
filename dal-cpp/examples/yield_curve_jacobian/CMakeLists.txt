@@ -1,4 +1,4 @@
-file(GLOB_RECURSE YIELD_CURVE_JACOBIAN_FILES "*.hpp" "*.cpp")
+file(GLOB_RECURSE YIELD_CURVE_JACOBIAN_FILES CONFIGURE_DEPENDS "*.hpp" "*.cpp")
 add_executable(yield_curve_jacobian ${YIELD_CURVE_JACOBIAN_FILES})
 
 target_link_libraries(yield_curve_jacobian dal_library)

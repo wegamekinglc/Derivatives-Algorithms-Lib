@@ -1,4 +1,4 @@
-file(GLOB_RECURSE PDE_PERF_FILES "*.hpp" "*.cpp")
+file(GLOB_RECURSE PDE_PERF_FILES CONFIGURE_DEPENDS "*.hpp" "*.cpp")
 
 add_executable(pde_perf ${PDE_PERF_FILES})
 

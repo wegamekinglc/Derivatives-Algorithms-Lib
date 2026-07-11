@@ -11,34 +11,39 @@ A C++17 quantitative finance library with built-in Automatic Adjoint Differentia
 ```bash
 git clone --recursive git@github.com:wegamekinglc/Derivatives-Algorithms-Lib.git
 cd Derivatives-Algorithms-Lib
-bash build_linux.sh          # or build_windows.bat on Windows
+bash build_linux.sh
 ```
 
-For detailed installation instructions (Python bindings, Web UI, troubleshooting), see **[docs/installation.md](docs/installation.md)**.
+The Linux default builds/tests core and public C++ and stages the install under
+`build/stage/Release-linux`; use `--full` for Python plus benchmarks. For the
+supported profiles, Windows workflow, Python bindings, Web UI, and troubleshooting,
+see the **[installation guide](docs/installation.md)**.
 
 ## Architecture
 
-```
-dal-cpp     → Core quant library (DAL::cpp)
-  ↑
-dal-public  → Stable public C++ API (DAL::public)
-  ↑        ↑
-dal-python  dal-excel
-  ↑
-dal-web     → FastAPI + React portfolio management UI
+```text
+dal-cpp (DAL::cpp)
+  └─ dal-public (DAL::public)
+       ├─ dal-python
+       │    └─ dal-web backend ← REST ← React frontend
+       └─ dal-excel
 ```
 
-The dependency graph is `dal-cpp ← dal-public ← {dal-python, dal-excel}`. The `dal-web` backend imports the `dal` Python package but can also run against `dal_stub.py` for development without building the native bindings.
+The native dependency graph is `dal-cpp ← dal-public ← {dal-python, dal-excel}`.
+`dal-public` is a developer-facing convenience facade over core DAL types; it is
+not an ABI-isolated compatibility boundary. The web backend is native-only and
+imports the compiled `dal` Python package through one gateway.
 
 | Sub-project   | Purpose                                                                                |
 |---------------|----------------------------------------------------------------------------------------|
 | `dal-cpp/`    | Core library: math, curves, models, scripting, AAD                                     |
-| `dal-public/` | Stable public API wrapping `DAL::cpp`                                                  |
+| `dal-public/` | Public C++ convenience facade over `DAL::cpp`                                          |
 | `dal-python/` | pybind11 Python bindings                                                               |
 | `dal-excel/`  | Excel `.xll` add-in (Windows-only)                                                     |
 | `dal-web/`    | Portfolio management web app (FastAPI + React), uses DAL through the Python public API |
 
 Core modules in `dal-cpp/dal/`:
+
 - **math/** — Interpolation, optimization, PDE solvers, random numbers, matrix ops
 - **math/aad/** — Automatic Adjoint Differentiation (native, XAD, Adept, CoDiPack backends)
 - **curve/** — Yield curve construction, piecewise forward rates, calibration
@@ -89,13 +94,16 @@ More examples: [Python](dal-python/examples/), [Excel](dal-excel/examples/), [C+
 
 ### Script Engine Modes
 
-Monte Carlo script valuation defaults to the tree-walk evaluator (`compiled=false`) to preserve historical behavior. Pass `compiled=True` in Python or `compiled=true` in C++ to opt into the flat-stream evaluator. The compiled mode is a performance option; payoff values and AAD risks are expected to match tree-walk results up to normal floating-point noise.
+Monte Carlo script valuation defaults to the tree-walk evaluator (`compiled=false`).
+Pass `compiled=True` in Python or `compiled=true` in C++ to select the flat-stream
+evaluator. The compiled mode is a performance option; payoff values and AAD risks
+are expected to match tree-walk results up to normal floating-point noise.
 
 For implementation details and parity coverage, see [Script Engine methodology](docs/methodology/script_engine.md#tree-walk-and-compiled-evaluation). To compare runtime locally, build and run the `script_mc_perf` benchmark target:
 
 ```bash
-cmake --build build --target script_mc_perf -j 4
-./build/dal-cpp/benchmarks/script_mc_perf/script_mc_perf
+bash ./build_linux.sh --benchmarks
+./build/Release-linux/dal-cpp/benchmarks/script_mc_perf/script_mc_perf
 ```
 
 ### Excel
@@ -108,7 +116,9 @@ cmake --build build --target script_mc_perf -j 4
 
 ## Web UI
 
-Portfolio management web app in `dal-web/`:
+Portfolio management web app in `dal-web/`. Install the native `dal` package into
+the backend environment first; the launchers run an import preflight and stop with
+actionable guidance when it is unavailable.
 
 ```bash
 ./dal-web/scripts/start.sh     # Start backend + frontend (Linux/macOS)
@@ -126,12 +136,16 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File dal-web/scripts/stop.ps1
 - Frontend: http://localhost:5173
 - API docs: http://127.0.0.1:8001/docs
 
-See [dal-web/README.md](dal-web/README.md) for the full cross-platform guide (prerequisites, manual launch, troubleshooting).
+See the canonical [installation guide](docs/installation.md#web-ui) for setup and
+[dal-web/README.md](dal-web/README.md) for application details.
 
 ## Documentation
 
-- **[Installation Guide](docs/installation.md)** — Complete setup instructions
-- **[Documentation Index](docs/README.md)** — Canonical index of all docs
+- **[Installation Guide](docs/installation.md)** — Canonical setup workflows
+- **[Architecture Guide](docs/architecture.md)** — Components, ownership, and execution flows
+- **[Public API Guide](docs/public-api.md)** — C++, Python, and Excel entry points
+- **[Contributing Guide](CONTRIBUTING.md)** — Development and review workflow
+- **[Documentation Index](docs/README.md)** — All methodology and component guides
 
 Methodology notes (see the index above for the full list):
 

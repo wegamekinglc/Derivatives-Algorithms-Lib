@@ -50,6 +50,48 @@ def _create_bs_model(client) -> str:
     return resp.json()["id"]
 
 
+def _dupire_payload() -> dict:
+    return {
+        "name": "Skewed Dupire",
+        "kind": "DupireModelData_",
+        "dupire": {
+            "spot": 100.0,
+            "rate": 0.03,
+            "repo": 0.01,
+            "spots": [90.0, 100.0, 110.0],
+            "times": [0.5, 1.0],
+            "vols": [[0.24, 0.23], [0.21, 0.20], [0.19, 0.18]],
+        },
+    }
+
+
+def test_create_non_flat_dupire_model(client):
+    resp = client.post("/api/models", json=_dupire_payload())
+
+    assert resp.status_code == 201
+    assert resp.json()["dupire"]["vols"][0] == [0.24, 0.23]
+
+
+def test_create_dupire_model_rejects_wrong_surface_shape(client):
+    payload = _dupire_payload()
+    payload["dupire"]["vols"] = [[0.24, 0.23], [0.21, 0.20]]
+
+    resp = client.post("/api/models", json=payload)
+
+    assert resp.status_code == 422
+
+
+def test_update_dupire_model_rejects_ragged_surface(client):
+    created = client.post("/api/models", json=_dupire_payload())
+    model_id = created.json()["id"]
+    invalid = _dupire_payload()["dupire"]
+    invalid["vols"] = [[0.24, 0.23], [0.21], [0.19, 0.18]]
+
+    resp = client.put(f"/api/models/{model_id}", json={"dupire": invalid})
+
+    assert resp.status_code == 422
+
+
 def _wait_for_valuation(client, valuation_id: str, max_polls: int = 20) -> dict:
     """Poll a valuation until it is no longer 'running' (background task completed)."""
     for _ in range(max_polls):
