@@ -4,8 +4,9 @@
 // Random-number-generator micro-benchmark.
 // Builds RNGs (dimension 10) and measures FillNormal / FillUniform over a 100K-path
 // batch, the dominant MC inner loop. Sobol is split into fast (precise=false,
-// Acklam-only ~1e-9) and precise (precise=true, Acklam+Newton ~1e-15, the library
-// default since 2026-07) so the per-deviate inverse-CDF cost difference is tracked.
+// polish=false, Acklam-only ~1e-9, the library default) and precise opt-in
+// (precise=true, polish=true, Acklam+Newton ~1e-15) so the per-deviate
+// inverse-CDF cost difference is tracked.
 // BrownianBridge (variance-reduction wrapper) and the PseudoRandom_ alternatives
 // MRG32k3a / ShuffledIRN are pinned to precise=false, isolating their generator-
 // specific overhead against the Sobol fast baseline rather than re-measuring the
@@ -45,8 +46,8 @@ int main() {
 
     {
         double sink = 0.0;
-        auto r = Bench::Run("Sobol FillNormal precise (100K x 10D)", [&]() {
-            std::unique_ptr<SequenceSet_> rsg(NewSobol(kDim, 0, /*precise=*/true));
+        auto r = Bench::Run("Sobol FillNormal precise opt-in (100K x 10D)", [&]() {
+            std::unique_ptr<SequenceSet_> rsg(NewSobol(kDim, 0, /*precise=*/true, /*polish=*/true));
             Vector_<> dst(kDim);
             for (int i = 0; i < kNumPaths; ++i) {
                 rsg->FillNormal(&dst);

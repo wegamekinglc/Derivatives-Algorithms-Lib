@@ -21280,9 +21280,8 @@ const uint_least32_t* const DIRECTIONS[21201] = {
         }
 
         void SobolSet_::FillNormal(Vector_<>* dst) {
-            // Precise mode includes the exact-CDF Newton correction, matching PseudoRandom_.
-            // Fast mode remains Acklam-only unless the caller explicitly requests polish.
-            auto func = [this](double x) { return InverseNCDF(x, this->precise_, this->precise_ || this->polish_); };
+            // Preserve both caller-selected inverse-CDF policy flags unchanged.
+            auto func = [this](double x) { return InverseNCDF(x, this->precise_, this->polish_); };
             FillUniform(dst);
             Transform(dst, func);
         }

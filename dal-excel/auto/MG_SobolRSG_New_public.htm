@@ -18,6 +18,8 @@ Create a sobol quasi-random sequence generator
 <tr><td>name</td><td>string</td><td></td><td>A name for the object being created</td></tr>
 <tr><td>i_path</td><td>number</td><td></td><td>The number of path to skip</td></tr>
 <tr><td>n_dim</td><td>number</td><td></td><td>The dimension of the generator</td></tr>
+<tr><td>precise</td><td>boolean</td><td>yes (default = false)</td><td>Use the precise CDF when polishing normal draws</td></tr>
+<tr><td>polish</td><td>boolean</td><td>yes (default = false)</td><td>Apply a Newton correction to normal draws</td></tr>
 
 </table>
 
@@ -31,7 +33,6 @@ Create a sobol quasi-random sequence generator
 
 <tr><td>f</td><td>handle of type SobolRSG</td><td>The sobol quasi-random sequence generator</td></tr>
 </table>
-
 
 
 

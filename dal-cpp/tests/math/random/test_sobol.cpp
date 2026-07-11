@@ -103,21 +103,30 @@ TEST(RandomTest, TestNewSobolWithSkip) {
 TEST(RandomTest, TestSobolNormalPrecisionPolicy) {
     constexpr size_t iPath = (1u << 20) - 2;
     std::unique_ptr<SequenceSet_> uniform(NewSobol(1, iPath, false, false));
+    std::unique_ptr<SequenceSet_> defaultMode(NewSobol(1, iPath));
     std::unique_ptr<SequenceSet_> fast(NewSobol(1, iPath, false, false));
     std::unique_ptr<SequenceSet_> polishedFast(NewSobol(1, iPath, false, true));
-    std::unique_ptr<SequenceSet_> precise(NewSobol(1, iPath, true, false));
+    std::unique_ptr<SequenceSet_> preciseUnpolished(NewSobol(1, iPath, true, false));
+    std::unique_ptr<SequenceSet_> precise(NewSobol(1, iPath, true, true));
     Vector_<> u;
+    Vector_<> zDefault;
     Vector_<> zFast;
     Vector_<> zPolishedFast;
+    Vector_<> zPreciseUnpolished;
     Vector_<> zPrecise;
 
     uniform->FillUniform(&u);
+    defaultMode->FillNormal(&zDefault);
     fast->FillNormal(&zFast);
     polishedFast->FillNormal(&zPolishedFast);
+    preciseUnpolished->FillNormal(&zPreciseUnpolished);
     precise->FillNormal(&zPrecise);
 
+    ASSERT_DOUBLE_EQ(zDefault[0], InverseNCDF(u[0], false, false));
+    ASSERT_DOUBLE_EQ(zDefault[0], zFast[0]);
     ASSERT_DOUBLE_EQ(zFast[0], InverseNCDF(u[0], false, false));
     ASSERT_DOUBLE_EQ(zPolishedFast[0], InverseNCDF(u[0], false, true));
+    ASSERT_DOUBLE_EQ(zPreciseUnpolished[0], InverseNCDF(u[0], true, false));
     ASSERT_DOUBLE_EQ(zPrecise[0], InverseNCDF(u[0], true, true));
     ASSERT_NE(zPrecise[0], zFast[0]);
 }

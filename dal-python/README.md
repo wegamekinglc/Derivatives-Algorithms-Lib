@@ -207,6 +207,7 @@ normal_samples = dal.PseudoRSG_Get_Normal(pseudo, 1000)
 # Sobol quasi-random sequences (better convergence for MC)
 sobol = dal.SobolRSG_New(0, 3)  # i_path=0, ndim=3
 sobol_samples = dal.SobolRSG_Get_Uniform(sobol, 1000)
+precise_sobol = dal.SobolRSG_New(0, 3, precise=True)  # opt in to precise normal draws
 ```
 
 ### Dupire Local Volatility Model
@@ -271,7 +272,7 @@ dupire_model = dal.DupireModelData_New(
 ### Random Generators
 
 - `dal.PseudoRSG_New(seed, ndim=1)` — Pseudo-random generator (MRG32k32a)
-- `dal.SobolRSG_New(i_path, ndim=1)` — Sobol quasi-random generator
+- `dal.SobolRSG_New(i_path, ndim=1, precise=False, polish=False)` — Sobol quasi-random generator; set both flags to `True` for precise-CDF-polished normal draws
 - `dal.PseudoRSG_Get_Uniform(rsg, num_paths)` — Uniform samples [0, 1]
 - `dal.PseudoRSG_Get_Normal(rsg, num_paths)` — Standard normal samples
 - `dal.SobolRSG_Get_Uniform(rsg, num_paths)` — Sobol uniform samples

@@ -61,6 +61,11 @@ i_path is number
     The number of path to skip
 n_dim is number
     The dimension of the generator
+&optional
+precise is boolean (false)
+    Use the precise CDF when polishing normal draws
+polish is boolean (false)
+    Apply a Newton correction to normal draws
 &outputs
 f is handle SobolRSG
     The sobol quasi-random sequence generator
@@ -107,8 +112,8 @@ namespace Dal {
             GetPseudoRSGNormal(f, num_path, y);
         }
 
-        void SobolRSG_New(const String_& name, double i_path, double ndim, Handle_<SobolRSG_>* f) {
-            NewSobolRSG(name, i_path, ndim).swap(*f);
+        void SobolRSG_New(const String_& name, double i_path, double ndim, bool precise, bool polish, Handle_<SobolRSG_>* f) {
+            NewSobolRSG(name, i_path, ndim, precise, polish).swap(*f);
         }
 
         void SobolRSG_Get_Uniform(const Handle_<SobolRSG_>& f, double num_path, Matrix_<>* y) {

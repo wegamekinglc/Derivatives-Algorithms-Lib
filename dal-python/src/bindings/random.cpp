@@ -37,11 +37,11 @@ void init_bindings_random(py::module_& m) {
         });
 
     m.def("SobolRSG_New",
-        [](int i_path, int ndim) -> std::shared_ptr<SobolRSG_> {
+        [](int i_path, int ndim, bool precise, bool polish) -> std::shared_ptr<SobolRSG_> {
             return std::const_pointer_cast<SobolRSG_>(
-                NewSobolRSG(String_("SobolRSG_"), i_path, ndim));
+                NewSobolRSG(String_("SobolRSG_"), i_path, ndim, precise, polish));
         },
-        py::arg("i_path"), py::arg("ndim") = 1);
+        py::arg("i_path"), py::arg("ndim") = 1, py::arg("precise") = false, py::arg("polish") = false);
 
     m.def("SobolRSG_Get_Uniform",
         [](const std::shared_ptr<SobolRSG_>& rsg, int num_path) {

@@ -11,6 +11,7 @@
 
 #include <dal-public/src/global.hpp>
 #include <dal-public/src/models.hpp>
+#include <dal-public/src/random.hpp>
 #include <dal-public/src/script.hpp>
 #include <dal-public/src/value.hpp>
 
@@ -36,6 +37,23 @@ TEST(PublicApiTest, TestPublicHeaderIncludeLinks) {
     // This test simply verifies the public types compile and link.
     // If we get here, the test binary linked against dal_public successfully.
     ASSERT_TRUE(true);
+}
+
+TEST(PublicApiTest, TestSobolNormalPrecisionPolicy) {
+    constexpr int iPath = (1 << 20) - 2;
+    const auto defaultRsg = Dal::NewSobolRSG(Dal::String_("default"), iPath);
+    const auto fastRsg = Dal::NewSobolRSG(Dal::String_("fast"), iPath, 1, false, false);
+    const auto preciseRsg = Dal::NewSobolRSG(Dal::String_("precise"), iPath, 1, true, true);
+    Dal::Matrix_<> defaultValues;
+    Dal::Matrix_<> fastValues;
+    Dal::Matrix_<> preciseValues;
+
+    Dal::GetSobolRSGNormal(defaultRsg, 1, &defaultValues);
+    Dal::GetSobolRSGNormal(fastRsg, 1, &fastValues);
+    Dal::GetSobolRSGNormal(preciseRsg, 1, &preciseValues);
+
+    ASSERT_DOUBLE_EQ(defaultValues(0, 0), fastValues(0, 0));
+    ASSERT_NE(preciseValues(0, 0), fastValues(0, 0));
 }
 
 TEST(PublicApiTest, TestMonteCarloRejectsNonPositivePathCounts) {

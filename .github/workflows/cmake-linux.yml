@@ -330,9 +330,8 @@ jobs:
           "$SANITIZER_BUILD_DIR/dal-public/dal_public_tests" \
             --gtest_filter='${{ matrix.public-filter }}'
 
-  # Benchmark job: builds and runs all performance benchmarks on one
-  # representative configuration (gcc-14, native/AADet backend, -O3).
-  # Timings are informational; an invalid/nonzero benchmark run fails the job.
+  # Benchmark job: builds pull-request base and head on the same runner, then
+  # interleaves repeated runs so host noise affects both sides comparably.
   benchmark:
     name: Benchmarks
     runs-on: ubuntu-latest
@@ -342,21 +341,64 @@ jobs:
         with:
           submodules: recursive
 
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+        if: github.event_name == 'pull_request'
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: benchmark-base
+          submodules: recursive
+
       - name: Setup
         run: |
           sudo apt install -y gcc-14 g++-14 make cmake \
             libc++-dev autotools-dev autoconf libtool
 
-      - name: Build
+      - name: Test benchmark regression gate
+        run: |
+          python3 -m unittest discover -s .github/scripts/tests -v
+
+      - name: Build head benchmarks
         env:
           CC: gcc-14
           CXX: g++-14
-          CXXFLAGS: -O3
-          ADDITIONAL_CMAKE_FLAGS: -DDAL_USE_XAD_AAD=off -DDAL_USE_CODIPACK_AAD=off -DDAL_USE_ADEPT_AAD=off -DDAL_BUILD_PYTHON=OFF
         run: |
-          bash -e ./build_linux.sh --benchmarks
+          cmake -S . -B build/benchmark-head \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DBUILD_SHARED_LIBS=OFF \
+            -DDAL_BUILD_PUBLIC=OFF \
+            -DDAL_CPP_BUILD_TESTS=OFF \
+            -DDAL_CPP_BUILD_EXAMPLES=OFF \
+            -DDAL_CPP_BUILD_BENCHMARKS=ON \
+            -DDAL_BUILD_PYTHON=OFF \
+            -DDAL_USE_XAD_AAD=OFF \
+            -DDAL_USE_CODIPACK_AAD=OFF \
+            -DDAL_USE_ADEPT_AAD=OFF \
+            -DDAL_ENABLE_NATIVE_ARCH=ON
+          cmake --build build/benchmark-head --parallel
 
-      - name: Run benchmarks
+      - name: Build base benchmarks
+        if: github.event_name == 'pull_request'
+        env:
+          CC: gcc-14
+          CXX: g++-14
+        run: |
+          cmake -S benchmark-base -B benchmark-base/build/benchmark-base \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DBUILD_SHARED_LIBS=OFF \
+            -DDAL_BUILD_PUBLIC=OFF \
+            -DDAL_CPP_BUILD_TESTS=OFF \
+            -DDAL_CPP_BUILD_EXAMPLES=OFF \
+            -DDAL_CPP_BUILD_BENCHMARKS=ON \
+            -DDAL_BUILD_PYTHON=OFF \
+            -DDAL_USE_XAD_AAD=OFF \
+            -DDAL_USE_CODIPACK_AAD=OFF \
+            -DDAL_USE_ADEPT_AAD=OFF \
+            -DDAL_ENABLE_NATIVE_ARCH=ON
+          cmake --build benchmark-base/build/benchmark-base --parallel
+
+      - name: Run head benchmarks
+        env:
+          DAL_NUM_THREADS: 4
         run: |
           benchmarks=(
             matrix_perf
@@ -380,7 +422,7 @@ jobs:
           {
             echo "## Benchmark Results"
             echo
-            echo "Configuration: gcc-14, native/AADet backend, -O3."
+            echo "Configuration: gcc-14, native CPU tuning, AADet backend, Release."
             echo
           } >> "$GITHUB_STEP_SUMMARY"
 
@@ -388,7 +430,7 @@ jobs:
           for bench in "${benchmarks[@]}"; do
             echo "========== $bench =========="
             result_file="benchmark-results/${bench}.txt"
-            if "./build/stage/Release-linux/bin/$bench" > "$result_file" 2>&1; then
+            if "./build/benchmark-head/dal-cpp/benchmarks/$bench/$bench" > "$result_file" 2>&1; then
               status=0
             else
               status=$?
@@ -412,3 +454,17 @@ jobs:
           done
 
           exit "$benchmark_failure"
+
+      - name: Compare base and head performance
+        if: github.event_name == 'pull_request'
+        env:
+          DAL_NUM_THREADS: 4
+        run: |
+          python3 .github/scripts/check_benchmark_regressions.py \
+            --base-root benchmark-base/build/benchmark-base \
+            --head-root build/benchmark-head \
+            --output-dir benchmark-results/paired \
+            --summary-file "$GITHUB_STEP_SUMMARY" \
+            --samples 10 \
+            --confirmation-rounds 2 \
+            --threshold-percent 4

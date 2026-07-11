@@ -105,6 +105,21 @@ def test_sobol_rsg_default_ndim():
     assert rsg is not None  # nosec B101 - pytest assertions are intentional
 
 
+def test_sobol_normal_precision_policy():
+    """Sobol normals default to fast mode and allow full precision explicitly."""
+    i_path = (1 << 20) - 2
+    default_rsg = dal.SobolRSG_New(i_path=i_path)
+    fast_rsg = dal.SobolRSG_New(i_path=i_path, precise=False, polish=False)
+    precise_rsg = dal.SobolRSG_New(i_path=i_path, precise=True, polish=True)
+
+    default_value = dal.SobolRSG_Get_Normal(default_rsg, 1)(0, 0)
+    fast_value = dal.SobolRSG_Get_Normal(fast_rsg, 1)(0, 0)
+    precise_value = dal.SobolRSG_Get_Normal(precise_rsg, 1)(0, 0)
+
+    assert default_value == fast_value  # nosec B101 - pytest assertions are intentional
+    assert precise_value != fast_value  # nosec B101 - pytest assertions are intentional
+
+
 def test_sobol_uniform_shape():
     """SobolRSG_Get_Uniform returns values in [0, 1]."""
     ndim = 4

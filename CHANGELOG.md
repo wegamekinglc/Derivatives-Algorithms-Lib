@@ -108,11 +108,12 @@ here as the baseline rather than dated releases:
   from mutating member streams to a const artifact factory. See
   `docs/methodology/script_engine.md`.
 
-- `random`: Sobol and pseudo-random normal draws default to precise inverse-CDF
-  evaluation. Sobol has three pinned policies: precise mode always uses
-  `InverseNCDF(u, true, true)` even when the public `polish` flag is false, while
-  fast mode selects Acklam-only or fast-CDF Newton polish. Sobol clones preserve
-  sequence state and both policy flags. See `docs/methodology/random.md`.
+- `random`: Sobol normal draws default to the fast Acklam inverse-CDF path;
+  precise-CDF Newton correction is explicitly opt-in through `precise=true` on
+  the core, public C++, Python, and Excel constructors. Fast-CDF Newton polish
+  remains separately opt-in, and Sobol clones preserve sequence state and both
+  policy flags. Pseudo-random normal draws retain their precise default. See
+  `docs/methodology/random.md`.
 
 ## 2026-06
 
