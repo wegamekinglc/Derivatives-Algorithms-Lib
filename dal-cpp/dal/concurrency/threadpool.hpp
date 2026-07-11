@@ -66,6 +66,7 @@ namespace Dal {
         static size_t DefaultThreadCount();
         void StartLocked(std::unique_lock<std::mutex>& lock, size_t nThreads);
         void StopLocked(std::unique_lock<std::mutex>& lock);
+        void TearDownWorkersLocked(std::unique_lock<std::mutex>& lock, bool waitForCallers);
         ThreadPool_();
 
     public:

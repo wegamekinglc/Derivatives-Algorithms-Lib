@@ -74,8 +74,8 @@ namespace Dal {
     }
 
     void ThreadPool_::StartLocked(std::unique_lock<std::mutex>& lock, size_t nThreads) {
-        ASSERT(lock.owns_lock(), "thread pool lifecycle lock must be held when starting");
-        ASSERT(activeCallers_ == 0, "a new thread pool generation cannot start while caller tasks are active");
+        REQUIRE(lock.owns_lock(), "thread pool lifecycle lock must be held when starting");
+        REQUIRE(activeCallers_ == 0, "a new thread pool generation cannot start while caller tasks are active");
         ++generation_;
         active_ = true;
         try {
@@ -83,26 +83,12 @@ namespace Dal {
             for (size_t i = 0; i < nThreads - 1; ++i)
                 threads_.emplace_back(&ThreadPool_::ThreadFunc, this, i + 1);
         } catch (...) {
-            active_ = false;
-            stopping_ = true;
-            std::vector<std::thread> threads;
-            threads.swap(threads_);
-            queue_.InterruptAndClear();
-            lock.unlock();
-            std::for_each(threads.begin(), threads.end(), std::mem_fn(&std::thread::join));
-            lock.lock();
-            queue_.ResetInterrupt();
-            stopping_ = false;
-            lifecycleCondition_.notify_all();
+            TearDownWorkersLocked(lock, false);
             throw;
         }
     }
 
-    void ThreadPool_::StopLocked(std::unique_lock<std::mutex>& lock) {
-        ASSERT(lock.owns_lock(), "thread pool lifecycle lock must be held when stopping");
-        if (!active_)
-            return;
-
+    void ThreadPool_::TearDownWorkersLocked(std::unique_lock<std::mutex>& lock, bool waitForCallers) {
         active_ = false;
         stopping_ = true;
         std::vector<std::thread> threads;
@@ -111,10 +97,19 @@ namespace Dal {
         lock.unlock();
         std::for_each(threads.begin(), threads.end(), std::mem_fn(&std::thread::join));
         lock.lock();
-        lifecycleCondition_.wait(lock, [this]() { return activeCallers_ == 0; });
+        if (waitForCallers)
+            lifecycleCondition_.wait(lock, [this]() { return activeCallers_ == 0; });
         queue_.ResetInterrupt();
         stopping_ = false;
         lifecycleCondition_.notify_all();
+    }
+
+    void ThreadPool_::StopLocked(std::unique_lock<std::mutex>& lock) {
+        REQUIRE(lock.owns_lock(), "thread pool lifecycle lock must be held when stopping");
+        if (!active_)
+            return;
+
+        TearDownWorkersLocked(lock, true);
     }
 
     void ThreadPool_::Start(size_t nThreads, bool restart) {
@@ -170,8 +165,8 @@ namespace Dal {
 
     void ThreadPool_::ReleaseActiveCaller(size_t generation) {
         std::lock_guard<std::mutex> lock(lifecycleMutex_);
-        ASSERT(generation == generation_, "caller task belongs to a stale thread pool generation");
-        ASSERT(activeCallers_ > 0, "thread pool caller task accounting underflow");
+        REQUIRE(generation == generation_, "caller task belongs to a stale thread pool generation");
+        REQUIRE(activeCallers_ > 0, "thread pool caller task accounting underflow");
         --activeCallers_;
         lifecycleCondition_.notify_all();
     }
