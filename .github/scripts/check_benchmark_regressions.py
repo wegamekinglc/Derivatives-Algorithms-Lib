@@ -50,20 +50,32 @@ def parse_benchmark_output(output: str) -> dict[str, float]:
 
 
 def benchmark_binary(build_root: Path, benchmark: str) -> Path:
-    return build_root / "dal-cpp" / "benchmarks" / benchmark / benchmark
+    if benchmark not in BENCHMARKS:
+        raise ValueError(f"unsupported benchmark: {benchmark}")
 
-
-def run_benchmark(binary: Path, output_file: Path) -> dict[str, float]:
+    resolved_root = build_root.resolve()
+    binary = (resolved_root / "dal-cpp" / "benchmarks" / benchmark / benchmark).resolve()
+    if not binary.is_relative_to(resolved_root):
+        raise ValueError(f"benchmark binary escapes build root: {binary}")
     if not binary.is_file():
         raise FileNotFoundError(f"benchmark binary not found: {binary}")
+    if not os.access(binary, os.X_OK):
+        raise PermissionError(f"benchmark binary is not executable: {binary}")
+    return binary
+
+
+def run_benchmark(build_root: Path, benchmark: str, output_file: Path) -> dict[str, float]:
+    binary = benchmark_binary(build_root, benchmark)
     environment = os.environ.copy()
     environment.setdefault("DAL_NUM_THREADS", "4")
-    completed = subprocess.run(
-        [str(binary)],
+    # Running the validated, locally built executable is this tool's purpose; no shell parses the path.
+    completed = subprocess.run(  # nosemgrep
+        [str(binary)],  # nosemgrep
         check=False,
         capture_output=True,
         text=True,
         env=environment,
+        shell=False,
     )
     output_file.write_text(completed.stdout + completed.stderr, encoding="utf-8")
     if completed.returncode:
@@ -89,7 +101,7 @@ def collect_samples(
             order = ("base", "head") if sample % 2 == 0 else ("head", "base")
             for side in order:
                 output_file = benchmark_dir / f"{sample + 1:02d}-{side}.txt"
-                values = run_benchmark(benchmark_binary(roots[side], benchmark), output_file)
+                values = run_benchmark(roots[side], benchmark, output_file)
                 for case, value in values.items():
                     sides[side].setdefault(case, []).append(value)
         validate_sample_counts(benchmark, sides, sample_count)
@@ -167,6 +179,22 @@ def comparison_row(
     }
 
 
+def benchmark_case_differences(
+    benchmark: str,
+    base: dict[str, float],
+    head: dict[str, float],
+) -> tuple[bool, list[str]]:
+    base_only = set(base) - set(head)
+    head_only = set(head) - set(base)
+    migration_permitted = benchmark == "rng_perf" and permitted_case_migration(base_only, head_only)
+    if (not base_only and not head_only) or migration_permitted:
+        return migration_permitted, []
+    return migration_permitted, [
+        f"{benchmark}: benchmark cases differ "
+        f"(base-only={sorted(base_only)}, head-only={sorted(head_only)})"
+    ]
+
+
 def compare_benchmark(
     benchmark: str,
     samples: dict[str, dict[str, list[float]]],
@@ -177,16 +205,7 @@ def compare_benchmark(
 ) -> tuple[list[dict[str, object]], list[str]]:
     base = median_samples(samples["base"])
     head = median_samples(samples["head"])
-    base_only = set(base) - set(head)
-    head_only = set(head) - set(base)
-    failures = []
-    migration_permitted = benchmark == "rng_perf" and permitted_case_migration(base_only, head_only)
-    if (base_only or head_only) and not migration_permitted:
-        failures.append(
-            f"{benchmark}: benchmark cases differ "
-            f"(base-only={sorted(base_only)}, head-only={sorted(head_only)})"
-        )
-
+    migration_permitted, failures = benchmark_case_differences(benchmark, base, head)
     rows = []
     if migration_permitted:
         rows.append(semantic_migration_row(base, head))
@@ -322,7 +341,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--head-root", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--summary-file", type=Path)
-    parser.add_argument("--benchmarks", nargs="+", default=list(BENCHMARKS))
+    parser.add_argument("--benchmarks", nargs="+", choices=BENCHMARKS, default=list(BENCHMARKS))
     parser.add_argument("--samples", type=int, default=10)
     parser.add_argument("--confirmation-rounds", type=int, default=2)
     parser.add_argument("--threshold-percent", type=float, default=4.0)

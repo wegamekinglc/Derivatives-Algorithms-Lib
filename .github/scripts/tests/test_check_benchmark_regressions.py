@@ -1,8 +1,11 @@
 """Tests for the paired DAL benchmark regression gate."""
 
 import importlib.util
+import os
 from pathlib import Path
+import tempfile
 import unittest
+from unittest import mock
 
 
 SCRIPT = Path(__file__).resolve().parents[1] / "check_benchmark_regressions.py"
@@ -12,6 +15,14 @@ SPEC.loader.exec_module(BENCHMARKS)
 
 
 class BenchmarkRegressionTest(unittest.TestCase):
+    @staticmethod
+    def _create_benchmark_binary(build_root, benchmark="pde_perf", mode=0o755):
+        binary = build_root / "dal-cpp" / "benchmarks" / benchmark / benchmark
+        binary.parent.mkdir(parents=True)
+        binary.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+        binary.chmod(mode)
+        return binary
+
     def test_parse_benchmark_output_converts_minimum_to_nanoseconds(self):
         output = """Benchmark                  Median       Min       Max  Reps
 Case in milliseconds       1.100 ms  900.000 us  1.300 ms    10
@@ -54,6 +65,56 @@ Case in nanoseconds      120.000 ns  100.000 ns  130.000 ns    10
 
         with self.assertRaises(RuntimeError):
             BENCHMARKS.validate_sample_counts("pde_perf", sides, 10)
+
+    def test_benchmark_binary_rejects_name_outside_allowlist(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            build_root = Path(temporary_directory)
+
+            with self.assertRaisesRegex(ValueError, "unsupported benchmark"):
+                BENCHMARKS.benchmark_binary(build_root, "../../malicious")
+
+    def test_benchmark_binary_rejects_path_escape(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            temporary_root = Path(temporary_directory)
+            build_root = temporary_root / "build"
+            outside_binary = temporary_root / "outside"
+            outside_binary.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+            outside_binary.chmod(0o755)
+            expected_binary = build_root / "dal-cpp" / "benchmarks" / "pde_perf" / "pde_perf"
+            expected_binary.parent.mkdir(parents=True)
+            try:
+                expected_binary.symlink_to(outside_binary)
+            except OSError as error:
+                self.skipTest(f"symbolic links are unavailable: {error}")
+
+            with self.assertRaisesRegex(ValueError, "escapes build root"):
+                BENCHMARKS.benchmark_binary(build_root, "pde_perf")
+
+    @unittest.skipIf(os.name == "nt", "POSIX execute permission is not meaningful on Windows")
+    def test_benchmark_binary_rejects_non_executable_file(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            build_root = Path(temporary_directory)
+            self._create_benchmark_binary(build_root, mode=0o644)
+
+            with self.assertRaisesRegex(PermissionError, "not executable"):
+                BENCHMARKS.benchmark_binary(build_root, "pde_perf")
+
+    def test_run_benchmark_uses_validated_path_without_a_shell(self):
+        output = "Case 1.000 ms 900.000 us 1.100 ms 10\n"
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            temporary_root = Path(temporary_directory)
+            build_root = temporary_root / "build"
+            binary = self._create_benchmark_binary(build_root)
+            output_file = temporary_root / "output.txt"
+            completed = mock.Mock(stdout=output, stderr="", returncode=0)
+
+            with mock.patch.object(BENCHMARKS.subprocess, "run", return_value=completed) as run:
+                values = BENCHMARKS.run_benchmark(build_root, "pde_perf", output_file)
+
+            self.assertEqual(values, {"Case": 900_000.0})
+            run.assert_called_once()
+            self.assertEqual(run.call_args.args[0], [str(binary.resolve())])
+            self.assertFalse(run.call_args.kwargs["shell"])
 
     def test_rng_allows_precise_case_rename_and_checks_relative_cost(self):
         samples = {
