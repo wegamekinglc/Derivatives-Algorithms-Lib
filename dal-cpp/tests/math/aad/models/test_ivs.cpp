@@ -9,20 +9,10 @@
 #include <dal/platform/platform.hpp>
 #include <dal/math/distribution/black.hpp>
 #include <dal/model/ivs.hpp>
+#include "flat_ivs.hpp"
 
 using namespace Dal;
 using namespace Dal::AAD;
-
-namespace {
-    class FlatIVS_ : public IVS_ {
-        double vol_;
-
-    public:
-        FlatIVS_(double spot, double rate, double repo, double vol) : IVS_(spot, rate, repo), vol_(vol) {}
-
-        [[nodiscard]] double ImpliedVol(double, double) const override { return vol_; }
-    };
-} // namespace
 
 TEST(AADTest, TestMertonIVS) {
     const auto T = 2.0;

@@ -72,7 +72,7 @@ TEST(StorageTest, TestEvaluationDateScopeOwnsBarrierButAllowsConcurrentRead) {
     bool setterCompletedInsideScope = false;
 
     {
-        auto override = XGLOBAL::SetEvaluationDateInScope(stable);
+        auto dateOverride = XGLOBAL::SetEvaluationDateInScope(stable);
         auto barrierProbe = std::async(std::launch::async, []() {
             XGLOBAL::ValuationMutationGuard_ probe(std::try_to_lock);
             return probe.OwnsLock();
@@ -145,7 +145,7 @@ TEST(StorageTest, TestEvaluationDateWorkersObserveOneStableDateWhileSetterWaits)
     bool allTasksSucceeded = true;
     bool allWorkersStable = false;
     {
-        auto override = XGLOBAL::SetEvaluationDateInScope(stable);
+        auto dateOverride = XGLOBAL::SetEvaluationDateInScope(stable);
         std::promise<void> setterStarted;
         setter = std::async(std::launch::async, [&]() {
             setterStarted.set_value();
