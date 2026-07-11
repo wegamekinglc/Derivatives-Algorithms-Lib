@@ -19,3 +19,32 @@ add_subdirectory(yield_curve_jacobian)
 if(DAL_HAS_EXCEL)
     add_subdirectory(excelwriter)
 endif()
+
+# Keep FP-contraction policy consistent with the library, tests, and benchmarks
+# (see dal_apply_platform_options in cmake/Platform.cmake).
+set(DAL_EXAMPLE_TARGETS
+    aad
+    digital
+    concurrency
+    curve_calibration
+    euribor3m_curve
+    interpolate_curve
+    joint_multi_curve_calibration
+    xccy_curve_calibration
+    european_mc
+    european_fd
+    snowball
+    sobol
+    script
+    underdetermined
+    uoc
+    vanilla
+    yield_curve_jacobian)
+
+if(DAL_HAS_EXCEL)
+    list(APPEND DAL_EXAMPLE_TARGETS excelwriter)
+endif()
+
+foreach(example_target IN LISTS DAL_EXAMPLE_TARGETS)
+    dal_apply_platform_options(${example_target})
+endforeach()
