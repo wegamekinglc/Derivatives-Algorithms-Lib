@@ -150,8 +150,8 @@ Check the exit code and `test_output.txt` for failures. If the build itself fail
 Then run targeted tests for the changed modules and the full suite:
 
 ```bash
-bin/dal_cpp_tests --gtest_filter=<ChangedSuite1>.*:<ChangedSuite2>.*
-bin/dal_cpp_tests
+./build/Release-linux/dal-cpp/dal_cpp_tests --gtest_filter=<ChangedSuite1>.*:<ChangedSuite2>.*
+./build/Release-linux/dal-cpp/dal_cpp_tests
 ```
 
 Capture:

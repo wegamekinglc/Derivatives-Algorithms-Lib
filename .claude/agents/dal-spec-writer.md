@@ -115,7 +115,7 @@ Write the spec to `.claude/specs/<feature-slug>.md` using this template:
 
 ## Acceptance Criteria
 - [ ] <test-shaped statement: given X, when Y, then Z>
-- [ ] <build passes, full `bin/dal_cpp_tests` green>
+- [ ] <build passes, full `./build/Release-linux/dal-cpp/dal_cpp_tests` green>
 - [ ] <documentation updated where applicable>
 
 ## Open Questions

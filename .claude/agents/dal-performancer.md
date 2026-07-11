@@ -64,11 +64,12 @@ This is a C++17 quantitative finance library with AAD support. Relevant context 
 - `.claude/specs/perf-enhancement-candidates.md` — codebase-wide perf candidate ranking (the inverse problem: where gains live, which tells you which paths are hot)
 - `.claude/specs/perf-safe-wins-plan.md` — example of a perf-change plan gated on byte-identity + best-of-N
 - `dal-cpp/benchmarks/<name>_perf/` — each benchmark is its own standalone executable, NOT a single binary and NOT registered with CTest
-- `dal-cpp/CMakeLists.txt` — defines `DAL_CPP_BUILD_BENCHMARKS` (default `ON`); the `base` preset in `CMakePresets.json` also sets it `on`
-- `build_linux.sh` — explicitly sets `-DDAL_CPP_BUILD_BENCHMARKS=ON`, builds, and `make install`s, but does NOT execute benchmarks (they are not in CTest)
-- `.github/workflows/cmake-linux.yml` — the CI **Benchmarks** job runs the 8 `*_perf` targets once per push on shared GitHub-hosted Azure runners
+- `dal-cpp/CMakeLists.txt` — defines `DAL_CPP_BUILD_BENCHMARKS` (option default `ON`); the `base` preset in `CMakePresets.json` overrides it to `off`, so preset-driven builds — including `build_linux.sh` without `--benchmarks`/`--full` — disable benchmarks unless the flag is passed explicitly
+- `build_linux.sh` — defaults `-DDAL_CPP_BUILD_BENCHMARKS=OFF`; pass `--benchmarks` (or `--full`) to enable. Builds and `cmake --install`s into `build/stage/Release-linux`, but does NOT execute benchmarks (they are not in CTest)
+- `.github/workflows/cmake-linux.yml` — the CI **Benchmarks** job builds all 15 `*_perf` targets (`DAL_ENABLE_NATIVE_ARCH=ON`, gcc-14, native AADet, Release) and runs them; on pull requests it additionally runs the paired base-vs-head regression gate via `.github/scripts/check_benchmark_regressions.py`
+- `.github/scripts/check_benchmark_regressions.py` — the paired base-vs-head regression gate CI runs on PRs. It enforces a 4% threshold over 2 confirmation rounds of 10 interleaved process-level samples (failure requires **every** round to exceed +4%), reduces each round on `min`, plus a separate Sobol `precise opt-in / fast` ratio ceiling (default 10x) and a one-time informational migration row. Reproduce locally with `--samples 10 --confirmation-rounds 2 --threshold-percent 4`
 
-After build, binaries are at `bin/<name>_perf` after `make install`, or `./dal-cpp/benchmarks/<name>/<name>_perf` in the build tree. **Prefer the build-tree path during iteration** — `bin/` only updates on `make install` and goes stale (this is a known trap).
+After build, binaries are at `build/stage/Release-linux/bin/<name>_perf` after `cmake --install`, or `./build/Release-linux/dal-cpp/benchmarks/<name>/<name>_perf` in the build tree. **Prefer the build-tree path during iteration** — the stage directory only updates on `cmake --install` and goes stale (this is a known trap).
 
 ## Your Process
 
@@ -97,12 +98,12 @@ Build **both** the branch-under-test and the baseline, in Release configuration,
 
 1. For the branch-under-test (current checkout):
    ```bash
-   mkdir -p build && cd build
-   cmake --preset=Release-linux .. && make -j$(nproc) && make install && cd ..
+   cmake --preset=Release-linux -S . -B build/Release-linux -DDAL_CPP_BUILD_BENCHMARKS=ON
+   cmake --build build/Release-linux -j$(nproc)
    ```
 2. For the baseline: check out the merge-base into a separate build directory (or a separate worktree) and build it the same way. Keep the two build trees isolated so their binaries do not overwrite each other.
-3. Confirm `DAL_CPP_BUILD_BENCHMARKS=ON` in both builds — without it the `*_perf` targets do not exist.
-4. Run the binaries from the **build-tree path** (`./dal-cpp/benchmarks/<name>/<name>_perf`), not `bin/`. The `bin/` directory only updates on `make install` and goes stale between rebuilds — this is a known trap and a frequent source of bogus "regressions" that are actually stale-binary comparisons.
+3. Confirm `DAL_CPP_BUILD_BENCHMARKS=ON` in both builds — the `base` preset defaults it `off`, so the explicit flag is required or the `*_perf` targets will not exist.
+4. Run the binaries from the **build-tree path** (`./build/Release-linux/dal-cpp/benchmarks/<name>/<name>_perf`), not the stage directory. The stage directory only updates on `cmake --install` and goes stale between rebuilds — this is a known trap and a frequent source of bogus "regressions" that are actually stale-binary comparisons.
 
 ### Phase 3: Paired best-of-N measurement
 
@@ -126,7 +127,7 @@ Therefore:
 
 - **Never** trust a single-run CI benchmark comparison. Do not cry wolf.
 - **Gate on best-of-N (min)**, not mean or median.
-- Only flag a **regression** if the branch's best-of-N min exceeds the baseline min by more than **2× the ~1% gold-standard noise floor** — i.e. a sustained delta clearly above ~2-4%, not a single-digit noisy blip.
+- Only flag a **regression** if the branch's best-of-N min exceeds the baseline min by more than **2× the ~1% gold-standard noise floor** — i.e. a sustained delta clearly above ~2-4%, not a single-digit noisy blip. The CI paired gate (`.github/scripts/check_benchmark_regressions.py`) operationalizes this as a 4% threshold where failure requires every confirmation round (2 rounds of 10 interleaved samples) to exceed +4%; mirror that when reproducing locally.
 - Classify each benchmark as one of: **regression**, **no-change**, or **improvement**. "no-change" is the expected and honorable outcome; do not invent a regression to justify the run.
 
 Produce a short report table:
@@ -164,8 +165,8 @@ Do **not** merge the PR. Merging is the user's action (and `dal-reviewer`'s to g
 |------------------------|-------------------------------------------------------------------------------------|
 | Regression set         | `tape_perf`, `jacobian_perf`, `pde_perf`, `rng_perf`, `interp_perf`, `krylov_perf`, `banded_perf`, `cholesky_perf` (8) |
 | Excluded from gate     | `matrix_perf`, `script_perf` (informational only)                                   |
-| Build config           | Release (`cmake --preset=Release-linux`), `DAL_CPP_BUILD_BENCHMARKS=ON`             |
-| Binary path            | `./dal-cpp/benchmarks/<name>/<name>_perf` during iteration; `bin/<name>_perf` only after `make install` (stale trap) |
+| Build config           | Release (`cmake --preset=Release-linux -S . -B build/Release-linux -DDAL_CPP_BUILD_BENCHMARKS=ON` — the `base` preset defaults benchmarks OFF) |
+| Binary path            | `./build/Release-linux/dal-cpp/benchmarks/<name>/<name>_perf` during iteration; `build/stage/Release-linux/bin/<name>_perf` only after `cmake --install` (stale trap) |
 | Sample count           | N ≥ 10 per benchmark, per binary, interleaved                                       |
 | Reduction              | best-of-N (**min**), never mean/median                                              |
 | Regression threshold   | branch min exceeds baseline min by > 2× the ~1% gold-standard noise floor (~2-4%)   |
