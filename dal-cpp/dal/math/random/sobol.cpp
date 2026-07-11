@@ -21256,7 +21256,7 @@ const uint_least32_t* const DIRECTIONS[21201] = {
             void FillUniform(Vector_<>* dst) override;
             void FillNormal(Vector_<>* dst) override;
             SobolSet_* Clone() const override {
-                std::unique_ptr<SobolSet_> seq(new SobolSet_(iPath_));
+                std::unique_ptr<SobolSet_> seq(new SobolSet_(iPath_, precise_, polish_));
                 seq->directions_ = directions_;
                 seq->state_ = state_;
                 return seq.release();
@@ -21280,8 +21280,7 @@ const uint_least32_t* const DIRECTIONS[21201] = {
         }
 
         void SobolSet_::FillNormal(Vector_<>* dst) {
-            // Acklam rational approximation without Newton polish is ~1e-9 accurate,
-            // well below QMC sampling noise. Skip polish to halve the per-deviate cost.
+            // Preserve both caller-selected inverse-CDF policy flags unchanged.
             auto func = [this](double x) { return InverseNCDF(x, this->precise_, this->polish_); };
             FillUniform(dst);
             Transform(dst, func);

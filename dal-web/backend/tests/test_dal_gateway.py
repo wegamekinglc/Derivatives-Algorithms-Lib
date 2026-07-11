@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import dal  # the fake installed by conftest
+import pytest
 
 from app.services.dal_gateway import DalGateway, ValuationRequest
 
@@ -64,3 +65,41 @@ def test_value_routes_through_monte_carlo():
     assert calls[0]["num_path"] == 2048
     assert calls[0]["method"] == "sobol"
     assert calls[0]["enable_aad"] is True
+
+
+def test_value_maps_public_pseudo_method_to_native_mrg32():
+    """The web RNG name must resolve to a method accepted by native DAL."""
+    dal.monte_carlo_calls.clear()
+    gw = make_gateway()
+
+    gw.value(_european_request(method="pseudo"))
+
+    assert len(dal.monte_carlo_calls) == 1
+    assert dal.monte_carlo_calls[0]["method"] == "mrg32"
+
+
+def test_value_rejects_unknown_monte_carlo_method():
+    gw = make_gateway()
+
+    with pytest.raises(ValueError, match="Unsupported Monte Carlo method"):
+        gw.value(_european_request(method="unknown"))
+
+
+def test_gateway_builds_non_flat_dupire_surface():
+    """The web surface reaches DAL without being flattened or deferred to valuation."""
+    gw = make_gateway()
+    surface = [[0.24, 0.23], [0.21, 0.20], [0.19, 0.18]]
+
+    model = gw.build_model(
+        "DupireModelData_",
+        {
+            "spot": 100.0,
+            "rate": 0.03,
+            "repo": 0.01,
+            "spots": [90.0, 100.0, 110.0],
+            "times": [0.5, 1.0],
+            "vols": surface,
+        },
+    )
+
+    assert model["vols"] == surface  # nosec B101 - pytest assertions are intentional

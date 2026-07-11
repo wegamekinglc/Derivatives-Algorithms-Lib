@@ -5,6 +5,7 @@
 #include "bindings.h"
 
 #include <dal/platform/platform.hpp>
+#include <dal/storage/globals.hpp>
 #include <dal/time/date.hpp>
 
 #include <dal-public/src/global.hpp>
@@ -26,10 +27,18 @@ void init_bindings_global(py::module_& m) {
     py::class_<Storable_, std::shared_ptr<Storable_>>(m, "Storable_");
 
     m.def("EvaluationDate_Get", []() {
+        py::gil_scoped_release release;
         return GetEvaluationDate();
     });
 
     m.def("EvaluationDate_Set", [](const Date_& d) {
+        py::gil_scoped_release release;
         SetEvaluationDate(d);
+    });
+
+    m.def("_EvaluationDateBarrier_AvailableForTesting", []() {
+        py::gil_scoped_release release;
+        XGLOBAL::ValuationMutationGuard_ probe(std::try_to_lock);
+        return probe.OwnsLock();
     });
 }

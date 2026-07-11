@@ -3,11 +3,17 @@
 //
 
 #include <gtest/gtest.h>
+
 #include <dal/platform/platform.hpp>
+
 #include <dal/curve/piecewiseconstant.hpp>
+#include <dal/curve/ycconst.hpp>
+#include <dal/math/cell.hpp>
+#include <dal/storage/splat.hpp>
+
+#include <memory>
 
 using namespace Dal;
-
 
 TEST(PiecewiseConstantTest, TestPiecewiseConstant) {
     Vector_<Date_> knots = {Date_(2021, 3, 26), Date_(2022, 3, 26), Date_(2023, 3, 26)};
@@ -41,4 +47,13 @@ TEST(PiecewiseConstantTest, TestFlatExtrapolationBeforeFirstKnot) {
     ASSERT_NEAR(pwc.IntegralTo(before), -20.0, 1e-8);
     ASSERT_NEAR(PWC::F(pwc, before, &isKnot), 2.0, 1e-8);
     ASSERT_FALSE(isKnot);
+}
+
+TEST(PiecewiseConstantTest, TestDiscountPwcPersistenceIsExplicitlyUnsupported) {
+    const Vector_<Date_> knots = {Date_(2021, 3, 26), Date_(2022, 3, 26)};
+    const Vector_<> right = {0.02, 0.03};
+    const PiecewiseConstant_ forwards(knots, right);
+    const std::unique_ptr<DiscountCurve_> curve(NewDiscountPWC("pwc", "USD", forwards));
+
+    ASSERT_THROW(Splat(*curve), Exception_);
 }

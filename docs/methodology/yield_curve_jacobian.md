@@ -30,7 +30,7 @@ tape, building a `Number_`-typed curve, and running one reverse sweep per
 instrument output harvests a full row of $J$ at the cost of one forward pass plus
 $n$ sweeps — the canonical AAD cost asymmetry. This is the sweep behind the
 library's `CurveJacobianMode_::ANALYTIC` flag (see
-[Analytic Jacobian for curve calibration](../experimental/aad-analytic-jacobian-curve-calibration.md)),
+[single-curve AAD calibration internals](yield_curve.md#single-curve-aad-calibration-internals)),
 and `CalibrateYieldCurve` exposes its result on the public diagnostics struct:
 `CurveCalibrationDiagnostics_::jacobian_` (shape `nInstruments × nFreeParams`) is a
 fresh analytic reverse sweep evaluated at the solved $x^\star$. It is the plain
@@ -368,8 +368,7 @@ benchmarking.
   scaling motivates the `/tolerance_` correction.
 - [AAD methodology](aad.md) — the reverse-mode machinery behind the analytic
   Jacobian.
-- [Analytic Jacobian for curve calibration](../experimental/aad-analytic-jacobian-curve-calibration.md)
-  — the `CurveJacobianMode_::{BUMPED,ANALYTIC}` flag that selects the AAD path
-  inside `CalibrateYieldCurve`.
+- [Single-curve AAD calibration internals](yield_curve.md#single-curve-aad-calibration-internals)
+  — the `CurveJacobianMode_::{BUMPED,ANALYTIC}` selection and eligibility rules.
 - `dal-cpp/examples/yield_curve_jacobian/yield_curve_jacobian.cpp` — the
   runnable program demonstrating both arcs end to end.

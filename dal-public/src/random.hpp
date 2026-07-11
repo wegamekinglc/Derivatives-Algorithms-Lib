@@ -5,7 +5,6 @@
 #pragma once
 
 #include <dal/string/strings.hpp>
-#include <dal-public/src/random.hpp>
 #include <dal/math/random/pseudorandom.hpp>
 #include <dal/math/random/sobol.hpp>
 
@@ -15,8 +14,9 @@ namespace Dal {
         return Handle_<PseudoRSG_>(new PseudoRSG_(name, seed, ndim));
     }
 
-    FORCE_INLINE Handle_<SobolRSG_> NewSobolRSG(const String_& name, int iPath, int ndim = 1) {
-        return Handle_<SobolRSG_>(new SobolRSG_(name, iPath, ndim));
+    FORCE_INLINE Handle_<SobolRSG_> NewSobolRSG(
+        const String_& name, int iPath, int ndim = 1, bool precise = false, bool polish = false) {
+        return Handle_<SobolRSG_>(new SobolRSG_(name, iPath, ndim, precise, polish));
     }
 
     template <class RSG_>

@@ -2,7 +2,7 @@
 
 This note describes the closed-form European option pricers that sit at the bottom of
 DAL's vanilla analytics: the **Black** (lognormal) model and the **Bachelier** (normal)
-model. The two share the same role in the library — they take a forward, an
+model. The two share the same role in the library — they take a forward, a
 *de-annualized* volatility (the standard deviation over the option's life), and a strike,
 and return a price, greeks, or an implied volatility — but they differ in the underlying
 distribution assumed for the forward at expiry. The load-bearing numerical content lives
@@ -52,8 +52,10 @@ The library evaluates these via `Distribution::BlackOpt(F, \nu, K, type)`. The
 `STRADDLE` is priced as $C + P$, equivalently $F\,(1 - 2\Phi(-d_{+})) + K\,(1 - 2\Phi(d_{-}))$.
 Two degenerate cases short-circuit the formula and return the intrinsic
 $\max(0, F - K)$ / $\max(0, K - F)$ / $|F - K|$ directly: when $\nu = 0$ (no uncertainty),
-and when $F \cdot K \le 0$ (a non-positive forward or strike, where the lognormal model is
-undefined). This degenerate branch is shared with the Bachelier pricer.
+and when $F \cdot K \le 0$ (either input is zero or the inputs have opposite signs).
+The supported lognormal domain is $F>0$ and $K>0$; both-negative inputs are outside
+that domain even though their positive product does not trigger the fallback. This
+domain restriction belongs to Black only; it does not apply to Bachelier.
 
 ## The Bachelier (Normal) Closed Form
 
@@ -74,9 +76,9 @@ P &\;=\; (K - F)\,\Phi(-d) \;+\; \nu\,\varphi(d).
 $$
 
 These are evaluated by `Distribution::BachelierOpt(F, \nu, K, type)`, with the same
-`OptionType_` dispatch and the same zero-vol / non-positive-argument short-circuit as the
-Black pricer. Because $d$ is dimensionless and the formula is well defined for any real
-$F$ and $K$, the only practical degenerate trigger is $\nu = 0$.
+`OptionType_` dispatch. The normal model is well defined for every real $F$ and $K$,
+including zero, negative, and opposite-sign pairs. Its only degenerate branch is
+$\nu=0$, which returns intrinsic value.
 
 ### Black vs. Bachelier: When to Use Which
 
@@ -84,14 +86,13 @@ The two models are the standard normal/lognormal pair for interest-rate and equi
 vanillas:
 
 - **Black** is the legacy default for lognormal-underlying markets (most equity FX, and
-  historically LIBOR-rate caps/floors/swaptions). It is *undefined* for negative forwards
-  or strikes — the degenerate branch returns intrinsic in that regime rather than
-  producing a NaN.
+  historically LIBOR-rate caps/floors/swaptions). Use it with $F>0$ and $K>0$.
+  The kernel returns intrinsic when $F K \le 0$, but both-negative inputs remain
+  outside the supported lognormal domain.
 - **Bachelier** is the natural choice for normal-underlying markets (most modern rates:
   SOFR/SONIA swaptions, caps/floors after the post-2016 rates moved through zero). Its
   $\nu$ has the units of the underlying (e.g. bp), so the same number is directly
-  comparable across strikes — which is why the normal implied vol is the preferred quote
-  type in modern rates trading.
+  comparable across strikes and remains usable when forwards or strikes are non-positive.
 
 The library keeps both kernels side by side behind the shared `DistributionNormalLike_`
 base rather than picking one, so that downstream code (e.g. the IVS / Dupire machinery in
@@ -128,28 +129,52 @@ Asking `ParameterDerivatives` for any other name throws.
 
 `Distribution::BlackIV(F, K, type, price, guess)` and
 `Distribution::BachelierIV(...)` invert their respective pricers to recover the
-de-annualized implied $\nu$ that re-prices a given market `price`. The inversion is a
-scalar root-find on the residual $V(\nu) - \text{price}$, solved by the library's
-bracketing-aware `Brent_` root finder (`dal-cpp/dal/math/rootfind.hpp`):
+de-annualized implied $\nu$ that re-prices a given market `price`. Both solve the
+scalar residual $V(\nu) - \text{price}$, but their coordinates and bracketing
+contracts differ.
 
-- **Bracketing variable.** Black solves for $\ln \nu$ (so the search is over the whole real
-  line and $\nu = \exp(x)$ stays positive); Bachelier solves for $\nu$ directly (the
-  normal model is well-defined for any real $\nu$, though only $\nu \ge 0$ is meaningful).
-  The guess is mapped into the solver's variable via a model-specific transform: a Black
-  guess $g > 0$ becomes $\ln g$, otherwise a fixed $-1.5$; a Bachelier guess $g > 0$ is
-  used as-is, otherwise it falls back to $-1.5\,F$.
-- **Convergence.** Both calls accept the residual as converged when either the residual
-  magnitude drops below $10^{-10}\max(1, \text{price})$, or the bracket width drops below
-  $10^{-10}\max(1, F)$. The iteration budget is 30 evaluations; exhausting it throws.
-- **Intrinsic floor.** A `REQUIRE` enforces $\text{price} \ge \text{intrinsic}$ before the
-  search starts. A price below intrinsic has no realizable $\nu \ge 0$ (the pricer is
-  monotone increasing in $\nu$ from intrinsic upward), so the inversion would search an
-  empty set; the `REQUIRE` fails fast with a "value below intrinsic value" message rather
-  than letting Brent hunt forever.
+### Black inversion
 
-Because the call/put pricers are monotone in $\nu$ for $\nu \ge 0$ and the residual is
-continuous, Brent converges from the supplied guess (or the fallback) without needing an
-explicit bracket. The annualized implied vol helpers in `vanilla.hpp`,
+Black solves in the log-volatility coordinate $x=\ln\nu$, so
+$\nu=\exp(x)$ remains positive. A positive guess becomes $\ln g$; otherwise the
+initial coordinate is $-1.5$. `Brent_` accepts either a residual magnitude below
+$10^{-10}\max(1,\text{price})$ or a coordinate-bracket width below
+$10^{-10}\max(1,|F|)$. The solve has a 30-evaluation budget. A price below the
+option's intrinsic value is rejected before iteration.
+
+### Bachelier inversion
+
+Bachelier solves directly in the price-unit volatility $\nu$ on an explicit
+finite nonnegative bracket. `BachelierIV` first requires finite forward, strike,
+price, guess, represented moneyness $F-K$, and intrinsic value. A price below
+intrinsic is rejected; a price exactly at intrinsic returns $\nu=0$.
+
+The lower endpoint is $\nu=0$. The initial positive upper endpoint is
+
+$$
+\max\left(0.01,\,|F-K|,\,\text{price},\,g\;\text{when }g>0\right).
+$$
+
+If this endpoint does not bracket the root, the implementation doubles it for at
+most 1024 expansions while checking the endpoint, option price, and residual for
+finiteness. Expansion stops when the residual changes sign or when a finite
+bracket cannot be formed; overflow or bracket exhaustion raises a DAL exception.
+`BracketedBrent_` then performs at most 100 solve iterations without evaluating a
+negative volatility.
+
+The Bachelier volatility-coordinate tolerance is
+
+$$
+10^{-10}\max(1,|F-K|,\text{price}),
+$$
+
+and the price-residual tolerance is
+$10^{-10}\max(1,\text{price})$. These scales depend on represented moneyness and
+price, not on the absolute level of $F$ or $K$. Consequently a common shift of
+forward and strike leaves the inversion unchanged whenever floating-point
+representation preserves $F-K$.
+
+The annualized implied-volatility helpers in `vanilla.hpp`,
 `Dal::AAD::BlackScholesIVol(spot, K, prem, T)` and `Dal::AAD::BachelierIVol(...)`, hard-code
 the `CALL` type, dispatch to the corresponding `*IV`, and divide by $\sqrt{T}$ to return
 the annualized $\sigma$.

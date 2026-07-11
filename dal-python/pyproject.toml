@@ -1,5 +1,5 @@
 [build-system]
-requires = ["scikit-build-core>=0.10"]
+requires = ["scikit-build-core>=0.10", "pybind11==2.11.1"]
 build-backend = "scikit_build_core.build"
 
 [project]
@@ -7,7 +7,7 @@ name = "dal-python"
 version = "2025.12.7"
 description = "Python bindings for the DAL quantitative finance library"
 requires-python = ">=3.10"
-license = "BSD-3-Clause"
+license = "MIT"
 authors = [
     { name = "The Derivatives Algorithms Group", email = "wegamekinglc@hotmail.com" },
 ]

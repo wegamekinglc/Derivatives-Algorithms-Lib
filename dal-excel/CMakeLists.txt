@@ -60,6 +60,7 @@ endif()
 # ---------------------------------------------------------------------------
 # Find the DAL public library
 # ---------------------------------------------------------------------------
+set(DAL_EXCEL_USES_INSTALLED_PUBLIC FALSE)
 if(TARGET DAL::public)
     message(STATUS "dal-excel: linking against sibling DAL::public")
     set(DAL_PUBLIC_TARGET DAL::public)
@@ -71,8 +72,9 @@ elseif(TARGET dal_library)
     set(DAL_PUBLIC_TARGET dal_library)
 else()
     if(DAL_EXCEL_IS_TOPLEVEL)
-        find_package(dal-public REQUIRED)
+        find_package(dal-public CONFIG REQUIRED)
         set(DAL_PUBLIC_TARGET DAL::public)
+        set(DAL_EXCEL_USES_INSTALLED_PUBLIC TRUE)
     else()
         message(FATAL_ERROR "dal-excel requires DAL::public or dal_public target")
     endif()
@@ -89,13 +91,28 @@ endif()
 # - .xll suffix (Excel add-in DLL)
 # - Office COM compile definitions
 # ---------------------------------------------------------------------------
-file(GLOB_RECURSE EXCEL_FILES
+file(GLOB_RECURSE EXCEL_FILES CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/src/*.hpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/auto/*.inc")
 
 add_library(dal_excel SHARED ${EXCEL_FILES})
 add_library(DAL::excel ALIAS dal_excel)
+
+if(DAL_EXCEL_USES_INSTALLED_PUBLIC)
+    if(NOT COMMAND dal_cpp_apply_msvc_runtime)
+        message(FATAL_ERROR "installed dal-cpp package did not publish dal_cpp_apply_msvc_runtime")
+    endif()
+    dal_cpp_apply_msvc_runtime(dal_excel)
+    if(MSVC)
+        get_target_property(DAL_EXCEL_MSVC_RUNTIME dal_excel MSVC_RUNTIME_LIBRARY)
+        if(NOT "${DAL_EXCEL_MSVC_RUNTIME}" STREQUAL "${DAL_CPP_MSVC_RUNTIME_LIBRARY}")
+            message(FATAL_ERROR
+                "dal_excel runtime '${DAL_EXCEL_MSVC_RUNTIME}' does not match "
+                "installed DAL runtime '${DAL_CPP_MSVC_RUNTIME_LIBRARY}'")
+        endif()
+    endif()
+endif()
 
 if(MSVC)
     target_compile_options(dal_excel PRIVATE /utf-8)
@@ -145,12 +162,23 @@ if(DAL_EXCEL_BUILD_TESTS)
 
     include(GoogleTest)
 
-    file(GLOB_RECURSE TEST_FILES
+    file(GLOB_RECURSE TEST_FILES CONFIGURE_DEPENDS
         "${CMAKE_CURRENT_SOURCE_DIR}/tests/*.hpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/tests/*.cpp")
 
     if(TEST_FILES)
         add_executable(dal_excel_tests ${TEST_FILES})
+        if(DAL_EXCEL_USES_INSTALLED_PUBLIC)
+            dal_cpp_apply_msvc_runtime(dal_excel_tests)
+            if(MSVC)
+                get_target_property(DAL_EXCEL_TESTS_MSVC_RUNTIME dal_excel_tests MSVC_RUNTIME_LIBRARY)
+                if(NOT "${DAL_EXCEL_TESTS_MSVC_RUNTIME}" STREQUAL "${DAL_CPP_MSVC_RUNTIME_LIBRARY}")
+                    message(FATAL_ERROR
+                        "dal_excel_tests runtime '${DAL_EXCEL_TESTS_MSVC_RUNTIME}' does not match "
+                        "installed DAL runtime '${DAL_CPP_MSVC_RUNTIME_LIBRARY}'")
+                endif()
+            endif()
+        endif()
         target_link_libraries(dal_excel_tests PRIVATE dal_excel ${DAL_PUBLIC_TARGET})
         target_link_libraries(dal_excel_tests PRIVATE GTest::gtest_main)
         gtest_discover_tests(dal_excel_tests)

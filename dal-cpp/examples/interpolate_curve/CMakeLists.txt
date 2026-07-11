@@ -1,4 +1,4 @@
-file(GLOB_RECURSE INTERPOLATE_CURVE_FILES "*.hpp" "*.cpp")
+file(GLOB_RECURSE INTERPOLATE_CURVE_FILES CONFIGURE_DEPENDS "*.hpp" "*.cpp")
 add_executable(interpolate_curve ${INTERPOLATE_CURVE_FILES})
 
 target_link_libraries(interpolate_curve dal_library)

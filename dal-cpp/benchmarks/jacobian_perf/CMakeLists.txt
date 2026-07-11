@@ -1,4 +1,4 @@
-file(GLOB_RECURSE JACOBIAN_PERF_FILES "*.hpp" "*.cpp")
+file(GLOB_RECURSE JACOBIAN_PERF_FILES CONFIGURE_DEPENDS "*.hpp" "*.cpp")
 
 add_executable(jacobian_perf ${JACOBIAN_PERF_FILES})
 

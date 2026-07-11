@@ -78,6 +78,19 @@ jobs:
           fi
           bash -e ./build_linux.sh $COVERAGE_FLAG
 
+      - name: Test installed CMake consumer
+        if: matrix.coverage == false
+        env:
+          CC: ${{ matrix.cc }}
+          CXX: ${{ matrix.cxx }}
+        run: |
+          consumer_build="$RUNNER_TEMP/dal-consumer-${{ matrix.compiler }}-${{ matrix.aad-backend }}"
+          cmake \
+            -DDAL_INSTALL_PREFIX="$PWD/build/stage/Release-linux" \
+            -DDAL_CONSUMER_BINARY_DIR="$consumer_build" \
+            -DDAL_BUILD_CONFIG=Release \
+            -P tests/installed-consumer/run.cmake
+
       - name: Coverage
         if: matrix.coverage
         run: |
@@ -124,7 +137,7 @@ jobs:
       - name: Set up Python venv
         run: |
           export VIRTUAL_ENV="$PWD/dal-python/.venv"
-          uv venv "$VIRTUAL_ENV" --python 3.12
+          uv venv "$VIRTUAL_ENV" --python 3.13
           echo "$VIRTUAL_ENV/bin" >> "$GITHUB_PATH"
           echo "VIRTUAL_ENV=$VIRTUAL_ENV" >> "$GITHUB_ENV"
           uv pip install pytest numpy
@@ -139,11 +152,72 @@ jobs:
         run: |
           bash -e ./build_linux.sh
 
-  # Benchmark job: builds and runs all performance benchmarks on one
-  # representative configuration (gcc-14, native/AADet backend, -O3).
-  # Results appear in the CI logs and job summary; timings are not a pass/fail gate.
-  benchmark:
-    name: Benchmarks
+      - name: Verify generated sources
+        run: |
+          cmake --build build/Release-linux --target dal_check_generated --parallel 2
+
+      - name: Test native DAL web gateway
+        env:
+          DAL_NUM_THREADS: 2
+          PYTHONPATH: ${{ github.workspace }}/build/stage/Release-linux:${{ github.workspace }}/dal-web/backend
+        run: |
+          python .github/scripts/check_native_web_gateway.py
+
+  # Web product surfaces are backend-agnostic except for the native gateway
+  # smoke test above. Keep their dependency setup and browser run together so
+  # npm/uv environments are created only once.
+  web-quality:
+    name: Web backend, frontend, and browser
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+
+      - uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # @v8.2.0
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # @v4.4.0
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: dal-web/frontend/package-lock.json
+
+      - name: Test and lint backend
+        working-directory: dal-web/backend
+        run: |
+          uv sync --locked --inexact
+          uv run --no-sync pytest
+          uv run --no-sync ruff check .
+
+      - name: Install and build frontend
+        working-directory: dal-web/frontend
+        run: |
+          npm ci
+          npm run build
+
+      - name: Prepare Chrome
+        run: |
+          ./dal-web/scripts/setup-playwright.sh
+
+      - name: Run browser smoke tests
+        env:
+          DAL_PLAYWRIGHT_TEST_BACKEND: 1
+        working-directory: dal-web/frontend
+        run: |
+          npm run test:e2e
+
+  documentation:
+    name: Documentation integrity
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+
+      - name: Check links, anchors, tables, metadata, and commands
+        run: |
+          python3 .github/scripts/check_docs.py
+
+  warning-clean:
+    name: Warning-clean GCC build
     runs-on: ubuntu-latest
 
     steps:
@@ -153,19 +227,178 @@ jobs:
 
       - name: Setup
         run: |
-          sudo apt install -y gcc-14 g++-14 make cmake \
-            libc++-dev autotools-dev autoconf libtool
+          sudo apt install -y gcc-14 g++-14 make cmake
 
-      - name: Build
+      - name: Compile DAL with warnings as errors
         env:
           CC: gcc-14
           CXX: g++-14
-          CXXFLAGS: -O3
-          ADDITIONAL_CMAKE_FLAGS: -DDAL_USE_XAD_AAD=off -DDAL_USE_CODIPACK_AAD=off -DDAL_USE_ADEPT_AAD=off -DDAL_BUILD_PYTHON=OFF
+          # These categories are existing DAL interface/generated-code debt.
+          # All other warnings enabled by Wall/Wextra/Wpedantic are errors.
+          CXXFLAGS: >-
+            -Wall -Wextra -Wpedantic -Werror
+            -Wno-unused-parameter -Wno-unused-function -Wno-sign-compare
+            -Wno-dangling-else -Wno-reorder -Wno-switch
+            -Wno-missing-field-initializers -Wno-parentheses
+            -Wno-unused-variable -Wno-redundant-move -Wno-pessimizing-move
+            -Wno-sequence-point -Wno-implicit-fallthrough
         run: |
-          bash -e ./build_linux.sh
+          build_dir="$RUNNER_TEMP/dal-warning-clean"
+          cmake -S . -B "$build_dir" \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DDAL_BUILD_PUBLIC=ON \
+            -DDAL_CPP_BUILD_TESTS=OFF \
+            -DDAL_CPP_BUILD_EXAMPLES=OFF \
+            -DDAL_CPP_BUILD_BENCHMARKS=OFF \
+            -DDAL_PUBLIC_BUILD_TESTS=OFF \
+            -DDAL_BUILD_PYTHON=OFF \
+            -DDAL_USE_XAD_AAD=OFF \
+            -DDAL_USE_CODIPACK_AAD=OFF \
+            -DDAL_USE_ADEPT_AAD=OFF
+          cmake --build "$build_dir" --target dal_cpp dal_public --parallel 2
 
-      - name: Run benchmarks
+  sanitizers:
+    name: ${{ matrix.label }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: ASan + UBSan focused tests
+            slug: asan-ubsan
+            flags: -O2 -g -fno-omit-frame-pointer -fsanitize=address,undefined -fno-sanitize-recover=all
+            core-filter: ConcurrencyTest.*:DistributionTest.*:MatrixTest.TestLowerBandAccumulator:StackTest.*:UnderdeterminedTest.TestFindUsesQuadraticBacktrackMinimum:ScriptTest.Test*Batch*:StorageTest.TestEvaluationDate*
+            public-filter: PublicApiTest.TestMonteCarlo*
+          - label: TSan concurrency tests
+            slug: tsan
+            flags: -O2 -g -fno-omit-frame-pointer -fsanitize=thread
+            core-filter: ConcurrencyTest.TestConcurrentQueuePushAndPop:ConcurrencyTest.TestThreadPoolStartsLazily:ConcurrencyTest.TestThreadPoolStartStopLifecycle:ConcurrencyTest.TestThreadPoolUsesEnvironmentLimit:ConcurrencyTest.TestThreadPoolTaskCannotStopOrRestartPool:ConcurrencyTest.TestThreadPoolStopDrainsClaimedCallerAndCancelsQueuedTasks:StorageTest.TestEvaluationDateScopeOwnsBarrierButAllowsConcurrentRead:StorageTest.TestEvaluationDateWorkersObserveOneStableDateWhileSetterWaits:ScriptTest.TestSimulationTaskGroupDrainsOnSubmissionFailureAndPoolRecovers:ScriptTest.TestAadSimulationPropagatesTaskFailureAndRemainsUsable
+            public-filter: ""
+
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+        with:
+          submodules: recursive
+
+      - name: Setup
+        run: |
+          sudo apt install -y gcc-14 g++-14 make cmake
+
+      - name: Build instrumented tests
+        env:
+          CC: gcc-14
+          CXX: g++-14
+          CXXFLAGS: ${{ matrix.flags }}
+          LDFLAGS: ${{ matrix.flags }}
+        run: |
+          build_dir="$RUNNER_TEMP/dal-${{ matrix.slug }}"
+          cmake -S . -B "$build_dir" \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DDAL_BUILD_PUBLIC=ON \
+            -DDAL_CPP_BUILD_TESTS=ON \
+            -DDAL_CPP_BUILD_EXAMPLES=OFF \
+            -DDAL_CPP_BUILD_BENCHMARKS=OFF \
+            -DDAL_PUBLIC_BUILD_TESTS=ON \
+            -DDAL_BUILD_PYTHON=OFF \
+            -DDAL_USE_XAD_AAD=OFF \
+            -DDAL_USE_CODIPACK_AAD=OFF \
+            -DDAL_USE_ADEPT_AAD=OFF
+          targets=(dal_cpp_tests)
+          if [ -n '${{ matrix.public-filter }}' ]; then
+            targets+=(dal_public_tests)
+          fi
+          cmake --build "$build_dir" --target "${targets[@]}" --parallel 2
+          echo "SANITIZER_BUILD_DIR=$build_dir" >> "$GITHUB_ENV"
+
+      - name: Run focused core tests
+        env:
+          ASAN_OPTIONS: detect_leaks=0:halt_on_error=1
+          UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1
+          TSAN_OPTIONS: halt_on_error=1:second_deadlock_stack=1
+          DAL_NUM_THREADS: 4
+        run: |
+          "$SANITIZER_BUILD_DIR/dal-cpp/dal_cpp_tests" \
+            --gtest_filter='${{ matrix.core-filter }}'
+
+      - name: Run focused public tests
+        if: matrix.public-filter != ''
+        env:
+          ASAN_OPTIONS: detect_leaks=0:halt_on_error=1
+          UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1
+          DAL_NUM_THREADS: 4
+        run: |
+          "$SANITIZER_BUILD_DIR/dal-public/dal_public_tests" \
+            --gtest_filter='${{ matrix.public-filter }}'
+
+  # Benchmark job: builds pull-request base and head on the same runner, then
+  # interleaves repeated runs so host noise affects both sides comparably.
+  benchmark:
+    name: Benchmarks
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+        with:
+          submodules: recursive
+
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+        if: github.event_name == 'pull_request'
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: benchmark-base
+          submodules: recursive
+
+      - name: Setup
+        run: |
+          sudo apt install -y gcc-14 g++-14 make cmake \
+            libc++-dev autotools-dev autoconf libtool
+
+      - name: Test benchmark regression gate
+        run: |
+          python3 -m unittest discover -s .github/scripts/tests -v
+
+      - name: Build head benchmarks
+        env:
+          CC: gcc-14
+          CXX: g++-14
+        run: |
+          cmake -S . -B build/benchmark-head \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DBUILD_SHARED_LIBS=OFF \
+            -DDAL_BUILD_PUBLIC=OFF \
+            -DDAL_CPP_BUILD_TESTS=OFF \
+            -DDAL_CPP_BUILD_EXAMPLES=OFF \
+            -DDAL_CPP_BUILD_BENCHMARKS=ON \
+            -DDAL_BUILD_PYTHON=OFF \
+            -DDAL_USE_XAD_AAD=OFF \
+            -DDAL_USE_CODIPACK_AAD=OFF \
+            -DDAL_USE_ADEPT_AAD=OFF \
+            -DDAL_ENABLE_NATIVE_ARCH=ON
+          cmake --build build/benchmark-head --parallel
+
+      - name: Build base benchmarks
+        if: github.event_name == 'pull_request'
+        env:
+          CC: gcc-14
+          CXX: g++-14
+        run: |
+          cmake -S benchmark-base -B benchmark-base/build/benchmark-base \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DBUILD_SHARED_LIBS=OFF \
+            -DDAL_BUILD_PUBLIC=OFF \
+            -DDAL_CPP_BUILD_TESTS=OFF \
+            -DDAL_CPP_BUILD_EXAMPLES=OFF \
+            -DDAL_CPP_BUILD_BENCHMARKS=ON \
+            -DDAL_BUILD_PYTHON=OFF \
+            -DDAL_USE_XAD_AAD=OFF \
+            -DDAL_USE_CODIPACK_AAD=OFF \
+            -DDAL_USE_ADEPT_AAD=OFF \
+            -DDAL_ENABLE_NATIVE_ARCH=ON
+          cmake --build benchmark-base/build/benchmark-base --parallel
+
+      - name: Run head benchmarks
+        env:
+          DAL_NUM_THREADS: 4
         run: |
           benchmarks=(
             matrix_perf
@@ -189,17 +422,19 @@ jobs:
           {
             echo "## Benchmark Results"
             echo
-            echo "Configuration: gcc-14, native/AADet backend, -O3."
+            echo "Configuration: gcc-14, native CPU tuning, AADet backend, Release."
             echo
           } >> "$GITHUB_STEP_SUMMARY"
 
+          benchmark_failure=0
           for bench in "${benchmarks[@]}"; do
             echo "========== $bench =========="
             result_file="benchmark-results/${bench}.txt"
-            if "./bin/$bench" > "$result_file" 2>&1; then
+            if "./build/benchmark-head/dal-cpp/benchmarks/$bench/$bench" > "$result_file" 2>&1; then
               status=0
             else
               status=$?
+              benchmark_failure=1
             fi
             cat "$result_file"
             echo
@@ -212,8 +447,24 @@ jobs:
               echo '```'
               if [ "$status" -ne 0 ]; then
                 echo
-                echo "Exit code: $status (not fail-gated)."
+                echo "Exit code: $status."
               fi
               echo
             } >> "$GITHUB_STEP_SUMMARY"
           done
+
+          exit "$benchmark_failure"
+
+      - name: Compare base and head performance
+        if: github.event_name == 'pull_request'
+        env:
+          DAL_NUM_THREADS: 4
+        run: |
+          python3 .github/scripts/check_benchmark_regressions.py \
+            --base-root benchmark-base/build/benchmark-base \
+            --head-root build/benchmark-head \
+            --output-dir benchmark-results/paired \
+            --summary-file "$GITHUB_STEP_SUMMARY" \
+            --samples 10 \
+            --confirmation-rounds 2 \
+            --threshold-percent 4

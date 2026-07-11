@@ -1,4 +1,4 @@
-file(GLOB_RECURSE CURVE_CALIBRATION_PERF_FILES "*.hpp" "*.cpp")
+file(GLOB_RECURSE CURVE_CALIBRATION_PERF_FILES CONFIGURE_DEPENDS "*.hpp" "*.cpp")
 
 add_executable(curve_calibration_perf ${CURVE_CALIBRATION_PERF_FILES})
 

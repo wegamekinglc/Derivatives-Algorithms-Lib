@@ -5,7 +5,7 @@
 # The wheel can be installed without requiring compilation or the C++ source code.
 #
 # Prerequisites:
-# - C++ library must be built (lib/libdal_public.a and lib/libdal_cpp.a)
+# - Staged C++ install must contain the exported dal-public CMake package
 # - uv must be installed
 # - Python 3.10+ with development headers
 #
@@ -14,7 +14,7 @@
 #   ./build_wheel.sh --manylinux  # Build manylinux-compatible wheel (Linux only)
 #   ./build_wheel.sh --clean      # Clean build artifacts before building
 
-set -e
+set -eu
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
@@ -61,16 +61,13 @@ if ! command -v uv &> /dev/null; then
     exit 1
 fi
 
-DAL_DIR="${DAL_DIR:-$(dirname "$SCRIPT_DIR")}"
-if [ ! -f "$DAL_DIR/lib/libdal_public.a" ]; then
-    echo -e "${RED}Error: libdal_public.a not found in $DAL_DIR/lib/${NC}"
-    echo "Build the C++ library first: cd $DAL_DIR && ./build_linux.sh"
-    exit 1
-fi
-
-if [ ! -f "$DAL_DIR/lib/libdal_cpp.a" ]; then
-    echo -e "${RED}Error: libdal_cpp.a not found in $DAL_DIR/lib/${NC}"
-    echo "Build the C++ library first: cd $DAL_DIR && ./build_linux.sh"
+REPO_ROOT="$(dirname "$SCRIPT_DIR")"
+DAL_INSTALL_PREFIX="${DAL_INSTALL_PREFIX:-${DAL_DIR:-$REPO_ROOT/build/stage/Release-linux}}"
+DAL_DIR="$DAL_INSTALL_PREFIX"
+DAL_PUBLIC_CONFIG=$(find "$DAL_INSTALL_PREFIX" -type f -path "*/cmake/dal-public/dal-publicConfig.cmake" -print -quit 2>/dev/null || true)
+if [ -z "$DAL_PUBLIC_CONFIG" ]; then
+    echo -e "${RED}Error: dal-publicConfig.cmake not found under $DAL_INSTALL_PREFIX${NC}"
+    echo "Build the staged C++ install first: cd $REPO_ROOT && ./build_linux.sh"
     exit 1
 fi
 
@@ -102,10 +99,12 @@ echo -e "${GREEN}✓ Build dependencies installed${NC}"
 
 # Build wheel
 echo -e "${YELLOW}Building wheel...${NC}"
-export DAL_DIR
+export DAL_DIR DAL_INSTALL_PREFIX
 # Use --no-build-isolation to use the current venv's dependencies
-# and pass DAL_DIR through config-settings
-uv build --wheel --no-build-isolation --config-settings=cmake.define.DAL_DIR="$DAL_DIR"
+# and pass the installed DAL package prefix through config-settings
+uv build --wheel --no-build-isolation \
+    --config-settings=cmake.define.DAL_INSTALL_PREFIX="$DAL_INSTALL_PREFIX" \
+    --config-settings=cmake.define.CMAKE_PREFIX_PATH="$DAL_INSTALL_PREFIX"
 
 # Find the built wheel
 WHEEL_FILE=$(ls -1 dist/*.whl 2>/dev/null | head -n 1)

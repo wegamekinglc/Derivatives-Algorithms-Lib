@@ -121,17 +121,19 @@ descending order and mirrored as the iteration proceeds.
 
 Because the underlying rule is exact for polynomials of degree up to $2n-1$,
 a `NormalExpectation_` with $n$ nodes integrates the standard-normal moments
-$\mathbb{E}[Z^{2k}] = (2k-1)!!$ exactly up to $k = n-1$, and odd moments
-$\mathbb{E}[Z^{2k+1}] = 0$ exactly whenever $2k+1 \le 2n-1$. In particular a
-constant evaluates to $1$, the first moment to $0$, the variance to $1$, and
-the fourth moment to $3$ once $n \ge 2$. Higher even moments are matched as
-$n$ grows; an even moment $\mathbb{E}[Z^{2k}]$ is exact as soon as $2k \le 2n-1$, i.e. $k \le n - 1/2$, so $k \le n-1$.
+$\mathbb{E}[Z^{2k}] = (2k-1)!!$ exactly when $2k \le 2n-1$, equivalently
+$k \le n-1$. Odd moments vanish by the symmetric node/weight construction.
+In particular a constant evaluates to $1$, the first moment to $0$, the variance
+to $1$ with two nodes, and the fourth moment to $3$ with at least **three**
+nodes. A two-node rule is exact only through degree three and therefore does not
+integrate the fourth moment exactly.
 
 ## Composite Simpson Quadrature
 
-`SimpsonWeights` builds the composite Simpson $1/3$ rule on $[lo, hi]$ with
-$n$ subintervals. Simpson's rule fits a parabola across each consecutive
-triple of grid points, which gives the weight stencil
+`SimpsonWeights` builds the composite Simpson $1/3$ rule on $[lo, hi]$ from a
+requested count $n$ of **grid points**. It first selects the actual odd point count
+$N=n\mathbin{|}1$. Simpson's rule fits a parabola across each consecutive triple of
+grid points, which gives the weight stencil
 
 $$
 \int_{x_0}^{x_{2}} f \approx \frac{h}{3}\bigl(f_0 + 4 f_1 + f_2\bigr),
@@ -139,21 +141,20 @@ $$
 
 tiled across the interval. Endpoints carry coefficient $1$, odd-indexed
 interior nodes $4$, even-indexed interior nodes $2$, every coefficient scaled
-by $h/3$ where $h = (hi - lo)/(n-1)$.
+by $h/3$ where $h = (hi - lo)/(N-1)$.
 
-### Odd Subinterval Count
+### Odd Point Count
 
-Simpson's $1/3$ rule requires an even number of subintervals (an odd number
-of grid points) so the parabolic stencil tiles the interval without
-remainder. The constructor therefore forces the count odd with a bitwise OR
-(`n | 1`) before sizing the abscissa and weight vectors. A caller passing an
-even $n$ silently gets $n+1$ points rather than a parity error; this is
-deliberate, since the parabolic stencil is the whole point of the rule and a
-half-tile would be silently wrong.
+Simpson's $1/3$ rule requires an even number of subintervals, hence an odd
+number of grid points, so the parabolic stencil tiles the interval without
+remainder. The constructor therefore forces the requested point count odd with
+a bitwise OR (`n | 1`). A caller passing an even $n$ gets $n+1$ points rather
+than a parity error. With the resulting point count $N$, the spacing is
+$h=(hi-lo)/(N-1)$.
 
-The result is exact for cubic polynomials and second-order accurate
-($O(h^2)$) for smooth integrands, with the $O(h^4)$ truncation error
-characteristic of a symmetric Newton-Cotes stencil.
+The result is exact for cubic polynomials and has global error $O(h^4)$ for a
+sufficiently smooth integrand. Halving $h$ therefore reduces the leading error
+by approximately a factor of $16$.
 
 ## The `Quad1DFixed_` Driver
 
@@ -194,7 +195,7 @@ constructor takes the bounds and node count and fills `x_` and `w_` with
 | Rule                     | Use for                                           | Notes                                                              |
 |--------------------------|---------------------------------------------------|--------------------------------------------------------------------|
 | `NormalExpectation_<T_>` | $\mathbb{E}[f(Z)]$ over a standard normal         | Spectral accuracy for smooth $f$; $n$ nodes exact to degree $2n-1$ |
-| `QuadSimpson_<T_>`       | $\int_{lo}^{hi} f(x)\,dx$ over a finite interval | Second-order; needs smooth $f$; node count forced odd             |
+| `QuadSimpson_<T_>`       | $\int_{lo}^{hi} f(x)\,dx$ over a finite interval | Fourth-order globally; requested point count is forced odd       |
 
 For expectations under a normal, Gauss-Hermite is strongly preferred over
 Simpson on a truncated interval: it places nodes where the density has mass,

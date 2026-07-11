@@ -21,6 +21,13 @@ namespace {
     double Square(double x) { return x * x; }
     double Cube(double x) { return x * x * x; }
     double Quartic(double x) { return x * x * x * x; }
+
+    double IntegrateExpWithSimpson(int nPoints) {
+        QuadSimpson_<> quad(nPoints, 0.0, 1.0);
+        while (!quad.IsComplete())
+            quad.PutY(std::exp(quad.GetX()));
+        return quad.Result();
+    }
 } // namespace
 
 TEST(QuadratureTest, TestIncrementScalar) {
@@ -176,6 +183,27 @@ TEST(QuadratureTest, TestNormalExpectXFourth) {
         quad.PutY(Quartic(x));
     }
     ASSERT_NEAR(quad.Result(), 3.0, 1e-8);
+}
+
+TEST(QuadratureTest, TestHermiteThreeNodesIntegratesFourthMoment) {
+    NormalExpectation_<> quad(3);
+    while (!quad.IsComplete()) {
+        const double x = quad.GetX();
+        quad.PutY(Quartic(x));
+    }
+    ASSERT_NEAR(quad.Result(), 3.0, 1e-10);
+}
+
+TEST(QuadratureTest, TestSimpsonFourthOrderMeshRefinement) {
+    const double exact = std::exp(1.0) - 1.0;
+    const double error5 = std::abs(IntegrateExpWithSimpson(5) - exact);
+    const double error9 = std::abs(IntegrateExpWithSimpson(9) - exact);
+    const double error17 = std::abs(IntegrateExpWithSimpson(17) - exact);
+
+    ASSERT_GT(error5 / error9, 15.0);
+    ASSERT_LT(error5 / error9, 17.0);
+    ASSERT_GT(error9 / error17, 15.0);
+    ASSERT_LT(error9 / error17, 17.0);
 }
 
 TEST(QuadratureTest, TestNormalExpectOddFunction) {

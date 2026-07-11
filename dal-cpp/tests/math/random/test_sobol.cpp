@@ -7,6 +7,7 @@
 #include <dal/math/operators.hpp>
 #include <dal/math/random/quasirandom.hpp>
 #include <dal/math/random/sobol.hpp>
+#include <dal/math/specialfunctions.hpp>
 #include <dal/math/vectors.hpp>
 
 using namespace Dal;
@@ -99,11 +100,77 @@ TEST(RandomTest, TestNewSobolWithSkip) {
         ASSERT_DOUBLE_EQ(data[k], data2[k]);
 }
 
+TEST(RandomTest, TestSobolNormalPrecisionPolicy) {
+    constexpr size_t iPath = (1u << 20) - 2;
+    std::unique_ptr<SequenceSet_> uniform(NewSobol(1, iPath, false, false));
+    std::unique_ptr<SequenceSet_> defaultMode(NewSobol(1, iPath));
+    std::unique_ptr<SequenceSet_> fast(NewSobol(1, iPath, false, false));
+    std::unique_ptr<SequenceSet_> polishedFast(NewSobol(1, iPath, false, true));
+    std::unique_ptr<SequenceSet_> preciseUnpolished(NewSobol(1, iPath, true, false));
+    std::unique_ptr<SequenceSet_> precise(NewSobol(1, iPath, true, true));
+    Vector_<> u;
+    Vector_<> zDefault;
+    Vector_<> zFast;
+    Vector_<> zPolishedFast;
+    Vector_<> zPreciseUnpolished;
+    Vector_<> zPrecise;
+
+    uniform->FillUniform(&u);
+    defaultMode->FillNormal(&zDefault);
+    fast->FillNormal(&zFast);
+    polishedFast->FillNormal(&zPolishedFast);
+    preciseUnpolished->FillNormal(&zPreciseUnpolished);
+    precise->FillNormal(&zPrecise);
+
+    ASSERT_DOUBLE_EQ(zDefault[0], InverseNCDF(u[0], false, false));
+    ASSERT_DOUBLE_EQ(zDefault[0], zFast[0]);
+    ASSERT_DOUBLE_EQ(zFast[0], InverseNCDF(u[0], false, false));
+    ASSERT_DOUBLE_EQ(zPolishedFast[0], InverseNCDF(u[0], false, true));
+    ASSERT_DOUBLE_EQ(zPreciseUnpolished[0], InverseNCDF(u[0], true, false));
+    ASSERT_DOUBLE_EQ(zPrecise[0], InverseNCDF(u[0], true, true));
+    ASSERT_NE(zPrecise[0], zFast[0]);
+}
+
+TEST(RandomTest, TestSobolClonePreservesStateAndNormalPolicy) {
+    constexpr size_t iPath = (1u << 20) - 2;
+    std::unique_ptr<SequenceSet_> source(NewSobol(2, iPath, true, true));
+    std::unique_ptr<SequenceSet_> clone(source->Clone());
+    Vector_<> sourceValues;
+    Vector_<> cloneValues;
+
+    for (int i = 0; i < 4; ++i) {
+        source->FillNormal(&sourceValues);
+        clone->FillNormal(&cloneValues);
+        ASSERT_EQ(sourceValues.size(), cloneValues.size());
+        for (int j = 0; j < static_cast<int>(sourceValues.size()); ++j)
+            ASSERT_DOUBLE_EQ(sourceValues[j], cloneValues[j]);
+
+        source->FillUniform(&sourceValues);
+        clone->FillUniform(&cloneValues);
+        for (int j = 0; j < static_cast<int>(sourceValues.size()); ++j)
+            ASSERT_DOUBLE_EQ(sourceValues[j], cloneValues[j]);
+    }
+}
+
 TEST(RandomTest, TestNewSobolWithLargePath) {
-    // TODO: this test currently does not work
-    int dim = 443;
-    size_t i_path = std::pow(2, 30);
-    std::unique_ptr<SequenceSet_> set(NewSobol(dim, i_path));
+    const int dim = 443;
+    const size_t iPath = size_t{1} << 30;
+    std::unique_ptr<SequenceSet_> direct(NewSobol(dim, iPath));
+    std::unique_ptr<SequenceSet_> skipped(NewSobol(dim, 0));
+    skipped->SkipTo(iPath);
+
+    Vector_<> directValues;
+    Vector_<> skippedValues;
+    direct->FillUniform(&directValues);
+    skipped->FillUniform(&skippedValues);
+
+    ASSERT_EQ(directValues.size(), dim);
+    ASSERT_EQ(skippedValues.size(), dim);
+    for (int i = 0; i < dim; ++i) {
+        ASSERT_DOUBLE_EQ(directValues[i], skippedValues[i]);
+        ASSERT_GE(directValues[i], 0.0);
+        ASSERT_LT(directValues[i], 1.0);
+    }
 }
 
 TEST(RandomTest, TestNewSobolPerformance) {
@@ -118,4 +185,5 @@ TEST(RandomTest, TestNewSobolPerformance) {
         set->FillUniform(&dst);
         sum += dst[0];
     }
+    ASSERT_NEAR(sum / num_path, 0.5, 1e-4);
 }

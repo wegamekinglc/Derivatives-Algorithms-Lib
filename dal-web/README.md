@@ -58,8 +58,8 @@ requirement.
 The backend imports the compiled `dal` package (the dal-python pybind11 bindings;
 see `dal-python/` and the repository root `README.md`) directly -- it is the sole
 pricing engine, with no pure-Python fallback. Build and install `dal-python` into
-the backend's uv environment before running the server, e.g.
-`uv pip install -e ../../dal-python` once built.
+the backend's uv environment before running the server. The canonical
+staged-prefix command is in [the installation guide](../docs/installation.md#web-ui).
 
 The pytest suite registers a minimal fake `dal` module (see `tests/conftest.py`)
 so the FastAPI wiring can be exercised without a C++ build; production imports
@@ -74,6 +74,7 @@ Runtime configuration:
 | `DAL_WEB_DB_URL`       | `sqlite:///<backend>/.data/dalweb.db`         | SQLAlchemy URL for the persistence layer.                                                                   |
 | `DAL_WEB_STORE`        | unset                                         | Set to `memory` to bypass the DB and use the legacy in-memory store.                                        |
 | `DAL_WEB_AUTO_MIGRATE` | unset                                         | Set to `1` to bring the schema up to date via `alembic upgrade head` on startup (otherwise `create_all()`). |
+| `DAL_NUM_THREADS`      | hardware concurrency                          | Positive cap for DAL's lazy native thread pool; set before the backend imports `dal`.                       |
 
 ## Persistence
 
@@ -121,11 +122,13 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File dal-web/scripts/stop.ps1 -Force   
 ```
 
 Both launchers check prerequisites (Python ≥ 3.13, uv, node, npm, curl), verify
-ports `8001` (backend) and `5173` (frontend) are free, install dependencies
-(`uv sync` in `dal-web/backend/`, `npm install` in `dal-web/frontend/`), launch
-both servers in the background, wait for the backend `/api/health` endpoint and
-the frontend to become ready, then smoke-test the vite proxy (`/api` → backend).
-PIDs are saved to `dal-web/{backend,frontend}/.server.pid`.
+ports `8001` (backend) and `5173` (frontend) are free, synchronize backend
+dependencies with `uv sync --inexact`, and run the native-DAL preflight with
+`uv run --no-sync python -m app.native_runtime`. They then install frontend
+dependencies, launch Uvicorn with `uv run --no-sync` and Vite in the background,
+wait for both services, and smoke-test the proxy (`/api` → backend). `--inexact`
+and `--no-sync` preserve the locally installed DAL package. PIDs are saved to
+`dal-web/{backend,frontend}/.server.pid`.
 
 Log files differ by platform. On Linux/macOS both streams are merged into a
 single `.server.log` next to each server. On Windows each service writes two
@@ -151,18 +154,23 @@ Dependencies are managed with [uv](https://docs.astral.sh/uv/). From `dal-web/ba
 
 ```bash
 cd dal-web/backend
-uv sync                     # create .venv and install runtime + dev deps from uv.lock
-uv run python -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8001
+uv sync --inexact
+uv pip install ../../dal-python "--config-settings=cmake.define.DAL_INSTALL_PREFIX=/absolute/path/to/build/stage/<platform-preset>"
+uv run --no-sync python -m app.native_runtime
+uv run --no-sync python -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8001
 ```
 
 `uv` provisions a matching Python interpreter automatically (downloading one if
 needed) and resolves dependencies from the committed `uv.lock`. API docs are then
 available at <http://127.0.0.1:8001/docs>.
 
-> The backend requires the compiled `dal` package. Build the `dal-python`
-> bindings (see `dal-python/` and the repository root `README.md`) and install
-> the resulting `dal` package into the backend's uv environment, e.g.
-> `uv pip install -e ../../dal-python` once built, before starting the server.
+Replace `<platform-preset>` with the stage produced by the active build, such as
+`Release-linux` or `Release-windows`. The quoted command works in POSIX shells
+and PowerShell.
+
+> The backend requires the compiled `dal` package. If the preflight fails, install
+> the package against the staged DAL prefix as shown in the
+> [installation guide](../docs/installation.md#install-the-native-package-into-the-backend-environment).
 
 ### Frontend
 
@@ -210,7 +218,7 @@ free the port or run on a different one:
 fuser -k 8001/tcp
 
 # Option C — use a different port (e.g. 8002)
-uv run python -m uvicorn app.main:app --reload --port 8002
+uv run --no-sync python -m uvicorn app.main:app --reload --port 8002
 ```
 
 On Windows the equivalents are:
@@ -260,15 +268,24 @@ trade first (which cascades out of any portfolios) and then the product/model.
 Valuation endpoints return a pending `ValuationResult` with
 `status: "running"` immediately. Pricing runs as an `asyncio` task that
 offloads the blocking C++ pricing call to a worker thread via
-`asyncio.to_thread`, and the result is updated in-place once it completes. The
-frontend polls `GET /api/valuations/{id}` at 300ms intervals until the status
-becomes `"completed"` or `"failed"`.
+`asyncio.to_thread`. The Python binding releases the GIL around the pure native
+Monte Carlo call, so the event loop and unrelated Python work remain responsive.
+The public valuation configuration calls the pseudo-random choice `pseudo`; the
+gateway maps it to DAL's `mrg32` generator before entering the native binding.
+DAL itself holds a re-entrant valuation/mutation barrier for the native pricing
+interval: evaluation-date setters wait, while getters can read the stable date
+through the store mutex. Separately, `DalGateway` holds a Python orchestration
+lock across request-level date mutation, product/model construction, and
+valuation. Pricing dispatch therefore remains serialized within a backend
+process. The result is updated in-place once it completes, and the frontend polls
+`GET /api/valuations/{id}` at 300ms intervals until the status becomes
+`"completed"` or `"failed"`.
 
 ### Tests
 
 ```bash
 cd dal-web/backend
-uv run pytest               # uses a fake dal module (no C++ build needed)
+uv run --no-sync pytest     # uses a fake dal module (no C++ build needed)
 ```
 
 ```bash
@@ -277,6 +294,18 @@ cd dal-web/frontend
 npm run build               # type-check + production build
 npm run test:e2e            # Playwright smoke tests (starts/stops the web UI)
 ```
+
+The default Playwright command uses the native-only application startup path.
+CI uses an explicit canned DAL test double while retaining the real FastAPI
+routers and Vite frontend:
+
+```bash
+DAL_PLAYWRIGHT_TEST_BACKEND=1 npm run test:e2e
+```
+
+The test-backend entry point refuses to start without that flag and reports
+`backend=canned-dal`, `is_native=false` from the health endpoint. It is a
+browser integration fixture, not a development or production fallback.
 
 ## Screens
 

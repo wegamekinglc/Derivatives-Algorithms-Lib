@@ -1,4 +1,4 @@
-file(GLOB_RECURSE SCRIPT_MC_PERF_FILES "*.hpp" "*.cpp")
+file(GLOB_RECURSE SCRIPT_MC_PERF_FILES CONFIGURE_DEPENDS "*.hpp" "*.cpp")
 
 add_executable(script_mc_perf ${SCRIPT_MC_PERF_FILES})
 

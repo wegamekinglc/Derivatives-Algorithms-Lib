@@ -182,11 +182,11 @@ async def _run_portfolio_pricing_async(
     """Price a portfolio and update the ValuationResult in-place.
 
     Each per-trade C++ pricing call is offloaded to a worker thread via
-    ``asyncio.to_thread`` so the event loop stays responsive; ``gateway.value``
-    holds the GIL for the whole Monte Carlo run.  ``DalGateway._lock`` keeps
-    concurrent dispatch serial inside the gateway, so the trades are priced
-    sequentially -- running them concurrently would only spawn worker threads
-    that block on the lock and risk exhausting the default thread pool.
+    ``asyncio.to_thread``.  The Python binding releases the GIL around the pure
+    native Monte Carlo call, so the event loop and unrelated Python work remain
+    responsive.  ``DalGateway._lock`` still keeps concurrent dispatch serial
+    inside the gateway, so the trades are priced sequentially -- running them
+    concurrently would only spawn worker threads that block on the lock.
     """
     try:
         trades = store.portfolio_trades(portfolio_id)

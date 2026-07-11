@@ -275,7 +275,8 @@ namespace Dal {
                 const double oldOld = InnerProduct(fOld, fOld);
                 const double oldNew = InnerProduct(fOld, fNew);
                 const double newNew = InnerProduct(fNew, fNew);
-                double kMin = (newNew - 0.5 * oldNew) / (newNew - oldNew + oldOld);
+                const double denominator = oldOld - 2.0 * oldNew + newNew;
+                const double kMin = denominator > 0.0 ? (newNew - oldNew) / denominator : 1.0;
                 if (kMin < controls.backtrackTolerance_) {
                     if (!restart) {
                         j->SecantUpdate(s, Apply(std::minus<>(), fNew, fOld));

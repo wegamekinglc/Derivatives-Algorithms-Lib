@@ -340,12 +340,25 @@ chronological order; this often reduces variance for path-dependent payoffs.
 
 ### Batching and Thread Pool
 
-Paths are divided into batches (`BATCH_SIZE = 8192`, clamped to keep at least
-one path per thread) and submitted to `ThreadPool_::GetInstance()`. Each thread
-owns its own RNG, Gaussian vector, scenario (`Scenario_<T_>`), and evaluator
-state, so the per-path work is lock-free; thread-local results are summed at
-the end. This is the parallel structure described in [Pathwise Adjoints in Monte
-Carlo](aad.md#pathwise-adjoints-in-monte-carlo).
+Paths are divided with an effective batch size
+`min(8192, ceil(nPaths / nThreads))` and submitted to
+`ThreadPool_::GetInstance()`. Batch sizes, offsets, and counts use `size_t`, and
+the planner rejects a zero thread count without performing division. This keeps
+multiple useful tasks for small simulations while capping large batches at
+`8192`. Each thread owns its own RNG, Gaussian vector, scenario
+(`Scenario_<T_>`), and evaluator state, so the per-path work is lock-free. An
+AAD task activates its thread-local tape and constructs its active model on that
+same thread; active numbers are never copied from the coordinator's tape into a
+worker tape. Compiled operand stacks are members of the task-owned `EvalState_`,
+and recursive compiled evaluation reuses those stacks without leaving active
+numbers registered beyond the state lifetime. A task group owns each future as
+soon as submission succeeds and drains all accepted tasks during normal or
+exceptional unwinding, including when a later submission is rejected. It first
+waits until every accepted future is ready and then consumes every future, so a
+task failure is rethrown to the valuation caller only after no task can still
+reference local simulation state. Thread-local results are summed at the end.
+This is the parallel structure described in
+[Pathwise Adjoints in Monte Carlo](aad.md#pathwise-adjoints-in-monte-carlo).
 
 ### Value-Only vs AAD Evaluation
 

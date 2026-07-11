@@ -1,4 +1,4 @@
-file(GLOB_RECURSE CONCURRENCY_FILES "*.hpp" "*.cpp")
+file(GLOB_RECURSE CONCURRENCY_FILES CONFIGURE_DEPENDS "*.hpp" "*.cpp")
 add_executable(concurrency ${CONCURRENCY_FILES})
 
 target_link_libraries(concurrency dal_library)

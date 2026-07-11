@@ -1,9 +1,7 @@
 # Replicating the PTIRDS Single-Currency Curve in DAL
 
-> Status: planning / gap-analysis only. This document does **not** implement code or
-> tests. It maps the external example onto DAL's current capabilities and sets out the
-> extension work needed to reproduce the reference table, grounded in the actual code
-> paths cited below.
+> Status: validated replication note. The three curve shapes are covered by the
+> current test suite; this note records the external benchmark and DAL mapping.
 
 ## 1. Overview
 
@@ -190,8 +188,9 @@ observed max `|err|` of ~`5.2e-7` (`log_linear`), ~`4.6e-7` (`log_cubic`), and
   (`dal-cpp/dal/curve/logdfscheme.hpp`) selects how `DiscountLogDF_` interpolates
   between node `log(DF)` values, covering all three reference schemes:
   `LOG_LINEAR` (linear in $\ell$, scheme 1), `LOG_CUBIC_NATURAL` (natural cubic
-  spline in $\ell$, scheme 2), and `MIXED` (cubic to a cutoff knot, linear beyond,
-  scheme 3). The scheme is carried on `CurveCalibrationSpec_::logDfScheme_` and
+  spline in $\ell$, scheme 2), and `MIXED` (linear through a cutoff knot, natural
+  cubic beyond, scheme 3). The scheme is carried on
+  `CurveCalibrationSpec_::logDfScheme_` and
   dispatched in `dal-cpp/dal/curve/yclogdf.cpp` (see
   [Log-discount curve](../methodology/log_discount_curve.md)). The cubic and mixed
   forms are natural cubics over the value array, not rateslib's clamped B-spline with
@@ -225,8 +224,7 @@ observed max `|err|` of ~`5.2e-7` (`log_linear`), ~`4.6e-7` (`log_cubic`), and
   anchor). Ineligible specs fall back to the base finite-difference bump
   (`BumpSize() = 1e-4`, `dal-cpp/dal/math/optimization/underdetermined.cpp`). The
   eligibility verdict is evaluated once per `CalibrateYieldCurve` call and cached;
-  see [AAD analytic Jacobian](aad-analytic-jacobian-curve-calibration.md) and
-  [Yield-curve Jacobian](../methodology/yield_curve_jacobian.md).
+  see [Yield-curve Jacobian](../methodology/yield_curve_jacobian.md).
 
 ### 3.4 Day count / calendar / schedule / payment lag
 
@@ -257,30 +255,30 @@ observed max `|err|` of ~`5.2e-7` (`log_linear`), ~`4.6e-7` (`log_cubic`), and
 
 ### 3.6 Public API / Python bindings / examples
 
-- **Public surface** (`dal-public/src/`) exposes interpolation only as
-  `Interp1NewLinear` (`dal-public/src/interp.cpp`); it does **not** expose
-  curve calibration, instruments, log-linear, or cubic interpolators. The full
-  curve/calibration surface is, however, reachable from Python (next bullet).
+- **Public C++ facade** (`dal-public/src/`) exposes curve conventions and instrument
+  builders, calibration spec builders, `CalibrateSingleCurve`,
+  `CalibrateMultiCurveBundle`, and `CalibrateXccyMarket`. It remains a convenience
+  facade over concrete core types rather than an ABI-isolated boundary; see the
+  [public API guide](../public-api.md).
 - **Python bindings** (pybind11, `dal-python/src/bindings/`) wire `core`, `global`,
   `models`, `random`, `script`, `value`, plus `curve` and `calendar`
   (`dal-python/src/bindings/module.cpp`). The `curve` translation unit
   (`dal-python/src/bindings/curve.cpp`) exposes the instrument builders
   (`Deposit_New`, `FRA_New`, `Future_New`, `Swap_New`, `OISSwap_New`,
-  `BasisSwap_New`, `CrossCurrencySwap_New`), the curve factories
-  (`DiscountPWLF_New`, `NewDiscountLogDF`), the calibration entry points
+  `BasisSwap_New`, `CrossCurrencySwap_New`), the `DiscountPWLF_New` curve factory,
+  the calibration entry points
   (`CalibrateSingleCurve`, `CalibrateMultiCurveBundle`, `CalibrateXccyMarket`),
   the `CurveParameterization` / `CurveSolveMode` / `CurveJacobianMode` /
   `LogDfScheme` enums, and `CurveCalibrationSpecBuilder_`; `dal-python/src/dal/api.py`
   adds a `calibrate_curve(...)` convenience wrapper.
 - **Examples:** `dal-cpp/examples/curve_calibration/curve_calibration.cpp` already
   demonstrates `CurveCalibrationSpec_` / `MultiCurveCalibrationSpec_` with
-  `Holidays::None`, explicit knot dates, and `CalibrateMultiCurve`. It is the natural
-  template/home for the new example.
+  `Holidays::None`, explicit knot dates, and `CalibrateMultiCurve`.
 
 ## 4. Capability Inventory
 
 Each row maps a capability the reference exercise needs onto its current DAL
-implementation. Items marked **gap** are not yet wired in this configuration.
+implementation; all required items are available or have an explicit DAL analogue.
 
 | Capability                                    | Status   | Evidence (path)                                                                                       | Notes                                                                                  |
 |-----------------------------------------------|----------|-------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------|
@@ -288,7 +286,7 @@ implementation. Items marked **gap** are not yet wired in this configuration.
 | DF-node curve + `log(DF)` interpolation rule  | yes      | `NewDiscountLogDF`, `dal-cpp/dal/curve/yclogdf.hpp` / `yclogdf.cpp`                                   | node dates + `log(DF)` + pluggable `LogDfScheme_`; selected by `CurveParameterization_::LOG_DISCOUNT` |
 | Log-linear on DF (scheme 1)                   | yes      | `LogDfScheme_::LOG_LINEAR`, `dal-cpp/dal/curve/logdfscheme.hpp`                                       | linear in $\ell$ = log-linear in $P$                                                   |
 | Cubic on `log(DF)` (scheme 2)                 | yes      | `LogDfScheme_::LOG_CUBIC_NATURAL`, `dal-cpp/dal/curve/yclogdf.cpp`                                    | natural cubic spline in $\ell$ (Boundary_(2,0.0)), not rateslib's clamped B-spline     |
-| "Mixed" (log-linear → log-cubic) (scheme 3)   | yes      | `LogDfScheme_::MIXED`, `dal-cpp/dal/curve/yclogdf.cpp`                                                | cubic to a cutoff knot, linear beyond; C0 at the cutoff                                |
+| "Mixed" (log-linear → log-cubic) (scheme 3)   | yes      | `LogDfScheme_::MIXED`, `dal-cpp/dal/curve/yclogdf.cpp`                                                | linear through a cutoff knot, natural cubic beyond; C0 at the cutoff                   |
 | Knot-sequence (`t`) configuration             | n/a      | —                                                                                                     | DAL uses knot dates + scheme, not a B-spline knot vector                               |
 | IMM / stub swaps via explicit dates           | yes      | `Swap_(tradeDate, start, maturity, ...)`, `dal-cpp/dal/curve/ycinstrument.hpp`                        | explicit effective/termination dates per leg                                          |
 | 1-business-day swap                           | yes      | degenerate single-period `Swap_`, `dal-cpp/dal/curve/ycinstrument.cpp`                                | 1-day span; annuity > 0 path                                                           |
@@ -299,14 +297,14 @@ implementation. Items marked **gap** are not yet wired in this configuration.
 | Levenberg-Marquardt least-squares             | analog   | underdetermined least-change EXACT/APPROXIMATE, `dal-cpp/dal/math/optimization/underdetermined.hpp`   | equivalent for the square 13×13 case                                                   |
 | Analytic (AAD) Jacobian for the solver        | yes      | `YieldCurveCalibrationFunc_::Gradient`, `dal-cpp/dal/curve/calibration.cpp`                           | AAD reverse sweep when eligible; bumped fallback otherwise                             |
 | Anchor node with fixed DF = 1                 | yes      | `LOG_DISCOUNT` anchor exclusion, `dal-cpp/dal/curve/calibration.cpp`                                  | anchor pinned at $\ell_0 = 0$, excluded from unknowns                                  |
-| Public API exposure                           | partial  | `dal-public/src/interp.cpp`, `dal-python/src/bindings/curve.cpp`                                      | C++ `dal-public` exposes only `Interp1NewLinear`; full curve/calibration surface reachable from Python |
+| Public API exposure                           | yes      | `dal-public/src/curvespec.hpp`, `dal-python/src/bindings/curve.cpp`                                   | C++ convenience facade and Python builders expose calibration workflows                |
 | Python bindings                               | yes      | `dal-python/src/bindings/curve.cpp`                                                                   | instruments, curves, calibration entry points, enums, `CurveCalibrationSpecBuilder_`  |
 
 ## 5. Reproduction Pipeline
 
-Reproducing the reference table exercises the as-built pipeline below. Items 1-6 and
-item 8 (Python bindings) are implemented and validated against rateslib Table 6.2
-(see §2.5); item 7 (C++ `dal-public` exposure) is the remaining gap.
+Reproducing the reference table exercises the as-built pipeline below. The curve,
+instrument, solve, AAD, C++ facade, and Python binding paths are all present; the
+numerical validation lives in the core C++ test suite.
 
 ### 1. DF-node discount curve with pluggable interpolation
 - `NewDiscountLogDF` (`dal-cpp/dal/curve/yclogdf.hpp`) is the curve this exercise
@@ -328,7 +326,7 @@ item 8 (Python bindings) are implemented and validated against rateslib Table 6.
   how the boundary mapping is validated).
 
 ### 3. Mixed (composite) interpolator
-- `LogDfScheme_::MIXED` is cubic to a cutoff knot and linear beyond it, with C0
+- `LogDfScheme_::MIXED` is linear through a cutoff knot and natural cubic beyond it, with C0
   continuity at the cutoff (`dal-cpp/dal/curve/yclogdf.cpp`). This is DAL's scheme-3
   analogue.
 
@@ -362,11 +360,11 @@ item 8 (Python bindings) are implemented and validated against rateslib Table 6.
   iterations, no bump-noise, exact curve risk relative to the reference's
   bumped/auto-diff solve.
 
-### 7. (Remaining) C++ public API exposure
-- The C++ `dal-public/src/` surface still exposes only `Interp1NewLinear`. Exposing
-  the DF-node curve, the three interpolation schemes, the swap builders, and the
-  calibration entry point through `dal-public/src/` remains open. The same surface is
-  already reachable from Python (item 8).
+### 7. C++ public API facade
+- `dal-public/src/curve{protocol,instrument,data,spec}.hpp` exposes the convention,
+  instrument, curve, and calibration builders used by this workflow. The facade uses
+  core DAL value and handle types directly; it is a convenience API, not an ABI-isolated
+  compatibility layer.
 
 ### 8. Python bindings
 - pybind11 bindings for the curve/calibration surface ship in
@@ -375,7 +373,7 @@ item 8 (Python bindings) are implemented and validated against rateslib Table 6.
   `CurveCalibrationSpecBuilder_`, with a `calibrate_curve(...)` convenience wrapper
   in `dal-python/src/dal/api.py`. A Python user can reproduce the table directly.
 
-## 6. Proposed Deliverable
+## 6. Validation Surface
 
 - **Tests:** `dal-cpp/tests/curve/test_ptirds_curve.cpp` is the validation harness.
   It asserts:
@@ -388,13 +386,10 @@ item 8 (Python bindings) are implemented and validated against rateslib Table 6.
     through `2025-01-01` and diverges only at `2027/2029/2032`);
   - each calibrated curve reprices all 13 instruments within the solver tolerance
     (residual `< 1e-8`).
-- **Remaining:** a standalone C++ example
-  `dal-cpp/examples/ptirds_single_currency_curve/` (sibling of
-  `dal-cpp/examples/curve_calibration/`) that builds the nodes, instruments, and the
-  three interpolation schemes, runs the global solve, and prints the solved-DF table
-  plus a forward-rate comparison.
-- **Optional:** a Python example under `dal-python/examples/` mirroring the C++ one,
-  contingent on items 7-8.
+- **Related examples:** the general C++ calibration examples under
+  `dal-cpp/examples/curve_calibration/` and the Python calibration surface documented
+  in `dal-python/README.md` show the supported entry points. The PTIRDS-specific
+  numerical oracle remains the test above.
 
 ## 7. Risks / Open Questions
 
@@ -408,7 +403,6 @@ item 8 (Python bindings) are implemented and validated against rateslib Table 6.
   `BuildCurveCalibrationWeights`, `dal-cpp/dal/curve/calibration.cpp`) must be neutral so it
   does not bias an exactly-determined solve.
 
-The boundary-condition, anchor-handling, and seeding questions that originally
-accompanied this exercise are settled by the shipped `LOG_DISCOUNT` implementation
-(natural cubic end conditions, anchor node pinned at $\ell_0 = 0$, parameterization-
-specific initial seed).
+The shipped `LOG_DISCOUNT` contract fixes the natural-cubic end conditions, pins
+the anchor at $\ell_0 = 0$, and selects a parameterization-specific initial seed;
+none of these is an open configuration gap for this replication.

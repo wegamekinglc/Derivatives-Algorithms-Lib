@@ -2,18 +2,19 @@
 // Created by wegam on 2022/4/3.
 //
 
-#include <map>
-#include <mutex>
+#include <dal/math/cell.hpp>
+#include <dal/math/cellutils.hpp>
+#include <dal/math/matrix/matrixs.hpp>
+#include <dal/math/matrix/matrixutils.hpp>
+#include <dal/platform/host.hpp>
 #include <dal/platform/platform.hpp>
 #include <dal/platform/strict.hpp>
 #include <dal/storage/globals.hpp>
-#include <dal/math/cell.hpp>
-#include <dal/math/cellutils.hpp>
-#include <dal/platform/host.hpp>
-#include <dal/math/matrix/matrixs.hpp>
-#include <dal/math/matrix/matrixutils.hpp>
 #include <dal/time/dateutils.hpp>
 #include <dal/utilities/exceptions.hpp>
+
+#include <map>
+#include <mutex>
 
 namespace Dal {
 
@@ -24,6 +25,11 @@ namespace Dal {
 
         static std::mutex TheStoreMutex; // locks all the stores there are
 #define LOCK_STORES std::lock_guard<std::mutex> l(TheStoreMutex)
+
+        std::recursive_mutex& TheValuationMutationBarrier() {
+            static std::recursive_mutex barrier;
+            return barrier;
+        }
 
         // utility functions to store a date by name
         Date_ GetGlobalDate(const String_& which) {
@@ -38,6 +44,11 @@ namespace Dal {
             return Cell::ToDate(stored(0, 0));
         }
 
+        void SetGlobalDate(const String_& which, const Date_& when) {
+            LOCK_STORES;
+            Global::TheDateStore().Set(which, Matrix::M1x1(Cell_(when)));
+        }
+
         // names for the global dates (these will be visible in the repository, so make them comprehensible)
         const String_& ACCOUNTING() {
             static String_ accounting("AccountingDate");
@@ -49,6 +60,10 @@ namespace Dal {
         }
     } // namespace
 
+    XGLOBAL::ValuationMutationGuard_::ValuationMutationGuard_() : lock_(TheValuationMutationBarrier()) {}
+
+    XGLOBAL::ValuationMutationGuard_::ValuationMutationGuard_(std::try_to_lock_t) : lock_(TheValuationMutationBarrier(), std::try_to_lock) {}
+
     Global::Store_& Global::TheDateStore() { return *XTheDateStore(); }
 
     void Global::SetTheDateStore(Global::Store_* orphan) { XTheDateStore().reset(orphan); }
@@ -58,12 +73,11 @@ namespace Dal {
     void Global::Dates_::SetAccountingDate(const Date_& date) { XGLOBAL::SetAccountingDate(date); }
     void Global::Dates_::SetEvaluationDate(const Date_& date) { XGLOBAL::SetEvaluationDate(date); }
 
-    void XGLOBAL::SetAccountingDate(const Date_& when) {
-        Global::TheDateStore().Set(ACCOUNTING(), Matrix::M1x1(Cell_(when)));
-    }
+    void XGLOBAL::SetAccountingDate(const Date_& when) { SetGlobalDate(ACCOUNTING(), when); }
 
     void XGLOBAL::SetEvaluationDate(const Date_& when) {
-        Global::TheDateStore().Set(EVALUATION(), Matrix::M1x1(Cell_(when)));
+        ValuationMutationGuard_ barrier;
+        SetGlobalDate(EVALUATION(), when);
     }
 
     XGLOBAL::ScopedOverride_<Date_> XGLOBAL::SetAccountingDateInScope(const Date_& dt) {
@@ -73,8 +87,9 @@ namespace Dal {
     }
 
     XGLOBAL::ScopedOverride_<Date_> XGLOBAL::SetEvaluationDateInScope(const Date_& dt) {
-        ScopedOverride_<Date_> ret_val(SetEvaluationDate, GetGlobalDate(EVALUATION()));
-        SetEvaluationDate(dt);
+        ValuationMutationGuard_ barrier;
+        ScopedOverride_<Date_> ret_val(SetEvaluationDate, GetGlobalDate(EVALUATION()), std::move(barrier));
+        SetGlobalDate(EVALUATION(), dt);
         return ret_val;
     }
 

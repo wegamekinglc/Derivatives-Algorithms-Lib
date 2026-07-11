@@ -9,35 +9,38 @@
 #
 # Prerequisites:
 #   - uv (https://docs.astral.sh/uv/)
-#   - The C++ library must be built first (run ../build_linux.sh from repo root)
+#   - The staged C++ install must exist (run ../build_linux.sh from repo root)
 #   - pybind11 (vendored as a git submodule at dal-cpp/externals/pybind11, v2.11.1) and Python 3.10+ development headers
 #
 
-set -e
+set -eu
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
-DAL_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+DAL_INSTALL_PREFIX="${DAL_INSTALL_PREFIX:-${DAL_DIR:-$REPO_ROOT/build/stage/Release-linux}}"
+DAL_DIR="$DAL_INSTALL_PREFIX"
 
 echo "================================================"
 echo " DAL Python Binding — Build & Test (uv-managed)"
 echo "================================================"
-echo "  DAL root:    $DAL_DIR"
+echo "  DAL install: $DAL_INSTALL_PREFIX"
 echo "  Working dir: $SCRIPT_DIR"
 echo ""
 
 # ---- Step 1: Verify C++ library is built ------------------------------------
 
-if [[ ! -f "$DAL_DIR/lib/libdal_public.a" ]] || [[ ! -f "$DAL_DIR/lib/libdal_cpp.a" ]]; then
-    echo "ERROR: DAL C++ libraries not found in $DAL_DIR/lib/"
+DAL_PUBLIC_CONFIG=$(find "$DAL_INSTALL_PREFIX" -type f -path "*/cmake/dal-public/dal-publicConfig.cmake" -print -quit 2>/dev/null || true)
+if [[ -z "$DAL_PUBLIC_CONFIG" ]]; then
+    echo "ERROR: dal-publicConfig.cmake not found under $DAL_INSTALL_PREFIX"
     echo "       Run the main build first:"
     echo ""
-    echo "         cd $DAL_DIR && bash build_linux.sh"
+    echo "         cd $REPO_ROOT && bash build_linux.sh"
     echo ""
     exit 1
 fi
-echo "[OK] C++ libraries found"
+echo "[OK] DAL CMake package found: $DAL_PUBLIC_CONFIG"
 
 # ---- Step 2: Create or reuse uv virtual environment -------------------------
 
@@ -65,13 +68,14 @@ uv pip install scikit-build-core pytest numpy
 
 echo ""
 echo "Installing dal-python in editable mode..."
-echo "  DAL_DIR=$DAL_DIR"
+echo "  DAL_INSTALL_PREFIX=$DAL_INSTALL_PREFIX"
 
-export DAL_DIR
+export DAL_DIR DAL_INSTALL_PREFIX
 
 uv pip install \
     --no-build-isolation \
-    --config-settings=cmake.define.DAL_DIR="$DAL_DIR" \
+    --config-settings=cmake.define.DAL_INSTALL_PREFIX="$DAL_INSTALL_PREFIX" \
+    --config-settings=cmake.define.CMAKE_PREFIX_PATH="$DAL_INSTALL_PREFIX" \
     -e ".[test]" 2>&1
 
 echo "[OK] Package installed"

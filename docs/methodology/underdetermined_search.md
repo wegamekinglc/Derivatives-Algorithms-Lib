@@ -198,30 +198,37 @@ each unit column of the Jacobian via `MultiplyLeft` (which returns $J \cdot e_k 
 ### Backtracking Line Search
 
 The exact-mode line search minimises a one-dimensional quadratic model of the scaled
-residual norm squared along the trial step $s$. Given $a = f^{\mathsf T} f$ (current),
+residual norm squared along the trial step $s$. Let $k$ be the fraction backtracked
+from the full trial: $k=0$ is the candidate $x+s$, while $k=1$ is the current point
+$x$. Given $a = f^{\mathsf T} f$ (current),
 $b = f^{\mathsf T} f_{\text{new}}$ (cross), and $c = f_{\text{new}}^{\mathsf T}
-f_{\text{new}}$ (candidate), the quadratic model
+f_{\text{new}}$ (candidate), linear interpolation of the two residual vectors gives
+the quadratic model
 
 $$
 \tilde f^2(k) = a\,k^2 + 2b\,k(1-k) + c\,(1-k)^2
 $$
 
-has derivative $\partial\tilde f^2/\partial k = 2a k + 2b(1-2k) + 2c(k-1)$, which
+Its derivative is $\partial\tilde f^2/\partial k = 2a k + 2b(1-2k) + 2c(k-1)$, which
 vanishes at
 
 $$
-k_{\min} = \frac{c - \tfrac{1}{2} b}{c - b + a}.
+k_{\min} = \frac{c-b}{a-2b+c}.
 $$
+
+If the denominator is not positive, the implementation uses $k_{\min}=1$ and
+therefore treats the quadratic model as unsuitable for accepting the full trial.
 
 The interpretation of $k_{\min}$ relative to the backtrack and restart tolerances:
 
-- $k_{\min} < \texttt{backtrackTolerance\_}$ — the full step is good; accept it and
-  optionally capture the forward Jacobian at the solution.
+- $k_{\min} < \texttt{backtrackTolerance\_}$ — little or no backtracking is indicated;
+  accept the full step.
 - $k_{\min} > \texttt{restartTolerance\_}$ — the linear model is poor; discard the
   secant-updated Jacobian (or the analytic one) and restart from a freshly computed
   Jacobian.
-- Between the two — shrink the step by factor $1 - k$, capped by `maxBacktrack_`, and
-  retry with the same Jacobian.
+- Between the two — discard a fraction $k$ of the full trial, retain the step factor
+  $1-k$, cap the discarded fraction by `maxBacktrack_`, and retry with the same
+  Jacobian.
 
 The loop budgets `maxBacktrackTries_` attempts per iteration; exceeding it forces a
 restart. The `approxJ` guard (Broyden-updated Jacobian) ensures at least one Jacobian
@@ -238,8 +245,8 @@ are required (no default). It carries:
 | `maxEvaluations_`     | required | Point evaluations before giving up                            |
 | `maxRestarts_`        | required | Gradient calculations before giving up                        |
 | `maxBacktrackTries_`  | $5$      | Line-search tries per iteration                               |
-| `maxBacktrack_`       | $0.8$    | Maximum fractional step shrinkage                             |
-| `backtrackTolerance_` | $0.1$    | $k_{\min}$ below which the full step is accepted              |
+| `maxBacktrack_`       | $0.8$    | Maximum fraction discarded from a full trial step             |
+| `backtrackTolerance_` | $0.1$    | $k_{\min}$ below which the full trial step is accepted        |
 | `restartTolerance_`   | $0.4$    | $k_{\min}$ above which the linear model is considered invalid |
 
 ## Summary

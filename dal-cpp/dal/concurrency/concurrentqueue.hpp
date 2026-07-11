@@ -42,6 +42,12 @@ namespace Dal {
             return true;
         }
 
+        bool WaitForItem() {
+            std::unique_lock<std::mutex> lk(mutex_);
+            cv_.wait(lk, [this]() { return interrupt_ || !queue_.empty(); });
+            return !interrupt_;
+        }
+
         void Push(T_ t) {
             {
                 std::lock_guard<std::mutex> lk(mutex_);
@@ -69,9 +75,23 @@ namespace Dal {
             cv_.notify_all();
         }
 
-        void ResetInterrupt() { interrupt_ = false; }
+        void InterruptAndClear() {
+            {
+                std::lock_guard<std::mutex> lk(mutex_);
+                interrupt_ = true;
+                std::queue<T_> empty;
+                std::swap(queue_, empty);
+            }
+            cv_.notify_all();
+        }
+
+        void ResetInterrupt() {
+            std::lock_guard<std::mutex> lk(mutex_);
+            interrupt_ = false;
+        }
 
         void Clear() {
+            std::lock_guard<std::mutex> lk(mutex_);
             std::queue<T_> empty;
             std::swap(queue_, empty);
         }

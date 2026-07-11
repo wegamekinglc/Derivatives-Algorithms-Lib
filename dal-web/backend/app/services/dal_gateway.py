@@ -12,7 +12,14 @@ import threading
 from dataclasses import dataclass
 from typing import Any
 
-import dal
+from app.native_runtime import load_native_dal
+
+dal = load_native_dal()
+
+_NATIVE_RNG_METHODS = {
+    "sobol": "sobol",
+    "pseudo": "mrg32",
+}
 
 
 @dataclass(frozen=True)
@@ -110,31 +117,25 @@ class DalGateway:
         raise ValueError(f"Unsupported model kind: {kind!r}")
 
     def _build_matrix(self, spots: list[float], times: list[float], vols: Any) -> Any:
-        """Build a ``dal.DoubleMatrix_`` (rows=spots, cols=times) from a flat 2D list.
-
-        The native pybind11 matrix binding exposes constructor fill and read access,
-        but not element mutation.  Native Dupire support is therefore limited to
-        flat volatility surfaces until the public binding grows a setter.
-        """
+        """Build a ``dal.DoubleMatrix_`` from a spots-by-times nested sequence."""
         matrix_cls = getattr(self._dal, "DoubleMatrix_", None)
-        if matrix_cls is None:
-            return vols
-
         n_rows, n_cols = len(spots), len(times)
         if len(vols) != n_rows or any(len(row) != n_cols for row in vols):
             raise ValueError("Dupire vols must be a rectangular matrix matching spots x times")
 
-        flat_vol = float(vols[0][0])
-        if any(float(vols[i][j]) != flat_vol for i in range(n_rows) for j in range(n_cols)):
-            raise ValueError(
-                "Native DAL Python bindings currently support only flat Dupire volatility surfaces"
-            )
-        return matrix_cls(n_rows, n_cols, flat_vol)
+        rows = [[float(value) for value in row] for row in vols]
+        if matrix_cls is None:
+            return rows
+        return matrix_cls(rows)
 
     # -- valuation -------------------------------------------------------
 
     def value(self, request: ValuationRequest) -> dict[str, float]:
         with self._lock:
+            try:
+                native_method = _NATIVE_RNG_METHODS[request.method]
+            except KeyError as exc:
+                raise ValueError(f"Unsupported Monte Carlo method: {request.method!r}") from exc
             if request.evaluation_date is not None:
                 self.set_evaluation_date(*request.evaluation_date)
             product = self.build_product(request.event_dates, request.events)
@@ -143,7 +144,7 @@ class DalGateway:
                 product,
                 model,
                 int(request.num_paths),
-                str(request.method),
+                native_method,
                 bool(request.use_brownian_bridge),
                 bool(request.enable_aad),
                 float(request.smooth),

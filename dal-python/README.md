@@ -15,23 +15,24 @@ Python bindings for the Derivatives Algorithms Library (DAL) — a high-performa
 
 - **Python 3.10+** with development headers
 - **uv** — fast Python package manager ([install guide](https://docs.astral.sh/uv/getting-started/installation/))
-- **pybind11** — vendored as a git submodule at `dal-cpp/externals/pybind11` (v2.11.1); run `git submodule update --init --recursive` on fresh clones
+- **pybind11 2.11.1** — installed automatically for isolated package builds;
+  repository builds fall back to the pinned `dal-cpp/externals/pybind11`
+  submodule, so run `git submodule update --init --recursive` on fresh clones
 - **CMake 3.21+** and a C++17 compiler (GCC 13+, Clang 18+, or MSVC 2022)
-- **DAL C++ library** — must be built first (see [Building the C++ Library](#building-the-c-library))
+- **DAL C++ staged install** — build core/public first; the canonical workflow is
+  in [docs/installation.md](../docs/installation.md#python-bindings)
 
 ### Building the C++ Library
 
-The Python bindings depend on the compiled DAL C++ library. Build it first:
+The Python bindings depend on a compiled DAL C++ staging prefix. Build it first:
 
 ```bash
 cd /path/to/Derivatives-Algorithms-Lib
 ./build_linux.sh
 ```
 
-This produces:
-- `lib/libdal_public.a` — public API library
-- `lib/libdal_cpp.a` — core library
-- `include/` — public headers
+This produces `build/stage/Release-linux/`, containing the installed core/public
+libraries, headers, and CMake package metadata.
 
 ## Installation
 
@@ -47,25 +48,25 @@ uv venv
 source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 
 # Install dependencies and build the extension
-uv pip install -e ".[test]" --no-build-isolation \
-    --config-settings=cmake.define.DAL_DIR=/path/to/Derivatives-Algorithms-Lib
+uv pip install -e ".[test]" "--config-settings=cmake.define.DAL_INSTALL_PREFIX=/absolute/path/to/Derivatives-Algorithms-Lib/build/stage/<platform-preset>"
 ```
 
-Replace `/path/to/Derivatives-Algorithms-Lib` with the absolute path to the repository root.
+Use an absolute staged-prefix path and replace `<platform-preset>` with the
+preset that built DAL, such as `Release-linux` or `Release-windows`. Standalone
+`dal-python` reads the installed CMake packages and automatically applies their
+configuration-aware MSVC runtime contract to `_dal`.
 
-### Quick Start Script
+### Workspace Build and Test
 
-Use the provided test runner to automatically set up the environment and verify the installation:
+To provision Python test dependencies and run the bindings through the workspace
+CTest integration:
 
 ```bash
-bash run_tests.sh
+bash ../build_linux.sh --full
 ```
 
-This script:
-1. Creates a uv virtual environment
-2. Installs all dependencies (scikit-build-core, pytest, numpy)
-3. Builds the Python extension in development mode
-4. Runs the full test suite
+The workspace script creates or reuses `dal-python/.venv`, builds the extension,
+and runs the configured C++/public/Python tests.
 
 ## Building Distribution Packages
 
@@ -76,22 +77,20 @@ For production deployment, you can build pre-compiled binary wheels or source di
 Binary wheels contain the compiled C++ extension and can be installed without requiring compilation:
 
 ```bash
-./build_wheel.sh              # Build wheel for current platform
-./build_wheel.sh --manylinux  # Build manylinux-compatible wheel (Linux only)
-./build_wheel.sh --clean      # Clean build artifacts before building
+DAL_INSTALL_PREFIX=/absolute/path/to/build/stage/Release-linux ./build_wheel.sh
+DAL_INSTALL_PREFIX=/absolute/path/to/build/stage/Release-linux ./build_wheel.sh --clean
 ```
 
-The wheel will be created in `dist/` directory:
-- `dal_python-2025.12.7-cp313-cp313-linux_x86_64.whl` (2.7 MB)
+The platform- and interpreter-tagged wheel is created under `dist/`.
 
 Install the wheel:
 ```bash
-pip install dist/dal_python-2025.12.7-cp313-cp313-linux_x86_64.whl
-# or
-uv pip install dist/dal_python-2025.12.7-cp313-cp313-linux_x86_64.whl
+uv pip install dist/dal_python-*.whl
 ```
 
-**Note:** Binary wheels are platform-specific. A wheel built on Linux x86_64 will only work on similar systems.
+**Note:** Binary wheels are platform-specific. DAL keeps native-CPU tuning off by
+default so distributable builds use the compiler's portable baseline. Do not set
+`DAL_ENABLE_NATIVE_ARCH=ON` for a wheel that must run on unknown machines.
 
 ### Building a Source Distribution
 
@@ -102,24 +101,25 @@ Source distributions allow users to build from source on any platform:
 ./build_sdist.sh --clean # Clean build artifacts before building
 ```
 
-The source distribution will be created in `dist/` directory:
-- `dal_python-2025.12.7.tar.gz` (20 KB)
+The source archive is created under `dist/`.
 
 Install from source (requires C++ build tools):
 ```bash
 pip install dist/dal_python-2025.12.7.tar.gz \
-  --config-settings=cmake.define.DAL_DIR=/path/to/Derivatives-Algorithms-Lib
+  "--config-settings=cmake.define.DAL_INSTALL_PREFIX=/absolute/path/to/Derivatives-Algorithms-Lib/build/stage/<platform-preset>"
 # or
 uv pip install dist/dal_python-2025.12.7.tar.gz \
-  --config-settings=cmake.define.DAL_DIR=/path/to/Derivatives-Algorithms-Lib
+  "--config-settings=cmake.define.DAL_INSTALL_PREFIX=/absolute/path/to/Derivatives-Algorithms-Lib/build/stage/<platform-preset>"
 ```
 
 **Requirements for building from source:**
 - C++17 compiler (GCC 13+, Clang 18+, or MSVC 2022)
 - CMake 3.21+
-- pybind11 (vendored as a git submodule at dal-cpp/externals/pybind11, v2.11.1)
+- pybind11 2.11.1 (declared as an isolated build requirement and installed
+  automatically; repository builds may use the pinned vendored submodule)
 - Python 3.10+ development headers
-- DAL C++ library (libdal_public.a and libdal_cpp.a)
+- DAL staged install containing the `dal-public`/`dal-cpp` CMake packages and
+  platform libraries
 
 ## Usage
 
@@ -207,6 +207,9 @@ normal_samples = dal.PseudoRSG_Get_Normal(pseudo, 1000)
 # Sobol quasi-random sequences (better convergence for MC)
 sobol = dal.SobolRSG_New(0, 3)  # i_path=0, ndim=3
 sobol_samples = dal.SobolRSG_Get_Uniform(sobol, 1000)
+precise_sobol = dal.SobolRSG_New(
+    0, 3, precise=True, polish=True
+)  # opt in to the precise-CDF Newton correction
 ```
 
 ### Dupire Local Volatility Model
@@ -227,7 +230,8 @@ dupire_model = dal.DupireModelData_New(
 )
 ```
 
-**Note:** The current pybind11 binding only supports read access to matrix elements via `matrix(i, j)`. Use the constructor's fill value parameter to initialize all elements.
+`DoubleMatrix_` also accepts rectangular nested sequences and supports mutable
+`matrix[i, j]` access, so non-flat surfaces can be populated directly.
 
 ## API Reference
 
@@ -237,7 +241,7 @@ dupire_model = dal.DupireModelData_New(
 - `dal.String_(value)` — String wrapper
 - `dal.Cell_(value)` — Polymorphic value container (bool, double, Date, String)
 - `dal.DoubleVector()` — Vector of doubles
-- `dal.DoubleMatrix_(rows, cols)` — 2D matrix of doubles
+- `dal.DoubleMatrix_(rows, cols, fill=0.0)` or `dal.DoubleMatrix_(nested_rows)` — mutable 2D matrix of doubles
 
 ### Models
 
@@ -251,16 +255,17 @@ dupire_model = dal.DupireModelData_New(
 
 ### Valuation
 
-- `dal.MonteCarlo_Value(product, modelData, num_path, method="sobol", use_bb=False, enable_aad=False, smooth=0.01)` — Monte Carlo pricing with optional AAD Greeks
+- `dal.MonteCarlo_Value(product, modelData, num_path, method="sobol", use_bb=False, enable_aad=False, smooth=0.01, compiled=None)` — Monte Carlo pricing with optional AAD Greeks
 
 **Parameters:**
 - `product` — Script product (from `Product_New`)
 - `modelData` — Model data (from `BSModelData_New` or `DupireModelData_New`)
-- `num_path` — Number of simulation paths (use powers of 2 for Sobol)
+- `num_path` — Positive number of simulation paths (powers of 2 are customary for Sobol)
 - `method` — Random generator: `"sobol"` (default) or `"mrg32"`
 - `use_bb` — Use Brownian bridge construction (default `False`)
 - `enable_aad` — Enable AAD for pathwise Greeks (default `False`)
 - `smooth` — Fuzzy logic smoothing parameter for discontinuous payoffs (default `0.01`)
+- `compiled` — `True` selects the compiled evaluator; `None`/`False` uses tree-walk
 
 **Returns:** Dictionary with keys:
 - `"PV"` — Present value
@@ -269,7 +274,9 @@ dupire_model = dal.DupireModelData_New(
 ### Random Generators
 
 - `dal.PseudoRSG_New(seed, ndim=1)` — Pseudo-random generator (MRG32k32a)
-- `dal.SobolRSG_New(i_path, ndim=1)` — Sobol quasi-random generator
+- `dal.SobolRSG_New(i_path, ndim=1, precise=False, polish=False)` — Sobol
+  quasi-random generator; `polish` enables the Newton correction and `precise`
+  selects its CDF, so the precise-CDF correction requires both flags to be `True`
 - `dal.PseudoRSG_Get_Uniform(rsg, num_paths)` — Uniform samples [0, 1]
 - `dal.PseudoRSG_Get_Normal(rsg, num_paths)` — Standard normal samples
 - `dal.SobolRSG_Get_Uniform(rsg, num_paths)` — Sobol uniform samples
@@ -277,22 +284,25 @@ dupire_model = dal.DupireModelData_New(
 
 ### Global State
 
-- `dal.EvaluationDate_Set(date)` — Set global evaluation date
-- `dal.EvaluationDate_Get()` — Get global evaluation date
+- `dal.EvaluationDate_Set(date)` — Set the process-wide evaluation date; waits
+  for an in-progress native valuation or scoped override
+- `dal.EvaluationDate_Get()` — Read the stable process-wide evaluation date;
+  remains available while valuation runs
+
+Both bindings release the GIL before entering native synchronization.
 
 ## Testing
 
-Run the full test suite:
+Build and run the full workspace suite:
 
 ```bash
-bash run_tests.sh
+bash ../build_linux.sh --full
 ```
 
-Run specific tests:
+After an editable install, run focused Python tests directly:
 
 ```bash
-bash run_tests.sh -k "test_date"  # Run date-related tests
-bash run_tests.sh -v              # Verbose output
+python -m pytest tests -k "test_date" -v
 ```
 
 Tests are located in `tests/` and cover:
@@ -309,7 +319,7 @@ Tests are located in `tests/` and cover:
 dal-python/
 ├── CMakeLists.txt          # Build configuration
 ├── pyproject.toml          # Python package metadata (scikit-build-core)
-├── run_tests.sh            # Development workflow script
+├── run_tests.sh            # Standalone binding test helper
 ├── src/
 │   ├── bindings/
 │   │   ├── module.cpp        # pybind11 module definition
@@ -334,9 +344,14 @@ dal-python/
 
 The Python bindings are generated by pybind11 from domain-organized binding files. The build process:
 
-1. **CMake** configures the build, locates DAL C++ libraries, and fetches pybind11
+1. **CMake** configures the build and locates the DAL C++ libraries plus either
+   the isolated pybind11 build requirement or the pinned repository fallback
 2. **C++ compiler** builds `_dal.cpython-*.so` extension module from the domain-organized `src/bindings/*.cpp` files
 3. **scikit-build-core** packages everything into an installable wheel
+
+When consuming an installed DAL package under MSVC, CMake applies the package's
+`DAL_CPP_MSVC_RUNTIME_LIBRARY` value to `_dal` through
+`dal_cpp_apply_msvc_runtime`. The helper is a no-op on other toolchains.
 
 The hand-written Python code in `src/dal/` provides:
 - `__init__.py` — Re-exports all pybind11-generated symbols
@@ -349,7 +364,7 @@ The `curve` bindings (`dal-python/src/bindings/curve.cpp`) expose the full curve
 - **Instrument builders** — `Deposit_New`, `FRA_New`, `Future_New`, `Swap_New`, `OISSwap_New`, `BasisSwap_New`, `CrossCurrencySwap_New`
 - **Curve factories** — `DiscountPWLF_New`, `NewDiscountLogDF`
 - **Calibration entry points** — `CalibrateSingleCurve`, `CalibrateMultiCurveBundle`, `CalibrateXccyMarket`
-- **Enums** — `CurveParameterization` (`LOG_DISCOUNT`, `ZERO_RATE`), `CurveSolveMode` (`EXACT`, `APPROXIMATE`), `CurveJacobianMode` (`ANALYTIC`, `BUMPED`), `LogDfScheme` (`LOG_LINEAR`, `LOG_CUBIC_NATURAL`, `MIXED`)
+- **Enums** — `CurveParameterization` (`PIECEWISE_LINEAR_FWD`, `PIECEWISE_CONSTANT_FWD`, `ZERO_RATE`, `LOG_DISCOUNT`), `CurveSolveMode` (`EXACT`, `APPROXIMATE`), `CurveJacobianMode` (`ANALYTIC`, `BUMPED`), `LogDfScheme` (`LOG_LINEAR`, `LOG_CUBIC_NATURAL`, `MIXED`)
 - **Spec builder** — `CurveCalibrationSpecBuilder_` for assembling `CurveCalibrationSpec_` / `MultiCurveCalibrationSpec_`
 
 The `dal.calibrate_curve(...)` helper in `api.py` wraps the common single-curve path with Python-friendly defaults. The underlying C++ methodology is documented in [docs/methodology/yield_curve.md](../docs/methodology/yield_curve.md) and [docs/methodology/yield_curve_jacobian.md](../docs/methodology/yield_curve_jacobian.md).
@@ -358,47 +373,50 @@ The `dal.calibrate_curve(...)` helper in `api.py` wraps the common single-curve 
 
 ### "Cannot find DAL::public" during build
 
-Ensure `DAL_DIR` points to the correct DAL installation:
+Ensure `DAL_INSTALL_PREFIX` points to the correct staged DAL installation:
 
-```bash
-ls $DAL_DIR/lib/libdal_public.a  # Should exist
-ls $DAL_DIR/include/dal          # Should exist
+```text
+<stage>/lib/cmake/dal-public/dal-publicConfig.cmake
+<stage>/lib/cmake/dal-cpp/dal-cppConfig.cmake
+<stage>/include/dal/
 ```
+
+The library files beside the package metadata use the platform's native suffix,
+such as `.a` on Linux or `.lib` on Windows; do not diagnose the prefix by
+assuming one suffix.
 
 ### "ImportError: No module named _dal"
 
 The extension module failed to build. Check the build logs:
 
 ```bash
-# Rebuild with verbose output
-rm -rf build/ *.egg-info
-uv pip install -e . --no-build-isolation \
-    --config-settings=cmake.define.DAL_DIR=/path/to/dal \
-    -v
+uv pip install --reinstall -e . -v "--config-settings=cmake.define.DAL_INSTALL_PREFIX=/absolute/path/to/build/stage/<platform-preset>"
 ```
+
+Replace `<platform-preset>` with the stage produced by the active compiler and
+configuration.
 
 ### Tests fail with "ModuleNotFoundError"
 
 Ensure you're using the virtual environment:
 
 ```bash
-source .venv/bin/activate
-python -c "import dal; print(dal.__version__)"
+uv run --no-sync python -c "import dal; print(dal.__version__)"
 ```
 
 ## License
 
-BSD 3-Clause License. See the main DAL repository for details.
+MIT License. See the repository [LICENSE](../LICENSE).
 
 ## Contributing
 
-1. Run tests before submitting changes: `bash run_tests.sh`
-2. Follow the existing code style in `src/dal/` and `tests/`
-3. Add tests for new functionality in `tests/`
-4. Update this README if you change the public API
+Follow the repository [contributor guide](../CONTRIBUTING.md). Binding changes
+should include Python tests and updates to the
+[public API guide](../docs/public-api.md) when the supported surface changes.
 
 ## See Also
 
-- [DAL C++ Library](../README.md) — Core library documentation
-- [CLAUDE.md](../CLAUDE.md) — AI-assisted development context (coding conventions, build commands, test workflow for Claude Code)
+- [DAL C++ Library](../README.md) — Workspace overview
+- [Installation guide](../docs/installation.md) — Canonical setup commands
+- [Public API guide](../docs/public-api.md) — C++, Python, and Excel entry points
 - [pybind11 Documentation](https://pybind11.readthedocs.io/) — pybind11 binding syntax

@@ -1,4 +1,4 @@
-file(GLOB_RECURSE RNG_PERF_FILES "*.hpp" "*.cpp")
+file(GLOB_RECURSE RNG_PERF_FILES CONFIGURE_DEPENDS "*.hpp" "*.cpp")
 
 add_executable(rng_perf ${RNG_PERF_FILES})
 

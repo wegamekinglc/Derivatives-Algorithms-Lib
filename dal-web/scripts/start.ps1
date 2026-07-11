@@ -8,10 +8,11 @@
 #   1. Verifies prerequisites (python 3.13+, uv, node, npm, curl).
 #   2. Reads the backend port from dal-web/frontend/vite.config.ts.
 #   3. Checks that both ports (backend + 5173) are free.
-#   4. Starts the backend (uvicorn) in the background.
-#   5. Starts the frontend (vite) in the background.
-#   6. Waits for both to be ready, then runs a smoke test.
-#   7. Prints the URLs.
+#   4. Verifies the native DAL Python package is installed.
+#   5. Starts the backend (uvicorn) in the background.
+#   6. Starts the frontend (vite) in the background.
+#   7. Waits for both to be ready, then runs a smoke test.
+#   8. Prints the URLs.
 #
 # Logs are written under each server directory: .server.log (stdout) and
 # .server.log.err (stderr) for both dal-web/backend/ and dal-web/frontend/.
@@ -143,14 +144,28 @@ if (-not (Test-PortFree $FrontendPort)) {
 # ---------------------------------------------------------------------------
 Write-Info "Installing backend dependencies (uv sync)..."
 Push-Location $BackendDir
-try { uv sync --quiet } finally { Pop-Location }
+try {
+    uv sync --quiet --inexact
+    if ($LASTEXITCODE -ne 0) {
+        Write-ErrLn "Backend dependency installation failed."
+        exit 1
+    }
+
+    Write-Info "Checking native DAL Python package..."
+    $nativeOutput = @(& uv run --no-sync python -m app.native_runtime 2>&1)
+    if ($LASTEXITCODE -ne 0) {
+        Write-ErrLn "Native DAL preflight failed:"
+        $nativeOutput | ForEach-Object { Write-Output $_ }
+        exit 1
+    }
+} finally { Pop-Location }
 
 Write-Info "Starting backend on port $BackendPort..."
 # uv run launches uvicorn; with --reload uvicorn spawns a reloader parent plus
 # a worker child. We capture the parent PID and rely on stop.ps1's process-tree
 # walk plus port-based fallback to clean up the worker holding the socket.
 $backendProc = Start-Process -FilePath 'uv' `
-    -ArgumentList @('run','python','-m','uvicorn','app.main:app','--reload','--host','127.0.0.1','--port',"$BackendPort",'--log-config','log_config.json') `
+    -ArgumentList @('run','--no-sync','python','-m','uvicorn','app.main:app','--reload','--host','127.0.0.1','--port',"$BackendPort",'--log-config','log_config.json') `
     -WorkingDirectory $BackendDir `
     -WindowStyle Hidden `
     -RedirectStandardOutput $BackendLogFile `
@@ -202,7 +217,7 @@ $viteJs   = Join-Path $FrontendDir 'node_modules\vite\bin\vite.js'
 $viteShim = Join-Path $FrontendDir 'node_modules\.bin\vite.cmd'
 if (Test-Path $viteJs) {
     $frontendProc = Start-Process -FilePath 'node' `
-        -ArgumentList @($viteJs) `
+        -ArgumentList @("`"$viteJs`"") `
         -WorkingDirectory $FrontendDir `
         -WindowStyle Hidden `
         -RedirectStandardOutput $FrontendLogFile `
@@ -210,7 +225,7 @@ if (Test-Path $viteJs) {
         -PassThru
 } elseif (Test-Path $viteShim) {
     $frontendProc = Start-Process -FilePath 'cmd.exe' `
-        -ArgumentList @('/c',$viteShim) `
+        -ArgumentList @('/c', "`"$viteShim`"") `
         -WorkingDirectory $FrontendDir `
         -WindowStyle Hidden `
         -RedirectStandardOutput $FrontendLogFile `

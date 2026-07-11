@@ -4,6 +4,13 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const BASE_URL = "http://localhost:5173";
+const testBackendFlag = process.env.DAL_PLAYWRIGHT_TEST_BACKEND;
+
+if (testBackendFlag !== undefined && testBackendFlag !== "0" && testBackendFlag !== "1") {
+  throw new Error("DAL_PLAYWRIGHT_TEST_BACKEND must be either 0 or 1");
+}
+
+const useTestBackend = testBackendFlag === "1";
 
 const frontendDir = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(frontendDir, "..", "..");
@@ -107,9 +114,11 @@ export default defineConfig({
     },
   },
   webServer: {
-    command: "../scripts/playwright-start.sh",
+    command: useTestBackend
+      ? "../scripts/playwright-test-backend-start.sh"
+      : "../scripts/playwright-start.sh",
     url: BASE_URL,
-    reuseExistingServer: !process.env.CI,
+    reuseExistingServer: !process.env.CI && !useTestBackend,
     timeout: 180_000,
   },
   projects: [

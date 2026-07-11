@@ -1,4 +1,4 @@
-file(GLOB_RECURSE CHOLESKY_PERF_FILES "*.hpp" "*.cpp")
+file(GLOB_RECURSE CHOLESKY_PERF_FILES CONFIGURE_DEPENDS "*.hpp" "*.cpp")
 
 add_executable(cholesky_perf ${CHOLESKY_PERF_FILES})
 

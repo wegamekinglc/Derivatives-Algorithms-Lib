@@ -44,7 +44,7 @@ knots:
 |-----------------------|------------------------------------------------------|------------------------------------------------------------------|
 | `LOG_LINEAR`          | linear in $\ell$ (i.e. log-linear in $P$)            | $C^0$, positivity-preserving, cheapest; default                  |
 | `LOG_CUBIC_NATURAL`   | natural cubic spline in $\ell$ (`Boundary_(2, 0.0)`) | $C^2$ smooth, curved between knots                               |
-| `MIXED`               | cubic to a cutoff year fraction, linear beyond       | spline smoothness at the short end, log-linear tail at long end  |
+| `MIXED`               | linear through a cutoff, natural cubic beyond        | compatibility scheme; $C^0$ at the cutoff                        |
 
 The mapping lives in `BuildLogDfInterpFromYf` in `dal-cpp/dal/curve/yclogdf.cpp`.
 
@@ -53,18 +53,18 @@ The mapping lives in `BuildLogDfInterpFromYf` in `dal-cpp/dal/curve/yclogdf.cpp`
 - **`LOG_CUBIC_NATURAL`** fits a natural cubic spline (zero end curvature,
   `Boundary_(2, 0.0)` on both sides) through the knot $\ell$ values, giving a $C^2$ curve.
   Smoothness is valuable when second-derivative-dependent risk is computed off the curve.
-- **`MIXED`** uses a cubic spline out to a cutoff year fraction and log-linear beyond it,
-  combining spline smoothness where the term structure is data-rich with the robustness
-  of log-linear extrapolation at the long end (where knots are sparse and a spline would
-  oscillate). The cutoff is placed at the $(N-4)$-th knot so that the cubic tail retains
-  at least three knots; the two cubic `Boundary_` conditions default to natural
-  (`MixedSchemeSpec_`, `dal-cpp/dal/math/interp/interpmixed.hpp`).
+- **`MIXED`** preserves DAL's compatibility orientation: linear in $\ell$ from the
+  anchor through a cutoff knot, then natural cubic beyond the cutoff. The two pieces
+  share the cutoff knot and are $C^0$ there; derivative continuity is not imposed. For
+  $N$ knots the curve builder selects zero-based cutoff index
+  $\max(1,N-5)$. `NewMixedLogDF` also accepts an explicit cutoff through
+  `MixedSchemeSpec_` and requires it to equal a knot.
 
 ## Why Log-Discount is the Analytic-Jacobian Parameterization
 
 The analytic Jacobian shipped for curve calibration (see
-[AAD analytic Jacobian](../experimental/aad-analytic-jacobian-curve-calibration.md))
-is scoped to `LOG_DISCOUNT`. The reason is mechanical. The calibration residuals are
+[Yield-curve Jacobian](yield_curve_jacobian.md)) is scoped to `LOG_DISCOUNT`. The
+reason is mechanical. The calibration residuals are
 smooth functions of the node $\ell_i$ through the pricing machinery, so when the node
 $\ell_i$ are placed on the AAD tape as independents the per-residual adjoints produced by
 one reverse sweep per row are exactly the Jacobian entries
@@ -129,8 +129,8 @@ where $b = (\tau - \tau_k)/h$, $a = 1 - b$, and $\mathrm{fppCoef}_{k,j} = \parti
 at construction. `BuildNaturalCubicFppCoef` solves the interior tridiagonal system for
 each unit source $\ell_j$ column to populate this matrix.
 
-**MIXED.** The cutoff is at the $(N-4)$-th knot (ensuring $\ge 3$ knots in the cubic
-tail). `LOG_LINEAR` basis applies for $\tau \le \tau_{\text{cutoff}}$; the cubic portion
+**MIXED.** The curve builder uses zero-based cutoff index $\max(1,N-5)$.
+`LOG_LINEAR` basis applies for $\tau \le \tau_{\text{cutoff}}$; the cubic portion
 (`LOG_CUBIC_NATURAL` basis) applies beyond. The `fppCoef_` matrix is computed on the
 cubic tail subarray and expanded back to full storage-node indices, with
 `mixedCutoffIndex_` and `mixedCutoffYf_` stored for dispatch at evaluation.
@@ -159,7 +159,7 @@ $$
 
 The weighting is linear in the last two storage nodes — the cubic derivative at the
 boundary is deliberately not used, even for `LOG_CUBIC_NATURAL`. This keeps the tail
-simple, monotone, and consistent with the linear head.
+simple and consistent with the final secant segment.
 
 ### Thomas Algorithm for the Natural-Cubic System
 
@@ -236,5 +236,5 @@ natural input to the AAD tape.
   interpolators that `LogDfScheme_` selects between.
 - [Yield curve construction](yield_curve.md) — the forward-rate parameterizations and the
   calibration pipeline this curve plugs into.
-- [AAD analytic Jacobian](../experimental/aad-analytic-jacobian-curve-calibration.md) —
-  the calibration enhancement scoped to this parameterization.
+- [Yield-curve Jacobian](yield_curve_jacobian.md) — the analytic forward Jacobian and
+  inverse-Jacobian risk contracts for this parameterization.

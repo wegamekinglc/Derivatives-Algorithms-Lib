@@ -13,6 +13,7 @@ tsconfig.tsbuildinfo
 
 # Server logs
 .server.log
+.server.log.err
 .server.pid
 
 # Local SQLite database (default DAL_WEB_DB_URL target)

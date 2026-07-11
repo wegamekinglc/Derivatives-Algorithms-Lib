@@ -1,4 +1,4 @@
-file(GLOB_RECURSE TAPE_PERF_FILES "*.hpp" "*.cpp")
+file(GLOB_RECURSE TAPE_PERF_FILES CONFIGURE_DEPENDS "*.hpp" "*.cpp")
 
 add_executable(tape_perf ${TAPE_PERF_FILES})
 

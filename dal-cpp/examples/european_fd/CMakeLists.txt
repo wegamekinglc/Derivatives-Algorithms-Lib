@@ -1,4 +1,4 @@
-file(GLOB_RECURSE EUROPEAN_FD_FILES "*.hpp" "*.cpp")
+file(GLOB_RECURSE EUROPEAN_FD_FILES CONFIGURE_DEPENDS "*.hpp" "*.cpp")
 add_executable(european_fd ${EUROPEAN_FD_FILES})
 
 target_link_libraries(european_fd dal_library)

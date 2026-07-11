@@ -4,35 +4,102 @@
 
 #include <dal/platform/platform.hpp>
 #include <dal/platform/strict.hpp>
+
 #include <dal/math/distribution/black.hpp>
 #include <dal/math/rootfind.hpp>
 #include <dal/math/specialfunctions.hpp>
-#include <dal/platform/platform.hpp>
+
+#include <cmath>
+#include <limits>
+#include <utility>
 
 namespace Dal {
     namespace Distribution {
         namespace {
-            // Shared Brent-on-log-vol implied-vol solver. The iteration sequence
-            // (NextX -> exp -> pricer -> done) matches the original BlackIV/BachelierIV
-            // implementations exactly, so floating-point results are byte-identical.
-            template <class Pricer_, class GuessTransform_>
+            // Black maps the solver coordinate through exp. Bachelier uses a separate finite bracket below.
+            template <class Pricer_, class GuessTransform_, class VolTransform_>
             double SolveIV(double fwd,
                            double price,
                            const char* caller,
                            Pricer_ pricer,
                            GuessTransform_ guessTransform,
+                           VolTransform_ volTransform,
                            double guess) {
                 static const int MAX_ITERATIONS = 30;
                 static const double TOL = 1.0e-10;
                 Brent_ task(guessTransform(guess, fwd));
-                Converged_ done(TOL * max(1.0, fwd), TOL * max(1.0, price));
+                Converged_ done(TOL * max(1.0, std::abs(fwd)), TOL * max(1.0, price));
                 for (int i = 0; i < MAX_ITERATIONS; ++i) {
-                    const double vol = exp(task.NextX());
+                    const double vol = volTransform(task.NextX());
                     if (done(task, pricer(vol) - price)) {
                         return vol;
                     }
                 }
                 THROW("exhausted iterations in " + String_(caller));
+            }
+
+            double BachelierResidual(double fwd, double strike, const OptionType_& type, double price, double vol) {
+                REQUIRE(std::isfinite(vol) && vol >= 0.0, "non-finite or negative volatility in BachelierIV");
+                const double optionPrice = BachelierOpt(fwd, vol, strike, type);
+                REQUIRE(std::isfinite(optionPrice), "unable to bracket Bachelier volatility: non-finite option price");
+                const double value = optionPrice - price;
+                REQUIRE(std::isfinite(value), "unable to bracket Bachelier volatility: non-finite residual");
+                return value;
+            }
+
+            template <class Residual_> std::pair<double, double> HuntBachelierUpperBracket(double upperVol, Residual_ residual) {
+                static const int MAX_BRACKET_EXPANSIONS = 1024;
+                static const double EXPANSION_FACTOR = 2.0;
+                double upperResidual = residual(upperVol);
+                int expansion = 0;
+                while (upperResidual < 0.0 && expansion < MAX_BRACKET_EXPANSIONS) {
+                    if (upperVol > std::numeric_limits<double>::max() / EXPANSION_FACTOR)
+                        THROW("unable to bracket Bachelier volatility before endpoint overflow");
+                    upperVol *= EXPANSION_FACTOR;
+                    upperResidual = residual(upperVol);
+                    ++expansion;
+                }
+                REQUIRE(upperResidual >= 0.0, "unable to bracket Bachelier volatility with a finite upper endpoint");
+                return {upperVol, upperResidual};
+            }
+
+            double SolveBachelierIV(double fwd, double strike, const OptionType_& type, double price, double guess) {
+                static const int MAX_SOLVE_ITERATIONS = 100;
+                static const double TOL = 1.0e-10;
+                static const double MIN_UPPER_VOL = 0.01;
+
+                REQUIRE(std::isfinite(fwd), "non-finite forward in BachelierIV");
+                REQUIRE(std::isfinite(strike), "non-finite strike in BachelierIV");
+                REQUIRE(std::isfinite(price), "non-finite price in BachelierIV");
+                REQUIRE(std::isfinite(guess), "non-finite guess in BachelierIV");
+
+                const double moneyness = fwd - strike;
+                REQUIRE(std::isfinite(moneyness), "non-finite moneyness in BachelierIV");
+                const double intrinsic = type.Payout(fwd, strike);
+                REQUIRE(std::isfinite(intrinsic), "non-finite intrinsic value in BachelierIV");
+                REQUIRE(price >= intrinsic, "value below intrinsic value in BachelierIV");
+                if (price == intrinsic)
+                    return 0.0;
+
+                auto residual = [&](double vol) { return BachelierResidual(fwd, strike, type, price, vol); };
+                const double lowerResidual = intrinsic - price;
+                const double invariantScale = max(1.0, max(std::abs(moneyness), price));
+                double initialUpperVol = max(MIN_UPPER_VOL, max(std::abs(moneyness), price));
+                if (guess > 0.0)
+                    initialUpperVol = max(initialUpperVol, guess);
+                REQUIRE(std::isfinite(initialUpperVol) && initialUpperVol > 0.0, "unable to bracket Bachelier volatility: invalid upper endpoint");
+                const auto [upperVol, upperResidual] = HuntBachelierUpperBracket(initialUpperVol, residual);
+
+                const double volTolerance = TOL * invariantScale;
+                const double priceTolerance = TOL * max(1.0, price);
+                BracketedBrent_ task({0.0, lowerResidual}, {upperVol, upperResidual}, volTolerance);
+                Converged_ done(volTolerance, priceTolerance);
+                for (int i = 0; i < MAX_SOLVE_ITERATIONS; ++i) {
+                    const double vol = task.NextX();
+                    if (done(task, residual(vol)))
+                        return vol;
+                }
+                THROW("exhausted iterations in BachelierIV");
             }
 
             // Shared OptionType_ switch + push_back scaffolding for the (delta, vega) pair.
@@ -68,7 +135,7 @@ namespace Dal {
             REQUIRE(price >= type.Payout(fwd, strike), "value below intrinsic value in BlackIV");
             auto pricer = [&](double vol) { return BlackOpt(fwd, vol, strike, type); };
             auto guessTransform = [](double g, double) { return g > 0.0 ? log(g) : -1.5; };
-            return SolveIV(fwd, price, "BlackIV", pricer, guessTransform, guess);
+            return SolveIV(fwd, price, "BlackIV", pricer, guessTransform, [](double x) { return exp(x); }, guess);
         }
 
         Vector_<> BlackGreeks(double fwd, double vol, double strike, const OptionType_& type) {
@@ -78,10 +145,7 @@ namespace Dal {
         }
 
         double BachelierIV(double fwd, double strike, const OptionType_& type, double price, double guess) {
-            REQUIRE(price >= type.Payout(fwd, strike), "value below intrinsic value in BachelierIV");
-            auto pricer = [&](double vol) { return BachelierOpt(fwd, vol, strike, type); };
-            auto guessTransform = [](double g, double fwdIn) { return g > 0.0 ? g : -1.5 * fwdIn; };
-            return SolveIV(fwd, price, "BachelierIV", pricer, guessTransform, guess);
+            return SolveBachelierIV(fwd, strike, type, price, guess);
         }
 
         Vector_<> BachelierGreeks(double fwd, double vol, double strike, const OptionType_& type) {
@@ -96,12 +160,11 @@ namespace Dal {
         return vol_ * greeks[1];
     }
 
-    std::map<String_, double> DistributionNormalLike_::ParameterDerivatives(double strike,
-                                                                             const OptionType_& type,
-                                                                             const Vector_<String_>& to_report) const {
+    std::map<String_, double>
+    DistributionNormalLike_::ParameterDerivatives(double strike, const OptionType_& type, const Vector_<String_>& to_report) const {
         Vector_<> greeks = Greeks(strike, type);
         std::map<String_, double> ret_val;
-        for (const auto& name: to_report) {
+        for (const auto& name : to_report) {
             if (name == "delta")
                 ret_val.insert({String_("delta"), greeks[0]});
             else if (name == "vega")

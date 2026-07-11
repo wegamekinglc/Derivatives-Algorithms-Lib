@@ -1,4 +1,4 @@
-file(GLOB_RECURSE EURIBOR3M_CURVE_FILES "*.hpp" "*.cpp")
+file(GLOB_RECURSE EURIBOR3M_CURVE_FILES CONFIGURE_DEPENDS "*.hpp" "*.cpp")
 add_executable(euribor3m_curve ${EURIBOR3M_CURVE_FILES})
 
 target_link_libraries(euribor3m_curve dal_library)

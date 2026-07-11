@@ -3,9 +3,12 @@
 //
 
 #include <gtest/gtest.h>
+
 #include <cmath>
 #include <memory>
+
 #include <dal/platform/platform.hpp>
+
 #include <dal/math/matrix/banded.hpp>
 #include <dal/math/matrix/matrixs.hpp>
 #include <dal/math/matrix/squarematrix.hpp>
@@ -80,6 +83,26 @@ namespace {
         void QForm(const SymmetricDecomposition_& w, SquareMatrix_<>* form) const override { w.QForm(j_, form); }
 
         void SecantUpdate(const Vector_<>&, const Vector_<>&) override {}
+    };
+
+    class BacktrackProbeFunc_ : public Underdetermined::Function_ {
+        Vector_<Vector_<>>& evaluations_;
+
+    public:
+        explicit BacktrackProbeFunc_(Vector_<Vector_<>>& evaluations) : evaluations_(evaluations) {}
+
+        [[nodiscard]] Vector_<> F(const Vector_<>& x) const override {
+            evaluations_.push_back(x);
+            if (evaluations_.size() == 3)
+                THROW("backtrack probe complete");
+            return Vector_<>{1.0 - x[0] - 3.0 * x[0] * x[0]};
+        }
+
+        [[nodiscard]] Underdetermined::Jacobian_* Gradient(const Vector_<>&, const Vector_<>&) const override {
+            Matrix_<> j(1, 2, 0.0);
+            j(0, 0) = -1.0;
+            return new DenseJacobian_(j);
+        }
     };
 
     class MultiResidualFunc_ : public Underdetermined::Function_ {
@@ -239,6 +262,25 @@ TEST(UnderdeterminedTest, TestFindThrowsWhenControlsAreExhausted) {
     std::unique_ptr<SymmetricDecomposition_> decomp(weights.DecomposeSymmetric());
 
     ASSERT_THROW(Underdetermined::Find(func, guess, tol, *decomp, MakeControls(1, 1)), Exception_);
+}
+
+TEST(UnderdeterminedTest, TestFindUsesQuadraticBacktrackMinimum) {
+    Vector_<Vector_<>> evaluations;
+    BacktrackProbeFunc_ func(evaluations);
+    const Vector_<> guess = {0.0, 0.0};
+    const Vector_<> tol = {0.1};
+
+    TriDiagonal_ weights(2);
+    SetDiagonalWeights(&weights, 1.0, 1.0);
+    std::unique_ptr<SymmetricDecomposition_> decomp(weights.DecomposeSymmetric());
+
+    ASSERT_THROW(Underdetermined::Find(func, guess, tol, *decomp, MakeControls()), Exception_);
+    ASSERT_EQ(evaluations.size(), 3u);
+
+    // f_old=1 and f_new=-3, so Q(k)=|k*f_old+(1-k)*f_new|^2 is minimized at k=3/4.
+    // The full Gauss-Newton step is x=1, hence retaining 1-k=1/4 of it evaluates x=0.25.
+    ASSERT_NEAR(evaluations[2][0], 0.25, 1e-12);
+    ASSERT_NEAR(evaluations[2][1], 0.0, 1e-12);
 }
 
 TEST(UnderdeterminedTest, TestFindPopulatesEffectiveJacobianInverse) {

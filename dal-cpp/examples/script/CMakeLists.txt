@@ -1,4 +1,4 @@
-file(GLOB_RECURSE SCRIPT_FILES "*.hpp" "*.cpp")
+file(GLOB_RECURSE SCRIPT_FILES CONFIGURE_DEPENDS "*.hpp" "*.cpp")
 add_executable(script ${SCRIPT_FILES})
 
 target_link_libraries(script dal_library)

@@ -32,3 +32,24 @@ TEST(SpecialFunctionsTest, TestNCDF) {
     for (size_t i = 0; i != n; ++i)
         ASSERT_NEAR(x[i], z[i], 1e-6);
 }
+
+TEST(SpecialFunctionsTest, TestInverseNCDFPublishedQuantiles) {
+    struct Quantile_ {
+        double probability_;
+        double quantile_;
+    };
+    const Quantile_ cases[] = {
+        {0.001, -3.0902323061678132},
+        {0.025, -1.959963984540054},
+        {0.25, -0.6744897501960817},
+        {0.5, 0.0},
+        {0.75, 0.6744897501960817},
+        {0.975, 1.959963984540054},
+        {0.999, 3.0902323061678132},
+    };
+
+    for (const auto& testCase : cases) {
+        ASSERT_NEAR(InverseNCDF(testCase.probability_, false, false), testCase.quantile_, 5e-9);
+        ASSERT_NEAR(InverseNCDF(testCase.probability_, true, true), testCase.quantile_, 5e-14);
+    }
+}

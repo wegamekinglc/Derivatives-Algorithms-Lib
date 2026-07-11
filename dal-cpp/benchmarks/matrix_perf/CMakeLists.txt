@@ -1,4 +1,4 @@
-file(GLOB_RECURSE MATRIX_PERF_FILES "*.hpp" "*.cpp")
+file(GLOB_RECURSE MATRIX_PERF_FILES CONFIGURE_DEPENDS "*.hpp" "*.cpp")
 
 add_executable(matrix_perf ${MATRIX_PERF_FILES})
 

@@ -88,6 +88,16 @@ class DupireModelParams(BaseModel):
     times: list[float]
     vols: list[list[float]]
 
+    @model_validator(mode="after")
+    def _check_surface_shape(self) -> DupireModelParams:
+        if not self.spots or not self.times:
+            raise ValueError("Dupire spots and times must be non-empty")
+        if len(self.vols) != len(self.spots) or any(
+            len(row) != len(self.times) for row in self.vols
+        ):
+            raise ValueError("Dupire vols must be a rectangular matrix matching spots x times")
+        return self
+
 
 class ModelDefinition(BaseModel):
     id: str = Field(default_factory=_new_id)

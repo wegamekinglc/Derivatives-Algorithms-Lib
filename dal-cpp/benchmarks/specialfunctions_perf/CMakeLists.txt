@@ -1,4 +1,4 @@
-file(GLOB_RECURSE SPECIALFUNCTIONS_PERF_FILES "*.hpp" "*.cpp")
+file(GLOB_RECURSE SPECIALFUNCTIONS_PERF_FILES CONFIGURE_DEPENDS "*.hpp" "*.cpp")
 
 add_executable(specialfunctions_perf ${SPECIALFUNCTIONS_PERF_FILES})
 

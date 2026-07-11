@@ -9,7 +9,7 @@ numerical content of `dal-cpp/dal/model/ivs.hpp` (`IVS_::LocalVol`) and
 
 ## From Implied Volatility to Local Volatility
 
-Given a continuum of European call prices $C(S, K, T)$ implied by an IVS, the
+Given a continuum of discounted European spot-call prices $C(K, T)$ implied by an IVS, the
 **Dupire formula** recovers the instantaneous local variance
 $\sigma_{\text{loc}}^2(K, T)$ of the risk-neutral spot dynamics
 $dS_t = (r - q) S_t \, dt + \sigma_{\text{loc}}(S_t, t) S_t \, dW_t$ by
@@ -21,23 +21,30 @@ $$
      {K^2 \,\dfrac{\partial^2 C}{\partial K^2}} .
 $$
 
-This is the unique local-volatility surface that reproduces the IVS exactly when
-fed into a one-factor diffusion, so any Monte Carlo pricer that uses it reprices
-every vanilla European option in the input surface.
+Under the usual smoothness and no-arbitrage assumptions, this is the local-volatility
+surface whose continuum model reproduces the input call surface. A discrete
+calibration and simulation additionally carry finite-difference, interpolation, and
+time-stepping error.
 
 ## IVS Inversion by Central Differences
 
-The library does not have a closed-form call surface; it has a Black-Scholes
-implied-volatility surface (`IVS_`), and call prices are produced on demand by
-plugging the IV into Black-Scholes:
+The library stores spot $S_0$, continuously compounded rates $r$ and $q$, and a
+Black-Scholes implied-volatility surface (`IVS_`). `IVS_::Call` has a precise
+contract: it returns the discounted spot-call price
 
 $$
-C(K, T) = \text{BS}\!\left(S,\, K,\, \sigma_{\text{imp}}(K, T),\, T\right).
+\begin{aligned}
+F(T) &= S_0 e^{(r-q)T}, \\
+C(K,T) &= e^{-rT}\,\operatorname{Black}\!\left(
+    F(T), K, \sigma_{\mathrm{imp}}(K,T)\sqrt{T}
+\right).
+\end{aligned}
 $$
 
 `IVS_::LocalVol` therefore evaluates the Dupire numerator and denominator by
-central finite differences of Black-Scholes calls re-priced at bumped $T$ and
-$K$. With the bump sizes $\Delta_T = 10^{-4}\,T$ and $\Delta_K = 10^{-4}\,K$,
+central finite differences of these discounted calls re-priced at bumped $T$
+and $K$. With the bump sizes $\Delta_T = 10^{-4}\,T$ and
+$\Delta_K = 10^{-4}\,K$,
 
 $$
 \begin{aligned}
@@ -50,8 +57,13 @@ $$
 the local volatility is assembled as
 
 $$
-\sigma_{\text{loc}}(K, T) = \frac{1}{K}\sqrt{\,2\,\frac{c_T + q\,C + (r-q)\,c_K}{c_{KK}}\,}.
+\sigma_{\text{loc}}(K, T) =
+\frac{1}{K}\sqrt{\,2\,\frac{c_T + (r-q)Kc_K + qC}{c_{KK}}\,}.
 $$
+
+The strike multiplier in $(r-q)Kc_K$ is required by the discounted spot-call
+contract above. In particular, a flat implied-volatility surface with nonzero
+$r$ and $q$ inverts back to the same flat local volatility.
 
 The strike bump is scaled by $K$ and the maturity bump by $T$ (rather than being
 absolute constants) so the relative perturbation is uniform across the grid:
@@ -72,35 +84,41 @@ local-vol surface.
 strikes and maturities into a dense calibration grid, then fills it slice by
 slice with `DupireCalibMaturity`. Two conventions matter for the user.
 
-### Strike cutoff: 2.5 standard deviations around the forward
+### Strike cutoff: 2.5 standard deviations around spot
 
 For a fixed maturity $T$, `DupireCalibMaturity` evaluates the local volatility
 only at strikes within a band around the spot:
 
 $$
-K \in \bigl[\,S - 2.5\,\Sigma,\; S + 2.5\,\Sigma\,\bigr],
+K \in \bigl[\,S_0 - 2.5\,\Sigma,\; S_0 + 2.5\,\Sigma\,\bigr],
 \qquad
-\Sigma \;=\; C_{\text{ATM}}(T) \cdot \sqrt{2\pi}.
+\Sigma \;=\; C_{S_0}(T) \cdot \sqrt{2\pi}.
 $$
 
-Here $C_{\text{ATM}}(T)$ is the Black-Scholes ATM call price returned by
-`ivs.Call(ivs.Spot(), T)`, and the literal $\sqrt{2\pi} \approx 2.506628274631$
-in the source is exactly this factor.
+Here $C_{S_0}(T)$ is the discounted call price returned by
+`ivs.Call(ivs.Spot(), T)`. It is the ATM call when carry is zero; with nonzero
+carry its strike is still fixed at spot rather than at the forward. The literal
+$\sqrt{2\pi} \approx 2.506628274631$ in the source is exactly this factor.
 
-**Why $\sqrt{2\pi}$.** In the zero-rate, zero-dividend Black-Scholes limit the
-ATM call collapses to $C_{\text{ATM}} = S\,\phi(d_1)\,\sigma\sqrt{T}$ with
-$d_1 = \tfrac{1}{2}\sigma\sqrt{T}$, where $\phi$ is the standard-normal density.
-$\phi(0) = 1/\sqrt{2\pi}$, so to leading order
+**Why $\sqrt{2\pi}$.** In the zero-rate, zero-dividend Black-Scholes limit, the
+spot-strike call has the small-volatility expansion
 
 $$
-\sigma\sqrt{T} \;\approx\; \frac{C_{\text{ATM}}}{S}\,\sqrt{2\pi}.
+C_{S_0} = S_0\,\phi(0)\,\sigma\sqrt{T}
+          + O\!\left(S_0(\sigma\sqrt{T})^3\right),
 $$
 
-The library multiplies the ATM call *price* by $\sqrt{2\pi}$ without dividing by
-$S$, so $\Sigma$ is a price-unit proxy for $S \cdot \sigma\sqrt{T}$ — the
+where $\phi(0) = 1/\sqrt{2\pi}$. Therefore, to leading order,
+
+$$
+\sigma\sqrt{T} \;\approx\; \frac{C_{S_0}}{S_0}\,\sqrt{2\pi}.
+$$
+
+The library multiplies the spot-strike call *price* by $\sqrt{2\pi}$ without dividing by
+$S_0$, so $\Sigma$ is a price-unit proxy for $S_0 \cdot \sigma\sqrt{T}$ — the
 standard deviation of the terminal spot distribution expressed in price units.
 That is exactly the right quantity to compare against a strike increment, and
-the band $S \pm 2.5\,\Sigma$ covers roughly $\pm 2.5\,\sigma\sqrt{T}$ of the
+the band $S_0 \pm 2.5\,\Sigma$ covers roughly $\pm 2.5\,\sigma\sqrt{T}$ of the
 terminal distribution. The slightly loose "standard deviation" name in the
 source comment is shorthand for this price-unit proxy.
 

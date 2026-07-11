@@ -1,4 +1,4 @@
-file(GLOB_RECURSE SOBOL_FILES "*.hpp" "*.cpp")
+file(GLOB_RECURSE SOBOL_FILES CONFIGURE_DEPENDS "*.hpp" "*.cpp")
 add_executable(sobol ${SOBOL_FILES})
 
 target_link_libraries(sobol dal_library)
