@@ -238,6 +238,12 @@ suppresses spurious oscillation between instrument maturities. The mechanics of
 this constrained minimisation — and the approximate-fit variant for inconsistent
 quotes — are covered in [Underdetermined search](underdetermined_search.md).
 
+Because the smoothing penalty is evaluated in the parameter vector's native space,
+`ZERO_RATE` (penalising curvature in $z$) and `LOG_DISCOUNT` (penalising curvature
+in $\ell = -z\tau$) generally select different smoothest curves from the same
+instruments and smoothing weight — the two are alternative coordinates with
+distinct optimal solutions, not a re-expression of a single curve.
+
 `APPROXIMATE` stops when the residual norm reaches `fitTolerance_`; it does not
 continue to a unique, Jacobian-independent curve inside that feasible region. Consequently,
 `ANALYTIC` and `BUMPED` can follow different local linearisations and return different
