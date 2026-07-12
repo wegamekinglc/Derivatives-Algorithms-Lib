@@ -124,7 +124,7 @@ namespace {
         Handle_<YieldCurve_> empty;
         for (int i = 0; i < static_cast<int>(spec.instruments_.size()); ++i) {
             auto rate = spec.instruments_[i]->Precompute(empty);
-            f[i] = (*rate)(yc)-spec.instruments_[i]->MarketRate();
+            f[i] = (*rate)(yc) - spec.instruments_[i]->MarketRate();
         }
         return f;
     }

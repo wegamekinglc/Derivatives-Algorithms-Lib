@@ -53,8 +53,7 @@ namespace Dal {
 
         template <class T_, class B_> T_ DiscountPWC_<T_, B_>::operator()(const Date_& from, const Date_& to) const {
             if constexpr (std::is_same_v<T_, double>) {
-                const PiecewiseConstant_ forwards(knotDates_, fRightT_);
-                const double integral = forwards.IntegralTo(to) - forwards.IntegralTo(from);
+                const double integral = IntegralTo(to) - IntegralTo(from);
                 return std::exp(-integral / DAYS_PER_YEAR_PWC) * (this->base_ ? (*this->base_)(from, to) : 1.0);
             } else {
                 const T_ logDf = -(IntegralTo(to) - IntegralTo(from)) / DAYS_PER_YEAR_PWC;

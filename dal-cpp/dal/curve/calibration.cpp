@@ -165,7 +165,7 @@ namespace Dal {
 
                 Vector_<> result(instruments_.size());
                 for (int i = 0; i < static_cast<int>(instruments_.size()); ++i)
-                    result[i] = (*rates_[i])(yc)-marketRates_[i];
+                    result[i] = (*rates_[i])(yc) - marketRates_[i];
                 return result;
             }
 

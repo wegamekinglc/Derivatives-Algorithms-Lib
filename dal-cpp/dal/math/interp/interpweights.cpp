@@ -36,37 +36,58 @@ namespace Dal {
             return result;
         }
 
+        struct NaturalSplineSystem_ {
+            Vector_<> widths_;
+            Vector_<> sub_;
+            Vector_<> diag_;
+            Vector_<> sup_;
+        };
+
+        NaturalSplineSystem_ BuildNaturalSplineSystem(const Vector_<>& x) {
+            const int n = static_cast<int>(x.size());
+            const int interiorCount = n - 2;
+            NaturalSplineSystem_ result;
+            result.widths_ = Vector_<>(n - 1);
+            for (int i = 0; i < n - 1; ++i)
+                result.widths_[i] = x[i + 1] - x[i];
+
+            result.sub_ = Vector_<>(std::max(0, interiorCount - 1));
+            result.diag_ = Vector_<>(interiorCount);
+            result.sup_ = Vector_<>(std::max(0, interiorCount - 1));
+            for (int row = 0; row < interiorCount; ++row) {
+                result.diag_[row] = 2.0 * (result.widths_[row] + result.widths_[row + 1]);
+                if (row > 0)
+                    result.sub_[row - 1] = result.widths_[row];
+                if (row < interiorCount - 1)
+                    result.sup_[row] = result.widths_[row + 1];
+            }
+            return result;
+        }
+
+        Vector_<> NaturalSecondDerivativeRhs(const Vector_<>& widths, int storageNode) {
+            const int interiorCount = static_cast<int>(widths.size()) - 1;
+            Vector_<> result(interiorCount, 0.0);
+            for (int row = 0; row < interiorCount; ++row) {
+                const int knot = row + 1;
+                if (storageNode == knot - 1)
+                    result[row] += 6.0 / widths[knot - 1];
+                if (storageNode == knot)
+                    result[row] -= 6.0 / widths[knot - 1] + 6.0 / widths[knot];
+                if (storageNode == knot + 1)
+                    result[row] += 6.0 / widths[knot];
+            }
+            return result;
+        }
+
         Vector_<Vector_<>> NaturalSecondDerivativeWeights(const Vector_<>& x) {
             const int n = static_cast<int>(x.size());
             const int interiorCount = n - 2;
             Vector_<Vector_<>> result(n, Vector_<>(n, 0.0));
-            Vector_<> widths(n - 1);
-            for (int i = 0; i < n - 1; ++i)
-                widths[i] = x[i + 1] - x[i];
-
-            Vector_<> sub(std::max(0, interiorCount - 1));
-            Vector_<> diag(interiorCount);
-            Vector_<> sup(std::max(0, interiorCount - 1));
-            for (int row = 0; row < interiorCount; ++row) {
-                diag[row] = 2.0 * (widths[row] + widths[row + 1]);
-                if (row > 0)
-                    sub[row - 1] = widths[row];
-                if (row < interiorCount - 1)
-                    sup[row] = widths[row + 1];
-            }
+            const NaturalSplineSystem_ system = BuildNaturalSplineSystem(x);
 
             for (int storageNode = 0; storageNode < n; ++storageNode) {
-                Vector_<> rhs(interiorCount, 0.0);
-                for (int row = 0; row < interiorCount; ++row) {
-                    const int knot = row + 1;
-                    if (storageNode == knot - 1)
-                        rhs[row] += 6.0 / widths[knot - 1];
-                    if (storageNode == knot)
-                        rhs[row] -= 6.0 / widths[knot - 1] + 6.0 / widths[knot];
-                    if (storageNode == knot + 1)
-                        rhs[row] += 6.0 / widths[knot];
-                }
-                const Vector_<> solved = SolveTriDiagonal(sub, diag, sup, rhs);
+                const Vector_<> rhs = NaturalSecondDerivativeRhs(system.widths_, storageNode);
+                const Vector_<> solved = SolveTriDiagonal(system.sub_, system.diag_, system.sup_, rhs);
                 for (int row = 0; row < interiorCount; ++row)
                     result[row + 1][storageNode] = solved[row];
             }

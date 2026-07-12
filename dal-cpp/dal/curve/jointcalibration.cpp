@@ -294,7 +294,7 @@ namespace Dal {
                 int offset = 0;
                 for (const auto& slot : *slots_) {
                     for (int i = 0; i < slot.nInstruments; ++i)
-                        residuals[offset + i] = (*slot.rates[i])(yc)-slot.marketRates[i];
+                        residuals[offset + i] = (*slot.rates[i])(yc) - slot.marketRates[i];
                     offset += slot.nInstruments;
                 }
                 return residuals;

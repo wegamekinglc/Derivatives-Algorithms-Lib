@@ -84,11 +84,11 @@ The passive and AAD paths both construct curves from a `CurveDefinition_` and
 `CurveParameterLayout_`, so the solver column contract is shared rather than inferred
 separately at each call site.
 
-| `CurveParameterization_` | Columns contributed by one declaration | Stable column order |
-|--------------------------|-----------------------------------------|---------------------|
-| `PIECEWISE_CONSTANT_FWD` | $K$ | right-hand forward value at knots $0,\dots,K-1$ |
-| `PIECEWISE_LINEAR_FWD` | $2K$ | `fLeft[0]`, `fRight[0]`, ..., `fLeft[K-1]`, `fRight[K-1]` |
-| `LOG_DISCOUNT` | $K$ future declared knots | log DF at each future node; the prepended storage anchor is pinned and excluded |
+| `CurveParameterization_` | Columns contributed by one declaration | Stable column order                                                              |
+|--------------------------|----------------------------------------|----------------------------------------------------------------------------------|
+| `PIECEWISE_CONSTANT_FWD` | $K$                                    | right-hand forward value at knots $0,\dots,K-1$                                  |
+| `PIECEWISE_LINEAR_FWD`   | $2K$                                   | `fLeft[0]`, `fRight[0]`, ..., `fLeft[K-1]`, `fRight[K-1]`                        |
+| `LOG_DISCOUNT`           | $K$ future declared knots              | log DF at each future node; the prepended storage anchor is pinned and excluded  |
 
 `ZERO_RATE` remains unimplemented. All three `LogDfScheme_` choices use the same
 `LOG_DISCOUNT` column layout.

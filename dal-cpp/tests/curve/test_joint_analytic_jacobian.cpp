@@ -310,49 +310,126 @@ namespace {
         return Vector_<T_>(parameters.begin() + offset, parameters.begin() + offset + count);
     }
 
-    Vector_<> EvalJointResiduals(const JointMultiCurveCalibrationSpec_& spec, const Vector_<>& parameters) {
-        Vector_<CurveDefinition_> definitions;
-        Vector_<CurveParameterLayout_> layouts;
-        definitions.reserve(spec.curves_.size());
-        layouts.reserve(spec.curves_.size());
-        for (const auto& declaration : spec.curves_) {
-            definitions.push_back(MakeCurveDefinition(declaration.curveName_, spec.ccy_, declaration.parameterization_, declaration.logDfScheme_,
-                                                      declaration.knotDates_, spec.today_, spec.liborBasis_));
-            layouts.push_back(BuildCurveParameterLayout(definitions.back()));
-        }
+    struct JointCurveMetadata_ {
+        Vector_<CurveDefinition_> definitions_;
+        Vector_<CurveParameterLayout_> layouts_;
+    };
 
-        std::map<CollateralType_, Handle_<DiscountCurve_>> discounts;
-        std::map<PeriodLength_, Handle_<DiscountCurve_>> forwards;
+    JointCurveMetadata_ BuildJointCurveMetadata(const JointMultiCurveCalibrationSpec_& spec) {
+        JointCurveMetadata_ result;
+        result.definitions_.reserve(spec.curves_.size());
+        result.layouts_.reserve(spec.curves_.size());
+        for (const auto& declaration : spec.curves_) {
+            result.definitions_.push_back(MakeCurveDefinition(declaration.curveName_, spec.ccy_, declaration.parameterization_,
+                                                              declaration.logDfScheme_, declaration.knotDates_, spec.today_, spec.liborBasis_));
+            result.layouts_.push_back(BuildCurveParameterLayout(result.definitions_.back()));
+        }
+        return result;
+    }
+
+    std::map<CollateralType_, Handle_<DiscountCurve_>>
+    BuildPassiveDiscountCurves(const JointMultiCurveCalibrationSpec_& spec, const JointCurveMetadata_& metadata, const Vector_<>& parameters) {
+        std::map<CollateralType_, Handle_<DiscountCurve_>> result;
         int offset = 0;
         for (int i = 0; i < static_cast<int>(spec.curves_.size()); ++i) {
             const auto& declaration = spec.curves_[i];
             if (declaration.calibrateDiscountCurve_)
-                discounts[declaration.targetCollateral_] = Handle_<DiscountCurve_>(
-                    BuildDiscountCurveUniqueT<double>(definitions[i], Slice(parameters, offset, layouts[i].parameterCount_)).release());
-            offset += layouts[i].parameterCount_;
+                result[declaration.targetCollateral_] = Handle_<DiscountCurve_>(
+                    BuildDiscountCurveUniqueT<double>(metadata.definitions_[i], Slice(parameters, offset, metadata.layouts_[i].parameterCount_))
+                        .release());
+            offset += metadata.layouts_[i].parameterCount_;
         }
-        offset = 0;
+        return result;
+    }
+
+    std::map<PeriodLength_, Handle_<DiscountCurve_>> BuildPassiveForwardCurves(const JointMultiCurveCalibrationSpec_& spec,
+                                                                               const JointCurveMetadata_& metadata,
+                                                                               const Vector_<>& parameters,
+                                                                               const std::map<CollateralType_, Handle_<DiscountCurve_>>& discounts) {
+        std::map<PeriodLength_, Handle_<DiscountCurve_>> result;
+        int offset = 0;
         for (int i = 0; i < static_cast<int>(spec.curves_.size()); ++i) {
             const auto& declaration = spec.curves_[i];
             if (!declaration.calibrateDiscountCurve_) {
                 Handle_<DiscountCurve_> base;
                 if (declaration.baseLayeredOverDiscount_)
                     base = discounts.at(declaration.targetCollateral_);
-                forwards[declaration.targetTenor_] = Handle_<DiscountCurve_>(
-                    BuildDiscountCurveUniqueT<double>(definitions[i], Slice(parameters, offset, layouts[i].parameterCount_), base).release());
+                result[declaration.targetTenor_] = Handle_<DiscountCurve_>(
+                    BuildDiscountCurveUniqueT<double>(metadata.definitions_[i], Slice(parameters, offset, metadata.layouts_[i].parameterCount_), base)
+                        .release());
             }
-            offset += layouts[i].parameterCount_;
+            offset += metadata.layouts_[i].parameterCount_;
         }
+        return result;
+    }
 
-        const CurveBlock_ block("joint_test", spec.ccy_, discounts, forwards, spec.liborBasis_);
+    Vector_<> EvaluatePassiveResiduals(const JointMultiCurveCalibrationSpec_& spec, const CurveBlock_& block) {
         Vector_<> residuals;
         Handle_<YieldCurve_> empty;
         for (const auto& declaration : spec.curves_) {
             const auto instruments = OrderInstruments(declaration.instruments_);
             for (const auto& instrument : instruments)
-                residuals.push_back((*instrument->Precompute(empty))(block)-instrument->MarketRate());
+                residuals.push_back((*instrument->Precompute(empty))(block) - instrument->MarketRate());
         }
         return residuals;
+    }
+
+    Vector_<> EvalJointResiduals(const JointMultiCurveCalibrationSpec_& spec, const Vector_<>& parameters) {
+        const JointCurveMetadata_ metadata = BuildJointCurveMetadata(spec);
+        const auto discounts = BuildPassiveDiscountCurves(spec, metadata, parameters);
+        const auto forwards = BuildPassiveForwardCurves(spec, metadata, parameters, discounts);
+        return EvaluatePassiveResiduals(spec, CurveBlock_("joint_test", spec.ccy_, discounts, forwards, spec.liborBasis_));
+    }
+
+    using ActiveDiscountCurve_ = Tape::DiscountCurve_<AAD::Number_>;
+    using ActiveDiscountCurves_ = std::map<CollateralType_, std::shared_ptr<ActiveDiscountCurve_>>;
+    using ActiveForwardCurves_ = std::map<PeriodLength_, std::shared_ptr<ActiveDiscountCurve_>>;
+
+    ActiveDiscountCurves_ BuildActiveDiscountCurves(const JointMultiCurveCalibrationSpec_& spec,
+                                                    const JointCurveMetadata_& metadata,
+                                                    const Vector_<AAD::Number_>& parameters) {
+        ActiveDiscountCurves_ result;
+        int offset = 0;
+        for (int i = 0; i < static_cast<int>(spec.curves_.size()); ++i) {
+            const auto& declaration = spec.curves_[i];
+            if (declaration.calibrateDiscountCurve_)
+                result[declaration.targetCollateral_] =
+                    BuildDiscountCurveT<AAD::Number_>(metadata.definitions_[i], Slice(parameters, offset, metadata.layouts_[i].parameterCount_));
+            offset += metadata.layouts_[i].parameterCount_;
+        }
+        return result;
+    }
+
+    ActiveForwardCurves_ BuildActiveForwardCurves(const JointMultiCurveCalibrationSpec_& spec,
+                                                  const JointCurveMetadata_& metadata,
+                                                  const Vector_<AAD::Number_>& parameters,
+                                                  const ActiveDiscountCurves_& discounts) {
+        ActiveForwardCurves_ result;
+        int offset = 0;
+        for (int i = 0; i < static_cast<int>(spec.curves_.size()); ++i) {
+            const auto& declaration = spec.curves_[i];
+            if (!declaration.calibrateDiscountCurve_) {
+                if (declaration.baseLayeredOverDiscount_) {
+                    Handle_<ActiveDiscountCurve_> base(discounts.at(declaration.targetCollateral_));
+                    result[declaration.targetTenor_] = BuildDiscountCurveT<AAD::Number_, ActiveDiscountCurve_>(
+                        metadata.definitions_[i], Slice(parameters, offset, metadata.layouts_[i].parameterCount_), base);
+                } else {
+                    result[declaration.targetTenor_] =
+                        BuildDiscountCurveT<AAD::Number_>(metadata.definitions_[i], Slice(parameters, offset, metadata.layouts_[i].parameterCount_));
+                }
+            }
+            offset += metadata.layouts_[i].parameterCount_;
+        }
+        return result;
+    }
+
+    Tape::JointCurveBlock_<AAD::Number_> BuildActiveCurveBlock(const ActiveDiscountCurves_& discounts, const ActiveForwardCurves_& forwards) {
+        Tape::JointCurveBlock_<AAD::Number_> result;
+        for (const auto& [collateral, curve] : discounts)
+            result.discountCurves[collateral] = curve.get();
+        for (const auto& [tenor, curve] : forwards)
+            result.forwardCurves[tenor] = curve.get();
+        return result;
     }
 
     Handle_<Tape::Rate_<AAD::Number_>> DiscountRateT(const YCInstrument_& instrument) {
@@ -362,66 +439,32 @@ namespace {
             [](const Swap_& swap) { return swap.PrecomputeT<AAD::Number_>(); });
     }
 
-    Matrix_<> EvalJointAadJacobian(const JointMultiCurveCalibrationSpec_& spec, const Vector_<>& parameters) {
-        auto* tape = AAD::Tape();
-        TapeGuard_ guard(tape);
-        Vector_<AAD::Number_> activeParameters = RegisterCurveParameters(parameters);
-        AAD::NewRecording(*tape);
-
-        Vector_<CurveDefinition_> definitions;
-        Vector_<CurveParameterLayout_> layouts;
-        definitions.reserve(spec.curves_.size());
-        layouts.reserve(spec.curves_.size());
-        for (const auto& declaration : spec.curves_) {
-            definitions.push_back(MakeCurveDefinition(declaration.curveName_, spec.ccy_, declaration.parameterization_, declaration.logDfScheme_,
-                                                      declaration.knotDates_, spec.today_, spec.liborBasis_));
-            layouts.push_back(BuildCurveParameterLayout(definitions.back()));
-        }
-
-        std::map<CollateralType_, std::shared_ptr<Tape::DiscountCurve_<AAD::Number_>>> discounts;
-        std::map<PeriodLength_, std::shared_ptr<Tape::DiscountCurve_<AAD::Number_>>> forwards;
-        int offset = 0;
-        for (int i = 0; i < static_cast<int>(spec.curves_.size()); ++i) {
-            const auto& declaration = spec.curves_[i];
-            if (declaration.calibrateDiscountCurve_)
-                discounts[declaration.targetCollateral_] =
-                    BuildDiscountCurveT<AAD::Number_>(definitions[i], Slice(activeParameters, offset, layouts[i].parameterCount_));
-            offset += layouts[i].parameterCount_;
-        }
-        offset = 0;
-        for (int i = 0; i < static_cast<int>(spec.curves_.size()); ++i) {
-            const auto& declaration = spec.curves_[i];
-            if (!declaration.calibrateDiscountCurve_) {
-                if (declaration.baseLayeredOverDiscount_) {
-                    Handle_<Tape::DiscountCurve_<AAD::Number_>> base(discounts.at(declaration.targetCollateral_));
-                    forwards[declaration.targetTenor_] = BuildDiscountCurveT<AAD::Number_, Tape::DiscountCurve_<AAD::Number_>>(
-                        definitions[i], Slice(activeParameters, offset, layouts[i].parameterCount_), base);
-                } else {
-                    forwards[declaration.targetTenor_] =
-                        BuildDiscountCurveT<AAD::Number_>(definitions[i], Slice(activeParameters, offset, layouts[i].parameterCount_));
-                }
-            }
-            offset += layouts[i].parameterCount_;
-        }
-
-        Tape::JointCurveBlock_<AAD::Number_> block;
-        for (const auto& [collateral, curve] : discounts)
-            block.discountCurves[collateral] = curve.get();
-        for (const auto& [tenor, curve] : forwards)
-            block.forwardCurves[tenor] = curve.get();
-
-        Vector_<AAD::Number_> residuals;
+    Vector_<AAD::Number_> EvaluateActiveResiduals(const JointMultiCurveCalibrationSpec_& spec, const Tape::JointCurveBlock_<AAD::Number_>& block) {
+        Vector_<AAD::Number_> result;
         for (const auto& declaration : spec.curves_) {
             const auto instruments = OrderInstruments(declaration.instruments_);
             for (const auto& instrument : instruments) {
                 const RateIndexConvention_& convention = *FloatConventionOf(*instrument);
                 if (convention.useProjectionCurve_)
-                    residuals.push_back((*Tape::ProjectionRateAt<AAD::Number_>(*instrument))(block)-instrument->MarketRate());
+                    result.push_back((*Tape::ProjectionRateAt<AAD::Number_>(*instrument))(block) - instrument->MarketRate());
                 else
-                    residuals.push_back((*DiscountRateT(*instrument))(Tape::YCCtx_<AAD::Number_>(block.Discount(convention.collateral_))) -
-                                        instrument->MarketRate());
+                    result.push_back((*DiscountRateT(*instrument))(Tape::YCCtx_<AAD::Number_>(block.Discount(convention.collateral_))) -
+                                     instrument->MarketRate());
             }
         }
+        return result;
+    }
+
+    Matrix_<> EvalJointAadJacobian(const JointMultiCurveCalibrationSpec_& spec, const Vector_<>& parameters) {
+        auto* tape = AAD::Tape();
+        TapeGuard_ guard(tape);
+        Vector_<AAD::Number_> activeParameters = RegisterCurveParameters(parameters);
+        AAD::NewRecording(*tape);
+        const JointCurveMetadata_ metadata = BuildJointCurveMetadata(spec);
+        const ActiveDiscountCurves_ discounts = BuildActiveDiscountCurves(spec, metadata, activeParameters);
+        const ActiveForwardCurves_ forwards = BuildActiveForwardCurves(spec, metadata, activeParameters, discounts);
+        const Tape::JointCurveBlock_<AAD::Number_> block = BuildActiveCurveBlock(discounts, forwards);
+        Vector_<AAD::Number_> residuals = EvaluateActiveResiduals(spec, block);
         return HarvestCurveJacobian(*tape, activeParameters, residuals);
     }
 
@@ -655,6 +698,42 @@ TEST(JointAnalyticJacobianTest, TestPiecewiseConstantDeclarationsEngageAnalyticJ
     ASSERT_FALSE(result.jacobianAtSolution_.Empty());
     ASSERT_EQ(result.jacobianAtSolution_.Rows(), 1);
     ASSERT_EQ(result.jacobianAtSolution_.Cols(), 1);
+}
+
+TEST(JointAnalyticJacobianTest, TestDiscountDeclarationFraEngagesAnalyticJacobian) {
+    const Date_ today(2024, 1, 15);
+    const Date_ maturity = Date::AddMonths(today, 3);
+    RateIndexConvention_ discountIndex;
+    discountIndex.useProjectionCurve_ = false;
+    discountIndex.forecastTenor_ = PeriodLength_("3M");
+    discountIndex.dayBasis_ = DayBasis_("ACT_365F");
+    discountIndex.fixingHolidays_ = Holidays::None();
+    discountIndex.accrualHolidays_ = Holidays::None();
+    discountIndex.collateral_ = CollateralType_(CollateralType_::Value_::OIS);
+
+    JointCurveDeclaration_ declaration;
+    declaration.curveName_ = "joint_discount_fra";
+    declaration.parameterization_ = CurveParameterization_::Value_::PIECEWISE_CONSTANT_FWD;
+    declaration.knotDates_ = {maturity};
+    declaration.instruments_ = {Handle_<YCInstrument_>(new FRA_(today, today, maturity, 0.015, discountIndex))};
+
+    JointMultiCurveCalibrationSpec_ spec;
+    spec.today_ = today;
+    spec.ccy_ = "USD";
+    spec.curves_ = {declaration};
+    spec.liborBasis_ = DayBasis_("ACT_365F");
+    spec.tolerance_ = 1.0e-10;
+    spec.fitTolerance_ = 1.0e-8;
+    spec.initialGuess_ = 0.02;
+    spec.solveMode_ = CurveSolveMode_::Value_::EXACT;
+
+    JointMultiCurveCalibrationOptions_ options;
+    options.jacobianMode_ = CurveJacobianMode_::Value_::ANALYTIC;
+    const JointMultiCurveCalibrationResult_ result = CalibrateJointMultiCurve(spec, options);
+    ASSERT_TRUE(result.converged_);
+    ASSERT_EQ(result.jacobianAtSolution_.Rows(), 1);
+    ASSERT_EQ(result.jacobianAtSolution_.Cols(), 1);
+    ASSERT_NE(result.jacobianAtSolution_(0, 0), 0.0);
 }
 
 TEST(JointAnalyticJacobianTest, TestPiecewiseConstantInitialJacobianMatchesCentralDifferences) {

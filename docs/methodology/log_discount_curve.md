@@ -67,11 +67,11 @@ not a safe truncation boundary when payment dates may be adjusted or lagged.
 
 ## `LogDfScheme_`
 
-| Scheme | Definition on $\ell(\tau)$ | Minimum storage nodes | Sensitivity support |
-|--------|------------------------------|-----------------------|---------------------|
-| `LOG_LINEAR` | Piecewise linear | 2 | Local segment, except tail secant |
-| `LOG_CUBIC_NATURAL` | Natural cubic with zero endpoint curvature | 3 | Global |
-| `MIXED` | Linear head and natural-cubic tail | 4 | Local in head, global over tail |
+| Scheme                | Definition on $\ell(\tau)$                   | Minimum storage nodes | Sensitivity support               |
+|-----------------------|----------------------------------------------|-----------------------|-----------------------------------|
+| `LOG_LINEAR`          | Piecewise linear                             | 2                     | Local segment, except tail secant |
+| `LOG_CUBIC_NATURAL`   | Natural cubic with zero endpoint curvature   | 3                     | Global                            |
+| `MIXED`               | Linear head and natural-cubic tail           | 4                     | Local in head, global over tail   |
 
 ### Log-linear
 
