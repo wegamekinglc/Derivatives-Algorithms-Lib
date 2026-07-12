@@ -66,6 +66,37 @@ TEST(CurveParameterizationTest, TestZeroRateDefinitionPrependsAnchorAndPreserves
     ASSERT_TRUE(layout.pinnedAnchor_);
 }
 
+TEST(CurveParameterizationTest, TestCurveDefinitionPreservesLegacyAggregateInitializerOrder) {
+    const Vector_<Date_> nodeDates{Date_(2024, 1, 15), Date_(2025, 1, 15)};
+    const DayBasis_ dayCount("ACT_365F");
+    const CurveDefinition_ definition{"legacy",  "USD",   CurveParameterization_::Value_::LOG_DISCOUNT, LogDfScheme_::Value_::LOG_LINEAR,
+                                      nodeDates, dayCount};
+
+    ASSERT_EQ(definition.nodeDates_, nodeDates);
+    ASSERT_EQ(definition.dayCount_.String(), String_("ACT_365F"));
+    ASSERT_EQ(definition.anchorDate_, Date_());
+}
+
+TEST(CurveParameterizationTest, TestZeroRateLayoutRejectsMalformedManualDefinitions) {
+    const Date_ anchor(2024, 1, 15);
+    const Vector_<Date_> maturities{Date_(2024, 7, 15), Date_(2025, 1, 15), Date_(2026, 1, 15)};
+    const DayBasis_ dayCount("ACT_365F");
+    const auto valid =
+        MakeCurveDefinition("zero", "USD", CurveParameterization_::Value_::ZERO_RATE, LogDfScheme_::Value_::LOG_LINEAR, maturities, anchor, dayCount);
+
+    auto anchorMismatch = valid;
+    anchorMismatch.anchorDate_ = Date_(2024, 1, 16);
+    ASSERT_THROW(BuildCurveParameterLayout(anchorMismatch), Exception_);
+
+    auto missingFutureNode = valid;
+    missingFutureNode.nodeDates_ = Vector_<Date_>{anchor};
+    ASSERT_THROW(BuildCurveParameterLayout(missingFutureNode), Exception_);
+
+    auto nonMonotonic = valid;
+    nonMonotonic.nodeDates_[2] = nonMonotonic.nodeDates_[1];
+    ASSERT_THROW(BuildDiscountCurveT<double>(nonMonotonic, Vector_<>{0.01, 0.02, 0.03}), Exception_);
+}
+
 TEST(CurveParameterizationTest, TestZeroRateDefinitionRejectsNonFutureAndDuplicateKnots) {
     const Date_ anchor(2024, 1, 15);
     const DayBasis_ dayCount("ACT_365F");

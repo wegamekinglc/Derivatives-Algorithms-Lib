@@ -31,7 +31,7 @@ namespace Dal {
             DiscountZeroRate_(const String_& name,
                               const String_& ccy,
                               const Date_& anchorDate,
-                              const Vector_<Date_>& nodeDates,
+                              Vector_<Date_> nodeDates,
                               const Vector_<T_>& zeroRates,
                               const DayBasis_& dayCount,
                               LogDfScheme_ scheme,

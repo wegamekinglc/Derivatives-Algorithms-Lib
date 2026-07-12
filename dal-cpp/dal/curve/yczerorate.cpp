@@ -8,6 +8,7 @@
 
 #include <cmath>
 #include <type_traits>
+#include <utility>
 
 #include <dal/curve/yczerorate.hpp>
 #include <dal/math/aad/aad.hpp>
@@ -21,13 +22,13 @@ namespace Dal {
         DiscountZeroRate_<T_, B_>::DiscountZeroRate_(const String_& name,
                                                      const String_& ccy,
                                                      const Date_& anchorDate,
-                                                     const Vector_<Date_>& nodeDates,
+                                                     Vector_<Date_> nodeDates,
                                                      const Vector_<T_>& zeroRates,
                                                      const DayBasis_& dayCount,
                                                      LogDfScheme_ scheme,
                                                      const Handle_<B_>& base)
-            : CurveWithBase_<DiscountCurve_<T_>, B_>(name, ccy, base), anchorDate_(anchorDate), nodeDates_(nodeDates), dayCount_(dayCount),
-              yearFractions_(nodeDates.size() + 1, 0.0), zeroRates_(zeroRates), scheme_(scheme) {
+            : CurveWithBase_<DiscountCurve_<T_>, B_>(name, ccy, base), anchorDate_(anchorDate), nodeDates_(std::move(nodeDates)), dayCount_(dayCount),
+              yearFractions_(nodeDates_.size() + 1, 0.0), zeroRates_(zeroRates), scheme_(scheme) {
             REQUIRE(!nodeDates_.empty(), "zero-rate discount curve: need at least one future node");
             REQUIRE(nodeDates_.size() == zeroRates_.size(), "zero-rate discount curve: nodeDates and zeroRates must have equal length");
             REQUIRE(IsMonotonic(nodeDates_), "zero-rate discount curve: node dates must be strictly increasing");

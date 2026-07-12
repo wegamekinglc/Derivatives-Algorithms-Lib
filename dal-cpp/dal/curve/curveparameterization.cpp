@@ -46,7 +46,7 @@ namespace Dal {
             REQUIRE(false, "Unknown curve parameterization");
         }
 
-        return {name, ccy, parameterization, logDfScheme, anchor, nodeDates, dayCount};
+        return {name, ccy, parameterization, logDfScheme, nodeDates, dayCount, anchor};
     }
 
     CurveParameterLayout_ BuildCurveParameterLayout(const CurveDefinition_& definition) {
@@ -59,6 +59,12 @@ namespace Dal {
         case CurveParameterization_::Value_::PIECEWISE_LINEAR_FWD:
             return {storageNodes, 2 * storageNodes, 2, false};
         case CurveParameterization_::Value_::ZERO_RATE:
+            REQUIRE(storageNodes >= 2, "BuildCurveParameterLayout: zero-rate definition needs an anchor and at least one future node");
+            REQUIRE(definition.nodeDates_.front() == definition.anchorDate_,
+                    "BuildCurveParameterLayout: zero-rate definition must begin at its anchor");
+            REQUIRE(IsMonotonic(definition.nodeDates_), "BuildCurveParameterLayout: zero-rate definition dates must be strictly increasing");
+            REQUIRE(definition.nodeDates_[1] > definition.anchorDate_,
+                    "BuildCurveParameterLayout: zero-rate definition nodes must be strictly after the anchor");
             return {storageNodes, storageNodes - 1, 1, true};
         default:
             REQUIRE(false, "Unknown curve parameterization");
@@ -100,8 +106,8 @@ namespace Dal {
             return std::make_unique<Tape::DiscountPWLF_<T_, B_>>(definition.name_, definition.ccy_, definition.nodeDates_, left, right, base);
         }
         case CurveParameterization_::Value_::ZERO_RATE: {
-            Vector_<Date_> futureDates(definition.nodeDates_.begin() + 1, definition.nodeDates_.end());
-            return std::make_unique<Tape::DiscountZeroRate_<T_, B_>>(definition.name_, definition.ccy_, definition.anchorDate_, futureDates,
+            return std::make_unique<Tape::DiscountZeroRate_<T_, B_>>(definition.name_, definition.ccy_, definition.anchorDate_,
+                                                                     Vector_<Date_>(definition.nodeDates_.begin() + 1, definition.nodeDates_.end()),
                                                                      parameters, definition.dayCount_, definition.logDfScheme_, base);
         }
         default:
