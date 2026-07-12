@@ -23,6 +23,7 @@
 #include <dal/curve/ycinstrument.hpp>
 #include <dal/curve/yclogdf.hpp>
 #include <dal/curve/ycpwlf.hpp>
+#include <dal/curve/yczerorate.hpp>
 #include <dal/protocol/collateraltype.hpp>
 #include <dal/protocol/rateconvention.hpp>
 #include <dal/time/date.hpp>
@@ -183,6 +184,8 @@ namespace {
             return Vector_<>(knots.size(), rate);
         case CurveParameterization_::Value_::PIECEWISE_LINEAR_FWD:
             return Vector_<>(2 * knots.size(), rate);
+        case CurveParameterization_::Value_::ZERO_RATE:
+            return Vector_<>(knots.size(), rate);
         default:
             REQUIRE(false, "Unsupported parameterization in joint test setup");
             return {};
@@ -289,6 +292,11 @@ namespace {
                 result[2 * i + 1] = right[i];
             }
             return result;
+        }
+        case CurveParameterization_::Value_::ZERO_RATE: {
+            const auto* typed = dynamic_cast<const DiscountZeroRate_*>(&curve);
+            REQUIRE(typed, "Expected a zero-rate curve");
+            return typed->NodeZeroRates();
         }
         default:
             REQUIRE(false, "Unsupported parameterization in joint test extraction");
@@ -523,6 +531,28 @@ namespace {
         ASSERT_EQ(bumpedSolved.size(), solved.size());
         for (int i = 0; i < static_cast<int>(solved.size()); ++i)
             ASSERT_NEAR(solved[i], bumpedSolved[i], 2.0e-5) << "solver column=" << i;
+
+        ASSERT_EQ(analytic.diagnostics_.size(), bumped.diagnostics_.size());
+        for (int declarationIndex = 0; declarationIndex < static_cast<int>(spec.curves_.size()); ++declarationIndex) {
+            const auto& declaration = spec.curves_[declarationIndex];
+            const auto& analyticResiduals = analytic.diagnostics_[declarationIndex].residuals_;
+            const auto& bumpedResiduals = bumped.diagnostics_[declarationIndex].residuals_;
+            ASSERT_EQ(analyticResiduals.size(), bumpedResiduals.size());
+            for (int row = 0; row < static_cast<int>(analyticResiduals.size()); ++row)
+                ASSERT_NEAR(analyticResiduals[row], bumpedResiduals[row], 2.0e-8)
+                    << "declaration=" << declarationIndex << ", residual row=" << row;
+
+            const Handle_<DiscountCurve_>& analyticCurve =
+                declaration.calibrateDiscountCurve_ ? analytic.discountCurves_.at(declaration.targetCollateral_)
+                                                    : analytic.forwardCurves_.at(declaration.targetTenor_);
+            const Handle_<DiscountCurve_>& bumpedCurve =
+                declaration.calibrateDiscountCurve_ ? bumped.discountCurves_.at(declaration.targetCollateral_)
+                                                    : bumped.forwardCurves_.at(declaration.targetTenor_);
+            for (int knot = 0; knot < static_cast<int>(declaration.knotDates_.size()); ++knot)
+                ASSERT_NEAR((*analyticCurve)(spec.today_, declaration.knotDates_[knot]),
+                            (*bumpedCurve)(spec.today_, declaration.knotDates_[knot]), 2.0e-5)
+                    << "declaration=" << declarationIndex << ", knot=" << knot;
+        }
     }
 } // namespace
 
@@ -789,6 +819,23 @@ TEST(JointAnalyticJacobianTest, TestHomogeneousParameterizationsMatchCentralDiff
     }
 }
 
+TEST(JointAnalyticJacobianTest, TestHomogeneousZeroRateParameterizationsMatchCentralDifferences) {
+    RegisterAll_::Init();
+    const Date_ today(2024, 1, 15);
+    const Ccy_ ccy("USD");
+    const Vector_<LogDfScheme_> schemes = {
+        LogDfScheme_::Value_::LOG_LINEAR,
+        LogDfScheme_::Value_::LOG_CUBIC_NATURAL,
+        LogDfScheme_::Value_::MIXED,
+    };
+    for (const LogDfScheme_ scheme : schemes) {
+        SCOPED_TRACE(scheme.String());
+        const JointMultiCurveCalibrationSpec_ spec = BuildParameterizationSpec(
+            today, ccy, CurveParameterization_::Value_::ZERO_RATE, CurveParameterization_::Value_::ZERO_RATE, scheme);
+        ASSERT_NO_THROW(AssertJointJacobianMatchesCentralDifferences(spec, String_("homogeneous ZERO_RATE ") + scheme.String()));
+    }
+}
+
 TEST(JointAnalyticJacobianTest, TestMixedParameterizationsMatchCentralDifferences) {
     RegisterAll_::Init();
     const Date_ today(2024, 1, 15);
@@ -802,6 +849,29 @@ TEST(JointAnalyticJacobianTest, TestMixedParameterizationsMatchCentralDifference
         BuildParameterizationSpec(today, ccy, CurveParameterization_::Value_::PIECEWISE_CONSTANT_FWD,
                                   CurveParameterization_::Value_::PIECEWISE_LINEAR_FWD, LogDfScheme_::Value_::LOG_LINEAR);
     ASSERT_NO_THROW(AssertJointJacobianMatchesCentralDifferences(pwcPwl, "PWC discount plus base-layered PWL forward"));
+}
+
+TEST(JointAnalyticJacobianTest, TestMixedZeroRateParameterizationsMatchCentralDifferences) {
+    RegisterAll_::Init();
+    const Date_ today(2024, 1, 15);
+    const Ccy_ ccy("USD");
+    const JointMultiCurveCalibrationSpec_ zeroRateLogDf = BuildParameterizationSpec(
+        today, ccy, CurveParameterization_::Value_::ZERO_RATE, CurveParameterization_::Value_::LOG_DISCOUNT, LogDfScheme_::Value_::MIXED);
+    ASSERT_NO_THROW(AssertJointJacobianMatchesCentralDifferences(zeroRateLogDf, "ZERO_RATE discount plus base-layered log-DF forward"));
+
+    const JointMultiCurveCalibrationSpec_ zeroRatePwc =
+        BuildParameterizationSpec(today, ccy, CurveParameterization_::Value_::ZERO_RATE, CurveParameterization_::Value_::PIECEWISE_CONSTANT_FWD,
+                                  LogDfScheme_::Value_::LOG_LINEAR);
+    ASSERT_NO_THROW(AssertJointJacobianMatchesCentralDifferences(zeroRatePwc, "ZERO_RATE discount plus base-layered PWC forward"));
+
+    const JointMultiCurveCalibrationSpec_ zeroRatePwl =
+        BuildParameterizationSpec(today, ccy, CurveParameterization_::Value_::ZERO_RATE, CurveParameterization_::Value_::PIECEWISE_LINEAR_FWD,
+                                  LogDfScheme_::Value_::LOG_CUBIC_NATURAL);
+    ASSERT_NO_THROW(AssertJointJacobianMatchesCentralDifferences(zeroRatePwl, "ZERO_RATE discount plus base-layered PWL forward"));
+
+    const JointMultiCurveCalibrationSpec_ pwcZeroRate = BuildParameterizationSpec(
+        today, ccy, CurveParameterization_::Value_::PIECEWISE_CONSTANT_FWD, CurveParameterization_::Value_::ZERO_RATE, LogDfScheme_::Value_::MIXED);
+    ASSERT_NO_THROW(AssertJointJacobianMatchesCentralDifferences(pwcZeroRate, "PWC discount plus base-layered ZERO_RATE forward"));
 }
 
 TEST(JointAnalyticJacobianTest, TestBumpedFallbackIsByteForByte) {

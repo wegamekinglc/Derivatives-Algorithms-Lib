@@ -7,11 +7,13 @@
 #include <dal/platform/platform.hpp>
 #include <dal/curve/calibration.hpp>
 #include <dal/curve/curveblock.hpp>
+#include <dal/curve/curveparameterization.hpp>
 #include <dal/curve/discount.hpp>
 #include <dal/curve/jointcalibration.hpp>
 #include <dal/curve/piecewiselinear.hpp>
 #include <dal/curve/ycimp.hpp>
 #include <dal/curve/ycinstrument.hpp>
+#include <dal/curve/yczerorate.hpp>
 #include <dal/currency/currencydata.hpp>
 #include <dal/protocol/collateraltype.hpp>
 #include <dal/protocol/rateconvention.hpp>
@@ -325,6 +327,52 @@ TEST(JointCalibrationTest, TestJointCalibrationConvergesAndFitsInstruments) {
     ASSERT_NEAR(result.diagnostics_[1].maxAbsResidual_, 0.0, 1.0e-7);
     ASSERT_NEAR(result.jointMaxAbsResidual_, 0.0, 1.0e-7);
     ASSERT_TRUE(result.solverEvaluations_ > 0);
+}
+
+TEST(JointCalibrationTest, TestHomogeneousZeroRateCalibrationPreservesDeclarationAndKnotOrder) {
+    RegisterAll_::Init();
+    const Date_ today(2024, 1, 15);
+    const Ccy_ ccy("USD");
+    const PrototypeSet_ proto = BuildPrototypes(today, ccy);
+    JointMultiCurveCalibrationSpec_ spec = BuildCanonicalJointSpec(today, ccy, proto);
+    spec.curves_[0].parameterization_ = CurveParameterization_::Value_::ZERO_RATE;
+    spec.curves_[0].initialGuessPerNode_ = Vector_<>(spec.curves_[0].knotDates_.size(), 0.01);
+    spec.curves_[1].parameterization_ = CurveParameterization_::Value_::ZERO_RATE;
+    spec.curves_[1].baseLayeredOverDiscount_ = true;
+    spec.curves_[1].initialGuessPerNode_ = Vector_<>(spec.curves_[1].knotDates_.size(), 0.03);
+
+    JointMultiCurveCalibrationOptions_ options;
+    options.jacobianMode_ = CurveJacobianMode_::Value_::BUMPED;
+    options.computeJacobianAtSolution_ = false;
+    const JointMultiCurveCalibrationResult_ result = CalibrateJointMultiCurve(spec, options);
+
+    ASSERT_TRUE(result.converged_);
+    ASSERT_EQ(result.diagnostics_.size(), 2);
+    ASSERT_EQ(result.diagnostics_[0].curveIndex_, 0);
+    ASSERT_EQ(result.diagnostics_[0].curveName_, spec.curves_[0].curveName_);
+    ASSERT_EQ(result.diagnostics_[1].curveIndex_, 1);
+    ASSERT_EQ(result.diagnostics_[1].curveName_, spec.curves_[1].curveName_);
+    ASSERT_LT(result.jointMaxAbsResidual_, 1.0e-7);
+
+    const auto* discount = dynamic_cast<const DiscountZeroRate_*>(result.discountCurves_.at(spec.curves_[0].targetCollateral_).get());
+    const auto* forward = dynamic_cast<const DiscountZeroRate_*>(result.forwardCurves_.at(spec.curves_[1].targetTenor_).get());
+    ASSERT_NE(discount, nullptr);
+    ASSERT_NE(forward, nullptr);
+    ASSERT_EQ(discount->AnchorDate(), today);
+    ASSERT_EQ(forward->AnchorDate(), today);
+    ASSERT_EQ(discount->NodeDates(), spec.curves_[0].knotDates_);
+    ASSERT_EQ(forward->NodeDates(), spec.curves_[1].knotDates_);
+    ASSERT_EQ(discount->NodeZeroRates().size(), spec.curves_[0].knotDates_.size());
+    ASSERT_EQ(forward->NodeZeroRates().size(), spec.curves_[1].knotDates_.size());
+
+    const CurveDefinition_ discountDefinition =
+        MakeCurveDefinition(spec.curves_[0].curveName_, spec.ccy_, spec.curves_[0].parameterization_, spec.curves_[0].logDfScheme_,
+                            spec.curves_[0].knotDates_, spec.today_, spec.liborBasis_);
+    const CurveDefinition_ forwardDefinition =
+        MakeCurveDefinition(spec.curves_[1].curveName_, spec.ccy_, spec.curves_[1].parameterization_, spec.curves_[1].logDfScheme_,
+                            spec.curves_[1].knotDates_, spec.today_, spec.liborBasis_);
+    ASSERT_EQ(BuildCurveParameterLayout(discountDefinition).parameterCount_, static_cast<int>(discount->NodeZeroRates().size()));
+    ASSERT_EQ(BuildCurveParameterLayout(forwardDefinition).parameterCount_, static_cast<int>(forward->NodeZeroRates().size()));
 }
 
 TEST(JointCalibrationTest, TestJointOisCurveAgreesWithStagedOis) {
