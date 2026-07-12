@@ -18,6 +18,7 @@ namespace Dal {
         String_ ccy_;
         CurveParameterization_ parameterization_;
         LogDfScheme_ logDfScheme_;
+        Date_ anchorDate_;
         Vector_<Date_> nodeDates_;
         DayBasis_ dayCount_;
     };

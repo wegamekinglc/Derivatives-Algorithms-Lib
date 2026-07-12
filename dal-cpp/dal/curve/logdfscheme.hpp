@@ -10,7 +10,7 @@
 
 /*IF--------------------------------------------------------------------------
 enumeration LogDfScheme
-    Selection of interpolation scheme for a LOG_DISCOUNT curve
+    Selection of mapped log-discount-factor interpolation scheme for LOG_DISCOUNT and ZERO_RATE curves
 switchable
 alternative LOG_LINEAR
 alternative LOG_CUBIC_NATURAL

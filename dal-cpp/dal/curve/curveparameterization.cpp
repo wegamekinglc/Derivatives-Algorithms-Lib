@@ -8,6 +8,7 @@
 #include <dal/curve/ycconst.hpp>
 #include <dal/curve/yclogdf.hpp>
 #include <dal/curve/ycpwlf.hpp>
+#include <dal/curve/yczerorate.hpp>
 #include <dal/platform/strict.hpp>
 #include <dal/utilities/algorithms.hpp>
 #include <dal/utilities/exceptions.hpp>
@@ -37,13 +38,15 @@ namespace Dal {
             nodeDates = declaredKnots;
             break;
         case CurveParameterization_::Value_::ZERO_RATE:
-            REQUIRE(false, "Requested curve parameterization is not implemented");
+            REQUIRE(declaredKnots.front() > anchor, "MakeCurveDefinition: zero-rate knots must be after the anchor");
+            nodeDates.push_back(anchor);
+            nodeDates.Append(declaredKnots);
             break;
         default:
             REQUIRE(false, "Unknown curve parameterization");
         }
 
-        return {name, ccy, parameterization, logDfScheme, nodeDates, dayCount};
+        return {name, ccy, parameterization, logDfScheme, anchor, nodeDates, dayCount};
     }
 
     CurveParameterLayout_ BuildCurveParameterLayout(const CurveDefinition_& definition) {
@@ -56,8 +59,7 @@ namespace Dal {
         case CurveParameterization_::Value_::PIECEWISE_LINEAR_FWD:
             return {storageNodes, 2 * storageNodes, 2, false};
         case CurveParameterization_::Value_::ZERO_RATE:
-            REQUIRE(false, "Requested curve parameterization is not implemented");
-            return {};
+            return {storageNodes, storageNodes - 1, 1, true};
         default:
             REQUIRE(false, "Unknown curve parameterization");
             return {};
@@ -97,9 +99,11 @@ namespace Dal {
             }
             return std::make_unique<Tape::DiscountPWLF_<T_, B_>>(definition.name_, definition.ccy_, definition.nodeDates_, left, right, base);
         }
-        case CurveParameterization_::Value_::ZERO_RATE:
-            REQUIRE(false, "Requested curve parameterization is not implemented");
-            return nullptr;
+        case CurveParameterization_::Value_::ZERO_RATE: {
+            Vector_<Date_> futureDates(definition.nodeDates_.begin() + 1, definition.nodeDates_.end());
+            return std::make_unique<Tape::DiscountZeroRate_<T_, B_>>(definition.name_, definition.ccy_, definition.anchorDate_, futureDates,
+                                                                     parameters, definition.dayCount_, definition.logDfScheme_, base);
+        }
         default:
             REQUIRE(false, "Unknown curve parameterization");
             return nullptr;
