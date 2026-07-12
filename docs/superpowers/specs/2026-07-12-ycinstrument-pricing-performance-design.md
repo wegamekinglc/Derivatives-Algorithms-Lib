@@ -70,15 +70,15 @@ the benchmark includes the same discount-plus-spread evaluation used by multi-cu
 
 ## Individual Instrument Matrix
 
-| Instrument | Representative contract | Pricing route | Analytical-Jacobian note |
-|------------|-------------------------|---------------|--------------------------|
-| `Deposit_` | 6M | OIS discount | Direct visitor family |
-| `FRA_` | 3x6 | 3M projection | Direct visitor family |
-| `Future_` | 3x6 with 15bp convexity adjustment | 3M projection | Direct visitor family |
-| `STIR_` | 3x6 | OIS discount | Inherits FRA pricing |
-| `Swap_` | 10Y, annual fixed and quarterly floating | OIS discount plus 3M projection | Direct visitor family |
-| `OISSwap_` | 10Y, annual fixed and annual overnight | OIS discount | Inherits swap pricing |
-| `BasisSwap_` | 10Y, quarterly 3M versus semiannual 6M | OIS discount plus two projections | Passive/BUMPED only |
+| Instrument   | Representative contract                  | Pricing route                     | Analytical-Jacobian note |
+|--------------|------------------------------------------|-----------------------------------|--------------------------|
+| `Deposit_`   | 6M                                       | OIS discount                      | Direct visitor family    |
+| `FRA_`       | 3x6                                      | 3M projection                     | Direct visitor family    |
+| `Future_`    | 3x6 with 15bp convexity adjustment       | 3M projection                     | Direct visitor family    |
+| `STIR_`      | 3x6                                      | OIS discount                      | Inherits FRA pricing     |
+| `Swap_`      | 10Y, annual fixed and quarterly floating | OIS discount plus 3M projection   | Direct visitor family    |
+| `OISSwap_`   | 10Y, annual fixed and annual overnight   | OIS discount                      | Inherits swap pricing    |
+| `BasisSwap_` | 10Y, quarterly 3M versus semiannual 6M   | OIS discount plus two projections | Passive/BUMPED only      |
 
 Every matrix entry produces two rows:
 
