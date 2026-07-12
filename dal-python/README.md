@@ -8,7 +8,7 @@ Python bindings for the Derivatives Algorithms Library (DAL) — a high-performa
 - **Monte Carlo simulation** with pseudo-random and Sobol sequence generators
 - **AAD Greeks** — compute pathwise sensitivities (delta, vega, rho, etc.) in a single simulation
 - **Script engine** — define exotic payoffs using a domain-specific language
-- **Curve calibration** — single-curve, multi-curve, and cross-currency calibration with DF-node / log-discount curves and AAD analytic Jacobians
+- **Curve calibration** — single-curve, multi-curve, and cross-currency calibration with forward, log-discount, and continuously compounded zero-rate curves plus AAD analytic Jacobians
 - **Type-safe wrappers** for `Date_`, `Matrix_`, `Cell_`, and vector types
 
 ## Prerequisites
@@ -362,12 +362,63 @@ The hand-written Python code in `src/dal/` provides:
 The `curve` bindings (`dal-python/src/bindings/curve.cpp`) expose the full curve-calibration surface:
 
 - **Instrument builders** — `Deposit_New`, `FRA_New`, `Future_New`, `Swap_New`, `OISSwap_New`, `BasisSwap_New`, `CrossCurrencySwap_New`
-- **Curve factories** — `DiscountPWLF_New`, `NewDiscountLogDF`
+- **Curve factories** — `DiscountPWLF_New`, `DiscountZeroRate_New`
 - **Calibration entry points** — `CalibrateSingleCurve`, `CalibrateMultiCurveBundle`, `CalibrateXccyMarket`
 - **Enums** — `CurveParameterization` (`PIECEWISE_LINEAR_FWD`, `PIECEWISE_CONSTANT_FWD`, `ZERO_RATE`, `LOG_DISCOUNT`), `CurveSolveMode` (`EXACT`, `APPROXIMATE`), `CurveJacobianMode` (`ANALYTIC`, `BUMPED`), `LogDfScheme` (`LOG_LINEAR`, `LOG_CUBIC_NATURAL`, `MIXED`)
 - **Spec builder** — `CurveCalibrationSpecBuilder_` for assembling `CurveCalibrationSpec_` / `MultiCurveCalibrationSpec_`
 
 The `dal.calibrate_curve(...)` helper in `api.py` wraps the common single-curve path with Python-friendly defaults. The underlying C++ methodology is documented in [docs/methodology/yield_curve.md](../docs/methodology/yield_curve.md) and [docs/methodology/yield_curve_jacobian.md](../docs/methodology/yield_curve_jacobian.md).
+
+### Continuously Compounded Zero-Rate Curves
+
+Build a persistent zero-rate curve directly with future-only nodes:
+
+```python
+today = dal.Date_(2026, 1, 2)
+node_dates = [dal.Date_(2027, 1, 2), dal.Date_(2028, 1, 2)]
+
+curve = dal.DiscountZeroRate_New(
+    "usd_zero",
+    "USD",
+    today,
+    node_dates,
+    [0.02, 0.025],
+    day_count=dal.DayBasis_("ACT_365F"),
+    log_df_scheme=dal.LogDfScheme.LOG_LINEAR,
+)
+```
+
+Each continuously compounded decimal rate $z_i$ is mapped to
+`logDF_i = -z_i * YearFrac(today, node_date_i)`. The anchor log DF is fixed at zero
+and has no zero-rate parameter. `LOG_LINEAR`, `LOG_CUBIC_NATURAL`, and `MIXED` all
+interpolate the mapped log DFs and share the same extrapolation policy. The returned
+`DiscountZeroRate_` exposes read-only `anchor_date`, `node_dates`, `zero_rates`,
+`day_count`, and `log_df_scheme` properties.
+
+For calibration, select `CurveParameterization.ZERO_RATE` and supply strictly-future
+knots. `initialGuess_` is a decimal continuously compounded zero rate copied to every
+node. Both low-level `CalibrateSingleCurve` and the convenience helper use the analytic
+AAD Jacobian when the normal single-discount-curve eligibility gates are met:
+
+```python
+result = dal.calibrate_curve(
+    today,
+    "USD",
+    instruments,
+    node_dates,
+    settings={
+        "parameterization": dal.CurveParameterization.ZERO_RATE,
+        "log_df_scheme": dal.LogDfScheme.LOG_CUBIC_NATURAL,
+        "initial_guess": 0.02,
+    },
+    jacobian_mode=dal.CurveJacobianMode.ANALYTIC,
+    base_curve=base_curve,  # optional: zero rates are spread coordinates over this base
+)
+```
+
+Python exposes single and staged multi-curve calibration, but not the core simultaneous
+joint-calibration API. A base curve is multiplied into the calibrated component; it is
+not a replacement for the pricing discount curve required by a forward-curve stage.
 
 ## Troubleshooting
 

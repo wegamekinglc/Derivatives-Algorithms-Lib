@@ -188,7 +188,7 @@ The v1 reader remains supported. Because v1 stored an `Interp1_` handle without 
 explicit `LogDfScheme_`, it reconstructs as `LOG_LINEAR`; v2 is the canonical format for
 scheme-preserving persistence.
 
-## Relationship to Forward-Rate Parameterizations
+## Relationship to Other Parameterizations
 
 PWC and PWL curves parameterize the instantaneous forward rate and integrate it to a log
 discount factor. `LOG_DISCOUNT` instead parameterizes cumulative log discount factors and
@@ -198,9 +198,11 @@ $$
 \ell_i=-\frac{1}{365}\int_{t_0}^{t_i}f(t)\,dt.
 $$
 
-All three representations implement the same `DiscountCurve_` contract, use the same
-curve-definition/factory layer during calibration, and support the AAD-derived analytic
-residual Jacobian. Their solver column layouts and between-node shapes differ.
+PWC, PWL, LOG_DISCOUNT, and ZERO_RATE all implement the same `DiscountCurve_` contract,
+use the same curve-definition/factory layer during calibration, and support the
+AAD-derived analytic residual Jacobian. ZERO_RATE maps a future node $z_i$ to
+$\ell_i=-z_i\tau_i$ before using this document's interpolation geometry. The four
+representations have different solver column units and between-node shapes.
 
 ## See Also
 

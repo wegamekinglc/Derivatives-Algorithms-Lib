@@ -84,14 +84,24 @@ The passive and AAD paths both construct curves from a `CurveDefinition_` and
 `CurveParameterLayout_`, so the solver column contract is shared rather than inferred
 separately at each call site.
 
-| `CurveParameterization_` | Columns contributed by one declaration | Stable column order                                                              |
-|--------------------------|----------------------------------------|----------------------------------------------------------------------------------|
-| `PIECEWISE_CONSTANT_FWD` | $K$                                    | right-hand forward value at knots $0,\dots,K-1$                                  |
-| `PIECEWISE_LINEAR_FWD`   | $2K$                                   | `fLeft[0]`, `fRight[0]`, ..., `fLeft[K-1]`, `fRight[K-1]`                        |
-| `LOG_DISCOUNT`           | $K$ future declared knots              | log DF at each future node; the prepended storage anchor is pinned and excluded  |
+| `CurveParameterization_` | Columns contributed by one declaration | Stable column order                                                             |
+|--------------------------|-----------------------------------------|---------------------------------------------------------------------------------|
+| `PIECEWISE_CONSTANT_FWD` | $K$                                     | right-hand forward value at knots $0,\dots,K-1$                                 |
+| `PIECEWISE_LINEAR_FWD`   | $2K$                                    | `fLeft[0]`, `fRight[0]`, ..., `fLeft[K-1]`, `fRight[K-1]`                       |
+| `LOG_DISCOUNT`           | $K$ future declared knots               | log DF at each future node; the pinned storage anchor is excluded               |
+| `ZERO_RATE`              | $K$ future declared knots               | continuously compounded decimal zero rate at each future node; anchor excluded  |
 
-`ZERO_RATE` remains unimplemented. All three `LogDfScheme_` choices use the same
-`LOG_DISCOUNT` column layout.
+For ZERO_RATE, node $j$ is mapped through $\ell_j=-z_j\tau_j$, so the direct node
+chain factor is
+
+$$
+\frac{\partial\ell_i}{\partial z_j}=-\tau_i\delta_{ij}.
+$$
+
+`ApplyDX`, central bumps, `jacobian_` columns, and `effJacobianInverse_` rows all use
+these zero-rate coordinates in future-knot order. Interpolation weights propagate the
+$-\tau_j$ factors away from nodes. All three `LogDfScheme_` choices retain the same
+column layout.
 
 For single-curve calibration, `ANALYTIC` admits every implemented representation when
 the target is a discount curve, each instrument has a supported templated rate, forecast
@@ -142,8 +152,8 @@ following hold (each failing condition emits a `NOTICE` naming it, then the
 solver dense-bumps):
 
 - every declaration uses an implemented representation: `PIECEWISE_CONSTANT_FWD`,
-  `PIECEWISE_LINEAR_FWD`, or `LOG_DISCOUNT` with any `LogDfScheme_`; `ZERO_RATE`
-  remains unimplemented;
+  `PIECEWISE_LINEAR_FWD`, `LOG_DISCOUNT`, or `ZERO_RATE`, with either mapped-log-DF
+  representation accepting any `LogDfScheme_`;
 - `liborBasis_ == ACT_365F` — the basis-year fraction in the simple-rate
   arithmetic must match the basis the templated rates assume;
 - every instrument is a vanilla `Deposit_`, `FRA_`, `Future_`, or `Swap_`
@@ -163,9 +173,9 @@ iteration. `ANALYTIC` never throws — an ineligible spec falls back to `BUMPED`
 byte-for-byte.
 
 Validation constructs every declaration through the shared curve-definition and layout
-layer. `ZERO_RATE` is rejected because no passive curve implementation exists; it is not
-an AAD-only limitation. The AAD tape is thread-local and each gradient evaluation uses a
-`TapeGuard_` to rewind its recording on normal and exceptional exit.
+layer. ZERO_RATE declarations use future-only knots and an internal pinned anchor. The AAD
+tape is thread-local and each gradient evaluation uses a `TapeGuard_` to rewind its
+recording on normal and exceptional exit.
 
 ### Discount-vs-forward routing, and the OIS post-2008 fallback
 
@@ -206,8 +216,8 @@ acts on is the **spread forward** $f_{\text{abs}} - f_{\text{ois}}$ rather than
 the absolute forward $f_{\text{abs}}$. This matches the staged calibration's
 base layering and is the form in which a LIBOR-OIS forward is naturally smooth.
 
-On the AAD tape every typed curve (`DiscountPWC_`, `DiscountPWLF_`, and
-`DiscountLogDF_`) carries an independent base type `B_`:
+On the AAD tape every typed curve (`DiscountPWC_`, `DiscountPWLF_`,
+`DiscountLogDF_`, and `DiscountZeroRate_`) carries an independent base type `B_`:
 
 - `B_ = DiscountCurve_<double>` — baseless / constant-base (the base is passive;
   its parameters carry no adjoints);
@@ -216,8 +226,9 @@ On the AAD tape every typed curve (`DiscountPWC_`, `DiscountPWLF_`, and
   multiplication into the discount-curve free nodes).
 
 The base-layered form is required for the joint solve to see the OIS → forward
-coupling on the tape. It is supported for PWC, PWL, and every log-DF interpolation
-scheme. A forward residual therefore has nonzero discount-curve columns both when its
+coupling on the tape. It is supported for PWC, PWL, LOG_DISCOUNT, and ZERO_RATE under
+every log-DF interpolation scheme. A forward residual therefore has nonzero
+discount-curve columns both when its
 discount leg reads the discount declaration and when its forecast curve multiplies by an
 active base.
 
@@ -255,7 +266,7 @@ persistent result curve use the serializable `double` specialisation; the
 `Number_`-typed curve exists only for the duration of one `Gradient` sweep and is
 discarded with the analytic-Jacobian frame.
 
-### PWC-forward and log-DF evaluation
+### PWC-forward and mapped log-DF evaluation
 
 `Tape::DiscountPWC_<T_, B_>` stores typed right-hand forward values and a typed running
 integral. Segment selection and elapsed-day factors are passive; integration and the
@@ -268,10 +279,16 @@ ordinates, making the passive and AAD evaluation definitions identical. Natural-
 weights can touch all storage nodes, while mixed weights are local in the linear head and
 global over the cubic tail. See [Log-discount curve](log_discount_curve.md).
 
+`Tape::DiscountZeroRate_<T_, B_>` first forms each typed ordinate
+$\ell_i=-z_i\tau_i$ from a typed zero rate and a passive year fraction, then applies the
+same interpolation weights. The anchor ordinate is the literal zero and is not registered
+as an independent. The passive specialization persists as `DiscountZeroRate_v1`; active
+and active-base specializations exist only inside a tape frame.
+
 ### Shared definition, factory, and harvester
 
 Both single and joint calibration use `CurveDefinition_`, `CurveParameterLayout_`, and
-`BuildDiscountCurveT` to dispatch once among the three implemented representations.
+`BuildDiscountCurveT` to dispatch once among the four implemented representations.
 Joint declarations are flattened in public declaration order and sliced according to the
 layout table above. Discount declarations are built first; forward declarations are then
 built with either an empty/passive base or the active discount curve selected by

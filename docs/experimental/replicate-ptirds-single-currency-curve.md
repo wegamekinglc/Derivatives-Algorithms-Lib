@@ -172,6 +172,10 @@ observed max `|err|` of ~`5.2e-7` (`log_linear`), ~`4.6e-7` (`log_cubic`), and
     (`dal-cpp/dal/curve/yclogdf.hpp`, `dal-cpp/dal/curve/yclogdf.cpp`; see
     [Log-discount curve](../methodology/log_discount_curve.md)). It is selected by
     the `LOG_DISCOUNT` value of `CurveParameterization_`.
+  - `NewDiscountZeroRate` — a persistent continuously compounded zero-rate curve.
+    Future rates map to log-DF nodes and then use the same `LogDfScheme_` machinery
+    (`dal-cpp/dal/curve/yczerorate.hpp`). This representation is not needed to match
+    the published DF-node table, but is available in the same calibration framework.
 
 ### 3.2 Interpolation methods
 
@@ -195,10 +199,11 @@ observed max `|err|` of ~`5.2e-7` (`log_linear`), ~`4.6e-7` (`log_cubic`), and
   [Log-discount curve](../methodology/log_discount_curve.md)). The cubic and mixed
   forms are natural cubics over the value array, not rateslib's clamped B-spline with
   repeated boundary knots — see §2.4 for how the boundary mapping is validated.
-- **`CurveParameterization_` status.** `LOG_DISCOUNT` is fully implemented
-  (`ParamsPerKnot` returns 1; `BuildDiscountCurve` calls `NewDiscountLogDF` in
-  `dal-cpp/dal/curve/calibration.cpp`). `ZERO_RATE` is the only value that still
-  `REQUIRE(false)`.
+- **`CurveParameterization_` status.** `PIECEWISE_CONSTANT_FWD`,
+  `PIECEWISE_LINEAR_FWD`, `LOG_DISCOUNT`, and `ZERO_RATE` are all implemented through
+  the shared `CurveDefinition_`, `CurveParameterLayout_`, and typed factory. This
+  replication selects `LOG_DISCOUNT` because its numerical oracle consists of free
+  log-DF nodes.
 
 ### 3.3 Calibration / solver
 
@@ -219,8 +224,8 @@ observed max `|err|` of ~`5.2e-7` (`log_linear`), ~`4.6e-7` (`log_cubic`), and
   solve; for the square 13-instrument / 13-free-node case it is exactly determined.
 - **Jacobian.** `YieldCurveCalibrationFunc_` overrides
   `Underdetermined::Function_::Gradient` to supply an AAD-derived analytic Jacobian
-  when the spec is eligible (`parameterization_ == LOG_DISCOUNT`,
-  discount-target, `forecast == discount`, every instrument trades at the curve
+  for every implemented parameterization when the remaining gates are met
+  (discount-target, `forecast == discount`, and every instrument trades at the curve
   anchor). Ineligible specs fall back to the base finite-difference bump
   (`BumpSize() = 1e-4`, `dal-cpp/dal/math/optimization/underdetermined.cpp`). The
   eligibility verdict is evaluated once per `CalibrateYieldCurve` call and cached;
@@ -250,8 +255,9 @@ observed max `|err|` of ~`5.2e-7` (`log_linear`), ~`4.6e-7` (`log_cubic`), and
 - DAL ships a full reverse-mode AAD type `Number_`
   (`dal-cpp/dal/math/aad/expr.hpp`) with tape (`dal-cpp/dal/math/aad/tape.hpp`).
 - It **is** used in curve calibration: `YieldCurveCalibrationFunc_::Gradient`
-  produces an AAD-derived analytic Jacobian on eligible `LOG_DISCOUNT` specs
-  (§3.3), with a bumped fallback when the eligibility predicate rejects the spec.
+  produces an AAD-derived analytic Jacobian on eligible PWC, PWL, LOG_DISCOUNT, and
+  ZERO_RATE specs (§3.3), with a bumped fallback when the eligibility predicate rejects
+  the spec.
 
 ### 3.6 Public API / Python bindings / examples
 
@@ -265,7 +271,8 @@ observed max `|err|` of ~`5.2e-7` (`log_linear`), ~`4.6e-7` (`log_cubic`), and
   (`dal-python/src/bindings/module.cpp`). The `curve` translation unit
   (`dal-python/src/bindings/curve.cpp`) exposes the instrument builders
   (`Deposit_New`, `FRA_New`, `Future_New`, `Swap_New`, `OISSwap_New`,
-  `BasisSwap_New`, `CrossCurrencySwap_New`), the `DiscountPWLF_New` curve factory,
+  `BasisSwap_New`, `CrossCurrencySwap_New`), the `DiscountPWLF_New` and
+  `DiscountZeroRate_New` curve factories,
   the calibration entry points
   (`CalibrateSingleCurve`, `CalibrateMultiCurveBundle`, `CalibrateXccyMarket`),
   the `CurveParameterization` / `CurveSolveMode` / `CurveJacobianMode` /
@@ -354,11 +361,10 @@ numerical validation lives in the core C++ test suite.
 
 ### 6. AAD analytic Jacobian
 - `YieldCurveCalibrationFunc_::Gradient` overrides the bumped default with an
-  AAD-derived sparse Jacobian (`dal-cpp/dal/curve/calibration.cpp`). For a swap
-  repricing, each instrument depends on only a handful of node `log(DF)`s, so the
-  Jacobian is sparse and AAD delivers it exactly in one reverse sweep — fewer
-  iterations, no bump-noise, exact curve risk relative to the reference's
-  bumped/auto-diff solve.
+  AAD-derived Jacobian (`dal-cpp/dal/curve/calibration.cpp`). The harvester retains
+  full width: log-linear rows are locally supported, whereas natural-cubic and mixed-tail
+  weights can make a row dense. AAD delivers each row by reverse sweep without bump
+  noise, using the same typed interpolation as passive pricing.
 
 ### 7. C++ public API facade
 - `dal-public/src/curve{protocol,instrument,data,spec}.hpp` exposes the convention,
