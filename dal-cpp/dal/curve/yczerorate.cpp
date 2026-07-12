@@ -16,7 +16,26 @@
 #include <dal/utilities/algorithms.hpp>
 #include <dal/utilities/exceptions.hpp>
 
+/*IF--------------------------------------------------------------------------
+storable DiscountZeroRate
+   Discount curve on future continuously compounded zero-rate nodes mapped to log discount factors
+version 1
+manual
+&members
+name is ?string
+ccy is ?string
+anchorDate is date
+nodeDates is date[]
+zeroRates is number[]
+dayCount is string
+scheme is string
+base is ?handle DiscountCurve
+-IF-------------------------------------------------------------------------*/
+
 namespace Dal {
+
+#include <dal/auto/MG_DiscountZeroRate_v1_Write.inc>
+
     namespace Tape {
         template <class T_, class B_>
         DiscountZeroRate_<T_, B_>::DiscountZeroRate_(const String_& name,
@@ -82,8 +101,16 @@ namespace Dal {
         }
 
         template <class T_, class B_> void DiscountZeroRate_<T_, B_>::Write(Archive::Store_& dst) const {
-            static_cast<void>(dst);
-            THROW("DiscountZeroRate_ persistence is not supported until DiscountZeroRate_v1 is generated");
+            if constexpr (std::is_same_v<T_, double> && std::is_same_v<B_, DiscountCurve_<double>>) {
+                Vector_<> zeroRatesDouble(zeroRates_.size());
+                for (int i = 0; i < static_cast<int>(zeroRates_.size()); ++i)
+                    zeroRatesDouble[i] = AAD::Value(zeroRates_[i]);
+                DiscountZeroRate_v1::XWrite(dst, this->Name(), this->ccy_.String(), anchorDate_, nodeDates_, zeroRatesDouble, dayCount_.String(),
+                                            scheme_.String(), this->base_);
+            } else {
+                REQUIRE(false, "Tape::DiscountZeroRate_ is only serializable for <double, DiscountCurve_<double>>");
+                static_cast<void>(dst);
+            }
         }
 
         template <class T_, class B_>
@@ -113,5 +140,12 @@ namespace Dal {
                                         LogDfScheme_ scheme,
                                         const Handle_<DiscountCurve_>& base) {
         return new Tape::DiscountZeroRate_<double>(name, ccy, anchorDate, nodeDates, zeroRates, dayCount, scheme, base);
+    }
+
+#include <dal/auto/MG_DiscountZeroRate_v1_Read.inc>
+
+    Storable_* DiscountZeroRate_v1::Reader_::Build() const {
+        return new Tape::DiscountZeroRate_<double>(name_, ccy_, anchorDate_, nodeDates_, zeroRates_, DayBasis_(dayCount_), LogDfScheme_(scheme_),
+                                                   base_);
     }
 } // namespace Dal
