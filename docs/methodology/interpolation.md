@@ -34,6 +34,33 @@ implemented by `InterpLinearImplX` in `dal-cpp/dal/math/interp/interp.hpp`.
 | Mixed log-DF (linear + cubic)  | `NewMixedLogDF`                  | `dal-cpp/dal/math/interp/interpmixed.hpp`               |
 | Bilinear (2D)                  | `Interp::NewLinear2`             | `dal-cpp/dal/math/interp/interp2d.hpp`                  |
 
+## Passive Geometry and Typed Ordinates
+
+Curve calibration also needs the same interpolation definition for passive `double`
+values and tape-active `AAD::Number_` values. The interpolation geometry is independent
+of the ordinate scalar type, so `dal-cpp/dal/math/interp/interpweights.hpp` separates the
+two concerns:
+
+- `LinearWeightGeometry_` and `NaturalCubicWeightGeometry_` store passive abscissae and
+  return `(storage index, weight)` pairs for a query;
+- `ApplyInterpWeights<T_>` applies those weights to `Vector_<T_>` ordinates.
+
+Thus a value is always evaluated as
+
+$$
+f(x) = \sum_j w_j(x) f_j,
+$$
+
+where segment selection, knot positions, and weights remain passive while the ordinates
+may be `double` or AAD-active. Exact-knot queries return a unit weight. Linear geometry
+clamps outside its range. Natural-cubic geometry uses the first or last cubic segment for
+extrapolation and generally returns a dense weight vector because a natural spline's
+second derivatives depend globally on all ordinates.
+
+The archive-backed `Interp1_` factories remain the public general-purpose interpolation
+surface. The weight geometry is the scalar-generic evaluation primitive used by the
+yield-curve layer; it prevents passive and AAD paths from maintaining separate formulas.
+
 ## Linear
 
 Piecewise-linear interpolation between knots — the kernel above. It is exact at knots,
@@ -88,6 +115,9 @@ selects which derivative is pinned at the boundary:
 
 Factory: `Interp::NewCubic(name, x, f, lhs, rhs)` (`dal-cpp/dal/math/interp/interpcubic.hpp`).
 Requires $N > 2$ and strictly increasing $x$. `IsInBounds` forbids extrapolation.
+The curve-specific natural-cubic weight geometry uses the same polynomial definition but
+allows first- and last-segment polynomial extrapolation as part of the log-DF curve's
+explicit boundary policy.
 
 ## Mixed Log-DF
 
@@ -109,6 +139,13 @@ Factory: `NewMixedLogDF(name, yf, logDF, spec)` where `spec` is a `MixedSchemeSp
 carrying `cutoffYf_` and the two cubic `Boundary_` conditions
 (`dal-cpp/dal/math/interp/interpmixed.hpp`). This scheme backs the `MIXED` value of
 `LogDfScheme_` — see [Log-discount curve](log_discount_curve.md).
+
+`Tape::DiscountLogDF_` uses the scalar-generic `LogDfInterpolation_` rather than this
+archive-backed composite. Its compatibility cutoff is storage index
+$\max(1,N-5)$; the cubic tail's local weight indices are translated back to the full
+storage-node indices before evaluation. Both implementations therefore retain the
+linear-head/natural-cubic-tail contract, while the curve implementation can apply the
+identical weights to passive and AAD-active ordinates.
 
 ## Bilinear (2D)
 

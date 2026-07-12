@@ -18,14 +18,14 @@ The runnable demonstration of both is the example program
 
 At a solved point $x^\star$ the calibration residuals vanish by construction, but
 the Jacobian of the residual map is still the useful linearisation of the curve.
-For each instrument $i$ and each free curve parameter $x_k$ (a log-discount-factor
-node value; the anchor node is pinned at $0$ and is not free),
+For each instrument $i$ and each free curve parameter $x_k$ (whose meaning is fixed by
+the selected curve representation),
 
 $$
 J_{ik} = \frac{\partial\, \text{modelRate}_i}{\partial\, x_k}(x^\star).
 $$
 
-**AAD reverse sweep.** Recording the free node values as independents on the AAD
+**AAD reverse sweep.** Recording the free curve parameters as independents on the AAD
 tape, building a `Number_`-typed curve, and running one reverse sweep per
 instrument output harvests a full row of $J$ at the cost of one forward pass plus
 $n$ sweeps — the canonical AAD cost asymmetry. This is the sweep behind the
@@ -66,17 +66,48 @@ eligible calibration through `CalibrateYieldCurve` and read
 `result.diagnostics_.jacobian_`, or perform the bump locally.
 
 **Bump oracle.** A two-sided central difference — perturb $x_k$ by $\pm h$,
-rebuild the curve via `NewDiscountLogDF(...)`, reprice every instrument — gives
+rebuild the curve through the common typed curve factory, and reprice every instrument — gives
 the same $J$ with a truncation error of $O(h^2)$ and a round-off floor of
 roughly $\varepsilon/h$. At $h = 10^{-6}$ both are around $10^{-10}$ for the
-well-conditioned `LOG_DISCOUNT` residual map, so the two methods agree to $10^{-9}$
-relative. The example asserts that bar element-wise and prints the worst
-discrepancy.
+well-conditioned calibration residual maps used by the tests. The test suite checks all
+implemented representations element-wise; the runnable example demonstrates the
+log-linear log-DF case and prints its worst discrepancy.
 
 The agreement is not a tautology: the AAD path is analytic in the tape, the bump
 path rebuilds a fresh curve per perturbation, and a missed `RegisterIndependent`
 or a wrong recording order would make the AAD row silently zero. That is exactly
 the failure the two-way comparison is built to catch.
+
+### Supported representations and column layouts
+
+The passive and AAD paths both construct curves from a `CurveDefinition_` and
+`CurveParameterLayout_`, so the solver column contract is shared rather than inferred
+separately at each call site.
+
+| `CurveParameterization_` | Columns contributed by one declaration | Stable column order                                                              |
+|--------------------------|----------------------------------------|----------------------------------------------------------------------------------|
+| `PIECEWISE_CONSTANT_FWD` | $K$                                    | right-hand forward value at knots $0,\dots,K-1$                                  |
+| `PIECEWISE_LINEAR_FWD`   | $2K$                                   | `fLeft[0]`, `fRight[0]`, ..., `fLeft[K-1]`, `fRight[K-1]`                        |
+| `LOG_DISCOUNT`           | $K$ future declared knots              | log DF at each future node; the prepended storage anchor is pinned and excluded  |
+
+`ZERO_RATE` remains unimplemented. All three `LogDfScheme_` choices use the same
+`LOG_DISCOUNT` column layout.
+
+For single-curve calibration, `ANALYTIC` admits every implemented representation when
+the target is a discount curve, each instrument has a supported templated rate, forecast
+equals discount, and every trade date equals the curve anchor. A failed non-curve gate
+emits a `NOTICE` and falls back to `BUMPED`. Joint calibration additionally requires
+`ACT_365F` for its templated simple-rate arithmetic and consistent discount/forward
+routing; it permits any implemented representation on each declaration, including mixed
+representations and active base layering.
+
+The Jacobian mode is also part of the numerical method for an `APPROXIMATE`
+underdetermined fit. The solver stops at `fitTolerance_`, so two accurate local
+linearisations can reach different acceptable parameter vectors. This is not a Jacobian
+accuracy relaxation: every AAD matrix is checked against central differences at the same
+parameter vector, and exact-mode analytic/bumped curve agreement is tested separately.
+Select `BUMPED` when reproducing a historical PWC/PWL approximate-fit curve that predates
+AAD support for those representations.
 
 ## Joint Multi-Curve Analytic Jacobian
 
@@ -110,9 +141,9 @@ section covers.
 following hold (each failing condition emits a `NOTICE` naming it, then the
 solver dense-bumps):
 
-- every declaration is `PIECEWISE_LINEAR_FWD` — the independents are the
-  per-knot forward parameters `fLeftT_[k]`, `fRightT_[k]` ($2 \cdot n_{\text{knots}}$
-  per declaration, no anchor exclusion);
+- every declaration uses an implemented representation: `PIECEWISE_CONSTANT_FWD`,
+  `PIECEWISE_LINEAR_FWD`, or `LOG_DISCOUNT` with any `LogDfScheme_`; `ZERO_RATE`
+  remains unimplemented;
 - `liborBasis_ == ACT_365F` — the basis-year fraction in the simple-rate
   arithmetic must match the basis the templated rates assume;
 - every instrument is a vanilla `Deposit_`, `FRA_`, `Future_`, or `Swap_`
@@ -131,15 +162,10 @@ the `NOTICE`s fire at most once even though `Gradient` is invoked per solver
 iteration. `ANALYTIC` never throws — an ineligible spec falls back to `BUMPED`
 byte-for-byte.
 
-The supported-parameterization set is narrower still, and **not** gated by
-eligibility: the joint path supports `PIECEWISE_LINEAR_FWD` and
-`PIECEWISE_CONSTANT_FWD` only. A declaration with `parameterization_` of
-`LOG_DISCOUNT` or `ZERO_RATE` is rejected at validation with a hard `REQUIRE`
-(it throws `Dal::Exception_`) on **both** the `BUMPED` and `ANALYTIC` paths —
-the joint residual function has no log-DF or zero-rate machinery, and there is
-no fallback. `CalibrateJointMultiCurve` is single-threaded: the AAD tape is
-thread-local and a `TapeGuard_` rewinds it on entry and exit (also under
-exception unwind), so concurrent calls would corrupt the tape.
+Validation constructs every declaration through the shared curve-definition and layout
+layer. `ZERO_RATE` is rejected because no passive curve implementation exists; it is not
+an AAD-only limitation. The AAD tape is thread-local and each gradient evaluation uses a
+`TapeGuard_` to rewind its recording on normal and exceptional exit.
 
 ### Discount-vs-forward routing, and the OIS post-2008 fallback
 
@@ -180,8 +206,8 @@ acts on is the **spread forward** $f_{\text{abs}} - f_{\text{ois}}$ rather than
 the absolute forward $f_{\text{abs}}$. This matches the staged calibration's
 base layering and is the form in which a LIBOR-OIS forward is naturally smooth.
 
-On the AAD tape this is realised by giving `Tape::DiscountPWLF_<T_, B_>` a
-second template parameter `B_`:
+On the AAD tape every typed curve (`DiscountPWC_`, `DiscountPWLF_`, and
+`DiscountLogDF_`) carries an independent base type `B_`:
 
 - `B_ = DiscountCurve_<double>` — baseless / constant-base (the base is passive;
   its parameters carry no adjoints);
@@ -190,9 +216,10 @@ second template parameter `B_`:
   multiplication into the discount-curve free nodes).
 
 The base-layered form is required for the joint solve to see the OIS → forward
-coupling on the tape; the baseless form remains supported for representations
-that do not layer. `PIECEWISE_CONSTANT_FWD` declarations cannot be base-layered
-— base layering requires `PIECEWISE_LINEAR_FWD`.
+coupling on the tape. It is supported for PWC, PWL, and every log-DF interpolation
+scheme. A forward residual therefore has nonzero discount-curve columns both when its
+discount leg reads the discount declaration and when its forecast curve multiplies by an
+active base.
 
 ### PWL-forward → log-DF integration
 
@@ -227,6 +254,36 @@ base-layered specialisation has a `Write()` that throws. The bumped path and any
 persistent result curve use the serializable `double` specialisation; the
 `Number_`-typed curve exists only for the duration of one `Gradient` sweep and is
 discarded with the analytic-Jacobian frame.
+
+### PWC-forward and log-DF evaluation
+
+`Tape::DiscountPWC_<T_, B_>` stores typed right-hand forward values and a typed running
+integral. Segment selection and elapsed-day factors are passive; integration and the
+final exponential remain on `T_`. Its passive specialization delegates to the existing
+`PiecewiseConstant_` arithmetic so public pricing and `ApplyDX` behavior are preserved.
+
+`Tape::DiscountLogDF_<T_, B_>` delegates every scheme to `LogDfInterpolation_`. The
+interpolation object holds passive geometry and applies its weights to typed log-DF
+ordinates, making the passive and AAD evaluation definitions identical. Natural-cubic
+weights can touch all storage nodes, while mixed weights are local in the linear head and
+global over the cubic tail. See [Log-discount curve](log_discount_curve.md).
+
+### Shared definition, factory, and harvester
+
+Both single and joint calibration use `CurveDefinition_`, `CurveParameterLayout_`, and
+`BuildDiscountCurveT` to dispatch once among the three implemented representations.
+Joint declarations are flattened in public declaration order and sliced according to the
+layout table above. Discount declarations are built first; forward declarations are then
+built with either an empty/passive base or the active discount curve selected by
+`targetCollateral_`.
+
+`HarvestCurveJacobian` owns the backend-neutral row loop. It clears the appropriate
+adjoints, seeds one residual, propagates to the recording start, harvests columns in flat
+solver order, and clears native leaves before the next row. Joint calibration always
+harvests full width because a residual can reach earlier declarations through routing or
+base composition. Single calibration also harvests full width: an instrument's nominal
+maturity is not a safe truncation boundary because payment lags and business-day
+adjustments can move curve reads beyond it.
 
 ### Why assembly is sparse-by-row
 

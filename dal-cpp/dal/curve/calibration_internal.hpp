@@ -18,23 +18,8 @@
 
 namespace Dal {
 
-    // Shared internal helpers for single-curve and joint-curve calibration and leg-period
-    // construction. Hoisted from calibration.cpp / jointcalibration.cpp / ycinstrument.cpp /
-    // xccyinstrument.cpp to eliminate byte-identical duplication. Marked inline so the header-only
-    // definitions do not violate the ODR across translation units.
-
-    // Number of free knots (LOG_DISCOUNT solver columns) an instrument can have sensitivity to:
-    // the leading columns whose knot date is at or before the instrument maturity. Columns at or
-    // beyond it are structural zeros and need not be harvested. A cashflow strictly past the anchor
-    // still couples to the first free knot via short-end interpolation even when it lands before that
-    // knot, so any maturity past the anchor yields a minimum width of 1.
-    inline int RowWidthForMaturity(const Vector_<Date_>& knotDates, const Date_& maturity) {
-        REQUIRE(!knotDates.empty(), "RowWidthForMaturity: knot dates must be non-empty");
-        const auto it = std::upper_bound(knotDates.begin(), knotDates.end(), maturity);
-        const int lastKnotAtOrBefore = static_cast<int>(it - knotDates.begin()) - 1;
-        const int clamped = std::max(0, lastKnotAtOrBefore);
-        return (maturity > knotDates.front()) ? std::max(1, clamped) : clamped;
-    }
+    // Shared internal helpers for single- and joint-curve calibration and leg-period construction.
+    // inline so the header-only definitions do not violate the ODR across translation units.
 
     // Stable ordering of curve-calibration instruments: by maturity, then by start, then by name.
     inline Vector_<Handle_<YCInstrument_>> OrderInstruments(const Vector_<Handle_<YCInstrument_>>& instruments) {
@@ -74,8 +59,8 @@ namespace Dal {
     }
 
     // Resolve the float index convention of a curve instrument, or nullptr if it has none.
-    // Used by Phase-A analytic-Jacobian eligibility checks (single-curve) and projection-curve
-    // routing (joint). Returns a borrowed pointer; the instrument outlives the call.
+    // Used by analytic-Jacobian eligibility checks (single-curve) and projection-curve routing (joint).
+    // Returns a borrowed pointer; the instrument outlives the call.
     inline const RateIndexConvention_* FloatConventionOf(const YCInstrument_& inst) {
         return VisitRate(
             inst, [](const Deposit_& d) -> const RateIndexConvention_* { return &d.FloatConvention(); },
@@ -104,8 +89,8 @@ namespace Dal {
         return retval;
     }
 
-    // maxAbs and RMS of a residual sequence. Single-pass, same accumulation order as the inline
-    // loops it replaces, so floating-point output is byte-identical to the originals.
+    // maxAbs and RMS of a residual sequence, single-pass. Fixed accumulation order keeps the
+    // floating-point output stable across call sites.
     struct ResidualStats_ {
         double maxAbsResidual_ = 0.0;
         double rmsResidual_ = 0.0;

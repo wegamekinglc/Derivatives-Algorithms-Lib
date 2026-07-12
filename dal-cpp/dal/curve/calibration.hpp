@@ -43,11 +43,11 @@ alternative BUMPED
     Finite-difference bumping of each free node. Byte-for-byte identical to
     the pre-analytic path. Always available.
 alternative ANALYTIC
-    AAD-derived dense Jacobian. Default. Engages only when
-    EligibleForAnalyticJacobian() is true (LOG_DISCOUNT + DISCOUNT-target +
-    forecast==discount + vanilla swap/deposit/FRA/Future + tradeDate ==
-    anchor); otherwise falls back to BUMPED with a NOTICE. ANALYTIC never
-    throws -- it is a best-effort hint.
+    AAD-derived dense Jacobian. Default. Supports every implemented curve
+    representation (piecewise-constant forward, piecewise-linear forward,
+    and every log-discount interpolation scheme) when the calibration's
+    instrument and routing eligibility gates pass. Otherwise falls back to
+    BUMPED with a NOTICE. ANALYTIC never throws -- it is a best-effort hint.
 -IF-------------------------------------------------------------------------*/
 
 /*IF--------------------------------------------------------------------------
@@ -104,10 +104,7 @@ namespace Dal {
         LogDfScheme_ logDfScheme_ = LogDfScheme_::Value_::LOG_LINEAR;
     };
 
-    // Solver-side options, NOT serialized with the spec: the spec describes WHAT to calibrate,
-    // these describe HOW to solve. The default is ANALYTIC: eligible calibrations engage the AAD
-    // Jacobian, ineligible ones fall back to bumped with a NOTICE (ANALYTIC never throws), so the
-    // default is byte-for-byte identical to the bumped path only for ineligible specs.
+    // Solver-side options, not serialized with the spec (the spec is WHAT to calibrate; these are HOW).
     struct CurveCalibrationOptions_ {
         CurveJacobianMode_ jacobianMode_ = CurveJacobianMode_::Value_::ANALYTIC;
         // Exact-solve pseudoinverse used by inverse-Jacobian risk diagnostics.
@@ -148,9 +145,7 @@ namespace Dal {
         Vector_<CurveCalibrationDiagnostics_> diagnostics_;
     };
 
-    Sparse::TriDiagonal_* BuildCurveCalibrationWeights(const Vector_<Date_>& knotDates,
-                                                       int paramsPerKnot,
-                                                       double smoothingWeight);
+    Sparse::TriDiagonal_* BuildCurveCalibrationWeights(const Vector_<Date_>& knotDates, int paramsPerKnot, double smoothingWeight);
     Vector_<Date_> BuildCurveCalibrationKnots(const Date_& today,
                                               const Vector_<Handle_<YCInstrument_>>& instruments,
                                               const Vector_<Date_>& inputKnots,

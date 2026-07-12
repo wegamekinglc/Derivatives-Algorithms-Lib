@@ -728,6 +728,13 @@ namespace Dal::AAD {
 } // namespace Dal::AAD
 #endif
 
+namespace Dal::AAD {
+    // Read an adjoint as a passive scalar without selecting a backend's mutable-adjoint
+    // proxy overload. In particular, Adept's proxy is assignable and convertible, so
+    // passing it through Value(...) would be ambiguous between Number_ and double.
+    FORCE_INLINE double AdjointValue(const Number_& num) { return Adjoint(num); }
+} // namespace Dal::AAD
+
 #if defined(DAL_USE_ADEPT_AAD) || defined(DAL_USE_XAD_AAD) || defined(DAL_USE_CODIPACK_AAD)
 namespace Dal::AAD {
     constexpr double INV_SQRT_2PI = 0.3989422804014327;

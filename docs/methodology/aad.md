@@ -120,10 +120,10 @@ For unary functions with result $v = g(r)$:
 | $\exp r$                | $v$                               |
 | $\ln r$                 | $1/r$                             |
 | $\sqrt{r}$              | $1/(2v)$                          |
-| $\lvert r\rvert$        | $\operatorname{sgn} r$            |
+| $\lvert r\rvert$        | $\mathrm{sgn} r$            |
 | $\phi(r)$ (normal pdf)  | $-r\,\phi(r) = -r\,v$             |
 | $\Phi(r)$ (normal cdf)  | $\phi(r)$                         |
-| $\operatorname{erfc} r$ | $-\tfrac{2}{\sqrt{\pi}} e^{-r^2}$ |
+| $\mathrm{erfc} r$ | $-\tfrac{2}{\sqrt{\pi}} e^{-r^2}$ |
 
 Storing $v$ where it appears (e.g. for $\exp$) lets the reverse pass reuse the
 forward result rather than recompute it.
@@ -211,7 +211,21 @@ derivatives for pricing, the library provides **templated curve types** under
 `namespace Dal::Tape` that extend the tape into yield-curve construction itself.
 Each records the dependence of discount factors on the curve's free parameters
 so that the reverse sweep produces a Jacobian of calibration residuals with
-respect to forward-rate nodes -- the input the underdetermined solver consumes.
+respect to the selected curve coordinates -- the input the underdetermined solver
+consumes.
+
+### Piecewise-Constant Forward Curve — `Tape::DiscountPWC_<T_, B_>`
+
+```text
+dal-cpp/dal/curve/ycconst.hpp
+```
+
+This curve stores one typed right-hand forward value per knot and a typed cumulative
+integral. Date comparisons, segment selection, and elapsed-day weights remain passive;
+the forward values, integral, exponential, and optional base multiplication stay on
+`T_`. The passive specialization delegates to `PiecewiseConstant_` for its public
+arithmetic contract, while the active specialization records derivatives through the
+same piecewise-constant integral.
 
 ### Piecewise-Linear Forward Curve — `Tape::DiscountPWLF_<T_, B_>`
 
@@ -219,8 +233,7 @@ respect to forward-rate nodes -- the input the underdetermined solver consumes.
 dal-cpp/dal/curve/ycpwlf.hpp
 ```
 
-This is the primary curve type for the joint multi-curve AAD path. It
-interpolates forward rates piecewise-linearly on the scalar type `T_` and
+This curve interpolates forward rates piecewise-linearly on the scalar type `T_` and
 integrates to log-discount factors, so every discount-factor read records the
 dependence on the $2 \cdot n_{\text{knots}}$ forward-rate parameters
 (`fLeftT_`, `fRightT_`). The base type `B_` is a second template parameter:
@@ -236,6 +249,23 @@ on-knot shortcut, in-range partial trapezoid) with `double` knot abscissae and
 `T_` forward values. The running integral is stored in the `Vector_<T_>`
 `sofarT_` member, recomputed by `UpdateT()` whenever the forward parameters
 change.
+
+### Log-Discount Curve — `Tape::DiscountLogDF_<T_, B_>`
+
+```text
+dal-cpp/dal/curve/yclogdf.hpp
+```
+
+The curve stores typed node log DFs but passive year fractions. `LogDfInterpolation_`
+selects log-linear, natural-cubic, or mixed geometry and applies the resulting passive
+weights to the typed ordinates. Passive pricing, AAD pricing, pre-anchor behavior, and
+right-tail secant extrapolation therefore share one evaluation definition. Natural-cubic
+weights are globally supported; the mixed scheme is local in its linear head and global
+within its cubic tail.
+
+All three curve templates accept `B_ = DiscountCurve_<double>` for a passive or absent
+base and `B_ = DiscountCurve_<T_>` for a base built in the same recording. The latter
+propagates cross-curve adjoints through base composition regardless of representation.
 
 ### Joint Multi-Curve Routing — `Tape::JointCurveBlock_<T_>`
 
@@ -288,9 +318,10 @@ $$\text{Rewind}(\textit{tape}) \rightarrow
 \text{PropagateToStart},\; \text{harvest } \bar{x}_j,\;
 \text{zero each } \bar{x}_j\}.$$
 
-Under PWL_FWD every knot is free (no anchor exclusion), so the independent
-registration covers all $2 \cdot n_{\text{knots}}$ forward-rate parameters
-per declaration. The harvested adjoints form a dense
+Independent registration follows `CurveParameterLayout_`: PWC contributes one value per
+knot, PWL contributes interleaved left/right values, and log-DF contributes future-node
+ordinates while its pinned storage anchor is excluded. `HarvestCurveJacobian` performs
+the backend-neutral per-row zero/seed/propagate/harvest loop. The harvested adjoints form a dense
 `XCurveJacobian_` (`dal-cpp/dal/curve/curvejacobian.hpp`) with exact structural
 zeros where an instrument has no parametric dependence on a given knot.
 
@@ -346,9 +377,9 @@ Each step has a backend-specific reason to be in this position:
   consumed node's adjoint inline after propagating it to its parents, so the
   intermediate graph starts clean for the next reverse sweep without a separate
   pass. Leaf parameter nodes (`n_ == 0`) are *not* consumed by `PropagateOne`
-  and would accumulate across rows; the calibration call sites
-  (`dal-cpp/dal/curve/calibration.cpp`, `dal-cpp/dal/curve/jointcalibration.cpp`)
-  zero each harvested leaf adjoint in place immediately after reading it, which
+  and would accumulate across rows; the shared harvester
+  (`dal-cpp/dal/curve/aadjacobian.cpp`) zeroes each harvested leaf adjoint in
+  place immediately after reading it, which
   is O(nParams) per row instead of the O(all nodes) `ZeroAdjoints` sweep. The
   `ZeroAdjoints` facade is still defined for callers that need a full sweep
   outside this pattern.

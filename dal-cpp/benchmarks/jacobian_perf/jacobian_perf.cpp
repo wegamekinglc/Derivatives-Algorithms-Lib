@@ -12,8 +12,9 @@
 // The Jacobian is lower-triangular by maturity: each residual touches only a leading window of
 // parameters, so columns at or beyond that window are structural zeros. The "dense harvest" case
 // reads all N adjoints per row; the "row-width harvest" case reads only the leading RowWidth(j)
-// adjoints and leaves the trailing zeros at their 0.0 fill (the production pattern after the
-// sparse-Jacobian change). The delta is the harvest cost the optimization saves.
+// adjoints and leaves the trailing zeros at their 0.0 fill. This remains a synthetic comparison:
+// curve calibration uses full-width harvesting because payment lags and date adjustments make a
+// nominal-maturity prefix unsafe.
 //
 // N = 24 (curve free nodes), M = 23 (calibration instruments).
 
@@ -44,9 +45,8 @@ namespace {
         return acc;
     }
 
-    // Row width = the last parameter each residual touches + 1. The production AnalyticJacobian
-    // harvests only this leading prefix per row; columns at or beyond it are structural zeros and
-    // are left at the 0.0 fill. This mirrors RowWidthForMaturity in calibration_internal.hpp.
+    // Row width = the last parameter this synthetic residual touches + 1. The benchmark can prove
+    // this prefix from Residual() itself; production curve residuals do not make that assumption.
     int RowWidth(int rowIdx) { return std::min(kN, rowIdx + 3); }
 } // namespace
 
@@ -80,8 +80,7 @@ int main() {
         Bench::Print(r);
     }
 
-    // Row-width harvest: read only the leading RowWidth(j) adjoints per row, leaving the trailing
-    // structural zeros at the 0.0 fill (the post-optimization pattern in calibration.cpp).
+    // Row-width harvest: read only the provably active leading prefix for this synthetic graph.
     Matrix_<double> jacobianSparse(kM, kN, 0.0);
     {
         auto r = Bench::Run("AnalyticJacobian row-width harvest (24 x 23)", [&]() {

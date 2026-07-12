@@ -224,3 +224,9 @@ Reference files:
   comment grows into design/methodology/algorithm explanation, move the prose into the matching
   `docs/methodology/` note and reduce the source comment to a one-line pointer or delete it.
   See the Comment Style section and the `dal-doc-writer` agent.
+- **Math notation uses only macros GitHub renders.** DAL math is LaTeX inside `$...$` /
+  `$$...$$`. Restrict yourself to macros GitHub's math renderer displays; in particular do **not**
+  use `\operatorname{}`, which GitHub fails to render — use `\mathrm{}` (or `\mathbb{}` for number
+  sets), e.g. `\operatorname{sgn}` → `\mathrm{sgn}`, `\operatorname{YearFrac}` → `\mathrm{YearFrac}`.
+  `.github/scripts/check_docs.py` enforces a forbidden-macro list; add any newly-found unrenderable
+  macro there rather than reintroducing it.

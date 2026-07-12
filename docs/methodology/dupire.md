@@ -35,7 +35,7 @@ contract: it returns the discounted spot-call price
 $$
 \begin{aligned}
 F(T) &= S_0 e^{(r-q)T}, \\
-C(K,T) &= e^{-rT}\,\operatorname{Black}\!\left(
+C(K,T) &= e^{-rT}\,\mathrm{Black}\!\left(
     F(T), K, \sigma_{\mathrm{imp}}(K,T)\sqrt{T}
 \right).
 \end{aligned}

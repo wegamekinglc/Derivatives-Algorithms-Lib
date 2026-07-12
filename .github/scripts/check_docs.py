@@ -39,6 +39,13 @@ STALE_DOCUMENTATION = {
     "DAL_REQUIRE_NATIVE": "native DAL is the only supported production backend",
 }
 
+# LaTeX macros GitHub's math renderer fails to display, mapped to a renderable
+# replacement. Governed by the macro allow-list rule in .claude/rules/code-style.md
+# (Documentation section): math uses only macros GitHub renders.
+FORBIDDEN_MATH_MACROS = {
+    r"\operatorname": r"\mathrm",
+}
+
 
 def relative(path: Path) -> str:
     return path.relative_to(ROOT).as_posix()
@@ -311,6 +318,20 @@ def check_stale_commands(errors: list[str]) -> None:
         )
 
 
+def check_math_macros(errors: list[str]) -> None:
+    # Only scan visible (non-fenced) lines so a macro shown literally inside a
+    # code fence is not flagged. Math lives in `$...$` / `$$...$$` on these lines.
+    for document in DOCS:
+        lines = document.read_text(encoding="utf-8").splitlines()
+        for line_number, line in without_fenced_code(lines):
+            for bad, good in FORBIDDEN_MATH_MACROS.items():
+                if bad in line:
+                    errors.append(
+                        f"{relative(document)}:{line_number}: GitHub does not render "
+                        f"'{bad}' in math; use '{good}' instead"
+                    )
+
+
 def main() -> int:
     errors: list[str] = []
     check_links(errors)
@@ -318,6 +339,7 @@ def main() -> int:
     check_whitespace(errors)
     check_metadata(errors)
     check_stale_commands(errors)
+    check_math_macros(errors)
 
     if errors:
         print("Documentation checks failed:", file=sys.stderr)
