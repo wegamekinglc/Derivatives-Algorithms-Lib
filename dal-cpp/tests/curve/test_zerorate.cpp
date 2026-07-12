@@ -163,6 +163,9 @@ TEST(ZeroRateCurveTest, TestInvalidInputsAreRejected) {
     ASSERT_THROW(Tape::DiscountZeroRate_<double>("unordered", "USD", ANCHOR, Vector_<Date_>{Date_(2025, 1, 15), Date_(2024, 7, 15)},
                                                  Vector_<>{0.01, 0.02}, ACT_365F, LogDfScheme_::Value_::LOG_LINEAR),
                  Exception_);
+    ASSERT_THROW(Tape::DiscountZeroRate_<double>("duplicate", "USD", ANCHOR, Vector_<Date_>{Date_(2025, 1, 15), Date_(2025, 1, 15)},
+                                                 Vector_<>{0.01, 0.02}, ACT_365F, LogDfScheme_::Value_::LOG_LINEAR),
+                 Exception_);
     ASSERT_THROW(
         Tape::DiscountZeroRate_<double>("anchor", "USD", ANCHOR, Vector_<Date_>{ANCHOR}, Vector_<>{0.01}, ACT_365F, LogDfScheme_::Value_::LOG_LINEAR),
         Exception_);
