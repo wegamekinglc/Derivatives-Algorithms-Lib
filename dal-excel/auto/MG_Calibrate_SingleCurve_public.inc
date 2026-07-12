@@ -1,7 +1,7 @@
 
 
 extern "C" __declspec(dllexport) OPER_* xl_Calibrate_SingleCurve
-    (const OPER_* xl_today, const OPER_* xl_ccy, const OPER_* xl_instruments, const OPER_* xl_knotDates, const OPER_* xl_settings, const OPER_* xl_discountCurve)	
+    (const OPER_* xl_today, const OPER_* xl_ccy, const OPER_* xl_instruments, const OPER_* xl_knotDates, const OPER_* xl_settings, const OPER_* xl_discountCurve, const OPER_* xl_baseCurve)	
 {
     Excel::InitializeSessionIfNeeded();
 ENV_SEED_TYPE(ObjectAccess_);
@@ -22,9 +22,11 @@ ENV_SEED_TYPE(ObjectAccess_);
       REQUIRE(settings.Cols() == 2 || settings.Empty(), "must have two columns (key, value)");
         argName = "discountCurve (input #6)";
         const Handle_<StorableDiscountCurve_> discountCurve = Excel::ToHandle<StorableDiscountCurve_>(_env, xl_discountCurve, true);
+        argName = "baseCurve (input #7)";
+        const Handle_<StorableDiscountCurve_> baseCurve = Excel::ToHandle<StorableDiscountCurve_>(_env, xl_baseCurve, true);
         argName = 0;
 		Handle_<StorableCurveCalibrationResult_> result;
-        Calibrate_SingleCurve(today, ccy, instruments, knotDates, settings, discountCurve, &result);
+        Calibrate_SingleCurve(today, ccy, instruments, knotDates, settings, discountCurve, baseCurve, &result);
         Excel::Retval_ retval;
         retval.Load(_env, result);
         return retval.ToXloper();
@@ -50,7 +52,8 @@ struct XlRegister_Calibrate_SingleCurve_
         argHelp.push_back("Knot dates (can be empty for auto-detection)");
         argHelp.push_back("Optional (key,value) settings. Keys: curveName, calibrateDiscountCurve, solveMode, parameterization, logDfScheme, smoothingWeight, tolerance, fitTolerance, initialGuess, maxEvaluations, maxRestarts, targetCollateral, targetTenor, liborBasis");
         argHelp.push_back("Optional discount curve (OIS-collateralized) needed when calibrating a forward curve (calibrateDiscountCurve=FALSE)");
-        Excel::Register("Base", "xl_Calibrate_SingleCurve", "CALIBRATE.SINGLECURVE", "Calibrate a single yield curve from instruments and settings. Returns a result handle bundling the calibrated curve and the fit diagnostics.", "QQQQQQQ", "today,ccy,instruments,knotDates,[settings],[discountCurve]", argHelp, false);
+        argHelp.push_back("Optional base curve layered under the calibrated curve; distinct from the forward-calibration pricing discount curve");
+        Excel::Register("Base", "xl_Calibrate_SingleCurve", "CALIBRATE.SINGLECURVE", "Calibrate a single yield curve from instruments and settings. Returns a result handle bundling the calibrated curve and the fit diagnostics.", "QQQQQQQQ", "today,ccy,instruments,knotDates,[settings],[discountCurve],[baseCurve]", argHelp, false);
     }
 };
 static XlRegister_Calibrate_SingleCurve_ The_Calibrate_SingleCurve_XlRegisterer;

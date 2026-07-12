@@ -165,7 +165,7 @@ namespace Dal {
 
                 Vector_<> result(instruments_.size());
                 for (int i = 0; i < static_cast<int>(instruments_.size()); ++i)
-                    result[i] = (*rates_[i])(yc) - marketRates_[i];
+                    result[i] = (*rates_[i])(yc)-marketRates_[i];
                 return result;
             }
 
@@ -210,10 +210,6 @@ namespace Dal {
             }
 
             [[nodiscard]] bool EligibleForAnalyticJacobian() const {
-                if (definition_.parameterization_ == CurveParameterization_::Value_::ZERO_RATE) {
-                    NOTICE("AAD Jacobian does not support the unimplemented ZERO_RATE parameterization; falling back to bumped");
-                    return false;
-                }
                 if (!calibrateDiscountCurve_) {
                     NOTICE("AAD Jacobian requires DISCOUNT-target calibration "
                            "(calibrateDiscountCurve_ == true); falling back to bumped");
@@ -362,20 +358,23 @@ namespace Dal {
 
         const Vector_<Date_> knotDates = BuildCurveCalibrationKnots(spec.today_, spec.instruments_, spec.knotDates_, spec.knotPolicy_);
         REQUIRE(!knotDates.empty(), "Curve calibration requires at least one knot date");
-        const bool anchorIsToday = spec.parameterization_ == CurveParameterization_::Value_::LOG_DISCOUNT;
-        if (anchorIsToday) {
+        if (spec.parameterization_ == CurveParameterization_::Value_::LOG_DISCOUNT) {
             REQUIRE(knotDates.front() == spec.today_, "LOG_DISCOUNT calibration requires knot 0 to be exactly the anchor (== today)");
+        } else if (spec.parameterization_ == CurveParameterization_::Value_::ZERO_RATE) {
+            REQUIRE(knotDates.front() > spec.today_, "ZERO_RATE calibration requires every knot to be strictly after today");
         } else {
             REQUIRE(knotDates.front() > spec.today_, "Curve calibration knot dates must be after today");
         }
+        const CurveDefinition_ definition =
+            MakeCurveDefinition(spec.curveName_, spec.ccy_, spec.parameterization_, spec.logDfScheme_, knotDates, spec.today_, spec.liborBasis_);
+        const CurveParameterLayout_ layout = BuildCurveParameterLayout(definition);
         for (int i = 0; i < static_cast<int>(spec.initialGuessPerNode_.size()); ++i) {
             REQUIRE(std::isfinite(spec.initialGuessPerNode_[i]),
                     String_("Curve calibration per-node initial guess must be finite at index ") + String::FromInt(i));
         }
-        if (anchorIsToday && !spec.initialGuessPerNode_.empty()) {
-            REQUIRE(static_cast<int>(spec.initialGuessPerNode_.size()) == static_cast<int>(knotDates.size()) - 1,
-                    "Curve calibration per-node initial guess length must match the number of free knots");
-        }
+        if (!spec.initialGuessPerNode_.empty())
+            REQUIRE(static_cast<int>(spec.initialGuessPerNode_.size()) == layout.parameterCount_,
+                    "Curve calibration per-node initial guess length must match the curve parameter count");
 
         Date_ latestEnd = spec.today_;
         for (const auto& inst : spec.instruments_) {
@@ -386,8 +385,6 @@ namespace Dal {
             latestEnd = std::max(latestEnd, span.second);
         }
         REQUIRE(knotDates.back() >= latestEnd, "Curve calibration knots must span all instrument maturities");
-        static_cast<void>(BuildCurveParameterLayout(
-            MakeCurveDefinition(spec.curveName_, spec.ccy_, spec.parameterization_, spec.logDfScheme_, knotDates, spec.today_, spec.liborBasis_)));
     }
 
     void ValidatePositiveDiscountFactors(const DiscountCurve_& curve, const Date_& today, const Vector_<Date_>& checkDates) {
@@ -400,18 +397,14 @@ namespace Dal {
     }
 
     namespace {
-        Vector_<> BuildCalibrationGuess(const CurveCalibrationSpec_& spec, const Vector_<Date_>& knotDates, bool anchorIsToday, int nParams) {
-            const int nKnots = static_cast<int>(knotDates.size());
-            Vector_<> guess(nParams);
-            if (anchorIsToday) {
-                if (spec.initialGuessPerNode_.empty()) {
-                    // Default seed: flat-2% rate mapped through yf_365F from the anchor.
-                    const Date_& anchor = knotDates.front();
-                    for (int i = 1; i < nKnots; ++i)
-                        guess[i - 1] = -FLAT_SEED_RATE * spec.liborBasis_(anchor, knotDates[i], nullptr);
-                } else {
-                    std::copy(spec.initialGuessPerNode_.begin(), spec.initialGuessPerNode_.end(), guess.begin());
-                }
+        Vector_<> BuildCalibrationGuess(const CurveCalibrationSpec_& spec, const CurveDefinition_& definition, const CurveParameterLayout_& layout) {
+            Vector_<> guess(layout.parameterCount_);
+            if (!spec.initialGuessPerNode_.empty()) {
+                std::copy(spec.initialGuessPerNode_.begin(), spec.initialGuessPerNode_.end(), guess.begin());
+            } else if (definition.parameterization_ == CurveParameterization_::Value_::LOG_DISCOUNT) {
+                // Default seed: a flat 2% continuously-compounded rate mapped to free log-DF nodes.
+                for (int i = 1; i < static_cast<int>(definition.nodeDates_.size()); ++i)
+                    guess[i - 1] = -FLAT_SEED_RATE * spec.liborBasis_(definition.anchorDate_, definition.nodeDates_[i], nullptr);
             } else {
                 std::fill(guess.begin(), guess.end(), spec.initialGuess_);
             }
@@ -492,18 +485,16 @@ namespace Dal {
             MakeCurveDefinition(spec.curveName_, spec.ccy_, spec.parameterization_, spec.logDfScheme_, knotDates, spec.today_, spec.liborBasis_);
         const CurveParameterLayout_ layout = BuildCurveParameterLayout(definition);
         const int paramsPerKnot = layout.paramsPerDeclaredKnot_;
-        const bool anchorIsToday = layout.pinnedAnchor_;
-        const int nParams = layout.parameterCount_;
 
-        const Vector_<> guess = BuildCalibrationGuess(spec, knotDates, anchorIsToday, nParams);
+        const Vector_<> guess = BuildCalibrationGuess(spec, definition, layout);
         const Vector_<> tol(instruments.size(), spec.tolerance_);
         Vector_<Date_> weightKnots;
-        if (anchorIsToday) {
-            // LOG_DISCOUNT: parameter vector excludes the anchor; weights metric must match its dimension.
-            for (int i = 1; i < static_cast<int>(knotDates.size()); ++i)
-                weightKnots.push_back(knotDates[i]);
+        if (layout.pinnedAnchor_) {
+            // Pinned representations store an internal anchor but expose only the free future nodes.
+            for (int i = 1; i < static_cast<int>(definition.nodeDates_.size()); ++i)
+                weightKnots.push_back(definition.nodeDates_[i]);
         } else {
-            weightKnots = knotDates;
+            weightKnots = definition.nodeDates_;
         }
         std::unique_ptr<Sparse::TriDiagonal_> weights(BuildCurveCalibrationWeights(weightKnots, paramsPerKnot, spec.smoothingWeight_));
 

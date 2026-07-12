@@ -24,7 +24,9 @@ using namespace Dal;
 namespace {
     void init_bindings_curve_handles(py::module_& m) {
         py::class_<YCInstrument_, std::shared_ptr<YCInstrument_>>(m, "YCInstrument_");
-        py::class_<DiscountCurve_, std::shared_ptr<DiscountCurve_>>(m, "DiscountCurve_");
+        py::class_<DiscountCurve_, std::shared_ptr<DiscountCurve_>>(m, "DiscountCurve_")
+            .def("__call__", [](const DiscountCurve_& curve, const Date_& from, const Date_& to) { return curve(from, to); },
+                 py::arg("from_date"), py::arg("to_date"));
         py::class_<CurveBlock_, std::shared_ptr<CurveBlock_>>(m, "CurveBlock_");
         py::class_<CrossCurrencySwap_, std::shared_ptr<CrossCurrencySwap_>>(m, "CrossCurrencySwap_");
         py::class_<CrossCurrencyMarket_, std::shared_ptr<CrossCurrencyMarket_>>(m, "CrossCurrencyMarket_");
@@ -180,6 +182,50 @@ namespace {
     }
 
     void init_bindings_curve_data(py::module_& m) {
+        py::class_<DiscountZeroRate_, DiscountCurve_, std::shared_ptr<DiscountZeroRate_>>(m, "DiscountZeroRate_")
+            .def_property_readonly("anchor_date", [](const DiscountZeroRate_& curve) { return curve.AnchorDate(); })
+            .def_property_readonly("node_dates", [](const DiscountZeroRate_& curve) {
+                py::list result;
+                for (const auto& date : curve.NodeDates())
+                    result.append(date);
+                return result;
+            })
+            .def_property_readonly("zero_rates", [](const DiscountZeroRate_& curve) {
+                py::list result;
+                for (const auto rate : curve.NodeZeroRates())
+                    result.append(rate);
+                return result;
+            })
+            .def_property_readonly("day_count", [](const DiscountZeroRate_& curve) { return std::string(curve.DayCount().String()); })
+            .def_property_readonly("log_df_scheme", [](const DiscountZeroRate_& curve) { return curve.Scheme().Switch(); });
+
+        m.def("DiscountZeroRate_New",
+            [](const char* name, const char* ccy,
+               const Date_& anchorDate,
+               const py::iterable& nodeDatesPy,
+               const py::iterable& zeroRatesPy,
+               const DayBasis_& dayCount,
+               LogDfScheme_::Value_ logDfScheme,
+               const std::shared_ptr<DiscountCurve_>& base)
+               -> std::shared_ptr<DiscountCurve_> {
+                Vector_<Date_> nodeDates;
+                for (auto item : nodeDatesPy)
+                    nodeDates.push_back(py::cast<Date_>(item));
+                Vector_<> zeroRates;
+                for (auto item : zeroRatesPy)
+                    zeroRates.push_back(py::cast<double>(item));
+                Handle_<DiscountCurve_> baseHandle(
+                    std::const_pointer_cast<const DiscountCurve_>(base));
+                return std::const_pointer_cast<DiscountCurve_>(
+                    DiscountZeroRateNew(String_(name), String_(ccy), anchorDate, nodeDates,
+                                        zeroRates, dayCount, LogDfScheme_(logDfScheme), baseHandle));
+            },
+            py::arg("name"), py::arg("ccy"), py::arg("anchor_date"),
+            py::arg("node_dates"), py::arg("zero_rates"),
+            py::arg("day_count") = DayBasis_("ACT_365F"),
+            py::arg("log_df_scheme") = LogDfScheme_::Value_::LOG_LINEAR,
+            py::arg("base") = std::shared_ptr<DiscountCurve_>());
+
         m.def("DiscountPWLF_New",
             [](const char* name, const char* ccy,
                const py::iterable& knotDatesPy,
@@ -534,8 +580,8 @@ void init_bindings_curve(py::module_& m) {
     init_bindings_curve_handles(m);
     init_bindings_curve_protocol(m);
     init_bindings_curve_instruments(m);
-    init_bindings_curve_data(m);
     init_bindings_curve_enums(m);
+    init_bindings_curve_data(m);
     init_bindings_curve_calibration_builder(m);
     init_bindings_curve_calibration_diagnostics(m);
     init_bindings_curve_calibration_results(m);

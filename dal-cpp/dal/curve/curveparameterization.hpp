@@ -20,6 +20,7 @@ namespace Dal {
         LogDfScheme_ logDfScheme_;
         Vector_<Date_> nodeDates_;
         DayBasis_ dayCount_;
+        Date_ anchorDate_;
     };
 
     struct CurveParameterLayout_ {

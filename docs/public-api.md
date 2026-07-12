@@ -46,7 +46,7 @@ on other toolchains.
 | `<dal-public/src/random.hpp>` | Pseudo/Sobol constructors and uniform/normal matrix fills |
 | `<dal-public/src/curveprotocol.hpp>` | Day-basis, tenor, collateral, rate-leg/index, and currency-pair builders |
 | `<dal-public/src/curveinstrument.hpp>` | Deposit, FRA, future, swap, OIS, basis-swap, and cross-currency-swap builders |
-| `<dal-public/src/curvedata.hpp>` | Piecewise-linear-forward curve and curve-block builders |
+| `<dal-public/src/curvedata.hpp>` | Piecewise-linear-forward, zero-rate, and curve-block builders |
 | `<dal-public/src/curvespec.hpp>` | `CurveCalibrationSpecBuilder_`, `CalibrateSingleCurve`, `CalibrateMultiCurveBundle` |
 | `<dal-public/src/xccycalibration.hpp>` | Cross-currency spec builder and `CalibrateXccyMarket` |
 | `<dal-public/src/interp.hpp>` | Linear one-dimensional interpolation builder |
@@ -110,6 +110,27 @@ dates should use isolated processes.
 
 ### C++ curve calibration
 
+The public zero-rate factory is:
+
+```cpp
+Dal::Handle_<Dal::DiscountCurve_> Dal::DiscountZeroRateNew(
+    const Dal::String_& name,
+    const Dal::String_& ccy,
+    const Dal::Date_& anchorDate,
+    const Dal::Vector_<Dal::Date_>& nodeDates,
+    const Dal::Vector_<>& zeroRates,
+    const Dal::DayBasis_& dayCount = Dal::DayBasis_("ACT_365F"),
+    Dal::LogDfScheme_ scheme = Dal::LogDfScheme_::Value_::LOG_LINEAR,
+    const Dal::Handle_<Dal::DiscountCurve_>& base = {});
+```
+
+`nodeDates` are strictly future dates and `zeroRates` are continuously compounded
+decimal rates in matching order. The factory maps each node to
+`logDF = -zeroRate * YearFrac(anchorDate,nodeDate)`, then applies the selected shared
+log-DF interpolation and extrapolation scheme. The optional base is multiplied into the
+curve, so the supplied rates describe a spread component. The result retains its
+`DiscountZeroRate_` type and zero-rate bump coordinates when archived and restored.
+
 The facade separates construction from solving:
 
 1. Build conventions with `PeriodLength_New`, `DayBasis_New`,
@@ -124,6 +145,11 @@ For staged calibration, assemble `MultiCurveCalibrationSpec_` and call
 `CalibrateMultiCurveBundle`. Cross-currency calibration has the analogous
 `CrossCurrencyCalibrationSpecBuilder_` / `CalibrateXccyMarket` path. The full
 methodology is in [yield-curve construction](methodology/yield_curve.md).
+
+Set `parameterization_ = CurveParameterization_::Value_::ZERO_RATE` to calibrate future
+zero-rate nodes. `initialGuess_` and `initialGuessPerNode_` are decimal continuously
+compounded rates for this representation. Single, staged, and core joint calibration
+support ZERO_RATE; only single and staged calibration are exposed by the public facade.
 
 ## Python
 
@@ -143,7 +169,7 @@ import dal
 | Valuation | `MonteCarlo_Value` |
 | Random generation | `PseudoRSG_New`, `SobolRSG_New`, `*_Get_Uniform`, `*_Get_Normal` |
 | Calendar operations | `Holidays_`, `Is_BizDay`, `NextBizDay`, `PrevBizDay`, `Adjust` |
-| Curves | Convention/instrument builders, `CurveCalibrationSpecBuilder_`, `CalibrateSingleCurve`, `CalibrateMultiCurveBundle`, `CalibrateXccyMarket` |
+| Curves | `DiscountZeroRate_New`, convention/instrument builders, `CurveCalibrationSpecBuilder_`, `CalibrateSingleCurve`, `CalibrateMultiCurveBundle`, `CalibrateXccyMarket` |
 | Convenience calibration | `calibrate_curve` from `dal/api.py` |
 
 The basic valuation shape is:
@@ -203,9 +229,26 @@ multi-curve calibration, or lower-level solver settings. Python enum names are:
 - `CurveJacobianMode`: `ANALYTIC`, `BUMPED`; and
 - `LogDfScheme`: `LOG_LINEAR`, `LOG_CUBIC_NATURAL`, `MIXED`.
 
-`ZERO_RATE` is present in the generated enumeration but is not a supported
-calibration parameterization; current validation rejects it. Choose one of the
-other three parameterizations.
+`ZERO_RATE` is supported by `CalibrateSingleCurve` and `dal.calibrate_curve`. Supply only
+strictly-future knots; the anchor is internal and contributes no solver or Jacobian
+column. The scalar `initialGuess_` is a decimal continuously compounded zero rate.
+`dal.calibrate_curve(..., base_curve=...)` treats the calibrated zero rates as spreads
+over that base.
+
+Direct construction uses:
+
+```python
+curve = dal.DiscountZeroRate_New(
+    "usd_zero", "USD", today, node_dates, zero_rates,
+    day_count=dal.DayBasis_("ACT_365F"),
+    log_df_scheme=dal.LogDfScheme.LOG_LINEAR,
+    base=None,
+)
+```
+
+The returned `DiscountZeroRate_` exposes read-only `anchor_date`, `node_dates`,
+`zero_rates`, `day_count`, and `log_df_scheme` properties. Python exposes staged but not
+core joint calibration.
 
 See [dal-python/README.md](../dal-python/README.md) for package-focused examples.
 
@@ -240,15 +283,20 @@ Primary worksheet families are:
 |---------|---------------------|
 | Conventions | `PERIODLENGTH.NEW`, `DAYBASIS.NEW`, `RATELEGCONVENTION.NEW`, `RATEINDEXCONVENTION.NEW`, `COLLATERALTYPE.*` |
 | Instruments | `DEPOSIT.NEW`, `FRA.NEW`, `FUTURE.NEW`, `SWAP.NEW`, `OISSWAP.NEW`, `BASISSWAP.NEW`, `CROSSCURRENCYSWAP.NEW` |
+| Direct curves | `DISCOUNTPWLF.NEW`, `DISCOUNTZERORATE.NEW`, `CURVEBLOCK.NEW.SIMPLE` |
 | Calibration | `CALIBRATE.SINGLECURVE`, `CALIBRATE.XCCYMARKET` |
 | Results | `CALIBRATIONRESULT.GET`, `CALIBRATIONRESULT.GET.CURVE`, `XCCYCALIBRATIONRESULT.*` |
 | Repository | `REPOSITORY.FIND`, `REPOSITORY.ERASE`, `REPOSITORY.SIZE` |
 
-`CALIBRATE.SINGLECURVE` accepts a two-column optional settings range. Supported
-keys include curve name, target, solve mode, parameterization, log-DF scheme,
-smoothing/tolerances, initial guess, and evaluation budgets. Generated function
-help under `dal-excel/auto/*.htm` is the argument-level catalog used by Excel
-registration.
+`DISCOUNTZERORATE.NEW` takes name, currency, anchor, future dates, and continuously
+compounded decimal zero rates, with optional day count, log-DF scheme, and base handle.
+`CALIBRATE.SINGLECURVE` accepts a two-column optional settings range. Supported keys
+include curve name, target, solve mode, parameterization (`ZERO_RATE` included), log-DF
+scheme, smoothing/tolerances, scalar initial guess, and evaluation budgets. Its optional
+`baseCurve` input is the curve multiplied under the calibrated curve; it is distinct from
+the `discountCurve` used to price a forward-curve calibration. Excel does not expose the
+core joint-calibration API. Generated function help under `dal-excel/auto/*.htm` is the
+argument-level catalog used by Excel registration.
 
 See [dal-excel/README.md](../dal-excel/README.md) for build and add-in guidance.
 

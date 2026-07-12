@@ -12,8 +12,9 @@ $P(t_0, T)$ — today's value of one unit of currency paid at $T$. Everything el
 is derived from it.
 
 The library can parameterize the curve through the **instantaneous forward rate
-$f(t)$** or through node log discount factors. For the forward representations, time is
-measured in days and the integral is annualized by dividing by $365$:
+$f(t)$**, node log discount factors, or continuously compounded zero rates. For the
+forward representations, time is measured in days and the integral is annualized by
+dividing by $365$:
 
 $$
 P(t_0, T) = \exp\!\left( -\frac{1}{365}\int_{t_0}^{T} f(t)\,dt \right).
@@ -24,9 +25,10 @@ All other objects follow from this single definition.
 - **Instantaneous forward rate** $f(t)$ is the continuously-compounded rate for an
   infinitesimal period at $t$; it is the quantity integrated above.
 
-- **Zero (spot) rate** $z(T)$ is the constant rate giving the same discount factor.
-  With $\tau = (T-t_0)/365$ the year fraction, $P(t_0,T) = e^{-z(T)\,\tau}$, so
-  $z(T) = \tfrac{1}{T-t_0}\int_{t_0}^{T} f\,dt$.
+- **Zero (spot) rate** $z(T)$ is the continuously compounded constant rate giving the
+  same discount factor. With $\tau(T)$ measured by the curve's configured day count,
+  $P(t_0,T) = e^{-z(T)\,\tau(T)}$. Under ACT/365F this is also
+  $z(T) = \tfrac{1}{T-t_0}\int_{t_0}^{T} f\,dt$ when $f$ is expressed per annum.
 
 - **Forward discount factor** between two future dates follows from the ratio:
 
@@ -38,11 +40,11 @@ Choosing $f$ as the state variable makes the integral — and therefore every
 discount factor — a closed-form function of the curve parameters, which is what
 makes both calibration and AAD sensitivities efficient.
 
-## Forward-Rate Parameterisations
+## Curve Parameterisations
 
-The forward curve $f(t)$ is described by a small number of parameters anchored at
-**knot dates** $t_1 < t_2 < \dots < t_K$. Two parameterisations are used; both
-precompute the cumulative integral $S(t) = \int_{t_0}^{t} f(u)\,du$ at each knot so
+The forward-rate forms describe $f(t)$ through a small number of parameters anchored at
+**knot dates** $t_1 < t_2 < \dots < t_K$. Both forward forms precompute the cumulative
+integral $S(t) = \int_{t_0}^{t} f(u)\,du$ at each knot so
 that a discount factor is a single subtraction and scaling, $P(t_1,t_2) =
 \exp\!\big(-(S(t_2) - S(t_1))/365\big)$.
 
@@ -94,9 +96,53 @@ definition layer prepends the storage anchor for joint declarations and keeps it
 the solver vector. See [Log-discount curve](log_discount_curve.md) for the exact boundary,
 extrapolation, and column-order contracts.
 
+### Continuously Compounded Zero Rates
+
+`ZERO_RATE` stores one continuously compounded decimal zero rate $z_i$ at each
+strictly-future node $t_i$. The anchor $t_0$ is internal and pinned; there is no
+$z(t_0)$ parameter and no division by a zero year fraction. The configured curve day
+count supplies
+
+$$
+\tau_i=\mathrm{YearFrac}(t_0,t_i), \qquad \ell_i=-z_i\tau_i,
+$$
+
+with the implicit anchor ordinate $\ell_0=0$. The mapped ordinates are evaluated by the
+same `LogDfInterpolation_` implementation as `LOG_DISCOUNT`:
+
+| `LogDfScheme_`       | Mapped log-DF shape                       | Minimum future zero-rate nodes |
+|----------------------|-------------------------------------------|--------------------------------|
+| `LOG_LINEAR`         | piecewise linear                          | 1                              |
+| `LOG_CUBIC_NATURAL` | natural cubic with zero endpoint curvature | 2                              |
+| `MIXED`              | linear head and natural-cubic tail         | 3                              |
+
+Consequently the schemes have exactly the shared log-DF boundary policy: before the
+anchor, linear and mixed clamp to zero while natural cubic extends its first polynomial;
+beyond the last node, every scheme uses the final two-node log-DF secant. Zero rates are
+not interpolated directly. The day count is used both for the node mapping and for every
+query date; it must support context-free `YearFrac(anchor,date)` evaluation. For example,
+ACT/365L requires schedule context and is therefore not a valid direct curve basis.
+
+`DiscountZeroRate_` remains a zero-rate representation after calibration, cloning, and
+archive round trips. `NX()` is the number of future nodes and `ApplyDX` bumps the stored
+zero rates in future-date order, rather than bumping their mapped log discount factors.
+Core callers construct it with `NewDiscountZeroRate(name, ccy, anchor, futureDates,
+zeroRates, dayCount, scheme, base)`; the public C++, Python, and Excel equivalents are
+listed in the [public API guide](../public-api.md).
+
+For calibration, scalar `initialGuess_` is a decimal continuously compounded zero rate
+copied to every free node; `initialGuessPerNode_`, when supplied through the core or
+public C++ spec, is one such rate per future node in the same order. LOG_DISCOUNT retains
+its separate flat-rate-to-log-DF default seed.
+
+Stored zero rates may be zero or negative but must be finite. The exponential keeps every
+finite curve-component discount factor positive.
+
 ### Persistence contract
 
 Piecewise-linear discount curves use the archive-backed `DiscountPWLF` schema.
+Zero-rate curves use the `DiscountZeroRate_v1` schema, which stores the anchor,
+future dates, zero rates, day count, interpolation scheme, and optional base curve.
 Piecewise-constant discount curves created by `NewDiscountPWC` support pricing,
 fitting, cloning, and base-curve layering, but they do not have an archive schema
 and are not persistable. Calling their `Write` operation throws a DAL exception
@@ -154,11 +200,14 @@ Because the spread is multiplicative in discount factors (additive in the
 integrated forward rate), the dependency of derived curves on their base is exact
 and is tracked so that a bump to the base curve flows consistently through every
 curve that layers on it — the basis for bump-and-reprice risk.
+For `ZERO_RATE`, the stored $z_i$ describe the continuously compounded spread
+component: $\ell_{\text{total}}(t)=\ell_{\text{zero}}(t)+\ell_{\text{base}}(t)$.
+They are not the absolute zero rates of the multiplied curve.
 
 ## Calibration as a Root-Finding Problem
 
-Calibration finds the forward-rate parameters $x$ (the $f_i$, or $f_i^L,f_i^R$)
-that reprice a set of market instruments. For each instrument $j$ define a
+Calibration finds curve parameters $x$ (forward rates, node log DFs, or node zero
+rates) that reprice a set of market instruments. For each instrument $j$ define a
 **residual**
 
 $$
@@ -188,6 +237,12 @@ differences between neighbouring knots (a tridiagonal smoothing operator)
 suppresses spurious oscillation between instrument maturities. The mechanics of
 this constrained minimisation — and the approximate-fit variant for inconsistent
 quotes — are covered in [Underdetermined search](underdetermined_search.md).
+
+Because the smoothing penalty is evaluated in the parameter vector's native space,
+`ZERO_RATE` (penalising curvature in $z$) and `LOG_DISCOUNT` (penalising curvature
+in $\ell = -z\tau$) generally select different smoothest curves from the same
+instruments and smoothing weight — the two are alternative coordinates with
+distinct optimal solutions, not a re-expression of a single curve.
 
 `APPROXIMATE` stops when the residual norm reaches `fitTolerance_`; it does not
 continue to a unique, Jacobian-independent curve inside that feasible region. Consequently,
@@ -225,7 +280,7 @@ When `CurveJacobianMode_::ANALYTIC` is set and the calibration is eligible, the
 residual function `YieldCurveCalibrationFunc_` in
 `dal-cpp/dal/curve/calibration.cpp` overrides `Underdetermined::Function_::Gradient`
 to supply an AAD-tape Jacobian instead of returning `nullptr` (which would trigger
-dense bumping). PWC, PWL, and log-DF curves are all built through the same
+dense bumping). PWC, PWL, log-DF, and zero-rate curves are all built through the same
 `CurveDefinition_`, `CurveParameterLayout_`, and scalar-templated factory used by the
 passive residual path.
 
@@ -239,9 +294,9 @@ recording — the recording is opened explicitly by `AnalyticJacobian` after
 `RegisterIndependent` (the canonical order across all four AAD backends).
 
 **Eligibility predicate.** `EligibleForAnalyticJacobian()` is a pure query over
-member state: it rejects only the unimplemented `ZERO_RATE` at the curve-method gate,
-requires `calibrateDiscountCurve_ == true`, and checks that every instrument passes
-`InstrumentEligibleForAnalyticJacobian`. Each fall-through path emits a `NOTICE`
+member state: every implemented curve representation is admitted at the curve-method
+gate, while the path still requires `calibrateDiscountCurve_ == true` and checks that
+every instrument passes `InstrumentEligibleForAnalyticJacobian`. Each fall-through path emits a `NOTICE`
 naming the offending condition. The predicate never throws — ineligibility routes
 through `return nullptr` so the solver dense-bumps. The verdict is evaluated once
 per `CalibrateYieldCurve` call and cached (via `EvaluateEligibilityOnce`), so
@@ -263,7 +318,8 @@ per residual row:
 
 1. Register the flat solver vector in layout order. PWC contributes one right-hand
    forward per knot; PWL contributes interleaved left/right forwards; log-DF contributes
-   future-node log DFs while its storage anchor remains fixed at zero.
+   future-node log DFs; and ZERO_RATE contributes future-node continuously compounded
+   decimal rates. Both pinned representations keep their storage anchor fixed at zero.
 2. Open the recording with `Dal::AAD::NewRecording(*tape)`.
 3. Forward pass: build the selected `Tape::Discount*_<Number_>` through
    `BuildDiscountCurveT`, construct each `Tape::Rate_<Number_>` via
@@ -297,10 +353,10 @@ market instruments (deposits, STIR, swaps)
 underdetermined solver  (min ½‖x−x₀‖²_W  s.t. r(x)=0)
         │  Jacobian via AAD; smoothness via weight matrix W
         ▼
-curve parameters x   (PWC: K, PWL: 2K, log DF: K future nodes)
+curve parameters x   (PWC: K, PWL: 2K, log DF / zero rate: K future nodes)
         │  typed integration or interpolation with passive geometry
         ▼
-discount factors  P(t₁,t₂) = exp(−∫f dt / 365) × P_base
+discount factors  P(t₁,t₂) = exp(ℓ(t₂)−ℓ(t₁)) × P_base
         │
         ▼
 multi-curve routing: OIS discounting + tenor forecasting
@@ -335,9 +391,9 @@ $$
 $$
 
 Each declaration contributes a flat slice in public declaration order: $K$ PWC values,
-$2K$ interleaved PWL values, or $K$ future-node log DFs. A joint log-DF definition
-prepends `today_` as its pinned storage anchor without changing the declaration's public
-future-knot vector.
+$2K$ interleaved PWL values, $K$ future-node log DFs, or $K$ future-node zero rates.
+Joint log-DF and zero-rate definitions prepend `today_` as their pinned storage anchor
+without changing the declaration's public future-knot vector.
 
 **Tape-layer primitives.** The scalar-templated curve and routing types are:
 
@@ -346,6 +402,7 @@ future-knot vector.
 | `Tape::DiscountPWC_<T_, B_>`     | Typed PWC-forward integration with optional typed base   | `dal-cpp/dal/curve/ycconst.hpp`     |
 | `Tape::DiscountPWLF_<T_, B_>`    | Typed PWL-forward integration with optional typed base   | `dal-cpp/dal/curve/ycpwlf.hpp`      |
 | `Tape::DiscountLogDF_<T_, B_>`   | Typed log-DF interpolation for all `LogDfScheme_` values | `dal-cpp/dal/curve/yclogdf.hpp`     |
+| `Tape::DiscountZeroRate_<T_, B_>` | Typed zero-rate mapping and log-DF interpolation         | `dal-cpp/dal/curve/yczerorate.hpp`  |
 | `Tape::JointCurveBlock_<T_>`     | Multi-curve discount/forward routing in the `T_` domain  | `dal-cpp/dal/curve/jointycctx.hpp`  |
 | `Tape::JointRate_<T_>`           | Projection-capable rate base over a joint block          | `dal-cpp/dal/curve/jointrate.hpp`   |
 
@@ -353,8 +410,8 @@ future-knot vector.
 the required typed curve. The AAD path uses a two-pass build: discount declarations first,
 then forward declarations with either an empty/passive base or a
 `DiscountCurve_<Number_>` base from the same solve. This applies uniformly to PWC, PWL,
-and log-DF curves, so the reverse sweep propagates OIS adjoints through any base-layered
-representation.
+log-DF, and zero-rate curves, so the reverse sweep propagates OIS adjoints through any
+base-layered representation.
 
 **OIS-discount vs IBOR-projection routing.** The OIS-discount slice (where
 $\text{forecast} = \text{discount}$) rides the inherited
@@ -369,15 +426,20 @@ priced through the new `Tape::JointRate_<T_>` hierarchy:
 **Eligibility.** The AAD path engages only when every joint declaration
 satisfies:
 
-- `parameterization_` is `PIECEWISE_CONSTANT_FWD`, `PIECEWISE_LINEAR_FWD`, or
-  `LOG_DISCOUNT` with any log-DF interpolation scheme,
+- `parameterization_` is one of `PIECEWISE_CONSTANT_FWD`, `PIECEWISE_LINEAR_FWD`,
+  `LOG_DISCOUNT`, or `ZERO_RATE`; the latter two accept any log-DF interpolation scheme,
 - every instrument is a `Deposit_`, `FRA_`, `Future_`, or `Swap_` (including
   `OISSwap_`, which inherits `Swap_` and rides `Swap_::PrecomputeT<T_>`),
-- `liborBasis_ == ACT_365F` (agrees with the `DAYS_PER_YEAR = 365.0`
-  denominator the templated curve assumes),
+- `liborBasis_ == ACT_365F` (required by the templated simple-rate instrument
+  arithmetic),
 - forward declarations project and resolve their target collateral against a discount
   declaration in the same spec; base layering may combine any implemented pair of curve
   representations.
+
+Joint declarations always use strictly-future knot dates. ZERO_RATE may be used for a
+discount declaration, a forward declaration, or both, and may be mixed with the other
+representations. The core joint API is not currently exposed as a dedicated Python or
+Excel joint-calibration function.
 
 Each failing condition emits a one-time `NOTICE` naming the declaration index
 and the condition; the solver then dense-bumps unchanged. The verdict is

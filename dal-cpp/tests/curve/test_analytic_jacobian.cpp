@@ -16,6 +16,7 @@
 #include <dal/curve/ycinstrument.hpp>
 #include <dal/curve/yclogdf.hpp>
 #include <dal/curve/ycpwlf.hpp>
+#include <dal/curve/yczerorate.hpp>
 #include <dal/platform/platform.hpp>
 #include <dal/protocol/collateraltype.hpp>
 #include <dal/protocol/rateconvention.hpp>
@@ -96,6 +97,19 @@ namespace {
             mkSwap(Date_(2022, 1, 1), Date_(2023, 1, 1), 1.25), mkSwap(Date_(2022, 1, 1), Date_(2024, 1, 1), 1.55),
             mkSwap(Date_(2022, 1, 1), Date_(2025, 1, 1), 1.80),
         };
+        return spec;
+    }
+
+    CurveCalibrationSpec_ MakeZeroRatePhaseASpec(LogDfScheme_ scheme) {
+        CurveCalibrationSpec_ spec = MakePhaseASpec(scheme);
+        spec.curveName_ = "zero_rate_phase_a_test";
+        spec.parameterization_ = CurveParameterization_::Value_::ZERO_RATE;
+        spec.knotDates_ = Vector_<Date_>(spec.knotDates_.begin() + 1, spec.knotDates_.end());
+        spec.initialGuess_ = 0.02;
+        // Exercise interpolation weights as well as node mapping: this maturity lies between
+        // the 3M and 6M knots for every scheme.
+        spec.instruments_[0] =
+            Handle_<YCInstrument_>(new Swap_(spec.today_, spec.today_, Date_(2022, 5, 1), 0.0105, AnnualLeg(), AnnualIndex(), AnnualLeg()));
         return spec;
     }
 
@@ -208,7 +222,7 @@ namespace {
         Handle_<YieldCurve_> empty;
         for (int i = 0; i < static_cast<int>(spec.instruments_.size()); ++i) {
             auto rate = spec.instruments_[i]->Precompute(empty);
-            f[i] = (*rate)(yc) - spec.instruments_[i]->MarketRate();
+            f[i] = (*rate)(yc)-spec.instruments_[i]->MarketRate();
         }
         return f;
     }
@@ -273,7 +287,7 @@ namespace {
         return result;
     }
 
-    Vector_<> EvalForwardResiduals(const CurveCalibrationSpec_& spec, const Vector_<>& parameters) {
+    Vector_<> EvalParameterizedResiduals(const CurveCalibrationSpec_& spec, const Vector_<>& parameters) {
         const CurveDefinition_ definition = MakeCurveDefinition(spec.curveName_, spec.ccy_, spec.parameterization_, spec.logDfScheme_,
                                                                 spec.knotDates_, spec.today_, spec.liborBasis_);
         auto curve = BuildDiscountCurveUniqueT<double>(definition, parameters, spec.baseCurve_);
@@ -283,7 +297,7 @@ namespace {
         Vector_<> residuals(spec.instruments_.size());
         Handle_<YieldCurve_> empty;
         for (int i = 0; i < static_cast<int>(spec.instruments_.size()); ++i)
-            residuals[i] = (*spec.instruments_[i]->Precompute(empty))(block) - spec.instruments_[i]->MarketRate();
+            residuals[i] = (*spec.instruments_[i]->Precompute(empty))(block)-spec.instruments_[i]->MarketRate();
         return residuals;
     }
 
@@ -301,14 +315,64 @@ namespace {
             auto down = solved;
             up[column] += bump;
             down[column] -= bump;
-            const Vector_<> upResiduals = EvalForwardResiduals(spec, up);
-            const Vector_<> downResiduals = EvalForwardResiduals(spec, down);
+            const Vector_<> upResiduals = EvalParameterizedResiduals(spec, up);
+            const Vector_<> downResiduals = EvalParameterizedResiduals(spec, down);
             for (int row = 0; row < static_cast<int>(spec.instruments_.size()); ++row) {
                 const double centralDifference = (upResiduals[row] - downResiduals[row]) / (2.0 * bump);
                 ASSERT_NEAR(result.diagnostics_.jacobian_(row, column), centralDifference, tolerance) << "row=" << row << ", column=" << column;
             }
         }
         AssertCurveAgreesWithBumped(spec, result);
+    }
+
+    void AssertZeroRateJacobianMatchesCentralDifference(LogDfScheme_ scheme) {
+        const CurveCalibrationSpec_ spec = MakeZeroRatePhaseASpec(scheme);
+        const CurveCalibrationResult_ analytic = CalibrateAnalytic(spec);
+        const CurveCalibrationResult_ bumped = CalibrateBumped(spec);
+        ASSERT_LT(analytic.diagnostics_.maxAbsResidual_, 1.0e-7);
+        ASSERT_LT(bumped.diagnostics_.maxAbsResidual_, 1.0e-7);
+
+        const auto* analyticCurve = dynamic_cast<const DiscountZeroRate_*>(analytic.curve_.get());
+        const auto* bumpedCurve = dynamic_cast<const DiscountZeroRate_*>(bumped.curve_.get());
+        ASSERT_NE(analyticCurve, nullptr);
+        ASSERT_NE(bumpedCurve, nullptr);
+        const Vector_<> parameters = analyticCurve->NodeZeroRates();
+        const Vector_<> bumpedParameters = bumpedCurve->NodeZeroRates();
+        ASSERT_EQ(parameters.size(), spec.knotDates_.size());
+        ASSERT_EQ(bumpedParameters.size(), parameters.size());
+
+        const Matrix_<>& jacobian = analytic.diagnostics_.jacobian_;
+        ASSERT_FALSE(jacobian.Empty());
+        ASSERT_EQ(jacobian.Rows(), static_cast<int>(spec.instruments_.size()));
+        ASSERT_EQ(jacobian.Cols(), static_cast<int>(parameters.size()));
+        ASSERT_FALSE(analytic.diagnostics_.effJacobianInverse_.Empty());
+        ASSERT_EQ(analytic.diagnostics_.effJacobianInverse_.Rows(), jacobian.Cols());
+        ASSERT_EQ(analytic.diagnostics_.effJacobianInverse_.Cols(), jacobian.Rows());
+
+        constexpr double bump = 1.0e-6;
+        constexpr double tolerance = 2.0e-8;
+        for (int column = 0; column < static_cast<int>(parameters.size()); ++column) {
+            Vector_<> up = parameters;
+            Vector_<> down = parameters;
+            up[column] += bump;
+            down[column] -= bump;
+            const Vector_<> upResiduals = EvalParameterizedResiduals(spec, up);
+            const Vector_<> downResiduals = EvalParameterizedResiduals(spec, down);
+            for (int row = 0; row < jacobian.Rows(); ++row) {
+                const double centralDifference = (upResiduals[row] - downResiduals[row]) / (2.0 * bump);
+                ASSERT_NEAR(jacobian(row, column), centralDifference, tolerance) << "row=" << row << ", column=" << column;
+            }
+            ASSERT_NEAR(parameters[column], bumpedParameters[column], 1.0e-8) << "column=" << column;
+        }
+        for (int row = 0; row < static_cast<int>(analytic.diagnostics_.residuals_.size()); ++row)
+            ASSERT_NEAR(analytic.diagnostics_.residuals_[row], bumped.diagnostics_.residuals_[row], 1.0e-8) << "row=" << row;
+        for (const auto& knot : spec.knotDates_)
+            ASSERT_NEAR((*analytic.curve_)(spec.today_, knot), (*bumped.curve_)(spec.today_, knot), 1.0e-8);
+        for (const auto& instrument : spec.instruments_) {
+            const Date_ maturity = instrument->TimeSpan().second;
+            ASSERT_NEAR((*analytic.curve_)(spec.today_, maturity), (*bumped.curve_)(spec.today_, maturity), 1.0e-8)
+                << "instrument=" << instrument->Name();
+        }
     }
 } // namespace
 
@@ -359,6 +423,80 @@ TEST(AnalyticJacobianTest, TestPiecewiseLinearForwardEngagesAnalyticJacobian) {
 
 TEST(AnalyticJacobianTest, TestMultiKnotPiecewiseLinearForwardMatchesCentralDifference) {
     AssertForwardJacobianMatchesCentralDifference(MakeMultiKnotPiecewiseLinearSpec(), 1.0e-5);
+}
+
+TEST(AnalyticJacobianTest, TestZeroRateLogLinearMatchesCentralDifferenceAndBumpedCalibration) {
+    AssertZeroRateJacobianMatchesCentralDifference(LogDfScheme_::Value_::LOG_LINEAR);
+}
+
+TEST(AnalyticJacobianTest, TestZeroRateLogCubicNaturalMatchesCentralDifferenceAndBumpedCalibration) {
+    AssertZeroRateJacobianMatchesCentralDifference(LogDfScheme_::Value_::LOG_CUBIC_NATURAL);
+}
+
+TEST(AnalyticJacobianTest, TestZeroRateMixedMatchesCentralDifferenceAndBumpedCalibration) {
+    AssertZeroRateJacobianMatchesCentralDifference(LogDfScheme_::Value_::MIXED);
+}
+
+TEST(AnalyticJacobianTest, TestZeroRateCanDisableBothJacobianDiagnostics) {
+    const CurveCalibrationSpec_ spec = MakeZeroRatePhaseASpec(LogDfScheme_::Value_::LOG_LINEAR);
+    CurveCalibrationOptions_ options;
+    options.jacobianMode_ = CurveJacobianMode_::Value_::ANALYTIC;
+    options.computeEffJacobianInverse_ = false;
+    options.computeForwardJacobian_ = false;
+
+    const CurveCalibrationResult_ result = CalibrateYieldCurve(spec, options);
+    ASSERT_LT(result.diagnostics_.maxAbsResidual_, 1.0e-7);
+    ASSERT_TRUE(result.diagnostics_.effJacobianInverse_.Empty());
+    ASSERT_TRUE(result.diagnostics_.jacobian_.Empty());
+    ASSERT_NE(dynamic_cast<const DiscountZeroRate_*>(result.curve_.get()), nullptr);
+}
+
+TEST(AnalyticJacobianTest, TestZeroRateEffectiveInverseJacobianPreservesKnotAndInstrumentOrder) {
+    const CurveCalibrationSpec_ spec = MakeZeroRatePhaseASpec(LogDfScheme_::Value_::LOG_LINEAR);
+    const CurveCalibrationResult_ baseResult = CalibrateAnalytic(spec);
+    ASSERT_LT(baseResult.diagnostics_.maxAbsResidual_, 1.0e-7);
+
+    const auto* baseCurve = dynamic_cast<const DiscountZeroRate_*>(baseResult.curve_.get());
+    ASSERT_NE(baseCurve, nullptr);
+    ASSERT_EQ(baseCurve->NodeDates(), spec.knotDates_);
+    const Vector_<> baseRates = baseCurve->NodeZeroRates();
+    const int instrumentCount = static_cast<int>(spec.instruments_.size());
+    const int knotCount = static_cast<int>(baseRates.size());
+    ASSERT_EQ(instrumentCount, knotCount);
+
+    const Matrix_<>& inverse = baseResult.diagnostics_.effJacobianInverse_;
+    ASSERT_EQ(inverse.Rows(), knotCount);
+    ASSERT_EQ(inverse.Cols(), instrumentCount);
+
+    constexpr double quoteBump = 1.0e-6;
+    // The exposed effective inverse is formed from the converged solver iterate, while the re-solve
+    // is nonlinear. A 2e-8 absolute bound is 2% of the quote bump, yet far below the O(1e-6)
+    // movement produced by a misordered dominant row or column.
+    constexpr double predictionTolerance = 2.0e-8;
+    for (int instrumentColumn = 0; instrumentColumn < instrumentCount; ++instrumentColumn) {
+        const auto* original = dynamic_cast<const Swap_*>(spec.instruments_[instrumentColumn].get());
+        ASSERT_NE(original, nullptr);
+        const auto span = original->TimeSpan();
+        if (instrumentColumn > 0)
+            ASSERT_LT(spec.instruments_[instrumentColumn - 1]->TimeSpan().second, span.second);
+
+        CurveCalibrationSpec_ bumpedSpec = spec;
+        bumpedSpec.instruments_[instrumentColumn] = Handle_<YCInstrument_>(
+            new Swap_(spec.today_, span.first, span.second, original->MarketRate() + quoteBump, AnnualLeg(), AnnualIndex(), AnnualLeg()));
+        const CurveCalibrationResult_ bumpedResult = CalibrateAnalytic(bumpedSpec);
+        ASSERT_LT(bumpedResult.diagnostics_.maxAbsResidual_, 1.0e-7);
+        const auto* bumpedCurve = dynamic_cast<const DiscountZeroRate_*>(bumpedResult.curve_.get());
+        ASSERT_NE(bumpedCurve, nullptr);
+        ASSERT_EQ(bumpedCurve->NodeDates(), spec.knotDates_);
+        const Vector_<> bumpedRates = bumpedCurve->NodeZeroRates();
+
+        for (int knotRow = 0; knotRow < knotCount; ++knotRow) {
+            const double actualDelta = bumpedRates[knotRow] - baseRates[knotRow];
+            const double predictedDelta = inverse(knotRow, instrumentColumn) * quoteBump / spec.tolerance_;
+            ASSERT_NEAR(actualDelta, predictedDelta, predictionTolerance)
+                << "future-knot row=" << knotRow << ", instrument column=" << instrumentColumn;
+        }
+    }
 }
 
 // Category 2: Structural zeros are EXACTLY zero

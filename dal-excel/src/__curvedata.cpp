@@ -30,6 +30,33 @@ curve is handle StorableDiscountCurve
 -IF-------------------------------------------------------------------------*/
 
 /*IF--------------------------------------------------------------------------
+public DiscountZeroRate_New
+    Build a discount curve from continuously compounded zero rates
+&inputs
+name is string
+    A name for the curve
+ccy is string
+    Currency code (e.g. "USD")
+anchorDate is date
+    Anchor date for the zero rates
+nodeDates is date[]
+    Future node dates for the curve
+zeroRates is number[]
+    &$.size() == nodeDates.size()\must have one zero rate per node date
+    Continuously compounded zero rates at each node date
+&optional
+dayCount is string
+    Day-count basis used to map zero rates to log discount factors (default "ACT_365F")
+logDfScheme is string
+    Log discount-factor interpolation scheme (default "LOG_LINEAR")
+base is handle StorableDiscountCurve
+    Optional base discount curve
+&outputs
+curve is handle StorableDiscountCurve
+    The zero-rate discount curve
+-IF-------------------------------------------------------------------------*/
+
+/*IF--------------------------------------------------------------------------
 public CurveBlock_New_Simple
     Build a CurveBlock from a single discount curve
 &inputs
@@ -58,6 +85,24 @@ namespace Dal {
             curve->reset(new StorableDiscountCurve_(result));
         }
 
+        void DiscountZeroRate_New(const String_& name,
+                                  const String_& ccy,
+                                  const Date_& anchorDate,
+                                  const Vector_<Date_>& nodeDates,
+                                  const Vector_<>& zeroRates,
+                                  const String_& dayCount,
+                                  const String_& logDfScheme,
+                                  const Handle_<StorableDiscountCurve_>& base,
+                                  Handle_<StorableDiscountCurve_>* curve) {
+            Handle_<DiscountCurve_> baseCurve;
+            if (!base.IsEmpty())
+                baseCurve = base->val_;
+            const DayBasis_ basis(dayCount.empty() ? "ACT_365F" : dayCount);
+            const LogDfScheme_ scheme(logDfScheme.empty() ? "LOG_LINEAR" : logDfScheme);
+            auto result = Dal::DiscountZeroRateNew(name, ccy, anchorDate, nodeDates, zeroRates, basis, scheme, baseCurve);
+            curve->reset(new StorableDiscountCurve_(result));
+        }
+
         void CurveBlock_New_Simple(const Handle_<StorableDiscountCurve_>& dc,
                                   const String_& liborBasis,
                                   Handle_<StorableCurveBlock_>* block) {
@@ -68,6 +113,7 @@ namespace Dal {
     }
 #ifdef _WIN32
 #include <dal-excel/auto/MG_DiscountPWLF_New_public.inc>
+#include <dal-excel/auto/MG_DiscountZeroRate_New_public.inc>
 #include <dal-excel/auto/MG_CurveBlock_New_Simple_public.inc>
 #endif
 }

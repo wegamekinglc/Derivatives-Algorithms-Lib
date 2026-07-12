@@ -42,7 +42,7 @@ def _apply_optional_setting(spec, name, value):
         setattr(spec, attr, convert(value) if convert else value)
 
 
-def _build_calibration_spec(today, ccy, instruments, knot_dates, settings):
+def _build_calibration_spec(today, ccy, instruments, knot_dates, settings, base_curve=None):
     """Build a CurveCalibrationSpec_ with sensible defaults and optional overrides."""
     spec = _bindings.CurveCalibrationSpecBuilder_()
     spec.today_ = today
@@ -59,6 +59,8 @@ def _build_calibration_spec(today, ccy, instruments, knot_dates, settings):
 
     spec.instruments_ = instruments
     spec.knotDates_ = knot_dates
+    if base_curve is not None:
+        spec.baseCurve_ = base_curve
 
     if settings:
         for key, value in settings.items():
@@ -67,7 +69,15 @@ def _build_calibration_spec(today, ccy, instruments, knot_dates, settings):
     return spec
 
 
-def calibrate_curve(today, ccy, instruments, knot_dates, settings=None, jacobian_mode=None):
+def calibrate_curve(
+    today,
+    ccy,
+    instruments,
+    knot_dates,
+    settings=None,
+    jacobian_mode=None,
+    base_curve=None,
+):
     """High-level single-curve calibration with sensible defaults.
 
     Only discount-curve calibration (calibrate_discount=True) is supported here;
@@ -86,6 +96,7 @@ def calibrate_curve(today, ccy, instruments, knot_dates, settings=None, jacobian
             fit_tolerance, max_evaluations, max_restarts, initial_guess,
             solve_mode, parameterization, log_df_scheme
         jacobian_mode: CurveJacobianMode enum (None = default without Jacobian)
+        base_curve: Optional discount curve multiplied into the calibrated curve.
 
     Returns:
         CalibrationResult_ with curve_ and diagnostics_
@@ -97,7 +108,7 @@ def calibrate_curve(today, ccy, instruments, knot_dates, settings=None, jacobian
             "CurveCalibrationSpecBuilder_ with discountCurves_ and call "
             "dal.CalibrateSingleCurve directly."
         )
-    spec = _build_calibration_spec(today, ccy, instruments, knot_dates, settings)
+    spec = _build_calibration_spec(today, ccy, instruments, knot_dates, settings, base_curve)
     if jacobian_mode is not None:
         return _bindings.CalibrateSingleCurve(spec.Build(), jacobian_mode)
     else:

@@ -46,6 +46,16 @@ here as the baseline rather than dated releases:
 
 ## 2026-07
 
+- `curve`: Added persistent continuously compounded `ZERO_RATE` curves. Future-node
+  rates map to `logDF = -z * YearFrac(anchor,node)` and reuse all shared log-DF
+  interpolation/extrapolation schemes; the anchor has no free zero-rate parameter.
+  Single, staged, and joint calibration support ZERO_RATE with passive or active base
+  layering and AAD analytical Jacobians in future-node zero-rate order. The additive
+  `DiscountZeroRate_v1` archive preserves representation and bump coordinates, and direct
+  factories are available in core C++, public C++, Python (`DiscountZeroRate_New`), and
+  Excel (`DISCOUNTZERORATE.NEW`). See `docs/methodology/yield_curve.md`,
+  `docs/methodology/yield_curve_jacobian.md`, and `docs/public-api.md`.
+
 - `curve`: Unified passive and AAD curve construction across piecewise-constant forwards,
   piecewise-linear forwards, and log-discount curves. Linear and natural-cubic interpolation
   now separate passive geometry from typed ordinates, all log-DF schemes share one boundary
@@ -55,7 +65,9 @@ here as the baseline rather than dated releases:
   curve while preserving declaration-order solver columns. Newly analytic PWC/PWL
   `APPROXIMATE` solves can select a different tolerance-satisfying curve than the historical
   bumped path because the underdetermined solver stops at `fitTolerance_`; callers requiring
-  historical curve-level reproduction must select `BUMPED`. `ZERO_RATE` remains unimplemented.
+  historical curve-level reproduction must select `BUMPED`. At that point, `ZERO_RATE` was
+  deliberately outside the unified factory; the later entry above adds it without changing
+  the other representation contracts.
   See `docs/methodology/interpolation.md`, `docs/methodology/log_discount_curve.md`, and
   `docs/methodology/yield_curve_jacobian.md`.
 

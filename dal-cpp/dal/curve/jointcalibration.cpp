@@ -218,10 +218,6 @@ namespace Dal {
             for (int d = 0; d < static_cast<int>(slots->size()); ++d) {
                 const CurveSlot_& slot = (*slots)[d];
                 const JointCurveDeclaration_& decl = spec->curves_[slot.curveIndex];
-                if (decl.parameterization_ == CurveParameterization_::Value_::ZERO_RATE) {
-                    NOTICE("Joint AAD Jacobian does not support the unimplemented ZERO_RATE parameterization; falling back to bumped");
-                    return false;
-                }
                 const bool onDiscountDecl = decl.calibrateDiscountCurve_;
                 for (int i = 0; i < slot.nInstruments; ++i) {
                     if (!InstrumentEligibleForAnalyticJacobian(*slot.instruments[i], onDiscountDecl))

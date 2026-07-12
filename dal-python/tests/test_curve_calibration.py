@@ -1,6 +1,7 @@
 """Tests for yield curve calibration."""
 
 import dal
+import pytest
 
 S = dal.String_
 
@@ -144,6 +145,28 @@ def test_calibrate_single_curve_with_analytic_jacobian():
     assert diag.jacobian_ is not None  # nosec B101 - pytest assertions are intentional
 
 
+def test_calibrate_single_zero_rate_curve_with_analytic_jacobian():
+    """ZERO_RATE calibration exposes the AAD analytical Jacobian in Python."""
+    instruments, knot_dates = _make_ois_instruments()
+
+    builder = dal.CurveCalibrationSpecBuilder_()
+    builder.today_ = _today()
+    builder.ccy_ = S("USD")
+    builder.curveName_ = S("ois_zero_analytic")
+    builder.calibrateDiscountCurve_ = True
+    builder.initialGuess_ = 0.04
+    builder.parameterization_ = dal.CurveParameterization.ZERO_RATE
+    builder.instruments_ = instruments
+    builder.knotDates_ = knot_dates
+
+    result = dal.CalibrateSingleCurve(builder.Build(), dal.CurveJacobianMode.ANALYTIC)
+
+    assert result.curve_ is not None  # nosec B101 - pytest assertions are intentional
+    assert result.diagnostics_.maxAbsResidual_ < 1.0e-6  # nosec B101 - pytest assertions are intentional
+    assert result.diagnostics_.jacobian_.Rows() == len(instruments)  # nosec B101 - pytest assertions are intentional
+    assert result.diagnostics_.jacobian_.Cols() == len(knot_dates)  # nosec B101 - pytest assertions are intentional
+
+
 def test_calibrate_single_curve_with_bumped_jacobian():
     """CalibrateSingleCurve with BUMPED Jacobian mode completes successfully."""
     instruments, knot_dates = _make_ois_instruments()
@@ -196,6 +219,52 @@ def test_api_calibrate_curve_with_jacobian():
         jacobian_mode=dal.CurveJacobianMode.ANALYTIC,
     )
     assert result.diagnostics_.jacobian_ is not None  # nosec B101 - pytest assertions are intentional
+
+
+def test_api_calibrate_zero_rate_curve_with_base():
+    """api.calibrate_curve appends optional base support without moving positional arguments."""
+    instruments, knot_dates = _make_ois_instruments()
+    base = dal.DiscountZeroRate_New(
+        "base",
+        "USD",
+        _today(),
+        knot_dates,
+        [0.01] * len(knot_dates),
+    )
+    settings = dict(
+        curve_name=S("api_zero_spread"),
+        tolerance=1.0e-8,
+        initial_guess=0.03,
+        parameterization=dal.CurveParameterization.ZERO_RATE,
+    )
+
+    total_result = dal.api.calibrate_curve(
+        _today(),
+        "USD",
+        instruments,
+        knot_dates,
+        settings,
+        dal.CurveJacobianMode.ANALYTIC,
+    )
+    result = dal.api.calibrate_curve(
+        _today(),
+        "USD",
+        instruments,
+        knot_dates,
+        settings,
+        dal.CurveJacobianMode.ANALYTIC,
+        base_curve=base,
+    )
+
+    assert isinstance(result.curve_, dal.DiscountZeroRate_)  # nosec B101 - pytest assertions are intentional
+    assert isinstance(total_result.curve_, dal.DiscountZeroRate_)  # nosec B101 - pytest assertions are intentional
+    assert result.diagnostics_.maxAbsResidual_ < 1.0e-6  # nosec B101 - pytest assertions are intentional
+    assert result.diagnostics_.jacobian_.Rows() == len(instruments)  # nosec B101 - pytest assertions are intentional
+    assert result.curve_(_today(), knot_dates[1]) == pytest.approx(  # nosec B101 - pytest assertions are intentional
+        total_result.curve_(_today(), knot_dates[1]), abs=1.0e-9
+    )
+    for spread_rate, total_rate in zip(result.curve_.zero_rates, total_result.curve_.zero_rates):
+        assert spread_rate == pytest.approx(total_rate - 0.01, abs=1.0e-9)  # nosec B101 - intentional
 
 
 # ---- Multi-curve calibration ----
