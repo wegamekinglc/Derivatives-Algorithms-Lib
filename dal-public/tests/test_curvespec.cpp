@@ -22,6 +22,7 @@ using Dal::Date_;
 using Dal::DayBasis_New;
 using Dal::DepositNew;
 using Dal::DiscountPWLFNew;
+using Dal::DiscountZeroRate_;
 using Dal::LogDfScheme_;
 using Dal::MultiCurveCalibrationSpec_;
 using Dal::OISSwapNew;
@@ -168,6 +169,31 @@ TEST(CurveSpecTest, TestCalibrateSingleCurveWithAnalyticJacobian) {
     // ANALYTIC Jacobian should produce a non-empty Jacobian
     ASSERT_GT(result.diagnostics_.jacobian_.Rows(), 0);
     ASSERT_GT(result.diagnostics_.jacobian_.Cols(), 0);
+}
+
+TEST(CurveSpecTest, TestCalibrateSingleCurveZeroRateWithAnalyticJacobian) {
+    CurveCalibrationSpecBuilder_ builder;
+    builder.today_ = Today();
+    builder.ccy_ = "USD";
+    builder.curveName_ = "ois_zero_rate_analytic";
+    builder.calibrateDiscountCurve_ = true;
+    builder.initialGuess_ = 0.04;
+    builder.parameterization_ = CurveParameterization_::Value_::ZERO_RATE;
+    builder.logDfScheme_ = LogDfScheme_::Value_::LOG_CUBIC_NATURAL;
+
+    for (int y : {2, 5, 10}) {
+        const Date_ maturity = Spot().AddDays(y * 365);
+        builder.knotDates_.push_back(maturity);
+        builder.instruments_.push_back(OISSwapNew(Today(), Spot(), maturity, 0.04, Fixed6M(), OvernightIndex(), Float3M()));
+    }
+
+    const auto spec = builder.Build();
+    const CalibrationResult_ result = CalibrateSingleCurve(spec, Dal::CurveJacobianMode_::Value_::ANALYTIC);
+
+    ASSERT_NE(dynamic_cast<const DiscountZeroRate_*>(result.curve_.get()), nullptr);
+    ASSERT_LT(result.diagnostics_.maxAbsResidual_, 1.0e-6);
+    ASSERT_EQ(result.diagnostics_.jacobian_.Rows(), 3);
+    ASSERT_EQ(result.diagnostics_.jacobian_.Cols(), 3);
 }
 
 // Multi-curve calibration (sequential)

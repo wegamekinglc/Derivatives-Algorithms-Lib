@@ -30,6 +30,8 @@ settings is cell[][]
     Optional (key,value) settings. Keys: curveName, calibrateDiscountCurve, solveMode, parameterization, logDfScheme, smoothingWeight, tolerance, fitTolerance, initialGuess, maxEvaluations, maxRestarts, targetCollateral, targetTenor, liborBasis
 discountCurve is handle StorableDiscountCurve
     Optional discount curve (OIS-collateralized) needed when calibrating a forward curve (calibrateDiscountCurve=FALSE)
+baseCurve is handle StorableDiscountCurve
+    Optional base curve layered under the calibrated curve; distinct from the forward-calibration pricing discount curve
 &outputs
 result is handle StorableCurveCalibrationResult
     The calibration result (curve + diagnostics)
@@ -129,6 +131,7 @@ namespace Dal {
                                     const Vector_<Date_>& knotDates,
                                     const Matrix_<Cell_>& settings,
                                     const Handle_<StorableDiscountCurve_>& discountCurve,
+                                    const Handle_<StorableDiscountCurve_>& baseCurve,
                                     Handle_<StorableCurveCalibrationResult_>* result) {
             CurveCalibrationSpecBuilder_ builder;
             builder.today_ = today;
@@ -164,6 +167,9 @@ namespace Dal {
             else
                 REQUIRE(builder.calibrateDiscountCurve_,
                         "Forward-curve calibration (calibrateDiscountCurve=FALSE) requires a discountCurve input");
+
+            if (baseCurve)
+                builder.baseCurve_ = baseCurve->val_;
 
             // Build spec and calibrate via the dal-public interface
             auto spec = builder.Build();

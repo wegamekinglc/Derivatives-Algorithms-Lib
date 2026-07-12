@@ -1,0 +1,44 @@
+
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+<title>DiscountZeroRate_New</title>
+<link href="tablecloth/tablecloth.css" rel="stylesheet" type="text/css" media="screen" />
+<link href="hbk.css" rel="stylesheet" type="text/css" media="screen" />
+<script type="text/javascript" src="tablecloth/tablecloth.js"></script>
+</head>
+<body>
+<h1>DiscountZeroRate_New (in Excel: DISCOUNTZERORATE.NEW)</h1>
+Build a discount curve from continuously compounded zero rates
+
+<h2>Inputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th>Optional?</th><th></th></tr>
+
+<tr><td>name</td><td>string</td><td></td><td>A name for the curve</td></tr>
+<tr><td>ccy</td><td>string</td><td></td><td>Currency code (e.g. "USD")</td></tr>
+<tr><td>anchorDate</td><td>date</td><td></td><td>Anchor date for the zero rates</td></tr>
+<tr><td>nodeDates</td><td>vector of dates</td><td></td><td>Future node dates for the curve</td></tr>
+<tr><td>zeroRates</td><td>vector of numbers</td><td></td><td>Continuously compounded zero rates at each node date</td></tr>
+<tr><td>dayCount</td><td>string</td><td>yes</td><td>Day-count basis used to map zero rates to log discount factors (default "ACT_365F")</td></tr>
+<tr><td>logDfScheme</td><td>string</td><td>yes</td><td>Log discount-factor interpolation scheme (default "LOG_LINEAR")</td></tr>
+<tr><td>base</td><td>handle of type StorableDiscountCurve</td><td>yes</td><td>Optional base discount curve</td></tr>
+
+</table>
+
+
+
+
+
+<h2>Outputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th></th></tr>
+
+<tr><td>curve</td><td>handle of type StorableDiscountCurve</td><td>The zero-rate discount curve</td></tr>
+</table>
+
+
+
+
+
+

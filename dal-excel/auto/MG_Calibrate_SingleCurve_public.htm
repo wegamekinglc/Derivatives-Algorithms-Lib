@@ -21,6 +21,7 @@ Calibrate a single yield curve from instruments and settings. Returns a result h
 <tr><td>knotDates</td><td>vector of dates</td><td></td><td>Knot dates (can be empty for auto-detection)</td></tr>
 <tr><td>settings</td><td>matrix of cells</td><td>yes</td><td>Optional (key,value) settings. Keys: curveName, calibrateDiscountCurve, solveMode, parameterization, logDfScheme, smoothingWeight, tolerance, fitTolerance, initialGuess, maxEvaluations, maxRestarts, targetCollateral, targetTenor, liborBasis</td></tr>
 <tr><td>discountCurve</td><td>handle of type StorableDiscountCurve</td><td>yes</td><td>Optional discount curve (OIS-collateralized) needed when calibrating a forward curve (calibrateDiscountCurve=FALSE)</td></tr>
+<tr><td>baseCurve</td><td>handle of type StorableDiscountCurve</td><td>yes</td><td>Optional base curve layered under the calibrated curve; distinct from the forward-calibration pricing discount curve</td></tr>
 
 </table>
 

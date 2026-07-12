@@ -1,6 +1,7 @@
 """Tests for curve data factories."""
 
 import dal
+import pytest
 
 
 def _today():
@@ -43,6 +44,82 @@ def test_discount_pwlf_new_with_base():
     fwd_rates2 = [0.04, 0.04]
     curve = dal.DiscountPWLF_New("bootstrapped", "USD", knot_dates2, fwd_rates2, base=base)
     assert curve is not None  # nosec B101 - pytest assertions are intentional
+
+
+# ---- DiscountZeroRate_New ----
+
+def test_discount_zero_rate_new_defaults():
+    """DiscountZeroRate_New supplies ACT/365F and log-linear defaults."""
+    curve = dal.DiscountZeroRate_New(
+        "zero_default",
+        "USD",
+        _today(),
+        [_today().AddDays(365), _today().AddDays(730)],
+        [0.02, 0.025],
+    )
+
+    assert curve is not None  # nosec B101 - pytest assertions are intentional
+
+
+@pytest.mark.parametrize(
+    "scheme",
+    [
+        dal.LogDfScheme.LOG_LINEAR,
+        dal.LogDfScheme.LOG_CUBIC_NATURAL,
+        dal.LogDfScheme.MIXED,
+    ],
+)
+def test_discount_zero_rate_new_explicit_options(scheme):
+    """DiscountZeroRate_New accepts an explicit day count and every log-DF scheme."""
+    curve = dal.DiscountZeroRate_New(
+        "zero_explicit",
+        "USD",
+        _today(),
+        [_today().AddDays(360), _today().AddDays(720), _today().AddDays(1080)],
+        [0.02, 0.025, 0.03],
+        day_count=dal.DayBasis_New("ACT_360"),
+        log_df_scheme=scheme,
+    )
+
+    assert curve is not None  # nosec B101 - pytest assertions are intentional
+
+
+def test_discount_zero_rate_new_with_base():
+    """DiscountZeroRate_New accepts a base curve for multiplicative layering."""
+    node_dates = [_today().AddDays(365), _today().AddDays(730)]
+    base = dal.DiscountZeroRate_New("base", "USD", _today(), node_dates, [0.01, 0.01])
+    curve = dal.DiscountZeroRate_New(
+        "zero_spread",
+        "USD",
+        _today(),
+        node_dates,
+        [0.02, 0.02],
+        base=base,
+    )
+
+    assert curve is not None  # nosec B101 - pytest assertions are intentional
+
+
+@pytest.mark.parametrize(
+    "node_dates,zero_rates",
+    [
+        (lambda today: [today], [0.02]),
+        (lambda today: [today.AddDays(365)], []),
+        (lambda today: [today.AddDays(365)], [float("nan")]),
+    ],
+)
+def test_discount_zero_rate_new_rejects_invalid_inputs(node_dates, zero_rates):
+    """Native ZERO_RATE validation is translated to Python exceptions."""
+    today = _today()
+
+    with pytest.raises(RuntimeError, match="zero-rate discount curve"):
+        dal.DiscountZeroRate_New(
+            "invalid_zero",
+            "USD",
+            today,
+            node_dates(today),
+            zero_rates,
+        )
 
 
 # ---- CurveBlock_New (simple) ----

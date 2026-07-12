@@ -180,6 +180,33 @@ namespace {
     }
 
     void init_bindings_curve_data(py::module_& m) {
+        m.def("DiscountZeroRate_New",
+            [](const char* name, const char* ccy,
+               const Date_& anchorDate,
+               const py::iterable& nodeDatesPy,
+               const py::iterable& zeroRatesPy,
+               const DayBasis_& dayCount,
+               LogDfScheme_::Value_ logDfScheme,
+               const std::shared_ptr<DiscountCurve_>& base)
+               -> std::shared_ptr<DiscountCurve_> {
+                Vector_<Date_> nodeDates;
+                for (auto item : nodeDatesPy)
+                    nodeDates.push_back(py::cast<Date_>(item));
+                Vector_<> zeroRates;
+                for (auto item : zeroRatesPy)
+                    zeroRates.push_back(py::cast<double>(item));
+                Handle_<DiscountCurve_> baseHandle(
+                    std::const_pointer_cast<const DiscountCurve_>(base));
+                return std::const_pointer_cast<DiscountCurve_>(
+                    DiscountZeroRateNew(String_(name), String_(ccy), anchorDate, nodeDates,
+                                        zeroRates, dayCount, LogDfScheme_(logDfScheme), baseHandle));
+            },
+            py::arg("name"), py::arg("ccy"), py::arg("anchor_date"),
+            py::arg("node_dates"), py::arg("zero_rates"),
+            py::arg("day_count") = DayBasis_("ACT_365F"),
+            py::arg("log_df_scheme") = LogDfScheme_::Value_::LOG_LINEAR,
+            py::arg("base") = std::shared_ptr<DiscountCurve_>());
+
         m.def("DiscountPWLF_New",
             [](const char* name, const char* ccy,
                const py::iterable& knotDatesPy,
@@ -534,8 +561,8 @@ void init_bindings_curve(py::module_& m) {
     init_bindings_curve_handles(m);
     init_bindings_curve_protocol(m);
     init_bindings_curve_instruments(m);
-    init_bindings_curve_data(m);
     init_bindings_curve_enums(m);
+    init_bindings_curve_data(m);
     init_bindings_curve_calibration_builder(m);
     init_bindings_curve_calibration_diagnostics(m);
     init_bindings_curve_calibration_results(m);

@@ -12,7 +12,10 @@ using Dal::CurveBlockNew;
 using Dal::Date_;
 using Dal::DayBasis_New;
 using Dal::DiscountPWLFNew;
+using Dal::DiscountZeroRate_;
+using Dal::DiscountZeroRateNew;
 using Dal::Handle_;
+using Dal::LogDfScheme_;
 using Dal::PeriodLength_New;
 using Dal::String_;
 using Dal::Vector_;
@@ -66,6 +69,43 @@ TEST(CurveDataTest, TestDiscountPWLFNewWithBase) {
     fwdRates2.push_back(0.04);
     auto curve = DiscountPWLFNew(String_("bootstrapped"), String_("USD"), knotDates2, fwdRates2, base);
     ASSERT_TRUE(curve != nullptr);
+}
+
+// DiscountZeroRateNew
+
+TEST(CurveDataTest, TestDiscountZeroRateNewDefaults) {
+    const Vector_<Date_> nodeDates{Today().AddDays(365), Today().AddDays(730), Today().AddDays(1095)};
+    const Vector_<> zeroRates{0.02, 0.022, 0.024};
+
+    const auto curve = DiscountZeroRateNew("zero", "USD", Today(), nodeDates, zeroRates);
+    const auto* typed = dynamic_cast<const DiscountZeroRate_*>(curve.get());
+
+    ASSERT_NE(typed, nullptr);
+    ASSERT_EQ(typed->AnchorDate(), Today());
+    ASSERT_EQ(typed->NodeDates(), nodeDates);
+    ASSERT_EQ(typed->NodeZeroRates(), zeroRates);
+    ASSERT_EQ(typed->DayCount().String(), String_("ACT_365F"));
+    ASSERT_EQ(typed->Scheme(), LogDfScheme_::Value_::LOG_LINEAR);
+}
+
+TEST(CurveDataTest, TestDiscountZeroRateNewOptionsAndBaseMatchCoreFactory) {
+    const Vector_<Date_> nodeDates{Today().AddDays(365), Today().AddDays(730), Today().AddDays(1095)};
+    const Vector_<> baseRates{0.01, 0.011, 0.012};
+    const Vector_<> spreadRates{0.004, 0.005, 0.006};
+    const auto base = DiscountZeroRateNew("base", "USD", Today(), nodeDates, baseRates);
+    const Date_ query = Today().AddDays(600);
+
+    for (const auto scheme : {LogDfScheme_::Value_::LOG_LINEAR, LogDfScheme_::Value_::LOG_CUBIC_NATURAL, LogDfScheme_::Value_::MIXED}) {
+        const auto curve = DiscountZeroRateNew("spread", "USD", Today(), nodeDates, spreadRates, DayBasis_New("ACT_360"), scheme, base);
+        const Handle_<Dal::DiscountCurve_> core(
+            Dal::NewDiscountZeroRate("core", "USD", Today(), nodeDates, spreadRates, DayBasis_New("ACT_360"), scheme, base));
+        const auto* typed = dynamic_cast<const DiscountZeroRate_*>(curve.get());
+
+        ASSERT_NE(typed, nullptr);
+        ASSERT_EQ(typed->DayCount().String(), String_("ACT_360"));
+        ASSERT_EQ(typed->Scheme(), scheme);
+        ASSERT_NEAR((*curve)(Today(), query), (*core)(Today(), query), 1e-14);
+    }
 }
 
 // CurveBlockNew (simple overload)

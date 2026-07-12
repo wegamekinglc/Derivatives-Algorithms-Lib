@@ -10,6 +10,7 @@
 #include <dal/curve/discount.hpp>
 #include <dal/curve/piecewiselinear.hpp>
 #include <dal/curve/ycimp.hpp>
+#include <dal/curve/yczerorate.hpp>
 #include <dal/platform/platform.hpp>
 #include <dal/protocol/collateraltype.hpp>
 #include <dal/time/daybasis.hpp>
@@ -23,6 +24,17 @@ namespace Dal {
                                                          const Vector_<>& fwdRates,
                                                          const Handle_<DiscountCurve_>& base = Handle_<DiscountCurve_>()) {
         return Handle_<DiscountCurve_>(NewDiscountPWLF(name, ccy, PiecewiseLinear_(knotDates, fwdRates, fwdRates), base));
+    }
+
+    FORCE_INLINE Handle_<DiscountCurve_> DiscountZeroRateNew(const String_& name,
+                                                             const String_& ccy,
+                                                             const Date_& anchorDate,
+                                                             const Vector_<Date_>& nodeDates,
+                                                             const Vector_<>& zeroRates,
+                                                             const DayBasis_& dayCount = DayBasis_("ACT_365F"),
+                                                             LogDfScheme_ scheme = LogDfScheme_::Value_::LOG_LINEAR,
+                                                             const Handle_<DiscountCurve_>& base = Handle_<DiscountCurve_>()) {
+        return Handle_<DiscountCurve_>(NewDiscountZeroRate(name, ccy, anchorDate, nodeDates, zeroRates, dayCount, scheme, base));
     }
 
     FORCE_INLINE Handle_<CurveBlock_> CurveBlockNew(const Handle_<DiscountCurve_>& dc,
