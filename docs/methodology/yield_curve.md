@@ -110,11 +110,11 @@ $$
 with the implicit anchor ordinate $\ell_0=0$. The mapped ordinates are evaluated by the
 same `LogDfInterpolation_` implementation as `LOG_DISCOUNT`:
 
-| `LogDfScheme_` | Mapped log-DF shape | Minimum future zero-rate nodes |
-|----------------|---------------------|--------------------------------|
-| `LOG_LINEAR` | piecewise linear | 1 |
-| `LOG_CUBIC_NATURAL` | natural cubic with zero endpoint curvature | 2 |
-| `MIXED` | linear head and natural-cubic tail | 3 |
+| `LogDfScheme_`       | Mapped log-DF shape                       | Minimum future zero-rate nodes |
+|----------------------|-------------------------------------------|--------------------------------|
+| `LOG_LINEAR`         | piecewise linear                          | 1                              |
+| `LOG_CUBIC_NATURAL` | natural cubic with zero endpoint curvature | 2                              |
+| `MIXED`              | linear head and natural-cubic tail         | 3                              |
 
 Consequently the schemes have exactly the shared log-DF boundary policy: before the
 anchor, linear and mixed clamp to zero while natural cubic extends its first polynomial;

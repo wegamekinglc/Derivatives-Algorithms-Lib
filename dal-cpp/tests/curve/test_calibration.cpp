@@ -4,6 +4,9 @@
 
 #include <gtest/gtest.h>
 
+#include <limits>
+#include <memory>
+
 #include <dal/curve/calibration.hpp>
 #include <dal/curve/curveblock.hpp>
 #include <dal/curve/discount.hpp>
@@ -11,8 +14,6 @@
 #include <dal/curve/yczerorate.hpp>
 #include <dal/platform/platform.hpp>
 #include <dal/storage/archive.hpp>
-#include <limits>
-#include <memory>
 
 using namespace Dal;
 
@@ -29,8 +30,8 @@ namespace {
 
         void Poll(std::map<const YCComponent_*, Handle_<YCComponent_>>*) const override {}
 
-        [[nodiscard]] ConstantDiscountCurve_* Clone(const String_& new_name, const YCComponent_::substitutions_t&) const override {
-            return new ConstantDiscountCurve_(new_name, ccy_.String(), value_);
+        [[nodiscard]] ConstantDiscountCurve_* Clone(const String_& newName, const YCComponent_::substitutions_t&) const override {
+            return new ConstantDiscountCurve_(newName, ccy_.String(), value_);
         }
 
         void Write(Archive::Store_&) const override {}
