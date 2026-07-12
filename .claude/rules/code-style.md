@@ -33,6 +33,15 @@
 | Test files        | `test_` prefix, snake_case | `test_vectors.cpp`, `test_date.cpp`               |
 | Namespaces        | PascalCase or lowercase    | `Dal`, `Dal::AAD`, `namespace exception`          |
 
+## Functional Style and Parameter Mutation
+
+- Prefer a **functional style wherever it is proper to do so**: pure functions, return-new-state, no side effects. This continues the const-correctness theme above — if a result can be computed without mutating shared state, do it that way.
+- **Avoid mutating the state of an input parameter** unless performance genuinely matters. Return new state instead.
+- When in-place mutation is genuinely needed, **pass by pointer, not by reference**, so the mutation is visible at the call site:
+  - Good: `Foo(&x);` — the `&` signals that `x` may be modified.
+  - Bad: `Foo(x);` where the signature is `void Foo(T_& x)` — the call site hides the mutation and is indistinguishable from a by-value call.
+- **Exception — calibration:** mutating inputs / out-parameters is acceptable inside calibration routines (large, performance-sensitive Jacobian and curve assembly, e.g. the joint and cross-currency calibration code under `dal-cpp/dal/curve/`). Keep this carve-out confined to calibration code and leave a one-line comment at the function noting why mutation is used.
+
 ## No Duplication
 
 - Don't repeat logic — if two code paths do the same thing, extract a shared function/template/helper.

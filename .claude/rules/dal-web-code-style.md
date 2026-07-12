@@ -52,6 +52,12 @@ to `.claude/rules/code-style.md` (which covers the DAL C++ library) and to
 - A function named `*_async` that is neither `await`ed by callers nor schedules a
   task is a real smell: drop the suffix or make it a genuine coroutine.
 
+## No Input Mutation (Functional Style)
+
+- **Functional style is the default.** Prefer pure functions, return new state, and treat inputs as immutable wherever proper. This composes with the async-first model: pure functions are cheap to reason about across `await` boundaries and `asyncio.to_thread(...)` offloads.
+- **It is forbidden for a function to mutate its input parameters' state.** Inputs must be treated as immutable; construct and return new state instead. This covers in-place edits of passed-in `dict` / `list` / Pydantic models, reassigning attributes on an argument, and mutable default arguments.
+- Why: input mutation creates aliased, hidden state changes that are hard to trace in a concurrent, async codebase, and it breaks the assumption callers rely on when they pass the same object to multiple services or re-use it after the call. The immutability invariant is what makes the rest of the async design safe to read.
+
 ## External HTTP Contract Is Immutable
 
 - Async conversion MUST NOT change routes, request/response JSON shapes, HTTP
