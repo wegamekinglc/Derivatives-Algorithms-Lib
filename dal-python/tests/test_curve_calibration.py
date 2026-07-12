@@ -1,6 +1,7 @@
 """Tests for yield curve calibration."""
 
 import dal
+import pytest
 
 S = dal.String_
 
@@ -237,6 +238,14 @@ def test_api_calibrate_zero_rate_curve_with_base():
         parameterization=dal.CurveParameterization.ZERO_RATE,
     )
 
+    total_result = dal.api.calibrate_curve(
+        _today(),
+        "USD",
+        instruments,
+        knot_dates,
+        settings,
+        dal.CurveJacobianMode.ANALYTIC,
+    )
     result = dal.api.calibrate_curve(
         _today(),
         "USD",
@@ -247,9 +256,15 @@ def test_api_calibrate_zero_rate_curve_with_base():
         base_curve=base,
     )
 
-    assert result.curve_ is not None  # nosec B101 - pytest assertions are intentional
+    assert isinstance(result.curve_, dal.DiscountZeroRate_)  # nosec B101 - pytest assertions are intentional
+    assert isinstance(total_result.curve_, dal.DiscountZeroRate_)  # nosec B101 - pytest assertions are intentional
     assert result.diagnostics_.maxAbsResidual_ < 1.0e-6  # nosec B101 - pytest assertions are intentional
     assert result.diagnostics_.jacobian_.Rows() == len(instruments)  # nosec B101 - pytest assertions are intentional
+    assert result.curve_(_today(), knot_dates[1]) == pytest.approx(  # nosec B101 - pytest assertions are intentional
+        total_result.curve_(_today(), knot_dates[1]), abs=1.0e-9
+    )
+    for spread_rate, total_rate in zip(result.curve_.zero_rates, total_result.curve_.zero_rates):
+        assert spread_rate == pytest.approx(total_rate - 0.01, abs=1.0e-9)  # nosec B101 - intentional
 
 
 # ---- Multi-curve calibration ----

@@ -1,5 +1,7 @@
 """Tests for curve data factories."""
 
+import math
+
 import dal
 import pytest
 
@@ -58,7 +60,13 @@ def test_discount_zero_rate_new_defaults():
         [0.02, 0.025],
     )
 
-    assert curve is not None  # nosec B101 - pytest assertions are intentional
+    assert isinstance(curve, dal.DiscountZeroRate_)  # nosec B101 - pytest assertions are intentional
+    assert curve.anchor_date == _today()  # nosec B101 - pytest assertions are intentional
+    assert curve.node_dates == [_today().AddDays(365), _today().AddDays(730)]  # nosec B101 - pytest assertions are intentional
+    assert curve.zero_rates == [0.02, 0.025]  # nosec B101 - pytest assertions are intentional
+    assert curve.day_count == "ACT_365F"  # nosec B101 - pytest assertions are intentional
+    assert curve.log_df_scheme == dal.LogDfScheme.LOG_LINEAR  # nosec B101 - pytest assertions are intentional
+    assert curve(_today(), _today().AddDays(365)) == pytest.approx(math.exp(-0.02))  # nosec B101
 
 
 @pytest.mark.parametrize(
@@ -81,13 +89,17 @@ def test_discount_zero_rate_new_explicit_options(scheme):
         log_df_scheme=scheme,
     )
 
-    assert curve is not None  # nosec B101 - pytest assertions are intentional
+    assert isinstance(curve, dal.DiscountZeroRate_)  # nosec B101 - pytest assertions are intentional
+    assert curve.day_count == "ACT_360"  # nosec B101 - pytest assertions are intentional
+    assert curve.log_df_scheme == scheme  # nosec B101 - pytest assertions are intentional
+    assert curve(_today(), _today().AddDays(360)) == pytest.approx(math.exp(-0.02))  # nosec B101
 
 
 def test_discount_zero_rate_new_with_base():
     """DiscountZeroRate_New accepts a base curve for multiplicative layering."""
     node_dates = [_today().AddDays(365), _today().AddDays(730)]
     base = dal.DiscountZeroRate_New("base", "USD", _today(), node_dates, [0.01, 0.01])
+    spread = dal.DiscountZeroRate_New("zero_only", "USD", _today(), node_dates, [0.02, 0.02])
     curve = dal.DiscountZeroRate_New(
         "zero_spread",
         "USD",
@@ -97,7 +109,10 @@ def test_discount_zero_rate_new_with_base():
         base=base,
     )
 
-    assert curve is not None  # nosec B101 - pytest assertions are intentional
+    query = _today().AddDays(500)
+    assert curve(_today(), query) == pytest.approx(  # nosec B101 - pytest assertions are intentional
+        base(_today(), query) * spread(_today(), query)
+    )
 
 
 @pytest.mark.parametrize(
