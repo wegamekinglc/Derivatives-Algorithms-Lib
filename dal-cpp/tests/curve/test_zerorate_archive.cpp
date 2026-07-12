@@ -9,6 +9,7 @@
 
 #include <dal/curve/yclogdf.hpp>
 #include <dal/curve/yczerorate.hpp>
+#include <dal/math/aad/aad.hpp>
 #include <dal/platform/platform.hpp>
 #include <dal/storage/json.hpp>
 #include <dal/time/daybasis.hpp>
@@ -98,4 +99,19 @@ TEST(ZeroRateArchiveTest, TestJsonRoundTripAndClonePreserveSerializableBase) {
         const DiscountZeroRate_ expectedClone("expected", "USD", ANCHOR, NODE_DATES, ZERO_RATES, ACT_360, scheme, replacementBase);
         AssertFieldsAndValues(*clonedZero, expectedClone, "zero_clone", scheme);
     }
+}
+
+TEST(ZeroRateArchiveTest, TestActiveAadCurveSerializationIsRejected) {
+    auto* tape = AAD::Tape();
+    AAD::Clear(*tape);
+
+    Vector_<AAD::Number_> activeZeroRates(ZERO_RATES.size());
+    for (int i = 0; i < static_cast<int>(ZERO_RATES.size()); ++i)
+        activeZeroRates[i] = ZERO_RATES[i];
+
+    const Tape::DiscountZeroRate_<AAD::Number_> active("active_zero", "USD", ANCHOR, NODE_DATES, activeZeroRates, ACT_360,
+                                                       LogDfScheme_::Value_::LOG_LINEAR);
+    ASSERT_THROW(JSON::WriteString(active), Dal::Exception_);
+
+    AAD::Clear(*tape);
 }

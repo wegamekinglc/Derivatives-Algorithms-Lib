@@ -102,10 +102,7 @@ namespace Dal {
 
         template <class T_, class B_> void DiscountZeroRate_<T_, B_>::Write(Archive::Store_& dst) const {
             if constexpr (std::is_same_v<T_, double> && std::is_same_v<B_, DiscountCurve_<double>>) {
-                Vector_<> zeroRatesDouble(zeroRates_.size());
-                for (int i = 0; i < static_cast<int>(zeroRates_.size()); ++i)
-                    zeroRatesDouble[i] = AAD::Value(zeroRates_[i]);
-                DiscountZeroRate_v1::XWrite(dst, this->Name(), this->ccy_.String(), anchorDate_, nodeDates_, zeroRatesDouble, dayCount_.String(),
+                DiscountZeroRate_v1::XWrite(dst, this->Name(), this->ccy_.String(), anchorDate_, nodeDates_, NodeZeroRates(), dayCount_.String(),
                                             scheme_.String(), this->base_);
             } else {
                 REQUIRE(false, "Tape::DiscountZeroRate_ is only serializable for <double, DiscountCurve_<double>>");

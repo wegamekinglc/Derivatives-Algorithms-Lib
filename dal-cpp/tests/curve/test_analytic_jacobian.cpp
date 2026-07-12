@@ -287,7 +287,7 @@ namespace {
         return result;
     }
 
-    Vector_<> EvalForwardResiduals(const CurveCalibrationSpec_& spec, const Vector_<>& parameters) {
+    Vector_<> EvalParameterizedResiduals(const CurveCalibrationSpec_& spec, const Vector_<>& parameters) {
         const CurveDefinition_ definition = MakeCurveDefinition(spec.curveName_, spec.ccy_, spec.parameterization_, spec.logDfScheme_,
                                                                 spec.knotDates_, spec.today_, spec.liborBasis_);
         auto curve = BuildDiscountCurveUniqueT<double>(definition, parameters, spec.baseCurve_);
@@ -315,28 +315,14 @@ namespace {
             auto down = solved;
             up[column] += bump;
             down[column] -= bump;
-            const Vector_<> upResiduals = EvalForwardResiduals(spec, up);
-            const Vector_<> downResiduals = EvalForwardResiduals(spec, down);
+            const Vector_<> upResiduals = EvalParameterizedResiduals(spec, up);
+            const Vector_<> downResiduals = EvalParameterizedResiduals(spec, down);
             for (int row = 0; row < static_cast<int>(spec.instruments_.size()); ++row) {
                 const double centralDifference = (upResiduals[row] - downResiduals[row]) / (2.0 * bump);
                 ASSERT_NEAR(result.diagnostics_.jacobian_(row, column), centralDifference, tolerance) << "row=" << row << ", column=" << column;
             }
         }
         AssertCurveAgreesWithBumped(spec, result);
-    }
-
-    Vector_<> EvalZeroRateResiduals(const CurveCalibrationSpec_& spec, const Vector_<>& parameters) {
-        const CurveDefinition_ definition = MakeCurveDefinition(spec.curveName_, spec.ccy_, spec.parameterization_, spec.logDfScheme_,
-                                                                spec.knotDates_, spec.today_, spec.liborBasis_);
-        auto curve = BuildDiscountCurveUniqueT<double>(definition, parameters, spec.baseCurve_);
-        std::map<CollateralType_, Handle_<DiscountCurve_>> discounts;
-        discounts[spec.targetCollateral_] = Handle_<DiscountCurve_>(std::shared_ptr<const DiscountCurve_>(std::shared_ptr<void>(), curve.get()));
-        CurveBlock_ block(spec.curveName_, spec.ccy_, discounts, {}, spec.liborBasis_);
-        Vector_<> residuals(spec.instruments_.size());
-        Handle_<YieldCurve_> empty;
-        for (int i = 0; i < static_cast<int>(spec.instruments_.size()); ++i)
-            residuals[i] = (*spec.instruments_[i]->Precompute(empty))(block)-spec.instruments_[i]->MarketRate();
-        return residuals;
     }
 
     void AssertZeroRateJacobianMatchesCentralDifference(LogDfScheme_ scheme) {
@@ -370,8 +356,8 @@ namespace {
             Vector_<> down = parameters;
             up[column] += bump;
             down[column] -= bump;
-            const Vector_<> upResiduals = EvalZeroRateResiduals(spec, up);
-            const Vector_<> downResiduals = EvalZeroRateResiduals(spec, down);
+            const Vector_<> upResiduals = EvalParameterizedResiduals(spec, up);
+            const Vector_<> downResiduals = EvalParameterizedResiduals(spec, down);
             for (int row = 0; row < jacobian.Rows(); ++row) {
                 const double centralDifference = (upResiduals[row] - downResiduals[row]) / (2.0 * bump);
                 ASSERT_NEAR(jacobian(row, column), centralDifference, tolerance) << "row=" << row << ", column=" << column;

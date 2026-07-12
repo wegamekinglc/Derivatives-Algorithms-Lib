@@ -23,6 +23,7 @@ using Dal::DayBasis_New;
 using Dal::DepositNew;
 using Dal::DiscountPWLFNew;
 using Dal::DiscountZeroRate_;
+using Dal::DiscountZeroRateNew;
 using Dal::LogDfScheme_;
 using Dal::MultiCurveCalibrationSpec_;
 using Dal::OISSwapNew;
@@ -194,6 +195,46 @@ TEST(CurveSpecTest, TestCalibrateSingleCurveZeroRateWithAnalyticJacobian) {
     ASSERT_LT(result.diagnostics_.maxAbsResidual_, 1.0e-6);
     ASSERT_EQ(result.diagnostics_.jacobian_.Rows(), 3);
     ASSERT_EQ(result.diagnostics_.jacobian_.Cols(), 3);
+}
+
+TEST(CurveSpecTest, TestCalibrateSingleCurveZeroRateWithBaseCurve) {
+    CurveCalibrationSpecBuilder_ builder;
+    builder.today_ = Today();
+    builder.ccy_ = "USD";
+    builder.curveName_ = "ois_zero_rate_total";
+    builder.calibrateDiscountCurve_ = true;
+    builder.initialGuess_ = 0.04;
+    builder.parameterization_ = CurveParameterization_::Value_::ZERO_RATE;
+    builder.logDfScheme_ = LogDfScheme_::Value_::LOG_LINEAR;
+
+    for (int y : {2, 5, 10}) {
+        const Date_ maturity = Spot().AddDays(y * 365);
+        builder.knotDates_.push_back(maturity);
+        builder.instruments_.push_back(OISSwapNew(Today(), Spot(), maturity, 0.04, Fixed6M(), OvernightIndex(), Float3M()));
+    }
+
+    const CalibrationResult_ totalResult = CalibrateSingleCurve(builder.Build(), Dal::CurveJacobianMode_::Value_::ANALYTIC);
+    const auto* totalCurve = dynamic_cast<const DiscountZeroRate_*>(totalResult.curve_.get());
+    ASSERT_NE(totalCurve, nullptr);
+    ASSERT_LT(totalResult.diagnostics_.maxAbsResidual_, 1.0e-6);
+
+    const Vector_<> baseRates{0.01, 0.01, 0.01};
+    builder.curveName_ = "ois_zero_rate_spread";
+    builder.baseCurve_ = DiscountZeroRateNew("ois_zero_rate_base", "USD", Today(), builder.knotDates_, baseRates);
+
+    const CalibrationResult_ spreadResult = CalibrateSingleCurve(builder.Build(), Dal::CurveJacobianMode_::Value_::ANALYTIC);
+    const auto* spreadCurve = dynamic_cast<const DiscountZeroRate_*>(spreadResult.curve_.get());
+    ASSERT_NE(spreadCurve, nullptr);
+    ASSERT_LT(spreadResult.diagnostics_.maxAbsResidual_, 1.0e-6);
+
+    const Vector_<> totalRates = totalCurve->NodeZeroRates();
+    const Vector_<> spreadRates = spreadCurve->NodeZeroRates();
+    ASSERT_EQ(totalRates.size(), baseRates.size());
+    ASSERT_EQ(spreadRates.size(), baseRates.size());
+    for (size_t i = 0; i < baseRates.size(); ++i) {
+        ASSERT_NEAR(totalRates[i], baseRates[i] + spreadRates[i], 1.0e-8);
+        ASSERT_NEAR((*totalCurve)(Today(), builder.knotDates_[i]), (*spreadCurve)(Today(), builder.knotDates_[i]), 1.0e-10);
+    }
 }
 
 // Multi-curve calibration (sequential)
