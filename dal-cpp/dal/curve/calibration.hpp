@@ -104,10 +104,7 @@ namespace Dal {
         LogDfScheme_ logDfScheme_ = LogDfScheme_::Value_::LOG_LINEAR;
     };
 
-    // Solver-side options, NOT serialized with the spec: the spec describes WHAT to calibrate,
-    // these describe HOW to solve. The default is ANALYTIC: eligible calibrations engage the AAD
-    // Jacobian, ineligible ones fall back to bumped with a NOTICE (ANALYTIC never throws), so the
-    // default is byte-for-byte identical to the bumped path only for ineligible specs.
+    // Solver-side options, not serialized with the spec (the spec is WHAT to calibrate; these are HOW).
     struct CurveCalibrationOptions_ {
         CurveJacobianMode_ jacobianMode_ = CurveJacobianMode_::Value_::ANALYTIC;
         // Exact-solve pseudoinverse used by inverse-Jacobian risk diagnostics.

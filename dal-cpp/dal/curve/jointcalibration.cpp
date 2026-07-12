@@ -177,8 +177,7 @@ namespace Dal {
         }
 
         [[nodiscard]] bool IsSupportedInstrumentType(const YCInstrument_& inst) {
-            // OISSwap_ : public Swap_ reaches the Swap_ arm; the explicit OISSwap_ check in the
-            // original ||-chain was therefore redundant and is dropped here.
+            // OISSwap_ inherits Swap_, so VisitRate routes it to the Swap_ arm.
             return VisitRate(
                 inst, [](const Deposit_&) { return true; }, [](const FRA_&) { return true; }, [](const Future_&) { return true; },
                 [](const Swap_&) { return true; });
@@ -203,8 +202,8 @@ namespace Dal {
                 return true;
             }
             {
-                const String_ msg = String_("Joint AAD Jacobian has no templated rate for instrument '") + inst.Name() + "' (type " + inst.Name() +
-                                    ") in this declaration; falling back to bumped";
+                const String_ msg = String_("Joint AAD Jacobian has no templated rate for instrument '") + inst.Name() +
+                                    "' in this declaration; falling back to bumped";
                 NOTICE(msg);
             }
             return false;
@@ -438,7 +437,7 @@ namespace Dal {
                   ", rmsResidual = " + String::FromDouble(stats.rmsResidual_) + " after " + String::FromInt(func.EvaluationCount()) + " evaluations");
         }
 
-        // ---- Helpers extracted from CalibrateJointMultiCurve for cyclomatic complexity (Codacy) ----
+        // ---- CalibrateJointMultiCurve assembly helpers ----
 
         Vector_<> BuildInitialGuess(const JointMultiCurveCalibrationSpec_& spec, const std::vector<CurveSlot_>& slots, int totalParams) {
             Vector_<> g(totalParams);

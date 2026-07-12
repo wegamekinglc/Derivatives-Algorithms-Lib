@@ -120,10 +120,10 @@ For unary functions with result $v = g(r)$:
 | $\exp r$                | $v$                               |
 | $\ln r$                 | $1/r$                             |
 | $\sqrt{r}$              | $1/(2v)$                          |
-| $\lvert r\rvert$        | $\operatorname{sgn} r$            |
+| $\lvert r\rvert$        | $\mathrm{sgn} r$            |
 | $\phi(r)$ (normal pdf)  | $-r\,\phi(r) = -r\,v$             |
 | $\Phi(r)$ (normal cdf)  | $\phi(r)$                         |
-| $\operatorname{erfc} r$ | $-\tfrac{2}{\sqrt{\pi}} e^{-r^2}$ |
+| $\mathrm{erfc} r$ | $-\tfrac{2}{\sqrt{\pi}} e^{-r^2}$ |
 
 Storing $v$ where it appears (e.g. for $\exp$) lets the reverse pass reuse the
 forward result rather than recompute it.

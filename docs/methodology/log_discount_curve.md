@@ -19,7 +19,7 @@ The anchor is pinned, so only $\ell_1,\dots,\ell_{N-1}$ are calibration
 parameters. At a date $t$, the curve maps the date to a passive year fraction
 
 $$
-\tau(t) = \operatorname{YearFrac}(t_0,t;\text{dayCount})
+\tau(t) = \mathrm{YearFrac}(t_0,t;\text{dayCount})
 $$
 
 and returns

@@ -62,8 +62,8 @@ $$
 $$
 
 $$
-c_1 = \operatorname{asinh}\left(\frac{xLow-\mu}{\rho}\right), \qquad
-c_2 = \operatorname{asinh}\left(\frac{xHigh-\mu}{\rho}\right).
+c_1 = \mathrm{asinh}\left(\frac{xLow-\mu}{\rho}\right), \qquad
+c_2 = \mathrm{asinh}\left(\frac{xHigh-\mu}{\rho}\right).
 $$
 
 The map concentrates nodes near `cPoint`; smaller `density` gives tighter local

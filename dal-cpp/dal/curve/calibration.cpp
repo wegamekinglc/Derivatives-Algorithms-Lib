@@ -42,7 +42,7 @@ namespace Dal {
 
     namespace {
         constexpr int MAX_RELEVANT_DATES_PER_INSTRUMENT = 2;
-        // Flat-rate seed for LOG_DISCOUNT calibration (R4: scalar 0.05 is wrong-sign on log(DF)).
+        // Flat-rate seed for LOG_DISCOUNT calibration; log(DF) < 0, so the seed is signed (see next line).
         // log(DF)(node_i) = -FLAT_SEED_RATE * yf_365F(anchor, node_i).
         constexpr double FLAT_SEED_RATE = 0.02;
 
@@ -405,7 +405,7 @@ namespace Dal {
             Vector_<> guess(nParams);
             if (anchorIsToday) {
                 if (spec.initialGuessPerNode_.empty()) {
-                    // R4 default seed: flat-2% rate mapped through yf_365F from the anchor.
+                    // Default seed: flat-2% rate mapped through yf_365F from the anchor.
                     const Date_& anchor = knotDates.front();
                     for (int i = 1; i < nKnots; ++i)
                         guess[i - 1] = -FLAT_SEED_RATE * spec.liborBasis_(anchor, knotDates[i], nullptr);
