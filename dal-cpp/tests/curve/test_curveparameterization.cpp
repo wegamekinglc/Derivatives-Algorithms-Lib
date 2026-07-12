@@ -238,7 +238,7 @@ TEST(CurveParameterizationTest, TestZeroRateTypedFactoryPropagatesMappedAadDeriv
     AAD::NewRecording(*tape);
 
     const auto curve = BuildDiscountCurveT<AAD::Number_>(definition, activeRates);
-    const AAD::Number_ nodeDf = (*curve)(anchor, maturities[1]);
+    AAD::Number_ nodeDf = (*curve)(anchor, maturities[1]);
     AAD::Adjoint(nodeDf) = 1.0;
     AAD::PropagateToStart(*tape);
 
@@ -248,11 +248,11 @@ TEST(CurveParameterizationTest, TestZeroRateTypedFactoryPropagatesMappedAadDeriv
     ASSERT_NEAR(AAD::AdjointValue(activeRates[2]), 0.0, 1.0e-14);
     AAD::Clear(*tape);
 
-    activeRates = RegisterCurveParameters(rates);
+    auto offNodeRates = RegisterCurveParameters(rates);
     AAD::NewRecording(*tape);
-    const auto offNodeCurve = BuildDiscountCurveT<AAD::Number_>(definition, activeRates);
+    const auto offNodeCurve = BuildDiscountCurveT<AAD::Number_>(definition, offNodeRates);
     const Date_ query(2025, 7, 15);
-    const AAD::Number_ offNodeDf = (*offNodeCurve)(anchor, query);
+    AAD::Number_ offNodeDf = (*offNodeCurve)(anchor, query);
     AAD::Adjoint(offNodeDf) = 1.0;
     AAD::PropagateToStart(*tape);
 
@@ -266,7 +266,7 @@ TEST(CurveParameterizationTest, TestZeroRateTypedFactoryPropagatesMappedAadDeriv
             expected[index - 1] -= AAD::Value(offNodeDf) * weight * geometry[index];
     }
     for (int i = 0; i < static_cast<int>(rates.size()); ++i)
-        ASSERT_NEAR(AAD::AdjointValue(activeRates[i]), expected[i], 1.0e-13);
+        ASSERT_NEAR(AAD::AdjointValue(offNodeRates[i]), expected[i], 1.0e-13);
     AAD::Clear(*tape);
 }
 

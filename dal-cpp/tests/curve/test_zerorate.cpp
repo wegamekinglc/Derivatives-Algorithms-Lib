@@ -247,7 +247,7 @@ TEST(ZeroRateCurveTest, TestActiveNodeAndOffNodeAdjointsMatchMappedChainRule) {
     AAD::NewRecording(*tape);
 
     const Tape::DiscountZeroRate_<AAD::Number_> curve("active", "USD", ANCHOR, dates, activeRates, ACT_365F, LogDfScheme_::Value_::LOG_CUBIC_NATURAL);
-    const AAD::Number_ nodeDf = curve(ANCHOR, dates[1]);
+    AAD::Number_ nodeDf = curve(ANCHOR, dates[1]);
     AAD::Adjoint(nodeDf) = 1.0;
     AAD::PropagateToStart(*tape);
     const double nodeTime = ACT_365F(ANCHOR, dates[1], nullptr);
