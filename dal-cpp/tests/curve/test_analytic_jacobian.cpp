@@ -465,6 +465,54 @@ TEST(AnalyticJacobianTest, TestZeroRateCanDisableBothJacobianDiagnostics) {
     ASSERT_NE(dynamic_cast<const DiscountZeroRate_*>(result.curve_.get()), nullptr);
 }
 
+TEST(AnalyticJacobianTest, TestZeroRateEffectiveInverseJacobianPreservesKnotAndInstrumentOrder) {
+    const CurveCalibrationSpec_ spec = MakeZeroRatePhaseASpec(LogDfScheme_::Value_::LOG_LINEAR);
+    const CurveCalibrationResult_ baseResult = CalibrateAnalytic(spec);
+    ASSERT_LT(baseResult.diagnostics_.maxAbsResidual_, 1.0e-7);
+
+    const auto* baseCurve = dynamic_cast<const DiscountZeroRate_*>(baseResult.curve_.get());
+    ASSERT_NE(baseCurve, nullptr);
+    ASSERT_EQ(baseCurve->NodeDates(), spec.knotDates_);
+    const Vector_<> baseRates = baseCurve->NodeZeroRates();
+    const int instrumentCount = static_cast<int>(spec.instruments_.size());
+    const int knotCount = static_cast<int>(baseRates.size());
+    ASSERT_EQ(instrumentCount, knotCount);
+
+    const Matrix_<>& inverse = baseResult.diagnostics_.effJacobianInverse_;
+    ASSERT_EQ(inverse.Rows(), knotCount);
+    ASSERT_EQ(inverse.Cols(), instrumentCount);
+
+    constexpr double quoteBump = 1.0e-6;
+    // The exposed effective inverse is formed from the converged solver iterate, while the re-solve
+    // is nonlinear. A 2e-8 absolute bound is 2% of the quote bump, yet far below the O(1e-6)
+    // movement produced by a misordered dominant row or column.
+    constexpr double predictionTolerance = 2.0e-8;
+    for (int instrumentColumn = 0; instrumentColumn < instrumentCount; ++instrumentColumn) {
+        const auto* original = dynamic_cast<const Swap_*>(spec.instruments_[instrumentColumn].get());
+        ASSERT_NE(original, nullptr);
+        const auto span = original->TimeSpan();
+        if (instrumentColumn > 0)
+            ASSERT_LT(spec.instruments_[instrumentColumn - 1]->TimeSpan().second, span.second);
+
+        CurveCalibrationSpec_ bumpedSpec = spec;
+        bumpedSpec.instruments_[instrumentColumn] = Handle_<YCInstrument_>(
+            new Swap_(spec.today_, span.first, span.second, original->MarketRate() + quoteBump, AnnualLeg(), AnnualIndex(), AnnualLeg()));
+        const CurveCalibrationResult_ bumpedResult = CalibrateAnalytic(bumpedSpec);
+        ASSERT_LT(bumpedResult.diagnostics_.maxAbsResidual_, 1.0e-7);
+        const auto* bumpedCurve = dynamic_cast<const DiscountZeroRate_*>(bumpedResult.curve_.get());
+        ASSERT_NE(bumpedCurve, nullptr);
+        ASSERT_EQ(bumpedCurve->NodeDates(), spec.knotDates_);
+        const Vector_<> bumpedRates = bumpedCurve->NodeZeroRates();
+
+        for (int knotRow = 0; knotRow < knotCount; ++knotRow) {
+            const double actualDelta = bumpedRates[knotRow] - baseRates[knotRow];
+            const double predictedDelta = inverse(knotRow, instrumentColumn) * quoteBump / spec.tolerance_;
+            ASSERT_NEAR(actualDelta, predictedDelta, predictionTolerance)
+                << "future-knot row=" << knotRow << ", instrument column=" << instrumentColumn;
+        }
+    }
+}
+
 // Category 2: Structural zeros are EXACTLY zero
 // AAD produces exact structural zeros (no bump noise). Each row of the Jacobian must have at least
 // one exactly-zero entry for a column beyond the instrument's cashflow support.
