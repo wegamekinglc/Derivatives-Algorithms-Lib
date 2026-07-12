@@ -415,6 +415,7 @@ jobs:
             black_perf
             iv_brent_perf
             script_mc_perf
+            ycinstrument_perf
             curve_calibration_perf
           )
 
