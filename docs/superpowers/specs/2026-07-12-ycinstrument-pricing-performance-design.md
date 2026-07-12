@@ -125,8 +125,12 @@ calibration residual evaluation.
   adjust only that case's batch count while preserving all measurement and labeling rules.
 
 The executable reports observations only. Cross-branch performance conclusions require paired,
-interleaved Release runs with at least ten complete invocations and best-of-N minima. Changes
-inside the observed 2-4% environment noise floor are inconclusive.
+interleaved Release runs with at least ten complete invocations and best-of-N minima. A 2-4%
+noise floor is only a nominal expectation for quiet paired runs, not an observed property of every
+environment. The current ten-run evidence on an unpinned VM measured 3.59%-46.42% best-to-worst
+spread, as recorded in `.codex/artifacts/perf/ycinstrument-pricing-performance.md`. Performance
+conclusions must use the run-specific measured noise floor; changes at or below that floor are
+inconclusive.
 
 ## Untimed Correctness Gates
 

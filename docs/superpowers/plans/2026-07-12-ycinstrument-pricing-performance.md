@@ -93,6 +93,8 @@ install(TARGETS ycinstrument_perf
 
 Create `dal-cpp/benchmarks/ycinstrument_perf/ycinstrument_perf.cpp` with the following implementation:
 
+> **Historical snapshot - do not copy:** The embedded C++ below records the pre-calibration implementation draft and is neither authoritative nor copyable as the final benchmark source. Use `dal-cpp/benchmarks/ycinstrument_perf/ycinstrument_perf.cpp` instead; the final source includes the required `dal/curve/ycimp.hpp` factory declaration and the measured per-case operation and basket-pass counts.
+
 ```cpp
 //
 // Created by dal-implementer on 2026/7/12.
