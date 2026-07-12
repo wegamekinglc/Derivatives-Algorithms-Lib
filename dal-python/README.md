@@ -359,7 +359,8 @@ The hand-written Python code in `src/dal/` provides:
 
 ## Curve Calibration
 
-The `curve` bindings (`dal-python/src/bindings/curve.cpp`) expose the full curve-calibration surface:
+The `curve` bindings (`dal-python/src/bindings/curve.cpp`) expose the supported Python
+curve-construction and calibration workflows:
 
 - **Instrument builders** — `Deposit_New`, `FRA_New`, `Future_New`, `Swap_New`, `OISSwap_New`, `BasisSwap_New`, `CrossCurrencySwap_New`
 - **Curve factories** — `DiscountPWLF_New`, `DiscountZeroRate_New`
@@ -391,7 +392,9 @@ curve = dal.DiscountZeroRate_New(
 Each continuously compounded decimal rate $z_i$ is mapped to
 `logDF_i = -z_i * YearFrac(today, node_date_i)`. The anchor log DF is fixed at zero
 and has no zero-rate parameter. `LOG_LINEAR`, `LOG_CUBIC_NATURAL`, and `MIXED` all
-interpolate the mapped log DFs and share the same extrapolation policy. The returned
+interpolate the mapped log DFs. Before the anchor, `LOG_LINEAR` and `MIXED` clamp the
+log DF to zero, while `LOG_CUBIC_NATURAL` extends its first cubic segment. Beyond the
+last node, every scheme uses the last two mapped log-DF nodes as a secant. The returned
 `DiscountZeroRate_` exposes read-only `anchor_date`, `node_dates`, `zero_rates`,
 `day_count`, and `log_df_scheme` properties.
 
