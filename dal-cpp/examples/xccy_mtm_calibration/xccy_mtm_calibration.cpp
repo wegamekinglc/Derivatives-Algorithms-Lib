@@ -37,6 +37,12 @@ namespace {
         return Handle_<DiscountCurve_>(NewDiscountPWC(name, ccy.String(), PiecewiseConstant_(knots, values)));
     }
 
+    Vector_<> ShiftedInitialGuess(Vector_<> parameters) {
+        for (auto& parameter : parameters)
+            parameter += 0.001;
+        return parameters;
+    }
+
     RateIndexConvention_ Index(bool projection) {
         RateIndexConvention_ result;
         result.useProjectionCurve_ = projection;
@@ -72,6 +78,7 @@ namespace {
         discount.knotDates_ = knots;
         discount.targetCollateral_ = OIS;
         discount.parameterization_ = CurveParameterization_::Value_::PIECEWISE_CONSTANT_FWD;
+        discount.initialGuessPerNode_ = ShiftedInitialGuess(discountParameters);
         JointCurveDeclaration_ forward;
         forward.curveName_ = String_(ccy.String()) + "_3m";
         forward.knotDates_ = knots;
@@ -79,6 +86,7 @@ namespace {
         forward.targetTenor_ = THREE_MONTHS;
         forward.calibrateDiscountCurve_ = false;
         forward.parameterization_ = CurveParameterization_::Value_::PIECEWISE_CONSTANT_FWD;
+        forward.initialGuessPerNode_ = ShiftedInitialGuess(forwardParameters);
         for (const auto& maturity : maturities) {
             discount.instruments_.push_back(QuotedDeposit(today, maturity, result.discountIndex_, *result.market_));
             forward.instruments_.push_back(QuotedDeposit(today, maturity, result.forwardIndex_, *result.market_));
@@ -138,11 +146,16 @@ namespace {
         result.curveName_ = "USD_EUR_basis";
         result.knotDates_ = knots;
         result.parameterization_ = CurveParameterization_::Value_::PIECEWISE_CONSTANT_FWD;
+        result.initialGuessPerNode_ = ShiftedInitialGuess(basisParameters);
         for (int i = 0; i < static_cast<int>(maturities.size()); ++i) {
             const Date_ start = i == 0 ? inProgressStart : today;
-            const CrossCurrencySwap_ prototype(start, start, maturities[i], 0.0, config);
-            result.instruments_.push_back(
-                Handle_<CrossCurrencySwap_>(new CrossCurrencySwap_(start, start, maturities[i], (*prototype.Precompute())(quoteMarket), config)));
+            CrossCurrencySwapConfig_ instrumentConfig = config;
+            // Keep the started trade MTM while future resettable quotes identify the basis term structure.
+            if (i > 0)
+                instrumentConfig.notionalMode_ = XccyNotionalMode_::Value_::RESETTABLE;
+            const CrossCurrencySwap_ prototype(start, start, maturities[i], 0.0, instrumentConfig);
+            result.instruments_.push_back(Handle_<CrossCurrencySwap_>(
+                new CrossCurrencySwap_(start, start, maturities[i], (*prototype.Precompute())(quoteMarket), instrumentConfig)));
         }
         return result;
     }
