@@ -6,6 +6,7 @@
 
 #include "__platform.hpp"
 #include "__curve_storable.hpp"
+#include "__xccy_test_api.hpp"
 #include <cmath>
 #include <dal-public/src/xccycalibration.hpp>
 #include <dal/math/cell.hpp>

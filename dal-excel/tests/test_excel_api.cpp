@@ -7,62 +7,9 @@
 #include <gtest/gtest.h>
 
 #include <dal-excel/src/__curve_storable.hpp>
+#include <dal-excel/src/__xccy_test_api.hpp>
 #include <dal-public/src/curveinstrument.hpp>
 #include <dal-public/src/curveprotocol.hpp>
-
-namespace Dal {
-    void XccyResetConvention_New(int fixingLag,
-                                 const String_& fixingHolidays,
-                                 const String_& fixingConvention,
-                                 int fixingHour,
-                                 int fixingMinute,
-                                 Handle_<StorableFxResetConvention_>* resetConvention);
-    void MarketFixingSnapshot_New(const Vector_<String_>& indexNames,
-                                  const Vector_<Cell_>& fixingTimes,
-                                  const Vector_<>& values,
-                                  Handle_<StorableMarketFixingSnapshot_>* snapshot);
-    void CrossCurrencySwapConfig_New(const Handle_<StorableCurrencyPair_>& currencies,
-                                     const Handle_<StorableRateLegConvention_>& domesticLeg,
-                                     const Handle_<StorableRateIndexConvention_>& domesticIndex,
-                                     const Handle_<StorableRateLegConvention_>& foreignLeg,
-                                     const Handle_<StorableRateIndexConvention_>& foreignIndex,
-                                     const Handle_<StorableFxResetConvention_>& resetConvention,
-                                     const String_& notionalMode,
-                                     const String_& domesticRateIndex,
-                                     int domesticRateFixingHour,
-                                     int domesticRateFixingMinute,
-                                     const String_& foreignRateIndex,
-                                     int foreignRateFixingHour,
-                                     int foreignRateFixingMinute,
-                                     double domesticNotional,
-                                     double foreignNotional,
-                                     Handle_<StorableCrossCurrencySwapConfig_>* config);
-    void CrossCurrencySwap_Config_New(const Date_& tradeDate,
-                                      const Date_& start,
-                                      const Date_& maturity,
-                                      double marketRate,
-                                      const Handle_<StorableCrossCurrencySwapConfig_>& config,
-                                      Handle_<StorableCrossCurrencySwap_>* instrument);
-    void Calibrate_JointXccy(const Cell_& valuationTime,
-                             const Handle_<StorableCurrencyPair_>& currencies,
-                             const String_& collateralCurrency,
-                             double fxSpot,
-                             const Vector_<Handle_<Storable_>>& domesticInstruments,
-                             const Vector_<Date_>& domesticKnotDates,
-                             const Vector_<Handle_<Storable_>>& foreignInstruments,
-                             const Vector_<Date_>& foreignKnotDates,
-                             const Vector_<Handle_<Storable_>>& basisInstruments,
-                             const Vector_<Date_>& basisKnotDates,
-                             const Handle_<StorableMarketFixingSnapshot_>& fixings,
-                             const Matrix_<Cell_>& settings,
-                             Handle_<StorableJointXccyCalibrationResult_>* result);
-    void JointXccyCalibrationResult_Get_DomesticBlock(const Handle_<StorableJointXccyCalibrationResult_>& result,
-                                                      Handle_<StorableCurveBlock_>* block);
-    void JointXccyCalibrationResult_Get_ForeignBlock(const Handle_<StorableJointXccyCalibrationResult_>& result, Handle_<StorableCurveBlock_>* block);
-    void JointXccyCalibrationResult_Get_BasisCurve(const Handle_<StorableJointXccyCalibrationResult_>& result,
-                                                   Handle_<StorableDiscountCurve_>* curve);
-    void JointXccyCalibrationResult_Get(const Handle_<StorableJointXccyCalibrationResult_>& result, const String_& attribute, Matrix_<Cell_>* value);
-} // namespace Dal
 
 namespace {
     using namespace Dal;
@@ -138,6 +85,9 @@ TEST(ExcelApiTest, TestMarketFixingSnapshotRejectsNonParallelInputs) {
     Dal::Handle_<Dal::StorableMarketFixingSnapshot_> snapshot;
     ASSERT_THROW(MarketFixingSnapshot_New({"USD-SOFR-3M"}, {}, {0.04}, &snapshot), Dal::Exception_);
     ASSERT_THROW(MarketFixingSnapshot_New({"USD-SOFR-3M"}, {Dal::Cell_(Dal::DateTime_(Today(), 11, 0))}, {}, &snapshot), Dal::Exception_);
+
+    const Dal::Cell_ fixingTime(Dal::DateTime_(Today(), 11, 0));
+    ASSERT_THROW(MarketFixingSnapshot_New({"USD-SOFR-3M", "USD-SOFR-3M"}, {fixingTime, fixingTime}, {0.04, 0.041}, &snapshot), Dal::Exception_);
 }
 
 TEST(ExcelApiTest, TestJointCalibrationAndEveryResultView) {
