@@ -20,6 +20,7 @@
 #include <dal/curve/curveparameterization.hpp>
 #include <dal/curve/jointcalibration.hpp>
 #include <dal/curve/jointrate.hpp>
+#include <dal/curve/xccypricing.hpp>
 #include <dal/curve/ycctx.hpp>
 #include <dal/curve/ycinstrument.hpp>
 #include <dal/math/matrix/banded.hpp>
@@ -34,6 +35,7 @@ namespace Dal::JointCalibrationInternal {
         const Vector_<JointCurveDeclaration_>* curves_ = nullptr;
         String_ context_ = "Joint multi-curve calibration";
         String_ declarationLabel_ = "Declaration";
+        bool requireCurveNames_ = false;
     };
 
     struct CurveSlot_ {
@@ -72,7 +74,8 @@ namespace Dal::JointCalibrationInternal {
         bool hasDiscount = false;
         for (int i = 0; i < static_cast<int>(spec.curves_->size()); ++i) {
             const JointCurveDeclaration_& declaration = (*spec.curves_)[i];
-            REQUIRE(!declaration.curveName_.empty(), spec.declarationLabel_ + " at index " + String::FromInt(i) + " requires a name");
+            if (spec.requireCurveNames_)
+                REQUIRE(!declaration.curveName_.empty(), spec.declarationLabel_ + " at index " + String::FromInt(i) + " requires a name");
             if (declaration.calibrateDiscountCurve_) {
                 hasDiscount = true;
                 REQUIRE(collaterals.insert(declaration.targetCollateral_).second, spec.context_ + " has duplicate declaration '" +
@@ -289,6 +292,87 @@ namespace Dal::JointCalibrationInternal {
                 if (!reason.empty())
                     return SlotName(spec, slot.curveIndex_) + " is analytically ineligible: " + reason;
             }
+        }
+        return String_();
+    }
+
+    inline bool HasTypedDiscountRoute(const CurveCollectionSpec_& spec, const std::vector<CurveSlot_>& slots, const CollateralType_& collateral) {
+        bool hasOis = false;
+        for (const auto& slot : slots) {
+            const JointCurveDeclaration_& declaration = (*spec.curves_)[slot.curveIndex_];
+            if (!declaration.calibrateDiscountCurve_)
+                continue;
+            if (declaration.targetCollateral_ == collateral)
+                return true;
+            hasOis = hasOis || declaration.targetCollateral_ == CollateralType_(CollateralType_::Value_::OIS);
+        }
+        return hasOis;
+    }
+
+    inline bool HasTypedForwardRoute(const CurveCollectionSpec_& spec, const std::vector<CurveSlot_>& slots, const RateIndexConvention_& index) {
+        for (const auto& slot : slots) {
+            const JointCurveDeclaration_& declaration = (*spec.curves_)[slot.curveIndex_];
+            if (!declaration.calibrateDiscountCurve_ && declaration.targetTenor_ == index.forecastTenor_)
+                return true;
+        }
+        return HasTypedDiscountRoute(spec, slots, index.collateral_);
+    }
+
+    inline String_ TypedIndexAnalyticIneligibilityReason(const CurveCollectionSpec_& spec,
+                                                         const std::vector<CurveSlot_>& slots,
+                                                         const RateIndexConvention_& index,
+                                                         const String_& leg) {
+        if (!HasTypedDiscountRoute(spec, slots, index.collateral_))
+            return leg + " discount route " + index.collateral_.String() + " is absent from the typed curve block";
+        if (index.useProjectionCurve_ && !HasTypedForwardRoute(spec, slots, index))
+            return leg + " projection route " + index.forecastTenor_.String() + " is absent from the typed curve block";
+        return String_();
+    }
+
+    inline String_ XccyPlanAnalyticIneligibilityReason(const CurveCollectionSpec_& domestic,
+                                                       const std::vector<CurveSlot_>& domesticSlots,
+                                                       const CurveCollectionSpec_& foreign,
+                                                       const std::vector<CurveSlot_>& foreignSlots,
+                                                       const XccyCashflowPlan_& plan) {
+        if (domestic.ccy_ != plan.config_.pair_.domestic_.String())
+            return "domestic typed curve block currency does not match the plan pair";
+        if (foreign.ccy_ != plan.config_.pair_.foreign_.String())
+            return "foreign typed curve block currency does not match the plan pair";
+        if (plan.domesticPeriods_.empty() || plan.foreignPeriods_.empty())
+            return "typed pricing requires coupon periods on both legs";
+
+        switch (plan.config_.notionalMode_.Switch()) {
+        case XccyNotionalMode_::Value_::FIXED:
+            break;
+        case XccyNotionalMode_::Value_::RESETTABLE:
+        case XccyNotionalMode_::Value_::MARK_TO_MARKET:
+            for (int i = 0; i < static_cast<int>(plan.resets_.size()); ++i) {
+                if (plan.resets_[i].domesticPeriodIndex_ != i + 1 ||
+                    plan.resets_[i].domesticPeriodIndex_ >= static_cast<int>(plan.domesticPeriods_.size()))
+                    return "reset event " + String::FromInt(i) + " must map consecutively from the second domestic period";
+            }
+            break;
+        default:
+            return String_("typed pricing does not support notional mode ") + plan.config_.notionalMode_.String();
+        }
+
+        String_ reason = TypedIndexAnalyticIneligibilityReason(domestic, domesticSlots, plan.config_.convention_.domesticIndex_, "domestic");
+        if (!reason.empty())
+            return reason;
+        return TypedIndexAnalyticIneligibilityReason(foreign, foreignSlots, plan.config_.convention_.foreignIndex_, "foreign");
+    }
+
+    inline String_ XccyPlansAnalyticIneligibilityReason(const CurveCollectionSpec_& domestic,
+                                                        const std::vector<CurveSlot_>& domesticSlots,
+                                                        const CurveCollectionSpec_& foreign,
+                                                        const std::vector<CurveSlot_>& foreignSlots,
+                                                        const Vector_<XccyCashflowPlan_>& plans,
+                                                        const Vector_<Handle_<CrossCurrencySwap_>>& instruments) {
+        REQUIRE(plans.size() == instruments.size(), "XCCY analytic eligibility requires one instrument per cashflow plan");
+        for (int i = 0; i < static_cast<int>(plans.size()); ++i) {
+            const String_ reason = XccyPlanAnalyticIneligibilityReason(domestic, domesticSlots, foreign, foreignSlots, plans[i]);
+            if (!reason.empty())
+                return "XCCY instrument " + String::FromInt(i) + " ('" + instruments[i]->Name() + "') is analytically ineligible: " + reason;
         }
         return String_();
     }

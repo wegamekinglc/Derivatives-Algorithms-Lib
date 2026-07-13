@@ -9,8 +9,10 @@
 #include <string>
 
 #include <dal/curve/curveblock.hpp>
+#include <dal/curve/jointcalibration_internal.hpp>
 #include <dal/curve/piecewiseconstant.hpp>
 #include <dal/curve/xccyjointcalibration.hpp>
+#include <dal/curve/xccypricing.hpp>
 #include <dal/curve/ycconst.hpp>
 #include <dal/curve/ycinstrument.hpp>
 #include <dal/protocol/collateraltype.hpp>
@@ -109,7 +111,8 @@ namespace {
         Vector_<Date_> knots_;
     };
 
-    Fixture_ MakeFixture() {
+    Fixture_ MakeFixture(const Vector_<XccyNotionalMode_>& modes) {
+        REQUIRE(modes.size() == 2, "Joint XCCY Jacobian fixture requires two notional modes");
         Fixture_ result;
         const Date_ today(2025, 1, 16);
         const Vector_<Date_> maturities = {Date::AddMonths(today, 12), Date::AddMonths(today, 24)};
@@ -135,14 +138,15 @@ namespace {
         result.spec_.fitTolerance_ = 1.0e-8;
 
         for (int i = 0; i < static_cast<int>(maturities.size()); ++i) {
-            const XccyNotionalMode_ mode = i == 0 ? XccyNotionalMode_::Value_::RESETTABLE : XccyNotionalMode_::Value_::MARK_TO_MARKET;
-            const CrossCurrencySwapConfig_ config = XccyConfig(pair, mode);
+            const CrossCurrencySwapConfig_ config = XccyConfig(pair, modes[i]);
             const CrossCurrencySwap_ prototype(today, today, maturities[i], 0.0, config);
             result.spec_.basis_.instruments_.push_back(
                 Handle_<CrossCurrencySwap_>(new CrossCurrencySwap_(today, today, maturities[i], (*prototype.Precompute())(quoteMarket), config)));
         }
         return result;
     }
+
+    Fixture_ MakeFixture() { return MakeFixture({XccyNotionalMode_::Value_::RESETTABLE, XccyNotionalMode_::Value_::MARK_TO_MARKET}); }
 
     Vector_<> Parameters(const JointXccyCalibrationResult_& result) {
         auto extract = [](const DiscountCurve_& curve) {
@@ -210,7 +214,63 @@ namespace {
         }
         ASSERT_EQ(offset, expectedSize);
     }
+
+    JointCalibrationInternal::CurveCollectionSpec_ Collection(const JointXccyCalibrationSpec_& spec, bool domestic) {
+        const JointCurrencyCurveSpec_& currency = domestic ? spec.domestic_ : spec.foreign_;
+        JointCalibrationInternal::CurveCollectionSpec_ result;
+        result.today_ = spec.valuationTime_.Date();
+        result.ccy_ = currency.ccy_.String();
+        result.liborBasis_ = currency.liborBasis_;
+        result.curves_ = &currency.curves_;
+        result.context_ = String_(domestic ? "Domestic " : "Foreign ") + result.ccy_ + " joint calibration";
+        result.declarationLabel_ = String_(domestic ? "Domestic slot" : "Foreign slot");
+        result.requireCurveNames_ = true;
+        return result;
+    }
 } // namespace
+
+TEST(XccyJointJacobianTest, TestMalformedInternalPlanGetsInstrumentSpecificAnalyticEligibilityReason) {
+    const Fixture_ fixture = MakeFixture();
+    Vector_<XccyCashflowPlan_> plans;
+    for (const auto& instrument : fixture.spec_.basis_.instruments_) {
+        const auto span = instrument->TimeSpan();
+        plans.push_back(BuildXccyCashflowPlan(span.first, span.second, instrument->Config()));
+    }
+    ASSERT_FALSE(plans.front().resets_.empty());
+    plans.front().resets_.front().domesticPeriodIndex_ = 0;
+
+    const auto domestic = Collection(fixture.spec_, true);
+    const auto foreign = Collection(fixture.spec_, false);
+    const auto domesticSlots = JointCalibrationInternal::ValidateAndBuildSlots(domestic);
+    const auto foreignSlots = JointCalibrationInternal::ValidateAndBuildSlots(foreign);
+    const String_ reason = JointCalibrationInternal::XccyPlansAnalyticIneligibilityReason(domestic, domesticSlots, foreign, foreignSlots, plans,
+                                                                                          fixture.spec_.basis_.instruments_);
+
+    ASSERT_NE(reason.find("XCCY instrument 0"), String_::npos) << reason;
+    ASSERT_NE(reason.find("CrossCurrencySwap"), String_::npos) << reason;
+    ASSERT_NE(reason.find("reset event 0"), String_::npos) << reason;
+    ASSERT_NE(reason.find("second domestic period"), String_::npos) << reason;
+}
+
+TEST(XccyJointJacobianTest, TestEveryValidPlanModeRemainsAvailableInAnalyticAndBumped) {
+    const Vector_<XccyNotionalMode_> modes = {
+        XccyNotionalMode_::Value_::FIXED,
+        XccyNotionalMode_::Value_::RESETTABLE,
+        XccyNotionalMode_::Value_::MARK_TO_MARKET,
+    };
+    for (const auto& mode : modes) {
+        const Fixture_ fixture = MakeFixture({mode, mode});
+        const JointXccyCalibrationResult_ analytic = CalibrateJointXccyMarket(fixture.spec_);
+        ASSERT_TRUE(analytic.converged_) << mode.String();
+        ASSERT_FALSE(analytic.jacobianAtSolution_.Empty()) << mode.String();
+
+        JointXccyCalibrationOptions_ bumpedOptions;
+        bumpedOptions.jacobianMode_ = CurveJacobianMode_::Value_::BUMPED;
+        const JointXccyCalibrationResult_ bumped = CalibrateJointXccyMarket(fixture.spec_, bumpedOptions);
+        ASSERT_TRUE(bumped.converged_) << mode.String();
+        ASSERT_FALSE(bumped.effJacobianInverse_.Empty()) << mode.String();
+    }
+}
 
 TEST(XccyJointJacobianTest, TestAnalyticStackMatchesCentralDifferencesAndRangesPartitionRowsAndColumns) {
     const Fixture_ fixture = MakeFixture();

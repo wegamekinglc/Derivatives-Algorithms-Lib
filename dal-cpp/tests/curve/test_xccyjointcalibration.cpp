@@ -356,6 +356,12 @@ TEST(XccyJointCalibrationTest, TestValidationRejectsDuplicateDeclarationsWithSlo
     AssertCalibrationFailsWith(fixture.spec_, fixture.spec_.domestic_.curves_.front().curveName_.c_str());
 }
 
+TEST(XccyJointCalibrationTest, TestValidationKeepsXccyCurveNamesStrict) {
+    JointFixture_ fixture = MakeJointFixture();
+    fixture.spec_.domestic_.curves_.front().curveName_.clear();
+    AssertCalibrationFailsWith(fixture.spec_, "Domestic slot");
+}
+
 TEST(XccyJointCalibrationTest, TestValidationRejectsEmptyInstrumentGroupsWithPairName) {
     JointFixture_ fixture = MakeJointFixture();
     fixture.spec_.basis_.instruments_.clear();

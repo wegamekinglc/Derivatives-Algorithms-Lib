@@ -44,6 +44,7 @@ namespace Dal {
             result.curves_ = &currency.curves_;
             result.context_ = String_(domestic ? "Domestic " : "Foreign ") + result.ccy_ + " joint calibration";
             result.declarationLabel_ = String_(domestic ? "Domestic slot" : "Foreign slot");
+            result.requireCurveNames_ = true;
             return result;
         }
 
@@ -192,11 +193,16 @@ namespace Dal {
             return result;
         }
 
-        String_ AnalyticIneligibilityReason(const JointLayout_& layout) {
+        String_
+        AnalyticIneligibilityReason(const JointXccyCalibrationSpec_& spec, const JointLayout_& layout, const Vector_<XccyCashflowPlan_>& plans) {
             String_ result = JointCalibrationInternal::AnalyticIneligibilityReason(layout.domesticCollection_, layout.domesticSlots_);
             if (!result.empty())
                 return result;
-            return JointCalibrationInternal::AnalyticIneligibilityReason(layout.foreignCollection_, layout.foreignSlots_);
+            result = JointCalibrationInternal::AnalyticIneligibilityReason(layout.foreignCollection_, layout.foreignSlots_);
+            if (!result.empty())
+                return result;
+            return JointCalibrationInternal::XccyPlansAnalyticIneligibilityReason(
+                layout.domesticCollection_, layout.domesticSlots_, layout.foreignCollection_, layout.foreignSlots_, plans, spec.basis_.instruments_);
         }
 
         class JointXccyResidualFunction_ : public Underdetermined::Function_ {
@@ -439,7 +445,7 @@ namespace Dal {
         const Vector_<XccyCashflowPlan_> plans = ValidateAndBuildPlans(spec);
         const Handle_<MarketFixingSnapshot_> fixings = ResolveFixings(spec, plans);
         if (options.jacobianMode_ == CurveJacobianMode_::Value_::ANALYTIC) {
-            const String_ reason = AnalyticIneligibilityReason(layout);
+            const String_ reason = AnalyticIneligibilityReason(spec, layout, plans);
             REQUIRE(reason.empty(), "Joint XCCY analytic Jacobian is ineligible: " + reason);
         }
 
