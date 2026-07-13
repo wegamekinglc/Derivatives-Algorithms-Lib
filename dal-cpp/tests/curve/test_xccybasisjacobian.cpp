@@ -14,6 +14,8 @@
 #include <dal/curve/ycconst.hpp>
 #include <dal/curve/ycimp.hpp>
 #include <dal/protocol/collateraltype.hpp>
+#include <dal/storage/_repository.hpp>
+#include <dal/storage/globals.hpp>
 #include <dal/time/daybasis.hpp>
 #include <dal/time/periodlength.hpp>
 
@@ -78,8 +80,48 @@ namespace {
 
     struct Fixture_ {
         CrossCurrencyCalibrationSpec_ spec_;
+        MarketFixingSnapshot_::values_t fixingValues_;
         Vector_<> trueParameters_;
     };
+
+    String_ EscapeRegex(const String_& value) {
+        static const String_ specials("\\.^$|()[]{}*+?");
+        String_ result;
+        for (const char ch : value) {
+            if (specials.find(ch) != String_::npos)
+                result.push_back('\\');
+            result.push_back(ch);
+        }
+        return result;
+    }
+
+    class ScopedGlobalFixingHistoryRestore_ {
+        Vector_<pair<String_, FixHistory_>> saved_;
+
+    public:
+        explicit ScopedGlobalFixingHistoryRestore_(const MarketFixingSnapshot_::values_t& values) {
+            for (const auto& indexHistory : values)
+                saved_.push_back({indexHistory.first, Global::Fixings_().History(indexHistory.first)});
+        }
+
+        ~ScopedGlobalFixingHistoryRestore_() {
+            for (const auto& saved : saved_) {
+                if (saved.second.vals_.empty())
+                    (void)ObjectAccess_::Erase(EscapeRegex(String_("##GLOBAL##FixingsFor:") + saved.first + String_("~")));
+                else
+                    XGLOBAL::StoreFixings(saved.first, saved.second, false);
+            }
+        }
+    };
+
+    void StoreGlobalFixings(const MarketFixingSnapshot_::values_t& values) {
+        for (const auto& indexHistory : values) {
+            FixHistory_ history;
+            for (const auto& fixing : indexHistory.second)
+                history.vals_.push_back(fixing);
+            XGLOBAL::StoreFixings(indexHistory.first, history, false);
+        }
+    }
 
     Fixture_ MakeFixture() {
         Fixture_ result;
@@ -92,11 +134,10 @@ namespace {
 
         const Date_ startedDate(2024, 10, 15);
         const DateTime_ historicalFixing(Date::AddMonths(startedDate, 3), 11, 0);
-        MarketFixingSnapshot_::values_t values;
-        values[config.domesticRateFixing_.indexName_][historicalFixing] = 0.04;
-        values[config.foreignRateFixing_.indexName_][historicalFixing] = 0.03;
-        values[FxIndexName(config.pair_)][historicalFixing] = 1.20;
-        const Handle_<MarketFixingSnapshot_> fixings(new MarketFixingSnapshot_(values));
+        result.fixingValues_[config.domesticRateFixing_.indexName_][historicalFixing] = 0.04;
+        result.fixingValues_[config.foreignRateFixing_.indexName_][historicalFixing] = 0.03;
+        result.fixingValues_[FxIndexName(config.pair_)][historicalFixing] = 1.20;
+        const Handle_<MarketFixingSnapshot_> fixings(new MarketFixingSnapshot_(result.fixingValues_));
 
         const Date_ futureStart = Date::AddMonths(valuationDate, 1);
         const Vector_<Date_> maturities = {
@@ -175,6 +216,56 @@ TEST(XccyBasisJacobianTest, TestAnalyticMatchesCentralDifferenceIncludingHistori
     for (int row = 0; row < analytic.Rows(); ++row)
         for (int column = 0; column < analytic.Cols(); ++column)
             ASSERT_NEAR(analytic(row, column), central(row, column), 1.0e-7) << "row=" << row << " column=" << column;
+}
+
+TEST(XccyBasisJacobianTest, TestOmittedSnapshotCapturesRequiredGlobalFixingsOnce) {
+    const auto fixture = MakeFixture();
+    const ScopedGlobalFixingHistoryRestore_ restore(fixture.fixingValues_);
+    StoreGlobalFixings(fixture.fixingValues_);
+
+    const auto explicitResult = CalibrateCrossCurrencyMarket(fixture.spec_);
+    auto omittedSpec = fixture.spec_;
+    omittedSpec.fixings_ = Handle_<MarketFixingSnapshot_>();
+    const auto capturedResult = CalibrateCrossCurrencyMarket(omittedSpec);
+
+    ASSERT_TRUE(capturedResult.market_.Fixings());
+    for (const auto& indexHistory : fixture.fixingValues_) {
+        for (const auto& fixing : indexHistory.second)
+            ASSERT_NEAR(capturedResult.market_.Fixings()->Require(indexHistory.first, fixing.first, "captured calibration fixing"), fixing.second,
+                        1.0e-12);
+
+        FixHistory_ replacement;
+        for (const auto& fixing : indexHistory.second)
+            replacement.vals_.push_back({fixing.first, fixing.second + 0.10});
+        XGLOBAL::StoreFixings(indexHistory.first, replacement, false);
+    }
+    for (const auto& indexHistory : fixture.fixingValues_)
+        for (const auto& fixing : indexHistory.second)
+            ASSERT_NEAR(capturedResult.market_.Fixings()->Require(indexHistory.first, fixing.first, "immutable calibration fixing"), fixing.second,
+                        1.0e-12);
+
+    const auto* explicitBasis = dynamic_cast<const Tape::DiscountPWC_<double>*>(explicitResult.basisCurves_.at(fixture.spec_.basisPair_).get());
+    const auto* capturedBasis = dynamic_cast<const Tape::DiscountPWC_<double>*>(capturedResult.basisCurves_.at(fixture.spec_.basisPair_).get());
+    ASSERT_NE(explicitBasis, nullptr);
+    ASSERT_NE(capturedBasis, nullptr);
+    ASSERT_EQ(explicitBasis->FRight().size(), capturedBasis->FRight().size());
+    for (int i = 0; i < static_cast<int>(explicitBasis->FRight().size()); ++i)
+        ASSERT_NEAR(explicitBasis->FRight()[i], capturedBasis->FRight()[i], 1.0e-12);
+    ASSERT_EQ(explicitResult.diagnostics_.modelRates_.size(), capturedResult.diagnostics_.modelRates_.size());
+    for (int i = 0; i < static_cast<int>(explicitResult.diagnostics_.modelRates_.size()); ++i)
+        ASSERT_NEAR(explicitResult.diagnostics_.modelRates_[i], capturedResult.diagnostics_.modelRates_[i], 1.0e-12);
+    ASSERT_EQ(explicitResult.fxForwardCurve_.forwards_.size(), capturedResult.fxForwardCurve_.forwards_.size());
+    for (int i = 0; i < static_cast<int>(explicitResult.fxForwardCurve_.forwards_.size()); ++i)
+        ASSERT_NEAR(explicitResult.fxForwardCurve_.forwards_[i], capturedResult.fxForwardCurve_.forwards_[i], 1.0e-12);
+}
+
+TEST(XccyBasisJacobianTest, TestExplicitSnapshotRemainsAuthoritativeWhenFixingsAreMissing) {
+    auto fixture = MakeFixture();
+    const ScopedGlobalFixingHistoryRestore_ restore(fixture.fixingValues_);
+    StoreGlobalFixings(fixture.fixingValues_);
+
+    fixture.spec_.fixings_ = Handle_<MarketFixingSnapshot_>(new MarketFixingSnapshot_());
+    ASSERT_THROW(static_cast<void>(CalibrateCrossCurrencyMarket(fixture.spec_)), Dal::Exception_);
 }
 
 TEST(XccyBasisJacobianTest, TestBumpedModeKeepsOnlyEffectiveInverse) {

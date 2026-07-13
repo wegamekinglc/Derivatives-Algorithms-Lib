@@ -29,30 +29,20 @@ using Dal::Vector_;
 
 namespace {
 
-Date_ Today() { return Date_(2025, 6, 20); }
-Date_ Spot() { return Today().AddDays(2); }
+    Date_ Today() { return Date_(2025, 6, 20); }
+    Date_ Spot() { return Today().AddDays(2); }
 
-Dal::RateLegConvention_ Fixed6M365F() {
-    return RateLegConvention_New(PeriodLength_New("6M"), DayBasis_New("ACT_365F"));
-}
+    Dal::RateLegConvention_ Fixed6M365F() { return RateLegConvention_New(PeriodLength_New("6M"), DayBasis_New("ACT_365F")); }
 
-Dal::RateLegConvention_ Fixed6M360() {
-    return RateLegConvention_New(PeriodLength_New("6M"), DayBasis_New("ACT_360"));
-}
+    Dal::RateLegConvention_ Fixed6M360() { return RateLegConvention_New(PeriodLength_New("6M"), DayBasis_New("ACT_360")); }
 
-Dal::RateIndexConvention_ Libor3M() {
-    return RateIndexConvention_New(PeriodLength_New("3M"), DayBasis_New("ACT_360"),
-                                    CollateralType_OIS());
-}
+    Dal::RateIndexConvention_ Libor3M() { return RateIndexConvention_New(PeriodLength_New("3M"), DayBasis_New("ACT_360"), CollateralType_OIS()); }
 
-Dal::RateIndexConvention_ Euribor6M() {
-    return RateIndexConvention_New(PeriodLength_New("6M"), DayBasis_New("ACT_360"),
-                                    CollateralType_OIS());
-}
+    Dal::RateIndexConvention_ Euribor6M() { return RateIndexConvention_New(PeriodLength_New("6M"), DayBasis_New("ACT_360"), CollateralType_OIS()); }
 
-Dal::RateLegConvention_ FloatLeg(const char* tenor, const char* basis) {
-    return RateLegConvention_New(PeriodLength_New(tenor), DayBasis_New(basis));
-}
+    Dal::RateLegConvention_ FloatLeg(const char* tenor, const char* basis) {
+        return RateLegConvention_New(PeriodLength_New(tenor), DayBasis_New(basis));
+    }
 
 } // namespace
 
@@ -74,30 +64,30 @@ TEST(XccyCalibrationTest, TestBuilderDefaults) {
 
 namespace {
 
-struct BaselineCurves_ {
-    Dal::Handle_<Dal::CurveBlock_> domesticBlock_;
-    Dal::Handle_<Dal::CurveBlock_> foreignBlock_;
-};
+    struct BaselineCurves_ {
+        Dal::Handle_<Dal::CurveBlock_> domesticBlock_;
+        Dal::Handle_<Dal::CurveBlock_> foreignBlock_;
+    };
 
-BaselineCurves_ MakeBaselineCurves() {
-    Vector_<Date_> knotDates;
-    knotDates.push_back(Spot());
-    knotDates.push_back(Spot().AddDays(3650)); // 10 years
-    Vector_<> oisRates;
-    oisRates.push_back(0.04);
-    oisRates.push_back(0.04);
+    BaselineCurves_ MakeBaselineCurves() {
+        Vector_<Date_> knotDates;
+        knotDates.push_back(Spot());
+        knotDates.push_back(Spot().AddDays(3650)); // 10 years
+        Vector_<> oisRates;
+        oisRates.push_back(0.04);
+        oisRates.push_back(0.04);
 
-    auto usdOis = DiscountPWLFNew(String_("usd_ois"), String_("USD"), knotDates, oisRates);
-    auto eurOis = DiscountPWLFNew(String_("eur_ois"), String_("EUR"), knotDates, oisRates);
+        auto usdOis = DiscountPWLFNew(String_("usd_ois"), String_("USD"), knotDates, oisRates);
+        auto eurOis = DiscountPWLFNew(String_("eur_ois"), String_("EUR"), knotDates, oisRates);
 
-    auto usdBlock = CurveBlockNew(usdOis, DayBasis_New("ACT_365F"));
-    auto eurBlock = CurveBlockNew(eurOis, DayBasis_New("ACT_360"));
+        auto usdBlock = CurveBlockNew(usdOis, DayBasis_New("ACT_365F"));
+        auto eurBlock = CurveBlockNew(eurOis, DayBasis_New("ACT_360"));
 
-    BaselineCurves_ result;
-    result.domesticBlock_ = usdBlock;
-    result.foreignBlock_ = eurBlock;
-    return result;
-}
+        BaselineCurves_ result;
+        result.domesticBlock_ = usdBlock;
+        result.foreignBlock_ = eurBlock;
+        return result;
+    }
 
 } // namespace
 
@@ -128,9 +118,7 @@ TEST(XccyCalibrationTest, TestCalibrateXccyMarket) {
         Date_ maturity = Spot().AddDays(y * 365);
         knotDates.push_back(maturity);
         builder.instruments_.push_back(
-            CrossCurrencySwapNew(Today(), Spot(), maturity, 0.01, currencies,
-                                  100.0, 100.0 / 1.10,
-                                  usdLeg, usdIndex, eurLeg, eurIndex));
+            CrossCurrencySwapNew(Today(), Spot(), maturity, 0.01, currencies, 100.0, 100.0 / 1.10, usdLeg, usdIndex, eurLeg, eurIndex));
     }
     builder.knotDates_ = knotDates;
 
@@ -138,15 +126,13 @@ TEST(XccyCalibrationTest, TestCalibrateXccyMarket) {
     auto result = CalibrateXccyMarket(spec);
 
     ASSERT_GT(result.diagnostics_.marketRates_.size(), static_cast<size_t>(0));
-    ASSERT_EQ(result.diagnostics_.marketRates_.size(),
-              result.diagnostics_.modelRates_.size());
+    ASSERT_EQ(result.diagnostics_.marketRates_.size(), result.diagnostics_.modelRates_.size());
     ASSERT_LT(result.diagnostics_.maxAbsResidual_, 1.0e-4);
     ASSERT_LT(result.diagnostics_.rmsResidual_, 1.0e-4);
 
     // Verify FX forward curve is populated
     ASSERT_GT(result.fxForwardCurve_.dates_.size(), static_cast<size_t>(0));
-    ASSERT_EQ(result.fxForwardCurve_.dates_.size(),
-              result.fxForwardCurve_.forwards_.size());
+    ASSERT_EQ(result.fxForwardCurve_.dates_.size(), result.fxForwardCurve_.forwards_.size());
 }
 
 // Round-trip every builder field through Build() to guard against brace-init
@@ -175,6 +161,9 @@ TEST(XccyCalibrationTest, TestBuildRoundTripsEveryField) {
     auto spec = b.Build();
 
     ASSERT_EQ(spec.today_, b.today_);
+    ASSERT_FALSE(spec.valuationTime_.IsValid());
+    ASSERT_EQ(spec.collateralCurrency_.Switch(), Dal::Ccy_::Value_::_NOT_SET);
+    ASSERT_FALSE(spec.fixings_);
     ASSERT_TRUE(spec.basisPair_ == b.basisPair_);
     ASSERT_EQ(spec.domesticCurveBlock_.get(), b.domesticCurveBlock_.get());
     ASSERT_EQ(spec.foreignCurveBlock_.get(), b.foreignCurveBlock_.get());

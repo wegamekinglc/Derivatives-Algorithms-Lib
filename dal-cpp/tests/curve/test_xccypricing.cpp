@@ -64,6 +64,44 @@ namespace {
         void Write(Archive::Store_&) const override {}
     };
 
+    class MappedDiscountCurve_ : public DiscountCurve_ {
+        Date_ valuationDate_;
+        std::map<Date_, double> valuationDfs_;
+        std::map<pair<Date_, Date_>, double> forwardDfs_;
+
+        MappedDiscountCurve_(const String_& name,
+                             const String_& ccy,
+                             const Date_& valuationDate,
+                             const std::map<Date_, double>& valuationDfs,
+                             const std::map<pair<Date_, Date_>, double>& forwardDfs)
+            : DiscountCurve_(name, ccy), valuationDate_(valuationDate), valuationDfs_(valuationDfs), forwardDfs_(forwardDfs) {}
+
+    public:
+        MappedDiscountCurve_(const String_& name, const String_& ccy, const Date_& valuationDate)
+            : DiscountCurve_(name, ccy), valuationDate_(valuationDate) {}
+
+        void SetValuationDf(const Date_& to, double value) { valuationDfs_[to] = value; }
+        void SetForwardDf(const Date_& from, const Date_& to, double value) { forwardDfs_[{from, to}] = value; }
+
+        double operator()(const Date_& from, const Date_& to) const override {
+            const auto forward = forwardDfs_.find({from, to});
+            if (forward != forwardDfs_.end())
+                return forward->second;
+            if (from == valuationDate_) {
+                const auto valuation = valuationDfs_.find(to);
+                if (valuation != valuationDfs_.end())
+                    return valuation->second;
+            }
+            return 1.0;
+        }
+        void Poll(Vector_<const YCComponent_*>* all) const override { all->push_back(this); }
+        void Poll(std::map<const YCComponent_*, Handle_<YCComponent_>>*) const override {}
+        [[nodiscard]] MappedDiscountCurve_* Clone(const String_& newName, const YCComponent_::substitutions_t&) const override {
+            return new MappedDiscountCurve_(newName, ccy_.String(), valuationDate_, valuationDfs_, forwardDfs_);
+        }
+        void Write(Archive::Store_&) const override {}
+    };
+
     struct PricingMarket_ {
         ConstantDiscountCurve_ domestic_{"domestic", "USD", 1.0};
         ConstantDiscountCurve_ foreign_{"foreign", "EUR", 1.0};
@@ -215,6 +253,48 @@ TEST(XccyPricingTest, TestTwoPeriodMtmPrincipalCashflowsMatchHandCalculation) {
     const double explicitForeignAnnuity = 100.0 * (plan.foreignPeriods_[0].accrual_.dcf_ + plan.foreignPeriods_[1].accrual_.dcf_) * 1.10;
     const double expectedParSpread = (explicitDomesticPrincipal - explicitForeignPrincipal) / explicitForeignAnnuity;
     ASSERT_NEAR(PriceXccyParSpread<double>(plan, market, fixings), expectedParSpread, 1.0e-12);
+}
+
+TEST(XccyPricingTest, TestMultipleFutureMtmExchangesUpdateDomesticPvSequentially) {
+    auto config = MakeQuarterlyConfig(XccyNotionalMode_::Value_::MARK_TO_MARKET);
+    config.domesticNotional_ = 8.0;
+    config.foreignNotional_ = 1.0;
+    config.convention_.domesticLeg_.dayBasis_ = DayBasis_("30_360");
+    config.convention_.foreignLeg_.dayBasis_ = DayBasis_("30_360");
+    config.convention_.spreadOnForeignLeg_ = true;
+    config.convention_.initialNotionalExchange_ = false;
+    config.convention_.finalNotionalExchange_ = false;
+    config.convention_.domesticIndex_.fixingLag_ = 0;
+    config.convention_.foreignIndex_.fixingLag_ = 0;
+
+    const Date_ valuationDate(2024, 1, 3);
+    const auto plan = BuildXccyCashflowPlan(Date_(2024, 1, 4), Date_(2024, 10, 4), config);
+    ASSERT_EQ(plan.resets_.size(), 2U);
+
+    MappedDiscountCurve_ domestic("domestic_mapped", "USD", valuationDate);
+    MappedDiscountCurve_ foreign("foreign_mapped", "EUR", valuationDate);
+    ConstantDiscountCurve_ basis("basis_mapped", "USD", 1.0);
+    domestic.SetForwardDf(plan.domesticPeriods_[0].schedule_.accrualStart_, plan.domesticPeriods_[0].schedule_.accrualEnd_, 0.5);
+    domestic.SetValuationDf(plan.resets_[0].effectiveDate_, 0x1p50);
+    foreign.SetValuationDf(plan.resets_[0].fxFixingTime_.Date(), 16.0);
+    foreign.SetValuationDf(plan.resets_[1].fxFixingTime_.Date(), 17.0);
+
+    const CollateralType_ ois(CollateralType_::Value_::OIS);
+    Tape::JointCurveBlock_<double> domesticBlock;
+    Tape::JointCurveBlock_<double> foreignBlock;
+    domesticBlock.discountCurves[ois] = &domestic;
+    foreignBlock.discountCurves[ois] = &foreign;
+    XccyMarketView_<double> market;
+    market.valuationTime_ = DateTime_(valuationDate, 12, 0);
+    market.pair_ = config.pair_;
+    market.collateralCurrency_ = config.pair_.domestic_;
+    market.fxSpot_ = 1.0;
+    market.domestic_ = &domesticBlock;
+    market.foreign_ = &foreignBlock;
+    market.basis_ = &basis;
+
+    const MarketFixingSnapshot_ fixings;
+    ASSERT_NEAR(PriceXccyParSpread<double>(plan, market, fixings), -4.0 / 3.0, 1.0e-12);
 }
 
 namespace {

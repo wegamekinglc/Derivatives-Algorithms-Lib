@@ -73,6 +73,15 @@ namespace Dal {
             return result;
         }
 
+        void ValidateResetConfig(const CrossCurrencySwapConfig_& config) {
+            if (config.notionalMode_ == XccyNotionalMode_::Value_::FIXED)
+                return;
+            REQUIRE(config.fxReset_.fixingLag_ >= 0, "Resettable cross-currency notionals require an explicit non-negative FX fixing lag");
+            REQUIRE(config.fxReset_.fixingHour_ >= 0 && config.fxReset_.fixingHour_ < 24 && config.fxReset_.fixingMinute_ >= 0 &&
+                        config.fxReset_.fixingMinute_ < 60,
+                    "Resettable cross-currency notionals require an explicit valid FX fixing time");
+        }
+
         void
         ValidateConfig(const Date_& tradeDate, const Date_& start, const Date_& maturity, double marketRate, const CrossCurrencySwapConfig_& config) {
             REQUIRE(tradeDate.IsValid() && start.IsValid() && maturity.IsValid(),
@@ -86,12 +95,7 @@ namespace Dal {
             REQUIRE(config.notionalMode_ == XccyNotionalMode_::Value_::FIXED || config.notionalMode_ == XccyNotionalMode_::Value_::RESETTABLE ||
                         config.notionalMode_ == XccyNotionalMode_::Value_::MARK_TO_MARKET,
                     "CrossCurrencySwap_ requires a valid notional mode");
-            if (config.notionalMode_ != XccyNotionalMode_::Value_::FIXED) {
-                REQUIRE(config.fxReset_.fixingLag_ >= 0, "Resettable cross-currency notionals require an explicit non-negative FX fixing lag");
-                REQUIRE(config.fxReset_.fixingHour_ >= 0 && config.fxReset_.fixingHour_ < 24 && config.fxReset_.fixingMinute_ >= 0 &&
-                            config.fxReset_.fixingMinute_ < 60,
-                        "Resettable cross-currency notionals require an explicit valid FX fixing time");
-            }
+            ValidateResetConfig(config);
         }
     } // namespace
 

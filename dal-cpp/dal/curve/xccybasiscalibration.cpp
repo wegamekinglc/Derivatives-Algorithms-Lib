@@ -38,8 +38,28 @@ namespace Dal {
             return spec.collateralCurrency_.Switch() == Ccy_::Value_::_NOT_SET ? spec.basisPair_.domestic_ : spec.collateralCurrency_;
         }
 
-        Handle_<MarketFixingSnapshot_> ResolveFixings(const CrossCurrencyCalibrationSpec_& spec) {
-            return spec.fixings_ ? spec.fixings_ : Handle_<MarketFixingSnapshot_>(new MarketFixingSnapshot_());
+        Vector_<XccyCashflowPlan_> BuildInstrumentPlans(const CrossCurrencyCalibrationSpec_& spec) {
+            Vector_<XccyCashflowPlan_> result;
+            result.reserve(spec.instruments_.size());
+            for (const auto& instrument : spec.instruments_) {
+                const auto span = instrument->TimeSpan();
+                result.push_back(BuildXccyCashflowPlan(span.first, span.second, instrument->Config()));
+            }
+            return result;
+        }
+
+        Handle_<MarketFixingSnapshot_>
+        ResolveFixings(const CrossCurrencyCalibrationSpec_& spec, const DateTime_& valuationTime, const Vector_<XccyCashflowPlan_>& plans) {
+            if (spec.fixings_)
+                return spec.fixings_;
+
+            Vector_<FixingRequest_> requests;
+            for (const auto& plan : plans) {
+                const auto required = RequiredHistoricalFixings(plan, valuationTime);
+                for (const auto& request : required)
+                    requests.push_back(request);
+            }
+            return SnapshotGlobalFixings(requests);
         }
 
         CurveDefinition_ BasisDefinition(const CrossCurrencyCalibrationSpec_& spec, const DateTime_& valuationTime) {
@@ -149,18 +169,15 @@ namespace Dal {
                                       const DateTime_& valuationTime,
                                       const Ccy_& collateralCurrency,
                                       const Handle_<MarketFixingSnapshot_>& fixings,
+                                      const Vector_<XccyCashflowPlan_>& plans,
                                       const CurveDefinition_& basisDefinition,
                                       CurveJacobianMode_ jacobianMode)
                 : valuationTime_(valuationTime), pair_(spec.basisPair_), collateralCurrency_(collateralCurrency),
                   domesticBlock_(spec.domesticCurveBlock_), foreignBlock_(spec.foreignCurveBlock_), fxSpot_(spec.fxSpot_), fixings_(fixings),
-                  basisDefinition_(basisDefinition), jacobianMode_(jacobianMode) {
-                plans_.reserve(spec.instruments_.size());
+                  plans_(plans), basisDefinition_(basisDefinition), jacobianMode_(jacobianMode) {
                 marketRates_.reserve(spec.instruments_.size());
-                for (const auto& instrument : spec.instruments_) {
-                    const auto span = instrument->TimeSpan();
-                    plans_.push_back(BuildXccyCashflowPlan(span.first, span.second, instrument->Config()));
+                for (const auto& instrument : spec.instruments_)
                     marketRates_.push_back(instrument->MarketRate());
-                }
             }
 
             [[nodiscard]] Vector_<> F(const Vector_<>& x) const override { return Residuals<double>(x); }
@@ -176,6 +193,38 @@ namespace Dal {
                 return new XCurveJacobian_(HarvestCurveJacobian(*tape, parameters, residuals));
             }
         };
+
+        struct XccyBasisSolveResult_ {
+            Vector_<> parameters_;
+            Matrix_<> effJacobianInverse_;
+            Matrix_<> forwardJacobian_;
+            bool approximate_ = false;
+            bool hasEffJacobianInverse_ = false;
+        };
+
+        XccyBasisSolveResult_ SolveXccyBasis(const CrossCurrencyCalibrationSpec_& spec,
+                                             const CrossCurrencyCalibrationOptions_& options,
+                                             const XccyBasisCalibrationFunc_& func,
+                                             const Vector_<>& guess,
+                                             const Vector_<>& tolerance,
+                                             const Sparse::TriDiagonal_& weights,
+                                             const UnderdeterminedControls_& controls) {
+            XccyBasisSolveResult_ result;
+            result.approximate_ = spec.solveMode_ == CurveSolveMode_::Value_::APPROXIMATE;
+            const bool wantForwardJacobian =
+                options.computeForwardJacobian_ && options.jacobianMode_ == CurveJacobianMode_::Value_::ANALYTIC && !result.approximate_;
+            if (result.approximate_) {
+                result.parameters_ = Underdetermined::Approximate(func, guess, tolerance, spec.fitTolerance_, weights, controls);
+                return result;
+            }
+
+            result.hasEffJacobianInverse_ = options.computeEffJacobianInverse_;
+            std::unique_ptr<Sparse::SymmetricDecomposition_> decomposition(weights.DecomposeSymmetric());
+            result.parameters_ = Underdetermined::Find(func, guess, tolerance, *decomposition, controls,
+                                                       result.hasEffJacobianInverse_ ? &result.effJacobianInverse_ : nullptr,
+                                                       wantForwardJacobian ? &result.forwardJacobian_ : nullptr);
+            return result;
+        }
 
         CrossCurrencyCalibrationDiagnostics_ BuildDiagnostics(const CrossCurrencyCalibrationSpec_& spec,
                                                               const XccyBasisCalibrationFunc_& func,
@@ -209,16 +258,38 @@ namespace Dal {
                 result.forwards_.push_back(market.FxForward(market.Today(), date, collateral));
             return result;
         }
+
+        CrossCurrencyCalibrationResult_ AssembleCalibrationResult(const CrossCurrencyCalibrationSpec_& spec,
+                                                                  const DateTime_& valuationTime,
+                                                                  const Ccy_& collateralCurrency,
+                                                                  const Handle_<MarketFixingSnapshot_>& fixings,
+                                                                  const CurveDefinition_& basisDefinition,
+                                                                  const XccyBasisCalibrationFunc_& func,
+                                                                  XccyBasisSolveResult_* solve) {
+            Handle_<DiscountCurve_> basisCurve(BuildDiscountCurveUniqueT<double>(basisDefinition, solve->parameters_).release());
+            CrossCurrencyMarket_ market(spec.domesticCurveBlock_, spec.foreignCurveBlock_, spec.fxSpot_, valuationTime, collateralCurrency, fixings);
+            market.SetBasisCurve(basisCurve);
+
+            std::map<CurrencyPair_, Handle_<DiscountCurve_>> basisCurves;
+            basisCurves[spec.basisPair_] = basisCurve;
+            CrossCurrencyFxForwardCurve_ fxForwardCurve = BuildFxForwardCurve(spec.basisPair_, spec.knotDates_, market, spec.fxForwardCollateral_);
+            const Matrix_<>* effJacobianInverse = solve->hasEffJacobianInverse_ ? &solve->effJacobianInverse_ : nullptr;
+            CrossCurrencyCalibrationDiagnostics_ diagnostics =
+                BuildDiagnostics(spec, func, solve->parameters_, solve->approximate_, effJacobianInverse);
+            diagnostics.jacobian_ = std::move(solve->forwardJacobian_);
+            return CrossCurrencyCalibrationResult_(market, basisCurves, fxForwardCurve, diagnostics);
+        }
     } // namespace
 
     CrossCurrencyCalibrationResult_ CalibrateCrossCurrencyMarket(const CrossCurrencyCalibrationSpec_& spec,
                                                                  const CrossCurrencyCalibrationOptions_& options) {
         const DateTime_ valuationTime = ResolveValuationTime(spec);
         const Ccy_ collateralCurrency = ResolveCollateralCurrency(spec);
-        const Handle_<MarketFixingSnapshot_> fixings = ResolveFixings(spec);
         ValidateSpec(spec, valuationTime, collateralCurrency);
         REQUIRE(options.jacobianMode_ == CurveJacobianMode_::Value_::ANALYTIC || options.jacobianMode_ == CurveJacobianMode_::Value_::BUMPED,
                 "Cross-currency calibration requires ANALYTIC or BUMPED Jacobian mode");
+        const Vector_<XccyCashflowPlan_> plans = BuildInstrumentPlans(spec);
+        const Handle_<MarketFixingSnapshot_> fixings = ResolveFixings(spec, valuationTime, plans);
 
         const CurveDefinition_ basisDefinition = BasisDefinition(spec, valuationTime);
         const int parameterCount = BuildCurveParameterLayout(basisDefinition).parameterCount_;
@@ -240,32 +311,8 @@ namespace Dal {
         controlsDictionary.Insert(KEY_MAX_RESTARTS, Cell_(static_cast<double>(spec.maxRestarts_)));
         UnderdeterminedControls_ controls(controlsDictionary);
 
-        XccyBasisCalibrationFunc_ func(spec, valuationTime, collateralCurrency, fixings, basisDefinition, options.jacobianMode_);
-        const bool approximate = spec.solveMode_ == CurveSolveMode_::Value_::APPROXIMATE;
-        const bool wantForwardJacobian =
-            options.computeForwardJacobian_ && options.jacobianMode_ == CurveJacobianMode_::Value_::ANALYTIC && !approximate;
-        Vector_<> parameters;
-        Matrix_<> effJacobianInverse;
-        Matrix_<> forwardJacobian;
-        if (!approximate) {
-            std::unique_ptr<Sparse::SymmetricDecomposition_> decomposition(weights->DecomposeSymmetric());
-            parameters = Underdetermined::Find(func, guess, tolerance, *decomposition, controls,
-                                               options.computeEffJacobianInverse_ ? &effJacobianInverse : nullptr,
-                                               wantForwardJacobian ? &forwardJacobian : nullptr);
-        } else {
-            parameters = Underdetermined::Approximate(func, guess, tolerance, spec.fitTolerance_, *weights, controls);
-        }
-
-        Handle_<DiscountCurve_> basisCurve(BuildDiscountCurveUniqueT<double>(basisDefinition, parameters).release());
-        CrossCurrencyMarket_ market(spec.domesticCurveBlock_, spec.foreignCurveBlock_, spec.fxSpot_, valuationTime, collateralCurrency, fixings);
-        market.SetBasisCurve(basisCurve);
-
-        std::map<CurrencyPair_, Handle_<DiscountCurve_>> basisCurves;
-        basisCurves[spec.basisPair_] = basisCurve;
-        CrossCurrencyFxForwardCurve_ fxForwardCurve = BuildFxForwardCurve(spec.basisPair_, spec.knotDates_, market, spec.fxForwardCollateral_);
-        CrossCurrencyCalibrationDiagnostics_ diagnostics =
-            BuildDiagnostics(spec, func, parameters, approximate, !approximate && options.computeEffJacobianInverse_ ? &effJacobianInverse : nullptr);
-        diagnostics.jacobian_ = std::move(forwardJacobian);
-        return CrossCurrencyCalibrationResult_(market, basisCurves, fxForwardCurve, diagnostics);
+        XccyBasisCalibrationFunc_ func(spec, valuationTime, collateralCurrency, fixings, plans, basisDefinition, options.jacobianMode_);
+        XccyBasisSolveResult_ solve = SolveXccyBasis(spec, options, func, guess, tolerance, *weights, controls);
+        return AssembleCalibrationResult(spec, valuationTime, collateralCurrency, fixings, basisDefinition, func, &solve);
     }
 } // namespace Dal

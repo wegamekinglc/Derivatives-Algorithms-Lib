@@ -9,16 +9,25 @@
 namespace Dal {
 
     CrossCurrencyCalibrationSpec_ CrossCurrencyCalibrationSpecBuilder_::Build() const {
-        return CrossCurrencyCalibrationSpec_{
-            today_, basisPair_, domesticCurveBlock_, foreignCurveBlock_,
-            fxSpot_, fxForwardCollateral_, instruments_, knotDates_,
-            smoothingWeight_, tolerance_, fitTolerance_, initialGuess_,
-            maxEvaluations_, maxRestarts_, solveMode_
-        };
+        CrossCurrencyCalibrationSpec_ result;
+        result.today_ = today_;
+        result.basisPair_ = basisPair_;
+        result.domesticCurveBlock_ = domesticCurveBlock_;
+        result.foreignCurveBlock_ = foreignCurveBlock_;
+        result.fxSpot_ = fxSpot_;
+        result.fxForwardCollateral_ = fxForwardCollateral_;
+        result.instruments_ = instruments_;
+        result.knotDates_ = knotDates_;
+        result.smoothingWeight_ = smoothingWeight_;
+        result.tolerance_ = tolerance_;
+        result.fitTolerance_ = fitTolerance_;
+        result.initialGuess_ = initialGuess_;
+        result.maxEvaluations_ = maxEvaluations_;
+        result.maxRestarts_ = maxRestarts_;
+        result.solveMode_ = solveMode_;
+        return result;
     }
 
-    CrossCurrencyCalibrationResult_ CalibrateXccyMarket(const CrossCurrencyCalibrationSpec_& spec) {
-        return CalibrateCrossCurrencyMarket(spec);
-    }
+    CrossCurrencyCalibrationResult_ CalibrateXccyMarket(const CrossCurrencyCalibrationSpec_& spec) { return CalibrateCrossCurrencyMarket(spec); }
 
 } // namespace Dal
