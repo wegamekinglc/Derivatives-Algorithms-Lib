@@ -308,10 +308,10 @@ namespace {
             Date::AddMonths(fixture.today_, 12), Date::AddMonths(fixture.today_, 24),  Date::AddMonths(fixture.today_, 48),
             Date::AddMonths(fixture.today_, 72), Date::AddMonths(fixture.today_, 120),
         };
-        const JointCurrencyFixture_ domestic =
-            MakeJointCurrency(fixture.today_, Ccy_("USD"), knots, ycMaturities, {0.015, 0.016, 0.017, 0.018, 0.019});
-        const JointCurrencyFixture_ foreign =
-            MakeJointCurrency(fixture.today_, Ccy_("EUR"), knots, ycMaturities, {0.010, 0.011, 0.012, 0.013, 0.014});
+        const Vector_<> domesticParameters = {0.015, 0.016, 0.017, 0.018, 0.019};
+        const Vector_<> foreignParameters = {0.010, 0.011, 0.012, 0.013, 0.014};
+        const JointCurrencyFixture_ domestic = MakeJointCurrency(fixture.today_, Ccy_("USD"), knots, ycMaturities, domesticParameters);
+        const JointCurrencyFixture_ foreign = MakeJointCurrency(fixture.today_, Ccy_("EUR"), knots, ycMaturities, foreignParameters);
         const Vector_<> basisParameters = {0.0010, 0.0014, 0.0018, 0.0022, 0.0026};
         const CurrencyPair_ pair(Ccy_("USD"), Ccy_("EUR"));
         CrossCurrencyMarket_ quoteMarket(domestic.market_, foreign.market_, kFxSpot, fixture.valuationTime_, pair.domestic_, fixture.fixings_);
@@ -336,6 +336,15 @@ namespace {
         result.maxEvaluations_ = 500;
         result.maxRestarts_ = 40;
         result.solveMode_ = CurveSolveMode_::Value_::EXACT;
+
+        const auto shifted = [](Vector_<> parameters) {
+            for (auto& parameter : parameters)
+                parameter += 0.001;
+            return parameters;
+        };
+        result.domestic_.curves_[0].initialGuessPerNode_ = shifted(domesticParameters);
+        result.foreign_.curves_[0].initialGuessPerNode_ = shifted(foreignParameters);
+        result.basis_.initialGuessPerNode_ = shifted(basisParameters);
 
         const Vector_<int> xccyMaturities = {6, 12, 18, 24, 30, 36, 42, 48, 54, 60, 72, 84, 96, 108, 120};
         for (int i = 0; i < static_cast<int>(xccyMaturities.size()); ++i) {

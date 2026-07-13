@@ -4,8 +4,14 @@
 
 #include <gtest/gtest.h>
 
+#include <limits>
+#include <string>
+
 #include <dal/curve/discount.hpp>
+#include <dal/curve/aadjacobian.hpp>
+#include <dal/curve/curveparameterization.hpp>
 #include <dal/curve/jointycctx.hpp>
+#include <dal/curve/tapeguard.hpp>
 #include <dal/curve/xccypricing.hpp>
 #include <dal/storage/archive.hpp>
 
@@ -48,6 +54,15 @@ namespace {
                 return true;
         }
         return false;
+    }
+
+    template <class F_> void AssertDalExceptionContains(F_&& action, const std::string& expected) {
+        try {
+            action();
+            FAIL() << "Expected DAL exception containing " << expected;
+        } catch (const Dal::Exception_& exception) {
+            ASSERT_NE(std::string(exception.what()).find(expected), std::string::npos) << exception.what();
+        }
     }
     class ConstantDiscountCurve_ : public DiscountCurve_ {
         double value_;
@@ -98,6 +113,24 @@ namespace {
         void Poll(std::map<const YCComponent_*, Handle_<YCComponent_>>*) const override {}
         [[nodiscard]] MappedDiscountCurve_* Clone(const String_& newName, const YCComponent_::substitutions_t&) const override {
             return new MappedDiscountCurve_(newName, ccy_.String(), valuationDate_, valuationDfs_, forwardDfs_);
+        }
+        void Write(Archive::Store_&) const override {}
+    };
+
+    template <class T_> class SplitForwardCurve_ : public Tape::DiscountCurve_<T_> {
+        Date_ split_;
+        T_ historical_;
+        T_ future_;
+
+    public:
+        SplitForwardCurve_(const String_& name, const String_& ccy, const Date_& split, const T_& historical, const T_& future)
+            : Tape::DiscountCurve_<T_>(name, ccy), split_(split), historical_(historical), future_(future) {}
+
+        T_ operator()(const Date_& from, const Date_&) const override { return from < split_ ? historical_ : future_; }
+        void Poll(Vector_<const YCComponent_*>* all) const override { all->push_back(this); }
+        void Poll(std::map<const YCComponent_*, Handle_<YCComponent_>>*) const override {}
+        [[nodiscard]] SplitForwardCurve_* Clone(const String_& newName, const YCComponent_::substitutions_t&) const override {
+            return new SplitForwardCurve_(newName, this->ccy_.String(), split_, historical_, future_);
         }
         void Write(Archive::Store_&) const override {}
     };
@@ -165,7 +198,7 @@ TEST(XccyPricingTest, TestFixedPlanLeavesUnconfiguredRateFixingMetadataEmpty) {
     config.domesticRateFixing_ = FixingIdentity_();
     config.foreignRateFixing_ = FixingIdentity_();
 
-    const auto plan = BuildXccyCashflowPlan(Date_(2024, 1, 4), Date_(2025, 1, 4), config);
+    const auto plan = BuildXccyCashflowPlan(Date_(2024, 1, 8), Date_(2025, 1, 8), config);
 
     ASSERT_FALSE(plan.domesticPeriods_.empty());
     ASSERT_FALSE(plan.foreignPeriods_.empty());
@@ -227,6 +260,33 @@ TEST(XccyPricingTest, TestRequiredHistoricalFixingsIncludeValuationDatePayments)
     }
 }
 
+TEST(XccyPricingTest, TestStartedMultiResetTradeRequiresOnlyUnsettledDependencyClosure) {
+    const auto plan = BuildXccyCashflowPlan(Date_(2024, 1, 8), Date_(2025, 1, 8), MakeQuarterlyConfig(XccyNotionalMode_::Value_::MARK_TO_MARKET));
+    const DateTime_ valuationTime(Date_(2024, 7, 9), 12, 0);
+    const auto requests = RequiredHistoricalFixings(plan, valuationTime);
+
+    ASSERT_EQ(requests.size(), 3U);
+    ASSERT_TRUE(HasRequest(requests, "USD-SOFR-3M", plan.domesticPeriods_[2].rateFixingTime_));
+    ASSERT_TRUE(HasRequest(requests, "EUR-ESTR-3M", plan.foreignPeriods_[2].rateFixingTime_));
+    ASSERT_TRUE(HasRequest(requests, "FX[EUR/USD]", plan.resets_[1].fxFixingTime_));
+    ASSERT_FALSE(HasRequest(requests, "FX[EUR/USD]", plan.resets_[0].fxFixingTime_));
+
+    MarketFixingSnapshot_::values_t values;
+    values[plan.config_.domesticRateFixing_.indexName_][plan.domesticPeriods_[2].rateFixingTime_] = 0.04;
+    values[plan.config_.foreignRateFixing_.indexName_][plan.foreignPeriods_[2].rateFixingTime_] = 0.03;
+    values[FxIndexName(plan.config_.pair_)][plan.resets_[1].fxFixingTime_] = 1.20;
+    const MarketFixingSnapshot_ fixings(values);
+    const PricingMarket_ curves;
+    const auto market = curves.View(valuationTime);
+
+    const auto resolved = ResolveXccyNotionals<double>(plan, market, fixings);
+    ASSERT_EQ(resolved.mtmDeltas_.size(), plan.resets_.size());
+    ASSERT_NEAR(resolved.mtmDeltas_[0], 0.0, 1.0e-12);
+    ASSERT_NEAR(resolved.mtmDeltas_[1], 0.0, 1.0e-12);
+    ASSERT_NEAR(resolved.mtmDeltas_[2], -10.0, 1.0e-12);
+    ASSERT_TRUE(std::isfinite(PriceXccyParSpread<double>(plan, market, fixings)));
+}
+
 TEST(XccyPricingTest, TestResetPlanRejectsNegativeFxFixingLag) {
     auto config = MakeQuarterlyConfig(XccyNotionalMode_::Value_::RESETTABLE);
     config.fxReset_.fixingLag_ = -1;
@@ -271,14 +331,14 @@ TEST(XccyPricingTest, TestTwoPeriodMtmPrincipalCashflowsMatchHandCalculation) {
     ASSERT_EQ(resolved.mtmDeltas_.size(), 1U);
     ASSERT_NEAR(resolved.mtmDeltas_[0], 10.0, 1.0e-12);
 
-    const double explicitDomesticPrincipal = -110.0 - 10.0 + 120.0;
+    const double explicitDomesticPrincipal = -110.0 + 10.0 + 120.0;
     const double explicitForeignPrincipal = (-100.0 + 100.0) * 1.10;
     const double explicitForeignAnnuity = 100.0 * (plan.foreignPeriods_[0].accrual_.dcf_ + plan.foreignPeriods_[1].accrual_.dcf_) * 1.10;
     const double expectedParSpread = (explicitDomesticPrincipal - explicitForeignPrincipal) / explicitForeignAnnuity;
     ASSERT_NEAR(PriceXccyParSpread<double>(plan, market, fixings), expectedParSpread, 1.0e-12);
 }
 
-TEST(XccyPricingTest, TestMultipleFutureMtmExchangesUpdateDomesticPvSequentially) {
+TEST(XccyPricingTest, TestMultipleFutureMtmExchangesAddDomesticPvSequentially) {
     auto config = MakeQuarterlyConfig(XccyNotionalMode_::Value_::MARK_TO_MARKET);
     config.domesticNotional_ = 8.0;
     config.foreignNotional_ = 1.0;
@@ -317,7 +377,9 @@ TEST(XccyPricingTest, TestMultipleFutureMtmExchangesUpdateDomesticPvSequentially
     market.basis_ = &basis;
 
     const MarketFixingSnapshot_ fixings;
-    ASSERT_NEAR(PriceXccyParSpread<double>(plan, market, fixings), -4.0 / 3.0, 1.0e-12);
+    const double expectedDomesticPv = 16.0 * 0x1p50 + 1.0;
+    const double expectedForeignAnnuity = 3.0 / 4.0;
+    ASSERT_NEAR(PriceXccyParSpread<double>(plan, market, fixings), expectedDomesticPv / expectedForeignAnnuity, 1.0e-12);
 }
 
 namespace {
@@ -417,6 +479,135 @@ TEST(XccyPricingTest, TestFutureRateFixingUsesActiveCurve) {
     const double firstSpread = PriceXccyParSpread<double>(plan, first.View(valuationTime), fixings);
     const double secondSpread = PriceXccyParSpread<double>(plan, second.View(valuationTime), fixings);
     ASSERT_NE(firstSpread, secondSpread);
+}
+
+TEST(XccyPricingTest, TestStartedFixedPlanWithoutCanonicalRateIdentityFailsContextually) {
+    auto config = MakeQuarterlyConfig(XccyNotionalMode_::Value_::FIXED);
+    config.domesticRateFixing_ = FixingIdentity_();
+    config.foreignRateFixing_ = FixingIdentity_();
+    const auto plan = BuildXccyCashflowPlan(Date_(2024, 1, 4), Date_(2024, 7, 4), config);
+    const DateTime_ valuationTime(Date_(2024, 4, 5), 12, 0);
+
+    AssertDalExceptionContains([&]() { static_cast<void>(RequiredHistoricalFixings(plan, valuationTime)); }, "domestic floating coupon");
+    const PricingMarket_ curves;
+    const MarketFixingSnapshot_ fixings;
+    AssertDalExceptionContains([&]() { static_cast<void>(PriceXccyParSpread<double>(plan, curves.View(valuationTime), fixings)); },
+                               "canonical fixing identity");
+}
+
+TEST(XccyPricingTest, TestSameDayEmptyRateIdentityRemainsForecastableWithoutConfiguredTime) {
+    auto config = MakeQuarterlyConfig(XccyNotionalMode_::Value_::FIXED);
+    config.convention_.domesticIndex_.fixingLag_ = 0;
+    config.convention_.foreignIndex_.fixingLag_ = 0;
+    config.domesticRateFixing_ = FixingIdentity_();
+    config.foreignRateFixing_ = FixingIdentity_();
+    const auto plan = BuildXccyCashflowPlan(Date_(2024, 4, 4), Date_(2024, 7, 4), config);
+    const PricingMarket_ curves;
+    const MarketFixingSnapshot_ fixings;
+
+    ASSERT_NO_THROW(static_cast<void>(PriceXccyParSpread<double>(plan, curves.View(DateTime_(Date_(2024, 4, 4), 23, 59)), fixings)));
+}
+
+TEST(XccyPricingTest, TestInitialExchangeUsesExplicitTradeStartRatherThanAdjustedAccrualStart) {
+    auto config = MakeQuarterlyConfig(XccyNotionalMode_::Value_::FIXED);
+    config.convention_.initialNotionalExchange_ = true;
+    config.convention_.finalNotionalExchange_ = false;
+    config.convention_.spreadOnForeignLeg_ = true;
+    config.convention_.domesticLeg_.businessDayConvention_ = BizDayConvention_("Following");
+    config.convention_.foreignLeg_.businessDayConvention_ = BizDayConvention_("Following");
+    config.convention_.domesticIndex_.fixingLag_ = 0;
+    config.convention_.foreignIndex_.fixingLag_ = 0;
+    const Date_ valuationDate(2024, 1, 5);
+    const Date_ start(2024, 1, 6);
+    const auto plan = BuildXccyCashflowPlan(start, Date_(2024, 4, 6), config);
+    ASSERT_NE(plan.domesticPeriods_.front().schedule_.accrualStart_, start);
+
+    MappedDiscountCurve_ domestic("domestic_start", "USD", valuationDate);
+    MappedDiscountCurve_ foreign("foreign_start", "EUR", valuationDate);
+    ConstantDiscountCurve_ basis("basis_start", "USD", 1.0);
+    domestic.SetValuationDf(start, 0.50);
+    foreign.SetValuationDf(start, 0.25);
+    const CollateralType_ ois(CollateralType_::Value_::OIS);
+    Tape::JointCurveBlock_<double> domesticBlock;
+    Tape::JointCurveBlock_<double> foreignBlock;
+    domesticBlock.discountCurves[ois] = &domestic;
+    domesticBlock.forwardCurves[PeriodLength_("3M")] = &domestic;
+    foreignBlock.discountCurves[ois] = &foreign;
+    foreignBlock.forwardCurves[PeriodLength_("3M")] = &foreign;
+    XccyMarketView_<double> market;
+    market.valuationTime_ = DateTime_(valuationDate, 12, 0);
+    market.pair_ = config.pair_;
+    market.collateralCurrency_ = config.pair_.domestic_;
+    market.fxSpot_ = 1.10;
+    market.domestic_ = &domesticBlock;
+    market.foreign_ = &foreignBlock;
+    market.basis_ = &basis;
+
+    const double foreignAnnuity = config.foreignNotional_ * plan.foreignPeriods_[0].accrual_.dcf_ * 1.10;
+    const double expected = (-config.domesticNotional_ * 0.50 + config.foreignNotional_ * 1.10 * 0.25) / foreignAnnuity;
+    ASSERT_NEAR(PriceXccyParSpread<double>(plan, market, MarketFixingSnapshot_()), expected, 1.0e-12);
+}
+
+TEST(XccyPricingTest, TestTypedMarketRejectsNonFiniteSpotAndDiscountFactors) {
+    const auto plan = BuildXccyCashflowPlan(Date_(2024, 1, 4), Date_(2024, 4, 4), MakeQuarterlyConfig(XccyNotionalMode_::Value_::FIXED));
+    const DateTime_ valuationTime(Date_(2024, 1, 3), 12, 0);
+    const MarketFixingSnapshot_ fixings;
+    const CustomPricingMarket_ infiniteSpot(1.0, 1.0, 1.0, std::numeric_limits<double>::infinity());
+    const CustomPricingMarket_ infiniteDiscount(std::numeric_limits<double>::infinity(), 1.0, 1.0);
+
+    ASSERT_THROW(static_cast<void>(PriceXccyParSpread<double>(plan, infiniteSpot.View(valuationTime), fixings)), Dal::Exception_);
+    ASSERT_THROW(static_cast<void>(PriceXccyParSpread<double>(plan, infiniteDiscount.View(valuationTime), fixings)), Dal::Exception_);
+}
+
+TEST(XccyPricingTest, TestStartedTradeAadTreatsHistoricalRateFixingsAsPassiveAndFutureCouponsAsActive) {
+    const DateTime_ valuationTime(Date_(2024, 4, 5), 12, 0);
+    auto config = MakeQuarterlyConfig(XccyNotionalMode_::Value_::FIXED);
+    config.convention_.domesticIndex_.useProjectionCurve_ = true;
+    config.convention_.foreignIndex_.useProjectionCurve_ = true;
+    const auto plan = BuildXccyCashflowPlan(Date_(2024, 1, 4), Date_(2024, 10, 4), config);
+    ASSERT_EQ(plan.domesticPeriods_.size(), 3U);
+    ASSERT_LT(plan.domesticPeriods_[1].rateFixingTime_, valuationTime);
+    ASSERT_GT(plan.domesticPeriods_[2].rateFixingTime_, valuationTime);
+    MarketFixingSnapshot_::values_t values;
+    values[plan.config_.domesticRateFixing_.indexName_][plan.domesticPeriods_[1].rateFixingTime_] = 0.04;
+    values[plan.config_.foreignRateFixing_.indexName_][plan.foreignPeriods_[1].rateFixingTime_] = 0.03;
+    const MarketFixingSnapshot_ fixings(values);
+
+    auto* tape = AAD::Tape();
+    AAD::Clear(*tape);
+    {
+        TapeGuard_ guard(tape);
+        Vector_<AAD::Number_> activeForwards = RegisterCurveParameters({0.95, 0.96, 0.97, 0.98});
+        AAD::NewRecording(*tape);
+        SplitForwardCurve_<AAD::Number_> domesticDiscount("domestic_discount_aad", "USD", Date_(2024, 1, 1), 1.0, 1.0);
+        SplitForwardCurve_<AAD::Number_> foreignDiscount("foreign_discount_aad", "EUR", Date_(2024, 1, 1), 1.0, 1.0);
+        SplitForwardCurve_<AAD::Number_> basis("basis_aad", "USD", Date_(2024, 1, 1), 1.0, 1.0);
+        SplitForwardCurve_<AAD::Number_> domesticForward("domestic_forward_aad", "USD", Date_(2024, 7, 1), activeForwards[0], activeForwards[1]);
+        SplitForwardCurve_<AAD::Number_> foreignForward("foreign_forward_aad", "EUR", Date_(2024, 7, 1), activeForwards[2], activeForwards[3]);
+        const CollateralType_ ois(CollateralType_::Value_::OIS);
+        Tape::JointCurveBlock_<AAD::Number_> domesticBlock;
+        Tape::JointCurveBlock_<AAD::Number_> foreignBlock;
+        domesticBlock.discountCurves[ois] = &domesticDiscount;
+        domesticBlock.forwardCurves[PeriodLength_("3M")] = &domesticForward;
+        foreignBlock.discountCurves[ois] = &foreignDiscount;
+        foreignBlock.forwardCurves[PeriodLength_("3M")] = &foreignForward;
+        XccyMarketView_<AAD::Number_> market;
+        market.valuationTime_ = valuationTime;
+        market.pair_ = plan.config_.pair_;
+        market.collateralCurrency_ = plan.config_.pair_.domestic_;
+        market.fxSpot_ = 1.10;
+        market.domestic_ = &domesticBlock;
+        market.foreign_ = &foreignBlock;
+        market.basis_ = &basis;
+
+        Vector_<AAD::Number_> spreads = {PriceXccyParSpread<AAD::Number_>(plan, market, fixings)};
+        const Matrix_<> jacobian = HarvestCurveJacobian(*tape, activeForwards, spreads);
+        ASSERT_NEAR(jacobian(0, 0), 0.0, 1.0e-14);
+        ASSERT_NEAR(jacobian(0, 2), 0.0, 1.0e-14);
+        ASSERT_GT(std::fabs(jacobian(0, 1)), 1.0e-6);
+        ASSERT_GT(std::fabs(jacobian(0, 3)), 1.0e-6);
+    }
+    AAD::Clear(*tape);
 }
 
 TEST(XccyPricingTest, TestPaidCouponIsFilteredBeforeFixingLookup) {

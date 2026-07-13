@@ -66,6 +66,11 @@ namespace Dal::JointCalibrationInternal {
         return String_();
     }
 
+    inline void ValidateInstrumentHandles(const JointCurveDeclaration_& declaration, const String_& slotName) {
+        for (int i = 0; i < static_cast<int>(declaration.instruments_.size()); ++i)
+            REQUIRE(declaration.instruments_[i], slotName + " has an empty instrument at index " + String::FromInt(i));
+    }
+
     inline std::pair<std::set<CollateralType_>, std::set<PeriodLength_>> ValidateDeclarationIdentities(const CurveCollectionSpec_& spec) {
         REQUIRE(spec.curves_, spec.context_ + " requires curve declarations");
         REQUIRE(!spec.curves_->empty(), spec.context_ + " requires at least one curve declaration");
@@ -103,6 +108,7 @@ namespace Dal::JointCalibrationInternal {
             const JointCurveDeclaration_& declaration = (*spec.curves_)[i];
             const String_ slotName = SlotName(spec, i);
             REQUIRE(!declaration.instruments_.empty(), slotName + " requires at least one instrument");
+            ValidateInstrumentHandles(declaration, slotName);
             REQUIRE(!declaration.knotDates_.empty(), slotName + " requires at least one knot date");
             for (int k = 1; k < static_cast<int>(declaration.knotDates_.size()); ++k)
                 REQUIRE(declaration.knotDates_[k] > declaration.knotDates_[k - 1], slotName + " knot dates must be strictly increasing");
@@ -329,6 +335,27 @@ namespace Dal::JointCalibrationInternal {
         return String_();
     }
 
+    inline String_ XccyResetPlanAnalyticIneligibilityReason(const XccyCashflowPlan_& plan) {
+        for (int i = 0; i < static_cast<int>(plan.resets_.size()); ++i) {
+            if (plan.resets_[i].domesticPeriodIndex_ != i + 1 ||
+                plan.resets_[i].domesticPeriodIndex_ >= static_cast<int>(plan.domesticPeriods_.size()))
+                return "reset event " + String::FromInt(i) + " must map consecutively from the second domestic period";
+        }
+        return String_();
+    }
+
+    inline String_ XccyNotionalModeAnalyticIneligibilityReason(const XccyCashflowPlan_& plan) {
+        switch (plan.config_.notionalMode_.Switch()) {
+        case XccyNotionalMode_::Value_::FIXED:
+            return String_();
+        case XccyNotionalMode_::Value_::RESETTABLE:
+        case XccyNotionalMode_::Value_::MARK_TO_MARKET:
+            return XccyResetPlanAnalyticIneligibilityReason(plan);
+        default:
+            return String_("typed pricing does not support notional mode ") + plan.config_.notionalMode_.String();
+        }
+    }
+
     inline String_ XccyPlanAnalyticIneligibilityReason(const CurveCollectionSpec_& domestic,
                                                        const std::vector<CurveSlot_>& domesticSlots,
                                                        const CurveCollectionSpec_& foreign,
@@ -340,21 +367,9 @@ namespace Dal::JointCalibrationInternal {
             return "foreign typed curve block currency does not match the plan pair";
         if (plan.domesticPeriods_.empty() || plan.foreignPeriods_.empty())
             return "typed pricing requires coupon periods on both legs";
-
-        switch (plan.config_.notionalMode_.Switch()) {
-        case XccyNotionalMode_::Value_::FIXED:
-            break;
-        case XccyNotionalMode_::Value_::RESETTABLE:
-        case XccyNotionalMode_::Value_::MARK_TO_MARKET:
-            for (int i = 0; i < static_cast<int>(plan.resets_.size()); ++i) {
-                if (plan.resets_[i].domesticPeriodIndex_ != i + 1 ||
-                    plan.resets_[i].domesticPeriodIndex_ >= static_cast<int>(plan.domesticPeriods_.size()))
-                    return "reset event " + String::FromInt(i) + " must map consecutively from the second domestic period";
-            }
-            break;
-        default:
-            return String_("typed pricing does not support notional mode ") + plan.config_.notionalMode_.String();
-        }
+        const String_ modeReason = XccyNotionalModeAnalyticIneligibilityReason(plan);
+        if (!modeReason.empty())
+            return modeReason;
 
         String_ reason = TypedIndexAnalyticIneligibilityReason(domestic, domesticSlots, plan.config_.convention_.domesticIndex_, "domestic");
         if (!reason.empty())

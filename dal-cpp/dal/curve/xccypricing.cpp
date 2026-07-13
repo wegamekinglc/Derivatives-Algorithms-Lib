@@ -6,6 +6,7 @@
 #include <dal/platform/strict.hpp>
 
 #include <algorithm>
+#include <cmath>
 #include <dal/curve/calibration_internal.hpp>
 #include <dal/curve/xccypricing.hpp>
 #include <dal/math/aad/aad.hpp>
@@ -59,18 +60,61 @@ namespace Dal {
             return lhs.indexName_ == rhs.indexName_ && lhs.fixingTime_ == rhs.fixingTime_;
         }
 
-        void AddHistoricalRateRequests(const Vector_<XccyCouponPeriod_>& periods, const DateTime_& valuationTime, Vector_<FixingRequest_>* requests) {
+        void AddHistoricalRateRequests(const Vector_<XccyCouponPeriod_>& periods,
+                                       const DateTime_& valuationTime,
+                                       const String_& context,
+                                       Vector_<FixingRequest_>* requests) {
             for (const auto& period : periods) {
-                if (period.schedule_.paymentDate_ < valuationTime.Date() || period.rateIndexName_.empty() ||
-                    !(period.rateFixingTime_ < valuationTime))
+                if (period.schedule_.paymentDate_ < valuationTime.Date())
+                    continue;
+                if (period.rateIndexName_.empty()) {
+                    REQUIRE(!(period.schedule_.fixingDate_ < valuationTime.Date()),
+                            context + " has no canonical fixing identity for an unpaid historical fixing");
+                    continue;
+                }
+                if (!(period.rateFixingTime_ < valuationTime))
                     continue;
                 requests->push_back({period.rateIndexName_, period.rateFixingTime_});
             }
         }
+
+        void MarkRemainingCouponNotionals(const XccyCashflowPlan_& plan, const DateTime_& valuationTime, std::vector<bool>* required) {
+            for (int i = 0; i < static_cast<int>(plan.domesticPeriods_.size()); ++i)
+                (*required)[i] = plan.domesticPeriods_[i].schedule_.paymentDate_ >= valuationTime.Date();
+        }
+
+        void MarkFinalExchangeNotional(const XccyCashflowPlan_& plan, const DateTime_& valuationTime, std::vector<bool>* required) {
+            if (plan.config_.convention_.finalNotionalExchange_ && plan.maturity_ >= valuationTime.Date() && !required->empty())
+                required->back() = true;
+        }
+
+        void MarkUnsettledMtmNotionals(const XccyCashflowPlan_& plan, const DateTime_& valuationTime, std::vector<bool>* required) {
+            for (const auto& reset : plan.resets_) {
+                REQUIRE(reset.domesticPeriodIndex_ > 0 && reset.domesticPeriodIndex_ < static_cast<int>(required->size()),
+                        "XCCY reset event references an invalid domestic period");
+                if (reset.effectiveDate_ >= valuationTime.Date()) {
+                    (*required)[reset.domesticPeriodIndex_] = true;
+                    (*required)[reset.domesticPeriodIndex_ - 1] = true;
+                }
+            }
+        }
+
+        std::vector<bool> RequiredDomesticNotionalPeriods(const XccyCashflowPlan_& plan, const DateTime_& valuationTime) {
+            std::vector<bool> result(plan.domesticPeriods_.size(), false);
+            if (plan.config_.notionalMode_ == XccyNotionalMode_::Value_::FIXED)
+                return result;
+            MarkRemainingCouponNotionals(plan, valuationTime, &result);
+            MarkFinalExchangeNotional(plan, valuationTime, &result);
+            if (plan.config_.notionalMode_ == XccyNotionalMode_::Value_::MARK_TO_MARKET)
+                MarkUnsettledMtmNotionals(plan, valuationTime, &result);
+            return result;
+        }
+
         template <class T_> T_ DiscountFromValuation(const Tape::DiscountCurve_<T_>& curve, const DateTime_& valuationTime, const Date_& date) {
-            if (date == valuationTime.Date())
-                return T_(1.0);
-            return curve(valuationTime.Date(), date);
+            const T_ result = date == valuationTime.Date() ? T_(1.0) : curve(valuationTime.Date(), date);
+            const double value = Dal::AAD::Value(result);
+            REQUIRE(std::isfinite(value) && value > 0.0, "XCCY pricing requires positive finite discount factors");
+            return result;
         }
 
         template <class T_, class F_>
@@ -98,8 +142,6 @@ namespace Dal {
             const T_ domesticDf = DiscountFromValuation(domesticDiscount, market.valuationTime_, fixingTime.Date());
             const T_ foreignDf = DiscountFromValuation(foreignDiscount, market.valuationTime_, fixingTime.Date());
             const T_ basisDf = market.basis_ ? DiscountFromValuation(*market.basis_, market.valuationTime_, fixingTime.Date()) : T_(1.0);
-            REQUIRE(Dal::AAD::Value(domesticDf) > 0.0 && Dal::AAD::Value(foreignDf) > 0.0 && Dal::AAD::Value(basisDf) > 0.0,
-                    "XCCY FX forward requires positive discount factors");
             return market.fxSpot_ * foreignDf / (domesticDf * basisDf);
         }
 
@@ -108,7 +150,8 @@ namespace Dal {
             REQUIRE(market.pair_ == plan.config_.pair_, "XCCY pricing market pair does not match the cashflow plan");
             REQUIRE(market.collateralCurrency_ == plan.config_.pair_.domestic_, "XCCY pricing supports domestic-currency collateral only");
             REQUIRE(market.domestic_ && market.foreign_, "XCCY pricing requires domestic and foreign curve blocks");
-            REQUIRE(Dal::AAD::Value(market.fxSpot_) > 0.0, "XCCY pricing requires a positive FX spot");
+            const double fxSpot = Dal::AAD::Value(market.fxSpot_);
+            REQUIRE(std::isfinite(fxSpot) && fxSpot > 0.0, "XCCY pricing requires a positive finite FX spot");
             REQUIRE(!market.basis_ || market.basis_->ccy_ == plan.config_.pair_.domestic_,
                     "XCCY basis curve currency must match the domestic currency");
         }
@@ -143,14 +186,14 @@ namespace Dal {
 
     Vector_<FixingRequest_> RequiredHistoricalFixings(const XccyCashflowPlan_& plan, const DateTime_& valuationTime) {
         Vector_<FixingRequest_> result;
-        AddHistoricalRateRequests(plan.domesticPeriods_, valuationTime, &result);
-        AddHistoricalRateRequests(plan.foreignPeriods_, valuationTime, &result);
+        AddHistoricalRateRequests(plan.domesticPeriods_, valuationTime, "XCCY domestic floating coupon", &result);
+        AddHistoricalRateRequests(plan.foreignPeriods_, valuationTime, "XCCY foreign floating coupon", &result);
 
+        const std::vector<bool> requiredNotionals = RequiredDomesticNotionalPeriods(plan, valuationTime);
         for (const auto& reset : plan.resets_) {
             REQUIRE(reset.domesticPeriodIndex_ >= 0 && reset.domesticPeriodIndex_ < static_cast<int>(plan.domesticPeriods_.size()),
                     "XCCY reset event references an invalid domestic period");
-            const auto& targetPeriod = plan.domesticPeriods_[reset.domesticPeriodIndex_];
-            if (targetPeriod.schedule_.paymentDate_ < valuationTime.Date() || !(reset.fxFixingTime_ < valuationTime))
+            if (!requiredNotionals[reset.domesticPeriodIndex_] || !(reset.fxFixingTime_ < valuationTime))
                 continue;
             result.push_back({FxIndexName(plan.config_.pair_), reset.fxFixingTime_});
         }
@@ -168,18 +211,23 @@ namespace Dal {
         if (plan.config_.notionalMode_ == XccyNotionalMode_::Value_::FIXED)
             return result;
 
+        const std::vector<bool> requiredNotionals = RequiredDomesticNotionalPeriods(plan, market.valuationTime_);
+        if (plan.config_.notionalMode_ == XccyNotionalMode_::Value_::MARK_TO_MARKET)
+            result.mtmDeltas_ = Vector_<T_>(plan.resets_.size(), T_(0.0));
         const String_ fxIndexName = FxIndexName(plan.config_.pair_);
         for (int i = 0; i < static_cast<int>(plan.resets_.size()); ++i) {
             const auto& reset = plan.resets_[i];
             REQUIRE(reset.domesticPeriodIndex_ == i + 1 && reset.domesticPeriodIndex_ < static_cast<int>(result.domesticNotionals_.size()),
                     "XCCY reset events must map consecutively from the second domestic period");
+            if (!requiredNotionals[reset.domesticPeriodIndex_])
+                continue;
             const T_ fx = ResolveObservedValue<T_>(fxIndexName, reset.fxFixingTime_, market.valuationTime_, fixings, "XCCY domestic notional reset",
                                                    [&]() { return ActiveFxForward(plan, market, reset.fxFixingTime_); });
             const T_ newNotional = T_(plan.config_.foreignNotional_) * fx;
             const T_ previousNotional = result.domesticNotionals_[reset.domesticPeriodIndex_ - 1];
             result.domesticNotionals_[reset.domesticPeriodIndex_] = newNotional;
-            if (plan.config_.notionalMode_ == XccyNotionalMode_::Value_::MARK_TO_MARKET)
-                result.mtmDeltas_.push_back(newNotional - previousNotional);
+            if (plan.config_.notionalMode_ == XccyNotionalMode_::Value_::MARK_TO_MARKET && reset.effectiveDate_ >= market.valuationTime_.Date())
+                result.mtmDeltas_[i] = newNotional - previousNotional;
         }
         return result;
     }
@@ -212,8 +260,11 @@ namespace Dal {
                       const XccyMarketView_<T_>& market,
                       const MarketFixingSnapshot_& fixings,
                       const String_& context) {
-            if (period.rateIndexName_.empty())
+            if (period.rateIndexName_.empty()) {
+                REQUIRE(!(period.schedule_.fixingDate_ < market.valuationTime_.Date()),
+                        context + " has no canonical fixing identity for an unpaid historical fixing");
                 return ActiveForwardRate(period, forecast);
+            }
             return ResolveObservedValue<T_>(period.rateIndexName_, period.rateFixingTime_, market.valuationTime_, fixings, context,
                                             [&]() { return ActiveForwardRate(period, forecast); });
         }
@@ -222,8 +273,6 @@ namespace Dal {
         T_ ForeignConversionFactor(const Tape::DiscountCurve_<T_>& foreignDiscount, const XccyMarketView_<T_>& market, const Date_& paymentDate) {
             const T_ foreignDf = DiscountFromValuation(foreignDiscount, market.valuationTime_, paymentDate);
             const T_ basisDf = market.basis_ ? DiscountFromValuation(*market.basis_, market.valuationTime_, paymentDate) : T_(1.0);
-            REQUIRE(Dal::AAD::Value(foreignDf) > 0.0 && Dal::AAD::Value(basisDf) > 0.0,
-                    "XCCY foreign cashflow conversion requires positive discount factors");
             return market.fxSpot_ * foreignDf / basisDf;
         }
 
@@ -296,11 +345,11 @@ namespace Dal {
             if (!plan.config_.convention_.initialNotionalExchange_)
                 return result;
 
-            const Date_ domesticStart = plan.domesticPeriods_.front().schedule_.accrualStart_;
+            const Date_ domesticStart = plan.start_;
             if (domesticStart >= market.valuationTime_.Date())
                 result.domesticPv_ -= DomesticNotional(plan, resolved, fixedNotional, 0) *
                                       DiscountFromValuation(domesticDiscount, market.valuationTime_, domesticStart);
-            const Date_ foreignStart = plan.foreignPeriods_.front().schedule_.accrualStart_;
+            const Date_ foreignStart = plan.start_;
             if (foreignStart >= market.valuationTime_.Date())
                 result.foreignPv_ -= T_(plan.config_.foreignNotional_) * ForeignConversionFactor(foreignDiscount, market, foreignStart);
             return result;
@@ -319,7 +368,7 @@ namespace Dal {
             for (int i = 0; i < static_cast<int>(plan.resets_.size()); ++i) {
                 if (plan.resets_[i].effectiveDate_ < market.valuationTime_.Date())
                     continue;
-                *domesticPv -=
+                *domesticPv +=
                     resolved.mtmDeltas_[i] * DiscountFromValuation(domesticDiscount, market.valuationTime_, plan.resets_[i].effectiveDate_);
             }
         }

@@ -191,6 +191,17 @@ namespace {
         result.spec_.maxEvaluations_ = 500;
         result.spec_.maxRestarts_ = 40;
         result.spec_.solveMode_ = CurveSolveMode_::Value_::EXACT;
+        auto shifted = [](const Vector_<>& parameters) {
+            Vector_<> result = parameters;
+            for (double& value : result)
+                value += 0.001;
+            return result;
+        };
+        result.spec_.domestic_.curves_[0].initialGuessPerNode_ = shifted(result.domesticDiscountParameters_);
+        result.spec_.domestic_.curves_[1].initialGuessPerNode_ = shifted(result.domesticForwardParameters_);
+        result.spec_.foreign_.curves_[0].initialGuessPerNode_ = shifted(result.foreignDiscountParameters_);
+        result.spec_.foreign_.curves_[1].initialGuessPerNode_ = shifted(result.foreignForwardParameters_);
+        result.spec_.basis_.initialGuessPerNode_ = shifted(result.basisParameters_);
 
         for (int i = 0; i < static_cast<int>(maturities.size()); ++i) {
             const XccyNotionalMode_ mode = i % 2 == 0 ? XccyNotionalMode_::Value_::RESETTABLE : XccyNotionalMode_::Value_::MARK_TO_MARKET;
@@ -370,6 +381,20 @@ TEST(XccyJointCalibrationTest, TestValidationRejectsEmptyInstrumentGroupsWithPai
     fixture = MakeJointFixture();
     fixture.spec_.foreign_.curves_.front().instruments_.clear();
     AssertCalibrationFailsWith(fixture.spec_, fixture.spec_.foreign_.curves_.front().curveName_.c_str());
+}
+
+TEST(XccyJointCalibrationTest, TestValidationRejectsNullHandlesBeforeInstrumentUse) {
+    JointFixture_ fixture = MakeJointFixture();
+    fixture.spec_.domestic_.curves_.front().instruments_.front() = Handle_<YCInstrument_>();
+    AssertCalibrationFailsWith(fixture.spec_, "Domestic slot");
+
+    fixture = MakeJointFixture();
+    fixture.spec_.foreign_.curves_.front().instruments_.front() = Handle_<YCInstrument_>();
+    AssertCalibrationFailsWith(fixture.spec_, "Foreign slot");
+
+    fixture = MakeJointFixture();
+    fixture.spec_.basis_.instruments_.front() = Handle_<CrossCurrencySwap_>();
+    AssertCalibrationFailsWith(fixture.spec_, "empty XCCY instrument at index 0");
 }
 
 TEST(XccyJointCalibrationTest, TestOmittedFixingsCaptureAllHistoricalRequestsOnceAndExplicitSnapshotRemainsAuthoritative) {

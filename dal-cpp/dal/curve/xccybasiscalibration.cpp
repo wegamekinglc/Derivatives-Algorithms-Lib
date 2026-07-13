@@ -78,6 +78,8 @@ namespace Dal {
                     "Cross-currency calibration basis pair foreign currency must match the foreign curve block");
             REQUIRE(collateralCurrency == spec.basisPair_.domestic_, "Cross-currency calibration supports domestic-currency collateral only");
             REQUIRE(!spec.instruments_.empty(), "Cross-currency calibration requires at least one instrument");
+            for (int i = 0; i < static_cast<int>(spec.instruments_.size()); ++i)
+                REQUIRE(spec.instruments_[i], "Cross-currency calibration has an empty XCCY instrument at index " + String::FromInt(i));
             REQUIRE(!spec.knotDates_.empty(), "Cross-currency calibration requires at least one basis knot date");
             REQUIRE(spec.smoothingWeight_ > 0.0, "Cross-currency calibration smoothing weight must be positive");
             REQUIRE(spec.tolerance_ > 0.0, "Cross-currency calibration tolerance must be positive");

@@ -35,7 +35,8 @@ domestic period onward. The three `XccyNotionalMode_` values are:
 - `MARK_TO_MARKET`: notionals follow the same formula as `RESETTABLE`, and each
   reset effective date exchanges the domestic notional change
   $\Delta N_{d,i}=N_{d,i}-N_{d,i-1}$. Under DAL's domestic-leg PV sign
-  convention, the adjustment is $-\Delta N_{d,i}P_d(t,T_i)$.
+  convention, the adjustment has the same receive/pay orientation as the
+  positive domestic final exchange and is $+\Delta N_{d,i}P_d(t,T_i)$.
 
 Coupon PVs use the period notional, accrual fraction, projected or observed
 rate, and the payment-date discount factor. Foreign coupons and notional

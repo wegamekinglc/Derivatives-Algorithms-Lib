@@ -362,6 +362,71 @@ namespace Dal {
             return result;
         }
 
+        void AppendCurrencyDiagnostics(const JointCurrencyCurveSpec_& currency,
+                                       const std::vector<CurveSlot_>& slots,
+                                       const CurveBlock_& block,
+                                       bool approximate,
+                                       Vector_<JointCurveCalibrationDiagnostics_>* diagnostics) {
+            for (const auto& slot : slots)
+                diagnostics->push_back(JointCalibrationInternal::BuildCurveDiagnostics(currency.curves_[slot.curveIndex_], slot, block, approximate));
+        }
+
+        void PopulateRates(const JointXccyCalibrationSpec_& spec,
+                           const JointLayout_& layout,
+                           const Vector_<>& residuals,
+                           Vector_<>* marketRates,
+                           Vector_<>* modelRates) {
+            *marketRates = Vector_<>(layout.totalResiduals_);
+            *modelRates = Vector_<>(layout.totalResiduals_);
+            for (const auto& slot : layout.domesticSlots_)
+                for (int i = 0; i < slot.nInstruments_; ++i)
+                    (*marketRates)[slot.residualOffset_ + i] = slot.marketRates_[i];
+            for (const auto& slot : layout.foreignSlots_)
+                for (int i = 0; i < slot.nInstruments_; ++i)
+                    (*marketRates)[slot.residualOffset_ + i] = slot.marketRates_[i];
+            for (int i = 0; i < static_cast<int>(spec.basis_.instruments_.size()); ++i)
+                (*marketRates)[layout.basisSlot_.residualOffset_ + i] = spec.basis_.instruments_[i]->MarketRate();
+            for (int i = 0; i < layout.totalResiduals_; ++i)
+                (*modelRates)[i] = (*marketRates)[i] + residuals[i];
+        }
+
+        void PopulateXccyDiagnostics(const JointXccyCalibrationSpec_& spec,
+                                     const JointLayout_& layout,
+                                     const JointXccyCalibrationResult_& result,
+                                     bool approximate,
+                                     CrossCurrencyCalibrationDiagnostics_* diagnostics) {
+            diagnostics->usedApproximateFit_ = approximate;
+            for (int i = 0; i < static_cast<int>(spec.basis_.instruments_.size()); ++i) {
+                const int row = layout.basisSlot_.residualOffset_ + i;
+                diagnostics->instrumentNames_.push_back(spec.basis_.instruments_[i]->Name());
+                diagnostics->marketRates_.push_back(result.marketRates_[row]);
+                diagnostics->modelRates_.push_back(result.modelRates_[row]);
+                diagnostics->residuals_.push_back(result.residuals_[row]);
+            }
+            const ResidualStats_ stats = ResidualStats(diagnostics->residuals_);
+            diagnostics->maxAbsResidual_ = stats.maxAbsResidual_;
+            diagnostics->rmsResidual_ = stats.rmsResidual_;
+        }
+
+        void PopulateRanges(const JointXccyCalibrationSpec_& spec, const JointLayout_& layout, JointXccyCalibrationResult_* result) {
+            AppendRanges("domestic", layout.domesticCollection_, layout.domesticSlots_, &result->parameterRanges_, &result->residualRanges_);
+            AppendRanges("foreign", layout.foreignCollection_, layout.foreignSlots_, &result->parameterRanges_, &result->residualRanges_);
+            result->parameterRanges_.push_back(
+                {String_("basis:") + spec.basis_.curveName_, layout.basisSlot_.paramOffset_, layout.basisSlot_.nParams_});
+            result->residualRanges_.push_back(
+                {String_("xccy:") + spec.basis_.curveName_, layout.basisSlot_.residualOffset_, layout.basisSlot_.nInstruments_});
+        }
+
+        void PopulateSummaryAndMatrices(const JointXccyResidualFunction_& function, SolveResult_* solve, JointXccyCalibrationResult_* result) {
+            const ResidualStats_ stats = ResidualStats(result->residuals_);
+            result->jointMaxAbsResidual_ = stats.maxAbsResidual_;
+            result->jointRmsResidual_ = stats.rmsResidual_;
+            result->solverEvaluations_ = function.EvaluationCount();
+            if (solve->hasEffectiveInverse_)
+                result->effJacobianInverse_ = std::move(solve->effectiveInverse_);
+            result->jacobianAtSolution_ = std::move(solve->forwardJacobian_);
+        }
+
         JointXccyCalibrationResult_ AssembleResult(const JointXccyCalibrationSpec_& spec,
                                                    const JointLayout_& layout,
                                                    const JointXccyResidualFunction_& function,
@@ -380,54 +445,14 @@ namespace Dal {
                                             .release());
             result.fxForwardCurve_ = BuildFxForwards(spec, result.domesticCurveBlock_, result.foreignCurveBlock_, result.basisCurve_, fixings);
             result.residuals_ = function.F(solve->parameters_);
-
-            for (const auto& slot : layout.domesticSlots_)
-                result.domesticDiagnostics_.push_back(JointCalibrationInternal::BuildCurveDiagnostics(
-                    spec.domestic_.curves_[slot.curveIndex_], slot, *result.domesticCurveBlock_, solve->approximate_));
-            for (const auto& slot : layout.foreignSlots_)
-                result.foreignDiagnostics_.push_back(JointCalibrationInternal::BuildCurveDiagnostics(
-                    spec.foreign_.curves_[slot.curveIndex_], slot, *result.foreignCurveBlock_, solve->approximate_));
-
-            result.marketRates_ = Vector_<>(layout.totalResiduals_);
-            result.modelRates_ = Vector_<>(layout.totalResiduals_);
-            for (const auto& slot : layout.domesticSlots_) {
-                for (int i = 0; i < slot.nInstruments_; ++i)
-                    result.marketRates_[slot.residualOffset_ + i] = slot.marketRates_[i];
-            }
-            for (const auto& slot : layout.foreignSlots_) {
-                for (int i = 0; i < slot.nInstruments_; ++i)
-                    result.marketRates_[slot.residualOffset_ + i] = slot.marketRates_[i];
-            }
-            for (int i = 0; i < static_cast<int>(spec.basis_.instruments_.size()); ++i)
-                result.marketRates_[layout.basisSlot_.residualOffset_ + i] = spec.basis_.instruments_[i]->MarketRate();
-            for (int i = 0; i < layout.totalResiduals_; ++i)
-                result.modelRates_[i] = result.marketRates_[i] + result.residuals_[i];
-
-            result.xccyDiagnostics_.usedApproximateFit_ = solve->approximate_;
-            for (int i = 0; i < static_cast<int>(spec.basis_.instruments_.size()); ++i) {
-                const int row = layout.basisSlot_.residualOffset_ + i;
-                result.xccyDiagnostics_.instrumentNames_.push_back(spec.basis_.instruments_[i]->Name());
-                result.xccyDiagnostics_.marketRates_.push_back(result.marketRates_[row]);
-                result.xccyDiagnostics_.modelRates_.push_back(result.modelRates_[row]);
-                result.xccyDiagnostics_.residuals_.push_back(result.residuals_[row]);
-            }
-            const ResidualStats_ xccyStats = ResidualStats(result.xccyDiagnostics_.residuals_);
-            result.xccyDiagnostics_.maxAbsResidual_ = xccyStats.maxAbsResidual_;
-            result.xccyDiagnostics_.rmsResidual_ = xccyStats.rmsResidual_;
-
-            const ResidualStats_ jointStats = ResidualStats(result.residuals_);
-            result.jointMaxAbsResidual_ = jointStats.maxAbsResidual_;
-            result.jointRmsResidual_ = jointStats.rmsResidual_;
-            result.solverEvaluations_ = function.EvaluationCount();
-            if (solve->hasEffectiveInverse_)
-                result.effJacobianInverse_ = std::move(solve->effectiveInverse_);
-            result.jacobianAtSolution_ = std::move(solve->forwardJacobian_);
-            AppendRanges("domestic", layout.domesticCollection_, layout.domesticSlots_, &result.parameterRanges_, &result.residualRanges_);
-            AppendRanges("foreign", layout.foreignCollection_, layout.foreignSlots_, &result.parameterRanges_, &result.residualRanges_);
-            result.parameterRanges_.push_back(
-                {String_("basis:") + spec.basis_.curveName_, layout.basisSlot_.paramOffset_, layout.basisSlot_.nParams_});
-            result.residualRanges_.push_back(
-                {String_("xccy:") + spec.basis_.curveName_, layout.basisSlot_.residualOffset_, layout.basisSlot_.nInstruments_});
+            AppendCurrencyDiagnostics(spec.domestic_, layout.domesticSlots_, *result.domesticCurveBlock_, solve->approximate_,
+                                      &result.domesticDiagnostics_);
+            AppendCurrencyDiagnostics(spec.foreign_, layout.foreignSlots_, *result.foreignCurveBlock_, solve->approximate_,
+                                      &result.foreignDiagnostics_);
+            PopulateRates(spec, layout, result.residuals_, &result.marketRates_, &result.modelRates_);
+            PopulateXccyDiagnostics(spec, layout, result, solve->approximate_, &result.xccyDiagnostics_);
+            PopulateSummaryAndMatrices(function, solve, &result);
+            PopulateRanges(spec, layout, &result);
             result.converged_ = true;
             return result;
         }

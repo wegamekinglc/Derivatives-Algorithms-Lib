@@ -516,6 +516,12 @@ TEST(XccyMarketTest, TestCalibrationRejectsInvalidSpec) {
     }
     {
         CrossCurrencyCalibrationSpec_ spec = MakeCalibrationSpec(today, pair);
+        spec.instruments_ = {Handle_<CrossCurrencySwap_>()};
+        spec.knotDates_ = {Date::AddMonths(today, 12)};
+        ASSERT_THROW(static_cast<void>(CalibrateCrossCurrencyMarket(spec)), Dal::Exception_);
+    }
+    {
+        CrossCurrencyCalibrationSpec_ spec = MakeCalibrationSpec(today, pair);
         spec.instruments_ = {Handle_<CrossCurrencySwap_>(new CrossCurrencySwap_(MakeSwap(today, 0.0020)))};
         spec.knotDates_ = {};
         ASSERT_THROW(static_cast<void>(CalibrateCrossCurrencyMarket(spec)), Dal::Exception_);
