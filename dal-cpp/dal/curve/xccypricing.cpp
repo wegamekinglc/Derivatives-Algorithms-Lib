@@ -249,8 +249,9 @@ namespace Dal {
 
         template <class T_> T_ ActiveForwardRate(const XccyCouponPeriod_& period, const Tape::DiscountCurve_<T_>& forecast) {
             const T_ df = forecast(period.schedule_.accrualStart_, period.schedule_.accrualEnd_);
-            REQUIRE(Dal::AAD::Value(df) > 0.0 && period.accrual_.dcf_ > 0.0,
-                    "XCCY floating coupon requires positive forecast discount factor and accrual fraction");
+            const double dfValue = Dal::AAD::Value(df);
+            REQUIRE(std::isfinite(dfValue) && dfValue > 0.0 && period.accrual_.dcf_ > 0.0,
+                    "XCCY floating coupon requires positive finite forecast discount factor and positive accrual fraction");
             return (T_(1.0) / df - T_(1.0)) / static_cast<double>(period.accrual_.dcf_);
         }
 

@@ -559,6 +559,39 @@ TEST(XccyPricingTest, TestTypedMarketRejectsNonFiniteSpotAndDiscountFactors) {
     ASSERT_THROW(static_cast<void>(PriceXccyParSpread<double>(plan, infiniteDiscount.View(valuationTime), fixings)), Dal::Exception_);
 }
 
+TEST(XccyPricingTest, TestTypedMarketRejectsNonFiniteProjectionDiscountFactor) {
+    auto config = MakeQuarterlyConfig(XccyNotionalMode_::Value_::FIXED);
+    config.convention_.domesticIndex_.useProjectionCurve_ = true;
+    config.convention_.foreignIndex_.useProjectionCurve_ = true;
+    config.convention_.domesticIndex_.fixingLag_ = 0;
+    config.convention_.foreignIndex_.fixingLag_ = 0;
+    const auto plan = BuildXccyCashflowPlan(Date_(2024, 1, 4), Date_(2024, 4, 4), config);
+    const DateTime_ valuationTime(Date_(2024, 1, 3), 12, 0);
+    ConstantDiscountCurve_ domesticDiscount("domestic_discount_finite", "USD", 1.0);
+    ConstantDiscountCurve_ foreignDiscount("foreign_discount_finite", "EUR", 1.0);
+    ConstantDiscountCurve_ domesticProjection("domestic_projection_infinite", "USD", std::numeric_limits<double>::infinity());
+    ConstantDiscountCurve_ foreignProjection("foreign_projection_finite", "EUR", 1.0);
+    ConstantDiscountCurve_ basis("basis_finite", "USD", 1.0);
+    const CollateralType_ ois(CollateralType_::Value_::OIS);
+    Tape::JointCurveBlock_<double> domesticBlock;
+    Tape::JointCurveBlock_<double> foreignBlock;
+    domesticBlock.discountCurves[ois] = &domesticDiscount;
+    domesticBlock.forwardCurves[PeriodLength_("3M")] = &domesticProjection;
+    foreignBlock.discountCurves[ois] = &foreignDiscount;
+    foreignBlock.forwardCurves[PeriodLength_("3M")] = &foreignProjection;
+    XccyMarketView_<double> market;
+    market.valuationTime_ = valuationTime;
+    market.pair_ = config.pair_;
+    market.collateralCurrency_ = config.pair_.domestic_;
+    market.fxSpot_ = 1.10;
+    market.domestic_ = &domesticBlock;
+    market.foreign_ = &foreignBlock;
+    market.basis_ = &basis;
+
+    AssertDalExceptionContains([&]() { static_cast<void>(PriceXccyParSpread<double>(plan, market, MarketFixingSnapshot_())); },
+                               "positive finite forecast discount factor");
+}
+
 TEST(XccyPricingTest, TestStartedTradeAadTreatsHistoricalRateFixingsAsPassiveAndFutureCouponsAsActive) {
     const DateTime_ valuationTime(Date_(2024, 4, 5), 12, 0);
     auto config = MakeQuarterlyConfig(XccyNotionalMode_::Value_::FIXED);

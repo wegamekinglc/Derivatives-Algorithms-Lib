@@ -241,6 +241,94 @@ namespace Dal {
             decomp->Solve(rhs, &retVal);
             return retVal;
         }
+
+        struct FindState_ {
+            Vector_<> xOld_;
+            Vector_<> fOld_;
+            std::unique_ptr<Underdetermined::Jacobian_> jacobian_;
+            Vector_<> xNew_;
+            Vector_<> step_;
+            bool approximateJacobian_ = false;
+            bool restart_ = true;
+
+            FindState_(const Vector_<>& guess, XScaledFunc_* func) : xOld_(guess), fOld_(func->F(xOld_)), xNew_(xOld_.size()), step_(xOld_.size()) {}
+        };
+
+        struct FindBacktrackResult_ {
+            bool solved_ = false;
+            bool tookStep_ = false;
+        };
+
+        bool IsFindSolution(const Vector_<>& f) { return *MaxElement(f) < 1.0 && *MinElement(f) > -1.0; }
+
+        void StoreFindDiagnostics(XScaledFunc_* func,
+                                  const Underdetermined::Function_& funcIn,
+                                  const Vector_<>& x,
+                                  const Vector_<>& scaledF,
+                                  const Vector_<>& tol,
+                                  const Sparse::SymmetricDecomposition_& w,
+                                  Matrix_<>* effJInv,
+                                  Matrix_<>* fwdJacobianAtSolution) {
+            if (effJInv) {
+                std::unique_ptr<Underdetermined::Jacobian_> jSolution(func->JAtSolution(x, scaledF));
+                StoreEffectiveJacobianInverse(*jSolution, w, effJInv);
+            }
+            if (fwdJacobianAtSolution) {
+                fwdJacobianAtSolution->Clear();
+                Vector_<> fUnscaled = scaledF;
+                Transform(&fUnscaled, tol, std::multiplies<>());
+                std::unique_ptr<Underdetermined::Jacobian_> jSolution(funcIn.Gradient(x, fUnscaled));
+                if (jSolution)
+                    StoreForwardJacobianAtSolution(*jSolution, fwdJacobianAtSolution);
+            }
+        }
+
+        double BacktrackMinimum(const Vector_<>& fOld, const Vector_<>& fNew) {
+            const double oldOld = InnerProduct(fOld, fOld);
+            const double oldNew = InnerProduct(fOld, fNew);
+            const double newNew = InnerProduct(fNew, fNew);
+            const double denominator = oldOld - 2.0 * oldNew + newNew;
+            return denominator > 0.0 ? (newNew - oldNew) / denominator : 1.0;
+        }
+
+        void AcceptFindStep(const Vector_<>& fNew, FindState_* state) {
+            if (!state->restart_) {
+                state->jacobian_->SecantUpdate(state->step_, Apply(std::minus<>(), fNew, state->fOld_));
+                state->approximateJacobian_ = true;
+            }
+            state->xOld_ = state->xNew_;
+            state->fOld_ = fNew;
+        }
+
+        FindBacktrackResult_ BacktrackFindStep(XScaledFunc_* func,
+                                               const Underdetermined::Function_& funcIn,
+                                               const Vector_<>& tol,
+                                               const Sparse::SymmetricDecomposition_& w,
+                                               const Underdetermined::Controls_& controls,
+                                               Matrix_<>* effJInv,
+                                               Matrix_<>* fwdJacobianAtSolution,
+                                               FindState_* state) {
+            for (int iBacktrack = 0; iBacktrack < controls.maxBacktrackTries_; ++iBacktrack) {
+                Transform(state->xOld_, state->step_, std::plus<>(), &state->xNew_);
+                const Vector_<> fNew = func->F(state->xNew_);
+                if (IsFindSolution(fNew)) {
+                    StoreFindDiagnostics(func, funcIn, state->xNew_, fNew, tol, w, effJInv, fwdJacobianAtSolution);
+                    return {true, false};
+                }
+
+                const double kMin = BacktrackMinimum(state->fOld_, fNew);
+                if (kMin < controls.backtrackTolerance_) {
+                    AcceptFindStep(fNew, state);
+                    return {false, true};
+                }
+                if (kMin > controls.restartTolerance_)
+                    state->restart_ = true;
+                const double k = min(controls.maxBacktrack_, min(kMin, 2 * (kMin - controls.backtrackTolerance_)));
+                REQUIRE(k > 0.0, "backtrack step must be positive");
+                state->step_ *= 1.0 - k;
+            }
+            return {};
+        }
     } // namespace
 
     Vector_<> Underdetermined::Find(const Function_& funcIn,
@@ -251,62 +339,20 @@ namespace Dal {
                                     Matrix_<>* effJInv,
                                     Matrix_<>* fwdJacobianAtSolution) {
         XScaledFunc_ func(tol, funcIn, controls);
-        Vector_<> xOld(guess);
-        Vector_<> fOld = func.F(xOld);
-        std::unique_ptr<Jacobian_> j;
-        Vector_<> xNew(xOld.size()), s(xOld.size());
+        FindState_ state(guess, &func);
         SquareMatrix_<> q;
 
-        bool approxJ = false, restart = true;
         for (;;) {
-            if (restart) {
-                j.reset(func.J(xOld, fOld));
-                approxJ = false;
-                restart = false;
+            if (state.restart_) {
+                state.jacobian_.reset(func.J(state.xOld_, state.fOld_));
+                state.approximateJacobian_ = false;
+                state.restart_ = false;
             }
-            QPStep(fOld, *j, w, &q, &s);
-            bool tookStep = false;
-            for (int iBacktrack = 0; iBacktrack < controls.maxBacktrackTries_; ++iBacktrack) {
-                Transform(xOld, s, std::plus<>(), &xNew);
-                Vector_<> fNew = func.F(xNew);
-                if (*MaxElement(fNew) < 1.0 && *MinElement(fNew) > -1.0) {
-                    if (effJInv) {
-                        std::unique_ptr<Jacobian_> jSolution(func.JAtSolution(xNew, fNew));
-                        StoreEffectiveJacobianInverse(*jSolution, w, effJInv);
-                    }
-                    if (fwdJacobianAtSolution) {
-                        fwdJacobianAtSolution->Clear();
-                        Vector_<> fUnscaled = fNew;
-                        Transform(&fUnscaled, tol, std::multiplies<>());
-                        std::unique_ptr<Jacobian_> jSol(funcIn.Gradient(xNew, fUnscaled));
-                        if (jSol)
-                            StoreForwardJacobianAtSolution(*jSol, fwdJacobianAtSolution);
-                    }
-                    return xNew;
-                }
-
-                const double oldOld = InnerProduct(fOld, fOld);
-                const double oldNew = InnerProduct(fOld, fNew);
-                const double newNew = InnerProduct(fNew, fNew);
-                const double denominator = oldOld - 2.0 * oldNew + newNew;
-                const double kMin = denominator > 0.0 ? (newNew - oldNew) / denominator : 1.0;
-                if (kMin < controls.backtrackTolerance_) {
-                    if (!restart) {
-                        j->SecantUpdate(s, Apply(std::minus<>(), fNew, fOld));
-                        approxJ = true;
-                    }
-                    xOld = xNew;
-                    fOld = fNew;
-                    tookStep = true;
-                    break;
-                }
-                if (kMin > controls.restartTolerance_)
-                    restart = true;
-                double k = min(controls.maxBacktrack_, min(kMin, 2 * (kMin - controls.backtrackTolerance_)));
-                REQUIRE(k > 0.0, "backtrack step must be positive");
-                s *= 1.0 - k;
-            }
-            REQUIRE(tookStep || approxJ, "Could not find a descent direction in underdetermined search");
+            QPStep(state.fOld_, *state.jacobian_, w, &q, &state.step_);
+            const FindBacktrackResult_ backtrack = BacktrackFindStep(&func, funcIn, tol, w, controls, effJInv, fwdJacobianAtSolution, &state);
+            if (backtrack.solved_)
+                return state.xNew_;
+            REQUIRE(backtrack.tookStep_ || state.approximateJacobian_, "Could not find a descent direction in underdetermined search");
         }
     }
 
