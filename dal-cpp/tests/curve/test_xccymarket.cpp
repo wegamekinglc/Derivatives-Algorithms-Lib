@@ -585,3 +585,81 @@ TEST(XccyMarketTest, TestMtmSwapPricingUsesResetKernel) {
     const CrossCurrencySwap_ swap(today, today, Date::AddMonths(today, 12), 0.0, config);
     ASSERT_TRUE(std::isfinite((*swap.Precompute())(market)));
 }
+TEST(XccyMarketTest, TestResetAwareCalibrationUsesExplicitValuationAndFixingSnapshot) {
+    const Date_ valuationDate(2025, 1, 16);
+    const DateTime_ valuationTime(valuationDate, 9, 0);
+    const Ccy_ collateral("USD");
+    const auto domesticBlock = MakeBlock("usd_explicit", "USD", valuationDate, 0.02);
+    const auto foreignBlock = MakeBlock("eur_explicit", "EUR", valuationDate, 0.01);
+
+    CrossCurrencySwapConfig_ config;
+    config.pair_ = CurrencyPair_(Ccy_("USD"), Ccy_("EUR"));
+    config.domesticNotional_ = 110.0;
+    config.foreignNotional_ = 100.0;
+    config.convention_ = MakeConvention();
+    config.convention_.domesticLeg_.paymentFrequency_ = PeriodLength_("3M");
+    config.convention_.foreignLeg_.paymentFrequency_ = PeriodLength_("3M");
+    config.convention_.domesticIndex_.forecastTenor_ = PeriodLength_("3M");
+    config.convention_.foreignIndex_.forecastTenor_ = PeriodLength_("3M");
+    config.notionalMode_ = XccyNotionalMode_::Value_::MARK_TO_MARKET;
+    config.fxReset_.fixingLag_ = 0;
+    config.fxReset_.fixingHour_ = 11;
+    config.fxReset_.fixingMinute_ = 0;
+    config.domesticRateFixing_ = {"USD-XCCY-CAL", 11, 0};
+    config.foreignRateFixing_ = {"EUR-XCCY-CAL", 11, 0};
+
+    const Date_ startedDate(2024, 10, 15);
+    const DateTime_ historicalFixing(Date::AddMonths(startedDate, 3), 11, 0);
+    MarketFixingSnapshot_::values_t values;
+    values[config.domesticRateFixing_.indexName_][historicalFixing] = 0.04;
+    values[config.foreignRateFixing_.indexName_][historicalFixing] = 0.03;
+    values[FxIndexName(config.pair_)][historicalFixing] = 1.20;
+    const Handle_<MarketFixingSnapshot_> fixings(new MarketFixingSnapshot_(values));
+
+    CrossCurrencyMarket_ quoteMarket(domesticBlock, foreignBlock, 1.10, valuationTime, collateral, fixings);
+    quoteMarket.SetBasisCurve(MakeFlatCurve("known_explicit_basis", "USD", valuationDate, 0.002));
+
+    const Date_ startedMaturity = Date::AddMonths(startedDate, 12);
+    const Date_ futureStart = Date::AddMonths(valuationDate, 1);
+    const Date_ futureMaturity = Date::AddMonths(futureStart, 12);
+    const CrossCurrencySwap_ startedPrototype(startedDate, startedDate, startedMaturity, 0.0, config);
+    const CrossCurrencySwap_ futurePrototype(valuationDate, futureStart, futureMaturity, 0.0, config);
+    const double startedQuote = (*startedPrototype.Precompute())(quoteMarket);
+    const double futureQuote = (*futurePrototype.Precompute())(quoteMarket);
+
+    CrossCurrencyCalibrationSpec_ spec;
+    spec.today_ = valuationDate;
+    spec.valuationTime_ = valuationTime;
+    spec.collateralCurrency_ = collateral;
+    spec.fixings_ = fixings;
+    spec.basisPair_ = config.pair_;
+    spec.domesticCurveBlock_ = domesticBlock;
+    spec.foreignCurveBlock_ = foreignBlock;
+    spec.fxSpot_ = 1.10;
+    spec.instruments_ = {
+        Handle_<CrossCurrencySwap_>(new CrossCurrencySwap_(startedDate, startedDate, startedMaturity, startedQuote, config)),
+        Handle_<CrossCurrencySwap_>(new CrossCurrencySwap_(valuationDate, futureStart, futureMaturity, futureQuote, config)),
+    };
+    spec.knotDates_ = {startedMaturity, futureMaturity};
+    spec.initialGuess_ = 0.0;
+    spec.tolerance_ = 1.0e-10;
+
+    CrossCurrencyCalibrationOptions_ options;
+    options.jacobianMode_ = CurveJacobianMode_::Value_::ANALYTIC;
+    const auto result = CalibrateCrossCurrencyMarket(spec, options);
+    ASSERT_LE(result.diagnostics_.maxAbsResidual_, 1.0e-8);
+    ASSERT_FALSE(result.diagnostics_.jacobian_.Empty());
+}
+
+TEST(XccyMarketTest, TestExplicitContextRejectsNonDomesticCollateral) {
+    const Date_ today(2025, 1, 16);
+    const DateTime_ valuationTime(today, 9, 0);
+    const auto domestic = MakeBlock("usd_collateral", "USD", today, 0.02);
+    const auto foreign = MakeBlock("eur_collateral", "EUR", today, 0.01);
+    ASSERT_THROW(static_cast<void>(CrossCurrencyMarket_(domestic, foreign, 1.10, valuationTime, Ccy_("EUR"))), Dal::Exception_);
+
+    auto spec = MakeCalibrationSpec(today, CurrencyPair_(Ccy_("USD"), Ccy_("EUR")));
+    spec.valuationTime_ = valuationTime;
+    spec.collateralCurrency_ = Ccy_("EUR");
+    ASSERT_THROW(static_cast<void>(CalibrateCrossCurrencyMarket(spec)), Dal::Exception_);
+}

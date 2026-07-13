@@ -82,6 +82,7 @@ namespace Dal {
         [[nodiscard]] String_ Name() const;
         [[nodiscard]] pair<Date_, Date_> TimeSpan() const;
         [[nodiscard]] double MarketRate() const { return marketRate_; }
+        [[nodiscard]] const CrossCurrencySwapConfig_& Config() const { return config_; }
         [[nodiscard]] Handle_<Rate_> Precompute() const;
     };
 } // namespace Dal

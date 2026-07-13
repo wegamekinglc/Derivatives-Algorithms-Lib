@@ -41,13 +41,16 @@ namespace Dal {
                 }
 
                 XccyMarketView_<double> view;
-                view.valuationTime_ = DateTime_(market.Today());
+                view.valuationTime_ = market.ValuationTime();
                 view.pair_ = CurrencyPair_(market.DomesticCcy(), market.ForeignCcy());
-                view.collateralCurrency_ = market.DomesticCcy();
+                view.collateralCurrency_ = market.CollateralCurrency();
                 view.fxSpot_ = market.FxSpot();
                 view.domestic_ = &domestic;
                 view.foreign_ = &foreign;
                 view.basis_ = market.BasisCurve();
+                if (market.Fixings())
+                    return PriceXccyParSpread<double>(plan_, view, *market.Fixings());
+
                 static const MarketFixingSnapshot_ emptyFixings;
                 if (plan_.config_.notionalMode_ == XccyNotionalMode_::Value_::FIXED && plan_.config_.domesticRateFixing_.indexName_.empty() &&
                     plan_.config_.foreignRateFixing_.indexName_.empty())
