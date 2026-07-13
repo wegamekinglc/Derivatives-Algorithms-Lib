@@ -123,6 +123,24 @@ namespace {
         }
     }
 
+    void AssertCapturedFixingsAndReplaceGlobals(const Handle_<MarketFixingSnapshot_>& snapshot, const MarketFixingSnapshot_::values_t& expected) {
+        for (const auto& indexHistory : expected) {
+            for (const auto& fixing : indexHistory.second)
+                ASSERT_NEAR(snapshot->Require(indexHistory.first, fixing.first, "captured calibration fixing"), fixing.second, 1.0e-12);
+
+            FixHistory_ replacement;
+            for (const auto& fixing : indexHistory.second)
+                replacement.vals_.push_back({fixing.first, fixing.second + 0.10});
+            XGLOBAL::StoreFixings(indexHistory.first, replacement, false);
+        }
+    }
+
+    void AssertSnapshotFixings(const Handle_<MarketFixingSnapshot_>& snapshot, const MarketFixingSnapshot_::values_t& expected) {
+        for (const auto& indexHistory : expected)
+            for (const auto& fixing : indexHistory.second)
+                ASSERT_NEAR(snapshot->Require(indexHistory.first, fixing.first, "immutable calibration fixing"), fixing.second, 1.0e-12);
+    }
+
     Fixture_ MakeFixture() {
         Fixture_ result;
         const Date_ valuationDate(2025, 1, 16);
@@ -229,20 +247,8 @@ TEST(XccyBasisJacobianTest, TestOmittedSnapshotCapturesRequiredGlobalFixingsOnce
     const auto capturedResult = CalibrateCrossCurrencyMarket(omittedSpec);
 
     ASSERT_TRUE(capturedResult.market_.Fixings());
-    for (const auto& indexHistory : fixture.fixingValues_) {
-        for (const auto& fixing : indexHistory.second)
-            ASSERT_NEAR(capturedResult.market_.Fixings()->Require(indexHistory.first, fixing.first, "captured calibration fixing"), fixing.second,
-                        1.0e-12);
-
-        FixHistory_ replacement;
-        for (const auto& fixing : indexHistory.second)
-            replacement.vals_.push_back({fixing.first, fixing.second + 0.10});
-        XGLOBAL::StoreFixings(indexHistory.first, replacement, false);
-    }
-    for (const auto& indexHistory : fixture.fixingValues_)
-        for (const auto& fixing : indexHistory.second)
-            ASSERT_NEAR(capturedResult.market_.Fixings()->Require(indexHistory.first, fixing.first, "immutable calibration fixing"), fixing.second,
-                        1.0e-12);
+    ASSERT_NO_FATAL_FAILURE(AssertCapturedFixingsAndReplaceGlobals(capturedResult.market_.Fixings(), fixture.fixingValues_));
+    ASSERT_NO_FATAL_FAILURE(AssertSnapshotFixings(capturedResult.market_.Fixings(), fixture.fixingValues_));
 
     const auto* explicitBasis = dynamic_cast<const Tape::DiscountPWC_<double>*>(explicitResult.basisCurves_.at(fixture.spec_.basisPair_).get());
     const auto* capturedBasis = dynamic_cast<const Tape::DiscountPWC_<double>*>(capturedResult.basisCurves_.at(fixture.spec_.basisPair_).get());

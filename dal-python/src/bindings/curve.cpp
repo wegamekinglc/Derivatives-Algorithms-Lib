@@ -431,11 +431,9 @@ namespace {
                const std::shared_ptr<DiscountCurve_>& base)
                -> std::shared_ptr<DiscountCurve_> {
                 Vector_<Date_> nodeDates;
-                for (auto item : nodeDatesPy)
-                    nodeDates.push_back(py::cast<Date_>(item));
+                SetDates(&nodeDates, nodeDatesPy);
                 Vector_<> zeroRates;
-                for (auto item : zeroRatesPy)
-                    zeroRates.push_back(py::cast<double>(item));
+                SetDoubles(&zeroRates, zeroRatesPy);
                 Handle_<DiscountCurve_> baseHandle(
                     std::const_pointer_cast<const DiscountCurve_>(base));
                 return std::const_pointer_cast<DiscountCurve_>(
@@ -455,11 +453,9 @@ namespace {
                const std::shared_ptr<DiscountCurve_>& base)
                -> std::shared_ptr<DiscountCurve_> {
                 Vector_<Date_> knotDates;
-                for (auto item : knotDatesPy)
-                    knotDates.push_back(py::cast<Date_>(item));
+                SetDates(&knotDates, knotDatesPy);
                 Vector_<> fwdRates;
-                for (auto item : fwdRatesPy)
-                    fwdRates.push_back(py::cast<double>(item));
+                SetDoubles(&fwdRates, fwdRatesPy);
                 Handle_<DiscountCurve_> baseHandle(
                     std::const_pointer_cast<const DiscountCurve_>(base));
                 return std::const_pointer_cast<DiscountCurve_>(
