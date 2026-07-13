@@ -6,6 +6,7 @@ add_subdirectory(euribor3m_curve)
 add_subdirectory(interpolate_curve)
 add_subdirectory(joint_multi_curve_calibration)
 add_subdirectory(xccy_curve_calibration)
+add_subdirectory(xccy_mtm_calibration)
 add_subdirectory(european_mc)
 add_subdirectory(european_fd)
 add_subdirectory(snowball)
@@ -31,6 +32,7 @@ set(DAL_EXAMPLE_TARGETS
     interpolate_curve
     joint_multi_curve_calibration
     xccy_curve_calibration
+    xccy_mtm_calibration
     european_mc
     european_fd
     snowball

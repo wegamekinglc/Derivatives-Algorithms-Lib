@@ -339,6 +339,43 @@ smoother. The exact structural zeros the AAD sweep produces sit at parameters
 no residual touches by any route — the block-diagonal smoother simply ensures
 the smoothing pass does not smear those zeros into small non-zero entries.
 
+## Joint XCCY Jacobian Layout
+
+`CalibrateJointXccyMarket` extends the same stacked-curve machinery with a final
+cross-currency basis block. Parameter columns are contiguous in this order:
+domestic declarations, foreign declarations, then the basis declaration.
+Residual rows are domestic instrument groups, foreign instrument groups, then
+XCCY swap quotes. `JointXccyCalibrationResult_::parameterRanges_` and
+`residualRanges_` publish the exact name, offset, and size of each block, so a
+consumer does not have to reconstruct the layout from the input spec.
+
+In exact analytic mode, `jacobianAtSolution_` is the unscaled dense matrix
+
+$$
+J_{ik}=\frac{\partial\,(\text{model quote}_i-\text{market quote}_i)}
+             {\partial x_k}
+$$
+
+with shape `totalResiduals x totalParameters`. It includes cross-block entries
+from domestic/foreign discount and projection routing, FX forwards, basis
+discounting, resettable notionals, MTM exchanges, and historical fixing choices.
+The immutable fixing snapshot is passive data: historical observations have no
+parameter adjoints, while future or unsupplied at-valuation observations remain
+active forward values.
+
+Unlike generic joint multi-curve calibration, requested XCCY `ANALYTIC` mode is
+fail-fast. An unsupported declaration, day basis, instrument route, or malformed
+XCCY plan raises an eligibility error naming the offending group. `BUMPED`
+remains available for every otherwise-valid spec. In exact bumped mode,
+`jacobianAtSolution_` is empty while `effJacobianInverse_` may still be retained.
+Approximate mode exposes neither matrix. The two matrix computations can also be
+disabled independently with `JointXccyCalibrationOptions_`.
+
+The regression suite compares the full analytic stack against two-sided central
+differences and verifies that the published parameter and residual ranges
+partition every column and row. The runnable `xccy_mtm_calibration` example
+prints the solved matrix shape and all domestic, foreign, and basis ranges.
+
 ## The Inverse Jacobian and Bucketed IR Risk
 
 Once the curve is calibrated with `solveMode_ = EXACT`, the diagnostics carry

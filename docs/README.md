@@ -60,10 +60,10 @@ Deep dives into the quantitative methods and algorithms implemented in DAL:
   - Application to yield curve calibration via smoothness penalties
 
 - **[xccy_calibration.md](methodology/xccy_calibration.md)** — Cross-Currency Calibration
-  - Cross-currency market and basis curve framework
-  - Cross-currency swap pricing and conventions
-  - Multi-instrument term structure calibration
-  - Integration with the underdetermined solver
+  - Fixed, resettable-notional, and mark-to-market cross-currency pricing
+  - Timestamped immutable rate and FX fixing snapshots
+  - Staged basis calibration and simultaneous domestic/foreign/basis calibration
+  - Joint parameter/residual ranges and analytic or bumped Jacobians
 
 - **[interpolation.md](methodology/interpolation.md)** — Interpolation
   - Linear, log-linear, cubic-spline, and mixed one-dimensional interpolators
