@@ -84,6 +84,11 @@ TEST(SchedulesTest, TestAdjustSupportsPreceding) {
               Date_(2024, 11, 29));
 }
 
+TEST(SchedulesTest, TestBizDayConventionPreservesExistingOrdinals) {
+    ASSERT_EQ(static_cast<int>(BizDayConvention_::Value_::ModifiedFollowing), 2);
+    ASSERT_EQ(static_cast<int>(BizDayConvention_::Value_::Preceding), 3);
+}
+
 TEST(SchedulesTest, TestMakeSchedulePeriodsBuildsFixingPaymentAndDayCountContext) {
     const Date_ start(2024, 1, 31);
     const Date_ maturity(2024, 7, 31);

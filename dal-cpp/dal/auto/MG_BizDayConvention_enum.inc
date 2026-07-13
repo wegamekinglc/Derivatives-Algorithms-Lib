@@ -10,8 +10,8 @@ Vector_<BizDayConvention_> BizDayConventionListAll() {
    if (TheBizDayConventionList().empty()) {
         TheBizDayConventionList().emplace_back(BizDayConvention_::Value_::Unadjusted);
         TheBizDayConventionList().emplace_back(BizDayConvention_::Value_::Following);
-        TheBizDayConventionList().emplace_back(BizDayConvention_::Value_::Preceding);
         TheBizDayConventionList().emplace_back(BizDayConvention_::Value_::ModifiedFollowing);
+        TheBizDayConventionList().emplace_back(BizDayConvention_::Value_::Preceding);
    }
    return TheBizDayConventionList();
 }
@@ -27,10 +27,10 @@ const char* BizDayConvention_::String() const {
         return "Unadjusted";
     case Value_::Following:
         return "Following";
-    case Value_::Preceding:
-        return "Preceding";
     case Value_::ModifiedFollowing:
         return "ModifiedFollowing";
+    case Value_::Preceding:
+        return "Preceding";
         
     }}
 
@@ -51,11 +51,11 @@ struct ReadStringBizDayConvention_
 	else if (String::Equivalent(src, "FOLLOWING"))
         *val = BizDayConvention_::Value_::Following;
 
-	else if (String::Equivalent(src, "PRECEDING"))
-        *val = BizDayConvention_::Value_::Preceding;
-
 	else if (String::Equivalent(src, "MODIFIEDFOLLOWING"))
         *val = BizDayConvention_::Value_::ModifiedFollowing;
+
+	else if (String::Equivalent(src, "PRECEDING"))
+        *val = BizDayConvention_::Value_::Preceding;
         else
             ret_val = false;
         return ret_val;

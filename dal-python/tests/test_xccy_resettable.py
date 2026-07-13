@@ -84,6 +84,18 @@ def test_resettable_config_and_config_overload_preserve_field_aliases():
     assert instrument is not None  # nosec B101
 
 
+def test_reset_convention_round_trips_preceding_adjustment():
+    """PRECEDING survives XCCY reset construction and rolls a weekend backward."""
+    reset = dal.FxResetConvention_New(
+        0, dal.Holidays_(""), dal.BizDayConvention_.PRECEDING, 10, 30
+    )
+
+    assert reset.fixingConvention_ == dal.BizDayConvention_.PRECEDING  # nosec B101
+    assert dal.Adjust(
+        dal.Holidays_(""), dal.Date_(2024, 12, 1), reset.fixingConvention_
+    ) == dal.Date_(2024, 11, 29)  # nosec B101
+
+
 def test_market_fixing_snapshot_accepts_nested_mapping():
     """Nested Python mappings copy rate and FX fixing histories."""
     rate_fixing_time = dal.DateTime_(_today().AddDays(-92), 11, 0)

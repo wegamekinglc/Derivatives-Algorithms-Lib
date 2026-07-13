@@ -20,6 +20,7 @@ void init_bindings_calendar(py::module_& m) {
         .value("UNADJUSTED", BizDayConvention_::Value_::Unadjusted)
         .value("FOLLOWING", BizDayConvention_::Value_::Following)
         .value("MODIFIED_FOLLOWING", BizDayConvention_::Value_::ModifiedFollowing)
+        .value("PRECEDING", BizDayConvention_::Value_::Preceding)
         .export_values();
 
     py::class_<Holidays_>(m, "Holidays_")

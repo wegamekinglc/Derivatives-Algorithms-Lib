@@ -216,34 +216,76 @@ namespace Dal {
             return result;
         }
 
-        void ApplyJointStringSetting(const String_& key,
-                                     const Cell_& value,
-                                     JointXccyCalibrationSpecBuilder_& builder,
-                                     JointXccyCalibrationOptions_& options) {
+        bool ApplyJointCurveNameSetting(const String_& key, const Cell_& value, JointXccyCalibrationSpecBuilder_& builder) {
             if (key == "domesticCurveName")
                 builder.domestic_.curves_.front().curveName_ = Cell::ToString(value);
             else if (key == "foreignCurveName")
                 builder.foreign_.curves_.front().curveName_ = Cell::ToString(value);
             else if (key == "basisCurveName")
                 builder.basis_.curveName_ = Cell::ToString(value);
-            else if (key == "domesticLiborBasis")
+            else
+                return false;
+            return true;
+        }
+
+        bool ApplyJointLiborBasisSetting(const String_& key, const Cell_& value, JointXccyCalibrationSpecBuilder_& builder) {
+            if (key == "domesticLiborBasis")
                 builder.domestic_.liborBasis_ = DayBasis_(Cell::ToString(value));
             else if (key == "foreignLiborBasis")
                 builder.foreign_.liborBasis_ = DayBasis_(Cell::ToString(value));
-            else if (key == "domesticParameterization")
+            else
+                return false;
+            return true;
+        }
+
+        bool ApplyJointParameterizationSetting(const String_& key, const Cell_& value, JointXccyCalibrationSpecBuilder_& builder) {
+            if (key == "domesticParameterization")
                 builder.domestic_.curves_.front().parameterization_ = CurveParameterization_(Cell::ToString(value));
             else if (key == "foreignParameterization")
                 builder.foreign_.curves_.front().parameterization_ = CurveParameterization_(Cell::ToString(value));
             else if (key == "basisParameterization")
                 builder.basis_.parameterization_ = CurveParameterization_(Cell::ToString(value));
-            else if (key == "domesticLogDfScheme")
+            else
+                return false;
+            return true;
+        }
+
+        bool ApplyJointLogDfSetting(const String_& key, const Cell_& value, JointXccyCalibrationSpecBuilder_& builder) {
+            if (key == "domesticLogDfScheme")
                 builder.domestic_.curves_.front().logDfScheme_ = LogDfScheme_(Cell::ToString(value));
             else if (key == "foreignLogDfScheme")
                 builder.foreign_.curves_.front().logDfScheme_ = LogDfScheme_(Cell::ToString(value));
-            else if (key == "solveMode")
+            else
+                return false;
+            return true;
+        }
+
+        bool ApplyJointModeSetting(const String_& key,
+                                   const Cell_& value,
+                                   JointXccyCalibrationSpecBuilder_& builder,
+                                   JointXccyCalibrationOptions_& options) {
+            if (key == "solveMode")
                 builder.solverOptions_.solveMode_ = CurveSolveMode_(Cell::ToString(value));
             else if (key == "jacobianMode")
                 options.jacobianMode_ = CurveJacobianMode_(Cell::ToString(value));
+            else
+                return false;
+            return true;
+        }
+
+        void ApplyJointStringSetting(const String_& key,
+                                     const Cell_& value,
+                                     JointXccyCalibrationSpecBuilder_& builder,
+                                     JointXccyCalibrationOptions_& options) {
+            if (ApplyJointCurveNameSetting(key, value, builder))
+                return;
+            if (ApplyJointLiborBasisSetting(key, value, builder))
+                return;
+            if (ApplyJointParameterizationSetting(key, value, builder))
+                return;
+            if (ApplyJointLogDfSetting(key, value, builder))
+                return;
+            ApplyJointModeSetting(key, value, builder, options);
         }
 
         void ApplyJointDoubleSetting(const String_& key, const Cell_& value, JointXccyCalibrationSpecBuilder_& builder) {
