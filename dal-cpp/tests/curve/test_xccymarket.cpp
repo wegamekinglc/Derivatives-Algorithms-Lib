@@ -2,6 +2,7 @@
 // Created by GitHub Copilot on 2026/6/6.
 //
 
+#include <gtest/gtest.h>
 #include <dal/platform/platform.hpp>
 
 #include <cmath>
@@ -14,7 +15,6 @@
 #include <dal/protocol/collateraltype.hpp>
 #include <dal/storage/globals.hpp>
 #include <dal/time/datetime.hpp>
-#include <gtest/gtest.h>
 #include <map>
 
 using namespace Dal;

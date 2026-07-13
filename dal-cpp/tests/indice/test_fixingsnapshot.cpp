@@ -2,9 +2,9 @@
 // Created by dal-implementer on 2026/7/13.
 //
 
+#include <gtest/gtest.h>
 #include <dal/platform/platform.hpp>
 
-#include <gtest/gtest.h>
 #include <limits>
 #include <dal/curve/xccyinstrument.hpp>
 #include <dal/indice/fixingsnapshot.hpp>

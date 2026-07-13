@@ -2,6 +2,7 @@
 // Created by wegam on 2022/2/10.
 //
 
+#include <gtest/gtest.h>
 #include <dal/platform/platform.hpp>
 
 #include <dal/currency/currencydata.hpp>
@@ -11,7 +12,6 @@
 #include <dal/time/holidays.hpp>
 #include <dal/time/periodlength.hpp>
 #include <dal/time/schedules.hpp>
-#include <gtest/gtest.h>
 
 using namespace Dal;
 

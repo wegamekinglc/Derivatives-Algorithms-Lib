@@ -2,9 +2,9 @@
 // Created by wegam on 2022/10/2.
 //
 
+#include <gtest/gtest.h>
 #include <dal/platform/platform.hpp>
 
-#include <gtest/gtest.h>
 #include <dal/math/cell.hpp>
 #include <dal/time/schedules.hpp>
 #include <dal/time/holidays.hpp>
