@@ -211,7 +211,7 @@ namespace Dal {
             const Vector_<XccyCashflowPlan_>* plans_;
             Handle_<MarketFixingSnapshot_> fixings_;
             CurveJacobianMode_ jacobianMode_;
-            mutable int evaluationCount_ = 0;
+            int* evaluationCount_;
 
             template <class T_> Vector_<T_> Residuals(const Vector_<T_>& parameters) const {
                 auto domestic = JointCalibrationInternal::BuildTypedCurveBlock<T_>(layout_->domesticCollection_, layout_->domesticSlots_, parameters);
@@ -249,11 +249,12 @@ namespace Dal {
                                        const JointLayout_& layout,
                                        const Vector_<XccyCashflowPlan_>& plans,
                                        const Handle_<MarketFixingSnapshot_>& fixings,
-                                       CurveJacobianMode_ jacobianMode)
-                : spec_(&spec), layout_(&layout), plans_(&plans), fixings_(fixings), jacobianMode_(jacobianMode) {}
+                                       CurveJacobianMode_ jacobianMode,
+                                       int* evaluationCount)
+                : spec_(&spec), layout_(&layout), plans_(&plans), fixings_(fixings), jacobianMode_(jacobianMode), evaluationCount_(evaluationCount) {}
 
             [[nodiscard]] Vector_<> F(const Vector_<>& parameters) const override {
-                ++evaluationCount_;
+                ++*evaluationCount_;
                 return Residuals<double>(parameters);
             }
 
@@ -267,8 +268,6 @@ namespace Dal {
                 Vector_<Dal::AAD::Number_> residuals = Residuals<Dal::AAD::Number_>(activeParameters);
                 return new XCurveJacobian_(HarvestCurveJacobian(*tape, activeParameters, residuals));
             }
-
-            [[nodiscard]] int EvaluationCount() const { return evaluationCount_; }
         };
 
         Vector_<> BuildInitialGuess(const JointXccyCalibrationSpec_& spec, const JointLayout_& layout) {
@@ -417,11 +416,11 @@ namespace Dal {
                 {String_("xccy:") + spec.basis_.curveName_, layout.basisSlot_.residualOffset_, layout.basisSlot_.nInstruments_});
         }
 
-        void PopulateSummaryAndMatrices(const JointXccyResidualFunction_& function, SolveResult_* solve, JointXccyCalibrationResult_* result) {
+        void PopulateSummaryAndMatrices(int evaluationCount, SolveResult_* solve, JointXccyCalibrationResult_* result) {
             const ResidualStats_ stats = ResidualStats(result->residuals_);
             result->jointMaxAbsResidual_ = stats.maxAbsResidual_;
             result->jointRmsResidual_ = stats.rmsResidual_;
-            result->solverEvaluations_ = function.EvaluationCount();
+            result->solverEvaluations_ = evaluationCount;
             if (solve->hasEffectiveInverse_)
                 result->effJacobianInverse_ = std::move(solve->effectiveInverse_);
             result->jacobianAtSolution_ = std::move(solve->forwardJacobian_);
@@ -430,6 +429,7 @@ namespace Dal {
         JointXccyCalibrationResult_ AssembleResult(const JointXccyCalibrationSpec_& spec,
                                                    const JointLayout_& layout,
                                                    const JointXccyResidualFunction_& function,
+                                                   const int* evaluationCount,
                                                    const Handle_<MarketFixingSnapshot_>& fixings,
                                                    SolveResult_* solve) {
             JointXccyCalibrationResult_ result;
@@ -451,7 +451,7 @@ namespace Dal {
                                       &result.foreignDiagnostics_);
             PopulateRates(spec, layout, result.residuals_, &result.marketRates_, &result.modelRates_);
             PopulateXccyDiagnostics(spec, layout, result, solve->approximate_, &result.xccyDiagnostics_);
-            PopulateSummaryAndMatrices(function, solve, &result);
+            PopulateSummaryAndMatrices(*evaluationCount, solve, &result);
             PopulateRanges(spec, layout, &result);
             result.converged_ = true;
             return result;
@@ -476,9 +476,10 @@ namespace Dal {
 
         const Vector_<> guess = BuildInitialGuess(spec, layout);
         const std::unique_ptr<Sparse::TriDiagonal_> smoothing = BuildSmoothing(layout);
-        JointXccyResidualFunction_ function(spec, layout, plans, fixings, options.jacobianMode_);
+        int evaluationCount = 0;
+        JointXccyResidualFunction_ function(spec, layout, plans, fixings, options.jacobianMode_, &evaluationCount);
         SolveResult_ solve = Solve(spec, options, function, guess, *smoothing, layout.totalResiduals_);
-        JointXccyCalibrationResult_ result = AssembleResult(spec, layout, function, fixings, &solve);
+        JointXccyCalibrationResult_ result = AssembleResult(spec, layout, function, &evaluationCount, fixings, &solve);
         const double convergenceBound = spec.solveMode_ == CurveSolveMode_::Value_::EXACT ? 10.0 * spec.tolerance_ : 10.0 * spec.fitTolerance_;
         REQUIRE(result.jointMaxAbsResidual_ <= convergenceBound, "Joint XCCY calibration failed to converge for pair " + PairName(spec.pair_) +
                                                                      ": maxAbsResidual = " + String::FromDouble(result.jointMaxAbsResidual_) +

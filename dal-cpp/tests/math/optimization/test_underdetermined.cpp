@@ -85,23 +85,26 @@ namespace {
         void SecantUpdate(const Vector_<>&, const Vector_<>&) override {}
     };
 
+    struct NonlinearSquareGradientState_ {
+        Vector_<Vector_<>> xs_;
+        Vector_<Vector_<>> fs_;
+    };
+
     class NonlinearSquareAnalyticFunc_ : public Underdetermined::Function_ {
-        mutable Vector_<Vector_<>> gradientXs_;
-        mutable Vector_<Vector_<>> gradientFs_;
+        NonlinearSquareGradientState_* gradientState_;
 
     public:
+        explicit NonlinearSquareAnalyticFunc_(NonlinearSquareGradientState_* gradientState) : gradientState_(gradientState) {}
+
         [[nodiscard]] Vector_<> F(const Vector_<>& x) const override { return Vector_<>{x[0] * x[0] - 4.0}; }
 
         [[nodiscard]] Underdetermined::Jacobian_* Gradient(const Vector_<>& x, const Vector_<>& f) const override {
-            gradientXs_.push_back(x);
-            gradientFs_.push_back(f);
+            gradientState_->xs_.push_back(x);
+            gradientState_->fs_.push_back(f);
             Matrix_<> j(1, 1);
             j(0, 0) = 2.0 * x[0];
             return new DenseJacobian_(j);
         }
-
-        [[nodiscard]] const Vector_<Vector_<>>& GradientXs() const { return gradientXs_; }
-        [[nodiscard]] const Vector_<Vector_<>>& GradientFs() const { return gradientFs_; }
     };
 
     class NonlinearSquareDenseFunc_ : public Underdetermined::Function_ {
@@ -328,7 +331,8 @@ TEST(UnderdeterminedTest, TestFindPopulatesEffectiveJacobianInverse) {
 }
 
 TEST(UnderdeterminedTest, TestEffectiveInverseUsesFreshAnalyticJacobianAndUnscaledResidualAtSolution) {
-    NonlinearSquareAnalyticFunc_ func;
+    NonlinearSquareGradientState_ gradientState;
+    NonlinearSquareAnalyticFunc_ func(&gradientState);
     const Vector_<> guess = {1.0};
     const Vector_<> tolerance = {1.0e-8};
     TriDiagonal_ weights(1);
@@ -343,11 +347,11 @@ TEST(UnderdeterminedTest, TestEffectiveInverseUsesFreshAnalyticJacobianAndUnscal
     ASSERT_NEAR(effectiveInverse(0, 0) / tolerance[0], 1.0 / (2.0 * solved[0]), 1.0e-12);
 
     int solutionGradient = -1;
-    for (int i = 0; i < static_cast<int>(func.GradientXs().size()); ++i)
-        if (std::abs(func.GradientXs()[i][0] - solved[0]) < 1.0e-12)
+    for (int i = 0; i < static_cast<int>(gradientState.xs_.size()); ++i)
+        if (std::abs(gradientState.xs_[i][0] - solved[0]) < 1.0e-12)
             solutionGradient = i;
     ASSERT_GE(solutionGradient, 0);
-    ASSERT_NEAR(func.GradientFs()[solutionGradient][0], func.F(solved)[0], 1.0e-16);
+    ASSERT_NEAR(gradientState.fs_[solutionGradient][0], func.F(solved)[0], 1.0e-16);
 }
 
 TEST(UnderdeterminedTest, TestEffectiveInverseUsesFreshDenseFiniteDifferenceJacobianAtSolution) {
@@ -367,11 +371,7 @@ TEST(UnderdeterminedTest, TestEffectiveInverseUsesFreshDenseFiniteDifferenceJaco
     ASSERT_NEAR(effectiveInverse(0, 0) / tolerance[0], 1.0 / (2.0 * solved[0] + finiteDifferenceBump), 1.0e-10);
 }
 
-// The trailing fwdJacobianAtSolution out-param captures the UNSCALED analytic forward Jacobian at
-// the solution via a single raw func.Gradient(xNew, fUnscaled) call on the convergence branch -- NOT
-// the XScaledFunc_::J path, so DivideRows(tol) is never applied. When the caller passes nullptr the
-// hook is skipped entirely (Gradient is not called at the solution); a Gradient that returns nullptr
-// clears the output matrix rather than falling back to the dense finite-difference matrix.
+// Forward diagnostics preserve the raw analytic Jacobian rather than the tolerance-scaled solver Jacobian.
 
 TEST(UnderdeterminedTest, TestFindPopulatesForwardJacobianAtSolution) {
     MultiResidualFunc_ func;
@@ -387,13 +387,10 @@ TEST(UnderdeterminedTest, TestFindPopulatesForwardJacobianAtSolution) {
     Matrix_<> fwdJacobian;
     Vector_<> calculated = Underdetermined::Find(func, guess, tol, *decomp, MakeControls(), nullptr, &fwdJacobian);
 
-    // Solution unchanged.
     ASSERT_NEAR(calculated[0], 2.0 / 3.0, 1e-10);
     ASSERT_NEAR(calculated[1], 5.0 / 3.0, 1e-10);
     ASSERT_NEAR(calculated[2], 7.0 / 3.0, 1e-10);
 
-    // Shape: nResiduals x nX, and the constant analytic J is captured unscaled (rows 1.0 in cols 0,2
-    // and 1,1 in cols 1,2 -- MultiResidualFunc_'s DenseJacobian_).
     ASSERT_EQ(fwdJacobian.Rows(), 2);
     ASSERT_EQ(fwdJacobian.Cols(), 3);
     ASSERT_NEAR(fwdJacobian(0, 0), 1.0, 1e-12);
@@ -404,15 +401,11 @@ TEST(UnderdeterminedTest, TestFindPopulatesForwardJacobianAtSolution) {
     ASSERT_NEAR(fwdJacobian(1, 2), 1.0, 1e-12);
 }
 
-// The convergence-branch hook must pass the UNSCALED residual func.F(xNew) to func.Gradient, not the
-// scaled XScaledFunc_::F output. With tol far from 1 the two differ, so a ResidualCheckingFunc_
-// (which asserts f == F(x) inside Gradient) trips if a scaled f is passed. This pins the contract
-// for any future Function_ whose Gradient actually consumes f.
+// Analytic gradients may consume the residual, so diagnostics must pass it unscaled.
 
 TEST(UnderdeterminedTest, TestFindPassesUnscaledResidualToAtSolutionGradient) {
     ResidualCheckingFunc_ func;
     Vector_<> guess = {0.0, 0.0, 0.0};
-    // tol != 1 so the scaled residual differs from the unscaled one by the 1e-3 factor.
     Vector_<> tol = {1.0e-3, 1.0e-3};
 
     TriDiagonal_ weights(3);
@@ -425,9 +418,6 @@ TEST(UnderdeterminedTest, TestFindPassesUnscaledResidualToAtSolutionGradient) {
     const Vector_<> solved = Underdetermined::Find(func, guess, tol, *decomp, MakeControls(), nullptr, &fwdJacobian);
     ASSERT_FALSE(fwdJacobian.Empty());
 
-    // The convergence-call f must be the UNSCALED residual, which is ~0 at the solution. If the hook
-    // passed the scaled fNew, f would be ~0/1e-3 and still round to 0 -- so instead compare directly
-    // against F(solution): the unscaled residual is exactly F(solved), the scaled one is F(solved)/tol.
     const Vector_<> fAtSolution = func.FAtSolution(solved, 1e-9);
     ASSERT_EQ(fAtSolution.size(), 2);
     const Vector_<> expected = func.F(solved);
@@ -435,17 +425,12 @@ TEST(UnderdeterminedTest, TestFindPassesUnscaledResidualToAtSolutionGradient) {
     ASSERT_NEAR(fAtSolution[1], expected[1], 1e-12);
 }
 
-// When the caller passes nullptr for fwdJacobianAtSolution, the solver must NOT call the
-// at-solution Gradient at all -- the convergence-branch hook is skipped entirely. This probes that
-// contract directly: a CountingResidualFunc_ records every x passed to Gradient, and the solution x
-// may appear in that record only when the out-param is supplied (then exactly once, as the
-// convergence call). Replaces an earlier vacuous check that allocated a matrix it never passed in.
+// At-solution gradient work is diagnostic-only and must be skipped when no output is requested.
 
 TEST(UnderdeterminedTest, TestFindSkipsAtSolutionGradientWhenOutParamNull) {
     const Vector_<> guess = {0.0, 0.0, 0.0};
     const Vector_<> tol = {1.0e-10, 1.0e-10};
 
-    // Reference solution and the per-iteration Gradient-call count with no out-param.
     CountingResidualFunc_ funcNull;
     TriDiagonal_ weightsNull(3);
     weightsNull.Set(0, 0, 1.0);
@@ -456,8 +441,6 @@ TEST(UnderdeterminedTest, TestFindSkipsAtSolutionGradientWhenOutParamNull) {
     const auto& xsNull = funcNull.GradientXs();
     const int nGradientNoOut = static_cast<int>(xsNull.size());
 
-    // With the out-param supplied, the solver makes exactly one ADDITIONAL Gradient call -- the
-    // convergence-branch call -- and that call is at the solution.
     CountingResidualFunc_ funcOut;
     TriDiagonal_ weightsOut(3);
     weightsOut.Set(0, 0, 1.0);
@@ -472,8 +455,6 @@ TEST(UnderdeterminedTest, TestFindSkipsAtSolutionGradientWhenOutParamNull) {
     for (int i = 0; i < static_cast<int>(solved.size()); ++i)
         ASSERT_NEAR(solvedOut[i], solved[i], 1e-10);
 
-    // The solution was NOT a Gradient evaluation point when no out-param was requested...
     ASSERT_FALSE(WasGradientCalledAt(xsNull, solved, 1e-9));
-    // ...and IS (exactly the one convergence call) when the out-param is supplied.
     ASSERT_TRUE(WasGradientCalledAt(xsOut, solved, 1e-9));
 }
