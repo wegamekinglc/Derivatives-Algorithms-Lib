@@ -4,34 +4,29 @@
 
 #include <dal/platform/platform.hpp>
 
-#include <gtest/gtest.h>
 #include <cmath>
-#include <map>
 #include <dal/curve/curveblock.hpp>
-#include <dal/curve/piecewiselinear.hpp>
 #include <dal/curve/piecewiseconstant.hpp>
+#include <dal/curve/piecewiselinear.hpp>
 #include <dal/curve/xccycalibration.hpp>
-#include <dal/curve/ycimp.hpp>
 #include <dal/curve/ycconst.hpp>
+#include <dal/curve/ycimp.hpp>
 #include <dal/protocol/collateraltype.hpp>
 #include <dal/storage/globals.hpp>
+#include <dal/time/datetime.hpp>
+#include <gtest/gtest.h>
+#include <map>
 
 using namespace Dal;
 
 namespace {
-    Handle_<DiscountCurve_> MakeFlatCurve(const String_& name,
-                                          const String_& ccy,
-                                          const Date_& today,
-                                          double rate) {
+    Handle_<DiscountCurve_> MakeFlatCurve(const String_& name, const String_& ccy, const Date_& today, double rate) {
         const Vector_<Date_> knots = {Date::AddMonths(today, 12), Date::AddMonths(today, 24)};
         const Vector_<> vals(knots.size(), rate);
         return Handle_<DiscountCurve_>(NewDiscountPWLF(name, ccy, PiecewiseLinear_(knots, vals, vals)));
     }
 
-    Handle_<CurveBlock_> MakeBlock(const String_& name,
-                                   const String_& ccy,
-                                   const Date_& today,
-                                   double rate) {
+    Handle_<CurveBlock_> MakeBlock(const String_& name, const String_& ccy, const Date_& today, double rate) {
         return Handle_<CurveBlock_>(new CurveBlock_(MakeFlatCurve(name, ccy, today, rate)));
     }
 
@@ -84,13 +79,7 @@ namespace {
     }
 
     CrossCurrencySwap_ MakeSwap(const Date_& today, double quotedSpread = 0.0) {
-        return CrossCurrencySwap_(today,
-                                  today,
-                                  Date::AddMonths(today, 12),
-                                  quotedSpread,
-                                  CurrencyPair_(Ccy_("USD"), Ccy_("EUR")),
-                                  110.0,
-                                  100.0,
+        return CrossCurrencySwap_(today, today, Date::AddMonths(today, 12), quotedSpread, CurrencyPair_(Ccy_("USD"), Ccy_("EUR")), 110.0, 100.0,
                                   MakeConvention());
     }
 } // namespace
@@ -101,9 +90,8 @@ TEST(XccyMarketTest, TestFxForwardParityUsesDiscountCurves) {
     const Date_ maturity = Date::AddMonths(today, 12);
     const auto market = MakeMarket(today);
 
-    const double expected = 1.10
-                            * market.ForeignDiscountCurve(CollateralType_(CollateralType_::Value_::OIS))(today, maturity)
-                            / market.DomesticDiscountCurve(CollateralType_(CollateralType_::Value_::OIS))(today, maturity);
+    const double expected = 1.10 * market.ForeignDiscountCurve(CollateralType_(CollateralType_::Value_::OIS))(today, maturity) /
+                            market.DomesticDiscountCurve(CollateralType_(CollateralType_::Value_::OIS))(today, maturity);
     ASSERT_NEAR(market.FxForward(maturity), expected, 1e-10);
     ASSERT_NEAR(market.FxForward(today, maturity, CollateralType_(CollateralType_::Value_::OIS)), expected, 1e-10);
 }
@@ -235,38 +223,38 @@ TEST(XccyMarketTest, TestSwapPricingRejectsMismatchedPair) {
 
     CrossCurrencyConvention_ convention = MakeConvention();
 
-    const CrossCurrencySwap_ mismatchedSwap(today,
-                                            today,
-                                            Date::AddMonths(today, 12),
-                                            0.0,
-                                            CurrencyPair_(Ccy_("USD"), Ccy_("GBP")),
-                                            110.0,
-                                            100.0,
+    const CrossCurrencySwap_ mismatchedSwap(today, today, Date::AddMonths(today, 12), 0.0, CurrencyPair_(Ccy_("USD"), Ccy_("GBP")), 110.0, 100.0,
                                             convention);
     const auto rate = mismatchedSwap.Precompute();
     ASSERT_THROW(static_cast<void>((*rate)(market)), Dal::Exception_);
 }
 
-TEST(XccyMarketTest, TestSwapPricingRejectsInProgressSwap) {
+TEST(XccyMarketTest, TestSwapPricingInProgressUsesHistoricalFixings) {
     const Date_ tradeDate(2024, 1, 15);
     const Date_ start = tradeDate;
     const Date_ maturity = Date::AddMonths(start, 12);
-
-    // Evaluate after the swap has started accruing.
     const Date_ evaluationDate = Date::AddMonths(start, 3);
     const auto evalDate = XGLOBAL::SetEvaluationDateInScope(evaluationDate);
     const auto market = MakeMarket(evaluationDate);
 
-    const CrossCurrencySwap_ swap(tradeDate,
-                                  start,
-                                  maturity,
-                                  0.0,
-                                  CurrencyPair_(Ccy_("USD"), Ccy_("EUR")),
-                                  110.0,
-                                  100.0,
-                                  MakeConvention());
-    const auto rate = swap.Precompute();
-    ASSERT_THROW(static_cast<void>((*rate)(market)), Dal::Exception_);
+    CrossCurrencySwapConfig_ config;
+    config.pair_ = CurrencyPair_(Ccy_("USD"), Ccy_("EUR"));
+    config.domesticNotional_ = 110.0;
+    config.foreignNotional_ = 100.0;
+    config.convention_ = MakeConvention();
+    config.domesticRateFixing_ = {"USD-XCCY-IN-PROGRESS", 11, 0};
+    config.foreignRateFixing_ = {"EUR-XCCY-IN-PROGRESS", 11, 0};
+
+    const DateTime_ fixingTime(start, 11, 0);
+    FixHistory_ domesticHistory;
+    domesticHistory.vals_ = {{fixingTime, 0.04}};
+    XGLOBAL::StoreFixings(config.domesticRateFixing_.indexName_, domesticHistory, false);
+    FixHistory_ foreignHistory;
+    foreignHistory.vals_ = {{fixingTime, 0.03}};
+    XGLOBAL::StoreFixings(config.foreignRateFixing_.indexName_, foreignHistory, false);
+
+    const CrossCurrencySwap_ swap(tradeDate, start, maturity, 0.0, config);
+    ASSERT_TRUE(std::isfinite((*swap.Precompute())(market)));
 }
 
 TEST(XccyMarketTest, TestParSpreadAnchoredToEvaluationDateNotTradeDate) {
@@ -280,14 +268,7 @@ TEST(XccyMarketTest, TestParSpreadAnchoredToEvaluationDateNotTradeDate) {
     CrossCurrencyConvention_ convention = MakeConvention();
 
     auto makeSwap = [&](const Date_& tradeDate) {
-        return CrossCurrencySwap_(tradeDate,
-                                  start,
-                                  maturity,
-                                  0.0,
-                                  CurrencyPair_(Ccy_("USD"), Ccy_("EUR")),
-                                  110.0,
-                                  100.0,
-                                  convention);
+        return CrossCurrencySwap_(tradeDate, start, maturity, 0.0, CurrencyPair_(Ccy_("USD"), Ccy_("EUR")), 110.0, 100.0, convention);
     };
 
     // Pricing must value all cashflows as of the market evaluation date, so the
@@ -312,14 +293,7 @@ TEST(XccyMarketTest, TestForwardStartingParFloatersHaveZeroParSpread) {
     // the accrual start.
     const Date_ start = Date::AddMonths(today, 6);
     const Date_ maturity = Date::AddMonths(today, 18);
-    const CrossCurrencySwap_ forwardStarting(today,
-                                             start,
-                                             maturity,
-                                             0.0,
-                                             CurrencyPair_(Ccy_("USD"), Ccy_("EUR")),
-                                             110.0,
-                                             100.0,
-                                             MakeConvention());
+    const CrossCurrencySwap_ forwardStarting(today, start, maturity, 0.0, CurrencyPair_(Ccy_("USD"), Ccy_("EUR")), 110.0, 100.0, MakeConvention());
 
     ASSERT_GT(start, today);
     ASSERT_NEAR((*forwardStarting.Precompute())(market), 0.0, 1e-10);
@@ -348,12 +322,7 @@ TEST(XccyMarketTest, TestCrossCurrencyCalibrationRepricesInputQuote) {
 TEST(XccyMarketTest, TestResetConfigRequiresExplicitFixingIdentity) {
     CrossCurrencySwapConfig_ config;
     config.notionalMode_ = XccyNotionalMode_::Value_::RESETTABLE;
-    ASSERT_THROW(static_cast<void>(CrossCurrencySwap_(Date_(2024, 1, 2),
-                                                      Date_(2024, 1, 4),
-                                                      Date_(2025, 1, 4),
-                                                      0.0,
-                                                      config)),
-                 Dal::Exception_);
+    ASSERT_THROW(static_cast<void>(CrossCurrencySwap_(Date_(2024, 1, 2), Date_(2024, 1, 4), Date_(2025, 1, 4), 0.0, config)), Dal::Exception_);
 }
 
 TEST(XccyMarketTest, TestCalibrationWithSingleKnotAndZeroMarketRate) {
@@ -385,14 +354,7 @@ TEST(XccyMarketTest, TestCalibrationWithSingleKnotAndZeroMarketRate) {
     Vector_<Handle_<CrossCurrencySwap_>> instruments;
 
     const Date_ maturity = Date::AddMonths(today, 12);
-    Handle_<CrossCurrencySwap_> swap(new CrossCurrencySwap_(today,
-                                                            today,
-                                                            maturity,
-                                                            0.0,
-                                                            pair,
-                                                            110.0,
-                                                            100.0,
-                                                            convention));
+    Handle_<CrossCurrencySwap_> swap(new CrossCurrencySwap_(today, today, maturity, 0.0, pair, 110.0, 100.0, convention));
     instruments.push_back(swap);
 
     CrossCurrencyCalibrationSpec_ spec = MakeCalibrationSpec(today, pair);
@@ -437,14 +399,7 @@ TEST(XccyMarketTest, TestCalibrationConvergesForLargerSpread) {
     const Date_ maturity = Date::AddMonths(today, 12);
 
     Vector_<Handle_<CrossCurrencySwap_>> instruments;
-    instruments.push_back(Handle_<CrossCurrencySwap_>(new CrossCurrencySwap_(today,
-                                                                             today,
-                                                                             maturity,
-                                                                             0.0050,
-                                                                             pair,
-                                                                             110.0,
-                                                                             100.0,
-                                                                             convention)));
+    instruments.push_back(Handle_<CrossCurrencySwap_>(new CrossCurrencySwap_(today, today, maturity, 0.0050, pair, 110.0, 100.0, convention)));
 
     CrossCurrencyCalibrationSpec_ spec = MakeCalibrationSpec(today, pair);
     spec.instruments_ = instruments;
@@ -497,9 +452,7 @@ TEST(XccyMarketTest, TestCalibrationWithMultipleInstrumentsTermStructure) {
     trueMarket.SetBasisCurve(Handle_<DiscountCurve_>(NewDiscountPWC("true_basis", "USD", PiecewiseConstant_(trueKnots, trueRates))));
 
     // Create instruments and read their par spreads from the true market
-    auto makeSwap = [&](const Date_& maturity) {
-        return CrossCurrencySwap_(today, today, maturity, 0.0, pair, 110.0, 100.0, convention);
-    };
+    auto makeSwap = [&](const Date_& maturity) { return CrossCurrencySwap_(today, today, maturity, 0.0, pair, 110.0, 100.0, convention); };
 
     const auto swap1Y = makeSwap(maturity1Y);
     const auto swap2Y = makeSwap(maturity2Y);
@@ -511,11 +464,9 @@ TEST(XccyMarketTest, TestCalibrationWithMultipleInstrumentsTermStructure) {
 
     // Calibrate using the observed quotes
     CrossCurrencyCalibrationSpec_ spec = MakeCalibrationSpec(today, pair);
-    spec.instruments_ = {
-        Handle_<CrossCurrencySwap_>(new CrossCurrencySwap_(today, today, maturity1Y, quote1Y, pair, 110.0, 100.0, convention)),
-        Handle_<CrossCurrencySwap_>(new CrossCurrencySwap_(today, today, maturity2Y, quote2Y, pair, 110.0, 100.0, convention)),
-        Handle_<CrossCurrencySwap_>(new CrossCurrencySwap_(today, today, maturity3Y, quote3Y, pair, 110.0, 100.0, convention))
-    };
+    spec.instruments_ = {Handle_<CrossCurrencySwap_>(new CrossCurrencySwap_(today, today, maturity1Y, quote1Y, pair, 110.0, 100.0, convention)),
+                         Handle_<CrossCurrencySwap_>(new CrossCurrencySwap_(today, today, maturity2Y, quote2Y, pair, 110.0, 100.0, convention)),
+                         Handle_<CrossCurrencySwap_>(new CrossCurrencySwap_(today, today, maturity3Y, quote3Y, pair, 110.0, 100.0, convention))};
     spec.knotDates_ = trueKnots;
     spec.smoothingWeight_ = 1.0;
     spec.tolerance_ = 1e-10;
@@ -608,4 +559,29 @@ TEST(XccyMarketTest, TestCalibrationRejectsInvalidSpec) {
         spec.knotDates_ = {Date::AddMonths(today, 12), Date::AddMonths(today, 12)};
         ASSERT_THROW(static_cast<void>(CalibrateCrossCurrencyMarket(spec)), Dal::Exception_);
     }
+}
+
+TEST(XccyMarketTest, TestMtmSwapPricingUsesResetKernel) {
+    const Date_ today(2024, 1, 15);
+    const auto evalDate = XGLOBAL::SetEvaluationDateInScope(today);
+    const auto market = MakeMarket(today);
+
+    CrossCurrencySwapConfig_ config;
+    config.pair_ = CurrencyPair_(Ccy_("USD"), Ccy_("EUR"));
+    config.domesticNotional_ = 110.0;
+    config.foreignNotional_ = 100.0;
+    config.convention_ = MakeConvention();
+    config.convention_.domesticLeg_.paymentFrequency_ = PeriodLength_("3M");
+    config.convention_.foreignLeg_.paymentFrequency_ = PeriodLength_("3M");
+    config.convention_.domesticIndex_.forecastTenor_ = PeriodLength_("3M");
+    config.convention_.foreignIndex_.forecastTenor_ = PeriodLength_("3M");
+    config.notionalMode_ = XccyNotionalMode_::Value_::MARK_TO_MARKET;
+    config.fxReset_.fixingLag_ = 0;
+    config.fxReset_.fixingHour_ = 11;
+    config.fxReset_.fixingMinute_ = 0;
+    config.domesticRateFixing_ = {"USD-XCCY-MTM", 11, 0};
+    config.foreignRateFixing_ = {"EUR-XCCY-MTM", 11, 0};
+
+    const CrossCurrencySwap_ swap(today, today, Date::AddMonths(today, 12), 0.0, config);
+    ASSERT_TRUE(std::isfinite((*swap.Precompute())(market)));
 }

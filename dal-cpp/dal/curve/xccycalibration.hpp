@@ -4,16 +4,18 @@
 
 #pragma once
 
-#include <map>
-#include <dal/platform/platform.hpp>
 #include <dal/curve/calibration.hpp>
 #include <dal/curve/curveblock.hpp>
 #include <dal/curve/xccyinstrument.hpp>
 #include <dal/math/matrix/matrixs.hpp>
 #include <dal/math/vectors.hpp>
+#include <dal/platform/platform.hpp>
+#include <map>
 
 namespace Dal {
-    namespace Tape { template <class T_> class DiscountCurve_; }
+    namespace Tape {
+        template <class T_> class DiscountCurve_;
+    }
     using DiscountCurve_ = Tape::DiscountCurve_<double>;
 
     class CrossCurrencyMarket_ {
@@ -25,9 +27,7 @@ namespace Dal {
         Handle_<DiscountCurve_> basisCurve_;
 
     public:
-        CrossCurrencyMarket_(const Handle_<CurveBlock_>& domesticBlock,
-                             const Handle_<CurveBlock_>& foreignBlock,
-                             double fxSpot);
+        CrossCurrencyMarket_(const Handle_<CurveBlock_>& domesticBlock, const Handle_<CurveBlock_>& foreignBlock, double fxSpot);
         void SetBasisCurve(const Handle_<DiscountCurve_>& basisCurve);
         [[nodiscard]] Date_ Today() const;
         [[nodiscard]] const Ccy_& DomesticCcy() const { return domesticCcy_; }
@@ -36,11 +36,10 @@ namespace Dal {
         [[nodiscard]] const CurveBlock_& ForeignBlock() const { return *foreignBlock_; }
         [[nodiscard]] const DiscountCurve_& DomesticDiscountCurve(const CollateralType_& collateral) const;
         [[nodiscard]] const DiscountCurve_& ForeignDiscountCurve(const CollateralType_& collateral) const;
-        [[nodiscard]] const DiscountCurve_& DomesticForwardCurve(const PeriodLength_& tenor,
-                                                                 const CollateralType_& collateral) const;
-        [[nodiscard]] const DiscountCurve_& ForeignForwardCurve(const PeriodLength_& tenor,
-                                                                const CollateralType_& collateral) const;
+        [[nodiscard]] const DiscountCurve_& DomesticForwardCurve(const PeriodLength_& tenor, const CollateralType_& collateral) const;
+        [[nodiscard]] const DiscountCurve_& ForeignForwardCurve(const PeriodLength_& tenor, const CollateralType_& collateral) const;
         [[nodiscard]] double FxSpot() const { return fxSpot_; }
+        [[nodiscard]] const DiscountCurve_* BasisCurve() const { return basisCurve_.get(); }
         [[nodiscard]] double BasisDiscountFactor(const Date_& from, const Date_& to) const;
         [[nodiscard]] double FxForward(const Date_& maturity) const;
         [[nodiscard]] double FxForward(const Date_& from, const Date_& maturity, const CollateralType_& collateral) const;
