@@ -338,3 +338,18 @@ TEST(XccyCalibrationTest, TestJointOptionsAndResultLayoutArePublic) {
     ASSERT_EQ(result.modelRates_.size(), static_cast<size_t>(3));
     ASSERT_EQ(result.residuals_.size(), static_cast<size_t>(3));
 }
+
+TEST(XccyCalibrationTest, TestJointResultAccessorsReferenceEveryPlannedView) {
+    JointXccyCalibrationResult_ result;
+
+    ASSERT_EQ(&Dal::JointXccyResultDomesticBlock(result), &result.domesticCurveBlock_);
+    ASSERT_EQ(&Dal::JointXccyResultForeignBlock(result), &result.foreignCurveBlock_);
+    ASSERT_EQ(&Dal::JointXccyResultBasisCurve(result), &result.basisCurve_);
+    ASSERT_EQ(&Dal::JointXccyResultFxForwards(result), &result.fxForwardCurve_);
+    ASSERT_EQ(&Dal::JointXccyResultMarketRates(result), &result.marketRates_);
+    ASSERT_EQ(&Dal::JointXccyResultModelRates(result), &result.modelRates_);
+    ASSERT_EQ(&Dal::JointXccyResultResiduals(result), &result.residuals_);
+    ASSERT_EQ(&Dal::JointXccyResultJacobian(result), &result.jacobianAtSolution_);
+    ASSERT_EQ(&Dal::JointXccyResultParameterRanges(result), &result.parameterRanges_);
+    ASSERT_EQ(&Dal::JointXccyResultResidualRanges(result), &result.residualRanges_);
+}

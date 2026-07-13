@@ -8,7 +8,6 @@
 #include <dal-public/src/curveprotocol.hpp>
 
 using Dal::BasisSwapNew;
-using Dal::CollateralType_OIS;
 using Dal::CrossCurrencySwapConfigBuilder_;
 using Dal::CrossCurrencySwapNew;
 using Dal::CurrencyPair_New;
@@ -20,27 +19,36 @@ using Dal::FutureNew;
 using Dal::Handle_;
 using Dal::OISSwapNew;
 using Dal::PeriodLength_New;
-using Dal::RateIndexConvention_;
 using Dal::RateIndexConvention_New;
-using Dal::RateLegConvention_;
 using Dal::RateLegConvention_New;
 using Dal::SwapNew;
+using Dal::CollateralType_OIS;
 using Dal::XccyNotionalMode_;
 using Dal::YCInstrument_;
+using Dal::RateLegConvention_;
+using Dal::RateIndexConvention_;
 
 namespace {
-    Date_ Today() { return Date_(2025, 6, 20); }
-    Date_ Spot() { return Today().AddDays(2); }
+Date_ Today() { return Date_(2025, 6, 20); }
+Date_ Spot() { return Today().AddDays(2); }
 
-    Dal::RateLegConvention_ Fixed6M() { return RateLegConvention_New(PeriodLength_New("6M"), DayBasis_New("ACT_365F")); }
+Dal::RateLegConvention_ Fixed6M() {
+    return RateLegConvention_New(PeriodLength_New("6M"), DayBasis_New("ACT_365F"));
+}
 
-    Dal::RateIndexConvention_ Libor3M() { return RateIndexConvention_New(PeriodLength_New("3M"), DayBasis_New("ACT_360"), CollateralType_OIS()); }
+Dal::RateIndexConvention_ Libor3M() {
+    return RateIndexConvention_New(PeriodLength_New("3M"), DayBasis_New("ACT_360"),
+                                    CollateralType_OIS());
+}
 
-    Dal::RateIndexConvention_ OvernightIndex() {
-        return RateIndexConvention_New(PeriodLength_New("12M"), DayBasis_New("ACT_360"), CollateralType_OIS());
-    }
+Dal::RateIndexConvention_ OvernightIndex() {
+    return RateIndexConvention_New(PeriodLength_New("12M"), DayBasis_New("ACT_360"),
+                                    CollateralType_OIS());
+}
 
-    Dal::RateLegConvention_ Float3M() { return RateLegConvention_New(PeriodLength_New("3M"), DayBasis_New("ACT_360")); }
+Dal::RateLegConvention_ Float3M() {
+    return RateLegConvention_New(PeriodLength_New("3M"), DayBasis_New("ACT_360"));
+}
 } // namespace
 
 // Deposit
@@ -117,9 +125,10 @@ TEST(CurveInstrumentTest, TestOISSwapNew) {
 
 TEST(CurveInstrumentTest, TestBasisSwapNew) {
     Date_ start = Spot();
-    Date_ maturity = start.AddDays(3650);                                            // 10 years
-    auto inst = BasisSwapNew(Today(), start, maturity, 0.0025, Libor3M(), Float3M(), // spread leg: 3M Libor
-                             OvernightIndex(), Float3M());                           // ref leg: OIS
+    Date_ maturity = start.AddDays(3650); // 10 years
+    auto inst = BasisSwapNew(Today(), start, maturity, 0.0025,
+                              Libor3M(), Float3M(),  // spread leg: 3M Libor
+                              OvernightIndex(), Float3M());  // ref leg: OIS
     ASSERT_TRUE(inst != nullptr);
 }
 
@@ -130,10 +139,15 @@ TEST(CurveInstrumentTest, TestCrossCurrencySwapNew) {
     Date_ maturity = start.AddDays(3650);
     auto currencies = CurrencyPair_New("USD", "EUR");
     auto domesticLeg = RateLegConvention_New(PeriodLength_New("6M"), DayBasis_New("ACT_365F"));
-    auto domesticIndex = RateIndexConvention_New(PeriodLength_New("3M"), DayBasis_New("ACT_360"), CollateralType_OIS());
+    auto domesticIndex = RateIndexConvention_New(PeriodLength_New("3M"), DayBasis_New("ACT_360"),
+                                                   CollateralType_OIS());
     auto foreignLeg = RateLegConvention_New(PeriodLength_New("6M"), DayBasis_New("ACT_360"));
-    auto foreignIndex = RateIndexConvention_New(PeriodLength_New("6M"), DayBasis_New("ACT_360"), CollateralType_OIS());
-    auto inst = CrossCurrencySwapNew(Today(), start, maturity, 0.001, currencies, 100.0, 90.0, domesticLeg, domesticIndex, foreignLeg, foreignIndex);
+    auto foreignIndex = RateIndexConvention_New(PeriodLength_New("6M"), DayBasis_New("ACT_360"),
+                                                  CollateralType_OIS());
+    auto inst = CrossCurrencySwapNew(Today(), start, maturity, 0.001,
+                                      currencies, 100.0, 90.0,
+                                      domesticLeg, domesticIndex,
+                                      foreignLeg, foreignIndex);
     ASSERT_TRUE(inst != nullptr);
 }
 

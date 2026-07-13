@@ -51,6 +51,17 @@ namespace Dal {
         [[nodiscard]] JointXccyCalibrationSpec_ Build() const;
     };
 
+    [[nodiscard]] const Handle_<CurveBlock_>& JointXccyResultDomesticBlock(const JointXccyCalibrationResult_& result);
+    [[nodiscard]] const Handle_<CurveBlock_>& JointXccyResultForeignBlock(const JointXccyCalibrationResult_& result);
+    [[nodiscard]] const Handle_<DiscountCurve_>& JointXccyResultBasisCurve(const JointXccyCalibrationResult_& result);
+    [[nodiscard]] const CrossCurrencyFxForwardCurve_& JointXccyResultFxForwards(const JointXccyCalibrationResult_& result);
+    [[nodiscard]] const Vector_<>& JointXccyResultMarketRates(const JointXccyCalibrationResult_& result);
+    [[nodiscard]] const Vector_<>& JointXccyResultModelRates(const JointXccyCalibrationResult_& result);
+    [[nodiscard]] const Vector_<>& JointXccyResultResiduals(const JointXccyCalibrationResult_& result);
+    [[nodiscard]] const Matrix_<>& JointXccyResultJacobian(const JointXccyCalibrationResult_& result);
+    [[nodiscard]] const Vector_<CalibrationBlockRange_>& JointXccyResultParameterRanges(const JointXccyCalibrationResult_& result);
+    [[nodiscard]] const Vector_<CalibrationBlockRange_>& JointXccyResultResidualRanges(const JointXccyCalibrationResult_& result);
+
     CrossCurrencyCalibrationResult_ CalibrateXccyMarket(const CrossCurrencyCalibrationSpec_& spec);
 
 } // namespace Dal

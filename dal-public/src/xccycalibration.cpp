@@ -50,6 +50,28 @@ namespace Dal {
         return result;
     }
 
+    const Handle_<CurveBlock_>& JointXccyResultDomesticBlock(const JointXccyCalibrationResult_& result) { return result.domesticCurveBlock_; }
+
+    const Handle_<CurveBlock_>& JointXccyResultForeignBlock(const JointXccyCalibrationResult_& result) { return result.foreignCurveBlock_; }
+
+    const Handle_<DiscountCurve_>& JointXccyResultBasisCurve(const JointXccyCalibrationResult_& result) { return result.basisCurve_; }
+
+    const CrossCurrencyFxForwardCurve_& JointXccyResultFxForwards(const JointXccyCalibrationResult_& result) { return result.fxForwardCurve_; }
+
+    const Vector_<>& JointXccyResultMarketRates(const JointXccyCalibrationResult_& result) { return result.marketRates_; }
+
+    const Vector_<>& JointXccyResultModelRates(const JointXccyCalibrationResult_& result) { return result.modelRates_; }
+
+    const Vector_<>& JointXccyResultResiduals(const JointXccyCalibrationResult_& result) { return result.residuals_; }
+
+    const Matrix_<>& JointXccyResultJacobian(const JointXccyCalibrationResult_& result) { return result.jacobianAtSolution_; }
+
+    const Vector_<CalibrationBlockRange_>& JointXccyResultParameterRanges(const JointXccyCalibrationResult_& result) {
+        return result.parameterRanges_;
+    }
+
+    const Vector_<CalibrationBlockRange_>& JointXccyResultResidualRanges(const JointXccyCalibrationResult_& result) { return result.residualRanges_; }
+
     CrossCurrencyCalibrationResult_ CalibrateXccyMarket(const CrossCurrencyCalibrationSpec_& spec) { return CalibrateCrossCurrencyMarket(spec); }
 
 } // namespace Dal
