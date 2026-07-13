@@ -294,6 +294,57 @@ TEST(XccyJointJacobianTest, TestAnalyticStackMatchesCentralDifferencesAndRangesP
     ASSERT_NE(calibrated.residualRanges_[4].name_.find("xccy"), String_::npos);
 }
 
+TEST(XccyJointJacobianTest, TestEffectiveInversePredictsQuoteBumpsAcrossAllThreeResidualBlocks) {
+    const Fixture_ fixture = MakeFixture();
+    const JointXccyCalibrationResult_ base = CalibrateJointXccyMarket(fixture.spec_);
+    const Vector_<> baseParameters = Parameters(base);
+    constexpr double bump = 1.0e-6;
+    ASSERT_FALSE(base.effJacobianInverse_.Empty());
+    ASSERT_EQ(base.effJacobianInverse_.Rows(), static_cast<int>(baseParameters.size()));
+
+    const Vector_<int> residualRows = {
+        base.residualRanges_[0].offset_,
+        base.residualRanges_[2].offset_,
+        base.residualRanges_[4].offset_,
+    };
+    for (int block = 0; block < static_cast<int>(residualRows.size()); ++block) {
+        JointXccyCalibrationSpec_ bumpedSpec = fixture.spec_;
+        bumpedSpec.domestic_.curves_[0].initialGuessPerNode_ = Slice(baseParameters, 0, 2);
+        bumpedSpec.domestic_.curves_[1].initialGuessPerNode_ = Slice(baseParameters, 2, 2);
+        bumpedSpec.foreign_.curves_[0].initialGuessPerNode_ = Slice(baseParameters, 4, 2);
+        bumpedSpec.foreign_.curves_[1].initialGuessPerNode_ = Slice(baseParameters, 6, 2);
+        bumpedSpec.basis_.initialGuessPerNode_ = Slice(baseParameters, 8, 2);
+        if (block < 2) {
+            auto& declaration = block == 0 ? bumpedSpec.domestic_.curves_.front() : bumpedSpec.foreign_.curves_.front();
+            const auto* deposit = dynamic_cast<const Deposit_*>(declaration.instruments_.front().get());
+            ASSERT_NE(deposit, nullptr);
+            const auto span = deposit->TimeSpan();
+            declaration.instruments_.front() = Handle_<YCInstrument_>(
+                new Deposit_(deposit->TradeDate(), span.first, span.second, deposit->MarketRate() + bump, deposit->FloatConvention()));
+        } else {
+            const auto& original = bumpedSpec.basis_.instruments_.front();
+            const auto span = original->TimeSpan();
+            bumpedSpec.basis_.instruments_.front() = Handle_<CrossCurrencySwap_>(
+                new CrossCurrencySwap_(span.first, span.first, span.second, original->MarketRate() + bump, original->Config()));
+        }
+
+        const Vector_<> bumpedParameters = Parameters(CalibrateJointXccyMarket(bumpedSpec));
+        Vector_<> observedMoves(baseParameters.size());
+        Vector_<> predictedMoves(baseParameters.size());
+        double observedNorm = 0.0;
+        for (int parameter = 0; parameter < static_cast<int>(baseParameters.size()); ++parameter) {
+            observedMoves[parameter] = bumpedParameters[parameter] - baseParameters[parameter];
+            predictedMoves[parameter] = base.effJacobianInverse_(parameter, residualRows[block]) * bump / fixture.spec_.tolerance_;
+            observedNorm = std::max(observedNorm, std::fabs(observedMoves[parameter]));
+        }
+        ASSERT_GT(observedNorm, 1.0e-8) << "block=" << block;
+        for (int parameter = 0; parameter < static_cast<int>(baseParameters.size()); ++parameter) {
+            ASSERT_NEAR(predictedMoves[parameter], observedMoves[parameter], 0.03 * observedNorm + 1.0e-10)
+                << "block=" << block << " residualRow=" << residualRows[block] << " parameter=" << parameter;
+        }
+    }
+}
+
 TEST(XccyJointJacobianTest, TestExactApproximateAnalyticAndBumpedMatrixContracts) {
     const Fixture_ fixture = MakeFixture();
     const JointXccyCalibrationResult_ analytic = CalibrateJointXccyMarket(fixture.spec_);

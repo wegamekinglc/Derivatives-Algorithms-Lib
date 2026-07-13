@@ -103,6 +103,16 @@ namespace Dal {
 
             Underdetermined::Jacobian_* J(const Vector_<>& x, const Vector_<>& f) {
                 REQUIRE(nRestarts_-- > 0, "Exhausted gradient evaluations in underdetermined search");
+                return BuildJacobian(x, f);
+            }
+
+            Underdetermined::Jacobian_* JAtSolution(const Vector_<>& x, const Vector_<>& scaledF) {
+                Vector_<> unscaledF = scaledF;
+                Transform(&unscaledF, tol_, std::multiplies<>());
+                return BuildJacobian(x, unscaledF);
+            }
+
+            Underdetermined::Jacobian_* BuildJacobian(const Vector_<>& x, const Vector_<>& f) {
                 if (auto sparse = func_.Gradient(x, f)) {
                     sparse->DivideRows(tol_);
                     return sparse;
@@ -260,7 +270,10 @@ namespace Dal {
                 Transform(xOld, s, std::plus<>(), &xNew);
                 Vector_<> fNew = func.F(xNew);
                 if (*MaxElement(fNew) < 1.0 && *MinElement(fNew) > -1.0) {
-                    StoreEffectiveJacobianInverse(*j, w, effJInv);
+                    if (effJInv) {
+                        std::unique_ptr<Jacobian_> jSolution(func.JAtSolution(xNew, fNew));
+                        StoreEffectiveJacobianInverse(*jSolution, w, effJInv);
+                    }
                     if (fwdJacobianAtSolution) {
                         fwdJacobianAtSolution->Clear();
                         Vector_<> fUnscaled = fNew;

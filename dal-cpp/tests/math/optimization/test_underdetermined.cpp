@@ -85,6 +85,30 @@ namespace {
         void SecantUpdate(const Vector_<>&, const Vector_<>&) override {}
     };
 
+    class NonlinearSquareAnalyticFunc_ : public Underdetermined::Function_ {
+        mutable Vector_<Vector_<>> gradientXs_;
+        mutable Vector_<Vector_<>> gradientFs_;
+
+    public:
+        [[nodiscard]] Vector_<> F(const Vector_<>& x) const override { return Vector_<>{x[0] * x[0] - 4.0}; }
+
+        [[nodiscard]] Underdetermined::Jacobian_* Gradient(const Vector_<>& x, const Vector_<>& f) const override {
+            gradientXs_.push_back(x);
+            gradientFs_.push_back(f);
+            Matrix_<> j(1, 1);
+            j(0, 0) = 2.0 * x[0];
+            return new DenseJacobian_(j);
+        }
+
+        [[nodiscard]] const Vector_<Vector_<>>& GradientXs() const { return gradientXs_; }
+        [[nodiscard]] const Vector_<Vector_<>>& GradientFs() const { return gradientFs_; }
+    };
+
+    class NonlinearSquareDenseFunc_ : public Underdetermined::Function_ {
+    public:
+        [[nodiscard]] Vector_<> F(const Vector_<>& x) const override { return Vector_<>{x[0] * x[0] - 4.0}; }
+    };
+
     class BacktrackProbeFunc_ : public Underdetermined::Function_ {
         Vector_<Vector_<>>& evaluations_;
 
@@ -301,6 +325,46 @@ TEST(UnderdeterminedTest, TestFindPopulatesEffectiveJacobianInverse) {
     ASSERT_EQ(effJacobianInverse.Cols(), 1);
     ASSERT_NEAR(effJacobianInverse(0, 0), 8.0e-11, 1e-18);
     ASSERT_NEAR(effJacobianInverse(1, 0), 2.0e-11, 1e-18);
+}
+
+TEST(UnderdeterminedTest, TestEffectiveInverseUsesFreshAnalyticJacobianAndUnscaledResidualAtSolution) {
+    NonlinearSquareAnalyticFunc_ func;
+    const Vector_<> guess = {1.0};
+    const Vector_<> tolerance = {1.0e-8};
+    TriDiagonal_ weights(1);
+    weights.Set(0, 0, 1.0);
+    std::unique_ptr<SymmetricDecomposition_> decomposition(weights.DecomposeSymmetric());
+
+    Matrix_<> effectiveInverse;
+    const Vector_<> solved = Underdetermined::Find(func, guess, tolerance, *decomposition, MakeControls(), &effectiveInverse);
+    ASSERT_NEAR(solved[0], 2.0, 1.0e-8);
+    ASSERT_EQ(effectiveInverse.Rows(), 1);
+    ASSERT_EQ(effectiveInverse.Cols(), 1);
+    ASSERT_NEAR(effectiveInverse(0, 0) / tolerance[0], 1.0 / (2.0 * solved[0]), 1.0e-12);
+
+    int solutionGradient = -1;
+    for (int i = 0; i < static_cast<int>(func.GradientXs().size()); ++i)
+        if (std::abs(func.GradientXs()[i][0] - solved[0]) < 1.0e-12)
+            solutionGradient = i;
+    ASSERT_GE(solutionGradient, 0);
+    ASSERT_NEAR(func.GradientFs()[solutionGradient][0], func.F(solved)[0], 1.0e-16);
+}
+
+TEST(UnderdeterminedTest, TestEffectiveInverseUsesFreshDenseFiniteDifferenceJacobianAtSolution) {
+    NonlinearSquareDenseFunc_ func;
+    const Vector_<> guess = {1.0};
+    const Vector_<> tolerance = {1.0e-8};
+    TriDiagonal_ weights(1);
+    weights.Set(0, 0, 1.0);
+    std::unique_ptr<SymmetricDecomposition_> decomposition(weights.DecomposeSymmetric());
+
+    Matrix_<> effectiveInverse;
+    const Vector_<> solved = Underdetermined::Find(func, guess, tolerance, *decomposition, MakeControls(), &effectiveInverse);
+    constexpr double finiteDifferenceBump = 1.0e-4;
+    ASSERT_NEAR(solved[0], 2.0, 1.0e-8);
+    ASSERT_EQ(effectiveInverse.Rows(), 1);
+    ASSERT_EQ(effectiveInverse.Cols(), 1);
+    ASSERT_NEAR(effectiveInverse(0, 0) / tolerance[0], 1.0 / (2.0 * solved[0] + finiteDifferenceBump), 1.0e-10);
 }
 
 // The trailing fwdJacobianAtSolution out-param captures the UNSCALED analytic forward Jacobian at
