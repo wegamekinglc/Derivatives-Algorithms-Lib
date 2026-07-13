@@ -920,6 +920,17 @@ TEST(JointAnalyticJacobianTest, TestAnalyticEligibleAgreesWithBumped) {
     // The analytic path engaged: jacobianAtSolution_ is populated for ANALYTIC + eligible + EXACT.
     ASSERT_FALSE(rAnalytic.jacobianAtSolution_.Empty());
     ASSERT_TRUE(rBumped.jacobianAtSolution_.Empty());
+    int expectedRows = 0;
+    int expectedColumns = 0;
+    for (const auto& declaration : spec.curves_) {
+        expectedRows += static_cast<int>(declaration.instruments_.size());
+        expectedColumns +=
+            BuildCurveParameterLayout(MakeCurveDefinition(declaration.curveName_, spec.ccy_, declaration.parameterization_, declaration.logDfScheme_,
+                                                          declaration.knotDates_, spec.today_, spec.liborBasis_))
+                .parameterCount_;
+    }
+    ASSERT_EQ(rAnalytic.jacobianAtSolution_.Rows(), expectedRows);
+    ASSERT_EQ(rAnalytic.jacobianAtSolution_.Cols(), expectedColumns);
 
     // Per-pillar OIS DFs agree to the smoothing-fit residual floor (both paths solve the same
     // system with differently-computed Jacobians; the solution x should be essentially identical).

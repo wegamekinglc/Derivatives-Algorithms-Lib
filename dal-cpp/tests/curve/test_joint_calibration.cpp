@@ -329,6 +329,22 @@ TEST(JointCalibrationTest, TestJointCalibrationConvergesAndFitsInstruments) {
     ASSERT_TRUE(result.solverEvaluations_ > 0);
 }
 
+TEST(JointCalibrationTest, TestSharedInternalExtractionPreservesDuplicateDisplayNamesAcrossDistinctSlots) {
+    RegisterAll_::Init();
+    const Date_ today(2024, 1, 15);
+    const Ccy_ ccy("USD");
+    const PrototypeSet_ proto = BuildPrototypes(today, ccy);
+    JointMultiCurveCalibrationSpec_ spec = BuildCanonicalJointSpec(today, ccy, proto);
+    spec.curves_[1].curveName_ = spec.curves_[0].curveName_;
+
+    const JointMultiCurveCalibrationResult_ result = CalibrateJointMultiCurve(spec);
+
+    ASSERT_TRUE(result.converged_);
+    ASSERT_EQ(result.diagnostics_.size(), 2);
+    ASSERT_EQ(result.diagnostics_[0].curveName_, result.diagnostics_[1].curveName_);
+    ASSERT_LE(result.jointMaxAbsResidual_, 1.0e-7);
+}
+
 TEST(JointCalibrationTest, TestHomogeneousZeroRateCalibrationPreservesDeclarationAndKnotOrder) {
     RegisterAll_::Init();
     const Date_ today(2024, 1, 15);
