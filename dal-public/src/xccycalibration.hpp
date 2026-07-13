@@ -5,12 +5,18 @@
 #pragma once
 
 #include <dal/curve/xccycalibration.hpp>
+#include <dal/curve/xccyjointcalibration.hpp>
 #include <dal/platform/platform.hpp>
+
+#include <dal-public/src/curvespec.hpp>
 
 namespace Dal {
 
     struct CrossCurrencyCalibrationSpecBuilder_ {
         Date_ today_;
+        DateTime_ valuationTime_;
+        Ccy_ collateralCurrency_;
+        Handle_<MarketFixingSnapshot_> fixings_;
         CurrencyPair_ basisPair_;
         Handle_<CurveBlock_> domesticCurveBlock_;
         Handle_<CurveBlock_> foreignCurveBlock_;
@@ -28,6 +34,21 @@ namespace Dal {
         CurveSolveMode_ solveMode_ = CurveSolveMode_::Value_::EXACT;
 
         [[nodiscard]] CrossCurrencyCalibrationSpec_ Build() const;
+    };
+
+    struct JointXccyCalibrationSpecBuilder_ {
+        DateTime_ valuationTime_;
+        CurrencyPair_ pair_;
+        Ccy_ collateralCurrency_;
+        double fxSpot_ = 0.0;
+        JointCurrencyCurveSpec_ domestic_;
+        JointCurrencyCurveSpec_ foreign_;
+        XccyBasisCurveDeclaration_ basis_;
+        Handle_<MarketFixingSnapshot_> fixings_;
+        CurveSolverOptions_ solverOptions_;
+
+        JointXccyCalibrationSpecBuilder_() { solverOptions_.initialGuess_ = 0.0; }
+        [[nodiscard]] JointXccyCalibrationSpec_ Build() const;
     };
 
     CrossCurrencyCalibrationResult_ CalibrateXccyMarket(const CrossCurrencyCalibrationSpec_& spec);
