@@ -4,6 +4,8 @@
 
 #include <dal/platform/platform.hpp>
 #include <dal/platform/strict.hpp>
+
+#include <cmath>
 #include <dal/curve/calibration_internal.hpp>
 #include <dal/curve/discount.hpp>
 #include <dal/curve/xccycalibration.hpp>
@@ -14,6 +16,8 @@
 #include <dal/time/schedules.hpp>
 
 namespace Dal {
+#include <dal/auto/MG_XccyNotionalMode_enum.inc>
+
     namespace {
         struct XccyCouponPeriod_ {
             SchedulePeriod_ schedule_;
@@ -178,6 +182,46 @@ namespace Dal {
                 return (foreignPv - domesticPv) / domesticSpreadAnnuity;
             }
         };
+
+        CrossCurrencySwapConfig_ FixedConfig(const CurrencyPair_& pair,
+                                             double domesticNotional,
+                                             double foreignNotional,
+                                             const CrossCurrencyConvention_& convention) {
+            CrossCurrencySwapConfig_ result;
+            result.pair_ = pair;
+            result.domesticNotional_ = domesticNotional;
+            result.foreignNotional_ = foreignNotional;
+            result.convention_ = convention;
+            result.notionalMode_ = XccyNotionalMode_::Value_::FIXED;
+            return result;
+        }
+
+        void ValidateConfig(const Date_& tradeDate,
+                            const Date_& start,
+                            const Date_& maturity,
+                            double marketRate,
+                            const CrossCurrencySwapConfig_& config) {
+            REQUIRE(tradeDate.IsValid() && start.IsValid() && maturity.IsValid(),
+                    "CrossCurrencySwap_ requires valid trade, start, and maturity dates");
+            REQUIRE(maturity > start, "CrossCurrencySwap_ requires maturity after start");
+            REQUIRE(std::isfinite(marketRate), "CrossCurrencySwap_ requires a finite market rate");
+            REQUIRE(std::isfinite(config.domesticNotional_) && config.domesticNotional_ > 0.0 &&
+                        std::isfinite(config.foreignNotional_) && config.foreignNotional_ > 0.0,
+                    "CrossCurrencySwap_ requires positive finite notionals");
+            REQUIRE(!(config.pair_.domestic_ == config.pair_.foreign_),
+                    "CrossCurrencySwap_ requires distinct domestic and foreign currencies");
+            REQUIRE(config.notionalMode_ == XccyNotionalMode_::Value_::FIXED ||
+                        config.notionalMode_ == XccyNotionalMode_::Value_::RESETTABLE ||
+                        config.notionalMode_ == XccyNotionalMode_::Value_::MARK_TO_MARKET,
+                    "CrossCurrencySwap_ requires a valid notional mode");
+            if (config.notionalMode_ != XccyNotionalMode_::Value_::FIXED) {
+                REQUIRE(config.fxReset_.fixingLag_ >= 0,
+                        "Resettable cross-currency notionals require an explicit non-negative FX fixing lag");
+                REQUIRE(config.fxReset_.fixingHour_ >= 0 && config.fxReset_.fixingHour_ < 24 &&
+                            config.fxReset_.fixingMinute_ >= 0 && config.fxReset_.fixingMinute_ < 60,
+                        "Resettable cross-currency notionals require an explicit valid FX fixing time");
+            }
+        }
     } // namespace
 
     CurrencyPair_::CurrencyPair_() : domestic_(Ccy_::Value_::USD), foreign_(Ccy_::Value_::EUR) {}
@@ -206,16 +250,23 @@ namespace Dal {
                                            double domesticNotional,
                                            double foreignNotional,
                                            const CrossCurrencyConvention_& convention)
+        : CrossCurrencySwap_(tradeDate,
+                             start,
+                             maturity,
+                             marketRate,
+                             FixedConfig(pair, domesticNotional, foreignNotional, convention)) {}
+
+    CrossCurrencySwap_::CrossCurrencySwap_(const Date_& tradeDate,
+                                           const Date_& start,
+                                           const Date_& maturity,
+                                           double marketRate,
+                                           const CrossCurrencySwapConfig_& config)
         : tradeDate_(tradeDate),
           start_(start),
           maturity_(maturity),
           marketRate_(marketRate),
-          pair_(pair),
-          domesticNotional_(domesticNotional),
-          foreignNotional_(foreignNotional),
-          convention_(convention) {
-        REQUIRE(domesticNotional_ > 0.0 && foreignNotional_ > 0.0, "CrossCurrencySwap_ requires positive notionals");
-        REQUIRE(maturity_ > start_, "CrossCurrencySwap_ requires maturity after start");
+          config_(config) {
+        ValidateConfig(tradeDate_, start_, maturity_, marketRate_, config_);
     }
 
     String_ CrossCurrencySwap_::Name() const { return "CrossCurrencySwap"; }
@@ -223,26 +274,26 @@ namespace Dal {
     pair<Date_, Date_> CrossCurrencySwap_::TimeSpan() const { return {start_, maturity_}; }
 
     Handle_<CrossCurrencySwap_::Rate_> CrossCurrencySwap_::Precompute() const {
-        REQUIRE(!convention_.resettableNotional_, "Resettable cross-currency notionals are not implemented");
-        REQUIRE(!convention_.markToMarketNotional_, "Mark-to-market cross-currency notionals are not implemented");
+        REQUIRE(config_.notionalMode_ == XccyNotionalMode_::Value_::FIXED,
+                "Resettable and mark-to-market cross-currency notionals are not implemented");
         const auto domesticPeriods = BuildLegPeriods<XccyCouponPeriod_>(start_,
                                                      maturity_,
-                                                     convention_.domesticLeg_,
-                                                     convention_.domesticIndex_.fixingLag_,
-                                                     convention_.domesticIndex_.fixingHolidays_);
+                                                     config_.convention_.domesticLeg_,
+                                                     config_.convention_.domesticIndex_.fixingLag_,
+                                                     config_.convention_.domesticIndex_.fixingHolidays_);
         const auto foreignPeriods = BuildLegPeriods<XccyCouponPeriod_>(start_,
                                                     maturity_,
-                                                    convention_.foreignLeg_,
-                                                    convention_.foreignIndex_.fixingLag_,
-                                                    convention_.foreignIndex_.fixingHolidays_);
+                                                    config_.convention_.foreignLeg_,
+                                                    config_.convention_.foreignIndex_.fixingLag_,
+                                                    config_.convention_.foreignIndex_.fixingHolidays_);
         return Handle_<Rate_>(new CrossCurrencySwapRate_(maturity_,
-                                                         pair_,
-                                                         domesticNotional_,
-                                                         foreignNotional_,
+                                                         config_.pair_,
+                                                         config_.domesticNotional_,
+                                                         config_.foreignNotional_,
                                                          domesticPeriods,
                                                          foreignPeriods,
-                                                         convention_.domesticIndex_,
-                                                         convention_.foreignIndex_,
-                                                         convention_));
+                                                         config_.convention_.domesticIndex_,
+                                                         config_.convention_.foreignIndex_,
+                                                         config_.convention_));
     }
 } // namespace Dal

@@ -2,10 +2,11 @@
 // Created by GitHub Copilot on 2026/6/6.
 //
 
+#include <dal/platform/platform.hpp>
+
 #include <gtest/gtest.h>
 #include <cmath>
 #include <map>
-#include <dal/platform/platform.hpp>
 #include <dal/curve/curveblock.hpp>
 #include <dal/curve/piecewiselinear.hpp>
 #include <dal/curve/piecewiseconstant.hpp>
@@ -344,22 +345,15 @@ TEST(XccyMarketTest, TestCrossCurrencyCalibrationRepricesInputQuote) {
     ASSERT_NEAR(result.fxForwardCurve_.forwards_.front(), result.market_.FxForward(spec.knotDates_.front()), 1e-10);
 }
 
-TEST(XccyMarketTest, TestResettableConventionThrows) {
-    const Date_ today(2024, 1, 15);
-    const auto evalDate = XGLOBAL::SetEvaluationDateInScope(today);
-    CrossCurrencyConvention_ convention;
-    convention.resettableNotional_ = true;
-
-    const CrossCurrencySwap_ swap(today,
-                                  today,
-                                  Date::AddMonths(today, 12),
-                                  0.0,
-                                  CurrencyPair_(Ccy_("USD"), Ccy_("EUR")),
-                                  110.0,
-                                  100.0,
-                                  convention);
-
-    ASSERT_THROW(static_cast<void>(swap.Precompute()), Dal::Exception_);
+TEST(XccyMarketTest, TestResetConfigRequiresExplicitFixingIdentity) {
+    CrossCurrencySwapConfig_ config;
+    config.notionalMode_ = XccyNotionalMode_::Value_::RESETTABLE;
+    ASSERT_THROW(static_cast<void>(CrossCurrencySwap_(Date_(2024, 1, 2),
+                                                      Date_(2024, 1, 4),
+                                                      Date_(2025, 1, 4),
+                                                      0.0,
+                                                      config)),
+                 Dal::Exception_);
 }
 
 TEST(XccyMarketTest, TestCalibrationWithSingleKnotAndZeroMarketRate) {

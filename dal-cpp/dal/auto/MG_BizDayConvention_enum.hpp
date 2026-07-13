@@ -8,6 +8,7 @@ public:
      _NOT_SET=-1,
      Unadjusted,
      Following,
+     Preceding,
      ModifiedFollowing,
      _N_VALUES
     } val_;

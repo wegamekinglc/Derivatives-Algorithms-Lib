@@ -7,6 +7,7 @@ public class BizDayConvention
     {
 		UNADJUSTED,
 		FOLLOWING,
+		PRECEDING,
 		MODIFIEDFOLLOWING,
         N_VALUES
     }

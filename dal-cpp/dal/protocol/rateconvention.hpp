@@ -36,8 +36,6 @@ namespace Dal {
     };
 
     struct CrossCurrencyConvention_ {
-        bool resettableNotional_ = false;
-        bool markToMarketNotional_ = false;
         bool initialNotionalExchange_ = false;
         bool finalNotionalExchange_ = false;
         bool spreadOnForeignLeg_ = true;

@@ -2,8 +2,8 @@
 // Created by wegam on 2022/2/10.
 //
 
-#include <gtest/gtest.h>
 #include <dal/platform/platform.hpp>
+
 #include <dal/currency/currencydata.hpp>
 #include <dal/protocol/collateraltype.hpp>
 #include <dal/protocol/rateconvention.hpp>
@@ -11,6 +11,7 @@
 #include <dal/time/holidays.hpp>
 #include <dal/time/periodlength.hpp>
 #include <dal/time/schedules.hpp>
+#include <gtest/gtest.h>
 
 using namespace Dal;
 
@@ -33,7 +34,6 @@ namespace {
     }
 } // namespace
 
-
 TEST(CurrencyTest, TestFactRead) {
     ASSERT_EQ(Ccy::Conventions::LiborFixDays()(Ccy_("CNY")), 1);
     ASSERT_EQ(Ccy::Conventions::LiborFixDays()(Ccy_("USD")), 2);
@@ -49,11 +49,9 @@ TEST(CurrencyDataTest, TestFactWrite) {
     ASSERT_EQ(Ccy::Conventions::LiborFixHolidays()(Ccy_("CNY")).String(), "CN.SSE");
 }
 
-TEST(CurrencyDataTest, TestXcsDefaultConvention) {
+TEST(CurrencyDataTest, TestXcsDefaultConventionHasNoNotionalModeBooleans) {
     const CrossCurrencyConvention_& xcs = Ccy::Conventions::Xcs()(Ccy_("USD"));
 
-    ASSERT_FALSE(xcs.resettableNotional_);
-    ASSERT_FALSE(xcs.markToMarketNotional_);
     ASSERT_TRUE(xcs.initialNotionalExchange_);
     ASSERT_TRUE(xcs.finalNotionalExchange_);
     ASSERT_TRUE(xcs.spreadOnForeignLeg_);

@@ -29,6 +29,8 @@ alternative Unadjusted
     Do not modify the date according to the holidays
 alternative Following
     Choose the first business day after the given holiday
+alternative Preceding
+    Choose the first business day before the given holiday
 alternative ModifiedFollowing
     Choose the first business day after the given holiday unless it belongs
     to a different month, in which case choose the first business day before
