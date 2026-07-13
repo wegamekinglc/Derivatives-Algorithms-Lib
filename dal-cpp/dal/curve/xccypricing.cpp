@@ -43,6 +43,8 @@ namespace Dal {
         }
 
         void SetRateFixings(Vector_<XccyCouponPeriod_>* periods, const FixingIdentity_& identity) {
+            if (identity.indexName_.empty())
+                return;
             for (auto& period : *periods) {
                 period.rateIndexName_ = identity.indexName_;
                 period.rateFixingTime_ = RateFixingTime(period.schedule_.fixingDate_, identity);
@@ -210,6 +212,8 @@ namespace Dal {
                       const XccyMarketView_<T_>& market,
                       const MarketFixingSnapshot_& fixings,
                       const String_& context) {
+            if (period.rateIndexName_.empty())
+                return ActiveForwardRate(period, forecast);
             return ResolveObservedValue<T_>(period.rateIndexName_, period.rateFixingTime_, market.valuationTime_, fixings, context,
                                             [&]() { return ActiveForwardRate(period, forecast); });
         }

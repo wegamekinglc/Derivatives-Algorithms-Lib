@@ -160,6 +160,29 @@ TEST(XccyPricingTest, TestFixedPlanHasNoResets) {
     ASSERT_TRUE(plan.resets_.empty());
 }
 
+TEST(XccyPricingTest, TestFixedPlanLeavesUnconfiguredRateFixingMetadataEmpty) {
+    auto config = MakeQuarterlyConfig(XccyNotionalMode_::Value_::FIXED);
+    config.domesticRateFixing_ = FixingIdentity_();
+    config.foreignRateFixing_ = FixingIdentity_();
+
+    const auto plan = BuildXccyCashflowPlan(Date_(2024, 1, 4), Date_(2025, 1, 4), config);
+
+    ASSERT_FALSE(plan.domesticPeriods_.empty());
+    ASSERT_FALSE(plan.foreignPeriods_.empty());
+    for (const auto& period : plan.domesticPeriods_) {
+        ASSERT_TRUE(period.rateIndexName_.empty());
+        ASSERT_FALSE(period.rateFixingTime_.IsValid());
+    }
+    for (const auto& period : plan.foreignPeriods_) {
+        ASSERT_TRUE(period.rateIndexName_.empty());
+        ASSERT_FALSE(period.rateFixingTime_.IsValid());
+    }
+
+    const PricingMarket_ curves;
+    const MarketFixingSnapshot_ fixings;
+    ASSERT_TRUE(std::isfinite(PriceXccyParSpread<double>(plan, curves.View(DateTime_(Date_(2024, 1, 4))), fixings)));
+}
+
 TEST(XccyPricingTest, TestPlanPreservesShortFinalStub) {
     const auto plan = BuildXccyCashflowPlan(Date_(2024, 1, 4), Date_(2025, 2, 15), MakeQuarterlyConfig(XccyNotionalMode_::Value_::MARK_TO_MARKET));
 
