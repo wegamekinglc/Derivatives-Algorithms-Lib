@@ -85,11 +85,11 @@ The passive and AAD paths both construct curves from a `CurveDefinition_` and
 separately at each call site.
 
 | `CurveParameterization_` | Columns contributed by one declaration | Stable column order                                                             |
-|--------------------------|-----------------------------------------|---------------------------------------------------------------------------------|
-| `PIECEWISE_CONSTANT_FWD` | $K$                                     | right-hand forward value at knots $0,\dots,K-1$                                 |
-| `PIECEWISE_LINEAR_FWD`   | $2K$                                    | `fLeft[0]`, `fRight[0]`, ..., `fLeft[K-1]`, `fRight[K-1]`                       |
-| `LOG_DISCOUNT`           | $K$ future declared knots               | log DF at each future node; the pinned storage anchor is excluded               |
-| `ZERO_RATE`              | $K$ future declared knots               | continuously compounded decimal zero rate at each future node; anchor excluded  |
+|--------------------------|----------------------------------------|---------------------------------------------------------------------------------|
+| `PIECEWISE_CONSTANT_FWD` | $K$                                    | right-hand forward value at knots $0,\dots,K-1$                                 |
+| `PIECEWISE_LINEAR_FWD`   | $2K$                                   | `fLeft[0]`, `fRight[0]`, ..., `fLeft[K-1]`, `fRight[K-1]`                       |
+| `LOG_DISCOUNT`           | $K$ future declared knots              | log DF at each future node; the pinned storage anchor is excluded               |
+| `ZERO_RATE`              | $K$ future declared knots              | continuously compounded decimal zero rate at each future node; anchor excluded  |
 
 For ZERO_RATE, node $j$ is mapped through $\ell_j=-z_j\tau_j$, so the direct node
 chain factor is

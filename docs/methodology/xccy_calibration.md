@@ -90,7 +90,10 @@ pricing context.
 
 `MarketFixingSnapshot_` is an immutable nested map
 `index name -> DateTime_ -> value`. The same snapshot can contain rate and FX
-observations and is retained by the calibration result. Supplying a snapshot
+observations and is retained by the calibration result. The snapshot currently
+accepts positive values only: the constructor rejects non-positive entries, so
+rate fixings from negative-rate regimes (for example EURIBOR, ESTR, TIBOR, or
+SARON over 2014–2022) are not accepted. Supplying a snapshot
 makes it authoritative, including when it is explicitly empty. When a snapshot
 is omitted, staged and joint XCCY calibration first collect all historical
 requests across all instruments and copy those values from the process-wide
@@ -122,12 +125,12 @@ basis knots, fit diagnostics, and optional matrices.
 
 Within each declaration, parameter columns follow its representation:
 
-| Parameterization | Columns per declaration |
-|------------------|-------------------------|
-| `PIECEWISE_CONSTANT_FWD` | right-hand forwards in knot order |
-| `PIECEWISE_LINEAR_FWD` | left/right forward pair at each knot |
-| `LOG_DISCOUNT` | future-knot log discount factors |
-| `ZERO_RATE` | future-knot continuously compounded zero rates |
+| Parameterization         | Columns per declaration                        |
+|--------------------------|------------------------------------------------|
+| `PIECEWISE_CONSTANT_FWD` | right-hand forwards in knot order              |
+| `PIECEWISE_LINEAR_FWD`   | left/right forward pair at each knot           |
+| `LOG_DISCOUNT`           | future-knot log discount factors               |
+| `ZERO_RATE`              | future-knot continuously compounded zero rates |
 
 Residual rows use the same group order: domestic instrument groups, foreign
 instrument groups, then XCCY quotes. `parameterRanges_` and `residualRanges_`
