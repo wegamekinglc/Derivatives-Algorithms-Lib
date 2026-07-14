@@ -417,6 +417,7 @@ jobs:
             script_mc_perf
             ycinstrument_perf
             curve_calibration_perf
+            xccy_perf
           )
 
           mkdir -p benchmark-results
