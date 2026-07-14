@@ -6,12 +6,12 @@ exhaustive reference for every core numerical type.
 
 ## API Layers
 
-| Layer | Intended use | Compatibility contract |
-|-------|--------------|------------------------|
-| `DAL::cpp` | Direct access to quantitative algorithms and core types | Source-level core API; advanced consumers track core changes |
+| Layer         | Intended use                                                                             | Compatibility contract                                                    |
+|---------------|------------------------------------------------------------------------------------------|---------------------------------------------------------------------------|
+| `DAL::cpp`    | Direct access to quantitative algorithms and core types                                  | Source-level core API; advanced consumers track core changes              |
 | `DAL::public` | Construction, calibration, scripted valuation, random generation, and repository helpers | Convenience facade; exposes core types and does not promise ABI isolation |
-| Python `dal` | Python-friendly wrappers over the public facade | Supported names are those exported by `_dal` and `dal/api.py` |
-| Excel XLL | Worksheet functions and repository handles | Supported worksheet names come from generated registrations |
+| Python `dal`  | Python-friendly wrappers over the public facade                                          | Supported names are those exported by `_dal` and `dal/api.py`             |
+| Excel XLL     | Worksheet functions and repository handles                                               | Supported worksheet names come from generated registrations               |
 
 Installed C++ consumers should link imported targets instead of copying library
 paths. See the [installation guide](installation.md#installed-cmake-packages).
@@ -37,20 +37,20 @@ on other toolchains.
 
 ### Public facade headers
 
-| Header | Main entry points |
-|--------|-------------------|
-| `<dal-public/src/global.hpp>` | `InitGlobalData`, `SetEvaluationDate`, `GetEvaluationDate` |
-| `<dal-public/src/script.hpp>` | `NewScriptProduct`, `DebugScriptProduct` |
-| `<dal-public/src/models.hpp>` | `NewBSModelData`, `NewDupireModelData` |
-| `<dal-public/src/value.hpp>` | `ValueByMonteCarlo` |
-| `<dal-public/src/random.hpp>` | Pseudo/Sobol constructors and uniform/normal matrix fills |
-| `<dal-public/src/curveprotocol.hpp>` | Day-basis, tenor, collateral, rate-leg/index, currency-pair, FX-reset, and fixing-snapshot builders |
-| `<dal-public/src/curveinstrument.hpp>` | Deposit, FRA, future, swap, OIS, basis-swap, and fixed/resettable/MTM cross-currency-swap builders |
-| `<dal-public/src/curvedata.hpp>` | Piecewise-linear-forward, zero-rate, and curve-block builders |
-| `<dal-public/src/curvespec.hpp>` | `CurveCalibrationSpecBuilder_`, `CalibrateSingleCurve`, `CalibrateMultiCurveBundle` |
-| `<dal-public/src/xccycalibration.hpp>` | Staged and joint XCCY spec builders, calibration, and joint-result accessors |
-| `<dal-public/src/interp.hpp>` | Linear one-dimensional interpolation builder |
-| `<dal-public/src/repository.hpp>` | Repository find, erase, and size helpers for a configured host environment |
+| Header                                 | Main entry points                                                                                   |
+|----------------------------------------|-----------------------------------------------------------------------------------------------------|
+| `<dal-public/src/global.hpp>`          | `InitGlobalData`, `SetEvaluationDate`, `GetEvaluationDate`                                          |
+| `<dal-public/src/script.hpp>`          | `NewScriptProduct`, `DebugScriptProduct`                                                            |
+| `<dal-public/src/models.hpp>`          | `NewBSModelData`, `NewDupireModelData`                                                              |
+| `<dal-public/src/value.hpp>`           | `ValueByMonteCarlo`                                                                                 |
+| `<dal-public/src/random.hpp>`          | Pseudo/Sobol constructors and uniform/normal matrix fills                                           |
+| `<dal-public/src/curveprotocol.hpp>`   | Day-basis, tenor, collateral, rate-leg/index, currency-pair, FX-reset, and fixing-snapshot builders |
+| `<dal-public/src/curveinstrument.hpp>` | Deposit, FRA, future, swap, OIS, basis-swap, and fixed/resettable/MTM cross-currency-swap builders  |
+| `<dal-public/src/curvedata.hpp>`       | Piecewise-linear-forward, zero-rate, and curve-block builders                                       |
+| `<dal-public/src/curvespec.hpp>`       | `CurveCalibrationSpecBuilder_`, `CalibrateSingleCurve`, `CalibrateMultiCurveBundle`                 |
+| `<dal-public/src/xccycalibration.hpp>` | Staged and joint XCCY spec builders, calibration, and joint-result accessors                        |
+| `<dal-public/src/interp.hpp>`          | Linear one-dimensional interpolation builder                                                        |
+| `<dal-public/src/repository.hpp>`      | Repository find, erase, and size helpers for a configured host environment                          |
 
 The installed include path intentionally retains `dal-public/src/`. The facade
 also uses core `Handle_`, `Date_`, curve, model, and diagnostics types directly.
@@ -173,17 +173,17 @@ import dal
 
 ### Common workflows
 
-| Workflow | Python entry points |
-|----------|---------------------|
-| Dates/global state | `Date_`, `Year`, `Month`, `Day`, `EvaluationDate_Set`, `EvaluationDate_Get` |
-| Script products | `Product_New`, `Product_Debug` |
-| Models | `BSModelData_New`, `DupireModelData_New` |
-| Valuation | `MonteCarlo_Value` |
-| Random generation | `PseudoRSG_New`, `SobolRSG_New`, `*_Get_Uniform`, `*_Get_Normal` |
-| Calendar operations | `Holidays_`, `Is_BizDay`, `NextBizDay`, `PrevBizDay`, `Adjust` |
-| Curves | `DiscountZeroRate_New`, convention/instrument builders, `CurveCalibrationSpecBuilder_`, `CalibrateSingleCurve`, `CalibrateMultiCurveBundle`, `CalibrateXccyMarket`, `CalibrateJointXccyMarket` |
-| XCCY reset data | `FixingIdentity_`, `FxResetConvention_`, `MarketFixingSnapshot_New`, `CrossCurrencySwapConfigBuilder_`, `XccyNotionalMode` |
-| Convenience calibration | `calibrate_curve` from `dal/api.py` |
+| Workflow                | Python entry points                                                                                                                                                                            |
+|-------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Dates/global state      | `Date_`, `Year`, `Month`, `Day`, `EvaluationDate_Set`, `EvaluationDate_Get`                                                                                                                    |
+| Script products         | `Product_New`, `Product_Debug`                                                                                                                                                                 |
+| Models                  | `BSModelData_New`, `DupireModelData_New`                                                                                                                                                       |
+| Valuation               | `MonteCarlo_Value`                                                                                                                                                                             |
+| Random generation       | `PseudoRSG_New`, `SobolRSG_New`, `*_Get_Uniform`, `*_Get_Normal`                                                                                                                               |
+| Calendar operations     | `Holidays_`, `Is_BizDay`, `NextBizDay`, `PrevBizDay`, `Adjust`                                                                                                                                 |
+| Curves                  | `DiscountZeroRate_New`, convention/instrument builders, `CurveCalibrationSpecBuilder_`, `CalibrateSingleCurve`, `CalibrateMultiCurveBundle`, `CalibrateXccyMarket`, `CalibrateJointXccyMarket` |
+| XCCY reset data         | `FixingIdentity_`, `FxResetConvention_`, `MarketFixingSnapshot_New`, `CrossCurrencySwapConfigBuilder_`, `XccyNotionalMode`                                                                     |
+| Convenience calibration | `calibrate_curve` from `dal/api.py`                                                                                                                                                            |
 
 The basic valuation shape is:
 
@@ -300,15 +300,15 @@ correction; leaving both optional flags `FALSE` selects the Acklam-only default.
 
 Primary worksheet families are:
 
-| Purpose | Worksheet functions |
-|---------|---------------------|
-| Conventions | `PERIODLENGTH.NEW`, `DAYBASIS.NEW`, `RATELEGCONVENTION.NEW`, `RATEINDEXCONVENTION.NEW`, `COLLATERALTYPE.*` |
-| XCCY reset data | `XCCYRESETCONVENTION.NEW`, `MARKETFIXINGSNAPSHOT.NEW` |
-| Instruments | `DEPOSIT.NEW`, `FRA.NEW`, `FUTURE.NEW`, `SWAP.NEW`, `OISSWAP.NEW`, `BASISSWAP.NEW`, `CROSSCURRENCYSWAP.NEW`, `CROSSCURRENCYSWAPCONFIG.NEW`, `CROSSCURRENCYSWAP.CONFIG.NEW` |
-| Direct curves | `DISCOUNTPWLF.NEW`, `DISCOUNTZERORATE.NEW`, `CURVEBLOCK.NEW.SIMPLE` |
-| Calibration | `CALIBRATE.SINGLECURVE`, `CALIBRATE.XCCYMARKET`, `CALIBRATE.JOINTXCCY` |
-| Results | `CALIBRATIONRESULT.GET`, `CALIBRATIONRESULT.GET.CURVE`, `XCCYCALIBRATIONRESULT.*`, `JOINTXCCYCALIBRATIONRESULT.GET*` |
-| Repository | `REPOSITORY.FIND`, `REPOSITORY.ERASE`, `REPOSITORY.SIZE` |
+| Purpose         | Worksheet functions                                                                                                                                                        |
+|-----------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Conventions     | `PERIODLENGTH.NEW`, `DAYBASIS.NEW`, `RATELEGCONVENTION.NEW`, `RATEINDEXCONVENTION.NEW`, `COLLATERALTYPE.*`                                                                 |
+| XCCY reset data | `XCCYRESETCONVENTION.NEW`, `MARKETFIXINGSNAPSHOT.NEW`                                                                                                                      |
+| Instruments     | `DEPOSIT.NEW`, `FRA.NEW`, `FUTURE.NEW`, `SWAP.NEW`, `OISSWAP.NEW`, `BASISSWAP.NEW`, `CROSSCURRENCYSWAP.NEW`, `CROSSCURRENCYSWAPCONFIG.NEW`, `CROSSCURRENCYSWAP.CONFIG.NEW` |
+| Direct curves   | `DISCOUNTPWLF.NEW`, `DISCOUNTZERORATE.NEW`, `CURVEBLOCK.NEW.SIMPLE`                                                                                                        |
+| Calibration     | `CALIBRATE.SINGLECURVE`, `CALIBRATE.XCCYMARKET`, `CALIBRATE.JOINTXCCY`                                                                                                     |
+| Results         | `CALIBRATIONRESULT.GET`, `CALIBRATIONRESULT.GET.CURVE`, `XCCYCALIBRATIONRESULT.*`, `JOINTXCCYCALIBRATIONRESULT.GET*`                                                       |
+| Repository      | `REPOSITORY.FIND`, `REPOSITORY.ERASE`, `REPOSITORY.SIZE`                                                                                                                   |
 
 `DISCOUNTZERORATE.NEW` takes name, currency, anchor, future dates, and continuously
 compounded decimal zero rates, with optional day count, log-DF scheme, and base handle.
