@@ -451,16 +451,17 @@ namespace {
         REQUIRE(std::isfinite(checksum) && std::fabs(checksum) > 0.0, "XCCY basket checksum must be finite and non-zero");
     }
 
-    void ValidateBasisCalibration(const CrossCurrencyCalibrationSpec_& spec, const CrossCurrencyCalibrationOptions_& options) {
-        const auto result = CalibrateCrossCurrencyMarket(spec, options);
-        REQUIRE(std::isfinite(result.diagnostics_.maxAbsResidual_) && result.diagnostics_.maxAbsResidual_ <= spec.tolerance_,
-                "Basis-only XCCY calibration benchmark must reprice inside its configured tolerance");
-        const int instrumentCount = static_cast<int>(spec.instruments_.size());
-        const int parameterCount = static_cast<int>(spec.knotDates_.size());
+    void ValidateBasisDiagnostics(const CrossCurrencyCalibrationResult_& result, int instrumentCount, int parameterCount) {
         REQUIRE(instrumentCount == 15 && parameterCount == 5, "Basis-only XCCY calibration benchmark requires exactly 15 instruments and 5 knots");
         REQUIRE(result.diagnostics_.instrumentNames_.size() == 15 && result.diagnostics_.marketRates_.size() == 15 &&
                     result.diagnostics_.modelRates_.size() == 15 && result.diagnostics_.residuals_.size() == 15,
                 "Basis-only XCCY calibration benchmark must report exactly 15 instrument diagnostics");
+    }
+
+    void ValidateBasisJacobians(const CrossCurrencyCalibrationResult_& result,
+                                const CrossCurrencyCalibrationOptions_& options,
+                                int instrumentCount,
+                                int parameterCount) {
         if (options.computeForwardJacobian_ && options.jacobianMode_ == CurveJacobianMode_::Value_::ANALYTIC)
             REQUIRE(result.diagnostics_.jacobian_.Rows() == instrumentCount && result.diagnostics_.jacobian_.Cols() == parameterCount,
                     "Basis-only XCCY analytic forward Jacobian must be instruments by parameters");
@@ -468,6 +469,16 @@ namespace {
             REQUIRE(result.diagnostics_.effJacobianInverse_.Rows() == parameterCount &&
                         result.diagnostics_.effJacobianInverse_.Cols() == instrumentCount,
                     "Basis-only XCCY effective Jacobian inverse must be parameters by instruments");
+    }
+
+    void ValidateBasisCalibration(const CrossCurrencyCalibrationSpec_& spec, const CrossCurrencyCalibrationOptions_& options) {
+        const auto result = CalibrateCrossCurrencyMarket(spec, options);
+        REQUIRE(std::isfinite(result.diagnostics_.maxAbsResidual_) && result.diagnostics_.maxAbsResidual_ <= spec.tolerance_,
+                "Basis-only XCCY calibration benchmark must reprice inside its configured tolerance");
+        const int instrumentCount = static_cast<int>(spec.instruments_.size());
+        const int parameterCount = static_cast<int>(spec.knotDates_.size());
+        ValidateBasisDiagnostics(result, instrumentCount, parameterCount);
+        ValidateBasisJacobians(result, options, instrumentCount, parameterCount);
         REQUIRE(!result.fxForwardCurve_.forwards_.empty() && std::isfinite(result.fxForwardCurve_.forwards_.back()) &&
                     std::fabs(result.fxForwardCurve_.forwards_.back()) > 0.0,
                 "Basis-only XCCY calibration benchmark requires a finite, non-zero dry-run checksum");
