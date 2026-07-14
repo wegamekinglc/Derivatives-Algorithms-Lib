@@ -3,9 +3,9 @@
 //
 
 #include <gtest/gtest.h>
-#include <dal/platform/platform.hpp>
 
 #include <limits>
+#include <dal/platform/platform.hpp>
 #include <dal/curve/xccyinstrument.hpp>
 #include <dal/indice/fixingsnapshot.hpp>
 #include <dal/storage/globals.hpp>

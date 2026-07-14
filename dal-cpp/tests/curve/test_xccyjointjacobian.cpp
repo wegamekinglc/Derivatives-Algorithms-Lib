@@ -4,10 +4,9 @@
 
 #include <gtest/gtest.h>
 
-#include <dal/platform/platform.hpp>
-
 #include <string>
 
+#include <dal/platform/platform.hpp>
 #include <dal/curve/curveblock.hpp>
 #include <dal/curve/jointcalibration_internal.hpp>
 #include <dal/curve/piecewiseconstant.hpp>

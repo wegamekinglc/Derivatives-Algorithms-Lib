@@ -4,9 +4,8 @@
 
 #include <gtest/gtest.h>
 
-#include <dal/platform/platform.hpp>
-
 #include <cmath>
+#include <dal/platform/platform.hpp>
 #include <dal/curve/curveblock.hpp>
 #include <dal/curve/piecewiseconstant.hpp>
 #include <dal/curve/piecewiselinear.hpp>
