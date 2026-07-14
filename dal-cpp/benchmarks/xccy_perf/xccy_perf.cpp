@@ -189,6 +189,31 @@ namespace {
         return result;
     }
 
+    double HistoricalFixingValue(const FixingRequest_& request, const CrossCurrencySwapConfig_& config) {
+        if (request.indexName_ == config.domesticRateFixing_.indexName_)
+            return 0.04;
+        if (request.indexName_ == config.foreignRateFixing_.indexName_)
+            return 0.03;
+        REQUIRE(request.indexName_ == FxIndexName(config.pair_), "Unexpected XCCY benchmark fixing identity");
+        return 1.20;
+    }
+
+    Handle_<MarketFixingSnapshot_> MakeHistoricalFixingSnapshot(const std::vector<SwapHandle_>& instruments,
+                                                                const DateTime_& valuationTime,
+                                                                const CrossCurrencySwapConfig_& config) {
+        MarketFixingSnapshot_::values_t values;
+        for (const auto& instrument : instruments) {
+            const auto span = instrument->TimeSpan();
+            const XccyCashflowPlan_ plan = BuildXccyCashflowPlan(span.first, span.second, instrument->Config());
+            for (const auto& request : RequiredHistoricalFixings(plan, valuationTime)) {
+                const double value = HistoricalFixingValue(request, config);
+                const auto inserted = values[request.indexName_].emplace(request.fixingTime_, value);
+                REQUIRE(inserted.second || inserted.first->second == value, "Conflicting XCCY benchmark historical fixing value");
+            }
+        }
+        return Handle_<MarketFixingSnapshot_>(new MarketFixingSnapshot_(values));
+    }
+
     PricingCase_ MakePricingCase(const Fixture_& fixture, const std::string& label, XccyNotionalMode_ mode) {
         PricingCase_ result{label, mode == XccyNotionalMode_::Value_::FIXED ? MakeFixedSwap(fixture, 120) : MakeResetSwap(fixture, 120, mode),
                             RateHandle_(), std::vector<RateHandle_>(), MakeMarket(fixture, 0.0020)};
@@ -200,26 +225,18 @@ namespace {
     PricingCase_ MakeInProgressMtmCase(const Fixture_& fixture) {
         const DateTime_ valuationTime(fixture.today_, 12, 0);
         const Date_ start = Date::AddMonths(fixture.today_, -3);
-        const Date_ maturity = Date::AddMonths(start, 120);
         const CrossCurrencySwapConfig_ config = MakeConfig(fixture, XccyNotionalMode_::Value_::MARK_TO_MARKET);
-        const SwapHandle_ swap(new CrossCurrencySwap_(start, start, maturity, 0.0, config));
-        const XccyCashflowPlan_ plan = BuildXccyCashflowPlan(start, maturity, config);
-
-        MarketFixingSnapshot_::values_t values;
-        for (const auto& request : RequiredHistoricalFixings(plan, valuationTime)) {
-            if (request.indexName_ == config.domesticRateFixing_.indexName_)
-                values[request.indexName_][request.fixingTime_] = 0.04;
-            else if (request.indexName_ == config.foreignRateFixing_.indexName_)
-                values[request.indexName_][request.fixingTime_] = 0.03;
-            else
-                values[request.indexName_][request.fixingTime_] = 1.20;
-        }
-        const Handle_<MarketFixingSnapshot_> fixings(new MarketFixingSnapshot_(values));
+        std::vector<SwapHandle_> instruments;
+        instruments.reserve(10);
+        for (int year = 1; year <= 10; ++year)
+            instruments.push_back(SwapHandle_(new CrossCurrencySwap_(start, start, Date::AddMonths(start, 12 * year), 0.0, config)));
+        const Handle_<MarketFixingSnapshot_> fixings = MakeHistoricalFixingSnapshot(instruments, valuationTime, config);
         CrossCurrencyMarket_ market(fixture.domesticBlock_, fixture.foreignBlock_, kFxSpot, valuationTime, Ccy_("USD"), fixings);
         const Vector_<> basisValues(fixture.basisKnots_.size(), 0.0020);
         market.SetBasisCurve(
             Handle_<DiscountCurve_>(NewDiscountPWC("xccy_perf_started_basis", "USD", PiecewiseConstant_(fixture.basisKnots_, basisValues))));
-        return PricingCase_{"in-progress MTM", swap, swap->Precompute(), std::vector<RateHandle_>(), market};
+        const std::vector<RateHandle_> rates = PrecomputeAll(instruments);
+        return PricingCase_{"in-progress MTM", instruments.back(), rates.back(), rates, market};
     }
 
     CrossCurrencyCalibrationSpec_ MakeCalibrationSpec(const Fixture_& fixture) {
@@ -241,6 +258,51 @@ namespace {
             const SwapHandle_ prototype = MakeFixedSwap(fixture, maturity);
             const double quote = (*prototype->Precompute())(quoteMarket);
             result.instruments_.push_back(MakeFixedSwap(fixture, maturity, quote));
+        }
+        return result;
+    }
+
+    CrossCurrencyCalibrationSpec_ MakeResetAwareCalibrationSpec(const Fixture_& fixture) {
+        const DateTime_ valuationTime(fixture.today_, 12, 0);
+        const Date_ startedStart = Date::AddMonths(fixture.today_, -3);
+        const Date_ futureStart = Date::AddMonths(fixture.today_, 1);
+        const CrossCurrencySwapConfig_ startedConfig = MakeConfig(fixture, XccyNotionalMode_::Value_::MARK_TO_MARKET);
+        std::vector<SwapHandle_> prototypes;
+        prototypes.reserve(15);
+        prototypes.push_back(SwapHandle_(new CrossCurrencySwap_(startedStart, startedStart, Date::AddMonths(startedStart, 12), 0.0, startedConfig)));
+
+        const Vector_<int> futureMaturities = {12, 18, 24, 30, 36, 42, 48, 54, 60, 72, 84, 96, 108, 120};
+        for (int i = 0; i < static_cast<int>(futureMaturities.size()); ++i) {
+            const XccyNotionalMode_ mode = i % 2 == 0 ? XccyNotionalMode_::Value_::RESETTABLE : XccyNotionalMode_::Value_::MARK_TO_MARKET;
+            prototypes.push_back(SwapHandle_(new CrossCurrencySwap_(fixture.today_, futureStart, Date::AddMonths(fixture.today_, futureMaturities[i]),
+                                                                    0.0, MakeConfig(fixture, mode))));
+        }
+
+        const Handle_<MarketFixingSnapshot_> fixings = MakeHistoricalFixingSnapshot(prototypes, valuationTime, startedConfig);
+        CrossCurrencyMarket_ quoteMarket(fixture.domesticBlock_, fixture.foreignBlock_, kFxSpot, valuationTime, Ccy_("USD"), fixings);
+        const Vector_<> basisValues(fixture.basisKnots_.size(), 0.0020);
+        quoteMarket.SetBasisCurve(
+            Handle_<DiscountCurve_>(NewDiscountPWC("xccy_perf_reset_aware_basis", "USD", PiecewiseConstant_(fixture.basisKnots_, basisValues))));
+
+        CrossCurrencyCalibrationSpec_ result;
+        result.today_ = fixture.today_;
+        result.valuationTime_ = valuationTime;
+        result.collateralCurrency_ = Ccy_("USD");
+        result.fixings_ = fixings;
+        result.basisPair_ = startedConfig.pair_;
+        result.domesticCurveBlock_ = fixture.domesticBlock_;
+        result.foreignCurveBlock_ = fixture.foreignBlock_;
+        result.fxSpot_ = kFxSpot;
+        result.knotDates_ = fixture.basisKnots_;
+        result.tolerance_ = 1.0e-8;
+        result.fitTolerance_ = 1.0e-7;
+        result.initialGuess_ = 0.0;
+        result.instruments_.reserve(prototypes.size());
+        for (int i = 0; i < static_cast<int>(prototypes.size()); ++i) {
+            const auto span = prototypes[i]->TimeSpan();
+            const Date_ tradeDate = i == 0 ? startedStart : fixture.today_;
+            const double quote = (*prototypes[i]->Precompute())(quoteMarket);
+            result.instruments_.push_back(SwapHandle_(new CrossCurrencySwap_(tradeDate, span.first, span.second, quote, prototypes[i]->Config())));
         }
         return result;
     }
@@ -393,8 +455,19 @@ namespace {
         const auto result = CalibrateCrossCurrencyMarket(spec, options);
         REQUIRE(std::isfinite(result.diagnostics_.maxAbsResidual_) && result.diagnostics_.maxAbsResidual_ <= spec.tolerance_,
                 "Basis-only XCCY calibration benchmark must reprice inside its configured tolerance");
-        REQUIRE(result.diagnostics_.residuals_.size() == spec.instruments_.size(),
-                "Basis-only XCCY calibration benchmark must report every instrument residual");
+        const int instrumentCount = static_cast<int>(spec.instruments_.size());
+        const int parameterCount = static_cast<int>(spec.knotDates_.size());
+        REQUIRE(instrumentCount == 15 && parameterCount == 5, "Basis-only XCCY calibration benchmark requires exactly 15 instruments and 5 knots");
+        REQUIRE(result.diagnostics_.instrumentNames_.size() == 15 && result.diagnostics_.marketRates_.size() == 15 &&
+                    result.diagnostics_.modelRates_.size() == 15 && result.diagnostics_.residuals_.size() == 15,
+                "Basis-only XCCY calibration benchmark must report exactly 15 instrument diagnostics");
+        if (options.computeForwardJacobian_ && options.jacobianMode_ == CurveJacobianMode_::Value_::ANALYTIC)
+            REQUIRE(result.diagnostics_.jacobian_.Rows() == instrumentCount && result.diagnostics_.jacobian_.Cols() == parameterCount,
+                    "Basis-only XCCY analytic forward Jacobian must be instruments by parameters");
+        if (options.computeEffJacobianInverse_)
+            REQUIRE(result.diagnostics_.effJacobianInverse_.Rows() == parameterCount &&
+                        result.diagnostics_.effJacobianInverse_.Cols() == instrumentCount,
+                    "Basis-only XCCY effective Jacobian inverse must be parameters by instruments");
         REQUIRE(!result.fxForwardCurve_.forwards_.empty() && std::isfinite(result.fxForwardCurve_.forwards_.back()) &&
                     std::fabs(result.fxForwardCurve_.forwards_.back()) > 0.0,
                 "Basis-only XCCY calibration benchmark requires a finite, non-zero dry-run checksum");
@@ -519,6 +592,7 @@ int main() {
     const CrossCurrencyCalibrationOptions_ basisAnalyticSolve = BasisOptions(CurveJacobianMode_::Value_::ANALYTIC, false);
     const CrossCurrencyCalibrationOptions_ basisAnalyticDiagnostics = BasisOptions(CurveJacobianMode_::Value_::ANALYTIC, true);
     const CrossCurrencyCalibrationOptions_ basisBumpedDiagnostics = BasisOptions(CurveJacobianMode_::Value_::BUMPED, true);
+    const CrossCurrencyCalibrationSpec_ resetAwareBasisSpec = MakeResetAwareCalibrationSpec(fixture);
 
     const JointXccyCalibrationSpec_ jointSpec = MakeJointCalibrationSpec(fixture);
     const JointXccyCalibrationOptions_ jointAnalyticSolve = JointOptions(CurveJacobianMode_::Value_::ANALYTIC, false);
@@ -532,6 +606,7 @@ int main() {
     ValidateBasisCalibration(basisSpec, basisAnalyticSolve);
     ValidateBasisCalibration(basisSpec, basisAnalyticDiagnostics);
     ValidateBasisCalibration(basisSpec, basisBumpedDiagnostics);
+    ValidateBasisCalibration(resetAwareBasisSpec, basisAnalyticDiagnostics);
     ValidateJointCalibration(jointSpec, jointAnalyticSolve);
     ValidateJointCalibration(jointSpec, jointAnalyticDiagnostics);
     ValidateJointCalibration(jointSpec, jointBumpedDiagnostics);
@@ -543,6 +618,7 @@ int main() {
     RunBasisCalibration("XCCY basis-only CALIBRATION (15 instruments, 5 knots)", basisSpec, basisAnalyticDiagnostics);
     RunBasisCalibration("XCCY basis-only ANALYTIC SOLVE (15 instruments, 5 knots)", basisSpec, basisAnalyticSolve);
     RunBasisCalibration("XCCY basis-only BUMPED +DIAG (15 instruments, 5 knots)", basisSpec, basisBumpedDiagnostics);
+    RunBasisCalibration("XCCY reset-aware basis ANALYTIC +DIAG (15 instruments, 5 knots)", resetAwareBasisSpec, basisAnalyticDiagnostics);
     RunJointCalibration("XCCY joint ANALYTIC SOLVE (15 XCCY, 3x5 knots)", jointSpec, jointAnalyticSolve);
     RunJointCalibration("XCCY joint ANALYTIC +DIAG (15 XCCY, 3x5 knots)", jointSpec, jointAnalyticDiagnostics);
     RunJointCalibration("XCCY joint BUMPED +DIAG (15 XCCY, 3x5 knots)", jointSpec, jointBumpedDiagnostics);
