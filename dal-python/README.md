@@ -451,6 +451,16 @@ inverse, and named `parameter_ranges` / `residual_ranges`. Pass
 `JointXccyCalibrationOptions_` to select `ANALYTIC` or `BUMPED` and to disable
 either diagnostic matrix.
 
+The runnable [joint XCCY calibration example](examples/007.xccy_joint_calibration.py)
+uses an explicit fixing snapshot for a started MTM trade. It prints convergence,
+the maximum absolute residual, Jacobian dimensions, named parameter and residual
+half-open ranges, and every FX-forward date and value. With the `dal` package
+installed in the active environment, run it from the repository root:
+
+```bash
+python dal-python/examples/007.xccy_joint_calibration.py
+```
+
 ## Troubleshooting
 
 ### "Cannot find DAL::public" during build
