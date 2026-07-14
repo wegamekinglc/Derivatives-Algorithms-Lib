@@ -415,6 +415,45 @@ namespace {
     };
 } // namespace
 
+TEST(XccyPricingTest, TestDomesticLegParSpreadMatchesHandCalculation) {
+    auto config = MakeQuarterlyConfig(XccyNotionalMode_::Value_::FIXED);
+    config.convention_.initialNotionalExchange_ = false;
+    config.convention_.finalNotionalExchange_ = false;
+    config.convention_.spreadOnForeignLeg_ = false;
+
+    const auto plan = BuildXccyCashflowPlan(Date_(2024, 1, 4), Date_(2024, 7, 4), config);
+    ASSERT_EQ(plan.domesticPeriods_.size(), 2U);
+    ASSERT_EQ(plan.foreignPeriods_.size(), 2U);
+
+    constexpr double domesticDf = 0.96;
+    constexpr double foreignDf = 0.99;
+    constexpr double basisDf = 0.98;
+    constexpr double spot = 1.10;
+    const CustomPricingMarket_ curves(domesticDf, foreignDf, basisDf, spot);
+    const auto market = curves.View(DateTime_(Date_(2024, 1, 1), 12, 0));
+
+    double domesticPv = 0.0;
+    double domesticAnnuity = 0.0;
+    for (const auto& period : plan.domesticPeriods_) {
+        const double annuity = config.domesticNotional_ * period.accrual_.dcf_ * domesticDf;
+        const double forwardRate = (1.0 / domesticDf - 1.0) / period.accrual_.dcf_;
+        domesticPv += forwardRate * annuity;
+        domesticAnnuity += annuity;
+    }
+
+    const double foreignConversion = spot * foreignDf / basisDf;
+    double foreignPv = 0.0;
+    for (const auto& period : plan.foreignPeriods_) {
+        const double annuity = config.foreignNotional_ * period.accrual_.dcf_ * foreignConversion;
+        const double forwardRate = (1.0 / foreignDf - 1.0) / period.accrual_.dcf_;
+        foreignPv += forwardRate * annuity;
+    }
+
+    const double expectedParSpread = (foreignPv - domesticPv) / domesticAnnuity;
+    ASSERT_LT(expectedParSpread, 0.0);
+    ASSERT_NEAR(PriceXccyParSpread<double>(plan, market, MarketFixingSnapshot_()), expectedParSpread, 1.0e-12);
+}
+
 TEST(XccyPricingTest, TestFxResetAtValuationUsesSuppliedFixing) {
     const auto plan = BuildXccyCashflowPlan(Date_(2024, 1, 4), Date_(2024, 7, 4), MakeQuarterlyConfig(XccyNotionalMode_::Value_::MARK_TO_MARKET));
     MarketFixingSnapshot_::values_t values;
