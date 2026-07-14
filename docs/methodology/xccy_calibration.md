@@ -159,14 +159,17 @@ If any analytic gate fails, the exception identifies the ineligible currency,
 declaration, instrument, or reset. Select `BUMPED` explicitly to run the same
 valid residual system without the analytic eligibility requirement.
 
-## End-to-End Example
+## Runnable Examples
 
-`dal-cpp/examples/xccy_mtm_calibration/xccy_mtm_calibration.cpp` builds known
-domestic, foreign, and basis curves, derives self-consistent quotes, supplies one
-immutable snapshot containing historical domestic-rate, foreign-rate, and FX
-observations for an already-started MTM swap, and recovers all three parameter
-blocks in one call. It prints the convergence residual, Jacobian shape, block
-ranges, and parameter-recovery errors.
+- `xccy_reset_pricing` prices future fixed, resettable, and MTM swaps against
+  piecewise-constant discount, projection, and basis curves, validates their
+  reset and notional behavior, and prices an already-started MTM swap from an
+  immutable snapshot of historical domestic-rate, foreign-rate, and FX fixings.
+- `xccy_mtm_calibration` builds known domestic, foreign, and basis curves,
+  derives self-consistent quotes, supplies an immutable fixing snapshot for an
+  already-started MTM swap, and recovers all three parameter blocks in one joint
+  calibration. It prints the convergence residual, Jacobian shape, block ranges,
+  and parameter-recovery errors.
 
 ## See Also
 
