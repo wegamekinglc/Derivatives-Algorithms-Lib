@@ -24,8 +24,8 @@ $$
 `NDim()` is the number of variates produced per call (one draw of a
 multi-dimensional point). `SkipTo(n)` behavior is implementation-specific:
 Sobol reconstructs its state directly, `ShuffledIRN_::SkipTo` is a no-op, and
-MRG32's current accounting is tied to antithetic uniform draws rather than a
-general replay-equivalent path contract.
+MRG32 replays `FillUniform` only for even path offsets on a fresh generator; its
+current accounting is not a general replay-equivalent path contract.
 `FillUniform` writes variates in $(0,1)$; `FillNormal` writes standard normal
 variates, obtained either by inverse-CDF inversion of the uniform variates or
 by a direct transformation, depending on the generator.
@@ -238,7 +238,7 @@ enum, whose alternatives are `IRN` and `MRG32`.
 | `RNGType_` | Implementation        | Period / structure                          | `SkipTo`                                            |
 |------------|-----------------------|----------------------------------------------|-----------------------------------------------------|
 | `IRN`      | `ShuffledIRN_<55,31,128>` | Knuth-style lagged additive (IRN55) with shuffling, modulus $2^{30}$ | No-op; `Clone` restarts from the original seed and `Branch` creates another seeded generator |
-| `MRG32`    | `MRG32k32a_`          | L'Ecuyer combined multiple recursive (MRG32k32a), periods $\approx 2^{191}$ | Matrix jump with antithetic-`FillUniform` accounting; not replay-equivalent for normal paths |
+| `MRG32`    | `MRG32k32a_`          | L'Ecuyer combined multiple recursive (MRG32k32a), periods $\approx 2^{191}$ | Matrix jump; fresh-generator `FillUniform` replay at even path offsets only; no normal-path replay |
 
 `PseudoRandom_` adds antithetic variates on top of the underlying engine:
 `FillUniform` alternates between drawing $u_i$ and emitting the antithetic
@@ -255,7 +255,7 @@ $\text{irn}_i \leftarrow (\text{irn}_i + \text{irn}_{i+31}) \bmod 2^{30}$, with
 a length-128 shuffle table that returns the entry indexed by the new state,
 replacing it with the state before output. Shuffling breaks the short-range
 correlations that plain lagged generators exhibit. The output is the shuffled
-value mapped to $(0,1)$ with the $2(2u+1)/2^{31}$ form that keeps both
+value mapped to $(0,1)$ as `(2 * ret_val + 1) / 2^31`, which keeps both
 endpoints excluded. `SkipTo` is a no-op for this engine.
 `Clone` reconstructs the generator from its original seed instead of preserving
 the advanced state; `Branch` creates another seeded generator.
@@ -264,12 +264,28 @@ the advanced state; `Branch` creates another seeded generator.
 
 `MRG32k32a_` is L'Ecuyer's MRG32k32a combined multiple-recursive generator:
 two order-3 recurrences with moduli $m_1 = 4294967087$ and $m_2 = 4294944443$
-are combined as $u = ((x - y) \bmod m_1) / (m_1 + 1)$. `SkipTo` uses binary
-exponentiation of the $3 \times 3$ companion matrices to jump from the initial
-state. Its skip count halves $n \cdot \text{NDim}$ to match the generated/cached
-antithetic pattern of `FillUniform`. Because `FillNormal` instead consumes a fresh
-uniform for every component, MRG32 seeking is not replay-equivalent for normal-path
-substreams and must not be used as such. Sobol remains the verified normal-path
+are combined by the implementation's piecewise expression
+
+$$
+u =
+\begin{cases}
+\dfrac{x-y}{m_1+1}, & x>y, \\
+\dfrac{x-y+m_1}{m_1+1}, & x\le y.
+\end{cases}
+$$
+
+The equality case therefore returns $m_1/(m_1+1)$ rather than zero. `SkipTo`
+uses binary exponentiation of the $3 \times 3$ companion matrices to jump from
+the initial recurrence state. On a fresh generator, `SkipTo(n)` is replay-equivalent
+for `FillUniform` only when $n$ is an even path offset: the skipped paths then form
+complete generated/antithetic pairs, so the recurrence jump consumes
+$n\,\text{NDim}/2$ engine values. An odd offset would require the cached uniform
+vector and antithetic toggle from the preceding generated path. `SkipTo` calls
+`Reset()` for the recurrence but does not reset or reconstruct `anti_` or `cache_`,
+so odd offsets are not replay-equivalent; for the same reason, seeking on a reused
+generator has no replay-equivalent contract. `FillNormal` consumes a fresh uniform
+for every component and bypasses the cache entirely, so MRG32 seeking is not
+replay-equivalent for normal-path substreams. Sobol remains the verified normal-path
 seeking surface.
 
 ## Selection Guidance
@@ -283,10 +299,10 @@ seeking surface.
   control variates with estimated coefficients), and for regression-based
   estimators where low-discrepancy bias is undesirable. Between the two
   engines, `MRG32` has the stronger theoretical recurrence, and its current
-  `SkipTo` accounting matches antithetic `FillUniform` rather than
-  replay-equivalent normal-path substreams; `IRN` is retained as a lightweight
-  Knuth-style alternative with no seek implementation. Use Sobol when direct
-  normal-path seeking is required.
+  `SkipTo` accounting replays `FillUniform` only at even path offsets on a fresh
+  generator, not on odd offsets, reused generators, or normal-path substreams;
+  `IRN` is retained as a lightweight Knuth-style alternative with no seek
+  implementation. Use Sobol when direct normal-path seeking is required.
 
 ## Benchmark Coverage
 

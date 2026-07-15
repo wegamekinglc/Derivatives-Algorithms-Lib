@@ -90,9 +90,10 @@ x_i=\frac{b_i-c_{i-1}x_{i-1}}{\beta_i},
 x_{i-1}\leftarrow x_{i-1}-\frac{a_{i-1}}{\beta_{i-1}}x_i
 $$
 
-This is the Thomas algorithm. It is $O(n)$ in time and $O(n)$ in memory, and it requires no
-pivoting: it is valid only when every $\beta_i$ is non-zero, which holds in particular for
-**diagonally dominant** and for **symmetric positive-definite** tri-diagonal systems — the
+This is the Thomas algorithm. It is $O(n)$ in time and $O(n)$ in memory. Pivoting is not
+used: the factorization is valid only when every $\beta_i$ is non-zero,
+which holds in particular for **strictly diagonally dominant** and for **symmetric
+positive-definite** tri-diagonal systems — the
 two cases that dominate finite-difference PDE discretisations and natural-spline
 construction. The `TriDecomp_` factorization wraps the asymmetric case; `TriDecompSymm_`
 collapses `above_` and `below_` to one vector for the symmetric case, where left and right

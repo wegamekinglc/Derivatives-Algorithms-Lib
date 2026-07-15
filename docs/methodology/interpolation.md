@@ -106,11 +106,11 @@ with $h = x_{i+1}-x_i$, $b = (x-x_i)/h$, $a = 1-b$.
 The two end conditions are supplied as a `Boundary_(order, value)` pair, where `order`
 selects which derivative is pinned at the boundary:
 
-| `order_` | Boundary condition                                      |
-|----------|---------------------------------------------------------|
-| 1        | first derivative $f'(x_1) = $ `value_`                  |
-| 2        | second derivative $f''(x_1) = $ `value_`                |
-| 3        | endpoint segment's third derivative pinned to `value_`  |
+| `order_` | Boundary condition                                                                       |
+|----------|------------------------------------------------------------------------------------------|
+| 1        | `lhs` pins $f'(x_1)$; `rhs` pins $f'(x_N)$ to its respective `value_`                    |
+| 2        | `lhs` pins $f''(x_1)$; `rhs` pins $f''(x_N)$ to its respective `value_`                  |
+| 3        | each endpoint segment's third derivative is pinned to the respective `lhs`/`rhs` `value_` |
 
 `Boundary_(2, 0.0)` on both ends gives the classic natural spline (zero end curvature).
 
