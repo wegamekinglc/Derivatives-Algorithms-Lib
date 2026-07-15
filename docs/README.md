@@ -34,7 +34,7 @@ additions — is recorded in the repo-root [CHANGELOG.md](../CHANGELOG.md).
   - Web UI installation and startup
   - Verification and troubleshooting
 
-### Methodology (`methodology/`)
+## Methodology (`methodology/`)
 
 Deep dives into the quantitative methods and algorithms implemented in DAL:
 
@@ -59,11 +59,11 @@ Deep dives into the quantitative methods and algorithms implemented in DAL:
   - Solver controls structure and Broyden update regime
   - Application to yield curve calibration via smoothness penalties
 
-- **[xccy_calibration.md](methodology/xccy_calibration.md)** — Cross-Currency Calibration
+- **[xccy_calibration.md](methodology/xccy_calibration.md)** — Cross-Currency Pricing and Calibration
   - Fixed, resettable-notional, and mark-to-market cross-currency pricing
-  - Timestamped immutable rate and FX fixing snapshots
+  - Immutable operation-level snapshots of timestamped rate and FX fixings
   - Staged basis calibration and simultaneous domestic/foreign/basis calibration
-  - Joint parameter/residual ranges and analytic or bumped Jacobians
+  - Joint parameter/residual matrix ranges, analytic or bumped Jacobians, and effective-inverse scaling
 
 - **[interpolation.md](methodology/interpolation.md)** — Interpolation
   - Linear, log-linear, cubic-spline, and mixed one-dimensional interpolators
@@ -83,7 +83,7 @@ Deep dives into the quantitative methods and algorithms implemented in DAL:
   - `LogDfScheme_` interpolation schemes (`LOG_LINEAR`, `LOG_CUBIC_NATURAL`, `MIXED`)
   - Thomas algorithm for the natural-cubic system, basis weights, and `fppCoef_` matrix
   - Serialization version design (v1 without scheme, v2 with named scheme)
-  - Why `LOG_DISCOUNT` is the parameterization that supports the analytic Jacobian
+  - Persistent log-discount coordinates, interpolation/extrapolation, basis weights, and participation in the shared analytic-Jacobian curve factory
 
 - **[pde.md](methodology/pde.md)** — PDE Framework
   - Coordinate maps, including identity, sinh, and endpoint-exact concentrating maps
@@ -94,6 +94,7 @@ Deep dives into the quantitative methods and algorithms implemented in DAL:
 
 - **[yield_curve_jacobian.md](methodology/yield_curve_jacobian.md)** — Yield-Curve Jacobian and Inverse-Jacobian Risk
   - Forward residual Jacobian via AAD reverse sweep vs finite-difference bump
+  - Staged and joint matrix dimensions, including named joint parameter/residual ranges
   - Inverse-Jacobian IR-risk transform `r = gᵀ · effJacobianInverse_ / tolerance_`
   - Why `effJacobianInverse_` carries an extra `tolerance_` factor (solver residual scaling)
 
@@ -129,7 +130,7 @@ Deep dives into the quantitative methods and algorithms implemented in DAL:
   - Sobol inverse-CDF policy table and clone-equivalent state/flag preservation
   - Path seeking via direct state reconstruction (`SobolSet_::SkipTo`, MRG32k32a matrix jump)
 
-### Experimental (`experimental/`)
+## Experimental (`experimental/`)
 
 Reference studies and capability explorations that are not normative methodology:
 

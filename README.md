@@ -5,7 +5,7 @@
 [![Codacy Grade](https://app.codacy.com/project/badge/Grade/9c84afd2bb534c6c87584e5d6e4cc420)](https://app.codacy.com/app/wegamekinglc/Derivatives-Algorithms-Lib)
 [![Coverage Status](https://coveralls.io/repos/github/wegamekinglc/Derivatives-Algorithms-Lib/badge.svg?branch=master)](https://coveralls.io/github/wegamekinglc/Derivatives-Algorithms-Lib?branch=master)
 
-A C++17 quantitative finance library with built-in Automatic Adjoint Differentiation (AAD). Features include yield curve construction, Monte Carlo simulation, finite difference PDE solvers, a scripting engine for exotic payoffs with tree-walk and compiled evaluators, and parallel model evaluation.
+A C++17 quantitative finance library with built-in Automatic Adjoint Differentiation (AAD). Features include yield curve construction, cross-currency pricing and calibration, Monte Carlo simulation, finite difference PDE solvers, a scripting engine for exotic payoffs with tree-walk and compiled evaluators, and parallel model evaluation.
 
 ## Quick Start
 
@@ -93,6 +93,13 @@ d_vol   :    58.7140
 
 More examples: [Python](dal-python/examples/), [Excel](dal-excel/examples/), [C++](dal-cpp/examples/). The C++ Monte Carlo script examples show both tree-walk and compiled evaluator output where applicable.
 
+Cross-currency examples:
+
+- [reset-aware pricing](dal-cpp/examples/xccy_reset_pricing/)
+- [staged basis calibration](dal-cpp/examples/xccy_curve_calibration/)
+- [joint domestic/foreign/basis calibration](dal-cpp/examples/xccy_mtm_calibration/)
+- [Python joint calibration](dal-python/examples/007.xccy_joint_calibration.py)
+
 ### Script Engine Modes
 
 Monte Carlo script valuation defaults to the tree-walk evaluator (`compiled=false`).
@@ -152,6 +159,7 @@ Methodology notes (see the index above for the full list):
 
 - [AAD](docs/methodology/aad.md) — Automatic adjoint differentiation: expression templates, tape, propagation
 - [Yield Curve](docs/methodology/yield_curve.md) and [Yield-Curve Jacobian](docs/methodology/yield_curve_jacobian.md) — discount curves, calibration, Jacobian / inverse-Jacobian risk
+- [Cross-Currency Pricing and Calibration](docs/methodology/xccy_calibration.md) — fixed, resettable, and MTM swaps; immutable fixing snapshots; staged basis and simultaneous domestic/foreign/basis calibration
 - [Interpolation](docs/methodology/interpolation.md) — linear, log-linear, cubic interpolators
 - [PDE](docs/methodology/pde.md) — finite-difference meshers and coordinate maps
 - [Script Engine](docs/methodology/script_engine.md) — expression scripting, fuzzy AAD evaluation, and compiled evaluator parity
