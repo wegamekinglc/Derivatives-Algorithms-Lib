@@ -33,6 +33,8 @@ alternative ModifiedFollowing
     Choose the first business day after the given holiday unless it belongs
     to a different month, in which case choose the first business day before
     the holiday
+alternative Preceding
+    Choose the first business day before the given holiday
 -IF---------------------------------------------------------*/
 
 

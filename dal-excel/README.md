@@ -31,9 +31,36 @@ worksheet calls:
 ```
 
 Curve workflows use convention/instrument constructors followed by
-`CALIBRATE.SINGLECURVE` or `CALIBRATE.XCCYMARKET`; result accessors return either
-diagnostics or a curve handle. The [public API guide](../docs/public-api.md#excel)
-lists the primary worksheet families.
+`CALIBRATE.SINGLECURVE`, `CALIBRATE.XCCYMARKET`, or
+`CALIBRATE.JOINTXCCY`; result accessors return diagnostics, matrices, ranges, or
+curve handles. The [public API guide](../docs/public-api.md#excel) lists the
+primary worksheet families.
+
+## Resettable and Joint XCCY Functions
+
+`XCCYRESETCONVENTION.NEW` creates the business-day and timestamp convention for
+FX resets. `CROSSCURRENCYSWAPCONFIG.NEW` combines it with the currency pair, leg
+and index conventions, `FIXED` / `RESETTABLE` / `MARK_TO_MARKET`, and explicit
+domestic and foreign rate-fixing identities. Pass that handle to
+`CROSSCURRENCYSWAP.CONFIG.NEW` to create the quoted instrument.
+
+`MARKETFIXINGSNAPSHOT.NEW` takes parallel index-name, fixing-time, and value
+ranges and returns one immutable snapshot handle. The arrays must have equal
+length, timestamps must be valid, and observations must be positive and finite.
+The snapshot can contain both rate and canonical FX names such as
+`FX[EUR/USD]`.
+
+`CALIBRATE.JOINTXCCY` performs one domestic/foreign/basis solve. Its result
+supports dedicated handle getters:
+
+- `JOINTXCCYCALIBRATIONRESULT.GET.DOMESTICBLOCK`
+- `JOINTXCCYCALIBRATIONRESULT.GET.FOREIGNBLOCK`
+- `JOINTXCCYCALIBRATIONRESULT.GET.BASISCURVE`
+
+`JOINTXCCYCALIBRATIONRESULT.GET` returns matrix views selected by
+`fxForwards`, `marketRates`, `modelRates`, `residuals`, `jacobian`,
+`parameterRanges`, or `residualRanges`. The generated HTML under `auto/` is the
+exact argument and settings-key reference.
 
 ## Layout and Generated Registration
 
@@ -56,7 +83,9 @@ Do not hand-edit `auto/*.inc` or `auto/*.htm`.
 ## Runtime State
 
 Excel keeps storable objects in a host repository and passes them between cells
-as handles. Evaluation date and fixings are process-wide DAL state. Worksheet
-failures are returned as error text annotated with the failing argument.
+as handles. The evaluation date and legacy fixing store are process-wide DAL
+state; `MARKETFIXINGSNAPSHOT.NEW` instead creates an immutable repository-held
+snapshot. Worksheet failures are returned as error text annotated with the failing
+argument.
 
 DAL is distributed under the repository [MIT license](../LICENSE).

@@ -1,0 +1,51 @@
+
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+<title>CrossCurrencySwapConfig_New</title>
+<link href="tablecloth/tablecloth.css" rel="stylesheet" type="text/css" media="screen" />
+<link href="hbk.css" rel="stylesheet" type="text/css" media="screen" />
+<script type="text/javascript" src="tablecloth/tablecloth.js"></script>
+</head>
+<body>
+<h1>CrossCurrencySwapConfig_New (in Excel: CROSSCURRENCYSWAPCONFIG.NEW)</h1>
+Create a configured cross-currency swap input handle
+
+<h2>Inputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th>Optional?</th><th></th></tr>
+
+<tr><td>currencies</td><td>handle of type StorableCurrencyPair</td><td></td><td>The currency pair (domestic, foreign)</td></tr>
+<tr><td>domesticLeg</td><td>handle of type StorableRateLegConvention</td><td></td><td>The domestic leg convention</td></tr>
+<tr><td>domesticIndex</td><td>handle of type StorableRateIndexConvention</td><td></td><td>The domestic rate index convention</td></tr>
+<tr><td>foreignLeg</td><td>handle of type StorableRateLegConvention</td><td></td><td>The foreign leg convention</td></tr>
+<tr><td>foreignIndex</td><td>handle of type StorableRateIndexConvention</td><td></td><td>The foreign rate index convention</td></tr>
+<tr><td>resetConvention</td><td>handle of type StorableFxResetConvention</td><td></td><td>The FX reset convention (created with XCCYRESETCONVENTION.NEW)</td></tr>
+<tr><td>notionalMode</td><td>string</td><td></td><td>Notional behavior: FIXED, RESETTABLE, or MARK_TO_MARKET</td></tr>
+<tr><td>domesticRateIndex</td><td>string</td><td></td><td>Domestic rate fixing index name</td></tr>
+<tr><td>domesticRateFixingHour</td><td>integer</td><td></td><td>Domestic rate fixing hour in the range 0 to 23</td></tr>
+<tr><td>domesticRateFixingMinute</td><td>integer</td><td></td><td>Domestic rate fixing minute in the range 0 to 59</td></tr>
+<tr><td>foreignRateIndex</td><td>string</td><td></td><td>Foreign rate fixing index name</td></tr>
+<tr><td>foreignRateFixingHour</td><td>integer</td><td></td><td>Foreign rate fixing hour in the range 0 to 23</td></tr>
+<tr><td>foreignRateFixingMinute</td><td>integer</td><td></td><td>Foreign rate fixing minute in the range 0 to 59</td></tr>
+<tr><td>domesticNotional</td><td>number</td><td>yes (default = 100.0)</td><td>Domestic notional</td></tr>
+<tr><td>foreignNotional</td><td>number</td><td>yes (default = 100.0)</td><td>Foreign notional</td></tr>
+
+</table>
+
+
+
+
+
+<h2>Outputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th></th></tr>
+
+<tr><td>config</td><td>handle of type StorableCrossCurrencySwapConfig</td><td>The configured cross-currency swap input</td></tr>
+</table>
+
+
+
+
+
+

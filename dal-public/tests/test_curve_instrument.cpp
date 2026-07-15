@@ -8,6 +8,7 @@
 #include <dal-public/src/curveprotocol.hpp>
 
 using Dal::BasisSwapNew;
+using Dal::CrossCurrencySwapConfigBuilder_;
 using Dal::CrossCurrencySwapNew;
 using Dal::CurrencyPair_New;
 using Dal::Date_;
@@ -22,6 +23,7 @@ using Dal::RateIndexConvention_New;
 using Dal::RateLegConvention_New;
 using Dal::SwapNew;
 using Dal::CollateralType_OIS;
+using Dal::XccyNotionalMode_;
 using Dal::YCInstrument_;
 using Dal::RateLegConvention_;
 using Dal::RateIndexConvention_;
@@ -155,4 +157,74 @@ TEST(CurveInstrumentTest, TestCrossCurrencySwapNewDefaults) {
     auto currencies = CurrencyPair_New("USD", "EUR");
     auto inst = CrossCurrencySwapNew(Today(), start, maturity, 0.001, currencies);
     ASSERT_TRUE(inst != nullptr);
+}
+
+TEST(CurveInstrumentTest, TestCrossCurrencySwapConfigBuilderAndOverloadRoundTripEveryField) {
+    CrossCurrencySwapConfigBuilder_ builder;
+    builder.pair_ = CurrencyPair_New("USD", "EUR");
+    builder.domesticNotional_ = 125.0;
+    builder.foreignNotional_ = 113.5;
+    builder.convention_.initialNotionalExchange_ = false;
+    builder.convention_.finalNotionalExchange_ = true;
+    builder.convention_.spreadOnForeignLeg_ = false;
+    builder.convention_.domesticLeg_ = Fixed6M();
+    builder.convention_.domesticIndex_ = Libor3M();
+    builder.convention_.foreignLeg_ = Float3M();
+    builder.convention_.foreignIndex_ = OvernightIndex();
+    builder.notionalMode_ = XccyNotionalMode_::Value_::RESETTABLE;
+    builder.fxReset_ = Dal::FxResetConventionNew(2, Dal::Holidays_(""), Dal::BizDayConvention_("Following"), 10, 30);
+    builder.domesticRateFixing_.indexName_ = "USD-SOFR-3M";
+    builder.domesticRateFixing_.fixingHour_ = 11;
+    builder.domesticRateFixing_.fixingMinute_ = 5;
+    builder.foreignRateFixing_.indexName_ = "EUR-ESTR-3M";
+    builder.foreignRateFixing_.fixingHour_ = 12;
+    builder.foreignRateFixing_.fixingMinute_ = 15;
+
+    const auto config = builder.Build();
+    const auto instrument = CrossCurrencySwapNew(Today(), Spot(), Spot().AddDays(3650), 0.0015, config);
+    const auto& actual = instrument->Config();
+
+    ASSERT_TRUE(actual.pair_ == builder.pair_);
+    ASSERT_NEAR(actual.domesticNotional_, 125.0, 1.0e-15);
+    ASSERT_NEAR(actual.foreignNotional_, 113.5, 1.0e-15);
+    ASSERT_FALSE(actual.convention_.initialNotionalExchange_);
+    ASSERT_TRUE(actual.convention_.finalNotionalExchange_);
+    ASSERT_FALSE(actual.convention_.spreadOnForeignLeg_);
+    ASSERT_EQ(actual.convention_.domesticLeg_.paymentFrequency_.String(), builder.convention_.domesticLeg_.paymentFrequency_.String());
+    ASSERT_EQ(actual.convention_.domesticIndex_.forecastTenor_.String(), builder.convention_.domesticIndex_.forecastTenor_.String());
+    ASSERT_EQ(actual.convention_.foreignLeg_.paymentFrequency_.String(), builder.convention_.foreignLeg_.paymentFrequency_.String());
+    ASSERT_EQ(actual.convention_.foreignIndex_.forecastTenor_.String(), builder.convention_.foreignIndex_.forecastTenor_.String());
+    ASSERT_EQ(actual.notionalMode_.Switch(), XccyNotionalMode_::Value_::RESETTABLE);
+    ASSERT_EQ(actual.fxReset_.fixingLag_, 2);
+    ASSERT_EQ(actual.fxReset_.fixingHolidays_, Dal::Holidays_(""));
+    ASSERT_EQ(actual.fxReset_.fixingConvention_, Dal::BizDayConvention_("Following"));
+    ASSERT_EQ(actual.fxReset_.fixingHour_, 10);
+    ASSERT_EQ(actual.fxReset_.fixingMinute_, 30);
+    ASSERT_EQ(actual.domesticRateFixing_.indexName_, Dal::String_("USD-SOFR-3M"));
+    ASSERT_EQ(actual.domesticRateFixing_.fixingHour_, 11);
+    ASSERT_EQ(actual.domesticRateFixing_.fixingMinute_, 5);
+    ASSERT_EQ(actual.foreignRateFixing_.indexName_, Dal::String_("EUR-ESTR-3M"));
+    ASSERT_EQ(actual.foreignRateFixing_.fixingHour_, 12);
+    ASSERT_EQ(actual.foreignRateFixing_.fixingMinute_, 15);
+}
+
+TEST(CurveInstrumentTest, TestCrossCurrencySwapNewLegacyOverloadRemainsFixed) {
+    const auto pair = CurrencyPair_New("USD", "EUR");
+    const auto domesticLeg = Fixed6M();
+    const auto domesticIndex = Libor3M();
+    const auto foreignLeg = Float3M();
+    const auto foreignIndex = OvernightIndex();
+
+    const auto instrument =
+        CrossCurrencySwapNew(Today(), Spot(), Spot().AddDays(3650), 0.002, pair, 140.0, 127.0, domesticLeg, domesticIndex, foreignLeg, foreignIndex);
+    const auto& config = instrument->Config();
+
+    ASSERT_EQ(config.notionalMode_.Switch(), XccyNotionalMode_::Value_::FIXED);
+    ASSERT_TRUE(config.pair_ == pair);
+    ASSERT_NEAR(config.domesticNotional_, 140.0, 1.0e-15);
+    ASSERT_NEAR(config.foreignNotional_, 127.0, 1.0e-15);
+    ASSERT_EQ(config.convention_.domesticLeg_.paymentFrequency_.String(), domesticLeg.paymentFrequency_.String());
+    ASSERT_EQ(config.convention_.domesticIndex_.forecastTenor_.String(), domesticIndex.forecastTenor_.String());
+    ASSERT_EQ(config.convention_.foreignLeg_.paymentFrequency_.String(), foreignLeg.paymentFrequency_.String());
+    ASSERT_EQ(config.convention_.foreignIndex_.forecastTenor_.String(), foreignIndex.forecastTenor_.String());
 }

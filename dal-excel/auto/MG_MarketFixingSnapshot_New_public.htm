@@ -1,0 +1,39 @@
+
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+<title>MarketFixingSnapshot_New</title>
+<link href="tablecloth/tablecloth.css" rel="stylesheet" type="text/css" media="screen" />
+<link href="hbk.css" rel="stylesheet" type="text/css" media="screen" />
+<script type="text/javascript" src="tablecloth/tablecloth.js"></script>
+</head>
+<body>
+<h1>MarketFixingSnapshot_New (in Excel: MARKETFIXINGSNAPSHOT.NEW)</h1>
+Create an immutable market fixing snapshot from parallel input arrays
+
+<h2>Inputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th>Optional?</th><th></th></tr>
+
+<tr><td>indexNames</td><td>vector of strings</td><td></td><td>Index names for the fixing observations</td></tr>
+<tr><td>fixingTimes</td><td>vector of cells</td><td></td><td>Fixing timestamps as Excel date-time cells</td></tr>
+<tr><td>values</td><td>vector of numbers</td><td></td><td>Positive finite fixing values</td></tr>
+
+</table>
+
+
+
+
+
+<h2>Outputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th></th></tr>
+
+<tr><td>snapshot</td><td>handle of type StorableMarketFixingSnapshot</td><td>The immutable market fixing snapshot</td></tr>
+</table>
+
+
+
+
+
+

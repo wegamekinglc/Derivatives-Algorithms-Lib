@@ -6,12 +6,12 @@ exhaustive reference for every core numerical type.
 
 ## API Layers
 
-| Layer | Intended use | Compatibility contract |
-|-------|--------------|------------------------|
-| `DAL::cpp` | Direct access to quantitative algorithms and core types | Source-level core API; advanced consumers track core changes |
+| Layer         | Intended use                                                                             | Compatibility contract                                                    |
+|---------------|------------------------------------------------------------------------------------------|---------------------------------------------------------------------------|
+| `DAL::cpp`    | Direct access to quantitative algorithms and core types                                  | Source-level core API; advanced consumers track core changes              |
 | `DAL::public` | Construction, calibration, scripted valuation, random generation, and repository helpers | Convenience facade; exposes core types and does not promise ABI isolation |
-| Python `dal` | Python-friendly wrappers over the public facade | Supported names are those exported by `_dal` and `dal/api.py` |
-| Excel XLL | Worksheet functions and repository handles | Supported worksheet names come from generated registrations |
+| Python `dal`  | Python-friendly wrappers over the public facade                                          | Supported names are those exported by `_dal` and `dal/api.py`             |
+| Excel XLL     | Worksheet functions and repository handles                                               | Supported worksheet names come from generated registrations               |
 
 Installed C++ consumers should link imported targets instead of copying library
 paths. See the [installation guide](installation.md#installed-cmake-packages).
@@ -37,20 +37,20 @@ on other toolchains.
 
 ### Public facade headers
 
-| Header | Main entry points |
-|--------|-------------------|
-| `<dal-public/src/global.hpp>` | `InitGlobalData`, `SetEvaluationDate`, `GetEvaluationDate` |
-| `<dal-public/src/script.hpp>` | `NewScriptProduct`, `DebugScriptProduct` |
-| `<dal-public/src/models.hpp>` | `NewBSModelData`, `NewDupireModelData` |
-| `<dal-public/src/value.hpp>` | `ValueByMonteCarlo` |
-| `<dal-public/src/random.hpp>` | Pseudo/Sobol constructors and uniform/normal matrix fills |
-| `<dal-public/src/curveprotocol.hpp>` | Day-basis, tenor, collateral, rate-leg/index, and currency-pair builders |
-| `<dal-public/src/curveinstrument.hpp>` | Deposit, FRA, future, swap, OIS, basis-swap, and cross-currency-swap builders |
-| `<dal-public/src/curvedata.hpp>` | Piecewise-linear-forward, zero-rate, and curve-block builders |
-| `<dal-public/src/curvespec.hpp>` | `CurveCalibrationSpecBuilder_`, `CalibrateSingleCurve`, `CalibrateMultiCurveBundle` |
-| `<dal-public/src/xccycalibration.hpp>` | Cross-currency spec builder and `CalibrateXccyMarket` |
-| `<dal-public/src/interp.hpp>` | Linear one-dimensional interpolation builder |
-| `<dal-public/src/repository.hpp>` | Repository find, erase, and size helpers for a configured host environment |
+| Header                                 | Main entry points                                                                                   |
+|----------------------------------------|-----------------------------------------------------------------------------------------------------|
+| `<dal-public/src/global.hpp>`          | `InitGlobalData`, `SetEvaluationDate`, `GetEvaluationDate`                                          |
+| `<dal-public/src/script.hpp>`          | `NewScriptProduct`, `DebugScriptProduct`                                                            |
+| `<dal-public/src/models.hpp>`          | `NewBSModelData`, `NewDupireModelData`                                                              |
+| `<dal-public/src/value.hpp>`           | `ValueByMonteCarlo`                                                                                 |
+| `<dal-public/src/random.hpp>`          | Pseudo/Sobol constructors and uniform/normal matrix fills                                           |
+| `<dal-public/src/curveprotocol.hpp>`   | Day-basis, tenor, collateral, rate-leg/index, currency-pair, FX-reset, and fixing-snapshot builders |
+| `<dal-public/src/curveinstrument.hpp>` | Deposit, FRA, future, swap, OIS, basis-swap, and fixed/resettable/MTM cross-currency-swap builders  |
+| `<dal-public/src/curvedata.hpp>`       | Piecewise-linear-forward, zero-rate, and curve-block builders                                       |
+| `<dal-public/src/curvespec.hpp>`       | `CurveCalibrationSpecBuilder_`, `CalibrateSingleCurve`, `CalibrateMultiCurveBundle`                 |
+| `<dal-public/src/xccycalibration.hpp>` | Staged and joint XCCY spec builders, calibration, and joint-result accessors                        |
+| `<dal-public/src/interp.hpp>`          | Linear one-dimensional interpolation builder                                                        |
+| `<dal-public/src/repository.hpp>`      | Repository find, erase, and size helpers for a configured host environment                          |
 
 The installed include path intentionally retains `dal-public/src/`. The facade
 also uses core `Handle_`, `Date_`, curve, model, and diagnostics types directly.
@@ -142,14 +142,26 @@ The facade separates construction from solving:
 5. Read `CalibrationResult_::curve_` and its diagnostics.
 
 For staged calibration, assemble `MultiCurveCalibrationSpec_` and call
-`CalibrateMultiCurveBundle`. Cross-currency calibration has the analogous
-`CrossCurrencyCalibrationSpecBuilder_` / `CalibrateXccyMarket` path. The full
-methodology is in [yield-curve construction](methodology/yield_curve.md).
+`CalibrateMultiCurveBundle`. Cross-currency calibration has two paths:
+
+- `CrossCurrencyCalibrationSpecBuilder_` / `CalibrateXccyMarket` calibrates a
+  basis curve over supplied domestic and foreign blocks.
+- `JointXccyCalibrationSpecBuilder_` / `CalibrateJointXccyMarket` solves the
+  domestic declarations, foreign declarations, and basis declaration together.
+
+`CrossCurrencySwapConfigBuilder_` selects `XccyNotionalMode_::{FIXED,
+RESETTABLE,MARK_TO_MARKET}`, explicit domestic/foreign `FixingIdentity_` values,
+and an `FxResetConvention_`. `MarketFixingSnapshotNew` creates an immutable
+rate-and-FX observation set for in-progress swaps. Joint results expose the
+three solved curve handles plus FX forwards, market/model/residual vectors, the
+forward Jacobian, and named parameter/residual ranges through
+`JointXccyResult*` accessors. See
+[cross-currency pricing and calibration](methodology/xccy_calibration.md).
 
 Set `parameterization_ = CurveParameterization_::Value_::ZERO_RATE` to calibrate future
 zero-rate nodes. `initialGuess_` and `initialGuessPerNode_` are decimal continuously
-compounded rates for this representation. Single, staged, and core joint calibration
-support ZERO_RATE; only single and staged calibration are exposed by the public facade.
+compounded rates for this representation. Single, staged, generic joint, and
+joint XCCY calibration support ZERO_RATE.
 
 ## Python
 
@@ -161,16 +173,17 @@ import dal
 
 ### Common workflows
 
-| Workflow | Python entry points |
-|----------|---------------------|
-| Dates/global state | `Date_`, `Year`, `Month`, `Day`, `EvaluationDate_Set`, `EvaluationDate_Get` |
-| Script products | `Product_New`, `Product_Debug` |
-| Models | `BSModelData_New`, `DupireModelData_New` |
-| Valuation | `MonteCarlo_Value` |
-| Random generation | `PseudoRSG_New`, `SobolRSG_New`, `*_Get_Uniform`, `*_Get_Normal` |
-| Calendar operations | `Holidays_`, `Is_BizDay`, `NextBizDay`, `PrevBizDay`, `Adjust` |
-| Curves | `DiscountZeroRate_New`, convention/instrument builders, `CurveCalibrationSpecBuilder_`, `CalibrateSingleCurve`, `CalibrateMultiCurveBundle`, `CalibrateXccyMarket` |
-| Convenience calibration | `calibrate_curve` from `dal/api.py` |
+| Workflow                | Python entry points                                                                                                                                                                            |
+|-------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Dates/global state      | `Date_`, `Year`, `Month`, `Day`, `EvaluationDate_Set`, `EvaluationDate_Get`                                                                                                                    |
+| Script products         | `Product_New`, `Product_Debug`                                                                                                                                                                 |
+| Models                  | `BSModelData_New`, `DupireModelData_New`                                                                                                                                                       |
+| Valuation               | `MonteCarlo_Value`                                                                                                                                                                             |
+| Random generation       | `PseudoRSG_New`, `SobolRSG_New`, `*_Get_Uniform`, `*_Get_Normal`                                                                                                                               |
+| Calendar operations     | `Holidays_`, `Is_BizDay`, `NextBizDay`, `PrevBizDay`, `Adjust`                                                                                                                                 |
+| Curves                  | `DiscountZeroRate_New`, convention/instrument builders, `CurveCalibrationSpecBuilder_`, `CalibrateSingleCurve`, `CalibrateMultiCurveBundle`, `CalibrateXccyMarket`, `CalibrateJointXccyMarket` |
+| XCCY reset data         | `FixingIdentity_`, `FxResetConvention_`, `MarketFixingSnapshot_New`, `CrossCurrencySwapConfigBuilder_`, `XccyNotionalMode`                                                                     |
+| Convenience calibration | `calibrate_curve` from `dal/api.py`                                                                                                                                                            |
 
 The basic valuation shape is:
 
@@ -247,8 +260,16 @@ curve = dal.DiscountZeroRate_New(
 ```
 
 The returned `DiscountZeroRate_` exposes read-only `anchor_date`, `node_dates`,
-`zero_rates`, `day_count`, and `log_df_scheme` properties. Python exposes staged but not
-core joint calibration.
+`zero_rates`, `day_count`, and `log_df_scheme` properties.
+
+Python exposes the joint XCCY declarations, builder, options, calibration entry
+point, and result surface with both trailing-underscore and snake-case aliases.
+`JointXccyCalibrationResult_` provides `domestic_curve_block`,
+`foreign_curve_block`, `basis_curve`, `fx_forward_curve`, `fixings`, group
+diagnostics, `market_rates`, `model_rates`, `residuals`,
+`jacobian_at_solution`, `eff_jacobian_inverse`, `parameter_ranges`, and
+`residual_ranges`. `CalibrateJointXccyMarket(spec, options)` selects analytic or
+bumped Jacobians and optional matrix construction.
 
 See [dal-python/README.md](../dal-python/README.md) for package-focused examples.
 
@@ -279,14 +300,15 @@ correction; leaving both optional flags `FALSE` selects the Acklam-only default.
 
 Primary worksheet families are:
 
-| Purpose | Worksheet functions |
-|---------|---------------------|
-| Conventions | `PERIODLENGTH.NEW`, `DAYBASIS.NEW`, `RATELEGCONVENTION.NEW`, `RATEINDEXCONVENTION.NEW`, `COLLATERALTYPE.*` |
-| Instruments | `DEPOSIT.NEW`, `FRA.NEW`, `FUTURE.NEW`, `SWAP.NEW`, `OISSWAP.NEW`, `BASISSWAP.NEW`, `CROSSCURRENCYSWAP.NEW` |
-| Direct curves | `DISCOUNTPWLF.NEW`, `DISCOUNTZERORATE.NEW`, `CURVEBLOCK.NEW.SIMPLE` |
-| Calibration | `CALIBRATE.SINGLECURVE`, `CALIBRATE.XCCYMARKET` |
-| Results | `CALIBRATIONRESULT.GET`, `CALIBRATIONRESULT.GET.CURVE`, `XCCYCALIBRATIONRESULT.*` |
-| Repository | `REPOSITORY.FIND`, `REPOSITORY.ERASE`, `REPOSITORY.SIZE` |
+| Purpose         | Worksheet functions                                                                                                                                                        |
+|-----------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Conventions     | `PERIODLENGTH.NEW`, `DAYBASIS.NEW`, `RATELEGCONVENTION.NEW`, `RATEINDEXCONVENTION.NEW`, `COLLATERALTYPE.*`                                                                 |
+| XCCY reset data | `XCCYRESETCONVENTION.NEW`, `MARKETFIXINGSNAPSHOT.NEW`                                                                                                                      |
+| Instruments     | `DEPOSIT.NEW`, `FRA.NEW`, `FUTURE.NEW`, `SWAP.NEW`, `OISSWAP.NEW`, `BASISSWAP.NEW`, `CROSSCURRENCYSWAP.NEW`, `CROSSCURRENCYSWAPCONFIG.NEW`, `CROSSCURRENCYSWAP.CONFIG.NEW` |
+| Direct curves   | `DISCOUNTPWLF.NEW`, `DISCOUNTZERORATE.NEW`, `CURVEBLOCK.NEW.SIMPLE`                                                                                                        |
+| Calibration     | `CALIBRATE.SINGLECURVE`, `CALIBRATE.XCCYMARKET`, `CALIBRATE.JOINTXCCY`                                                                                                     |
+| Results         | `CALIBRATIONRESULT.GET`, `CALIBRATIONRESULT.GET.CURVE`, `XCCYCALIBRATIONRESULT.*`, `JOINTXCCYCALIBRATIONRESULT.GET*`                                                       |
+| Repository      | `REPOSITORY.FIND`, `REPOSITORY.ERASE`, `REPOSITORY.SIZE`                                                                                                                   |
 
 `DISCOUNTZERORATE.NEW` takes name, currency, anchor, future dates, and continuously
 compounded decimal zero rates, with optional day count, log-DF scheme, and base handle.
@@ -294,9 +316,17 @@ compounded decimal zero rates, with optional day count, log-DF scheme, and base 
 include curve name, target, solve mode, parameterization (`ZERO_RATE` included), log-DF
 scheme, smoothing/tolerances, scalar initial guess, and evaluation budgets. Its optional
 `baseCurve` input is the curve multiplied under the calibrated curve; it is distinct from
-the `discountCurve` used to price a forward-curve calibration. Excel does not expose the
-core joint-calibration API. Generated function help under `dal-excel/auto/*.htm` is the
-argument-level catalog used by Excel registration.
+the `discountCurve` used to price a forward-curve calibration.
+
+`CALIBRATE.JOINTXCCY` accepts one domestic discount-instrument/knot group, one
+foreign discount-instrument/knot group, configured XCCY instruments, basis
+knots, an optional immutable snapshot handle, and two-column settings. Dedicated
+result functions return the domestic block, foreign block, and basis curve
+handles.
+`JOINTXCCYCALIBRATIONRESULT.GET` returns `fxForwards`, `marketRates`,
+`modelRates`, `residuals`, `jacobian`, `parameterRanges`, or `residualRanges`.
+Generated function help under `dal-excel/auto/*.htm` is the argument-level
+catalog used by Excel registration.
 
 See [dal-excel/README.md](../dal-excel/README.md) for build and add-in guidance.
 
@@ -306,10 +336,12 @@ See [dal-excel/README.md](../dal-excel/README.md) for build and add-in guidance.
 - Python maps native exceptions to Python exceptions; invalid binding shapes and
   indices use `ValueError`/`IndexError` where appropriate.
 - Excel returns worksheet error text annotated with the failing argument.
-- Evaluation date and fixings are process-wide state. Evaluation-date mutation
+- Evaluation date and the legacy fixing store are process-wide state. Evaluation-date mutation
   is serialized with native valuation; evaluation-date reads use the store lock
-  and remain available during valuation. Fixings reads use the store mutex, but
-  callers must externally serialize fixings mutation with other fixings access.
+  and remain available during valuation. Reset-aware XCCY APIs consume an
+  immutable `MarketFixingSnapshot_`; an omitted snapshot is copied once from the
+  global store before calibration starts. Callers must still externally
+  serialize direct mutation of the legacy fixing store.
 - AAD tapes are thread-local and must not be shared across recording frames.
 
 For ownership details, see [architecture](architecture.md).

@@ -1,0 +1,41 @@
+
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+<title>XccyResetConvention_New</title>
+<link href="tablecloth/tablecloth.css" rel="stylesheet" type="text/css" media="screen" />
+<link href="hbk.css" rel="stylesheet" type="text/css" media="screen" />
+<script type="text/javascript" src="tablecloth/tablecloth.js"></script>
+</head>
+<body>
+<h1>XccyResetConvention_New (in Excel: XCCYRESETCONVENTION.NEW)</h1>
+Create an FX reset convention handle for resettable cross-currency swaps
+
+<h2>Inputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th>Optional?</th><th></th></tr>
+
+<tr><td>fixingLag</td><td>integer</td><td></td><td>Number of business days before the reset date used for the FX fixing</td></tr>
+<tr><td>fixingHolidays</td><td>string</td><td></td><td>Holiday center used to adjust FX fixing dates (empty string means no holidays)</td></tr>
+<tr><td>fixingConvention</td><td>string</td><td></td><td>Business-day convention used to adjust FX fixing dates</td></tr>
+<tr><td>fixingHour</td><td>integer</td><td></td><td>FX fixing hour in the range 0 to 23</td></tr>
+<tr><td>fixingMinute</td><td>integer</td><td></td><td>FX fixing minute in the range 0 to 59</td></tr>
+
+</table>
+
+
+
+
+
+<h2>Outputs:</h2>
+<table border="1" cellpadding="3">
+<tr><th>Name</th><th style="width:120px">Type</th><th></th></tr>
+
+<tr><td>resetConvention</td><td>handle of type StorableFxResetConvention</td><td>The FX reset convention</td></tr>
+</table>
+
+
+
+
+
+

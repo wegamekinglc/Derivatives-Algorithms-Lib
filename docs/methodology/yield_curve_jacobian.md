@@ -85,11 +85,11 @@ The passive and AAD paths both construct curves from a `CurveDefinition_` and
 separately at each call site.
 
 | `CurveParameterization_` | Columns contributed by one declaration | Stable column order                                                             |
-|--------------------------|-----------------------------------------|---------------------------------------------------------------------------------|
-| `PIECEWISE_CONSTANT_FWD` | $K$                                     | right-hand forward value at knots $0,\dots,K-1$                                 |
-| `PIECEWISE_LINEAR_FWD`   | $2K$                                    | `fLeft[0]`, `fRight[0]`, ..., `fLeft[K-1]`, `fRight[K-1]`                       |
-| `LOG_DISCOUNT`           | $K$ future declared knots               | log DF at each future node; the pinned storage anchor is excluded               |
-| `ZERO_RATE`              | $K$ future declared knots               | continuously compounded decimal zero rate at each future node; anchor excluded  |
+|--------------------------|----------------------------------------|---------------------------------------------------------------------------------|
+| `PIECEWISE_CONSTANT_FWD` | $K$                                    | right-hand forward value at knots $0,\dots,K-1$                                 |
+| `PIECEWISE_LINEAR_FWD`   | $2K$                                   | `fLeft[0]`, `fRight[0]`, ..., `fLeft[K-1]`, `fRight[K-1]`                       |
+| `LOG_DISCOUNT`           | $K$ future declared knots              | log DF at each future node; the pinned storage anchor is excluded               |
+| `ZERO_RATE`              | $K$ future declared knots              | continuously compounded decimal zero rate at each future node; anchor excluded  |
 
 For ZERO_RATE, node $j$ is mapped through $\ell_j=-z_j\tau_j$, so the direct node
 chain factor is
@@ -338,6 +338,43 @@ from a forward-declaration residual reading a discount declaration's parameters
 smoother. The exact structural zeros the AAD sweep produces sit at parameters
 no residual touches by any route — the block-diagonal smoother simply ensures
 the smoothing pass does not smear those zeros into small non-zero entries.
+
+## Joint XCCY Jacobian Layout
+
+`CalibrateJointXccyMarket` extends the same stacked-curve machinery with a final
+cross-currency basis block. Parameter columns are contiguous in this order:
+domestic declarations, foreign declarations, then the basis declaration.
+Residual rows are domestic instrument groups, foreign instrument groups, then
+XCCY swap quotes. `JointXccyCalibrationResult_::parameterRanges_` and
+`residualRanges_` publish the exact name, offset, and size of each block, so a
+consumer does not have to reconstruct the layout from the input spec.
+
+In exact analytic mode, `jacobianAtSolution_` is the unscaled dense matrix
+
+$$
+J_{ik}=\frac{\partial\,(\text{model quote}_i-\text{market quote}_i)}
+             {\partial x_k}
+$$
+
+with shape `totalResiduals x totalParameters`. It includes cross-block entries
+from domestic/foreign discount and projection routing, FX forwards, basis
+discounting, resettable notionals, MTM exchanges, and historical fixing choices.
+The immutable fixing snapshot is passive data: historical observations have no
+parameter adjoints, while future or unsupplied at-valuation observations remain
+active forward values.
+
+Unlike generic joint multi-curve calibration, requested XCCY `ANALYTIC` mode is
+fail-fast. An unsupported declaration, day basis, instrument route, or malformed
+XCCY plan raises an eligibility error naming the offending group. `BUMPED`
+remains available for every otherwise-valid spec. In exact bumped mode,
+`jacobianAtSolution_` is empty while `effJacobianInverse_` may still be retained.
+Approximate mode exposes neither matrix. The two matrix computations can also be
+disabled independently with `JointXccyCalibrationOptions_`.
+
+The regression suite compares the full analytic stack against two-sided central
+differences and verifies that the published parameter and residual ranges
+partition every column and row. The runnable `xccy_mtm_calibration` example
+prints the solved matrix shape and all domestic, foreign, and basis ranges.
 
 ## The Inverse Jacobian and Bucketed IR Risk
 

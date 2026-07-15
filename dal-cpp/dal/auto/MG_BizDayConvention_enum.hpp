@@ -9,6 +9,7 @@ public:
      Unadjusted,
      Following,
      ModifiedFollowing,
+     Preceding,
      _N_VALUES
     } val_;
       

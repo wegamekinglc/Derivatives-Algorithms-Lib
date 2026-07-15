@@ -12,6 +12,30 @@
 
 namespace Dal {
 
+    struct CrossCurrencySwapConfigBuilder_ {
+        CurrencyPair_ pair_;
+        double domesticNotional_ = 100.0;
+        double foreignNotional_ = 100.0;
+        CrossCurrencyConvention_ convention_;
+        XccyNotionalMode_ notionalMode_ = XccyNotionalMode_::Value_::FIXED;
+        FxResetConvention_ fxReset_;
+        FixingIdentity_ domesticRateFixing_;
+        FixingIdentity_ foreignRateFixing_;
+
+        [[nodiscard]] CrossCurrencySwapConfig_ Build() const {
+            CrossCurrencySwapConfig_ result;
+            result.pair_ = pair_;
+            result.domesticNotional_ = domesticNotional_;
+            result.foreignNotional_ = foreignNotional_;
+            result.convention_ = convention_;
+            result.notionalMode_ = notionalMode_;
+            result.fxReset_ = fxReset_;
+            result.domesticRateFixing_ = domesticRateFixing_;
+            result.foreignRateFixing_ = foreignRateFixing_;
+            return result;
+        }
+    };
+
     FORCE_INLINE Handle_<YCInstrument_> DepositNew(const Date_& tradeDate,
                                                     const Date_& start,
                                                     const Date_& maturity,
@@ -67,6 +91,11 @@ namespace Dal {
                                                       const RateLegConvention_& refLeg) {
         return Handle_<YCInstrument_>(
             new BasisSwap_(tradeDate, start, maturity, marketRate, spreadIndex, spreadLeg, refIndex, refLeg));
+    }
+
+    FORCE_INLINE Handle_<CrossCurrencySwap_> CrossCurrencySwapNew(
+        const Date_& tradeDate, const Date_& start, const Date_& maturity, double marketRate, const CrossCurrencySwapConfig_& config) {
+        return Handle_<CrossCurrencySwap_>(new CrossCurrencySwap_(tradeDate, start, maturity, marketRate, config));
     }
 
     FORCE_INLINE Handle_<CrossCurrencySwap_> CrossCurrencySwapNew(const Date_& tradeDate,

@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include <utility>
+#include <dal/math/matrix/banded.hpp>
 #include <dal/math/matrix/matrixarithmetic.hpp>
 #include <dal/math/matrix/matrixs.hpp>
 #include <dal/math/matrix/squarematrix.hpp>
@@ -12,6 +12,7 @@
 #include <dal/math/vectors.hpp>
 #include <dal/utilities/functionals.hpp>
 #include <dal/utilities/numerics.hpp>
+#include <utility>
 
 namespace Dal {
     struct XCurveJacobian_ : Underdetermined::Jacobian_ {

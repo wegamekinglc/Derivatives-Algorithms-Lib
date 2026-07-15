@@ -149,6 +149,8 @@ namespace Dal {
     Date_ Holidays::Adjust(const Holidays_& hols, const Date_& from, const BizDayConvention_& convention) {
         if (convention == BizDayConvention_("Unadjusted"))
             return from;
+        if (convention == BizDayConvention_("Preceding"))
+            return PrevBus(hols, from);
         if (convention == BizDayConvention_("Following"))
             return NextBus(hols, from);
         if (convention == BizDayConvention_("ModifiedFollowing")) {

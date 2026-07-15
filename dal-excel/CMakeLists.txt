@@ -154,6 +154,7 @@ install(TARGETS dal_excel
 # Test target: dal_excel_tests (Windows only)
 # ---------------------------------------------------------------------------
 if(DAL_EXCEL_BUILD_TESTS)
+    target_compile_definitions(dal_excel PRIVATE DAL_EXCEL_TEST_API_EXPORTS)
     enable_testing()
 
     if(NOT TARGET GTest::gtest_main)
@@ -168,6 +169,7 @@ if(DAL_EXCEL_BUILD_TESTS)
 
     if(TEST_FILES)
         add_executable(dal_excel_tests ${TEST_FILES})
+        target_compile_definitions(dal_excel_tests PRIVATE DAL_EXCEL_TEST_API_IMPORTS)
         if(DAL_EXCEL_USES_INSTALLED_PUBLIC)
             dal_cpp_apply_msvc_runtime(dal_excel_tests)
             if(MSVC)

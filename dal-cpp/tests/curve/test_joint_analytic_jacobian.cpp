@@ -476,6 +476,91 @@ namespace {
         return HarvestCurveJacobian(*tape, activeParameters, residuals);
     }
 
+    struct ExpectedJointShape_ {
+        int columns_ = 0;
+        int discountColumns_ = 0;
+        int rows_ = 0;
+    };
+
+    ExpectedJointShape_ ExpectedJointShape(const JointMultiCurveCalibrationSpec_& spec) {
+        ExpectedJointShape_ result;
+        for (const auto& declaration : spec.curves_) {
+            const CurveDefinition_ definition = MakeCurveDefinition(declaration.curveName_, spec.ccy_, declaration.parameterization_,
+                                                                    declaration.logDfScheme_, declaration.knotDates_, spec.today_, spec.liborBasis_);
+            const int columns = BuildCurveParameterLayout(definition).parameterCount_;
+            result.columns_ += columns;
+            if (declaration.calibrateDiscountCurve_)
+                result.discountColumns_ += columns;
+            result.rows_ += static_cast<int>(declaration.instruments_.size());
+        }
+        return result;
+    }
+
+    void AssertCentralDifferences(const JointMultiCurveCalibrationSpec_& spec,
+                                  const Vector_<>& solved,
+                                  const Matrix_<>& analyticJacobian,
+                                  const ExpectedJointShape_& shape) {
+        constexpr double bump = 1.0e-6;
+        for (int column = 0; column < shape.columns_; ++column) {
+            Vector_<> up = solved;
+            Vector_<> down = solved;
+            up[column] += bump;
+            down[column] -= bump;
+            const Vector_<> upResiduals = EvalJointResiduals(spec, up);
+            const Vector_<> downResiduals = EvalJointResiduals(spec, down);
+            for (int row = 0; row < shape.rows_; ++row) {
+                const double centralDifference = (upResiduals[row] - downResiduals[row]) / (2.0 * bump);
+                ASSERT_NEAR(analyticJacobian(row, column), centralDifference, 2.0e-8) << "row=" << row << ", column=" << column;
+            }
+        }
+    }
+
+    double CrossBlockMax(const JointMultiCurveCalibrationSpec_& spec, const Matrix_<>& jacobian, const ExpectedJointShape_& shape) {
+        const int discountRows = static_cast<int>(spec.curves_.front().instruments_.size());
+        double result = 0.0;
+        for (int row = discountRows; row < shape.rows_; ++row)
+            for (int column = 0; column < shape.discountColumns_; ++column)
+                result = std::max(result, std::fabs(jacobian(row, column)));
+        return result;
+    }
+
+    void AssertSolvedParametersMatch(const Vector_<>& analytic, const Vector_<>& bumped) {
+        ASSERT_EQ(bumped.size(), analytic.size());
+        for (int i = 0; i < static_cast<int>(analytic.size()); ++i)
+            ASSERT_NEAR(analytic[i], bumped[i], 2.0e-5) << "solver column=" << i;
+    }
+
+    void AssertDiagnosticsMatch(const JointMultiCurveCalibrationSpec_& spec,
+                                const JointMultiCurveCalibrationResult_& analytic,
+                                const JointMultiCurveCalibrationResult_& bumped) {
+        ASSERT_EQ(analytic.diagnostics_.size(), bumped.diagnostics_.size());
+        for (int declarationIndex = 0; declarationIndex < static_cast<int>(spec.curves_.size()); ++declarationIndex) {
+            const auto& analyticResiduals = analytic.diagnostics_[declarationIndex].residuals_;
+            const auto& bumpedResiduals = bumped.diagnostics_[declarationIndex].residuals_;
+            ASSERT_EQ(analyticResiduals.size(), bumpedResiduals.size());
+            for (int row = 0; row < static_cast<int>(analyticResiduals.size()); ++row)
+                ASSERT_NEAR(analyticResiduals[row], bumpedResiduals[row], 2.0e-8) << "declaration=" << declarationIndex << ", residual row=" << row;
+        }
+    }
+
+    void AssertCurveNodesMatch(const JointMultiCurveCalibrationSpec_& spec,
+                               const JointMultiCurveCalibrationResult_& analytic,
+                               const JointMultiCurveCalibrationResult_& bumped) {
+        for (int declarationIndex = 0; declarationIndex < static_cast<int>(spec.curves_.size()); ++declarationIndex) {
+            const auto& declaration = spec.curves_[declarationIndex];
+            const Handle_<DiscountCurve_>& analyticCurve = declaration.calibrateDiscountCurve_
+                                                               ? analytic.discountCurves_.at(declaration.targetCollateral_)
+                                                               : analytic.forwardCurves_.at(declaration.targetTenor_);
+            const Handle_<DiscountCurve_>& bumpedCurve = declaration.calibrateDiscountCurve_
+                                                             ? bumped.discountCurves_.at(declaration.targetCollateral_)
+                                                             : bumped.forwardCurves_.at(declaration.targetTenor_);
+            for (int knot = 0; knot < static_cast<int>(declaration.knotDates_.size()); ++knot)
+                ASSERT_NEAR((*analyticCurve)(spec.today_, declaration.knotDates_[knot]), (*bumpedCurve)(spec.today_, declaration.knotDates_[knot]),
+                            2.0e-5)
+                    << "declaration=" << declarationIndex << ", knot=" << knot;
+        }
+    }
+
     void AssertJointJacobianMatchesCentralDifferences(const JointMultiCurveCalibrationSpec_& spec, const String_& label) {
         SCOPED_TRACE(label.c_str());
         JointMultiCurveCalibrationOptions_ analyticOptions;
@@ -485,42 +570,13 @@ namespace {
         ASSERT_FALSE(analytic.jacobianAtSolution_.Empty());
 
         const Vector_<> solved = SolvedJointParameters(spec, analytic);
-        int expectedColumns = 0;
-        int discountColumns = 0;
-        int expectedRows = 0;
-        for (const auto& declaration : spec.curves_) {
-            const CurveDefinition_ definition = MakeCurveDefinition(declaration.curveName_, spec.ccy_, declaration.parameterization_,
-                                                                    declaration.logDfScheme_, declaration.knotDates_, spec.today_, spec.liborBasis_);
-            const int columns = BuildCurveParameterLayout(definition).parameterCount_;
-            expectedColumns += columns;
-            if (declaration.calibrateDiscountCurve_)
-                discountColumns += columns;
-            expectedRows += static_cast<int>(declaration.instruments_.size());
-        }
-        ASSERT_EQ(static_cast<int>(solved.size()), expectedColumns);
-        ASSERT_EQ(analytic.jacobianAtSolution_.Rows(), expectedRows);
-        ASSERT_EQ(analytic.jacobianAtSolution_.Cols(), expectedColumns);
-
-        constexpr double bump = 1.0e-6;
-        for (int column = 0; column < expectedColumns; ++column) {
-            Vector_<> up = solved;
-            Vector_<> down = solved;
-            up[column] += bump;
-            down[column] -= bump;
-            const Vector_<> upResiduals = EvalJointResiduals(spec, up);
-            const Vector_<> downResiduals = EvalJointResiduals(spec, down);
-            for (int row = 0; row < expectedRows; ++row) {
-                const double centralDifference = (upResiduals[row] - downResiduals[row]) / (2.0 * bump);
-                ASSERT_NEAR(analytic.jacobianAtSolution_(row, column), centralDifference, 2.0e-8) << "row=" << row << ", column=" << column;
-            }
-        }
-
-        const int discountRows = static_cast<int>(spec.curves_.front().instruments_.size());
-        double crossBlockMax = 0.0;
-        for (int row = discountRows; row < expectedRows; ++row)
-            for (int column = 0; column < discountColumns; ++column)
-                crossBlockMax = std::max(crossBlockMax, std::fabs(analytic.jacobianAtSolution_(row, column)));
-        ASSERT_GT(crossBlockMax, 1.0e-8) << "base-layered forward residuals must depend on discount-curve parameters";
+        const ExpectedJointShape_ shape = ExpectedJointShape(spec);
+        ASSERT_EQ(static_cast<int>(solved.size()), shape.columns_);
+        ASSERT_EQ(analytic.jacobianAtSolution_.Rows(), shape.rows_);
+        ASSERT_EQ(analytic.jacobianAtSolution_.Cols(), shape.columns_);
+        AssertCentralDifferences(spec, solved, analytic.jacobianAtSolution_, shape);
+        ASSERT_GT(CrossBlockMax(spec, analytic.jacobianAtSolution_, shape), 1.0e-8)
+            << "base-layered forward residuals must depend on discount-curve parameters";
 
         JointMultiCurveCalibrationOptions_ bumpedOptions;
         bumpedOptions.jacobianMode_ = CurveJacobianMode_::Value_::BUMPED;
@@ -528,31 +584,9 @@ namespace {
         ASSERT_TRUE(bumped.converged_);
         ASSERT_TRUE(bumped.jacobianAtSolution_.Empty());
         const Vector_<> bumpedSolved = SolvedJointParameters(spec, bumped);
-        ASSERT_EQ(bumpedSolved.size(), solved.size());
-        for (int i = 0; i < static_cast<int>(solved.size()); ++i)
-            ASSERT_NEAR(solved[i], bumpedSolved[i], 2.0e-5) << "solver column=" << i;
-
-        ASSERT_EQ(analytic.diagnostics_.size(), bumped.diagnostics_.size());
-        for (int declarationIndex = 0; declarationIndex < static_cast<int>(spec.curves_.size()); ++declarationIndex) {
-            const auto& declaration = spec.curves_[declarationIndex];
-            const auto& analyticResiduals = analytic.diagnostics_[declarationIndex].residuals_;
-            const auto& bumpedResiduals = bumped.diagnostics_[declarationIndex].residuals_;
-            ASSERT_EQ(analyticResiduals.size(), bumpedResiduals.size());
-            for (int row = 0; row < static_cast<int>(analyticResiduals.size()); ++row)
-                ASSERT_NEAR(analyticResiduals[row], bumpedResiduals[row], 2.0e-8)
-                    << "declaration=" << declarationIndex << ", residual row=" << row;
-
-            const Handle_<DiscountCurve_>& analyticCurve =
-                declaration.calibrateDiscountCurve_ ? analytic.discountCurves_.at(declaration.targetCollateral_)
-                                                    : analytic.forwardCurves_.at(declaration.targetTenor_);
-            const Handle_<DiscountCurve_>& bumpedCurve =
-                declaration.calibrateDiscountCurve_ ? bumped.discountCurves_.at(declaration.targetCollateral_)
-                                                    : bumped.forwardCurves_.at(declaration.targetTenor_);
-            for (int knot = 0; knot < static_cast<int>(declaration.knotDates_.size()); ++knot)
-                ASSERT_NEAR((*analyticCurve)(spec.today_, declaration.knotDates_[knot]),
-                            (*bumpedCurve)(spec.today_, declaration.knotDates_[knot]), 2.0e-5)
-                    << "declaration=" << declarationIndex << ", knot=" << knot;
-        }
+        AssertSolvedParametersMatch(solved, bumpedSolved);
+        AssertDiagnosticsMatch(spec, analytic, bumped);
+        AssertCurveNodesMatch(spec, analytic, bumped);
     }
 } // namespace
 
@@ -920,6 +954,17 @@ TEST(JointAnalyticJacobianTest, TestAnalyticEligibleAgreesWithBumped) {
     // The analytic path engaged: jacobianAtSolution_ is populated for ANALYTIC + eligible + EXACT.
     ASSERT_FALSE(rAnalytic.jacobianAtSolution_.Empty());
     ASSERT_TRUE(rBumped.jacobianAtSolution_.Empty());
+    int expectedRows = 0;
+    int expectedColumns = 0;
+    for (const auto& declaration : spec.curves_) {
+        expectedRows += static_cast<int>(declaration.instruments_.size());
+        expectedColumns +=
+            BuildCurveParameterLayout(MakeCurveDefinition(declaration.curveName_, spec.ccy_, declaration.parameterization_, declaration.logDfScheme_,
+                                                          declaration.knotDates_, spec.today_, spec.liborBasis_))
+                .parameterCount_;
+    }
+    ASSERT_EQ(rAnalytic.jacobianAtSolution_.Rows(), expectedRows);
+    ASSERT_EQ(rAnalytic.jacobianAtSolution_.Cols(), expectedColumns);
 
     // Per-pillar OIS DFs agree to the smoothing-fit residual floor (both paths solve the same
     // system with differently-computed Jacobians; the solution x should be essentially identical).

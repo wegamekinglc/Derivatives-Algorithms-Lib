@@ -8,7 +8,7 @@ Python bindings for the Derivatives Algorithms Library (DAL) — a high-performa
 - **Monte Carlo simulation** with pseudo-random and Sobol sequence generators
 - **AAD Greeks** — compute pathwise sensitivities (delta, vega, rho, etc.) in a single simulation
 - **Script engine** — define exotic payoffs using a domain-specific language
-- **Curve calibration** — single-curve, multi-curve, and cross-currency calibration with forward, log-discount, and continuously compounded zero-rate curves plus AAD analytic Jacobians
+- **Curve calibration** — single-curve, multi-curve, staged XCCY, and joint domestic/foreign/basis calibration with resettable and MTM instruments plus AAD analytic Jacobians
 - **Type-safe wrappers** for `Date_`, `Matrix_`, `Cell_`, and vector types
 
 ## Prerequisites
@@ -364,9 +364,9 @@ curve-construction and calibration workflows:
 
 - **Instrument builders** — `Deposit_New`, `FRA_New`, `Future_New`, `Swap_New`, `OISSwap_New`, `BasisSwap_New`, `CrossCurrencySwap_New`
 - **Curve factories** — `DiscountPWLF_New`, `DiscountZeroRate_New`
-- **Calibration entry points** — `CalibrateSingleCurve`, `CalibrateMultiCurveBundle`, `CalibrateXccyMarket`
-- **Enums** — `CurveParameterization` (`PIECEWISE_LINEAR_FWD`, `PIECEWISE_CONSTANT_FWD`, `ZERO_RATE`, `LOG_DISCOUNT`), `CurveSolveMode` (`EXACT`, `APPROXIMATE`), `CurveJacobianMode` (`ANALYTIC`, `BUMPED`), `LogDfScheme` (`LOG_LINEAR`, `LOG_CUBIC_NATURAL`, `MIXED`)
-- **Spec builder** — `CurveCalibrationSpecBuilder_` for assembling `CurveCalibrationSpec_` / `MultiCurveCalibrationSpec_`
+- **Calibration entry points** — `CalibrateSingleCurve`, `CalibrateMultiCurveBundle`, `CalibrateXccyMarket`, `CalibrateJointXccyMarket`
+- **Enums** — `CurveParameterization` (`PIECEWISE_LINEAR_FWD`, `PIECEWISE_CONSTANT_FWD`, `ZERO_RATE`, `LOG_DISCOUNT`), `CurveSolveMode` (`EXACT`, `APPROXIMATE`), `CurveJacobianMode` (`ANALYTIC`, `BUMPED`), `LogDfScheme` (`LOG_LINEAR`, `LOG_CUBIC_NATURAL`, `MIXED`), `XccyNotionalMode` (`FIXED`, `RESETTABLE`, `MARK_TO_MARKET`)
+- **Spec builders** — `CurveCalibrationSpecBuilder_`, `CrossCurrencyCalibrationSpecBuilder_`, and `JointXccyCalibrationSpecBuilder_`
 
 The `dal.calibrate_curve(...)` helper in `api.py` wraps the common single-curve path with Python-friendly defaults. The underlying C++ methodology is documented in [docs/methodology/yield_curve.md](../docs/methodology/yield_curve.md) and [docs/methodology/yield_curve_jacobian.md](../docs/methodology/yield_curve_jacobian.md).
 
@@ -419,9 +419,47 @@ result = dal.calibrate_curve(
 )
 ```
 
-Python exposes single and staged multi-curve calibration, but not the core simultaneous
-joint-calibration API. A base curve is multiplied into the calibrated component; it is
-not a replacement for the pricing discount curve required by a forward-curve stage.
+Python exposes single, staged multi-curve, staged XCCY basis, and simultaneous
+joint XCCY calibration. A base curve is multiplied into the calibrated component;
+it is not a replacement for the pricing discount curve required by a forward-curve stage.
+
+### Resettable and Joint XCCY Calibration
+
+Use `CrossCurrencySwapConfigBuilder_` to set the currency pair, notionals, leg
+conventions, `notional_mode`, `fx_reset`, and explicit `domestic_rate_fixing` /
+`foreign_rate_fixing` identities. `MarketFixingSnapshot_New` takes a nested
+dictionary whose keys are index names and whose values map `DateTime_` objects to
+observations. One immutable snapshot can hold domestic rate, foreign rate, and FX
+fixings for an already-started swap:
+
+```python
+snapshot = dal.MarketFixingSnapshot_New({
+    "USD-JOINT-3M": {historical_fixing: 0.040},
+    "EUR-JOINT-3M": {historical_fixing: 0.030},
+    "FX[EUR/USD]": {historical_fixing: 1.20},
+})
+```
+
+`JointCurrencyCurveSpec_` holds the ordered domestic or foreign
+`JointCurveDeclaration_` objects. `XccyBasisCurveDeclaration_` holds configured
+XCCY instruments and basis knots. Assemble those groups with
+`JointXccyCalibrationSpecBuilder_`, then call
+`CalibrateJointXccyMarket(builder.build())`. The result exposes the domestic and
+foreign curve blocks, `fx_forward_curve`, basis curve, retained snapshot, group
+diagnostics, full market/model/residual vectors, analytic Jacobian, effective
+inverse, and named `parameter_ranges` / `residual_ranges`. Pass
+`JointXccyCalibrationOptions_` to select `ANALYTIC` or `BUMPED` and to disable
+either diagnostic matrix.
+
+The runnable [joint XCCY calibration example](examples/007.xccy_joint_calibration.py)
+uses an explicit fixing snapshot for a started MTM trade. It prints convergence,
+the maximum absolute residual, Jacobian dimensions, named parameter and residual
+half-open ranges, and every FX-forward date and value. With the `dal` package
+installed in the active environment, run it from the repository root:
+
+```bash
+python dal-python/examples/007.xccy_joint_calibration.py
+```
 
 ## Troubleshooting
 

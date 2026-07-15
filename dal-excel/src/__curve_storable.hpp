@@ -7,16 +7,17 @@
 #pragma once
 
 #include "__platform.hpp"
-#include <dal/math/cell.hpp>
-#include <dal/storage/storable.hpp>
-#include <dal/curve/ycinstrument.hpp>
-#include <dal/curve/xccyinstrument.hpp>
-#include <dal/curve/yc.hpp>
-#include <dal/curve/curveblock.hpp>
-#include <dal/curve/calibration.hpp>
-#include <dal/curve/xccycalibration.hpp>
 #include <dal-public/src/curveprotocol.hpp>
 #include <dal-public/src/curvespec.hpp>
+#include <dal-public/src/xccycalibration.hpp>
+#include <dal/curve/calibration.hpp>
+#include <dal/curve/curveblock.hpp>
+#include <dal/curve/xccycalibration.hpp>
+#include <dal/curve/xccyinstrument.hpp>
+#include <dal/curve/yc.hpp>
+#include <dal/curve/ycinstrument.hpp>
+#include <dal/math/cell.hpp>
+#include <dal/storage/storable.hpp>
 
 namespace Dal {
 
@@ -56,6 +57,18 @@ namespace Dal {
         void Write(Archive::Store_&) const override {}
     };
 
+    struct StorableFxResetConvention_ : public Storable_ {
+        FxResetConvention_ val_;
+        explicit StorableFxResetConvention_(const FxResetConvention_& v) : Storable_("FxResetConvention", String_()), val_(v) {}
+        void Write(Archive::Store_&) const override {}
+    };
+
+    struct StorableMarketFixingSnapshot_ : public Storable_ {
+        Handle_<MarketFixingSnapshot_> val_;
+        explicit StorableMarketFixingSnapshot_(const Handle_<MarketFixingSnapshot_>& v) : Storable_("MarketFixingSnapshot", String_()), val_(v) {}
+        void Write(Archive::Store_&) const override {}
+    };
+
     struct StorableYCInstrument_ : public Storable_ {
         Handle_<YCInstrument_> val_;
         explicit StorableYCInstrument_(const Handle_<YCInstrument_>& v) : Storable_("YCInstrument", String_()), val_(v) {}
@@ -65,6 +78,12 @@ namespace Dal {
     struct StorableCrossCurrencySwap_ : public Storable_ {
         Handle_<CrossCurrencySwap_> val_;
         explicit StorableCrossCurrencySwap_(const Handle_<CrossCurrencySwap_>& v) : Storable_("CrossCurrencySwap", String_()), val_(v) {}
+        void Write(Archive::Store_&) const override {}
+    };
+
+    struct StorableCrossCurrencySwapConfig_ : public Storable_ {
+        CrossCurrencySwapConfig_ val_;
+        explicit StorableCrossCurrencySwapConfig_(const CrossCurrencySwapConfig_& v) : Storable_("CrossCurrencySwapConfig", String_()), val_(v) {}
         void Write(Archive::Store_&) const override {}
     };
 
@@ -94,7 +113,8 @@ namespace Dal {
 
     struct StorableCrossCurrencyCalibrationSpec_ : public Storable_ {
         CrossCurrencyCalibrationSpec_ val_;
-        explicit StorableCrossCurrencyCalibrationSpec_(const CrossCurrencyCalibrationSpec_& v) : Storable_("CrossCurrencyCalibrationSpec", String_()), val_(v) {}
+        explicit StorableCrossCurrencyCalibrationSpec_(const CrossCurrencyCalibrationSpec_& v)
+            : Storable_("CrossCurrencyCalibrationSpec", String_()), val_(v) {}
         void Write(Archive::Store_&) const override {}
     };
 
@@ -103,9 +123,20 @@ namespace Dal {
     struct StorableCrossCurrencyCalibrationResult_ : public Storable_ {
         CrossCurrencyCalibrationResult_ val_;
         Handle_<DiscountCurve_> basisCurve_;
-        explicit StorableCrossCurrencyCalibrationResult_(const CrossCurrencyCalibrationResult_& v,
-                                                          const Handle_<DiscountCurve_>& basis)
+        explicit StorableCrossCurrencyCalibrationResult_(const CrossCurrencyCalibrationResult_& v, const Handle_<DiscountCurve_>& basis)
             : Storable_("CrossCurrencyCalibrationResult", String_()), val_(v), basisCurve_(basis) {}
+        void Write(Archive::Store_&) const override {}
+    };
+
+    struct StorableJointXccyCalibrationResult_ : public Storable_ {
+        JointXccyCalibrationResult_ val_;
+        Handle_<CurveBlock_> domesticBlock_;
+        Handle_<CurveBlock_> foreignBlock_;
+        Handle_<DiscountCurve_> basisCurve_;
+
+        explicit StorableJointXccyCalibrationResult_(const JointXccyCalibrationResult_& v)
+            : Storable_("JointXccyCalibrationResult", String_()), val_(v), domesticBlock_(JointXccyResultDomesticBlock(val_)),
+              foreignBlock_(JointXccyResultForeignBlock(val_)), basisCurve_(JointXccyResultBasisCurve(val_)) {}
         void Write(Archive::Store_&) const override {}
     };
 

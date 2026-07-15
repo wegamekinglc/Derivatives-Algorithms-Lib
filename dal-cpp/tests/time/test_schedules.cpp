@@ -4,6 +4,7 @@
 
 #include <gtest/gtest.h>
 #include <dal/platform/platform.hpp>
+
 #include <dal/math/cell.hpp>
 #include <dal/time/schedules.hpp>
 #include <dal/time/holidays.hpp>
@@ -75,6 +76,17 @@ TEST(SchedulesTest, TestMakeScheduleSupportsModifiedFollowing) {
     };
     ASSERT_EQ(calculated, expected);
     ASSERT_EQ(calculated[3], Date_(2024, 11, 29));
+}
+
+TEST(SchedulesTest, TestAdjustSupportsPreceding) {
+    const Holidays_ hols(Holidays::None());
+    ASSERT_EQ(Holidays::Adjust(hols, Date_(2024, 12, 1), BizDayConvention_("Preceding")),
+              Date_(2024, 11, 29));
+}
+
+TEST(SchedulesTest, TestBizDayConventionPreservesExistingOrdinals) {
+    ASSERT_EQ(static_cast<int>(BizDayConvention_::Value_::ModifiedFollowing), 2);
+    ASSERT_EQ(static_cast<int>(BizDayConvention_::Value_::Preceding), 3);
 }
 
 TEST(SchedulesTest, TestMakeSchedulePeriodsBuildsFixingPaymentAndDayCountContext) {

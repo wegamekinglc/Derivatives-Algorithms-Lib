@@ -8,6 +8,7 @@ public class BizDayConvention
 		UNADJUSTED,
 		FOLLOWING,
 		MODIFIEDFOLLOWING,
+		PRECEDING,
         N_VALUES
     }
 }

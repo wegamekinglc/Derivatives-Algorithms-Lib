@@ -46,6 +46,18 @@ here as the baseline rather than dated releases:
 
 ## 2026-07
 
+- `curve`: Added reset-aware cross-currency pricing and simultaneous domestic,
+  foreign, and basis calibration. `XccyNotionalMode_` now defines `FIXED`,
+  `RESETTABLE`, and `MARK_TO_MARKET`; explicit rate/FX fixing identities and one
+  immutable timestamped snapshot support already-started swaps; and the joint
+  solver exposes named parameter/residual ranges plus analytic or bumped
+  Jacobians through public C++, Python, and Excel. **Breaking:** the two
+  `CrossCurrencyConvention_` booleans `resettableNotional_` and
+  `markToMarketNotional_` are replaced by the enum in
+  `CrossCurrencySwapConfig_`. The legacy fixed-notional convenience constructor
+  and builder remain compatible. See `docs/methodology/xccy_calibration.md`,
+  `docs/methodology/yield_curve_jacobian.md`, and `docs/public-api.md`.
+
 - `curve`: Added persistent continuously compounded `ZERO_RATE` curves. Future-node
   rates map to `logDF = -z * YearFrac(anchor,node)` and reuse all shared log-DF
   interpolation/extrapolation schemes; the anchor has no free zero-rate parameter.

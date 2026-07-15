@@ -4,19 +4,21 @@
 
 #pragma once
 
+#include <map>
+
 #include <dal/platform/platform.hpp>
 #include <dal/curve/xccyinstrument.hpp>
+#include <dal/indice/fixingsnapshot.hpp>
 #include <dal/protocol/collateraltype.hpp>
 #include <dal/protocol/rateconvention.hpp>
 #include <dal/time/daybasis.hpp>
+#include <dal/time/datetime.hpp>
 #include <dal/time/periodlength.hpp>
 
 namespace Dal {
 
     // --- CollateralType_ ---
-    FORCE_INLINE CollateralType_ CollateralType_OIS() {
-        return CollateralType_(CollateralType_::Value_::OIS);
-    }
+    FORCE_INLINE CollateralType_ CollateralType_OIS() { return CollateralType_(CollateralType_::Value_::OIS); }
 
     FORCE_INLINE CollateralType_ CollateralType_Libor(const PeriodLength_& tenor) {
         (void)tenor;
@@ -25,18 +27,13 @@ namespace Dal {
     }
 
     // --- PeriodLength_ ---
-    FORCE_INLINE PeriodLength_ PeriodLength_New(const String_& iso) {
-        return PeriodLength_(iso);
-    }
+    FORCE_INLINE PeriodLength_ PeriodLength_New(const String_& iso) { return PeriodLength_(iso); }
 
     // --- DayBasis_ ---
-    FORCE_INLINE DayBasis_ DayBasis_New(const String_& name) {
-        return DayBasis_(name);
-    }
+    FORCE_INLINE DayBasis_ DayBasis_New(const String_& name) { return DayBasis_(name); }
 
     // --- RateLegConvention_ ---
-    FORCE_INLINE RateLegConvention_ RateLegConvention_New(const PeriodLength_& freq,
-                                                          const DayBasis_& basis) {
+    FORCE_INLINE RateLegConvention_ RateLegConvention_New(const PeriodLength_& freq, const DayBasis_& basis) {
         RateLegConvention_ rlc;
         rlc.paymentFrequency_ = freq;
         rlc.dayBasis_ = basis;
@@ -51,9 +48,9 @@ namespace Dal {
 
     // --- RateIndexConvention_ ---
     FORCE_INLINE RateIndexConvention_ RateIndexConvention_New(const PeriodLength_& forecastTenor,
-                                                               const DayBasis_& basis,
-                                                               const CollateralType_& collateral,
-                                                               bool useProjectionCurve = false) {
+                                                              const DayBasis_& basis,
+                                                              const CollateralType_& collateral,
+                                                              bool useProjectionCurve = false) {
         RateIndexConvention_ ric;
         ric.forecastTenor_ = forecastTenor;
         ric.dayBasis_ = basis;
@@ -71,6 +68,23 @@ namespace Dal {
     // --- CurrencyPair_ ---
     FORCE_INLINE CurrencyPair_ CurrencyPair_New(const String_& domestic, const String_& foreign) {
         return CurrencyPair_(Ccy_(domestic), Ccy_(foreign));
+    }
+
+    // --- FxResetConvention_ ---
+    FORCE_INLINE FxResetConvention_ FxResetConventionNew(
+        int fixingLag, const Holidays_& fixingHolidays, const BizDayConvention_& fixingConvention, int fixingHour, int fixingMinute) {
+        FxResetConvention_ result;
+        result.fixingLag_ = fixingLag;
+        result.fixingHolidays_ = fixingHolidays;
+        result.fixingConvention_ = fixingConvention;
+        result.fixingHour_ = fixingHour;
+        result.fixingMinute_ = fixingMinute;
+        return result;
+    }
+
+    // --- MarketFixingSnapshot_ ---
+    FORCE_INLINE Handle_<MarketFixingSnapshot_> MarketFixingSnapshotNew(const std::map<String_, std::map<DateTime_, double>>& values) {
+        return Handle_<MarketFixingSnapshot_>(new MarketFixingSnapshot_(values));
     }
 
 } // namespace Dal

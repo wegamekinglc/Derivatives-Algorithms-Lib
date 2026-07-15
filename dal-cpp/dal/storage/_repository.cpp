@@ -135,6 +135,7 @@ namespace Dal {
         };
 
         RUN_AT_LOAD(Global::SetTheDateStore(new RepoStore_))
+        RUN_AT_LOAD(Global::SetTheFixingsStore(new RepoStore_))
     } // namespace
 
     Handle_<Storable_> ObjectAccess_::Fetch(const String_& tag, bool quiet) {

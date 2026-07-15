@@ -51,6 +51,51 @@ def test_xccy_builder_can_set_fields():
     assert builder.tolerance_ == 1.0e-8  # nosec B101 - pytest assertions are intentional
 
 
+def test_xccy_builder_new_fields_have_legacy_and_snake_case_names():
+    """Reset-aware fields do not replace the existing underscore surface."""
+    builder = dal.CrossCurrencyCalibrationSpecBuilder_()
+    valuation_time = dal.DateTime_(_today(), 9, 45)
+    snapshot = dal.MarketFixingSnapshot_New({})
+
+    builder.valuation_time = valuation_time
+    builder.collateralCurrency_ = dal.Ccy_("USD")
+    builder.fixings = snapshot
+    builder.fx_spot = 1.10
+
+    assert builder.valuationTime_ is not None  # nosec B101 - pytest assertions are intentional
+    assert builder.collateral_currency is not None  # nosec B101 - pytest assertions are intentional
+    assert builder.fixings_ is snapshot  # nosec B101 - pytest assertions are intentional
+    assert builder.fxSpot_ == 1.10  # nosec B101 - pytest assertions are intentional
+
+
+def test_legacy_xccy_constructor_accepts_every_original_positional_argument():
+    """The config overload leaves the original positional order untouched."""
+    currencies = dal.CurrencyPair_New("USD", "EUR")
+    domestic_leg = dal.RateLegConvention_New(dal.PeriodLength_New("6M"), dal.DayBasis_New("ACT_365F"))
+    domestic_index = dal.RateIndexConvention_New(
+        dal.PeriodLength_New("3M"), dal.DayBasis_New("ACT_360"), dal.CollateralType_OIS()
+    )
+    foreign_leg = dal.RateLegConvention_New(dal.PeriodLength_New("6M"), dal.DayBasis_New("ACT_360"))
+    foreign_index = dal.RateIndexConvention_New(
+        dal.PeriodLength_New("6M"), dal.DayBasis_New("ACT_360"), dal.CollateralType_OIS()
+    )
+
+    instrument = dal.CrossCurrencySwap_New(
+        _today(),
+        _spot(),
+        _spot().AddDays(365),
+        0.001,
+        currencies,
+        125.0,
+        113.5,
+        domestic_leg,
+        domestic_index,
+        foreign_leg,
+        foreign_index,
+    )
+    assert instrument is not None  # nosec B101 - pytest assertions are intentional
+
+
 # ---- Cross-currency calibration ----
 
 def _make_xccy_instruments(fx_spot):
