@@ -142,14 +142,16 @@ Seeding the $j$-th output adjoint to $1$ (others $0$) and propagating recovers t
 $j$-th row of the Jacobian; doing all $m$ together in one sweep recovers the whole
 Jacobian at the cost of one reverse pass with vector arithmetic.
 
-## Memory: Checkpointing via Mark / Rewind
+## Memory: Checkpointing via Mark / RewindToMark
 
 The tape grows with the number of operations, so long simulations would exhaust
 memory if every step were kept. The algorithm uses a **checkpoint** discipline:
 
 - A **mark** records a position on the tape.
-- **Rewind** discards everything recorded after the mark, reusing that memory,
+- **`RewindToMark`** discards everything recorded after the mark, reusing that memory,
   without disturbing the adjoints already accumulated before the mark.
+
+`RewindToMark(tape)` discards nodes recorded after the current mark and is used after each Monte Carlo path. `Rewind(tape)` resets the tape to the beginning of its recording and is used before a fresh simulation or calibration recording.
 
 This lets a repeated computation (e.g. one Monte Carlo path) record, propagate,
 and then rewind, so the tape size is bounded by the work of a *single* repetition

@@ -76,17 +76,18 @@ recurrence
 
 $$
 \beta_0 = d_0, \qquad \beta_i = d_i - \frac{a_{i-1}\,c_{i-1}}{\beta_{i-1}}, \qquad
-\ell_i = \frac{c_i}{\beta_i}
+\ell_i = \frac{c_{i-1}}{\beta_{i-1}}
 $$
 
 with $d$ the diagonal, $a$ the super-diagonal, and $c$ the sub-diagonal. The implementation
 in `TridagBetaInverse` (`dal-cpp/dal/math/matrix/banded.cpp`) stores the inverses
-$1/\beta_i$ rather than the $\ell_i$ directly, so that the subsequent forward and backward
-substitutions reduce to
+$1/\beta_i$ rather than the $\ell_i$ directly. The forward substitution starts with
+$x_0=b_0/\beta_0$; subsequent forward and backward steps are
 
 $$
-x_0 = \frac{b_0}{\beta_0}, \quad x_i = \frac{b_i - a_{i-1}\,x_{i-1}}{\beta_i}, \qquad
-x_{i-1} \mathrel{-}= \frac{c_{i-1}}{\beta_{i-1}}\,x_i .
+x_i=\frac{b_i-c_{i-1}x_{i-1}}{\beta_i},
+\qquad
+x_{i-1}\leftarrow x_{i-1}-\frac{a_{i-1}}{\beta_{i-1}}x_i
 $$
 
 This is the Thomas algorithm. It is $O(n)$ in time and $O(n)$ in memory, and it requires no
@@ -109,20 +110,21 @@ L_{i,j} = \frac{1}{L_{j,j}}\!\left( A_{i,j} - \sum_{k<j} L_{i,k}\,L_{j,k} \right
 L_{i,i} = \sqrt{ A_{i,i} - \sum_{k<i} L_{i,k}^2 } .
 $$
 
-A small diagonal regularization proportional to the running mean of $L_{i,i}$ is applied so
-that marginally indefinite matrices (the kind that arise from noisy correlation estimates)
-do not fail outright; this is controlled by the `regularization` argument of `CholeskySolve`
-and defaults to `Dal::EPSILON`. The factorization then supports $A\,x = b$ via the standard
-forward solve $L\,y = b$ followed by the backward solve $L^{\top}\!x = y$, and exposes
-`MakeCorrelated` for converting i.i.d. deviates into correlated ones by applying $L$.
+The dense path clips a negative pivot residual to zero in `CholeskyImpl`, then regularizes
+the reciprocal diagonal stored for subsequent solves using the running mean diagonal and
+the `regularization` argument (default `Dal::EPSILON`). It does **not** form or factor an
+explicitly shifted matrix $A + \lambda I$. The decomposition then supports $A\,x = b$ via
+forward and backward substitution, and exposes `MakeCorrelated` for converting i.i.d.
+deviates into correlated ones by applying the retained lower factor.
 
 The **band-Cholesky** factorization in `dal-cpp/dal/math/matrix/banded.cpp` applies the
-same recurrence but restricts the inner-product sum to the band, giving an $O(n\,m_1)$
-factorization for a matrix with $m_1$ sub-diagonals. The resulting lower factor is stored
-back into the band layout, and the same `BandedLSolve` / `BandedLTransposeSolve` pair
-handles forward and backward substitution. Because the band layout places the diagonal at
-column $m_1$, both the dense and band forms implement the same `SymmetricDecomposition_`
-interface and are interchangeable from the caller's perspective.
+same recurrence but restricts the inner-product sum to the band. For lower bandwidth $m$
+its factorization cost is $O(n m^2)$; band triangular solves and multiplies cost
+$O(n m)$. The resulting lower factor is stored back into the band layout, and the same
+`BandedLSolve` / `BandedLTransposeSolve` pair handles forward and backward substitution.
+Because the band layout places the diagonal at column $m$, both the dense and band forms
+implement the same `SymmetricDecomposition_` interface and are interchangeable from the
+caller's perspective.
 
 ## Krylov Solvers: CG and BCG
 

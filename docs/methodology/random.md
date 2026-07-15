@@ -22,9 +22,10 @@ $$
 $$
 
 `NDim()` is the number of variates produced per call (one draw of a
-multi-dimensional point). `SkipTo(n)` repositions the generator at the $n$-th
-point of its underlying sequence without re-drawing the skipped points, which
-is what makes path-parallelisation across independent substreams cheap.
+multi-dimensional point). `SkipTo(n)` behavior is implementation-specific:
+Sobol reconstructs its state directly, `ShuffledIRN_::SkipTo` is a no-op, and
+MRG32's current accounting is tied to antithetic uniform draws rather than a
+general replay-equivalent path contract.
 `FillUniform` writes variates in $(0,1)$; `FillNormal` writes standard normal
 variates, obtained either by inverse-CDF inversion of the uniform variates or
 by a direct transformation, depending on the generator.
@@ -236,13 +237,14 @@ enum, whose alternatives are `IRN` and `MRG32`.
 
 | `RNGType_` | Implementation        | Period / structure                          | `SkipTo`                                            |
 |------------|-----------------------|----------------------------------------------|-----------------------------------------------------|
-| `IRN`      | `ShuffledIRN_<55,31,128>` | Knuth-style lagged additive (IRN55) with shuffling, modulus $2^{30}$ | No-op (re-seed via `Branch`/`Clone` for substreams) |
-| `MRG32`    | `MRG32k32a_`          | L'Ecuyer combined multiple recursive (MRG32k32a), periods $\approx 2^{191}$ | Matrix exponentiation of the recurrence             |
+| `IRN`      | `ShuffledIRN_<55,31,128>` | Knuth-style lagged additive (IRN55) with shuffling, modulus $2^{30}$ | No-op; `Clone` restarts from the original seed and `Branch` creates another seeded generator |
+| `MRG32`    | `MRG32k32a_`          | L'Ecuyer combined multiple recursive (MRG32k32a), periods $\approx 2^{191}$ | Matrix jump with antithetic-`FillUniform` accounting; not replay-equivalent for normal paths |
 
 `PseudoRandom_` adds antithetic variates on top of the underlying engine:
 `FillUniform` alternates between drawing $u_i$ and emitting the antithetic
 $1 - u_i$ from its cache, halving the number of engine calls when antithetic
-sampling is in use. The `precise_` flag selects a higher-accuracy
+sampling is in use. `FillNormal`, however, consumes a fresh `NextUniform()` per
+component and bypasses that cache. The `precise_` flag selects a higher-accuracy
 inverse-normal-CDF inside `FillNormal`.
 
 ### `IRN` — Shuffled Lagged Additive
@@ -255,17 +257,20 @@ replacing it with the state before output. Shuffling breaks the short-range
 correlations that plain lagged generators exhibit. The output is the shuffled
 value mapped to $(0,1)$ with the $2(2u+1)/2^{31}$ form that keeps both
 endpoints excluded. `SkipTo` is a no-op for this engine.
+`Clone` reconstructs the generator from its original seed instead of preserving
+the advanced state; `Branch` creates another seeded generator.
 
 ### `MRG32` — Combined Multiple Recursive
 
 `MRG32k32a_` is L'Ecuyer's MRG32k32a combined multiple-recursive generator:
 two order-3 recurrences with moduli $m_1 = 4294967087$ and $m_2 = 4294944443$
-are combined as $u = ((x - y) \bmod m_1) / (m_1 + 1)$. `SkipTo` advances the
-recurrence by $n \cdot \text{NDim}$ points using binary exponentiation of the
-$3 \times 3$ companion matrices of each recurrence, reduced modulo $m_1$ and
-$m_2$, then applies the resulting matrices to the initial state. This is the
-same path-seeking principle as the Sobol `Seek`: jump to the target state
-directly rather than iterating through every intermediate point.
+are combined as $u = ((x - y) \bmod m_1) / (m_1 + 1)$. `SkipTo` uses binary
+exponentiation of the $3 \times 3$ companion matrices to jump from the initial
+state. Its skip count halves $n \cdot \text{NDim}$ to match the generated/cached
+antithetic pattern of `FillUniform`. Because `FillNormal` instead consumes a fresh
+uniform for every component, MRG32 seeking is not replay-equivalent for normal-path
+substreams and must not be used as such. Sobol remains the verified normal-path
+seeking surface.
 
 ## Selection Guidance
 
@@ -277,9 +282,11 @@ directly rather than iterating through every intermediate point.
   reduction techniques that rely on statistical independence (antithetic,
   control variates with estimated coefficients), and for regression-based
   estimators where low-discrepancy bias is undesirable. Between the two
-  engines, `MRG32` has the stronger theoretical guarantees and full `SkipTo`
-  support for substream parallelism; `IRN` is retained as a lightweight
-  Knuth-style alternative.
+  engines, `MRG32` has the stronger theoretical recurrence, and its current
+  `SkipTo` accounting matches antithetic `FillUniform` rather than
+  replay-equivalent normal-path substreams; `IRN` is retained as a lightweight
+  Knuth-style alternative with no seek implementation. Use Sobol when direct
+  normal-path seeking is required.
 
 ## Benchmark Coverage
 
@@ -303,6 +310,6 @@ over a 100K-path batch, the dominant Monte Carlo inner loop.
 - [Script engine](script_engine.md) — the Monte Carlo driver that consumes these
   generators; the Brownian bridge is most effective when wrapped around a Sobol
   sequence for path-dependent payoffs.
-- [AAD methodology](aad.md) — `SkipTo` and the per-thread tape make pathwise-adjoint
-  Monte Carlo parallelisable without synchronisation during the forward or reverse
-  passes.
+- [AAD methodology](aad.md) — Sobol's direct `SkipTo` and the per-thread tape make
+  pathwise-adjoint Monte Carlo parallelisable without synchronisation during the
+  forward or reverse passes.

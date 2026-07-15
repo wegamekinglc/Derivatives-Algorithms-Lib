@@ -63,8 +63,9 @@ yield-curve layer; it prevents passive and AAD paths from maintaining separate f
 
 ## Linear
 
-Piecewise-linear interpolation between knots — the kernel above. It is exact at knots,
-continuous, and first-order accurate between them. `IsInBounds` returns true on
+Piecewise-linear interpolation between knots — the degree-one, piecewise-affine kernel
+above. It is exact at knots, continuous, and has $O(h^2)$ interpolation error for a
+sufficiently smooth scalar function. `IsInBounds` returns true on
 $[x_1, x_N]$; outside that range the kernel clamps to the nearest endpoint value (flat
 extrapolation via the `LowerBound` edge cases).
 
@@ -97,7 +98,7 @@ on the *Numerical Recipes* `spline`/`splint` pair). Evaluation between knots use
 Hermite form
 
 $$
-f(x) = a\,f_i + b\,f_{i+1} - \tfrac{h^2}{6}\Big((1+a)a\,f''_i + (1+b)b\,f''_{i+1}\Big),
+f(x)=a f_i+b f_{i+1}-\frac{a b h^2}{6}\left[(1+a)f_i''+(1+b)f_{i+1}''\right]
 $$
 
 with $h = x_{i+1}-x_i$, $b = (x-x_i)/h$, $a = 1-b$.
@@ -105,11 +106,11 @@ with $h = x_{i+1}-x_i$, $b = (x-x_i)/h$, $a = 1-b$.
 The two end conditions are supplied as a `Boundary_(order, value)` pair, where `order`
 selects which derivative is pinned at the boundary:
 
-| `order_` | Boundary condition                              |
-|----------|-------------------------------------------------|
-| 1        | first derivative $f'(x_1) = $ `value_`          |
-| 2        | second derivative $f''(x_1) = $ `value_`        |
-| 3        | third derivative fixed (not-a-knot family)      |
+| `order_` | Boundary condition                                      |
+|----------|---------------------------------------------------------|
+| 1        | first derivative $f'(x_1) = $ `value_`                  |
+| 2        | second derivative $f''(x_1) = $ `value_`                |
+| 3        | endpoint segment's third derivative pinned to `value_`  |
 
 `Boundary_(2, 0.0)` on both ends gives the classic natural spline (zero end curvature).
 
