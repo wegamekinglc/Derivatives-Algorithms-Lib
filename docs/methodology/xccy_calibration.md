@@ -198,8 +198,8 @@ valid residual system without the analytic eligibility requirement.
 ## Runnable Examples
 
 - `xccy_curve_calibration` performs staged basis-only calibration against
-  supplied domestic and foreign curve blocks and prints fit and FX-forward
-  diagnostics.
+  supplied domestic and foreign curve blocks and prints fit diagnostics,
+  including the FX spot and maximum residual, plus elapsed time.
 - `xccy_reset_pricing` prices future fixed, resettable, and MTM swaps against
   piecewise-constant discount, projection, and basis curves, validates their
   reset and notional behavior, and prices an already-started MTM swap from an
