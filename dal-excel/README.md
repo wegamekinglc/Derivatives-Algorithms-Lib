@@ -32,9 +32,11 @@ worksheet calls:
 
 Curve workflows use convention/instrument constructors followed by
 `CALIBRATE.SINGLECURVE`, `CALIBRATE.XCCYMARKET`, or
-`CALIBRATE.JOINTXCCY`; result accessors return diagnostics, matrices, ranges, or
-curve handles. The [public API guide](../docs/public-api.md#excel) lists the
-primary worksheet families.
+`CALIBRATE.JOINTXCCY`; result accessors return diagnostics, supported matrix or
+range views, and curve handles. Matrix visibility differs between staged and
+joint XCCY as described below. The
+[public API guide](../docs/public-api.md#excel) lists the primary worksheet
+families.
 
 ## Resettable and Joint XCCY Functions
 
@@ -47,8 +49,17 @@ domestic and foreign rate-fixing identities. Pass that handle to
 `MARKETFIXINGSNAPSHOT.NEW` takes parallel index-name, fixing-time, and value
 ranges and returns one immutable snapshot handle. The arrays must have equal
 length, timestamps must be valid, and observations must be positive and finite.
-The snapshot can contain both rate and canonical FX names such as
-`FX[EUR/USD]`.
+Repeated `(index name, timestamp)` rows are rejected. The canonical name for a
+domestic/foreign pair is `FX[foreign/domestic]`, for example `FX[EUR/USD]` for
+USD/EUR. Lookup uses the requested direction when present and otherwise uses
+the reciprocal of the reverse canonical observation. If both directions are
+present at one timestamp, their product must differ from one by no more than
+`1e-10`.
+
+Staged `CALIBRATE.XCCYMARKET` returns a basis-curve handle plus fit diagnostics.
+`XCCYCALIBRATIONRESULT.GET` exposes `marketRates`, `modelRates`, `residuals`,
+`maxAbsResidual`, and `rmsResidual`; neither the staged forward Jacobian nor the
+staged effective inverse is worksheet-visible.
 
 `CALIBRATE.JOINTXCCY` performs one domestic/foreign/basis solve. Its result
 supports dedicated handle getters:
@@ -57,10 +68,13 @@ supports dedicated handle getters:
 - `JOINTXCCYCALIBRATIONRESULT.GET.FOREIGNBLOCK`
 - `JOINTXCCYCALIBRATIONRESULT.GET.BASISCURVE`
 
-`JOINTXCCYCALIBRATIONRESULT.GET` returns matrix views selected by
+Joint settings can request both forward-Jacobian and effective-inverse
+computation. `JOINTXCCYCALIBRATIONRESULT.GET` returns views selected by
 `fxForwards`, `marketRates`, `modelRates`, `residuals`, `jacobian`,
-`parameterRanges`, or `residualRanges`. The generated HTML under `auto/` is the
-exact argument and settings-key reference.
+`parameterRanges`, or `residualRanges`; `jacobian` is the worksheet-visible
+forward matrix and the range selectors publish its named layout. No worksheet
+selector exposes the retained joint effective inverse. The generated HTML
+under `auto/` is the exact argument and settings-key reference.
 
 ## Layout and Generated Registration
 

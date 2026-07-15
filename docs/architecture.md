@@ -61,11 +61,15 @@ Callers embedding the library need to preserve that distinction.
 | Evaluation date | Process-wide store value. Reads use the global-store mutex; mutation, scoped overrides, and native valuation also participate in the re-entrant valuation/mutation barrier. |
 | Accounting date | Process-wide store value. Reads and writes use the global-store mutex but do not participate in the valuation/mutation barrier. |
 | Fixings | Process-wide store. Reads use the global-store mutex, but the final `StoreFixings` write does not. Fixings mutation is outside the evaluation-date synchronization contract, so callers must externally serialize it with other fixings access. |
+| Market-fixing snapshot | Immutable operation-level value retained by reset-aware pricing/calibration results. An explicit snapshot is authoritative; when omitted, staged/joint XCCY calibration gathers required historical requests and copies the process-wide store once before solving. |
 | Calendar/currency/index registration | Initialized once per process by `InitGlobalData` / Python module initialization. |
 | Thread pool | Process-wide singleton, inactive until explicit start or first task. Lifecycle and queue transitions are synchronized. |
 | AAD tape | One tape per executing thread (`thread_local`). Calibration guards and simulation batches rewind their thread's tape before reuse. |
 | Script compiled stacks | Operand stacks belong to each `EvalState_`; recursive compiled evaluation reuses that state, and AAD stack values cannot outlive the task/tape that owns them. |
 | Excel object repository | Host/environment-owned repository of storable handles used between worksheet calls. |
+
+`MarketFixingSnapshot_` therefore gives one pricing or calibration operation a stable
+fixing view rather than a live view of the process-wide fixing store.
 
 ### Evaluation-date synchronization
 
@@ -159,21 +163,27 @@ for each worker's path batch.
 
 ```text
 instrument/convention builders
-  -> CurveCalibrationSpec_ or public builder
-  -> validation and knot construction
-  -> residual map: model rate - market rate
-  -> Underdetermined::Find or Underdetermined::Approximate
-       -> eligible AAD analytic Jacobian
-       -> finite-difference fallback
-  -> calibrated curve and diagnostics
+  -> validated spec, curve layout, and model-rate residuals
+  -> single/staged curves: CalibrateYieldCurve / CalibrateMultiCurve
+  -> staged XCCY basis: CalibrateCrossCurrencyMarket
+       -> supplied domestic/foreign blocks + basis parameters + one fixing snapshot
+  -> joint XCCY: CalibrateJointXccyMarket
+       -> domestic declarations + foreign declarations + basis declaration
+       -> one fixing snapshot + named parameter/residual ranges
+  -> exact or approximate underdetermined solve
+       -> eligible AAD analytic Jacobian or explicit bumped mode
+  -> solved curves, diagnostics, and optional matrices
 ```
 
 Exact calibration uses the weighted least-change solver and can expose the
 forward Jacobian plus effective inverse Jacobian. Approximate calibration trades
 fit against distance from the reference parameters. Staged multi-curve calibration
-solves stages in order; joint calibration stacks declarations into one residual
-system. See [yield-curve construction](methodology/yield_curve.md) and
-[yield-curve Jacobian](methodology/yield_curve_jacobian.md).
+solves stages in order; staged XCCY supplies the domestic and foreign curve blocks
+while fitting a basis curve, and joint XCCY stacks domestic, foreign, and basis
+declarations into one residual system. See
+[yield-curve construction](methodology/yield_curve.md),
+[yield-curve Jacobian](methodology/yield_curve_jacobian.md), and
+[cross-currency pricing and calibration](methodology/xccy_calibration.md).
 
 ## Generated Code
 

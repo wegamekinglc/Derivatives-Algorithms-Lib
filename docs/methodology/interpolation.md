@@ -15,7 +15,7 @@ $$
 \texttt{double operator()(double x) const}, \qquad \texttt{bool IsInBounds(double x) const}.
 $$
 
-The abscissae $x_1 < x_2 < \dots < x_N$ must be strictly increasing (`IsMonotonic` is
+The abscissae $x_1 \le x_2 \le \dots \le x_N$ must be non-decreasing (`IsMonotonic` is
 checked at construction). Evaluation is by `LowerBound` on the knot vector followed by a
 scheme-specific local formula; values exactly at a knot return the knot's $f$ value
 without rounding error. The shared linear kernel used internally is
@@ -63,13 +63,13 @@ yield-curve layer; it prevents passive and AAD paths from maintaining separate f
 
 ## Linear
 
-Piecewise-linear interpolation between knots — the kernel above. It is exact at knots,
-continuous, and first-order accurate between them. `IsInBounds` returns true on
+Piecewise-linear interpolation between knots — the degree-one, piecewise-affine kernel
+above. It is exact at knots, continuous, and has $O(h^2)$ interpolation error for a
+sufficiently smooth scalar function. `IsInBounds` returns true on
 $[x_1, x_N]$; outside that range the kernel clamps to the nearest endpoint value (flat
 extrapolation via the `LowerBound` edge cases).
 
 Factory: `Interp::NewLinear(name, x, f)` (`dal-cpp/dal/math/interp/interplinear.hpp`).
-Requires $N \ge 2$.
 
 ## Log-Linear
 
@@ -90,14 +90,14 @@ default for the `LOG_DISCOUNT` curve parameterization — see
 
 ## Cubic Spline
 
-A natural cubic spline through the knots: a piecewise-cubic polynomial on each
+A cubic spline through the knots: a piecewise-cubic polynomial on each
 $[x_i, x_{i+1}]$ that is $C^2$ continuous, with second derivatives $f''_i$ at the knots
 solved once at construction by the standard tri-diagonal elimination (the routine is based
 on the *Numerical Recipes* `spline`/`splint` pair). Evaluation between knots uses the local
 Hermite form
 
 $$
-f(x) = a\,f_i + b\,f_{i+1} - \tfrac{h^2}{6}\Big((1+a)a\,f''_i + (1+b)b\,f''_{i+1}\Big),
+f(x)=a f_i+b f_{i+1}-\frac{a b h^2}{6}\left[(1+a)f_i''+(1+b)f_{i+1}''\right]
 $$
 
 with $h = x_{i+1}-x_i$, $b = (x-x_i)/h$, $a = 1-b$.
@@ -105,11 +105,12 @@ with $h = x_{i+1}-x_i$, $b = (x-x_i)/h$, $a = 1-b$.
 The two end conditions are supplied as a `Boundary_(order, value)` pair, where `order`
 selects which derivative is pinned at the boundary:
 
-| `order_` | Boundary condition                              |
-|----------|-------------------------------------------------|
-| 1        | first derivative $f'(x_1) = $ `value_`          |
-| 2        | second derivative $f''(x_1) = $ `value_`        |
-| 3        | third derivative fixed (not-a-knot family)      |
+- **Order 1:** `lhs` pins $f'(x_1)$ and `rhs` pins $f'(x_N)$ to its respective
+  `value_`.
+- **Order 2:** `lhs` pins $f''(x_1)$ and `rhs` pins $f''(x_N)$ to its respective
+  `value_`.
+- **Order 3:** each endpoint segment's third derivative is pinned to the
+  respective `lhs`/`rhs` `value_`.
 
 `Boundary_(2, 0.0)` on both ends gives the classic natural spline (zero end curvature).
 

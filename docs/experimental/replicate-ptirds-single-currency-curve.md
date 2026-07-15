@@ -24,10 +24,9 @@ This is an excellent DAL exercise because it stresses several subsystems at once
 - **Calibration** — a single global least-squares/least-change solve over all curve
   nodes simultaneously, exactly the regime DAL's underdetermined search targets.
 - **Date machinery** — IMM-style node dates, single-business-day and stub swaps,
-  Act/365F, an all-days (no-holiday) calendar, annual frequency, zero payment lag.
-- **AAD** — DAL's differentiator supplies an analytic Jacobian for the solver on
-  eligible `LOG_DISCOUNT` specs, which is where DAL does *better* than the reference's
-  bumped/auto-diff solve.
+  Act/365F, an external every-day calendar reproduced with explicit-date `Unadjusted`
+  conventions, annual frequency, and zero payment lag.
+- **AAD** — eligible `LOG_DISCOUNT` calibration uses an AAD-derived analytic Jacobian.
 
 ## 2. The Target (numerical acceptance criteria)
 
@@ -235,9 +234,12 @@ observed max `|err|` of ~`5.2e-7` (`log_linear`), ~`4.6e-7` (`log_cubic`), and
 
 - **Act/365F** is a first-class `DayBasis_` alternative (`ACT_365F`),
   in `dal-cpp/dal/time/daybasis.hpp`.
-- **All-days / no-holiday calendar:** `Holidays::None()` exists and is used by curve
-  instruments today (`dal-cpp/dal/time/holidays.hpp`,
-  `dal-cpp/dal/curve/ycinstrument.cpp`). This matches calendar = "all".
+- **Every-day target calendar:** the external target treats every day as a business
+  day. DAL reproduces the supplied explicit dates with `Holidays::None()` plus
+  `Unadjusted` accrual, payment, and index conventions. `Holidays::None()` removes
+  named holidays, but weekends remain non-business days unless date adjustment is
+  bypassed (`dal-cpp/dal/time/holidays.hpp`,
+  `dal-cpp/dal/curve/ycinstrument.cpp`).
 - **Annual frequency:** `PeriodLength_("12M")`; swap leg conventions accept it
   (`dal-cpp/dal/curve/ycinstrument.cpp`).
 - **Payment lag:** `RateLegConvention_::paymentLag_` flows through
@@ -298,7 +300,7 @@ implementation; all required items are available or have an explicit DAL analogu
 | IMM / stub swaps via explicit dates           | yes      | `Swap_(tradeDate, start, maturity, ...)`, `dal-cpp/dal/curve/ycinstrument.hpp`                        | explicit effective/termination dates per leg                                          |
 | 1-business-day swap                           | yes      | degenerate single-period `Swap_`, `dal-cpp/dal/curve/ycinstrument.cpp`                                | 1-day span; annuity > 0 path                                                           |
 | Act/365F day count                            | yes      | `ACT_365F`, `dal-cpp/dal/time/daybasis.hpp`                                                           | reuse                                                                                  |
-| All-days / no-holiday calendar                | yes      | `Holidays::None()`, `dal-cpp/dal/time/holidays.hpp`                                                   | matches calendar = "all"                                                               |
+| Every-day target calendar                     | yes      | `Holidays::None()` plus `Unadjusted`, `dal-cpp/tests/curve/test_ptirds_curve.cpp`                      | preserves the supplied dates; `Holidays::None()` alone still excludes weekends          |
 | Annual frequency, payment lag 0               | yes      | `RateLegConvention_`, `dal-cpp/dal/curve/ycinstrument.cpp`                                            | `PeriodLength_("12M")`, `paymentLag_ = 0`                                              |
 | Global simultaneous solve over nodes          | yes      | `Underdetermined::Find`, `dal-cpp/dal/curve/calibration.cpp`                                          | one global solve, not a sequential bootstrap                                           |
 | Levenberg-Marquardt least-squares             | analog   | underdetermined least-change EXACT/APPROXIMATE, `dal-cpp/dal/math/optimization/underdetermined.hpp`   | equivalent for the square 13×13 case                                                   |
@@ -340,8 +342,11 @@ numerical validation lives in the core C++ test suite.
 ### 4. Instrument construction for the PTIRDS set
 - The 13 swaps are built via the explicit-date `Swap_` constructor
   (`dal-cpp/dal/curve/ycinstrument.hpp`): annual fixed/float legs, Act/365F,
-  `Holidays::None()`, payment lag 0, explicit IMM stub effective/termination dates,
-  and the degenerate 1-business-day swap. The stub day-count context
+  `Holidays::None()`, `Unadjusted` accrual/payment/index conventions, payment lag 0,
+  explicit IMM stub effective/termination dates, and the degenerate 1-business-day
+  swap. The external target uses an every-day calendar; the explicit `Unadjusted`
+  conventions are required because `Holidays::None()` removes named holidays but
+  still treats weekends as non-business days. The stub day-count context
   (`SchedulePeriod_::dayCountContext_`, a `Handle_<DayBasis::Context_>` built by
   `BuildSinglePeriodSchedule` in `dal-cpp/dal/curve/calibration_internal.hpp`)
   reproduces the reference accruals.

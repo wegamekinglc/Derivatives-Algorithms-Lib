@@ -27,31 +27,33 @@ here as the baseline rather than dated releases:
   calibrated to market instruments. See `docs/methodology/yield_curve.md`.
 - **Underdetermined Search** — constrained least-change solver for over-parameterised
   nonlinear calibration. See `docs/methodology/underdetermined_search.md`.
-- **Cross-Currency Calibration** — XCCY basis-curve fitting across two currencies. See
-  `docs/methodology/xccy_calibration.md`.
+- **Cross-Currency Pricing and Calibration** — fixed, resettable, and mark-to-market
+  swap pricing with immutable timestamped rate/FX fixing snapshots, staged basis
+  fitting, simultaneous domestic/foreign/basis calibration, and named joint
+  parameter/residual ranges. See `docs/methodology/xccy_calibration.md`.
 - **Interpolation** — linear, log-linear, cubic-spline, and mixed 1D interpolators plus
   bilinear 2D interpolation. See `docs/methodology/interpolation.md`.
 - **Log-Discount Curve** — node log-discount-factor parameterisation with `LogDfScheme_`
   interpolation schemes and scalar-generic passive/AAD evaluation. See
   `docs/methodology/log_discount_curve.md`.
-- **Yield-Curve Jacobian and Inverse-Jacobian Risk** — AAD forward Jacobian and the
-  inverse-Jacobian IR-risk transform, including the `effJacobianInverse_` unit convention.
-  See `docs/methodology/yield_curve_jacobian.md`.
+- **Yield-Curve Jacobian and Inverse-Jacobian Risk** — AAD forward Jacobians for every
+  implemented curve representation subject to the normal eligibility gates, plus the
+  inverse-Jacobian IR-risk transform and its `effJacobianInverse_` unit convention. See
+  `docs/methodology/yield_curve_jacobian.md`.
 - **Script Engine** — events-table to AST pipeline, visitor passes (domain analysis,
   constant-condition folding), and the fuzzy evaluator for pathwise AAD through
   discontinuous payoffs. See `docs/methodology/script_engine.md`.
-- **Analytic Jacobian for curve calibration (CurveJacobianMode flag)** — optional analytic
-  Jacobian mode for yield-curve calibration. See
-  `docs/methodology/yield_curve_jacobian.md`.
 
 ## 2026-07
 
 - `curve`: Added reset-aware cross-currency pricing and simultaneous domestic,
-  foreign, and basis calibration. `XccyNotionalMode_` now defines `FIXED`,
-  `RESETTABLE`, and `MARK_TO_MARKET`; explicit rate/FX fixing identities and one
-  immutable timestamped snapshot support already-started swaps; and the joint
-  solver exposes named parameter/residual ranges plus analytic or bumped
-  Jacobians through public C++, Python, and Excel. **Breaking:** the two
+  foreign, and basis calibration. Fixed, resettable, and mark-to-market notional
+  modes replace the prior boolean configuration; explicit rate/FX fixing identities
+  and one immutable timestamped snapshot support already-started swaps; and the
+  joint solver exposes named parameter/residual ranges plus analytic or bumped
+  Jacobians. Public C++ and joint Python expose both retained joint matrices. Excel
+  exposes the joint forward Jacobian and ranges, but has no worksheet getter for the
+  effective inverse. **Breaking:** the two
   `CrossCurrencyConvention_` booleans `resettableNotional_` and
   `markToMarketNotional_` are replaced by the enum in
   `CrossCurrencySwapConfig_`. The legacy fixed-notional convenience constructor

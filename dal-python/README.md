@@ -306,12 +306,17 @@ python -m pytest tests -k "test_date" -v
 ```
 
 Tests are located in `tests/` and cover:
+
 - Date arithmetic and comparisons
 - Vector and matrix operations
 - Model construction (BS, Dupire)
 - Monte Carlo pricing accuracy vs Black-Scholes analytical formulas
 - AAD Greek computation and validation
 - Random number generator properties
+- Curve construction plus single and staged multi-curve calibration
+- Staged XCCY basis calibration and fit diagnostics
+- Resettable/MTM XCCY construction with immutable fixing snapshots
+- Joint domestic/foreign/basis XCCY calibration, including matrix and named-range contracts
 
 ## Project Structure
 
@@ -422,6 +427,10 @@ result = dal.calibrate_curve(
 Python exposes single, staged multi-curve, staged XCCY basis, and simultaneous
 joint XCCY calibration. A base curve is multiplied into the calibrated component;
 it is not a replacement for the pricing discount curve required by a forward-curve stage.
+The staged `CalibrateXccyMarket(spec)` binding is the one-argument default solve:
+it returns the calibrated market, FX forwards, and scalar/vector fit diagnostics
+only. Staged matrix options and matrix fields remain available only through the
+C++ surface.
 
 ### Resettable and Joint XCCY Calibration
 
@@ -449,7 +458,11 @@ foreign curve blocks, `fx_forward_curve`, basis curve, retained snapshot, group
 diagnostics, full market/model/residual vectors, analytic Jacobian, effective
 inverse, and named `parameter_ranges` / `residual_ranges`. Pass
 `JointXccyCalibrationOptions_` to select `ANALYTIC` or `BUMPED` and to disable
-either diagnostic matrix.
+either diagnostic matrix. The `eff_jacobian_inverse` matrix has shape
+`totalParameters x totalResiduals` and is the weighted inverse of the solver's
+tolerance-scaled Jacobian. Transforming a raw decimal quote bump therefore
+requires division by the spec's `tolerance_`; see the
+[Jacobian methodology](../docs/methodology/yield_curve_jacobian.md#joint-xccy-jacobian-layout).
 
 The runnable [joint XCCY calibration example](examples/007.xccy_joint_calibration.py)
 uses an explicit fixing snapshot for a started MTM trade. It prints convergence,

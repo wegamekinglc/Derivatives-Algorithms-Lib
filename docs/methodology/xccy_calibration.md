@@ -73,7 +73,9 @@ holiday calendar, business-day convention, and fixing hour/minute. The reset
 for domestic period $i\ge1$ is effective on that period's accrual start; its FX
 fixing date is the lagged and adjusted effective date. `FixingIdentity_` gives
 the index name and hour/minute for each domestic and foreign floating-rate
-fixing. `FxIndexName(pair)` gives the FX fixing index name.
+fixing. `FxIndexName(domestic, foreign)` gives the canonical FX fixing index
+name `FX[foreign/domestic]`, matching the domestic-per-foreign market
+convention.
 
 At valuation time $v$:
 
@@ -82,22 +84,31 @@ At valuation time $v$:
   active forward value; and
 - a fixing after $v$ uses the active forward value.
 
-Only a historical fixing attached to a non-settled cashflow or reset is
-required. Missing required observations fail with the index, timestamp, and
-pricing context.
+Historical requests are deduplicated and include only observations that still
+feed unsettled coupons, domestic notionals, or MTM reset dependencies. Missing
+required observations fail with the index, timestamp, and pricing context.
 
 ## Immutable Market-Fixing Snapshot
 
 `MarketFixingSnapshot_` is an immutable nested map
 `index name -> DateTime_ -> value`. The same snapshot can contain rate and FX
-observations and is retained by the calibration result. The snapshot currently
-accepts positive values only: the constructor rejects non-positive entries, so
-rate fixings from negative-rate regimes (for example EURIBOR, ESTR, TIBOR, or
-SARON over 2014–2022) are not accepted. Supplying a snapshot
-makes it authoritative, including when it is explicitly empty. When a snapshot
-is omitted, staged and joint XCCY calibration first collect all historical
-requests across all instruments and copy those values from the process-wide
-fixing store once. Later global mutations cannot change the captured solve.
+observations and is retained by the calibration result. Index names must be
+non-empty, timestamps valid, and observations positive and finite. The
+positive-value requirement means that rate fixings from negative-rate regimes
+(for example EURIBOR, ESTR, TIBOR, or SARON over 2014–2022) are not accepted.
+
+Direct lookup wins. If that observation is absent and the name is canonical FX,
+lookup returns the reciprocal of the reverse canonical observation. When both
+directions exist at the same timestamp, the snapshot requires
+`abs(direct * reverse - 1) <= 1e-10`.
+
+Core and Python map inputs can contain at most one value for each `(index name,
+timestamp)` pair. The Excel parallel-array adapter rejects duplicate pairs
+explicitly. Supplying a snapshot makes it authoritative, including when it is
+explicitly empty. When a snapshot is omitted, staged and joint XCCY calibration
+first collect and deduplicate all required historical observations across all
+instruments and copy them from the process-wide fixing store once. Later global
+mutations cannot change the captured solve.
 
 ## Staged Basis Calibration
 
@@ -114,6 +125,10 @@ the tolerance-scaled system and may retain the effective inverse Jacobian;
 approximate mode minimizes the fit subject to smoothness regularization. The
 result contains the basis-bearing `CrossCurrencyMarket_`, FX forwards at the
 basis knots, fit diagnostics, and optional matrices.
+
+For `nInstruments` quotes and `nBasisParameters` basis parameters, the staged
+forward Jacobian has shape `nInstruments x nBasisParameters`; the effective
+inverse has shape `nBasisParameters x nInstruments`.
 
 ## Joint Domestic, Foreign, and Basis Calibration
 
@@ -142,13 +157,26 @@ come from pricing and curve routing, not regularization.
 The result retains both solved currency blocks, the basis curve, FX forwards,
 the fixing snapshot, group and joint diagnostics, market/model/residual vectors,
 ranges, and optional forward/effective-inverse Jacobian matrices.
+`effJacobianInverse_` has shape `totalParameters x totalResiduals`. Both
+matrices live on the top-level joint result rather than inside the domestic,
+foreign, or XCCY group diagnostics.
 
 ## Analytic and Bumped Jacobians
 
-Both staged and joint calibration accept `ANALYTIC` and `BUMPED`. In exact mode,
-analytic calibration can populate the forward Jacobian at the solution; either
-mode can populate the solver's effective inverse when requested. Approximate
-mode does not expose either matrix.
+Both staged and joint calibration accept `ANALYTIC` and `BUMPED`. At the
+accepted exact solution, the exposed forward matrix is the unscaled analytic
+residual Jacobian. The effective inverse is the weighted pseudoinverse formed
+from the solver's tolerance-scaled Jacobian at that same solved state; it is not
+the literal inverse of the exposed forward matrix. For a raw decimal quote
+perturbation $\Delta q$, the parameter move is
+
+$$
+\Delta x = \mathrm{effJacobianInverse}\,\Delta q / \mathrm{tolerance}.
+$$
+
+Exact analytic calibration may produce both matrices. Exact bumped calibration
+produces only the effective inverse. Approximate calibration produces neither,
+and the forward/inverse options can suppress their computations independently.
 
 Joint XCCY analytic calibration is fail-fast. Every domestic and foreign
 declaration must satisfy the joint curve AAD gates, including `ACT_365F`, a
@@ -159,17 +187,44 @@ If any analytic gate fails, the exception identifies the ineligible currency,
 declaration, instrument, or reset. Select `BUMPED` explicitly to run the same
 valid residual system without the analytic eligibility requirement.
 
+## Surface Availability
+
+- **Core/public C++:** staged XCCY has full options, a forward Jacobian, and an
+  effective inverse; joint XCCY has full options and both top-level matrices.
+- **Python:** staged XCCY has the default solve, market/FX-forward output, and
+  fit diagnostics, but no staged matrix bindings; joint XCCY has options, named
+  ranges, a forward Jacobian, and an effective inverse.
+- **Excel:** staged XCCY has a basis handle and fit diagnostics, but no staged
+  matrix views; joint XCCY has options plus forward-Jacobian/range views, but no
+  effective-inverse worksheet getter.
+
 ## Runnable Examples
 
+- `xccy_curve_calibration` performs staged basis-only calibration against
+  supplied domestic and foreign curve blocks and prints fit diagnostics,
+  including the FX spot and maximum residual, plus elapsed time.
 - `xccy_reset_pricing` prices future fixed, resettable, and MTM swaps against
   piecewise-constant discount, projection, and basis curves, validates their
   reset and notional behavior, and prices an already-started MTM swap from an
   immutable snapshot of historical domestic-rate, foreign-rate, and FX fixings.
 - `xccy_mtm_calibration` builds known domestic, foreign, and basis curves,
   derives self-consistent quotes, supplies an immutable fixing snapshot for an
-  already-started MTM swap, and recovers all three parameter blocks in one joint
-  calibration. It prints the convergence residual, Jacobian shape, block ranges,
-  and parameter-recovery errors.
+  already-started MTM swap, and recovers five declaration blocks across the
+  domestic, foreign, and basis groups in one joint calibration. It prints the
+  convergence residual, Jacobian shape, block ranges, and parameter-recovery
+  errors.
+- `dal-python/examples/007.xccy_joint_calibration.py` runs joint calibration
+  through the installed Python surface and prints convergence, matrix
+  dimensions, named ranges, and FX forwards.
+
+## Performance Smoke Surface
+
+`xccy_perf` emits 24 unique timing rows. They cover four pricing cases (future
+fixed, resettable, and MTM plus started MTM), staged calibration including the
+reset-aware analytic case, and joint calibration. Linux and Windows CI execute
+the benchmark to completion, but it is not in the paired base/head regression
+allowlist; this target is execution-smoke and reporting coverage rather than a
+regression threshold gate.
 
 ## See Also
 
