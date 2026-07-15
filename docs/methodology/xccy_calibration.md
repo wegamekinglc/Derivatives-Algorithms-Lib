@@ -189,11 +189,14 @@ valid residual system without the analytic eligibility requirement.
 
 ## Surface Availability
 
-| Surface | Staged XCCY | Joint XCCY |
-|---------|-------------|------------|
-| Core/public C++ | Full options, forward Jacobian, and effective inverse | Full options and both top-level matrices |
-| Python | Default staged solve with market/FX-forward and fit diagnostics; no staged matrix bindings | Options, named ranges, forward Jacobian, and effective inverse |
-| Excel | Basis handle and fit diagnostics; no staged matrix views | Options plus forward-Jacobian/range views; no effective-inverse worksheet getter |
+- **Core/public C++:** staged XCCY has full options, a forward Jacobian, and an
+  effective inverse; joint XCCY has full options and both top-level matrices.
+- **Python:** staged XCCY has the default solve, market/FX-forward output, and
+  fit diagnostics, but no staged matrix bindings; joint XCCY has options, named
+  ranges, a forward Jacobian, and an effective inverse.
+- **Excel:** staged XCCY has a basis handle and fit diagnostics, but no staged
+  matrix views; joint XCCY has options plus forward-Jacobian/range views, but no
+  effective-inverse worksheet getter.
 
 ## Runnable Examples
 

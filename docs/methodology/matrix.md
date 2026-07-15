@@ -90,6 +90,11 @@ x_i=\frac{b_i-c_{i-1}x_{i-1}}{\beta_i},
 x_{i-1}\leftarrow x_{i-1}-\frac{a_{i-1}}{\beta_{i-1}}x_i
 $$
 
+These are the `SolveLeft` recurrences for $A x=b$. `TriDecomp_::XSolveLeft_af`
+passes the stored `below_` diagonal first and `above_` second to the internal
+`TriSolve`, so forward substitution uses $c$ and backward substitution uses
+$a$. `SolveRight` reverses those diagonals to solve against $A^{\top}$.
+
 This is the Thomas algorithm. It is $O(n)$ in time and $O(n)$ in memory. Pivoting is not
 used: the factorization is valid only when every $\beta_i$ is non-zero,
 which holds in particular for **strictly diagonally dominant** and for **symmetric

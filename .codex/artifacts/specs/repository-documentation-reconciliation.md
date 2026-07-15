@@ -109,14 +109,22 @@ of the methodology documents.
 
 ## Inputs and Outputs
 
-| Input                  | Authority                                                              | Output                                                                    |
-|------------------------|------------------------------------------------------------------------|---------------------------------------------------------------------------|
-| Published Markdown set | `.github/scripts/check_docs.py::DOCS`                                   | One 33-row disposition matrix                                             |
-| C++ surface            | Core/public headers and generated enums                                | Exact types, constants, ownership, and solver contracts                   |
-| Python surface         | `dal-python/src/bindings/`, `dal-python/src/dal/`, tests, examples      | Callable names, result properties, and supported workflows                |
-| Excel surface          | `dal-excel/src/`, interface markup, generated help, smoke tests         | Worksheet functions, settings, selectors, and documented limitations     |
-| Build/runtime surface  | CMake, presets, scripts, workflows, web source                          | Current setup, ownership, execution, and CI descriptions                  |
-| Numerical behavior     | Methodology implementation plus independent tests                      | Correct formulas, matrix semantics, tolerances, and applicability         |
+- **Published Markdown set:** `.github/scripts/check_docs.py::DOCS` is the
+  authority; the output is one 33-row disposition matrix.
+- **C++ surface:** core/public headers and generated enums are the authority;
+  the outputs are exact types, constants, ownership, and solver contracts.
+- **Python surface:** `dal-python/src/bindings/`, `dal-python/src/dal/`, tests,
+  and examples are the authorities; the outputs are callable names, result
+  properties, and supported workflows.
+- **Excel surface:** `dal-excel/src/`, interface markup, generated help, and
+  smoke tests are the authorities; the outputs are worksheet functions,
+  settings, selectors, and documented limitations.
+- **Build/runtime surface:** CMake, presets, scripts, workflows, and web source
+  are the authorities; the outputs are current setup, ownership, execution,
+  and CI descriptions.
+- **Numerical behavior:** methodology implementations and independent tests are
+  the authorities; the outputs are correct formulas, matrix semantics,
+  tolerances, and applicability.
 
 ## Acceptance Criteria
 

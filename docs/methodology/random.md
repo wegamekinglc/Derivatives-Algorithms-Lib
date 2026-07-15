@@ -235,10 +235,14 @@ The pseudo-random family (`PseudoRandom_` in
 `dal-cpp/dal/math/random/pseudorandom.cpp`) is selected through the `RNGType_`
 enum, whose alternatives are `IRN` and `MRG32`.
 
-| `RNGType_` | Implementation        | Period / structure                          | `SkipTo`                                            |
-|------------|-----------------------|----------------------------------------------|-----------------------------------------------------|
-| `IRN`      | `ShuffledIRN_<55,31,128>` | Knuth-style lagged additive (IRN55) with shuffling, modulus $2^{30}$ | No-op; `Clone` restarts from the original seed and `Branch` creates another seeded generator |
-| `MRG32`    | `MRG32k32a_`          | L'Ecuyer combined multiple recursive (MRG32k32a), periods $\approx 2^{191}$ | Matrix jump; fresh-generator `FillUniform` replay at even path offsets only; no normal-path replay |
+- **`IRN`:** implemented by `ShuffledIRN_<55,31,128>`, a Knuth-style lagged
+  additive IRN55 generator with shuffling and modulus $2^{30}$. `SkipTo` is a
+  no-op; `Clone` restarts from the original seed, and `Branch` creates another
+  seeded generator.
+- **`MRG32`:** implemented by `MRG32k32a_`, L'Ecuyer's combined multiple
+  recursive MRG32k32a generator with period approximately $2^{191}$. `SkipTo`
+  uses a matrix jump; on a fresh generator it replays `FillUniform` only at even
+  path offsets, and it does not replay normal paths.
 
 `PseudoRandom_` adds antithetic variates on top of the underlying engine:
 `FillUniform` alternates between drawing $u_i$ and emitting the antithetic
