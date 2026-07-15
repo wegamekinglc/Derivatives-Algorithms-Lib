@@ -73,4 +73,4 @@ checks alone are not treated as proof of technical accuracy.
 | Python XCCY example | Installed-surface `dal-python/examples/007.xccy_joint_calibration.py` exited 0 with a converged `3x3` solve, named ranges, and FX forwards. |
 | XCCY benchmark smoke | The executable output parsed to exactly 24 unique timing rows with the verification command retained in the reconciliation plan. |
 | Task reviews | Task 1 and Task 2 were accepted clean; Tasks 3, 4, and 5 were accepted after scoped follow-up commits and re-review. The accepted head before this artifact is `ab4ca651`. |
-| Whole-branch review | A fresh reviewer approved the full `1589089b..ab930cf0` range with no Critical, Important, or Minor findings after all review-driven corrections. |
+| Whole-branch review | A fresh reviewer approved `1589089b..ab930cf0` with no Critical, Important, or Minor findings; the audit closure and PR follow-up `84f7dccc..0e3c009c` were then independently approved without findings. |
