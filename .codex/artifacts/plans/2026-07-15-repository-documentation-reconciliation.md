@@ -319,7 +319,7 @@ build/Release-linux/dal-cpp/examples/xccy_curve_calibration/xccy_curve_calibrati
 build/Release-linux/dal-cpp/examples/xccy_reset_pricing/xccy_reset_pricing
 build/Release-linux/dal-cpp/examples/xccy_mtm_calibration/xccy_mtm_calibration
 PYTHONPATH="$PWD/build/stage/Release-linux" dal-python/.venv/bin/python dal-python/examples/007.xccy_joint_calibration.py
-DAL_NUM_THREADS=4 build/Release-linux/dal-cpp/benchmarks/xccy_perf/xccy_perf | python3 -c 'import re,sys; row=re.compile(r"^\\S(?:.*?\\S)?\\s+[0-9]+(?:\\.[0-9]+)?\\s+(?:ns|us|ms|s)\\s+[0-9]+(?:\\.[0-9]+)?\\s+(?:ns|us|ms|s)\\s+[0-9]+(?:\\.[0-9]+)?\\s+(?:ns|us|ms|s)\\s+[0-9]+\\s*$"); names=[line.rsplit(None,7)[0] for line in sys.stdin if row.match(line)]; assert len(names)==len(set(names))==24, (len(names),len(set(names)))'
+DAL_NUM_THREADS=4 build/Release-linux/dal-cpp/benchmarks/xccy_perf/xccy_perf | python3 -c 'import re,sys; row=re.compile(r"^\S(?:.*?\S)?\s+[0-9]+(?:\.[0-9]+)?\s+(?:ns|us|ms|s)\s+[0-9]+(?:\.[0-9]+)?\s+(?:ns|us|ms|s)\s+[0-9]+(?:\.[0-9]+)?\s+(?:ns|us|ms|s)\s+[0-9]+\s*$"); names=[line.rsplit(None,7)[0] for line in sys.stdin if row.match(line)]; assert len(names)==len(set(names))==24, (len(names),len(set(names)))'
 python3 .github/scripts/check_docs.py
 git diff --check
 git add docs/methodology/xccy_calibration.md docs/methodology/yield_curve_jacobian.md
@@ -497,7 +497,7 @@ Expected: exit 0 with 33 unique rows.
 ```bash
 python3 .github/scripts/check_docs.py
 git diff --check 1589089b..HEAD
-git diff --name-only 1589089b..HEAD | while IFS= read -r path; do case "$path" in *.md) ;; *) printf '%s\n' "$path";; esac; done
+git diff --name-only 1589089b..HEAD | while IFS= read -r doc_path; do case "$doc_path" in *.md) ;; *) printf '%s\n' "$doc_path";; esac; done
 git diff --name-only 1589089b..HEAD -- CLAUDE.md .claude AGENTS.md dal-cpp/dal/auto dal-excel/auto
 ```
 

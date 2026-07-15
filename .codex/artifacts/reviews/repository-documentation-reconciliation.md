@@ -71,6 +71,6 @@ checks alone are not treated as proof of technical accuracy.
 | Branch whitespace and scope | `git diff --check 1589089b..HEAD` passed; the complete branch diff contains only Markdown, and protected `CLAUDE.md`, `.claude/`, `AGENTS.md`, `dal-cpp/dal/auto`, and `dal-excel/auto` paths are unchanged. |
 | C++ XCCY examples | `xccy_curve_calibration`, `xccy_reset_pricing`, and `xccy_mtm_calibration` each exited 0; outputs included the staged 15-instrument fit, four pricing cases, and the converged `25x25` joint solve with five named ranges. |
 | Python XCCY example | Installed-surface `dal-python/examples/007.xccy_joint_calibration.py` exited 0 with a converged `3x3` solve, named ranges, and FX forwards. |
-| XCCY benchmark smoke | The executable output parsed with the corrected single-backslash whitespace regex to exactly 24 unique timing rows. The doubled raw-regex backslashes in the written task command are not executable evidence. |
+| XCCY benchmark smoke | The executable output parsed to exactly 24 unique timing rows with the verification command retained in the reconciliation plan. |
 | Task reviews | Task 1 and Task 2 were accepted clean; Tasks 3, 4, and 5 were accepted after scoped follow-up commits and re-review. The accepted head before this artifact is `ab4ca651`. |
 | Whole-branch review | Not yet performed. A fresh final reviewer is intentionally scheduled after this audit commit. |
