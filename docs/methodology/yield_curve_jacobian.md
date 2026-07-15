@@ -363,13 +363,29 @@ The immutable fixing snapshot is passive data: historical observations have no
 parameter adjoints, while future or unsupplied at-valuation observations remain
 active forward values.
 
+`effJacobianInverse_` has the complementary shape
+`totalParameters x totalResiduals` and follows the same published parameter and
+residual range order. Both matrices are retained on the top-level
+`JointXccyCalibrationResult_`, not on its per-group diagnostics. At the accepted
+exact solution, the forward matrix is the unscaled analytic Jacobian, while the
+effective inverse is the weighted pseudoinverse of the solver's
+tolerance-scaled Jacobian. They are therefore not literal inverses in their
+exposed forms. A raw decimal quote perturbation maps to parameter coordinates as
+
+$$
+\Delta x = \mathrm{effJacobianInverse}\,\Delta q / \mathrm{tolerance}.
+$$
+
 Unlike generic joint multi-curve calibration, requested XCCY `ANALYTIC` mode is
 fail-fast. An unsupported declaration, day basis, instrument route, or malformed
 XCCY plan raises an eligibility error naming the offending group. `BUMPED`
 remains available for every otherwise-valid spec. In exact bumped mode,
-`jacobianAtSolution_` is empty while `effJacobianInverse_` may still be retained.
-Approximate mode exposes neither matrix. The two matrix computations can also be
-disabled independently with `JointXccyCalibrationOptions_`.
+`jacobianAtSolution_` is empty while `effJacobianInverse_` is retained when
+requested. Exact analytic mode may retain both matrices; approximate mode
+exposes neither. `JointXccyCalibrationOptions_` can suppress the two matrix
+computations independently. Core/public C++ and joint Python expose both
+top-level matrices. The Excel joint worksheet surface exposes the forward
+Jacobian and named ranges but has no effective-inverse getter.
 
 The regression suite compares the full analytic stack against two-sided central
 differences and verifies that the published parameter and residual ranges
