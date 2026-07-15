@@ -15,7 +15,7 @@ $$
 \texttt{double operator()(double x) const}, \qquad \texttt{bool IsInBounds(double x) const}.
 $$
 
-The abscissae $x_1 < x_2 < \dots < x_N$ must be strictly increasing (`IsMonotonic` is
+The abscissae $x_1 \le x_2 \le \dots \le x_N$ must be non-decreasing (`IsMonotonic` is
 checked at construction). Evaluation is by `LowerBound` on the knot vector followed by a
 scheme-specific local formula; values exactly at a knot return the knot's $f$ value
 without rounding error. The shared linear kernel used internally is
@@ -70,7 +70,6 @@ $[x_1, x_N]$; outside that range the kernel clamps to the nearest endpoint value
 extrapolation via the `LowerBound` edge cases).
 
 Factory: `Interp::NewLinear(name, x, f)` (`dal-cpp/dal/math/interp/interplinear.hpp`).
-Requires $N \ge 2$.
 
 ## Log-Linear
 
