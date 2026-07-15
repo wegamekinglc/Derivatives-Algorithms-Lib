@@ -144,8 +144,9 @@ The facade separates construction from solving:
 For staged calibration, assemble `MultiCurveCalibrationSpec_` and call
 `CalibrateMultiCurveBundle`. Cross-currency calibration has two paths:
 
-- `CrossCurrencyCalibrationSpecBuilder_` / `CalibrateXccyMarket` calibrates a
-  basis curve over supplied domestic and foreign blocks.
+- `CrossCurrencyCalibrationSpecBuilder_` / the one-argument public convenience
+  facade `CalibrateXccyMarket(spec)` calibrates a basis curve over supplied
+  domestic and foreign blocks.
 - `JointXccyCalibrationSpecBuilder_` / `CalibrateJointXccyMarket` solves the
   domestic declarations, foreign declarations, and basis declaration together.
 
@@ -158,7 +159,9 @@ For staged calibration, assemble `MultiCurveCalibrationSpec_` and call
 in-progress swaps.
 
 The public XCCY header includes the core staged and joint result types. Staged
-C++ callers can use `CrossCurrencyCalibrationOptions_`; the returned
+C++ callers that need `CrossCurrencyCalibrationOptions_` use the core
+`CalibrateCrossCurrencyMarket(spec, options)` entry point; there is no
+`CalibrateXccyMarket(spec, options)` public-facade overload. The returned
 `CrossCurrencyCalibrationDiagnostics_` owns the optional forward Jacobian and
 effective inverse. Joint results similarly own both matrices at the top level.
 The `JointXccyResult*` facade helpers expose the three solved curve handles, FX
