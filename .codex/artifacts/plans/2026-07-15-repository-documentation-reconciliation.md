@@ -111,7 +111,7 @@ git commit -m "docs: move historical plans out of published docs"
 
 ```bash
 rg -n "XCCY|Cross-Currency" README.md
-rg -n "Why `LOG_DISCOUNT` is the parameterization that supports the analytic Jacobian" docs/README.md
+rg -n 'Why `LOG_DISCOUNT` is the parameterization that supports the analytic Jacobian' docs/README.md
 rg -n "MarketFixingSnapshot_|CalibrateJointXccyMarket|CalibrateCrossCurrencyMarket" docs/architecture.md
 ```
 
@@ -205,7 +205,7 @@ git commit -m "docs: refresh architecture and navigation"
 ```bash
 rg -n "all-days|matches calendar = all|does better" docs/experimental/replicate-ptirds-single-currency-curve.md
 rg -n "first-order accurate|not-a-knot|O\\(n m\\)" docs/methodology/interpolation.md docs/methodology/matrix.md
-rg -n "full `SkipTo` support|re-seed via `Branch`/`Clone`|repositions the generator without replay" docs/methodology/random.md
+rg -n 'full `SkipTo` support|re-seed via `Branch`/`Clone`|repositions the generator without replay' docs/methodology/random.md
 ```
 
 Expected: each stale claim is present before editing.

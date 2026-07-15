@@ -91,7 +91,7 @@ default for the `LOG_DISCOUNT` curve parameterization — see
 
 ## Cubic Spline
 
-A natural cubic spline through the knots: a piecewise-cubic polynomial on each
+A cubic spline through the knots: a piecewise-cubic polynomial on each
 $[x_i, x_{i+1}]$ that is $C^2$ continuous, with second derivatives $f''_i$ at the knots
 solved once at construction by the standard tri-diagonal elimination (the routine is based
 on the *Numerical Recipes* `spline`/`splint` pair). Evaluation between knots uses the local
