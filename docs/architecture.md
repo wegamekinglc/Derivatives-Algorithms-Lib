@@ -164,7 +164,7 @@ for each worker's path batch.
 ```text
 instrument/convention builders
   -> validated spec, curve layout, and model-rate residuals
-  -> single/staged curves: CalibrateCurve / CalibrateMultiCurve
+  -> single/staged curves: CalibrateYieldCurve / CalibrateMultiCurve
   -> staged XCCY basis: CalibrateCrossCurrencyMarket
        -> supplied domestic/foreign blocks + basis parameters + one fixing snapshot
   -> joint XCCY: CalibrateJointXccyMarket

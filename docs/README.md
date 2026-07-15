@@ -75,7 +75,7 @@ Deep dives into the quantitative methods and algorithms implemented in DAL:
 - **[matrix.md](methodology/matrix.md)** — Matrix and Linear Algebra
   - Numerical-Recipes band-storage layout and the `Sparse::Square_` / decomposition interfaces
   - Tri-diagonal Thomas-algorithm solve (`TriDiagonal_`, `TriDecomp_`, `TriDecompSymm_`)
-  - Dense and band-Cholesky factorizations with diagonal regularization
+  - Dense Cholesky with reciprocal-diagonal regularization, plus band-Cholesky factorization
   - Preconditioned conjugate-gradient (CG) and bi-conjugate-gradient (BCG) Krylov solvers
 
 - **[log_discount_curve.md](methodology/log_discount_curve.md)** — Log-Discount Curve
