@@ -149,14 +149,33 @@ For staged calibration, assemble `MultiCurveCalibrationSpec_` and call
 - `JointXccyCalibrationSpecBuilder_` / `CalibrateJointXccyMarket` solves the
   domestic declarations, foreign declarations, and basis declaration together.
 
-`CrossCurrencySwapConfigBuilder_` selects `XccyNotionalMode_::{FIXED,
-RESETTABLE,MARK_TO_MARKET}`, explicit domestic/foreign `FixingIdentity_` values,
-and an `FxResetConvention_`. `MarketFixingSnapshotNew` creates an immutable
-rate-and-FX observation set for in-progress swaps. Joint results expose the
-three solved curve handles plus FX forwards, market/model/residual vectors, the
-forward Jacobian, and named parameter/residual ranges through
-`JointXccyResult*` accessors. See
-[cross-currency pricing and calibration](methodology/xccy_calibration.md).
+`CrossCurrencySwapConfigBuilder_` selects
+`XccyNotionalMode_::Value_::FIXED`,
+`XccyNotionalMode_::Value_::RESETTABLE`, or
+`XccyNotionalMode_::Value_::MARK_TO_MARKET`, explicit domestic/foreign
+`FixingIdentity_` values, and an `FxResetConvention_`.
+`MarketFixingSnapshotNew` creates an immutable rate-and-FX observation set for
+in-progress swaps.
+
+The public XCCY header includes the core staged and joint result types. Staged
+C++ callers can use `CrossCurrencyCalibrationOptions_`; the returned
+`CrossCurrencyCalibrationDiagnostics_` owns the optional forward Jacobian and
+effective inverse. Joint results similarly own both matrices at the top level.
+The `JointXccyResult*` facade helpers expose the three solved curve handles, FX
+forwards, market/model/residual vectors, the forward Jacobian, and named
+parameter/residual ranges. There is no dedicated effective-inverse facade
+helper; C++ consumers read
+`JointXccyCalibrationResult_::effJacobianInverse_` directly.
+
+For staged XCCY, the forward/inverse shapes are
+`nInstruments x nBasisParameters` and
+`nBasisParameters x nInstruments`. For joint XCCY they are
+`totalResiduals x totalParameters` and
+`totalParameters x totalResiduals`. The effective inverse is based on the
+solver's tolerance-scaled Jacobian, so a raw decimal quote-risk transform also
+divides by the calibration `tolerance_`. See
+[cross-currency pricing and calibration](methodology/xccy_calibration.md) and
+the [Jacobian methodology](methodology/yield_curve_jacobian.md#joint-xccy-jacobian-layout).
 
 Set `parameterization_ = CurveParameterization_::Value_::ZERO_RATE` to calibrate future
 zero-rate nodes. `initialGuess_` and `initialGuessPerNode_` are decimal continuously
@@ -262,14 +281,23 @@ curve = dal.DiscountZeroRate_New(
 The returned `DiscountZeroRate_` exposes read-only `anchor_date`, `node_dates`,
 `zero_rates`, `day_count`, and `log_df_scheme` properties.
 
-Python exposes the joint XCCY declarations, builder, options, calibration entry
-point, and result surface with both trailing-underscore and snake-case aliases.
+Python staged XCCY exposes only the one-argument default
+`CalibrateXccyMarket(spec)` solve. Its result provides the calibrated market,
+FX forwards, and scalar/vector fit diagnostics; staged matrix options and
+matrix fields remain C++-only.
+
+Python joint XCCY exposes the declarations, builder,
+`JointXccyCalibrationOptions_`, calibration entry point, and result surface
+with both trailing-underscore and snake-case aliases.
 `JointXccyCalibrationResult_` provides `domestic_curve_block`,
 `foreign_curve_block`, `basis_curve`, `fx_forward_curve`, `fixings`, group
 diagnostics, `market_rates`, `model_rates`, `residuals`,
 `jacobian_at_solution`, `eff_jacobian_inverse`, `parameter_ranges`, and
 `residual_ranges`. `CalibrateJointXccyMarket(spec, options)` selects analytic or
-bumped Jacobians and optional matrix construction.
+bumped Jacobians and optional matrix construction. The effective inverse has
+shape `totalParameters x totalResiduals`; applying it to a raw decimal quote
+bump requires division by the spec's `tolerance_`, as described in the
+[Jacobian methodology](methodology/yield_curve_jacobian.md#joint-xccy-jacobian-layout).
 
 See [dal-python/README.md](../dal-python/README.md) for package-focused examples.
 
@@ -323,8 +351,13 @@ foreign discount-instrument/knot group, configured XCCY instruments, basis
 knots, an optional immutable snapshot handle, and two-column settings. Dedicated
 result functions return the domestic block, foreign block, and basis curve
 handles.
+Staged `XCCYCALIBRATIONRESULT.GET` exposes fit vectors and scalars but neither
+the staged forward Jacobian nor the staged effective inverse.
 `JOINTXCCYCALIBRATIONRESULT.GET` returns `fxForwards`, `marketRates`,
 `modelRates`, `residuals`, `jacobian`, `parameterRanges`, or `residualRanges`.
+Joint settings can request both matrix computations, but `jacobian` is the only
+matrix available through a worksheet selector; there is no
+`effJacobianInverse` worksheet getter.
 Generated function help under `dal-excel/auto/*.htm` is the argument-level
 catalog used by Excel registration.
 
