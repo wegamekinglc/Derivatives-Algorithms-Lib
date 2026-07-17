@@ -24,7 +24,7 @@ namespace Dal::Script {
 
     struct SimResults_ {
         explicit SimResults_(const Vector_<String_>& names) : aggregated_(0.0), risks_(names.size(), 0.0), names_(names) {
-            for (auto i = 0; i < names.size(); ++i)
+            for (size_t i = 0; i < names.size(); ++i)
                 results_[names[i]] = i;
         }
         double aggregated_;
