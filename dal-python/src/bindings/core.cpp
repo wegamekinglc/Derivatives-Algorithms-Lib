@@ -141,7 +141,7 @@ void init_bindings_core(py::module_& m) {
         .def("__gt__", [](const Date_& a, const Date_& b) { return a > b; })
         .def("__ge__", [](const Date_& a, const Date_& b) { return a >= b; })
         .def("__eq__", [](const Date_& a, const Date_& b) { return a == b; })
-        .def("__hash__", [](const Date_& d) { return std::hash<int>{}(static_cast<int>(d)); })
+        .def("__hash__", [](const Date_& d) { return Date::ToExcel(d); })
         .def("__sub__", [](const Date_& a, const Date_& b) { return a - b; });
 
     // Module-level date accessor functions
