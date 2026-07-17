@@ -47,6 +47,28 @@ def _run_alembic_upgrade() -> None:
     command.upgrade(cfg, "head")
 
 
+def _reconcile_orphaned_valuations() -> None:
+    """Mark in-flight valuations as failed when the server restarts.
+
+    H6 regression: the async task queue lives in-process; a restart orphans
+    every ``running`` valuation.  This reconciliation runs once at startup
+    so callers do not poll forever.
+    """
+    if is_memory_mode():
+        return
+    store = get_store()
+    for valuation in store.list_valuations():
+        if valuation.status == "running":
+            store.update_valuation(
+                valuation.id,
+                {
+                    "status": "failed",
+                    "error_message": "Server restarted while pricing",
+                },
+            )
+            logger.info("Reconciled orphaned valuation %s to failed", valuation.id)
+
+
 def create_app() -> FastAPI:
     app = FastAPI(
         title="DAL Derivatives Portfolio Management",
@@ -81,6 +103,7 @@ def create_app() -> FastAPI:
     app.include_router(portfolios.router)
 
     _init_database()
+    _reconcile_orphaned_valuations()
 
     if os.environ.get("WEBUI_SEED_DEMO", "1").strip().lower() not in {"0", "false", "no"}:
         seed_demo_data(get_store())

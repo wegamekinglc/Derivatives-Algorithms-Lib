@@ -85,8 +85,42 @@ def test_value_rejects_unknown_monte_carlo_method():
         gw.value(_european_request(method="unknown"))
 
 
+def test_value_restores_evaluation_date_after_pricing():
+    """H5 regression: evaluation_date must be restored after value() returns."""
+    import dal
+
+    dal.EvaluationDate_Set(dal.Date_(2020, 1, 1))
+    gw = make_gateway()
+    gw.value(_european_request(evaluation_date=(2022, 9, 15)))
+    assert str(dal.EvaluationDate_Get()) == "2020-01-01"
+
+
+def test_value_leaves_date_unchanged_when_no_evaluation_date_given():
+    """H5 regression: omitting evaluation_date must not mutate global state."""
+    import dal
+
+    dal.EvaluationDate_Set(dal.Date_(2020, 1, 1))
+    gw = make_gateway()
+    gw.value(_european_request(evaluation_date=None))
+    assert str(dal.EvaluationDate_Get()) == "2020-01-01"
+
+
+def test_value_restores_date_even_on_pricing_failure(monkeypatch):
+    """H5 regression: date must be restored even if MonteCarlo_Value raises."""
+    import dal
+
+    dal.EvaluationDate_Set(dal.Date_(2020, 1, 1))
+    gw = make_gateway()
+
+    monkeypatch.setattr(dal, "MonteCarlo_Value", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("boom")))
+
+    with pytest.raises(RuntimeError):
+        gw.value(_european_request(evaluation_date=(2022, 9, 15)))
+
+    assert str(dal.EvaluationDate_Get()) == "2020-01-01"
+
+
 def test_gateway_builds_non_flat_dupire_surface():
-    """The web surface reaches DAL without being flattened or deferred to valuation."""
     gw = make_gateway()
     surface = [[0.24, 0.23], [0.21, 0.20], [0.19, 0.18]]
 

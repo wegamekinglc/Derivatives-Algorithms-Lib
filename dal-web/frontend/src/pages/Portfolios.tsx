@@ -234,6 +234,7 @@ export default function Portfolios() {
 
       {selected && (
         <ValuationPanel
+          key={selected.id}
           title={`Price portfolio: ${selected.name}`}
           onRun={(config) => api.valuePortfolio(selected.id, config)}
         />
