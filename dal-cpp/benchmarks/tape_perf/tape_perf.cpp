@@ -88,5 +88,26 @@ int main() {
         Bench::DoNotOptimize(&sink);
     }
 
+    // Multi-mode propagate: 10 result slots per node, seeded and swept once per rep.
+    {
+        Clear(*Tape());
+        auto resetter = SetNumResultsForAAD(true, 10);
+        Number_ multiSeed;
+        multiSeed = 1.0;
+        Number_ multiTop = BuildChain(multiSeed);
+        Bench::DoNotOptimize(&multiTop);
+        auto topNode = std::prev(Tape()->nodes_.End());
+        auto seedNode = Tape()->nodes_.Begin();
+        double sink = 0.0;
+        auto r = Bench::Run("PropagateToStart multi-mode (100K nodes, 10 results)", [&]() {
+            for (size_t j = 0; j < 10; ++j)
+                topNode->Adjoint(j) = 1.0;
+            PropagateToStart(*Tape());
+            sink += seedNode->Adjoint(0);
+        }, 3, kRepeats);
+        Bench::Print(r);
+        Bench::DoNotOptimize(&sink);
+    }
+
     return 0;
 }
