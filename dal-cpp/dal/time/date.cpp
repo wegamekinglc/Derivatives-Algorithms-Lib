@@ -35,10 +35,19 @@ namespace Dal {
                    (3 * ((yy + 4900 + (mm - 14) / 12) / 100)) / 4 + dd - 693894;
         }
 
+        bool IsLeapYear(int yy) { return yy % 4 == 0 && (yy % 100 != 0 || yy % 400 == 0); }
+
+        // Date::DaysInMonth is unusable here: it constructs Date_ values, which would recurse back into SerialFromYMD.
+        int DaysInMonth(int yy, int mm) {
+            static const int DAYS_IN_MONTH[] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+            return DAYS_IN_MONTH[mm - 1] + (mm == 2 && IsLeapYear(yy) ? 1 : 0);
+        }
+
         uint16_t SerialFromYMD(int yy, int mm, int dd) {
             REQUIRE(yy >= 1900 && yy <= 2199, "Year out of supported range [1900, 2199]");
             REQUIRE(mm >= 1 && mm <= 12, "Month out of range [1, 12]");
             REQUIRE(dd >= 1 && dd <= 31, "Day out of range [1, 31]");
+            REQUIRE(dd <= DaysInMonth(yy, mm), "Day out of range for the given year and month");
             const auto xl = ExcelDateFromYMD(yy, mm, dd);
             const auto retval = static_cast<uint16_t>(xl - EXCEL_OFFSET);
             return static_cast<int>(retval) + EXCEL_OFFSET == xl
