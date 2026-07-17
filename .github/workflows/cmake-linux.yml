@@ -401,7 +401,12 @@ jobs:
           DAL_NUM_THREADS: 4
         run: |
           # Single-source benchmark list via CTest labels (H8 fix)
-          benchmarks=( $(ctest -N -L benchmark --test-dir build/benchmark-head | grep '^Test #' | sed 's/.*: //') )
+          # ctest -N indents test lines ("  Test #1: name"), so match without anchoring
+          benchmarks=( $(ctest -N -L benchmark --test-dir build/benchmark-head | awk -F': ' '/Test #/{print $2}') )
+          if [ ${#benchmarks[@]} -eq 0 ]; then
+            echo "benchmark discovery failed: ctest -N -L benchmark --test-dir build/benchmark-head found no tests"
+            exit 1
+          fi
 
           mkdir -p benchmark-results
           {
