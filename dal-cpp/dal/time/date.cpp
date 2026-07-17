@@ -36,6 +36,9 @@ namespace Dal {
         }
 
         uint16_t SerialFromYMD(int yy, int mm, int dd) {
+            REQUIRE(yy >= 1900 && yy <= 2199, "Year out of supported range [1900, 2199]");
+            REQUIRE(mm >= 1 && mm <= 12, "Month out of range [1, 12]");
+            REQUIRE(dd >= 1 && dd <= 31, "Day out of range [1, 31]");
             const auto xl = ExcelDateFromYMD(yy, mm, dd);
             const auto retval = static_cast<uint16_t>(xl - EXCEL_OFFSET);
             return static_cast<int>(retval) + EXCEL_OFFSET == xl
