@@ -46,6 +46,27 @@ here as the baseline rather than dated releases:
 
 ## 2026-07
 
+- `aad`: Fixed multi-result adjoint propagation on the native backend. Reverse
+  sweeps now dispatch to the vector-adjoint path (`TapNode_::PropagateAll`)
+  whenever `SetNumResultsForAAD(true, m)` is active; previously every sweep took
+  the scalar `PropagateOne` path, so all $m$ result adjoints silently stayed
+  zero. Consumed multi-mode adjoints are zeroed after propagation — the same
+  discipline `PropagateOne` already applied to scalar adjoints — so repeated
+  sweeps no longer re-propagate stale slots, and the multi-mode state
+  (`Tape_::multi_`, `Tape_::numAdj_`) moved from process-global statics to
+  per-tape members so tapes configured with different result arities no longer
+  interfere. The `SetNumResultsForAAD` scope guard now restores the enclosing
+  mode on destruction instead of forcing scalar defaults. The Adept, XAD, and
+  CoDiPack backends are unaffected. See `docs/methodology/aad.md`.
+
+- `time`: Made `Date_` construction strict. The year must lie in [1900, 2199],
+  the month in [1, 12], and the day within the actual length of the given month
+  (leap years included). Invalid triples such as `Date_(2023, 2, 30)` previously
+  normalized silently through serial-date arithmetic; they now throw
+  `Exception_` via `REQUIRE`. **Breaking behavior change** visible identically
+  through C++, the Python `dal.Date_` binding, and all date-taking Excel
+  functions.
+
 - `curve`: Added reset-aware cross-currency pricing and simultaneous domestic,
   foreign, and basis calibration. Fixed, resettable, and mark-to-market notional
   modes replace the prior boolean configuration; explicit rate/FX fixing identities
