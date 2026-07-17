@@ -13,3 +13,7 @@ install(TARGETS stacks_perf
         RUNTIME DESTINATION bin
         PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE
         )
+
+add_test(NAME stacks_perf COMMAND stacks_perf)
+set_tests_properties(stacks_perf PROPERTIES LABELS "benchmark")
+

@@ -21,3 +21,7 @@ install(TARGETS interp_perf
         RUNTIME DESTINATION bin
         PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE
         )
+
+add_test(NAME interp_perf COMMAND interp_perf)
+set_tests_properties(interp_perf PROPERTIES LABELS "benchmark")
+

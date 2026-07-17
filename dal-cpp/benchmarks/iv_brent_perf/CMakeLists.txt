@@ -21,3 +21,7 @@ install(TARGETS iv_brent_perf
         RUNTIME DESTINATION bin
         PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE
         )
+
+add_test(NAME iv_brent_perf COMMAND iv_brent_perf)
+set_tests_properties(iv_brent_perf PROPERTIES LABELS "benchmark")
+

@@ -21,3 +21,7 @@ install(TARGETS jacobian_perf
         RUNTIME DESTINATION bin
         PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE
         )
+
+add_test(NAME jacobian_perf COMMAND jacobian_perf)
+set_tests_properties(jacobian_perf PROPERTIES LABELS "benchmark")
+

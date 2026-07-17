@@ -8,7 +8,7 @@
 #include <dal/time/holidaydata.hpp>
 #include <dal/utilities/algorithms.hpp>
 #include <dal/utilities/exceptions.hpp>
-#include <mutex>
+#include <shared_mutex>
 
 namespace Dal {
     bool HolidayData_::IsValid() const {
@@ -31,8 +31,12 @@ namespace Dal {
 
     namespace {
         HolidayData_& TheHolidayData() { RETURN_STATIC(HolidayData_); }
+        std::shared_mutex& TheHolidayMutex() { RETURN_STATIC(std::shared_mutex); }
 
-        HolidayData_ CopyHolidayData() { return TheHolidayData(); }
+        HolidayData_ CopyHolidayData() {
+            std::shared_lock<std::shared_mutex> lock(TheHolidayMutex());
+            return TheHolidayData();
+        }
 
         bool ContainsNoWeekends(const Vector_<Date_>& dates) {
             for (const auto& d : dates)
@@ -62,20 +66,21 @@ namespace Dal {
         temp.centerIndex_[city] = static_cast<int>(temp.holidays_.size());
         temp.holidays_.push_back(Handle_(std::make_shared<const HolidayCenterData_>(city, holidays, workWeekends)));
 
-        static std::mutex mutex;
-        std::lock_guard<std::mutex> l(mutex);
+        std::unique_lock<std::shared_mutex> lock(TheHolidayMutex());
         TheHolidayData().Swap(&temp);
         REQUIRE(TheHolidayData().IsValid(), "Holiday data is not valid");
     }
 
     int Holidays::CenterIndex(const String_& center) {
         NOTICE(center);
+        std::shared_lock<std::shared_mutex> lock(TheHolidayMutex());
         auto p = TheHolidayData().centerIndex_.find(center);
         REQUIRE(p != TheHolidayData().centerIndex_.end(), "Invalid holiday center");
         return p->second;
     }
 
     Handle_<HolidayCenterData_> Holidays::OfCenter(int centerIndex) {
+        std::shared_lock<std::shared_mutex> lock(TheHolidayMutex());
         REQUIRE(centerIndex >= 0 && centerIndex < TheHolidayData().holidays_.size(), "Invalid holiday center index");
         return TheHolidayData().holidays_[centerIndex];
     }

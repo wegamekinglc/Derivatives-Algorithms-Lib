@@ -400,31 +400,15 @@ jobs:
         env:
           DAL_NUM_THREADS: 4
         run: |
-          benchmarks=(
-            matrix_perf
-            script_perf
-            tape_perf
-            jacobian_perf
-            pde_perf
-            rng_perf
-            interp_perf
-            krylov_perf
-            banded_perf
-            cholesky_perf
-            specialfunctions_perf
-            black_perf
-            iv_brent_perf
-            script_mc_perf
-            ycinstrument_perf
-            curve_calibration_perf
-            xccy_perf
-          )
+          # Single-source benchmark list via CTest labels (H8 fix)
+          benchmarks=( $(ctest -N -L benchmark --test-dir build/benchmark-head | grep '^Test #' | sed 's/.*: //') )
 
           mkdir -p benchmark-results
           {
             echo "## Benchmark Results"
             echo
             echo "Configuration: gcc-14, native CPU tuning, AADet backend, Release."
+            echo "Discovered ${#benchmarks[@]} benchmark(s) via CTest label 'benchmark'."
             echo
           } >> "$GITHUB_STEP_SUMMARY"
 
