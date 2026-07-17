@@ -54,15 +54,19 @@ namespace Dal::AAD {
         }
 
         void PropagateAll(size_t numAdj) {
-            if (!n_ || std::all_of(pAdjoints_, pAdjoints_ + numAdj, [](double x) { return std::abs(x) <= Dal::EPSILON; }))
+            if (!n_)
                 return;
-
-            for (size_t i = 0; i < n_; ++i) {
-                double* adjPtr = pAdjPtrs_[i];
-                double ders = pDerivatives_[i];
-                for (size_t j = 0; j < numAdj; ++j)
-                    adjPtr[j] += ders * pAdjoints_[j];
+            if (std::any_of(pAdjoints_, pAdjoints_ + numAdj, [](double x) { return std::abs(x) > Dal::EPSILON; })) {
+                for (size_t i = 0; i < n_; ++i) {
+                    double* adjPtr = pAdjPtrs_[i];
+                    double ders = pDerivatives_[i];
+                    for (size_t j = 0; j < numAdj; ++j)
+                        adjPtr[j] += ders * pAdjoints_[j];
+                }
             }
+            // Same consumed-adjoint zeroing as PropagateOne: repeated sweeps must
+            // not re-propagate stale slots. Leaves (n_ == 0) retain theirs for harvest.
+            std::fill_n(pAdjoints_, numAdj, 0.0);
         }
 
     };

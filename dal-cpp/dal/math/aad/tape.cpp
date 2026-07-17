@@ -21,13 +21,19 @@ namespace Dal::AAD {
             return tape.nodes_.Mark();
         }
 
-        void PropagateAdjoints(Tape_::Iterator_ propagateFrom, Tape_::Iterator_ propagateTo) {
+        void PropagateAdjoints(Tape_& tape, Tape_::Iterator_ propagateFrom, Tape_::Iterator_ propagateTo) {
+            const auto propagateNode = [&tape](TapNode_& node) {
+                if (tape.multi_)
+                    node.PropagateAll(tape.numAdj_);
+                else
+                    node.PropagateOne();
+            };
             auto it = propagateFrom;
             while (it != propagateTo) {
-                it->PropagateOne();
+                propagateNode(*it);
                 --it;
             }
-            it->PropagateOne();
+            propagateNode(*it);
         }
 
         template <class F_> void ForEachBlock(Tape_& tape, F_&& fn) {
@@ -49,15 +55,15 @@ namespace Dal::AAD {
     } // namespace
 
     void PropagateMarkToStart(Tape_& tape) {
-        PropagateAdjoints(std::prev(MarkIt(tape)), Begin(tape));
+        PropagateAdjoints(tape, std::prev(MarkIt(tape)), Begin(tape));
     }
 
     void PropagateToStart(Tape_& tape) {
-        PropagateAdjoints(std::prev(End(tape)), Begin(tape));
+        PropagateAdjoints(tape, std::prev(End(tape)), Begin(tape));
     }
 
     void PropagateToMark(Tape_& tape) {
-        PropagateAdjoints(std::prev(End(tape)), MarkIt(tape));
+        PropagateAdjoints(tape, std::prev(End(tape)), MarkIt(tape));
     }
 
     void Clear(Tape_& tape) {
