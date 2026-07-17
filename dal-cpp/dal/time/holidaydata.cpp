@@ -54,7 +54,6 @@ namespace Dal {
     } // namespace
 
     void Holidays::AddCenter(const String_& city, const Vector_<Date_>& holidays, const Vector_<Date_>& workWeekends) {
-        REQUIRE(TheHolidayData().IsValid(), "Holiday data is not valid");
         REQUIRE(ContainsNoWeekends(holidays), "Holidays should not contain weekends");
         REQUIRE(ContainsOnlyWeekends(workWeekends), "Can only weekends in special working days");
         REQUIRE(IsMonotonic(holidays), "Holidays should be in ascending order");
@@ -62,6 +61,7 @@ namespace Dal {
         NOTICE(city);
 
         HolidayData_ temp(CopyHolidayData());
+        REQUIRE(temp.IsValid(), "Holiday data is not valid");
         REQUIRE(!temp.centerIndex_.count(city), "Duplicate holiday center");
         temp.centerIndex_[city] = static_cast<int>(temp.holidays_.size());
         temp.holidays_.push_back(Handle_(std::make_shared<const HolidayCenterData_>(city, holidays, workWeekends)));
