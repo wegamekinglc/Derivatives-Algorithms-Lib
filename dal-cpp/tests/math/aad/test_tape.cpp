@@ -87,7 +87,7 @@ TEST(AADTapeTest, TestClearEmptiesAdjointsMultiAfterMultiToNonMultiToggle) {
         ASSERT_GT(tape->adjointsMulti_.Size(), 0);
     }
 
-    ASSERT_FALSE(Tape_::multi_);
+    ASSERT_FALSE(tape->multi_);
     Clear(*tape);
     ASSERT_EQ(tape->adjointsMulti_.Size(), 0);
 

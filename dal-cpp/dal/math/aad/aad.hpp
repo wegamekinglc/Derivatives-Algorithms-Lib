@@ -19,16 +19,23 @@
 namespace Dal::AAD {
 
     struct NumResultsResetterForAAD_ {
+        Tape_* tape_;
+        bool oldMulti_;
+        size_t oldNumAdj_;
+        NumResultsResetterForAAD_(Tape_* tape, bool oldMulti, size_t oldNumAdj) : tape_(tape), oldMulti_(oldMulti), oldNumAdj_(oldNumAdj) {}
         ~NumResultsResetterForAAD_() {
-            Tape_::multi_ = false;
-            TapNode_::numAdj_ = 1;
+            tape_->multi_ = oldMulti_;
+            tape_->numAdj_ = oldNumAdj_;
         }
     };
 
     FORCE_INLINE auto SetNumResultsForAAD(bool multi = false, size_t num_results = 1) {
-        Tape_::multi_ = multi;
-        TapNode_::numAdj_ = num_results;
-        return std::make_unique<NumResultsResetterForAAD_>();
+        Tape_* tape = Tape();
+        bool oldMulti = tape->multi_;
+        size_t oldNumAdj = tape->numAdj_;
+        tape->multi_ = multi;
+        tape->numAdj_ = num_results;
+        return std::make_unique<NumResultsResetterForAAD_>(tape, oldMulti, oldNumAdj);
     }
 
     template <class IT_> FORCE_INLINE void PutOnTape(IT_ begin, IT_ end) {

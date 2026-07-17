@@ -687,16 +687,19 @@ namespace {
 
         m.def("CalibrateSingleCurve",
             py::overload_cast<const CurveCalibrationSpec_&>(&CalibrateSingleCurve),
-            py::arg("spec"));
+            py::arg("spec"),
+            py::call_guard<py::gil_scoped_release>());
 
         m.def("CalibrateSingleCurve",
             [](const CurveCalibrationSpec_& spec, CurveJacobianMode_::Value_ jacobianMode) {
+                py::gil_scoped_release release;
                 return CalibrateSingleCurve(spec, CurveJacobianMode_(jacobianMode));
             },
             py::arg("spec"), py::arg("jacobian_mode"));
 
         m.def("CalibrateMultiCurveBundle", &CalibrateMultiCurveBundle,
-              py::arg("spec"));
+              py::arg("spec"),
+              py::call_guard<py::gil_scoped_release>());
     }
 
     void init_bindings_curve_xccy(py::module_& m) {
@@ -999,11 +1002,12 @@ namespace {
             .def_property_readonly("solverEvaluations_", [](const JointXccyCalibrationResult_& value) { return value.solverEvaluations_; })
             .def_property_readonly("solver_evaluations", [](const JointXccyCalibrationResult_& value) { return value.solverEvaluations_; });
 
-        m.def("CalibrateXccyMarket", &CalibrateXccyMarket, py::arg("spec"));
-        m.def("CalibrateJointXccyMarket", py::overload_cast<const JointXccyCalibrationSpec_&>(&CalibrateJointXccyMarket), py::arg("spec"));
+        m.def("CalibrateXccyMarket", &CalibrateXccyMarket, py::arg("spec"), py::call_guard<py::gil_scoped_release>());
+        m.def("CalibrateJointXccyMarket", py::overload_cast<const JointXccyCalibrationSpec_&>(&CalibrateJointXccyMarket), py::arg("spec"), py::call_guard<py::gil_scoped_release>());
         m.def("CalibrateJointXccyMarket",
               py::overload_cast<const JointXccyCalibrationSpec_&, const JointXccyCalibrationOptions_&>(&CalibrateJointXccyMarket), py::arg("spec"),
-              py::arg("options"));
+              py::arg("options"),
+              py::call_guard<py::gil_scoped_release>());
 
         AddMatrixSnakeCaseAliases(m);
     }

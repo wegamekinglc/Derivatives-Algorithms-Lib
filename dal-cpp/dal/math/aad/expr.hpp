@@ -467,7 +467,7 @@ namespace Dal::AAD {
 
         template <size_t N_, size_t n_>
         FORCE_INLINE void PushAdjoint(TapNode_& exprNode, double adjoint) const {
-            exprNode.pAdjPtrs_[n_] = Tape_::multi_ ? node_->pAdjoints_ : &node_->adjoint_;
+            exprNode.pAdjPtrs_[n_] = Tape()->multi_ ? node_->pAdjoints_ : &node_->adjoint_;
             exprNode.pDerivatives_[n_] = adjoint;
         }
 

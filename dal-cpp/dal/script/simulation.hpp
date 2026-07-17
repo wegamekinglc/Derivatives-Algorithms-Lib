@@ -25,17 +25,17 @@ namespace Dal::Script {
     struct SimResults_ {
         explicit SimResults_(const Vector_<String_>& names) : aggregated_(0.0), risks_(names.size(), 0.0), names_(names) {
             for (auto i = 0; i < names.size(); ++i)
-                results_[names[i]] = &risks_[i];
+                results_[names[i]] = i;
         }
         double aggregated_;
         Vector_<> risks_;
         Vector_<String_> names_;
-        std::map<String_, const double*> results_;
+        std::map<String_, size_t> results_;
 
         [[nodiscard]] FORCE_INLINE double operator[](const String_& name) const {
             const auto it = results_.find(name);
             REQUIRE2(it != results_.end(), "simulation result '" + name + "' is not available", ScriptError_);
-            return *it->second;
+            return risks_[it->second];
         }
     };
 

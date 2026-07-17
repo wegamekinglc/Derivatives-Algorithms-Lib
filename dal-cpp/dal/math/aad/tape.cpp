@@ -31,7 +31,7 @@ namespace Dal::AAD {
         }
 
         template <class F_> void ForEachBlock(Tape_& tape, F_&& fn) {
-            if (Tape_::multi_)
+            if (tape.multi_)
                 fn(tape.adjointsMulti_);
             fn(tape.ders_);
             fn(tape.argPtrs_);
