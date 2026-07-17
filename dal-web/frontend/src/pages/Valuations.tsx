@@ -124,6 +124,16 @@ export default function Valuations() {
                     </td>
                   </tr>
                 )}
+                {open === r.id && r.status === "failed" && (
+                  <tr key={`${r.id}-detail`}>
+                    <td colSpan={8}>
+                      <div {...css("panel")} {...inlineStyle({ margin: 0 })}>
+                        <h2>Error</h2>
+                        <p {...css("error")}>{r.error_message || "Unknown error"}</p>
+                      </div>
+                    </td>
+                  </tr>
+                )}
               </Fragment>
             ))}
           </tbody>

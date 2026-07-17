@@ -263,6 +263,7 @@ export default function Trades() {
       {selected && (
         <div {...inlineStyle({ marginTop: 18 })}>
           <ValuationPanel
+            key={selected}
             title={`Price trade: ${nameById(trades, selected)}`}
             onRun={(config) => api.valueTrade(selected, config)}
           />

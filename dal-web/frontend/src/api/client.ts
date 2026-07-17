@@ -92,6 +92,7 @@ export interface ValuationResult {
   trades: TradeValuation[];
   created_at: string;
   status: "running" | "completed" | "failed";
+  error_message?: string | null;
 }
 
 export interface Health {

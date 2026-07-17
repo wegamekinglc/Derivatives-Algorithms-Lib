@@ -1300,9 +1300,10 @@ namespace Dal {
         }
         lpx->val.array.rows = std::max(nRows, 1);
         lpx->val.array.columns = nCols;
-        lpx->val.array.lparray = (OPER_*)GetMemoryForExcel(nRows * nCols * sizeof(OPER_));
+        const int nRowsAdvertised = lpx->val.array.rows;
+        lpx->val.array.lparray = (OPER_*)GetMemoryForExcel(nRowsAdvertised * nCols * sizeof(OPER_));
         // initialize to NULL
-        for (int ic = 0; ic < nRows * nCols; ++ic)
+        for (int ic = 0; ic < nRowsAdvertised * nCols; ++ic)
             lpx->val.array.lparray[ic] = Empty();
         // write scalars to output
         for (int is = 0; is < scalars_.size(); ++is) {

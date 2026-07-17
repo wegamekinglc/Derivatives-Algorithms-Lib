@@ -136,20 +136,26 @@ class DalGateway:
                 native_method = _NATIVE_RNG_METHODS[request.method]
             except KeyError as exc:
                 raise ValueError(f"Unsupported Monte Carlo method: {request.method!r}") from exc
+            previous_date = None
             if request.evaluation_date is not None:
+                previous_date = self._dal.EvaluationDate_Get()
                 self.set_evaluation_date(*request.evaluation_date)
-            product = self.build_product(request.event_dates, request.events)
-            model = self.build_model(request.model_kind, request.model_params)
-            raw = self._dal.MonteCarlo_Value(
-                product,
-                model,
-                int(request.num_paths),
-                native_method,
-                bool(request.use_brownian_bridge),
-                bool(request.enable_aad),
-                float(request.smooth),
-            )
-            return {str(k): float(v) for k, v in dict(raw).items()}
+            try:
+                product = self.build_product(request.event_dates, request.events)
+                model = self.build_model(request.model_kind, request.model_params)
+                raw = self._dal.MonteCarlo_Value(
+                    product,
+                    model,
+                    int(request.num_paths),
+                    native_method,
+                    bool(request.use_brownian_bridge),
+                    bool(request.enable_aad),
+                    float(request.smooth),
+                )
+                return {str(k): float(v) for k, v in dict(raw).items()}
+            finally:
+                if previous_date is not None:
+                    self._dal.EvaluationDate_Set(previous_date)
 
 
 # Process-wide singleton stored in a mutable container so get_gateway()
