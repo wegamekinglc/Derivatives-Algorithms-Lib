@@ -29,12 +29,12 @@ namespace Dal::AAD {
         }
     };
 
-    FORCE_INLINE auto SetNumResultsForAAD(bool multi = false, size_t num_results = 1) {
+    FORCE_INLINE auto SetNumResultsForAAD(bool multi = false, size_t numResults = 1) {
         Tape_* tape = Tape();
         bool oldMulti = tape->multi_;
         size_t oldNumAdj = tape->numAdj_;
         tape->multi_ = multi;
-        tape->numAdj_ = num_results;
+        tape->numAdj_ = numResults;
         return std::make_unique<NumResultsResetterForAAD_>(tape, oldMulti, oldNumAdj);
     }
 
