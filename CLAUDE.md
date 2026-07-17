@@ -32,7 +32,7 @@ The top-level `CMakeLists.txt` is a thin workspace that selects sub-projects via
 - `DAL_CPP_BUILD_TESTS` (default `ON`) — build the `dal-cpp` test suite
 - `DAL_CPP_BUILD_EXAMPLES` (default `ON`) — build the `dal-cpp` example programs
 - `DAL_CPP_BUILD_BENCHMARKS` (CMake option default `ON`, but the `base` preset in `CMakePresets.json` overrides it to `off`, so preset-driven builds — including `build_linux.sh` without `--benchmarks`/`--full` — disable benchmarks) — build the `dal-cpp` benchmark programs
-- `DAL_USE_ADEPT_AAD` / `DAL_USE_XAD_AAD` / `DAL_USE_CODIPACK_AAD` — pick the AAD backend (source default: Adept; CMake presets override all three to OFF unless explicitly enabled)
+- `DAL_USE_ADEPT_AAD` / `DAL_USE_XAD_AAD` / `DAL_USE_CODIPACK_AAD` — pick the AAD backend (source default: all three OFF, i.e. the native backend; CMake presets also override all three to OFF unless explicitly enabled)
 
 CMake installs into a per-preset stage directory (`CMAKE_INSTALL_PREFIX=${sourceDir}/build/stage/${presetName}` in `CMakePresets.json`); `build_linux.sh` installs into `build/stage/Release-linux/`, placing binaries in `bin/`, libraries in `lib/`, and headers in `include/` under that stage directory.
 

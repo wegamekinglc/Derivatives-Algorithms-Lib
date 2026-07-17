@@ -11,17 +11,17 @@ mkdir build && cd build
 cmake .. && cmake --build . --parallel
 
 # With presets (see CMakePresets.json)
-cmake --preset=full-dev && cmake --build build --parallel
+cmake --preset=full-dev && cmake --build build/full-dev --parallel
 ```
 
-CMake installs into the repo root: binaries in `bin/`, libs in `lib/`, headers in `include/`.
+CMake installs per preset into `build/stage/<preset>/`: binaries in `bin/`, libs in `lib/`, headers in `include/`.
 
 Tests run through CTest or directly:
 
 ```bash
-(cd build && ctest --output-on-failure)          # all registered tests
-build/dal-cpp/Debug/dal_cpp_tests                # one binary directly
-build/dal-cpp/Debug/dal_cpp_tests --gtest_filter=<Suite>.*   # one suite
+ctest --test-dir build/full-dev --output-on-failure          # all registered tests
+build/full-dev/dal-cpp/dal_cpp_tests                         # one binary directly
+build/full-dev/dal-cpp/dal_cpp_tests --gtest_filter=<Suite>.*   # one suite
 ```
 
 Formatting is enforced by `.clang-format` (LLVM base, 4-space indent, 150 column limit,
@@ -77,4 +77,4 @@ export MACHINIST_TEMPLATE_DIR=$PWD/dal-cpp/externals/machinist/template/
 
 - Python: **uv** (not pip) for `dal-web/` and `dal-python/`.
 - Web: `./dal-web/scripts/start.sh`; frontend http://localhost:5173.
-- DAL agent rules: `.codex/skills/*/SKILL.md` and `.codex/references/shared-rules.md`.
+- DAL agent rules: `.codex/skills/*/SKILL.md` and `.codex/skills/dal-agent-team/references/shared-rules.md`.
