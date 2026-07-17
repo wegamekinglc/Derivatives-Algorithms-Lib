@@ -180,6 +180,76 @@ Case in nanoseconds      120.000 ns  100.000 ns  130.000 ns    10
 
         self.assertEqual(len(failures), 1)
 
+    def test_benchmark_case_differences_tolerates_head_only_new_coverage(self):
+        base = {"case": 100.0}
+        head = {"case": 100.0, "new case": 200.0}
+
+        _, failures, new_coverage = BENCHMARKS.benchmark_case_differences("tape_perf", base, head)
+
+        self.assertEqual(failures, [])
+        self.assertEqual(new_coverage, ["new case"])
+
+    def test_benchmark_case_differences_rejects_base_only_case(self):
+        base = {"case": 100.0, "dropped case": 200.0}
+        head = {"case": 100.0}
+
+        _, failures, _ = BENCHMARKS.benchmark_case_differences("tape_perf", base, head)
+
+        self.assertEqual(len(failures), 1)
+        self.assertIn("dropped case", failures[0])
+
+    def test_benchmark_case_differences_accepts_identical_case_sets(self):
+        base = {"case": 100.0}
+        head = {"case": 101.0}
+
+        _, failures, new_coverage = BENCHMARKS.benchmark_case_differences("tape_perf", base, head)
+
+        self.assertEqual(failures, [])
+        self.assertEqual(new_coverage, [])
+
+    def test_benchmark_case_differences_reports_new_coverage_alongside_base_only_failure(self):
+        base = {"case": 100.0, "dropped case": 200.0}
+        head = {"case": 100.0, "new case": 300.0}
+
+        _, failures, new_coverage = BENCHMARKS.benchmark_case_differences("tape_perf", base, head)
+
+        self.assertEqual(len(failures), 1)
+        self.assertEqual(new_coverage, ["new case"])
+
+    def test_benchmark_case_differences_migration_is_not_reported_as_new_coverage(self):
+        base = {BENCHMARKS.OLD_PRECISE_SOBOL_CASE: 100.0}
+        head = {BENCHMARKS.PRECISE_SOBOL_CASE: 900.0}
+
+        migration_permitted, failures, new_coverage = BENCHMARKS.benchmark_case_differences("rng_perf", base, head)
+
+        self.assertTrue(migration_permitted)
+        self.assertEqual(failures, [])
+        self.assertEqual(new_coverage, [])
+
+    def test_compare_benchmark_reports_head_only_case_as_ungated_info_row(self):
+        samples = {
+            "base": {"case": [100.0] * 20},
+            "head": {"case": [100.0] * 20, "new case": [200.0] * 20},
+        }
+
+        rows, failures = BENCHMARKS.compare_benchmark("tape_perf", samples, 4.0, 10.0, 10, 2)
+
+        self.assertEqual(failures, [])
+        info_rows = [row for row in rows if not row["gated"]]
+        self.assertEqual(len(info_rows), 1)
+        self.assertIn("new coverage", info_rows[0]["case"])
+        self.assertEqual(BENCHMARKS.result_label(info_rows[0]), "info")
+        self.assertIsNone(info_rows[0]["base_ns"])
+        self.assertEqual(info_rows[0]["head_ns"], 200.0)
+
+    def test_markdown_report_renders_new_coverage_row_without_base_value(self):
+        comparisons = {"tape_perf": [BENCHMARKS.new_coverage_row("new case", 200.0)]}
+
+        report = BENCHMARKS.markdown_report(comparisons, [], 10, 2, 4.0, None, 10.0)
+
+        self.assertIn("new case (new coverage)", report)
+        self.assertIn("info", report)
+
 
 if __name__ == "__main__":
     unittest.main()
