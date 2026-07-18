@@ -8,6 +8,7 @@
 #include <cstddef>
 #include <iterator>
 #include <limits>
+#include <memory>
 #include <utility>
 
 #include <dal/platform/platform.hpp>
@@ -23,11 +24,11 @@ namespace Dal {
             REQUIRE(size_ <= std::numeric_limits<int>::max() / 2, "stack capacity overflow");
             const int defaultSize = DefaultSize > 0 ? static_cast<int>(DefaultSize) : 1;
             const int newSize = size_ > 0 ? size_ * 2 : defaultSize;
-            E_* newData = new E_[newSize];
+            std::unique_ptr<E_[]> newData(new E_[newSize]);
             if (sp_ > 0)
-                std::move(data_, data_ + sp_, newData);
+                std::move(data_, data_ + sp_, newData.get());
             delete[] data_;
-            data_ = newData;
+            data_ = newData.release();
             size_ = newSize;
         }
 
@@ -42,10 +43,12 @@ namespace Dal {
         virtual ~Stack_() { delete[] data_; }
 
         Stack_(const Stack_& rhs) : size_(rhs.size_), sp_(rhs.sp_) {
-            if (size_ > 0)
-                data_ = new E_[size_];
-            if (sp_ > 0)
-                std::copy(rhs.data_, rhs.data_ + sp_, data_);
+            if (size_ > 0) {
+                std::unique_ptr<E_[]> newData(new E_[size_]);
+                if (sp_ > 0)
+                    std::copy(rhs.data_, rhs.data_ + sp_, newData.get());
+                data_ = newData.release();
+            }
         }
 
         Stack_& operator=(const Stack_& rhs) {

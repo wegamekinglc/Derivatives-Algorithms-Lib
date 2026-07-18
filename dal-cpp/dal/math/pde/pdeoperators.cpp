@@ -2,6 +2,8 @@
 // Created by dal-implementer on 2026/7/8.
 //
 
+#include <memory>
+
 #include <dal/math/pde/pdeoperators.hpp>
 #include <dal/platform/platform.hpp>
 #include <dal/platform/strict.hpp>
@@ -19,7 +21,7 @@ namespace Dal::PDE {
     Sparse::TriDiagonal_* NewDx(const Vector_<>& x) {
         RequireOperatorLocations(x);
         const int n = static_cast<int>(x.size());
-        auto* ret = new Sparse::TriDiagonal_(n);
+        std::unique_ptr<Sparse::TriDiagonal_> ret(new Sparse::TriDiagonal_(n));
         for (int i = 1; i < n - 1; ++i) {
             const double dxl = x[i] - x[i - 1];
             const double dxu = x[i + 1] - x[i];
@@ -28,13 +30,13 @@ namespace Dal::PDE {
             ret->Set(i, i, (dxu - dxl) / (dxl * dxu));
             ret->Set(i, i + 1, dxl / (dxu * dxm));
         }
-        return ret;
+        return ret.release();
     }
 
     Sparse::TriDiagonal_* NewDxx(const Vector_<>& x) {
         RequireOperatorLocations(x);
         const int n = static_cast<int>(x.size());
-        auto* ret = new Sparse::TriDiagonal_(n);
+        std::unique_ptr<Sparse::TriDiagonal_> ret(new Sparse::TriDiagonal_(n));
         for (int i = 1; i < n - 1; ++i) {
             const double dxl = x[i] - x[i - 1];
             const double dxu = x[i + 1] - x[i];
@@ -43,6 +45,6 @@ namespace Dal::PDE {
             ret->Set(i, i, -2.0 / (dxl * dxu));
             ret->Set(i, i + 1, 2.0 / (dxu * dxm));
         }
-        return ret;
+        return ret.release();
     }
 } // namespace Dal::PDE

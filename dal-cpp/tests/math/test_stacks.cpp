@@ -75,6 +75,38 @@ TEST(StackTest, TestDynamicStackRvalueSelfAliasAtCapacity) {
     ASSERT_EQ(stack.Size(), 3);
 }
 
+TEST(StackTest, TestDynamicStackCopy) {
+    Stack_<std::string, 2> stack;
+    stack.Push("first");
+    stack.Push("second");
+    stack.Push("third");
+
+    {
+        Stack_<std::string, 2> copied(stack);
+        ASSERT_EQ(copied.Size(), 3);
+        ASSERT_EQ(copied.Capacity(), stack.Capacity());
+        ASSERT_EQ(copied[0], "third");
+        ASSERT_EQ(copied[1], "second");
+        ASSERT_EQ(copied[2], "first");
+
+        copied.Pop();
+        ASSERT_EQ(stack.Size(), 3);
+        ASSERT_EQ(stack.Top(), "third");
+    }
+    {
+        Stack_<std::string, 2> assigned(1);
+        assigned.Push("old");
+        assigned = stack;
+        ASSERT_EQ(assigned.Size(), 3);
+        ASSERT_EQ(assigned[0], "third");
+        ASSERT_EQ(assigned[2], "first");
+
+        assigned = assigned;
+        ASSERT_EQ(assigned.Size(), 3);
+        ASSERT_EQ(assigned.Top(), "third");
+    }
+}
+
 TEST(StackTest, TestStaticStackBounds) {
     StaticStack_<int, 2> stack;
     ASSERT_THROW(stack.Top(), Exception_);
