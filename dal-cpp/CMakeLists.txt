@@ -72,11 +72,15 @@ endif()
 # External dependencies
 # ---------------------------------------------------------------------------
 if(DAL_CPP_BUILD_TESTS)
+    dal_require_submodule("externals/googletest/CMakeLists.txt")
     set(INSTALL_GTEST OFF CACHE BOOL "" FORCE)
     set(INSTALL_GMOCK OFF CACHE BOOL "" FORCE)
     add_subdirectory(${PROJECT_SOURCE_DIR}/externals/googletest)
 endif()
 
+if(DAL_USE_XAD_AAD OR DAL_CPP_BUILD_EXAMPLES)
+    dal_require_submodule("externals/xad/CMakeLists.txt")
+endif()
 if(DAL_USE_XAD_AAD)
     add_subdirectory(${PROJECT_SOURCE_DIR}/externals/xad)
 elseif(DAL_CPP_BUILD_EXAMPLES)
@@ -86,13 +90,19 @@ elseif(DAL_CPP_BUILD_EXAMPLES)
 endif()
 
 if(DAL_USE_CODIPACK_AAD)
+    dal_require_submodule("externals/CodiPack/CMakeLists.txt")
     add_subdirectory(${PROJECT_SOURCE_DIR}/externals/CodiPack)
 elseif(DAL_USE_ADEPT_AAD)
+    dal_require_submodule("externals/adept/CMakeLists.txt")
     add_subdirectory(${PROJECT_SOURCE_DIR}/externals/adept)
 endif()
 
+# rapidjson headers are on the dal_cpp private include path.
+dal_require_submodule("externals/rapidjson/include/rapidjson/document.h")
+
 # Machinist is an explicit source-generation tool. It is built only when
 # dal_generate/dal_check_generated is requested and is never part of DAL installs.
+dal_require_submodule("externals/machinist/CMakeLists.txt")
 add_subdirectory(${PROJECT_SOURCE_DIR}/externals/machinist EXCLUDE_FROM_ALL)
 
 add_custom_target(dal_generate

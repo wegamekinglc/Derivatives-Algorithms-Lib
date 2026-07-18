@@ -59,11 +59,13 @@ AST → simulation), `model/`, `curve/`, `indice/`, `risk/`, `concurrency/`, `st
 Enums are declared in Machinist markup `/*IF---- ... -IF----*/` blocks before `namespace Dal {`.
 Machinist generates `dal-cpp/dal/auto/MG_*_enum.{hpp,inc}`.
 
-**Regenerate only when markup changes:**
+**Regenerate only when markup changes.** The `Machinist` binary is a git-ignored build
+artifact, not checked in, so use the CMake target, which builds Machinist first and runs
+it with the right inputs:
+
 ```bash
-export MACHINIST_TEMPLATE_DIR=$PWD/dal-cpp/externals/machinist/template/
-./dal-cpp/externals/machinist/bin/Machinist -c dal-cpp/config/dal.ifc -l dal-cpp/config/dal.mgl -d ./dal-cpp/dal
-./dal-cpp/externals/machinist/bin/Machinist -c dal-cpp/config/dal.ifc -l dal-cpp/config/dal.mgl -d ./dal-excel
+cmake --preset=Release-linux -S . -B build/Release-linux
+cmake --build build/Release-linux --target dal_generate
 ```
 
 ## Conventions

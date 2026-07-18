@@ -165,6 +165,24 @@ jobs:
             -DDAL_PYTHON_BUILD_TESTS=OFF
           cmake --build $pythonBuild --target _dal --parallel
 
+  # Smoke-test the build_windows.bat entry point so it stops rotting. The
+  # --configure-only mode exercises everything the script owns -- vswhere
+  # discovery, the Machinist build plus code generation, and the CMake
+  # configure -- without paying for a second full build; the matrix above
+  # remains the proven direct-cmake path for compilation and tests.
+  build-script:
+    name: build_windows.bat (configure-only)
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+        with:
+          submodules: recursive
+
+      - name: Run build_windows.bat --configure-only
+        shell: cmd
+        run: build_windows.bat --configure-only
+
   # Benchmark job: builds and runs all performance benchmarks on one
   # representative configuration (msvc, native/AADet backend).
   # Results appear in the CI logs and job summary; timings are not a pass/fail gate.
