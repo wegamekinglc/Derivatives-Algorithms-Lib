@@ -32,7 +32,7 @@ The top-level `CMakeLists.txt` is a thin workspace that selects sub-projects via
 - `DAL_CPP_BUILD_TESTS` (default `ON`) — build the `dal-cpp` test suite
 - `DAL_CPP_BUILD_EXAMPLES` (default `ON`) — build the `dal-cpp` example programs
 - `DAL_CPP_BUILD_BENCHMARKS` (CMake option default `ON`, but the `base` preset in `CMakePresets.json` overrides it to `off`, so preset-driven builds — including `build_linux.sh` without `--benchmarks`/`--full` — disable benchmarks) — build the `dal-cpp` benchmark programs
-- `DAL_USE_ADEPT_AAD` / `DAL_USE_XAD_AAD` / `DAL_USE_CODIPACK_AAD` — pick the AAD backend (source default: Adept; CMake presets override all three to OFF unless explicitly enabled)
+- `DAL_USE_ADEPT_AAD` / `DAL_USE_XAD_AAD` / `DAL_USE_CODIPACK_AAD` — pick the AAD backend (source default: all three OFF, i.e. the native backend; CMake presets also override all three to OFF unless explicitly enabled)
 
 CMake installs into a per-preset stage directory (`CMAKE_INSTALL_PREFIX=${sourceDir}/build/stage/${presetName}` in `CMakePresets.json`); `build_linux.sh` installs into `build/stage/Release-linux/`, placing binaries in `bin/`, libraries in `lib/`, and headers in `include/` under that stage directory.
 
@@ -106,7 +106,7 @@ The dependency graph is `dal-cpp ← dal-public ← {dal-python, dal-excel}`. Ea
 - `dal-cpp/dal/auto/` — auto-generated code (Machinist output, glob-included into the library)
 - `dal-cpp/tests/` — Google Test files compiled into the `dal_cpp_tests` binary
 - `dal-cpp/examples/` — standalone example programs (AAD, Monte Carlo, finite difference, scripting, concurrency, Sobol, underdetermined optimization)
-- `dal-cpp/benchmarks/` — standalone performance benchmark programs, one executable per target (17 total: matrix, script, tape, jacobian, pde, rng, interp, krylov, banded, cholesky, specialfunctions, black, iv_brent, script_mc, curve_calibration, threadpool, stacks); an 8-target subset is gated by the paired regression script. `script_mc_perf` compares tree-walk and compiled script evaluation
+- `dal-cpp/benchmarks/` — standalone performance benchmark programs, one executable per target (19 total: matrix, script, tape, jacobian, pde, rng, interp, krylov, banded, cholesky, specialfunctions, black, iv_brent, script_mc, curve_calibration, xccy, ycinstrument, threadpool, stacks); each registers as a CTest test under the `benchmark` label (CI discovers them with `ctest -N -L benchmark`), and `build_linux.sh` never runs them in its ctest pass (`-LE benchmark`); an 8-target subset is gated by the paired regression script. `script_mc_perf` compares tree-walk and compiled script evaluation
 - `dal-cpp/externals/` — git submodules for AAD frameworks, gtest, rapidjson, machinist
 - `dal-cpp/config/` — Machinist input (`dal.ifc`, `dal.mgl`)
 - `dal-cpp/cmake/` — `Platform.cmake` and helpers

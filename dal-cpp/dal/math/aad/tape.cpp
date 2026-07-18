@@ -21,17 +21,24 @@ namespace Dal::AAD {
             return tape.nodes_.Mark();
         }
 
-        void PropagateAdjoints(Tape_::Iterator_ propagateFrom, Tape_::Iterator_ propagateTo) {
-            auto it = propagateFrom;
-            while (it != propagateTo) {
-                it->PropagateOne();
-                --it;
-            }
-            it->PropagateOne();
+        void PropagateAdjoints(Tape_& tape, Tape_::Iterator_ propagateFrom, Tape_::Iterator_ propagateTo) {
+            // Select the loop once per call: a per-node multi_ branch measurably slowed the sweep.
+            const auto sweep = [propagateFrom, propagateTo](const auto& propagateNode) {
+                auto it = propagateFrom;
+                while (it != propagateTo) {
+                    propagateNode(*it);
+                    --it;
+                }
+                propagateNode(*it);
+            };
+            if (tape.multi_)
+                sweep([numAdj = tape.numAdj_](TapNode_& node) { node.PropagateAll(numAdj); });
+            else
+                sweep([](TapNode_& node) { node.PropagateOne(); });
         }
 
         template <class F_> void ForEachBlock(Tape_& tape, F_&& fn) {
-            if (Tape_::multi_)
+            if (tape.multi_)
                 fn(tape.adjointsMulti_);
             fn(tape.ders_);
             fn(tape.argPtrs_);
@@ -49,15 +56,15 @@ namespace Dal::AAD {
     } // namespace
 
     void PropagateMarkToStart(Tape_& tape) {
-        PropagateAdjoints(std::prev(MarkIt(tape)), Begin(tape));
+        PropagateAdjoints(tape, std::prev(MarkIt(tape)), Begin(tape));
     }
 
     void PropagateToStart(Tape_& tape) {
-        PropagateAdjoints(std::prev(End(tape)), Begin(tape));
+        PropagateAdjoints(tape, std::prev(End(tape)), Begin(tape));
     }
 
     void PropagateToMark(Tape_& tape) {
-        PropagateAdjoints(std::prev(End(tape)), MarkIt(tape));
+        PropagateAdjoints(tape, std::prev(End(tape)), MarkIt(tape));
     }
 
     void Clear(Tape_& tape) {

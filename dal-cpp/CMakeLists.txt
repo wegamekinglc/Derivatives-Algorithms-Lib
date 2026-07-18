@@ -22,7 +22,7 @@ option(DAL_ENABLE_NATIVE_ARCH "Optimize DAL for the build machine's CPU" OFF)
 
 option(DAL_USE_XAD_AAD "Use XAD AAD backend" OFF)
 option(DAL_USE_CODIPACK_AAD "Use CoDiPack AAD backend" OFF)
-option(DAL_USE_ADEPT_AAD "Use Adept AAD backend" ON)
+option(DAL_USE_ADEPT_AAD "Use Adept AAD backend" OFF)
 
 # ---------------------------------------------------------------------------
 # C++ standard, PIC, build settings
@@ -72,6 +72,8 @@ endif()
 # External dependencies
 # ---------------------------------------------------------------------------
 if(DAL_CPP_BUILD_TESTS)
+    set(INSTALL_GTEST OFF CACHE BOOL "" FORCE)
+    set(INSTALL_GMOCK OFF CACHE BOOL "" FORCE)
     add_subdirectory(${PROJECT_SOURCE_DIR}/externals/googletest)
 endif()
 

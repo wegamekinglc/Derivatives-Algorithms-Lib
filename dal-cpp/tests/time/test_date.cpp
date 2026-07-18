@@ -5,6 +5,7 @@
 #include <gtest/gtest.h>
 #include <dal/platform/strict.hpp>
 #include <dal/time/date.hpp>
+#include <dal/utilities/exceptions.hpp>
 
 using Dal::Date_;
 using namespace Dal::Date;
@@ -198,4 +199,27 @@ TEST(DateTest, TestExcelRoundTripFarFuture) {
     const Date_ roundTripped = FromExcel(serial);
     ASSERT_EQ(roundTripped, src);
     ASSERT_EQ(ToString(src), "2076-05-05");
+}
+
+TEST(DateTest, TestInvalidDayOfMonthThrows) {
+    ASSERT_THROW(Date_(2023, 2, 30), Dal::Exception_);
+    ASSERT_THROW(Date_(2023, 2, 29), Dal::Exception_);
+    ASSERT_THROW(Date_(2023, 4, 31), Dal::Exception_);
+    ASSERT_THROW(Date_(1900, 2, 29), Dal::Exception_);
+    ASSERT_THROW(Date_(2100, 2, 29), Dal::Exception_);
+}
+
+TEST(DateTest, TestValidLeapDayDoesNotThrow) {
+    ASSERT_NO_THROW(Date_(2024, 2, 29));
+    ASSERT_NO_THROW(Date_(2000, 2, 29));
+    ASSERT_EQ(Date_(2024, 2, 29).AddDays(1), Date_(2024, 3, 1));
+}
+
+TEST(DateTest, TestOutOfRangeYMDThrows) {
+    ASSERT_THROW(Date_(2023, 13, 1), Dal::Exception_);
+    ASSERT_THROW(Date_(2023, 0, 1), Dal::Exception_);
+    ASSERT_THROW(Date_(2023, 1, 0), Dal::Exception_);
+    ASSERT_THROW(Date_(2023, 1, 32), Dal::Exception_);
+    ASSERT_THROW(Date_(1899, 12, 31), Dal::Exception_);
+    ASSERT_THROW(Date_(2200, 1, 1), Dal::Exception_);
 }

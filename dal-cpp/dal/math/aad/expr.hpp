@@ -43,13 +43,13 @@ namespace Dal::AAD {
 
         enum { numNumbers_ = static_cast<int>(LHS_::numNumbers_) + static_cast<int>(RHS_::numNumbers_) };
 
-        template <size_t N_, size_t n_> void PushAdjoint(TapNode_& exprNode, double adjoint) const {
+        template <size_t N_, size_t n_> void PushAdjoint(TapNode_& exprNode, double adjoint, Tape_* tape) const {
             if constexpr (LHS_::numNumbers_ > 0)
-                lhs_.template PushAdjoint<N_, n_>(exprNode, adjoint * OP_::LeftDerivative(Value(lhs_), Value(rhs_), Value(*this)));
+                lhs_.template PushAdjoint<N_, n_>(exprNode, adjoint * OP_::LeftDerivative(Value(lhs_), Value(rhs_), Value(*this)), tape);
 
             if constexpr (RHS_::numNumbers_ > 0)
                 rhs_.template PushAdjoint<N_, n_ + LHS_::numNumbers_>(
-                    exprNode, adjoint * OP_::RightDerivative(Value(lhs_), Value(rhs_), Value(*this)));
+                    exprNode, adjoint * OP_::RightDerivative(Value(lhs_), Value(rhs_), Value(*this)), tape);
         }
     };
 
@@ -162,9 +162,9 @@ namespace Dal::AAD {
         enum { numNumbers_ = ARG_::numNumbers_ };
 
         template <size_t N_, size_t n_>
-        FORCE_INLINE void PushAdjoint(TapNode_& exprNode, double adjoint) const {
+        FORCE_INLINE void PushAdjoint(TapNode_& exprNode, double adjoint, Tape_* tape) const {
             if constexpr (ARG_::numNumbers_ > 0)
-                arg_.template PushAdjoint<N_, n_>(exprNode, adjoint * OP_::Derivative(Value(arg_), value_, d_arg_));
+                arg_.template PushAdjoint<N_, n_>(exprNode, adjoint * OP_::Derivative(Value(arg_), value_, d_arg_), tape);
         }
     };
 
@@ -457,8 +457,9 @@ namespace Dal::AAD {
         FORCE_INLINE TapNode_* CreateMultiNode() { return Tape()->RecordNode<N_>(); }
 
         template <class E_> void FromExpr(const Expression_<E_>& e) {
-            auto* node = this->CreateMultiNode<E_::numNumbers_>();
-            static_cast<const E_&>(e).template PushAdjoint<E_::numNumbers_, 0>(*node, 1.0);
+            Tape_* tape = Tape();
+            auto* node = tape->RecordNode<E_::numNumbers_>();
+            static_cast<const E_&>(e).template PushAdjoint<E_::numNumbers_, 0>(*node, 1.0, tape);
             node_ = node;
         }
 
@@ -466,8 +467,8 @@ namespace Dal::AAD {
         enum { numNumbers_ = 1 };
 
         template <size_t N_, size_t n_>
-        FORCE_INLINE void PushAdjoint(TapNode_& exprNode, double adjoint) const {
-            exprNode.pAdjPtrs_[n_] = Tape_::multi_ ? node_->pAdjoints_ : &node_->adjoint_;
+        FORCE_INLINE void PushAdjoint(TapNode_& exprNode, double adjoint, Tape_* tape) const {
+            exprNode.pAdjPtrs_[n_] = tape->multi_ ? node_->pAdjoints_ : &node_->adjoint_;
             exprNode.pDerivatives_[n_] = adjoint;
         }
 

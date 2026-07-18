@@ -400,31 +400,20 @@ jobs:
         env:
           DAL_NUM_THREADS: 4
         run: |
-          benchmarks=(
-            matrix_perf
-            script_perf
-            tape_perf
-            jacobian_perf
-            pde_perf
-            rng_perf
-            interp_perf
-            krylov_perf
-            banded_perf
-            cholesky_perf
-            specialfunctions_perf
-            black_perf
-            iv_brent_perf
-            script_mc_perf
-            ycinstrument_perf
-            curve_calibration_perf
-            xccy_perf
-          )
+          # Single-source benchmark list via CTest labels (H8 fix)
+          # ctest -N right-justifies the test-number field ("  Test  #1:" .. "  Test #10:"), so tolerate the padding
+          benchmarks=( $(ctest -N -L benchmark --test-dir build/benchmark-head | awk -F': ' '/Test +#/{print $2}') )
+          if [ ${#benchmarks[@]} -eq 0 ]; then
+            echo "benchmark discovery failed: ctest -N -L benchmark --test-dir build/benchmark-head found no tests"
+            exit 1
+          fi
 
           mkdir -p benchmark-results
           {
             echo "## Benchmark Results"
             echo
             echo "Configuration: gcc-14, native CPU tuning, AADet backend, Release."
+            echo "Discovered ${#benchmarks[@]} benchmark(s) via CTest label 'benchmark'."
             echo
           } >> "$GITHUB_STEP_SUMMARY"
 

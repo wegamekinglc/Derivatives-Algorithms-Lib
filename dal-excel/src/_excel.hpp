@@ -93,7 +93,7 @@ namespace Dal {
             Vector_<Handle_<T_>> retval;
             for (const auto& b : base) {
                 retval.push_back(handle_cast<T_>(b));
-                REQUIRE(!retval.back().Empty(), "Input object has wrong type");
+                REQUIRE(!retval.back().IsEmpty(), "Input object has wrong type");
             }
             return retval;
         }

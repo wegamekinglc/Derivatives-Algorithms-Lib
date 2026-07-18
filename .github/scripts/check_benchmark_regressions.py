@@ -153,6 +153,19 @@ def semantic_migration_row(base: dict[str, float], head: dict[str, float]) -> di
         "delta_percent": 100.0 * (head_value / base_value - 1.0),
         "passed": True,
         "gated": False,
+        "kind": "semantic_migration",
+    }
+
+
+def new_coverage_row(case: str, head_value: float) -> dict[str, object]:
+    return {
+        "case": f"{case} (new coverage)",
+        "base_ns": None,
+        "head_ns": head_value,
+        "delta_percent": None,
+        "passed": True,
+        "gated": False,
+        "kind": "new_coverage",
     }
 
 
@@ -198,16 +211,21 @@ def benchmark_case_differences(
     benchmark: str,
     base: dict[str, float],
     head: dict[str, float],
-) -> tuple[bool, list[str]]:
+) -> tuple[bool, list[str], list[str]]:
     base_only = set(base) - set(head)
     head_only = set(head) - set(base)
     migration_permitted = benchmark == "rng_perf" and permitted_case_migration(base_only, head_only)
-    if (not base_only and not head_only) or migration_permitted:
-        return migration_permitted, []
-    return migration_permitted, [
-        f"{benchmark}: benchmark cases differ "
-        f"(base-only={sorted(base_only)}, head-only={sorted(head_only)})"
-    ]
+    if migration_permitted:
+        return migration_permitted, [], []
+    # Head-only cases are new coverage: reported as informational rows, not gated.
+    # Base-only cases mean the PR dropped or renamed coverage: a hard failure.
+    failures = []
+    if base_only:
+        failures.append(
+            f"{benchmark}: benchmark cases differ "
+            f"(base-only={sorted(base_only)}, head-only={sorted(head_only)})"
+        )
+    return migration_permitted, failures, sorted(head_only)
 
 
 def compare_benchmark(
@@ -220,7 +238,7 @@ def compare_benchmark(
 ) -> tuple[list[dict[str, object]], list[str]]:
     base = min_samples(samples["base"])
     head = min_samples(samples["head"])
-    migration_permitted, failures = benchmark_case_differences(benchmark, base, head)
+    migration_permitted, failures, new_coverage = benchmark_case_differences(benchmark, base, head)
     rows = []
     if migration_permitted:
         rows.append(semantic_migration_row(base, head))
@@ -240,6 +258,8 @@ def compare_benchmark(
                 f"{benchmark} / {case}: every confirmation round exceeds "
                 f"+{threshold_percent:.2f}% ({formatted_deltas})"
             )
+    for case in new_coverage:
+        rows.append(new_coverage_row(case, head[case]))
 
     if benchmark == "rng_perf":
         failures.extend(check_precise_sobol_ratio(head, precise_slowdown_limit))
@@ -295,16 +315,22 @@ def markdown_comparison_rows(comparisons: dict[str, list[dict[str, object]]]) ->
     for benchmark, rows in comparisons.items():
         for row in rows:
             round_changes = ", ".join(f"{delta:+.2f}%" for delta in row.get("round_delta_percent", [])) or "—"
+            base_minimum = f"{row['base_ns'] / 1_000_000.0:.6f} ms" if row["base_ns"] is not None else "—"
+            change = f"{row['delta_percent']:+.2f}%" if row["delta_percent"] is not None else "—"
             lines.append(
-                f"| {benchmark} | {row['case']} | {row['base_ns'] / 1_000_000.0:.6f} ms | "
-                f"{row['head_ns'] / 1_000_000.0:.6f} ms | {row['delta_percent']:+.2f}% | "
+                f"| {benchmark} | {row['case']} | {base_minimum} | "
+                f"{row['head_ns'] / 1_000_000.0:.6f} ms | {change} | "
                 f"{round_changes} | {result_label(row)} |"
             )
     return lines
 
 
 def has_semantic_migration(comparisons: dict[str, list[dict[str, object]]]) -> bool:
-    return any(not row.get("gated", True) for rows in comparisons.values() for row in rows)
+    return any(row.get("kind") == "semantic_migration" for rows in comparisons.values() for row in rows)
+
+
+def has_new_coverage(comparisons: dict[str, list[dict[str, object]]]) -> bool:
+    return any(row.get("kind") == "new_coverage" for rows in comparisons.values() for row in rows)
 
 
 def markdown_report(
@@ -341,6 +367,14 @@ def markdown_report(
                 "The informational Sobol migration row compares the historical "
                 "`precise=true, polish=false` Acklam-only behavior with the new exact-CDF opt-in. "
                 "Comparable cases use the 4% gate; precise opt-in uses the relative ceiling above.",
+            ]
+        )
+    if has_new_coverage(comparisons):
+        lines.extend(
+            [
+                "",
+                "Rows marked (new coverage) are head-only benchmark cases added by the PR; "
+                "they are reported for information and are not gated.",
             ]
         )
     if failures:

@@ -297,6 +297,7 @@ namespace Dal {
         NOTE("Extracting object from JSON string");
         rapidjson::Document doc;
         doc.Parse<rapidjson::kParseDefaultFlags>(src.c_str());
+        REQUIRE(!doc.HasParseError(), "JSON parse error in input string");
         const XDocView_ task(doc);
         Archive::Built_ built;
         return Archive::Extract(task, built);
@@ -310,6 +311,7 @@ namespace Dal {
         rapidjson::Document doc;
         doc.ParseStream<rapidjson::kParseDefaultFlags>(is);
         fclose(fp);
+        REQUIRE(!doc.HasParseError(), "JSON parse error in file: '" + filename + "'");
         const XDocView_ task(doc);
         Archive::Built_ built;
         return Archive::Extract(task, built);

@@ -26,11 +26,12 @@ namespace Dal::AAD {
 
     class Tape_ {
     public:
-        explicit Tape_(bool = true) : pad_{} {}
+        explicit Tape_(bool = true) : multi_(false), numAdj_(1), pad_{} {}
 
         using Iterator_ = BlockList_<TapNode_, BLOCK_SIZE>::Iterator_;
 
-        static bool multi_;
+        bool multi_;
+        size_t numAdj_;
         BlockList_<double, ADJ_SIZE> adjointsMulti_;
         BlockList_<double, DATA_SIZE> ders_;
         BlockList_<double*, DATA_SIZE> argPtrs_;
@@ -51,8 +52,8 @@ namespace Dal::AAD {
         template <size_t N_> TapNode_* RecordNode() {
             TapNode_* node = nodes_.EmplaceBack(N_);
             if (multi_) {
-                node->pAdjoints_ = adjointsMulti_.EmplaceBackMulti(TapNode_::numAdj_);
-                std::fill_n(node->pAdjoints_, TapNode_::numAdj_, 0.0);
+                node->pAdjoints_ = adjointsMulti_.EmplaceBackMulti(numAdj_);
+                std::fill_n(node->pAdjoints_, numAdj_, 0.0);
             }
 
             if constexpr (static_cast<bool>(N_)) {

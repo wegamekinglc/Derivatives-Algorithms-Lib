@@ -3,10 +3,12 @@
 //
 
 #include <gtest/gtest.h>
+#include <fstream>
 #include <dal/platform/platform.hpp>
 #include <dal/storage/json.hpp>
 #include <dal/math/interp/interplinear.hpp>
 #include <dal/math/vectors.hpp>
+#include <dal/utilities/exceptions.hpp>
 #include <dal/utilities/file.hpp>
 
 using namespace Dal;
@@ -36,5 +38,24 @@ TEST(StorageTest, TestJSONStoreFile) {
     ASSERT_TRUE(val.get() != nullptr);
     ASSERT_DOUBLE_EQ((*src)(2.5), (*val)(2.5));
     File::Remove("src.json");
+}
+
+TEST(StorageTest, TestJSONReadStringMalformedThrows) {
+    ASSERT_THROW(JSON::ReadString(String_("{\"~type\": "), true), Dal::Exception_);
+    ASSERT_THROW(JSON::ReadString(String_("not json at all"), true), Dal::Exception_);
+    ASSERT_THROW(JSON::ReadString(String_(""), true), Dal::Exception_);
+}
+
+TEST(StorageTest, TestJSONReadFileMalformedThrows) {
+    {
+        std::ofstream bad("bad.json");
+        bad << "{\"~type\": \"Interp1Linear_\", \"vals\": [";
+    }
+    ASSERT_THROW(JSON::ReadFile("bad.json", true), Dal::Exception_);
+    File::Remove("bad.json");
+}
+
+TEST(StorageTest, TestJSONReadFileMissingThrows) {
+    ASSERT_THROW(JSON::ReadFile("no_such_file_exists.json", true), Dal::Exception_);
 }
 

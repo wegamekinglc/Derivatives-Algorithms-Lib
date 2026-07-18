@@ -107,7 +107,8 @@ namespace Dal {
                                   const String_& liborBasis,
                                   Handle_<StorableCurveBlock_>* block) {
             REQUIRE(dc, "Invalid discount curve handle");
-            auto result = Dal::CurveBlockNew(dc->val_, DayBasis_(liborBasis));
+            const DayBasis_ basis(liborBasis.empty() ? "ACT_365F" : liborBasis);
+            auto result = Dal::CurveBlockNew(dc->val_, basis);
             block->reset(new StorableCurveBlock_(result));
         }
     }

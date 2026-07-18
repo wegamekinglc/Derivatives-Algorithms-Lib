@@ -97,7 +97,9 @@ case "$canonical_install" in
 esac
 cmake --install "$BUILD_DIR" --prefix "$INSTALL_DIR"
 
-ctest_flags=(--test-dir "$BUILD_DIR" --output-on-failure)
+# Benchmarks are registered as CTest tests (label "benchmark") so CI can discover
+# them; never run them in the default test pass, even under --benchmarks/--full.
+ctest_flags=(--test-dir "$BUILD_DIR" --output-on-failure -LE benchmark)
 if [[ "${VERBOSE:-0}" == "1" ]]; then
     ctest_flags+=(--verbose)
 fi
