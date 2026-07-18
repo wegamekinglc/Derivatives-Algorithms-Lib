@@ -1,9 +1,18 @@
 name: CMake Windows CI
 on: [push, pull_request]
 
+# Per-ref grouping: a new push cancels stale runs of the same ref only --
+# distinct PRs (refs/pull/N/merge) never cancel each other.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: windows-latest
+    env:
+      CMAKE_C_COMPILER_LAUNCHER: ccache
+      CMAKE_CXX_COMPILER_LAUNCHER: ccache
     strategy:
       fail-fast: false
       matrix:
@@ -19,6 +28,13 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
         with:
           submodules: recursive
+
+      # Same key rule as cmake-linux.yml: the action adds only a "ccache-"
+      # prefix plus timestamp, so the key carries OS and backend itself.
+      - name: Setup ccache
+        uses: hendrikmuhs/ccache-action@d62db5f07c26379fc4b4e0916f098a92573c3b03 # @v1.2.23
+        with:
+          key: ${{ runner.os }}-${{ matrix.aad-backend }}
 
       - name: Setup MSVC environment
         shell: pwsh
@@ -189,6 +205,8 @@ jobs:
   benchmark:
     name: Benchmarks
     runs-on: windows-latest
+    # No ccache here: this job builds with -march=native, and cached objects
+    # restored on a different runner CPU generation crash with SIGILL.
 
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0

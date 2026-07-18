@@ -1,6 +1,12 @@
 name: CMake Linux CI
 on: [push, pull_request]
 
+# Per-ref grouping: a new push cancels stale runs of the same ref only --
+# distinct PRs (refs/pull/N/merge) never cancel each other.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -37,6 +43,23 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
         with:
           submodules: recursive
+
+      # The action's key gets only a "ccache-" prefix and a trailing
+      # timestamp, so the key itself must carry every matrix dimension
+      # (OS, compiler, backend) to keep the 16 jobs from colliding.
+      # Coverage legs are excluded: cache hits skip compilation, and the
+      # .gcno notes gcov needs are only emitted when the compiler runs.
+      - name: Setup ccache
+        if: matrix.coverage == false
+        uses: hendrikmuhs/ccache-action@d62db5f07c26379fc4b4e0916f098a92573c3b03 # @v1.2.23
+        with:
+          key: ${{ runner.os }}-${{ matrix.compiler }}-${{ matrix.aad-backend }}
+
+      - name: Enable ccache launcher
+        if: matrix.coverage == false
+        run: |
+          echo "CMAKE_C_COMPILER_LAUNCHER=ccache" >> "$GITHUB_ENV"
+          echo "CMAKE_CXX_COMPILER_LAUNCHER=ccache" >> "$GITHUB_ENV"
 
       - name: Setup
         run: |
@@ -116,10 +139,18 @@ jobs:
   # them against one representative configuration is sufficient.
   build-extended:
     runs-on: ubuntu-latest
+    env:
+      CMAKE_C_COMPILER_LAUNCHER: ccache
+      CMAKE_CXX_COMPILER_LAUNCHER: ccache
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
         with:
           submodules: recursive
+
+      - name: Setup ccache
+        uses: hendrikmuhs/ccache-action@d62db5f07c26379fc4b4e0916f098a92573c3b03 # @v1.2.23
+        with:
+          key: ${{ runner.os }}-extended
 
       - name: Setup
         run: |
@@ -219,11 +250,19 @@ jobs:
   warning-clean:
     name: Warning-clean GCC build
     runs-on: ubuntu-latest
+    env:
+      CMAKE_C_COMPILER_LAUNCHER: ccache
+      CMAKE_CXX_COMPILER_LAUNCHER: ccache
 
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
         with:
           submodules: recursive
+
+      - name: Setup ccache
+        uses: hendrikmuhs/ccache-action@d62db5f07c26379fc4b4e0916f098a92573c3b03 # @v1.2.23
+        with:
+          key: ${{ runner.os }}-warning-clean
 
       - name: Setup
         run: |
@@ -260,18 +299,23 @@ jobs:
   sanitizers:
     name: ${{ matrix.label }}
     runs-on: ubuntu-latest
+    env:
+      CMAKE_C_COMPILER_LAUNCHER: ccache
+      CMAKE_CXX_COMPILER_LAUNCHER: ccache
     strategy:
       fail-fast: false
       matrix:
         include:
           - label: ASan + UBSan focused tests
             slug: asan-ubsan
-            flags: -O2 -g -fno-omit-frame-pointer -fsanitize=address,undefined -fno-sanitize-recover=all
+            sanitizers: address;undefined
+            flags: -O2 -g -fno-sanitize-recover=all
             core-filter: ConcurrencyTest.*:DistributionTest.*:MatrixTest.TestLowerBandAccumulator:StackTest.*:UnderdeterminedTest.TestFindUsesQuadraticBacktrackMinimum:ScriptTest.Test*Batch*:StorageTest.TestEvaluationDate*
             public-filter: PublicApiTest.TestMonteCarlo*
           - label: TSan concurrency tests
             slug: tsan
-            flags: -O2 -g -fno-omit-frame-pointer -fsanitize=thread
+            sanitizers: thread
+            flags: -O2 -g
             core-filter: ConcurrencyTest.TestConcurrentQueuePushAndPop:ConcurrencyTest.TestThreadPoolStartsLazily:ConcurrencyTest.TestThreadPoolStartStopLifecycle:ConcurrencyTest.TestThreadPoolUsesEnvironmentLimit:ConcurrencyTest.TestThreadPoolTaskCannotStopOrRestartPool:ConcurrencyTest.TestThreadPoolStopDrainsClaimedCallerAndCancelsQueuedTasks:StorageTest.TestEvaluationDateScopeOwnsBarrierButAllowsConcurrentRead:StorageTest.TestEvaluationDateWorkersObserveOneStableDateWhileSetterWaits:ScriptTest.TestSimulationTaskGroupDrainsOnSubmissionFailureAndPoolRecovers:ScriptTest.TestAadSimulationPropagatesTaskFailureAndRemainsUsable
             public-filter: ""
 
@@ -279,6 +323,11 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
         with:
           submodules: recursive
+
+      - name: Setup ccache
+        uses: hendrikmuhs/ccache-action@d62db5f07c26379fc4b4e0916f098a92573c3b03 # @v1.2.23
+        with:
+          key: ${{ runner.os }}-sanitizer-${{ matrix.slug }}
 
       - name: Setup
         run: |
@@ -294,6 +343,7 @@ jobs:
           build_dir="$RUNNER_TEMP/dal-${{ matrix.slug }}"
           cmake -S . -B "$build_dir" \
             -DCMAKE_BUILD_TYPE=Debug \
+            -DDAL_ENABLE_SANITIZERS='${{ matrix.sanitizers }}' \
             -DDAL_BUILD_PUBLIC=ON \
             -DDAL_CPP_BUILD_TESTS=ON \
             -DDAL_CPP_BUILD_EXAMPLES=OFF \
@@ -335,6 +385,8 @@ jobs:
   benchmark:
     name: Benchmarks
     runs-on: ubuntu-latest
+    # No ccache here: this job builds with -march=native, and cached objects
+    # restored on a different runner CPU generation crash with SIGILL.
 
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0

@@ -72,6 +72,23 @@ option(DAL_BUILD_PUBLIC "Build dal-public" ON)
 option(DAL_BUILD_PYTHON "Build dal-python" OFF)
 option(DAL_BUILD_EXCEL "Build dal-excel" OFF)
 
+# Applied workspace-wide (like USE_COVERAGE): partially instrumented builds
+# miss errors at library boundaries. -fno-sanitize-recover=all is deliberately
+# left to the caller -- thread sanitizer has no recover mode.
+set(DAL_ENABLE_SANITIZERS "" CACHE STRING
+    "Semicolon-separated sanitizers for all targets (e.g. \"address;undefined\" or \"thread\"); empty disables instrumentation")
+if(DAL_ENABLE_SANITIZERS)
+    if(NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
+        message(FATAL_ERROR
+            "DAL_ENABLE_SANITIZERS requires a GCC- or Clang-compatible compiler, "
+            "got ${CMAKE_CXX_COMPILER_ID}")
+    endif()
+    string(REPLACE ";" "," DAL_SANITIZER_LIST "${DAL_ENABLE_SANITIZERS}")
+    add_compile_options("-fsanitize=${DAL_SANITIZER_LIST}" -fno-omit-frame-pointer)
+    add_link_options("-fsanitize=${DAL_SANITIZER_LIST}")
+    message(STATUS "Sanitizer instrumentation enabled (DAL_ENABLE_SANITIZERS=${DAL_SANITIZER_LIST})")
+endif()
+
 enable_testing()
 
 # Sub-projects
