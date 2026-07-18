@@ -266,12 +266,14 @@ jobs:
         include:
           - label: ASan + UBSan focused tests
             slug: asan-ubsan
-            flags: -O2 -g -fno-omit-frame-pointer -fsanitize=address,undefined -fno-sanitize-recover=all
+            sanitizers: address;undefined
+            flags: -O2 -g -fno-sanitize-recover=all
             core-filter: ConcurrencyTest.*:DistributionTest.*:MatrixTest.TestLowerBandAccumulator:StackTest.*:UnderdeterminedTest.TestFindUsesQuadraticBacktrackMinimum:ScriptTest.Test*Batch*:StorageTest.TestEvaluationDate*
             public-filter: PublicApiTest.TestMonteCarlo*
           - label: TSan concurrency tests
             slug: tsan
-            flags: -O2 -g -fno-omit-frame-pointer -fsanitize=thread
+            sanitizers: thread
+            flags: -O2 -g
             core-filter: ConcurrencyTest.TestConcurrentQueuePushAndPop:ConcurrencyTest.TestThreadPoolStartsLazily:ConcurrencyTest.TestThreadPoolStartStopLifecycle:ConcurrencyTest.TestThreadPoolUsesEnvironmentLimit:ConcurrencyTest.TestThreadPoolTaskCannotStopOrRestartPool:ConcurrencyTest.TestThreadPoolStopDrainsClaimedCallerAndCancelsQueuedTasks:StorageTest.TestEvaluationDateScopeOwnsBarrierButAllowsConcurrentRead:StorageTest.TestEvaluationDateWorkersObserveOneStableDateWhileSetterWaits:ScriptTest.TestSimulationTaskGroupDrainsOnSubmissionFailureAndPoolRecovers:ScriptTest.TestAadSimulationPropagatesTaskFailureAndRemainsUsable
             public-filter: ""
 
@@ -294,6 +296,7 @@ jobs:
           build_dir="$RUNNER_TEMP/dal-${{ matrix.slug }}"
           cmake -S . -B "$build_dir" \
             -DCMAKE_BUILD_TYPE=Debug \
+            -DDAL_ENABLE_SANITIZERS='${{ matrix.sanitizers }}' \
             -DDAL_BUILD_PUBLIC=ON \
             -DDAL_CPP_BUILD_TESTS=ON \
             -DDAL_CPP_BUILD_EXAMPLES=OFF \
