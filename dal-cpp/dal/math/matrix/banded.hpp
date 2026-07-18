@@ -40,10 +40,10 @@ namespace Dal {
 
             void MultiplyLeft(const Vector_<>& x, Vector_<>* b) const override;
             void MultiplyRight(const Vector_<>& x, Vector_<>* b) const override ;
-            [[nodiscard]] SquareMatrixDecomposition_* Decompose() const override ;
+            [[nodiscard]] std::unique_ptr<SquareMatrixDecomposition_> Decompose() const override ;
         };
 
-        Square_* NewBandDiagonal(int size, int nAbove, int nBelow);
+        std::unique_ptr<Square_> NewBandDiagonal(int size, int nAbove, int nBelow);
     } // namespace Sparse
 
     class LowerBandAccumulator_ {

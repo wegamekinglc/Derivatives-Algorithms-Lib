@@ -188,7 +188,7 @@ namespace Dal {
                 return true;
             }
 
-            [[nodiscard]] Sparse::SymmetricDecomposition_* Decompose() const override;
+            [[nodiscard]] std::unique_ptr<SquareMatrixDecomposition_> Decompose() const override;
 
             const double& operator()(int iRow, int iCol) const override {
                 THROW("Penalty weight element access is not supported");
@@ -225,7 +225,7 @@ namespace Dal {
             }
         };
 
-        Sparse::SymmetricDecomposition_* XPenaltyWeight_::Decompose() const { return new XDecompByCG_(*this); }
+        std::unique_ptr<SquareMatrixDecomposition_> XPenaltyWeight_::Decompose() const { return std::make_unique<XDecompByCG_>(*this); }
 
         Vector_<> ApproxQPStep(const Vector_<>& x0,
                                const Vector_<>& x,

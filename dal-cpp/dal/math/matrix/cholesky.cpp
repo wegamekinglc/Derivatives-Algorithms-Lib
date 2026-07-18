@@ -113,8 +113,8 @@ namespace Dal {
         };
     } // namespace
 
-    Sparse::SymmetricDecomposition_* CholeskyDecomposition(const SquareMatrix_<>& src) {
-        return new Cholesky_(src);
+    std::unique_ptr<Sparse::SymmetricDecomposition_> CholeskyDecomposition(const SquareMatrix_<>& src) {
+        return std::make_unique<Cholesky_>(src);
     }
 
     void CholeskySolve(SquareMatrix_<>* a, Vector_<Vector_<>>* b, double regularization) {

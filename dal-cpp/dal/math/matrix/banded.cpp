@@ -304,9 +304,9 @@ namespace Dal {
                 }
                 return true;
             }
-            [[nodiscard]] SquareMatrixDecomposition_* Decompose() const override {
+            [[nodiscard]] std::unique_ptr<SquareMatrixDecomposition_> Decompose() const override {
                 REQUIRE(IsSymmetric(), "Cholesky decomposition requires a symmetric matrix");
-                return new BandedCholesky_(val_);
+                return std::make_unique<BandedCholesky_>(val_);
             }
 
             const double& operator()(int row, int col) const override { return val_(row, col); }
@@ -334,17 +334,17 @@ namespace Dal {
         void TriDiagonal_::MultiplyRight(const Vector_<>& x, Vector_<>* b) const {
             TriMultiply(x, diag_, below_, above_, b);
         }
-        SquareMatrixDecomposition_* TriDiagonal_::Decompose() const {
+        std::unique_ptr<SquareMatrixDecomposition_> TriDiagonal_::Decompose() const {
             if (IsSymmetric())
-                return new TriDecompSymm_(diag_, above_);
-            return new TriDecomp_(diag_, above_, below_);
+                return std::make_unique<TriDecompSymm_>(diag_, above_);
+            return std::make_unique<TriDecomp_>(diag_, above_, below_);
         }
 
-        Square_* NewBandDiagonal(int size, int nAbove, int nBelow) {
+        std::unique_ptr<Square_> NewBandDiagonal(int size, int nAbove, int nBelow) {
             REQUIRE(size > 0, "size should be larger than 0");
             if (nAbove <= 1 && nBelow <= 1)
-                return new TriDiagonal_(size);
-            return new Banded_(size, nAbove, nBelow);
+                return std::make_unique<TriDiagonal_>(size);
+            return std::make_unique<Banded_>(size, nAbove, nBelow);
         }
     } // namespace Sparse
 

@@ -174,7 +174,7 @@ namespace Dal::PDE {
         }
 
         if (theta_ > 0.0) {
-            implicitSolve_.reset(implicitOp->Decompose());
+            implicitSolve_ = implicitOp->Decompose();
             ++decompositions_;
         } else {
             implicitSolve_.reset();

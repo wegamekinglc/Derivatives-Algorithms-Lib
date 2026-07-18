@@ -4,10 +4,12 @@
 
 #pragma once
 
+#include <memory>
+
 namespace Dal {
     class SquareMatrixDecomposition_;
     class SymmetricMatrixDecomposition_;
 
-    SymmetricMatrixDecomposition_* DiagonalAsDecomposition(const Vector_<>& diag);
-    SquareMatrixDecomposition_* LowerTriangularAsDecomposition(const SquareMatrix_<>& src);
+    std::unique_ptr<SymmetricMatrixDecomposition_> DiagonalAsDecomposition(const Vector_<>& diag);
+    std::unique_ptr<SquareMatrixDecomposition_> LowerTriangularAsDecomposition(const SquareMatrix_<>& src);
 } // namespace Dal

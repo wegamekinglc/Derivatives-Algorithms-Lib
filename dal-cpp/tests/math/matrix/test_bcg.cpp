@@ -13,7 +13,7 @@ using namespace Dal;
 
 TEST(MatrixTest, TestCGSolve) {
     const int n = 10;
-    Sparse::Square_* mat = Sparse::NewBandDiagonal(n, 1, 1);
+    std::unique_ptr<Sparse::Square_> mat = Sparse::NewBandDiagonal(n, 1, 1);
     mat->Set(9, 8, 3.0);
     mat->Set(8, 9, 3.0);
 
@@ -30,7 +30,7 @@ TEST(MatrixTest, TestCGSolve) {
 
 TEST(MatrixTest, TestBCGSolve) {
     const int n = 10;
-    Sparse::Square_* mat = Sparse::NewBandDiagonal(n, 1, 1);
+    std::unique_ptr<Sparse::Square_> mat = Sparse::NewBandDiagonal(n, 1, 1);
     mat->Set(9, 8, 3.0);
     mat->Set(8, 9, 2.0);
 
@@ -83,7 +83,7 @@ namespace {
 
 TEST(MatrixTest, TestCGSolveSymmetricLowResidual) {
     const int n = 40;
-    Sparse::Square_* mat = Sparse::NewBandDiagonal(n, 1, 1);
+    std::unique_ptr<Sparse::Square_> mat = Sparse::NewBandDiagonal(n, 1, 1);
     BuildSymmetricTridiag(mat, n);
 
     Vector_<> b(n);
@@ -97,7 +97,7 @@ TEST(MatrixTest, TestCGSolveSymmetricLowResidual) {
 
 TEST(MatrixTest, TestBCGSolveAsymmetricLowResidual) {
     const int n = 40;
-    Sparse::Square_* mat = Sparse::NewBandDiagonal(n, 1, 1);
+    std::unique_ptr<Sparse::Square_> mat = Sparse::NewBandDiagonal(n, 1, 1);
     BuildAsymmetricTridiag(mat, n);
 
     Vector_<> b(n);
