@@ -6,6 +6,17 @@ if(MSVC AND BUILD_SHARED_LIBS)
     message(FATAL_ERROR "Shared library (DLL) builds for DAL on MSVC are not supported")
 endif()
 
+# Fail fast with an actionable message when a required git submodule was not
+# initialized, instead of a bare "does not contain a CMakeLists.txt" error.
+function(dal_require_submodule sentinel)
+    if(NOT EXISTS "${PROJECT_SOURCE_DIR}/${sentinel}")
+        message(FATAL_ERROR
+            "Required git submodule sources are missing: "
+            "${PROJECT_SOURCE_DIR}/${sentinel}\n"
+            "Initialize them with: git submodule update --init --recursive")
+    endif()
+endfunction()
+
 function(dal_apply_platform_options target)
     if(MSVC)
         target_compile_definitions(${target} PRIVATE
