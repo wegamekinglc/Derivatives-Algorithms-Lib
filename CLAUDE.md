@@ -2,6 +2,8 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository. Keep this as operational guidance for agents; keep public project orientation in [README.md](README.md), and put method-level explanations under `docs/methodology/`.
 
+This file is the agent-facing source of truth for build/test commands, workspace CMake options, and the architecture map. Sibling agent guides — [AGENTS.md](AGENTS.md) (Codex), [.github/copilot-instructions.md](.github/copilot-instructions.md) (GitHub Copilot), and [.codex/skills/dal-agent-team/references/shared-rules.md](.codex/skills/dal-agent-team/references/shared-rules.md) (Codex skill reference) — keep per-audience specifics and link back here rather than duplicating. Coding and test conventions live in [.claude/rules/](.claude/rules/) (linked below); published setup and architecture docs live in [docs/](docs/).
+
 ## Build Commands
 
 ```bash
@@ -79,6 +81,8 @@ Formatting is enforced via `.clang-format` (LLVM-based):
 - `PointerBindsToType: true` (use `T*` not `T *`)
 - Braces attach style (`BreakBeforeBraces: Attach`)
 
+The full conventions live in the [code style guide](.claude/rules/code-style.md); test conventions in the [unit test style guide](.claude/rules/unit-test-style.md).
+
 ## Architecture
 
 This is a C++17 quantitative finance library with AAD (Automatic Adjoint Differentiation) support, organized as a multi-project workspace.
@@ -93,7 +97,7 @@ Derivatives-Algorithms-Lib/
 └── dal-web/                Portfolio management web app (FastAPI + React)
 ```
 
-The dependency graph is `dal-cpp ← dal-public ← {dal-python, dal-excel}`. Each sub-project owns its own `CMakeLists.txt` and stands alone as a buildable target.
+The dependency graph is `dal-cpp ← dal-public ← {dal-python, dal-excel}`. Each sub-project owns its own `CMakeLists.txt` and stands alone as a buildable target. The published deep-dive — component boundaries, runtime ownership, and execution flows — is [docs/architecture.md](docs/architecture.md).
 
 **Core library (`dal-cpp/`)** — built as the `dal_cpp` target (alias `DAL::cpp`):
 - `dal-cpp/dal/math/` — numerical algorithms: interpolation, optimization, PDE solvers, random number generation, matrix ops, root finding, AAD
