@@ -83,7 +83,10 @@ namespace Dal {
         template class DiscountPWC_<AAD::Number_, DiscountCurve_<AAD::Number_>>;
     } // namespace Tape
 
-    std::unique_ptr<DiscountCurve_> NewDiscountPWC(const String_& name, const String_& ccy, const PiecewiseConstant_& fwds, const Handle_<DiscountCurve_>& base) {
+    std::unique_ptr<DiscountCurve_> NewDiscountPWC(const String_& name,
+                                                   const String_& ccy,
+                                                   const PiecewiseConstant_& fwds,
+                                                   const Handle_<DiscountCurve_>& base) {
         return std::make_unique<Tape::DiscountPWC_<double>>(name, ccy, fwds.knotDates_, fwds.fRight_, base);
     }
 

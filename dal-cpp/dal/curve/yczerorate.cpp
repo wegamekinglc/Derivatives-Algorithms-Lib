@@ -111,7 +111,8 @@ namespace Dal {
         }
 
         template <class T_, class B_>
-        std::unique_ptr<YCComponent_> DiscountZeroRate_<T_, B_>::Clone(const String_& newName, const YCComponent_::substitutions_t& baseChanges) const {
+        std::unique_ptr<YCComponent_> DiscountZeroRate_<T_, B_>::Clone(const String_& newName,
+                                                                        const YCComponent_::substitutions_t& baseChanges) const {
             return std::make_unique<DiscountZeroRate_<T_, B_>>(newName, this->ccy_.String(), anchorDate_, nodeDates_, zeroRates_, dayCount_,
                                                                scheme_, this->NewBase(baseChanges));
         }

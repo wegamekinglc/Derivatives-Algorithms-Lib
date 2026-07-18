@@ -39,7 +39,8 @@ namespace Dal {
             [[nodiscard]] int NX() const override;
             void ApplyDX(Vector_<>::const_iterator dx, double leverage) override;
             void Write(Archive::Store_& dst) const override;
-            [[nodiscard]] std::unique_ptr<YCComponent_> Clone(const String_& newName, const YCComponent_::substitutions_t& baseChanges) const override;
+            [[nodiscard]] std::unique_ptr<YCComponent_> Clone(const String_& newName,
+                                                              const YCComponent_::substitutions_t& baseChanges) const override;
 
             [[nodiscard]] const Vector_<Date_>& NodeDates() const { return nodeDates_; }
             [[nodiscard]] Vector_<> NodeLogDF() const;

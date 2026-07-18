@@ -108,7 +108,8 @@ namespace Dal {
 
         template <class T_, class B_>
         std::unique_ptr<YCComponent_> DiscountLogDF_<T_, B_>::Clone(const String_& newName, const YCComponent_::substitutions_t& baseChanges) const {
-            return std::make_unique<DiscountLogDF_<T_, B_>>(newName, this->ccy_.String(), nodeDates_, logDF_, dayCount_, scheme_, this->NewBase(baseChanges));
+            return std::make_unique<DiscountLogDF_<T_, B_>>(
+                newName, this->ccy_.String(), nodeDates_, logDF_, dayCount_, scheme_, this->NewBase(baseChanges));
         }
 
         template <class T_, class B_> Vector_<> DiscountLogDF_<T_, B_>::NodeDF() const {
