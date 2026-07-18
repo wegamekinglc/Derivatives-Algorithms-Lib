@@ -62,7 +62,7 @@ TEST(MatrixTest, TestCholeskyDecompositionV2) {
 
 TEST(MatrixTest, TestCholeskyDecompositionThrowsOnZeroMatrix) {
     SquareMatrix_<> m(3);
-    ASSERT_THROW(CholeskyDecomposition(m), Exception_);
+    ASSERT_THROW((void)Handle_<SymmetricMatrixDecomposition_>(CholeskyDecomposition(m)), Exception_);
 }
 
 TEST(MatrixTest, TestCholeskySolveThrowsOnZeroRegularization) {

@@ -87,7 +87,7 @@ namespace Dal {
             const char* name_;
             const void* value_;
             StackInfoType_ type_;
-            template <class T_> XStackInfo_(const char*, T_) = delete; // other data type is not allowed
+            template <class T_> XStackInfo_(const char*, T_) = delete; // other data types are not allowed
 
         public:
             XStackInfo_(const char* name, const int& val);
