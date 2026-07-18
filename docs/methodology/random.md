@@ -18,7 +18,7 @@ $$
 $$
 
 $$
-\texttt{void SkipTo(size\_t n)}, \qquad \texttt{Random\_* Clone() const}, \qquad \texttt{size\_t NDim() const}.
+\texttt{void SkipTo(size\_t n)}, \qquad \texttt{std::unique\_ptr<Random\_> Clone() const}, \qquad \texttt{size\_t NDim() const}.
 $$
 
 `NDim()` is the number of variates produced per call (one draw of a

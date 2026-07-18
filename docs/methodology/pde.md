@@ -166,15 +166,15 @@ bit `i` means the coefficient depends on spatial coordinate `x[i]`. Time is not 
 dependence bit; time-dependent coefficients are handled by calling `Prepare` again before
 the next roll.
 
-The factory functions follow DAL's raw-pointer `New*` convention. Callers normally wrap
-the returned pointer in `Handle_` or `std::unique_ptr`.
+The factory functions return `std::unique_ptr`. Callers normally wrap the result in
+`Handle_` through its converting constructor or keep the `unique_ptr`.
 
 Constant factories:
 
 ```cpp
-ScalarCoeff_* NewConstCoeff(double val);
-VectorCoeff_* NewConstCoeff(const Vector_<>& val);
-MatrixCoeff_* NewConstCoeff(const Matrix_<>& val);
+std::unique_ptr<ScalarCoeff_> NewConstCoeff(double val);
+std::unique_ptr<VectorCoeff_> NewConstCoeff(const Vector_<>& val);
+std::unique_ptr<MatrixCoeff_> NewConstCoeff(const Matrix_<>& val);
 ```
 
 The matrix constant must be square. Constant coefficients report all-zero dependence.
@@ -182,11 +182,11 @@ The matrix constant must be square. Constant coefficients report all-zero depend
 Callable factories:
 
 ```cpp
-ScalarCoeff_* NewScalarCoeff(std::function<double(const Vector_<>&)> f, Coeff_::x_dep_t dep);
-VectorCoeff_* NewVectorCoeff(std::function<void(const Vector_<>&, Vector_<>*)> f,
-                             const Vector_<Coeff_::x_dep_t>& dep);
-MatrixCoeff_* NewMatrixCoeff(std::function<void(const Vector_<>&, SquareMatrix_<>*)> f,
-                             const Matrix_<Coeff_::x_dep_t>& dep);
+std::unique_ptr<ScalarCoeff_> NewScalarCoeff(std::function<double(const Vector_<>&)> f, Coeff_::x_dep_t dep);
+std::unique_ptr<VectorCoeff_> NewVectorCoeff(std::function<void(const Vector_<>&, Vector_<>*)> f,
+                                             const Vector_<Coeff_::x_dep_t>& dep);
+std::unique_ptr<MatrixCoeff_> NewMatrixCoeff(std::function<void(const Vector_<>&, SquareMatrix_<>*)> f,
+                                             const Matrix_<Coeff_::x_dep_t>& dep);
 ```
 
 For vector and matrix callables, `dep` declares both dependence and output shape. The
@@ -195,9 +195,9 @@ adapter resizes the output object to match `dep` before invoking the callable.
 The one-dimensional convenience overloads infer axis-0 dependence and length/shape 1:
 
 ```cpp
-ScalarCoeff_* NewScalarCoeff(std::function<double(double)> f);
-VectorCoeff_* NewVectorCoeff(std::function<double(double)> f);
-MatrixCoeff_* NewMatrixCoeff(std::function<double(double)> f);
+std::unique_ptr<ScalarCoeff_> NewScalarCoeff(std::function<double(double)> f);
+std::unique_ptr<VectorCoeff_> NewVectorCoeff(std::function<double(double)> f);
+std::unique_ptr<MatrixCoeff_> NewMatrixCoeff(std::function<double(double)> f);
 ```
 
 These make Black-Scholes coefficients concise:
