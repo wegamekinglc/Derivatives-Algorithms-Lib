@@ -83,6 +83,8 @@ namespace Dal {
 
         explicit Handle_(const T_* src) : base_t(src) {}
 
+        explicit Handle_(std::unique_ptr<T_>&& src) : base_t(std::move(src)) {}
+
         explicit Handle_(const base_t& src) : base_t(src) {}
         [[nodiscard]] bool IsEmpty() const { return !base_t::get(); }
     };

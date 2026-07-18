@@ -14,8 +14,8 @@ namespace Dal {
         BSModelData_v1::XWrite(dst, name_, spot_, vol_, rate_, div_);
     }
 
-    BSModelData_* BSModelData_::MutantModel(const String_* newName, const Slide_* slide) const {
+    std::unique_ptr<ModelData_> BSModelData_::MutantModel(const String_* newName, const Slide_* slide) const {
         REQUIRE(!slide, "slides are not supported for BSModelData");
-        return new BSModelData_(*newName, spot_, vol_, rate_, div_);
+        return std::make_unique<BSModelData_>(*newName, spot_, vol_, rate_, div_);
     }
 } // namespace Dal

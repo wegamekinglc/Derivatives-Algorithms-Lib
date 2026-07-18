@@ -265,6 +265,6 @@ namespace Dal {
         void Write(Archive::Store_& dst) const override;
 
     private:
-        DupireModelData_* MutantModel(const String_* newName, const Slide_* slide) const override;
+        std::unique_ptr<ModelData_> MutantModel(const String_* newName, const Slide_* slide) const override;
     };
 } // namespace Dal::AAD
