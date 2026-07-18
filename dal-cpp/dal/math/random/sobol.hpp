@@ -30,9 +30,12 @@ namespace Dal {
         bool polish_;
     public:
         SobolRSG_(const String_& name, double iPath, double nDim = 1, bool precise = false, bool polish = false)
-            : Storable_("SobolRSG", name), i_path_(iPath), ndim_(nDim), precise_(precise), polish_(polish) {
-            rsg_ = NewSobol(static_cast<int>(ndim_), static_cast<size_t>(i_path_), precise, polish);
-        }
+            : Storable_("SobolRSG", name),
+              rsg_(NewSobol(static_cast<int>(nDim), static_cast<size_t>(iPath), precise, polish)),
+              i_path_(iPath),
+              ndim_(nDim),
+              precise_(precise),
+              polish_(polish) {}
         void Write(Archive::Store_& dst) const override;
         void FillUniform(Vector_<>* deviates) const;
         void FillNormal(Vector_<>* deviates) const;
