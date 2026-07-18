@@ -84,7 +84,7 @@ namespace {
 TEST(MatrixTest, TestCGSolveSymmetricLowResidual) {
     const int n = 40;
     std::unique_ptr<Sparse::Square_> mat = Sparse::NewBandDiagonal(n, 1, 1);
-    BuildSymmetricTridiag(mat, n);
+    BuildSymmetricTridiag(mat.get(), n);
 
     Vector_<> b(n);
     for (int i = 0; i < n; ++i)
@@ -98,7 +98,7 @@ TEST(MatrixTest, TestCGSolveSymmetricLowResidual) {
 TEST(MatrixTest, TestBCGSolveAsymmetricLowResidual) {
     const int n = 40;
     std::unique_ptr<Sparse::Square_> mat = Sparse::NewBandDiagonal(n, 1, 1);
-    BuildAsymmetricTridiag(mat, n);
+    BuildAsymmetricTridiag(mat.get(), n);
 
     Vector_<> b(n);
     for (int i = 0; i < n; ++i)

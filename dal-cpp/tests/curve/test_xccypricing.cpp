@@ -73,8 +73,8 @@ namespace {
         double operator()(const Date_&, const Date_&) const override { return value_; }
         void Poll(Vector_<const YCComponent_*>* all) const override { all->push_back(this); }
         void Poll(std::map<const YCComponent_*, Handle_<YCComponent_>>*) const override {}
-        [[nodiscard]] ConstantDiscountCurve_* Clone(const String_& newName, const YCComponent_::substitutions_t&) const override {
-            return new ConstantDiscountCurve_(newName, ccy_.String(), value_);
+        [[nodiscard]] std::unique_ptr<YCComponent_> Clone(const String_& newName, const YCComponent_::substitutions_t&) const override {
+            return std::make_unique<ConstantDiscountCurve_>(newName, ccy_.String(), value_);
         }
         void Write(Archive::Store_&) const override {}
     };
@@ -111,8 +111,8 @@ namespace {
         }
         void Poll(Vector_<const YCComponent_*>* all) const override { all->push_back(this); }
         void Poll(std::map<const YCComponent_*, Handle_<YCComponent_>>*) const override {}
-        [[nodiscard]] MappedDiscountCurve_* Clone(const String_& newName, const YCComponent_::substitutions_t&) const override {
-            return new MappedDiscountCurve_(newName, ccy_.String(), valuationDate_, valuationDfs_, forwardDfs_);
+        [[nodiscard]] std::unique_ptr<YCComponent_> Clone(const String_& newName, const YCComponent_::substitutions_t&) const override {
+            return std::unique_ptr<YCComponent_>(new MappedDiscountCurve_(newName, ccy_.String(), valuationDate_, valuationDfs_, forwardDfs_));
         }
         void Write(Archive::Store_&) const override {}
     };
@@ -129,8 +129,8 @@ namespace {
         T_ operator()(const Date_& from, const Date_&) const override { return from < split_ ? historical_ : future_; }
         void Poll(Vector_<const YCComponent_*>* all) const override { all->push_back(this); }
         void Poll(std::map<const YCComponent_*, Handle_<YCComponent_>>*) const override {}
-        [[nodiscard]] SplitForwardCurve_* Clone(const String_& newName, const YCComponent_::substitutions_t&) const override {
-            return new SplitForwardCurve_(newName, this->ccy_.String(), split_, historical_, future_);
+        [[nodiscard]] std::unique_ptr<YCComponent_> Clone(const String_& newName, const YCComponent_::substitutions_t&) const override {
+            return std::make_unique<SplitForwardCurve_>(newName, this->ccy_.String(), split_, historical_, future_);
         }
         void Write(Archive::Store_&) const override {}
     };
