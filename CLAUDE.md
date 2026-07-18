@@ -166,6 +166,8 @@ Detailed documentation of the quantitative methods implemented in this library:
 - **Black / Bachelier Vanilla Pricing** — [Black / Bachelier vanilla pricing](docs/methodology/black_scholes.md)
 - **Numerical Quadrature** — [Numerical quadrature](docs/methodology/quadrature.md)
 - **Random Number Generation and Path Construction** — [Random and path generation](docs/methodology/random.md)
+- **Dates, Calendars, and Schedules** — [Dates and calendars](docs/methodology/dates.md)
+- **Index Names and Parsing** — [Index parsing](docs/methodology/index_parsing.md)
 
 Notable fundamental changes are recorded in [CHANGELOG.md](CHANGELOG.md).
 
