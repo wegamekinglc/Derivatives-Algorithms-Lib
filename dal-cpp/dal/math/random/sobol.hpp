@@ -20,7 +20,7 @@ polish is boolean
 -IF-------------------------------------------------------------------------*/
 
 namespace Dal {
-    SequenceSet_* NewSobol(int size, size_t iPath, bool precise = false, bool polish = false);
+    std::unique_ptr<SequenceSet_> NewSobol(int size, size_t iPath, bool precise = false, bool polish = false);
 
     class BASE_EXPORT SobolRSG_: public Storable_ {
         std::unique_ptr<SequenceSet_> rsg_;
@@ -31,7 +31,7 @@ namespace Dal {
     public:
         SobolRSG_(const String_& name, double iPath, double nDim = 1, bool precise = false, bool polish = false)
             : Storable_("SobolRSG", name), i_path_(iPath), ndim_(nDim), precise_(precise), polish_(polish) {
-            rsg_.reset(NewSobol(static_cast<int>(ndim_), static_cast<size_t>(i_path_), precise, polish));
+            rsg_ = NewSobol(static_cast<int>(ndim_), static_cast<size_t>(i_path_), precise, polish);
         }
         void Write(Archive::Store_& dst) const override;
         void FillUniform(Vector_<>* deviates) const;

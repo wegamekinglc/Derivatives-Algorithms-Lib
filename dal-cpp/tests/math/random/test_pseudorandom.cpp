@@ -98,8 +98,8 @@ TEST(PseudoRandomTest, TestPseudoRandomClone) {
     std::unique_ptr<Random_> gen2(gen->Clone());
     ASSERT_EQ(gen2->NDim(), n_dim);
 
-    gen.reset(New(RNGType_("MRG32"), 1024, n_dim));
-    gen2.reset(gen->Clone());
+    gen = New(RNGType_("MRG32"), 1024, n_dim);
+    gen2 = gen->Clone();
     ASSERT_EQ(gen2->NDim(), n_dim);
 }
 

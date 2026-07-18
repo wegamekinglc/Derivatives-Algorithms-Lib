@@ -11,11 +11,11 @@ namespace Dal::Script {
     std::unique_ptr<Random_> CreateRNG(const String_& method, size_t nDim, bool useBb) {
         std::unique_ptr<Random_> rsg;
         if (method == "sobol")
-            rsg = std::unique_ptr<Random_>(NewSobol(static_cast<int>(nDim), 2048));
+            rsg = NewSobol(static_cast<int>(nDim), 2048);
         else if (method == "mrg32")
-            rsg = std::unique_ptr<Random_>(New(RNGType_("MRG32"), 1024, nDim));
+            rsg = New(RNGType_("MRG32"), 1024, nDim);
         else if (method == "irn")
-            rsg = std::unique_ptr<Random_>(New(RNGType_("IRN"), 1024, nDim));
+            rsg = New(RNGType_("IRN"), 1024, nDim);
         else
             THROW("rng method is not known");
 

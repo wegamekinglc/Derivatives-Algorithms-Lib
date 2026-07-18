@@ -34,9 +34,8 @@ namespace Dal {
             rsg_->SkipTo(nPoints);
         }
 
-        [[nodiscard]] Random_* Clone() const override {
-            Random_* rsg = rsg_->Clone();
-            return new BrownianBridge_(std::move(std::unique_ptr<Random_>(rsg)));
+        [[nodiscard]] std::unique_ptr<Random_> Clone() const override {
+            return std::make_unique<BrownianBridge_>(rsg_->Clone());
         }
 
         [[nodiscard]] size_t NDim() const override {

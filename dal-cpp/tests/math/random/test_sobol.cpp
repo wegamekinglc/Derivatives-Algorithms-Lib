@@ -134,7 +134,7 @@ TEST(RandomTest, TestSobolNormalPrecisionPolicy) {
 TEST(RandomTest, TestSobolClonePreservesStateAndNormalPolicy) {
     constexpr size_t iPath = (1u << 20) - 2;
     std::unique_ptr<SequenceSet_> source(NewSobol(2, iPath, true, true));
-    std::unique_ptr<SequenceSet_> clone(source->Clone());
+    std::unique_ptr<Random_> clone(source->Clone());
     Vector_<> sourceValues;
     Vector_<> cloneValues;
 
