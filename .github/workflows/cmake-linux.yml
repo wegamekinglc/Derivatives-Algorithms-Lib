@@ -4,6 +4,9 @@ on: [push, pull_request]
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      CMAKE_C_COMPILER_LAUNCHER: ccache
+      CMAKE_CXX_COMPILER_LAUNCHER: ccache
     strategy:
       fail-fast: false
       matrix:
@@ -37,6 +40,14 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
         with:
           submodules: recursive
+
+      # The action's key gets only a "ccache-" prefix and a trailing
+      # timestamp, so the key itself must carry every matrix dimension
+      # (OS, compiler, backend) to keep the 16 jobs from colliding.
+      - name: Setup ccache
+        uses: hendrikmuhs/ccache-action@d62db5f07c26379fc4b4e0916f098a92573c3b03 # @v1.2.23
+        with:
+          key: ${{ runner.os }}-${{ matrix.compiler }}-${{ matrix.aad-backend }}
 
       - name: Setup
         run: |
@@ -116,10 +127,18 @@ jobs:
   # them against one representative configuration is sufficient.
   build-extended:
     runs-on: ubuntu-latest
+    env:
+      CMAKE_C_COMPILER_LAUNCHER: ccache
+      CMAKE_CXX_COMPILER_LAUNCHER: ccache
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
         with:
           submodules: recursive
+
+      - name: Setup ccache
+        uses: hendrikmuhs/ccache-action@d62db5f07c26379fc4b4e0916f098a92573c3b03 # @v1.2.23
+        with:
+          key: ${{ runner.os }}-extended
 
       - name: Setup
         run: |
@@ -219,11 +238,19 @@ jobs:
   warning-clean:
     name: Warning-clean GCC build
     runs-on: ubuntu-latest
+    env:
+      CMAKE_C_COMPILER_LAUNCHER: ccache
+      CMAKE_CXX_COMPILER_LAUNCHER: ccache
 
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
         with:
           submodules: recursive
+
+      - name: Setup ccache
+        uses: hendrikmuhs/ccache-action@d62db5f07c26379fc4b4e0916f098a92573c3b03 # @v1.2.23
+        with:
+          key: ${{ runner.os }}-warning-clean
 
       - name: Setup
         run: |
@@ -260,6 +287,9 @@ jobs:
   sanitizers:
     name: ${{ matrix.label }}
     runs-on: ubuntu-latest
+    env:
+      CMAKE_C_COMPILER_LAUNCHER: ccache
+      CMAKE_CXX_COMPILER_LAUNCHER: ccache
     strategy:
       fail-fast: false
       matrix:
@@ -281,6 +311,11 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
         with:
           submodules: recursive
+
+      - name: Setup ccache
+        uses: hendrikmuhs/ccache-action@d62db5f07c26379fc4b4e0916f098a92573c3b03 # @v1.2.23
+        with:
+          key: ${{ runner.os }}-sanitizer-${{ matrix.slug }}
 
       - name: Setup
         run: |
@@ -338,6 +373,9 @@ jobs:
   benchmark:
     name: Benchmarks
     runs-on: ubuntu-latest
+    env:
+      CMAKE_C_COMPILER_LAUNCHER: ccache
+      CMAKE_CXX_COMPILER_LAUNCHER: ccache
 
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
@@ -350,6 +388,11 @@ jobs:
           ref: ${{ github.event.pull_request.base.sha }}
           path: benchmark-base
           submodules: recursive
+
+      - name: Setup ccache
+        uses: hendrikmuhs/ccache-action@d62db5f07c26379fc4b4e0916f098a92573c3b03 # @v1.2.23
+        with:
+          key: ${{ runner.os }}-benchmark
 
       - name: Setup
         run: |
