@@ -44,8 +44,8 @@ namespace Dal {
             [[nodiscard]] int NX() const override;
             void ApplyDX(Vector_<>::const_iterator dx, double leverage) override;
             void Write(Archive::Store_& dst) const override;
-            [[nodiscard]] DiscountPWLF_<T_, B_>* Clone(const String_& new_name,
-                                                       const YCComponent_::substitutions_t& base_changes) const override;
+            [[nodiscard]] std::unique_ptr<YCComponent_> Clone(const String_& new_name,
+                                                              const YCComponent_::substitutions_t& base_changes) const override;
 
             [[nodiscard]] const Vector_<Date_>& KnotDates() const { return knotDates_; }
             [[nodiscard]] Vector_<T_> FLeft() const { return fLeftT_; }

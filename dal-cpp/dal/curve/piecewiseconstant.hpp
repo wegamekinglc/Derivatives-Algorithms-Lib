@@ -42,8 +42,8 @@ namespace Dal {
             return func.IntegralTo(to) - func.IntegralTo(from);
         }
 
-        inline PiecewiseConstant_ *NewConstant(double val, const Date_ &from = Date::Minimum()) {
-            return new PiecewiseConstant_(Vector::V1(from), Vector::V1(val));
+        inline std::unique_ptr<PiecewiseConstant_> NewConstant(double val, const Date_ &from = Date::Minimum()) {
+            return std::make_unique<PiecewiseConstant_>(Vector::V1(from), Vector::V1(val));
         }
     } // namespace PWC
 } // namespace Dal

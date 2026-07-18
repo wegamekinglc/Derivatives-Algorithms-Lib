@@ -31,11 +31,11 @@ base is ?handle DiscountCurve
 
 namespace Dal {
 
-    DiscountCurve_* NewDiscountPWLF(const String_ &name,
-                                    const String_ &ccy,
-                                    const PiecewiseLinear_& fwds,
-                                    const Handle_ <DiscountCurve_>& base) {
-        return new Tape::DiscountPWLF_<double>(name, ccy, fwds.knotDates_, fwds.fLeft_, fwds.fRight_, base);
+    std::unique_ptr<DiscountCurve_> NewDiscountPWLF(const String_ &name,
+                                                    const String_ &ccy,
+                                                    const PiecewiseLinear_& fwds,
+                                                    const Handle_ <DiscountCurve_>& base) {
+        return std::make_unique<Tape::DiscountPWLF_<double>>(name, ccy, fwds.knotDates_, fwds.fLeft_, fwds.fRight_, base);
     }
     #include <dal/auto/MG_DiscountPWLF_v1_Read.inc>
 

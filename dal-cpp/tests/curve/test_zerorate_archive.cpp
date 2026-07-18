@@ -63,7 +63,7 @@ TEST(ZeroRateArchiveTest, TestJsonRoundTripPreservesAllSchemesAndZeroRateBumps) 
         ASSERT_NE(restored, nullptr);
         AssertFieldsAndValues(*restored, original, "zero_archive", scheme);
 
-        std::unique_ptr<DiscountZeroRate_> mutableRestored(restored->Clone("zero_archive", {}));
+        std::unique_ptr<DiscountZeroRate_> mutableRestored(dynamic_cast<DiscountZeroRate_*>(restored->Clone("zero_archive", {}).release()));
         ASSERT_NE(mutableRestored, nullptr);
         original.ApplyDX(bump.begin(), 1.0);
         mutableRestored->ApplyDX(bump.begin(), 1.0);

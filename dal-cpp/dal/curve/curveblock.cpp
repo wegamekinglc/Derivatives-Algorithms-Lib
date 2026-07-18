@@ -95,7 +95,7 @@ namespace Dal {
         REQUIRE(false, "CurveBlock_ is not serializable");
     }
 
-    DiscountCurve_* CalibrateYieldCurve(const Date_& today,
+    std::unique_ptr<DiscountCurve_> CalibrateYieldCurve(const Date_& today,
                                         const String_& ccy,
                                         const Vector_<Handle_<YCInstrument_>>& instruments,
                                         const Vector_<Date_>& knotDates,
@@ -117,7 +117,7 @@ namespace Dal {
         auto result = CalibrateYieldCurve(spec);
         if (effJacobianInverse)
             *effJacobianInverse = result.diagnostics_.effJacobianInverse_;
-        return result.curve_.release();
+        return std::move(result.curve_);
     }
 
 } // namespace Dal

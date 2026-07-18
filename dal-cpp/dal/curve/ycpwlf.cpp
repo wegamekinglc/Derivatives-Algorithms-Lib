@@ -144,9 +144,9 @@ namespace Dal {
         }
 
         template <class T_, class B_>
-        DiscountPWLF_<T_, B_>* DiscountPWLF_<T_, B_>::Clone(const String_& new_name,
-                                                             const YCComponent_::substitutions_t& base_changes) const {
-            return new DiscountPWLF_<T_, B_>(new_name, this->ccy_.String(), knotDates_, fLeftT_, fRightT_, this->NewBase(base_changes));
+        std::unique_ptr<YCComponent_> DiscountPWLF_<T_, B_>::Clone(const String_& new_name,
+                                                                    const YCComponent_::substitutions_t& base_changes) const {
+            return std::make_unique<DiscountPWLF_<T_, B_>>(new_name, this->ccy_.String(), knotDates_, fLeftT_, fRightT_, this->NewBase(base_changes));
         }
 
         // See docs/methodology/yield_curve_jacobian.md §Joint Multi-Curve Analytic Jacobian.

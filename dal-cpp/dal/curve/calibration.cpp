@@ -315,7 +315,7 @@ namespace Dal {
         }
     } // namespace
 
-    Sparse::TriDiagonal_* BuildCurveCalibrationWeights(const Vector_<Date_>& knotDates, int paramsPerKnot, double smoothingWeight) {
+    std::unique_ptr<Sparse::TriDiagonal_> BuildCurveCalibrationWeights(const Vector_<Date_>& knotDates, int paramsPerKnot, double smoothingWeight) {
         REQUIRE(!knotDates.empty(), "Curve calibration weights require knot dates");
         REQUIRE(paramsPerKnot > 0, "Curve calibration weights require positive params-per-knot");
         REQUIRE(smoothingWeight > 0.0, "Curve calibration smoothing weight must be positive");

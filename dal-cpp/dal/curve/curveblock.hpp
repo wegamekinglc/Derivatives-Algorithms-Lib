@@ -39,7 +39,7 @@ namespace Dal {
         void Write(Archive::Store_& dst) const override;
     };
 
-    DiscountCurve_* CalibrateYieldCurve(const Date_& today,
+    std::unique_ptr<DiscountCurve_> CalibrateYieldCurve(const Date_& today,
                                         const String_& ccy,
                                         const Vector_<Handle_<YCInstrument_>>& instruments,
                                         const Vector_<Date_>& knotDates,

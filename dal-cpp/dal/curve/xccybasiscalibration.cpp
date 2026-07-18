@@ -102,8 +102,8 @@ namespace Dal {
             T_ operator()(const Date_& from, const Date_& to) const override { return T_((*source_)(from, to)); }
             void Poll(Vector_<const YCComponent_*>* all) const override { all->push_back(this); }
             void Poll(std::map<const YCComponent_*, Handle_<YCComponent_>>*) const override {}
-            [[nodiscard]] PassiveDiscountCurve_* Clone(const String_&, const YCComponent_::substitutions_t&) const override {
-                return new PassiveDiscountCurve_(*source_);
+            [[nodiscard]] std::unique_ptr<YCComponent_> Clone(const String_&, const YCComponent_::substitutions_t&) const override {
+                return std::make_unique<PassiveDiscountCurve_>(*source_);
             }
             void Write(Archive::Store_&) const override {}
         };

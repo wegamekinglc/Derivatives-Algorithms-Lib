@@ -111,9 +111,9 @@ namespace Dal {
         }
 
         template <class T_, class B_>
-        DiscountZeroRate_<T_, B_>* DiscountZeroRate_<T_, B_>::Clone(const String_& newName, const YCComponent_::substitutions_t& baseChanges) const {
-            return new DiscountZeroRate_<T_, B_>(newName, this->ccy_.String(), anchorDate_, nodeDates_, zeroRates_, dayCount_, scheme_,
-                                                 this->NewBase(baseChanges));
+        std::unique_ptr<YCComponent_> DiscountZeroRate_<T_, B_>::Clone(const String_& newName, const YCComponent_::substitutions_t& baseChanges) const {
+            return std::make_unique<DiscountZeroRate_<T_, B_>>(newName, this->ccy_.String(), anchorDate_, nodeDates_, zeroRates_, dayCount_,
+                                                               scheme_, this->NewBase(baseChanges));
         }
 
         template <class T_, class B_> Vector_<> DiscountZeroRate_<T_, B_>::NodeZeroRates() const {
@@ -128,7 +128,7 @@ namespace Dal {
         template class DiscountZeroRate_<AAD::Number_, DiscountCurve_<AAD::Number_>>;
     } // namespace Tape
 
-    DiscountCurve_* NewDiscountZeroRate(const String_& name,
+    std::unique_ptr<DiscountCurve_> NewDiscountZeroRate(const String_& name,
                                         const String_& ccy,
                                         const Date_& anchorDate,
                                         const Vector_<Date_>& nodeDates,
@@ -136,7 +136,7 @@ namespace Dal {
                                         const DayBasis_& dayCount,
                                         LogDfScheme_ scheme,
                                         const Handle_<DiscountCurve_>& base) {
-        return new Tape::DiscountZeroRate_<double>(name, ccy, anchorDate, nodeDates, zeroRates, dayCount, scheme, base);
+        return std::make_unique<Tape::DiscountZeroRate_<double>>(name, ccy, anchorDate, nodeDates, zeroRates, dayCount, scheme, base);
     }
 
 #include <dal/auto/MG_DiscountZeroRate_v1_Read.inc>

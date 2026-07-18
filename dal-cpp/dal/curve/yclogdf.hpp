@@ -39,7 +39,7 @@ namespace Dal {
             [[nodiscard]] int NX() const override;
             void ApplyDX(Vector_<>::const_iterator dx, double leverage) override;
             void Write(Archive::Store_& dst) const override;
-            [[nodiscard]] DiscountLogDF_<T_, B_>* Clone(const String_& newName, const YCComponent_::substitutions_t& baseChanges) const override;
+            [[nodiscard]] std::unique_ptr<YCComponent_> Clone(const String_& newName, const YCComponent_::substitutions_t& baseChanges) const override;
 
             [[nodiscard]] const Vector_<Date_>& NodeDates() const { return nodeDates_; }
             [[nodiscard]] Vector_<> NodeLogDF() const;
@@ -51,7 +51,7 @@ namespace Dal {
 
     using DiscountLogDF_ = Tape::DiscountLogDF_<double>;
 
-    DiscountCurve_* NewDiscountLogDF(const String_& name,
+    std::unique_ptr<DiscountCurve_> NewDiscountLogDF(const String_& name,
                                      const String_& ccy,
                                      const Vector_<Date_>& nodeDates,
                                      const Vector_<>& logDF,
