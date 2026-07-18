@@ -114,20 +114,21 @@ with an unknown CPU baseline.
 
 ### Common CMake options
 
-| Option | Base default | Description |
-|--------|----------------|-------------|
-| `DAL_BUILD_PUBLIC` | `ON` | Build the public convenience facade |
-| `DAL_BUILD_PYTHON` | `OFF` | Build the pybind11 module |
-| `DAL_BUILD_EXCEL` | `OFF` | Build the Windows Excel add-in |
-| `DAL_CPP_BUILD_TESTS` | `ON` | Build core tests |
-| `DAL_PUBLIC_BUILD_TESTS` | `ON` | Build public-facade tests |
-| `DAL_CPP_BUILD_EXAMPLES` | `ON` | Build C++ examples |
-| `DAL_CPP_BUILD_BENCHMARKS` | `OFF` | Build benchmarks |
-| `DAL_ENABLE_NATIVE_ARCH` | `OFF` | Tune Release code for the build machine |
-| `DAL_ENABLE_SANITIZERS` | `""` | Semicolon-separated sanitizer list for all targets (GCC/Clang only) |
-| `DAL_USE_XAD_AAD` | `OFF` | Use XAD |
-| `DAL_USE_CODIPACK_AAD` | `OFF` | Use CoDiPack |
-| `DAL_USE_ADEPT_AAD` | `OFF` | Use Adept |
+| Option                     | Base default | Description                                                                           |
+|----------------------------|--------------|---------------------------------------------------------------------------------------|
+| `DAL_BUILD_PUBLIC`         | `ON`         | Build the public convenience facade                                                   |
+| `DAL_BUILD_PYTHON`         | `OFF`        | Build the pybind11 module                                                             |
+| `DAL_BUILD_EXCEL`          | `OFF`        | Build the Windows Excel add-in                                                        |
+| `DAL_CPP_BUILD_TESTS`      | `ON`         | Build core tests                                                                      |
+| `DAL_PUBLIC_BUILD_TESTS`   | `ON`         | Build public-facade tests                                                             |
+| `DAL_CPP_BUILD_EXAMPLES`   | `ON`         | Build C++ examples                                                                    |
+| `DAL_CPP_BUILD_BENCHMARKS` | `OFF`        | Build benchmarks                                                                      |
+| `DAL_ENABLE_NATIVE_ARCH`   | `OFF`        | Tune Release code for the build machine                                               |
+| `DAL_ENABLE_SANITIZERS`    | `""`         | Semicolon-separated sanitizer list for all targets (GCC/Clang only)                   |
+| `DAL_USE_XAD_AAD`          | `OFF`        | Use XAD                                                                               |
+| `DAL_USE_CODIPACK_AAD`     | `OFF`        | Use CoDiPack                                                                          |
+| `DAL_USE_ADEPT_AAD`        | `OFF`        | Use Adept                                                                             |
+| `MSVC_RUNTIME`             | `dynamic`    | MSVC-only C++ runtime: `static` for `/MT` (`/MTd` in Debug), otherwise `/MD` (`/MDd`) |
 
 ## Windows C++ and Excel
 
@@ -143,6 +144,14 @@ cmake --install build/Release-windows
 `Release-windows` enables the Excel add-in. Use `Debug-windows` for a Debug
 configuration. The staged prefix is `build/stage/Release-windows` or
 `build/stage/Debug-windows`.
+
+Both Windows presets set `MSVC_RUNTIME=static`, so every workspace target
+links the static C++ runtime (`/MT`, or `/MTd` in Debug). `MSVC_RUNTIME` is a
+workspace-level cache variable in the top-level `CMakeLists.txt`; it applies
+only under MSVC, defaults to `dynamic` (`/MD`, or `/MDd` in Debug), and any
+value other than `static` selects the dynamic runtime. The installed package
+republishes the linked runtime as `DAL_CPP_MSVC_RUNTIME_LIBRARY` — see
+[Installed CMake Packages](#installed-cmake-packages).
 
 ## Installed CMake Packages
 
