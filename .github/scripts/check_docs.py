@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fail-gated, dependency-free checks for DAL's published Markdown."""
+"""Fail-gated, dependency-free checks for DAL's published and agent-facing Markdown."""
 
 from __future__ import annotations
 
@@ -24,6 +24,19 @@ DOCS = tuple(
         }
     )
 )
+# Agent-facing guides sit outside docs/ but carry the same build/test commands;
+# they get the standard checks plus referenced-path existence below.
+AGENT_DOCS = tuple(
+    sorted(
+        {
+            ROOT / "AGENTS.md",
+            ROOT / "CLAUDE.md",
+            ROOT / ".github/copilot-instructions.md",
+            ROOT / ".codex/skills/dal-agent-team/references/shared-rules.md",
+        }
+    )
+)
+ALL_DOCS = (*DOCS, *AGENT_DOCS)
 
 LINK_RE = re.compile(r"!?\[[^\]]*\]\(([^)]+)\)")
 HEADING_RE = re.compile(r"^ {0,3}(#{1,6})\s+(.+?)\s*$")
@@ -31,8 +44,49 @@ FENCE_RE = re.compile(r"^\s*(`{3,}|~{3,})")
 TABLE_DELIMITER_RE = re.compile(r"^:?-{3,}:?$")
 TABLE_TOKEN_RE = re.compile(r"\\.|`+|.", flags=re.DOTALL)
 BUILD_OPTION_RE = re.compile(r"(?m)^\s*(--[a-z][a-z-]*)\)\s*")
+INLINE_CODE_RE = re.compile(r"`([^`]+)`")
+AGENT_PATH_TOKEN_RE = re.compile(r"(?<![\w./~:-])(?:\./)?(?:[\w.+-]+/)+[\w.+-]+")
+AGENT_PLACEHOLDER_TAIL_RE = re.compile(r"/[^`\s]*[<>*${}~]")
+
+# Repo-root files agent docs name without a directory prefix.
+AGENT_ROOT_FILES = {
+    "AGENTS.md",
+    "CHANGELOG.md",
+    "CLAUDE.md",
+    "CMakeLists.txt",
+    "CMakePresets.json",
+    "CONTRIBUTING.md",
+    "LICENSE",
+    "README.md",
+    "build_linux.sh",
+    "build_windows.bat",
+}
+# Directory prefixes that mark a token as a repo-root-relative path claim.
+# build/ is deliberately absent: those paths name generated artifacts.
+AGENT_PATH_PREFIXES = (
+    ".claude/",
+    ".codex/",
+    ".github/",
+    "cmake/",
+    "dal-cpp/",
+    "dal-excel/",
+    "dal-public/",
+    "dal-python/",
+    "dal-web/",
+    "docs/",
+    "tests/",
+)
+# Referenced paths that exist only at runtime, not in a fresh checkout.
+AGENT_ALLOWED_MISSING = {"dal-web/backend/.data"}
+
+AGENT_ROOT_FILE_RE = re.compile(
+    r"(?<![\w./~:-])(?:"
+    + "|".join(re.escape(name) for name in sorted(AGENT_ROOT_FILES, key=len, reverse=True))
+    + r")(?![\w+-])"
+)
 
 STALE_DOCUMENTATION = {
+    "bin/dal_cpp_tests": "dal_cpp_tests is a build-tree target, not an installed binary",
     "bin/dal_public_tests": "dal_public_tests is a build-tree target, not an installed binary",
     "--gtest_filter=CurveTest.*": "the CurveTest suite does not exist",
     "dal_stub.py": "the web backend has no runtime stub module",
@@ -159,9 +213,9 @@ def check_link(
         )
 
 
-def check_links(errors: list[str]) -> None:
+def check_links(documents: tuple[Path, ...], errors: list[str]) -> None:
     anchor_cache: dict[Path, set[str]] = {}
-    for document in DOCS:
+    for document in documents:
         lines = document.read_text(encoding="utf-8").splitlines()
         for line_number, line in without_fenced_code(lines):
             for match in LINK_RE.finditer(line):
@@ -240,8 +294,8 @@ def check_table_body(
     return row_number
 
 
-def check_tables(errors: list[str]) -> None:
-    for document in DOCS:
+def check_tables(documents: tuple[Path, ...], errors: list[str]) -> None:
+    for document in documents:
         raw_lines = document.read_text(encoding="utf-8").splitlines()
         visible = dict(without_fenced_code(raw_lines))
         line_number = 1
@@ -262,8 +316,8 @@ def check_tables(errors: list[str]) -> None:
             line_number = max(line_number + 1, row_number)
 
 
-def check_whitespace(errors: list[str]) -> None:
-    for document in DOCS:
+def check_whitespace(documents: tuple[Path, ...], errors: list[str]) -> None:
+    for document in documents:
         for line_number, line in enumerate(
             document.read_text(encoding="utf-8").splitlines(keepends=True), start=1
         ):
@@ -293,8 +347,8 @@ def check_metadata(errors: list[str]) -> None:
             errors.append(f"{relative(document)}: stale BSD-3-Clause license metadata")
 
 
-def check_stale_commands(errors: list[str]) -> None:
-    for document in DOCS:
+def check_stale_commands(documents: tuple[Path, ...], errors: list[str]) -> None:
+    for document in documents:
         text = document.read_text(encoding="utf-8")
         for stale, explanation in STALE_DOCUMENTATION.items():
             for match in re.finditer(re.escape(stale), text):
@@ -318,10 +372,10 @@ def check_stale_commands(errors: list[str]) -> None:
         )
 
 
-def check_math_macros(errors: list[str]) -> None:
+def check_math_macros(documents: tuple[Path, ...], errors: list[str]) -> None:
     # Only scan visible (non-fenced) lines so a macro shown literally inside a
     # code fence is not flagged. Math lives in `$...$` / `$$...$$` on these lines.
-    for document in DOCS:
+    for document in documents:
         lines = document.read_text(encoding="utf-8").splitlines()
         for line_number, line in without_fenced_code(lines):
             for bad, good in FORBIDDEN_MATH_MACROS.items():
@@ -332,21 +386,77 @@ def check_math_macros(errors: list[str]) -> None:
                     )
 
 
+def code_regions(lines: list[str]) -> list[tuple[int, str]]:
+    # Path claims are checked only where conventions put them: fenced code and
+    # inline code spans. Prose (e.g. "docs/changelog") is not parsed.
+    regions: list[tuple[int, str]] = []
+    closing_marker: str | None = None
+    for line_number, line in enumerate(lines, start=1):
+        marker = FENCE_RE.match(line)
+        if marker:
+            token = marker.group(1)
+            if closing_marker is None:
+                closing_marker = token[0]
+            elif token[0] == closing_marker:
+                closing_marker = None
+            continue
+        if closing_marker is not None:
+            regions.append((line_number, line))
+        else:
+            for span in INLINE_CODE_RE.finditer(line):
+                regions.append((line_number, span.group(1)))
+    return regions
+
+
+def agent_referenced_paths(text: str) -> list[tuple[int, str]]:
+    referenced: list[tuple[int, str]] = []
+    for line_number, segment in code_regions(text.splitlines()):
+        found: list[tuple[int, str]] = [(m.start(), m.group(0)) for m in AGENT_ROOT_FILE_RE.finditer(segment)]
+        for match in AGENT_PATH_TOKEN_RE.finditer(segment):
+            token = match.group(0)
+            if token.startswith("./"):
+                token = token[2:]
+            token = token.rstrip(".,:;")
+            if any(marker in token for marker in "<>*${}~"):
+                continue
+            tail = segment[match.end() :]
+            if tail and (tail[0] in "<>*${}~" or AGENT_PLACEHOLDER_TAIL_RE.match(tail)):
+                continue
+            if token.startswith(AGENT_PATH_PREFIXES):
+                found.append((match.start(), token))
+        for _, token in sorted(found):
+            referenced.append((line_number, token))
+    return referenced
+
+
+def check_agent_paths(documents: tuple[Path, ...], root: Path, errors: list[str]) -> None:
+    for document in documents:
+        text = document.read_text(encoding="utf-8")
+        for line_number, token in agent_referenced_paths(text):
+            if token in AGENT_ALLOWED_MISSING or (root / token).exists():
+                continue
+            errors.append(
+                f"{document.relative_to(root).as_posix()}:{line_number}: "
+                f"referenced repository path does not exist: {token}"
+            )
+
+
 def main() -> int:
     errors: list[str] = []
-    check_links(errors)
-    check_tables(errors)
-    check_whitespace(errors)
+    check_links(ALL_DOCS, errors)
+    check_tables(ALL_DOCS, errors)
+    check_whitespace(ALL_DOCS, errors)
     check_metadata(errors)
-    check_stale_commands(errors)
-    check_math_macros(errors)
+    check_stale_commands(ALL_DOCS, errors)
+    check_math_macros(ALL_DOCS, errors)
+    check_agent_paths(AGENT_DOCS, ROOT, errors)
 
     if errors:
         print("Documentation checks failed:", file=sys.stderr)
         for error in errors:
             print(f"  - {error}", file=sys.stderr)
         return 1
-    print(f"Documentation checks passed for {len(DOCS)} Markdown files.")
+    print(f"Documentation checks passed for {len(ALL_DOCS)} Markdown files.")
     return 0
 
 
