@@ -20,10 +20,7 @@ namespace Dal::AAD {
     public:
         RiskView_() : isEmpty_(true){};
         RiskView_(const Vector_<>& strikes, const Vector_<>& mats)
-            : isEmpty_(false), strikes_(strikes), mats_(mats), spreads_(strikes.size(), mats.size()) {
-            for (auto& spr : spreads_)
-                spr = T_(0.0);
-        }
+            : isEmpty_(false), strikes_(strikes), mats_(mats), spreads_(strikes.size(), mats.size(), T_(0.0)) {}
 
         T_ Spread(double strike, double mat) const {
             return isEmpty_ ? T_(0.0) : Interp2DLinearImplX(strikes_, mats_, spreads_, strike, mat);

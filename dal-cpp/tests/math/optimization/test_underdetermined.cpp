@@ -112,6 +112,16 @@ namespace {
         [[nodiscard]] Vector_<> F(const Vector_<>& x) const override { return Vector_<>{x[0] * x[0] - 4.0}; }
     };
 
+    class MixedVectorFunc_ : public Underdetermined::Function_ {
+    public:
+        [[nodiscard]] Vector_<> F(const Vector_<>& x) const override { return Vector_<>{x[0] + 2.0 * x[1], x[0] * x[1] - 1.0}; }
+    };
+
+    class ProductFunc_ : public Underdetermined::Function_ {
+    public:
+        [[nodiscard]] Vector_<> F(const Vector_<>& x) const override { return Vector_<>{x[0] * x[1] - 2.0}; }
+    };
+
     class BacktrackProbeFunc_ : public Underdetermined::Function_ {
         Vector_<Vector_<>>& evaluations_;
 
@@ -457,4 +467,99 @@ TEST(UnderdeterminedTest, TestFindSkipsAtSolutionGradientWhenOutParamNull) {
 
     ASSERT_FALSE(WasGradientCalledAt(xsNull, solved, 1e-9));
     ASSERT_TRUE(WasGradientCalledAt(xsOut, solved, 1e-9));
+}
+
+TEST(UnderdeterminedTest, TestControlsRejectInvalidSettings) {
+    {
+        Dictionary_ dict;
+        dict.Insert("MAXEVALUATIONS", Cell_(0.0));
+        dict.Insert("MAXRESTARTS", Cell_(10.0));
+        ASSERT_THROW((void)UnderdeterminedControls_(dict), Exception_);
+    }
+    {
+        Dictionary_ dict;
+        dict.Insert("MAXEVALUATIONS", Cell_(20.0));
+        dict.Insert("MAXRESTARTS", Cell_(0.0));
+        ASSERT_THROW((void)UnderdeterminedControls_(dict), Exception_);
+    }
+    {
+        Dictionary_ dict;
+        dict.Insert("MAXEVALUATIONS", Cell_(20.0));
+        dict.Insert("MAXRESTARTS", Cell_(10.0));
+        dict.Insert("RESTARTTOLERANCE", Cell_(1.5));
+        ASSERT_THROW((void)UnderdeterminedControls_(dict), Exception_);
+    }
+    {
+        // maxBacktrack must exceed backtrackTolerance
+        Dictionary_ dict;
+        dict.Insert("MAXEVALUATIONS", Cell_(20.0));
+        dict.Insert("MAXRESTARTS", Cell_(10.0));
+        dict.Insert("BACKTRACKTOLERANCE", Cell_(0.9));
+        ASSERT_THROW((void)UnderdeterminedControls_(dict), Exception_);
+    }
+}
+
+TEST(UnderdeterminedTest, TestControlsDefaults) {
+    const UnderdeterminedControls_ controls = MakeControls();
+    ASSERT_EQ(controls.maxEvaluations_, 20);
+    ASSERT_EQ(controls.maxRestarts_, 10);
+    ASSERT_EQ(controls.maxBacktrackTries_, 5);
+    ASSERT_NEAR(controls.restartTolerance_, 0.4, 1e-10);
+    ASSERT_NEAR(controls.backtrackTolerance_, 0.1, 1e-10);
+    ASSERT_NEAR(controls.maxBacktrack_, 0.8, 1e-10);
+}
+
+TEST(UnderdeterminedTest, TestFiniteDifferenceGradientMatchesAnalytic) {
+    {
+        // component-wise linear map: the forward-difference Jacobian is exact
+        MixedVectorFunc_ func;
+        const Vector_<> x{1.5, 2.0};
+        Matrix_<> j;
+        func.Gradient(x, func.F(x), &j);
+        ASSERT_EQ(j.Rows(), 2);
+        ASSERT_EQ(j.Cols(), 2);
+        ASSERT_NEAR(j(0, 0), 1.0, 1e-8);
+        ASSERT_NEAR(j(0, 1), 2.0, 1e-8);
+        ASSERT_NEAR(j(1, 0), 2.0, 1e-8);
+        ASSERT_NEAR(j(1, 1), 1.5, 1e-8);
+    }
+    {
+        // quadratic term: forward differences pick up half the second derivative times the bump
+        NonlinearSquareDenseFunc_ func;
+        const Vector_<> x{3.0};
+        Matrix_<> j;
+        func.Gradient(x, func.F(x), &j);
+        ASSERT_EQ(j.Rows(), 1);
+        ASSERT_EQ(j.Cols(), 1);
+        ASSERT_NEAR(j(0, 0), 6.0 + 1.0e-4, 1e-8);
+    }
+}
+
+TEST(UnderdeterminedTest, TestApproximateReturnsGuessWhenAlreadyWithinFitTolerance) {
+    LinearSumFunc_ func(0.5);
+    const Vector_<> guess = {0.0, 0.0};
+    const Vector_<> funcTol = {1.0};
+
+    TriDiagonal_ weights(2);
+    SetDiagonalWeights(&weights, 1.0, 1.0);
+    // scaled residual at the guess has norm 0.5, below the fit tolerance
+    const Vector_<> calculated = Underdetermined::Approximate(func, guess, funcTol, 1.0, weights, MakeControls());
+    ASSERT_NEAR(calculated[0], 0.0, 1e-10);
+    ASSERT_NEAR(calculated[1], 0.0, 1e-10);
+}
+
+TEST(UnderdeterminedTest, TestFindSolvesNonlinearMinNormSolution) {
+    ProductFunc_ func;
+    const Vector_<> guess = {1.0, 1.0};
+    const Vector_<> tol = {1.0e-10};
+
+    TriDiagonal_ weights(2);
+    SetDiagonalWeights(&weights, 1.0, 1.0);
+    std::unique_ptr<SymmetricDecomposition_> decomp(weights.DecomposeSymmetric());
+
+    // minimum-norm solution of x0 * x1 = 2 nearest the guess is (sqrt(2), sqrt(2))
+    const Vector_<> calculated = Underdetermined::Find(func, guess, tol, *decomp, MakeControls());
+    ASSERT_NEAR(calculated[0], std::sqrt(2.0), 1e-8);
+    ASSERT_NEAR(calculated[1], std::sqrt(2.0), 1e-8);
+    ASSERT_NEAR(func.F(calculated)[0], 0.0, 1e-9);
 }
