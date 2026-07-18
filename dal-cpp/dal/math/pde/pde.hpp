@@ -22,9 +22,9 @@ namespace Dal::PDE {
         [[nodiscard]] virtual double Y(double x) const = 0;
     };
 
-    CoordinateMap_* NewSinhMap(double xWidth, double dxdyRange);
-    inline CoordinateMap_* NewIdentityMap() { return NewSinhMap(1.0, 1.0); }
-    CoordinateMap_* NewConcentratingMap(double xLow, double xHigh, double cPoint, double density);
+    std::unique_ptr<CoordinateMap_> NewSinhMap(double xWidth, double dxdyRange);
+    inline std::unique_ptr<CoordinateMap_> NewIdentityMap() { return NewSinhMap(1.0, 1.0); }
+    std::unique_ptr<CoordinateMap_> NewConcentratingMap(double xLow, double xHigh, double cPoint, double density);
 
     struct CoordinateVector_ {
         double yLow_;
@@ -46,27 +46,27 @@ namespace Dal::PDE {
         virtual void Value(const Vector_<>& x, SquareMatrix_<>* value) const = 0;
         [[nodiscard]] virtual Matrix_<x_dep_t> XDependence() const = 0;
     };
-    MatrixCoeff_* NewConstCoeff(const Matrix_<>& val);
-    MatrixCoeff_* NewMatrixCoeff(std::function<void(const Vector_<>&, SquareMatrix_<>*)> f, const Matrix_<Coeff_::x_dep_t>& dep);
-    MatrixCoeff_* NewMatrixCoeff(std::function<double(double)> f);
+    std::unique_ptr<MatrixCoeff_> NewConstCoeff(const Matrix_<>& val);
+    std::unique_ptr<MatrixCoeff_> NewMatrixCoeff(std::function<void(const Vector_<>&, SquareMatrix_<>*)> f, const Matrix_<Coeff_::x_dep_t>& dep);
+    std::unique_ptr<MatrixCoeff_> NewMatrixCoeff(std::function<double(double)> f);
 
     class VectorCoeff_ : public Coeff_ {
     public:
         virtual void Value(const Vector_<>& x, Vector_<>* value) const = 0;
         [[nodiscard]] virtual Vector_<x_dep_t> XDependence() const = 0;
     };
-    VectorCoeff_* NewConstCoeff(const Vector_<>& val);
-    VectorCoeff_* NewVectorCoeff(std::function<void(const Vector_<>&, Vector_<>*)> f, const Vector_<Coeff_::x_dep_t>& dep);
-    VectorCoeff_* NewVectorCoeff(std::function<double(double)> f);
+    std::unique_ptr<VectorCoeff_> NewConstCoeff(const Vector_<>& val);
+    std::unique_ptr<VectorCoeff_> NewVectorCoeff(std::function<void(const Vector_<>&, Vector_<>*)> f, const Vector_<Coeff_::x_dep_t>& dep);
+    std::unique_ptr<VectorCoeff_> NewVectorCoeff(std::function<double(double)> f);
 
     class ScalarCoeff_ : public Coeff_ {
     public:
         virtual void Value(const Vector_<>& x, double* value) const = 0;
         [[nodiscard]] virtual x_dep_t XDependence() const = 0;
     };
-    ScalarCoeff_* NewConstCoeff(double val);
-    ScalarCoeff_* NewScalarCoeff(std::function<double(const Vector_<>&)> f, Coeff_::x_dep_t dep);
-    ScalarCoeff_* NewScalarCoeff(std::function<double(double)> f);
+    std::unique_ptr<ScalarCoeff_> NewConstCoeff(double val);
+    std::unique_ptr<ScalarCoeff_> NewScalarCoeff(std::function<double(const Vector_<>&)> f, Coeff_::x_dep_t dep);
+    std::unique_ptr<ScalarCoeff_> NewScalarCoeff(std::function<double(double)> f);
 
     class Rollback_ {
     public:
