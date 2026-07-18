@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Last updated: 2026-07-04
+Last updated: 2026-07-18
 
 Codex-native guidance for working in this repository. This file is intentionally separate from
 `CLAUDE.md` and `.claude/`; do not edit the Claude originals unless the user explicitly asks.
@@ -37,20 +37,18 @@ bash ./build_linux.sh
 ```
 
 ```bash
-mkdir -p build
-cd build
-cmake --preset=Release-linux ..
-make -j$(nproc)
-make install
+cmake --preset=Release-linux -S . -B build/Release-linux
+cmake --build build/Release-linux -j$(nproc)
+cmake --install build/Release-linux
 ```
 
-Run tests from the installed binaries or CTest:
+Run tests through CTest or the build-tree binaries:
 
 ```bash
-(cd build && ctest --output-on-failure)
-bin/dal_cpp_tests
-bin/dal_public_tests
-bin/dal_cpp_tests --gtest_filter=<SuiteName>.*
+ctest --test-dir build/Release-linux --output-on-failure
+./build/Release-linux/dal-cpp/dal_cpp_tests
+./build/Release-linux/dal-public/dal_public_tests
+./build/Release-linux/dal-cpp/dal_cpp_tests --gtest_filter=<SuiteName>.*
 ```
 
 If enum Machinist markup changes, regenerate both core and Excel auto files before building.

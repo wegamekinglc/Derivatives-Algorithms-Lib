@@ -15,11 +15,9 @@ style, test, review, docs, and artifact conventions.
 Release build:
 
 ```bash
-mkdir -p build
-cd build
-cmake --preset=Release-linux ..
-make -j$(nproc)
-make install
+cmake --preset=Release-linux -S . -B build/Release-linux
+cmake --build build/Release-linux -j$(nproc)
+cmake --install build/Release-linux
 ```
 
 Full Linux workflow:
@@ -31,13 +29,13 @@ bash ./build_linux.sh > test_output.txt 2>&1
 Targeted test:
 
 ```bash
-bin/dal_cpp_tests --gtest_filter=<SuiteName>.<TestName>
+./build/Release-linux/dal-cpp/dal_cpp_tests --gtest_filter=<SuiteName>.<TestName>
 ```
 
 Web tests:
 
 ```bash
-(cd dal-web/backend && uv run pytest)
+(cd dal-web/backend && uv sync --locked --inexact && uv run --no-sync pytest)
 (cd dal-web/frontend && npm run build)
 ./dal-web/scripts/setup-playwright.sh
 (cd dal-web/frontend && npm run test:e2e)
@@ -59,12 +57,13 @@ Web tests:
 
 ## Machinist Enums
 
-When enum markup changes, regenerate both core and Excel output:
+When enum markup changes, regenerate both core and Excel output. The `Machinist`
+binary is a git-ignored build artifact, not checked in, so the reliable route is
+the CMake target, which builds Machinist first and runs it with the right inputs:
 
 ```bash
-export MACHINIST_TEMPLATE_DIR=$PWD/dal-cpp/externals/machinist/template/
-./dal-cpp/externals/machinist/bin/Machinist -c dal-cpp/config/dal.ifc -l dal-cpp/config/dal.mgl -d ./dal-cpp/dal
-./dal-cpp/externals/machinist/bin/Machinist -c dal-cpp/config/dal.ifc -l dal-cpp/config/dal.mgl -d ./dal-excel
+cmake --preset=Release-linux -S . -B build/Release-linux
+cmake --build build/Release-linux --target dal_generate
 ```
 
 Commit generated `dal-cpp/dal/auto/MG_*` and `dal-excel/auto/MG_*` files with the markup source when committing is requested.
