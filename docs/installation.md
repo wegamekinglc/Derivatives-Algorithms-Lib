@@ -124,6 +124,7 @@ with an unknown CPU baseline.
 | `DAL_CPP_BUILD_EXAMPLES` | `ON` | Build C++ examples |
 | `DAL_CPP_BUILD_BENCHMARKS` | `OFF` | Build benchmarks |
 | `DAL_ENABLE_NATIVE_ARCH` | `OFF` | Tune Release code for the build machine |
+| `DAL_ENABLE_SANITIZERS` | `""` | Semicolon-separated sanitizer list for all targets (GCC/Clang only) |
 | `DAL_USE_XAD_AAD` | `OFF` | Use XAD |
 | `DAL_USE_CODIPACK_AAD` | `OFF` | Use CoDiPack |
 | `DAL_USE_ADEPT_AAD` | `OFF` | Use Adept |
