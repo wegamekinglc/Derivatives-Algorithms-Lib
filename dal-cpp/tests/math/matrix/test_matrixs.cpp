@@ -3,10 +3,15 @@
 //
 
 #include <gtest/gtest.h>
+
+#include <type_traits>
+
 #include <dal/math/matrix/matrixs.hpp>
 #include <dal/platform/platform.hpp>
 
 using matrix_t = Dal::Matrix_<>;
+
+static_assert(!std::is_nothrow_copy_assignable<matrix_t>::value, "Matrix_ copy assignment allocates and must not be noexcept");
 
 TEST(MatrixTest, TestMatrixNullConstructor) {
     matrix_t m1;
@@ -40,6 +45,39 @@ TEST(MatrixTest, TestMatrixCopyMoveConstructor) {
     auto m2 = matrix_t(3, 4);
     ASSERT_EQ(m2.Rows(), 3);
     ASSERT_EQ(m2.Cols(), 4);
+}
+
+TEST(MatrixTest, TestMatrixCopyAssign) {
+    matrix_t m1(2, 2);
+    m1(0, 0) = 1.;
+    m1(0, 1) = 2.;
+    m1(1, 0) = 3.;
+    m1(1, 1) = 4.;
+
+    {
+        matrix_t m2(3, 3);
+        m2 = m1;
+        ASSERT_EQ(m2.Rows(), 2);
+        ASSERT_EQ(m2.Cols(), 2);
+        ASSERT_DOUBLE_EQ(m2(0, 0), 1.);
+        ASSERT_DOUBLE_EQ(m2(0, 1), 2.);
+        ASSERT_DOUBLE_EQ(m2(1, 0), 3.);
+        ASSERT_DOUBLE_EQ(m2(1, 1), 4.);
+        ASSERT_NE(&m2(0, 0), &m1(0, 0));
+    }
+    {
+        matrix_t m2;
+        m2 = m1;
+        ASSERT_EQ(m2.Rows(), 2);
+        ASSERT_EQ(m2.Cols(), 2);
+        ASSERT_DOUBLE_EQ(m2(1, 1), 4.);
+    }
+    {
+        m1 = m1;
+        ASSERT_EQ(m1.Rows(), 2);
+        ASSERT_EQ(m1.Cols(), 2);
+        ASSERT_DOUBLE_EQ(m1(1, 1), 4.);
+    }
 }
 
 TEST(MatrixTest, TestMatrixEmpty) {
