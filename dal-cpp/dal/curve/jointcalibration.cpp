@@ -137,7 +137,7 @@ namespace Dal {
                 return cachedEligibility_ == AnalyticEligibility_::Value_::ELIGIBLE;
             }
 
-            [[nodiscard]] Underdetermined::Jacobian_* AnalyticJacobian(const Vector_<>& x, const Vector_<>& /*f*/) const;
+            [[nodiscard]] std::unique_ptr<Underdetermined::Jacobian_> AnalyticJacobian(const Vector_<>& x, const Vector_<>& /*f*/) const;
 
         public:
             JointResidualFunction_(const JointMultiCurveCalibrationSpec_& spec, const std::vector<CurveSlot_>& slots, CurveJacobianMode_ jacobianMode)
@@ -161,7 +161,7 @@ namespace Dal {
             }
 
             // Returns AAD-tape Jacobian when ANALYTIC + eligible; nullptr otherwise (solver dense-bumps).
-            [[nodiscard]] Underdetermined::Jacobian_* Gradient(const Vector_<>& x, const Vector_<>& f) const override {
+            [[nodiscard]] std::unique_ptr<Underdetermined::Jacobian_> Gradient(const Vector_<>& x, const Vector_<>& f) const override {
                 if (jacobianMode_ != CurveJacobianMode_::Value_::ANALYTIC)
                     return nullptr;
                 EvaluateEligibilityOnce();
@@ -180,7 +180,7 @@ namespace Dal {
             }
         };
 
-        Underdetermined::Jacobian_* JointResidualFunction_::AnalyticJacobian(const Vector_<>& x, const Vector_<>& /*f*/) const {
+        std::unique_ptr<Underdetermined::Jacobian_> JointResidualFunction_::AnalyticJacobian(const Vector_<>& x, const Vector_<>& /*f*/) const {
             auto* tape = Dal::AAD::Tape();
             TapeGuard_ guard(tape);
 
@@ -189,7 +189,7 @@ namespace Dal {
 
             const auto storage = JointCalibrationInternal::BuildTypedCurveBlock<Dal::AAD::Number_>(InternalSpec(*spec_), *slots_, parameters);
             Vector_<Dal::AAD::Number_> residuals = ComputeTemplatedResiduals(storage.block_);
-            return new XCurveJacobian_(HarvestCurveJacobian(*tape, parameters, residuals));
+            return std::make_unique<XCurveJacobian_>(HarvestCurveJacobian(*tape, parameters, residuals));
         }
 
         Vector_<> RunJointSolver(const JointMultiCurveCalibrationSpec_& spec,

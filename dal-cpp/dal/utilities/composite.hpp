@@ -48,7 +48,7 @@ namespace Dal {
             for (const auto& sc : src.contents_)
                 Append(sc ? sc->Clone() : nullptr);
         }
-        Composite_<T_>* Clone() const { return new Composite_<T_>(*this); }
+        std::unique_ptr<Composite_<T_>> Clone() const { return std::make_unique<Composite_<T_>>(*this); }
         // Assignable if T_ is
         T_& operator=(const T_& rhs);
     };

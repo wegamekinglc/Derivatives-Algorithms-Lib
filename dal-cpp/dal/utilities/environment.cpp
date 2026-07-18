@@ -8,6 +8,6 @@
 namespace Dal {
     void Environment_::Iterator_::operator++() {
         if (IsValid())
-            return imp_.reset(imp_->Next());
+            imp_ = Handle_<IterImp_>(imp_->Next());
     }
 } // namespace Dal

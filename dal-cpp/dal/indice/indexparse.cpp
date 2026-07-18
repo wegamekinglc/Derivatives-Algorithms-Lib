@@ -13,11 +13,11 @@
 
 namespace Dal {
     namespace {
-        Index_* ParseSuperShot(const String_&) { return nullptr; }
+        std::unique_ptr<Index_> ParseSuperShot(const String_&) { return nullptr; }
 
         std::map<String_, Index::parser_t>& TheIndexParsers() { RETURN_STATIC(std::map<String_, Index::parser_t>); }
 
-        Index_* ParseSingle(const String_& name) {
+        std::unique_ptr<Index_> ParseSingle(const String_& name) {
             auto stop = name.find_first_of(":[");
             if (stop == String_::npos)
                 return ParseSuperShot(name);
@@ -27,11 +27,11 @@ namespace Dal {
             return (*pp->second)(name);
         }
 
-        Index::Composite_* ParseComposite(const String_&) { return nullptr; }
+        std::unique_ptr<Index::Composite_> ParseComposite(const String_&) { return nullptr; }
     } // namespace
 
-    Index_* Index::Parse(const String_& name) {
-        if (Index::Composite_* test = ParseComposite(name))
+    std::unique_ptr<Index_> Index::Parse(const String_& name) {
+        if (auto test = ParseComposite(name))
             return test;
         return ParseSingle(name);
     }
