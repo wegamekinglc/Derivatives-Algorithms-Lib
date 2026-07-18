@@ -131,13 +131,14 @@ namespace Dal {
 
 ### Building after adding or changing enum markup
 
-Run Machinist from the repo root to regenerate auto files before compiling:
+Regenerate the auto files with the `dal_generate` CMake target before compiling:
 
 ```bash
-export MACHINIST_TEMPLATE_DIR=$PWD/dal-cpp/externals/machinist/template/
-./dal-cpp/externals/machinist/bin/Machinist -c dal-cpp/config/dal.ifc -l dal-cpp/config/dal.mgl -d ./dal-cpp/dal
-./dal-cpp/externals/machinist/bin/Machinist -c dal-cpp/config/dal.ifc -l dal-cpp/config/dal.mgl -d ./dal-excel
+cmake --preset=Release-linux -S . -B build/Release-linux
+cmake --build build/Release-linux --target dal_generate
 ```
+
+The target builds the Machinist binary from the `dal-cpp/externals/machinist/` submodule (the prebuilt `bin/Machinist` is git-ignored in the submodule and absent on fresh clones), sets `MACHINIST_TEMPLATE_DIR`, and runs Machinist twice — once with `-d ./dal-cpp/dal` for core output and once with `-d ./dal-excel` for Excel stubs. `bash ./build_linux.sh --generate` runs the same target before the normal build, and `dal_check_generated` fails on drift between markup and generated files.
 
 Then build normally. The auto-generated files (`dal-cpp/dal/auto/MG_*_enum.hpp`, `dal-cpp/dal/auto/MG_*_enum.inc`, plus `dal-excel/auto/MG_*_public.inc` for Excel stubs) must be committed to the repository alongside the markup source.
 
