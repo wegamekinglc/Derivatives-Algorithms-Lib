@@ -5,6 +5,10 @@ Last updated: 2026-07-18
 Codex-native guidance for working in this repository. This file is intentionally separate from
 `CLAUDE.md` and `.claude/`; do not edit the Claude originals unless the user explicitly asks.
 
+[CLAUDE.md](CLAUDE.md) is the agent-facing source of truth for build/test commands, workspace
+CMake options, and the architecture map. This file keeps Codex-specific routing and work style,
+and links back instead of duplicating.
+
 ## Codex Artifacts
 
 | Priority  | Guidance                                                                                                                                     |
@@ -17,41 +21,23 @@ Codex-native guidance for working in this repository. This file is intentionally
 ## Repository Shape
 
 This is a C++17 quantitative finance workspace with Automatic Adjoint Differentiation (AAD) support.
-
-| Priority  | Path           | Role                                                                            |
-|-----------|----------------|---------------------------------------------------------------------------------|
-| Reference | `dal-cpp/`     | Core library, enabled in the normal CMake workspace.                            |
-| Reference | `dal-public/`  | C++ API wrapper around the core library.                                        |
-| Reference | `dal-python/`  | pybind11 bindings and Python package.                                           |
-| Reference | `dal-excel/`   | Windows Excel add-in.                                                           |
-| Reference | `dal-web/`     | FastAPI backend plus React/Vite frontend; not built by CMake.                   |
-
-The dependency direction is `dal-cpp <- dal-public <- {dal-python, dal-excel}`.
+The dependency direction is `dal-cpp <- dal-public <- {dal-python, dal-excel}`; `dal-web/` (FastAPI
+backend plus React/Vite frontend) is not built by CMake. The sub-project map lives in
+[CLAUDE.md](CLAUDE.md#architecture) and the published [architecture guide](docs/architecture.md).
 
 ## Build And Test
 
-Use the existing project scripts and presets:
+Build commands, workspace CMake options, and test invocations are canonical in
+[CLAUDE.md](CLAUDE.md#build-commands) and [CLAUDE.md](CLAUDE.md#running-tests); the published
+setup guide is [docs/installation.md](docs/installation.md). The short form:
 
 ```bash
 bash ./build_linux.sh
-```
-
-```bash
-cmake --preset=Release-linux -S . -B build/Release-linux
-cmake --build build/Release-linux -j$(nproc)
-cmake --install build/Release-linux
-```
-
-Run tests through CTest or the build-tree binaries:
-
-```bash
 ctest --test-dir build/Release-linux --output-on-failure
-./build/Release-linux/dal-cpp/dal_cpp_tests
-./build/Release-linux/dal-public/dal_public_tests
-./build/Release-linux/dal-cpp/dal_cpp_tests --gtest_filter=<SuiteName>.*
 ```
 
-If enum Machinist markup changes, regenerate both core and Excel auto files before building.
+If enum Machinist markup changes, regenerate both core and Excel auto files before building —
+see [Machinist enums](.codex/skills/dal-agent-team/references/shared-rules.md#machinist-enums).
 
 ## Work Style
 

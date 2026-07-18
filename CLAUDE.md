@@ -2,6 +2,8 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository. Keep this as operational guidance for agents; keep public project orientation in [README.md](README.md), and put method-level explanations under `docs/methodology/`.
 
+This file is the agent-facing source of truth for build/test commands, workspace CMake options, and the architecture map. Sibling agent guides — [AGENTS.md](AGENTS.md) (Codex), [.github/copilot-instructions.md](.github/copilot-instructions.md) (GitHub Copilot), and [.codex/skills/dal-agent-team/references/shared-rules.md](.codex/skills/dal-agent-team/references/shared-rules.md) (Codex skill reference) — keep per-audience specifics and link back here rather than duplicating. Coding and test conventions live in [.claude/rules/](.claude/rules/) (linked below); published setup and architecture docs live in [docs/](docs/).
+
 ## Build Commands
 
 ```bash
@@ -33,7 +35,7 @@ The top-level `CMakeLists.txt` is a thin workspace that selects sub-projects via
 - `DAL_CPP_BUILD_EXAMPLES` (default `ON`) — build the `dal-cpp` example programs
 - `DAL_CPP_BUILD_BENCHMARKS` (CMake option default `ON`, but the `base` preset in `CMakePresets.json` overrides it to `off`, so preset-driven builds — including `build_linux.sh` without `--benchmarks`/`--full` — disable benchmarks) — build the `dal-cpp` benchmark programs
 - `DAL_USE_ADEPT_AAD` / `DAL_USE_XAD_AAD` / `DAL_USE_CODIPACK_AAD` — pick the AAD backend (source default: all three OFF, i.e. the native backend; CMake presets also override all three to OFF unless explicitly enabled)
-- `DAL_ENABLE_SANITIZERS` (default empty, i.e. instrumentation off) — semicolon-separated sanitizer list (e.g. `"address;undefined"` or `"thread"`); GCC/Clang only, applies `-fsanitize=<list>` plus `-fno-omit-frame-pointer` to the compile and link of every target in the workspace
+- `DAL_ENABLE_SANITIZERS` (default empty, i.e. instrumentation off) — semicolon-separated sanitizer list (e.g. `"address;undefined"` or `"thread"`); GCC/Clang only, applies `-fsanitize=<list>` to the compile and link of every target in the workspace, plus compile-only `-fno-omit-frame-pointer`
 
 CMake installs into a per-preset stage directory (`CMAKE_INSTALL_PREFIX=${sourceDir}/build/stage/${presetName}` in `CMakePresets.json`); `build_linux.sh` installs into `build/stage/Release-linux/`, placing binaries in `bin/`, libraries in `lib/`, and headers in `include/` under that stage directory.
 
@@ -79,6 +81,8 @@ Formatting is enforced via `.clang-format` (LLVM-based):
 - `PointerBindsToType: true` (use `T*` not `T *`)
 - Braces attach style (`BreakBeforeBraces: Attach`)
 
+The full conventions live in the [code style guide](.claude/rules/code-style.md); test conventions in the [unit test style guide](.claude/rules/unit-test-style.md).
+
 ## Architecture
 
 This is a C++17 quantitative finance library with AAD (Automatic Adjoint Differentiation) support, organized as a multi-project workspace.
@@ -93,7 +97,7 @@ Derivatives-Algorithms-Lib/
 └── dal-web/                Portfolio management web app (FastAPI + React)
 ```
 
-The dependency graph is `dal-cpp ← dal-public ← {dal-python, dal-excel}`. Each sub-project owns its own `CMakeLists.txt` and stands alone as a buildable target.
+The dependency graph is `dal-cpp ← dal-public ← {dal-python, dal-excel}`. Each sub-project owns its own `CMakeLists.txt` and stands alone as a buildable target. The published deep-dive — component boundaries, runtime ownership, and execution flows — is [docs/architecture.md](docs/architecture.md).
 
 **Core library (`dal-cpp/`)** — built as the `dal_cpp` target (alias `DAL::cpp`):
 - `dal-cpp/dal/math/` — numerical algorithms: interpolation, optimization, PDE solvers, random number generation, matrix ops, root finding, AAD
@@ -135,7 +139,7 @@ The backend persists all entities through a SQLAlchemy 2.x store (`app/services/
 
 Start the web UI with `./dal-web/scripts/start.sh` on Linux/macOS or `dal-web/scripts/start.ps1` on Windows (requires Python 3.13+, uv, Node.js 20+, npm). Frontend at http://localhost:5173, backend API docs at http://127.0.0.1:8001/docs. For frontend e2e, run `./dal-web/scripts/setup-playwright.sh` once, then `cd dal-web/frontend && npm run test:e2e`.
 
-**Code generation** — `dal-cpp/config/dal.ifc` is processed by the Machinist tool. `build_linux.sh` runs Machinist twice:
+**Code generation** — `dal-cpp/config/dal.ifc` is processed by the Machinist tool. Regeneration is opt-in: `build_linux.sh --generate` (or `cmake --build build/Release-linux --target dal_generate` on a configured tree) runs Machinist twice:
 - once with `-d ./dal-cpp/dal` to produce core enum and serialization files under `dal-cpp/dal/auto/`
 - once with `-d ./dal-excel` to produce Excel public-function stubs under `dal-excel/auto/`
 
@@ -166,6 +170,8 @@ Detailed documentation of the quantitative methods implemented in this library:
 - **Black / Bachelier Vanilla Pricing** — [Black / Bachelier vanilla pricing](docs/methodology/black_scholes.md)
 - **Numerical Quadrature** — [Numerical quadrature](docs/methodology/quadrature.md)
 - **Random Number Generation and Path Construction** — [Random and path generation](docs/methodology/random.md)
+- **Dates, Calendars, and Schedules** — [Dates and calendars](docs/methodology/dates.md)
+- **Index Names and Parsing** — [Index parsing](docs/methodology/index_parsing.md)
 
 Notable fundamental changes are recorded in [CHANGELOG.md](CHANGELOG.md).
 

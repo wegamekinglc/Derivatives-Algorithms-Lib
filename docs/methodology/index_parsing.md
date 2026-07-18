@@ -1,0 +1,84 @@
+# Index Names and Parsing
+
+This note describes how `dal-cpp/dal/indice/` turns index name strings into
+`Index_` objects and how indices resolve fixings.
+
+## The `Index_` interface
+
+`Index_` (`dal-cpp/dal/indice/index.hpp`) is the minimal market-observable
+interface: `Name()` returns the canonical name, and
+`Fixing(_ENV, fixingTime)` returns the value at a fixing time. The base
+implementation of `Fixing` resolves the index by name through the
+environment: `Index::PastFixing` fetches the `FixingsAccess_` environment
+entry, retrieves the `Fixings_` record held for the name, and looks up the
+exact `DateTime_` in its map. A missing record or time throws unless the
+caller passes the `quiet` flag, which returns $-\infty$ instead. `IndexKey_`
+wraps a handle with its name so scenario containers can order indices.
+
+## Parse dispatch
+
+`Index::Parse(const String_&)` (`dal-cpp/dal/indice/indexparse.cpp`) first
+tries composite parsing, then single-index parsing. Single parsing splits the
+name at the first `:` or `[`: the prefix before the separator selects a
+parser from a process-wide registry, and the selected parser interprets the
+remainder of the string. A name with no separator currently matches nothing,
+and an unregistered prefix throws.
+
+Parsers self-register through `Index::RegisterParser(name, func)` under a
+mutex. The built-in registrations are installed once by
+`IndexParsers_::Init()` (`dal-cpp/dal/indice/parser/init.cpp`), which runs as
+part of `RegisterAll_::Init` at library initialization:
+
+| Prefix | Parser                                                         | Produces         |
+|--------|----------------------------------------------------------------|------------------|
+| `EQ`   | `Index::EquityParser` (`dal-cpp/dal/indice/parser/equity.cpp`) | `Index::Equity_` |
+| `FX`   | `Index::FxParser` (`dal-cpp/dal/indice/parser/fx.cpp`)         | `Index::Fx_`     |
+
+`Index::Clone` re-parses `src.Name()`, so round-tripping an index through its
+name works only for families with a registered parser.
+
+## Equity names
+
+The equity grammar is `EQ[stock]` with an optional delivery suffix
+(`dal-cpp/dal/indice/parser/equity.cpp`):
+
+- `EQ[stock]` — spot equity; the delivery date falls back to
+  `Date::Maximum()`;
+- `EQ[stock]@2027-06-18` — forward with an explicit delivery date parsed by
+  `Date::FromString`;
+- `EQ[stock]>3M` — forward whose delivery is the fixing date stepped by a
+  date increment (see [dates, calendars, and schedules](dates.md)).
+
+## FX names
+
+The FX grammar is `FX[fgn/dom]` (`dal-cpp/dal/indice/parser/fx.cpp`) — for
+example `FX[USD/JPY]` is one USD priced in JPY. `Index::Fx_::Fixing` first
+looks up `FX[fgn/dom]` in the environment's fixings and falls back to the
+reciprocal of `FX[dom/fgn]`.
+
+## IR indices are constructed, not parsed
+
+Interest-rate indices (`dal-cpp/dal/indice/index/ir.hpp`) have canonical name
+formats but no registered string parser: `Libor_`, `Swap_`, and `DF_` are
+built directly in C++:
+
+- `Libor_(ccy, tenor)` names itself `IR:<ccy>,<tenor>` (for example
+  `IR:USD,Libor3M`);
+- `Swap_(ccy, tenor)` names itself `IR:<ccy>,<tenor>` with a numeric-leading
+  tenor (for example `IR:USD,5Y`);
+- `DF_(ccy, maturity)` names itself `IR[DF]:<ccy>,<maturity>`.
+
+Start and maturity offsets are `Cell_` values resolved against the fixing
+date: empty means the fixing date itself, an integer is a day offset, a date
+or datetime is absolute, and a string is applied as a date increment.
+`Libor_` and `Swap_` start dates then roll by the currency's spot-lag
+convention (`Libor::StartFromFix` in `dal-cpp/dal/protocol/conventions.cpp`).
+
+## Composites and historical paths
+
+`Index::Composite_` (`dal-cpp/dal/indice/indexcomposite.hpp`) declares a
+weighted component list; the composite parsing hook is a placeholder that
+currently matches nothing. `IndexPathHistorical_`
+(`dal-cpp/dal/indice/indexpath.hpp`) adapts a fixing time series to the
+`IndexPath_` interface used where models need path-level expectations and
+range probabilities.

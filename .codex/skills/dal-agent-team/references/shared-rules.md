@@ -12,13 +12,9 @@ style, test, review, docs, and artifact conventions.
 
 ## Build And Test
 
-Release build:
-
-```bash
-cmake --preset=Release-linux -S . -B build/Release-linux
-cmake --build build/Release-linux -j$(nproc)
-cmake --install build/Release-linux
-```
+C++ build commands, workspace CMake options, and the preset matrix are canonical in
+[CLAUDE.md](../../../../CLAUDE.md#build-commands) and
+[CLAUDE.md](../../../../CLAUDE.md#running-tests).
 
 Full Linux workflow:
 
@@ -43,6 +39,9 @@ Web tests:
 
 ## C++ Style
 
+Canonical reference: [code-style.md](../../../../.claude/rules/code-style.md). The digest
+below is what the Codex role skills apply inline.
+
 - C++17. Use `.clang-format`: 4 spaces, attached braces, 150 columns, `T*` pointer binding.
 - Classes/structs: PascalCase plus trailing `_`.
 - Template params: short name plus trailing `_`.
@@ -57,6 +56,7 @@ Web tests:
 
 ## Machinist Enums
 
+The markup format is specified in [code-style.md](../../../../.claude/rules/code-style.md#enums).
 When enum markup changes, regenerate both core and Excel output. The `Machinist`
 binary is a git-ignored build artifact, not checked in, so the reliable route is
 the CMake target, which builds Machinist first and runs it with the right inputs:
@@ -69,6 +69,8 @@ cmake --build build/Release-linux --target dal_generate
 Commit generated `dal-cpp/dal/auto/MG_*` and `dal-excel/auto/MG_*` files with the markup source when committing is requested.
 
 ## Google Test
+
+Canonical reference: [unit-test-style.md](../../../../.claude/rules/unit-test-style.md).
 
 - Core tests: `dal-cpp/tests/<module>/test_<name>.cpp`.
 - Include `<gtest/gtest.h>` first.
@@ -89,6 +91,9 @@ Commit generated `dal-cpp/dal/auto/MG_*` and `dal-excel/auto/MG_*` files with th
 - Do not submit GitHub reviews or merge unless explicitly asked.
 
 ## Documentation Rules
+
+Canonical reference: the Documentation section of
+[code-style.md](../../../../.claude/rules/code-style.md#documentation).
 
 - Docs describe the current/latest library only.
 - Historical context belongs in `CHANGELOG.md`, not docs.

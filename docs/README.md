@@ -130,6 +130,16 @@ Deep dives into the quantitative methods and algorithms implemented in DAL:
   - Sobol inverse-CDF policy table and clone-equivalent state/flag preservation
   - Path seeking via direct state reconstruction (`SobolSet_::SkipTo`, MRG32k32a matrix jump)
 
+- **[dates.md](methodology/dates.md)** — Dates, Calendars, and Schedules
+  - `Date_` serial-day value type, Excel conversion, and string parsing
+  - Process-wide holiday centers, `Holidays_` unions, and business-day adjustment
+  - Tenor and special-day increments, schedule generation, and day-count bases
+
+- **[index_parsing.md](methodology/index_parsing.md)** — Index Names and Parsing
+  - `Index_` interface, environment fixing lookup, and name-driven `Index::Parse`
+  - Registered `EQ` and `FX` parser grammars; IR indices constructed in C++
+  - Composite indices and historical index paths
+
 ## Experimental (`experimental/`)
 
 Reference studies and capability explorations that are not normative methodology:

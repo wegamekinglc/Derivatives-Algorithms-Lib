@@ -3,52 +3,54 @@
 C++17 quantitative finance library with built-in Automatic Adjoint Differentiation (AAD),
 organized as a multi-project CMake workspace.
 
+[CLAUDE.md](../CLAUDE.md) is the agent-facing source of truth for build/test commands,
+workspace CMake options, and the architecture map; [docs/installation.md](../docs/installation.md)
+is the published setup guide. The essentials:
+
 ## Build, Test, Lint
 
 ```bash
-# Full build from workspace root
-mkdir build && cd build
-cmake .. && cmake --build . --parallel
+# Default Linux workflow (configures core + public C++ + examples via the
+# Release-linux preset, installs into build/stage/Release-linux, runs CTest)
+bash ./build_linux.sh
 
-# With presets (see CMakePresets.json)
-cmake --preset=full-dev && cmake --build build/full-dev --parallel
+# Manual preset flow (Release-linux/Debug-linux declare no binaryDir, so pass -S/-B)
+cmake --preset=Release-linux -S . -B build/Release-linux
+cmake --build build/Release-linux --parallel
+cmake --install build/Release-linux
 ```
 
-CMake installs per preset into `build/stage/<preset>/`: binaries in `bin/`, libs in `lib/`, headers in `include/`.
+CMake installs per preset into `build/stage/<preset>/`: binaries in `bin/`, libs in `lib/`,
+headers in `include/`.
 
-Tests run through CTest or directly:
+Tests run through CTest or directly from the build tree:
 
 ```bash
-ctest --test-dir build/full-dev --output-on-failure          # all registered tests
-build/full-dev/dal-cpp/dal_cpp_tests                         # one binary directly
-build/full-dev/dal-cpp/dal_cpp_tests --gtest_filter=<Suite>.*   # one suite
+ctest --test-dir build/Release-linux --output-on-failure
+./build/Release-linux/dal-cpp/dal_cpp_tests
+./build/Release-linux/dal-cpp/dal_cpp_tests --gtest_filter=<SuiteName>.*
 ```
 
 Formatting is enforced by `.clang-format` (LLVM base, 4-space indent, 150 column limit,
 `T*` not `T *`, attach braces).
 
-### CMake options
-
-Key cache variables (all AAD backends default OFF; pick one or use native "aadet"):
-
-- `DAL_USE_XAD_AAD` / `DAL_USE_ADEPT_AAD` / `DAL_USE_CODIPACK_AAD`
-- `DAL_BUILD_PUBLIC`, `DAL_BUILD_PYTHON`, `DAL_BUILD_EXCEL` (Windows-only)
-- `DAL_CPP_BUILD_TESTS`, `DAL_CPP_BUILD_EXAMPLES`, `DAL_CPP_BUILD_BENCHMARKS`
-
-CI runs the full matrix: native/xad/codipack/adept × gcc-13/14, clang-18/19, plus MSVC.
+CMake cache variables (AAD backends, sub-project/test/example/benchmark toggles, sanitizers)
+are listed in [CLAUDE.md](../CLAUDE.md#build-commands) and the
+[installation guide options table](../docs/installation.md#common-cmake-options). CI runs
+the full matrix: native/xad/codipack/adept × gcc-13/14, clang-18/19, plus MSVC.
 
 ## Architecture
 
 Dependency graph: `dal-cpp ← dal-public ← {dal-python, dal-excel}`; `dal-web` consumes
-the Python public API.
+the Python public API. The published map is [docs/architecture.md](../docs/architecture.md).
 
-| Sub-project   | Target / purpose                                                   |
-|---------------|--------------------------------------------------------------------|
-| `dal-cpp/`    | `DAL::cpp` — core: math, curves, models, scripting, AAD            |
-| `dal-public/` | `DAL::public` — stable public API wrapping `DAL::cpp`              |
-| `dal-python/` | pybind11 Python bindings (`dal` package)                           |
-| `dal-excel/`  | `.xll` add-in, Windows-only                                        |
-| `dal-web/`    | FastAPI backend + React/Vite frontend                              |
+| Sub-project   | Target / purpose                                        |
+|---------------|---------------------------------------------------------|
+| `dal-cpp/`    | `DAL::cpp` — core: math, curves, models, scripting, AAD |
+| `dal-public/` | `DAL::public` — stable public API wrapping `DAL::cpp`   |
+| `dal-python/` | pybind11 Python bindings (`dal` package)                |
+| `dal-excel/`  | `.xll` add-in, Windows-only                             |
+| `dal-web/`    | FastAPI backend + React/Vite frontend                   |
 
 Core modules: `math/` (interp, opt, PDE, RNG, matrix, `aad/`), `script/` (lexer → parser →
 AST → simulation), `model/`, `curve/`, `indice/`, `risk/`, `concurrency/`, `storage/`,
@@ -57,7 +59,8 @@ AST → simulation), `model/`, `curve/`, `indice/`, `risk/`, `concurrency/`, `st
 ## Codegen (Machinist)
 
 Enums are declared in Machinist markup `/*IF---- ... -IF----*/` blocks before `namespace Dal {`.
-Machinist generates `dal-cpp/dal/auto/MG_*_enum.{hpp,inc}`.
+Machinist generates `dal-cpp/dal/auto/MG_*_enum.{hpp,inc}`; the markup format and regeneration
+contract live in [.claude/rules/code-style.md](../.claude/rules/code-style.md).
 
 **Regenerate only when markup changes.** The `Machinist` binary is a git-ignored build
 artifact, not checked in, so use the CMake target, which builds Machinist first and runs
@@ -69,6 +72,10 @@ cmake --build build/Release-linux --target dal_generate
 ```
 
 ## Conventions
+
+Naming, type idioms, error handling, and enum markup follow
+[.claude/rules/code-style.md](../.claude/rules/code-style.md); tests follow
+[.claude/rules/unit-test-style.md](../.claude/rules/unit-test-style.md). Highlights:
 
 - Classes: PascalCase + trailing `_` (`Date_`); members `camelCase_`; methods PascalCase.
 - `Handle_<T_>` wraps `shared_ptr<const T_>`; `Vector_<E_>` privately inherits `std::vector`.
