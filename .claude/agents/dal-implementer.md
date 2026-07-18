@@ -147,12 +147,16 @@ Implement just enough production code to make the failing test pass — nothing 
 - Source files: `<dal/platform/platform.hpp>` first DAL header, then the module's own header; `REQUIRE(cond, msg)`
   for runtime invariants; `THROW(msg)` for error conditions; minimal comments — "why" not "what".
 
-**If you added or changed a Machinist enum markup block,** regenerate auto files before building:
+**If you added or changed a Machinist enum markup block,** regenerate auto files before building with the
+`dal_generate` CMake target — it builds the Machinist binary from the `dal-cpp/externals/machinist/`
+submodule (the prebuilt `bin/Machinist` is git-ignored there and absent on fresh clones), sets
+`MACHINIST_TEMPLATE_DIR`, and runs Machinist for both the core and Excel output trees:
 ```bash
-export MACHINIST_TEMPLATE_DIR=$PWD/dal-cpp/externals/machinist/template/
-./dal-cpp/externals/machinist/bin/Machinist -c dal-cpp/config/dal.ifc -l dal-cpp/config/dal.mgl -d ./dal-cpp/dal
-./dal-cpp/externals/machinist/bin/Machinist -c dal-cpp/config/dal.ifc -l dal-cpp/config/dal.mgl -d ./dal-excel
+cmake --preset=Release-linux -S . -B build/Release-linux
+cmake --build build/Release-linux --target dal_generate
 ```
+`bash ./build_linux.sh --generate` runs the same target before the normal build, and `dal_check_generated`
+fails on drift between markup and generated files.
 This produces `dal-cpp/dal/auto/MG_<EnumName>_enum.hpp` (class definition) and `.inc` (implementation).
 Include the `.hpp` inside `namespace Dal { }` in your header, and the `.inc` inside `namespace Dal { }` in your `.cpp`.
 Commit the generated files together with your markup source.
