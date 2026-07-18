@@ -18,6 +18,34 @@ add_subdirectory(uoc)
 add_subdirectory(vanilla)
 add_subdirectory(yield_curve_jacobian)
 
+# The excelwriter example needs MSVC's #import COM support plus the Microsoft
+# Office type libraries on the build machine (see excelimport.hpp). Detect
+# them; users may also pass the OFFICE_* paths explicitly as cache variables.
+set(DAL_HAS_EXCEL OFF)
+if(WIN32 AND MSVC)
+    set(_OFFICE_SEARCH_PATHS
+        "C:/Program Files/Microsoft Office/root/VFS/ProgramFilesCommonX86/Microsoft Shared/OFFICE16"
+        "C:/Program Files (x86)/Common Files/microsoft shared/OFFICE16"
+        "C:/Program Files/Common Files/Microsoft Shared/OFFICE16")
+    set(_VBA_SEARCH_PATHS
+        "C:/Program Files/Microsoft Office/root/VFS/ProgramFilesCommonX86/Microsoft Shared/VBA/VBA6"
+        "C:/Program Files (x86)/Common Files/microsoft shared/VBA/VBA6"
+        "C:/Program Files/Common Files/Microsoft Shared/VBA/VBA6")
+    set(_EXCEL_SEARCH_PATHS
+        "C:/Program Files/Microsoft Office/root/Office16"
+        "C:/Program Files (x86)/Microsoft Office/Office16"
+        "C:/Program Files/Microsoft Office/Office16")
+    find_file(OFFICE_MSO_DLL NAMES "MSO.DLL" PATHS ${_OFFICE_SEARCH_PATHS} NO_DEFAULT_PATH)
+    find_file(OFFICE_VBE_OLB NAMES "VBE6EXT.OLB" PATHS ${_VBA_SEARCH_PATHS} NO_DEFAULT_PATH)
+    find_file(OFFICE_EXCEL_EXE NAMES "EXCEL.EXE" PATHS ${_EXCEL_SEARCH_PATHS} NO_DEFAULT_PATH)
+    if(OFFICE_MSO_DLL AND OFFICE_VBE_OLB AND OFFICE_EXCEL_EXE)
+        set(DAL_HAS_EXCEL ON)
+        message(STATUS "Office found - excelwriter example enabled")
+    else()
+        message(STATUS "Office not found - excelwriter example skipped")
+    endif()
+endif()
+
 if(DAL_HAS_EXCEL)
     add_subdirectory(excelwriter)
 endif()
