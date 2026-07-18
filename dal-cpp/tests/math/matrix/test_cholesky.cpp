@@ -9,6 +9,7 @@
 #include <dal/math/matrix/matrixarithmetic.hpp>
 #include <dal/math/matrix/cholesky.hpp>
 #include <dal/math/random/sobol.hpp>
+#include <dal/utilities/exceptions.hpp>
 #include <dal/utilities/numerics.hpp>
 
 using namespace Dal;
@@ -57,6 +58,30 @@ TEST(MatrixTest, TestCholeskyDecompositionV2) {
     Vector_<> expected = {-0.00869565, 0.2,  0.2173913};
     for(int i = 0; i < n; ++i)
         ASSERT_NEAR(expected[i], x[i], 1e-7);
+}
+
+TEST(MatrixTest, TestCholeskyDecompositionThrowsOnZeroMatrix) {
+    SquareMatrix_<> m(3);
+    ASSERT_THROW(CholeskyDecomposition(m), Exception_);
+}
+
+TEST(MatrixTest, TestCholeskySolveThrowsOnZeroRegularization) {
+    const int n = 3;
+    double tmp[n][n] = {
+        {6.0, 2.0, 3.0},
+        {2.0, 9.0, 1.0},
+        {3.0, 1.0, 13.0}
+    };
+
+    SquareMatrix_<> m(n);
+    for (int i = 0; i < n; ++i)
+        for (int j = 0; j < n; ++j)
+            m(i, j) = tmp[i][j];
+
+    Vector_<Vector_<>> b(1);
+    b[0] = {1.0, 2.0, 3.0};
+
+    ASSERT_THROW(CholeskySolve(&m, &b, 0.0), Exception_);
 }
 
 TEST(MatrixTest, TestCholeskySolve) {
