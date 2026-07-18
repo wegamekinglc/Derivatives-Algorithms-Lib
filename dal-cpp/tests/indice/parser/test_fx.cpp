@@ -25,3 +25,15 @@ TEST(IndexTest, TestFxParserRegisteredWithIndexParse) {
     std::unique_ptr<Index_> index(Index::Parse(name));
     ASSERT_EQ(index->Name(), name);
 }
+
+TEST(IndexTest, TestFxParserRejectsMissingOpenBracket) {
+    ASSERT_THROW((void)Index::FxParser(String_("FXUSD/JPY]")), Dal::Exception_);
+}
+
+TEST(IndexTest, TestFxParserRejectsMissingCloseBracket) {
+    ASSERT_THROW((void)Index::FxParser(String_("FX[USD/JPY")), Dal::Exception_);
+}
+
+TEST(IndexTest, TestFxParserRejectsMissingSeparator) {
+    ASSERT_THROW((void)Index::FxParser(String_("FX[USDJPY]")), Dal::Exception_);
+}
