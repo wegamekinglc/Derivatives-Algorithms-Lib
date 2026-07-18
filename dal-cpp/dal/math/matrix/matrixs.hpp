@@ -55,7 +55,7 @@ namespace Dal {
             std::swap(hooks_, rhs.hooks_);
         }
 
-        Matrix_(Matrix_&& rhs) noexcept { swap(rhs); }
+        Matrix_(Matrix_&& rhs) noexcept : cols_(0) { swap(rhs); }
 
         Matrix_& operator=(Matrix_&& rhs) noexcept {
             if (this != &rhs) {
