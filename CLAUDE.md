@@ -33,7 +33,7 @@ The top-level `CMakeLists.txt` is a thin workspace that selects sub-projects via
 - `DAL_CPP_BUILD_EXAMPLES` (default `ON`) — build the `dal-cpp` example programs
 - `DAL_CPP_BUILD_BENCHMARKS` (CMake option default `ON`, but the `base` preset in `CMakePresets.json` overrides it to `off`, so preset-driven builds — including `build_linux.sh` without `--benchmarks`/`--full` — disable benchmarks) — build the `dal-cpp` benchmark programs
 - `DAL_USE_ADEPT_AAD` / `DAL_USE_XAD_AAD` / `DAL_USE_CODIPACK_AAD` — pick the AAD backend (source default: all three OFF, i.e. the native backend; CMake presets also override all three to OFF unless explicitly enabled)
-- `DAL_ENABLE_SANITIZERS` (default empty, i.e. instrumentation off) — semicolon-separated sanitizer list (e.g. `"address;undefined"` or `"thread"`); GCC/Clang only, applies `-fsanitize=<list>` plus `-fno-omit-frame-pointer` to the compile and link of every target in the workspace
+- `DAL_ENABLE_SANITIZERS` (default empty, i.e. instrumentation off) — semicolon-separated sanitizer list (e.g. `"address;undefined"` or `"thread"`); GCC/Clang only, applies `-fsanitize=<list>` to the compile and link of every target in the workspace, plus compile-only `-fno-omit-frame-pointer`
 
 CMake installs into a per-preset stage directory (`CMAKE_INSTALL_PREFIX=${sourceDir}/build/stage/${presetName}` in `CMakePresets.json`); `build_linux.sh` installs into `build/stage/Release-linux/`, placing binaries in `bin/`, libraries in `lib/`, and headers in `include/` under that stage directory.
 
@@ -135,7 +135,7 @@ The backend persists all entities through a SQLAlchemy 2.x store (`app/services/
 
 Start the web UI with `./dal-web/scripts/start.sh` on Linux/macOS or `dal-web/scripts/start.ps1` on Windows (requires Python 3.13+, uv, Node.js 20+, npm). Frontend at http://localhost:5173, backend API docs at http://127.0.0.1:8001/docs. For frontend e2e, run `./dal-web/scripts/setup-playwright.sh` once, then `cd dal-web/frontend && npm run test:e2e`.
 
-**Code generation** — `dal-cpp/config/dal.ifc` is processed by the Machinist tool. `build_linux.sh` runs Machinist twice:
+**Code generation** — `dal-cpp/config/dal.ifc` is processed by the Machinist tool. Regeneration is opt-in: `build_linux.sh --generate` (or `cmake --build build/Release-linux --target dal_generate` on a configured tree) runs Machinist twice:
 - once with `-d ./dal-cpp/dal` to produce core enum and serialization files under `dal-cpp/dal/auto/`
 - once with `-d ./dal-excel` to produce Excel public-function stubs under `dal-excel/auto/`
 
