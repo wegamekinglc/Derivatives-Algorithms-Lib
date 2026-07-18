@@ -2,6 +2,8 @@
 // Created by wegamekinglc on 22-12-17.
 //
 
+#include <memory>
+
 #include <dal/platform/strict.hpp>
 #include <dal/math/matrix/cholesky.hpp>
 #include <dal/math/matrix/sparse.hpp>
@@ -42,12 +44,14 @@ namespace Dal {
 
         public:
             explicit Cholesky_(const SquareMatrix_<>& src, SquareMatrix_<>* lower = nullptr, double regularization = Dal::EPSILON) {
+                std::unique_ptr<SquareMatrix_<>> owned;
                 if (lower) {
                     lower_ = lower;
                     needKeep_ = true;
                 }
                 else {
-                    lower_ = new SquareMatrix_<>(src.Rows(), src.Cols());
+                    owned.reset(new SquareMatrix_<>(src.Rows(), src.Cols()));
+                    lower_ = owned.get();
                     needKeep_ = false;
                 }
 
@@ -57,6 +61,8 @@ namespace Dal {
                 REQUIRE(reg > 0.0, "regularization factor should be greater than 0.0");
                 for (int ii = 0; ii < n; ++ii)
                     (*lower_)(ii, ii) /= reg + Square((*lower_)(ii, ii));
+                if (owned)
+                    lower_ = owned.release();
             }
 
             ~Cholesky_() override {

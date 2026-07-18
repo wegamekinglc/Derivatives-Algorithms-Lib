@@ -20,12 +20,13 @@ namespace Dal {
         int cols_;
         Vector_<I_> hooks_;
         void SetHook(size_t from = 0);
+        static size_t Extent(int rows, int cols) { return (static_cast<size_t>(rows) + 1) * static_cast<size_t>(cols); }
 
     public:
         virtual ~Matrix_() = default;
         Matrix_() : cols_(0) {}
         Matrix_(int rows, int cols, E_ val = E_())
-            : vals_(static_cast<size_t>((rows + 1) * cols)), cols_(cols), hooks_(static_cast<size_t>(rows)) {
+            : vals_(Extent(rows, cols)), cols_(cols), hooks_(static_cast<size_t>(rows)) {
             SetHook();
             vals_.Fill(val);
         }
@@ -64,12 +65,10 @@ namespace Dal {
             return *this;
         }
 
-        Matrix_& operator=(const Matrix_& rhs) noexcept {
+        Matrix_& operator=(const Matrix_& rhs) {
             if (this != &rhs) {
-                vals_ = rhs.vals_;
-                cols_ = rhs.cols_;
-                hooks_ = Vector_<I_>(rhs.hooks_.size());
-                SetHook();
+                Matrix_<E_> temp(rhs);
+                swap(temp);
             }
             return *this;
         }
@@ -223,13 +222,13 @@ namespace Dal {
         void Resize(int rows, int cols) {
             const auto old_rows = hooks_.size();
             if (cols == cols_ && rows * old_rows > 0) {
-                vals_.Resize((rows + 1) * cols);
+                vals_.Resize(Extent(rows, cols));
                 hooks_.Resize(rows);
                 SetHook(hooks_[0] == vals_.begin() ? old_rows : 0);
             } else {
                 const auto n_copy = std::min(cols, cols_);
                 cols_ = cols;
-                Vector_<E_> new_vals((rows + 1) * cols);
+                Vector_<E_> new_vals(Extent(rows, cols));
                 for (int ir = 0; ir < rows && ir < old_rows; ++ir) {
                     copy(hooks_[ir], hooks_[ir] + n_copy, new_vals.begin() + ir * cols);
                 }
