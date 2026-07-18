@@ -408,21 +408,26 @@ def code_regions(lines: list[str]) -> list[tuple[int, str]]:
     return regions
 
 
+def agent_path_claim(token: str, tail: str) -> str | None:
+    if token.startswith("./"):
+        token = token[2:]
+    token = token.rstrip(".,:;")
+    if any(marker in token for marker in "<>*${}~"):
+        return None
+    if tail and (tail[0] in "<>*${}~" or AGENT_PLACEHOLDER_TAIL_RE.match(tail)):
+        return None
+    if not token.startswith(AGENT_PATH_PREFIXES):
+        return None
+    return token
+
+
 def agent_referenced_paths(text: str) -> list[tuple[int, str]]:
     referenced: list[tuple[int, str]] = []
     for line_number, segment in code_regions(text.splitlines()):
         found: list[tuple[int, str]] = [(m.start(), m.group(0)) for m in AGENT_ROOT_FILE_RE.finditer(segment)]
         for match in AGENT_PATH_TOKEN_RE.finditer(segment):
-            token = match.group(0)
-            if token.startswith("./"):
-                token = token[2:]
-            token = token.rstrip(".,:;")
-            if any(marker in token for marker in "<>*${}~"):
-                continue
-            tail = segment[match.end() :]
-            if tail and (tail[0] in "<>*${}~" or AGENT_PLACEHOLDER_TAIL_RE.match(tail)):
-                continue
-            if token.startswith(AGENT_PATH_PREFIXES):
+            token = agent_path_claim(match.group(0), segment[match.end() :])
+            if token is not None:
                 found.append((match.start(), token))
         for _, token in sorted(found):
             referenced.append((line_number, token))
