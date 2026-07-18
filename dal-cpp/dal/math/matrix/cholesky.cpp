@@ -61,7 +61,8 @@ namespace Dal {
                 REQUIRE(reg > 0.0, "regularization factor should be greater than 0.0");
                 for (int ii = 0; ii < n; ++ii)
                     (*lower_)(ii, ii) /= reg + Square((*lower_)(ii, ii));
-                lower_ = owned.release();
+                if (owned)
+                    lower_ = owned.release();
             }
 
             ~Cholesky_() override {
