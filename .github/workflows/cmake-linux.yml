@@ -1,6 +1,12 @@
 name: CMake Linux CI
 on: [push, pull_request]
 
+# Per-ref grouping: a new push cancels stale runs of the same ref only --
+# distinct PRs (refs/pull/N/merge) never cancel each other.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: ubuntu-latest
