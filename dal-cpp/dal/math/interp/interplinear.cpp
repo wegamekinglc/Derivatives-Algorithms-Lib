@@ -57,8 +57,8 @@ namespace Dal {
 
     namespace Interp {
 
-        Interp1_* NewLinear(const String_& name, const Vector_<>& x, const Vector_<>& f) {
-            return new Interp1Linear_(name, x, f);
+        std::unique_ptr<Interp1_> NewLinear(const String_& name, const Vector_<>& x, const Vector_<>& f) {
+            return std::make_unique<Interp1Linear_>(name, x, f);
         }
     } // namespace Interp
     

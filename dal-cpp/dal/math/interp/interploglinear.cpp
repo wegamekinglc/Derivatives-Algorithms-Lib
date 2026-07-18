@@ -45,7 +45,7 @@ namespace Dal {
 #include <dal/auto/MG_LogLinear1_Write.inc>
 
     void LogLinear1_::Write(Archive::Store_& dst) const { LogLinear1::XWrite(dst, name_, x_, f_); }
-    Interp1_* Interp::NewLogLinear(const String_& name, const Vector_<>& x, const Vector_<>& f) {
-        return new LogLinear1_(name, x, f);
+    std::unique_ptr<Interp1_> Interp::NewLogLinear(const String_& name, const Vector_<>& x, const Vector_<>& f) {
+        return std::make_unique<LogLinear1_>(name, x, f);
     }
 } // namespace Dal

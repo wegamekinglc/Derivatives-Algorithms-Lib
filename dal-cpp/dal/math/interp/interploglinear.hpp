@@ -8,6 +8,6 @@
 
 namespace Dal {
     namespace Interp {
-        Interp1_* NewLogLinear(const String_& name, const Vector_<>& x, const Vector_<>& f);
+        std::unique_ptr<Interp1_> NewLogLinear(const String_& name, const Vector_<>& x, const Vector_<>& f);
     } // namespace Interp
 } // namespace Dal
