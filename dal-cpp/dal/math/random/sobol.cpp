@@ -21255,17 +21255,17 @@ const uint_least32_t* const DIRECTIONS[21201] = {
             [[nodiscard]] size_t NDim() const override { return static_cast<size_t>(state_.size()); }
             void FillUniform(Vector_<>* dst) override;
             void FillNormal(Vector_<>* dst) override;
-            SobolSet_* Clone() const override {
-                std::unique_ptr<SobolSet_> seq(new SobolSet_(iPath_, precise_, polish_));
+            std::unique_ptr<Random_> Clone() const override {
+                auto seq = std::make_unique<SobolSet_>(iPath_, precise_, polish_);
                 seq->directions_ = directions_;
                 seq->state_ = state_;
-                return seq.release();
+                return seq;
             }
             void SkipTo(size_t nPaths) override {
                 iPath_ = nPaths;
                 Seek(state_, iPath_, directions_);
             }
-            SobolSet_* TakeAway(int subSize) override;
+            std::unique_ptr<SequenceSet_> TakeAway(int subSize) override;
         };
 
         void SobolSet_::FillUniform(Vector_<>* dst) {
@@ -21286,7 +21286,7 @@ const uint_least32_t* const DIRECTIONS[21201] = {
             Transform(dst, func);
         }
 
-        SobolSet_* SobolSet_::TakeAway(int subSize) {
+        std::unique_ptr<SequenceSet_> SobolSet_::TakeAway(int subSize) {
             REQUIRE(subSize > 0 && subSize <= NDim(), "Invalid sequence subSize");
             std::unique_ptr<SobolSet_> ret_val(new SobolSet_(iPath_, precise_, polish_));
             if (subSize == NDim()) {
@@ -21305,16 +21305,16 @@ const uint_least32_t* const DIRECTIONS[21201] = {
                 ret_val->state_.Assign(state_.begin() + size, state_.end());
                 state_.Resize(size);
             }
-            return ret_val.release();
+            return ret_val;
         }
     } // namespace
 
-    SequenceSet_* NewSobol(int size, size_t iPath, bool precise, bool polish) {
-        std::unique_ptr<SobolSet_> seq(new SobolSet_(iPath, precise, polish));
+    std::unique_ptr<SequenceSet_> NewSobol(int size, size_t iPath, bool precise, bool polish) {
+        auto seq = std::make_unique<SobolSet_>(iPath, precise, polish);
         seq->state_.Resize(size);
         seq->directions_ = Directions(size);
         Seek(seq->state_, iPath, seq->directions_);
-        return seq.release();
+        return seq;
     }
 
 #include <dal/auto/MG_SobolRSG_v1_Read.inc>

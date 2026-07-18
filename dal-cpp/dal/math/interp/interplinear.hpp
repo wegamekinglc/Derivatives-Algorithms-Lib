@@ -10,6 +10,6 @@
 namespace Dal {
 
     namespace Interp {
-        Interp1_* NewLinear(const String_& name, const Vector_<>& x, const Vector_<>& f);
+        std::unique_ptr<Interp1_> NewLinear(const String_& name, const Vector_<>& x, const Vector_<>& f);
     } // namespace Interp
 } // namespace Dal

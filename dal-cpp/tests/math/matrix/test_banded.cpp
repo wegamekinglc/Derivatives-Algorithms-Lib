@@ -11,7 +11,7 @@ using namespace Dal;
 
 TEST(MatrixTest, TestNewBandedDiagonal) {
     const int n = 10;
-    Sparse::Square_* mat = Sparse::NewBandDiagonal(n, 1, 1);
+    std::unique_ptr<Sparse::Square_> mat = Sparse::NewBandDiagonal(n, 1, 1);
     ASSERT_EQ(mat->Size(), n);
 
     mat->Set(9, 8, 1.0);
@@ -25,7 +25,7 @@ TEST(MatrixTest, TestNewBandedDiagonal) {
 
 TEST(MatrixTest, TestNewBandedBanded) {
     const int n = 10;
-    Sparse::Square_* mat = Sparse::NewBandDiagonal(n, 2, 1);
+    std::unique_ptr<Sparse::Square_> mat = Sparse::NewBandDiagonal(n, 2, 1);
     ASSERT_EQ(mat->Size(), n);
 
     mat->Set(7, 9, 1.0);

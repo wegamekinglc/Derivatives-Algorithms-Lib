@@ -182,7 +182,7 @@ When the caller requests `fwdJacobianAtSolution` (non-null pointer), the converg
 branch in `Find` captures the **unscaled** dense forward Jacobian at the solution:
 
 1. The raw (unwrapped) `funcIn` is called: `funcIn.Gradient(xNew, fUnscaled)` returns a sparse
-   `Jacobian_*` (the dense overload is not used on this branch).
+   `Jacobian_` by `std::unique_ptr` (the dense overload is not used on this branch).
 2. The residual `fUnscaled` is reconstructed by element-wise multiplication of the
    scaled residual by the tolerance vector — avoiding a redundant `funcIn.F()` call
    that would bypass the solver's evaluation budget.

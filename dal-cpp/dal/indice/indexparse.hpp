@@ -4,13 +4,15 @@
 
 #pragma once
 
+#include <memory>
+
 namespace Dal {
     class Index_;
     class String_;
 
     namespace Index {
-        Index_* Parse(const String_& name);
-        using parser_t = Index_* (*)(const String_&);
+        std::unique_ptr<Index_> Parse(const String_& name);
+        using parser_t = std::unique_ptr<Index_> (*)(const String_&);
         void RegisterParser(const String_& name, parser_t func);
         Handle_<Index_> Clone(const Index_&);
     } // namespace Index

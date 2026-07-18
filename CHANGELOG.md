@@ -46,6 +46,26 @@ here as the baseline rather than dated releases:
 
 ## 2026-07
 
+- `core`: Migrated owning factory returns from raw pointers to `std::unique_ptr`
+  across the `dal-cpp` core headers: the interpolation factories
+  (`Interp::NewLinear`/`NewLinear2`/`NewLogLinear`/`NewCubic`, `NewMixedLogDF`),
+  the PDE coordinate-map, coefficient, and derivative-operator factories, the
+  random generators (`Random_::Clone`, `PseudoRandom_::Branch`/`New`,
+  `SequenceSet_::TakeAway`, `NewSobol`), the direct curve factories
+  (`NewDiscountPWC`/`ZeroRate`/`PWLF`/`LogDF`, `YCComponent_::Clone`,
+  `BuildCurveCalibrationWeights`), the sparse decompositions, the matrix-writer
+  helpers, the index parsers, `Underdetermined::Function_::Gradient`,
+  `ModelData_::MutantModel`, and `Environment_`/`Composite_` iteration and
+  cloning. `Handle_` gained a converting constructor from `std::unique_ptr`.
+  **Breaking** for direct consumers of the `dal-cpp` core headers — code holding
+  raw results or calling `.reset()`/`.release()` must now take the `unique_ptr`;
+  `dal-public`, Python, and Excel signatures are unchanged. The
+  Machinist-generated `Archive::Reader_::Build()` interface keeps its raw return
+  and migrates in a follow-up.
+- `matrix`: Fixed the `Matrix_` move constructor to value-initialize `cols_` —
+  a moved-from matrix previously carried an indeterminate column count (latent
+  UB present since 2022) and now has defined zero dimensions.
+
 - `aad`: Fixed multi-result adjoint propagation on the native backend. Reverse
   sweeps now dispatch to the vector-adjoint path (`TapNode_::PropagateAll`)
   whenever `SetNumResultsForAAD(true, m)` is active; previously every sweep took

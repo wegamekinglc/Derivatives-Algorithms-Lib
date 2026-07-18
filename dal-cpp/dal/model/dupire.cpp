@@ -14,8 +14,8 @@ namespace Dal {
         DupireModelData_v1::XWrite(dst, name_, spot_, rate_, repo_, spots_, times_, vols_);
     }
 
-    DupireModelData_* DupireModelData_::MutantModel(const String_* newName, const Slide_* slide) const {
+    std::unique_ptr<ModelData_> DupireModelData_::MutantModel(const String_* newName, const Slide_* slide) const {
         REQUIRE(!slide, "slides are not supported for DupireModelData");
-        return new DupireModelData_(*newName, spot_, rate_, repo_, spots_, times_, vols_);
+        return std::make_unique<DupireModelData_>(*newName, spot_, rate_, repo_, spots_, times_, vols_);
     }
 } // namespace Dal

@@ -20,7 +20,7 @@ TEST(MatrixTest, TestSymmetricDecomposition) {
             diag.Set(i, i-1, 3.0);
     }
 
-    std::unique_ptr<SymmetricDecomposition_> de_comp(dynamic_cast<SymmetricDecomposition_*>(diag.Decompose()));
+    std::unique_ptr<SymmetricDecomposition_> de_comp(dynamic_cast<SymmetricDecomposition_*>(diag.Decompose().release()));
     Vector_<> b(n, 1.0);
     Vector_<> x(n);
     de_comp->Solve(b, &x);

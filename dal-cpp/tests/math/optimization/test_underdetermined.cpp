@@ -98,12 +98,12 @@ namespace {
 
         [[nodiscard]] Vector_<> F(const Vector_<>& x) const override { return Vector_<>{x[0] * x[0] - 4.0}; }
 
-        [[nodiscard]] Underdetermined::Jacobian_* Gradient(const Vector_<>& x, const Vector_<>& f) const override {
+        [[nodiscard]] std::unique_ptr<Underdetermined::Jacobian_> Gradient(const Vector_<>& x, const Vector_<>& f) const override {
             gradientState_->xs_.push_back(x);
             gradientState_->fs_.push_back(f);
             Matrix_<> j(1, 1);
             j(0, 0) = 2.0 * x[0];
-            return new DenseJacobian_(j);
+            return std::make_unique<DenseJacobian_>(j);
         }
     };
 
@@ -125,10 +125,10 @@ namespace {
             return Vector_<>{1.0 - x[0] - 3.0 * x[0] * x[0]};
         }
 
-        [[nodiscard]] Underdetermined::Jacobian_* Gradient(const Vector_<>&, const Vector_<>&) const override {
+        [[nodiscard]] std::unique_ptr<Underdetermined::Jacobian_> Gradient(const Vector_<>&, const Vector_<>&) const override {
             Matrix_<> j(1, 2, 0.0);
             j(0, 0) = -1.0;
-            return new DenseJacobian_(j);
+            return std::make_unique<DenseJacobian_>(j);
         }
     };
 
@@ -140,13 +140,13 @@ namespace {
 
         [[nodiscard]] Vector_<> F(const Vector_<>& x) const override { return Vector_<>{x[0] + x[2] - 3.0, x[1] + x[2] - 4.0}; }
 
-        [[nodiscard]] Underdetermined::Jacobian_* Gradient(const Vector_<>&, const Vector_<>&) const override {
+        [[nodiscard]] std::unique_ptr<Underdetermined::Jacobian_> Gradient(const Vector_<>&, const Vector_<>&) const override {
             Matrix_<> j(2, 3, 0.0);
             j(0, 0) = 1.0;
             j(0, 2) = 1.0;
             j(1, 1) = 1.0;
             j(1, 2) = 1.0;
-            return new DenseJacobian_(j);
+            return std::make_unique<DenseJacobian_>(j);
         }
 
         [[nodiscard]] int FastCalls() const { return fastCalls_; }
@@ -167,14 +167,14 @@ namespace {
     public:
         [[nodiscard]] Vector_<> F(const Vector_<>& x) const override { return Vector_<>{x[0] + x[2] - 3.0, x[1] + x[2] - 4.0}; }
 
-        [[nodiscard]] Underdetermined::Jacobian_* Gradient(const Vector_<>& x, const Vector_<>&) const override {
+        [[nodiscard]] std::unique_ptr<Underdetermined::Jacobian_> Gradient(const Vector_<>& x, const Vector_<>&) const override {
             gradientXs_.push_back(x);
             Matrix_<> j(2, 3, 0.0);
             j(0, 0) = 1.0;
             j(0, 2) = 1.0;
             j(1, 1) = 1.0;
             j(1, 2) = 1.0;
-            return new DenseJacobian_(j);
+            return std::make_unique<DenseJacobian_>(j);
         }
 
         [[nodiscard]] const Vector_<Vector_<>>& GradientXs() const { return gradientXs_; }
@@ -202,7 +202,7 @@ namespace {
     public:
         [[nodiscard]] Vector_<> F(const Vector_<>& x) const override { return Vector_<>{x[0] + x[2] - 3.0, x[1] + x[2] - 4.0}; }
 
-        [[nodiscard]] Underdetermined::Jacobian_* Gradient(const Vector_<>& x, const Vector_<>& f) const override {
+        [[nodiscard]] std::unique_ptr<Underdetermined::Jacobian_> Gradient(const Vector_<>& x, const Vector_<>& f) const override {
             gradientXs_.push_back(x);
             gradientFs_.push_back(f);
             Matrix_<> j(2, 3, 0.0);
@@ -210,7 +210,7 @@ namespace {
             j(0, 2) = 1.0;
             j(1, 1) = 1.0;
             j(1, 2) = 1.0;
-            return new DenseJacobian_(j);
+            return std::make_unique<DenseJacobian_>(j);
         }
 
         // f passed to the Gradient call at the solution (the convergence call), or empty if Gradient

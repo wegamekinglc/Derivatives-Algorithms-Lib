@@ -41,6 +41,24 @@ TEST(MatrixTest, TestMatrixMoveConstructor) {
     ASSERT_EQ(m2.Cols(), 4);
 }
 
+TEST(MatrixTest, TestMatrixMovedFromHasDefinedDimensions) {
+    {
+        matrix_t m1(3, 4);
+        matrix_t m2(std::move(m1));
+        ASSERT_EQ(m1.Rows(), 0);
+        ASSERT_EQ(m1.Cols(), 0);
+        ASSERT_TRUE(m1.Empty());
+    }
+    {
+        matrix_t m1(3, 4);
+        matrix_t m2;
+        m2 = std::move(m1);
+        ASSERT_EQ(m1.Rows(), 0);
+        ASSERT_EQ(m1.Cols(), 0);
+        ASSERT_TRUE(m1.Empty());
+    }
+}
+
 TEST(MatrixTest, TestMatrixCopyMoveConstructor) {
     auto m2 = matrix_t(3, 4);
     ASSERT_EQ(m2.Rows(), 3);

@@ -145,7 +145,7 @@ namespace Dal {
         Vector_<CurveCalibrationDiagnostics_> diagnostics_;
     };
 
-    Sparse::TriDiagonal_* BuildCurveCalibrationWeights(const Vector_<Date_>& knotDates, int paramsPerKnot, double smoothingWeight);
+    std::unique_ptr<Sparse::TriDiagonal_> BuildCurveCalibrationWeights(const Vector_<Date_>& knotDates, int paramsPerKnot, double smoothingWeight);
     Vector_<Date_> BuildCurveCalibrationKnots(const Date_& today,
                                               const Vector_<Handle_<YCInstrument_>>& instruments,
                                               const Vector_<Date_>& inputKnots,

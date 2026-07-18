@@ -107,8 +107,9 @@ namespace Dal {
         }
 
         template <class T_, class B_>
-        DiscountLogDF_<T_, B_>* DiscountLogDF_<T_, B_>::Clone(const String_& newName, const YCComponent_::substitutions_t& baseChanges) const {
-            return new DiscountLogDF_<T_, B_>(newName, this->ccy_.String(), nodeDates_, logDF_, dayCount_, scheme_, this->NewBase(baseChanges));
+        std::unique_ptr<YCComponent_> DiscountLogDF_<T_, B_>::Clone(const String_& newName, const YCComponent_::substitutions_t& baseChanges) const {
+            return std::make_unique<DiscountLogDF_<T_, B_>>(
+                newName, this->ccy_.String(), nodeDates_, logDF_, dayCount_, scheme_, this->NewBase(baseChanges));
         }
 
         template <class T_, class B_> Vector_<> DiscountLogDF_<T_, B_>::NodeDF() const {
@@ -131,14 +132,14 @@ namespace Dal {
 
     } // namespace Tape
 
-    DiscountCurve_* NewDiscountLogDF(const String_& name,
-                                     const String_& ccy,
-                                     const Vector_<Date_>& nodeDates,
-                                     const Vector_<>& logDF,
-                                     const DayBasis_& dayCount,
-                                     LogDfScheme_ scheme,
-                                     const Handle_<DiscountCurve_>& base) {
-        return new Tape::DiscountLogDF_<double>(name, ccy, nodeDates, logDF, dayCount, scheme, base);
+    std::unique_ptr<DiscountCurve_> NewDiscountLogDF(const String_& name,
+                                                      const String_& ccy,
+                                                      const Vector_<Date_>& nodeDates,
+                                                      const Vector_<>& logDF,
+                                                      const DayBasis_& dayCount,
+                                                      LogDfScheme_ scheme,
+                                                      const Handle_<DiscountCurve_>& base) {
+        return std::make_unique<Tape::DiscountLogDF_<double>>(name, ccy, nodeDates, logDF, dayCount, scheme, base);
     }
 
 #include <dal/auto/MG_DiscountLogDF_v1_Read.inc>

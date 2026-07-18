@@ -18,7 +18,7 @@ namespace Dal::PDE {
         }
     } // namespace
 
-    Sparse::TriDiagonal_* NewDx(const Vector_<>& x) {
+    std::unique_ptr<Sparse::TriDiagonal_> NewDx(const Vector_<>& x) {
         RequireOperatorLocations(x);
         const int n = static_cast<int>(x.size());
         std::unique_ptr<Sparse::TriDiagonal_> ret(new Sparse::TriDiagonal_(n));
@@ -30,10 +30,10 @@ namespace Dal::PDE {
             ret->Set(i, i, (dxu - dxl) / (dxl * dxu));
             ret->Set(i, i + 1, dxl / (dxu * dxm));
         }
-        return ret.release();
+        return ret;
     }
 
-    Sparse::TriDiagonal_* NewDxx(const Vector_<>& x) {
+    std::unique_ptr<Sparse::TriDiagonal_> NewDxx(const Vector_<>& x) {
         RequireOperatorLocations(x);
         const int n = static_cast<int>(x.size());
         std::unique_ptr<Sparse::TriDiagonal_> ret(new Sparse::TriDiagonal_(n));
@@ -45,6 +45,6 @@ namespace Dal::PDE {
             ret->Set(i, i, -2.0 / (dxl * dxu));
             ret->Set(i, i + 1, 2.0 / (dxu * dxm));
         }
-        return ret.release();
+        return ret;
     }
 } // namespace Dal::PDE

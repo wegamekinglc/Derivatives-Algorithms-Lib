@@ -8,6 +8,6 @@ namespace Dal {
     class Index_;
     class String_;
     namespace Index {
-        Index_* FxParser(const String_&);
+        std::unique_ptr<Index_> FxParser(const String_&);
     } // namespace Index
 } // namespace Dal

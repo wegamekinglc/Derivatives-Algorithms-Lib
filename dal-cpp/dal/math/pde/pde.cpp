@@ -144,52 +144,52 @@ namespace Dal::PDE {
         };
     } // namespace
 
-    CoordinateMap_* NewSinhMap(double xWidth, double dxdyRange) {
+    std::unique_ptr<CoordinateMap_> NewSinhMap(double xWidth, double dxdyRange) {
         REQUIRE(IsPositive(xWidth) && dxdyRange >= 1.0, "xWidth should be positive and dxdyRange should be greater than 1");
         double sinhMaxY = std::sqrt(Square(dxdyRange) - 1.0);
-        return IsZero(Square(sinhMaxY)) ? (CoordinateMap_*)new IdentityMap_ : new SinhMap_(xWidth / sinhMaxY);
+        return IsZero(Square(sinhMaxY)) ? std::unique_ptr<CoordinateMap_>(new IdentityMap_) : std::make_unique<SinhMap_>(xWidth / sinhMaxY);
     }
 
-    CoordinateMap_* NewConcentratingMap(double xLow, double xHigh, double cPoint, double density) {
+    std::unique_ptr<CoordinateMap_> NewConcentratingMap(double xLow, double xHigh, double cPoint, double density) {
         REQUIRE(xHigh > xLow, "concentrating map requires xHigh > xLow");
         REQUIRE(cPoint >= xLow && cPoint <= xHigh, "concentrating map requires cPoint in [xLow, xHigh]");
         REQUIRE(density > 0.0, "concentrating map requires density > 0");
-        return new ConcentratingMap_(xLow, xHigh, cPoint, density);
+        return std::make_unique<ConcentratingMap_>(xLow, xHigh, cPoint, density);
     }
 
-    ScalarCoeff_* NewConstCoeff(double val) { return new ConstScalarCoeff_(val); }
+    std::unique_ptr<ScalarCoeff_> NewConstCoeff(double val) { return std::make_unique<ConstScalarCoeff_>(val); }
 
-    VectorCoeff_* NewConstCoeff(const Vector_<>& val) { return new ConstVectorCoeff_(val); }
+    std::unique_ptr<VectorCoeff_> NewConstCoeff(const Vector_<>& val) { return std::make_unique<ConstVectorCoeff_>(val); }
 
-    MatrixCoeff_* NewConstCoeff(const Matrix_<>& val) {
+    std::unique_ptr<MatrixCoeff_> NewConstCoeff(const Matrix_<>& val) {
         REQUIRE(val.Rows() == val.Cols(), "constant matrix coefficient must be square");
-        return new ConstMatrixCoeff_(val);
+        return std::make_unique<ConstMatrixCoeff_>(val);
     }
 
-    ScalarCoeff_* NewScalarCoeff(std::function<double(const Vector_<>&)> f, Coeff_::x_dep_t dep) {
+    std::unique_ptr<ScalarCoeff_> NewScalarCoeff(std::function<double(const Vector_<>&)> f, Coeff_::x_dep_t dep) {
         REQUIRE(static_cast<bool>(f), "coefficient callable must be non-empty");
-        return new CallableScalarCoeff_(std::move(f), dep);
+        return std::make_unique<CallableScalarCoeff_>(std::move(f), dep);
     }
 
-    VectorCoeff_* NewVectorCoeff(std::function<void(const Vector_<>&, Vector_<>*)> f, const Vector_<Coeff_::x_dep_t>& dep) {
+    std::unique_ptr<VectorCoeff_> NewVectorCoeff(std::function<void(const Vector_<>&, Vector_<>*)> f, const Vector_<Coeff_::x_dep_t>& dep) {
         REQUIRE(static_cast<bool>(f), "coefficient callable must be non-empty");
-        return new CallableVectorCoeff_(std::move(f), dep);
+        return std::make_unique<CallableVectorCoeff_>(std::move(f), dep);
     }
 
-    MatrixCoeff_* NewMatrixCoeff(std::function<void(const Vector_<>&, SquareMatrix_<>*)> f, const Matrix_<Coeff_::x_dep_t>& dep) {
+    std::unique_ptr<MatrixCoeff_> NewMatrixCoeff(std::function<void(const Vector_<>&, SquareMatrix_<>*)> f, const Matrix_<Coeff_::x_dep_t>& dep) {
         REQUIRE(static_cast<bool>(f), "coefficient callable must be non-empty");
         REQUIRE(dep.Rows() == dep.Cols(), "matrix coefficient dependence must be square");
-        return new CallableMatrixCoeff_(std::move(f), dep);
+        return std::make_unique<CallableMatrixCoeff_>(std::move(f), dep);
     }
 
-    ScalarCoeff_* NewScalarCoeff(std::function<double(double)> f) {
+    std::unique_ptr<ScalarCoeff_> NewScalarCoeff(std::function<double(double)> f) {
         REQUIRE(static_cast<bool>(f), "coefficient callable must be non-empty");
         Coeff_::x_dep_t dep;
         dep.set(0);
         return NewScalarCoeff([f = std::move(f)](const Vector_<>& x) { return f(x[0]); }, dep);
     }
 
-    VectorCoeff_* NewVectorCoeff(std::function<double(double)> f) {
+    std::unique_ptr<VectorCoeff_> NewVectorCoeff(std::function<double(double)> f) {
         REQUIRE(static_cast<bool>(f), "coefficient callable must be non-empty");
         Coeff_::x_dep_t dep;
         dep.set(0);
@@ -197,7 +197,7 @@ namespace Dal::PDE {
         return NewVectorCoeff([f = std::move(f)](const Vector_<>& x, Vector_<>* out) { (*out)[0] = f(x[0]); }, deps);
     }
 
-    MatrixCoeff_* NewMatrixCoeff(std::function<double(double)> f) {
+    std::unique_ptr<MatrixCoeff_> NewMatrixCoeff(std::function<double(double)> f) {
         REQUIRE(static_cast<bool>(f), "coefficient callable must be non-empty");
         Coeff_::x_dep_t dep;
         dep.set(0);

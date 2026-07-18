@@ -83,6 +83,9 @@ namespace Dal {
 
         explicit Handle_(const T_* src) : base_t(src) {}
 
+        template <class U_, class = std::enable_if_t<std::is_convertible_v<U_*, const T_*>>> explicit Handle_(std::unique_ptr<U_>&& src)
+            : base_t(std::move(src)) {}
+
         explicit Handle_(const base_t& src) : base_t(src) {}
         [[nodiscard]] bool IsEmpty() const { return !base_t::get(); }
     };

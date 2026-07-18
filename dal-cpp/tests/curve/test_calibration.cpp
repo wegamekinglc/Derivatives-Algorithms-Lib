@@ -30,8 +30,8 @@ namespace {
 
         void Poll(std::map<const YCComponent_*, Handle_<YCComponent_>>*) const override {}
 
-        [[nodiscard]] ConstantDiscountCurve_* Clone(const String_& newName, const YCComponent_::substitutions_t&) const override {
-            return new ConstantDiscountCurve_(newName, ccy_.String(), value_);
+        [[nodiscard]] std::unique_ptr<YCComponent_> Clone(const String_& newName, const YCComponent_::substitutions_t&) const override {
+            return std::make_unique<ConstantDiscountCurve_>(newName, ccy_.String(), value_);
         }
 
         void Write(Archive::Store_&) const override {}

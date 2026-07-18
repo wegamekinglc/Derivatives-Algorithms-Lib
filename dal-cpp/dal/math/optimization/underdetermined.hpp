@@ -4,6 +4,8 @@
 
 #pragma once
 
+#include <memory>
+
 #include <dal/math/vectors.hpp>
 #include <dal/string/strings.hpp>
 #include <dal/utilities/dictionary.hpp>
@@ -65,7 +67,7 @@ namespace Dal {
         public:
             virtual ~Function_() = default;
             [[nodiscard]] virtual Vector_<> F(const Vector_<>& x) const = 0;
-            [[nodiscard]] virtual Jacobian_* Gradient(const Vector_<>& x, const Vector_<>& f) const {
+            [[nodiscard]] virtual std::unique_ptr<Jacobian_> Gradient(const Vector_<>& x, const Vector_<>& f) const {
                 return nullptr;
             }
             virtual void Gradient(const Vector_<>& x, const Vector_<>& f, Matrix_<>* j) const;

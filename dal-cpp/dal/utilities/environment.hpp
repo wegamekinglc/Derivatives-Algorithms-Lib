@@ -24,19 +24,19 @@ namespace Dal {
         struct IterImp_ : noncopyable {
             virtual ~IterImp_() = default;
             virtual bool Valid() const = 0;
-            virtual IterImp_* Next() const = 0;
+            virtual std::unique_ptr<IterImp_> Next() const = 0;
             virtual const Entry_& operator*() const = 0;
         };
 
         struct Iterator_ {
             Handle_<IterImp_> imp_;
-            explicit Iterator_(IterImp_* orphan) : imp_(orphan) {}
+            explicit Iterator_(std::unique_ptr<IterImp_> orphan) : imp_(std::move(orphan)) {}
             bool IsValid() const { return imp_.get() != nullptr && imp_.get()->Valid(); }
             void operator++();
             const Entry_& operator*() const { return **imp_; }
         };
 
-        virtual IterImp_* XBegin() const = 0;
+        virtual std::unique_ptr<IterImp_> XBegin() const = 0;
         Iterator_ Begin() const { return Iterator_(XBegin()); }
     };
 
@@ -83,13 +83,13 @@ namespace Dal {
                 MyIter_(const Vector_<Handle_<Entry_>>& all, const Vector_<Handle_<Entry_>>::const_iterator& me)
                     : all_(all), me_(me) {}
                 bool Valid() const override { return me_ != all_.end(); }
-                IterImp_* Next() const override { return new MyIter_(all_, Dal::Next(me_)); }
+                std::unique_ptr<IterImp_> Next() const override { return std::make_unique<MyIter_>(all_, Dal::Next(me_)); }
                 const Entry_& operator*() const override { return **me_; }
             };
 
         public:
             explicit Base_(const Vector_<Handle_<Entry_>>& vals = Vector_<Handle_<Entry_>>()) : vals_(vals) {}
-            MyIter_* XBegin() const override { return new MyIter_(vals_, vals_.begin()); }
+            std::unique_ptr<IterImp_> XBegin() const override { return std::make_unique<MyIter_>(vals_, vals_.begin()); }
         };
 
         class XDecorated_ : public Environment_ {
@@ -102,7 +102,7 @@ namespace Dal {
                 const Entry_& val_;
                 I1(const Environment_* parent, const Entry_& val) : parent_(parent), val_(val) {}
                 bool Valid() const override { return true; }
-                IterImp_* Next() const override { return parent_ ? parent_->XBegin() : nullptr; }
+                std::unique_ptr<IterImp_> Next() const override { return parent_ ? parent_->XBegin() : nullptr; }
                 const Entry_& operator*() const override { return val_; }
             };
 
@@ -113,7 +113,7 @@ namespace Dal {
             }
             ~XDecorated_() override { theEnv_ = parent_; }
 
-            IterImp_* XBegin() const override { return new I1(parent_, val_); }
+            std::unique_ptr<IterImp_> XBegin() const override { return std::make_unique<I1>(parent_, val_); }
         };
     } // namespace Environment
 } // namespace Dal

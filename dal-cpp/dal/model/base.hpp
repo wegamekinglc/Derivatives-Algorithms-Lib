@@ -52,13 +52,13 @@ namespace Dal {
         Vector_<String_> parameterLabels_;
 
         ModelData_(const String_& type, const String_& name): Storable_(type.c_str(), name) {}
-        [[nodiscard]] ModelData_* MutantModel(const String_& newName, const Vector_<Handle_<Slide_> >& slides) const {
+        [[nodiscard]] std::unique_ptr<ModelData_> MutantModel(const String_& newName, const Vector_<Handle_<Slide_> >& slides) const {
             REQUIRE(slides.empty(), "slides are not supported for ModelData");
             return MutantModel(&newName, nullptr);
         }
 
     private:
-        virtual ModelData_* MutantModel(const String_* newName, const Slide_* slide) const = 0;
+        virtual std::unique_ptr<ModelData_> MutantModel(const String_* newName, const Slide_* slide) const = 0;
     };
 
 } // namespace Dal

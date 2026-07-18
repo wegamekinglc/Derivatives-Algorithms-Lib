@@ -121,9 +121,9 @@ namespace Dal {
         }
     } // namespace
 
-    Interp1_* Interp::NewCubic(
+    std::unique_ptr<Interp1_> Interp::NewCubic(
         const String_& name, const Vector_<>& x, const Vector_<>& f, const Boundary_& lhs, const Boundary_& rhs) {
-        return new Cubic1_(name, x, f, lhs, rhs);
+        return std::make_unique<Cubic1_>(name, x, f, lhs, rhs);
     }
 
 #include <dal/auto/MG_Cubic1_Read.inc>

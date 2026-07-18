@@ -74,11 +74,11 @@ namespace Dal {
                     shuffle_[ii] = IRN();
             }
 
-            [[nodiscard]] PseudoRandom_* Branch(int iChild) const override {
-                return new ShuffledIRN_<M_, L_, S_>(irn_[0] ^ irn_[1]);
+            [[nodiscard]] std::unique_ptr<PseudoRandom_> Branch(int iChild) const override {
+                return std::make_unique<ShuffledIRN_<M_, L_, S_>>(irn_[0] ^ irn_[1]);
             }
 
-            [[nodiscard]] PseudoRandom_* Clone() const override { return new ShuffledIRN_(seed_, cache_.size()); }
+            [[nodiscard]] std::unique_ptr<Random_> Clone() const override { return std::make_unique<ShuffledIRN_>(seed_, cache_.size()); }
 
             void SkipTo(size_t nPaths) override {}
         };
@@ -126,10 +126,10 @@ namespace Dal {
                 return u;
             }
 
-            [[nodiscard]] PseudoRandom_* Branch(int iChild) const override { return new MRG32k32a_(); }
+            [[nodiscard]] std::unique_ptr<PseudoRandom_> Branch(int iChild) const override { return std::make_unique<MRG32k32a_>(); }
 
-            [[nodiscard]] PseudoRandom_* Clone() const override {
-                return new MRG32k32a_(static_cast<unsigned>(a_), static_cast<unsigned>(b_), cache_.size());
+            [[nodiscard]] std::unique_ptr<Random_> Clone() const override {
+                return std::make_unique<MRG32k32a_>(static_cast<unsigned>(a_), static_cast<unsigned>(b_), cache_.size());
             }
 
             void SkipTo(size_t nPaths) override {
@@ -220,15 +220,12 @@ namespace Dal {
 
 #include <dal/auto/MG_RNGType_enum.inc>
 
-    PseudoRandom_* New(const RNGType_& type, int seed, size_t nDim, bool precise) {
-        PseudoRandom_* ret;
+    std::unique_ptr<PseudoRandom_> New(const RNGType_& type, int seed, size_t nDim, bool precise) {
         if (type == RNGType_("IRN"))
-            ret = new ShuffledIRN_<55, 31, 128>(seed, nDim, precise);
-        else if (type == RNGType_("MRG32"))
-            ret = new MRG32k32a_(seed, seed + 1, nDim, precise);
-        else
-            THROW("RNG type is not recognized");
-        return ret;
+            return std::make_unique<ShuffledIRN_<55, 31, 128>>(seed, nDim, precise);
+        if (type == RNGType_("MRG32"))
+            return std::make_unique<MRG32k32a_>(seed, seed + 1, nDim, precise);
+        THROW("RNG type is not recognized");
     }
 
 #include <dal/auto/MG_PseudoRSG_v1_Read.inc>

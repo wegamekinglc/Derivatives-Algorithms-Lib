@@ -182,7 +182,7 @@ namespace Dal {
             }
 
             // Returns AAD-tape Jacobian when ANALYTIC + eligible; nullptr otherwise (solver falls back to dense bumping).
-            [[nodiscard]] Underdetermined::Jacobian_* Gradient(const Vector_<>& x, const Vector_<>& f) const override {
+            [[nodiscard]] std::unique_ptr<Underdetermined::Jacobian_> Gradient(const Vector_<>& x, const Vector_<>& f) const override {
                 if (jacobianMode_ != CurveJacobianMode_::Value_::ANALYTIC) {
                     static_cast<void>(x);
                     static_cast<void>(f);
@@ -247,7 +247,7 @@ namespace Dal {
                 return true;
             }
 
-            [[nodiscard]] Underdetermined::Jacobian_* AnalyticJacobian(const Vector_<>& x, const Vector_<>& f) const;
+            [[nodiscard]] std::unique_ptr<Underdetermined::Jacobian_> AnalyticJacobian(const Vector_<>& x, const Vector_<>& f) const;
 
             template <class T_> [[nodiscard]] Handle_<Tape::Rate_<T_>> PhaseARateAt(int i) const {
                 return VisitRate(
@@ -256,7 +256,7 @@ namespace Dal {
             }
         };
 
-        Underdetermined::Jacobian_* YieldCurveCalibrationFunc_::AnalyticJacobian(const Vector_<>& x, const Vector_<>& f) const {
+        std::unique_ptr<Underdetermined::Jacobian_> YieldCurveCalibrationFunc_::AnalyticJacobian(const Vector_<>& x, const Vector_<>& f) const {
             auto* tape = Dal::AAD::Tape();
             TapeGuard_ guard(tape);
             static_cast<void>(f); // the residual values themselves are unused; we recompute on the tape
@@ -276,7 +276,7 @@ namespace Dal {
                 residuals[i] = (*rateT)(ctx) - static_cast<double>(marketRates_[i]);
             }
 
-            return new XCurveJacobian_(HarvestCurveJacobian(*tape, parameters, residuals));
+            return std::make_unique<XCurveJacobian_>(HarvestCurveJacobian(*tape, parameters, residuals));
         }
 
         Vector_<> ModelRates(const Vector_<Handle_<YCInstrument_>>& instruments, const YieldCurve_& curve, const Handle_<YieldCurve_>& fundingCurve) {
@@ -315,7 +315,7 @@ namespace Dal {
         }
     } // namespace
 
-    Sparse::TriDiagonal_* BuildCurveCalibrationWeights(const Vector_<Date_>& knotDates, int paramsPerKnot, double smoothingWeight) {
+    std::unique_ptr<Sparse::TriDiagonal_> BuildCurveCalibrationWeights(const Vector_<Date_>& knotDates, int paramsPerKnot, double smoothingWeight) {
         REQUIRE(!knotDates.empty(), "Curve calibration weights require knot dates");
         REQUIRE(paramsPerKnot > 0, "Curve calibration weights require positive params-per-knot");
         REQUIRE(smoothingWeight > 0.0, "Curve calibration smoothing weight must be positive");

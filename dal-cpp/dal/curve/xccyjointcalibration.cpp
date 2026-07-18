@@ -258,7 +258,7 @@ namespace Dal {
                 return Residuals<double>(parameters);
             }
 
-            [[nodiscard]] Underdetermined::Jacobian_* Gradient(const Vector_<>& parameters, const Vector_<>&) const override {
+            [[nodiscard]] std::unique_ptr<Underdetermined::Jacobian_> Gradient(const Vector_<>& parameters, const Vector_<>&) const override {
                 if (jacobianMode_ != CurveJacobianMode_::Value_::ANALYTIC)
                     return nullptr;
                 auto* tape = Dal::AAD::Tape();
@@ -266,7 +266,7 @@ namespace Dal {
                 Vector_<Dal::AAD::Number_> activeParameters = RegisterCurveParameters(parameters);
                 Dal::AAD::NewRecording(*tape);
                 Vector_<Dal::AAD::Number_> residuals = Residuals<Dal::AAD::Number_>(activeParameters);
-                return new XCurveJacobian_(HarvestCurveJacobian(*tape, activeParameters, residuals));
+                return std::make_unique<XCurveJacobian_>(HarvestCurveJacobian(*tape, activeParameters, residuals));
             }
         };
 

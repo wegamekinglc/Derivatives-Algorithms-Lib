@@ -74,8 +74,8 @@ namespace Dal {
         template <class T_, class B_> void DiscountPWC_<T_, B_>::Write(Archive::Store_&) const { THROW("DiscountPWC_ persistence is not supported"); }
 
         template <class T_, class B_>
-        DiscountPWC_<T_, B_>* DiscountPWC_<T_, B_>::Clone(const String_& newName, const YCComponent_::substitutions_t& baseChanges) const {
-            return new DiscountPWC_<T_, B_>(newName, this->ccy_.String(), knotDates_, fRightT_, this->NewBase(baseChanges));
+        std::unique_ptr<YCComponent_> DiscountPWC_<T_, B_>::Clone(const String_& newName, const YCComponent_::substitutions_t& baseChanges) const {
+            return std::make_unique<DiscountPWC_<T_, B_>>(newName, this->ccy_.String(), knotDates_, fRightT_, this->NewBase(baseChanges));
         }
 
         template class DiscountPWC_<double>;
@@ -83,8 +83,11 @@ namespace Dal {
         template class DiscountPWC_<AAD::Number_, DiscountCurve_<AAD::Number_>>;
     } // namespace Tape
 
-    DiscountCurve_* NewDiscountPWC(const String_& name, const String_& ccy, const PiecewiseConstant_& fwds, const Handle_<DiscountCurve_>& base) {
-        return new Tape::DiscountPWC_<double>(name, ccy, fwds.knotDates_, fwds.fRight_, base);
+    std::unique_ptr<DiscountCurve_> NewDiscountPWC(const String_& name,
+                                                   const String_& ccy,
+                                                   const PiecewiseConstant_& fwds,
+                                                   const Handle_<DiscountCurve_>& base) {
+        return std::make_unique<Tape::DiscountPWC_<double>>(name, ccy, fwds.knotDates_, fwds.fRight_, base);
     }
 
 } // namespace Dal

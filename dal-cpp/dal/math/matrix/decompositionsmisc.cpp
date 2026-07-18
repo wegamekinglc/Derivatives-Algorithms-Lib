@@ -102,11 +102,11 @@ namespace Dal {
         };
     } // namespace
 
-    SymmetricMatrixDecomposition_* DiagonalAsDecomposition(const Vector_<> &diag) {
-        return new Diagonal_(diag);
+    std::unique_ptr<SymmetricMatrixDecomposition_> DiagonalAsDecomposition(const Vector_<> &diag) {
+        return std::make_unique<Diagonal_>(diag);
     }
 
-    SquareMatrixDecomposition_* LowerTriangularAsDecomposition(const SquareMatrix_<> &elements) {
-        return new LowerTriangular_(elements);
+    std::unique_ptr<SquareMatrixDecomposition_> LowerTriangularAsDecomposition(const SquareMatrix_<> &elements) {
+        return std::make_unique<LowerTriangular_>(elements);
     }
 } // namespace Dal

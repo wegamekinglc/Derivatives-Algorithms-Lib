@@ -49,12 +49,12 @@ namespace Dal {
                 // linear head: knots [0 .. cutoffIndex_]
                 Vector_<> headYf(yf_.begin(), yf_.begin() + cutoffIndex_ + 1);
                 Vector_<> headLogDF(logDF_.begin(), logDF_.begin() + cutoffIndex_ + 1);
-                linear_.reset(Interp::NewLinear(name + "_lin", headYf, headLogDF));
+                linear_ = Handle_<Interp1_>(Interp::NewLinear(name + "_lin", headYf, headLogDF));
 
                 // cubic tail: knots [cutoffIndex_ .. end]
                 Vector_<> tailYf(yf_.begin() + cutoffIndex_, yf_.end());
                 Vector_<> tailLogDF(logDF_.begin() + cutoffIndex_, logDF_.end());
-                cubic_.reset(Interp::NewCubic(name + "_cub", tailYf, tailLogDF, spec.cubicLhs_, spec.cubicRhs_));
+                cubic_ = Handle_<Interp1_>(Interp::NewCubic(name + "_cub", tailYf, tailLogDF, spec.cubicLhs_, spec.cubicRhs_));
             }
 
             double operator()(double x) const override {
@@ -77,10 +77,10 @@ namespace Dal {
         };
     } // namespace
 
-    Interp1_* NewMixedLogDF(const String_& name,
-                            const Vector_<>& yf,
-                            const Vector_<>& logDF,
-                            const MixedSchemeSpec_& spec) {
-        return new MixedLogDF_(name, yf, logDF, spec);
+    std::unique_ptr<Interp1_> NewMixedLogDF(const String_& name,
+                                            const Vector_<>& yf,
+                                            const Vector_<>& logDF,
+                                            const MixedSchemeSpec_& spec) {
+        return std::make_unique<MixedLogDF_>(name, yf, logDF, spec);
     }
 } // namespace Dal

@@ -147,7 +147,7 @@ namespace Dal {
 
         void Interp1_New_Linear_Smoothed(const String_& name, const Vector_<>& x, const Vector_<>& y, double smoothing, const Vector_<>& fit_weights, Handle_<Interp1_>* f) {
             Vector_<> z = SmoothedVals(x, y, fit_weights, smoothing);
-            f->reset(Interp::NewLinear(name, x, z));
+            *f = Handle_<Interp1_>(Interp::NewLinear(name, x, z));
         }
 
         void Interp1_New_Cubic(const String_& name,
@@ -165,7 +165,7 @@ namespace Dal {
                     right.value_ = boundary_value.back();
                 }
             }
-            f->reset(Interp::NewCubic(name, x, y, left, right));
+            *f = Handle_<Interp1_>(Interp::NewCubic(name, x, y, left, right));
         }
 
         double CheckedInterp2(const Interp2_& f, double x, double y) {
@@ -186,7 +186,7 @@ namespace Dal {
                                 const Vector_<>& y,
                                 const Matrix_<>& z,
                                 Handle_<Interp2_>* f) {
-            f->reset(Interp::NewLinear2(name, x, y, z));
+            *f = Handle_<Interp2_>(Interp::NewLinear2(name, x, y, z));
         }
     } // namespace
 #ifdef _WIN32

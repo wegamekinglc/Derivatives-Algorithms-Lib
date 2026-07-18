@@ -8,7 +8,7 @@
 #include <dal/indice/index/fx.hpp>
 
 namespace Dal::Index {
-    Index_* FxParser(const String_& name) {
+    std::unique_ptr<Index_> FxParser(const String_& name) {
         auto fx_start = name.find_first_of("[");
         auto fx_stop = name.find_first_of("]");
         auto fx_sep = name.find_first_of("/");
@@ -16,6 +16,6 @@ namespace Dal::Index {
 
         String_ fgn = name.substr(fx_start + 1, fx_sep - fx_start - 1);
         String_ dom = name.substr(fx_sep + 1, fx_stop - fx_sep - 1);
-        return new Fx_(Ccy_(dom), Ccy_(fgn));
+        return std::make_unique<Fx_>(Ccy_(dom), Ccy_(fgn));
     }
 } // namespace Dal::Index

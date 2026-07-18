@@ -21,8 +21,8 @@ namespace Dal::Sparse {
         virtual void MultiplyRight(const Vector_<>& x, Vector_<>* b) const = 0;
 
         [[nodiscard]] virtual bool IsSymmetric() const = 0;
-        [[nodiscard]] virtual SquareMatrixDecomposition_* Decompose() const = 0;
-        [[nodiscard]] SymmetricDecomposition_* DecomposeSymmetric() const;
+        [[nodiscard]] virtual std::unique_ptr<SquareMatrixDecomposition_> Decompose() const = 0;
+        [[nodiscard]] std::unique_ptr<SymmetricDecomposition_> DecomposeSymmetric() const;
         virtual const double& operator()(int iRow, int jCol) const = 0;
         virtual void Set(int iRow, int jCol, double val) = 0;
         virtual void Add(int iRow, int jCol, double val) { Set(iRow, jCol, val + operator()(iRow, jCol)); }

@@ -66,7 +66,7 @@ namespace Dal {
 
         struct TransposedWriter_ : Writer_ {
             scoped_ptr<Writer_> base_;
-            TransposedWriter_(Writer_* base) : base_(base) {}
+            explicit TransposedWriter_(std::unique_ptr<Writer_> base) : base_(std::move(base)) {}
             int Rows(const Vector_<const Table_*>& args) const { return base_->Cols(args); }
             int Cols(const Vector_<const Table_*>& args) const { return base_->Rows(args); }
             void Write(const WriterView_& dst, const Vector_<const Table_*>& args) const {
@@ -76,7 +76,7 @@ namespace Dal {
 
         struct InvertedWriter_ : Writer_ {
             scoped_ptr<Writer_> base_;
-            InvertedWriter_(Writer_* base) : base_(base) {}
+            explicit InvertedWriter_(std::unique_ptr<Writer_> base) : base_(std::move(base)) {}
             int Rows(const Vector_<const Table_*>& args) const { return base_->Rows(args); }
             int Cols(const Vector_<const Table_*>& args) const { return base_->Cols(args); }
             void Write(const WriterView_& dst, const Vector_<const Table_*>& args) const {
@@ -87,7 +87,7 @@ namespace Dal {
         struct LinearWriter_ : Writer_ // puts everything in a single row
         {
             scoped_ptr<Writer_> base_;
-            LinearWriter_(Writer_* base) : base_(base) {}
+            explicit LinearWriter_(std::unique_ptr<Writer_> base) : base_(std::move(base)) {}
             int Rows(const Vector_<const Table_*>&) const { return 1; }
             int Cols(const Vector_<const Table_*>& args) const { return base_->Rows(args) * base_->Cols(args); }
             void Write(const WriterView_& dst, const Vector_<const Table_*>& args) const {
@@ -215,45 +215,45 @@ namespace Dal {
                        : src;
         }
 
-        Writer_* NewWriter(const String_& format);
-        template <class M_> Writer_* MultipleWriter(const String_& format, char separator, M_ make_multiple) {
+        std::unique_ptr<Writer_> NewWriter(const String_& format);
+        template <class M_> std::unique_ptr<Writer_> MultipleWriter(const String_& format, char separator, M_ make_multiple) {
             typedef typename std::remove_reference<decltype(*make_multiple())>::type multiple_t;
             Vector_<String_> subs = Split(format, separator);
             if (subs.size() <= 1)
                 return nullptr;
             std::unique_ptr<multiple_t> ret_val(make_multiple());
             for (const auto& s : subs)
-                ret_val->elements_.emplace_back(NewWriter(s));
-            return ret_val.release();
+                ret_val->elements_.emplace_back(Handle_<Writer_>(NewWriter(s)));
+            return ret_val;
         }
 
-        Writer_* XNewWriter(const String_& format) {
-            if (auto vr = MultipleWriter(format, ':', []() { return new VerticalWriter_(true); }))
+        std::unique_ptr<Writer_> XNewWriter(const String_& format) {
+            if (auto vr = MultipleWriter(format, ':', []() { return std::make_unique<VerticalWriter_>(true); }))
                 return vr;
-            if (auto vl = MultipleWriter(format, ';', []() { return new VerticalWriter_(false); }))
+            if (auto vl = MultipleWriter(format, ';', []() { return std::make_unique<VerticalWriter_>(false); }))
                 return vl;
             // ok, no unparenthesized semicolons
-            if (auto hr = MultipleWriter(format, '.', []() { return new HorizontalWriter_(true); }))
+            if (auto hr = MultipleWriter(format, '.', []() { return std::make_unique<HorizontalWriter_>(true); }))
                 return hr;
-            if (auto hl = MultipleWriter(format, ',', []() { return new HorizontalWriter_(false); }))
+            if (auto hl = MultipleWriter(format, ',', []() { return std::make_unique<HorizontalWriter_>(false); }))
                 return hl;
 
             // no commas:  just one element
             if (toupper(format.back()) == 'T')
-                return new TransposedWriter_(NewWriter(format.substr(0, format.size() - 1)));
+                return std::make_unique<TransposedWriter_>(NewWriter(format.substr(0, format.size() - 1)));
             else if (toupper(format.back()) == 'I')
-                return new InvertedWriter_(NewWriter(format.substr(0, format.size() - 1)));
+                return std::make_unique<InvertedWriter_>(NewWriter(format.substr(0, format.size() - 1)));
             else if (format.back() == '*')
-                return new LinearWriter_(NewWriter(format.substr(0, format.size() - 1)));
+                return std::make_unique<LinearWriter_>(NewWriter(format.substr(0, format.size() - 1)));
             else {
                 REQUIRE(format.size() == 1 && format.front() >= '0' && format.front() <= '9',
                         "Can't recognize format element -- expected argument index (format = '" + format + "')");
                 return format.front() == '0'
-                           ? (Writer_*)new EmptyCell_
-                           : new ArgWriter_(format.front() - '1'); // implements 1-offset count of args
+                           ? std::unique_ptr<Writer_>(new EmptyCell_)
+                           : std::make_unique<ArgWriter_>(format.front() - '1'); // implements 1-offset count of args
             }
         }
-        Writer_* NewWriter(const String_& format) { return XNewWriter(Strip(format)); }
+        std::unique_ptr<Writer_> NewWriter(const String_& format) { return XNewWriter(Strip(format)); }
     } // namespace
 
     Matrix_<Cell_> Matrix::Format(const Vector_<const Table_*>& args, const String_& format) {

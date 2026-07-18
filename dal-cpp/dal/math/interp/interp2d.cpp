@@ -11,8 +11,8 @@ namespace Dal {
     Interp2_::Interp2_(const String_& name) : Storable_("Interp2", name) {}
 
     namespace Interp {
-        Interp2_* NewLinear2(const String_& name, const Vector_<>& x, const Vector_<>& y, const Matrix_<>& f) {
-            return new Interp2Linear_(name, x, y, f);
+        std::unique_ptr<Interp2_> NewLinear2(const String_& name, const Vector_<>& x, const Vector_<>& y, const Matrix_<>& f) {
+            return std::make_unique<Interp2Linear_>(name, x, y, f);
         }
     } // namespace Interp
 } // namespace Dal

@@ -57,7 +57,7 @@ int main() {
 
         int settingIdx = 0;
         for (const auto& setting: settings) {
-            rsg.reset(NewSobol(numDims, 1000, setting.precise_, setting.polish_));
+            rsg = NewSobol(numDims, 1000, setting.precise_, setting.polish_);
 
             timer.Reset();
             for (size_t j = 0; j < numPaths; ++j)

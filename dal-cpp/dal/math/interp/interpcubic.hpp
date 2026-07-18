@@ -15,7 +15,7 @@ namespace Dal {
             Boundary_(int o, double v) : order_(o), value_(v) {}
         };
 
-        Interp1_* NewCubic(
+        std::unique_ptr<Interp1_> NewCubic(
             const String_& name, const Vector_<>& x, const Vector_<>& f, const Boundary_& lhs, const Boundary_& rhs);
     } // namespace Interp
 } // namespace Dal

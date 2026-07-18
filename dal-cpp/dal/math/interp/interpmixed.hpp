@@ -14,7 +14,7 @@ namespace Dal {
         Interp::Boundary_ cubicRhs_ = Interp::Boundary_(2, 0.0);
     };
 
-    Interp1_* NewMixedLogDF(const String_& name,
+    std::unique_ptr<Interp1_> NewMixedLogDF(const String_& name,
                             const Vector_<>& yf,
                             const Vector_<>& logDF,
                             const MixedSchemeSpec_& spec);

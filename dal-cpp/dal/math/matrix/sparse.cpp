@@ -25,11 +25,11 @@ namespace Dal::Sparse {
         }
     }
 
-    SymmetricDecomposition_* Square_::DecomposeSymmetric() const {
-        std::unique_ptr<SquareMatrixDecomposition_> d(Decompose());
-        if (auto ret_val = dynamic_cast<SymmetricDecomposition_*>(d.get())) {
+    std::unique_ptr<SymmetricDecomposition_> Square_::DecomposeSymmetric() const {
+        auto d = Decompose();
+        if (auto* ret_val = dynamic_cast<SymmetricDecomposition_*>(d.get())) {
             d.release();
-            return ret_val;
+            return std::unique_ptr<SymmetricDecomposition_>(ret_val);
         }
 
         REQUIRE(!IsSymmetric(), "symmetric matrix should return a type that implements QForm");

@@ -101,26 +101,26 @@ namespace Dal {
                 return retVal;
             }
 
-            Underdetermined::Jacobian_* J(const Vector_<>& x, const Vector_<>& f) {
+            std::unique_ptr<Underdetermined::Jacobian_> J(const Vector_<>& x, const Vector_<>& f) {
                 REQUIRE(nRestarts_-- > 0, "Exhausted gradient evaluations in underdetermined search");
                 return BuildJacobian(x, f);
             }
 
-            Underdetermined::Jacobian_* JAtSolution(const Vector_<>& x, const Vector_<>& scaledF) {
+            std::unique_ptr<Underdetermined::Jacobian_> JAtSolution(const Vector_<>& x, const Vector_<>& scaledF) {
                 Vector_<> unscaledF = scaledF;
                 Transform(&unscaledF, tol_, std::multiplies<>());
                 return BuildJacobian(x, unscaledF);
             }
 
-            Underdetermined::Jacobian_* BuildJacobian(const Vector_<>& x, const Vector_<>& f) {
+            std::unique_ptr<Underdetermined::Jacobian_> BuildJacobian(const Vector_<>& x, const Vector_<>& f) {
                 if (auto sparse = func_.Gradient(x, f)) {
                     sparse->DivideRows(tol_);
                     return sparse;
                 }
                 func_.Gradient(x, f, &jDense_);
-                std::unique_ptr<XJDense_> retVal(new XJDense_(jDense_));
+                auto retVal = std::make_unique<XJDense_>(jDense_);
                 retVal->DivideRows(tol_);
-                return retVal.release();
+                return retVal;
             }
         };
 
@@ -188,7 +188,7 @@ namespace Dal {
                 return true;
             }
 
-            [[nodiscard]] Sparse::SymmetricDecomposition_* Decompose() const override;
+            [[nodiscard]] std::unique_ptr<SquareMatrixDecomposition_> Decompose() const override;
 
             const double& operator()(int iRow, int iCol) const override {
                 THROW("Penalty weight element access is not supported");
@@ -225,7 +225,7 @@ namespace Dal {
             }
         };
 
-        Sparse::SymmetricDecomposition_* XPenaltyWeight_::Decompose() const { return new XDecompByCG_(*this); }
+        std::unique_ptr<SquareMatrixDecomposition_> XPenaltyWeight_::Decompose() const { return std::make_unique<XDecompByCG_>(*this); }
 
         Vector_<> ApproxQPStep(const Vector_<>& x0,
                                const Vector_<>& x,
@@ -344,7 +344,7 @@ namespace Dal {
 
         for (;;) {
             if (state.restart_) {
-                state.jacobian_.reset(func.J(state.xOld_, state.fOld_));
+                state.jacobian_ = func.J(state.xOld_, state.fOld_);
                 state.approximateJacobian_ = false;
                 state.restart_ = false;
             }
@@ -374,7 +374,7 @@ namespace Dal {
 
         for (int ie = 3, ticker = 0; ie < controls.maxEvaluations_; ++ie, ticker -= controls.maxRestarts_) {
             if (ticker <= 0) {
-                j.reset(func.J(xOld, fOld));
+                j = func.J(xOld, fOld);
                 ticker = controls.maxEvaluations_;
                 ++ie; // we used up an evaluation too
             }

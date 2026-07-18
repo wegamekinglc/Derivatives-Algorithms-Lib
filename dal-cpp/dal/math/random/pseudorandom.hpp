@@ -41,14 +41,13 @@ namespace Dal {
         virtual double NextUniform() = 0;
         void FillUniform(Vector_<>* deviates) override;
         void FillNormal(Vector_<>* deviates) override;
-        [[nodiscard]] PseudoRandom_* Clone() const override = 0;
         [[nodiscard]] size_t NDim() const override { return cache_.size(); }
-        [[nodiscard]] virtual PseudoRandom_* Branch(int iChild) const = 0;
+        [[nodiscard]] virtual std::unique_ptr<PseudoRandom_> Branch(int iChild) const = 0;
         const bool precise_;
     };
 
 #include <dal/auto/MG_RNGType_enum.hpp>
-    PseudoRandom_* New(const RNGType_& type, int seed, size_t nDim = 1, bool precise = true);
+    std::unique_ptr<PseudoRandom_> New(const RNGType_& type, int seed, size_t nDim = 1, bool precise = true);
 
     class BASE_EXPORT PseudoRSG_: public Storable_ {
         std::unique_ptr<PseudoRandom_> rsg_;
@@ -57,9 +56,11 @@ namespace Dal {
         bool precise_;
     public:
         PseudoRSG_(const String_& name, double seed, double ndim = 1, bool precise = true)
-        : Storable_("PseudoRSG", name), seed_(seed), ndim_(ndim), precise_(precise) {
-            rsg_.reset(New(RNGType_(name), static_cast<int>(seed), static_cast<size_t>(ndim), precise));
-        }
+            : Storable_("PseudoRSG", name),
+              rsg_(New(RNGType_(name), static_cast<int>(seed), static_cast<size_t>(ndim), precise)),
+              seed_(seed),
+              ndim_(ndim),
+              precise_(precise) {}
         void Write(Archive::Store_& dst) const override;
         void FillUniform(Vector_<>* deviates) const {
             rsg_->FillUniform(deviates);

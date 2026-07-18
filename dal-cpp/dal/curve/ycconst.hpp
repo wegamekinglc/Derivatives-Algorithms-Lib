@@ -33,14 +33,15 @@ namespace Dal {
             [[nodiscard]] int NX() const override;
             void ApplyDX(Vector_<>::const_iterator dx, double leverage) override;
             void Write(Archive::Store_& dst) const override;
-            [[nodiscard]] DiscountPWC_* Clone(const String_& newName, const YCComponent_::substitutions_t& baseChanges) const override;
+            [[nodiscard]] std::unique_ptr<YCComponent_> Clone(const String_& newName,
+                                                              const YCComponent_::substitutions_t& baseChanges) const override;
 
             [[nodiscard]] const Vector_<Date_>& KnotDates() const { return knotDates_; }
             [[nodiscard]] Vector_<T_> FRight() const { return fRightT_; }
         };
     } // namespace Tape
 
-    DiscountCurve_* NewDiscountPWC(const String_& name,
+    std::unique_ptr<DiscountCurve_> NewDiscountPWC(const String_& name,
                                    const String_& ccy,
                                    const PiecewiseConstant_& fwds,
                                    const Handle_<DiscountCurve_>& base = Handle_<DiscountCurve_>());
