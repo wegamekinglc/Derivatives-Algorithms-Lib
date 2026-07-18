@@ -228,14 +228,14 @@ namespace Dal {
         }
 
         std::unique_ptr<Writer_> XNewWriter(const String_& format) {
-            if (auto vr = MultipleWriter(format, ':', []() { return new VerticalWriter_(true); }))
+            if (auto vr = MultipleWriter(format, ':', []() { return std::make_unique<VerticalWriter_>(true); }))
                 return vr;
-            if (auto vl = MultipleWriter(format, ';', []() { return new VerticalWriter_(false); }))
+            if (auto vl = MultipleWriter(format, ';', []() { return std::make_unique<VerticalWriter_>(false); }))
                 return vl;
             // ok, no unparenthesized semicolons
-            if (auto hr = MultipleWriter(format, '.', []() { return new HorizontalWriter_(true); }))
+            if (auto hr = MultipleWriter(format, '.', []() { return std::make_unique<HorizontalWriter_>(true); }))
                 return hr;
-            if (auto hl = MultipleWriter(format, ',', []() { return new HorizontalWriter_(false); }))
+            if (auto hl = MultipleWriter(format, ',', []() { return std::make_unique<HorizontalWriter_>(false); }))
                 return hl;
 
             // no commas:  just one element
