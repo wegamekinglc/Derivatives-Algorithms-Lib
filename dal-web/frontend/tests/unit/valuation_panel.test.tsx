@@ -130,6 +130,22 @@ describe("ValuationPanel", () => {
     expect(screen.getByText("Trade Two")).toBeTruthy();
   });
 
+  it("surfaces a server-side valuation failure without result cards", async () => {
+    const onRun = vi
+      .fn<(config: ValuationConfig) => Promise<ValuationResult>>()
+      .mockResolvedValue(makeResult({ status: "running" }));
+    getValuationSpy.mockResolvedValue(makeResult({ status: "failed" }));
+    render(<ValuationPanel onRun={onRun} />);
+
+    fireEvent.click(runButton());
+
+    await screen.findByText("Valuation failed on the server. Check the backend logs.", undefined, {
+      timeout: 3000,
+    });
+    expect(screen.queryByText("Total PV")).toBeNull();
+    expect(runButton().disabled).toBe(false);
+  });
+
   it("surfaces submission errors and re-enables the form", async () => {
     const onRun = vi
       .fn<(config: ValuationConfig) => Promise<ValuationResult>>()

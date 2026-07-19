@@ -141,7 +141,7 @@ export default function ValuationPanel({ onRun, title = "Run valuation" }: Props
         </button>
       </div>
 
-      {result && result.status !== "running" && (
+      {result && result.status === "completed" && (
         <div>
           <div {...css("cards")} {...inlineStyle({ marginBottom: 12 })}>
             <div {...css("card")}>
