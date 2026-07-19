@@ -94,7 +94,9 @@ directory.
 
 For ephemeral or read-only environments where no database is wanted, set
 `DAL_WEB_STORE=memory` to fall back to the original in-memory store -- no file,
-no SQLAlchemy.
+no SQLAlchemy. Everything then lives in process memory, so a backend restart
+loses all entities and any in-flight valuations. With the database store,
+entities and finished valuation results survive a restart.
 
 ## Running
 
@@ -280,6 +282,19 @@ valuation. Pricing dispatch therefore remains serialized within a backend
 process. The result is updated in-place once it completes, and the frontend polls
 `GET /api/valuations/{id}` at 300ms intervals until the status becomes
 `"completed"` or `"failed"`.
+
+A settled valuation distinguishes two failure layers. A per-trade pricing
+failure is contained per trade: the valuation still reaches `"completed"`, the
+failing trade's row carries an `error` and contributes zero PV, and the
+remaining trades price and aggregate normally -- one bad trade cannot abort a
+portfolio. A task-level failure (anything outside an individual trade's
+pricing) flips the whole valuation to `"failed"` with `error_message` set,
+zeroed PV, empty Greeks, and no trade rows.
+
+Pricing tasks live inside the backend process, so a valuation still `"running"`
+when the server stops cannot resume. On startup, such orphaned rows are
+reconciled to `"failed"` with `error_message: "Server restarted while
+pricing"`; completed and already-failed rows are left untouched.
 
 ### Tests
 
