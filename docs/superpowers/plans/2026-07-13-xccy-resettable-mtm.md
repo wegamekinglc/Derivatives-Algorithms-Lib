@@ -625,7 +625,7 @@ Set every reset, fixing identity, collateral, snapshot, curve declaration, solve
 
 - [ ] **Step 2: Run and verify failure**
 
-Run: `cmake --build build --target dal_public_tests -j 4`
+Run: `cmake --build build/Release-linux --target dal_public_tests -j 4`
 
 Expected: compilation fails because the new public builders are undefined.
 
@@ -645,7 +645,7 @@ Handle_<CrossCurrencySwap_> CrossCurrencySwapNew(const Date_& tradeDate,
 
 - [ ] **Step 4: Run public tests**
 
-Run: `build/dal-public/dal_public_tests --gtest_filter=CurveProtocolTest.*:CurveInstrumentTest.TestCrossCurrency*:XccyCalibrationTest.*`
+Run: `build/Release-linux/dal-public/dal_public_tests --gtest_filter=CurveProtocolTest.*:CurveInstrumentTest.TestCrossCurrency*:XccyCalibrationTest.*`
 
 Expected: old and new instrument builders, snapshot, staged builder, joint builder, and result layout pass.
 
@@ -870,7 +870,7 @@ Record the new XCCY capability and the breaking replacement of the two public co
 
 Run: `build/Release-linux/dal-cpp/dal_cpp_tests --gtest_filter=FixingSnapshotTest.*:XccyPricingTest.*:XccyMarketTest.*:XccyBasisJacobianTest.*:XccyJointCalibrationTest.*:XccyJointJacobianTest.*:JointCalibrationTest.*:JointAnalyticJacobianTest.*`
 
-Run: `build/dal-public/dal_public_tests --gtest_filter=CurveProtocolTest.*:CurveInstrumentTest.*:XccyCalibrationTest.*`
+Run: `build/Release-linux/dal-public/dal_public_tests --gtest_filter=CurveProtocolTest.*:CurveInstrumentTest.*:XccyCalibrationTest.*`
 
 Run: `python -m pytest dal-python/tests/test_xccy_calibration.py dal-python/tests/test_xccy_resettable.py dal-python/tests/test_xccy_joint.py -q`
 
