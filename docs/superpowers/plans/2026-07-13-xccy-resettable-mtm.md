@@ -168,7 +168,7 @@ Expected: both commands succeed and core plus Excel generated enum files are pre
 
 - [ ] **Step 5: Run the protocol tests**
 
-Run: `bin/dal_cpp_tests --gtest_filter=CurrencyDataTest.*:XccyMarketTest.TestResetConfigRequiresExplicitFixingIdentity`
+Run: `build/Release-linux/dal-cpp/dal_cpp_tests --gtest_filter=CurrencyDataTest.*:XccyMarketTest.TestResetConfigRequiresExplicitFixingIdentity`
 
 Expected: all selected tests pass.
 
@@ -254,7 +254,7 @@ String_ FxIndexName(const Ccy_& domestic, const Ccy_& foreign) {
 
 - [ ] **Step 5: Run fixing tests**
 
-Run: `bin/dal_cpp_tests --gtest_filter=FixingSnapshotTest.*:IndexFxTest.*`
+Run: `build/Release-linux/dal-cpp/dal_cpp_tests --gtest_filter=FixingSnapshotTest.*:IndexFxTest.*`
 
 Expected: all selected tests pass.
 
@@ -339,7 +339,7 @@ Filter coupons with `paymentDate >= valuationTime.Date()`. Add rate requests onl
 
 - [ ] **Step 5: Run plan tests**
 
-Run: `bin/dal_cpp_tests --gtest_filter=XccyPricingTest.Test*Plan*:XccyPricingTest.TestRequiredHistoricalFixings*`
+Run: `build/Release-linux/dal-cpp/dal_cpp_tests --gtest_filter=XccyPricingTest.Test*Plan*:XccyPricingTest.TestRequiredHistoricalFixings*`
 
 Expected: all selected tests pass.
 
@@ -424,7 +424,7 @@ Keep `CrossCurrencySwap_::Rate_::operator()(const CrossCurrencyMarket_&)` for co
 
 - [ ] **Step 6: Run pricing tests**
 
-Run: `bin/dal_cpp_tests --gtest_filter=XccyPricingTest.*:XccyMarketTest.TestCrossCurrencySwap*`
+Run: `build/Release-linux/dal-cpp/dal_cpp_tests --gtest_filter=XccyPricingTest.*:XccyMarketTest.TestCrossCurrencySwap*`
 
 Expected: fixing, manual MTM, in-progress, fixed regression, missing-fixing, and matured-trade tests pass.
 
@@ -489,7 +489,7 @@ Pass `effJacobianInverse_` and forward Jacobian pointers to `Underdetermined::Fi
 
 - [ ] **Step 7: Run staged and Jacobian tests**
 
-Run: `bin/dal_cpp_tests --gtest_filter=XccyMarketTest.*:XccyBasisJacobianTest.*`
+Run: `build/Release-linux/dal-cpp/dal_cpp_tests --gtest_filter=XccyMarketTest.*:XccyBasisJacobianTest.*`
 
 Expected: staged fixed/reset/MTM calibration, started-trade calibration, analytic/central-difference comparison, and bumped mode pass.
 
@@ -571,7 +571,7 @@ Compare analytic and central-difference matrices for every domestic, foreign, an
 
 Move slot definitions, validation, parameter slicing, typed curve construction, smoothing assembly, and diagnostics from the anonymous namespace in `jointcalibration.cpp` into `jointcalibration_internal.hpp`. Keep the original `CalibrateJointMultiCurve` public types and output unchanged.
 
-Run: `bin/dal_cpp_tests --gtest_filter=JointCalibrationTest.*:JointAnalyticJacobianTest.*`
+Run: `build/Release-linux/dal-cpp/dal_cpp_tests --gtest_filter=JointCalibrationTest.*:JointAnalyticJacobianTest.*`
 
 Expected: all existing joint tests pass before adding XCCY solve logic.
 
@@ -591,7 +591,7 @@ Use block-diagonal smoothing over all declarations. Exact mode returns both effe
 
 - [ ] **Step 7: Run joint XCCY tests**
 
-Run: `bin/dal_cpp_tests --gtest_filter=XccyJointCalibrationTest.*:XccyJointJacobianTest.*:JointCalibrationTest.*:JointAnalyticJacobianTest.*`
+Run: `build/Release-linux/dal-cpp/dal_cpp_tests --gtest_filter=XccyJointCalibrationTest.*:XccyJointJacobianTest.*:JointCalibrationTest.*:JointAnalyticJacobianTest.*`
 
 Expected: synthetic recovery, validation, exact/approximate, analytic/bumped, layout, and all pre-existing joint tests pass.
 
@@ -868,7 +868,7 @@ Record the new XCCY capability and the breaking replacement of the two public co
 
 - [ ] **Step 5: Run targeted functional suites**
 
-Run: `bin/dal_cpp_tests --gtest_filter=FixingSnapshotTest.*:XccyPricingTest.*:XccyMarketTest.*:XccyBasisJacobianTest.*:XccyJointCalibrationTest.*:XccyJointJacobianTest.*:JointCalibrationTest.*:JointAnalyticJacobianTest.*`
+Run: `build/Release-linux/dal-cpp/dal_cpp_tests --gtest_filter=FixingSnapshotTest.*:XccyPricingTest.*:XccyMarketTest.*:XccyBasisJacobianTest.*:XccyJointCalibrationTest.*:XccyJointJacobianTest.*:JointCalibrationTest.*:JointAnalyticJacobianTest.*`
 
 Run: `build/dal-public/dal_public_tests --gtest_filter=CurveProtocolTest.*:CurveInstrumentTest.*:XccyCalibrationTest.*`
 
