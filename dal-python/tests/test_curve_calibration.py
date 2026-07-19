@@ -267,6 +267,42 @@ def test_api_calibrate_zero_rate_curve_with_base():
         assert spread_rate == pytest.approx(total_rate - 0.01, abs=1.0e-9)  # nosec B101 - intentional
 
 
+# ---- api.calibrate_curve settings validation ----
+
+def test_api_calibrate_curve_rejects_unknown_settings_key():
+    """api.calibrate_curve rejects an unknown settings key with a ValueError."""
+    instruments, knot_dates = _make_ois_instruments()
+    with pytest.raises(ValueError, match="smothing_weight"):
+        dal.api.calibrate_curve(
+            _today(), "USD", instruments, knot_dates,
+            settings=dict(smothing_weight=1.0),
+        )
+
+
+def test_api_calibrate_curve_unknown_key_error_lists_valid_keys():
+    """The unknown-key error names the bad key and the supported settings."""
+    instruments, knot_dates = _make_ois_instruments()
+    with pytest.raises(ValueError) as exc_info:
+        dal.api.calibrate_curve(
+            _today(), "USD", instruments, knot_dates,
+            settings=dict(bogus_key=1.0),
+        )
+    message = str(exc_info.value)
+    assert "bogus_key" in message  # nosec B101 - pytest assertions are intentional
+    for key in ("curve_name", "tolerance", "fit_tolerance", "solve_mode", "initial_guess"):
+        assert key in message  # nosec B101 - pytest assertions are intentional
+
+
+def test_api_calibrate_curve_rejects_unknown_key_with_none_value():
+    """An unknown key is rejected even when its value is None (unset)."""
+    instruments, knot_dates = _make_ois_instruments()
+    with pytest.raises(ValueError, match="bogus_key"):
+        dal.api.calibrate_curve(
+            _today(), "USD", instruments, knot_dates,
+            settings=dict(bogus_key=None),
+        )
+
+
 # ---- Multi-curve calibration ----
 
 def test_calibrate_multi_curve_bundle():

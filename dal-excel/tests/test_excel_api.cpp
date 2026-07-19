@@ -38,7 +38,7 @@ namespace {
         return config;
     }
 
-    Handle_<StorableJointXccyCalibrationResult_> JointResult() {
+    Handle_<StorableJointXccyCalibrationResult_> JointResult(const Matrix_<Cell_>& settings) {
         const Date_ maturity = Today().AddDays(365);
         Vector_<Handle_<Storable_>> domestic;
         domestic.push_back(Handle_<Storable_>(new StorableYCInstrument_(DepositNew(
@@ -53,6 +53,14 @@ namespace {
 
         Handle_<StorableMarketFixingSnapshot_> fixings;
         MarketFixingSnapshot_New({}, {}, {}, &fixings);
+
+        Handle_<StorableJointXccyCalibrationResult_> result;
+        Calibrate_JointXccy(Cell_(DateTime_(Today(), 0, 0)), Pair(), "USD", 1.10, domestic, {maturity}, foreign, {maturity}, basis, {maturity},
+                            fixings, settings, &result);
+        return result;
+    }
+
+    Handle_<StorableJointXccyCalibrationResult_> JointResult() {
         Matrix_<Cell_> settings(3, 2);
         settings(0, 0) = Cell_("initialGuess");
         settings(0, 1) = Cell_(0.01);
@@ -60,11 +68,7 @@ namespace {
         settings(1, 1) = Cell_(1.0e-9);
         settings(2, 0) = Cell_("maxEvaluations");
         settings(2, 1) = Cell_(400.0);
-
-        Handle_<StorableJointXccyCalibrationResult_> result;
-        Calibrate_JointXccy(Cell_(DateTime_(Today(), 0, 0)), Pair(), "USD", 1.10, domestic, {maturity}, foreign, {maturity}, basis, {maturity},
-                            fixings, settings, &result);
-        return result;
+        return JointResult(settings);
     }
 } // namespace
 
@@ -122,6 +126,22 @@ TEST(ExcelApiTest, TestUnknownJointResultViewListsEveryAcceptedAttribute) {
         for (const char* attribute : {"domesticBlock", "foreignBlock", "basisCurve", "fxForwards", "marketRates", "modelRates", "residuals",
                                       "jacobian", "parameterRanges", "residualRanges"})
             ASSERT_NE(message.find(attribute), std::string::npos) << attribute << ": " << message;
+    }
+}
+
+TEST(ExcelApiTest, TestUnknownJointSettingsKeyListsEveryAcceptedKey) {
+    Dal::Matrix_<Dal::Cell_> settings(1, 2);
+    settings(0, 0) = Dal::Cell_("bogusKey");
+    settings(0, 1) = Dal::Cell_(1.0);
+    try {
+        JointResult(settings);
+        FAIL() << "Expected an unknown joint settings key to fail";
+    } catch (const Dal::Exception_& exception) {
+        const std::string message(exception.what());
+        // the settings dictionary stores condensed (uppercase) keys, as in Dictionary_::At errors
+        ASSERT_NE(message.find("BOGUSKEY"), std::string::npos) << message;
+        for (const char* key : {"domesticCurveName", "basisSmoothingWeight", "solveMode", "jacobianMode", "computeForwardJacobian"})
+            ASSERT_NE(message.find(key), std::string::npos) << key << ": " << message;
     }
 }
 

@@ -37,4 +37,4 @@ exclude_paths:
   # context and don't need glossary entries here.
   - 'CLAUDE.md'
   - '.claude/**'
-  - 'doc/**'
+  - 'docs/**'

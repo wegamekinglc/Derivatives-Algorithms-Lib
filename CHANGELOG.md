@@ -46,6 +46,13 @@ here as the baseline rather than dated releases:
 
 ## 2026-07
 
+- `curve`: Made calibration settings dictionaries strict on the Python and Excel
+  surfaces. `dal.calibrate_curve` raises `ValueError` on an unknown settings key,
+  and the Excel single-curve, staged-XCCY, and joint-XCCY settings parsers throw
+  via `RequireKnownSettingsKey`; both name the offending key and the accepted set.
+  Unknown keys were previously ignored silently, so a misspelled key now fails
+  loudly instead of calibrating with defaults. Correct usage is unaffected.
+
 - `core`: Migrated owning factory returns from raw pointers to `std::unique_ptr`
   across the `dal-cpp` core headers: the interpolation factories
   (`Interp::NewLinear`/`NewLinear2`/`NewLogLinear`/`NewCubic`, `NewMixedLogDF`),

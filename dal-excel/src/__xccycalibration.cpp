@@ -6,6 +6,7 @@
 
 #include "__platform.hpp"
 #include "__curve_storable.hpp"
+#include "__settingskeys.hpp"
 #include "__xccy_test_api.hpp"
 #include <cmath>
 #include <dal-public/src/xccycalibration.hpp>
@@ -185,9 +186,12 @@ namespace Dal {
         }
 
         void ApplyXccySettings(const Dictionary_& settings, CrossCurrencyCalibrationSpecBuilder_& b) {
+            static const Vector_<String_> validKeys = {"fxSpot",       "fxForwardCollateral", "smoothingWeight", "tolerance", "fitTolerance",
+                                                       "initialGuess", "maxEvaluations",      "maxRestarts",     "solveMode"};
             for (const auto& kv : settings) {
                 const String_& key = kv.first;
                 const Cell_& val = kv.second;
+                RequireKnownSettingsKey(key, validKeys);
                 ApplyXccyStringSettings(key, val, b);
                 ApplyXccyDoubleSettings(key, val, b);
                 ApplyXccyIntSettings(key, val, b);
@@ -326,7 +330,16 @@ namespace Dal {
         }
 
         void ApplyJointSettings(const Dictionary_& settings, JointXccyCalibrationSpecBuilder_& builder, JointXccyCalibrationOptions_& options) {
+            static const Vector_<String_> validKeys = {"domesticCurveName",      "foreignCurveName",         "basisCurveName",
+                                                       "domesticLiborBasis",     "foreignLiborBasis",        "domesticParameterization",
+                                                       "foreignParameterization", "basisParameterization",    "domesticLogDfScheme",
+                                                       "foreignLogDfScheme",     "domesticSmoothingWeight",   "foreignSmoothingWeight",
+                                                       "basisSmoothingWeight",   "tolerance",                 "fitTolerance",
+                                                       "initialGuess",           "maxEvaluations",            "maxRestarts",
+                                                       "solveMode",              "jacobianMode",              "computeEffJacobianInverse",
+                                                       "computeForwardJacobian"};
             for (const auto& setting : settings) {
+                RequireKnownSettingsKey(setting.first, validKeys);
                 ApplyJointStringSetting(setting.first, setting.second, builder, options);
                 ApplyJointDoubleSetting(setting.first, setting.second, builder);
                 ApplyJointIntSetting(setting.first, setting.second, builder);

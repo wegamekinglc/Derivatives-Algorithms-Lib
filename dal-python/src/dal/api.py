@@ -16,30 +16,34 @@ _DAL_TYPE_CONVERTERS = {
     'libor_basis': lambda v: _bindings.DayBasis_(v) if isinstance(v, str) else v,
 }
 
+_OPTIONAL_SETTING_ATTRS = {
+    'curve_name': 'curveName_',
+    'target_collateral': 'targetCollateral_',
+    'target_tenor': 'targetTenor_',
+    'calibrate_discount': 'calibrateDiscountCurve_',
+    'libor_basis': 'liborBasis_',
+    'smoothing_weight': 'smoothingWeight_',
+    'tolerance': 'tolerance_',
+    'fit_tolerance': 'fitTolerance_',
+    'max_evaluations': 'maxEvaluations_',
+    'max_restarts': 'maxRestarts_',
+    'initial_guess': 'initialGuess_',
+    'solve_mode': 'solveMode_',
+    'parameterization': 'parameterization_',
+    'log_df_scheme': 'logDfScheme_',
+}
+
 
 def _apply_optional_setting(spec, name, value):
     """Apply a single optional setting to a spec builder if the value is not None."""
+    if name not in _OPTIONAL_SETTING_ATTRS:
+        valid = ', '.join(sorted(_OPTIONAL_SETTING_ATTRS))
+        raise ValueError(f"Unknown calibration setting {name!r}. Supported settings: {valid}")
     if value is None:
         return
-    attr = {
-        'curve_name': 'curveName_',
-        'target_collateral': 'targetCollateral_',
-        'target_tenor': 'targetTenor_',
-        'calibrate_discount': 'calibrateDiscountCurve_',
-        'libor_basis': 'liborBasis_',
-        'smoothing_weight': 'smoothingWeight_',
-        'tolerance': 'tolerance_',
-        'fit_tolerance': 'fitTolerance_',
-        'max_evaluations': 'maxEvaluations_',
-        'max_restarts': 'maxRestarts_',
-        'initial_guess': 'initialGuess_',
-        'solve_mode': 'solveMode_',
-        'parameterization': 'parameterization_',
-        'log_df_scheme': 'logDfScheme_',
-    }.get(name)
-    if attr is not None:
-        convert = _DAL_TYPE_CONVERTERS.get(name)
-        setattr(spec, attr, convert(value) if convert else value)
+    attr = _OPTIONAL_SETTING_ATTRS[name]
+    convert = _DAL_TYPE_CONVERTERS.get(name)
+    setattr(spec, attr, convert(value) if convert else value)
 
 
 def _build_calibration_spec(today, ccy, instruments, knot_dates, settings, base_curve=None):
