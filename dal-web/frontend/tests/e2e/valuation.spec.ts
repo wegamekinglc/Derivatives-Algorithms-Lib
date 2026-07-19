@@ -1,5 +1,10 @@
 import { expect, test } from "@playwright/test";
 
+// The app formats numbers via toLocaleString(undefined, ...); derive expected
+// text instead of hard-coding en-US separators.
+const TOTAL_PV_TEXT = new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 }).format(8_000_000);
+const PATH_COUNT_TEXT = (1024).toLocaleString();
+
 test("runs a trade valuation end to end", async ({ page }) => {
   await page.goto("/products");
   await page.locator("#product-name").fill("E2E call");
@@ -32,7 +37,7 @@ test("runs a trade valuation end to end", async ({ page }) => {
 
   // Canned backend prices every trade at unit PV 8.0; notional 1,000,000 x 1.
   await expect(page.getByText("Total PV")).toBeVisible({ timeout: 15_000 });
-  await expect(page.getByText("8,000,000")).toBeVisible();
+  await expect(page.getByText(TOTAL_PV_TEXT)).toBeVisible();
   await expect(page.getByRole("heading", { name: "d_spot" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Run valuation" })).toBeEnabled();
 
@@ -40,7 +45,7 @@ test("runs a trade valuation end to end", async ({ page }) => {
   const runRow = page.getByRole("row").filter({ hasText: "canned-dal" }).first();
   await expect(runRow).toContainText("trade");
   await expect(runRow).toContainText("completed");
-  await expect(runRow).toContainText("1,024");
+  await expect(runRow).toContainText(PATH_COUNT_TEXT);
 
   await runRow.getByRole("button", { name: "Details" }).click();
   await expect(page.getByRole("heading", { name: "Greeks" })).toBeVisible();

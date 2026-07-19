@@ -1,18 +1,32 @@
 import { describe, expect, it } from "vitest";
 import { classNames, css, fmtMoney, fmtNum, inlineStyle } from "../../src/format";
 
+// fmtNum/fmtMoney format via toLocaleString(undefined, ...), so expectations
+// derive from Intl.NumberFormat with the same options instead of hard-coded
+// en-US separators.
+function grouped(value: number, digits: number): string {
+  return new Intl.NumberFormat(undefined, {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  }).format(value);
+}
+
+function money(value: number): string {
+  return new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 }).format(value);
+}
+
 describe("fmtNum", () => {
   it("formats with the default four fraction digits", () => {
-    expect(fmtNum(1234.5)).toBe("1,234.5000");
+    expect(fmtNum(1234.5)).toBe(grouped(1234.5, 4));
   });
 
   it("honours a custom digit count", () => {
-    expect(fmtNum(0.123456, 2)).toBe("0.12");
-    expect(fmtNum(8, 0)).toBe("8");
+    expect(fmtNum(0.123456, 2)).toBe(grouped(0.123456, 2));
+    expect(fmtNum(8, 0)).toBe(grouped(8, 0));
   });
 
   it("groups thousands", () => {
-    expect(fmtNum(1_000_000, 2)).toBe("1,000,000.00");
+    expect(fmtNum(1_000_000, 2)).toBe(grouped(1_000_000, 2));
   });
 
   it("renders non-finite values as a dash", () => {
@@ -22,14 +36,14 @@ describe("fmtNum", () => {
   });
 
   it("keeps negative values", () => {
-    expect(fmtNum(-42.5, 1)).toBe("-42.5");
+    expect(fmtNum(-42.5, 1)).toBe(grouped(-42.5, 1));
   });
 });
 
 describe("fmtMoney", () => {
   it("formats with at most two fraction digits", () => {
-    expect(fmtMoney(8_000_000)).toBe("8,000,000");
-    expect(fmtMoney(1234.567)).toBe("1,234.57");
+    expect(fmtMoney(8_000_000)).toBe(money(8_000_000));
+    expect(fmtMoney(1234.567)).toBe(money(1234.567));
   });
 
   it("renders non-finite values as a dash", () => {

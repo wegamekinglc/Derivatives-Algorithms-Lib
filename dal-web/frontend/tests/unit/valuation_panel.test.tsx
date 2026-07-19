@@ -33,6 +33,10 @@ function runButton(): HTMLButtonElement {
   return screen.getByRole("button", { name: /run valuation|pricing|submitting/i });
 }
 
+// fmtMoney renders via toLocaleString(undefined, ...); derive the expected
+// text instead of hard-coding en-US separators.
+const TOTAL_PV_TEXT = new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 }).format(8_000_000);
+
 describe("ValuationPanel", () => {
   let getValuationSpy: ReturnType<typeof vi.spyOn>;
 
@@ -62,7 +66,7 @@ describe("ValuationPanel", () => {
       evaluation_date: null,
     });
     expect(getValuationSpy).not.toHaveBeenCalled();
-    expect(screen.getByText("8,000,000")).toBeTruthy();
+    expect(screen.getByText(TOTAL_PV_TEXT)).toBeTruthy();
     expect(screen.getByText("d_spot")).toBeTruthy();
     expect(screen.getByText("d_vol")).toBeTruthy();
     expect(runButton().disabled).toBe(false);
@@ -107,7 +111,7 @@ describe("ValuationPanel", () => {
     await screen.findByText("Total PV", undefined, { timeout: 3000 });
     expect(getValuationSpy).toHaveBeenCalledTimes(2);
     expect(getValuationSpy).toHaveBeenCalledWith("v1");
-    expect(screen.getByText("8,000,000")).toBeTruthy();
+    expect(screen.getByText(TOTAL_PV_TEXT)).toBeTruthy();
     expect(screen.queryByText("Unit PV")).toBeNull();
     expect(runButton().disabled).toBe(false);
   });
