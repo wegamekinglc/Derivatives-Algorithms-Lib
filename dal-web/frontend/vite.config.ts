@@ -1,4 +1,4 @@
-import { defineConfig } from "vite";
+import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
 
 // Vite dev server proxies /api to the FastAPI backend on :8001.
@@ -12,5 +12,9 @@ export default defineConfig({
         changeOrigin: true,
       },
     },
+  },
+  test: {
+    environment: "jsdom",
+    include: ["tests/unit/**/*.test.{ts,tsx}"],
   },
 });
