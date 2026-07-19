@@ -138,7 +138,8 @@ TEST(ExcelApiTest, TestUnknownJointSettingsKeyListsEveryAcceptedKey) {
         FAIL() << "Expected an unknown joint settings key to fail";
     } catch (const Dal::Exception_& exception) {
         const std::string message(exception.what());
-        ASSERT_NE(message.find("bogusKey"), std::string::npos) << message;
+        // the settings dictionary stores condensed (uppercase) keys, as in Dictionary_::At errors
+        ASSERT_NE(message.find("BOGUSKEY"), std::string::npos) << message;
         for (const char* key : {"domesticCurveName", "basisSmoothingWeight", "solveMode", "jacobianMode", "computeForwardJacobian"})
             ASSERT_NE(message.find(key), std::string::npos) << key << ": " << message;
     }
