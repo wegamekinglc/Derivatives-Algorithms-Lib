@@ -1566,6 +1566,7 @@ func_with_args is string
     }
 
     bool EmptyHandleOutputIsErrorForTest(String_* message) {
+        REQUIRE(message, "null output pointer");
         try {
             Excel::Retval_ retval;
             retval.LoadBase(nullptr, Handle_<Storable_>());
@@ -1587,6 +1588,7 @@ func_with_args is string
     }
 
     bool EmptyVectorOutputIsBlankForTest(int* rows, int* cols) {
+        REQUIRE(rows && cols, "null output pointer");
         Excel::Retval_ retval;
         retval.Load(Vector_<>());
         OPER_* output = retval.ToXloper();

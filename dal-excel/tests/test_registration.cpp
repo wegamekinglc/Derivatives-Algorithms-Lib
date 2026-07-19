@@ -33,8 +33,8 @@ namespace {
         return 1 + static_cast<int>(std::count(reg.argNames_.begin(), reg.argNames_.end(), ','));
     }
 
-    std::string UpperDotted(const String_& c_name) {
-        std::string retval(c_name.begin(), c_name.end());
+    std::string UpperDotted(const String_& cName) {
+        std::string retval(cName.begin(), cName.end());
         for (auto& ch : retval)
             ch = ch == '_' ? '.' : static_cast<char>(std::toupper(static_cast<unsigned char>(ch)));
         return retval;
