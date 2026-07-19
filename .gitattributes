@@ -1,0 +1,28 @@
+# Text files are normalized to LF in the repository; classification is
+# automatic unless overridden below.
+* text=auto
+
+# Platform-mandated line endings.
+*.sh  text eol=lf
+*.bat text eol=crlf
+*.ps1 text eol=crlf
+
+# Sources and generated code stay LF on every platform (MSVC accepts LF).
+*.c    text eol=lf
+*.cpp  text eol=lf
+*.h    text eol=lf
+*.hpp  text eol=lf
+*.inc  text eol=lf
+*.java text eol=lf
+*.py   text eol=lf
+*.ts   text eol=lf
+*.tsx  text eol=lf
+
+# Binary payloads — never normalize.
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.ico  binary
+*.xls  binary
+*.xlsx binary
