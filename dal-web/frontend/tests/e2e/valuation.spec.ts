@@ -6,6 +6,11 @@ const TOTAL_PV_TEXT = new Intl.NumberFormat(undefined, { maximumFractionDigits: 
 const PATH_COUNT_TEXT = (1024).toLocaleString();
 
 test("runs a trade valuation end to end", async ({ page }) => {
+  test.skip(
+    process.env.DAL_PLAYWRIGHT_TEST_BACKEND !== "1",
+    "Only applies to the explicit Playwright test backend"
+  );
+
   await page.goto("/products");
   await page.locator("#product-name").fill("E2E call");
   await page.getByPlaceholder(/STRIKE or START/).fill("STRIKE");
