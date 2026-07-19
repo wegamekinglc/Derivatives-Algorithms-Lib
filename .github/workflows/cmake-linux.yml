@@ -225,6 +225,11 @@ jobs:
           npm ci
           npm run build
 
+      - name: Run frontend unit tests
+        working-directory: dal-web/frontend
+        run: |
+          npm test
+
       - name: Prepare Chrome
         run: |
           ./dal-web/scripts/setup-playwright.sh
