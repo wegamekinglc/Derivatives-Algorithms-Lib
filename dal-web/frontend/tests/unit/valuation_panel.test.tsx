@@ -163,11 +163,12 @@ describe("ValuationPanel", () => {
   });
 
   it("disables the run button while the submission is in flight", async () => {
-    let resolveRun: (result: ValuationResult) => void = () => undefined;
     const onRun = vi.fn<(config: ValuationConfig) => Promise<ValuationResult>>().mockImplementation(
       () =>
         new Promise<ValuationResult>((resolve) => {
-          resolveRun = resolve;
+          setTimeout(() => {
+            resolve(makeResult());
+          }, 50);
         }),
     );
     render(<ValuationPanel onRun={onRun} />);
@@ -177,7 +178,6 @@ describe("ValuationPanel", () => {
     const busy = (await screen.findByRole("button", { name: "submitting…" })) as HTMLButtonElement;
     expect(busy.disabled).toBe(true);
 
-    resolveRun(makeResult());
     await screen.findByText("Total PV");
     expect(runButton().disabled).toBe(false);
   });
