@@ -292,8 +292,14 @@ uv run --no-sync pytest     # uses a fake dal module (no C++ build needed)
 ./dal-web/scripts/setup-playwright.sh
 cd dal-web/frontend
 npm run build               # type-check + production build
+npm test                    # vitest unit tests (jsdom; no browser or backend needed)
 npm run test:e2e            # Playwright smoke tests (starts/stops the web UI)
 ```
+
+The vitest unit suite under `frontend/tests/unit/` covers the API client, the
+valuation panel, model-form parsing, and the formatting helpers. It runs in
+jsdom against mocked API responses, needs neither a browser nor a backend,
+and also runs in the web-quality CI job.
 
 The default Playwright command uses the native-only application startup path.
 CI uses an explicit canned DAL test double while retaining the real FastAPI
@@ -305,7 +311,8 @@ DAL_PLAYWRIGHT_TEST_BACKEND=1 npm run test:e2e
 
 The test-backend entry point refuses to start without that flag and reports
 `backend=canned-dal`, `is_native=false` from the health endpoint. It is a
-browser integration fixture, not a development or production fallback.
+browser integration fixture, not a development or production fallback. Specs
+that require the canned backend skip themselves when the flag is absent.
 
 ## Screens
 

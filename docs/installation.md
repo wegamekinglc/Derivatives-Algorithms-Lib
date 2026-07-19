@@ -316,6 +316,7 @@ Python and web checks:
 (cd dal-python && python -m pytest tests -v)
 (cd dal-web/backend && uv run --no-sync pytest)
 (cd dal-web/frontend && npm run build)
+(cd dal-web/frontend && npm test)
 ./dal-web/scripts/setup-playwright.sh
 (cd dal-web/frontend && npm run test:e2e)
 ```
