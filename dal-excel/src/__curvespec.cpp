@@ -6,6 +6,7 @@
 
 #include "__platform.hpp"
 #include "__curve_storable.hpp"
+#include "__settingskeys.hpp"
 #include <dal/math/cell.hpp>
 #include <dal-public/src/curvespec.hpp>
 #include <dal-public/src/curveprotocol.hpp>
@@ -111,9 +112,14 @@ namespace Dal {
 
         // Helper: apply dictionary settings to a CurveCalibrationSpecBuilder_
         void ApplySettings(const Dictionary_& settings, CurveCalibrationSpecBuilder_& b) {
+            static const Vector_<String_> validKeys = {"curveName",      "calibrateDiscountCurve", "solveMode",      "parameterization",
+                                                       "logDfScheme",    "smoothingWeight",        "tolerance",      "fitTolerance",
+                                                       "initialGuess",   "maxEvaluations",         "maxRestarts",    "targetCollateral",
+                                                       "targetTenor",    "liborBasis"};
             for (const auto& kv : settings) {
                 const String_& key = kv.first;
                 const Cell_& val = kv.second;
+                RequireKnownSettingsKey(key, validKeys);
                 if (key == "calibrateDiscountCurve") {
                     if (Cell::IsBool(val))
                         b.calibrateDiscountCurve_ = Cell::ToBool(val);
