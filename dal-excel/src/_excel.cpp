@@ -2,6 +2,7 @@
 
 #define _Regex_traits _Regex_traits_Excel
 #include "_excel.hpp"
+#include "__excel_test_api.hpp"
 #include "_xlcall.hpp"
 #include <dal/platform/platform.hpp>
 #include <dal/platform/strict.hpp>
@@ -1555,6 +1556,48 @@ func_with_args is string
 
 #include "dal-excel/auto/MG_Format_Output_public.inc"
 #include "dal-excel/auto/MG_Paste_WithArgs_public.inc"
-}
+
+    Vector_<ExcelFuncRegistration_> RegisteredFunctionsForTest() {
+        Vector_<ExcelFuncRegistration_> retval;
+        for (const auto& func : TheFunctions())
+            retval.push_back(ExcelFuncRegistration_{func.cName_, func.xlName_, func.argTypes_, func.argNames_,
+                                                    static_cast<int>(func.argHelp_.size()), func.volatile_});
+        return retval;
+    }
+
+    bool EmptyHandleOutputIsErrorForTest(String_* message) {
+        try {
+            Excel::Retval_ retval;
+            retval.LoadBase(nullptr, Handle_<Storable_>());
+        } catch (const Exception_& e) {
+            *message = String_(e.what());
+            return true;
+        }
+        return false;
+    }
+
+    String_ ErrorCellTextForTest(const String_& what) {
+        OPER_* error = Excel::Error(what, nullptr);
+        REQUIRE(error->xltype & xltypeMulti && error->val.array.rows * error->val.array.columns == 1,
+                "error output is not a single cell");
+        const String_ retval = Excel::ToString(&error->val.array.lparray[0]);
+        FreeContents(*error, true);
+        free(error);
+        return retval;
+    }
+
+    bool EmptyVectorOutputIsBlankForTest(int* rows, int* cols) {
+        Excel::Retval_ retval;
+        retval.Load(Vector_<>());
+        OPER_* output = retval.ToXloper();
+        *rows = output->val.array.rows;
+        *cols = output->val.array.columns;
+        const bool blank = (output->xltype & xltypeMulti) != 0 && *rows * *cols >= 1 &&
+                           (output->val.array.lparray[0].xltype & (xltypeMissing | xltypeNil)) != 0;
+        FreeContents(*output, true);
+        free(output);
+        return blank;
+    }
+} // namespace Dal
 
 #endif
