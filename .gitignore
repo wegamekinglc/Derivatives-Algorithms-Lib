@@ -40,3 +40,16 @@ CMakeUserPresets.json
 .claude/scheduled_tasks.lock
 /cmake/
 /pyproject.toml
+
+# Coverage and benchmark artifacts produced by the CI workflows at repo root
+coverage_filtered.info
+benchmark-results/
+
+# Visual Studio / CMake Tools default build tree
+out/
+
+# Ruff lint cache (CI runs ruff in dal-web/backend)
+.ruff_cache/
+
+# Local SQLite store used by the dal-web backend when DAL_WEB_DB_URL is unset
+dal-web/backend/.data/
