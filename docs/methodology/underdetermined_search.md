@@ -115,6 +115,143 @@ $$
 This avoids recomputing a full Jacobian every iteration while keeping it
 consistent with observed behaviour.
 
+## How AAD Supplies the Jacobian
+
+AAD is a derivative provider for the search, not the search algorithm itself. The
+underdetermined solver stores parameters, residuals, steps, and matrix operations as
+`double`. It knows nothing about curves or AAD tapes; it only asks the caller's
+`Underdetermined::Function_` for two operations:
+
+- `F(x)`, which evaluates the residual vector with passive `double` arithmetic;
+- `Gradient(x, f)`, which may return a `Jacobian_` implementation.
+
+Curve-calibration residual functions override `Gradient` and, when analytic mode is
+selected and the calibration route supports active evaluation, return an
+`XCurveJacobian_` built by reverse-mode AAD. Returning `nullptr` selects the solver's
+dense finite-difference fallback. Some higher-level calibration APIs instead reject an
+unsupported analytic request before entering the solver; that policy belongs to the
+caller rather than `Underdetermined::Find` or `Underdetermined::Approximate`.
+
+This separation keeps the nonlinear iteration unchanged when the Jacobian source changes:
+
+```text
+passive F(x) evaluations
+        |
+        v
+Function_::Gradient request
+        |
+        +-- AAD-supported route --> XCurveJacobian_
+        |
+        +-- nullptr -------------> dense parameter bumps
+                                      |
+                                      v
+                         tolerance-scale Jacobian rows
+                                      |
+                                      v
+                    weighted step / line search / Broyden update
+```
+
+### One AAD Jacobian Evaluation
+
+For a calibration residual
+
+$$
+r_i(x) = q_i^{\mathrm{model}}(x) - q_i^{\mathrm{market}},
+$$
+
+the market quote is passive and the solver parameters are the independent AAD
+variables. A current curve-calibration `Gradient` evaluation follows this sequence:
+
+1. Obtain the thread-local AAD tape and enter `TapeGuard_`. The guard rewinds the tape
+   on entry and exit, including exceptional exit, so allocated tape blocks can be reused
+   without allowing a recording to escape the gradient call.
+2. Convert every component $x_j$ to an `AAD::Number_` and register it as an independent
+   variable in the curve parameter layout. Registration occurs before `NewRecording`,
+   which is required by the supported backends.
+3. Start the recording, construct the scalar-templated curve or curve block from the
+   active parameters, and reprice all instruments with active arithmetic. This records
+   the graph from $x$ through discount factors, forecast/discount routing, and instrument
+   formulas to the active residuals $r_i$.
+4. For each residual row $i$, seed its adjoint with one, propagate adjoints back to the
+   start of the recording, and read the adjoint of every independent parameter:
+
+   $$
+   \bar r_i = 1
+   \quad\Longrightarrow\quad
+   \bar x_j = \frac{\partial r_i}{\partial x_j} = J_{ij}.
+   $$
+
+   The current `HarvestCurveJacobian` implementation performs one single-output reverse
+   sweep per residual row. Its backend-neutral zeroing logic prevents adjoints from one
+   row leaking into the next.
+5. Store the harvested $m \times n$ matrix in `XCurveJacobian_` and leave the tape guard.
+   No live `AAD::Number_` crosses this boundary; the solver receives ordinary doubles.
+
+The recording sequence is implemented by the curve calibration adapters and
+`HarvestCurveJacobian` under `dal-cpp/dal/curve/`. Backend-specific recording and
+adjoint-zeroing details for the native, Adept, XAD, and CoDiPack implementations are
+covered in [AAD methodology](aad.md#backends).
+
+### From the AAD Matrix to a Solver Step
+
+AAD produces the unscaled forward Jacobian $J_{ij}=\partial r_i/\partial x_j$.
+`XScaledFunc_` then divides row $i$ by its residual tolerance $\tau_i$:
+
+$$
+\tilde J_{ij} = \frac{1}{\tau_i}\frac{\partial r_i}{\partial x_j}
+              = \frac{\partial \tilde r_i}{\partial x_j}.
+$$
+
+The resulting `Jacobian_` supplies the four operations needed by the solver:
+
+- `MultiplyLeft(dx)` computes $\tilde J\,dx$;
+- `MultiplyRight(t)` computes $\tilde J^{\mathsf T}t$;
+- `QForm(w, ...)` forms the reduced matrix
+  $\tilde J W^{-1}\tilde J^{\mathsf T}$;
+- `SecantUpdate(dx, df)` applies the Broyden correction after an accepted step.
+
+Thus AAD determines the local residual geometry, while $W$ still determines which of
+the infinitely many feasible parameter moves is preferred. AAD does not change the
+least-change objective, convergence test, line search, or regularisation.
+
+### Where AAD Runs During the Iteration
+
+The solver does not record a tape for every trial residual evaluation. Trial points and
+line-search candidates use the passive `F(x)` path. In exact mode, a fresh AAD Jacobian
+is requested at the initial restart and whenever the line-search logic decides that the
+current linear model must be restarted. Between those points, accepted steps update the
+stored AAD-derived matrix with Broyden's secant formula. Approximate mode consumes the
+same analytic `Jacobian_` interface and likewise uses secant updates between scheduled
+gradient refreshes.
+
+This hybrid is deliberate: AAD periodically restores an accurate derivative of the full
+pricing graph, while inexpensive rank-one updates avoid rebuilding that graph at every
+iteration.
+
+At an exact solution, optional diagnostics can request fresh derivatives:
+
+- the effective inverse is built from the tolerance-scaled Jacobian at the solution;
+- the forward Jacobian is requested directly from the raw function and remains unscaled.
+  It is populated only when `Gradient` returns a non-null analytic `Jacobian_`; this
+  diagnostics path has no finite-difference fallback and clears the output otherwise.
+
+These are separate outputs with different units. Requesting both may require separate
+gradient evaluations. Approximate mode does not expose these exact-solution diagnostics.
+
+### Why Reverse Mode Fits an Underdetermined System
+
+A dense bump Jacobian requires a baseline residual evaluation plus one forward
+evaluation for each of the $n$ parameters. The AAD path records the residual calculation
+once and performs one reverse sweep for each of the $m$ residuals. Since the defining
+case is $n>m$, differentiating from the smaller output side is a natural fit. It also
+avoids bump-size selection and subtractive cancellation, so the local model is normally
+more accurate near a tight calibration tolerance.
+
+The comparison is not simply $m$ versus $n$ function calls: a reverse sweep traverses
+the recorded graph and the tape consumes memory. The practical benefit depends on graph
+size and sparsity, but the dimensional advantage and derivative accuracy are why AAD is
+the default analytic route for eligible curve calibrations.
+
 ## Approximate Fit
 
 When an exact fit is not warranted, the step trades residual reduction against
