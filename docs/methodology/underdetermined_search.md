@@ -231,7 +231,9 @@ iteration.
 At an exact solution, optional diagnostics can request fresh derivatives:
 
 - the effective inverse is built from the tolerance-scaled Jacobian at the solution;
-- the forward Jacobian is obtained directly from the raw function and remains unscaled.
+- the forward Jacobian is requested directly from the raw function and remains unscaled.
+  It is populated only when `Gradient` returns a non-null analytic `Jacobian_`; this
+  diagnostics path has no finite-difference fallback and clears the output otherwise.
 
 These are separate outputs with different units. Requesting both may require separate
 gradient evaluations. Approximate mode does not expose these exact-solution diagnostics.
