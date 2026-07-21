@@ -182,22 +182,21 @@ the annualized $\sigma$.
 ## Examples
 
 The closed-form kernels above are the analytical benchmark that the pricing
-example programs converge to. The vanilla program computes the discounted
-forward and de-annualized volatility by hand and calls `Distribution::BlackOpt`
-directly, then prices the same European call by Monte Carlo on a
-`BSModelData_`-driven `BlackScholes_<T_>` model and by AAD on a closed-form
-payoff. See [`dal-cpp/examples/vanilla/`](../../dal-cpp/examples/vanilla/) for
-a runnable version; the closed-form benchmark line is:
+example programs converge to. The vanilla program prices a European call by
+Monte Carlo on a `BSModelData_`-driven `BlackScholes_<T_>` model and by AAD
+against an inlined closed-form payoff. The canonical kernel those runs measure
+against is `Distribution::BlackOpt`, defined in the header below; the European
+Monte Carlo and finite-difference examples call it directly as their benchmark.
+See [`dal-cpp/examples/vanilla/`](../../dal-cpp/examples/vanilla/) for a
+runnable version; the closed-form kernel is:
 
 ```cpp
-// from dal-cpp/examples/vanilla/vanilla.cpp
+// from dal-cpp/dal/math/distribution/black.hpp
 #include <dal/platform/platform.hpp>
 #include <dal/math/distribution/black.hpp>
-#include <dal/model/blackscholes.hpp>
 #include <dal/storage/globals.hpp>
 
 using namespace Dal;
-using Dal::AAD::BlackScholes_;
 
 RegisterAll_::Init();
 Global::Dates_::SetEvaluationDate(Date_(2022, 9, 25));
