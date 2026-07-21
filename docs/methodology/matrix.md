@@ -58,8 +58,8 @@ The tri-diagonal case ($m_1 = m_2 = 1$) is special-cased by `Sparse::TriDiagonal
 does not use the offset array at all. Instead it stores the three diagonals directly as
 `diag_` (length $n$), `above_` (length $n-1$, the first super-diagonal), and `below_`
 (length $n-1$, the first sub-diagonal). The factory `Sparse::NewBandDiagonal(size, nAbove,
-nBelow)` returns a `TriDiagonal_` when both `nAbove` and `nBelow` are at most 1, and the
-general `Banded_` otherwise, so callers always use the tightest available representation.
+nBelow)` returns a `TriDiagonal_` when both `nAbove` and `nBelow` are at most 1, and a
+wider banded matrix otherwise, so callers always use the tightest available representation.
 
 ## Tri-Diagonal Solve (Thomas Algorithm)
 
