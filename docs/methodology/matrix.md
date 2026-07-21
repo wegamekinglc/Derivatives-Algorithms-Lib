@@ -205,8 +205,9 @@ No dedicated example program exercises the matrix layer in isolation; the
 snippets below are drawn from the public headers under `dal-cpp/dal/math/matrix/`.
 
 A band-diagonal system is built through `Sparse::NewBandDiagonal`, which returns
-the tightest available representation — a `TriDiagonal_` when both bandwidths are
-at most one, otherwise a `Banded_` — and solved through the common
+the tightest available representation — a public `TriDiagonal_` when both
+bandwidths are at most one, otherwise a wider banded matrix reached only through
+the `Sparse::Square_` interface — and solved through the common
 `SquareMatrixDecomposition_` interface:
 
 ```cpp
