@@ -809,6 +809,7 @@ spec.logDfScheme_      = scheme;   // one of LOG_LINEAR, LOG_CUBIC_NATURAL, MIXE
 
 const auto result = CalibrateYieldCurve(spec);
 const auto* curve = dynamic_cast<const DiscountLogDF_*>(result.curve_.get());
+REQUIRE(curve, "calibrated curve is not a DiscountLogDF_");
 const Vector_<> nodeDf = curve->NodeDF();      // P(today, nodeDate) per storage node
 ```
 

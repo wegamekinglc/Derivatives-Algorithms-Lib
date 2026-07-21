@@ -236,6 +236,10 @@ using namespace Dal;
 using namespace Dal::Script;
 using Dal::AAD::BlackScholes_;
 
+// Closed-form benchmark (de-annualized inputs), as in euorpean_mc.cpp.
+double discounts = std::exp(-rate * t);      // P(0, T), t = time to expiry in years
+double fwd       = std::exp((rate - div) * t) * spot;
+double volStd    = std::sqrt(t) * vol;
 const auto benchmark = discounts * Distribution::BlackOpt(fwd, volStd, strike, OptionType_::Value_::CALL);
 
 Handle_<ModelData_> modelData(new BSModelData_("bsmodel", spot, vol, rate, div));

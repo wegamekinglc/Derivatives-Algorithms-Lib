@@ -212,6 +212,7 @@ spec.logDfScheme_      = LogDfScheme_::Value_::LOG_LINEAR;   // or LOG_CUBIC_NAT
 const auto result = CalibrateYieldCurve(spec);
 
 const auto* logDf = dynamic_cast<const DiscountLogDF_*>(result.curve_.get());
+REQUIRE(logDf, "calibrated curve is not a DiscountLogDF_");
 const Vector_<Date_> dates = logDf->NodeDates();
 const Vector_<> nodeDf = logDf->NodeDF();          // scheme-dependent knot DFs
 ```
