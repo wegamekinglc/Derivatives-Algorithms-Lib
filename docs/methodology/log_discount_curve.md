@@ -204,6 +204,39 @@ AAD-derived analytic residual Jacobian. ZERO_RATE maps a future node $z_i$ to
 $\ell_i=-z_i\tau_i$ before using this document's interpolation geometry. The four
 representations have different solver column units and between-node shapes.
 
+## Examples
+
+The three `LogDfScheme_` choices are compared side by side by the interpolation
+example, which calibrates the same instrument set three times — once each for
+`LOG_LINEAR`, `LOG_CUBIC_NATURAL`, and `MIXED` — and prints the solved node
+discount factors, the 1-year forward rates at each node, and the per-scheme
+repricing residuals. See
+[`dal-cpp/examples/interpolate_curve/`](../../dal-cpp/examples/interpolate_curve/)
+for a runnable version. The per-scheme calibration builds the typed curve
+through the public factory:
+
+```cpp
+// from dal-cpp/examples/interpolate_curve/interpolate_curve.cpp
+CurveCalibrationSpec_ spec;
+spec.parameterization_ = CurveParameterization_::Value_::LOG_DISCOUNT;
+spec.knotPolicy_       = CurveKnotPolicy_::Value_::INPUT;
+spec.solveMode_        = CurveSolveMode_::Value_::EXACT;
+spec.logDfScheme_      = scheme;   // LogDfScheme_::Value_::{LOG_LINEAR, LOG_CUBIC_NATURAL, MIXED}
+const auto result = CalibrateYieldCurve(spec);
+
+const auto* curve = dynamic_cast<const DiscountLogDF_*>(result.curve_.get());
+REQUIRE(curve, "calibrated curve is not a DiscountLogDF_");
+const Vector_<> nodeDf = curve->NodeDF();        // P(today, nodeDate) per storage node
+```
+
+`NodeDF()` and `NodeLogDF()` return one entry per storage node — anchor first,
+then every declared future knot — so the pinned anchor ordinate is included in
+the returned vector. The staged multi-curve calibration program
+([`dal-cpp/examples/curve_calibration/`](../../dal-cpp/examples/curve_calibration/))
+exercises the same `CalibrateYieldCurve` entry point in an OIS-discounting +
+tenor-forecasting setup, with the discount and forward curves layered through
+`CurveBlock_`.
+
 ## See Also
 
 - [Interpolation](interpolation.md) — passive interpolation geometry and typed ordinate

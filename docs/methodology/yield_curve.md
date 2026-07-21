@@ -528,8 +528,11 @@ This mirrors `dal-cpp/examples/euribor3m_curve/euribor3m_curve.cpp`: a classic
 single-curve Euribor 3M bootstrap that discounts and forecasts off one curve
 (no OIS data). The instrument set is deposit + STIR futures + vanilla swaps,
 assembled into a `CurveCalibrationSpec_` and solved by `CalibrateYieldCurve`.
+See [`dal-cpp/examples/euribor3m_curve/`](../../dal-cpp/examples/euribor3m_curve/)
+for a runnable version.
 
 ```cpp
+// from dal-cpp/examples/euribor3m_curve/euribor3m_curve.cpp
 #include <dal/curve/calibration.hpp>
 #include <dal/curve/ycinstrument.hpp>
 #include <dal/protocol/collateraltype.hpp>
@@ -636,9 +639,12 @@ stages share a knot grid: stage 1 calibrates the OIS discount curve from OIS
 deposits and OIS swaps; stage 2 calibrates the 3M forecasting curve from FRAs
 and IRS, holding the discount curve fixed. Each stage quotes 20 instruments
 onto 9 knots, an overdetermined system, so both stages use the least-squares
-`APPROXIMATE` solver.
+`APPROXIMATE` solver. See
+[`dal-cpp/examples/curve_calibration/`](../../dal-cpp/examples/curve_calibration/)
+for a runnable version.
 
 ```cpp
+// from dal-cpp/examples/curve_calibration/curve_calibration.cpp
 #include <dal/curve/calibration.hpp>
 #include <dal/curve/curveblock.hpp>
 #include <dal/curve/piecewiselinear.hpp>
@@ -702,9 +708,13 @@ API citations:
 When no market quotes are available (e.g. building a market to derive implied
 quotes), a flat forward curve is built directly with `NewDiscountPWLF`. This is
 the helper used in both `curve_calibration.cpp` and
-`xccy_curve_calibration.cpp`:
+`xccy_curve_calibration.cpp` (see
+[`dal-cpp/examples/curve_calibration/`](../../dal-cpp/examples/curve_calibration/)
+and
+[`dal-cpp/examples/xccy_curve_calibration/`](../../dal-cpp/examples/xccy_curve_calibration/)):
 
 ```cpp
+// from dal-cpp/examples/curve_calibration/curve_calibration.cpp (MakeFlatDiscountCurve)
 #include <dal/curve/piecewiselinear.hpp>
 #include <dal/curve/ycimp.hpp>
 
@@ -725,6 +735,88 @@ API citations:
 
 - `PiecewiseLinear_(knots, fLeft, fRight)` — `dal-cpp/dal/curve/piecewiselinear.hpp`.
 - `NewDiscountPWLF(name, ccy, fwds, base)` — `dal-cpp/dal/curve/ycimp.hpp`.
+
+### Joint simultaneous multi-curve calibration
+
+This mirrors `dal-cpp/examples/joint_multi_curve_calibration/joint_multi_curve_calibration.cpp`.
+The joint path solves OIS discount and IBOR-3M forward curves in one
+`CalibrateJointMultiCurve` call over a stacked parameter vector, rather than the
+two staged `CalibrateMultiCurve` calls illustrated above. See
+[`dal-cpp/examples/joint_multi_curve_calibration/`](../../dal-cpp/examples/joint_multi_curve_calibration/)
+for a runnable version. Each declaration contributes one `JointCurveDeclaration_`
+that names its collateral, tenor, and whether it calibrates a discount or forward
+slot; the spec carries the single shared `solveMode_` and `fitTolerance_`.
+
+```cpp
+// from dal-cpp/examples/joint_multi_curve_calibration/joint_multi_curve_calibration.cpp
+JointCurveDeclaration_ oisDecl;
+oisDecl.curveName_            = "joint_ois";
+oisDecl.instruments_          = market.ois;
+oisDecl.knotDates_            = knots;
+oisDecl.targetCollateral_     = CollateralType_(CollateralType_::Value_::OIS);
+oisDecl.calibrateDiscountCurve_ = true;
+
+JointCurveDeclaration_ liborDecl;
+liborDecl.curveName_            = "joint_3m";
+liborDecl.instruments_          = market.libor;
+liborDecl.knotDates_            = knots;
+liborDecl.targetCollateral_     = CollateralType_(CollateralType_::Value_::OIS);
+liborDecl.targetTenor_          = market.forecastTenor;
+liborDecl.calibrateDiscountCurve_ = false;
+// Base-layer the 3M forward over the OIS discount so the smoother acts on the
+// spread forward (matches the staged path's ApplyStageDefaults).
+liborDecl.baseLayeredOverDiscount_ = true;
+
+JointMultiCurveCalibrationSpec_ jointSpec;
+jointSpec.today_          = today;
+jointSpec.ccy_            = ccy.String();
+jointSpec.liborBasis_     = market.liborBasis;
+jointSpec.solveMode_      = CurveSolveMode_::Value_::EXACT;
+jointSpec.curves_         = {oisDecl, liborDecl};
+
+const auto jointResult = CalibrateJointMultiCurve(jointSpec);
+```
+
+API citations:
+
+- `JointCurveDeclaration_` and `CalibrateJointMultiCurve` — `dal-cpp/dal/curve/jointcalibration.hpp`.
+- See [Joint simultaneous calibration and AAD analytic Jacobian](#joint-simultaneous-calibration-and-aad-analytic-jacobian)
+  for the joint-vs-staged drift analysis and the stacked AAD Jacobian.
+
+### Log-discount curve across all three schemes
+
+This mirrors `dal-cpp/examples/interpolate_curve/interpolate_curve.cpp`. The
+program calibrates the same instrument set three times under `LOG_DISCOUNT`,
+varying only `logDfScheme_` across `LOG_LINEAR`, `LOG_CUBIC_NATURAL`, and
+`MIXED`, then compares the solved node discount factors, the 1-year forward
+rates at each node, and the per-scheme repricing residuals. See
+[`dal-cpp/examples/interpolate_curve/`](../../dal-cpp/examples/interpolate_curve/)
+for a runnable version. See [Log-Discount Curve](log_discount_curve.md) for the
+boundary, extrapolation, and column-order contracts that distinguish the three
+schemes.
+
+```cpp
+// from dal-cpp/examples/interpolate_curve/interpolate_curve.cpp
+CurveCalibrationSpec_ spec;
+spec.today_            = today;
+spec.parameterization_ = CurveParameterization_::Value_::LOG_DISCOUNT;
+spec.knotPolicy_       = CurveKnotPolicy_::Value_::INPUT;
+spec.solveMode_        = CurveSolveMode_::Value_::EXACT;
+spec.liborBasis_       = DayBasis_("ACT_365F");
+spec.knotDates_        = PtirdsKnotDates();
+spec.instruments_      = PtirdsInstruments(today);
+spec.logDfScheme_      = scheme;   // one of LOG_LINEAR, LOG_CUBIC_NATURAL, MIXED
+
+const auto result = CalibrateYieldCurve(spec);
+const auto* curve = dynamic_cast<const DiscountLogDF_*>(result.curve_.get());
+REQUIRE(curve, "calibrated curve is not a DiscountLogDF_");
+const Vector_<> nodeDf = curve->NodeDF();      // P(today, nodeDate) per storage node
+```
+
+API citations:
+
+- `CurveCalibrationSpec_::logDfScheme_` — `dal-cpp/dal/curve/calibration.hpp`.
+- `DiscountLogDF_::NodeDates()`, `NodeDF()`, `NodeLogDF()` — `dal-cpp/dal/curve/yclogdf.hpp`.
 
 ## See Also
 

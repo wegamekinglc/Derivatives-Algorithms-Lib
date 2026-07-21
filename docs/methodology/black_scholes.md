@@ -179,6 +179,118 @@ The annualized implied-volatility helpers in `vanilla.hpp`,
 the `CALL` type, dispatch to the corresponding `*IV`, and divide by $\sqrt{T}$ to return
 the annualized $\sigma$.
 
+## Examples
+
+The closed-form kernels above are the analytical benchmark that the pricing
+example programs converge to. The vanilla program prices a European call by
+Monte Carlo on a `BSModelData_`-driven `BlackScholes_<T_>` model and by AAD
+against an inlined closed-form payoff. The canonical kernel those runs measure
+against is `Distribution::BlackOpt`, defined in the header below; the European
+Monte Carlo and finite-difference examples call it directly as their benchmark.
+See [`dal-cpp/examples/vanilla/`](../../dal-cpp/examples/vanilla/) for a
+runnable version; the closed-form kernel is:
+
+```cpp
+// from dal-cpp/dal/math/distribution/black.hpp
+#include <dal/platform/platform.hpp>
+#include <dal/math/distribution/black.hpp>
+#include <dal/storage/globals.hpp>
+
+using namespace Dal;
+
+RegisterAll_::Init();
+Global::Dates_::SetEvaluationDate(Date_(2022, 9, 25));
+
+const double spot = 100.0;
+const double vol = 0.15;
+const double rate = 0.05;
+const double div = 0.03;
+const double strike = 120.0;
+const Date_ maturity(2025, 9, 24);
+const double t = (maturity - Global::Dates_::EvaluationDate()) / 365.0;
+
+const double discount = std::exp(-rate * t);
+const double fwd = std::exp((rate - div) * t) * spot;
+const double volStd = std::sqrt(t) * vol;
+// de-annualized kernel: caller supplies forward and sigma * sqrt(T)
+const double price = discount * Distribution::BlackOpt(fwd, volStd, strike, OptionType_::Value_::CALL);
+```
+
+The `OptionType_::Value_::CALL` argument is the dispatch described in *The Black
+(Lognormal) Closed Form*; `PUT` and `STRADDLE` go through the same template. The
+European Monte Carlo program reuses this closed form as the convergence target
+of a quasi-Monte Carlo sweep on a `BSModelData_` model. See
+[`dal-cpp/examples/european_mc/`](../../dal-cpp/examples/european_mc/); its
+per-path pricing loop is:
+
+```cpp
+// from dal-cpp/examples/european_mc/euorpean_mc.cpp
+#include <dal/platform/platform.hpp>
+#include <dal/math/distribution/black.hpp>
+#include <dal/model/blackscholes.hpp>
+#include <dal/script/event.hpp>
+#include <dal/script/simulation.hpp>
+#include <dal/storage/globals.hpp>
+
+using namespace Dal;
+using namespace Dal::Script;
+using Dal::AAD::BlackScholes_;
+
+// Closed-form benchmark (de-annualized inputs), as in euorpean_mc.cpp.
+double discounts = std::exp(-rate * t);      // P(0, T), t = time to expiry in years
+double fwd       = std::exp((rate - div) * t) * spot;
+double volStd    = std::sqrt(t) * vol;
+const auto benchmark = discounts * Distribution::BlackOpt(fwd, volStd, strike, OptionType_::Value_::CALL);
+
+Handle_<ModelData_> modelData(new BSModelData_("bsmodel", spot, vol, rate, div));
+ScriptProduct_ product(eventDates, events, "call");
+int maxNested = product.PreProcess(true, true);
+
+for (int i = 12; i <= 30; ++i) {
+    const int numPaths = std::pow(2, i);
+    SimResults_ results = MCSimulation<Real_>(product, modelData, numPaths, rsg, false, compiled, maxNested);
+    const double calculated = results.aggregated_ / static_cast<double>(numPaths);
+    // calculated -> benchmark as numPaths grows
+}
+```
+
+A finite-difference European pricer exercises the same closed form through
+explicit, implicit, and Crank-Nicolson $\theta$-schemes on the Black-Scholes
+PDE, and checks the recovered price against `Distribution::BlackOpt`. See
+[`dal-cpp/examples/european_fd/`](../../dal-cpp/examples/european_fd/); its PDE
+coefficient setup is:
+
+```cpp
+// from dal-cpp/examples/european_fd/european_fd.cpp
+#include <dal/platform/platform.hpp>
+#include <dal/math/distribution/black.hpp>
+#include <dal/math/pde/pdegrid.hpp>
+#include <dal/math/pde/thetascheme.hpp>
+
+using namespace Dal;
+
+const double fwd = std::exp((kRate - kDiv) * kT) * kSpot;
+const double volStd = std::sqrt(kT) * kVol;
+const auto benchmark = std::exp(-kRate * kT)
+                     * Distribution::BlackOpt(fwd, volStd, kStrike, OptionType_::Value_::CALL);
+
+// Black-Scholes PDE coefficients: drift (r-q)S, variance sigma^2 S^2
+const Handle_<PDE::ScalarCoeff_> disc(PDE::NewConstCoeff(kRate));
+const Handle_<PDE::VectorCoeff_> mu(PDE::NewVectorCoeff([](double s) { return (kRate - kDiv) * s; }));
+const Handle_<PDE::MatrixCoeff_> var(PDE::NewMatrixCoeff([](double s) { return kVol * kVol * s * s; }));
+PDE::ThetaScheme_ scheme(theta);
+scheme.Prepare(dt, grids, *disc, *mu, *var);
+```
+
+Additional example programs that price off the Black/Bachelier kernels:
+
+- [`dal-cpp/examples/digital/`](../../dal-cpp/examples/digital/) — a digital
+  payoff priced analytically, by finite-difference bumps, and by pathwise AAD.
+- [`dal-cpp/examples/uoc/`](../../dal-cpp/examples/uoc/) — an up-and-out call
+  priced on a `Dupire_<T_>` local-volatility model fed by a flat vol surface.
+- [`dal-cpp/examples/snowball/`](../../dal-cpp/examples/snowball/) — a snowball
+  autocallable priced on a `BlackScholes_<T_>` model with scripted monitoring.
+
 ## See Also
 
 - [Yield-curve Jacobian](yield_curve_jacobian.md) — how greeks feed calibration risk.

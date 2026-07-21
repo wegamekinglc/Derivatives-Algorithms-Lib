@@ -506,10 +506,66 @@ contract at compile time via `HasConstVisit_` / `HasNonConstVisit_`: a non-const
 attempts to mutate through a const visitor fail to build rather than corrupt the
 tree.
 
+## Examples
+
+The script program feeds an events table to `ScriptProduct_`, which runs the
+parser and AST construction in its constructor, and then prints the debug walk
+of the processed tree. See [`dal-cpp/examples/script/`](../../dal-cpp/examples/script/)
+for a runnable version; its events table and product construction are:
+
+```cpp
+// from dal-cpp/examples/script/script.cpp
+#include <dal/platform/platform.hpp>
+#include <dal/script/event.hpp>
+#include <dal/storage/globals.hpp>
+
+using namespace Dal;
+using namespace Dal::Script;
+
+Dal::RegisterAll_::Init();
+Global::Dates_::SetEvaluationDate(Date_(2022, 9, 25));
+
+Vector_<Cell_> eventDates;
+Vector_<String_> events;
+
+// Constant variables resolve in the preprocessor and become NodeConstVar_ leaves
+eventDates.emplace_back("BARRIER");
+events.emplace_back("150.00");
+eventDates.emplace_back("STRIKE");
+events.emplace_back("120.00");
+
+// Schedule directive: the preprocessor expands PeriodBegin/PeriodEnd per period
+eventDates.emplace_back(
+    "START: 2022-09-25\n"
+    "END: 2025-09-25\n"
+    "FREQ: 1W");
+events.emplace_back("IF spot() > BARRIER:0.1 THEN alive = 0 END");
+
+// Final payoff: an IF/END block followed by a PAYS clause on the same date
+eventDates.emplace_back(Date_(2025, 9, 25));
+events.emplace_back(
+    "IF spot() > BARRIER:0.1 THEN alive = 0 END "
+    "uoc pays alive * MAX(spot() - STRIKE, 0.0)");
+
+// The constructor runs the preprocessor and parser; the returned product holds
+// the dated AST that DomainProcessor_, ConstCondProcessor_, and the evaluator
+// then walk
+ScriptProduct_ product(eventDates, events);
+```
+
+The `BARRIER:0.1` suffix on each comparison sets the node's `eps_` field, which
+the fuzzy evaluator consumes as the smoothing width for that condition. Running
+`product.Debug(out)` after the constructor walks the AST and writes the dated,
+variable-indexed event listing that the visitor passes operate on; downstream
+valuation calls `IndexVariables` and `PreProcess` before evaluation or
+`Compile`. The Monte Carlo driver is the free function `MCSimulation<T_>` in
+`dal-cpp/dal/script/simulation.hpp`, templated on `double` for value-only runs
+and on `AAD::Number_` for pathwise-adjoint runs.
+
 ## See Also
 
 - [Automatic Adjoint Differentiation](aad.md) — the reverse-mode machinery that
   fuzzy evaluation feeds, enabling pathwise Greeks through discontinuous payoffs.
-- `dal-cpp/examples/script/script.cpp` — runnable example of the full pipeline:
-  events table parsing, preprocessing, domain analysis, condition folding, and
-  evaluation.
+- [`dal-cpp/examples/script/`](../../dal-cpp/examples/script/) — runnable example
+  of the full pipeline: events table parsing, preprocessing, domain analysis,
+  condition folding, and evaluation.

@@ -325,6 +325,39 @@ over a 100K-path batch, the dominant Monte Carlo inner loop.
   rather than re-measuring the common inverse-CDF cost already covered by the
   Sobol fast/precise pair.
 
+## Examples
+
+The Sobol benchmark program drives every generator through the same
+`FillUniform` / `FillNormal` inner loop and times the `precise` / `polish`
+inverse-CDF modes separately. See
+[`dal-cpp/examples/sobol/`](../../dal-cpp/examples/sobol/) for a runnable
+version; its per-configuration construction and draw loop is:
+
+```cpp
+// from dal-cpp/examples/sobol/sobol.cpp
+#include <dal/math/random/sobol.hpp>
+#include <dal/math/random/quasirandom.hpp>
+#include <dal/math/vectors.hpp>
+
+using namespace Dal;
+
+const int numDims = 5;
+Vector_<> dst;
+
+// Acklam-only fast path (precise=false, polish=false)
+std::unique_ptr<SequenceSet_> rsg(NewSobol(numDims, 1000));
+rsg->FillUniform(&dst);
+
+// Acklam plus a Newton step using the precise CDF (precise=true, polish=true)
+rsg = NewSobol(numDims, 1000, true, true);
+rsg->FillNormal(&dst);
+```
+
+The storable wrapper `SobolRSG_` (`dal-cpp/dal/math/random/sobol.hpp`) exposes the
+same `FillUniform` / `FillNormal` / `NDim` surface and persists both flags, so a
+generator configured for the precise-polished path can be archived and rebuilt
+identically.
+
 ## See Also
 
 - [Script engine](script_engine.md) — the Monte Carlo driver that consumes these

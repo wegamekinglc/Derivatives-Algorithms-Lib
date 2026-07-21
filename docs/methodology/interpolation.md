@@ -178,6 +178,45 @@ $(N_x, N_y)$ (`dal-cpp/dal/math/interp/interp2d.hpp`).
 - Use **bilinear** for surfaces quoted on a regular grid (e.g. option volatility by
   expiry and strike).
 
+## Examples
+
+The archive-backed factories are the public general-purpose surface. A linear
+interpolator is built and evaluated directly from its knots:
+
+```cpp
+// from dal-cpp/dal/math/interp/interplinear.hpp
+#include <dal/math/interp/interplinear.hpp>
+
+using namespace Dal;
+
+const Vector_<> x = {1.0, 2.0, 3.0, 5.0, 10.0};
+const Vector_<> f = {0.05, 0.06, 0.07, 0.09, 0.12};
+
+std::unique_ptr<Interp1_> interp(Interp::NewLinear("fwd", x, f));
+const double v = (*interp)(4.0);   // linear between the knots bracketing 4.0
+```
+
+The scalar-generic weight geometry that underpins the curve layer is exercised
+end to end by the log-discount curve calibration program, which builds the same
+curve under `LOG_LINEAR`, `LOG_CUBIC_NATURAL`, and `MIXED` schemes and compares
+the resulting node discount factors and forward rates. See
+[`dal-cpp/examples/interpolate_curve/`](../../dal-cpp/examples/interpolate_curve/)
+for a runnable version; its per-scheme calibration call is:
+
+```cpp
+// from dal-cpp/examples/interpolate_curve/interpolate_curve.cpp
+CurveCalibrationSpec_ spec;
+spec.parameterization_ = CurveParameterization_::Value_::LOG_DISCOUNT;
+spec.solveMode_        = CurveSolveMode_::Value_::EXACT;
+spec.logDfScheme_      = LogDfScheme_::Value_::LOG_LINEAR;   // or LOG_CUBIC_NATURAL, MIXED
+const auto result = CalibrateYieldCurve(spec);
+
+const auto* logDf = dynamic_cast<const DiscountLogDF_*>(result.curve_.get());
+REQUIRE(logDf, "calibrated curve is not a DiscountLogDF_");
+const Vector_<Date_> dates = logDf->NodeDates();
+const Vector_<> nodeDf = logDf->NodeDF();          // scheme-dependent knot DFs
+```
+
 ## See Also
 
 - [Log-discount curve](log_discount_curve.md) — uses log-linear, cubic, and mixed
