@@ -202,6 +202,47 @@ Simpson on a truncated interval: it places nodes where the density has mass,
 needs no truncation, and achieves exactness for polynomial payoffs that
 Simpson matches only approximately and at far higher cost.
 
+## Examples
+
+No dedicated example program exercises the quadrature layer; the snippets below
+are drawn from `dal-cpp/dal/math/integral/quadrature.hpp`. Both rules are driven
+through the same pull-style loop on `Quad1DFixed_<T_>`.
+
+`NormalExpectation_` evaluates a standard-normal expectation with a Gauss-Hermite
+node set; $n$ nodes are exact for polynomial payoffs up to degree $2n-1$:
+
+```cpp
+// from dal-cpp/dal/math/integral/quadrature.hpp
+#include <dal/math/integral/quadrature.hpp>
+#include <dal/math/vectors.hpp>
+
+using namespace Dal;
+
+NormalExpectation_<> quad(/*n=*/8);   // 8 Gauss-Hermite nodes
+while (!quad.IsComplete()) {
+    const double z = quad.GetX();
+    const double payoff = std::max(std::exp(z) - strike, 0.0);   // f(z)
+    quad.PutY(payoff);
+}
+const double price = quad.Result();   // E[f(Z)], Z ~ N(0,1)
+```
+
+`QuadSimpson_` integrates a smooth integrand over a finite interval with the
+composite $1/3$ rule; the requested point count is forced odd internally:
+
+```cpp
+// from dal-cpp/dal/math/integral/quadrature.hpp
+QuadSimpson_<> quad(/*n=*/101, /*lo=*/0.0, /*hi=*/1.0);
+while (!quad.IsComplete()) {
+    const double x = quad.GetX();
+    quad.PutY(std::sin(x));
+}
+const double integral = quad.Result();   // int_0^1 sin(x) dx
+```
+
+`Restart()` rewinds the cursor and resets the accumulator so the same node set
+can be reused across several integrands without rebuilding the weights.
+
 ## See Also
 
 - [Black / Bachelier vanilla pricing](black_scholes.md) — the normal CDF/PDF at the

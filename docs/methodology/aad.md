@@ -422,6 +422,66 @@ recording is unconditional — and Adept's activity is governed by its
 without differentiation) should use a plain `double` evaluation rather than
 relying on tape passivity, which is backend-dependent.
 
+## Examples
+
+The recording contract of the previous section is exercised end to end by the
+AAD benchmark program, which prices a Black payoff and reads back every Greek
+from a single reverse sweep. See
+[`dal-cpp/examples/aad/`](../../dal-cpp/examples/aad/) for a runnable version;
+its core backend-neutral sweep is:
+
+```cpp
+// from dal-cpp/examples/aad/aad.cpp
+#include <dal/platform/platform.hpp>
+#include <dal/math/aad/aad.hpp>
+#include <dal/math/operators.hpp>
+#include <dal/math/vectors.hpp>
+
+using namespace Dal;
+using Dal::AAD::Number_;
+
+Dal::RegisterAll_::Init();
+AAD::Clear(*AAD::Tape());
+
+Number_ fwdAad(fwd), volAad(vol), numeraireAad(numeraire), strikeAad(strike), expiryAad(expiry);
+PutOnTape(fwdAad);
+PutOnTape(volAad);
+PutOnTape(numeraireAad);
+PutOnTape(strikeAad);
+PutOnTape(expiryAad);
+AAD::NewRecording(*AAD::Tape());
+
+Number_ priceAad = BlackTest(fwdAad, volAad, numeraireAad, strikeAad, expiryAad, isCall);
+Adjoint(priceAad) = 1.0;
+AAD::PropagateToStart(*AAD::Tape());
+
+const double pv    = Value(priceAad);   // price
+const double delta = Adjoint(fwdAad);   // dP/dFwd
+const double vega  = Adjoint(volAad);   // dP/dVol
+// numeraire, strike, and expiry adjoints are read the same way
+```
+
+For the pathwise Monte Carlo estimator of the *Pathwise Adjoints in Monte Carlo*
+section, the same program wraps the forward evaluation and reverse sweep in a
+`Rewind`-bounded loop so the tape is reused per path while the parameter
+adjoints accumulate across paths:
+
+```cpp
+// from dal-cpp/examples/aad/aad.cpp
+Number_ priceAad{0.0};
+for (int i = 0; i < nRounds; ++i) {
+    AAD::Rewind(*AAD::Tape());
+    priceAad = BlackTest(fwdAad, volAad, numeraireAad, strikeAad, expiryAad, isCall);
+    Adjoint(priceAad) = 1.0;
+    AAD::PropagateToStart(*AAD::Tape());
+}
+const double delta = Adjoint(fwdAad) / nRounds;   // averaged pathwise estimator
+```
+
+The example also benchmarks the same payoff with the XAD, CoDiPack, and Adept
+backends side by side; only the recording and zeroing calls differ, as described
+under *Backends* above.
+
 ## Summary
 
 Reverse-mode AAD records the computational graph on a forward pass and applies

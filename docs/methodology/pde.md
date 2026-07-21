@@ -18,6 +18,7 @@ The framework is plain `double`; it does not use active AAD types.
 `CoordinateMap_` maps a computational coordinate `y` to a physical coordinate `x`:
 
 ```cpp
+// from dal-cpp/dal/math/pde/pde.hpp
 virtual double operator()(double y, double* dxDy, double* d2xDy2) const = 0;
 virtual double Y(double x) const = 0;
 ```
@@ -90,6 +91,7 @@ $$
 `CoordinateVector_` describes a one-dimensional computational grid:
 
 ```cpp
+// from dal-cpp/dal/math/pde/pde.hpp
 struct CoordinateVector_ {
     double yLow_;
     double yHigh_;
@@ -172,6 +174,7 @@ The factory functions return `std::unique_ptr`. Callers normally wrap the result
 Constant factories:
 
 ```cpp
+// from dal-cpp/dal/math/pde/pde.hpp
 std::unique_ptr<ScalarCoeff_> NewConstCoeff(double val);
 std::unique_ptr<VectorCoeff_> NewConstCoeff(const Vector_<>& val);
 std::unique_ptr<MatrixCoeff_> NewConstCoeff(const Matrix_<>& val);
@@ -182,6 +185,7 @@ The matrix constant must be square. Constant coefficients report all-zero depend
 Callable factories:
 
 ```cpp
+// from dal-cpp/dal/math/pde/pde.hpp
 std::unique_ptr<ScalarCoeff_> NewScalarCoeff(std::function<double(const Vector_<>&)> f, Coeff_::x_dep_t dep);
 std::unique_ptr<VectorCoeff_> NewVectorCoeff(std::function<void(const Vector_<>&, Vector_<>*)> f,
                                              const Vector_<Coeff_::x_dep_t>& dep);
@@ -195,6 +199,7 @@ adapter resizes the output object to match `dep` before invoking the callable.
 The one-dimensional convenience overloads infer axis-0 dependence and length/shape 1:
 
 ```cpp
+// from dal-cpp/dal/math/pde/pde.hpp
 std::unique_ptr<ScalarCoeff_> NewScalarCoeff(std::function<double(double)> f);
 std::unique_ptr<VectorCoeff_> NewVectorCoeff(std::function<double(double)> f);
 std::unique_ptr<MatrixCoeff_> NewMatrixCoeff(std::function<double(double)> f);
@@ -203,6 +208,7 @@ std::unique_ptr<MatrixCoeff_> NewMatrixCoeff(std::function<double(double)> f);
 These make Black-Scholes coefficients concise:
 
 ```cpp
+// from dal-cpp/examples/european_fd/european_fd.cpp
 Handle_<ScalarCoeff_> disc(NewConstCoeff(rate));
 Handle_<VectorCoeff_> mu(NewVectorCoeff([=](double s) { return (rate - div) * s; }));
 Handle_<MatrixCoeff_> var(NewMatrixCoeff([=](double s) { return vol * vol * s * s; }));
@@ -278,6 +284,7 @@ vectors.
 Whole-vector aliasing is supported:
 
 ```cpp
+// from dal-cpp/dal/math/pde/thetascheme.hpp
 scheme(dt, grids, vals, *disc, *mu, *var, &vals);
 ```
 
@@ -291,7 +298,8 @@ fresh `Cube_<>(1, 1, n)`; the implementation does not resize cubes in place.
 
 ## Example Roll Loop
 
-The European finite-difference example in `dal-cpp/examples/european_fd/` runs explicit,
+The European finite-difference example in
+[`dal-cpp/examples/european_fd/`](../../dal-cpp/examples/european_fd/) runs explicit,
 Crank-Nicolson, and fully implicit scheme configurations through the same rollback helper.
 The explicit configuration uses a finer time grid because explicit rollback is
 conditionally stable. After the base scheme comparison, the example continues the
@@ -299,6 +307,7 @@ Crank-Nicolson convergence sweep by increasing `spaceSteps` and `timeSteps` toge
 each selected run, the helper uses:
 
 ```cpp
+// from dal-cpp/examples/european_fd/european_fd.cpp
 const SchemeRun_ schemeRuns[] = {
     {"Explicit", 0.0, kBaseSteps, kExplicitTimeSteps},
     {"Crank-Nicolson", 0.5, kBaseSteps, kBaseSteps},

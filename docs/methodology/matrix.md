@@ -199,6 +199,85 @@ $$
 
 and exceeding `maxIterations` without meeting the threshold throws.
 
+## Examples
+
+No dedicated example program exercises the matrix layer in isolation; the
+snippets below are drawn from the public headers under `dal-cpp/dal/math/matrix/`.
+
+A band-diagonal system is built through `Sparse::NewBandDiagonal`, which returns
+the tightest available representation — a `TriDiagonal_` when both bandwidths are
+at most one, otherwise a `Banded_` — and solved through the common
+`SquareMatrixDecomposition_` interface:
+
+```cpp
+// from dal-cpp/dal/math/matrix/banded.hpp
+#include <dal/math/matrix/banded.hpp>
+#include <dal/math/vectors.hpp>
+
+using namespace Dal;
+
+const int n = 8;
+std::unique_ptr<Sparse::Square_> a(Sparse::NewBandDiagonal(n, 1, 1));   // tri-diagonal
+for (int i = 0; i < n; ++i)
+    a->Set(i, i, 2.0);
+for (int i = 0; i < n - 1; ++i) {
+    a->Set(i, i + 1, -1.0);   // above
+    a->Set(i + 1, i, -1.0);   // below
+}
+
+const Vector_<> b(n, 1.0);
+Vector_<> x(n);
+std::unique_ptr<SquareMatrixDecomposition_> decomp(a->Decompose());
+decomp->SolveLeft(b, &x);   // solve A x = b by the Thomas algorithm
+```
+
+For a dense symmetric positive-definite system, `CholeskyDecomposition` returns a
+`SymmetricDecomposition_` whose `Solve` handles both forward and backward
+substitution, and whose `MakeCorrelated` applies the retained lower factor to
+i.i.d. deviates:
+
+```cpp
+// from dal-cpp/dal/math/matrix/cholesky.hpp
+#include <dal/math/matrix/cholesky.hpp>
+#include <dal/math/matrix/squarematrix.hpp>
+#include <dal/math/vectors.hpp>
+
+using namespace Dal;
+
+SquareMatrix_<> a(3);
+a(0, 0) = 4.0; a(1, 1) = 1.0; a(2, 2) = 9.0;
+a(0, 1) = a(1, 0) = 1.0;
+a(0, 2) = a(2, 0) = 2.0;
+a(1, 2) = a(2, 1) = 0.0;
+
+std::unique_ptr<Sparse::SymmetricDecomposition_> chol(CholeskyDecomposition(a));
+const Vector_<> b = {1.0, 2.0, 3.0};
+Vector_<> x(3);
+chol->Solve(b, &x);   // forward/backward substitution against L L^T
+```
+
+When $A$ is available only through its matrix-vector products, the Krylov solvers
+take the matrix by its `Sparse::Square_` base and converge under the combined
+tolerance of the *When to Use Which* section. `CGSolve` is the right call for a
+symmetric positive-definite $A$ such as a Gauss-Newton normal-equations Hessian:
+
+```cpp
+// from dal-cpp/dal/math/matrix/bcg.hpp
+#include <dal/math/matrix/bcg.hpp>
+#include <dal/math/matrix/banded.hpp>
+#include <dal/math/vectors.hpp>
+
+using namespace Dal;
+
+const int n = 64;
+std::unique_ptr<Sparse::Square_> a(Sparse::NewBandDiagonal(n, 1, 1));
+// ... fill a SPD band matrix ...
+const Vector_<> b(n, 1.0);
+Vector_<> x(n, 0.0);
+Sparse::CGSolve(*a, b, /*tolRel=*/1e-8, /*tolAbs=*/1e-10, /*maxIterations=*/200, &x);
+// Sparse::BCGSolve(*a, b, 1e-8, 1e-10, 200, &x);   // non-symmetric fallback
+```
+
 ## See Also
 
 - [Interpolation](interpolation.md) — the natural cubic-spline construction reduces to a
