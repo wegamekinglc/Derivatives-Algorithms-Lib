@@ -396,6 +396,57 @@ satisfaction. The approximate mode solves a regularised normal-equation system a
 converges on residual norm. In both, the weight matrix turns the surplus degrees of
 freedom into a smoothness prior.
 
+## Examples
+
+The underdetermined solver is consumed by curve calibration rather than called
+directly. The example program constructs an instrument set and a denser knot
+grid, then calls the positional `CalibrateYieldCurve` overload from
+`dal-cpp/dal/curve/curveblock.hpp`, which assembles a `CurveCalibrationSpec_`,
+runs the residual function through `Underdetermined::Find`, and returns the
+fitted discount curve. See [`dal-cpp/examples/underdetermined/`](../../dal-cpp/examples/underdetermined/)
+for a runnable version; its calibration entry point is:
+
+```cpp
+// from dal-cpp/examples/underdetermined/underdetermined.cpp
+#include <dal/platform/platform.hpp>
+#include <dal/curve/curveblock.hpp>
+
+using namespace Dal;
+
+const Date_ today(2024, 1, 15);
+const String_& ccy = "USD";
+const DayBasis_ basis("ACT_365F");
+
+Vector_<Handle_<YCInstrument_>> instruments;
+instruments.push_back(Handle_<YCInstrument_>(new Deposit_(today, Date::AddMonths(today, 1), 0.0450, basis)));
+instruments.push_back(Handle_<YCInstrument_>(new STIR_(today, Date::AddMonths(today, 3), Date::AddMonths(today, 6), 0.0470, basis)));
+instruments.push_back(Handle_<YCInstrument_>(new Swap_(today, Date::AddMonths(today, 12), 0.0490, 6, basis)));
+instruments.push_back(Handle_<YCInstrument_>(new Swap_(today, Date::AddMonths(today, 60), 0.0510, 6, basis)));
+
+Vector_<Date_> knotDates = {
+    Date::AddMonths(today, 1),
+    Date::AddMonths(today, 3),
+    Date::AddMonths(today, 6),
+    Date::AddMonths(today, 12),
+    Date::AddMonths(today, 24),
+    Date::AddMonths(today, 36),
+    Date::AddMonths(today, 60),
+};
+
+// The system is underdetermined: with the default piecewise-linear-forward
+// parameterization there are two parameters per knot, so n > m and the
+// tridiagonal smoothing weight W picks the least-rough solution
+std::unique_ptr<DiscountCurve_> dc(CalibrateYieldCurve(today, ccy, instruments, knotDates));
+```
+
+The example then wraps the calibrated curve in a `CurveBlock_`, reprices each
+instrument through its `Precompute` rate, and prints the model-minus-market
+error in basis points to confirm the componentwise tolerance test converged.
+The solver controls (`maxEvaluations_`, `maxRestarts_`, line-search tolerances)
+flow in through the `CurveCalibrationSpec_` fields when the spec-form overload
+`CalibrateYieldCurve(spec)` is used instead of the positional convenience
+overload shown above.
+
 ## See Also
 
 - [Yield curve construction](yield_curve.md) — the primary consumer of this solver.
