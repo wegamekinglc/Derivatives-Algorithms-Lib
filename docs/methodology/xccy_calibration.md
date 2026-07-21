@@ -198,24 +198,179 @@ valid residual system without the analytic eligibility requirement.
   matrix views; joint XCCY has options plus forward-Jacobian/range views, but no
   effective-inverse worksheet getter.
 
-## Runnable Examples
+## Examples
 
-- `xccy_curve_calibration` performs staged basis-only calibration against
-  supplied domestic and foreign curve blocks and prints fit diagnostics,
-  including the FX spot and maximum residual, plus elapsed time.
-- `xccy_reset_pricing` prices future fixed, resettable, and MTM swaps against
-  piecewise-constant discount, projection, and basis curves, validates their
-  reset and notional behavior, and prices an already-started MTM swap from an
-  immutable snapshot of historical domestic-rate, foreign-rate, and FX fixings.
-- `xccy_mtm_calibration` builds known domestic, foreign, and basis curves,
-  derives self-consistent quotes, supplies an immutable fixing snapshot for an
-  already-started MTM swap, and recovers five declaration blocks across the
-  domestic, foreign, and basis groups in one joint calibration. It prints the
-  convergence residual, Jacobian shape, block ranges, and parameter-recovery
-  errors.
-- `dal-python/examples/007.xccy_joint_calibration.py` runs joint calibration
-  through the installed Python surface and prints convergence, matrix
-  dimensions, named ranges, and FX forwards.
+The three standalone programs under `dal-cpp/examples/` exercise the staged,
+joint, and pricing surfaces declared in `dal-cpp/dal/curve/xccycalibration.hpp`
+and `dal-cpp/dal/curve/xccyjointcalibration.hpp`. The snippets below condense
+their real call sequences; class and enum names, factory functions, and
+include paths match the current source. See the citations in each example.
+
+### Staged basis-only calibration
+
+`xccy_curve_calibration` performs staged basis-only calibration against
+supplied domestic and foreign curve blocks and prints fit diagnostics,
+including the FX spot and maximum residual, plus elapsed time. See
+[`dal-cpp/examples/xccy_curve_calibration/`](../../dal-cpp/examples/xccy_curve_calibration/)
+for a runnable version.
+
+```cpp
+// from dal-cpp/examples/xccy_curve_calibration/xccy_curve_calibration.cpp
+#include <dal/platform/platform.hpp>
+#include <dal/platform/initall.hpp>
+#include <dal/curve/curveblock.hpp>
+#include <dal/curve/xccycalibration.hpp>
+#include <dal/protocol/collateraltype.hpp>
+#include <dal/storage/globals.hpp>
+#include <dal/time/date.hpp>
+#include <dal/utilities/timer.hpp>
+
+using namespace Dal;
+
+RegisterAll_::Init();
+const Date_ today(2024, 1, 15);
+XGLOBAL::SetEvaluationDate(today);
+
+// Pre-calibrated domestic and foreign CurveBlock_ objects are inputs; only the
+// basis-curve parameters are solved. The example builds them with the file-local
+// MakeXccyBlock helper on top of NewDiscountPWLF.
+CrossCurrencyCalibrationSpec_ spec;
+spec.today_              = today;
+spec.basisPair_          = CurrencyPair_(Ccy_("USD"), Ccy_("EUR"));
+spec.domesticCurveBlock_ = MakeXccyBlock("usd_ois", "USD", today, 0.02);
+spec.foreignCurveBlock_  = MakeXccyBlock("eur_ois", "EUR", today, 0.01);
+spec.fxSpot_             = 1.10;
+spec.knotDates_          = {Date::AddMonths(today, 6), Date::AddMonths(today, 12), Date::AddMonths(today, 24),
+                            Date::AddMonths(today, 60), Date::AddMonths(today, 120)};
+
+// Each CrossCurrencySwap_ carries its market-implied par spread on the foreign
+// leg; the example prototypes every swap against a quote market to derive them
+// before calibration. maturities and marketSpreads are parallel vectors.
+for (int i = 0; i < static_cast<int>(maturities.size()); ++i) {
+    spec.instruments_.push_back(
+        Handle_<CrossCurrencySwap_>(new CrossCurrencySwap_(MakeXccySwap(today, marketSpreads[i], maturities[i]))));
+}
+
+Timer_ timer;
+timer.Reset();
+const auto result = CalibrateCrossCurrencyMarket(spec);
+const auto elapsedMs = timer.Elapsed<milliseconds>();
+// result.diagnostics_ exposes residuals_, marketRates_, modelRates_, and the
+// optional effJacobianInverse_ and jacobian_ matrices described above.
+```
+
+### Joint domestic, foreign, and basis calibration
+
+`xccy_mtm_calibration` builds known domestic, foreign, and basis curves,
+derives self-consistent quotes, supplies an immutable fixing snapshot for an
+already-started MTM swap, and recovers five declaration blocks across the
+domestic, foreign, and basis groups in one joint calibration. It prints the
+convergence residual, Jacobian shape, block ranges, and parameter-recovery
+errors. See
+[`dal-cpp/examples/xccy_mtm_calibration/`](../../dal-cpp/examples/xccy_mtm_calibration/)
+for a runnable version.
+
+```cpp
+// from dal-cpp/examples/xccy_mtm_calibration/xccy_mtm_calibration.cpp
+#include <dal/platform/platform.hpp>
+#include <dal/curve/curveblock.hpp>
+#include <dal/curve/xccyjointcalibration.hpp>
+#include <dal/indice/fixingsnapshot.hpp>
+#include <dal/protocol/collateraltype.hpp>
+#include <dal/time/datetime.hpp>
+
+using namespace Dal;
+
+const Date_ today(2025, 1, 16);
+const DateTime_ valuationTime(today, 9, 0);
+const CurrencyPair_ pair(Ccy_("USD"), Ccy_("EUR"));
+
+// Already-started MTM swap: one historical fixing each for the domestic rate,
+// foreign rate, and FX index. MarketFixingSnapshot_ is the immutable map the
+// joint solver retains on the result.
+MarketFixingSnapshot_::values_t observations;
+observations["USD-JOINT-3M"][historicalFixing] = 0.040;
+observations["EUR-JOINT-3M"][historicalFixing] = 0.030;
+observations[FxIndexName(pair)][historicalFixing] = 1.20;
+const Handle_<MarketFixingSnapshot_> fixings(new MarketFixingSnapshot_(observations));
+
+// domestic_, foreign_, and basis_ each carry declarations and instrument
+// groups; the example builds them with five knots per curve and quotes the
+// basis swaps off a known truth market.
+JointXccyCalibrationSpec_ spec;
+spec.valuationTime_      = valuationTime;
+spec.pair_               = pair;
+spec.collateralCurrency_ = pair.domestic_;
+spec.fxSpot_             = 1.10;
+spec.domestic_           = domestic.declaration_;
+spec.foreign_            = foreign.declaration_;
+spec.basis_              = basis;
+spec.fixings_            = fixings;
+spec.tolerance_          = 1.0e-10;
+spec.initialGuess_       = 0.005;
+
+const JointXccyCalibrationResult_ result = CalibrateJointXccyMarket(spec);
+// result.converged_, jointMaxAbsResidual_, jacobianAtSolution_,
+// parameterRanges_, and residualRanges_ cover every declaration block; the
+// example cross-checks recovered parameters against the known truth.
+```
+
+### Pricing fixed, resettable, and MTM swaps
+
+`xccy_reset_pricing` prices future fixed, resettable, and MTM swaps against
+piecewise-constant discount, projection, and basis curves, validates their
+reset and notional behavior, and prices an already-started MTM swap from an
+immutable snapshot of historical domestic-rate, foreign-rate, and FX fixings.
+See [`dal-cpp/examples/xccy_reset_pricing/`](../../dal-cpp/examples/xccy_reset_pricing/)
+for a runnable version.
+
+```cpp
+// from dal-cpp/examples/xccy_reset_pricing/xccy_reset_pricing.cpp
+#include <dal/platform/platform.hpp>
+#include <dal/platform/initall.hpp>
+#include <dal/curve/xccycalibration.hpp>
+#include <dal/curve/xccypricing.hpp>
+#include <dal/indice/fixingsnapshot.hpp>
+#include <dal/protocol/collateraltype.hpp>
+#include <dal/time/datetime.hpp>
+
+using namespace Dal;
+
+RegisterAll_::Init();
+const Date_ today(2025, 1, 16);
+const DateTime_ valuationTime(today, 9, 0);
+
+// Config selects one of FIXED, RESETTABLE, or MARK_TO_MARKET notional handling;
+// BuildXccyCashflowPlan returns the period and reset schedule the pricer walks.
+const CrossCurrencySwapConfig_ config = Config(XccyNotionalMode_::Value_::MARK_TO_MARKET);
+const XccyCashflowPlan_ plan = BuildXccyCashflowPlan(start, maturity, config);
+
+// XccyMarketView_ bundles discount, forward, and basis curve slots plus FX
+// spot. The example fills view.domestic_ and view.foreign_ from
+// Tape::JointCurveBlock_<double> records built out of a CrossCurrencyMarket_.
+XccyMarketView_<double> view;
+view.valuationTime_      = market.ValuationTime();
+view.pair_               = CurrencyPair_(market.DomesticCcy(), market.ForeignCcy());
+view.collateralCurrency_ = market.CollateralCurrency();
+view.fxSpot_             = market.FxSpot();
+view.domestic_           = &domestic;
+view.foreign_            = &foreign;
+view.basis_              = market.BasisCurve();
+
+// ResolveXccyNotionals fills the per-period domestic notionals and the
+// mtmDeltas_ vector that only MARK_TO_MARKET produces; PriceXccyParSpread
+// returns the par basis spread on the configured quoted leg. The example
+// asserts the direct pricer agrees with CrossCurrencySwap_::Precompute.
+const Handle_<MarketFixingSnapshot_> fixings(new MarketFixingSnapshot_());
+const XccyResolvedNotionals_<double> notionals = ResolveXccyNotionals<double>(plan, view, *fixings);
+const double parSpread = PriceXccyParSpread<double>(plan, view, *fixings);
+```
+
+### Python
+
+`dal-python/examples/007.xccy_joint_calibration.py` runs joint calibration
+through the installed Python surface and prints convergence, matrix
+dimensions, named ranges, and FX forwards.
 
 ## Performance Smoke Surface
 

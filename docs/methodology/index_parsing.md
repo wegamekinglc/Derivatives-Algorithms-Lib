@@ -82,3 +82,51 @@ currently matches nothing. `IndexPathHistorical_`
 (`dal-cpp/dal/indice/indexpath.hpp`) adapts a fixing time series to the
 `IndexPath_` interface used where models need path-level expectations and
 range probabilities.
+
+## Examples
+
+No dedicated example program exercises index parsing in isolation; the
+snippet below is drawn from the public headers in `dal-cpp/dal/indice/` and
+shows the parse-then-construct surface. Every symbol matches the current
+signatures in `index.hpp`, `indexparse.hpp`, `index/equity.hpp`,
+`index/fx.hpp`, and `index/ir.hpp`.
+
+```cpp
+// Inline snippet drawn from the public headers in dal-cpp/dal/indice/.
+#include <dal/currency/currency.hpp>
+#include <dal/indice/index/equity.hpp>
+#include <dal/indice/index/fx.hpp>
+#include <dal/indice/index/ir.hpp>
+#include <dal/indice/index.hpp>
+#include <dal/indice/indexparse.hpp>
+#include <dal/math/cell.hpp>
+#include <dal/protocol/couponrate.hpp>
+#include <dal/time/date.hpp>
+
+using namespace Dal;
+
+// Registered parsers: 'EQ[...]' -> Index::Equity_, 'FX[...]' -> Index::Fx_.
+// Index::Parse returns std::unique_ptr<Index_>; the prefix before ':' or '['
+// selects the parser, and an unregistered prefix throws.
+std::unique_ptr<Index_> spotEq = Index::Parse("EQ[SPX]");
+std::unique_ptr<Index_> fwdEq  = Index::Parse("EQ[SPX]>3M");
+std::unique_ptr<Index_> usdJpy = Index::Parse("FX[USD/JPY]");
+const String_ fxCanonical      = usdJpy->Name();     // "FX[USD/JPY]"
+
+// IR indices have canonical names but no registered parser; they are built
+// directly. Libor_ takes a TradedRate_ tenor; Swap_ takes a swap-tenor string.
+const Index::Libor_ libor(Ccy_("USD"), TradedRate_("LIBOR3MLCH"));
+const Index::Swap_  swap(Ccy_("USD"), "5Y");
+const Index::DF_    df(Ccy_("USD"), Cell_(Date_(2027, 6, 18)));
+const String_ liborName = libor.Name();              // "IR:USD,LIBOR_3M_LCH"
+const String_ swapName  = swap.Name();               // "IR:USD,5Y"
+
+// FxIndexName produces the canonical 'FX[fgn/dom]' name used by fixing
+// snapshots and XCCY reset conventions; it round-trips with Index::Parse.
+const String_ gbpUsd = FxIndexName(Ccy_("GBP"), Ccy_("USD"));
+```
+
+The build-tree test binary covers the parse dispatch table and canonical name
+formats: `./build/Release-linux/dal-cpp/dal_cpp_tests --gtest_filter=IndexParseTest.*`
+exercises the registered parsers, and `--gtest_filter=IndexTest.*` covers
+`Libor_`, `Swap_`, and `DF_` name generation and fixing lookup.

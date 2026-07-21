@@ -84,3 +84,57 @@ and a `DayBasis::Context_` for coupon-aware day counts.
 enumeration — `ACT_365F`, `ACT_365L`, `ACT_360`, `ACT_ACT`, and `BOND`
 (30/360). Calling a basis with start and end dates, plus an optional coupon
 context, returns the year fraction used for accrual.
+
+## Examples
+
+No dedicated example program exercises the date machinery in isolation; the
+snippet below is drawn from the public headers in `dal-cpp/dal/time/` and shows
+the typical call sequence. Every symbol matches the current signatures in
+`date.hpp`, `dateincrement.hpp`, `holidays.hpp`, `daybasis.hpp`,
+`datetime.hpp`, and `schedules.hpp`.
+
+```cpp
+// Inline snippet drawn from the public headers in dal-cpp/dal/time/.
+#include <dal/time/date.hpp>
+#include <dal/time/dateincrement.hpp>
+#include <dal/time/datetime.hpp>
+#include <dal/time/daybasis.hpp>
+#include <dal/time/holidays.hpp>
+#include <dal/time/schedules.hpp>
+
+using namespace Dal;
+
+// Date_ wraps a validated serial day count; years span [1900, 2199] and a
+// default-constructed Date_ fails IsValid().
+const Date_ today(2026, 4, 30);
+const int excelSerial = Date::ToExcel(today);
+const Date_ naiveSpot = Date::AddMonths(today, 2);   // T+2 spot, naive month roll
+
+// Holidays_ unions named centers; the empty string means no holidays. The
+// free functions in namespace Holidays roll and adjust against a calendar.
+const Holidays_ target("TARGET");
+const Date_ spot    = Holidays::Adjust(target, naiveSpot, BizDayConvention_("ModifiedFollowing"));
+const bool  isBizDay = Holidays::IsBusinessDay(target, spot);
+
+// Date::Increment_ is the step interface; ParseIncrement covers tenors ('3M',
+// '10Y', '2W'), business-day counts with a calendar suffix ('5BD;CN.IB'), and
+// special-day names ('IMM', 'EOM'). operator+ applies FwdFrom.
+const Handle_<Date::Increment_> tenor = Date::ParseIncrement("3M");
+const Date_ maturity                   = spot + *tenor;
+
+// DateTime_ pairs a Date_ with a sub-day fraction; the (hour, minute) ctor is
+// used for fixing timestamps.
+const DateTime_ fixingTime(spot, 11, 0);
+
+// Schedule generation and year fractions. MakeSchedule lays out an adjusted
+// strip; a DayBasis_ called as a functor returns the accrual fraction.
+const Schedule_ dates  = MakeSchedule(today, maturity, PeriodLength_("3M"), target);
+const DayBasis_ act365("ACT_365F");
+const double yearFrac = act365(dates[0], dates[1], nullptr);
+```
+
+The build-tree test binary holds the executable spec for these types — for
+example `./build/Release-linux/dal-cpp/dal_cpp_tests --gtest_filter=DateTest.*`
+covers construction, comparison, and month arithmetic, and `--gtest_filter=...`
+also has dedicated suites for `DateIncrementTest`, `DateTimeTest`,
+`DayBasisTest`, `ChinaCalendarTest`, and `HolidayDataTest`.
