@@ -16,7 +16,8 @@ style, test, review, docs, and artifact conventions.
 ## Canonical Locations
 
 - Codex skills: `.codex/skills/`.
-- Codex role artifacts: `.codex/artifacts/`.
+- Codex custom-agent registrations: `.codex/agents/`.
+- Codex durable role artifacts: `.codex/artifacts/`.
 - Claude source material: `.claude/` and `CLAUDE.md`; read only unless the user explicitly asks to edit Claude files.
 - Methodology docs: `docs/methodology/`.
 
@@ -118,11 +119,10 @@ Canonical reference: the Documentation section of
 
 ## Artifact Paths
 
-| Artifact       | Path                                        |
-|----------------|---------------------------------------------|
-| Specs          | `.codex/artifacts/specs/<slug>.md`          |
-| API notes      | `.codex/artifacts/api-notes/<slug>.md`      |
-| Critiques      | `.codex/artifacts/critiques/<slug>.md`      |
-| Review reports | `.codex/artifacts/reviews/<slug>.md`        |
-| Perf reports   | `.codex/artifacts/perf/<slug>.md`           |
-| Simplification | `.codex/artifacts/simplifications/<slug>.md` |
+- Specs: `.codex/artifacts/specs/<slug>.md`.
+- Designs: `.codex/artifacts/designs/<slug>.md`.
+- API notes: `.codex/artifacts/api-notes/<slug>.md`.
+- Critiques: `.codex/artifacts/critiques/<slug>.md`.
+- Review reports: `.codex/artifacts/reviews/<slug>.md`.
+- Performance reports: `.codex/artifacts/perf/<slug>.md`.
+- Simplification reports: `.codex/artifacts/simplifications/<slug>.md`.
