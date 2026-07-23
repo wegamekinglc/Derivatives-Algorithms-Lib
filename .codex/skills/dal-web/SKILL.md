@@ -13,24 +13,9 @@ project's financial terminal UI style.
 
 ## Start And Stop
 
-Linux, macOS, WSL, or git-bash:
-
-```bash
-./dal-web/scripts/start.sh
-./dal-web/scripts/stop.sh
-./dal-web/scripts/stop.sh --force
-```
-
-Windows PowerShell 7:
-
-```powershell
-pwsh -NoProfile -ExecutionPolicy Bypass -File dal-web/scripts/start.ps1
-pwsh -NoProfile -ExecutionPolicy Bypass -File dal-web/scripts/stop.ps1
-pwsh -NoProfile -ExecutionPolicy Bypass -File dal-web/scripts/stop.ps1 -Force
-```
-
-The frontend is normally at `http://localhost:5173`; backend docs are at
-`http://127.0.0.1:8001/docs`.
+Load and follow [web operations](references/operations.md) for platform dispatch, startup,
+health and proxy checks, logs, graceful/forced shutdown, port-owner cleanup, persistence, and
+troubleshooting.
 
 ## Tests
 
@@ -45,16 +30,17 @@ Run Playwright when frontend/backend contract or user-facing flows change.
 
 ## Backend Rules
 
-- New request handlers are `async def`.
-- Offload blocking DAL extension calls from async paths with `await asyncio.to_thread(...)`.
-- The SQLAlchemy `Store`/`DbStore` seam is intentionally synchronous and may be called directly from handlers.
-- Do not change route names, JSON shapes, status codes, or `running -> completed | failed` polling semantics unless explicitly requested.
+Load and follow the complete [backend style reference](references/backend-style.md) before
+changing FastAPI request paths, DAL extension calls, persistence, or external HTTP behavior.
 
 ## Frontend Style
 
-Load `references/web-standards.md` before changing UI. The style is data-dense, technical,
-dark, financial, and restrained.
+Load and follow the complete [design system](references/design-system.md) before changing the
+React UI or CSS. The style is data-dense, technical, dark, financial, and restrained.
 
 ## References
 
-- `references/web-standards.md`: design palette, layout, component rules, backend async rules, and persistence variables.
+- [Web operations](references/operations.md): start, stop, tests, persistence, and troubleshooting.
+- [Backend style](references/backend-style.md): async FastAPI and immutable-input rules.
+- [Design system](references/design-system.md): complete financial-terminal UI specifications.
+- [Web standards index](references/web-standards.md): concise routing digest for these references.

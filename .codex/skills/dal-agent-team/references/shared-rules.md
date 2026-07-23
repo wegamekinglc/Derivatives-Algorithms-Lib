@@ -3,6 +3,16 @@
 Use this reference for all DAL role skills. It is the single Codex-side home for shared
 style, test, review, docs, and artifact conventions.
 
+## Contents
+
+- [Canonical locations](#canonical-locations)
+- [Build and test](#build-and-test)
+- [C++ style and Machinist enums](#c-style)
+- [Google Test](#google-test)
+- [Git conventions](#git-conventions)
+- [Review and documentation rules](#review-rules)
+- [Artifact paths](#artifact-paths)
+
 ## Canonical Locations
 
 - Codex skills: `.codex/skills/`.
@@ -39,8 +49,8 @@ Web tests:
 
 ## C++ Style
 
-Canonical reference: [code-style.md](../../../../.claude/rules/code-style.md). The digest
-below is what the Codex role skills apply inline.
+Complete reference: [code-style.md](code-style.md). The digest below is what the Codex
+role skills apply inline.
 
 - C++17. Use `.clang-format`: 4 spaces, attached braces, 150 columns, `T*` pointer binding.
 - Classes/structs: PascalCase plus trailing `_`.
@@ -56,7 +66,7 @@ below is what the Codex role skills apply inline.
 
 ## Machinist Enums
 
-The markup format is specified in [code-style.md](../../../../.claude/rules/code-style.md#enums).
+The markup format is specified in [code-style.md](code-style.md#enums).
 When enum markup changes, regenerate both core and Excel output. The `Machinist`
 binary is a git-ignored build artifact, not checked in, so the reliable route is
 the CMake target, which builds Machinist first and runs it with the right inputs:
@@ -70,7 +80,7 @@ Commit generated `dal-cpp/dal/auto/MG_*` and `dal-excel/auto/MG_*` files with th
 
 ## Google Test
 
-Canonical reference: [unit-test-style.md](../../../../.claude/rules/unit-test-style.md).
+Complete reference: [unit-test-style.md](unit-test-style.md).
 
 - Core tests: `dal-cpp/tests/<module>/test_<name>.cpp`.
 - Include `<gtest/gtest.h>` first.
@@ -81,6 +91,11 @@ Canonical reference: [unit-test-style.md](../../../../.claude/rules/unit-test-st
 - Use `ASSERT_THROW(stmt, Dal::Exception_)` for DAL exception paths.
 - Each test owns its setup. Avoid shared mutable state and singleton pollution.
 - Clear AAD tape state at the start and end of AAD tests.
+
+## Git Conventions
+
+Use [git-commit-pr.md](git-commit-pr.md) for DAL branch names, focused commits, commit
+message structure, PR titles and bodies, and the all-tests-pass merge rule.
 
 ## Review Rules
 
@@ -93,7 +108,7 @@ Canonical reference: [unit-test-style.md](../../../../.claude/rules/unit-test-st
 ## Documentation Rules
 
 Canonical reference: the Documentation section of
-[code-style.md](../../../../.claude/rules/code-style.md#documentation).
+[code-style.md](code-style.md#documentation).
 
 - Docs describe the current/latest library only.
 - Historical context belongs in `CHANGELOG.md`, not docs.

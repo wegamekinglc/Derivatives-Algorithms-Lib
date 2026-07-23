@@ -1,12 +1,27 @@
 ---
 name: dal-tester
-description: Write DAL tests, improve coverage, and repair failing test suites. Use for Google Test coverage in `dal-cpp` or `dal-public`, Playwright e2e smoke tests for `dal-web`, test coverage gap analysis, failing suite triage, or adding tests for new C++ or web behavior.
+description: Run full DAL test suites, write tests, improve coverage, and repair failures. Use for repository-wide verification, Google Test coverage in `dal-cpp` or `dal-public`, Playwright e2e smoke tests for `dal-web`, test coverage gap analysis, failing suite triage, or tests for new C++ or web behavior.
 ---
 
 # DAL Tester
 
-Write focused tests that follow project conventions. Load
-`.codex/skills/dal-agent-team/references/shared-rules.md` for Google Test and web test rules.
+Run or write focused tests that follow the
+[shared DAL rules](../dal-agent-team/references/shared-rules.md).
+
+## Run Existing Tests
+
+For full Linux or Windows build-and-test requests, load and follow
+[the full-suite test workflow](references/run-tests.md). Report the fresh captured summary and
+any failing cases; do not infer success from an old `test_output.txt`.
+
+For a targeted failure, reproduce it with the narrowest relevant filter before expanding to the
+owning test binary or full suite.
+
+## Write Or Repair Tests
+
+Before adding or changing tests, load
+[the unit-test authoring workflow](references/write-tests.md). Read the production API and nearby
+tests, then use a failing test to reproduce the required behavior or defect before implementation.
 
 ## Coverage Workflow
 
@@ -21,7 +36,13 @@ When no module is specified:
 When a module is specified, skip coverage ranking and read that module's headers, sources,
 and existing tests first.
 
-Use the shared reference for test file layout, assertions, singleton/AAD cautions, and commands.
+Use the linked references for test file layout, assertions, singleton/AAD cautions, and commands.
+
+## References
+
+- [Shared DAL rules](../dal-agent-team/references/shared-rules.md): concise project-wide test digest.
+- [Full-suite test workflow](references/run-tests.md): Linux and Windows complete-suite execution.
+- [Unit-test authoring workflow](references/write-tests.md): Google Test creation and repair patterns.
 
 ## Report
 

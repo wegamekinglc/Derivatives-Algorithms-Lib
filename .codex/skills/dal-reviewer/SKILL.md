@@ -19,7 +19,8 @@ is needed and local changes exist.
 
 ## Checklist
 
-- Load `.codex/skills/dal-agent-team/references/shared-rules.md`.
+- Load the [shared DAL rules](../dal-agent-team/references/shared-rules.md).
+- For style checks, load the complete [style-review workflow](references/style-review.md).
 - Cross-check specs, API notes, and critiques when present.
 - Apply the shared review rules and run verification when review scope requires it.
 
