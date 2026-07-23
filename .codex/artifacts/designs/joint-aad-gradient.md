@@ -1565,9 +1565,9 @@ This design enables every spec AC:
 
 ## 16. Hand-Off
 
-- **Design doc path (absolute):**
+- **Design doc repository-relative path:**
   `.codex/artifacts/designs/joint-aad-gradient.md`
-- **API note path (absolute):**
+- **API note repository-relative path:**
   `.codex/artifacts/api-notes/joint-aad-gradient.md`
 - **Blocking dependencies:** NONE — Option B is LOCKED; the re-critique's B4
   blocker is RESOLVED (CP3 new `Tape::JointRate_<T_>` base for the IBOR

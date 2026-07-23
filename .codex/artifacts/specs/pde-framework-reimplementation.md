@@ -317,12 +317,10 @@ retires the old one.
   the old mesher-pinning rationale — operator
   stencils, theta scheme, boundary policy, decomposition reuse and the probe-value
   guard), no line-number citations, project-relative file paths per the markdown rules.
-  Stale prose references to the deleted classes are updated in the same PR:
-  the `docs/README.md` index entry for `pde.md` (currently indexes the old mesher
-  content), `.codex/skills/dal-performancer/SKILL.md` (describes `pde_perf` as "European call
-  via `FD1D_`" — factually wrong after PR-3), and the
-  `.codex/skills/dal-tester/references/write-tests.md` worked examples that reference
-  `Uniform1DMesher_`. A dated `CHANGELOG.md` entry records
+  The same PR updates the `docs/README.md` index entry for `pde.md` (currently indexing the old
+  mesher content). The historical Claude guidance references that described deleted classes are
+  retained as provenance; their current Codex counterparts were modernized during migration and
+  are not future update targets. A dated `CHANGELOG.md` entry records
   the replacement (old mesher/FD1D stack removed, `Rollback_` framework implemented).
 
 ## Non-Functional Requirements
@@ -772,9 +770,8 @@ Project hygiene:
 - [ ] Rewritten `pde_perf` shows no regression vs merge-base baseline (best-of-N
       methodology per NFR Performance).
 - [ ] All old PDE files and their tests are removed (FR19 grep clean over `dal-cpp/` and
-      `docs/methodology/`); stale prose references listed in FR20 (`docs/README.md`,
-      `.codex/skills/dal-performancer/SKILL.md`, `.codex/skills/dal-tester/references/write-tests.md`)
-      are updated; full workspace build succeeds and `ctest --output-on-failure` is
+      `docs/methodology/`); the `docs/README.md` index update listed in FR20 is made; full
+      workspace build succeeds and `ctest --output-on-failure` is
       green.
 - [ ] `docs/methodology/pde.md` describes only the new stack; `CHANGELOG.md` has a dated
       entry; all changed files pass `dal-reviewer`.
@@ -790,9 +787,8 @@ Project hygiene:
   present; cross-check groundwork.
 - **PR-3** - Phases 4-5: rewrite `european_fd`, `pde_perf`, run and report the one-off
   old-vs-new 1e-12 cross-check, delete old files/tests/build references, rewrite
-  `docs/methodology/pde.md`, update the stale prose references listed in FR20
-  (`docs/README.md`, `.codex/skills/dal-performancer/SKILL.md`,
-  `.codex/skills/dal-tester/references/write-tests.md`), add `CHANGELOG.md` entry.
+  `docs/methodology/pde.md`, update the `docs/README.md` index entry listed in FR20,
+  and add a `CHANGELOG.md` entry.
 
 ## Open Questions
 

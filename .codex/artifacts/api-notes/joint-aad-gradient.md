@@ -336,9 +336,9 @@ int main() {
 
 ## Hand-off
 
-- **API note path (absolute):**
+- **API note repository-relative path:**
   `.codex/artifacts/api-notes/joint-aad-gradient.md`
-- **Design doc path (absolute):**
+- **Design doc repository-relative path:**
   `.codex/artifacts/designs/joint-aad-gradient.md`
 - **Blocking dependencies:** NONE — Option B is LOCKED; OQ-1 (parameterization)
   is RESOLVED; OQ-B (`OISSwap_`) is RESOLVED (`OISSwap_` eligible, rides

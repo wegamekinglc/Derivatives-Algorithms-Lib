@@ -108,18 +108,20 @@ detail at the end.
     touch the boundary diagonals — matching old `CalcAx` which applied identity rows in both the
     explicit and implicit assemblies."
 
-- **M2 — The FR19 grep-clean acceptance criterion is unsatisfiable as written, and three guidance
-  docs will go stale.**
+- **M2 — The FR19 grep-clean acceptance criterion is unsatisfiable as written, and the historical
+  guidance references need clear provenance.**
   "A workspace-wide grep for `FD1D_`, `FDM1DMesher_`, ... must come back empty (excluding
   `CHANGELOG.md` history)" can never pass: the spec file itself contains the names, as do
-  `.codex/skills/dal-tester/references/write-tests.md` (uses `Uniform1DMesher_` in its worked examples,
-  lines 74, 182-184), `.codex/skills/dal-performancer/SKILL.md:85` (describes `pde_perf` as "European
-  call via `FD1D_`" — factually wrong after PR-3), and `docs/README.md:70-75` (indexes the old
-  mesher content of `pde.md`). FR20 rewrites `pde.md` but not its index entry.
+  the historical `.claude/skills/dal-unit-test-write/SKILL.md` (then used `Uniform1DMesher_` in its
+  worked examples, lines 74, 182-184) and `.claude/agents/dal-performancer.md:85` (then described
+  `pde_perf` as "European call via `FD1D_`"), and `docs/README.md:70-75` (indexes the old mesher
+  content of `pde.md`). The Claude references are retained as provenance; their current Codex
+  counterparts have already been modernized and are not future update targets. FR20 rewrites
+  `pde.md` but not its index entry.
   - **Suggested fix:** scope the grep to `dal-cpp/**` (sources, tests, build files) plus
-    `docs/methodology/**`. Add to FR20: update the `docs/README.md` index entry for `pde.md`, the
-    `dal-performancer.md` benchmark description, and the `dal-unit-test-write` SKILL.md examples
-    that reference deleted classes.
+    `docs/methodology/**`. Add to FR20: update the `docs/README.md` index entry for `pde.md`.
+    The historical Claude references are provenance only; the current Codex guidance has already
+    been modernized and is not a PR-3 update target.
 
 - **M3 — Concentrating-grid endpoint exactness is silently weaker than the old mesher, making two
   acceptance criteria formally unfalsifiable/flaky, and "identical grids" for the parity check is

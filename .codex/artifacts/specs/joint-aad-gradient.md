@@ -841,7 +841,7 @@ Questions.
 
 ## Hand-off
 
-- **Spec path (absolute):**
+- **Spec repository-relative path:**
   `.codex/artifacts/specs/joint-aad-gradient.md`
 - **Blocking dependencies:** NONE — Option B is LOCKED; the re-critique's B4 blocker
   is RESOLVED (CP3 new `Tape::JointRate_<T_>` base for the IBOR projection slice);
