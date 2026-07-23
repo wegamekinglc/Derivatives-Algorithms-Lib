@@ -55,7 +55,8 @@ Evidence criteria:
 
 - [ ] **Step 2: Record the observed behavior verbatim**
 
-Create `.codex/artifacts/reviews/claude-to-codex-migration-baseline.md` with this header:
+Create `.codex/artifacts/reviews/claude-to-codex-migration-baseline.md` with the literal header
+for this dated migration run:
 
 ```markdown
 # Claude-to-Codex Migration Baseline

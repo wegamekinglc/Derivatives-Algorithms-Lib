@@ -54,6 +54,7 @@ Adopt an **Industrial Terminal** style, inspired by Bloomberg terminals and trad
 /* Status colors */
 --green: #2ea043;           /* Positive/success */
 --red: #da3633;             /* Negative/error */
+--red-dim: rgba(218, 54, 51, 0.15);
 --amber: #d29922;           /* Warning/running */
 ```
 
