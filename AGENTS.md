@@ -64,7 +64,8 @@ ctest --test-dir build/Release-linux --output-on-failure
 - Preserve user changes unless the user explicitly requests a revert.
 - Inspect the working tree before editing.
 - Leave unrelated work unchanged.
-- Prefer small, test-driven changes for C++ behavior: red, green, refactor.
+- Prefer small, test-driven changes for C++ behavior.
+- Follow the red-green-refactor cycle.
 - Use `apply_patch` for manual edits.
 - Follow `.clang-format`.
 - For reviews, lead with findings and file/line references.
