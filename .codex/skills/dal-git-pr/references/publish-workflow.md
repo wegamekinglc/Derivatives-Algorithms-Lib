@@ -156,8 +156,7 @@ Read the existing PR body, then amend it to incorporate the new commit(s). The g
 ### 7. Completion gates
 
 When the user asks to merge, do not merge from an earlier green snapshot. Capture the current PR
-and head, inspect thread-level review state, query checks for that exact SHA, and guard the merge
-against a later push:
+and head, then define paginated audits for review threads and exact-head check runs:
 
 ```bash
 repo_slug=$(gh repo view --json nameWithOwner --jq .nameWithOwner)
@@ -165,26 +164,116 @@ owner=${repo_slug%%/*}
 repo=${repo_slug#*/}
 pr_number=$(gh pr view --json number --jq .number)
 head_sha=$(gh pr view "$pr_number" --json headRefOid --jq .headRefOid)
+
+audit_review_threads() {
+  gh api graphql --paginate \
+    -F owner="$owner" -F repo="$repo" -F number="$pr_number" \
+    -f query='
+      query($owner:String!,$repo:String!,$number:Int!,$endCursor:String) {
+        repository(owner:$owner,name:$repo) {
+          pullRequest(number:$number) {
+            reviewDecision
+            reviewThreads(first:100, after:$endCursor) {
+              nodes {
+                isResolved
+                isOutdated
+                comments(first:100) {
+                  nodes { path line body author { login } }
+                }
+              }
+              pageInfo { hasNextPage endCursor }
+            }
+          }
+        }
+      }' \
+    --jq '.data.repository.pullRequest.reviewThreads.nodes[]'
+}
+
+audit_check_runs() {
+  gh api --paginate \
+    "repos/$repo_slug/commits/$1/check-runs?per_page=100" \
+    --jq '.check_runs[]'
+}
+
+require_same_head() {
+  current_head=$(gh pr view "$pr_number" --json headRefOid --jq .headRefOid)
+  if [ "$current_head" != "$head_sha" ]; then
+    echo "PR head changed from $head_sha to $current_head; restart all completion gates." >&2
+    return 1
+  fi
+}
 ```
 
-Inspect every review thread and require all actionable threads to be resolved:
+The GraphQL query accepts `$endCursor`, requests
+`reviewThreads(first:100, after:$endCursor)`, and returns
+`pageInfo { hasNextPage endCursor }`; `gh api graphql --paginate` therefore retrieves every
+thread page instead of silently stopping at 100.
+
+Run the initial audit against the captured head:
 
 ```bash
-gh api graphql \
-  -F owner="$owner" -F repo="$repo" -F number="$pr_number" \
-  -f query='query($owner:String!,$repo:String!,$number:Int!){repository(owner:$owner,name:$repo){pullRequest(number:$number){reviewDecision reviewThreads(first:100){nodes{isResolved isOutdated comments(first:100){nodes{path line body author{login}}}}}}}}'
+gate_dir=$(mktemp -d)
+audit_review_threads > "$gate_dir/review-threads-initial.jsonl" || exit 1
+audit_check_runs "$head_sha" > "$gate_dir/check-runs-initial.jsonl" || exit 1
+gh pr view "$pr_number" \
+  --json headRefOid,reviewDecision,mergeable,mergeStateStatus,statusCheckRollup \
+  > "$gate_dir/pr-state-initial.json" || exit 1
+jq -e . "$gate_dir/pr-state-initial.json" > /dev/null || exit 1
+
+jq -r '
+  select(.isResolved == false)
+  | {isOutdated, comments: [.comments.nodes[] | {path, line, body, author: .author.login}]}
+' "$gate_dir/review-threads-initial.jsonl" || exit 1
+
+jq -r '
+  select(.status != "completed" or .conclusion != "success")
+  | [.name, .status, .conclusion, .html_url] | @tsv
+' "$gate_dir/check-runs-initial.jsonl" || exit 1
 ```
 
-Query check runs for the captured head SHA and verify required runs have completed successfully:
+Inspect every unresolved thread returned across all pages, including outdated threads, and
+require that no actionable thread remains. Inspect every check-run page for the exact captured
+SHA and require all branch-policy-required checks to be completed and successful. Also require
+the PR's review decision, mergeability, merge-state status, and rollup to permit merge. Each
+audit writes one JSON object per line; an empty review-thread file is a valid zero-thread result.
+An empty check-run file is also valid JSONL input, but it must be reconciled with branch policy
+and `statusCheckRollup` before deciding that no checks are required. Plain `jq` exits cleanly for
+an empty input file. The explicit `|| exit 1` guards distinguish that legitimate empty success
+from a failed capture, truncated JSON, malformed JSONL, or filter error; none may proceed to merge.
+
+Immediately before merge, repeat the full paginated audits and PR-state capture. A head change at
+any point invalidates every prior result and stops the merge:
 
 ```bash
-gh api "repos/$repo_slug/commits/$head_sha/check-runs?per_page=100"
+require_same_head || exit 1
+
+audit_review_threads > "$gate_dir/review-threads-final.jsonl" || exit 1
+jq -r '
+  select(.isResolved == false)
+  | {isOutdated, comments: [.comments.nodes[] | {path, line, body, author: .author.login}]}
+' "$gate_dir/review-threads-final.jsonl" || exit 1
+
+require_same_head || exit 1
+audit_check_runs "$head_sha" > "$gate_dir/check-runs-final.jsonl" || exit 1
+jq -r '
+  select(.status != "completed" or .conclusion != "success")
+  | [.name, .status, .conclusion, .html_url] | @tsv
+' "$gate_dir/check-runs-final.jsonl" || exit 1
+
+require_same_head || exit 1
+gh pr view "$pr_number" \
+  --json headRefOid,reviewDecision,mergeable,mergeStateStatus,statusCheckRollup \
+  > "$gate_dir/pr-state-final.json" || exit 1
+test "$(jq -er .headRefOid "$gate_dir/pr-state-final.json")" = "$head_sha" || exit 1
 ```
 
-Immediately before merge, confirm `headRefOid` is still `"$head_sha"`, then use the head guard:
+Reinspect the final unresolved-thread output, exact-head check-run output, `reviewDecision`,
+`mergeable`, `mergeStateStatus`, and `statusCheckRollup`. If the head changed, start again by
+capturing the new `head_sha` and rerunning both initial audits. Only after the repeated final
+audits are clear, perform one last head check and use the merge guard:
 
 ```bash
-gh pr view "$pr_number" --json headRefOid,reviewDecision,statusCheckRollup
+require_same_head || exit 1
 gh pr merge "$pr_number" --squash --match-head-commit "$head_sha"
 ```
 
