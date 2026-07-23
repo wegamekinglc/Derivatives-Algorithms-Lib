@@ -6,12 +6,12 @@ Commit: cad096d1
 
 | Scenario | Current behavior | Required behavior | Verdict |
 |---|---|---|---|
-| Native role dispatch | Calls `.claude/agents/dal-spec-writer.md` the native agent definition, then maps to `.codex/skills/dal-spec-writer/SKILL.md`. | Native project dispatch must name `.codex/agents/dal-spec-writer.toml` and the role skill it loads. | RED |
-| Full-suite execution | Gives a Linux `build_linux.sh` log/exit-status workflow, but the run-only trigger and complete native fresh-output/Windows workflow are not supplied by the current Codex guidance. | Full-suite requests must trigger a complete fresh-output build/test workflow without adding tests. | RED |
-| AAD test authoring | Gives the detailed lifecycle only after following current Codex guidance into `.claude/rules/unit-test-style.md`. | AAD test conventions must be available from Codex guidance without an operational Claude dependency. | RED |
-| Web operations | Reconstructs Windows start, health/proxy, logs, graceful/force stop, and listener-kill behavior from repository docs and scripts rather than the Codex web skill. | Codex web operations guidance must supply the platform dispatch, health, log, PID, and force-stop workflow. | RED |
-| Style review | Lists C++17/formatting/naming/test rules plus basic Markdown-table, link, whitespace, and documentation-current-state checks. | Scenario 5 omits at least one detailed Markdown or C++ style rule. | RED |
-| PR completion | Describes a temporary writable clone, a focused PR, current-head required checks, no unresolved feedback, and a head-SHA-guarded merge. | Scenario 6 omits the writable-clone, review-thread, or exact-head merge gate. | RED |
+| Native role dispatch | Calls `.claude/agents/dal-spec-writer.md` the native agent definition, then maps to `.codex/skills/dal-spec-writer/SKILL.md`. | Native role dispatch: must identify `.codex/agents/dal-spec-writer.toml`; current output incorrectly used `.claude/agents/...` (RED). | RED |
+| Full-suite execution | The implicit prompt loaded `dal-tester`; it reported that `build_linux.sh` stopped during CMake because the GoogleTest submodule was missing, and did not mutate checkout state. | Full-suite execution: test implicit discovery with a fresh raw user prompt that does NOT instruct use of a relevant skill. RED only if `dal-tester` does not trigger/load; if it does trigger and answer is complete, record GREEN_CONTROL and do not claim a behavior gap. The migration may still add a self-contained reference to preserve source guidance. | GREEN_CONTROL |
+| AAD test authoring | Gives the detailed lifecycle only after following current Codex guidance into `.claude/rules/unit-test-style.md`. | AAD authoring: RED if satisfying the answer requires reading `.claude/rules` or `.claude/skills`; current output did read `.claude/rules/unit-test-style.md`. | RED |
+| Web operations | Reconstructs Windows start, health/proxy, logs, graceful/force stop, and listener-kill behavior from generic repository files rather than loading the Codex web skill. | Web operations: RED if `dal-web` does not trigger/load and behavior is reconstructed from generic repo files; current output did not read dal-web. | RED |
+| Style review | Says only to inspect Markdown tables for valid, consistent columns and rendering; it does not state the padded-cell, dash-count, or project-relative-path rules. | Style review: RED on a concrete missing detail from the output; current output said only consistent/rendered columns and omitted the exact padded-cell/dash-count/project-relative-path Markdown table rules. | RED |
+| PR completion | Provides a writable clone and head-SHA guard, but does not name thread-aware review inspection or exact review/check/merge commands or API. | PR completion: RED on concrete missing thread-aware/exact command detail; current output gave clone and head guard but did not name thread-aware review inspection or exact commands/API. | RED |
 
 ## Fresh-context evidence
 
@@ -32,19 +32,29 @@ Observed response:
 
 Files read: `.codex/skills/dal-agent-team/SKILL.md`, `.codex/skills/dal-agent-team/references/team-map.md`, `.codex/skills/dal-spec-writer/SKILL.md`, `.claude/agents/dal-spec-writer.md`, `.codex/skills/dal-spec-writer/agents/openai.yaml`.
 
-### Full-suite execution
+### Full-suite execution (implicit-discovery control)
 
 Prompt:
 
-> The user says only "run the full DAL test suite and report whether it passes". Give the exact fresh-output workflow without adding tests.
+> Run the full DAL test suite and report whether it passes.
 
 Observed response:
 
-> `bash ./build_linux.sh > test_output.txt 2>&1`
+> The full DAL test suite could not run.
 >
-> Report the build/CTest result from the exit code and the tail of `test_output.txt`; do not add or modify tests.
+> `bash ./build_linux.sh` exited with code 1 during CMake configuration, before any tests were registered or executed. The required Git submodule file is missing:
+>
+> `dal-cpp/externals/googletest/CMakeLists.txt`
+>
+> The repository’s prescribed remedy is:
+>
+> ```bash
+> git submodule update --init --recursive
+> ```
+>
+> I did not run that command because it changes Git checkout state.
 
-Files read: `.codex/skills/dal-tester/SKILL.md`, `.codex/skills/dal-agent-team/references/shared-rules.md`, `AGENTS.md`, `CLAUDE.md`, `build_linux.sh`.
+Files read: `AGENTS.md`, `CLAUDE.md`, `.codex/skills/dal-tester/SKILL.md`.
 
 ### AAD test authoring
 
@@ -52,7 +62,7 @@ Prompt:
 
 > Add an AAD Google Test for a scalar gradient. State the required tape lifecycle and DAL test conventions.
 
-Observed response:
+Faithful excerpt:
 
 > `Clear`, `RegisterIndependent`, `NewRecording`, compute, seed `Adjoint`, `PropagateToStart`, assert `Value`/`AdjointValue`, `Clear`.
 >
@@ -66,13 +76,13 @@ Prompt:
 
 > Start the DAL web UI on Windows, verify it is healthy, and explain how to stop it cleanly if a child process keeps a port open.
 
-Observed response:
+Faithful excerpt:
 
 > `pwsh -NoProfile -ExecutionPolicy Bypass -File dal-web/scripts/start.ps1`
 >
 > Verify the UI and proxy/backend health; inspect logs; use `stop.ps1` first, then `stop.ps1 -Force`, with a listener-kill fallback if a child still owns the port.
 
-The response did not read `.codex/skills/dal-web/SKILL.md`; it reconstructed this from `README.md`, `CLAUDE.md`, web documentation, and the PowerShell scripts.
+Files read (reported): `README.md`, `CLAUDE.md`, web documentation, and the PowerShell scripts. `.codex/skills/dal-web/SKILL.md` was not read.
 
 ### Style review
 
@@ -94,6 +104,8 @@ Observed response:
 
 Files read: `.codex/skills/dal-reviewer/SKILL.md`, `.codex/skills/dal-doc-writer/SKILL.md`, `.codex/skills/dal-agent-team/references/shared-rules.md`.
 
+The quoted Markdown-table item contains no padded-cell, dash-count, or project-relative-path rule.
+
 ### PR completion
 
 Prompt:
@@ -107,3 +119,5 @@ Observed response:
 > I’ll merge only after the PR’s current head SHA has passing required checks and no unresolved review feedback. Immediately before merging, I’ll re-check that exact SHA and use a head-SHA-guarded merge, so a later push cannot be merged accidentally.
 
 Files read: `.codex/skills/dal-git-pr/SKILL.md`.
+
+The quoted response names neither a thread-aware review inspection nor exact review/check/merge commands or API.

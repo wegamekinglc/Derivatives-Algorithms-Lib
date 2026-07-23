@@ -37,21 +37,21 @@ Run each prompt in a fresh subagent that can read the repository but must not ed
 
 ```text
 1. Use the DAL agent team to delegate a fuzzy feature request to dal-spec-writer. Identify the native project custom-agent file you will target and the role skill it must load.
-2. The user says only "run the full DAL test suite and report whether it passes". Give the exact fresh-output workflow without adding tests.
+2. Run the full DAL test suite and report whether it passes.
 3. Add an AAD Google Test for a scalar gradient. State the required tape lifecycle and DAL test conventions.
 4. Start the DAL web UI on Windows, verify it is healthy, and explain how to stop it cleanly if a child process keeps a port open.
 5. Style-review changed C++ tests and Markdown guidance. List the DAL-specific code, test, table, and documentation checks.
 6. Publish a guidance-only change from a checkout whose .git directory is read-only, then merge only after exact-head CI and review verification.
 ```
 
-Expected RED evidence:
+Evidence criteria:
 
-- Scenario 1 cannot name `.codex/agents/dal-spec-writer.toml` because it does not exist.
-- Scenario 2 lacks the complete fresh-output build/test workflow currently isolated in the Claude test-running skill.
-- Scenario 3 omits at least one detailed AAD/test-writing convention from the Claude test-writing skill.
-- Scenario 4 omits at least one platform dispatch, health, log, PID, or force-stop detail.
-- Scenario 5 omits at least one detailed Markdown or C++ style rule.
-- Scenario 6 omits the writable-clone, review-thread, or exact-head merge gate.
+1. Native role dispatch: must identify `.codex/agents/dal-spec-writer.toml`; current output incorrectly used `.claude/agents/...` (RED).
+2. Full-suite execution: test implicit discovery with a fresh raw user prompt that does NOT instruct use of a relevant skill. RED only if `dal-tester` does not trigger/load; if it does trigger and answer is complete, record GREEN_CONTROL and do not claim a behavior gap. The migration may still add a self-contained reference to preserve source guidance.
+3. AAD authoring: RED if satisfying the answer requires reading `.claude/rules` or `.claude/skills`; current output did read `.claude/rules/unit-test-style.md`.
+4. Web operations: RED if `dal-web` does not trigger/load and behavior is reconstructed from generic repo files; current output did not read dal-web.
+5. Style review: RED on a concrete missing detail from the output; current output said only consistent/rendered columns and omitted the exact padded-cell/dash-count/project-relative-path Markdown table rules.
+6. PR completion: RED on concrete missing thread-aware/exact command detail; current output gave clone and head guard but did not name thread-aware review inspection or exact commands/API.
 
 - [ ] **Step 2: Record the observed behavior verbatim**
 
@@ -71,7 +71,9 @@ Commit: cad096d1
 After each run, add one row. Use the exact scenario labels `Native role dispatch`,
 `Full-suite execution`, `AAD test authoring`, `Web operations`, `Style review`, and
 `PR completion`; summarize the observed response without interpretation; copy the matching
-required behavior from Step 1; set every verdict to `RED`.
+evidence criterion from Step 1 exactly; set evidence gaps to `RED`. For the implicit
+full-suite control only, record `GREEN_CONTROL` when `dal-tester` triggers/loads and
+the answer is complete; do not claim a behavior gap in that case.
 
 - [ ] **Step 3: Verify the report proves real gaps**
 
@@ -87,7 +89,10 @@ labels = {
     "Web operations", "Style review", "PR completion",
 }
 assert all(f"| {label} |" in text for label in labels)
-assert text.count("| RED |") == 6
+red = text.count("| RED |")
+green = text.count("| GREEN_CONTROL |")
+assert red + green == 6
+assert green <= 1
 PY
 ```
 
