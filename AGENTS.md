@@ -37,17 +37,27 @@ ctest --test-dir build/Release-linux --output-on-failure
 
 ## Codex References
 
-- C++ style: [code-style.md](.codex/skills/dal-agent-team/references/code-style.md).
-- Machinist enum generation: [code-style.md](.codex/skills/dal-agent-team/references/code-style.md#enums).
-- Google Test conventions: [unit-test-style.md](.codex/skills/dal-agent-team/references/unit-test-style.md).
-- Test execution workflow: [dal-tester](.codex/skills/dal-tester/SKILL.md).
-- Test authoring workflow: [dal-tester](.codex/skills/dal-tester/SKILL.md).
-- Branch naming: [git-commit-pr.md](.codex/skills/dal-agent-team/references/git-commit-pr.md).
-- Commit conventions: [git-commit-pr.md](.codex/skills/dal-agent-team/references/git-commit-pr.md).
-- Pull-request publication: [publish-workflow.md](.codex/skills/dal-git-pr/references/publish-workflow.md).
-- Web operations: [operations.md](.codex/skills/dal-web/references/operations.md).
-- Web backend rules: [backend-style.md](.codex/skills/dal-web/references/backend-style.md).
-- Web UI design: [design-system.md](.codex/skills/dal-web/references/design-system.md).
+**C++ style:** [code-style.md](.codex/skills/dal-agent-team/references/code-style.md).
+
+**Machinist enum generation:** [code-style.md](.codex/skills/dal-agent-team/references/code-style.md#enums).
+
+**Google Test conventions:** [unit-test-style.md](.codex/skills/dal-agent-team/references/unit-test-style.md).
+
+**Test execution workflow:** [dal-tester](.codex/skills/dal-tester/SKILL.md).
+
+**Test authoring workflow:** [dal-tester](.codex/skills/dal-tester/SKILL.md).
+
+**Branch naming:** [git-commit-pr.md](.codex/skills/dal-agent-team/references/git-commit-pr.md).
+
+**Commit conventions:** [git-commit-pr.md](.codex/skills/dal-agent-team/references/git-commit-pr.md).
+
+**Pull-request publication:** [publish-workflow.md](.codex/skills/dal-git-pr/references/publish-workflow.md).
+
+**Web operations:** [operations.md](.codex/skills/dal-web/references/operations.md).
+
+**Web backend rules:** [backend-style.md](.codex/skills/dal-web/references/backend-style.md).
+
+**Web UI design:** [design-system.md](.codex/skills/dal-web/references/design-system.md).
 
 ## Work Style
 
