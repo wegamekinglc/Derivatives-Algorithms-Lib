@@ -10,7 +10,7 @@ routing, workflows, references, and durable outputs are owned under `.codex/`.
 
 ## Codex Surfaces
 
-- `.codex/agents/` registers the named DAL custom-agent specialists.
+- `.codex/agents/` registers the named Derivatives Algorithms Library (DAL) custom-agent specialists.
 - `.codex/skills/` owns reusable workflows and their output contracts.
 - `.codex/skills/*/references/` owns the shared style, test, web, git, and team conventions.
 - `.codex/artifacts/` owns durable specifications, designs, API notes, critiques, reviews,
@@ -38,8 +38,8 @@ ctest --test-dir build/Release-linux --output-on-failure
 ## Codex References
 
 - C++ style and Machinist enums: [code-style.md](.codex/skills/dal-agent-team/references/code-style.md).
-- Google Test conventions: [unit-test-style.md](.codex/skills/dal-agent-team/references/unit-test-style.md);
-  execution and authoring workflows: [dal-tester](.codex/skills/dal-tester/SKILL.md).
+- Google Test conventions: [unit-test-style.md](.codex/skills/dal-agent-team/references/unit-test-style.md).
+- Test execution and authoring workflows: [dal-tester](.codex/skills/dal-tester/SKILL.md).
 - Branch, commit, and pull-request conventions: [git-commit-pr.md](.codex/skills/dal-agent-team/references/git-commit-pr.md)
   and [publish-workflow.md](.codex/skills/dal-git-pr/references/publish-workflow.md).
 - Web operations, backend rules, and UI design: [operations.md](.codex/skills/dal-web/references/operations.md),
