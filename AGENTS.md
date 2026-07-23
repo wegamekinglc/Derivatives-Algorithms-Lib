@@ -51,22 +51,25 @@ ctest --test-dir build/Release-linux --output-on-failure
 
 ## Work Style
 
-- Preserve user changes unless the user explicitly requests a revert; inspect the working tree
-  before edits and leave unrelated work alone.
+- Preserve user changes unless the user explicitly requests a revert.
+- Inspect the working tree before editing.
+- Leave unrelated work unchanged.
 - Prefer small, test-driven changes for C++ behavior: red, green, refactor.
-- Use `apply_patch` for manual edits and follow `.clang-format`.
+- Use `apply_patch` for manual edits.
+- Follow `.clang-format`.
 - For reviews, lead with findings and file/line references.
-- Keep published docs current-state only; put historical context in `CHANGELOG.md` or a
-  `.codex/artifacts/` record.
+- Keep published docs current-state only.
+- Put historical context in `CHANGELOG.md` or a `.codex/artifacts/` record.
 
 ## Skill Routing
 
-- Use a named custom agent from `.codex/agents/` only when the user authorizes delegation,
-  team execution, parallel agents, or subagents. A registration supplies the specialist
-  identity; it is not a workflow.
+- Use a named custom agent from `.codex/agents/` only when the user authorizes agent execution.
+- Treat a custom-agent registration as the specialist identity, not a workflow.
 - Use the matching `.codex/skills/dal-*/` workflow in the current session when delegation is
-  not authorized. Skills own reusable behavior and load the relevant references.
-- Use `dal-agent-team` for role selection or the end-to-end DAL pipeline; use the individual
-  role skills for focused specification, API, critique, implementation, testing, review,
-  performance, simplification, or documentation work.
-- Use `dal-web` for web work and `dal-git-pr` for commits, pushes, pull requests, or merges.
+  not authorized.
+- Treat skills as the owners of reusable behavior.
+- Load the references linked by the selected skill.
+- Use `dal-agent-team` for role selection or the end-to-end DAL pipeline.
+- Use the individual role skills for focused specialist work.
+- Use `dal-web` for web work.
+- Use `dal-git-pr` for Git and pull-request workflows.
