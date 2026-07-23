@@ -178,7 +178,7 @@ gh api graphql \
 Query check runs for the captured head SHA and verify required runs have completed successfully:
 
 ```bash
-gh api "repos/$repo_slug/commits/$head_sha/check-runs"
+gh api "repos/$repo_slug/commits/$head_sha/check-runs?per_page=100"
 ```
 
 Immediately before merge, confirm `headRefOid` is still `"$head_sha"`, then use the head guard:

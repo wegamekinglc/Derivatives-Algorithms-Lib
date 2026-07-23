@@ -14,10 +14,10 @@ Brings up or tears down the two-service web UI that sits on top of the DAL Pytho
 
 Four launcher scripts handle the actual work — pick by platform:
 
-| Platform            | Start                                                                                  | Stop (graceful → force)                                                                                                |
-|---------------------|----------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------|
-| Linux / macOS       | `./dal-web/scripts/start.sh`                                                           | `./dal-web/scripts/stop.sh` → `./dal-web/scripts/stop.sh --force`                                                      |
-| Windows (pwsh 7+)   | `pwsh -NoProfile -ExecutionPolicy Bypass -File dal-web/scripts/start.ps1`              | `pwsh -NoProfile -ExecutionPolicy Bypass -File dal-web/scripts/stop.ps1` → add `-Force`                               |
+| Platform          | Start                                                                     | Stop (graceful → force)                                                                 |
+|-------------------|---------------------------------------------------------------------------|-----------------------------------------------------------------------------------------|
+| Linux / macOS     | `./dal-web/scripts/start.sh`                                              | `./dal-web/scripts/stop.sh` → `./dal-web/scripts/stop.sh --force`                       |
+| Windows (pwsh 7+) | `pwsh -NoProfile -ExecutionPolicy Bypass -File dal-web/scripts/start.ps1` | `pwsh -NoProfile -ExecutionPolicy Bypass -File dal-web/scripts/stop.ps1` → add `-Force` |
 
 `dal-web/scripts/setup-playwright.sh` (one-time frontend e2e browser/runtime setup) has no PowerShell equivalent; run it under bash/git-bash on Windows.
 

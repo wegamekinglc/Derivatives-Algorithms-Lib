@@ -11,18 +11,18 @@ same-name workflow skill.
 
 ## Role Map
 
-| Role         | Custom agent                                 | Workflow skill        | Use for                                      |
-|--------------|----------------------------------------------|-----------------------|----------------------------------------------|
-| Orchestrator | `.codex/agents/dal-orchestrator.toml`        | `dal-orchestrator`    | Planning and delegation across roles          |
-| Spec writer  | `.codex/agents/dal-spec-writer.toml`         | `dal-spec-writer`     | Turning vague asks into testable specs        |
-| API designer | `.codex/agents/dal-api-designer.toml`        | `dal-api-designer`    | Public C++/Python/Excel/example API shape     |
-| Critic       | `.codex/agents/dal-critic.toml`              | `dal-critic`          | Attacking specs, designs, and proposals       |
-| Implementer  | `.codex/agents/dal-implementer.toml`         | `dal-implementer`     | TDD feature and bug-fix implementation        |
-| Tester       | `.codex/agents/dal-tester.toml`              | `dal-tester`          | Test coverage and failing test repair         |
-| Reviewer     | `.codex/agents/dal-reviewer.toml`            | `dal-reviewer`        | PR/code review and merge gate                 |
-| Performancer | `.codex/agents/dal-performancer.toml`        | `dal-performancer`    | Benchmark regression and coverage advice      |
-| Simplifier   | `.codex/agents/dal-simplifier.toml`          | `dal-simplifier`      | Duplication and simplification sweeps         |
-| Doc writer   | `.codex/agents/dal-doc-writer.toml`          | `dal-doc-writer`      | Docs and changelog reconciliation             |
+| Role         | Custom agent                          | Workflow skill     | Use for                                   |
+|--------------|---------------------------------------|--------------------|-------------------------------------------|
+| Orchestrator | `.codex/agents/dal-orchestrator.toml` | `dal-orchestrator` | Planning and delegation across roles      |
+| Spec writer  | `.codex/agents/dal-spec-writer.toml`  | `dal-spec-writer`  | Turning vague asks into testable specs    |
+| API designer | `.codex/agents/dal-api-designer.toml` | `dal-api-designer` | Public C++/Python/Excel/example API shape |
+| Critic       | `.codex/agents/dal-critic.toml`       | `dal-critic`       | Attacking specs, designs, and proposals   |
+| Implementer  | `.codex/agents/dal-implementer.toml`  | `dal-implementer`  | TDD feature and bug-fix implementation    |
+| Tester       | `.codex/agents/dal-tester.toml`       | `dal-tester`       | Test coverage and failing test repair     |
+| Reviewer     | `.codex/agents/dal-reviewer.toml`     | `dal-reviewer`     | PR/code review and merge gate             |
+| Performancer | `.codex/agents/dal-performancer.toml` | `dal-performancer` | Benchmark regression and coverage advice  |
+| Simplifier   | `.codex/agents/dal-simplifier.toml`   | `dal-simplifier`   | Duplication and simplification sweeps     |
+| Doc writer   | `.codex/agents/dal-doc-writer.toml`   | `dal-doc-writer`   | Docs and changelog reconciliation         |
 
 ## Codex Adaptation Rules
 
