@@ -124,5 +124,6 @@ Canonical reference: the Documentation section of
 - API notes: `.codex/artifacts/api-notes/<slug>.md`.
 - Critiques: `.codex/artifacts/critiques/<slug>.md`.
 - Review reports: `.codex/artifacts/reviews/<slug>.md`.
+- Plans: `.codex/artifacts/plans/<slug>.md`.
 - Performance reports: `.codex/artifacts/perf/<slug>.md`.
 - Simplification reports: `.codex/artifacts/simplifications/<slug>.md`.
