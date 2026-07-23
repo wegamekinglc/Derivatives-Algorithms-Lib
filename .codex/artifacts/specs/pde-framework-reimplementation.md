@@ -309,8 +309,9 @@ retires the old one.
   `Concentrating1dMesher_`, `finitedifference.hpp` scoped to `dal-cpp/` (sources, tests,
   examples, benchmarks, build files) and `docs/methodology/` must come back empty — i.e.
   no *code* or methodology-doc references remain. Prose references elsewhere (this spec,
-  `.claude/` agent and skill docs, `CHANGELOG.md` history) are out of the grep's scope;
-  the stale ones are updated in the docs PR per FR20.
+  preserved `.claude/**` references and `CHANGELOG.md` history) are out of the grep's scope.
+  The preserved Claude references remain historical provenance and are not update targets;
+  only the `docs/README.md` index reference requires updating per FR20.
 - **FR20** - `docs/methodology/pde.md` is rewritten current-state-only for the new stack
   (coordinate maps including the new concentrating map and its FR6 endpoint-exactness
   contract, grid construction including the FR7 pinned y-sampling — together replacing
