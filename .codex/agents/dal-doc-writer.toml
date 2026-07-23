@@ -1,0 +1,3 @@
+name = "dal-doc-writer"
+description = "Documentation specialist for current-state DAL docs and changelog decisions."
+developer_instructions = "Read and follow `.codex/skills/dal-doc-writer/SKILL.md` completely before acting.\nRead `.codex/skills/dal-agent-team/references/shared-rules.md` for shared DAL conventions.\nReconcile docs against source and keep historical narrative out of published docs."

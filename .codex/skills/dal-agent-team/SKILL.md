@@ -6,33 +6,33 @@ description: Coordinate the DAL specialist role set converted from `.claude/agen
 # DAL Agent Team
 
 Use this skill as the Codex-native index for the DAL role team. The original Claude role
-files remain under `.claude/agents/`; Codex roles live as same-name skills under
-`.codex/skills/`.
+files remain under `.claude/agents/`; each Codex role has a custom-agent registration and a
+same-name workflow skill.
 
 ## Role Map
 
-| Role         | Codex skill        | Use for                                      |
-|--------------|--------------------|----------------------------------------------|
-| Orchestrator | `dal-orchestrator` | Planning and delegation across roles          |
-| Spec writer  | `dal-spec-writer`  | Turning vague asks into testable specs        |
-| API designer | `dal-api-designer` | Public C++/Python/Excel/example API shape     |
-| Critic       | `dal-critic`       | Attacking specs, designs, and proposals       |
-| Implementer  | `dal-implementer`  | TDD feature and bug-fix implementation        |
-| Tester       | `dal-tester`       | Test coverage and failing test repair         |
-| Reviewer     | `dal-reviewer`     | PR/code review and merge gate                 |
-| Performancer | `dal-performancer` | Benchmark regression and coverage advice      |
-| Simplifier   | `dal-simplifier`   | Duplication and simplification sweeps         |
-| Doc writer   | `dal-doc-writer`   | Docs and changelog reconciliation             |
+| Role         | Custom agent                                 | Workflow skill        | Use for                                      |
+|--------------|----------------------------------------------|-----------------------|----------------------------------------------|
+| Orchestrator | `.codex/agents/dal-orchestrator.toml`        | `dal-orchestrator`    | Planning and delegation across roles          |
+| Spec writer  | `.codex/agents/dal-spec-writer.toml`         | `dal-spec-writer`     | Turning vague asks into testable specs        |
+| API designer | `.codex/agents/dal-api-designer.toml`        | `dal-api-designer`    | Public C++/Python/Excel/example API shape     |
+| Critic       | `.codex/agents/dal-critic.toml`              | `dal-critic`          | Attacking specs, designs, and proposals       |
+| Implementer  | `.codex/agents/dal-implementer.toml`         | `dal-implementer`     | TDD feature and bug-fix implementation        |
+| Tester       | `.codex/agents/dal-tester.toml`              | `dal-tester`          | Test coverage and failing test repair         |
+| Reviewer     | `.codex/agents/dal-reviewer.toml`            | `dal-reviewer`        | PR/code review and merge gate                 |
+| Performancer | `.codex/agents/dal-performancer.toml`        | `dal-performancer`    | Benchmark regression and coverage advice      |
+| Simplifier   | `.codex/agents/dal-simplifier.toml`          | `dal-simplifier`      | Duplication and simplification sweeps         |
+| Doc writer   | `.codex/agents/dal-doc-writer.toml`          | `dal-doc-writer`      | Docs and changelog reconciliation             |
 
 ## Codex Adaptation Rules
 
 - Use the same role names as the Claude team when the user asks for them.
-- Load the role's same-name skill before acting.
+- Delegate with the role's custom-agent registration under `.codex/agents/*.toml` only when the user explicitly authorizes delegation, team execution, parallel agents, or subagents.
+- Otherwise, emulate the selected role in the current Codex session by loading its same-name workflow skill before acting.
 - Load `references/shared-rules.md` when a role needs shared style, test, docs, review, or artifact conventions.
 - Write new durable role artifacts under `.codex/artifacts/`, not `.claude/`, unless the user explicitly asks to update Claude artifacts.
 - Treat `.claude/agents/` as read-only source material.
-- Spawn subagents only when the user explicitly asks for delegation, team execution, parallel agents, or subagents. Otherwise, emulate the selected role in the current Codex session.
-- When spawning subagents, give each a self-contained prompt, disjoint write scope, and the relevant `.codex/skills/<role>` path.
+- When delegating custom agents, give each a self-contained prompt, disjoint write scope, and the relevant `.codex/agents/<role>.toml` registration.
 
 ## Default Pipeline
 

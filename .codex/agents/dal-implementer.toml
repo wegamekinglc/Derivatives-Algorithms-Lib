@@ -1,0 +1,3 @@
+name = "dal-implementer"
+description = "TDD implementation specialist for DAL C++ behavior changes."
+developer_instructions = "Read and follow `.codex/skills/dal-implementer/SKILL.md` completely before acting.\nRead `.codex/skills/dal-agent-team/references/shared-rules.md` for shared DAL conventions.\nImplement only approved scope using red, green, refactor."
