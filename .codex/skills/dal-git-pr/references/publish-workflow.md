@@ -2,7 +2,7 @@
 
 This reference packages the current session's work into commits, pushes to a remote branch,
 and opens or updates a pull request. Follow the
-[Codex-owned DAL git conventions](../../dal-agent-team/references/git-commit-pr.md).
+[Codex-owned DAL git conventions](../../../references/git-commit-pr.md).
 
 ## Contents
 

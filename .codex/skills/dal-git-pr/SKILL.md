@@ -10,7 +10,7 @@ description: Package DAL repository changes into commits and pull requests. Use 
 Use this skill to turn completed work into focused commits and a PR. Preserve unrelated
 user changes and never stage dirty submodule contents or generated build artifacts.
 
-Load both the shared [DAL git conventions](../dal-agent-team/references/git-commit-pr.md)
+Load both the shared [DAL git conventions](../../references/git-commit-pr.md)
 and the complete [publish workflow](references/publish-workflow.md) before changing Git or
 GitHub state.
 

@@ -1,14 +1,14 @@
 # DAL Style Review Reference
 
 Review all changed C++ files and changed repository guidance in the working tree against
-[the DAL C++ style conventions](../../dal-agent-team/references/code-style.md) and
-[the DAL unit-test conventions](../../dal-agent-team/references/unit-test-style.md).
+[the DAL C++ style conventions](code-style.md) and
+[the DAL unit-test conventions](unit-test-style.md).
 
 ## Steps
 
 1. Read the style guides:
-   - [DAL C++ style conventions](../../dal-agent-team/references/code-style.md)
-   - [DAL unit-test conventions](../../dal-agent-team/references/unit-test-style.md)
+   - [DAL C++ style conventions](code-style.md)
+   - [DAL unit-test conventions](unit-test-style.md)
 
 2. Identify changed files by running:
    ```bash
@@ -75,7 +75,7 @@ Review all changed C++ files and changed repository guidance in the working tree
 
 ### Markdown Guidance Files
 - Review changed repository-guidance `.md` files as part of every code style review.
-- Check Markdown tables against the [DAL C++ style conventions](../../dal-agent-team/references/code-style.md#markdown-tables):
+- Check Markdown tables against the [DAL C++ style conventions](code-style.md#markdown-tables):
   aligned pipe columns, compact separator rows, and project-relative C++ file paths in table cells.
 - Check that code block diagrams (class hierarchies, pipelines) have trailing comments aligned to a consistent column.
 - Check that guidance changes remain internally consistent with current source, build/test commands, APIs, architecture notes, and methodology.

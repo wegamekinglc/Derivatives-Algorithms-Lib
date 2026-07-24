@@ -1,8 +1,8 @@
 # DAL Unit-Test Authoring Reference
 
 Write Google Test unit tests that follow this project's
-[unit-test conventions](../../dal-agent-team/references/unit-test-style.md) and
-[C++ conventions](../../dal-agent-team/references/code-style.md).
+[unit-test conventions](unit-test-style.md) and
+[C++ conventions](code-style.md).
 
 ## Contents
 
