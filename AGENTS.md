@@ -35,19 +35,19 @@ bash ./build_linux.sh
 ctest --test-dir build/Release-linux --output-on-failure
 ```
 
-The [DAL unit-test contract](.codex/skills/dal-agent-team/references/unit-test-style.md)
+The [DAL unit-test contract](.codex/references/unit-test-style.md)
 defines repository-specific Google Test rules.
 The [tester workflow](.codex/skills/dal-tester/SKILL.md) covers test execution and authoring.
 
 ## Codex References
 
-**C++ style:** [code-style.md](.codex/skills/dal-agent-team/references/code-style.md).
+**C++ style:** [code-style.md](.codex/references/code-style.md).
 
-**Machinist enum generation:** [code-style.md](.codex/skills/dal-agent-team/references/code-style.md#enums).
+**Machinist enum generation:** [code-style.md](.codex/references/code-style.md#enums).
 
-**Branch naming:** [git-commit-pr.md](.codex/skills/dal-agent-team/references/git-commit-pr.md).
+**Branch naming:** [git-commit-pr.md](.codex/references/git-commit-pr.md).
 
-**Commit conventions:** [git-commit-pr.md](.codex/skills/dal-agent-team/references/git-commit-pr.md).
+**Commit conventions:** [git-commit-pr.md](.codex/references/git-commit-pr.md).
 
 **Pull-request publication:** [publish-workflow.md](.codex/skills/dal-git-pr/references/publish-workflow.md).
 
