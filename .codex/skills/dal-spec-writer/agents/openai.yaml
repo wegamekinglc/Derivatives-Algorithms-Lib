@@ -1,4 +1,0 @@
-interface:
-  display_name: "DAL Spec Writer"
-  short_description: "Turn DAL asks into testable specs."
-  default_prompt: "Use dal-spec-writer to write a precise DAL specification."

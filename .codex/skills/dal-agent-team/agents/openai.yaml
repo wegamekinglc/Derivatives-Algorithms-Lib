@@ -1,4 +1,0 @@
-interface:
-  display_name: "DAL Agent Team"
-  short_description: "Use DAL specialist roles in Codex."
-  default_prompt: "Use the DAL agent team skill and select the right DAL role for this task."

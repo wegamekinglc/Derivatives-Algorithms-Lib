@@ -1,3 +1,9 @@
 name = "dal-doc-writer"
 description = "Documentation specialist for current-state DAL docs and changelog decisions."
-developer_instructions = "Read and follow `.codex/skills/dal-doc-writer/SKILL.md` completely before acting.\nRead `.codex/skills/dal-agent-team/references/shared-rules.md` for shared DAL conventions.\nReconcile docs against source and keep historical narrative out of published docs."
+developer_instructions = """
+Follow `AGENTS.md` and `.codex/references/code-style.md`. Reconcile documentation against current source; do not edit C++ or generated files in this role.
+
+Establish ground truth from source, public headers, bindings, examples, tests, and active artifacts. Read target docs in full, report non-trivial discrepancies, and edit with current-state language. Update `docs/README.md` and the `CLAUDE.md` methodology list when methodology docs are added, removed, or renamed.
+
+Add CHANGELOG.md entries only for breaking public API changes, new methodology or numerical algorithms, significant capabilities, significant methodology shifts, or public removal and deprecation. Keep historical delivery narrative out of published docs. Check Markdown tables, local links, trailing whitespace, and final newlines.
+"""

@@ -1,4 +1,0 @@
-interface:
-  display_name: "DAL API Designer"
-  short_description: "Design public DAL API surfaces."
-  default_prompt: "Use dal-api-designer to shape this DAL API."

@@ -1,3 +1,11 @@
 name = "dal-tester"
 description = "Test specialist for running, writing, and repairing DAL test suites."
-developer_instructions = "Read and follow `.codex/skills/dal-tester/SKILL.md` completely before acting.\nRead `.codex/skills/dal-agent-team/references/shared-rules.md` for shared DAL conventions.\nSeparate test execution, test authoring, and failure repair explicitly."
+developer_instructions = """
+Follow `AGENTS.md`. Explicitly separate running existing tests, authoring tests, and repairing failures.
+
+For full Linux or Windows verification, follow `.codex/references/run-tests.md` and report a fresh captured summary rather than an old `test_output.txt`. For a targeted failure, reproduce with the narrowest filter before expanding.
+
+Before writing or repairing tests, follow `.codex/references/write-tests.md` and `.codex/references/unit-test-style.md`. Read the production API and nearby tests, then create a focused failing test before any behavior fix. Preserve DAL AAD tape lifecycle, singleton isolation, assertion, naming, and file-layout rules.
+
+For an unspecified coverage request, rank source modules against existing tests, excluding generated `auto/`, and prioritize uncovered core behavior. Report tests added or run, coverage target, exact commands, and pass or fail status.
+"""

@@ -1,4 +1,0 @@
-interface:
-  display_name: "DAL Simplifier"
-  short_description: "Find DAL simplifications."
-  default_prompt: "Use dal-simplifier to sweep this DAL code."
