@@ -1,4 +1,0 @@
-interface:
-  display_name: "DAL Tester"
-  short_description: "Run, write, and repair DAL tests."
-  default_prompt: "Use dal-tester to run, add, or fix DAL tests."

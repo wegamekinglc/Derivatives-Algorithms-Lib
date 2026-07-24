@@ -1,4 +1,0 @@
-interface:
-  display_name: "DAL Critic"
-  short_description: "Stress-test DAL plans."
-  default_prompt: "Use dal-critic to critique this DAL plan."
