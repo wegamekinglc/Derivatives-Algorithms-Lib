@@ -18,7 +18,7 @@ class AgentDocsTest(unittest.TestCase):
             "AGENTS.md",
             "CLAUDE.md",
             ".github/copilot-instructions.md",
-            ".codex/skills/dal-agent-team/references/shared-rules.md",
+            ".codex/README.md",
         }
 
         actual = {path.relative_to(CHECK_DOCS.ROOT).as_posix() for path in CHECK_DOCS.AGENT_DOCS}
@@ -128,11 +128,15 @@ class CheckAgentPathsTest(unittest.TestCase):
             self.assertIn("AGENTS.md:2", errors[0])
             self.assertIn("docs/missing.md", errors[0])
 
-    def test_runtime_created_paths_are_allowed(self):
+    def test_runtime_and_local_paths_are_allowed(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
 
-            errors = self._check(root, "SQLite file under `dal-web/backend/.data/` here")
+            errors = self._check(
+                root,
+                "SQLite data uses `dal-web/backend/.data/`; local Claude state uses "
+                "`.claude/settings.local.json` and `.claude/worktrees/`.",
+            )
 
             self.assertEqual(errors, [])
 
