@@ -10,10 +10,10 @@ routing, workflows, references, and durable outputs are owned under `.codex/`.
 
 ## Codex Surfaces
 
-- `.codex/agents/` registers the named Derivatives Algorithms Library (DAL) custom-agent specialists.
-- `.codex/skills/` owns reusable workflows and their output contracts.
-- `.codex/skills/*/references/` owns the shared style, test, web, git, and team conventions.
-- `.codex/artifacts/` owns durable specifications, designs, API notes, critiques, reviews,
+- `.codex/agents/` registers named DAL specialists and owns their complete role contracts.
+- `.codex/references/` owns reusable C++, test, review, performance, and Git conventions.
+- `.codex/skills/` owns reusable non-agent workflows for Git/PR packaging and `dal-web`.
+- `.codex/artifacts/` owns active specifications, designs, API notes, critiques, reviews,
   plans, and performance reports.
 
 ## Repository Shape
@@ -35,9 +35,9 @@ bash ./build_linux.sh
 ctest --test-dir build/Release-linux --output-on-failure
 ```
 
-The [DAL unit-test contract](.codex/references/unit-test-style.md)
-defines repository-specific Google Test rules.
-The [tester workflow](.codex/skills/dal-tester/SKILL.md) covers test execution and authoring.
+The [DAL unit-test contract](.codex/references/unit-test-style.md) defines
+repository-specific Google Test rules.
+The [tester agent contract](.codex/agents/dal-tester.toml) covers test execution and authoring.
 
 ## Codex References
 
@@ -68,17 +68,16 @@ The [tester workflow](.codex/skills/dal-tester/SKILL.md) covers test execution a
 - Follow `.clang-format`.
 - For reviews, lead with findings and file/line references.
 - Keep published docs current-state only.
-- Put historical context in `CHANGELOG.md` or a `.codex/artifacts/` record.
+- Put public history in `CHANGELOG.md`, use Git history for delivery records, and reserve
+  `.codex/artifacts/` for work that is still active.
 
-## Skill Routing
+## Agent And Skill Routing
 
 - Use a named custom agent from `.codex/agents/` only when the user authorizes agent execution.
-- Treat a custom-agent registration as the specialist identity, not a workflow.
-- Use the matching `.codex/skills/dal-*/` workflow in the current session when delegation is
-  not authorized.
-- Treat skills as the owners of reusable behavior.
-- Load the references linked by the selected skill.
-- Use `dal-agent-team` for role selection or the end-to-end DAL pipeline.
-- Use the individual role skills for focused specialist work.
+- Treat each custom-agent registration as both the specialist identity and its complete role contract.
+- Without delegation authority, read the matching agent TOML and follow its contract locally.
+- Use `dal-orchestrator` for role selection or the end-to-end DAL pipeline.
+- Load references named by the selected agent contract.
 - Use `dal-web` for web work.
 - Use `dal-git-pr` for Git and pull-request workflows.
+- Keep artifacts only while they control active work; use Git history for completed work.

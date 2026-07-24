@@ -1,47 +1,48 @@
 # Codex Guidance
 
-This directory is the repository-owned home for Codex routing and durable work records.
+This directory is the repository-owned home for Codex specialists, reusable conventions,
+non-agent workflows, and active work records.
 
 ## Surfaces
 
-- `.codex/agents/` registers native named DAL specialists for authorized delegation.
-- `.codex/skills/` owns reusable workflows and their output contracts.
-- `.codex/skills/*/references/` contains the shared coding, testing, web, git, and team
-  conventions used by those workflows.
-- `.codex/artifacts/` owns durable outputs.
+- `.codex/agents/` registers ten named DAL specialists and contains their complete role contracts.
+- `.codex/references/` contains shared C++, test, review, performance, and Git conventions.
+- `.codex/skills/` contains only reusable workflows without dedicated agents: `dal-git-pr` and `dal-web`.
+- `.codex/artifacts/` contains only work products that still control active work.
 
 `CLAUDE.md` remains canonical only for shared build/test commands and architecture.
 
 ## DAL Agent Team
 
-Use `dal-agent-team` to choose or coordinate DAL roles. Each named specialist registered in
-`.codex/agents/` has a same-name workflow under `.codex/skills/`. Delegate only when the user
-authorizes team execution, parallel work, or subagents; otherwise load the matching workflow in
-the current session.
+Use `dal-orchestrator` for end-to-end routing. Use the matching named agent for focused
+specification, API, critique, implementation, testing, review, performance, simplification,
+or documentation work.
 
-## Workflow Consolidation
+Delegate only when the user authorizes agents, team execution, parallel work, or subagents.
+Without that authority, read the relevant `.codex/agents/{role}.toml` and follow its contract
+in the current session.
 
-Skills are the reusable task entry points. The role workflows cover specification, API design,
-critique, implementation, tests, review, performance, simplification, documentation, web work,
-and Git/PR packaging without duplicating legacy workflow bodies. Shared conventions live in the
-Codex references they link.
+## References
 
-## Artifact Layout
+Agent contracts link only the references needed for their role. Git/PR and web references that
+belong to one surviving workflow remain inside that skill; cross-role conventions live directly
+under `.codex/references/`.
 
-Write durable work to `.codex/artifacts/` using its established directories: `specs/`,
-`designs/`, `api-notes/`, `critiques/`, `reviews/`, `plans/`, `perf/`, and
-`simplifications/`. Use current repository paths for new artifacts.
+## Active Artifacts
+
+Create durable artifacts only when they control active work. Remove completed artifacts after
+their current-state outcome is documented and Git history preserves implementation and review
+history.
+
+The retained `designs/api-shape-dedup.md` is active because it is design-only and still awaits
+approval.
 
 ## Preserved Claude Sources
 
-Tracked `.claude/**` files and `CLAUDE.md` are preserved read-only unless explicitly requested.
-They are source material, not an operational dependency for Codex workflows. Do not migrate
-`.claude/settings.local.json` or `.claude/worktrees/`; both are explicitly excluded from this
-migration.
+Tracked `.claude/**` and `CLAUDE.md` are preserved unless explicitly requested. Do not migrate
+`.claude/settings.local.json` or `.claude/worktrees/`.
 
 ## Validation
 
-Validate custom-agent TOML registrations against their same-name skills, run the skill validator
-over each `dal-*` skill, check direct local Markdown links, and confirm no operational Codex
-guidance depends on `.claude/rules/` or `.claude/skills/`. Before publishing, confirm the Claude
-sources have no diff and run `git diff --check`.
+Validate all agent TOMLs, both remaining skills and their YAML metadata, direct local Markdown
+links, exact reference and artifact sets, protected Claude paths, and `git diff --check`.
