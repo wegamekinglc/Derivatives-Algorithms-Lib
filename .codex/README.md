@@ -28,6 +28,9 @@ Agent contracts link only the references needed for their role. Git/PR and web r
 belong to one surviving workflow remain inside that skill; cross-role conventions live directly
 under `.codex/references/`.
 
+The compatibility-only `dal-agent-team/references/shared-rules.md` path is not a skill; it keeps
+protected Claude and Copilot links valid while routing readers to the current surfaces.
+
 ## Active Artifacts
 
 Create durable artifacts only when they control active work. Remove completed artifacts after

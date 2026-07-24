@@ -32,7 +32,7 @@ AGENT_DOCS = tuple(
             ROOT / "AGENTS.md",
             ROOT / "CLAUDE.md",
             ROOT / ".github/copilot-instructions.md",
-            ROOT / ".codex/skills/dal-agent-team/references/shared-rules.md",
+            ROOT / ".codex/README.md",
         }
     )
 )
@@ -76,8 +76,12 @@ AGENT_PATH_PREFIXES = (
     "docs/",
     "tests/",
 )
-# Referenced paths that exist only at runtime, not in a fresh checkout.
-AGENT_ALLOWED_MISSING = {"dal-web/backend/.data"}
+# Referenced paths that exist only at runtime or are intentionally local-only.
+AGENT_ALLOWED_MISSING = {
+    ".claude/settings.local.json",
+    ".claude/worktrees",
+    "dal-web/backend/.data",
+}
 
 AGENT_ROOT_FILE_RE = re.compile(
     r"(?<![\w./~:-])(?:"
