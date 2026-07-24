@@ -10,7 +10,8 @@ routing, workflows, references, and durable outputs are owned under `.codex/`.
 
 ## Codex Surfaces
 
-- `.codex/agents/` registers named DAL specialists and owns their complete role contracts.
+- `.codex/agents/` registers named Derivatives Algorithms Library (DAL) specialists and owns
+  their complete role contracts.
 - `.codex/references/` owns reusable C++, test, review, performance, and Git conventions.
 - `.codex/skills/` owns reusable non-agent workflows for Git/PR packaging and `dal-web`.
 - `.codex/artifacts/` owns active specifications, designs, API notes, critiques, reviews,
@@ -75,7 +76,7 @@ The [tester agent contract](.codex/agents/dal-tester.toml) covers test execution
 
 - Use a named custom agent from `.codex/agents/` only when the user authorizes agent execution.
 - Treat each custom-agent registration as both the specialist identity and its complete role contract.
-- Without delegation authority, read the matching agent TOML and follow its contract locally.
+- Without delegation authority, read the matching agent registration file and follow its contract locally.
 - Use `dal-orchestrator` for role selection or the end-to-end DAL pipeline.
 - Load references named by the selected agent contract.
 - Use `dal-web` for web work.
