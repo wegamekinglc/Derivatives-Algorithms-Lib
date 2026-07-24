@@ -615,14 +615,14 @@ Questions.
 
 ## Inputs and Outputs
 
-| Name                          | Type                                   | Units / Domain                                | Range / Constraints                                                                                                         |
-|-------------------------------|----------------------------------------|-----------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------|
-| `x` (input to `Gradient`)     | `const Vector_<>&`                     | joint free-parameter vector                   | length = sum over declarations of `ParamsPerKnot(param) × nKnots_decl` (PWL_FWD: `2 × nKnots_decl` per decl — every knot free) |
-| `f` (input to `Gradient`)     | `const Vector_<>&`                     | stacked residuals at `x`                      | length = total instruments across all declarations                                                                          |
-| `Gradient` return             | `Underdetermined::Jacobian_*`          | dense Jacobian `dResidual_i / dParam_j`       | non-null iff `ANALYTIC && Eligible`; shape `(totalResiduals) x (totalFreeParams)`; caller owns the `new`-ed ptr             |
-| `jacobianMode_` (options)     | `CurveJacobianMode_`                   | `{BUMPED, ANALYTIC}`                          | default `ANALYTIC`                                                                                                          |
-| Eligibility verdict (cached)  | `Eligibility_` (internal enum)         | `{Unknown, Eligible, Ineligible}`             | evaluated once per `JointResidualFunction_` lifetime                                                                        |
-| NOTICEs (side effect)         | `Dal::Exception` stack via `NOTICE`    | human-readable strings                        | at most once per failed clause per `CalibrateJointMultiCurve` call                                                          |
+| Name                         | Type                                | Units / Domain                          | Range / Constraints                                                                                                            |
+|------------------------------|-------------------------------------|-----------------------------------------|--------------------------------------------------------------------------------------------------------------------------------|
+| `x` (input to `Gradient`)    | `const Vector_<>&`                  | joint free-parameter vector             | length = sum over declarations of `ParamsPerKnot(param) × nKnots_decl` (PWL_FWD: `2 × nKnots_decl` per decl — every knot free) |
+| `f` (input to `Gradient`)    | `const Vector_<>&`                  | stacked residuals at `x`                | length = total instruments across all declarations                                                                             |
+| `Gradient` return            | `Underdetermined::Jacobian_*`       | dense Jacobian `dResidual_i / dParam_j` | non-null iff `ANALYTIC && Eligible`; shape `(totalResiduals) x (totalFreeParams)`; caller owns the `new`-ed ptr                |
+| `jacobianMode_` (options)    | `CurveJacobianMode_`                | `{BUMPED, ANALYTIC}`                    | default `ANALYTIC`                                                                                                             |
+| Eligibility verdict (cached) | `Eligibility_` (internal enum)      | `{Unknown, Eligible, Ineligible}`       | evaluated once per `JointResidualFunction_` lifetime                                                                           |
+| NOTICEs (side effect)        | `Dal::Exception` stack via `NOTICE` | human-readable strings                  | at most once per failed clause per `CalibrateJointMultiCurve` call                                                             |
 
 ## Acceptance Criteria
 

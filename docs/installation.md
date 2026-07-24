@@ -5,14 +5,14 @@ here instead of maintaining separate build recipes.
 
 ## Requirements
 
-| Surface | Requirements |
-|---------|--------------|
-| Core C++ | Git with submodules, CMake 3.21+, a C++17 compiler, and a build tool |
-| Linux | GCC 13+ or Clang 18+; Make or Ninja |
-| Windows | Visual Studio 2022 toolchain; Ninja for the supplied presets |
-| Python | Python 3.10+ with development headers; `uv` recommended |
-| Web | Python 3.13+, `uv`, Node.js 20+, npm, and a built native `dal` package |
-| Excel | Windows and Microsoft Excel; build the XLL with `DAL_BUILD_EXCEL=ON` |
+| Surface  | Requirements                                                                                 |
+|----------|----------------------------------------------------------------------------------------------|
+| Core C++ | Git with submodules, CMake 3.21+, a C++17 compiler, and a build tool                         |
+| Linux    | GCC 13+ or Clang 18+; Make or Ninja                                                          |
+| Windows  | Visual Studio 2022 toolchain; Ninja for the supplied presets                                 |
+| Python   | Python 3.10+ with development headers; `uv` recommended                                      |
+| Web      | Python 3.13+, `uv`, npm, Node.js `^20.19.0` or `>=22.12.0`, and a built native `dal` package |
+| Excel    | Windows and Microsoft Excel; build the XLL with `DAL_BUILD_EXCEL=ON`                         |
 
 Clone all submodules:
 
@@ -42,12 +42,12 @@ It does not regenerate tracked Machinist output unless requested.
 
 ### Script options
 
-| Option | Effect |
-|--------|--------|
-| `--full` | Enable Python bindings and benchmarks |
-| `--benchmarks` | Enable native benchmark targets |
-| `--generate` | Run the `dal_generate` target before the normal build |
-| `--coverage` | Enable coverage and produce a report with an available coverage tool |
+| Option         | Effect                                                               |
+|----------------|----------------------------------------------------------------------|
+| `--full`       | Enable Python bindings and benchmarks                                |
+| `--benchmarks` | Enable native benchmark targets                                      |
+| `--generate`   | Run the `dal_generate` target before the normal build                |
+| `--coverage`   | Enable coverage and produce a report with an available coverage tool |
 
 Examples:
 
@@ -62,14 +62,14 @@ When Python is requested, the script creates or reuses
 `dal-python/.venv`, installs `pytest` and `numpy` if needed, and configures CMake
 with that interpreter. Useful environment overrides are:
 
-| Variable | Meaning |
-|----------|---------|
-| `BUILD_TYPE` | `Release` by default; `Debug` selects the matching legacy preset |
-| `DAL_BUILD_DIR` | Override the build-tree path |
-| `DAL_INSTALL_DIR` | Override the staging prefix |
-| `NUM_CORES` | Override parallel build jobs |
-| `ADDITIONAL_CMAKE_FLAGS` | Append simple `-D...` cache overrides |
-| `VERBOSE=1` | Run CTest verbosely |
+| Variable                 | Meaning                                                          |
+|--------------------------|------------------------------------------------------------------|
+| `BUILD_TYPE`             | `Release` by default; `Debug` selects the matching legacy preset |
+| `DAL_BUILD_DIR`          | Override the build-tree path                                     |
+| `DAL_INSTALL_DIR`        | Override the staging prefix                                      |
+| `NUM_CORES`              | Override parallel build jobs                                     |
+| `ADDITIONAL_CMAKE_FLAGS` | Append simple `-D...` cache overrides                            |
+| `VERBOSE=1`              | Run CTest verbosely                                              |
 
 For example, select the XAD backend explicitly:
 
@@ -84,10 +84,10 @@ disabled, DAL uses its native AAD implementation.
 
 The named development profiles make build intent explicit:
 
-| Preset | Contents |
-|--------|----------|
-| `core-dev` | Core/public C++, tests, and examples; no Python or benchmarks |
-| `full-dev` | Core development plus Python and benchmarks |
+| Preset         | Contents                                                                           |
+|----------------|------------------------------------------------------------------------------------|
+| `core-dev`     | Core/public C++, tests, and examples; no Python or benchmarks                      |
+| `full-dev`     | Core development plus Python and benchmarks                                        |
 | `distribution` | Portable release libraries and install packages; no tests, examples, or benchmarks |
 
 Configure, build, test, and install the core profile with:

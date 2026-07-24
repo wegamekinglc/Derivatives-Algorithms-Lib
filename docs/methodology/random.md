@@ -32,10 +32,10 @@ by a direct transformation, depending on the generator.
 
 The library distinguishes two families:
 
-| Family          | Base class        | Source                                  | Use                                                    |
-|-----------------|-------------------|-----------------------------------------|--------------------------------------------------------|
-| Pseudo-random   | `PseudoRandom_`   | `dal-cpp/dal/math/random/pseudorandom.cpp` | Statistical convergence at $1/\sqrt{N}$ rate          |
-| Quasi-random    | `SequenceSet_`    | `dal-cpp/dal/math/random/sobol.cpp`     | Deterministic low-discrepancy sequences, $O((\log N)^d / N)$ |
+| Family        | Base class      | Source                                     | Use                                                          |
+|---------------|-----------------|--------------------------------------------|--------------------------------------------------------------|
+| Pseudo-random | `PseudoRandom_` | `dal-cpp/dal/math/random/pseudorandom.cpp` | Statistical convergence at $1/\sqrt{N}$ rate                 |
+| Quasi-random  | `SequenceSet_`  | `dal-cpp/dal/math/random/sobol.cpp`        | Deterministic low-discrepancy sequences, $O((\log N)^d / N)$ |
 
 The Brownian bridge (`BrownianBridge_` in
 `dal-cpp/dal/math/random/brownianbridge.cpp`) is generator-agnostic: it wraps
@@ -191,12 +191,12 @@ caller's `precise` and `polish` values unchanged. `polish` controls whether a
 Newton correction is applied; when it is enabled, `precise` selects the CDF used
 by that correction:
 
-| `precise` | `polish` | Effective call                     | Policy                                         |
-|-----------|----------|------------------------------------|------------------------------------------------|
-| `false`   | `false`  | `InverseNCDF(u, false, false)`      | Acklam rational approximation only             |
-| `false`   | `true`   | `InverseNCDF(u, false, true)`       | Acklam plus a Newton step using the fast CDF    |
-| `true`    | `false`  | `InverseNCDF(u, true, false)`       | Acklam rational approximation only             |
-| `true`    | `true`   | `InverseNCDF(u, true, true)`        | Acklam plus a Newton step using the precise CDF |
+| `precise` | `polish` | Effective call                 | Policy                                          |
+|-----------|----------|--------------------------------|-------------------------------------------------|
+| `false`   | `false`  | `InverseNCDF(u, false, false)` | Acklam rational approximation only              |
+| `false`   | `true`   | `InverseNCDF(u, false, true)`  | Acklam plus a Newton step using the fast CDF    |
+| `true`    | `false`  | `InverseNCDF(u, true, false)`  | Acklam rational approximation only              |
+| `true`    | `true`   | `InverseNCDF(u, true, true)`   | Acklam plus a Newton step using the precise CDF |
 
 The constructor stores both flags unchanged. In particular, `precise = true`
 does not imply `polish = true`; when polishing is disabled, `InverseNCDF`

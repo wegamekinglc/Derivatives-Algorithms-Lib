@@ -104,10 +104,10 @@ The free functions `Distribution::BlackGreeks(F, \nu, K, type)` and
 `Distribution::BachelierGreeks(F, \nu, K, type)` return a `Vector_<>` of length two,
 $(\Delta, \Lambda)$, where both are sensitivities to the de-annualized inputs:
 
-| Greek       | Black ($\partial/\partial F$, $\partial/\partial \nu$)                | Bachelier ($\partial/\partial F$, $\partial/\partial \nu$)      |
-|-------------|----------------------------------------------------------------------|----------------------------------------------------------------|
-| Forward delta $\Delta$ | CALL: $\Phi(d_{+})$; PUT: $-\Phi(-d_{+})$; STRADDLE: $\Phi(d_{+}) - \Phi(-d_{+})$ | CALL: $\Phi(d)$; PUT: $-\Phi(-d)$; STRADDLE: $2\Phi(d) - 1$ |
-| Vega $\Lambda$ (per unit $\nu$) | CALL/PUT: $F\,\varphi(d_{+})$; STRADDLE: $2 F\,\varphi(d_{+})$     | CALL/PUT: $\varphi(d)$; STRADDLE: $2\,\varphi(d)$             |
+| Greek                           | Black ($\partial/\partial F$, $\partial/\partial \nu$)                            | Bachelier ($\partial/\partial F$, $\partial/\partial \nu$)  |
+|---------------------------------|-----------------------------------------------------------------------------------|-------------------------------------------------------------|
+| Forward delta $\Delta$          | CALL: $\Phi(d_{+})$; PUT: $-\Phi(-d_{+})$; STRADDLE: $\Phi(d_{+}) - \Phi(-d_{+})$ | CALL: $\Phi(d)$; PUT: $-\Phi(-d)$; STRADDLE: $2\Phi(d) - 1$ |
+| Vega $\Lambda$ (per unit $\nu$) | CALL/PUT: $F\,\varphi(d_{+})$; STRADDLE: $2 F\,\varphi(d_{+})$                    | CALL/PUT: $\varphi(d)$; STRADDLE: $2\,\varphi(d)$           |
 
 Note that the **vega** returned here is $\partial V / \partial \nu$ — i.e. per unit of
 *de-annualized* standard deviation, not per unit of annualized vol $\sigma$. The

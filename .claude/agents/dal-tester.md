@@ -94,8 +94,10 @@ Follow `.claude/rules/unit-test-style.md` exactly:
 - File: `dal-cpp/tests/<module>/test_<name>.cpp`
 - File header: `//` / `// Created by <author> on <date>.` / `//`
 - Include order: `<gtest/gtest.h>` first → `<dal/platform/platform.hpp>` → module header → other DAL headers
-- `using namespace Dal;` at file scope
-- Suite: matching the module (PascalCase, may use multiple suites per file for different aspects)
+- For new files, add specific `using Dal::...;` declarations at file scope for frequently used names.
+  When editing an existing file, preserve its namespace style.
+- Suite: matching the module (PascalCase). When editing an existing file, extend
+  the relevant existing suite rather than introducing another suite name.
 - Each test: `Test{DescriptiveName}` (PascalCase with `Test` prefix)
 
 **Assertion rules:**
@@ -111,9 +113,14 @@ Follow `.claude/rules/unit-test-style.md` exactly:
 **State isolation — critical:**
 Many DAL types are mutable singletons (facts, tapes, registries). Before writing a test, check if the code under test uses singletons. If it does:
 - Prefer read-only tests that verify pre-initialized state.
-- For write tests, only modify state that is NOT used by other tests (uninitialized facts, isolated objects).
-- Never write to a singleton that downstream tests depend on.
-- If you can't avoid state mutation, restructure the tests so writes happen after all reads.
+- For write tests, prefer isolated objects or uniquely scoped state that no
+  other test observes.
+- If singleton mutation is unavoidable, capture the prior value and restore it
+  before the test exits, including assertion-failure paths (use scope-bound
+  cleanup where possible).
+- Never depend on another test running before or after the current test.
+  Google Test provides no cross-test alphabetical-order contract, so moving
+  writes after reads is not isolation.
 
 **Coverage targets:**
 - Happy path: the primary use case
@@ -137,8 +144,7 @@ $ bash ./build_linux.sh > test_output.txt 2>&1
 
 Check `test_output.txt` for the pass/fail summary:
 ```
-[==========] xxx tests from yy test suites ran. (xxxx ms total)
-[  PASSED  ] xxx tests.
+100% tests passed, 0 tests failed out of <N>
 ```
 
 For each failure:
@@ -149,9 +155,9 @@ For each failure:
 
 **Common failure causes:**
 - Private `enum class Value_` in generated types — compare objects directly (`== DayBasis_("ACT_360")`), not against `Value_::` enum members
-- Singleton state pollution from earlier tests in the same file
+- Singleton state pollution that makes a test order-dependent
 - Invalid holiday centers, day-counts, or other reference data strings
-- Test ordering: Google Test runs alphabetically within a file
+- Hidden assumptions about execution order; every test must pass independently
 
 ### Phase 4B: Web UI e2e (when scope includes `dal-web/`)
 
@@ -194,7 +200,7 @@ Once the PR is open and the user is done with the change, exit the worktree (kee
 | Test names      | PascalCase with `Test` prefix (`TestNewCubic`)                                       |
 | File names      | lowercase, `test_` prefix (`test_currency.cpp`)                                      |
 | Include order   | `<gtest/gtest.h>` → DAL headers                                                      |
-| Namespace       | `using namespace Dal;` at file scope                                                 |
+| Namespace       | Specific `using Dal::...;` declarations; preserve existing files' namespace style    |
 | State           | No mutable singletons shared with other test files                                   |
 | Web e2e files   | `dal-web/frontend/tests/e2e/*.spec.ts`                                               |
 | Web e2e command | `./dal-web/scripts/setup-playwright.sh && (cd dal-web/frontend && npm run test:e2e)` |

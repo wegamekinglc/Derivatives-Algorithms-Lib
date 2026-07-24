@@ -6,15 +6,15 @@ generation, storage, and concurrency.
 
 ## Layout
 
-| Path | Contents |
-|------|----------|
-| `dal/` | Core headers and implementations, organized by domain |
-| `tests/` | Google Test coverage for core behavior and numerical methods |
-| `examples/` | Runnable C++ examples |
-| `benchmarks/` | Opt-in native performance executables |
-| `config/` | Machinist interface and generation configuration |
-| `cmake/` | Platform options and installed package configuration |
-| `externals/` | Git-submodule dependencies and AAD backends |
+| Path          | Contents                                                     |
+|---------------|--------------------------------------------------------------|
+| `dal/`        | Core headers and implementations, organized by domain        |
+| `tests/`      | Google Test coverage for core behavior and numerical methods |
+| `examples/`   | Runnable C++ examples                                        |
+| `benchmarks/` | Opt-in native performance executables                        |
+| `config/`     | Machinist interface and generation configuration             |
+| `cmake/`      | Platform options and installed package configuration         |
+| `externals/`  | Git-submodule dependencies and AAD backends                  |
 
 Direct core consumers get the widest API surface and therefore track core source
 changes. Applications that want construction and valuation helpers should also

@@ -114,7 +114,8 @@ exists to satisfy it, following `.claude/rules/unit-test-style.md` exactly:
 - File: `dal-cpp/tests/<module>/test_<name>.cpp`
 - File header: `//` / `// Created by <author> on <date>.` / `//`
 - Include order: `<gtest/gtest.h>` first → `<dal/platform/platform.hpp>` → module header → other DAL headers
-- `using namespace Dal;` at file scope
+- Namespace: for new files, add specific `using Dal::...;` declarations at file scope as needed.
+  When editing an existing file, preserve its namespace style.
 - Suite: `{Module}Test` (PascalCase, one suite per file)
 - Each test: `Test{DescriptiveName}` (always `Test` prefix, PascalCase)
 - `ASSERT_NEAR(actual, expected, 1e-10)` for float comparisons (1e-10 is most common; use 1e-4 for Monte Carlo)
@@ -213,7 +214,8 @@ Offer to create a commit and PR when the user is ready.
 | Smart pointer     | `std::unique_ptr<T_>` for ownership, `Handle_<T_>` for shared |
 | Factory functions | `NewXxx()` returning `Handle_` or `unique_ptr`                |
 | Error handling    | `REQUIRE(cond, msg)` for invariants, `THROW(msg)` for errors  |
-| Tests             | `TEST(Suite, Name)`, `ASSERT_*` only, `using namespace Dal;`  |
+| Tests             | `TEST(Suite, Name)`, `ASSERT_*` only                          |
+| Test namespaces   | New: specific `using Dal::...;`; existing: preserve style     |
 
 ## What Not to Do
 

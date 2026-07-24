@@ -67,11 +67,11 @@ not a safe truncation boundary when payment dates may be adjusted or lagged.
 
 ## `LogDfScheme_`
 
-| Scheme                | Definition on $\ell(\tau)$                   | Minimum storage nodes | Sensitivity support               |
-|-----------------------|----------------------------------------------|-----------------------|-----------------------------------|
-| `LOG_LINEAR`          | Piecewise linear                             | 2                     | Local segment, except tail secant |
-| `LOG_CUBIC_NATURAL`   | Natural cubic with zero endpoint curvature   | 3                     | Global                            |
-| `MIXED`               | Linear head and natural-cubic tail           | 4                     | Local in head, global over tail   |
+| Scheme              | Definition on $\ell(\tau)$                 | Minimum storage nodes | Sensitivity support               |
+|---------------------|--------------------------------------------|-----------------------|-----------------------------------|
+| `LOG_LINEAR`        | Piecewise linear                           | 2                     | Local segment, except tail secant |
+| `LOG_CUBIC_NATURAL` | Natural cubic with zero endpoint curvature | 3                     | Global                            |
+| `MIXED`             | Linear head and natural-cubic tail         | 4                     | Local in head, global over tail   |
 
 ### Log-linear
 
@@ -146,12 +146,12 @@ the caller's first input knot to equal `today_`.
 
 The stable layout is:
 
-| Quantity | Count or mapping |
-|----------|------------------|
-| Storage nodes | anchor plus declared future nodes |
-| Free parameters | storage node count minus one |
-| Solver column $j$ | storage node $j+1$ |
-| Anchor | storage node 0, fixed at zero, never registered as an independent |
+| Quantity          | Count or mapping                                                  |
+|-------------------|-------------------------------------------------------------------|
+| Storage nodes     | anchor plus declared future nodes                                 |
+| Free parameters   | storage node count minus one                                      |
+| Solver column $j$ | storage node $j+1$                                                |
+| Anchor            | storage node 0, fixed at zero, never registered as an independent |
 
 Joint calibration concatenates each declaration's columns in declaration order. A
 log-DF declaration contributes its future-node log discount factors in date order.

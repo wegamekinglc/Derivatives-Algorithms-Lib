@@ -352,19 +352,19 @@ retires the old one.
 Key surface of the new stack (final, resolved by `dal-api-designer` — declarations in
 the API Design section below):
 
-| Name                                                   | Type                                                    | Units         | Range / Constraints                                                          |
-|--------------------------------------------------------|---------------------------------------------------------|---------------|------------------------------------------------------------------------------|
-| `NewConstCoeff(val)`                                   | `double` / `Vector_<>` / `Matrix_<>` in, `*Coeff_*` out | model units   | matrix must be square                                                        |
-| `NewScalarCoeff` / `NewVectorCoeff` / `NewMatrixCoeff` | callable + dependence flags in, `*Coeff_*` out          | model units   | callable non-empty; matrix `dep` square; 1-D overloads fix axis-0 dependence |
-| `NewConcentratingMap(...)`                             | `double xLow, xHigh, cPoint, density` in, map out       | x-space       | `xHigh > xLow`, `cPoint` in `[xLow, xHigh]`, `density > 0`; endpoint-exact (FR6)       |
-| `CoordinateVector_`                                    | `{yLow_, yHigh_, n_, yToX_}`                            | y-space       | `yHigh_ > yLow_`, `n_ >= 3`, `yToX_` non-null                                |
-| `MakeUniformGrid` / `MakeConcentratingGrid`            | bounds + `n` in, `CoordinateVector_` out                | x-space       | map and `CoordinateVector_` constraints above                                |
+| Name                                                   | Type                                                    | Units         | Range / Constraints                                                                                |
+|--------------------------------------------------------|---------------------------------------------------------|---------------|----------------------------------------------------------------------------------------------------|
+| `NewConstCoeff(val)`                                   | `double` / `Vector_<>` / `Matrix_<>` in, `*Coeff_*` out | model units   | matrix must be square                                                                              |
+| `NewScalarCoeff` / `NewVectorCoeff` / `NewMatrixCoeff` | callable + dependence flags in, `*Coeff_*` out          | model units   | callable non-empty; matrix `dep` square; 1-D overloads fix axis-0 dependence                       |
+| `NewConcentratingMap(...)`                             | `double xLow, xHigh, cPoint, density` in, map out       | x-space       | `xHigh > xLow`, `cPoint` in `[xLow, xHigh]`, `density > 0`; endpoint-exact (FR6)                   |
+| `CoordinateVector_`                                    | `{yLow_, yHigh_, n_, yToX_}`                            | y-space       | `yHigh_ > yLow_`, `n_ >= 3`, `yToX_` non-null                                                      |
+| `MakeUniformGrid` / `MakeConcentratingGrid`            | bounds + `n` in, `CoordinateVector_` out                | x-space       | map and `CoordinateVector_` constraints above                                                      |
 | `GridLocations(points)`                                | `CoordinateVector_` in, `Vector_<>` locations out       | x-space       | strictly increasing locations; end nodes pinned per FR7 (bitwise `xLow`/`xHigh` for `Make*` grids) |
-| `NewDx` / `NewDxx`                                     | node locations in, `Sparse::TriDiagonal_*` out          | 1/x, 1/x²     | `n >= 3`; zero boundary rows                                                 |
-| `ThetaScheme_(theta)`                                  | `double theta`                                          | dimensionless | `0 <= theta <= 1`                                                            |
-| `ThetaScheme_::Prepare(...)`                           | `dt`, grid, coefficients in                             | time in years | `dt > 0`; `xPoints.size() == 1`                                              |
-| `ThetaScheme_::operator()`                             | per `Rollback_` signature                               | time in years | prepared state matches (incl. probe values, FR12); cube shapes per FR15      |
-| `ThetaScheme_::Decompositions()`                       | `int` accessor                                          | count         | factorizations since construction                                            |
+| `NewDx` / `NewDxx`                                     | node locations in, `Sparse::TriDiagonal_*` out          | 1/x, 1/x²     | `n >= 3`; zero boundary rows                                                                       |
+| `ThetaScheme_(theta)`                                  | `double theta`                                          | dimensionless | `0 <= theta <= 1`                                                                                  |
+| `ThetaScheme_::Prepare(...)`                           | `dt`, grid, coefficients in                             | time in years | `dt > 0`; `xPoints.size() == 1`                                                                    |
+| `ThetaScheme_::operator()`                             | per `Rollback_` signature                               | time in years | prepared state matches (incl. probe values, FR12); cube shapes per FR15                            |
+| `ThetaScheme_::Decompositions()`                       | `int` accessor                                          | count         | factorizations since construction                                                                  |
 
 ## API Design
 
@@ -606,31 +606,31 @@ Rationale — why `Prepare` beats the alternatives under the `mutable` ban:
 
 ### Error messages
 
-| Input violation                        | Message text                                                          |
-|----------------------------------------|-----------------------------------------------------------------------|
-| `NewConstCoeff` matrix not square      | "constant matrix coefficient must be square"                          |
-| adapter callable empty                 | "coefficient callable must be non-empty"                              |
-| `NewMatrixCoeff` `dep` not square      | "matrix coefficient dependence must be square"                        |
-| `NewConcentratingMap` `xHigh <= xLow`  | "concentrating map requires xHigh > xLow"                             |
-| `cPoint` outside `[xLow, xHigh]`       | "concentrating map requires cPoint in [xLow, xHigh]"                  |
-| `density <= 0`                         | "concentrating map requires density > 0"                              |
-| grid `n_ < 3`                          | "grid requires at least 3 points"                                     |
-| grid `yHigh_ <= yLow_`                 | "grid requires yHigh > yLow"                                          |
-| grid `yToX_` empty                     | "grid requires a coordinate map (yToX_ is empty)"                     |
-| mapped locations not increasing        | "grid locations must be strictly increasing"                          |
-| `NewDx`/`NewDxx` bad input             | "operator builder requires at least 3 strictly increasing locations"  |
-| `theta` out of range                   | "theta must be in [0, 1]"                                             |
-| `Prepare` with `dt <= 0`               | "Prepare requires dt > 0"                                             |
-| 2-spatial-dim request                  | "ThetaScheme_ supports exactly one spatial dimension"                 |
-| coefficient shape wrong in `Prepare`   | "advection/diffusion shape must match one spatial dimension"          |
-| roll before `Prepare`                  | "ThetaScheme_ must be Prepared before rolling"                        |
-| `dt` mismatch at roll                  | "dt differs from the prepared dt - call Prepare again"                |
-| grid mismatch at roll                  | "grid differs from the prepared grid - call Prepare again"            |
-| coefficient object mismatch            | "coefficients differ from those prepared - call Prepare again"        |
-| coefficient probe-value mismatch       | "coefficient values differ from those prepared - call Prepare again"  |
-| `old_vals` empty                       | "old_vals must contain at least one value layer"                      |
-| `old_vals` layer null                  | "old_vals layers must be non-null"                                    |
-| value layer shape wrong                | "value layer must have shape (1, 1, n)"                               |
+| Input violation                       | Message text                                                         |
+|---------------------------------------|----------------------------------------------------------------------|
+| `NewConstCoeff` matrix not square     | "constant matrix coefficient must be square"                         |
+| adapter callable empty                | "coefficient callable must be non-empty"                             |
+| `NewMatrixCoeff` `dep` not square     | "matrix coefficient dependence must be square"                       |
+| `NewConcentratingMap` `xHigh <= xLow` | "concentrating map requires xHigh > xLow"                            |
+| `cPoint` outside `[xLow, xHigh]`      | "concentrating map requires cPoint in [xLow, xHigh]"                 |
+| `density <= 0`                        | "concentrating map requires density > 0"                             |
+| grid `n_ < 3`                         | "grid requires at least 3 points"                                    |
+| grid `yHigh_ <= yLow_`                | "grid requires yHigh > yLow"                                         |
+| grid `yToX_` empty                    | "grid requires a coordinate map (yToX_ is empty)"                    |
+| mapped locations not increasing       | "grid locations must be strictly increasing"                         |
+| `NewDx`/`NewDxx` bad input            | "operator builder requires at least 3 strictly increasing locations" |
+| `theta` out of range                  | "theta must be in [0, 1]"                                            |
+| `Prepare` with `dt <= 0`              | "Prepare requires dt > 0"                                            |
+| 2-spatial-dim request                 | "ThetaScheme_ supports exactly one spatial dimension"                |
+| coefficient shape wrong in `Prepare`  | "advection/diffusion shape must match one spatial dimension"         |
+| roll before `Prepare`                 | "ThetaScheme_ must be Prepared before rolling"                       |
+| `dt` mismatch at roll                 | "dt differs from the prepared dt - call Prepare again"               |
+| grid mismatch at roll                 | "grid differs from the prepared grid - call Prepare again"           |
+| coefficient object mismatch           | "coefficients differ from those prepared - call Prepare again"       |
+| coefficient probe-value mismatch      | "coefficient values differ from those prepared - call Prepare again" |
+| `old_vals` empty                      | "old_vals must contain at least one value layer"                     |
+| `old_vals` layer null                 | "old_vals layers must be non-null"                                   |
+| value layer shape wrong               | "value layer must have shape (1, 1, n)"                              |
 
 The `dt` check is bitwise: callers must compute `dt` once and reuse it across the loop —
 re-deriving it per step (e.g. `t·(n+1)/N − t·n/N`) differs by round-off and trips the

@@ -115,15 +115,15 @@ $v$:
 
 For unary functions with result $v = g(r)$:
 
-| Function                | $g'(r)$                           |
-|-------------------------|-----------------------------------|
-| $\exp r$                | $v$                               |
-| $\ln r$                 | $1/r$                             |
-| $\sqrt{r}$              | $1/(2v)$                          |
-| $\lvert r\rvert$        | $\mathrm{sgn} r$            |
-| $\phi(r)$ (normal pdf)  | $-r\,\phi(r) = -r\,v$             |
-| $\Phi(r)$ (normal cdf)  | $\phi(r)$                         |
-| $\mathrm{erfc} r$ | $-\tfrac{2}{\sqrt{\pi}} e^{-r^2}$ |
+| Function               | $g'(r)$                           |
+|------------------------|-----------------------------------|
+| $\exp r$               | $v$                               |
+| $\ln r$                | $1/r$                             |
+| $\sqrt{r}$             | $1/(2v)$                          |
+| $\lvert r\rvert$       | $\mathrm{sgn} r$                  |
+| $\phi(r)$ (normal pdf) | $-r\,\phi(r) = -r\,v$             |
+| $\Phi(r)$ (normal cdf) | $\phi(r)$                         |
+| $\mathrm{erfc} r$      | $-\tfrac{2}{\sqrt{\pi}} e^{-r^2}$ |
 
 Storing $v$ where it appears (e.g. for $\exp$) lets the reverse pass reuse the
 forward result rather than recompute it.

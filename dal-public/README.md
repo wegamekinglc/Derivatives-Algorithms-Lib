@@ -28,16 +28,16 @@ in `DAL_CPP_MSVC_RUNTIME_LIBRARY`; it is a no-op on other toolchains.
 
 ## Surface
 
-| Header family | Purpose |
-|---------------|---------|
-| `global.hpp` | Runtime initialization and evaluation date |
-| `script.hpp`, `models.hpp`, `value.hpp` | Script product, model, and Monte Carlo workflow |
-| `random.hpp` | Pseudo-random and Sobol matrix fills |
-| `curveprotocol.hpp`, `curveinstrument.hpp` | Curve conventions and quoted instruments |
-| `curvedata.hpp`, `curvespec.hpp` | Curve construction and single/staged calibration |
-| `xccycalibration.hpp` | Cross-currency calibration |
-| `interp.hpp` | Linear interpolation helper |
-| `repository.hpp` | Host-environment repository operations |
+| Header family                              | Purpose                                          |
+|--------------------------------------------|--------------------------------------------------|
+| `global.hpp`                               | Runtime initialization and evaluation date       |
+| `script.hpp`, `models.hpp`, `value.hpp`    | Script product, model, and Monte Carlo workflow  |
+| `random.hpp`                               | Pseudo-random and Sobol matrix fills             |
+| `curveprotocol.hpp`, `curveinstrument.hpp` | Curve conventions and quoted instruments         |
+| `curvedata.hpp`, `curvespec.hpp`           | Curve construction and single/staged calibration |
+| `xccycalibration.hpp`                      | Cross-currency calibration                       |
+| `interp.hpp`                               | Linear interpolation helper                      |
+| `repository.hpp`                           | Host-environment repository operations           |
 
 The [public API guide](../docs/public-api.md#c) lists the entry points and gives a
 minimal valuation example.

@@ -84,6 +84,7 @@ Naming, type idioms, error handling, and enum markup follow
 
 ## Tooling
 
-- Python: **uv** (not pip) for `dal-web/` and `dal-python/`.
+- Python: **uv** is required for `dal-web/` and recommended for `dal-python/`;
+  standalone `dal-python` package builds also support pip.
 - Web: `./dal-web/scripts/start.sh`; frontend http://localhost:5173.
 - DAL agent rules: `.codex/skills/*/SKILL.md` and `.codex/skills/dal-agent-team/references/shared-rules.md`.

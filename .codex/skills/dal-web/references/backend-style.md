@@ -20,23 +20,31 @@ to [the DAL C++ style reference](../../../references/code-style.md) and
   `await asyncio.to_thread(...)`. This applies in particular to the pybind11
   `gateway.value(...)` Monte Carlo entry point in `app/services/dal_gateway.py`
   and to any other `gateway.*` C++ entry point reached during request handling.
-- Reason: these calls hold the GIL and block for the full pricing duration.
-  Calling them directly on the event loop freezes the loop and serializes every
-  concurrent request, defeating the async refactor.
+- Reason: these are synchronous calls from the Python caller's perspective, so
+  calling them directly blocks the event-loop thread. The valuation and
+  evaluation-date bindings release the GIL during native work, but GIL release
+  does not make the Python call awaitable or keep the event loop responsive.
 - Apply the rule uniformly: offload every DAL-extension call from `async def`,
   including cheap ones like `gateway.get_evaluation_date()`, so the invariant is
   easy to grep for.
 
 ## Sync Persistence Layer (Carve-Out)
 
-- The `Store` / `DbStore` seam in `app/services/db/` is intentionally sync
-  SQLAlchemy 2.x by design (PR #193). It is NOT async SQLAlchemy.
-- Its methods MAY be called directly from inside `async def` handlers and
-  services. They are fast non-I/O CPU work (microsecond ops) and do not need
-  `to_thread`.
-- Do NOT rewrite the store as async without an explicit decision. The app is
-  C++-pricing-bound, not DB-bound, and doubling the driver matrix was rejected.
-- This is the deliberate, scoped exception to the offload rule above.
+- The `Store` / `DbStore` seam in `app/services/db/` is synchronous SQLAlchemy
+  2.x, not async SQLAlchemy. Current async handlers and services call that seam
+  directly; preserve this interface and call pattern for changes whose scope
+  does not include persistence architecture.
+- Direct store calls are not non-blocking. `DbStore` performs synchronous
+  selects and commits, and `DAL_WEB_DB_URL` may select a remote SQLAlchemy
+  backend, so database latency blocks the event-loop thread while a call is in
+  progress. Keep request-path transactions and queries bounded, and include
+  event-loop impact when reviewing a new or expanded store operation.
+- If a task changes the persistence or concurrency architecture, choose and
+  validate one consistent boundary for the complete store surface; do not mix
+  ad hoc per-call offloads or async drivers into the synchronous seam.
+- This compatibility carve-out from the uniform C++ `to_thread` rule describes
+  the current handler contract, not a claim that database I/O is CPU-only or
+  always cheap.
 
 ## Naming Honesty
 

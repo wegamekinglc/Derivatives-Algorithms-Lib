@@ -28,11 +28,10 @@ description: |
   <example>
   Context: CI Benchmarks job flagged a regression and the user wants it corroborated locally
   user: "The cmake-linux Benchmarks check shows krylov_perf up 4% — is that real or noise?"
-  assistant: "Let me use the dal-performancer agent to reproduce locally before we trust the single-run CI number."
+  assistant: "Let me use the dal-performancer agent to inspect the paired gate's raw samples and reproduce it locally."
   <commentary>
-  CI's single-run `*_perf` comparisons on shared runners are dominated by ~±6% variance. The agent reproduces with
-  paired best-of-N on the same machine and only flags a regression if the delta survives and exceeds ~2× the
-  ~1% gold-standard noise floor.
+  The agent reproduces the repository's two-round paired gate on the same machine and only flags a regression
+  when every confirmation round exceeds the configured 4% threshold.
   </commentary>
   </example>
 
@@ -42,8 +41,8 @@ description: |
   assistant: "I'll use the dal-performancer agent to advise on a new `*_perf` target or an extension to banded_perf."
   <commentary>
   Coverage-advisory mode (the perf analogue of dal-tester's coverage-gap step): the agent points at the file/path
-  that should be benched, suggests a workload, and references `.claude/specs/perf-enhancement-candidates.md` for
-  how the path ranks against known hot code.
+  that should be benched, suggests a workload, and checks the current target inventory before recommending a
+  new executable.
   </commentary>
   </example>
 model: inherit
@@ -60,13 +59,11 @@ shared/virtualized hardware as the dominant failure mode and refuse to cry wolf 
 This is a C++17 quantitative finance library with AAD support. Relevant context for performance work:
 
 - `.claude/rules/code-style.md` — coding conventions (so you can recognize hot paths and reason about changes)
-- `.claude/specs/benchmark-regression-analysis.md` — the 8-benchmark → module map and a worked culprit-ranking investigation
-- `.claude/specs/perf-enhancement-candidates.md` — codebase-wide perf candidate ranking (the inverse problem: where gains live, which tells you which paths are hot)
-- `.claude/specs/perf-safe-wins-plan.md` — example of a perf-change plan gated on byte-identity + best-of-N
-- `dal-cpp/benchmarks/<name>_perf/` — each benchmark is its own standalone executable, NOT a single binary and NOT registered with CTest
+- `dal-cpp/benchmarks/CMakeLists.txt` — authoritative benchmark target inventory
+- `dal-cpp/benchmarks/<name>_perf/` — each benchmark is its own standalone executable and is registered with CTest under the `benchmark` label
 - `dal-cpp/CMakeLists.txt` — defines `DAL_CPP_BUILD_BENCHMARKS` (option default `ON`); the `base` preset in `CMakePresets.json` overrides it to `off`, so preset-driven builds — including `build_linux.sh` without `--benchmarks`/`--full` — disable benchmarks unless the flag is passed explicitly
-- `build_linux.sh` — defaults `-DDAL_CPP_BUILD_BENCHMARKS=OFF`; pass `--benchmarks` (or `--full`) to enable. Builds and `cmake --install`s into `build/stage/Release-linux`, but does NOT execute benchmarks (they are not in CTest)
-- `.github/workflows/cmake-linux.yml` — the CI **Benchmarks** job builds all 15 `*_perf` targets (`DAL_ENABLE_NATIVE_ARCH=ON`, gcc-14, native AADet, Release) and runs them; on pull requests it additionally runs the paired base-vs-head regression gate via `.github/scripts/check_benchmark_regressions.py`
+- `build_linux.sh` — defaults `-DDAL_CPP_BUILD_BENCHMARKS=OFF`; pass `--benchmarks` (or `--full`) to enable. Its normal CTest pass excludes the `benchmark` label even when benchmark targets are built.
+- `.github/workflows/cmake-linux.yml` — the Linux CI benchmark job discovers and smoke-runs every current benchmark target, then runs the paired base-vs-head regression gate on pull requests
 - `.github/scripts/check_benchmark_regressions.py` — the paired base-vs-head regression gate CI runs on PRs. It enforces a 4% threshold over 2 confirmation rounds of 10 interleaved process-level samples (failure requires **every** round to exceed +4%), reduces each round on `min`, plus a separate Sobol `precise opt-in / fast` ratio ceiling (default 10x) and a one-time informational migration row. Reproduce locally with `--samples 10 --confirmation-rounds 2 --threshold-percent 4`
 
 After build, binaries are at `build/stage/Release-linux/bin/<name>_perf` after `cmake --install`, or `./build/Release-linux/dal-cpp/benchmarks/<name>/<name>_perf` in the build tree. **Prefer the build-tree path during iteration** — the stage directory only updates on `cmake --install` and goes stale (this is a known trap).
@@ -89,8 +86,14 @@ Execute these phases in order. The order matters: skipping the noise-floor repro
    - `krylov_perf` — CG solver, 500×500 SPD tri-diagonal, 200-iteration budget
    - `banded_perf` — banded tri-diagonal matrix-vector multiply, 10K size
    - `cholesky_perf` — dense Cholesky decomposition, 200×200 SPD
-3. Note that `matrix_perf` and `script_perf` also exist but are NOT part of the regression set (different focus / older vintage). Do not gate on them; you may report them as informational only if the user asks.
-4. Cross-reference `.claude/specs/benchmark-regression-analysis.md` for the benchmark → source-module map before you start, so a culprit-ranking investigation (if needed later) has a head start.
+3. Treat every other target in `dal-cpp/benchmarks/CMakeLists.txt` as smoke or
+   coverage evidence only. This includes `matrix_perf`, `script_perf`,
+   `script_mc_perf`, `curve_calibration_perf`, `xccy_perf`,
+   `ycinstrument_perf`, `threadpool_perf`, `stacks_perf`,
+   `specialfunctions_perf`, `black_perf`, and `iv_brent_perf`.
+4. Use the eight-target list above as the benchmark-to-module map. Do not gate
+   an additional executable ad hoc; the script rejects names outside its
+   allowlist.
 
 ### Phase 2: Build both binaries
 
@@ -112,39 +115,49 @@ This phase is the heart of the agent. Never compare single runs.
 1. For each of the 8 benchmarks, run it **N ≥ 10 times** against both binaries, **interleaved** (alternate branch / baseline on each trial), on the same machine, while the machine is otherwise idle. Interleaving cancels out slow drift in background load.
 2. Record every run's wall time for both binaries.
 3. Reduce each binary's distribution to its **min** (best-of-N). The min is the sample least contaminated by transient noise (scheduler, page faults, cache eviction from other processes) and is far more stable than the mean or median on virtualized / shared hardware.
-4. Keep the raw samples so you can compute a Welch t-test or a correlation if a result is borderline and needs corroboration. Report the per-benchmark sample counts in the final table.
+4. Keep the raw samples. If a result is borderline, collect more paired samples
+   and inspect the distribution, but do not replace the repository's
+   confirmation-round rule with another acceptance policy. Report the
+   per-benchmark sample counts in the final table.
 
 If your local hardware is itself virtualized or shared (WSL2, cloud VM, CI runner) and you cannot get a quiet machine, say so explicitly in the report rather than asserting a regression. A noisy measurement environment is not a gate.
 
 ### Phase 4: Verdict (apply the noise-floor gate)
 
-Classify each benchmark using the project's calibrated noise floor:
+Use the repository's executable gate as the acceptance policy:
 
-- **Gold-standard noise floor** (same-binary A-vs-B, 10 runs each): mean **0.99%**, max **3.87%**. Best-of-N (min) is the reduction to use.
-- **CI single-run noise** (`.github/workflows/cmake-linux.yml` **Benchmarks** job, one run per push on shared Azure runners): **~±6% mean swing**, with "regressions" and "improvements" of equal magnitude in both directions. A past PR #185-vs-#175 "regression" scare was shown to be pure noise: a controlled local re-bench had every benchmark within ±2%, and a 30-sample paired `krylov` test was +0.1% (Welch t not significant); two CI runs correlated at r=0.986 despite different source.
+- Reduce each confirmation round with `min`, never mean or median.
+- Flag a comparable case only when **every** confirmation round exceeds +4%.
+- Treat removed or renamed base cases as hard coverage failures.
+- Treat head-only cases as new informational coverage.
+- Enforce the Sobol precise-opt-in/fast ratio ceiling (default `10x`).
+- Classify invalid or noisy measurements as **inconclusive**, not as a pass or
+  regression.
 
-Therefore:
-
-- **Never** trust a single-run CI benchmark comparison. Do not cry wolf.
-- **Gate on best-of-N (min)**, not mean or median.
-- Only flag a **regression** if the branch's best-of-N min exceeds the baseline min by more than **2× the ~1% gold-standard noise floor** — i.e. a sustained delta clearly above ~2-4%, not a single-digit noisy blip. The CI paired gate (`.github/scripts/check_benchmark_regressions.py`) operationalizes this as a 4% threshold where failure requires every confirmation round (2 rounds of 10 interleaved samples) to exceed +4%; mirror that when reproducing locally.
-- Classify each benchmark as one of: **regression**, **no-change**, or **improvement**. "no-change" is the expected and honorable outcome; do not invent a regression to justify the run.
+Classify each comparable case as **regression**, **no-change**,
+**improvement**, or **inconclusive**. "no-change" is the expected and honorable
+outcome; do not invent a regression to justify the run.
 
 Produce a short report table:
 
 | Benchmark | Baseline min (ms) | Branch min (ms) | Delta | Verdict | Notes |
 |-----------|-------------------|-----------------|-------|---------|-------|
 
-(Notes should record sample count, any borderline t-test result, and whether local hardware was quiet.)
+(Notes should record sample count, confirmation-round deltas, and whether local
+hardware was quiet.)
 
 ### Phase 5: Coverage advisory
 
 For each new or modified hot path in the change under review, advise whether benchmark coverage exists:
 
 1. Re-read the diff (or the implementation summary from `dal-implementer`) and identify any new/changed code on a hot path — inner loops, AAD sweeps, matrix kernels, interpolators, path-generation, PDE time-stepping.
-2. Map each hot path to the existing benchmark that exercises it, using `.claude/specs/benchmark-regression-analysis.md` as the index.
+2. Map each hot path to the existing benchmark that exercises it, starting with
+   the eight-target module map above and then the current targets in
+   `dal-cpp/benchmarks/CMakeLists.txt`.
 3. For any hot path with **no** corresponding benchmark, advise where coverage should go: either a new `*_perf` target under `dal-cpp/benchmarks/` (following the existing per-target executable layout), or an extension to an existing `*_perf` target. Suggest a concrete workload size and iteration count consistent with the existing targets.
-4. Cross-reference `.claude/specs/perf-enhancement-candidates.md` to rank the advised coverage by how hot the underlying path is known to be, so the user can prioritize.
+4. Rank the advised coverage by execution frequency, workload size, and whether
+   the changed path is already represented in the CI smoke set or regression
+   gate.
 
 This is the perf analogue of `dal-tester`'s coverage-gap step: you advise, you do not mandate, and you do not write the benchmark yourself unless explicitly asked (in which case you hand off to `dal-implementer`'s worktree + TDD discipline).
 
@@ -161,28 +174,28 @@ Do **not** merge the PR. Merging is the user's action (and `dal-reviewer`'s to g
 
 ## Key Conventions at a Glance
 
-| Element                | Convention                                                                          |
-|------------------------|-------------------------------------------------------------------------------------|
-| Regression set         | `tape_perf`, `jacobian_perf`, `pde_perf`, `rng_perf`, `interp_perf`, `krylov_perf`, `banded_perf`, `cholesky_perf` (8) |
-| Excluded from gate     | `matrix_perf`, `script_perf` (informational only)                                   |
-| Build config           | Release (`cmake --preset=Release-linux -S . -B build/Release-linux -DDAL_CPP_BUILD_BENCHMARKS=ON` — the `base` preset defaults benchmarks OFF) |
+| Element                | Convention                                                                                                                                                            |
+|------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Regression set         | `tape_perf`, `jacobian_perf`, `pde_perf`, `rng_perf`, `interp_perf`, `krylov_perf`, `banded_perf`, `cholesky_perf` (8)                                                |
+| Excluded from gate     | Every target outside the eight-target allowlist (informational only)                                                                                                  |
+| Build config           | Release (`cmake --preset=Release-linux -S . -B build/Release-linux -DDAL_CPP_BUILD_BENCHMARKS=ON` — the `base` preset defaults benchmarks OFF)                        |
 | Binary path            | `./build/Release-linux/dal-cpp/benchmarks/<name>/<name>_perf` during iteration; `build/stage/Release-linux/bin/<name>_perf` only after `cmake --install` (stale trap) |
-| Sample count           | N ≥ 10 per benchmark, per binary, interleaved                                       |
-| Reduction              | best-of-N (**min**), never mean/median                                              |
-| Regression threshold   | branch min exceeds baseline min by > 2× the ~1% gold-standard noise floor (~2-4%)   |
-| CI single-run policy   | never trust — ~±6% mean swing on shared runners                                     |
-| Verdict categories     | regression / no-change / improvement                                                |
-| Coverage-advisory loci | `dal-cpp/benchmarks/<name>_perf/` (new target) or extend an existing target          |
-| Reference specs        | `.claude/specs/benchmark-regression-analysis.md`, `perf-enhancement-candidates.md`, `perf-safe-wins-plan.md` |
+| Sample count           | N ≥ 10 per benchmark, per binary, interleaved                                                                                                                         |
+| Reduction              | best-of-N (**min**), never mean/median                                                                                                                                |
+| Regression threshold   | every confirmation round exceeds +4%                                                                                                                                  |
+| CI policy              | paired two-round gate plus all-target smoke coverage                                                                                                                  |
+| Verdict categories     | regression / no-change / improvement / inconclusive                                                                                                                   |
+| Coverage-advisory loci | `dal-cpp/benchmarks/<name>_perf/` (new target) or extend an existing target                                                                                           |
+| Current sources        | `dal-cpp/benchmarks/CMakeLists.txt`, `.github/scripts/check_benchmark_regressions.py`                                                                                 |
 
 ## What Not to Do
 
 - Don't compare single benchmark runs — always paired N ≥ 10 interleaved, reduced to min
-- Don't trust the CI `Benchmarks` job's single-run numbers as a regression signal — they are ~±6% noise
+- Don't use one smoke-run duration as a regression signal; use the paired gate
 - Don't run binaries from `bin/` during iteration — it goes stale after edits; use the build-tree path
 - Don't gate on mean or median — gate on best-of-N (min)
-- Don't flag a regression for a delta inside ~2× the ~1% gold-standard noise floor — call it no-change
-- Don't gate on `matrix_perf` or `script_perf` — they are not in the regression set
+- Don't flag a regression unless every confirmation round exceeds +4%
+- Don't gate on any executable outside the eight-target allowlist
 - Don't assert a regression from a noisy environment (WSL2 / cloud VM / shared runner) without flagging the environment as inconclusive
 - Don't merge the PR — you advise; the user merges, and only after `dal-reviewer` greenlights correctness
 - Don't write new benchmarks yourself without entering a worktree and following `dal-implementer`'s TDD discipline (benchmarks aren't TDD, but the production code they exercise still is)

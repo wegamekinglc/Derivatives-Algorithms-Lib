@@ -6,18 +6,18 @@ implement → review → document pipeline. The orchestrator routes work between
 
 ## Team Roster
 
-| Role         | Agent              | Color  | Reads                                                         | Writes                                                                                     |
-|--------------|--------------------|--------|---------------------------------------------------------------|--------------------------------------------------------------------------------------------|
-| Orchestrator | `dal-orchestrator` | purple | GitHub issues, all artifacts                                  | task list, PRs                                                                             |
-| Spec writer  | `dal-spec-writer`  | orange | issues, methodology, rules                                    | `.claude/specs/<slug>.md`                                                                  |
-| API designer | `dal-api-designer` | pink   | spec, design, public headers                                  | `.claude/api-notes/<slug>.md`                                                              |
-| Critic       | `dal-critic`       | red    | spec, design, api-note                                        | `.claude/critiques/<slug>.md`                                                              |
-| Implementer  | `dal-implementer`  | green  | spec, design, api-note, critique                              | source code, tests, TDD in worktree                                                        |
-| Tester       | `dal-tester`       | cyan   | source under-test, conventions                                | `dal-cpp/tests/<module>/*` and, for web scope, `dal-web/frontend/tests/e2e/*`, in worktree |
-| Reviewer     | `dal-reviewer`     | amber  | PR diff, all upstream artifacts                               | review report, optional merge                                                              |
-| Performancer | `dal-performancer` | yellow | finished impl, benchmark binaries, baseline `*_perf` output   | perf-regression report, benchmark-coverage advisory                                        |
-| Simplifier   | `dal-simplifier`   | blue   | finished impl, existing modules                               | simplification report (duplication, near-duplicate types, dead code, verbose constructs, oversized comments); optional apply-mode edits |
-| Doc writer   | `dal-doc-writer`   | teal   | current source, CLAUDE.md, docs                               | `docs/` and `CHANGELOG.md`                                                                 |
+| Role         | Agent              | Color  | Reads                                                       | Writes                                                                                                                                  |
+|--------------|--------------------|--------|-------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------|
+| Orchestrator | `dal-orchestrator` | purple | request context, specialist reports                         | task list, delegation prompts, summary                                                                                                  |
+| Spec writer  | `dal-spec-writer`  | orange | issues, methodology, rules                                  | `.claude/specs/<slug>.md`                                                                                                               |
+| API designer | `dal-api-designer` | pink   | spec, design, public headers                                | `.claude/api-notes/<slug>.md`                                                                                                           |
+| Critic       | `dal-critic`       | red    | spec, design, api-note                                      | `.claude/critiques/<slug>.md`                                                                                                           |
+| Implementer  | `dal-implementer`  | green  | spec, design, api-note, critique                            | source code, tests, TDD in worktree                                                                                                     |
+| Tester       | `dal-tester`       | cyan   | source under-test, conventions                              | `dal-cpp/tests/<module>/*` and, for web scope, `dal-web/frontend/tests/e2e/*`, in worktree                                              |
+| Reviewer     | `dal-reviewer`     | amber  | PR diff, all upstream artifacts                             | review report, optional merge                                                                                                           |
+| Performancer | `dal-performancer` | yellow | finished impl, benchmark binaries, baseline `*_perf` output | perf-regression report, benchmark-coverage advisory                                                                                     |
+| Simplifier   | `dal-simplifier`   | blue   | finished impl, existing modules                             | simplification report (duplication, near-duplicate types, dead code, verbose constructs, oversized comments); optional apply-mode edits |
+| Doc writer   | `dal-doc-writer`   | teal   | current source, CLAUDE.md, docs                             | `docs/` and `CHANGELOG.md`                                                                                                              |
 
 
 ## Workflow
@@ -53,22 +53,23 @@ prerequisites to merge.
 
 ## Artifact Layout
 
-| Path                 | Owner       | Purpose                                                        |
-|----------------------|-------------|----------------------------------------------------------------|
-| `.claude/specs/`     | spec writer | testable requirement specifications (created on demand)        |
-| `.claude/api-notes/` | api designer| public-API surface notes (created on demand)                   |
-| `.claude/critiques/` | critic      | adversarial reviews of specs and api-notes (created on demand) |
-| `docs/`              | doc writer  | normative quant method docs and index (referenced by all agents) |
-| `CHANGELOG.md`       | doc writer  | dated log of fundamental changes (single-version history)      |
-| `.claude/rules/`     | (existing)  | normative coding/test/git conventions                          |
+| Path                 | Owner        | Purpose                                                          |
+|----------------------|--------------|------------------------------------------------------------------|
+| `.claude/specs/`     | spec writer  | testable requirement specifications (created on demand)          |
+| `.claude/api-notes/` | api designer | public-API surface notes (created on demand)                     |
+| `.claude/critiques/` | critic       | adversarial reviews of specs and api-notes (created on demand)   |
+| `docs/`              | doc writer   | normative quant method docs and index (referenced by all agents) |
+| `CHANGELOG.md`       | doc writer   | dated log of fundamental changes (single-version history)        |
+| `.claude/rules/`     | (existing)   | normative coding/test/git conventions                            |
 
 Filenames share a single kebab-case slug derived from the issue title, so an issue traces
 through `specs/log-linear-interp.md → api-notes/log-linear-interp.md → ...` end-to-end.
 
 ## How to Invoke the Team
 
-- **End-to-end on a GitHub issue.** "Use `dal-orchestrator` to handle issue #57." The
-  orchestrator fetches the issue, decomposes the work, and delegates to teammates.
+- **End-to-end on a GitHub issue.** "Use `dal-orchestrator` to handle issue #57." Give
+  the orchestrator the issue context; it decomposes the request and delegates to
+  teammates. Its role contract does not permit fetching or inspecting the issue itself.
 - **A single specialist.** Address the role directly: "Use `dal-spec-writer` to spec the
   multi-curve refactor described in issue #42."
 - **Adversarial review of an existing plan.** "Use `dal-critic` on the spec at
@@ -102,7 +103,10 @@ Two practices are mandatory for every agent that changes files in the repository
 - One agent at a time per artifact. Don't fan out the same artifact to two agents in parallel.
 - Self-contained prompts. The teammate agent doesn't see the parent conversation, so the
   invocation must include all paths, decisions, and acceptance criteria it needs.
-- Verify before advancing. The orchestrator checks each artifact exists and has the expected
-  shape (acceptance criteria, file map, verdict, etc.) before the next step starts.
+- Verify before reporting. Each specialist validates its own artifacts and evidence, then
+  reports the outcome. The orchestrator routes from those reports; it does not inspect
+  working trees, artifacts, diffs, tests, gates, or PR state itself.
 - A `Block` verdict from the critic routes work back to the upstream author, not forward to
   the implementer.
+- Commit and PR publication belong to an explicitly authorized publishing specialist or
+  workflow, never to the orchestrator.

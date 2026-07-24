@@ -23,11 +23,11 @@ $$
 `Decompose()` returns a `SquareMatrixDecomposition_` that supports forward/backward solves
 against either $A$ or $A^{\top}$:
 
-| Method                          | Meaning                                            |
-|---------------------------------|----------------------------------------------------|
-| `SolveLeft(b, x)`               | solve $A\,x = b$                                   |
-| `SolveRight(b, x)`              | solve $A^{\top}\!x = b$                            |
-| `MultiplyLeft(x, b)` / `Right`  | apply $A$ / $A^{\top}$ using the factorization     |
+| Method                         | Meaning                                        |
+|--------------------------------|------------------------------------------------|
+| `SolveLeft(b, x)`              | solve $A\,x = b$                               |
+| `SolveRight(b, x)`             | solve $A^{\top}\!x = b$                        |
+| `MultiplyLeft(x, b)` / `Right` | apply $A$ / $A^{\top}$ using the factorization |
 
 When the matrix is symmetric, `DecomposeSymmetric()` returns the narrower
 `Sparse::SymmetricDecomposition_`, which additionally exposes `MakeCorrelated` (apply
