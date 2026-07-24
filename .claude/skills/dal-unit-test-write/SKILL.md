@@ -30,10 +30,11 @@ Read the header file for the module under test. Identify:
 Check whether `dal-cpp/tests/<module>/test_<name>.cpp` already exists. Reuse the module subdirectory pattern from existing tests (e.g.
 `dal-cpp/tests/math/interp/`, `dal-cpp/tests/time/`).
 
-**If adding to an existing file:** reuse its suite name — never introduce a second suite in the same file. Match the file's existing namespace style
-(`using namespace Dal;` vs specific imports).
+**If adding to an existing file:** reuse its suite name — never introduce a second suite in the same file. Preserve its namespace style, whether it
+uses `using namespace Dal;` or specific `using Dal::...;` declarations.
 
-**If creating a new file,** use this template:
+**If creating a new file,** add specific `using Dal::...;` declarations between the includes and tests as needed for frequently used names. Keep
+one-off names qualified. The generic template leaves these declarations out because the required names depend on the module:
 
 ```cpp
 //
@@ -43,8 +44,6 @@ Check whether `dal-cpp/tests/<module>/test_<name>.cpp` already exists. Reuse the
 #include <gtest/gtest.h>
 #include <dal/platform/platform.hpp>
 #include <dal/<module>/<header>.hpp>
-
-using namespace Dal;
 
 TEST(<Suite>, <TestName>) {
 }

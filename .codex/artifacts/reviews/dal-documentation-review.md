@@ -120,7 +120,7 @@ existing Markdown files, and adds these two review artifacts.
 - **File:** `docs/methodology/index_parsing.md`
 - **Evidence:** `dal-cpp/tests/indice/index/test_ir.cpp` expects
   `IR:USD,LIBOR_3M_LCH`; the convention string is produced by
-  `TradedRate_("LIBOR_3M_LCH")`.
+  `TradedRate_("LIBOR3MLCH")`.
 - **Disposition:** replaced the non-canonical `IR:USD,Libor3M` example with the
   tested canonical form.
 

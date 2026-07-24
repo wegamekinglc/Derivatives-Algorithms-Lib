@@ -94,7 +94,8 @@ Follow `.claude/rules/unit-test-style.md` exactly:
 - File: `dal-cpp/tests/<module>/test_<name>.cpp`
 - File header: `//` / `// Created by <author> on <date>.` / `//`
 - Include order: `<gtest/gtest.h>` first → `<dal/platform/platform.hpp>` → module header → other DAL headers
-- `using namespace Dal;` at file scope
+- For new files, add specific `using Dal::...;` declarations at file scope for frequently used names.
+  When editing an existing file, preserve its namespace style.
 - Suite: matching the module (PascalCase). When editing an existing file, extend
   the relevant existing suite rather than introducing another suite name.
 - Each test: `Test{DescriptiveName}` (PascalCase with `Test` prefix)
@@ -199,7 +200,7 @@ Once the PR is open and the user is done with the change, exit the worktree (kee
 | Test names      | PascalCase with `Test` prefix (`TestNewCubic`)                                       |
 | File names      | lowercase, `test_` prefix (`test_currency.cpp`)                                      |
 | Include order   | `<gtest/gtest.h>` → DAL headers                                                      |
-| Namespace       | Match the existing file: `using namespace Dal;` or specific `using` declarations     |
+| Namespace       | Specific `using Dal::...;` declarations; preserve existing files' namespace style    |
 | State           | No mutable singletons shared with other test files                                   |
 | Web e2e files   | `dal-web/frontend/tests/e2e/*.spec.ts`                                               |
 | Web e2e command | `./dal-web/scripts/setup-playwright.sh && (cd dal-web/frontend && npm run test:e2e)` |

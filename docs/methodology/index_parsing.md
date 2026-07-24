@@ -63,7 +63,8 @@ formats but no registered string parser: `Libor_`, `Swap_`, and `DF_` are
 built directly in C++:
 
 - `Libor_(ccy, tenor)` names itself `IR:<ccy>,<tenor>` (for example,
-  `TradedRate_("LIBOR_3M_LCH")` produces `IR:USD,LIBOR_3M_LCH`);
+  `Libor_(Ccy_("USD"), TradedRate_("LIBOR3MLCH"))` produces
+  `IR:USD,LIBOR_3M_LCH`);
 - `Swap_(ccy, tenor)` names itself `IR:<ccy>,<tenor>` with a numeric-leading
   tenor (for example `IR:USD,5Y`);
 - `DF_(ccy, maturity)` names itself `IR[DF]:<ccy>,<maturity>`.
