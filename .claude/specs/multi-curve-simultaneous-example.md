@@ -15,11 +15,11 @@ representation remains the default and is still supported.
 The example (`BuildJointSpec`) sets `baseLayeredOverDiscount_ = true` on its 3M declaration. Under
 EXACT, the **re-measured** joint-vs-staged DF drift is:
 
-| Bar   | Before                   | After                  | Reference                    |
-|-------|--------------------------|------------------------|------------------------------|
-| BAR-A | PASS (~0 residual)       | PASS (~5e-9 rate)      | `1e-7` (gate, unchanged)     |
-| BAR-B | `3.68e-8` (OIS drift)    | `6.42e-7` (OIS drift)  | `1e-6` (informational)       |
-| BAR-C | `3.33e-4` (3M drift)     | `2.39e-5` (3M drift)   | `5e-5` (informational)       |
+| Bar   | Before                | After                 | Reference                |
+|-------|-----------------------|-----------------------|--------------------------|
+| BAR-A | PASS (~0 residual)    | PASS (~5e-9 rate)     | `1e-7` (gate, unchanged) |
+| BAR-B | `3.68e-8` (OIS drift) | `6.42e-7` (OIS drift) | `1e-6` (informational)   |
+| BAR-C | `3.33e-4` (3M drift)  | `2.39e-5` (3M drift)  | `5e-5` (informational)   |
 
 The headline result: **BAR-C drops from `3.33e-4` to `2.39e-5` (~14x tighter)**, and the 2Y-7Y core
 agrees to ~`1e-7` (the OIS-agreement level). The remaining drift is NOT round-off: the joint solve
@@ -455,10 +455,10 @@ and in `(0, 1]` (loose sanity: monotonic-positive discounting).
 Across the six OIS pillars `{1Y, 2Y, 3Y, 5Y, 7Y, 10Y}`, the measured joint-vs-staged OIS DF drift
 under EXACT is:
 
-| Metric                      | APPROXIMATE (prior default) | EXACT (current default) |
-|-----------------------------|-----------------------------|-------------------------|
-| max \|diff\|                | $7.4343 \times 10^{-6}$     | $3.6843 \times 10^{-8}$ |
-| RMS \|diff\|                | -                           | $1.7807 \times 10^{-8}$ |
+| Metric       | APPROXIMATE (prior default) | EXACT (current default) |
+|--------------|-----------------------------|-------------------------|
+| max \|diff\| | $7.4343 \times 10^{-6}$     | $3.6843 \times 10^{-8}$ |
+| RMS \|diff\| | -                           | $1.7807 \times 10^{-8}$ |
 
 The informational reference constant is `BAR_B_REFERENCE = 1e-7` (a round-up of the measured
 $3.68 \times 10^{-8}$, ~$2.7\times$ margin). BAR-B is NOT a pass/fail gate; it is a printed
@@ -482,10 +482,10 @@ matrix - both real bugs - so the measurement stays predictive even though it is 
 Across the same six pillars, reading DFs off the 3M forward curve, the measured joint-vs-staged 3M
 DF drift under EXACT is:
 
-| Metric                      | APPROXIMATE (prior default) | EXACT, baseless default | EXACT, base-layered (example) |
-|-----------------------------|-----------------------------|-------------------------|--------------------------------|
-| max \|diff\|                | $1.1539 \times 10^{-3}$     | $3.3321 \times 10^{-4}$ | $2.39 \times 10^{-5}$          |
-| RMS \|diff\|                | -                           | $1.3630 \times 10^{-4}$ | $9.77 \times 10^{-6}$          |
+| Metric       | APPROXIMATE (prior default) | EXACT, baseless default | EXACT, base-layered (example) |
+|--------------|-----------------------------|-------------------------|-------------------------------|
+| max \|diff\| | $1.1539 \times 10^{-3}$     | $3.3321 \times 10^{-4}$ | $2.39 \times 10^{-5}$         |
+| RMS \|diff\| | -                           | $1.3630 \times 10^{-4}$ | $9.77 \times 10^{-6}$         |
 
 The example uses the **base-layered** representation (`baseLayeredOverDiscount_ = true`), so the
 informational reference constant is `BAR_C_REFERENCE = 5e-5` (a round-up of the measured
@@ -672,20 +672,20 @@ the percent range (that would erase the bug-detection power).
 
 No external inputs (no file reads, no CLI args). Outputs are stdout only.
 
-| Name                          | Type                           | Units             | Range / Constraints                              |
-|-------------------------------|--------------------------------|-------------------|--------------------------------------------------|
-| `today_`                      | `Date_`                        | calendar date     | Fixed `2024-01-15`                               |
-| OIS deposit quotes            | `double` (per instrument)      | decimal rate      | Repriced off 1.0% flat OIS market                |
-| OIS swap quotes               | `double`                       | decimal par rate  | Repriced off 1.0% flat OIS market                |
-| 3M FRA quotes                 | `double`                       | decimal forward   | Repriced off 3.0% flat 3M (2.0% over OIS)        |
-| 3M swap quotes                | `double`                       | decimal par rate  | Repriced off 3.0% flat 3M (2.0% over OIS)        |
-| `fitTolerance_`               | `double`                       | decimal rate      | `1e-8` (both curves, both paths)                 |
-| `smoothingWeight_`            | `double`                       | dimensionless     | `1.0` (both curves, both paths)                  |
-| BAR-A tolerance (PASS gate)   | `double`                       | decimal rate      | `1e-7` (= 10 * `fitTolerance_`); sole THROW gate |
-| BAR-B reference (OIS DF drift)| `double`                       | discount factor   | `1e-7` (informational; measured EXACT 3.68e-8)   |
-| BAR-C reference (3M DF drift) | `double`                       | discount factor   | `5e-4` (informational; measured EXACT 3.33e-4)   |
-| `solveMode_`                  | `CurveSolveMode_::Value_`      | enum              | `EXACT` (library default; both paths)            |
-| stdout comparison tables      | text                           | -                 | Two tables (OIS, 3M), 6 pillars each             |
+| Name                           | Type                      | Units            | Range / Constraints                              |
+|--------------------------------|---------------------------|------------------|--------------------------------------------------|
+| `today_`                       | `Date_`                   | calendar date    | Fixed `2024-01-15`                               |
+| OIS deposit quotes             | `double` (per instrument) | decimal rate     | Repriced off 1.0% flat OIS market                |
+| OIS swap quotes                | `double`                  | decimal par rate | Repriced off 1.0% flat OIS market                |
+| 3M FRA quotes                  | `double`                  | decimal forward  | Repriced off 3.0% flat 3M (2.0% over OIS)        |
+| 3M swap quotes                 | `double`                  | decimal par rate | Repriced off 3.0% flat 3M (2.0% over OIS)        |
+| `fitTolerance_`                | `double`                  | decimal rate     | `1e-8` (both curves, both paths)                 |
+| `smoothingWeight_`             | `double`                  | dimensionless    | `1.0` (both curves, both paths)                  |
+| BAR-A tolerance (PASS gate)    | `double`                  | decimal rate     | `1e-7` (= 10 * `fitTolerance_`); sole THROW gate |
+| BAR-B reference (OIS DF drift) | `double`                  | discount factor  | `1e-7` (informational; measured EXACT 3.68e-8)   |
+| BAR-C reference (3M DF drift)  | `double`                  | discount factor  | `5e-4` (informational; measured EXACT 3.33e-4)   |
+| `solveMode_`                   | `CurveSolveMode_::Value_` | enum             | `EXACT` (library default; both paths)            |
+| stdout comparison tables       | text                      | -                | Two tables (OIS, 3M), 6 pillars each             |
 
 ## File and CMake Layout
 

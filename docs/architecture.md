@@ -20,14 +20,14 @@ The native build dependency direction is:
 dal-cpp <- dal-public <- {dal-python, dal-excel}
 ```
 
-| Component | Responsibility |
-|-----------|----------------|
-| `dal-cpp/` | Math, AAD, curves, models, scripting, Monte Carlo, PDEs, random generation, storage, and concurrency |
-| `dal-public/` | Convenience builders and valuation/calibration entry points over core DAL types |
-| `dal-python/` | pybind11 module plus small Python convenience wrappers |
-| `dal-excel/` | Excel conversion, object repository, and Machinist-generated worksheet registration |
-| `dal-web/backend/` | FastAPI persistence and orchestration through one native DAL gateway |
-| `dal-web/frontend/` | React/Vite portfolio, trade, model, product, and valuation UI |
+| Component           | Responsibility                                                                                       |
+|---------------------|------------------------------------------------------------------------------------------------------|
+| `dal-cpp/`          | Math, AAD, curves, models, scripting, Monte Carlo, PDEs, random generation, storage, and concurrency |
+| `dal-public/`       | Convenience builders and valuation/calibration entry points over core DAL types                      |
+| `dal-python/`       | pybind11 module plus small Python convenience wrappers                                               |
+| `dal-excel/`        | Excel conversion, object repository, and Machinist-generated worksheet registration                  |
+| `dal-web/backend/`  | FastAPI persistence and orchestration through one native DAL gateway                                 |
+| `dal-web/frontend/` | React/Vite portfolio, trade, model, product, and valuation UI                                        |
 
 `DAL::cpp` and `DAL::public` are exported as installable CMake packages.
 `DAL::public` is not an ABI-isolated layer: its headers expose core handles and
@@ -38,15 +38,15 @@ libraries.
 
 The main core namespaces live under `dal-cpp/dal/`:
 
-| Area | Contents |
-|------|----------|
-| `math/` | Vectors, matrices, interpolation, root finding, integration, optimization, random generation, PDE primitives |
-| `math/aad/` | Native and adapter-backed reverse-mode AAD facade |
-| `curve/` | Discount/forward curves, calibration instruments, single- and multi-curve solvers |
-| `script/` | Product preprocessing, parsing, domain analysis, tree-walk/compiled evaluation, Monte Carlo |
-| `model/` | Black-Scholes, Dupire, implied- and local-volatility machinery |
-| `storage/` | Storables, archives, process-wide dates/fixings, and repository integration |
-| `concurrency/` | Lazy process-wide worker pool and synchronized task queue |
+| Area           | Contents                                                                                                     |
+|----------------|--------------------------------------------------------------------------------------------------------------|
+| `math/`        | Vectors, matrices, interpolation, root finding, integration, optimization, random generation, PDE primitives |
+| `math/aad/`    | Native and adapter-backed reverse-mode AAD facade                                                            |
+| `curve/`       | Discount/forward curves, calibration instruments, single- and multi-curve solvers                            |
+| `script/`      | Product preprocessing, parsing, domain analysis, tree-walk/compiled evaluation, Monte Carlo                  |
+| `model/`       | Black-Scholes, Dupire, implied- and local-volatility machinery                                               |
+| `storage/`     | Storables, archives, process-wide dates/fixings, and repository integration                                  |
+| `concurrency/` | Lazy process-wide worker pool and synchronized task queue                                                    |
 
 Methodology belongs in `docs/methodology/`; local source comments document the
 invariants needed to maintain a symbol safely.
@@ -56,17 +56,17 @@ invariants needed to maintain a symbol safely.
 DAL combines process-wide coordination state with thread-local numerical state.
 Callers embedding the library need to preserve that distinction.
 
-| State | Ownership and contract |
-|-------|------------------------|
-| Evaluation date | Process-wide store value. Reads use the global-store mutex; mutation, scoped overrides, and native valuation also participate in the re-entrant valuation/mutation barrier. |
-| Accounting date | Process-wide store value. Reads and writes use the global-store mutex but do not participate in the valuation/mutation barrier. |
-| Fixings | Process-wide store. Reads use the global-store mutex, but the final `StoreFixings` write does not. Fixings mutation is outside the evaluation-date synchronization contract, so callers must externally serialize it with other fixings access. |
-| Market-fixing snapshot | Immutable operation-level value retained by reset-aware pricing/calibration results. An explicit snapshot is authoritative; when omitted, staged/joint XCCY calibration gathers required historical requests and copies the process-wide store once before solving. |
-| Calendar/currency/index registration | Initialized once per process by `InitGlobalData` / Python module initialization. |
-| Thread pool | Process-wide singleton, inactive until explicit start or first task. Lifecycle and queue transitions are synchronized. |
-| AAD tape | One tape per executing thread (`thread_local`). Calibration guards and simulation batches rewind their thread's tape before reuse. |
-| Script compiled stacks | Operand stacks belong to each `EvalState_`; recursive compiled evaluation reuses that state, and AAD stack values cannot outlive the task/tape that owns them. |
-| Excel object repository | Host/environment-owned repository of storable handles used between worksheet calls. |
+| State                                | Ownership and contract                                                                                                                                                                                                                                              |
+|--------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Evaluation date                      | Process-wide store value. Reads use the global-store mutex; mutation, scoped overrides, and native valuation also participate in the re-entrant valuation/mutation barrier.                                                                                         |
+| Accounting date                      | Process-wide store value. Reads and writes use the global-store mutex but do not participate in the valuation/mutation barrier.                                                                                                                                     |
+| Fixings                              | Process-wide store. Reads use the global-store mutex, but the final `StoreFixings` write does not. Fixings mutation is outside the evaluation-date synchronization contract, so callers must externally serialize it with other fixings access.                     |
+| Market-fixing snapshot               | Immutable operation-level value retained by reset-aware pricing/calibration results. An explicit snapshot is authoritative; when omitted, staged/joint XCCY calibration gathers required historical requests and copies the process-wide store once before solving. |
+| Calendar/currency/index registration | Initialized once per process by `InitGlobalData` / Python module initialization.                                                                                                                                                                                    |
+| Thread pool                          | Process-wide singleton, inactive until explicit start or first task. Lifecycle and queue transitions are synchronized.                                                                                                                                              |
+| AAD tape                             | One tape per executing thread (`thread_local`). Calibration guards and simulation batches rewind their thread's tape before reuse.                                                                                                                                  |
+| Script compiled stacks               | Operand stacks belong to each `EvalState_`; recursive compiled evaluation reuses that state, and AAD stack values cannot outlive the task/tape that owns them.                                                                                                      |
+| Excel object repository              | Host/environment-owned repository of storable handles used between worksheet calls.                                                                                                                                                                                 |
 
 `MarketFixingSnapshot_` therefore gives one pricing or calibration operation a stable
 fixing view rather than a live view of the process-wide fixing store.

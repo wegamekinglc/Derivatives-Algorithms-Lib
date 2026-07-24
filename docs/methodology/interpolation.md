@@ -26,13 +26,13 @@ $$
 
 implemented by `InterpLinearImplX` in `dal-cpp/dal/math/interp/interp.hpp`.
 
-| Scheme                         | Factory                          | Header                                                  |
-|--------------------------------|----------------------------------|---------------------------------------------------------|
-| Linear                         | `Interp::NewLinear`              | `dal-cpp/dal/math/interp/interplinear.hpp`              |
-| Log-linear                     | `Interp::NewLogLinear`           | `dal-cpp/dal/math/interp/interploglinear.hpp`           |
-| Cubic spline                   | `Interp::NewCubic`               | `dal-cpp/dal/math/interp/interpcubic.hpp`               |
-| Mixed log-DF (linear + cubic)  | `NewMixedLogDF`                  | `dal-cpp/dal/math/interp/interpmixed.hpp`               |
-| Bilinear (2D)                  | `Interp::NewLinear2`             | `dal-cpp/dal/math/interp/interp2d.hpp`                  |
+| Scheme                        | Factory                | Header                                        |
+|-------------------------------|------------------------|-----------------------------------------------|
+| Linear                        | `Interp::NewLinear`    | `dal-cpp/dal/math/interp/interplinear.hpp`    |
+| Log-linear                    | `Interp::NewLogLinear` | `dal-cpp/dal/math/interp/interploglinear.hpp` |
+| Cubic spline                  | `Interp::NewCubic`     | `dal-cpp/dal/math/interp/interpcubic.hpp`     |
+| Mixed log-DF (linear + cubic) | `NewMixedLogDF`        | `dal-cpp/dal/math/interp/interpmixed.hpp`     |
+| Bilinear (2D)                 | `Interp::NewLinear2`   | `dal-cpp/dal/math/interp/interp2d.hpp`        |
 
 ## Passive Geometry and Typed Ordinates
 

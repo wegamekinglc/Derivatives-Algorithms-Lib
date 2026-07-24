@@ -52,10 +52,13 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File dal-web/scripts/start.ps1  # Windo
 ```
 
 The script:
-1. Verifies prerequisites (python ≥ 3.13, uv, node, npm; `python3` on bash, `python` on PowerShell)
+1. Verifies prerequisite commands (python, uv, node, npm; `python3` on bash,
+   `python` on PowerShell) and enforces Python ≥ 3.13. The committed frontend
+   toolchain requires Node.js `^20.19.0` or `>=22.12.0`.
 2. Reads the backend port from `dal-web/frontend/vite.config.ts` (currently `:8001`)
 3. Checks that both ports are free
-4. Runs `uv sync` in `dal-web/backend/`
+4. Runs `uv sync --inexact` in `dal-web/backend/` so the locally installed
+   native `dal` package is preserved
 5. Starts uvicorn in the background (PID saved to `dal-web/backend/.server.pid`)
 6. Waits for `/api/health` to respond (up to 20s)
 7. Runs `npm install` in `dal-web/frontend/`

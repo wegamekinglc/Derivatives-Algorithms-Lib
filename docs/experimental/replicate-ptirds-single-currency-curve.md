@@ -36,52 +36,52 @@ A single discount `Curve` with explicit node dates and discount factors to be so
 The first node (`2022-01-01`) is the anchor with `DF = 1.0` (fixed); the remaining 13
 are free unknowns.
 
-| #  | Node date  | Note                |
-|----|------------|---------------------|
-| 0  | 2022-01-01 | anchor, DF fixed 1  |
-| 1  | 2022-03-15 | IMM-style           |
-| 2  | 2022-06-15 | IMM-style           |
-| 3  | 2022-09-21 | IMM-style           |
-| 4  | 2022-12-21 | IMM-style           |
-| 5  | 2023-03-15 | IMM-style           |
-| 6  | 2023-06-21 | IMM-style           |
-| 7  | 2023-09-20 | IMM-style           |
-| 8  | 2023-12-20 | IMM-style           |
-| 9  | 2024-03-15 | IMM-style           |
-| 10 | 2025-01-01 |                     |
-| 11 | 2027-01-01 |                     |
-| 12 | 2029-01-01 |                     |
-| 13 | 2032-01-01 |                     |
+| #  | Node date  | Note               |
+|----|------------|--------------------|
+| 0  | 2022-01-01 | anchor, DF fixed 1 |
+| 1  | 2022-03-15 | IMM-style          |
+| 2  | 2022-06-15 | IMM-style          |
+| 3  | 2022-09-21 | IMM-style          |
+| 4  | 2022-12-21 | IMM-style          |
+| 5  | 2023-03-15 | IMM-style          |
+| 6  | 2023-06-21 | IMM-style          |
+| 7  | 2023-09-20 | IMM-style          |
+| 8  | 2023-12-20 | IMM-style          |
+| 9  | 2024-03-15 | IMM-style          |
+| 10 | 2025-01-01 |                    |
+| 11 | 2027-01-01 |                    |
+| 12 | 2029-01-01 |                    |
+| 13 | 2032-01-01 |                    |
 
 ### 2.2 Conventions
 
-| Convention   | Value                            |
-|--------------|----------------------------------|
-| Day count    | Act/365F                         |
-| Calendar     | "all" (every day, no holidays)   |
-| Frequency    | Annual                           |
-| Payment lag  | 0                                |
+| Convention  | Value                          |
+|-------------|--------------------------------|
+| Day count   | Act/365F                       |
+| Calendar    | "all" (every day, no holidays) |
+| Frequency   | Annual                         |
+| Payment lag | 0                              |
 
 ### 2.3 Calibration instruments (13 IRS) and par rates
 
 Par rates `s` (percent): `[1.0, 1.05, 1.12, 1.16, 1.21, 1.27, 1.45, 1.68, 1.92,
 1.68, 2.10, 2.20, 2.07]`.
 
-| #  | Instrument                | Effective  | Termination | Par (%) |
-|----|---------------------------|------------|-------------|---------|
-| 0  | 1-business-day swap       | 2022-01-01 | 2022-01-03  | 1.00    |
-| 1  | IMM stub swap             | 2022-03-15 | 2022-06-15  | 1.05    |
-| 2  | IMM stub swap             | 2022-06-15 | 2022-09-21  | 1.12    |
-| 3  | IMM stub swap             | 2022-09-21 | 2022-12-21  | 1.16    |
-| 4  | IMM stub swap             | 2022-12-21 | 2023-03-15  | 1.21    |
-| 5  | IMM stub swap             | 2023-03-15 | 2023-06-21  | 1.27    |
-| 6  | IMM stub swap             | 2023-06-21 | 2023-09-20  | 1.45    |
-| 7  | IMM stub swap             | 2023-09-20 | 2023-12-20  | 1.68    |
-| 8  | IMM stub swap             | 2023-12-20 | 2024-03-15  | 1.92    |
-| 9  | 3y swap                   | 2022-01-01 | 2025-01-01  | 1.68    |
-| 10 | 5y swap                   | 2022-01-01 | 2027-01-01  | 2.10    |
-| 11 | 7y swap                   | 2022-01-01 | 2029-01-01  | 2.20    |
-| 12 | 10y swap                  | 2022-01-01 | 2032-01-01  | 2.07    |
+| #  | Instrument          | Effective  | Termination | Par (%) |
+|----|---------------------|------------|-------------|---------|
+| 0  | 1-business-day swap | 2022-01-01 | 2022-01-03  | 1.00    |
+| 1  | IMM stub swap       | 2022-03-15 | 2022-06-15  | 1.05    |
+| 2  | IMM stub swap       | 2022-06-15 | 2022-09-21  | 1.12    |
+| 3  | IMM stub swap       | 2022-09-21 | 2022-12-21  | 1.16    |
+| 4  | IMM stub swap       | 2022-12-21 | 2023-03-15  | 1.21    |
+| 5  | IMM stub swap       | 2023-03-15 | 2023-06-21  | 1.27    |
+| 6  | IMM stub swap       | 2023-06-21 | 2023-09-20  | 1.45    |
+| 7  | IMM stub swap       | 2023-09-20 | 2023-12-20  | 1.68    |
+| 8  | IMM stub swap       | 2023-12-20 | 2024-03-15  | 1.92    |
+| 9  | 3y swap             | 2022-01-01 | 2025-01-01  | 1.68    |
+| 10 | 5y swap             | 2022-01-01 | 2027-01-01  | 2.10    |
+| 11 | 7y swap             | 2022-01-01 | 2029-01-01  | 2.20    |
+| 12 | 10y swap            | 2022-01-01 | 2032-01-01  | 2.07    |
 
 > Note: the exact termination of the 1-business-day swap and the precise IMM roll
 > dates are taken from the reference's schedule generation; see Open Questions (§7).
@@ -117,8 +117,8 @@ in the table below, not against the other two.
 
 Authoritative reference: [rateslib Table 6.2](https://rateslib.com/py/en/2.7.x/z_ptirds_curve.html) (6 dp):
 
-| Node date  | log-linear | log-cubic | mixed   |
-|------------|------------|-----------|---------|
+| Node date  | log-linear | log-cubic | mixed    |
+|------------|------------|-----------|----------|
 | 2022-01-01 | 1.000000   | 1.000000  | 1.000000 |
 | 2022-03-15 | 0.998002   | 0.997990  | 0.998002 |
 | 2022-06-15 | 0.995368   | 0.995355  | 0.995368 |
@@ -289,25 +289,25 @@ observed max `|err|` of ~`5.2e-7` (`log_linear`), ~`4.6e-7` (`log_cubic`), and
 Each row maps a capability the reference exercise needs onto its current DAL
 implementation; all required items are available or have an explicit DAL analogue.
 
-| Capability                                    | Status   | Evidence (path)                                                                                       | Notes                                                                                  |
-|-----------------------------------------------|----------|-------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------|
-| Discount curve interface (DF from/to)         | yes      | `dal-cpp/dal/curve/discount.hpp`                                                                      | reuse as-is                                                                            |
-| DF-node curve + `log(DF)` interpolation rule  | yes      | `NewDiscountLogDF`, `dal-cpp/dal/curve/yclogdf.hpp` / `yclogdf.cpp`                                   | node dates + `log(DF)` + pluggable `LogDfScheme_`; selected by `CurveParameterization_::LOG_DISCOUNT` |
-| Log-linear on DF (scheme 1)                   | yes      | `LogDfScheme_::LOG_LINEAR`, `dal-cpp/dal/curve/logdfscheme.hpp`                                       | linear in $\ell$ = log-linear in $P$                                                   |
-| Cubic on `log(DF)` (scheme 2)                 | yes      | `LogDfScheme_::LOG_CUBIC_NATURAL`, `dal-cpp/dal/curve/yclogdf.cpp`                                    | natural cubic spline in $\ell$ (Boundary_(2,0.0)), not rateslib's clamped B-spline     |
-| "Mixed" (log-linear → log-cubic) (scheme 3)   | yes      | `LogDfScheme_::MIXED`, `dal-cpp/dal/curve/yclogdf.cpp`                                                | linear through a cutoff knot, natural cubic beyond; C0 at the cutoff                   |
-| Knot-sequence (`t`) configuration             | n/a      | —                                                                                                     | DAL uses knot dates + scheme, not a B-spline knot vector                               |
-| IMM / stub swaps via explicit dates           | yes      | `Swap_(tradeDate, start, maturity, ...)`, `dal-cpp/dal/curve/ycinstrument.hpp`                        | explicit effective/termination dates per leg                                          |
-| 1-business-day swap                           | yes      | degenerate single-period `Swap_`, `dal-cpp/dal/curve/ycinstrument.cpp`                                | 1-day span; annuity > 0 path                                                           |
-| Act/365F day count                            | yes      | `ACT_365F`, `dal-cpp/dal/time/daybasis.hpp`                                                           | reuse                                                                                  |
-| Every-day target calendar                     | yes      | `Holidays::None()` plus `Unadjusted`, `dal-cpp/tests/curve/test_ptirds_curve.cpp`                      | preserves the supplied dates; `Holidays::None()` alone still excludes weekends          |
-| Annual frequency, payment lag 0               | yes      | `RateLegConvention_`, `dal-cpp/dal/curve/ycinstrument.cpp`                                            | `PeriodLength_("12M")`, `paymentLag_ = 0`                                              |
-| Global simultaneous solve over nodes          | yes      | `Underdetermined::Find`, `dal-cpp/dal/curve/calibration.cpp`                                          | one global solve, not a sequential bootstrap                                           |
-| Levenberg-Marquardt least-squares             | analog   | underdetermined least-change EXACT/APPROXIMATE, `dal-cpp/dal/math/optimization/underdetermined.hpp`   | equivalent for the square 13×13 case                                                   |
-| Analytic (AAD) Jacobian for the solver        | yes      | `YieldCurveCalibrationFunc_::Gradient`, `dal-cpp/dal/curve/calibration.cpp`                           | AAD reverse sweep when eligible; bumped fallback otherwise                             |
-| Anchor node with fixed DF = 1                 | yes      | `LOG_DISCOUNT` anchor exclusion, `dal-cpp/dal/curve/calibration.cpp`                                  | anchor pinned at $\ell_0 = 0$, excluded from unknowns                                  |
-| Public API exposure                           | yes      | `dal-public/src/curvespec.hpp`, `dal-python/src/bindings/curve.cpp`                                   | C++ convenience facade and Python builders expose calibration workflows                |
-| Python bindings                               | yes      | `dal-python/src/bindings/curve.cpp`                                                                   | instruments, curves, calibration entry points, enums, `CurveCalibrationSpecBuilder_`  |
+| Capability                                   | Status | Evidence (path)                                                                                     | Notes                                                                                                 |
+|----------------------------------------------|--------|-----------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------|
+| Discount curve interface (DF from/to)        | yes    | `dal-cpp/dal/curve/discount.hpp`                                                                    | reuse as-is                                                                                           |
+| DF-node curve + `log(DF)` interpolation rule | yes    | `NewDiscountLogDF`, `dal-cpp/dal/curve/yclogdf.hpp` / `yclogdf.cpp`                                 | node dates + `log(DF)` + pluggable `LogDfScheme_`; selected by `CurveParameterization_::LOG_DISCOUNT` |
+| Log-linear on DF (scheme 1)                  | yes    | `LogDfScheme_::LOG_LINEAR`, `dal-cpp/dal/curve/logdfscheme.hpp`                                     | linear in $\ell$ = log-linear in $P$                                                                  |
+| Cubic on `log(DF)` (scheme 2)                | yes    | `LogDfScheme_::LOG_CUBIC_NATURAL`, `dal-cpp/dal/curve/yclogdf.cpp`                                  | natural cubic spline in $\ell$ (Boundary_(2,0.0)), not rateslib's clamped B-spline                    |
+| "Mixed" (log-linear → log-cubic) (scheme 3)  | yes    | `LogDfScheme_::MIXED`, `dal-cpp/dal/curve/yclogdf.cpp`                                              | linear through a cutoff knot, natural cubic beyond; C0 at the cutoff                                  |
+| Knot-sequence (`t`) configuration            | n/a    | —                                                                                                   | DAL uses knot dates + scheme, not a B-spline knot vector                                              |
+| IMM / stub swaps via explicit dates          | yes    | `Swap_(tradeDate, start, maturity, ...)`, `dal-cpp/dal/curve/ycinstrument.hpp`                      | explicit effective/termination dates per leg                                                          |
+| 1-business-day swap                          | yes    | degenerate single-period `Swap_`, `dal-cpp/dal/curve/ycinstrument.cpp`                              | 1-day span; annuity > 0 path                                                                          |
+| Act/365F day count                           | yes    | `ACT_365F`, `dal-cpp/dal/time/daybasis.hpp`                                                         | reuse                                                                                                 |
+| Every-day target calendar                    | yes    | `Holidays::None()` plus `Unadjusted`, `dal-cpp/tests/curve/test_ptirds_curve.cpp`                   | preserves the supplied dates; `Holidays::None()` alone still excludes weekends                        |
+| Annual frequency, payment lag 0              | yes    | `RateLegConvention_`, `dal-cpp/dal/curve/ycinstrument.cpp`                                          | `PeriodLength_("12M")`, `paymentLag_ = 0`                                                             |
+| Global simultaneous solve over nodes         | yes    | `Underdetermined::Find`, `dal-cpp/dal/curve/calibration.cpp`                                        | one global solve, not a sequential bootstrap                                                          |
+| Levenberg-Marquardt least-squares            | analog | underdetermined least-change EXACT/APPROXIMATE, `dal-cpp/dal/math/optimization/underdetermined.hpp` | equivalent for the square 13×13 case                                                                  |
+| Analytic (AAD) Jacobian for the solver       | yes    | `YieldCurveCalibrationFunc_::Gradient`, `dal-cpp/dal/curve/calibration.cpp`                         | AAD reverse sweep when eligible; bumped fallback otherwise                                            |
+| Anchor node with fixed DF = 1                | yes    | `LOG_DISCOUNT` anchor exclusion, `dal-cpp/dal/curve/calibration.cpp`                                | anchor pinned at $\ell_0 = 0$, excluded from unknowns                                                 |
+| Public API exposure                          | yes    | `dal-public/src/curvespec.hpp`, `dal-python/src/bindings/curve.cpp`                                 | C++ convenience facade and Python builders expose calibration workflows                               |
+| Python bindings                              | yes    | `dal-python/src/bindings/curve.cpp`                                                                 | instruments, curves, calibration entry points, enums, `CurveCalibrationSpecBuilder_`                  |
 
 ## 5. Reproduction Pipeline
 

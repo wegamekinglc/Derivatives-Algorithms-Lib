@@ -78,11 +78,11 @@ under `auto/` is the exact argument and settings-key reference.
 
 ## Layout and Generated Registration
 
-| Path | Contents |
-|------|----------|
-| `src/` | Handwritten Excel conversion, repository, and public-function implementations |
-| `auto/` | Machinist-generated registration wrappers and HTML function help |
-| `examples/` | Example workbooks |
+| Path        | Contents                                                                      |
+|-------------|-------------------------------------------------------------------------------|
+| `src/`      | Handwritten Excel conversion, repository, and public-function implementations |
+| `auto/`     | Machinist-generated registration wrappers and HTML function help              |
+| `examples/` | Example workbooks                                                             |
 
 Machinist generates both core storables and Excel wrappers from the shared
 configuration. After markup changes, regenerate both trees:

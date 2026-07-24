@@ -59,12 +59,12 @@ statement; the returned `Spec_` is consumed immediately by `CalibrateSingleCurve
 
 ### Per-surface exposure
 
-| Surface            | Notices field reshuffle? | Why                                                                                                            |
-|--------------------|--------------------------|----------------------------------------------------------------------------------------------------------------|
-| `dal-public/tests` | No                       | All callers use `builder.field_ = x;` then `builder.Build()`. Field names unchanged -> tests compile and pass.  |
-| `dal-excel/src`    | No                       | Glue (`__curvespec.cpp`, `__xccycalibration.cpp`) default-constructs the builder, applies a `(key,value)` settings matrix via `Apply*Settings` dispatch, calls `.Build()`, and consumes the opaque `Spec_`. The Excel UDF signature is flat positional + settings matrix; the builder layout is invisible to Excel. |
-| `dal-python`       | **Yes (compile + runtime)** | `dal-python/src/bindings/curve.cpp` pins every solver field by member-pointer: `def_readwrite("tolerance_", &CurveCalibrationSpecBuilder_::tolerance_)` etc. (lines 269-274, 440-445). Nesting these into a sub-struct makes every `&Builder_::tolerance_` fail to compile. `dal-python/src/dal/api.py` also sets `spec.tolerance_ = 1e-8` by name (lines 47-58); if the bindings compiled but exposed `solver_.tolerance_` instead, `setattr` would silently create a phantom instance attribute and the real field would keep its default -- a runtime behavioural break. |
-| `dal-cpp` (tests, examples) | No            | dal-cpp bypasses the builders entirely and populates `Spec_` structs directly (default-construct then assign, same idiom). The builders are a `dal-public` + bindings layer over the top. |
+| Surface                     | Notices field reshuffle?    | Why                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+|-----------------------------|-----------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `dal-public/tests`          | No                          | All callers use `builder.field_ = x;` then `builder.Build()`. Field names unchanged -> tests compile and pass.                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| `dal-excel/src`             | No                          | Glue (`__curvespec.cpp`, `__xccycalibration.cpp`) default-constructs the builder, applies a `(key,value)` settings matrix via `Apply*Settings` dispatch, calls `.Build()`, and consumes the opaque `Spec_`. The Excel UDF signature is flat positional + settings matrix; the builder layout is invisible to Excel.                                                                                                                                                                                                                                                         |
+| `dal-python`                | **Yes (compile + runtime)** | `dal-python/src/bindings/curve.cpp` pins every solver field by member-pointer: `def_readwrite("tolerance_", &CurveCalibrationSpecBuilder_::tolerance_)` etc. (lines 269-274, 440-445). Nesting these into a sub-struct makes every `&Builder_::tolerance_` fail to compile. `dal-python/src/dal/api.py` also sets `spec.tolerance_ = 1e-8` by name (lines 47-58); if the bindings compiled but exposed `solver_.tolerance_` instead, `setattr` would silently create a phantom instance attribute and the real field would keep its default -- a runtime behavioural break. |
+| `dal-cpp` (tests, examples) | No                          | dal-cpp bypasses the builders entirely and populates `Spec_` structs directly (default-construct then assign, same idiom). The builders are a `dal-public` + bindings layer over the top.                                                                                                                                                                                                                                                                                                                                                                                   |
 
 The `Spec_` result types (`CurveCalibrationSpec_`, `CrossCurrencyCalibrationSpec_`) are
 **opaque** in both binding layers (registered as bare `py::class_` with no exposed members,
@@ -434,15 +434,15 @@ single-curve builder's defaults (`1.0`, `1e-8`, `1e-6`, `0.05`, `200`, `20`, `EX
 
 ### Files touched (summary)
 
-| File                                                                             | Change                                                  |
-|----------------------------------------------------------------------------------|---------------------------------------------------------|
-| `dal-public/src/curvespec.hpp`                                                   | Add `CurveSolverOptions_`; add sync comment in builder. |
-| `dal-public/src/curvespec.cpp`                                                   | Brace-init `Build()`.                                   |
-| `dal-public/src/xccycalibration.hpp`                                             | Add sync comment; optional include.                     |
-| `dal-public/src/xccycalibration.cpp`                                             | Brace-init `Build()`.                                   |
-| `dal-public/tests/test_curvespec.cpp`                                            | Add round-trip test + defaults test.                    |
-| `dal-public/tests/test_xccy_calibration.cpp`                                     | Add round-trip test.                                    |
-| `dal-python/`, `dal-excel/`, `dal-cpp/`                                          | Unchanged.                                              |
+| File                                         | Change                                                  |
+|----------------------------------------------|---------------------------------------------------------|
+| `dal-public/src/curvespec.hpp`               | Add `CurveSolverOptions_`; add sync comment in builder. |
+| `dal-public/src/curvespec.cpp`               | Brace-init `Build()`.                                   |
+| `dal-public/src/xccycalibration.hpp`         | Add sync comment; optional include.                     |
+| `dal-public/src/xccycalibration.cpp`         | Brace-init `Build()`.                                   |
+| `dal-public/tests/test_curvespec.cpp`        | Add round-trip test + defaults test.                    |
+| `dal-public/tests/test_xccy_calibration.cpp` | Add round-trip test.                                    |
+| `dal-python/`, `dal-excel/`, `dal-cpp/`      | Unchanged.                                              |
 
 ## Risk Assessment
 

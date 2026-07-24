@@ -156,13 +156,13 @@ Docs always describe the **current/latest** version of the library only.
 
 The changelog records **fundamental changes only** — not every commit. Apply this bar:
 
-| Qualifies (add to CHANGELOG)                                    | Does NOT qualify (skip)                          |
-|----------------------------------------------------------------|--------------------------------------------------|
-| Breaking public-API change (signature, removal, behaviour)     | Refactor with no API impact                      |
-| New methodology / numerical algorithm                          | Test additions or fixes                          |
-| Significant new capability (new model, new curve type)         | Formatting / style / docs polish                 |
-| Significant methodology shift                                  | Build / CI config changes                        |
-| Removal or deprecation of a public surface                     | Performance tuning with identical outputs        |
+| Qualifies (add to CHANGELOG)                               | Does NOT qualify (skip)                   |
+|------------------------------------------------------------|-------------------------------------------|
+| Breaking public-API change (signature, removal, behaviour) | Refactor with no API impact               |
+| New methodology / numerical algorithm                      | Test additions or fixes                   |
+| Significant new capability (new model, new curve type)     | Formatting / style / docs polish          |
+| Significant methodology shift                              | Build / CI config changes                 |
+| Removal or deprecation of a public surface                 | Performance tuning with identical outputs |
 
 When in doubt, ask the user. A cluttered changelog is worse than a sparse one.
 

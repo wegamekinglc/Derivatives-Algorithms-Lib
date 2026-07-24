@@ -12,20 +12,16 @@
 $ ./build_windows.bat > 'test_output.txt' 2>&1
 ```
 
-- Review the output captured in the root-level `test_output.txt`. A representative passing tail looks like:
+- Review the output captured in the root-level `test_output.txt`. The build
+  scripts run CTest, so a representative passing tail looks like:
 
 ```bash
-...
-[----------] 2 tests from ModelTest
-[ RUN      ] ModelTest.TestBlackScholesModelData
-[       OK ] ModelTest.TestBlackScholesModelData (0 ms)
-[ RUN      ] ModelTest.TestDupireModelData
-[       OK ] ModelTest.TestDupireModelData (0 ms)
-[----------] 2 tests from ModelTest (0 ms total)
+100% tests passed, 0 tests failed out of <N>
 
-[----------] Global test environment tear-down
-[==========] 409 tests from 46 test suites ran. (9497 ms total)
-[  PASSED  ] 409 tests.
+Label Time Summary:
+...
+
+Total Test time (real) = <seconds> sec
 ```
 
 ### Linux
@@ -36,30 +32,28 @@ $ ./build_windows.bat > 'test_output.txt' 2>&1
 $ bash ./build_linux.sh > test_output.txt 2>&1
 ```
 
-- Review the output captured in the root-level `test_output.txt`. A representative passing tail looks like:
+- Review the output captured in the root-level `test_output.txt`. The build
+  script excludes the `benchmark` CTest label from its normal test pass, so a
+  representative passing tail looks like:
 
 ```bash
-...
-[----------] 2 tests from ModelTest
-[ RUN      ] ModelTest.TestBlackScholesModelData
-[       OK ] ModelTest.TestBlackScholesModelData (0 ms)
-[ RUN      ] ModelTest.TestDupireModelData
-[       OK ] ModelTest.TestDupireModelData (0 ms)
-[----------] 2 tests from ModelTest (0 ms total)
+100% tests passed, 0 tests failed out of <N>
 
-[----------] Global test environment tear-down
-[==========] 409 tests from 46 test suites ran. (9497 ms total)
-[  PASSED  ] 409 tests.
+Label Time Summary:
+...
+
+Total Test time (real) = <seconds> sec
 ```
 
 ## Requirements
 
-- Make sure the full test suite passes. A passing summary looks like this:
+- Make sure the full test suite passes. The authoritative acceptance line is:
 
 ```bash
-[----------] Global test environment tear-down
-[==========] xxx tests from yy test suites ran. (xxxx ms total)
-[  PASSED  ] xxx tests.
+100% tests passed, 0 tests failed out of <N>
 ```
 
-Here `xxx` is the total number of tests and `yy` is the total number of test suites. If any tests fail, the output will identify the failing cases and report the passed/failed counts.
+Here `<N>` is the number of Google Test cases discovered by CTest for the active
+configuration. Do not pin a historical test count: the discovered count changes
+as tests and platform-specific targets change. If any test fails, CTest names
+the failing case and `--output-on-failure` prints its Google Test diagnostics.

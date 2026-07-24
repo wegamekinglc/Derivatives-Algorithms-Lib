@@ -192,10 +192,10 @@ constructor takes the bounds and node count and fills `x_` and `w_` with
 
 ## When to Use Which
 
-| Rule                     | Use for                                           | Notes                                                              |
-|--------------------------|---------------------------------------------------|--------------------------------------------------------------------|
-| `NormalExpectation_<T_>` | $\mathbb{E}[f(Z)]$ over a standard normal         | Spectral accuracy for smooth $f$; $n$ nodes exact to degree $2n-1$ |
-| `QuadSimpson_<T_>`       | $\int_{lo}^{hi} f(x)\,dx$ over a finite interval | Fourth-order globally; requested point count is forced odd       |
+| Rule                     | Use for                                          | Notes                                                              |
+|--------------------------|--------------------------------------------------|--------------------------------------------------------------------|
+| `NormalExpectation_<T_>` | $\mathbb{E}[f(Z)]$ over a standard normal        | Spectral accuracy for smooth $f$; $n$ nodes exact to degree $2n-1$ |
+| `QuadSimpson_<T_>`       | $\int_{lo}^{hi} f(x)\,dx$ over a finite interval | Fourth-order globally; requested point count is forced odd         |
 
 For expectations under a normal, Gauss-Hermite is strongly preferred over
 Simpson on a truncated interval: it places nodes where the density has mass,

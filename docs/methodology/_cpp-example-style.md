@@ -34,20 +34,20 @@ snippet is wrong.
 - Draw includes from the real headers. Do not invent headers. The per-topic include sets observed
   in `dal-cpp/examples/` are:
 
-| Topic | Minimal include set |
-|---|---|
-| AAD | `<dal/platform/platform.hpp>`, `<dal/math/aad/aad.hpp>`, `<dal/math/operators.hpp>`, `<dal/math/vectors.hpp>` |
-| Random / Sobol | `<dal/math/random/sobol.hpp>`, `<dal/math/random/quasirandom.hpp>`, `<dal/math/vectors.hpp>` |
-| Interpolation | `<dal/math/interp/interp.hpp>`, `<dal/math/interp/interplinear.hpp>` |
+| Topic                            | Minimal include set                                                                                                                                    |
+|----------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------|
+| AAD                              | `<dal/platform/platform.hpp>`, `<dal/math/aad/aad.hpp>`, `<dal/math/operators.hpp>`, `<dal/math/vectors.hpp>`                                          |
+| Random / Sobol                   | `<dal/math/random/sobol.hpp>`, `<dal/math/random/quasirandom.hpp>`, `<dal/math/vectors.hpp>`                                                           |
+| Interpolation                    | `<dal/math/interp/interp.hpp>`, `<dal/math/interp/interplinear.hpp>`                                                                                   |
 | Yield curve / log-discount curve | `<dal/curve/calibration.hpp>`, `<dal/curve/curveblock.hpp>`, `<dal/curve/ycinstrument.hpp>`, `<dal/curve/yclogdf.hpp>`, `<dal/math/interp/interp.hpp>` |
-| Yield-curve Jacobian | `<dal/curve/calibration.hpp>`, `<dal/curve/curveblock.hpp>`, `<dal/math/matrix/matrixs.hpp>`, `<dal/math/matrix/matrixarithmetic.hpp>` |
-| Cross-currency calibration | `<dal/curve/calibration.hpp>`, `<dal/curve/curveblock.hpp>`, plus the xccy public wrapper when relevant |
-| Script engine | `<dal/platform/platform.hpp>`, `<dal/script/event.hpp>`, `<dal/script/simulation.hpp>`, `<dal/storage/globals.hpp>` |
-| Black / Dupire / MC / FD | `<dal/model/blackscholes.hpp>`, `<dal/math/distribution/black.hpp>`, `<dal/storage/globals.hpp>` |
-| Dates | `<dal/time/date.hpp>`, `<dal/time/dateincrement.hpp>`, `<dal/time/daybasis.hpp>`, `<dal/time/holidays.hpp>`, `<dal/time/periodlength.hpp>` |
-| Index parsing | the indice headers under `<dal/indice/...>` |
-| Quadrature | the quadrature headers under `<dal/math/...>` |
-| Globals / init | `<dal/platform/initall.hpp>` (`RegisterAll_::Init`), `<dal/storage/globals.hpp>` (`Global::Dates_::SetEvaluationDate`) |
+| Yield-curve Jacobian             | `<dal/curve/calibration.hpp>`, `<dal/curve/curveblock.hpp>`, `<dal/math/matrix/matrixs.hpp>`, `<dal/math/matrix/matrixarithmetic.hpp>`                 |
+| Cross-currency calibration       | `<dal/curve/calibration.hpp>`, `<dal/curve/curveblock.hpp>`, plus the xccy public wrapper when relevant                                                |
+| Script engine                    | `<dal/platform/platform.hpp>`, `<dal/script/event.hpp>`, `<dal/script/simulation.hpp>`, `<dal/storage/globals.hpp>`                                    |
+| Black / Dupire / MC / FD         | `<dal/model/blackscholes.hpp>`, `<dal/math/distribution/black.hpp>`, `<dal/storage/globals.hpp>`                                                       |
+| Dates                            | `<dal/time/date.hpp>`, `<dal/time/dateincrement.hpp>`, `<dal/time/daybasis.hpp>`, `<dal/time/holidays.hpp>`, `<dal/time/periodlength.hpp>`             |
+| Index parsing                    | the indice headers under `<dal/indice/...>`                                                                                                            |
+| Quadrature                       | the quadrature headers under `<dal/math/...>`                                                                                                          |
+| Globals / init                   | `<dal/platform/initall.hpp>` (`RegisterAll_::Init`), `<dal/storage/globals.hpp>` (`Global::Dates_::SetEvaluationDate`)                                 |
 
 - Platform header: most `.cpp` files include `<dal/platform/platform.hpp>` first among `<dal/>`
   headers. Show it once at the top of a multi-line snippet; omit it from one-liners.
@@ -62,13 +62,13 @@ snippet is wrong.
 
 Follow `.claude/rules/code-style.md` exactly. The rows that matter most for snippets:
 
-| Element | Convention | Example |
-|---|---|---|
-| Classes/Structs | PascalCase + trailing `_` | `Date_`, `Vector_<>`, `DiscountCurve_`, `CurveCalibrationSpec_` |
-| Functions/Methods | PascalCase | `CalibrateYieldCurve()`, `NewSobol()`, `Date::AddMonths()` |
-| Local variables | camelCase | `numPaths`, `knotDates`, `today` |
-| Template params | single letter + `_` | `T_`, `E_` |
-| Constants/Macros | UPPER_SNAKE_CASE | `M_SQRT_2`, `THROW_REQUIRE` |
+| Element           | Convention                | Example                                                         |
+|-------------------|---------------------------|-----------------------------------------------------------------|
+| Classes/Structs   | PascalCase + trailing `_` | `Date_`, `Vector_<>`, `DiscountCurve_`, `CurveCalibrationSpec_` |
+| Functions/Methods | PascalCase                | `CalibrateYieldCurve()`, `NewSobol()`, `Date::AddMonths()`      |
+| Local variables   | camelCase                 | `numPaths`, `knotDates`, `today`                                |
+| Template params   | single letter + `_`       | `T_`, `E_`                                                      |
+| Constants/Macros  | UPPER_SNAKE_CASE          | `M_SQRT_2`, `THROW_REQUIRE`                                     |
 
 Enum access uses the generated-class form, never a bare `enum class` literal:
 
@@ -174,24 +174,24 @@ std::cout << "PV = " << pv << "\n";
 
 Use exactly these paths. Every directory was verified against `dal-cpp/examples/` on this branch.
 
-| Methodology doc | Example program(s) |
-|---|---|
-| `aad.md` | `dal-cpp/examples/aad/` |
-| `black_scholes.md` | `dal-cpp/examples/vanilla/`, `dal-cpp/examples/european_mc/`, `dal-cpp/examples/european_fd/`, `dal-cpp/examples/digital/`, `dal-cpp/examples/uoc/`, `dal-cpp/examples/snowball/` |
-| `dupire.md` | `dal-cpp/examples/vanilla/`, `dal-cpp/examples/european_mc/`, `dal-cpp/examples/european_fd/`, `dal-cpp/examples/uoc/` |
-| `yield_curve.md` | `dal-cpp/examples/curve_calibration/`, `dal-cpp/examples/euribor3m_curve/`, `dal-cpp/examples/interpolate_curve/`, `dal-cpp/examples/joint_multi_curve_calibration/` |
-| `log_discount_curve.md` | `dal-cpp/examples/curve_calibration/`, `dal-cpp/examples/interpolate_curve/` |
-| `interpolation.md` | `dal-cpp/examples/interpolate_curve/` |
-| `yield_curve_jacobian.md` | `dal-cpp/examples/yield_curve_jacobian/` |
-| `random.md` | `dal-cpp/examples/sobol/` |
-| `script_engine.md` | `dal-cpp/examples/script/` |
-| `underdetermined_search.md` | `dal-cpp/examples/underdetermined/` |
-| `xccy_calibration.md` | `dal-cpp/examples/xccy_curve_calibration/`, `dal-cpp/examples/xccy_mtm_calibration/`, `dal-cpp/examples/xccy_reset_pricing/` |
-| `pde.md` | no new program needed; verify the existing C++ blocks stay consistent with this guide |
-| `matrix.md` | `dal-cpp/examples/concurrency/` where relevant, else an inline snippet from `dal-cpp/dal/math/matrix/` headers |
-| `dates.md` | inline snippet from `dal-cpp/dal/time/` headers; no dedicated example program exists |
-| `index_parsing.md` | inline snippet from `dal-cpp/dal/indice/` headers; no dedicated example program exists |
-| `quadrature.md` | inline snippet from the real quadrature headers under `dal-cpp/dal/math/`; no dedicated example program exists |
+| Methodology doc             | Example program(s)                                                                                                                                                                |
+|-----------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `aad.md`                    | `dal-cpp/examples/aad/`                                                                                                                                                           |
+| `black_scholes.md`          | `dal-cpp/examples/vanilla/`, `dal-cpp/examples/european_mc/`, `dal-cpp/examples/european_fd/`, `dal-cpp/examples/digital/`, `dal-cpp/examples/uoc/`, `dal-cpp/examples/snowball/` |
+| `dupire.md`                 | `dal-cpp/examples/vanilla/`, `dal-cpp/examples/european_mc/`, `dal-cpp/examples/european_fd/`, `dal-cpp/examples/uoc/`                                                            |
+| `yield_curve.md`            | `dal-cpp/examples/curve_calibration/`, `dal-cpp/examples/euribor3m_curve/`, `dal-cpp/examples/interpolate_curve/`, `dal-cpp/examples/joint_multi_curve_calibration/`              |
+| `log_discount_curve.md`     | `dal-cpp/examples/curve_calibration/`, `dal-cpp/examples/interpolate_curve/`                                                                                                      |
+| `interpolation.md`          | `dal-cpp/examples/interpolate_curve/`                                                                                                                                             |
+| `yield_curve_jacobian.md`   | `dal-cpp/examples/yield_curve_jacobian/`                                                                                                                                          |
+| `random.md`                 | `dal-cpp/examples/sobol/`                                                                                                                                                         |
+| `script_engine.md`          | `dal-cpp/examples/script/`                                                                                                                                                        |
+| `underdetermined_search.md` | `dal-cpp/examples/underdetermined/`                                                                                                                                               |
+| `xccy_calibration.md`       | `dal-cpp/examples/xccy_curve_calibration/`, `dal-cpp/examples/xccy_mtm_calibration/`, `dal-cpp/examples/xccy_reset_pricing/`                                                      |
+| `pde.md`                    | no new program needed; verify the existing C++ blocks stay consistent with this guide                                                                                             |
+| `matrix.md`                 | `dal-cpp/examples/concurrency/` where relevant, else an inline snippet from `dal-cpp/dal/math/matrix/` headers                                                                    |
+| `dates.md`                  | inline snippet from `dal-cpp/dal/time/` headers; no dedicated example program exists                                                                                              |
+| `index_parsing.md`          | inline snippet from `dal-cpp/dal/indice/` headers; no dedicated example program exists                                                                                            |
+| `quadrature.md`             | inline snippet from the real quadrature headers under `dal-cpp/dal/math/`; no dedicated example program exists                                                                    |
 
 Corrections to the mapping that was circulated during planning (later agents: use the table above,
 not the earlier draft):

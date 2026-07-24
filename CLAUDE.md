@@ -137,7 +137,13 @@ The dependency graph is `dal-cpp ← dal-public ← {dal-python, dal-excel}`. Ea
 
 The backend persists all entities through a SQLAlchemy 2.x store (`app/services/db/`) behind the `Store` seam. Default backend is a local SQLite file under `dal-web/backend/.data/` (gitignored); set `DAL_WEB_DB_URL` to point at any SQLAlchemy URL, `DAL_WEB_STORE=memory` to use the legacy in-memory store, and `DAL_WEB_AUTO_MIGRATE=1` to apply Alembic migrations on startup instead of `create_all()`.
 
-Start the web UI with `./dal-web/scripts/start.sh` on Linux/macOS or `dal-web/scripts/start.ps1` on Windows (requires Python 3.13+, uv, Node.js 20+, npm). Frontend at http://localhost:5173, backend API docs at http://127.0.0.1:8001/docs. For frontend e2e, run `./dal-web/scripts/setup-playwright.sh` once, then `cd dal-web/frontend && npm run test:e2e`.
+Start the web UI with `./dal-web/scripts/start.sh` on Linux/macOS or
+`dal-web/scripts/start.ps1` on Windows (requires Python 3.13+, uv, npm, and
+Node.js `^20.19.0` or `>=22.12.0`, matching the committed Vite toolchain).
+Frontend at http://localhost:5173, backend API docs at
+http://127.0.0.1:8001/docs. For frontend e2e, run
+`./dal-web/scripts/setup-playwright.sh` once, then
+`cd dal-web/frontend && npm run test:e2e`.
 
 **Code generation** — `dal-cpp/config/dal.ifc` is processed by the Machinist tool. Regeneration is opt-in: `build_linux.sh --generate` (or `cmake --build build/Release-linux --target dal_generate` on a configured tree) runs Machinist twice:
 - once with `-d ./dal-cpp/dal` to produce core enum and serialization files under `dal-cpp/dal/auto/`

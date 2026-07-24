@@ -397,14 +397,14 @@ without changing the declaration's public future-knot vector.
 
 **Tape-layer primitives.** The scalar-templated curve and routing types are:
 
-| Type                              | Role                                                     | Header                              |
-|-----------------------------------|----------------------------------------------------------|-------------------------------------|
-| `Tape::DiscountPWC_<T_, B_>`      | Typed PWC-forward integration with optional typed base   | `dal-cpp/dal/curve/ycconst.hpp`     |
-| `Tape::DiscountPWLF_<T_, B_>`     | Typed PWL-forward integration with optional typed base   | `dal-cpp/dal/curve/ycpwlf.hpp`      |
-| `Tape::DiscountLogDF_<T_, B_>`    | Typed log-DF interpolation for all `LogDfScheme_` values | `dal-cpp/dal/curve/yclogdf.hpp`     |
-| `Tape::DiscountZeroRate_<T_, B_>` | Typed zero-rate mapping and log-DF interpolation         | `dal-cpp/dal/curve/yczerorate.hpp`  |
-| `Tape::JointCurveBlock_<T_>`      | Multi-curve discount/forward routing in the `T_` domain  | `dal-cpp/dal/curve/jointycctx.hpp`  |
-| `Tape::JointRate_<T_>`            | Projection-capable rate base over a joint block          | `dal-cpp/dal/curve/jointrate.hpp`   |
+| Type                              | Role                                                     | Header                             |
+|-----------------------------------|----------------------------------------------------------|------------------------------------|
+| `Tape::DiscountPWC_<T_, B_>`      | Typed PWC-forward integration with optional typed base   | `dal-cpp/dal/curve/ycconst.hpp`    |
+| `Tape::DiscountPWLF_<T_, B_>`     | Typed PWL-forward integration with optional typed base   | `dal-cpp/dal/curve/ycpwlf.hpp`     |
+| `Tape::DiscountLogDF_<T_, B_>`    | Typed log-DF interpolation for all `LogDfScheme_` values | `dal-cpp/dal/curve/yclogdf.hpp`    |
+| `Tape::DiscountZeroRate_<T_, B_>` | Typed zero-rate mapping and log-DF interpolation         | `dal-cpp/dal/curve/yczerorate.hpp` |
+| `Tape::JointCurveBlock_<T_>`      | Multi-curve discount/forward routing in the `T_` domain  | `dal-cpp/dal/curve/jointycctx.hpp` |
+| `Tape::JointRate_<T_>`            | Projection-capable rate base over a joint block          | `dal-cpp/dal/curve/jointrate.hpp`  |
 
 `BuildDiscountCurveT` dispatches once from each declaration's `CurveDefinition_` to
 the required typed curve. The AAD path uses a two-pass build: discount declarations first,

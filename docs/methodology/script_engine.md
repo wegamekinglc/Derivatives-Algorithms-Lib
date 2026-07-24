@@ -44,12 +44,12 @@ front-end that resolves schedules and the back-end that builds the AST.
 The parser implements expressions as a cascade of precedence levels, each
 delegating to the next tighter level:
 
-| Level | Operator class          | Produces                                                                                                   |
-|-------|-------------------------|------------------------------------------------------------------------------------------------------------|
-| L1    | `+`, `-` (binary)       | `NodeAdd_`, `NodeSub_`                                                                                     |
-| L2    | `*`, `/`                | `NodeMulti_`, `NodeDiv_`                                                                                   |
-| L3    | `^` (right-assoc)       | `NodePow_`                                                                                                 |
-| L4    | unary `+`, `-`          | `NodeUPlus_`, `NodeUMinus_`                                                                                |
+| Level | Operator class          | Produces                                                                                                           |
+|-------|-------------------------|--------------------------------------------------------------------------------------------------------------------|
+| L1    | `+`, `-` (binary)       | `NodeAdd_`, `NodeSub_`                                                                                             |
+| L2    | `*`, `/`                | `NodeMulti_`, `NodeDiv_`                                                                                           |
+| L3    | `^` (right-assoc)       | `NodePow_`                                                                                                         |
+| L4    | unary `+`, `-`          | `NodeUPlus_`, `NodeUMinus_`                                                                                        |
 | Atom  | literal, variable, func | `NodeConst_`, `NodeVar_`/`NodeConstVar_`, `NodeSpot_`, `NodeLog_`, `NodeExp_`, `NodeSqrt_`, `NodeMin_`, `NodeMax_` |
 
 Parenthesised sub-expressions re-enter at the top level through a shared
@@ -143,12 +143,12 @@ every meaningful decision delegates to a protected virtual method, so a derived
 preprocessor can recognise new directive kinds or new placeholders without
 re-implementing the orchestration.
 
-| Virtual method                    | Role                                                              |
-|-----------------------------------|-------------------------------------------------------------------|
-| `IsSchedule(desc)`                | True when a non-date directive description denotes a schedule     |
-| `IsConstVariable(value)`          | True when a non-date directive value defines a constant variable  |
-| `ExpandMacros(stmt, macros)`      | Replace every registered macro name in a statement with its body  |
-| `ExpandSchedulePlaceholders(...)` | Replace `PeriodBegin` / `PeriodEnd` placeholders for one period   |
+| Virtual method                    | Role                                                             |
+|-----------------------------------|------------------------------------------------------------------|
+| `IsSchedule(desc)`                | True when a non-date directive description denotes a schedule    |
+| `IsConstVariable(value)`          | True when a non-date directive value defines a constant variable |
+| `ExpandMacros(stmt, macros)`      | Replace every registered macro name in a statement with its body |
+| `ExpandSchedulePlaceholders(...)` | Replace `PeriodBegin` / `PeriodEnd` placeholders for one period  |
 
 The default implementation recognises simple textual macros and period-based
 schedule expansion; a derived preprocessor can override any of these to support
