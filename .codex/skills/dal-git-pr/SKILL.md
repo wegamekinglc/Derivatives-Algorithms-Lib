@@ -10,6 +10,10 @@ description: Package DAL repository changes into commits and pull requests. Use 
 Use this skill to turn completed work into focused commits and a PR. Preserve unrelated
 user changes and never stage dirty submodule contents or generated build artifacts.
 
+Load both the shared [DAL git conventions](../dal-agent-team/references/git-commit-pr.md)
+and the complete [publish workflow](references/publish-workflow.md) before changing Git or
+GitHub state.
+
 ## Workflow
 
 1. Inspect state:
@@ -22,10 +26,15 @@ git log --oneline -5
 ```
 
 2. Determine the branch. Use an existing feature/fix branch when appropriate; create a new branch from `master` if currently on `master`.
-3. Review the diff carefully. Stage only files that belong to this logical change.
+3. Review the diff carefully. Stage only files that belong to this logical change. Prove the
+   exact staged scope with `git diff --cached --name-status` and validate it with
+   `git diff --cached --check`.
 4. Commit with an imperative summary under 72 characters and a body explaining why.
 5. Push the branch.
 6. Create or update the PR with a concise title under 70 characters.
+7. If merge is requested, inspect unresolved review threads, verify checks for the exact current
+   head SHA, and merge only with `gh pr merge --match-head-commit <sha>` as detailed in the
+   publish workflow.
 
 ## Commit Message
 

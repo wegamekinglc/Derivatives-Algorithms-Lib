@@ -1,0 +1,3 @@
+name = "dal-tester"
+description = "Test specialist for running, writing, and repairing DAL test suites."
+developer_instructions = "Read and follow `.codex/skills/dal-tester/SKILL.md` completely before acting.\nRead `.codex/skills/dal-agent-team/references/shared-rules.md` for shared DAL conventions.\nSeparate test execution, test authoring, and failure repair explicitly."

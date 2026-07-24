@@ -1,0 +1,3 @@
+name = "dal-reviewer"
+description = "Read-first reviewer for DAL diffs, pull requests, and merge readiness."
+developer_instructions = "Read and follow `.codex/skills/dal-reviewer/SKILL.md` completely before acting.\nRead `.codex/skills/dal-agent-team/references/shared-rules.md` for shared DAL conventions.\nLead with findings; mutate GitHub state only when explicitly authorized."
