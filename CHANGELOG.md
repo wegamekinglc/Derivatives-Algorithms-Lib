@@ -46,6 +46,17 @@ here as the baseline rather than dated releases:
 
 ## 2026-07
 
+- `curve`: Added staged XCCY sensitivity diagnostics across public C++, Python,
+  and Excel. The additive options overload selects analytic or bumped
+  Jacobians and independently controls the forward and effective-inverse
+  matrices while preserving the one-argument defaults. Diagnostics retain the
+  instrument and basis-knot axes plus explicit availability, tolerance, and
+  scaling metadata; the effective inverse is `solver_scaled`, so raw decimal
+  quote bumps map as `dx = E * dq / tolerance`. Public C++ and Excel also expose
+  the retained joint XCCY effective inverse. See
+  `docs/methodology/xccy_calibration.md`,
+  `docs/methodology/yield_curve_jacobian.md`, and `docs/public-api.md`.
+
 - `curve`: Made calibration settings dictionaries strict on the Python and Excel
   surfaces. `dal.calibrate_curve` raises `ValueError` on an unknown settings key,
   and the Excel single-curve, staged-XCCY, and joint-XCCY settings parsers throw

@@ -314,7 +314,7 @@ Tests are located in `tests/` and cover:
 - AAD Greek computation and validation
 - Random number generator properties
 - Curve construction plus single and staged multi-curve calibration
-- Staged XCCY basis calibration and fit diagnostics
+- Staged XCCY basis calibration, sensitivity matrices, axes, and availability metadata
 - Resettable/MTM XCCY construction with immutable fixing snapshots
 - Joint domestic/foreign/basis XCCY calibration, including matrix and named-range contracts
 
@@ -427,10 +427,28 @@ result = dal.calibrate_curve(
 Python exposes single, staged multi-curve, staged XCCY basis, and simultaneous
 joint XCCY calibration. A base curve is multiplied into the calibrated component;
 it is not a replacement for the pricing discount curve required by a forward-curve stage.
-The staged `CalibrateXccyMarket(spec)` binding is the one-argument default solve:
-it returns the calibrated market, FX forwards, and scalar/vector fit diagnostics
-only. Staged matrix options and matrix fields remain available only through the
-C++ surface.
+Staged XCCY supports both the backward-compatible
+`CalibrateXccyMarket(spec)` call and `CalibrateXccyMarket(spec, options)`.
+`CrossCurrencyCalibrationOptions_` defaults to `ANALYTIC` with
+`compute_forward_jacobian = True` and
+`compute_eff_jacobian_inverse = True`; trailing-underscore property names are
+available alongside the snake-case names.
+
+The matrices remain on `result.diagnostics`. `diagnostics.jacobian` has
+instrument rows and basis-parameter columns;
+`diagnostics.eff_jacobian_inverse` has the reversed axes.
+`instrument_names` follows input order and may contain duplicate labels.
+`parameter_knot_dates` follows the spec's knot order and labels the
+piecewise-constant basis curve's right-forward parameters. The diagnostics also
+publish `residual_tolerance`, `jacobian_scaling == "unscaled"`,
+`eff_jacobian_inverse_scaling == "solver_scaled"`, and independent
+`jacobian_availability` / `eff_jacobian_inverse_availability` values:
+`available`, `not_requested`, or `not_available_for_mode`.
+
+For a raw decimal quote-bump vector `dq`, the solver-scaled effective inverse
+`E` maps parameters as `dx = E * dq / residual_tolerance`. An unavailable
+matrix is empty; inspect its availability property to distinguish an explicit
+opt-out from a mode limitation.
 
 ### Resettable and Joint XCCY Calibration
 

@@ -129,6 +129,12 @@ basis knots, fit diagnostics, and optional matrices.
 For `nInstruments` quotes and `nBasisParameters` basis parameters, the staged
 forward Jacobian has shape `nInstruments x nBasisParameters`; the effective
 inverse has shape `nBasisParameters x nInstruments`.
+Both matrices belong to `CrossCurrencyCalibrationDiagnostics_` on the staged
+result. `instrumentNames_` labels forward-Jacobian rows and effective-inverse
+columns in instrument input order. Names are labels only and may repeat; the
+integer position is authoritative. `parameterKnotDates_` labels
+forward-Jacobian columns and effective-inverse rows in `spec.knotDates_` order,
+which is the piecewise-constant basis curve's right-forward parameter order.
 
 ## Joint Domestic, Foreign, and Basis Calibration
 
@@ -163,20 +169,39 @@ foreign, or XCCY group diagnostics.
 
 ## Analytic and Bumped Jacobians
 
-Both staged and joint calibration accept `ANALYTIC` and `BUMPED`. At the
-accepted exact solution, the exposed forward matrix is the unscaled analytic
-residual Jacobian. The effective inverse is the weighted pseudoinverse formed
-from the solver's tolerance-scaled Jacobian at that same solved state; it is not
-the literal inverse of the exposed forward matrix. For a raw decimal quote
-perturbation $\Delta q$, the parameter move is
+Both staged and joint calibration accept `ANALYTIC` and `BUMPED`. A
+default-constructed staged `CrossCurrencyCalibrationOptions_` selects
+`ANALYTIC` and requests both matrices. The one-argument staged overload is
+equivalent to passing those defaults. At the accepted exact solution, the
+exposed forward matrix is the unscaled analytic residual Jacobian. Staged
+diagnostics record this as `jacobianScaling_ = "unscaled"`.
+
+The effective inverse is the weighted pseudoinverse formed from the solver's
+tolerance-scaled Jacobian at that same solved state; it is not the literal
+inverse of the exposed forward matrix. Staged diagnostics record
+`effJacobianInverseScaling_ = "solver_scaled"` and
+`residualTolerance_ = spec.tolerance_`. For a raw decimal quote perturbation
+$\Delta q$, write $E$ for the effective inverse. The parameter move is
 
 $$
-\Delta x = \mathrm{effJacobianInverse}\,\Delta q / \mathrm{tolerance}.
+\Delta x = E\,\Delta q / \mathrm{residualTolerance}.
 $$
 
 Exact analytic calibration may produce both matrices. Exact bumped calibration
 produces only the effective inverse. Approximate calibration produces neither,
 and the forward/inverse options can suppress their computations independently.
+The staged availability fields describe that outcome without requiring callers
+to infer intent from an empty matrix:
+
+| Solve mode    | Jacobian mode | Requested forward Jacobian | Requested effective inverse |
+|---------------|---------------|----------------------------|-----------------------------|
+| `EXACT`       | `ANALYTIC`    | `available`                | `available`                 |
+| `EXACT`       | `BUMPED`      | `not_available_for_mode`   | `available`                 |
+| `APPROXIMATE` | `ANALYTIC`    | `not_available_for_mode`   | `not_available_for_mode`    |
+| `APPROXIMATE` | `BUMPED`      | `not_available_for_mode`   | `not_available_for_mode`    |
+
+For either matrix, a false compute flag takes precedence and reports
+`not_requested`. Unavailable matrices use an empty numeric carrier.
 
 Joint XCCY analytic calibration is fail-fast. Every domestic and foreign
 declaration must satisfy the joint curve AAD gates, including `ACT_365F`, a
@@ -189,14 +214,17 @@ valid residual system without the analytic eligibility requirement.
 
 ## Surface Availability
 
-- **Core/public C++:** staged XCCY has full options, a forward Jacobian, and an
-  effective inverse; joint XCCY has full options and both top-level matrices.
-- **Python:** staged XCCY has the default solve, market/FX-forward output, and
-  fit diagnostics, but no staged matrix bindings; joint XCCY has options, named
-  ranges, a forward Jacobian, and an effective inverse.
-- **Excel:** staged XCCY has a basis handle and fit diagnostics, but no staged
-  matrix views; joint XCCY has options plus forward-Jacobian/range views, but no
-  effective-inverse worksheet getter.
+- **Core/public C++:** staged XCCY has full options and both matrices on
+  `CrossCurrencyCalibrationDiagnostics_`; joint XCCY has full options and both
+  top-level matrices. The public facade has read-only helpers for each.
+- **Python:** staged XCCY has both overloads, options, matrices, axes, scaling,
+  and availability metadata under `result.diagnostics`, with
+  trailing-underscore and snake-case aliases. Joint XCCY has options, named
+  ranges, a forward Jacobian, and an effective inverse at the result top level.
+- **Excel:** staged settings select the Jacobian mode and independent compute
+  flags; `XCCYCALIBRATIONRESULT.GET` exposes both matrices, both axes,
+  tolerance, scaling, and availability. Joint settings expose both matrices
+  through `JOINTXCCYCALIBRATIONRESULT.GET`.
 
 ## Examples
 

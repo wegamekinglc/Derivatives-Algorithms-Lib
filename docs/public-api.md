@@ -159,26 +159,39 @@ For staged calibration, assemble `MultiCurveCalibrationSpec_` and call
 in-progress swaps.
 
 The public XCCY header includes the core staged and joint result types. Staged
-C++ callers that need `CrossCurrencyCalibrationOptions_` use the core
-`CalibrateCrossCurrencyMarket(spec, options)` entry point; there is no
-`CalibrateXccyMarket(spec, options)` public-facade overload. The returned
-`CrossCurrencyCalibrationDiagnostics_` owns the optional forward Jacobian and
-effective inverse. Joint results similarly own both matrices at the top level.
-The `JointXccyResult*` facade helpers expose the three solved curve handles, FX
-forwards, market/model/residual vectors, the forward Jacobian, and named
-parameter/residual ranges. There is no dedicated effective-inverse facade
-helper; C++ consumers read
-`JointXccyCalibrationResult_::effJacobianInverse_` directly.
+C++ callers can use either the backward-compatible
+`CalibrateXccyMarket(spec)` entry point or
+`CalibrateXccyMarket(spec, options)`. A default
+`CrossCurrencyCalibrationOptions_` selects `ANALYTIC` and requests both the
+forward Jacobian and effective inverse. Both matrices remain owned by
+`CrossCurrencyCalibrationResult_::diagnostics_`;
+`XccyResultDiagnostics`, `XccyResultJacobian`, and
+`XccyResultEffJacobianInverse` are read-only facade accessors.
+
+Joint results own their two matrices at the top level. The `JointXccyResult*`
+facade helpers expose the three solved curve handles, FX forwards,
+market/model/residual vectors, both the forward Jacobian and effective inverse,
+and named parameter/residual ranges.
 
 For staged XCCY, the forward/inverse shapes are
 `nInstruments x nBasisParameters` and
 `nBasisParameters x nInstruments`. For joint XCCY they are
 `totalResiduals x totalParameters` and
-`totalParameters x totalResiduals`. The effective inverse is based on the
-solver's tolerance-scaled Jacobian, so a raw decimal quote-risk transform also
-divides by the calibration `tolerance_`. See
+`totalParameters x totalResiduals`. Staged rows follow instrument input order;
+`instrumentNames_` contains row labels that may repeat. Staged columns follow
+`parameterKnotDates_` in `spec.knotDates_` order, which is the
+piecewise-constant basis curve's right-forward parameter order.
+
+Staged diagnostics publish `jacobianScaling_ = "unscaled"`,
+`effJacobianInverseScaling_ = "solver_scaled"`, and
+`residualTolerance_ = spec.tolerance_`. The availability fields distinguish
+`available`, `not_requested`, and `not_available_for_mode`; an unavailable
+matrix is empty, so callers should inspect the availability field rather than
+infer the reason from its numeric carrier. For the solver-scaled effective
+inverse $E$, a raw decimal quote bump maps as
+$\Delta x = E\,\Delta q/\mathrm{residualTolerance}$. See
 [cross-currency pricing and calibration](methodology/xccy_calibration.md) and
-the [Jacobian methodology](methodology/yield_curve_jacobian.md#joint-xccy-jacobian-layout).
+the [Jacobian methodology](methodology/yield_curve_jacobian.md#staged-xccy-jacobian-layout).
 
 Set `parameterization_ = CurveParameterization_::Value_::ZERO_RATE` to calibrate future
 zero-rate nodes. `initialGuess_` and `initialGuessPerNode_` are decimal continuously
@@ -284,10 +297,15 @@ curve = dal.DiscountZeroRate_New(
 The returned `DiscountZeroRate_` exposes read-only `anchor_date`, `node_dates`,
 `zero_rates`, `day_count`, and `log_df_scheme` properties.
 
-Python staged XCCY exposes only the one-argument default
-`CalibrateXccyMarket(spec)` solve. Its result provides the calibrated market,
-FX forwards, and scalar/vector fit diagnostics; staged matrix options and
-matrix fields remain C++-only.
+Python staged XCCY exposes both `CalibrateXccyMarket(spec)` and
+`CalibrateXccyMarket(spec, options)`. `CrossCurrencyCalibrationOptions_`
+provides trailing-underscore and snake-case properties for the Jacobian mode
+and the two independent compute flags; its defaults are `ANALYTIC`, `True`, and
+`True`. The result keeps matrices under `result.diagnostics`, not at the result
+top level. That diagnostics object exposes the forward `jacobian`, the
+`eff_jacobian_inverse`, instrument-name and parameter-knot axes, residual
+tolerance, scaling labels, and availability states, with matching
+trailing-underscore aliases.
 
 Python joint XCCY exposes the declarations, builder,
 `JointXccyCalibrationOptions_`, calibration entry point, and result surface
@@ -349,18 +367,24 @@ scheme, smoothing/tolerances, scalar initial guess, and evaluation budgets. Its 
 `baseCurve` input is the curve multiplied under the calibrated curve; it is distinct from
 the `discountCurve` used to price a forward-curve calibration.
 
+`CALIBRATE.XCCYMARKET` accepts `jacobianMode`,
+`computeForwardJacobian`, and `computeEffJacobianInverse` in its optional
+two-column settings range. Omitting them preserves the `ANALYTIC`, `TRUE`,
+`TRUE` defaults. `XCCYCALIBRATIONRESULT.GET` exposes `instrumentNames`,
+`parameterKnotDates`, `jacobian`, `effJacobianInverse`,
+`residualTolerance`, both scaling labels, and both availability states in
+addition to the fit vectors and scalars. The staged matrix axes and scaling
+contract match C++ and Python.
+
 `CALIBRATE.JOINTXCCY` accepts one domestic discount-instrument/knot group, one
 foreign discount-instrument/knot group, configured XCCY instruments, basis
 knots, an optional immutable snapshot handle, and two-column settings. Dedicated
 result functions return the domestic block, foreign block, and basis curve
 handles.
-Staged `XCCYCALIBRATIONRESULT.GET` exposes fit vectors and scalars but neither
-the staged forward Jacobian nor the staged effective inverse.
 `JOINTXCCYCALIBRATIONRESULT.GET` returns `fxForwards`, `marketRates`,
-`modelRates`, `residuals`, `jacobian`, `parameterRanges`, or `residualRanges`.
-Joint settings can request both matrix computations, but `jacobian` is the only
-matrix available through a worksheet selector; there is no
-`effJacobianInverse` worksheet getter.
+`modelRates`, `residuals`, `jacobian`, `effJacobianInverse`,
+`parameterRanges`, or `residualRanges`. Joint settings can request both matrix
+computations independently.
 Generated function help under `dal-excel/auto/*.htm` is the argument-level
 catalog used by Excel registration.
 
