@@ -59,9 +59,16 @@ namespace Dal {
     [[nodiscard]] const Vector_<>& JointXccyResultModelRates(const JointXccyCalibrationResult_& result);
     [[nodiscard]] const Vector_<>& JointXccyResultResiduals(const JointXccyCalibrationResult_& result);
     [[nodiscard]] const Matrix_<>& JointXccyResultJacobian(const JointXccyCalibrationResult_& result);
+    [[nodiscard]] const Matrix_<>& JointXccyResultEffJacobianInverse(const JointXccyCalibrationResult_& result);
     [[nodiscard]] const Vector_<CalibrationBlockRange_>& JointXccyResultParameterRanges(const JointXccyCalibrationResult_& result);
     [[nodiscard]] const Vector_<CalibrationBlockRange_>& JointXccyResultResidualRanges(const JointXccyCalibrationResult_& result);
 
-    CrossCurrencyCalibrationResult_ CalibrateXccyMarket(const CrossCurrencyCalibrationSpec_& spec);
+    [[nodiscard]] const CrossCurrencyCalibrationDiagnostics_& XccyResultDiagnostics(const CrossCurrencyCalibrationResult_& result);
+    [[nodiscard]] const Matrix_<>& XccyResultJacobian(const CrossCurrencyCalibrationResult_& result);
+    [[nodiscard]] const Matrix_<>& XccyResultEffJacobianInverse(const CrossCurrencyCalibrationResult_& result);
+
+    [[nodiscard]] CrossCurrencyCalibrationResult_ CalibrateXccyMarket(const CrossCurrencyCalibrationSpec_& spec);
+    [[nodiscard]] CrossCurrencyCalibrationResult_ CalibrateXccyMarket(const CrossCurrencyCalibrationSpec_& spec,
+                                                                      const CrossCurrencyCalibrationOptions_& options);
 
 } // namespace Dal

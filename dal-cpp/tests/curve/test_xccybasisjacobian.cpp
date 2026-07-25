@@ -5,6 +5,8 @@
 #include <gtest/gtest.h>
 
 #include <cmath>
+#include <limits>
+#include <string>
 #include <dal/platform/platform.hpp>
 #include <dal/curve/curveblock.hpp>
 #include <dal/curve/piecewiseconstant.hpp>
@@ -186,6 +188,60 @@ namespace {
         return result;
     }
 
+    Fixture_ MakeLadderFixture(int instrumentCount, int maturityOffsetMonths = 0) {
+        Fixture_ result;
+        const Date_ valuationDate(2025, 1, 16);
+        const DateTime_ valuationTime(valuationDate, 9, 0);
+        const Ccy_ collateral("USD");
+        const auto domestic = MakeBlock("usd_ladder", "USD", valuationDate, 0.02);
+        const auto foreign = MakeBlock("eur_ladder", "EUR", valuationDate, 0.01);
+        const auto config = MtmConfig();
+        const Handle_<MarketFixingSnapshot_> fixings(new MarketFixingSnapshot_());
+
+        result.trueParameters_.reserve(instrumentCount);
+        result.spec_.knotDates_.reserve(instrumentCount);
+        for (int i = 0; i < instrumentCount; ++i) {
+            result.spec_.knotDates_.push_back(Date::AddMonths(valuationDate, 24 * (i + 1)));
+            result.trueParameters_.push_back(0.0020);
+        }
+
+        CrossCurrencyMarket_ quoteMarket(domestic, foreign, 1.10, valuationTime, collateral, fixings);
+        quoteMarket.SetBasisCurve(Handle_<DiscountCurve_>(
+            NewDiscountPWC("known_ladder_basis", "USD", PiecewiseConstant_(result.spec_.knotDates_, result.trueParameters_))));
+
+        result.spec_.today_ = valuationDate;
+        result.spec_.valuationTime_ = valuationTime;
+        result.spec_.collateralCurrency_ = collateral;
+        result.spec_.fixings_ = fixings;
+        result.spec_.basisPair_ = config.pair_;
+        result.spec_.domesticCurveBlock_ = domestic;
+        result.spec_.foreignCurveBlock_ = foreign;
+        result.spec_.fxSpot_ = 1.10;
+        result.spec_.initialGuess_ = result.trueParameters_.front();
+        result.spec_.tolerance_ = 1.0e-10;
+        result.spec_.maxEvaluations_ = 500;
+        for (int i = 0; i < instrumentCount; ++i) {
+            const Date_ maturity = Date::AddMonths(valuationDate, 24 * (i + 1) + maturityOffsetMonths);
+            result.spec_.instruments_.push_back(QuoteSwap(valuationDate, valuationDate, maturity, config, quoteMarket));
+        }
+        return result;
+    }
+
+    Vector_<> Parameters(const CrossCurrencyCalibrationResult_& result, const CurrencyPair_& pair) {
+        const auto* basis = dynamic_cast<const Tape::DiscountPWC_<double>*>(result.basisCurves_.at(pair).get());
+        REQUIRE(basis, "Expected a PWC basis curve in staged XCCY sensitivity fixture");
+        return basis->FRight();
+    }
+
+    CrossCurrencyCalibrationSpec_ BumpQuote(const CrossCurrencyCalibrationSpec_& spec, int instrumentIndex, double bump) {
+        CrossCurrencyCalibrationSpec_ result = spec;
+        const auto& original = spec.instruments_[instrumentIndex];
+        const auto span = original->TimeSpan();
+        result.instruments_[instrumentIndex] = Handle_<CrossCurrencySwap_>(
+            new CrossCurrencySwap_(span.first, span.first, span.second, original->MarketRate() + bump, original->Config()));
+        return result;
+    }
+
     Vector_<> Residuals(const CrossCurrencyCalibrationSpec_& spec, const Vector_<>& parameters) {
         CrossCurrencyMarket_ market(spec.domesticCurveBlock_, spec.foreignCurveBlock_, spec.fxSpot_, spec.valuationTime_, spec.collateralCurrency_,
                                     spec.fixings_);
@@ -212,6 +268,15 @@ namespace {
         }
         return result;
     }
+
+    void AssertCalibrationFailsWith(const CrossCurrencyCalibrationSpec_& spec, const std::string& expected) {
+        try {
+            static_cast<void>(CalibrateCrossCurrencyMarket(spec));
+            FAIL() << "Expected staged XCCY calibration to fail with " << expected;
+        } catch (const Dal::Exception_& exception) {
+            ASSERT_NE(std::string(exception.what()).find(expected), std::string::npos) << exception.what();
+        }
+    }
 } // namespace
 
 TEST(XccyBasisJacobianTest, TestAnalyticMatchesCentralDifferenceIncludingHistoricalResetRow) {
@@ -233,6 +298,92 @@ TEST(XccyBasisJacobianTest, TestAnalyticMatchesCentralDifferenceIncludingHistori
     for (int row = 0; row < analytic.Rows(); ++row)
         for (int column = 0; column < analytic.Cols(); ++column)
             ASSERT_NEAR(analytic(row, column), central(row, column), 1.0e-7) << "row=" << row << " column=" << column;
+}
+
+TEST(XccyBasisJacobianTest, TestDiagnosticsExposeStableAxesScalingAndAvailability) {
+    const auto fixture = MakeFixture();
+    const auto calibrated = CalibrateCrossCurrencyMarket(fixture.spec_);
+    const auto& diagnostics = calibrated.diagnostics_;
+
+    ASSERT_EQ(diagnostics.instrumentNames_.size(), fixture.spec_.instruments_.size());
+    ASSERT_EQ(diagnostics.instrumentNames_[0], diagnostics.instrumentNames_[1]);
+    ASSERT_EQ(diagnostics.parameterKnotDates_, fixture.spec_.knotDates_);
+    ASSERT_EQ(diagnostics.jacobian_.Rows(), static_cast<int>(diagnostics.instrumentNames_.size()));
+    ASSERT_EQ(diagnostics.jacobian_.Cols(), static_cast<int>(diagnostics.parameterKnotDates_.size()));
+    ASSERT_EQ(diagnostics.effJacobianInverse_.Rows(), static_cast<int>(diagnostics.parameterKnotDates_.size()));
+    ASSERT_EQ(diagnostics.effJacobianInverse_.Cols(), static_cast<int>(diagnostics.instrumentNames_.size()));
+    ASSERT_NEAR(diagnostics.residualTolerance_, fixture.spec_.tolerance_, 1.0e-20);
+    ASSERT_EQ(diagnostics.jacobianScaling_, String_("unscaled"));
+    ASSERT_EQ(diagnostics.effJacobianInverseScaling_, String_("solver_scaled"));
+    ASSERT_EQ(diagnostics.jacobianAvailability_, String_("available"));
+    ASSERT_EQ(diagnostics.effJacobianInverseAvailability_, String_("available"));
+}
+
+TEST(XccyBasisJacobianTest, TestEffectiveInverseRequiresToleranceScalingForSmallQuoteBumps) {
+    auto fixture = MakeLadderFixture(3, 12);
+    fixture.spec_.tolerance_ = 1.0e-8;
+    const auto base = CalibrateCrossCurrencyMarket(fixture.spec_);
+    const Vector_<> baseParameters = Parameters(base, fixture.spec_.basisPair_);
+    constexpr double bump = 1.0e-6;
+
+    for (int instrument = 0; instrument < static_cast<int>(fixture.spec_.instruments_.size()); ++instrument) {
+        SCOPED_TRACE("instrument=" + std::to_string(instrument));
+        Vector_<> predictedMoves(baseParameters.size());
+        for (int parameter = 0; parameter < static_cast<int>(baseParameters.size()); ++parameter)
+            predictedMoves[parameter] = base.diagnostics_.effJacobianInverse_(parameter, instrument) * bump / fixture.spec_.tolerance_;
+        auto bumpedSpec = BumpQuote(fixture.spec_, instrument, bump);
+        bumpedSpec.initialGuess_ = baseParameters.front() + predictedMoves.front();
+        CrossCurrencyCalibrationOptions_ reSolveOptions;
+        reSolveOptions.jacobianMode_ = CurveJacobianMode_::Value_::BUMPED;
+        reSolveOptions.computeEffJacobianInverse_ = false;
+        reSolveOptions.computeForwardJacobian_ = false;
+        Vector_<> bumpedParameters;
+        try {
+            bumpedParameters = Parameters(CalibrateCrossCurrencyMarket(bumpedSpec, reSolveOptions), fixture.spec_.basisPair_);
+        } catch (const Dal::Exception_& exception) {
+            FAIL() << "instrument=" << instrument << " " << exception.what();
+        }
+        double observedNorm = 0.0;
+        double unscaledError = 0.0;
+        Vector_<> observedMoves(baseParameters.size());
+        for (int parameter = 0; parameter < static_cast<int>(baseParameters.size()); ++parameter) {
+            observedMoves[parameter] = bumpedParameters[parameter] - baseParameters[parameter];
+            const double incorrectlyUnscaled = base.diagnostics_.effJacobianInverse_(parameter, instrument) * bump;
+            observedNorm = std::max(observedNorm, std::fabs(observedMoves[parameter]));
+            unscaledError = std::max(unscaledError, std::fabs(incorrectlyUnscaled - observedMoves[parameter]));
+        }
+        ASSERT_GT(observedNorm, 1.0e-8) << "instrument=" << instrument;
+        for (int parameter = 0; parameter < static_cast<int>(baseParameters.size()); ++parameter)
+            ASSERT_NEAR(predictedMoves[parameter], observedMoves[parameter], 0.03 * observedNorm + 1.0e-10)
+                << "instrument=" << instrument << " parameter=" << parameter;
+        ASSERT_GT(unscaledError, 0.5 * observedNorm) << "instrument=" << instrument;
+    }
+}
+
+TEST(XccyBasisJacobianTest, TestEffectiveInversePredictsOneBasisPointAcrossFixedLadders) {
+    constexpr double bump = 1.0e-4;
+    for (const int instrumentCount : {5, 10, 16}) {
+        const auto fixture = MakeLadderFixture(instrumentCount);
+        const auto base = CalibrateCrossCurrencyMarket(fixture.spec_);
+        const Vector_<> baseParameters = Parameters(base, fixture.spec_.basisPair_);
+        const int instrument = instrumentCount - 1;
+        const Vector_<> bumpedParameters =
+            Parameters(CalibrateCrossCurrencyMarket(BumpQuote(fixture.spec_, instrument, bump)), fixture.spec_.basisPair_);
+
+        double observedNorm = 0.0;
+        Vector_<> observedMoves(baseParameters.size());
+        Vector_<> predictedMoves(baseParameters.size());
+        for (int parameter = 0; parameter < static_cast<int>(baseParameters.size()); ++parameter) {
+            observedMoves[parameter] = bumpedParameters[parameter] - baseParameters[parameter];
+            predictedMoves[parameter] = base.diagnostics_.effJacobianInverse_(parameter, instrument) * bump / base.diagnostics_.residualTolerance_;
+            observedNorm = std::max(observedNorm, std::fabs(observedMoves[parameter]));
+        }
+
+        ASSERT_GT(observedNorm, 1.0e-8) << "instrumentCount=" << instrumentCount;
+        for (int parameter = 0; parameter < static_cast<int>(baseParameters.size()); ++parameter)
+            ASSERT_NEAR(predictedMoves[parameter], observedMoves[parameter], 0.03 * observedNorm + 1.0e-10)
+                << "instrumentCount=" << instrumentCount << " parameter=" << parameter;
+    }
 }
 
 TEST(XccyBasisJacobianTest, TestOmittedSnapshotCapturesRequiredGlobalFixingsOnce) {
@@ -283,18 +434,67 @@ TEST(XccyBasisJacobianTest, TestBumpedModeKeepsOnlyEffectiveInverse) {
     ASSERT_LE(calibrated.diagnostics_.maxAbsResidual_, 1.0e-8);
 }
 
-TEST(XccyBasisJacobianTest, TestDiagnosticFlagsAndApproximateModeLeaveMatricesEmpty) {
+TEST(XccyBasisJacobianTest, TestAvailabilityDistinguishesModeAndRequestFlags) {
     auto fixture = MakeFixture();
+
+    CrossCurrencyCalibrationOptions_ bumpedOptions;
+    bumpedOptions.jacobianMode_ = CurveJacobianMode_::Value_::BUMPED;
+    const auto bumped = CalibrateCrossCurrencyMarket(fixture.spec_, bumpedOptions);
+    ASSERT_EQ(bumped.diagnostics_.jacobianAvailability_, String_("not_available_for_mode"));
+    ASSERT_EQ(bumped.diagnostics_.effJacobianInverseAvailability_, String_("available"));
+    ASSERT_TRUE(bumped.diagnostics_.jacobian_.Empty());
+    ASSERT_FALSE(bumped.diagnostics_.effJacobianInverse_.Empty());
+
     CrossCurrencyCalibrationOptions_ options;
     options.computeEffJacobianInverse_ = false;
     options.computeForwardJacobian_ = false;
     const auto withoutMatrices = CalibrateCrossCurrencyMarket(fixture.spec_, options);
+    ASSERT_EQ(withoutMatrices.diagnostics_.jacobianAvailability_, String_("not_requested"));
+    ASSERT_EQ(withoutMatrices.diagnostics_.effJacobianInverseAvailability_, String_("not_requested"));
     ASSERT_TRUE(withoutMatrices.diagnostics_.jacobian_.Empty());
     ASSERT_TRUE(withoutMatrices.diagnostics_.effJacobianInverse_.Empty());
 
     fixture.spec_.solveMode_ = CurveSolveMode_::Value_::APPROXIMATE;
     const auto approximate = CalibrateCrossCurrencyMarket(fixture.spec_, CrossCurrencyCalibrationOptions_());
     ASSERT_TRUE(approximate.diagnostics_.usedApproximateFit_);
+    ASSERT_EQ(approximate.diagnostics_.jacobianAvailability_, String_("not_available_for_mode"));
+    ASSERT_EQ(approximate.diagnostics_.effJacobianInverseAvailability_, String_("not_available_for_mode"));
     ASSERT_TRUE(approximate.diagnostics_.jacobian_.Empty());
     ASSERT_TRUE(approximate.diagnostics_.effJacobianInverse_.Empty());
+
+    const auto approximateWithoutMatrices = CalibrateCrossCurrencyMarket(fixture.spec_, options);
+    ASSERT_EQ(approximateWithoutMatrices.diagnostics_.jacobianAvailability_, String_("not_requested"));
+    ASSERT_EQ(approximateWithoutMatrices.diagnostics_.effJacobianInverseAvailability_, String_("not_requested"));
+}
+
+TEST(XccyBasisJacobianTest, TestValidationRejectsNonFiniteSolverInputsBeforeSolving) {
+    for (const auto& invalid : {std::numeric_limits<double>::quiet_NaN(), std::numeric_limits<double>::infinity()}) {
+        auto fixture = MakeFixture();
+        fixture.spec_.smoothingWeight_ = invalid;
+        AssertCalibrationFailsWith(fixture.spec_, "smoothing weight must be finite and positive");
+
+        fixture = MakeFixture();
+        fixture.spec_.tolerance_ = invalid;
+        AssertCalibrationFailsWith(fixture.spec_, "tolerance must be finite and positive");
+
+        fixture = MakeFixture();
+        fixture.spec_.fitTolerance_ = invalid;
+        AssertCalibrationFailsWith(fixture.spec_, "fit tolerance must be finite and positive");
+
+        fixture = MakeFixture();
+        fixture.spec_.initialGuess_ = invalid;
+        AssertCalibrationFailsWith(fixture.spec_, "initial guess must be finite");
+    }
+}
+
+TEST(XccyBasisJacobianTest, TestInstrumentConstructionRejectsNonFiniteMarketRates) {
+    const auto fixture = MakeFixture();
+    for (const auto& invalid : {std::numeric_limits<double>::quiet_NaN(), std::numeric_limits<double>::infinity()}) {
+        try {
+            static_cast<void>(BumpQuote(fixture.spec_, 0, invalid - fixture.spec_.instruments_[0]->MarketRate()));
+            FAIL() << "Expected a non-finite XCCY market rate to fail";
+        } catch (const Dal::Exception_& exception) {
+            ASSERT_NE(std::string(exception.what()).find("requires a finite market rate"), std::string::npos) << exception.what();
+        }
+    }
 }

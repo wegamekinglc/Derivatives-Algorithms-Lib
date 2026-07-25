@@ -36,7 +36,7 @@ struct XlRegister_JointXccyCalibrationResult_Get_
     {
         Vector_<String_> argHelp;        
         argHelp.push_back("The joint calibration result");
-        argHelp.push_back("Attribute: fxForwards, marketRates, modelRates, residuals, jacobian, parameterRanges, or residualRanges. Handle views domesticBlock, foreignBlock, and basisCurve use their dedicated getter functions.");
+        argHelp.push_back("Attribute: fxForwards, marketRates, modelRates, residuals, jacobian, effJacobianInverse, parameterRanges, or residualRanges. Handle views domesticBlock, foreignBlock, and basisCurve use their dedicated getter functions.");
         Excel::Register("Base", "xl_JointXccyCalibrationResult_Get", "JOINTXCCYCALIBRATIONRESULT.GET", "Extract a matrix-valued view from a joint XCCY calibration result. Use the dedicated getter functions for curve handles.", "QQQ", "result,attribute", argHelp, false);
     }
 };

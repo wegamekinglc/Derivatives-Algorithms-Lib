@@ -36,7 +36,7 @@ knotDates is date[]
 &optional
 settings is cell[][]
     &$.Cols() == 2 || $.Empty()\must have two columns (key, value)
-    Optional two-column (key,value) settings. Keys: fxSpot, fxForwardCollateral, smoothingWeight, tolerance, fitTolerance, initialGuess, maxEvaluations, maxRestarts, solveMode (EXACT|APPROXIMATE)
+    Optional two-column (key,value) settings. Keys: fxSpot, fxForwardCollateral, smoothingWeight, tolerance, fitTolerance, initialGuess, maxEvaluations, maxRestarts, solveMode (EXACT|APPROXIMATE), jacobianMode (ANALYTIC|BUMPED), computeEffJacobianInverse, computeForwardJacobian
 &outputs
 result is handle StorableCrossCurrencyCalibrationResult
     The cross-currency calibration result (basis curve + diagnostics)
@@ -61,11 +61,11 @@ public XccyCalibrationResult_Get
 result is handle StorableCrossCurrencyCalibrationResult
     The cross-currency calibration result handle (from CALIBRATE.XCCYMARKET)
 attribute is string
-    Attribute name: marketRates, modelRates, residuals, maxAbsResidual, rmsResidual
+    Attribute name: marketRates, modelRates, residuals, maxAbsResidual, rmsResidual, instrumentNames, parameterKnotDates, jacobian, effJacobianInverse, residualTolerance, jacobianScaling, effJacobianInverseScaling, jacobianAvailability, effJacobianInverseAvailability
 &outputs
 value is cell[][]
     The requested diagnostic. Rate vectors (marketRates/modelRates/residuals) return
-    as an Nx1 column; scalar stats (maxAbsResidual/rmsResidual) return as 1x1.
+    as an Nx1 column; matrices retain their diagnostic axes; scalar and metadata values return as 1x1.
 -IF-------------------------------------------------------------------------*/
 
 /*IF--------------------------------------------------------------------------
@@ -143,7 +143,7 @@ public JointXccyCalibrationResult_Get
 result is handle StorableJointXccyCalibrationResult
     The joint calibration result
 attribute is string
-    Attribute: fxForwards, marketRates, modelRates, residuals, jacobian, parameterRanges, or residualRanges. Handle views domesticBlock, foreignBlock, and basisCurve use their dedicated getter functions.
+    Attribute: fxForwards, marketRates, modelRates, residuals, jacobian, effJacobianInverse, parameterRanges, or residualRanges. Handle views domesticBlock, foreignBlock, and basisCurve use their dedicated getter functions.
 &outputs
 value is cell[][]
     The requested joint result view
@@ -185,9 +185,46 @@ namespace Dal {
                 b.maxRestarts_ = i;
         }
 
-        void ApplyXccySettings(const Dictionary_& settings, CrossCurrencyCalibrationSpecBuilder_& b) {
-            static const Vector_<String_> validKeys = {"fxSpot",       "fxForwardCollateral", "smoothingWeight", "tolerance", "fitTolerance",
-                                                       "initialGuess", "maxEvaluations",      "maxRestarts",     "solveMode"};
+        String_ CellTypeName(const Cell_& value) {
+            if (Cell::IsBool(value))
+                return "boolean";
+            if (Cell::IsDouble(value))
+                return "number";
+            if (Cell::IsDate(value))
+                return "date";
+            if (Cell::IsDateTime(value))
+                return "date-time";
+            if (Cell::IsString(value))
+                return "string";
+            return "empty";
+        }
+
+        void ApplyXccyOptionSetting(const String_& key, const Cell_& value, CrossCurrencyCalibrationOptions_& options) {
+            if (key == "jacobianMode") {
+                REQUIRE(Cell::IsString(value), "XCCY setting '" + key + "' received " + CellTypeName(value) + "; expected string ANALYTIC or BUMPED");
+                options.jacobianMode_ = CurveJacobianMode_(Cell::ToString(value));
+            } else if (key == "computeEffJacobianInverse") {
+                REQUIRE(Cell::IsBool(value), "XCCY setting '" + key + "' received " + CellTypeName(value) + "; expected boolean true or false");
+                options.computeEffJacobianInverse_ = Cell::ToBool(value);
+            } else if (key == "computeForwardJacobian") {
+                REQUIRE(Cell::IsBool(value), "XCCY setting '" + key + "' received " + CellTypeName(value) + "; expected boolean true or false");
+                options.computeForwardJacobian_ = Cell::ToBool(value);
+            }
+        }
+
+        void ApplyXccySettings(const Dictionary_& settings, CrossCurrencyCalibrationSpecBuilder_& b, CrossCurrencyCalibrationOptions_& options) {
+            static const Vector_<String_> validKeys = {"fxSpot",
+                                                       "fxForwardCollateral",
+                                                       "smoothingWeight",
+                                                       "tolerance",
+                                                       "fitTolerance",
+                                                       "initialGuess",
+                                                       "maxEvaluations",
+                                                       "maxRestarts",
+                                                       "solveMode",
+                                                       "jacobianMode",
+                                                       "computeEffJacobianInverse",
+                                                       "computeForwardJacobian"};
             for (const auto& kv : settings) {
                 const String_& key = kv.first;
                 const Cell_& val = kv.second;
@@ -195,6 +232,7 @@ namespace Dal {
                 ApplyXccyStringSettings(key, val, b);
                 ApplyXccyDoubleSettings(key, val, b);
                 ApplyXccyIntSettings(key, val, b);
+                ApplyXccyOptionSetting(key, val, options);
             }
         }
 
@@ -373,6 +411,20 @@ namespace Dal {
             return result;
         }
 
+        Matrix_<Cell_> StringsAsCells(const Vector_<String_>& source) {
+            Matrix_<Cell_> result(source.size(), 1);
+            for (int row = 0; row < source.size(); ++row)
+                result(row, 0) = Cell_(source[row]);
+            return result;
+        }
+
+        Matrix_<Cell_> DatesAsCells(const Vector_<Date_>& source) {
+            Matrix_<Cell_> result(source.size(), 1);
+            for (int row = 0; row < source.size(); ++row)
+                result(row, 0) = Cell_(source[row]);
+            return result;
+        }
+
         Matrix_<Cell_> FxForwardsAsCells(const CrossCurrencyFxForwardCurve_& forwards) {
             REQUIRE(forwards.dates_.size() == forwards.forwards_.size(), "Joint XCCY FX-forward dates and values have inconsistent lengths");
             Matrix_<Cell_> result(forwards.dates_.size(), 2);
@@ -392,82 +444,102 @@ namespace Dal {
             }
             return result;
         }
-
-        void Calibrate_XccyMarket(const Date_& today,
-                                  const String_& domesticCcy,
-                                  const String_& foreignCcy,
-                                  const Handle_<StorableCurveBlock_>& domesticBlock,
-                                  const Handle_<StorableCurveBlock_>& foreignBlock,
-                                  const Vector_<Handle_<Storable_>>& instrumentWrappers,
-                                  const Vector_<Date_>& knotDates,
-                                  const Matrix_<Cell_>& settings,
-                                  Handle_<StorableCrossCurrencyCalibrationResult_>* result) {
-            REQUIRE(domesticBlock, "Invalid domestic curve block handle");
-            REQUIRE(foreignBlock, "Invalid foreign curve block handle");
-
-            CrossCurrencyCalibrationSpecBuilder_ builder;
-            builder.today_ = today;
-            builder.basisPair_ = CurrencyPair_New(domesticCcy, foreignCcy);
-            builder.domesticCurveBlock_ = domesticBlock->val_;
-            builder.foreignCurveBlock_ = foreignBlock->val_;
-
-            // Convert instrument wrappers to raw handles
-            for (const auto& w : instrumentWrappers) {
-                REQUIRE(w, "Invalid instrument handle");
-                auto xccyInst = handle_cast<StorableCrossCurrencySwap_>(w);
-                REQUIRE(xccyInst, "Instrument must be a cross-currency swap");
-                builder.instruments_.push_back(xccyInst->val_);
-            }
-
-            builder.knotDates_ = knotDates;
-
-            // Convert Matrix_<Cell_> to Dictionary_ and apply optional settings
-            if (!settings.Empty()) {
-                Dictionary_ dict;
-                for (int i = 0; i < settings.Rows(); ++i) {
-                    if (Cell::IsEmpty(settings(i, 0)))
-                        break;
-                    dict.Insert(Cell::ToString(settings(i, 0)), settings(i, 1));
-                }
-                ApplyXccySettings(dict, builder);
-            }
-
-            const CurrencyPair_ pair = builder.basisPair_;
-            REQUIRE(builder.fxSpot_ > 0.0, "Cross-currency calibration requires an fxSpot setting (e.g. fxSpot=1.10)");
-            auto spec = builder.Build();
-            auto calibrated = Dal::CalibrateXccyMarket(spec);
-
-            // Resolve the basis curve for the calibrated currency pair
-            auto it = calibrated.basisCurves_.find(pair);
-            REQUIRE(it != calibrated.basisCurves_.end(), "Basis curve not found for requested currency pair");
-            result->reset(new StorableCrossCurrencyCalibrationResult_(calibrated, it->second));
-        }
-
-        void XccyCalibrationResult_Get_BasisCurve(const Handle_<StorableCrossCurrencyCalibrationResult_>& result,
-                                                  Handle_<StorableDiscountCurve_>* curve) {
-            REQUIRE(result, "Invalid XCCY calibration result handle");
-            curve->reset(new StorableDiscountCurve_(result->basisCurve_));
-        }
-
-        void
-        XccyCalibrationResult_Get(const Handle_<StorableCrossCurrencyCalibrationResult_>& result, const String_& attribute, Matrix_<Cell_>* value) {
-            REQUIRE(result, "Invalid XCCY calibration result handle");
-            const auto& diag = result->val_.diagnostics_;
-            if (attribute == "marketRates")
-                *value = AsCellColumn(diag.marketRates_);
-            else if (attribute == "modelRates")
-                *value = AsCellColumn(diag.modelRates_);
-            else if (attribute == "residuals")
-                *value = AsCellColumn(diag.residuals_);
-            else if (attribute == "maxAbsResidual")
-                *value = Matrix_<Cell_>(1, 1, Cell_(diag.maxAbsResidual_));
-            else if (attribute == "rmsResidual")
-                *value = Matrix_<Cell_>(1, 1, Cell_(diag.rmsResidual_));
-            else
-                THROW("Unknown XCCY calibration attribute: " + attribute +
-                      " (expected marketRates, modelRates, residuals, maxAbsResidual, or rmsResidual)");
-        }
     } // namespace
+
+    void Calibrate_XccyMarket(const Date_& today,
+                              const String_& domesticCcy,
+                              const String_& foreignCcy,
+                              const Handle_<StorableCurveBlock_>& domesticBlock,
+                              const Handle_<StorableCurveBlock_>& foreignBlock,
+                              const Vector_<Handle_<Storable_>>& instrumentWrappers,
+                              const Vector_<Date_>& knotDates,
+                              const Matrix_<Cell_>& settings,
+                              Handle_<StorableCrossCurrencyCalibrationResult_>* result) {
+        REQUIRE(domesticBlock, "Invalid domestic curve block handle");
+        REQUIRE(foreignBlock, "Invalid foreign curve block handle");
+
+        CrossCurrencyCalibrationSpecBuilder_ builder;
+        builder.today_ = today;
+        builder.basisPair_ = CurrencyPair_New(domesticCcy, foreignCcy);
+        builder.domesticCurveBlock_ = domesticBlock->val_;
+        builder.foreignCurveBlock_ = foreignBlock->val_;
+
+        // Convert instrument wrappers to raw handles
+        for (const auto& w : instrumentWrappers) {
+            REQUIRE(w, "Invalid instrument handle");
+            auto xccyInst = handle_cast<StorableCrossCurrencySwap_>(w);
+            REQUIRE(xccyInst, "Instrument must be a cross-currency swap");
+            builder.instruments_.push_back(xccyInst->val_);
+        }
+
+        builder.knotDates_ = knotDates;
+
+        CrossCurrencyCalibrationOptions_ options;
+        // Convert Matrix_<Cell_> to Dictionary_ and apply optional settings
+        if (!settings.Empty()) {
+            Dictionary_ dict;
+            for (int i = 0; i < settings.Rows(); ++i) {
+                if (Cell::IsEmpty(settings(i, 0)))
+                    break;
+                dict.Insert(Cell::ToString(settings(i, 0)), settings(i, 1));
+            }
+            ApplyXccySettings(dict, builder, options);
+        }
+
+        const CurrencyPair_ pair = builder.basisPair_;
+        REQUIRE(builder.fxSpot_ > 0.0, "Cross-currency calibration requires an fxSpot setting (e.g. fxSpot=1.10)");
+        auto spec = builder.Build();
+        auto calibrated = Dal::CalibrateXccyMarket(spec, options);
+
+        // Resolve the basis curve for the calibrated currency pair
+        auto it = calibrated.basisCurves_.find(pair);
+        REQUIRE(it != calibrated.basisCurves_.end(), "Basis curve not found for requested currency pair");
+        result->reset(new StorableCrossCurrencyCalibrationResult_(calibrated, it->second));
+    }
+
+    void XccyCalibrationResult_Get_BasisCurve(const Handle_<StorableCrossCurrencyCalibrationResult_>& result,
+                                              Handle_<StorableDiscountCurve_>* curve) {
+        REQUIRE(result, "Invalid XCCY calibration result handle");
+        curve->reset(new StorableDiscountCurve_(result->basisCurve_));
+    }
+
+    void XccyCalibrationResult_Get(const Handle_<StorableCrossCurrencyCalibrationResult_>& result, const String_& attribute, Matrix_<Cell_>* value) {
+        REQUIRE(result, "Invalid XCCY calibration result handle");
+        const auto& diag = XccyResultDiagnostics(result->val_);
+        if (attribute == "marketRates")
+            *value = AsCellColumn(diag.marketRates_);
+        else if (attribute == "modelRates")
+            *value = AsCellColumn(diag.modelRates_);
+        else if (attribute == "residuals")
+            *value = AsCellColumn(diag.residuals_);
+        else if (attribute == "maxAbsResidual")
+            *value = Matrix_<Cell_>(1, 1, Cell_(diag.maxAbsResidual_));
+        else if (attribute == "rmsResidual")
+            *value = Matrix_<Cell_>(1, 1, Cell_(diag.rmsResidual_));
+        else if (attribute == "instrumentNames")
+            *value = StringsAsCells(diag.instrumentNames_);
+        else if (attribute == "parameterKnotDates")
+            *value = DatesAsCells(diag.parameterKnotDates_);
+        else if (attribute == "jacobian")
+            *value = AsCellMatrix(XccyResultJacobian(result->val_));
+        else if (attribute == "effJacobianInverse")
+            *value = AsCellMatrix(XccyResultEffJacobianInverse(result->val_));
+        else if (attribute == "residualTolerance")
+            *value = Matrix_<Cell_>(1, 1, Cell_(diag.residualTolerance_));
+        else if (attribute == "jacobianScaling")
+            *value = Matrix_<Cell_>(1, 1, Cell_(diag.jacobianScaling_));
+        else if (attribute == "effJacobianInverseScaling")
+            *value = Matrix_<Cell_>(1, 1, Cell_(diag.effJacobianInverseScaling_));
+        else if (attribute == "jacobianAvailability")
+            *value = Matrix_<Cell_>(1, 1, Cell_(diag.jacobianAvailability_));
+        else if (attribute == "effJacobianInverseAvailability")
+            *value = Matrix_<Cell_>(1, 1, Cell_(diag.effJacobianInverseAvailability_));
+        else
+            THROW("Unknown XCCY calibration attribute: " + attribute +
+                  " (accepted views: marketRates, modelRates, residuals, maxAbsResidual, rmsResidual, instrumentNames, "
+                  "parameterKnotDates, jacobian, effJacobianInverse, residualTolerance, jacobianScaling, effJacobianInverseScaling, "
+                  "jacobianAvailability, effJacobianInverseAvailability)");
+    }
 
     void Calibrate_JointXccy(const Cell_& valuationTime,
                              const Handle_<StorableCurrencyPair_>& currencies,
@@ -551,15 +623,17 @@ namespace Dal {
             *value = AsCellColumn(JointXccyResultResiduals(result->val_));
         else if (attribute == "jacobian")
             *value = AsCellMatrix(JointXccyResultJacobian(result->val_));
+        else if (attribute == "effJacobianInverse")
+            *value = AsCellMatrix(JointXccyResultEffJacobianInverse(result->val_));
         else if (attribute == "parameterRanges")
             *value = RangesAsCells(JointXccyResultParameterRanges(result->val_));
         else if (attribute == "residualRanges")
             *value = RangesAsCells(JointXccyResultResidualRanges(result->val_));
         else
-            THROW(
-                "Unknown joint XCCY calibration attribute: " + attribute +
-                " (accepted views: domesticBlock, foreignBlock, basisCurve, fxForwards, marketRates, modelRates, residuals, jacobian, "
-                "parameterRanges, residualRanges; use the dedicated DOMESTICBLOCK, FOREIGNBLOCK, and BASISCURVE getter functions for handle views)");
+            THROW("Unknown joint XCCY calibration attribute: " + attribute +
+                  " (accepted views: domesticBlock, foreignBlock, basisCurve, fxForwards, marketRates, modelRates, residuals, jacobian, "
+                  "effJacobianInverse, parameterRanges, residualRanges; use the dedicated DOMESTICBLOCK, FOREIGNBLOCK, and BASISCURVE getter "
+                  "functions for handle views)");
     }
     // clang-format off
 #ifdef _WIN32

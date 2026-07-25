@@ -98,7 +98,7 @@ def test_legacy_xccy_constructor_accepts_every_original_positional_argument():
 
 # ---- Cross-currency calibration ----
 
-def _make_xccy_instruments(fx_spot):
+def _make_xccy_instruments(fx_spot, years=(2, 5, 10)):
     """Build cross-currency swap instruments for calibration."""
     currencies = dal.CurrencyPair_New("USD", "EUR")
     usd_leg = dal.RateLegConvention_New(dal.PeriodLength_New("6M"), dal.DayBasis_New("ACT_365F"))
@@ -112,7 +112,7 @@ def _make_xccy_instruments(fx_spot):
 
     instruments = []
     knot_dates = []
-    for y in [2, 5, 10]:
+    for y in years:
         maturity = _spot().AddDays(y * 365)
         knot_dates.append(maturity)
         inst = dal.CrossCurrencySwap_New(
@@ -123,6 +123,24 @@ def _make_xccy_instruments(fx_spot):
         )
         instruments.append(inst)
     return instruments, knot_dates
+
+
+def _make_xccy_spec(solve_mode, years=(2, 5, 10)):
+    usd_block, eur_block = _make_baseline_curves()
+    instruments, knot_dates = _make_xccy_instruments(fx_spot=1.10, years=years)
+
+    builder = dal.CrossCurrencyCalibrationSpecBuilder_()
+    builder.today_ = _today()
+    builder.basisPair_ = dal.CurrencyPair_New("USD", "EUR")
+    builder.domesticCurveBlock_ = usd_block
+    builder.foreignCurveBlock_ = eur_block
+    builder.fxSpot_ = 1.10
+    builder.tolerance_ = 1.0e-8
+    builder.solveMode_ = solve_mode
+    builder.initialGuess_ = 0.01
+    builder.instruments_ = instruments
+    builder.knotDates_ = knot_dates
+    return builder.Build(), knot_dates
 
 
 def test_calibrate_xccy_market():
@@ -180,3 +198,53 @@ def test_calibrate_xccy_market_result_has_market():
     assert result.market_ is not None  # nosec B101 - pytest assertions are intentional
     assert result.fxForwardCurve_ is not None  # nosec B101 - pytest assertions are intentional
     assert result.diagnostics_ is not None  # nosec B101 - pytest assertions are intentional
+
+
+def test_staged_xccy_options_overload_preserves_default_results_and_aliases():
+    """The additive overload retains the legacy call and exposes both naming styles."""
+    spec, knot_dates = _make_xccy_spec(dal.CurveSolveMode.APPROXIMATE)
+    legacy = dal.CalibrateXccyMarket(spec)
+    options = dal.CrossCurrencyCalibrationOptions_()
+    explicit = dal.CalibrateXccyMarket(spec, options)
+
+    assert options.jacobianMode_ == dal.CurveJacobianMode.ANALYTIC  # nosec B101
+    options.jacobian_mode = dal.CurveJacobianMode.BUMPED
+    options.computeEffJacobianInverse_ = False
+    options.compute_forward_jacobian = False
+    assert options.jacobianMode_ == dal.CurveJacobianMode.BUMPED  # nosec B101
+    assert not options.compute_eff_jacobian_inverse  # nosec B101
+    assert not options.computeForwardJacobian_  # nosec B101
+
+    assert legacy.diagnostics.market_rates == explicit.diagnostics_.marketRates_  # nosec B101
+    assert legacy.diagnostics.model_rates == explicit.diagnostics_.modelRates_  # nosec B101
+    assert legacy.diagnostics.residuals == explicit.diagnostics_.residuals_  # nosec B101
+    assert legacy.fx_forward_curve.forwards == explicit.fxForwardCurve_.forwards_  # nosec B101
+    assert explicit.diagnostics.parameter_knot_dates == knot_dates  # nosec B101
+    assert explicit.diagnostics.parameterKnotDates_ == explicit.diagnostics.parameter_knot_dates  # nosec B101
+    assert explicit.diagnostics.instrumentNames_ == explicit.diagnostics.instrument_names  # nosec B101
+    assert explicit.diagnostics.residualTolerance_ == explicit.diagnostics.residual_tolerance  # nosec B101
+    assert explicit.diagnostics.jacobianScaling_ == "unscaled"  # nosec B101
+    assert explicit.diagnostics.jacobian_scaling == "unscaled"  # nosec B101
+    assert explicit.diagnostics.effJacobianInverseScaling_ == "solver_scaled"  # nosec B101
+    assert explicit.diagnostics.eff_jacobian_inverse_scaling == "solver_scaled"  # nosec B101
+    assert explicit.diagnostics.jacobianAvailability_ == "not_available_for_mode"  # nosec B101
+    assert explicit.diagnostics.eff_jacobian_inverse_availability == "not_available_for_mode"  # nosec B101
+    assert explicit.diagnostics.jacobian_.rows() == 0  # nosec B101
+    assert explicit.diagnostics.jacobian.cols() == 0  # nosec B101
+    assert explicit.diagnostics.effJacobianInverse_.rows() == 0  # nosec B101
+    assert explicit.diagnostics.eff_jacobian_inverse.cols() == 0  # nosec B101
+
+
+def test_staged_xccy_exact_matrices_keep_diagnostics_ownership_and_axes():
+    """Exact analytic matrices remain on staged diagnostics with reversed axes."""
+    spec, knot_dates = _make_xccy_spec(dal.CurveSolveMode.EXACT, years=(2,))
+    result = dal.CalibrateXccyMarket(spec, dal.CrossCurrencyCalibrationOptions_())
+    diagnostics = result.diagnostics
+
+    assert diagnostics.jacobian_availability == "available"  # nosec B101
+    assert diagnostics.effJacobianInverseAvailability_ == "available"  # nosec B101
+    assert diagnostics.jacobian.rows() == len(diagnostics.instrument_names)  # nosec B101
+    assert diagnostics.jacobian_.cols() == len(knot_dates)  # nosec B101
+    assert diagnostics.eff_jacobian_inverse.rows() == len(knot_dates)  # nosec B101
+    assert diagnostics.effJacobianInverse_.cols() == len(diagnostics.instrumentNames_)  # nosec B101
+    assert not hasattr(result, "jacobian_at_solution")  # nosec B101

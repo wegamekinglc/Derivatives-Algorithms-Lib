@@ -66,12 +66,24 @@ namespace Dal {
 
     const Matrix_<>& JointXccyResultJacobian(const JointXccyCalibrationResult_& result) { return result.jacobianAtSolution_; }
 
+    const Matrix_<>& JointXccyResultEffJacobianInverse(const JointXccyCalibrationResult_& result) { return result.effJacobianInverse_; }
+
     const Vector_<CalibrationBlockRange_>& JointXccyResultParameterRanges(const JointXccyCalibrationResult_& result) {
         return result.parameterRanges_;
     }
 
     const Vector_<CalibrationBlockRange_>& JointXccyResultResidualRanges(const JointXccyCalibrationResult_& result) { return result.residualRanges_; }
 
+    const CrossCurrencyCalibrationDiagnostics_& XccyResultDiagnostics(const CrossCurrencyCalibrationResult_& result) { return result.diagnostics_; }
+
+    const Matrix_<>& XccyResultJacobian(const CrossCurrencyCalibrationResult_& result) { return result.diagnostics_.jacobian_; }
+
+    const Matrix_<>& XccyResultEffJacobianInverse(const CrossCurrencyCalibrationResult_& result) { return result.diagnostics_.effJacobianInverse_; }
+
     CrossCurrencyCalibrationResult_ CalibrateXccyMarket(const CrossCurrencyCalibrationSpec_& spec) { return CalibrateCrossCurrencyMarket(spec); }
+
+    CrossCurrencyCalibrationResult_ CalibrateXccyMarket(const CrossCurrencyCalibrationSpec_& spec, const CrossCurrencyCalibrationOptions_& options) {
+        return CalibrateCrossCurrencyMarket(spec, options);
+    }
 
 } // namespace Dal

@@ -22,7 +22,7 @@ Calibrate a cross-currency basis market from instruments and settings. Returns a
 <tr><td>foreignBlock</td><td>handle of type StorableCurveBlock</td><td></td><td>The pre-calibrated foreign curve block</td></tr>
 <tr><td>instruments</td><td>vector of handles</td><td></td><td>Array of cross-currency swap instrument handles (created with CROSSCURRENCYSWAP.NEW)</td></tr>
 <tr><td>knotDates</td><td>vector of dates</td><td></td><td>Knot dates for the basis curve</td></tr>
-<tr><td>settings</td><td>matrix of cells</td><td>yes</td><td>Optional two-column (key,value) settings. Keys: fxSpot, fxForwardCollateral, smoothingWeight, tolerance, fitTolerance, initialGuess, maxEvaluations, maxRestarts, solveMode (EXACT|APPROXIMATE)</td></tr>
+<tr><td>settings</td><td>matrix of cells</td><td>yes</td><td>Optional two-column (key,value) settings. Keys: fxSpot, fxForwardCollateral, smoothingWeight, tolerance, fitTolerance, initialGuess, maxEvaluations, maxRestarts, solveMode (EXACT|APPROXIMATE), jacobianMode (ANALYTIC|BUMPED), computeEffJacobianInverse, computeForwardJacobian</td></tr>
 
 </table>
 

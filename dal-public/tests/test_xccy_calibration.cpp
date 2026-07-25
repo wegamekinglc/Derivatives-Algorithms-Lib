@@ -11,6 +11,7 @@
 
 using Dal::CalibrateXccyMarket;
 using Dal::CollateralType_OIS;
+using Dal::CrossCurrencyCalibrationOptions_;
 using Dal::CrossCurrencyCalibrationSpecBuilder_;
 using Dal::CrossCurrencySwapNew;
 using Dal::CurrencyPair_New;
@@ -141,6 +142,8 @@ TEST(XccyCalibrationTest, TestCalibrateXccyMarket) {
 
     auto spec = builder.Build();
     auto result = CalibrateXccyMarket(spec);
+    CrossCurrencyCalibrationOptions_ options;
+    auto explicitDefaults = CalibrateXccyMarket(spec, options);
 
     ASSERT_GT(result.diagnostics_.marketRates_.size(), static_cast<size_t>(0));
     ASSERT_EQ(result.diagnostics_.marketRates_.size(), result.diagnostics_.modelRates_.size());
@@ -150,6 +153,19 @@ TEST(XccyCalibrationTest, TestCalibrateXccyMarket) {
     // Verify FX forward curve is populated
     ASSERT_GT(result.fxForwardCurve_.dates_.size(), static_cast<size_t>(0));
     ASSERT_EQ(result.fxForwardCurve_.dates_.size(), result.fxForwardCurve_.forwards_.size());
+
+    ASSERT_EQ(&Dal::XccyResultDiagnostics(result), &result.diagnostics_);
+    ASSERT_EQ(&Dal::XccyResultJacobian(result), &result.diagnostics_.jacobian_);
+    ASSERT_EQ(&Dal::XccyResultEffJacobianInverse(result), &result.diagnostics_.effJacobianInverse_);
+    ASSERT_EQ(result.diagnostics_.marketRates_.size(), explicitDefaults.diagnostics_.marketRates_.size());
+    for (int i = 0; i < static_cast<int>(result.diagnostics_.marketRates_.size()); ++i) {
+        ASSERT_NEAR(result.diagnostics_.marketRates_[i], explicitDefaults.diagnostics_.marketRates_[i], 1.0e-12);
+        ASSERT_NEAR(result.diagnostics_.modelRates_[i], explicitDefaults.diagnostics_.modelRates_[i], 1.0e-12);
+        ASSERT_NEAR(result.diagnostics_.residuals_[i], explicitDefaults.diagnostics_.residuals_[i], 1.0e-12);
+    }
+    ASSERT_EQ(result.fxForwardCurve_.forwards_.size(), explicitDefaults.fxForwardCurve_.forwards_.size());
+    for (int i = 0; i < static_cast<int>(result.fxForwardCurve_.forwards_.size()); ++i)
+        ASSERT_NEAR(result.fxForwardCurve_.forwards_[i], explicitDefaults.fxForwardCurve_.forwards_[i], 1.0e-12);
 }
 
 // Round-trip every builder field through Build() to guard against brace-init
@@ -350,6 +366,7 @@ TEST(XccyCalibrationTest, TestJointResultAccessorsReferenceEveryPlannedView) {
     ASSERT_EQ(&Dal::JointXccyResultModelRates(result), &result.modelRates_);
     ASSERT_EQ(&Dal::JointXccyResultResiduals(result), &result.residuals_);
     ASSERT_EQ(&Dal::JointXccyResultJacobian(result), &result.jacobianAtSolution_);
+    ASSERT_EQ(&Dal::JointXccyResultEffJacobianInverse(result), &result.effJacobianInverse_);
     ASSERT_EQ(&Dal::JointXccyResultParameterRanges(result), &result.parameterRanges_);
     ASSERT_EQ(&Dal::JointXccyResultResidualRanges(result), &result.residualRanges_);
 }

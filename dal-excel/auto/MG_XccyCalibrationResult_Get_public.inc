@@ -36,7 +36,7 @@ struct XlRegister_XccyCalibrationResult_Get_
     {
         Vector_<String_> argHelp;        
         argHelp.push_back("The cross-currency calibration result handle (from CALIBRATE.XCCYMARKET)");
-        argHelp.push_back("Attribute name: marketRates, modelRates, residuals, maxAbsResidual, rmsResidual");
+        argHelp.push_back("Attribute name: marketRates, modelRates, residuals, maxAbsResidual, rmsResidual, instrumentNames, parameterKnotDates, jacobian, effJacobianInverse, residualTolerance, jacobianScaling, effJacobianInverseScaling, jacobianAvailability, effJacobianInverseAvailability");
         Excel::Register("Base", "xl_XccyCalibrationResult_Get", "XCCYCALIBRATIONRESULT.GET", "Extract a diagnostic attribute from a cross-currency calibration result. Use XCCYCALIBRATIONRESULT.GET.BASISCURVE for the basis curve itself.", "QQQ", "result,attribute", argHelp, false);
     }
 };
