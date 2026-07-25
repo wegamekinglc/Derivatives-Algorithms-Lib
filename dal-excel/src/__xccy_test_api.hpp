@@ -51,6 +51,22 @@ namespace Dal {
                                                          const Handle_<StorableCrossCurrencySwapConfig_>& config,
                                                          Handle_<StorableCrossCurrencySwap_>* instrument);
 
+    DAL_EXCEL_TEST_API void Calibrate_XccyMarket(const Date_& today,
+                                                 const String_& domesticCcy,
+                                                 const String_& foreignCcy,
+                                                 const Handle_<StorableCurveBlock_>& domesticBlock,
+                                                 const Handle_<StorableCurveBlock_>& foreignBlock,
+                                                 const Vector_<Handle_<Storable_>>& instrumentWrappers,
+                                                 const Vector_<Date_>& knotDates,
+                                                 const Matrix_<Cell_>& settings,
+                                                 Handle_<StorableCrossCurrencyCalibrationResult_>* result);
+
+    DAL_EXCEL_TEST_API void XccyCalibrationResult_Get_BasisCurve(const Handle_<StorableCrossCurrencyCalibrationResult_>& result,
+                                                                 Handle_<StorableDiscountCurve_>* curve);
+
+    DAL_EXCEL_TEST_API void
+    XccyCalibrationResult_Get(const Handle_<StorableCrossCurrencyCalibrationResult_>& result, const String_& attribute, Matrix_<Cell_>* value);
+
     DAL_EXCEL_TEST_API void Calibrate_JointXccy(const Cell_& valuationTime,
                                                 const Handle_<StorableCurrencyPair_>& currencies,
                                                 const String_& collateralCurrency,

@@ -55,7 +55,7 @@ struct XlRegister_Calibrate_XccyMarket_
         argHelp.push_back("The pre-calibrated foreign curve block");
         argHelp.push_back("Array of cross-currency swap instrument handles (created with CROSSCURRENCYSWAP.NEW)");
         argHelp.push_back("Knot dates for the basis curve");
-        argHelp.push_back("Optional two-column (key,value) settings. Keys: fxSpot, fxForwardCollateral, smoothingWeight, tolerance, fitTolerance, initialGuess, maxEvaluations, maxRestarts, solveMode (EXACT|APPROXIMATE)");
+        argHelp.push_back("Optional two-column (key,value) settings. Keys: fxSpot, fxForwardCollateral, smoothingWeight, tolerance, fitTolerance, initialGuess, maxEvaluations, maxRestarts, solveMode (EXACT|APPROXIMATE), jacobianMode (ANALYTIC|BUMPED), computeEffJacobianInverse, computeForwardJacobian");
         Excel::Register("Base", "xl_Calibrate_XccyMarket", "CALIBRATE.XCCYMARKET", "Calibrate a cross-currency basis market from instruments and settings. Returns a result handle bundling the basis curve and the fit diagnostics.", "QQQQQQQQQ", "today,domesticCcy,foreignCcy,domesticBlock,foreignBlock,instruments,knotDates,[settings]", argHelp, false);
     }
 };

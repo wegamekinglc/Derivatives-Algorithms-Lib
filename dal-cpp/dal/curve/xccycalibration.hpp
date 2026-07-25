@@ -61,12 +61,18 @@ namespace Dal {
 
     struct CrossCurrencyCalibrationDiagnostics_ {
         Vector_<String_> instrumentNames_;
+        Vector_<Date_> parameterKnotDates_;
         Vector_<> marketRates_;
         Vector_<> modelRates_;
         Vector_<> residuals_;
         Matrix_<> effJacobianInverse_;
         // Unscaled at-solution forward Jacobian; empty for bumped or approximate solves.
         Matrix_<> jacobian_;
+        double residualTolerance_ = 0.0;
+        String_ jacobianScaling_;
+        String_ effJacobianInverseScaling_;
+        String_ jacobianAvailability_;
+        String_ effJacobianInverseAvailability_;
         double maxAbsResidual_ = 0.0;
         double rmsResidual_ = 0.0;
         bool usedApproximateFit_ = false;

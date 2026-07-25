@@ -6,8 +6,11 @@
 
 #include <gtest/gtest.h>
 
+#include <cmath>
+
 #include <dal-excel/src/__curve_storable.hpp>
 #include <dal-excel/src/__xccy_test_api.hpp>
+#include <dal-public/src/curvedata.hpp>
 #include <dal-public/src/curveinstrument.hpp>
 #include <dal-public/src/curveprotocol.hpp>
 
@@ -70,6 +73,46 @@ namespace {
         settings(2, 1) = Cell_(400.0);
         return JointResult(settings);
     }
+
+    Matrix_<Cell_> StagedSettings(const Vector_<std::pair<String_, Cell_>>& additions = {}) {
+        Matrix_<Cell_> settings(3 + additions.size(), 2);
+        settings(0, 0) = Cell_("fxSpot");
+        settings(0, 1) = Cell_(1.10);
+        settings(1, 0) = Cell_("initialGuess");
+        settings(1, 1) = Cell_(0.01);
+        settings(2, 0) = Cell_("tolerance");
+        settings(2, 1) = Cell_(1.0e-8);
+        for (int i = 0; i < additions.size(); ++i) {
+            settings(3 + i, 0) = Cell_(additions[i].first);
+            settings(3 + i, 1) = additions[i].second;
+        }
+        return settings;
+    }
+
+    Handle_<StorableCrossCurrencyCalibrationResult_> StagedResult(const Matrix_<Cell_>& settings) {
+        const Date_ maturity = Today().AddDays(2 * 365);
+        const Vector_<Date_> curveKnots{Today(), maturity};
+        const Vector_<> flatRates{0.04, 0.04};
+        const auto domesticCurve = DiscountPWLFNew("usd_ois", "USD", curveKnots, flatRates);
+        const auto foreignCurve = DiscountPWLFNew("eur_ois", "EUR", curveKnots, flatRates);
+        const Handle_<StorableCurveBlock_> domestic(new StorableCurveBlock_(CurveBlockNew(domesticCurve, DayBasis_New("ACT_365F"))));
+        const Handle_<StorableCurveBlock_> foreign(new StorableCurveBlock_(CurveBlockNew(foreignCurve, DayBasis_New("ACT_360"))));
+
+        const auto instrument = CrossCurrencySwapNew(Today(), Today(), maturity, 0.01, Pair()->val_, 100.0, 100.0 / 1.10,
+                                                     RateLegConvention_New(PeriodLength_New("6M"), DayBasis_New("ACT_365F")),
+                                                     RateIndexConvention_New(PeriodLength_New("3M"), DayBasis_New("ACT_360"), CollateralType_OIS()),
+                                                     RateLegConvention_New(PeriodLength_New("6M"), DayBasis_New("ACT_360")),
+                                                     RateIndexConvention_New(PeriodLength_New("6M"), DayBasis_New("ACT_360"), CollateralType_OIS()));
+        Vector_<Handle_<Storable_>> instruments{
+            Handle_<Storable_>(new StorableCrossCurrencySwap_(instrument)),
+        };
+
+        Handle_<StorableCrossCurrencyCalibrationResult_> result;
+        Calibrate_XccyMarket(Today(), "USD", "EUR", domestic, foreign, instruments, {maturity}, settings, &result);
+        return result;
+    }
+
+    Handle_<StorableCrossCurrencyCalibrationResult_> StagedResult() { return StagedResult(StagedSettings()); }
 } // namespace
 
 TEST(ExcelApiTest, TestConfiguredCrossCurrencySwapConstruction) {
@@ -108,7 +151,8 @@ TEST(ExcelApiTest, TestJointCalibrationAndEveryResultView) {
     ASSERT_TRUE(foreign);
     ASSERT_TRUE(basis);
 
-    for (const char* attribute : {"fxForwards", "marketRates", "modelRates", "residuals", "jacobian", "parameterRanges", "residualRanges"}) {
+    for (const char* attribute :
+         {"fxForwards", "marketRates", "modelRates", "residuals", "jacobian", "effJacobianInverse", "parameterRanges", "residualRanges"}) {
         Dal::Matrix_<Dal::Cell_> value;
         JointXccyCalibrationResult_Get(result, attribute, &value);
         ASSERT_FALSE(value.Empty()) << attribute;
@@ -124,7 +168,7 @@ TEST(ExcelApiTest, TestUnknownJointResultViewListsEveryAcceptedAttribute) {
     } catch (const Dal::Exception_& exception) {
         const std::string message(exception.what());
         for (const char* attribute : {"domesticBlock", "foreignBlock", "basisCurve", "fxForwards", "marketRates", "modelRates", "residuals",
-                                      "jacobian", "parameterRanges", "residualRanges"})
+                                      "jacobian", "effJacobianInverse", "parameterRanges", "residualRanges"})
             ASSERT_NE(message.find(attribute), std::string::npos) << attribute << ": " << message;
     }
 }
@@ -142,6 +186,153 @@ TEST(ExcelApiTest, TestUnknownJointSettingsKeyListsEveryAcceptedKey) {
         ASSERT_NE(message.find("BOGUSKEY"), std::string::npos) << message;
         for (const char* key : {"domesticCurveName", "basisSmoothingWeight", "solveMode", "jacobianMode", "computeForwardJacobian"})
             ASSERT_NE(message.find(key), std::string::npos) << key << ": " << message;
+    }
+}
+
+TEST(ExcelApiTest, TestStagedCalibrationExposesFrozenSensitivityViews) {
+    const auto result = StagedResult();
+    ASSERT_TRUE(result);
+
+    Matrix_<Cell_> marketRates;
+    Matrix_<Cell_> modelRates;
+    Matrix_<Cell_> residuals;
+    Matrix_<Cell_> maxAbsResidual;
+    Matrix_<Cell_> rmsResidual;
+    Matrix_<Cell_> instrumentNames;
+    Matrix_<Cell_> knotDates;
+    Matrix_<Cell_> jacobian;
+    Matrix_<Cell_> inverse;
+    XccyCalibrationResult_Get(result, "marketRates", &marketRates);
+    XccyCalibrationResult_Get(result, "modelRates", &modelRates);
+    XccyCalibrationResult_Get(result, "residuals", &residuals);
+    XccyCalibrationResult_Get(result, "maxAbsResidual", &maxAbsResidual);
+    XccyCalibrationResult_Get(result, "rmsResidual", &rmsResidual);
+    XccyCalibrationResult_Get(result, "instrumentNames", &instrumentNames);
+    XccyCalibrationResult_Get(result, "parameterKnotDates", &knotDates);
+    XccyCalibrationResult_Get(result, "jacobian", &jacobian);
+    XccyCalibrationResult_Get(result, "effJacobianInverse", &inverse);
+    ASSERT_EQ(marketRates.Rows(), 1);
+    ASSERT_EQ(marketRates.Cols(), 1);
+    ASSERT_EQ(modelRates.Rows(), 1);
+    ASSERT_EQ(modelRates.Cols(), 1);
+    ASSERT_EQ(residuals.Rows(), 1);
+    ASSERT_EQ(residuals.Cols(), 1);
+    ASSERT_DOUBLE_EQ(Cell::ToDouble(marketRates(0, 0)), 0.01);
+    const double modelRate = Cell::ToDouble(modelRates(0, 0));
+    const double residual = Cell::ToDouble(residuals(0, 0));
+    ASSERT_TRUE(std::isfinite(modelRate));
+    ASSERT_TRUE(std::isfinite(residual));
+    ASSERT_NEAR(modelRate - Cell::ToDouble(marketRates(0, 0)), residual, 1.0e-15);
+    ASSERT_EQ(maxAbsResidual.Rows(), 1);
+    ASSERT_EQ(maxAbsResidual.Cols(), 1);
+    ASSERT_EQ(rmsResidual.Rows(), 1);
+    ASSERT_EQ(rmsResidual.Cols(), 1);
+    ASSERT_DOUBLE_EQ(Cell::ToDouble(maxAbsResidual(0, 0)), std::abs(residual));
+    ASSERT_DOUBLE_EQ(Cell::ToDouble(rmsResidual(0, 0)), std::abs(residual));
+    ASSERT_EQ(instrumentNames.Rows(), 1);
+    ASSERT_EQ(instrumentNames.Cols(), 1);
+    ASSERT_TRUE(Cell::IsString(instrumentNames(0, 0)));
+    ASSERT_EQ(knotDates.Rows(), 1);
+    ASSERT_EQ(Cell::ToDate(knotDates(0, 0)), Today().AddDays(2 * 365));
+    ASSERT_EQ(jacobian.Rows(), instrumentNames.Rows());
+    ASSERT_EQ(jacobian.Cols(), knotDates.Rows());
+    ASSERT_EQ(inverse.Rows(), knotDates.Rows());
+    ASSERT_EQ(inverse.Cols(), instrumentNames.Rows());
+
+    const std::pair<const char*, const char*> textViews[] = {
+        {"jacobianAvailability", "available"},
+        {"effJacobianInverseAvailability", "available"},
+        {"jacobianScaling", "unscaled"},
+        {"effJacobianInverseScaling", "solver_scaled"},
+    };
+    for (const auto& view : textViews) {
+        Matrix_<Cell_> value;
+        XccyCalibrationResult_Get(result, view.first, &value);
+        ASSERT_EQ(value.Rows(), 1);
+        ASSERT_EQ(value.Cols(), 1);
+        ASSERT_EQ(Cell::ToString(value(0, 0)), String_(view.second));
+    }
+
+    Matrix_<Cell_> tolerance;
+    XccyCalibrationResult_Get(result, "residualTolerance", &tolerance);
+    ASSERT_DOUBLE_EQ(Cell::ToDouble(tolerance(0, 0)), 1.0e-8);
+}
+
+TEST(ExcelApiTest, TestStagedAvailabilitySeparatesRequestFlagsAndMode) {
+    const auto disabled = StagedResult(StagedSettings({
+        {"computeForwardJacobian", Cell_(false)},
+        {"computeEffJacobianInverse", Cell_(false)},
+    }));
+    for (const char* attribute : {"jacobianAvailability", "effJacobianInverseAvailability"}) {
+        Matrix_<Cell_> value;
+        XccyCalibrationResult_Get(disabled, attribute, &value);
+        ASSERT_EQ(Cell::ToString(value(0, 0)), String_("not_requested"));
+    }
+
+    Matrix_<Cell_> matrix;
+    XccyCalibrationResult_Get(disabled, "jacobian", &matrix);
+    ASSERT_TRUE(matrix.Empty());
+    XccyCalibrationResult_Get(disabled, "effJacobianInverse", &matrix);
+    ASSERT_TRUE(matrix.Empty());
+
+    const auto bumped = StagedResult(StagedSettings({{"jacobianMode", Cell_("BUMPED")}}));
+    Matrix_<Cell_> forwardAvailability;
+    Matrix_<Cell_> inverseAvailability;
+    XccyCalibrationResult_Get(bumped, "jacobianAvailability", &forwardAvailability);
+    XccyCalibrationResult_Get(bumped, "effJacobianInverseAvailability", &inverseAvailability);
+    ASSERT_EQ(Cell::ToString(forwardAvailability(0, 0)), String_("not_available_for_mode"));
+    ASSERT_EQ(Cell::ToString(inverseAvailability(0, 0)), String_("available"));
+}
+
+TEST(ExcelApiTest, TestNewStagedSettingsRejectWrongTypesWithoutChangingLegacyLooseKeys) {
+    ASSERT_NO_THROW(StagedResult(StagedSettings({{"maxEvaluations", Cell_("ignored-as-before")}})));
+
+    for (const auto& setting : Vector_<std::pair<String_, Cell_>>{
+             {"jacobianMode", Cell_(1.0)},
+             {"computeForwardJacobian", Cell_("false")},
+             {"computeEffJacobianInverse", Cell_("false")},
+         }) {
+        try {
+            StagedResult(StagedSettings({setting}));
+            FAIL() << "Expected wrong-typed staged setting to fail: " << setting.first;
+        } catch (const Exception_& exception) {
+            const std::string message(exception.what());
+            const char* normalizedKey = setting.first == "jacobianMode"
+                                            ? "JACOBIANMODE"
+                                            : (setting.first == "computeForwardJacobian" ? "COMPUTEFORWARDJACOBIAN" : "COMPUTEEFFJACOBIANINVERSE");
+            ASSERT_NE(message.find(normalizedKey), std::string::npos) << message;
+            ASSERT_NE(message.find("received"), std::string::npos) << message;
+            ASSERT_NE(message.find(setting.first == "jacobianMode" ? "number" : "string"), std::string::npos) << message;
+            ASSERT_NE(message.find(setting.first == "jacobianMode" ? "string" : "boolean"), std::string::npos) << message;
+        }
+    }
+}
+
+TEST(ExcelApiTest, TestUnknownStagedSettingsAndViewsListNewContractSurface) {
+    try {
+        StagedResult(StagedSettings({{"bogusKey", Cell_(1.0)}}));
+        FAIL() << "Expected an unknown staged setting to fail";
+    } catch (const Exception_& exception) {
+        const std::string message(exception.what());
+        for (const char* key : {"jacobianMode", "computeForwardJacobian", "computeEffJacobianInverse"})
+            ASSERT_NE(message.find(key), std::string::npos) << key << ": " << message;
+    }
+
+    try {
+        Matrix_<Cell_> value;
+        XccyCalibrationResult_Get(StagedResult(), "unknown", &value);
+        FAIL() << "Expected an unknown staged result view to fail";
+    } catch (const Exception_& exception) {
+        const std::string message(exception.what());
+        const std::string expected =
+            "Unknown XCCY calibration attribute: unknown (accepted views: marketRates, modelRates, residuals, maxAbsResidual, rmsResidual, "
+            "instrumentNames, parameterKnotDates, jacobian, effJacobianInverse, residualTolerance, jacobianScaling, "
+            "effJacobianInverseScaling, jacobianAvailability, effJacobianInverseAvailability)";
+        ASSERT_GE(message.size(), expected.size());
+        ASSERT_EQ(message.substr(message.size() - expected.size()), expected);
+        for (const char* attribute : {"instrumentNames", "parameterKnotDates", "jacobian", "effJacobianInverse", "jacobianAvailability",
+                                      "effJacobianInverseAvailability", "residualTolerance", "jacobianScaling", "effJacobianInverseScaling"})
+            ASSERT_NE(message.find(attribute), std::string::npos) << attribute << ": " << message;
     }
 }
 

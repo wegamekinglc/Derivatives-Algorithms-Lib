@@ -16,7 +16,7 @@ Extract a diagnostic attribute from a cross-currency calibration result. Use XCC
 <tr><th>Name</th><th style="width:120px">Type</th><th>Optional?</th><th></th></tr>
 
 <tr><td>result</td><td>handle of type StorableCrossCurrencyCalibrationResult</td><td></td><td>The cross-currency calibration result handle (from CALIBRATE.XCCYMARKET)</td></tr>
-<tr><td>attribute</td><td>string</td><td></td><td>Attribute name: marketRates, modelRates, residuals, maxAbsResidual, rmsResidual</td></tr>
+<tr><td>attribute</td><td>string</td><td></td><td>Attribute name: marketRates, modelRates, residuals, maxAbsResidual, rmsResidual, instrumentNames, parameterKnotDates, jacobian, effJacobianInverse, residualTolerance, jacobianScaling, effJacobianInverseScaling, jacobianAvailability, effJacobianInverseAvailability</td></tr>
 
 </table>
 
@@ -28,7 +28,7 @@ Extract a diagnostic attribute from a cross-currency calibration result. Use XCC
 <table border="1" cellpadding="3">
 <tr><th>Name</th><th style="width:120px">Type</th><th></th></tr>
 
-<tr><td>value</td><td>matrix of cells</td><td>The requested diagnostic. Rate vectors (marketRates/modelRates/residuals) return as an Nx1 column; scalar stats (maxAbsResidual/rmsResidual) return as 1x1.</td></tr>
+<tr><td>value</td><td>matrix of cells</td><td>The requested diagnostic. Rate vectors (marketRates/modelRates/residuals) return as an Nx1 column; matrices retain their diagnostic axes; scalar and metadata values return as 1x1.</td></tr>
 </table>
 
 

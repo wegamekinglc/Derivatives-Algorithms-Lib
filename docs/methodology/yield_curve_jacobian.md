@@ -360,6 +360,44 @@ smoother. The exact structural zeros the AAD sweep produces sit at parameters
 no residual touches by any route — the block-diagonal smoother simply ensures
 the smoothing pass does not smear those zeros into small non-zero entries.
 
+## Staged XCCY Jacobian Layout
+
+`CalibrateCrossCurrencyMarket` and the public `CalibrateXccyMarket` facade solve
+only the piecewise-constant basis curve over pre-calibrated domestic and
+foreign curve blocks. Both staged matrices are owned by
+`CrossCurrencyCalibrationDiagnostics_`, not by the result top level. The
+forward `jacobian_` has shape `nInstruments x nBasisParameters`;
+`effJacobianInverse_` has the complementary shape
+`nBasisParameters x nInstruments`.
+
+Rows follow instrument input order. `instrumentNames_` contains display labels
+for those rows, but labels may repeat and do not define identity. Columns follow
+`parameterKnotDates_` in `spec.knotDates_` order, matching the basis curve's
+right-forward parameter coordinates.
+
+A default `CrossCurrencyCalibrationOptions_` selects `ANALYTIC` and requests
+both matrices. Exact analytic mode can publish both; exact bumped mode cannot
+publish the analytic forward matrix but can publish the effective inverse;
+approximate mode publishes neither. Each false compute flag overrides the mode
+and reports `not_requested`. Otherwise an unsupported combination reports
+`not_available_for_mode`, while a populated matrix reports `available`.
+Callers should use `jacobianAvailability_` and
+`effJacobianInverseAvailability_` rather than interpret an empty matrix.
+
+The staged forward matrix is explicitly `unscaled`. The effective inverse is
+explicitly `solver_scaled`, because it is formed from residual rows divided by
+the calibration tolerance. With $E=\texttt{effJacobianInverse\_}$ and a raw
+decimal quote bump $\Delta q$,
+
+$$
+\Delta x = E\,\Delta q / \mathrm{residualTolerance}.
+$$
+
+`residualTolerance_` is the spec's `tolerance_`. Public C++, Python, and Excel
+expose the same matrices, axes, scaling labels, and availability states; Python
+keeps them under `result.diagnostics`, and Excel retrieves them through
+`XCCYCALIBRATIONRESULT.GET`.
+
 ## Joint XCCY Jacobian Layout
 
 `CalibrateJointXccyMarket` extends the same stacked-curve machinery with a final
@@ -405,8 +443,8 @@ remains available for every otherwise-valid spec. In exact bumped mode,
 requested. Exact analytic mode may retain both matrices; approximate mode
 exposes neither. `JointXccyCalibrationOptions_` can suppress the two matrix
 computations independently. Core/public C++ and joint Python expose both
-top-level matrices. The Excel joint worksheet surface exposes the forward
-Jacobian and named ranges but has no effective-inverse getter.
+top-level matrices. The Excel joint worksheet surface exposes both matrices and
+the named ranges through `JOINTXCCYCALIBRATIONRESULT.GET`.
 
 The regression suite compares the full analytic stack against two-sided central
 differences and verifies that the published parameter and residual ranges

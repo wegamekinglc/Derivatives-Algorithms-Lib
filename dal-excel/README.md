@@ -57,9 +57,23 @@ present at one timestamp, their product must differ from one by no more than
 `1e-10`.
 
 Staged `CALIBRATE.XCCYMARKET` returns a basis-curve handle plus fit diagnostics.
+Its optional settings range accepts `jacobianMode` (`ANALYTIC` or `BUMPED`),
+`computeForwardJacobian`, and `computeEffJacobianInverse`. Omitting these keys
+selects `ANALYTIC`, `TRUE`, and `TRUE`.
+
 `XCCYCALIBRATIONRESULT.GET` exposes `marketRates`, `modelRates`, `residuals`,
-`maxAbsResidual`, and `rmsResidual`; neither the staged forward Jacobian nor the
-staged effective inverse is worksheet-visible.
+`maxAbsResidual`, `rmsResidual`, `instrumentNames`, `parameterKnotDates`,
+`jacobian`, `effJacobianInverse`, `residualTolerance`, `jacobianScaling`,
+`effJacobianInverseScaling`, `jacobianAvailability`, and
+`effJacobianInverseAvailability`. The Jacobian rows follow instrument input
+order; names are labels and may repeat. Its columns follow the basis-knot
+right-forward parameter order. The effective inverse has the reversed axes.
+
+The forward scaling label is `unscaled`; the effective-inverse scaling label is
+`solver_scaled`. A raw decimal quote-bump vector therefore maps as
+`dx = E * dq / residualTolerance`, where `E` is the retrieved effective
+inverse. Availability is `available`, `not_requested`, or
+`not_available_for_mode`; an unavailable matrix is returned empty.
 
 `CALIBRATE.JOINTXCCY` performs one domestic/foreign/basis solve. Its result
 supports dedicated handle getters:
@@ -71,10 +85,9 @@ supports dedicated handle getters:
 Joint settings can request both forward-Jacobian and effective-inverse
 computation. `JOINTXCCYCALIBRATIONRESULT.GET` returns views selected by
 `fxForwards`, `marketRates`, `modelRates`, `residuals`, `jacobian`,
-`parameterRanges`, or `residualRanges`; `jacobian` is the worksheet-visible
-forward matrix and the range selectors publish its named layout. No worksheet
-selector exposes the retained joint effective inverse. The generated HTML
-under `auto/` is the exact argument and settings-key reference.
+`effJacobianInverse`, `parameterRanges`, or `residualRanges`; the range
+selectors publish the matrices' named layout. The generated HTML under `auto/`
+is the exact argument and settings-key reference.
 
 ## Layout and Generated Registration
 

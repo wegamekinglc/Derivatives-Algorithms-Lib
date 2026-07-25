@@ -38,6 +38,18 @@ namespace Dal {
             return spec.collateralCurrency_.Switch() == Ccy_::Value_::_NOT_SET ? spec.basisPair_.domestic_ : spec.collateralCurrency_;
         }
 
+        void RequireFiniteValues(const Vector_<>& values, const String_& context) {
+            for (int i = 0; i < static_cast<int>(values.size()); ++i)
+                REQUIRE(std::isfinite(values[i]), context + " has a non-finite value at index " + String::FromInt(i));
+        }
+
+        void RequireFiniteValues(const Matrix_<>& values, const String_& context) {
+            for (int row = 0; row < values.Rows(); ++row)
+                for (int column = 0; column < values.Cols(); ++column)
+                    REQUIRE(std::isfinite(values(row, column)),
+                            context + " has a non-finite value at row " + String::FromInt(row) + ", column " + String::FromInt(column));
+        }
+
         Vector_<XccyCashflowPlan_> BuildInstrumentPlans(const CrossCurrencyCalibrationSpec_& spec) {
             Vector_<XccyCashflowPlan_> result;
             result.reserve(spec.instruments_.size());
@@ -78,12 +90,17 @@ namespace Dal {
                     "Cross-currency calibration basis pair foreign currency must match the foreign curve block");
             REQUIRE(collateralCurrency == spec.basisPair_.domestic_, "Cross-currency calibration supports domestic-currency collateral only");
             REQUIRE(!spec.instruments_.empty(), "Cross-currency calibration requires at least one instrument");
-            for (int i = 0; i < static_cast<int>(spec.instruments_.size()); ++i)
+            for (int i = 0; i < static_cast<int>(spec.instruments_.size()); ++i) {
                 REQUIRE(spec.instruments_[i], "Cross-currency calibration has an empty XCCY instrument at index " + String::FromInt(i));
+                REQUIRE(std::isfinite(spec.instruments_[i]->MarketRate()),
+                        "Cross-currency calibration instrument market rate at index " + String::FromInt(i) + " must be finite");
+            }
             REQUIRE(!spec.knotDates_.empty(), "Cross-currency calibration requires at least one basis knot date");
-            REQUIRE(spec.smoothingWeight_ > 0.0, "Cross-currency calibration smoothing weight must be positive");
-            REQUIRE(spec.tolerance_ > 0.0, "Cross-currency calibration tolerance must be positive");
-            REQUIRE(spec.fitTolerance_ > 0.0, "Cross-currency calibration fit tolerance must be positive");
+            REQUIRE(std::isfinite(spec.smoothingWeight_) && spec.smoothingWeight_ > 0.0,
+                    "Cross-currency calibration smoothing weight must be finite and positive");
+            REQUIRE(std::isfinite(spec.tolerance_) && spec.tolerance_ > 0.0, "Cross-currency calibration tolerance must be finite and positive");
+            REQUIRE(std::isfinite(spec.fitTolerance_) && spec.fitTolerance_ > 0.0,
+                    "Cross-currency calibration fit tolerance must be finite and positive");
             REQUIRE(spec.maxEvaluations_ > 0, "Cross-currency calibration max evaluations must be positive");
             REQUIRE(spec.maxRestarts_ > 0, "Cross-currency calibration max restarts must be positive");
             REQUIRE(std::isfinite(spec.initialGuess_), "Cross-currency calibration initial guess must be finite");
@@ -229,12 +246,24 @@ namespace Dal {
         }
 
         CrossCurrencyCalibrationDiagnostics_ BuildDiagnostics(const CrossCurrencyCalibrationSpec_& spec,
+                                                              const CrossCurrencyCalibrationOptions_& options,
                                                               const XccyBasisCalibrationFunc_& func,
                                                               const Vector_<>& parameters,
                                                               bool usedApproximateFit,
                                                               const Matrix_<>* effJacobianInverse) {
             CrossCurrencyCalibrationDiagnostics_ result;
             result.usedApproximateFit_ = usedApproximateFit;
+            result.parameterKnotDates_ = spec.knotDates_;
+            result.residualTolerance_ = spec.tolerance_;
+            result.jacobianScaling_ = "unscaled";
+            result.effJacobianInverseScaling_ = "solver_scaled";
+            result.jacobianAvailability_ =
+                !options.computeForwardJacobian_
+                    ? String_("not_requested")
+                    : String_(usedApproximateFit || options.jacobianMode_ != CurveJacobianMode_::Value_::ANALYTIC ? "not_available_for_mode"
+                                                                                                                  : "available");
+            result.effJacobianInverseAvailability_ =
+                !options.computeEffJacobianInverse_ ? String_("not_requested") : String_(usedApproximateFit ? "not_available_for_mode" : "available");
             result.residuals_ = func.F(parameters);
             for (int i = 0; i < static_cast<int>(spec.instruments_.size()); ++i) {
                 result.instrumentNames_.push_back(spec.instruments_[i]->Name());
@@ -267,6 +296,7 @@ namespace Dal {
                                                                   const Handle_<MarketFixingSnapshot_>& fixings,
                                                                   const CurveDefinition_& basisDefinition,
                                                                   const XccyBasisCalibrationFunc_& func,
+                                                                  const CrossCurrencyCalibrationOptions_& options,
                                                                   XccyBasisSolveResult_* solve) {
             Handle_<DiscountCurve_> basisCurve(BuildDiscountCurveUniqueT<double>(basisDefinition, solve->parameters_).release());
             CrossCurrencyMarket_ market(spec.domesticCurveBlock_, spec.foreignCurveBlock_, spec.fxSpot_, valuationTime, collateralCurrency, fixings);
@@ -277,8 +307,16 @@ namespace Dal {
             CrossCurrencyFxForwardCurve_ fxForwardCurve = BuildFxForwardCurve(spec.basisPair_, spec.knotDates_, market, spec.fxForwardCollateral_);
             const Matrix_<>* effJacobianInverse = solve->hasEffJacobianInverse_ ? &solve->effJacobianInverse_ : nullptr;
             CrossCurrencyCalibrationDiagnostics_ diagnostics =
-                BuildDiagnostics(spec, func, solve->parameters_, solve->approximate_, effJacobianInverse);
+                BuildDiagnostics(spec, options, func, solve->parameters_, solve->approximate_, effJacobianInverse);
             diagnostics.jacobian_ = std::move(solve->forwardJacobian_);
+            RequireFiniteValues(diagnostics.marketRates_, "Cross-currency calibration market rates");
+            RequireFiniteValues(diagnostics.modelRates_, "Cross-currency calibration model rates");
+            RequireFiniteValues(diagnostics.residuals_, "Cross-currency calibration residuals");
+            RequireFiniteResidualStats(ResidualStats_{diagnostics.maxAbsResidual_, diagnostics.rmsResidual_},
+                                       "Cross-currency calibration diagnostics");
+            RequireFiniteValues(diagnostics.jacobian_, "Cross-currency calibration forward Jacobian");
+            RequireFiniteValues(diagnostics.effJacobianInverse_, "Cross-currency calibration effective inverse Jacobian");
+            RequireFiniteValues(fxForwardCurve.forwards_, "Cross-currency calibration FX forwards");
             return CrossCurrencyCalibrationResult_(market, basisCurves, fxForwardCurve, diagnostics);
         }
     } // namespace
@@ -315,6 +353,6 @@ namespace Dal {
 
         XccyBasisCalibrationFunc_ func(spec, valuationTime, collateralCurrency, fixings, plans, basisDefinition, options.jacobianMode_);
         XccyBasisSolveResult_ solve = SolveXccyBasis(spec, options, func, guess, tolerance, *weights, controls);
-        return AssembleCalibrationResult(spec, valuationTime, collateralCurrency, fixings, basisDefinition, func, &solve);
+        return AssembleCalibrationResult(spec, valuationTime, collateralCurrency, fixings, basisDefinition, func, options, &solve);
     }
 } // namespace Dal

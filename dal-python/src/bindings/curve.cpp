@@ -749,8 +749,36 @@ namespace {
             [](CrossCurrencyCalibrationSpecBuilder_& value, const py::iterable& dates) { SetDates(&value.knotDates_, dates); });
         xccyBuilder.def("Build", &CrossCurrencyCalibrationSpecBuilder_::Build).def("build", &CrossCurrencyCalibrationSpecBuilder_::Build);
 
+        auto xccyOptions = py::class_<CrossCurrencyCalibrationOptions_>(m, "CrossCurrencyCalibrationOptions_");
+        xccyOptions.def(py::init<>());
+        DefPropertyAliases(
+            xccyOptions, "jacobianMode_", "jacobian_mode", [](const CrossCurrencyCalibrationOptions_& value) { return value.jacobianMode_.Switch(); },
+            [](CrossCurrencyCalibrationOptions_& value, CurveJacobianMode_::Value_ mode) { value.jacobianMode_ = CurveJacobianMode_(mode); });
+        DefReadWriteAliases(xccyOptions, "computeEffJacobianInverse_", "compute_eff_jacobian_inverse",
+                            &CrossCurrencyCalibrationOptions_::computeEffJacobianInverse_);
+        DefReadWriteAliases(xccyOptions, "computeForwardJacobian_", "compute_forward_jacobian",
+                            &CrossCurrencyCalibrationOptions_::computeForwardJacobian_);
+
         auto xccyDiagnostics = py::class_<CrossCurrencyCalibrationDiagnostics_>(m, "CrossCurrencyCalibrationDiagnostics_");
+        const auto instrumentNames = [](const CrossCurrencyCalibrationDiagnostics_& value) {
+            py::list result;
+            for (const auto& name : value.instrumentNames_)
+                result.append(std::string(name.c_str()));
+            return result;
+        };
+        const auto jacobian = py::cpp_function(
+            [](const CrossCurrencyCalibrationDiagnostics_& value) -> const Matrix_<>& { return value.jacobian_; },
+            py::return_value_policy::reference_internal);
+        const auto effJacobianInverse = py::cpp_function(
+            [](const CrossCurrencyCalibrationDiagnostics_& value) -> const Matrix_<>& { return value.effJacobianInverse_; },
+            py::return_value_policy::reference_internal);
         xccyDiagnostics
+            .def_property_readonly("instrumentNames_", instrumentNames)
+            .def_property_readonly("instrument_names", instrumentNames)
+            .def_property_readonly("parameterKnotDates_",
+                                   [](const CrossCurrencyCalibrationDiagnostics_& value) { return DatesToList(value.parameterKnotDates_); })
+            .def_property_readonly("parameter_knot_dates",
+                                   [](const CrossCurrencyCalibrationDiagnostics_& value) { return DatesToList(value.parameterKnotDates_); })
             .def_property_readonly("marketRates_",
                                    [](const CrossCurrencyCalibrationDiagnostics_& value) { return DoublesToList(value.marketRates_); })
             .def_property_readonly("market_rates",
@@ -762,7 +790,51 @@ namespace {
             .def_property_readonly("maxAbsResidual_", [](const CrossCurrencyCalibrationDiagnostics_& value) { return value.maxAbsResidual_; })
             .def_property_readonly("max_abs_residual", [](const CrossCurrencyCalibrationDiagnostics_& value) { return value.maxAbsResidual_; })
             .def_property_readonly("rmsResidual_", [](const CrossCurrencyCalibrationDiagnostics_& value) { return value.rmsResidual_; })
-            .def_property_readonly("rms_residual", [](const CrossCurrencyCalibrationDiagnostics_& value) { return value.rmsResidual_; });
+            .def_property_readonly("rms_residual", [](const CrossCurrencyCalibrationDiagnostics_& value) { return value.rmsResidual_; })
+            .def_property_readonly("jacobian_", jacobian)
+            .def_property_readonly("jacobian", jacobian)
+            .def_property_readonly("effJacobianInverse_", effJacobianInverse)
+            .def_property_readonly("eff_jacobian_inverse", effJacobianInverse)
+            .def_property_readonly("residualTolerance_",
+                                   [](const CrossCurrencyCalibrationDiagnostics_& value) { return value.residualTolerance_; })
+            .def_property_readonly("residual_tolerance",
+                                   [](const CrossCurrencyCalibrationDiagnostics_& value) { return value.residualTolerance_; })
+            .def_property_readonly("jacobianScaling_",
+                                   [](const CrossCurrencyCalibrationDiagnostics_& value) {
+                                       return std::string(value.jacobianScaling_.c_str());
+                                   })
+            .def_property_readonly("jacobian_scaling",
+                                   [](const CrossCurrencyCalibrationDiagnostics_& value) {
+                                       return std::string(value.jacobianScaling_.c_str());
+                                   })
+            .def_property_readonly("effJacobianInverseScaling_",
+                                   [](const CrossCurrencyCalibrationDiagnostics_& value) {
+                                       return std::string(value.effJacobianInverseScaling_.c_str());
+                                   })
+            .def_property_readonly("eff_jacobian_inverse_scaling",
+                                   [](const CrossCurrencyCalibrationDiagnostics_& value) {
+                                       return std::string(value.effJacobianInverseScaling_.c_str());
+                                   })
+            .def_property_readonly("jacobianAvailability_",
+                                   [](const CrossCurrencyCalibrationDiagnostics_& value) {
+                                       return std::string(value.jacobianAvailability_.c_str());
+                                   })
+            .def_property_readonly("jacobian_availability",
+                                   [](const CrossCurrencyCalibrationDiagnostics_& value) {
+                                       return std::string(value.jacobianAvailability_.c_str());
+                                   })
+            .def_property_readonly("effJacobianInverseAvailability_",
+                                   [](const CrossCurrencyCalibrationDiagnostics_& value) {
+                                       return std::string(value.effJacobianInverseAvailability_.c_str());
+                                   })
+            .def_property_readonly("eff_jacobian_inverse_availability",
+                                   [](const CrossCurrencyCalibrationDiagnostics_& value) {
+                                       return std::string(value.effJacobianInverseAvailability_.c_str());
+                                   })
+            .def_property_readonly("usedApproximateFit_",
+                                   [](const CrossCurrencyCalibrationDiagnostics_& value) { return value.usedApproximateFit_; })
+            .def_property_readonly("used_approximate_fit",
+                                   [](const CrossCurrencyCalibrationDiagnostics_& value) { return value.usedApproximateFit_; });
 
         auto fxForwardCurve = py::class_<CrossCurrencyFxForwardCurve_>(m, "CrossCurrencyFxForwardCurve_");
         fxForwardCurve.def_property_readonly("pair_", [](const CrossCurrencyFxForwardCurve_& value) { return value.pair_; })
@@ -946,7 +1018,9 @@ namespace {
             py::cpp_function([](const JointXccyCalibrationResult_& value) -> const Matrix_<>& { return JointXccyResultJacobian(value); },
                              py::return_value_policy::reference_internal);
         const auto inverseMatrix =
-            py::cpp_function([](const JointXccyCalibrationResult_& value) -> const Matrix_<>& { return value.effJacobianInverse_; },
+            py::cpp_function([](const JointXccyCalibrationResult_& value) -> const Matrix_<>& {
+                return JointXccyResultEffJacobianInverse(value);
+            },
                              py::return_value_policy::reference_internal);
         jointResult.def_property_readonly("domesticCurveBlock_", domesticBlock).def_property_readonly("domestic_curve_block", domesticBlock);
         jointResult.def_property_readonly("foreignCurveBlock_", foreignBlock).def_property_readonly("foreign_curve_block", foreignBlock);
@@ -1002,7 +1076,11 @@ namespace {
             .def_property_readonly("solverEvaluations_", [](const JointXccyCalibrationResult_& value) { return value.solverEvaluations_; })
             .def_property_readonly("solver_evaluations", [](const JointXccyCalibrationResult_& value) { return value.solverEvaluations_; });
 
-        m.def("CalibrateXccyMarket", &CalibrateXccyMarket, py::arg("spec"), py::call_guard<py::gil_scoped_release>());
+        m.def("CalibrateXccyMarket", py::overload_cast<const CrossCurrencyCalibrationSpec_&>(&CalibrateXccyMarket), py::arg("spec"),
+              py::call_guard<py::gil_scoped_release>());
+        m.def("CalibrateXccyMarket",
+              py::overload_cast<const CrossCurrencyCalibrationSpec_&, const CrossCurrencyCalibrationOptions_&>(&CalibrateXccyMarket),
+              py::arg("spec"), py::arg("options"), py::call_guard<py::gil_scoped_release>());
         m.def("CalibrateJointXccyMarket", py::overload_cast<const JointXccyCalibrationSpec_&>(&CalibrateJointXccyMarket), py::arg("spec"), py::call_guard<py::gil_scoped_release>());
         m.def("CalibrateJointXccyMarket",
               py::overload_cast<const JointXccyCalibrationSpec_&, const JointXccyCalibrationOptions_&>(&CalibrateJointXccyMarket), py::arg("spec"),
