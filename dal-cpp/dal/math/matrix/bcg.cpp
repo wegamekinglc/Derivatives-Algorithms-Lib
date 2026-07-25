@@ -110,7 +110,7 @@ namespace Dal {
             Transform(b, s.r_, std::minus<>(), &s.r_); // r = b - Ax
             if (biConjugate)
                 s.rr_ = s.r_;
-            if (InnerProduct(s.r_, s.r_) == 0.0)
+            if (AllOf(s.r_, [](double value) { return value == 0.0; }))
                 return;
 
             for (int ii = 0; ii < maxIterations; ++ii) {
