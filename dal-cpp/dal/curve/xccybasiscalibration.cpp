@@ -312,6 +312,8 @@ namespace Dal {
             RequireFiniteValues(diagnostics.marketRates_, "Cross-currency calibration market rates");
             RequireFiniteValues(diagnostics.modelRates_, "Cross-currency calibration model rates");
             RequireFiniteValues(diagnostics.residuals_, "Cross-currency calibration residuals");
+            RequireFiniteResidualStats(ResidualStats_{diagnostics.maxAbsResidual_, diagnostics.rmsResidual_},
+                                       "Cross-currency calibration diagnostics");
             RequireFiniteValues(diagnostics.jacobian_, "Cross-currency calibration forward Jacobian");
             RequireFiniteValues(diagnostics.effJacobianInverse_, "Cross-currency calibration effective inverse Jacobian");
             RequireFiniteValues(fxForwardCurve.forwards_, "Cross-currency calibration FX forwards");

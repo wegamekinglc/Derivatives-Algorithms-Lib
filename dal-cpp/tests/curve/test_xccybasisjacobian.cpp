@@ -4,21 +4,23 @@
 
 #include <gtest/gtest.h>
 
+#include <array>
 #include <cmath>
-#include <limits>
-#include <string>
-#include <dal/platform/platform.hpp>
+#include <dal/curve/calibration_internal.hpp>
 #include <dal/curve/curveblock.hpp>
 #include <dal/curve/piecewiseconstant.hpp>
 #include <dal/curve/piecewiselinear.hpp>
 #include <dal/curve/xccycalibration.hpp>
 #include <dal/curve/ycconst.hpp>
 #include <dal/curve/ycimp.hpp>
+#include <dal/platform/platform.hpp>
 #include <dal/protocol/collateraltype.hpp>
 #include <dal/storage/_repository.hpp>
 #include <dal/storage/globals.hpp>
 #include <dal/time/daybasis.hpp>
 #include <dal/time/periodlength.hpp>
+#include <limits>
+#include <string>
 
 using namespace Dal;
 
@@ -465,6 +467,110 @@ TEST(XccyBasisJacobianTest, TestAvailabilityDistinguishesModeAndRequestFlags) {
     const auto approximateWithoutMatrices = CalibrateCrossCurrencyMarket(fixture.spec_, options);
     ASSERT_EQ(approximateWithoutMatrices.diagnostics_.jacobianAvailability_, String_("not_requested"));
     ASSERT_EQ(approximateWithoutMatrices.diagnostics_.effJacobianInverseAvailability_, String_("not_requested"));
+}
+
+TEST(XccyBasisJacobianTest, TestAvailabilityTruthTableCoversEveryModeAndFlagCombination) {
+    struct Case_ {
+        CurveSolveMode_::Value_ solveMode_;
+        CurveJacobianMode_::Value_ jacobianMode_;
+        bool computeForwardJacobian_;
+        bool computeEffJacobianInverse_;
+        const char* expectedForwardAvailability_;
+        const char* expectedInverseAvailability_;
+        bool expectedForwardValues_;
+        bool expectedInverseValues_;
+    };
+    const std::array<Case_, 16> cases = {{
+        {CurveSolveMode_::Value_::EXACT, CurveJacobianMode_::Value_::ANALYTIC, false, false, "not_requested", "not_requested", false, false},
+        {CurveSolveMode_::Value_::EXACT, CurveJacobianMode_::Value_::ANALYTIC, false, true, "not_requested", "available", false, true},
+        {CurveSolveMode_::Value_::EXACT, CurveJacobianMode_::Value_::ANALYTIC, true, false, "available", "not_requested", true, false},
+        {CurveSolveMode_::Value_::EXACT, CurveJacobianMode_::Value_::ANALYTIC, true, true, "available", "available", true, true},
+        {CurveSolveMode_::Value_::EXACT, CurveJacobianMode_::Value_::BUMPED, false, false, "not_requested", "not_requested", false, false},
+        {CurveSolveMode_::Value_::EXACT, CurveJacobianMode_::Value_::BUMPED, false, true, "not_requested", "available", false, true},
+        {CurveSolveMode_::Value_::EXACT, CurveJacobianMode_::Value_::BUMPED, true, false, "not_available_for_mode", "not_requested", false, false},
+        {CurveSolveMode_::Value_::EXACT, CurveJacobianMode_::Value_::BUMPED, true, true, "not_available_for_mode", "available", false, true},
+        {CurveSolveMode_::Value_::APPROXIMATE, CurveJacobianMode_::Value_::ANALYTIC, false, false, "not_requested", "not_requested", false, false},
+        {CurveSolveMode_::Value_::APPROXIMATE, CurveJacobianMode_::Value_::ANALYTIC, false, true, "not_requested", "not_available_for_mode", false,
+         false},
+        {CurveSolveMode_::Value_::APPROXIMATE, CurveJacobianMode_::Value_::ANALYTIC, true, false, "not_available_for_mode", "not_requested", false,
+         false},
+        {CurveSolveMode_::Value_::APPROXIMATE, CurveJacobianMode_::Value_::ANALYTIC, true, true, "not_available_for_mode", "not_available_for_mode",
+         false, false},
+        {CurveSolveMode_::Value_::APPROXIMATE, CurveJacobianMode_::Value_::BUMPED, false, false, "not_requested", "not_requested", false, false},
+        {CurveSolveMode_::Value_::APPROXIMATE, CurveJacobianMode_::Value_::BUMPED, false, true, "not_requested", "not_available_for_mode", false,
+         false},
+        {CurveSolveMode_::Value_::APPROXIMATE, CurveJacobianMode_::Value_::BUMPED, true, false, "not_available_for_mode", "not_requested", false,
+         false},
+        {CurveSolveMode_::Value_::APPROXIMATE, CurveJacobianMode_::Value_::BUMPED, true, true, "not_available_for_mode", "not_available_for_mode",
+         false, false},
+    }};
+
+    for (int i = 0; i < static_cast<int>(cases.size()); ++i) {
+        SCOPED_TRACE("case=" + std::to_string(i));
+        auto fixture = MakeFixture();
+        fixture.spec_.solveMode_ = cases[i].solveMode_;
+        CrossCurrencyCalibrationOptions_ options;
+        options.jacobianMode_ = cases[i].jacobianMode_;
+        options.computeForwardJacobian_ = cases[i].computeForwardJacobian_;
+        options.computeEffJacobianInverse_ = cases[i].computeEffJacobianInverse_;
+
+        const auto& diagnostics = CalibrateCrossCurrencyMarket(fixture.spec_, options).diagnostics_;
+        ASSERT_EQ(diagnostics.jacobianAvailability_, String_(cases[i].expectedForwardAvailability_));
+        ASSERT_EQ(diagnostics.effJacobianInverseAvailability_, String_(cases[i].expectedInverseAvailability_));
+        ASSERT_EQ(!diagnostics.jacobian_.Empty(), cases[i].expectedForwardValues_);
+        ASSERT_EQ(!diagnostics.effJacobianInverse_.Empty(), cases[i].expectedInverseValues_);
+    }
+}
+
+TEST(XccyBasisJacobianTest, TestResidualStatsRemainFiniteForLargeFiniteResiduals) {
+    constexpr double largeResidual = 1.0e200;
+    const ResidualStats_ stats = ResidualStats(Vector_<>{largeResidual, -largeResidual});
+
+    ASSERT_TRUE(std::isfinite(stats.maxAbsResidual_));
+    ASSERT_TRUE(std::isfinite(stats.rmsResidual_));
+    ASSERT_DOUBLE_EQ(stats.maxAbsResidual_, largeResidual);
+    ASSERT_DOUBLE_EQ(stats.rmsResidual_, largeResidual);
+}
+
+TEST(XccyBasisJacobianTest, TestPublicDiagnosticsRemainFiniteForLargeFiniteResiduals) {
+    constexpr double largeResidual = 1.0e200;
+    auto fixture = MakeFixture();
+    for (int i = 0; i < static_cast<int>(fixture.spec_.instruments_.size()); ++i)
+        fixture.spec_ = BumpQuote(fixture.spec_, i, largeResidual - fixture.spec_.instruments_[i]->MarketRate());
+    fixture.spec_.solveMode_ = CurveSolveMode_::Value_::APPROXIMATE;
+    fixture.spec_.tolerance_ = largeResidual;
+    fixture.spec_.fitTolerance_ = 2.0;
+    CrossCurrencyCalibrationOptions_ options;
+    options.computeForwardJacobian_ = false;
+    options.computeEffJacobianInverse_ = false;
+
+    const auto& diagnostics = CalibrateCrossCurrencyMarket(fixture.spec_, options).diagnostics_;
+    ASSERT_TRUE(diagnostics.usedApproximateFit_);
+    for (const double residual : diagnostics.residuals_) {
+        ASSERT_TRUE(std::isfinite(residual));
+        ASSERT_GT(std::fabs(residual), 0.5 * largeResidual);
+    }
+    ASSERT_TRUE(std::isfinite(diagnostics.maxAbsResidual_));
+    ASSERT_TRUE(std::isfinite(diagnostics.rmsResidual_));
+    ASSERT_LE(diagnostics.rmsResidual_, diagnostics.maxAbsResidual_);
+    ASSERT_GT(diagnostics.rmsResidual_, 0.5 * largeResidual);
+}
+
+TEST(XccyBasisJacobianTest, TestResidualStatsOutputValidationRejectsNonFiniteScalars) {
+    const double infinity = std::numeric_limits<double>::infinity();
+    const std::array<std::pair<ResidualStats_, const char*>, 2> cases = {{
+        {ResidualStats_{infinity, 0.0}, "maximum absolute residual"},
+        {ResidualStats_{0.0, infinity}, "RMS residual"},
+    }};
+
+    for (const auto& testCase : cases) {
+        try {
+            RequireFiniteResidualStats(testCase.first, "Cross-currency calibration");
+            FAIL() << "Expected non-finite residual statistics to fail validation";
+        } catch (const Dal::Exception_& exception) {
+            ASSERT_NE(std::string(exception.what()).find(testCase.second), std::string::npos) << exception.what();
+        }
+    }
 }
 
 TEST(XccyBasisJacobianTest, TestValidationRejectsNonFiniteSolverInputsBeforeSolving) {

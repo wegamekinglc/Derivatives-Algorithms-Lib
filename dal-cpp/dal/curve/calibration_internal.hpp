@@ -89,8 +89,8 @@ namespace Dal {
         return retval;
     }
 
-    // maxAbs and RMS of a residual sequence, single-pass. Fixed accumulation order keeps the
-    // floating-point output stable across call sites.
+    // maxAbs and RMS of a residual sequence, single-pass. Scaled accumulation avoids overflow
+    // when finite residuals are too large to square directly.
     struct ResidualStats_ {
         double maxAbsResidual_ = 0.0;
         double rmsResidual_ = 0.0;
@@ -98,12 +98,31 @@ namespace Dal {
 
     template <class E_> ResidualStats_ ResidualStats(const Vector_<E_>& residuals) {
         double maxAbs = 0.0;
-        double sq = 0.0;
+        double scale = 0.0;
+        double scaledSquares = 0.0;
         for (const E_ r : residuals) {
-            maxAbs = std::max(maxAbs, std::fabs(r));
-            sq += r * r;
+            const double absResidual = std::fabs(r);
+            if (!std::isfinite(absResidual))
+                return ResidualStats_{absResidual, absResidual};
+            maxAbs = std::max(maxAbs, absResidual);
+            if (absResidual == 0.0)
+                continue;
+            if (scale < absResidual) {
+                const double ratio = scale / absResidual;
+                scaledSquares = 1.0 + scaledSquares * ratio * ratio;
+                scale = absResidual;
+            } else {
+                const double ratio = absResidual / scale;
+                scaledSquares += ratio * ratio;
+            }
         }
-        return ResidualStats_{maxAbs, residuals.empty() ? 0.0 : std::sqrt(sq / residuals.size())};
+        const double meanScaledSquares = residuals.empty() ? 0.0 : std::min(1.0, scaledSquares / static_cast<double>(residuals.size()));
+        return ResidualStats_{maxAbs, scale * std::sqrt(meanScaledSquares)};
+    }
+
+    inline void RequireFiniteResidualStats(const ResidualStats_& stats, const String_& context) {
+        REQUIRE(std::isfinite(stats.maxAbsResidual_), context + " maximum absolute residual must be finite");
+        REQUIRE(std::isfinite(stats.rmsResidual_), context + " RMS residual must be finite");
     }
 
     // Resolve the coupon-months count for a single-period instrument's day-count context.
