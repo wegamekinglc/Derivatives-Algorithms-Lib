@@ -11,6 +11,17 @@
 
 using namespace Dal;
 
+namespace {
+    class RescaledIdentity_ : public Sparse::TriDiagonal_, public HasPreConditioner_ {
+        static void Rescale(const Vector_<>& b, Vector_<>* x) { (*x)[0] = 1e170 * b[0]; }
+
+    public:
+        RescaledIdentity_() : Sparse::TriDiagonal_(1) { Set(0, 0, 1.0); }
+        void PreConditionerSolveLeft(const Vector_<>& b, Vector_<>* x) const override { Rescale(b, x); }
+        void PreConditionerSolveRight(const Vector_<>& b, Vector_<>* x) const override { Rescale(b, x); }
+    };
+} // namespace
+
 TEST(MatrixTest, TestCGSolve) {
     const int n = 10;
     std::unique_ptr<Sparse::Square_> mat = Sparse::NewBandDiagonal(n, 1, 1);
@@ -43,6 +54,57 @@ TEST(MatrixTest, TestBCGSolve) {
 
     ASSERT_NEAR(result[8], 0.08510638, 1e-8);
     ASSERT_NEAR(result[9], 0.07446809, 1e-8);
+}
+
+TEST(MatrixTest, TestCGSolveAcceptsExactInitialGuess) {
+    std::unique_ptr<Sparse::Square_> mat = Sparse::NewBandDiagonal(2, 0, 0);
+    mat->Set(0, 0, 2.0);
+    mat->Set(1, 1, 3.0);
+    const Vector_<> b = {2.0, 6.0};
+    Vector_<> x = {1.0, 2.0};
+
+    Sparse::CGSolve(*mat, b, 1e-12, 1e-14, 10, &x);
+
+    ASSERT_DOUBLE_EQ(x[0], 1.0);
+    ASSERT_DOUBLE_EQ(x[1], 2.0);
+}
+
+TEST(MatrixTest, TestBCGSolveAcceptsExactInitialGuess) {
+    std::unique_ptr<Sparse::Square_> mat = Sparse::NewBandDiagonal(2, 1, 1);
+    mat->Set(0, 0, 2.0);
+    mat->Set(0, 1, 1.0);
+    mat->Set(1, 1, 3.0);
+    const Vector_<> b = {4.0, 6.0};
+    Vector_<> x = {1.0, 2.0};
+
+    Sparse::BCGSolve(*mat, b, 1e-12, 1e-14, 10, &x);
+
+    ASSERT_DOUBLE_EQ(x[0], 1.0);
+    ASSERT_DOUBLE_EQ(x[1], 2.0);
+}
+
+TEST(MatrixTest, TestCGSolveDoesNotTreatUnderflowedResidualAsZero) {
+    const double nonzeroResidual = 1e-170;
+    ASSERT_DOUBLE_EQ(nonzeroResidual * nonzeroResidual, 0.0);
+    const RescaledIdentity_ mat;
+    const Vector_<> b = {0.0};
+    Vector_<> x = {nonzeroResidual};
+
+    Sparse::CGSolve(mat, b, EPSILON, 0.0, 10, &x);
+
+    ASSERT_DOUBLE_EQ(x[0], 0.0);
+}
+
+TEST(MatrixTest, TestBCGSolveDoesNotTreatUnderflowedResidualAsZero) {
+    const double nonzeroResidual = 1e-170;
+    ASSERT_DOUBLE_EQ(nonzeroResidual * nonzeroResidual, 0.0);
+    const RescaledIdentity_ mat;
+    const Vector_<> b = {0.0};
+    Vector_<> x = {nonzeroResidual};
+
+    Sparse::BCGSolve(mat, b, EPSILON, 0.0, 10, &x);
+
+    ASSERT_DOUBLE_EQ(x[0], 0.0);
 }
 
 // Tri-diagonal systems with distinct band values exercise every branch of the
@@ -108,4 +170,3 @@ TEST(MatrixTest, TestBCGSolveAsymmetricLowResidual) {
     Sparse::BCGSolve(*mat, b, 1e-12, 1e-14, 500, &x);
     ASSERT_LT(ResidualInfNorm(*mat, x, b), 1e-8);
 }
-
