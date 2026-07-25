@@ -444,6 +444,52 @@ namespace Dal {
             }
             return result;
         }
+
+        using XccyResultViewGetter_ = Matrix_<Cell_> (*)(const CrossCurrencyCalibrationResult_&, const CrossCurrencyCalibrationDiagnostics_&);
+
+        struct XccyResultView_ {
+            const char* name_;
+            XccyResultViewGetter_ getter_;
+        };
+
+        const XccyResultView_ XCCY_RESULT_VIEWS[] = {
+            {"marketRates", [](const CrossCurrencyCalibrationResult_&,
+                               const CrossCurrencyCalibrationDiagnostics_& diag) { return AsCellColumn(diag.marketRates_); }},
+            {"modelRates",
+             [](const CrossCurrencyCalibrationResult_&, const CrossCurrencyCalibrationDiagnostics_& diag) { return AsCellColumn(diag.modelRates_); }},
+            {"residuals",
+             [](const CrossCurrencyCalibrationResult_&, const CrossCurrencyCalibrationDiagnostics_& diag) { return AsCellColumn(diag.residuals_); }},
+            {"maxAbsResidual", [](const CrossCurrencyCalibrationResult_&,
+                                  const CrossCurrencyCalibrationDiagnostics_& diag) { return Matrix_<Cell_>(1, 1, Cell_(diag.maxAbsResidual_)); }},
+            {"rmsResidual", [](const CrossCurrencyCalibrationResult_&,
+                               const CrossCurrencyCalibrationDiagnostics_& diag) { return Matrix_<Cell_>(1, 1, Cell_(diag.rmsResidual_)); }},
+            {"instrumentNames", [](const CrossCurrencyCalibrationResult_&,
+                                   const CrossCurrencyCalibrationDiagnostics_& diag) { return StringsAsCells(diag.instrumentNames_); }},
+            {"parameterKnotDates", [](const CrossCurrencyCalibrationResult_&,
+                                      const CrossCurrencyCalibrationDiagnostics_& diag) { return DatesAsCells(diag.parameterKnotDates_); }},
+            {"jacobian", [](const CrossCurrencyCalibrationResult_& result,
+                            const CrossCurrencyCalibrationDiagnostics_&) { return AsCellMatrix(XccyResultJacobian(result)); }},
+            {"effJacobianInverse", [](const CrossCurrencyCalibrationResult_& result,
+                                      const CrossCurrencyCalibrationDiagnostics_&) { return AsCellMatrix(XccyResultEffJacobianInverse(result)); }},
+            {"residualTolerance",
+             [](const CrossCurrencyCalibrationResult_&, const CrossCurrencyCalibrationDiagnostics_& diag) {
+                 return Matrix_<Cell_>(1, 1, Cell_(diag.residualTolerance_));
+             }},
+            {"jacobianScaling", [](const CrossCurrencyCalibrationResult_&,
+                                   const CrossCurrencyCalibrationDiagnostics_& diag) { return Matrix_<Cell_>(1, 1, Cell_(diag.jacobianScaling_)); }},
+            {"effJacobianInverseScaling",
+             [](const CrossCurrencyCalibrationResult_&, const CrossCurrencyCalibrationDiagnostics_& diag) {
+                 return Matrix_<Cell_>(1, 1, Cell_(diag.effJacobianInverseScaling_));
+             }},
+            {"jacobianAvailability",
+             [](const CrossCurrencyCalibrationResult_&, const CrossCurrencyCalibrationDiagnostics_& diag) {
+                 return Matrix_<Cell_>(1, 1, Cell_(diag.jacobianAvailability_));
+             }},
+            {"effJacobianInverseAvailability",
+             [](const CrossCurrencyCalibrationResult_&, const CrossCurrencyCalibrationDiagnostics_& diag) {
+                 return Matrix_<Cell_>(1, 1, Cell_(diag.effJacobianInverseAvailability_));
+             }},
+        };
     } // namespace
 
     void Calibrate_XccyMarket(const Date_& today,
@@ -505,40 +551,18 @@ namespace Dal {
 
     void XccyCalibrationResult_Get(const Handle_<StorableCrossCurrencyCalibrationResult_>& result, const String_& attribute, Matrix_<Cell_>* value) {
         REQUIRE(result, "Invalid XCCY calibration result handle");
-        const auto& diag = XccyResultDiagnostics(result->val_);
-        if (attribute == "marketRates")
-            *value = AsCellColumn(diag.marketRates_);
-        else if (attribute == "modelRates")
-            *value = AsCellColumn(diag.modelRates_);
-        else if (attribute == "residuals")
-            *value = AsCellColumn(diag.residuals_);
-        else if (attribute == "maxAbsResidual")
-            *value = Matrix_<Cell_>(1, 1, Cell_(diag.maxAbsResidual_));
-        else if (attribute == "rmsResidual")
-            *value = Matrix_<Cell_>(1, 1, Cell_(diag.rmsResidual_));
-        else if (attribute == "instrumentNames")
-            *value = StringsAsCells(diag.instrumentNames_);
-        else if (attribute == "parameterKnotDates")
-            *value = DatesAsCells(diag.parameterKnotDates_);
-        else if (attribute == "jacobian")
-            *value = AsCellMatrix(XccyResultJacobian(result->val_));
-        else if (attribute == "effJacobianInverse")
-            *value = AsCellMatrix(XccyResultEffJacobianInverse(result->val_));
-        else if (attribute == "residualTolerance")
-            *value = Matrix_<Cell_>(1, 1, Cell_(diag.residualTolerance_));
-        else if (attribute == "jacobianScaling")
-            *value = Matrix_<Cell_>(1, 1, Cell_(diag.jacobianScaling_));
-        else if (attribute == "effJacobianInverseScaling")
-            *value = Matrix_<Cell_>(1, 1, Cell_(diag.effJacobianInverseScaling_));
-        else if (attribute == "jacobianAvailability")
-            *value = Matrix_<Cell_>(1, 1, Cell_(diag.jacobianAvailability_));
-        else if (attribute == "effJacobianInverseAvailability")
-            *value = Matrix_<Cell_>(1, 1, Cell_(diag.effJacobianInverseAvailability_));
-        else
-            THROW("Unknown XCCY calibration attribute: " + attribute +
-                  " (accepted views: marketRates, modelRates, residuals, maxAbsResidual, rmsResidual, instrumentNames, "
-                  "parameterKnotDates, jacobian, effJacobianInverse, residualTolerance, jacobianScaling, effJacobianInverseScaling, "
-                  "jacobianAvailability, effJacobianInverseAvailability)");
+        const auto& calibration = result->val_;
+        const auto& diag = XccyResultDiagnostics(calibration);
+        for (const auto& view : XCCY_RESULT_VIEWS) {
+            if (attribute == view.name_) {
+                *value = view.getter_(calibration, diag);
+                return;
+            }
+        }
+        THROW("Unknown XCCY calibration attribute: " + attribute +
+              " (accepted views: marketRates, modelRates, residuals, maxAbsResidual, rmsResidual, instrumentNames, "
+              "parameterKnotDates, jacobian, effJacobianInverse, residualTolerance, jacobianScaling, effJacobianInverseScaling, "
+              "jacobianAvailability, effJacobianInverseAvailability)");
     }
 
     void Calibrate_JointXccy(const Cell_& valuationTime,

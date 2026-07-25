@@ -6,6 +6,8 @@
 
 #include <gtest/gtest.h>
 
+#include <cmath>
+
 #include <dal-excel/src/__curve_storable.hpp>
 #include <dal-excel/src/__xccy_test_api.hpp>
 #include <dal-public/src/curvedata.hpp>
@@ -191,14 +193,42 @@ TEST(ExcelApiTest, TestStagedCalibrationExposesFrozenSensitivityViews) {
     const auto result = StagedResult();
     ASSERT_TRUE(result);
 
+    Matrix_<Cell_> marketRates;
+    Matrix_<Cell_> modelRates;
+    Matrix_<Cell_> residuals;
+    Matrix_<Cell_> maxAbsResidual;
+    Matrix_<Cell_> rmsResidual;
     Matrix_<Cell_> instrumentNames;
     Matrix_<Cell_> knotDates;
     Matrix_<Cell_> jacobian;
     Matrix_<Cell_> inverse;
+    XccyCalibrationResult_Get(result, "marketRates", &marketRates);
+    XccyCalibrationResult_Get(result, "modelRates", &modelRates);
+    XccyCalibrationResult_Get(result, "residuals", &residuals);
+    XccyCalibrationResult_Get(result, "maxAbsResidual", &maxAbsResidual);
+    XccyCalibrationResult_Get(result, "rmsResidual", &rmsResidual);
     XccyCalibrationResult_Get(result, "instrumentNames", &instrumentNames);
     XccyCalibrationResult_Get(result, "parameterKnotDates", &knotDates);
     XccyCalibrationResult_Get(result, "jacobian", &jacobian);
     XccyCalibrationResult_Get(result, "effJacobianInverse", &inverse);
+    ASSERT_EQ(marketRates.Rows(), 1);
+    ASSERT_EQ(marketRates.Cols(), 1);
+    ASSERT_EQ(modelRates.Rows(), 1);
+    ASSERT_EQ(modelRates.Cols(), 1);
+    ASSERT_EQ(residuals.Rows(), 1);
+    ASSERT_EQ(residuals.Cols(), 1);
+    ASSERT_DOUBLE_EQ(Cell::ToDouble(marketRates(0, 0)), 0.01);
+    const double modelRate = Cell::ToDouble(modelRates(0, 0));
+    const double residual = Cell::ToDouble(residuals(0, 0));
+    ASSERT_TRUE(std::isfinite(modelRate));
+    ASSERT_TRUE(std::isfinite(residual));
+    ASSERT_NEAR(modelRate - Cell::ToDouble(marketRates(0, 0)), residual, 1.0e-15);
+    ASSERT_EQ(maxAbsResidual.Rows(), 1);
+    ASSERT_EQ(maxAbsResidual.Cols(), 1);
+    ASSERT_EQ(rmsResidual.Rows(), 1);
+    ASSERT_EQ(rmsResidual.Cols(), 1);
+    ASSERT_DOUBLE_EQ(Cell::ToDouble(maxAbsResidual(0, 0)), std::abs(residual));
+    ASSERT_DOUBLE_EQ(Cell::ToDouble(rmsResidual(0, 0)), std::abs(residual));
     ASSERT_EQ(instrumentNames.Rows(), 1);
     ASSERT_EQ(instrumentNames.Cols(), 1);
     ASSERT_TRUE(Cell::IsString(instrumentNames(0, 0)));
@@ -294,6 +324,12 @@ TEST(ExcelApiTest, TestUnknownStagedSettingsAndViewsListNewContractSurface) {
         FAIL() << "Expected an unknown staged result view to fail";
     } catch (const Exception_& exception) {
         const std::string message(exception.what());
+        const std::string expected =
+            "Unknown XCCY calibration attribute: unknown (accepted views: marketRates, modelRates, residuals, maxAbsResidual, rmsResidual, "
+            "instrumentNames, parameterKnotDates, jacobian, effJacobianInverse, residualTolerance, jacobianScaling, "
+            "effJacobianInverseScaling, jacobianAvailability, effJacobianInverseAvailability)";
+        ASSERT_GE(message.size(), expected.size());
+        ASSERT_EQ(message.substr(message.size() - expected.size()), expected);
         for (const char* attribute : {"instrumentNames", "parameterKnotDates", "jacobian", "effJacobianInverse", "jacobianAvailability",
                                       "effJacobianInverseAvailability", "residualTolerance", "jacobianScaling", "effJacobianInverseScaling"})
             ASSERT_NE(message.find(attribute), std::string::npos) << attribute << ": " << message;
