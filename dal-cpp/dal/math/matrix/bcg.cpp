@@ -112,6 +112,8 @@ namespace Dal {
                 s.rr_ = s.r_;
             if (AllOf(s.r_, [](double value) { return value == 0.0; }))
                 return;
+            if (biConjugate && tNorm > 0.0 && sqrt(InnerProduct(s.r_, s.r_)) <= tNorm)
+                return;
 
             for (int ii = 0; ii < maxIterations; ++ii) {
                 const double beta = PrepareDirection(s, ii);
