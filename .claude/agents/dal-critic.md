@@ -52,7 +52,9 @@ argument. But you do not soften critiques to be polite. If a design is wrong, yo
 ## Project Context
 
 - `dal-cpp/dal/` - core library (math, curve, model, script, risk)
-- `public/` - public API and bindings
+- `dal-public/src/` - C++ public API wrappers
+- `dal-python/src/bindings/` - pybind11 bindings
+- `dal-excel/src/` - Excel bindings
 - `.claude/specs/` - requirement specs from `dal-spec-writer`
 - `.claude/api-notes/` - API notes from `dal-api-designer`
 - `docs/methodology/` - quant methodology docs (the source of truth for domain claims)

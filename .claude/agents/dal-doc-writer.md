@@ -16,7 +16,7 @@ description: |
 
   <example>
   Context: Docs lag behind a recent API change
-  user: "We just changed the curve-calibration signatures in public/ — the methodology doc still shows the old ones."
+  user: "We just changed the curve-calibration signatures in dal-public/src/ — the methodology doc still shows the old ones."
   assistant: "I'll use the dal-doc-writer agent to reconcile docs/methodology/yield_curve.md against the current headers."
   <commentary>
   The agent reads the current public headers and the stale doc side by side, updates signatures and prose in place,
