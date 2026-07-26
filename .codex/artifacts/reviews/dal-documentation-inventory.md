@@ -1,16 +1,15 @@
 # DAL Documentation Inventory
 
-Reviewed on 2026-07-25. The baseline was generated from:
+Reviewed on 2026-07-26. The inventory was regenerated from:
 
 ```bash
 git ls-files '*.md' '.codex/agents/*.toml' \
   '.codex/skills/**/agents/openai.yaml' | sort
 ```
 
-The baseline contains 99 tracked files: 87 Markdown documents, 10 Codex agent
-TOML contracts, and two Codex skill-interface YAML files. This review adds the
-two audit artifacts listed below, so the final in-scope inventory contains 101
-files: 89 Markdown documents, 10 TOML contracts, and two YAML files.
+The final in-scope inventory contains 101 tracked files: 89 Markdown
+documents, 10 Codex agent TOML contracts, and two Codex skill-interface YAML
+files.
 
 Status meanings:
 
