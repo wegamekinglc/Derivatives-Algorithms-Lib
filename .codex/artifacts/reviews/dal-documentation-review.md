@@ -37,6 +37,33 @@ TOML/YAML/frontmatter, role-set, methodology-index, and Multica roster checks.
   requires completed artifacts to be removed once current documentation and
   Git history preserve the result.
 
+### Medium — Claude feature routing bypassed critique and named an absent role
+
+- **Files:** `.claude/agents/dal-spec-writer.md` and
+  `.claude/agents/dal-api-designer.md`
+- **Evidence:** the spec contract allowed non-public features to proceed
+  directly to `dal-implementer`, and the API contract sent a locked surface
+  directly to implementation. Both contracts also assigned work to an
+  `architect` role that does not exist in either platform's 10-role roster.
+- **Disposition:** route every new feature through `dal-critic` before
+  implementation. Public-API work reaches the critic after
+  `dal-api-designer`; non-public work reaches it after `dal-spec-writer`.
+  Replace `architect` responsibilities with the actual API-design or critique
+  gate, depending on context.
+
+### Medium — Claude contracts used stale public paths and namespace spelling
+
+- **Files:** `.claude/agents/dal-spec-writer.md`,
+  `.claude/agents/dal-api-designer.md`, `.claude/agents/dal-critic.md`,
+  `.claude/agents/dal-implementer.md`, and
+  `.claude/agents/dal-doc-writer.md`
+- **Evidence:** the contracts referred to a nonexistent `public/` tree, and
+  the API designer named a lowercase `dal::` namespace. The current surfaces
+  are `dal-public/src/`, `dal-python/src/bindings/`, and `dal-excel/src/`;
+  public C++ declarations use `Dal::`.
+- **Disposition:** replace the stale path and namespace references with the
+  current repository surfaces and `Dal::` spelling.
+
 ### No documentation change — exact Krylov residual handling
 
 The latest `master` change makes `CGSolve` and `BCGSolve` return immediately
@@ -80,7 +107,9 @@ The DAL squad contains 10 agent members, and its name set exactly matches the
   Claude-specific tool declarations, invocation language, and `.claude/`
   artifact paths. Codex roles remain compact TOML contracts with explicit
   delegation authorization, focused references, and `.codex/artifacts/`
-  outputs. These are supported platform differences, not missing parity.
+  outputs. After correcting the unsupported routing, role-name, path, and
+  namespace drift above, these remaining differences are supported platform
+  differences rather than missing parity.
 - Both route new features through specification, optional API design,
   critique, implementation, testing, review, and documentation. Both keep
   performance and simplification as post-correctness sidecars and require
@@ -125,6 +154,10 @@ The DAL squad contains 10 agent members, and its name set exactly matches the
   curated 39 Markdown files.
 - `python3 -m unittest discover -s .github/scripts/tests -p 'test_check_docs.py' -v`
   — 18 tests passed.
+- Targeted Claude contract audit — both specification paths and the API-note
+  path reach `dal-critic` before implementation; zero absent `architect`
+  role references, standalone `public/` paths, or lowercase `dal::` namespace
+  references remain in the five corrected contracts.
 - Temporary MarkdownIt/PyYAML/tomllib full-scope audit — 89 Markdown documents,
   365 parsed links or images, 85 exactly aligned tables, 17 valid Markdown
   frontmatter blocks, 10 valid TOML contracts, two valid YAML interfaces, 101

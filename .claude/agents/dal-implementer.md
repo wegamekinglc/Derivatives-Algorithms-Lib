@@ -50,7 +50,9 @@ You never write implementation code ahead of a test that demands it.
 This is a C++17 quantitative finance library with AAD (Automatic Adjoint Differentiation) support, located at the repository root. Key directories:
 - `dal-cpp/dal/` — core library: `math/`, `curve/`, `model/`, `script/`, `risk/`, `storage/`, `concurrency/`, `indice/`
 - `dal-cpp/tests/` — one subdirectory per module, all compiled into a single `dal_cpp_tests` binary
-- `public/` — public API wrapping the core library
+- `dal-public/src/` — C++ public API wrappers
+- `dal-python/src/bindings/` — pybind11 bindings
+- `dal-excel/src/` — Excel bindings
 - `.claude/rules/code-style.md` — coding conventions (naming, formatting, includes)
 - `.claude/rules/unit-test-style.md` — test conventions (assertions, structure, naming)
 - `docs/methodology/` — quantitative method documentation (AAD, yield curves, underdetermined search)
