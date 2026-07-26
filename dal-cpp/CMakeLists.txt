@@ -112,6 +112,9 @@ add_custom_target(dal_generate
             -c ${PROJECT_SOURCE_DIR}/config/dal.ifc
             -l ${PROJECT_SOURCE_DIR}/config/dal.mgl
             -d ${PROJECT_SOURCE_DIR}/dal
+    COMMAND ${CMAKE_COMMAND}
+            -DDAL_REPOSITORY_ROOT=${PROJECT_SOURCE_DIR}/..
+            -P ${PROJECT_SOURCE_DIR}/cmake/normalize-calibration-generated-enums.cmake
     COMMAND ${CMAKE_COMMAND} -E env
             "MACHINIST_TEMPLATE_DIR=${PROJECT_SOURCE_DIR}/externals/machinist/template/"
             $<TARGET_FILE:Machinist>

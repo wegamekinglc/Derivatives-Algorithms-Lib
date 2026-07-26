@@ -58,7 +58,7 @@ const char* AnalyticIneligibilityReason_::String() const {
         return "RESET_MAPPING_INVALID";
     case Value_::CASHFLOW_PLAN_UNSUPPORTED:
         return "CASHFLOW_PLAN_UNSUPPORTED";
-        
+
     }}
 
 struct ReadStringAnalyticIneligibilityReason_
@@ -71,7 +71,7 @@ struct ReadStringAnalyticIneligibilityReason_
         if (0);	// otiose code to allow regular else-if structure
         else if (src.empty())
         { ret_val = false; }
-        
+
 	else if (String::Equivalent(src, "DISCOUNTTARGETREQUIRED"))
         *val = AnalyticIneligibilityReason_::Value_::DISCOUNT_TARGET_REQUIRED;
 
@@ -122,6 +122,3 @@ AnalyticIneligibilityReason_::AnalyticIneligibilityReason_(const String_& src) {
         return;
     THROW("'" + src + "' is not a recognizable AnalyticIneligibilityReason");
 }
-
-
-

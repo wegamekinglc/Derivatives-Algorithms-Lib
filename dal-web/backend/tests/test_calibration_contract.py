@@ -45,6 +45,8 @@ from app.services.dal_gateway import (
     GatewayCalibrationResult,
     _fallback_single_plan,
     _joint_parameter_axis,
+    _native_joint_curve_payload,
+    _native_single_curve_payload,
     _terminal_identity_from_curve_payload,
 )
 
@@ -341,6 +343,66 @@ def test_terminal_identity_reads_zero_rate_storage_from_concrete_curve():
 
     assert terminal.storage_dates == (anchor, future)
     assert terminal.counts.storage_nodes == 2
+
+
+class _NativeDate:
+    def __init__(self, value: date) -> None:
+        self.value = value
+
+    def __repr__(self) -> str:
+        return self.value.isoformat()
+
+
+class _NativeScheme:
+    def __init__(self, name: str) -> None:
+        self.name = name
+
+
+def _native_zero_curve(scheme: str) -> SimpleNamespace:
+    return SimpleNamespace(
+        node_dates=[_NativeDate(date(2027, 1, 2))],
+        zero_rates=[0.02],
+        day_count="ACT_365F",
+        log_df_scheme=_NativeScheme(scheme),
+    )
+
+
+@pytest.mark.parametrize("payload_kind", ("single", "joint"))
+def test_native_curve_payload_rejects_actual_scheme_mismatch(
+    payload_kind: str,
+) -> None:
+    """D6 — response/persistence provenance is the concrete native getter."""
+    declaration = SimpleNamespace(
+        curve_name="usd_zero",
+        calibrate_discount_curve=True,
+        target_collateral="OIS",
+        target_tenor=None,
+        parameterization="ZERO_RATE",
+        log_df_scheme="LOG_LINEAR",
+        base_curve_id=None,
+    )
+    curve = _native_zero_curve("MIXED")
+
+    with pytest.raises(RuntimeError, match="native curve log-DF scheme"):
+        if payload_kind == "single":
+            _native_single_curve_payload(
+                SimpleNamespace(
+                    declaration=declaration,
+                    currency="USD",
+                    today=date(2026, 1, 2),
+                ),
+                Mock(),
+                curve,
+            )
+        else:
+            _native_joint_curve_payload(
+                declaration,
+                currency="USD",
+                collateral_currency="USD",
+                anchor_date=date(2026, 1, 2),
+                curve=curve,
+                role="discount",
+            )
 
 
 def test_joint_parameter_axis_uses_native_range_and_curve_layout_dates():

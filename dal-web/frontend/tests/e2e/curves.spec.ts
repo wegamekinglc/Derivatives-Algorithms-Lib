@@ -19,6 +19,9 @@ test("creates, polls, visualizes and reloads a persisted calibration", async ({ 
   await page.reload();
   await expect(page.getByText("completed", { exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Persisted curves" })).toBeVisible();
+  await page.getByRole("button", { name: "Preview bump" }).click();
+  await expect(page.getByRole("cell", { name: /^parameter:/ })).toBeVisible();
+  await expect(page.getByRole("cell", { name: /^-?\d+\.\d{8}$/ })).toBeVisible();
 });
 
 test("shows failed lifecycle evidence and unavailable matrix metadata", async ({ page }) => {

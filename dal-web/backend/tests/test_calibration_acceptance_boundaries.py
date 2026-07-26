@@ -877,6 +877,36 @@ def test_fix_joint_free_parameter_limit_exhausts_modes_flags_and_downstream(
     ] == 200
 
 
+def test_reviewer_joint_capacity_precedes_unsupported_convention(client) -> None:
+    """D19 — aggregate capacity wins over later native/convention eligibility."""
+    payload = joint_capacity_request(201)
+    payload["domestic"]["libor_basis"] = "REVIEWER_UNSUPPORTED"
+    gateway = get_gateway()
+
+    with (
+        mock.patch.object(
+            calibration_service,
+            "_validate_supported_conventions",
+            wraps=calibration_service._validate_supported_conventions,
+        ) as conventions,
+        mock.patch.object(
+            gateway,
+            "validate_joint_xccy_admission",
+            wraps=gateway.validate_joint_xccy_admission,
+        ) as eligibility,
+        mock.patch.object(
+            gateway,
+            "calibrate_joint_xccy",
+            wraps=gateway.calibrate_joint_xccy,
+        ) as native,
+    ):
+        response = client.post("/api/calibrations/xccy/joint", json=payload)
+
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "JOINT_FREE_PARAMETER_LIMIT_EXCEEDED"
+    assert conventions.call_count == eligibility.call_count == native.call_count == 0
+
+
 class _NativeMatrix:
     def __init__(self, rows: list[list[float]]) -> None:
         self.rows = rows

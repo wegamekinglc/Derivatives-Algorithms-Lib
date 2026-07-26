@@ -10,7 +10,7 @@ describe("QuoteBumpPanel", () => {
       quote_bump: 0.0001,
       residual_tolerance: 1e-8,
       delta_parameters: [
-        { parameter_axis: "parameter:usd:0", delta: 0.0025 },
+        { axis: "parameter:usd:0", value: 0.0025 },
       ],
       formula: "delta_x = effective_inverse * delta_quote / residual_tolerance",
     });

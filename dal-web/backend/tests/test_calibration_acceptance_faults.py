@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import copy
 import inspect
 import json
@@ -225,6 +226,43 @@ def test_fix_b5_on_lock_fault_suppresses_all_evidence_and_native_events(
     assert load.call_count == build.call_count == native.call_count == 0
 
 
+@pytest.mark.parametrize("kind", ("xccy_staged", "xccy_joint"))
+def test_reviewer_xccy_on_lock_fault_is_a_lifecycle_failure(kind: str) -> None:
+    """D10 — staged/joint on-lock faults use the lifecycle envelope before native."""
+    gateway = get_gateway()
+    store = mock.Mock()
+    store.mark_calibration_solving.side_effect = RuntimeError("injected on-lock failure")
+
+    with (
+        mock.patch.object(
+            gateway,
+            "_calibrate_xccy_fallback",
+            wraps=gateway._calibrate_xccy_fallback,
+        ) as native,
+        mock.patch.object(
+            gateway_module.time,
+            "perf_counter",
+            wraps=gateway_module.time.perf_counter,
+        ) as timer,
+    ):
+        asyncio.run(
+            calibration_service._run_xccy_worker(
+                store,
+                gateway,
+                "a" * 32,
+                object(),
+                (),
+                kind,
+            )
+        )
+
+    assert timer.call_count == native.call_count == 0
+    assert store.fail_calibration.call_count == 1
+    error = store.fail_calibration.call_args.kwargs["error_payload"]
+    assert error["code"] == "LIFECYCLE_TRANSITION_FAILED"
+    assert error["context"]["transition"] == "mark_calibration_solving"
+
+
 @pytest.mark.parametrize(
     ("fault_stage", "expected_code", "actual_expected"),
     (
@@ -418,7 +456,7 @@ def test_fix_b5_bk06_shared_recorder_proves_conc_01_06_production_order(
         validate,
     )
 
-    original_notify = gateway._notify_single_lock_acquired
+    original_notify = gateway._notify_lock_acquired
 
     def notify(callback: Callable):
         recorder.record("lock_acquired")
@@ -429,7 +467,7 @@ def test_fix_b5_bk06_shared_recorder_proves_conc_01_06_production_order(
 
         return original_notify(observed)
 
-    monkeypatch.setattr(gateway, "_notify_single_lock_acquired", notify)
+    monkeypatch.setattr(gateway, "_notify_lock_acquired", notify)
 
     original_verify = gateway._verify_single_admission
 

@@ -31,7 +31,7 @@ const char* CurveFreeParameterComponent_::String() const {
         return "ZERO_RATE";
     case Value_::LOG_DISCOUNT_FACTOR:
         return "LOG_DISCOUNT_FACTOR";
-        
+
     }}
 
 struct ReadStringCurveFreeParameterComponent_
@@ -44,7 +44,7 @@ struct ReadStringCurveFreeParameterComponent_
         if (0);	// otiose code to allow regular else-if structure
         else if (src.empty())
         { ret_val = false; }
-        
+
 	else if (String::Equivalent(src, "RIGHTFORWARD"))
         *val = CurveFreeParameterComponent_::Value_::RIGHT_FORWARD;
 
@@ -68,6 +68,3 @@ CurveFreeParameterComponent_::CurveFreeParameterComponent_(const String_& src) {
         return;
     THROW("'" + src + "' is not a recognizable CurveFreeParameterComponent");
 }
-
-
-

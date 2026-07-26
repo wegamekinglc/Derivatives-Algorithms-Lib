@@ -81,9 +81,9 @@ export default function QuoteBumpPanel({
             </thead>
             <tbody>
               {result.delta_parameters.map((item) => (
-                <tr key={item.parameter_axis}>
-                  <td {...css("mono")}>{item.parameter_axis}</td>
-                  <td {...css("num")}>{item.delta.toFixed(8)}</td>
+                <tr key={item.axis}>
+                  <td {...css("mono")}>{item.axis}</td>
+                  <td {...css("num")}>{item.value.toFixed(8)}</td>
                 </tr>
               ))}
             </tbody>

@@ -28,7 +28,7 @@ const char* CurveKnotCandidateDisposition_::String() const {
         return "DUPLICATE";
     case Value_::FILTERED_NOT_AFTER_TODAY:
         return "FILTERED_NOT_AFTER_TODAY";
-        
+
     }}
 
 struct ReadStringCurveKnotCandidateDisposition_
@@ -41,7 +41,7 @@ struct ReadStringCurveKnotCandidateDisposition_
         if (0);	// otiose code to allow regular else-if structure
         else if (src.empty())
         { ret_val = false; }
-        
+
 	else if (String::Equivalent(src, "ADDED"))
         *val = CurveKnotCandidateDisposition_::Value_::ADDED;
 
@@ -62,6 +62,3 @@ CurveKnotCandidateDisposition_::CurveKnotCandidateDisposition_(const String_& sr
         return;
     THROW("'" + src + "' is not a recognizable CurveKnotCandidateDisposition");
 }
-
-
-

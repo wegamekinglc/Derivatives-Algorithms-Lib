@@ -1670,7 +1670,6 @@ async def submit_joint_xccy_calibration(
     gateway: DalGateway,
     request: JointXccyCalibrationRequest,
 ) -> RunningCalibrationRunResponse:
-    _validate_supported_conventions(request)
     count_plan = build_joint_admission_count_plan(
         domestic=request.domestic.declarations,
         foreign=request.foreign.declarations,
@@ -1706,6 +1705,7 @@ async def submit_joint_xccy_calibration(
                 "offending_storage_nodes": item.storage_nodes,
             },
         )
+    _validate_supported_conventions(request)
     return await _submit_xccy(
         store,
         gateway,
@@ -2151,6 +2151,8 @@ async def _run_xccy_worker(
     instruments: tuple[CalibrationInstrumentRecord, ...],
     kind: str,
 ) -> None:
+    from app.services.dal_gateway import GatewayLifecycleTransitionError
+
     def on_lock(acquired_at: datetime) -> None:
         store.mark_calibration_solving(calibration_id, acquired_at)
 
@@ -2160,6 +2162,8 @@ async def _run_xccy_worker(
         )
         result = await asyncio.to_thread(method, gateway_request, on_lock)
         await _terminalize_success(store, calibration_id, result, instruments)
+    except GatewayLifecycleTransitionError as exc:
+        _fail_lifecycle(store, calibration_id, exc.transition)
     except Exception as exc:  # noqa: BLE001 - background terminal envelope
         logger.exception("XCCY calibration %s failed", calibration_id)
         _fail_native(store, calibration_id, exc)

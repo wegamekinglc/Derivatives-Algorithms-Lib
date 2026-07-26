@@ -21,7 +21,7 @@ public:
      CASHFLOW_PLAN_UNSUPPORTED,
      _N_VALUES
     } val_;
-      
+
     AnalyticIneligibilityReason_(Value_ val) : val_(val) {
         REQUIRE(val < Value_::_N_VALUES, "val is not valid");
     }

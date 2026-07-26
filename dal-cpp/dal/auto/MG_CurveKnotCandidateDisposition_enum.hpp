@@ -11,7 +11,7 @@ public:
      FILTERED_NOT_AFTER_TODAY,
      _N_VALUES
     } val_;
-      
+
     CurveKnotCandidateDisposition_(Value_ val) : val_(val) {
         REQUIRE(val < Value_::_N_VALUES, "val is not valid");
     }

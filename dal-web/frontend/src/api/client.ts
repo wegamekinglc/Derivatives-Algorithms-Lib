@@ -146,7 +146,7 @@ export interface QuoteBumpPreview {
   instrument_id: string;
   quote_bump: number;
   residual_tolerance: number;
-  delta_parameters: { parameter_axis: string; delta: number }[];
+  delta_parameters: { axis: string; value: number }[];
   formula: "delta_x = effective_inverse * delta_quote / residual_tolerance";
 }
 

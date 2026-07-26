@@ -355,7 +355,7 @@ class DalGateway:
     ) -> GatewayCalibrationResult:
         """Hold one lock continuously through callbacks and native extraction."""
         with self._calibration_lock:
-            self._notify_single_lock_acquired(on_lock_acquired)
+            self._notify_lock_acquired(on_lock_acquired)
             evidence = self._verify_single_admission(
                 pre_lock_request, verify_pre_native_admission_evidence
             )
@@ -380,7 +380,7 @@ class DalGateway:
             return result._replace(native_solve_ms=elapsed_ms)
 
     @staticmethod
-    def _notify_single_lock_acquired(
+    def _notify_lock_acquired(
         callback: Callable[[datetime], None],
     ) -> None:
         try:
@@ -427,7 +427,7 @@ class DalGateway:
         on_lock_acquired: Callable[[datetime], None],
     ) -> GatewayCalibrationResult:
         with self._calibration_lock:
-            on_lock_acquired(datetime.now(UTC))
+            self._notify_lock_acquired(on_lock_acquired)
             started = time.perf_counter()
             if hasattr(self._dal, "CrossCurrencyCalibrationSpecBuilder_"):
                 native_spec = self._build_staged_xccy_spec(
@@ -483,7 +483,7 @@ class DalGateway:
         on_lock_acquired: Callable[[datetime], None],
     ) -> GatewayCalibrationResult:
         with self._calibration_lock:
-            on_lock_acquired(datetime.now(UTC))
+            self._notify_lock_acquired(on_lock_acquired)
             started = time.perf_counter()
             if hasattr(self._dal, "JointXccyCalibrationSpecBuilder_"):
                 native_spec = self._build_joint_xccy_spec(request.request)
@@ -1435,6 +1435,11 @@ def _native_joint_curve_payload(
 ) -> dict[str, object]:
     parameterization = declaration.parameterization
     node_dates, parameters, day_count = _native_curve_state(parameterization, curve)
+    actual_scheme = _native_curve_log_df_scheme(parameterization, curve)
+    if actual_scheme != declaration.log_df_scheme:
+        raise RuntimeError(
+            "native curve log-DF scheme does not match the admitted declaration"
+        )
     return {
         "name": declaration.curve_name,
         "currency": currency,
@@ -1446,7 +1451,7 @@ def _native_joint_curve_payload(
         "parameterization": parameterization,
         "anchor_date": anchor_date,
         "day_count": day_count,
-        "log_df_scheme": declaration.log_df_scheme,
+        "log_df_scheme": actual_scheme,
         "node_dates": node_dates,
         "parameters": parameters,
         "base_curve_id": None,
@@ -1510,6 +1515,21 @@ def _native_curve_state(
     except KeyError as exc:
         raise RuntimeError(f"unsupported native curve parameterization {parameterization}") from exc
     return projector(curve)
+
+
+def _native_curve_log_df_scheme(
+    parameterization: str,
+    curve: object,
+) -> str | None:
+    if parameterization not in {"ZERO_RATE", "LOG_DISCOUNT"}:
+        return None
+    try:
+        scheme = curve.log_df_scheme
+    except AttributeError as exc:
+        raise RuntimeError(
+            "native zero/log-discount curve omitted its log-DF scheme getter"
+        ) from exc
+    return _enum_name(scheme)
 
 
 def _joint_parameter_axis(request: object, parameter_ranges: list[NamedRangeDTO]) -> list[str]:
@@ -1759,6 +1779,11 @@ def _native_single_curve_payload(
 ) -> dict[str, object]:
     parameterization = request.declaration.parameterization
     node_dates, parameters, day_count = _native_curve_state(parameterization, curve)
+    actual_scheme = _native_curve_log_df_scheme(parameterization, curve)
+    if actual_scheme != request.declaration.log_df_scheme:
+        raise RuntimeError(
+            "native curve log-DF scheme does not match the admitted declaration"
+        )
     return {
         "name": request.declaration.curve_name,
         "currency": request.currency,
@@ -1770,7 +1795,7 @@ def _native_single_curve_payload(
         "parameterization": parameterization,
         "anchor_date": request.today,
         "day_count": day_count,
-        "log_df_scheme": request.declaration.log_df_scheme,
+        "log_df_scheme": actual_scheme,
         "node_dates": node_dates,
         "parameters": parameters,
         "base_curve_id": request.declaration.base_curve_id,

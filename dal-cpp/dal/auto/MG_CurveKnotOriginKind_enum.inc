@@ -31,7 +31,7 @@ const char* CurveKnotOriginKind_::String() const {
         return "INSTRUMENT_END";
     case Value_::SYNTHETIC_ANCHOR:
         return "SYNTHETIC_ANCHOR";
-        
+
     }}
 
 struct ReadStringCurveKnotOriginKind_
@@ -44,7 +44,7 @@ struct ReadStringCurveKnotOriginKind_
         if (0);	// otiose code to allow regular else-if structure
         else if (src.empty())
         { ret_val = false; }
-        
+
 	else if (String::Equivalent(src, "INPUT"))
         *val = CurveKnotOriginKind_::Value_::INPUT;
 
@@ -68,6 +68,3 @@ CurveKnotOriginKind_::CurveKnotOriginKind_(const String_& src) {
         return;
     THROW("'" + src + "' is not a recognizable CurveKnotOriginKind");
 }
-
-
-
