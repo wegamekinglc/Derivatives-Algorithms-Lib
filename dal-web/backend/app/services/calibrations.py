@@ -76,22 +76,26 @@ class FrozenIntegrityErrorEvidence:
     canonical_error_utf8: bytes
 
 
+def _freeze_json_object(value: Mapping[object, object]) -> FrozenJsonObject:
+    if any(not isinstance(key, str) for key in value):
+        raise TypeError("integrity error context object keys must be strings")
+    entries = tuple(
+        (key, _freeze_json(value[key])) for key in sorted(value) if isinstance(key, str)
+    )
+    return FrozenJsonObject(entries)
+
+
 def _freeze_json(value: object) -> FrozenJsonValue:
-    if value is None or isinstance(value, (bool, str)):
+    if value is None:
         return value
-    if isinstance(value, int):
+    if isinstance(value, (bool, int, str)):
         return value
     if isinstance(value, float):
         if not math.isfinite(value):
             raise ValueError("integrity error context contains a non-finite float")
         return value
     if isinstance(value, Mapping):
-        if any(not isinstance(key, str) for key in value):
-            raise TypeError("integrity error context object keys must be strings")
-        entries: list[tuple[str, FrozenJsonValue]] = []
-        for key in sorted(value):
-            entries.append((key, _freeze_json(value[key])))
-        return FrozenJsonObject(tuple(entries))
+        return _freeze_json_object(value)
     if isinstance(value, (list, tuple)):
         return FrozenJsonArray(tuple(_freeze_json(item) for item in value))
     raise TypeError(f"integrity error context contains unsupported {type(value).__name__}")
@@ -210,9 +214,7 @@ class NativeExecutionIdentityMismatchError(Exception):
         expected: ExecutionSingleKnotIdentityDTO,
         actual: ExecutionSingleKnotIdentityDTO,
         *,
-        comparison_stage: Literal[
-            "pre_solve_execution_identity", "post_solve_storage"
-        ],
+        comparison_stage: Literal["pre_solve_execution_identity", "post_solve_storage"],
         actual_jacobian_mode: str | None = None,
         native_solve_ms: float | None = None,
     ) -> None:
@@ -350,9 +352,7 @@ def _check_joint_declaration_bounds(
                     "max_storage_nodes": 100,
                     "anchor_added": True,
                     "candidate_ordinal": offending_index,
-                    "candidate_date": declaration.knot_dates[
-                        offending_index
-                    ].isoformat(),
+                    "candidate_date": declaration.knot_dates[offending_index].isoformat(),
                     "candidate_origin": {
                         "kind": "INPUT",
                         "input_knot_index": offending_index,
@@ -403,10 +403,7 @@ def _check_required_xccy_fixings(
     required: Sequence[object],
 ) -> None:
     """Reject missing historical observations before a run is inserted."""
-    supplied = {
-        (fixing.index_name, fixing.timestamp)
-        for fixing in request.fixings
-    }
+    supplied = {(fixing.index_name, fixing.timestamp) for fixing in request.fixings}
 
     def fixing_field(item: object) -> tuple[str, int]:
         instrument = request.basis.instruments[item.instrument_index]
@@ -431,15 +428,12 @@ def _check_required_xccy_fixings(
     for item in ordered:
         key = (item.index_name, item.timestamp)
         reverse = _reverse_fx_index_name(item.index_name)
-        if key in supplied or (
-            reverse is not None and (reverse, item.timestamp) in supplied
-        ):
+        if key in supplied or (reverse is not None and (reverse, item.timestamp) in supplied):
             continue
         field, _ = fixing_field(item)
         _raise(
             "MISSING_FIXING",
-            f"historical fixing {item.index_name} at "
-            f"{item.timestamp.isoformat()} is required",
+            f"historical fixing {item.index_name} at {item.timestamp.isoformat()} is required",
             [
                 "body",
                 "basis",
@@ -455,11 +449,7 @@ def _check_required_xccy_fixings(
         )
 
 
-def calculate_quote_bump_preview(
-    effective_inverse: MatrixDTO,
-    residual_index: int,
-    quote_bump: float,
-) -> QuoteBumpPreviewDTO:
+def _effective_inverse_tolerance(effective_inverse: MatrixDTO) -> float:
     if effective_inverse.availability != "available" or effective_inverse.values is None:
         raise ValueError("effective inverse matrix is not available")
     if effective_inverse.scaling != "solver_scaled":
@@ -467,6 +457,12 @@ def calculate_quote_bump_preview(
     tolerance = effective_inverse.residual_tolerance
     if tolerance is None or tolerance <= 0.0 or not math.isfinite(tolerance):
         raise ValueError("effective inverse residual tolerance must be positive and finite")
+    return tolerance
+
+
+def _validate_quote_bump(
+    effective_inverse: MatrixDTO, residual_index: int, quote_bump: float
+) -> None:
     if not math.isfinite(quote_bump) or quote_bump == 0.0:
         raise ValueError("quote bump must be non-zero and finite")
     rows, columns = effective_inverse.shape
@@ -474,16 +470,37 @@ def calculate_quote_bump_preview(
         raise IndexError("quote bump residual index is outside the inverse matrix")
     if rows != len(effective_inverse.row_axis):
         raise ValueError("effective inverse parameter axis does not match shape")
+
+
+def _quote_bump_deltas(
+    effective_inverse: MatrixDTO,
+    residual_index: int,
+    quote_bump: float,
+    tolerance: float,
+) -> list[ParameterDeltaDTO]:
+    values = effective_inverse.values
+    if values is None:
+        raise ValueError("effective inverse matrix values are not available")
+    return [
+        ParameterDeltaDTO(
+            axis=axis,
+            value=row[residual_index] * quote_bump / tolerance,
+        )
+        for axis, row in zip(effective_inverse.row_axis, values, strict=True)
+    ]
+
+
+def calculate_quote_bump_preview(
+    effective_inverse: MatrixDTO,
+    residual_index: int,
+    quote_bump: float,
+) -> QuoteBumpPreviewDTO:
+    tolerance = _effective_inverse_tolerance(effective_inverse)
+    _validate_quote_bump(effective_inverse, residual_index, quote_bump)
     residual_axis = effective_inverse.column_axis[residual_index]
     prefix = "residual:"
     instrument_id = residual_axis[len(prefix) :] if residual_axis.startswith(prefix) else ""
-    deltas = [
-        ParameterDeltaDTO(
-            axis=effective_inverse.row_axis[row],
-            value=effective_inverse.values[row][residual_index] * quote_bump / tolerance,
-        )
-        for row in range(rows)
-    ]
+    deltas = _quote_bump_deltas(effective_inverse, residual_index, quote_bump, tolerance)
     return QuoteBumpPreviewDTO(
         residual_index=residual_index,
         instrument_id=instrument_id,
@@ -494,42 +511,54 @@ def calculate_quote_bump_preview(
     )
 
 
+def _missing_sequence_item(items: list[object], index: int) -> object:
+    return items[index] if index < len(items) else None
+
+
+def _mapping_difference(left: dict, right: dict, path: tuple[str | int, ...]) -> dict | None:
+    for key in sorted(set(left) | set(right)):
+        if key not in left or key not in right:
+            return {
+                "path": list((*path, key)),
+                "expected": left.get(key),
+                "actual": right.get(key),
+            }
+        difference = _canonical_difference(left[key], right[key], (*path, key))
+        if difference is not None:
+            return difference
+    return None
+
+
+def _sequence_difference(left: list, right: list, path: tuple[str | int, ...]) -> dict | None:
+    for index in range(max(len(left), len(right))):
+        if index >= len(left) or index >= len(right):
+            return {
+                "path": list((*path, index)),
+                "expected": _missing_sequence_item(left, index),
+                "actual": _missing_sequence_item(right, index),
+            }
+        difference = _canonical_difference(left[index], right[index], (*path, index))
+        if difference is not None:
+            return difference
+    return None
+
+
+def _canonical_difference(left: object, right: object, path: tuple[str | int, ...]) -> dict | None:
+    if isinstance(left, dict) and isinstance(right, dict):
+        return _mapping_difference(left, right, path)
+    if isinstance(left, list) and isinstance(right, list):
+        return _sequence_difference(left, right, path)
+    if left != right:
+        return {"path": list(path), "expected": left, "actual": right}
+    return None
+
+
 def first_canonical_difference(expected: object, actual: object) -> dict | None:
     if hasattr(expected, "model_dump"):
         expected = expected.model_dump(mode="json")
     if hasattr(actual, "model_dump"):
         actual = actual.model_dump(mode="json")
-
-    def visit(left: object, right: object, path: tuple[str | int, ...]) -> dict | None:
-        if isinstance(left, dict) and isinstance(right, dict):
-            for key in sorted(set(left) | set(right)):
-                if key not in left or key not in right:
-                    return {
-                        "path": list((*path, key)),
-                        "expected": left.get(key),
-                        "actual": right.get(key),
-                    }
-                difference = visit(left[key], right[key], (*path, key))
-                if difference is not None:
-                    return difference
-            return None
-        if isinstance(left, list) and isinstance(right, list):
-            for index in range(max(len(left), len(right))):
-                if index >= len(left) or index >= len(right):
-                    return {
-                        "path": list((*path, index)),
-                        "expected": left[index] if index < len(left) else None,
-                        "actual": right[index] if index < len(right) else None,
-                    }
-                difference = visit(left[index], right[index], (*path, index))
-                if difference is not None:
-                    return difference
-            return None
-        if left != right:
-            return {"path": list(path), "expected": left, "actual": right}
-        return None
-
-    return visit(expected, actual, ())
+    return _canonical_difference(expected, actual, ())
 
 
 RUN_RESPONSE_ADAPTER = TypeAdapter(CalibrationRunResponse)
@@ -567,15 +596,11 @@ def _schedule_calibration(coro: Coroutine[Any, Any, None]) -> None:
 
 
 def _normalized_solver(request: object) -> NormalizedCalibrationSolverDTO:
-    return NormalizedCalibrationSolverDTO.model_validate(
-        request.solver.model_dump(mode="json")
-    )
+    return NormalizedCalibrationSolverDTO.model_validate(request.solver.model_dump(mode="json"))
 
 
 def _normalized_options(request: object) -> NormalizedCalibrationOptionsDTO:
-    return NormalizedCalibrationOptionsDTO.model_validate(
-        request.options.model_dump(mode="json")
-    )
+    return NormalizedCalibrationOptionsDTO.model_validate(request.options.model_dump(mode="json"))
 
 
 def _project_expected_identity(
@@ -619,10 +644,7 @@ def _validate_single_policy(request: SingleCalibrationRequest) -> None:
             ["body", "declaration", "knot_dates", 0],
             {"policy": "INSTRUMENTS", "submitted_count": count},
         )
-    if (
-        declaration.knot_policy == "INSTRUMENTS"
-        and declaration.parameterization == "LOG_DISCOUNT"
-    ):
+    if declaration.knot_policy == "INSTRUMENTS" and declaration.parameterization == "LOG_DISCOUNT":
         _raise(
             "KNOT_POLICY_INCOMPATIBLE",
             "declaration.knot_policy INSTRUMENTS is incompatible with "
@@ -645,88 +667,87 @@ def _validate_single_policy(request: SingleCalibrationRequest) -> None:
         )
 
 
-def _check_plan_bounds(
-    request: SingleCalibrationRequest, plan: object
-) -> None:
-    if plan.counts.storage_nodes > 100:
-        offending = next(
-            (
-                candidate
-                for candidate in plan.candidate_trace
-                if candidate.disposition == "ADDED"
-                and candidate.resolved_index is not None
-                and candidate.resolved_index + 1 + int(plan.anchor_added) > 100
-            ),
-            plan.candidate_trace[-1],
-        )
-        origin = offending.origin
-        if origin.kind == "INPUT":
-            location = [
-                "body",
-                "declaration",
-                "knot_dates",
-                origin.input_knot_index,
-            ]
-            field = "declaration.knot_dates"
-        elif origin.kind == "INSTRUMENT_START":
-            location = [
-                "body",
-                "instruments",
-                origin.instrument_input_index,
-                "start",
-            ]
-            field = "instruments.start"
-        else:
-            location = [
-                "body",
-                "instruments",
-                origin.instrument_input_index,
-                "maturity",
-            ]
-            field = "instruments.maturity"
-        _raise(
-            "CURVE_STORAGE_NODE_LIMIT_EXCEEDED",
-            f"{field} produces {plan.counts.storage_nodes} storage nodes; maximum is 100",
-            location,
-            {
-                "policy": plan.requested_policy,
-                "parameterization": request.declaration.parameterization,
-                "resolved_declared_nodes": plan.counts.resolved_declared_nodes,
-                "storage_nodes": plan.counts.storage_nodes,
-                "max_storage_nodes": 100,
-                "anchor_added": plan.anchor_added,
-                "candidate_ordinal": offending.ordinal,
-                "candidate_date": offending.date.isoformat(),
-                "candidate_origin": offending.origin.model_dump(mode="json"),
-                "origins": [
-                    origin.model_dump(mode="json")
-                    for node in plan.resolved_declared_nodes
-                    if node.date == offending.date
-                    for origin in node.origins
-                ],
-            },
-        )
-    if plan.counts.storage_nodes == 0:
-        latest_index = max(
-            range(len(request.instruments)),
-            key=lambda index: request.instruments[index].maturity,
-        )
-        _raise(
-            "VALIDATION_ERROR",
-            "curve knot resolution produced no future storage nodes",
-            ["body", "instruments", latest_index, "maturity"],
-            {
-                "type": "value_error",
-                "policy": plan.requested_policy,
-                "latest_instrument_end": request.instruments[
-                    latest_index
-                ].maturity.isoformat(),
-            },
-        )
-    if request.declaration.parameterization not in {
-        "ZERO_RATE",
-        "LOG_DISCOUNT",
-    }:
+def _overflow_candidate(plan: object) -> object:
+    return next(
+        (
+            candidate
+            for candidate in plan.candidate_trace
+            if candidate.disposition == "ADDED"
+            and candidate.resolved_index is not None
+            and candidate.resolved_index + 1 + int(plan.anchor_added) > 100
+        ),
+        plan.candidate_trace[-1],
+    )
+
+
+def _overflow_location(candidate: object) -> tuple[list[str | int], str]:
+    origin = candidate.origin
+    if origin.kind == "INPUT":
+        return [
+            "body",
+            "declaration",
+            "knot_dates",
+            origin.input_knot_index,
+        ], "declaration.knot_dates"
+    field = "start" if origin.kind == "INSTRUMENT_START" else "maturity"
+    return [
+        "body",
+        "instruments",
+        origin.instrument_input_index,
+        field,
+    ], f"instruments.{field}"
+
+
+def _check_plan_overflow(request: SingleCalibrationRequest, plan: object) -> None:
+    if plan.counts.storage_nodes <= 100:
+        return
+    offending = _overflow_candidate(plan)
+    location, field = _overflow_location(offending)
+    _raise(
+        "CURVE_STORAGE_NODE_LIMIT_EXCEEDED",
+        f"{field} produces {plan.counts.storage_nodes} storage nodes; maximum is 100",
+        location,
+        {
+            "policy": plan.requested_policy,
+            "parameterization": request.declaration.parameterization,
+            "resolved_declared_nodes": plan.counts.resolved_declared_nodes,
+            "storage_nodes": plan.counts.storage_nodes,
+            "max_storage_nodes": 100,
+            "anchor_added": plan.anchor_added,
+            "candidate_ordinal": offending.ordinal,
+            "candidate_date": offending.date.isoformat(),
+            "candidate_origin": offending.origin.model_dump(mode="json"),
+            "origins": [
+                origin.model_dump(mode="json")
+                for node in plan.resolved_declared_nodes
+                if node.date == offending.date
+                for origin in node.origins
+            ],
+        },
+    )
+
+
+def _check_empty_plan(request: SingleCalibrationRequest, plan: object) -> None:
+    if plan.counts.storage_nodes != 0:
+        return
+    latest_index = max(
+        range(len(request.instruments)),
+        key=lambda index: request.instruments[index].maturity,
+    )
+    _raise(
+        "VALIDATION_ERROR",
+        "curve knot resolution produced no future storage nodes",
+        ["body", "instruments", latest_index, "maturity"],
+        {
+            "type": "value_error",
+            "policy": plan.requested_policy,
+            "latest_instrument_end": request.instruments[latest_index].maturity.isoformat(),
+        },
+    )
+
+
+def _check_plan_scheme_nodes(request: SingleCalibrationRequest, plan: object) -> None:
+    if request.declaration.parameterization not in {"ZERO_RATE", "LOG_DISCOUNT"}:
         return
     minimum = {
         "LOG_LINEAR": 2,
@@ -747,6 +768,12 @@ def _check_plan_bounds(
                 "minimum_storage_nodes": minimum,
             },
         )
+
+
+def _check_plan_bounds(request: SingleCalibrationRequest, plan: object) -> None:
+    _check_plan_overflow(request, plan)
+    _check_empty_plan(request, plan)
+    _check_plan_scheme_nodes(request, plan)
 
 
 def _check_single_maturity_coverage(
@@ -789,35 +816,48 @@ def _resolve_initial_guess(
     return list(values) if values else [scalar] * free_count
 
 
+def _act_act_fraction(anchor: date, node: date) -> float:
+    current = anchor
+    result = 0.0
+    while current < node:
+        next_year = date(current.year + 1, 1, 1)
+        end = min(node, next_year)
+        year_days = (next_year - date(current.year, 1, 1)).days
+        result += (end - current).days / year_days
+        current = end
+    return result
+
+
+def _is_month_end(value: date) -> bool:
+    next_month = date(
+        value.year + int(value.month == 12),
+        (value.month % 12) + 1,
+        1,
+    )
+    return value == next_month - date.resolution
+
+
+def _bond_fraction(anchor: date, node: date) -> float:
+    y1, m1, d1 = anchor.year, anchor.month, anchor.day
+    y2, m2, d2 = node.year, node.month, node.day
+    if m1 == 2 and _is_month_end(anchor):
+        if m2 == 2 and _is_month_end(node):
+            d2 = 30
+        d1 = 30
+    if d1 > 30:
+        d2 = min(d1, d2)
+    return (360 * (y2 - y1) + 30 * (m2 - m1) + d2 - d1) / 360.0
+
+
 def _day_count_fraction(anchor: date, node: date, day_basis: str) -> float:
     if day_basis == "ACT_365F":
         return (node - anchor).days / 365.0
     if day_basis == "ACT_360":
         return (node - anchor).days / 360.0
     if day_basis == "ACT_ACT":
-        current = anchor
-        result = 0.0
-        while current < node:
-            next_year = date(current.year + 1, 1, 1)
-            end = min(node, next_year)
-            year_days = (next_year - date(current.year, 1, 1)).days
-            result += (end - current).days / year_days
-            current = end
-        return result
+        return _act_act_fraction(anchor, node)
     if day_basis == "BOND":
-        y1, m1, d1 = anchor.year, anchor.month, anchor.day
-        y2, m2, d2 = node.year, node.month, node.day
-        next_month = date(y1 + int(m1 == 12), (m1 % 12) + 1, 1)
-        anchor_is_month_end = anchor == next_month - date.resolution
-        node_next_month = date(y2 + int(m2 == 12), (m2 % 12) + 1, 1)
-        node_is_month_end = node == node_next_month - date.resolution
-        if m1 == 2 and anchor_is_month_end:
-            if m2 == 2 and node_is_month_end:
-                d2 = 30
-            d1 = 30
-        if d1 > 30:
-            d2 = min(d1, d2)
-        return (360 * (y2 - y1) + 30 * (m2 - m1) + d2 - d1) / 360.0
+        return _bond_fraction(anchor, node)
     raise ValueError(f"unsupported dated scalar day basis {day_basis}")
 
 
@@ -836,14 +876,9 @@ def _resolve_declaration_initial_guess(
     if values or parameterization != "LOG_DISCOUNT":
         return explicit
     if len(knot_dates) != free_count:
-        raise RuntimeError(
-            "LOG_DISCOUNT seed dates do not match the free-parameter count"
-        )
+        raise RuntimeError("LOG_DISCOUNT seed dates do not match the free-parameter count")
     try:
-        return [
-            -scalar * _day_count_fraction(anchor, node, day_basis)
-            for node in knot_dates
-        ]
+        return [-scalar * _day_count_fraction(anchor, node, day_basis) for node in knot_dates]
     except ValueError:
         _raise(
             "UNSUPPORTED_CONVENTION",
@@ -884,47 +919,68 @@ def _format_convention_field(path: Sequence[str | int]) -> str:
     return result
 
 
-def _validate_supported_conventions(
-    value: object, path: list[str | int] | None = None
-) -> None:
+def _validate_supported_conventions(value: object, path: list[str | int] | None = None) -> None:
     current_path = path or []
     fields = getattr(type(value), "model_fields", None)
     if fields is not None:
-        for field_name in fields:
-            field_value = getattr(value, field_name)
-            field_path = [*current_path, field_name]
-            if field_name in {"day_basis", "libor_basis"}:
-                supported = _SUPPORTED_DAY_BASES
-                kind = "day_basis"
-            elif field_name in {
-                "business_day_convention",
-                "payment_convention",
-                "fixing_convention",
-            }:
-                supported = _SUPPORTED_BUSINESS_DAY_CONVENTIONS
-                kind = "business_day_convention"
-            else:
-                _validate_supported_conventions(field_value, field_path)
-                continue
-            if field_value not in supported:
-                sanitized = str(field_value)[:128]
-                field = _format_convention_field(field_path)
-                _raise(
-                    "UNSUPPORTED_CONVENTION",
-                    f"{field} value '{sanitized}' is not a supported {kind}",
-                    ["body", *field_path],
-                    {
-                        "convention_kind": kind,
-                        "value": sanitized,
-                    },
-                )
+        _validate_model_conventions(value, fields, current_path)
         return
     if isinstance(value, Mapping):
-        for key, item in value.items():
-            _validate_supported_conventions(item, [*current_path, str(key)])
-    elif isinstance(value, Sequence) and not isinstance(value, (str, bytes)):
-        for index, item in enumerate(value):
-            _validate_supported_conventions(item, [*current_path, index])
+        _validate_mapping_conventions(value, current_path)
+        return
+    if isinstance(value, Sequence) and not isinstance(value, (str, bytes)):
+        _validate_sequence_conventions(value, current_path)
+
+
+def _convention_definition(field_name: str) -> tuple[set[str], str] | None:
+    if field_name in {"day_basis", "libor_basis"}:
+        return _SUPPORTED_DAY_BASES, "day_basis"
+    if field_name in {
+        "business_day_convention",
+        "payment_convention",
+        "fixing_convention",
+    }:
+        return _SUPPORTED_BUSINESS_DAY_CONVENTIONS, "business_day_convention"
+    return None
+
+
+def _validate_convention_value(
+    value: object, field_path: list[str | int], supported: set[str], kind: str
+) -> None:
+    if value in supported:
+        return
+    sanitized = str(value)[:128]
+    field = _format_convention_field(field_path)
+    _raise(
+        "UNSUPPORTED_CONVENTION",
+        f"{field} value '{sanitized}' is not a supported {kind}",
+        ["body", *field_path],
+        {"convention_kind": kind, "value": sanitized},
+    )
+
+
+def _validate_model_conventions(
+    value: object, fields: Mapping[str, object], path: list[str | int]
+) -> None:
+    for field_name in fields:
+        field_value = getattr(value, field_name)
+        field_path = [*path, field_name]
+        definition = _convention_definition(field_name)
+        if definition is None:
+            _validate_supported_conventions(field_value, field_path)
+        else:
+            supported, kind = definition
+            _validate_convention_value(field_value, field_path, supported, kind)
+
+
+def _validate_mapping_conventions(value: Mapping[object, object], path: list[str | int]) -> None:
+    for key, item in value.items():
+        _validate_supported_conventions(item, [*path, str(key)])
+
+
+def _validate_sequence_conventions(value: Sequence[object], path: list[str | int]) -> None:
+    for index, item in enumerate(value):
+        _validate_supported_conventions(item, [*path, index])
 
 
 def _native_instrument_label(kind: str) -> str:
@@ -976,12 +1032,20 @@ def _check_single_analytic_eligibility(
     report: object | None,
     native_names_by_input: tuple[str, ...],
 ) -> None:
-    if (
-        request.options.jacobian_mode != "ANALYTIC"
-        or report is None
-        or report.eligible
-    ):
+    if request.options.jacobian_mode != "ANALYTIC" or report is None or report.eligible:
         return
+    input_index, issue = _first_single_analytic_issue(request, report, native_names_by_input)
+    reason = str(getattr(issue.reason, "name", issue.reason)).rsplit(".", 1)[-1]
+    location = _single_analytic_location(request, input_index, reason)
+    context, message = _single_analytic_context(request, input_index, issue, reason)
+    _raise("ANALYTIC_INELIGIBLE", message, location, context)
+
+
+def _first_single_analytic_issue(
+    request: SingleCalibrationRequest,
+    report: object,
+    native_names_by_input: tuple[str, ...],
+) -> tuple[int, object]:
     canonical_to_input = sorted(
         range(len(request.instruments)),
         key=lambda index: (
@@ -1006,33 +1070,34 @@ def _check_single_analytic_eligibility(
             int(item[1].reset_index),
         ),
     )
-    reason = str(getattr(issue.reason, "name", issue.reason)).rsplit(".", 1)[-1]
+    return input_index, issue
+
+
+def _single_analytic_location(
+    request: SingleCalibrationRequest, input_index: int, reason: str
+) -> list[str | int]:
     if reason == "DISCOUNT_TARGET_REQUIRED":
-        location: list[str | int] = [
+        return [
             "body",
             "declaration",
             "calibrate_discount_curve",
         ]
+    instrument = request.instruments[input_index]
+    if reason == "TRADE_DATE_MISMATCH":
+        field: list[str | int] = ["trade_date"]
+    elif reason in {"PROJECTION_NOT_ALLOWED", "PROJECTION_REQUIRED"}:
+        field = [_rate_index_field(instrument), "use_projection_curve"]
     else:
-        field: list[str | int]
-        instrument = request.instruments[input_index]
-        if reason == "TRADE_DATE_MISMATCH":
-            field = ["trade_date"]
-        elif reason == "TEMPLATED_RATE_UNAVAILABLE":
-            field = ["kind"]
-        elif reason in {"PROJECTION_NOT_ALLOWED", "PROJECTION_REQUIRED"}:
-            index_field = {
-                "DEPOSIT": "index",
-                "FRA": "index",
-                "FUTURE": "index",
-                "SWAP": "float_index",
-                "OIS_SWAP": "overnight_index",
-                "BASIS_SWAP": "spread_index",
-            }[instrument.kind]
-            field = [index_field, "use_projection_curve"]
-        else:
-            field = ["kind"]
-        location = ["body", "instruments", input_index, *field]
+        field = ["kind"]
+    return ["body", "instruments", input_index, *field]
+
+
+def _single_analytic_context(
+    request: SingleCalibrationRequest,
+    input_index: int,
+    issue: object,
+    reason: str,
+) -> tuple[dict[str, object], str]:
     context: dict[str, object] = {
         "reason_code": reason,
         "group": "single",
@@ -1049,12 +1114,11 @@ def _check_single_analytic_eligibility(
             }
         )
         message = (
-            "ANALYTIC requires the instrument trade date to equal "
-            f"{request.today.isoformat()}"
+            f"ANALYTIC requires the instrument trade date to equal {request.today.isoformat()}"
         )
     else:
         message = f"ANALYTIC is ineligible: {reason}"
-    _raise("ANALYTIC_INELIGIBLE", message, location, context)
+    return context, message
 
 
 def _rate_index_field(instrument: object) -> str:
@@ -1068,30 +1132,11 @@ def _rate_index_field(instrument: object) -> str:
     }[instrument.kind]
 
 
-def _missing_xccy_route(
-    request: object, reason: str, instrument_index: int
-) -> tuple[str, str]:
+def _missing_xccy_route(request: object, reason: str, instrument_index: int) -> tuple[str, str]:
     instrument = request.basis.instruments[instrument_index]
     for leg in ("domestic", "foreign"):
         index = getattr(instrument.config.convention, f"{leg}_index")
-        if hasattr(request, "domestic_curve_block"):
-            block = getattr(request, f"{leg}_curve_block")
-            discount_slots = set(block.discount_curve_ids)
-            forward_slots = {
-                _native_tenor_key(value) for value in block.forward_curve_ids
-            }
-        else:
-            group = getattr(request, leg)
-            discount_slots = {
-                declaration.target_collateral
-                for declaration in group.declarations
-                if declaration.calibrate_discount_curve
-            }
-            forward_slots = {
-                _native_tenor_key(declaration.target_tenor)
-                for declaration in group.declarations
-                if not declaration.calibrate_discount_curve
-            }
+        discount_slots, forward_slots = _xccy_route_slots(request, leg)
         if reason == "DISCOUNT_ROUTE_MISSING" and index.collateral not in discount_slots:
             return leg, "collateral"
         if (
@@ -1100,9 +1145,27 @@ def _missing_xccy_route(
             and _native_tenor_key(index.forecast_tenor) not in forward_slots
         ):
             return leg, "forecast_tenor"
-    return "domestic", (
-        "collateral" if reason == "DISCOUNT_ROUTE_MISSING" else "forecast_tenor"
-    )
+    return "domestic", ("collateral" if reason == "DISCOUNT_ROUTE_MISSING" else "forecast_tenor")
+
+
+def _xccy_route_slots(request: object, leg: str) -> tuple[set[str], set[str]]:
+    if hasattr(request, "domestic_curve_block"):
+        block = getattr(request, f"{leg}_curve_block")
+        return set(block.discount_curve_ids), {
+            _native_tenor_key(value) for value in block.forward_curve_ids
+        }
+    group = getattr(request, leg)
+    discount_slots = {
+        declaration.target_collateral
+        for declaration in group.declarations
+        if declaration.calibrate_discount_curve
+    }
+    forward_slots = {
+        _native_tenor_key(declaration.target_tenor)
+        for declaration in group.declarations
+        if not declaration.calibrate_discount_curve
+    }
+    return discount_slots, forward_slots
 
 
 def _native_tenor_key(value: object) -> str:
@@ -1110,14 +1173,8 @@ def _native_tenor_key(value: object) -> str:
     return text[1:] if text.startswith("P") else text
 
 
-def _check_xccy_analytic_eligibility(
-    request: object, report: object | None, kind: str
-) -> None:
-    if (
-        request.options.jacobian_mode != "ANALYTIC"
-        or report is None
-        or report.eligible
-    ):
+def _check_xccy_analytic_eligibility(request: object, report: object | None, kind: str) -> None:
+    if request.options.jacobian_mode != "ANALYTIC" or report is None or report.eligible:
         return
     group_rank = {"domestic": 0, "foreign": 1, "staged": 2, "basis": 2}
     issue = min(
@@ -1134,67 +1191,114 @@ def _check_xccy_analytic_eligibility(
     declaration_index = int(issue.declaration_index)
     instrument_index = int(issue.instrument_index)
     reset_index = int(issue.reset_index)
-
-    if reason == "LIBOR_BASIS_UNSUPPORTED":
-        location = (
-            ["body", f"{group}_curve_block", "libor_basis"]
-            if kind == "xccy_staged"
-            else ["body", group, "libor_basis"]
-        )
-    elif kind == "xccy_joint" and group in {"domestic", "foreign"}:
-        declaration = getattr(request, group).declarations[declaration_index]
-        instrument = declaration.instruments[instrument_index]
-        suffix = (
-            ["trade_date"]
-            if reason == "TRADE_DATE_MISMATCH"
-            else [_rate_index_field(instrument), "use_projection_curve"]
-            if reason in {"PROJECTION_NOT_ALLOWED", "PROJECTION_REQUIRED"}
-            else ["kind"]
-        )
-        location = [
-            "body",
-            group,
-            "declarations",
-            declaration_index,
-            "instruments",
-            instrument_index,
-            *suffix,
-        ]
-    else:
-        prefix: list[str | int] = ["body", "basis", "instruments", instrument_index]
-        if reason == "PAIR_CURRENCY_MISMATCH":
-            suffix = ["config", "pair"]
-        elif reason in {"COUPON_PLAN_EMPTY", "CASHFLOW_PLAN_UNSUPPORTED"}:
-            suffix = ["config"]
-        elif reason == "NOTIONAL_MODE_UNSUPPORTED":
-            suffix = ["config", "notional_mode"]
-        elif reason == "RESET_MAPPING_INVALID":
-            suffix = ["config", "fx_reset"]
-        elif reason in {"DISCOUNT_ROUTE_MISSING", "PROJECTION_ROUTE_MISSING"}:
-            leg, field = _missing_xccy_route(request, reason, instrument_index)
-            suffix = ["config", "convention", f"{leg}_index", field]
-        else:
-            suffix = ["config"]
-        location = [*prefix, *suffix]
+    location = _xccy_analytic_location(
+        request,
+        kind,
+        reason,
+        group,
+        declaration_index,
+        instrument_index,
+    )
     _raise(
         "ANALYTIC_INELIGIBLE",
         f"ANALYTIC is ineligible: {reason}",
         location,
-        {
-            "reason_code": reason,
-            "group": group,
-            "declaration_index": (
-                declaration_index if declaration_index >= 0 else None
-            ),
-            "instrument_index": (
-                instrument_index if instrument_index >= 0 else None
-            ),
-            "input_index": instrument_index if instrument_index >= 0 else None,
-            "calibration_index": instrument_index if instrument_index >= 0 else None,
-            "reset_index": reset_index if reset_index >= 0 else None,
-            "native_message": issue.native_message,
-        },
+        _xccy_analytic_context(
+            issue, reason, group, declaration_index, instrument_index, reset_index
+        ),
     )
+
+
+def _joint_xccy_analytic_location(
+    request: object,
+    group: str,
+    declaration_index: int,
+    instrument_index: int,
+    reason: str,
+) -> list[str | int]:
+    declaration = getattr(request, group).declarations[declaration_index]
+    instrument = declaration.instruments[instrument_index]
+    if reason == "TRADE_DATE_MISMATCH":
+        suffix = ["trade_date"]
+    elif reason in {"PROJECTION_NOT_ALLOWED", "PROJECTION_REQUIRED"}:
+        suffix = [_rate_index_field(instrument), "use_projection_curve"]
+    else:
+        suffix = ["kind"]
+    return [
+        "body",
+        group,
+        "declarations",
+        declaration_index,
+        "instruments",
+        instrument_index,
+        *suffix,
+    ]
+
+
+def _basis_xccy_analytic_location(
+    request: object, reason: str, instrument_index: int
+) -> list[str | int]:
+    prefix: list[str | int] = ["body", "basis", "instruments", instrument_index]
+    if reason == "PAIR_CURRENCY_MISMATCH":
+        suffix = ["config", "pair"]
+    elif reason in {"COUPON_PLAN_EMPTY", "CASHFLOW_PLAN_UNSUPPORTED"}:
+        suffix = ["config"]
+    elif reason == "NOTIONAL_MODE_UNSUPPORTED":
+        suffix = ["config", "notional_mode"]
+    elif reason == "RESET_MAPPING_INVALID":
+        suffix = ["config", "fx_reset"]
+    elif reason in {"DISCOUNT_ROUTE_MISSING", "PROJECTION_ROUTE_MISSING"}:
+        leg, field = _missing_xccy_route(request, reason, instrument_index)
+        suffix = ["config", "convention", f"{leg}_index", field]
+    else:
+        suffix = ["config"]
+    return [*prefix, *suffix]
+
+
+def _xccy_analytic_location(
+    request: object,
+    kind: str,
+    reason: str,
+    group: str,
+    declaration_index: int,
+    instrument_index: int,
+) -> list[str | int]:
+    if reason == "LIBOR_BASIS_UNSUPPORTED":
+        return (
+            ["body", f"{group}_curve_block", "libor_basis"]
+            if kind == "xccy_staged"
+            else ["body", group, "libor_basis"]
+        )
+    if kind == "xccy_joint" and group in {"domestic", "foreign"}:
+        return _joint_xccy_analytic_location(
+            request, group, declaration_index, instrument_index, reason
+        )
+    return _basis_xccy_analytic_location(request, reason, instrument_index)
+
+
+def _nonnegative_or_none(value: int) -> int | None:
+    return value if value >= 0 else None
+
+
+def _xccy_analytic_context(
+    issue: object,
+    reason: str,
+    group: str,
+    declaration_index: int,
+    instrument_index: int,
+    reset_index: int,
+) -> dict[str, object]:
+    input_index = _nonnegative_or_none(instrument_index)
+    return {
+        "reason_code": reason,
+        "group": group,
+        "declaration_index": _nonnegative_or_none(declaration_index),
+        "instrument_index": input_index,
+        "input_index": input_index,
+        "calibration_index": input_index,
+        "reset_index": _nonnegative_or_none(reset_index),
+        "native_message": issue.native_message,
+    }
 
 
 def _check_system_and_matrices(
@@ -1257,16 +1361,11 @@ def _estimate_success_response_bytes(
     return base + floats * 25 + (residual_count + parameter_count) * 256
 
 
-def _check_response_estimate(
-    request: object, residual_count: int, parameter_count: int
-) -> None:
-    estimate = _estimate_success_response_bytes(
-        request, residual_count, parameter_count
-    )
+def _check_response_estimate(request: object, residual_count: int, parameter_count: int) -> None:
+    estimate = _estimate_success_response_bytes(request, residual_count, parameter_count)
     if estimate > 1 << 20:
         preview_reserved = bool(
-            request.solver.solve_mode == "EXACT"
-            and request.options.include_effective_inverse
+            request.solver.solve_mode == "EXACT" and request.options.include_effective_inverse
         )
         _raise(
             "RESPONSE_LIMIT_EXCEEDED",
@@ -1299,6 +1398,16 @@ def _referenced_curve_ids(request: object) -> set[str]:
 def _load_referenced_curves(
     store: StoreProtocol, request: object
 ) -> dict[str, CurveReconstructionDTO]:
+    result = _load_reference_map(store, request)
+    for expectation in _reference_expectations(request):
+        _validate_reference_expectation(result, expectation)
+    return result
+
+
+type _ReferenceExpectation = tuple[str, list[str | int], str, set[str]]
+
+
+def _load_reference_map(store: StoreProtocol, request: object) -> dict[str, CurveReconstructionDTO]:
     result: dict[str, CurveReconstructionDTO] = {}
     for curve_id in _referenced_curve_ids(request):
         try:
@@ -1310,86 +1419,108 @@ def _load_referenced_curves(
                 ["body", "declaration", "base_curve_id"],
                 {"curve_id": curve_id, "constraint": "exists"},
             )
-    expectations: list[tuple[str, list[str | int], str, set[str]]] = []
+    return result
+
+
+def _declaration_reference_expectations(
+    request: object, declaration: object
+) -> list[_ReferenceExpectation]:
+    expectations: list[_ReferenceExpectation] = []
+    if declaration.base_curve_id:
+        expectations.append(
+            (
+                declaration.base_curve_id,
+                ["body", "declaration", "base_curve_id"],
+                request.currency,
+                set(),
+            )
+        )
+    expectations.extend(
+        (
+            curve_id,
+            ["body", "declaration", "discount_curve_ids", slot],
+            request.currency,
+            {"discount"},
+        )
+        for slot, curve_id in declaration.discount_curve_ids.items()
+    )
+    expectations.extend(
+        (
+            curve_id,
+            ["body", "declaration", "forward_curve_ids", slot],
+            request.currency,
+            {"forward"},
+        )
+        for slot, curve_id in declaration.forward_curve_ids.items()
+    )
+    return expectations
+
+
+def _block_reference_expectations(block_name: str, block: object) -> list[_ReferenceExpectation]:
+    expectations: list[_ReferenceExpectation] = []
+    expectations.extend(
+        (
+            curve_id,
+            ["body", block_name, "discount_curve_ids", slot],
+            block.currency,
+            {"discount"},
+        )
+        for slot, curve_id in block.discount_curve_ids.items()
+    )
+    expectations.extend(
+        (
+            curve_id,
+            ["body", block_name, "forward_curve_ids", slot],
+            block.currency,
+            {"forward"},
+        )
+        for slot, curve_id in block.forward_curve_ids.items()
+    )
+    return expectations
+
+
+def _reference_expectations(request: object) -> list[_ReferenceExpectation]:
+    expectations: list[_ReferenceExpectation] = []
     declaration = getattr(request, "declaration", None)
     if declaration is not None:
-        if declaration.base_curve_id:
-            expectations.append(
-                (
-                    declaration.base_curve_id,
-                    ["body", "declaration", "base_curve_id"],
-                    request.currency,
-                    set(),
-                )
-            )
-        expectations.extend(
-            (
-                curve_id,
-                ["body", "declaration", "discount_curve_ids", slot],
-                request.currency,
-                {"discount"},
-            )
-            for slot, curve_id in declaration.discount_curve_ids.items()
-        )
-        expectations.extend(
-            (
-                curve_id,
-                ["body", "declaration", "forward_curve_ids", slot],
-                request.currency,
-                {"forward"},
-            )
-            for slot, curve_id in declaration.forward_curve_ids.items()
-        )
+        expectations.extend(_declaration_reference_expectations(request, declaration))
     for block_name in ("domestic_curve_block", "foreign_curve_block"):
         block = getattr(request, block_name, None)
-        if block is None:
-            continue
-        expectations.extend(
-            (
-                curve_id,
-                ["body", block_name, "discount_curve_ids", slot],
-                block.currency,
-                {"discount"},
-            )
-            for slot, curve_id in block.discount_curve_ids.items()
+        if block is not None:
+            expectations.extend(_block_reference_expectations(block_name, block))
+    return expectations
+
+
+def _validate_reference_expectation(
+    result: dict[str, CurveReconstructionDTO],
+    expectation: _ReferenceExpectation,
+) -> None:
+    curve_id, location, currency, roles = expectation
+    curve = result[curve_id]
+    if curve.currency != currency:
+        _raise(
+            "REFERENCE_MISMATCH",
+            f"curve {curve_id} has currency {curve.currency}; expected {currency}",
+            location,
+            {
+                "curve_id": curve_id,
+                "constraint": "currency",
+                "expected": currency,
+                "actual": curve.currency,
+            },
         )
-        expectations.extend(
-            (
-                curve_id,
-                ["body", block_name, "forward_curve_ids", slot],
-                block.currency,
-                {"forward"},
-            )
-            for slot, curve_id in block.forward_curve_ids.items()
+    if roles and curve.role not in roles:
+        _raise(
+            "REFERENCE_MISMATCH",
+            f"curve {curve_id} has role {curve.role}; expected {' or '.join(sorted(roles))}",
+            location,
+            {
+                "curve_id": curve_id,
+                "constraint": "role",
+                "expected": sorted(roles),
+                "actual": curve.role,
+            },
         )
-    for curve_id, location, currency, roles in expectations:
-        curve = result[curve_id]
-        if curve.currency != currency:
-            _raise(
-                "REFERENCE_MISMATCH",
-                f"curve {curve_id} has currency {curve.currency}; expected {currency}",
-                location,
-                {
-                    "curve_id": curve_id,
-                    "constraint": "currency",
-                    "expected": currency,
-                    "actual": curve.currency,
-                },
-            )
-        if roles and curve.role not in roles:
-            _raise(
-                "REFERENCE_MISMATCH",
-                f"curve {curve_id} has role {curve.role}; expected "
-                f"{' or '.join(sorted(roles))}",
-                location,
-                {
-                    "curve_id": curve_id,
-                    "constraint": "role",
-                    "expected": sorted(roles),
-                    "actual": curve.role,
-                },
-            )
-    return result
 
 
 async def submit_single_calibration(
@@ -1419,9 +1550,7 @@ async def submit_single_calibration(
     if len(inspected) != 1 or admission.resolved_knot_plan is not inspected[0]:
         raise RuntimeError("gateway returned a different single-knot plan")
     plan = admission.resolved_knot_plan.to_bounded_dto()
-    _check_single_maturity_coverage(
-        request, plan, admission.latest_instrument_end
-    )
+    _check_single_maturity_coverage(request, plan, admission.latest_instrument_end)
     expected = _project_expected_identity(request, plan)
     _resolve_initial_guess(
         request.declaration.initial_guess_per_node,
@@ -1429,13 +1558,9 @@ async def submit_single_calibration(
         plan.counts.free_parameters,
         ["body", "declaration", "initial_guess_per_node"],
     )
-    resolved_initial_guess = list(
-        admission.resolved_initial_guess_per_node
-    )
+    resolved_initial_guess = list(admission.resolved_initial_guess_per_node)
     if len(resolved_initial_guess) != plan.counts.free_parameters:
-        raise RuntimeError(
-            "gateway resolved an initial-guess vector with the wrong shape"
-        )
+        raise RuntimeError("gateway resolved an initial-guess vector with the wrong shape")
     _check_ambiguous_instrument_order(
         request.instruments,
         ["body", "instruments"],
@@ -1451,28 +1576,18 @@ async def submit_single_calibration(
         parameter_count=plan.counts.free_parameters,
         request=request,
     )
-    _check_response_estimate(
-        request, len(request.instruments), plan.counts.free_parameters
-    )
+    _check_response_estimate(request, len(request.instruments), plan.counts.free_parameters)
     run_id = uuid4().hex
     plan_hash = canonical_model_hash(plan)
     expected_hash = canonical_model_hash(expected)
     normalized_request = request.model_dump(mode="json")
-    submitted_initial_guess = normalized_request["declaration"].pop(
-        "initial_guess_per_node"
-    )
-    normalized_request["declaration"]["submitted_initial_guess_per_node"] = (
-        submitted_initial_guess
-    )
-    normalized_request["declaration"]["resolved_initial_guess_per_node"] = (
-        resolved_initial_guess
-    )
+    submitted_initial_guess = normalized_request["declaration"].pop("initial_guess_per_node")
+    normalized_request["declaration"]["submitted_initial_guess_per_node"] = submitted_initial_guess
+    normalized_request["declaration"]["resolved_initial_guess_per_node"] = resolved_initial_guess
     normalized_declaration = request.declaration.model_copy(
         update={"initial_guess_per_node": resolved_initial_guess}
     )
-    normalized_worker_request = request.model_copy(
-        update={"declaration": normalized_declaration}
-    )
+    normalized_worker_request = request.model_copy(update={"declaration": normalized_declaration})
     record = CalibrationRunRecord(
         id=run_id,
         schema_version=1,
@@ -1543,9 +1658,7 @@ async def submit_staged_xccy_calibration(
 ) -> RunningCalibrationRunResponse:
     _validate_supported_conventions(request)
     parameter_count = len(request.basis.knot_dates)
-    return await _submit_xccy(
-        store, gateway, request, "xccy_staged", parameter_count, None
-    )
+    return await _submit_xccy(store, gateway, request, "xccy_staged", parameter_count, None)
 
 
 async def submit_joint_xccy_calibration(
@@ -1599,201 +1712,229 @@ async def submit_joint_xccy_calibration(
     )
 
 
-async def _submit_xccy(
-    store: StoreProtocol,
-    gateway: DalGateway,
+@dataclass(frozen=True, slots=True)
+class _NormalizedXccyAdmission:
+    request_payload: dict[str, Any]
+    gateway_request_payload: object
+    submitted: list[tuple[str, int, object]]
+
+
+def _normalize_staged_xccy_admission(
+    request: StagedXccyCalibrationRequest, parameter_count: int
+) -> _NormalizedXccyAdmission:
+    normalized_request = request.model_dump(mode="json")
+    submitted = [
+        ("basis", index, instrument) for index, instrument in enumerate(request.basis.instruments)
+    ]
+    resolved = _resolve_declaration_initial_guess(
+        values=request.basis.initial_guess_per_node,
+        scalar=request.solver.initial_guess,
+        free_count=parameter_count,
+        parameterization="PIECEWISE_CONSTANT_FWD",
+        anchor=request.valuation_time.date(),
+        knot_dates=request.basis.knot_dates,
+        day_basis="ACT_365F",
+        location=["body", "basis", "initial_guess_per_node"],
+    )
+    basis_payload = normalized_request["basis"]
+    submitted_seed = basis_payload.pop("initial_guess_per_node")
+    basis_payload["submitted_initial_guess_per_node"] = submitted_seed
+    basis_payload["resolved_initial_guess_per_node"] = resolved
+    gateway_request_payload = request.model_copy(
+        update={"basis": request.basis.model_copy(update={"initial_guess_per_node": resolved})}
+    )
+    _check_ambiguous_instrument_order(
+        request.basis.instruments,
+        ["body", "basis", "instruments"],
+    )
+    return _NormalizedXccyAdmission(normalized_request, gateway_request_payload, submitted)
+
+
+def _joint_submitted_instruments(
+    request: JointXccyCalibrationRequest,
+) -> list[tuple[str, int, object]]:
+    submitted: list[tuple[str, int, object]] = []
+    for group_name, group in (
+        ("domestic", request.domestic),
+        ("foreign", request.foreign),
+    ):
+        for declaration_index, declaration in enumerate(group.declarations):
+            submitted.extend(
+                (
+                    f"{group_name}:{declaration_index}",
+                    instrument_index,
+                    instrument,
+                )
+                for instrument_index, instrument in enumerate(declaration.instruments)
+            )
+    submitted.extend(
+        ("basis", index, instrument) for index, instrument in enumerate(request.basis.instruments)
+    )
+    return submitted
+
+
+def _joint_seed_location(counts: object) -> list[str | int]:
+    if counts.group == "basis":
+        return ["body", "basis", "initial_guess_per_node"]
+    return [
+        "body",
+        counts.group,
+        "declarations",
+        counts.declaration_input_index,
+        "initial_guess_per_node",
+    ]
+
+
+def _normalize_joint_declarations(
+    request: JointXccyCalibrationRequest,
+    count_plan: JointAdmissionCountPlan,
+    normalized_request: dict[str, Any],
+) -> list[object]:
+    request_declarations = [
+        *request.domestic.declarations,
+        *request.foreign.declarations,
+        request.basis,
+    ]
+    wire_declarations = [
+        *normalized_request["domestic"]["declarations"],
+        *normalized_request["foreign"]["declarations"],
+        normalized_request["basis"],
+    ]
+    normalized_declarations: list[object] = []
+    for declaration, wire, counts in zip(
+        request_declarations,
+        wire_declarations,
+        count_plan.declarations,
+        strict=True,
+    ):
+        day_basis = (
+            "ACT_365F" if counts.group == "basis" else getattr(request, counts.group).libor_basis
+        )
+        resolved = _resolve_declaration_initial_guess(
+            values=declaration.initial_guess_per_node,
+            scalar=request.solver.initial_guess,
+            free_count=counts.free_parameter_count,
+            parameterization=counts.parameterization,
+            anchor=request.valuation_time.date(),
+            knot_dates=declaration.knot_dates,
+            day_basis=day_basis,
+            location=_joint_seed_location(counts),
+        )
+        submitted_seed = wire.pop("initial_guess_per_node")
+        wire["submitted_initial_guess_per_node"] = submitted_seed
+        wire["resolved_initial_guess_per_node"] = resolved
+        normalized_declarations.append(
+            declaration.model_copy(update={"initial_guess_per_node": resolved})
+        )
+    return normalized_declarations
+
+
+def _normalized_joint_gateway_request(
+    request: JointXccyCalibrationRequest, declarations: list[object]
+) -> JointXccyCalibrationRequest:
+    domestic_count = len(request.domestic.declarations)
+    foreign_count = len(request.foreign.declarations)
+    return request.model_copy(
+        update={
+            "domestic": request.domestic.model_copy(
+                update={"declarations": declarations[:domestic_count]}
+            ),
+            "foreign": request.foreign.model_copy(
+                update={
+                    "declarations": declarations[domestic_count : domestic_count + foreign_count]
+                }
+            ),
+            "basis": declarations[-1],
+        }
+    )
+
+
+def _check_joint_instrument_order(request: JointXccyCalibrationRequest) -> None:
+    for group_name, group in (
+        ("domestic", request.domestic),
+        ("foreign", request.foreign),
+    ):
+        for declaration_index, declaration in enumerate(group.declarations):
+            _check_ambiguous_instrument_order(
+                declaration.instruments,
+                [
+                    "body",
+                    group_name,
+                    "declarations",
+                    declaration_index,
+                    "instruments",
+                ],
+            )
+    _check_ambiguous_instrument_order(
+        request.basis.instruments,
+        ["body", "basis", "instruments"],
+    )
+
+
+def _normalize_joint_xccy_admission(
+    request: JointXccyCalibrationRequest,
+    count_plan: JointAdmissionCountPlan | None,
+) -> _NormalizedXccyAdmission:
+    if count_plan is None:
+        raise TypeError("joint admission requires its immutable count plan")
+    normalized_request = request.model_dump(mode="json")
+    declarations = _normalize_joint_declarations(request, count_plan, normalized_request)
+    gateway_request_payload = _normalized_joint_gateway_request(request, declarations)
+    _check_joint_instrument_order(request)
+    return _NormalizedXccyAdmission(
+        normalized_request,
+        gateway_request_payload,
+        _joint_submitted_instruments(request),
+    )
+
+
+def _normalize_xccy_admission(
     request: object,
     kind: Literal["xccy_staged", "xccy_joint"],
     parameter_count: int,
     count_plan: JointAdmissionCountPlan | None,
-) -> RunningCalibrationRunResponse:
-    from app.services.dal_gateway import (
-        JointXccyGatewayRequest,
-        StagedXccyGatewayRequest,
-    )
-
-    referenced = _load_referenced_curves(store, request)
-    normalized_request = request.model_dump(mode="json")
-    normalized_gateway_request = request
+) -> _NormalizedXccyAdmission:
     if kind == "xccy_staged":
-        submitted: list[tuple[str, int, object]] = [
-            ("basis", index, instrument)
-            for index, instrument in enumerate(request.basis.instruments)
-        ]
-        resolved = _resolve_declaration_initial_guess(
-            values=request.basis.initial_guess_per_node,
-            scalar=request.solver.initial_guess,
-            free_count=parameter_count,
-            parameterization="PIECEWISE_CONSTANT_FWD",
-            anchor=request.valuation_time.date(),
-            knot_dates=request.basis.knot_dates,
-            day_basis="ACT_365F",
-            location=["body", "basis", "initial_guess_per_node"],
-        )
-        submitted_seed = normalized_request["basis"].pop(
-            "initial_guess_per_node"
-        )
-        normalized_request["basis"]["submitted_initial_guess_per_node"] = (
-            submitted_seed
-        )
-        normalized_request["basis"]["resolved_initial_guess_per_node"] = resolved
-        normalized_gateway_request = request.model_copy(
-            update={
-                "basis": request.basis.model_copy(
-                    update={"initial_guess_per_node": resolved}
-                )
-            }
-        )
-        _check_ambiguous_instrument_order(
-            request.basis.instruments,
-            ["body", "basis", "instruments"],
-        )
-    else:
-        if count_plan is None:
-            raise TypeError("joint admission requires its immutable count plan")
-        submitted = []
-        for group_name, group in (
-            ("domestic", request.domestic),
-            ("foreign", request.foreign),
-        ):
-            for declaration_index, declaration in enumerate(group.declarations):
-                submitted.extend(
-                    (
-                        f"{group_name}:{declaration_index}",
-                        instrument_index,
-                        instrument,
-                    )
-                    for instrument_index, instrument in enumerate(
-                        declaration.instruments
-                    )
-                )
-        submitted.extend(
-            ("basis", index, instrument)
-            for index, instrument in enumerate(request.basis.instruments)
-        )
-        request_declarations = [
-            *request.domestic.declarations,
-            *request.foreign.declarations,
-            request.basis,
-        ]
-        wire_declarations = [
-            *normalized_request["domestic"]["declarations"],
-            *normalized_request["foreign"]["declarations"],
-            normalized_request["basis"],
-        ]
-        normalized_declarations: list[object] = []
-        for declaration, wire, counts in zip(
-            request_declarations,
-            wire_declarations,
-            count_plan.declarations,
-            strict=True,
-        ):
-            location = (
-                    ["body", "basis", "initial_guess_per_node"]
-                    if counts.group == "basis"
-                    else [
-                        "body",
-                        counts.group,
-                        "declarations",
-                        counts.declaration_input_index,
-                        "initial_guess_per_node",
-                    ]
-                )
-            day_basis = (
-                "ACT_365F"
-                if counts.group == "basis"
-                else getattr(request, counts.group).libor_basis
-            )
-            resolved = _resolve_declaration_initial_guess(
-                values=declaration.initial_guess_per_node,
-                scalar=request.solver.initial_guess,
-                free_count=counts.free_parameter_count,
-                parameterization=counts.parameterization,
-                anchor=request.valuation_time.date(),
-                knot_dates=declaration.knot_dates,
-                day_basis=day_basis,
-                location=location,
-            )
-            submitted_seed = wire.pop("initial_guess_per_node")
-            wire["submitted_initial_guess_per_node"] = submitted_seed
-            wire["resolved_initial_guess_per_node"] = resolved
-            normalized_declarations.append(
-                declaration.model_copy(
-                    update={"initial_guess_per_node": resolved}
-                )
-            )
-        domestic_count = len(request.domestic.declarations)
-        foreign_count = len(request.foreign.declarations)
-        normalized_gateway_request = request.model_copy(
-            update={
-                "domestic": request.domestic.model_copy(
-                    update={
-                        "declarations": normalized_declarations[
-                            :domestic_count
-                        ]
-                    }
-                ),
-                "foreign": request.foreign.model_copy(
-                    update={
-                        "declarations": normalized_declarations[
-                            domestic_count : domestic_count + foreign_count
-                        ]
-                    }
-                ),
-                "basis": normalized_declarations[-1],
-            }
-        )
-        for group_name, group in (
-            ("domestic", request.domestic),
-            ("foreign", request.foreign),
-        ):
-            for declaration_index, declaration in enumerate(group.declarations):
-                _check_ambiguous_instrument_order(
-                    declaration.instruments,
-                    [
-                        "body",
-                        group_name,
-                        "declarations",
-                        declaration_index,
-                        "instruments",
-                    ],
-                )
-        _check_ambiguous_instrument_order(
-            request.basis.instruments,
-            ["body", "basis", "instruments"],
-        )
-    gateway_request = (
-        StagedXccyGatewayRequest(normalized_gateway_request, referenced)
-        if kind == "xccy_staged"
-        else JointXccyGatewayRequest(normalized_gateway_request)
-    )
+        return _normalize_staged_xccy_admission(request, parameter_count)
+    return _normalize_joint_xccy_admission(request, count_plan)
+
+
+async def _validate_xccy_gateway_admission(
+    gateway: DalGateway,
+    gateway_request: object,
+    request: object,
+    kind: Literal["xccy_staged", "xccy_joint"],
+) -> None:
     required_fixings = await asyncio.to_thread(
         gateway.required_historical_xccy_fixings, gateway_request
     )
     _check_required_xccy_fixings(request, required_fixings)
-    if request.options.jacobian_mode == "ANALYTIC":
-        validator = (
-            gateway.validate_staged_xccy_admission
-            if kind == "xccy_staged"
-            else gateway.validate_joint_xccy_admission
-        )
-        report = await asyncio.to_thread(validator, gateway_request)
-        _check_xccy_analytic_eligibility(request, report, kind)
-    _check_system_and_matrices(
-        residual_count=len(submitted),
-        parameter_count=parameter_count,
-        request=request,
+    if request.options.jacobian_mode != "ANALYTIC":
+        return
+    validator = (
+        gateway.validate_staged_xccy_admission
+        if kind == "xccy_staged"
+        else gateway.validate_joint_xccy_admission
     )
-    _check_response_estimate(request, len(submitted), parameter_count)
-    run_id = uuid4().hex
-    record = CalibrationRunRecord(
+    report = await asyncio.to_thread(validator, gateway_request)
+    _check_xccy_analytic_eligibility(request, report, kind)
+
+
+def _xccy_admission_record(
+    gateway: DalGateway,
+    request: object,
+    kind: Literal["xccy_staged", "xccy_joint"],
+    run_id: str,
+    request_payload: dict[str, Any],
+) -> CalibrationRunRecord:
+    return CalibrationRunRecord(
         id=run_id,
         schema_version=1,
         kind=kind,
         name=request.name,
         status="running",
         phase="queued",
-        request_payload=normalized_request,
+        request_payload=request_payload,
         solver_payload=_normalized_solver(request).model_dump(mode="json"),
         options_payload=_normalized_options(request).model_dump(mode="json"),
         resolved_knot_plan=None,
@@ -1813,7 +1954,12 @@ async def _submit_xccy(
         native_solve_ms=None,
         serialization_ms=None,
     )
-    instruments = tuple(
+
+
+def _xccy_instrument_records(
+    run_id: str, submitted: list[tuple[str, int, object]]
+) -> tuple[CalibrationInstrumentRecord, ...]:
+    return tuple(
         CalibrationInstrumentRecord(
             id=uuid4().hex,
             run_id=run_id,
@@ -1827,12 +1973,42 @@ async def _submit_xccy(
         )
         for calibration_index, (group, input_index, instrument) in enumerate(submitted)
     )
+
+
+async def _submit_xccy(
+    store: StoreProtocol,
+    gateway: DalGateway,
+    request: object,
+    kind: Literal["xccy_staged", "xccy_joint"],
+    parameter_count: int,
+    count_plan: JointAdmissionCountPlan | None,
+) -> RunningCalibrationRunResponse:
+    from app.services.dal_gateway import (
+        JointXccyGatewayRequest,
+        StagedXccyGatewayRequest,
+    )
+
+    referenced = _load_referenced_curves(store, request)
+    normalized = _normalize_xccy_admission(request, kind, parameter_count, count_plan)
+    gateway_request = (
+        StagedXccyGatewayRequest(normalized.gateway_request_payload, referenced)
+        if kind == "xccy_staged"
+        else JointXccyGatewayRequest(normalized.gateway_request_payload)
+    )
+    await _validate_xccy_gateway_admission(gateway, gateway_request, request, kind)
+    _check_system_and_matrices(
+        residual_count=len(normalized.submitted),
+        parameter_count=parameter_count,
+        request=request,
+    )
+    _check_response_estimate(request, len(normalized.submitted), parameter_count)
+    run_id = uuid4().hex
+    record = _xccy_admission_record(gateway, request, kind, run_id, normalized.request_payload)
+    instruments = _xccy_instrument_records(run_id, normalized.submitted)
     store.add_calibration_admission(record, instruments)
     response = _run_response(store, record, QuoteBumpQueryDTO())
     _schedule_calibration(
-        _run_xccy_worker(
-            store, gateway, run_id, gateway_request, instruments, kind
-        )
+        _run_xccy_worker(store, gateway, run_id, gateway_request, instruments, kind)
     )
     return response
 
@@ -1845,18 +2021,13 @@ def _validate_single_worker_admission_context(
     request = pre_lock_request.request
     declaration = request.declaration
     if plan.requested_policy != declaration.knot_policy:
-        raise ValueError(
-            "resolved knot plan requested policy does not match the worker request"
-        )
+        raise ValueError("resolved knot plan requested policy does not match the worker request")
     if tuple(plan.submitted_knot_dates) != tuple(declaration.knot_dates):
-        raise ValueError(
-            "resolved knot plan submitted dates do not match the worker request"
-        )
+        raise ValueError("resolved knot plan submitted dates do not match the worker request")
     contextual_expected = _project_expected_identity(request, plan)
     if expected_identity != contextual_expected:
         raise ValueError(
-            "expected execution identity does not match the worker request "
-            "and resolved plan"
+            "expected execution identity does not match the worker request and resolved plan"
         )
 
 
@@ -1879,34 +2050,25 @@ def _verify_single_evidence(
             },
         )
         raise PersistedKnotPlanIntegrityError(evidence)
-    actual_expected_hash = canonical_model_hash(
-        raw.expected_execution_identity_raw
-    )
+    actual_expected_hash = canonical_model_hash(raw.expected_execution_identity_raw)
     if actual_expected_hash != raw.expected_execution_identity_hash:
         evidence = freeze_integrity_error_evidence(
             "PERSISTED_EXPECTED_EXECUTION_IDENTITY_HASH_MISMATCH",
-            "persisted expected single-knot execution identity failed "
-            "canonical hash verification",
+            "persisted expected single-knot execution identity failed canonical hash verification",
             None,
             {
                 "integrity_domain": "expected_execution_identity",
-                "stored_expected_execution_identity_hash": (
-                    raw.expected_execution_identity_hash
-                ),
+                "stored_expected_execution_identity_hash": (raw.expected_execution_identity_hash),
                 "actual_expected_execution_identity_hash": actual_expected_hash,
                 "first_difference": None,
             },
         )
         raise PersistedExpectedExecutionIdentityIntegrityError(evidence)
-    plan = ResolvedSingleKnotPlanDTO.model_validate(
-        raw.resolved_knot_plan_raw
-    )
+    plan = ResolvedSingleKnotPlanDTO.model_validate(raw.resolved_knot_plan_raw)
     expected_identity = ExecutionSingleKnotIdentityDTO.model_validate(
         raw.expected_execution_identity_raw
     )
-    _validate_single_worker_admission_context(
-        pre_lock_request, plan, expected_identity
-    )
+    _validate_single_worker_admission_context(pre_lock_request, plan, expected_identity)
     return VerifiedSingleWorkerAdmissionEvidence(
         resolved_knot_plan=plan,
         resolved_knot_plan_hash=raw.resolved_knot_plan_hash,
@@ -1943,9 +2105,7 @@ async def _run_single_worker(
             verify,
             on_identity,
         )
-        await _terminalize_success(
-            store, calibration_id, result, instruments
-        )
+        await _terminalize_success(store, calibration_id, result, instruments)
     except PersistedKnotPlanIntegrityError as exc:
         _terminalize_integrity_error(store, calibration_id, exc, "plan")
     except PersistedExpectedExecutionIdentityIntegrityError as exc:
@@ -1954,18 +2114,13 @@ async def _run_single_worker(
         actual_hash = canonical_model_hash(exc.actual)
         error = {
             "code": "NATIVE_KNOT_PLAN_MISMATCH",
-            "message": "worker single-knot execution identity does not match "
-            "the admitted identity",
+            "message": "worker single-knot execution identity does not match the admitted identity",
             "location": None,
             "context": {
                 "comparison_stage": exc.comparison_stage,
-                "expected_execution_identity_hash": canonical_model_hash(
-                    exc.expected
-                ),
+                "expected_execution_identity_hash": canonical_model_hash(exc.expected),
                 "actual_execution_identity_hash": actual_hash,
-                "first_difference": first_canonical_difference(
-                    exc.expected, exc.actual
-                ),
+                "first_difference": first_canonical_difference(exc.expected, exc.actual),
             },
         }
         store.fail_calibration(
@@ -1997,14 +2152,10 @@ async def _run_xccy_worker(
 
     try:
         method = (
-            gateway.calibrate_staged_xccy
-            if kind == "xccy_staged"
-            else gateway.calibrate_joint_xccy
+            gateway.calibrate_staged_xccy if kind == "xccy_staged" else gateway.calibrate_joint_xccy
         )
         result = await asyncio.to_thread(method, gateway_request, on_lock)
-        await _terminalize_success(
-            store, calibration_id, result, instruments
-        )
+        await _terminalize_success(store, calibration_id, result, instruments)
     except Exception as exc:  # noqa: BLE001 - background terminal envelope
         logger.exception("XCCY calibration %s failed", calibration_id)
         _fail_native(store, calibration_id, exc)
@@ -2046,9 +2197,7 @@ def _terminalize_integrity_error(
         _fail_lifecycle(store, calibration_id, transition)
 
 
-def _fail_native(
-    store: StoreProtocol, calibration_id: str, exception: Exception
-) -> None:
+def _fail_native(store: StoreProtocol, calibration_id: str, exception: Exception) -> None:
     if isinstance(exception, NativeSolverDidNotConvergeError):
         error_payload = {
             "code": "SOLVER_DID_NOT_CONVERGE",
@@ -2062,9 +2211,7 @@ def _fail_native(
             "message": "Native calibration failed",
             "location": None,
             "context": {
-                "native_message": (
-                    f"{type(exception).__name__}: native calibration failed"
-                )
+                "native_message": (f"{type(exception).__name__}: native calibration failed")
             },
         }
     store.fail_calibration(
@@ -2074,9 +2221,7 @@ def _fail_native(
     )
 
 
-def _fail_lifecycle(
-    store: StoreProtocol, calibration_id: str, transition: str
-) -> None:
+def _fail_lifecycle(store: StoreProtocol, calibration_id: str, transition: str) -> None:
     incident_id = uuid4().hex
     try:
         store.fail_calibration(
@@ -2163,6 +2308,65 @@ async def _terminalize_success(
 ) -> None:
     store.update_calibration_phase(calibration_id, "serializing")
     created_at = datetime.now(UTC)
+    projected = _project_terminal_result(store, calibration_id, result, instruments, created_at)
+    run = store.get_calibration_run(calibration_id)
+    actual = result.actual_execution_identity
+    actual_hash = canonical_model_hash(actual) if actual is not None else None
+    candidate = _completed_response_candidate(run, result, projected, created_at, actual_hash)
+    serialization_ms, final_bytes = _serialize_completed_candidate(candidate)
+    if _fail_oversized_completion(
+        store,
+        calibration_id,
+        result,
+        actual,
+        actual_hash,
+        created_at,
+        serialization_ms,
+        final_bytes,
+    ):
+        return
+    payload = _completion_payload(result, projected)
+    store.update_calibration_phase(calibration_id, "persisting")
+    store.complete_calibration(
+        calibration_id,
+        result_payload=payload,
+        curves=projected.curve_records,
+        actual_jacobian_mode=result.actual_jacobian_mode,
+        actual_execution_identity=_actual_identity_payload(actual),
+        actual_execution_identity_hash=actual_hash,
+        native_solve_ms=result.native_solve_ms,
+        serialization_ms=serialization_ms,
+        finished_at=created_at,
+    )
+
+
+def _persisted_axis(axis: list[str], instrument_id_map: dict[str, str]) -> list[str]:
+    return [
+        (
+            f"residual:{instrument_id_map[item.removeprefix('residual:')]}"
+            if item.startswith("residual:") and item.removeprefix("residual:") in instrument_id_map
+            else item
+        )
+        for item in axis
+    ]
+
+
+@dataclass(frozen=True, slots=True)
+class _ProjectedTerminalResult:
+    curve_records: tuple[CurveDefinitionRecord, ...]
+    curves: list[CurveReconstructionDTO]
+    diagnostics: list[object]
+    jacobian: MatrixDTO
+    effective_inverse: MatrixDTO
+
+
+def _project_terminal_result(
+    store: StoreProtocol,
+    calibration_id: str,
+    result: GatewayCalibrationResult,
+    instruments: tuple[CalibrationInstrumentRecord, ...],
+    created_at: datetime,
+) -> _ProjectedTerminalResult:
     projected = [
         _curve_record_and_dto(store, calibration_id, payload, created_at)
         for payload in result.curves
@@ -2171,60 +2375,51 @@ async def _terminalize_success(
     curves = [item[1] for item in projected]
     diagnostics = [
         diagnostic.model_copy(update={"instrument_id": instrument.id})
-        for diagnostic, instrument in zip(
-            result.instrument_diagnostics, instruments, strict=True
-        )
+        for diagnostic, instrument in zip(result.instrument_diagnostics, instruments, strict=True)
     ]
     instrument_id_map = {
         diagnostic.instrument_id: instrument.id
-        for diagnostic, instrument in zip(
-            result.instrument_diagnostics, instruments, strict=True
-        )
+        for diagnostic, instrument in zip(result.instrument_diagnostics, instruments, strict=True)
     }
-
-    def persisted_axis(axis: list[str]) -> list[str]:
-        return [
-            (
-                f"residual:{instrument_id_map[item.removeprefix('residual:')]}"
-                if item.startswith("residual:")
-                and item.removeprefix("residual:") in instrument_id_map
-                else item
-            )
-            for item in axis
-        ]
-
     jacobian = result.jacobian.model_copy(
         update={
-            "row_axis": persisted_axis(result.jacobian.row_axis),
-            "column_axis": persisted_axis(result.jacobian.column_axis),
+            "row_axis": _persisted_axis(result.jacobian.row_axis, instrument_id_map),
+            "column_axis": _persisted_axis(result.jacobian.column_axis, instrument_id_map),
         }
     )
     effective_inverse = result.effective_inverse.model_copy(
         update={
-            "row_axis": persisted_axis(result.effective_inverse.row_axis),
-            "column_axis": persisted_axis(result.effective_inverse.column_axis),
+            "row_axis": _persisted_axis(result.effective_inverse.row_axis, instrument_id_map),
+            "column_axis": _persisted_axis(result.effective_inverse.column_axis, instrument_id_map),
         }
     )
-    run = store.get_calibration_run(calibration_id)
-    actual = result.actual_execution_identity
-    actual_hash = canonical_model_hash(actual) if actual is not None else None
+    return _ProjectedTerminalResult(curve_records, curves, diagnostics, jacobian, effective_inverse)
+
+
+def _completed_response_candidate(
+    run: CalibrationRunRecord,
+    result: GatewayCalibrationResult,
+    projected: _ProjectedTerminalResult,
+    created_at: datetime,
+    actual_hash: str | None,
+) -> CompletedCalibrationRunResponse:
     common = _common_response_fields(run)
-    candidate = CompletedCalibrationRunResponse.model_validate(
+    return CompletedCalibrationRunResponse.model_validate(
         common
         | {
             "status": "completed",
             "phase": "finished",
             "finished_at": created_at,
             "actual_jacobian_mode": result.actual_jacobian_mode,
-            "actual_execution_identity": actual,
+            "actual_execution_identity": result.actual_execution_identity,
             "actual_execution_identity_hash": actual_hash,
             "solver_diagnostics": result.solver_diagnostics,
-            "curves": curves,
-            "instrument_diagnostics": diagnostics,
+            "curves": projected.curves,
+            "instrument_diagnostics": projected.diagnostics,
             "fx_forwards": result.fx_forwards,
             "named_ranges": result.named_ranges,
-            "jacobian": jacobian,
-            "effective_inverse": effective_inverse,
+            "jacobian": projected.jacobian,
+            "effective_inverse": projected.effective_inverse,
             "quote_bump_preview": None,
             "error": None,
             "timings": CalibrationTimingsDTO(
@@ -2232,69 +2427,75 @@ async def _terminalize_success(
             ),
         }
     )
+
+
+def _serialize_completed_candidate(
+    candidate: CompletedCalibrationRunResponse,
+) -> tuple[float, bytes]:
     started = time.perf_counter()
     RUN_RESPONSE_ADAPTER.dump_json(candidate)
     serialization_ms = (time.perf_counter() - started) * 1000.0
     final = candidate.model_copy(
         update={
-            "timings": candidate.timings.model_copy(
-                update={"serialization_ms": serialization_ms}
-            )
+            "timings": candidate.timings.model_copy(update={"serialization_ms": serialization_ms})
         }
     )
     final_bytes = RUN_RESPONSE_ADAPTER.dump_json(final)
-    if len(final_bytes) > 1 << 20:
-        store.fail_calibration(
-            calibration_id,
-            error_payload={
-                "code": "RESPONSE_LIMIT_EXCEEDED",
-                "message": "serialized calibration response exceeds the response limit",
-                "location": None,
-                "context": {
-                    "actual_bytes": len(final_bytes),
-                    "limit_bytes": 1 << 20,
-                },
-            },
-            finished_at=created_at,
-            actual_jacobian_mode=result.actual_jacobian_mode,
-            actual_execution_identity=(
-                actual.model_dump(mode="json") if actual is not None else None
-            ),
-            actual_execution_identity_hash=actual_hash,
-            native_solve_ms=result.native_solve_ms,
-            serialization_ms=serialization_ms,
-        )
-        return
-    payload = {
-        "curve_ids": [curve.id for curve in curves],
-        "actual_jacobian_mode": result.actual_jacobian_mode,
-        "solver_diagnostics": result.solver_diagnostics.model_dump(mode="json"),
-        "instrument_diagnostics": [
-            item.model_dump(mode="json") for item in diagnostics
-        ],
-        "fx_forwards": (
-            result.fx_forwards.model_dump(mode="json")
-            if result.fx_forwards is not None
-            else None
-        ),
-        "named_ranges": result.named_ranges.model_dump(mode="json"),
-        "jacobian": jacobian.model_dump(mode="json"),
-        "effective_inverse": effective_inverse.model_dump(mode="json"),
-    }
-    store.update_calibration_phase(calibration_id, "persisting")
-    store.complete_calibration(
+    return serialization_ms, final_bytes
+
+
+def _actual_identity_payload(actual: object | None) -> dict[str, object] | None:
+    return actual.model_dump(mode="json") if actual is not None else None
+
+
+def _fail_oversized_completion(
+    store: StoreProtocol,
+    calibration_id: str,
+    result: GatewayCalibrationResult,
+    actual: object | None,
+    actual_hash: str | None,
+    created_at: datetime,
+    serialization_ms: float,
+    final_bytes: bytes,
+) -> bool:
+    if len(final_bytes) <= 1 << 20:
+        return False
+    store.fail_calibration(
         calibration_id,
-        result_payload=payload,
-        curves=curve_records,
+        error_payload={
+            "code": "RESPONSE_LIMIT_EXCEEDED",
+            "message": "serialized calibration response exceeds the response limit",
+            "location": None,
+            "context": {
+                "actual_bytes": len(final_bytes),
+                "limit_bytes": 1 << 20,
+            },
+        },
+        finished_at=created_at,
         actual_jacobian_mode=result.actual_jacobian_mode,
-        actual_execution_identity=(
-            actual.model_dump(mode="json") if actual is not None else None
-        ),
+        actual_execution_identity=_actual_identity_payload(actual),
         actual_execution_identity_hash=actual_hash,
         native_solve_ms=result.native_solve_ms,
         serialization_ms=serialization_ms,
-        finished_at=created_at,
     )
+    return True
+
+
+def _completion_payload(
+    result: GatewayCalibrationResult, projected: _ProjectedTerminalResult
+) -> dict[str, object]:
+    return {
+        "curve_ids": [curve.id for curve in projected.curves],
+        "actual_jacobian_mode": result.actual_jacobian_mode,
+        "solver_diagnostics": result.solver_diagnostics.model_dump(mode="json"),
+        "instrument_diagnostics": [item.model_dump(mode="json") for item in projected.diagnostics],
+        "fx_forwards": (
+            result.fx_forwards.model_dump(mode="json") if result.fx_forwards is not None else None
+        ),
+        "named_ranges": result.named_ranges.model_dump(mode="json"),
+        "jacobian": projected.jacobian.model_dump(mode="json"),
+        "effective_inverse": projected.effective_inverse.model_dump(mode="json"),
+    }
 
 
 def _common_response_fields(run: CalibrationRunRecord) -> dict[str, object]:
@@ -2309,9 +2510,7 @@ def _common_response_fields(run: CalibrationRunRecord) -> dict[str, object]:
         "backend": run.backend,
         "is_native": run.is_native,
         "solver": NormalizedCalibrationSolverDTO.model_validate(run.solver_payload),
-        "options": NormalizedCalibrationOptionsDTO.model_validate(
-            run.options_payload
-        ),
+        "options": NormalizedCalibrationOptionsDTO.model_validate(run.options_payload),
         "requested_jacobian_mode": run.options_payload["jacobian_mode"],
         "resolved_knot_plan": run.resolved_knot_plan,
         "resolved_knot_plan_hash": run.resolved_knot_plan_hash,
@@ -2332,73 +2531,102 @@ def _run_response(
     quote_bump: QuoteBumpQueryDTO,
 ) -> CalibrationRunResponse:
     common = _common_response_fields(run)
-    if quote_bump.quote_bump_index is not None and run.status != "completed":
+    _require_completed_for_quote_bump(run, quote_bump)
+    if run.status == "running":
+        return _running_response(run, common)
+    if run.status == "failed":
+        return _failed_response(run, common)
+    return _completed_response(store, run, common, quote_bump)
+
+
+def _require_completed_for_quote_bump(
+    run: CalibrationRunRecord, quote_bump: QuoteBumpQueryDTO
+) -> None:
+    if quote_bump.quote_bump_index is None or run.status == "completed":
+        return
+    _raise(
+        "RUN_NOT_COMPLETED",
+        f"calibration {run.id} is {run.status}; quote bump requires completed",
+        ["path", "calibration_id"],
+        {
+            "calibration_id": run.id,
+            "status": run.status,
+            "phase": run.phase,
+        },
+        status_code=409,
+    )
+
+
+def _running_response(
+    run: CalibrationRunRecord, common: dict[str, object]
+) -> RunningCalibrationRunResponse:
+    return RunningCalibrationRunResponse(
+        **common,
+        status="running",
+        phase=run.phase,
+        actual_jacobian_mode=None,
+        solver_diagnostics=None,
+        curves=[],
+        instrument_diagnostics=[],
+        fx_forwards=None,
+        named_ranges=None,
+        jacobian=None,
+        effective_inverse=None,
+        quote_bump_preview=None,
+        error=None,
+    )
+
+
+def _failed_response(
+    run: CalibrationRunRecord, common: dict[str, object]
+) -> FailedCalibrationRunResponse:
+    return FailedCalibrationRunResponse(
+        **common,
+        status="failed",
+        phase="finished",
+        actual_jacobian_mode=run.actual_jacobian_mode,
+        solver_diagnostics=None,
+        curves=[],
+        instrument_diagnostics=[],
+        fx_forwards=None,
+        named_ranges=None,
+        jacobian=None,
+        effective_inverse=None,
+        quote_bump_preview=None,
+        error=run.error_payload,
+    )
+
+
+def _requested_quote_bump_preview(
+    inverse: MatrixDTO, quote_bump: QuoteBumpQueryDTO
+) -> QuoteBumpPreviewDTO | None:
+    if quote_bump.quote_bump_index is None:
+        return None
+    if inverse.availability != "available":
         _raise(
-            "RUN_NOT_COMPLETED",
-            f"calibration {run.id} is {run.status}; quote bump requires completed",
-            ["path", "calibration_id"],
-            {
-                "calibration_id": run.id,
-                "status": run.status,
-                "phase": run.phase,
-            },
+            "MATRIX_NOT_AVAILABLE",
+            "effective inverse matrix is not available",
+            ["query", "quote_bump_index"],
+            {"availability": inverse.availability},
             status_code=409,
         )
-    if run.status == "running":
-        return RunningCalibrationRunResponse(
-            **common,
-            status="running",
-            phase=run.phase,
-            actual_jacobian_mode=None,
-            solver_diagnostics=None,
-            curves=[],
-            instrument_diagnostics=[],
-            fx_forwards=None,
-            named_ranges=None,
-            jacobian=None,
-            effective_inverse=None,
-            quote_bump_preview=None,
-            error=None,
-        )
-    if run.status == "failed":
-        return FailedCalibrationRunResponse(
-            **common,
-            status="failed",
-            phase="finished",
-            actual_jacobian_mode=(
-                run.actual_jacobian_mode
-            ),
-            solver_diagnostics=None,
-            curves=[],
-            instrument_diagnostics=[],
-            fx_forwards=None,
-            named_ranges=None,
-            jacobian=None,
-            effective_inverse=None,
-            quote_bump_preview=None,
-            error=run.error_payload,
-        )
+    return calculate_quote_bump_preview(
+        inverse,
+        quote_bump.quote_bump_index,
+        quote_bump.quote_bump_size,
+    )
+
+
+def _completed_response(
+    store: StoreProtocol,
+    run: CalibrationRunRecord,
+    common: dict[str, object],
+    quote_bump: QuoteBumpQueryDTO,
+) -> CompletedCalibrationRunResponse:
     payload = run.result_payload or {}
-    curves = [
-        get_curve_response(store, curve_id)
-        for curve_id in payload.get("curve_ids", [])
-    ]
+    curves = [get_curve_response(store, curve_id) for curve_id in payload.get("curve_ids", [])]
     inverse = MatrixDTO.model_validate(payload["effective_inverse"])
-    preview = None
-    if quote_bump.quote_bump_index is not None:
-        if inverse.availability != "available":
-            _raise(
-                "MATRIX_NOT_AVAILABLE",
-                "effective inverse matrix is not available",
-                ["query", "quote_bump_index"],
-                {"availability": inverse.availability},
-                status_code=409,
-            )
-        preview = calculate_quote_bump_preview(
-            inverse,
-            quote_bump.quote_bump_index,
-            quote_bump.quote_bump_size,
-        )
+    preview = _requested_quote_bump_preview(inverse, quote_bump)
     return CompletedCalibrationRunResponse(
         **common,
         status="completed",

@@ -146,7 +146,7 @@ export interface QuoteBumpPreview {
   instrument_id: string;
   quote_bump: number;
   residual_tolerance: number;
-  delta_parameters: Array<{ parameter_axis: string; delta: number }>;
+  delta_parameters: { parameter_axis: string; delta: number }[];
   formula: "delta_x = effective_inverse * delta_quote / residual_tolerance";
 }
 
@@ -175,8 +175,8 @@ export interface CalibrationRun {
     forwards: number[];
   } | null;
   named_ranges: {
-    parameters: Array<{ name: string; offset: number; size: number }>;
-    residuals: Array<{ name: string; offset: number; size: number }>;
+    parameters: { name: string; offset: number; size: number }[];
+    residuals: { name: string; offset: number; size: number }[];
   } | null;
   jacobian: CalibrationMatrix | null;
   effective_inverse: CalibrationMatrix | null;
@@ -184,18 +184,19 @@ export interface CalibrationRun {
   error: {
     code: string;
     message: string;
-    location: Array<string | number> | null;
+    location: (string | number)[] | null;
     context: Record<string, unknown>;
   } | null;
 }
 
 export class ApiClientError extends Error {
-  constructor(
-    message: string,
-    readonly status: number,
-    readonly detail: unknown,
-  ) {
+  readonly status: number;
+  readonly detail: unknown;
+
+  constructor(message: string, status: number, detail: unknown) {
     super(message);
+    this.status = status;
+    this.detail = detail;
   }
 }
 
@@ -216,6 +217,17 @@ function apiPath(path: string): string {
     throw new Error(`Invalid API path: ${path}`);
   }
   return endpoint;
+}
+
+function calibrationPath(kind: CalibrationKind): string {
+  switch (kind) {
+  case "single":
+    return "/calibrations/single";
+  case "xccy_staged":
+    return "/calibrations/xccy/staged";
+  case "xccy_joint":
+    return "/calibrations/xccy/joint";
+  }
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -309,12 +321,7 @@ export const api = {
   getValuation: (id: string) => request<ValuationResult>(`/valuations/${id}`),
 
   submitCalibration: (kind: CalibrationKind, body: unknown) => {
-    const path = {
-      single: "/calibrations/single",
-      xccy_staged: "/calibrations/xccy/staged",
-      xccy_joint: "/calibrations/xccy/joint",
-    }[kind];
-    return request<CalibrationRun>(path, {
+    return request<CalibrationRun>(calibrationPath(kind), {
       method: "POST",
       body: JSON.stringify(body),
     });

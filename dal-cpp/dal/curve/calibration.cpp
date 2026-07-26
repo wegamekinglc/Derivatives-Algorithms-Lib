@@ -152,6 +152,113 @@ namespace Dal {
 
         CurveKnotOrigin_ SyntheticAnchorOrigin() { return {CurveKnotOriginKind_::Value_::SYNTHETIC_ANCHOR, -1, -1}; }
 
+        void VisitKnotCandidate(ResolvedSingleKnotPlan_* result,
+                                std::map<Date_, int>* traversalIndex,
+                                const Date_& today,
+                                const Date_& date,
+                                const CurveKnotOrigin_& origin,
+                                bool filterNotAfterToday) {
+            CurveKnotCandidate_ candidate;
+            candidate.ordinal_ = static_cast<int>(result->candidateTrace_.size());
+            candidate.date_ = date;
+            candidate.origin_ = origin;
+            if (filterNotAfterToday && date <= today) {
+                candidate.disposition_ = CurveKnotCandidateDisposition_::Value_::FILTERED_NOT_AFTER_TODAY;
+            } else {
+                const auto [found, inserted] = traversalIndex->emplace(date, static_cast<int>(result->resolvedDeclaredNodes_.size()));
+                candidate.resolvedIndex_ = found->second;
+                if (inserted) {
+                    candidate.disposition_ = CurveKnotCandidateDisposition_::Value_::ADDED;
+                    result->resolvedDeclaredNodes_.push_back({date, {origin}});
+                } else {
+                    candidate.disposition_ = CurveKnotCandidateDisposition_::Value_::DUPLICATE;
+                    result->resolvedDeclaredNodes_[found->second].origins_.push_back(origin);
+                }
+            }
+            result->candidateTrace_.push_back(candidate);
+        }
+
+        void VisitSubmittedKnots(CurveKnotPolicy_ requestedPolicy,
+                                 const Vector_<Date_>& submittedKnots,
+                                 const Date_& today,
+                                 ResolvedSingleKnotPlan_* result,
+                                 std::map<Date_, int>* traversalIndex) {
+            if (requestedPolicy != CurveKnotPolicy_::Value_::INPUT && requestedPolicy != CurveKnotPolicy_::Value_::AUGMENTED)
+                return;
+            for (int i = 0; i < static_cast<int>(submittedKnots.size()); ++i)
+                VisitKnotCandidate(result, traversalIndex, today, submittedKnots[i], InputOrigin(i), false);
+        }
+
+        void VisitInstrumentKnots(CurveKnotPolicy_ requestedPolicy,
+                                  const Vector_<Handle_<YCInstrument_>>& instruments,
+                                  const Date_& today,
+                                  ResolvedSingleKnotPlan_* result,
+                                  std::map<Date_, int>* traversalIndex) {
+            if (requestedPolicy == CurveKnotPolicy_::Value_::INPUT)
+                return;
+            REQUIRE(requestedPolicy == CurveKnotPolicy_::Value_::INSTRUMENTS || requestedPolicy == CurveKnotPolicy_::Value_::AUGMENTED,
+                    "Unknown curve knot policy");
+            result->counts_.instrumentCandidates_ = static_cast<int>(instruments.size()) * MAX_RELEVANT_DATES_PER_INSTRUMENT;
+            for (int i = 0; i < static_cast<int>(instruments.size()); ++i) {
+                const auto span = instruments[i]->TimeSpan();
+                VisitKnotCandidate(result, traversalIndex, today, span.first,
+                                   InstrumentOrigin(CurveKnotOriginKind_::Value_::INSTRUMENT_START, i), true);
+                VisitKnotCandidate(result, traversalIndex, today, span.second,
+                                   InstrumentOrigin(CurveKnotOriginKind_::Value_::INSTRUMENT_END, i), true);
+            }
+        }
+
+        std::map<Date_, int> SortResolvedKnots(ResolvedSingleKnotPlan_* result) {
+            std::sort(result->resolvedDeclaredNodes_.begin(), result->resolvedDeclaredNodes_.end(),
+                      [](const ResolvedCurveKnotNode_& lhs, const ResolvedCurveKnotNode_& rhs) { return lhs.date_ < rhs.date_; });
+            std::map<Date_, int> sortedIndex;
+            for (int i = 0; i < static_cast<int>(result->resolvedDeclaredNodes_.size()); ++i)
+                sortedIndex[result->resolvedDeclaredNodes_[i].date_] = i;
+            for (auto& candidate : result->candidateTrace_)
+                if (candidate.disposition_ != CurveKnotCandidateDisposition_::Value_::FILTERED_NOT_AFTER_TODAY)
+                    candidate.resolvedIndex_ = sortedIndex.at(candidate.date_);
+            return sortedIndex;
+        }
+
+        void RequireLogDiscountAnchor(const ResolvedSingleKnotPlan_& result,
+                                      const Vector_<Date_>& resolvedDates,
+                                      CurveParameterization_ parameterization,
+                                      const Date_& today) {
+            if (parameterization != CurveParameterization_::Value_::LOG_DISCOUNT)
+                return;
+            REQUIRE(resolvedDates.front() == today &&
+                        std::any_of(result.resolvedDeclaredNodes_.front().origins_.begin(),
+                                    result.resolvedDeclaredNodes_.front().origins_.end(),
+                                    [](const CurveKnotOrigin_& origin) { return origin.kind_ == CurveKnotOriginKind_::Value_::INPUT; }),
+                    "LOG_DISCOUNT knot planning requires an input anchor at today");
+        }
+
+        void ProjectKnotRepresentation(ResolvedSingleKnotPlan_* result,
+                                       bool projectRepresentation,
+                                       CurveParameterization_ parameterization,
+                                       const Date_& today,
+                                       const std::map<Date_, int>& sortedIndex) {
+            if (!projectRepresentation || result->resolvedDeclaredNodes_.empty())
+                return;
+            Vector_<Date_> resolvedDates;
+            resolvedDates.reserve(result->resolvedDeclaredNodes_.size());
+            for (const auto& node : result->resolvedDeclaredNodes_)
+                resolvedDates.push_back(node.date_);
+            RequireLogDiscountAnchor(*result, resolvedDates, parameterization, today);
+            const CurveDefinition_ definition = MakeCurveDefinition("planned", "", parameterization, LogDfScheme_::Value_::LOG_LINEAR,
+                                                                    resolvedDates, today, DayBasis_("ACT_365F"));
+            result->freeParameters_ = DescribeCurveFreeParameters(definition);
+            result->storageNodes_.reserve(definition.nodeDates_.size());
+            for (const auto& date : definition.nodeDates_) {
+                if (parameterization == CurveParameterization_::Value_::ZERO_RATE && date == today) {
+                    result->storageNodes_.push_back({today, {SyntheticAnchorOrigin()}});
+                    result->anchorAdded_ = true;
+                } else {
+                    result->storageNodes_.push_back(result->resolvedDeclaredNodes_[sortedIndex.at(date)]);
+                }
+            }
+        }
+
         ResolvedSingleKnotPlan_ BuildKnotPlan(const Date_& today,
                                               const Vector_<Handle_<YCInstrument_>>& instruments,
                                               const Vector_<Date_>& submittedKnots,
@@ -164,78 +271,10 @@ namespace Dal {
             result.counts_.submittedKnots_ = static_cast<int>(submittedKnots.size());
 
             std::map<Date_, int> traversalIndex;
-            const auto visit = [&result, &traversalIndex, &today](const Date_& date, const CurveKnotOrigin_& origin, bool filterNotAfterToday) {
-                CurveKnotCandidate_ candidate;
-                candidate.ordinal_ = static_cast<int>(result.candidateTrace_.size());
-                candidate.date_ = date;
-                candidate.origin_ = origin;
-                if (filterNotAfterToday && date <= today) {
-                    candidate.disposition_ = CurveKnotCandidateDisposition_::Value_::FILTERED_NOT_AFTER_TODAY;
-                } else {
-                    const auto [found, inserted] = traversalIndex.emplace(date, static_cast<int>(result.resolvedDeclaredNodes_.size()));
-                    candidate.resolvedIndex_ = found->second;
-                    if (inserted) {
-                        candidate.disposition_ = CurveKnotCandidateDisposition_::Value_::ADDED;
-                        result.resolvedDeclaredNodes_.push_back({date, {origin}});
-                    } else {
-                        candidate.disposition_ = CurveKnotCandidateDisposition_::Value_::DUPLICATE;
-                        result.resolvedDeclaredNodes_[found->second].origins_.push_back(origin);
-                    }
-                }
-                result.candidateTrace_.push_back(candidate);
-            };
-
-            if (requestedPolicy == CurveKnotPolicy_::Value_::INPUT || requestedPolicy == CurveKnotPolicy_::Value_::AUGMENTED) {
-                for (int i = 0; i < static_cast<int>(submittedKnots.size()); ++i)
-                    visit(submittedKnots[i], InputOrigin(i), false);
-            }
-
-            if (requestedPolicy == CurveKnotPolicy_::Value_::INSTRUMENTS || requestedPolicy == CurveKnotPolicy_::Value_::AUGMENTED) {
-                result.counts_.instrumentCandidates_ = static_cast<int>(instruments.size()) * MAX_RELEVANT_DATES_PER_INSTRUMENT;
-                for (int i = 0; i < static_cast<int>(instruments.size()); ++i) {
-                    const auto span = instruments[i]->TimeSpan();
-                    visit(span.first, InstrumentOrigin(CurveKnotOriginKind_::Value_::INSTRUMENT_START, i), true);
-                    visit(span.second, InstrumentOrigin(CurveKnotOriginKind_::Value_::INSTRUMENT_END, i), true);
-                }
-            } else {
-                REQUIRE(requestedPolicy == CurveKnotPolicy_::Value_::INPUT, "Unknown curve knot policy");
-            }
-
-            std::sort(result.resolvedDeclaredNodes_.begin(), result.resolvedDeclaredNodes_.end(),
-                      [](const ResolvedCurveKnotNode_& lhs, const ResolvedCurveKnotNode_& rhs) { return lhs.date_ < rhs.date_; });
-            std::map<Date_, int> sortedIndex;
-            for (int i = 0; i < static_cast<int>(result.resolvedDeclaredNodes_.size()); ++i)
-                sortedIndex[result.resolvedDeclaredNodes_[i].date_] = i;
-            for (auto& candidate : result.candidateTrace_)
-                if (candidate.disposition_ != CurveKnotCandidateDisposition_::Value_::FILTERED_NOT_AFTER_TODAY)
-                    candidate.resolvedIndex_ = sortedIndex.at(candidate.date_);
-
-            if (projectRepresentation && !result.resolvedDeclaredNodes_.empty()) {
-                Vector_<Date_> resolvedDates;
-                resolvedDates.reserve(result.resolvedDeclaredNodes_.size());
-                for (const auto& node : result.resolvedDeclaredNodes_)
-                    resolvedDates.push_back(node.date_);
-
-                if (parameterization == CurveParameterization_::Value_::LOG_DISCOUNT)
-                    REQUIRE(resolvedDates.front() == today &&
-                                std::any_of(result.resolvedDeclaredNodes_.front().origins_.begin(),
-                                            result.resolvedDeclaredNodes_.front().origins_.end(),
-                                            [](const CurveKnotOrigin_& origin) { return origin.kind_ == CurveKnotOriginKind_::Value_::INPUT; }),
-                            "LOG_DISCOUNT knot planning requires an input anchor at today");
-
-                const CurveDefinition_ definition = MakeCurveDefinition("planned", "", parameterization, LogDfScheme_::Value_::LOG_LINEAR,
-                                                                        resolvedDates, today, DayBasis_("ACT_365F"));
-                result.freeParameters_ = DescribeCurveFreeParameters(definition);
-                result.storageNodes_.reserve(definition.nodeDates_.size());
-                for (const auto& date : definition.nodeDates_) {
-                    if (parameterization == CurveParameterization_::Value_::ZERO_RATE && date == today) {
-                        result.storageNodes_.push_back({today, {SyntheticAnchorOrigin()}});
-                        result.anchorAdded_ = true;
-                    } else {
-                        result.storageNodes_.push_back(result.resolvedDeclaredNodes_[sortedIndex.at(date)]);
-                    }
-                }
-            }
+            VisitSubmittedKnots(requestedPolicy, submittedKnots, today, &result, &traversalIndex);
+            VisitInstrumentKnots(requestedPolicy, instruments, today, &result, &traversalIndex);
+            const std::map<Date_, int> sortedIndex = SortResolvedKnots(&result);
+            ProjectKnotRepresentation(&result, projectRepresentation, parameterization, today, sortedIndex);
 
             result.counts_.resolvedDeclaredNodes_ = static_cast<int>(result.resolvedDeclaredNodes_.size());
             result.counts_.storageNodes_ = static_cast<int>(result.storageNodes_.size());

@@ -123,6 +123,26 @@ namespace Dal {
             }
         }
 
+        void ValidateStagedResetMappings(const XccyCashflowPlan_& plan, int instrumentIndex, AnalyticEligibilityReport_* report) {
+            switch (plan.config_.notionalMode_.Switch()) {
+            case XccyNotionalMode_::Value_::FIXED:
+                return;
+            case XccyNotionalMode_::Value_::RESETTABLE:
+            case XccyNotionalMode_::Value_::MARK_TO_MARKET:
+                for (int reset = 0; reset < static_cast<int>(plan.resets_.size()); ++reset) {
+                    if (plan.resets_[reset].domesticPeriodIndex_ != reset + 1 ||
+                        plan.resets_[reset].domesticPeriodIndex_ >= static_cast<int>(plan.domesticPeriods_.size())) {
+                        AddEligibilityIssue(report, AnalyticIneligibilityReason_::Value_::RESET_MAPPING_INVALID, instrumentIndex, reset,
+                                            "reset event does not map consecutively from the second domestic period");
+                    }
+                }
+                return;
+            default:
+                AddEligibilityIssue(report, AnalyticIneligibilityReason_::Value_::NOTIONAL_MODE_UNSUPPORTED, instrumentIndex, -1,
+                                    "typed pricing does not support the notional mode");
+            }
+        }
+
         void ValidateStagedPlan(const CrossCurrencyCalibrationSpec_& spec,
                                 const XccyCashflowPlan_& plan,
                                 int instrumentIndex,
@@ -135,24 +155,7 @@ namespace Dal {
                 AddEligibilityIssue(report, AnalyticIneligibilityReason_::Value_::COUPON_PLAN_EMPTY, instrumentIndex, -1,
                                     "typed pricing requires coupon periods on both legs");
             }
-            switch (plan.config_.notionalMode_.Switch()) {
-            case XccyNotionalMode_::Value_::FIXED:
-                break;
-            case XccyNotionalMode_::Value_::RESETTABLE:
-            case XccyNotionalMode_::Value_::MARK_TO_MARKET:
-                for (int reset = 0; reset < static_cast<int>(plan.resets_.size()); ++reset) {
-                    if (plan.resets_[reset].domesticPeriodIndex_ != reset + 1 ||
-                        plan.resets_[reset].domesticPeriodIndex_ >= static_cast<int>(plan.domesticPeriods_.size())) {
-                        AddEligibilityIssue(report, AnalyticIneligibilityReason_::Value_::RESET_MAPPING_INVALID, instrumentIndex, reset,
-                                            "reset event does not map consecutively from the second domestic period");
-                    }
-                }
-                break;
-            default:
-                AddEligibilityIssue(report, AnalyticIneligibilityReason_::Value_::NOTIONAL_MODE_UNSUPPORTED, instrumentIndex, -1,
-                                    "typed pricing does not support the notional mode");
-                break;
-            }
+            ValidateStagedResetMappings(plan, instrumentIndex, report);
             if (spec.domesticCurveBlock_)
                 ValidateStagedRoute(*spec.domesticCurveBlock_, plan.config_.convention_.domesticIndex_, instrumentIndex, "domestic", report);
             if (spec.foreignCurveBlock_)

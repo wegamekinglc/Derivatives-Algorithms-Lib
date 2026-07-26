@@ -20,41 +20,68 @@ namespace Dal {
             Vector_<CurveFreeParameter_> parameters_;
         };
 
-        CurveLayoutDescription_ DescribeCurveLayout(const CurveDefinition_& definition) {
+        void AppendParameter(CurveLayoutDescription_* result, const Date_& date, CurveFreeParameterComponent_ component) {
+            result->parameters_.push_back({date, component});
+        }
+
+        CurveLayoutDescription_ DescribeLogDiscountLayout(const CurveDefinition_& definition) {
             const int storageNodes = static_cast<int>(definition.nodeDates_.size());
             CurveLayoutDescription_ result;
-            const auto append = [&result](const Date_& date, CurveFreeParameterComponent_ component) {
-                result.parameters_.push_back({date, component});
-            };
+            result.layout_ = {storageNodes, storageNodes - 1, 1, true};
+            for (int i = 1; i < storageNodes; ++i)
+                AppendParameter(&result, definition.nodeDates_[i], CurveFreeParameterComponent_::Value_::LOG_DISCOUNT_FACTOR);
+            return result;
+        }
 
+        CurveLayoutDescription_ DescribeConstantForwardLayout(const CurveDefinition_& definition) {
+            CurveLayoutDescription_ result;
+            const int storageNodes = static_cast<int>(definition.nodeDates_.size());
+            result.layout_ = {storageNodes, storageNodes, 1, false};
+            for (const auto& date : definition.nodeDates_)
+                AppendParameter(&result, date, CurveFreeParameterComponent_::Value_::RIGHT_FORWARD);
+            return result;
+        }
+
+        CurveLayoutDescription_ DescribeLinearForwardLayout(const CurveDefinition_& definition) {
+            CurveLayoutDescription_ result;
+            const int storageNodes = static_cast<int>(definition.nodeDates_.size());
+            result.layout_ = {storageNodes, 2 * storageNodes, 2, false};
+            for (const auto& date : definition.nodeDates_) {
+                AppendParameter(&result, date, CurveFreeParameterComponent_::Value_::LEFT_FORWARD);
+                AppendParameter(&result, date, CurveFreeParameterComponent_::Value_::RIGHT_FORWARD);
+            }
+            return result;
+        }
+
+        CurveLayoutDescription_ DescribeZeroRateLayout(const CurveDefinition_& definition) {
+            const int storageNodes = static_cast<int>(definition.nodeDates_.size());
+            REQUIRE(storageNodes >= 2, "BuildCurveParameterLayout: zero-rate definition needs an anchor and at least one future node");
+            REQUIRE(definition.nodeDates_.front() == definition.anchorDate_,
+                    "BuildCurveParameterLayout: zero-rate definition must begin at its anchor");
+            REQUIRE(IsMonotonic(definition.nodeDates_), "BuildCurveParameterLayout: zero-rate definition dates must be strictly increasing");
+            REQUIRE(definition.nodeDates_[1] > definition.anchorDate_,
+                    "BuildCurveParameterLayout: zero-rate definition nodes must be strictly after the anchor");
+            CurveLayoutDescription_ result;
+            result.layout_ = {storageNodes, storageNodes - 1, 1, true};
+            for (int i = 1; i < storageNodes; ++i)
+                AppendParameter(&result, definition.nodeDates_[i], CurveFreeParameterComponent_::Value_::ZERO_RATE);
+            return result;
+        }
+
+        CurveLayoutDescription_ DescribeCurveLayout(const CurveDefinition_& definition) {
+            CurveLayoutDescription_ result;
             switch (definition.parameterization_.Switch()) {
             case CurveParameterization_::Value_::LOG_DISCOUNT:
-                result.layout_ = {storageNodes, storageNodes - 1, 1, true};
-                for (int i = 1; i < storageNodes; ++i)
-                    append(definition.nodeDates_[i], CurveFreeParameterComponent_::Value_::LOG_DISCOUNT_FACTOR);
+                result = DescribeLogDiscountLayout(definition);
                 break;
             case CurveParameterization_::Value_::PIECEWISE_CONSTANT_FWD:
-                result.layout_ = {storageNodes, storageNodes, 1, false};
-                for (const auto& date : definition.nodeDates_)
-                    append(date, CurveFreeParameterComponent_::Value_::RIGHT_FORWARD);
+                result = DescribeConstantForwardLayout(definition);
                 break;
             case CurveParameterization_::Value_::PIECEWISE_LINEAR_FWD:
-                result.layout_ = {storageNodes, 2 * storageNodes, 2, false};
-                for (const auto& date : definition.nodeDates_) {
-                    append(date, CurveFreeParameterComponent_::Value_::LEFT_FORWARD);
-                    append(date, CurveFreeParameterComponent_::Value_::RIGHT_FORWARD);
-                }
+                result = DescribeLinearForwardLayout(definition);
                 break;
             case CurveParameterization_::Value_::ZERO_RATE:
-                REQUIRE(storageNodes >= 2, "BuildCurveParameterLayout: zero-rate definition needs an anchor and at least one future node");
-                REQUIRE(definition.nodeDates_.front() == definition.anchorDate_,
-                        "BuildCurveParameterLayout: zero-rate definition must begin at its anchor");
-                REQUIRE(IsMonotonic(definition.nodeDates_), "BuildCurveParameterLayout: zero-rate definition dates must be strictly increasing");
-                REQUIRE(definition.nodeDates_[1] > definition.anchorDate_,
-                        "BuildCurveParameterLayout: zero-rate definition nodes must be strictly after the anchor");
-                result.layout_ = {storageNodes, storageNodes - 1, 1, true};
-                for (int i = 1; i < storageNodes; ++i)
-                    append(definition.nodeDates_[i], CurveFreeParameterComponent_::Value_::ZERO_RATE);
+                result = DescribeZeroRateLayout(definition);
                 break;
             default:
                 REQUIRE(false, "Unknown curve parameterization");

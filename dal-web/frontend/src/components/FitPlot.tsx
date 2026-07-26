@@ -5,12 +5,14 @@ function scale(value: number, low: number, high: number): number {
   return high === low ? 50 : 8 + ((value - low) / (high - low)) * 84;
 }
 
+function point(value: number, index: number, low: number, high: number, rowCount: number): string {
+  return `${scale(value, low, high)},${10 + index * (80 / Math.max(1, rowCount - 1))}`;
+}
+
 export default function FitPlot({ rows }: { rows: FitSeriesRow[] }) {
   const rates = rows.flatMap((row) => [row.market, row.model]);
   const low = Math.min(...rates);
   const high = Math.max(...rates);
-  const point = (value: number, index: number) =>
-    `${scale(value, low, high)},${10 + index * (80 / Math.max(1, rows.length - 1))}`;
   return (
     <section {...css("panel")}>
       <h2>Market fit & residuals</h2>
@@ -18,12 +20,12 @@ export default function FitPlot({ rows }: { rows: FitSeriesRow[] }) {
         <svg viewBox="0 0 100 100" role="img" aria-labelledby="fit-title fit-desc">
           <title id="fit-title">Market and model calibration rates</title>
           <desc id="fit-desc">Gold marks market rates; green marks model rates, aligned by residual axis.</desc>
-          <polyline points={rows.map((row, index) => point(row.market, index)).join(" ")} className="market-line" />
-          <polyline points={rows.map((row, index) => point(row.model, index)).join(" ")} className="model-line" />
+          <polyline points={rows.map((row, index) => point(row.market, index, low, high, rows.length)).join(" ")} {...css("market-line")} />
+          <polyline points={rows.map((row, index) => point(row.model, index, low, high, rows.length)).join(" ")} {...css("model-line")} />
           {rows.map((row, index) => (
             <g key={row.id}>
-              <circle cx={scale(row.market, low, high)} cy={10 + index * (80 / Math.max(1, rows.length - 1))} r="1.8" className="market-dot" />
-              <circle cx={scale(row.model, low, high)} cy={10 + index * (80 / Math.max(1, rows.length - 1))} r="1.8" className="model-dot" />
+              <circle cx={scale(row.market, low, high)} cy={10 + index * (80 / Math.max(1, rows.length - 1))} r="1.8" {...css("market-dot")} />
+              <circle cx={scale(row.model, low, high)} cy={10 + index * (80 / Math.max(1, rows.length - 1))} r="1.8" {...css("model-dot")} />
             </g>
           ))}
         </svg>
@@ -33,7 +35,7 @@ export default function FitPlot({ rows }: { rows: FitSeriesRow[] }) {
               <span>{row.label}</span>
               <code>{row.marketLabel}</code>
               <code>{row.modelLabel}</code>
-              <strong className={row.residual < 0 ? "negative" : ""}>{row.residualLabel}</strong>
+              <strong {...css(row.residual < 0 && "negative")}>{row.residualLabel}</strong>
             </div>
           ))}
         </div>

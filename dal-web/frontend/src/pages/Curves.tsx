@@ -9,14 +9,76 @@ import { calibrationExamples } from "../curves/examples";
 import { locateCalibrationField, type LocatedField } from "../curves/visualization";
 import { css } from "../format";
 
-const MODES: Array<{ value: CalibrationKind; label: string; note: string }> = [
+const MODES: { value: CalibrationKind; label: string; note: string }[] = [
   { value: "single", label: "Single", note: "One discount or projection curve" },
   { value: "xccy_staged", label: "Staged XCCY", note: "Basis over persisted curve blocks" },
   { value: "xccy_joint", label: "Joint XCCY", note: "Domestic, foreign and basis in one solve" },
 ];
 
 function formattedExample(kind: CalibrationKind): string {
-  return JSON.stringify(calibrationExamples[kind], null, 2);
+  switch (kind) {
+  case "single":
+    return JSON.stringify(calibrationExamples.single, null, 2);
+  case "xccy_staged":
+    return JSON.stringify(calibrationExamples.xccy_staged, null, 2);
+  case "xccy_joint":
+    return JSON.stringify(calibrationExamples.xccy_joint, null, 2);
+  }
+}
+
+interface CalibrationErrorDetail {
+  location?: (string | number)[] | null;
+  message?: string;
+  msg?: string;
+}
+
+interface PresentedCalibrationError {
+  message: string;
+  located: LocatedField | null;
+}
+
+function calibrationErrorDetail(value: unknown): CalibrationErrorDetail {
+  return typeof value === "object" && value !== null
+    ? value as CalibrationErrorDetail
+    : {};
+}
+
+function presentCalibrationError(reason: unknown): PresentedCalibrationError {
+  if (!(reason instanceof ApiClientError)) {
+    return { message: String(reason), located: null };
+  }
+  const detail = calibrationErrorDetail(reason.detail);
+  return {
+    message: detail.message ?? detail.msg ?? reason.message,
+    located: detail.location ? locateCalibrationField(detail.location) : null,
+  };
+}
+
+function submitCalibrationRequest(
+  mode: CalibrationKind,
+  source: string,
+  onInvalidJson: (message: string) => void,
+  onStarted: () => void,
+  onCompleted: (runId: string) => void,
+  onFailed: (error: PresentedCalibrationError) => void,
+  onFinished: () => void,
+): void {
+  let body: unknown;
+  try {
+    body = JSON.parse(source);
+  } catch (reason) {
+    onInvalidJson(`Invalid JSON: ${String(reason)}`);
+    return;
+  }
+  onStarted();
+  void api.submitCalibration(mode, body)
+    .then((run) => {
+      onCompleted(run.id);
+    })
+    .catch((reason: unknown) => {
+      onFailed(presentCalibrationError(reason));
+    })
+    .finally(onFinished);
 }
 
 export default function Curves() {
@@ -27,13 +89,6 @@ export default function Curves() {
   const [located, setLocated] = useState<LocatedField | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const lines = useMemo(() => source.split("\n").length, [source]);
-
-  const changeMode = (next: CalibrationKind) => {
-    setMode(next);
-    setSource(formattedExample(next));
-    setError(null);
-    setLocated(null);
-  };
 
   return (
     <div {...css("curve-workbench")}>
@@ -57,7 +112,12 @@ export default function Curves() {
             aria-selected={mode === item.value}
             {...css("mode-tab", mode === item.value && "active")}
             key={item.value}
-            onClick={() => changeMode(item.value)}
+            onClick={() => {
+              setMode(item.value);
+              setSource(formattedExample(item.value));
+              setError(null);
+              setLocated(null);
+            }}
           >
             <span>0{index + 1}</span>
             <strong>{item.label}</strong>
@@ -87,20 +147,29 @@ export default function Curves() {
               <span {...css("tag")}>{mode.replace("_", " ")}</span>
               <strong>JSON contract editor</strong>
             </div>
-            <button type="button" {...css("ghost")} onClick={() => setSource(formattedExample(mode))}>Reset example</button>
+            <button
+              type="button"
+              {...css("ghost")}
+              onClick={() => {
+                setSource(formattedExample(mode));
+              }}
+            >
+              Reset example
+            </button>
           </div>
-          <label htmlFor="calibration-request">Calibration request JSON</label>
-          <textarea
-            id="calibration-request"
-            value={source}
-            spellCheck={false}
-            rows={Math.max(24, Math.min(44, lines))}
-            onChange={(event) => {
-              setSource(event.target.value);
-              setError(null);
-              setLocated(null);
-            }}
-          />
+          <label>
+            <span>Calibration request JSON</span>
+            <textarea
+              value={source}
+              spellCheck={false}
+              rows={Math.max(24, Math.min(44, lines))}
+              onChange={(event) => {
+                setSource(event.target.value);
+                setError(null);
+                setLocated(null);
+              }}
+            />
+          </label>
           {error && (
             <div {...css("error", "editor-error")}>
               <strong>{located ? `${located.section} · ${located.field}` : "Request error"}</strong>
@@ -113,32 +182,25 @@ export default function Curves() {
               type="button"
               disabled={submitting}
               onClick={() => {
-                let body: unknown;
-                try {
-                  body = JSON.parse(source);
-                } catch (reason) {
-                  setError(`Invalid JSON: ${String(reason)}`);
-                  return;
-                }
-                setSubmitting(true);
-                setError(null);
-                void api.submitCalibration(mode, body)
-                  .then((run) => navigate(`/curves/runs/${run.id}`))
-                  .catch((reason: unknown) => {
-                    if (reason instanceof ApiClientError) {
-                      const detail = reason.detail as {
-                        location?: Array<string | number> | null;
-                        message?: string;
-                        msg?: string;
-                      };
-                      const location = detail?.location;
-                      if (location) setLocated(locateCalibrationField(location));
-                      setError(detail?.message ?? detail?.msg ?? reason.message);
-                    } else {
-                      setError(String(reason));
-                    }
-                  })
-                  .finally(() => setSubmitting(false));
+                submitCalibrationRequest(
+                  mode,
+                  source,
+                  setError,
+                  () => {
+                    setSubmitting(true);
+                    setError(null);
+                  },
+                  (runId) => {
+                    navigate(`/curves/runs/${runId}`);
+                  },
+                  (presented) => {
+                    setLocated(presented.located);
+                    setError(presented.message);
+                  },
+                  () => {
+                    setSubmitting(false);
+                  },
+                );
               }}
             >
               {submitting ? "Submitting…" : "Run calibration"}

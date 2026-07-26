@@ -122,15 +122,18 @@ namespace {
 
     ResolvedSingleKnotPlan_ PlanCurveCalibrationKnotsForPython(const Date_& today,
                                                                const std::vector<std::shared_ptr<YCInstrument_>>& instruments,
-                                                               const std::vector<Date_>& submittedKnots,
+                                                               const py::iterable& submittedKnots,
                                                                CurveKnotPolicy_::Value_ requestedPolicy,
                                                                CurveParameterization_::Value_ parameterization) {
         Vector_<Handle_<YCInstrument_>> nativeInstruments;
         nativeInstruments.reserve(instruments.size());
         for (const auto& instrument : instruments)
             nativeInstruments.push_back(Handle_<YCInstrument_>(std::const_pointer_cast<const YCInstrument_>(instrument)));
-        return PlanCurveCalibrationKnots(today, nativeInstruments, Vector_<Date_>(submittedKnots.begin(), submittedKnots.end()),
-                                         CurveKnotPolicy_(requestedPolicy), CurveParameterization_(parameterization));
+        Vector_<Date_> nativeSubmittedKnots;
+        SetDates(&nativeSubmittedKnots, submittedKnots);
+        py::gil_scoped_release release;
+        return PlanCurveCalibrationKnots(today, nativeInstruments, nativeSubmittedKnots, CurveKnotPolicy_(requestedPolicy),
+                                         CurveParameterization_(parameterization));
     }
 
     std::vector<std::tuple<int, std::string, DateTime_>>
@@ -759,7 +762,7 @@ namespace {
         DefReadWriteAliases(options, "computeForwardJacobian_", "compute_forward_jacobian", &CurveCalibrationOptions_::computeForwardJacobian_);
 
         m.def("PlanCurveCalibrationKnots", &PlanCurveCalibrationKnotsForPython, py::arg("today"), py::arg("instruments"), py::arg("submitted_knots"),
-              py::arg("requested_policy"), py::arg("parameterization"), py::call_guard<py::gil_scoped_release>());
+              py::arg("requested_policy"), py::arg("parameterization"));
         m.def("InspectCurveCalibrationExecutionIdentity", &InspectCurveCalibrationExecutionIdentity, py::arg("final_input_spec"),
               py::call_guard<py::gil_scoped_release>());
         m.def(

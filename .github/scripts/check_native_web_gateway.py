@@ -292,6 +292,115 @@ def _joint_payload() -> dict[str, object]:
     }
 
 
+def _run_single_smoke(
+    gateway,
+    request_type,
+    admission_request_type,
+    pre_lock_request_type,
+    evidence_type,
+    project_expected_identity,
+    canonical_hash,
+) -> None:
+    request = request_type.model_validate(_single_payload())
+    observed_plans = []
+    admission = gateway.plan_single_admission(
+        admission_request_type(request, {}),
+        observed_plans.append,
+    )
+    if observed_plans != [admission.resolved_knot_plan]:
+        raise AssertionError("compiled planner was not observed exactly once")
+    plan = admission.resolved_knot_plan.to_bounded_dto()
+    expected = project_expected_identity(request, plan)
+    evidence = evidence_type(
+        plan,
+        canonical_hash(plan),
+        expected,
+        canonical_hash(expected),
+    )
+    inspected = []
+    result = gateway.calibrate_single(
+        pre_lock_request_type(request, {}),
+        lambda _at: None,
+        lambda _pre_lock: evidence,
+        inspected.append,
+    )
+    if inspected != [expected]:
+        raise AssertionError("compiled execution identity differs from admission")
+    rate = result.curves[0]["parameters"]["right_forwards"][0]
+    if abs(rate - 0.01) < 1e-5:
+        raise AssertionError("gateway returned the initial guess instead of a native solve")
+    if result.solver_diagnostics.max_abs_residual > request.solver.fit_tolerance:
+        raise AssertionError("compiled single residual exceeded fit tolerance")
+    if result.jacobian.availability != "available":
+        raise AssertionError("compiled analytic Jacobian was not materialized")
+    if result.effective_inverse.availability != "available":
+        raise AssertionError("compiled effective inverse was not materialized")
+    print(
+        "single compiled smoke: "
+        f"rate={rate:.12g} residual={result.solver_diagnostics.max_abs_residual:.3g}"
+    )
+
+
+def _referenced_curves(type_adapter_type, curve_type) -> dict[str, object]:
+    usd_curve_id = "b" * 32
+    eur_curve_id = "c" * 32
+    source_run_id = "d" * 32
+    curve_adapter = type_adapter_type(curve_type)
+    return {
+        usd_curve_id: curve_adapter.validate_python(
+            _curve_payload(usd_curve_id, source_run_id, "usd_ois", "USD", 0.04)
+        ),
+        eur_curve_id: curve_adapter.validate_python(
+            _curve_payload(eur_curve_id, source_run_id, "eur_ois", "EUR", 0.03)
+        ),
+    }
+
+
+def _run_staged_smoke(gateway, request_type, gateway_request_type, referenced: dict[str, object]) -> None:
+    usd_curve_id = "b" * 32
+    eur_curve_id = "c" * 32
+    staged_request = request_type.model_validate(
+        _staged_payload(usd_curve_id, eur_curve_id)
+    )
+    staged = gateway.calibrate_staged_xccy(
+        gateway_request_type(staged_request, referenced),
+        lambda _at: None,
+    )
+    basis_rate = staged.curves[0]["parameters"]["right_forwards"][0]
+    if abs(basis_rate - 0.02) < 1e-5:
+        raise AssertionError(
+            "staged gateway returned the initial guess instead of a native solve"
+        )
+    if staged.solver_diagnostics.max_abs_residual > staged_request.solver.fit_tolerance:
+        raise AssertionError("compiled staged residual exceeded fit tolerance")
+    print(
+        "staged compiled smoke: "
+        f"rate={basis_rate:.12g} "
+        f"residual={staged.solver_diagnostics.max_abs_residual:.3g}"
+    )
+
+
+def _run_joint_smoke(gateway, request_type, gateway_request_type) -> None:
+    joint_request = request_type.model_validate(_joint_payload())
+    joint = gateway.calibrate_joint_xccy(
+        gateway_request_type(joint_request),
+        lambda _at: None,
+    )
+    if len(joint.curves) != 3:
+        raise AssertionError("compiled joint gateway did not return every curve")
+    if joint.solver_diagnostics.max_abs_residual > joint_request.solver.fit_tolerance:
+        raise AssertionError("compiled joint residual exceeded fit tolerance")
+    if joint.jacobian.availability != "available":
+        raise AssertionError("compiled joint Jacobian was not materialized")
+    if joint.effective_inverse.availability != "available":
+        raise AssertionError("compiled joint inverse was not materialized")
+    print(
+        "joint compiled smoke: "
+        f"curves={len(joint.curves)} "
+        f"residual={joint.solver_diagnostics.max_abs_residual:.3g}"
+    )
+
+
 def main() -> int:
     root = Path(__file__).resolve().parents[2]
     backend = root / "dal-web" / "backend"
@@ -318,95 +427,24 @@ def main() -> int:
         StagedXccyGatewayRequest,
     )
 
-    request = SingleCalibrationRequest.model_validate(_single_payload())
     gateway = DalGateway()
-    observed_plans = []
-    admission = gateway.plan_single_admission(
-        SingleGatewayAdmissionRequest(request, {}),
-        observed_plans.append,
+    _run_single_smoke(
+        gateway,
+        SingleCalibrationRequest,
+        SingleGatewayAdmissionRequest,
+        SingleGatewayPreLockRequest,
+        VerifiedSingleWorkerAdmissionEvidence,
+        _project_expected_identity,
+        canonical_model_hash,
     )
-    if observed_plans != [admission.resolved_knot_plan]:
-        raise AssertionError("compiled planner was not observed exactly once")
-    plan = admission.resolved_knot_plan.to_bounded_dto()
-    expected = _project_expected_identity(request, plan)
-    evidence = VerifiedSingleWorkerAdmissionEvidence(
-        plan,
-        canonical_model_hash(plan),
-        expected,
-        canonical_model_hash(expected),
+    referenced = _referenced_curves(TypeAdapter, CurveReconstructionDTO)
+    _run_staged_smoke(
+        gateway,
+        StagedXccyCalibrationRequest,
+        StagedXccyGatewayRequest,
+        referenced,
     )
-    inspected = []
-    result = gateway.calibrate_single(
-        SingleGatewayPreLockRequest(request, {}),
-        lambda _at: None,
-        lambda _pre_lock: evidence,
-        inspected.append,
-    )
-    if inspected != [expected]:
-        raise AssertionError("compiled execution identity differs from admission")
-    rate = result.curves[0]["parameters"]["right_forwards"][0]
-    if abs(rate - 0.01) < 1e-5:
-        raise AssertionError("gateway returned the initial guess instead of a native solve")
-    if result.solver_diagnostics.max_abs_residual > request.solver.fit_tolerance:
-        raise AssertionError("compiled single residual exceeded fit tolerance")
-    if result.jacobian.availability != "available":
-        raise AssertionError("compiled analytic Jacobian was not materialized")
-    if result.effective_inverse.availability != "available":
-        raise AssertionError("compiled effective inverse was not materialized")
-    print(
-        "single compiled smoke: "
-        f"rate={rate:.12g} residual={result.solver_diagnostics.max_abs_residual:.3g}"
-    )
-
-    usd_curve_id = "b" * 32
-    eur_curve_id = "c" * 32
-    source_run_id = "d" * 32
-    curve_adapter = TypeAdapter(CurveReconstructionDTO)
-    referenced = {
-        usd_curve_id: curve_adapter.validate_python(
-            _curve_payload(usd_curve_id, source_run_id, "usd_ois", "USD", 0.04)
-        ),
-        eur_curve_id: curve_adapter.validate_python(
-            _curve_payload(eur_curve_id, source_run_id, "eur_ois", "EUR", 0.03)
-        ),
-    }
-    staged_request = StagedXccyCalibrationRequest.model_validate(
-        _staged_payload(usd_curve_id, eur_curve_id)
-    )
-    staged = gateway.calibrate_staged_xccy(
-        StagedXccyGatewayRequest(staged_request, referenced),
-        lambda _at: None,
-    )
-    basis_rate = staged.curves[0]["parameters"]["right_forwards"][0]
-    if abs(basis_rate - 0.02) < 1e-5:
-        raise AssertionError(
-            "staged gateway returned the initial guess instead of a native solve"
-        )
-    if staged.solver_diagnostics.max_abs_residual > staged_request.solver.fit_tolerance:
-        raise AssertionError("compiled staged residual exceeded fit tolerance")
-    print(
-        "staged compiled smoke: "
-        f"rate={basis_rate:.12g} "
-        f"residual={staged.solver_diagnostics.max_abs_residual:.3g}"
-    )
-    joint_request = JointXccyCalibrationRequest.model_validate(_joint_payload())
-    joint = gateway.calibrate_joint_xccy(
-        JointXccyGatewayRequest(joint_request),
-        lambda _at: None,
-    )
-    if len(joint.curves) != 3:
-        raise AssertionError("compiled joint gateway did not return every curve")
-    if joint.solver_diagnostics.max_abs_residual > joint_request.solver.fit_tolerance:
-        raise AssertionError("compiled joint residual exceeded fit tolerance")
-    if joint.jacobian.availability != "available":
-        raise AssertionError("compiled joint Jacobian was not materialized")
-    if joint.effective_inverse.availability != "available":
-        raise AssertionError("compiled joint inverse was not materialized")
-    print(
-        "joint compiled smoke: "
-        f"curves={len(joint.curves)} "
-        f"residual={joint.solver_diagnostics.max_abs_residual:.3g}"
-    )
+    _run_joint_smoke(gateway, JointXccyCalibrationRequest, JointXccyGatewayRequest)
     return 0
 
 

@@ -33,30 +33,33 @@ export default function MatrixHeatmap({
         </div>
       ) : (
         <div {...css("heatmap-scroll")}>
-          <div
+          <table
             {...css("heatmap")}
-            style={{ gridTemplateColumns: `minmax(150px, 1fr) repeat(${model.columns.length}, 42px)` }}
-            role="grid"
             aria-label={`${title} ${model.shapeLabel}`}
           >
-            <span />
-            {model.columns.map((column) => <code key={column} title={column}>{column}</code>)}
-            {model.rows.map((row, rowIndex) => (
-              <div className="heatmap-row" key={row}>
-                <code title={row}>{row}</code>
-                {model.values?.[rowIndex].map((value, columnIndex) => (
-                  <span
-                    key={`${row}-${columnIndex}`}
-                    role="gridcell"
-                    title={`${row} × ${model.columns[columnIndex]} = ${value}`}
-                    style={{ backgroundColor: cellColor(value, max) }}
-                  >
-                    {value.toExponential(1)}
-                  </span>
-                ))}
-              </div>
-            ))}
-          </div>
+            <thead>
+              <tr>
+                <th />
+                {model.columns.map((column) => <th key={column} title={column}><code>{column}</code></th>)}
+              </tr>
+            </thead>
+            <tbody>
+              {model.gridRows.map(({ row, cells }) => (
+                <tr key={row}>
+                  <th title={row}><code>{row}</code></th>
+                  {cells.map(({ column, value }) => (
+                    <td
+                      key={`${row}-${column}`}
+                      title={`${row} × ${column} = ${value}`}
+                      style={{ backgroundColor: cellColor(value, max) }}
+                    >
+                      {value.toExponential(1)}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
     </section>

@@ -49,6 +49,7 @@ export function alignFitSeries(
 }
 
 export function heatmapModel(matrix: CalibrationMatrix) {
+  const rowValues = matrix.values?.[Symbol.iterator]();
   return {
     available: matrix.availability === "available",
     reason: matrix.availability,
@@ -56,6 +57,17 @@ export function heatmapModel(matrix: CalibrationMatrix) {
     rows: [...matrix.row_axis],
     columns: [...matrix.column_axis],
     values: matrix.values?.map((row) => [...row]) ?? null,
+    gridRows: matrix.row_axis.map((row) => {
+      const values = rowValues?.next().value ?? [];
+      const columnValues = values[Symbol.iterator]();
+      return {
+        row,
+        cells: matrix.column_axis.map((column) => ({
+          column,
+          value: columnValues.next().value as number,
+        })),
+      };
+    }),
   };
 }
 
@@ -65,18 +77,29 @@ export interface LocatedField {
   field: string;
 }
 
+function stringValue(
+  value: string | number | undefined,
+  fallback: string,
+): string {
+  if (value === undefined) return fallback;
+  return String(value);
+}
+
 export function locateCalibrationField(
-  location: Array<string | number>,
+  location: (string | number)[],
 ): LocatedField {
   const path = location[0] === "body" ? location.slice(1) : location;
-  const last = path[path.length - 1];
-  const previous = path[path.length - 2];
-  const instrument = path.findIndex((item) => item === "instruments");
+  const reversedTail = [...path];
+  const last = reversedTail.pop();
+  const previous = reversedTail.pop();
+  const instrument = path.indexOf("instruments");
   if (instrument >= 0) {
+    const afterInstrument = path.slice(instrument + 1);
+    const row = afterInstrument.shift();
     return {
       section: "instrument",
-      row: typeof path[instrument + 1] === "number" ? path[instrument + 1] as number : null,
-      field: String(last ?? "instruments"),
+      row: typeof row === "number" ? row : null,
+      field: stringValue(last, "instruments"),
     };
   }
   const declaration = path.findIndex((item) =>
@@ -86,12 +109,12 @@ export function locateCalibrationField(
     return {
       section: "declaration",
       row: typeof last === "number" ? last : null,
-      field: String(previous ?? path[declaration]),
+      field: stringValue(previous, String(path[declaration])),
     };
   }
   return {
     section: "request",
     row: null,
-    field: String(last ?? "request"),
+    field: stringValue(last, "request"),
   };
 }

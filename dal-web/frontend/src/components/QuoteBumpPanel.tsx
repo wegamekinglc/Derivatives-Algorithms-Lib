@@ -5,24 +5,22 @@ import {
 } from "../api/client";
 import { css } from "../format";
 
+async function requestQuoteBumpPreview(id: string, index: number, size: number): Promise<QuoteBumpPreview> {
+  const run = await api.getCalibration(id, index, size);
+  if (!run.quote_bump_preview) {
+    throw new Error("The backend did not return a quote-bump preview.");
+  }
+  return run.quote_bump_preview;
+}
+
 interface Props {
   runId: string;
-  preview?: (
-    runId: string,
-    quoteIndex: number,
-    bumpSize: number,
-  ) => Promise<QuoteBumpPreview>;
+  preview?: typeof requestQuoteBumpPreview;
 }
 
 export default function QuoteBumpPanel({
   runId,
-  preview = async (id, index, size) => {
-    const run = await api.getCalibration(id, index, size);
-    if (!run.quote_bump_preview) {
-      throw new Error("The backend did not return a quote-bump preview.");
-    }
-    return run.quote_bump_preview;
-  },
+  preview = requestQuoteBumpPreview,
 }: Props) {
   const [index, setIndex] = useState(0);
   const [size, setSize] = useState(0.0001);
@@ -36,33 +34,39 @@ export default function QuoteBumpPanel({
         Previewed by the backend from the persisted effective inverse.
       </p>
       <div {...css("row", "compact-row")}>
-        <div>
-          <label htmlFor="quote-index">Quote index</label>
+        <label>
+          <span>Quote index</span>
           <input
-            id="quote-index"
             type="number"
             min={0}
             value={index}
-            onChange={(event) => setIndex(Number(event.target.value))}
+            onChange={(event) => {
+              setIndex(Number(event.target.value));
+            }}
           />
-        </div>
-        <div>
-          <label htmlFor="quote-size">Bump size</label>
+        </label>
+        <label>
+          <span>Bump size</span>
           <input
-            id="quote-size"
             type="number"
             step="0.0001"
             value={size}
-            onChange={(event) => setSize(Number(event.target.value))}
+            onChange={(event) => {
+              setSize(Number(event.target.value));
+            }}
           />
-        </div>
+        </label>
         <button
           type="button"
           onClick={() => {
             setError(null);
             void preview(runId, index, size)
-              .then(setResult)
-              .catch((reason: unknown) => setError(String(reason)));
+              .then((next) => {
+                setResult(next);
+              })
+              .catch((reason: unknown) => {
+                setError(String(reason));
+              });
           }}
         >
           Preview bump

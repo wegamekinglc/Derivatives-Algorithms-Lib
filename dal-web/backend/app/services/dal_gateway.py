@@ -114,9 +114,7 @@ class GatewayResolvedSingleKnotPlan:
                 "counts": {
                     "submitted_knots": self.counts.submitted_knots,
                     "instrument_candidates": self.counts.instrument_candidates,
-                    "resolved_declared_nodes": (
-                        self.counts.resolved_declared_nodes
-                    ),
+                    "resolved_declared_nodes": (self.counts.resolved_declared_nodes),
                     "storage_nodes": self.counts.storage_nodes,
                     "free_parameters": self.counts.free_parameters,
                 },
@@ -322,9 +320,7 @@ class DalGateway:
             instruments = normalized.instruments
             native_names = tuple(_native_instrument_name(item.kind) for item in instruments)
             latest_end = max(item.maturity for item in instruments)
-            execution_spec = self._build_single_spec(
-                normalized, request.referenced_curves, plan
-            )
+            execution_spec = self._build_single_spec(normalized, request.referenced_curves, plan)
             eligibility = (
                 self._dal.ValidateSingleCurveAnalyticEligibility(execution_spec)
                 if execution_spec is not None
@@ -334,14 +330,10 @@ class DalGateway:
             resolved_guess = (
                 tuple(
                     float(value)
-                    for value in self._dal.ResolveCurveCalibrationInitialGuess(
-                        execution_spec
-                    )
+                    for value in self._dal.ResolveCurveCalibrationInitialGuess(execution_spec)
                 )
                 if execution_spec is not None
-                and hasattr(
-                    self._dal, "ResolveCurveCalibrationInitialGuess"
-                )
+                and hasattr(self._dal, "ResolveCurveCalibrationInitialGuess")
                 else _fallback_resolved_initial_guess(normalized, plan)
             )
             return SingleGatewayAdmissionResult(
@@ -359,68 +351,73 @@ class DalGateway:
         verify_pre_native_admission_evidence: Callable[
             [SingleGatewayPreLockRequest], VerifiedSingleWorkerAdmissionEvidence
         ],
-        on_execution_identity_inspected: Callable[
-            [ExecutionSingleKnotIdentityDTO], None
-        ],
+        on_execution_identity_inspected: Callable[[ExecutionSingleKnotIdentityDTO], None],
     ) -> GatewayCalibrationResult:
         """Hold one lock continuously through callbacks and native extraction."""
         with self._calibration_lock:
-            try:
-                on_lock_acquired(datetime.now(UTC))
-            except Exception as exc:
-                raise GatewayLifecycleTransitionError(
-                    "mark_calibration_solving"
-                ) from exc
-            try:
-                evidence = verify_pre_native_admission_evidence(pre_lock_request)
-            except (
-                PersistedKnotPlanIntegrityError,
-                PersistedExpectedExecutionIdentityIntegrityError,
-            ):
-                raise
-            except Exception as exc:
-                raise GatewayLifecycleTransitionError(
-                    "verify_pre_native_admission_evidence"
-                ) from exc
-            if not isinstance(evidence, VerifiedSingleWorkerAdmissionEvidence):
-                raise TypeError(
-                    "pre-native evidence callback returned the wrong carrier type"
-                )
+            self._notify_single_lock_acquired(on_lock_acquired)
+            evidence = self._verify_single_admission(
+                pre_lock_request, verify_pre_native_admission_evidence
+            )
             verified = VerifiedSingleGatewayRequest(pre_lock_request, evidence)
             started = time.perf_counter()
             native_spec = self._build_single_execution_spec(verified)
-            actual = (
-                _native_identity_to_dto(
-                    self._dal.InspectCurveCalibrationExecutionIdentity(native_spec)
-                )
-                if native_spec is not None
-                and hasattr(self._dal, "InspectCurveCalibrationExecutionIdentity")
-                else evidence.expected_execution_identity.model_copy(deep=True)
+            actual = self._inspect_single_execution_identity(
+                native_spec, evidence.expected_execution_identity
             )
-            if actual != evidence.expected_execution_identity:
-                raise NativeExecutionIdentityMismatchError(
-                    evidence.expected_execution_identity,
-                    actual,
-                    comparison_stage="pre_solve_execution_identity",
-                )
+            _require_single_execution_identity(
+                evidence.expected_execution_identity,
+                actual,
+                comparison_stage="pre_solve_execution_identity",
+            )
             on_execution_identity_inspected(actual)
             result = self._calibrate_single_verified(verified, actual, native_spec)
             elapsed_ms = (time.perf_counter() - started) * 1000.0
-            terminal_actual = result.actual_execution_identity
-            if terminal_actual is None:
-                raise RuntimeError(
-                    "single calibration omitted terminal execution identity"
-                )
-            if terminal_actual != evidence.expected_execution_identity:
-                raise NativeExecutionIdentityMismatchError(
-                    evidence.expected_execution_identity,
-                    terminal_actual,
-                    comparison_stage="post_solve_storage",
-                    actual_jacobian_mode=result.actual_jacobian_mode,
-                    native_solve_ms=elapsed_ms,
-                )
+            _require_terminal_single_identity(
+                evidence.expected_execution_identity, result, elapsed_ms
+            )
             self._refresh_health_snapshot()
             return result._replace(native_solve_ms=elapsed_ms)
+
+    @staticmethod
+    def _notify_single_lock_acquired(
+        callback: Callable[[datetime], None],
+    ) -> None:
+        try:
+            callback(datetime.now(UTC))
+        except Exception as exc:
+            raise GatewayLifecycleTransitionError("mark_calibration_solving") from exc
+
+    @staticmethod
+    def _verify_single_admission(
+        request: SingleGatewayPreLockRequest,
+        callback: Callable[[SingleGatewayPreLockRequest], VerifiedSingleWorkerAdmissionEvidence],
+    ) -> VerifiedSingleWorkerAdmissionEvidence:
+        try:
+            evidence = callback(request)
+        except (
+            PersistedKnotPlanIntegrityError,
+            PersistedExpectedExecutionIdentityIntegrityError,
+        ):
+            raise
+        except Exception as exc:
+            raise GatewayLifecycleTransitionError("verify_pre_native_admission_evidence") from exc
+        if not isinstance(evidence, VerifiedSingleWorkerAdmissionEvidence):
+            raise TypeError("pre-native evidence callback returned the wrong carrier type")
+        return evidence
+
+    def _inspect_single_execution_identity(
+        self,
+        native_spec: object | None,
+        expected: ExecutionSingleKnotIdentityDTO,
+    ) -> ExecutionSingleKnotIdentityDTO:
+        if native_spec is None or not hasattr(
+            self._dal, "InspectCurveCalibrationExecutionIdentity"
+        ):
+            return expected.model_copy(deep=True)
+        return _native_identity_to_dto(
+            self._dal.InspectCurveCalibrationExecutionIdentity(native_spec)
+        )
 
     def calibrate_staged_xccy(
         self,
@@ -440,27 +437,17 @@ class DalGateway:
                     native_spec,
                     self._build_xccy_options(request.request),
                 )
-                result = _native_staged_result_to_gateway(
-                    request.request, native_result
-                )
+                result = _native_staged_result_to_gateway(request.request, native_result)
             else:
-                result = self._calibrate_xccy_fallback(
-                    request.request, "xccy_staged"
-                )
+                result = self._calibrate_xccy_fallback(request.request, "xccy_staged")
             self._refresh_health_snapshot()
-            return result._replace(
-                native_solve_ms=(time.perf_counter() - started) * 1000.0
-            )
+            return result._replace(native_solve_ms=(time.perf_counter() - started) * 1000.0)
 
-    def validate_staged_xccy_admission(
-        self, request: StagedXccyGatewayRequest
-    ) -> object | None:
+    def validate_staged_xccy_admission(self, request: StagedXccyGatewayRequest) -> object | None:
         with self._calibration_lock:
             if not hasattr(self._dal, "ValidateCrossCurrencyAnalyticEligibility"):
                 return None
-            native_spec = self._build_staged_xccy_spec(
-                request.request, request.referenced_curves
-            )
+            native_spec = self._build_staged_xccy_spec(request.request, request.referenced_curves)
             return self._dal.ValidateCrossCurrencyAnalyticEligibility(native_spec)
 
     def required_historical_xccy_fixings(
@@ -468,15 +455,12 @@ class DalGateway:
     ) -> tuple[GatewayRequiredHistoricalFixing, ...]:
         """Resolve required observations from DAL's native cashflow schedules."""
         extension = getattr(self._dal, "_dal", self._dal)
-        preflight = getattr(
-            extension, "_RequiredHistoricalXccyFixings", None
-        )
+        preflight = getattr(extension, "_RequiredHistoricalXccyFixings", None)
         if preflight is None:
             return ()
         with self._calibration_lock:
             instruments = [
-                self._build_xccy_instrument(item)
-                for item in request.request.basis.instruments
+                self._build_xccy_instrument(item) for item in request.request.basis.instruments
             ]
             rows = preflight(
                 instruments,
@@ -507,21 +491,13 @@ class DalGateway:
                     native_spec,
                     self._build_joint_xccy_options(request.request),
                 )
-                result = _native_joint_result_to_gateway(
-                    request.request, native_result, self._dal
-                )
+                result = _native_joint_result_to_gateway(request.request, native_result)
             else:
-                result = self._calibrate_xccy_fallback(
-                    request.request, "xccy_joint"
-                )
+                result = self._calibrate_xccy_fallback(request.request, "xccy_joint")
             self._refresh_health_snapshot()
-            return result._replace(
-                native_solve_ms=(time.perf_counter() - started) * 1000.0
-            )
+            return result._replace(native_solve_ms=(time.perf_counter() - started) * 1000.0)
 
-    def validate_joint_xccy_admission(
-        self, request: JointXccyGatewayRequest
-    ) -> object | None:
+    def validate_joint_xccy_admission(self, request: JointXccyGatewayRequest) -> object | None:
         with self._calibration_lock:
             if not hasattr(self._dal, "ValidateJointXccyAnalyticEligibility"):
                 return None
@@ -584,16 +560,11 @@ class DalGateway:
     ) -> GatewayResolvedSingleKnotPlan:
         request = admission.request
         if hasattr(self._dal, "PlanCurveCalibrationKnots"):
-            instruments = [
-                self._build_rate_instrument(item) for item in request.instruments
-            ]
+            instruments = [self._build_rate_instrument(item) for item in request.instruments]
             native = self._dal.PlanCurveCalibrationKnots(
                 self._native_date(request.today),
                 instruments,
-                [
-                    self._native_date(value)
-                    for value in request.declaration.knot_dates
-                ],
+                [self._native_date(value) for value in request.declaration.knot_dates],
                 getattr(
                     self._dal.CurveKnotPolicy,
                     request.declaration.knot_policy,
@@ -629,15 +600,9 @@ class DalGateway:
             return function(*arguments)
         if instrument.kind in {"SWAP", "OIS_SWAP"}:
             index_field = (
-                instrument.float_index
-                if instrument.kind == "SWAP"
-                else instrument.overnight_index
+                instrument.float_index if instrument.kind == "SWAP" else instrument.overnight_index
             )
-            function = (
-                self._dal.Swap_New
-                if instrument.kind == "SWAP"
-                else self._dal.OISSwap_New
-            )
+            function = self._dal.Swap_New if instrument.kind == "SWAP" else self._dal.OISSwap_New
             return function(
                 trade_date,
                 start,
@@ -678,20 +643,12 @@ class DalGateway:
 
     def _build_xccy_config(self, value: object) -> Any:
         convention = self._dal.CrossCurrencyConvention_()
-        convention.initial_notional_exchange = (
-            value.convention.initial_notional_exchange
-        )
+        convention.initial_notional_exchange = value.convention.initial_notional_exchange
         convention.final_notional_exchange = value.convention.final_notional_exchange
         convention.spread_on_foreign_leg = value.convention.spread_on_foreign_leg
-        convention.domestic_index = self._build_rate_index(
-            value.convention.domestic_index
-        )
-        convention.domestic_leg = self._build_rate_leg(
-            value.convention.domestic_leg
-        )
-        convention.foreign_index = self._build_rate_index(
-            value.convention.foreign_index
-        )
+        convention.domestic_index = self._build_rate_index(value.convention.domestic_index)
+        convention.domestic_leg = self._build_rate_leg(value.convention.domestic_leg)
+        convention.foreign_index = self._build_rate_index(value.convention.foreign_index)
         convention.foreign_leg = self._build_rate_leg(value.convention.foreign_leg)
 
         def fixing_identity(dto: object) -> Any:
@@ -703,30 +660,20 @@ class DalGateway:
 
         reset = value.fx_reset
         builder = self._dal.CrossCurrencySwapConfigBuilder_()
-        builder.pair = self._dal.CurrencyPair_New(
-            value.pair.domestic, value.pair.foreign
-        )
+        builder.pair = self._dal.CurrencyPair_New(value.pair.domestic, value.pair.foreign)
         builder.domestic_notional = value.domestic_notional
         builder.foreign_notional = value.foreign_notional
         builder.convention = convention
-        builder.notional_mode = getattr(
-            self._dal.XccyNotionalMode, value.notional_mode
-        )
+        builder.notional_mode = getattr(self._dal.XccyNotionalMode, value.notional_mode)
         builder.fx_reset = self._dal.FxResetConvention_New(
             reset.fixing_lag,
             self._dal.Holidays_(reset.fixing_holidays),
-            _native_business_day_convention(
-                self._dal, reset.fixing_convention
-            ),
+            _native_business_day_convention(self._dal, reset.fixing_convention),
             reset.fixing_hour,
             reset.fixing_minute,
         )
-        builder.domestic_rate_fixing = fixing_identity(
-            value.domestic_rate_fixing
-        )
-        builder.foreign_rate_fixing = fixing_identity(
-            value.foreign_rate_fixing
-        )
+        builder.domestic_rate_fixing = fixing_identity(value.domestic_rate_fixing)
+        builder.foreign_rate_fixing = fixing_identity(value.foreign_rate_fixing)
         return builder.Build()
 
     def _build_xccy_instrument(self, instrument: object) -> Any:
@@ -738,13 +685,9 @@ class DalGateway:
             self._build_xccy_config(instrument.config),
         )
 
-    def _build_curve_block(
-        self, block: object, referenced: Mapping[str, object]
-    ) -> Any:
+    def _build_curve_block(self, block: object, referenced: Mapping[str, object]) -> Any:
         discounts = {
-            self._dal.CollateralType_(slot): self.rebuild_curve(
-                referenced[curve_id]
-            )
+            self._dal.CollateralType_(slot): self.rebuild_curve(referenced[curve_id])
             for slot, curve_id in block.discount_curve_ids.items()
         }
         forwards = {
@@ -761,17 +704,13 @@ class DalGateway:
             self._dal.DayBasis_New(block.libor_basis),
         )
 
-    def _build_staged_xccy_spec(
-        self, request: object, referenced: Mapping[str, object]
-    ) -> Any:
+    def _build_staged_xccy_spec(self, request: object, referenced: Mapping[str, object]) -> Any:
         builder = self._dal.CrossCurrencyCalibrationSpecBuilder_()
         builder.today = self._native_date(request.valuation_time.date())
         builder.valuation_time = self._native_datetime(request.valuation_time)
         builder.collateral_currency = self._dal.Ccy_(request.collateral_currency)
         builder.fixings = self._build_fixings(request.fixings)
-        builder.basis_pair = self._dal.CurrencyPair_New(
-            request.pair.domestic, request.pair.foreign
-        )
+        builder.basis_pair = self._dal.CurrencyPair_New(request.pair.domestic, request.pair.foreign)
         builder.domestic_curve_block = self._build_curve_block(
             request.domestic_curve_block, referenced
         )
@@ -779,62 +718,42 @@ class DalGateway:
             request.foreign_curve_block, referenced
         )
         builder.fx_spot = request.fx_spot
-        builder.fx_forward_collateral = self._dal.CollateralType_(
-            request.fx_forward_collateral
-        )
+        builder.fx_forward_collateral = self._dal.CollateralType_(request.fx_forward_collateral)
         builder.instruments = [
-            self._build_xccy_instrument(item)
-            for item in request.basis.instruments
+            self._build_xccy_instrument(item) for item in request.basis.instruments
         ]
-        builder.knot_dates = [
-            self._native_date(value) for value in request.basis.knot_dates
-        ]
+        builder.knot_dates = [self._native_date(value) for value in request.basis.knot_dates]
         builder.smoothing_weight = request.solver.smoothing_weight
         builder.tolerance = request.solver.tolerance
         builder.fit_tolerance = request.solver.fit_tolerance
         builder.initial_guess = request.solver.initial_guess
-        builder.initial_guess_per_node = (
-            list(request.basis.initial_guess_per_node)
-            or [request.solver.initial_guess] * len(request.basis.knot_dates)
-        )
+        builder.initial_guess_per_node = list(request.basis.initial_guess_per_node) or [
+            request.solver.initial_guess
+        ] * len(request.basis.knot_dates)
         builder.max_evaluations = request.solver.max_evaluations
         builder.max_restarts = request.solver.max_restarts
-        builder.solve_mode = getattr(
-            self._dal.CurveSolveMode, request.solver.solve_mode
-        )
+        builder.solve_mode = getattr(self._dal.CurveSolveMode, request.solver.solve_mode)
         return builder.Build()
 
     def _build_xccy_options(self, request: object) -> Any:
         options = self._dal.CrossCurrencyCalibrationOptions_()
-        options.jacobian_mode = getattr(
-            self._dal.CurveJacobianMode, request.options.jacobian_mode
-        )
+        options.jacobian_mode = getattr(self._dal.CurveJacobianMode, request.options.jacobian_mode)
         options.compute_forward_jacobian = request.options.include_jacobian
-        options.compute_eff_jacobian_inverse = (
-            request.options.include_effective_inverse
-        )
+        options.compute_eff_jacobian_inverse = request.options.include_effective_inverse
         return options
 
     def _build_joint_curve_declaration(self, value: object) -> Any:
         declaration = self._dal.JointCurveDeclaration_()
         declaration.curve_name = value.curve_name
-        declaration.instruments = [
-            self._build_rate_instrument(item) for item in value.instruments
-        ]
-        declaration.knot_dates = [
-            self._native_date(item) for item in value.knot_dates
-        ]
-        declaration.target_collateral = self._dal.CollateralType_(
-            value.target_collateral
-        )
+        declaration.instruments = [self._build_rate_instrument(item) for item in value.instruments]
+        declaration.knot_dates = [self._native_date(item) for item in value.knot_dates]
+        declaration.target_collateral = self._dal.CollateralType_(value.target_collateral)
         if value.target_tenor is not None:
             declaration.target_tenor = self._dal.PeriodLength_New(
                 _native_period(value.target_tenor)
             )
         declaration.calibrate_discount_curve = value.calibrate_discount_curve
-        declaration.base_layered_over_discount = (
-            value.base_layered_over_discount
-        )
+        declaration.base_layered_over_discount = value.base_layered_over_discount
         declaration.parameterization = getattr(
             self._dal.CurveParameterization, value.parameterization
         )
@@ -842,35 +761,25 @@ class DalGateway:
             self._dal.LogDfScheme, value.log_df_scheme or "LOG_LINEAR"
         )
         declaration.smoothing_weight = (
-            value.smoothing_weight
-            if value.smoothing_weight is not None
-            else 1.0
+            value.smoothing_weight if value.smoothing_weight is not None else 1.0
         )
-        declaration.initial_guess_per_node = list(
-            value.initial_guess_per_node
-        )
+        declaration.initial_guess_per_node = list(value.initial_guess_per_node)
         return declaration
 
     def _build_joint_currency(self, value: object) -> Any:
         result = self._dal.JointCurrencyCurveSpec_()
         result.ccy = self._dal.Ccy_(value.currency)
         result.libor_basis = self._dal.DayBasis_New(value.libor_basis)
-        result.curves = [
-            self._build_joint_curve_declaration(item)
-            for item in value.declarations
-        ]
+        result.curves = [self._build_joint_curve_declaration(item) for item in value.declarations]
         return result
 
     def _build_joint_xccy_spec(self, request: object) -> Any:
         basis = self._dal.XccyBasisCurveDeclaration_()
         basis.curve_name = request.basis.curve_name
         basis.instruments = [
-            self._build_xccy_instrument(item)
-            for item in request.basis.instruments
+            self._build_xccy_instrument(item) for item in request.basis.instruments
         ]
-        basis.knot_dates = [
-            self._native_date(item) for item in request.basis.knot_dates
-        ]
+        basis.knot_dates = [self._native_date(item) for item in request.basis.knot_dates]
         basis.parameterization = getattr(
             self._dal.CurveParameterization, request.basis.parameterization
         )
@@ -882,9 +791,7 @@ class DalGateway:
             if request.basis.smoothing_weight is not None
             else request.solver.smoothing_weight
         )
-        basis.initial_guess_per_node = list(
-            request.basis.initial_guess_per_node
-        )
+        basis.initial_guess_per_node = list(request.basis.initial_guess_per_node)
 
         solver = self._dal.CurveSolverOptions_()
         solver.smoothing_weight = request.solver.smoothing_weight
@@ -893,18 +800,12 @@ class DalGateway:
         solver.initial_guess = request.solver.initial_guess
         solver.max_evaluations = request.solver.max_evaluations
         solver.max_restarts = request.solver.max_restarts
-        solver.solve_mode = getattr(
-            self._dal.CurveSolveMode, request.solver.solve_mode
-        )
+        solver.solve_mode = getattr(self._dal.CurveSolveMode, request.solver.solve_mode)
 
         builder = self._dal.JointXccyCalibrationSpecBuilder_()
         builder.valuation_time = self._native_datetime(request.valuation_time)
-        builder.pair = self._dal.CurrencyPair_New(
-            request.pair.domestic, request.pair.foreign
-        )
-        builder.collateral_currency = self._dal.Ccy_(
-            request.collateral_currency
-        )
+        builder.pair = self._dal.CurrencyPair_New(request.pair.domestic, request.pair.foreign)
+        builder.collateral_currency = self._dal.Ccy_(request.collateral_currency)
         builder.fx_spot = request.fx_spot
         builder.domestic = self._build_joint_currency(request.domestic)
         builder.foreign = self._build_joint_currency(request.foreign)
@@ -915,13 +816,9 @@ class DalGateway:
 
     def _build_joint_xccy_options(self, request: object) -> Any:
         options = self._dal.JointXccyCalibrationOptions_()
-        options.jacobian_mode = getattr(
-            self._dal.CurveJacobianMode, request.options.jacobian_mode
-        )
+        options.jacobian_mode = getattr(self._dal.CurveJacobianMode, request.options.jacobian_mode)
         options.compute_forward_jacobian = request.options.include_jacobian
-        options.compute_eff_jacobian_inverse = (
-            request.options.include_effective_inverse
-        )
+        options.compute_eff_jacobian_inverse = request.options.include_effective_inverse
         return options
 
     def _build_rate_index(self, value: object) -> Any:
@@ -968,12 +865,8 @@ class DalGateway:
             return function(*arguments)
         except Exception as exc:
             extension = getattr(self._dal, "_dal", self._dal)
-            convergence_error = getattr(
-                extension, "_CalibrationConvergenceError", None
-            )
-            if convergence_error is None or not isinstance(
-                exc, convergence_error
-            ):
+            convergence_error = getattr(extension, "_CalibrationConvergenceError", None)
+            if convergence_error is None or not isinstance(exc, convergence_error):
                 raise
             raise NativeSolverDidNotConvergeError(
                 max_abs_residual=None,
@@ -996,9 +889,7 @@ class DalGateway:
                 self._dal.CurveJacobianMode, request.options.jacobian_mode
             )
             options.compute_forward_jacobian = request.options.include_jacobian
-            options.compute_eff_jacobian_inverse = (
-                request.options.include_effective_inverse
-            )
+            options.compute_eff_jacobian_inverse = request.options.include_effective_inverse
             native_result = self._call_native_calibration(
                 self._dal.CalibrateSingleCurve,
                 request,
@@ -1018,7 +909,10 @@ class DalGateway:
             or [request.solver.initial_guess] * plan.counts.free_parameters
         )
         curve = _fallback_curve_payload(
-            request, plan, values, role="discount" if declaration.calibrate_discount_curve else "forward"
+            request,
+            plan,
+            values,
+            role="discount" if declaration.calibrate_discount_curve else "forward",
         )
         return _fallback_result(
             request,
@@ -1026,9 +920,7 @@ class DalGateway:
             _terminal_identity_from_curve_payload(actual, curve),
         )
 
-    def _build_single_execution_spec(
-        self, verified: VerifiedSingleGatewayRequest
-    ) -> object | None:
+    def _build_single_execution_spec(self, verified: VerifiedSingleGatewayRequest) -> object | None:
         return self._build_single_spec(
             verified.pre_lock_request.request,
             verified.pre_lock_request.referenced_curves,
@@ -1045,12 +937,21 @@ class DalGateway:
             return None
         declaration = request.declaration
         builder = self._dal.CurveCalibrationSpecBuilder_()
+        self._configure_single_spec_builder(builder, request, plan)
+        self._configure_single_reference_curves(builder, declaration, referenced)
+        return builder.Build()
+
+    def _configure_single_spec_builder(
+        self,
+        builder: object,
+        request: object,
+        plan: ResolvedSingleKnotPlanDTO,
+    ) -> None:
+        declaration = request.declaration
         builder.today_ = self._native_date(request.today)
         builder.ccy_ = self._dal.String_(request.currency)
         builder.curveName_ = self._dal.String_(declaration.curve_name)
-        builder.targetCollateral_ = self._dal.CollateralType_(
-            declaration.target_collateral
-        )
+        builder.targetCollateral_ = self._dal.CollateralType_(declaration.target_collateral)
         if declaration.target_tenor is not None:
             builder.targetTenor_ = self._dal.PeriodLength_New(
                 _native_period(declaration.target_tenor)
@@ -1063,9 +964,7 @@ class DalGateway:
         builder.maxEvaluations_ = request.solver.max_evaluations
         builder.maxRestarts_ = request.solver.max_restarts
         builder.initialGuess_ = request.solver.initial_guess
-        builder.solveMode_ = getattr(
-            self._dal.CurveSolveMode, request.solver.solve_mode
-        )
+        builder.solveMode_ = getattr(self._dal.CurveSolveMode, request.solver.solve_mode)
         builder.parameterization_ = getattr(
             self._dal.CurveParameterization, declaration.parameterization
         )
@@ -1081,24 +980,25 @@ class DalGateway:
                 _native_instrument_name(item.kind),
             ),
         )
-        builder.instruments_ = [
-            self._build_rate_instrument(item) for item in canonical_instruments
-        ]
+        builder.instruments_ = [self._build_rate_instrument(item) for item in canonical_instruments]
         builder.knotDates_ = [
             self._native_date(node.date)
             for node in plan.storage_nodes
-            if node.date != request.today
-            or declaration.parameterization == "LOG_DISCOUNT"
+            if node.date != request.today or declaration.parameterization == "LOG_DISCOUNT"
         ]
         builder.initialGuessPerNode_ = (
             list(declaration.initial_guess_per_node)
-            or [request.solver.initial_guess]
-            * plan.counts.free_parameters
+            or [request.solver.initial_guess] * plan.counts.free_parameters
         )
+
+    def _configure_single_reference_curves(
+        self,
+        builder: object,
+        declaration: object,
+        referenced: Mapping[str, object],
+    ) -> None:
         if declaration.base_curve_id is not None:
-            builder.baseCurve_ = self.rebuild_curve(
-                referenced[declaration.base_curve_id]
-            )
+            builder.baseCurve_ = self.rebuild_curve(referenced[declaration.base_curve_id])
         builder.discountCurves_ = {
             self._dal.CollateralType_(slot): self.rebuild_curve(referenced[curve_id])
             for slot, curve_id in declaration.discount_curve_ids.items()
@@ -1109,11 +1009,8 @@ class DalGateway:
             )
             for slot, curve_id in declaration.forward_curve_ids.items()
         }
-        return builder.Build()
 
-    def _calibrate_xccy_fallback(
-        self, request: object, kind: str
-    ) -> GatewayCalibrationResult:
+    def _calibrate_xccy_fallback(self, request: object, kind: str) -> GatewayCalibrationResult:
         curve = {
             "name": request.basis.curve_name,
             "currency": request.pair.domestic,
@@ -1133,6 +1030,42 @@ class DalGateway:
             "base_curve_id": None,
         }
         return _fallback_result(request, (curve,), None, xccy=True)
+
+
+def _require_single_execution_identity(
+    expected: ExecutionSingleKnotIdentityDTO,
+    actual: ExecutionSingleKnotIdentityDTO,
+    *,
+    comparison_stage: str,
+    actual_jacobian_mode: str | None = None,
+    native_solve_ms: float | None = None,
+) -> None:
+    if actual == expected:
+        return
+    raise NativeExecutionIdentityMismatchError(
+        expected,
+        actual,
+        comparison_stage=comparison_stage,
+        actual_jacobian_mode=actual_jacobian_mode,
+        native_solve_ms=native_solve_ms,
+    )
+
+
+def _require_terminal_single_identity(
+    expected: ExecutionSingleKnotIdentityDTO,
+    result: GatewayCalibrationResult,
+    elapsed_ms: float,
+) -> None:
+    actual = result.actual_execution_identity
+    if actual is None:
+        raise RuntimeError("single calibration omitted terminal execution identity")
+    _require_single_execution_identity(
+        expected,
+        actual,
+        comparison_stage="post_solve_storage",
+        actual_jacobian_mode=result.actual_jacobian_mode,
+        native_solve_ms=elapsed_ms,
+    )
 
 
 def _enum_name(value: object) -> str:
@@ -1168,31 +1101,49 @@ def _native_origin_to_dict(origin: object) -> dict[str, object]:
     return {"kind": "SYNTHETIC_ANCHOR"}
 
 
-def _native_plan_to_dto(value: object) -> GatewayResolvedSingleKnotPlan:
-    candidates = [
+def _native_candidate_to_dto(candidate: object) -> KnotCandidateDTO:
+    resolved_index = candidate.resolved_index
+    return KnotCandidateDTO.model_validate(
         {
             "ordinal": candidate.ordinal,
             "date": _native_date_to_python(candidate.date),
             "origin": _native_origin_to_dict(candidate.origin),
             "disposition": _enum_name(candidate.disposition),
-            "resolved_index": (
-                candidate.resolved_index if candidate.resolved_index >= 0 else None
-            ),
+            "resolved_index": resolved_index if resolved_index >= 0 else None,
         }
-        for candidate in value.candidate_trace
-    ]
-    node = lambda item: {  # noqa: E731 - compact native carrier projection
-        "date": _native_date_to_python(item.date),
-        "origins": [_native_origin_to_dict(origin) for origin in item.origins],
-    }
-    free = [
+    )
+
+
+def _native_node_to_dto(item: object) -> ResolvedKnotNodeDTO:
+    return ResolvedKnotNodeDTO.model_validate(
+        {
+            "date": _native_date_to_python(item.date),
+            "origins": [_native_origin_to_dict(origin) for origin in item.origins],
+        }
+    )
+
+
+def _native_free_parameter_to_dto(item: object) -> FreeParameterDTO:
+    return FreeParameterDTO.model_validate(
         {
             "date": _native_date_to_python(item.date),
             "component": _enum_name(item.component).lower(),
         }
-        for item in value.free_parameters
-    ]
+    )
+
+
+def _native_plan_counts(value: object) -> GatewayResolvedKnotCounts:
     counts = value.counts
+    return GatewayResolvedKnotCounts(
+        submitted_knots=counts.submitted_knots,
+        instrument_candidates=counts.instrument_candidates,
+        resolved_declared_nodes=counts.resolved_declared_nodes,
+        storage_nodes=counts.storage_nodes,
+        free_parameters=counts.free_parameters,
+    )
+
+
+def _native_plan_to_dto(value: object) -> GatewayResolvedSingleKnotPlan:
     return GatewayResolvedSingleKnotPlan(
         planner_version=value.planner_version,
         requested_policy=_enum_name(value.requested_policy),
@@ -1200,28 +1151,16 @@ def _native_plan_to_dto(value: object) -> GatewayResolvedSingleKnotPlan:
         submitted_knot_dates=tuple(
             _native_date_to_python(item) for item in value.submitted_knot_dates
         ),
-        candidate_trace=tuple(
-            KnotCandidateDTO.model_validate(item) for item in candidates
-        ),
+        candidate_trace=tuple(_native_candidate_to_dto(item) for item in value.candidate_trace),
         resolved_declared_nodes=tuple(
-            ResolvedKnotNodeDTO.model_validate(node(item))
-            for item in value.resolved_declared_nodes
+            _native_node_to_dto(item) for item in value.resolved_declared_nodes
         ),
-        storage_nodes=tuple(
-            ResolvedKnotNodeDTO.model_validate(node(item))
-            for item in value.storage_nodes
-        ),
+        storage_nodes=tuple(_native_node_to_dto(item) for item in value.storage_nodes),
         free_parameters=tuple(
-            FreeParameterDTO.model_validate(item) for item in free
+            _native_free_parameter_to_dto(item) for item in value.free_parameters
         ),
         anchor_added=value.anchor_added,
-        counts=GatewayResolvedKnotCounts(
-            submitted_knots=counts.submitted_knots,
-            instrument_candidates=counts.instrument_candidates,
-            resolved_declared_nodes=counts.resolved_declared_nodes,
-            storage_nodes=counts.storage_nodes,
-            free_parameters=counts.free_parameters,
-        ),
+        counts=_native_plan_counts(value),
     )
 
 
@@ -1236,12 +1175,9 @@ def _native_identity_to_dto(value: object) -> ExecutionSingleKnotIdentityDTO:
             "parameterization": _enum_name(value.parameterization),
             "log_df_scheme": _enum_name(scheme) if scheme is not None else None,
             "resolved_declared_dates": [
-                _native_date_to_python(item)
-                for item in value.resolved_declared_dates
+                _native_date_to_python(item) for item in value.resolved_declared_dates
             ],
-            "storage_dates": [
-                _native_date_to_python(item) for item in value.storage_dates
-            ],
+            "storage_dates": [_native_date_to_python(item) for item in value.storage_dates],
             "free_parameters": [
                 {
                     "date": _native_date_to_python(item.date),
@@ -1258,6 +1194,59 @@ def _native_identity_to_dto(value: object) -> ExecutionSingleKnotIdentityDTO:
     )
 
 
+def _native_instrument_diagnostics(
+    market_rates: object,
+    model_rates: object,
+    residuals: object,
+    *,
+    group: str,
+) -> tuple[InstrumentDiagnosticDTO, ...]:
+    return tuple(
+        InstrumentDiagnosticDTO(
+            instrument_id=f"{index + 1:032x}",
+            group=group,
+            calibration_index=index,
+            market_rate=float(market_rate),
+            model_rate=float(model_rate),
+            residual=float(residual),
+        )
+        for index, (market_rate, model_rate, residual) in enumerate(
+            zip(market_rates, model_rates, residuals, strict=True)
+        )
+    )
+
+
+def _native_solver_diagnostics(
+    diagnostics: object,
+    request: object,
+    *,
+    evaluations: int | None = None,
+) -> SolverDiagnosticsDTO:
+    approximate = bool(diagnostics.used_approximate_fit)
+    return SolverDiagnosticsDTO(
+        status="approximate_fit" if approximate else "converged",
+        solve_mode=request.solver.solve_mode,
+        used_approximate_fit=approximate,
+        tolerance=request.solver.tolerance,
+        fit_tolerance=request.solver.fit_tolerance,
+        max_abs_residual=float(diagnostics.max_abs_residual),
+        rms_residual=float(diagnostics.rms_residual),
+        evaluations=evaluations,
+    )
+
+
+def _single_parameter_axis(
+    request: object,
+    actual: ExecutionSingleKnotIdentityDTO,
+) -> list[str]:
+    return [
+        "parameter:"
+        f"{request.declaration.curve_name}:"
+        f"{parameter.date.isoformat()}:{parameter.component}"
+        for parameter in actual.free_parameters
+    ]
+
+
 def _native_single_result_to_gateway(
     request: object,
     plan: ResolvedSingleKnotPlanDTO,
@@ -1265,37 +1254,19 @@ def _native_single_result_to_gateway(
     actual: ExecutionSingleKnotIdentityDTO,
 ) -> GatewayCalibrationResult:
     diagnostics = native_result.diagnostics_
-    market_rates = [float(value) for value in diagnostics.market_rates]
-    model_rates = [float(value) for value in diagnostics.model_rates]
-    residuals = [float(value) for value in diagnostics.residuals]
-    instrument_diagnostics = tuple(
-        InstrumentDiagnosticDTO(
-            instrument_id=f"{index + 1:032x}",
-            group="single:curve",
-            calibration_index=index,
-            market_rate=market_rate,
-            model_rate=model_rate,
-            residual=residual,
-        )
-        for index, (market_rate, model_rate, residual) in enumerate(
-            zip(market_rates, model_rates, residuals, strict=True)
-        )
+    instrument_diagnostics = _native_instrument_diagnostics(
+        diagnostics.market_rates,
+        diagnostics.model_rates,
+        diagnostics.residuals,
+        group="single:curve",
     )
-    parameter_axis = [
-        "parameter:"
-        f"{request.declaration.curve_name}:"
-        f"{parameter.date.isoformat()}:{parameter.component}"
-        for parameter in actual.free_parameters
-    ]
+    parameter_axis = _single_parameter_axis(request, actual)
     residual_axis = [
-        f"residual:{diagnostic.instrument_id}"
-        for diagnostic in instrument_diagnostics
+        f"residual:{diagnostic.instrument_id}" for diagnostic in instrument_diagnostics
     ]
     exact = request.solver.solve_mode == "EXACT"
     jacobian_available = (
-        request.options.include_jacobian
-        and exact
-        and request.options.jacobian_mode == "ANALYTIC"
+        request.options.include_jacobian and exact and request.options.jacobian_mode == "ANALYTIC"
     )
     inverse_available = request.options.include_effective_inverse and exact
     jacobian = _native_matrix_dto(
@@ -1316,31 +1287,14 @@ def _native_single_result_to_gateway(
         scaling="solver_scaled",
         residual_tolerance=request.solver.tolerance,
     )
-    curve_payload = _native_single_curve_payload(
-        request, plan, native_result.curve_
-    )
-    terminal_actual = _terminal_identity_from_curve_payload(
-        actual, curve_payload
-    )
+    curve_payload = _native_single_curve_payload(request, plan, native_result.curve_)
+    terminal_actual = _terminal_identity_from_curve_payload(actual, curve_payload)
     return GatewayCalibrationResult(
         actual_jacobian_mode=request.options.jacobian_mode,
         actual_execution_identity=terminal_actual,
         curves=(curve_payload,),
         instrument_diagnostics=instrument_diagnostics,
-        solver_diagnostics=SolverDiagnosticsDTO(
-            status=(
-                "approximate_fit"
-                if diagnostics.used_approximate_fit
-                else "converged"
-            ),
-            solve_mode=request.solver.solve_mode,
-            used_approximate_fit=bool(diagnostics.used_approximate_fit),
-            tolerance=request.solver.tolerance,
-            fit_tolerance=request.solver.fit_tolerance,
-            max_abs_residual=float(diagnostics.max_abs_residual),
-            rms_residual=float(diagnostics.rms_residual),
-            evaluations=None,
-        ),
+        solver_diagnostics=_native_solver_diagnostics(diagnostics, request),
         fx_forwards=None,
         named_ranges=NamedRangesDTO(
             parameters=[
@@ -1368,50 +1322,18 @@ def _native_staged_result_to_gateway(
     request: object, native_result: object
 ) -> GatewayCalibrationResult:
     diagnostics = native_result.diagnostics
-    instrument_diagnostics = tuple(
-        InstrumentDiagnosticDTO(
-            instrument_id=f"{index + 1:032x}",
-            group="basis:curve",
-            calibration_index=index,
-            market_rate=float(market_rate),
-            model_rate=float(model_rate),
-            residual=float(residual),
-        )
-        for index, (market_rate, model_rate, residual) in enumerate(
-            zip(
-                diagnostics.market_rates,
-                diagnostics.model_rates,
-                diagnostics.residuals,
-                strict=True,
-            )
-        )
+    instrument_diagnostics = _native_instrument_diagnostics(
+        diagnostics.market_rates,
+        diagnostics.model_rates,
+        diagnostics.residuals,
+        group="basis:curve",
     )
     parameter_axis = [
-        "parameter:"
-        f"{request.basis.curve_name}:"
-        f"{value.isoformat()}:right_forward"
+        f"parameter:{request.basis.curve_name}:{value.isoformat()}:right_forward"
         for value in request.basis.knot_dates
     ]
-    residual_axis = [
-        f"residual:{value.instrument_id}" for value in instrument_diagnostics
-    ]
-    jacobian_available = diagnostics.jacobian_availability == "available"
-    inverse_available = (
-        diagnostics.eff_jacobian_inverse_availability == "available"
-    )
-    exact = request.solver.solve_mode == "EXACT"
-    expected_jacobian = (
-        request.options.include_jacobian
-        and exact
-        and request.options.jacobian_mode == "ANALYTIC"
-    )
-    expected_inverse = request.options.include_effective_inverse and exact
-    if jacobian_available != expected_jacobian:
-        raise RuntimeError("native staged Jacobian availability violates the request")
-    if inverse_available != expected_inverse:
-        raise RuntimeError(
-            "native staged effective-inverse availability violates the request"
-        )
+    residual_axis = [f"residual:{value.instrument_id}" for value in instrument_diagnostics]
+    jacobian_available, inverse_available = _staged_matrix_availability(request, diagnostics)
     curve = native_result.basis_curve
     fx = native_result.fx_forward_curve
     return GatewayCalibrationResult(
@@ -1430,32 +1352,13 @@ def _native_staged_result_to_gateway(
                 "anchor_date": request.valuation_time.date(),
                 "day_count": "ACT_365F",
                 "log_df_scheme": None,
-                "node_dates": [
-                    _native_date_to_python(value) for value in curve.knot_dates
-                ],
-                "parameters": {
-                    "right_forwards": [
-                        float(value) for value in curve.right_forwards
-                    ]
-                },
+                "node_dates": [_native_date_to_python(value) for value in curve.knot_dates],
+                "parameters": {"right_forwards": [float(value) for value in curve.right_forwards]},
                 "base_curve_id": None,
             },
         ),
         instrument_diagnostics=instrument_diagnostics,
-        solver_diagnostics=SolverDiagnosticsDTO(
-            status=(
-                "approximate_fit"
-                if diagnostics.used_approximate_fit
-                else "converged"
-            ),
-            solve_mode=request.solver.solve_mode,
-            used_approximate_fit=bool(diagnostics.used_approximate_fit),
-            tolerance=request.solver.tolerance,
-            fit_tolerance=request.solver.fit_tolerance,
-            max_abs_residual=float(diagnostics.max_abs_residual),
-            rms_residual=float(diagnostics.rms_residual),
-            evaluations=None,
-        ),
+        solver_diagnostics=_native_solver_diagnostics(diagnostics, request),
         fx_forwards=FxForwardDTO(
             pair={
                 "domestic": request.pair.domestic,
@@ -1502,6 +1405,21 @@ def _native_staged_result_to_gateway(
     )
 
 
+def _staged_matrix_availability(request: object, diagnostics: object) -> tuple[bool, bool]:
+    jacobian_available = diagnostics.jacobian_availability == "available"
+    inverse_available = diagnostics.eff_jacobian_inverse_availability == "available"
+    exact = request.solver.solve_mode == "EXACT"
+    expected_jacobian = (
+        request.options.include_jacobian and exact and request.options.jacobian_mode == "ANALYTIC"
+    )
+    expected_inverse = request.options.include_effective_inverse and exact
+    if jacobian_available != expected_jacobian:
+        raise RuntimeError("native staged Jacobian availability violates the request")
+    if inverse_available != expected_inverse:
+        raise RuntimeError("native staged effective-inverse availability violates the request")
+    return jacobian_available, inverse_available
+
+
 def _native_joint_curve_payload(
     declaration: object,
     *,
@@ -1512,53 +1430,13 @@ def _native_joint_curve_payload(
     role: str,
 ) -> dict[str, object]:
     parameterization = declaration.parameterization
-    if parameterization == "PIECEWISE_CONSTANT_FWD":
-        node_dates = [
-            _native_date_to_python(value) for value in curve.knot_dates
-        ]
-        parameters: dict[str, object] = {
-            "right_forwards": [
-                float(value) for value in curve.right_forwards
-            ]
-        }
-        day_count = "ACT_365F"
-    elif parameterization == "PIECEWISE_LINEAR_FWD":
-        node_dates = [
-            _native_date_to_python(value) for value in curve.knot_dates
-        ]
-        parameters = {
-            "left_forwards": [float(value) for value in curve.left_forwards],
-            "right_forwards": [
-                float(value) for value in curve.right_forwards
-            ],
-        }
-        day_count = "ACT_365F"
-    elif parameterization == "ZERO_RATE":
-        node_dates = [
-            _native_date_to_python(value) for value in curve.node_dates
-        ]
-        parameters = {
-            "zero_rates": [float(value) for value in curve.zero_rates]
-        }
-        day_count = str(curve.day_count)
-    else:
-        node_dates = [
-            _native_date_to_python(value) for value in curve.node_dates
-        ]
-        parameters = {
-            "log_discount_factors": [
-                float(value) for value in curve.log_discount_factors
-            ]
-        }
-        day_count = str(curve.day_count)
+    node_dates, parameters, day_count = _native_curve_state(parameterization, curve)
     return {
         "name": declaration.curve_name,
         "currency": currency,
         "role": role,
         "target": {
-            "collateral": getattr(
-                declaration, "target_collateral", collateral_currency
-            ),
+            "collateral": getattr(declaration, "target_collateral", collateral_currency),
             "tenor": getattr(declaration, "target_tenor", None),
         },
         "parameterization": parameterization,
@@ -1571,46 +1449,77 @@ def _native_joint_curve_payload(
     }
 
 
-def _joint_parameter_axis(
-    request: object, parameter_ranges: list[NamedRangeDTO]
-) -> list[str]:
+def _native_piecewise_constant_state(
+    curve: object,
+) -> tuple[list[date], dict[str, object], str]:
+    return (
+        [_native_date_to_python(value) for value in curve.knot_dates],
+        {"right_forwards": [float(value) for value in curve.right_forwards]},
+        "ACT_365F",
+    )
+
+
+def _native_piecewise_linear_state(
+    curve: object,
+) -> tuple[list[date], dict[str, object], str]:
+    return (
+        [_native_date_to_python(value) for value in curve.knot_dates],
+        {
+            "left_forwards": [float(value) for value in curve.left_forwards],
+            "right_forwards": [float(value) for value in curve.right_forwards],
+        },
+        "ACT_365F",
+    )
+
+
+def _native_zero_rate_state(
+    curve: object,
+) -> tuple[list[date], dict[str, object], str]:
+    return (
+        [_native_date_to_python(value) for value in curve.node_dates],
+        {"zero_rates": [float(value) for value in curve.zero_rates]},
+        str(curve.day_count),
+    )
+
+
+def _native_log_discount_state(
+    curve: object,
+) -> tuple[list[date], dict[str, object], str]:
+    return (
+        [_native_date_to_python(value) for value in curve.node_dates],
+        {"log_discount_factors": [float(value) for value in curve.log_discount_factors]},
+        str(curve.day_count),
+    )
+
+
+def _native_curve_state(
+    parameterization: str, curve: object
+) -> tuple[list[date], dict[str, object], str]:
+    projectors = {
+        "PIECEWISE_CONSTANT_FWD": _native_piecewise_constant_state,
+        "PIECEWISE_LINEAR_FWD": _native_piecewise_linear_state,
+        "ZERO_RATE": _native_zero_rate_state,
+        "LOG_DISCOUNT": _native_log_discount_state,
+    }
+    try:
+        projector = projectors[parameterization]
+    except KeyError as exc:
+        raise RuntimeError(f"unsupported native curve parameterization {parameterization}") from exc
+    return projector(curve)
+
+
+def _joint_parameter_axis(request: object, parameter_ranges: list[NamedRangeDTO]) -> list[str]:
     declarations = [
         *request.domestic.declarations,
         *request.foreign.declarations,
         request.basis,
     ]
     if len(declarations) != len(parameter_ranges):
-        raise RuntimeError(
-            "native joint parameter ranges do not match submitted declarations"
-        )
+        raise RuntimeError("native joint parameter ranges do not match submitted declarations")
 
     axis: list[str] = []
-    for declaration, native_range in zip(
-        declarations, parameter_ranges, strict=True
-    ):
-        dates = list(declaration.knot_dates)
-        parameterization = declaration.parameterization
-        if parameterization == "PIECEWISE_CONSTANT_FWD":
-            entries = [
-                (node_date, "right_forward") for node_date in dates
-            ]
-        elif parameterization == "PIECEWISE_LINEAR_FWD":
-            entries = [
-                (node_date, component)
-                for node_date in dates
-                for component in ("left_forward", "right_forward")
-            ]
-        elif parameterization == "ZERO_RATE":
-            entries = [(node_date, "zero_rate") for node_date in dates]
-        elif parameterization == "LOG_DISCOUNT":
-            entries = [
-                (node_date, "log_discount_factor")
-                for node_date in dates
-            ]
-        else:
-            raise RuntimeError(
-                f"unsupported native joint parameterization {parameterization}"
-            )
+    for declaration, native_range in zip(declarations, parameter_ranges, strict=True):
+        entries = _joint_parameter_entries(declaration)
         if len(entries) != native_range.size:
             raise RuntimeError(
                 "native joint parameter range size does not match its "
@@ -1623,9 +1532,40 @@ def _joint_parameter_axis(
     return axis
 
 
-def _native_joint_result_to_gateway(
-    request: object, native_result: object, module: object
-) -> GatewayCalibrationResult:
+def _joint_parameter_entries(declaration: object) -> list[tuple[date, str]]:
+    dates = list(declaration.knot_dates)
+    parameterization = declaration.parameterization
+    components = {
+        "PIECEWISE_CONSTANT_FWD": ("right_forward",),
+        "PIECEWISE_LINEAR_FWD": ("left_forward", "right_forward"),
+        "ZERO_RATE": ("zero_rate",),
+        "LOG_DISCOUNT": ("log_discount_factor",),
+    }.get(parameterization)
+    if components is None:
+        raise RuntimeError(f"unsupported native joint parameterization {parameterization}")
+    return [(node_date, component) for node_date in dates for component in components]
+
+
+def _joint_block_curve(declaration: object, block: object) -> tuple[object, str]:
+    if declaration.calibrate_discount_curve:
+        return (
+            next(
+                value
+                for key, value in block.discount_curves.items()
+                if str(key) == declaration.target_collateral
+            ),
+            "discount",
+        )
+    target_tenor = _native_period(declaration.target_tenor)
+    return (
+        next(value for key, value in block.forward_curves.items() if str(key) == target_tenor),
+        "forward",
+    )
+
+
+def _native_joint_curve_payloads(
+    request: object, native_result: object
+) -> tuple[dict[str, object], ...]:
     anchor_date = request.valuation_time.date()
     curves: list[dict[str, object]] = []
     for group, block in (
@@ -1633,21 +1573,7 @@ def _native_joint_result_to_gateway(
         (request.foreign, native_result.foreign_curve_block),
     ):
         for declaration in group.declarations:
-            if declaration.calibrate_discount_curve:
-                curve = next(
-                    value
-                    for key, value in block.discount_curves.items()
-                    if str(key) == declaration.target_collateral
-                )
-                role = "discount"
-            else:
-                target_tenor = _native_period(declaration.target_tenor)
-                curve = next(
-                    value
-                    for key, value in block.forward_curves.items()
-                    if str(key) == target_tenor
-                )
-                role = "forward"
+            curve, role = _joint_block_curve(declaration, block)
             curves.append(
                 _native_joint_curve_payload(
                     declaration,
@@ -1668,28 +1594,28 @@ def _native_joint_result_to_gateway(
             role="basis",
         )
     )
+    return tuple(curves)
 
-    parameter_ranges = [
-        NamedRangeDTO(name=value.name, offset=value.offset, size=value.size)
-        for value in native_result.parameter_ranges
+
+def _native_named_ranges(values: object) -> list[NamedRangeDTO]:
+    return [
+        NamedRangeDTO(name=value.name, offset=value.offset, size=value.size) for value in values
     ]
-    residual_ranges = [
-        NamedRangeDTO(name=value.name, offset=value.offset, size=value.size)
-        for value in native_result.residual_ranges
-    ]
-    parameter_axis = _joint_parameter_axis(request, parameter_ranges)
 
-    def residual_group(index: int) -> str:
-        return next(
-            value.name
-            for value in residual_ranges
-            if value.offset <= index < value.offset + value.size
-        )
 
-    instrument_diagnostics = tuple(
+def _residual_group(index: int, residual_ranges: list[NamedRangeDTO]) -> str:
+    return next(
+        value.name for value in residual_ranges if value.offset <= index < value.offset + value.size
+    )
+
+
+def _native_joint_instrument_diagnostics(
+    native_result: object, residual_ranges: list[NamedRangeDTO]
+) -> tuple[InstrumentDiagnosticDTO, ...]:
+    return tuple(
         InstrumentDiagnosticDTO(
             instrument_id=f"{index + 1:032x}",
-            group=residual_group(index),
+            group=_residual_group(index, residual_ranges),
             calibration_index=index,
             market_rate=float(market_rate),
             model_rate=float(model_rate),
@@ -1704,37 +1630,47 @@ def _native_joint_result_to_gateway(
             )
         )
     )
+
+
+def _native_joint_solver_diagnostics(
+    native_result: object, request: object
+) -> SolverDiagnosticsDTO:
+    approximate = bool(native_result.used_approximate_fit)
+    return SolverDiagnosticsDTO(
+        status="approximate_fit" if approximate else "converged",
+        solve_mode=request.solver.solve_mode,
+        used_approximate_fit=approximate,
+        tolerance=request.solver.tolerance,
+        fit_tolerance=request.solver.fit_tolerance,
+        max_abs_residual=float(native_result.joint_max_abs_residual),
+        rms_residual=float(native_result.joint_rms_residual),
+        evaluations=int(native_result.solver_evaluations),
+    )
+
+
+def _native_joint_result_to_gateway(
+    request: object, native_result: object
+) -> GatewayCalibrationResult:
+    curves = _native_joint_curve_payloads(request, native_result)
+    parameter_ranges = _native_named_ranges(native_result.parameter_ranges)
+    residual_ranges = _native_named_ranges(native_result.residual_ranges)
+    parameter_axis = _joint_parameter_axis(request, parameter_ranges)
+    instrument_diagnostics = _native_joint_instrument_diagnostics(native_result, residual_ranges)
     residual_axis = [
-        f"residual:{diagnostic.instrument_id}"
-        for diagnostic in instrument_diagnostics
+        f"residual:{diagnostic.instrument_id}" for diagnostic in instrument_diagnostics
     ]
     exact = request.solver.solve_mode == "EXACT"
     jacobian_available = (
-        request.options.include_jacobian
-        and exact
-        and request.options.jacobian_mode == "ANALYTIC"
+        request.options.include_jacobian and exact and request.options.jacobian_mode == "ANALYTIC"
     )
     inverse_available = request.options.include_effective_inverse and exact
     fx = native_result.fx_forward_curve
     return GatewayCalibrationResult(
         actual_jacobian_mode=request.options.jacobian_mode,
         actual_execution_identity=None,
-        curves=tuple(curves),
+        curves=curves,
         instrument_diagnostics=instrument_diagnostics,
-        solver_diagnostics=SolverDiagnosticsDTO(
-            status=(
-                "approximate_fit"
-                if native_result.used_approximate_fit
-                else "converged"
-            ),
-            solve_mode=request.solver.solve_mode,
-            used_approximate_fit=bool(native_result.used_approximate_fit),
-            tolerance=request.solver.tolerance,
-            fit_tolerance=request.solver.fit_tolerance,
-            max_abs_residual=float(native_result.joint_max_abs_residual),
-            rms_residual=float(native_result.joint_rms_residual),
-            evaluations=int(native_result.solver_evaluations),
-        ),
+        solver_diagnostics=_native_joint_solver_diagnostics(native_result, request),
         fx_forwards=FxForwardDTO(
             pair={
                 "domestic": request.pair.domestic,
@@ -1781,8 +1717,7 @@ def _native_matrix_dto(
 ) -> MatrixDTO:
     values = matrix.to_rows() if available else None
     if available and (
-        len(values) != len(row_axis)
-        or any(len(row) != len(column_axis) for row in values)
+        len(values) != len(row_axis) or any(len(row) != len(column_axis) for row in values)
     ):
         raise RuntimeError("native matrix shape does not match its response axes")
     return MatrixDTO(
@@ -1806,51 +1741,11 @@ def _native_single_curve_payload(
     request: object, plan: ResolvedSingleKnotPlanDTO, curve: object
 ) -> dict[str, object]:
     parameterization = request.declaration.parameterization
-    if parameterization == "PIECEWISE_CONSTANT_FWD":
-        node_dates = [
-            _native_date_to_python(item) for item in curve.knot_dates
-        ]
-        parameters: dict[str, object] = {
-            "right_forwards": [float(value) for value in curve.right_forwards]
-        }
-        day_count = "ACT_365F"
-    elif parameterization == "PIECEWISE_LINEAR_FWD":
-        node_dates = [
-            _native_date_to_python(item) for item in curve.knot_dates
-        ]
-        parameters = {
-            "left_forwards": [float(value) for value in curve.left_forwards],
-            "right_forwards": [
-                float(value) for value in curve.right_forwards
-            ],
-        }
-        day_count = "ACT_365F"
-    elif parameterization == "ZERO_RATE":
-        node_dates = [
-            _native_date_to_python(item) for item in curve.node_dates
-        ]
-        parameters = {
-            "zero_rates": [float(value) for value in curve.zero_rates]
-        }
-        day_count = str(curve.day_count)
-    else:
-        node_dates = [
-            _native_date_to_python(item) for item in curve.node_dates
-        ]
-        parameters = {
-            "log_discount_factors": [
-                float(value) for value in curve.log_discount_factors
-            ]
-        }
-        day_count = str(curve.day_count)
+    node_dates, parameters, day_count = _native_curve_state(parameterization, curve)
     return {
         "name": request.declaration.curve_name,
         "currency": request.currency,
-        "role": (
-            "discount"
-            if request.declaration.calibrate_discount_curve
-            else "forward"
-        ),
+        "role": ("discount" if request.declaration.calibrate_discount_curve else "forward"),
         "target": {
             "collateral": request.declaration.target_collateral,
             "tenor": request.declaration.target_tenor,
@@ -1875,14 +1770,14 @@ def _terminal_identity_from_curve_payload(
     return inspected.model_copy(
         update={
             "storage_dates": node_dates,
-            "counts": inspected.counts.model_copy(
-                update={"storage_nodes": len(node_dates)}
-            ),
+            "counts": inspected.counts.model_copy(update={"storage_nodes": len(node_dates)}),
         }
     )
 
 
-def _fallback_single_plan(request: object) -> GatewayResolvedSingleKnotPlan:
+def _fallback_plan_candidates(
+    request: object,
+) -> list[tuple[date, dict[str, object]]]:
     declaration = request.declaration
     candidates: list[tuple[date, dict[str, object]]] = []
     if declaration.knot_policy in {"INPUT", "AUGMENTED"}:
@@ -1910,14 +1805,27 @@ def _fallback_single_plan(request: object) -> GatewayResolvedSingleKnotPlan:
                     ),
                 )
             )
+    return candidates
 
+
+def _resolved_candidate_origins(
+    request: object,
+    candidates: list[tuple[date, dict[str, object]]],
+) -> dict[date, list[dict[str, object]]]:
     resolved_origins: dict[date, list[dict[str, object]]] = {}
     for candidate_date, origin in candidates:
         if candidate_date > request.today:
             resolved_origins.setdefault(candidate_date, []).append(origin)
+    return resolved_origins
+
+
+def _fallback_candidate_trace(
+    request: object,
+    candidates: list[tuple[date, dict[str, object]]],
+    resolved_origins: dict[date, list[dict[str, object]]],
+) -> tuple[KnotCandidateDTO, ...]:
     final_index = {
-        candidate_date: index
-        for index, candidate_date in enumerate(sorted(resolved_origins))
+        candidate_date: index for index, candidate_date in enumerate(sorted(resolved_origins))
     }
     trace: list[KnotCandidateDTO] = []
     seen_dates: set[date] = set()
@@ -1938,18 +1846,28 @@ def _fallback_single_plan(request: object) -> GatewayResolvedSingleKnotPlan:
                 resolved_index=resolved_index,
             )
         )
-    resolved = [
+    return tuple(trace)
+
+
+def _fallback_resolved_nodes(
+    resolved_origins: dict[date, list[dict[str, object]]],
+) -> list[ResolvedKnotNodeDTO]:
+    return [
         ResolvedKnotNodeDTO(date=value, origins=tuple(resolved_origins[value]))
         for value in sorted(resolved_origins)
     ]
+
+
+def _fallback_storage_nodes(
+    request: object, resolved: list[ResolvedKnotNodeDTO]
+) -> tuple[list[ResolvedKnotNodeDTO], bool]:
+    declaration = request.declaration
     storage = list(resolved)
     anchor_added = declaration.parameterization == "ZERO_RATE"
     if anchor_added:
         storage.insert(
             0,
-            ResolvedKnotNodeDTO(
-                date=request.today, origins=({"kind": "SYNTHETIC_ANCHOR"},)
-            ),
+            ResolvedKnotNodeDTO(date=request.today, origins=({"kind": "SYNTHETIC_ANCHOR"},)),
         )
     if declaration.parameterization == "LOG_DISCOUNT":
         submitted_anchor = ResolvedKnotNodeDTO(
@@ -1957,35 +1875,51 @@ def _fallback_single_plan(request: object) -> GatewayResolvedSingleKnotPlan:
             origins=({"kind": "INPUT", "input_knot_index": 0},),
         )
         storage.insert(0, submitted_anchor)
+    return storage, anchor_added
 
+
+def _fallback_free_parameters(
+    declaration: object, resolved: list[ResolvedKnotNodeDTO]
+) -> tuple[FreeParameterDTO, ...]:
     components = {
         "PIECEWISE_CONSTANT_FWD": ("right_forward",),
         "PIECEWISE_LINEAR_FWD": ("left_forward", "right_forward"),
         "ZERO_RATE": ("zero_rate",),
         "LOG_DISCOUNT": ("log_discount_factor",),
     }[declaration.parameterization]
-    free = tuple(
+    return tuple(
         FreeParameterDTO(date=node.date, component=component)
         for node in resolved
         for component in components
     )
+
+
+def _fallback_instrument_candidate_count(request: object) -> int:
+    if request.declaration.knot_policy in {"INSTRUMENTS", "AUGMENTED"}:
+        return 2 * len(request.instruments)
+    return 0
+
+
+def _fallback_single_plan(request: object) -> GatewayResolvedSingleKnotPlan:
+    declaration = request.declaration
+    candidates = _fallback_plan_candidates(request)
+    resolved_origins = _resolved_candidate_origins(request, candidates)
+    resolved = _fallback_resolved_nodes(resolved_origins)
+    storage, anchor_added = _fallback_storage_nodes(request, resolved)
+    free = _fallback_free_parameters(declaration, resolved)
     return GatewayResolvedSingleKnotPlan(
         planner_version=1,
         requested_policy=declaration.knot_policy,
         execution_policy="INPUT",
         submitted_knot_dates=tuple(declaration.knot_dates),
-        candidate_trace=tuple(trace),
+        candidate_trace=_fallback_candidate_trace(request, candidates, resolved_origins),
         resolved_declared_nodes=tuple(resolved),
         storage_nodes=tuple(storage),
         free_parameters=free,
         anchor_added=anchor_added,
         counts=GatewayResolvedKnotCounts(
             submitted_knots=len(declaration.knot_dates),
-            instrument_candidates=(
-                2 * len(request.instruments)
-                if declaration.knot_policy in {"INSTRUMENTS", "AUGMENTED"}
-                else 0
-            ),
+            instrument_candidates=_fallback_instrument_candidate_count(request),
             resolved_declared_nodes=len(resolved),
             storage_nodes=len(storage),
             free_parameters=len(free),
@@ -2005,8 +1939,7 @@ def _fallback_resolved_initial_guess(
     if request.declaration.libor_basis == "ACT_360":
         denominator = 360.0
     return tuple(
-        -request.solver.initial_guess
-        * ((parameter.date - request.today).days / denominator)
+        -request.solver.initial_guess * ((parameter.date - request.today).days / denominator)
         for parameter in plan.free_parameters
     )
 
@@ -2023,6 +1956,46 @@ def _native_instrument_name(kind: str) -> str:
     }[kind]
 
 
+def _fallback_linear_parameters(values: list[float], node_count: int) -> dict[str, object]:
+    if len(values) == 2 * node_count:
+        return {
+            "left_forwards": values[0::2],
+            "right_forwards": values[1::2],
+        }
+    split = len(values) // 2
+    return {
+        "left_forwards": values[:split],
+        "right_forwards": values[split:],
+    }
+
+
+def _fallback_curve_state(
+    parameterization: str,
+    plan: ResolvedSingleKnotPlanDTO,
+    values: list[float],
+) -> tuple[list[date], dict[str, object]]:
+    if parameterization == "ZERO_RATE":
+        return (
+            [node.date for node in plan.resolved_declared_nodes],
+            {"zero_rates": values},
+        )
+    node_dates = [node.date for node in plan.storage_nodes]
+    if parameterization == "PIECEWISE_CONSTANT_FWD":
+        return node_dates, {"right_forwards": values}
+    if parameterization == "PIECEWISE_LINEAR_FWD":
+        return node_dates, _fallback_linear_parameters(values, len(node_dates))
+    return node_dates, {"log_discount_factors": [0.0, *values]}
+
+
+def _fallback_day_count(declaration: object) -> str:
+    if declaration.parameterization in {
+        "PIECEWISE_CONSTANT_FWD",
+        "PIECEWISE_LINEAR_FWD",
+    }:
+        return "ACT_365F"
+    return declaration.libor_basis
+
+
 def _fallback_curve_payload(
     request: object,
     plan: ResolvedSingleKnotPlanDTO,
@@ -2032,20 +2005,7 @@ def _fallback_curve_payload(
 ) -> dict[str, object]:
     declaration = request.declaration
     parameterization = declaration.parameterization
-    node_dates = [node.date for node in plan.storage_nodes]
-    if parameterization == "PIECEWISE_CONSTANT_FWD":
-        parameters: dict[str, object] = {"right_forwards": values}
-    elif parameterization == "PIECEWISE_LINEAR_FWD":
-        split = len(values) // 2
-        parameters = {
-            "left_forwards": values[0::2] if len(values) == 2 * len(node_dates) else values[:split],
-            "right_forwards": values[1::2] if len(values) == 2 * len(node_dates) else values[split:],
-        }
-    elif parameterization == "ZERO_RATE":
-        node_dates = [node.date for node in plan.resolved_declared_nodes]
-        parameters = {"zero_rates": values}
-    else:
-        parameters = {"log_discount_factors": [0.0, *values]}
+    node_dates, parameters = _fallback_curve_state(parameterization, plan, values)
     return {
         "name": declaration.curve_name,
         "currency": request.currency,
@@ -2056,16 +2016,135 @@ def _fallback_curve_payload(
         },
         "parameterization": parameterization,
         "anchor_date": request.today,
-        "day_count": (
-            "ACT_365F"
-            if parameterization in {"PIECEWISE_CONSTANT_FWD", "PIECEWISE_LINEAR_FWD"}
-            else declaration.libor_basis
-        ),
+        "day_count": _fallback_day_count(declaration),
         "log_df_scheme": declaration.log_df_scheme,
         "node_dates": node_dates,
         "parameters": parameters,
         "base_curve_id": declaration.base_curve_id,
     }
+
+
+def _fallback_instruments(request: object) -> list[object]:
+    if hasattr(request, "instruments"):
+        return list(request.instruments)
+    return list(request.basis.instruments)
+
+
+def _fallback_diagnostics(request: object, *, xccy: bool) -> tuple[InstrumentDiagnosticDTO, ...]:
+    group = "basis" if xccy else "single"
+    return tuple(
+        InstrumentDiagnosticDTO(
+            instrument_id=f"{index + 1:032x}",
+            group=group,
+            calibration_index=index,
+            market_rate=instrument.market_rate,
+            model_rate=instrument.market_rate,
+            residual=0.0,
+        )
+        for index, instrument in enumerate(_fallback_instruments(request))
+    )
+
+
+def _fallback_matrix_availability(
+    request: object,
+) -> tuple[bool, bool]:
+    exact = request.solver.solve_mode == "EXACT"
+    jacobian_available = (
+        request.options.include_jacobian and exact and request.options.jacobian_mode == "ANALYTIC"
+    )
+    inverse_available = request.options.include_effective_inverse and exact
+    return jacobian_available, inverse_available
+
+
+def _matrix_availability(available: bool, requested: bool) -> str:
+    if available:
+        return "available"
+    if requested:
+        return "not_available_for_mode"
+    return "not_requested"
+
+
+def _fallback_identity_values(rows: int, columns: int, diagonal: float) -> list[list[float]]:
+    return [
+        [diagonal if row == column else 0.0 for column in range(columns)] for row in range(rows)
+    ]
+
+
+def _fallback_matrices(
+    request: object,
+    parameter_axis: list[str],
+    residual_axis: list[str],
+) -> tuple[MatrixDTO, MatrixDTO]:
+    jacobian_available, inverse_available = _fallback_matrix_availability(request)
+    jacobian_values = None
+    if jacobian_available:
+        jacobian_values = _fallback_identity_values(len(residual_axis), len(parameter_axis), 1.0)
+    inverse_values = None
+    if inverse_available:
+        inverse_values = _fallback_identity_values(
+            len(parameter_axis),
+            len(residual_axis),
+            request.solver.tolerance,
+        )
+    return (
+        MatrixDTO(
+            availability=_matrix_availability(jacobian_available, request.options.include_jacobian),
+            shape=(len(residual_axis), len(parameter_axis)),
+            row_axis=residual_axis,
+            column_axis=parameter_axis,
+            scaling="unscaled",
+            residual_tolerance=None,
+            values=jacobian_values,
+        ),
+        MatrixDTO(
+            availability=_matrix_availability(
+                inverse_available,
+                request.options.include_effective_inverse,
+            ),
+            shape=(len(parameter_axis), len(residual_axis)),
+            row_axis=parameter_axis,
+            column_axis=residual_axis,
+            scaling="solver_scaled",
+            residual_tolerance=request.solver.tolerance,
+            values=inverse_values,
+        ),
+    )
+
+
+def _fallback_fx_forwards(request: object, *, xccy: bool) -> FxForwardDTO | None:
+    if not xccy:
+        return None
+    dates = list(request.basis.knot_dates)
+    return FxForwardDTO(
+        pair=request.pair,
+        dates=dates,
+        forwards=[request.fx_spot] * len(dates),
+    )
+
+
+def _fallback_named_ranges(
+    parameter_count: int,
+    residual_count: int,
+    *,
+    xccy: bool,
+) -> NamedRangesDTO:
+    name = "basis" if xccy else "single"
+    return NamedRangesDTO(
+        parameters=[
+            NamedRangeDTO(
+                name=name,
+                offset=0,
+                size=max(1, parameter_count),
+            )
+        ],
+        residuals=[
+            NamedRangeDTO(
+                name=name,
+                offset=0,
+                size=max(1, residual_count),
+            )
+        ],
+    )
 
 
 def _fallback_result(
@@ -2075,91 +2154,11 @@ def _fallback_result(
     *,
     xccy: bool = False,
 ) -> GatewayCalibrationResult:
-    instruments = (
-        list(request.instruments)
-        if hasattr(request, "instruments")
-        else list(request.basis.instruments)
-    )
-    diagnostics = tuple(
-        InstrumentDiagnosticDTO(
-            instrument_id=f"{index + 1:032x}",
-            group="single" if not xccy else "basis",
-            calibration_index=index,
-            market_rate=instrument.market_rate,
-            model_rate=instrument.market_rate,
-            residual=0.0,
-        )
-        for index, instrument in enumerate(instruments)
-    )
+    diagnostics = _fallback_diagnostics(request, xccy=xccy)
     parameter_count = sum(len(values) for values in curves[0]["parameters"].values())
     parameter_axis = [f"parameter:{index}" for index in range(parameter_count)]
     residual_axis = [f"residual:{item.instrument_id}" for item in diagnostics]
-    exact = request.solver.solve_mode == "EXACT"
-    jacobian_available = (
-        request.options.include_jacobian
-        and exact
-        and request.options.jacobian_mode == "ANALYTIC"
-    )
-    inverse_available = request.options.include_effective_inverse and exact
-    jacobian_availability = (
-        "not_requested"
-        if not request.options.include_jacobian
-        else "available"
-        if jacobian_available
-        else "not_available_for_mode"
-    )
-    inverse_availability = (
-        "not_requested"
-        if not request.options.include_effective_inverse
-        else "available"
-        if inverse_available
-        else "not_available_for_mode"
-    )
-    jacobian_values = (
-        [
-            [1.0 if row == column else 0.0 for column in range(parameter_count)]
-            for row in range(len(diagnostics))
-        ]
-        if jacobian_available
-        else None
-    )
-    inverse_values = (
-        [
-            [
-                request.solver.tolerance if row == column else 0.0
-                for column in range(len(diagnostics))
-            ]
-            for row in range(parameter_count)
-        ]
-        if inverse_available
-        else None
-    )
-    jacobian = MatrixDTO(
-        availability=jacobian_availability,
-        shape=(len(diagnostics), parameter_count),
-        row_axis=residual_axis,
-        column_axis=parameter_axis,
-        scaling="unscaled",
-        residual_tolerance=None,
-        values=jacobian_values,
-    )
-    inverse = MatrixDTO(
-        availability=inverse_availability,
-        shape=(parameter_count, len(diagnostics)),
-        row_axis=parameter_axis,
-        column_axis=residual_axis,
-        scaling="solver_scaled",
-        residual_tolerance=request.solver.tolerance,
-        values=inverse_values,
-    )
-    fx_forwards = None
-    if xccy:
-        dates = list(request.basis.knot_dates)
-        fx_forwards = FxForwardDTO(
-            pair=request.pair,
-            dates=dates,
-            forwards=[request.fx_spot] * len(dates),
-        )
+    jacobian, inverse = _fallback_matrices(request, parameter_axis, residual_axis)
     return GatewayCalibrationResult(
         actual_jacobian_mode=request.options.jacobian_mode,
         actual_execution_identity=actual,
@@ -2175,22 +2174,11 @@ def _fallback_result(
             rms_residual=0.0,
             evaluations=1,
         ),
-        fx_forwards=fx_forwards,
-        named_ranges=NamedRangesDTO(
-            parameters=[
-                NamedRangeDTO(
-                    name="single" if not xccy else "basis",
-                    offset=0,
-                    size=max(1, parameter_count),
-                )
-            ],
-            residuals=[
-                NamedRangeDTO(
-                    name="single" if not xccy else "basis",
-                    offset=0,
-                    size=max(1, len(diagnostics)),
-                )
-            ],
+        fx_forwards=_fallback_fx_forwards(request, xccy=xccy),
+        named_ranges=_fallback_named_ranges(
+            parameter_count,
+            len(diagnostics),
+            xccy=xccy,
         ),
         jacobian=jacobian,
         effective_inverse=inverse,

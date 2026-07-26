@@ -605,14 +605,9 @@ button.mode-tab.active strong {
 }
 
 .heatmap {
-  display: grid;
+  border-collapse: separate;
+  border-spacing: 3px;
   min-width: max-content;
-  gap: 3px;
-  align-items: center;
-}
-
-.heatmap-row {
-  display: contents;
 }
 
 .heatmap code {
@@ -624,16 +619,22 @@ button.mode-tab.active strong {
   white-space: nowrap;
 }
 
-.heatmap > code {
+.heatmap thead code {
+  display: block;
   writing-mode: vertical-rl;
   height: 110px;
 }
 
-.heatmap-row > span {
-  display: grid;
+.heatmap th {
+  border: 0;
+  background: transparent;
+}
+
+.heatmap td {
   width: 42px;
   height: 32px;
-  place-items: center;
+  padding: 0;
+  text-align: center;
   color: #fff;
   font: 500 8px "JetBrains Mono", monospace;
 }

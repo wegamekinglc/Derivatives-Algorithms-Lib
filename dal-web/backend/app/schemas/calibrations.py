@@ -128,6 +128,44 @@ class ResolvedKnotCountsDTO(FrozenCalibrationWireModel):
     free_parameters: Annotated[int, Field(ge=1, le=200)]
 
 
+def _validate_candidate_ordinals(candidates: tuple[KnotCandidateDTO, ...]) -> None:
+    if [candidate.ordinal for candidate in candidates] != list(range(len(candidates))):
+        raise ValueError("candidate ordinals must be consecutive")
+
+
+def _validate_resolved_node_dates(nodes: tuple[ResolvedKnotNodeDTO, ...], label: str) -> None:
+    dates = [node.date for node in nodes]
+    if dates != sorted(set(dates)):
+        raise ValueError(f"{label} dates must be strictly increasing")
+
+
+def _resolved_plan_counts(
+    plan: ResolvedSingleKnotPlanDTO,
+) -> tuple[tuple[int, ...], tuple[int, ...]]:
+    expected = (
+        len(plan.submitted_knot_dates),
+        sum(
+            candidate.origin.kind in {"INSTRUMENT_START", "INSTRUMENT_END"}
+            for candidate in plan.candidate_trace
+        ),
+        len(plan.resolved_declared_nodes),
+        len(plan.storage_nodes),
+        len(plan.free_parameters),
+    )
+    actual = (
+        plan.counts.submitted_knots,
+        plan.counts.instrument_candidates,
+        plan.counts.resolved_declared_nodes,
+        plan.counts.storage_nodes,
+        plan.counts.free_parameters,
+    )
+    return expected, actual
+
+
+def _has_synthetic_anchor(nodes: tuple[ResolvedKnotNodeDTO, ...]) -> bool:
+    return any(origin.kind == "SYNTHETIC_ANCHOR" for node in nodes for origin in node.origins)
+
+
 class ResolvedSingleKnotPlanDTO(FrozenCalibrationWireModel):
     planner_version: Literal[1]
     requested_policy: KnotPolicy
@@ -144,41 +182,13 @@ class ResolvedSingleKnotPlanDTO(FrozenCalibrationWireModel):
 
     @model_validator(mode="after")
     def _check_plan(self) -> ResolvedSingleKnotPlanDTO:
-        if [candidate.ordinal for candidate in self.candidate_trace] != list(
-            range(len(self.candidate_trace))
-        ):
-            raise ValueError("candidate ordinals must be consecutive")
-        for nodes, label in (
-            (self.resolved_declared_nodes, "resolved"),
-            (self.storage_nodes, "storage"),
-        ):
-            dates = [node.date for node in nodes]
-            if dates != sorted(set(dates)):
-                raise ValueError(f"{label} dates must be strictly increasing")
-        expected = (
-            len(self.submitted_knot_dates),
-            sum(
-                candidate.origin.kind in {"INSTRUMENT_START", "INSTRUMENT_END"}
-                for candidate in self.candidate_trace
-            ),
-            len(self.resolved_declared_nodes),
-            len(self.storage_nodes),
-            len(self.free_parameters),
-        )
-        actual = (
-            self.counts.submitted_knots,
-            self.counts.instrument_candidates,
-            self.counts.resolved_declared_nodes,
-            self.counts.storage_nodes,
-            self.counts.free_parameters,
-        )
+        _validate_candidate_ordinals(self.candidate_trace)
+        _validate_resolved_node_dates(self.resolved_declared_nodes, "resolved")
+        _validate_resolved_node_dates(self.storage_nodes, "storage")
+        expected, actual = _resolved_plan_counts(self)
         if expected != actual:
             raise ValueError("resolved knot plan counts do not match its arrays")
-        if self.anchor_added != any(
-            origin.kind == "SYNTHETIC_ANCHOR"
-            for node in self.storage_nodes
-            for origin in node.origins
-        ):
+        if self.anchor_added != _has_synthetic_anchor(self.storage_nodes):
             raise ValueError("anchor_added does not match storage-node origins")
         return self
 
@@ -345,18 +355,22 @@ class XccySwapConfigDTO(CalibrationWireModel):
     domestic_rate_fixing: FixingIdentityDTO
     foreign_rate_fixing: FixingIdentityDTO
 
+    @staticmethod
+    def _complete_reset(reset: FxResetConventionDTO) -> bool:
+        return reset.fixing_lag >= 0 and reset.fixing_hour >= 0 and reset.fixing_minute >= 0
+
+    @staticmethod
+    def _complete_fixing(fixing: FixingIdentityDTO) -> bool:
+        return bool(fixing.index_name and fixing.fixing_hour >= 0 and fixing.fixing_minute >= 0)
+
     @model_validator(mode="after")
     def _check_reset_configuration(self) -> XccySwapConfigDTO:
         if self.notional_mode == "FIXED":
             return self
-        if (
-            self.fx_reset.fixing_lag < 0
-            or self.fx_reset.fixing_hour < 0
-            or self.fx_reset.fixing_minute < 0
-        ):
+        if not self._complete_reset(self.fx_reset):
             raise ValueError("resettable notionals require a complete FX reset convention")
         for fixing in (self.domestic_rate_fixing, self.foreign_rate_fixing):
-            if not fixing.index_name or fixing.fixing_hour < 0 or fixing.fixing_minute < 0:
+            if not self._complete_fixing(fixing):
                 raise ValueError("resettable notionals require complete rate-fixing identities")
         return self
 
@@ -635,63 +649,84 @@ class JointXccyCalibrationRequest(CalibrationWireModel):
 
     @model_validator(mode="after")
     def _check_joint(self) -> JointXccyCalibrationRequest:
-        if self.domestic.currency != self.pair.domestic:
-            raise ValueError("domestic currency must match the pair")
-        if self.foreign.currency != self.pair.foreign:
-            raise ValueError("foreign currency must match the pair")
-        if self.collateral_currency != self.pair.domestic:
-            raise ValueError("joint XCCY supports domestic collateral only")
-        if len(self.domestic.declarations) + len(self.foreign.declarations) + 1 > 16:
-            raise ValueError("joint XCCY supports at most 16 total declarations")
-        total_instruments = sum(
-            len(declaration.instruments)
-            for declaration in (*self.domestic.declarations, *self.foreign.declarations)
-        ) + len(self.basis.instruments)
-        if total_instruments > 100:
-            raise ValueError("joint XCCY supports at most 100 total instruments")
+        _validate_joint_request_dimensions(self)
         for group in (self.domestic, self.foreign):
-            if not any(declaration.calibrate_discount_curve for declaration in group.declarations):
-                raise ValueError("each currency requires a discount declaration")
-            collateral_slots = [
-                declaration.target_collateral
-                for declaration in group.declarations
-                if declaration.calibrate_discount_curve
-            ]
-            tenor_slots = [
-                declaration.target_tenor
-                for declaration in group.declarations
-                if not declaration.calibrate_discount_curve
-            ]
-            if len(collateral_slots) != len(set(collateral_slots)):
-                raise ValueError("discount collateral slots must be unique")
-            if len(tenor_slots) != len(set(tenor_slots)):
-                raise ValueError("forward tenor slots must be unique")
+            _validate_joint_currency_group(group)
         _validate_unique_fixings(self.fixings)
         return self
+
+
+def _validate_joint_request_dimensions(request: JointXccyCalibrationRequest) -> None:
+    if request.domestic.currency != request.pair.domestic:
+        raise ValueError("domestic currency must match the pair")
+    if request.foreign.currency != request.pair.foreign:
+        raise ValueError("foreign currency must match the pair")
+    if request.collateral_currency != request.pair.domestic:
+        raise ValueError("joint XCCY supports domestic collateral only")
+    if len(request.domestic.declarations) + len(request.foreign.declarations) + 1 > 16:
+        raise ValueError("joint XCCY supports at most 16 total declarations")
+    declarations = (*request.domestic.declarations, *request.foreign.declarations)
+    total_instruments = sum(len(item.instruments) for item in declarations)
+    if total_instruments + len(request.basis.instruments) > 100:
+        raise ValueError("joint XCCY supports at most 100 total instruments")
+
+
+def _validate_unique_slots(slots: list[str | None], label: str) -> None:
+    if len(slots) != len(set(slots)):
+        raise ValueError(f"{label} slots must be unique")
+
+
+def _validate_joint_currency_group(group: JointCurrencyCurveDTO) -> None:
+    if not any(declaration.calibrate_discount_curve for declaration in group.declarations):
+        raise ValueError("each currency requires a discount declaration")
+    collateral_slots = [
+        declaration.target_collateral
+        for declaration in group.declarations
+        if declaration.calibrate_discount_curve
+    ]
+    tenor_slots = [
+        declaration.target_tenor
+        for declaration in group.declarations
+        if not declaration.calibrate_discount_curve
+    ]
+    _validate_unique_slots(collateral_slots, "discount collateral")
+    _validate_unique_slots(tenor_slots, "forward tenor")
+
+
+def _fx_pair(index_name: str) -> tuple[str, str] | None:
+    if not index_name.startswith("FX[") or not index_name.endswith("]"):
+        return None
+    pair = index_name[3:-1]
+    if pair.count("/") != 1:
+        return None
+    numerator, denominator = pair.split("/")
+    if not numerator or not denominator:
+        return None
+    return numerator, denominator
+
+
+def _validate_reciprocal_fixing(
+    values: dict[tuple[str, datetime], float],
+    key: tuple[str, datetime],
+    value: float,
+) -> None:
+    index_name, timestamp = key
+    pair = _fx_pair(index_name)
+    if pair is None:
+        return
+    numerator, denominator = pair
+    reverse = values.get((f"FX[{denominator}/{numerator}]", timestamp))
+    if reverse is not None and abs(value * reverse - 1.0) > 1.0e-10:
+        raise ValueError("reciprocal FX fixing observations must be mutually consistent")
 
 
 def _validate_unique_fixings(fixings: list[FixingObservationDTO]) -> None:
     keys = [(fixing.index_name, fixing.timestamp) for fixing in fixings]
     if len(keys) != len(set(keys)):
         raise ValueError("fixing observations must have unique index/timestamp keys")
-    values = {
-        (fixing.index_name, fixing.timestamp): fixing.value
-        for fixing in fixings
-    }
-    for (index_name, timestamp), value in values.items():
-        if not index_name.startswith("FX[") or not index_name.endswith("]"):
-            continue
-        pair = index_name[3:-1]
-        if pair.count("/") != 1:
-            continue
-        numerator, denominator = pair.split("/")
-        if not numerator or not denominator:
-            continue
-        reverse = values.get((f"FX[{denominator}/{numerator}]", timestamp))
-        if reverse is not None and abs(value * reverse - 1.0) > 1.0e-10:
-            raise ValueError(
-                "reciprocal FX fixing observations must be mutually consistent"
-            )
+    values = {(fixing.index_name, fixing.timestamp): fixing.value for fixing in fixings}
+    for key, value in values.items():
+        _validate_reciprocal_fixing(values, key, value)
 
 
 class CurveTargetDTO(CalibrationWireModel):
@@ -897,16 +932,28 @@ class MatrixDTO(CalibrationWireModel):
             raise ValueError("matrix axes must match metadata shape")
         if (self.availability == "available") != (self.values is not None):
             raise ValueError("only available matrices carry values")
-        if self.values is not None:
-            if rows > 100 or columns > 100:
-                raise ValueError("materialized matrix values are limited to 100x100")
-            if len(self.values) != rows or any(len(row) != columns for row in self.values):
-                raise ValueError("matrix values must be rectangular and match shape")
-        if self.scaling == "unscaled" and self.residual_tolerance is not None:
-            raise ValueError("unscaled matrices require null residual tolerance")
-        if self.scaling == "solver_scaled" and self.residual_tolerance is None:
-            raise ValueError("solver-scaled matrices require residual tolerance")
+        _validate_matrix_values(self.values, rows, columns)
+        _validate_matrix_scaling(self.scaling, self.residual_tolerance)
         return self
+
+
+def _validate_matrix_values(values: list[list[float]] | None, rows: int, columns: int) -> None:
+    if values is None:
+        return
+    if rows > 100 or columns > 100:
+        raise ValueError("materialized matrix values are limited to 100x100")
+    if len(values) != rows or any(len(row) != columns for row in values):
+        raise ValueError("matrix values must be rectangular and match shape")
+
+
+def _validate_matrix_scaling(
+    scaling: Literal["unscaled", "solver_scaled"],
+    residual_tolerance: float | None,
+) -> None:
+    if scaling == "unscaled" and residual_tolerance is not None:
+        raise ValueError("unscaled matrices require null residual tolerance")
+    if scaling == "solver_scaled" and residual_tolerance is None:
+        raise ValueError("solver-scaled matrices require residual tolerance")
 
 
 class ParameterDeltaDTO(CalibrationWireModel):
@@ -939,6 +986,27 @@ class ApiErrorResponse(CalibrationWireModel):
     error: ApiErrorDTO
 
 
+def _validate_plan_evidence(
+    kind: Literal["single", "xccy_staged", "xccy_joint"],
+    plan_values: tuple[object | None, ...],
+) -> None:
+    if kind == "single" and any(value is None for value in plan_values):
+        raise ValueError("single runs require admission plan and expected identity evidence")
+    if kind != "single" and any(value is not None for value in plan_values):
+        raise ValueError("staged and joint runs cannot carry single admission evidence")
+
+
+def _validate_actual_evidence(
+    kind: Literal["single", "xccy_staged", "xccy_joint"],
+    identity: ExecutionSingleKnotIdentityDTO | None,
+    identity_hash: str | None,
+) -> None:
+    if (identity is None) != (identity_hash is None):
+        raise ValueError("actual execution identity and hash must appear together")
+    if kind != "single" and identity is not None:
+        raise ValueError("only single runs carry actual execution identity")
+
+
 class CalibrationRunCommonDTO(CalibrationWireModel):
     id: EntityId
     kind: Literal["single", "xccy_staged", "xccy_joint"]
@@ -968,16 +1036,12 @@ class CalibrationRunCommonDTO(CalibrationWireModel):
             self.expected_execution_identity,
             self.expected_execution_identity_hash,
         )
-        if self.kind == "single" and any(value is None for value in plan_values):
-            raise ValueError("single runs require admission plan and expected identity evidence")
-        if self.kind != "single" and any(value is not None for value in plan_values):
-            raise ValueError("staged and joint runs cannot carry single admission evidence")
-        if (self.actual_execution_identity is None) != (
-            self.actual_execution_identity_hash is None
-        ):
-            raise ValueError("actual execution identity and hash must appear together")
-        if self.kind != "single" and self.actual_execution_identity is not None:
-            raise ValueError("only single runs carry actual execution identity")
+        _validate_plan_evidence(self.kind, plan_values)
+        _validate_actual_evidence(
+            self.kind,
+            self.actual_execution_identity,
+            self.actual_execution_identity_hash,
+        )
         return self
 
 

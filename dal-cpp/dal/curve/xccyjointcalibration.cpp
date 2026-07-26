@@ -210,6 +210,53 @@ namespace Dal {
             report->eligible_ = false;
         }
 
+        bool HasSupportedJointInstrument(const YCInstrument_* instrument) {
+            return instrument && JointCalibrationInternal::SupportedInstrumentType(*instrument);
+        }
+
+        void ValidateJointInstrumentEligibility(const YCInstrument_* instrument,
+                                                const JointCurveDeclaration_& declaration,
+                                                const String_& group,
+                                                const Date_& anchor,
+                                                int declarationIndex,
+                                                int instrumentIndex,
+                                                AnalyticEligibilityReport_* report) {
+            if (!HasSupportedJointInstrument(instrument)) {
+                AddEligibilityIssue(report, AnalyticIneligibilityReason_::Value_::TEMPLATED_RATE_UNAVAILABLE, group, declarationIndex,
+                                    instrumentIndex, -1, "instrument has no templated rate implementation");
+                return;
+            }
+            const RateIndexConvention_* convention = FloatConventionOf(*instrument);
+            if (!convention) {
+                AddEligibilityIssue(report, AnalyticIneligibilityReason_::Value_::TEMPLATED_RATE_UNAVAILABLE, group, declarationIndex,
+                                    instrumentIndex, -1, "instrument has no floating-rate convention");
+                return;
+            }
+            if (declaration.calibrateDiscountCurve_ && convention->useProjectionCurve_) {
+                AddEligibilityIssue(report, AnalyticIneligibilityReason_::Value_::PROJECTION_NOT_ALLOWED, group, declarationIndex, instrumentIndex,
+                                    -1, "discount declaration cannot project from a forward slot");
+            }
+            if (!declaration.calibrateDiscountCurve_ && !convention->useProjectionCurve_) {
+                AddEligibilityIssue(report, AnalyticIneligibilityReason_::Value_::PROJECTION_REQUIRED, group, declarationIndex, instrumentIndex, -1,
+                                    "forward declaration requires projection routing");
+            }
+            if (instrument->TradeDate() != anchor) {
+                AddEligibilityIssue(report, AnalyticIneligibilityReason_::Value_::TRADE_DATE_MISMATCH, group, declarationIndex, instrumentIndex, -1,
+                                    "instrument trade date does not equal the calibration anchor");
+            }
+        }
+
+        void ValidateJointDeclarationEligibility(const JointCurveDeclaration_& declaration,
+                                                 const String_& group,
+                                                 const Date_& anchor,
+                                                 int declarationIndex,
+                                                 AnalyticEligibilityReport_* report) {
+            for (int instrumentIndex = 0; instrumentIndex < static_cast<int>(declaration.instruments_.size()); ++instrumentIndex) {
+                ValidateJointInstrumentEligibility(declaration.instruments_[instrumentIndex].get(), declaration, group, anchor, declarationIndex,
+                                                   instrumentIndex, report);
+            }
+        }
+
         void ValidateCurrencyEligibility(const JointCurrencyCurveSpec_& currency,
                                          const String_& group,
                                          const Date_& anchor,
@@ -220,34 +267,43 @@ namespace Dal {
                                     label + " requires ACT_365F libor basis for an analytic Jacobian");
             }
             for (int declarationIndex = 0; declarationIndex < static_cast<int>(currency.curves_.size()); ++declarationIndex) {
-                const JointCurveDeclaration_& declaration = currency.curves_[declarationIndex];
-                for (int instrumentIndex = 0; instrumentIndex < static_cast<int>(declaration.instruments_.size()); ++instrumentIndex) {
-                    const auto& handle = declaration.instruments_[instrumentIndex];
-                    const YCInstrument_* instrument = handle.get();
-                    if (!instrument || !JointCalibrationInternal::SupportedInstrumentType(*instrument)) {
-                        AddEligibilityIssue(report, AnalyticIneligibilityReason_::Value_::TEMPLATED_RATE_UNAVAILABLE, group, declarationIndex,
-                                            instrumentIndex, -1, "instrument has no templated rate implementation");
-                        continue;
-                    }
-                    const RateIndexConvention_* convention = FloatConventionOf(*instrument);
-                    if (!convention) {
-                        AddEligibilityIssue(report, AnalyticIneligibilityReason_::Value_::TEMPLATED_RATE_UNAVAILABLE, group, declarationIndex,
-                                            instrumentIndex, -1, "instrument has no floating-rate convention");
-                        continue;
-                    }
-                    if (declaration.calibrateDiscountCurve_ && convention->useProjectionCurve_) {
-                        AddEligibilityIssue(report, AnalyticIneligibilityReason_::Value_::PROJECTION_NOT_ALLOWED, group, declarationIndex,
-                                            instrumentIndex, -1, "discount declaration cannot project from a forward slot");
-                    }
-                    if (!declaration.calibrateDiscountCurve_ && !convention->useProjectionCurve_) {
-                        AddEligibilityIssue(report, AnalyticIneligibilityReason_::Value_::PROJECTION_REQUIRED, group, declarationIndex,
-                                            instrumentIndex, -1, "forward declaration requires projection routing");
-                    }
-                    if (instrument->TradeDate() != anchor) {
-                        AddEligibilityIssue(report, AnalyticIneligibilityReason_::Value_::TRADE_DATE_MISMATCH, group, declarationIndex,
-                                            instrumentIndex, -1, "instrument trade date does not equal the calibration anchor");
+                ValidateJointDeclarationEligibility(currency.curves_[declarationIndex], group, anchor, declarationIndex, report);
+            }
+        }
+
+        void ValidateJointResetMappings(const XccyCashflowPlan_& plan, int instrumentIndex, AnalyticEligibilityReport_* report) {
+            switch (plan.config_.notionalMode_.Switch()) {
+            case XccyNotionalMode_::Value_::FIXED:
+                return;
+            case XccyNotionalMode_::Value_::RESETTABLE:
+            case XccyNotionalMode_::Value_::MARK_TO_MARKET:
+                for (int reset = 0; reset < static_cast<int>(plan.resets_.size()); ++reset) {
+                    if (plan.resets_[reset].domesticPeriodIndex_ != reset + 1 ||
+                        plan.resets_[reset].domesticPeriodIndex_ >= static_cast<int>(plan.domesticPeriods_.size())) {
+                        AddEligibilityIssue(report, AnalyticIneligibilityReason_::Value_::RESET_MAPPING_INVALID, "basis", -1, instrumentIndex, reset,
+                                            "reset event has an invalid domestic-period mapping");
                     }
                 }
+                return;
+            default:
+                AddEligibilityIssue(report, AnalyticIneligibilityReason_::Value_::NOTIONAL_MODE_UNSUPPORTED, "basis", -1, instrumentIndex, -1,
+                                    "typed pricing does not support the notional mode");
+            }
+        }
+
+        void ValidateJointRoute(const CurveCollectionSpec_& collection,
+                                const std::vector<CurveSlot_>& slots,
+                                const RateIndexConvention_& index,
+                                const String_& leg,
+                                int instrumentIndex,
+                                AnalyticEligibilityReport_* report) {
+            if (!JointCalibrationInternal::HasTypedDiscountRoute(collection, slots, index.collateral_)) {
+                AddEligibilityIssue(report, AnalyticIneligibilityReason_::Value_::DISCOUNT_ROUTE_MISSING, "basis", -1, instrumentIndex, -1,
+                                    leg + " discount route is absent");
+            }
+            if (index.useProjectionCurve_ && !JointCalibrationInternal::HasTypedForwardRoute(collection, slots, index)) {
+                AddEligibilityIssue(report, AnalyticIneligibilityReason_::Value_::PROJECTION_ROUTE_MISSING, "basis", -1, instrumentIndex, -1,
+                                    leg + " projection route is absent");
             }
         }
 
@@ -265,44 +321,11 @@ namespace Dal {
                 AddEligibilityIssue(report, AnalyticIneligibilityReason_::Value_::COUPON_PLAN_EMPTY, "basis", -1, instrumentIndex, -1,
                                     "typed pricing requires coupon periods on both legs");
             }
-            switch (plan.config_.notionalMode_.Switch()) {
-            case XccyNotionalMode_::Value_::FIXED:
-                break;
-            case XccyNotionalMode_::Value_::RESETTABLE:
-            case XccyNotionalMode_::Value_::MARK_TO_MARKET:
-                for (int reset = 0; reset < static_cast<int>(plan.resets_.size()); ++reset) {
-                    if (plan.resets_[reset].domesticPeriodIndex_ != reset + 1 ||
-                        plan.resets_[reset].domesticPeriodIndex_ >= static_cast<int>(plan.domesticPeriods_.size())) {
-                        AddEligibilityIssue(report, AnalyticIneligibilityReason_::Value_::RESET_MAPPING_INVALID, "basis", -1, instrumentIndex, reset,
-                                            "reset event has an invalid domestic-period mapping");
-                    }
-                }
-                break;
-            default:
-                AddEligibilityIssue(report, AnalyticIneligibilityReason_::Value_::NOTIONAL_MODE_UNSUPPORTED, "basis", -1, instrumentIndex, -1,
-                                    "typed pricing does not support the notional mode");
-                break;
-            }
-            const auto& domesticIndex = plan.config_.convention_.domesticIndex_;
-            if (!JointCalibrationInternal::HasTypedDiscountRoute(layout.domesticCollection_, layout.domesticSlots_, domesticIndex.collateral_)) {
-                AddEligibilityIssue(report, AnalyticIneligibilityReason_::Value_::DISCOUNT_ROUTE_MISSING, "basis", -1, instrumentIndex, -1,
-                                    "domestic discount route is absent");
-            }
-            if (domesticIndex.useProjectionCurve_ &&
-                !JointCalibrationInternal::HasTypedForwardRoute(layout.domesticCollection_, layout.domesticSlots_, domesticIndex)) {
-                AddEligibilityIssue(report, AnalyticIneligibilityReason_::Value_::PROJECTION_ROUTE_MISSING, "basis", -1, instrumentIndex, -1,
-                                    "domestic projection route is absent");
-            }
-            const auto& foreignIndex = plan.config_.convention_.foreignIndex_;
-            if (!JointCalibrationInternal::HasTypedDiscountRoute(layout.foreignCollection_, layout.foreignSlots_, foreignIndex.collateral_)) {
-                AddEligibilityIssue(report, AnalyticIneligibilityReason_::Value_::DISCOUNT_ROUTE_MISSING, "basis", -1, instrumentIndex, -1,
-                                    "foreign discount route is absent");
-            }
-            if (foreignIndex.useProjectionCurve_ &&
-                !JointCalibrationInternal::HasTypedForwardRoute(layout.foreignCollection_, layout.foreignSlots_, foreignIndex)) {
-                AddEligibilityIssue(report, AnalyticIneligibilityReason_::Value_::PROJECTION_ROUTE_MISSING, "basis", -1, instrumentIndex, -1,
-                                    "foreign projection route is absent");
-            }
+            ValidateJointResetMappings(plan, instrumentIndex, report);
+            ValidateJointRoute(layout.domesticCollection_, layout.domesticSlots_, plan.config_.convention_.domesticIndex_, "domestic",
+                               instrumentIndex, report);
+            ValidateJointRoute(layout.foreignCollection_, layout.foreignSlots_, plan.config_.convention_.foreignIndex_, "foreign", instrumentIndex,
+                               report);
         }
 
         AnalyticEligibilityReport_
