@@ -50,6 +50,36 @@ describe("curve calibration visualization contracts", () => {
     expect(model.columns).toEqual(["c0", "c1", "c2"]);
   });
 
+  it("does not render available matrices with missing or shape-mismatched values", () => {
+    const missing = heatmapModel({
+      availability: "available",
+      shape: [2, 2],
+      row_axis: ["r0", "r1"],
+      column_axis: ["c0", "c1"],
+      scaling: "unscaled",
+      residual_tolerance: 1e-8,
+      values: null,
+    });
+    const mismatched = heatmapModel({
+      availability: "available",
+      shape: [2, 2],
+      row_axis: ["r0", "r1"],
+      column_axis: ["c0", "c1"],
+      scaling: "unscaled",
+      residual_tolerance: 1e-8,
+      values: [[1, 2], [3]],
+    });
+
+    for (const model of [missing, mismatched]) {
+      expect(model.available).toBe(false);
+      expect(model.reason).toBe("invalid_matrix_values");
+      expect(model.values).toBeNull();
+      expect(model.gridRows).toEqual([]);
+      expect(model.rows).toEqual(["r0", "r1"]);
+      expect(model.columns).toEqual(["c0", "c1"]);
+    }
+  });
+
   it("maps Pydantic locations to declaration and instrument cells", () => {
     expect(locateCalibrationField(["body", "declaration", "knot_dates", 3])).toEqual({
       section: "declaration",

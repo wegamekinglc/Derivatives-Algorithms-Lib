@@ -48,26 +48,50 @@ export function alignFitSeries(
   });
 }
 
+function hasRenderableMatrixValues(
+  matrix: CalibrationMatrix,
+): matrix is CalibrationMatrix & { values: number[][] } {
+  const [rows, columns] = matrix.shape;
+  return (
+    matrix.availability === "available" &&
+    matrix.values !== null &&
+    matrix.values.length === rows &&
+    matrix.values.every((row) => row.length === columns) &&
+    matrix.row_axis.length === rows &&
+    matrix.column_axis.length === columns
+  );
+}
+
 export function heatmapModel(matrix: CalibrationMatrix) {
-  const rowValues = matrix.values?.[Symbol.iterator]();
-  return {
-    available: matrix.availability === "available",
-    reason: matrix.availability,
+  const metadata = {
     shapeLabel: `${matrix.shape[0]} × ${matrix.shape[1]}`,
     rows: [...matrix.row_axis],
     columns: [...matrix.column_axis],
-    values: matrix.values?.map((row) => [...row]) ?? null,
-    gridRows: matrix.row_axis.map((row) => {
-      const values = rowValues?.next().value ?? [];
-      const columnValues = values[Symbol.iterator]();
-      return {
-        row,
-        cells: matrix.column_axis.map((column) => ({
-          column,
-          value: columnValues.next().value as number,
-        })),
-      };
-    }),
+  };
+  if (!hasRenderableMatrixValues(matrix)) {
+    return {
+      ...metadata,
+      available: false,
+      reason:
+        matrix.availability === "available"
+          ? "invalid_matrix_values"
+          : matrix.availability,
+      values: null,
+      gridRows: [],
+    };
+  }
+  return {
+    ...metadata,
+    available: true,
+    reason: matrix.availability,
+    values: matrix.values.map((row) => [...row]),
+    gridRows: matrix.row_axis.map((row, rowIndex) => ({
+      row,
+      cells: matrix.column_axis.map((column, columnIndex) => ({
+        column,
+        value: matrix.values[rowIndex][columnIndex],
+      })),
+    })),
   };
 }
 

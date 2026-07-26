@@ -4,6 +4,8 @@
 
 #pragma once
 
+#include <map>
+
 #include <dal/curve/calibration.hpp>
 #include <dal/curve/discount.hpp>
 #include <dal/curve/yc.hpp>
@@ -12,7 +14,6 @@
 #include <dal/math/vectors.hpp>
 #include <dal/time/date.hpp>
 #include <dal/time/daybasis.hpp>
-#include <map>
 
 namespace Dal {
 

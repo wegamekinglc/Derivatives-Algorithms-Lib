@@ -4,6 +4,10 @@
 
 #pragma once
 
+#include <map>
+#include <memory>
+#include <optional>
+
 #include <dal/math/vectors.hpp>
 #include <dal/string/strings.hpp>
 #include <dal/utilities/exceptions.hpp>
@@ -116,9 +120,6 @@ alternative LOG_DISCOUNT_FACTOR
 #include <dal/protocol/collateraltype.hpp>
 #include <dal/time/date.hpp>
 #include <dal/time/periodlength.hpp>
-#include <map>
-#include <memory>
-#include <optional>
 
 namespace Dal {
 #include <dal/auto/MG_AnalyticEligibility_enum.hpp>
