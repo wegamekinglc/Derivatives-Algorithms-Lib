@@ -90,13 +90,15 @@ implements the same `StoreProtocol` the routers depend on:
 | Calibration entity                | Persisted state                                                                                  |
 |-----------------------------------|--------------------------------------------------------------------------------------------------|
 | `CalibrationRun`                  | Versioned request, normalized solver/options, lifecycle, execution evidence, results, and errors |
-| `CurveDefinition`                 | Versioned recursive reconstruction DTO, including base-curve identity and numerical parameters   |
+| `CurveDefinition`                 | Versioned reconstruction data and base-curve ID; each base curve is an independent persisted row  |
 | `CalibrationInstrumentDefinition` | Normalized instrument payload plus its input and canonical calibration ordering                   |
 
 Curve rows store complete reconstruction data for
 `PIECEWISE_CONSTANT_FWD`, `PIECEWISE_LINEAR_FWD`, `ZERO_RATE`, and
 `LOG_DISCOUNT`: anchor/node dates, day count, representation-specific
-parameters, actual log-DF scheme where applicable, and recursive base DTOs. No
+parameters, actual log-DF scheme where applicable, and `base_curve_id`. Each
+base curve is stored as an independent row; `GET /api/curves/{id}` and completed
+run reads recursively expand the linked rows into the response DTO. No
 process-local C++ handle is stored. A completed run can therefore be read in a
 fresh backend process, and its curves can be rebuilt through `DalGateway` using
 only database DTOs.
