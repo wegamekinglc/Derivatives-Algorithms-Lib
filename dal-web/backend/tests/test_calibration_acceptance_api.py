@@ -1,19 +1,19 @@
 from __future__ import annotations
 
-import copy
 import time
 from types import SimpleNamespace
 from unittest import mock
 
 import pytest
+from fastapi.testclient import TestClient
+
 from app.routers import calibrations as calibration_router
-from app.schemas.calibrations import SingleCalibrationRequest
+from app.schemas.calibrations import MAX_RESPONSE_BYTES, SingleCalibrationRequest
 from app.services import calibrations as calibration_service
 from app.services.dal_gateway import SingleGatewayAdmissionRequest, get_gateway
 from app.services.store import get_store
-from fastapi.testclient import TestClient
-
 from tests.calibration_contract_fixtures import (
+    escaped_matrix_request,
     first_offender_request,
     future_knots,
     joint_capacity_request,
@@ -308,15 +308,36 @@ def test_fix_joint_free_parameter_limit_200_covers_mat_08_boundaries(
         assert error["context"]["offending_group"] == group
 
 
-class _CountingRunResponseAdapter:
-    def __init__(self, delegate) -> None:
+class _SequencedRunResponseAdapter:
+    def __init__(self, delegate, events: list[str]) -> None:
         self.delegate = delegate
+        self.events = events
         self.calls: list[bytes] = []
+        self.dump_count = 0
 
     def dump_json(self, value) -> bytes:
         encoded = self.delegate.dump_json(value)
-        self.calls.append(encoded)
-        return encoded
+        self.dump_count += 1
+        self.events.append(f"dump:{self.dump_count}")
+        returned = (
+            encoded + b" " * (MAX_RESPONSE_BYTES - len(encoded) + 1)
+            if self.dump_count == 1
+            else encoded
+        )
+        self.calls.append(returned)
+        return returned
+
+
+class _FakeCandidateClock:
+    def __init__(self, events: list[str]) -> None:
+        self.events = events
+        self.values = iter((10.0, 10.125))
+        self.calls = 0
+
+    def perf_counter(self) -> float:
+        self.events.append(f"clock:{self.calls}")
+        self.calls += 1
+        return next(self.values)
 
 
 def test_fix_b3_serialization_passes_are_two_for_completion_and_one_for_get(
@@ -324,11 +345,19 @@ def test_fix_b3_serialization_passes_are_two_for_completion_and_one_for_get(
     monkeypatch,
 ) -> None:
     """FIX-B3-SERIALIZATION-PASSES — SER-01/PERF-02 exact encode counts."""
-    adapter = _CountingRunResponseAdapter(
-        calibration_service.RUN_RESPONSE_ADAPTER
+    events: list[str] = []
+    adapter = _SequencedRunResponseAdapter(
+        calibration_service.RUN_RESPONSE_ADAPTER,
+        events,
     )
+    clock = _FakeCandidateClock(events)
     monkeypatch.setattr(calibration_service, "RUN_RESPONSE_ADAPTER", adapter)
     monkeypatch.setattr(calibration_router, "RUN_RESPONSE_ADAPTER", adapter)
+    monkeypatch.setattr(
+        calibration_service,
+        "time",
+        SimpleNamespace(perf_counter=clock.perf_counter),
+    )
 
     submitted = client.post(
         "/api/calibrations/single",
@@ -344,15 +373,21 @@ def test_fix_b3_serialization_passes_are_two_for_completion_and_one_for_get(
         time.sleep(0.005)
     assert record.status == "completed"
     assert len(adapter.calls) == 2
-    assert adapter.calls[0] != adapter.calls[1]
-    persisted_timing = record.serialization_ms
-    assert persisted_timing is not None
+    assert len(adapter.calls[0]) > MAX_RESPONSE_BYTES
+    assert len(adapter.calls[1]) < MAX_RESPONSE_BYTES
+    assert events == ["clock:0", "dump:1", "clock:1", "dump:2"]
+    assert clock.calls == 2
+    persisted_timing = 125.0
+    assert record.serialization_ms == persisted_timing
 
     adapter.calls.clear()
+    events.clear()
     response = client.get(f"/api/calibrations/{run_id}")
 
     assert response.status_code == 200
     assert len(adapter.calls) == 1
+    assert events == ["dump:3"]
+    assert clock.calls == 2
     assert adapter.calls[0] == response.content
     assert int(response.headers["content-length"]) == len(response.content)
     assert int(response.headers["x-dal-response-bytes"]) == len(
@@ -368,49 +403,85 @@ def test_fix_b4_preview_reserve_and_defensive_guard_are_atomic(
     client,
     monkeypatch,
 ) -> None:
-    """FIX-B4-PREVIEW-RESERVE — MAT-04/MAT-05 preserve completed rows."""
-    with monkeypatch.context() as admission_patch:
-        admission_patch.setattr(
-            calibration_service,
-            "_estimate_success_response_bytes",
-            lambda *_args: (1 << 20) + 1,
-        )
-        rejected = client.post(
-            "/api/calibrations/single",
-            json={
-                **single_request("USD", 0.04),
-                "options": {
-                    "jacobian_mode": "ANALYTIC",
-                    "include_jacobian": True,
-                    "include_effective_inverse": True,
-                },
-            },
-        )
-    assert rejected.status_code == 422
-    assert rejected.json()["error"]["code"] == "RESPONSE_LIMIT_EXCEEDED"
-    assert rejected.json()["error"]["context"]["preview_reserved"] is True
-
-    completed = submit_and_wait(
-        client,
-        "/api/calibrations/single",
-        {
-            **single_request("USD", 0.04),
-            "options": {
-                "jacobian_mode": "ANALYTIC",
-                "include_jacobian": True,
-                "include_effective_inverse": True,
-            },
-        },
+    """FIX-B4-PREVIEW-RESERVE — MAT-04/MAT-05 preserve exact DB rows."""
+    request = escaped_matrix_request()
+    request_model = SingleCalibrationRequest.model_validate(request)
+    production_estimate = calibration_service._estimate_success_response_bytes(
+        request_model,
+        100,
+        100,
     )
-    run_id = completed["id"]
+    assert 0 < MAX_RESPONSE_BYTES - production_estimate < 16_384
+    with mock.patch.object(
+        calibration_service,
+        "_estimate_success_response_bytes",
+        return_value=0,
+    ):
+        completed = submit_and_wait(
+            client,
+            "/api/calibrations/single",
+            request,
+        )
+
+    run_id = str(completed["id"])
+    base = client.get(f"/api/calibrations/{run_id}")
+    preview = client.get(
+        f"/api/calibrations/{run_id}",
+        params={"quote_bump_index": 0, "quote_bump_size": 0.0001},
+    )
+    assert base.status_code == preview.status_code == 200
+    test_limit = len(base.content) + 1
+    assert test_limit < len(preview.content) < MAX_RESPONSE_BYTES
+
     store = get_store()
-    before = copy.deepcopy(store.get_calibration_run(run_id))
-    ordinary = client.get(f"/api/calibrations/{run_id}")
+    with store._engine.connect() as connection:
+        before_run = tuple(
+            connection.exec_driver_sql(
+                "SELECT * FROM calibration_run WHERE id = ?",
+                (run_id,),
+            ).one()
+        )
+        before_result = connection.exec_driver_sql(
+            "SELECT result_payload FROM calibration_run WHERE id = ?",
+            (run_id,),
+        ).scalar_one()
+        before_curves = tuple(
+            tuple(row)
+            for row in connection.exec_driver_sql(
+                "SELECT * FROM curve_definition "
+                "WHERE source_run_id = ? ORDER BY id",
+                (run_id,),
+            ).all()
+        )
+        run_rows_before_rejection = connection.exec_driver_sql(
+            "SELECT count(*) FROM calibration_run",
+        ).scalar_one()
+
+    monkeypatch.setattr(
+        calibration_service,
+        "MAX_RESPONSE_BYTES",
+        test_limit,
+    )
     monkeypatch.setattr(
         calibration_router,
         "MAX_RESPONSE_BYTES",
-        len(ordinary.content) + 1,
+        test_limit,
     )
+    rejected = client.post("/api/calibrations/single", json=request)
+
+    assert rejected.status_code == 422
+    error = rejected.json()["error"]
+    assert error["code"] == "RESPONSE_LIMIT_EXCEEDED"
+    assert error["context"]["preview_reserved"] is True
+    assert error["context"]["estimated_bytes"] > test_limit
+    assert error["context"]["limit_bytes"] == test_limit
+    with store._engine.connect() as connection:
+        assert (
+            connection.exec_driver_sql(
+                "SELECT count(*) FROM calibration_run",
+            ).scalar_one()
+            == run_rows_before_rejection
+        )
 
     guarded = client.get(
         f"/api/calibrations/{run_id}",
@@ -419,11 +490,29 @@ def test_fix_b4_preview_reserve_and_defensive_guard_are_atomic(
 
     assert guarded.status_code == 500
     assert guarded.json()["error"]["code"] == "RESPONSE_LIMIT_GUARD_BREACH"
-    after = store.get_calibration_run(run_id)
-    assert after.status == "completed"
-    assert after.result_payload == before.result_payload
-    assert after.actual_execution_identity == before.actual_execution_identity
-    assert after.finished_at == before.finished_at
+    assert len(guarded.content) < test_limit
+    with store._engine.connect() as connection:
+        after_run = tuple(
+            connection.exec_driver_sql(
+                "SELECT * FROM calibration_run WHERE id = ?",
+                (run_id,),
+            ).one()
+        )
+        after_result = connection.exec_driver_sql(
+            "SELECT result_payload FROM calibration_run WHERE id = ?",
+            (run_id,),
+        ).scalar_one()
+        after_curves = tuple(
+            tuple(row)
+            for row in connection.exec_driver_sql(
+                "SELECT * FROM curve_definition "
+                "WHERE source_run_id = ? ORDER BY id",
+                (run_id,),
+            ).all()
+        )
+    assert after_run == before_run
+    assert after_result == before_result
+    assert after_curves == before_curves
 
 
 def test_fix_b8_submitted_index_beats_canonical_issue_order_and_control(

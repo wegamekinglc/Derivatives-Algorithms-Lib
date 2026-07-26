@@ -279,6 +279,36 @@ def matrix_metadata_request(
     return request
 
 
+def escaped_matrix_request() -> dict[str, object]:
+    knots = future_knots(100)
+    escaped = '😀\x01"\\' + "X" * 124
+    assert len(escaped) == 128
+    request = single_request("USD", 0.02)
+    request["name"] = escaped
+    request["declaration"].update(
+        {
+            "curve_name": escaped,
+            "parameterization": "PIECEWISE_CONSTANT_FWD",
+            "knot_dates": knots,
+            "initial_guess_per_node": [0.02] * 100,
+        }
+    )
+    request["instruments"] = [
+        {
+            **deposit("USD", 0.02 + index * 0.0001),
+            "label": escaped if index == 0 else f"DEP {index + 1}",
+            "maturity": knot,
+        }
+        for index, knot in enumerate(knots)
+    ]
+    request["options"] = {
+        "jacobian_mode": "ANALYTIC",
+        "include_jacobian": True,
+        "include_effective_inverse": True,
+    }
+    return request
+
+
 def joint_capacity_request(total: int) -> dict[str, object]:
     if total not in {200, 201, 202}:
         raise ValueError("joint capacity fixture supports only 200/201/202")

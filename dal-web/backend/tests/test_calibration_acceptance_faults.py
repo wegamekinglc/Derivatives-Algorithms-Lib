@@ -9,14 +9,14 @@ from dataclasses import FrozenInstanceError, fields, is_dataclass
 from unittest import mock
 
 import pytest
+from sqlalchemy import func, select
+
 from app.services import calibrations as calibration_service
 from app.services import dal_gateway as gateway_module
 from app.services.dal_gateway import get_gateway
 from app.services.db.models import CalibrationRunRow, CurveDefinitionRow
 from app.services.db.store_db import DbStore
 from app.services.store import get_store
-from sqlalchemy import func, select
-
 from tests.calibration_contract_fixtures import (
     single_request,
     wait_for_terminal,

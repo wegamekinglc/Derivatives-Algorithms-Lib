@@ -17,6 +17,7 @@ from uuid import uuid4
 from pydantic import TypeAdapter
 
 from app.schemas.calibrations import (
+    MAX_RESPONSE_BYTES,
     ApiErrorDTO,
     CalibrationRunResponse,
     CalibrationTimingsDTO,
@@ -1363,36 +1364,20 @@ def _estimate_success_response_bytes(
 
 def _check_response_estimate(request: object, residual_count: int, parameter_count: int) -> None:
     estimate = _estimate_success_response_bytes(request, residual_count, parameter_count)
-    if estimate > 1 << 20:
+    if estimate > MAX_RESPONSE_BYTES:
         preview_reserved = bool(
             request.solver.solve_mode == "EXACT" and request.options.include_effective_inverse
         )
         _raise(
             "RESPONSE_LIMIT_EXCEEDED",
-            f"estimated response is {estimate} bytes; limit is {1 << 20} bytes",
+            f"estimated response is {estimate} bytes; limit is {MAX_RESPONSE_BYTES} bytes",
             ["body", "options"],
             {
                 "estimated_bytes": estimate,
-                "limit_bytes": 1 << 20,
+                "limit_bytes": MAX_RESPONSE_BYTES,
                 "preview_reserved": preview_reserved,
             },
         )
-
-
-def _referenced_curve_ids(request: object) -> set[str]:
-    ids: set[str] = set()
-    declaration = getattr(request, "declaration", None)
-    if declaration is not None:
-        if declaration.base_curve_id:
-            ids.add(declaration.base_curve_id)
-        ids.update(declaration.discount_curve_ids.values())
-        ids.update(declaration.forward_curve_ids.values())
-    for block_name in ("domestic_curve_block", "foreign_curve_block"):
-        block = getattr(request, block_name, None)
-        if block is not None:
-            ids.update(block.discount_curve_ids.values())
-            ids.update(block.forward_curve_ids.values())
-    return ids
 
 
 def _load_referenced_curves(
@@ -1400,7 +1385,7 @@ def _load_referenced_curves(
 ) -> dict[str, CurveReconstructionDTO]:
     result = _load_reference_map(store, request)
     for expectation in _reference_expectations(request):
-        _validate_reference_expectation(result, expectation)
+        _validate_reference_expectation(store, result, expectation)
     return result
 
 
@@ -1409,14 +1394,16 @@ type _ReferenceExpectation = tuple[str, list[str | int], str, set[str]]
 
 def _load_reference_map(store: StoreProtocol, request: object) -> dict[str, CurveReconstructionDTO]:
     result: dict[str, CurveReconstructionDTO] = {}
-    for curve_id in _referenced_curve_ids(request):
+    for curve_id, location, _currency, _roles in _reference_expectations(request):
+        if curve_id in result:
+            continue
         try:
             result[curve_id] = get_curve_response(store, curve_id)
         except CalibrationHttpError:
             _raise(
                 "REFERENCE_MISMATCH",
                 f"referenced curve {curve_id} does not exist",
-                ["body", "declaration", "base_curve_id"],
+                location,
                 {"curve_id": curve_id, "constraint": "exists"},
             )
     return result
@@ -1492,6 +1479,7 @@ def _reference_expectations(request: object) -> list[_ReferenceExpectation]:
 
 
 def _validate_reference_expectation(
+    store: StoreProtocol,
     result: dict[str, CurveReconstructionDTO],
     expectation: _ReferenceExpectation,
 ) -> None:
@@ -1519,6 +1507,22 @@ def _validate_reference_expectation(
                 "constraint": "role",
                 "expected": sorted(roles),
                 "actual": curve.role,
+            },
+        )
+    try:
+        source_status = store.get_calibration_run(curve.source_run_id).status
+    except KeyError:
+        source_status = "missing"
+    if source_status != "completed":
+        _raise(
+            "REFERENCE_MISMATCH",
+            f"curve {curve_id} source run is {source_status}; expected completed",
+            location,
+            {
+                "curve_id": curve_id,
+                "constraint": "status",
+                "expected": "completed",
+                "actual": source_status,
             },
         )
 
@@ -2458,7 +2462,7 @@ def _fail_oversized_completion(
     serialization_ms: float,
     final_bytes: bytes,
 ) -> bool:
-    if len(final_bytes) <= 1 << 20:
+    if len(final_bytes) <= MAX_RESPONSE_BYTES:
         return False
     store.fail_calibration(
         calibration_id,
@@ -2468,7 +2472,7 @@ def _fail_oversized_completion(
             "location": None,
             "context": {
                 "actual_bytes": len(final_bytes),
-                "limit_bytes": 1 << 20,
+                "limit_bytes": MAX_RESPONSE_BYTES,
             },
         },
         finished_at=created_at,

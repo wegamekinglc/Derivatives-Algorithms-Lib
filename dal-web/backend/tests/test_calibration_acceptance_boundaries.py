@@ -2,18 +2,21 @@ from __future__ import annotations
 
 import copy
 import json
+from types import SimpleNamespace
 from unittest import mock
 
 import pytest
+from pydantic import ValidationError
+
 from app.routers import calibrations as calibration_router
 from app.services import calibrations as calibration_service
 from app.services import dal_gateway as gateway_module
 from app.services.dal_gateway import get_gateway
+from app.services.db.models import CalibrationRunRow
 from app.services.store import get_store
-from pydantic import ValidationError
-
 from tests.calibration_contract_fixtures import (
     deposit,
+    escaped_matrix_request,
     future_knots,
     joint_capacity_request,
     joint_request,
@@ -969,38 +972,255 @@ def test_section_18_dates_finiteness_and_quote_bump_boundaries_use_api(
         assert response.status_code == 422
 
 
-def _escaped_matrix_request() -> dict[str, object]:
-    knots = future_knots(100)
-    escaped = '😀\x01"\\' + "X" * 124
-    assert len(escaped) == 128
-    request = single_request("USD", 0.02)
-    request["name"] = escaped
-    request["declaration"].update(
-        {
-            "curve_name": escaped,
-            "parameterization": "PIECEWISE_CONSTANT_FWD",
-            "knot_dates": knots,
-            "initial_guess_per_node": [0.02] * 100,
-        }
-    )
-    request["instruments"] = [
-        {
-            **deposit("USD", 0.02 + index * 0.0001),
-            "label": (
-                escaped
-                if index == 0
-                else f"DEP {index + 1}"
-            ),
-            "maturity": knot,
-        }
-        for index, knot in enumerate(knots)
-    ]
-    request["options"] = {
-        "jacobian_mode": "ANALYTIC",
-        "include_jacobian": True,
-        "include_effective_inverse": True,
+def _curve_response_payload(
+    index: int,
+    *,
+    currency: str = "USD",
+    base: dict[str, object] | None = None,
+) -> dict[str, object]:
+    return {
+        "dto_version": 1,
+        "id": f"{index:032x}",
+        "name": f"curve-{index}",
+        "currency": currency,
+        "role": "discount",
+        "target": {"collateral": "OIS", "tenor": None},
+        "anchor_date": "2026-01-02",
+        "base_curve_id": None if base is None else base["id"],
+        "base": base,
+        "source_run_id": "f" * 32,
+        "parameterization": "PIECEWISE_CONSTANT_FWD",
+        "day_count": "ACT_365F",
+        "log_df_scheme": None,
+        "node_dates": ["2027-01-02"],
+        "parameters": {"right_forwards": [0.02]},
     }
-    return request
+
+
+def test_section_18_base_cycle_depth_nine_and_currency_mismatch_are_rejected() -> None:
+    """API-04/DB-01 — recursive curve DTO invariants reject all bad bases."""
+    cyclic = _curve_response_payload(1)
+    cyclic["base_curve_id"] = cyclic["id"]
+    cyclic["base"] = cyclic
+    with pytest.raises(ValidationError, match="recursion"):
+        calibration_service.CURVE_RESPONSE_ADAPTER.validate_python(cyclic)
+
+    depth_nine: dict[str, object] | None = None
+    for index in range(10, 0, -1):
+        depth_nine = _curve_response_payload(index, base=depth_nine)
+    with pytest.raises(ValidationError, match="depth 8"):
+        calibration_service.CURVE_RESPONSE_ADAPTER.validate_python(depth_nine)
+
+    eur_base = _curve_response_payload(20, currency="EUR")
+    usd_child = _curve_response_payload(21, currency="USD", base=eur_base)
+    with pytest.raises(ValidationError, match="expanded base must match"):
+        calibration_service.CURVE_RESPONSE_ADAPTER.validate_python(usd_child)
+
+
+def test_section_18_reference_boundaries_use_production_admission(
+    client,
+) -> None:
+    """API-04 — missing/currency/role/status reference errors name the field."""
+    missing = single_request("USD", 0.02)
+    missing["declaration"]["base_curve_id"] = "a" * 32
+    response = client.post("/api/calibrations/single", json=missing)
+    assert response.status_code == 422
+    assert response.json()["error"] == {
+        "code": "REFERENCE_MISMATCH",
+        "message": f"referenced curve {'a' * 32} does not exist",
+        "location": ["body", "declaration", "base_curve_id"],
+        "context": {"curve_id": "a" * 32, "constraint": "exists"},
+    }
+
+    usd = submit_and_wait(
+        client,
+        "/api/calibrations/single",
+        single_request("USD", 0.02),
+    )
+    usd_curve_id = str(usd["curves"][0]["id"])
+    wrong_role = single_request("USD", 0.02)
+    wrong_role["declaration"]["forward_curve_ids"] = {"3M": usd_curve_id}
+    response = client.post("/api/calibrations/single", json=wrong_role)
+    assert response.status_code == 422
+    error = response.json()["error"]
+    assert error["code"] == "REFERENCE_MISMATCH"
+    assert error["location"] == [
+        "body",
+        "declaration",
+        "forward_curve_ids",
+        "3M",
+    ]
+    assert error["context"] == {
+        "curve_id": usd_curve_id,
+        "constraint": "role",
+        "expected": ["forward"],
+        "actual": "discount",
+    }
+
+    eur = submit_and_wait(
+        client,
+        "/api/calibrations/single",
+        single_request("EUR", 0.02),
+    )
+    eur_curve_id = str(eur["curves"][0]["id"])
+    wrong_currency = single_request("USD", 0.02)
+    wrong_currency["declaration"]["base_curve_id"] = eur_curve_id
+    response = client.post("/api/calibrations/single", json=wrong_currency)
+    assert response.status_code == 422
+    error = response.json()["error"]
+    assert error["code"] == "REFERENCE_MISMATCH"
+    assert error["location"] == ["body", "declaration", "base_curve_id"]
+    assert error["context"] == {
+        "curve_id": eur_curve_id,
+        "constraint": "currency",
+        "expected": "USD",
+        "actual": "EUR",
+    }
+
+    store = get_store()
+    with store._session() as session:
+        row = session.get(CalibrationRunRow, str(usd["id"]))
+        assert row is not None
+        row.status = "running"
+        row.phase = "solving"
+        row.finished_at = None
+        session.commit()
+    unfinished = single_request("USD", 0.02)
+    unfinished["declaration"]["base_curve_id"] = usd_curve_id
+    response = client.post("/api/calibrations/single", json=unfinished)
+    assert response.status_code == 422
+    error = response.json()["error"]
+    assert error["code"] == "REFERENCE_MISMATCH"
+    assert error["location"] == ["body", "declaration", "base_curve_id"]
+    assert error["context"] == {
+        "curve_id": usd_curve_id,
+        "constraint": "status",
+        "expected": "completed",
+        "actual": "running",
+    }
+
+
+@pytest.mark.parametrize("duplicate_kind", ("discount_collateral", "forward_tenor"))
+def test_section_18_duplicate_joint_declaration_routes_are_rejected(
+    client,
+    duplicate_kind: str,
+) -> None:
+    """API-01/API-04 — duplicate collateral and tenor routes are ambiguous."""
+    request = joint_request()
+    duplicate = copy.deepcopy(request["domestic"]["declarations"][0])
+    duplicate["curve_name"] = f"duplicate-{duplicate_kind}"
+    if duplicate_kind == "forward_tenor":
+        duplicate.update(
+            {
+                "calibrate_discount_curve": False,
+                "target_tenor": "3M",
+            }
+        )
+        first_forward = copy.deepcopy(duplicate)
+        first_forward["curve_name"] = "first-forward"
+        request["domestic"]["declarations"].append(first_forward)
+    request["domestic"]["declarations"].append(duplicate)
+
+    response = client.post("/api/calibrations/xccy/joint", json=request)
+
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+
+
+def test_section_18_missing_xccy_leg_route_maps_native_report_to_api(
+    client,
+    monkeypatch,
+) -> None:
+    """API-04/API-06 — missing XCCY discount route has the submitted location."""
+    request = joint_request()
+    request["basis"]["instruments"][0]["config"]["convention"]["domestic_index"][
+        "collateral"
+    ] = "MISSING"
+    issue = SimpleNamespace(
+        reason=SimpleNamespace(name="DISCOUNT_ROUTE_MISSING"),
+        group="basis",
+        declaration_index=-1,
+        instrument_index=0,
+        reset_index=-1,
+        native_message="domestic discount route is missing",
+    )
+    monkeypatch.setattr(
+        get_gateway(),
+        "validate_joint_xccy_admission",
+        lambda _request: SimpleNamespace(eligible=False, issues=[issue]),
+    )
+
+    response = client.post("/api/calibrations/xccy/joint", json=request)
+
+    assert response.status_code == 422
+    error = response.json()["error"]
+    assert error["code"] == "ANALYTIC_INELIGIBLE"
+    assert error["location"] == [
+        "body",
+        "basis",
+        "instruments",
+        0,
+        "config",
+        "convention",
+        "domestic_index",
+        "collateral",
+    ]
+    assert error["context"]["reason_code"] == "DISCOUNT_ROUTE_MISSING"
+
+
+def test_section_18_non_finite_fx_solver_and_native_result_are_rejected(
+    client,
+    monkeypatch,
+) -> None:
+    """API-01/API-04/MAT-02 — non-finite input and output never reach JSON."""
+    invalid_fx = json.dumps(joint_request()).replace(
+        '"fx_spot": 1.1',
+        '"fx_spot": NaN',
+    )
+    response = client.post(
+        "/api/calibrations/xccy/joint",
+        content=invalid_fx,
+        headers={"content-type": "application/json"},
+    )
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+
+    invalid_solver = json.dumps(single_request("USD", 0.02)).replace(
+        '"tolerance": 1e-08',
+        '"tolerance": Infinity',
+    )
+    response = client.post(
+        "/api/calibrations/single",
+        content=invalid_solver,
+        headers={"content-type": "application/json"},
+    )
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+
+    gateway = get_gateway()
+    original = gateway.calibrate_single
+
+    def non_finite_result(*args, **kwargs):
+        result = original(*args, **kwargs)
+        curves = copy.deepcopy(result.curves)
+        curves[0]["parameters"]["right_forwards"][0] = float("nan")
+        return result._replace(curves=curves)
+
+    monkeypatch.setattr(gateway, "calibrate_single", non_finite_result)
+    failed = submit_and_wait(
+        client,
+        "/api/calibrations/single",
+        single_request("USD", 0.02),
+    )
+    assert failed["status"] == "failed"
+    assert failed["error"]["code"] == "NATIVE_CALIBRATION_FAILED"
+    assert b"NaN" not in json.dumps(failed).encode()
+    with get_store()._engine.connect() as connection:
+        curve_count = connection.exec_driver_sql(
+            "SELECT count(*) FROM curve_definition WHERE source_run_id = ?",
+            (str(failed["id"]),),
+        ).scalar_one()
+    assert curve_count == 0
 
 
 def test_fix_escaped_byte_bound_uses_real_100x100_response_and_preview(
@@ -1024,7 +1244,7 @@ def test_fix_escaped_byte_bound_uses_real_100x100_response_and_preview(
         completed = submit_and_wait(
             client,
             "/api/calibrations/single",
-            _escaped_matrix_request(),
+            escaped_matrix_request(),
         )
 
     ordinary = client.get(f"/api/calibrations/{completed['id']}")

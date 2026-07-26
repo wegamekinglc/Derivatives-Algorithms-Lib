@@ -299,9 +299,10 @@ def main() -> int:
 
     os.environ.pop("DAL_WEB_STORE", None)
     os.environ["DAL_WEB_DB_URL"] = f"sqlite:///{Path(args.db)}"
+    from fastapi.testclient import TestClient
+
     from app.main import create_app
     from app.services import dal_gateway, store
-    from fastapi.testclient import TestClient
 
     dal_gateway._gateway_box[0] = None
     store._store_box[0] = None
