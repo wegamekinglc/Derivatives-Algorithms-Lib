@@ -1,4 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import {
+  type Dispatch,
+  type SetStateAction,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import { Link, useParams } from "react-router-dom";
 import { api, type CalibrationRun } from "../api/client";
 import CalibrationLifecycle from "../components/CalibrationLifecycle";
@@ -11,15 +17,28 @@ import { css } from "../format";
 interface PollControl {
   cancelled: boolean;
   timer: ReturnType<typeof setTimeout> | null;
+  setRun: Dispatch<SetStateAction<CalibrationRun | null>>;
+  setError: Dispatch<SetStateAction<string | null>>;
 }
 
-function loadCalibrationRun(
+function pollCalibrationRun(
   runId: string,
   control: PollControl,
-): Promise<CalibrationRun | null> {
-  return api.getCalibration(runId).then((next) =>
-    control.cancelled ? null : next
-  );
+): void {
+  void api.getCalibration(runId)
+    .then((next) => {
+      if (control.cancelled) return;
+      control.setRun(next);
+      control.setError(null);
+      if (next.status === "running") {
+        control.timer = setTimeout(() => {
+          pollCalibrationRun(runId, control);
+        }, 300);
+      }
+    })
+    .catch((reason: unknown) => {
+      if (!control.cancelled) control.setError(String(reason));
+    });
 }
 
 function useCalibrationRun(runId: string) {
@@ -27,22 +46,13 @@ function useCalibrationRun(runId: string) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const control: PollControl = { cancelled: false, timer: null };
-    const poll = () => {
-      void loadCalibrationRun(runId, control)
-        .then((next) => {
-          if (!next) return;
-          setRun(next);
-          setError(null);
-          if (next.status === "running") {
-            control.timer = setTimeout(poll, 300);
-          }
-        })
-        .catch((reason: unknown) => {
-          if (!control.cancelled) setError(String(reason));
-        });
+    const control: PollControl = {
+      cancelled: false,
+      timer: null,
+      setRun,
+      setError,
     };
-    poll();
+    pollCalibrationRun(runId, control);
     return () => {
       control.cancelled = true;
       if (control.timer) clearTimeout(control.timer);
