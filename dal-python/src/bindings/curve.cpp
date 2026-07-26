@@ -6,6 +6,11 @@
 
 #include <pybind11/stl.h>
 
+#include <atomic>
+#include <chrono>
+#include <stdexcept>
+#include <thread>
+
 #include <dal/curve/calibration.hpp>
 #include <dal/curve/xccycalibration.hpp>
 #include <dal/curve/xccynotionalmode.hpp>
@@ -27,6 +32,14 @@
 using namespace Dal;
 
 namespace {
+    std::atomic<int> s_curveCalibrationGilBarrierMilliseconds{0};
+
+    void RunCurveCalibrationGilBarrierForTesting() {
+        const int milliseconds = s_curveCalibrationGilBarrierMilliseconds.exchange(0);
+        if (milliseconds > 0)
+            std::this_thread::sleep_for(std::chrono::milliseconds(milliseconds));
+    }
+
     template <class Class_, class Member_>
     void DefReadWriteAliases(py::class_<Class_>& cls, const char* legacyName, const char* snakeName, Member_ Class_::* member) {
         cls.def_readwrite(legacyName, member).def_readwrite(snakeName, member);
@@ -132,13 +145,13 @@ namespace {
         Vector_<Date_> nativeSubmittedKnots;
         SetDates(&nativeSubmittedKnots, submittedKnots);
         py::gil_scoped_release release;
+        RunCurveCalibrationGilBarrierForTesting();
         return PlanCurveCalibrationKnots(today, nativeInstruments, nativeSubmittedKnots, CurveKnotPolicy_(requestedPolicy),
                                          CurveParameterization_(parameterization));
     }
 
     std::vector<std::tuple<int, std::string, DateTime_>>
-    RequiredHistoricalXccyFixingsForPython(const std::vector<std::shared_ptr<CrossCurrencySwap_>>& instruments,
-                                           const DateTime_& valuationTime) {
+    RequiredHistoricalXccyFixingsForPython(const std::vector<std::shared_ptr<CrossCurrencySwap_>>& instruments, const DateTime_& valuationTime) {
         std::vector<std::tuple<int, std::string, DateTime_>> result;
         {
             py::gil_scoped_release release;
@@ -763,8 +776,14 @@ namespace {
 
         m.def("PlanCurveCalibrationKnots", &PlanCurveCalibrationKnotsForPython, py::arg("today"), py::arg("instruments"), py::arg("submitted_knots"),
               py::arg("requested_policy"), py::arg("parameterization"));
-        m.def("InspectCurveCalibrationExecutionIdentity", &InspectCurveCalibrationExecutionIdentity, py::arg("final_input_spec"),
-              py::call_guard<py::gil_scoped_release>());
+        m.def(
+            "InspectCurveCalibrationExecutionIdentity",
+            [](const CurveCalibrationSpec_& finalInputSpec) {
+                py::gil_scoped_release release;
+                RunCurveCalibrationGilBarrierForTesting();
+                return InspectCurveCalibrationExecutionIdentity(finalInputSpec);
+            },
+            py::arg("final_input_spec"));
         m.def(
             "ResolveCurveCalibrationInitialGuess",
             [](const CurveCalibrationSpec_& finalInputSpec) {
@@ -776,8 +795,19 @@ namespace {
                 return DoublesToList(resolved);
             },
             py::arg("final_input_spec"));
-        m.def("ValidateSingleCurveAnalyticEligibility", &ValidateSingleCurveAnalyticEligibility, py::arg("spec"),
-              py::call_guard<py::gil_scoped_release>());
+        m.def(
+            "ValidateSingleCurveAnalyticEligibility",
+            [](const CurveCalibrationSpec_& spec) {
+                py::gil_scoped_release release;
+                RunCurveCalibrationGilBarrierForTesting();
+                return ValidateSingleCurveAnalyticEligibility(spec);
+            },
+            py::arg("spec"));
+        m.def("_CurveCalibrationGilBarrier_EnableForTesting", [](int milliseconds) {
+            if (milliseconds <= 0)
+                throw std::invalid_argument("curve-calibration GIL barrier duration must be positive");
+            s_curveCalibrationGilBarrierMilliseconds.store(milliseconds);
+        });
     }
 
     void init_bindings_curve_calibration_builder(py::module_& m) {
@@ -975,8 +1005,14 @@ namespace {
                         s.stages_.push_back(py::cast<CurveCalibrationSpec_>(item));
                 });
 
-        m.def("CalibrateSingleCurve", py::overload_cast<const CurveCalibrationSpec_&>(&CalibrateSingleCurve), py::arg("spec"),
-              py::call_guard<py::gil_scoped_release>());
+        m.def(
+            "CalibrateSingleCurve",
+            [](const CurveCalibrationSpec_& spec) {
+                py::gil_scoped_release release;
+                RunCurveCalibrationGilBarrierForTesting();
+                return CalibrateSingleCurve(spec);
+            },
+            py::arg("spec"));
 
         m.def(
             "CalibrateSingleCurve",
@@ -993,8 +1029,7 @@ namespace {
     }
 
     void init_bindings_curve_xccy(py::module_& m) {
-        py::register_exception<Underdetermined::ConvergenceError_>(
-            m, "_CalibrationConvergenceError", PyExc_RuntimeError);
+        py::register_exception<Underdetermined::ConvergenceError_>(m, "_CalibrationConvergenceError", PyExc_RuntimeError);
         auto xccyBuilder = py::class_<CrossCurrencyCalibrationSpecBuilder_>(m, "CrossCurrencyCalibrationSpecBuilder_");
         xccyBuilder.def(py::init<>());
         DefReadWriteAliases(xccyBuilder, "today_", "today", &CrossCurrencyCalibrationSpecBuilder_::today_);

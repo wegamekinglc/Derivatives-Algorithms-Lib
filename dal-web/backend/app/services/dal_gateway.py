@@ -546,9 +546,9 @@ class DalGateway:
                 dto.currency,
                 dates,
                 dto.parameters.log_discount_factors,
-                day_count,
-                scheme,
-                base,
+                day_count=day_count,
+                log_df_scheme=scheme,
+                base=base,
             )
         raise ValueError(f"unsupported curve parameterization {dto.parameterization}")
 
@@ -1011,6 +1011,8 @@ class DalGateway:
         }
 
     def _calibrate_xccy_fallback(self, request: object, kind: str) -> GatewayCalibrationResult:
+        if kind == "xccy_joint":
+            return _fallback_joint_result(request)
         curve = {
             "name": request.basis.curve_name,
             "currency": request.pair.domestic,
@@ -2028,6 +2030,160 @@ def _fallback_instruments(request: object) -> list[object]:
     if hasattr(request, "instruments"):
         return list(request.instruments)
     return list(request.basis.instruments)
+
+
+def _fallback_joint_groups(
+    request: object,
+) -> list[tuple[str, str, object, list[object]]]:
+    groups: list[tuple[str, str, object, list[object]]] = []
+    for group_name, group in (
+        ("domestic", request.domestic),
+        ("foreign", request.foreign),
+    ):
+        groups.extend(
+            (
+                f"{group_name}:{index}",
+                group.currency,
+                declaration,
+                list(declaration.instruments),
+            )
+            for index, declaration in enumerate(group.declarations)
+        )
+    groups.append(
+        (
+            "basis",
+            request.pair.domestic,
+            request.basis,
+            list(request.basis.instruments),
+        )
+    )
+    return groups
+
+
+def _fallback_joint_curve_payload(
+    request: object,
+    currency: str,
+    declaration: object,
+    role: str,
+) -> dict[str, object]:
+    parameterization = declaration.parameterization
+    node_dates = list(declaration.knot_dates)
+    values = list(declaration.initial_guess_per_node)
+    if parameterization == "PIECEWISE_CONSTANT_FWD":
+        parameters: dict[str, object] = {"right_forwards": values}
+    elif parameterization == "PIECEWISE_LINEAR_FWD":
+        parameters = _fallback_linear_parameters(values, len(node_dates))
+    elif parameterization == "ZERO_RATE":
+        parameters = {"zero_rates": values}
+    else:
+        node_dates = [request.valuation_time.date(), *node_dates]
+        parameters = {"log_discount_factors": [0.0, *values]}
+    return {
+        "name": declaration.curve_name,
+        "currency": currency,
+        "role": role,
+        "target": {
+            "collateral": getattr(
+                declaration,
+                "target_collateral",
+                request.collateral_currency,
+            ),
+            "tenor": getattr(declaration, "target_tenor", None),
+        },
+        "parameterization": parameterization,
+        "anchor_date": request.valuation_time.date(),
+        "day_count": "ACT_365F",
+        "log_df_scheme": declaration.log_df_scheme,
+        "node_dates": node_dates,
+        "parameters": parameters,
+        "base_curve_id": None,
+    }
+
+
+def _fallback_joint_result(request: object) -> GatewayCalibrationResult:
+    groups = _fallback_joint_groups(request)
+    curves = tuple(
+        _fallback_joint_curve_payload(
+            request,
+            currency,
+            declaration,
+            (
+                "basis"
+                if group_name == "basis"
+                else "discount"
+                if declaration.calibrate_discount_curve
+                else "forward"
+            ),
+        )
+        for group_name, currency, declaration, _instruments in groups
+    )
+    parameter_ranges: list[NamedRangeDTO] = []
+    residual_ranges: list[NamedRangeDTO] = []
+    diagnostics: list[InstrumentDiagnosticDTO] = []
+    parameter_offset = 0
+    residual_offset = 0
+    for group_name, _currency, declaration, instruments in groups:
+        parameter_size = len(declaration.initial_guess_per_node)
+        parameter_ranges.append(
+            NamedRangeDTO(
+                name=group_name,
+                offset=parameter_offset,
+                size=parameter_size,
+            )
+        )
+        residual_ranges.append(
+            NamedRangeDTO(
+                name=group_name,
+                offset=residual_offset,
+                size=len(instruments),
+            )
+        )
+        diagnostics.extend(
+            InstrumentDiagnosticDTO(
+                instrument_id=f"{residual_offset + index + 1:032x}",
+                group=group_name,
+                calibration_index=residual_offset + index,
+                market_rate=instrument.market_rate,
+                model_rate=instrument.market_rate,
+                residual=0.0,
+            )
+            for index, instrument in enumerate(instruments)
+        )
+        parameter_offset += parameter_size
+        residual_offset += len(instruments)
+    parameter_axis = _joint_parameter_axis(request, parameter_ranges)
+    residual_axis = [
+        f"residual:{diagnostic.instrument_id}" for diagnostic in diagnostics
+    ]
+    jacobian, inverse = _fallback_matrices(
+        request,
+        parameter_axis,
+        residual_axis,
+    )
+    return GatewayCalibrationResult(
+        actual_jacobian_mode=request.options.jacobian_mode,
+        actual_execution_identity=None,
+        curves=curves,
+        instrument_diagnostics=tuple(diagnostics),
+        solver_diagnostics=SolverDiagnosticsDTO(
+            status="converged",
+            solve_mode=request.solver.solve_mode,
+            used_approximate_fit=False,
+            tolerance=request.solver.tolerance,
+            fit_tolerance=request.solver.fit_tolerance,
+            max_abs_residual=0.0,
+            rms_residual=0.0,
+            evaluations=1,
+        ),
+        fx_forwards=_fallback_fx_forwards(request, xccy=True),
+        named_ranges=NamedRangesDTO(
+            parameters=parameter_ranges,
+            residuals=residual_ranges,
+        ),
+        jacobian=jacobian,
+        effective_inverse=inverse,
+        native_solve_ms=0.0,
+    )
 
 
 def _fallback_diagnostics(request: object, *, xccy: bool) -> tuple[InstrumentDiagnosticDTO, ...]:

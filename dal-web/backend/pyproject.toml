@@ -37,6 +37,10 @@ packages = ["app"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+addopts = "-m 'not native'"
+markers = [
+    "native: requires the compiled DAL extension and runs no fake-DAL substitute",
+]
 
 [tool.ruff]
 line-length = 100
