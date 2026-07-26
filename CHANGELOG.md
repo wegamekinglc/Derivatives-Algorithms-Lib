@@ -166,6 +166,12 @@ here as the baseline rather than dated releases:
   matching consumer targets; added `core-dev`, `full-dev`, and portable `distribution`
   profiles; moved the automated Linux install into `build/stage`; and made native-CPU
   tuning opt-in through `DAL_ENABLE_NATIVE_ARCH`.
+- `web`: Added persistent single-curve, staged-XCCY, and joint-XCCY calibration
+  APIs and the Curve Lab workbench. Versioned run, instrument, and recursively
+  reconstructible curve DTOs preserve inputs, execution evidence, fit and matrix
+  diagnostics, FX forwards, and quote-bump previews without persisting native
+  handles. Completed results survive a database-backed restart; orphaned running
+  calibrations become failed on startup. See `dal-web/README.md`.
 - `web`: Defined the backend as native-only and added startup preflight checks that
   preserve and validate the locally installed `dal` package before Uvicorn starts.
 

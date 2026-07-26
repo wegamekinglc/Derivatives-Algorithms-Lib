@@ -21,19 +21,20 @@ dal-web/
 │   ├── app/
 │   │   ├── main.py          app factory + router wiring
 │   │   ├── schemas/         Pydantic request/response models
-│   │   ├── routers/         products, models, trades, portfolios, system
+│   │   ├── routers/         products, models, trades, portfolios, calibrations, system
 │   │   └── services/
 │   │       ├── dal_gateway.py   ← the ONLY place that imports the dal public API
 │   │       ├── store.py         Store seam: StoreProtocol + in-memory Store + get_store()
 │   │       ├── db/              SQLAlchemy 2.x DbStore (session / models / store_db) + migrations
+│   │       ├── calibrations.py  asynchronous calibration orchestration + DTO persistence
 │   │       ├── valuation.py     trade/portfolio pricing orchestration
 │   │       └── templates.py     product-builder presets + demo seed
 │   └── tests/               pytest suite (fake dal module, no C++ build needed)
 └── frontend/                React + Vite SPA
     └── src/
         ├── api/client.ts    typed API client
-        ├── components/      ValuationPanel
-        └── pages/           Dashboard, Portfolios, Trades, ProductBuilder, Models, Valuations
+        ├── components/      valuation, calibration fit/matrix, and quote-risk panels
+        └── pages/           Dashboard, portfolio pages, Valuations, Curves, CurveRun
 ```
 
 ## How DAL is used
@@ -48,6 +49,9 @@ Monte-Carlo public API:
 | Dupire          | `DupireModelData_New(spot, rate, repo, ...)`     |
 | Evaluation date | `EvaluationDate_Set` / `EvaluationDate_Get`      |
 | Valuation       | `MonteCarlo_Value(product, model, n_paths, ...)` |
+| Curve planning  | `PlanCurveCalibrationKnots`, eligibility and execution-identity inspectors |
+| Calibration     | `CalibrateSingleCurve`, `CalibrateXccyMarket`, `CalibrateJointXccyMarket`    |
+| Curve rebuild   | `DiscountPWC_New`, `DiscountPWLF_New`, `DiscountZeroRate_New`, `DiscountLogDF_New` |
 
 No other module imports `dal` directly -- routers and services depend on
 `DalGateway`, satisfying the "calls to DAL only through the Python public API"
@@ -78,12 +82,28 @@ Runtime configuration:
 
 ## Persistence
 
-All five entities (products, models, trades, portfolios, valuation results) are
-persisted by a SQLAlchemy 2.x **sync** store (`app/services/db/store_db.py`)
-that implements the same `StoreProtocol` the routers depend on. The default
-backend is a local SQLite file under `dal-web/backend/.data/` (gitignored);
-point `DAL_WEB_DB_URL` at any SQLAlchemy URL to switch backends, e.g.
-`postgresql+psycopg://host/db`. SQLite connections get WAL journaling and
+The five existing entity types (products, models, trades, portfolios, and
+valuation results) and the three curve-calibration entity types are persisted
+by a SQLAlchemy 2.x **sync** store (`app/services/db/store_db.py`) that
+implements the same `StoreProtocol` the routers depend on:
+
+| Calibration entity                | Persisted state                                                                                  |
+|-----------------------------------|--------------------------------------------------------------------------------------------------|
+| `CalibrationRun`                  | Versioned request, normalized solver/options, lifecycle, execution evidence, results, and errors |
+| `CurveDefinition`                 | Versioned recursive reconstruction DTO, including base-curve identity and numerical parameters   |
+| `CalibrationInstrumentDefinition` | Normalized instrument payload plus its input and canonical calibration ordering                   |
+
+Curve rows store complete reconstruction data for
+`PIECEWISE_CONSTANT_FWD`, `PIECEWISE_LINEAR_FWD`, `ZERO_RATE`, and
+`LOG_DISCOUNT`: anchor/node dates, day count, representation-specific
+parameters, actual log-DF scheme where applicable, and recursive base DTOs. No
+process-local C++ handle is stored. A completed run can therefore be read in a
+fresh backend process, and its curves can be rebuilt through `DalGateway` using
+only database DTOs.
+
+The default backend is a local SQLite file under `dal-web/backend/.data/`
+(gitignored); point `DAL_WEB_DB_URL` at any SQLAlchemy URL to switch backends,
+e.g. `postgresql+psycopg://host/db`. SQLite connections get WAL journaling and
 foreign-key enforcement enabled automatically.
 
 Schema management defaults to `create_all()` on startup (idempotent, zero
@@ -95,8 +115,13 @@ directory.
 For ephemeral or read-only environments where no database is wanted, set
 `DAL_WEB_STORE=memory` to fall back to the original in-memory store -- no file,
 no SQLAlchemy. Everything then lives in process memory, so a backend restart
-loses all entities and any in-flight valuations. With the database store,
-entities and finished valuation results survive a restart.
+loses all entities and in-flight work. With the database store, entities and
+terminal valuation/calibration results survive a restart. At startup, every
+calibration still `"running"` in any of the `queued`, `solving`,
+`serializing`, or `persisting` phases is reconciled to `"failed"` with error
+code `SERVER_RESTARTED`; completed and already-failed runs remain unchanged.
+This mirrors valuation recovery, where an orphaned `"running"` valuation
+becomes `"failed"` because its in-process task cannot resume.
 
 ## Running
 
@@ -247,17 +272,47 @@ is running and the port in `vite.config.ts` matches.
 The backend exposes a REST-ish API under `/api`. Full OpenAPI docs are served at
 `/docs` once the backend is running. Highlights beyond the standard CRUD:
 
-| Endpoint                                       | Notes                                                                    |
-|------------------------------------------------|--------------------------------------------------------------------------|
-| `GET /api/health`                              | Reports the active DAL backend (`dal`).                                  |
-| `POST /api/products`, `PUT /api/products/{id}` | Create / partially update a scripted product.                            |
-| `POST /api/products/debug`                     | Render the DAL `Product_Debug` dump for arbitrary rows.                  |
-| `POST /api/models`, `PUT /api/models/{id}`     | Black-Scholes or Dupire model data.                                      |
-| `POST /api/trades`, `PUT /api/trades/{id}`     | Link a product + model + notional.                                       |
-| `POST /api/portfolios/{id}/trades/{tid}`       | Add a trade to a portfolio.                                              |
-| `POST /api/trades/{id}/value`                  | Start an **async** single-trade valuation (returns `status: "running"`). |
-| `POST /api/portfolios/{id}/value`              | Start an **async** portfolio valuation (returns `status: "running"`).    |
-| `GET /api/valuations/{id}`                     | Poll until `status` becomes `"completed"` or `"failed"`.                 |
+| Endpoint                                         | Notes                                                                                       |
+|--------------------------------------------------|---------------------------------------------------------------------------------------------|
+| `GET /api/health`                                | Reports the active DAL backend (`dal`).                                                     |
+| `POST /api/products`, `PUT /api/products/{id}`   | Create / partially update a scripted product.                                               |
+| `POST /api/products/debug`                       | Render the DAL `Product_Debug` dump for arbitrary rows.                                     |
+| `POST /api/models`, `PUT /api/models/{id}`       | Black-Scholes or Dupire model data.                                                         |
+| `POST /api/trades`, `PUT /api/trades/{id}`       | Link a product + model + notional.                                                          |
+| `POST /api/portfolios/{id}/trades/{tid}`         | Add a trade to a portfolio.                                                                 |
+| `POST /api/trades/{id}/value`                    | Start an **async** single-trade valuation (returns `status: "running"`).                    |
+| `POST /api/portfolios/{id}/value`                | Start an **async** portfolio valuation (returns `status: "running"`).                       |
+| `GET /api/valuations/{id}`                       | Poll until `status` becomes `"completed"` or `"failed"`.                                    |
+| `POST /api/calibrations/single`                  | Submit a versioned single discount/projection curve calibration; returns `202` + `Location`. |
+| `POST /api/calibrations/xccy/staged`             | Submit staged XCCY basis calibration over persisted domestic/foreign curve blocks.           |
+| `POST /api/calibrations/xccy/joint`              | Submit one joint domestic, foreign, and basis calibration.                                  |
+| `GET /api/calibrations/{id}`                     | Read the persisted run and optionally request a quote-bump preview.                          |
+| `GET /api/curves/{id}`                           | Read a versioned, recursively reconstructible persisted curve DTO.                           |
+
+### Async curve calibration
+
+All three calibration POST endpoints return a persisted run with
+`status: "running"` and a `Location` header immediately. Planning and native
+solves are offloaded with `asyncio.to_thread`, and the frontend polls
+`GET /api/calibrations/{id}` while the run progresses through `queued`,
+`solving`, `serializing`, and `persisting`.
+
+The completed response reports the actual `ANALYTIC` or `BUMPED` Jacobian mode,
+solver status and residual metrics, per-instrument market/model rates and
+residuals, persisted curve DTOs, named parameter/residual ranges, and XCCY FX
+forwards. Request options independently control materialized forward Jacobian
+and effective-inverse values; matrix metadata remains present when values were
+not requested or are unavailable for the selected mode. Materialized matrices
+are limited to `100 × 100`, and every serialized calibration/curve response is
+limited to 1 MiB.
+
+For a completed run with an available effective inverse, supply both
+`quote_bump_index` and `quote_bump_size` to
+`GET /api/calibrations/{id}`. The backend returns the parameter preview using
+`delta_x = effective_inverse * delta_quote / residual_tolerance`; the frontend
+does not duplicate that calculation. Validation and analytical-eligibility
+errors use structured HTTP 422 responses with a declaration/instrument
+`location` where applicable.
 
 ### Delete guards
 
@@ -346,3 +401,8 @@ that require the canned backend skip themselves when the flag is absent.
   as a whitespace-separated matrix).
 * **Valuation Runs** -- reproducible history of every Monte Carlo run with PV,
   Greeks, and per-run status.
+* **Curve Lab** -- edit versioned JSON contracts for single, staged XCCY, or
+  joint XCCY calibration; submit an asynchronous run; and poll persisted
+  lifecycle state. Completed-run pages survive refresh and show reconstructed
+  curves, fit/residual diagnostics, Jacobian and effective-inverse heatmaps, FX
+  forwards, and backend-computed quote-bump previews.
