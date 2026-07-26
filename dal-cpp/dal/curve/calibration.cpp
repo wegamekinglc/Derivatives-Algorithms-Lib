@@ -502,7 +502,8 @@ namespace Dal {
         ExecutionSingleKnotIdentity_ result;
         result.today_ = finalInputSpec.Today();
         result.parameterization_ = finalInputSpec.Parameterization();
-        if (result.parameterization_ == CurveParameterization_::Value_::LOG_DISCOUNT)
+        if (result.parameterization_ == CurveParameterization_::Value_::ZERO_RATE ||
+            result.parameterization_ == CurveParameterization_::Value_::LOG_DISCOUNT)
             result.logDfScheme_ = finalInputSpec.LogDfScheme();
         result.resolvedDeclaredDates_ = finalInputSpec.KnotDates();
         result.storageDates_ = definition.nodeDates_;

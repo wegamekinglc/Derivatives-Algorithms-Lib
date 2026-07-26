@@ -108,6 +108,28 @@ TEST(CalibrationPlannerTest, TestExecutionIdentityUsesActualInputDefinitionAndLa
     EXPECT_EQ(identity.counts_.freeParameters_, 3);
 }
 
+TEST(CalibrationPlannerTest, TestZeroRateExecutionIdentityCarriesActualLogDfScheme) {
+    CurveCalibrationSpec_ spec;
+    spec.today_ = Date_(2026, 1, 15);
+    spec.ccy_ = "USD";
+    spec.curveName_ = "zero_identity";
+    spec.knotPolicy_ = CurveKnotPolicy_::Value_::INPUT;
+    spec.parameterization_ = CurveParameterization_::Value_::ZERO_RATE;
+    spec.logDfScheme_ = LogDfScheme_::Value_::MIXED;
+    spec.knotDates_ = {
+        Date::AddMonths(spec.today_, 3),
+        Date::AddMonths(spec.today_, 6),
+        Date::AddMonths(spec.today_, 12),
+    };
+
+    const auto identity = InspectCurveCalibrationExecutionIdentity(spec);
+
+    ASSERT_TRUE(identity.logDfScheme_.has_value());
+    EXPECT_EQ(*identity.logDfScheme_, LogDfScheme_::Value_::MIXED);
+    EXPECT_EQ(identity.parameterization_, CurveParameterization_::Value_::ZERO_RATE);
+    EXPECT_EQ(identity.storageDates_.front(), spec.today_);
+}
+
 TEST(CalibrationPlannerTest, TestExecutionIdentityRejectsNonInputSpec) {
     CurveCalibrationSpec_ spec;
     spec.today_ = Date_(2026, 1, 15);

@@ -173,7 +173,7 @@ jobs:
           echo "VIRTUAL_ENV=$VIRTUAL_ENV" >> "$GITHUB_ENV"
           # Install the backend package itself so the native subprocess fixture
           # gets the same declared production dependency closure as the API.
-          uv pip install pytest numpy -e dal-web/backend
+          uv pip install pytest numpy httpx2 -e dal-web/backend
 
       - name: Compile and test
         env:

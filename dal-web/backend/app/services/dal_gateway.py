@@ -395,6 +395,10 @@ class DalGateway:
     ) -> VerifiedSingleWorkerAdmissionEvidence:
         try:
             evidence = callback(request)
+            if not isinstance(evidence, VerifiedSingleWorkerAdmissionEvidence):
+                raise TypeError(
+                    "pre-native evidence callback returned the wrong carrier type"
+                )
         except (
             PersistedKnotPlanIntegrityError,
             PersistedExpectedExecutionIdentityIntegrityError,
@@ -402,8 +406,6 @@ class DalGateway:
             raise
         except Exception as exc:
             raise GatewayLifecycleTransitionError("verify_pre_native_admission_evidence") from exc
-        if not isinstance(evidence, VerifiedSingleWorkerAdmissionEvidence):
-            raise TypeError("pre-native evidence callback returned the wrong carrier type")
         return evidence
 
     def _inspect_single_execution_identity(
@@ -1718,6 +1720,8 @@ def _native_matrix_dto(
     residual_tolerance: float | None,
 ) -> MatrixDTO:
     values = matrix.to_rows() if available else None
+    if available and (not row_axis or not column_axis):
+        raise RuntimeError("native available matrix must have positive dimensions")
     if available and (
         len(values) != len(row_axis) or any(len(row) != len(column_axis) for row in values)
     ):
@@ -2188,6 +2192,15 @@ def _fallback_joint_result(request: object) -> GatewayCalibrationResult:
 
 def _fallback_diagnostics(request: object, *, xccy: bool) -> tuple[InstrumentDiagnosticDTO, ...]:
     group = "basis" if xccy else "single"
+    instruments = list(_fallback_instruments(request))
+    if not xccy:
+        instruments.sort(
+            key=lambda instrument: (
+                instrument.maturity,
+                instrument.start,
+                _native_instrument_name(instrument.kind),
+            )
+        )
     return tuple(
         InstrumentDiagnosticDTO(
             instrument_id=f"{index + 1:032x}",
@@ -2197,7 +2210,7 @@ def _fallback_diagnostics(request: object, *, xccy: bool) -> tuple[InstrumentDia
             model_rate=instrument.market_rate,
             residual=0.0,
         )
-        for index, instrument in enumerate(_fallback_instruments(request))
+        for index, instrument in enumerate(instruments)
     )
 
 
@@ -2311,8 +2324,12 @@ def _fallback_result(
     xccy: bool = False,
 ) -> GatewayCalibrationResult:
     diagnostics = _fallback_diagnostics(request, xccy=xccy)
-    parameter_count = sum(len(values) for values in curves[0]["parameters"].values())
-    parameter_axis = [f"parameter:{index}" for index in range(parameter_count)]
+    if actual is None:
+        parameter_count = sum(len(values) for values in curves[0]["parameters"].values())
+        parameter_axis = [f"parameter:{index}" for index in range(parameter_count)]
+    else:
+        parameter_axis = _single_parameter_axis(request, actual)
+        parameter_count = len(parameter_axis)
     residual_axis = [f"residual:{item.instrument_id}" for item in diagnostics]
     jacobian, inverse = _fallback_matrices(request, parameter_axis, residual_axis)
     return GatewayCalibrationResult(

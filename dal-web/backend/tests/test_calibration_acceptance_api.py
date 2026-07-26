@@ -2,15 +2,17 @@ from __future__ import annotations
 
 import copy
 import time
+from types import SimpleNamespace
 from unittest import mock
 
 import pytest
-
 from app.routers import calibrations as calibration_router
 from app.schemas.calibrations import SingleCalibrationRequest
 from app.services import calibrations as calibration_service
 from app.services.dal_gateway import SingleGatewayAdmissionRequest, get_gateway
 from app.services.store import get_store
+from fastapi.testclient import TestClient
+
 from tests.calibration_contract_fixtures import (
     first_offender_request,
     future_knots,
@@ -66,7 +68,7 @@ def test_fix_cb1_policy_resolution_matches_direct_planner_and_persistence(
     client,
     policy: str,
 ) -> None:
-    """API-10 — one full native plan is authoritative through 202/GET/DB."""
+    """FIX-CB1-POLICY-RESOLUTION — API-10 authoritative full plan."""
     payload = policy_resolution_request(policy)
     request = SingleCalibrationRequest.model_validate(payload)
     gateway = get_gateway()
@@ -134,7 +136,7 @@ def test_fix_cb1_first_offender_preserves_traversal_source_and_origins(
     client,
     source: str,
 ) -> None:
-    """API-11 — overflow reports the first traversal candidate, not sorting."""
+    """FIX-CB1-FIRST-OFFENDER — API-11 retains traversal source/order."""
     payload, expected = first_offender_request(source)
     gateway = get_gateway()
     store = get_store()
@@ -422,3 +424,145 @@ def test_fix_b4_preview_reserve_and_defensive_guard_are_atomic(
     assert after.result_payload == before.result_payload
     assert after.actual_execution_identity == before.actual_execution_identity
     assert after.finished_at == before.finished_at
+
+
+def test_fix_b8_submitted_index_beats_canonical_issue_order_and_control(
+    client,
+) -> None:
+    """FIX-B8-SUBMITTED-INDEX — HTTP issue order differs from diagnostics."""
+    payload = single_request("USD", 0.02)
+    payload["declaration"]["knot_dates"] = [
+        "2027-01-02",
+        "2028-01-02",
+        "2029-01-02",
+    ]
+    payload["declaration"]["initial_guess_per_node"] = [0.02] * 3
+    payload["instruments"] = [
+        {
+            **payload["instruments"][0],
+            "label": "submitted-3y-invalid",
+            "trade_date": "2025-12-31",
+            "maturity": "2029-01-02",
+            "market_rate": 0.03,
+        },
+        {
+            **payload["instruments"][0],
+            "label": "submitted-1y-invalid",
+            "trade_date": "2025-12-30",
+            "maturity": "2027-01-02",
+            "market_rate": 0.01,
+        },
+        {
+            **payload["instruments"][0],
+            "label": "submitted-2y-valid",
+            "maturity": "2028-01-02",
+            "market_rate": 0.02,
+        },
+    ]
+    gateway = get_gateway()
+    original = gateway.plan_single_admission
+
+    def plan(*args, **kwargs):
+        admitted = original(*args, **kwargs)
+        report = SimpleNamespace(
+            eligible=False,
+            issues=(
+                SimpleNamespace(
+                    reason=SimpleNamespace(name="TRADE_DATE_MISMATCH"),
+                    instrument_index=0,
+                    reset_index=-1,
+                    native_message="canonical 1Y issue",
+                ),
+                SimpleNamespace(
+                    reason=SimpleNamespace(name="TRADE_DATE_MISMATCH"),
+                    instrument_index=2,
+                    reset_index=-1,
+                    native_message="canonical 3Y issue",
+                ),
+            ),
+        )
+        return admitted._replace(analytic_eligibility=report)
+
+    store = get_store()
+    with (
+        mock.patch.object(gateway, "plan_single_admission", side_effect=plan),
+        mock.patch.object(
+            store,
+            "add_calibration_admission",
+            wraps=store.add_calibration_admission,
+        ) as insert,
+        mock.patch.object(
+            gateway,
+            "calibrate_single",
+            wraps=gateway.calibrate_single,
+        ) as native,
+    ):
+        rejected = client.post("/api/calibrations/single", json=payload)
+    assert rejected.status_code == 422
+    error = rejected.json()["error"]
+    assert error["code"] == "ANALYTIC_INELIGIBLE"
+    assert error["location"] == ["body", "instruments", 0, "trade_date"]
+    assert error["context"]["input_index"] == 0
+    assert error["context"]["calibration_index"] == 2
+    assert insert.call_count == native.call_count == 0
+
+    for instrument in payload["instruments"]:
+        instrument["trade_date"] = "2026-01-02"
+    completed = submit_and_wait(
+        client,
+        "/api/calibrations/single",
+        payload,
+    )
+    assert [
+        diagnostic["market_rate"]
+        for diagnostic in completed["instrument_diagnostics"]
+    ] == [0.01, 0.02, 0.03]
+
+
+def test_fix_b9_router_500_covers_retrieval_adapter_and_legacy_boundary(
+    client,
+    monkeypatch,
+) -> None:
+    """FIX-B9-ROUTER-500 — only calibration routes use the new envelope."""
+    secret = "secret /tmp/calibration.db"
+
+    def explode(*_args, **_kwargs):
+        raise RuntimeError(secret)
+
+    with monkeypatch.context() as retrieval:
+        retrieval.setattr(
+            calibration_router,
+            "get_calibration_response",
+            explode,
+        )
+        response = client.get(f"/api/calibrations/{'e' * 32}")
+    assert response.status_code == 500
+    assert response.json()["error"]["code"] == "INTERNAL_SERVER_ERROR"
+    assert secret not in response.text
+    assert len(response.json()["error"]["context"]["incident_id"]) == 32
+
+    completed = submit_and_wait(
+        client,
+        "/api/calibrations/single",
+        single_request("USD", 0.02),
+    )
+    with monkeypatch.context() as adapter:
+        adapter.setattr(
+            calibration_router.RUN_RESPONSE_ADAPTER,
+            "dump_json",
+            explode,
+        )
+        response = client.get(f"/api/calibrations/{completed['id']}")
+    assert response.status_code == 500
+    assert response.json()["error"]["code"] == "INTERNAL_SERVER_ERROR"
+    assert secret not in response.text
+
+    from app.routers import products
+
+    with monkeypatch.context() as legacy:
+        legacy.setattr(products, "product_templates", explode)
+        with TestClient(client.app, raise_server_exceptions=False) as legacy_client:
+            response = legacy_client.get("/api/products/templates")
+    assert response.status_code == 500
+    assert response.text == "Internal Server Error"
+    assert "INTERNAL_SERVER_ERROR" not in response.text

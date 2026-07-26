@@ -2610,6 +2610,16 @@ def _requested_quote_bump_preview(
             {"availability": inverse.availability},
             status_code=409,
         )
+    if quote_bump.quote_bump_index >= inverse.shape[1]:
+        _raise(
+            "VALIDATION_ERROR",
+            "Input should be less than the residual-axis length",
+            ["query", "quote_bump_index"],
+            {
+                "type": "less_than",
+                "lt": inverse.shape[1],
+            },
+        )
     return calculate_quote_bump_preview(
         inverse,
         quote_bump.quote_bump_index,

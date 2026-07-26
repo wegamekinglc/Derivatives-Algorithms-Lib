@@ -312,12 +312,14 @@ def main() -> int:
     if output_dir is None:
         raise SystemExit("--output-dir is required for measured reports")
     output_dir.mkdir(parents=True, exist_ok=True)
-    with tempfile.TemporaryDirectory(prefix="dal-web-performance-") as directory:
-        with _reset_application(Path(directory) / "performance.db") as client:
-            reports = {
-                "fix-perf-30.json": _run_perf_30(client),
-                "fix-perf-100x100.json": _run_perf_100(client),
-            }
+    with (
+        tempfile.TemporaryDirectory(prefix="dal-web-performance-") as directory,
+        _reset_application(Path(directory) / "performance.db") as client,
+    ):
+        reports = {
+            "fix-perf-30.json": _run_perf_30(client),
+            "fix-perf-100x100.json": _run_perf_100(client),
+        }
     for name, report in reports.items():
         (output_dir / name).write_text(
             json.dumps(report, indent=2, ensure_ascii=False) + "\n",
