@@ -54,31 +54,17 @@ function presentCalibrationError(reason: unknown): PresentedCalibrationError {
   };
 }
 
-function submitCalibrationRequest(
-  mode: CalibrationKind,
-  source: string,
-  onInvalidJson: (message: string) => void,
-  onStarted: () => void,
-  onCompleted: (runId: string) => void,
-  onFailed: (error: PresentedCalibrationError) => void,
-  onFinished: () => void,
-): void {
-  let body: unknown;
+interface ParsedCalibrationRequest {
+  body: unknown;
+  error: string | null;
+}
+
+function parseCalibrationRequest(source: string): ParsedCalibrationRequest {
   try {
-    body = JSON.parse(source);
+    return { body: JSON.parse(source), error: null };
   } catch (reason) {
-    onInvalidJson(`Invalid JSON: ${String(reason)}`);
-    return;
+    return { body: null, error: `Invalid JSON: ${String(reason)}` };
   }
-  onStarted();
-  void api.submitCalibration(mode, body)
-    .then((run) => {
-      onCompleted(run.id);
-    })
-    .catch((reason: unknown) => {
-      onFailed(presentCalibrationError(reason));
-    })
-    .finally(onFinished);
 }
 
 export default function Curves() {
@@ -182,25 +168,25 @@ export default function Curves() {
               type="button"
               disabled={submitting}
               onClick={() => {
-                submitCalibrationRequest(
-                  mode,
-                  source,
-                  setError,
-                  () => {
-                    setSubmitting(true);
-                    setError(null);
-                  },
-                  (runId) => {
-                    navigate(`/curves/runs/${runId}`);
-                  },
-                  (presented) => {
+                const request = parseCalibrationRequest(source);
+                if (request.error) {
+                  setError(request.error);
+                  return;
+                }
+                setSubmitting(true);
+                setError(null);
+                void api.submitCalibration(mode, request.body)
+                  .then((run) => {
+                    navigate(`/curves/runs/${run.id}`);
+                  })
+                  .catch((reason: unknown) => {
+                    const presented = presentCalibrationError(reason);
                     setLocated(presented.located);
                     setError(presented.message);
-                  },
-                  () => {
+                  })
+                  .finally(() => {
                     setSubmitting(false);
-                  },
-                );
+                  });
               }}
             >
               {submitting ? "Submitting…" : "Run calibration"}

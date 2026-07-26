@@ -13,26 +13,13 @@ interface PollControl {
   timer: ReturnType<typeof setTimeout> | null;
 }
 
-function pollCalibrationRun(
+function loadCalibrationRun(
   runId: string,
   control: PollControl,
-  onRun: (run: CalibrationRun) => void,
-  onError: (message: string) => void,
-): void {
-  void api.getCalibration(runId)
-    .then((next) => {
-      if (control.cancelled) return;
-      onRun(next);
-      onError("");
-      if (next.status === "running") {
-        control.timer = setTimeout(() => {
-          pollCalibrationRun(runId, control, onRun, onError);
-        }, 300);
-      }
-    })
-    .catch((reason: unknown) => {
-      if (!control.cancelled) onError(String(reason));
-    });
+): Promise<CalibrationRun | null> {
+  return api.getCalibration(runId).then((next) =>
+    control.cancelled ? null : next
+  );
 }
 
 function useCalibrationRun(runId: string) {
@@ -41,9 +28,21 @@ function useCalibrationRun(runId: string) {
 
   useEffect(() => {
     const control: PollControl = { cancelled: false, timer: null };
-    pollCalibrationRun(runId, control, setRun, (message) => {
-      setError(message || null);
-    });
+    const poll = () => {
+      void loadCalibrationRun(runId, control)
+        .then((next) => {
+          if (!next) return;
+          setRun(next);
+          setError(null);
+          if (next.status === "running") {
+            control.timer = setTimeout(poll, 300);
+          }
+        })
+        .catch((reason: unknown) => {
+          if (!control.cancelled) setError(String(reason));
+        });
+    };
+    poll();
     return () => {
       control.cancelled = true;
       if (control.timer) clearTimeout(control.timer);

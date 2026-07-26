@@ -102,14 +102,14 @@ export function locateCalibrationField(
       field: stringValue(last, "instruments"),
     };
   }
-  const declaration = path.findIndex((item) =>
+  const declaration = path.find((item) =>
     ["declaration", "declarations", "basis"].includes(String(item)),
   );
-  if (declaration >= 0) {
+  if (declaration !== undefined) {
     return {
       section: "declaration",
       row: typeof last === "number" ? last : null,
-      field: stringValue(previous, String(path[declaration])),
+      field: stringValue(previous, String(declaration)),
     };
   }
   return {
