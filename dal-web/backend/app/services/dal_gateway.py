@@ -1720,20 +1720,10 @@ def _native_matrix_dto(
     residual_tolerance: float | None,
 ) -> MatrixDTO:
     values = matrix.to_rows() if available else None
-    if available and (not row_axis or not column_axis):
-        raise RuntimeError("native available matrix must have positive dimensions")
-    if available and (
-        len(values) != len(row_axis) or any(len(row) != len(column_axis) for row in values)
-    ):
-        raise RuntimeError("native matrix shape does not match its response axes")
+    if available:
+        _validate_native_matrix_shape(values, row_axis, column_axis)
     return MatrixDTO(
-        availability=(
-            "available"
-            if available
-            else "not_requested"
-            if not requested
-            else "not_available_for_mode"
-        ),
+        availability=_native_matrix_availability(available, requested),
         shape=(len(row_axis), len(column_axis)),
         row_axis=row_axis,
         column_axis=column_axis,
@@ -1741,6 +1731,27 @@ def _native_matrix_dto(
         residual_tolerance=residual_tolerance,
         values=values,
     )
+
+
+def _validate_native_matrix_shape(
+    values: list[list[float]],
+    row_axis: list[str],
+    column_axis: list[str],
+) -> None:
+    if not row_axis or not column_axis:
+        raise RuntimeError("native available matrix must have positive dimensions")
+    if (
+        len(values) != len(row_axis) or any(len(row) != len(column_axis) for row in values)
+    ):
+        raise RuntimeError("native matrix shape does not match its response axes")
+
+
+def _native_matrix_availability(available: bool, requested: bool) -> str:
+    if available:
+        return "available"
+    if requested:
+        return "not_available_for_mode"
+    return "not_requested"
 
 
 def _native_single_curve_payload(
