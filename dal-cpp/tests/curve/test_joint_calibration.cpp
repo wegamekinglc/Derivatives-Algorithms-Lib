@@ -2,6 +2,7 @@
 // Created by dal-implementer on 2026/6/20.
 //
 
+// clang-format off
 #include <gtest/gtest.h>
 #include <string>
 #include <dal/platform/platform.hpp>
@@ -10,6 +11,7 @@
 #include <dal/curve/curveparameterization.hpp>
 #include <dal/curve/discount.hpp>
 #include <dal/curve/jointcalibration.hpp>
+#include <dal/curve/jointcalibration_internal.hpp>
 #include <dal/curve/piecewiselinear.hpp>
 #include <dal/curve/ycimp.hpp>
 #include <dal/curve/ycinstrument.hpp>
@@ -26,8 +28,28 @@
 #include <dal/time/daybasis.hpp>
 #include <dal/time/holidays.hpp>
 #include <dal/time/periodlength.hpp>
+// clang-format on
 
 using namespace Dal;
+
+TEST(JointCalibrationTest, TestLogDiscountScalarGuessUsesDatedRawUnits) {
+    const Date_ today(2026, 1, 1);
+    JointCurveDeclaration_ declaration;
+    declaration.parameterization_ = CurveParameterization_::Value_::LOG_DISCOUNT;
+    declaration.logDfScheme_ = LogDfScheme_::Value_::LOG_LINEAR;
+    declaration.knotDates_ = {
+        today.AddDays(365),
+        today.AddDays(730),
+    };
+    const CurveDefinition_ definition = MakeCurveDefinition("joint_log", "USD", declaration.parameterization_, declaration.logDfScheme_,
+                                                            declaration.knotDates_, today, DayBasis_("ACT_365F"));
+
+    const Vector_<> scalar = JointCalibrationInternal::BuildGuessSlice(declaration, definition, 0.04, "joint_log");
+
+    ASSERT_EQ(scalar.size(), static_cast<size_t>(2));
+    EXPECT_NEAR(scalar[0], -0.04, 1.0e-14);
+    EXPECT_NEAR(scalar[1], -0.08, 1.0e-14);
+}
 
 namespace {
     Vector_<Date_> SharedKnots(const Date_& today) {

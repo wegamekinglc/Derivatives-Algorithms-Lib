@@ -34,7 +34,11 @@
 
 namespace Dal {
 #include <dal/auto/MG_AnalyticEligibility_enum.inc>
+#include <dal/auto/MG_AnalyticIneligibilityReason_enum.inc>
+#include <dal/auto/MG_CurveFreeParameterComponent_enum.inc>
 #include <dal/auto/MG_CurveJacobianMode_enum.inc>
+#include <dal/auto/MG_CurveKnotCandidateDisposition_enum.inc>
+#include <dal/auto/MG_CurveKnotOriginKind_enum.inc>
 #include <dal/auto/MG_CurveKnotPolicy_enum.inc>
 #include <dal/auto/MG_CurveParameterization_enum.inc>
 #include <dal/auto/MG_CurveSolveMode_enum.inc>
@@ -42,12 +46,63 @@ namespace Dal {
 
     namespace {
         constexpr int MAX_RELEVANT_DATES_PER_INSTRUMENT = 2;
-        // Flat-rate seed for LOG_DISCOUNT calibration; log(DF) < 0, so the seed is signed (see next line).
-        // log(DF)(node_i) = -FLAT_SEED_RATE * yf_365F(anchor, node_i).
-        constexpr double FLAT_SEED_RATE = 0.02;
-
         constexpr const char* KEY_MAX_EVALUATIONS = "MAXEVALUATIONS";
         constexpr const char* KEY_MAX_RESTARTS = "MAXRESTARTS";
+
+        void AddAnalyticIssue(AnalyticEligibilityReport_* report,
+                              AnalyticIneligibilityReason_ reason,
+                              const String_& group,
+                              int declarationIndex,
+                              int instrumentIndex,
+                              int resetIndex,
+                              const String_& message) {
+            AnalyticEligibilityIssue_ issue;
+            issue.reason_ = reason;
+            issue.group_ = group;
+            issue.declarationIndex_ = declarationIndex;
+            issue.instrumentIndex_ = instrumentIndex;
+            issue.resetIndex_ = resetIndex;
+            issue.nativeMessage_ = message;
+            report->issues_.push_back(issue);
+            report->eligible_ = false;
+        }
+
+        bool HasTemplatedSingleRate(const YCInstrument_& instrument) {
+            return dynamic_cast<const Deposit_*>(&instrument) || dynamic_cast<const FRA_*>(&instrument) ||
+                   dynamic_cast<const Future_*>(&instrument) || dynamic_cast<const Swap_*>(&instrument);
+        }
+
+        AnalyticEligibilityReport_
+        SingleAnalyticEligibility(const Date_& anchor, bool calibrateDiscountCurve, const Vector_<Handle_<YCInstrument_>>& instruments) {
+            AnalyticEligibilityReport_ report;
+            if (!calibrateDiscountCurve) {
+                AddAnalyticIssue(&report, AnalyticIneligibilityReason_::Value_::DISCOUNT_TARGET_REQUIRED, "single", -1, -1, -1,
+                                 "AAD Jacobian requires a discount-target declaration");
+            }
+            for (int i = 0; i < static_cast<int>(instruments.size()); ++i) {
+                const YCInstrument_* instrument = instruments[i].get();
+                if (!instrument || !HasTemplatedSingleRate(*instrument)) {
+                    AddAnalyticIssue(&report, AnalyticIneligibilityReason_::Value_::TEMPLATED_RATE_UNAVAILABLE, "single", -1, i, -1,
+                                     "AAD Jacobian has no templated rate for the instrument");
+                    continue;
+                }
+                const RateIndexConvention_* convention = FloatConventionOf(*instrument);
+                if (!convention) {
+                    AddAnalyticIssue(&report, AnalyticIneligibilityReason_::Value_::TEMPLATED_RATE_UNAVAILABLE, "single", -1, i, -1,
+                                     "AAD Jacobian has no floating-rate convention for the instrument");
+                    continue;
+                }
+                if (convention->useProjectionCurve_) {
+                    AddAnalyticIssue(&report, AnalyticIneligibilityReason_::Value_::PROJECTION_NOT_ALLOWED, "single", -1, i, -1,
+                                     "AAD Jacobian requires forecast and discount routing to coincide");
+                }
+                if (instrument->TradeDate() != anchor) {
+                    AddAnalyticIssue(&report, AnalyticIneligibilityReason_::Value_::TRADE_DATE_MISMATCH, "single", -1, i, -1,
+                                     "instrument trade date does not equal the curve anchor");
+                }
+            }
+            return report;
+        }
         void LoadDiscountCurves(const MultiCurveCalibrationResult_& source, CurveCalibrationSpec_* stageSpec) {
             for (const auto& [collateral, curve] : source.discountCurves_)
                 if (!stageSpec->discountCurves_.count(collateral))
@@ -87,24 +142,144 @@ namespace Dal {
             multiResult->diagnostics_.push_back(stageResult->diagnostics_);
         }
 
-        Vector_<Date_> UniqueSortedDates(const Vector_<Date_>& dates) {
-            auto sorted = dates;
-            std::sort(sorted.begin(), sorted.end());
-            sorted.erase(std::unique(sorted.begin(), sorted.end()), sorted.end());
-            return sorted;
+        CurveKnotOrigin_ InputOrigin(int index) { return {CurveKnotOriginKind_::Value_::INPUT, index, -1}; }
+
+        CurveKnotOrigin_ InstrumentOrigin(CurveKnotOriginKind_ kind, int index) {
+            REQUIRE(kind == CurveKnotOriginKind_::Value_::INSTRUMENT_START || kind == CurveKnotOriginKind_::Value_::INSTRUMENT_END,
+                    "Instrument knot origin must be a start or end");
+            return {kind, -1, index};
         }
 
-        Vector_<Date_> InstrumentDates(const Date_& today, const Vector_<Handle_<YCInstrument_>>& instruments) {
-            Vector_<Date_> retval;
-            retval.reserve(instruments.size() * MAX_RELEVANT_DATES_PER_INSTRUMENT);
-            for (const auto& inst : instruments) {
-                const auto span = inst->TimeSpan();
-                if (span.first > today)
-                    retval.push_back(span.first);
-                if (span.second > today)
-                    retval.push_back(span.second);
+        CurveKnotOrigin_ SyntheticAnchorOrigin() { return {CurveKnotOriginKind_::Value_::SYNTHETIC_ANCHOR, -1, -1}; }
+
+        void VisitKnotCandidate(ResolvedSingleKnotPlan_* result,
+                                std::map<Date_, int>* traversalIndex,
+                                const Date_& today,
+                                const Date_& date,
+                                const CurveKnotOrigin_& origin,
+                                bool filterNotAfterToday) {
+            CurveKnotCandidate_ candidate;
+            candidate.ordinal_ = static_cast<int>(result->candidateTrace_.size());
+            candidate.date_ = date;
+            candidate.origin_ = origin;
+            if (filterNotAfterToday && date <= today) {
+                candidate.disposition_ = CurveKnotCandidateDisposition_::Value_::FILTERED_NOT_AFTER_TODAY;
+            } else {
+                const auto [found, inserted] = traversalIndex->emplace(date, static_cast<int>(result->resolvedDeclaredNodes_.size()));
+                candidate.resolvedIndex_ = found->second;
+                if (inserted) {
+                    candidate.disposition_ = CurveKnotCandidateDisposition_::Value_::ADDED;
+                    result->resolvedDeclaredNodes_.push_back({date, {origin}});
+                } else {
+                    candidate.disposition_ = CurveKnotCandidateDisposition_::Value_::DUPLICATE;
+                    result->resolvedDeclaredNodes_[found->second].origins_.push_back(origin);
+                }
             }
-            return UniqueSortedDates(retval);
+            result->candidateTrace_.push_back(candidate);
+        }
+
+        void VisitSubmittedKnots(CurveKnotPolicy_ requestedPolicy,
+                                 const Vector_<Date_>& submittedKnots,
+                                 const Date_& today,
+                                 ResolvedSingleKnotPlan_* result,
+                                 std::map<Date_, int>* traversalIndex) {
+            if (requestedPolicy != CurveKnotPolicy_::Value_::INPUT && requestedPolicy != CurveKnotPolicy_::Value_::AUGMENTED)
+                return;
+            for (int i = 0; i < static_cast<int>(submittedKnots.size()); ++i)
+                VisitKnotCandidate(result, traversalIndex, today, submittedKnots[i], InputOrigin(i), false);
+        }
+
+        void VisitInstrumentKnots(CurveKnotPolicy_ requestedPolicy,
+                                  const Vector_<Handle_<YCInstrument_>>& instruments,
+                                  const Date_& today,
+                                  ResolvedSingleKnotPlan_* result,
+                                  std::map<Date_, int>* traversalIndex) {
+            if (requestedPolicy == CurveKnotPolicy_::Value_::INPUT)
+                return;
+            REQUIRE(requestedPolicy == CurveKnotPolicy_::Value_::INSTRUMENTS || requestedPolicy == CurveKnotPolicy_::Value_::AUGMENTED,
+                    "Unknown curve knot policy");
+            result->counts_.instrumentCandidates_ = static_cast<int>(instruments.size()) * MAX_RELEVANT_DATES_PER_INSTRUMENT;
+            for (int i = 0; i < static_cast<int>(instruments.size()); ++i) {
+                const auto span = instruments[i]->TimeSpan();
+                VisitKnotCandidate(result, traversalIndex, today, span.first,
+                                   InstrumentOrigin(CurveKnotOriginKind_::Value_::INSTRUMENT_START, i), true);
+                VisitKnotCandidate(result, traversalIndex, today, span.second,
+                                   InstrumentOrigin(CurveKnotOriginKind_::Value_::INSTRUMENT_END, i), true);
+            }
+        }
+
+        std::map<Date_, int> SortResolvedKnots(ResolvedSingleKnotPlan_* result) {
+            std::sort(result->resolvedDeclaredNodes_.begin(), result->resolvedDeclaredNodes_.end(),
+                      [](const ResolvedCurveKnotNode_& lhs, const ResolvedCurveKnotNode_& rhs) { return lhs.date_ < rhs.date_; });
+            std::map<Date_, int> sortedIndex;
+            for (int i = 0; i < static_cast<int>(result->resolvedDeclaredNodes_.size()); ++i)
+                sortedIndex[result->resolvedDeclaredNodes_[i].date_] = i;
+            for (auto& candidate : result->candidateTrace_)
+                if (candidate.disposition_ != CurveKnotCandidateDisposition_::Value_::FILTERED_NOT_AFTER_TODAY)
+                    candidate.resolvedIndex_ = sortedIndex.at(candidate.date_);
+            return sortedIndex;
+        }
+
+        void RequireLogDiscountAnchor(const ResolvedSingleKnotPlan_& result,
+                                      const Vector_<Date_>& resolvedDates,
+                                      CurveParameterization_ parameterization,
+                                      const Date_& today) {
+            if (parameterization != CurveParameterization_::Value_::LOG_DISCOUNT)
+                return;
+            REQUIRE(resolvedDates.front() == today &&
+                        std::any_of(result.resolvedDeclaredNodes_.front().origins_.begin(),
+                                    result.resolvedDeclaredNodes_.front().origins_.end(),
+                                    [](const CurveKnotOrigin_& origin) { return origin.kind_ == CurveKnotOriginKind_::Value_::INPUT; }),
+                    "LOG_DISCOUNT knot planning requires an input anchor at today");
+        }
+
+        void ProjectKnotRepresentation(ResolvedSingleKnotPlan_* result,
+                                       bool projectRepresentation,
+                                       CurveParameterization_ parameterization,
+                                       const Date_& today,
+                                       const std::map<Date_, int>& sortedIndex) {
+            if (!projectRepresentation || result->resolvedDeclaredNodes_.empty())
+                return;
+            Vector_<Date_> resolvedDates;
+            resolvedDates.reserve(result->resolvedDeclaredNodes_.size());
+            for (const auto& node : result->resolvedDeclaredNodes_)
+                resolvedDates.push_back(node.date_);
+            RequireLogDiscountAnchor(*result, resolvedDates, parameterization, today);
+            const CurveDefinition_ definition = MakeCurveDefinition("planned", "", parameterization, LogDfScheme_::Value_::LOG_LINEAR,
+                                                                    resolvedDates, today, DayBasis_("ACT_365F"));
+            result->freeParameters_ = DescribeCurveFreeParameters(definition);
+            result->storageNodes_.reserve(definition.nodeDates_.size());
+            for (const auto& date : definition.nodeDates_) {
+                if (parameterization == CurveParameterization_::Value_::ZERO_RATE && date == today) {
+                    result->storageNodes_.push_back({today, {SyntheticAnchorOrigin()}});
+                    result->anchorAdded_ = true;
+                } else {
+                    result->storageNodes_.push_back(result->resolvedDeclaredNodes_[sortedIndex.at(date)]);
+                }
+            }
+        }
+
+        ResolvedSingleKnotPlan_ BuildKnotPlan(const Date_& today,
+                                              const Vector_<Handle_<YCInstrument_>>& instruments,
+                                              const Vector_<Date_>& submittedKnots,
+                                              CurveKnotPolicy_ requestedPolicy,
+                                              CurveParameterization_ parameterization,
+                                              bool projectRepresentation = true) {
+            ResolvedSingleKnotPlan_ result;
+            result.requestedPolicy_ = requestedPolicy;
+            result.submittedKnotDates_ = submittedKnots;
+            result.counts_.submittedKnots_ = static_cast<int>(submittedKnots.size());
+
+            std::map<Date_, int> traversalIndex;
+            VisitSubmittedKnots(requestedPolicy, submittedKnots, today, &result, &traversalIndex);
+            VisitInstrumentKnots(requestedPolicy, instruments, today, &result, &traversalIndex);
+            const std::map<Date_, int> sortedIndex = SortResolvedKnots(&result);
+            ProjectKnotRepresentation(&result, projectRepresentation, parameterization, today, sortedIndex);
+
+            result.counts_.resolvedDeclaredNodes_ = static_cast<int>(result.resolvedDeclaredNodes_.size());
+            result.counts_.storageNodes_ = static_cast<int>(result.storageNodes_.size());
+            result.counts_.freeParameters_ = static_cast<int>(result.freeParameters_.size());
+            return result;
         }
 
         class YieldCurveCalibrationFunc_ : public Underdetermined::Function_ {
@@ -210,41 +385,12 @@ namespace Dal {
             }
 
             [[nodiscard]] bool EligibleForAnalyticJacobian() const {
-                if (!calibrateDiscountCurve_) {
-                    NOTICE("AAD Jacobian requires DISCOUNT-target calibration "
-                           "(calibrateDiscountCurve_ == true); falling back to bumped");
-                    return false;
+                const AnalyticEligibilityReport_ report = SingleAnalyticEligibility(anchor_, calibrateDiscountCurve_, instruments_);
+                if (!report.eligible_) {
+                    const String_ message = report.issues_.front().nativeMessage_ + "; falling back to bumped";
+                    NOTICE(message);
                 }
-                for (int i = 0; i < static_cast<int>(instruments_.size()); ++i)
-                    if (!InstrumentEligibleForAnalyticJacobian(instruments_[i].get()))
-                        return false;
-                return true;
-            }
-
-            [[nodiscard]] bool InstrumentEligibleForAnalyticJacobian(const YCInstrument_* inst) const {
-                const String_ name = inst->Name();
-                const RateIndexConvention_* floatConv = FloatConventionOf(*inst);
-                if (!floatConv) {
-                    const String_ msg = String_("AAD Jacobian has no templated rate for instrument '") + name + "'; falling back to bumped";
-                    NOTICE(msg);
-                    return false;
-                }
-                if (floatConv->useProjectionCurve_) {
-                    const String_ msg = String_("AAD Jacobian requires forecast==discount for every "
-                                                "instrument; instrument '") +
-                                        name + "' uses a projection curve, falling back to bumped";
-                    NOTICE(msg);
-                    return false;
-                }
-                // Must use TradeDate(), not TimeSpan().first -- spot-started instruments trade before start.
-                if (inst->TradeDate() != anchor_) {
-                    const String_ msg = String_("AAD Jacobian requires every instrument to trade at the "
-                                                "curve anchor; instrument '") +
-                                        name + "' does not, falling back to bumped";
-                    NOTICE(msg);
-                    return false;
-                }
-                return true;
+                return report.eligible_;
             }
 
             [[nodiscard]] std::unique_ptr<Underdetermined::Jacobian_> AnalyticJacobian(const Vector_<>& x, const Vector_<>& f) const;
@@ -331,18 +477,41 @@ namespace Dal {
                                               const Vector_<Handle_<YCInstrument_>>& instruments,
                                               const Vector_<Date_>& inputKnots,
                                               CurveKnotPolicy_ policy) {
-        const Vector_<Date_> instrumentKnots = InstrumentDates(today, instruments);
-        switch (policy.Switch()) {
-        case CurveKnotPolicy_::Value_::INPUT:
-            return UniqueSortedDates(inputKnots);
-        case CurveKnotPolicy_::Value_::INSTRUMENTS:
-            return instrumentKnots;
-        case CurveKnotPolicy_::Value_::AUGMENTED:
-            return UniqueSortedDates(Vector::Join(UniqueSortedDates(inputKnots), instrumentKnots));
-        default:
-            REQUIRE(false, "Unknown curve knot policy");
-            return {};
-        }
+        const auto plan = BuildKnotPlan(today, instruments, inputKnots, policy, CurveParameterization_::Value_::PIECEWISE_CONSTANT_FWD, false);
+        Vector_<Date_> result;
+        result.reserve(plan.resolvedDeclaredNodes_.size());
+        for (const auto& node : plan.resolvedDeclaredNodes_)
+            result.push_back(node.date_);
+        return result;
+    }
+
+    ResolvedSingleKnotPlan_ PlanCurveCalibrationKnots(const Date_& today,
+                                                      const Vector_<Handle_<YCInstrument_>>& instruments,
+                                                      const Vector_<Date_>& submittedKnots,
+                                                      CurveKnotPolicy_ requestedPolicy,
+                                                      CurveParameterization_ parameterization) {
+        return BuildKnotPlan(today, instruments, submittedKnots, requestedPolicy, parameterization);
+    }
+
+    ExecutionSingleKnotIdentity_ InspectCurveCalibrationExecutionIdentity(const CurveCalibrationSpec_& finalInputSpec) {
+        REQUIRE(finalInputSpec.KnotPolicy() == CurveKnotPolicy_::Value_::INPUT, "Execution identity inspection requires an INPUT knot policy");
+        const CurveDefinition_ definition =
+            MakeCurveDefinition(finalInputSpec.curveName_, finalInputSpec.ccy_, finalInputSpec.Parameterization(), finalInputSpec.LogDfScheme(),
+                                finalInputSpec.KnotDates(), finalInputSpec.Today(), finalInputSpec.liborBasis_);
+
+        ExecutionSingleKnotIdentity_ result;
+        result.today_ = finalInputSpec.Today();
+        result.parameterization_ = finalInputSpec.Parameterization();
+        if (result.parameterization_ == CurveParameterization_::Value_::ZERO_RATE ||
+            result.parameterization_ == CurveParameterization_::Value_::LOG_DISCOUNT)
+            result.logDfScheme_ = finalInputSpec.LogDfScheme();
+        result.resolvedDeclaredDates_ = finalInputSpec.KnotDates();
+        result.storageDates_ = definition.nodeDates_;
+        result.freeParameters_ = DescribeCurveFreeParameters(definition);
+        result.counts_.resolvedDeclaredNodes_ = static_cast<int>(result.resolvedDeclaredDates_.size());
+        result.counts_.storageNodes_ = static_cast<int>(result.storageDates_.size());
+        result.counts_.freeParameters_ = static_cast<int>(result.freeParameters_.size());
+        return result;
     }
 
     void ValidateCurveCalibrationSpec(const CurveCalibrationSpec_& spec) {
@@ -402,9 +571,9 @@ namespace Dal {
             if (!spec.initialGuessPerNode_.empty()) {
                 std::copy(spec.initialGuessPerNode_.begin(), spec.initialGuessPerNode_.end(), guess.begin());
             } else if (definition.parameterization_ == CurveParameterization_::Value_::LOG_DISCOUNT) {
-                // Default seed: a flat 2% continuously-compounded rate mapped to free log-DF nodes.
+                // initialGuess_ is an annualized continuously-compounded rate.
                 for (int i = 1; i < static_cast<int>(definition.nodeDates_.size()); ++i)
-                    guess[i - 1] = -FLAT_SEED_RATE * spec.liborBasis_(definition.anchorDate_, definition.nodeDates_[i], nullptr);
+                    guess[i - 1] = -spec.initialGuess_ * spec.liborBasis_(definition.anchorDate_, definition.nodeDates_[i], nullptr);
             } else {
                 std::fill(guess.begin(), guess.end(), spec.initialGuess_);
             }
@@ -473,6 +642,28 @@ namespace Dal {
             return retval;
         }
     } // namespace
+
+    AnalyticEligibilityReport_ ValidateSingleCurveAnalyticEligibility(const CurveCalibrationSpec_& spec) {
+        return SingleAnalyticEligibility(spec.today_, spec.calibrateDiscountCurve_, spec.instruments_);
+    }
+
+    Vector_<> ResolveCurveCalibrationInitialGuess(const CurveCalibrationSpec_& finalSpec) {
+        REQUIRE(finalSpec.knotPolicy_ == CurveKnotPolicy_::Value_::INPUT, "Initial-guess resolution requires the final INPUT execution spec");
+        REQUIRE(std::isfinite(finalSpec.initialGuess_), "Curve calibration initial guess must be finite");
+        const CurveDefinition_ definition =
+            MakeCurveDefinition(finalSpec.curveName_, finalSpec.ccy_, finalSpec.parameterization_, finalSpec.logDfScheme_, finalSpec.knotDates_,
+                                finalSpec.today_, finalSpec.liborBasis_);
+        const CurveParameterLayout_ layout = BuildCurveParameterLayout(definition);
+        for (int i = 0; i < static_cast<int>(finalSpec.initialGuessPerNode_.size()); ++i) {
+            REQUIRE(std::isfinite(finalSpec.initialGuessPerNode_[i]),
+                    String_("Curve calibration per-node initial guess must be finite at index ") + String::FromInt(i));
+        }
+        if (!finalSpec.initialGuessPerNode_.empty()) {
+            REQUIRE(static_cast<int>(finalSpec.initialGuessPerNode_.size()) == layout.parameterCount_,
+                    "Curve calibration per-node initial guess length must match the curve parameter count");
+        }
+        return BuildCalibrationGuess(finalSpec, definition, layout);
+    }
 
     CurveCalibrationResult_ CalibrateYieldCurve(const CurveCalibrationSpec_& spec) { return CalibrateYieldCurve(spec, CurveCalibrationOptions_()); }
 

@@ -8,6 +8,8 @@ import Trades from "./pages/Trades";
 import ProductBuilder from "./pages/ProductBuilder";
 import Models from "./pages/Models";
 import Valuations from "./pages/Valuations";
+import Curves from "./pages/Curves";
+import CurveRun from "./pages/CurveRun";
 
 const NAV = [
   { to: "/dashboard", label: "Dashboard" },
@@ -16,6 +18,7 @@ const NAV = [
   { to: "/products", label: "Product Builder" },
   { to: "/models", label: "Models" },
   { to: "/valuations", label: "Valuation Runs" },
+  { to: "/curves", label: "Curve Lab" },
 ];
 
 export default function App() {
@@ -75,6 +78,8 @@ export default function App() {
           <Route path="/products" element={<ProductBuilder />} />
           <Route path="/models" element={<Models />} />
           <Route path="/valuations" element={<Valuations />} />
+          <Route path="/curves" element={<Curves />} />
+          <Route path="/curves/runs/:runId" element={<CurveRun />} />
         </Routes>
       </main>
     </div>

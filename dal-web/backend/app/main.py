@@ -4,12 +4,15 @@ from __future__ import annotations
 
 import logging
 import os
+from collections.abc import Callable
+from datetime import UTC, datetime
+from typing import Any
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app import __version__
-from app.routers import models, portfolios, products, system, trades
+from app.routers import calibrations, models, portfolios, products, system, trades
 from app.services.store import get_store, is_memory_mode
 from app.services.templates import seed_demo_data
 
@@ -69,6 +72,33 @@ def _reconcile_orphaned_valuations() -> None:
             logger.info("Reconciled orphaned valuation %s to failed", valuation.id)
 
 
+def _reconcile_orphaned_calibrations() -> None:
+    """Terminalize calibration workers that cannot survive process restart."""
+    if is_memory_mode():
+        return
+    store = get_store()
+    restart_error = {
+        "code": "SERVER_RESTARTED",
+        "message": "Server restarted while calibrating",
+        "location": None,
+        "context": {},
+    }
+    for calibration in store.list_running_calibrations():
+        store.fail_calibration(
+            calibration.id,
+            error_payload=restart_error,
+            finished_at=datetime.now(UTC),
+            actual_jacobian_mode=calibration.actual_jacobian_mode,
+            actual_execution_identity=calibration.actual_execution_identity,
+            actual_execution_identity_hash=calibration.actual_execution_identity_hash,
+            native_solve_ms=calibration.native_solve_ms,
+            serialization_ms=calibration.serialization_ms,
+        )
+        logger.info(
+            "Reconciled orphaned calibration %s to failed", calibration.id
+        )
+
+
 def create_app() -> FastAPI:
     app = FastAPI(
         title="DAL Derivatives Portfolio Management",
@@ -101,9 +131,21 @@ def create_app() -> FastAPI:
     app.include_router(models.router)
     app.include_router(trades.router)
     app.include_router(portfolios.router)
+    app.include_router(calibrations.router)
+    app.include_router(calibrations.curve_router)
+
+    generated_openapi: Callable[[], dict[str, Any]] = app.openapi
+
+    def calibration_openapi() -> dict[str, Any]:
+        document = generated_openapi()
+        calibrations.patch_openapi_examples(document)
+        return document
+
+    app.openapi = calibration_openapi
 
     _init_database()
     _reconcile_orphaned_valuations()
+    _reconcile_orphaned_calibrations()
 
     if os.environ.get("WEBUI_SEED_DEMO", "1").strip().lower() not in {"0", "false", "no"}:
         seed_demo_data(get_store())

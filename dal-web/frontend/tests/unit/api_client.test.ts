@@ -56,6 +56,18 @@ describe("api client", () => {
     expect(String(url)).toBe(`${ORIGIN}/api/valuations/v42`);
   });
 
+  it("requests quote-bump previews from the persisted run endpoint", async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ id: "c".repeat(32) }));
+
+    await api.getCalibration("c".repeat(32), 4, 0.0001);
+
+    const [url, init] = fetchMock.mock.calls[0] as [URL, RequestInit];
+    expect(String(url)).toBe(
+      `${ORIGIN}/api/calibrations/${"c".repeat(32)}?quote_bump_index=4&quote_bump_size=0.0001`,
+    );
+    expect(init.headers).toEqual({});
+  });
+
   it("resolves 204 No Content to undefined", async () => {
     fetchMock.mockResolvedValue(new Response(null, { status: 204 }));
 

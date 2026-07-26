@@ -180,11 +180,21 @@ namespace Dal::JointCalibrationInternal {
         return result;
     }
 
-    inline Vector_<> BuildGuessSlice(const JointCurveDeclaration_& declaration, int parameterCount, double defaultGuess, const String_& context) {
+    template <class Declaration_>
+    inline Vector_<>
+    BuildGuessSlice(const Declaration_& declaration, const CurveDefinition_& definition, double defaultGuess, const String_& context) {
+        const int parameterCount = BuildCurveParameterLayout(definition).parameterCount_;
         if (!declaration.initialGuessPerNode_.empty()) {
             REQUIRE(static_cast<int>(declaration.initialGuessPerNode_.size()) == parameterCount,
                     context + " initialGuessPerNode_ length must equal its parameter count");
             return declaration.initialGuessPerNode_;
+        }
+        if (definition.parameterization_ == CurveParameterization_::Value_::LOG_DISCOUNT) {
+            Vector_<> result(parameterCount);
+            for (int i = 1; i < static_cast<int>(definition.nodeDates_.size()); ++i) {
+                result[i - 1] = -defaultGuess * definition.dayCount_(definition.anchorDate_, definition.nodeDates_[i], nullptr);
+            }
+            return result;
         }
         return Vector_<>(parameterCount, defaultGuess);
     }

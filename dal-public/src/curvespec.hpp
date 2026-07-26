@@ -60,8 +60,8 @@ namespace Dal {
     };
 
     CalibrationResult_ CalibrateSingleCurve(const CurveCalibrationSpec_& spec);
-    CalibrationResult_ CalibrateSingleCurve(const CurveCalibrationSpec_& spec,
-                                             CurveJacobianMode_ jacobianMode);
+    CalibrationResult_ CalibrateSingleCurve(const CurveCalibrationSpec_& spec, CurveJacobianMode_ jacobianMode);
+    CalibrationResult_ CalibrateSingleCurve(const CurveCalibrationSpec_& spec, const CurveCalibrationOptions_& options);
     MultiCurveCalibrationResult_ CalibrateMultiCurveBundle(const MultiCurveCalibrationSpec_& spec);
 
 } // namespace Dal

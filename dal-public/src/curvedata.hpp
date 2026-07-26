@@ -8,8 +8,11 @@
 
 #include <dal/curve/curveblock.hpp>
 #include <dal/curve/discount.hpp>
+#include <dal/curve/piecewiseconstant.hpp>
 #include <dal/curve/piecewiselinear.hpp>
+#include <dal/curve/ycconst.hpp>
 #include <dal/curve/ycimp.hpp>
+#include <dal/curve/yclogdf.hpp>
 #include <dal/curve/yczerorate.hpp>
 #include <dal/platform/platform.hpp>
 #include <dal/protocol/collateraltype.hpp>
@@ -18,12 +21,44 @@
 
 namespace Dal {
 
+    FORCE_INLINE Handle_<DiscountCurve_> DiscountPWCNew(const String_& name,
+                                                        const String_& ccy,
+                                                        const Vector_<Date_>& knotDates,
+                                                        const Vector_<>& rightForwards,
+                                                        const Handle_<DiscountCurve_>& base = Handle_<DiscountCurve_>()) {
+        return Handle_<DiscountCurve_>(NewDiscountPWC(name, ccy, PiecewiseConstant_(knotDates, rightForwards), base));
+    }
+
     FORCE_INLINE Handle_<DiscountCurve_> DiscountPWLFNew(const String_& name,
                                                          const String_& ccy,
                                                          const Vector_<Date_>& knotDates,
                                                          const Vector_<>& fwdRates,
                                                          const Handle_<DiscountCurve_>& base = Handle_<DiscountCurve_>()) {
         return Handle_<DiscountCurve_>(NewDiscountPWLF(name, ccy, PiecewiseLinear_(knotDates, fwdRates, fwdRates), base));
+    }
+
+    FORCE_INLINE Handle_<DiscountCurve_> DiscountPWLFNew(const String_& name,
+                                                         const String_& ccy,
+                                                         const Vector_<Date_>& knotDates,
+                                                         const Vector_<>& leftForwards,
+                                                         const Vector_<>& rightForwards,
+                                                         const Handle_<DiscountCurve_>& base = Handle_<DiscountCurve_>()) {
+        return Handle_<DiscountCurve_>(NewDiscountPWLF(name, ccy, PiecewiseLinear_(knotDates, leftForwards, rightForwards), base));
+    }
+
+    struct MappedDiscountCurveOptions_ {
+        DayBasis_ dayCount_ = DayBasis_("ACT_365F");
+        LogDfScheme_ logDfScheme_ = LogDfScheme_::Value_::LOG_LINEAR;
+        Handle_<DiscountCurve_> base_;
+    };
+
+    FORCE_INLINE Handle_<DiscountCurve_> DiscountLogDFNew(const String_& name,
+                                                          const String_& ccy,
+                                                          const Vector_<Date_>& nodeDates,
+                                                          const Vector_<>& logDiscountFactors,
+                                                          const MappedDiscountCurveOptions_& options = {}) {
+        return Handle_<DiscountCurve_>(
+            NewDiscountLogDF(name, ccy, nodeDates, logDiscountFactors, options.dayCount_, options.logDfScheme_, options.base_));
     }
 
     FORCE_INLINE Handle_<DiscountCurve_> DiscountZeroRateNew(const String_& name,
@@ -37,8 +72,7 @@ namespace Dal {
         return Handle_<DiscountCurve_>(NewDiscountZeroRate(name, ccy, anchorDate, nodeDates, zeroRates, dayCount, scheme, base));
     }
 
-    FORCE_INLINE Handle_<CurveBlock_> CurveBlockNew(const Handle_<DiscountCurve_>& dc,
-                                                    const DayBasis_& liborBasis = DayBasis_("ACT_365F")) {
+    FORCE_INLINE Handle_<CurveBlock_> CurveBlockNew(const Handle_<DiscountCurve_>& dc, const DayBasis_& liborBasis = DayBasis_("ACT_365F")) {
         return Handle_<CurveBlock_>(new CurveBlock_(dc, liborBasis));
     }
 

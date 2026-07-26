@@ -8,6 +8,7 @@
 
 #include <dal/math/vectors.hpp>
 #include <dal/string/strings.hpp>
+#include <dal/utilities/exceptions.hpp>
 #include <dal/utilities/dictionary.hpp>
 
 /*IF--------------------------------------------------------------------------
@@ -44,6 +45,11 @@ namespace Dal {
 
     namespace Underdetermined {
         using Controls_ = UnderdeterminedControls_;
+
+        class ConvergenceError_ : public Exception_ {
+        public:
+            using Exception_::Exception_;
+        };
 
         class Jacobian_ {
         public:

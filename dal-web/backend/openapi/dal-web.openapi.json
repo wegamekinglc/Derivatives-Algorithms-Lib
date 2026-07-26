@@ -1,0 +1,6782 @@
+{
+  "components": {
+    "schemas": {
+      "ApiErrorDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Code",
+            "type": "string"
+          },
+          "context": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/JsonValue"
+            },
+            "title": "Context",
+            "type": "object"
+          },
+          "location": {
+            "anyOf": [
+              {
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "integer"
+                    }
+                  ]
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "message",
+          "location",
+          "context"
+        ],
+        "title": "ApiErrorDTO",
+        "type": "object"
+      },
+      "ApiErrorResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "error": {
+            "$ref": "#/components/schemas/ApiErrorDTO"
+          }
+        },
+        "required": [
+          "error"
+        ],
+        "title": "ApiErrorResponse",
+        "type": "object"
+      },
+      "BSModelParams": {
+        "properties": {
+          "div": {
+            "title": "Div",
+            "type": "number"
+          },
+          "rate": {
+            "title": "Rate",
+            "type": "number"
+          },
+          "spot": {
+            "title": "Spot",
+            "type": "number"
+          },
+          "vol": {
+            "minimum": 0.0,
+            "title": "Vol",
+            "type": "number"
+          }
+        },
+        "required": [
+          "spot",
+          "vol",
+          "rate",
+          "div"
+        ],
+        "title": "BSModelParams",
+        "type": "object"
+      },
+      "BasisSwapInstrumentDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "const": "BASIS_SWAP",
+            "title": "Kind",
+            "type": "string"
+          },
+          "label": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Label",
+            "type": "string"
+          },
+          "market_rate": {
+            "title": "Market Rate",
+            "type": "number"
+          },
+          "maturity": {
+            "format": "date",
+            "title": "Maturity",
+            "type": "string"
+          },
+          "reference_index": {
+            "$ref": "#/components/schemas/RateIndexConventionDTO"
+          },
+          "reference_leg": {
+            "$ref": "#/components/schemas/RateLegConventionDTO"
+          },
+          "spread_index": {
+            "$ref": "#/components/schemas/RateIndexConventionDTO"
+          },
+          "spread_leg": {
+            "$ref": "#/components/schemas/RateLegConventionDTO"
+          },
+          "start": {
+            "format": "date",
+            "title": "Start",
+            "type": "string"
+          },
+          "trade_date": {
+            "format": "date",
+            "title": "Trade Date",
+            "type": "string"
+          }
+        },
+        "required": [
+          "label",
+          "trade_date",
+          "start",
+          "maturity",
+          "market_rate",
+          "kind",
+          "spread_index",
+          "spread_leg",
+          "reference_index",
+          "reference_leg"
+        ],
+        "title": "BasisSwapInstrumentDTO",
+        "type": "object"
+      },
+      "CalibrationOptionsDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "include_effective_inverse": {
+            "default": false,
+            "title": "Include Effective Inverse",
+            "type": "boolean"
+          },
+          "include_jacobian": {
+            "default": false,
+            "title": "Include Jacobian",
+            "type": "boolean"
+          },
+          "jacobian_mode": {
+            "default": "ANALYTIC",
+            "enum": [
+              "ANALYTIC",
+              "BUMPED"
+            ],
+            "title": "Jacobian Mode",
+            "type": "string"
+          }
+        },
+        "title": "CalibrationOptionsDTO",
+        "type": "object"
+      },
+      "CalibrationTimingsDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "native_solve_ms": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Native Solve Ms"
+          },
+          "serialization_ms": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Serialization Ms"
+          }
+        },
+        "required": [
+          "native_solve_ms",
+          "serialization_ms"
+        ],
+        "title": "CalibrationTimingsDTO",
+        "type": "object"
+      },
+      "CompletedCalibrationRunResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "actual_execution_identity": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ExecutionSingleKnotIdentityDTO"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "actual_execution_identity_hash": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actual Execution Identity Hash"
+          },
+          "actual_jacobian_mode": {
+            "enum": [
+              "ANALYTIC",
+              "BUMPED"
+            ],
+            "title": "Actual Jacobian Mode",
+            "type": "string"
+          },
+          "backend": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Backend",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "curves": {
+            "items": {
+              "discriminator": {
+                "mapping": {
+                  "LOG_DISCOUNT": "#/components/schemas/LogDiscountCurveReconstructionDTO",
+                  "PIECEWISE_CONSTANT_FWD": "#/components/schemas/PwcCurveReconstructionDTO",
+                  "PIECEWISE_LINEAR_FWD": "#/components/schemas/PwlfCurveReconstructionDTO",
+                  "ZERO_RATE": "#/components/schemas/ZeroRateCurveReconstructionDTO"
+                },
+                "propertyName": "parameterization"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/PwcCurveReconstructionDTO"
+                },
+                {
+                  "$ref": "#/components/schemas/PwlfCurveReconstructionDTO"
+                },
+                {
+                  "$ref": "#/components/schemas/ZeroRateCurveReconstructionDTO"
+                },
+                {
+                  "$ref": "#/components/schemas/LogDiscountCurveReconstructionDTO"
+                }
+              ]
+            },
+            "minItems": 1,
+            "title": "Curves",
+            "type": "array"
+          },
+          "effective_inverse": {
+            "$ref": "#/components/schemas/MatrixDTO"
+          },
+          "error": {
+            "title": "Error",
+            "type": "null"
+          },
+          "expected_execution_identity": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ExecutionSingleKnotIdentityDTO"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "expected_execution_identity_hash": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Execution Identity Hash"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "fx_forwards": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FxForwardDTO"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "id": {
+            "pattern": "^[0-9a-f]{32}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "instrument_diagnostics": {
+            "items": {
+              "$ref": "#/components/schemas/InstrumentDiagnosticDTO"
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Instrument Diagnostics",
+            "type": "array"
+          },
+          "is_native": {
+            "title": "Is Native",
+            "type": "boolean"
+          },
+          "jacobian": {
+            "$ref": "#/components/schemas/MatrixDTO"
+          },
+          "kind": {
+            "enum": [
+              "single",
+              "xccy_staged",
+              "xccy_joint"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "named_ranges": {
+            "$ref": "#/components/schemas/NamedRangesDTO"
+          },
+          "options": {
+            "$ref": "#/components/schemas/NormalizedCalibrationOptionsDTO"
+          },
+          "phase": {
+            "const": "finished",
+            "title": "Phase",
+            "type": "string"
+          },
+          "quote_bump_preview": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/QuoteBumpPreviewDTO"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "requested_jacobian_mode": {
+            "enum": [
+              "ANALYTIC",
+              "BUMPED"
+            ],
+            "title": "Requested Jacobian Mode",
+            "type": "string"
+          },
+          "resolved_knot_plan": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ResolvedSingleKnotPlanDTO"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "resolved_knot_plan_hash": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolved Knot Plan Hash"
+          },
+          "schema_version": {
+            "const": 1,
+            "title": "Schema Version",
+            "type": "integer"
+          },
+          "solver": {
+            "$ref": "#/components/schemas/NormalizedCalibrationSolverDTO"
+          },
+          "solver_diagnostics": {
+            "$ref": "#/components/schemas/SolverDiagnosticsDTO"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "status": {
+            "const": "completed",
+            "title": "Status",
+            "type": "string"
+          },
+          "timings": {
+            "$ref": "#/components/schemas/CalibrationTimingsDTO"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "name",
+          "schema_version",
+          "created_at",
+          "started_at",
+          "finished_at",
+          "backend",
+          "is_native",
+          "solver",
+          "options",
+          "requested_jacobian_mode",
+          "resolved_knot_plan",
+          "resolved_knot_plan_hash",
+          "expected_execution_identity",
+          "expected_execution_identity_hash",
+          "actual_execution_identity",
+          "actual_execution_identity_hash",
+          "timings",
+          "status",
+          "phase",
+          "actual_jacobian_mode",
+          "solver_diagnostics",
+          "curves",
+          "instrument_diagnostics",
+          "fx_forwards",
+          "named_ranges",
+          "jacobian",
+          "effective_inverse",
+          "quote_bump_preview",
+          "error"
+        ],
+        "title": "CompletedCalibrationRunResponse",
+        "type": "object"
+      },
+      "CrossCurrencyConventionDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "domestic_index": {
+            "$ref": "#/components/schemas/RateIndexConventionDTO"
+          },
+          "domestic_leg": {
+            "$ref": "#/components/schemas/RateLegConventionDTO"
+          },
+          "final_notional_exchange": {
+            "title": "Final Notional Exchange",
+            "type": "boolean"
+          },
+          "foreign_index": {
+            "$ref": "#/components/schemas/RateIndexConventionDTO"
+          },
+          "foreign_leg": {
+            "$ref": "#/components/schemas/RateLegConventionDTO"
+          },
+          "initial_notional_exchange": {
+            "title": "Initial Notional Exchange",
+            "type": "boolean"
+          },
+          "spread_on_foreign_leg": {
+            "title": "Spread On Foreign Leg",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "initial_notional_exchange",
+          "final_notional_exchange",
+          "spread_on_foreign_leg",
+          "domestic_index",
+          "domestic_leg",
+          "foreign_index",
+          "foreign_leg"
+        ],
+        "title": "CrossCurrencyConventionDTO",
+        "type": "object"
+      },
+      "CurrencyPairDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "domestic": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Domestic",
+            "type": "string"
+          },
+          "foreign": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Foreign",
+            "type": "string"
+          }
+        },
+        "required": [
+          "domestic",
+          "foreign"
+        ],
+        "title": "CurrencyPairDTO",
+        "type": "object"
+      },
+      "CurveTargetDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "collateral": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Collateral",
+            "type": "string"
+          },
+          "tenor": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tenor"
+          }
+        },
+        "required": [
+          "collateral",
+          "tenor"
+        ],
+        "title": "CurveTargetDTO",
+        "type": "object"
+      },
+      "DepositInstrumentDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "index": {
+            "$ref": "#/components/schemas/RateIndexConventionDTO"
+          },
+          "kind": {
+            "const": "DEPOSIT",
+            "title": "Kind",
+            "type": "string"
+          },
+          "label": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Label",
+            "type": "string"
+          },
+          "market_rate": {
+            "title": "Market Rate",
+            "type": "number"
+          },
+          "maturity": {
+            "format": "date",
+            "title": "Maturity",
+            "type": "string"
+          },
+          "start": {
+            "format": "date",
+            "title": "Start",
+            "type": "string"
+          },
+          "trade_date": {
+            "format": "date",
+            "title": "Trade Date",
+            "type": "string"
+          }
+        },
+        "required": [
+          "label",
+          "trade_date",
+          "start",
+          "maturity",
+          "market_rate",
+          "kind",
+          "index"
+        ],
+        "title": "DepositInstrumentDTO",
+        "type": "object"
+      },
+      "DupireModelParams": {
+        "properties": {
+          "rate": {
+            "title": "Rate",
+            "type": "number"
+          },
+          "repo": {
+            "title": "Repo",
+            "type": "number"
+          },
+          "spot": {
+            "title": "Spot",
+            "type": "number"
+          },
+          "spots": {
+            "items": {
+              "type": "number"
+            },
+            "title": "Spots",
+            "type": "array"
+          },
+          "times": {
+            "items": {
+              "type": "number"
+            },
+            "title": "Times",
+            "type": "array"
+          },
+          "vols": {
+            "items": {
+              "items": {
+                "type": "number"
+              },
+              "type": "array"
+            },
+            "title": "Vols",
+            "type": "array"
+          }
+        },
+        "required": [
+          "spot",
+          "rate",
+          "repo",
+          "spots",
+          "times",
+          "vols"
+        ],
+        "title": "DupireModelParams",
+        "type": "object"
+      },
+      "EventRow": {
+        "description": "A single (date / schedule label, event-script) pair.\n\n``date_kind`` distinguishes a concrete calendar date from a textual label\nsuch as a constant macro (``STRIKE``) or an observation schedule\n(``START: ... END: ... FREQ: 1W``).",
+        "properties": {
+          "date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Date"
+          },
+          "date_kind": {
+            "default": "date",
+            "enum": [
+              "date",
+              "label"
+            ],
+            "title": "Date Kind",
+            "type": "string"
+          },
+          "event": {
+            "description": "DAL event script for this row",
+            "title": "Event",
+            "type": "string"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          }
+        },
+        "required": [
+          "event"
+        ],
+        "title": "EventRow",
+        "type": "object"
+      },
+      "ExecutionSingleKnotCountsDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "free_parameters": {
+            "maximum": 200.0,
+            "minimum": 1.0,
+            "title": "Free Parameters",
+            "type": "integer"
+          },
+          "resolved_declared_nodes": {
+            "maximum": 100.0,
+            "minimum": 1.0,
+            "title": "Resolved Declared Nodes",
+            "type": "integer"
+          },
+          "storage_nodes": {
+            "maximum": 100.0,
+            "minimum": 1.0,
+            "title": "Storage Nodes",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "resolved_declared_nodes",
+          "storage_nodes",
+          "free_parameters"
+        ],
+        "title": "ExecutionSingleKnotCountsDTO",
+        "type": "object"
+      },
+      "ExecutionSingleKnotIdentityDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "counts": {
+            "$ref": "#/components/schemas/ExecutionSingleKnotCountsDTO"
+          },
+          "execution_policy": {
+            "const": "INPUT",
+            "title": "Execution Policy",
+            "type": "string"
+          },
+          "free_parameters": {
+            "items": {
+              "$ref": "#/components/schemas/FreeParameterDTO"
+            },
+            "maxItems": 200,
+            "minItems": 1,
+            "title": "Free Parameters",
+            "type": "array"
+          },
+          "identity_version": {
+            "const": 1,
+            "title": "Identity Version",
+            "type": "integer"
+          },
+          "log_df_scheme": {
+            "anyOf": [
+              {
+                "enum": [
+                  "LOG_LINEAR",
+                  "LOG_CUBIC_NATURAL",
+                  "MIXED"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Log Df Scheme"
+          },
+          "parameterization": {
+            "enum": [
+              "PIECEWISE_CONSTANT_FWD",
+              "PIECEWISE_LINEAR_FWD",
+              "ZERO_RATE",
+              "LOG_DISCOUNT"
+            ],
+            "title": "Parameterization",
+            "type": "string"
+          },
+          "resolved_declared_dates": {
+            "items": {
+              "format": "date",
+              "type": "string"
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Resolved Declared Dates",
+            "type": "array"
+          },
+          "storage_dates": {
+            "items": {
+              "format": "date",
+              "type": "string"
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Storage Dates",
+            "type": "array"
+          },
+          "today": {
+            "format": "date",
+            "title": "Today",
+            "type": "string"
+          }
+        },
+        "required": [
+          "identity_version",
+          "execution_policy",
+          "today",
+          "parameterization",
+          "log_df_scheme",
+          "resolved_declared_dates",
+          "storage_dates",
+          "free_parameters",
+          "counts"
+        ],
+        "title": "ExecutionSingleKnotIdentityDTO",
+        "type": "object"
+      },
+      "FailedCalibrationRunResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "actual_execution_identity": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ExecutionSingleKnotIdentityDTO"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "actual_execution_identity_hash": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actual Execution Identity Hash"
+          },
+          "actual_jacobian_mode": {
+            "anyOf": [
+              {
+                "enum": [
+                  "ANALYTIC",
+                  "BUMPED"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actual Jacobian Mode"
+          },
+          "backend": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Backend",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "curves": {
+            "items": {
+              "discriminator": {
+                "mapping": {
+                  "LOG_DISCOUNT": "#/components/schemas/LogDiscountCurveReconstructionDTO",
+                  "PIECEWISE_CONSTANT_FWD": "#/components/schemas/PwcCurveReconstructionDTO",
+                  "PIECEWISE_LINEAR_FWD": "#/components/schemas/PwlfCurveReconstructionDTO",
+                  "ZERO_RATE": "#/components/schemas/ZeroRateCurveReconstructionDTO"
+                },
+                "propertyName": "parameterization"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/PwcCurveReconstructionDTO"
+                },
+                {
+                  "$ref": "#/components/schemas/PwlfCurveReconstructionDTO"
+                },
+                {
+                  "$ref": "#/components/schemas/ZeroRateCurveReconstructionDTO"
+                },
+                {
+                  "$ref": "#/components/schemas/LogDiscountCurveReconstructionDTO"
+                }
+              ]
+            },
+            "title": "Curves",
+            "type": "array"
+          },
+          "effective_inverse": {
+            "title": "Effective Inverse",
+            "type": "null"
+          },
+          "error": {
+            "$ref": "#/components/schemas/ApiErrorDTO"
+          },
+          "expected_execution_identity": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ExecutionSingleKnotIdentityDTO"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "expected_execution_identity_hash": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Execution Identity Hash"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "fx_forwards": {
+            "title": "Fx Forwards",
+            "type": "null"
+          },
+          "id": {
+            "pattern": "^[0-9a-f]{32}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "instrument_diagnostics": {
+            "items": {
+              "$ref": "#/components/schemas/InstrumentDiagnosticDTO"
+            },
+            "title": "Instrument Diagnostics",
+            "type": "array"
+          },
+          "is_native": {
+            "title": "Is Native",
+            "type": "boolean"
+          },
+          "jacobian": {
+            "title": "Jacobian",
+            "type": "null"
+          },
+          "kind": {
+            "enum": [
+              "single",
+              "xccy_staged",
+              "xccy_joint"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "named_ranges": {
+            "title": "Named Ranges",
+            "type": "null"
+          },
+          "options": {
+            "$ref": "#/components/schemas/NormalizedCalibrationOptionsDTO"
+          },
+          "phase": {
+            "const": "finished",
+            "title": "Phase",
+            "type": "string"
+          },
+          "quote_bump_preview": {
+            "title": "Quote Bump Preview",
+            "type": "null"
+          },
+          "requested_jacobian_mode": {
+            "enum": [
+              "ANALYTIC",
+              "BUMPED"
+            ],
+            "title": "Requested Jacobian Mode",
+            "type": "string"
+          },
+          "resolved_knot_plan": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ResolvedSingleKnotPlanDTO"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "resolved_knot_plan_hash": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolved Knot Plan Hash"
+          },
+          "schema_version": {
+            "const": 1,
+            "title": "Schema Version",
+            "type": "integer"
+          },
+          "solver": {
+            "$ref": "#/components/schemas/NormalizedCalibrationSolverDTO"
+          },
+          "solver_diagnostics": {
+            "title": "Solver Diagnostics",
+            "type": "null"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "status": {
+            "const": "failed",
+            "title": "Status",
+            "type": "string"
+          },
+          "timings": {
+            "$ref": "#/components/schemas/CalibrationTimingsDTO"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "name",
+          "schema_version",
+          "created_at",
+          "started_at",
+          "finished_at",
+          "backend",
+          "is_native",
+          "solver",
+          "options",
+          "requested_jacobian_mode",
+          "resolved_knot_plan",
+          "resolved_knot_plan_hash",
+          "expected_execution_identity",
+          "expected_execution_identity_hash",
+          "actual_execution_identity",
+          "actual_execution_identity_hash",
+          "timings",
+          "status",
+          "phase",
+          "actual_jacobian_mode",
+          "solver_diagnostics",
+          "curves",
+          "instrument_diagnostics",
+          "fx_forwards",
+          "named_ranges",
+          "jacobian",
+          "effective_inverse",
+          "quote_bump_preview",
+          "error"
+        ],
+        "title": "FailedCalibrationRunResponse",
+        "type": "object"
+      },
+      "FixingIdentityDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "fixing_hour": {
+            "maximum": 23.0,
+            "minimum": -1.0,
+            "title": "Fixing Hour",
+            "type": "integer"
+          },
+          "fixing_minute": {
+            "maximum": 59.0,
+            "minimum": -1.0,
+            "title": "Fixing Minute",
+            "type": "integer"
+          },
+          "index_name": {
+            "maxLength": 128,
+            "title": "Index Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "index_name",
+          "fixing_hour",
+          "fixing_minute"
+        ],
+        "title": "FixingIdentityDTO",
+        "type": "object"
+      },
+      "FixingObservationDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "index_name": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Index Name",
+            "type": "string"
+          },
+          "timestamp": {
+            "format": "date-time",
+            "title": "Timestamp",
+            "type": "string"
+          },
+          "value": {
+            "exclusiveMinimum": 0.0,
+            "title": "Value",
+            "type": "number"
+          }
+        },
+        "required": [
+          "index_name",
+          "timestamp",
+          "value"
+        ],
+        "title": "FixingObservationDTO",
+        "type": "object"
+      },
+      "FraInstrumentDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "index": {
+            "$ref": "#/components/schemas/RateIndexConventionDTO"
+          },
+          "kind": {
+            "const": "FRA",
+            "title": "Kind",
+            "type": "string"
+          },
+          "label": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Label",
+            "type": "string"
+          },
+          "market_rate": {
+            "title": "Market Rate",
+            "type": "number"
+          },
+          "maturity": {
+            "format": "date",
+            "title": "Maturity",
+            "type": "string"
+          },
+          "start": {
+            "format": "date",
+            "title": "Start",
+            "type": "string"
+          },
+          "trade_date": {
+            "format": "date",
+            "title": "Trade Date",
+            "type": "string"
+          }
+        },
+        "required": [
+          "label",
+          "trade_date",
+          "start",
+          "maturity",
+          "market_rate",
+          "kind",
+          "index"
+        ],
+        "title": "FraInstrumentDTO",
+        "type": "object"
+      },
+      "FreeParameterDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "component": {
+            "enum": [
+              "right_forward",
+              "left_forward",
+              "zero_rate",
+              "log_discount_factor"
+            ],
+            "title": "Component",
+            "type": "string"
+          },
+          "date": {
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          }
+        },
+        "required": [
+          "date",
+          "component"
+        ],
+        "title": "FreeParameterDTO",
+        "type": "object"
+      },
+      "FutureInstrumentDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "convexity_adjustment": {
+            "default": 0.0,
+            "title": "Convexity Adjustment",
+            "type": "number"
+          },
+          "index": {
+            "$ref": "#/components/schemas/RateIndexConventionDTO"
+          },
+          "kind": {
+            "const": "FUTURE",
+            "title": "Kind",
+            "type": "string"
+          },
+          "label": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Label",
+            "type": "string"
+          },
+          "market_rate": {
+            "title": "Market Rate",
+            "type": "number"
+          },
+          "maturity": {
+            "format": "date",
+            "title": "Maturity",
+            "type": "string"
+          },
+          "start": {
+            "format": "date",
+            "title": "Start",
+            "type": "string"
+          },
+          "trade_date": {
+            "format": "date",
+            "title": "Trade Date",
+            "type": "string"
+          }
+        },
+        "required": [
+          "label",
+          "trade_date",
+          "start",
+          "maturity",
+          "market_rate",
+          "kind",
+          "index"
+        ],
+        "title": "FutureInstrumentDTO",
+        "type": "object"
+      },
+      "FxForwardDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "dates": {
+            "items": {
+              "format": "date",
+              "type": "string"
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Dates",
+            "type": "array"
+          },
+          "forwards": {
+            "items": {
+              "type": "number"
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Forwards",
+            "type": "array"
+          },
+          "pair": {
+            "$ref": "#/components/schemas/CurrencyPairDTO"
+          }
+        },
+        "required": [
+          "pair",
+          "dates",
+          "forwards"
+        ],
+        "title": "FxForwardDTO",
+        "type": "object"
+      },
+      "FxResetConventionDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "fixing_convention": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Fixing Convention",
+            "type": "string"
+          },
+          "fixing_holidays": {
+            "maxLength": 128,
+            "title": "Fixing Holidays",
+            "type": "string"
+          },
+          "fixing_hour": {
+            "maximum": 23.0,
+            "minimum": -1.0,
+            "title": "Fixing Hour",
+            "type": "integer"
+          },
+          "fixing_lag": {
+            "minimum": -1.0,
+            "title": "Fixing Lag",
+            "type": "integer"
+          },
+          "fixing_minute": {
+            "maximum": 59.0,
+            "minimum": -1.0,
+            "title": "Fixing Minute",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "fixing_lag",
+          "fixing_holidays",
+          "fixing_convention",
+          "fixing_hour",
+          "fixing_minute"
+        ],
+        "title": "FxResetConventionDTO",
+        "type": "object"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "HealthResponse": {
+        "properties": {
+          "backend": {
+            "title": "Backend",
+            "type": "string"
+          },
+          "evaluation_date": {
+            "title": "Evaluation Date",
+            "type": "string"
+          },
+          "is_native": {
+            "title": "Is Native",
+            "type": "boolean"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "backend",
+          "is_native",
+          "evaluation_date"
+        ],
+        "title": "HealthResponse",
+        "type": "object"
+      },
+      "InputKnotOriginDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "input_knot_index": {
+            "minimum": 0.0,
+            "title": "Input Knot Index",
+            "type": "integer"
+          },
+          "kind": {
+            "const": "INPUT",
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "input_knot_index"
+        ],
+        "title": "InputKnotOriginDTO",
+        "type": "object"
+      },
+      "InstrumentDiagnosticDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "calibration_index": {
+            "minimum": 0.0,
+            "title": "Calibration Index",
+            "type": "integer"
+          },
+          "group": {
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Group",
+            "type": "string"
+          },
+          "instrument_id": {
+            "pattern": "^[0-9a-f]{32}$",
+            "title": "Instrument Id",
+            "type": "string"
+          },
+          "market_rate": {
+            "title": "Market Rate",
+            "type": "number"
+          },
+          "model_rate": {
+            "title": "Model Rate",
+            "type": "number"
+          },
+          "residual": {
+            "title": "Residual",
+            "type": "number"
+          }
+        },
+        "required": [
+          "instrument_id",
+          "group",
+          "calibration_index",
+          "market_rate",
+          "model_rate",
+          "residual"
+        ],
+        "title": "InstrumentDiagnosticDTO",
+        "type": "object"
+      },
+      "InstrumentEndOriginDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "instrument_input_index": {
+            "minimum": 0.0,
+            "title": "Instrument Input Index",
+            "type": "integer"
+          },
+          "kind": {
+            "const": "INSTRUMENT_END",
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "instrument_input_index"
+        ],
+        "title": "InstrumentEndOriginDTO",
+        "type": "object"
+      },
+      "InstrumentStartOriginDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "instrument_input_index": {
+            "minimum": 0.0,
+            "title": "Instrument Input Index",
+            "type": "integer"
+          },
+          "kind": {
+            "const": "INSTRUMENT_START",
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "instrument_input_index"
+        ],
+        "title": "InstrumentStartOriginDTO",
+        "type": "object"
+      },
+      "JointBasisDeclarationDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "curve_name": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Curve Name",
+            "type": "string"
+          },
+          "initial_guess_per_node": {
+            "items": {
+              "type": "number"
+            },
+            "maxItems": 200,
+            "title": "Initial Guess Per Node",
+            "type": "array"
+          },
+          "instruments": {
+            "items": {
+              "$ref": "#/components/schemas/XccySwapInstrumentDTO"
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Instruments",
+            "type": "array"
+          },
+          "knot_dates": {
+            "items": {
+              "format": "date",
+              "type": "string"
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Knot Dates",
+            "type": "array"
+          },
+          "log_df_scheme": {
+            "anyOf": [
+              {
+                "enum": [
+                  "LOG_LINEAR",
+                  "LOG_CUBIC_NATURAL",
+                  "MIXED"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Log Df Scheme"
+          },
+          "parameterization": {
+            "enum": [
+              "PIECEWISE_CONSTANT_FWD",
+              "PIECEWISE_LINEAR_FWD",
+              "ZERO_RATE",
+              "LOG_DISCOUNT"
+            ],
+            "title": "Parameterization",
+            "type": "string"
+          },
+          "smoothing_weight": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Smoothing Weight"
+          }
+        },
+        "required": [
+          "curve_name",
+          "parameterization",
+          "log_df_scheme",
+          "knot_dates",
+          "instruments"
+        ],
+        "title": "JointBasisDeclarationDTO",
+        "type": "object"
+      },
+      "JointCurrencyCurveDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "currency": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Currency",
+            "type": "string"
+          },
+          "declarations": {
+            "items": {
+              "$ref": "#/components/schemas/JointCurveDeclarationDTO"
+            },
+            "maxItems": 16,
+            "minItems": 1,
+            "title": "Declarations",
+            "type": "array"
+          },
+          "libor_basis": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Libor Basis",
+            "type": "string"
+          }
+        },
+        "required": [
+          "currency",
+          "libor_basis",
+          "declarations"
+        ],
+        "title": "JointCurrencyCurveDTO",
+        "type": "object"
+      },
+      "JointCurveDeclarationDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "base_layered_over_discount": {
+            "title": "Base Layered Over Discount",
+            "type": "boolean"
+          },
+          "calibrate_discount_curve": {
+            "title": "Calibrate Discount Curve",
+            "type": "boolean"
+          },
+          "curve_name": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Curve Name",
+            "type": "string"
+          },
+          "initial_guess_per_node": {
+            "items": {
+              "type": "number"
+            },
+            "maxItems": 200,
+            "title": "Initial Guess Per Node",
+            "type": "array"
+          },
+          "instruments": {
+            "items": {
+              "discriminator": {
+                "mapping": {
+                  "BASIS_SWAP": "#/components/schemas/BasisSwapInstrumentDTO",
+                  "DEPOSIT": "#/components/schemas/DepositInstrumentDTO",
+                  "FRA": "#/components/schemas/FraInstrumentDTO",
+                  "FUTURE": "#/components/schemas/FutureInstrumentDTO",
+                  "OIS_SWAP": "#/components/schemas/OisSwapInstrumentDTO",
+                  "SWAP": "#/components/schemas/SwapInstrumentDTO"
+                },
+                "propertyName": "kind"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/DepositInstrumentDTO"
+                },
+                {
+                  "$ref": "#/components/schemas/FraInstrumentDTO"
+                },
+                {
+                  "$ref": "#/components/schemas/FutureInstrumentDTO"
+                },
+                {
+                  "$ref": "#/components/schemas/SwapInstrumentDTO"
+                },
+                {
+                  "$ref": "#/components/schemas/OisSwapInstrumentDTO"
+                },
+                {
+                  "$ref": "#/components/schemas/BasisSwapInstrumentDTO"
+                }
+              ]
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Instruments",
+            "type": "array"
+          },
+          "knot_dates": {
+            "items": {
+              "format": "date",
+              "type": "string"
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Knot Dates",
+            "type": "array"
+          },
+          "log_df_scheme": {
+            "anyOf": [
+              {
+                "enum": [
+                  "LOG_LINEAR",
+                  "LOG_CUBIC_NATURAL",
+                  "MIXED"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Log Df Scheme"
+          },
+          "parameterization": {
+            "enum": [
+              "PIECEWISE_CONSTANT_FWD",
+              "PIECEWISE_LINEAR_FWD",
+              "ZERO_RATE",
+              "LOG_DISCOUNT"
+            ],
+            "title": "Parameterization",
+            "type": "string"
+          },
+          "smoothing_weight": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Smoothing Weight"
+          },
+          "target_collateral": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Target Collateral",
+            "type": "string"
+          },
+          "target_tenor": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Tenor"
+          }
+        },
+        "required": [
+          "curve_name",
+          "calibrate_discount_curve",
+          "target_collateral",
+          "target_tenor",
+          "base_layered_over_discount",
+          "parameterization",
+          "log_df_scheme",
+          "knot_dates",
+          "instruments"
+        ],
+        "title": "JointCurveDeclarationDTO",
+        "type": "object"
+      },
+      "JointXccyCalibrationRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "basis": {
+            "$ref": "#/components/schemas/JointBasisDeclarationDTO"
+          },
+          "collateral_currency": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Collateral Currency",
+            "type": "string"
+          },
+          "domestic": {
+            "$ref": "#/components/schemas/JointCurrencyCurveDTO"
+          },
+          "fixings": {
+            "items": {
+              "$ref": "#/components/schemas/FixingObservationDTO"
+            },
+            "title": "Fixings",
+            "type": "array"
+          },
+          "foreign": {
+            "$ref": "#/components/schemas/JointCurrencyCurveDTO"
+          },
+          "fx_spot": {
+            "exclusiveMinimum": 0.0,
+            "title": "Fx Spot",
+            "type": "number"
+          },
+          "name": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "options": {
+            "$ref": "#/components/schemas/CalibrationOptionsDTO"
+          },
+          "pair": {
+            "$ref": "#/components/schemas/CurrencyPairDTO"
+          },
+          "schema_version": {
+            "const": 1,
+            "title": "Schema Version",
+            "type": "integer"
+          },
+          "solver": {
+            "$ref": "#/components/schemas/JointXccyCalibrationSolverDTO"
+          },
+          "valuation_time": {
+            "format": "date-time",
+            "title": "Valuation Time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "schema_version",
+          "name",
+          "valuation_time",
+          "pair",
+          "collateral_currency",
+          "fx_spot",
+          "domestic",
+          "foreign",
+          "basis",
+          "fixings"
+        ],
+        "title": "JointXccyCalibrationRequest",
+        "type": "object",
+        "x-dal-max-total-free-parameters": 200
+      },
+      "JointXccyCalibrationSolverDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "fit_tolerance": {
+            "default": 1e-06,
+            "exclusiveMinimum": 0.0,
+            "title": "Fit Tolerance",
+            "type": "number"
+          },
+          "initial_guess": {
+            "default": 0.0,
+            "title": "Initial Guess",
+            "type": "number"
+          },
+          "max_evaluations": {
+            "default": 200,
+            "exclusiveMinimum": 0.0,
+            "title": "Max Evaluations",
+            "type": "integer"
+          },
+          "max_restarts": {
+            "default": 20,
+            "exclusiveMinimum": 0.0,
+            "title": "Max Restarts",
+            "type": "integer"
+          },
+          "smoothing_weight": {
+            "default": 1.0,
+            "exclusiveMinimum": 0.0,
+            "title": "Smoothing Weight",
+            "type": "number"
+          },
+          "solve_mode": {
+            "default": "EXACT",
+            "enum": [
+              "EXACT",
+              "APPROXIMATE"
+            ],
+            "title": "Solve Mode",
+            "type": "string"
+          },
+          "tolerance": {
+            "default": 1e-08,
+            "exclusiveMinimum": 0.0,
+            "title": "Tolerance",
+            "type": "number"
+          }
+        },
+        "title": "JointXccyCalibrationSolverDTO",
+        "type": "object"
+      },
+      "JsonValue": {},
+      "KnotCandidateDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "date": {
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          },
+          "disposition": {
+            "enum": [
+              "ADDED",
+              "DUPLICATE",
+              "FILTERED_NOT_AFTER_TODAY"
+            ],
+            "title": "Disposition",
+            "type": "string"
+          },
+          "ordinal": {
+            "minimum": 0.0,
+            "title": "Ordinal",
+            "type": "integer"
+          },
+          "origin": {
+            "discriminator": {
+              "mapping": {
+                "INPUT": "#/components/schemas/InputKnotOriginDTO",
+                "INSTRUMENT_END": "#/components/schemas/InstrumentEndOriginDTO",
+                "INSTRUMENT_START": "#/components/schemas/InstrumentStartOriginDTO",
+                "SYNTHETIC_ANCHOR": "#/components/schemas/SyntheticAnchorOriginDTO"
+              },
+              "propertyName": "kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/InputKnotOriginDTO"
+              },
+              {
+                "$ref": "#/components/schemas/InstrumentStartOriginDTO"
+              },
+              {
+                "$ref": "#/components/schemas/InstrumentEndOriginDTO"
+              },
+              {
+                "$ref": "#/components/schemas/SyntheticAnchorOriginDTO"
+              }
+            ],
+            "title": "Origin"
+          },
+          "resolved_index": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolved Index"
+          }
+        },
+        "required": [
+          "ordinal",
+          "date",
+          "origin",
+          "disposition",
+          "resolved_index"
+        ],
+        "title": "KnotCandidateDTO",
+        "type": "object"
+      },
+      "LogDiscountCurveReconstructionDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "anchor_date": {
+            "format": "date",
+            "title": "Anchor Date",
+            "type": "string"
+          },
+          "base": {
+            "anyOf": [
+              {
+                "discriminator": {
+                  "mapping": {
+                    "LOG_DISCOUNT": "#/components/schemas/LogDiscountCurveReconstructionDTO",
+                    "PIECEWISE_CONSTANT_FWD": "#/components/schemas/PwcCurveReconstructionDTO",
+                    "PIECEWISE_LINEAR_FWD": "#/components/schemas/PwlfCurveReconstructionDTO",
+                    "ZERO_RATE": "#/components/schemas/ZeroRateCurveReconstructionDTO"
+                  },
+                  "propertyName": "parameterization"
+                },
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/PwcCurveReconstructionDTO"
+                  },
+                  {
+                    "$ref": "#/components/schemas/PwlfCurveReconstructionDTO"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ZeroRateCurveReconstructionDTO"
+                  },
+                  {
+                    "$ref": "#/components/schemas/LogDiscountCurveReconstructionDTO"
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Base"
+          },
+          "base_curve_id": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{32}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Base Curve Id"
+          },
+          "currency": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Currency",
+            "type": "string"
+          },
+          "day_count": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Day Count",
+            "type": "string"
+          },
+          "dto_version": {
+            "const": 1,
+            "title": "Dto Version",
+            "type": "integer"
+          },
+          "id": {
+            "pattern": "^[0-9a-f]{32}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "log_df_scheme": {
+            "enum": [
+              "LOG_LINEAR",
+              "LOG_CUBIC_NATURAL",
+              "MIXED"
+            ],
+            "title": "Log Df Scheme",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "node_dates": {
+            "items": {
+              "format": "date",
+              "type": "string"
+            },
+            "maxItems": 100,
+            "minItems": 2,
+            "title": "Node Dates",
+            "type": "array"
+          },
+          "parameterization": {
+            "const": "LOG_DISCOUNT",
+            "title": "Parameterization",
+            "type": "string"
+          },
+          "parameters": {
+            "$ref": "#/components/schemas/LogDiscountParametersDTO"
+          },
+          "role": {
+            "enum": [
+              "discount",
+              "forward",
+              "basis",
+              "base"
+            ],
+            "title": "Role",
+            "type": "string"
+          },
+          "source_run_id": {
+            "pattern": "^[0-9a-f]{32}$",
+            "title": "Source Run Id",
+            "type": "string"
+          },
+          "target": {
+            "$ref": "#/components/schemas/CurveTargetDTO"
+          }
+        },
+        "required": [
+          "dto_version",
+          "id",
+          "name",
+          "currency",
+          "role",
+          "target",
+          "anchor_date",
+          "base_curve_id",
+          "base",
+          "source_run_id",
+          "parameterization",
+          "day_count",
+          "log_df_scheme",
+          "node_dates",
+          "parameters"
+        ],
+        "title": "LogDiscountCurveReconstructionDTO",
+        "type": "object"
+      },
+      "LogDiscountParametersDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "log_discount_factors": {
+            "items": {
+              "type": "number"
+            },
+            "maxItems": 100,
+            "minItems": 2,
+            "title": "Log Discount Factors",
+            "type": "array"
+          }
+        },
+        "required": [
+          "log_discount_factors"
+        ],
+        "title": "LogDiscountParametersDTO",
+        "type": "object"
+      },
+      "MatrixDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "availability": {
+            "enum": [
+              "available",
+              "not_requested",
+              "not_available_for_mode"
+            ],
+            "title": "Availability",
+            "type": "string"
+          },
+          "column_axis": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 200,
+            "title": "Column Axis",
+            "type": "array"
+          },
+          "residual_tolerance": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Residual Tolerance"
+          },
+          "row_axis": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 200,
+            "title": "Row Axis",
+            "type": "array"
+          },
+          "scaling": {
+            "enum": [
+              "unscaled",
+              "solver_scaled"
+            ],
+            "title": "Scaling",
+            "type": "string"
+          },
+          "shape": {
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "maximum": 200.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "maximum": 200.0,
+                "minimum": 0.0,
+                "type": "integer"
+              }
+            ],
+            "title": "Shape",
+            "type": "array"
+          },
+          "values": {
+            "anyOf": [
+              {
+                "items": {
+                  "items": {
+                    "type": "number"
+                  },
+                  "maxItems": 100,
+                  "type": "array"
+                },
+                "maxItems": 100,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Values"
+          }
+        },
+        "required": [
+          "availability",
+          "shape",
+          "row_axis",
+          "column_axis",
+          "scaling",
+          "residual_tolerance",
+          "values"
+        ],
+        "title": "MatrixDTO",
+        "type": "object"
+      },
+      "ModelCreate": {
+        "properties": {
+          "bs": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BSModelParams"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "dupire": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DupireModelParams"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "kind": {
+            "enum": [
+              "BSModelData_",
+              "DupireModelData_"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "kind"
+        ],
+        "title": "ModelCreate",
+        "type": "object"
+      },
+      "ModelDefinition": {
+        "properties": {
+          "bs": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BSModelParams"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "dupire": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DupireModelParams"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "BSModelData_",
+              "DupireModelData_"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "kind"
+        ],
+        "title": "ModelDefinition",
+        "type": "object"
+      },
+      "ModelUpdate": {
+        "properties": {
+          "bs": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BSModelParams"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "dupire": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DupireModelParams"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "kind": {
+            "anyOf": [
+              {
+                "enum": [
+                  "BSModelData_",
+                  "DupireModelData_"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kind"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          }
+        },
+        "title": "ModelUpdate",
+        "type": "object"
+      },
+      "NamedRangeDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "offset": {
+            "minimum": 0.0,
+            "title": "Offset",
+            "type": "integer"
+          },
+          "size": {
+            "exclusiveMinimum": 0.0,
+            "title": "Size",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "name",
+          "offset",
+          "size"
+        ],
+        "title": "NamedRangeDTO",
+        "type": "object"
+      },
+      "NamedRangesDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "parameters": {
+            "items": {
+              "$ref": "#/components/schemas/NamedRangeDTO"
+            },
+            "title": "Parameters",
+            "type": "array"
+          },
+          "residuals": {
+            "items": {
+              "$ref": "#/components/schemas/NamedRangeDTO"
+            },
+            "title": "Residuals",
+            "type": "array"
+          }
+        },
+        "required": [
+          "parameters",
+          "residuals"
+        ],
+        "title": "NamedRangesDTO",
+        "type": "object"
+      },
+      "NormalizedCalibrationOptionsDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "include_effective_inverse": {
+            "title": "Include Effective Inverse",
+            "type": "boolean"
+          },
+          "include_jacobian": {
+            "title": "Include Jacobian",
+            "type": "boolean"
+          },
+          "jacobian_mode": {
+            "enum": [
+              "ANALYTIC",
+              "BUMPED"
+            ],
+            "title": "Jacobian Mode",
+            "type": "string"
+          }
+        },
+        "required": [
+          "jacobian_mode",
+          "include_jacobian",
+          "include_effective_inverse"
+        ],
+        "title": "NormalizedCalibrationOptionsDTO",
+        "type": "object"
+      },
+      "NormalizedCalibrationSolverDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "fit_tolerance": {
+            "exclusiveMinimum": 0.0,
+            "title": "Fit Tolerance",
+            "type": "number"
+          },
+          "initial_guess": {
+            "title": "Initial Guess",
+            "type": "number"
+          },
+          "max_evaluations": {
+            "exclusiveMinimum": 0.0,
+            "title": "Max Evaluations",
+            "type": "integer"
+          },
+          "max_restarts": {
+            "exclusiveMinimum": 0.0,
+            "title": "Max Restarts",
+            "type": "integer"
+          },
+          "smoothing_weight": {
+            "exclusiveMinimum": 0.0,
+            "title": "Smoothing Weight",
+            "type": "number"
+          },
+          "solve_mode": {
+            "enum": [
+              "EXACT",
+              "APPROXIMATE"
+            ],
+            "title": "Solve Mode",
+            "type": "string"
+          },
+          "tolerance": {
+            "exclusiveMinimum": 0.0,
+            "title": "Tolerance",
+            "type": "number"
+          }
+        },
+        "required": [
+          "solve_mode",
+          "smoothing_weight",
+          "tolerance",
+          "fit_tolerance",
+          "initial_guess",
+          "max_evaluations",
+          "max_restarts"
+        ],
+        "title": "NormalizedCalibrationSolverDTO",
+        "type": "object"
+      },
+      "OisSwapInstrumentDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "fixed_leg": {
+            "$ref": "#/components/schemas/RateLegConventionDTO"
+          },
+          "float_leg": {
+            "$ref": "#/components/schemas/RateLegConventionDTO"
+          },
+          "kind": {
+            "const": "OIS_SWAP",
+            "title": "Kind",
+            "type": "string"
+          },
+          "label": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Label",
+            "type": "string"
+          },
+          "market_rate": {
+            "title": "Market Rate",
+            "type": "number"
+          },
+          "maturity": {
+            "format": "date",
+            "title": "Maturity",
+            "type": "string"
+          },
+          "overnight_index": {
+            "$ref": "#/components/schemas/RateIndexConventionDTO"
+          },
+          "start": {
+            "format": "date",
+            "title": "Start",
+            "type": "string"
+          },
+          "trade_date": {
+            "format": "date",
+            "title": "Trade Date",
+            "type": "string"
+          }
+        },
+        "required": [
+          "label",
+          "trade_date",
+          "start",
+          "maturity",
+          "market_rate",
+          "kind",
+          "fixed_leg",
+          "overnight_index",
+          "float_leg"
+        ],
+        "title": "OisSwapInstrumentDTO",
+        "type": "object"
+      },
+      "ParameterDeltaDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "axis": {
+            "title": "Axis",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value",
+            "type": "number"
+          }
+        },
+        "required": [
+          "axis",
+          "value"
+        ],
+        "title": "ParameterDeltaDTO",
+        "type": "object"
+      },
+      "Portfolio": {
+        "properties": {
+          "description": {
+            "default": "",
+            "title": "Description",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "trade_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Trade Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "Portfolio",
+        "type": "object"
+      },
+      "PortfolioCreate": {
+        "properties": {
+          "description": {
+            "default": "",
+            "title": "Description",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "PortfolioCreate",
+        "type": "object"
+      },
+      "ProductCreate": {
+        "properties": {
+          "description": {
+            "default": "",
+            "title": "Description",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/EventRow"
+            },
+            "title": "Rows",
+            "type": "array"
+          },
+          "template": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Template"
+          }
+        },
+        "required": [
+          "name",
+          "rows"
+        ],
+        "title": "ProductCreate",
+        "type": "object"
+      },
+      "ProductDebugRequest": {
+        "properties": {
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/EventRow"
+            },
+            "title": "Rows",
+            "type": "array"
+          }
+        },
+        "required": [
+          "rows"
+        ],
+        "title": "ProductDebugRequest",
+        "type": "object"
+      },
+      "ProductDebugResponse": {
+        "properties": {
+          "debug": {
+            "title": "Debug",
+            "type": "string"
+          }
+        },
+        "required": [
+          "debug"
+        ],
+        "title": "ProductDebugResponse",
+        "type": "object"
+      },
+      "ProductDefinition": {
+        "properties": {
+          "description": {
+            "default": "",
+            "title": "Description",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/EventRow"
+            },
+            "title": "Rows",
+            "type": "array"
+          },
+          "template": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Template"
+          }
+        },
+        "required": [
+          "name",
+          "rows"
+        ],
+        "title": "ProductDefinition",
+        "type": "object"
+      },
+      "ProductUpdate": {
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "rows": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/EventRow"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rows"
+          },
+          "template": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Template"
+          }
+        },
+        "title": "ProductUpdate",
+        "type": "object"
+      },
+      "PwcCurveReconstructionDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "anchor_date": {
+            "format": "date",
+            "title": "Anchor Date",
+            "type": "string"
+          },
+          "base": {
+            "anyOf": [
+              {
+                "discriminator": {
+                  "mapping": {
+                    "LOG_DISCOUNT": "#/components/schemas/LogDiscountCurveReconstructionDTO",
+                    "PIECEWISE_CONSTANT_FWD": "#/components/schemas/PwcCurveReconstructionDTO",
+                    "PIECEWISE_LINEAR_FWD": "#/components/schemas/PwlfCurveReconstructionDTO",
+                    "ZERO_RATE": "#/components/schemas/ZeroRateCurveReconstructionDTO"
+                  },
+                  "propertyName": "parameterization"
+                },
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/PwcCurveReconstructionDTO"
+                  },
+                  {
+                    "$ref": "#/components/schemas/PwlfCurveReconstructionDTO"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ZeroRateCurveReconstructionDTO"
+                  },
+                  {
+                    "$ref": "#/components/schemas/LogDiscountCurveReconstructionDTO"
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Base"
+          },
+          "base_curve_id": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{32}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Base Curve Id"
+          },
+          "currency": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Currency",
+            "type": "string"
+          },
+          "day_count": {
+            "const": "ACT_365F",
+            "title": "Day Count",
+            "type": "string"
+          },
+          "dto_version": {
+            "const": 1,
+            "title": "Dto Version",
+            "type": "integer"
+          },
+          "id": {
+            "pattern": "^[0-9a-f]{32}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "log_df_scheme": {
+            "title": "Log Df Scheme",
+            "type": "null"
+          },
+          "name": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "node_dates": {
+            "items": {
+              "format": "date",
+              "type": "string"
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Node Dates",
+            "type": "array"
+          },
+          "parameterization": {
+            "const": "PIECEWISE_CONSTANT_FWD",
+            "title": "Parameterization",
+            "type": "string"
+          },
+          "parameters": {
+            "$ref": "#/components/schemas/PwcParametersDTO"
+          },
+          "role": {
+            "enum": [
+              "discount",
+              "forward",
+              "basis",
+              "base"
+            ],
+            "title": "Role",
+            "type": "string"
+          },
+          "source_run_id": {
+            "pattern": "^[0-9a-f]{32}$",
+            "title": "Source Run Id",
+            "type": "string"
+          },
+          "target": {
+            "$ref": "#/components/schemas/CurveTargetDTO"
+          }
+        },
+        "required": [
+          "dto_version",
+          "id",
+          "name",
+          "currency",
+          "role",
+          "target",
+          "anchor_date",
+          "base_curve_id",
+          "base",
+          "source_run_id",
+          "parameterization",
+          "day_count",
+          "log_df_scheme",
+          "node_dates",
+          "parameters"
+        ],
+        "title": "PwcCurveReconstructionDTO",
+        "type": "object"
+      },
+      "PwcParametersDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "right_forwards": {
+            "items": {
+              "type": "number"
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Right Forwards",
+            "type": "array"
+          }
+        },
+        "required": [
+          "right_forwards"
+        ],
+        "title": "PwcParametersDTO",
+        "type": "object"
+      },
+      "PwlfCurveReconstructionDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "anchor_date": {
+            "format": "date",
+            "title": "Anchor Date",
+            "type": "string"
+          },
+          "base": {
+            "anyOf": [
+              {
+                "discriminator": {
+                  "mapping": {
+                    "LOG_DISCOUNT": "#/components/schemas/LogDiscountCurveReconstructionDTO",
+                    "PIECEWISE_CONSTANT_FWD": "#/components/schemas/PwcCurveReconstructionDTO",
+                    "PIECEWISE_LINEAR_FWD": "#/components/schemas/PwlfCurveReconstructionDTO",
+                    "ZERO_RATE": "#/components/schemas/ZeroRateCurveReconstructionDTO"
+                  },
+                  "propertyName": "parameterization"
+                },
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/PwcCurveReconstructionDTO"
+                  },
+                  {
+                    "$ref": "#/components/schemas/PwlfCurveReconstructionDTO"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ZeroRateCurveReconstructionDTO"
+                  },
+                  {
+                    "$ref": "#/components/schemas/LogDiscountCurveReconstructionDTO"
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Base"
+          },
+          "base_curve_id": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{32}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Base Curve Id"
+          },
+          "currency": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Currency",
+            "type": "string"
+          },
+          "day_count": {
+            "const": "ACT_365F",
+            "title": "Day Count",
+            "type": "string"
+          },
+          "dto_version": {
+            "const": 1,
+            "title": "Dto Version",
+            "type": "integer"
+          },
+          "id": {
+            "pattern": "^[0-9a-f]{32}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "log_df_scheme": {
+            "title": "Log Df Scheme",
+            "type": "null"
+          },
+          "name": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "node_dates": {
+            "items": {
+              "format": "date",
+              "type": "string"
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Node Dates",
+            "type": "array"
+          },
+          "parameterization": {
+            "const": "PIECEWISE_LINEAR_FWD",
+            "title": "Parameterization",
+            "type": "string"
+          },
+          "parameters": {
+            "$ref": "#/components/schemas/PwlfParametersDTO"
+          },
+          "role": {
+            "enum": [
+              "discount",
+              "forward",
+              "basis",
+              "base"
+            ],
+            "title": "Role",
+            "type": "string"
+          },
+          "source_run_id": {
+            "pattern": "^[0-9a-f]{32}$",
+            "title": "Source Run Id",
+            "type": "string"
+          },
+          "target": {
+            "$ref": "#/components/schemas/CurveTargetDTO"
+          }
+        },
+        "required": [
+          "dto_version",
+          "id",
+          "name",
+          "currency",
+          "role",
+          "target",
+          "anchor_date",
+          "base_curve_id",
+          "base",
+          "source_run_id",
+          "parameterization",
+          "day_count",
+          "log_df_scheme",
+          "node_dates",
+          "parameters"
+        ],
+        "title": "PwlfCurveReconstructionDTO",
+        "type": "object"
+      },
+      "PwlfParametersDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "left_forwards": {
+            "items": {
+              "type": "number"
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Left Forwards",
+            "type": "array"
+          },
+          "right_forwards": {
+            "items": {
+              "type": "number"
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Right Forwards",
+            "type": "array"
+          }
+        },
+        "required": [
+          "left_forwards",
+          "right_forwards"
+        ],
+        "title": "PwlfParametersDTO",
+        "type": "object"
+      },
+      "QuoteBumpPreviewDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "delta_parameters": {
+            "items": {
+              "$ref": "#/components/schemas/ParameterDeltaDTO"
+            },
+            "title": "Delta Parameters",
+            "type": "array"
+          },
+          "formula": {
+            "const": "delta_x = effective_inverse * delta_quote / residual_tolerance",
+            "title": "Formula",
+            "type": "string"
+          },
+          "instrument_id": {
+            "pattern": "^[0-9a-f]{32}$",
+            "title": "Instrument Id",
+            "type": "string"
+          },
+          "quote_bump": {
+            "title": "Quote Bump",
+            "type": "number"
+          },
+          "residual_index": {
+            "minimum": 0.0,
+            "title": "Residual Index",
+            "type": "integer"
+          },
+          "residual_tolerance": {
+            "exclusiveMinimum": 0.0,
+            "title": "Residual Tolerance",
+            "type": "number"
+          }
+        },
+        "required": [
+          "residual_index",
+          "instrument_id",
+          "quote_bump",
+          "residual_tolerance",
+          "delta_parameters",
+          "formula"
+        ],
+        "title": "QuoteBumpPreviewDTO",
+        "type": "object"
+      },
+      "RateIndexConventionDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "accrual_holidays": {
+            "maxLength": 128,
+            "title": "Accrual Holidays",
+            "type": "string"
+          },
+          "business_day_convention": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Business Day Convention",
+            "type": "string"
+          },
+          "collateral": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Collateral",
+            "type": "string"
+          },
+          "day_basis": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Day Basis",
+            "type": "string"
+          },
+          "end_of_month": {
+            "title": "End Of Month",
+            "type": "boolean"
+          },
+          "fixing_holidays": {
+            "maxLength": 128,
+            "title": "Fixing Holidays",
+            "type": "string"
+          },
+          "fixing_lag": {
+            "title": "Fixing Lag",
+            "type": "integer"
+          },
+          "forecast_tenor": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Forecast Tenor",
+            "type": "string"
+          },
+          "spot_lag": {
+            "title": "Spot Lag",
+            "type": "integer"
+          },
+          "use_projection_curve": {
+            "title": "Use Projection Curve",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "spot_lag",
+          "fixing_lag",
+          "use_projection_curve",
+          "forecast_tenor",
+          "day_basis",
+          "business_day_convention",
+          "fixing_holidays",
+          "accrual_holidays",
+          "end_of_month",
+          "collateral"
+        ],
+        "title": "RateIndexConventionDTO",
+        "type": "object"
+      },
+      "RateLegConventionDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "accrual_holidays": {
+            "maxLength": 128,
+            "title": "Accrual Holidays",
+            "type": "string"
+          },
+          "business_day_convention": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Business Day Convention",
+            "type": "string"
+          },
+          "day_basis": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Day Basis",
+            "type": "string"
+          },
+          "end_of_month": {
+            "title": "End Of Month",
+            "type": "boolean"
+          },
+          "payment_convention": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Payment Convention",
+            "type": "string"
+          },
+          "payment_frequency": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Payment Frequency",
+            "type": "string"
+          },
+          "payment_holidays": {
+            "maxLength": 128,
+            "title": "Payment Holidays",
+            "type": "string"
+          },
+          "payment_lag": {
+            "title": "Payment Lag",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "payment_frequency",
+          "day_basis",
+          "payment_lag",
+          "business_day_convention",
+          "payment_convention",
+          "accrual_holidays",
+          "payment_holidays",
+          "end_of_month"
+        ],
+        "title": "RateLegConventionDTO",
+        "type": "object"
+      },
+      "ResolvedKnotCountsDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "free_parameters": {
+            "maximum": 200.0,
+            "minimum": 1.0,
+            "title": "Free Parameters",
+            "type": "integer"
+          },
+          "instrument_candidates": {
+            "maximum": 200.0,
+            "minimum": 0.0,
+            "title": "Instrument Candidates",
+            "type": "integer"
+          },
+          "resolved_declared_nodes": {
+            "maximum": 100.0,
+            "minimum": 1.0,
+            "title": "Resolved Declared Nodes",
+            "type": "integer"
+          },
+          "storage_nodes": {
+            "maximum": 100.0,
+            "minimum": 1.0,
+            "title": "Storage Nodes",
+            "type": "integer"
+          },
+          "submitted_knots": {
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Submitted Knots",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "submitted_knots",
+          "instrument_candidates",
+          "resolved_declared_nodes",
+          "storage_nodes",
+          "free_parameters"
+        ],
+        "title": "ResolvedKnotCountsDTO",
+        "type": "object"
+      },
+      "ResolvedKnotNodeDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "date": {
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          },
+          "origins": {
+            "items": {
+              "discriminator": {
+                "mapping": {
+                  "INPUT": "#/components/schemas/InputKnotOriginDTO",
+                  "INSTRUMENT_END": "#/components/schemas/InstrumentEndOriginDTO",
+                  "INSTRUMENT_START": "#/components/schemas/InstrumentStartOriginDTO",
+                  "SYNTHETIC_ANCHOR": "#/components/schemas/SyntheticAnchorOriginDTO"
+                },
+                "propertyName": "kind"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/InputKnotOriginDTO"
+                },
+                {
+                  "$ref": "#/components/schemas/InstrumentStartOriginDTO"
+                },
+                {
+                  "$ref": "#/components/schemas/InstrumentEndOriginDTO"
+                },
+                {
+                  "$ref": "#/components/schemas/SyntheticAnchorOriginDTO"
+                }
+              ]
+            },
+            "maxItems": 300,
+            "minItems": 1,
+            "title": "Origins",
+            "type": "array"
+          }
+        },
+        "required": [
+          "date",
+          "origins"
+        ],
+        "title": "ResolvedKnotNodeDTO",
+        "type": "object"
+      },
+      "ResolvedSingleKnotPlanDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "anchor_added": {
+            "title": "Anchor Added",
+            "type": "boolean"
+          },
+          "candidate_trace": {
+            "items": {
+              "$ref": "#/components/schemas/KnotCandidateDTO"
+            },
+            "maxItems": 300,
+            "title": "Candidate Trace",
+            "type": "array"
+          },
+          "counts": {
+            "$ref": "#/components/schemas/ResolvedKnotCountsDTO"
+          },
+          "execution_policy": {
+            "const": "INPUT",
+            "title": "Execution Policy",
+            "type": "string"
+          },
+          "free_parameters": {
+            "items": {
+              "$ref": "#/components/schemas/FreeParameterDTO"
+            },
+            "maxItems": 200,
+            "minItems": 1,
+            "title": "Free Parameters",
+            "type": "array"
+          },
+          "planner_version": {
+            "const": 1,
+            "title": "Planner Version",
+            "type": "integer"
+          },
+          "requested_policy": {
+            "enum": [
+              "INPUT",
+              "INSTRUMENTS",
+              "AUGMENTED"
+            ],
+            "title": "Requested Policy",
+            "type": "string"
+          },
+          "resolved_declared_nodes": {
+            "items": {
+              "$ref": "#/components/schemas/ResolvedKnotNodeDTO"
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Resolved Declared Nodes",
+            "type": "array"
+          },
+          "storage_nodes": {
+            "items": {
+              "$ref": "#/components/schemas/ResolvedKnotNodeDTO"
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Storage Nodes",
+            "type": "array"
+          },
+          "submitted_knot_dates": {
+            "items": {
+              "format": "date",
+              "type": "string"
+            },
+            "maxItems": 100,
+            "title": "Submitted Knot Dates",
+            "type": "array"
+          }
+        },
+        "required": [
+          "planner_version",
+          "requested_policy",
+          "execution_policy",
+          "submitted_knot_dates",
+          "candidate_trace",
+          "resolved_declared_nodes",
+          "storage_nodes",
+          "free_parameters",
+          "anchor_added",
+          "counts"
+        ],
+        "title": "ResolvedSingleKnotPlanDTO",
+        "type": "object"
+      },
+      "RunningCalibrationRunResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "actual_execution_identity": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ExecutionSingleKnotIdentityDTO"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "actual_execution_identity_hash": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actual Execution Identity Hash"
+          },
+          "actual_jacobian_mode": {
+            "title": "Actual Jacobian Mode",
+            "type": "null"
+          },
+          "backend": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Backend",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "curves": {
+            "items": {
+              "discriminator": {
+                "mapping": {
+                  "LOG_DISCOUNT": "#/components/schemas/LogDiscountCurveReconstructionDTO",
+                  "PIECEWISE_CONSTANT_FWD": "#/components/schemas/PwcCurveReconstructionDTO",
+                  "PIECEWISE_LINEAR_FWD": "#/components/schemas/PwlfCurveReconstructionDTO",
+                  "ZERO_RATE": "#/components/schemas/ZeroRateCurveReconstructionDTO"
+                },
+                "propertyName": "parameterization"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/PwcCurveReconstructionDTO"
+                },
+                {
+                  "$ref": "#/components/schemas/PwlfCurveReconstructionDTO"
+                },
+                {
+                  "$ref": "#/components/schemas/ZeroRateCurveReconstructionDTO"
+                },
+                {
+                  "$ref": "#/components/schemas/LogDiscountCurveReconstructionDTO"
+                }
+              ]
+            },
+            "title": "Curves",
+            "type": "array"
+          },
+          "effective_inverse": {
+            "title": "Effective Inverse",
+            "type": "null"
+          },
+          "error": {
+            "title": "Error",
+            "type": "null"
+          },
+          "expected_execution_identity": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ExecutionSingleKnotIdentityDTO"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "expected_execution_identity_hash": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Execution Identity Hash"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "fx_forwards": {
+            "title": "Fx Forwards",
+            "type": "null"
+          },
+          "id": {
+            "pattern": "^[0-9a-f]{32}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "instrument_diagnostics": {
+            "items": {
+              "$ref": "#/components/schemas/InstrumentDiagnosticDTO"
+            },
+            "title": "Instrument Diagnostics",
+            "type": "array"
+          },
+          "is_native": {
+            "title": "Is Native",
+            "type": "boolean"
+          },
+          "jacobian": {
+            "title": "Jacobian",
+            "type": "null"
+          },
+          "kind": {
+            "enum": [
+              "single",
+              "xccy_staged",
+              "xccy_joint"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "named_ranges": {
+            "title": "Named Ranges",
+            "type": "null"
+          },
+          "options": {
+            "$ref": "#/components/schemas/NormalizedCalibrationOptionsDTO"
+          },
+          "phase": {
+            "enum": [
+              "queued",
+              "solving",
+              "serializing",
+              "persisting"
+            ],
+            "title": "Phase",
+            "type": "string"
+          },
+          "quote_bump_preview": {
+            "title": "Quote Bump Preview",
+            "type": "null"
+          },
+          "requested_jacobian_mode": {
+            "enum": [
+              "ANALYTIC",
+              "BUMPED"
+            ],
+            "title": "Requested Jacobian Mode",
+            "type": "string"
+          },
+          "resolved_knot_plan": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ResolvedSingleKnotPlanDTO"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "resolved_knot_plan_hash": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolved Knot Plan Hash"
+          },
+          "schema_version": {
+            "const": 1,
+            "title": "Schema Version",
+            "type": "integer"
+          },
+          "solver": {
+            "$ref": "#/components/schemas/NormalizedCalibrationSolverDTO"
+          },
+          "solver_diagnostics": {
+            "title": "Solver Diagnostics",
+            "type": "null"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "status": {
+            "const": "running",
+            "title": "Status",
+            "type": "string"
+          },
+          "timings": {
+            "$ref": "#/components/schemas/CalibrationTimingsDTO"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "name",
+          "schema_version",
+          "created_at",
+          "started_at",
+          "finished_at",
+          "backend",
+          "is_native",
+          "solver",
+          "options",
+          "requested_jacobian_mode",
+          "resolved_knot_plan",
+          "resolved_knot_plan_hash",
+          "expected_execution_identity",
+          "expected_execution_identity_hash",
+          "actual_execution_identity",
+          "actual_execution_identity_hash",
+          "timings",
+          "status",
+          "phase",
+          "actual_jacobian_mode",
+          "solver_diagnostics",
+          "curves",
+          "instrument_diagnostics",
+          "fx_forwards",
+          "named_ranges",
+          "jacobian",
+          "effective_inverse",
+          "quote_bump_preview",
+          "error"
+        ],
+        "title": "RunningCalibrationRunResponse",
+        "type": "object"
+      },
+      "SingleCalibrationRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "currency": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Currency",
+            "type": "string"
+          },
+          "declaration": {
+            "$ref": "#/components/schemas/SingleCurveDeclarationDTO"
+          },
+          "instruments": {
+            "items": {
+              "discriminator": {
+                "mapping": {
+                  "BASIS_SWAP": "#/components/schemas/BasisSwapInstrumentDTO",
+                  "DEPOSIT": "#/components/schemas/DepositInstrumentDTO",
+                  "FRA": "#/components/schemas/FraInstrumentDTO",
+                  "FUTURE": "#/components/schemas/FutureInstrumentDTO",
+                  "OIS_SWAP": "#/components/schemas/OisSwapInstrumentDTO",
+                  "SWAP": "#/components/schemas/SwapInstrumentDTO"
+                },
+                "propertyName": "kind"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/DepositInstrumentDTO"
+                },
+                {
+                  "$ref": "#/components/schemas/FraInstrumentDTO"
+                },
+                {
+                  "$ref": "#/components/schemas/FutureInstrumentDTO"
+                },
+                {
+                  "$ref": "#/components/schemas/SwapInstrumentDTO"
+                },
+                {
+                  "$ref": "#/components/schemas/OisSwapInstrumentDTO"
+                },
+                {
+                  "$ref": "#/components/schemas/BasisSwapInstrumentDTO"
+                }
+              ]
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Instruments",
+            "type": "array"
+          },
+          "name": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "options": {
+            "$ref": "#/components/schemas/CalibrationOptionsDTO"
+          },
+          "schema_version": {
+            "const": 1,
+            "title": "Schema Version",
+            "type": "integer"
+          },
+          "solver": {
+            "$ref": "#/components/schemas/SingleCalibrationSolverDTO"
+          },
+          "today": {
+            "format": "date",
+            "title": "Today",
+            "type": "string"
+          }
+        },
+        "required": [
+          "schema_version",
+          "name",
+          "today",
+          "currency",
+          "declaration",
+          "instruments"
+        ],
+        "title": "SingleCalibrationRequest",
+        "type": "object"
+      },
+      "SingleCalibrationSolverDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "fit_tolerance": {
+            "default": 1e-06,
+            "exclusiveMinimum": 0.0,
+            "title": "Fit Tolerance",
+            "type": "number"
+          },
+          "initial_guess": {
+            "default": 0.05,
+            "title": "Initial Guess",
+            "type": "number"
+          },
+          "max_evaluations": {
+            "default": 200,
+            "exclusiveMinimum": 0.0,
+            "title": "Max Evaluations",
+            "type": "integer"
+          },
+          "max_restarts": {
+            "default": 20,
+            "exclusiveMinimum": 0.0,
+            "title": "Max Restarts",
+            "type": "integer"
+          },
+          "smoothing_weight": {
+            "default": 1.0,
+            "exclusiveMinimum": 0.0,
+            "title": "Smoothing Weight",
+            "type": "number"
+          },
+          "solve_mode": {
+            "default": "EXACT",
+            "enum": [
+              "EXACT",
+              "APPROXIMATE"
+            ],
+            "title": "Solve Mode",
+            "type": "string"
+          },
+          "tolerance": {
+            "default": 1e-08,
+            "exclusiveMinimum": 0.0,
+            "title": "Tolerance",
+            "type": "number"
+          }
+        },
+        "title": "SingleCalibrationSolverDTO",
+        "type": "object"
+      },
+      "SingleCurveDeclarationDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "base_curve_id": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{32}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Base Curve Id"
+          },
+          "calibrate_discount_curve": {
+            "title": "Calibrate Discount Curve",
+            "type": "boolean"
+          },
+          "curve_name": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Curve Name",
+            "type": "string"
+          },
+          "discount_curve_ids": {
+            "additionalProperties": {
+              "pattern": "^[0-9a-f]{32}$",
+              "type": "string"
+            },
+            "maxProperties": 16,
+            "propertyNames": {
+              "maxLength": 128,
+              "minLength": 1
+            },
+            "title": "Discount Curve Ids",
+            "type": "object"
+          },
+          "forward_curve_ids": {
+            "additionalProperties": {
+              "pattern": "^[0-9a-f]{32}$",
+              "type": "string"
+            },
+            "maxProperties": 16,
+            "propertyNames": {
+              "maxLength": 128,
+              "minLength": 1
+            },
+            "title": "Forward Curve Ids",
+            "type": "object"
+          },
+          "initial_guess_per_node": {
+            "items": {
+              "type": "number"
+            },
+            "maxItems": 200,
+            "title": "Initial Guess Per Node",
+            "type": "array"
+          },
+          "knot_dates": {
+            "items": {
+              "format": "date",
+              "type": "string"
+            },
+            "maxItems": 100,
+            "title": "Knot Dates",
+            "type": "array"
+          },
+          "knot_policy": {
+            "enum": [
+              "INPUT",
+              "INSTRUMENTS",
+              "AUGMENTED"
+            ],
+            "title": "Knot Policy",
+            "type": "string"
+          },
+          "libor_basis": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Libor Basis",
+            "type": "string"
+          },
+          "log_df_scheme": {
+            "anyOf": [
+              {
+                "enum": [
+                  "LOG_LINEAR",
+                  "LOG_CUBIC_NATURAL",
+                  "MIXED"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Log Df Scheme"
+          },
+          "parameterization": {
+            "enum": [
+              "PIECEWISE_CONSTANT_FWD",
+              "PIECEWISE_LINEAR_FWD",
+              "ZERO_RATE",
+              "LOG_DISCOUNT"
+            ],
+            "title": "Parameterization",
+            "type": "string"
+          },
+          "target_collateral": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Target Collateral",
+            "type": "string"
+          },
+          "target_tenor": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Tenor"
+          }
+        },
+        "required": [
+          "curve_name",
+          "target_collateral",
+          "target_tenor",
+          "calibrate_discount_curve",
+          "libor_basis",
+          "parameterization",
+          "log_df_scheme",
+          "knot_policy",
+          "knot_dates",
+          "base_curve_id"
+        ],
+        "title": "SingleCurveDeclarationDTO",
+        "type": "object"
+      },
+      "SolverDiagnosticsDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "evaluations": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evaluations"
+          },
+          "fit_tolerance": {
+            "exclusiveMinimum": 0.0,
+            "title": "Fit Tolerance",
+            "type": "number"
+          },
+          "max_abs_residual": {
+            "minimum": 0.0,
+            "title": "Max Abs Residual",
+            "type": "number"
+          },
+          "rms_residual": {
+            "minimum": 0.0,
+            "title": "Rms Residual",
+            "type": "number"
+          },
+          "solve_mode": {
+            "enum": [
+              "EXACT",
+              "APPROXIMATE"
+            ],
+            "title": "Solve Mode",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "converged",
+              "approximate_fit"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "tolerance": {
+            "exclusiveMinimum": 0.0,
+            "title": "Tolerance",
+            "type": "number"
+          },
+          "used_approximate_fit": {
+            "title": "Used Approximate Fit",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "status",
+          "solve_mode",
+          "used_approximate_fit",
+          "tolerance",
+          "fit_tolerance",
+          "max_abs_residual",
+          "rms_residual",
+          "evaluations"
+        ],
+        "title": "SolverDiagnosticsDTO",
+        "type": "object"
+      },
+      "StagedBasisDeclarationDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "curve_name": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Curve Name",
+            "type": "string"
+          },
+          "initial_guess_per_node": {
+            "items": {
+              "type": "number"
+            },
+            "maxItems": 100,
+            "title": "Initial Guess Per Node",
+            "type": "array"
+          },
+          "instruments": {
+            "items": {
+              "$ref": "#/components/schemas/XccySwapInstrumentDTO"
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Instruments",
+            "type": "array"
+          },
+          "knot_dates": {
+            "items": {
+              "format": "date",
+              "type": "string"
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Knot Dates",
+            "type": "array"
+          }
+        },
+        "required": [
+          "curve_name",
+          "knot_dates",
+          "instruments"
+        ],
+        "title": "StagedBasisDeclarationDTO",
+        "type": "object"
+      },
+      "StagedCurveBlockDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "currency": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Currency",
+            "type": "string"
+          },
+          "discount_curve_ids": {
+            "additionalProperties": {
+              "pattern": "^[0-9a-f]{32}$",
+              "type": "string"
+            },
+            "maxProperties": 16,
+            "propertyNames": {
+              "maxLength": 128,
+              "minLength": 1
+            },
+            "title": "Discount Curve Ids",
+            "type": "object"
+          },
+          "forward_curve_ids": {
+            "additionalProperties": {
+              "pattern": "^[0-9a-f]{32}$",
+              "type": "string"
+            },
+            "maxProperties": 16,
+            "propertyNames": {
+              "maxLength": 128,
+              "minLength": 1
+            },
+            "title": "Forward Curve Ids",
+            "type": "object"
+          },
+          "libor_basis": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Libor Basis",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "currency",
+          "libor_basis",
+          "discount_curve_ids",
+          "forward_curve_ids"
+        ],
+        "title": "StagedCurveBlockDTO",
+        "type": "object"
+      },
+      "StagedXccyCalibrationRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "basis": {
+            "$ref": "#/components/schemas/StagedBasisDeclarationDTO"
+          },
+          "collateral_currency": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Collateral Currency",
+            "type": "string"
+          },
+          "domestic_curve_block": {
+            "$ref": "#/components/schemas/StagedCurveBlockDTO"
+          },
+          "fixings": {
+            "items": {
+              "$ref": "#/components/schemas/FixingObservationDTO"
+            },
+            "title": "Fixings",
+            "type": "array"
+          },
+          "foreign_curve_block": {
+            "$ref": "#/components/schemas/StagedCurveBlockDTO"
+          },
+          "fx_forward_collateral": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Fx Forward Collateral",
+            "type": "string"
+          },
+          "fx_spot": {
+            "exclusiveMinimum": 0.0,
+            "title": "Fx Spot",
+            "type": "number"
+          },
+          "name": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "options": {
+            "$ref": "#/components/schemas/CalibrationOptionsDTO"
+          },
+          "pair": {
+            "$ref": "#/components/schemas/CurrencyPairDTO"
+          },
+          "schema_version": {
+            "const": 1,
+            "title": "Schema Version",
+            "type": "integer"
+          },
+          "solver": {
+            "$ref": "#/components/schemas/StagedXccyCalibrationSolverDTO"
+          },
+          "valuation_time": {
+            "format": "date-time",
+            "title": "Valuation Time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "schema_version",
+          "name",
+          "valuation_time",
+          "pair",
+          "collateral_currency",
+          "fx_spot",
+          "fx_forward_collateral",
+          "domestic_curve_block",
+          "foreign_curve_block",
+          "basis",
+          "fixings"
+        ],
+        "title": "StagedXccyCalibrationRequest",
+        "type": "object"
+      },
+      "StagedXccyCalibrationSolverDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "fit_tolerance": {
+            "default": 1e-06,
+            "exclusiveMinimum": 0.0,
+            "title": "Fit Tolerance",
+            "type": "number"
+          },
+          "initial_guess": {
+            "default": 0.0,
+            "title": "Initial Guess",
+            "type": "number"
+          },
+          "max_evaluations": {
+            "default": 200,
+            "exclusiveMinimum": 0.0,
+            "title": "Max Evaluations",
+            "type": "integer"
+          },
+          "max_restarts": {
+            "default": 20,
+            "exclusiveMinimum": 0.0,
+            "title": "Max Restarts",
+            "type": "integer"
+          },
+          "smoothing_weight": {
+            "default": 1.0,
+            "exclusiveMinimum": 0.0,
+            "title": "Smoothing Weight",
+            "type": "number"
+          },
+          "solve_mode": {
+            "default": "EXACT",
+            "enum": [
+              "EXACT",
+              "APPROXIMATE"
+            ],
+            "title": "Solve Mode",
+            "type": "string"
+          },
+          "tolerance": {
+            "default": 1e-10,
+            "exclusiveMinimum": 0.0,
+            "title": "Tolerance",
+            "type": "number"
+          }
+        },
+        "title": "StagedXccyCalibrationSolverDTO",
+        "type": "object"
+      },
+      "SwapInstrumentDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "fixed_leg": {
+            "$ref": "#/components/schemas/RateLegConventionDTO"
+          },
+          "float_index": {
+            "$ref": "#/components/schemas/RateIndexConventionDTO"
+          },
+          "float_leg": {
+            "$ref": "#/components/schemas/RateLegConventionDTO"
+          },
+          "kind": {
+            "const": "SWAP",
+            "title": "Kind",
+            "type": "string"
+          },
+          "label": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Label",
+            "type": "string"
+          },
+          "market_rate": {
+            "title": "Market Rate",
+            "type": "number"
+          },
+          "maturity": {
+            "format": "date",
+            "title": "Maturity",
+            "type": "string"
+          },
+          "start": {
+            "format": "date",
+            "title": "Start",
+            "type": "string"
+          },
+          "trade_date": {
+            "format": "date",
+            "title": "Trade Date",
+            "type": "string"
+          }
+        },
+        "required": [
+          "label",
+          "trade_date",
+          "start",
+          "maturity",
+          "market_rate",
+          "kind",
+          "fixed_leg",
+          "float_index",
+          "float_leg"
+        ],
+        "title": "SwapInstrumentDTO",
+        "type": "object"
+      },
+      "SyntheticAnchorOriginDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "const": "SYNTHETIC_ANCHOR",
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "title": "SyntheticAnchorOriginDTO",
+        "type": "object"
+      },
+      "Trade": {
+        "properties": {
+          "book": {
+            "default": "DEFAULT",
+            "title": "Book",
+            "type": "string"
+          },
+          "counterparty": {
+            "default": "",
+            "title": "Counterparty",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "model_id": {
+            "title": "Model Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "notional": {
+            "default": 1.0,
+            "title": "Notional",
+            "type": "number"
+          },
+          "product_id": {
+            "title": "Product Id",
+            "type": "string"
+          },
+          "quantity": {
+            "default": 1.0,
+            "title": "Quantity",
+            "type": "number"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Tags",
+            "type": "array"
+          }
+        },
+        "required": [
+          "name",
+          "product_id",
+          "model_id"
+        ],
+        "title": "Trade",
+        "type": "object"
+      },
+      "TradeCreate": {
+        "properties": {
+          "book": {
+            "default": "DEFAULT",
+            "title": "Book",
+            "type": "string"
+          },
+          "counterparty": {
+            "default": "",
+            "title": "Counterparty",
+            "type": "string"
+          },
+          "model_id": {
+            "title": "Model Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "notional": {
+            "default": 1.0,
+            "title": "Notional",
+            "type": "number"
+          },
+          "product_id": {
+            "title": "Product Id",
+            "type": "string"
+          },
+          "quantity": {
+            "default": 1.0,
+            "title": "Quantity",
+            "type": "number"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Tags",
+            "type": "array"
+          }
+        },
+        "required": [
+          "name",
+          "product_id",
+          "model_id"
+        ],
+        "title": "TradeCreate",
+        "type": "object"
+      },
+      "TradeUpdate": {
+        "properties": {
+          "book": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Book"
+          },
+          "counterparty": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Counterparty"
+          },
+          "model_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Id"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "notional": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notional"
+          },
+          "product_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Product Id"
+          },
+          "quantity": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quantity"
+          },
+          "tags": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tags"
+          }
+        },
+        "title": "TradeUpdate",
+        "type": "object"
+      },
+      "TradeValuation": {
+        "properties": {
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "greeks": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "Greeks",
+            "type": "object"
+          },
+          "pv": {
+            "title": "Pv",
+            "type": "number"
+          },
+          "scaled_pv": {
+            "title": "Scaled Pv",
+            "type": "number"
+          },
+          "trade_id": {
+            "title": "Trade Id",
+            "type": "string"
+          },
+          "trade_name": {
+            "title": "Trade Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "trade_id",
+          "trade_name",
+          "pv",
+          "scaled_pv"
+        ],
+        "title": "TradeValuation",
+        "type": "object"
+      },
+      "ValidationError": {
+        "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
+        "type": "object"
+      },
+      "ValuationConfig": {
+        "properties": {
+          "enable_aad": {
+            "default": true,
+            "title": "Enable Aad",
+            "type": "boolean"
+          },
+          "evaluation_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evaluation Date"
+          },
+          "method": {
+            "default": "sobol",
+            "enum": [
+              "sobol",
+              "pseudo"
+            ],
+            "title": "Method",
+            "type": "string"
+          },
+          "num_paths": {
+            "default": 65536,
+            "maximum": 16777216.0,
+            "minimum": 1.0,
+            "title": "Num Paths",
+            "type": "integer"
+          },
+          "smooth": {
+            "default": 0.01,
+            "minimum": 0.0,
+            "title": "Smooth",
+            "type": "number"
+          },
+          "use_brownian_bridge": {
+            "default": false,
+            "title": "Use Brownian Bridge",
+            "type": "boolean"
+          }
+        },
+        "title": "ValuationConfig",
+        "type": "object"
+      },
+      "ValuationResult": {
+        "properties": {
+          "backend": {
+            "title": "Backend",
+            "type": "string"
+          },
+          "config": {
+            "$ref": "#/components/schemas/ValuationConfig"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "error_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Message"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "is_native": {
+            "title": "Is Native",
+            "type": "boolean"
+          },
+          "status": {
+            "default": "completed",
+            "enum": [
+              "running",
+              "completed",
+              "failed"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "target_id": {
+            "title": "Target Id",
+            "type": "string"
+          },
+          "target_kind": {
+            "enum": [
+              "trade",
+              "portfolio"
+            ],
+            "title": "Target Kind",
+            "type": "string"
+          },
+          "total_greeks": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "Total Greeks",
+            "type": "object"
+          },
+          "total_pv": {
+            "title": "Total Pv",
+            "type": "number"
+          },
+          "trades": {
+            "items": {
+              "$ref": "#/components/schemas/TradeValuation"
+            },
+            "title": "Trades",
+            "type": "array"
+          }
+        },
+        "required": [
+          "target_kind",
+          "target_id",
+          "backend",
+          "is_native",
+          "config",
+          "total_pv",
+          "created_at"
+        ],
+        "title": "ValuationResult",
+        "type": "object"
+      },
+      "XccySwapConfigDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "convention": {
+            "$ref": "#/components/schemas/CrossCurrencyConventionDTO"
+          },
+          "domestic_notional": {
+            "exclusiveMinimum": 0.0,
+            "title": "Domestic Notional",
+            "type": "number"
+          },
+          "domestic_rate_fixing": {
+            "$ref": "#/components/schemas/FixingIdentityDTO"
+          },
+          "foreign_notional": {
+            "exclusiveMinimum": 0.0,
+            "title": "Foreign Notional",
+            "type": "number"
+          },
+          "foreign_rate_fixing": {
+            "$ref": "#/components/schemas/FixingIdentityDTO"
+          },
+          "fx_reset": {
+            "$ref": "#/components/schemas/FxResetConventionDTO"
+          },
+          "notional_mode": {
+            "enum": [
+              "FIXED",
+              "RESETTABLE",
+              "MARK_TO_MARKET"
+            ],
+            "title": "Notional Mode",
+            "type": "string"
+          },
+          "pair": {
+            "$ref": "#/components/schemas/CurrencyPairDTO"
+          }
+        },
+        "required": [
+          "pair",
+          "domestic_notional",
+          "foreign_notional",
+          "convention",
+          "notional_mode",
+          "fx_reset",
+          "domestic_rate_fixing",
+          "foreign_rate_fixing"
+        ],
+        "title": "XccySwapConfigDTO",
+        "type": "object"
+      },
+      "XccySwapInstrumentDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "config": {
+            "$ref": "#/components/schemas/XccySwapConfigDTO"
+          },
+          "kind": {
+            "const": "XCCY_SWAP",
+            "title": "Kind",
+            "type": "string"
+          },
+          "label": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Label",
+            "type": "string"
+          },
+          "market_rate": {
+            "title": "Market Rate",
+            "type": "number"
+          },
+          "maturity": {
+            "format": "date",
+            "title": "Maturity",
+            "type": "string"
+          },
+          "start": {
+            "format": "date",
+            "title": "Start",
+            "type": "string"
+          },
+          "trade_date": {
+            "format": "date",
+            "title": "Trade Date",
+            "type": "string"
+          }
+        },
+        "required": [
+          "label",
+          "trade_date",
+          "start",
+          "maturity",
+          "market_rate",
+          "kind",
+          "config"
+        ],
+        "title": "XccySwapInstrumentDTO",
+        "type": "object"
+      },
+      "ZeroRateCurveReconstructionDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "anchor_date": {
+            "format": "date",
+            "title": "Anchor Date",
+            "type": "string"
+          },
+          "base": {
+            "anyOf": [
+              {
+                "discriminator": {
+                  "mapping": {
+                    "LOG_DISCOUNT": "#/components/schemas/LogDiscountCurveReconstructionDTO",
+                    "PIECEWISE_CONSTANT_FWD": "#/components/schemas/PwcCurveReconstructionDTO",
+                    "PIECEWISE_LINEAR_FWD": "#/components/schemas/PwlfCurveReconstructionDTO",
+                    "ZERO_RATE": "#/components/schemas/ZeroRateCurveReconstructionDTO"
+                  },
+                  "propertyName": "parameterization"
+                },
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/PwcCurveReconstructionDTO"
+                  },
+                  {
+                    "$ref": "#/components/schemas/PwlfCurveReconstructionDTO"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ZeroRateCurveReconstructionDTO"
+                  },
+                  {
+                    "$ref": "#/components/schemas/LogDiscountCurveReconstructionDTO"
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Base"
+          },
+          "base_curve_id": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{32}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Base Curve Id"
+          },
+          "currency": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Currency",
+            "type": "string"
+          },
+          "day_count": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Day Count",
+            "type": "string"
+          },
+          "dto_version": {
+            "const": 1,
+            "title": "Dto Version",
+            "type": "integer"
+          },
+          "id": {
+            "pattern": "^[0-9a-f]{32}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "log_df_scheme": {
+            "enum": [
+              "LOG_LINEAR",
+              "LOG_CUBIC_NATURAL",
+              "MIXED"
+            ],
+            "title": "Log Df Scheme",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "node_dates": {
+            "items": {
+              "format": "date",
+              "type": "string"
+            },
+            "maxItems": 99,
+            "minItems": 1,
+            "title": "Node Dates",
+            "type": "array"
+          },
+          "parameterization": {
+            "const": "ZERO_RATE",
+            "title": "Parameterization",
+            "type": "string"
+          },
+          "parameters": {
+            "$ref": "#/components/schemas/ZeroRateParametersDTO"
+          },
+          "role": {
+            "enum": [
+              "discount",
+              "forward",
+              "basis",
+              "base"
+            ],
+            "title": "Role",
+            "type": "string"
+          },
+          "source_run_id": {
+            "pattern": "^[0-9a-f]{32}$",
+            "title": "Source Run Id",
+            "type": "string"
+          },
+          "target": {
+            "$ref": "#/components/schemas/CurveTargetDTO"
+          }
+        },
+        "required": [
+          "dto_version",
+          "id",
+          "name",
+          "currency",
+          "role",
+          "target",
+          "anchor_date",
+          "base_curve_id",
+          "base",
+          "source_run_id",
+          "parameterization",
+          "day_count",
+          "log_df_scheme",
+          "node_dates",
+          "parameters"
+        ],
+        "title": "ZeroRateCurveReconstructionDTO",
+        "type": "object"
+      },
+      "ZeroRateParametersDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "zero_rates": {
+            "items": {
+              "type": "number"
+            },
+            "maxItems": 99,
+            "minItems": 1,
+            "title": "Zero Rates",
+            "type": "array"
+          }
+        },
+        "required": [
+          "zero_rates"
+        ],
+        "title": "ZeroRateParametersDTO",
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "description": "Web UI backend for managing and pricing derivatives portfolios. All quantitative work is delegated to the Derivatives Algorithms Library through its Python public API.",
+    "title": "DAL Derivatives Portfolio Management",
+    "version": "0.1.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/api/calibrations/single": {
+      "post": {
+        "operationId": "submit_single_api_calibrations_single_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SingleCalibrationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunningCalibrationRunResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Submit Single",
+        "tags": [
+          "calibrations"
+        ]
+      }
+    },
+    "/api/calibrations/xccy/joint": {
+      "post": {
+        "operationId": "submit_joint_api_calibrations_xccy_joint_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/JointXccyCalibrationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunningCalibrationRunResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "examples": {
+                  "joint_free_parameter_limit_exceeded": {
+                    "summary": "Joint aggregate free-parameter cap",
+                    "value": {
+                      "error": {
+                        "code": "JOINT_FREE_PARAMETER_LIMIT_EXCEEDED",
+                        "context": {
+                          "cumulative_after": 201,
+                          "cumulative_before": 199,
+                          "max_total_free_parameters": 200,
+                          "offending_declaration_index": null,
+                          "offending_group": "basis",
+                          "offending_parameterization": "PIECEWISE_CONSTANT_FWD",
+                          "offending_storage_nodes": 2,
+                          "total_free_parameters": 201
+                        },
+                        "location": [
+                          "body",
+                          "basis",
+                          "parameterization"
+                        ],
+                        "message": "joint calibration has 201 free parameters; maximum is 200"
+                      }
+                    }
+                  }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Submit Joint",
+        "tags": [
+          "calibrations"
+        ]
+      }
+    },
+    "/api/calibrations/xccy/staged": {
+      "post": {
+        "operationId": "submit_staged_api_calibrations_xccy_staged_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StagedXccyCalibrationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunningCalibrationRunResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Submit Staged",
+        "tags": [
+          "calibrations"
+        ]
+      }
+    },
+    "/api/calibrations/{calibration_id}": {
+      "get": {
+        "operationId": "get_calibration_api_calibrations__calibration_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "calibration_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-f]{32}$",
+              "title": "Calibration Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "quote_bump_index",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Quote Bump Index"
+            }
+          },
+          {
+            "in": "query",
+            "name": "quote_bump_size",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 0.01,
+                  "minimum": -0.01,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Quote Bump Size"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "examples": {
+                  "persisted_expected_execution_identity_hash_mismatch": {
+                    "summary": "Persisted expected identity integrity failure",
+                    "value": {
+                      "actual_execution_identity": null,
+                      "actual_execution_identity_hash": null,
+                      "actual_jacobian_mode": null,
+                      "backend": "dal",
+                      "created_at": "2026-01-02T02:00:00Z",
+                      "curves": [],
+                      "effective_inverse": null,
+                      "error": {
+                        "code": "PERSISTED_EXPECTED_EXECUTION_IDENTITY_HASH_MISMATCH",
+                        "context": {
+                          "actual_expected_execution_identity_hash": "365aacee6fef1ebb789657ac953d39c1fdf3efbd243b0551ac8f6b98fcf45422",
+                          "first_difference": null,
+                          "integrity_domain": "expected_execution_identity",
+                          "stored_expected_execution_identity_hash": "c0fe9beaba4f64bd527df72c2ca00612a607b15d602d85513157b6e4590fb2ab"
+                        },
+                        "location": null,
+                        "message": "persisted expected single-knot execution identity failed canonical hash verification"
+                      },
+                      "expected_execution_identity": {
+                        "counts": {
+                          "free_parameters": 1,
+                          "resolved_declared_nodes": 1,
+                          "storage_nodes": 1
+                        },
+                        "execution_policy": "INPUT",
+                        "free_parameters": [
+                          {
+                            "component": "right_forward",
+                            "date": "2027-01-02"
+                          }
+                        ],
+                        "identity_version": 1,
+                        "log_df_scheme": null,
+                        "parameterization": "PIECEWISE_CONSTANT_FWD",
+                        "resolved_declared_dates": [
+                          "2027-01-02"
+                        ],
+                        "storage_dates": [
+                          "2027-01-02"
+                        ],
+                        "today": "2026-01-03"
+                      },
+                      "expected_execution_identity_hash": "c0fe9beaba4f64bd527df72c2ca00612a607b15d602d85513157b6e4590fb2ab",
+                      "finished_at": "2026-01-02T02:00:01Z",
+                      "fx_forwards": null,
+                      "id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                      "instrument_diagnostics": [],
+                      "is_native": true,
+                      "jacobian": null,
+                      "kind": "single",
+                      "name": "usd_ois_2026_01_02",
+                      "named_ranges": null,
+                      "options": {
+                        "include_effective_inverse": true,
+                        "include_jacobian": true,
+                        "jacobian_mode": "ANALYTIC"
+                      },
+                      "phase": "finished",
+                      "quote_bump_preview": null,
+                      "requested_jacobian_mode": "ANALYTIC",
+                      "resolved_knot_plan": {
+                        "anchor_added": false,
+                        "candidate_trace": [
+                          {
+                            "date": "2027-01-02",
+                            "disposition": "ADDED",
+                            "ordinal": 0,
+                            "origin": {
+                              "input_knot_index": 0,
+                              "kind": "INPUT"
+                            },
+                            "resolved_index": 0
+                          }
+                        ],
+                        "counts": {
+                          "free_parameters": 1,
+                          "instrument_candidates": 0,
+                          "resolved_declared_nodes": 1,
+                          "storage_nodes": 1,
+                          "submitted_knots": 1
+                        },
+                        "execution_policy": "INPUT",
+                        "free_parameters": [
+                          {
+                            "component": "right_forward",
+                            "date": "2027-01-02"
+                          }
+                        ],
+                        "planner_version": 1,
+                        "requested_policy": "INPUT",
+                        "resolved_declared_nodes": [
+                          {
+                            "date": "2027-01-02",
+                            "origins": [
+                              {
+                                "input_knot_index": 0,
+                                "kind": "INPUT"
+                              }
+                            ]
+                          }
+                        ],
+                        "storage_nodes": [
+                          {
+                            "date": "2027-01-02",
+                            "origins": [
+                              {
+                                "input_knot_index": 0,
+                                "kind": "INPUT"
+                              }
+                            ]
+                          }
+                        ],
+                        "submitted_knot_dates": [
+                          "2027-01-02"
+                        ]
+                      },
+                      "resolved_knot_plan_hash": "e79378f7c5d80b13e2087bb5db77418334b35fe7b8f9de409dab8305d74455a8",
+                      "schema_version": 1,
+                      "solver": {
+                        "fit_tolerance": 1e-06,
+                        "initial_guess": 0.05,
+                        "max_evaluations": 200,
+                        "max_restarts": 20,
+                        "smoothing_weight": 1.0,
+                        "solve_mode": "EXACT",
+                        "tolerance": 1e-08
+                      },
+                      "solver_diagnostics": null,
+                      "started_at": "2026-01-02T02:00:01Z",
+                      "status": "failed",
+                      "timings": {
+                        "native_solve_ms": null,
+                        "serialization_ms": null
+                      }
+                    }
+                  }
+                },
+                "schema": {
+                  "discriminator": {
+                    "mapping": {
+                      "completed": "#/components/schemas/CompletedCalibrationRunResponse",
+                      "failed": "#/components/schemas/FailedCalibrationRunResponse",
+                      "running": "#/components/schemas/RunningCalibrationRunResponse"
+                    },
+                    "propertyName": "status"
+                  },
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/RunningCalibrationRunResponse"
+                    },
+                    {
+                      "$ref": "#/components/schemas/CompletedCalibrationRunResponse"
+                    },
+                    {
+                      "$ref": "#/components/schemas/FailedCalibrationRunResponse"
+                    }
+                  ],
+                  "title": "Response Get Calibration Api Calibrations  Calibration Id  Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Get Calibration",
+        "tags": [
+          "calibrations"
+        ]
+      }
+    },
+    "/api/curves/{curve_id}": {
+      "get": {
+        "operationId": "get_curve_api_curves__curve_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "curve_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-f]{32}$",
+              "title": "Curve Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "discriminator": {
+                    "mapping": {
+                      "LOG_DISCOUNT": "#/components/schemas/LogDiscountCurveReconstructionDTO",
+                      "PIECEWISE_CONSTANT_FWD": "#/components/schemas/PwcCurveReconstructionDTO",
+                      "PIECEWISE_LINEAR_FWD": "#/components/schemas/PwlfCurveReconstructionDTO",
+                      "ZERO_RATE": "#/components/schemas/ZeroRateCurveReconstructionDTO"
+                    },
+                    "propertyName": "parameterization"
+                  },
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/PwcCurveReconstructionDTO"
+                    },
+                    {
+                      "$ref": "#/components/schemas/PwlfCurveReconstructionDTO"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ZeroRateCurveReconstructionDTO"
+                    },
+                    {
+                      "$ref": "#/components/schemas/LogDiscountCurveReconstructionDTO"
+                    }
+                  ],
+                  "title": "Response Get Curve Api Curves  Curve Id  Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Get Curve",
+        "tags": [
+          "curves"
+        ]
+      }
+    },
+    "/api/health": {
+      "get": {
+        "operationId": "health_api_health_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Health",
+        "tags": [
+          "system"
+        ]
+      }
+    },
+    "/api/models": {
+      "get": {
+        "operationId": "list_models_api_models_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ModelDefinition"
+                  },
+                  "title": "Response List Models Api Models Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Models",
+        "tags": [
+          "models"
+        ]
+      },
+      "post": {
+        "operationId": "create_model_api_models_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ModelCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModelDefinition"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Model",
+        "tags": [
+          "models"
+        ]
+      }
+    },
+    "/api/models/{model_id}": {
+      "delete": {
+        "operationId": "delete_model_api_models__model_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "model_id",
+            "required": true,
+            "schema": {
+              "title": "Model Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Model",
+        "tags": [
+          "models"
+        ]
+      },
+      "get": {
+        "operationId": "get_model_api_models__model_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "model_id",
+            "required": true,
+            "schema": {
+              "title": "Model Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModelDefinition"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Model",
+        "tags": [
+          "models"
+        ]
+      },
+      "put": {
+        "operationId": "update_model_api_models__model_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "model_id",
+            "required": true,
+            "schema": {
+              "title": "Model Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ModelUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModelDefinition"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Model",
+        "tags": [
+          "models"
+        ]
+      }
+    },
+    "/api/portfolios": {
+      "get": {
+        "operationId": "list_portfolios_api_portfolios_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Portfolio"
+                  },
+                  "title": "Response List Portfolios Api Portfolios Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Portfolios",
+        "tags": [
+          "portfolios"
+        ]
+      },
+      "post": {
+        "operationId": "create_portfolio_api_portfolios_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PortfolioCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Portfolio"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Portfolio",
+        "tags": [
+          "portfolios"
+        ]
+      }
+    },
+    "/api/portfolios/{portfolio_id}": {
+      "delete": {
+        "operationId": "delete_portfolio_api_portfolios__portfolio_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "portfolio_id",
+            "required": true,
+            "schema": {
+              "title": "Portfolio Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Portfolio",
+        "tags": [
+          "portfolios"
+        ]
+      },
+      "get": {
+        "operationId": "get_portfolio_api_portfolios__portfolio_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "portfolio_id",
+            "required": true,
+            "schema": {
+              "title": "Portfolio Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Portfolio"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Portfolio",
+        "tags": [
+          "portfolios"
+        ]
+      }
+    },
+    "/api/portfolios/{portfolio_id}/trades": {
+      "get": {
+        "operationId": "portfolio_trades_api_portfolios__portfolio_id__trades_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "portfolio_id",
+            "required": true,
+            "schema": {
+              "title": "Portfolio Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Trade"
+                  },
+                  "title": "Response Portfolio Trades Api Portfolios  Portfolio Id  Trades Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Portfolio Trades",
+        "tags": [
+          "portfolios"
+        ]
+      }
+    },
+    "/api/portfolios/{portfolio_id}/trades/{trade_id}": {
+      "delete": {
+        "operationId": "remove_trade_api_portfolios__portfolio_id__trades__trade_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "portfolio_id",
+            "required": true,
+            "schema": {
+              "title": "Portfolio Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "trade_id",
+            "required": true,
+            "schema": {
+              "title": "Trade Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Portfolio"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Remove Trade",
+        "tags": [
+          "portfolios"
+        ]
+      },
+      "post": {
+        "operationId": "add_trade_api_portfolios__portfolio_id__trades__trade_id__post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "portfolio_id",
+            "required": true,
+            "schema": {
+              "title": "Portfolio Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "trade_id",
+            "required": true,
+            "schema": {
+              "title": "Trade Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Portfolio"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Add Trade",
+        "tags": [
+          "portfolios"
+        ]
+      }
+    },
+    "/api/portfolios/{portfolio_id}/value": {
+      "post": {
+        "description": "Start a portfolio valuation asynchronously.\n\nReturns a pending ``ValuationResult`` immediately with ``status=\"running\"``.\nPricing runs as an ``asyncio`` task that offloads the blocking C++ call to a\nworker thread; poll ``GET /api/valuations/{id}`` until ``status`` becomes\n``\"completed\"`` or ``\"failed\"``.",
+        "operationId": "value_portfolio_endpoint_api_portfolios__portfolio_id__value_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "portfolio_id",
+            "required": true,
+            "schema": {
+              "title": "Portfolio Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ValuationConfig"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValuationResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Value Portfolio Endpoint",
+        "tags": [
+          "portfolios"
+        ]
+      }
+    },
+    "/api/products": {
+      "get": {
+        "operationId": "list_products_api_products_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ProductDefinition"
+                  },
+                  "title": "Response List Products Api Products Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Products",
+        "tags": [
+          "products"
+        ]
+      },
+      "post": {
+        "operationId": "create_product_api_products_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProductCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductDefinition"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Product",
+        "tags": [
+          "products"
+        ]
+      }
+    },
+    "/api/products/debug": {
+      "post": {
+        "description": "Render a DAL script-product debug dump for a set of event rows.",
+        "operationId": "debug_product_api_products_debug_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProductDebugRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductDebugResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Debug Product",
+        "tags": [
+          "products"
+        ]
+      }
+    },
+    "/api/products/templates": {
+      "get": {
+        "operationId": "list_templates_api_products_templates_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {},
+                  "title": "Response List Templates Api Products Templates Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Templates",
+        "tags": [
+          "products"
+        ]
+      }
+    },
+    "/api/products/{product_id}": {
+      "delete": {
+        "operationId": "delete_product_api_products__product_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "product_id",
+            "required": true,
+            "schema": {
+              "title": "Product Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Product",
+        "tags": [
+          "products"
+        ]
+      },
+      "get": {
+        "operationId": "get_product_api_products__product_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "product_id",
+            "required": true,
+            "schema": {
+              "title": "Product Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductDefinition"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Product",
+        "tags": [
+          "products"
+        ]
+      },
+      "put": {
+        "operationId": "update_product_api_products__product_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "product_id",
+            "required": true,
+            "schema": {
+              "title": "Product Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProductUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductDefinition"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Product",
+        "tags": [
+          "products"
+        ]
+      }
+    },
+    "/api/trades": {
+      "get": {
+        "operationId": "list_trades_api_trades_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Trade"
+                  },
+                  "title": "Response List Trades Api Trades Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Trades",
+        "tags": [
+          "trades"
+        ]
+      },
+      "post": {
+        "operationId": "create_trade_api_trades_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TradeCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Trade"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Trade",
+        "tags": [
+          "trades"
+        ]
+      }
+    },
+    "/api/trades/{trade_id}": {
+      "delete": {
+        "operationId": "delete_trade_api_trades__trade_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "trade_id",
+            "required": true,
+            "schema": {
+              "title": "Trade Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Trade",
+        "tags": [
+          "trades"
+        ]
+      },
+      "get": {
+        "operationId": "get_trade_api_trades__trade_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "trade_id",
+            "required": true,
+            "schema": {
+              "title": "Trade Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Trade"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Trade",
+        "tags": [
+          "trades"
+        ]
+      },
+      "put": {
+        "operationId": "update_trade_api_trades__trade_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "trade_id",
+            "required": true,
+            "schema": {
+              "title": "Trade Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TradeUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Trade"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Trade",
+        "tags": [
+          "trades"
+        ]
+      }
+    },
+    "/api/trades/{trade_id}/value": {
+      "post": {
+        "description": "Start a single-trade valuation asynchronously.\n\nReturns a pending ``ValuationResult`` immediately with ``status=\"running\"``.\nPricing runs as an ``asyncio`` task that offloads the blocking C++ call to a\nworker thread; poll ``GET /api/valuations/{id}`` until ``status`` becomes\n``\"completed\"`` or ``\"failed\"``.",
+        "operationId": "value_trade_endpoint_api_trades__trade_id__value_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "trade_id",
+            "required": true,
+            "schema": {
+              "title": "Trade Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ValuationConfig"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValuationResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Value Trade Endpoint",
+        "tags": [
+          "trades"
+        ]
+      }
+    },
+    "/api/valuations": {
+      "get": {
+        "operationId": "list_valuations_api_valuations_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ValuationResult"
+                  },
+                  "title": "Response List Valuations Api Valuations Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Valuations",
+        "tags": [
+          "system"
+        ]
+      }
+    },
+    "/api/valuations/{valuation_id}": {
+      "get": {
+        "operationId": "get_valuation_api_valuations__valuation_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "valuation_id",
+            "required": true,
+            "schema": {
+              "title": "Valuation Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValuationResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Valuation",
+        "tags": [
+          "system"
+        ]
+      }
+    }
+  }
+}

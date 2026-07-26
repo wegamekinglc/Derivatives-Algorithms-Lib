@@ -171,7 +171,9 @@ jobs:
           uv venv "$VIRTUAL_ENV" --python 3.13
           echo "$VIRTUAL_ENV/bin" >> "$GITHUB_PATH"
           echo "VIRTUAL_ENV=$VIRTUAL_ENV" >> "$GITHUB_ENV"
-          uv pip install pytest numpy
+          # Install the backend package itself so the native subprocess fixture
+          # gets the same declared production dependency closure as the API.
+          uv pip install pytest numpy httpx2 -e dal-web/backend
 
       - name: Compile and test
         env:
@@ -193,6 +195,8 @@ jobs:
           PYTHONPATH: ${{ github.workspace }}/build/stage/Release-linux:${{ github.workspace }}/dal-web/backend
         run: |
           python .github/scripts/check_native_web_gateway.py
+          python -m pytest dal-web/backend/tests/test_curve_reconstruction_process.py \
+            -m native
 
   # Web product surfaces are backend-agnostic except for the native gateway
   # smoke test above. Keep their dependency setup and browser run together so
@@ -229,6 +233,12 @@ jobs:
         working-directory: dal-web/frontend
         run: |
           npm test
+
+      - name: Enforce backend-only quote-bump arithmetic
+        run: |
+          python .github/scripts/check_frontend_quote_bump_boundary.py
+          uv run --project dal-web/backend --no-sync \
+            python .github/scripts/generate_web_calibration_perf_reports.py
 
       - name: Prepare Chrome
         run: |

@@ -39,6 +39,7 @@ namespace Dal {
                                          const DayBasis_& dayCount);
 
     CurveParameterLayout_ BuildCurveParameterLayout(const CurveDefinition_& definition);
+    Vector_<CurveFreeParameter_> DescribeCurveFreeParameters(const CurveDefinition_& definition);
 
     Vector_<AAD::Number_> RegisterCurveParameters(const Vector_<>& parameters);
 

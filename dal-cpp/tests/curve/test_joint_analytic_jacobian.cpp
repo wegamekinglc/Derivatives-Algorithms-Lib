@@ -870,6 +870,31 @@ TEST(JointAnalyticJacobianTest, TestHomogeneousZeroRateParameterizationsMatchCen
     }
 }
 
+TEST(JointAnalyticJacobianTest, TestFixB1JointBasisSchemesMatchCentralDifferences) {
+    // FIX-B1-JOINT-BASIS-SCHEMES: the two dated representations and every
+    // selectable interpolation scheme use the compiled analytic Jacobian.
+    RegisterAll_::Init();
+    const Date_ today(2024, 1, 15);
+    const Ccy_ ccy("USD");
+    const Vector_<CurveParameterization_> parameterizations = {
+        CurveParameterization_::Value_::ZERO_RATE,
+        CurveParameterization_::Value_::LOG_DISCOUNT,
+    };
+    const Vector_<LogDfScheme_> schemes = {
+        LogDfScheme_::Value_::LOG_LINEAR,
+        LogDfScheme_::Value_::LOG_CUBIC_NATURAL,
+        LogDfScheme_::Value_::MIXED,
+    };
+    for (const CurveParameterization_ parameterization : parameterizations) {
+        for (const LogDfScheme_ scheme : schemes) {
+            const String_ label = String_("FIX-B1 ") + parameterization.String() + " " + scheme.String();
+            SCOPED_TRACE(label.c_str());
+            const JointMultiCurveCalibrationSpec_ spec = BuildParameterizationSpec(today, ccy, parameterization, parameterization, scheme);
+            ASSERT_NO_THROW(AssertJointJacobianMatchesCentralDifferences(spec, label));
+        }
+    }
+}
+
 TEST(JointAnalyticJacobianTest, TestMixedParameterizationsMatchCentralDifferences) {
     RegisterAll_::Init();
     const Date_ today(2024, 1, 15);

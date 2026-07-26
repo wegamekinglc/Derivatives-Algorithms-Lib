@@ -30,6 +30,7 @@ namespace Dal {
         Vector_<Handle_<CrossCurrencySwap_>> instruments_;
         Vector_<Date_> knotDates_;
         CurveParameterization_ parameterization_ = CurveParameterization_::Value_::PIECEWISE_CONSTANT_FWD;
+        LogDfScheme_ logDfScheme_ = LogDfScheme_::Value_::LOG_LINEAR;
         double smoothingWeight_ = 1.0;
         Vector_<double> initialGuessPerNode_;
     };
@@ -86,4 +87,5 @@ namespace Dal {
     [[nodiscard]] JointXccyCalibrationResult_ CalibrateJointXccyMarket(const JointXccyCalibrationSpec_& spec);
     [[nodiscard]] JointXccyCalibrationResult_ CalibrateJointXccyMarket(const JointXccyCalibrationSpec_& spec,
                                                                        const JointXccyCalibrationOptions_& options);
+    [[nodiscard]] AnalyticEligibilityReport_ ValidateJointXccyAnalyticEligibility(const JointXccyCalibrationSpec_& spec);
 } // namespace Dal

@@ -1,0 +1,58 @@
+name: Web calibration Release/native performance
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: web-calibration-performance-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  measured-performance:
+    runs-on: [self-hosted, linux, x64, dal-web-performance]
+    timeout-minutes: 60
+    env:
+      DAL_AAD_BACKEND: AADET
+      DAL_NUM_THREADS: 2
+      DAL_WEB_PERFORMANCE_RUNNER: "1"
+      PYTHONPATH: ${{ github.workspace }}/build/stage/Release-linux:${{ github.workspace }}/dal-web/backend
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          submodules: recursive
+
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # @v9.0.0
+
+      - name: Set up Python environment
+        run: |
+          export VIRTUAL_ENV="$PWD/dal-python/.venv"
+          uv venv "$VIRTUAL_ENV" --python 3.13
+          echo "$VIRTUAL_ENV/bin" >> "$GITHUB_PATH"
+          echo "VIRTUAL_ENV=$VIRTUAL_ENV" >> "$GITHUB_ENV"
+          uv pip install pytest numpy -r dal-web/backend/requirements.txt
+
+      - name: Build Release/native AADET
+        env:
+          CXXFLAGS: -O2
+          ADDITIONAL_CMAKE_FLAGS: >-
+            -DDAL_USE_XAD_AAD=off
+            -DDAL_USE_CODIPACK_AAD=off
+            -DDAL_USE_ADEPT_AAD=off
+            -DDAL_BUILD_PYTHON=ON
+        run: bash -e ./build_linux.sh
+
+      - name: Run and validate marked performance gates
+        run: |
+          python .github/scripts/run_web_calibration_perf.py \
+            --output-dir artifacts/web-calibration-performance
+          python .github/scripts/run_web_calibration_perf.py \
+            --validate-dir artifacts/web-calibration-performance
+
+      - name: Upload raw performance reports
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # @v4
+        with:
+          name: web-calibration-performance-${{ github.sha }}
+          path: artifacts/web-calibration-performance/*.json
+          if-no-files-found: error
+          retention-days: 30

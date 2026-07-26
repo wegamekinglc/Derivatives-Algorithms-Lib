@@ -109,6 +109,97 @@ export interface ProductTemplate {
   rows: EventRow[];
 }
 
+export type CalibrationKind = "single" | "xccy_staged" | "xccy_joint";
+export type CalibrationStatus = "running" | "completed" | "failed";
+
+export interface InstrumentDiagnostic {
+  instrument_id: string;
+  group: string;
+  calibration_index: number;
+  market_rate: number;
+  model_rate: number;
+  residual: number;
+}
+
+export interface CalibrationMatrix {
+  availability: "available" | "not_requested" | "not_available_for_mode";
+  shape: [number, number];
+  row_axis: string[];
+  column_axis: string[];
+  scaling: "unscaled" | "solver_scaled";
+  residual_tolerance: number | null;
+  values: number[][] | null;
+}
+
+export interface CalibrationCurve {
+  id: string;
+  name: string;
+  currency: string;
+  role: "discount" | "forward" | "basis" | "base";
+  parameterization: string;
+  node_dates: string[];
+  parameters: Record<string, number[]>;
+}
+
+export interface QuoteBumpPreview {
+  residual_index: number;
+  instrument_id: string;
+  quote_bump: number;
+  residual_tolerance: number;
+  delta_parameters: { axis: string; value: number }[];
+  formula: "delta_x = effective_inverse * delta_quote / residual_tolerance";
+}
+
+export interface CalibrationRun {
+  id: string;
+  kind: CalibrationKind;
+  name: string;
+  status: CalibrationStatus;
+  phase: "queued" | "solving" | "serializing" | "persisting" | "finished";
+  created_at: string;
+  started_at: string | null;
+  finished_at: string | null;
+  requested_jacobian_mode: "ANALYTIC" | "BUMPED";
+  actual_jacobian_mode: "ANALYTIC" | "BUMPED" | null;
+  curves: CalibrationCurve[];
+  instrument_diagnostics: InstrumentDiagnostic[];
+  solver_diagnostics: {
+    status: string;
+    max_abs_residual: number;
+    rms_residual: number;
+    evaluations: number | null;
+  } | null;
+  fx_forwards: {
+    pair: { domestic: string; foreign: string };
+    dates: string[];
+    forwards: number[];
+  } | null;
+  named_ranges: {
+    parameters: { name: string; offset: number; size: number }[];
+    residuals: { name: string; offset: number; size: number }[];
+  } | null;
+  jacobian: CalibrationMatrix | null;
+  effective_inverse: CalibrationMatrix | null;
+  quote_bump_preview: QuoteBumpPreview | null;
+  error: {
+    code: string;
+    message: string;
+    location: (string | number)[] | null;
+    context: Record<string, unknown>;
+  } | null;
+}
+
+export class ApiClientError extends Error {
+  readonly status: number;
+  readonly detail: unknown;
+
+  constructor(message: string, status: number, detail: unknown) {
+    super(message);
+    this.status = status;
+    this.detail = detail;
+  }
+}
+
 const BASE = "/api";
 
 function apiPath(path: string): string {
@@ -128,6 +219,17 @@ function apiPath(path: string): string {
   return endpoint;
 }
 
+function calibrationPath(kind: CalibrationKind): string {
+  switch (kind) {
+  case "single":
+    return "/calibrations/single";
+  case "xccy_staged":
+    return "/calibrations/xccy/staged";
+  case "xccy_joint":
+    return "/calibrations/xccy/joint";
+  }
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const headers: Record<string, string> = { ...(init?.headers as Record<string, string> | undefined) };
   // Only attach a JSON content-type when the request actually carries a
@@ -141,13 +243,15 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const resp = await fetch(url, { ...init, headers });
   if (!resp.ok) {
     let detail = resp.statusText;
+    let rawDetail: unknown = detail;
     try {
       const body = await resp.json();
-      detail = typeof body.detail === "string" ? body.detail : JSON.stringify(body.detail);
+      rawDetail = body.detail ?? body.error ?? body;
+      detail = typeof rawDetail === "string" ? rawDetail : JSON.stringify(rawDetail);
     } catch {
       // ignore body parse errors
     }
-    throw new Error(`${resp.status}: ${detail}`);
+    throw new ApiClientError(`${resp.status}: ${detail}`, resp.status, rawDetail);
   }
   if (resp.status === 204) {
     return undefined as T;
@@ -215,4 +319,23 @@ export const api = {
 
   listValuations: () => request<ValuationResult[]>("/valuations"),
   getValuation: (id: string) => request<ValuationResult>(`/valuations/${id}`),
+
+  submitCalibration: (kind: CalibrationKind, body: unknown) => {
+    return request<CalibrationRun>(calibrationPath(kind), {
+      method: "POST",
+      body: JSON.stringify(body),
+    });
+  },
+  getCalibration: (
+    id: string,
+    quoteBumpIndex?: number,
+    quoteBumpSize?: number,
+  ) => {
+    const query =
+      quoteBumpIndex === undefined || quoteBumpSize === undefined
+        ? ""
+        : `?quote_bump_index=${encodeURIComponent(quoteBumpIndex)}&quote_bump_size=${encodeURIComponent(quoteBumpSize)}`;
+    return request<CalibrationRun>(`/calibrations/${id}${query}`);
+  },
+  getCurve: (id: string) => request<CalibrationCurve>(`/curves/${id}`),
 };

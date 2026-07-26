@@ -4,6 +4,10 @@
 
 #pragma once
 
+#include <map>
+#include <memory>
+#include <optional>
+
 #include <dal/math/vectors.hpp>
 #include <dal/string/strings.hpp>
 #include <dal/utilities/exceptions.hpp>
@@ -59,24 +63,151 @@ alternative ELIGIBLE
 alternative INELIGIBLE
 -IF-------------------------------------------------------------------------*/
 
-#include <memory>
-#include <map>
+/*IF--------------------------------------------------------------------------
+enumeration AnalyticIneligibilityReason
+    Stable structured analytic-Jacobian ineligibility reason
+switchable
+alternative DISCOUNT_TARGET_REQUIRED
+alternative TEMPLATED_RATE_UNAVAILABLE
+alternative PROJECTION_NOT_ALLOWED
+alternative PROJECTION_REQUIRED
+alternative TRADE_DATE_MISMATCH
+alternative LIBOR_BASIS_UNSUPPORTED
+alternative DISCOUNT_ROUTE_MISSING
+alternative PROJECTION_ROUTE_MISSING
+alternative PAIR_CURRENCY_MISMATCH
+alternative COUPON_PLAN_EMPTY
+alternative NOTIONAL_MODE_UNSUPPORTED
+alternative RESET_MAPPING_INVALID
+alternative CASHFLOW_PLAN_UNSUPPORTED
+-IF-------------------------------------------------------------------------*/
+
+/*IF--------------------------------------------------------------------------
+enumeration CurveKnotOriginKind
+    Source of a single-curve knot candidate
+switchable
+alternative INPUT
+alternative INSTRUMENT_START
+alternative INSTRUMENT_END
+alternative SYNTHETIC_ANCHOR
+-IF-------------------------------------------------------------------------*/
+
+/*IF--------------------------------------------------------------------------
+enumeration CurveKnotCandidateDisposition
+    Result of visiting a single-curve knot candidate
+switchable
+alternative ADDED
+alternative DUPLICATE
+alternative FILTERED_NOT_AFTER_TODAY
+-IF-------------------------------------------------------------------------*/
+
+/*IF--------------------------------------------------------------------------
+enumeration CurveFreeParameterComponent
+    Representation-aware component of a free curve parameter
+switchable
+alternative RIGHT_FORWARD
+alternative LEFT_FORWARD
+alternative ZERO_RATE
+alternative LOG_DISCOUNT_FACTOR
+-IF-------------------------------------------------------------------------*/
+
+#include <dal/curve/discount.hpp>
+#include <dal/curve/logdfscheme.hpp>
+#include <dal/curve/ycinstrument.hpp>
+#include <dal/math/matrix/banded.hpp>
+#include <dal/math/matrix/matrixs.hpp>
 #include <dal/platform/platform.hpp>
 #include <dal/protocol/collateraltype.hpp>
 #include <dal/time/date.hpp>
 #include <dal/time/periodlength.hpp>
-#include <dal/math/matrix/matrixs.hpp>
-#include <dal/math/matrix/banded.hpp>
-#include <dal/curve/discount.hpp>
-#include <dal/curve/logdfscheme.hpp>
-#include <dal/curve/ycinstrument.hpp>
 
 namespace Dal {
-#include <dal/auto/MG_CurveSolveMode_enum.hpp>
-#include <dal/auto/MG_CurveParameterization_enum.hpp>
-#include <dal/auto/MG_CurveKnotPolicy_enum.hpp>
-#include <dal/auto/MG_CurveJacobianMode_enum.hpp>
 #include <dal/auto/MG_AnalyticEligibility_enum.hpp>
+#include <dal/auto/MG_AnalyticIneligibilityReason_enum.hpp>
+#include <dal/auto/MG_CurveFreeParameterComponent_enum.hpp>
+#include <dal/auto/MG_CurveJacobianMode_enum.hpp>
+#include <dal/auto/MG_CurveKnotCandidateDisposition_enum.hpp>
+#include <dal/auto/MG_CurveKnotOriginKind_enum.hpp>
+#include <dal/auto/MG_CurveKnotPolicy_enum.hpp>
+#include <dal/auto/MG_CurveParameterization_enum.hpp>
+#include <dal/auto/MG_CurveSolveMode_enum.hpp>
+
+    struct AnalyticEligibilityIssue_ {
+        AnalyticIneligibilityReason_ reason_;
+        String_ group_;
+        int declarationIndex_ = -1;
+        int instrumentIndex_ = -1;
+        int resetIndex_ = -1;
+        String_ nativeMessage_;
+    };
+
+    struct AnalyticEligibilityReport_ {
+        bool eligible_ = true;
+        Vector_<AnalyticEligibilityIssue_> issues_;
+    };
+
+    struct CurveKnotOrigin_ {
+        CurveKnotOriginKind_ kind_;
+        int inputKnotIndex_ = -1;
+        int instrumentInputIndex_ = -1;
+    };
+
+    struct CurveKnotCandidate_ {
+        int ordinal_ = 0;
+        Date_ date_;
+        CurveKnotOrigin_ origin_;
+        CurveKnotCandidateDisposition_ disposition_;
+        int resolvedIndex_ = -1;
+    };
+
+    struct ResolvedCurveKnotNode_ {
+        Date_ date_;
+        Vector_<CurveKnotOrigin_> origins_;
+    };
+
+    struct CurveFreeParameter_ {
+        Date_ date_;
+        CurveFreeParameterComponent_ component_;
+    };
+
+    struct ResolvedCurveKnotCounts_ {
+        int submittedKnots_ = 0;
+        int instrumentCandidates_ = 0;
+        int resolvedDeclaredNodes_ = 0;
+        int storageNodes_ = 0;
+        int freeParameters_ = 0;
+    };
+
+    struct ResolvedSingleKnotPlan_ {
+        int plannerVersion_ = 1;
+        CurveKnotPolicy_ requestedPolicy_;
+        CurveKnotPolicy_ executionPolicy_ = CurveKnotPolicy_::Value_::INPUT;
+        Vector_<Date_> submittedKnotDates_;
+        Vector_<CurveKnotCandidate_> candidateTrace_;
+        Vector_<ResolvedCurveKnotNode_> resolvedDeclaredNodes_;
+        Vector_<ResolvedCurveKnotNode_> storageNodes_;
+        Vector_<CurveFreeParameter_> freeParameters_;
+        bool anchorAdded_ = false;
+        ResolvedCurveKnotCounts_ counts_;
+    };
+
+    struct ExecutionSingleKnotCounts_ {
+        int resolvedDeclaredNodes_ = 0;
+        int storageNodes_ = 0;
+        int freeParameters_ = 0;
+    };
+
+    struct ExecutionSingleKnotIdentity_ {
+        int identityVersion_ = 1;
+        CurveKnotPolicy_ executionPolicy_ = CurveKnotPolicy_::Value_::INPUT;
+        Date_ today_;
+        CurveParameterization_ parameterization_;
+        std::optional<LogDfScheme_> logDfScheme_;
+        Vector_<Date_> resolvedDeclaredDates_;
+        Vector_<Date_> storageDates_;
+        Vector_<CurveFreeParameter_> freeParameters_;
+        ExecutionSingleKnotCounts_ counts_;
+    };
 
     struct CurveCalibrationSpec_ {
         Date_ today_;
@@ -102,6 +233,12 @@ namespace Dal {
         CurveKnotPolicy_ knotPolicy_ = CurveKnotPolicy_::Value_::INPUT;
         Vector_<double> initialGuessPerNode_;
         LogDfScheme_ logDfScheme_ = LogDfScheme_::Value_::LOG_LINEAR;
+
+        [[nodiscard]] const Date_& Today() const { return today_; }
+        [[nodiscard]] CurveKnotPolicy_ KnotPolicy() const { return knotPolicy_; }
+        [[nodiscard]] CurveParameterization_ Parameterization() const { return parameterization_; }
+        [[nodiscard]] LogDfScheme_ LogDfScheme() const { return logDfScheme_; }
+        [[nodiscard]] const Vector_<Date_>& KnotDates() const { return knotDates_; }
     };
 
     // Solver-side options, not serialized with the spec (the spec is WHAT to calibrate; these are HOW).
@@ -150,6 +287,14 @@ namespace Dal {
                                               const Vector_<Handle_<YCInstrument_>>& instruments,
                                               const Vector_<Date_>& inputKnots,
                                               CurveKnotPolicy_ policy);
+    [[nodiscard]] ResolvedSingleKnotPlan_ PlanCurveCalibrationKnots(const Date_& today,
+                                                                    const Vector_<Handle_<YCInstrument_>>& instruments,
+                                                                    const Vector_<Date_>& submittedKnots,
+                                                                    CurveKnotPolicy_ requestedPolicy,
+                                                                    CurveParameterization_ parameterization);
+    [[nodiscard]] ExecutionSingleKnotIdentity_ InspectCurveCalibrationExecutionIdentity(const CurveCalibrationSpec_& finalInputSpec);
+    [[nodiscard]] Vector_<> ResolveCurveCalibrationInitialGuess(const CurveCalibrationSpec_& finalSpec);
+    [[nodiscard]] AnalyticEligibilityReport_ ValidateSingleCurveAnalyticEligibility(const CurveCalibrationSpec_& spec);
     void ValidateCurveCalibrationSpec(const CurveCalibrationSpec_& spec);
     void ValidatePositiveDiscountFactors(const DiscountCurve_& curve, const Date_& today, const Vector_<Date_>& checkDates);
     CurveCalibrationResult_ CalibrateYieldCurve(const CurveCalibrationSpec_& spec);
