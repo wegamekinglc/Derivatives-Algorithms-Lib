@@ -261,6 +261,14 @@ def _finite_samples(report: dict[str, object], field: str, count: int) -> None:
         raise ValueError(f"{field} contains an invalid timing")
 
 
+def _validate_health_observations(perf_30: dict[str, object]) -> None:
+    health = perf_30.get("health_observations")
+    if not isinstance(health, list) or len(health) != PERF_30_TRIALS * HEALTH_SAMPLES:
+        raise ValueError("FIX-PERF-30 must contain the raw 3x5 health matrix")
+    if statistics.median(perf_30["trial_max_ms"]) > HEALTH_LIMIT_MS:
+        raise ValueError("PERF-01 threshold failed")
+
+
 def validate_reports(report_dir: Path) -> None:
     perf_30 = json.loads((report_dir / "fix-perf-30.json").read_text())
     perf_100 = json.loads((report_dir / "fix-perf-100x100.json").read_text())
@@ -271,11 +279,7 @@ def validate_reports(report_dir: Path) -> None:
         raise ValueError("both marked-runner reports must pass")
     _finite_samples(perf_30, "native_solve_ms", PERF_30_TRIALS)
     _finite_samples(perf_30, "trial_max_ms", PERF_30_TRIALS)
-    health = perf_30.get("health_observations")
-    if not isinstance(health, list) or len(health) != PERF_30_TRIALS * HEALTH_SAMPLES:
-        raise ValueError("FIX-PERF-30 must contain the raw 3x5 health matrix")
-    if statistics.median(perf_30["trial_max_ms"]) > HEALTH_LIMIT_MS:
-        raise ValueError("PERF-01 threshold failed")
+    _validate_health_observations(perf_30)
     for field in (
         "native_solve_ms",
         "serialization_ms",

@@ -171,7 +171,9 @@ jobs:
           uv venv "$VIRTUAL_ENV" --python 3.13
           echo "$VIRTUAL_ENV/bin" >> "$GITHUB_PATH"
           echo "VIRTUAL_ENV=$VIRTUAL_ENV" >> "$GITHUB_ENV"
-          uv pip install pytest numpy -r dal-web/backend/requirements.txt
+          # Install the backend package itself so the native subprocess fixture
+          # gets the same declared production dependency closure as the API.
+          uv pip install pytest numpy -e dal-web/backend
 
       - name: Compile and test
         env:

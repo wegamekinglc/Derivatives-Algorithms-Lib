@@ -15,11 +15,15 @@ def _invoke(mode: str, database: Path) -> dict:
     script = Path(__file__).with_name("curve_reconstruction_subprocess.py")
     result = subprocess.run(
         [sys.executable, str(script), "--mode", mode, "--db", str(database)],
-        check=True,
+        check=False,
         capture_output=True,
         env=os.environ.copy(),
         text=True,
         timeout=60,
+    )
+    assert result.returncode == 0, (  # nosec B101
+        f"{mode} subprocess failed with {result.returncode}\n"
+        f"stdout:\n{result.stdout}\nstderr:\n{result.stderr}"
     )
     return json.loads(result.stdout.splitlines()[-1])
 
