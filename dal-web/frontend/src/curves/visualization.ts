@@ -80,18 +80,29 @@ export function heatmapModel(matrix: CalibrationMatrix) {
       gridRows: [],
     };
   }
+  const rowValues = matrix.values.values();
   return {
     ...metadata,
     available: true,
     reason: matrix.availability,
     values: matrix.values.map((row) => [...row]),
-    gridRows: matrix.row_axis.map((row, rowIndex) => ({
-      row,
-      cells: matrix.column_axis.map((column, columnIndex) => ({
-        column,
-        value: matrix.values[rowIndex][columnIndex],
-      })),
-    })),
+    gridRows: matrix.row_axis.map((row) => {
+      const nextRow = rowValues.next();
+      if (nextRow.done) {
+        throw new Error("matrix rows changed after validation");
+      }
+      const columnValues = nextRow.value.values();
+      return {
+        row,
+        cells: matrix.column_axis.map((column) => {
+          const nextValue = columnValues.next();
+          if (nextValue.done) {
+            throw new Error("matrix columns changed after validation");
+          }
+          return { column, value: nextValue.value };
+        }),
+      };
+    }),
   };
 }
 
