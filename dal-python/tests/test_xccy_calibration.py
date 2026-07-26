@@ -51,6 +51,14 @@ def test_xccy_builder_can_set_fields():
     assert builder.tolerance_ == 1.0e-8  # nosec B101 - pytest assertions are intentional
 
 
+def test_xccy_builder_per_node_guess_has_legacy_and_snake_case_names():
+    builder = dal.CrossCurrencyCalibrationSpecBuilder_()
+    builder.initial_guess_per_node = [0.0125, 0.0175]
+
+    assert builder.initialGuessPerNode_ == [0.0125, 0.0175]  # nosec B101
+    assert builder.Build().initial_guess_per_node == [0.0125, 0.0175]  # nosec B101
+
+
 def test_xccy_builder_new_fields_have_legacy_and_snake_case_names():
     """Reset-aware fields do not replace the existing underscore surface."""
     builder = dal.CrossCurrencyCalibrationSpecBuilder_()

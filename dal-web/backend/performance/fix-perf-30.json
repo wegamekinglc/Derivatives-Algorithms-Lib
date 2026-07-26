@@ -1,0 +1,23 @@
+{
+  "fixture_id": "FIX-PERF-30",
+  "fixture_sha256": "29ad2196adcc4953e87644d3768dd1da15ffa25ef5c67bfb8070f2668a6095a7",
+  "dal_commit": "54768fdd0c1a551d997475ea9d40e069b146a097",
+  "build_type": "Release",
+  "aad_backend": "AADET",
+  "cpu_model": "13th Gen Intel(R) Core(TM) i9-13900HX",
+  "logical_cpu_count": 32,
+  "os": "Linux-5.15.167.4-microsoft-standard-WSL2-x86_64-with-glibc2.43",
+  "python_version": "3.13.9",
+  "pydantic_version": "2.13.4",
+  "clock": "monotonic_high_resolution",
+  "gc_disabled_during_trials": true,
+  "warmups": 1,
+  "native_solve_ms": [],
+  "serialization_ms": [],
+  "matrix_materialization_ms": [],
+  "peak_python_allocation_bytes": 0,
+  "gate_status": "skipped",
+  "skip_reason": "not executed: this host is not a repository-marked Release/native performance runner",
+  "health_observations": [],
+  "trial_max_ms": []
+}

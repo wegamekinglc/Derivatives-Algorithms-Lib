@@ -6,11 +6,16 @@
 
 #include <dal-public/src/curvedata.hpp>
 #include <dal-public/src/curveprotocol.hpp>
+#include <dal/curve/ycconst.hpp>
+#include <dal/curve/yclogdf.hpp>
+#include <dal/curve/ycpwlf.hpp>
 
 using Dal::CollateralType_OIS;
 using Dal::CurveBlockNew;
 using Dal::Date_;
 using Dal::DayBasis_New;
+using Dal::DiscountLogDFNew;
+using Dal::DiscountPWCNew;
 using Dal::DiscountPWLFNew;
 using Dal::DiscountZeroRate_;
 using Dal::DiscountZeroRateNew;
@@ -22,8 +27,8 @@ using Dal::Vector_;
 
 namespace {
 
-Date_ Today() { return Date_(2025, 6, 20); }
-Date_ Spot() { return Today().AddDays(2); }
+    Date_ Today() { return Date_(2025, 6, 20); }
+    Date_ Spot() { return Today().AddDays(2); }
 
 } // namespace
 
@@ -69,6 +74,41 @@ TEST(CurveDataTest, TestDiscountPWLFNewWithBase) {
     fwdRates2.push_back(0.04);
     auto curve = DiscountPWLFNew(String_("bootstrapped"), String_("USD"), knotDates2, fwdRates2, base);
     ASSERT_TRUE(curve != nullptr);
+}
+
+TEST(CurveDataTest, TestCompleteCurveFactoriesExposeExactReconstructionState) {
+    const Vector_<Date_> knotDates{
+        Today().AddDays(30),
+        Today().AddDays(365),
+        Today().AddDays(730),
+        Today().AddDays(1095),
+    };
+    const Vector_<> right{0.01, 0.02, 0.03, 0.04};
+    const Vector_<> left{0.011, 0.021, 0.031, 0.041};
+    const auto base = DiscountPWCNew("base", "USD", knotDates, right);
+
+    const auto pwlf = DiscountPWLFNew("pwlf", "USD", knotDates, left, right, base);
+    const auto* typedPwlf = dynamic_cast<const Dal::Tape::DiscountPWLF_<double>*>(pwlf.get());
+    ASSERT_NE(typedPwlf, nullptr);
+    EXPECT_EQ(typedPwlf->KnotDates(), knotDates);
+    EXPECT_EQ(typedPwlf->FLeft(), left);
+    EXPECT_EQ(typedPwlf->FRight(), right);
+    EXPECT_EQ(typedPwlf->Base().get(), base.get());
+
+    const Vector_<Date_> logDates = Dal::Vector::Join(Vector_<Date_>{Today()}, knotDates);
+    const Vector_<> logDf{0.0, -0.001, -0.02, -0.05, -0.09};
+    Dal::MappedDiscountCurveOptions_ options;
+    options.dayCount_ = DayBasis_New("ACT_360");
+    options.logDfScheme_ = LogDfScheme_::Value_::MIXED;
+    options.base_ = base;
+    const auto mapped = DiscountLogDFNew("log", "USD", logDates, logDf, options);
+    const auto* typedMapped = dynamic_cast<const Dal::DiscountLogDF_*>(mapped.get());
+    ASSERT_NE(typedMapped, nullptr);
+    EXPECT_EQ(typedMapped->NodeDates(), logDates);
+    EXPECT_EQ(typedMapped->NodeLogDF(), logDf);
+    EXPECT_EQ(typedMapped->DayCount().String(), String_("ACT_360"));
+    EXPECT_EQ(typedMapped->Scheme(), LogDfScheme_::Value_::MIXED);
+    EXPECT_EQ(typedMapped->Base().get(), base.get());
 }
 
 // DiscountZeroRateNew
@@ -159,7 +199,9 @@ TEST(CurveDataTest, TestCurveBlockNewFull) {
     std::map<Dal::PeriodLength_, Handle_<Dal::DiscountCurve_>> forwards;
     forwards[PeriodLength_New("3M")] = liborCurve;
 
-    auto block = CurveBlockNew(String_("usd"), String_("USD"), discounts, forwards,
-                                DayBasis_New("ACT_365F"));
+    auto block = CurveBlockNew(String_("usd"), String_("USD"), discounts, forwards, DayBasis_New("ACT_365F"));
     ASSERT_TRUE(block != nullptr);
+    EXPECT_EQ(block->DiscountCurves().size(), 1);
+    EXPECT_EQ(block->ForwardCurves().size(), 1);
+    EXPECT_EQ(block->LiborBasis().String(), String_("ACT_365F"));
 }

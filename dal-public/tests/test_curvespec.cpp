@@ -28,36 +28,28 @@ using Dal::LogDfScheme_;
 using Dal::MultiCurveCalibrationSpec_;
 using Dal::OISSwapNew;
 using Dal::PeriodLength_New;
+using Dal::RateIndexConvention_;
 using Dal::RateIndexConvention_New;
+using Dal::RateLegConvention_;
 using Dal::RateLegConvention_New;
+using Dal::String_;
 using Dal::SwapNew;
 using Dal::Vector_;
-using Dal::RateLegConvention_;
-using Dal::RateIndexConvention_;
-using Dal::String_;
 
 namespace {
 
-Date_ Today() { return Date_(2025, 6, 20); }
-Date_ Spot() { return Today().AddDays(2); }
+    Date_ Today() { return Date_(2025, 6, 20); }
+    Date_ Spot() { return Today().AddDays(2); }
 
-Dal::RateLegConvention_ Fixed6M() {
-    return RateLegConvention_New(PeriodLength_New("6M"), DayBasis_New("ACT_365F"));
-}
+    Dal::RateLegConvention_ Fixed6M() { return RateLegConvention_New(PeriodLength_New("6M"), DayBasis_New("ACT_365F")); }
 
-Dal::RateLegConvention_ Float3M() {
-    return RateLegConvention_New(PeriodLength_New("3M"), DayBasis_New("ACT_360"));
-}
+    Dal::RateLegConvention_ Float3M() { return RateLegConvention_New(PeriodLength_New("3M"), DayBasis_New("ACT_360")); }
 
-Dal::RateIndexConvention_ Libor3M() {
-    return RateIndexConvention_New(PeriodLength_New("3M"), DayBasis_New("ACT_360"),
-                                    CollateralType_OIS());
-}
+    Dal::RateIndexConvention_ Libor3M() { return RateIndexConvention_New(PeriodLength_New("3M"), DayBasis_New("ACT_360"), CollateralType_OIS()); }
 
-Dal::RateIndexConvention_ OvernightIndex() {
-    return RateIndexConvention_New(PeriodLength_New("12M"), DayBasis_New("ACT_360"),
-                                    CollateralType_OIS());
-}
+    Dal::RateIndexConvention_ OvernightIndex() {
+        return RateIndexConvention_New(PeriodLength_New("12M"), DayBasis_New("ACT_360"), CollateralType_OIS());
+    }
 
 } // namespace
 
@@ -74,8 +66,18 @@ TEST(CurveSpecTest, TestBuilderDefaults) {
     ASSERT_NEAR(builder.initialGuess_, 0.05, 1e-15);
     ASSERT_NEAR(builder.smoothingWeight_, 1.0, 1e-15);
     ASSERT_EQ(builder.solveMode_.Switch(), CurveSolveMode_::Value_::EXACT);
-    ASSERT_EQ(builder.parameterization_.Switch(),
-              CurveParameterization_::Value_::PIECEWISE_LINEAR_FWD);
+    ASSERT_EQ(builder.parameterization_.Switch(), CurveParameterization_::Value_::PIECEWISE_LINEAR_FWD);
+}
+
+TEST(CurveSpecTest, TestSingleCurveOptionsOverloadIsPublicAndAdditive) {
+    using OptionsOverload_ = Dal::CalibrationResult_ (*)(const Dal::CurveCalibrationSpec_&, const Dal::CurveCalibrationOptions_&);
+    const OptionsOverload_ overload = static_cast<OptionsOverload_>(&Dal::CalibrateSingleCurve);
+    ASSERT_NE(overload, nullptr);
+
+    Dal::CurveCalibrationOptions_ options;
+    EXPECT_EQ(options.jacobianMode_, Dal::CurveJacobianMode_::Value_::ANALYTIC);
+    EXPECT_TRUE(options.computeForwardJacobian_);
+    EXPECT_TRUE(options.computeEffJacobianInverse_);
 }
 
 // Single-curve calibration (EXACT, PIECEWISE_LINEAR_FWD)
@@ -94,8 +96,7 @@ TEST(CurveSpecTest, TestCalibrateSingleCurveExact) {
     for (int y : {2, 5, 10}) {
         Date_ maturity = Spot().AddDays(y * 365);
         knotDates.push_back(maturity);
-        builder.instruments_.push_back(
-            OISSwapNew(Today(), Spot(), maturity, 0.04, Fixed6M(), OvernightIndex(), Float3M()));
+        builder.instruments_.push_back(OISSwapNew(Today(), Spot(), maturity, 0.04, Fixed6M(), OvernightIndex(), Float3M()));
     }
     builder.knotDates_ = knotDates;
 
@@ -126,14 +127,12 @@ TEST(CurveSpecTest, TestCalibrateSingleCurveWithBumpedJacobian) {
     for (int y : {2, 5, 10}) {
         Date_ maturity = Spot().AddDays(y * 365);
         knotDates.push_back(maturity);
-        builder.instruments_.push_back(
-            OISSwapNew(Today(), Spot(), maturity, 0.04, Fixed6M(), OvernightIndex(), Float3M()));
+        builder.instruments_.push_back(OISSwapNew(Today(), Spot(), maturity, 0.04, Fixed6M(), OvernightIndex(), Float3M()));
     }
     builder.knotDates_ = knotDates;
 
     auto spec = builder.Build();
-    CalibrationResult_ result = CalibrateSingleCurve(
-        spec, Dal::CurveJacobianMode_::Value_::BUMPED);
+    CalibrationResult_ result = CalibrateSingleCurve(spec, Dal::CurveJacobianMode_::Value_::BUMPED);
 
     ASSERT_TRUE(result.curve_ != nullptr);
     ASSERT_LT(result.diagnostics_.maxAbsResidual_, 1.0e-6);
@@ -156,14 +155,12 @@ TEST(CurveSpecTest, TestCalibrateSingleCurveWithAnalyticJacobian) {
     for (int y : {2, 5, 10}) {
         Date_ maturity = Spot().AddDays(y * 365);
         knotDates.push_back(maturity);
-        builder.instruments_.push_back(
-            OISSwapNew(Today(), Spot(), maturity, 0.04, Fixed6M(), OvernightIndex(), Float3M()));
+        builder.instruments_.push_back(OISSwapNew(Today(), Spot(), maturity, 0.04, Fixed6M(), OvernightIndex(), Float3M()));
     }
     builder.knotDates_ = knotDates;
 
     auto spec = builder.Build();
-    CalibrationResult_ result = CalibrateSingleCurve(
-        spec, Dal::CurveJacobianMode_::Value_::ANALYTIC);
+    CalibrationResult_ result = CalibrateSingleCurve(spec, Dal::CurveJacobianMode_::Value_::ANALYTIC);
 
     ASSERT_TRUE(result.curve_ != nullptr);
     ASSERT_LT(result.diagnostics_.maxAbsResidual_, 1.0e-6);
@@ -259,8 +256,7 @@ TEST(CurveSpecTest, TestCalibrateMultiCurveBundle) {
         for (int y : {2, 5, 10}) {
             Date_ maturity = Spot().AddDays(y * 365);
             knotDates.push_back(maturity);
-            stageBuilder.instruments_.push_back(
-                OISSwapNew(Today(), Spot(), maturity, 0.04, Fixed6M(), OvernightIndex(), Float3M()));
+            stageBuilder.instruments_.push_back(OISSwapNew(Today(), Spot(), maturity, 0.04, Fixed6M(), OvernightIndex(), Float3M()));
         }
         stageBuilder.knotDates_ = knotDates;
 
@@ -320,8 +316,7 @@ TEST(CurveSpecTest, TestBuildRoundTripsEveryField) {
     for (int y : {2, 5, 10}) {
         Date_ maturity = Spot().AddDays(y * 365);
         knotDates.push_back(maturity);
-        b.instruments_.push_back(
-            OISSwapNew(Today(), Spot(), maturity, 0.04, Fixed6M(), OvernightIndex(), Float3M()));
+        b.instruments_.push_back(OISSwapNew(Today(), Spot(), maturity, 0.04, Fixed6M(), OvernightIndex(), Float3M()));
     }
     b.knotDates_ = knotDates;
 

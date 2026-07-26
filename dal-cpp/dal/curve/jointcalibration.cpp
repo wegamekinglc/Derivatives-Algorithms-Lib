@@ -62,8 +62,9 @@ namespace Dal {
             return JointCalibrationInternal::ValidateAndBuildSlots(InternalSpec(spec));
         }
 
-        Vector_<> BuildGuessSlice(const JointMultiCurveCalibrationSpec_& spec, const JointCurveDeclaration_& decl, int nParams) {
-            return JointCalibrationInternal::BuildGuessSlice(decl, nParams, spec.initialGuess_,
+        Vector_<>
+        BuildGuessSlice(const JointMultiCurveCalibrationSpec_& spec, const JointCurveDeclaration_& decl, const CurveDefinition_& definition) {
+            return JointCalibrationInternal::BuildGuessSlice(decl, definition, spec.initialGuess_,
                                                              String_("Joint curve declaration ") + decl.curveName_);
         }
 
@@ -222,7 +223,7 @@ namespace Dal {
             Vector_<> g(totalParams);
             int off = 0;
             for (const auto& s : slots) {
-                const Vector_<> sl = BuildGuessSlice(spec, spec.curves_[s.curveIndex_], s.nParams_);
+                const Vector_<> sl = BuildGuessSlice(spec, spec.curves_[s.curveIndex_], s.definition_);
                 for (int j = 0; j < s.nParams_; ++j)
                     g[off + j] = sl[j];
                 off += s.nParams_;

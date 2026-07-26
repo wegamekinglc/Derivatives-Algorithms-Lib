@@ -28,7 +28,7 @@ def _build_app() -> FastAPI:
     # app and routers; only the gateway dependency is replaced below.
     from app.dependencies import gateway_dependency
     from app.main import app as fastapi_app
-    from app.services.dal_gateway import DalGateway
+    from app.services.dal_gateway import DalGateway, HealthSnapshot
 
     class CannedDalGateway(DalGateway):
         @property
@@ -38,6 +38,14 @@ def _build_app() -> FastAPI:
         @property
         def backend_name(self) -> str:
             return "canned-dal"
+
+        def health_snapshot(self) -> HealthSnapshot:
+            snapshot = super().health_snapshot()
+            return HealthSnapshot(
+                backend=self.backend_name,
+                is_native=self.is_native,
+                evaluation_date=snapshot.evaluation_date,
+            )
 
     gateway = CannedDalGateway()
 

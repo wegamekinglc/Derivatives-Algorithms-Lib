@@ -11,6 +11,8 @@ from __future__ import annotations
 
 import os
 import threading
+from copy import deepcopy
+from datetime import datetime
 from typing import Protocol, runtime_checkable
 
 from app.schemas import (
@@ -20,6 +22,13 @@ from app.schemas import (
     Trade,
     ValuationResult,
 )
+from app.services.calibration_store import (
+    CalibrationInstrumentRecord,
+    CalibrationRunRecord,
+    CurveDefinitionRecord,
+    RawSingleWorkerAdmissionEvidence,
+)
+from app.services.calibrations import canonical_json_bytes
 
 
 class NotFoundError(KeyError):
@@ -70,6 +79,63 @@ class StoreProtocol(Protocol):
     def get_valuation(self, valuation_id: str) -> ValuationResult: ...
     def update_valuation(self, valuation_id: str, patch: dict) -> ValuationResult: ...
 
+    # calibrations
+    def add_calibration_admission(
+        self,
+        run: CalibrationRunRecord,
+        instruments: tuple[CalibrationInstrumentRecord, ...],
+    ) -> CalibrationRunRecord: ...
+    def get_calibration_run(self, calibration_id: str) -> CalibrationRunRecord: ...
+    def list_running_calibrations(self) -> list[CalibrationRunRecord]: ...
+    def list_calibration_instruments(
+        self, calibration_id: str
+    ) -> list[CalibrationInstrumentRecord]: ...
+    def mark_calibration_solving(
+        self, calibration_id: str, started_at: datetime
+    ) -> None: ...
+    def update_calibration_phase(self, calibration_id: str, phase: str) -> None: ...
+    def complete_calibration(
+        self,
+        calibration_id: str,
+        *,
+        result_payload: dict,
+        curves: tuple[CurveDefinitionRecord, ...],
+        actual_jacobian_mode: str,
+        actual_execution_identity: dict | None,
+        actual_execution_identity_hash: str | None,
+        native_solve_ms: float,
+        serialization_ms: float,
+        finished_at: datetime,
+    ) -> None: ...
+    def fail_calibration(
+        self,
+        calibration_id: str,
+        *,
+        error_payload: dict,
+        finished_at: datetime,
+        actual_jacobian_mode: str | None = None,
+        actual_execution_identity: dict | None = None,
+        actual_execution_identity_hash: str | None = None,
+        native_solve_ms: float | None = None,
+        serialization_ms: float | None = None,
+    ) -> None: ...
+    def load_single_worker_admission_evidence(
+        self, calibration_id: str
+    ) -> RawSingleWorkerAdmissionEvidence: ...
+    def fail_knot_plan_integrity(
+        self,
+        calibration_id: str,
+        finished_at: datetime,
+        canonical_error_utf8: bytes,
+    ) -> None: ...
+    def fail_expected_execution_identity_integrity(
+        self,
+        calibration_id: str,
+        finished_at: datetime,
+        canonical_error_utf8: bytes,
+    ) -> None: ...
+    def get_curve_definition(self, curve_id: str) -> CurveDefinitionRecord: ...
+
 
 class Store:
     def __init__(self) -> None:
@@ -79,6 +145,9 @@ class Store:
         self._trades: dict[str, Trade] = {}
         self._portfolios: dict[str, Portfolio] = {}
         self._valuations: dict[str, ValuationResult] = {}
+        self._calibration_runs: dict[str, CalibrationRunRecord] = {}
+        self._calibration_instruments: dict[str, list[CalibrationInstrumentRecord]] = {}
+        self._curve_definitions: dict[str, CurveDefinitionRecord] = {}
 
     # -- products --------------------------------------------------------
 
@@ -279,6 +348,198 @@ class Store:
             updated = ValuationResult(**updated_data)
             self._valuations[valuation_id] = updated
             return updated
+
+    # -- curve calibration ----------------------------------------------
+
+    def add_calibration_admission(
+        self,
+        run: CalibrationRunRecord,
+        instruments: tuple[CalibrationInstrumentRecord, ...],
+    ) -> CalibrationRunRecord:
+        with self._lock:
+            stored = deepcopy(run)
+            self._calibration_runs[run.id] = stored
+            self._calibration_instruments[run.id] = deepcopy(list(instruments))
+            return deepcopy(stored)
+
+    def get_calibration_run(self, calibration_id: str) -> CalibrationRunRecord:
+        with self._lock:
+            try:
+                return deepcopy(self._calibration_runs[calibration_id])
+            except KeyError as exc:
+                raise NotFoundError(f"calibration {calibration_id}") from exc
+
+    def list_running_calibrations(self) -> list[CalibrationRunRecord]:
+        with self._lock:
+            return deepcopy(
+                sorted(
+                    (
+                        run
+                        for run in self._calibration_runs.values()
+                        if run.status == "running"
+                    ),
+                    key=lambda run: run.created_at,
+                )
+            )
+
+    def list_calibration_instruments(
+        self, calibration_id: str
+    ) -> list[CalibrationInstrumentRecord]:
+        with self._lock:
+            if calibration_id not in self._calibration_runs:
+                raise NotFoundError(f"calibration {calibration_id}")
+            return deepcopy(
+                sorted(
+                    self._calibration_instruments.get(calibration_id, []),
+                    key=lambda item: (item.group_name, item.calibration_index),
+                )
+            )
+
+    def mark_calibration_solving(
+        self, calibration_id: str, started_at: datetime
+    ) -> None:
+        self._update_calibration(
+            calibration_id, phase="solving", started_at=started_at
+        )
+
+    def update_calibration_phase(self, calibration_id: str, phase: str) -> None:
+        self._update_calibration(calibration_id, phase=phase)
+
+    def complete_calibration(
+        self,
+        calibration_id: str,
+        *,
+        result_payload: dict,
+        curves: tuple[CurveDefinitionRecord, ...],
+        actual_jacobian_mode: str,
+        actual_execution_identity: dict | None,
+        actual_execution_identity_hash: str | None,
+        native_solve_ms: float,
+        serialization_ms: float,
+        finished_at: datetime,
+    ) -> None:
+        with self._lock:
+            run = self.get_calibration_run(calibration_id)
+            new_curve_ids = {curve.id for curve in curves}
+            if new_curve_ids & self._curve_definitions.keys():
+                raise ConflictError("curve definition already exists")
+            from dataclasses import replace
+
+            updated = replace(
+                run,
+                status="completed",
+                phase="finished",
+                result_payload=deepcopy(result_payload),
+                error_payload=None,
+                actual_jacobian_mode=actual_jacobian_mode,
+                actual_execution_identity=deepcopy(actual_execution_identity),
+                actual_execution_identity_hash=actual_execution_identity_hash,
+                native_solve_ms=native_solve_ms,
+                serialization_ms=serialization_ms,
+                finished_at=finished_at,
+            )
+            for curve in curves:
+                self._curve_definitions[curve.id] = deepcopy(curve)
+            self._calibration_runs[calibration_id] = updated
+
+    def fail_calibration(
+        self,
+        calibration_id: str,
+        *,
+        error_payload: dict,
+        finished_at: datetime,
+        actual_jacobian_mode: str | None = None,
+        actual_execution_identity: dict | None = None,
+        actual_execution_identity_hash: str | None = None,
+        native_solve_ms: float | None = None,
+        serialization_ms: float | None = None,
+    ) -> None:
+        self._update_calibration(
+            calibration_id,
+            status="failed",
+            phase="finished",
+            finished_at=finished_at,
+            result_payload=None,
+            error_payload=deepcopy(error_payload),
+            actual_jacobian_mode=actual_jacobian_mode,
+            actual_execution_identity=deepcopy(actual_execution_identity),
+            actual_execution_identity_hash=actual_execution_identity_hash,
+            native_solve_ms=native_solve_ms,
+            serialization_ms=serialization_ms,
+        )
+
+    def load_single_worker_admission_evidence(
+        self, calibration_id: str
+    ) -> RawSingleWorkerAdmissionEvidence:
+        run = self.get_calibration_run(calibration_id)
+        if (
+            run.resolved_knot_plan is None
+            or run.resolved_knot_plan_hash is None
+            or run.expected_execution_identity is None
+            or run.expected_execution_identity_hash is None
+        ):
+            raise ValueError("single calibration admission evidence is incomplete")
+        return RawSingleWorkerAdmissionEvidence(
+            resolved_knot_plan_raw=run.resolved_knot_plan,
+            resolved_knot_plan_hash=run.resolved_knot_plan_hash,
+            expected_execution_identity_raw=run.expected_execution_identity,
+            expected_execution_identity_hash=run.expected_execution_identity_hash,
+        )
+
+    def fail_knot_plan_integrity(
+        self,
+        calibration_id: str,
+        finished_at: datetime,
+        canonical_error_utf8: bytes,
+    ) -> None:
+        self._fail_integrity(calibration_id, finished_at, canonical_error_utf8)
+
+    def fail_expected_execution_identity_integrity(
+        self,
+        calibration_id: str,
+        finished_at: datetime,
+        canonical_error_utf8: bytes,
+    ) -> None:
+        self._fail_integrity(calibration_id, finished_at, canonical_error_utf8)
+
+    def get_curve_definition(self, curve_id: str) -> CurveDefinitionRecord:
+        with self._lock:
+            try:
+                return deepcopy(self._curve_definitions[curve_id])
+            except KeyError as exc:
+                raise NotFoundError(f"curve {curve_id}") from exc
+
+    def _update_calibration(self, calibration_id: str, **patch: object) -> None:
+        from dataclasses import replace
+
+        with self._lock:
+            try:
+                run = self._calibration_runs[calibration_id]
+            except KeyError as exc:
+                raise NotFoundError(f"calibration {calibration_id}") from exc
+            self._calibration_runs[calibration_id] = replace(run, **patch)
+
+    def _fail_integrity(
+        self,
+        calibration_id: str,
+        finished_at: datetime,
+        canonical_error_utf8: bytes,
+    ) -> None:
+        import json
+
+        parsed = json.loads(canonical_error_utf8)
+        if not isinstance(parsed, dict):
+            raise ValueError("integrity error evidence must encode one JSON object")
+        if canonical_json_bytes(parsed) != canonical_error_utf8:
+            raise ValueError("integrity error evidence is not canonical JSON")
+        self._update_calibration(
+            calibration_id,
+            status="failed",
+            phase="finished",
+            finished_at=finished_at,
+            result_payload=None,
+            error_payload=parsed,
+        )
 
 
 # Process-wide singleton stored in a mutable container so get_store()

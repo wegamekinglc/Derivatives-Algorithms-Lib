@@ -9,6 +9,9 @@ what makes this safe to use as a drop-in replacement for ``Store``.
 
 from __future__ import annotations
 
+import json
+from datetime import datetime
+
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
@@ -20,8 +23,18 @@ from app.schemas import (
     Trade,
     ValuationResult,
 )
+from app.services.calibration_store import (
+    CalibrationInstrumentRecord,
+    CalibrationRunRecord,
+    CurveDefinitionRecord,
+    RawSingleWorkerAdmissionEvidence,
+)
+from app.services.calibrations import canonical_json_bytes
 from app.services.db.models import (
     Base,
+    CalibrationInstrumentDefinitionRow,
+    CalibrationRunRow,
+    CurveDefinitionRow,
     ModelRow,
     PortfolioRow,
     PortfolioTradeRow,
@@ -361,3 +374,195 @@ class DbStore:
             row.error_message = merged.error_message
             session.commit()
             return updated
+
+    # -- curve calibration ----------------------------------------------
+
+    def add_calibration_admission(
+        self,
+        run: CalibrationRunRecord,
+        instruments: tuple[CalibrationInstrumentRecord, ...],
+    ) -> CalibrationRunRecord:
+        """Persist the admitted run and all normalized instruments atomically."""
+        with self._session() as session:
+            session.add(CalibrationRunRow.from_record(run))
+            session.flush()
+            session.add_all(
+                CalibrationInstrumentDefinitionRow.from_record(instrument)
+                for instrument in instruments
+            )
+            session.commit()
+            return run
+
+    def get_calibration_run(self, calibration_id: str) -> CalibrationRunRecord:
+        with self._session() as session:
+            row = session.get(CalibrationRunRow, calibration_id)
+            if row is None:
+                raise NotFoundError(f"calibration {calibration_id}")
+            return row.to_record()
+
+    def list_running_calibrations(self) -> list[CalibrationRunRecord]:
+        with self._session() as session:
+            rows = session.scalars(
+                select(CalibrationRunRow)
+                .where(CalibrationRunRow.status == "running")
+                .order_by(CalibrationRunRow.created_at)
+            ).all()
+            return [row.to_record() for row in rows]
+
+    def list_calibration_instruments(
+        self, calibration_id: str
+    ) -> list[CalibrationInstrumentRecord]:
+        with self._session() as session:
+            rows = session.scalars(
+                select(CalibrationInstrumentDefinitionRow)
+                .where(CalibrationInstrumentDefinitionRow.run_id == calibration_id)
+                .order_by(
+                    CalibrationInstrumentDefinitionRow.group_name,
+                    CalibrationInstrumentDefinitionRow.calibration_index,
+                )
+            ).all()
+            return [row.to_record() for row in rows]
+
+    def mark_calibration_solving(
+        self, calibration_id: str, started_at: datetime
+    ) -> None:
+        with self._session() as session:
+            row = self._require_calibration_row(session, calibration_id)
+            row.phase = "solving"
+            row.started_at = started_at.isoformat()
+            session.commit()
+
+    def update_calibration_phase(self, calibration_id: str, phase: str) -> None:
+        with self._session() as session:
+            row = self._require_calibration_row(session, calibration_id)
+            row.phase = phase
+            session.commit()
+
+    def complete_calibration(
+        self,
+        calibration_id: str,
+        *,
+        result_payload: dict,
+        curves: tuple[CurveDefinitionRecord, ...],
+        actual_jacobian_mode: str,
+        actual_execution_identity: dict | None,
+        actual_execution_identity_hash: str | None,
+        native_solve_ms: float,
+        serialization_ms: float,
+        finished_at: datetime,
+    ) -> None:
+        """Insert output curves and terminalize success in one transaction."""
+        with self._session() as session:
+            row = self._require_calibration_row(session, calibration_id)
+            for curve in curves:
+                session.add(CurveDefinitionRow.from_record(curve))
+                session.flush()
+            row.result_payload = result_payload
+            row.error_payload = None
+            row.actual_jacobian_mode = actual_jacobian_mode
+            row.actual_execution_identity = actual_execution_identity
+            row.actual_execution_identity_hash = actual_execution_identity_hash
+            row.native_solve_ms = native_solve_ms
+            row.serialization_ms = serialization_ms
+            row.finished_at = finished_at.isoformat()
+            row.status = "completed"
+            row.phase = "finished"
+            session.commit()
+
+    def fail_calibration(
+        self,
+        calibration_id: str,
+        *,
+        error_payload: dict,
+        finished_at: datetime,
+        actual_jacobian_mode: str | None = None,
+        actual_execution_identity: dict | None = None,
+        actual_execution_identity_hash: str | None = None,
+        native_solve_ms: float | None = None,
+        serialization_ms: float | None = None,
+    ) -> None:
+        with self._session() as session:
+            row = self._require_calibration_row(session, calibration_id)
+            row.status = "failed"
+            row.phase = "finished"
+            row.finished_at = finished_at.isoformat()
+            row.error_payload = error_payload
+            row.result_payload = None
+            row.actual_jacobian_mode = actual_jacobian_mode
+            row.actual_execution_identity = actual_execution_identity
+            row.actual_execution_identity_hash = actual_execution_identity_hash
+            row.native_solve_ms = native_solve_ms
+            row.serialization_ms = serialization_ms
+            session.commit()
+
+    def load_single_worker_admission_evidence(
+        self, calibration_id: str
+    ) -> RawSingleWorkerAdmissionEvidence:
+        with self._session() as session:
+            row = self._require_calibration_row(session, calibration_id)
+            if (
+                row.resolved_knot_plan is None
+                or row.resolved_knot_plan_hash is None
+                or row.expected_execution_identity is None
+                or row.expected_execution_identity_hash is None
+            ):
+                raise ValueError("single calibration admission evidence is incomplete")
+            return RawSingleWorkerAdmissionEvidence(
+                resolved_knot_plan_raw=row.resolved_knot_plan,
+                resolved_knot_plan_hash=row.resolved_knot_plan_hash,
+                expected_execution_identity_raw=row.expected_execution_identity,
+                expected_execution_identity_hash=row.expected_execution_identity_hash,
+            )
+
+    def fail_knot_plan_integrity(
+        self,
+        calibration_id: str,
+        finished_at: datetime,
+        canonical_error_utf8: bytes,
+    ) -> None:
+        self._fail_integrity(calibration_id, finished_at, canonical_error_utf8)
+
+    def fail_expected_execution_identity_integrity(
+        self,
+        calibration_id: str,
+        finished_at: datetime,
+        canonical_error_utf8: bytes,
+    ) -> None:
+        self._fail_integrity(calibration_id, finished_at, canonical_error_utf8)
+
+    def get_curve_definition(self, curve_id: str) -> CurveDefinitionRecord:
+        with self._session() as session:
+            row = session.get(CurveDefinitionRow, curve_id)
+            if row is None:
+                raise NotFoundError(f"curve {curve_id}")
+            return row.to_record()
+
+    @staticmethod
+    def _require_calibration_row(
+        session: Session, calibration_id: str
+    ) -> CalibrationRunRow:
+        row = session.get(CalibrationRunRow, calibration_id)
+        if row is None:
+            raise NotFoundError(f"calibration {calibration_id}")
+        return row
+
+    def _fail_integrity(
+        self,
+        calibration_id: str,
+        finished_at: datetime,
+        canonical_error_utf8: bytes,
+    ) -> None:
+        """Parse and commit original canonical evidence in one short transaction."""
+        parsed = json.loads(canonical_error_utf8)
+        if not isinstance(parsed, dict):
+            raise ValueError("integrity error evidence must encode one JSON object")
+        if canonical_json_bytes(parsed) != canonical_error_utf8:
+            raise ValueError("integrity error evidence is not canonical JSON")
+        with self._session() as session:
+            row = self._require_calibration_row(session, calibration_id)
+            row.status = "failed"
+            row.phase = "finished"
+            row.finished_at = finished_at.isoformat()
+            row.error_payload = parsed
+            row.result_payload = None
+            session.commit()

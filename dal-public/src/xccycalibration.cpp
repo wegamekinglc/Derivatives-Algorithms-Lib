@@ -2,9 +2,9 @@
 // Created by wegamekinglc on 2026/6/20.
 //
 
+#include <dal-public/src/xccycalibration.hpp>
 #include <dal/platform/platform.hpp>
 #include <dal/platform/strict.hpp>
-#include <dal-public/src/xccycalibration.hpp>
 
 namespace Dal {
 
@@ -25,6 +25,7 @@ namespace Dal {
         result.tolerance_ = tolerance_;
         result.fitTolerance_ = fitTolerance_;
         result.initialGuess_ = initialGuess_;
+        result.initialGuessPerNode_ = initialGuessPerNode_;
         result.maxEvaluations_ = maxEvaluations_;
         result.maxRestarts_ = maxRestarts_;
         result.solveMode_ = solveMode_;
@@ -79,6 +80,11 @@ namespace Dal {
     const Matrix_<>& XccyResultJacobian(const CrossCurrencyCalibrationResult_& result) { return result.diagnostics_.jacobian_; }
 
     const Matrix_<>& XccyResultEffJacobianInverse(const CrossCurrencyCalibrationResult_& result) { return result.diagnostics_.effJacobianInverse_; }
+
+    const Handle_<DiscountCurve_>& XccyResultBasisCurve(const CrossCurrencyCalibrationResult_& result) {
+        REQUIRE(result.basisCurves_.size() == 1, "staged XCCY result must contain exactly one basis curve");
+        return result.basisCurves_.begin()->second;
+    }
 
     CrossCurrencyCalibrationResult_ CalibrateXccyMarket(const CrossCurrencyCalibrationSpec_& spec) { return CalibrateCrossCurrencyMarket(spec); }
 

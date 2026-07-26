@@ -14,6 +14,7 @@
 #include <dal/string/strings.hpp>
 #include <dal/time/date.hpp>
 
+#include <cmath>
 #include <limits>
 #include <sstream>
 
@@ -124,6 +125,22 @@ namespace {
         return indices;
     }
 
+    py::list MatrixToRows(const Matrix_<>& matrix) {
+        ValidateMatrixDimensions(static_cast<size_t>(matrix.Rows()), static_cast<size_t>(matrix.Cols()));
+        py::list rows(static_cast<size_t>(matrix.Rows()));
+        for (int i = 0; i < matrix.Rows(); ++i) {
+            py::list row(static_cast<size_t>(matrix.Cols()));
+            for (int j = 0; j < matrix.Cols(); ++j) {
+                const double value = matrix(i, j);
+                if (!std::isfinite(value))
+                    throw py::value_error("DoubleMatrix_ contains a non-finite value");
+                row[static_cast<size_t>(j)] = py::float_(value);
+            }
+            rows[static_cast<size_t>(i)] = std::move(row);
+        }
+        return rows;
+    }
+
 } // namespace
 
 void init_bindings_core(py::module_& m) {
@@ -185,5 +202,6 @@ void init_bindings_core(py::module_& m) {
                  m(indices.first, indices.second) = value;
              })
         .def("Rows", &Matrix_<>::Rows)
-        .def("Cols", &Matrix_<>::Cols);
+        .def("Cols", &Matrix_<>::Cols)
+        .def("to_rows", &MatrixToRows);
 }

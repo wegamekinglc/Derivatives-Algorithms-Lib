@@ -738,7 +738,6 @@ TEST(AnalyticJacobianTest, TestSingleDepositTapeMatchesCentralDifference) {
     spec.fitTolerance_ = 1.0e-8;
     spec.smoothingWeight_ = 1.0;
     spec.logDfScheme_ = LogDfScheme_::Value_::LOG_LINEAR;
-
     spec.knotDates_ = {
         Date_(2022, 1, 1), Date_(2022, 4, 1), Date_(2022, 7, 1), Date_(2023, 1, 1), Date_(2024, 1, 1), Date_(2025, 1, 1),
     };
@@ -781,6 +780,9 @@ TEST(AnalyticJacobianTest, TestMixedInstrumentCalibrationMatchesCentralDifferenc
     spec.fitTolerance_ = 1.0e-8;
     spec.smoothingWeight_ = 1.0;
     spec.logDfScheme_ = LogDfScheme_::Value_::LOG_LINEAR;
+    // Pin the seed so this analytic-vs-bumped regression remains independent
+    // of the public initial-guess contract exercised by calibration tests.
+    spec.initialGuess_ = 0.02;
 
     spec.knotDates_ = {
         Date_(2022, 1, 1), Date_(2022, 4, 1), Date_(2022, 7, 1), Date_(2023, 1, 1), Date_(2024, 1, 1), Date_(2025, 1, 1),

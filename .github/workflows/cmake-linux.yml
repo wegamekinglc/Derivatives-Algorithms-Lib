@@ -230,6 +230,12 @@ jobs:
         run: |
           npm test
 
+      - name: Enforce backend-only quote-bump arithmetic
+        run: |
+          python .github/scripts/check_frontend_quote_bump_boundary.py
+          uv run --project dal-web/backend --no-sync \
+            python .github/scripts/generate_web_calibration_perf_reports.py
+
       - name: Prepare Chrome
         run: |
           ./dal-web/scripts/setup-playwright.sh

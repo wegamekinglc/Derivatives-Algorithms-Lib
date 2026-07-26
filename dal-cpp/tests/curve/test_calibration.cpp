@@ -242,6 +242,30 @@ TEST(CalibrationTest, TestValidateCurveCalibrationSpecPreservesLogDiscountAnchor
     ASSERT_NO_THROW(ValidateCurveCalibrationSpec(spec));
 }
 
+TEST(CalibrationTest, TestResolveInitialGuessMapsLogDiscountScalarByNodeDate) {
+    CurveCalibrationSpec_ spec;
+    spec.today_ = Date_(2026, 1, 1);
+    spec.parameterization_ = CurveParameterization_::Value_::LOG_DISCOUNT;
+    spec.logDfScheme_ = LogDfScheme_::Value_::LOG_LINEAR;
+    spec.liborBasis_ = DayBasis_("ACT_365F");
+    spec.initialGuess_ = 0.04;
+    spec.knotPolicy_ = CurveKnotPolicy_::Value_::INPUT;
+    spec.knotDates_ = {
+        spec.today_,
+        spec.today_.AddDays(365),
+        spec.today_.AddDays(730),
+    };
+
+    const Vector_<> scalar = ResolveCurveCalibrationInitialGuess(spec);
+
+    ASSERT_EQ(scalar.size(), static_cast<size_t>(2));
+    EXPECT_NEAR(scalar[0], -0.04, 1.0e-14);
+    EXPECT_NEAR(scalar[1], -0.08, 1.0e-14);
+
+    spec.initialGuessPerNode_ = {-0.03, -0.07};
+    EXPECT_EQ(ResolveCurveCalibrationInitialGuess(spec), spec.initialGuessPerNode_);
+}
+
 TEST(CalibrationTest, TestValidatePositiveDiscountFactorsRejectsInvalidCurves) {
     const Date_ today(2024, 1, 15);
     const Vector_<Date_> checkDates = {Date::AddMonths(today, 3), Date::AddMonths(today, 6)};

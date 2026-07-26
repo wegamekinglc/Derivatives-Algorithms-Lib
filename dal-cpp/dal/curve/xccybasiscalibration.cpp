@@ -80,6 +80,85 @@ namespace Dal {
                                        LogDfScheme_(LogDfScheme_::Value_::LOG_LINEAR), spec.knotDates_, valuationTime.Date(), DayBasis_("ACT_365F"));
         }
 
+        void AddEligibilityIssue(
+            AnalyticEligibilityReport_* report, AnalyticIneligibilityReason_ reason, int instrumentIndex, int resetIndex, const String_& message) {
+            AnalyticEligibilityIssue_ issue;
+            issue.reason_ = reason;
+            issue.group_ = "staged";
+            issue.instrumentIndex_ = instrumentIndex;
+            issue.resetIndex_ = resetIndex;
+            issue.nativeMessage_ = message;
+            report->issues_.push_back(issue);
+            report->eligible_ = false;
+        }
+
+        void AddGroupedEligibilityIssue(AnalyticEligibilityReport_* report,
+                                        AnalyticIneligibilityReason_ reason,
+                                        const String_& group,
+                                        int instrumentIndex,
+                                        int resetIndex,
+                                        const String_& message) {
+            AnalyticEligibilityIssue_ issue;
+            issue.reason_ = reason;
+            issue.group_ = group;
+            issue.instrumentIndex_ = instrumentIndex;
+            issue.resetIndex_ = resetIndex;
+            issue.nativeMessage_ = message;
+            report->issues_.push_back(issue);
+            report->eligible_ = false;
+        }
+
+        void ValidateStagedRoute(const CurveBlock_& block,
+                                 const RateIndexConvention_& index,
+                                 int instrumentIndex,
+                                 const String_& leg,
+                                 AnalyticEligibilityReport_* report) {
+            if (!block.HasDiscount(index.collateral_)) {
+                AddGroupedEligibilityIssue(report, AnalyticIneligibilityReason_::Value_::DISCOUNT_ROUTE_MISSING, leg, instrumentIndex, -1,
+                                           leg + " discount route is absent");
+            }
+            if (index.useProjectionCurve_ && !block.HasForward(index.forecastTenor_)) {
+                AddGroupedEligibilityIssue(report, AnalyticIneligibilityReason_::Value_::PROJECTION_ROUTE_MISSING, leg, instrumentIndex, -1,
+                                           leg + " projection route is absent");
+            }
+        }
+
+        void ValidateStagedPlan(const CrossCurrencyCalibrationSpec_& spec,
+                                const XccyCashflowPlan_& plan,
+                                int instrumentIndex,
+                                AnalyticEligibilityReport_* report) {
+            if (!(plan.config_.pair_ == spec.basisPair_)) {
+                AddEligibilityIssue(report, AnalyticIneligibilityReason_::Value_::PAIR_CURRENCY_MISMATCH, instrumentIndex, -1,
+                                    "instrument pair does not match the calibration pair");
+            }
+            if (plan.domesticPeriods_.empty() || plan.foreignPeriods_.empty()) {
+                AddEligibilityIssue(report, AnalyticIneligibilityReason_::Value_::COUPON_PLAN_EMPTY, instrumentIndex, -1,
+                                    "typed pricing requires coupon periods on both legs");
+            }
+            switch (plan.config_.notionalMode_.Switch()) {
+            case XccyNotionalMode_::Value_::FIXED:
+                break;
+            case XccyNotionalMode_::Value_::RESETTABLE:
+            case XccyNotionalMode_::Value_::MARK_TO_MARKET:
+                for (int reset = 0; reset < static_cast<int>(plan.resets_.size()); ++reset) {
+                    if (plan.resets_[reset].domesticPeriodIndex_ != reset + 1 ||
+                        plan.resets_[reset].domesticPeriodIndex_ >= static_cast<int>(plan.domesticPeriods_.size())) {
+                        AddEligibilityIssue(report, AnalyticIneligibilityReason_::Value_::RESET_MAPPING_INVALID, instrumentIndex, reset,
+                                            "reset event does not map consecutively from the second domestic period");
+                    }
+                }
+                break;
+            default:
+                AddEligibilityIssue(report, AnalyticIneligibilityReason_::Value_::NOTIONAL_MODE_UNSUPPORTED, instrumentIndex, -1,
+                                    "typed pricing does not support the notional mode");
+                break;
+            }
+            if (spec.domesticCurveBlock_)
+                ValidateStagedRoute(*spec.domesticCurveBlock_, plan.config_.convention_.domesticIndex_, instrumentIndex, "domestic", report);
+            if (spec.foreignCurveBlock_)
+                ValidateStagedRoute(*spec.foreignCurveBlock_, plan.config_.convention_.foreignIndex_, instrumentIndex, "foreign", report);
+        }
+
         void ValidateSpec(const CrossCurrencyCalibrationSpec_& spec, const DateTime_& valuationTime, const Ccy_& collateralCurrency) {
             REQUIRE(spec.domesticCurveBlock_, "Cross-currency calibration requires a domestic curve block");
             REQUIRE(spec.foreignCurveBlock_, "Cross-currency calibration requires a foreign curve block");
@@ -104,6 +183,9 @@ namespace Dal {
             REQUIRE(spec.maxEvaluations_ > 0, "Cross-currency calibration max evaluations must be positive");
             REQUIRE(spec.maxRestarts_ > 0, "Cross-currency calibration max restarts must be positive");
             REQUIRE(std::isfinite(spec.initialGuess_), "Cross-currency calibration initial guess must be finite");
+            for (int i = 0; i < static_cast<int>(spec.initialGuessPerNode_.size()); ++i)
+                REQUIRE(std::isfinite(spec.initialGuessPerNode_[i]),
+                        "Cross-currency calibration per-node initial guess at index " + String::FromInt(i) + " must be finite");
             REQUIRE(spec.knotDates_.front() > valuationTime.Date(), "Cross-currency calibration basis knot dates must be after the valuation date");
             for (int i = 1; i < static_cast<int>(spec.knotDates_.size()); ++i)
                 REQUIRE(spec.knotDates_[i] > spec.knotDates_[i - 1], "Cross-currency calibration basis knot dates must be strictly increasing");
@@ -321,6 +403,32 @@ namespace Dal {
         }
     } // namespace
 
+    AnalyticEligibilityReport_ ValidateCrossCurrencyAnalyticEligibility(const CrossCurrencyCalibrationSpec_& spec) {
+        AnalyticEligibilityReport_ report;
+        if (spec.domesticCurveBlock_ && spec.domesticCurveBlock_->LiborBasis().String() != String_("ACT_365F")) {
+            AddGroupedEligibilityIssue(&report, AnalyticIneligibilityReason_::Value_::LIBOR_BASIS_UNSUPPORTED, "domestic", -1, -1,
+                                       "domestic libor basis must be ACT_365F");
+        }
+        if (spec.foreignCurveBlock_ && spec.foreignCurveBlock_->LiborBasis().String() != String_("ACT_365F")) {
+            AddGroupedEligibilityIssue(&report, AnalyticIneligibilityReason_::Value_::LIBOR_BASIS_UNSUPPORTED, "foreign", -1, -1,
+                                       "foreign libor basis must be ACT_365F");
+        }
+        for (int i = 0; i < static_cast<int>(spec.instruments_.size()); ++i) {
+            if (!spec.instruments_[i]) {
+                AddEligibilityIssue(&report, AnalyticIneligibilityReason_::Value_::CASHFLOW_PLAN_UNSUPPORTED, i, -1, "empty XCCY instrument");
+                continue;
+            }
+            try {
+                const auto span = spec.instruments_[i]->TimeSpan();
+                const XccyCashflowPlan_ plan = BuildXccyCashflowPlan(span.first, span.second, spec.instruments_[i]->Config());
+                ValidateStagedPlan(spec, plan, i, &report);
+            } catch (const std::exception& error) {
+                AddEligibilityIssue(&report, AnalyticIneligibilityReason_::Value_::CASHFLOW_PLAN_UNSUPPORTED, i, -1, String_(error.what()));
+            }
+        }
+        return report;
+    }
+
     CrossCurrencyCalibrationResult_ CalibrateCrossCurrencyMarket(const CrossCurrencyCalibrationSpec_& spec,
                                                                  const CrossCurrencyCalibrationOptions_& options) {
         const DateTime_ valuationTime = ResolveValuationTime(spec);
@@ -335,8 +443,11 @@ namespace Dal {
         const int parameterCount = BuildCurveParameterLayout(basisDefinition).parameterCount_;
         REQUIRE(parameterCount == static_cast<int>(spec.knotDates_.size()),
                 "Cross-currency basis calibration requires one piecewise-constant parameter per knot");
+        if (!spec.initialGuessPerNode_.empty())
+            REQUIRE(static_cast<int>(spec.initialGuessPerNode_.size()) == parameterCount,
+                    "Cross-currency calibration initialGuessPerNode_ length must equal its parameter count");
 
-        Vector_<> guess(parameterCount, spec.initialGuess_);
+        Vector_<> guess = spec.initialGuessPerNode_.empty() ? Vector_<>(parameterCount, spec.initialGuess_) : spec.initialGuessPerNode_;
         Vector_<> tolerance(spec.instruments_.size(), spec.tolerance_);
         Vector_<DateTime_> knotDateTimes;
         knotDateTimes.reserve(spec.knotDates_.size());

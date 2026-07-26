@@ -29,6 +29,7 @@ namespace Dal {
         double tolerance_ = 1.0e-10;
         double fitTolerance_ = 1.0e-6;
         double initialGuess_ = 0.0;
+        Vector_<double> initialGuessPerNode_;
         int maxEvaluations_ = 200;
         int maxRestarts_ = 20;
         CurveSolveMode_ solveMode_ = CurveSolveMode_::Value_::EXACT;
@@ -66,6 +67,7 @@ namespace Dal {
     [[nodiscard]] const CrossCurrencyCalibrationDiagnostics_& XccyResultDiagnostics(const CrossCurrencyCalibrationResult_& result);
     [[nodiscard]] const Matrix_<>& XccyResultJacobian(const CrossCurrencyCalibrationResult_& result);
     [[nodiscard]] const Matrix_<>& XccyResultEffJacobianInverse(const CrossCurrencyCalibrationResult_& result);
+    [[nodiscard]] const Handle_<DiscountCurve_>& XccyResultBasisCurve(const CrossCurrencyCalibrationResult_& result);
 
     [[nodiscard]] CrossCurrencyCalibrationResult_ CalibrateXccyMarket(const CrossCurrencyCalibrationSpec_& spec);
     [[nodiscard]] CrossCurrencyCalibrationResult_ CalibrateXccyMarket(const CrossCurrencyCalibrationSpec_& spec,

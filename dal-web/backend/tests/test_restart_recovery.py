@@ -18,12 +18,14 @@ from __future__ import annotations
 
 import contextlib
 from collections.abc import Iterator
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
 
 from app.schemas import ValuationConfig, ValuationResult
+from app.services.calibration_store import CalibrationRunRecord
 
 _CREATED_AT = "2026-07-19T00:00:00+00:00"
 
@@ -118,6 +120,40 @@ def _valuation(target_id: str, status: str, **overrides) -> ValuationResult:
     return ValuationResult(**base)
 
 
+def _calibration(run_id: str, *, status: str, phase: str) -> CalibrationRunRecord:
+    return CalibrationRunRecord(
+        id=run_id,
+        schema_version=1,
+        kind="single",
+        name=phase,
+        status=status,
+        phase=phase,
+        request_payload={"schema_version": 1},
+        solver_payload={"solve_mode": "EXACT"},
+        options_payload={"jacobian_mode": "ANALYTIC"},
+        resolved_knot_plan={"planner_version": 1},
+        resolved_knot_plan_hash="a" * 64,
+        expected_execution_identity={"identity_version": 1},
+        expected_execution_identity_hash="b" * 64,
+        actual_jacobian_mode=None,
+        actual_execution_identity=None,
+        actual_execution_identity_hash=None,
+        result_payload={} if status == "completed" else None,
+        error_payload=(
+            {"code": "ORIGINAL", "message": "original", "location": None, "context": {}}
+            if status == "failed"
+            else None
+        ),
+        backend="fake",
+        is_native=True,
+        created_at=datetime.now(UTC),
+        started_at=datetime.now(UTC) if phase != "queued" else None,
+        finished_at=datetime.now(UTC) if status != "running" else None,
+        native_solve_ms=None,
+        serialization_ms=None,
+    )
+
+
 def test_entities_created_via_api_survive_restart(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
@@ -193,3 +229,41 @@ def test_memory_store_loses_valuations_on_restart(
 
     with _fresh_app(monkeypatch, tmp_path, memory=True) as client:
         assert client.get("/api/valuations").json() == []
+
+
+def test_running_calibration_phases_reconcile_without_changing_evidence(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    from app.services.store import get_store
+
+    run_ids: list[str] = []
+    with _fresh_app(monkeypatch, tmp_path):
+        store = get_store()
+        for index, phase in enumerate(
+            ("queued", "solving", "serializing", "persisting"), start=1
+        ):
+            run = _calibration(str(index) * 32, status="running", phase=phase)
+            store.add_calibration_admission(run, ())
+            run_ids.append(run.id)
+        completed = _calibration("5" * 32, status="completed", phase="finished")
+        failed = _calibration("6" * 32, status="failed", phase="finished")
+        store.add_calibration_admission(completed, ())
+        store.add_calibration_admission(failed, ())
+
+    with _fresh_app(monkeypatch, tmp_path):
+        store = get_store()
+        for run_id in run_ids:
+            reconciled = store.get_calibration_run(run_id)
+            assert reconciled.status == "failed"
+            assert reconciled.phase == "finished"
+            assert reconciled.error_payload == {
+                "code": "SERVER_RESTARTED",
+                "message": "Server restarted while calibrating",
+                "location": None,
+                "context": {},
+            }
+            assert reconciled.resolved_knot_plan == {"planner_version": 1}
+            assert reconciled.expected_execution_identity == {"identity_version": 1}
+            assert reconciled.actual_execution_identity is None
+        assert store.get_calibration_run(completed.id).status == "completed"
+        assert store.get_calibration_run(failed.id).error_payload["code"] == "ORIGINAL"

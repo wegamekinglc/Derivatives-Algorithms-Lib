@@ -4,6 +4,7 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <dal-public/src/curvedata.hpp>
 #include <dal-public/src/curveinstrument.hpp>
 #include <dal-public/src/curveprotocol.hpp>
@@ -32,6 +33,7 @@ using Dal::RateIndexConvention_New;
 using Dal::RateLegConvention_;
 using Dal::RateLegConvention_New;
 using Dal::String_;
+using Dal::ValidateCrossCurrencyAnalyticEligibility;
 using Dal::Vector_;
 
 namespace {
@@ -62,9 +64,19 @@ TEST(XccyCalibrationTest, TestBuilderDefaults) {
     ASSERT_EQ(builder.maxEvaluations_, 200);
     ASSERT_EQ(builder.maxRestarts_, 20);
     ASSERT_NEAR(builder.initialGuess_, 0.0, 1e-15);
+    ASSERT_TRUE(builder.initialGuessPerNode_.empty());
     ASSERT_NEAR(builder.smoothingWeight_, 1.0, 1e-15);
     ASSERT_NEAR(builder.fxSpot_, 0.0, 1e-15);
     ASSERT_EQ(builder.solveMode_.Switch(), CurveSolveMode_::Value_::EXACT);
+}
+
+TEST(XccyCalibrationTest, TestBuilderPreservesPerNodeInitialGuess) {
+    CrossCurrencyCalibrationSpecBuilder_ builder;
+    builder.initialGuessPerNode_ = {0.0125, 0.0175};
+
+    const auto spec = builder.Build();
+
+    ASSERT_EQ(spec.initialGuessPerNode_, builder.initialGuessPerNode_);
 }
 
 TEST(XccyCalibrationTest, TestJointBuilderDefaultsMatchCoreJointCalibration) {
@@ -76,6 +88,22 @@ TEST(XccyCalibrationTest, TestJointBuilderDefaultsMatchCoreJointCalibration) {
     ASSERT_EQ(builder.solverOptions_.maxEvaluations_, 200);
     ASSERT_EQ(builder.solverOptions_.maxRestarts_, 20);
     ASSERT_EQ(builder.solverOptions_.solveMode_.Switch(), CurveSolveMode_::Value_::EXACT);
+}
+
+TEST(XccyCalibrationTest, TestJointBasisLogDfSchemeDefaultsAndRoundTrips) {
+    Dal::XccyBasisCurveDeclaration_ basis;
+    EXPECT_EQ(basis.logDfScheme_, Dal::LogDfScheme_::Value_::LOG_LINEAR);
+
+    basis.logDfScheme_ = Dal::LogDfScheme_::Value_::MIXED;
+    Dal::JointXccyCalibrationSpecBuilder_ builder;
+    builder.basis_ = basis;
+    builder.valuationTime_ = Dal::DateTime_(Dal::Date_(2026, 1, 15), 9);
+    builder.pair_ = Dal::CurrencyPair_(Dal::Ccy_("USD"), Dal::Ccy_("EUR"));
+    builder.collateralCurrency_ = Dal::Ccy_("USD");
+    builder.fxSpot_ = 1.1;
+
+    const auto spec = builder.Build();
+    EXPECT_EQ(spec.basis_.logDfScheme_, Dal::LogDfScheme_::Value_::MIXED);
 }
 
 // Build baseline curves for XCCY calibration
@@ -214,6 +242,25 @@ TEST(XccyCalibrationTest, TestBuildRoundTripsEveryField) {
     ASSERT_EQ(spec.solveMode_.Switch(), CurveSolveMode_::Value_::APPROXIMATE);
     ASSERT_EQ(spec.knotDates_.size(), static_cast<size_t>(2));
     ASSERT_TRUE(spec.instruments_.empty());
+}
+
+TEST(XccyCalibrationTest, TestStagedEligibilityAttributesForeignLiborBasis) {
+    const auto curves = MakeBaselineCurves();
+    CrossCurrencyCalibrationSpecBuilder_ builder;
+    builder.today_ = Today();
+    builder.basisPair_ = CurrencyPair_New("USD", "EUR");
+    builder.domesticCurveBlock_ = curves.domesticBlock_;
+    builder.foreignCurveBlock_ = curves.foreignBlock_;
+    builder.fxSpot_ = 1.10;
+
+    const auto report = ValidateCrossCurrencyAnalyticEligibility(builder.Build());
+
+    ASSERT_FALSE(report.eligible_);
+    const auto issue = std::find_if(report.issues_.begin(), report.issues_.end(), [](const auto& candidate) {
+        return candidate.reason_.Switch() == Dal::AnalyticIneligibilityReason_::Value_::LIBOR_BASIS_UNSUPPORTED &&
+               candidate.group_ == String_("foreign");
+    });
+    ASSERT_NE(issue, report.issues_.end());
 }
 
 TEST(XccyCalibrationTest, TestJointBuilderRoundTripsEveryField) {

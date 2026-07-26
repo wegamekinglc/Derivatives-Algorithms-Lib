@@ -49,9 +49,8 @@ namespace Dal {
         }
 
         CurveDefinition_ BasisDefinition(const JointXccyCalibrationSpec_& spec) {
-            return MakeCurveDefinition(spec.basis_.curveName_, spec.pair_.domestic_.String(), spec.basis_.parameterization_,
-                                       LogDfScheme_(LogDfScheme_::Value_::LOG_LINEAR), spec.basis_.knotDates_, spec.valuationTime_.Date(),
-                                       DayBasis_("ACT_365F"));
+            return MakeCurveDefinition(spec.basis_.curveName_, spec.pair_.domestic_.String(), spec.basis_.parameterization_, spec.basis_.logDfScheme_,
+                                       spec.basis_.knotDates_, spec.valuationTime_.Date(), DayBasis_("ACT_365F"));
         }
 
         String_ DiscountSlotName(const JointCurrencyCurveSpec_& currency, const CollateralType_& collateral) {
@@ -193,16 +192,128 @@ namespace Dal {
             return result;
         }
 
-        String_
-        AnalyticIneligibilityReason(const JointXccyCalibrationSpec_& spec, const JointLayout_& layout, const Vector_<XccyCashflowPlan_>& plans) {
-            String_ result = JointCalibrationInternal::AnalyticIneligibilityReason(layout.domesticCollection_, layout.domesticSlots_);
-            if (!result.empty())
-                return result;
-            result = JointCalibrationInternal::AnalyticIneligibilityReason(layout.foreignCollection_, layout.foreignSlots_);
-            if (!result.empty())
-                return result;
-            return JointCalibrationInternal::XccyPlansAnalyticIneligibilityReason(
-                layout.domesticCollection_, layout.domesticSlots_, layout.foreignCollection_, layout.foreignSlots_, plans, spec.basis_.instruments_);
+        void AddEligibilityIssue(AnalyticEligibilityReport_* report,
+                                 AnalyticIneligibilityReason_ reason,
+                                 const String_& group,
+                                 int declarationIndex,
+                                 int instrumentIndex,
+                                 int resetIndex,
+                                 const String_& message) {
+            AnalyticEligibilityIssue_ issue;
+            issue.reason_ = reason;
+            issue.group_ = group;
+            issue.declarationIndex_ = declarationIndex;
+            issue.instrumentIndex_ = instrumentIndex;
+            issue.resetIndex_ = resetIndex;
+            issue.nativeMessage_ = message;
+            report->issues_.push_back(issue);
+            report->eligible_ = false;
+        }
+
+        void ValidateCurrencyEligibility(const JointCurrencyCurveSpec_& currency,
+                                         const String_& group,
+                                         const Date_& anchor,
+                                         AnalyticEligibilityReport_* report) {
+            if (currency.liborBasis_.String() != String_("ACT_365F")) {
+                const String_ label = group == String_("domestic") ? String_("Domestic") : String_("Foreign");
+                AddEligibilityIssue(report, AnalyticIneligibilityReason_::Value_::LIBOR_BASIS_UNSUPPORTED, group, -1, -1, -1,
+                                    label + " requires ACT_365F libor basis for an analytic Jacobian");
+            }
+            for (int declarationIndex = 0; declarationIndex < static_cast<int>(currency.curves_.size()); ++declarationIndex) {
+                const JointCurveDeclaration_& declaration = currency.curves_[declarationIndex];
+                for (int instrumentIndex = 0; instrumentIndex < static_cast<int>(declaration.instruments_.size()); ++instrumentIndex) {
+                    const auto& handle = declaration.instruments_[instrumentIndex];
+                    const YCInstrument_* instrument = handle.get();
+                    if (!instrument || !JointCalibrationInternal::SupportedInstrumentType(*instrument)) {
+                        AddEligibilityIssue(report, AnalyticIneligibilityReason_::Value_::TEMPLATED_RATE_UNAVAILABLE, group, declarationIndex,
+                                            instrumentIndex, -1, "instrument has no templated rate implementation");
+                        continue;
+                    }
+                    const RateIndexConvention_* convention = FloatConventionOf(*instrument);
+                    if (!convention) {
+                        AddEligibilityIssue(report, AnalyticIneligibilityReason_::Value_::TEMPLATED_RATE_UNAVAILABLE, group, declarationIndex,
+                                            instrumentIndex, -1, "instrument has no floating-rate convention");
+                        continue;
+                    }
+                    if (declaration.calibrateDiscountCurve_ && convention->useProjectionCurve_) {
+                        AddEligibilityIssue(report, AnalyticIneligibilityReason_::Value_::PROJECTION_NOT_ALLOWED, group, declarationIndex,
+                                            instrumentIndex, -1, "discount declaration cannot project from a forward slot");
+                    }
+                    if (!declaration.calibrateDiscountCurve_ && !convention->useProjectionCurve_) {
+                        AddEligibilityIssue(report, AnalyticIneligibilityReason_::Value_::PROJECTION_REQUIRED, group, declarationIndex,
+                                            instrumentIndex, -1, "forward declaration requires projection routing");
+                    }
+                    if (instrument->TradeDate() != anchor) {
+                        AddEligibilityIssue(report, AnalyticIneligibilityReason_::Value_::TRADE_DATE_MISMATCH, group, declarationIndex,
+                                            instrumentIndex, -1, "instrument trade date does not equal the calibration anchor");
+                    }
+                }
+            }
+        }
+
+        void ValidateJointXccyPlan(const JointXccyCalibrationSpec_& spec,
+                                   const JointLayout_& layout,
+                                   const XccyCashflowPlan_& plan,
+                                   int instrumentIndex,
+                                   AnalyticEligibilityReport_* report) {
+            if (!(plan.config_.pair_ == spec.pair_) || layout.domesticCollection_.ccy_ != plan.config_.pair_.domestic_.String() ||
+                layout.foreignCollection_.ccy_ != plan.config_.pair_.foreign_.String()) {
+                AddEligibilityIssue(report, AnalyticIneligibilityReason_::Value_::PAIR_CURRENCY_MISMATCH, "basis", -1, instrumentIndex, -1,
+                                    "XCCY instrument pair does not match the typed curve collections");
+            }
+            if (plan.domesticPeriods_.empty() || plan.foreignPeriods_.empty()) {
+                AddEligibilityIssue(report, AnalyticIneligibilityReason_::Value_::COUPON_PLAN_EMPTY, "basis", -1, instrumentIndex, -1,
+                                    "typed pricing requires coupon periods on both legs");
+            }
+            switch (plan.config_.notionalMode_.Switch()) {
+            case XccyNotionalMode_::Value_::FIXED:
+                break;
+            case XccyNotionalMode_::Value_::RESETTABLE:
+            case XccyNotionalMode_::Value_::MARK_TO_MARKET:
+                for (int reset = 0; reset < static_cast<int>(plan.resets_.size()); ++reset) {
+                    if (plan.resets_[reset].domesticPeriodIndex_ != reset + 1 ||
+                        plan.resets_[reset].domesticPeriodIndex_ >= static_cast<int>(plan.domesticPeriods_.size())) {
+                        AddEligibilityIssue(report, AnalyticIneligibilityReason_::Value_::RESET_MAPPING_INVALID, "basis", -1, instrumentIndex, reset,
+                                            "reset event has an invalid domestic-period mapping");
+                    }
+                }
+                break;
+            default:
+                AddEligibilityIssue(report, AnalyticIneligibilityReason_::Value_::NOTIONAL_MODE_UNSUPPORTED, "basis", -1, instrumentIndex, -1,
+                                    "typed pricing does not support the notional mode");
+                break;
+            }
+            const auto& domesticIndex = plan.config_.convention_.domesticIndex_;
+            if (!JointCalibrationInternal::HasTypedDiscountRoute(layout.domesticCollection_, layout.domesticSlots_, domesticIndex.collateral_)) {
+                AddEligibilityIssue(report, AnalyticIneligibilityReason_::Value_::DISCOUNT_ROUTE_MISSING, "basis", -1, instrumentIndex, -1,
+                                    "domestic discount route is absent");
+            }
+            if (domesticIndex.useProjectionCurve_ &&
+                !JointCalibrationInternal::HasTypedForwardRoute(layout.domesticCollection_, layout.domesticSlots_, domesticIndex)) {
+                AddEligibilityIssue(report, AnalyticIneligibilityReason_::Value_::PROJECTION_ROUTE_MISSING, "basis", -1, instrumentIndex, -1,
+                                    "domestic projection route is absent");
+            }
+            const auto& foreignIndex = plan.config_.convention_.foreignIndex_;
+            if (!JointCalibrationInternal::HasTypedDiscountRoute(layout.foreignCollection_, layout.foreignSlots_, foreignIndex.collateral_)) {
+                AddEligibilityIssue(report, AnalyticIneligibilityReason_::Value_::DISCOUNT_ROUTE_MISSING, "basis", -1, instrumentIndex, -1,
+                                    "foreign discount route is absent");
+            }
+            if (foreignIndex.useProjectionCurve_ &&
+                !JointCalibrationInternal::HasTypedForwardRoute(layout.foreignCollection_, layout.foreignSlots_, foreignIndex)) {
+                AddEligibilityIssue(report, AnalyticIneligibilityReason_::Value_::PROJECTION_ROUTE_MISSING, "basis", -1, instrumentIndex, -1,
+                                    "foreign projection route is absent");
+            }
+        }
+
+        AnalyticEligibilityReport_
+        JointAnalyticEligibility(const JointXccyCalibrationSpec_& spec, const JointLayout_& layout, const Vector_<XccyCashflowPlan_>& plans) {
+            AnalyticEligibilityReport_ report;
+            const Date_ anchor = spec.valuationTime_.Date();
+            ValidateCurrencyEligibility(spec.domestic_, "domestic", anchor, &report);
+            ValidateCurrencyEligibility(spec.foreign_, "foreign", anchor, &report);
+            for (int i = 0; i < static_cast<int>(plans.size()); ++i)
+                ValidateJointXccyPlan(spec, layout, plans[i], i, &report);
+            return report;
         }
 
         class JointXccyResidualFunction_ : public Underdetermined::Function_ {
@@ -276,16 +387,17 @@ namespace Dal {
                 for (const auto& slot : slots) {
                     const JointCurveDeclaration_& declaration = (*collection.curves_)[slot.curveIndex_];
                     const Vector_<> slice = JointCalibrationInternal::BuildGuessSlice(
-                        declaration, slot.nParams_, spec.initialGuess_, JointCalibrationInternal::SlotName(collection, slot.curveIndex_));
+                        declaration, slot.definition_, spec.initialGuess_, JointCalibrationInternal::SlotName(collection, slot.curveIndex_));
                     for (int i = 0; i < slot.nParams_; ++i)
                         result[slot.paramOffset_ + i] = slice[i];
                 }
             };
             appendCurrency(layout.domesticCollection_, layout.domesticSlots_);
             appendCurrency(layout.foreignCollection_, layout.foreignSlots_);
-            if (!spec.basis_.initialGuessPerNode_.empty())
-                for (int i = 0; i < layout.basisSlot_.nParams_; ++i)
-                    result[layout.basisSlot_.paramOffset_ + i] = spec.basis_.initialGuessPerNode_[i];
+            const Vector_<> basisGuess = JointCalibrationInternal::BuildGuessSlice(spec.basis_, layout.basisDefinition_, spec.initialGuess_,
+                                                                                   String_("XCCY basis slot '") + spec.basis_.curveName_ + "'");
+            for (int i = 0; i < layout.basisSlot_.nParams_; ++i)
+                result[layout.basisSlot_.paramOffset_ + i] = basisGuess[i];
             return result;
         }
 
@@ -458,6 +570,12 @@ namespace Dal {
         }
     } // namespace
 
+    AnalyticEligibilityReport_ ValidateJointXccyAnalyticEligibility(const JointXccyCalibrationSpec_& spec) {
+        const JointLayout_ layout = BuildLayout(spec);
+        const Vector_<XccyCashflowPlan_> plans = ValidateAndBuildPlans(spec);
+        return JointAnalyticEligibility(spec, layout, plans);
+    }
+
     JointXccyCalibrationResult_ CalibrateJointXccyMarket(const JointXccyCalibrationSpec_& spec) {
         return CalibrateJointXccyMarket(spec, JointXccyCalibrationOptions_());
     }
@@ -470,8 +588,8 @@ namespace Dal {
         const Vector_<XccyCashflowPlan_> plans = ValidateAndBuildPlans(spec);
         const Handle_<MarketFixingSnapshot_> fixings = ResolveFixings(spec, plans);
         if (options.jacobianMode_ == CurveJacobianMode_::Value_::ANALYTIC) {
-            const String_ reason = AnalyticIneligibilityReason(spec, layout, plans);
-            REQUIRE(reason.empty(), "Joint XCCY analytic Jacobian is ineligible: " + reason);
+            const AnalyticEligibilityReport_ eligibility = JointAnalyticEligibility(spec, layout, plans);
+            REQUIRE(eligibility.eligible_, "Joint XCCY analytic Jacobian is ineligible: " + eligibility.issues_.front().nativeMessage_);
         }
 
         const Vector_<> guess = BuildInitialGuess(spec, layout);

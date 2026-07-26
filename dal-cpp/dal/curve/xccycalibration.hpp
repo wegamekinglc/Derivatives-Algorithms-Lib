@@ -100,6 +100,7 @@ namespace Dal {
         double tolerance_ = 1.0e-10;
         double fitTolerance_ = 1.0e-6;
         double initialGuess_ = 0.0;
+        Vector_<double> initialGuessPerNode_;
         int maxEvaluations_ = 200;
         int maxRestarts_ = 20;
         CurveSolveMode_ solveMode_ = CurveSolveMode_::Value_::EXACT;
@@ -127,4 +128,5 @@ namespace Dal {
     CrossCurrencyCalibrationResult_ CalibrateCrossCurrencyMarket(const CrossCurrencyCalibrationSpec_& spec);
     CrossCurrencyCalibrationResult_ CalibrateCrossCurrencyMarket(const CrossCurrencyCalibrationSpec_& spec,
                                                                  const CrossCurrencyCalibrationOptions_& options);
+    [[nodiscard]] AnalyticEligibilityReport_ ValidateCrossCurrencyAnalyticEligibility(const CrossCurrencyCalibrationSpec_& spec);
 } // namespace Dal
