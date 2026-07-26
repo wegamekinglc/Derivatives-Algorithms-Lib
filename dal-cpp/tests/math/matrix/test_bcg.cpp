@@ -83,6 +83,19 @@ TEST(MatrixTest, TestBCGSolveAcceptsExactInitialGuess) {
     ASSERT_DOUBLE_EQ(x[1], 2.0);
 }
 
+TEST(MatrixTest, TestBCGSolveAcceptsToleranceConvergedInitialGuess) {
+    std::unique_ptr<Sparse::Square_> mat = Sparse::NewBandDiagonal(2, 1, 1);
+    mat->Set(0, 1, 1.0);
+    mat->Set(1, 0, -1.0);
+    const Vector_<> b = {1.0e-12, 0.0};
+    Vector_<> x = {0.0, 0.0};
+
+    Sparse::BCGSolve(*mat, b, 0.0, 1.0e-10, 10, &x);
+
+    ASSERT_DOUBLE_EQ(x[0], 0.0);
+    ASSERT_DOUBLE_EQ(x[1], 0.0);
+}
+
 TEST(MatrixTest, TestCGSolveDoesNotTreatUnderflowedResidualAsZero) {
     const double nonzeroResidual = 1e-170;
     ASSERT_DOUBLE_EQ(nonzeroResidual * nonzeroResidual, 0.0);
