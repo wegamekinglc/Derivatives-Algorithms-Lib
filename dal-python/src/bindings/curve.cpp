@@ -9,8 +9,10 @@
 #include <dal/curve/calibration.hpp>
 #include <dal/curve/xccycalibration.hpp>
 #include <dal/curve/xccynotionalmode.hpp>
+#include <dal/curve/xccypricing.hpp>
 #include <dal/curve/ycpwlf.hpp>
 #include <dal/math/matrix/matrixs.hpp>
+#include <dal/math/optimization/underdetermined.hpp>
 #include <dal/protocol/collateraltype.hpp>
 #include <dal/time/datetime.hpp>
 #include <dal/time/daybasis.hpp>
@@ -129,6 +131,23 @@ namespace {
             nativeInstruments.push_back(Handle_<YCInstrument_>(std::const_pointer_cast<const YCInstrument_>(instrument)));
         return PlanCurveCalibrationKnots(today, nativeInstruments, Vector_<Date_>(submittedKnots.begin(), submittedKnots.end()),
                                          CurveKnotPolicy_(requestedPolicy), CurveParameterization_(parameterization));
+    }
+
+    std::vector<std::tuple<int, std::string, DateTime_>>
+    RequiredHistoricalXccyFixingsForPython(const std::vector<std::shared_ptr<CrossCurrencySwap_>>& instruments,
+                                           const DateTime_& valuationTime) {
+        std::vector<std::tuple<int, std::string, DateTime_>> result;
+        {
+            py::gil_scoped_release release;
+            for (int index = 0; index < static_cast<int>(instruments.size()); ++index) {
+                const auto span = instruments[index]->TimeSpan();
+                const XccyCashflowPlan_ plan = BuildXccyCashflowPlan(span.first, span.second, instruments[index]->Config());
+                const Vector_<FixingRequest_> required = RequiredHistoricalFixings(plan, valuationTime);
+                for (const auto& item : required)
+                    result.emplace_back(index, std::string(item.indexName_.c_str()), item.fixingTime_);
+            }
+        }
+        return result;
     }
 
     MarketFixingSnapshot_::values_t SnapshotValues(const py::dict& values) {
@@ -971,6 +990,8 @@ namespace {
     }
 
     void init_bindings_curve_xccy(py::module_& m) {
+        py::register_exception<Underdetermined::ConvergenceError_>(
+            m, "_CalibrationConvergenceError", PyExc_RuntimeError);
         auto xccyBuilder = py::class_<CrossCurrencyCalibrationSpecBuilder_>(m, "CrossCurrencyCalibrationSpecBuilder_");
         xccyBuilder.def(py::init<>());
         DefReadWriteAliases(xccyBuilder, "today_", "today", &CrossCurrencyCalibrationSpecBuilder_::today_);
@@ -1349,6 +1370,7 @@ namespace {
               py::call_guard<py::gil_scoped_release>());
         m.def("ValidateJointXccyAnalyticEligibility", &ValidateJointXccyAnalyticEligibility, py::arg("spec"),
               py::call_guard<py::gil_scoped_release>());
+        m.def("_RequiredHistoricalXccyFixings", &RequiredHistoricalXccyFixingsForPython, py::arg("instruments"), py::arg("valuation_time"));
 
         AddMatrixSnakeCaseAliases(m);
     }

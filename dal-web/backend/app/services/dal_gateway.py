@@ -30,6 +30,8 @@ from app.schemas.calibrations import (
     SolverDiagnosticsDTO,
 )
 from app.services.calibrations import (
+    NativeExecutionIdentityMismatchError,
+    NativeSolverDidNotConvergeError,
     PersistedExpectedExecutionIdentityIntegrityError,
     PersistedKnotPlanIntegrityError,
     SingleGatewayPreLockRequest,
@@ -73,6 +75,13 @@ class GatewayResolvedKnotCounts:
     resolved_declared_nodes: int
     storage_nodes: int
     free_parameters: int
+
+
+@dataclass(frozen=True, slots=True)
+class GatewayRequiredHistoricalFixing:
+    instrument_index: int
+    index_name: str
+    timestamp: datetime
 
 
 @dataclass(frozen=True, slots=True)
@@ -388,9 +397,28 @@ class DalGateway:
                 and hasattr(self._dal, "InspectCurveCalibrationExecutionIdentity")
                 else evidence.expected_execution_identity.model_copy(deep=True)
             )
+            if actual != evidence.expected_execution_identity:
+                raise NativeExecutionIdentityMismatchError(
+                    evidence.expected_execution_identity,
+                    actual,
+                    comparison_stage="pre_solve_execution_identity",
+                )
             on_execution_identity_inspected(actual)
             result = self._calibrate_single_verified(verified, actual, native_spec)
             elapsed_ms = (time.perf_counter() - started) * 1000.0
+            terminal_actual = result.actual_execution_identity
+            if terminal_actual is None:
+                raise RuntimeError(
+                    "single calibration omitted terminal execution identity"
+                )
+            if terminal_actual != evidence.expected_execution_identity:
+                raise NativeExecutionIdentityMismatchError(
+                    evidence.expected_execution_identity,
+                    terminal_actual,
+                    comparison_stage="post_solve_storage",
+                    actual_jacobian_mode=result.actual_jacobian_mode,
+                    native_solve_ms=elapsed_ms,
+                )
             self._refresh_health_snapshot()
             return result._replace(native_solve_ms=elapsed_ms)
 
@@ -406,8 +434,11 @@ class DalGateway:
                 native_spec = self._build_staged_xccy_spec(
                     request.request, request.referenced_curves
                 )
-                native_result = self._dal.CalibrateXccyMarket(
-                    native_spec, self._build_xccy_options(request.request)
+                native_result = self._call_native_calibration(
+                    self._dal.CalibrateXccyMarket,
+                    request.request,
+                    native_spec,
+                    self._build_xccy_options(request.request),
                 )
                 result = _native_staged_result_to_gateway(
                     request.request, native_result
@@ -432,6 +463,34 @@ class DalGateway:
             )
             return self._dal.ValidateCrossCurrencyAnalyticEligibility(native_spec)
 
+    def required_historical_xccy_fixings(
+        self, request: StagedXccyGatewayRequest | JointXccyGatewayRequest
+    ) -> tuple[GatewayRequiredHistoricalFixing, ...]:
+        """Resolve required observations from DAL's native cashflow schedules."""
+        extension = getattr(self._dal, "_dal", self._dal)
+        preflight = getattr(
+            extension, "_RequiredHistoricalXccyFixings", None
+        )
+        if preflight is None:
+            return ()
+        with self._calibration_lock:
+            instruments = [
+                self._build_xccy_instrument(item)
+                for item in request.request.basis.instruments
+            ]
+            rows = preflight(
+                instruments,
+                self._native_datetime(request.request.valuation_time),
+            )
+        return tuple(
+            GatewayRequiredHistoricalFixing(
+                instrument_index=int(instrument_index),
+                index_name=str(index_name),
+                timestamp=datetime.fromisoformat(repr(timestamp)),
+            )
+            for instrument_index, index_name, timestamp in rows
+        )
+
     def calibrate_joint_xccy(
         self,
         request: JointXccyGatewayRequest,
@@ -442,8 +501,11 @@ class DalGateway:
             started = time.perf_counter()
             if hasattr(self._dal, "JointXccyCalibrationSpecBuilder_"):
                 native_spec = self._build_joint_xccy_spec(request.request)
-                native_result = self._dal.CalibrateJointXccyMarket(
-                    native_spec, self._build_joint_xccy_options(request.request)
+                native_result = self._call_native_calibration(
+                    self._dal.CalibrateJointXccyMarket,
+                    request.request,
+                    native_spec,
+                    self._build_joint_xccy_options(request.request),
                 )
                 result = _native_joint_result_to_gateway(
                     request.request, native_result, self._dal
@@ -896,6 +958,30 @@ class DalGateway:
         result.end_of_month = value.end_of_month
         return result
 
+    def _call_native_calibration(
+        self,
+        function: Callable[..., object],
+        request: object,
+        *arguments: object,
+    ) -> object:
+        try:
+            return function(*arguments)
+        except Exception as exc:
+            extension = getattr(self._dal, "_dal", self._dal)
+            convergence_error = getattr(
+                extension, "_CalibrationConvergenceError", None
+            )
+            if convergence_error is None or not isinstance(
+                exc, convergence_error
+            ):
+                raise
+            raise NativeSolverDidNotConvergeError(
+                max_abs_residual=None,
+                rms_residual=None,
+                evaluations=request.solver.max_evaluations,
+                max_evaluations=request.solver.max_evaluations,
+            ) from exc
+
     def _calibrate_single_verified(
         self,
         verified: VerifiedSingleGatewayRequest,
@@ -913,7 +999,12 @@ class DalGateway:
             options.compute_eff_jacobian_inverse = (
                 request.options.include_effective_inverse
             )
-            native_result = self._dal.CalibrateSingleCurve(native_spec, options)
+            native_result = self._call_native_calibration(
+                self._dal.CalibrateSingleCurve,
+                request,
+                native_spec,
+                options,
+            )
             return _native_single_result_to_gateway(
                 request,
                 verified.evidence.resolved_knot_plan,

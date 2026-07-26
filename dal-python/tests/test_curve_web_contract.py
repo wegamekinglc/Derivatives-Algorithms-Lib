@@ -1,6 +1,7 @@
 """Additive native surfaces required by the Web curve workbench."""
 
 import dal
+import pytest
 
 
 def _today():
@@ -148,3 +149,70 @@ def test_log_discount_scalar_seed_is_resolved_to_dated_raw_parameters():
     resolved = dal.ResolveCurveCalibrationInitialGuess(builder.Build())
 
     assert resolved == [-0.03, -0.06]  # nosec B101
+
+
+def test_private_web_fixing_preflight_uses_native_cashflow_schedules():
+    start = dal.Date_(2025, 1, 2)
+    maturity = dal.Date_(2027, 1, 2)
+    valuation_time = dal.DateTime_(dal.Date_(2026, 1, 2), 12, 0)
+    leg = dal.RateLegConvention_New(
+        dal.PeriodLength_New("6M"), dal.DayBasis_New("ACT_365F")
+    )
+    index = dal.RateIndexConvention_New(
+        dal.PeriodLength_New("3M"),
+        dal.DayBasis_New("ACT_365F"),
+        dal.CollateralType_OIS(),
+    )
+    config = dal.CrossCurrencySwapConfig_()
+    config.pair = dal.CurrencyPair_New("USD", "EUR")
+    config.domestic_notional = 100.0
+    config.foreign_notional = 90.0
+    config.convention.domestic_leg = leg
+    config.convention.foreign_leg = leg
+    config.convention.domestic_index = index
+    config.convention.foreign_index = index
+    config.notional_mode = dal.XccyNotionalMode.FIXED
+    config.domestic_rate_fixing.index_name = "USD-SOFR"
+    config.domestic_rate_fixing.fixing_hour = 11
+    config.domestic_rate_fixing.fixing_minute = 0
+    config.foreign_rate_fixing.index_name = "EUR-ESTR"
+    config.foreign_rate_fixing.fixing_hour = 11
+    config.foreign_rate_fixing.fixing_minute = 0
+    instrument = dal.CrossCurrencySwap_New(
+        start,
+        start,
+        maturity,
+        0.001,
+        config,
+    )
+
+    required = dal._dal._RequiredHistoricalXccyFixings(
+        [instrument], valuation_time
+    )
+
+    assert required  # nosec B101
+    assert {item[1] for item in required} == {"USD-SOFR", "EUR-ESTR"}  # nosec B101
+    assert all(item[0] == 0 for item in required)  # nosec B101
+
+
+def test_solver_budget_exhaustion_has_a_private_typed_exception():
+    today = _today()
+    maturity = today.AddDays(365)
+    index = dal.RateIndexConvention_New(
+        dal.PeriodLength_New("12M"),
+        dal.DayBasis_New("ACT_365F"),
+        dal.CollateralType_OIS(),
+    )
+    builder = dal.CurveCalibrationSpecBuilder_()
+    builder.today_ = today
+    builder.ccy_ = dal.String_("USD")
+    builder.curveName_ = dal.String_("non-converging")
+    builder.instruments_ = [
+        dal.Deposit_New(today, today, maturity, 0.04, index)
+    ]
+    builder.knotDates_ = [maturity]
+    builder.initialGuess_ = 0.50
+    builder.maxEvaluations_ = 1
+
+    with pytest.raises(dal._dal._CalibrationConvergenceError):
+        dal.CalibrateSingleCurve(builder.Build())

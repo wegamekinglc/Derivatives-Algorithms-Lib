@@ -95,14 +95,16 @@ namespace Dal {
                 : tol_(tol), func_(func), nEvals_(controls.maxEvaluations_), nRestarts_(controls.maxRestarts_) {}
 
             Vector_<> F(const Vector_<>& x) {
-                REQUIRE(nEvals_-- > 0, "Exhausted function evaluations in underdetermined search");
+                if (nEvals_-- <= 0)
+                    THROW2("Exhausted function evaluations in underdetermined search", Underdetermined::ConvergenceError_);
                 Vector_<> retVal = func_.F(x);
                 Transform(&retVal, tol_, std::divides<>());
                 return retVal;
             }
 
             std::unique_ptr<Underdetermined::Jacobian_> J(const Vector_<>& x, const Vector_<>& f) {
-                REQUIRE(nRestarts_-- > 0, "Exhausted gradient evaluations in underdetermined search");
+                if (nRestarts_-- <= 0)
+                    THROW2("Exhausted gradient evaluations in underdetermined search", Underdetermined::ConvergenceError_);
                 return BuildJacobian(x, f);
             }
 
@@ -352,7 +354,8 @@ namespace Dal {
             const FindBacktrackResult_ backtrack = BacktrackFindStep(&func, funcIn, tol, w, controls, effJInv, fwdJacobianAtSolution, &state);
             if (backtrack.solved_)
                 return state.xNew_;
-            REQUIRE(backtrack.tookStep_ || state.approximateJacobian_, "Could not find a descent direction in underdetermined search");
+            if (!(backtrack.tookStep_ || state.approximateJacobian_))
+                THROW2("Could not find a descent direction in underdetermined search", ConvergenceError_);
         }
     }
 

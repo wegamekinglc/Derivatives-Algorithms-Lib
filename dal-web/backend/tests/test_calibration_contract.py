@@ -1,33 +1,48 @@
 from __future__ import annotations
 
 import json
+import threading
 from dataclasses import FrozenInstanceError
-from datetime import date
+from datetime import date, datetime
 from types import SimpleNamespace
+from unittest.mock import Mock
 
 import pytest
 from pydantic import ValidationError
 
 from app.schemas.calibrations import (
     ExecutionSingleKnotIdentityDTO,
+    FixingObservationDTO,
     JointBasisDeclarationDTO,
     JointCurveDeclarationDTO,
     MatrixDTO,
     NamedRangeDTO,
     SingleCurveDeclarationDTO,
+    _validate_unique_fixings,
 )
 from app.services.calibrations import (
     CalibrationHttpError,
     FrozenJsonArray,
     FrozenJsonObject,
+    NativeExecutionIdentityMismatchError,
+    NativeSolverDidNotConvergeError,
+    PersistedKnotPlanIntegrityError,
+    SingleGatewayPreLockRequest,
+    VerifiedSingleWorkerAdmissionEvidence,
+    _check_required_xccy_fixings,
     _check_single_analytic_eligibility,
+    _fail_native,
     _resolve_declaration_initial_guess,
+    _terminalize_integrity_error,
+    _validate_single_worker_admission_context,
     build_joint_admission_count_plan,
     calculate_quote_bump_preview,
     freeze_integrity_error_evidence,
     to_api_error_dto,
 )
 from app.services.dal_gateway import (
+    DalGateway,
+    GatewayCalibrationResult,
     _fallback_single_plan,
     _joint_parameter_axis,
     _terminal_identity_from_curve_payload,
@@ -165,6 +180,27 @@ def test_frozen_integrity_evidence_is_deep_and_canonical():
     first.context["nested"]["array"][0]["leaf"] = "wire-only"
     second = to_api_error_dto(frozen)
     assert second.context["nested"]["array"][0]["leaf"] == "before"
+
+
+def test_integrity_terminalization_passes_the_frozen_canonical_bytes_verbatim():
+    frozen = freeze_integrity_error_evidence(
+        "PERSISTED_KNOT_PLAN_HASH_MISMATCH",
+        "persisted single-knot plan failed canonical hash verification",
+        None,
+        {"stored_plan_hash": "before", "actual_plan_hash": "after"},
+    )
+    store = Mock()
+
+    _terminalize_integrity_error(
+        store,
+        "a" * 32,
+        PersistedKnotPlanIntegrityError(frozen),
+        "plan",
+    )
+
+    passed = store.fail_knot_plan_integrity.call_args.args[2]
+    assert passed is frozen.canonical_error_utf8
+    assert store.fail_expected_execution_identity_integrity.call_count == 0
 
 
 def test_fallback_planner_maps_submitted_trace_to_final_canonical_indices():
@@ -342,3 +378,329 @@ def test_joint_parameter_axis_uses_native_range_and_curve_layout_dates():
         "parameter:foreign:eur:2027-06-02:zero_rate",
         "parameter:basis:basis:2028-01-02:log_discount_factor",
     ]
+
+
+def test_missing_historical_fixing_is_a_pre_admission_submitted_error():
+    instrument = SimpleNamespace(
+        config=SimpleNamespace(
+            domestic_rate_fixing=SimpleNamespace(index_name="USD-SOFR"),
+            foreign_rate_fixing=SimpleNamespace(index_name="EUR-ESTR"),
+        )
+    )
+    request = SimpleNamespace(
+        fixings=[],
+        basis=SimpleNamespace(instruments=[instrument]),
+    )
+    required = [
+        SimpleNamespace(
+            instrument_index=0,
+            index_name="EUR-ESTR",
+            timestamp=datetime.fromisoformat("2025-12-31T11:00:00"),
+        )
+    ]
+
+    with pytest.raises(CalibrationHttpError) as captured:
+        _check_required_xccy_fixings(request, required)
+
+    assert captured.value.error.code == "MISSING_FIXING"
+    assert captured.value.error.location == [
+        "body",
+        "basis",
+        "instruments",
+        0,
+        "config",
+        "foreign_rate_fixing",
+    ]
+    assert captured.value.error.context == {
+        "index_name": "EUR-ESTR",
+        "timestamp": "2025-12-31T11:00:00",
+    }
+
+
+def test_reciprocal_fx_observations_must_be_consistent():
+    timestamp = datetime.fromisoformat("2025-12-31T11:00:00")
+    observations = [
+        FixingObservationDTO(
+            index_name="FX[EUR/USD]",
+            timestamp=timestamp,
+            value=1.25,
+        ),
+        FixingObservationDTO(
+            index_name="FX[USD/EUR]",
+            timestamp=timestamp,
+            value=0.81,
+        ),
+    ]
+
+    with pytest.raises(ValueError, match="reciprocal FX"):
+        _validate_unique_fixings(observations)
+
+
+def test_native_non_convergence_has_a_stable_terminal_error_domain():
+    store = Mock()
+    error = NativeSolverDidNotConvergeError(
+        max_abs_residual=None,
+        rms_residual=None,
+        evaluations=1,
+        max_evaluations=1,
+    )
+
+    _fail_native(store, "a" * 32, error)
+
+    payload = store.fail_calibration.call_args.kwargs["error_payload"]
+    assert payload == {
+        "code": "SOLVER_DID_NOT_CONVERGE",
+        "message": "Calibration solver did not converge",
+        "location": None,
+        "context": {
+            "max_abs_residual": None,
+            "rms_residual": None,
+            "evaluations": 1,
+            "max_evaluations": 1,
+        },
+    }
+
+
+def test_unknown_native_failure_exposes_only_a_sanitized_native_message():
+    store = Mock()
+
+    _fail_native(store, "b" * 32, RuntimeError("secret /tmp/book.db"))
+
+    payload = store.fail_calibration.call_args.kwargs["error_payload"]
+    assert payload["code"] == "NATIVE_CALIBRATION_FAILED"
+    assert payload["context"] == {
+        "native_message": "RuntimeError: native calibration failed"
+    }
+
+
+def test_gateway_translates_only_the_private_native_convergence_type(
+    monkeypatch,
+):
+    class NativeConvergenceError(RuntimeError):
+        pass
+
+    gateway = DalGateway()
+    monkeypatch.setattr(
+        gateway._dal,
+        "_dal",
+        SimpleNamespace(_CalibrationConvergenceError=NativeConvergenceError),
+        raising=False,
+    )
+
+    def exhaust() -> None:
+        raise NativeConvergenceError("native detail")
+
+    request = SimpleNamespace(
+        solver=SimpleNamespace(max_evaluations=7)
+    )
+    with pytest.raises(NativeSolverDidNotConvergeError) as captured:
+        gateway._call_native_calibration(exhaust, request)
+
+    assert captured.value.diagnostics["evaluations"] == 7
+
+
+def test_worker_bounded_evidence_is_validated_against_request_context():
+    today = date(2026, 1, 2)
+    maturity = date(2027, 1, 2)
+    request = SimpleNamespace(
+        today=today,
+        declaration=SimpleNamespace(
+            knot_policy="INPUT",
+            knot_dates=[maturity],
+            parameterization="PIECEWISE_CONSTANT_FWD",
+            log_df_scheme=None,
+        ),
+        instruments=[],
+    )
+    plan = _fallback_single_plan(request).to_bounded_dto()
+    mismatched = ExecutionSingleKnotIdentityDTO(
+        identity_version=1,
+        execution_policy="INPUT",
+        today=today,
+        parameterization="ZERO_RATE",
+        log_df_scheme="LOG_LINEAR",
+        resolved_declared_dates=(maturity,),
+        storage_dates=(today, maturity),
+        free_parameters=(
+            {"date": maturity, "component": "zero_rate"},
+        ),
+        counts={
+            "resolved_declared_nodes": 1,
+            "storage_nodes": 2,
+            "free_parameters": 1,
+        },
+    )
+
+    with pytest.raises(
+        ValueError, match="expected execution identity does not match"
+    ):
+        _validate_single_worker_admission_context(
+            SimpleNamespace(request=request),
+            plan,
+            mismatched,
+        )
+
+
+def test_gateway_compares_terminal_identity_to_exact_verified_carrier(
+    monkeypatch,
+):
+    today = date(2026, 1, 2)
+    maturity = date(2027, 1, 2)
+    request = SimpleNamespace(
+        today=today,
+        declaration=SimpleNamespace(
+            knot_policy="INPUT",
+            knot_dates=[maturity],
+            parameterization="PIECEWISE_CONSTANT_FWD",
+            log_df_scheme=None,
+        ),
+        instruments=[],
+    )
+    plan = _fallback_single_plan(request).to_bounded_dto()
+    expected = ExecutionSingleKnotIdentityDTO(
+        identity_version=1,
+        execution_policy="INPUT",
+        today=today,
+        parameterization="PIECEWISE_CONSTANT_FWD",
+        log_df_scheme=None,
+        resolved_declared_dates=(maturity,),
+        storage_dates=(maturity,),
+        free_parameters=(
+            {"date": maturity, "component": "right_forward"},
+        ),
+        counts={
+            "resolved_declared_nodes": 1,
+            "storage_nodes": 1,
+            "free_parameters": 1,
+        },
+    )
+    mismatched = expected.model_copy(
+        update={"execution_policy": "INSTRUMENTS"}
+    )
+    evidence = VerifiedSingleWorkerAdmissionEvidence(
+        resolved_knot_plan=plan,
+        resolved_knot_plan_hash="plan-hash",
+        expected_execution_identity=expected,
+        expected_execution_identity_hash="identity-hash",
+    )
+    gateway = DalGateway()
+    monkeypatch.setattr(
+        gateway, "_build_single_execution_spec", lambda _verified: None
+    )
+    monkeypatch.setattr(
+        gateway,
+        "_calibrate_single_verified",
+        lambda *_args: SimpleNamespace(
+            actual_execution_identity=mismatched,
+            actual_jacobian_mode="ANALYTIC",
+        ),
+    )
+
+    with pytest.raises(
+        NativeExecutionIdentityMismatchError
+    ) as captured:
+        gateway.calibrate_single(
+            SingleGatewayPreLockRequest(request, {}),
+            lambda _acquired_at: None,
+            lambda _pre_lock: evidence,
+            lambda _actual: None,
+        )
+
+    assert captured.value.comparison_stage == "post_solve_storage"
+    assert captured.value.expected is expected
+    assert captured.value.actual is mismatched
+
+
+def test_gateway_holds_continuous_calibration_lock_through_evidence_and_solve(
+    monkeypatch,
+):
+    today = date(2026, 1, 2)
+    maturity = date(2027, 1, 2)
+    request = SimpleNamespace(
+        today=today,
+        declaration=SimpleNamespace(
+            knot_policy="INPUT",
+            knot_dates=[maturity],
+            parameterization="PIECEWISE_CONSTANT_FWD",
+            log_df_scheme=None,
+        ),
+        instruments=[],
+    )
+    plan = _fallback_single_plan(request).to_bounded_dto()
+    identity = ExecutionSingleKnotIdentityDTO(
+        identity_version=1,
+        execution_policy="INPUT",
+        today=today,
+        parameterization="PIECEWISE_CONSTANT_FWD",
+        log_df_scheme=None,
+        resolved_declared_dates=(maturity,),
+        storage_dates=(maturity,),
+        free_parameters=(
+            {"date": maturity, "component": "right_forward"},
+        ),
+        counts={
+            "resolved_declared_nodes": 1,
+            "storage_nodes": 1,
+            "free_parameters": 1,
+        },
+    )
+    evidence = VerifiedSingleWorkerAdmissionEvidence(
+        plan,
+        "plan-hash",
+        identity,
+        "identity-hash",
+    )
+    gateway = DalGateway()
+    entered_verify = threading.Event()
+    release_verify = threading.Event()
+    events: list[str] = []
+    failures: list[BaseException] = []
+    monkeypatch.setattr(
+        gateway, "_build_single_execution_spec", lambda _verified: None
+    )
+
+    def solve(*_args):
+        events.append("solve")
+        return GatewayCalibrationResult(
+            "ANALYTIC",
+            identity,
+            (),
+            (),
+            SimpleNamespace(),
+            None,
+            SimpleNamespace(),
+            SimpleNamespace(),
+            SimpleNamespace(),
+            0.0,
+        )
+
+    monkeypatch.setattr(gateway, "_calibrate_single_verified", solve)
+
+    def verify(_pre_lock):
+        events.append("verify")
+        entered_verify.set()
+        assert release_verify.wait(timeout=5)
+        return evidence
+
+    def run() -> None:
+        try:
+            gateway.calibrate_single(
+                SingleGatewayPreLockRequest(request, {}),
+                lambda _acquired_at: events.append("lock"),
+                verify,
+                lambda _actual: events.append("identity"),
+            )
+        except BaseException as exc:
+            failures.append(exc)
+
+    worker = threading.Thread(target=run)
+    worker.start()
+    assert entered_verify.wait(timeout=5)
+    assert not gateway._calibration_lock.acquire(blocking=False)
+    assert gateway.health_snapshot().backend == "dal"
+    release_verify.set()
+    worker.join(timeout=5)
+
+    assert not worker.is_alive()
+    assert failures == []
+    assert events == ["lock", "verify", "identity", "solve"]

@@ -599,9 +599,12 @@ namespace Dal {
         SolveResult_ solve = Solve(spec, options, function, guess, *smoothing, layout.totalResiduals_);
         JointXccyCalibrationResult_ result = AssembleResult(spec, layout, function, &evaluationCount, fixings, &solve);
         const double convergenceBound = spec.solveMode_ == CurveSolveMode_::Value_::EXACT ? 10.0 * spec.tolerance_ : 10.0 * spec.fitTolerance_;
-        REQUIRE(result.jointMaxAbsResidual_ <= convergenceBound, "Joint XCCY calibration failed to converge for pair " + PairName(spec.pair_) +
-                                                                     ": maxAbsResidual = " + String::FromDouble(result.jointMaxAbsResidual_) +
-                                                                     " after " + String::FromInt(result.solverEvaluations_) + " evaluations");
+        if (result.jointMaxAbsResidual_ > convergenceBound) {
+            const String_ message = "Joint XCCY calibration failed to converge for pair " + PairName(spec.pair_) +
+                                    ": maxAbsResidual = " + String::FromDouble(result.jointMaxAbsResidual_) + " after " +
+                                    String::FromInt(result.solverEvaluations_) + " evaluations";
+            THROW2(message, Underdetermined::ConvergenceError_);
+        }
         return result;
     }
 } // namespace Dal

@@ -674,6 +674,24 @@ def _validate_unique_fixings(fixings: list[FixingObservationDTO]) -> None:
     keys = [(fixing.index_name, fixing.timestamp) for fixing in fixings]
     if len(keys) != len(set(keys)):
         raise ValueError("fixing observations must have unique index/timestamp keys")
+    values = {
+        (fixing.index_name, fixing.timestamp): fixing.value
+        for fixing in fixings
+    }
+    for (index_name, timestamp), value in values.items():
+        if not index_name.startswith("FX[") or not index_name.endswith("]"):
+            continue
+        pair = index_name[3:-1]
+        if pair.count("/") != 1:
+            continue
+        numerator, denominator = pair.split("/")
+        if not numerator or not denominator:
+            continue
+        reverse = values.get((f"FX[{denominator}/{numerator}]", timestamp))
+        if reverse is not None and abs(value * reverse - 1.0) > 1.0e-10:
+            raise ValueError(
+                "reciprocal FX fixing observations must be mutually consistent"
+            )
 
 
 class CurveTargetDTO(CalibrationWireModel):

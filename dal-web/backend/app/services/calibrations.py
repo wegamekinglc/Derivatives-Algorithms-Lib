@@ -186,6 +186,44 @@ class PersistedExpectedExecutionIdentityIntegrityError(_IntegrityError):
     pass
 
 
+class NativeSolverDidNotConvergeError(Exception):
+    def __init__(
+        self,
+        *,
+        max_abs_residual: float | None,
+        rms_residual: float | None,
+        evaluations: int | None,
+        max_evaluations: int,
+    ) -> None:
+        super().__init__("calibration solver did not converge")
+        self.diagnostics = {
+            "max_abs_residual": max_abs_residual,
+            "rms_residual": rms_residual,
+            "evaluations": evaluations,
+            "max_evaluations": max_evaluations,
+        }
+
+
+class NativeExecutionIdentityMismatchError(Exception):
+    def __init__(
+        self,
+        expected: ExecutionSingleKnotIdentityDTO,
+        actual: ExecutionSingleKnotIdentityDTO,
+        *,
+        comparison_stage: Literal[
+            "pre_solve_execution_identity", "post_solve_storage"
+        ],
+        actual_jacobian_mode: str | None = None,
+        native_solve_ms: float | None = None,
+    ) -> None:
+        super().__init__("worker execution identity mismatch")
+        self.expected = expected
+        self.actual = actual
+        self.comparison_stage = comparison_stage
+        self.actual_jacobian_mode = actual_jacobian_mode
+        self.native_solve_ms = native_solve_ms
+
+
 class SingleGatewayPreLockRequest(NamedTuple):
     request: object
     referenced_curves: Mapping[str, CurveReconstructionDTO]
@@ -346,6 +384,75 @@ def _check_joint_declaration_bounds(
                     "minimum_storage_nodes": minimum,
                 },
             )
+
+
+def _reverse_fx_index_name(index_name: str) -> str | None:
+    if not index_name.startswith("FX[") or not index_name.endswith("]"):
+        return None
+    pair = index_name[3:-1]
+    if pair.count("/") != 1:
+        return None
+    numerator, denominator = pair.split("/")
+    if not numerator or not denominator:
+        return None
+    return f"FX[{denominator}/{numerator}]"
+
+
+def _check_required_xccy_fixings(
+    request: StagedXccyCalibrationRequest | JointXccyCalibrationRequest | object,
+    required: Sequence[object],
+) -> None:
+    """Reject missing historical observations before a run is inserted."""
+    supplied = {
+        (fixing.index_name, fixing.timestamp)
+        for fixing in request.fixings
+    }
+
+    def fixing_field(item: object) -> tuple[str, int]:
+        instrument = request.basis.instruments[item.instrument_index]
+        config = instrument.config
+        if item.index_name == config.domestic_rate_fixing.index_name:
+            return "domestic_rate_fixing", 0
+        if item.index_name == config.foreign_rate_fixing.index_name:
+            return "foreign_rate_fixing", 1
+        if _reverse_fx_index_name(item.index_name) is not None:
+            return "fx_reset", 2
+        return "config", 3
+
+    ordered = sorted(
+        required,
+        key=lambda item: (
+            item.instrument_index,
+            fixing_field(item)[1],
+            item.timestamp,
+            item.index_name,
+        ),
+    )
+    for item in ordered:
+        key = (item.index_name, item.timestamp)
+        reverse = _reverse_fx_index_name(item.index_name)
+        if key in supplied or (
+            reverse is not None and (reverse, item.timestamp) in supplied
+        ):
+            continue
+        field, _ = fixing_field(item)
+        _raise(
+            "MISSING_FIXING",
+            f"historical fixing {item.index_name} at "
+            f"{item.timestamp.isoformat()} is required",
+            [
+                "body",
+                "basis",
+                "instruments",
+                item.instrument_index,
+                "config",
+                field,
+            ],
+            {
+                "index_name": item.index_name,
+                "timestamp": item.timestamp.isoformat(),
+            },
+        )
 
 
 def calculate_quote_bump_preview(
@@ -1660,6 +1767,10 @@ async def _submit_xccy(
         if kind == "xccy_staged"
         else JointXccyGatewayRequest(normalized_gateway_request)
     )
+    required_fixings = await asyncio.to_thread(
+        gateway.required_historical_xccy_fixings, gateway_request
+    )
+    _check_required_xccy_fixings(request, required_fixings)
     if request.options.jacobian_mode == "ANALYTIC":
         validator = (
             gateway.validate_staged_xccy_admission
@@ -1726,10 +1837,33 @@ async def _submit_xccy(
     return response
 
 
+def _validate_single_worker_admission_context(
+    pre_lock_request: SingleGatewayPreLockRequest | object,
+    plan: ResolvedSingleKnotPlanDTO,
+    expected_identity: ExecutionSingleKnotIdentityDTO,
+) -> None:
+    request = pre_lock_request.request
+    declaration = request.declaration
+    if plan.requested_policy != declaration.knot_policy:
+        raise ValueError(
+            "resolved knot plan requested policy does not match the worker request"
+        )
+    if tuple(plan.submitted_knot_dates) != tuple(declaration.knot_dates):
+        raise ValueError(
+            "resolved knot plan submitted dates do not match the worker request"
+        )
+    contextual_expected = _project_expected_identity(request, plan)
+    if expected_identity != contextual_expected:
+        raise ValueError(
+            "expected execution identity does not match the worker request "
+            "and resolved plan"
+        )
+
+
 def _verify_single_evidence(
     store: StoreProtocol,
     calibration_id: str,
-    _pre_lock_request: SingleGatewayPreLockRequest,
+    pre_lock_request: SingleGatewayPreLockRequest,
 ) -> VerifiedSingleWorkerAdmissionEvidence:
     raw = store.load_single_worker_admission_evidence(calibration_id)
     actual_plan_hash = canonical_model_hash(raw.resolved_knot_plan_raw)
@@ -1764,14 +1898,19 @@ def _verify_single_evidence(
             },
         )
         raise PersistedExpectedExecutionIdentityIntegrityError(evidence)
+    plan = ResolvedSingleKnotPlanDTO.model_validate(
+        raw.resolved_knot_plan_raw
+    )
+    expected_identity = ExecutionSingleKnotIdentityDTO.model_validate(
+        raw.expected_execution_identity_raw
+    )
+    _validate_single_worker_admission_context(
+        pre_lock_request, plan, expected_identity
+    )
     return VerifiedSingleWorkerAdmissionEvidence(
-        resolved_knot_plan=ResolvedSingleKnotPlanDTO.model_validate(
-            raw.resolved_knot_plan_raw
-        ),
+        resolved_knot_plan=plan,
         resolved_knot_plan_hash=raw.resolved_knot_plan_hash,
-        expected_execution_identity=ExecutionSingleKnotIdentityDTO.model_validate(
-            raw.expected_execution_identity_raw
-        ),
+        expected_execution_identity=expected_identity,
         expected_execution_identity_hash=raw.expected_execution_identity_hash,
     )
 
@@ -1793,16 +1932,8 @@ async def _run_single_worker(
     ) -> VerifiedSingleWorkerAdmissionEvidence:
         return _verify_single_evidence(store, calibration_id, request)
 
-    def on_identity(actual: ExecutionSingleKnotIdentityDTO) -> None:
-        expected = ExecutionSingleKnotIdentityDTO.model_validate(
-            store.get_calibration_run(calibration_id).expected_execution_identity
-        )
-        if canonical_model_hash(actual) != canonical_model_hash(expected):
-            raise NativeExecutionIdentityMismatchError(
-                expected,
-                actual,
-                comparison_stage="pre_solve_execution_identity",
-            )
+    def on_identity(_actual: ExecutionSingleKnotIdentityDTO) -> None:
+        """Instrumentation boundary; gateway compares against verified evidence."""
 
     try:
         result = await asyncio.to_thread(
@@ -1812,24 +1943,6 @@ async def _run_single_worker(
             verify,
             on_identity,
         )
-        expected = ExecutionSingleKnotIdentityDTO.model_validate(
-            store.get_calibration_run(
-                calibration_id
-            ).expected_execution_identity
-        )
-        actual = result.actual_execution_identity
-        if actual is None:
-            raise RuntimeError(
-                "single calibration omitted terminal execution identity"
-            )
-        if canonical_model_hash(actual) != canonical_model_hash(expected):
-            raise NativeExecutionIdentityMismatchError(
-                expected,
-                actual,
-                comparison_stage="post_solve_storage",
-                actual_jacobian_mode=result.actual_jacobian_mode,
-                native_solve_ms=result.native_solve_ms,
-            )
         await _terminalize_success(
             store, calibration_id, result, instruments
         )
@@ -1933,38 +2046,30 @@ def _terminalize_integrity_error(
         _fail_lifecycle(store, calibration_id, transition)
 
 
-class NativeExecutionIdentityMismatchError(Exception):
-    def __init__(
-        self,
-        expected: ExecutionSingleKnotIdentityDTO,
-        actual: ExecutionSingleKnotIdentityDTO,
-        *,
-        comparison_stage: Literal[
-            "pre_solve_execution_identity", "post_solve_storage"
-        ],
-        actual_jacobian_mode: str | None = None,
-        native_solve_ms: float | None = None,
-    ) -> None:
-        super().__init__("worker execution identity mismatch")
-        self.expected = expected
-        self.actual = actual
-        self.comparison_stage = comparison_stage
-        self.actual_jacobian_mode = actual_jacobian_mode
-        self.native_solve_ms = native_solve_ms
-
-
 def _fail_native(
     store: StoreProtocol, calibration_id: str, exception: Exception
 ) -> None:
-    incident_id = uuid4().hex
-    store.fail_calibration(
-        calibration_id,
-        error_payload={
+    if isinstance(exception, NativeSolverDidNotConvergeError):
+        error_payload = {
+            "code": "SOLVER_DID_NOT_CONVERGE",
+            "message": "Calibration solver did not converge",
+            "location": None,
+            "context": exception.diagnostics,
+        }
+    else:
+        error_payload = {
             "code": "NATIVE_CALIBRATION_FAILED",
             "message": "Native calibration failed",
             "location": None,
-            "context": {"incident_id": incident_id},
-        },
+            "context": {
+                "native_message": (
+                    f"{type(exception).__name__}: native calibration failed"
+                )
+            },
+        }
+    store.fail_calibration(
+        calibration_id,
+        error_payload=error_payload,
         finished_at=datetime.now(UTC),
     )
 
