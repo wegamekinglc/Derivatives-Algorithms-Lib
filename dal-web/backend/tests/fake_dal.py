@@ -8,6 +8,7 @@ importing the web application's DAL gateway.
 from __future__ import annotations
 
 import datetime as _dt
+import json
 import types
 from typing import Any
 
@@ -93,6 +94,41 @@ def build_fake_dal() -> types.ModuleType:
             out.update({"d_spot": 0.5, "d_vol": 0.2, "d_rate": 0.0, "d_div": 0.0})
         return out
 
+    def DiscountPWC_New(  # noqa: N802
+        name: str,
+        currency: str,
+        dates: list[Date_],
+        values: list[float],
+        base: object | None = None,
+    ) -> dict[str, object]:
+        return {
+            "~type": "DiscountPWC",
+            "name": name,
+            "currency": currency,
+            "dates": [repr(item) for item in dates],
+            "values": values,
+            "base": base,
+        }
+
+    def _BagNew(name: str, contents: dict[str, object]) -> dict[str, object]:
+        return {"~type": "Bag", "name": name, "contents": contents}
+
+    def _StorableToJson(value: dict[str, object]) -> bytes:
+        return json.dumps(
+            {"$tag": "1", **value},
+            allow_nan=False,
+            separators=(",", ":"),
+            sort_keys=True,
+        ).encode("ascii")
+
+    def _StorableFromJson(payload: bytes) -> dict[str, object]:
+        value = json.loads(payload)
+        value.pop("$tag", None)
+        value["type"] = (
+            "Bag" if value.get("~type") == "Bag" else "DiscountCurve"
+        )
+        return value
+
     fake.Date_ = Date_
     fake.Cell_ = Cell_
     fake.DoubleMatrix_ = DoubleMatrix_
@@ -103,5 +139,11 @@ def build_fake_dal() -> types.ModuleType:
     fake.BSModelData_New = BSModelData_New
     fake.DupireModelData_New = DupireModelData_New
     fake.MonteCarlo_Value = MonteCarlo_Value
+    fake.DiscountPWC_New = DiscountPWC_New
+    fake._dal = types.SimpleNamespace(
+        _BagNew=_BagNew,
+        _StorableFromJson=_StorableFromJson,
+        _StorableToJson=_StorableToJson,
+    )
     fake.monte_carlo_calls = calls
     return fake

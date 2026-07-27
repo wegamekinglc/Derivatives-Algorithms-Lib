@@ -136,6 +136,33 @@ class StoreProtocol(Protocol):
     ) -> None: ...
     def get_curve_definition(self, curve_id: str) -> CurveDefinitionRecord: ...
 
+    # Curve Lab V2 lifecycle records are canonical JSON dictionaries. Native
+    # payloads stay bytes and never pass through JSON columns.
+    def add_curve_lab_draft(self, record: dict) -> dict: ...
+    def get_curve_lab_draft(self, draft_id: str) -> dict: ...
+    def update_curve_lab_draft(
+        self, draft_id: str, expected_revision: int, record: dict
+    ) -> dict: ...
+    def add_curve_lab_build_run(self, record: dict) -> dict: ...
+    def get_curve_lab_build_run(self, run_id: str) -> dict: ...
+    def add_curve_lab_version(self, record: dict) -> tuple[dict, bool]: ...
+    def publish_curve_lab_version(
+        self,
+        record: dict,
+        draft_id: str,
+        draft_revision: int,
+        draft_fingerprint: str,
+        build_run_id: str,
+    ) -> tuple[dict, bool]: ...
+    def get_curve_lab_version(self, version_id: str) -> dict: ...
+    def list_curve_lab_versions(self, include_archived: bool) -> list[dict]: ...
+    def archive_curve_lab_version(self, version_id: str) -> dict: ...
+    def add_curve_lab_import_job(self, record: dict) -> dict: ...
+    def publish_curve_lab_import(
+        self, version_record: dict, job_record: dict
+    ) -> tuple[dict, dict]: ...
+    def add_curve_lab_audit_event(self, record: dict) -> None: ...
+
 
 class Store:
     def __init__(self) -> None:
@@ -148,6 +175,12 @@ class Store:
         self._calibration_runs: dict[str, CalibrationRunRecord] = {}
         self._calibration_instruments: dict[str, list[CalibrationInstrumentRecord]] = {}
         self._curve_definitions: dict[str, CurveDefinitionRecord] = {}
+        self._curve_lab_drafts: dict[str, dict] = {}
+        self._curve_lab_build_runs: dict[str, dict] = {}
+        self._curve_lab_versions: dict[str, dict] = {}
+        self._curve_lab_version_idempotency: dict[str, str] = {}
+        self._curve_lab_import_jobs: dict[str, dict] = {}
+        self._curve_lab_audit_events: list[dict] = []
 
     # -- products --------------------------------------------------------
 
@@ -540,6 +573,134 @@ class Store:
             result_payload=None,
             error_payload=parsed,
         )
+
+    # -- Curve Lab V2 ---------------------------------------------------
+
+    def add_curve_lab_draft(self, record: dict) -> dict:
+        with self._lock:
+            stored = deepcopy(record)
+            self._curve_lab_drafts[stored["id"]] = stored
+            return deepcopy(stored)
+
+    def get_curve_lab_draft(self, draft_id: str) -> dict:
+        with self._lock:
+            try:
+                return deepcopy(self._curve_lab_drafts[draft_id])
+            except KeyError as exc:
+                raise NotFoundError(f"curve draft {draft_id}") from exc
+
+    def update_curve_lab_draft(
+        self, draft_id: str, expected_revision: int, record: dict
+    ) -> dict:
+        with self._lock:
+            current = self.get_curve_lab_draft(draft_id)
+            if current["revision"] != expected_revision:
+                raise ConflictError(
+                    f"draft revision {expected_revision} != {current['revision']}"
+                )
+            stored = deepcopy(record)
+            self._curve_lab_drafts[draft_id] = stored
+            return deepcopy(stored)
+
+    def add_curve_lab_build_run(self, record: dict) -> dict:
+        with self._lock:
+            stored = deepcopy(record)
+            self._curve_lab_build_runs[stored["id"]] = stored
+            return deepcopy(stored)
+
+    def get_curve_lab_build_run(self, run_id: str) -> dict:
+        with self._lock:
+            try:
+                return deepcopy(self._curve_lab_build_runs[run_id])
+            except KeyError as exc:
+                raise NotFoundError(f"curve build run {run_id}") from exc
+
+    def add_curve_lab_version(self, record: dict) -> tuple[dict, bool]:
+        with self._lock:
+            key = record["idempotency_key"]
+            if key in self._curve_lab_version_idempotency:
+                version_id = self._curve_lab_version_idempotency[key]
+                return deepcopy(self._curve_lab_versions[version_id]), False
+            stored = deepcopy(record)
+            self._curve_lab_versions[stored["id"]] = stored
+            self._curve_lab_version_idempotency[key] = stored["id"]
+            return deepcopy(stored), True
+
+    def publish_curve_lab_version(
+        self,
+        record: dict,
+        draft_id: str,
+        draft_revision: int,
+        draft_fingerprint: str,
+        build_run_id: str,
+    ) -> tuple[dict, bool]:
+        with self._lock:
+            draft = self.get_curve_lab_draft(draft_id)
+            run = self.get_curve_lab_build_run(build_run_id)
+            if (
+                draft["revision"] != draft_revision
+                or draft["fingerprint"] != draft_fingerprint
+            ):
+                raise ConflictError("curve draft changed before publication")
+            if (
+                run["state"] != "SUCCEEDED"
+                or run["draft_id"] != draft_id
+                or run["draft_revision"] != draft_revision
+                or run["draft_fingerprint"] != draft_fingerprint
+            ):
+                raise ConflictError("curve build run is stale")
+            return self.add_curve_lab_version(record)
+
+    def get_curve_lab_version(self, version_id: str) -> dict:
+        with self._lock:
+            try:
+                return deepcopy(self._curve_lab_versions[version_id])
+            except KeyError as exc:
+                raise NotFoundError(f"curve version {version_id}") from exc
+
+    def list_curve_lab_versions(self, include_archived: bool) -> list[dict]:
+        with self._lock:
+            values = self._curve_lab_versions.values()
+            return [
+                deepcopy(item)
+                for item in values
+                if include_archived or item["visibility_state"] == "VISIBLE"
+            ]
+
+    def archive_curve_lab_version(self, version_id: str) -> dict:
+        with self._lock:
+            record = self.get_curve_lab_version(version_id)
+            record["visibility_state"] = "ARCHIVED"
+            self._curve_lab_versions[version_id] = record
+            return deepcopy(record)
+
+    def add_curve_lab_import_job(self, record: dict) -> dict:
+        with self._lock:
+            stored = deepcopy(record)
+            self._curve_lab_import_jobs[stored["id"]] = stored
+            return deepcopy(stored)
+
+    def publish_curve_lab_import(
+        self, version_record: dict, job_record: dict
+    ) -> tuple[dict, dict]:
+        with self._lock:
+            version, created = self.add_curve_lab_version(version_record)
+            stored_job = deepcopy(job_record)
+            stored_job["resulting_version_id"] = version["id"]
+            try:
+                self._curve_lab_import_jobs[stored_job["id"]] = stored_job
+            except Exception:
+                if created:
+                    self._curve_lab_versions.pop(version["id"], None)
+                    self._curve_lab_version_idempotency.pop(
+                        version["idempotency_key"], None
+                    )
+                raise
+            return deepcopy(version), deepcopy(stored_job)
+
+    def add_curve_lab_audit_event(self, record: dict) -> None:
+        with self._lock:
+            self._curve_lab_audit_events.append(deepcopy(record))
 
 
 # Process-wide singleton stored in a mutable container so get_store()

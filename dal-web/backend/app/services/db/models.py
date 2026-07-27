@@ -20,6 +20,7 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
+    LargeBinary,
     String,
     UniqueConstraint,
 )
@@ -486,3 +487,95 @@ class CalibrationInstrumentDefinitionRow(Base):
             native_name=self.native_name,
             payload=self.payload,
         )
+
+
+class CurveLabDraftRow(Base):
+    __tablename__ = "curve_drafts"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    schema_version: Mapped[int] = mapped_column(Integer, nullable=False)
+    revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
+    document_json: Mapped[dict] = mapped_column(JSON, nullable=False)
+    state: Mapped[str] = mapped_column(String(32), nullable=False)
+    created_at: Mapped[str] = mapped_column(String(40), nullable=False)
+    updated_at: Mapped[str] = mapped_column(String(40), nullable=False)
+
+
+class CurveLabBuildRunRow(Base):
+    __tablename__ = "curve_build_runs"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    draft_id: Mapped[str] = mapped_column(
+        ForeignKey("curve_drafts.id", ondelete="RESTRICT"), nullable=False
+    )
+    draft_revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    draft_fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
+    request_json: Mapped[dict] = mapped_column(JSON, nullable=False)
+    resolved_plan_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    quote_axis_json: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    parameter_axis_json: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    dependency_manifest_json: Mapped[list] = mapped_column(JSON, nullable=False)
+    state: Mapped[str] = mapped_column(String(32), nullable=False)
+    native_payload: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
+    native_payload_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    diagnostics_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    error_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    created_at: Mapped[str] = mapped_column(String(40), nullable=False)
+    finished_at: Mapped[str | None] = mapped_column(String(40), nullable=True)
+
+
+class CurveLabVersionRow(Base):
+    __tablename__ = "curve_versions"
+    __table_args__ = (
+        UniqueConstraint(
+            "idempotency_key", name="uq_curve_version_idempotency_key"
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    idempotency_key: Mapped[str] = mapped_column(String(256), nullable=False)
+    source_kind: Mapped[str] = mapped_column(String(16), nullable=False)
+    build_run_id: Mapped[str | None] = mapped_column(
+        ForeignKey("curve_build_runs.id", ondelete="RESTRICT"), nullable=True
+    )
+    import_job_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    native_payload: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+    native_payload_length: Mapped[int] = mapped_column(Integer, nullable=False)
+    native_payload_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    archive_numeric_format: Mapped[str] = mapped_column(String(32), nullable=False)
+    root_kind: Mapped[str] = mapped_column(String(32), nullable=False)
+    build_validation_state: Mapped[str] = mapped_column(String(32), nullable=False)
+    visibility_state: Mapped[str] = mapped_column(String(16), nullable=False)
+    metadata_json: Mapped[dict] = mapped_column(JSON, nullable=False)
+    verification_json: Mapped[dict] = mapped_column(JSON, nullable=False)
+    created_at: Mapped[str] = mapped_column(String(40), nullable=False)
+
+
+class CurveLabImportJobRow(Base):
+    __tablename__ = "curve_import_jobs"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    request_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    compressed_payload_length: Mapped[int] = mapped_column(Integer, nullable=False)
+    expanded_payload_length: Mapped[int] = mapped_column(Integer, nullable=False)
+    state: Mapped[str] = mapped_column(String(16), nullable=False)
+    phase: Mapped[str] = mapped_column(String(64), nullable=False)
+    error_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    resulting_version_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    created_at: Mapped[str] = mapped_column(String(40), nullable=False)
+    finished_at: Mapped[str | None] = mapped_column(String(40), nullable=True)
+
+
+class CurveLabAuditEventRow(Base):
+    __tablename__ = "curve_audit_events"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    action: Mapped[str] = mapped_column(String(64), nullable=False)
+    actor: Mapped[str] = mapped_column(String(128), nullable=False)
+    target_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    target_id: Mapped[str] = mapped_column(String(32), nullable=False)
+    input_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    outcome: Mapped[str] = mapped_column(String(32), nullable=False)
+    details_json: Mapped[dict] = mapped_column(JSON, nullable=False)
+    created_at: Mapped[str] = mapped_column(String(40), nullable=False)

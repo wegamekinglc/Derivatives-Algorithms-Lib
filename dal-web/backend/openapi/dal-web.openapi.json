@@ -559,6 +559,422 @@
         "title": "CurrencyPairDTO",
         "type": "object"
       },
+      "CurveBuildRunResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "draft_fingerprint": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Draft Fingerprint",
+            "type": "string"
+          },
+          "draft_id": {
+            "pattern": "^[0-9a-f]{32}$",
+            "title": "Draft Id",
+            "type": "string"
+          },
+          "draft_revision": {
+            "minimum": 1.0,
+            "title": "Draft Revision",
+            "type": "integer"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CurveLabErrorDetail"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "id": {
+            "pattern": "^[0-9a-f]{32}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "native_payload_hash": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Native Payload Hash"
+          },
+          "request": {
+            "$ref": "#/components/schemas/CurveDraftDocumentV2"
+          },
+          "stale": {
+            "title": "Stale",
+            "type": "boolean"
+          },
+          "state": {
+            "enum": [
+              "QUEUED",
+              "DECLARING",
+              "RESOLVING_DEPENDENCIES",
+              "NORMALIZING",
+              "SOLVING",
+              "DIAGNOSTICS",
+              "SERIALIZING",
+              "SUCCEEDED",
+              "FAILED",
+              "TIMED_OUT"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "draft_id",
+          "draft_revision",
+          "draft_fingerprint",
+          "state",
+          "stale",
+          "request",
+          "created_at"
+        ],
+        "title": "CurveBuildRunResponse",
+        "type": "object"
+      },
+      "CurveDeclarationInputV2": {
+        "additionalProperties": false,
+        "properties": {
+          "component_key": {
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Component Key",
+            "type": "string"
+          },
+          "currency": {
+            "maxLength": 16,
+            "minLength": 3,
+            "title": "Currency",
+            "type": "string"
+          },
+          "parameterization": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Parameterization",
+            "type": "string"
+          },
+          "role": {
+            "enum": [
+              "DISCOUNT",
+              "PROJECTION",
+              "BASIS"
+            ],
+            "title": "Role",
+            "type": "string"
+          }
+        },
+        "required": [
+          "component_key",
+          "role",
+          "currency",
+          "parameterization"
+        ],
+        "title": "CurveDeclarationInputV2",
+        "type": "object"
+      },
+      "CurveDraftDocumentInputV2": {
+        "additionalProperties": false,
+        "properties": {
+          "as_of_date": {
+            "format": "date",
+            "title": "As Of Date",
+            "type": "string"
+          },
+          "declarations": {
+            "items": {
+              "$ref": "#/components/schemas/CurveDeclarationInputV2"
+            },
+            "title": "Declarations",
+            "type": "array"
+          },
+          "dependency_version_ids": {
+            "default": [],
+            "items": {
+              "pattern": "^[0-9a-f]{32}$",
+              "type": "string"
+            },
+            "title": "Dependency Version Ids",
+            "type": "array"
+          },
+          "instruments": {
+            "items": {
+              "$ref": "#/components/schemas/InstrumentDefinitionInputV2"
+            },
+            "title": "Instruments",
+            "type": "array"
+          },
+          "market_snapshot_id": {
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Market Snapshot Id",
+            "type": "string"
+          },
+          "mode": {
+            "enum": [
+              "SINGLE",
+              "MULTI_CURVE",
+              "XCCY"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": 2,
+            "default": 2,
+            "title": "Schema Version",
+            "type": "integer"
+          },
+          "solver": {
+            "additionalProperties": true,
+            "title": "Solver",
+            "type": "object"
+          }
+        },
+        "required": [
+          "mode",
+          "as_of_date",
+          "market_snapshot_id",
+          "declarations",
+          "instruments",
+          "solver"
+        ],
+        "title": "CurveDraftDocumentInputV2",
+        "type": "object"
+      },
+      "CurveDraftDocumentV2": {
+        "additionalProperties": false,
+        "properties": {
+          "as_of_date": {
+            "format": "date",
+            "title": "As Of Date",
+            "type": "string"
+          },
+          "declarations": {
+            "items": {
+              "$ref": "#/components/schemas/CurveDeclarationInputV2"
+            },
+            "title": "Declarations",
+            "type": "array"
+          },
+          "dependency_version_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Dependency Version Ids",
+            "type": "array"
+          },
+          "instruments": {
+            "items": {
+              "$ref": "#/components/schemas/StoredInstrumentDefinitionV2"
+            },
+            "title": "Instruments",
+            "type": "array"
+          },
+          "market_snapshot_id": {
+            "title": "Market Snapshot Id",
+            "type": "string"
+          },
+          "mode": {
+            "enum": [
+              "SINGLE",
+              "MULTI_CURVE",
+              "XCCY"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": 2,
+            "default": 2,
+            "title": "Schema Version",
+            "type": "integer"
+          },
+          "solver": {
+            "additionalProperties": true,
+            "title": "Solver",
+            "type": "object"
+          }
+        },
+        "required": [
+          "mode",
+          "as_of_date",
+          "market_snapshot_id",
+          "declarations",
+          "instruments",
+          "dependency_version_ids",
+          "solver"
+        ],
+        "title": "CurveDraftDocumentV2",
+        "type": "object"
+      },
+      "CurveDraftResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "document": {
+            "$ref": "#/components/schemas/CurveDraftDocumentV2"
+          },
+          "fingerprint": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Fingerprint",
+            "type": "string"
+          },
+          "id": {
+            "pattern": "^[0-9a-f]{32}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "revision": {
+            "minimum": 1.0,
+            "title": "Revision",
+            "type": "integer"
+          },
+          "schema_version": {
+            "const": 2,
+            "default": 2,
+            "title": "Schema Version",
+            "type": "integer"
+          },
+          "state": {
+            "enum": [
+              "READY_TO_BUILD",
+              "MODIFIED"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "revision",
+          "fingerprint",
+          "state",
+          "document",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "CurveDraftResponse",
+        "type": "object"
+      },
+      "CurveImportJobResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "compressed_payload_length": {
+            "title": "Compressed Payload Length",
+            "type": "integer"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CurveLabErrorDetail"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "expanded_payload_length": {
+            "title": "Expanded Payload Length",
+            "type": "integer"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "id": {
+            "pattern": "^[0-9a-f]{32}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "phase": {
+            "title": "Phase",
+            "type": "string"
+          },
+          "request_hash": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Request Hash",
+            "type": "string"
+          },
+          "resulting_version_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resulting Version Id"
+          },
+          "state": {
+            "enum": [
+              "SUCCEEDED",
+              "FAILED"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "request_hash",
+          "compressed_payload_length",
+          "expanded_payload_length",
+          "state",
+          "phase",
+          "created_at"
+        ],
+        "title": "CurveImportJobResponse",
+        "type": "object"
+      },
       "CurveLabCapabilitiesResponse": {
         "additionalProperties": false,
         "properties": {
@@ -910,6 +1326,199 @@
           "tenor"
         ],
         "title": "CurveTargetDTO",
+        "type": "object"
+      },
+      "CurveVersionCreateRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "build_run_id": {
+            "pattern": "^[0-9a-f]{32}$",
+            "title": "Build Run Id",
+            "type": "string"
+          },
+          "draft_fingerprint": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Draft Fingerprint",
+            "type": "string"
+          },
+          "draft_id": {
+            "pattern": "^[0-9a-f]{32}$",
+            "title": "Draft Id",
+            "type": "string"
+          },
+          "draft_revision": {
+            "minimum": 1.0,
+            "title": "Draft Revision",
+            "type": "integer"
+          },
+          "idempotency_key": {
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Idempotency Key",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "tags": {
+            "default": [],
+            "items": {
+              "maxLength": 128,
+              "minLength": 1,
+              "type": "string"
+            },
+            "title": "Tags",
+            "type": "array"
+          },
+          "version_note": {
+            "anyOf": [
+              {
+                "maxLength": 4096,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version Note"
+          }
+        },
+        "required": [
+          "draft_id",
+          "draft_revision",
+          "draft_fingerprint",
+          "build_run_id",
+          "name",
+          "idempotency_key"
+        ],
+        "title": "CurveVersionCreateRequest",
+        "type": "object"
+      },
+      "CurveVersionResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "archive_numeric_format": {
+            "const": "JSON_MAX_DIGITS10_V1",
+            "title": "Archive Numeric Format",
+            "type": "string"
+          },
+          "build_run_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Build Run Id"
+          },
+          "build_validation_state": {
+            "enum": [
+              "VERIFIED",
+              "IMPORT_RECONSTRUCTED"
+            ],
+            "title": "Build Validation State",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "pattern": "^[0-9a-f]{32}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "import_job_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Import Job Id"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "native_payload_hash": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Native Payload Hash",
+            "type": "string"
+          },
+          "native_payload_length": {
+            "minimum": 1.0,
+            "title": "Native Payload Length",
+            "type": "integer"
+          },
+          "root_kind": {
+            "enum": [
+              "DISCOUNT_CURVE",
+              "CURVE_SET"
+            ],
+            "title": "Root Kind",
+            "type": "string"
+          },
+          "source_kind": {
+            "enum": [
+              "BUILD",
+              "IMPORT"
+            ],
+            "title": "Source Kind",
+            "type": "string"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Tags",
+            "type": "array"
+          },
+          "version_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version Note"
+          },
+          "visibility_state": {
+            "enum": [
+              "VISIBLE",
+              "ARCHIVED"
+            ],
+            "title": "Visibility State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "source_kind",
+          "build_run_id",
+          "import_job_id",
+          "name",
+          "version_note",
+          "tags",
+          "native_payload_length",
+          "native_payload_hash",
+          "archive_numeric_format",
+          "root_kind",
+          "build_validation_state",
+          "visibility_state",
+          "created_at"
+        ],
+        "title": "CurveVersionResponse",
         "type": "object"
       },
       "DepositInstrumentDTO": {
@@ -1776,6 +2385,98 @@
           "input_knot_index"
         ],
         "title": "InputKnotOriginDTO",
+        "type": "object"
+      },
+      "InstrumentDefinitionInputV2": {
+        "additionalProperties": false,
+        "properties": {
+          "currency_or_pair": {
+            "maxLength": 32,
+            "minLength": 3,
+            "title": "Currency Or Pair",
+            "type": "string"
+          },
+          "included": {
+            "default": true,
+            "title": "Included",
+            "type": "boolean"
+          },
+          "instrument_id": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{32}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Instrument Id"
+          },
+          "instrument_type": {
+            "title": "Instrument Type",
+            "type": "string"
+          },
+          "maturity_date": {
+            "format": "date",
+            "title": "Maturity Date",
+            "type": "string"
+          },
+          "observed_at": {
+            "format": "date-time",
+            "title": "Observed At",
+            "type": "string"
+          },
+          "raw_quote": {
+            "title": "Raw Quote",
+            "type": "string"
+          },
+          "source": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Source",
+            "type": "string"
+          },
+          "source_instrument_id": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{32}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Instrument Id"
+          },
+          "start_date": {
+            "format": "date",
+            "title": "Start Date",
+            "type": "string"
+          },
+          "terms": {
+            "additionalProperties": true,
+            "title": "Terms",
+            "type": "object"
+          },
+          "trade_date": {
+            "format": "date",
+            "title": "Trade Date",
+            "type": "string"
+          }
+        },
+        "required": [
+          "instrument_type",
+          "trade_date",
+          "start_date",
+          "maturity_date",
+          "currency_or_pair",
+          "raw_quote",
+          "source",
+          "observed_at",
+          "terms"
+        ],
+        "title": "InstrumentDefinitionInputV2",
         "type": "object"
       },
       "InstrumentDiagnosticDTO": {
@@ -4678,6 +5379,143 @@
         "title": "StagedXccyCalibrationSolverDTO",
         "type": "object"
       },
+      "StoredInstrumentDefinitionV2": {
+        "additionalProperties": false,
+        "properties": {
+          "canonical_raw_unit": {
+            "enum": [
+              "DECIMAL",
+              "PRICE_POINTS"
+            ],
+            "title": "Canonical Raw Unit",
+            "type": "string"
+          },
+          "currency_or_pair": {
+            "title": "Currency Or Pair",
+            "type": "string"
+          },
+          "exact_risk_raw_bump": {
+            "description": "Canonical plain base-10 financial value; never a JSON number.",
+            "maxLength": 512,
+            "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$",
+            "title": "Exact Risk Raw Bump",
+            "type": "string"
+          },
+          "included": {
+            "title": "Included",
+            "type": "boolean"
+          },
+          "instrument_id": {
+            "pattern": "^[0-9a-f]{32}$",
+            "title": "Instrument Id",
+            "type": "string"
+          },
+          "instrument_type": {
+            "enum": [
+              "DEPOSIT",
+              "FRA",
+              "FUTURE",
+              "OIS",
+              "IRS",
+              "BASIS_SWAP",
+              "XCCY"
+            ],
+            "title": "Instrument Type",
+            "type": "string"
+          },
+          "maturity_date": {
+            "format": "date",
+            "title": "Maturity Date",
+            "type": "string"
+          },
+          "normalized_quote": {
+            "description": "Canonical plain base-10 financial value; never a JSON number.",
+            "maxLength": 512,
+            "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$",
+            "title": "Normalized Quote",
+            "type": "string"
+          },
+          "normalized_risk_bump": {
+            "description": "Canonical plain base-10 financial value; never a JSON number.",
+            "maxLength": 512,
+            "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$",
+            "title": "Normalized Risk Bump",
+            "type": "string"
+          },
+          "observed_at": {
+            "format": "date-time",
+            "title": "Observed At",
+            "type": "string"
+          },
+          "quote_coordinate_kind": {
+            "enum": [
+              "RATE",
+              "PRICE",
+              "SPREAD"
+            ],
+            "title": "Quote Coordinate Kind",
+            "type": "string"
+          },
+          "raw_quote": {
+            "description": "Canonical plain base-10 financial value; never a JSON number.",
+            "maxLength": 512,
+            "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$",
+            "title": "Raw Quote",
+            "type": "string"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "source_instrument_id": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{32}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Instrument Id"
+          },
+          "start_date": {
+            "format": "date",
+            "title": "Start Date",
+            "type": "string"
+          },
+          "terms": {
+            "additionalProperties": true,
+            "title": "Terms",
+            "type": "object"
+          },
+          "trade_date": {
+            "format": "date",
+            "title": "Trade Date",
+            "type": "string"
+          }
+        },
+        "required": [
+          "instrument_id",
+          "instrument_type",
+          "trade_date",
+          "start_date",
+          "maturity_date",
+          "currency_or_pair",
+          "quote_coordinate_kind",
+          "canonical_raw_unit",
+          "raw_quote",
+          "normalized_quote",
+          "exact_risk_raw_bump",
+          "normalized_risk_bump",
+          "source",
+          "observed_at",
+          "included",
+          "terms"
+        ],
+        "title": "StoredInstrumentDefinitionV2",
+        "type": "object"
+      },
       "SwapInstrumentDTO": {
         "additionalProperties": false,
         "properties": {
@@ -5894,6 +6732,48 @@
         ]
       }
     },
+    "/api/curve-lab/build-runs/{run_id}": {
+      "get": {
+        "operationId": "get_curve_build_run_api_curve_lab_build_runs__run_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CurveBuildRunResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Curve Build Run",
+        "tags": [
+          "curve-lab"
+        ]
+      }
+    },
     "/api/curve-lab/capabilities": {
       "get": {
         "operationId": "get_curve_lab_capabilities_api_curve_lab_capabilities_get",
@@ -5910,6 +6790,211 @@
           }
         },
         "summary": "Get Curve Lab Capabilities",
+        "tags": [
+          "curve-lab"
+        ]
+      }
+    },
+    "/api/curve-lab/drafts": {
+      "post": {
+        "operationId": "create_curve_draft_api_curve_lab_drafts_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CurveDraftDocumentInputV2"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CurveDraftResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Curve Draft",
+        "tags": [
+          "curve-lab"
+        ]
+      }
+    },
+    "/api/curve-lab/drafts/{draft_id}": {
+      "get": {
+        "operationId": "get_curve_draft_api_curve_lab_drafts__draft_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "draft_id",
+            "required": true,
+            "schema": {
+              "title": "Draft Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CurveDraftResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Curve Draft",
+        "tags": [
+          "curve-lab"
+        ]
+      },
+      "put": {
+        "operationId": "update_curve_draft_api_curve_lab_drafts__draft_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "draft_id",
+            "required": true,
+            "schema": {
+              "title": "Draft Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "If-Match",
+            "required": true,
+            "schema": {
+              "title": "If-Match",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CurveDraftDocumentInputV2"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CurveDraftResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Curve Draft",
+        "tags": [
+          "curve-lab"
+        ]
+      }
+    },
+    "/api/curve-lab/drafts/{draft_id}/build-runs": {
+      "post": {
+        "operationId": "create_curve_build_run_api_curve_lab_drafts__draft_id__build_runs_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "draft_id",
+            "required": true,
+            "schema": {
+              "title": "Draft Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CurveBuildRunResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Curve Build Run",
+        "tags": [
+          "curve-lab"
+        ]
+      }
+    },
+    "/api/curve-lab/import-jobs": {
+      "post": {
+        "operationId": "create_curve_import_job_api_curve_lab_import_jobs_post",
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CurveImportJobResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Create Curve Import Job",
         "tags": [
           "curve-lab"
         ]
@@ -5951,6 +7036,268 @@
           }
         },
         "summary": "Canonicalize Authoring Quote",
+        "tags": [
+          "curve-lab"
+        ]
+      }
+    },
+    "/api/curve-lab/versions": {
+      "get": {
+        "operationId": "list_curve_versions_api_curve_lab_versions_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "include_archived",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Include Archived",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/CurveVersionResponse"
+                  },
+                  "title": "Response List Curve Versions Api Curve Lab Versions Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Curve Versions",
+        "tags": [
+          "curve-lab"
+        ]
+      },
+      "post": {
+        "operationId": "create_curve_version_api_curve_lab_versions_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CurveVersionCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CurveVersionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CurveVersionResponse"
+                }
+              }
+            },
+            "description": "Created"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Curve Version",
+        "tags": [
+          "curve-lab"
+        ]
+      }
+    },
+    "/api/curve-lab/versions/{version_id}": {
+      "get": {
+        "operationId": "get_curve_version_api_curve_lab_versions__version_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "version_id",
+            "required": true,
+            "schema": {
+              "title": "Version Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CurveVersionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Curve Version",
+        "tags": [
+          "curve-lab"
+        ]
+      }
+    },
+    "/api/curve-lab/versions/{version_id}/archive": {
+      "post": {
+        "operationId": "archive_curve_version_api_curve_lab_versions__version_id__archive_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "version_id",
+            "required": true,
+            "schema": {
+              "title": "Version Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CurveVersionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Archive Curve Version",
+        "tags": [
+          "curve-lab"
+        ]
+      }
+    },
+    "/api/curve-lab/versions/{version_id}/clone": {
+      "post": {
+        "operationId": "clone_curve_version_api_curve_lab_versions__version_id__clone_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "version_id",
+            "required": true,
+            "schema": {
+              "title": "Version Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CurveDraftResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Clone Curve Version",
+        "tags": [
+          "curve-lab"
+        ]
+      }
+    },
+    "/api/curve-lab/versions/{version_id}/native-json": {
+      "get": {
+        "operationId": "get_curve_version_native_json_api_curve_lab_versions__version_id__native_json_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "version_id",
+            "required": true,
+            "schema": {
+              "title": "Version Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Curve Version Native Json",
         "tags": [
           "curve-lab"
         ]

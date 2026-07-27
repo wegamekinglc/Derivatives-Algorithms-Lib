@@ -554,6 +554,63 @@ class DalGateway:
             )
         raise ValueError(f"unsupported curve parameterization {dto.parameterization}")
 
+    def build_curve_lab_archive(self, document: Mapping[str, Any]) -> bytes:
+        """Materialize passive PWC roots and return exact native JSON bytes."""
+
+        with self._calibration_lock:
+            included = [
+                item for item in document["instruments"] if item.get("included", True)
+            ]
+            if not included:
+                raise ValueError("Curve Lab build requires an included instrument")
+            ordered = sorted(
+                included,
+                key=lambda item: (item["maturity_date"], item["instrument_id"]),
+            )
+            dates: list[Any] = []
+            values: list[float] = []
+            seen_dates: set[str] = set()
+            for item in ordered:
+                maturity = str(item["maturity_date"])
+                if maturity in seen_dates:
+                    values[-1] = float(item["normalized_quote"])
+                    continue
+                seen_dates.add(maturity)
+                dates.append(self._native_date(date.fromisoformat(maturity)))
+                values.append(float(item["normalized_quote"]))
+            curves: dict[str, Any] = {}
+            for declaration in document["declarations"]:
+                key = str(declaration["component_key"])
+                curves[key] = self._dal.DiscountPWC_New(
+                    key,
+                    str(declaration["currency"]),
+                    dates,
+                    values,
+                )
+            extension = getattr(self._dal, "_dal", self._dal)
+            root = (
+                next(iter(curves.values()))
+                if len(curves) == 1
+                else extension._BagNew("curve-lab-set", curves)
+            )
+            payload = extension._StorableToJson(root)
+            if not isinstance(payload, bytes):
+                raise TypeError("native archive bridge must return bytes")
+            return payload
+
+    def import_curve_lab_archive(self, payload: bytes) -> tuple[bytes, str]:
+        """Round-trip one preflighted archive through the native reader."""
+
+        extension = getattr(self._dal, "_dal", self._dal)
+        with self._calibration_lock:
+            root = extension._StorableFromJson(payload)
+            canonical = extension._StorableToJson(root)
+            native_type = str(getattr(root, "type", ""))
+        if not isinstance(canonical, bytes):
+            raise TypeError("native archive bridge must return bytes")
+        root_kind = "CURVE_SET" if native_type == "Bag" else "DISCOUNT_CURVE"
+        return canonical, root_kind
+
     def _native_date(self, value: date) -> Any:
         return self.make_date(value.year, value.month, value.day)
 

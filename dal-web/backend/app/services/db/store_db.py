@@ -12,7 +12,7 @@ from __future__ import annotations
 import json
 from datetime import datetime
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -35,6 +35,11 @@ from app.services.db.models import (
     CalibrationInstrumentDefinitionRow,
     CalibrationRunRow,
     CurveDefinitionRow,
+    CurveLabAuditEventRow,
+    CurveLabBuildRunRow,
+    CurveLabDraftRow,
+    CurveLabImportJobRow,
+    CurveLabVersionRow,
     ModelRow,
     PortfolioRow,
     PortfolioTradeRow,
@@ -72,6 +77,97 @@ class DbStore:
 
     def _session(self) -> Session:
         return self._session_factory()
+
+    @staticmethod
+    def _curve_lab_draft_dict(row: CurveLabDraftRow) -> dict:
+        return {
+            "id": row.id,
+            "schema_version": row.schema_version,
+            "revision": row.revision,
+            "fingerprint": row.fingerprint,
+            "state": row.state,
+            "document": row.document_json,
+            "created_at": row.created_at,
+            "updated_at": row.updated_at,
+        }
+
+    @staticmethod
+    def _curve_lab_build_dict(row: CurveLabBuildRunRow) -> dict:
+        return {
+            "id": row.id,
+            "draft_id": row.draft_id,
+            "draft_revision": row.draft_revision,
+            "draft_fingerprint": row.draft_fingerprint,
+            "state": row.state,
+            "request": row.request_json,
+            "native_payload": row.native_payload,
+            "native_payload_hash": row.native_payload_hash,
+            "error": row.error_json,
+            "created_at": row.created_at,
+            "finished_at": row.finished_at,
+        }
+
+    @staticmethod
+    def _curve_lab_version_dict(row: CurveLabVersionRow) -> dict:
+        metadata = row.metadata_json
+        return {
+            "id": row.id,
+            "idempotency_key": row.idempotency_key,
+            "source_kind": row.source_kind,
+            "build_run_id": row.build_run_id,
+            "import_job_id": row.import_job_id,
+            "native_payload": row.native_payload,
+            "native_payload_length": row.native_payload_length,
+            "native_payload_hash": row.native_payload_hash,
+            "archive_numeric_format": row.archive_numeric_format,
+            "root_kind": row.root_kind,
+            "build_validation_state": row.build_validation_state,
+            "visibility_state": row.visibility_state,
+            "name": metadata["name"],
+            "version_note": metadata.get("version_note"),
+            "tags": metadata.get("tags", []),
+            "verification": row.verification_json,
+            "created_at": row.created_at,
+        }
+
+    @staticmethod
+    def _curve_lab_version_row(record: dict) -> CurveLabVersionRow:
+        return CurveLabVersionRow(
+            id=record["id"],
+            idempotency_key=record["idempotency_key"],
+            source_kind=record["source_kind"],
+            build_run_id=record.get("build_run_id"),
+            import_job_id=record.get("import_job_id"),
+            native_payload=record["native_payload"],
+            native_payload_length=record["native_payload_length"],
+            native_payload_hash=record["native_payload_hash"],
+            archive_numeric_format=record["archive_numeric_format"],
+            root_kind=record["root_kind"],
+            build_validation_state=record["build_validation_state"],
+            visibility_state=record["visibility_state"],
+            metadata_json={
+                "name": record["name"],
+                "version_note": record.get("version_note"),
+                "tags": record.get("tags", []),
+            },
+            verification_json=record.get("verification", {}),
+            created_at=record["created_at"],
+        )
+
+    @staticmethod
+    def _curve_lab_import_job_row(record: dict) -> CurveLabImportJobRow:
+        return CurveLabImportJobRow(
+            id=record["id"],
+            request_hash=record["request_hash"],
+            compressed_payload_length=record["compressed_payload_length"],
+            expanded_payload_length=record["expanded_payload_length"],
+            state=record["state"],
+            phase=record["phase"],
+            error_json=record.get("error"),
+            resulting_version_id=record.get("resulting_version_id"),
+            created_at=record["created_at"],
+            finished_at=record.get("finished_at"),
+        )
 
     # -- products --------------------------------------------------------
 
@@ -536,6 +632,252 @@ class DbStore:
             if row is None:
                 raise NotFoundError(f"curve {curve_id}")
             return row.to_record()
+
+    # -- Curve Lab V2 ---------------------------------------------------
+
+    def add_curve_lab_draft(self, record: dict) -> dict:
+        with self._session() as session:
+            session.add(
+                CurveLabDraftRow(
+                    id=record["id"],
+                    schema_version=record["schema_version"],
+                    revision=record["revision"],
+                    fingerprint=record["fingerprint"],
+                    document_json=record["document"],
+                    state=record["state"],
+                    created_at=record["created_at"],
+                    updated_at=record["updated_at"],
+                )
+            )
+            session.commit()
+            return record
+
+    def get_curve_lab_draft(self, draft_id: str) -> dict:
+        with self._session() as session:
+            row = session.get(CurveLabDraftRow, draft_id)
+            if row is None:
+                raise NotFoundError(f"curve draft {draft_id}")
+            return self._curve_lab_draft_dict(row)
+
+    def update_curve_lab_draft(
+        self, draft_id: str, expected_revision: int, record: dict
+    ) -> dict:
+        with self._session() as session:
+            result = session.execute(
+                update(CurveLabDraftRow)
+                .where(
+                    CurveLabDraftRow.id == draft_id,
+                    CurveLabDraftRow.revision == expected_revision,
+                )
+                .values(
+                    schema_version=record["schema_version"],
+                    revision=record["revision"],
+                    fingerprint=record["fingerprint"],
+                    document_json=record["document"],
+                    state=record["state"],
+                    updated_at=record["updated_at"],
+                )
+            )
+            if result.rowcount != 1:
+                session.rollback()
+                exists = session.scalar(
+                    select(CurveLabDraftRow.id).where(
+                        CurveLabDraftRow.id == draft_id
+                    )
+                )
+                if exists is None:
+                    raise NotFoundError(f"curve draft {draft_id}")
+                raise ConflictError(
+                    f"draft revision no longer equals {expected_revision}"
+                )
+            session.commit()
+            return record
+
+    def add_curve_lab_build_run(self, record: dict) -> dict:
+        with self._session() as session:
+            session.add(
+                CurveLabBuildRunRow(
+                    id=record["id"],
+                    draft_id=record["draft_id"],
+                    draft_revision=record["draft_revision"],
+                    draft_fingerprint=record["draft_fingerprint"],
+                    request_json=record["request"],
+                    resolved_plan_json=record.get("resolved_plan"),
+                    quote_axis_json=record.get("quote_axis"),
+                    parameter_axis_json=record.get("parameter_axis"),
+                    dependency_manifest_json=record.get("dependency_manifest", []),
+                    state=record["state"],
+                    native_payload=record.get("native_payload"),
+                    native_payload_hash=record.get("native_payload_hash"),
+                    diagnostics_json=record.get("diagnostics"),
+                    error_json=record.get("error"),
+                    created_at=record["created_at"],
+                    finished_at=record.get("finished_at"),
+                )
+            )
+            session.commit()
+            return record
+
+    def get_curve_lab_build_run(self, run_id: str) -> dict:
+        with self._session() as session:
+            row = session.get(CurveLabBuildRunRow, run_id)
+            if row is None:
+                raise NotFoundError(f"curve build run {run_id}")
+            return self._curve_lab_build_dict(row)
+
+    def add_curve_lab_version(self, record: dict) -> tuple[dict, bool]:
+        with self._session() as session:
+            existing = session.scalar(
+                select(CurveLabVersionRow).where(
+                    CurveLabVersionRow.idempotency_key == record["idempotency_key"]
+                )
+            )
+            if existing is not None:
+                return self._curve_lab_version_dict(existing), False
+            session.add(self._curve_lab_version_row(record))
+            try:
+                session.commit()
+            except IntegrityError:
+                session.rollback()
+                existing = session.scalar(
+                    select(CurveLabVersionRow).where(
+                        CurveLabVersionRow.idempotency_key
+                        == record["idempotency_key"]
+                    )
+                )
+                if existing is None:
+                    raise
+                return self._curve_lab_version_dict(existing), False
+            return record, True
+
+    def publish_curve_lab_version(
+        self,
+        record: dict,
+        draft_id: str,
+        draft_revision: int,
+        draft_fingerprint: str,
+        build_run_id: str,
+    ) -> tuple[dict, bool]:
+        with self._session() as session:
+            draft = session.scalar(
+                select(CurveLabDraftRow)
+                .where(CurveLabDraftRow.id == draft_id)
+                .with_for_update()
+            )
+            run = session.scalar(
+                select(CurveLabBuildRunRow)
+                .where(CurveLabBuildRunRow.id == build_run_id)
+                .with_for_update()
+            )
+            if draft is None or run is None:
+                raise NotFoundError("curve draft or build run")
+            if (
+                draft.revision != draft_revision
+                or draft.fingerprint != draft_fingerprint
+                or run.state != "SUCCEEDED"
+                or run.draft_id != draft_id
+                or run.draft_revision != draft_revision
+                or run.draft_fingerprint != draft_fingerprint
+            ):
+                raise ConflictError("curve version publication CAS failed")
+            existing = session.scalar(
+                select(CurveLabVersionRow).where(
+                    CurveLabVersionRow.idempotency_key == record["idempotency_key"]
+                )
+            )
+            if existing is not None:
+                return self._curve_lab_version_dict(existing), False
+            session.add(self._curve_lab_version_row(record))
+            try:
+                session.commit()
+            except IntegrityError:
+                session.rollback()
+                existing = session.scalar(
+                    select(CurveLabVersionRow).where(
+                        CurveLabVersionRow.idempotency_key
+                        == record["idempotency_key"]
+                    )
+                )
+                if existing is None:
+                    raise
+                return self._curve_lab_version_dict(existing), False
+            return record, True
+
+    def get_curve_lab_version(self, version_id: str) -> dict:
+        with self._session() as session:
+            row = session.get(CurveLabVersionRow, version_id)
+            if row is None:
+                raise NotFoundError(f"curve version {version_id}")
+            return self._curve_lab_version_dict(row)
+
+    def list_curve_lab_versions(self, include_archived: bool) -> list[dict]:
+        with self._session() as session:
+            statement = select(CurveLabVersionRow).order_by(
+                CurveLabVersionRow.created_at
+            )
+            if not include_archived:
+                statement = statement.where(
+                    CurveLabVersionRow.visibility_state == "VISIBLE"
+                )
+            return [
+                self._curve_lab_version_dict(row)
+                for row in session.scalars(statement).all()
+            ]
+
+    def archive_curve_lab_version(self, version_id: str) -> dict:
+        with self._session() as session:
+            row = session.get(CurveLabVersionRow, version_id)
+            if row is None:
+                raise NotFoundError(f"curve version {version_id}")
+            row.visibility_state = "ARCHIVED"
+            session.commit()
+            return self._curve_lab_version_dict(row)
+
+    def add_curve_lab_import_job(self, record: dict) -> dict:
+        with self._session() as session:
+            session.add(self._curve_lab_import_job_row(record))
+            session.commit()
+            return record
+
+    def publish_curve_lab_import(
+        self, version_record: dict, job_record: dict
+    ) -> tuple[dict, dict]:
+        with self._session() as session:
+            existing = session.scalar(
+                select(CurveLabVersionRow).where(
+                    CurveLabVersionRow.idempotency_key
+                    == version_record["idempotency_key"]
+                )
+            )
+            if existing is None:
+                version = self._curve_lab_version_row(version_record)
+                session.add(version)
+            else:
+                version = existing
+            stored_job = {
+                **job_record,
+                "resulting_version_id": version.id,
+            }
+            session.add(self._curve_lab_import_job_row(stored_job))
+            session.commit()
+            return self._curve_lab_version_dict(version), stored_job
+
+    def add_curve_lab_audit_event(self, record: dict) -> None:
+        with self._session() as session:
+            session.add(
+                CurveLabAuditEventRow(
+                    id=record["id"],
+                    action=record["action"],
+                    actor=record["actor"],
+                    target_type=record["target_type"],
+                    target_id=record["target_id"],
+                    input_hash=record["input_hash"],
+                    outcome=record["outcome"],
+                    details_json=record.get("details", {}),
+                    created_at=record["created_at"],
+                )
+            )
+            session.commit()
 
     @staticmethod
     def _require_calibration_row(

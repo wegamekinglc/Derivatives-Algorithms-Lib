@@ -1,0 +1,660 @@
+"""Transactional Curve Lab V2 draft, build, version, and import lifecycle."""
+
+from __future__ import annotations
+
+import hashlib
+import json
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING
+from uuid import uuid4
+
+from app.schemas.curve_lab import (
+    CURVE_LAB_V1_SUCCESS_REGISTRY,
+    CurveDraftDocumentInputV2,
+    CurveVersionCreateRequest,
+)
+from app.services.quote_canonicalization import (
+    QuoteCanonicalizationError,
+    canonicalize_quote,
+)
+from app.services.store import ConflictError, NotFoundError
+
+if TYPE_CHECKING:
+    from app.services.dal_gateway import DalGateway
+    from app.services.store import StoreProtocol
+
+_REGISTRY = {row.instrument_type: row for row in CURVE_LAB_V1_SUCCESS_REGISTRY}
+_ALLOWED_IMPORT_ROOTS = frozenset(("Bag", "DiscountPWC"))
+
+
+class CurveLabLifecycleError(ValueError):
+    def __init__(
+        self,
+        status_code: int,
+        code: str,
+        message: str,
+        field: str,
+        value: object = None,
+        *,
+        resource_id: str | None = None,
+        constraint: str | None = None,
+        **details: object,
+    ) -> None:
+        super().__init__(message)
+        self.status_code = status_code
+        self.detail = {
+            "code": code,
+            "message": message,
+            "field": field,
+            "value": value,
+            "resource_id": resource_id,
+            "details": {
+                **({"constraint": constraint} if constraint else {}),
+                **details,
+            },
+        }
+
+
+def _now() -> str:
+    return datetime.now(UTC).isoformat().replace("+00:00", "Z")
+
+
+def _canonical_bytes(value: object) -> bytes:
+    return json.dumps(
+        value,
+        ensure_ascii=True,
+        allow_nan=False,
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode("ascii")
+
+
+def _hash(value: object) -> str:
+    return hashlib.sha256(_canonical_bytes(value)).hexdigest()
+
+
+def _audit(
+    store: StoreProtocol,
+    action: str,
+    target_type: str,
+    target_id: str,
+    input_value: object,
+    outcome: str = "SUCCEEDED",
+    **details: object,
+) -> None:
+    store.add_curve_lab_audit_event(
+        {
+            "id": uuid4().hex,
+            "action": action,
+            "actor": "dal-web",
+            "target_type": target_type,
+            "target_id": target_id,
+            "input_hash": _hash(input_value),
+            "outcome": outcome,
+            "details": details,
+            "created_at": _now(),
+        }
+    )
+
+
+def _canonical_document(
+    request: CurveDraftDocumentInputV2,
+    *,
+    rekey: bool = False,
+) -> dict:
+    seen: dict[str, int] = {}
+    instruments: list[dict] = []
+    for index, authored in enumerate(request.instruments):
+        source = authored.model_dump(mode="json")
+        supplied_id = source.pop("instrument_id")
+        source_id = source.pop("source_instrument_id")
+        if rekey:
+            source_id = supplied_id or source_id
+            instrument_id = uuid4().hex
+        else:
+            instrument_id = supplied_id or uuid4().hex
+        if instrument_id in seen:
+            raise CurveLabLifecycleError(
+                422,
+                "INSTRUMENT_ID_DUPLICATE",
+                "Instrument ids must be unique within a draft.",
+                f"instruments[{index}].instrument_id",
+                instrument_id,
+                constraint="unique_within_draft",
+                conflicts_with=f"instruments[{seen[instrument_id]}].instrument_id",
+            )
+        seen[instrument_id] = index
+        family = source["instrument_type"]
+        row = _REGISTRY.get(family)
+        if row is None:
+            raise CurveLabLifecycleError(
+                422,
+                "UNSUPPORTED_PRODUCT",
+                "Instrument family is outside the Curve Lab V1 success registry.",
+                f"instruments[{index}].instrument_type",
+                family,
+                constraint="CurveLabV1SuccessFamily",
+            )
+        try:
+            quote = canonicalize_quote(
+                family,
+                source["raw_quote"],
+                row.canonical_raw_unit,
+            )
+        except QuoteCanonicalizationError as exc:
+            raise CurveLabLifecycleError(
+                422,
+                exc.code,
+                exc.message,
+                f"instruments[{index}].{exc.field}",
+                exc.value,
+                **exc.details,
+            ) from exc
+        if quote.raw_quote != source["raw_quote"]:
+            raise CurveLabLifecycleError(
+                422,
+                "QUOTE_PERSISTED_BYTES_NOT_CANONICAL",
+                "Durable raw_quote must already use canonical plain-decimal bytes.",
+                f"instruments[{index}].raw_quote",
+                source["raw_quote"],
+                constraint=f"must equal {quote.raw_quote}",
+            )
+        instruments.append(
+            {
+                "instrument_id": instrument_id,
+                "source_instrument_id": source_id,
+                "instrument_type": family,
+                "trade_date": source["trade_date"],
+                "start_date": source["start_date"],
+                "maturity_date": source["maturity_date"],
+                "currency_or_pair": source["currency_or_pair"],
+                "quote_coordinate_kind": quote.quote_coordinate_kind,
+                "canonical_raw_unit": quote.canonical_raw_unit,
+                "raw_quote": quote.raw_quote,
+                "normalized_quote": quote.normalized_quote,
+                "exact_risk_raw_bump": quote.exact_risk_raw_bump,
+                "normalized_risk_bump": quote.normalized_risk_bump,
+                "source": source["source"],
+                "observed_at": source["observed_at"],
+                "included": source["included"],
+                "terms": source["terms"],
+            }
+        )
+    payload = request.model_dump(mode="json")
+    payload["instruments"] = instruments
+    return payload
+
+
+def create_draft(
+    store: StoreProtocol,
+    request: CurveDraftDocumentInputV2,
+) -> dict:
+    document = _canonical_document(request)
+    now = _now()
+    record = {
+        "id": uuid4().hex,
+        "schema_version": 2,
+        "revision": 1,
+        "fingerprint": _hash(document),
+        "state": "READY_TO_BUILD",
+        "document": document,
+        "created_at": now,
+        "updated_at": now,
+    }
+    stored = store.add_curve_lab_draft(record)
+    _audit(store, "DRAFT_CREATED", "curve_draft", record["id"], document)
+    return stored
+
+
+def get_draft(store: StoreProtocol, draft_id: str) -> dict:
+    try:
+        return store.get_curve_lab_draft(draft_id)
+    except NotFoundError as exc:
+        raise CurveLabLifecycleError(
+            404,
+            "CURVE_DRAFT_NOT_FOUND",
+            "Curve draft was not found.",
+            "draft_id",
+            draft_id,
+        ) from exc
+
+
+def update_draft(
+    store: StoreProtocol,
+    draft_id: str,
+    expected_revision: int,
+    request: CurveDraftDocumentInputV2,
+) -> dict:
+    current = get_draft(store, draft_id)
+    if current["revision"] != expected_revision:
+        raise _revision_conflict(draft_id, expected_revision, current["revision"])
+    document = _canonical_document(request)
+    record = {
+        **current,
+        "revision": current["revision"] + 1,
+        "fingerprint": _hash(document),
+        "state": "MODIFIED",
+        "document": document,
+        "updated_at": _now(),
+    }
+    try:
+        stored = store.update_curve_lab_draft(draft_id, expected_revision, record)
+    except ConflictError as exc:
+        actual = get_draft(store, draft_id)["revision"]
+        raise _revision_conflict(draft_id, expected_revision, actual) from exc
+    _audit(store, "DRAFT_UPDATED", "curve_draft", draft_id, document)
+    return stored
+
+
+def _revision_conflict(
+    draft_id: str, expected_revision: int, actual_revision: int
+) -> CurveLabLifecycleError:
+    return CurveLabLifecycleError(
+        409,
+        "DRAFT_REVISION_CONFLICT",
+        "Draft revision compare-and-swap failed.",
+        "If-Match",
+        str(expected_revision),
+        resource_id=draft_id,
+        constraint=f"must equal current draft revision {actual_revision}",
+    )
+
+
+def create_build_run(
+    store: StoreProtocol, gateway: DalGateway, draft_id: str
+) -> dict:
+    draft = get_draft(store, draft_id)
+    native_payload = gateway.build_curve_lab_archive(draft["document"])
+    now = _now()
+    record = {
+        "id": uuid4().hex,
+        "draft_id": draft_id,
+        "draft_revision": draft["revision"],
+        "draft_fingerprint": draft["fingerprint"],
+        "state": "SUCCEEDED",
+        "request": draft["document"],
+        "resolved_plan": {"schema_version": 1},
+        "quote_axis": quote_axis(draft["document"]),
+        "parameter_axis": [],
+        "dependency_manifest": list(draft["document"]["dependency_version_ids"]),
+        "native_payload": native_payload,
+        "native_payload_hash": hashlib.sha256(native_payload).hexdigest(),
+        "diagnostics": {"fit": "PENDING_NATIVE_ADAPTER"},
+        "error": None,
+        "created_at": now,
+        "finished_at": now,
+    }
+    stored = store.add_curve_lab_build_run(record)
+    _audit(store, "BUILD_SUCCEEDED", "curve_build_run", record["id"], record["request"])
+    return _build_public(store, stored)
+
+
+def quote_axis(document: dict) -> list[dict]:
+    return [
+        {
+            "global_quote_index": index,
+            "instrument_id": item["instrument_id"],
+            "instrument_type": item["instrument_type"],
+            "quote_coordinate_kind": item["quote_coordinate_kind"],
+            "raw_quote": item["raw_quote"],
+            "normalized_quote": item["normalized_quote"],
+            "exact_risk_raw_bump": item["exact_risk_raw_bump"],
+            "normalized_risk_bump": item["normalized_risk_bump"],
+        }
+        for index, item in enumerate(document["instruments"])
+        if item["included"]
+    ]
+
+
+def _build_public(store: StoreProtocol, record: dict) -> dict:
+    current = get_draft(store, record["draft_id"])
+    return {
+        key: value
+        for key, value in {
+            **record,
+            "stale": (
+                current["revision"] != record["draft_revision"]
+                or current["fingerprint"] != record["draft_fingerprint"]
+            ),
+        }.items()
+        if key
+        not in {
+            "native_payload",
+            "resolved_plan",
+            "quote_axis",
+            "parameter_axis",
+            "dependency_manifest",
+            "diagnostics",
+        }
+    }
+
+
+def get_build_run(store: StoreProtocol, run_id: str) -> dict:
+    try:
+        return _build_public(store, store.get_curve_lab_build_run(run_id))
+    except NotFoundError as exc:
+        raise CurveLabLifecycleError(
+            404,
+            "CURVE_BUILD_RUN_NOT_FOUND",
+            "Curve build run was not found.",
+            "build_run_id",
+            run_id,
+        ) from exc
+
+
+def create_version(
+    store: StoreProtocol,
+    request: CurveVersionCreateRequest,
+) -> tuple[dict, bool]:
+    draft = get_draft(store, request.draft_id)
+    if draft["revision"] != request.draft_revision:
+        raise _revision_conflict(
+            request.draft_id, request.draft_revision, draft["revision"]
+        )
+    if draft["fingerprint"] != request.draft_fingerprint:
+        raise CurveLabLifecycleError(
+            409,
+            "DRAFT_FINGERPRINT_CONFLICT",
+            "Draft fingerprint compare-and-swap failed.",
+            "draft_fingerprint",
+            request.draft_fingerprint,
+            resource_id=request.draft_id,
+            constraint=f"must equal {draft['fingerprint']}",
+        )
+    try:
+        run = store.get_curve_lab_build_run(request.build_run_id)
+    except NotFoundError as exc:
+        raise CurveLabLifecycleError(
+            404,
+            "CURVE_BUILD_RUN_NOT_FOUND",
+            "Curve build run was not found.",
+            "build_run_id",
+            request.build_run_id,
+        ) from exc
+    if (
+        run["state"] != "SUCCEEDED"
+        or run["draft_id"] != request.draft_id
+        or run["draft_revision"] != request.draft_revision
+        or run["draft_fingerprint"] != request.draft_fingerprint
+    ):
+        raise CurveLabLifecycleError(
+            409,
+            "BUILD_RUN_STALE",
+            "Build run does not match the immutable draft snapshot.",
+            "build_run_id",
+            request.build_run_id,
+            resource_id=request.build_run_id,
+        )
+    payload = run["native_payload"]
+    record = {
+        "id": uuid4().hex,
+        "idempotency_key": request.idempotency_key,
+        "source_kind": "BUILD",
+        "build_run_id": request.build_run_id,
+        "import_job_id": None,
+        "native_payload": payload,
+        "native_payload_length": len(payload),
+        "native_payload_hash": hashlib.sha256(payload).hexdigest(),
+        "archive_numeric_format": "JSON_MAX_DIGITS10_V1",
+        "root_kind": (
+            "DISCOUNT_CURVE"
+            if draft["document"]["mode"] == "SINGLE"
+            else "CURVE_SET"
+        ),
+        "build_validation_state": "VERIFIED",
+        "visibility_state": "VISIBLE",
+        "name": request.name,
+        "version_note": request.version_note,
+        "tags": list(request.tags),
+        "verification": {
+            "draft_id": request.draft_id,
+            "draft_revision": request.draft_revision,
+            "draft_fingerprint": request.draft_fingerprint,
+            "document": draft["document"],
+        },
+        "created_at": _now(),
+    }
+    try:
+        stored, created = store.publish_curve_lab_version(
+            record,
+            request.draft_id,
+            request.draft_revision,
+            request.draft_fingerprint,
+            request.build_run_id,
+        )
+    except ConflictError as exc:
+        current = get_draft(store, request.draft_id)
+        if current["revision"] != request.draft_revision:
+            raise _revision_conflict(
+                request.draft_id,
+                request.draft_revision,
+                current["revision"],
+            ) from exc
+        raise CurveLabLifecycleError(
+            409,
+            "BUILD_RUN_STALE",
+            "Build run became stale before immutable publication.",
+            "build_run_id",
+            request.build_run_id,
+            resource_id=request.build_run_id,
+        ) from exc
+    if created:
+        _audit(
+            store,
+            "VERSION_CREATED",
+            "curve_version",
+            stored["id"],
+            {
+                **_version_public(record),
+                "native_payload_hash": record["native_payload_hash"],
+            },
+        )
+    return _version_public(stored), created
+
+
+def _version_public(record: dict) -> dict:
+    return {
+        key: value
+        for key, value in record.items()
+        if key not in {"native_payload", "idempotency_key", "verification"}
+    }
+
+
+def get_version(store: StoreProtocol, version_id: str) -> dict:
+    try:
+        return store.get_curve_lab_version(version_id)
+    except NotFoundError as exc:
+        raise CurveLabLifecycleError(
+            404,
+            "CURVE_VERSION_NOT_FOUND",
+            "Curve version was not found.",
+            "curve_version_id",
+            version_id,
+        ) from exc
+
+
+def list_versions(store: StoreProtocol, include_archived: bool) -> list[dict]:
+    return [
+        _version_public(item)
+        for item in store.list_curve_lab_versions(include_archived)
+    ]
+
+
+def archive_version(store: StoreProtocol, version_id: str) -> dict:
+    get_version(store, version_id)
+    stored = store.archive_curve_lab_version(version_id)
+    _audit(store, "VERSION_ARCHIVED", "curve_version", version_id, {"id": version_id})
+    return _version_public(stored)
+
+
+def native_payload(store: StoreProtocol, version_id: str) -> bytes:
+    return get_version(store, version_id)["native_payload"]
+
+
+def clone_version(store: StoreProtocol, version_id: str) -> dict:
+    version = get_version(store, version_id)
+    document = version["verification"].get("document")
+    if not isinstance(document, dict):
+        raise CurveLabLifecycleError(
+            409,
+            "VERSION_CLONE_UNAVAILABLE",
+            "Version does not carry a canonical source document.",
+            "curve_version_id",
+            version_id,
+        )
+    authored = {
+        **document,
+        "instruments": [
+            {
+                key: value
+                for key, value in item.items()
+                if key not in _DERIVED_FOR_CLONE
+            }
+            for item in document["instruments"]
+        ],
+    }
+    request = CurveDraftDocumentInputV2.model_validate(authored)
+    cloned = _canonical_document(request, rekey=True)
+    now = _now()
+    record = {
+        "id": uuid4().hex,
+        "schema_version": 2,
+        "revision": 1,
+        "fingerprint": _hash(cloned),
+        "state": "READY_TO_BUILD",
+        "document": cloned,
+        "created_at": now,
+        "updated_at": now,
+    }
+    stored = store.add_curve_lab_draft(record)
+    _audit(store, "VERSION_CLONED", "curve_draft", record["id"], cloned)
+    return stored
+
+
+_DERIVED_FOR_CLONE = frozenset(
+    (
+        "quote_coordinate_kind",
+        "canonical_raw_unit",
+        "normalized_quote",
+        "exact_risk_raw_bump",
+        "normalized_risk_bump",
+    )
+)
+
+
+def import_native_json(
+    store: StoreProtocol, gateway: DalGateway, payload: bytes
+) -> dict:
+    now = _now()
+    job_id = uuid4().hex
+    request_hash = hashlib.sha256(payload).hexdigest()
+    error: dict | None = None
+    root_type: object = None
+    try:
+        parsed = json.loads(payload)
+        if not isinstance(parsed, dict):
+            raise ValueError("root must be object")
+        root_type = parsed.get("~type")
+    except (UnicodeDecodeError, json.JSONDecodeError, ValueError):
+        root_type = None
+    if root_type not in _ALLOWED_IMPORT_ROOTS:
+        error = {
+            "code": "IMPORT_ROOT_TYPE_FORBIDDEN",
+            "message": "Native archive root type is outside the Curve Lab allowlist.",
+            "field": "~type",
+            "value": root_type,
+            "resource_id": job_id,
+            "details": {"allowed": sorted(_ALLOWED_IMPORT_ROOTS)},
+        }
+        store.add_curve_lab_import_job(
+            {
+                "id": job_id,
+                "request_hash": request_hash,
+                "compressed_payload_length": len(payload),
+                "expanded_payload_length": len(payload),
+                "state": "FAILED",
+                "phase": "PREFLIGHT",
+                "error": error,
+                "resulting_version_id": None,
+                "created_at": now,
+                "finished_at": now,
+            }
+        )
+        raise CurveLabLifecycleError(
+            422,
+            error["code"],
+            error["message"],
+            error["field"],
+            error["value"],
+            resource_id=job_id,
+            allowed=error["details"]["allowed"],
+        )
+    try:
+        canonical, root_kind = gateway.import_curve_lab_archive(payload)
+    except Exception as exc:
+        error = {
+            "code": "IMPORT_NATIVE_RECONSTRUCTION_FAILED",
+            "message": "Native archive reconstruction failed.",
+            "field": "payload",
+            "value": None,
+            "resource_id": job_id,
+            "details": {},
+        }
+        store.add_curve_lab_import_job(
+            {
+                "id": job_id,
+                "request_hash": request_hash,
+                "compressed_payload_length": len(payload),
+                "expanded_payload_length": len(payload),
+                "state": "FAILED",
+                "phase": "NATIVE_RECONSTRUCTION",
+                "error": error,
+                "resulting_version_id": None,
+                "created_at": now,
+                "finished_at": _now(),
+            }
+        )
+        raise CurveLabLifecycleError(
+            422,
+            error["code"],
+            error["message"],
+            error["field"],
+            resource_id=job_id,
+        ) from exc
+    version_record = {
+        "id": uuid4().hex,
+        "idempotency_key": f"import:{request_hash}",
+        "source_kind": "IMPORT",
+        "build_run_id": None,
+        "import_job_id": job_id,
+        "native_payload": canonical,
+        "native_payload_length": len(canonical),
+        "native_payload_hash": hashlib.sha256(canonical).hexdigest(),
+        "archive_numeric_format": "JSON_MAX_DIGITS10_V1",
+        "root_kind": root_kind,
+        "build_validation_state": "IMPORT_RECONSTRUCTED",
+        "visibility_state": "VISIBLE",
+        "name": f"Imported {root_type}",
+        "version_note": None,
+        "tags": [],
+        "verification": {
+            "request_hash": request_hash,
+            "source_payload_hash": request_hash,
+        },
+        "created_at": now,
+    }
+    job = {
+        "id": job_id,
+        "request_hash": request_hash,
+        "compressed_payload_length": len(payload),
+        "expanded_payload_length": len(payload),
+        "state": "SUCCEEDED",
+        "phase": "PUBLISHED",
+        "error": None,
+        "resulting_version_id": version_record["id"],
+        "created_at": now,
+        "finished_at": _now(),
+    }
+    _, stored_job = store.publish_curve_lab_import(version_record, job)
+    _audit(store, "IMPORT_SUCCEEDED", "curve_import_job", job_id, stored_job)
+    return stored_job
