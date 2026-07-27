@@ -879,6 +879,23 @@ namespace {
                  py::kw_only(), py::arg("valuation_time"), py::arg("result_currency"), py::arg("curve_components"),
                  py::arg("xccy_market") = std::shared_ptr<CrossCurrencyMarket_>(), py::arg("fixings") = std::shared_ptr<MarketFixingSnapshot_>());
 
+        m.def(
+            "CrossCurrencyMarket_New",
+            [](const std::shared_ptr<CurveBlock_>& domesticBlock, const std::shared_ptr<CurveBlock_>& foreignBlock, double fxSpot,
+               const DateTime_& valuationTime, const std::string& collateralCurrency, const std::shared_ptr<MarketFixingSnapshot_>& fixings,
+               const std::shared_ptr<DiscountCurve_>& basisCurve) {
+                auto result =
+                    std::make_shared<CrossCurrencyMarket_>(Handle_<CurveBlock_>(std::const_pointer_cast<const CurveBlock_>(domesticBlock)),
+                                                           Handle_<CurveBlock_>(std::const_pointer_cast<const CurveBlock_>(foreignBlock)), fxSpot,
+                                                           valuationTime, Ccy_(String_(collateralCurrency)), ConstSnapshot(fixings));
+                if (basisCurve)
+                    result->SetBasisCurve(Handle_<DiscountCurve_>(std::const_pointer_cast<const DiscountCurve_>(basisCurve)));
+                return result;
+            },
+            py::kw_only(), py::arg("domestic_block"), py::arg("foreign_block"), py::arg("fx_spot"), py::arg("valuation_time"),
+            py::arg("collateral_currency"), py::arg("fixings") = std::shared_ptr<MarketFixingSnapshot_>(),
+            py::arg("basis_curve") = std::shared_ptr<DiscountCurve_>());
+
         py::class_<RatePricingTradeResult_>(m, "RatePricingTradeResult_")
             .def_property_readonly("instrument_id", [](const RatePricingTradeResult_& value) { return StdString(value.instrumentId_); })
             .def_property_readonly("instrument_type", [](const RatePricingTradeResult_& value) { return value.instrumentType_.Switch(); })

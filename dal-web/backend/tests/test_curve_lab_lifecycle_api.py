@@ -488,6 +488,8 @@ def test_curve_lab_migration_upgrade_downgrade_upgrade(
         "curve_build_runs",
         "curve_versions",
         "curve_import_jobs",
+        "curve_risk_runs",
+        "curve_matrix_blobs",
         "curve_audit_events",
     } <= names
 

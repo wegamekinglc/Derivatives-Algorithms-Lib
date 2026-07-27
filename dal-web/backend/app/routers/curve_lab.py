@@ -24,6 +24,9 @@ from app.schemas.curve_lab import (
     CurveLabRegistryEntryDTO,
     CurveVersionCreateRequest,
     CurveVersionResponse,
+    MatrixResultV2,
+    RiskRunRequestV2,
+    RiskRunResponseV2,
 )
 from app.services.curve_lab_lifecycle import (
     CurveLabLifecycleError,
@@ -34,11 +37,13 @@ from app.services.curve_lab_lifecycle import (
     create_version,
     get_build_run,
     get_draft,
+    get_import_job,
     import_native_json,
     list_versions,
     native_payload,
     update_draft,
 )
+from app.services.curve_risk import create_risk_run, get_matrix, get_risk_run
 from app.services.quote_canonicalization import (
     QuoteCanonicalizationError,
     canonicalize_quote,
@@ -243,6 +248,59 @@ async def create_curve_import_job(
     payload = await request.body()
     try:
         return import_native_json(store, gateway, payload)
+    except CurveLabLifecycleError as exc:
+        _raise_lifecycle(exc)
+
+
+@router.get(
+    "/import-jobs/{job_id}",
+    response_model=CurveImportJobResponse,
+)
+def get_curve_import_job(job_id: str, store=Depends(store_dependency)) -> dict:
+    try:
+        return get_import_job(store, job_id)
+    except CurveLabLifecycleError as exc:
+        _raise_lifecycle(exc)
+
+
+@router.post(
+    "/risk-runs",
+    response_model=RiskRunResponseV2,
+    status_code=202,
+)
+def create_curve_risk_run(
+    request: RiskRunRequestV2,
+    store=Depends(store_dependency),
+    gateway=Depends(gateway_dependency),
+) -> dict:
+    try:
+        return create_risk_run(store, gateway, request)
+    except CurveLabLifecycleError as exc:
+        _raise_lifecycle(exc)
+
+
+@router.get(
+    "/risk-runs/{run_id}",
+    response_model=RiskRunResponseV2,
+)
+def get_curve_risk_run(run_id: str, store=Depends(store_dependency)) -> dict:
+    try:
+        return get_risk_run(store, run_id)
+    except CurveLabLifecycleError as exc:
+        _raise_lifecycle(exc)
+
+
+@router.get(
+    "/risk-runs/{run_id}/matrices/{matrix_id}",
+    response_model=MatrixResultV2,
+)
+def get_curve_risk_matrix(
+    run_id: str,
+    matrix_id: str,
+    store=Depends(store_dependency),
+) -> dict:
+    try:
+        return get_matrix(store, run_id, matrix_id)
     except CurveLabLifecycleError as exc:
         _raise_lifecycle(exc)
 

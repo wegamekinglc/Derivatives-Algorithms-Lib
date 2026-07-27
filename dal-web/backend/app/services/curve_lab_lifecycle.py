@@ -275,7 +275,7 @@ def create_build_run(
         "request": draft["document"],
         "resolved_plan": {"schema_version": 1},
         "quote_axis": quote_axis(draft["document"]),
-        "parameter_axis": [],
+        "parameter_axis": parameter_axis(draft["document"]),
         "dependency_manifest": list(draft["document"]["dependency_version_ids"]),
         "native_payload": native_payload,
         "native_payload_hash": hashlib.sha256(native_payload).hexdigest(),
@@ -290,20 +290,94 @@ def create_build_run(
 
 
 def quote_axis(document: dict) -> list[dict]:
-    return [
-        {
-            "global_quote_index": index,
-            "instrument_id": item["instrument_id"],
-            "instrument_type": item["instrument_type"],
-            "quote_coordinate_kind": item["quote_coordinate_kind"],
-            "raw_quote": item["raw_quote"],
-            "normalized_quote": item["normalized_quote"],
-            "exact_risk_raw_bump": item["exact_risk_raw_bump"],
-            "normalized_risk_bump": item["normalized_risk_bump"],
-        }
-        for index, item in enumerate(document["instruments"])
-        if item["included"]
-    ]
+    declarations = document["declarations"]
+    default_component = declarations[0]["component_key"]
+    local_indices: dict[str, int] = {}
+    result: list[dict] = []
+    for item in document["instruments"]:
+        if not item["included"]:
+            continue
+        component_key = str(item["terms"].get("component_key", default_component))
+        local_index = local_indices.get(component_key, 0)
+        local_indices[component_key] = local_index + 1
+        result.append(
+            {
+                "global_quote_index": len(result),
+                "quote_id": item["instrument_id"],
+                "instrument_id": item["instrument_id"],
+                "component_key": component_key,
+                "stage_id": "stage-0",
+                "group_id": component_key,
+                "stage_local_quote_index": local_index,
+                "quote_coordinate_kind": item["quote_coordinate_kind"],
+                "canonical_raw_unit": item["canonical_raw_unit"],
+                "raw_quote": item["raw_quote"],
+                "normalized_quote": item["normalized_quote"],
+                "normalized_unit": "DECIMAL_RATE",
+                "exact_risk_raw_bump": item["exact_risk_raw_bump"],
+                "normalized_risk_bump": item["normalized_risk_bump"],
+                "display_label": (
+                    f"{item['instrument_type']} {item['maturity_date']}"
+                ),
+            }
+        )
+    return result
+
+
+def parameter_axis(document: dict) -> list[dict]:
+    included = [item for item in document["instruments"] if item["included"]]
+    default_component = document["declarations"][0]["component_key"]
+    result: list[dict] = []
+    stage_local_index = 0
+    for declaration in document["declarations"]:
+        component_key = declaration["component_key"]
+        dates = sorted(
+            {
+                item["maturity_date"]
+                for item in included
+                if item["terms"].get("component_key", default_component)
+                == component_key
+            }
+        )
+        representation = declaration["parameterization"]
+        coordinates: list[tuple[str, str | None]] = []
+        if representation == "PIECEWISE_LINEAR_FWD":
+            coordinates = [(date_value, side) for date_value in dates for side in ("LEFT", "RIGHT")]
+        elif representation == "PIECEWISE_CONSTANT_FWD":
+            coordinates = [(date_value, "RIGHT") for date_value in dates]
+        elif representation == "LOG_DISCOUNT":
+            coordinates = [(date_value, None) for date_value in dates[1:]]
+        else:
+            coordinates = [(date_value, None) for date_value in dates]
+        for component_local_index, (node_date, side) in enumerate(coordinates):
+            side_token = side or "SINGLE"
+            display_suffix = component_key.rsplit("/", 1)[-1]
+            result.append(
+                {
+                    "global_parameter_index": len(result),
+                    "parameter_id": (
+                        f"{component_key}:{representation}:{node_date}:{side_token}"
+                    ),
+                    "component_key": component_key,
+                    "stage_id": "stage-0",
+                    "stage_local_parameter_index": stage_local_index,
+                    "component_local_parameter_index": component_local_index,
+                    "coordinate_kind": representation,
+                    "node_date": node_date,
+                    "side": side,
+                    "native_parameter_unit": (
+                        "LOG_DISCOUNT_FACTOR"
+                        if representation == "LOG_DISCOUNT"
+                        else "DECIMAL_RATE"
+                    ),
+                    "display_label": (
+                        f"{declaration['currency']} {display_suffix} "
+                        f"{node_date} {side_token}"
+                    ),
+                }
+            )
+            stage_local_index += 1
+    return result
 
 
 def _build_public(store: StoreProtocol, record: dict) -> dict:
@@ -321,8 +395,6 @@ def _build_public(store: StoreProtocol, record: dict) -> dict:
         not in {
             "native_payload",
             "resolved_plan",
-            "quote_axis",
-            "parameter_axis",
             "dependency_manifest",
             "diagnostics",
         }
@@ -339,6 +411,19 @@ def get_build_run(store: StoreProtocol, run_id: str) -> dict:
             "Curve build run was not found.",
             "build_run_id",
             run_id,
+        ) from exc
+
+
+def get_import_job(store: StoreProtocol, job_id: str) -> dict:
+    try:
+        return store.get_curve_lab_import_job(job_id)
+    except NotFoundError as exc:
+        raise CurveLabLifecycleError(
+            404,
+            "CURVE_IMPORT_JOB_NOT_FOUND",
+            "Curve import job was not found.",
+            "import_job_id",
+            job_id,
         ) from exc
 
 

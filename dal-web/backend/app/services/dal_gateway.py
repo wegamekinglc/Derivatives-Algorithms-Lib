@@ -558,35 +558,7 @@ class DalGateway:
         """Materialize passive PWC roots and return exact native JSON bytes."""
 
         with self._calibration_lock:
-            included = [
-                item for item in document["instruments"] if item.get("included", True)
-            ]
-            if not included:
-                raise ValueError("Curve Lab build requires an included instrument")
-            ordered = sorted(
-                included,
-                key=lambda item: (item["maturity_date"], item["instrument_id"]),
-            )
-            dates: list[Any] = []
-            values: list[float] = []
-            seen_dates: set[str] = set()
-            for item in ordered:
-                maturity = str(item["maturity_date"])
-                if maturity in seen_dates:
-                    values[-1] = float(item["normalized_quote"])
-                    continue
-                seen_dates.add(maturity)
-                dates.append(self._native_date(date.fromisoformat(maturity)))
-                values.append(float(item["normalized_quote"]))
-            curves: dict[str, Any] = {}
-            for declaration in document["declarations"]:
-                key = str(declaration["component_key"])
-                curves[key] = self._dal.DiscountPWC_New(
-                    key,
-                    str(declaration["currency"]),
-                    dates,
-                    values,
-                )
+            curves = self._curve_lab_passive_curves(document)
             extension = getattr(self._dal, "_dal", self._dal)
             root = (
                 next(iter(curves.values()))
@@ -597,6 +569,279 @@ class DalGateway:
             if not isinstance(payload, bytes):
                 raise TypeError("native archive bridge must return bytes")
             return payload
+
+    def _curve_lab_passive_curves(
+        self,
+        document: Mapping[str, Any],
+        parameter_bumps: list[tuple[Mapping[str, Any], float]] | None = None,
+    ) -> dict[str, Any]:
+        included = [item for item in document["instruments"] if item.get("included", True)]
+        if not included:
+            raise ValueError("Curve Lab build requires an included instrument")
+        ordered = sorted(
+            included,
+            key=lambda item: (item["maturity_date"], item["instrument_id"]),
+        )
+        dates: list[Any] = []
+        values: list[float] = []
+        seen_dates: set[str] = set()
+        for item in ordered:
+            maturity = str(item["maturity_date"])
+            if maturity in seen_dates:
+                values[-1] = float(item["normalized_quote"])
+                continue
+            seen_dates.add(maturity)
+            dates.append(self._native_date(date.fromisoformat(maturity)))
+            values.append(float(item["normalized_quote"]))
+        if (
+            document.get("mode") == "SINGLE"
+            and len(document["declarations"]) == 1
+            and hasattr(self._dal, "CurveCalibrationSpecBuilder_")
+        ):
+            declaration = document["declarations"][0]
+            key = str(declaration["component_key"])
+            builder = self._dal.CurveCalibrationSpecBuilder_()
+            builder.today_ = self._native_date(date.fromisoformat(str(document["as_of_date"])))
+            builder.ccy_ = self._dal.String_(str(declaration["currency"]))
+            builder.curveName_ = self._dal.String_(key)
+            builder.instruments_ = [
+                self._curve_lab_calibration_instrument(item) for item in ordered
+            ]
+            builder.knotDates_ = dates
+            builder.targetCollateral_ = self._dal.CollateralType_(key.rsplit("/", 1)[-1])
+            builder.calibrateDiscountCurve_ = declaration["role"] == "DISCOUNT"
+            builder.parameterization_ = getattr(
+                self._dal.CurveParameterization,
+                str(declaration["parameterization"]),
+            )
+            builder.knot_policy = self._dal.CurveKnotPolicy.INPUT
+            solver = document.get("solver", {})
+            builder.smoothingWeight_ = float(solver.get("smoothing_weight", 1.0))
+            builder.tolerance_ = float(solver.get("tolerance", 1.0e-8))
+            builder.fitTolerance_ = float(solver.get("fit_tolerance", 1.0e-6))
+            builder.maxEvaluations_ = int(solver.get("max_evaluations", 200))
+            builder.maxRestarts_ = int(solver.get("max_restarts", 20))
+            builder.initialGuess_ = float(solver.get("initial_guess", 0.05))
+            builder.solveMode_ = getattr(
+                self._dal.CurveSolveMode,
+                str(solver.get("solve_mode", "EXACT")),
+            )
+            native_result = self._dal.CalibrateSingleCurve(builder.Build())
+            curves = {key: native_result.curve_}
+        else:
+            curves = {
+                str(declaration["component_key"]): self._dal.DiscountPWC_New(
+                    str(declaration["component_key"]),
+                    str(declaration["currency"]),
+                    dates,
+                    values,
+                )
+                for declaration in document["declarations"]
+            }
+        if parameter_bumps:
+            curves = self._curve_lab_bumped_curves(
+                curves,
+                document["declarations"],
+                parameter_bumps,
+            )
+        return curves
+
+    def _curve_lab_bumped_curves(
+        self,
+        curves: Mapping[str, Any],
+        declarations: list[Mapping[str, Any]],
+        parameter_bumps: list[tuple[Mapping[str, Any], float]],
+    ) -> dict[str, Any]:
+        """Rebuild calibrated curves after exact native-parameter shifts."""
+
+        result = dict(curves)
+        declarations_by_key = {str(item["component_key"]): item for item in declarations}
+        for axis, bump in parameter_bumps:
+            key = str(axis["component_key"])
+            declaration = declarations_by_key[key]
+            curve = result[key]
+            representation = str(axis["coordinate_kind"])
+            local_index = int(axis["component_local_parameter_index"])
+            name = str(declaration["component_key"])
+            currency = str(declaration["currency"])
+            if representation == "PIECEWISE_CONSTANT_FWD":
+                values = list(curve.right_forwards)
+                values[local_index] += bump
+                result[key] = self._dal.DiscountPWC_New(
+                    name,
+                    currency,
+                    list(curve.knot_dates),
+                    values,
+                    curve.base,
+                )
+            elif representation == "PIECEWISE_LINEAR_FWD":
+                left = list(curve.left_forwards)
+                right = list(curve.right_forwards)
+                index, side = divmod(local_index, 2)
+                (left if side == 0 else right)[index] += bump
+                result[key] = self._dal.DiscountPWLF_New(
+                    name,
+                    currency,
+                    list(curve.knot_dates),
+                    left,
+                    right,
+                    curve.base,
+                )
+            elif representation == "ZERO_RATE":
+                values = list(curve.zero_rates)
+                values[local_index] += bump
+                result[key] = self._dal.DiscountZeroRate_New(
+                    name,
+                    currency,
+                    curve.anchor_date,
+                    list(curve.node_dates),
+                    values,
+                    day_count=self._dal.DayBasis_New(curve.day_count),
+                    log_df_scheme=curve.log_df_scheme,
+                    base=curve.base,
+                )
+            elif representation == "LOG_DISCOUNT":
+                values = list(curve.log_discount_factors)
+                values[local_index + 1] += bump
+                result[key] = self._dal.DiscountLogDF_New(
+                    name,
+                    currency,
+                    list(curve.node_dates),
+                    values,
+                    day_count=self._dal.DayBasis_New(curve.day_count),
+                    log_df_scheme=curve.log_df_scheme,
+                    base=curve.base,
+                )
+            else:
+                raise ValueError(f"unsupported Curve Lab parameter coordinate {representation!r}")
+        return result
+
+    def curve_lab_parameter_values(
+        self,
+        document: Mapping[str, Any],
+        parameter_axis: list[Mapping[str, Any]],
+    ) -> list[str]:
+        """Return calibrated parameter values in the persisted global axis."""
+
+        with self._calibration_lock:
+            curves = self._curve_lab_passive_curves(document)
+            result: list[str] = []
+            for axis in parameter_axis:
+                curve = curves[str(axis["component_key"])]
+                representation = str(axis["coordinate_kind"])
+                local_index = int(axis["component_local_parameter_index"])
+                if representation == "PIECEWISE_CONSTANT_FWD":
+                    value = curve.right_forwards[local_index]
+                elif representation == "PIECEWISE_LINEAR_FWD":
+                    index, side = divmod(local_index, 2)
+                    values = curve.left_forwards if side == 0 else curve.right_forwards
+                    value = values[index]
+                elif representation == "ZERO_RATE":
+                    value = curve.zero_rates[local_index]
+                elif representation == "LOG_DISCOUNT":
+                    value = curve.log_discount_factors[local_index + 1]
+                else:
+                    raise ValueError(
+                        f"unsupported Curve Lab parameter coordinate {representation!r}"
+                    )
+                result.append(str(value))
+            return result
+
+    def _curve_lab_calibration_instrument(self, instrument: Mapping[str, Any]) -> Any:
+        terms = instrument["terms"]
+        trade_date = self._native_date(date.fromisoformat(str(instrument["trade_date"])))
+        start = self._native_date(date.fromisoformat(str(instrument["start_date"])))
+        maturity = self._native_date(date.fromisoformat(str(instrument["maturity_date"])))
+        market_rate = float(instrument["normalized_quote"])
+
+        def rate_index(prefix: str = "") -> Any:
+            return self._dal.RateIndexConvention_New(
+                self._dal.PeriodLength_New(
+                    str(
+                        terms.get(
+                            f"{prefix}forecast_tenor",
+                            terms.get("forecast_tenor", "3M"),
+                        )
+                    )
+                ),
+                self._dal.DayBasis_New(
+                    str(
+                        terms.get(
+                            f"{prefix}day_basis",
+                            terms.get("day_basis", "ACT_365F"),
+                        )
+                    )
+                ),
+                self._dal.CollateralType_(
+                    str(
+                        terms.get(
+                            f"{prefix}collateral",
+                            terms.get("collateral", "OIS"),
+                        )
+                    )
+                ),
+                bool(
+                    terms.get(
+                        f"{prefix}use_projection_curve",
+                        terms.get("use_projection_curve", False),
+                    )
+                ),
+            )
+
+        def rate_leg(prefix: str) -> Any:
+            return self._dal.RateLegConvention_New(
+                self._dal.PeriodLength_New(str(terms.get(f"{prefix}_payment_frequency", "12M"))),
+                self._dal.DayBasis_New(str(terms.get(f"{prefix}_day_basis", "ACT_365F"))),
+            )
+
+        family = str(instrument["instrument_type"])
+        if family == "DEPOSIT":
+            return self._dal.Deposit_New(trade_date, start, maturity, market_rate, rate_index())
+        if family == "FRA":
+            return self._dal.FRA_New(trade_date, start, maturity, market_rate, rate_index())
+        if family == "FUTURE":
+            return self._dal.Future_New(
+                trade_date,
+                start,
+                maturity,
+                market_rate,
+                rate_index(),
+                float(terms.get("convexity_adjustment", 0)),
+            )
+        if family == "OIS":
+            return self._dal.OISSwap_New(
+                trade_date,
+                start,
+                maturity,
+                market_rate,
+                rate_leg("fixed"),
+                rate_index("float_"),
+                rate_leg("float"),
+            )
+        if family == "IRS":
+            return self._dal.Swap_New(
+                trade_date,
+                start,
+                maturity,
+                market_rate,
+                rate_leg("fixed"),
+                rate_index("float_"),
+                rate_leg("float"),
+            )
+        if family == "BASIS_SWAP":
+            return self._dal.BasisSwap_New(
+                trade_date,
+                start,
+                maturity,
+                market_rate,
+                rate_index("spread_"),
+                rate_leg("spread"),
+                rate_index("reference_"),
+                rate_leg("reference"),
+            )
+        if family == "XCCY":
+            raise ValueError("XCCY calibration requires a staged or joint XCCY build mode")
+        raise ValueError(f"unsupported Curve Lab calibration family {family!r}")
 
     def import_curve_lab_archive(self, payload: bytes) -> tuple[bytes, str]:
         """Round-trip one preflighted archive through the native reader."""
@@ -610,6 +855,294 @@ class DalGateway:
             raise TypeError("native archive bridge must return bytes")
         root_kind = "CURVE_SET" if native_type == "Bag" else "DISCOUNT_CURVE"
         return canonical, root_kind
+
+    def price_curve_lab_trades(
+        self,
+        document: Mapping[str, Any],
+        trades: list[dict[str, Any]],
+        evaluation_time: str,
+        base_currency: str,
+        *,
+        parameter_bumps: list[tuple[Mapping[str, Any], float]] | None = None,
+    ) -> list[dict[str, Any]]:
+        """Adapt normalized Curve Lab trades to the native pricing kernel."""
+
+        def native_index(terms: Mapping[str, Any], prefix: str = "") -> Any:
+            def field(name: str, default: Any) -> Any:
+                return terms.get(f"{prefix}{name}", terms.get(name, default))
+
+            return self._dal.RateIndexConvention_New(
+                self._dal.PeriodLength_New(str(field("forecast_tenor", "3M"))),
+                self._dal.DayBasis_New(str(field("day_basis", "ACT_365F"))),
+                self._dal.CollateralType_(str(field("collateral", "OIS"))),
+                bool(field("use_projection_curve", False)),
+            )
+
+        def native_leg(terms: Mapping[str, Any], prefix: str) -> Any:
+            return self._dal.RateLegConvention_New(
+                self._dal.PeriodLength_New(str(terms.get(f"{prefix}_payment_frequency", "12M"))),
+                self._dal.DayBasis_New(str(terms.get(f"{prefix}_day_basis", "ACT_365F"))),
+            )
+
+        def fixing(terms: Mapping[str, Any], prefix: str = "") -> Any:
+            result = self._dal.FixingIdentity_()
+            result.index_name = str(terms.get(f"{prefix}index_name", terms.get("index_name", "")))
+            result.fixing_hour = int(
+                terms.get(f"{prefix}fixing_hour", terms.get("fixing_hour", 11))
+            )
+            result.fixing_minute = int(
+                terms.get(
+                    f"{prefix}fixing_minute",
+                    terms.get("fixing_minute", 0),
+                )
+            )
+            return result
+
+        def xccy_config(trade: Mapping[str, Any], terms: Mapping[str, Any]) -> Any:
+            pair_token = str(trade["currency_or_pair"]).replace("/", "-")
+            domestic, foreign = pair_token.split("-", 1)
+            spread_on_foreign = str(terms.get("spread_leg", "FOREIGN")) == "FOREIGN"
+            convention = self._dal.CrossCurrencyConvention_()
+            convention.initial_notional_exchange = bool(
+                terms.get("initial_notional_exchange", True)
+            )
+            convention.final_notional_exchange = bool(terms.get("final_notional_exchange", True))
+            convention.spread_on_foreign_leg = spread_on_foreign
+            convention.domestic_index = native_index(terms, "domestic_")
+            convention.domestic_leg = native_leg(terms, "domestic")
+            convention.foreign_index = native_index(terms, "foreign_")
+            convention.foreign_leg = native_leg(terms, "foreign")
+            builder = self._dal.CrossCurrencySwapConfigBuilder_()
+            builder.pair = self._dal.CurrencyPair_New(domestic, foreign)
+            builder.domestic_notional = float(terms["domestic_notional"])
+            builder.foreign_notional = float(terms["foreign_notional"])
+            builder.convention = convention
+            builder.notional_mode = self._dal.XccyNotionalMode.FIXED
+            builder.domestic_rate_fixing = fixing(terms, "domestic_")
+            builder.foreign_rate_fixing = fixing(terms, "foreign_")
+            return builder.Build()
+
+        with self._calibration_lock:
+            curves = self._curve_lab_passive_curves(document, parameter_bumps)
+            default_key = next(iter(curves))
+            valuation = datetime.fromisoformat(evaluation_time.replace("Z", "+00:00"))
+            native_time = self._dal.DateTime_(
+                self._native_date(valuation.date()),
+                valuation.hour,
+                valuation.minute,
+                valuation.second,
+            )
+            fixing_snapshot = self._dal.MarketFixingSnapshot_New({})
+            xccy_trade = next(
+                (trade for trade in trades if trade["instrument_type"] == "XCCY"),
+                None,
+            )
+            native_xccy_market = None
+            if xccy_trade is not None:
+                pair_token = str(xccy_trade["currency_or_pair"]).replace("/", "-")
+                domestic, foreign = pair_token.split("-", 1)
+
+                def curve_block(currency: str) -> Any:
+                    discounts: dict[Any, Any] = {}
+                    forwards: dict[Any, Any] = {}
+                    for declaration in document["declarations"]:
+                        if str(declaration["currency"]) != currency:
+                            continue
+                        key = str(declaration["component_key"])
+                        if declaration["role"] == "DISCOUNT":
+                            collateral = key.rsplit("/", 1)[-1]
+                            discounts[self._dal.CollateralType_(collateral)] = curves[key]
+                        elif declaration["role"] == "PROJECTION":
+                            tenor = key.rsplit("/", 1)[-1]
+                            forwards[self._dal.PeriodLength_New(tenor)] = curves[key]
+                    if not discounts:
+                        raise ValueError(
+                            f"XCCY pricing is missing a discount declaration for {currency}"
+                        )
+                    return self._dal.CurveBlock_New(
+                        f"curve-lab-{currency}",
+                        currency,
+                        discounts,
+                        forwards,
+                        self._dal.DayBasis_New("ACT_365F"),
+                    )
+
+                basis_curve = next(
+                    (
+                        curves[str(declaration["component_key"])]
+                        for declaration in document["declarations"]
+                        if declaration["role"] == "BASIS"
+                    ),
+                    None,
+                )
+                native_xccy_market = self._dal.CrossCurrencyMarket_New(
+                    domestic_block=curve_block(domestic),
+                    foreign_block=curve_block(foreign),
+                    fx_spot=float(xccy_trade["terms"]["fx_spot"]),
+                    valuation_time=native_time,
+                    collateral_currency=domestic,
+                    fixings=fixing_snapshot,
+                    basis_curve=basis_curve,
+                )
+            native_market = self._dal.RatePricingMarket_(
+                valuation_time=native_time,
+                result_currency=base_currency,
+                curve_components=curves,
+                xccy_market=native_xccy_market,
+                fixings=fixing_snapshot,
+            )
+            native_trades: list[Any] = []
+            native_positions: list[int] = []
+            result: list[dict[str, Any] | None] = [None] * len(trades)
+            for position, trade in enumerate(trades):
+                family = str(trade["instrument_type"])
+                terms = trade["terms"]
+                discount_key = str(terms.get("discount_component_key", default_key))
+                forecast_key = str(terms.get("forecast_component_key", discount_key))
+                if family == "DEPOSIT":
+                    native_terms = self._dal.DepositTradeTerms_(
+                        notional=float(terms["notional"]),
+                        contract_rate=float(terms["contract_rate"]),
+                        lend=str(terms["side"]) == "LEND",
+                        index=native_index(terms),
+                        discount_component_key=discount_key,
+                    )
+                elif family == "FRA":
+                    native_terms = self._dal.FraTradeTerms_(
+                        notional=float(terms["notional"]),
+                        contract_rate=float(terms["contract_rate"]),
+                        receive_floating=(str(terms["side"]) == "RECEIVE_FLOATING"),
+                        settle_at_start=(
+                            str(terms.get("settlement_style", "AT_START_DISCOUNTED"))
+                            == "AT_START_DISCOUNTED"
+                        ),
+                        index=native_index(terms),
+                        fixing_identity=fixing(terms),
+                        forecast_component_key=forecast_key,
+                        discount_component_key=discount_key,
+                    )
+                elif family == "FUTURE":
+                    native_terms = self._dal.FutureTradeTerms_(
+                        contract_count=float(terms["contract_count"]),
+                        long_position=str(terms["side"]) == "LONG",
+                        reference_price=float(terms["reference_price"]),
+                        contract_value_per_price_point=float(
+                            terms["contract_value_per_price_point"]
+                        ),
+                        convexity_adjustment=float(terms.get("convexity_adjustment", 0)),
+                        index=native_index(terms),
+                        fixing_identity=fixing(terms),
+                        forecast_component_key=forecast_key,
+                    )
+                elif family in {"OIS", "IRS"}:
+                    fixed_float = self._dal.FixedFloatTradeTerms_(
+                        notional=float(terms["notional"]),
+                        contract_rate=float(terms["contract_rate"]),
+                        pay_fixed=str(terms["side"]) == "PAY_FIXED",
+                        fixed_leg=native_leg(terms, "fixed"),
+                        float_leg=native_leg(terms, "float"),
+                        float_index=native_index(terms, "float_"),
+                        fixing_identity=fixing(terms, "float_"),
+                        forecast_component_key=forecast_key,
+                        discount_component_key=discount_key,
+                    )
+                    native_terms = (
+                        self._dal.OisTradeTerms_(value=fixed_float)
+                        if family == "OIS"
+                        else self._dal.IrsTradeTerms_(value=fixed_float)
+                    )
+                elif family == "BASIS_SWAP":
+                    native_terms = self._dal.BasisTradeTerms_(
+                        notional=float(terms["notional"]),
+                        contract_spread=float(terms["contract_spread"]),
+                        receive_reference_pay_spread=(
+                            str(terms["side"]) == "RECEIVE_REFERENCE_PAY_SPREAD"
+                        ),
+                        spread_leg=native_leg(terms, "spread"),
+                        reference_leg=native_leg(terms, "reference"),
+                        spread_index=native_index(terms, "spread_"),
+                        reference_index=native_index(terms, "reference_"),
+                        spread_fixing_identity=fixing(terms, "spread_"),
+                        reference_fixing_identity=fixing(terms, "reference_"),
+                        spread_forecast_component_key=str(
+                            terms.get("spread_forecast_component_key", forecast_key)
+                        ),
+                        reference_forecast_component_key=str(
+                            terms.get(
+                                "reference_forecast_component_key",
+                                forecast_key,
+                            )
+                        ),
+                        discount_component_key=discount_key,
+                    )
+                elif family == "XCCY":
+                    config = xccy_config(trade, terms)
+                    spread_on_foreign = str(terms.get("spread_leg", "FOREIGN")) == "FOREIGN"
+                    native_terms = self._dal.XccyTradeTerms_(
+                        position_count=float(terms["position_count"]),
+                        contract_spread=float(terms["contract_spread"]),
+                        spread_on_foreign_leg=spread_on_foreign,
+                        receive_non_spread_pay_spread=(
+                            str(terms["side"]) == "RECEIVE_NON_SPREAD_PAY_SPREAD"
+                        ),
+                        config=config,
+                    )
+                else:
+                    raise ValueError(f"unsupported Curve Lab pricing family {family!r}")
+                native_trades.append(
+                    self._dal.RateTradeDefinition_(
+                        instrument_id=str(trade["trade_id"]),
+                        instrument_type=getattr(
+                            self._dal.RateInstrumentType,
+                            family,
+                        ),
+                        trade_date=self._native_date(date.fromisoformat(str(trade["trade_date"]))),
+                        start_date=self._native_date(date.fromisoformat(str(trade["start_date"]))),
+                        maturity_date=self._native_date(
+                            date.fromisoformat(str(trade["maturity_date"]))
+                        ),
+                        currency=str(trade["currency_or_pair"]).split("-")[0],
+                        terms=native_terms,
+                    )
+                )
+                native_positions.append(position)
+
+            priced = self._dal.PriceRateTrades(
+                trades=native_trades,
+                market=native_market,
+            )
+            for position, row in zip(native_positions, priced, strict=True):
+                result[position] = {
+                    "trade_id": trades[position]["trade_id"],
+                    "instrument_type": trades[position]["instrument_type"],
+                    "succeeded": bool(row.succeeded),
+                    "pv": str(row.pv),
+                    "currency": str(row.currency),
+                    "required_historical_fixings": list(row.required_historical_fixings),
+                    "missing_historical_fixings": list(row.missing_historical_fixings),
+                    "dependency_component_keys": list(row.dependency_component_keys),
+                    "error": str(row.error),
+                }
+            return [row for row in result if row is not None]
+
+    def price_curve_lab_parameter_bump(
+        self,
+        document: Mapping[str, Any],
+        trades: list[dict[str, Any]],
+        evaluation_time: str,
+        base_currency: str,
+        parameter_axis: Mapping[str, Any],
+        bump: float,
+    ) -> list[dict[str, Any]]:
+        """Reprice after one calibrated native parameter is shifted."""
+
+        return self.price_curve_lab_trades(
+            document,
+            trades,
+            evaluation_time,
+            base_currency,
+            parameter_bumps=[(parameter_axis, bump)],
+        )
 
     def _native_date(self, value: date) -> Any:
         return self.make_date(value.year, value.month, value.day)
@@ -1494,9 +2027,7 @@ def _native_joint_curve_payload(
     node_dates, parameters, day_count = _native_curve_state(parameterization, curve)
     actual_scheme = _native_curve_log_df_scheme(parameterization, curve)
     if actual_scheme != declaration.log_df_scheme:
-        raise RuntimeError(
-            "native curve log-DF scheme does not match the admitted declaration"
-        )
+        raise RuntimeError("native curve log-DF scheme does not match the admitted declaration")
     return {
         "name": declaration.curve_name,
         "currency": currency,
@@ -1817,9 +2348,7 @@ def _validate_native_matrix_shape(
 ) -> None:
     if not row_axis or not column_axis:
         raise RuntimeError("native available matrix must have positive dimensions")
-    if (
-        len(values) != len(row_axis) or any(len(row) != len(column_axis) for row in values)
-    ):
+    if len(values) != len(row_axis) or any(len(row) != len(column_axis) for row in values):
         raise RuntimeError("native matrix shape does not match its response axes")
 
 
@@ -1838,9 +2367,7 @@ def _native_single_curve_payload(
     node_dates, parameters, day_count = _native_curve_state(parameterization, curve)
     actual_scheme = _native_curve_log_df_scheme(parameterization, curve)
     if actual_scheme != request.declaration.log_df_scheme:
-        raise RuntimeError(
-            "native curve log-DF scheme does not match the admitted declaration"
-        )
+        raise RuntimeError("native curve log-DF scheme does not match the admitted declaration")
     return {
         "name": request.declaration.curve_name,
         "currency": request.currency,
@@ -2249,9 +2776,7 @@ def _fallback_joint_result(request: object) -> GatewayCalibrationResult:
         parameter_offset += parameter_size
         residual_offset += len(instruments)
     parameter_axis = _joint_parameter_axis(request, parameter_ranges)
-    residual_axis = [
-        f"residual:{diagnostic.instrument_id}" for diagnostic in diagnostics
-    ]
+    residual_axis = [f"residual:{diagnostic.instrument_id}" for diagnostic in diagnostics]
     jacobian, inverse = _fallback_matrices(
         request,
         parameter_axis,

@@ -136,6 +136,25 @@ class CurveLabCapabilitiesResponse(CurveLabWireModel):
         "PRICE_POINTS",
     )
     max_quote_bytes: Literal[512] = 512
+    risk_limits: dict[str, int] = Field(
+        default_factory=lambda: {
+            "trades": 1_000,
+            "parameters": 500,
+            "quotes": 500,
+            "price_evaluations": 100_000,
+            "calibration_solves": 1_002,
+            "aad_recordings": 1_000,
+            "estimated_wall_millis": 900_000,
+        }
+    )
+    risk_cost_coefficients: dict[str, int] = Field(
+        default_factory=lambda: {
+            "context_build_millis": 1,
+            "price_evaluation_millis": 1,
+            "calibration_solve_millis": 10,
+            "aad_recording_overhead_millis": 1,
+        }
+    )
 
 
 class CurveLabRegistryEntryDTO(CurveLabWireModel):
@@ -272,6 +291,47 @@ class CurveDraftResponse(CurveLabWireModel):
     updated_at: datetime
 
 
+class QuoteAxisEntryV2(CurveLabWireModel):
+    model_config = ConfigDict(extra="forbid", validate_default=True, frozen=True)
+
+    global_quote_index: Annotated[int, Field(ge=0)]
+    quote_id: str
+    instrument_id: str
+    component_key: str
+    stage_id: str
+    group_id: str
+    stage_local_quote_index: Annotated[int, Field(ge=0)]
+    quote_coordinate_kind: QuoteCoordinateKind
+    canonical_raw_unit: CanonicalRawUnit
+    raw_quote: CanonicalQuoteDecimalV1
+    normalized_quote: CanonicalQuoteDecimalV1
+    normalized_unit: Literal["DECIMAL_RATE"] = "DECIMAL_RATE"
+    exact_risk_raw_bump: CanonicalQuoteDecimalV1
+    normalized_risk_bump: CanonicalQuoteDecimalV1
+    display_label: str
+
+
+class ParameterAxisEntryV2(CurveLabWireModel):
+    model_config = ConfigDict(extra="forbid", validate_default=True, frozen=True)
+
+    global_parameter_index: Annotated[int, Field(ge=0)]
+    parameter_id: str
+    component_key: str
+    stage_id: str
+    stage_local_parameter_index: Annotated[int, Field(ge=0)]
+    component_local_parameter_index: Annotated[int, Field(ge=0)]
+    coordinate_kind: Literal[
+        "PIECEWISE_CONSTANT_FWD",
+        "PIECEWISE_LINEAR_FWD",
+        "ZERO_RATE",
+        "LOG_DISCOUNT",
+    ]
+    node_date: date
+    side: Literal["LEFT", "RIGHT"] | None
+    native_parameter_unit: str
+    display_label: str
+
+
 class CurveBuildRunResponse(CurveLabWireModel):
     id: Annotated[str, Field(pattern=r"^[0-9a-f]{32}$")]
     draft_id: Annotated[str, Field(pattern=r"^[0-9a-f]{32}$")]
@@ -291,6 +351,8 @@ class CurveBuildRunResponse(CurveLabWireModel):
     ]
     stale: bool
     request: CurveDraftDocumentV2
+    quote_axis: tuple[QuoteAxisEntryV2, ...]
+    parameter_axis: tuple[ParameterAxisEntryV2, ...]
     native_payload_hash: Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")] | None = None
     error: CurveLabErrorDetail | None = None
     created_at: datetime
@@ -336,3 +398,115 @@ class CurveImportJobResponse(CurveLabWireModel):
     error: CurveLabErrorDetail | None = None
     created_at: datetime
     finished_at: datetime | None = None
+
+
+RiskMeasureV2 = Literal["PV", "DV01", "KEY_RATE_DV01"]
+SensitivityLayerV2 = Literal[
+    "TRADE_TO_NODE",
+    "CALIBRATION_JACOBIAN",
+    "COMPOSED_QUOTE_DIAGNOSTIC",
+]
+
+
+class RateTradeDefinitionInputV2(CurveLabWireModel):
+    trade_id: Annotated[str, Field(pattern=r"^[0-9a-f]{32}$")]
+    instrument_type: CurveLabV1SuccessFamily
+    trade_date: date
+    start_date: date
+    maturity_date: date
+    currency_or_pair: Annotated[str, Field(min_length=3, max_length=32)]
+    terms: dict[str, object]
+
+
+class RiskTargetV2(CurveLabWireModel):
+    trades: tuple[RateTradeDefinitionInputV2, ...]
+
+
+class RiskRunOptionsV2(CurveLabWireModel):
+    aad_fallback: Literal["ALLOW", "FORBID"] = "ALLOW"
+    jacobian_replay_fallback: Literal["ALLOW", "FORBID"] = "ALLOW"
+
+
+class RiskRunRequestV2(CurveLabWireModel):
+    curve_version_id: Annotated[str, Field(pattern=r"^[0-9a-f]{32}$")]
+    target: RiskTargetV2
+    measures: tuple[RiskMeasureV2, ...]
+    sensitivity_layers: tuple[SensitivityLayerV2, ...] = ()
+    fixing_snapshot_id: Annotated[str, Field(min_length=1, max_length=256)]
+    evaluation_time: datetime
+    base_currency: Annotated[str, Field(min_length=3, max_length=16)]
+    options: RiskRunOptionsV2 = Field(default_factory=RiskRunOptionsV2)
+
+    @model_validator(mode="after")
+    def _validate_sets(self) -> RiskRunRequestV2:
+        if not self.measures:
+            raise ValueError("measures must be a non-empty set")
+        if len(set(self.measures)) != len(self.measures):
+            raise ValueError("measures must not contain duplicates")
+        if len(set(self.sensitivity_layers)) != len(self.sensitivity_layers):
+            raise ValueError("sensitivity_layers must not contain duplicates")
+        return self
+
+
+class RiskWorkEstimateV2(CurveLabWireModel):
+    T: Annotated[int, Field(ge=0)]
+    T_aad: Annotated[int, Field(ge=0)]
+    P: Annotated[int, Field(ge=0)]
+    Q: Annotated[int, Field(ge=0)]
+    I_node: Literal[0, 1]
+    N_param: Annotated[int, Field(ge=0)]
+    N_aad: Annotated[int, Field(ge=0)]
+    N_quote: Annotated[int, Field(ge=0)]
+    N_jac: Annotated[int, Field(ge=0)]
+    parameter_bump_price_evaluations: Annotated[int, Field(ge=0)]
+    aad_price_evaluations: Annotated[int, Field(ge=0)]
+    quote_bump_price_evaluations: Annotated[int, Field(ge=0)]
+    contexts: Annotated[int, Field(ge=0)]
+    price_evaluations: Annotated[int, Field(ge=0)]
+    calibration_solves: Annotated[int, Field(ge=0)]
+    aad_recordings: Annotated[int, Field(ge=0)]
+    estimated_wall_millis: Annotated[int, Field(ge=0)]
+    overflow: bool = False
+
+
+class RiskRunResponseV2(CurveLabWireModel):
+    id: Annotated[str, Field(pattern=r"^[0-9a-f]{32}$")]
+    curve_version_id: Annotated[str, Field(pattern=r"^[0-9a-f]{32}$")]
+    calibration_run_id: str | None
+    import_job_id: str | None
+    source_kind: Literal["BUILD_VERSION", "IMPORT_VERSION"]
+    request: RiskRunRequestV2
+    target_fingerprint: Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
+    quote_axis: tuple[QuoteAxisEntryV2, ...] | None
+    parameter_axis: tuple[ParameterAxisEntryV2, ...]
+    estimated_work: RiskWorkEstimateV2
+    state: Literal["QUEUED", "RUNNING", "SUCCEEDED", "FAILED", "TIMED_OUT"]
+    result: dict[str, object] | None
+    error: CurveLabErrorDetail | None
+    created_at: datetime
+    finished_at: datetime | None
+
+
+class MatrixResultV2(CurveLabWireModel):
+    matrix_id: str
+    mathematical_name: str
+    orientation: str
+    row_axis_ref: str
+    column_axis_ref: str
+    rows: Annotated[int, Field(ge=0)]
+    columns: Annotated[int, Field(ge=0)]
+    availability: Literal[
+        "AVAILABLE",
+        "NOT_REQUESTED",
+        "NOT_AVAILABLE_FOR_MODE",
+        "FAILED",
+    ]
+    availability_reason_code: str | None = None
+    availability_reason: str | None = None
+    method: str
+    bump_target: str | None = None
+    bump_size: str | None = None
+    input_unit: str
+    output_unit: str
+    values: tuple[tuple[str, ...], ...] | None = None
+    failure: CurveLabErrorDetail | None = None

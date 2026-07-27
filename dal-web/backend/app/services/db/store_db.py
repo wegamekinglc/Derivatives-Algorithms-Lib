@@ -39,6 +39,8 @@ from app.services.db.models import (
     CurveLabBuildRunRow,
     CurveLabDraftRow,
     CurveLabImportJobRow,
+    CurveLabMatrixBlobRow,
+    CurveLabRiskRunRow,
     CurveLabVersionRow,
     ModelRow,
     PortfolioRow,
@@ -100,8 +102,13 @@ class DbStore:
             "draft_fingerprint": row.draft_fingerprint,
             "state": row.state,
             "request": row.request_json,
+            "resolved_plan": row.resolved_plan_json,
+            "quote_axis": row.quote_axis_json or [],
+            "parameter_axis": row.parameter_axis_json or [],
+            "dependency_manifest": row.dependency_manifest_json,
             "native_payload": row.native_payload,
             "native_payload_hash": row.native_payload_hash,
+            "diagnostics": row.diagnostics_json,
             "error": row.error_json,
             "created_at": row.created_at,
             "finished_at": row.finished_at,
@@ -168,6 +175,41 @@ class DbStore:
             created_at=record["created_at"],
             finished_at=record.get("finished_at"),
         )
+
+    @staticmethod
+    def _curve_lab_import_job_dict(row: CurveLabImportJobRow) -> dict:
+        return {
+            "id": row.id,
+            "request_hash": row.request_hash,
+            "compressed_payload_length": row.compressed_payload_length,
+            "expanded_payload_length": row.expanded_payload_length,
+            "state": row.state,
+            "phase": row.phase,
+            "error": row.error_json,
+            "resulting_version_id": row.resulting_version_id,
+            "created_at": row.created_at,
+            "finished_at": row.finished_at,
+        }
+
+    @staticmethod
+    def _curve_lab_risk_run_dict(row: CurveLabRiskRunRow) -> dict:
+        return {
+            "id": row.id,
+            "curve_version_id": row.curve_version_id,
+            "calibration_run_id": row.calibration_run_id,
+            "import_job_id": row.import_job_id,
+            "source_kind": row.source_kind,
+            "request": row.request_json,
+            "target_fingerprint": row.target_fingerprint,
+            "quote_axis": row.quote_axis_json,
+            "parameter_axis": row.parameter_axis_json,
+            "estimated_work": row.estimated_work_json,
+            "state": row.state,
+            "result": row.result_json,
+            "error": row.error_json,
+            "created_at": row.created_at,
+            "finished_at": row.finished_at,
+        }
 
     # -- products --------------------------------------------------------
 
@@ -839,6 +881,13 @@ class DbStore:
             session.commit()
             return record
 
+    def get_curve_lab_import_job(self, job_id: str) -> dict:
+        with self._session() as session:
+            row = session.get(CurveLabImportJobRow, job_id)
+            if row is None:
+                raise NotFoundError(f"curve import job {job_id}")
+            return self._curve_lab_import_job_dict(row)
+
     def publish_curve_lab_import(
         self, version_record: dict, job_record: dict
     ) -> tuple[dict, dict]:
@@ -861,6 +910,74 @@ class DbStore:
             session.add(self._curve_lab_import_job_row(stored_job))
             session.commit()
             return self._curve_lab_version_dict(version), stored_job
+
+    def publish_curve_lab_risk_run(
+        self, record: dict, matrices: list[dict]
+    ) -> dict:
+        with self._session() as session:
+            row = CurveLabRiskRunRow(
+                id=record["id"],
+                curve_version_id=record["curve_version_id"],
+                calibration_run_id=record.get("calibration_run_id"),
+                import_job_id=record.get("import_job_id"),
+                source_kind=record["source_kind"],
+                request_json=record["request"],
+                target_fingerprint=record["target_fingerprint"],
+                quote_axis_json=record.get("quote_axis"),
+                parameter_axis_json=record["parameter_axis"],
+                estimated_work_json=record["estimated_work"],
+                state=record["state"],
+                result_json=record.get("result"),
+                error_json=record.get("error"),
+                created_at=record["created_at"],
+                finished_at=record.get("finished_at"),
+            )
+            session.add(row)
+            session.flush()
+            for matrix in matrices:
+                envelope = {
+                    key: value for key, value in matrix.items() if key != "values"
+                }
+                values = matrix.get("values")
+                session.add(
+                    CurveLabMatrixBlobRow(
+                        risk_run_id=record["id"],
+                        matrix_id=matrix["matrix_id"],
+                        envelope_json=envelope,
+                        values_blob=(
+                            json.dumps(
+                                values,
+                                ensure_ascii=True,
+                                separators=(",", ":"),
+                            ).encode("ascii")
+                            if values is not None
+                            else None
+                        ),
+                    )
+                )
+            session.commit()
+            return self._curve_lab_risk_run_dict(row)
+
+    def get_curve_lab_risk_run(self, run_id: str) -> dict:
+        with self._session() as session:
+            row = session.get(CurveLabRiskRunRow, run_id)
+            if row is None:
+                raise NotFoundError(f"curve risk run {run_id}")
+            return self._curve_lab_risk_run_dict(row)
+
+    def get_curve_lab_matrix(self, run_id: str, matrix_id: str) -> dict:
+        with self._session() as session:
+            row = session.get(CurveLabMatrixBlobRow, (run_id, matrix_id))
+            if row is None:
+                raise NotFoundError(f"curve matrix {run_id}/{matrix_id}")
+            return {
+                **row.envelope_json,
+                **(
+                    {"values": json.loads(row.values_blob)}
+                    if row.values_blob is not None
+                    else {}
+                ),
+            }
 
     def add_curve_lab_audit_event(self, record: dict) -> None:
         with self._session() as session:

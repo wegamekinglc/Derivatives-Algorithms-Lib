@@ -567,6 +567,39 @@ class CurveLabImportJobRow(Base):
     finished_at: Mapped[str | None] = mapped_column(String(40), nullable=True)
 
 
+class CurveLabRiskRunRow(Base):
+    __tablename__ = "curve_risk_runs"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    curve_version_id: Mapped[str] = mapped_column(
+        ForeignKey("curve_versions.id", ondelete="RESTRICT"), nullable=False
+    )
+    calibration_run_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    import_job_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    source_kind: Mapped[str] = mapped_column(String(32), nullable=False)
+    request_json: Mapped[dict] = mapped_column(JSON, nullable=False)
+    target_fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
+    quote_axis_json: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    parameter_axis_json: Mapped[list] = mapped_column(JSON, nullable=False)
+    estimated_work_json: Mapped[dict] = mapped_column(JSON, nullable=False)
+    state: Mapped[str] = mapped_column(String(32), nullable=False)
+    result_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    error_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    created_at: Mapped[str] = mapped_column(String(40), nullable=False)
+    finished_at: Mapped[str | None] = mapped_column(String(40), nullable=True)
+
+
+class CurveLabMatrixBlobRow(Base):
+    __tablename__ = "curve_matrix_blobs"
+
+    risk_run_id: Mapped[str] = mapped_column(
+        ForeignKey("curve_risk_runs.id", ondelete="CASCADE"), primary_key=True
+    )
+    matrix_id: Mapped[str] = mapped_column(String(128), primary_key=True)
+    envelope_json: Mapped[dict] = mapped_column(JSON, nullable=False)
+    values_blob: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
+
+
 class CurveLabAuditEventRow(Base):
     __tablename__ = "curve_audit_events"
 

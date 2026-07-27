@@ -158,9 +158,15 @@ class StoreProtocol(Protocol):
     def list_curve_lab_versions(self, include_archived: bool) -> list[dict]: ...
     def archive_curve_lab_version(self, version_id: str) -> dict: ...
     def add_curve_lab_import_job(self, record: dict) -> dict: ...
+    def get_curve_lab_import_job(self, job_id: str) -> dict: ...
     def publish_curve_lab_import(
         self, version_record: dict, job_record: dict
     ) -> tuple[dict, dict]: ...
+    def publish_curve_lab_risk_run(
+        self, record: dict, matrices: list[dict]
+    ) -> dict: ...
+    def get_curve_lab_risk_run(self, run_id: str) -> dict: ...
+    def get_curve_lab_matrix(self, run_id: str, matrix_id: str) -> dict: ...
     def add_curve_lab_audit_event(self, record: dict) -> None: ...
 
 
@@ -180,6 +186,8 @@ class Store:
         self._curve_lab_versions: dict[str, dict] = {}
         self._curve_lab_version_idempotency: dict[str, str] = {}
         self._curve_lab_import_jobs: dict[str, dict] = {}
+        self._curve_lab_risk_runs: dict[str, dict] = {}
+        self._curve_lab_matrices: dict[tuple[str, str], dict] = {}
         self._curve_lab_audit_events: list[dict] = []
 
     # -- products --------------------------------------------------------
@@ -680,6 +688,13 @@ class Store:
             self._curve_lab_import_jobs[stored["id"]] = stored
             return deepcopy(stored)
 
+    def get_curve_lab_import_job(self, job_id: str) -> dict:
+        with self._lock:
+            try:
+                return deepcopy(self._curve_lab_import_jobs[job_id])
+            except KeyError as exc:
+                raise NotFoundError(f"curve import job {job_id}") from exc
+
     def publish_curve_lab_import(
         self, version_record: dict, job_record: dict
     ) -> tuple[dict, dict]:
@@ -697,6 +712,35 @@ class Store:
                     )
                 raise
             return deepcopy(version), deepcopy(stored_job)
+
+    def publish_curve_lab_risk_run(
+        self, record: dict, matrices: list[dict]
+    ) -> dict:
+        with self._lock:
+            stored = deepcopy(record)
+            staged = {
+                (stored["id"], matrix["matrix_id"]): deepcopy(matrix)
+                for matrix in matrices
+            }
+            self._curve_lab_risk_runs[stored["id"]] = stored
+            self._curve_lab_matrices.update(staged)
+            return deepcopy(stored)
+
+    def get_curve_lab_risk_run(self, run_id: str) -> dict:
+        with self._lock:
+            try:
+                return deepcopy(self._curve_lab_risk_runs[run_id])
+            except KeyError as exc:
+                raise NotFoundError(f"curve risk run {run_id}") from exc
+
+    def get_curve_lab_matrix(self, run_id: str, matrix_id: str) -> dict:
+        with self._lock:
+            try:
+                return deepcopy(self._curve_lab_matrices[(run_id, matrix_id)])
+            except KeyError as exc:
+                raise NotFoundError(
+                    f"curve matrix {run_id}/{matrix_id}"
+                ) from exc
 
     def add_curve_lab_audit_event(self, record: dict) -> None:
         with self._lock:
