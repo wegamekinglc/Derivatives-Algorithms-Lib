@@ -264,22 +264,84 @@ def create_build_run(
     store: StoreProtocol, gateway: DalGateway, draft_id: str
 ) -> dict:
     draft = get_draft(store, draft_id)
-    native_payload = gateway.build_curve_lab_archive(draft["document"])
+    document = draft["document"]
+    quote_coordinates = quote_axis(document)
+    parameter_coordinates = parameter_axis(document)
+    resolved_plan = {
+        "schema_version": 1,
+        "mode": document["mode"],
+        "component_order": [
+            declaration["component_key"]
+            for declaration in document["declarations"]
+        ],
+        "quote_count": len(quote_coordinates),
+        "parameter_count": len(parameter_coordinates),
+    }
     now = _now()
+    run_id = uuid4().hex
+    try:
+        native_payload = gateway.build_curve_lab_archive(document)
+    except Exception:  # noqa: BLE001 - native failure becomes immutable evidence
+        error = {
+            "code": "NATIVE_BUILD_FAILED",
+            "message": "Native curve construction failed.",
+            "field": "draft_id",
+            "value": draft_id,
+            "resource_id": run_id,
+            "details": {},
+        }
+        record = {
+            "id": run_id,
+            "draft_id": draft_id,
+            "draft_revision": draft["revision"],
+            "draft_fingerprint": draft["fingerprint"],
+            "state": "FAILED",
+            "request": document,
+            "resolved_plan": resolved_plan,
+            "quote_axis": quote_coordinates,
+            "parameter_axis": parameter_coordinates,
+            "dependency_manifest": list(document["dependency_version_ids"]),
+            "native_payload": None,
+            "native_payload_hash": None,
+            "diagnostics": {
+                "fit_state": "FAILED",
+                "quote_count": len(quote_coordinates),
+                "parameter_count": len(parameter_coordinates),
+            },
+            "error": error,
+            "created_at": now,
+            "finished_at": _now(),
+        }
+        stored = store.add_curve_lab_build_run(record)
+        _audit(
+            store,
+            "BUILD_FAILED",
+            "curve_build_run",
+            run_id,
+            document,
+            outcome="FAILED",
+            error_code=error["code"],
+        )
+        return _build_public(store, stored)
     record = {
-        "id": uuid4().hex,
+        "id": run_id,
         "draft_id": draft_id,
         "draft_revision": draft["revision"],
         "draft_fingerprint": draft["fingerprint"],
         "state": "SUCCEEDED",
-        "request": draft["document"],
-        "resolved_plan": {"schema_version": 1},
-        "quote_axis": quote_axis(draft["document"]),
-        "parameter_axis": parameter_axis(draft["document"]),
-        "dependency_manifest": list(draft["document"]["dependency_version_ids"]),
+        "request": document,
+        "resolved_plan": resolved_plan,
+        "quote_axis": quote_coordinates,
+        "parameter_axis": parameter_coordinates,
+        "dependency_manifest": list(document["dependency_version_ids"]),
         "native_payload": native_payload,
         "native_payload_hash": hashlib.sha256(native_payload).hexdigest(),
-        "diagnostics": {"fit": "PENDING_NATIVE_ADAPTER"},
+        "diagnostics": {
+            "fit_state": "NATIVE_ARCHIVE_VALIDATED",
+            "quote_count": len(quote_coordinates),
+            "parameter_count": len(parameter_coordinates),
+            "payload_bytes": len(native_payload),
+        },
         "error": None,
         "created_at": now,
         "finished_at": now,
@@ -394,9 +456,6 @@ def _build_public(store: StoreProtocol, record: dict) -> dict:
         if key
         not in {
             "native_payload",
-            "resolved_plan",
-            "dependency_manifest",
-            "diagnostics",
         }
     }
 

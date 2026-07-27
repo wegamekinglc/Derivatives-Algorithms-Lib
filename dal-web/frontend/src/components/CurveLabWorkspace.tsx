@@ -429,6 +429,11 @@ export default function CurveLabWorkspace() {
                 <div {...css("card")}><h3>Quotes</h3><div {...css("metric")}>{build.quote_axis.length}</div></div>
                 <div {...css("card")}><h3>Parameters</h3><div {...css("metric")}>{build.parameter_axis.length}</div></div>
               </div>
+              <p {...css("muted", "mono")}>
+                {String(build.diagnostics?.fit_state ?? "NO_DIAGNOSTICS")} ·{" "}
+                {String(build.resolved_plan.mode ?? "UNKNOWN_MODE")} ·{" "}
+                {build.dependency_manifest.length} dependencies
+              </p>
               <div {...css("matrix-grid")}>
                 <AxisTable title="Quote axis" rows={build.quote_axis} />
                 <AxisTable title="Parameter axis" rows={build.parameter_axis} />

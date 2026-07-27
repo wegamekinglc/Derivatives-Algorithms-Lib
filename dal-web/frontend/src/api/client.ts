@@ -172,8 +172,11 @@ export interface CurveLabBuildRun {
   state: string;
   stale: boolean;
   request: Record<string, unknown>;
+  resolved_plan: Record<string, unknown>;
   quote_axis: CurveLabAxisEntry[];
   parameter_axis: CurveLabAxisEntry[];
+  dependency_manifest: string[];
+  diagnostics: Record<string, unknown> | null;
   native_payload_hash: string | null;
   error: { code: string; message: string; field: string } | null;
   created_at: string;

@@ -25,6 +25,7 @@ const build = {
   state: "SUCCEEDED",
   stale: false,
   request: {},
+  resolved_plan: { mode: "SINGLE" },
   quote_axis: [{
     global_quote_index: 0,
     quote_id: "2".repeat(32),
@@ -40,6 +41,8 @@ const build = {
     coordinate_kind: "PIECEWISE_CONSTANT_FWD",
     node_date: "2027-01-15",
   }],
+  dependency_manifest: [],
+  diagnostics: { fit_state: "NATIVE_ARCHIVE_VALIDATED" },
   native_payload_hash: "3".repeat(64),
   error: null,
   created_at: "2026-01-15T00:00:00Z",

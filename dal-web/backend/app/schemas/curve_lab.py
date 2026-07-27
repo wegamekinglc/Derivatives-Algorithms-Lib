@@ -351,8 +351,11 @@ class CurveBuildRunResponse(CurveLabWireModel):
     ]
     stale: bool
     request: CurveDraftDocumentV2
+    resolved_plan: dict[str, object]
     quote_axis: tuple[QuoteAxisEntryV2, ...]
     parameter_axis: tuple[ParameterAxisEntryV2, ...]
+    dependency_manifest: tuple[str, ...]
+    diagnostics: dict[str, object] | None
     native_payload_hash: Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")] | None = None
     error: CurveLabErrorDetail | None = None
     created_at: datetime

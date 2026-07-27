@@ -567,6 +567,25 @@
             "title": "Created At",
             "type": "string"
           },
+          "dependency_manifest": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Dependency Manifest",
+            "type": "array"
+          },
+          "diagnostics": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Diagnostics"
+          },
           "draft_fingerprint": {
             "pattern": "^[0-9a-f]{64}$",
             "title": "Draft Fingerprint",
@@ -638,6 +657,11 @@
           "request": {
             "$ref": "#/components/schemas/CurveDraftDocumentV2"
           },
+          "resolved_plan": {
+            "additionalProperties": true,
+            "title": "Resolved Plan",
+            "type": "object"
+          },
           "stale": {
             "title": "Stale",
             "type": "boolean"
@@ -667,8 +691,11 @@
           "state",
           "stale",
           "request",
+          "resolved_plan",
           "quote_axis",
           "parameter_axis",
+          "dependency_manifest",
+          "diagnostics",
           "created_at"
         ],
         "title": "CurveBuildRunResponse",

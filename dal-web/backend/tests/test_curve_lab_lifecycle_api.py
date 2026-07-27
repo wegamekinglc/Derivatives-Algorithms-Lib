@@ -500,3 +500,30 @@ def test_curve_lab_migration_upgrade_downgrade_upgrade(
     command.upgrade(config, "head")
     names = set(inspect(create_engine(f"sqlite:///{database}")).get_table_names())
     assert "curve_versions" in names
+
+
+def test_native_build_failure_is_persisted_and_restart_readable(
+    client, monkeypatch
+) -> None:
+    import app.services.dal_gateway as gateway_module
+
+    draft = client.post("/api/curve-lab/drafts", json=_document()).json()
+    gateway = gateway_module.get_gateway()
+
+    def fail_native_build(_document) -> bytes:
+        raise ValueError("deliberate native failure")
+
+    monkeypatch.setattr(gateway, "build_curve_lab_archive", fail_native_build)
+
+    response = client.post(f"/api/curve-lab/drafts/{draft['id']}/build-runs")
+
+    assert response.status_code == 202
+    run = response.json()
+    assert run["state"] == "FAILED"
+    assert run["native_payload_hash"] is None
+    assert run["error"]["code"] == "NATIVE_BUILD_FAILED"
+    assert "deliberate native failure" not in run["error"]["message"]
+    assert run["resolved_plan"]["mode"] == "SINGLE"
+    assert run["diagnostics"]["fit_state"] == "FAILED"
+    assert client.get(f"/api/curve-lab/build-runs/{run['id']}").json() == run
+    assert client.get("/api/curve-lab/versions").json() == []
