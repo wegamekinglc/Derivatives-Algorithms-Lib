@@ -14,6 +14,11 @@ RISK_SURFACES = (
     *(FRONTEND / "curves").glob("*.ts"),
     *(FRONTEND / "curves").glob("*.tsx"),
 )
+AUTHORING_SURFACES = (
+    FRONTEND / "components" / "CurveLabQuoteAuthoring.tsx",
+    FRONTEND / "curves" / "curveLabRegistry.ts",
+    FRONTEND / "api" / "client.ts",
+)
 
 PROHIBITED = (
     (
@@ -29,6 +34,16 @@ PROHIBITED = (
         "frontend quote-bump code must not perform matrix multiplication",
     ),
 )
+PROHIBITED_AUTHORING = (
+    (
+        re.compile(r"\b(?:Number|parseFloat|parseInt)\s*\("),
+        "Curve Lab authoring must not convert financial strings to binary numbers",
+    ),
+    (
+        re.compile(r"(?:/\s*100\b|\*\s*100\b)"),
+        "Curve Lab authoring must delegate percent/price transforms to the exact-decimal adapter",
+    ),
+)
 
 
 def main() -> int:
@@ -41,11 +56,19 @@ def main() -> int:
                 violations.append(
                     f"{path.relative_to(ROOT)}:{line}: {message}"
                 )
+    for path in AUTHORING_SURFACES:
+        source = path.read_text(encoding="utf-8")
+        for pattern, message in PROHIBITED_AUTHORING:
+            for match in pattern.finditer(source):
+                line = source.count("\n", 0, match.start()) + 1
+                violations.append(
+                    f"{path.relative_to(ROOT)}:{line}: {message}"
+                )
     if violations:
         raise SystemExit("\n".join(violations))
     print(
         "frontend quote-bump boundary: "
-        f"{len(RISK_SURFACES)} risk surfaces clean"
+        f"{len(RISK_SURFACES)} risk and {len(AUTHORING_SURFACES)} authoring surfaces clean"
     )
     return 0
 

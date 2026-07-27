@@ -9,10 +9,11 @@ from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import FastAPI
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 
 from app import __version__
-from app.routers import calibrations, models, portfolios, products, system, trades
+from app.routers import calibrations, curve_lab, models, portfolios, products, system, trades
 from app.services.store import get_store, is_memory_mode
 from app.services.templates import seed_demo_data
 
@@ -94,9 +95,7 @@ def _reconcile_orphaned_calibrations() -> None:
             native_solve_ms=calibration.native_solve_ms,
             serialization_ms=calibration.serialization_ms,
         )
-        logger.info(
-            "Reconciled orphaned calibration %s to failed", calibration.id
-        )
+        logger.info("Reconciled orphaned calibration %s to failed", calibration.id)
 
 
 def create_app() -> FastAPI:
@@ -133,6 +132,11 @@ def create_app() -> FastAPI:
     app.include_router(portfolios.router)
     app.include_router(calibrations.router)
     app.include_router(calibrations.curve_router)
+    app.include_router(curve_lab.router)
+    app.add_exception_handler(
+        RequestValidationError,
+        curve_lab.curve_lab_validation_exception_handler,
+    )
 
     generated_openapi: Callable[[], dict[str, Any]] = app.openapi
 

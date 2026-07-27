@@ -67,6 +67,85 @@ def test_complete_factories_and_dynamic_curve_state_are_read_only():
     assert mapped.base is base  # nosec B101
 
 
+def test_curve_archive_hierarchy_and_bytes_bridge_round_trip_recursive_pwc():
+    today = _today()
+    knots = [today.AddDays(30), today.AddDays(365), today.AddDays(730)]
+    base = dal.DiscountPWC_New("base", "USD", knots, [0.01, 0.02, 0.03])
+    spread = dal.DiscountPWC_New(
+        "spread",
+        "USD",
+        knots,
+        [0.001, 0.002, 0.003],
+        base,
+    )
+
+    assert issubclass(dal.YCComponent_, dal.Storable_)  # nosec B101
+    assert issubclass(dal.DiscountCurve_, dal.YCComponent_)  # nosec B101
+    assert issubclass(dal.YieldCurve_, dal.Storable_)  # nosec B101
+    assert issubclass(dal.CurveBlock_, dal.YieldCurve_)  # nosec B101
+    assert not issubclass(dal.DiscountCurve_, dal.YieldCurve_)  # nosec B101
+    assert spread.type == "DiscountCurve"  # nosec B101
+    assert spread.name == "spread"  # nosec B101
+
+    payload = dal._dal._StorableToJson(spread)
+    restored = dal._dal._StorableFromJson(payload)
+
+    assert isinstance(payload, bytes)  # nosec B101
+    assert isinstance(restored, dal.DiscountPWC_)  # nosec B101
+    assert restored.base.name == "base"  # nosec B101
+    assert dal._dal._StorableToJson(restored) == payload  # nosec B101
+
+
+def test_archive_bridge_requires_exact_bytes_and_rejects_embedded_nul():
+    today = _today()
+    curve = dal.DiscountPWC_New(
+        "curve",
+        "USD",
+        [today.AddDays(30)],
+        [0.01],
+    )
+    payload = dal._dal._StorableToJson(curve)
+
+    with pytest.raises(TypeError):
+        dal._dal._StorableFromJson(payload.decode("utf-8"))
+    with pytest.raises(RuntimeError, match="ARCHIVE_PAYLOAD_NUL"):
+        dal._dal._StorableFromJson(payload + b"\0{}")
+
+
+def test_private_bag_bridge_preserves_storable_roots_and_keys():
+    today = _today()
+    discount = dal.DiscountPWC_New(
+        "discount",
+        "USD",
+        [today.AddDays(30)],
+        [0.01],
+    )
+    projection = dal.DiscountPWC_New(
+        "projection",
+        "USD",
+        [today.AddDays(90)],
+        [0.02],
+    )
+
+    bag = dal._dal._BagNew(
+        "usd-curves",
+        {
+            "clab/v1/local/discount/USD/OIS": discount,
+            "clab/v1/local/projection/USD/3M": projection,
+        },
+    )
+    contents = dal._dal._BagContents(bag)
+    restored = dal._dal._StorableFromJson(dal._dal._StorableToJson(bag))
+
+    assert isinstance(bag, dal.Bag_)  # nosec B101
+    assert set(contents) == {  # nosec B101
+        "clab/v1/local/discount/USD/OIS",
+        "clab/v1/local/projection/USD/3M",
+    }
+    assert all(isinstance(value, dal.DiscountCurve_) for value in contents.values())  # nosec B101
+    assert set(dal._dal._BagContents(restored)) == set(contents)  # nosec B101
+
+
 def test_options_matrix_materialization_and_basis_scheme_are_exposed():
     options = dal.CurveCalibrationOptions_()
     options.jacobian_mode = dal.CurveJacobianMode.BUMPED

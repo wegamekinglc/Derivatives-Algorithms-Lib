@@ -5,6 +5,7 @@ import {
   ApiClientError,
   type CalibrationKind,
 } from "../api/client";
+import CurveLabQuoteAuthoring from "../components/CurveLabQuoteAuthoring";
 import { calibrationExamples } from "../curves/examples";
 import { locateCalibrationField, type LocatedField } from "../curves/visualization";
 import { css } from "../format";
@@ -89,6 +90,8 @@ export default function Curves() {
           <span>request lines</span>
         </div>
       </div>
+
+      <CurveLabQuoteAuthoring />
 
       <div {...css("mode-tabs")} role="tablist" aria-label="Calibration mode">
         {MODES.map((item, index) => (

@@ -2,8 +2,12 @@
 // Created by wegam on 2023/1/21.
 //
 
+#include <algorithm>
 #include <cstdio>
+#include <charconv>
+#include <cmath>
 #include <fstream>
+#include <limits>
 #include <memory>
 #include <sstream>
 #include <regex>
@@ -29,6 +33,117 @@ namespace Dal {
         using element_t = rapidjson::GenericValue<rapidjson::UTF8<>>;
         using allocator_t = rapidjson::GenericDocument<rapidjson::UTF8<>>::AllocatorType ;
         using rapidjson::Value;
+
+        bool IsContinuation(unsigned char value) {
+            return value >= 0x80 && value <= 0xBF;
+        }
+
+        bool ValidUtf8(const char* src, std::size_t length, std::size_t* badOffset) {
+            std::size_t index = 0;
+            while (index < length) {
+                const auto first = static_cast<unsigned char>(src[index]);
+                if (first <= 0x7F) {
+                    ++index;
+                    continue;
+                }
+                if (first >= 0xC2 && first <= 0xDF && index + 1 < length &&
+                    IsContinuation(static_cast<unsigned char>(src[index + 1]))) {
+                    index += 2;
+                    continue;
+                }
+                if (first >= 0xE0 && first <= 0xEF && index + 2 < length) {
+                    const auto second = static_cast<unsigned char>(src[index + 1]);
+                    const auto third = static_cast<unsigned char>(src[index + 2]);
+                    const bool validSecond =
+                        (first == 0xE0 && second >= 0xA0 && second <= 0xBF) ||
+                        (first == 0xED && second >= 0x80 && second <= 0x9F) ||
+                        ((first >= 0xE1 && first <= 0xEC) || (first >= 0xEE && first <= 0xEF)) &&
+                            IsContinuation(second);
+                    if (validSecond && IsContinuation(third)) {
+                        index += 3;
+                        continue;
+                    }
+                }
+                if (first >= 0xF0 && first <= 0xF4 && index + 3 < length) {
+                    const auto second = static_cast<unsigned char>(src[index + 1]);
+                    const auto third = static_cast<unsigned char>(src[index + 2]);
+                    const auto fourth = static_cast<unsigned char>(src[index + 3]);
+                    const bool validSecond =
+                        (first == 0xF0 && second >= 0x90 && second <= 0xBF) ||
+                        (first == 0xF4 && second >= 0x80 && second <= 0x8F) ||
+                        (first >= 0xF1 && first <= 0xF3 && IsContinuation(second));
+                    if (validSecond && IsContinuation(third) && IsContinuation(fourth)) {
+                        index += 4;
+                        continue;
+                    }
+                }
+                *badOffset = index;
+                return false;
+            }
+            return true;
+        }
+
+        void ValidateStringBytes(const String_& value) {
+            const auto nul = std::find(value.begin(), value.end(), '\0');
+            REQUIRE(nul == value.end(), "ARCHIVE_STRING_NUL");
+            std::size_t badOffset = 0;
+            REQUIRE(ValidUtf8(value.data(), value.size(), &badOffset),
+                    "ARCHIVE_STRING_INVALID_UTF8 at byte " + ToString(static_cast<int>(badOffset)));
+        }
+
+        void WriteJsonString(std::ostream& dst, const String_& value) {
+            ValidateStringBytes(value);
+            static constexpr char HEX[] = "0123456789ABCDEF";
+            dst.put('"');
+            for (const auto raw : value) {
+                const auto byte = static_cast<unsigned char>(raw);
+                switch (byte) {
+                case '"':
+                    dst << "\\\"";
+                    break;
+                case '\\':
+                    dst << "\\\\";
+                    break;
+                case '\b':
+                    dst << "\\b";
+                    break;
+                case '\t':
+                    dst << "\\t";
+                    break;
+                case '\n':
+                    dst << "\\n";
+                    break;
+                case '\f':
+                    dst << "\\f";
+                    break;
+                case '\r':
+                    dst << "\\r";
+                    break;
+                default:
+                    if (byte < 0x20)
+                        dst << "\\u00" << HEX[(byte >> 4U) & 0x0FU] << HEX[byte & 0x0FU];
+                    else
+                        dst.put(raw);
+                    break;
+                }
+            }
+            dst.put('"');
+        }
+
+        void WriteJsonDouble(std::ostream& dst, double value) {
+            REQUIRE(std::isfinite(value), "ARCHIVE_NUMBER_NON_FINITE");
+            if (value == 0.0) {
+                dst.put('0');
+                return;
+            }
+            char buffer[64];
+            const auto result =
+                std::to_chars(buffer, buffer + sizeof(buffer), value, std::chars_format::general,
+                              std::numeric_limits<double>::max_digits10);
+            REQUIRE(result.ec == std::errc(), "ARCHIVE_NUMBER_FORMAT_FAILED");
+            dst.write(buffer, result.ptr - buffer);
+        }
+
         rapidjson::GenericStringRef<char> LendToJSON(const String_& s) {
             return {s.c_str(), static_cast<rapidjson::SizeType>(s.size())};
         }
@@ -49,7 +164,10 @@ namespace Dal {
             const char* Prep() const { return empty_ ? "{\n" : ",\n"; }
             void StoreRefTag(const String_& tag) {
                 assert(empty_); // this should always be the first thing written
-                dst_ << Prep() << "\"" << TAG_LABEL << "\": \"" << tag << "\"";
+                dst_ << Prep();
+                WriteJsonString(dst_, String_(TAG_LABEL));
+                dst_ << ": ";
+                WriteJsonString(dst_, tag);
                 empty_ = false;
             }
 
@@ -65,23 +183,27 @@ namespace Dal {
                 return false;
             }
             void SetType(const String_& type) override {
-                dst_ << Prep() << "\"" << TYPE_LABEL << "\": \"" << type << "\"";
+                dst_ << Prep();
+                WriteJsonString(dst_, String_(TYPE_LABEL));
+                dst_ << ": ";
+                WriteJsonString(dst_, type);
                 empty_ = false;
             }
             void Done() override { dst_ << '}'; }
             Store_& Child(const String_& name) override {
                 std::shared_ptr<XDocStore_>& retval = children_[name];
                 if (!retval) {
-                    dst_ << Prep() << "\"" << name << "\": ";
+                    dst_ << Prep();
+                    WriteJsonString(dst_, name);
+                    dst_ << ": ";
                     retval = std::make_shared<XDocStore_>(dst_, sharedTags_, this, name);
+                    empty_ = false;
                 }
                 return *retval;
             }
 
             XDocStore_& operator=(const double val) override {
-                char buf[32];
-                std::snprintf(buf, sizeof(buf), "%.15g", val);
-                dst_ << buf;
+                WriteJsonDouble(dst_, val);
                 return *this;
             }
 
@@ -93,7 +215,10 @@ namespace Dal {
                 dst_ << String::FromBool(val);
                 return *this;
             }
-            XDocStore_& operator=(const String_& val) override { dst_ << "\"" << val << "\""; return *this; }
+            XDocStore_& operator=(const String_& val) override {
+                WriteJsonString(dst_, val);
+                return *this;
+            }
             XDocStore_& operator=(const Date_& val) override { operator=(Date::ToString(val)); return *this; }
             XDocStore_& operator=(const DateTime_& val) override { operator=(DateTime::ToString(val)); return *this; }
             XDocStore_& operator=(const Cell_& c) {
@@ -185,7 +310,7 @@ namespace Dal {
         }
         String_ EString(const element_t& doc) {
             REQUIRE(doc.IsString(), "Can't get a string value");
-            return {doc.GetString()};
+            return String_(doc.GetString(), doc.GetString() + doc.GetStringLength());
         }
         Date_ EDate(const element_t& doc) { // worrying about efficiency, so storing dates as Excel-compatible integers
             if (doc.IsInt())
@@ -232,13 +357,15 @@ namespace Dal {
             explicit XDocView_(element_t& doc) : doc_(doc) {
                 if (doc_.IsObject()) {
                     for (auto it = doc_.MemberBegin(); it != doc_.MemberEnd(); ++it)
-                        children_.emplace(String_(it->name.GetString()), Handle_<XDocView_>(new XDocView_(it->value)));
+                        children_.emplace(
+                            String_(it->name.GetString(), it->name.GetString() + it->name.GetStringLength()),
+                            Handle_<XDocView_>(new XDocView_(it->value)));
                 }
             }
 
             String_ AfterPrefix(char prefix) const {
                 if (doc_.IsString() && doc_.GetStringLength() > 1 && doc_.GetString()[0] == prefix) {
-                    return String_(doc_.GetString()).substr(1);
+                    return String_(doc_.GetString() + 1, doc_.GetString() + doc_.GetStringLength());
                 }
                 return {};
             }
@@ -293,28 +420,34 @@ namespace Dal {
         };
     } // namespace
 
-    Handle_<Storable_> JSON::ReadString(const String_& src, bool quiet) {
+    Handle_<Storable_> JSON::ReadString(const char* src, std::size_t length, const JSONReadOptions_& options) {
         NOTE("Extracting object from JSON string");
+        REQUIRE(src, "ARCHIVE_PAYLOAD_NULL");
+        REQUIRE(length <= options.maxInputBytes_, "ARCHIVE_PAYLOAD_TOO_LARGE");
+        const auto nul = std::find(src, src + length, '\0');
+        REQUIRE(nul == src + length, "ARCHIVE_PAYLOAD_NUL at byte " + ToString(static_cast<int>(nul - src)));
+        std::size_t badOffset = 0;
+        REQUIRE(ValidUtf8(src, length, &badOffset),
+                "ARCHIVE_PAYLOAD_INVALID_UTF8 at byte " + ToString(static_cast<int>(badOffset)));
         rapidjson::Document doc;
-        doc.Parse<rapidjson::kParseDefaultFlags>(src.c_str());
+        doc.Parse<rapidjson::kParseValidateEncodingFlag | rapidjson::kParseFullPrecisionFlag>(src, length);
         REQUIRE(!doc.HasParseError(), "JSON parse error in input string");
         const XDocView_ task(doc);
         Archive::Built_ built;
         return Archive::Extract(task, built);
     }
 
+    Handle_<Storable_> JSON::ReadString(const String_& src, bool quiet) {
+        static_cast<void>(quiet);
+        return ReadString(src.data(), src.size(), JSONReadOptions_());
+    }
+
     Handle_<Storable_> JSON::ReadFile(const String_& filename, bool quiet) {
-        FILE* fp = fopen(filename.c_str(), "rb"); // known limitation: use "r" on non-Windows platforms
-        REQUIRE(fp, "File not found:'" + filename + "'");
-        char buffer[8192];
-        rapidjson::FileReadStream is(fp, buffer, sizeof(buffer));
-        rapidjson::Document doc;
-        doc.ParseStream<rapidjson::kParseDefaultFlags>(is);
-        fclose(fp);
-        REQUIRE(!doc.HasParseError(), "JSON parse error in file: '" + filename + "'");
-        const XDocView_ task(doc);
-        Archive::Built_ built;
-        return Archive::Extract(task, built);
+        static_cast<void>(quiet);
+        std::ifstream source(filename.c_str(), std::ios::binary);
+        REQUIRE(source, "File not found:'" + filename + "'");
+        const std::string payload((std::istreambuf_iterator<char>(source)), std::istreambuf_iterator<char>());
+        return ReadString(payload.data(), payload.size(), JSONReadOptions_());
     }
 
     void JSON::WriteFile(const Storable_& object, const String_& filename) {

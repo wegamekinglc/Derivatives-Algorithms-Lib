@@ -5,6 +5,7 @@
 #include <dal/platform/platform.hpp>
 #include <dal/platform/strict.hpp>
 #include <dal/curve/ycimp.hpp>
+#include <dal/curve/ycconst.hpp>
 #include <dal/curve/ycpwlf.hpp>
 #include <dal/curve/fittable.hpp>
 #include <dal/curve/yccomponent.hpp>
@@ -29,6 +30,19 @@ rightVals is number[]
 base is ?handle DiscountCurve
 -IF-------------------------------------------------------------------------*/
 
+/*IF--------------------------------------------------------------------------
+storable DiscountPWC
+   Discount curve based on piecewise constant forward rates
+version 1
+manual
+&members
+name is ?string
+ccy is ?string
+knotDates is date[]
+rightVals is number[]
+base is ?handle DiscountCurve
+-IF-------------------------------------------------------------------------*/
+
 namespace Dal {
 
     std::unique_ptr<DiscountCurve_> NewDiscountPWLF(const String_ &name,
@@ -41,5 +55,11 @@ namespace Dal {
 
     Storable_ *DiscountPWLF_v1::Reader_::Build() const {
         return new Tape::DiscountPWLF_<double>(name_, ccy_, knotDates_, leftVals_, rightVals_, base_);
+    }
+
+    #include <dal/auto/MG_DiscountPWC_v1_Read.inc>
+
+    Storable_* DiscountPWC_v1::Reader_::Build() const {
+        return new Tape::DiscountPWC_<double>(name_, ccy_, knotDates_, rightVals_, base_);
     }
 } // namespace Dal

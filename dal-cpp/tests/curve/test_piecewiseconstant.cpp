@@ -50,13 +50,23 @@ TEST(PiecewiseConstantTest, TestFlatExtrapolationBeforeFirstKnot) {
     ASSERT_FALSE(isKnot);
 }
 
-TEST(PiecewiseConstantTest, TestDiscountPwcPersistenceIsExplicitlyUnsupported) {
+TEST(PiecewiseConstantTest, TestDiscountPwcPersistenceRoundTrips) {
     const Vector_<Date_> knots = {Date_(2021, 3, 26), Date_(2022, 3, 26)};
     const Vector_<> right = {0.02, 0.03};
     const PiecewiseConstant_ forwards(knots, right);
     const std::unique_ptr<DiscountCurve_> curve(NewDiscountPWC("pwc", "USD", forwards));
 
-    ASSERT_THROW(Splat(*curve), Exception_);
+    const Matrix_<Cell_> splat = Splat(*curve);
+    const auto restored = std::dynamic_pointer_cast<const Tape::DiscountPWC_<double>>(UnSplat(splat, true));
+
+    ASSERT_TRUE(restored);
+    ASSERT_EQ(restored->Name(), "pwc");
+    ASSERT_EQ(restored->ccy_.String(), "USD");
+    ASSERT_EQ(restored->KnotDates(), knots);
+    ASSERT_EQ(restored->FRight(), right);
+    ASSERT_DOUBLE_EQ(
+        (*restored)(Date_(2021, 4, 26), Date_(2023, 3, 26)),
+        (*curve)(Date_(2021, 4, 26), Date_(2023, 3, 26)));
 }
 
 TEST(PiecewiseConstantTest, TestDiscountPwcFactoryMatchesTypedCurve) {

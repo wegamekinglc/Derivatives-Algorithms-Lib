@@ -8,10 +8,14 @@
 
 #include <atomic>
 #include <chrono>
+#include <limits>
 #include <stdexcept>
 #include <thread>
+#include <type_traits>
 
 #include <dal/curve/calibration.hpp>
+#include <dal/curve/yc.hpp>
+#include <dal/curve/yccomponent.hpp>
 #include <dal/curve/xccycalibration.hpp>
 #include <dal/curve/xccynotionalmode.hpp>
 #include <dal/curve/xccypricing.hpp>
@@ -22,6 +26,8 @@
 #include <dal/time/datetime.hpp>
 #include <dal/time/daybasis.hpp>
 #include <dal/time/periodlength.hpp>
+#include <dal/storage/bag.hpp>
+#include <dal/storage/json.hpp>
 
 #include <dal-public/src/curvedata.hpp>
 #include <dal-public/src/curveinstrument.hpp>
@@ -98,6 +104,10 @@ namespace {
     }
 
     std::shared_ptr<DiscountCurve_> MutableCurve(const Handle_<DiscountCurve_>& curve) { return std::const_pointer_cast<DiscountCurve_>(curve); }
+
+    std::string StdString(const String_& value) {
+        return std::string(value.data(), value.size());
+    }
 
     void SetDates(Vector_<Date_>* destination, const py::iterable& dates) {
         destination->clear();
@@ -187,14 +197,23 @@ namespace {
     }
 
     void init_bindings_curve_handles(py::module_& m) {
+        static_assert(std::is_base_of_v<Storable_, YCComponent_>);
+        static_assert(std::is_base_of_v<YCComponent_, DiscountCurve_>);
+        static_assert(std::is_base_of_v<Storable_, YieldCurve_>);
+        static_assert(std::is_base_of_v<YieldCurve_, CurveBlock_>);
+        static_assert(!std::is_base_of_v<YieldCurve_, DiscountCurve_>);
+        static_assert(std::is_base_of_v<Storable_, Bag_>);
+
         py::class_<YCInstrument_, std::shared_ptr<YCInstrument_>>(m, "YCInstrument_");
-        py::class_<DiscountCurve_, std::shared_ptr<DiscountCurve_>>(m, "DiscountCurve_")
+        py::class_<YCComponent_, Storable_, std::shared_ptr<YCComponent_>>(m, "YCComponent_");
+        py::class_<DiscountCurve_, YCComponent_, std::shared_ptr<DiscountCurve_>>(m, "DiscountCurve_")
             .def(
                 "__call__", [](const DiscountCurve_& curve, const Date_& from, const Date_& to) { return curve(from, to); }, py::arg("from_date"),
                 py::arg("to_date"))
             .def_property_readonly("name", [](const DiscountCurve_& curve) { return std::string(curve.name_.c_str()); })
             .def_property_readonly("currency", [](const DiscountCurve_& curve) { return std::string(curve.ccy_.String()); });
-        py::class_<CurveBlock_, std::shared_ptr<CurveBlock_>>(m, "CurveBlock_")
+        py::class_<YieldCurve_, Storable_, std::shared_ptr<YieldCurve_>>(m, "YieldCurve_");
+        py::class_<CurveBlock_, YieldCurve_, std::shared_ptr<CurveBlock_>>(m, "CurveBlock_")
             .def_property_readonly("name", [](const CurveBlock_& block) { return std::string(block.name_.c_str()); })
             .def_property_readonly("currency", [](const CurveBlock_& block) { return std::string(block.ccy_.String()); })
             .def_property_readonly("discount_curves",
@@ -212,8 +231,68 @@ namespace {
                                        return result;
                                    })
             .def_property_readonly("libor_basis", [](const CurveBlock_& block) { return block.LiborBasis(); });
+        py::class_<Bag_, Storable_, std::shared_ptr<Bag_>>(m, "Bag_");
         py::class_<CrossCurrencySwap_, std::shared_ptr<CrossCurrencySwap_>>(m, "CrossCurrencySwap_");
         py::class_<CrossCurrencyMarket_, std::shared_ptr<CrossCurrencyMarket_>>(m, "CrossCurrencyMarket_");
+
+        m.def(
+            "_StorableToJson",
+            [](const std::shared_ptr<Storable_>& value) {
+                if (!value)
+                    throw std::invalid_argument("value must be a Storable_");
+                String_ payload;
+                {
+                    py::gil_scoped_release release;
+                    payload = JSON::WriteString(*value);
+                }
+                return py::bytes(payload.data(), payload.size());
+            },
+            py::arg("value"));
+        m.def(
+            "_StorableFromJson",
+            [](const py::bytes& payload) {
+                char* data = nullptr;
+                Py_ssize_t length = 0;
+                if (PyBytes_AsStringAndSize(payload.ptr(), &data, &length) != 0)
+                    throw py::error_already_set();
+                if (length < 0 || static_cast<unsigned long long>(length) >
+                                      static_cast<unsigned long long>(std::numeric_limits<std::size_t>::max()))
+                    throw std::overflow_error("archive payload length does not fit size_t");
+                Handle_<Storable_> restored;
+                {
+                    py::gil_scoped_release release;
+                    restored = JSON::ReadString(data, static_cast<std::size_t>(length), JSONReadOptions_());
+                }
+                return std::const_pointer_cast<Storable_>(restored);
+            },
+            py::arg("payload"));
+        m.def(
+            "_BagNew",
+            [](const std::string& name, const py::dict& contents) {
+                Bag_::map_t native;
+                for (const auto& item : contents) {
+                    const std::string key = py::cast<std::string>(item.first);
+                    const auto value = py::cast<std::shared_ptr<Storable_>>(item.second);
+                    if (!value)
+                        throw std::invalid_argument("bag values must be Storable_ instances");
+                    native.emplace(
+                        String_(key),
+                        Handle_<Storable_>(std::const_pointer_cast<const Storable_>(value)));
+                }
+                py::gil_scoped_release release;
+                return std::make_shared<Bag_>(String_(name), native);
+            },
+            py::arg("name"), py::arg("contents"));
+        m.def(
+            "_BagContents",
+            [](const Bag_& bag) {
+                py::dict result;
+                for (const auto& [key, value] : bag.contents_)
+                    result[py::str(StdString(key))] =
+                        std::const_pointer_cast<Storable_>(value);
+                return result;
+            },
+            py::arg("value"));
 
         // Value types used as function parameters / return values
         py::class_<CurveCalibrationSpec_>(m, "CurveCalibrationSpec_");

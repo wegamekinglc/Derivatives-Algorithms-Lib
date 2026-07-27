@@ -1,0 +1,42 @@
+flowchart TD
+  PR01["PR-01<br/>Exact immutable curve-set version<br/>version ID · market snapshot · dependency map · content hash"]
+  PR02["PR-02<br/>Approved MVP rate targets<br/>Deposit · FRA · Future · OIS · IRS · Basis · XCCY"]
+  PR03["PR-03<br/>Dependency and fixing validation"]
+  PR04["PR-04<br/>Base pricing"]
+  PR05["PR-05<br/>Trade-to-node sensitivity<br/>G = dPV/dparameter"]
+  PR06["PR-06<br/>Calibration-lineage gate"]
+  PR07["PR-07<br/>Quote risk<br/>Exact parallel DV01 · Key Rate DV01 sum · nonlinear reconciliation"]
+  PR08["PR-08<br/>Result evidence"]
+  PR09["PR-09<br/>Rejected request<br/>NO RESULT PAYLOAD"]
+
+  %% PR-E01
+  PR01 -->|version context| PR03
+  %% PR-E02
+  PR02 -->|typed targets| PR03
+  %% PR-E03
+  PR03 -->|valid| PR04
+  %% PR-E04
+  PR03 -->|invalid dependency or fixing| PR09
+  %% PR-E05
+  PR04 -->|node layer requested| PR05
+  %% PR-E06
+  PR04 -->|quote risk requested| PR06
+  %% PR-E07
+  PR06 -->|lineage verified| PR07
+  %% PR-E08
+  PR06 -->|lineage unavailable| PR09
+  %% PR-E09
+  PR04 -->|PV and trade status| PR08
+  %% PR-E10
+  PR05 -->|node matrix| PR08
+  %% PR-E11
+  PR07 -->|DV01, KRD, and reconciliation| PR08
+
+  classDef input fill:#0f172a,color:#f8fafc,stroke:#38bdf8,stroke-width:2px
+  classDef process fill:#172554,color:#f8fafc,stroke:#60a5fa,stroke-width:2px
+  classDef evidence fill:#052e2b,color:#f8fafc,stroke:#2dd4bf,stroke-width:2px
+  classDef error fill:#450a0a,color:#fef2f2,stroke:#f87171,stroke-width:2px
+  class PR01,PR02 input
+  class PR03,PR04,PR05,PR06,PR07 process
+  class PR08 evidence
+  class PR09 error

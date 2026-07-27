@@ -24,7 +24,17 @@ void init_bindings_global(py::module_& m) {
     py::class_<ScriptProductData_, std::shared_ptr<ScriptProductData_>>(m, "ScriptProductData_");
     py::class_<PseudoRSG_, std::shared_ptr<PseudoRSG_>>(m, "PseudoRSG_");
     py::class_<SobolRSG_, std::shared_ptr<SobolRSG_>>(m, "SobolRSG_");
-    py::class_<Storable_, std::shared_ptr<Storable_>>(m, "Storable_");
+    py::class_<Storable_, std::shared_ptr<Storable_>>(m, "Storable_")
+        .def_property_readonly(
+            "name",
+            [](const Storable_& value) {
+                return std::string(value.Name().data(), value.Name().size());
+            })
+        .def_property_readonly(
+            "type",
+            [](const Storable_& value) {
+                return std::string(value.Type().data(), value.Type().size());
+            });
 
     m.def("EvaluationDate_Get", []() {
         py::gil_scoped_release release;

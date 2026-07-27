@@ -196,6 +196,91 @@ a {
 }
 
 /* Curve calibration risk workbench */
+.curve-lab-authoring {
+  margin-bottom: 18px;
+  border: 1px solid var(--border);
+  background: var(--bg-2);
+}
+
+.curve-lab-authoring-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.curve-lab-authoring-heading h2 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.curve-lab-authoring-grid {
+  display: grid;
+  grid-template-columns: minmax(150px, 0.8fr) minmax(150px, 0.8fr) minmax(180px, 1fr) auto;
+  gap: 12px;
+  align-items: end;
+  padding: 16px;
+}
+
+.curve-lab-authoring-grid label {
+  display: grid;
+  gap: 6px;
+}
+
+.curve-lab-authoring-grid label > span,
+.curve-lab-canonical-output span {
+  color: var(--text-dim);
+  font: 500 10px "JetBrains Mono", monospace;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.curve-lab-authoring-grid input,
+.curve-lab-authoring-grid select {
+  min-width: 0;
+  height: 38px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg);
+  color: var(--text);
+  font: 500 12px "JetBrains Mono", monospace;
+}
+
+.curve-lab-boundary-note {
+  margin: 0;
+  padding: 0 16px 14px;
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.curve-lab-canonical-output {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  border-top: 1px solid var(--border);
+}
+
+.curve-lab-canonical-output > div {
+  display: grid;
+  gap: 5px;
+  padding: 14px 16px;
+  border-right: 1px solid var(--border-subtle);
+}
+
+.curve-lab-canonical-output > div:last-child {
+  border-right: 0;
+}
+
+.curve-lab-canonical-output strong {
+  color: var(--green);
+  font: 600 13px "JetBrains Mono", monospace;
+}
+
+.curve-lab-canonical-output small {
+  color: var(--text-muted);
+  font: 500 10px "JetBrains Mono", monospace;
+}
+
 .eyebrow {
   display: block;
   margin-bottom: 8px;
@@ -209,6 +294,18 @@ a {
   min-width: 120px;
   padding-left: 18px;
   border-left: 1px solid var(--border);
+}
+
+@media (max-width: 900px) {
+  .curve-lab-authoring-grid,
+  .curve-lab-canonical-output {
+    grid-template-columns: 1fr;
+  }
+
+  .curve-lab-canonical-output > div {
+    border-right: 0;
+    border-bottom: 1px solid var(--border-subtle);
+  }
 }
 
 .workbench-stat strong,

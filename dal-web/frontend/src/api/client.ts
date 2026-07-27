@@ -111,6 +111,33 @@ export interface ProductTemplate {
 
 export type CalibrationKind = "single" | "xccy_staged" | "xccy_joint";
 export type CalibrationStatus = "running" | "completed" | "failed";
+export type CurveLabSuccessFamily =
+  | "DEPOSIT"
+  | "FRA"
+  | "FUTURE"
+  | "OIS"
+  | "IRS"
+  | "BASIS_SWAP"
+  | "XCCY";
+export type QuoteCoordinateKind = "RATE" | "PRICE" | "SPREAD";
+export type QuoteInputConvention = "DECIMAL" | "PERCENT" | "PRICE_POINTS";
+
+export interface CurveLabQuoteAuthoringRequest {
+  instrument_type: CurveLabSuccessFamily;
+  input_lexeme: string;
+  input_convention: QuoteInputConvention;
+}
+
+export interface CurveLabCanonicalQuote {
+  instrument_type: CurveLabSuccessFamily;
+  quote_coordinate_kind: QuoteCoordinateKind;
+  canonical_raw_unit: "DECIMAL" | "PRICE_POINTS";
+  raw_quote: string;
+  normalized_quote: string;
+  normalized_unit: "DECIMAL_RATE";
+  exact_risk_raw_bump: string;
+  normalized_risk_bump: string;
+}
 
 export interface InstrumentDiagnostic {
   instrument_id: string;
@@ -319,6 +346,11 @@ export const api = {
 
   listValuations: () => request<ValuationResult[]>("/valuations"),
   getValuation: (id: string) => request<ValuationResult>(`/valuations/${id}`),
+  canonicalizeCurveLabQuote: (body: CurveLabQuoteAuthoringRequest) =>
+    request<CurveLabCanonicalQuote>("/curve-lab/quote-canonicalizations", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
 
   submitCalibration: (kind: CalibrationKind, body: unknown) => {
     return request<CalibrationRun>(calibrationPath(kind), {

@@ -3,11 +3,15 @@
 //
 
 #include <gtest/gtest.h>
+#include <cmath>
 #include <fstream>
 #include <dal/platform/platform.hpp>
 #include <dal/storage/json.hpp>
+#include <dal/curve/piecewiseconstant.hpp>
+#include <dal/curve/ycconst.hpp>
 #include <dal/math/interp/interplinear.hpp>
 #include <dal/math/vectors.hpp>
+#include <dal/time/date.hpp>
 #include <dal/utilities/exceptions.hpp>
 #include <dal/utilities/file.hpp>
 
@@ -59,3 +63,66 @@ TEST(StorageTest, TestJSONReadFileMissingThrows) {
     ASSERT_THROW(JSON::ReadFile("no_such_file_exists.json", true), Dal::Exception_);
 }
 
+TEST(StorageTest, TestJSONReadStringUsesTheExactByteRange) {
+    Vector_<> x = {1.0, 2.0};
+    Vector_<> f = {2.5, 3.5};
+    const Handle_<Interp1_> source(Interp::NewLinear("exact-range", x, f));
+    const String_ valid = JSON::WriteString(*source);
+    std::string withNul(valid.begin(), valid.end());
+    withNul.push_back('\0');
+    withNul.append("{}");
+    JSONReadOptions_ options;
+
+    ASSERT_THROW(JSON::ReadString(withNul.data(), withNul.size(), options), Dal::Exception_);
+    ASSERT_THROW(JSON::ReadString(valid.data(), valid.size() - 1, options), Dal::Exception_);
+    ASSERT_NO_THROW(JSON::ReadString(valid.data(), valid.size(), options));
+}
+
+TEST(StorageTest, TestJSONReadStringRejectsTrailingBytesAndInvalidUtf8) {
+    JSONReadOptions_ options;
+    const std::string trailing = "{\"~type\":\"Bag\",\"$tag\":\"1\"}{}";
+    const std::string invalidUtf8 = "{\"~type\":\"Bag\",\"name\":\"\xC3\"}";
+
+    ASSERT_THROW(JSON::ReadString(trailing.data(), trailing.size(), options), Dal::Exception_);
+    ASSERT_THROW(JSON::ReadString(invalidUtf8.data(), invalidUtf8.size(), options), Dal::Exception_);
+}
+
+TEST(StorageTest, TestJSONWriterEscapesStringsAndUsesRoundTripDoubles) {
+    Vector_<> x = {1.0, 2.0};
+    Vector_<> f = {std::nextafter(1.0, 2.0), -0.0};
+    const String_ name(std::string("quoted\" slash\\ tab\t newline\n utf8-\xE4\xB8\xAD"));
+    const Handle_<Interp1_> source(Interp::NewLinear(name, x, f));
+
+    const String_ first = JSON::WriteString(*source);
+    const Handle_<Storable_> restored = JSON::ReadString(first, true);
+    const String_ second = JSON::WriteString(*restored);
+
+    ASSERT_EQ(first, second);
+    ASSERT_NE(first.find("\\\""), String_::npos);
+    ASSERT_NE(first.find("\\\\"), String_::npos);
+    ASSERT_NE(first.find("\\t"), String_::npos);
+    ASSERT_NE(first.find("\\n"), String_::npos);
+    ASSERT_NE(first.find("1.0000000000000002"), String_::npos);
+    ASSERT_EQ(first.find("-0"), String_::npos);
+    ASSERT_EQ(restored->Name(), name);
+}
+
+TEST(StorageTest, TestDiscountPWCRoundTripsWithRecursiveBase) {
+    const Vector_<Date_> knots{Date_(2026, 2, 15), Date_(2026, 7, 15), Date_(2027, 1, 15)};
+    const Handle_<DiscountCurve_> base(NewDiscountPWC(
+        "base", "USD", PiecewiseConstant_(knots, Vector_<>{0.01, 0.012, 0.014})));
+    const Handle_<DiscountCurve_> spread(NewDiscountPWC(
+        "spread", "USD", PiecewiseConstant_(knots, Vector_<>{0.001, 0.002, 0.003}), base));
+
+    const String_ first = JSON::WriteString(*spread);
+    const Handle_<Storable_> restored = JSON::ReadString(first, true);
+    const auto curve = std::dynamic_pointer_cast<const Tape::DiscountPWC_<double>>(restored);
+
+    ASSERT_TRUE(curve);
+    ASSERT_TRUE(curve->Base());
+    ASSERT_EQ(curve->KnotDates(), knots);
+    ASSERT_EQ(curve->FRight(), (Vector_<>{0.001, 0.002, 0.003}));
+    ASSERT_DOUBLE_EQ((*curve)(Date_(2026, 1, 15), Date_(2026, 10, 15)),
+                     (*spread)(Date_(2026, 1, 15), Date_(2026, 10, 15)));
+    ASSERT_EQ(JSON::WriteString(*curve), first);
+}
